@@ -1,4 +1,4 @@
-// LayerControl UI — Overflow (⋮ menu.
+// LayerControl UI — Overflow (⋮) menu.
 import { CAP_TIER } from "#core/layer/index.js";
 import { dom } from "#common/dom.js";
 import * as Icons from "#common/icon.js";
@@ -37,7 +37,7 @@ import { closeOverlays } from "./teardown.js";
  *
  * Known cost: the menu lives inside the panel's scrolling content, so it
  * overflows that box by a few px on a low row. The trailing entry is the first
- * to need a scroll — measured, not assumed; see the ⋮ menu clip probe.
+ * to need a scroll — measured, not assumed; see the ⋮-menu clip probe.
  *
  * A new dimensions entry belongs with Style, not at the tail.
  */
@@ -72,7 +72,7 @@ const openMoreMenu = (op: OverlayPanel, ui: LayerUI, item: HTMLElement) => {
 
   // The Style menu entry is the surface for the per-layer style panel — the
   // current implementation only ships the "labels" dimension, but the same
-  // entry will host future style dimensions (color, opacity, …. Disable it
+  // entry will host future style dimensions (color, opacity, …). Disable it
   // exactly like focus-layer when there is nothing to configure.
   //
   // R5: capability-driven gate. A layer whose surface reports opacity and
@@ -154,7 +154,7 @@ const openMoreMenu = (op: OverlayPanel, ui: LayerUI, item: HTMLElement) => {
   // state), component-owned layers (Measure, Heatmap: clear their data through
   // LAYER_DELETED, id stays registerable), and the solid colour basemap (clear
   // the fill and return to the grid empty state). The label and tooltip vary
-  // by mode —"Delete Layer" for real deletion, "Clear Data" for component
+  // by mode — "Delete Layer" for real deletion, "Clear Data" for component
   // clear — so the action name matches the effect.
   const deleteMode = deleteModeFor(ui, layerId);
   if (deleteMode !== "absent") {

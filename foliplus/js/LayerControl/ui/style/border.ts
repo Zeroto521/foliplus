@@ -38,7 +38,6 @@ import * as CONST from "../../const.js";
 import type { BorderRowBindTarget, BorderRowBuildTarget } from "../../type.js";
 import type { LayerUI } from "../index.js";
 import { INTENT, type IntentKey, getIntent } from "../intent.js";
-import type { OverlayPanel } from "../overlayPanel.js";
 import { pinStyleOnHighlight } from "./pin.js";
 import {
   getDimension,
@@ -96,7 +95,7 @@ const firstCarrier = (node: StyleCarrier): StyleSetter | null =>
   findLeaf<StyleSetter>(node, leaf => (isStyleSetter(leaf) ? leaf : undefined)) ?? null;
 
 /** The authored border of one layer, or the Leaflet defaults for a layer
- *  that has no declared style. Reads the captured base first —`setStyle`
+ *  that has no declared style. Reads the captured base first — `setStyle`
  *  mutates `options` in place, so after a write the layer's own options no
  *  longer hold the author's stroke and the base is the only copy. Never
  *  reads the user's stored value, so a stored value cannot feed back into
@@ -194,7 +193,7 @@ const commitBorderWeight = (ui: LayerUI, layerId: string, weight: number): void 
 };
 
 /** Reset one layer's border to its authored value and drop its persisted
- *  entry. "Authored" means the base captured on first write —`setStyle`
+ *  entry. "Authored" means the base captured on first write — `setStyle`
  *  mutates `options` in place, so the captured value is the only source of
  *  truth for the author's stroke by reset time.
  *

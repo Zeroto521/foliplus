@@ -149,7 +149,7 @@ const renderDelegatedStylePanel = (
   // Label below. The Layer rows run opacity, zoom range (border comes from
   // the dedicated styleSetters path when the component publishes it, and
   // fill is never delegated). This is the annotation panel's
-  // fill →border →opacity →zoom range with the fill and vector-border
+  // fill → border → opacity → zoom range with the fill and vector-border
   // slots absent.
   // Row-level capability gate (5.4): the opacity row only renders when the
   // surface can honestly carry the write. A layer with `opacity: "none"`

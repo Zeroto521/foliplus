@@ -1,6 +1,6 @@
 // Per-layer dimension registry — the discovery surface for the style panel.
-// opacity / zoomRange / border / fill / annotation …are all per-layer dimensions
-// with the same shape (gate →row →state write), just different carriers.
+// opacity / zoomRange / border / fill / annotation … are all per-layer dimensions
+// with the same shape (gate → row → state write), just different carriers.
 // Today each dimension has its own set of helpers; the registry is the
 // minimal slice — a descriptor shape + register + lookup — that lets the
 // panel discover which dimensions apply to a layer without a switch table.
@@ -12,7 +12,7 @@
 //      don't own), so return `false` immediately rather than probing a
 //      surface we cannot resolve. This is a precondition guard, not a
 //      capability check.
-//   2. Capability —`capabilities.{dim} !== "none"`. The surface's
+//   2. Capability — `capabilities.{dim} !== "none"`. The surface's
 //      capability slot is the single source of truth for whether the
 //      row is honest.
 // Nothing else belongs in `gate`. Three classes of check explicitly
@@ -34,7 +34,7 @@
 //
 // Dimension write/reset migration: `fill` / `border` own the intent+persist
 // slots (`write` / `reset` / `valueSource` on the descriptor). The named
-// helpers (`commitFillColor` / `resetLayerBorder` / … stay as thin delegates.
+// helpers (`commitFillColor` / `resetLayerBorder` / …) stay as thin delegates.
 // `opacity` / `zoomRange` / `annotation` still keep their helpers as the
 // authoritative implementation until a later PR. styleBag remains the
 // setStyle landing (commitStyleDim / restoreStyleDim / scheduleStyleDimApply);
@@ -57,7 +57,6 @@ import * as CONST from "../../const.js";
 import type { LayerDimension } from "../../type.js";
 import type { LayerUI } from "../index.js";
 import type { IntentKey } from "../intent.js";
-import type { OverlayPanel } from "../overlayPanel.js";
 import { saveState } from "../state.js";
 
 const registry: Map<string, LayerDimension<any>> = new Map();
@@ -121,7 +120,7 @@ const LABEL_DIM_ORDER = [DIM.ANNOTATION] as const;
  *  its own slice (`DELEGATED_DIM_ORDER` in `./delegated.js`). Same single
  *  implementation behind both consumers.
  *
- *  Every key listed in a section order is registered —`registry.test` locks
+ *  Every key listed in a section order is registered — `registry.test` locks
  *  the union of both orders against the built-ins — so the lookup cannot
  *  miss; the cast states that contract instead of branching on a null arm no
  *  test can reach. */

@@ -20,7 +20,6 @@ import type {
 } from "#core/layer/index.js";
 import type { LayerDimKey } from "#core/layer/type.js";
 import type { LayerUI } from "./ui/index.js";
-import type { OverlayPanel } from "./ui/overlayPanel.js";
 
 export type {
   AnnotationConfig,

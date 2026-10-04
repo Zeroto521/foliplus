@@ -32,7 +32,6 @@ import { NUMBER_FORMAT } from "#common/format.js";
 import * as CONST from "../../const.js";
 import type { AnnotationConfig } from "../../type.js";
 import type { LayerUI } from "../index.js";
-import type { OverlayPanel } from "../overlayPanel.js";
 import { layerFields, syncFormatRow } from "./label.js";
 import { registerDimension } from "./registry.js";
 
@@ -49,14 +48,14 @@ const layerCanLabel = (ui: LayerUI, layerId: string): boolean => {
 };
 
 /** Build the Label section's rows: the label toggle, then the body (field
- *  picker →appearance →number format →avoid-overlap). Returned as the
+ *  picker → appearance → number format → avoid-overlap). Returned as the
  *  descriptor's `row`, so the panel assembly appends it under the section
  *  heading exactly like any other dimension's row — the wrapper div is the
  *  section's own; every control is found later by its class, never by
  *  structural position.
  *
- *  Body order is shared with the delegated drawer: data →appearance →
- *  format →behavior. Field first (label-only), then color/size, then
+ *  Body order is shared with the delegated drawer: data → appearance →
+ *  format → behavior. Field first (label-only), then color/size, then
  *  number format, then avoid-overlap. */
 const buildLabelSection = (ui: LayerUI, layerId: string): HTMLElement => {
   const fields = layerFields(ui, layerId);
@@ -67,7 +66,7 @@ const buildLabelSection = (ui: LayerUI, layerId: string): HTMLElement => {
   // follows the persisted state when this is a reopen, but the *first* open
   // never reads from storage (DEFAULT_ANNOTATION.show = false). The body
   // collapses under the toggle on first paint and on every reopen where
-  // show === false, mirroring the heatmap's "switch off →hide body" rule.
+  // show === false, mirroring the heatmap's "switch off → hide body" rule.
   const showChecked = !!cfg.show;
   // The picker's "Auto" entry means "let foliplus choose", and the config
   // records it as the shared sentinel rather than a resolved name — so the layer

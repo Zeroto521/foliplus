@@ -4,7 +4,6 @@
 // positioning math the opacity / zoom-range rows share.
 import { dom } from "#common/dom.js";
 import type { LayerUI } from "../index.js";
-import type { OverlayPanel } from "../overlayPanel.js";
 
 /** Reset footer — divider + button, same vocabulary for the annotation
  *  and the delegated panel. */

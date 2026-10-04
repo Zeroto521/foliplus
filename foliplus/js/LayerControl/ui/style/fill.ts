@@ -8,7 +8,7 @@
 // straight to the layer because `setStyle` is a direct Leaflet API call,
 // not a projection of a stored intent.
 //
-// Gate (honest degradation): pure capability check —`capabilities.fill
+// Gate (honest degradation): pure capability check — `capabilities.fill
 // === "native"`. The fill capability is probe-derived at the surface (a
 // tree walk for areal `setStyle` leaves), so a line-only layer, a marker,
 // a canvas layer, MarkerCluster, GridLayer / ImageOverlay all declare
@@ -34,7 +34,6 @@ import * as CONST from "../../const.js";
 import { showSolidBasemap } from "../color.js";
 import type { LayerUI } from "../index.js";
 import { INTENT, type IntentKey, getIntent } from "../intent.js";
-import type { OverlayPanel } from "../overlayPanel.js";
 import { pinStyleOnHighlight } from "./pin.js";
 import {
   getDimension,

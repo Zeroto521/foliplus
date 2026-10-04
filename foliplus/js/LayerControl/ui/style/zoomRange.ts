@@ -8,7 +8,6 @@ import * as CONST from "../../const.js";
 import { applyProjection, authorZoomBoundsForLayer } from "../apply.js";
 import type { LayerUI } from "../index.js";
 import { INTENT, getIntent } from "../intent.js";
-import type { OverlayPanel } from "../overlayPanel.js";
 import { railPos, round5 } from "./frame.js";
 import {
   getDimension,

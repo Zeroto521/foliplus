@@ -20,7 +20,6 @@ import * as CONST from "../../const.js";
 import type { AnnotationConfig } from "../../type.js";
 import type { LayerUI } from "../index.js";
 import { INTENT, getIntent } from "../intent.js";
-import type { OverlayPanel } from "../overlayPanel.js";
 import { saveState } from "../state.js";
 
 /** Field list for a layer (cached on the runtime store). collectFields walks
@@ -66,7 +65,7 @@ const persistStyleLabel = (ui: LayerUI): void => {
 
 /** Apply one control change to the layer's config, re-render its labels and
  *  persist. Shared by the toggle and both selects so the update order
- *  (config →labels →storage) lives in exactly one place. */
+ *  (config → labels → storage) lives in exactly one place. */
 const applyPatch = (
   ui: LayerUI,
   layerId: string,
