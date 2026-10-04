@@ -167,6 +167,9 @@ describe("ensureLayerAPI", () => {
     // Same contract: forgetSavedOrder filters savedOrder, so the stub — which
     // has no savedOrder — returns false to signal "nothing was forgotten".
     expect(api.forgetSavedOrder("x")).toBe(false);
+    // And dropPersistedLayerState, which erases stored state, cannot claim to
+    // have erased anything on a stub that has no store.
+    expect(api.dropPersistedLayerState("x")).toBe(false);
     expect(api.bringLayerToFront("x")).toBeUndefined();
     // false, not undefined: the stub is a real method, so callers can tell a
     // no-LayerControl call apart from an unknown id on a live one.

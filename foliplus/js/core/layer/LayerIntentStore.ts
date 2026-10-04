@@ -174,15 +174,17 @@ class LayerIntentStore {
   }
 
   /** Drop style dimensions + provenance for one layer (user deleted it).
-   *  `name` / `annotation` riders stay for their own callers. */
-  dropRow(id: string): void {
+   *  `name` / `annotation` riders stay for their own callers.
+   *  @returns true if a row was dropped, false when nothing was stored. */
+  dropRow(id: string): boolean {
     const row = this.rows.get(id);
-    if (!row) return;
+    if (!row) return false;
     for (const key of overrideKeys) {
       delete row.intent[key];
     }
     row.provenance.clear();
     this.prune(id);
+    return true;
   }
 
   /**

@@ -713,6 +713,22 @@ interface LayerAPI {
    *  component clear paths (Heatmap, Measure) after they unregister, so a
    *  clear-and-redraw cycle resets the position rather than preserving it. */
   forgetSavedOrder?: (id: string) => boolean;
+  /** Drop every persisted user value for one id — visibility, opacity, zoom
+   *  range with their provenance markers, plus the stored order slot — so the
+   *  next registration of that id starts from the author's defaults instead of
+   *  inheriting the tuning the user arranged for the previous draw.
+   *
+   *  Unlike deleteLayer this does not unregister the layer, record it in
+   *  `removedIds`, or destroy its annotation config: the id stays
+   *  registerable, so a component that cleared its own data can draw again.
+   *  Reachable from an explicit user action alone — the component clear paths
+   *  (Heatmap's panel Clear button and LayerControl's overflow Clear Data) —
+   *  which is what keeps the two entries erasing the same thing.
+   *
+   *  @returns true if persisted state was dropped, false when nothing was
+   *   stored for this id.
+   */
+  dropPersistedLayerState?: (id: string) => boolean;
   /** Bring a registered overlay layer to the front. */
   bringLayerToFront: (id: string) => void;
   /**
