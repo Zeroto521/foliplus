@@ -881,13 +881,16 @@ describe("ui/state saveFoldState", () => {
     const schedule = vi.fn();
     const ui = {
       foldedGroups: new Set(["overlay"]),
-      listPanel: { foldedGroups: new Set(["overlay"]), checkedCount: {} },
-      m: {
-        persistence: { schedule },
-        annotation: { configEntries: () => [] },
+      listPanel: {
+        foldedGroups: new Set(["overlay"]),
+        checkedCount: {},
+        m: {
+          persistence: { schedule },
+          annotation: { configEntries: () => [] },
+        },
       },
     } as unknown as LayerUI;
-    saveFoldState(ui.listPanel, ui);
+    saveFoldState(ui.listPanel);
     // schedule takes a getter map so a later write can read the live state
     // instead of a snapshot at schedule time.
     expect(schedule).toHaveBeenCalledTimes(1);

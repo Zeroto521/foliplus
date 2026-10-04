@@ -1829,7 +1829,7 @@ describe("LayerUI focus", () => {
   describe("computeLayerBounds()", () => {
     it("returns the layer's own bounds when they are valid", () => {
       const b = layerBounds();
-      expect(computeLayerBounds(ui, { getBounds: () => b } as any)).toBe(b);
+      expect(computeLayerBounds({ getBounds: () => b } as any)).toBe(b);
     });
 
     it("sums the leaf bounds when the layer has no getBounds(), skipping invalid leaves", () => {
@@ -1841,31 +1841,31 @@ describe("LayerUI focus", () => {
         }),
       };
 
-      const out = computeLayerBounds(ui, layer as any);
+      const out = computeLayerBounds(layer as any);
       expect(out).not.toBeNull();
       expect(out!.isValid()).toBe(true);
       expect(out!.getSouthWest()).toEqual({ lat: 30, lng: 100 });
     });
 
     it("returns null when no leaf yields valid bounds", () => {
-      expect(computeLayerBounds(ui, { eachLayer: vi.fn() } as any)).toBeNull();
+      expect(computeLayerBounds({ eachLayer: vi.fn() } as any)).toBeNull();
     });
   });
 
   describe("focus overlay drawing", () => {
     it("creates the SVG renderer once and reuses it for the next mask", () => {
-      drawFocusMask(ui.focusController, ui, layerBounds());
+      drawFocusMask(ui.focusController, layerBounds());
       const renderer = ui.focusController.focusRenderer!;
       expect(renderer).not.toBeNull();
 
-      drawFocusMask(ui.focusController, ui, layerBounds());
+      drawFocusMask(ui.focusController, layerBounds());
       expect(ui.focusController.focusRenderer).toBe(renderer);
     });
 
     it("omits the renderer from the rect options when none is active", () => {
       expect(ui.focusController.focusRenderer).toBeNull();
 
-      drawFocusRect(ui.focusController, ui, layerBounds());
+      drawFocusRect(ui.focusController, layerBounds());
 
       // The rounded marquee is the polygon call with the focus-rect class.
       const rectCall = (window.L.polygon as ReturnType<typeof vi.fn>).mock.calls.find(
@@ -1940,7 +1940,7 @@ describe("LayerUI focus", () => {
 
     it("lifts the canvas directly when the layer has no pane of its own", () => {
       const { info, canvas } = heatInfo();
-      bringFocusedLayerToFront(ui.focusController, ui, info);
+      bringFocusedLayerToFront(ui.focusController, info);
 
       expect(canvas.style.zIndex).toBe(String(focusLayerZ()));
       expect(canvas.classList.contains(CONST.CLASSES.FOCUS_PANE)).toBe(true);
@@ -1954,7 +1954,7 @@ describe("LayerUI focus", () => {
         name === "missing-pane" ? undefined : realGetPane(name),
       );
 
-      bringFocusedLayerToFront(ui.focusController, ui, info);
+      bringFocusedLayerToFront(ui.focusController, info);
 
       expect(canvas.classList.contains(CONST.CLASSES.FOCUS_PANE)).toBe(true);
       expect(canvas.style.zIndex).toBe(String(focusLayerZ()));
@@ -1972,7 +1972,7 @@ describe("LayerUI focus", () => {
       map.getPane = vi.fn((name: string) =>
         name === "missing-pane" ? undefined : realGetPane(name),
       );
-      bringFocusedLayerToFront(ui.focusController, ui, {
+      bringFocusedLayerToFront(ui.focusController, {
         id: "none",
         name: "N",
         group: "overlay",
@@ -1982,7 +1982,7 @@ describe("LayerUI focus", () => {
     });
 
     it("lifts nothing of the layer when it has neither pane nor canvas", () => {
-      bringFocusedLayerToFront(ui.focusController, ui, {
+      bringFocusedLayerToFront(ui.focusController, {
         id: "none",
         name: "N",
         group: "overlay",

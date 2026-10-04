@@ -231,7 +231,7 @@ class LayerUI {
     return loadPersistedState(this.listPanel, this);
   }
   saveFoldState() {
-    return saveFoldState(this.listPanel, this);
+    return saveFoldState(this.listPanel);
   }
   setVisible(id: string, visible: boolean, persist: boolean = true) {
     return setVisible(this, id, visible, persist);
@@ -331,7 +331,7 @@ class LayerUI {
     return handleChange(this.listPanel, this, event);
   }
   handleInput(event: Event) {
-    return handleInput(this, event);
+    return handleInput(event);
   }
 
   // ── delegates: keyboard ──
@@ -371,7 +371,7 @@ class LayerUI {
     return openMoreMenu(this.overlayPanel, this, item);
   }
   closeMoreMenu(setFocus: boolean) {
-    return closeMoreMenu(this.overlayPanel, this, setFocus);
+    return closeMoreMenu(this.overlayPanel, setFocus);
   }
   openAttrsPanel(item: HTMLElement) {
     return openAttrsPanel(this.overlayPanel, this, item);
@@ -415,7 +415,7 @@ class LayerUI {
     return focusLayer(this.focusController, this, layerId);
   }
   isFocusing() {
-    return isFocusing(this.focusController, this);
+    return isFocusing(this.focusController);
   }
   cancelFocus() {
     return cancelFocus(this.focusController, this);

@@ -156,7 +156,7 @@ const bindEvents = (ui: LayerUI): void => {
     }
     handleChange(ui.listPanel, ui, event);
   };
-  ui.onInput = event => handleInput(ui, event);
+  ui.onInput = event => handleInput(event);
   ui.onClick = event => {
     const el = event.target as HTMLElement;
     // A press inside a row's floating panel (attributes / style) is the
@@ -194,7 +194,7 @@ const bindEvents = (ui: LayerUI): void => {
 
   ui.onDragStart = event => handleDragStart(ui.listPanel, ui, event);
   ui.onDragOver = event => handleDragOver(ui.listPanel, ui, event);
-  ui.onDragLeave = event => handleDragLeave(ui, event);
+  ui.onDragLeave = event => handleDragLeave(event);
   ui.onDrop = event => handleDrop(ui.listPanel, ui, event);
   ui.onDragEnd = () => handleDragEnd(ui.listPanel, ui);
   // A real focus move is the cursor: once focus lands on a row (or a child
@@ -255,7 +255,7 @@ const bindEvents = (ui: LayerUI): void => {
   // works for rows created after bindEvents (registerLayer at runtime).
   ui.onMoreClick = event => handleMoreClick(ui, event);
   ui.onMoreMenuClick = event => handleMoreMenuClick(ui, event);
-  ui.onMoreMapClick = () => closeMoreMenu(ui.overlayPanel, ui, false);
+  ui.onMoreMapClick = () => closeMoreMenu(ui.overlayPanel, false);
   container.addEventListener("click", ui.onMoreClick);
   // Menu click must be on document because the menu is positioned absolute
   // and may visually overflow the panel bounds.
@@ -324,7 +324,7 @@ const bindEvents = (ui: LayerUI): void => {
     // is about to open sees "I'm not open" and no-ops. Focus is guarded by
     // isFocusing so the O(layers) applyProjectionAll sweep only runs when
     // there is actually a focus to tear down.
-    bus.on(EVENTS.OVERLAY_CLEAR, () => closeMoreMenu(ui.overlayPanel, ui, true)),
+    bus.on(EVENTS.OVERLAY_CLEAR, () => closeMoreMenu(ui.overlayPanel, true)),
     bus.on(EVENTS.OVERLAY_CLEAR, () => closeAttrsPanel(ui.overlayPanel, ui, false)),
     bus.on(EVENTS.OVERLAY_CLEAR, () => closeStylePanel(ui.overlayPanel, ui, false)),
     bus.on(EVENTS.OVERLAY_CLEAR, () => finishRename(ui.overlayPanel, ui)),
@@ -388,7 +388,7 @@ const unbindEvents = (ui: LayerUI): void => {
   // here would only reach whatever subscribers are still listening, so call
   // the close functions directly. OVERLAY_CLEAR is reserved for the
   // "open A, close B" user-driven mutual exclusion.
-  closeMoreMenu(ui.overlayPanel, ui, false);
+  closeMoreMenu(ui.overlayPanel, false);
   closeStylePanel(ui.overlayPanel, ui, false);
   finishRename(ui.overlayPanel, ui, true);
   // Remove any focus animation still in flight (rect + row highlight).

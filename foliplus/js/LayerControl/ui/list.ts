@@ -83,11 +83,11 @@ const renderInitialList = (lp: ListPanel, ui: LayerUI) => {
   for (const layerInfo of ui.m.layers) {
     if (layerInfo.group !== GROUP.BASE && !hasOverlays) {
       hasOverlays = true;
-      frag.appendChild(renderToggleAllRow(lp, ui, GROUP.OVERLAY, "data_layer_label"));
+      frag.appendChild(renderToggleAllRow(lp, GROUP.OVERLAY, "data_layer_label"));
     }
     if (layerInfo.group === GROUP.BASE && !hasBaseMaps) {
       hasBaseMaps = true;
-      frag.appendChild(renderToggleAllRow(lp, ui, GROUP.BASE, "base_map_label"));
+      frag.appendChild(renderToggleAllRow(lp, GROUP.BASE, "base_map_label"));
     }
     const group = layerInfo.group;
     const item = renderLayerItem(ui, layerInfo);
@@ -131,7 +131,6 @@ const insertLayerItem = (lp: ListPanel, ui: LayerUI, layerInfo: LayerInfo) => {
     frag.appendChild(
       renderToggleAllRow(
         lp,
-        ui,
         group,
         group === GROUP.BASE ? "base_map_label" : "data_layer_label",
       ),
@@ -188,12 +187,7 @@ const updateLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
   updateItemLabel(item, displayName(ui, layerInfo.id));
 };
 
-const renderToggleAllRow = (
-  lp: ListPanel,
-  ui: LayerUI,
-  group: string,
-  labelKey: string,
-) => {
+const renderToggleAllRow = (lp: ListPanel, group: string, labelKey: string) => {
   const isFolded = lp.foldedGroups.has(group);
   return dom.el(
     "div",
@@ -203,7 +197,7 @@ const renderToggleAllRow = (
         (isFolded ? ` ${CONST.CLASSES.FOLDED}` : ""),
       tabindex: "0",
       "data-group": group,
-      title: ui.T(isFolded ? "unfold_tooltip" : "fold_tooltip"),
+      title: lp.T(isFolded ? "unfold_tooltip" : "fold_tooltip"),
     },
     dom.el(
       "button",
@@ -219,10 +213,10 @@ const renderToggleAllRow = (
         type: "checkbox",
         "data-role": "toggle-all",
         checked: "",
-        title: ui.T("toggle_all_deselect_tooltip"),
+        title: lp.T("toggle_all_deselect_tooltip"),
       }),
     ),
-    dom.el("span", { class: CONST.CLASSES.SEPARATOR_LABEL }, ui.T(labelKey)),
+    dom.el("span", { class: CONST.CLASSES.SEPARATOR_LABEL }, lp.T(labelKey)),
     dom.el("div", { class: "foliplus-section-divider" }),
   );
 };

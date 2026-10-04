@@ -108,7 +108,7 @@ const syncToggleAll = (lp: ListPanel, ui: LayerUI, group: string) => {
   // initializing the counter map (tests, late-attached panels).
   lp.checkedCount ??= {};
   lp.checkedCount[group] = { total, on };
-  writeToggleAllCheckbox(lp, ui, allCb, group);
+  writeToggleAllCheckbox(lp, allCb, group);
 };
 
 /** Write the toggle-all checkbox straight from the cached `checkedCount`.
@@ -123,12 +123,11 @@ const syncToggleAllFromCount = (lp: ListPanel, ui: LayerUI, group: string): void
     '[data-role="toggle-all"]',
   ) as HTMLInputElement | null;
   if (!allCb) return;
-  writeToggleAllCheckbox(lp, ui, allCb, group);
+  writeToggleAllCheckbox(lp, allCb, group);
 };
 
 const writeToggleAllCheckbox = (
   lp: ListPanel,
-  ui: LayerUI,
   allCb: HTMLInputElement,
   group: string,
 ): void => {
@@ -137,7 +136,7 @@ const writeToggleAllCheckbox = (
   const noneChecked = c.on === 0;
   allCb.checked = allChecked;
   allCb.indeterminate = !allChecked && !noneChecked;
-  allCb.title = ui.T(
+  allCb.title = lp.T(
     allChecked || allCb.indeterminate
       ? "toggle_all_deselect_tooltip"
       : "toggle_all_select_tooltip",
@@ -254,7 +253,7 @@ const handleChange = (lp: ListPanel, ui: LayerUI, event: Event) => {
   applyVisibility(lp, ui, id, target.checked);
 };
 
-const handleInput = (ui: LayerUI, event: Event) => {};
+const handleInput = (_event: Event) => {};
 
 export {
   getLayerItems,

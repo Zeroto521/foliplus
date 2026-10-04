@@ -19,7 +19,7 @@ afterEach(() => {
   }
 });
 
-function mkDir(name: string, files: Record<string, string>): string {
+function mkDir(_name: string, files: Record<string, string>): string {
   tmpDir = PATH.join(OS.tmpdir(), "scan-registry-test-" + Date.now());
   mkdirSync(tmpDir, { recursive: true });
   for (const [relative, content] of Object.entries(files)) {

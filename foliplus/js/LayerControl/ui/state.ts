@@ -39,8 +39,8 @@ const loadPersistedState = (lp: ListPanel, ui: LayerUI) => {
 
 /** Save fold state to localStorage. */
 
-const saveFoldState = (lp: ListPanel, ui: LayerUI) => {
-  ui.m.persistence.schedule({ foldedGroups: () => [...lp.foldedGroups] });
+const saveFoldState = (lp: ListPanel) => {
+  lp.m.persistence.schedule({ foldedGroups: () => [...lp.foldedGroups] });
 };
 
 /** Whether one dimension still holds a live value. An override with none means

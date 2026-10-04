@@ -14,7 +14,7 @@ const toggleFold = (lp: ListPanel, ui: LayerUI, group: string): void => {
   renderInitialList(ui.listPanel, ui);
   initTypesAndVisibility(ui.listPanel, ui);
   ui.refreshAllCounts();
-  saveFoldState(ui.listPanel, ui);
+  saveFoldState(ui.listPanel);
 };
 
 /** Translate a row's data-layer-id into its registry index. The row carries
@@ -47,13 +47,13 @@ const handleDragStart = (lp: ListPanel, ui: LayerUI, event: DragEvent) => {
   if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
 };
 
-const showReorderBlockedHint = (lp: ListPanel, ui: LayerUI) => {
+const showReorderBlockedHint = (lp: ListPanel) => {
   const now = Date.now();
   if (now - lp.lastDragHintAt < CONST.DRAG.HINT_COOLDOWN_MS) return;
   lp.lastDragHintAt = now;
-  ui.m.map.foliplus!.showHint(
-    ui.config.name,
-    ui.T("reorder_group_only"),
+  lp.m.map.foliplus!.showHint(
+    lp.config.name,
+    lp.T("reorder_group_only"),
     HINT_DURATION.SHORT,
   );
 };
@@ -77,7 +77,7 @@ const handleDragOver = (lp: ListPanel, ui: LayerUI, event: DragEvent) => {
 
   if (!ui.m.canReorderBetween(lp.dragIdx, targetIdx)) {
     if (event.dataTransfer) event.dataTransfer.dropEffect = "none";
-    showReorderBlockedHint(lp, ui);
+    showReorderBlockedHint(lp);
     return;
   }
   if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
@@ -88,7 +88,7 @@ const handleDragOver = (lp: ListPanel, ui: LayerUI, event: DragEvent) => {
   }
 };
 
-const handleDragLeave = (ui: LayerUI, event: DragEvent) => {
+const handleDragLeave = (event: DragEvent) => {
   const item = (event.target as HTMLElement).closest(
     CONST.SEL.LAYER_ITEM,
   ) as HTMLElement | null;
@@ -114,7 +114,7 @@ const handleDrop = (lp: ListPanel, ui: LayerUI, event: DragEvent) => {
   if (targetIdx < 0) return;
   if (lp.dragIdx === targetIdx) return;
   if (!ui.m.canReorderBetween(lp.dragIdx, targetIdx)) {
-    showReorderBlockedHint(lp, ui);
+    showReorderBlockedHint(lp);
     return;
   }
 

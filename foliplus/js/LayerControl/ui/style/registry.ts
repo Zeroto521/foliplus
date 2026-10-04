@@ -89,7 +89,7 @@ const listDimensions = (): readonly LayerDimension<any>[] => [...registry.values
  *  source order of the importing file. `opacity` was registered at #505
  *  top-level, so in most load graphs it lands ahead of `fill` and `border`
  *  — the display order would silently regress. The panel wants a stable
- *  contract (fill →border →opacity →zoomRange, per #458), so the
+ *  contract (fill → border → opacity → zoomRange, per #458), so the
  *  order is declared here rather than inferred from the import graph.
  *
  *  The panel iterates this array through `gatedRows`, which casts each

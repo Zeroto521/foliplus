@@ -245,7 +245,7 @@ const initFromUrl = (ctrl: InteractionCtrl): void => {
         searchCoord(ctrl, `${lng},${lat}`);
       }
     }
-  } catch (e) {
+  } catch (_e) {
     // Silently ignore URL parsing errors
   }
 };

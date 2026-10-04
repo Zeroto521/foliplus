@@ -130,7 +130,7 @@ const buildFeatures = (
     try {
       const c = h3.cellToLatLng(h3Idx);
       centroid = [c[0], c[1]];
-    } catch (e) {
+    } catch (_e) {
       /* fallback */
     }
     try {

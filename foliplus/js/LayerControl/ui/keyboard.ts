@@ -98,7 +98,6 @@ const getNavigableItems = (ui: LayerUI): HTMLElement[] => {
  *  on them. */
 
 const findVisibleNeighbor = (
-  ui: LayerUI,
   items: HTMLElement[],
   idx: number,
   step: 1 | -1,
@@ -210,11 +209,7 @@ const handleOutsideMousedown = (
 /** Index of the keyboard cursor from DOM focus, or the previous index.
  *  One ledger: focus on a row (or a child control) *is* the cursor. */
 
-const resolveActiveIdx = (
-  lp: ListPanel,
-  ui: LayerUI,
-  items: HTMLElement[],
-): number | null => {
+const resolveActiveIdx = (lp: ListPanel, items: HTMLElement[]): number | null => {
   const row = owningRow(document.activeElement);
   if (row) {
     const idx = items.indexOf(row);
@@ -231,7 +226,7 @@ const resolveActiveIdx = (
 
 const syncActiveItem = (lp: ListPanel, ui: LayerUI): void => {
   const items = getNavigableItems(ui);
-  const idx = resolveActiveIdx(lp, ui, items);
+  const idx = resolveActiveIdx(lp, items);
   if (idx === null) return;
   moveActiveMarker(lp, ui, items[idx], items);
   lp.listCursor?.setIndex(idx);
@@ -353,13 +348,13 @@ const handleKeyDown = (lp: ListPanel, ui: LayerUI, event: KeyboardEvent): void =
   switch (event.key) {
     case "ArrowUp": {
       event.preventDefault();
-      const up = findVisibleNeighbor(ui, items, idx, -1);
+      const up = findVisibleNeighbor(items, idx, -1);
       if (up !== -1) setActiveItem(lp, ui, up);
       break;
     }
     case "ArrowDown": {
       event.preventDefault();
-      const down = findVisibleNeighbor(ui, items, idx, 1);
+      const down = findVisibleNeighbor(items, idx, 1);
       if (down !== -1) setActiveItem(lp, ui, down);
       break;
     }

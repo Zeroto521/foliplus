@@ -242,7 +242,7 @@ const readLatLng = (pt: DisplayLatLng, logger: Logger): [number, number] => {
  *  map is already in whatever CRS its tiles serve, so what the operator is looking
  *  at is what the readout reports — pointing the chip at the same spot on a
  *  GCJ02 or BD09 map must not show a shifted number. */
-const coordText = (map: L.Map, pt: DisplayLatLng, logger: Logger): string => {
+const coordText = (_map: L.Map, pt: DisplayLatLng, logger: Logger): string => {
   const [lng, lat] = readLatLng(pt, logger);
   return formatLatLng(lng, lat);
 };

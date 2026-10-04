@@ -1036,7 +1036,7 @@ describe("unit helpers", () => {
     const input = ui.uiContainer.querySelector(
       'input[type="checkbox"]',
     ) as HTMLInputElement;
-    expect(() => handleInput(ui, { target: input } as unknown as Event)).not.toThrow();
+    expect(() => handleInput({ target: input } as unknown as Event)).not.toThrow();
   });
 
   it("toggleAll sets the row tooltips for both states", () => {
@@ -1068,7 +1068,11 @@ describe("unit helpers", () => {
       uiContainer,
       m: { layerRegistry: { get: () => undefined } },
       T: (k: string) => k,
-      listPanel: { checkedCount: {}, foldedGroups: new Set<string>() },
+      listPanel: {
+        checkedCount: {},
+        foldedGroups: new Set<string>(),
+        T: (k: string) => k,
+      },
     } as unknown as LayerUI;
 
     expect(() => syncToggleAll(ui.listPanel, ui, GROUP.OVERLAY)).not.toThrow();
@@ -1088,7 +1092,11 @@ describe("unit helpers", () => {
       intentStore: new LayerIntentStore(),
       runtimeStore: new LayerRuntimeStore(),
       T: (k: string) => k,
-      listPanel: { checkedCount: {}, foldedGroups: new Set<string>() },
+      listPanel: {
+        checkedCount: {},
+        foldedGroups: new Set<string>(),
+        T: (k: string) => k,
+      },
     } as unknown as LayerUI;
 
     expect(() => syncNoBasemap(ui)).not.toThrow();
@@ -1167,7 +1175,11 @@ describe("unit helpers", () => {
       intentStore: new LayerIntentStore(),
       runtimeStore: new LayerRuntimeStore(),
       T: (k: string) => k,
-      listPanel: { checkedCount: {}, foldedGroups: new Set<string>() },
+      listPanel: {
+        checkedCount: {},
+        foldedGroups: new Set<string>(),
+        T: (k: string) => k,
+      },
     } as unknown as LayerUI;
 
     expect(() => syncToggleAll(ui.listPanel, ui, GROUP.OVERLAY)).not.toThrow();
@@ -1183,7 +1195,11 @@ describe("unit helpers", () => {
       uiContainer,
       checkedCount: {},
       T: (k: string) => k,
-      listPanel: { checkedCount: {}, foldedGroups: new Set<string>() },
+      listPanel: {
+        checkedCount: {},
+        foldedGroups: new Set<string>(),
+        T: (k: string) => k,
+      },
     } as unknown as LayerUI;
 
     expect(() => syncToggleAllFromCount(ui.listPanel, ui, GROUP.OVERLAY)).not.toThrow();
@@ -1198,7 +1214,7 @@ describe("unit helpers", () => {
     const ui = {
       uiContainer,
       checkedCount: {},
-      listPanel: { checkedCount: {} },
+      listPanel: { checkedCount: {}, T: (k: string) => k },
       T: (k: string) => k,
     } as unknown as LayerUI;
 
@@ -1216,7 +1232,7 @@ describe("unit helpers", () => {
     const ui = {
       uiContainer,
       checkedCount: {},
-      listPanel: { checkedCount: {} },
+      listPanel: { checkedCount: {}, T: (k: string) => k },
       T: (k: string) => k,
     } as unknown as LayerUI;
 

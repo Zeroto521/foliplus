@@ -122,42 +122,46 @@ describe("ui/drag", () => {
 
       const reorder = vi.fn();
       const canReorderBetween = vi.fn(() => true);
+      const ui = {
+        uiContainer,
+        config: { name: "LayerControl" },
+        T: (key: string) => key,
+        foldedGroups: new Set<string>(),
+        listPanel: {
+          foldedGroups: new Set<string>(),
+          checkedCount: {},
+          dragIdx: 0,
+          lastDragHintAt: 0,
+          lastDragOverItem: null,
+          pressInPanel: false,
+        },
+        saveFoldState: vi.fn(),
+        dragIdx: 0,
+        lastDragOverItem: null,
+        m: {
+          layers,
+          findLayer: vi.fn(() => ({ options: {} })),
+          map: {
+            hasLayer: vi.fn(() => true),
+            removeLayer: vi.fn(),
+            addLayer: vi.fn(),
+            foliplus: { showHint: vi.fn() },
+          },
+          debouncedEnforce: vi.fn(),
+          saveOrder: vi.fn(),
+          enforceOrder: vi.fn(),
+          canReorderBetween,
+          moveLayer: vi.fn(() => true),
+          layerRegistry: { indexOf: () => 0, reorder },
+          persistence: { schedule: vi.fn() } as any,
+        },
+      } as unknown as LayerUI;
+      ui.listPanel.m = ui.m;
+      ui.listPanel.config = ui.config;
+      ui.listPanel.T = ui.T;
       return {
         layers,
-        ui: {
-          uiContainer,
-          config: { name: "LayerControl" },
-          T: (key: string) => key,
-          foldedGroups: new Set<string>(),
-          listPanel: {
-            foldedGroups: new Set<string>(),
-            checkedCount: {},
-            dragIdx: 0,
-            lastDragHintAt: 0,
-            lastDragOverItem: null,
-            pressInPanel: false,
-          },
-          saveFoldState: vi.fn(),
-          dragIdx: 0,
-          lastDragOverItem: null,
-          m: {
-            layers,
-            findLayer: vi.fn(() => ({ options: {} })),
-            map: {
-              hasLayer: vi.fn(() => true),
-              removeLayer: vi.fn(),
-              addLayer: vi.fn(),
-              foliplus: { showHint: vi.fn() },
-            },
-            debouncedEnforce: vi.fn(),
-            saveOrder: vi.fn(),
-            enforceOrder: vi.fn(),
-            canReorderBetween,
-            moveLayer: vi.fn(() => true),
-            layerRegistry: { indexOf: () => 0, reorder },
-            persistence: { schedule: vi.fn() } as any,
-          },
-        } as unknown as LayerUI,
+        ui,
         reorder,
         canReorderBetween,
       };
@@ -536,7 +540,7 @@ describe("ui/drag", () => {
       )!;
       row.classList.add(CONST.CLASSES.DRAG_OVER_TOP);
 
-      handleDragLeave(ui, dragEvent(row));
+      handleDragLeave(dragEvent(row));
 
       expect(row.classList.contains(CONST.CLASSES.DRAG_OVER_TOP)).toBe(false);
     });
@@ -620,15 +624,15 @@ describe("showReorderBlockedHint", () => {
         pressInPanel: false,
         foldedGroups: new Set<string>(),
         checkedCount: {},
-      },
-      config: { name: "LayerControl" },
-      T: (k: string) => k,
-      m: {
-        map: { foliplus: { showHint } },
+        config: { name: "LayerControl" },
+        T: (k: string) => k,
+        m: {
+          map: { foliplus: { showHint } },
+        },
       },
     } as unknown as LayerUI;
 
-    showReorderBlockedHint(ui.listPanel, ui);
+    showReorderBlockedHint(ui.listPanel);
     expect(showHint).toHaveBeenCalledTimes(1);
     expect(showHint).toHaveBeenCalledWith(
       "LayerControl",
@@ -637,7 +641,7 @@ describe("showReorderBlockedHint", () => {
     );
 
     // A second attempt inside the cooldown window stays silent.
-    showReorderBlockedHint(ui.listPanel, ui);
+    showReorderBlockedHint(ui.listPanel);
     expect(showHint).toHaveBeenCalledTimes(1);
   });
 });

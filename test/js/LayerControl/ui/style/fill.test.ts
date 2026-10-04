@@ -372,7 +372,7 @@ describe("LayerUI style panel — fill color", () => {
       name: "E",
       layer: {
         options: {},
-        eachLayer: vi.fn((fn: (child: unknown) => void) => {
+        eachLayer: vi.fn((_fn: (child: unknown) => void) => {
           // no children to dispatch
         }),
         getBounds: vi.fn(() => ({

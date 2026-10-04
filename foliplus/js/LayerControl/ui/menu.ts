@@ -44,7 +44,7 @@ import { closeOverlays } from "./teardown.js";
 const openMoreMenu = (op: OverlayPanel, ui: LayerUI, item: HTMLElement) => {
   // Tear down the competing overlays first. The rename teardown in
   // particular keeps the row's label text fresh before we read it below.
-  closeOverlays(ui.overlayPanel, ui);
+  closeOverlays(ui.overlayPanel);
 
   const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
   const menu = dom.el("ul", { class: "foliplus-layer-more-menu open", role: "menu" });
@@ -181,7 +181,7 @@ const openMoreMenu = (op: OverlayPanel, ui: LayerUI, item: HTMLElement) => {
   menu.addEventListener("focusout", event => {
     const next = (event as FocusEvent).relatedTarget as Node | null;
     if (next && (next === item || item.contains(next))) return;
-    if (!next || !menu.contains(next)) closeMoreMenu(op, ui, false);
+    if (!next || !menu.contains(next)) closeMoreMenu(op, false);
   });
 
   op.activeMenu = { item, menu, layerId };
@@ -319,7 +319,7 @@ const activateDeleteItem = (
 
 /** Close the overflow menu. setFocus = true returns focus to the layer row. */
 
-const closeMoreMenu = (op: OverlayPanel, ui: LayerUI, setFocus: boolean) => {
+const closeMoreMenu = (op: OverlayPanel, setFocus: boolean) => {
   if (!op.activeMenu) return;
   const item = op.activeMenu.item;
   const menu = op.activeMenu.menu;

@@ -245,7 +245,7 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
         finalPoly.setLatLngs(points);
         relabel();
       },
-      onEnd: (latlng: L.LatLng) => {
+      onEnd: (_latlng: L.LatLng) => {
         markDragSyntheticClick();
         if (onUpdate) {
           opts.area = Util.area(points);

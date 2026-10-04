@@ -54,7 +54,7 @@ const renderToolbarActions = (
 };
 
 /** Update crop box element position/size. */
-const updateBoxStyle = (mgr: ExportManager, el: HTMLElement, r: CropRect) => {
+const updateBoxStyle = (_mgr: ExportManager, el: HTMLElement, r: CropRect) => {
   el.style.left = `${r.left}px`;
   el.style.top = `${r.top}px`;
   el.style.width = `${r.width}px`;

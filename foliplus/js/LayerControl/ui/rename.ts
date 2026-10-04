@@ -36,7 +36,7 @@ const renameLayer = (op: OverlayPanel, ui: LayerUI, layerId: string): void => {
   const label = item?.querySelector("label") as HTMLLabelElement | null;
   if (!label) return;
 
-  closeOverlays(ui.overlayPanel, ui);
+  closeOverlays(ui.overlayPanel);
 
   // displayName resolves rename →registry →the color layer's locale label,
   // so the input opens with the name the UI already shows.

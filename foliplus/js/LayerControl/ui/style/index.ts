@@ -114,7 +114,7 @@ const openStylePanel = (op: OverlayPanel, ui: LayerUI, layerId: string): void =>
   ) as HTMLElement | null;
   if (!item) return;
 
-  closeOverlays(ui.overlayPanel, ui);
+  closeOverlays(ui.overlayPanel);
   const panel = renderStylePanel(op, ui, layerId);
   if (!panel) return;
 

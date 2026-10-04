@@ -116,7 +116,7 @@ const render = rows => {
   return lines.join("\n");
 };
 
-const fuse = (args, root = ROOT) => {
+const fuse = (_args, root = ROOT) => {
   const sizes = readSizes(root);
   if (!Object.keys(sizes).length) {
     console.error("No bundles found in foliplus/dist/. Run `npm run build` first.");
