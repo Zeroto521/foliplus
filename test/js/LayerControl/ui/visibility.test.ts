@@ -143,7 +143,7 @@ describe("applyVisibility", () => {
       layer,
     });
 
-    expect(applyVisibility(ui, "ov", false)).toBe(true);
+    expect(applyVisibility(ui.listPanel, ui, "ov", false)).toBe(true);
 
     expect(map.removeLayer).toHaveBeenCalledWith(layer);
     expect(map.hasLayer(layer)).toBe(false);
@@ -169,10 +169,10 @@ describe("applyVisibility", () => {
       options: Record<string, unknown>;
     };
     const paneBefore = layer.options.pane;
-    expect(applyVisibility(ui, "overlay1", false)).toBe(true);
+    expect(applyVisibility(ui.listPanel, ui, "overlay1", false)).toBe(true);
     expect(layer.options.pane).toBe(paneBefore);
 
-    expect(applyVisibility(ui, "overlay1", true)).toBe(true);
+    expect(applyVisibility(ui.listPanel, ui, "overlay1", true)).toBe(true);
     expect(map.addLayer).toHaveBeenCalledWith(layer);
     expect(layer.options.pane).toBe(paneBefore);
     expect(map.hasLayer(layer)).toBe(true);
@@ -191,7 +191,9 @@ describe("applyVisibility", () => {
       { id: "overlay1", name: "Points", group: "overlay", layer: layerFixture() },
     ]);
     expect(seeded.ui.intentVisible("overlay1")).toBe(false);
-    expect(applyVisibility(seeded.ui as LayerUI, "overlay1", true)).toBe(true);
+    expect(
+      applyVisibility(seeded.ui.listPanel, seeded.ui as LayerUI, "overlay1", true),
+    ).toBe(true);
     expect(seeded.ui.intentVisible("overlay1")).toBe(true);
     expect(
       seeded.ui.uiContainer.querySelector(
@@ -214,7 +216,7 @@ describe("applyVisibility", () => {
     const layer = manager.layerRegistry.get("overlay1")!.layer as L.Layer;
 
     // The user hides the layer: it leaves the map and the intent is recorded.
-    expect(applyVisibility(ui, "overlay1", false)).toBe(true);
+    expect(applyVisibility(ui.listPanel, ui, "overlay1", false)).toBe(true);
     expect(map.hasLayer(layer)).toBe(false);
 
     // The user stores a zoom range that excludes the current zoom (2), then
@@ -223,7 +225,7 @@ describe("applyVisibility", () => {
     ui.intentStore.seedProvenance("overlay1", ["zoomRange"]);
     (map.addLayer as ReturnType<typeof vi.fn>).mockClear();
 
-    expect(applyVisibility(ui, "overlay1", true)).toBe(true);
+    expect(applyVisibility(ui.listPanel, ui, "overlay1", true)).toBe(true);
 
     // Intent is recorded: the box is checked and the layer is no longer hidden.
     expect(getIntent(ui, "overlay1", "visible")).not.toBe(false);
@@ -249,7 +251,7 @@ describe("applyVisibility", () => {
       canvas,
     });
 
-    expect(applyVisibility(ui, "canvas1", false)).toBe(true);
+    expect(applyVisibility(ui.listPanel, ui, "canvas1", false)).toBe(true);
     expect(map.removeLayer).not.toHaveBeenCalled();
     expect(map.addLayer).not.toHaveBeenCalled();
     expect(canvas.classList.contains("hidden")).toBe(true);
@@ -259,7 +261,7 @@ describe("applyVisibility", () => {
   it("returns false for an unknown id and reports it the same either way", () => {
     // The id is resolved before the panel check, so a typo does not read as a
     // missing-panel no-op.
-    expect(applyVisibility(ui, "nope", false)).toBe(false);
+    expect(applyVisibility(ui.listPanel, ui, "nope", false)).toBe(false);
     const bare = new LayerManager(map, []);
     expect(bare.setVisible("nope", false)).toBe(false);
     expect(map.addLayer).not.toHaveBeenCalled();
@@ -278,14 +280,14 @@ describe("applyVisibility", () => {
     expect(row).not.toBeNull();
     row!.remove();
 
-    expect(applyVisibility(ui, "ov", false)).toBe(true);
+    expect(applyVisibility(ui.listPanel, ui, "ov", false)).toBe(true);
 
     expect(map.removeLayer).toHaveBeenCalledWith(layer);
     expect(getIntent(ui, "ov", "visible")).toBe(false);
   });
 
   it("persists the hidden set so the choice survives a reload", () => {
-    expect(applyVisibility(ui, "overlay1", false)).toBe(true);
+    expect(applyVisibility(ui.listPanel, ui, "overlay1", false)).toBe(true);
     // The write is debounced; flush the funnel and read the key back.
     manager.persistence.flushAll();
     const stored = window.localStorage.getItem(CONST.STORAGE.KEY);
@@ -306,8 +308,8 @@ describe("applyVisibility", () => {
   });
 
   it("keeps the entry when a layer is shown again, but records visible:true", () => {
-    applyVisibility(ui, "overlay1", false);
-    applyVisibility(ui, "overlay1", true);
+    applyVisibility(ui.listPanel, ui, "overlay1", false);
+    applyVisibility(ui.listPanel, ui, "overlay1", true);
     manager.persistence.flushAll();
 
     // Old assertion: the persisted hidden set was `[]` ?"hidden" was an
@@ -345,7 +347,7 @@ describe("applyVisibility", () => {
       paneName: "tilePane",
     });
 
-    expect(applyVisibility(ui2, "base1", false)).toBe(true);
+    expect(applyVisibility(ui2.listPanel, ui2, "base1", false)).toBe(true);
     expect(map.removeLayer).toHaveBeenCalledWith(layer);
     expect(map.hasLayer(layer)).toBe(false);
     expect(
@@ -354,7 +356,7 @@ describe("applyVisibility", () => {
       )?.checked,
     ).toBe(false);
 
-    expect(applyVisibility(ui2, "base1", true)).toBe(true);
+    expect(applyVisibility(ui2.listPanel, ui2, "base1", true)).toBe(true);
     expect(map.hasLayer(layer)).toBe(true);
     fresh.ui = null;
     fresh.destroy();
@@ -373,8 +375,8 @@ describe("applyVisibility", () => {
       layer,
     });
 
-    expect(applyVisibility(ui, "repeat", false)).toBe(true);
-    expect(applyVisibility(ui, "repeat", false)).toBe(true);
+    expect(applyVisibility(ui.listPanel, ui, "repeat", false)).toBe(true);
+    expect(applyVisibility(ui.listPanel, ui, "repeat", false)).toBe(true);
     expect(map.removeLayer).toHaveBeenCalledTimes(1);
     expect(map.removeLayer).toHaveBeenCalledWith(layer);
   });
@@ -387,7 +389,7 @@ describe("applyVisibility", () => {
     });
 
     it("is true when a group is partially hidden", () => {
-      applyVisibility(ui, "overlay1", false);
+      applyVisibility(ui.listPanel, ui, "overlay1", false);
       const all = allToggle(ui);
       expect(all.checked).toBe(false);
       expect(all.indeterminate).toBe(true);
@@ -402,7 +404,7 @@ describe("applyVisibility", () => {
       expect(all.checked).toBe(true);
       expect(all.indeterminate).toBe(false);
 
-      applyVisibility(only.ui as LayerUI, "only", false);
+      applyVisibility(only.ui.listPanel, only.ui as LayerUI, "only", false);
       expect(all.checked).toBe(false);
       // `checkedCount === 0` makes `noneChecked` true, so `!allChecked &&
       // !noneChecked` is false. Nothing checked is not a partial state. Pinned
@@ -421,40 +423,40 @@ describe("applyVisibility", () => {
       // The attach-time initTypesAndVisibility runs in setTimeout(0), so
       // the synchronous test body bootstraps the counter itself before the
       // first click.
-      syncToggleAll(ui, GROUP.OVERLAY);
+      syncToggleAll(ui.listPanel, ui, GROUP.OVERLAY);
       expect(ui.checkedCount[GROUP.OVERLAY]).toEqual({
         total: 2,
         on: 2,
       });
 
       // Hide overlay1: on 2 → 1. Rescan agrees.
-      applyVisibility(ui, "overlay1", false);
+      applyVisibility(ui.listPanel, ui, "overlay1", false);
       expect(ui.checkedCount[GROUP.OVERLAY]).toEqual({
         total: 2,
         on: 1,
       });
-      syncToggleAll(ui, GROUP.OVERLAY);
+      syncToggleAll(ui.listPanel, ui, GROUP.OVERLAY);
       expect(ui.checkedCount[GROUP.OVERLAY]).toEqual({
         total: 2,
         on: 1,
       });
 
       // Hide overlay2: on 1 → 0. Rescan agrees.
-      applyVisibility(ui, "overlay2", false);
+      applyVisibility(ui.listPanel, ui, "overlay2", false);
       expect(ui.checkedCount[GROUP.OVERLAY]).toEqual({
         total: 2,
         on: 0,
       });
-      syncToggleAll(ui, GROUP.OVERLAY);
+      syncToggleAll(ui.listPanel, ui, GROUP.OVERLAY);
       expect(ui.checkedCount[GROUP.OVERLAY]).toEqual({
         total: 2,
         on: 0,
       });
 
       // Show both: on 0 → 2. Rescan agrees.
-      applyVisibility(ui, "overlay1", true);
-      applyVisibility(ui, "overlay2", true);
-      syncToggleAll(ui, GROUP.OVERLAY);
+      applyVisibility(ui.listPanel, ui, "overlay1", true);
+      applyVisibility(ui.listPanel, ui, "overlay2", true);
+      syncToggleAll(ui.listPanel, ui, GROUP.OVERLAY);
       expect(ui.checkedCount[GROUP.OVERLAY]).toEqual({
         total: 2,
         on: 2,
@@ -462,7 +464,7 @@ describe("applyVisibility", () => {
 
       // Setting a value to the same value it already has is a no-op: the
       // delta is zero and the count is unchanged.
-      applyVisibility(ui, "overlay1", true);
+      applyVisibility(ui.listPanel, ui, "overlay1", true);
       expect(ui.checkedCount[GROUP.OVERLAY]).toEqual({
         total: 2,
         on: 2,
@@ -474,8 +476,8 @@ describe("applyVisibility", () => {
       // function; a host page that holds the UI instance calls it through
       // that slot. Pinned so the delegator stays reachable and writes the
       // tri-state checkbox off the cached count.
-      syncToggleAll(ui, GROUP.OVERLAY);
-      applyVisibility(ui, "overlay1", false);
+      syncToggleAll(ui.listPanel, ui, GROUP.OVERLAY);
+      applyVisibility(ui.listPanel, ui, "overlay1", false);
       expect(ui.checkedCount[GROUP.OVERLAY]).toEqual({
         total: 2,
         on: 1,
@@ -507,7 +509,7 @@ describe("applyVisibility", () => {
         map2.getContainer = vi.fn(() => fakeContainer);
 
         // Overlay click: syncNoBasemap NOT called, so no NO_BASE_MAP toggle.
-        applyVisibility(u2, "overlay1", false);
+        applyVisibility(u2.listPanel, u2, "overlay1", false);
         const overlayCalls = toggleMock.mock.calls.filter(
           c => c[0] === CONST.CLASSES.NO_BASE_MAP,
         );
@@ -516,7 +518,7 @@ describe("applyVisibility", () => {
         // Base click (colour row): syncNoBasemap called, so NO_BASE_MAP is
         // toggled.
         toggleMock.mockClear();
-        applyVisibility(u2, CONST.SOLID_BASEMAP_ID, true);
+        applyVisibility(u2.listPanel, u2, CONST.SOLID_BASEMAP_ID, true);
         const baseCalls = toggleMock.mock.calls.filter(
           c => c[0] === CONST.CLASSES.NO_BASE_MAP,
         );
@@ -953,7 +955,7 @@ describe("toggleAll base group", () => {
     bare.setAttribute("data-layer-type", GROUP.BASE);
     ui.uiContainer.appendChild(bare);
 
-    expect(() => toggleAll(ui, GROUP.BASE, true)).not.toThrow();
+    expect(() => toggleAll(ui.listPanel, ui, GROUP.BASE, true)).not.toThrow();
     expect(bare.querySelector("input")).toBeNull();
     // Only the two registered rows were swept — the bare row carries no
     // checkbox and must be absent from the intent map entirely.
@@ -968,12 +970,12 @@ describe("toggleAll base group", () => {
     const b2Canvas = b2.canvas as HTMLCanvasElement;
 
     // Hide both first so the sweep has a visible→shown transition to fire.
-    toggleAll(ui, GROUP.BASE, false);
+    toggleAll(ui.listPanel, ui, GROUP.BASE, false);
 
     map.addLayer.mockClear();
     map.removeLayer.mockClear();
 
-    toggleAll(ui, GROUP.BASE, true);
+    toggleAll(ui.listPanel, ui, GROUP.BASE, true);
 
     expect(map.addLayer).toHaveBeenCalledWith(manager.layerRegistry.get("B1")!.layer);
     // B2 has no Leaflet layer: its canvas's HIDDEN class is the carrier.
@@ -1012,7 +1014,7 @@ describe("unit helpers", () => {
 
   it("getLayerItems returns every base row, the colour row included", () => {
     const ui = makeUi();
-    const items = getLayerItems(ui, GROUP.BASE);
+    const items = getLayerItems(ui.listPanel, ui, GROUP.BASE);
     expect(items.length).toBe(2);
     expect(items[0].getAttribute("data-layer-type")).toBe("base");
     expect(items[1].getAttribute("data-layer-id")).toBe(CONST.SOLID_BASEMAP_ID);
@@ -1020,7 +1022,7 @@ describe("unit helpers", () => {
 
   it("getLayerItems returns overlay rows and excludes the color basemap", () => {
     const ui = makeUi();
-    const items = getLayerItems(ui, GROUP.OVERLAY);
+    const items = getLayerItems(ui.listPanel, ui, GROUP.OVERLAY);
     expect(items.length).toBe(1);
     expect(items[0].getAttribute("data-layer-type")).toBe("overlay");
   });
@@ -1033,7 +1035,9 @@ describe("unit helpers", () => {
     const input = ui.uiContainer.querySelector(
       'input[type="checkbox"]',
     ) as HTMLInputElement;
-    expect(() => handleInput(ui, { target: input } as unknown as Event)).not.toThrow();
+    expect(() =>
+      handleInput(ui.listPanel, ui, { target: input } as unknown as Event),
+    ).not.toThrow();
   });
 
   it("toggleAll sets the row tooltips for both states", () => {
@@ -1065,9 +1069,10 @@ describe("unit helpers", () => {
       uiContainer,
       m: { layerRegistry: { get: () => undefined } },
       T: (k: string) => k,
+      listPanel: { checkedCount: {}, foldedGroups: new Set<string>() },
     } as unknown as LayerUI;
 
-    expect(() => syncToggleAll(ui, GROUP.OVERLAY)).not.toThrow();
+    expect(() => syncToggleAll(ui.listPanel, ui, GROUP.OVERLAY)).not.toThrow();
   });
 
   it("syncNoBasemap handles a thin stub with an empty LayerIntentStore", () => {
@@ -1084,9 +1089,10 @@ describe("unit helpers", () => {
       intentStore: new LayerIntentStore(),
       runtimeStore: new LayerRuntimeStore(),
       T: (k: string) => k,
+      listPanel: { checkedCount: {}, foldedGroups: new Set<string>() },
     } as unknown as LayerUI;
 
-    expect(() => syncNoBasemap(ui)).not.toThrow();
+    expect(() => syncNoBasemap(ui.listPanel, ui)).not.toThrow();
   });
 
   describe("syncNoBasemap opacity gate", () => {
@@ -1112,6 +1118,7 @@ describe("unit helpers", () => {
         intentStore: new LayerIntentStore(),
         runtimeStore: new LayerRuntimeStore(),
         T: (k: string) => k,
+        listPanel: { checkedCount: {}, foldedGroups: new Set<string>() },
       } as unknown as LayerUI;
       return { ui, container };
     };
@@ -1120,7 +1127,7 @@ describe("unit helpers", () => {
       // The bug T207: intent says visible, so the pre-fix check kept the
       // basemap class off — the user's slider at 0 was silently ignored.
       const { ui, container } = makeUiWithBase(0);
-      syncNoBasemap(ui);
+      syncNoBasemap(ui.listPanel, ui);
       expect(container.classList.contains(CONST.CLASSES.NO_BASE_MAP)).toBe(true);
     });
 
@@ -1128,7 +1135,7 @@ describe("unit helpers", () => {
       // Any strictly positive value (down to the slider's smallest step) is
       // still visible — the gate is a strict `> 0`, no epsilon tolerance.
       const { ui, container } = makeUiWithBase(0.5);
-      syncNoBasemap(ui);
+      syncNoBasemap(ui.listPanel, ui);
       expect(container.classList.contains(CONST.CLASSES.NO_BASE_MAP)).toBe(false);
     });
 
@@ -1138,7 +1145,7 @@ describe("unit helpers", () => {
       // the author's default (opaque) rather than as invisible — the reverse
       // would paint the hatch on every pristine page.
       const { ui, container } = makeUiWithBase();
-      syncNoBasemap(ui);
+      syncNoBasemap(ui.listPanel, ui);
       expect(container.classList.contains(CONST.CLASSES.NO_BASE_MAP)).toBe(false);
     });
   });
@@ -1161,9 +1168,10 @@ describe("unit helpers", () => {
       intentStore: new LayerIntentStore(),
       runtimeStore: new LayerRuntimeStore(),
       T: (k: string) => k,
+      listPanel: { checkedCount: {}, foldedGroups: new Set<string>() },
     } as unknown as LayerUI;
 
-    expect(() => syncToggleAll(ui, GROUP.OVERLAY)).not.toThrow();
+    expect(() => syncToggleAll(ui.listPanel, ui, GROUP.OVERLAY)).not.toThrow();
   });
 
   it("syncToggleAllFromCount bails when the group header is absent", () => {
@@ -1176,9 +1184,10 @@ describe("unit helpers", () => {
       uiContainer,
       checkedCount: {},
       T: (k: string) => k,
+      listPanel: { checkedCount: {}, foldedGroups: new Set<string>() },
     } as unknown as LayerUI;
 
-    expect(() => syncToggleAllFromCount(ui, GROUP.OVERLAY)).not.toThrow();
+    expect(() => syncToggleAllFromCount(ui.listPanel, ui, GROUP.OVERLAY)).not.toThrow();
   });
 
   it("syncToggleAllFromCount bails when the header has no toggle-all input", () => {
@@ -1190,10 +1199,11 @@ describe("unit helpers", () => {
     const ui = {
       uiContainer,
       checkedCount: {},
+      listPanel: { checkedCount: {} },
       T: (k: string) => k,
     } as unknown as LayerUI;
 
-    expect(() => syncToggleAllFromCount(ui, GROUP.OVERLAY)).not.toThrow();
+    expect(() => syncToggleAllFromCount(ui.listPanel, ui, GROUP.OVERLAY)).not.toThrow();
   });
 
   it("syncToggleAllFromCount treats a missing counter as an empty group", () => {
@@ -1207,10 +1217,11 @@ describe("unit helpers", () => {
     const ui = {
       uiContainer,
       checkedCount: {},
+      listPanel: { checkedCount: {} },
       T: (k: string) => k,
     } as unknown as LayerUI;
 
-    syncToggleAllFromCount(ui, GROUP.OVERLAY);
+    syncToggleAllFromCount(ui.listPanel, ui, GROUP.OVERLAY);
 
     const all = uiContainer.querySelector<HTMLInputElement>(
       '[data-role="toggle-all"]',

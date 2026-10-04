@@ -20,6 +20,7 @@ import * as SVGs from "../icon.js";
 import * as Util from "../util.js";
 import type { LayerUI } from "./index.js";
 import { INTENT, getIntent } from "./intent.js";
+import type { ListPanel } from "./listPanel.js";
 import { intentVisibleOf, projectLayer } from "./projection.js";
 
 /** One layer's inputs to the row visual. Nothing here is written back. */
@@ -70,7 +71,7 @@ interface RowLabels {
  *  original choice. If both endpoints clamp past each other the whole
  *  range is outside the map and no zoom can land inside it.
  */
-const inZoomRange = (ui: LayerUI, layerInfo: LayerInfo): boolean => {
+const inZoomRange = (lp: ListPanel, ui: LayerUI, layerInfo: LayerInfo): boolean => {
   const range = getIntent(ui, layerInfo.id, INTENT.ZOOM_RANGE);
   if (!range) return true;
   const min = Math.max(range[0], ui.m.map.getMinZoom());
@@ -114,7 +115,7 @@ const rowView = (cell: RowCell, labels: RowLabels): RowView => ({
  *  (re-registration, type refresh) can no longer resurrect the original
  *  third-party name over a rename.
  */
-const displayName = (ui: LayerUI, id: string): string => {
+const displayName = (lp: ListPanel, ui: LayerUI, id: string): string => {
   return (
     (getIntent(ui, id, INTENT.NAME) as string | undefined) ??
     ui.m.layerRegistry.get(id)?.name ??
@@ -145,7 +146,11 @@ const displayName = (ui: LayerUI, id: string): string => {
  *  A canvas-only layer is the exception: it has no Leaflet layer to observe
  *  at any point, so its declared `visible` is the ground truth.
  */
-const snapshotAuthorVisible = (ui: LayerUI, layerInfo: LayerInfo): void => {
+const snapshotAuthorVisible = (
+  lp: ListPanel,
+  ui: LayerUI,
+  layerInfo: LayerInfo,
+): void => {
   if (ui.runtimeStore.hasAuthorVisible(layerInfo.id)) return;
   const layer = ui.m.findLayer(layerInfo);
   if (!layer && !layerInfo.canvas) return; // not linked yet — leave unknown
@@ -164,6 +169,7 @@ const snapshotAuthorVisible = (ui: LayerUI, layerInfo: LayerInfo): void => {
  *  stamp the snapshot — the row is a projection, not a writer.
  */
 const rowType = (
+  lp: ListPanel,
   ui: LayerUI,
   layerInfo: LayerInfo,
   layer: L.Layer | null,
@@ -191,14 +197,14 @@ const rowType = (
  *  Everything the row shows is read here and nothing is written, so the row
  *  cannot read a stale decoration and looking at a layer cannot move the map.
  */
-const buildRowCell = (ui: LayerUI, layerInfo: LayerInfo): RowCell => {
+const buildRowCell = (lp: ListPanel, ui: LayerUI, layerInfo: LayerInfo): RowCell => {
   const layer = ui.m.findLayer(layerInfo);
   const checked = intentVisibleOf(ui, layerInfo.id);
-  const type = rowType(ui, layerInfo, layer);
+  const type = rowType(lp, ui, layerInfo, layer);
   const count = ui.mgmt.getFeatureCount(layerInfo.id);
   return {
     id: layerInfo.id,
-    name: displayName(ui, layerInfo.id),
+    name: displayName(lp, ui, layerInfo.id),
     checked,
     // Read the projection: focus overrides the range, the range never
     // overrides the intent. Focus dims the other rows visually without
@@ -221,7 +227,12 @@ const buildRowCell = (ui: LayerUI, layerInfo: LayerInfo): RowCell => {
  *  updates the rest rather than being skipped. An empty `typeSvg` leaves the
  *  icon column as it is — nothing to paint is not the same as a blank.
  */
-const applyRowView = (ui: LayerUI, item: HTMLElement, cell: RowCell): void => {
+const applyRowView = (
+  lp: ListPanel,
+  ui: LayerUI,
+  item: HTMLElement,
+  cell: RowCell,
+): void => {
   const view = rowView(cell, {
     select: ui.T("select_tooltip"),
     deselect: ui.T("deselect_tooltip"),

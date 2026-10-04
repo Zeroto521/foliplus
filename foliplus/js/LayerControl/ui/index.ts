@@ -431,48 +431,48 @@ class LayerUI {
   }
   // ── delegates: list ──
   initTypesAndVisibility() {
-    return initTypesAndVisibility(this);
+    return initTypesAndVisibility(this.listPanel, this);
   }
   renderInitialList() {
-    return renderInitialList(this);
+    return renderInitialList(this.listPanel, this);
   }
   insertLayerItem(layerInfo: LayerInfo) {
-    return insertLayerItem(this, layerInfo);
+    return insertLayerItem(this.listPanel, this, layerInfo);
   }
   updateLayerItem(layerInfo: LayerInfo) {
-    return updateLayerItem(this, layerInfo);
-  }
-  displayName(layerId: string) {
-    return displayName(this, layerId);
+    return updateLayerItem(this.listPanel, this, layerInfo);
   }
   colorLayerName() {
-    return colorLayerName(this);
+    return colorLayerName(this.listPanel, this);
+  }
+  displayName(id: string) {
+    return displayName(this.listPanel, this, id);
   }
   initLayerItem(layerInfo: LayerInfo) {
-    return initLayerItem(this, layerInfo);
+    return initLayerItem(this.listPanel, this, layerInfo);
   }
   reindexAfterMove() {
-    return reindexAfterMove(this);
+    return reindexAfterMove(this.listPanel, this);
   }
 
   // ── delegates: visibility ──
   getLayerItems(group: string) {
-    return getLayerItems(this, group);
+    return getLayerItems(this.listPanel, this, group);
   }
   toggleAll(group: string, newState: boolean) {
-    return toggleAll(this, group, newState);
+    return toggleAll(this.listPanel, this, group, newState);
   }
   syncToggleAll(group: string) {
-    return syncToggleAll(this, group);
+    return syncToggleAll(this.listPanel, this, group);
   }
   syncToggleAllFromCount(group: string) {
-    return syncToggleAllFromCount(this, group);
+    return syncToggleAllFromCount(this.listPanel, this, group);
   }
   syncNoBasemap() {
-    return syncNoBasemap(this);
+    return syncNoBasemap(this.listPanel, this);
   }
   applyVisibility(id: string, visible: boolean) {
-    return applyVisibility(this, id, visible);
+    return applyVisibility(this.listPanel, this, id, visible);
   }
   /** The user's stored visibility choice for a layer id (persisted intent
    *  or the author's declared default). This is the panel checkbox's fact,
@@ -490,10 +490,10 @@ class LayerUI {
     return applyProjectionAll(this);
   }
   handleChange(event: Event) {
-    return handleChange(this, event);
+    return handleChange(this.listPanel, this, event);
   }
   handleInput(event: Event) {
-    return handleInput(this, event);
+    return handleInput(this.listPanel, this, event);
   }
 
   // ── delegates: keyboard ──

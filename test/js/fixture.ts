@@ -307,18 +307,10 @@ export function makeLayerUIMock(extra: Overrides = {}): LayerUI {
     config: {} as any,
     T: (key: string) => key,
     _: (key: string) => key,
-    foldedGroups: new Set<string>(),
     intentStore: new LayerIntentStore(),
     runtimeStore: new LayerRuntimeStore(),
     currentColor: "#cccccc",
     renamedNames: {},
-    activeRenameId: null,
-    dragIdx: null,
-    lastDragHintAt: 0,
-    lastDragOverItem: null,
-    activeIdx: null,
-    listCursor: null,
-    interactionCleanup: null,
     // Declared handler fields
     onChange: null,
     onInput: null,
@@ -338,15 +330,6 @@ export function makeLayerUIMock(extra: Overrides = {}): LayerUI {
     onZoomEnd: null,
     unsubscribeCountChange: null,
     unsubscribeControlAttached: null,
-    activeMenu: null,
-    activeAttrsPanel: null,
-    attrsOutsideHandler: null,
-    styleOutsideHandler: null,
-    styleUnsubscribe: null,
-    styleRefresh: null,
-    styleZoomEndHandler: null,
-    stylePanelLayerId: null,
-    pressInPanel: false,
     focusController: {
       focusRect: null,
       focusingLayerId: null,
@@ -355,6 +338,29 @@ export function makeLayerUIMock(extra: Overrides = {}): LayerUI {
       focusRenderer: null,
       focusedPaneRestores: [],
     },
+    listPanel: {
+      foldedGroups: new Set<string>(),
+      checkedCount: {},
+      activeIdx: null,
+      listCursor: null,
+      dragIdx: null,
+      lastDragHintAt: 0,
+      lastDragOverItem: null,
+      pressInPanel: false,
+      listCleanup: null,
+    },
+    overlayPanel: {
+      activeRenameId: null,
+      activeMenu: null,
+      activeAttrsPanel: null,
+      attrsOutsideHandler: null,
+      styleOutsideHandler: null,
+      attrsUnsubscribe: null,
+      styleUnsubscribe: null,
+      styleRefresh: null,
+      styleZoomEndHandler: null,
+      stylePanelLayerId: null,
+    },
     ...extra,
   };
   // `m` is a getter alias for `manager` on the real class.
@@ -362,6 +368,78 @@ export function makeLayerUIMock(extra: Overrides = {}): LayerUI {
     get: () => base.manager,
     configurable: true,
   });
+  // Flat compat fields delegate to the nested subsystem objects, matching the
+  // compat getters on the real LayerUI class.
+  const lp = base.listPanel;
+  const op = base.overlayPanel;
+  const compatGetters: Array<[string, () => unknown, (v: unknown) => void]> = [
+    ["foldedGroups", () => lp.foldedGroups, v => void (lp.foldedGroups = v as any)],
+    ["checkedCount", () => lp.checkedCount, v => void (lp.checkedCount = v as any)],
+    ["activeIdx", () => lp.activeIdx, v => void (lp.activeIdx = v as any)],
+    ["listCursor", () => lp.listCursor, v => void (lp.listCursor = v as any)],
+    ["dragIdx", () => lp.dragIdx, v => void (lp.dragIdx = v as any)],
+    [
+      "lastDragHintAt",
+      () => lp.lastDragHintAt,
+      v => void (lp.lastDragHintAt = v as any),
+    ],
+    [
+      "lastDragOverItem",
+      () => lp.lastDragOverItem,
+      v => void (lp.lastDragOverItem = v as any),
+    ],
+    ["pressInPanel", () => lp.pressInPanel, v => void (lp.pressInPanel = v as any)],
+    ["interactionCleanup", () => lp.listCleanup, v => void (lp.listCleanup = v as any)],
+    [
+      "activeRenameId",
+      () => op.activeRenameId,
+      v => void (op.activeRenameId = v as any),
+    ],
+    ["activeMenu", () => op.activeMenu, v => void (op.activeMenu = v as any)],
+    [
+      "activeAttrsPanel",
+      () => op.activeAttrsPanel,
+      v => void (op.activeAttrsPanel = v as any),
+    ],
+    [
+      "attrsOutsideHandler",
+      () => op.attrsOutsideHandler,
+      v => void (op.attrsOutsideHandler = v as any),
+    ],
+    [
+      "styleOutsideHandler",
+      () => op.styleOutsideHandler,
+      v => void (op.styleOutsideHandler = v as any),
+    ],
+    [
+      "attrsUnsubscribe",
+      () => op.attrsUnsubscribe,
+      v => void (op.attrsUnsubscribe = v as any),
+    ],
+    [
+      "styleUnsubscribe",
+      () => op.styleUnsubscribe,
+      v => void (op.styleUnsubscribe = v as any),
+    ],
+    ["styleRefresh", () => op.styleRefresh, v => void (op.styleRefresh = v as any)],
+    [
+      "styleZoomEndHandler",
+      () => op.styleZoomEndHandler,
+      v => void (op.styleZoomEndHandler = v as any),
+    ],
+    [
+      "stylePanelLayerId",
+      () => op.stylePanelLayerId,
+      v => void (op.stylePanelLayerId = v as any),
+    ],
+  ];
+  for (const [name, getter, setter] of compatGetters) {
+    Object.defineProperty(base, name, {
+      get: getter,
+      set: setter,
+      configurable: true,
+    });
+  }
   return base;
 }
 

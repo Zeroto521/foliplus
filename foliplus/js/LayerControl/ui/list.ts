@@ -8,6 +8,7 @@ import { getColorSurface } from "./color.js";
 import type { LayerUI } from "./index.js";
 import { cursorRef, restoreCursor } from "./keyboard.js";
 import { syncListCursor } from "./keyboard.js";
+import type { ListPanel } from "./listPanel.js";
 import {
   applyRowView,
   buildRowCell,
@@ -20,7 +21,7 @@ import { syncNoBasemap, syncToggleAll } from "./visibility.js";
 /** Full re-scan of every row (used on attach/fold-toggle). Idempotent —
  *  re-run on each CONTROL_ATTACHED so late-registering components are
  *  folded in. Marks the panel ready for tests/consumers. */
-const initTypesAndVisibility = (ui: LayerUI) => {
+const initTypesAndVisibility = (lp: ListPanel, ui: LayerUI) => {
   // The colour basemap is a first-class base-group layer: `getColorSurface`
   // runs `surface.register()`, which inserts its LayerInfo through the
   // standard registerLayer path. All visibility / zoom / order machinery
@@ -37,7 +38,7 @@ const initTypesAndVisibility = (ui: LayerUI) => {
   // re-adds a stored-shown layer and removes a stored-hidden one, so a
   // snapshot taken afterwards would record a policy decision as the author's.
   for (let i = 0; i < ui.m.layers.length; i++) {
-    snapshotAuthorVisible(ui, ui.m.layers[i]);
+    snapshotAuthorVisible(lp, ui, ui.m.layers[i]);
   }
 
   // Apply persisted hidden state first so initLayerItem reads the corrected
@@ -54,12 +55,12 @@ const initTypesAndVisibility = (ui: LayerUI) => {
   // intent-only invariant: derived state may suppress display but never
   // authorise it.
   for (let i = 0; i < ui.m.layers.length; i++) {
-    initLayerItem(ui, ui.m.layers[i]);
+    initLayerItem(lp, ui, ui.m.layers[i]);
   }
   ui.m.enforceOrder();
-  syncToggleAll(ui, GROUP.OVERLAY);
-  syncToggleAll(ui, GROUP.BASE);
-  syncNoBasemap(ui);
+  syncToggleAll(lp, ui, GROUP.OVERLAY);
+  syncToggleAll(lp, ui, GROUP.BASE);
+  syncNoBasemap(lp, ui);
   // enforceOrder may have moved rows; keep roving tabindex aligned.
   syncListCursor(ui);
   // Ready signal for tests: checkbox titles / .foliplus-active / counts are final
@@ -68,7 +69,7 @@ const initTypesAndVisibility = (ui: LayerUI) => {
   ui.uiContainer?.setAttribute("data-ready", "true");
 };
 
-const renderInitialList = (ui: LayerUI) => {
+const renderInitialList = (lp: ListPanel, ui: LayerUI) => {
   // Remember the cursor by identity — the item elements are rebuilt below,
   // so an element reference would dangle. Layer rows key on data-layer-id,
   // toggle-all rows on data-group (they have no layer id). The identity also
@@ -82,15 +83,15 @@ const renderInitialList = (ui: LayerUI) => {
   for (const layerInfo of ui.m.layers) {
     if (layerInfo.group !== GROUP.BASE && !hasOverlays) {
       hasOverlays = true;
-      frag.appendChild(renderToggleAllRow(ui, GROUP.OVERLAY, "data_layer_label"));
+      frag.appendChild(renderToggleAllRow(lp, ui, GROUP.OVERLAY, "data_layer_label"));
     }
     if (layerInfo.group === GROUP.BASE && !hasBaseMaps) {
       hasBaseMaps = true;
-      frag.appendChild(renderToggleAllRow(ui, GROUP.BASE, "base_map_label"));
+      frag.appendChild(renderToggleAllRow(lp, ui, GROUP.BASE, "base_map_label"));
     }
     const group = layerInfo.group;
-    const item = renderLayerItem(ui, layerInfo);
-    if (ui.foldedGroups.has(group)) item.classList.add(CONST.CLASSES.GROUP_FOLDED);
+    const item = renderLayerItem(lp, ui, layerInfo);
+    if (lp.foldedGroups.has(group)) item.classList.add(CONST.CLASSES.GROUP_FOLDED);
     frag.appendChild(item);
   }
 
@@ -113,7 +114,7 @@ const renderInitialList = (ui: LayerUI) => {
  *  setIndex, not adopt: callers that already painted FOCUSED (keyboard /
  *  restoreCursor) must keep it; only the pointer path adopts (strips). */
 
-const insertLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
+const insertLayerItem = (lp: ListPanel, ui: LayerUI, layerInfo: LayerInfo) => {
   const idx = ui.m.layerRegistry.indexOf(layerInfo);
   if (idx === -1) return;
   const container = ui.uiContainer;
@@ -129,14 +130,15 @@ const insertLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
   if (!firstOfGroup) {
     frag.appendChild(
       renderToggleAllRow(
+        lp,
         ui,
         group,
         group === GROUP.BASE ? "base_map_label" : "data_layer_label",
       ),
     );
   }
-  const item = renderLayerItem(ui, layerInfo);
-  if (ui.foldedGroups.has(group)) item.classList.add(CONST.CLASSES.GROUP_FOLDED);
+  const item = renderLayerItem(lp, ui, layerInfo);
+  if (lp.foldedGroups.has(group)) item.classList.add(CONST.CLASSES.GROUP_FOLDED);
   frag.appendChild(item);
 
   if (!firstOfGroup) {
@@ -169,13 +171,13 @@ const insertLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
   // apply below, which is the other path that moves this layer. Only this
   // layer's id is applied: a full sweep would re-rewrite every renamed row
   // on each registration.
-  snapshotAuthorVisible(ui, layerInfo);
+  snapshotAuthorVisible(lp, ui, layerInfo);
   ui.applyUserState(layerInfo.id);
   // New row must join the roving tabindex / ARIA set.
   syncListCursor(ui);
 };
 
-const updateLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
+const updateLayerItem = (lp: ListPanel, ui: LayerUI, layerInfo: LayerInfo) => {
   const item = ui.uiContainer.querySelector(
     `[${CONST.DATA.LAYER_ID}="${CSS.escape(layerInfo.id)}"]`,
   ) as HTMLElement | null;
@@ -183,11 +185,16 @@ const updateLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
   // updateItemLabel sets both the row label and the checkbox's aria-label,
   // so the name reaches assistive tech here without touching `title` — the
   // row's tooltip slot keeps the feature count + type.
-  updateItemLabel(item, displayName(ui, layerInfo.id));
+  updateItemLabel(item, displayName(lp, ui, layerInfo.id));
 };
 
-const renderToggleAllRow = (ui: LayerUI, group: string, labelKey: string) => {
-  const isFolded = ui.foldedGroups.has(group);
+const renderToggleAllRow = (
+  lp: ListPanel,
+  ui: LayerUI,
+  group: string,
+  labelKey: string,
+) => {
+  const isFolded = lp.foldedGroups.has(group);
   return dom.el(
     "div",
     {
@@ -228,8 +235,8 @@ const renderToggleAllRow = (ui: LayerUI, group: string, labelKey: string) => {
  *  render time) and refreshed by onLayerItemCountChange.
  *  @param {LayerInfo} layerInfo - Layer metadata.
  *  @returns {HTMLElement} The row element. */
-const renderLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
-  const name = displayName(ui, layerInfo.id);
+const renderLayerItem = (lp: ListPanel, ui: LayerUI, layerInfo: LayerInfo) => {
+  const name = displayName(lp, ui, layerInfo.id);
 
   const typeIconEl = dom.el("div", { class: CONST.CLASSES.TYPE_ICON_COL });
   if (layerInfo.iconSvg) typeIconEl.innerHTML = layerInfo.iconSvg;
@@ -290,15 +297,15 @@ const renderLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
 
 /** Current display name for the virtual color basemap: persisted rename if
  *  present, else the locale label. Name is persisted rename or locale label. */
-const colorLayerName = (ui: LayerUI): string => {
-  return displayName(ui, CONST.SOLID_BASEMAP_ID);
+const colorLayerName = (lp: ListPanel, ui: LayerUI): string => {
+  return displayName(lp, ui, CONST.SOLID_BASEMAP_ID);
 };
 
 /** Initialize one layer row's checkbox + type icon (incremental path).
  *  @returns {boolean} true when the row is a visible base layer. */
-const initLayerItem = (ui: LayerUI, layerInfo: LayerInfo): boolean => {
+const initLayerItem = (lp: ListPanel, ui: LayerUI, layerInfo: LayerInfo): boolean => {
   if (!ui.m.layerRegistry.has(layerInfo.id)) return false;
-  const cell = buildRowCell(ui, layerInfo);
+  const cell = buildRowCell(lp, ui, layerInfo);
   // Resolve the row by data-layer-id: a late registration lands where its
   // stored slot puts it, so the DOM order can diverge from the registry — an
   // index-based lookup would write the checkbox and type column into a
@@ -308,7 +315,7 @@ const initLayerItem = (ui: LayerUI, layerInfo: LayerInfo): boolean => {
   ) as HTMLElement | null;
   if (!item) return false;
 
-  applyRowView(ui, item, cell);
+  applyRowView(lp, ui, item, cell);
   // Map membership was already written by the executor's projection sweep
   // that runs before this row lands, so the visible mirror here matches
   // what the map actually shows.
@@ -319,9 +326,9 @@ const initLayerItem = (ui: LayerUI, layerInfo: LayerInfo): boolean => {
 /** Reindex all layer items after a move, preserving the active focus position.
  *  renderInitialList already re-homes the cursor and restores DOM focus, so
  *  no additional focus work is needed here. */
-const reindexAfterMove = (ui: LayerUI): void => {
-  renderInitialList(ui);
-  initTypesAndVisibility(ui);
+const reindexAfterMove = (lp: ListPanel, ui: LayerUI): void => {
+  renderInitialList(lp, ui);
+  initTypesAndVisibility(lp, ui);
   ui.refreshAllCounts();
 };
 

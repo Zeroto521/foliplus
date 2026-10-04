@@ -210,14 +210,14 @@ const OPACITY_DIMENSION = registerDimension<number>({
     }
     applyProjection(ui, layerId, "debounce");
     const li = ui.m.layerRegistry.get(layerId);
-    if (li?.group === GROUP.BASE) syncNoBasemap(ui);
+    if (li?.group === GROUP.BASE) syncNoBasemap(ui.listPanel, ui);
   },
   /** Cohesive reset: clear the override, save, re-project, hatch sync. */
   reset: (ui, layerId) => {
     resetIntentKeys(ui, layerId, [INTENT.OPACITY]);
     applyProjection(ui, layerId, "debounce");
     const li = ui.m.layerRegistry.get(layerId);
-    if (li?.group === GROUP.BASE) syncNoBasemap(ui);
+    if (li?.group === GROUP.BASE) syncNoBasemap(ui.listPanel, ui);
   },
   valueSource: (ui, layerId) => {
     if (!layerCanOpacity(ui, layerId)) return "none";

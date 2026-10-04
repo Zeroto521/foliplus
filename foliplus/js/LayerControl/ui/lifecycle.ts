@@ -63,12 +63,12 @@ import {
 const attachUI = (ui: LayerUI, containerDiv: HTMLElement): void => {
   ui.m.uiContainer = containerDiv;
   loadPersistedState(ui);
-  renderInitialList(ui);
+  renderInitialList(ui.listPanel, ui);
   bindEvents(ui);
 
   while (ui.m.pendingRegistrations.length) {
     const layerInfo = ui.m.pendingRegistrations.shift();
-    if (layerInfo) insertLayerItem(ui, layerInfo);
+    if (layerInfo) insertLayerItem(ui.listPanel, ui, layerInfo);
   }
   // Snapshot the author's declared default before the first projection.
   // `projectLayer` reads `runtimeStore.getAuthorVisible(id) ?? true` — an absent entry
@@ -78,7 +78,7 @@ const attachUI = (ui: LayerUI, containerDiv: HTMLElement): void => {
   // yet. The snapshot is idempotent, so the later `initTypesAndVisibility`
   // re-runs don't overwrite what we took here.
   for (let i = 0; i < ui.m.layers.length; i++) {
-    snapshotAuthorVisible(ui, ui.m.layers[i]);
+    snapshotAuthorVisible(ui.listPanel, ui, ui.m.layers[i]);
   }
   // Last in the attach sequence: applyUserState() runs the full sweep
   // needed for rows rendered from the initial registry. Hidden ids are
@@ -144,19 +144,19 @@ const bindEvents = (ui: LayerUI): void => {
       // checkbox.checked — the browser resets indeterminate before the change
       // event fires, making it impossible to detect the pre-click state.
       const group = row.dataset.group ?? "";
-      const items = getLayerItems(ui, group);
+      const items = getLayerItems(ui.listPanel, ui, group);
       const noneChecked = Array.from(items).every((item: Element) => {
         const c = item.querySelector(
           'input[type="checkbox"]',
         ) as HTMLInputElement | null;
         return !c || !c.checked;
       });
-      toggleAll(ui, group, noneChecked);
+      toggleAll(ui.listPanel, ui, group, noneChecked);
       return;
     }
-    handleChange(ui, event);
+    handleChange(ui.listPanel, ui, event);
   };
-  ui.onInput = event => handleInput(ui, event);
+  ui.onInput = event => handleInput(ui.listPanel, ui, event);
   ui.onClick = event => {
     const el = event.target as HTMLElement;
     // A press inside a row's floating panel (attributes / style) is the
@@ -292,32 +292,32 @@ const bindEvents = (ui: LayerUI): void => {
   signalHandlers.push(
     bus.on(EVENTS.LAYER_ITEM_ADDED, (payload: { id: string }) => {
       const layerInfo = registry.get(payload.id);
-      if (layerInfo) insertLayerItem(ui, layerInfo);
+      if (layerInfo) insertLayerItem(ui.listPanel, ui, layerInfo);
     }),
     bus.on(EVENTS.LAYER_ITEM_UPDATED, (payload: { id: string }) => {
       const layerInfo = registry.get(payload.id);
       if (!layerInfo) return;
-      updateLayerItem(ui, layerInfo);
+      updateLayerItem(ui.listPanel, ui, layerInfo);
       invalidateFields(ui, payload.id);
     }),
     bus.on(EVENTS.LAYER_ITEM_REFRESHED, (payload: { id: string }) => {
       const layerInfo = registry.get(payload.id);
-      if (layerInfo) initLayerItem(ui, layerInfo);
+      if (layerInfo) initLayerItem(ui.listPanel, ui, layerInfo);
     }),
     bus.on(EVENTS.LAYER_ITEM_REMOVED, (payload: { id: string }) => {
       invalidateFields(ui, payload.id);
       dropStyleDimApplies(payload.id);
     }),
     bus.on(EVENTS.LAYER_GROUP_COUNT_CHANGED, (payload: { group: string }) => {
-      syncToggleAll(ui, payload.group);
+      syncToggleAll(ui.listPanel, ui, payload.group);
     }),
     bus.on(EVENTS.LAYER_LIST_REBUILD, () => {
-      renderInitialList(ui);
-      initTypesAndVisibility(ui);
+      renderInitialList(ui.listPanel, ui);
+      initTypesAndVisibility(ui.listPanel, ui);
       refreshAllCounts(ui);
     }),
     bus.on(EVENTS.LAYER_NO_BASEMAP_CHANGED, () => {
-      syncNoBasemap(ui);
+      syncNoBasemap(ui.listPanel, ui);
     }),
     // Overlay mutual exclusion — each subsystem closes itself when it hears
     // the signal. closeOverlays (teardown.ts) emits this; the subsystem that
@@ -349,7 +349,7 @@ const onLayerItemCountChange = (ui: LayerUI, id: string): void => {
   if (!layerInfo || layerInfo.group === GROUP.BASE) return;
   invalidateFields(ui, id);
 
-  applyRowView(ui, item, buildRowCell(ui, layerInfo));
+  applyRowView(ui.listPanel, ui, item, buildRowCell(ui.listPanel, ui, layerInfo));
 
   // Re-apply the layer's current opacity to the newly-finalized geometry.
   // The panes were painted at full opacity while the preview was live; the
@@ -376,7 +376,12 @@ const refreshAllCounts = (ui: LayerUI): void => {
     const id = item.getAttribute(CONST.DATA.LAYER_ID);
     const layerInfo = id ? ui.m.layerRegistry.get(id) : undefined;
     if (!layerInfo) return;
-    applyRowView(ui, item as HTMLElement, buildRowCell(ui, layerInfo));
+    applyRowView(
+      ui.listPanel,
+      ui,
+      item as HTMLElement,
+      buildRowCell(ui.listPanel, ui, layerInfo),
+    );
   });
 };
 

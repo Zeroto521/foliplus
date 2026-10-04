@@ -10,8 +10,8 @@ import { saveFoldState } from "./state.js";
 const toggleFold = (ui: LayerUI, group: string): void => {
   if (ui.foldedGroups.has(group)) ui.foldedGroups.delete(group);
   else ui.foldedGroups.add(group);
-  renderInitialList(ui);
-  initTypesAndVisibility(ui);
+  renderInitialList(ui.listPanel, ui);
+  initTypesAndVisibility(ui.listPanel, ui);
   ui.refreshAllCounts();
   saveFoldState(ui);
 };

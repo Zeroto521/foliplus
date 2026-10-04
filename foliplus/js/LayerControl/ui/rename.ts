@@ -39,7 +39,7 @@ const renameLayer = (ui: LayerUI, layerId: string): void => {
 
   // displayName resolves rename →registry →the color layer's locale label,
   // so the input opens with the name the UI already shows.
-  const currentName = displayName(ui, layerId);
+  const currentName = displayName(ui.listPanel, ui, layerId);
 
   ui.activeRenameId = layerId;
   // Flag the row so CSS can stretch the input across the label+count area
@@ -117,7 +117,7 @@ const finishRename = (ui: LayerUI, restoreText = true): void => {
   const label = item?.querySelector("label") as HTMLLabelElement | null;
   item?.classList.remove(CONST.CLASSES.RENAMING);
   removeInlineEditInput(label);
-  if (restoreText) updateItemLabel(item, displayName(ui, layerId));
+  if (restoreText) updateItemLabel(item, displayName(ui.listPanel, ui, layerId));
 };
 
 /**

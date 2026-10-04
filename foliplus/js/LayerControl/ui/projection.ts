@@ -45,7 +45,9 @@ const projectLayer = (ui: LayerUI, layerInfo: LayerInfo): Projection => {
   // Policy is independent of intent: focus overrides range, range may
   // exclude, but neither touches the user's stored choice.
   const policy =
-    ui.focusController.focusingLayerId != null ? true : inZoomRange(ui, layerInfo);
+    ui.focusController.focusingLayerId != null
+      ? true
+      : inZoomRange(ui.listPanel, ui, layerInfo);
   const effectiveShown = intent && policy;
 
   // A dimension's value being present is what the sweep has always read as
