@@ -317,48 +317,6 @@ class LayerUI {
   set pressInPanel(v: boolean) {
     this.listPanel.pressInPanel = v;
   }
-  /** Compat getter — real state lives on `focusController.focusRect`. */
-  get focusRect(): L.Layer | null {
-    return this.focusController.focusRect;
-  }
-  set focusRect(v: L.Layer | null) {
-    this.focusController.focusRect = v;
-  }
-  /** Compat getter — real state lives on `focusController.focusingLayerId`. */
-  get focusingLayerId(): string | null {
-    return this.focusController.focusingLayerId;
-  }
-  set focusingLayerId(v: string | null) {
-    this.focusController.focusingLayerId = v;
-  }
-  /** Compat getter — real state lives on `focusController.onFocusMapMove`. */
-  get onFocusMapMove(): (() => void) | null {
-    return this.focusController.onFocusMapMove;
-  }
-  set onFocusMapMove(v: (() => void) | null) {
-    this.focusController.onFocusMapMove = v;
-  }
-  /** Compat getter — real state lives on `focusController.focusMask`. */
-  get focusMask(): L.Polygon | null {
-    return this.focusController.focusMask;
-  }
-  set focusMask(v: L.Polygon | null) {
-    this.focusController.focusMask = v;
-  }
-  /** Compat getter — real state lives on `focusController.focusRenderer`. */
-  get focusRenderer(): L.SVG | null {
-    return this.focusController.focusRenderer;
-  }
-  set focusRenderer(v: L.SVG | null) {
-    this.focusController.focusRenderer = v;
-  }
-  /** Compat getter — real state lives on `focusController.focusedPaneRestores`. */
-  get focusedPaneRestores(): Array<() => void> {
-    return this.focusController.focusedPaneRestores;
-  }
-  set focusedPaneRestores(v: Array<() => void>) {
-    this.focusController.focusedPaneRestores = v;
-  }
 
   constructor(
     manager: LayerManager,
@@ -616,13 +574,13 @@ class LayerUI {
     return finishRename(this, cancel);
   }
   focusLayer(layerId: string) {
-    return focusLayer(this, layerId);
+    return focusLayer(this.focusController, this, layerId);
   }
   isFocusing() {
-    return isFocusing(this);
+    return isFocusing(this.focusController, this);
   }
   cancelFocus() {
-    return cancelFocus(this);
+    return cancelFocus(this.focusController, this);
   }
   // ── focus helpers (also used internally by focus.ts) ──
 }

@@ -42,11 +42,11 @@ describe("makeLayerUIMock — LayerUI field completeness", () => {
     expect(ui.dragIdx).toBeNull();
     expect(ui.activeIdx).toBeNull();
     expect(ui.listCursor).toBeNull();
-    expect(ui.focusRect).toBeNull();
-    expect(ui.focusingLayerId).toBeNull();
+    expect(ui.focusController.focusRect).toBeNull();
+    expect(ui.focusController.focusingLayerId).toBeNull();
     expect(ui.stylePanelLayerId).toBeNull();
     // Arrays
-    expect(ui.focusedPaneRestores).toEqual([]);
+    expect(ui.focusController.focusedPaneRestores).toEqual([]);
     // m getter alias for manager
     (ui as any).manager = { foo: 1 };
     expect((ui as any).m.foo).toBe(1);

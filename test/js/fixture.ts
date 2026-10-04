@@ -347,12 +347,14 @@ export function makeLayerUIMock(extra: Overrides = {}): LayerUI {
     styleZoomEndHandler: null,
     stylePanelLayerId: null,
     pressInPanel: false,
-    focusRect: null,
-    focusingLayerId: null,
-    onFocusMapMove: null,
-    focusMask: null,
-    focusRenderer: null,
-    focusedPaneRestores: [],
+    focusController: {
+      focusRect: null,
+      focusingLayerId: null,
+      onFocusMapMove: null,
+      focusMask: null,
+      focusRenderer: null,
+      focusedPaneRestores: [],
+    },
     ...extra,
   };
   // `m` is a getter alias for `manager` on the real class.

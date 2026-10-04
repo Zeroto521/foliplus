@@ -117,7 +117,7 @@ describe("LayerUI focusLayer — interaction lock", () => {
         expect.any(String),
       );
       expect(map.fitBounds).not.toHaveBeenCalled();
-      expect(ui.focusRect).toBeNull();
+      expect(ui.focusController.focusRect).toBeNull();
       expect(setModeSpy).not.toHaveBeenCalled();
     });
 
@@ -379,7 +379,7 @@ describe("LayerUI focus", () => {
 
       ui.focusLayer("overlay1");
 
-      expect(ui.focusRect).toBeNull();
+      expect(ui.focusController.focusRect).toBeNull();
       expect(map.fitBounds).not.toHaveBeenCalled();
     });
 
@@ -409,7 +409,7 @@ describe("LayerUI focus", () => {
       ui.focusLayer("overlay1");
 
       expect(map.fitBounds).toHaveBeenCalled();
-      expect(ui.focusRect).not.toBeNull();
+      expect(ui.focusController.focusRect).not.toBeNull();
     });
 
     it("focuses a canvas layer via its getBounds provider", () => {
@@ -430,7 +430,7 @@ describe("LayerUI focus", () => {
       ui.focusLayer("heat1");
 
       expect(map.fitBounds).toHaveBeenCalled();
-      expect(ui.focusRect).not.toBeNull();
+      expect(ui.focusController.focusRect).not.toBeNull();
       // Glow applied via class (CSS-owned), not an inline filter — keeps it
       // at pane/element level so dense layers stay cheap.
       expect(canvas.classList.contains(CONST.CLASSES.FOCUS_GLOW)).toBe(true);
@@ -441,7 +441,7 @@ describe("LayerUI focus", () => {
 
       ui.focusLayer("overlay1");
 
-      expect(ui.focusRect).toBeNull();
+      expect(ui.focusController.focusRect).toBeNull();
       expect(map.fitBounds).not.toHaveBeenCalled();
     });
 
@@ -468,27 +468,27 @@ describe("LayerUI focus", () => {
         expect.any(Number),
       );
       expect(map.fitBounds).not.toHaveBeenCalled();
-      expect(ui.focusRect).toBeNull();
+      expect(ui.focusController.focusRect).toBeNull();
     });
 
     it("removes the previous focus rectangle before drawing a new one", () => {
       vi.useFakeTimers();
 
       ui.focusLayer("overlay1");
-      const firstRect = ui.focusRect!;
+      const firstRect = ui.focusController.focusRect!;
 
       ui.focusLayer("overlay1");
 
       expect(map.removeLayer).toHaveBeenCalledWith(firstRect);
-      expect(ui.focusRect).not.toBeNull();
-      expect(ui.focusRect).not.toBe(firstRect);
+      expect(ui.focusController.focusRect).not.toBeNull();
+      expect(ui.focusController.focusRect).not.toBe(firstRect);
     });
 
     it("removes the focus rectangle after FOCUS.RECT_DURATION_MS", () => {
       vi.useFakeTimers();
 
       ui.focusLayer("overlay1");
-      const rect = ui.focusRect!;
+      const rect = ui.focusController.focusRect!;
       const duration = CONST.FOCUS.RECT_DURATION_MS;
 
       vi.advanceTimersByTime(duration - 1);
@@ -496,7 +496,7 @@ describe("LayerUI focus", () => {
 
       vi.advanceTimersByTime(1);
       expect(map.removeLayer).toHaveBeenCalledWith(rect);
-      expect(ui.focusRect).toBeNull();
+      expect(ui.focusController.focusRect).toBeNull();
     });
 
     it("does not remove a replaced focus rectangle at the 5s timeout", () => {
@@ -504,7 +504,7 @@ describe("LayerUI focus", () => {
 
       ui.focusLayer("overlay1");
       ui.focusLayer("overlay1");
-      const finalRect = ui.focusRect!;
+      const finalRect = ui.focusController.focusRect!;
       // The first rect was removed synchronously; the second's 5s timer
       // should only remove `finalRect`.
       vi.advanceTimersByTime(CONST.FOCUS.RECT_DURATION_MS + 1);
@@ -552,7 +552,7 @@ describe("LayerUI focus", () => {
       vi.useFakeTimers();
 
       ui.focusLayer("overlay1");
-      const rect = ui.focusRect!;
+      const rect = ui.focusController.focusRect!;
       const item = findItem(ui, "overlay1");
       expect(item.classList.contains("foliplus-is-focusing")).toBe(true);
 
@@ -563,7 +563,7 @@ describe("LayerUI focus", () => {
       ui.cancelFocus();
 
       expect(map.removeLayer).toHaveBeenCalledWith(rect);
-      expect(ui.focusRect).toBeNull();
+      expect(ui.focusController.focusRect).toBeNull();
       expect(item.classList.contains("foliplus-is-focusing")).toBe(false);
       expect(hintSpy).toHaveBeenCalledWith(
         "LayerControl",
@@ -637,8 +637,8 @@ describe("LayerUI focus", () => {
 
     it("cancelFocus removes the mask and the shared renderer", () => {
       ui.focusLayer("overlay1");
-      const mask = ui.focusMask!;
-      const renderer = ui.focusRenderer!;
+      const mask = ui.focusController.focusMask!;
+      const renderer = ui.focusController.focusRenderer!;
 
       ui.cancelFocus();
 
@@ -648,8 +648,8 @@ describe("LayerUI focus", () => {
       // focusing A then B showed two boxes (stale A mask + new B mask). A fresh
       // renderer per focus guarantees a clean slate.
       expect(map.removeLayer).toHaveBeenCalledWith(renderer);
-      expect(ui.focusMask).toBeNull();
-      expect(ui.focusRenderer).toBeNull();
+      expect(ui.focusController.focusMask).toBeNull();
+      expect(ui.focusController.focusRenderer).toBeNull();
     });
 
     it("focusing A then B removes A's mask and rect (no stale box)", () => {
@@ -658,15 +658,15 @@ describe("LayerUI focus", () => {
       // A then B showed two boxes (stale A mask + new B mask). Each focus must
       // tear down the prior mask/rect + renderer.
       ui.focusLayer("overlay1");
-      const firstMask = ui.focusMask!;
-      const firstRect = ui.focusRect!;
+      const firstMask = ui.focusController.focusMask!;
+      const firstRect = ui.focusController.focusRect!;
 
       ui.focusLayer("overlay1"); // same layer — dismissFocus runs first
 
       expect(map.removeLayer).toHaveBeenCalledWith(firstMask);
       expect(map.removeLayer).toHaveBeenCalledWith(firstRect);
-      expect(ui.focusMask).not.toBe(firstMask);
-      expect(ui.focusRect).not.toBe(firstRect);
+      expect(ui.focusController.focusMask).not.toBe(firstMask);
+      expect(ui.focusController.focusRect).not.toBe(firstRect);
     });
 
     it("rapid clicks across different layers leave only the last mask + rect", () => {
@@ -687,13 +687,13 @@ describe("LayerUI focus", () => {
       });
 
       ui.focusLayer("overlay1");
-      const firstMask = ui.focusMask!;
+      const firstMask = ui.focusController.focusMask!;
       ui.focusLayer("overlay2"); // immediate second focus on a different layer
 
       // The first mask is removed and the hole is now overlay2's bounds.
       expect(map.removeLayer).toHaveBeenCalledWith(firstMask);
-      expect(ui.focusMask).not.toBe(firstMask);
-      expect(ui.focusingLayerId).toBe("overlay2");
+      expect(ui.focusController.focusMask).not.toBe(firstMask);
+      expect(ui.focusController.focusingLayerId).toBe("overlay2");
       // A single mask exists (fresh renderer each focus), hole = overlay2 SW.
       // The mask is the polygon call whose rings carry the hole (2 rings);
       // the latest one is overlay2's.
@@ -708,9 +708,9 @@ describe("LayerUI focus", () => {
 
       // And it still tears down cleanly.
       ui.cancelFocus();
-      expect(ui.focusMask).toBeNull();
-      expect(ui.focusRect).toBeNull();
-      expect(ui.focusRenderer).toBeNull();
+      expect(ui.focusController.focusMask).toBeNull();
+      expect(ui.focusController.focusRect).toBeNull();
+      expect(ui.focusController.focusRenderer).toBeNull();
     });
 
     it("does not draw a mask for single-point (flyTo) layers", () => {
@@ -1499,7 +1499,7 @@ describe("LayerUI focus", () => {
       vi.useFakeTimers();
 
       ui.focusLayer("overlay1");
-      const rect = ui.focusRect!;
+      const rect = ui.focusController.focusRect!;
 
       const moveHandler = getMoveendHandler();
       expect(typeof moveHandler).toBe("function");
@@ -1507,14 +1507,14 @@ describe("LayerUI focus", () => {
       moveHandler(); // fires moveend → grace period starts
 
       // Immediately after: still within grace, rect should NOT be removed.
-      expect(ui.focusRect).toBe(rect);
+      expect(ui.focusController.focusRect).toBe(rect);
       vi.advanceTimersByTime(CONST.FOCUS.RECT_DURATION_MS * 0.29);
-      expect(ui.focusRect).toBe(rect);
+      expect(ui.focusController.focusRect).toBe(rect);
 
       // After grace window: rect is auto-removed.
       vi.advanceTimersByTime(CONST.FOCUS.RECT_DURATION_MS * 0.02);
       expect(map.removeLayer).toHaveBeenCalledWith(rect);
-      expect(ui.focusRect).toBeNull();
+      expect(ui.focusController.focusRect).toBeNull();
     });
 
     it("does NOT auto-cancel when focusingLayerId changes (new focus started)", () => {
@@ -1538,7 +1538,7 @@ describe("LayerUI focus", () => {
       vi.useFakeTimers();
 
       ui.focusLayer("overlay1");
-      const rect = ui.focusRect!;
+      const rect = ui.focusController.focusRect!;
 
       const zoomHandler = getZoomendHandler();
       expect(typeof zoomHandler).toBe("function");
@@ -1547,7 +1547,7 @@ describe("LayerUI focus", () => {
       vi.advanceTimersByTime(CONST.FOCUS.RECT_DURATION_MS * 0.31);
 
       expect(map.removeLayer).toHaveBeenCalledWith(rect);
-      expect(ui.focusRect).toBeNull();
+      expect(ui.focusController.focusRect).toBeNull();
     });
   });
 
@@ -1593,12 +1593,12 @@ describe("LayerUI focus", () => {
     it("removes the active focus rectangle", () => {
       vi.useFakeTimers();
       ui.focusLayer("overlay1");
-      const rect = ui.focusRect!;
+      const rect = ui.focusController.focusRect!;
 
       manager.destroy();
 
       expect(map.removeLayer).toHaveBeenCalledWith(rect);
-      expect(ui.focusRect).toBeNull();
+      expect(ui.focusController.focusRect).toBeNull();
     });
 
     it("removes the active overflow menu", () => {
@@ -1617,12 +1617,12 @@ describe("LayerUI focus", () => {
 
       const item = findItem(ui, "overlay1");
       ui.focusLayer("overlay1");
-      const rect = ui.focusRect!;
+      const rect = ui.focusController.focusRect!;
 
       // Opening the menu tears the focus down — the surfaces are mutually
       // exclusive — so the rectangle is already gone when destroy() runs.
       ui.openMoreMenu(item);
-      expect(ui.focusRect).toBeNull();
+      expect(ui.focusController.focusRect).toBeNull();
       expect(map.removeLayer).toHaveBeenCalledWith(rect);
 
       // The removal belongs to the opener boundary, so clear the spy before
@@ -1637,13 +1637,13 @@ describe("LayerUI focus", () => {
 
     it("releases the focus SVG renderer so it does not leak", () => {
       ui.focusLayer("overlay1");
-      const renderer = ui.focusRenderer!;
+      const renderer = ui.focusController.focusRenderer!;
       expect(renderer).not.toBeNull();
 
       manager.destroy();
 
       expect(map.removeLayer).toHaveBeenCalledWith(renderer);
-      expect(ui.focusRenderer).toBeNull();
+      expect(ui.focusController.focusRenderer).toBeNull();
     });
   });
 
@@ -1692,17 +1692,25 @@ describe("LayerUI focus", () => {
     };
 
     it("returns undefined for a visible row, and for a row without a checkbox", () => {
-      expect(focusDisabledReason(ui, row({ checked: true }))).toBeUndefined();
-      expect(focusDisabledReason(ui, row())).toBeUndefined();
+      expect(
+        focusDisabledReason(ui.focusController, ui, row({ checked: true })),
+      ).toBeUndefined();
+      expect(focusDisabledReason(ui.focusController, ui, row())).toBeUndefined();
     });
 
     it("returns 'base' for a color-picker or basemap row", () => {
-      expect(focusDisabledReason(ui, row({ color: true }))).toBe("base");
-      expect(focusDisabledReason(ui, row({ type: GROUP.BASE }))).toBe("base");
+      expect(focusDisabledReason(ui.focusController, ui, row({ color: true }))).toBe(
+        "base",
+      );
+      expect(
+        focusDisabledReason(ui.focusController, ui, row({ type: GROUP.BASE })),
+      ).toBe("base");
     });
 
     it("returns 'hidden' for a hidden row", () => {
-      expect(focusDisabledReason(ui, row({ checked: false }))).toBe("hidden");
+      expect(focusDisabledReason(ui.focusController, ui, row({ checked: false }))).toBe(
+        "hidden",
+      );
     });
 
     it("returns 'hidden' for an unchecked basemap row — same rule as data rows", () => {
@@ -1710,17 +1718,35 @@ describe("LayerUI focus", () => {
       // not the row is on. Consulted first (as they once were) they would let
       // an off basemap keep an enabled Style entry, so the unchecked check has
       // to come ahead of them.
-      expect(focusDisabledReason(ui, row({ type: GROUP.BASE, checked: false }))).toBe(
-        "hidden",
-      );
-      expect(focusDisabledReason(ui, row({ color: true, checked: false }))).toBe(
-        "hidden",
-      );
+      expect(
+        focusDisabledReason(
+          ui.focusController,
+          ui,
+          row({ type: GROUP.BASE, checked: false }),
+        ),
+      ).toBe("hidden");
+      expect(
+        focusDisabledReason(
+          ui.focusController,
+          ui,
+          row({ color: true, checked: false }),
+        ),
+      ).toBe("hidden");
       // A checked basemap keeps the basemap verdict: no extent to focus on.
-      expect(focusDisabledReason(ui, row({ type: GROUP.BASE, checked: true }))).toBe(
-        "base",
-      );
-      expect(focusDisabledReason(ui, row({ color: true, checked: true }))).toBe("base");
+      expect(
+        focusDisabledReason(
+          ui.focusController,
+          ui,
+          row({ type: GROUP.BASE, checked: true }),
+        ),
+      ).toBe("base");
+      expect(
+        focusDisabledReason(
+          ui.focusController,
+          ui,
+          row({ color: true, checked: true }),
+        ),
+      ).toBe("base");
     });
 
     it("returns 'no_bounds' when the surface reports capabilities.bounds false", () => {
@@ -1730,7 +1756,7 @@ describe("LayerUI focus", () => {
       vi.spyOn(ui.m, "surfaceFor").mockReturnValue({
         capabilities: { bounds: false } as never,
       });
-      expect(focusDisabledReason(ui, item)).toBe("no_bounds");
+      expect(focusDisabledReason(ui.focusController, ui, item)).toBe("no_bounds");
     });
 
     it("returns undefined for a row whose surface has bounds", () => {
@@ -1740,13 +1766,13 @@ describe("LayerUI focus", () => {
       vi.spyOn(ui.m, "surfaceFor").mockReturnValue({
         capabilities: { bounds: true } as never,
       });
-      expect(focusDisabledReason(ui, item)).toBeUndefined();
+      expect(focusDisabledReason(ui.focusController, ui, item)).toBeUndefined();
     });
 
     it("returns undefined when no layer is registered (first post-attach pass)", () => {
       const item = row({ checked: true, layerId: "unknown" });
       vi.spyOn(ui.m.layerRegistry, "get").mockReturnValue(undefined);
-      expect(focusDisabledReason(ui, item)).toBeUndefined();
+      expect(focusDisabledReason(ui.focusController, ui, item)).toBeUndefined();
     });
 
     it("maps each reason to the locale key its tooltip and hint read", () => {
@@ -1759,21 +1785,21 @@ describe("LayerUI focus", () => {
       const hintSpy = vi.fn();
       map.foliplus.showHint = hintSpy;
 
-      showFocusDisabledHint(ui, "base");
+      showFocusDisabledHint(ui.focusController, ui, "base");
       expect(hintSpy).toHaveBeenCalledWith(
         "LayerControl",
         "LayerControl.focus_layer_base",
         expect.any(Number),
       );
 
-      showFocusDisabledHint(ui, "hidden");
+      showFocusDisabledHint(ui.focusController, ui, "hidden");
       expect(hintSpy).toHaveBeenCalledWith(
         "LayerControl",
         "LayerControl.focus_layer_hidden",
         expect.any(Number),
       );
 
-      showFocusDisabledHint(ui, "no_bounds");
+      showFocusDisabledHint(ui.focusController, ui, "no_bounds");
       expect(hintSpy).toHaveBeenCalledWith(
         "LayerControl",
         "LayerControl.focus_layer_no_bounds",
@@ -1785,7 +1811,7 @@ describe("LayerUI focus", () => {
   describe("toggleFocusedLayer()", () => {
     it("no-ops when the keyboard cursor points at no row", () => {
       ui.activeIdx = null;
-      expect(() => toggleFocusedLayer(ui)).not.toThrow();
+      expect(() => toggleFocusedLayer(ui.focusController, ui)).not.toThrow();
     });
 
     it("no-ops when the active row carries no checkbox", () => {
@@ -1800,7 +1826,7 @@ describe("LayerUI focus", () => {
       const changes = vi.fn();
       document.addEventListener("change", changes);
       try {
-        toggleFocusedLayer(ui);
+        toggleFocusedLayer(ui.focusController, ui);
         expect(changes).not.toHaveBeenCalled();
       } finally {
         document.removeEventListener("change", changes);
@@ -1816,7 +1842,7 @@ describe("LayerUI focus", () => {
 
       box.checked = true;
       try {
-        toggleFocusedLayer(ui);
+        toggleFocusedLayer(ui.focusController, ui);
         expect(box.checked).toBe(false);
         expect(changes).toHaveBeenCalledTimes(1);
       } finally {
@@ -1829,7 +1855,9 @@ describe("LayerUI focus", () => {
   describe("computeLayerBounds()", () => {
     it("returns the layer's own bounds when they are valid", () => {
       const b = layerBounds();
-      expect(computeLayerBounds(ui, { getBounds: () => b } as any)).toBe(b);
+      expect(
+        computeLayerBounds(ui.focusController, ui, { getBounds: () => b } as any),
+      ).toBe(b);
     });
 
     it("sums the leaf bounds when the layer has no getBounds(), skipping invalid leaves", () => {
@@ -1841,31 +1869,33 @@ describe("LayerUI focus", () => {
         }),
       };
 
-      const out = computeLayerBounds(ui, layer as any);
+      const out = computeLayerBounds(ui.focusController, ui, layer as any);
       expect(out).not.toBeNull();
       expect(out!.isValid()).toBe(true);
       expect(out!.getSouthWest()).toEqual({ lat: 30, lng: 100 });
     });
 
     it("returns null when no leaf yields valid bounds", () => {
-      expect(computeLayerBounds(ui, { eachLayer: vi.fn() } as any)).toBeNull();
+      expect(
+        computeLayerBounds(ui.focusController, ui, { eachLayer: vi.fn() } as any),
+      ).toBeNull();
     });
   });
 
   describe("focus overlay drawing", () => {
     it("creates the SVG renderer once and reuses it for the next mask", () => {
-      drawFocusMask(ui, layerBounds());
-      const renderer = ui.focusRenderer!;
+      drawFocusMask(ui.focusController, ui, layerBounds());
+      const renderer = ui.focusController.focusRenderer!;
       expect(renderer).not.toBeNull();
 
-      drawFocusMask(ui, layerBounds());
-      expect(ui.focusRenderer).toBe(renderer);
+      drawFocusMask(ui.focusController, ui, layerBounds());
+      expect(ui.focusController.focusRenderer).toBe(renderer);
     });
 
     it("omits the renderer from the rect options when none is active", () => {
-      expect(ui.focusRenderer).toBeNull();
+      expect(ui.focusController.focusRenderer).toBeNull();
 
-      drawFocusRect(ui, layerBounds());
+      drawFocusRect(ui.focusController, ui, layerBounds());
 
       // The rounded marquee is the polygon call with the focus-rect class.
       const rectCall = (window.L.polygon as ReturnType<typeof vi.fn>).mock.calls.find(
@@ -1886,42 +1916,42 @@ describe("LayerUI focus", () => {
 
     it("ignores map navigation once another focus has superseded this one", () => {
       vi.useFakeTimers();
-      registerAutoCancel(ui, "overlay1");
+      registerAutoCancel(ui.focusController, ui, "overlay1");
       // Mark the focus as already discarded so the callback has nothing to clean.
-      ui.focusMask = { _options: {} } as any;
-      ui.focusingLayerId = "overlay2";
+      ui.focusController.focusMask = { _options: {} } as any;
+      ui.focusController.focusingLayerId = "overlay2";
 
       moveendHandler()!();
       vi.advanceTimersByTime(CONST.FOCUS.RECT_DURATION_MS + 1);
 
-      expect(ui.focusingLayerId).toBe("overlay2");
-      expect(ui.focusMask).not.toBeNull();
+      expect(ui.focusController.focusingLayerId).toBe("overlay2");
+      expect(ui.focusController.focusMask).not.toBeNull();
     });
 
     it("does not dismiss a focus superseded during the grace window", () => {
       vi.useFakeTimers();
-      registerAutoCancel(ui, "overlay1");
-      ui.focusMask = { _options: {} } as any;
+      registerAutoCancel(ui.focusController, ui, "overlay1");
+      ui.focusController.focusMask = { _options: {} } as any;
       moveendHandler()!();
-      ui.focusingLayerId = "overlay2";
+      ui.focusController.focusingLayerId = "overlay2";
 
       vi.advanceTimersByTime(CONST.FOCUS.RECT_DURATION_MS + 1);
 
-      expect(ui.focusingLayerId).toBe("overlay2");
-      expect(ui.focusMask).not.toBeNull();
+      expect(ui.focusController.focusingLayerId).toBe("overlay2");
+      expect(ui.focusController.focusMask).not.toBeNull();
     });
   });
 
   describe("highlightFocusedRow()", () => {
     it("clears the previous highlight without adopting the new row when it is null", () => {
       const item = findItem(ui, "overlay1");
-      highlightFocusedRow(ui, item, "overlay1");
+      highlightFocusedRow(ui.focusController, ui, item, "overlay1");
       expect(item.classList.contains(CONST.CLASSES.FOCUSING)).toBe(true);
 
-      highlightFocusedRow(ui, null, "overlay2");
+      highlightFocusedRow(ui.focusController, ui, null, "overlay2");
 
       expect(item.classList.contains(CONST.CLASSES.FOCUSING)).toBe(false);
-      expect(ui.focusingLayerId).toBe("overlay1");
+      expect(ui.focusController.focusingLayerId).toBe("overlay1");
     });
   });
 
@@ -1940,7 +1970,7 @@ describe("LayerUI focus", () => {
 
     it("lifts the canvas directly when the layer has no pane of its own", () => {
       const { info, canvas } = heatInfo();
-      bringFocusedLayerToFront(ui, info);
+      bringFocusedLayerToFront(ui.focusController, ui, info);
 
       expect(canvas.style.zIndex).toBe(String(focusLayerZ()));
       expect(canvas.classList.contains(CONST.CLASSES.FOCUS_PANE)).toBe(true);
@@ -1954,7 +1984,7 @@ describe("LayerUI focus", () => {
         name === "missing-pane" ? undefined : realGetPane(name),
       );
 
-      bringFocusedLayerToFront(ui, info);
+      bringFocusedLayerToFront(ui.focusController, ui, info);
 
       expect(canvas.classList.contains(CONST.CLASSES.FOCUS_PANE)).toBe(true);
       expect(canvas.style.zIndex).toBe(String(focusLayerZ()));
@@ -1972,22 +2002,22 @@ describe("LayerUI focus", () => {
       map.getPane = vi.fn((name: string) =>
         name === "missing-pane" ? undefined : realGetPane(name),
       );
-      bringFocusedLayerToFront(ui, {
+      bringFocusedLayerToFront(ui.focusController, ui, {
         id: "none",
         name: "N",
         group: "overlay",
         paneName: "missing-pane",
       } as LayerInfo);
-      expect(ui.focusedPaneRestores).toHaveLength(LADDER_PANES);
+      expect(ui.focusController.focusedPaneRestores).toHaveLength(LADDER_PANES);
     });
 
     it("lifts nothing of the layer when it has neither pane nor canvas", () => {
-      bringFocusedLayerToFront(ui, {
+      bringFocusedLayerToFront(ui.focusController, ui, {
         id: "none",
         name: "N",
         group: "overlay",
       } as LayerInfo);
-      expect(ui.focusedPaneRestores).toHaveLength(LADDER_PANES);
+      expect(ui.focusController.focusedPaneRestores).toHaveLength(LADDER_PANES);
     });
   });
 });

@@ -173,7 +173,7 @@ describe("buildRowCell + applyRowView (one writer per row)", () => {
       initialZoom: 5,
       seed: { layers: { overlay1: { overrides: ["zoomRange"], zoomRange: [10, 18] } } },
     });
-    ui.focusingLayerId = "overlay1";
+    ui.focusController.focusingLayerId = "overlay1";
     const cellInfo = buildRowCell(ui, overlay(ui));
     expect(cellInfo.checked).toBe(true);
     expect(cellInfo.shown).toBe(true);
@@ -330,7 +330,7 @@ describe("applyRowView (the single DOM write point)", () => {
       renamedNames: {},
       intentStore: new LayerIntentStore(),
       runtimeStore: new LayerRuntimeStore(),
-      focusingLayerId: null,
+      focusController: { focusingLayerId: null },
       T: (k: string) => k,
       config: { locale_code: "en" },
     } as unknown as LayerUI;

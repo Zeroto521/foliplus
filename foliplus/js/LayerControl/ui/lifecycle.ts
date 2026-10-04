@@ -329,7 +329,7 @@ const bindEvents = (ui: LayerUI): void => {
     bus.on(EVENTS.OVERLAY_CLEAR, () => closeStylePanel(ui, false)),
     bus.on(EVENTS.OVERLAY_CLEAR, () => finishRename(ui)),
     bus.on(EVENTS.OVERLAY_CLEAR, () => {
-      if (ui.isFocusing()) dismissFocus(ui);
+      if (ui.isFocusing()) dismissFocus(ui.focusController, ui);
     }),
   );
   ui.unsubscribeLayerSignals = signalHandlers;
@@ -392,7 +392,7 @@ const unbindEvents = (ui: LayerUI): void => {
   closeStylePanel(ui, false);
   finishRename(ui, true);
   // Remove any focus animation still in flight (rect + row highlight).
-  dismissFocus(ui);
+  dismissFocus(ui.focusController, ui);
   if (ui.onChange) container.removeEventListener("change", ui.onChange);
   if (ui.onInput) container.removeEventListener("input", ui.onInput);
   if (ui.onClick) container.removeEventListener("click", ui.onClick);

@@ -398,12 +398,12 @@ describe("LayerUI keyboard", () => {
 
       ui.focusLayer("overlay1");
       expect(ui.isFocusing()).toBe(true);
-      expect(ui.focusMask).not.toBeNull();
+      expect(ui.focusController.focusMask).not.toBeNull();
 
       pressKey(overlay, "Escape");
 
       expect(ui.isFocusing()).toBe(false);
-      expect(ui.focusMask).toBeNull();
+      expect(ui.focusController.focusMask).toBeNull();
       expect(
         ui.uiContainer.querySelectorAll(`.${CONST.CLASSES.FOCUSING}`),
       ).toHaveLength(0);

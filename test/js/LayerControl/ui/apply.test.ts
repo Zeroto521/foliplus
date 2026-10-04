@@ -1034,7 +1034,7 @@ describe("executor: the branches behind the gates", () => {
     const bare = {
       intentStore: new LayerIntentStore(),
       runtimeStore: new LayerRuntimeStore(),
-      focusingLayerId: null,
+      focusController: { focusingLayerId: null },
       m: {
         layerRegistry: {
           get: vi.fn(() => ({ id: "n", layer: { options: {} } })),
@@ -1195,7 +1195,7 @@ describe("membership invariants: only intent + author snapshot authorise members
 
     setIntent(ui, "hidden", "visible", false);
     ui.intentStore.seedProvenance("hidden", ["visible"]);
-    ui.focusingLayerId = null; // policy permissive
+    ui.focusController.focusingLayerId = null; // policy permissive
 
     applyProjectionAll(ui);
     expect(map.addLayer).not.toHaveBeenCalled();
@@ -1210,7 +1210,7 @@ describe("membership invariants: only intent + author snapshot authorise members
     const { map, ui } = bootUnobserved("p");
     setIntent(ui, "p", "visible", false);
     ui.intentStore.seedProvenance("p", ["visible"]);
-    ui.focusingLayerId = null;
+    ui.focusController.focusingLayerId = null;
 
     applyProjectionAll(ui);
     expect(map.addLayer).not.toHaveBeenCalled();

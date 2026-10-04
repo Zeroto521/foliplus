@@ -49,7 +49,7 @@ const mockUI: LayerUI = {
   stylePanelLayerId: null,
   styleOutsideHandler: null,
   pressInPanel: false,
-  focusingLayerId: null,
+  focusController: { focusingLayerId: null },
   styleUnsubscribe: null,
   styleRefresh: null,
   styleZoomEndHandler: null,
@@ -82,10 +82,10 @@ describe("computeEffectiveShown", () => {
 
   it("returns true when focus is active, even out of range", () => {
     setIntent(mockUI, "layer1", "zoomRange", [0, 5]);
-    mockUI.focusingLayerId = "focus";
+    mockUI.focusController.focusingLayerId = "focus";
     const result = projectLayer(mockUI, makeLayerInfo("layer1")).effectiveShown;
     expect(result).toBe(true);
-    mockUI.focusingLayerId = null;
+    mockUI.focusController.focusingLayerId = null;
     clearIntent(mockUI, "layer1", "zoomRange");
   });
 

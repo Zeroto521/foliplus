@@ -1667,6 +1667,7 @@ describe("LayerManager", () => {
             m: manager,
             uiContainer: manager.uiContainer,
             renamedNames: {},
+            focusController: { focusingLayerId: null },
             intentStore: makeStore({ heat: { opacity: 0.4 } }, { heat: ["opacity"] }),
             runtimeStore: new LayerRuntimeStore(),
           } as any,

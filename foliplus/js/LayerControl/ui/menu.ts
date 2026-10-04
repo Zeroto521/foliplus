@@ -50,7 +50,7 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   // Focus-layer is disabled for basemaps (no useful extent), hidden rows, and
   // layers whose surface reports no bounds carrier. The disabled li carries
   // cursor: not-allowed (common menu CSS) and the reason as its tooltip.
-  const focusReason = focusDisabledReason(ui, item);
+  const focusReason = focusDisabledReason(ui.focusController, ui, item);
   const focusDisabled = focusReason !== undefined;
   const focusDisabledTitle =
     focusReason !== undefined

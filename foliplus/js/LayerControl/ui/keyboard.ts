@@ -416,7 +416,7 @@ const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
         break;
       }
       event.preventDefault();
-      toggleFocusedLayer(ui);
+      toggleFocusedLayer(ui.focusController, ui);
       break;
     }
   }
@@ -477,7 +477,7 @@ const handleDblClick = (ui: LayerUI, event: MouseEvent): void => {
   // silently ignoring the double-click. Hidden layers ARE passed through:
   // focusLayer shows the "hidden" hint for them.
   if (item.dataset.layerType === GROUP.BASE) {
-    showFocusDisabledHint(ui, "base");
+    showFocusDisabledHint(ui.focusController, ui, "base");
     return;
   }
   const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
