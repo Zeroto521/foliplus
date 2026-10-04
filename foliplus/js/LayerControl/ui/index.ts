@@ -8,15 +8,13 @@ import {
   LayerRuntimeStore,
 } from "#core/layer/index.js";
 import { ListCursor } from "#core/listCursor.js";
-import { ListPanel } from "./listPanel.js";
-import { OverlayPanel } from "./overlayPanel.js";
-import { FocusController } from "./focusController.js";
 import * as CONST from "../const.js";
 import type { LayerManager } from "../manager.js";
 import { applyProjection, applyProjectionAll } from "./apply.js";
 import { closeAttrsPanel, openAttrsPanel } from "./attr.js";
 import { hideSolidBasemap, resetSolidBasemap, showSolidBasemap } from "./color.js";
 import { cancelFocus, focusLayer, isFocusing } from "./focus.js";
+import { FocusController } from "./focusController.js";
 import {
   blurActiveItem,
   clearActiveItem,
@@ -42,7 +40,9 @@ import {
   renderInitialList,
   updateLayerItem,
 } from "./list.js";
+import { ListPanel } from "./listPanel.js";
 import { closeMoreMenu, openMoreMenu } from "./menu.js";
+import { OverlayPanel } from "./overlayPanel.js";
 import { intentVisibleOf } from "./projection.js";
 import { finishRename, renameLayer } from "./rename.js";
 import { applyRowView, buildRowCell, displayName } from "./rowView.js";
@@ -235,11 +235,13 @@ class LayerUI {
   } | null {
     return this.overlayPanel.activeMenu;
   }
-  set activeMenu(v: {
-    item: HTMLElement;
-    menu: HTMLElement;
-    layerId: string;
-  } | null) {
+  set activeMenu(
+    v: {
+      item: HTMLElement;
+      menu: HTMLElement;
+      layerId: string;
+    } | null,
+  ) {
     this.overlayPanel.activeMenu = v;
   }
   /** Compat getter — real state lives on `overlayPanel.activeAttrsPanel`. */
@@ -250,11 +252,13 @@ class LayerUI {
   } | null {
     return this.overlayPanel.activeAttrsPanel;
   }
-  set activeAttrsPanel(v: {
-    item: HTMLElement;
-    panel: HTMLElement;
-    layerId: string;
-  } | null) {
+  set activeAttrsPanel(
+    v: {
+      item: HTMLElement;
+      panel: HTMLElement;
+      layerId: string;
+    } | null,
+  ) {
     this.overlayPanel.activeAttrsPanel = v;
   }
   /** Compat getter — real state lives on `overlayPanel.attrsOutsideHandler`. */

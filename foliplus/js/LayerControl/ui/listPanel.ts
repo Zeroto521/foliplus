@@ -12,8 +12,8 @@
 // keyboard.ts). Cross-subsystem code takes LayerUI and reaches into
 // `ui.listPanel.*` directly.
 import { type EventBus } from "#core/event/index.js";
-import { type LayerManager } from "../manager.js";
 import type { ListCursor } from "#core/listCursor.js";
+import { type LayerManager } from "../manager.js";
 
 const NO_OP_ENV: { T: (key: string) => string; _: (key: string) => string } = {
   T: key => `LayerControl.${key}`,
