@@ -842,7 +842,12 @@ describe("LayerFactory", () => {
       const api = factory.createCanvas({ id: "canvas_test", name: "My Canvas" });
       api.register();
       expect(registerLayer).toHaveBeenCalledWith(
-        expect.objectContaining({ id: "canvas_test", name: "My Canvas" }),
+        expect.objectContaining({
+          id: "canvas_test",
+          name: "My Canvas",
+          group: "overlay",
+          kind: "canvas",
+        }),
       );
     });
 

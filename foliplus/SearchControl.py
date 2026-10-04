@@ -51,11 +51,14 @@ class CustomProvider(_CustomProviderRequired, total=False):
     normalize: Mapping[str, str]
 
 
-# Shape descriptor for the emitted ``ProviderConfig`` alias. Mirrors the TS
-# interface in #core/geocode/type.js (which this PR replaces). The ``"*"``
-# key marks a ``Record<string, V>``; ``(X, "?")`` marks an optional field.
+# Shape descriptor for the emitted ``ProviderConfig`` alias — the single
+# source for the declarative custom-provider config that
+# ``providerFromConfig()`` consumes. The ``"*"`` key marks a
+# ``Record<string, V>``; ``(X, "?")`` marks an optional field.
 # ``ProviderEndpoint`` (``suggest`` / ``search`` / ``reverse``) is inlined
-# to keep the descriptor flat.
+# to keep the descriptor flat. ``params`` is the primitive union
+# ``("string", "number")``: ``withParams()`` accepts both, so narrowing it to
+# strings would reject a numeric value the runtime already handles.
 _PROVIDER_CONFIG_SHAPE = {
     "id": "string",
     "baseUrl": ("string", "?"),
@@ -64,21 +67,21 @@ _PROVIDER_CONFIG_SHAPE = {
     "suggest": (
         {
             "url": "string",
-            "params": ({"*": "string"}, "?"),
+            "params": ({"*": ("string", "number")}, "?"),
         },
         "?",
     ),
     "search": (
         {
             "url": "string",
-            "params": ({"*": "string"}, "?"),
+            "params": ({"*": ("string", "number")}, "?"),
         },
         "?",
     ),
     "reverse": (
         {
             "url": "string",
-            "params": ({"*": "string"}, "?"),
+            "params": ({"*": ("string", "number")}, "?"),
         },
         "?",
     ),

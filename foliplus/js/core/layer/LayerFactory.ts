@@ -584,6 +584,7 @@ class LayerFactory {
     layerOpts = {
       ...commonLayerOpts,
       kind: KIND.CANVAS,
+      group: GROUP.OVERLAY,
       canvas,
       paneName,
       getBounds: getBounds ?? null,
