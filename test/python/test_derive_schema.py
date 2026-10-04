@@ -115,36 +115,40 @@ class _BadDefault(_ReflectBase):
         self.x = x
 
 
+_LAYER_SHAPE = [{"name": "string", "id": "string", "group": ("base", "overlay")}]
+
+
 class _Dynamic(_ReflectBase):
-    _dynamic_fields = ("data",)
-    _data_hint = "LayerData"
-    _data_shape = [{"name": "string", "id": "string", "group": ("base", "overlay")}]
+    _dynamic_fields = {
+        "data": Annotated[list, FieldSpec(name="LayerData", shape=_LAYER_SHAPE)]
+    }
 
     def __init__(self, *, show: bool = True):
         self.show = show
 
 
 class _DynamicClash(_ReflectBase):
-    _dynamic_fields = ("data",)
+    _dynamic_fields = {
+        "data": Annotated[list, FieldSpec(name="LayerData", shape=_LAYER_SHAPE)]
+    }
 
     def __init__(self, *, data: list[str] = []):
         self.data = data
 
 
-class _DynamicNoHint(_ReflectBase):
-    """A dynamic field without a hint attribute — a declaration bug."""
+class _DynamicNoShape(_ReflectBase):
+    """A dynamic field whose FieldSpec describes no descriptor — a bug."""
 
-    _dynamic_fields = ("data",)
+    _dynamic_fields = {"data": Annotated[list, FieldSpec(name="LayerData")]}
 
     def __init__(self, *, show: bool = True):
         self.show = show
 
 
-class _DynamicNoShape(_ReflectBase):
-    """A dynamic field without its shape descriptor — a declaration bug."""
+class _DynamicBare(_ReflectBase):
+    """A dynamic field entry with no FieldSpec — a declaration bug."""
 
-    _dynamic_fields = ("data",)
-    _data_hint = "LayerData"
+    _dynamic_fields = {"data": list}
 
     def __init__(self, *, show: bool = True):
         self.show = show
@@ -343,16 +347,16 @@ def test_dynamic_field_clashing_with_a_parameter_fails_loud() -> None:
         derive_schema(_DynamicClash)
 
 
-def test_dynamic_field_without_hint_fails_loud() -> None:
-    """A dynamic field without ``_<name>_hint`` is a declaration bug."""
-    with pytest.raises(ValueError, match="_data_hint"):
-        derive_schema(_DynamicNoHint)
-
-
 def test_dynamic_field_without_a_shape_fails_loud() -> None:
-    """A dynamic field without ``_<name>_shape`` is a declaration bug."""
-    with pytest.raises(ValueError, match="_data_shape"):
+    """A dynamic field whose FieldSpec carries no descriptor is a bug."""
+    with pytest.raises(ValueError, match="sets no shape"):
         derive_schema(_DynamicNoShape)
+
+
+def test_dynamic_field_without_a_field_spec_fails_loud() -> None:
+    """A dynamic field entry must be an Annotated type with a FieldSpec."""
+    with pytest.raises(ValueError, match="Annotated"):
+        derive_schema(_DynamicBare)
 
 
 def test_named_non_union_type_reads_its_shape_from_the_class() -> None:
