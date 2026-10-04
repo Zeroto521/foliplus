@@ -32,16 +32,14 @@ describe("ui/list displayName", () => {
       m: { layerRegistry: { get: () => ({ name: "Original" }) } },
       T: (k: string) => k,
     } as unknown as LayerUI;
-    expect(displayName(ui.listPanel, ui, "a")).toBe("Renamed");
-    expect(displayName(ui.listPanel, ui, "b")).toBe("Original");
+    expect(displayName(ui, "a")).toBe("Renamed");
+    expect(displayName(ui, "b")).toBe("Original");
   });
 
   it("labels the color basemap and falls back to empty for unknown ids", () => {
     const ui = makeUi();
-    expect(displayName(ui.listPanel, ui, CONST.SOLID_BASEMAP_ID)).toContain(
-      "color_map_label",
-    );
-    expect(displayName(ui.listPanel, ui, "ghost")).toBe("");
+    expect(displayName(ui, CONST.SOLID_BASEMAP_ID)).toContain("color_map_label");
+    expect(displayName(ui, "ghost")).toBe("");
   });
 });
 
@@ -118,7 +116,7 @@ describe("ui/list row placement", () => {
     // inputs[0] which is C's checkbox (first in DOM). The new code resolves
     // by data-layer-id, so it updates A's row.
     const layerA = manager.layerRegistry.get("A")!;
-    initLayerItem(ui.listPanel, ui, layerA);
+    initLayerItem(ui, layerA);
 
     // A's checkbox should be updated (aria-label set), not C's.
     const rowA = container.querySelector<HTMLElement>(`[${CONST.DATA.LAYER_ID}="A"]`)!;
@@ -138,7 +136,7 @@ describe("ui/list row placement", () => {
 
     // A late callback for a torn-down layer must not write into a row: the id
     // is not registered, so there is nothing to initialize.
-    expect(initLayerItem(ui.listPanel, ui, { id: "ghost" } as LayerInfo)).toBe(false);
+    expect(initLayerItem(ui, { id: "ghost" } as LayerInfo)).toBe(false);
   });
 
   it("initLayerItem declines an id whose row is no longer on the panel", () => {
@@ -155,7 +153,7 @@ describe("ui/list row placement", () => {
     const layer = manager.layerRegistry.get("A")!;
     row!.remove();
 
-    expect(initLayerItem(ui.listPanel, ui, layer)).toBe(false);
+    expect(initLayerItem(ui, layer)).toBe(false);
     // No row means no buildRowCell: nothing is derived from the (now missing)
     // row, and the registry entry itself is untouched.
     expect(manager.layerRegistry.get("A")).toBe(layer);
@@ -272,9 +270,7 @@ describe("ui/list row placement", () => {
     });
     ui.uiContainer.querySelector<HTMLElement>(`[${CONST.DATA.LAYER_ID}="A"]`)!.remove();
 
-    expect(() =>
-      updateLayerItem(ui.listPanel, ui, { id: "A" } as LayerInfo),
-    ).not.toThrow();
+    expect(() => updateLayerItem(ui, { id: "A" } as LayerInfo)).not.toThrow();
     expect(ui.uiContainer.querySelector(`[${CONST.DATA.LAYER_ID}="A"]`)).toBeNull();
   });
 

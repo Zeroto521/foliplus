@@ -167,7 +167,7 @@ describe("zoomRange descriptor write/live/commit/reset", () => {
   const row = document.createElement("div");
 
   it("live preview writes the value without marking provenance", () => {
-    applyZoomRangeLive(ui.overlayPanel, ui, "overlay1", row, 2, 8);
+    applyZoomRangeLive(ui, "overlay1", row, 2, 8);
     expect(ui.intentStore.get("overlay1", "zoomRange")).toEqual([2, 8]);
     expect(ui.intentStore.isUserSet("overlay1", "zoomRange")).toBe(false);
   });
@@ -175,14 +175,14 @@ describe("zoomRange descriptor write/live/commit/reset", () => {
   it("live preview on a missing layer is a no-op", () => {
     const schedule = vi.fn();
     ui.m.persistence = { schedule } as never;
-    applyZoomRangeLive(ui.overlayPanel, ui, "ghost", row, 1, 5);
+    applyZoomRangeLive(ui, "ghost", row, 1, 5);
     expect(ui.intentStore.get("ghost", "zoomRange")).toBeUndefined();
   });
 
   it("write with only min takes the else branch (no stored value)", () => {
     const schedule = vi.fn();
     ui.m.persistence = { schedule } as never;
-    ZOOM_RANGE_DIMENSION.write!(ui.overlayPanel, ui, "overlay1", { min: 2 } as never);
+    ZOOM_RANGE_DIMENSION.write!(ui, "overlay1", { min: 2 } as never);
     expect(ui.intentStore.isUserSet("overlay1", "zoomRange")).toBe(false);
     expect(schedule).not.toHaveBeenCalled();
   });
@@ -191,7 +191,7 @@ describe("zoomRange descriptor write/live/commit/reset", () => {
     const schedule = vi.fn();
     ui.m.persistence = { schedule } as never;
     ui.intentStore.setValue("overlay1", "zoomRange", [4, 9]);
-    ZOOM_RANGE_DIMENSION.write!(ui.overlayPanel, ui, "overlay1", { min: 4 } as never);
+    ZOOM_RANGE_DIMENSION.write!(ui, "overlay1", { min: 4 } as never);
     expect(ui.intentStore.get("overlay1", "zoomRange")).toEqual([4, 9]);
     expect(ui.intentStore.isUserSet("overlay1", "zoomRange")).toBe(true);
     expect(schedule).toHaveBeenCalled();
@@ -200,8 +200,8 @@ describe("zoomRange descriptor write/live/commit/reset", () => {
   it("commit marks the live value and persists", () => {
     const schedule = vi.fn();
     ui.m.persistence = { schedule } as never;
-    applyZoomRangeLive(ui.overlayPanel, ui, "overlay1", row, 3, 7);
-    commitZoomRange(ui.overlayPanel, ui, "overlay1");
+    applyZoomRangeLive(ui, "overlay1", row, 3, 7);
+    commitZoomRange(ui, "overlay1");
     expect(ui.intentStore.get("overlay1", "zoomRange")).toEqual([3, 7]);
     expect(ui.intentStore.isUserSet("overlay1", "zoomRange")).toBe(true);
     expect(schedule).toHaveBeenCalled();
@@ -210,7 +210,7 @@ describe("zoomRange descriptor write/live/commit/reset", () => {
   it("commit with no stored range is a no-op", () => {
     const schedule = vi.fn();
     ui.m.persistence = { schedule } as never;
-    commitZoomRange(ui.overlayPanel, ui, "overlay1");
+    commitZoomRange(ui, "overlay1");
     expect(ui.intentStore.isUserSet("overlay1", "zoomRange")).toBe(false);
     expect(schedule).not.toHaveBeenCalled();
   });
@@ -218,14 +218,14 @@ describe("zoomRange descriptor write/live/commit/reset", () => {
   it("reset clears the override", () => {
     const schedule = vi.fn();
     ui.m.persistence = { schedule } as never;
-    applyZoomRangeLive(ui.overlayPanel, ui, "overlay1", row, 1, 5);
-    commitZoomRange(ui.overlayPanel, ui, "overlay1");
-    resetLayerZoomRange(ui.overlayPanel, ui, "overlay1");
+    applyZoomRangeLive(ui, "overlay1", row, 1, 5);
+    commitZoomRange(ui, "overlay1");
+    resetLayerZoomRange(ui, "overlay1");
     expect(ui.intentStore.get("overlay1", "zoomRange")).toBeUndefined();
     expect(ui.intentStore.isUserSet("overlay1", "zoomRange")).toBe(false);
   });
 
   it("reset on a missing layer returns before touching state", () => {
-    expect(() => resetLayerZoomRange(ui.overlayPanel, ui, "ghost")).not.toThrow();
+    expect(() => resetLayerZoomRange(ui, "ghost")).not.toThrow();
   });
 });

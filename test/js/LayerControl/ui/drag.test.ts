@@ -536,7 +536,7 @@ describe("ui/drag", () => {
       )!;
       row.classList.add(CONST.CLASSES.DRAG_OVER_TOP);
 
-      handleDragLeave(ui.listPanel, ui, dragEvent(row));
+      handleDragLeave(ui, dragEvent(row));
 
       expect(row.classList.contains(CONST.CLASSES.DRAG_OVER_TOP)).toBe(false);
     });

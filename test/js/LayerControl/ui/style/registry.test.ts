@@ -59,7 +59,6 @@ describe("LayerControl style-panel dimension registry", () => {
     expect(ANNOTATION_DIMENSION.key).toBe("annotation");
     expect(
       ANNOTATION_DIMENSION.value(
-        undefined as never,
         { m: { annotation: { getConfig: () => ({ show: true }) } } } as never,
         "x",
       ),
@@ -150,7 +149,7 @@ describe("LayerControl style-panel dimension registry — writeIntentKeys", () =
 
   it("skips undefined values and saves only when something was written", () => {
     expect(
-      writeIntentKeys(ui.overlayPanel, ui, "overlay1", [
+      writeIntentKeys(ui, "overlay1", [
         ["opacity", undefined],
         ["visible", undefined],
       ]),
@@ -158,7 +157,7 @@ describe("LayerControl style-panel dimension registry — writeIntentKeys", () =
     expect(schedule).not.toHaveBeenCalled();
 
     expect(
-      writeIntentKeys(ui.overlayPanel, ui, "overlay1", [
+      writeIntentKeys(ui, "overlay1", [
         ["opacity", undefined],
         ["opacity", 0.4],
       ]),
@@ -169,7 +168,7 @@ describe("LayerControl style-panel dimension registry — writeIntentKeys", () =
   });
 
   it("returns false when the writes array is empty", () => {
-    expect(writeIntentKeys(ui.overlayPanel, ui, "overlay1", [])).toBe(false);
+    expect(writeIntentKeys(ui, "overlay1", [])).toBe(false);
     expect(schedule).not.toHaveBeenCalled();
   });
 });
@@ -203,9 +202,7 @@ describe("LayerControl style-panel dimension registry — resetIntentKeys", () =
   it("clears listed keys, saves, and returns true", () => {
     ui.intentStore.set("overlay1", "fillColor", "#ff0000");
     ui.intentStore.set("overlay1", "fillOpacity", 0.5);
-    expect(
-      resetIntentKeys(ui.overlayPanel, ui, "overlay1", ["fillColor", "fillOpacity"]),
-    ).toBe(true);
+    expect(resetIntentKeys(ui, "overlay1", ["fillColor", "fillOpacity"])).toBe(true);
     expect(ui.intentStore.get("overlay1", "fillColor")).toBeUndefined();
     expect(ui.intentStore.get("overlay1", "fillOpacity")).toBeUndefined();
     expect(ui.intentStore.isUserSet("overlay1", "fillColor")).toBe(false);
@@ -213,12 +210,12 @@ describe("LayerControl style-panel dimension registry — resetIntentKeys", () =
   });
 
   it("returns false and does not save when keys is empty", () => {
-    expect(resetIntentKeys(ui.overlayPanel, ui, "overlay1", [])).toBe(false);
+    expect(resetIntentKeys(ui, "overlay1", [])).toBe(false);
     expect(schedule).not.toHaveBeenCalled();
   });
 
   it("clears a missing key without throwing", () => {
-    expect(resetIntentKeys(ui.overlayPanel, ui, "overlay1", ["opacity"])).toBe(true);
+    expect(resetIntentKeys(ui, "overlay1", ["opacity"])).toBe(true);
     expect(ui.intentStore.get("overlay1", "opacity")).toBeUndefined();
   });
 });
@@ -274,7 +271,7 @@ describe("LayerControl style-panel dimension registry — gatedRows", () => {
       zoomRange: "pane",
       annotation: "none",
     });
-    const rows = gatedRows(ui.overlayPanel, ui, "overlay1", DIM_ORDER);
+    const rows = gatedRows(ui, "overlay1", DIM_ORDER);
     expect(rows.map(d => d.key)).toEqual(["fill", "border", "opacity", "zoomRange"]);
   });
 
@@ -286,7 +283,7 @@ describe("LayerControl style-panel dimension registry — gatedRows", () => {
       zoomRange: "none",
       annotation: "none",
     });
-    const rows = gatedRows(ui.overlayPanel, ui, "overlay1", DIM_ORDER);
+    const rows = gatedRows(ui, "overlay1", DIM_ORDER);
     expect(rows.map(d => d.key)).toEqual(["opacity"]);
   });
 
@@ -298,7 +295,7 @@ describe("LayerControl style-panel dimension registry — gatedRows", () => {
       zoomRange: "none",
       annotation: "none",
     });
-    expect(gatedRows(ui.overlayPanel, ui, "overlay1", DIM_ORDER)).toEqual([]);
+    expect(gatedRows(ui, "overlay1", DIM_ORDER)).toEqual([]);
   });
 
   it("delegated slice equals panel sweep minus the vector-only dims", () => {
@@ -314,13 +311,8 @@ describe("LayerControl style-panel dimension registry — gatedRows", () => {
       zoomRange: "pane",
       annotation: "none",
     });
-    const layerRows = gatedRows(ui.overlayPanel, ui, "overlay1", DIM_ORDER);
-    const delegatedRows = gatedRows(
-      ui.overlayPanel,
-      ui,
-      "overlay1",
-      DELEGATED_DIM_ORDER,
-    );
+    const layerRows = gatedRows(ui, "overlay1", DIM_ORDER);
+    const delegatedRows = gatedRows(ui, "overlay1", DELEGATED_DIM_ORDER);
     const expected = layerRows.filter(d => d.key !== "fill" && d.key !== "border");
     expect(delegatedRows).toEqual(expected);
     expect(delegatedRows.map(d => d.key)).toEqual(["opacity", "zoomRange"]);
@@ -400,29 +392,27 @@ describe("LayerControl style-panel dimension registry — opacity descriptor", (
     // `isColorBasemap`, no canvas/styleSetters exclusion — those belong
     // to capability derivation at the surface, not the gate.
     mockSurfaceFor({ opacity: "native", zoomRange: "pane" });
-    expect(OPACITY_DIMENSION.gate(ui.overlayPanel, ui, "overlay1")).toBe(true);
+    expect(OPACITY_DIMENSION.gate(ui, "overlay1")).toBe(true);
   });
 
   it("gate declines when the surface declares 'none'", () => {
     mockSurfaceFor({ opacity: "none", zoomRange: "none" });
-    expect(OPACITY_DIMENSION.gate(ui.overlayPanel, ui, "overlay1")).toBe(false);
+    expect(OPACITY_DIMENSION.gate(ui, "overlay1")).toBe(false);
   });
 
   it("gate declines when the layer is not in the registry", () => {
     // `layerCanOpacity` guards against a missing layer; the descriptor
     // must not silently widen that guard.
-    expect(OPACITY_DIMENSION.gate(ui.overlayPanel, ui, "not-registered")).toBe(false);
+    expect(OPACITY_DIMENSION.gate(ui, "not-registered")).toBe(false);
   });
 
   it("value returns undefined for a layer not in the registry", () => {
-    expect(
-      OPACITY_DIMENSION.value(ui.overlayPanel, ui, "not-registered"),
-    ).toBeUndefined();
+    expect(OPACITY_DIMENSION.value(ui, "not-registered")).toBeUndefined();
   });
 
   it("value returns the user's stored override when one exists", () => {
     setIntent(ui, "overlay1", "opacity", 0.3);
-    expect(OPACITY_DIMENSION.value(ui.overlayPanel, ui, "overlay1")).toBe(0.3);
+    expect(OPACITY_DIMENSION.value(ui, "overlay1")).toBe(0.3);
   });
 
   it("write marks provenance for opacity < 1", () => {
@@ -433,7 +423,7 @@ describe("LayerControl style-panel dimension registry — opacity descriptor", (
       paneNames: [],
       panes: [],
     } as never);
-    OPACITY_DIMENSION.write!(ui.overlayPanel, ui, "overlay1", 0.45);
+    OPACITY_DIMENSION.write!(ui, "overlay1", 0.45);
     expect(ui.intentStore.get("overlay1", "opacity")).toBe(0.45);
     expect(ui.intentStore.isUserSet("overlay1", "opacity")).toBe(true);
   });
@@ -446,8 +436,8 @@ describe("LayerControl style-panel dimension registry — opacity descriptor", (
       paneNames: [],
       panes: [],
     } as never);
-    OPACITY_DIMENSION.write!(ui.overlayPanel, ui, "overlay1", 0.45);
-    OPACITY_DIMENSION.write!(ui.overlayPanel, ui, "overlay1", 1);
+    OPACITY_DIMENSION.write!(ui, "overlay1", 0.45);
+    OPACITY_DIMENSION.write!(ui, "overlay1", 1);
     expect(ui.intentStore.get("overlay1", "opacity")).toBeUndefined();
     expect(ui.intentStore.isUserSet("overlay1", "opacity")).toBe(false);
   });
@@ -455,12 +445,12 @@ describe("LayerControl style-panel dimension registry — opacity descriptor", (
   it("write ignores a non-number patch", () => {
     const schedule = vi.fn();
     ui.m.persistence = { schedule } as never;
-    OPACITY_DIMENSION.write!(ui.overlayPanel, ui, "overlay1", {
+    OPACITY_DIMENSION.write!(ui, "overlay1", {
       opacity: 0.4,
     } as never);
-    OPACITY_DIMENSION.write!(ui.overlayPanel, ui, "overlay1", "0.5" as never);
-    OPACITY_DIMENSION.write!(ui.overlayPanel, ui, "overlay1", null as never);
-    OPACITY_DIMENSION.write!(ui.overlayPanel, ui, "overlay1", undefined as never);
+    OPACITY_DIMENSION.write!(ui, "overlay1", "0.5" as never);
+    OPACITY_DIMENSION.write!(ui, "overlay1", null as never);
+    OPACITY_DIMENSION.write!(ui, "overlay1", undefined as never);
     expect(ui.intentStore.get("overlay1", "opacity")).toBeUndefined();
     expect(ui.intentStore.isUserSet("overlay1", "opacity")).toBe(false);
     expect(schedule).not.toHaveBeenCalled();
@@ -474,8 +464,8 @@ describe("LayerControl style-panel dimension registry — opacity descriptor", (
       paneNames: [],
       panes: [],
     } as never);
-    OPACITY_DIMENSION.write!(ui.overlayPanel, ui, "overlay1", 0.2);
-    OPACITY_DIMENSION.reset!(ui.overlayPanel, ui, "overlay1");
+    OPACITY_DIMENSION.write!(ui, "overlay1", 0.2);
+    OPACITY_DIMENSION.reset!(ui, "overlay1");
     expect(ui.intentStore.get("overlay1", "opacity")).toBeUndefined();
   });
 
@@ -485,16 +475,10 @@ describe("LayerControl style-panel dimension registry — opacity descriptor", (
       paneNames: [],
       panes: [],
     } as never);
-    expect(OPACITY_DIMENSION.valueSource!(ui.overlayPanel, ui, "not-registered")).toBe(
-      "none",
-    );
-    expect(OPACITY_DIMENSION.valueSource!(ui.overlayPanel, ui, "overlay1")).toBe(
-      "author",
-    );
-    OPACITY_DIMENSION.write!(ui.overlayPanel, ui, "overlay1", 0.3);
-    expect(OPACITY_DIMENSION.valueSource!(ui.overlayPanel, ui, "overlay1")).toBe(
-      "user",
-    );
+    expect(OPACITY_DIMENSION.valueSource!(ui, "not-registered")).toBe("none");
+    expect(OPACITY_DIMENSION.valueSource!(ui, "overlay1")).toBe("author");
+    OPACITY_DIMENSION.write!(ui, "overlay1", 0.3);
+    expect(OPACITY_DIMENSION.valueSource!(ui, "overlay1")).toBe("user");
   });
 });
 
@@ -529,36 +513,34 @@ describe("LayerControl style-panel dimension registry — fill descriptor", () =
   });
 
   it("value returns undefined for a layer not in the registry", () => {
-    expect(FILL_DIMENSION.value(ui.overlayPanel, ui, "not-registered")).toBeUndefined();
+    expect(FILL_DIMENSION.value(ui, "not-registered")).toBeUndefined();
   });
 
   it("value returns the user's stored override when one exists", () => {
     setIntent(ui, "overlay1", "fillColor", "#ff0000");
     setIntent(ui, "overlay1", "fillOpacity", 0.5);
-    expect(FILL_DIMENSION.value(ui.overlayPanel, ui, "overlay1")).toEqual({
+    expect(FILL_DIMENSION.value(ui, "overlay1")).toEqual({
       color: "#ff0000",
       opacity: 0.5,
     });
   });
 
   it("value falls back to the authored value when no override is set", () => {
-    expect(FILL_DIMENSION.value(ui.overlayPanel, ui, "overlay1")).toEqual({
+    expect(FILL_DIMENSION.value(ui, "overlay1")).toEqual({
       color: "#3388ff",
       opacity: null,
     });
   });
 
   it("valueSource is none when the gate rejects the layer", () => {
-    expect(FILL_DIMENSION.valueSource!(ui.overlayPanel, ui, "not-registered")).toBe(
-      "none",
-    );
+    expect(FILL_DIMENSION.valueSource!(ui, "not-registered")).toBe("none");
   });
 
   it("valueSource is author when the user has not set either slot", () => {
     vi.spyOn(ui.m, "surfaceFor").mockReturnValue({
       capabilities: { fill: "native" },
     } as never);
-    expect(FILL_DIMENSION.valueSource!(ui.overlayPanel, ui, "overlay1")).toBe("author");
+    expect(FILL_DIMENSION.valueSource!(ui, "overlay1")).toBe("author");
   });
 
   it("valueSource is user once provenance marks a fill slot", () => {
@@ -566,13 +548,13 @@ describe("LayerControl style-panel dimension registry — fill descriptor", () =
       capabilities: { fill: "native" },
     } as never);
     ui.intentStore.set("overlay1", "fillColor", "#ff0000");
-    expect(FILL_DIMENSION.valueSource!(ui.overlayPanel, ui, "overlay1")).toBe("user");
+    expect(FILL_DIMENSION.valueSource!(ui, "overlay1")).toBe("user");
   });
 
   it("write persists the patch through IntentStore and marks provenance", () => {
     const schedule = vi.fn();
     ui.m.persistence = { schedule } as never;
-    FILL_DIMENSION.write!(ui.overlayPanel, ui, "overlay1", {
+    FILL_DIMENSION.write!(ui, "overlay1", {
       color: "#00ff00",
       opacity: 0.4,
     });
@@ -585,7 +567,7 @@ describe("LayerControl style-panel dimension registry — fill descriptor", () =
 
   it("write with a partial patch leaves the other slot untouched", () => {
     ui.intentStore.set("overlay1", "fillColor", "#ff0000");
-    FILL_DIMENSION.write!(ui.overlayPanel, ui, "overlay1", { opacity: 0.2 });
+    FILL_DIMENSION.write!(ui, "overlay1", { opacity: 0.2 });
     expect(ui.intentStore.get("overlay1", "fillColor")).toBe("#ff0000");
     expect(ui.intentStore.get("overlay1", "fillOpacity")).toBe(0.2);
   });
@@ -593,7 +575,7 @@ describe("LayerControl style-panel dimension registry — fill descriptor", () =
   it("write with an empty patch is a no-op", () => {
     const schedule = vi.fn();
     ui.m.persistence = { schedule } as never;
-    FILL_DIMENSION.write!(ui.overlayPanel, ui, "overlay1", {});
+    FILL_DIMENSION.write!(ui, "overlay1", {});
     expect(ui.intentStore.dumpProvenance()).toEqual({});
     expect(schedule).not.toHaveBeenCalled();
   });
@@ -601,11 +583,11 @@ describe("LayerControl style-panel dimension registry — fill descriptor", () =
   it("reset clears both fill slots and their provenance", () => {
     const schedule = vi.fn();
     ui.m.persistence = { schedule } as never;
-    FILL_DIMENSION.write!(ui.overlayPanel, ui, "overlay1", {
+    FILL_DIMENSION.write!(ui, "overlay1", {
       color: "#ff0000",
       opacity: 0.5,
     });
-    FILL_DIMENSION.reset!(ui.overlayPanel, ui, "overlay1");
+    FILL_DIMENSION.reset!(ui, "overlay1");
     expect(ui.intentStore.get("overlay1", "fillColor")).toBeUndefined();
     expect(ui.intentStore.get("overlay1", "fillOpacity")).toBeUndefined();
     expect(ui.intentStore.isUserSet("overlay1", "fillColor")).toBe(false);
@@ -644,40 +626,34 @@ describe("LayerControl style-panel dimension registry — border descriptor", ()
   });
 
   it("value returns undefined for a layer not in the registry", () => {
-    expect(
-      BORDER_DIMENSION.value(ui.overlayPanel, ui, "not-registered"),
-    ).toBeUndefined();
+    expect(BORDER_DIMENSION.value(ui, "not-registered")).toBeUndefined();
   });
 
   it("value returns the user's stored override when one exists", () => {
     setIntent(ui, "overlay1", "borderColor", "#ff0000");
     setIntent(ui, "overlay1", "borderWeight", 3);
-    expect(BORDER_DIMENSION.value(ui.overlayPanel, ui, "overlay1")).toEqual({
+    expect(BORDER_DIMENSION.value(ui, "overlay1")).toEqual({
       color: "#ff0000",
       weight: 3,
     });
   });
 
   it("value falls back to the authored value when no override is set", () => {
-    expect(BORDER_DIMENSION.value(ui.overlayPanel, ui, "overlay1")).toEqual({
+    expect(BORDER_DIMENSION.value(ui, "overlay1")).toEqual({
       color: "#3388ff",
       weight: 1,
     });
   });
 
   it("valueSource is none when the gate rejects the layer", () => {
-    expect(BORDER_DIMENSION.valueSource!(ui.overlayPanel, ui, "not-registered")).toBe(
-      "none",
-    );
+    expect(BORDER_DIMENSION.valueSource!(ui, "not-registered")).toBe("none");
   });
 
   it("valueSource is author when the user has not set either slot", () => {
     vi.spyOn(ui.m, "surfaceFor").mockReturnValue({
       capabilities: { stroke: "native" },
     } as never);
-    expect(BORDER_DIMENSION.valueSource!(ui.overlayPanel, ui, "overlay1")).toBe(
-      "author",
-    );
+    expect(BORDER_DIMENSION.valueSource!(ui, "overlay1")).toBe("author");
   });
 
   it("valueSource is user once provenance marks a border slot", () => {
@@ -685,13 +661,13 @@ describe("LayerControl style-panel dimension registry — border descriptor", ()
       capabilities: { stroke: "native" },
     } as never);
     ui.intentStore.set("overlay1", "borderWeight", 2);
-    expect(BORDER_DIMENSION.valueSource!(ui.overlayPanel, ui, "overlay1")).toBe("user");
+    expect(BORDER_DIMENSION.valueSource!(ui, "overlay1")).toBe("user");
   });
 
   it("write persists the patch through IntentStore and marks provenance", () => {
     const schedule = vi.fn();
     ui.m.persistence = { schedule } as never;
-    BORDER_DIMENSION.write!(ui.overlayPanel, ui, "overlay1", {
+    BORDER_DIMENSION.write!(ui, "overlay1", {
       color: "#00ff00",
       weight: 4,
     });
@@ -705,7 +681,7 @@ describe("LayerControl style-panel dimension registry — border descriptor", ()
   it("write with an empty patch is a no-op", () => {
     const schedule = vi.fn();
     ui.m.persistence = { schedule } as never;
-    BORDER_DIMENSION.write!(ui.overlayPanel, ui, "overlay1", {});
+    BORDER_DIMENSION.write!(ui, "overlay1", {});
     expect(ui.intentStore.dumpProvenance()).toEqual({});
     expect(schedule).not.toHaveBeenCalled();
   });
@@ -713,11 +689,11 @@ describe("LayerControl style-panel dimension registry — border descriptor", ()
   it("reset clears both border slots and their provenance", () => {
     const schedule = vi.fn();
     ui.m.persistence = { schedule } as never;
-    BORDER_DIMENSION.write!(ui.overlayPanel, ui, "overlay1", {
+    BORDER_DIMENSION.write!(ui, "overlay1", {
       color: "#ff0000",
       weight: 3,
     });
-    BORDER_DIMENSION.reset!(ui.overlayPanel, ui, "overlay1");
+    BORDER_DIMENSION.reset!(ui, "overlay1");
     expect(ui.intentStore.get("overlay1", "borderColor")).toBeUndefined();
     expect(ui.intentStore.get("overlay1", "borderWeight")).toBeUndefined();
     expect(ui.intentStore.isUserSet("overlay1", "borderColor")).toBe(false);
@@ -755,21 +731,19 @@ describe("LayerControl style-panel dimension registry — zoomRange descriptor",
   });
 
   it("value returns undefined for a layer not in the registry", () => {
-    expect(
-      ZOOM_RANGE_DIMENSION.value(ui.overlayPanel, ui, "not-registered"),
-    ).toBeUndefined();
+    expect(ZOOM_RANGE_DIMENSION.value(ui, "not-registered")).toBeUndefined();
   });
 
   it("value returns the user's stored override when one exists", () => {
     setIntent(ui, "overlay1", "zoomRange", [5, 10]);
-    const v = ZOOM_RANGE_DIMENSION.value(ui.overlayPanel, ui, "overlay1");
+    const v = ZOOM_RANGE_DIMENSION.value(ui, "overlay1");
     expect(v).toBeDefined();
     expect(v!.min).toBeGreaterThanOrEqual(5);
     expect(v!.max).toBeLessThanOrEqual(10);
   });
 
   it("value falls back to the author's bounds when no override is set", () => {
-    const v = ZOOM_RANGE_DIMENSION.value(ui.overlayPanel, ui, "overlay1");
+    const v = ZOOM_RANGE_DIMENSION.value(ui, "overlay1");
     expect(v).toBeDefined();
     expect(v).toHaveProperty("min");
     expect(v).toHaveProperty("max");
@@ -784,7 +758,7 @@ describe("LayerControl style-panel dimension registry — zoomRange descriptor",
       paneNames: [],
       panes: [],
     } as never);
-    ZOOM_RANGE_DIMENSION.write!(ui.overlayPanel, ui, "overlay1", { min: 2, max: 8 });
+    ZOOM_RANGE_DIMENSION.write!(ui, "overlay1", { min: 2, max: 8 });
     expect(ui.intentStore.get("overlay1", "zoomRange")).toEqual([2, 8]);
     expect(ui.intentStore.isUserSet("overlay1", "zoomRange")).toBe(true);
   });
@@ -798,7 +772,7 @@ describe("LayerControl style-panel dimension registry — zoomRange descriptor",
       panes: [],
     } as never);
     ui.intentStore.setValue("overlay1", "zoomRange", [4, 9]);
-    ZOOM_RANGE_DIMENSION.write!(ui.overlayPanel, ui, "overlay1", {});
+    ZOOM_RANGE_DIMENSION.write!(ui, "overlay1", {});
     expect(ui.intentStore.get("overlay1", "zoomRange")).toEqual([4, 9]);
     expect(ui.intentStore.isUserSet("overlay1", "zoomRange")).toBe(true);
   });
@@ -806,7 +780,7 @@ describe("LayerControl style-panel dimension registry — zoomRange descriptor",
   it("write with empty patch and no stored value is a no-op", () => {
     const schedule = vi.fn();
     ui.m.persistence = { schedule } as never;
-    ZOOM_RANGE_DIMENSION.write!(ui.overlayPanel, ui, "overlay1", {});
+    ZOOM_RANGE_DIMENSION.write!(ui, "overlay1", {});
     expect(schedule).not.toHaveBeenCalled();
     expect(ui.intentStore.isUserSet("overlay1", "zoomRange")).toBe(false);
   });
@@ -819,8 +793,8 @@ describe("LayerControl style-panel dimension registry — zoomRange descriptor",
       paneNames: [],
       panes: [],
     } as never);
-    ZOOM_RANGE_DIMENSION.write!(ui.overlayPanel, ui, "overlay1", { min: 1, max: 5 });
-    ZOOM_RANGE_DIMENSION.reset!(ui.overlayPanel, ui, "overlay1");
+    ZOOM_RANGE_DIMENSION.write!(ui, "overlay1", { min: 1, max: 5 });
+    ZOOM_RANGE_DIMENSION.reset!(ui, "overlay1");
     expect(ui.intentStore.get("overlay1", "zoomRange")).toBeUndefined();
   });
 
@@ -830,15 +804,9 @@ describe("LayerControl style-panel dimension registry — zoomRange descriptor",
       paneNames: [],
       panes: [],
     } as never);
-    expect(
-      ZOOM_RANGE_DIMENSION.valueSource!(ui.overlayPanel, ui, "not-registered"),
-    ).toBe("none");
-    expect(ZOOM_RANGE_DIMENSION.valueSource!(ui.overlayPanel, ui, "overlay1")).toBe(
-      "author",
-    );
-    ZOOM_RANGE_DIMENSION.write!(ui.overlayPanel, ui, "overlay1", { min: 3, max: 6 });
-    expect(ZOOM_RANGE_DIMENSION.valueSource!(ui.overlayPanel, ui, "overlay1")).toBe(
-      "user",
-    );
+    expect(ZOOM_RANGE_DIMENSION.valueSource!(ui, "not-registered")).toBe("none");
+    expect(ZOOM_RANGE_DIMENSION.valueSource!(ui, "overlay1")).toBe("author");
+    ZOOM_RANGE_DIMENSION.write!(ui, "overlay1", { min: 3, max: 6 });
+    expect(ZOOM_RANGE_DIMENSION.valueSource!(ui, "overlay1")).toBe("user");
   });
 });

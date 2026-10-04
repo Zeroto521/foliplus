@@ -1692,25 +1692,17 @@ describe("LayerUI focus", () => {
     };
 
     it("returns undefined for a visible row, and for a row without a checkbox", () => {
-      expect(
-        focusDisabledReason(ui.focusController, ui, row({ checked: true })),
-      ).toBeUndefined();
-      expect(focusDisabledReason(ui.focusController, ui, row())).toBeUndefined();
+      expect(focusDisabledReason(ui, row({ checked: true }))).toBeUndefined();
+      expect(focusDisabledReason(ui, row())).toBeUndefined();
     });
 
     it("returns 'base' for a color-picker or basemap row", () => {
-      expect(focusDisabledReason(ui.focusController, ui, row({ color: true }))).toBe(
-        "base",
-      );
-      expect(
-        focusDisabledReason(ui.focusController, ui, row({ type: GROUP.BASE })),
-      ).toBe("base");
+      expect(focusDisabledReason(ui, row({ color: true }))).toBe("base");
+      expect(focusDisabledReason(ui, row({ type: GROUP.BASE }))).toBe("base");
     });
 
     it("returns 'hidden' for a hidden row", () => {
-      expect(focusDisabledReason(ui.focusController, ui, row({ checked: false }))).toBe(
-        "hidden",
-      );
+      expect(focusDisabledReason(ui, row({ checked: false }))).toBe("hidden");
     });
 
     it("returns 'hidden' for an unchecked basemap row — same rule as data rows", () => {
@@ -1718,35 +1710,17 @@ describe("LayerUI focus", () => {
       // not the row is on. Consulted first (as they once were) they would let
       // an off basemap keep an enabled Style entry, so the unchecked check has
       // to come ahead of them.
-      expect(
-        focusDisabledReason(
-          ui.focusController,
-          ui,
-          row({ type: GROUP.BASE, checked: false }),
-        ),
-      ).toBe("hidden");
-      expect(
-        focusDisabledReason(
-          ui.focusController,
-          ui,
-          row({ color: true, checked: false }),
-        ),
-      ).toBe("hidden");
+      expect(focusDisabledReason(ui, row({ type: GROUP.BASE, checked: false }))).toBe(
+        "hidden",
+      );
+      expect(focusDisabledReason(ui, row({ color: true, checked: false }))).toBe(
+        "hidden",
+      );
       // A checked basemap keeps the basemap verdict: no extent to focus on.
-      expect(
-        focusDisabledReason(
-          ui.focusController,
-          ui,
-          row({ type: GROUP.BASE, checked: true }),
-        ),
-      ).toBe("base");
-      expect(
-        focusDisabledReason(
-          ui.focusController,
-          ui,
-          row({ color: true, checked: true }),
-        ),
-      ).toBe("base");
+      expect(focusDisabledReason(ui, row({ type: GROUP.BASE, checked: true }))).toBe(
+        "base",
+      );
+      expect(focusDisabledReason(ui, row({ color: true, checked: true }))).toBe("base");
     });
 
     it("returns 'no_bounds' when the surface reports capabilities.bounds false", () => {
@@ -1756,7 +1730,7 @@ describe("LayerUI focus", () => {
       vi.spyOn(ui.m, "surfaceFor").mockReturnValue({
         capabilities: { bounds: false } as never,
       });
-      expect(focusDisabledReason(ui.focusController, ui, item)).toBe("no_bounds");
+      expect(focusDisabledReason(ui, item)).toBe("no_bounds");
     });
 
     it("returns undefined for a row whose surface has bounds", () => {
@@ -1766,13 +1740,13 @@ describe("LayerUI focus", () => {
       vi.spyOn(ui.m, "surfaceFor").mockReturnValue({
         capabilities: { bounds: true } as never,
       });
-      expect(focusDisabledReason(ui.focusController, ui, item)).toBeUndefined();
+      expect(focusDisabledReason(ui, item)).toBeUndefined();
     });
 
     it("returns undefined when no layer is registered (first post-attach pass)", () => {
       const item = row({ checked: true, layerId: "unknown" });
       vi.spyOn(ui.m.layerRegistry, "get").mockReturnValue(undefined);
-      expect(focusDisabledReason(ui.focusController, ui, item)).toBeUndefined();
+      expect(focusDisabledReason(ui, item)).toBeUndefined();
     });
 
     it("maps each reason to the locale key its tooltip and hint read", () => {
@@ -1785,21 +1759,21 @@ describe("LayerUI focus", () => {
       const hintSpy = vi.fn();
       map.foliplus.showHint = hintSpy;
 
-      showFocusDisabledHint(ui.focusController, ui, "base");
+      showFocusDisabledHint(ui, "base");
       expect(hintSpy).toHaveBeenCalledWith(
         "LayerControl",
         "LayerControl.focus_layer_base",
         expect.any(Number),
       );
 
-      showFocusDisabledHint(ui.focusController, ui, "hidden");
+      showFocusDisabledHint(ui, "hidden");
       expect(hintSpy).toHaveBeenCalledWith(
         "LayerControl",
         "LayerControl.focus_layer_hidden",
         expect.any(Number),
       );
 
-      showFocusDisabledHint(ui.focusController, ui, "no_bounds");
+      showFocusDisabledHint(ui, "no_bounds");
       expect(hintSpy).toHaveBeenCalledWith(
         "LayerControl",
         "LayerControl.focus_layer_no_bounds",
@@ -1811,7 +1785,7 @@ describe("LayerUI focus", () => {
   describe("toggleFocusedLayer()", () => {
     it("no-ops when the keyboard cursor points at no row", () => {
       ui.listPanel.activeIdx = null;
-      expect(() => toggleFocusedLayer(ui.focusController, ui)).not.toThrow();
+      expect(() => toggleFocusedLayer(ui)).not.toThrow();
     });
 
     it("no-ops when the active row carries no checkbox", () => {
@@ -1826,7 +1800,7 @@ describe("LayerUI focus", () => {
       const changes = vi.fn();
       document.addEventListener("change", changes);
       try {
-        toggleFocusedLayer(ui.focusController, ui);
+        toggleFocusedLayer(ui);
         expect(changes).not.toHaveBeenCalled();
       } finally {
         document.removeEventListener("change", changes);
@@ -1842,7 +1816,7 @@ describe("LayerUI focus", () => {
 
       box.checked = true;
       try {
-        toggleFocusedLayer(ui.focusController, ui);
+        toggleFocusedLayer(ui);
         expect(box.checked).toBe(false);
         expect(changes).toHaveBeenCalledTimes(1);
       } finally {
@@ -1855,9 +1829,7 @@ describe("LayerUI focus", () => {
   describe("computeLayerBounds()", () => {
     it("returns the layer's own bounds when they are valid", () => {
       const b = layerBounds();
-      expect(
-        computeLayerBounds(ui.focusController, ui, { getBounds: () => b } as any),
-      ).toBe(b);
+      expect(computeLayerBounds(ui, { getBounds: () => b } as any)).toBe(b);
     });
 
     it("sums the leaf bounds when the layer has no getBounds(), skipping invalid leaves", () => {
@@ -1869,16 +1841,14 @@ describe("LayerUI focus", () => {
         }),
       };
 
-      const out = computeLayerBounds(ui.focusController, ui, layer as any);
+      const out = computeLayerBounds(ui, layer as any);
       expect(out).not.toBeNull();
       expect(out!.isValid()).toBe(true);
       expect(out!.getSouthWest()).toEqual({ lat: 30, lng: 100 });
     });
 
     it("returns null when no leaf yields valid bounds", () => {
-      expect(
-        computeLayerBounds(ui.focusController, ui, { eachLayer: vi.fn() } as any),
-      ).toBeNull();
+      expect(computeLayerBounds(ui, { eachLayer: vi.fn() } as any)).toBeNull();
     });
   });
 

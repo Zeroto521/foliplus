@@ -296,13 +296,13 @@ describe("LayerManager", () => {
       invalidateFields: vi.fn(),
       syncToggleAll: vi.fn(),
       intentStore: makeStore(),
-      saveState: () => saveState(m.ui.listPanel, m.ui),
+      saveState: () => saveState(m.ui),
     } as unknown as LayerUI;
 
     expect(m.unregisterLayer("keepcfg")).toBe(true);
     expect(m.annotation.hasConfig("keepcfg")).toBe(true);
 
-    saveState(m.ui.listPanel, m.ui);
+    saveState(m.ui);
     const fields = schedule.mock.calls.at(-1)![0] as {
       layers: () => Record<string, { annotation?: { show?: boolean } }>;
     };
@@ -1451,7 +1451,7 @@ describe("LayerManager", () => {
         { id: "A", name: "A", group: "overlay" },
         { id: "H", name: "H", group: "overlay" },
       ]);
-      const save = vi.fn(() => saveState(m.ui.listPanel, m.ui));
+      const save = vi.fn(() => saveState(m.ui));
       m.ui = {
         m,
         listPanel: {} as never,
@@ -1462,8 +1462,7 @@ describe("LayerManager", () => {
           },
           { H: ["visible", "opacity"], A: ["visible", "opacity"] },
         ),
-        dropPersistedLayerState: (id: string) =>
-          dropPersistedLayerState(m.ui.listPanel, m.ui, id),
+        dropPersistedLayerState: (id: string) => dropPersistedLayerState(m.ui, id),
         saveState: save,
         invalidateFields: vi.fn(),
       } as any;
@@ -1525,7 +1524,7 @@ describe("LayerManager", () => {
         },
       });
       const m = new LayerManager(map, [{ id: "H", name: "H", group: "overlay" }]);
-      const save = vi.fn(() => saveState(m.ui.listPanel, m.ui));
+      const save = vi.fn(() => saveState(m.ui));
       m.ui = {
         m,
         listPanel: {} as never,
@@ -1533,8 +1532,7 @@ describe("LayerManager", () => {
           { H: { visible: false, opacity: 0.35 } },
           { H: ["visible", "opacity"] },
         ),
-        dropPersistedLayerState: (id: string) =>
-          dropPersistedLayerState(m.ui.listPanel, m.ui, id),
+        dropPersistedLayerState: (id: string) => dropPersistedLayerState(m.ui, id),
         saveState: save,
         invalidateFields: vi.fn(),
       } as any;
@@ -1774,7 +1772,6 @@ describe("LayerManager", () => {
       invalidateFields: vi.fn(),
       applyUserState: (id: string) =>
         applyUserState(
-          { m: manager },
           {
             m: manager,
             uiContainer: manager.uiContainer,
@@ -1921,8 +1918,7 @@ describe("LayerManager", () => {
           base1: ["visible"],
         },
       ),
-      dropPersistedLayerState: (id: string) =>
-        dropPersistedLayerState(manager.ui.listPanel, manager.ui, id),
+      dropPersistedLayerState: (id: string) => dropPersistedLayerState(manager.ui, id),
       saveState,
       saveNamesState,
       invalidateFields: vi.fn(),
@@ -1983,8 +1979,7 @@ describe("LayerManager", () => {
         },
         { overlay1: ["visible", "opacity"] },
       ),
-      dropPersistedLayerState: (id: string) =>
-        dropPersistedLayerState(manager.ui.listPanel, manager.ui, id),
+      dropPersistedLayerState: (id: string) => dropPersistedLayerState(manager.ui, id),
       saveState,
       saveNamesState,
       invalidateFields: vi.fn(),
@@ -2035,10 +2030,9 @@ describe("LayerManager", () => {
         },
         { overlay1: ["opacity"] },
       ),
-      dropPersistedLayerState: (id: string) =>
-        dropPersistedLayerState(m.ui.listPanel, m.ui, id),
-      saveState: () => saveState(m.ui.listPanel, m.ui),
-      saveNamesState: () => saveNamesState(m.ui.listPanel, m.ui),
+      dropPersistedLayerState: (id: string) => dropPersistedLayerState(m.ui, id),
+      saveState: () => saveState(m.ui),
+      saveNamesState: () => saveNamesState(m.ui),
       invalidateFields: vi.fn(),
       syncToggleAll: vi.fn(),
       syncNoBasemap: vi.fn(),
@@ -2719,7 +2713,7 @@ describe("LayerManager", () => {
       // saved config; without this half LayerControl kept the intent row, so a
       // redraw inherited the previous draw's opacity and visibility.
       manager.map.hasLayer.mockReturnValue(false);
-      const save = vi.fn(() => saveState(manager.ui.listPanel, manager.ui));
+      const save = vi.fn(() => saveState(manager.ui));
       manager.ui = {
         m: manager,
         listPanel: {} as never,
@@ -2731,7 +2725,7 @@ describe("LayerManager", () => {
           { measure1: ["visible", "opacity"], overlay1: ["visible", "opacity"] },
         ),
         dropPersistedLayerState: (id: string) =>
-          dropPersistedLayerState(manager.ui.listPanel, manager.ui, id),
+          dropPersistedLayerState(manager.ui, id),
         saveState: save,
         saveNamesState: vi.fn(),
         invalidateFields: vi.fn(),
@@ -3574,7 +3568,7 @@ describe("LayerManager user-assigned names", () => {
     const save = vi.fn();
     manager.ui.saveNamesState = save;
     manager.ui.dropPersistedLayerState = (id: string) =>
-      dropPersistedLayerState(manager.ui.listPanel, manager.ui, id);
+      dropPersistedLayerState(manager.ui, id);
 
     expect(manager.deleteLayer("ext")).toBe(true);
 

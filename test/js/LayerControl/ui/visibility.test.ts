@@ -1015,7 +1015,7 @@ describe("unit helpers", () => {
 
   it("getLayerItems returns every base row, the colour row included", () => {
     const ui = makeUi();
-    const items = getLayerItems(ui.listPanel, ui, GROUP.BASE);
+    const items = getLayerItems(ui, GROUP.BASE);
     expect(items.length).toBe(2);
     expect(items[0].getAttribute("data-layer-type")).toBe("base");
     expect(items[1].getAttribute("data-layer-id")).toBe(CONST.SOLID_BASEMAP_ID);
@@ -1023,7 +1023,7 @@ describe("unit helpers", () => {
 
   it("getLayerItems returns overlay rows and excludes the color basemap", () => {
     const ui = makeUi();
-    const items = getLayerItems(ui.listPanel, ui, GROUP.OVERLAY);
+    const items = getLayerItems(ui, GROUP.OVERLAY);
     expect(items.length).toBe(1);
     expect(items[0].getAttribute("data-layer-type")).toBe("overlay");
   });
@@ -1036,9 +1036,7 @@ describe("unit helpers", () => {
     const input = ui.uiContainer.querySelector(
       'input[type="checkbox"]',
     ) as HTMLInputElement;
-    expect(() =>
-      handleInput(ui.listPanel, ui, { target: input } as unknown as Event),
-    ).not.toThrow();
+    expect(() => handleInput(ui, { target: input } as unknown as Event)).not.toThrow();
   });
 
   it("toggleAll sets the row tooltips for both states", () => {
@@ -1093,7 +1091,7 @@ describe("unit helpers", () => {
       listPanel: { checkedCount: {}, foldedGroups: new Set<string>() },
     } as unknown as LayerUI;
 
-    expect(() => syncNoBasemap(ui.listPanel, ui)).not.toThrow();
+    expect(() => syncNoBasemap(ui)).not.toThrow();
   });
 
   describe("syncNoBasemap opacity gate", () => {
@@ -1128,7 +1126,7 @@ describe("unit helpers", () => {
       // The bug T207: intent says visible, so the pre-fix check kept the
       // basemap class off — the user's slider at 0 was silently ignored.
       const { ui, container } = makeUiWithBase(0);
-      syncNoBasemap(ui.listPanel, ui);
+      syncNoBasemap(ui);
       expect(container.classList.contains(CONST.CLASSES.NO_BASE_MAP)).toBe(true);
     });
 
@@ -1136,7 +1134,7 @@ describe("unit helpers", () => {
       // Any strictly positive value (down to the slider's smallest step) is
       // still visible — the gate is a strict `> 0`, no epsilon tolerance.
       const { ui, container } = makeUiWithBase(0.5);
-      syncNoBasemap(ui.listPanel, ui);
+      syncNoBasemap(ui);
       expect(container.classList.contains(CONST.CLASSES.NO_BASE_MAP)).toBe(false);
     });
 
@@ -1146,7 +1144,7 @@ describe("unit helpers", () => {
       // the author's default (opaque) rather than as invisible — the reverse
       // would paint the hatch on every pristine page.
       const { ui, container } = makeUiWithBase();
-      syncNoBasemap(ui.listPanel, ui);
+      syncNoBasemap(ui);
       expect(container.classList.contains(CONST.CLASSES.NO_BASE_MAP)).toBe(false);
     });
   });

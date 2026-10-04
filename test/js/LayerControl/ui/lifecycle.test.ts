@@ -342,7 +342,7 @@ describe("LayerUI lifecycle — defensive rails", () => {
     });
 
     it("LAYER_NO_BASEMAP_CHANGED refreshes the empty-state hint", () => {
-      // Signal handler runs syncNoBasemap(ui.listPanel, ui); no throw, no row drop.
+      // Signal handler runs syncNoBasemap( ui); no throw, no row drop.
       expect(() =>
         ensureEvents(map).emit(EVENTS.LAYER_NO_BASEMAP_CHANGED),
       ).not.toThrow();

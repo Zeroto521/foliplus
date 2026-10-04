@@ -429,7 +429,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
         "fillOpacity",
       ]);
 
-      dropPersistedLayerState(u.listPanel, u, "overlay1");
+      dropPersistedLayerState(u, "overlay1");
 
       expect(getIntent(u, "overlay1", "visible")).not.toBe(false);
       expect(getIntent(u, "overlay1", "opacity")).toBeUndefined();
@@ -1198,7 +1198,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
       },
     } as unknown as LayerUI;
 
-    setVisible(bare.listPanel, bare, "overlay1", false);
+    setVisible(bare, "overlay1", false);
 
     expect(bare.intentStore.isUserSet("overlay1", "visible")).toBe(true);
     const fields = schedule.mock.calls[0][0] as {
@@ -1226,7 +1226,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
       },
     } as unknown as LayerUI;
 
-    setVisible(bare.listPanel, bare, "overlay1", true);
+    setVisible(bare, "overlay1", true);
 
     expect(getIntent(bare, "overlay1", "visible")).not.toBe(false);
     const fields = schedule.mock.calls[0][0] as {
@@ -1254,7 +1254,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
       },
     } as unknown as LayerUI;
 
-    saveState(bare.listPanel, bare);
+    saveState(bare);
 
     const fields = schedule.mock.calls[0][0] as {
       layers: () => Record<string, { zoomRange?: number[]; overrides: string[] }>;
@@ -1277,8 +1277,8 @@ describe("ui/state intentStore and per-layer state persistence", () => {
       },
     } as unknown as LayerUI;
 
-    unmarkOverride(bare.listPanel, bare, "overlay1", "zoomRange");
-    saveState(bare.listPanel, bare);
+    unmarkOverride(bare, "overlay1", "zoomRange");
+    saveState(bare);
 
     expect(bare.intentStore.dumpProvenance().overlay1).toBeUndefined();
     const fields = schedule.mock.calls[0][0] as {
@@ -1295,7 +1295,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
       intentStore: makeStore({}, { overlay1: ["visible", "zoomRange"] }),
     } as unknown as LayerUI;
 
-    unmarkOverride(bare.listPanel, bare, "overlay1", "zoomRange");
+    unmarkOverride(bare, "overlay1", "zoomRange");
 
     expect(bare.intentStore.dumpProvenance().overlay1).toEqual(["visible"]);
   });
@@ -1314,7 +1314,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
       },
     } as unknown as LayerUI;
 
-    saveState(bare.listPanel, bare);
+    saveState(bare);
 
     const fields = schedule.mock.calls[0][0] as {
       layers: () => Record<string, unknown>;
@@ -1337,7 +1337,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
       },
     } as unknown as LayerUI;
 
-    markOverride(bare.listPanel, bare, "overlay1", "zoomRange");
+    markOverride(bare, "overlay1", "zoomRange");
 
     expect(bare.intentStore.dumpProvenance().overlay1).toBeUndefined();
     expect(schedule).not.toHaveBeenCalled();
@@ -1359,10 +1359,10 @@ describe("ui/state intentStore and per-layer state persistence", () => {
       },
     } as unknown as LayerUI;
 
-    markOverride(bare.listPanel, bare, "overlay1", "futureDim" as never);
+    markOverride(bare, "overlay1", "futureDim" as never);
 
     expect(bare.intentStore.dumpProvenance().overlay1).toEqual(["futureDim"]);
-    const states = buildLayerStates(bare.listPanel, bare);
+    const states = buildLayerStates(bare);
     expect(states.overlay1?.overrides).toEqual(["futureDim"]);
     expect(states.overlay1 && Object.keys(states.overlay1)).toEqual(["overrides"]);
   });
@@ -1430,7 +1430,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
       m: { persistence: { schedule } },
     } as unknown as LayerUI;
 
-    saveNamesState(bare.listPanel, bare);
+    saveNamesState(bare);
 
     const fields = schedule.mock.calls[0][0] as {
       renamedNames: () => Record<string, string>;
@@ -1455,9 +1455,9 @@ describe("ui/state intentStore and per-layer state persistence", () => {
       uiContainer: null,
     } as unknown as LayerUI;
 
-    expect(buildLayerStates(bare.listPanel, bare)).toEqual({});
-    expect(() => applyUserState(bare.listPanel, bare)).not.toThrow();
-    expect(() => saveNamesState(bare.listPanel, bare)).not.toThrow();
+    expect(buildLayerStates(bare)).toEqual({});
+    expect(() => applyUserState(bare)).not.toThrow();
+    expect(() => saveNamesState(bare)).not.toThrow();
     expect(schedule).toHaveBeenCalled();
   });
 
@@ -1471,8 +1471,8 @@ describe("ui/state intentStore and per-layer state persistence", () => {
       m: { persistence: { schedule: vi.fn() } },
     } as unknown as LayerUI;
 
-    markOverride(bare.listPanel, bare, "overlay1", "borderColor");
-    markOverride(bare.listPanel, bare, "overlay1", "borderWeight");
+    markOverride(bare, "overlay1", "borderColor");
+    markOverride(bare, "overlay1", "borderWeight");
 
     expect(bare.intentStore.dumpProvenance().overlay1).toBeUndefined();
     expect(warn).toHaveBeenCalledTimes(2);
@@ -1584,7 +1584,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
       },
     } as unknown as LayerUI;
 
-    const states = buildLayerStates(bare.listPanel, bare);
+    const states = buildLayerStates(bare);
     const entry = states.overlay1;
     expect(entry).toBeDefined();
     expect(Object.keys(entry!).sort()).toEqual(
@@ -1614,7 +1614,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
       },
     } as unknown as LayerUI;
 
-    saveState(bare.listPanel, bare);
+    saveState(bare);
 
     const fields = schedule.mock.calls[0][0] as {
       layers: () => Record<string, { opacity?: number; overrides: string[] }>;
@@ -1653,7 +1653,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
       },
     } as unknown as LayerUI;
 
-    saveState(bare.listPanel, bare);
+    saveState(bare);
 
     const fields = schedule.mock.calls[0][0] as {
       layers: () => Record<string, unknown>;
@@ -1773,7 +1773,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
       },
     } as unknown as LayerUI;
 
-    saveNamesState(bare.listPanel, bare);
+    saveNamesState(bare);
 
     const fields = schedule.mock.calls[0][0] as {
       renamedNames: () => Record<string, string>;
@@ -1849,7 +1849,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
     seedIntentMap(ui, "visible", { overlay1: false });
     ui.intentStore.replaceProvenance({ overlay1: ["visible"] });
 
-    dropPersistedLayerState(ui.listPanel, ui, "overlay1");
+    dropPersistedLayerState(ui, "overlay1");
 
     expect(ui.intentStore.dumpIntents()).toEqual({});
     expect(ui.intentStore.dumpProvenance()).toEqual({});
