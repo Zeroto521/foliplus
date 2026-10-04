@@ -9,13 +9,14 @@
 // that omit it fall back to the map-default provider (map.foliplus.geocodeProvider,
 // set by provider-aware controls) and finally to Nominatim.
 import { getMapCrsType } from "#core/geo/coord.js";
+import type { ProviderConfig } from "#foliplus/config-schema.js";
 import { Cache } from "#common/cache.js";
 import { GEOCODE_TIMEOUT_MS, fetchWithTimeout } from "#common/fetch.js";
 import { withMapCRS } from "./mapProvider.js";
 import { formatAddress } from "./nominatim.js";
 import { createThrottleQueue } from "./rateLimit.js";
 import { resolveProvider } from "./registry.js";
-import type { GeocodeProvider, GeocodeResult, ProviderConfig } from "./type.js";
+import type { GeocodeProvider, GeocodeResult } from "./type.js";
 
 // FIFO cache shared by both directions, bounded to bound memory.
 // Entries expire after 24h so upstream result changes are not served stale.

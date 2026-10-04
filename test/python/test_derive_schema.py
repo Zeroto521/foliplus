@@ -12,7 +12,13 @@ from typing import Annotated, Literal
 
 import pytest
 
-from foliplus._config_schema import FieldSpec, _evaluate, derive_schema, verify_tags
+from foliplus._config_schema import (
+    FieldSpec,
+    _evaluate,
+    _resolve_tag,
+    derive_schema,
+    verify_tags,
+)
 from foliplus._validate import Bound
 
 
@@ -60,14 +66,16 @@ class _Override(_ReflectBase):
     def __init__(
         self,
         *,
-        hint: Annotated[dict, FieldSpec(ts="LocaleTables")] = {},
+        hint: Annotated[dict, FieldSpec(ts="object_nested")] = {},
     ):
         self.hint = hint
 
 
 class _Alias(_ReflectBase):
     def __init__(
-        self, *, alias: Annotated[Literal["a", "b"], FieldSpec(ts="NumberStyle")] = "a"
+        self,
+        *,
+        alias: Annotated[Literal["a", "b"], FieldSpec(name="NumberStyle")] = "a",
     ):
         self.alias = alias
 
@@ -107,28 +115,84 @@ class _BadDefault(_ReflectBase):
         self.x = x
 
 
+_LAYER_SHAPE = [{"name": "string", "id": "string", "group": ("base", "overlay")}]
+
+
 class _Dynamic(_ReflectBase):
-    _dynamic_fields = ("data",)
-    _data_hint = "LayerData"
+    _dynamic_fields = {
+        "data": Annotated[list, FieldSpec(name="LayerData", shape=_LAYER_SHAPE)]
+    }
 
     def __init__(self, *, show: bool = True):
         self.show = show
 
 
 class _DynamicClash(_ReflectBase):
-    _dynamic_fields = ("data",)
+    _dynamic_fields = {
+        "data": Annotated[list, FieldSpec(name="LayerData", shape=_LAYER_SHAPE)]
+    }
 
     def __init__(self, *, data: list[str] = []):
         self.data = data
 
 
-class _DynamicNoHint(_ReflectBase):
-    """A dynamic field without a hint attribute — a declaration bug."""
+class _DynamicNoShape(_ReflectBase):
+    """A dynamic field whose FieldSpec describes no descriptor — a bug."""
 
-    _dynamic_fields = ("data",)
+    _dynamic_fields = {"data": Annotated[list, FieldSpec(name="LayerData")]}
 
     def __init__(self, *, show: bool = True):
         self.show = show
+
+
+class _DynamicEmptySpec(_ReflectBase):
+    """A dynamic field whose FieldSpec declares nothing — a declaration bug."""
+
+    _dynamic_fields = {"data": Annotated[list, FieldSpec()]}
+
+    def __init__(self, *, show: bool = True):
+        self.show = show
+
+
+class _DynamicBare(_ReflectBase):
+    """A dynamic field entry with no FieldSpec — a declaration bug."""
+
+    _dynamic_fields = {"data": list}
+
+    def __init__(self, *, show: bool = True):
+        self.show = show
+
+
+_CFG_SHAPE = {"baseUrl": ("string", "?")}
+
+
+class _NamedType(_ReflectBase):
+    """A named non-union type: its descriptor travels with its name in the
+    same FieldSpec.
+    """
+
+    def __init__(
+        self,
+        *,
+        cfg: Annotated[
+            dict,
+            FieldSpec(ts="ProviderConfig", name="ProviderConfig", shape=_CFG_SHAPE),
+        ] = None,
+    ):
+        self.cfg = cfg
+
+
+class _NamedTypeNoShape(_ReflectBase):
+    """A named non-union type with no descriptor — a declaration bug."""
+
+    def __init__(
+        self,
+        *,
+        cfg: Annotated[
+            dict, FieldSpec(ts="ProviderConfig", name="ProviderConfig")
+        ] = None,
+    ):
+        self.cfg = cfg
 
 
 class _Order(_ReflectBase):
@@ -208,13 +272,13 @@ def test_bound_metadata_is_ignored_by_the_reflector() -> None:
 
 def test_field_spec_at_the_parameter_overrides_the_tag() -> None:
     schema = derive_schema(_Override)
-    assert schema["hint"].ts == "LocaleTables"
+    assert schema["hint"].ts == "object_nested"
 
 
 def test_field_spec_at_the_alias_definition_carries_the_tag() -> None:
     """A type alias declares its TS type next to itself, not in a table."""
     schema = derive_schema(_Alias)
-    assert schema["alias"].ts == "NumberStyle"
+    assert schema["alias"].name == "NumberStyle"
 
 
 def test_position_alias_resolves_through_its_own_metadata() -> None:
@@ -268,6 +332,9 @@ def test_dynamic_fields_are_declared_on_the_class() -> None:
     assert schema["show"].dynamic is False
     assert schema["data"].dynamic is True
     assert schema["data"].ts == "LayerData"
+    assert schema["data"].shape == [
+        {"name": "string", "id": "string", "group": ("base", "overlay")}
+    ]
 
 
 def test_dynamic_field_clashing_with_a_parameter_fails_loud() -> None:
@@ -275,10 +342,55 @@ def test_dynamic_field_clashing_with_a_parameter_fails_loud() -> None:
         derive_schema(_DynamicClash)
 
 
-def test_dynamic_field_without_hint_fails_loud() -> None:
-    """A dynamic field without ``_<name>_hint`` is a declaration bug."""
-    with pytest.raises(ValueError, match="_data_hint"):
-        derive_schema(_DynamicNoHint)
+def test_dynamic_field_without_a_shape_fails_loud() -> None:
+    """A dynamic field whose FieldSpec carries no descriptor is a bug."""
+    with pytest.raises(ValueError, match="FieldSpec needs both"):
+        derive_schema(_DynamicNoShape)
+
+
+def test_dynamic_field_with_an_empty_field_spec_fails_loud() -> None:
+    """A FieldSpec that declares neither name nor shape is a declaration bug."""
+    with pytest.raises(ValueError, match="FieldSpec needs both"):
+        derive_schema(_DynamicEmptySpec)
+
+
+def test_dynamic_field_without_a_field_spec_fails_loud() -> None:
+    """A dynamic field entry must be an Annotated type with a FieldSpec."""
+    with pytest.raises(ValueError, match="Annotated"):
+        derive_schema(_DynamicBare)
+
+
+def test_named_non_union_type_reads_its_shape_from_the_annotation() -> None:
+    """A named object type carries its descriptor on its own FieldSpec."""
+    schema = derive_schema(_NamedType)
+    assert schema["cfg"].ts == "ProviderConfig"
+    assert schema["cfg"].name == "ProviderConfig"
+    assert schema["cfg"].shape == {"baseUrl": ("string", "?")}
+
+
+def test_named_type_without_a_shape_fails_loud() -> None:
+    """A named non-union type must declare its descriptor on its FieldSpec."""
+    with pytest.raises(ValueError, match="FieldSpec.shape"):
+        derive_schema(_NamedTypeNoShape)
+
+
+def test_nullable_annotation_does_not_drop_the_field_spec() -> None:
+    """A spec on the non-null arm must survive null-arm unwrapping.
+
+    ``X | None`` resolves arm by arm, so a spec sitting on the non-null arm
+    must be taken back out rather than dropped — dropping it loses a named
+    type's ``name``.
+    """
+    spec = FieldSpec(ts="ProviderConfig", name="ProviderConfig")
+    tag, values, nullable, meta = _resolve_tag(Annotated[dict, spec] | None, None)
+    assert tag == "ProviderConfig"
+    assert values is None
+    assert nullable is True
+    # The whole point: the spec is not dropped. Assert on content rather than
+    # identity -- typing may hand back an equal alias, and derive_schema
+    # rebuilds its own FieldSpec anyway, so identity is not a contract.
+    assert meta is not None
+    assert (meta.ts, meta.name) == ("ProviderConfig", "ProviderConfig")
 
 
 def test_derivation_preserves_signature_order() -> None:
@@ -307,5 +419,5 @@ def test_literal_alias_without_a_tag_fails_loud() -> None:
 
 def test_verify_tags_fails_loud_on_an_unimported_name() -> None:
     """A tag no import supplies would render as an unresolvable TS type."""
-    with pytest.raises(ValueError, match="does not import"):
-        verify_tags({"Nope"})
+    with pytest.raises(ValueError, match="does not declare"):
+        verify_tags({"Nope"}, set())

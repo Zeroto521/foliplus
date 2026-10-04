@@ -8,11 +8,12 @@ import { EVENTS, type EventBus, ensureEvents } from "#core/event/index.js";
 import { bareFieldName } from "#core/labelField.js";
 import { NO_FEATURE_TREE_KINDS } from "#core/layer/index.js";
 import { bindMapSync } from "#core/leaflet/index.js";
+import type { NumberStyle } from "#foliplus/config-schema.js";
 import { getLayerAlpha, setLayerAlpha } from "#common/canvasAlpha.js";
 import { type CanvasLabelStyle } from "#common/canvasLabel.js";
 import { type Debounced, debounce } from "#common/debounce.js";
 import { BORDER_WEIGHT, clampLabelSize, normalizeHexColor } from "#common/form.js";
-import { NUMBER_FORMAT, type NumberStyle } from "#common/format.js";
+import { NUMBER_FORMAT } from "#common/format.js";
 import { type Logger, createLogger } from "#common/log.js";
 import { type Persisted, makePersisted } from "#common/storage.js";
 import * as Storage from "#common/storage.js";
@@ -432,9 +433,12 @@ class HeatmapManager {
     // instead of retiring the id in removedIds, so the heatmap can clear its
     // data and stay registerable for the next source pick. The clear resets
     // the panel to its initial state (the panel's Clear button is the same
-    // operation) and drops the persisted record so a reload does not
-    // resurrect the cleared layer — same teardown as MeasureControl's
-    // LAYER_DELETED -> clearAll.
+    // operation), then persists the now-empty selection: a record with
+    // layerId: null consumes the one-shot auto-select guard, so a reload does
+    // not re-render the very heatmap the user just deleted. Persisting rather
+    // than clearing the record is what makes this stick — dropping it would
+    // make the store look like a first open and let the single-layer
+    // auto-select fire again.
     this.removeLayerDeletedListener = this.events.on(EVENTS.LAYER_DELETED, ({ id }) => {
       if (id !== this.layerId) return;
       if (this.ui) {
@@ -446,7 +450,7 @@ class HeatmapManager {
         this.clearHeatmapCanvas();
         this.syncSourceMeta();
       }
-      this.clearSavedConfig();
+      this.saveConfig();
     });
   }
 
@@ -787,6 +791,19 @@ class HeatmapManager {
   /** Remove persisted configuration from localStorage. */
   clearSavedConfig() {
     clearSavedConfigFn();
+  }
+
+  /** Drop the LayerControl-side record this draw left behind — visibility,
+   *  opacity, zoom range with their provenance, plus the stored order slot —
+   *  so a fresh draw of the same id starts from the author's defaults instead
+   *  of inheriting the tuning the user arranged for the previous one.
+   *
+   * Only the panel's Clear button calls it. LayerControl's overflow Clear Data
+   * reaches the same prune from `deleteLayer`, and the reload path must never
+   * run it — a reload is not a clear.
+   */
+  clearLayerState() {
+    this.map.foliplus?.LayerAPI?.dropPersistedLayerState?.(this.layerId);
   }
 
   /**

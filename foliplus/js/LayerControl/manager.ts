@@ -112,8 +112,9 @@ const uninstallBringToFrontPatch = () => {
 // stable contract, change carefully. Internal = LayerUI sibling read
 // surface (ui/* + LayerUI); refactorable, but coordinate with ui/*.
 //   LayerAPI  layers, registerLayer, unregisterLayer, deleteLayer,
-//             forgetSavedOrder, bringLayerToFront, setVisible, createLayers,
-//             createCanvas, extractPoints, getLayerPanes, isLayerControl
+//             forgetSavedOrder, dropPersistedLayerState, bringLayerToFront,
+//             setVisible, createLayers, createCanvas, extractPoints,
+//             getLayerPanes, isLayerControl
 //   Public    getLayerType, getLayersByType, getFeatureCount, touchLayer,
 //   extra     computeZIndex, moveLayerUp, moveLayerDown
 //   Internal  surfaceFor, surfaceForLayer, enforceOrder, debouncedEnforce,
@@ -866,7 +867,13 @@ class LayerManager implements LayerAPI {
     // MeasureControl and HeatmapControl still own a live handle and need the
     // id to stay registerable for the next draw.
     if (layerInfo.styleSetters) {
+      // Emit first: the component's LAYER_DELETED handler wipes its own canvas
+      // and its own saved config, and only then does LayerControl prune what it
+      // owns. Both halves of a clear must erase, or the next draw inherits the
+      // half nobody pruned.
       this.events.emit(EVENTS.LAYER_DELETED, { id });
+      this.dropPersistedLayerState(id);
+      this.persistence.flushAll();
       return true;
     }
 
@@ -897,27 +904,27 @@ class LayerManager implements LayerAPI {
     // answering for a removed id.
     this.annotation.destroyLayer(id);
 
-    // Prune the id from the stored order (same prune as forgetSavedOrder —
-    // `saveOrder` is a full live snapshot reserved for user reorders, and a
-    // delete is not a reorder). No record means nothing to prune.
-    this.order.forgetSavedOrder(id);
+    // Drop every persisted value for this id (stored order + per-layer intent)
+    // through the same prune the component branch and the panel Clear use.
+    // `saveState` is called inside only when something actually dropped, so a
+    // delete of an untuned layer no longer rewrites the whole `layers` map.
 
     // The label config needs no schedule here: it rides `layers[id]`
-    // (re-saved through `ui.saveState` below — the live config is gone via
-    // `annotation.destroyLayer` above), and the legacy `annotations`
-    // segment is pruned on READ for ids in `removed` (parseRecord), so a
-    // v2 entry cannot resurrect behind the new key's absence.
+    // (the live config is gone via `annotation.destroyLayer` above), and the
+    // legacy `annotations` segment is pruned on READ for ids in `removed`
+    // (parseRecord), so a v2 entry cannot resurrect behind the new key's
+    // absence.
+
+    this.dropPersistedLayerState(id);
 
     if (!this.ui) {
       this.persistence.flushAll();
       return true;
     }
-    this.ui.dropPersistedLayerState(id);
     if (getIntent(this.ui, id, INTENT.NAME) != null) {
       clearIntent(this.ui, id, INTENT.NAME);
       this.ui.saveNamesState();
     }
-    this.ui.saveState();
     this.events.emit(EVENTS.LAYER_GROUP_COUNT_CHANGED, {
       group: layerInfo.group,
     });
@@ -938,6 +945,33 @@ class LayerManager implements LayerAPI {
    */
   forgetSavedOrder(id: string): boolean {
     return this.order.forgetSavedOrder(id);
+  }
+
+  /**
+   * Drop every persisted user value for one id — the intent row (visibility,
+   * opacity, zoom range) with its provenance, plus the stored order slot —
+   * without retiring the layer. The id stays registerable, and the registry
+   * entry and annotation config are left alone.
+   *
+   * `deleteLayer` composes the same two prunes for the layers it does retire,
+   * and the component-owned branch of `deleteLayer` calls this straight, so
+   * the panel Clear button and the overflow Clear Data erase the same thing:
+   * a component that clears its own data must not hand the next draw the
+   * tuning the user arranged for the previous one.
+   *
+   * Deliberately no `flushAll` and no `annotation.destroyLayer` — the caller
+   * owns persistence timing, and the id is stable across draws, so the
+   * annotation config and any user rename still describe the same thing.
+   *
+   * @param id - The layer ID whose persisted state is being dropped.
+   * @returns true if persisted state was dropped, false when nothing was
+   *   stored for this id (nothing to erase is not an error).
+   */
+  dropPersistedLayerState(id: string): boolean {
+    const orderDropped = this.order.forgetSavedOrder(id);
+    const intentDropped = this.ui ? this.ui.dropPersistedLayerState(id) : false;
+    if (this.ui && (orderDropped || intentDropped)) this.ui.saveState();
+    return orderDropped || intentDropped;
   }
 
   /** Recursively clear every child of a layer. Kept as a hand-written recursion

@@ -13,6 +13,7 @@
 import { EVENTS } from "#core/event/index.js";
 import { resolveSelectedField } from "#core/labelField.js";
 import { createRowPanel } from "#core/leaflet/index.js";
+import type { NumberStyle } from "#foliplus/config-schema.js";
 import { dom } from "#common/dom.js";
 import {
   LABEL_SIZE,
@@ -20,7 +21,6 @@ import {
   bindLiveNumber,
   normalizeHexColor,
 } from "#common/form.js";
-import { type NumberStyle } from "#common/format.js";
 import * as CONST from "../../const.js";
 import * as SVGs from "../../icon.js";
 import { authorZoomBoundsForLayer } from "../apply.js";

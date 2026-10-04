@@ -234,19 +234,24 @@ const applyUserState = (lp: ListPanel, ui: LayerUI, id?: string) => {
  * range, and the provenance that says the user set them.
  *
  * This is the only routine that erases a stored value, and it is reachable
- * from an explicit user action alone: "delete this layer". A layer that is
- * merely not registered right now must keep its stored state, because the
- * component that owns the id may register it later in this session or on the
- * next load —{@link applyUserState} projects it then, unchanged.
+ * from an explicit user action alone — delete a layer from its menu, or clear
+ * a component's data (Heatmap's panel Clear button, LayerControl's overflow
+ * Clear Data). A layer that is merely not registered right now must keep its
+ * stored state, because the component that owns the id may register it later
+ * in this session or on the next load
+ * —{@link applyUserState} projects it then, unchanged.
  *
  * The value and its provenance leave together: a provenance marker with no
  * value would be a record claiming the user chose something the record no
  * longer holds, and {@link markOverride} refuses that combination.
+ *
+ * @returns true if a row was dropped, false when nothing was stored for
+ *   this id — a layer that never received a user value has nothing to erase.
  */
-const dropPersistedLayerState = (lp: ListPanel, ui: LayerUI, id: string) => {
+const dropPersistedLayerState = (lp: ListPanel, ui: LayerUI, id: string): boolean => {
   // Style dimensions + their provenance. `name` / `annotation` are cleared
   // by their own callers (manager delete / annotation destroy).
-  ui.intentStore.dropRow(id);
+  return ui.intentStore.dropRow(id);
 };
 
 /** Save user-assigned names, coalescing rapid calls. */

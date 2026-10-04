@@ -190,6 +190,33 @@ describe("HeatmapManager — caching & lifecycle", () => {
     expect(() => m.clearHeatmapCanvas()).not.toThrow();
   });
 
+  it("clearLayerState asks LayerControl to drop the stored state for this id", () => {
+    // The intent row (visibility / opacity) lives under LayerControl's own
+    // storage key, so clearSavedConfig alone never reached it.
+    const m = makeManager();
+    const dropPersistedLayerState = vi.fn(() => true);
+    (
+      m.map as unknown as { foliplus?: { LayerAPI?: Record<string, unknown> } }
+    ).foliplus = {
+      LayerAPI: { dropPersistedLayerState },
+    };
+    m.clearLayerState();
+    expect(dropPersistedLayerState).toHaveBeenCalledWith(m.layerId);
+  });
+
+  it("clearLayerState tolerates a LayerAPI without dropPersistedLayerState", () => {
+    // A LayerControl that predates this method must not break a panel Clear.
+    const m = makeManager();
+    (m.map as unknown as { foliplus?: unknown }).foliplus = { LayerAPI: {} };
+    expect(() => m.clearLayerState()).not.toThrow();
+  });
+
+  it("clearLayerState tolerates a map without any LayerAPI", () => {
+    const m = makeManager();
+    (m.map as unknown as { foliplus?: unknown }).foliplus = undefined;
+    expect(() => m.clearLayerState()).not.toThrow();
+  });
+
   it("renderHexagons clears canvas when no layer selected", () => {
     const m = makeManager();
     m.selectedLayerId = null;
@@ -1649,6 +1676,7 @@ describe("HeatmapManager — EVENTS.LAYER_DELETED auto-clear", () => {
     m.numClasses = 8;
     m.currentMethod = "quantile";
     const clearSpy = vi.spyOn(m, "clearHeatmapCanvas");
+    const saveSpy = vi.spyOn(m, "saveConfig");
     const clearSaved = vi.spyOn(m, "clearSavedConfig");
 
     ensureEvents(m.map).emit(EVENTS.LAYER_DELETED, { id: m.layerId });
@@ -1670,9 +1698,12 @@ describe("HeatmapManager — EVENTS.LAYER_DELETED auto-clear", () => {
     expect(ctrl.classSelect.value).toBe(String(config.n_classes));
     expect(ctrl.schemeSelectHidden.value).toBe(config.color_scheme);
     expect(ctrl.extraBody.classList.contains(CONST.CLASSES.HIDDEN)).toBe(true);
-    // The record is dropped so a reload does not resurrect the cleared layer,
-    // the same teardown as MeasureControl's LAYER_DELETED -> clearAll.
-    expect(clearSaved).toHaveBeenCalledTimes(1);
+    // The cleared selection is persisted rather than the record dropped: a
+    // stored layerId: null consumes the one-shot auto-select guard, so a reload
+    // cannot resurrect the deleted layer. Dropping the record would make the
+    // store look like a first open and let the auto-select fire again.
+    expect(saveSpy).toHaveBeenCalledTimes(1);
+    expect(clearSaved).not.toHaveBeenCalled();
     // resetPanel owns the single canvas wipe — the event handler must not add
     // another one on top of it.
     expect(clearSpy).toHaveBeenCalledTimes(1);
@@ -1680,7 +1711,7 @@ describe("HeatmapManager — EVENTS.LAYER_DELETED auto-clear", () => {
     expect(ctrl.ctrl.classList.contains(CONST.CLASSES.COLLAPSED)).toBe(false);
   });
 
-  it("resets state and drops the record when own layer is deleted with no panel", () => {
+  it("resets state and persists the cleared selection when own layer is deleted with no panel", () => {
     const m = makeManager();
     m.ui = null;
     m.selectedLayerId = "pts";
@@ -1690,12 +1721,14 @@ describe("HeatmapManager — EVENTS.LAYER_DELETED auto-clear", () => {
     m.numClasses = 8;
     m.autoFieldKey = "price";
     const clearSpy = vi.spyOn(m, "clearHeatmapCanvas");
+    const saveSpy = vi.spyOn(m, "saveConfig");
     const clearSaved = vi.spyOn(m, "clearSavedConfig");
 
     ensureEvents(m.map).emit(EVENTS.LAYER_DELETED, { id: m.layerId });
 
     expect(clearSpy).toHaveBeenCalledTimes(1);
-    expect(clearSaved).toHaveBeenCalledTimes(1);
+    expect(saveSpy).toHaveBeenCalledTimes(1);
+    expect(clearSaved).not.toHaveBeenCalled();
     expect(m.selectedLayerId).toBeNull();
     expect(m.autoFieldKey).toBeNull();
     expect(m.currentAgg).toBe(CONST.AGG.COUNT);

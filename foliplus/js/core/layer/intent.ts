@@ -6,7 +6,7 @@
 // `LayerControl/type.ts` (LayerOverride / LayerIntent / PersistedLayerState /
 // IntentRow / LoadSource / AnnotationConfig) and `LayerControl/ui/intent.ts`
 // (INTENT / LIVE / STYLE_KEYS / IntentKey) — T261 semantics unchanged.
-import { type NumberStyle } from "#common/format.js";
+import type { NumberStyle } from "#foliplus/config-schema.js";
 
 /** Per-layer annotation config (matches what persistence stores). */
 interface AnnotationConfig {

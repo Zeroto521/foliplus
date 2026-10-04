@@ -7,7 +7,7 @@ name = "foliplus"
 dynamic = ["version"]
 description = 'foliplus: the missing piece between "see the map" and "use the map". GeoPandas handles data, Folium renders it, foliplus brings it to life.'
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 authors = [{ name = "40% <@Zeroto521>", email = "Zeroto521@gmail.com" }]
 license = "MIT"
 license-files = ["LICENSE"]
@@ -15,7 +15,6 @@ keywords = ["folium", "leaflet", "gis", "map", "visualization"]
 classifiers = [
   "Development Status :: 4 - Beta",
   "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",

@@ -82,10 +82,9 @@ import {
  *  - overlayPanel:     floating panels (menu / attrs / rename / style)
  *  - focusController:  focus spotlight + inverse mask
  *
- *  Cross-cutting code reads state via compat getters (`ui.foldedGroups`)
- *  so a test that builds a mock `ui` object does not need to know about the
- *  subsystem split. The getters are thin redirections; each subsystem owns
- *  the actual field.
+ *  Cross-cutting code reads state through the subsystem handle
+ *  (`ui.listPanel.foldedGroups`, `ui.overlayPanel.activeMenu`, etc.);
+ *  each subsystem owns the field and there is no compat layer.
  */
 class LayerUI {
   manager: LayerManager;
