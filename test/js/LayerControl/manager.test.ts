@@ -1439,6 +1439,112 @@ describe("LayerManager", () => {
     });
   });
 
+  // ── dropPersistedLayerState ──
+
+  // The component-clear counterpart of deleteLayer: it drops the same two
+  // sections (stored order + intent row) but never retires the id, so a
+  // cleared component can draw again from the author's defaults.
+  describe("dropPersistedLayerState", () => {
+    it("drops the intent row and its provenance, keeps the id registerable", () => {
+      const m = new LayerManager(map, [
+        { id: "A", name: "A", group: "overlay" },
+        { id: "H", name: "H", group: "overlay" },
+      ]);
+      const save = vi.fn(() => saveState(m.ui));
+      m.ui = {
+        m,
+        intentStore: makeStore(
+          {
+            H: { visible: false, opacity: 0.35 },
+            A: { visible: false, opacity: 0.4 },
+          },
+          { H: ["visible", "opacity"], A: ["visible", "opacity"] },
+        ),
+        dropPersistedLayerState: (id: string) => dropPersistedLayerState(m.ui, id),
+        saveState: save,
+        invalidateFields: vi.fn(),
+      } as any;
+      // A component clear always unregisters first (saveOrder would otherwise
+      // re-insert an id that is still live).
+      m.unregisterLayer("H");
+
+      expect(m.dropPersistedLayerState("H")).toBe(true);
+
+      expect(getIntent(m.ui, "H", "visible")).toBeUndefined();
+      expect(getIntent(m.ui, "H", "opacity")).toBeUndefined();
+      // A sibling's tuning is nobody's business on a component clear.
+      expect(getIntent(m.ui, "A", "visible")).toBe(false);
+      expect(getIntent(m.ui, "A", "opacity")).toBe(0.4);
+      expect(m.ui.intentStore.dumpProvenance()).toEqual({
+        A: ["visible", "opacity"],
+      });
+      expect(save).toHaveBeenCalledTimes(1);
+      // A clear is not a delete: the id stays registerable.
+      expect((m as any).order.removedIds.has("H")).toBe(false);
+      m.registerLayer({ id: "H", name: "H", group: "overlay" });
+      expect(m.layerRegistry.has("H")).toBe(true);
+    });
+
+    it("drops the stored order slot too, so a redraw lands at the top", () => {
+      seedStorage({ order: ["A", "H", "B"] });
+      const m = new LayerManager(map, [
+        { id: "A", name: "A", group: "overlay" },
+        { id: "H", name: "H", group: "overlay" },
+        { id: "B", name: "B", group: "overlay" },
+      ]);
+      m.unregisterLayer("H");
+
+      expect(m.dropPersistedLayerState("H")).toBe(true);
+
+      expect((m as any).order.savedOrder).toEqual(["A", "B"]);
+      m.registerLayer({ id: "H", name: "H", group: "overlay" });
+      expect(m.layers.map(l => l.id)).toEqual(["H", "A", "B"]);
+    });
+
+    it("returns false when nothing was stored for the id", () => {
+      // No panel and no stored order — a clear of a layer the user never
+      // touched erases nothing, and must say so rather than throwing.
+      const m = new LayerManager(map, [{ id: "H", name: "H", group: "overlay" }]);
+      expect(m.dropPersistedLayerState("H")).toBe(false);
+    });
+
+    it("persists the erase so a reload cannot resurrect the old tuning", () => {
+      // The probe that motivated this: the entry survived both clear paths, so
+      // a redraw — or a plain reload — handed back the opacity and visibility
+      // the user had arranged for the previous draw.
+      seedStorage({
+        layers: {
+          H: {
+            visible: false,
+            opacity: 0.35,
+            overrides: ["visible", "opacity"],
+          },
+        },
+      });
+      const m = new LayerManager(map, [{ id: "H", name: "H", group: "overlay" }]);
+      const save = vi.fn(() => saveState(m.ui));
+      m.ui = {
+        m,
+        intentStore: makeStore(
+          { H: { visible: false, opacity: 0.35 } },
+          { H: ["visible", "opacity"] },
+        ),
+        dropPersistedLayerState: (id: string) => dropPersistedLayerState(m.ui, id),
+        saveState: save,
+        invalidateFields: vi.fn(),
+      } as any;
+      m.unregisterLayer("H");
+      m.dropPersistedLayerState("H");
+      m.persistence.flushAll();
+
+      const record = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!) as {
+        layers?: Record<string, unknown>;
+      };
+      expect(record.layers?.H).toBeUndefined();
+      expect(save).toHaveBeenCalledTimes(1);
+    });
+  });
+
   it("normalizes initial data into the full layerInfo field set", () => {
     const m2 = new LayerManager(map, [{ id: "a", name: "A", group: "overlay" }]);
     const li = m2.layers[0];
@@ -2596,6 +2702,45 @@ describe("LayerManager", () => {
       expect(unregisterSpy).not.toHaveBeenCalled();
       expect(manager.layerRegistry.has("measure1")).toBe(true);
       expect((manager as any).order.removedIds.has("measure1")).toBe(false);
+    });
+
+    it("prunes the component's stored state too, so a redraw starts clean", () => {
+      // The component's own LAYER_DELETED handler wipes its canvas and its
+      // saved config; without this half LayerControl kept the intent row, so a
+      // redraw inherited the previous draw's opacity and visibility.
+      manager.map.hasLayer.mockReturnValue(false);
+      const save = vi.fn(() => saveState(manager.ui));
+      manager.ui = {
+        m: manager,
+        intentStore: makeStore(
+          {
+            measure1: { visible: false, opacity: 0.35 },
+            overlay1: { visible: false, opacity: 0.4 },
+          },
+          { measure1: ["visible", "opacity"], overlay1: ["visible", "opacity"] },
+        ),
+        dropPersistedLayerState: (id: string) =>
+          dropPersistedLayerState(manager.ui, id),
+        saveState: save,
+        saveNamesState: vi.fn(),
+        invalidateFields: vi.fn(),
+      } as any;
+      manager.registerLayer({
+        id: "measure1",
+        name: "Measure",
+        layer: { options: {} },
+        styleSetters: { color: vi.fn() },
+      } as any);
+
+      expect(manager.deleteLayer("measure1")).toBe(true);
+
+      expect(getIntent(manager.ui, "measure1", "visible")).toBeUndefined();
+      expect(getIntent(manager.ui, "measure1", "opacity")).toBeUndefined();
+      // A sibling keeps its tuning: this is a clear, not a sweep.
+      expect(getIntent(manager.ui, "overlay1", "visible")).toBe(false);
+      expect(getIntent(manager.ui, "overlay1", "opacity")).toBe(0.4);
+      expect((manager as any).order.removedIds.has("measure1")).toBe(false);
+      expect(save).toHaveBeenCalledTimes(1);
     });
 
     it("still retires a user layer through unregisterLayer and removedIds", () => {

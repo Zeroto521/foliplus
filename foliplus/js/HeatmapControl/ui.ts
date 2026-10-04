@@ -194,6 +194,7 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
   clearBtn.onclick = () => {
     resetPanel(ctrl);
     ctrl.m.clearSavedConfig();
+    ctrl.m.clearLayerState();
     ctrl.ctrl.classList.remove(CONST.CLASSES.EXPANDED);
     ctrl.ctrl.classList.add(CONST.CLASSES.COLLAPSED);
     adjustPanelZIndex({ container: ctrl.ctrl, expanded: false });

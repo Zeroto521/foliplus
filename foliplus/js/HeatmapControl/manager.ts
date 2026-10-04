@@ -793,6 +793,19 @@ class HeatmapManager {
     clearSavedConfigFn();
   }
 
+  /** Drop the LayerControl-side record this draw left behind — visibility,
+   *  opacity, zoom range with their provenance, plus the stored order slot —
+   *  so a fresh draw of the same id starts from the author's defaults instead
+   *  of inheriting the tuning the user arranged for the previous one.
+   *
+   * Only the panel's Clear button calls it. LayerControl's overflow Clear Data
+   * reaches the same prune from `deleteLayer`, and the reload path must never
+   * run it — a reload is not a clear.
+   */
+  clearLayerState() {
+    this.map.foliplus?.LayerAPI?.dropPersistedLayerState?.(this.layerId);
+  }
+
   /**
    * Publish the current source layer name + aggregation field into
    * `sourceMeta` (the object createCanvas registered), so LayerControl's

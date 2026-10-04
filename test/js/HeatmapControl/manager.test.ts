@@ -190,6 +190,33 @@ describe("HeatmapManager — caching & lifecycle", () => {
     expect(() => m.clearHeatmapCanvas()).not.toThrow();
   });
 
+  it("clearLayerState asks LayerControl to drop the stored state for this id", () => {
+    // The intent row (visibility / opacity) lives under LayerControl's own
+    // storage key, so clearSavedConfig alone never reached it.
+    const m = makeManager();
+    const dropPersistedLayerState = vi.fn(() => true);
+    (
+      m.map as unknown as { foliplus?: { LayerAPI?: Record<string, unknown> } }
+    ).foliplus = {
+      LayerAPI: { dropPersistedLayerState },
+    };
+    m.clearLayerState();
+    expect(dropPersistedLayerState).toHaveBeenCalledWith(m.layerId);
+  });
+
+  it("clearLayerState tolerates a LayerAPI without dropPersistedLayerState", () => {
+    // A LayerControl that predates this method must not break a panel Clear.
+    const m = makeManager();
+    (m.map as unknown as { foliplus?: unknown }).foliplus = { LayerAPI: {} };
+    expect(() => m.clearLayerState()).not.toThrow();
+  });
+
+  it("clearLayerState tolerates a map without any LayerAPI", () => {
+    const m = makeManager();
+    (m.map as unknown as { foliplus?: unknown }).foliplus = undefined;
+    expect(() => m.clearLayerState()).not.toThrow();
+  });
+
   it("renderHexagons clears canvas when no layer selected", () => {
     const m = makeManager();
     m.selectedLayerId = null;
