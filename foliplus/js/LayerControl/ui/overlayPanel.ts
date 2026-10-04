@@ -13,11 +13,6 @@
 import { type EventBus } from "#core/event/index.js";
 import type { LayerManager } from "../manager.js";
 
-const NO_OP_ENV: { T: (key: string) => string; _: (key: string) => string } = {
-  T: key => `LayerControl.${key}`,
-  _: key => key,
-};
-
 /** Floating-surface state. Each `active*` field tracks the currently open
  *  panel of that kind, and each `*Unsubscribe` field is the bus
  *  subscription installed while that panel is open (so unbinding clears
@@ -66,7 +61,7 @@ class OverlayPanel {
   constructor(
     manager: LayerManager,
     events: EventBus,
-    env: { T: (key: string) => string; _: (key: string) => string } = NO_OP_ENV,
+    env: { T: (key: string) => string; _: (key: string) => string },
   ) {
     this.m = manager;
     this.events = events;

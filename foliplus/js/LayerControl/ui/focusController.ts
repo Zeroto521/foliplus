@@ -12,11 +12,6 @@
 import { type EventBus } from "#core/event/index.js";
 import type { LayerManager } from "../manager.js";
 
-const NO_OP_ENV: { T: (key: string) => string; _: (key: string) => string } = {
-  T: key => `LayerControl.${key}`,
-  _: key => key,
-};
-
 /** Focus overlay state. All fields are null/empty until a focus is
  *  requested and stay so after focus is cancelled — `cancelFocus` clears
  *  every field symmetrically. */
@@ -47,7 +42,7 @@ class FocusController {
   constructor(
     manager: LayerManager,
     events: EventBus,
-    env: { T: (key: string) => string; _: (key: string) => string } = NO_OP_ENV,
+    env: { T: (key: string) => string; _: (key: string) => string },
   ) {
     this.m = manager;
     this.events = events;
