@@ -428,7 +428,9 @@ const main = async (o = opts) => {
 export {
   PrettierOptions,
   buildConfigSchema,
+  collectNamedTypes,
   main,
+  renderShape,
   RENDER,
   IMPORTS,
   PRIMITIVES,
