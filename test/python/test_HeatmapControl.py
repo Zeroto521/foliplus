@@ -976,7 +976,9 @@ class TestHeatmapControlBrowser:
                   return before - window.map.foliplus.LayerAPI.layers.length;
                 }"""
             )
-            assert removed == 1, f"expected the heatmap layer deleted, removed {removed}"
+            assert removed == 1, (
+                f"expected the heatmap layer deleted, removed {removed}"
+            )
 
             page.evaluate("() => window.__heatmapCtrl.manager.flush()")
 
