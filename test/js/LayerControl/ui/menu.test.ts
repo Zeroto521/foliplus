@@ -690,9 +690,9 @@ describe("LayerUI menu", () => {
       ui.openMoreMenu(item);
       const deleteLi = deleteEntryOf(item);
 
-      expect(activateDeleteItem(ui, deleteLi)).toBe(false);
+      expect(activateDeleteItem(ui.overlayPanel, ui, deleteLi)).toBe(false);
       expect(deleteSpy).not.toHaveBeenCalled();
-      expect(activateDeleteItem(ui, deleteLi)).toBe(true);
+      expect(activateDeleteItem(ui.overlayPanel, ui, deleteLi)).toBe(true);
       expect(deleteSpy).toHaveBeenCalledWith("overlay1");
     });
 
@@ -705,7 +705,7 @@ describe("LayerUI menu", () => {
       const deleteLi = deleteEntryOf(item);
       deleteLi.querySelector(CONST.SEL.MENU_DELETE_LABEL)!.remove();
 
-      expect(activateDeleteItem(ui, deleteLi)).toBe(false);
+      expect(activateDeleteItem(ui.overlayPanel, ui, deleteLi)).toBe(false);
       expect(deleteLi.classList.contains(CONST.CLASSES.MENU_DELETE_ARMED)).toBe(false);
       expect(deleteSpy).not.toHaveBeenCalled();
     });
@@ -722,7 +722,7 @@ describe("LayerUI menu", () => {
 
       ui.activeMenu = null;
 
-      expect(activateDeleteItem(ui, deleteLi)).toBe(true);
+      expect(activateDeleteItem(ui.overlayPanel, ui, deleteLi)).toBe(true);
       expect(deleteSpy).toHaveBeenCalledWith("");
     });
 
@@ -783,7 +783,7 @@ describe("LayerUI menu", () => {
         ".foliplus-layer-more-menu li[data-action='style-layer']",
       ) as HTMLElement;
       expect(styleLi.getAttribute("aria-disabled")).not.toBe("true");
-      ui.closeMoreMenu();
+      ui.closeMoreMenu(false);
     });
   });
 
@@ -833,7 +833,7 @@ describe("LayerUI menu", () => {
       const menu = item.querySelector(".foliplus-layer-more-menu");
       expect(menu).not.toBeNull();
       expect(menu!.querySelectorAll("li").length).toBeGreaterThan(0);
-      ui.closeMoreMenu();
+      ui.closeMoreMenu(false);
     });
 
     it("does not disable the style entry when the layer has styleSetters but no label fields", () => {
@@ -849,7 +849,7 @@ describe("LayerUI menu", () => {
         ".foliplus-layer-more-menu li[data-action='style-layer']",
       ) as HTMLElement;
       expect(styleLi.getAttribute("disabled")).toBeNull();
-      ui.closeMoreMenu();
+      ui.closeMoreMenu(false);
     });
 
     it("disables the style entry when the layer has no labelable content and no style delegation", () => {
@@ -874,7 +874,7 @@ describe("LayerUI menu", () => {
         ".foliplus-layer-more-menu li[data-action='style-layer']",
       ) as HTMLElement;
       expect(styleLi.getAttribute("aria-disabled")).toBe("true");
-      ui.closeMoreMenu();
+      ui.closeMoreMenu(false);
     });
   });
 

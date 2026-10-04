@@ -66,7 +66,12 @@ describe("LayerUI lifecycle — defensive rails", () => {
       checkbox.checked = true;
       checkbox.dispatchEvent(new Event("change", { bubbles: true }));
 
-      expect(toggleAllSpy).toHaveBeenCalledWith(ui, "", expect.any(Boolean));
+      expect(toggleAllSpy).toHaveBeenCalledWith(
+        ui.listPanel,
+        ui,
+        "",
+        expect.any(Boolean),
+      );
     });
   });
 
@@ -99,7 +104,7 @@ describe("LayerUI lifecycle — defensive rails", () => {
       const foldBtn = row.querySelector(`.${CONST.CLASSES.FOLD_BTN}`) as HTMLElement;
       foldBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
 
-      expect(toggleFoldSpy).toHaveBeenCalledWith(ui, "");
+      expect(toggleFoldSpy).toHaveBeenCalledWith(ui.listPanel, ui, "");
     });
 
     it("onClick: the color row's body no longer triggers showSolidBasemap", () => {
@@ -337,7 +342,7 @@ describe("LayerUI lifecycle — defensive rails", () => {
     });
 
     it("LAYER_NO_BASEMAP_CHANGED refreshes the empty-state hint", () => {
-      // Signal handler runs syncNoBasemap(ui); no throw, no row drop.
+      // Signal handler runs syncNoBasemap(ui.listPanel, ui); no throw, no row drop.
       expect(() =>
         ensureEvents(map).emit(EVENTS.LAYER_NO_BASEMAP_CHANGED),
       ).not.toThrow();

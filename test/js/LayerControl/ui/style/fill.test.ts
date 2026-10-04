@@ -94,8 +94,8 @@ const commitNow = (
   kind: "color" | "opacity",
   value: string | number,
 ): void => {
-  if (kind === "color") commitFillColor(ui, layerId, value as string);
-  else commitFillOpacity(ui, layerId, value as number);
+  if (kind === "color") commitFillColor(ui.overlayPanel, ui, layerId, value as string);
+  else commitFillOpacity(ui.overlayPanel, ui, layerId, value as number);
   flushStyleDimApply(FACE.FILL, layerId);
 };
 
@@ -190,7 +190,7 @@ describe("LayerUI style panel — fill color", () => {
       color: "#3366cc",
       canvas: document.createElement("canvas"),
     });
-    expect(layerCanFill(ui, "colormap")).toBe(true);
+    expect(layerCanFill(ui.overlayPanel, ui, "colormap")).toBe(true);
   });
 
   it("layerCanFill returns false for a canvas layer", () => {
@@ -199,7 +199,7 @@ describe("LayerUI style panel — fill color", () => {
       name: "Heat",
       canvas: document.createElement("canvas"),
     });
-    expect(layerCanFill(ui, "canvas1")).toBe(false);
+    expect(layerCanFill(ui.overlayPanel, ui, "canvas1")).toBe(false);
   });
 
   it("layerCanFill returns false for a delegated (styleSetters) layer", () => {
@@ -209,7 +209,7 @@ describe("LayerUI style panel — fill color", () => {
       layer: { options: {}, eachLayer: vi.fn() } as never,
       styleSetters: { labelShow: vi.fn() },
     });
-    expect(layerCanFill(ui, "deleg1")).toBe(false);
+    expect(layerCanFill(ui.overlayPanel, ui, "deleg1")).toBe(false);
   });
 
   it("layerCanFill returns false when the surface has no opacity carrier", () => {
@@ -219,7 +219,7 @@ describe("LayerUI style panel — fill color", () => {
       name: "Cluster",
       layer: { options: {}, eachLayer: vi.fn(), _topClusterLevel: {} } as never,
     });
-    expect(layerCanFill(ui, "cluster1")).toBe(false);
+    expect(layerCanFill(ui.overlayPanel, ui, "cluster1")).toBe(false);
   });
 
   it("layerCanFill returns false when the surface has no zoom-range carrier", () => {
@@ -233,11 +233,11 @@ describe("LayerUI style panel — fill color", () => {
     const surface = manager.surfaceFor(manager.layerRegistry.get("img1")!);
     surface.capabilities.opacity = "native";
     surface.capabilities.zoomRange = "none";
-    expect(layerCanFill(ui, "img1")).toBe(false);
+    expect(layerCanFill(ui.overlayPanel, ui, "img1")).toBe(false);
   });
 
   it("layerCanFill returns false when the layer is not in the registry", () => {
-    expect(layerCanFill(ui, "not-a-real-layer")).toBe(false);
+    expect(layerCanFill(ui.overlayPanel, ui, "not-a-real-layer")).toBe(false);
   });
 
   it("layerCanFill is false for a line layer — no fill concept", () => {
@@ -252,7 +252,7 @@ describe("LayerUI style panel — fill color", () => {
       layer: line as never,
     });
     ui.runtimeStore.setFields("line1", [{ name: "count", numeric: true }]);
-    expect(layerCanFill(ui, "line1")).toBe(false);
+    expect(layerCanFill(ui.overlayPanel, ui, "line1")).toBe(false);
 
     const item = findItem(ui, "line1");
     ui.openStylePanel("line1");
@@ -286,7 +286,7 @@ describe("LayerUI style panel — fill color", () => {
       layer: mixed as never,
     });
     ui.runtimeStore.setFields("mixed1", [{ name: "count", numeric: true }]);
-    expect(layerCanFill(ui, "mixed1")).toBe(true);
+    expect(layerCanFill(ui.overlayPanel, ui, "mixed1")).toBe(true);
 
     const item = findItem(ui, "mixed1");
     ui.openStylePanel("mixed1");
@@ -310,7 +310,7 @@ describe("LayerUI style panel — fill color", () => {
       geometryType: () => "point",
     };
     vi.spyOn(ui.m, "surfaceFor").mockReturnValue(fake as never);
-    expect(layerCanFill(ui, "point1")).toBe(false);
+    expect(layerCanFill(ui.overlayPanel, ui, "point1")).toBe(false);
   });
 
   it("layerCanFill is false when the mixed layer resolves no Leaflet object", () => {
@@ -330,7 +330,7 @@ describe("LayerUI style panel — fill color", () => {
     };
     vi.spyOn(ui.m, "surfaceFor").mockReturnValue(fake as never);
 
-    expect(layerCanFill(ui, "mixed2")).toBe(false);
+    expect(layerCanFill(ui.overlayPanel, ui, "mixed2")).toBe(false);
   });
 
   it("layerCanFill is true for a circle layer (Circle extends Polyline)", () => {
@@ -356,7 +356,7 @@ describe("LayerUI style panel — fill color", () => {
     });
     ui.runtimeStore.setFields("circle1", [{ name: "count", numeric: true }]);
 
-    expect(layerCanFill(ui, "circle1")).toBe(true);
+    expect(layerCanFill(ui.overlayPanel, ui, "circle1")).toBe(true);
     const item = findItem(ui, "circle1");
     ui.openStylePanel("circle1");
     expect(fillRow(item)).not.toBeNull();
@@ -382,7 +382,7 @@ describe("LayerUI style panel — fill color", () => {
         })),
       } as never,
     });
-    expect(layerCanFill(ui, "empty1")).toBe(false);
+    expect(layerCanFill(ui.overlayPanel, ui, "empty1")).toBe(false);
   });
 
   it("the swatch resolves a named authored color through the browser probe", () => {
@@ -458,7 +458,7 @@ describe("LayerUI style panel — fill color", () => {
 
   it("applyFillToLayer calls setStyle on every leaf with one it exposes", () => {
     setIntent(ui, "overlay1", "fillColor", "#123456");
-    applyFillToLayer(ui, "overlay1");
+    applyFillToLayer(ui.overlayPanel, ui, "overlay1");
 
     expect(fillLayer.leaves[0].setStyle).toHaveBeenCalledWith({
       fillColor: "#123456",
@@ -481,9 +481,9 @@ describe("LayerUI style panel — fill color", () => {
     });
     vi.stubGlobal("cancelAnimationFrame", () => {});
 
-    commitFillColor(ui, "overlay1", "#111111");
-    commitFillColor(ui, "overlay1", "#222222");
-    commitFillColor(ui, "overlay1", "#333333");
+    commitFillColor(ui.overlayPanel, ui, "overlay1", "#111111");
+    commitFillColor(ui.overlayPanel, ui, "overlay1", "#222222");
+    commitFillColor(ui.overlayPanel, ui, "overlay1", "#333333");
 
     // trailing rAF: no walk has run yet
     expect(fillLayer.leaves[0].setStyle).not.toHaveBeenCalled();
@@ -509,7 +509,7 @@ describe("LayerUI style panel — fill color", () => {
     });
     vi.stubGlobal("cancelAnimationFrame", () => {});
 
-    commitFillColor(ui, "overlay1", "#333333");
+    commitFillColor(ui.overlayPanel, ui, "overlay1", "#333333");
     flushStyleDimApply(FACE.FILL, "overlay1");
 
     expect(fillLayer.leaves[0].setStyle).toHaveBeenCalledWith({
@@ -528,14 +528,14 @@ describe("LayerUI style panel — fill color", () => {
     const leaf = fillLayer.leaves[0];
     setIntent(ui, "overlay1", "fillColor", "#654321");
     setIntent(ui, "overlay1", "fillOpacity", 0.4);
-    applyFillToLayer(ui, "overlay1");
+    applyFillToLayer(ui.overlayPanel, ui, "overlay1");
     const syncCall = leaf.setStyle.mock.calls.at(-1);
 
     leaf.setStyle.mockClear();
     fillLayer.leaves[1].setStyle.mockClear();
-    commitFillColor(ui, "overlay1", "#111111");
-    commitFillColor(ui, "overlay1", "#654321");
-    commitFillOpacity(ui, "overlay1", 40);
+    commitFillColor(ui.overlayPanel, ui, "overlay1", "#111111");
+    commitFillColor(ui.overlayPanel, ui, "overlay1", "#654321");
+    commitFillOpacity(ui.overlayPanel, ui, "overlay1", 40);
     flushStyleDimApply(FACE.FILL, "overlay1");
 
     expect(leaf.setStyle.mock.calls.at(-1)).toEqual(syncCall);
@@ -559,7 +559,7 @@ describe("LayerUI style panel — fill color", () => {
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
     const row = item.querySelector(`.${CONST.CLASSES.STYLE_FILL_ROW}`) as HTMLElement;
-    bindFillRow(ui, "overlay1", row);
+    bindFillRow(ui.overlayPanel, ui, "overlay1", row);
     const opacity = row.querySelector(
       `.${CONST.CLASSES.STYLE_FILL_OPACITY_NUMBER}`,
     ) as HTMLInputElement;
@@ -590,7 +590,7 @@ describe("LayerUI style panel — fill color", () => {
     ) as HTMLInputElement;
     const prior = vi.fn();
     color.onchange = prior;
-    bindFillRow(ui, "overlay1", row);
+    bindFillRow(ui.overlayPanel, ui, "overlay1", row);
     color.value = "#445544";
     color.dispatchEvent(new Event("input", { bubbles: true }));
     color.dispatchEvent(new Event("change", { bubbles: true }));
@@ -613,7 +613,7 @@ describe("LayerUI style panel — fill color", () => {
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
     const row = item.querySelector(`.${CONST.CLASSES.STYLE_FILL_ROW}`) as HTMLElement;
-    bindFillRow(ui, "overlay1", row);
+    bindFillRow(ui.overlayPanel, ui, "overlay1", row);
     const color = row.querySelector(
       `.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`,
     ) as HTMLInputElement;
@@ -639,14 +639,14 @@ describe("LayerUI style panel — fill color", () => {
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
     const row = item.querySelector(`.${CONST.CLASSES.STYLE_FILL_ROW}`) as HTMLElement;
-    bindFillRow(ui, "overlay1", row);
+    bindFillRow(ui.overlayPanel, ui, "overlay1", row);
     const color = row.querySelector(
       `.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`,
     ) as HTMLInputElement;
     color.value = "#333333";
     color.dispatchEvent(new Event("input", { bubbles: true }));
 
-    closeStylePanel(ui, false);
+    closeStylePanel(ui.overlayPanel, ui, false);
 
     expect(fillLayer.leaves[0].setStyle).toHaveBeenCalledWith({
       fillColor: "#333333",
@@ -655,17 +655,17 @@ describe("LayerUI style panel — fill color", () => {
   });
 
   it("FILL_DIMENSION.value reports the stored choice over the authored one", () => {
-    expect(FILL_DIMENSION.value!(ui, "overlay1")).toEqual({
+    expect(FILL_DIMENSION.value!(ui.overlayPanel, ui, "overlay1")).toEqual({
       color: "#aabbcc",
       opacity: 0.5,
     });
     commitNow(ui, "overlay1", "color", "#445566");
     commitNow(ui, "overlay1", "opacity", 80);
-    expect(FILL_DIMENSION.value!(ui, "overlay1")).toEqual({
+    expect(FILL_DIMENSION.value!(ui.overlayPanel, ui, "overlay1")).toEqual({
       color: "#445566",
       opacity: 0.8,
     });
-    expect(FILL_DIMENSION.value!(ui, "ghost")).toBeUndefined();
+    expect(FILL_DIMENSION.value!(ui.overlayPanel, ui, "ghost")).toBeUndefined();
   });
 
   it("unregister drops the fill scheduler entry — no Map residue for dead ids", () => {
@@ -680,7 +680,7 @@ describe("LayerUI style panel — fill color", () => {
     });
     vi.stubGlobal("cancelAnimationFrame", () => {});
 
-    commitFillColor(ui, "overlay1", "#333333");
+    commitFillColor(ui.overlayPanel, ui, "overlay1", "#333333");
     expect(hasStyleDimApply(FACE.FILL, "overlay1")).toBe(true);
 
     manager.unregisterLayer("overlay1");
@@ -701,7 +701,7 @@ describe("LayerUI style panel — fill color", () => {
     fillLayer.leaves[0].options.fill = false;
     fillLayer.leaves[1].options.fill = false;
     setIntent(ui, "overlay1", "fillColor", "#123456");
-    applyFillToLayer(ui, "overlay1");
+    applyFillToLayer(ui.overlayPanel, ui, "overlay1");
 
     expect(fillLayer.leaves[0].setStyle).toHaveBeenCalledWith({
       fillColor: "#123456",
@@ -715,7 +715,7 @@ describe("LayerUI style panel — fill color", () => {
 
   it("forces fill on when the user sets a fill opacity", () => {
     setIntent(ui, "overlay1", "fillOpacity", 0.8);
-    applyFillToLayer(ui, "overlay1");
+    applyFillToLayer(ui.overlayPanel, ui, "overlay1");
 
     expect(fillLayer.leaves[0].setStyle).toHaveBeenCalledWith({
       fillOpacity: 0.8,
@@ -734,12 +734,12 @@ describe("LayerUI style panel — fill color", () => {
       layer: { options: {}, eachLayer: vi.fn() } as never,
     });
     setIntent(ui, "empty1", "fillColor", "#123456");
-    expect(() => applyFillToLayer(ui, "empty1")).not.toThrow();
+    expect(() => applyFillToLayer(ui.overlayPanel, ui, "empty1")).not.toThrow();
   });
 
   it("applyFillToLayer is a no-op when the layer is not in the registry", () => {
     setIntent(ui, "ghost", "fillColor", "#123456");
-    expect(() => applyFillToLayer(ui, "ghost")).not.toThrow();
+    expect(() => applyFillToLayer(ui.overlayPanel, ui, "ghost")).not.toThrow();
   });
 
   it("commitFillColor walks past a node with no setStyle or eachLayer", () => {
@@ -749,7 +749,9 @@ describe("LayerUI style panel — fill color", () => {
     const fixture = initWithFillLayer();
     fixture.fillLayer.leaves[1] = { options: {} } as never;
 
-    expect(() => commitFillColor(fixture.ui, "overlay1", "#ff0000")).not.toThrow();
+    expect(() =>
+      commitFillColor(fixture.ui.overlayPanel, fixture.ui, "overlay1", "#ff0000"),
+    ).not.toThrow();
     expect(getIntent(fixture.ui, "overlay1", "fillColor")).toBe("#ff0000");
   });
 
@@ -770,7 +772,7 @@ describe("LayerUI style panel — fill color", () => {
     setIntent(fixture.ui, "overlay1", "fillColor", "#123456");
     setIntent(fixture.ui, "overlay1", "fillOpacity", 0.4);
 
-    applyFillToLayer(fixture.ui, "overlay1");
+    applyFillToLayer(fixture.ui.overlayPanel, fixture.ui, "overlay1");
     expect(leaf.setStyle).toHaveBeenLastCalledWith({
       fillColor: "#123456",
       fillOpacity: 0.4,
@@ -800,7 +802,7 @@ describe("LayerUI style panel — fill color", () => {
       }),
     };
     fixture.fillLayer.leaves[0] = leaf;
-    applyFillToLayer(fixture.ui, "overlay1"); // nothing stored — early return
+    applyFillToLayer(fixture.ui.overlayPanel, fixture.ui, "overlay1"); // nothing stored — early return
 
     // applyFillToLayer never reached the walk, so no listener is attached:
     // folium's own hover handling stays untouched for an uncommitted layer.
@@ -820,7 +822,7 @@ describe("LayerUI style panel — fill color", () => {
     fixture.fillLayer.leaves[0] = leaf;
     setIntent(fixture.ui, "overlay1", "fillColor", "#123456");
 
-    applyFillToLayer(fixture.ui, "overlay1");
+    applyFillToLayer(fixture.ui.overlayPanel, fixture.ui, "overlay1");
     handler!();
 
     // fillOpacity is absent from the maps, so the reapply omits it — the
@@ -844,7 +846,7 @@ describe("LayerUI style panel — fill color", () => {
     fixture.fillLayer.leaves[0] = leaf;
     setIntent(fixture.ui, "overlay1", "fillOpacity", 0.4);
 
-    applyFillToLayer(fixture.ui, "overlay1");
+    applyFillToLayer(fixture.ui.overlayPanel, fixture.ui, "overlay1");
     handler!();
 
     expect(leaf.setStyle).toHaveBeenLastCalledWith({ fillOpacity: 0.4, fill: true });
@@ -863,7 +865,7 @@ describe("LayerUI style panel — fill color", () => {
     fixture.fillLayer.leaves[0] = leaf;
     setIntent(fixture.ui, "overlay1", "fillColor", "#123456");
 
-    applyFillToLayer(fixture.ui, "overlay1");
+    applyFillToLayer(fixture.ui.overlayPanel, fixture.ui, "overlay1");
     // Reset clears the maps; the listener from the earlier commit is still
     // attached (reset does not unbind it), so the reapply must no-op.
     clearIntent(fixture.ui, "overlay1", "fillColor");
@@ -911,7 +913,7 @@ describe("LayerUI style panel — fill color", () => {
     ui.runtimeStore.setFields("group1", [{ name: "count", numeric: true }]);
     setIntent(ui, "group1", "fillColor", "#123456");
 
-    applyFillToLayer(ui, "group1");
+    applyFillToLayer(ui.overlayPanel, ui, "group1");
 
     expect(leaves[0].setStyle).toHaveBeenCalledWith({
       fillColor: "#123456",
@@ -947,7 +949,7 @@ describe("LayerUI style panel — fill color", () => {
     fixture.fillLayer.leaves[0] = leaf;
     setIntent(fixture.ui, "overlay1", "fillColor", "#123456");
 
-    applyFillToLayer(fixture.ui, "overlay1");
+    applyFillToLayer(fixture.ui.overlayPanel, fixture.ui, "overlay1");
     handler!();
 
     expect(leaf.options.fillColor).toBe("#123456");
@@ -976,27 +978,27 @@ describe("LayerUI style panel — fill color", () => {
 
   it("layerCanFill returns true for a color basemap", () => {
     registerColorBasemap();
-    expect(layerCanFill(ui, CONST.SOLID_BASEMAP_ID)).toBe(true);
+    expect(layerCanFill(ui.overlayPanel, ui, CONST.SOLID_BASEMAP_ID)).toBe(true);
   });
 
   it("applyFillToLayer routes a color basemap to showSolidBasemap, not leaf walk", () => {
     registerColorBasemap();
     setIntent(ui, CONST.SOLID_BASEMAP_ID, "fillColor", "#ff0000");
-    applyFillToLayer(ui, CONST.SOLID_BASEMAP_ID);
+    applyFillToLayer(ui.overlayPanel, ui, CONST.SOLID_BASEMAP_ID);
     expect(ui.currentColor).toBe("#ff0000");
   });
 
   it("resetLayerFill restores the color basemap to its default", () => {
     registerColorBasemap();
     setIntent(ui, CONST.SOLID_BASEMAP_ID, "fillColor", "#ff0000");
-    resetLayerFill(ui, CONST.SOLID_BASEMAP_ID);
+    resetLayerFill(ui.overlayPanel, ui, CONST.SOLID_BASEMAP_ID);
     expect(ui.currentColor).toBe(CONST.COLOR.DEFAULT);
     expect(getIntent(ui, CONST.SOLID_BASEMAP_ID, "fillColor")).toBeUndefined();
   });
 
   it("buildFillRow renders only the color swatch for a color basemap", () => {
     registerColorBasemap();
-    const row = buildFillRow(ui, CONST.SOLID_BASEMAP_ID);
+    const row = buildFillRow(ui.overlayPanel, ui, CONST.SOLID_BASEMAP_ID);
     expect(
       row.querySelector(`.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`),
     ).not.toBeNull();
@@ -1008,7 +1010,7 @@ describe("LayerUI style panel — fill color", () => {
     // must not call showSolidBasemap (there is no color to show).
     registerColorBasemap();
     setIntent(ui, CONST.SOLID_BASEMAP_ID, "fillOpacity", 0.5);
-    applyFillToLayer(ui, CONST.SOLID_BASEMAP_ID);
+    applyFillToLayer(ui.overlayPanel, ui, CONST.SOLID_BASEMAP_ID);
     // currentColor is untouched because only opacity was set
     expect(ui.currentColor).toBe(CONST.COLOR.DEFAULT);
   });
@@ -1017,7 +1019,7 @@ describe("LayerUI style panel — fill color", () => {
     // A color basemap has no fillOpacity concept — the color routes to
     // showSolidBasemap and the fill-opacity map stays empty.
     registerColorBasemap();
-    commitFillColor(ui, CONST.SOLID_BASEMAP_ID, "#ff0000");
+    commitFillColor(ui.overlayPanel, ui, CONST.SOLID_BASEMAP_ID, "#ff0000");
     flushStyleDimApply(FACE.FILL, CONST.SOLID_BASEMAP_ID);
     expect(getIntent(ui, CONST.SOLID_BASEMAP_ID, "fillColor")).toBe("#ff0000");
     expect(getIntent(ui, CONST.SOLID_BASEMAP_ID, "fillOpacity")).toBeUndefined();
@@ -1025,7 +1027,9 @@ describe("LayerUI style panel — fill color", () => {
   });
 
   it("commitFillColor handles a layer id that is not registered yet", () => {
-    expect(() => commitFillColor(ui, "late-layer", "#ff0000")).not.toThrow();
+    expect(() =>
+      commitFillColor(ui.overlayPanel, ui, "late-layer", "#ff0000"),
+    ).not.toThrow();
     expect(getIntent(ui, "late-layer", "fillColor")).toBe("#ff0000");
     expect(ui.intentStore.isUserSet("late-layer", "fillColor")).toBe(true);
   });
@@ -1039,7 +1043,7 @@ describe("LayerUI style panel — fill color", () => {
     setIntent(ui, "canvas1", "fillColor", "#ff0000");
     ui.intentStore.seedProvenance("canvas1", ["fillColor"]);
 
-    resetLayerFill(ui, "canvas1");
+    resetLayerFill(ui.overlayPanel, ui, "canvas1");
 
     expect(getIntent(ui, "canvas1", "fillColor")).toBeUndefined();
     expect(ui.intentStore.dumpProvenance()["canvas1"]).toBeUndefined();
@@ -1050,7 +1054,9 @@ describe("LayerUI style panel — fill color", () => {
     fixture.fillLayer.leaves[1] = { options: {} } as never;
     commitNow(fixture.ui, "overlay1", "color", "#ff0000");
 
-    expect(() => resetLayerFill(fixture.ui, "overlay1")).not.toThrow();
+    expect(() =>
+      resetLayerFill(fixture.ui.overlayPanel, fixture.ui, "overlay1"),
+    ).not.toThrow();
   });
 
   it("captureBase falls back to Leaflet default when fillOpacity is unset too", () => {
@@ -1059,7 +1065,7 @@ describe("LayerUI style panel — fill color", () => {
     delete fixture.fillLayer.leaves[0].options.fillOpacity;
 
     commitNow(fixture.ui, "overlay1", "color", "#ff0000");
-    resetLayerFill(fixture.ui, "overlay1");
+    resetLayerFill(fixture.ui.overlayPanel, fixture.ui, "overlay1");
 
     // No authored color or opacity — reset restores the Leaflet color
     // fallback and the 0.2 fillOpacity default, both explicit so the user's
@@ -1075,7 +1081,7 @@ describe("LayerUI style panel — fill color", () => {
     // Defensive: the row builder always emits both inputs, but a foreign or
     // partial row must not throw when bound.
     const row = document.createElement("div");
-    expect(() => bindFillRow(ui, "overlay1", row)).not.toThrow();
+    expect(() => bindFillRow(ui.overlayPanel, ui, "overlay1", row)).not.toThrow();
   });
 
   // ─────────────────── panel integration ───────────────────
@@ -1126,7 +1132,7 @@ describe("LayerUI style panel — fill color", () => {
     ui.intentStore.seedProvenance("overlay1", ["fillColor"]);
     const setLayer = vi.spyOn(manager.persistence, "schedule");
 
-    resetLayerFill(ui, "overlay1");
+    resetLayerFill(ui.overlayPanel, ui, "overlay1");
 
     expect(getIntent(ui, "overlay1", "fillColor")).toBeUndefined();
     expect(ui.intentStore.isUserSet("overlay1", "fillColor")).toBe(false);
@@ -1136,7 +1142,7 @@ describe("LayerUI style panel — fill color", () => {
   it("resetLayerFill restores the authored fill color on each leaf", () => {
     // First commit captures each leaf's authored base.
     commitNow(ui, "overlay1", "color", "#ff0000");
-    resetLayerFill(ui, "overlay1");
+    resetLayerFill(ui.overlayPanel, ui, "overlay1");
 
     expect(fillLayer.leaves[0].setStyle).toHaveBeenLastCalledWith({
       fillColor: "#aabbcc",
@@ -1164,7 +1170,7 @@ describe("LayerUI style panel — fill color", () => {
     fillLayer.leaves[0].setStyle.mockClear();
     fillLayer.leaves[1].setStyle.mockClear();
 
-    resetLayerFill(ui, "overlay1");
+    resetLayerFill(ui.overlayPanel, ui, "overlay1");
 
     expect(fillLayer.leaves[0].setStyle).toHaveBeenLastCalledWith({
       fillColor: "#aabbcc",
@@ -1181,7 +1187,7 @@ describe("LayerUI style panel — fill color", () => {
   it("resetLayerFill restores the Leaflet default when options.fillColor was unset", () => {
     delete fillLayer.leaves[0].options.fillColor;
     commitNow(ui, "overlay1", "color", "#ff0000");
-    resetLayerFill(ui, "overlay1");
+    resetLayerFill(ui.overlayPanel, ui, "overlay1");
 
     // No authored color — the fallback is Leaflet's own default.
     expect(fillLayer.leaves[0].setStyle).toHaveBeenLastCalledWith({
@@ -1192,7 +1198,7 @@ describe("LayerUI style panel — fill color", () => {
   });
 
   it("reset on a missing layer id is a no-op", () => {
-    expect(() => resetLayerFill(ui, "ghost")).not.toThrow();
+    expect(() => resetLayerFill(ui.overlayPanel, ui, "ghost")).not.toThrow();
   });
 
   it("the panel's Reset button restores the fill color", () => {
@@ -1226,7 +1232,7 @@ describe("buildFillRow", () => {
   });
 
   it("emits a FORM_ROW with the row class and the swatch input", () => {
-    const row = buildFillRow(ui, "overlay1");
+    const row = buildFillRow(ui.overlayPanel, ui, "overlay1");
 
     expect(row.classList.contains(CONST.CLASSES.FORM_ROW)).toBe(true);
     expect(row.classList.contains(CONST.CLASSES.STYLE_FILL_ROW)).toBe(true);
@@ -1236,7 +1242,7 @@ describe("buildFillRow", () => {
   });
 
   it("the label renders the locale key's translated value", () => {
-    const row = buildFillRow(ui, "overlay1");
+    const row = buildFillRow(ui.overlayPanel, ui, "overlay1");
     const label = row.querySelector(`.${CONST.CLASSES.FORM_LABEL}`);
 
     expect(label?.textContent).toBe("LayerControl.style_fill");
@@ -1245,7 +1251,7 @@ describe("buildFillRow", () => {
   it("falls back to the Leaflet default for an unregistered layer", () => {
     // No registry entry, no authored color — the swatch shows Leaflet's own
     // fill default rather than inventing one.
-    const row = buildFillRow(ui, "ghost");
+    const row = buildFillRow(ui.overlayPanel, ui, "ghost");
     const input = row.querySelector(
       `.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`,
     ) as HTMLInputElement;
@@ -1258,7 +1264,7 @@ describe("buildFillRow", () => {
     delete fixture.fillLayer.leaves[0].options.fillColor;
     delete fixture.fillLayer.leaves[1].options.fillColor;
 
-    const row = buildFillRow(fixture.ui, "overlay1");
+    const row = buildFillRow(fixture.ui.overlayPanel, fixture.ui, "overlay1");
     const input = row.querySelector(
       `.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`,
     ) as HTMLInputElement;
@@ -1269,7 +1275,7 @@ describe("buildFillRow", () => {
   it("the fill opacity input allows any integer 0–100 (step 1)", () => {
     // The number field is the precise input; a coarse step would keep the
     // spinner on multiples of 5 while every integer is a legal opacity.
-    const row = buildFillRow(ui, "overlay1");
+    const row = buildFillRow(ui.overlayPanel, ui, "overlay1");
     const input = row.querySelector(
       `.${CONST.CLASSES.STYLE_FILL_OPACITY_NUMBER}`,
     ) as HTMLInputElement;
@@ -1283,7 +1289,7 @@ describe("buildFillRow", () => {
     // First leaf declares fillOpacity 0.5 — the field shows 50%, not the
     // Leaflet default constant, mirroring how the swatch shows the author's
     // color.
-    const row = buildFillRow(ui, "overlay1");
+    const row = buildFillRow(ui.overlayPanel, ui, "overlay1");
     const input = row.querySelector(
       `.${CONST.CLASSES.STYLE_FILL_OPACITY_NUMBER}`,
     ) as HTMLInputElement;
@@ -1296,7 +1302,7 @@ describe("buildFillRow", () => {
     delete fixture.fillLayer.leaves[0].options.fillOpacity;
     delete fixture.fillLayer.leaves[1].options.fillOpacity;
 
-    const row = buildFillRow(fixture.ui, "overlay1");
+    const row = buildFillRow(fixture.ui.overlayPanel, fixture.ui, "overlay1");
     const input = row.querySelector(
       `.${CONST.CLASSES.STYLE_FILL_OPACITY_NUMBER}`,
     ) as HTMLInputElement;
@@ -1319,7 +1325,7 @@ describe("buildFillRow", () => {
     );
     setIntent(ui, "overlay1", "fillColor", "gray");
 
-    const row = buildFillRow(ui, "overlay1");
+    const row = buildFillRow(ui.overlayPanel, ui, "overlay1");
     const input = row.querySelector(
       `.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`,
     ) as HTMLInputElement;
@@ -1336,7 +1342,7 @@ describe("buildFillRow", () => {
     delete fixture.fillLayer.leaves[0].options.fillColor;
 
     commitNow(fixture.ui, "overlay1", "color", "#ff0000");
-    resetLayerFill(fixture.ui, "overlay1");
+    resetLayerFill(fixture.ui.overlayPanel, fixture.ui, "overlay1");
 
     expect(fixture.fillLayer.leaves[0].setStyle).toHaveBeenLastCalledWith({
       fillColor: "#3388ff",
@@ -1370,7 +1376,7 @@ describe("buildFillRow", () => {
     fixture.fillLayer.leaves[0] = path as never;
     setIntent(fixture.ui, "overlay1", "fillColor", "#ff0000");
 
-    applyFillToLayer(fixture.ui, "overlay1");
+    applyFillToLayer(fixture.ui.overlayPanel, fixture.ui, "overlay1");
 
     expect(svgFill).toHaveBeenCalledWith("fill", "#ff0000");
     expect(path.options.fillColor).toBe("#ff0000");
@@ -1408,7 +1414,7 @@ describe("buildFillRow", () => {
 
     commitNow(fixture.ui, "overlay1", "color", "#ff0000");
 
-    const row = buildFillRow(fixture.ui, "overlay1");
+    const row = buildFillRow(fixture.ui.overlayPanel, fixture.ui, "overlay1");
     const input = row.querySelector(
       `.${CONST.CLASSES.STYLE_FILL_OPACITY_NUMBER}`,
     ) as HTMLInputElement;
@@ -1478,7 +1484,7 @@ describe("buildFillRow", () => {
     commitNow(fixture.ui, "overlay1", "opacity", 50);
     expect(getIntent(fixture.ui, "overlay1", "fillOpacity")).toBe(0.5);
 
-    resetLayerFill(fixture.ui, "overlay1");
+    resetLayerFill(fixture.ui.overlayPanel, fixture.ui, "overlay1");
 
     expect(getIntent(fixture.ui, "overlay1", "fillOpacity")).toBeUndefined();
     expect(fixture.ui.intentStore.isUserSet("overlay1", "fillOpacity")).toBe(false);
@@ -1512,7 +1518,7 @@ describe("replayFillState", () => {
     setIntent(ui, "overlay1", "fillColor", "#123456");
     setIntent(ui, "overlay1", "fillOpacity", 0.4);
 
-    replayFillState(ui, "overlay1");
+    replayFillState(ui.overlayPanel, ui, "overlay1");
 
     expect(fillLayer.leaves[0].setStyle).toHaveBeenCalledWith({
       fillColor: "#123456",
@@ -1529,7 +1535,7 @@ describe("replayFillState", () => {
   it("is a no-op when only one fill dimension is stored", () => {
     setIntent(ui, "overlay1", "fillColor", "#123456");
 
-    replayFillState(ui, "overlay1");
+    replayFillState(ui.overlayPanel, ui, "overlay1");
 
     // The absent dimension is omitted from the write so the author's
     // fillOpacity stays in force.
@@ -1541,7 +1547,7 @@ describe("replayFillState", () => {
 
   it("is a no-op for a layer outside the registry", () => {
     setIntent(ui, "ghost", "fillColor", "#123456");
-    expect(() => replayFillState(ui, "ghost")).not.toThrow();
+    expect(() => replayFillState(ui.overlayPanel, ui, "ghost")).not.toThrow();
   });
 
   it("attachUI replays a stored fill onto a registered layer", () => {

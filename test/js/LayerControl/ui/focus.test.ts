@@ -1822,7 +1822,7 @@ describe("LayerUI focus", () => {
       bare.setAttribute(CONST.DATA.LAYER_ID, "bare");
       ui.uiContainer.appendChild(bare);
       ui.activeIdx = navigableItems().indexOf(bare);
-      expect(getActiveLayerItem(ui)).toBe(bare);
+      expect(getActiveLayerItem(ui.listPanel, ui)).toBe(bare);
       const changes = vi.fn();
       document.addEventListener("change", changes);
       try {

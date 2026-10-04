@@ -1510,8 +1510,8 @@ describe("LayerUI style panel", () => {
     ui.runtimeStore.deleteFields("overlay1");
     const collect = vi.spyOn(manager.annotation, "collectFields");
 
-    expect(layerHasLabelFields(ui, "overlay1")).toBe(false);
-    expect(layerHasLabelFields(ui, "overlay1")).toBe(false);
+    expect(layerHasLabelFields(ui.overlayPanel, ui, "overlay1")).toBe(false);
+    expect(layerHasLabelFields(ui.overlayPanel, ui, "overlay1")).toBe(false);
     expect(collect).toHaveBeenCalledTimes(1);
     expect(ui.runtimeStore.getFields("overlay1")).toEqual([]);
   });
@@ -1521,7 +1521,7 @@ describe("LayerUI style panel", () => {
     // runtime createLayers may later add features carrying properties, which
     // must un-stick the ⋮ menu's Style item.
     ui.runtimeStore.deleteFields("overlay1");
-    expect(layerHasLabelFields(ui, "overlay1")).toBe(false);
+    expect(layerHasLabelFields(ui.overlayPanel, ui, "overlay1")).toBe(false);
     expect(ui.runtimeStore.getFields("overlay1")).toEqual([]);
 
     const fields = [
@@ -1533,7 +1533,7 @@ describe("LayerUI style panel", () => {
     ui.onLayerItemCountChange("overlay1");
 
     expect(ui.runtimeStore.getFields("overlay1")).toBeUndefined();
-    expect(layerHasLabelFields(ui, "overlay1")).toBe(true);
+    expect(layerHasLabelFields(ui.overlayPanel, ui, "overlay1")).toBe(true);
   });
 
   it("re-renders a shown layer when its fields are invalidated", () => {
@@ -1566,7 +1566,7 @@ describe("LayerUI style panel", () => {
   });
 
   it("invalidateFields drops a layer's cached list", () => {
-    layerHasLabelFields(ui, "overlay1");
+    layerHasLabelFields(ui.overlayPanel, ui, "overlay1");
     expect(ui.runtimeStore.getFields("overlay1")).toBeDefined();
 
     // The delegate is the surface `manager.unregisterLayer` drives.
@@ -2302,7 +2302,7 @@ describe("LayerUI style panel", () => {
   });
 
   it("layerHasStyleDelegation is true only for layers with styleSetters", () => {
-    expect(layerHasStyleDelegation(ui, "overlay1")).toBe(false);
+    expect(layerHasStyleDelegation(ui.overlayPanel, ui, "overlay1")).toBe(false);
 
     manager.registerLayer({
       id: "heat1",
@@ -2311,7 +2311,7 @@ describe("LayerUI style panel", () => {
       styleProvider: () => ({ labelShow: true }),
       styleSetters: { labelShow: vi.fn() },
     });
-    expect(layerHasStyleDelegation(ui, "heat1")).toBe(true);
+    expect(layerHasStyleDelegation(ui.overlayPanel, ui, "heat1")).toBe(true);
   });
 
   it("delegated panel renders only the controls the component declared", () => {
@@ -2556,7 +2556,7 @@ describe("LayerUI style panel", () => {
       styleProvider: () => ({}),
       styleSetters: {},
     });
-    expect(layerHasStyleDelegation(ui, "heat1")).toBe(false);
+    expect(layerHasStyleDelegation(ui.overlayPanel, ui, "heat1")).toBe(false);
   });
 
   it("delegated panel collapses body when label toggle is off", () => {
@@ -3105,7 +3105,7 @@ describe("LayerUI style panel", () => {
       styleProvider: () => ({}),
       styleSetters: { field: vi.fn() },
     });
-    expect(renderDelegatedStylePanel(ui, "dataOnly")).toBeNull();
+    expect(renderDelegatedStylePanel(ui.overlayPanel, ui, "dataOnly")).toBeNull();
   });
 
   it("buildBorderRow returns null when the layer has no border setters", () => {
@@ -3116,7 +3116,7 @@ describe("LayerUI style panel", () => {
       styleProvider: () => ({}),
       styleSetters: { field: vi.fn() },
     });
-    expect(buildBorderRow(ui, "dataOnly")).toBeNull();
+    expect(buildBorderRow(ui.overlayPanel, ui, "dataOnly")).toBeNull();
   });
 
   it("delegated Reset restores borderWeight and borderColor from styleDefaultsProvider", () => {
@@ -3281,7 +3281,7 @@ describe("LayerUI style panel", () => {
       styleProvider: () => ({}),
       styleSetters: { field: vi.fn() },
     });
-    expect(renderDelegatedStylePanel(ui, "dataOnly")).toBeNull();
+    expect(renderDelegatedStylePanel(ui.overlayPanel, ui, "dataOnly")).toBeNull();
   });
 
   it("renders the opacity slider defaulting to 100", () => {
@@ -3383,7 +3383,7 @@ describe("LayerUI style panel", () => {
       const li = manager.layerRegistry.get("base1")!;
       setIntent(ui, "base1", "opacity", 0);
       li.opacity = 0;
-      resetLayerOpacity(ui, "base1");
+      resetLayerOpacity(ui.overlayPanel, ui, "base1");
       const calls = toggleSpy.mock.calls.filter(
         c => c[0] === CONST.CLASSES.NO_BASE_MAP,
       );
@@ -3405,7 +3405,7 @@ describe("LayerUI style panel", () => {
       const li = manager.layerRegistry.get("overlay1")!;
       setIntent(ui, "overlay1", "opacity", 0);
       li.opacity = 0;
-      resetLayerOpacity(ui, "overlay1");
+      resetLayerOpacity(ui.overlayPanel, ui, "overlay1");
       const calls = toggleSpy.mock.calls.filter(
         c => c[0] === CONST.CLASSES.NO_BASE_MAP,
       );
@@ -3729,7 +3729,7 @@ describe("LayerUI style panel — zoom range", () => {
       styleProvider: () => ({ labelShow: true }),
       styleSetters: { labelShow: vi.fn() },
     });
-    const panel = renderDelegatedStylePanel(ui, "canvas1");
+    const panel = renderDelegatedStylePanel(ui.overlayPanel, ui, "canvas1");
     expect(panel).not.toBeNull();
     expect(zoomRowOf(panel!)).not.toBeNull();
   });
@@ -4235,7 +4235,7 @@ describe("LayerUI style panel — zoom range", () => {
     map.getMaxZoom.mockReturnValue(10);
     ui.m.onZoomend?.();
     // Reopen the panel and check the bound has not been narrowed.
-    ui.closeStylePanel?.();
+    ui.closeStylePanel?.(false);
     ui.openStylePanel("base1");
     const newRow = zoomRowOf(panelOf(item)!)!;
     const newMaxInput = newRow.querySelector(
@@ -4292,7 +4292,7 @@ describe("LayerUI style panel — zoom range", () => {
     minInput.value = "7";
     minInput.dispatchEvent(new Event("input", { bubbles: true }));
     map.getMinZoom.mockReturnValue(7);
-    ui.closeStylePanel?.();
+    ui.closeStylePanel?.(false);
     ui.openStylePanel("base1");
     const newRow = zoomRowOf(panelOf(item)!)!;
     const newMinInput = newRow.querySelector(
@@ -4354,7 +4354,7 @@ describe("style utility guards", () => {
     // declared a setter has no delegation, so the drawer is not built.
     const { ui } = initFixture();
     // A plain overlay1 in the fixture has no styleSetters.
-    expect(renderDelegatedStylePanel(ui, "overlay1")).toBeNull();
+    expect(renderDelegatedStylePanel(ui.overlayPanel, ui, "overlay1")).toBeNull();
   });
 
   it("renderDelegatedStylePanel returns null when styleSetters is empty", () => {
@@ -4369,13 +4369,15 @@ describe("style utility guards", () => {
       styleProvider: () => ({}),
       styleSetters: {},
     });
-    expect(renderDelegatedStylePanel(ui, "emptySetters")).toBeNull();
+    expect(renderDelegatedStylePanel(ui.overlayPanel, ui, "emptySetters")).toBeNull();
   });
 
   it("renderDelegatedStylePanel returns null when the layer is not registered", () => {
     // Covers the `li?.styleSetters` undefined access on a missing layer.
     const { ui } = initFixture();
-    expect(renderDelegatedStylePanel(ui, "not-a-real-layer")).toBeNull();
+    expect(
+      renderDelegatedStylePanel(ui.overlayPanel, ui, "not-a-real-layer"),
+    ).toBeNull();
   });
 
   it("toggle handler tolerates a panel with no body, field select, or format row", () => {
@@ -4453,7 +4455,7 @@ describe("reset on an id the registry does not know", () => {
     const { ui } = initFixture({});
     setIntent(ui, "ghost", "opacity", 0.4);
     ui.intentStore.seedProvenance("ghost", ["opacity"]);
-    expect(() => resetLayerOpacity(ui, "ghost")).not.toThrow();
+    expect(() => resetLayerOpacity(ui.overlayPanel, ui, "ghost")).not.toThrow();
     expect(getIntent(ui, "ghost", "opacity")).toBe(0.4);
     expect(ui.intentStore.dumpProvenance().ghost).toEqual(["opacity"]);
   });
@@ -4462,7 +4464,7 @@ describe("reset on an id the registry does not know", () => {
     const { ui } = initFixture({});
     setIntent(ui, "ghost", "zoomRange", [3, 12]);
     ui.intentStore.seedProvenance("ghost", ["zoomRange"]);
-    expect(() => resetLayerZoomRange(ui, "ghost")).not.toThrow();
+    expect(() => resetLayerZoomRange(ui.overlayPanel, ui, "ghost")).not.toThrow();
     expect(getIntent(ui, "ghost", "zoomRange")).toEqual([3, 12]);
     expect(ui.intentStore.dumpProvenance().ghost).toEqual(["zoomRange"]);
   });

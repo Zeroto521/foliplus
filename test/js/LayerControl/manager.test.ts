@@ -1663,6 +1663,7 @@ describe("LayerManager", () => {
       invalidateFields: vi.fn(),
       applyUserState: (id: string) =>
         applyUserState(
+          { m: manager },
           {
             m: manager,
             uiContainer: manager.uiContainer,
@@ -1923,7 +1924,8 @@ describe("LayerManager", () => {
         },
         { overlay1: ["opacity"] },
       ),
-      dropPersistedLayerState: (id: string) => dropPersistedLayerState(m.ui, id),
+      dropPersistedLayerState: (id: string) =>
+        dropPersistedLayerState(m.ui.listPanel, m.ui, id),
       saveState: () => saveState(m.ui.listPanel, m.ui),
       saveNamesState: () => saveNamesState(m.ui.listPanel, m.ui),
       invalidateFields: vi.fn(),

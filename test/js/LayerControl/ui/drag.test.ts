@@ -85,7 +85,7 @@ describe("ui/drag", () => {
 
   it("handleDrop is a no-op when no dragIdx is armed", () => {
     const ui = makeUi({ containers: ["a", "b"] });
-    (ui as unknown as { dragIdx: number | null }).dragIdx = null;
+    (ui.listPanel as any).dragIdx = null;
     const row = ui.uiContainer.querySelector<HTMLElement>(
       `[${CONST.DATA.LAYER_ID}="b"]`,
     )!;
@@ -171,20 +171,20 @@ describe("ui/drag", () => {
         `[${CONST.DATA.LAYER_ID}="B"]`,
       )!;
       expect(target.dataset.index).toBe("2");
-      (ui as unknown as { dragIdx: number }).dragIdx = 0; // A's registry index
+      (ui.listPanel as any).dragIdx = 0; // A's registry index
 
       handleDrop(ui.listPanel, ui, dragEvent(target));
 
-      // Old code: targetIdx = 2 (DOM position), reorder(0, 2) — wrong target.
-      // New code: targetIdx = 1 (B's registry index), reorder(0, 1) — correct.
+      // Old code: targetIdx = 2 (DOM position), reorder(0, 2) 鈥?wrong target.
+      // New code: targetIdx = 1 (B's registry index), reorder(0, 1) 鈥?correct.
       expect(reorder).toHaveBeenCalledWith(0, 1);
     });
 
     it("handleDrop snapshots the order through saveOrder after a drop", () => {
       // A drop is a user reorder: the manager's saveOrder path writes the live
-      // order — every layer present, color basemap included.
+      // order 鈥?every layer present, color basemap included.
       const { ui, reorder } = makeScrambledUi();
-      (ui as unknown as { dragIdx: number }).dragIdx = 0;
+      (ui.listPanel as any).dragIdx = 0;
       const target = ui.uiContainer.querySelector<HTMLElement>(
         `[${CONST.DATA.LAYER_ID}="B"]`,
       )!;
@@ -200,7 +200,7 @@ describe("ui/drag", () => {
       // C sits at DOM position 0 while A is being dragged (registry 0): a
       // positional read would see targetIdx === dragIdx and paint nothing.
       // By id, C is registry 2, which is below the dragged row.
-      (ui as unknown as { dragIdx: number }).dragIdx = 0;
+      (ui.listPanel as any).dragIdx = 0;
       const rowC = ui.uiContainer.querySelector<HTMLElement>(
         `[${CONST.DATA.LAYER_ID}="C"]`,
       )!;
@@ -210,7 +210,7 @@ describe("ui/drag", () => {
 
       expect(rowC.classList.contains(CONST.CLASSES.DRAG_OVER_BOTTOM)).toBe(true);
       expect(rowC.classList.contains(CONST.CLASSES.DRAG_OVER_TOP)).toBe(false);
-      expect(ui.lastDragOverItem).toBe(rowC);
+      expect(ui.listPanel.lastDragOverItem).toBe(rowC);
     });
 
     it("handleDragOver marks the row above when the id resolves before the drag index", () => {
@@ -218,7 +218,7 @@ describe("ui/drag", () => {
       // A sits at DOM position 1, exactly where B (registry 1) is being
       // dragged: a positional read would see an equal index and paint nothing.
       // By id, A is registry 0, which is above.
-      (ui as unknown as { dragIdx: number }).dragIdx = 1;
+      (ui.listPanel as any).dragIdx = 1;
       const rowA = ui.uiContainer.querySelector<HTMLElement>(
         `[${CONST.DATA.LAYER_ID}="A"]`,
       )!;
@@ -236,7 +236,7 @@ describe("ui/drag", () => {
       const rows = Array.from(
         ui.uiContainer.querySelectorAll<HTMLElement>(CONST.SEL.LAYER_ITEM),
       );
-      ui.lastDragOverItem = rows[0];
+      ui.listPanel.lastDragOverItem = rows[0];
       rows[0].classList.add(CONST.CLASSES.DRAG_OVER_BOTTOM);
 
       const event = dragEvent(rows[1]);
@@ -244,7 +244,7 @@ describe("ui/drag", () => {
 
       expect(canReorderBetween).toHaveBeenCalled();
       expect(rows[0].classList.contains(CONST.CLASSES.DRAG_OVER_BOTTOM)).toBe(false);
-      expect(ui.lastDragOverItem).toBe(rows[1]);
+      expect(ui.listPanel.lastDragOverItem).toBe(rows[1]);
       // A blocked move is remembered for the hint but paints no drop position.
       expect(rows[1].classList.contains(CONST.CLASSES.DRAG_OVER_TOP)).toBe(false);
       expect(rows[1].classList.contains(CONST.CLASSES.DRAG_OVER_BOTTOM)).toBe(false);
@@ -253,7 +253,7 @@ describe("ui/drag", () => {
 
     it("handleDragOver treats the color basemap row as a valid target", () => {
       // The color row is a base-group member like any other: it participates
-      // in drag reorder. A row WITHOUT a data-layer-id is still ignored —
+      // in drag reorder. A row WITHOUT a data-layer-id is still ignored 鈥?
       // that is the no-layer case, not the color case.
       const layers: LayerInfo[] = [
         { id: "A", name: "A", group: "overlay" } as LayerInfo,
@@ -271,8 +271,7 @@ describe("ui/drag", () => {
         uiContainer,
         config: { name: "LayerControl" },
         T: (k: string) => k,
-        dragIdx: 0, // dragging the overlay row above
-        lastDragOverItem: null,
+        listPanel: { dragIdx: 0, lastDragOverItem: null, pressInPanel: false },
         m: {
           layers,
           canReorderBetween: vi.fn(() => true),
@@ -290,12 +289,12 @@ describe("ui/drag", () => {
 
       expect(event.preventDefault).toHaveBeenCalled();
       expect(colorRow.classList.contains(CONST.CLASSES.DRAG_OVER_BOTTOM)).toBe(true);
-      expect(ui.lastDragOverItem).toBe(colorRow);
+      expect(ui.listPanel.lastDragOverItem).toBe(colorRow);
     });
 
     it("handleDragOver does nothing until a drag is armed", () => {
       const { ui } = makeScrambledUi();
-      (ui as unknown as { dragIdx: number | null }).dragIdx = null;
+      (ui.listPanel as any).dragIdx = null;
       const target = ui.uiContainer.querySelector<HTMLElement>(
         `[${CONST.DATA.LAYER_ID}="B"]`,
       )!;
@@ -311,7 +310,7 @@ describe("ui/drag", () => {
       // `closest(LAYER_ITEM)` finds nothing for a hover over the panel
       // shell, so no drop marker is painted.
       const { ui } = makeScrambledUi();
-      (ui as unknown as { dragIdx: number }).dragIdx = 0;
+      (ui.listPanel as any).dragIdx = 0;
       const shell = document.createElement("div");
       ui.uiContainer.appendChild(shell);
 
@@ -319,7 +318,7 @@ describe("ui/drag", () => {
       handleDragOver(ui.listPanel, ui, event);
 
       expect(event.preventDefault).toHaveBeenCalled();
-      expect(ui.lastDragOverItem).toBe(null);
+      expect(ui.listPanel.lastDragOverItem).toBe(null);
       expect(shell.classList.contains(CONST.CLASSES.DRAG_OVER_TOP)).toBe(false);
       expect(shell.classList.contains(CONST.CLASSES.DRAG_OVER_BOTTOM)).toBe(false);
     });
@@ -330,13 +329,13 @@ describe("ui/drag", () => {
       const target = ui.uiContainer.querySelector<HTMLElement>(
         `[${CONST.DATA.LAYER_ID}="B"]`,
       )!;
-      (ui as unknown as { dragIdx: number }).dragIdx = 0;
+      (ui.listPanel as any).dragIdx = 0;
 
       handleDrop(ui.listPanel, ui, dragEvent(target));
 
       expect(canReorderBetween).toHaveBeenCalledWith(0, 1);
       expect(reorder).not.toHaveBeenCalled();
-      expect((ui as unknown as { dragIdx: number | null }).dragIdx).toBe(0);
+      expect((ui.listPanel as any).dragIdx).toBe(0);
     });
 
     it("handleDrop relocates the dragged row before its target on a backward move", () => {
@@ -344,7 +343,7 @@ describe("ui/drag", () => {
       // Drag B (registry 1) onto A (registry 0). A sits at DOM position 1, so a
       // positional read would see targetIdx === dragIdx and bail without moving.
       // By id, A is registry 0: a real backward move, inserting before the target.
-      (ui as unknown as { dragIdx: number }).dragIdx = 1;
+      (ui.listPanel as any).dragIdx = 1;
       const target = ui.uiContainer.querySelector<HTMLElement>(
         `[${CONST.DATA.LAYER_ID}="A"]`,
       )!;
@@ -352,7 +351,7 @@ describe("ui/drag", () => {
       handleDrop(ui.listPanel, ui, dragEvent(target));
 
       expect(reorder).toHaveBeenCalledWith(1, 0);
-      expect((ui as unknown as { dragIdx: number | null }).dragIdx).toBe(null);
+      expect((ui.listPanel as any).dragIdx).toBe(null);
       expect(
         Array.from(
           ui.uiContainer.querySelectorAll<HTMLElement>(CONST.SEL.LAYER_ITEM),
@@ -375,8 +374,7 @@ describe("ui/drag", () => {
         uiContainer,
         config: { name: "LayerControl" },
         T: (key: string) => key,
-        dragIdx: 0,
-        lastDragOverItem: null,
+        listPanel: { dragIdx: 0, lastDragOverItem: null, pressInPanel: false },
         m: {
           layers,
           canReorderBetween: vi.fn(() => true),
@@ -390,14 +388,14 @@ describe("ui/drag", () => {
 
       expect(reorder).toHaveBeenCalledWith(0, 1);
       // A has no row to relocate, so the drag is disarmed without ordering.
-      expect((ui as unknown as { dragIdx: number | null }).dragIdx).toBe(null);
+      expect((ui.listPanel as any).dragIdx).toBe(null);
     });
 
     it("handleDrop disarms when the armed index is outside the registry", () => {
       const { ui, reorder } = makeScrambledUi();
       // A drop that arrives after the registry shrank leaves a stale armed
       // index behind; it must be cleared, not indexed into.
-      (ui as unknown as { dragIdx: number }).dragIdx = 99;
+      (ui.listPanel as any).dragIdx = 99;
       const target = ui.uiContainer.querySelector<HTMLElement>(
         `[${CONST.DATA.LAYER_ID}="B"]`,
       )!;
@@ -405,7 +403,7 @@ describe("ui/drag", () => {
       handleDrop(ui.listPanel, ui, dragEvent(target));
 
       expect(reorder).not.toHaveBeenCalled();
-      expect((ui as unknown as { dragIdx: number | null }).dragIdx).toBe(null);
+      expect((ui.listPanel as any).dragIdx).toBe(null);
     });
 
     it("handleDrop disarms when the armed index no longer names a layer", () => {
@@ -424,8 +422,7 @@ describe("ui/drag", () => {
         uiContainer,
         config: { name: "LayerControl" },
         T: (key: string) => key,
-        dragIdx: 1,
-        lastDragOverItem: null,
+        listPanel: { dragIdx: 1, lastDragOverItem: null, pressInPanel: false },
         m: {
           layers,
           canReorderBetween: vi.fn(() => true),
@@ -439,12 +436,12 @@ describe("ui/drag", () => {
 
       // Nothing to relocate by id, so the drop is dropped without ordering.
       expect(reorder).not.toHaveBeenCalled();
-      expect((ui as unknown as { dragIdx: number | null }).dragIdx).toBe(null);
+      expect((ui.listPanel as any).dragIdx).toBe(null);
     });
 
     it("handleDrop is a no-op when the drop lands outside every row", () => {
       const { ui, reorder } = makeScrambledUi();
-      (ui as unknown as { dragIdx: number }).dragIdx = 0;
+      (ui.listPanel as any).dragIdx = 0;
       // The container itself is not a layer row: closest() finds nothing.
       const event = dragEvent(ui.uiContainer);
 
@@ -452,12 +449,12 @@ describe("ui/drag", () => {
 
       // No target row: nothing reorders; the drag stays armed for a valid drop.
       expect(reorder).not.toHaveBeenCalled();
-      expect((ui as unknown as { dragIdx: number }).dragIdx).toBe(0);
+      expect((ui.listPanel as any).dragIdx).toBe(0);
     });
 
     it("handleDrop ignores a drop onto the dragged row itself", () => {
       const { ui, reorder } = makeScrambledUi();
-      (ui as unknown as { dragIdx: number }).dragIdx = 0;
+      (ui.listPanel as any).dragIdx = 0;
       const self = ui.uiContainer.querySelector<HTMLElement>(
         `[${CONST.DATA.LAYER_ID}="A"]`,
       )!;
@@ -467,12 +464,12 @@ describe("ui/drag", () => {
       // Same index: no reorder, no DOM move; the early return leaves the
       // drag armed (unchanged) rather than disarming it.
       expect(reorder).not.toHaveBeenCalled();
-      expect((ui as unknown as { dragIdx: number }).dragIdx).toBe(0);
+      expect((ui.listPanel as any).dragIdx).toBe(0);
     });
 
     it("handleDrop survives a target row that is detached from the DOM", () => {
       const { ui, reorder } = makeScrambledUi();
-      (ui as unknown as { dragIdx: number }).dragIdx = 0;
+      (ui.listPanel as any).dragIdx = 0;
       const target = ui.uiContainer.querySelector<HTMLElement>(
         `[${CONST.DATA.LAYER_ID}="B"]`,
       )!;
@@ -483,7 +480,7 @@ describe("ui/drag", () => {
       handleDrop(ui.listPanel, ui, dragEvent(target));
 
       expect(reorder).toHaveBeenCalledWith(0, 1);
-      expect((ui as unknown as { dragIdx: number | null }).dragIdx).toBe(null);
+      expect((ui.listPanel as any).dragIdx).toBe(null);
     });
 
     it("handleDragStart ignores a row carrying no data-layer-id", () => {
@@ -491,12 +488,12 @@ describe("ui/drag", () => {
       const orphan = document.createElement("div");
       orphan.className = CONST.CLASSES.LAYER_ITEM;
       ui.uiContainer.appendChild(orphan);
-      (ui as unknown as { dragIdx: number | null }).dragIdx = null;
+      (ui.listPanel as any).dragIdx = null;
 
       handleDragStart(ui.listPanel, ui, dragEvent(orphan));
 
       // No id, no registry index: the drag is never armed.
-      expect((ui as unknown as { dragIdx: number | null }).dragIdx).toBe(null);
+      expect((ui.listPanel as any).dragIdx).toBe(null);
       expect(orphan.classList.contains(CONST.CLASSES.DRAGGING)).toBe(false);
     });
 
@@ -504,13 +501,13 @@ describe("ui/drag", () => {
       // `closest(LAYER_ITEM)` finds nothing for a press on the panel shell,
       // so the drag is never armed and nothing is marked.
       const { ui } = makeScrambledUi();
-      (ui as unknown as { dragIdx: number | null }).dragIdx = null;
+      (ui.listPanel as any).dragIdx = null;
       const shell = document.createElement("div");
       ui.uiContainer.appendChild(shell);
 
       handleDragStart(ui.listPanel, ui, dragEvent(shell));
 
-      expect((ui as unknown as { dragIdx: number | null }).dragIdx).toBe(null);
+      expect((ui.listPanel as any).dragIdx).toBe(null);
     });
 
     it("handleDragOver and handleDrop ignore a row carrying no data-layer-id", () => {
@@ -518,7 +515,7 @@ describe("ui/drag", () => {
       const orphan = document.createElement("div");
       orphan.className = CONST.CLASSES.LAYER_ITEM;
       ui.uiContainer.appendChild(orphan);
-      (ui as unknown as { dragIdx: number }).dragIdx = 0;
+      (ui.listPanel as any).dragIdx = 0;
 
       handleDragOver(ui.listPanel, ui, dragEvent(orphan));
       handleDrop(ui.listPanel, ui, dragEvent(orphan));
@@ -527,9 +524,9 @@ describe("ui/drag", () => {
       // painted and the drag stays armed for a row that does.
       expect(orphan.classList.contains(CONST.CLASSES.DRAG_OVER_TOP)).toBe(false);
       expect(orphan.classList.contains(CONST.CLASSES.DRAG_OVER_BOTTOM)).toBe(false);
-      expect(ui.lastDragOverItem).toBe(null);
+      expect(ui.listPanel.lastDragOverItem).toBe(null);
       expect(reorder).not.toHaveBeenCalled();
-      expect((ui as unknown as { dragIdx: number }).dragIdx).toBe(0);
+      expect((ui.listPanel as any).dragIdx).toBe(0);
     });
 
     it("handleDragLeave clears the marker on the row being left", () => {
@@ -546,18 +543,18 @@ describe("ui/drag", () => {
 
     it("handleDragEnd disarms the drag and strips every marker", () => {
       const { ui } = makeScrambledUi();
-      (ui as unknown as { dragIdx: number }).dragIdx = 0;
+      (ui.listPanel as any).dragIdx = 0;
       const rows = Array.from(
         ui.uiContainer.querySelectorAll<HTMLElement>(CONST.SEL.LAYER_ITEM),
       );
       rows[0].classList.add(CONST.CLASSES.DRAGGING, CONST.CLASSES.DRAG_OVER_TOP);
       rows[1].classList.add(CONST.CLASSES.DRAG_OVER_BOTTOM);
-      ui.lastDragOverItem = rows[0];
+      ui.listPanel.lastDragOverItem = rows[0];
 
       handleDragEnd(ui.listPanel, ui);
 
-      expect((ui as unknown as { dragIdx: number | null }).dragIdx).toBe(null);
-      expect(ui.lastDragOverItem).toBe(null);
+      expect((ui.listPanel as any).dragIdx).toBe(null);
+      expect(ui.listPanel.lastDragOverItem).toBe(null);
       rows.forEach(row => {
         expect(row.classList.contains(CONST.CLASSES.DRAGGING)).toBe(false);
         expect(row.classList.contains(CONST.CLASSES.DRAG_OVER_TOP)).toBe(false);
@@ -571,14 +568,14 @@ describe("ui/drag", () => {
         `[${CONST.DATA.LAYER_ID}="a"]`,
       )!;
       // Simulate a press that began on a floating row panel (e.g. the style panel).
-      (ui as unknown as { pressInPanel: boolean }).pressInPanel = true;
-      (ui as unknown as { dragIdx: number | null }).dragIdx = null;
+      ui.listPanel.pressInPanel = true;
+      (ui.listPanel as any).dragIdx = null;
       const event = dragEvent(row);
 
       handleDragStart(ui.listPanel, ui, event);
 
       // The drag is never armed; preventDefault stops the browser's drag.
-      expect((ui as unknown as { dragIdx: number | null }).dragIdx).toBe(null);
+      expect((ui.listPanel as any).dragIdx).toBe(null);
       expect(row.classList.contains(CONST.CLASSES.DRAGGING)).toBe(false);
       expect(event.preventDefault).toHaveBeenCalled();
     });
@@ -593,7 +590,7 @@ describe("ui/drag", () => {
       const row = ui.uiContainer.querySelector<HTMLElement>(
         `[${CONST.DATA.LAYER_ID}="a"]`,
       )!;
-      (ui as unknown as { dragIdx: number | null }).dragIdx = null;
+      (ui.listPanel as any).dragIdx = null;
       // Build an event with no dataTransfer.
       const event = {
         target: row,
@@ -605,7 +602,7 @@ describe("ui/drag", () => {
       handleDragStart(ui.listPanel, ui, event);
 
       // The drag is armed; the class is added; no crash on dataTransfer.
-      expect((ui as unknown as { dragIdx: number | null }).dragIdx).toBe(0);
+      expect((ui.listPanel as any).dragIdx).toBe(0);
       expect(row.classList.contains(CONST.CLASSES.DRAGGING)).toBe(true);
     });
   });
