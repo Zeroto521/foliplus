@@ -904,27 +904,27 @@ class LayerManager implements LayerAPI {
     // answering for a removed id.
     this.annotation.destroyLayer(id);
 
-    // Prune the id from the stored order (same prune as forgetSavedOrder —
-    // `saveOrder` is a full live snapshot reserved for user reorders, and a
-    // delete is not a reorder). No record means nothing to prune.
-    this.order.forgetSavedOrder(id);
+    // Drop every persisted value for this id (stored order + per-layer intent)
+    // through the same prune the component branch and the panel Clear use.
+    // `saveState` is called inside only when something actually dropped, so a
+    // delete of an untuned layer no longer rewrites the whole `layers` map.
 
     // The label config needs no schedule here: it rides `layers[id]`
-    // (re-saved through `ui.saveState` below — the live config is gone via
-    // `annotation.destroyLayer` above), and the legacy `annotations`
-    // segment is pruned on READ for ids in `removed` (parseRecord), so a
-    // v2 entry cannot resurrect behind the new key's absence.
+    // (the live config is gone via `annotation.destroyLayer` above), and the
+    // legacy `annotations` segment is pruned on READ for ids in `removed`
+    // (parseRecord), so a v2 entry cannot resurrect behind the new key's
+    // absence.
+
+    this.dropPersistedLayerState(id);
 
     if (!this.ui) {
       this.persistence.flushAll();
       return true;
     }
-    this.ui.dropPersistedLayerState(id);
     if (getIntent(this.ui, id, INTENT.NAME) != null) {
       clearIntent(this.ui, id, INTENT.NAME);
       this.ui.saveNamesState();
     }
-    this.ui.saveState();
     this.events.emit(EVENTS.LAYER_GROUP_COUNT_CHANGED, {
       group: layerInfo.group,
     });
