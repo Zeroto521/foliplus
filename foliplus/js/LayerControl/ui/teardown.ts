@@ -1,10 +1,6 @@
 // LayerControl UI — Mutual-exclusion overlay teardown.
-import { closeAttrsPanel } from "./attr.js";
-import { dismissFocus } from "./focus.js";
+import { EVENTS } from "#core/event/index.js";
 import type { LayerUI } from "./index.js";
-import { closeMoreMenu } from "./menu.js";
-import { finishRename } from "./rename.js";
-import { closeStylePanel } from "./style/index.js";
 
 /**
  * Tear down every surface that competes for the same spot: the map's own
@@ -34,6 +30,11 @@ import { closeStylePanel } from "./style/index.js";
  * Focus is torn down silently — this is a state change triggered by opening
  * something else, not a user action, so no hint. `cancelFocus` keeps its
  * "focus cancelled" hint for the Escape path only.
+ *
+ * Folium's own overlays are event-driven: each subsystem subscribes to
+ * OVERLAY_CLEAR in `bindEvents` and closes itself when it hears the signal.
+ * The map-popup sweep stays here because Leaflet popups are not a foliplus
+ * overlay and have no subscribe-able surface of their own.
  */
 const closeOverlays = (ui: LayerUI): void => {
   // The map's own popup, cleared with the foliplus surfaces: it is Leaflet's,
@@ -49,15 +50,11 @@ const closeOverlays = (ui: LayerUI): void => {
   // in the browser test — the sublayer popup factory is unreachable through
   // Layer.closePopup. DOM sweep is the only measured-effective fallback.
   document.querySelectorAll(".leaflet-popup").forEach(el => el.remove());
-  finishRename(ui);
-  closeMoreMenu(ui, true);
-  closeAttrsPanel(ui, false);
-  closeStylePanel(ui, false);
-  // Only when a focus is actually live: dismissFocus ends in applyProjectionAll,
-  // an O(layers) sweep that belongs to the paths that had a focus to tear down,
-  // not to every open. Guarded here rather than inside dismissFocus so the
-  // Escape and unbindEvents callers keep clearing unconditionally.
-  if (ui.isFocusing()) dismissFocus(ui);
+  // Folium's overlay subsystems (menu, attrs, style, rename, focus) each
+  // subscribe to this event in bindEvents and close themselves. The caller
+  // of closeOverlays is about to open one of them — the matching subscriber
+  // sees "I'm not open yet" and is a no-op.
+  ui.events.emit(EVENTS.OVERLAY_CLEAR);
 };
 
 export { closeOverlays };

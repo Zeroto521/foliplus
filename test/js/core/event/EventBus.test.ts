@@ -10,6 +10,23 @@ describe("EventBus", () => {
     expect(handler).toHaveBeenCalledWith(1, 2);
   });
 
+  it("rejects an omitted payload on a data-bearing event (typed emit contract)", () => {
+    // Compile-time contract for the typed emit overload: a data-bearing event
+    // cannot be emitted without its payload. The rest-tuple form
+    // (`...args: EventPayloadMap[K] extends void ? [] : [payload]`) is what
+    // makes this a real error rather than a soft fallthrough — a separate
+    // `emit<K>(event: K): void` overload would accept every K, silently
+    // dropping the payload requirement. `@ts-expect-error` fails the build if
+    // the hole ever comes back.
+    const bus = new EventBus();
+    // @ts-expect-error LAYER_ITEM_ADDED's payload `{ id: string }` is required
+    bus.emit(EVENTS.LAYER_ITEM_ADDED);
+    // @ts-expect-error LAYER_CHANGE's payload is required
+    bus.emit(EVENTS.LAYER_CHANGE);
+    // A void-payload event takes no argument — this line MUST compile.
+    bus.emit(EVENTS.LAYER_LIST_REBUILD);
+  });
+
   it("off removes a specific handler", () => {
     const bus = new EventBus();
     const a = vi.fn();
