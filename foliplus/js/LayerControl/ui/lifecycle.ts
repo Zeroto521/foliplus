@@ -11,6 +11,7 @@ import {
   registerInteractions,
 } from "../interaction.js";
 import { applyProjection, applyProjectionAll } from "./apply.js";
+import { closeAttrsPanel } from "./attr.js";
 import { inFloatingPanel, isKeyboardVisibleFocus, owningRow } from "./context.js";
 import {
   handleDragEnd,
@@ -31,14 +32,28 @@ import {
   handleDblClick,
   syncListCursor,
 } from "./keyboard.js";
-import { insertLayerItem, renderInitialList } from "./list.js";
+import {
+  initLayerItem,
+  initTypesAndVisibility,
+  insertLayerItem,
+  renderInitialList,
+  updateLayerItem,
+} from "./list.js";
 import { closeMoreMenu } from "./menu.js";
 import { finishRename } from "./rename.js";
 import { applyRowView, buildRowCell } from "./rowView.js";
 import { snapshotAuthorVisible } from "./rowView.js";
 import { loadPersistedState } from "./state.js";
 import { closeStylePanel, invalidateFields } from "./style/index.js";
-import { getLayerItems, handleChange, handleInput, toggleAll } from "./visibility.js";
+import { dropStyleDimApplies } from "./style/styleBag.js";
+import {
+  getLayerItems,
+  handleChange,
+  handleInput,
+  syncNoBasemap,
+  syncToggleAll,
+  toggleAll,
+} from "./visibility.js";
 
 /**
  * Attach UI to the given container div.
@@ -266,6 +281,58 @@ const bindEvents = (ui: LayerUI): void => {
     EVENTS.LAYER_ITEM_COUNT_CHANGE,
     (payload: { id: string }) => onLayerItemCountChange(ui, payload.id),
   );
+
+  // Layer-signal events — the manager emits these instead of calling UI
+  // methods directly, so the manager no longer holds a hard dependency on
+  // the view layer. Each handler does what the corresponding ui method did
+  // before; the id-only payload keeps the bus a signal channel, and the
+  // registry lookup here is the single source of the row's current shape.
+  const registry = ui.m.layerRegistry;
+  const signalHandlers: Array<() => void> = [];
+  signalHandlers.push(
+    bus.on(EVENTS.LAYER_ITEM_ADDED, (payload: { id: string }) => {
+      const layerInfo = registry.get(payload.id);
+      if (layerInfo) insertLayerItem(ui, layerInfo);
+    }),
+    bus.on(EVENTS.LAYER_ITEM_UPDATED, (payload: { id: string }) => {
+      const layerInfo = registry.get(payload.id);
+      if (!layerInfo) return;
+      updateLayerItem(ui, layerInfo);
+      invalidateFields(ui, payload.id);
+    }),
+    bus.on(EVENTS.LAYER_ITEM_REFRESHED, (payload: { id: string }) => {
+      const layerInfo = registry.get(payload.id);
+      if (layerInfo) initLayerItem(ui, layerInfo);
+    }),
+    bus.on(EVENTS.LAYER_ITEM_REMOVED, (payload: { id: string }) => {
+      invalidateFields(ui, payload.id);
+      dropStyleDimApplies(payload.id);
+    }),
+    bus.on(EVENTS.LAYER_GROUP_COUNT_CHANGED, (payload: { group: string }) => {
+      syncToggleAll(ui, payload.group);
+    }),
+    bus.on(EVENTS.LAYER_LIST_REBUILD, () => {
+      renderInitialList(ui);
+      initTypesAndVisibility(ui);
+      refreshAllCounts(ui);
+    }),
+    bus.on(EVENTS.LAYER_NO_BASEMAP_CHANGED, () => {
+      syncNoBasemap(ui);
+    }),
+    // Overlay mutual exclusion — each subsystem closes itself when it hears
+    // the signal. closeOverlays (teardown.ts) emits this; the subsystem that
+    // is about to open sees "I'm not open" and no-ops. Focus is guarded by
+    // isFocusing so the O(layers) applyProjectionAll sweep only runs when
+    // there is actually a focus to tear down.
+    bus.on(EVENTS.OVERLAY_CLEAR, () => closeMoreMenu(ui, true)),
+    bus.on(EVENTS.OVERLAY_CLEAR, () => closeAttrsPanel(ui, false)),
+    bus.on(EVENTS.OVERLAY_CLEAR, () => closeStylePanel(ui, false)),
+    bus.on(EVENTS.OVERLAY_CLEAR, () => finishRename(ui)),
+    bus.on(EVENTS.OVERLAY_CLEAR, () => {
+      if (ui.isFocusing()) dismissFocus(ui);
+    }),
+  );
+  ui.unsubscribeLayerSignals = signalHandlers;
 };
 
 /** Called when a layer's content changes (count or type may shift at runtime).
@@ -316,6 +383,11 @@ const refreshAllCounts = (ui: LayerUI): void => {
 const unbindEvents = (ui: LayerUI): void => {
   const container = ui.uiContainer;
   if (!container) return;
+  // Unmount must clean up unconditionally — a subscription may already have
+  // been `off`'d by a third party, or is about to be. Emitting OVERLAY_CLEAR
+  // here would only reach whatever subscribers are still listening, so call
+  // the close functions directly. OVERLAY_CLEAR is reserved for the
+  // "open A, close B" user-driven mutual exclusion.
   closeMoreMenu(ui, false);
   closeStylePanel(ui, false);
   finishRename(ui, true);
@@ -360,6 +432,8 @@ const unbindEvents = (ui: LayerUI): void => {
     ui.unsubscribeControlAttached();
     ui.unsubscribeControlAttached = null;
   }
+  for (const off of ui.unsubscribeLayerSignals) off();
+  ui.unsubscribeLayerSignals = [];
 };
 
 export {

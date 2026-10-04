@@ -12,7 +12,7 @@ import * as CONST from "../const.js";
 import type { LayerManager } from "../manager.js";
 import { applyProjection, applyProjectionAll } from "./apply.js";
 import { closeAttrsPanel, openAttrsPanel } from "./attr.js";
-import { hideSolidBasemap, showSolidBasemap } from "./color.js";
+import { hideSolidBasemap, resetSolidBasemap, showSolidBasemap } from "./color.js";
 import { cancelFocus, focusLayer, isFocusing } from "./focus.js";
 import {
   blurActiveItem,
@@ -155,6 +155,12 @@ class LayerUI {
   unsubscribeCountChange: (() => void) | null;
   /** Unsubscribe for the control-attached ready signal. */
   unsubscribeControlAttached: (() => void) | null;
+  /** Unsubscribers for the manager-driven layer-signal events (item add /
+   *  update / refresh, list rebuild, group count change, no-basemap
+   *  change, content invalidation). Batched into one array so a single
+   *  unbind call tears down every listener; the manager no longer drives
+   *  these UI methods directly. */
+  unsubscribeLayerSignals: Array<() => void>;
   /** Currently visible overflow menu (or null). */
   declare activeMenu: {
     item: HTMLElement;
@@ -226,6 +232,7 @@ class LayerUI {
     this.listCursor = null;
     this.unsubscribeCountChange = null;
     this.unsubscribeControlAttached = null;
+    this.unsubscribeLayerSignals = [];
     this.onMoreClick = null;
     this.onMoreMenuClick = null;
     this.onMoreMapClick = null;
@@ -429,6 +436,9 @@ class LayerUI {
   }
   hideSolidBasemap() {
     return hideSolidBasemap(this);
+  }
+  resetSolidBasemap() {
+    return resetSolidBasemap(this);
   }
   openMoreMenu(item: HTMLElement) {
     return openMoreMenu(this, item);

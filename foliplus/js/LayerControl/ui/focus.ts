@@ -488,14 +488,17 @@ const drawFocusMask = (ui: LayerUI, bounds: L.LatLngBounds): void => {
     ui.focusRenderer.addTo(map);
   }
 
-  // Outer ring: the visible view bounds, padded so the dim covers the
-  // viewport (a little pan during the fitBounds animation stays covered).
-  const view = map.getBounds().pad(1);
+  // Outer ring: the Web-Mercator world envelope. The mask is drawn once
+  // before fitBounds/flyTo runs; using the pre-animation viewport (the old
+  // `.pad(1)`) left bright strips around a zoom-out — the ring stopped at
+  // the old boundary and the new viewport bled through. A world envelope
+  // covers every viewport at every zoom, and the SVG renderer clips the
+  // off-screen excess for free.
   const outer: L.LatLngExpression[] = [
-    view.getSouthWest(),
-    view.getNorthWest(),
-    view.getNorthEast(),
-    view.getSouthEast(),
+    L.latLng(-85.05, -180),
+    L.latLng(85.05, -180),
+    L.latLng(85.05, 180),
+    L.latLng(-85.05, 180),
   ];
   // Hole: the layer bounds (the focused layer lives inside it, so it stays
   // bright while everything else is dimmed by the mask).
