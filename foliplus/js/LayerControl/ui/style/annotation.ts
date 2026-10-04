@@ -1,10 +1,10 @@
-// LayerControl style-panel —the Label section's dimension descriptor.
+// LayerControl style-panel — the Label section's dimension descriptor.
 //
 // Labels are a dimension of the layer's style, registered in the
 // same discovery registry as fill / border / opacity / zoomRange instead
 // of being a hand-written section in the panel assembly. The panel iterates
 // `LABEL_DIM_ORDER` exactly like it iterates `DIM_ORDER` for the Layer
-// section —heading plus each gated row.
+// section — heading plus each gated row.
 //
 // The gate is the registry contract's pure two-layer shape and nothing
 // more: layer existence, then `capabilities.annotation !== "none"`. The
@@ -38,9 +38,9 @@ import { registerDimension } from "./registry.js";
 
 /** Whether the layer's surface can honestly carry label content: the layer
  *  is registered (precondition guard) and its surface declared a label
- *  pane (`capabilities.annotation !== "none"` —the registration edge's
+ *  pane (`capabilities.annotation !== "none"` — the registration edge's
  *  `hasLabelField` probe already decided that, so this stays a pure
- *  capability bit). The ⋮menu's Style item keys off the same function —
+ *  capability bit). The ⋮ menu's Style item keys off the same function —
  *  one source for "can this layer show a Label section". */
 const layerCanLabel = (ui: LayerUI, layerId: string): boolean => {
   const li = ui.m.layerRegistry.get(layerId);
@@ -51,7 +51,7 @@ const layerCanLabel = (ui: LayerUI, layerId: string): boolean => {
 /** Build the Label section's rows: the label toggle, then the body (field
  *  picker →appearance →number format →avoid-overlap). Returned as the
  *  descriptor's `row`, so the panel assembly appends it under the section
- *  heading exactly like any other dimension's row —the wrapper div is the
+ *  heading exactly like any other dimension's row — the wrapper div is the
  *  section's own; every control is found later by its class, never by
  *  structural position.
  *
@@ -62,7 +62,7 @@ const buildLabelSection = (ui: LayerUI, layerId: string): HTMLElement => {
   const fields = layerFields(ui, layerId);
   const cfg = ui.m.annotation.getConfig(layerId);
   const fmtLabel = (f: string) => ui._(`foliplus.label_format_${f}`) || f;
-  // Labels are off by default —the user opens the panel, sees the field and
+  // Labels are off by default — the user opens the panel, sees the field and
   // format chooser idle, and flips the switch to begin. `cfg.show ? "" : null`
   // follows the persisted state when this is a reopen, but the *first* open
   // never reads from storage (DEFAULT_ANNOTATION.show = false). The body
@@ -70,7 +70,7 @@ const buildLabelSection = (ui: LayerUI, layerId: string): HTMLElement => {
   // show === false, mirroring the heatmap's "switch off →hide body" rule.
   const showChecked = !!cfg.show;
   // The picker's "Auto" entry means "let foliplus choose", and the config
-  // records it as the shared sentinel rather than a resolved name —so the layer
+  // records it as the shared sentinel rather than a resolved name — so the layer
   // keeps labeling itself when its columns change. `resolveSelectedField`
   // (core/labelField) is what turns the select's value back into a field.
   const selectedField = cfg.field;
@@ -106,7 +106,7 @@ const buildLabelSection = (ui: LayerUI, layerId: string): HTMLElement => {
   );
   (fieldSelect as HTMLSelectElement).value = selectedField || AUTO_FIELD;
 
-  // Appearance row —same chrome as the heatmap border / delegated drawer.
+  // Appearance row — same chrome as the heatmap border / delegated drawer.
   const colorInput = formColorInput({
     value: normalizeHexColor(cfg.color || LABEL_COLOR_DEFAULT),
     className: CONST.CLASSES.STYLE_LABEL_COLOR_INPUT,
@@ -124,7 +124,7 @@ const buildLabelSection = (ui: LayerUI, layerId: string): HTMLElement => {
   const formatOpts = numberFormatOptions(fmtLabel);
 
   // The toggle gets a focus-visible ring tied to the panel's design token,
-  // not the browser default —without it, a tab stop on a switch looks
+  // not the browser default — without it, a tab stop on a switch looks
   // identical to "not focused", which is the heatmap-style bug we hit.
   const showToggle = dom.el("input", {
     type: "checkbox",
@@ -133,7 +133,7 @@ const buildLabelSection = (ui: LayerUI, layerId: string): HTMLElement => {
     "aria-label": ui._("foliplus.label_tooltip"),
   });
   // "Avoid overlap": thins this layer's own labels where they collide. Labels
-  // from *different* layers never avoid each other —the layers are stacked, so
+  // from *different* layers never avoid each other — the layers are stacked, so
   // an upper layer simply covers the lower one's.
   const collideToggle = dom.el("input", {
     type: "checkbox",
@@ -152,7 +152,7 @@ const buildLabelSection = (ui: LayerUI, layerId: string): HTMLElement => {
   (formatSelect as HTMLSelectElement).value = cfg.format || NUMBER_FORMAT.AUTO;
 
   // Numeric-only: hide the format dropdown when the picked field is not a
-  // number —comma/percent/int all render the same as auto in that case.
+  // number — comma/percent/int all render the same as auto in that case.
   const formatRow = dom.el(
     "div",
     { class: `${CONST.CLASSES.FORM_ROW} ${CONST.CLASSES.STYLE_FORMAT_ROW}` },
@@ -213,7 +213,7 @@ const buildLabelSection = (ui: LayerUI, layerId: string): HTMLElement => {
         "div",
         { class: CONST.CLASSES.FORM_CONTROL },
         // Resolving the toggle: clicking the input, the slider span, or the
-        // label should all flip the checkbox —the switch is one <label>.
+        // label should all flip the checkbox — the switch is one <label>.
         dom.el(
           "label",
           { class: CONST.CLASSES.TOGGLE_SWITCH },
@@ -227,7 +227,7 @@ const buildLabelSection = (ui: LayerUI, layerId: string): HTMLElement => {
 };
 
 /** The Label section's registry entry. `value` hands back the resolved
- *  config (user's stored choice merged over the defaults) —what a future
+ *  config (user's stored choice merged over the defaults) — what a future
  *  schema-style consumer reads without re-deriving it. */
 const ANNOTATION_DIMENSION = registerDimension<AnnotationConfig>({
   key: DIM.ANNOTATION,

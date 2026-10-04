@@ -1,6 +1,6 @@
 // Zoom-range row: dual-thumb rail + current-zoom marker + value labels +
 // live / commit passes. Moved verbatim from ui/style.ts.
-// Used by both the delegated drawer and the annotation panel —the row is
+// Used by both the delegated drawer and the annotation panel — the row is
 // LayerControl-owned, gated by surface capability.
 import { CAP_TIER, DIM } from "#core/layer/index.js";
 import { dom } from "#common/dom.js";
@@ -22,7 +22,7 @@ import {
  *
  *  The zoomRange capability is derived at the surface (see
  *  `detectCapabilities` in core/layer/LayerSurface.ts). MarkerCluster
- *  and ImageOverlay declare `"none"` —a row that persists a value
+ *  and ImageOverlay declare `"none"` — a row that persists a value
  *  the write cannot apply is a lie that survives reload. The colour
  *  basemap declares `"pane"` (the executor's `visible` op is the
  *  carrier, same as every other surface). No `isColorBasemap`
@@ -54,7 +54,7 @@ const LABEL_MIN_GAP_PCT = 12;
  *
  *  The numbers belong to the marks that cannot move: the map's two zoom limits
  *  (fixed text at the row's edges) and the current level (placed under its own
- *  dot). The draggable range carries no number of its own —it reports through
+ *  dot). The draggable range carries no number of its own — it reports through
  *  the bubble while held, and through the rail's geometry the rest of the time.
  *
  *  `--foliplus-slider-dot-size` dots read coverage through their ring: accent where the
@@ -160,7 +160,7 @@ const syncZoomRangeRow = (
  *  Initial values come from the layer's zoomRange intent (the persisted
  *  choice),
  *  clamped to the map's current [min, max]. When no range is stored, the
- *  full map range is used —the "author-undeclared" default. */
+ *  full map range is used — the "author-undeclared" default. */
 const buildZoomRangeRow = (ui: LayerUI, layerId: string): HTMLElement => {
   const [mapMin, mapMax] = authorZoomBoundsForLayer(ui, layerId);
   const stored = getIntent(ui, layerId, INTENT.ZOOM_RANGE);
@@ -251,8 +251,8 @@ const buildZoomRangeRow = (ui: LayerUI, layerId: string): HTMLElement => {
 
 /** Live pass: update the map and visual state without persisting. Called
  *  on every `input` event so the layer responds in real-time as the user
- *  drags a thumb —the slider is a live preview, not a deferred commit.
- *  Value-only write (`setValue`) —provenance marks on the commit pass. */
+ *  drags a thumb — the slider is a live preview, not a deferred commit.
+ *  Value-only write (`setValue`) — provenance marks on the commit pass. */
 const applyZoomRangeLive = (
   ui: LayerUI,
   layerId: string,

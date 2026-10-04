@@ -1,4 +1,4 @@
-// Per-layer annotation label controls —the ⚙︎ drawer's "Label" section.
+// Per-layer annotation label controls — the ⚙︎ drawer's "Label" section.
 // Moved verbatim from ui/style.ts. Owns the field cache,
 // the toggle/select wiring through applyPatch, and the load-time
 // applyStyleLabelState snapshot seed. Called back by the panel
@@ -35,7 +35,7 @@ const layerFields = (ui: LayerUI, layerId: string): LabelField[] => {
 };
 
 /** Whether the layer has any labelable fields. False for base maps, the color
- *  basemap, and canvas layers (no feature.properties) —the ⋮menu's Style
+ *  basemap, and canvas layers (no feature.properties) — the ⋮ menu's Style
  *  item keys off this. */
 const layerHasLabelFields = (ui: LayerUI, layerId: string): boolean =>
   layerFields(ui, layerId).length > 0;
@@ -55,7 +55,7 @@ const invalidateFields = (ui: LayerUI, layerId: string): void => {
   }
 };
 
-/** Persist the per-layer label config —it rides the record's `layers`
+/** Persist the per-layer label config — it rides the record's `layers`
  *  section (`layers[id].annotation`), so the same writer that saves
  *  visibility / opacity / zoom range now saves it. The legacy top-level
  *  `annotations` segment has no live source anymore: it passes through on
@@ -82,8 +82,8 @@ const applyPatch = (
 /** Coerce one stored label config into a complete {@link AnnotationConfig}.
  *
  *  The single home of the per-field rules: persistence's tolerant parse only
- *  checks the object shape (and normalises colour), so every coercion —and
- *  the default of every future field, e.g. `position` —belongs here. The
+ *  checks the object shape (and normalises colour), so every coercion — and
+ *  the default of every future field, e.g. `position` — belongs here. The
  *  renderer consumes the result; nothing in between re-derives defaults. */
 const coerceAnnotationFields = (raw: unknown): AnnotationConfig => {
   const cfg = (raw && typeof raw === "object" ? raw : {}) as Partial<AnnotationConfig>;
@@ -128,7 +128,7 @@ const applyStyleLabelState = (ui: LayerUI): void => {
 
 /** Show / hide the number-format row for the field the select currently holds.
  *  Only numbers render differently under comma / percent / int, so every other
- *  field hides the row —the heatmap's "only show controls that change the
+ *  field hides the row — the heatmap's "only show controls that change the
  *  picture" rule.
  *
  *  Takes the row itself rather than a container to search: the caller always

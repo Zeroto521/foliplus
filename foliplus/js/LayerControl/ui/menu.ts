@@ -1,4 +1,4 @@
-// LayerControl UI —Overflow (⋮ menu.
+// LayerControl UI — Overflow (⋮ menu.
 import { CAP_TIER } from "#core/layer/index.js";
 import { dom } from "#common/dom.js";
 import * as Icons from "#common/icon.js";
@@ -16,28 +16,28 @@ import { closeOverlays } from "./teardown.js";
  *
  * Order is deliberate, not append order:
  *
- *   1. Focus      —a view action on the map: nothing written, highest use, and
+ *   1. Focus      — a view action on the map: nothing written, highest use, and
  *                   it has its own Escape-cancel path.
- *   2. Style      —opens the layer's style panel.
- *   3. Rename     —writes to the layer itself; the only entry that hands focus
+ *   2. Style      — opens the layer's style panel.
+ *   3. Rename     — writes to the layer itself; the only entry that hands focus
  *                   to a long-lived inline editor.
- *   4. Attributes —opens the read-only detail panel. Display-only, never
+ *   4. Attributes — opens the read-only detail panel. Display-only, never
  *                   disabled, so it closes the quiet part of the list.
- *   5. Delete     —behind a divider, the one destructive entry. Armed in
+ *   5. Delete     — behind a divider, the one destructive entry. Armed in
  *                   place on the first click and executed on the second; it is
  *                   rendered for every layer. The label varies by semantics:
  *                   "Delete Layer" for user-owned data layers, "Clear Data"
  *                   for component-owned layers.
  *
  * Focus leads because the trigger-adjacent slot is the mis-click zone: the menu
- * opens downward from the row's bottom edge (`top: 100%`) while the ⋮button is
+ * opens downward from the row's bottom edge (`top: 100%`) while the ⋮ button is
  * vertically centered in the row, so when the menu appears the pointer is *above
- * its top edge* —nearest entry #1. The second click of an impatient
+ * its top edge* — nearest entry #1. The second click of an impatient
  * double-click lands there, so it holds the reversible view action.
  *
  * Known cost: the menu lives inside the panel's scrolling content, so it
  * overflows that box by a few px on a low row. The trailing entry is the first
- * to need a scroll —measured, not assumed; see the ⋮menu clip probe.
+ * to need a scroll — measured, not assumed; see the ⋮ menu clip probe.
  *
  * A new dimensions entry belongs with Style, not at the tail.
  */
@@ -70,7 +70,7 @@ const openMoreMenu = (op: OverlayPanel, ui: LayerUI, item: HTMLElement) => {
 
   if (focusDisabled) menu.lastElementChild!.setAttribute("disabled", "disabled");
 
-  // The Style menu entry is the surface for the per-layer style panel —the
+  // The Style menu entry is the surface for the per-layer style panel — the
   // current implementation only ships the "labels" dimension, but the same
   // entry will host future style dimensions (color, opacity, …. Disable it
   // exactly like focus-layer when there is nothing to configure.
@@ -82,14 +82,14 @@ const openMoreMenu = (op: OverlayPanel, ui: LayerUI, item: HTMLElement) => {
   //
   // `focusReason` cascades into `styleDisabled` only for the reasons that
   // make styling impossible: a hidden row has nothing visible to style.
-  // A "no_bounds" row is still visible and configurable —it simply has no
-  // geographic extent to focus on —so it keeps its style entry enabled.
+  // A "no_bounds" row is still visible and configurable — it simply has no
+  // geographic extent to focus on — so it keeps its style entry enabled.
   // Basemaps are configurable too: the solid-color basemap has a fill row
   // in its style panel, and tile basemaps can still tune opacity.
   const layerInfo = ui.m.layerRegistry.get(layerId);
   const caps = layerInfo ? ui.m.surfaceFor(layerInfo).capabilities : null;
   // `layerCanLabel` is the Label section's gate itself (pure capability
-  // bit) —the menu and the panel ask one function, so the entry can never
+  // bit) — the menu and the panel ask one function, so the entry can never
   // enable a panel whose Label section would not render (or vice versa).
   const canConfigure =
     (caps && (caps.opacity !== CAP_TIER.NONE || caps.zoomRange !== CAP_TIER.NONE)) ||
@@ -131,7 +131,7 @@ const openMoreMenu = (op: OverlayPanel, ui: LayerUI, item: HTMLElement) => {
     ),
   );
 
-  // Attributes is display-only, so it is never disabled —a hidden layer
+  // Attributes is display-only, so it is never disabled — a hidden layer
   // still has name / source / visibility to show.
   menu.appendChild(
     dom.el(
@@ -150,12 +150,12 @@ const openMoreMenu = (op: OverlayPanel, ui: LayerUI, item: HTMLElement) => {
   // Delete goes behind a divider: everything above it is reversible (view,
   // configure, rename, inspect), and this is the only entry that is not. Three
   // modes share the entry: user-owned data layers (retire the id for good,
-  // tile basemaps included —dropping to a bare background is a legal end
+  // tile basemaps included — dropping to a bare background is a legal end
   // state), component-owned layers (Measure, Heatmap: clear their data through
   // LAYER_DELETED, id stays registerable), and the solid colour basemap (clear
   // the fill and return to the grid empty state). The label and tooltip vary
   // by mode —"Delete Layer" for real deletion, "Clear Data" for component
-  // clear —so the action name matches the effect.
+  // clear — so the action name matches the effect.
   const deleteMode = deleteModeFor(ui, layerId);
   if (deleteMode !== "absent") {
     menu.appendChild(
@@ -171,7 +171,7 @@ const openMoreMenu = (op: OverlayPanel, ui: LayerUI, item: HTMLElement) => {
   item.style.position = "relative";
   item.appendChild(menu);
 
-  // Tab moving focus out of the menu dismisses it —an open menu owns the
+  // Tab moving focus out of the menu dismisses it — an open menu owns the
   // keyboard cursor (ARIA menu pattern). Focus wandering within the menu,
   // or onto the anchor row itself (jsdom falls a disabled-item click back
   // to the row, and a real Tab can land on the row's own controls), keeps
@@ -193,8 +193,8 @@ const openMoreMenu = (op: OverlayPanel, ui: LayerUI, item: HTMLElement) => {
   ).focus();
 };
 
-/** Why the ⋮menu shows a delete/clear entry for `item`. `absent` means render
- *  nothing —see the comment at the call site for why a component layer is
+/** Why the ⋮ menu shows a delete/clear entry for `item`. `absent` means render
+ *  nothing — see the comment at the call site for why a component layer is
  *  not "disabled delete". */
 type DeleteMode = "clear" | "delete" | "absent";
 
@@ -217,7 +217,7 @@ let armedDeleteTimer: ReturnType<typeof setTimeout> | undefined;
 const deleteModeFor = (ui: LayerUI, layerId: string): DeleteMode => {
   if (!layerId) return "absent";
   // The solid colour basemap uses delete semantics (row disappears, id stays
-  // registerable so the colour can be re-picked) —same as a user data layer.
+  // registerable so the colour can be re-picked) — same as a user data layer.
   if (layerId === CONST.SOLID_BASEMAP_ID) return "delete";
   // Component-owned layers (Measure, Heatmap) clear their data instead of being
   // retired. The id stays registerable so the component can re-draw.
@@ -230,7 +230,7 @@ const deleteModeFor = (ui: LayerUI, layerId: string): DeleteMode => {
   return ui.m.findLayer(layerId) ? "delete" : "absent";
 };
 
-/** True when the layer is owned by a foliplus component —Measure, Heatmap
+/** True when the layer is owned by a foliplus component — Measure, Heatmap
  *  (styleSetters). Matches the discriminator in `LayerManager.deleteLayer`, so
  *  the two stay in lockstep. The solid colour basemap is handled separately in
  *  `deleteModeFor` and returns "delete" instead of "clear". */
@@ -324,7 +324,7 @@ const closeMoreMenu = (op: OverlayPanel, ui: LayerUI, setFocus: boolean) => {
   const item = op.activeMenu.item;
   const menu = op.activeMenu.menu;
   // Clear the pointer before removing: the removal can trigger the menu's own
-  // focusout, which calls closeMoreMenu again —that re-entrant pass must see
+  // focusout, which calls closeMoreMenu again — that re-entrant pass must see
   // null, not call remove() on a detached menu (NotFoundError).
   op.activeMenu = null;
   disarmDelete();

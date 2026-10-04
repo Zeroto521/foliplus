@@ -175,14 +175,14 @@ describe("ui/drag", () => {
 
       handleDrop(ui.listPanel, ui, dragEvent(target));
 
-      // Old code: targetIdx = 2 (DOM position), reorder(0, 2) 鈥?wrong target.
-      // New code: targetIdx = 1 (B's registry index), reorder(0, 1) 鈥?correct.
+      // Old code: targetIdx = 2 (DOM position), reorder(0, 2) — wrong target.
+      // New code: targetIdx = 1 (B's registry index), reorder(0, 1) — correct.
       expect(reorder).toHaveBeenCalledWith(0, 1);
     });
 
     it("handleDrop snapshots the order through saveOrder after a drop", () => {
       // A drop is a user reorder: the manager's saveOrder path writes the live
-      // order 鈥?every layer present, color basemap included.
+      // order — every layer present, color basemap included.
       const { ui, reorder } = makeScrambledUi();
       (ui.listPanel as any).dragIdx = 0;
       const target = ui.uiContainer.querySelector<HTMLElement>(
@@ -253,7 +253,7 @@ describe("ui/drag", () => {
 
     it("handleDragOver treats the color basemap row as a valid target", () => {
       // The color row is a base-group member like any other: it participates
-      // in drag reorder. A row WITHOUT a data-layer-id is still ignored 鈥?
+      // in drag reorder. A row WITHOUT a data-layer-id is still ignored —
       // that is the no-layer case, not the color case.
       const layers: LayerInfo[] = [
         { id: "A", name: "A", group: "overlay" } as LayerInfo,

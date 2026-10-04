@@ -2,7 +2,7 @@
 // Moved verbatim from ui/style.ts; the frame helpers it
 // reaches into live in ./frame.ts. `buildOpacityRow` and the sync /
 // commit functions are used both by the delegated drawer (delegated.ts)
-// and the annotation panel (index.ts) —the row is LayerControl-owned,
+// and the annotation panel (index.ts) — the row is LayerControl-owned,
 // not annotation-owned.
 //
 // Also registered in the style-panel dimension registry (./registry.ts)
@@ -27,7 +27,7 @@ import {
 
 /** Whether the layer's surface can honestly carry an opacity write. Layers with
  *  `opacity: "none"` (e.g. MarkerCluster, whose cluster icons live in a shared
- *  pane we do not own) get no opacity row —a slider that writes nothing but
+ *  pane we do not own) get no opacity row — a slider that writes nothing but
  *  persists the value would fail silently. */
 const layerCanOpacity = (ui: LayerUI, layerId: string): boolean => {
   const li = ui.m.layerRegistry.get(layerId);
@@ -39,8 +39,8 @@ const layerCanOpacity = (ui: LayerUI, layerId: string): boolean => {
 const opacityToPct = (opacity: number | undefined): number =>
   Math.round(Math.max(0, Math.min(1, opacity ?? 1)) * 100);
 
-/** Clamp a raw percentage into [0, 100]. A non-numeric entry —an emptied
- *  number field on commit —falls back to fully opaque, the same
+/** Clamp a raw percentage into [0, 100]. A non-numeric entry — an emptied
+ *  number field on commit — falls back to fully opaque, the same
  *  invalid-commits-to-default rule the shared number field uses. */
 const clampPct = (raw: number, fallback = 100): number =>
   Number.isFinite(raw) ? Math.max(0, Math.min(100, Math.round(raw))) : fallback;
@@ -50,8 +50,8 @@ const clampPct = (raw: number, fallback = 100): number =>
 const opacityFillWidth = (pct: number): string => `${round5(pct)}%`;
 
 /** Ring color of the opacity row's two end dots. The covered span is always
- *  [0, pct], so the 0 end is red by construction —the layer is painted from
- *  there whatever the value —and 100 is red only when the layer is fully
+ *  [0, pct], so the 0 end is red by construction — the layer is painted from
+ *  there whatever the value — and 100 is red only when the layer is fully
  *  opaque. Same readout the zoom range's limits give, where a limit is covered
  *  once the range reaches it. */
 const syncOpacityDots = (track: HTMLElement, pct: number): void => {
@@ -68,7 +68,7 @@ const syncOpacityDots = (track: HTMLElement, pct: number): void => {
 
 /** Write one resolved percentage into the slider and its number field.
  *
- *  The slider always takes the value —its thumb has to follow whoever moved
+ *  The slider always takes the value — its thumb has to follow whoever moved
  *  the other control. The number field is left alone while the user is typing
  *  in it, or the caret would jump to the end on every keystroke; `force` is the
  *  commit pass, which rewrites it to the resolved value the same way the shared
@@ -82,7 +82,7 @@ const syncOpacityInputs = (panel: HTMLElement, pct: number): void => {
   ) as HTMLElement | null;
   range.value = String(pct);
   // The fill starts where the thumb's center sits at 0% and ends on it at the
-  // current value —the handle's own travel range, so the two never disagree at
+  // current value — the handle's own travel range, so the two never disagree at
   // the ends (a rail-relative width leaves a sliver of accent past the handle).
   if (fill) fill.style.width = opacityFillWidth(pct);
   syncOpacityDots(panel, pct);
@@ -115,7 +115,7 @@ const commitOpacityPct = (
  *
  *  There is no number field: the value is already on screen three ways (the
  *  fill's length, the drag bubble, the end numbers) and the field cost the rail
- *  two thirds of its width —it is the reason the zoom range's rail is longer
+ *  two thirds of its width — it is the reason the zoom range's rail is longer
  *  than this one. The range input keeps the value reachable: it carries the
  *  accessible name and value, arrow / Home / End drive it, and the bubble
  *  appears for keyboard input the same as for a drag. */
@@ -184,7 +184,7 @@ const resetLayerOpacity = (ui: LayerUI, layerId: string): void => {
  *  intent+persist slots; `commitOpacityPct` / `resetLayerOpacity` stay as
  *  thin delegates (panel rail sync remains in the commit helper).
  *
- *  **opacity === 1 clears the override** —fully opaque is the declared
+ *  **opacity === 1 clears the override** — fully opaque is the declared
  *  default, so there is no user choice to persist. That rule lives in
  *  `write` so every writer agrees.
  *
@@ -204,7 +204,7 @@ const OPACITY_DIMENSION = registerDimension<number>({
     const opacity = typeof patch === "number" ? patch : undefined;
     if (opacity === undefined) return;
     if (opacity === 1) {
-      // Fully opaque is the declared default —clear, same as resetIntentKeys.
+      // Fully opaque is the declared default — clear, same as resetIntentKeys.
       resetIntentKeys(ui, layerId, [INTENT.OPACITY]);
     } else {
       void writeIntentKeys(ui, layerId, [[INTENT.OPACITY, opacity]]);
