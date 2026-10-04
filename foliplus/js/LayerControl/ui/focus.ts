@@ -53,11 +53,7 @@ const focusDisabledLocaleKey = (reason: FocusDisabled): string =>
  *  false (no honest carrier to focus on — a MarkerCluster group, a canvas
  *  without a `getBounds` provider, a third-party layer that never advertised
  *  a bounds) are off for focus only. */
-const focusDisabledReason = (
-  fc: FocusController,
-  ui: LayerUI,
-  item: HTMLElement,
-): FocusDisabledReason => {
+const focusDisabledReason = (ui: LayerUI, item: HTMLElement): FocusDisabledReason => {
   const box = item.querySelector('input[type="checkbox"]') as HTMLInputElement | null;
   if (box !== null && !box.checked) return "hidden";
   if (item.dataset.layerType === GROUP.BASE) return "base";
@@ -70,11 +66,7 @@ const focusDisabledReason = (
 };
 
 /** Show the hint that matches a `focusDisabledReason` value. */
-const showFocusDisabledHint = (
-  fc: FocusController,
-  ui: LayerUI,
-  reason: FocusDisabled,
-): void => {
+const showFocusDisabledHint = (ui: LayerUI, reason: FocusDisabled): void => {
   ui.m.map.foliplus!.showHint(
     ui.config.name,
     ui.T(focusDisabledLocaleKey(reason)),
@@ -83,7 +75,7 @@ const showFocusDisabledHint = (
 };
 
 /** Toggle visibility of the currently focused layer. */
-const toggleFocusedLayer = (fc: FocusController, ui: LayerUI): void => {
+const toggleFocusedLayer = (ui: LayerUI): void => {
   const item = getActiveLayerItem(ui.listPanel, ui);
   if (!item) return;
   const checkbox = item.querySelector(
@@ -134,7 +126,7 @@ const focusLayer = (fc: FocusController, ui: LayerUI, layerId: string) => {
     'input[type="checkbox"]',
   ) as HTMLInputElement | null;
   if (checkbox && !checkbox.checked) {
-    showFocusDisabledHint(fc, ui, "hidden");
+    showFocusDisabledHint(ui, "hidden");
     return;
   }
 
@@ -153,7 +145,7 @@ const focusLayer = (fc: FocusController, ui: LayerUI, layerId: string) => {
         kind: layerInfo.kind,
       });
     }
-    bounds = computeLayerBounds(fc, ui, layer);
+    bounds = computeLayerBounds(ui, layer);
   } else if (typeof layerInfo.getBounds === "function") {
     bounds = layerInfo.getBounds();
   }
@@ -162,7 +154,7 @@ const focusLayer = (fc: FocusController, ui: LayerUI, layerId: string) => {
   // without going through `focusDisabledReason`, so the hint is the honest
   // feedback rather than a silent no-op.
   if (!bounds || !bounds.isValid()) {
-    showFocusDisabledHint(fc, ui, "no_bounds");
+    showFocusDisabledHint(ui, "no_bounds");
     return;
   }
 
@@ -174,7 +166,7 @@ const focusLayer = (fc: FocusController, ui: LayerUI, layerId: string) => {
 
   // Hide every other visible layer so the focused one stands out — including
   // layers that overlap the focused bounds (the mask only dims outside).
-  hideOtherLayers(fc, ui);
+  hideOtherLayers(ui);
   // Labels of the layers just hidden must leave the screen with them: the
   // canvas draws the spotlighted layer's labels only for the duration.
   ui.m.annotation.setFocusFilter(layerId);
@@ -267,8 +259,8 @@ const dismissFocus = (fc: FocusController, ui: LayerUI): void => {
     modes.setMode(ui.config.name, null);
   }
   clearAutoCancel(fc, ui);
-  clearFocusedRowHighlight(fc, ui);
-  restoreHiddenLayers(fc, ui);
+  clearFocusedRowHighlight(ui);
+  restoreHiddenLayers(ui);
   ui.m.annotation.setFocusFilter(null);
   for (const restore of fc.focusedPaneRestores) restore();
   fc.focusedPaneRestores = [];
@@ -313,7 +305,7 @@ const dismissFocus = (fc: FocusController, ui: LayerUI): void => {
  * pane, so they are covered by the same rule. `bringFocusedLayerToFront`
  * marks the focused pane with `foliplus-focus-pane` so it stays visible.
  */
-const hideOtherLayers = (fc: FocusController, ui: LayerUI): void => {
+const hideOtherLayers = (ui: LayerUI): void => {
   ui.m.map.getContainer().classList.add(CONST.CLASSES.FOCUS_ACTIVE);
 };
 
@@ -443,7 +435,7 @@ const bringFocusedLayerToFront = (
 };
 
 /** Remove the container class that hides every non-focused layer. */
-const restoreHiddenLayers = (fc: FocusController, ui: LayerUI): void => {
+const restoreHiddenLayers = (ui: LayerUI): void => {
   ui.m.map.getContainer().classList.remove(CONST.CLASSES.FOCUS_ACTIVE);
 };
 
@@ -452,11 +444,7 @@ const restoreHiddenLayers = (fc: FocusController, ui: LayerUI): void => {
  * L.Layer subclasses without a getBounds() method; fall back to summing the
  * bounds of the layer's leaf nodes so focus still works for them.
  */
-const computeLayerBounds = (
-  fc: FocusController,
-  ui: LayerUI,
-  layer: L.Layer,
-): L.LatLngBounds | null => {
+const computeLayerBounds = (ui: LayerUI, layer: L.Layer): L.LatLngBounds | null => {
   const withBounds = layer as L.Layer & { getBounds?: () => L.LatLngBounds };
   if (typeof withBounds.getBounds === "function") {
     const b = withBounds.getBounds();
@@ -615,14 +603,14 @@ const highlightFocusedRow = (
   itemEl: HTMLElement | null,
   layerId: string,
 ): void => {
-  clearFocusedRowHighlight(fc, ui);
+  clearFocusedRowHighlight(ui);
   if (!itemEl) return;
   itemEl.classList.add(CONST.CLASSES.FOCUSING);
   fc.focusingLayerId = layerId;
 };
 
 /** Remove the `foliplus-is-focusing` class from the active row. */
-const clearFocusedRowHighlight = (fc: FocusController, ui: LayerUI): void => {
+const clearFocusedRowHighlight = (ui: LayerUI): void => {
   const prev = ui.uiContainer.querySelector(`.${CONST.CLASSES.FOCUSING}`);
   prev?.classList.remove(CONST.CLASSES.FOCUSING);
 };

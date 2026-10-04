@@ -53,7 +53,7 @@ const renderStylePanel = (
 ): HTMLElement | null => {
   // Third-party canvas layers (heatmap, measure) declare their own controls
   // via styleSetters �?render those instead of the annotation panel.
-  if (layerHasStyleDelegation(op, ui, layerId)) {
+  if (layerHasStyleDelegation(ui, layerId)) {
     return renderDelegatedStylePanel(op, ui, layerId);
   }
   // Both sections are discovered through the dimension registry: the Layer
@@ -65,8 +65,8 @@ const renderStylePanel = (
   // enables Style on the same two signals �?`layerCanLabel` IS the
   // annotation dimension's gate �?so the panel honours them rather than
   // demanding both.
-  const layerRows = gatedRows(op, ui, layerId, DIM_ORDER);
-  const labelRows = gatedRows(op, ui, layerId, LABEL_DIM_ORDER);
+  const layerRows = gatedRows(ui, layerId, DIM_ORDER);
+  const labelRows = gatedRows(ui, layerId, LABEL_DIM_ORDER);
   if (layerRows.length === 0 && labelRows.length === 0) return null;
 
   // Shell (surface, header, content scroll) comes from the shared row-panel
@@ -89,13 +89,13 @@ const renderStylePanel = (
   // `LABEL_DIM_ORDER` comments in `./registry.js`). Neither group carries a
   // heading any more: the panel reads as one flat row list, and Layer before
   // Label is what document order alone conveys.
-  for (const dim of layerRows) content.append(dim.row(op, ui, layerId));
+  for (const dim of layerRows) content.append(dim.row(ui, layerId));
   // The Label section's gate is a pure capability bit (layer exists +
   // `capabilities.annotation !== "none"`) �?the labelable-fields probe that
   // keeps the row honest lives at the surface declaration edge, so the panel
   // never re-asks it here.
-  for (const dim of labelRows) content.append(dim.row(op, ui, layerId));
-  appendResetFooter(op, ui, content);
+  for (const dim of labelRows) content.append(dim.row(ui, layerId));
+  appendResetFooter(ui, content);
   return panel;
 };
 
@@ -133,9 +133,9 @@ const openStylePanel = (op: OverlayPanel, ui: LayerUI, layerId: string): void =>
   const borderRow = panel.querySelector(
     `.${CONST.CLASSES.STYLE_BORDER_ROW}`,
   ) as HTMLElement | null;
-  if (borderRow) bindBorderRow(op, ui, layerId, borderRow);
+  if (borderRow) bindBorderRow(ui, layerId, borderRow);
 
-  const delegated = layerHasStyleDelegation(op, ui, layerId);
+  const delegated = layerHasStyleDelegation(ui, layerId);
   // Annotation color/size commit live, same bindLive* recipe as the
   // heatmap panel and the delegated drawer.
   if (!delegated) {
@@ -144,7 +144,7 @@ const openStylePanel = (op: OverlayPanel, ui: LayerUI, layerId: string): void =>
     ) as HTMLInputElement | null;
     if (colorEl) {
       bindLiveColor(colorEl, value => {
-        applyPatch(op, ui, layerId, { color: normalizeHexColor(value) });
+        applyPatch(ui, layerId, { color: normalizeHexColor(value) });
       });
     }
     const sizeEl = panel.querySelector(
@@ -155,7 +155,7 @@ const openStylePanel = (op: OverlayPanel, ui: LayerUI, layerId: string): void =>
         min: LABEL_SIZE.SIZE_MIN,
         max: LABEL_SIZE.SIZE_MAX,
         fallback: LABEL_SIZE.SIZE_DEFAULT,
-        onCommit: value => applyPatch(op, ui, layerId, { size: value }),
+        onCommit: value => applyPatch(ui, layerId, { size: value }),
       });
     }
     // Fill is a self-managed dimension (not part of the executor's
@@ -164,7 +164,7 @@ const openStylePanel = (op: OverlayPanel, ui: LayerUI, layerId: string): void =>
     const fillRow = panel.querySelector(
       `.${CONST.CLASSES.STYLE_FILL_ROW}`,
     ) as HTMLElement | null;
-    if (fillRow) bindFillRow(op, ui, layerId, fillRow);
+    if (fillRow) bindFillRow(ui, layerId, fillRow);
   }
 
   // Control changes are handled on the panel itself; stopPropagation keeps
@@ -198,7 +198,7 @@ const openStylePanel = (op: OverlayPanel, ui: LayerUI, layerId: string): void =>
       bubble.textContent = String(pct);
     }
 
-    commitOpacityPct(op, ui, layerId, panel, raw, commit);
+    commitOpacityPct(ui, layerId, panel, raw, commit);
     return true;
   };
 
@@ -267,10 +267,10 @@ const openStylePanel = (op: OverlayPanel, ui: LayerUI, layerId: string): void =>
       bubble.textContent = String(t === minInput ? min : max);
     }
 
-    applyZoomRangeLive(op, ui, layerId, row, min, max);
+    applyZoomRangeLive(ui, layerId, row, min, max);
 
     if (commit) {
-      commitZoomRange(op, ui, layerId);
+      commitZoomRange(ui, layerId);
     }
     return true;
   };
@@ -311,7 +311,7 @@ const openStylePanel = (op: OverlayPanel, ui: LayerUI, layerId: string): void =>
         ".foliplus-style-field-select",
       ) as HTMLSelectElement | null;
       const cfg = ui.m.annotation.getConfig(layerId);
-      const fields = layerFields(op, ui, layerId);
+      const fields = layerFields(ui, layerId);
       const chosen = fieldSel?.value ?? cfg.field;
       const fmtRow = panel.querySelector(
         `.${CONST.CLASSES.STYLE_FORMAT_ROW}`,
@@ -319,12 +319,12 @@ const openStylePanel = (op: OverlayPanel, ui: LayerUI, layerId: string): void =>
       if (fmtRow) {
         syncFormatRow(fields, fmtRow, resolveSelectedField(chosen, fields));
       }
-      applyPatch(op, ui, layerId, { show, field: chosen });
+      applyPatch(ui, layerId, { show, field: chosen });
     } else if (
       t instanceof HTMLInputElement &&
       t.classList.contains(CONST.CLASSES.STYLE_COLLIDE_INPUT)
     ) {
-      applyPatch(op, ui, layerId, { collide: t.checked });
+      applyPatch(ui, layerId, { collide: t.checked });
     } else if (
       t instanceof HTMLSelectElement &&
       t.classList.contains(CONST.CLASSES.STYLE_FIELD_SELECT)
@@ -334,15 +334,15 @@ const openStylePanel = (op: OverlayPanel, ui: LayerUI, layerId: string): void =>
       ) as HTMLElement | null;
       if (fmtRow) {
         syncFormatRow(
-          layerFields(op, ui, layerId),
+          layerFields(ui, layerId),
           fmtRow,
-          resolveSelectedField(t.value, layerFields(op, ui, layerId)),
+          resolveSelectedField(t.value, layerFields(ui, layerId)),
         );
       }
       const fmtSel = panel.querySelector(
         ".foliplus-style-format-select",
       ) as HTMLSelectElement | null;
-      applyPatch(op, ui, layerId, {
+      applyPatch(ui, layerId, {
         field: t.value,
         ...(fmtSel ? { format: fmtSel.value as NumberStyle } : {}),
       });
@@ -350,7 +350,7 @@ const openStylePanel = (op: OverlayPanel, ui: LayerUI, layerId: string): void =>
       t instanceof HTMLSelectElement &&
       t.classList.contains(CONST.CLASSES.STYLE_FORMAT_SELECT)
     ) {
-      applyPatch(op, ui, layerId, { format: t.value as NumberStyle });
+      applyPatch(ui, layerId, { format: t.value as NumberStyle });
     } else {
       return;
     }
@@ -364,14 +364,14 @@ const openStylePanel = (op: OverlayPanel, ui: LayerUI, layerId: string): void =>
     if (t.closest(".foliplus-style-reset-btn")) {
       // Fill is LayerControl-owned on the annotation flavour only (the gate
       // excludes delegated layers).
-      resetLayerFill(op, ui, layerId);
+      resetLayerFill(ui, layerId);
       // Border is LayerControl-owned too: restore the author's stroke and drop
       // the persisted color / width, so a reload does not re-apply them.
-      resetLayerBorder(op, ui, layerId);
+      resetLayerBorder(ui, layerId);
       // Opacity is LayerControl-owned in both flavours: always restore 1.
-      resetLayerOpacity(op, ui, layerId);
+      resetLayerOpacity(ui, layerId);
       // Zoom range is LayerControl-owned: reset to the full map range.
-      resetLayerZoomRange(op, ui, layerId);
+      resetLayerZoomRange(ui, layerId);
       if (delegated) {
         // Call each setter with its Python CONFIG default. The components own
         // the values �?never write localStorage or annotation config here.
@@ -388,7 +388,7 @@ const openStylePanel = (op: OverlayPanel, ui: LayerUI, layerId: string): void =>
         // in the same order as every other control on this panel. defaultConfig
         // carries collide �?DEFAULT_ANNOTATION alone would leave a user-toggled
         // collide switch untouched.
-        applyPatch(op, ui, layerId, { ...ui.m.annotation.defaultConfig() });
+        applyPatch(ui, layerId, { ...ui.m.annotation.defaultConfig() });
       }
       closeStylePanel(op, ui, true);
       return;
@@ -444,7 +444,7 @@ const openStylePanel = (op: OverlayPanel, ui: LayerUI, layerId: string): void =>
   ) as HTMLElement | null;
   if (zoomRangeRow) {
     op.styleZoomEndHandler = () => {
-      syncZoomRangeRow(op, ui, layerId, zoomRangeRow);
+      syncZoomRangeRow(ui, layerId, zoomRangeRow);
     };
     ui.m.map.on("zoomend", op.styleZoomEndHandler);
   }

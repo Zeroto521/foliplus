@@ -47,12 +47,7 @@ const saveFoldState = (lp: ListPanel, ui: LayerUI) => {
  *  the user reset it, so the dimension drops back to the author's declared
  *  default instead of persisting an empty choice. Unknown overrides (future
  *  dimensions) are treated as live so markOverride never drops a new marker. */
-const hasLiveValue = (
-  lp: ListPanel,
-  ui: LayerUI,
-  id: string,
-  override: LayerOverride,
-): boolean => {
+const hasLiveValue = (ui: LayerUI, id: string, override: LayerOverride): boolean => {
   const live = LIVE[override];
   return live ? live(getIntent(ui, id, override)) : true;
 };
@@ -66,15 +61,15 @@ const hasLiveValue = (
  *  every id the annotation manager holds a config for joins the walk — a
  *  layer configured *only* for labels still gets an entry (with an empty
  *  `overrides` array, which `parseLayerState` keeps for exactly this). */
-const buildLayerStates = (lp: ListPanel, ui: LayerUI) => {
+const buildLayerStates = (ui: LayerUI) => {
   const annotations = Object.fromEntries(ui.m.annotation.configEntries());
   return ui.intentStore.toPersisted(annotations);
 };
 
 /** Save the per-layer intent -- visibility, opacity, zoom range and the
  *  label config -- coalescing rapid calls. */
-const saveState = (lp: ListPanel, ui: LayerUI) => {
-  ui.m.persistence.schedule({ layers: () => buildLayerStates(lp, ui) });
+const saveState = (ui: LayerUI) => {
+  ui.m.persistence.schedule({ layers: () => buildLayerStates(ui) });
 };
 
 /** Record that the user has set a dimension for one layer. The first action is
@@ -88,13 +83,8 @@ const saveState = (lp: ListPanel, ui: LayerUI) => {
  * @internal Production write paths use LayerIntentStore.set (cohesive mark). Kept
  * as a thin delegate for test spies and the mark-without-set gate.
  */
-const markOverride = (
-  lp: ListPanel,
-  ui: LayerUI,
-  id: string,
-  override: LayerOverride,
-) => {
-  if (!hasLiveValue(lp, ui, id, override)) {
+const markOverride = (ui: LayerUI, id: string, override: LayerOverride) => {
+  if (!hasLiveValue(ui, id, override)) {
     log.warn(
       `markOverride("${override}", "${id}"): no stored value for this dimension, ` +
         `marker not recorded — set the value before marking`,
@@ -109,12 +99,7 @@ const markOverride = (
 /**
  * @internal Production resets use LayerIntentStore.clear (cohesive unmark).
  */
-const unmarkOverride = (
-  lp: ListPanel,
-  ui: LayerUI,
-  id: string,
-  override: LayerOverride,
-) => {
+const unmarkOverride = (ui: LayerUI, id: string, override: LayerOverride) => {
   ui.intentStore.unmark(id, override);
 };
 
@@ -153,7 +138,7 @@ const unmarkOverride = (
  *   hidden and a missing rename must not write undefined.
  */
 
-const applyUserState = (lp: ListPanel, ui: LayerUI, id?: string) => {
+const applyUserState = (ui: LayerUI, id?: string) => {
   const registry = ui.m.layerRegistry;
   const container = ui.uiContainer;
 
@@ -248,7 +233,7 @@ const applyUserState = (lp: ListPanel, ui: LayerUI, id?: string) => {
  * @returns true if a row was dropped, false when nothing was stored for
  *   this id — a layer that never received a user value has nothing to erase.
  */
-const dropPersistedLayerState = (lp: ListPanel, ui: LayerUI, id: string): boolean => {
+const dropPersistedLayerState = (ui: LayerUI, id: string): boolean => {
   // Style dimensions + their provenance. `name` / `annotation` are cleared
   // by their own callers (manager delete / annotation destroy).
   return ui.intentStore.dropRow(id);
@@ -256,7 +241,7 @@ const dropPersistedLayerState = (lp: ListPanel, ui: LayerUI, id: string): boolea
 
 /** Save user-assigned names, coalescing rapid calls. */
 
-const saveNamesState = (lp: ListPanel, ui: LayerUI) => {
+const saveNamesState = (ui: LayerUI) => {
   const names: Record<string, string> = {};
   for (const [id, name] of ui.intentStore.nameEntries()) {
     names[id] = name;
@@ -278,7 +263,6 @@ const saveNamesState = (lp: ListPanel, ui: LayerUI) => {
  *   debounce timer for every layer.
  */
 const setVisible = (
-  lp: ListPanel,
   ui: LayerUI,
   id: string,
   visible: boolean,
@@ -292,7 +276,7 @@ const setVisible = (
   // back". The first change is what turns the author's default into the
   // user's own state.
   ui.intentStore.set(id, INTENT.VISIBLE, visible);
-  if (persist) saveState(lp, ui);
+  if (persist) saveState(ui);
 };
 
 /** Get all keyboard-navigable rows: layer items and toggle-all rows, in DOM

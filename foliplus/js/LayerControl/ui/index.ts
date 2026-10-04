@@ -234,13 +234,13 @@ class LayerUI {
     return saveFoldState(this.listPanel, this);
   }
   setVisible(id: string, visible: boolean, persist: boolean = true) {
-    return setVisible(this.listPanel, this, id, visible, persist);
+    return setVisible(this, id, visible, persist);
   }
   saveState() {
-    return saveState(this.listPanel, this);
+    return saveState(this);
   }
   applyUserState(id?: string) {
-    applyUserState(this.listPanel, this, id);
+    applyUserState(this, id);
     // The executor carries visible / opacity / zoomRange only. Border and
     // fill are direct setStyle writes, so without their own replay a reload
     // would restore the drawer's swatch while the map kept the author's
@@ -257,15 +257,15 @@ class LayerUI {
     // author's for the other.
     const layerIds = id !== undefined ? [id] : this.intentStore.userSetIds();
     for (const layerId of layerIds) {
-      applyBorderToLayer(this.overlayPanel, this, layerId);
-      replayFillState(this.overlayPanel, this, layerId);
+      applyBorderToLayer(this, layerId);
+      replayFillState(this, layerId);
     }
   }
   dropPersistedLayerState(layerId: string) {
-    return dropPersistedLayerState(this.listPanel, this, layerId);
+    return dropPersistedLayerState(this, layerId);
   }
   saveNamesState() {
-    return saveNamesState(this.listPanel, this);
+    return saveNamesState(this);
   }
   // ── delegates: list ──
   initTypesAndVisibility() {
@@ -278,16 +278,16 @@ class LayerUI {
     return insertLayerItem(this.listPanel, this, layerInfo);
   }
   updateLayerItem(layerInfo: LayerInfo) {
-    return updateLayerItem(this.listPanel, this, layerInfo);
+    return updateLayerItem(this, layerInfo);
   }
   colorLayerName() {
-    return colorLayerName(this.listPanel, this);
+    return colorLayerName(this);
   }
   displayName(id: string) {
-    return displayName(this.listPanel, this, id);
+    return displayName(this, id);
   }
   initLayerItem(layerInfo: LayerInfo) {
-    return initLayerItem(this.listPanel, this, layerInfo);
+    return initLayerItem(this, layerInfo);
   }
   reindexAfterMove() {
     return reindexAfterMove(this.listPanel, this);
@@ -295,7 +295,7 @@ class LayerUI {
 
   // ── delegates: visibility ──
   getLayerItems(group: string) {
-    return getLayerItems(this.listPanel, this, group);
+    return getLayerItems(this, group);
   }
   toggleAll(group: string, newState: boolean) {
     return toggleAll(this.listPanel, this, group, newState);
@@ -307,7 +307,7 @@ class LayerUI {
     return syncToggleAllFromCount(this.listPanel, this, group);
   }
   syncNoBasemap() {
-    return syncNoBasemap(this.listPanel, this);
+    return syncNoBasemap(this);
   }
   applyVisibility(id: string, visible: boolean) {
     return applyVisibility(this.listPanel, this, id, visible);
@@ -331,18 +331,18 @@ class LayerUI {
     return handleChange(this.listPanel, this, event);
   }
   handleInput(event: Event) {
-    return handleInput(this.listPanel, this, event);
+    return handleInput(this, event);
   }
 
   // ── delegates: keyboard ──
   getNavigableItems() {
-    return getNavigableItems(this.listPanel, this);
+    return getNavigableItems(this);
   }
   setActiveItem(index: number) {
     return setActiveItem(this.listPanel, this, index);
   }
   blurActiveItem() {
-    return blurActiveItem(this.listPanel, this);
+    return blurActiveItem(this);
   }
   clearActiveItem() {
     return clearActiveItem(this.listPanel, this);
@@ -354,18 +354,18 @@ class LayerUI {
     return handleKeyDown(this.listPanel, this, event);
   }
   handleDblClick(event: MouseEvent) {
-    return handleDblClick(this.listPanel, this, event);
+    return handleDblClick(this, event);
   }
 
   // ── delegates: color / menu / attrs / rename / focus ──
   showSolidBasemap(color: string) {
-    return showSolidBasemap(this.listPanel, this, color);
+    return showSolidBasemap(this, color);
   }
   hideSolidBasemap() {
-    return hideSolidBasemap(this.listPanel, this);
+    return hideSolidBasemap(this);
   }
   resetSolidBasemap() {
-    return resetSolidBasemap(this.listPanel, this);
+    return resetSolidBasemap(this);
   }
   openMoreMenu(item: HTMLElement) {
     return openMoreMenu(this.overlayPanel, this, item);
@@ -389,7 +389,7 @@ class LayerUI {
    *  cached field list). Peer ui/ modules call the module function directly
    *  instead — see the sibling-import convention from #296. */
   invalidateFields(layerId: string) {
-    return invalidateFields(this.overlayPanel, this, layerId);
+    return invalidateFields(this, layerId);
   }
   /** Unregister teardown for the style-apply schedulers: cancel any pending
    *  rAF walk and free the Map entries (both faces in one pass) so a
@@ -403,7 +403,7 @@ class LayerUI {
    *  is captured at load time). Kept for the same reason #296 kept the menu
    *  and rename hubs. */
   applyStyleLabelState() {
-    return applyStyleLabelState(this.overlayPanel, this);
+    return applyStyleLabelState(this);
   }
   renameLayer(layerId: string) {
     return renameLayer(this.overlayPanel, this, layerId);

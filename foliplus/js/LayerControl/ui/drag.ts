@@ -22,7 +22,7 @@ const toggleFold = (lp: ListPanel, ui: LayerUI, group: string): void => {
  *  DOM positions. A late registration can sit anywhere in the DOM, so reading
  *  a positional index here would drag a neighbor's layer. Returns -1 for a
  *  row with no id (or one the registry does not know). */
-const registryIdx = (lp: ListPanel, ui: LayerUI, id: string | null): number => {
+const registryIdx = (ui: LayerUI, id: string | null): number => {
   return id ? ui.m.layers.findIndex(l => l.id === id) : -1;
 };
 
@@ -40,7 +40,7 @@ const handleDragStart = (lp: ListPanel, ui: LayerUI, event: DragEvent) => {
     CONST.SEL.LAYER_ITEM,
   ) as HTMLElement | null;
   if (!item) return;
-  const idx = registryIdx(lp, ui, item.getAttribute(CONST.DATA.LAYER_ID));
+  const idx = registryIdx(ui, item.getAttribute(CONST.DATA.LAYER_ID));
   if (idx < 0) return;
   lp.dragIdx = idx;
   item.classList.add(CONST.CLASSES.DRAGGING);
@@ -66,7 +66,7 @@ const handleDragOver = (lp: ListPanel, ui: LayerUI, event: DragEvent) => {
   ) as HTMLElement | null;
   if (!item) return;
 
-  const targetIdx = registryIdx(lp, ui, item.getAttribute(CONST.DATA.LAYER_ID));
+  const targetIdx = registryIdx(ui, item.getAttribute(CONST.DATA.LAYER_ID));
   if (targetIdx < 0) return;
   const prev = lp.lastDragOverItem;
   if (prev && prev !== item) {
@@ -88,7 +88,7 @@ const handleDragOver = (lp: ListPanel, ui: LayerUI, event: DragEvent) => {
   }
 };
 
-const handleDragLeave = (lp: ListPanel, ui: LayerUI, event: DragEvent) => {
+const handleDragLeave = (ui: LayerUI, event: DragEvent) => {
   const item = (event.target as HTMLElement).closest(
     CONST.SEL.LAYER_ITEM,
   ) as HTMLElement | null;
@@ -110,7 +110,7 @@ const handleDrop = (lp: ListPanel, ui: LayerUI, event: DragEvent) => {
     return;
   }
 
-  const targetIdx = registryIdx(lp, ui, target.getAttribute(CONST.DATA.LAYER_ID));
+  const targetIdx = registryIdx(ui, target.getAttribute(CONST.DATA.LAYER_ID));
   if (targetIdx < 0) return;
   if (lp.dragIdx === targetIdx) return;
   if (!ui.m.canReorderBetween(lp.dragIdx, targetIdx)) {

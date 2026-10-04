@@ -89,7 +89,7 @@ const isColorBasemap = (li: LayerInfo | undefined): boolean => {
  *  No extra checks belong here: the invariant is that `gate` is exactly
  *  the capability check, no carrier probes, no `isColorBasemap`
  *  special-cases, no canvas exclusion. */
-const layerCanFill = (op: OverlayPanel, ui: LayerUI, layerId: string): boolean => {
+const layerCanFill = (ui: LayerUI, layerId: string): boolean => {
   const li = ui.m.layerRegistry.get(layerId);
   if (!li) return false;
   return ui.m.surfaceFor(li).capabilities.fill === CAP_TIER.NATIVE;
@@ -126,7 +126,7 @@ const toHexColor = (value: string): string => {
  *  or Leaflet's default when nothing is declared. Mirrors the border row's
  *  `authoredBorder`: the swatch shows what the layer is actually painting on
  *  first open, not a constant. */
-const authoredFillColor = (op: OverlayPanel, ui: LayerUI, layerId: string): string => {
+const authoredFillColor = (ui: LayerUI, layerId: string): string => {
   const li = ui.m.layerRegistry.get(layerId);
   const layer = li?.layer as StyleCarrier | null;
   if (!layer) return LEAFLET_DEFAULT_FILL;
@@ -142,11 +142,7 @@ const authoredFillColor = (op: OverlayPanel, ui: LayerUI, layerId: string): stri
 /** The layer's authored fill opacity �?the first style leaf's
  *  `options.fillOpacity`, or null when no leaf declares one. Mirrors
  *  `authoredFillColor`: the row shows what the layer is actually painting. */
-const authoredFillOpacity = (
-  op: OverlayPanel,
-  ui: LayerUI,
-  layerId: string,
-): number | null => {
+const authoredFillOpacity = (ui: LayerUI, layerId: string): number | null => {
   const li = ui.m.layerRegistry.get(layerId);
   const layer = li?.layer as StyleCarrier | null;
   if (!layer) return null;
@@ -176,7 +172,7 @@ const VISIBLE_FILL_OPACITY = 0.2;
  *
  *  Kept separate from the persistence plumbing (`commitFillColor`,
  *  `commitFillOpacity`) so the walk is unit-testable without a storage timer. */
-const applyFillToLayer = (op: OverlayPanel, ui: LayerUI, layerId: string): void => {
+const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
   const li = ui.m.layerRegistry.get(layerId);
   const color = getIntent(ui, layerId, INTENT.FILL_COLOR);
   const opacity = getIntent(ui, layerId, INTENT.FILL_OPACITY);
@@ -189,7 +185,7 @@ const applyFillToLayer = (op: OverlayPanel, ui: LayerUI, layerId: string): void 
   if (isColorBasemap(li)) {
     if (color !== undefined) {
       ui.currentColor = color;
-      showSolidBasemap(ui.listPanel, ui, color);
+      showSolidBasemap(ui, color);
     }
     return;
   }
@@ -223,8 +219,8 @@ const applyFillToLayer = (op: OverlayPanel, ui: LayerUI, layerId: string): void 
 /** Shared apply scheduler (styleBag, face=`fill`): one walk per frame.
  *  The wrapper exists only to bind this face's apply fn �?flush / drop /
  *  has go straight to styleBag at the call site. */
-const scheduleFillApply = (op: OverlayPanel, ui: LayerUI, layerId: string): void => {
-  scheduleStyleDimApply(FACE.FILL, layerId, () => applyFillToLayer(op, ui, layerId));
+const scheduleFillApply = (ui: LayerUI, layerId: string): void => {
+  scheduleStyleDimApply(FACE.FILL, layerId, () => applyFillToLayer(ui, layerId));
 };
 
 /** Write the color into the map, persist it, and mark the dimension as
@@ -240,28 +236,18 @@ const scheduleFillApply = (op: OverlayPanel, ui: LayerUI, layerId: string): void
  *
  *  Called from `bindLiveColor`, so `color` is a raw `input.value` and is
  *  normalized to 6-digit lowercase hex before landing in storage. */
-const commitFillColor = (
-  op: OverlayPanel,
-  ui: LayerUI,
-  layerId: string,
-  rawColor: string,
-): void => {
+const commitFillColor = (ui: LayerUI, layerId: string, rawColor: string): void => {
   const color = normalizeHexColor(rawColor);
   if (getIntent(ui, layerId, INTENT.FILL_COLOR) === color) return;
-  getDimension(DIM.FILL)!.write!(op, ui, layerId, { color });
+  getDimension(DIM.FILL)!.write!(ui, layerId, { color });
 };
 
 /** Commit the fill opacity (0-100 %) to the layer. Converts to 0-1 for
  *  storage and setStyle. Called from `bindLiveNumber` on the opacity input. */
-const commitFillOpacity = (
-  op: OverlayPanel,
-  ui: LayerUI,
-  layerId: string,
-  pct: number,
-): void => {
+const commitFillOpacity = (ui: LayerUI, layerId: string, pct: number): void => {
   const opacity = Math.max(0, Math.min(1, pct / 100));
   if (getIntent(ui, layerId, INTENT.FILL_OPACITY) === opacity) return;
-  getDimension(DIM.FILL)!.write!(op, ui, layerId, { opacity });
+  getDimension(DIM.FILL)!.write!(ui, layerId, { opacity });
 };
 
 /** Reset one layer's fill to its authored value and drop its persisted
@@ -276,20 +262,20 @@ const commitFillOpacity = (
  *
  *  The persisted override is removed either way so the next load does not
  *  re-apply a color the layer no longer shows. */
-const resetLayerFill = (op: OverlayPanel, ui: LayerUI, layerId: string): void => {
+const resetLayerFill = (ui: LayerUI, layerId: string): void => {
   if (!ui.m.layerRegistry.has(layerId)) return;
   // Solid-color basemap: restore the authored default colour. No style-bag
   // face to replay �?the pane's fill IS the basemap colour.
   if (isColorBasemap(ui.m.layerRegistry.get(layerId))) {
     cancelStyleDimApply(FACE.FILL, layerId);
-    resetIntentKeys(op, ui, layerId, [INTENT.FILL_COLOR, INTENT.FILL_OPACITY]);
+    resetIntentKeys(ui, layerId, [INTENT.FILL_COLOR, INTENT.FILL_OPACITY]);
     ui.currentColor = CONST.COLOR.DEFAULT;
-    showSolidBasemap(ui.listPanel, ui, CONST.COLOR.DEFAULT);
+    showSolidBasemap(ui, CONST.COLOR.DEFAULT);
     return;
   }
   // Vector / other fillable carriers: descriptor reset owns intent+persist
   // and the styleBag restore walk.
-  getDimension(DIM.FILL)!.reset!(op, ui, layerId);
+  getDimension(DIM.FILL)!.reset!(ui, layerId);
 };
 
 /** Build the fill form row: color swatch + fill-opacity number input.
@@ -300,14 +286,13 @@ const resetLayerFill = (op: OverlayPanel, ui: LayerUI, layerId: string): void =>
  *  value (the first style leaf's options) �?never a constant �?so the row
  *  reflects what the layer is actually painting on first open, and named
  *  authored colors are resolved to the hex the picker can display. */
-const buildFillRow = (op: OverlayPanel, ui: LayerUI, layerId: string): HTMLElement => {
+const buildFillRow = (ui: LayerUI, layerId: string): HTMLElement => {
   const li = ui.m.layerRegistry.get(layerId);
   const isBasemap = isColorBasemap(li!);
 
   const storedColor = getIntent(ui, layerId, INTENT.FILL_COLOR);
   const color = toHexColor(
-    storedColor ??
-      (isBasemap ? CONST.COLOR.DEFAULT : authoredFillColor(op, ui, layerId)),
+    storedColor ?? (isBasemap ? CONST.COLOR.DEFAULT : authoredFillColor(ui, layerId)),
   );
   const colorInput = formColorInput({
     value: color,
@@ -326,7 +311,7 @@ const buildFillRow = (op: OverlayPanel, ui: LayerUI, layerId: string): HTMLEleme
   }
 
   const storedOpacity = getIntent(ui, layerId, INTENT.FILL_OPACITY);
-  const authoredOpacity = authoredFillOpacity(op, ui, layerId);
+  const authoredOpacity = authoredFillOpacity(ui, layerId);
   const opacityPct = (storedOpacity ?? authoredOpacity ?? VISIBLE_FILL_OPACITY) * 100;
   const opacityInput = numberInput({
     value: opacityPct,
@@ -349,17 +334,12 @@ const buildFillRow = (op: OverlayPanel, ui: LayerUI, layerId: string): HTMLEleme
 
 /** Wire the shared live-color and live-number binders to this row's
  *  commit paths. Called from `openStylePanel` in index.ts. */
-const bindFillRow = (
-  op: OverlayPanel,
-  ui: LayerUI,
-  layerId: string,
-  row: HTMLElement,
-): void => {
+const bindFillRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => {
   const colorEl = row.querySelector(
     `.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`,
   ) as HTMLInputElement | null;
   if (colorEl) {
-    bindLiveColor(colorEl, value => commitFillColor(op, ui, layerId, value));
+    bindLiveColor(colorEl, value => commitFillColor(ui, layerId, value));
     // change / blur close the drag: the trailing rAF frame may never fire
     // if the pointer lifts between frames �?flush so the terminal value
     // lands (same contract as bindLiveNumber's change commit). Chain, never
@@ -383,7 +363,7 @@ const bindFillRow = (
       min: 0,
       max: 100,
       fallback: VISIBLE_FILL_OPACITY * 100,
-      onCommit: value => commitFillOpacity(op, ui, layerId, value),
+      onCommit: value => commitFillOpacity(ui, layerId, value),
     });
     // bindLiveNumber already owns onchange (clamp + commit); chain the flush
     // instead of overwriting it. blur is free.
@@ -400,14 +380,14 @@ const bindFillRow = (
 /** Replay a layer's stored fill state (color + opacity) onto the map.
  *  Called from `applyUserState` on attach and late registration so a
  *  persisted value survives a reload. */
-const replayFillState = (op: OverlayPanel, ui: LayerUI, id: string): void => {
+const replayFillState = (ui: LayerUI, id: string): void => {
   if (
     getIntent(ui, id, INTENT.FILL_COLOR) === undefined &&
     getIntent(ui, id, INTENT.FILL_OPACITY) === undefined
   ) {
     return;
   }
-  applyFillToLayer(op, ui, id);
+  applyFillToLayer(ui, id);
 };
 
 /** Register fill as a per-layer dimension. The descriptor wires the existing
@@ -425,39 +405,38 @@ const FILL_DIMENSION = registerDimension<{
 }>({
   key: DIM.FILL,
   gate: layerCanFill,
-  value: (op, ui, layerId) => {
+  value: (ui, layerId) => {
     const li = ui.m.layerRegistry.get(layerId);
     if (!li) return undefined;
     return {
       color:
-        getIntent(ui, layerId, INTENT.FILL_COLOR) ?? authoredFillColor(op, ui, layerId),
+        getIntent(ui, layerId, INTENT.FILL_COLOR) ?? authoredFillColor(ui, layerId),
       opacity:
-        getIntent(ui, layerId, INTENT.FILL_OPACITY) ??
-        authoredFillOpacity(op, ui, layerId),
+        getIntent(ui, layerId, INTENT.FILL_OPACITY) ?? authoredFillOpacity(ui, layerId),
     };
   },
   row: buildFillRow,
   /** Intent+persist + schedule the fill face landing. `patch` is already
    *  normalized (hex / 0-1). Omitted keys leave that sub-dimension alone. */
-  write: (op, ui, layerId, patch) => {
+  write: (ui, layerId, patch) => {
     const { color, opacity } = patch;
     const writes: Array<readonly [IntentKey, unknown]> = [];
     if (color !== undefined) writes.push([INTENT.FILL_COLOR, color]);
     if (typeof opacity === "number") writes.push([INTENT.FILL_OPACITY, opacity]);
-    if (!writeIntentKeys(op, ui, layerId, writes)) return;
-    scheduleFillApply(op, ui, layerId);
+    if (!writeIntentKeys(ui, layerId, writes)) return;
+    scheduleFillApply(ui, layerId);
   },
   /** Cohesive reset: cancel trailing apply, clear both fill overrides,
    *  save, restore the author's fill face from the style bag. */
-  reset: (op, ui, layerId) => {
+  reset: (ui, layerId) => {
     cancelStyleDimApply(FACE.FILL, layerId);
-    resetIntentKeys(op, ui, layerId, [INTENT.FILL_COLOR, INTENT.FILL_OPACITY]);
+    resetIntentKeys(ui, layerId, [INTENT.FILL_COLOR, INTENT.FILL_OPACITY]);
     const layer = ui.m.findLayer(layerId) as StyleCarrier | null;
     if (!layer) return;
     walkStyleLeaves(layer, node => restoreStyleDim(node, FACE.FILL));
   },
-  valueSource: (op, ui, layerId) => {
-    if (!layerCanFill(op, ui, layerId)) return "none";
+  valueSource: (ui, layerId) => {
+    if (!layerCanFill(ui, layerId)) return "none";
     if (
       ui.intentStore.isUserSet(layerId, INTENT.FILL_COLOR) ||
       ui.intentStore.isUserSet(layerId, INTENT.FILL_OPACITY)

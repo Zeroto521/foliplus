@@ -8,11 +8,7 @@ import type { OverlayPanel } from "../overlayPanel.js";
 
 /** Reset footer �?divider + button, same vocabulary for the annotation
  *  and the delegated panel. */
-const appendResetFooter = (
-  op: OverlayPanel,
-  ui: LayerUI,
-  content: HTMLElement,
-): void => {
+const appendResetFooter = (ui: LayerUI, content: HTMLElement): void => {
   content.append(
     dom.el("hr", { class: "foliplus-section-divider" }),
     dom.el(

@@ -28,11 +28,7 @@ const DELEGATED_DIM_ORDER = DIM_ORDER.filter(
 /** Whether the layer delegates its style to the drawer via styleSetters
  *  (third-party canvas layers: Heatmap, Measure). The �?menu's Style item
  *  also enables for these. */
-const layerHasStyleDelegation = (
-  op: OverlayPanel,
-  ui: LayerUI,
-  layerId: string,
-): boolean => {
+const layerHasStyleDelegation = (ui: LayerUI, layerId: string): boolean => {
   const li = ui.m.layerRegistry.get(layerId);
   return !!li?.styleSetters && Object.keys(li.styleSetters).length > 0;
 };
@@ -42,11 +38,7 @@ const layerHasStyleDelegation = (
  *  builder in `./border.js` �?same shell as the vector border row, so
  *  the two read identically �?with the `styleSetters` write target.
  *  Returns null when the layer publishes no border setters. */
-const buildBorderRow = (
-  op: OverlayPanel,
-  ui: LayerUI,
-  layerId: string,
-): HTMLElement | null => {
+const buildBorderRow = (ui: LayerUI, layerId: string): HTMLElement | null => {
   const li = ui.m.layerRegistry.get(layerId);
   const setters = li?.styleSetters;
   if (!setters || (!setters.borderWeight && !setters.borderColor)) return null;
@@ -114,7 +106,7 @@ const renderDelegatedStylePanel = (
   // it groups with the LayerControl-owned rows rather than as its own section.
   let borderRow: HTMLElement | null = null;
   if (setters.borderWeight || setters.borderColor) {
-    borderRow = buildBorderRow(op, ui, layerId);
+    borderRow = buildBorderRow(ui, layerId);
   }
 
   // No presentation control at all (a data-only setter such as the
@@ -169,17 +161,17 @@ const renderDelegatedStylePanel = (
   // delegated-only border row is prepended before the registry sweep: it is
   // not a registry dimension (it writes through `styleSetters`, a path the
   // vector border descriptor does not own).
-  const rows = gatedRows(op, ui, layerId, DELEGATED_DIM_ORDER);
+  const rows = gatedRows(ui, layerId, DELEGATED_DIM_ORDER);
   if (borderRow || rows.length > 0) {
     if (borderRow) content.appendChild(borderRow);
-    for (const dim of rows) content.appendChild(dim.row(op, ui, layerId));
+    for (const dim of rows) content.appendChild(dim.row(ui, layerId));
   }
   if (root.children.length) {
     content.appendChild(root);
   }
 
   // Reset only when the component published its Python CONFIG defaults.
-  if (li.styleDefaultsProvider) appendResetFooter(op, ui, content);
+  if (li.styleDefaultsProvider) appendResetFooter(ui, content);
   return panel;
 };
 

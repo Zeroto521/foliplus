@@ -72,7 +72,7 @@ import {
  *  checks belong here: the invariant is that `gate` is exactly the
  *  capability check, no carrier probes, no `isColorBasemap`
  *  special-cases, no canvas exclusion. */
-const layerCanBorder = (op: OverlayPanel, ui: LayerUI, layerId: string): boolean => {
+const layerCanBorder = (ui: LayerUI, layerId: string): boolean => {
   const li = ui.m.layerRegistry.get(layerId);
   if (!li) return false;
   return ui.m.surfaceFor(li).capabilities.stroke === CAP_TIER.NATIVE;
@@ -102,7 +102,6 @@ const firstCarrier = (node: StyleCarrier): StyleSetter | null =>
  *  reads the user's stored value, so a stored value cannot feed back into
  *  the base and make a Reset restore the user's own choice. */
 const authoredBorder = (
-  op: OverlayPanel,
   ui: LayerUI,
   layerId: string,
 ): { color: string; weight: number } => {
@@ -133,7 +132,7 @@ const authoredBorder = (
  *  Called from the two commit paths and from the applyUserState sweep, so
  *  the walk is the single writer of a border style �?the commits only record
  *  intent. */
-const applyBorderToLayer = (op: OverlayPanel, ui: LayerUI, layerId: string): void => {
+const applyBorderToLayer = (ui: LayerUI, layerId: string): void => {
   const color = getIntent(ui, layerId, INTENT.BORDER_COLOR);
   const weight = getIntent(ui, layerId, INTENT.BORDER_WEIGHT);
   if (color === undefined && weight === undefined) return;
@@ -170,10 +169,8 @@ const applyBorderToLayer = (op: OverlayPanel, ui: LayerUI, layerId: string): voi
 /** Shared apply scheduler (styleBag, face=`stroke`): one walk per frame.
  *  The wrapper exists only to bind this face's apply fn �?flush / drop /
  *  has go straight to styleBag at the call site. */
-const scheduleBorderApply = (op: OverlayPanel, ui: LayerUI, layerId: string): void => {
-  scheduleStyleDimApply(FACE.STROKE, layerId, () =>
-    applyBorderToLayer(op, ui, layerId),
-  );
+const scheduleBorderApply = (ui: LayerUI, layerId: string): void => {
+  scheduleStyleDimApply(FACE.STROKE, layerId, () => applyBorderToLayer(ui, layerId));
 };
 
 /** Write the color into the map, persist it, and mark the dimension as
@@ -183,27 +180,17 @@ const scheduleBorderApply = (op: OverlayPanel, ui: LayerUI, layerId: string): vo
  *
  *  Called from `bindLiveColor`, so `rawColor` is a raw `input.value` and is
  *  normalised to 6-digit lowercase hex before landing in storage. */
-const commitBorderColor = (
-  op: OverlayPanel,
-  ui: LayerUI,
-  layerId: string,
-  rawColor: string,
-): void => {
+const commitBorderColor = (ui: LayerUI, layerId: string, rawColor: string): void => {
   const color = normalizeHexColor(rawColor);
   if (getIntent(ui, layerId, INTENT.BORDER_COLOR) === color) return;
-  getDimension(DIM.BORDER)!.write!(op, ui, layerId, { color });
+  getDimension(DIM.BORDER)!.write!(ui, layerId, { color });
 };
 
 /** Commit the border width to the layer. Called from `bindLiveNumber` on the
  *  width input, which already clamps into the shared bounds. */
-const commitBorderWeight = (
-  op: OverlayPanel,
-  ui: LayerUI,
-  layerId: string,
-  weight: number,
-): void => {
+const commitBorderWeight = (ui: LayerUI, layerId: string, weight: number): void => {
   if (getIntent(ui, layerId, INTENT.BORDER_WEIGHT) === weight) return;
-  getDimension(DIM.BORDER)!.write!(op, ui, layerId, { weight });
+  getDimension(DIM.BORDER)!.write!(ui, layerId, { weight });
 };
 
 /** Reset one layer's border to its authored value and drop its persisted
@@ -214,10 +201,10 @@ const commitBorderWeight = (
  *  Both sub-dimensions are restored from the captured base, and the
  *  persisted overrides are removed either way so the next load does not
  *  re-apply a stroke the layer no longer shows. */
-const resetLayerBorder = (op: OverlayPanel, ui: LayerUI, layerId: string): void => {
+const resetLayerBorder = (ui: LayerUI, layerId: string): void => {
   if (!ui.m.layerRegistry.has(layerId)) return;
   // Descriptor reset owns cancel + intent clear + styleBag restore walk.
-  getDimension(DIM.BORDER)!.reset!(op, ui, layerId);
+  getDimension(DIM.BORDER)!.reset!(ui, layerId);
 };
 
 /** Resolve an authored color to the `#rrggbb` form the color input's
@@ -344,12 +331,8 @@ const bindBorderRowShell = (row: HTMLElement, target: BorderRowBindTarget): void
  *  author's own `options` �?never a constant �?so the row shows what the
  *  layer is actually painting on first open. The color is resolved to the
  *  swatch's own form by `displayColor` before it reaches the field. */
-const buildBorderRow = (
-  op: OverlayPanel,
-  ui: LayerUI,
-  layerId: string,
-): HTMLElement => {
-  const author = authoredBorder(op, ui, layerId);
+const buildBorderRow = (ui: LayerUI, layerId: string): HTMLElement => {
+  const author = authoredBorder(ui, layerId);
   return buildBorderRowShell({
     rowClass: `${CONST.CLASSES.FORM_ROW} ${CONST.CLASSES.STYLE_BORDER_ROW}`,
     label: ui.T("border"),
@@ -366,17 +349,12 @@ const buildBorderRow = (
 
 /** Wire the shared live-color and live-number binders to this row's commit
  *  paths. Called from `openStylePanel`. */
-const bindBorderRow = (
-  op: OverlayPanel,
-  ui: LayerUI,
-  layerId: string,
-  row: HTMLElement,
-): void => {
+const bindBorderRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => {
   bindBorderRowShell(row, {
     className: CONST.CLASSES.STYLE_BORDER_COLOR_INPUT,
     weightClassName: CONST.CLASSES.STYLE_BORDER_WEIGHT_INPUT,
-    onChangeColor: value => commitBorderColor(op, ui, layerId, value),
-    onChangeWeight: value => commitBorderWeight(op, ui, layerId, value),
+    onChangeColor: value => commitBorderColor(ui, layerId, value),
+    onChangeWeight: value => commitBorderWeight(ui, layerId, value),
     onFlush: () => flushStyleDimApply(FACE.STROKE, layerId),
   });
 };
@@ -393,10 +371,10 @@ const bindBorderRow = (
 const BORDER_DIMENSION = registerDimension<{ color: string; weight: number }>({
   key: DIM.BORDER,
   gate: layerCanBorder,
-  value: (op, ui, layerId) => {
+  value: (ui, layerId) => {
     const li = ui.m.layerRegistry.get(layerId);
     if (!li) return undefined;
-    const author = authoredBorder(op, ui, layerId);
+    const author = authoredBorder(ui, layerId);
     return {
       color: getIntent(ui, layerId, INTENT.BORDER_COLOR) ?? author.color,
       weight: getIntent(ui, layerId, INTENT.BORDER_WEIGHT) ?? author.weight,
@@ -405,26 +383,26 @@ const BORDER_DIMENSION = registerDimension<{ color: string; weight: number }>({
   row: buildBorderRow,
   /** Intent+persist + schedule the stroke face landing. `patch` is already
    *  normalized. Omitted keys leave that sub-dimension alone. */
-  write: (op, ui, layerId, patch) => {
+  write: (ui, layerId, patch) => {
     const { color, weight } = patch;
     const writes: Array<readonly [IntentKey, unknown]> = [];
     if (color !== undefined) writes.push([INTENT.BORDER_COLOR, color]);
     if (weight !== undefined) writes.push([INTENT.BORDER_WEIGHT, weight]);
-    if (!writeIntentKeys(op, ui, layerId, writes)) return;
-    scheduleBorderApply(op, ui, layerId);
+    if (!writeIntentKeys(ui, layerId, writes)) return;
+    scheduleBorderApply(ui, layerId);
   },
   /** Cohesive reset: cancel trailing apply, clear both border overrides,
    *  save, restore the author's stroke face from the style bag. */
-  reset: (op, ui, layerId) => {
+  reset: (ui, layerId) => {
     cancelStyleDimApply(FACE.STROKE, layerId);
-    resetIntentKeys(op, ui, layerId, [INTENT.BORDER_COLOR, INTENT.BORDER_WEIGHT]);
+    resetIntentKeys(ui, layerId, [INTENT.BORDER_COLOR, INTENT.BORDER_WEIGHT]);
     const layer = ui.m.findLayer(layerId) as StyleCarrier | null;
     if (!layer) return;
     // Same restore walk as fill �?one styleBag contract, not two copies.
     walkStyleLeaves(layer, node => restoreStyleDim(node, FACE.STROKE));
   },
-  valueSource: (op, ui, layerId) => {
-    if (!layerCanBorder(op, ui, layerId)) return "none";
+  valueSource: (ui, layerId) => {
+    if (!layerCanBorder(ui, layerId)) return "none";
     if (
       ui.intentStore.isUserSet(layerId, INTENT.BORDER_COLOR) ||
       ui.intentStore.isUserSet(layerId, INTENT.BORDER_WEIGHT)

@@ -148,7 +148,7 @@ const openAttrsPanel = (op: OverlayPanel, ui: LayerUI, item: HTMLElement) => {
   };
   const metaRows = buildMetaRows();
 
-  const label = displayName(ui.listPanel, ui, layerId) || layerId;
+  const label = displayName(ui, layerId) || layerId;
   // iconSvg is the layer's own logo (basemaps and custom layers ship one);
   // otherwise fall back to the geometry glyph the layer row shows.
   const typeSvg =

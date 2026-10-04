@@ -42,7 +42,7 @@ import { registerDimension } from "./registry.js";
  *  `hasLabelField` probe already decided that, so this stays a pure
  *  capability bit). The �?menu's Style item keys off the same function �?
  *  one source for "can this layer show a Label section". */
-const layerCanLabel = (op: OverlayPanel, ui: LayerUI, layerId: string): boolean => {
+const layerCanLabel = (ui: LayerUI, layerId: string): boolean => {
   const li = ui.m.layerRegistry.get(layerId);
   if (!li) return false;
   return ui.m.surfaceFor(li).capabilities.annotation !== CAP_TIER.NONE;
@@ -58,12 +58,8 @@ const layerCanLabel = (op: OverlayPanel, ui: LayerUI, layerId: string): boolean 
  *  Body order is shared with the delegated drawer: data �?appearance �?
  *  format �?behavior. Field first (label-only), then color/size, then
  *  number format, then avoid-overlap. */
-const buildLabelSection = (
-  op: OverlayPanel,
-  ui: LayerUI,
-  layerId: string,
-): HTMLElement => {
-  const fields = layerFields(op, ui, layerId);
+const buildLabelSection = (ui: LayerUI, layerId: string): HTMLElement => {
+  const fields = layerFields(ui, layerId);
   const cfg = ui.m.annotation.getConfig(layerId);
   const fmtLabel = (f: string) => ui._(`foliplus.label_format_${f}`) || f;
   // Labels are off by default �?the user opens the panel, sees the field and
@@ -236,7 +232,7 @@ const buildLabelSection = (
 const ANNOTATION_DIMENSION = registerDimension<AnnotationConfig>({
   key: DIM.ANNOTATION,
   gate: layerCanLabel,
-  value: (op, ui, layerId) => ui.m.annotation.getConfig(layerId),
+  value: (ui, layerId) => ui.m.annotation.getConfig(layerId),
   row: buildLabelSection,
 });
 

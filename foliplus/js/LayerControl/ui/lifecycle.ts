@@ -78,7 +78,7 @@ const attachUI = (ui: LayerUI, containerDiv: HTMLElement): void => {
   // yet. The snapshot is idempotent, so the later `initTypesAndVisibility`
   // re-runs don't overwrite what we took here.
   for (let i = 0; i < ui.m.layers.length; i++) {
-    snapshotAuthorVisible(ui.listPanel, ui, ui.m.layers[i]);
+    snapshotAuthorVisible(ui, ui.m.layers[i]);
   }
   // Last in the attach sequence: applyUserState() runs the full sweep
   // needed for rows rendered from the initial registry. Hidden ids are
@@ -144,7 +144,7 @@ const bindEvents = (ui: LayerUI): void => {
       // checkbox.checked — the browser resets indeterminate before the change
       // event fires, making it impossible to detect the pre-click state.
       const group = row.dataset.group ?? "";
-      const items = getLayerItems(ui.listPanel, ui, group);
+      const items = getLayerItems(ui, group);
       const noneChecked = Array.from(items).every((item: Element) => {
         const c = item.querySelector(
           'input[type="checkbox"]',
@@ -156,7 +156,7 @@ const bindEvents = (ui: LayerUI): void => {
     }
     handleChange(ui.listPanel, ui, event);
   };
-  ui.onInput = event => handleInput(ui.listPanel, ui, event);
+  ui.onInput = event => handleInput(ui, event);
   ui.onClick = event => {
     const el = event.target as HTMLElement;
     // A press inside a row's floating panel (attributes / style) is the
@@ -171,11 +171,11 @@ const bindEvents = (ui: LayerUI): void => {
     // (#278 only removed the accidental dblclick→focusLayer zoom.)
     const row = owningRow(el);
     if (row) {
-      const idx = getNavigableItems(ui.listPanel, ui).indexOf(row);
+      const idx = getNavigableItems(ui).indexOf(row);
       if (idx !== -1) {
         ui.listPanel.activeIdx = idx;
         ui.listPanel.listCursor?.setIndex(idx);
-        blurActiveItem(ui.listPanel, ui);
+        blurActiveItem(ui);
         row.classList.add(CONST.CLASSES.FOCUSED);
         // Keep DOM focus on the row so Space/Enter resolve from focus, and
         // so Escape still reaches handleKeyDown — ownership is decided once
@@ -194,7 +194,7 @@ const bindEvents = (ui: LayerUI): void => {
 
   ui.onDragStart = event => handleDragStart(ui.listPanel, ui, event);
   ui.onDragOver = event => handleDragOver(ui.listPanel, ui, event);
-  ui.onDragLeave = event => handleDragLeave(ui.listPanel, ui, event);
+  ui.onDragLeave = event => handleDragLeave(ui, event);
   ui.onDrop = event => handleDrop(ui.listPanel, ui, event);
   ui.onDragEnd = () => handleDragEnd(ui.listPanel, ui);
   // A real focus move is the cursor: once focus lands on a row (or a child
@@ -209,10 +209,10 @@ const bindEvents = (ui: LayerUI): void => {
     if (!el || inFloatingPanel(el)) return;
     const row = owningRow(el);
     if (!row) return;
-    const idx = getNavigableItems(ui.listPanel, ui).indexOf(row);
+    const idx = getNavigableItems(ui).indexOf(row);
     if (idx !== -1) ui.listPanel.activeIdx = idx;
     if (!isKeyboardVisibleFocus(el)) return;
-    blurActiveItem(ui.listPanel, ui);
+    blurActiveItem(ui);
     row.classList.add(CONST.CLASSES.FOCUSED);
     ui.listPanel.listCursor?.setIndex(idx);
   };
@@ -248,7 +248,7 @@ const bindEvents = (ui: LayerUI): void => {
   container.addEventListener("dragend", ui.onDragEnd);
   // Double-click on a layer row → focus the map on that layer.
   container.addEventListener("dblclick", event =>
-    handleDblClick(ui.listPanel, ui, event as MouseEvent),
+    handleDblClick(ui, event as MouseEvent),
   );
 
   // Overflow ("more") button → dropdown menu. Uses event delegation so it
@@ -297,15 +297,15 @@ const bindEvents = (ui: LayerUI): void => {
     bus.on(EVENTS.LAYER_ITEM_UPDATED, (payload: { id: string }) => {
       const layerInfo = registry.get(payload.id);
       if (!layerInfo) return;
-      updateLayerItem(ui.listPanel, ui, layerInfo);
-      invalidateFields(ui.overlayPanel, ui, payload.id);
+      updateLayerItem(ui, layerInfo);
+      invalidateFields(ui, payload.id);
     }),
     bus.on(EVENTS.LAYER_ITEM_REFRESHED, (payload: { id: string }) => {
       const layerInfo = registry.get(payload.id);
-      if (layerInfo) initLayerItem(ui.listPanel, ui, layerInfo);
+      if (layerInfo) initLayerItem(ui, layerInfo);
     }),
     bus.on(EVENTS.LAYER_ITEM_REMOVED, (payload: { id: string }) => {
-      invalidateFields(ui.overlayPanel, ui, payload.id);
+      invalidateFields(ui, payload.id);
       dropStyleDimApplies(payload.id);
     }),
     bus.on(EVENTS.LAYER_GROUP_COUNT_CHANGED, (payload: { group: string }) => {
@@ -317,7 +317,7 @@ const bindEvents = (ui: LayerUI): void => {
       refreshAllCounts(ui);
     }),
     bus.on(EVENTS.LAYER_NO_BASEMAP_CHANGED, () => {
-      syncNoBasemap(ui.listPanel, ui);
+      syncNoBasemap(ui);
     }),
     // Overlay mutual exclusion — each subsystem closes itself when it hears
     // the signal. closeOverlays (teardown.ts) emits this; the subsystem that
@@ -347,9 +347,9 @@ const onLayerItemCountChange = (ui: LayerUI, id: string): void => {
   if (!item) return;
   const layerInfo = ui.m.layerRegistry.get(id);
   if (!layerInfo || layerInfo.group === GROUP.BASE) return;
-  invalidateFields(ui.overlayPanel, ui, id);
+  invalidateFields(ui, id);
 
-  applyRowView(ui.listPanel, ui, item, buildRowCell(ui.listPanel, ui, layerInfo));
+  applyRowView(ui, item, buildRowCell(ui, layerInfo));
 
   // Re-apply the layer's current opacity to the newly-finalized geometry.
   // The panes were painted at full opacity while the preview was live; the
@@ -376,12 +376,7 @@ const refreshAllCounts = (ui: LayerUI): void => {
     const id = item.getAttribute(CONST.DATA.LAYER_ID);
     const layerInfo = id ? ui.m.layerRegistry.get(id) : undefined;
     if (!layerInfo) return;
-    applyRowView(
-      ui.listPanel,
-      ui,
-      item as HTMLElement,
-      buildRowCell(ui.listPanel, ui, layerInfo),
-    );
+    applyRowView(ui, item as HTMLElement, buildRowCell(ui, layerInfo));
   });
 };
 

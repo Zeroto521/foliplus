@@ -26,7 +26,7 @@ import { saveState } from "../state.js";
 /** Field list for a layer (cached on the runtime store). collectFields walks
  *  every feature, so the answer is cached per layer id; invalidateFields drops
  *  a layer's entry whenever its features can change at runtime. */
-const layerFields = (op: OverlayPanel, ui: LayerUI, layerId: string): LabelField[] => {
+const layerFields = (ui: LayerUI, layerId: string): LabelField[] => {
   const cached = ui.runtimeStore.getFields(layerId);
   if (cached) return cached;
   const fields = ui.m.annotation.collectFields(layerId);
@@ -37,8 +37,8 @@ const layerFields = (op: OverlayPanel, ui: LayerUI, layerId: string): LabelField
 /** Whether the layer has any labelable fields. False for base maps, the color
  *  basemap, and canvas layers (no feature.properties) �?the �?menu's Style
  *  item keys off this. */
-const layerHasLabelFields = (op: OverlayPanel, ui: LayerUI, layerId: string): boolean =>
-  layerFields(op, ui, layerId).length > 0;
+const layerHasLabelFields = (ui: LayerUI, layerId: string): boolean =>
+  layerFields(ui, layerId).length > 0;
 
 /** Drop a layer's cached field list and re-render if it is currently labeling.
  *  Called when a layer's features can change (runtime createLayers) or when the
@@ -47,7 +47,7 @@ const layerHasLabelFields = (op: OverlayPanel, ui: LayerUI, layerId: string): bo
  *  The re-render matters: the drawn labels carry text baked from the *old*
  *  fields, and the picker would now resolve a different auto field, so without
  *  it the map and the panel disagree until the user touches a control. */
-const invalidateFields = (op: OverlayPanel, ui: LayerUI, layerId: string): void => {
+const invalidateFields = (ui: LayerUI, layerId: string): void => {
   ui.runtimeStore.deleteFields(layerId);
   ui.m.annotation.invalidateAutoField(layerId);
   if (ui.m.annotation.getConfig(layerId).show) {
@@ -60,15 +60,14 @@ const invalidateFields = (op: OverlayPanel, ui: LayerUI, layerId: string): void 
  *  visibility / opacity / zoom range now saves it. The legacy top-level
  *  `annotations` segment has no live source anymore: it passes through on
  *  every write, read only as the fallback when the new key is absent. */
-const persistStyleLabel = (op: OverlayPanel, ui: LayerUI): void => {
-  saveState(ui.listPanel, ui);
+const persistStyleLabel = (ui: LayerUI): void => {
+  saveState(ui);
 };
 
 /** Apply one control change to the layer's config, re-render its labels and
  *  persist. Shared by the toggle and both selects so the update order
  *  (config �?labels �?storage) lives in exactly one place. */
 const applyPatch = (
-  op: OverlayPanel,
   ui: LayerUI,
   layerId: string,
   patch: Partial<AnnotationConfig>,
@@ -77,7 +76,7 @@ const applyPatch = (
   Object.assign(cfg, patch);
   ui.m.annotation.setConfig(layerId, cfg);
   ui.m.annotation.renderLabels(layerId);
-  persistStyleLabel(op, ui);
+  persistStyleLabel(ui);
 };
 
 /** Coerce one stored label config into a complete {@link AnnotationConfig}.
@@ -111,12 +110,12 @@ const coerceAnnotationFields = (raw: unknown): AnnotationConfig => {
  *  restore: a layer already carrying a config has the live one (the user may
  *  have switched it on since the page loaded), and re-applying the snapshot over
  *  it would silently revert that. Idempotent. */
-const applyStyleLabelState = (op: OverlayPanel, ui: LayerUI): void => {
+const applyStyleLabelState = (ui: LayerUI): void => {
   const seedIds = ui.intentStore.ids();
   for (const id of seedIds) {
     const raw = getIntent(ui, id, INTENT.ANNOTATION);
     if (!raw) continue;
-    if (!layerHasLabelFields(op, ui, id)) continue; // stale / no fields
+    if (!layerHasLabelFields(ui, id)) continue; // stale / no fields
     if (ui.m.annotation.hasConfig(id)) continue; // live state wins
     const cfg = coerceAnnotationFields(raw);
     ui.m.annotation.setConfig(id, cfg);

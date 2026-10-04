@@ -43,7 +43,7 @@ const syncListCursor = (lp: ListPanel, ui: LayerUI): void => {
 
 const cursorRef = (lp: ListPanel, ui: LayerUI): string | null => {
   if (lp.activeIdx === null) return null;
-  const el = getNavigableItems(lp, ui)[lp.activeIdx];
+  const el = getNavigableItems(ui)[lp.activeIdx];
   return el
     ? (el.getAttribute(CONST.DATA.LAYER_ID) ?? el.getAttribute("data-group"))
     : null;
@@ -58,7 +58,7 @@ const restoreCursor = (lp: ListPanel, ui: LayerUI, ref: string | null): void => 
     lp.activeIdx = null;
     return;
   }
-  const items = getNavigableItems(lp, ui);
+  const items = getNavigableItems(ui);
   let idx = items.findIndex(
     el =>
       el.getAttribute(CONST.DATA.LAYER_ID) === ref ||
@@ -84,7 +84,7 @@ const restoreCursor = (lp: ListPanel, ui: LayerUI, ref: string | null): void => 
  *  arrow-key navigation and Tab order could disagree about which rows exist.
  *  Rows are selected by class rather than `[tabindex]` because the inline
  *  rename input is also `tabindex=0` and is not a navigable row. */
-const getNavigableItems = (lp: ListPanel, ui: LayerUI): HTMLElement[] => {
+const getNavigableItems = (ui: LayerUI): HTMLElement[] => {
   return Array.from(
     ui.uiContainer.querySelectorAll<HTMLElement>(
       `${CONST.SEL.LAYER_ITEM},${CONST.SEL.TOGGLE_ALL}`,
@@ -98,7 +98,6 @@ const getNavigableItems = (lp: ListPanel, ui: LayerUI): HTMLElement[] => {
  *  on them. */
 
 const findVisibleNeighbor = (
-  lp: ListPanel,
   ui: LayerUI,
   items: HTMLElement[],
   idx: number,
@@ -114,14 +113,14 @@ const findVisibleNeighbor = (
 
 const getActiveLayerItem = (lp: ListPanel, ui: LayerUI): HTMLElement | null => {
   if (lp.activeIdx === null) return null;
-  return getNavigableItems(lp, ui)[lp.activeIdx] ?? null;
+  return getNavigableItems(ui)[lp.activeIdx] ?? null;
 };
 
 /** Set the active item index and apply focus styling. */
 
 const setActiveItem = (lp: ListPanel, ui: LayerUI, idx: number): void => {
   clearActiveItem(lp, ui);
-  const items = getNavigableItems(lp, ui);
+  const items = getNavigableItems(ui);
   if (idx < 0 || idx >= items.length) {
     lp.activeIdx = null;
     return;
@@ -144,7 +143,7 @@ const moveActiveMarker = (
   item: HTMLElement | null,
   items: HTMLElement[],
 ): void => {
-  blurActiveItem(lp, ui);
+  blurActiveItem(ui);
   // indexOf yields -1 for an item outside the list; normalize it to null so
   // activeIdx never holds an index getActiveLayerItem() would misread.
   const idx = item ? items.indexOf(item) : -1;
@@ -158,7 +157,7 @@ const moveActiveMarker = (
  *  Scans the DOM instead of following activeIdx: a re-render rebuilds the
  *  item elements, leaving the marker on an old, now-detached node. */
 
-const blurActiveItem = (lp: ListPanel, ui: LayerUI): void => {
+const blurActiveItem = (ui: LayerUI): void => {
   ui.uiContainer
     .querySelector(`.${CONST.CLASSES.FOCUSED}`)
     ?.classList.remove(CONST.CLASSES.FOCUSED);
@@ -167,7 +166,7 @@ const blurActiveItem = (lp: ListPanel, ui: LayerUI): void => {
 /** Clear the active item state. */
 
 const clearActiveItem = (lp: ListPanel, ui: LayerUI): void => {
-  blurActiveItem(lp, ui);
+  blurActiveItem(ui);
   lp.activeIdx = null;
   lp.listCursor?.setIndex(-1);
 };
@@ -231,7 +230,7 @@ const resolveActiveIdx = (
  *  Keep the existing cursor when resolve cannot name a new row. */
 
 const syncActiveItem = (lp: ListPanel, ui: LayerUI): void => {
-  const items = getNavigableItems(lp, ui);
+  const items = getNavigableItems(ui);
   const idx = resolveActiveIdx(lp, ui, items);
   if (idx === null) return;
   moveActiveMarker(lp, ui, items[idx], items);
@@ -272,7 +271,7 @@ const handleKeyDown = (lp: ListPanel, ui: LayerUI, event: KeyboardEvent): void =
       // escapeClearCursor() below runs last and wins.
       const layerId = ui.overlayPanel.activeRenameId;
       ui.finishRename();
-      focusLayerRow(lp, ui, layerId);
+      focusLayerRow(ui, layerId);
     } else if (ui.overlayPanel.activeMenu) {
       // closeMoreMenu returns focus to the row, so the cursor must be
       // dropped after it rather than before.
@@ -290,11 +289,11 @@ const handleKeyDown = (lp: ListPanel, ui: LayerUI, event: KeyboardEvent): void =
     } else if (ui.isFocusing()) {
       ui.cancelFocus();
     }
-    escapeClearCursor(lp, ui);
+    escapeClearCursor(ui);
     return;
   }
 
-  const items = getNavigableItems(lp, ui);
+  const items = getNavigableItems(ui);
   if (items.length === 0) return;
 
   // Re-resolve the cursor from DOM focus. Clicking the label and a re-render
@@ -328,7 +327,7 @@ const handleKeyDown = (lp: ListPanel, ui: LayerUI, event: KeyboardEvent): void =
         );
       }
     }
-    const newItems = getNavigableItems(lp, ui);
+    const newItems = getNavigableItems(ui);
     const next = newItems.findIndex(el => el.getAttribute(CONST.DATA.LAYER_ID) === id);
     // findIndex yields -1 if the row is gone (e.g. layer removed mid-drag);
     // normalize it so activeIdx never holds an invalid index.
@@ -354,13 +353,13 @@ const handleKeyDown = (lp: ListPanel, ui: LayerUI, event: KeyboardEvent): void =
   switch (event.key) {
     case "ArrowUp": {
       event.preventDefault();
-      const up = findVisibleNeighbor(lp, ui, items, idx, -1);
+      const up = findVisibleNeighbor(ui, items, idx, -1);
       if (up !== -1) setActiveItem(lp, ui, up);
       break;
     }
     case "ArrowDown": {
       event.preventDefault();
-      const down = findVisibleNeighbor(lp, ui, items, idx, 1);
+      const down = findVisibleNeighbor(ui, items, idx, 1);
       if (down !== -1) setActiveItem(lp, ui, down);
       break;
     }
@@ -427,7 +426,7 @@ const handleKeyDown = (lp: ListPanel, ui: LayerUI, event: KeyboardEvent): void =
         break;
       }
       event.preventDefault();
-      toggleFocusedLayer(ui.focusController, ui);
+      toggleFocusedLayer(ui);
       break;
     }
   }
@@ -448,15 +447,15 @@ const handleKeyDown = (lp: ListPanel, ui: LayerUI, event: KeyboardEvent): void =
  * focusin re-applies the class only if the browser still reports
  * keyboard-visible focus. */
 
-const escapeClearCursor = (lp: ListPanel, ui: LayerUI): void => {
-  blurActiveItem(lp, ui);
+const escapeClearCursor = (ui: LayerUI): void => {
+  blurActiveItem(ui);
 };
 
 /** Return DOM focus to a layer's row. Used by the Escape-rename path:
  *  finishRename() removes the inline input, which blurs it to `<body>` and
  *  would leave the panel unreachable. */
 
-const focusLayerRow = (lp: ListPanel, ui: LayerUI, layerId: string): void => {
+const focusLayerRow = (ui: LayerUI, layerId: string): void => {
   if (!ui.uiContainer || !layerId) return;
   ui.uiContainer
     .querySelector<HTMLElement>(`[${CONST.DATA.LAYER_ID}="${CSS.escape(layerId)}"]`)
@@ -469,7 +468,7 @@ const focusLayerRow = (lp: ListPanel, ui: LayerUI, layerId: string): void => {
  *  business — two quick toggles / menu clicks / rename edits / label-switch
  *  flips must not zoom the map. */
 
-const handleDblClick = (lp: ListPanel, ui: LayerUI, event: MouseEvent): void => {
+const handleDblClick = (ui: LayerUI, event: MouseEvent): void => {
   const target = event.target as HTMLElement;
   const item = target.closest(CONST.SEL.LAYER_ITEM) as HTMLElement | null;
   if (!item) return;
@@ -488,7 +487,7 @@ const handleDblClick = (lp: ListPanel, ui: LayerUI, event: MouseEvent): void => 
   // silently ignoring the double-click. Hidden layers ARE passed through:
   // focusLayer shows the "hidden" hint for them.
   if (item.dataset.layerType === GROUP.BASE) {
-    showFocusDisabledHint(ui.focusController, ui, "base");
+    showFocusDisabledHint(ui, "base");
     return;
   }
   const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";

@@ -40,7 +40,7 @@ const renameLayer = (op: OverlayPanel, ui: LayerUI, layerId: string): void => {
 
   // displayName resolves rename →registry →the color layer's locale label,
   // so the input opens with the name the UI already shows.
-  const currentName = displayName(ui.listPanel, ui, layerId);
+  const currentName = displayName(ui, layerId);
 
   op.activeRenameId = layerId;
   // Flag the row so CSS can stretch the input across the label+count area
@@ -63,7 +63,7 @@ const renameLayer = (op: OverlayPanel, ui: LayerUI, layerId: string): void => {
         // a re-registration that rebuilds the registry from a third-party
         // layer's own metadata cannot resurrect the author's original name.
         setIntent(ui, layerId, INTENT.NAME, trimmed);
-        saveNamesState(ui.listPanel, ui);
+        saveNamesState(ui);
         ui.applyUserState();
       }
       finishRename(op, ui, true);
@@ -118,7 +118,7 @@ const finishRename = (op: OverlayPanel, ui: LayerUI, restoreText = true): void =
   const label = item?.querySelector("label") as HTMLLabelElement | null;
   item?.classList.remove(CONST.CLASSES.RENAMING);
   removeInlineEditInput(label);
-  if (restoreText) updateItemLabel(item, displayName(ui.listPanel, ui, layerId));
+  if (restoreText) updateItemLabel(item, displayName(ui, layerId));
 };
 
 /**

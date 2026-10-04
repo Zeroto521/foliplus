@@ -27,7 +27,7 @@ const initTypesAndVisibility = (lp: ListPanel, ui: LayerUI) => {
   // standard registerLayer path. All visibility / zoom / order machinery
   // then treats it identically to a tile basemap. `surface.register()` is
   // idempotent, so a re-run of this pass is a no-op on the registry side.
-  getColorSurface(lp, ui);
+  getColorSurface(ui);
   const colorLi = ui.m.layerRegistry.get(CONST.SOLID_BASEMAP_ID);
   if (colorLi) {
     // The colour basemap starts unchecked (hidden) by default.
@@ -38,7 +38,7 @@ const initTypesAndVisibility = (lp: ListPanel, ui: LayerUI) => {
   // re-adds a stored-shown layer and removes a stored-hidden one, so a
   // snapshot taken afterwards would record a policy decision as the author's.
   for (let i = 0; i < ui.m.layers.length; i++) {
-    snapshotAuthorVisible(lp, ui, ui.m.layers[i]);
+    snapshotAuthorVisible(ui, ui.m.layers[i]);
   }
 
   // Apply persisted hidden state first so initLayerItem reads the corrected
@@ -55,12 +55,12 @@ const initTypesAndVisibility = (lp: ListPanel, ui: LayerUI) => {
   // intent-only invariant: derived state may suppress display but never
   // authorise it.
   for (let i = 0; i < ui.m.layers.length; i++) {
-    initLayerItem(lp, ui, ui.m.layers[i]);
+    initLayerItem(ui, ui.m.layers[i]);
   }
   ui.m.enforceOrder();
   syncToggleAll(lp, ui, GROUP.OVERLAY);
   syncToggleAll(lp, ui, GROUP.BASE);
-  syncNoBasemap(lp, ui);
+  syncNoBasemap(ui);
   // enforceOrder may have moved rows; keep roving tabindex aligned.
   syncListCursor(ui.listPanel, ui);
   // Ready signal for tests: checkbox titles / .foliplus-active / counts are final
@@ -90,7 +90,7 @@ const renderInitialList = (lp: ListPanel, ui: LayerUI) => {
       frag.appendChild(renderToggleAllRow(lp, ui, GROUP.BASE, "base_map_label"));
     }
     const group = layerInfo.group;
-    const item = renderLayerItem(lp, ui, layerInfo);
+    const item = renderLayerItem(ui, layerInfo);
     if (lp.foldedGroups.has(group)) item.classList.add(CONST.CLASSES.GROUP_FOLDED);
     frag.appendChild(item);
   }
@@ -137,7 +137,7 @@ const insertLayerItem = (lp: ListPanel, ui: LayerUI, layerInfo: LayerInfo) => {
       ),
     );
   }
-  const item = renderLayerItem(lp, ui, layerInfo);
+  const item = renderLayerItem(ui, layerInfo);
   if (lp.foldedGroups.has(group)) item.classList.add(CONST.CLASSES.GROUP_FOLDED);
   frag.appendChild(item);
 
@@ -171,13 +171,13 @@ const insertLayerItem = (lp: ListPanel, ui: LayerUI, layerInfo: LayerInfo) => {
   // apply below, which is the other path that moves this layer. Only this
   // layer's id is applied: a full sweep would re-rewrite every renamed row
   // on each registration.
-  snapshotAuthorVisible(lp, ui, layerInfo);
+  snapshotAuthorVisible(ui, layerInfo);
   ui.applyUserState(layerInfo.id);
   // New row must join the roving tabindex / ARIA set.
   syncListCursor(ui.listPanel, ui);
 };
 
-const updateLayerItem = (lp: ListPanel, ui: LayerUI, layerInfo: LayerInfo) => {
+const updateLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
   const item = ui.uiContainer.querySelector(
     `[${CONST.DATA.LAYER_ID}="${CSS.escape(layerInfo.id)}"]`,
   ) as HTMLElement | null;
@@ -185,7 +185,7 @@ const updateLayerItem = (lp: ListPanel, ui: LayerUI, layerInfo: LayerInfo) => {
   // updateItemLabel sets both the row label and the checkbox's aria-label,
   // so the name reaches assistive tech here without touching `title` — the
   // row's tooltip slot keeps the feature count + type.
-  updateItemLabel(item, displayName(lp, ui, layerInfo.id));
+  updateItemLabel(item, displayName(ui, layerInfo.id));
 };
 
 const renderToggleAllRow = (
@@ -235,8 +235,8 @@ const renderToggleAllRow = (
  *  render time) and refreshed by onLayerItemCountChange.
  *  @param {LayerInfo} layerInfo - Layer metadata.
  *  @returns {HTMLElement} The row element. */
-const renderLayerItem = (lp: ListPanel, ui: LayerUI, layerInfo: LayerInfo) => {
-  const name = displayName(lp, ui, layerInfo.id);
+const renderLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
+  const name = displayName(ui, layerInfo.id);
 
   const typeIconEl = dom.el("div", { class: CONST.CLASSES.TYPE_ICON_COL });
   if (layerInfo.iconSvg) typeIconEl.innerHTML = layerInfo.iconSvg;
@@ -297,15 +297,15 @@ const renderLayerItem = (lp: ListPanel, ui: LayerUI, layerInfo: LayerInfo) => {
 
 /** Current display name for the virtual color basemap: persisted rename if
  *  present, else the locale label. Name is persisted rename or locale label. */
-const colorLayerName = (lp: ListPanel, ui: LayerUI): string => {
-  return displayName(lp, ui, CONST.SOLID_BASEMAP_ID);
+const colorLayerName = (ui: LayerUI): string => {
+  return displayName(ui, CONST.SOLID_BASEMAP_ID);
 };
 
 /** Initialize one layer row's checkbox + type icon (incremental path).
  *  @returns {boolean} true when the row is a visible base layer. */
-const initLayerItem = (lp: ListPanel, ui: LayerUI, layerInfo: LayerInfo): boolean => {
+const initLayerItem = (ui: LayerUI, layerInfo: LayerInfo): boolean => {
   if (!ui.m.layerRegistry.has(layerInfo.id)) return false;
-  const cell = buildRowCell(lp, ui, layerInfo);
+  const cell = buildRowCell(ui, layerInfo);
   // Resolve the row by data-layer-id: a late registration lands where its
   // stored slot puts it, so the DOM order can diverge from the registry — an
   // index-based lookup would write the checkbox and type column into a
@@ -315,7 +315,7 @@ const initLayerItem = (lp: ListPanel, ui: LayerUI, layerInfo: LayerInfo): boolea
   ) as HTMLElement | null;
   if (!item) return false;
 
-  applyRowView(lp, ui, item, cell);
+  applyRowView(ui, item, cell);
   // Map membership was already written by the executor's projection sweep
   // that runs before this row lands, so the visible mirror here matches
   // what the map actually shows.

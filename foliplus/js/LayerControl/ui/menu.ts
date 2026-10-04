@@ -51,7 +51,7 @@ const openMoreMenu = (op: OverlayPanel, ui: LayerUI, item: HTMLElement) => {
   // Focus-layer is disabled for basemaps (no useful extent), hidden rows, and
   // layers whose surface reports no bounds carrier. The disabled li carries
   // cursor: not-allowed (common menu CSS) and the reason as its tooltip.
-  const focusReason = focusDisabledReason(ui.focusController, ui, item);
+  const focusReason = focusDisabledReason(ui, item);
   const focusDisabled = focusReason !== undefined;
   const focusDisabledTitle =
     focusReason !== undefined
@@ -93,8 +93,8 @@ const openMoreMenu = (op: OverlayPanel, ui: LayerUI, item: HTMLElement) => {
   // enable a panel whose Label section would not render (or vice versa).
   const canConfigure =
     (caps && (caps.opacity !== CAP_TIER.NONE || caps.zoomRange !== CAP_TIER.NONE)) ||
-    layerCanLabel(op, ui, layerId) ||
-    layerHasStyleDelegation(op, ui, layerId);
+    layerCanLabel(ui, layerId) ||
+    layerHasStyleDelegation(ui, layerId);
   const styleDisabled = focusReason === "hidden" || !canConfigure;
 
   menu.appendChild(
@@ -156,7 +156,7 @@ const openMoreMenu = (op: OverlayPanel, ui: LayerUI, item: HTMLElement) => {
   // the fill and return to the grid empty state). The label and tooltip vary
   // by mode �?"Delete Layer" for real deletion, "Clear Data" for component
   // clear �?so the action name matches the effect.
-  const deleteMode = deleteModeFor(op, ui, layerId);
+  const deleteMode = deleteModeFor(ui, layerId);
   if (deleteMode !== "absent") {
     menu.appendChild(
       dom.el("li", {
@@ -165,7 +165,7 @@ const openMoreMenu = (op: OverlayPanel, ui: LayerUI, item: HTMLElement) => {
         "aria-hidden": "true",
       }),
     );
-    menu.appendChild(buildDeleteItem(op, ui, deleteMode));
+    menu.appendChild(buildDeleteItem(ui, deleteMode));
   }
 
   item.style.position = "relative";
@@ -214,14 +214,14 @@ let armedDelete: {
 } | null = null;
 let armedDeleteTimer: ReturnType<typeof setTimeout> | undefined;
 
-const deleteModeFor = (op: OverlayPanel, ui: LayerUI, layerId: string): DeleteMode => {
+const deleteModeFor = (ui: LayerUI, layerId: string): DeleteMode => {
   if (!layerId) return "absent";
   // The solid colour basemap uses delete semantics (row disappears, id stays
   // registerable so the colour can be re-picked) �?same as a user data layer.
   if (layerId === CONST.SOLID_BASEMAP_ID) return "delete";
   // Component-owned layers (Measure, Heatmap) clear their data instead of being
   // retired. The id stays registerable so the component can re-draw.
-  if (isComponentLayer(op, ui, layerId)) return "clear";
+  if (isComponentLayer(ui, layerId)) return "clear";
   // `findLayer`, not `registry.get(id).layer`: folium registers its own layers
   // by id only, so the entry's `layer` stays null until something resolves it.
   // Testing the field would read every layer on a real folium map as a component
@@ -234,12 +234,11 @@ const deleteModeFor = (op: OverlayPanel, ui: LayerUI, layerId: string): DeleteMo
  *  (styleSetters). Matches the discriminator in `LayerManager.deleteLayer`, so
  *  the two stay in lockstep. The solid colour basemap is handled separately in
  *  `deleteModeFor` and returns "delete" instead of "clear". */
-const isComponentLayer = (op: OverlayPanel, ui: LayerUI, layerId: string): boolean => {
+const isComponentLayer = (ui: LayerUI, layerId: string): boolean => {
   return Boolean(ui.m.layerRegistry.get(layerId)?.styleSetters);
 };
 
 const buildDeleteItem = (
-  op: OverlayPanel,
   ui: LayerUI,
   mode: Exclude<DeleteMode, "absent">,
 ): HTMLElement => {
@@ -268,7 +267,7 @@ const buildDeleteItem = (
 /** Turn the delete entry into its confirming state: the label swaps to the
  *  confirmation text and the entry fills, so the second click is unambiguous
  *  without borrowing the accent color (which already means hover and focus). */
-const armDelete = (op: OverlayPanel, ui: LayerUI, li: HTMLElement): void => {
+const armDelete = (ui: LayerUI, li: HTMLElement): void => {
   const label = li.querySelector<HTMLElement>(`.${CONST.CLASSES.MENU_DELETE_LABEL}`);
   if (!label) return;
   disarmDelete();
@@ -309,7 +308,7 @@ const activateDeleteItem = (
   li: HTMLElement,
 ): boolean => {
   if (!li.classList.contains(CONST.CLASSES.MENU_DELETE_ARMED)) {
-    armDelete(op, ui, li);
+    armDelete(ui, li);
     return false;
   }
   const layerId = op.activeMenu?.layerId ?? "";

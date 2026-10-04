@@ -29,7 +29,7 @@ import {
  *  `opacity: "none"` (e.g. MarkerCluster, whose cluster icons live in a shared
  *  pane we do not own) get no opacity row �?a slider that writes nothing but
  *  persists the value would fail silently. */
-const layerCanOpacity = (op: OverlayPanel, ui: LayerUI, layerId: string): boolean => {
+const layerCanOpacity = (ui: LayerUI, layerId: string): boolean => {
   const li = ui.m.layerRegistry.get(layerId);
   if (!li) return false;
   return ui.m.surfaceFor(li).capabilities.opacity !== CAP_TIER.NONE;
@@ -93,7 +93,6 @@ const syncOpacityInputs = (panel: HTMLElement, pct: number): void => {
  *  sync stays here because the panel root is a UI argument that does not
  *  belong on the descriptor contract. */
 const commitOpacityPct = (
-  op: OverlayPanel,
   ui: LayerUI,
   layerId: string,
   panel: HTMLElement,
@@ -108,7 +107,7 @@ const commitOpacityPct = (
   // (and the commit re-sends the live value), and for a plain layer each pass
   // is a sweep over every feature.
   if (li.opacity === opacity) return;
-  getDimension(DIM.OPACITY)!.write!(op, ui, layerId, opacity);
+  getDimension(DIM.OPACITY)!.write!(ui, layerId, opacity);
   syncOpacityInputs(panel, pct);
 };
 
@@ -120,11 +119,7 @@ const commitOpacityPct = (
  *  than this one. The range input keeps the value reachable: it carries the
  *  accessible name and value, arrow / Home / End drive it, and the bubble
  *  appears for keyboard input the same as for a drag. */
-const buildOpacityRow = (
-  op: OverlayPanel,
-  ui: LayerUI,
-  layerId: string,
-): HTMLElement => {
+const buildOpacityRow = (ui: LayerUI, layerId: string): HTMLElement => {
   const li = ui.m.layerRegistry.get(layerId);
   const pct = opacityToPct(getIntent(ui, layerId, INTENT.OPACITY) ?? li?.opacity);
   const fill = dom.el("div", {
@@ -179,10 +174,10 @@ const buildOpacityRow = (
 
 /** Reset one layer's opacity to fully opaque and drop its persisted entry.
  *  Thin delegate over the opacity descriptor's `reset`. */
-const resetLayerOpacity = (op: OverlayPanel, ui: LayerUI, layerId: string): void => {
+const resetLayerOpacity = (ui: LayerUI, layerId: string): void => {
   const li = ui.m.layerRegistry.get(layerId);
   if (!li) return;
-  getDimension(DIM.OPACITY)!.reset!(op, ui, layerId);
+  getDimension(DIM.OPACITY)!.reset!(ui, layerId);
 };
 
 /** Register opacity as a per-layer dimension. The descriptor owns the
@@ -197,7 +192,7 @@ const resetLayerOpacity = (op: OverlayPanel, ui: LayerUI, layerId: string): void
 const OPACITY_DIMENSION = registerDimension<number>({
   key: DIM.OPACITY,
   gate: layerCanOpacity,
-  value: (op, ui, layerId) => {
+  value: (ui, layerId) => {
     const li = ui.m.layerRegistry.get(layerId);
     return getIntent(ui, layerId, INTENT.OPACITY) ?? li?.opacity;
   },
@@ -205,28 +200,28 @@ const OPACITY_DIMENSION = registerDimension<number>({
   /** Intent+persist + projection. `opacity === 1` clears (no override);
    *  any other number marks via LayerIntentStore.set. A non-number patch is a
    *  no-op (descriptor callers always pass a finite 0-1 value). */
-  write: (op, ui, layerId, patch) => {
+  write: (ui, layerId, patch) => {
     const opacity = typeof patch === "number" ? patch : undefined;
     if (opacity === undefined) return;
     if (opacity === 1) {
       // Fully opaque is the declared default �?clear, same as resetIntentKeys.
-      resetIntentKeys(op, ui, layerId, [INTENT.OPACITY]);
+      resetIntentKeys(ui, layerId, [INTENT.OPACITY]);
     } else {
-      void writeIntentKeys(op, ui, layerId, [[INTENT.OPACITY, opacity]]);
+      void writeIntentKeys(ui, layerId, [[INTENT.OPACITY, opacity]]);
     }
     applyProjection(ui, layerId, "debounce");
     const li = ui.m.layerRegistry.get(layerId);
-    if (li?.group === GROUP.BASE) syncNoBasemap(ui.listPanel, ui);
+    if (li?.group === GROUP.BASE) syncNoBasemap(ui);
   },
   /** Cohesive reset: clear the override, save, re-project, hatch sync. */
-  reset: (op, ui, layerId) => {
-    resetIntentKeys(op, ui, layerId, [INTENT.OPACITY]);
+  reset: (ui, layerId) => {
+    resetIntentKeys(ui, layerId, [INTENT.OPACITY]);
     applyProjection(ui, layerId, "debounce");
     const li = ui.m.layerRegistry.get(layerId);
-    if (li?.group === GROUP.BASE) syncNoBasemap(ui.listPanel, ui);
+    if (li?.group === GROUP.BASE) syncNoBasemap(ui);
   },
-  valueSource: (op, ui, layerId) => {
-    if (!layerCanOpacity(op, ui, layerId)) return "none";
+  valueSource: (ui, layerId) => {
+    if (!layerCanOpacity(ui, layerId)) return "none";
     return ui.intentStore.isUserSet(layerId, INTENT.OPACITY) ? "user" : "author";
   },
 });

@@ -188,35 +188,26 @@ type LayerDimension<D = unknown> = {
    *     declares `"none"` for the dimension it can't carry, so the gate
    *  rejects it naturally). See the registry file header for the full
    *  invariant. */
-  gate: (op: OverlayPanel, ui: LayerUI, layerId: string) => boolean;
+  gate: (ui: LayerUI, layerId: string) => boolean;
   /** Resolved current value — the user's stored override, falling back to
    *  the author's declared default when the user has never touched the
    *  dimension. `undefined` when the layer is not in the registry. */
-  value: (op: OverlayPanel, ui: LayerUI, layerId: string) => D | undefined;
+  value: (ui: LayerUI, layerId: string) => D | undefined;
   /** Build the style-panel row. The descriptor owns the DOM shape; the
    *  panel still owns event binding, because binding needs the row's
    *  parent (the panel root) to install the drag bubble and shared
    *  number-field commit handler. */
-  row: (op: OverlayPanel, ui: LayerUI, layerId: string) => HTMLElement;
+  row: (ui: LayerUI, layerId: string) => HTMLElement;
   /** Cohesive user write: persist the patch through LayerIntentStore (`set`
    *  marks provenance) then schedule the styleBag landing. Partial patch —
    *  omitted keys leave that sub-dimension untouched. */
-  write?: (
-    op: OverlayPanel,
-    ui: LayerUI,
-    layerId: string,
-    patch: Partial<D> | D,
-  ) => void;
+  write?: (ui: LayerUI, layerId: string, patch: Partial<D> | D) => void;
   /** Cohesive reset: drop the dimension's LayerIntentStore rows (values +
    *  provenance) and restore the author's styleBag face. */
-  reset?: (op: OverlayPanel, ui: LayerUI, layerId: string) => void;
+  reset?: (ui: LayerUI, layerId: string) => void;
   /** Three-state source of the effective value. Gate rejects → `"none"`;
    *  store provenance → `"user"`; otherwise `"author"`. */
-  valueSource?: (
-    op: OverlayPanel,
-    ui: LayerUI,
-    layerId: string,
-  ) => DimensionValueSource;
+  valueSource?: (ui: LayerUI, layerId: string) => DimensionValueSource;
 };
 
 export type {

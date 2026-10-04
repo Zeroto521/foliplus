@@ -126,7 +126,6 @@ const LABEL_DIM_ORDER = [DIM.ANNOTATION] as const;
  *  miss; the cast states that contract instead of branching on a null arm no
  *  test can reach. */
 const gatedRows = (
-  op: OverlayPanel,
   ui: LayerUI,
   layerId: string,
   keys: readonly string[],
@@ -134,7 +133,7 @@ const gatedRows = (
   const rows: LayerDimension[] = [];
   for (const key of keys) {
     const dim = getDimension(key) as LayerDimension;
-    if (dim.gate(op, ui, layerId)) rows.push(dim);
+    if (dim.gate(ui, layerId)) rows.push(dim);
   }
   return rows;
 };
@@ -145,7 +144,6 @@ const gatedRows = (
  *  written; schedules storage on success. Callers still own the styleBag /
  *  projection landing after this returns true. */
 const writeIntentKeys = (
-  op: OverlayPanel,
   ui: LayerUI,
   layerId: string,
   writes: ReadonlyArray<readonly [key: IntentKey, value: unknown]>,
@@ -157,7 +155,7 @@ const writeIntentKeys = (
     wrote = true;
   }
   if (!wrote) return false;
-  saveState(ui.listPanel, ui);
+  saveState(ui);
   return true;
 };
 
@@ -171,7 +169,6 @@ const writeIntentKeys = (
  *  Pair of {@link writeIntentKeys}: that function is the user-write side,
  *  this is the user-reset side. */
 const resetIntentKeys = (
-  op: OverlayPanel,
   ui: LayerUI,
   layerId: string,
   keys: readonly IntentKey[],
@@ -180,7 +177,7 @@ const resetIntentKeys = (
   for (const key of keys) {
     ui.intentStore.clear(layerId, key);
   }
-  saveState(ui.listPanel, ui);
+  saveState(ui);
   return true;
 };
 

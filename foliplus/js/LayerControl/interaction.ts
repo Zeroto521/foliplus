@@ -69,8 +69,9 @@ const handleMoreMenuClick = (ui: LayerUI, event: Event): void => {
     if (activateDeleteItem(ui.overlayPanel, ui, li)) ui.closeMoreMenu(true);
     return;
   }
-  if (action === CONST.ACTION.FOCUS_LAYER)
+  if (action === CONST.ACTION.FOCUS_LAYER) {
     ui.focusLayer(ui.overlayPanel.activeMenu?.layerId ?? "");
+  }
   if (action === CONST.ACTION.RENAME_LAYER) {
     ui.renameLayer(ui.overlayPanel.activeMenu?.layerId ?? "");
   }
