@@ -1,4 +1,4 @@
-// LayerControl UI — Layer attributes panel.
+// LayerControl UI �?Layer attributes panel.
 import { EVENTS } from "#core/event/index.js";
 import { GEOM_TYPE, GROUP } from "#core/layer/index.js";
 import { createRowPanel } from "#core/leaflet/index.js";
@@ -9,6 +9,7 @@ import * as SVGs from "../icon.js";
 import * as Util from "../util.js";
 import { ATTRS_ROW_WRAP_CHARS } from "./context.js";
 import type { LayerUI } from "./index.js";
+import type { OverlayPanel } from "./overlayPanel.js";
 import { displayName } from "./rowView.js";
 import { closeOverlays } from "./teardown.js";
 
@@ -17,12 +18,12 @@ import { closeOverlays } from "./teardown.js";
  * (name, provenance, feature count, last update, visibility) plus any
  * third-party `meta` entries passed to registerLayer.
  *
- * Rows are omitted when they carry no value — a panel is not padded with
- * "—. The color basemap is included (it carries no provider data, but the
+ * Rows are omitted when they carry no value �?a panel is not padded with
+ * "�? The color basemap is included (it carries no provider data, but the
  * fixed rows still read).
  */
-const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
-  closeOverlays(ui);
+const openAttrsPanel = (op: OverlayPanel, ui: LayerUI, item: HTMLElement) => {
+  closeOverlays(ui.overlayPanel, ui);
 
   const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
   const isColor = layerId === CONST.SOLID_BASEMAP_ID;
@@ -40,7 +41,7 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
 
   // Every row is built as label + resolved value; a row whose value is an
   // empty string is dropped. That covers both "no data registered" and
-  // "updatedAt parses to nothing" — formatTimestamp returns "" for invalid
+  // "updatedAt parses to nothing" �?formatTimestamp returns "" for invalid
   // input, so an unparsable timestamp vanishes instead of leaving an
   // empty-value row.
   const addRow = (label: string, value: string, kind: AttrRow[2] = ""): void => {
@@ -60,7 +61,7 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
   const gtype = !rawGtype ? "unknown" : rawGtype;
   // A basemap has no data geometry, so name it by what it is rather than by
   // a geometry type it never had; a custom layer ships its own logo instead
-  // of a geometry glyph — same rowView decision tree, same labels.
+  // of a geometry glyph �?same rowView decision tree, same labels.
   const isBaseLayer = layerInfo
     ? layerInfo.group === GROUP.BASE
     : item.dataset.layerType === GROUP.BASE;
@@ -75,7 +76,7 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
   if (!isColor) {
     const count = layerInfo ? ui.manager.getFeatureCount(layerId) : null;
     // The panel is the detail view, so the count is grouped (1,234) rather
-    // than compacted — and `comma` defaults to one fraction digit, which
+    // than compacted �?and `comma` defaults to one fraction digit, which
     // would render a whole number as "1,234.0", so pass 0 explicitly.
     addRow(
       ui.T("attr_feature_count"),
@@ -121,7 +122,7 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
       ),
     );
 
-  // Third-party meta rows continue the same list — no heading, no separator:
+  // Third-party meta rows continue the same list �?no heading, no separator:
   // the panel is one flat column of facts, in the same order every time.
   // Dynamic `metaProvider` entries override static `meta` for the same key
   // (dynamic wins, static is fallback).
@@ -169,7 +170,7 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
     iconClass: `${CONST.CLASSES.ATTRS_ICON} foliplus-header-icon`,
   });
   // One flat list: third-party meta rows continue the same rhythm instead
-  // of opening a second group, so the panel reads as one column of facts —
+  // of opening a second group, so the panel reads as one column of facts �?
   // the same unheaded row flow the style panel uses.
   const dlEl = renderList([...rows, ...metaRows]);
   content.appendChild(dlEl);
@@ -177,7 +178,7 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
   // Live update: subscribe to LAYER_ITEM_COUNT_CHANGE (filtered by layerId)
   // so meta rows refresh in place when the store mutates.
   if (!isColor && layerId && layerInfo?.metaProvider) {
-    ui.attrsUnsubscribe = ui.events.on(EVENTS.LAYER_ITEM_COUNT_CHANGE, ({ id }) => {
+    op.attrsUnsubscribe = ui.events.on(EVENTS.LAYER_ITEM_COUNT_CHANGE, ({ id }) => {
       if (id !== layerId) return;
       dlEl.replaceWith(renderList([...rows, ...buildMetaRows()]));
     });
@@ -185,12 +186,12 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
 
   // Header click dismisses, matching bindPanelToggle on the main panels.
   // The × sits inside the header, so one listener covers both.
-  header.addEventListener("click", () => closeAttrsPanel(ui, true));
+  header.addEventListener("click", () => closeAttrsPanel(op, ui, true));
 
   // The panel sits inside a draggable layer row: a press on the panel must
   // neither start a row drag nor inherit `user-select: none`. The mousedown is
   // stopped here (the row's own handlers live on the container), and which side
-  // of the panel the press landed on is recorded by the outside handler below —
+  // of the panel the press landed on is recorded by the outside handler below �?
   // `dragstart` is dispatched on the draggable row, so it cannot answer that.
   panel.addEventListener("mousedown", e => e.stopPropagation());
 
@@ -202,11 +203,11 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
   // press on the map or another foliplus control would never close the
   // panel otherwise. Capture also gives this handler the first look at every
   // press, which is what makes it the right place to record the drag verdict.
-  ui.attrsOutsideHandler = (event: MouseEvent) => {
+  op.attrsOutsideHandler = (event: MouseEvent) => {
     const t = event.target as HTMLElement | null;
-    // Document-level dispatch can name `document` itself — no closest().
+    // Document-level dispatch can name `document` itself �?no closest().
     if (!t || typeof t.closest !== "function") {
-      closeAttrsPanel(ui, false);
+      closeAttrsPanel(op, ui, false);
       return;
     }
     if (t.closest(`.${CONST.CLASSES.ATTRS_PANEL}`)) {
@@ -214,30 +215,30 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
       return;
     }
     ui.pressInPanel = false;
-    closeAttrsPanel(ui, false);
+    closeAttrsPanel(op, ui, false);
   };
-  document.addEventListener("mousedown", ui.attrsOutsideHandler, true);
+  document.addEventListener("mousedown", op.attrsOutsideHandler, true);
 
-  ui.activeAttrsPanel = { item, panel, layerId };
+  op.activeAttrsPanel = { item, panel, layerId };
 };
 
 /** Close the attributes panel. setFocus = true returns focus to the row. */
 
-const closeAttrsPanel = (ui: LayerUI, setFocus: boolean) => {
-  if (ui.attrsOutsideHandler) {
-    document.removeEventListener("mousedown", ui.attrsOutsideHandler, true);
-    ui.attrsOutsideHandler = null;
+const closeAttrsPanel = (op: OverlayPanel, ui: LayerUI, setFocus: boolean) => {
+  if (op.attrsOutsideHandler) {
+    document.removeEventListener("mousedown", op.attrsOutsideHandler, true);
+    op.attrsOutsideHandler = null;
   }
-  if (ui.attrsUnsubscribe) {
-    ui.attrsUnsubscribe();
-    ui.attrsUnsubscribe = null;
+  if (op.attrsUnsubscribe) {
+    op.attrsUnsubscribe();
+    op.attrsUnsubscribe = null;
   }
   // No panel, no panel press: a stale verdict would block the next real drag.
   ui.pressInPanel = false;
-  if (!ui.activeAttrsPanel) return;
-  const item = ui.activeAttrsPanel.item;
-  ui.activeAttrsPanel.panel.remove();
-  ui.activeAttrsPanel = null;
+  if (!op.activeAttrsPanel) return;
+  const item = op.activeAttrsPanel.item;
+  op.activeAttrsPanel.panel.remove();
+  op.activeAttrsPanel = null;
   if (setFocus) item.focus();
 };
 

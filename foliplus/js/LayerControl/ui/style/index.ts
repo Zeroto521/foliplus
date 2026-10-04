@@ -1,8 +1,8 @@
-// LayerControl UI â€” per-layer annotation style panel (entry module).
+// LayerControl UI â€?per-layer annotation style panel (entry module).
 //
-// Opened from a data layer's â‹® menu. The panel is anchored to the layer's own
+// Opened from a data layer's â‹?menu. The panel is anchored to the layer's own
 // row and built on the shared `foliplus-panel` vocabulary (header bar, content
-// scroll, close affordance), exactly like the attributes panel â€” so there is
+// scroll, close affordance), exactly like the attributes panel â€?so there is
 // no JS positioning and no scroll/resize bookkeeping to clean up.
 //
 // Split from ui/style.ts. Owns the panel assembly (renderStylePanel),
@@ -47,25 +47,25 @@ import {
  *  neither a capable Label dimension nor a capable Layer dimension. */
 const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
   // Third-party canvas layers (heatmap, measure) declare their own controls
-  // via styleSetters â€” render those instead of the annotation panel.
+  // via styleSetters â€?render those instead of the annotation panel.
   if (layerHasStyleDelegation(ui, layerId)) {
     return renderDelegatedStylePanel(ui, layerId);
   }
   // Both sections are discovered through the dimension registry: the Layer
-  // section by `DIM_ORDER`, the Label section by `LABEL_DIM_ORDER` â€” one
+  // section by `DIM_ORDER`, the Label section by `LABEL_DIM_ORDER` â€?one
   // gate pass per dimension, and the same rows that render also decide the
   // panel exists at all. A plain vector shape has no labelable content
   // (capability "none") but still owns the Layer section; a fielded layer
-  // owns the Label section even when no Layer dimension applies. The â‹® menu
-  // enables Style on the same two signals â€” `layerCanLabel` IS the
-  // annotation dimension's gate â€” so the panel honours them rather than
+  // owns the Label section even when no Layer dimension applies. The â‹?menu
+  // enables Style on the same two signals â€?`layerCanLabel` IS the
+  // annotation dimension's gate â€?so the panel honours them rather than
   // demanding both.
   const layerRows = gatedRows(ui, layerId, DIM_ORDER);
   const labelRows = gatedRows(ui, layerId, LABEL_DIM_ORDER);
   if (layerRows.length === 0 && labelRows.length === 0) return null;
 
   // Shell (surface, header, content scroll) comes from the shared row-panel
-  // factory â€” the attributes panel's twin, built by the same code, so the
+  // factory â€?the attributes panel's twin, built by the same code, so the
   // width, header and card chrome cannot drift from it.
   const { panel, content } = createRowPanel({
     cssClass: CONST.CLASSES.STYLE_PANEL,
@@ -79,14 +79,14 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
   // alone. Layer comes first: it is the primary surface (what the user
   // drew), and the Label section is a decoration of it. High-frequency
   // operations lead. Row order inside each section is its declared order
-  // array, never the registry's insertion order â€” registration order
+  // array, never the registry's insertion order â€?registration order
   // tracks the ES module import graph (see the `DIM_ORDER` /
   // `LABEL_DIM_ORDER` comments in `./registry.js`). Neither group carries a
   // heading any more: the panel reads as one flat row list, and Layer before
   // Label is what document order alone conveys.
   for (const dim of layerRows) content.append(dim.row(ui, layerId));
   // The Label section's gate is a pure capability bit (layer exists +
-  // `capabilities.annotation !== "none"`) â€” the labelable-fields probe that
+  // `capabilities.annotation !== "none"`) â€?the labelable-fields probe that
   // keeps the row honest lives at the surface declaration edge, so the panel
   // never re-asks it here.
   for (const dim of labelRows) content.append(dim.row(ui, layerId));
@@ -95,21 +95,21 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
 };
 
 /** Open the annotation style panel for a layer. The panel is anchored to the
- *  layer's own row â€” the same "drop below the trigger" rule the attributes
- *  panel uses â€” so it needs no positioning code at all. */
+ *  layer's own row â€?the same "drop below the trigger" rule the attributes
+ *  panel uses â€?so it needs no positioning code at all. */
 const openStylePanel = (ui: LayerUI, layerId: string): void => {
   if (!layerId) return;
 
   // The row-lookup guard runs before teardown: an unknown id would clear
   // whatever the user had open and then fail to open anything. The panel
-  // render stays after closeOverlays â€” `renderDelegatedStylePanel` sets
+  // render stays after closeOverlays â€?`renderDelegatedStylePanel` sets
   // `ui.styleRefresh` on this call, which `closeStylePanel` would wipe.
   const item = ui.uiContainer.querySelector(
     `${CONST.SEL.LAYER_ITEM}[${CONST.DATA.LAYER_ID}="${CSS.escape(layerId)}"]`,
   ) as HTMLElement | null;
   if (!item) return;
 
-  closeOverlays(ui);
+  closeOverlays(ui.overlayPanel, ui);
   const panel = renderStylePanel(ui, layerId);
   if (!panel) return;
 
@@ -122,7 +122,7 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
 
   // Border row: a self-managed dimension that writes `setStyle` directly, so
   // its live binders attach to the row instead of going through the panel's
-  // change delegation â€” that only knows opacity, zoom range and the annotation
+  // change delegation â€?that only knows opacity, zoom range and the annotation
   // rows. A delegated drawer never renders this row (its gate excludes
   // styleSetters), so the lookup alone is the discriminator.
   const borderRow = panel.querySelector(
@@ -353,7 +353,7 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
   });
 
   // Reset restores the default config and closes; the header (or Ã—) just
-  // closes â€” the same header-dismiss affordance the attrs panel uses.
+  // closes â€?the same header-dismiss affordance the attrs panel uses.
   panel.addEventListener("click", (event: Event) => {
     const t = event.target as HTMLElement;
     if (t.closest(".foliplus-style-reset-btn")) {
@@ -369,7 +369,7 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
       resetLayerZoomRange(ui, layerId);
       if (delegated) {
         // Call each setter with its Python CONFIG default. The components own
-        // the values â€” never write localStorage or annotation config here.
+        // the values â€?never write localStorage or annotation config here.
         const li = ui.m.layerRegistry.get(layerId);
         const setters = li?.styleSetters;
         const defaults = li?.styleDefaultsProvider?.() ?? {};
@@ -381,7 +381,7 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
       } else {
         // Through applyPatch, so the reset writes config, re-renders and persists
         // in the same order as every other control on this panel. defaultConfig
-        // carries collide â€” DEFAULT_ANNOTATION alone would leave a user-toggled
+        // carries collide â€?DEFAULT_ANNOTATION alone would leave a user-toggled
         // collide switch untouched.
         applyPatch(ui, layerId, { ...ui.m.annotation.defaultConfig() });
       }
@@ -400,7 +400,7 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
   // panel otherwise.
   ui.styleOutsideHandler = (event: MouseEvent) => {
     const t = event.target as HTMLElement | null;
-    // Document-level dispatch can name `document` itself â€” no closest().
+    // Document-level dispatch can name `document` itself â€?no closest().
     if (!t || typeof t.closest !== "function") {
       closeStylePanel(ui, false);
       return;
@@ -486,7 +486,7 @@ export { closeStylePanel, openStylePanel, renderStylePanel };
 
 // Re-exports for external callers (menu.ts, attr.ts, ui/index.ts, tests):
 // the style barrel still surfaces the same six symbols the pre-split
-// ui/style.ts did â€” the split is invisible to consumers. The Label
+// ui/style.ts did â€?the split is invisible to consumers. The Label
 // dimension rides along too: importing this barrel registers it.
 export {
   applyStyleLabelState,

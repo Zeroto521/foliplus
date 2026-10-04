@@ -1,4 +1,4 @@
-// LayerControl UI — Inline layer rename.
+// LayerControl UI �?Inline layer rename.
 import { HINT_DURATION } from "#core/hint.js";
 import {
   createInlineEditInput,
@@ -8,6 +8,7 @@ import {
 import * as CONST from "../const.js";
 import type { LayerUI } from "./index.js";
 import { INTENT, setIntent } from "./intent.js";
+import type { OverlayPanel } from "./overlayPanel.js";
 import { displayName } from "./rowView.js";
 import { saveNamesState } from "./state.js";
 import { closeOverlays } from "./teardown.js";
@@ -21,7 +22,7 @@ import { closeOverlays } from "./teardown.js";
  * trailing space in the committed name would otherwise render as a zero-width
  * gap, so the value is trimmed on commit.
  */
-const renameLayer = (ui: LayerUI, layerId: string): void => {
+const renameLayer = (op: OverlayPanel, ui: LayerUI, layerId: string): void => {
   if (!layerId || !ui.uiContainer) return;
 
   // Validate before tearing down: an unknown id or a row without a label would
@@ -35,13 +36,13 @@ const renameLayer = (ui: LayerUI, layerId: string): void => {
   const label = item?.querySelector("label") as HTMLLabelElement | null;
   if (!label) return;
 
-  closeOverlays(ui);
+  closeOverlays(ui.overlayPanel, ui);
 
   // displayName resolves rename →registry →the color layer's locale label,
   // so the input opens with the name the UI already shows.
   const currentName = displayName(ui.listPanel, ui, layerId);
 
-  ui.activeRenameId = layerId;
+  op.activeRenameId = layerId;
   // Flag the row so CSS can stretch the input across the label+count area
   // (matching the SearchControl field's full extent) while editing.
   item?.classList.add(CONST.CLASSES.RENAMING);
@@ -53,7 +54,7 @@ const renameLayer = (ui: LayerUI, layerId: string): void => {
     // Only commit on blur while this is still the active rename. Enter/Escape
     // call finishRename() which sets activeRenameId=null and removes the
     // focused input →that removal fires a blur that must not re-commit.
-    isActive: () => ui.activeRenameId === layerId,
+    isActive: () => op.activeRenameId === layerId,
     onCommit: trimmed => {
       const changed = trimmed !== currentName;
       if (changed) {
@@ -69,7 +70,7 @@ const renameLayer = (ui: LayerUI, layerId: string): void => {
     },
     onCancel: reason => {
       // Only an empty-name commit is a user mistake worth flagging;
-      // Escape is an intentional abandon — stay silent.
+      // Escape is an intentional abandon �?stay silent.
       if (reason === "empty") {
         ui.m.map.foliplus!.showHint(
           ui.config.name,
@@ -79,7 +80,7 @@ const renameLayer = (ui: LayerUI, layerId: string): void => {
       }
       // Escape defers the teardown: tearing the input down now would blur
       // it to `<body>`, and `document.activeElement` is what handleKeyDown's
-      // container guard reads — a microtask already runs before the keydown
+      // container guard reads �?a microtask already runs before the keydown
       // finishes bubbling, so the panel handler sees focus on `<body>` and
       // never reaches the Escape branch. A timeout fires after the whole
       // dispatch is unwound, so the cursor is cleared while the input still
@@ -102,10 +103,10 @@ const renameLayer = (ui: LayerUI, layerId: string): void => {
  *   after (used internally to avoid a double write).
  */
 
-const finishRename = (ui: LayerUI, restoreText = true): void => {
-  if (!ui.activeRenameId) return;
-  const layerId = ui.activeRenameId;
-  ui.activeRenameId = null;
+const finishRename = (op: OverlayPanel, ui: LayerUI, restoreText = true): void => {
+  if (!op.activeRenameId) return;
+  const layerId = op.activeRenameId;
+  op.activeRenameId = null;
   if (!ui.uiContainer) return;
 
   const layerInfo = ui.m.layerRegistry.get(layerId);
@@ -129,7 +130,7 @@ const finishRename = (ui: LayerUI, restoreText = true): void => {
  * 2. If the layer is not on the map, bring it on temporarily so the bounds
  *    and the visual highlight are consistent with the user's action.
  * 3. If the bounds area is below MIN_BOUNDS_AREA (single Marker, tiny
- *    polygon, etc.), `flyTo` the layer center instead of `fitBounds` —
+ *    polygon, etc.), `flyTo` the layer center instead of `fitBounds` �?
  *    `fitBounds` on a degenerate box has no effect.
  * 4. Draw a dashed rectangle on the exact bounds so the user sees exactly
  *    what "this layer" covers.

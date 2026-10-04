@@ -1,6 +1,7 @@
 // LayerControl UI — Mutual-exclusion overlay teardown.
 import { EVENTS } from "#core/event/index.js";
 import type { LayerUI } from "./index.js";
+import type { OverlayPanel } from "./overlayPanel.js";
 
 /**
  * Tear down every surface that competes for the same spot: the map's own
@@ -36,7 +37,7 @@ import type { LayerUI } from "./index.js";
  * The map-popup sweep stays here because Leaflet popups are not a foliplus
  * overlay and have no subscribe-able surface of their own.
  */
-const closeOverlays = (ui: LayerUI): void => {
+const closeOverlays = (op: OverlayPanel, ui: LayerUI): void => {
   // The map's own popup, cleared with the foliplus surfaces: it is Leaflet's,
   // so no panel opener ever saw it. No-op when nothing is open.
   ui.m.map.closePopup();

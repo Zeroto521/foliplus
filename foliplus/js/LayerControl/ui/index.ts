@@ -530,16 +530,16 @@ class LayerUI {
     return resetSolidBasemap(this.listPanel, this);
   }
   openMoreMenu(item: HTMLElement) {
-    return openMoreMenu(this, item);
+    return openMoreMenu(this.overlayPanel, this, item);
   }
   closeMoreMenu(setFocus: boolean) {
-    return closeMoreMenu(this, setFocus);
+    return closeMoreMenu(this.overlayPanel, this, setFocus);
   }
   openAttrsPanel(item: HTMLElement) {
-    return openAttrsPanel(this, item);
+    return openAttrsPanel(this.overlayPanel, this, item);
   }
   closeAttrsPanel(setFocus: boolean) {
-    return closeAttrsPanel(this, setFocus);
+    return closeAttrsPanel(this.overlayPanel, this, setFocus);
   }
   openStylePanel(layerId: string) {
     return openStylePanel(this, layerId);
@@ -568,10 +568,10 @@ class LayerUI {
     return applyStyleLabelState(this);
   }
   renameLayer(layerId: string) {
-    return renameLayer(this, layerId);
+    return renameLayer(this.overlayPanel, this, layerId);
   }
   finishRename(cancel?: boolean) {
-    return finishRename(this, cancel);
+    return finishRename(this.overlayPanel, this, cancel);
   }
   focusLayer(layerId: string) {
     return focusLayer(this.focusController, this, layerId);
