@@ -66,7 +66,7 @@ const handleMoreMenuClick = (ui: LayerUI, event: Event): void => {
   if (action === CONST.ACTION.DELETE_LAYER) {
     // Armed in place: the first click arms, the second one deletes. While armed
     // the menu stays open so the confirming state is visible.
-    if (activateDeleteItem(ui, li)) ui.closeMoreMenu(true);
+    if (activateDeleteItem(ui.overlayPanel, ui, li)) ui.closeMoreMenu(true);
     return;
   }
   if (action === CONST.ACTION.FOCUS_LAYER) ui.focusLayer(ui.activeMenu?.layerId ?? "");

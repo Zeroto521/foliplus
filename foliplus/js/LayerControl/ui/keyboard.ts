@@ -415,7 +415,7 @@ const handleKeyDown = (lp: ListPanel, ui: LayerUI, event: KeyboardEvent): void =
         if (action === CONST.ACTION.DELETE_LAYER) {
           // Armed in place like the click path: the first Enter arms, the
           // second deletes. While armed the menu stays open.
-          if (activateDeleteItem(ui, menuLi)) ui.closeMoreMenu(true);
+          if (activateDeleteItem(ui.overlayPanel, ui, menuLi)) ui.closeMoreMenu(true);
           break;
         }
         if (action === CONST.ACTION.RENAME_LAYER) {

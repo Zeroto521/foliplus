@@ -255,7 +255,7 @@ const bindEvents = (ui: LayerUI): void => {
   // works for rows created after bindEvents (registerLayer at runtime).
   ui.onMoreClick = event => handleMoreClick(ui, event);
   ui.onMoreMenuClick = event => handleMoreMenuClick(ui, event);
-  ui.onMoreMapClick = () => closeMoreMenu(ui, false);
+  ui.onMoreMapClick = () => closeMoreMenu(ui.overlayPanel, ui, false);
   container.addEventListener("click", ui.onMoreClick);
   // Menu click must be on document because the menu is positioned absolute
   // and may visually overflow the panel bounds.
@@ -324,10 +324,10 @@ const bindEvents = (ui: LayerUI): void => {
     // is about to open sees "I'm not open" and no-ops. Focus is guarded by
     // isFocusing so the O(layers) applyProjectionAll sweep only runs when
     // there is actually a focus to tear down.
-    bus.on(EVENTS.OVERLAY_CLEAR, () => closeMoreMenu(ui, true)),
-    bus.on(EVENTS.OVERLAY_CLEAR, () => closeAttrsPanel(ui, false)),
+    bus.on(EVENTS.OVERLAY_CLEAR, () => closeMoreMenu(ui.overlayPanel, ui, true)),
+    bus.on(EVENTS.OVERLAY_CLEAR, () => closeAttrsPanel(ui.overlayPanel, ui, false)),
     bus.on(EVENTS.OVERLAY_CLEAR, () => closeStylePanel(ui, false)),
-    bus.on(EVENTS.OVERLAY_CLEAR, () => finishRename(ui)),
+    bus.on(EVENTS.OVERLAY_CLEAR, () => finishRename(ui.overlayPanel, ui)),
     bus.on(EVENTS.OVERLAY_CLEAR, () => {
       if (ui.isFocusing()) dismissFocus(ui.focusController, ui);
     }),
@@ -393,9 +393,9 @@ const unbindEvents = (ui: LayerUI): void => {
   // here would only reach whatever subscribers are still listening, so call
   // the close functions directly. OVERLAY_CLEAR is reserved for the
   // "open A, close B" user-driven mutual exclusion.
-  closeMoreMenu(ui, false);
+  closeMoreMenu(ui.overlayPanel, ui, false);
   closeStylePanel(ui, false);
-  finishRename(ui, true);
+  finishRename(ui.overlayPanel, ui, true);
   // Remove any focus animation still in flight (rect + row highlight).
   dismissFocus(ui.focusController, ui);
   if (ui.onChange) container.removeEventListener("change", ui.onChange);

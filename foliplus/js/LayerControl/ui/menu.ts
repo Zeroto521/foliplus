@@ -156,7 +156,7 @@ const openMoreMenu = (op: OverlayPanel, ui: LayerUI, item: HTMLElement) => {
   // the fill and return to the grid empty state). The label and tooltip vary
   // by mode �?"Delete Layer" for real deletion, "Clear Data" for component
   // clear �?so the action name matches the effect.
-  const deleteMode = deleteModeFor(ui, layerId);
+  const deleteMode = deleteModeFor(op, ui, layerId);
   if (deleteMode !== "absent") {
     menu.appendChild(
       dom.el("li", {
@@ -165,7 +165,7 @@ const openMoreMenu = (op: OverlayPanel, ui: LayerUI, item: HTMLElement) => {
         "aria-hidden": "true",
       }),
     );
-    menu.appendChild(buildDeleteItem(ui, deleteMode));
+    menu.appendChild(buildDeleteItem(op, ui, deleteMode));
   }
 
   item.style.position = "relative";
@@ -181,7 +181,7 @@ const openMoreMenu = (op: OverlayPanel, ui: LayerUI, item: HTMLElement) => {
   menu.addEventListener("focusout", event => {
     const next = (event as FocusEvent).relatedTarget as Node | null;
     if (next && (next === item || item.contains(next))) return;
-    if (!next || !menu.contains(next)) closeMoreMenu(ui, false);
+    if (!next || !menu.contains(next)) closeMoreMenu(op, ui, false);
   });
 
   op.activeMenu = { item, menu, layerId };
@@ -221,7 +221,7 @@ const deleteModeFor = (op: OverlayPanel, ui: LayerUI, layerId: string): DeleteMo
   if (layerId === CONST.SOLID_BASEMAP_ID) return "delete";
   // Component-owned layers (Measure, Heatmap) clear their data instead of being
   // retired. The id stays registerable so the component can re-draw.
-  if (isComponentLayer(ui, layerId)) return "clear";
+  if (isComponentLayer(op, ui, layerId)) return "clear";
   // `findLayer`, not `registry.get(id).layer`: folium registers its own layers
   // by id only, so the entry's `layer` stays null until something resolves it.
   // Testing the field would read every layer on a real folium map as a component
@@ -309,7 +309,7 @@ const activateDeleteItem = (
   li: HTMLElement,
 ): boolean => {
   if (!li.classList.contains(CONST.CLASSES.MENU_DELETE_ARMED)) {
-    armDelete(ui, li);
+    armDelete(op, ui, li);
     return false;
   }
   const layerId = op.activeMenu?.layerId ?? "";

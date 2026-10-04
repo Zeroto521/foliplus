@@ -66,7 +66,7 @@ const renameLayer = (op: OverlayPanel, ui: LayerUI, layerId: string): void => {
         saveNamesState(ui.listPanel, ui);
         ui.applyUserState();
       }
-      finishRename(ui, true);
+      finishRename(op, ui, true);
     },
     onCancel: reason => {
       // Only an empty-name commit is a user mistake worth flagging;
@@ -88,9 +88,9 @@ const renameLayer = (op: OverlayPanel, ui: LayerUI, layerId: string): void => {
       // blur from re-committing. Enter and blur have no document-level
       // handler to reach, so they tear down immediately.
       if (reason === "escape") {
-        setTimeout(() => finishRename(ui, true), 0);
+        setTimeout(() => finishRename(op, ui, true), 0);
       } else {
-        finishRename(ui, true);
+        finishRename(op, ui, true);
       }
     },
   });
