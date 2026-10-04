@@ -154,7 +154,7 @@ const writeIntentKeys = (
     wrote = true;
   }
   if (!wrote) return false;
-  saveState(ui);
+  saveState(ui.listPanel, ui);
   return true;
 };
 
@@ -176,7 +176,7 @@ const resetIntentKeys = (
   for (const key of keys) {
     ui.intentStore.clear(layerId, key);
   }
-  saveState(ui);
+  saveState(ui.listPanel, ui);
   return true;
 };
 

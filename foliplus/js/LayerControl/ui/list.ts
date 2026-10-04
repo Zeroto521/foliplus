@@ -27,7 +27,7 @@ const initTypesAndVisibility = (lp: ListPanel, ui: LayerUI) => {
   // standard registerLayer path. All visibility / zoom / order machinery
   // then treats it identically to a tile basemap. `surface.register()` is
   // idempotent, so a re-run of this pass is a no-op on the registry side.
-  getColorSurface(ui);
+  getColorSurface(lp, ui);
   const colorLi = ui.m.layerRegistry.get(CONST.SOLID_BASEMAP_ID);
   if (colorLi) {
     // The colour basemap starts unchecked (hidden) by default.

@@ -62,7 +62,7 @@ import {
  */
 const attachUI = (ui: LayerUI, containerDiv: HTMLElement): void => {
   ui.m.uiContainer = containerDiv;
-  loadPersistedState(ui);
+  loadPersistedState(ui.listPanel, ui);
   renderInitialList(ui.listPanel, ui);
   bindEvents(ui);
 

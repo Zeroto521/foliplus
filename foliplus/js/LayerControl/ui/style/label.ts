@@ -60,7 +60,7 @@ const invalidateFields = (ui: LayerUI, layerId: string): void => {
  *  `annotations` segment has no live source anymore: it passes through on
  *  every write, read only as the fallback when the new key is absent. */
 const persistStyleLabel = (ui: LayerUI): void => {
-  saveState(ui);
+  saveState(ui.listPanel, ui);
 };
 
 /** Apply one control change to the layer's config, re-render its labels and

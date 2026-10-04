@@ -11,8 +11,9 @@
 import type { CreateColorAPI } from "#core/layer/index.js";
 import * as CONST from "../const.js";
 import type { LayerUI } from "./index.js";
+import type { ListPanel } from "./listPanel.js";
 
-const getColorSurface = (ui: LayerUI): CreateColorAPI => {
+const getColorSurface = (lp: ListPanel, ui: LayerUI): CreateColorAPI => {
   if (!ui.colorSurface) {
     const surface = ui.m.createColor({
       id: CONST.SOLID_BASEMAP_ID,
@@ -29,9 +30,9 @@ const getColorSurface = (ui: LayerUI): CreateColorAPI => {
   return ui.colorSurface;
 };
 
-const showSolidBasemap = (ui: LayerUI, color: string) => {
+const showSolidBasemap = (lp: ListPanel, ui: LayerUI, color: string) => {
   ui.currentColor = color;
-  const surface = getColorSurface(ui);
+  const surface = getColorSurface(lp, ui);
   surface.setColor(color);
   surface.setVisible(true);
   // Checking the box is a single user action — order the stack now, so the
@@ -39,7 +40,7 @@ const showSolidBasemap = (ui: LayerUI, color: string) => {
   ui.m.enforceOrder();
 };
 
-const hideSolidBasemap = (ui: LayerUI) => {
+const hideSolidBasemap = (lp: ListPanel, ui: LayerUI) => {
   // The surface is created lazily on first show. An init-time hide
   // (the author default is unchecked) runs before any show, so the
   // surface does not exist yet — nothing to hide, and the pane is not
@@ -53,7 +54,7 @@ const hideSolidBasemap = (ui: LayerUI) => {
  *  flush. Called only from LayerManager.deleteLayer — the uncheck path
  *  uses `hideSolidBasemap` instead, which keeps the surface allocated so
  *  a re-check is cheap. */
-const resetSolidBasemap = (ui: LayerUI) => {
+const resetSolidBasemap = (lp: ListPanel, ui: LayerUI) => {
   ui.colorSurface = null;
   ui.currentColor = CONST.COLOR.DEFAULT;
   ui.runtimeStore.setAuthorVisible(CONST.SOLID_BASEMAP_ID, false);

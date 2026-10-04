@@ -61,7 +61,7 @@ const toggleAll = (lp: ListPanel, ui: LayerUI, group: string, newState: boolean)
 
     // No persist per iteration — schedule a single debounced write after the
     // loop so the debounce timer isn't reset for every layer.
-    setVisible(ui, id, newState, false);
+    setVisible(lp, ui, id, newState, false);
     // The executor is the only writer of map membership for this layer:
     // setVisible recorded the intent, so the projection's `visible` field
     // now matches the intended state and the diff fires whatever op is
@@ -72,7 +72,7 @@ const toggleAll = (lp: ListPanel, ui: LayerUI, group: string, newState: boolean)
 
   // Persist the hidden-set after bulk toggle (single debounced write for the
   // batch).
-  saveState(ui);
+  saveState(lp, ui);
 
   // Reconcile the group's count from intent: every row's intent was just
   // rewritten, so a full scan is correct and cheap here (batch operation).
@@ -214,7 +214,7 @@ const applyVisibility = (
   ) as HTMLElement | null;
 
   const oldChecked = intentVisibleOf(ui, id);
-  setVisible(ui, id, visible);
+  setVisible(lp, ui, id, visible);
   applyProjection(ui, id);
 
   // Paint last: the cell reads the intent this transition just recorded.

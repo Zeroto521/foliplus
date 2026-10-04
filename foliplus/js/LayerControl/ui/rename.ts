@@ -62,7 +62,7 @@ const renameLayer = (ui: LayerUI, layerId: string): void => {
         // a re-registration that rebuilds the registry from a third-party
         // layer's own metadata cannot resurrect the author's original name.
         setIntent(ui, layerId, INTENT.NAME, trimmed);
-        saveNamesState(ui);
+        saveNamesState(ui.listPanel, ui);
         ui.applyUserState();
       }
       finishRename(ui, true);

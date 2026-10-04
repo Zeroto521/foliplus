@@ -13,7 +13,7 @@ const toggleFold = (ui: LayerUI, group: string): void => {
   renderInitialList(ui.listPanel, ui);
   initTypesAndVisibility(ui.listPanel, ui);
   ui.refreshAllCounts();
-  saveFoldState(ui);
+  saveFoldState(ui.listPanel, ui);
 };
 
 /** Translate a row's data-layer-id into its registry index. The row carries

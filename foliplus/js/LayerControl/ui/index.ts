@@ -390,19 +390,19 @@ class LayerUI {
 
   // ── delegates: state ──
   loadPersistedState() {
-    return loadPersistedState(this);
+    return loadPersistedState(this.listPanel, this);
   }
   saveFoldState() {
-    return saveFoldState(this);
+    return saveFoldState(this.listPanel, this);
   }
   setVisible(id: string, visible: boolean, persist: boolean = true) {
-    return setVisible(this, id, visible, persist);
+    return setVisible(this.listPanel, this, id, visible, persist);
   }
   saveState() {
-    return saveState(this);
+    return saveState(this.listPanel, this);
   }
   applyUserState(id?: string) {
-    applyUserState(this, id);
+    applyUserState(this.listPanel, this, id);
     // The executor carries visible / opacity / zoomRange only. Border and
     // fill are direct setStyle writes, so without their own replay a reload
     // would restore the drawer's swatch while the map kept the author's
@@ -424,10 +424,10 @@ class LayerUI {
     }
   }
   dropPersistedLayerState(layerId: string) {
-    return dropPersistedLayerState(this, layerId);
+    return dropPersistedLayerState(this.listPanel, this, layerId);
   }
   saveNamesState() {
-    return saveNamesState(this);
+    return saveNamesState(this.listPanel, this);
   }
   // ── delegates: list ──
   initTypesAndVisibility() {
@@ -521,13 +521,13 @@ class LayerUI {
 
   // ── delegates: color / menu / attrs / rename / focus ──
   showSolidBasemap(color: string) {
-    return showSolidBasemap(this, color);
+    return showSolidBasemap(this.listPanel, this, color);
   }
   hideSolidBasemap() {
-    return hideSolidBasemap(this);
+    return hideSolidBasemap(this.listPanel, this);
   }
   resetSolidBasemap() {
-    return resetSolidBasemap(this);
+    return resetSolidBasemap(this.listPanel, this);
   }
   openMoreMenu(item: HTMLElement) {
     return openMoreMenu(this, item);

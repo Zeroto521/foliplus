@@ -184,7 +184,7 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
   if (isColorBasemap(li)) {
     if (color !== undefined) {
       ui.currentColor = color;
-      showSolidBasemap(ui, color);
+      showSolidBasemap(ui.listPanel, ui, color);
     }
     return;
   }
@@ -269,7 +269,7 @@ const resetLayerFill = (ui: LayerUI, layerId: string): void => {
     cancelStyleDimApply(FACE.FILL, layerId);
     resetIntentKeys(ui, layerId, [INTENT.FILL_COLOR, INTENT.FILL_OPACITY]);
     ui.currentColor = CONST.COLOR.DEFAULT;
-    showSolidBasemap(ui, CONST.COLOR.DEFAULT);
+    showSolidBasemap(ui.listPanel, ui, CONST.COLOR.DEFAULT);
     return;
   }
   // Vector / other fillable carriers: descriptor reset owns intent+persist

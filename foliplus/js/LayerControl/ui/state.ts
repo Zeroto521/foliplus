@@ -17,14 +17,15 @@ import { applyProjection, applyProjectionAll } from "./apply.js";
 import { applyNameProjection } from "./context.js";
 import type { LayerUI } from "./index.js";
 import { INTENT, LIVE, getIntent } from "./intent.js";
+import type { ListPanel } from "./listPanel.js";
 
 // CONFIG is a free variable from the IIFE template wrapper (see BaseControl._template).
 const log = createLogger(CONFIG.name);
 
 /** Load every persisted dimension in one call. */
-const loadPersistedState = (ui: LayerUI) => {
+const loadPersistedState = (lp: ListPanel, ui: LayerUI) => {
   const state = ui.m.persistence.load();
-  ui.foldedGroups = new Set(state.foldedGroups);
+  lp.foldedGroups = new Set(state.foldedGroups);
   // Intent values + provenance sink into the store. Read order is the compat
   // contract: the current `layers[id].annotation` key WINS, the legacy
   // top-level `annotations` segment is the fallback underneath (write-new /
@@ -38,15 +39,20 @@ const loadPersistedState = (ui: LayerUI) => {
 
 /** Save fold state to localStorage. */
 
-const saveFoldState = (ui: LayerUI) => {
-  ui.m.persistence.schedule({ foldedGroups: () => [...ui.foldedGroups] });
+const saveFoldState = (lp: ListPanel, ui: LayerUI) => {
+  ui.m.persistence.schedule({ foldedGroups: () => [...lp.foldedGroups] });
 };
 
 /** Whether one dimension still holds a live value. An override with none means
  *  the user reset it, so the dimension drops back to the author's declared
  *  default instead of persisting an empty choice. Unknown overrides (future
  *  dimensions) are treated as live so markOverride never drops a new marker. */
-const hasLiveValue = (ui: LayerUI, id: string, override: LayerOverride): boolean => {
+const hasLiveValue = (
+  lp: ListPanel,
+  ui: LayerUI,
+  id: string,
+  override: LayerOverride,
+): boolean => {
   const live = LIVE[override];
   return live ? live(getIntent(ui, id, override)) : true;
 };
@@ -60,15 +66,15 @@ const hasLiveValue = (ui: LayerUI, id: string, override: LayerOverride): boolean
  *  every id the annotation manager holds a config for joins the walk — a
  *  layer configured *only* for labels still gets an entry (with an empty
  *  `overrides` array, which `parseLayerState` keeps for exactly this). */
-const buildLayerStates = (ui: LayerUI) => {
+const buildLayerStates = (lp: ListPanel, ui: LayerUI) => {
   const annotations = Object.fromEntries(ui.m.annotation.configEntries());
   return ui.intentStore.toPersisted(annotations);
 };
 
 /** Save the per-layer intent -- visibility, opacity, zoom range and the
  *  label config -- coalescing rapid calls. */
-const saveState = (ui: LayerUI) => {
-  ui.m.persistence.schedule({ layers: () => buildLayerStates(ui) });
+const saveState = (lp: ListPanel, ui: LayerUI) => {
+  ui.m.persistence.schedule({ layers: () => buildLayerStates(lp, ui) });
 };
 
 /** Record that the user has set a dimension for one layer. The first action is
@@ -82,8 +88,13 @@ const saveState = (ui: LayerUI) => {
  * @internal Production write paths use LayerIntentStore.set (cohesive mark). Kept
  * as a thin delegate for test spies and the mark-without-set gate.
  */
-const markOverride = (ui: LayerUI, id: string, override: LayerOverride) => {
-  if (!hasLiveValue(ui, id, override)) {
+const markOverride = (
+  lp: ListPanel,
+  ui: LayerUI,
+  id: string,
+  override: LayerOverride,
+) => {
+  if (!hasLiveValue(lp, ui, id, override)) {
     log.warn(
       `markOverride("${override}", "${id}"): no stored value for this dimension, ` +
         `marker not recorded — set the value before marking`,
@@ -98,7 +109,12 @@ const markOverride = (ui: LayerUI, id: string, override: LayerOverride) => {
 /**
  * @internal Production resets use LayerIntentStore.clear (cohesive unmark).
  */
-const unmarkOverride = (ui: LayerUI, id: string, override: LayerOverride) => {
+const unmarkOverride = (
+  lp: ListPanel,
+  ui: LayerUI,
+  id: string,
+  override: LayerOverride,
+) => {
   ui.intentStore.unmark(id, override);
 };
 
@@ -137,7 +153,7 @@ const unmarkOverride = (ui: LayerUI, id: string, override: LayerOverride) => {
  *   hidden and a missing rename must not write undefined.
  */
 
-const applyUserState = (ui: LayerUI, id?: string) => {
+const applyUserState = (lp: ListPanel, ui: LayerUI, id?: string) => {
   const registry = ui.m.layerRegistry;
   const container = ui.uiContainer;
 
@@ -227,7 +243,7 @@ const applyUserState = (ui: LayerUI, id?: string) => {
  * value would be a record claiming the user chose something the record no
  * longer holds, and {@link markOverride} refuses that combination.
  */
-const dropPersistedLayerState = (ui: LayerUI, id: string) => {
+const dropPersistedLayerState = (lp: ListPanel, ui: LayerUI, id: string) => {
   // Style dimensions + their provenance. `name` / `annotation` are cleared
   // by their own callers (manager delete / annotation destroy).
   ui.intentStore.dropRow(id);
@@ -235,7 +251,7 @@ const dropPersistedLayerState = (ui: LayerUI, id: string) => {
 
 /** Save user-assigned names, coalescing rapid calls. */
 
-const saveNamesState = (ui: LayerUI) => {
+const saveNamesState = (lp: ListPanel, ui: LayerUI) => {
   const names: Record<string, string> = {};
   for (const [id, name] of ui.intentStore.nameEntries()) {
     names[id] = name;
@@ -257,6 +273,7 @@ const saveNamesState = (ui: LayerUI) => {
  *   debounce timer for every layer.
  */
 const setVisible = (
+  lp: ListPanel,
   ui: LayerUI,
   id: string,
   visible: boolean,
@@ -270,7 +287,7 @@ const setVisible = (
   // back". The first change is what turns the author's default into the
   // user's own state.
   ui.intentStore.set(id, INTENT.VISIBLE, visible);
-  if (persist) saveState(ui);
+  if (persist) saveState(lp, ui);
 };
 
 /** Get all keyboard-navigable rows: layer items and toggle-all rows, in DOM

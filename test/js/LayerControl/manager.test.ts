@@ -295,13 +295,13 @@ describe("LayerManager", () => {
       invalidateFields: vi.fn(),
       syncToggleAll: vi.fn(),
       intentStore: makeStore(),
-      saveState: () => saveState(m.ui),
+      saveState: () => saveState(m.ui.listPanel, m.ui),
     } as unknown as LayerUI;
 
     expect(m.unregisterLayer("keepcfg")).toBe(true);
     expect(m.annotation.hasConfig("keepcfg")).toBe(true);
 
-    saveState(m.ui);
+    saveState(m.ui.listPanel, m.ui);
     const fields = schedule.mock.calls.at(-1)![0] as {
       layers: () => Record<string, { annotation?: { show?: boolean } }>;
     };
@@ -1809,7 +1809,8 @@ describe("LayerManager", () => {
           base1: ["visible"],
         },
       ),
-      dropPersistedLayerState: (id: string) => dropPersistedLayerState(manager.ui, id),
+      dropPersistedLayerState: (id: string) =>
+        dropPersistedLayerState(manager.ui.listPanel, manager.ui, id),
       saveState,
       saveNamesState,
       invalidateFields: vi.fn(),
@@ -1870,7 +1871,8 @@ describe("LayerManager", () => {
         },
         { overlay1: ["visible", "opacity"] },
       ),
-      dropPersistedLayerState: (id: string) => dropPersistedLayerState(manager.ui, id),
+      dropPersistedLayerState: (id: string) =>
+        dropPersistedLayerState(manager.ui.listPanel, manager.ui, id),
       saveState,
       saveNamesState,
       invalidateFields: vi.fn(),
@@ -1922,8 +1924,8 @@ describe("LayerManager", () => {
         { overlay1: ["opacity"] },
       ),
       dropPersistedLayerState: (id: string) => dropPersistedLayerState(m.ui, id),
-      saveState: () => saveState(m.ui),
-      saveNamesState: () => saveNamesState(m.ui),
+      saveState: () => saveState(m.ui.listPanel, m.ui),
+      saveNamesState: () => saveNamesState(m.ui.listPanel, m.ui),
       invalidateFields: vi.fn(),
       syncToggleAll: vi.fn(),
       syncNoBasemap: vi.fn(),
@@ -3419,7 +3421,7 @@ describe("LayerManager user-assigned names", () => {
     const save = vi.fn();
     manager.ui.saveNamesState = save;
     manager.ui.dropPersistedLayerState = (id: string) =>
-      dropPersistedLayerState(manager.ui, id);
+      dropPersistedLayerState(manager.ui.listPanel, manager.ui, id);
 
     expect(manager.deleteLayer("ext")).toBe(true);
 
