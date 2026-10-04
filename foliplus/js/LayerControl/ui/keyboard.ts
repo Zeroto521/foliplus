@@ -264,24 +264,24 @@ const handleKeyDown = (lp: ListPanel, ui: LayerUI, event: KeyboardEvent): void =
   // dismiss it, and otherwise lifts the keyboard cursor. It runs before the
   // cursor guard below: the point of Escape is to drop the cursor.
   if (event.key === "Escape") {
-    if (ui.activeRenameId) {
+    if (ui.overlayPanel.activeRenameId) {
       // finishRename() removes the input, which blurs it to `<body>`.
       // Restore the row focus the rename started from before dropping the
       // cursor: a cursor parked on <body> leaves the panel unreachable —      // the very next arrow key would not reach this handler. The focusin
       // that fires on the restored row may re-apply the class; the
       // escapeClearCursor() below runs last and wins.
-      const layerId = ui.activeRenameId;
+      const layerId = ui.overlayPanel.activeRenameId;
       ui.finishRename();
       focusLayerRow(lp, ui, layerId);
-    } else if (ui.activeMenu) {
+    } else if (ui.overlayPanel.activeMenu) {
       // closeMoreMenu returns focus to the row, so the cursor must be
       // dropped after it rather than before.
       ui.closeMoreMenu(true);
-    } else if (ui.activeAttrsPanel) {
+    } else if (ui.overlayPanel.activeAttrsPanel) {
       // The attributes panel and the overflow menu both float from the same
       // ⋮ button, so Escape dismisses whichever is on top.
       ui.closeAttrsPanel(true);
-    } else if (ui.stylePanelLayerId) {
+    } else if (ui.overlayPanel.stylePanelLayerId) {
       // The style panel floats from the same ⋮ button; Escape dismisses it
       // and returns focus to its row (the panel's own controls consume the
       // key first, so this is the fallback for Escape from the row, the map,
@@ -396,7 +396,7 @@ const handleKeyDown = (lp: ListPanel, ui: LayerUI, event: KeyboardEvent): void =
       const menuLi = ((document.activeElement as HTMLElement | null)?.closest?.(
         ".foliplus-layer-more-menu li",
       ) ?? null) as HTMLElement | null;
-      if (menuLi && ui.activeMenu) {
+      if (menuLi && ui.overlayPanel.activeMenu) {
         event.preventDefault();
         event.stopPropagation();
         const action = menuLi.getAttribute("data-action") ?? "";
@@ -419,9 +419,9 @@ const handleKeyDown = (lp: ListPanel, ui: LayerUI, event: KeyboardEvent): void =
           break;
         }
         if (action === CONST.ACTION.RENAME_LAYER) {
-          ui.renameLayer(ui.activeMenu.layerId);
+          ui.renameLayer(ui.overlayPanel.activeMenu.layerId);
         } else {
-          ui.focusLayer(ui.activeMenu.layerId);
+          ui.focusLayer(ui.overlayPanel.activeMenu.layerId);
           ui.closeMoreMenu(true);
         }
         break;

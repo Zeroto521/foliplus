@@ -239,7 +239,7 @@ const applyVisibility = (
   // panel's row.
   if (layerInfo.group === GROUP.BASE) {
     applyProjectionAll(ui);
-    ui.styleZoomEndHandler?.();
+    ui.overlayPanel.styleZoomEndHandler?.();
   }
 
   return true;

@@ -75,14 +75,6 @@ import {
   toggleAll,
 } from "./visibility.js";
 
-// Per-instance injection seam — LayerControl passes the env it owns; tests
-// construct LayerUI without one and fall back to identity translators so the
-// module stays free of any CONFIG reference at load time.
-const NO_OP_ENV: { T: (key: string) => string; _: (key: string) => string } = {
-  T: key => `LayerControl.${key}`,
-  _: key => key,
-};
-
 /** UI Controller for LayerControl.
 
  *  Per-panel state lives on one of three view subsystems:
@@ -131,69 +123,6 @@ class LayerUI {
    *  upserts the LayerInfo so the pane participates in `enforceOrder`.
    *  Null until the color basemap is first displayed. */
   colorSurface: CreateColorAPI | null;
-  /** Compat getter — real state lives on `listPanel.foldedGroups`. */
-  get foldedGroups(): Set<string> {
-    return this.listPanel.foldedGroups;
-  }
-  set foldedGroups(v: Set<string>) {
-    this.listPanel.foldedGroups = v;
-  }
-  /** Compat getter — real state lives on `listPanel.checkedCount`. */
-  get checkedCount(): Record<string, { total: number; on: number }> {
-    return this.listPanel.checkedCount;
-  }
-  set checkedCount(v: Record<string, { total: number; on: number }>) {
-    this.listPanel.checkedCount = v;
-  }
-  /** Compat getter — real state lives on `listPanel.activeRenameId`. */
-  get activeRenameId(): string | null {
-    return this.overlayPanel.activeRenameId;
-  }
-  set activeRenameId(v: string | null) {
-    this.overlayPanel.activeRenameId = v;
-  }
-  /** Compat getter — real state lives on `listPanel.dragIdx`. */
-  get dragIdx(): number | null {
-    return this.listPanel.dragIdx;
-  }
-  set dragIdx(v: number | null) {
-    this.listPanel.dragIdx = v;
-  }
-  /** Compat getter — real state lives on `listPanel.lastDragHintAt`. */
-  get lastDragHintAt(): number {
-    return this.listPanel.lastDragHintAt;
-  }
-  set lastDragHintAt(v: number) {
-    this.listPanel.lastDragHintAt = v;
-  }
-  /** Compat getter — real state lives on `listPanel.lastDragOverItem`. */
-  get lastDragOverItem(): HTMLElement | null {
-    return this.listPanel.lastDragOverItem;
-  }
-  set lastDragOverItem(v: HTMLElement | null) {
-    this.listPanel.lastDragOverItem = v;
-  }
-  /** Compat getter — real state lives on `listPanel.activeIdx`. */
-  get activeIdx(): number | null {
-    return this.listPanel.activeIdx;
-  }
-  set activeIdx(v: number | null) {
-    this.listPanel.activeIdx = v;
-  }
-  /** Compat getter — real state lives on `listPanel.listCursor`. */
-  get listCursor(): ListCursor | null {
-    return this.listPanel.listCursor;
-  }
-  set listCursor(v: ListCursor | null) {
-    this.listPanel.listCursor = v;
-  }
-  /** Compat getter — real state lives on `listPanel.interactionCleanup`. */
-  get interactionCleanup(): (() => void) | undefined {
-    return this.listPanel.interactionCleanup;
-  }
-  set interactionCleanup(v: (() => void) | undefined) {
-    this.listPanel.interactionCleanup = v;
-  }
   /** Cleanup for the geometry-focus marquee (focusin/focusout). */
   geometryMarqueeCleanup?: (() => void) | null;
   declare onChange: ((event: Event) => void) | null;
@@ -227,100 +156,10 @@ class LayerUI {
    *  unbind call tears down every listener; the manager no longer drives
    *  these UI methods directly. */
   unsubscribeLayerSignals: Array<() => void>;
-  /** Compat getter — real state lives on `overlayPanel.activeMenu`. */
-  get activeMenu(): {
-    item: HTMLElement;
-    menu: HTMLElement;
-    layerId: string;
-  } | null {
-    return this.overlayPanel.activeMenu;
-  }
-  set activeMenu(
-    v: {
-      item: HTMLElement;
-      menu: HTMLElement;
-      layerId: string;
-    } | null,
-  ) {
-    this.overlayPanel.activeMenu = v;
-  }
-  /** Compat getter — real state lives on `overlayPanel.activeAttrsPanel`. */
-  get activeAttrsPanel(): {
-    item: HTMLElement;
-    panel: HTMLElement;
-    layerId: string;
-  } | null {
-    return this.overlayPanel.activeAttrsPanel;
-  }
-  set activeAttrsPanel(
-    v: {
-      item: HTMLElement;
-      panel: HTMLElement;
-      layerId: string;
-    } | null,
-  ) {
-    this.overlayPanel.activeAttrsPanel = v;
-  }
-  /** Compat getter — real state lives on `overlayPanel.attrsOutsideHandler`. */
-  get attrsOutsideHandler(): ((event: MouseEvent) => void) | null {
-    return this.overlayPanel.attrsOutsideHandler;
-  }
-  set attrsOutsideHandler(v: ((event: MouseEvent) => void) | null) {
-    this.overlayPanel.attrsOutsideHandler = v;
-  }
-  /** Compat getter — real state lives on `overlayPanel.styleOutsideHandler`. */
-  get styleOutsideHandler(): ((event: MouseEvent) => void) | null {
-    return this.overlayPanel.styleOutsideHandler;
-  }
-  set styleOutsideHandler(v: ((event: MouseEvent) => void) | null) {
-    this.overlayPanel.styleOutsideHandler = v;
-  }
-  /** Compat getter — real state lives on `overlayPanel.attrsUnsubscribe`. */
-  get attrsUnsubscribe(): (() => void) | null {
-    return this.overlayPanel.attrsUnsubscribe;
-  }
-  set attrsUnsubscribe(v: (() => void) | null) {
-    this.overlayPanel.attrsUnsubscribe = v;
-  }
-  /** Compat getter — real state lives on `overlayPanel.styleUnsubscribe`. */
-  get styleUnsubscribe(): (() => void) | null {
-    return this.overlayPanel.styleUnsubscribe;
-  }
-  set styleUnsubscribe(v: (() => void) | null) {
-    this.overlayPanel.styleUnsubscribe = v;
-  }
-  /** Compat getter — real state lives on `overlayPanel.styleRefresh`. */
-  get styleRefresh(): (() => void) | null {
-    return this.overlayPanel.styleRefresh;
-  }
-  set styleRefresh(v: (() => void) | null) {
-    this.overlayPanel.styleRefresh = v;
-  }
-  /** Compat getter — real state lives on `overlayPanel.styleZoomEndHandler`. */
-  get styleZoomEndHandler(): (() => void) | null {
-    return this.overlayPanel.styleZoomEndHandler;
-  }
-  set styleZoomEndHandler(v: (() => void) | null) {
-    this.overlayPanel.styleZoomEndHandler = v;
-  }
-  /** Compat getter — real state lives on `overlayPanel.stylePanelLayerId`. */
-  get stylePanelLayerId(): string | null {
-    return this.overlayPanel.stylePanelLayerId;
-  }
-  set stylePanelLayerId(v: string | null) {
-    this.overlayPanel.stylePanelLayerId = v;
-  }
-  /** Compat getter — real state lives on `listPanel.pressInPanel`. */
-  get pressInPanel(): boolean {
-    return this.listPanel.pressInPanel;
-  }
-  set pressInPanel(v: boolean) {
-    this.listPanel.pressInPanel = v;
-  }
 
   constructor(
     manager: LayerManager,
-    env: { T: (key: string) => string; _: (key: string) => string } = NO_OP_ENV,
+    env: { T: (key: string) => string; _: (key: string) => string },
   ) {
     this.manager = manager;
     this.events = ensureEvents(this.m.map);

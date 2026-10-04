@@ -108,7 +108,7 @@ const openStylePanel = (op: OverlayPanel, ui: LayerUI, layerId: string): void =>
   // The row-lookup guard runs before teardown: an unknown id would clear
   // whatever the user had open and then fail to open anything. The panel
   // render stays after closeOverlays �?`renderDelegatedStylePanel` sets
-  // `ui.styleRefresh` on this call, which `closeStylePanel` would wipe.
+  // `ui.overlayPanel.styleRefresh` on this call, which `closeStylePanel` would wipe.
   const item = ui.uiContainer.querySelector(
     `${CONST.SEL.LAYER_ITEM}[${CONST.DATA.LAYER_ID}="${CSS.escape(layerId)}"]`,
   ) as HTMLElement | null;

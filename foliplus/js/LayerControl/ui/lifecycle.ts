@@ -173,8 +173,8 @@ const bindEvents = (ui: LayerUI): void => {
     if (row) {
       const idx = getNavigableItems(ui.listPanel, ui).indexOf(row);
       if (idx !== -1) {
-        ui.activeIdx = idx;
-        ui.listCursor?.setIndex(idx);
+        ui.listPanel.activeIdx = idx;
+        ui.listPanel.listCursor?.setIndex(idx);
         blurActiveItem(ui.listPanel, ui);
         row.classList.add(CONST.CLASSES.FOCUSED);
         // Keep DOM focus on the row so Space/Enter resolve from focus, and
@@ -210,11 +210,11 @@ const bindEvents = (ui: LayerUI): void => {
     const row = owningRow(el);
     if (!row) return;
     const idx = getNavigableItems(ui.listPanel, ui).indexOf(row);
-    if (idx !== -1) ui.activeIdx = idx;
+    if (idx !== -1) ui.listPanel.activeIdx = idx;
     if (!isKeyboardVisibleFocus(el)) return;
     blurActiveItem(ui.listPanel, ui);
     row.classList.add(CONST.CLASSES.FOCUSED);
-    ui.listCursor?.setIndex(idx);
+    ui.listPanel.listCursor?.setIndex(idx);
   };
   // Focus left the row entirely (Tab away, click outside, browser chrome):
   // drop the JS cursor class. Moves within the same row keep it.
@@ -233,7 +233,7 @@ const bindEvents = (ui: LayerUI): void => {
     if (inFloatingPanel(next)) return;
     row.classList.remove(CONST.CLASSES.FOCUSED);
   };
-  ui.interactionCleanup = registerInteractions(ui);
+  ui.listPanel.interactionCleanup = registerInteractions(ui);
   ui.geometryMarqueeCleanup = bindGeometryFocusMarquee(ui.m.map.getContainer());
 
   container.addEventListener("change", ui.onChange);
@@ -415,9 +415,9 @@ const unbindEvents = (ui: LayerUI): void => {
   if (ui.onMoreMapClick) ui.m.map.off("click", ui.onMoreMapClick);
   if (ui.onZoomEnd) ui.m.map.off("zoomend", ui.onZoomEnd);
   clearActiveItem(ui.listPanel, ui);
-  ui.listCursor?.destroy();
-  ui.listCursor = null;
-  ui.interactionCleanup?.();
+  ui.listPanel.listCursor?.destroy();
+  ui.listPanel.listCursor = null;
+  ui.listPanel.interactionCleanup?.();
   ui.geometryMarqueeCleanup?.();
   ui.geometryMarqueeCleanup = null;
   // Flush the last pending write before the timer is cleared.

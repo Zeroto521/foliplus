@@ -211,10 +211,10 @@ const openAttrsPanel = (op: OverlayPanel, ui: LayerUI, item: HTMLElement) => {
       return;
     }
     if (t.closest(`.${CONST.CLASSES.ATTRS_PANEL}`)) {
-      ui.pressInPanel = true;
+      ui.listPanel.pressInPanel = true;
       return;
     }
-    ui.pressInPanel = false;
+    ui.listPanel.pressInPanel = false;
     closeAttrsPanel(op, ui, false);
   };
   document.addEventListener("mousedown", op.attrsOutsideHandler, true);
@@ -234,7 +234,7 @@ const closeAttrsPanel = (op: OverlayPanel, ui: LayerUI, setFocus: boolean) => {
     op.attrsUnsubscribe = null;
   }
   // No panel, no panel press: a stale verdict would block the next real drag.
-  ui.pressInPanel = false;
+  ui.listPanel.pressInPanel = false;
   if (!op.activeAttrsPanel) return;
   const item = op.activeAttrsPanel.item;
   op.activeAttrsPanel.panel.remove();
