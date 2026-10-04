@@ -432,9 +432,12 @@ class HeatmapManager {
     // instead of retiring the id in removedIds, so the heatmap can clear its
     // data and stay registerable for the next source pick. The clear resets
     // the panel to its initial state (the panel's Clear button is the same
-    // operation) and drops the persisted record so a reload does not
-    // resurrect the cleared layer — same teardown as MeasureControl's
-    // LAYER_DELETED -> clearAll.
+    // operation), then persists the now-empty selection: a record with
+    // layerId: null consumes the one-shot auto-select guard, so a reload does
+    // not re-render the very heatmap the user just deleted. Persisting rather
+    // than clearing the record is what makes this stick — dropping it would
+    // make the store look like a first open and let the single-layer
+    // auto-select fire again.
     this.removeLayerDeletedListener = this.events.on(EVENTS.LAYER_DELETED, ({ id }) => {
       if (id !== this.layerId) return;
       if (this.ui) {
@@ -446,7 +449,7 @@ class HeatmapManager {
         this.clearHeatmapCanvas();
         this.syncSourceMeta();
       }
-      this.clearSavedConfig();
+      this.saveConfig();
     });
   }
 
