@@ -145,6 +145,15 @@ class _DynamicNoShape(_ReflectBase):
         self.show = show
 
 
+class _DynamicEmptySpec(_ReflectBase):
+    """A dynamic field whose FieldSpec declares nothing — a declaration bug."""
+
+    _dynamic_fields = {"data": Annotated[list, FieldSpec()]}
+
+    def __init__(self, *, show: bool = True):
+        self.show = show
+
+
 class _DynamicBare(_ReflectBase):
     """A dynamic field entry with no FieldSpec — a declaration bug."""
 
@@ -349,8 +358,14 @@ def test_dynamic_field_clashing_with_a_parameter_fails_loud() -> None:
 
 def test_dynamic_field_without_a_shape_fails_loud() -> None:
     """A dynamic field whose FieldSpec carries no descriptor is a bug."""
-    with pytest.raises(ValueError, match="sets no shape"):
+    with pytest.raises(ValueError, match="FieldSpec needs both"):
         derive_schema(_DynamicNoShape)
+
+
+def test_dynamic_field_with_an_empty_field_spec_fails_loud() -> None:
+    """A FieldSpec that declares neither name nor shape is a declaration bug."""
+    with pytest.raises(ValueError, match="FieldSpec needs both"):
+        derive_schema(_DynamicEmptySpec)
 
 
 def test_dynamic_field_without_a_field_spec_fails_loud() -> None:
