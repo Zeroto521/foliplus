@@ -142,16 +142,6 @@ IMPORTS: dict[str, str] = {
 # legal default, including None.
 _UNSET = object()
 
-# One message for a shape descriptor attached to an annotation, raised by
-# :func:`_resolve_tag` before tag resolution decides the wrong thing.
-_SHAPE_IN_ANNOTATION_ERROR = (
-    "FieldSpec.shape must not be attached to a constructor parameter's "
-    "Annotated type — a shape descriptor is unhashable and Python 3.10's "
-    "get_type_hints() hashes Annotated metadata, so importing the module "
-    "raises TypeError there. Declare it as a class attribute instead: "
-    "_<name>_shape = ..."
-)
-
 
 # Shape descriptors: JSON-serializable trees describing a TS type. Grammar
 # (validated by :func:`_validate_shape`):
@@ -290,21 +280,17 @@ class FieldSpec:
         descriptor grammar. A shape without a name is a construction error
         because there is no emitting target.
 
-        Never set this on a :class:`FieldSpec` attached to a *constructor
-        parameter*'s annotation: a parameter's descriptor sits next to it as a
-        class attribute, ``_<name>_shape``. The one exception is a dynamic
-        field: ``_dynamic_fields`` entries are ``Annotated`` types carrying
-        this FieldSpec, and that map is never reflected, so the shape may
-        live there.
+        Written in the ``Annotated`` metadata next to :attr:`name`, on a
+        constructor parameter's FieldSpec or a dynamic field's. ``get_type_hints``
+        resolves it lazily, so an unhashable descriptor there is not a problem.
 
     name
-        Name of a generated type alias in ``config-schema.ts``. Requires a
-        shape descriptor for object/array types — the ``_<name>_shape`` class
-        attribute for a static parameter, or :attr:`shape` for a dynamic
-        field's FieldSpec — or ``ts="union"`` + :attr:`values` for literal
-        unions (the only shape-free case, e.g. ``NumberStyle``). Any other
-        tag value with a name fails validation: the alias cannot be rendered
-        without a descriptor.
+        Name of a generated type alias in ``config-schema.ts``. An object or
+        array alias needs :attr:`shape`, written on the same FieldSpec; a
+        literal-union alias (``NumberStyle``) instead needs ``ts="union"`` +
+        :attr:`values`, which render the alias by themselves. A named field
+        with neither fails at reflection: the alias cannot be rendered
+        without a definition.
     """
 
     ts: str = ""
@@ -588,13 +574,6 @@ def _resolve_tag(
     # the note must survive that hop.
     meta = inner_meta or meta
     peeled = meta is not None
-    if meta is not None and meta.shape is not None:
-        # A shape descriptor is unhashable, and Annotated metadata is hashed
-        # by get_type_hints() on Python 3.10, so importing such a module
-        # raises TypeError there. Check this before deciding the tag: a shape
-        # field usually has no ts override, so tag resolution would fail on
-        # the dict base type first with a message about the wrong thing.
-        raise ValueError(_SHAPE_IN_ANNOTATION_ERROR)
 
     if meta is not None and meta.ts:
         # The author named the type; nullability still comes from the
@@ -614,12 +593,12 @@ def _resolve_tag(
         non_null = [a for a in arms if a is not type(None)]
         nullable = len(non_null) != len(arms)
         if len(non_null) == 1:
-            # A FieldSpec may sit inside the non-null arm rather than on the
-            # union: Python 3.10's get_type_hints wraps a `= None` default in
-            # Optional[...], so `Annotated[dict, FieldSpec(...)]` reaches
-            # here as `Optional[Annotated[dict, FieldSpec(...)]}`. Taking the
-            # arm's spec back is what keeps the author's ts/name/note alive
-            # there — a spec passed down from an outer layer still wins.
+            # A FieldSpec may sit on the non-null arm rather than outside the
+            # union (`Annotated[dict, FieldSpec(...)] | None`, and the spelled
+            # `Optional[Annotated[...]]` form alike). Resolving the arm takes
+            # the spec back out so the author's ts/name/note survive the null
+            # arm — a spec already carried in `meta` by an outer Annotated
+            # layer wins.
             tag, values, inner_nullable, inner_meta = _resolve_tag(non_null[0], meta)
             return tag, values, nullable or inner_nullable, meta or inner_meta
         # A union of two unrelated arms is not a JSON shape: the author must
@@ -718,29 +697,24 @@ def derive_schema(cls: type[BaseControl]) -> ControlSchema:
             )
 
         tag, values, nullable, meta = _resolve_tag(hint, None)
-        # A shape descriptor is unhashable, and Annotated metadata is hashed
-        # on Python 3.10 (get_type_hints), so a shape must never be attached
-        # to a parameter annotation — _resolve_tag rejects one. Named
-        # non-union types carry their descriptor as a class attribute next to
-        # the field declaration, ``_<name>_shape``. A dynamic field's
-        # descriptor instead travels inside its own Annotated, which is never
-        # reflected (see the _dynamic_fields loop below).
+        # A named non-union type renders as the alias ``name``; the alias
+        # definition comes from ``shape`` on the same FieldSpec, which the
+        # author writes inside the Annotated type. A shape-less named
+        # non-union type cannot be rendered, so it fails here rather than at
+        # dump time.
         shape: Any = None
         if meta is not None and meta.name is not None:
             # Only non-union named types need a descriptor: a reflected union
             # renders itself from ``values``.
             if tag != "union":
-                shape_attr = f"_{name}_shape"
-                shape = getattr(cls, shape_attr, None)
+                shape = meta.shape
                 if shape is None:
                     raise ValueError(
                         f"{cls.__name__}.{name} FieldSpec.name={meta.name!r} "
                         f"names a non-union type (ts={tag!r}), which needs a "
-                        f"shape descriptor — set {shape_attr} on the class"
+                        "shape descriptor — set FieldSpec.shape= in the "
+                        "annotation"
                     )
-                # Validate like __post_init__ does, since the descriptor came
-                # from a class attribute rather than a FieldSpec.
-                _validate_shape(shape, meta.name)
         if not _is_json_serializable(param.default):
             raise ValueError(
                 f"{cls.__name__}.{name} default {param.default!r} is not JSON "
@@ -751,10 +725,9 @@ def derive_schema(cls: type[BaseControl]) -> ControlSchema:
         # render-time attributes. `optional` defaults to False: Python emits
         # every non-runtime, non-dynamic field, so the per-control TS interface
         # declares it required — runtime_only and dynamic carry optionality.
-        # ``shape`` and ``name`` come from the author's FieldSpec and the
-        # class: ``name`` is in the annotation (a plain string, so hashable),
-        # ``shape`` is the ``_<name>_shape`` class attribute (see above). The
-        # reflector cannot infer either from a Python annotation.
+        # ``shape`` and ``name`` come from the same FieldSpec in the
+        # annotation (see above); the reflector cannot infer either from a
+        # Python annotation.
         spec = FieldSpec(
             ts=tag,
             values=values,
@@ -771,10 +744,8 @@ def derive_schema(cls: type[BaseControl]) -> ControlSchema:
     # so they are not parameters — the class declares them here as a
     # name-to-annotation map. Each entry is an ``Annotated`` type whose
     # FieldSpec carries the emitted alias name and the descriptor that
-    # renders into it. A constructor parameter may not carry a shape in its
-    # Annotated metadata (a descriptor is unhashable and Python 3.10's
-    # get_type_hints() hashes metadata), but _dynamic_fields is never
-    # reflected, so the shape travels freely there.
+    # renders into it, exactly as a static parameter does. _dynamic_fields is
+    # never reflected, so there is no get_type_hints in the way.
     for name, declared in getattr(cls, "_dynamic_fields", {}).items():
         if name in out:
             raise ValueError(

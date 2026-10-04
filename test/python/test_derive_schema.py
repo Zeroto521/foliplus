@@ -163,47 +163,33 @@ class _DynamicBare(_ReflectBase):
         self.show = show
 
 
-class _NamedType(_ReflectBase):
-    """A named non-union type: its descriptor sits on the class, not the
-    FieldSpec. A shape in Annotated metadata is unhashable, which breaks
-    ``get_type_hints()`` on Python 3.10.
-    """
+_CFG_SHAPE = {"baseUrl": ("string", "?")}
 
-    _cfg_shape = {"baseUrl": ("string", "?")}
+
+class _NamedType(_ReflectBase):
+    """A named non-union type: its descriptor travels with its name in the
+    same FieldSpec.
+    """
 
     def __init__(
         self,
         *,
         cfg: Annotated[
-            dict, FieldSpec(ts="ProviderConfig", name="ProviderConfig")
+            dict,
+            FieldSpec(ts="ProviderConfig", name="ProviderConfig", shape=_CFG_SHAPE),
         ] = None,
     ):
         self.cfg = cfg
 
 
 class _NamedTypeNoShape(_ReflectBase):
-    """A named non-union type with no descriptor on the class."""
+    """A named non-union type with no descriptor — a declaration bug."""
 
     def __init__(
         self,
         *,
         cfg: Annotated[
             dict, FieldSpec(ts="ProviderConfig", name="ProviderConfig")
-        ] = None,
-    ):
-        self.cfg = cfg
-
-
-class _ShapeInAnnotation(_ReflectBase):
-    """A shape attached to an annotation — must fail loudly, not as a
-    TypeError from ``get_type_hints()`` on Python 3.10.
-    """
-
-    def __init__(
-        self,
-        *,
-        cfg: Annotated[
-            dict, FieldSpec(name="ProviderConfig", shape={"a": "string"})
         ] = None,
     ):
         self.cfg = cfg
@@ -374,32 +360,26 @@ def test_dynamic_field_without_a_field_spec_fails_loud() -> None:
         derive_schema(_DynamicBare)
 
 
-def test_named_non_union_type_reads_its_shape_from_the_class() -> None:
-    """A named object type carries its descriptor as ``_<name>_shape``."""
+def test_named_non_union_type_reads_its_shape_from_the_annotation() -> None:
+    """A named object type carries its descriptor on its own FieldSpec."""
     schema = derive_schema(_NamedType)
     assert schema["cfg"].ts == "ProviderConfig"
     assert schema["cfg"].name == "ProviderConfig"
     assert schema["cfg"].shape == {"baseUrl": ("string", "?")}
 
 
-def test_named_type_without_a_shape_attribute_fails_loud() -> None:
-    """A named non-union type must declare its descriptor on the class."""
-    with pytest.raises(ValueError, match="_cfg_shape"):
+def test_named_type_without_a_shape_fails_loud() -> None:
+    """A named non-union type must declare its descriptor on its FieldSpec."""
+    with pytest.raises(ValueError, match="FieldSpec.shape"):
         derive_schema(_NamedTypeNoShape)
 
 
-def test_shape_in_an_annotation_fails_loud() -> None:
-    with pytest.raises(ValueError, match="class attribute"):
-        derive_schema(_ShapeInAnnotation)
-
-
 def test_nullable_annotation_does_not_drop_the_field_spec() -> None:
-    """A spec inside the non-null arm must survive nullable unwrapping.
+    """A spec on the non-null arm must survive null-arm unwrapping.
 
-    Python 3.10's ``get_type_hints`` wraps a ``= None`` default in
-    ``Optional[...]`` for us, so this is what an ``Annotated`` spec looks
-    like there. Unwrapping the ``None`` arm must not lose the spec sitting
-    inside the other one — that is what drops a named type's ``name`` on 3.10.
+    ``X | None`` resolves arm by arm, so a spec sitting on the non-null arm
+    must be taken back out rather than dropped — dropping it loses a named
+    type's ``name``.
     """
     spec = FieldSpec(ts="ProviderConfig", name="ProviderConfig")
     tag, values, nullable, meta = _resolve_tag(Annotated[dict, spec] | None, None)

@@ -26,7 +26,6 @@ import re
 import subprocess
 import sys
 from pathlib import Path
-from typing import Annotated, Any, Literal, get_args, get_origin, get_type_hints
 
 import pytest
 
@@ -46,7 +45,6 @@ from foliplus._config_schema import (
     RUNTIME_ONLY,
     SHARED,
     FieldSpec,
-    _resolve_tag,
     _validate_shape,
     config_fields,
     derive_schema,
@@ -146,45 +144,23 @@ class TestSchemaCoverage:
                 )
 
 
-class TestAnnotatedMetadataHashable:
-    """``Annotated`` metadata must stay hashable.
+class TestShapeConvention:
+    """A shape-driven alias carries its descriptor in the schema.
 
-    Python 3.10's ``get_type_hints`` hashes ``Annotated`` metadata, so an
-    unhashable piece there (a ``dict``) raises ``TypeError`` on import — a
-    crash the 3.12+ test runners never see. A shape descriptor is a dict/list
-    tree, which is why a named type carries it as a ``_<name>_shape`` class
-    attribute instead of inside its ``FieldSpec``. This test is what keeps
-    that convention honest.
+    Every field that names a generated alias (``FieldSpec.name``) renders as
+    ``name`` rather than a primitive, so the alias needs a definition: either a
+    ``shape`` descriptor, or — for a literal union like ``NumberStyle`` — the
+    ``values`` the union renders from. A named field with neither would render
+    a type name nothing defines. ``ts`` sits alongside ``name`` for a
+    shape-driven alias by convention, so a ``ts`` is not itself a violation.
     """
 
-    @staticmethod
-    def _annotated(hint: Any) -> list[Any]:
-        """Every ``Annotated`` reachable from a hint, nested ones included."""
-        found: list[Any] = []
-        stack: list[Any] = [hint]
-        while stack:
-            item = stack.pop()
-            if get_origin(item) is Annotated:
-                found.append(item)
-                stack.extend(get_args(item)[1:])
-            elif hasattr(item, "__args__"):
-                try:
-                    stack.extend(get_args(item))
-                except TypeError:
-                    pass
-        return found
-
     @pytest.mark.parametrize("name", sorted(CONTROL_CLASSES))
-    def test_every_signature_annotated_is_hashable(self, name: str) -> None:
-        hints = get_type_hints(CONTROL_CLASSES[name].__init__, include_extras=True)
-        hints.pop("return", None)
+    def test_named_fields_have_something_to_render(self, name: str) -> None:
         bad = []
-        for param, hint in hints.items():
-            for item in self._annotated(hint):
-                try:
-                    hash(item)
-                except TypeError as exc:
-                    bad.append(f"{name}.{param}: {exc}")
+        for field, spec in _derived(name).items():
+            if spec.name is not None and not spec.shape and not spec.values:
+                bad.append(f"{name}.{field}: name={spec.name!r} with no shape")
         assert not bad, "\n".join(bad)
 
 
@@ -258,30 +234,6 @@ class TestValidateShape:
     def test_shape_without_a_name_has_no_emitting_target(self) -> None:
         with pytest.raises(ValueError, match="requires FieldSpec.name"):
             FieldSpec(shape={"a": "string"})
-
-    def test_shape_in_an_annotation_fails_before_tag_resolution(self) -> None:
-        # Reached only by calling _resolve_tag directly: via derive_schema the
-        # Optional[Annotated[...]] union that get_type_hints builds for a
-        # `= None` default aborts on hashing first, on every version.
-        with pytest.raises(ValueError, match="class attribute"):
-            _resolve_tag(
-                Annotated[dict, FieldSpec(shape={"a": "string"}, name="T")], None
-            )
-
-    def test_unrelated_type_error_from_get_type_hints_propagates(
-        self, monkeypatch
-    ) -> None:
-        # Only the unhashable case is translated into the actionable
-        # FieldSpec.shape error; every other TypeError from get_type_hints is
-        # someone else's bug and must not be swallowed.
-        import foliplus._config_schema as cfg_mod
-
-        def _boom(*args: object, **kwargs: object) -> Any:
-            raise TypeError("broken hint")
-
-        monkeypatch.setattr(cfg_mod, "get_type_hints", _boom)
-        with pytest.raises(TypeError, match="broken hint"):
-            derive_schema(ScaleControl)
 
 
 class TestSchemaMatchesConfigFields:

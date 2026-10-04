@@ -181,11 +181,6 @@ class SearchControl(BaseControl):
     ... ).add_to(m)
     """
 
-    # Shape descriptor next to the field declaration. Not carried by the
-    # FieldSpec in the annotation below: a descriptor is unhashable, and
-    # Annotated metadata is hashed by get_type_hints() on Python 3.10.
-    _provider_config_shape = _PROVIDER_CONFIG_SHAPE
-
     @validate
     def __init__(
         self,
@@ -205,6 +200,7 @@ class SearchControl(BaseControl):
             FieldSpec(
                 ts="ProviderConfig",
                 name="ProviderConfig",
+                shape=_PROVIDER_CONFIG_SHAPE,
                 note="Overrides for a built-in provider; only valid with a "
                 "string provider.",
             ),

@@ -90,10 +90,9 @@ class LayerControl(BaseControl):
     >>> LayerControl().add_to(m)
     """
 
-    # Emitted by _extra_config at render time, not by a constructor parameter,
-    # so it is declared here rather than in __init__. A shape inside Annotated
-    # would be unsafe on a parameter (unhashable metadata breaks Python 3.10's
-    # get_type_hints), but _dynamic_fields is never reflected, so it is safe.
+    # Emitted by _extra_config at render time rather than set by a constructor
+    # parameter, so it is declared here instead of in __init__ — declared the
+    # same way a parameter is, with its alias name and shape in the FieldSpec.
     _dynamic_fields = {
         "data": Annotated[
             list,
