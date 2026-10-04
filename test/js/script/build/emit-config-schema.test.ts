@@ -219,6 +219,15 @@ describe("renderShape", () => {
     expect(renderShape(["string"])).toBe('"string"');
   });
 
+  it("treats Object.prototype names as literal values, not primitives", () => {
+    // Own-property lookup only: `in` or `[]` would resolve "constructor" to
+    // Object's constructor through the prototype chain. Even a genuine
+    // primitive in the same list must not rescue it into primitive-union form:
+    // the whole list degrades to a literal union instead.
+    expect(renderShape(["constructor", "number"])).toBe('"constructor" | "number"');
+    expect(renderShape(["toString", "bool"])).toBe('"toString" | "bool"');
+  });
+
   it("renders a list whose item is not a string as an array", () => {
     expect(renderShape([{ id: "string" }])).toBe("{ id: string }[]");
     expect(renderShape([[{ id: "string" }]])).toBe("{ id: string }[][]");
@@ -274,6 +283,11 @@ describe("renderShape", () => {
     expect(() => renderShape("integer", "T.count")).toThrow(
       'Unknown shape primitive "integer" at T.count — expected one of ' +
         "bool, null, number, string",
+    );
+    // A prototype-chain name must take this path too, not resolve to Object's
+    // constructor and be returned as if it were a TS primitive.
+    expect(() => renderShape("constructor", "T.count")).toThrow(
+      'Unknown shape primitive "constructor" at T.count',
     );
   });
 });

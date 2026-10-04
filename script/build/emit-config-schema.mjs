@@ -145,8 +145,12 @@ const SHAPE_PRIMITIVES = {
  *  content. A list of ≥2 primitive names renders unquoted (`string | number`);
  *  any other all-string list is a literal union (`"base" | "overlay"`). The
  *  length floor keeps a one-element list a literal, so ("string",) cannot
- *  quietly become a bare `string`. */
-const isPrimitiveUnion = x => x.length >= 2 && x.every(v => v in SHAPE_PRIMITIVES);
+ *  quietly become a bare `string`. Primitive lookup is own-property only —
+ *  `in` and `[]` follow Object.prototype, so a shape element named "constructor"
+ *  would otherwise read as a primitive resolving to Object's constructor. */
+const isShapePrimitive = v => Object.prototype.hasOwnProperty.call(SHAPE_PRIMITIVES, v);
+
+const isPrimitiveUnion = x => x.length >= 2 && x.every(isShapePrimitive);
 
 /** True when `t` is a union at its own top level — a `|` outside every pair
  *  of braces, brackets, and parens. Depth matters: `{ group: "base" |
@@ -188,14 +192,13 @@ const parenthesize = t => (isTopLevelUnion(t) ? `(${t})` : t);
 const renderShape = (x, path = "") => {
   if (x === null) return "null";
   if (typeof x === "string") {
-    const primitive = SHAPE_PRIMITIVES[x];
-    if (primitive === undefined) {
+    if (!isShapePrimitive(x)) {
       throw new Error(
         `Unknown shape primitive "${x}" at ${path} — expected one of ` +
           Object.keys(SHAPE_PRIMITIVES).sort().join(", "),
       );
     }
-    return primitive;
+    return SHAPE_PRIMITIVES[x];
   }
   if (Array.isArray(x)) {
     if (x.length === 2 && x[1] === "?") {
