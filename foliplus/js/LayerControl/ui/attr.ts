@@ -23,7 +23,7 @@ import { closeOverlays } from "./teardown.js";
  * fixed rows still read).
  */
 const openAttrsPanel = (op: OverlayPanel, ui: LayerUI, item: HTMLElement) => {
-  closeOverlays(ui.overlayPanel, ui);
+  closeOverlays(op, ui);
 
   const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
   const isColor = layerId === CONST.SOLID_BASEMAP_ID;
