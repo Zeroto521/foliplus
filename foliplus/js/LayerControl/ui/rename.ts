@@ -1,4 +1,4 @@
-// LayerControl UI �?Inline layer rename.
+// LayerControl UI —Inline layer rename.
 import { HINT_DURATION } from "#core/hint.js";
 import {
   createInlineEditInput,
@@ -70,7 +70,7 @@ const renameLayer = (op: OverlayPanel, ui: LayerUI, layerId: string): void => {
     },
     onCancel: reason => {
       // Only an empty-name commit is a user mistake worth flagging;
-      // Escape is an intentional abandon �?stay silent.
+      // Escape is an intentional abandon —stay silent.
       if (reason === "empty") {
         ui.m.map.foliplus!.showHint(
           ui.config.name,
@@ -80,7 +80,7 @@ const renameLayer = (op: OverlayPanel, ui: LayerUI, layerId: string): void => {
       }
       // Escape defers the teardown: tearing the input down now would blur
       // it to `<body>`, and `document.activeElement` is what handleKeyDown's
-      // container guard reads �?a microtask already runs before the keydown
+      // container guard reads —a microtask already runs before the keydown
       // finishes bubbling, so the panel handler sees focus on `<body>` and
       // never reaches the Escape branch. A timeout fires after the whole
       // dispatch is unwound, so the cursor is cleared while the input still
@@ -130,7 +130,7 @@ const finishRename = (op: OverlayPanel, ui: LayerUI, restoreText = true): void =
  * 2. If the layer is not on the map, bring it on temporarily so the bounds
  *    and the visual highlight are consistent with the user's action.
  * 3. If the bounds area is below MIN_BOUNDS_AREA (single Marker, tiny
- *    polygon, etc.), `flyTo` the layer center instead of `fitBounds` �?
+ *    polygon, etc.), `flyTo` the layer center instead of `fitBounds` —
  *    `fitBounds` on a degenerate box has no effect.
  * 4. Draw a dashed rectangle on the exact bounds so the user sees exactly
  *    what "this layer" covers.
