@@ -934,6 +934,117 @@ class TestHeatmapControlBrowser:
             )
             assert not errors, f"JS errors: {errors}"
 
+    def test_delete_layer_does_not_resurrect_on_reload(self, browser, tmp_path):
+        """Deleting the heatmap's own layer in LayerControl's more menu
+        persists an empty selection, so a reload does not auto-select the
+        single point layer and re-render the very heatmap the user deleted.
+
+        Two independent segments: the deletion clears the live page, and the
+        empty selection written to localStorage is what keeps a reload from
+        resurrecting it.
+        """
+        with use_page(
+            self._make_page, browser, tmp_path, expose_ctrl=True, num_layers=1
+        ) as (page, errors):
+            heatmap_ready(page)
+
+            # One point layer: initScan's one-shot auto-select fired, the heatmap
+            # drew its canvas and registered it with LayerControl.
+            pre = page.evaluate(
+                """() => {
+                  const m = window.__heatmapCtrl.manager;
+                  const layers = window.map.foliplus.LayerAPI.layers;
+                  return {
+                    selected: m.selectedLayerId,
+                    heatmapLayer: m.layerId,
+                    hasFeatures: m.cachedFeatures !== null,
+                    registered: layers.some(l => l.id === m.layerId),
+                    rows: layers.length,
+                  };
+                }"""
+            )
+            assert pre["selected"] is not None, "single layer must auto-select"
+            assert pre["hasFeatures"] is True, "auto-select must have rendered"
+            assert pre["registered"] is True, "heatmap canvas must be registered"
+
+            # Delete the heatmap's own layer from LayerControl's more menu.
+            removed = page.evaluate(
+                """() => {
+                  const m = window.__heatmapCtrl.manager;
+                  const before = window.map.foliplus.LayerAPI.layers.length;
+                  window.map.foliplus.LayerAPI.deleteLayer(m.layerId);
+                  return before - window.map.foliplus.LayerAPI.layers.length;
+                }"""
+            )
+            assert removed == 1, (
+                f"expected the heatmap layer deleted, removed {removed}"
+            )
+
+            page.evaluate("() => window.__heatmapCtrl.manager.flush()")
+
+            # Segment 1 — the delete clears the live page immediately, and the
+            # empty selection is PERSISTED (a record with layerId: null) rather
+            # than dropped. That persisted record is the whole point.
+            seg1 = page.evaluate(
+                """() => {
+                  const m = window.__heatmapCtrl.manager;
+                  const key = Object.keys(localStorage).find(
+                    x => x.startsWith("foliplus_heatmap_")
+                  );
+                  const rec = key ? JSON.parse(localStorage.getItem(key)) : null;
+                  return {
+                    selected: m.selectedLayerId,
+                    hasFeatures: m.cachedFeatures !== null,
+                    rows: window.map.foliplus.LayerAPI.layers.length,
+                    recordPresent: rec !== null,
+                    storedLayerId: rec ? rec.layerId : "__no_record__",
+                  };
+                }"""
+            )
+            assert seg1["selected"] is None, "delete must clear the selection"
+            assert seg1["hasFeatures"] is False, "delete must clear the heatmap data"
+            assert seg1["rows"] == pre["rows"] - 1, (
+                f"heatmap row must be gone, rows {seg1['rows']} vs {pre['rows']}"
+            )
+            assert seg1["recordPresent"] is True, (
+                "deleting the layer must persist the empty selection, not drop "
+                "the record"
+            )
+            assert seg1["storedLayerId"] is None, (
+                f"persisted record must carry a cleared selection, "
+                f"got {seg1['storedLayerId']!r}"
+            )
+
+            # Segment 2 — reload. The persisted empty selection consumes the
+            # one-shot auto-select guard, so the deleted heatmap stays deleted.
+            page.reload(wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-heatmap-ctrl", state="attached", timeout=10000
+            )
+            heatmap_ready(page)
+            seg2 = page.evaluate(
+                """() => {
+                  const m = window.__heatmapCtrl.manager;
+                  return {
+                    selected: m.selectedLayerId,
+                    hasFeatures: m.cachedFeatures !== null,
+                    rows: window.map.foliplus.LayerAPI.layers.length,
+                  };
+                }"""
+            )
+            assert seg2["selected"] is None, (
+                f"deleted heatmap must not re-select itself on reload, "
+                f"got {seg2['selected']!r}"
+            )
+            assert seg2["hasFeatures"] is False, (
+                "deleted heatmap must not re-render after a reload"
+            )
+            assert seg2["rows"] == seg1["rows"], (
+                f"reload must not re-register the heatmap canvas, rows "
+                f"{seg2['rows']} vs {seg1['rows']}"
+            )
+            assert not errors, f"JS errors: {errors}"
+
     def test_ui_control_changes_persist(self, browser, tmp_path):
         """Style controls (agg/method/scheme) write to localStorage
         on change, not just the layer select."""
