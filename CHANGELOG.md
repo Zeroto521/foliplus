@@ -95,6 +95,7 @@
 - `LayerControl`: rename `isBase` to `group: "base" | "overlay"` — breaking against the v0.3.x API; migrate `isBase: true` → `group: "base"`, `isBase: false` → `group: "overlay"` ([#524](https://github.com/Zeroto521/foliplus/pull/524))
 - `core/layer`: rename `styleDefaults` to `styleDefaultsProvider` — breaking against the v0.3.x API; migrate `styleDefaults: …` → `styleDefaultsProvider: …` ([#530](https://github.com/Zeroto521/foliplus/pull/530))
 - `ControlPosition`: the shared `Position` type alias is renamed `ControlPosition` to match Leaflet's name; `from foliplus import Position` becomes `ControlPosition` — the constructor parameter is unchanged, only the annotation name is public ([#600](https://github.com/Zeroto521/foliplus/pull/600))
+- `Python`: 3.10 support dropped — the minimum is now 3.11 ([#613](https://github.com/Zeroto521/foliplus/pull/613))
 
 ### Fixed
 
