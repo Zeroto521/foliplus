@@ -51,8 +51,8 @@ function makeUI(): any {
     renameLayer: vi.fn(),
     openStylePanel: vi.fn(),
     openAttrsPanel: vi.fn(),
-    activeIdx: null,
-    activeMenu: null,
+    listPanel: { activeIdx: null },
+    overlayPanel: { activeMenu: null },
   };
 }
 
@@ -213,7 +213,7 @@ describe("LayerControl handleMoreMenuClick", () => {
     if (disabled) li.setAttribute("disabled", "disabled");
     menu.appendChild(li);
 
-    ui.activeMenu = {
+    ui.overlayPanel.activeMenu = {
       item: document.createElement("div"),
       menu,
       layerId: "layer1",
@@ -267,7 +267,7 @@ describe("LayerControl handleMoreMenuClick", () => {
     Object.defineProperty(event, "target", { value: li });
     handleMoreMenuClick(ui, event);
 
-    expect(ui.openAttrsPanel).toHaveBeenCalledWith(ui.activeMenu.item);
+    expect(ui.openAttrsPanel).toHaveBeenCalledWith(ui.overlayPanel.activeMenu.item);
     expect(ui.closeMoreMenu).toHaveBeenCalledWith(true);
   });
 
@@ -327,7 +327,7 @@ describe("LayerControl handleMoreMenuClick", () => {
     const li = document.createElement("li");
     li.dataset.action = "unknown-action";
     menu.appendChild(li);
-    ui.activeMenu = {
+    ui.overlayPanel.activeMenu = {
       item: document.createElement("div"),
       menu,
       layerId: "layer1",
@@ -348,7 +348,7 @@ describe("LayerControl handleMoreMenuClick", () => {
     menu.className = "foliplus-layer-more-menu";
     const li = document.createElement("li");
     menu.appendChild(li);
-    ui.activeMenu = {
+    ui.overlayPanel.activeMenu = {
       item: document.createElement("div"),
       menu,
       layerId: "layer1",

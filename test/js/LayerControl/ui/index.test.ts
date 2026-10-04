@@ -9,6 +9,7 @@ import { LayerManager } from "#foliplus/LayerControl/manager.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { getIntent, seedIntentMap } from "#foliplus/LayerControl/ui/intent.js";
 import {
+  TEST_ENV,
   TileLayer,
   findItem,
   initFixture,
@@ -141,7 +142,7 @@ describe("LayerUI shell — event subscriptions", () => {
       foliplus: { showHint: vi.fn(), hideHint: vi.fn() },
     };
     const mgr = new LayerManager(m, []);
-    mgr.ui = new LayerUI(mgr);
+    mgr.ui = new LayerUI(mgr, TEST_ENV);
     // registerLayer's pre-attach contract: overlays prepend into the
     // registry, the pending queue only defers the UI insertion until attach.
     mgr.layerRegistry.prepend(lateLayer as never);
@@ -177,7 +178,7 @@ describe("LayerUI shell — delegates", () => {
 
   it("saveFoldState persists the folded-group set", () => {
     const save = vi.spyOn(manager.persistence, "schedule");
-    ui.foldedGroups = new Set(["overlays"]);
+    ui.listPanel.foldedGroups = new Set(["overlays"]);
 
     ui.saveFoldState();
 

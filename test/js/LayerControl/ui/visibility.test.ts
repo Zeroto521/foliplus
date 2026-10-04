@@ -16,6 +16,7 @@ import {
   toggleAll,
 } from "#foliplus/LayerControl/ui/visibility.js";
 import { initFixture, installLeafletGlobals } from "./fixture.js";
+import { TEST_ENV } from "./fixture.js";
 
 // ===========================================================================
 // ui/visibility.ts ?checkbox, group toggle, and the shared visibility
@@ -92,7 +93,7 @@ const fixture = () => {
   for (const li of layers) map._layers.set(li.layer, li.layer);
 
   const manager = new LayerManager(map, layers);
-  manager.ui = new LayerUI(manager);
+  manager.ui = new LayerUI(manager, TEST_ENV);
   manager.attachUI(document.createElement("div"));
   return { map, manager, ui: manager.ui as LayerUI };
 };
@@ -107,7 +108,7 @@ const makeUi = (
   layers: ConstructorParameters<typeof LayerManager>[1],
 ) => {
   const m = new LayerManager(map, layers);
-  m.ui = new LayerUI(m);
+  m.ui = new LayerUI(m, TEST_ENV);
   m.attachUI(document.createElement("div"));
   return m;
 };
@@ -424,31 +425,31 @@ describe("applyVisibility", () => {
       // the synchronous test body bootstraps the counter itself before the
       // first click.
       syncToggleAll(ui.listPanel, ui, GROUP.OVERLAY);
-      expect(ui.checkedCount[GROUP.OVERLAY]).toEqual({
+      expect(ui.listPanel.checkedCount[GROUP.OVERLAY]).toEqual({
         total: 2,
         on: 2,
       });
 
       // Hide overlay1: on 2 → 1. Rescan agrees.
       applyVisibility(ui.listPanel, ui, "overlay1", false);
-      expect(ui.checkedCount[GROUP.OVERLAY]).toEqual({
+      expect(ui.listPanel.checkedCount[GROUP.OVERLAY]).toEqual({
         total: 2,
         on: 1,
       });
       syncToggleAll(ui.listPanel, ui, GROUP.OVERLAY);
-      expect(ui.checkedCount[GROUP.OVERLAY]).toEqual({
+      expect(ui.listPanel.checkedCount[GROUP.OVERLAY]).toEqual({
         total: 2,
         on: 1,
       });
 
       // Hide overlay2: on 1 → 0. Rescan agrees.
       applyVisibility(ui.listPanel, ui, "overlay2", false);
-      expect(ui.checkedCount[GROUP.OVERLAY]).toEqual({
+      expect(ui.listPanel.checkedCount[GROUP.OVERLAY]).toEqual({
         total: 2,
         on: 0,
       });
       syncToggleAll(ui.listPanel, ui, GROUP.OVERLAY);
-      expect(ui.checkedCount[GROUP.OVERLAY]).toEqual({
+      expect(ui.listPanel.checkedCount[GROUP.OVERLAY]).toEqual({
         total: 2,
         on: 0,
       });
@@ -457,7 +458,7 @@ describe("applyVisibility", () => {
       applyVisibility(ui.listPanel, ui, "overlay1", true);
       applyVisibility(ui.listPanel, ui, "overlay2", true);
       syncToggleAll(ui.listPanel, ui, GROUP.OVERLAY);
-      expect(ui.checkedCount[GROUP.OVERLAY]).toEqual({
+      expect(ui.listPanel.checkedCount[GROUP.OVERLAY]).toEqual({
         total: 2,
         on: 2,
       });
@@ -465,7 +466,7 @@ describe("applyVisibility", () => {
       // Setting a value to the same value it already has is a no-op: the
       // delta is zero and the count is unchanged.
       applyVisibility(ui.listPanel, ui, "overlay1", true);
-      expect(ui.checkedCount[GROUP.OVERLAY]).toEqual({
+      expect(ui.listPanel.checkedCount[GROUP.OVERLAY]).toEqual({
         total: 2,
         on: 2,
       });
@@ -478,7 +479,7 @@ describe("applyVisibility", () => {
       // tri-state checkbox off the cached count.
       syncToggleAll(ui.listPanel, ui, GROUP.OVERLAY);
       applyVisibility(ui.listPanel, ui, "overlay1", false);
-      expect(ui.checkedCount[GROUP.OVERLAY]).toEqual({
+      expect(ui.listPanel.checkedCount[GROUP.OVERLAY]).toEqual({
         total: 2,
         on: 1,
       });
@@ -743,7 +744,7 @@ describe("DOM order diverges from registry order", () => {
     for (const li of layers) map._layers.set(li.layer, li.layer);
 
     const manager = new LayerManager(map, layers);
-    manager.ui = new LayerUI(manager);
+    manager.ui = new LayerUI(manager, TEST_ENV);
     manager.attachUI(document.createElement("div"));
     return { map, manager, ui: manager.ui as LayerUI };
   };
@@ -922,7 +923,7 @@ describe("toggleAll base group", () => {
       },
     ];
     const manager = new LayerManager(map, layers);
-    manager.ui = new LayerUI(manager);
+    manager.ui = new LayerUI(manager, TEST_ENV);
     manager.attachUI(document.createElement("div"));
     return { map, manager, ui: manager.ui as LayerUI };
   };

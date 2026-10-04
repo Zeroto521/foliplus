@@ -34,6 +34,7 @@ import {
   pressKey,
 } from "./fixture.js";
 import { GridLayer, TileLayer, installLeafletGlobals } from "./fixture.js";
+import { TEST_ENV } from "./fixture.js";
 
 /** The pane spec list `createLayers` derives from an ordered name list: the
  *  first name is the base pane, everything after it a `sub`. */
@@ -128,7 +129,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
           layer: testPolyLayer,
         },
       ]);
-      const u = new LayerUI(m);
+      const u = new LayerUI(m, TEST_ENV);
       seedIntentMap(u, "visible", { overlay1: false });
       u.intentStore.replaceProvenance({ overlay1: ["visible"] });
 
@@ -154,7 +155,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
           layer: testPolyLayer,
         },
       ]);
-      const u = new LayerUI(m);
+      const u = new LayerUI(m, TEST_ENV);
       // The user checked the layer ON, so it is absent from intents.visible -- but the
       // key exists, so every registered layer must be on the map.
       seedIntentMap(u, "visible", { other: false });
@@ -184,7 +185,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
           layer: testPolyLayer,
         },
       ]);
-      const u = new LayerUI(m);
+      const u = new LayerUI(m, TEST_ENV);
       seedIntentMap(u, "visible", {});
       // No user override — overlay1 keeps its author's declared state, which
       // is `show=False` (absent from the map). Nothing must force it on.
@@ -215,7 +216,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
           canvas,
         },
       ]);
-      const u = new LayerUI(m);
+      const u = new LayerUI(m, TEST_ENV);
       seedIntentMap(u, "visible", {});
       // A canvas layer with a `visible` override clears `HIDDEN` instead of
       // `addLayer` -- it has no Leaflet layer to add.
@@ -241,7 +242,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
           layer: testPolyLayer,
         },
       ]);
-      const u = new LayerUI(m);
+      const u = new LayerUI(m, TEST_ENV);
       seedIntentMap(u, "visible", {
         overlay1: false,
         later: false,
@@ -291,7 +292,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
           layer: testPolyLayer,
         },
       ]);
-      const u = new LayerUI(m);
+      const u = new LayerUI(m, TEST_ENV);
       u.loadPersistedState();
       const schedule = vi.spyOn(u.m.persistence, "schedule");
 
@@ -318,7 +319,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
           canvas,
         },
       ]);
-      const u = new LayerUI(m);
+      const u = new LayerUI(m, TEST_ENV);
       setIntent(u, "canvas1", "visible", false);
 
       u.applyUserState();
@@ -341,7 +342,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
         { id: "overlay1", name: "O", group: "overlay", layer: testPolyLayer },
         { id: "base1", name: "B", group: "base", layer: new TileLayer() },
       ]);
-      const u = new LayerUI(m);
+      const u = new LayerUI(m, TEST_ENV);
 
       u.loadPersistedState();
 
@@ -368,7 +369,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
       const m = new LayerManager(map, [
         { id: "overlay1", name: "O", group: "overlay", layer: testPolyLayer },
       ]);
-      const u = new LayerUI(m);
+      const u = new LayerUI(m, TEST_ENV);
 
       u.loadPersistedState();
 
@@ -399,7 +400,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
         { id: "c", name: "C", group: "overlay", layer: testPolyLayer },
         { id: "d", name: "D", group: "overlay", layer: testPolyLayer },
       ]);
-      const u = new LayerUI(m);
+      const u = new LayerUI(m, TEST_ENV);
 
       u.loadPersistedState();
 
@@ -414,7 +415,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
       const m = new LayerManager(map, [
         { id: "overlay1", name: "O", group: "overlay", layer: testPolyLayer },
       ]);
-      const u = new LayerUI(m);
+      const u = new LayerUI(m, TEST_ENV);
       setIntent(u, "overlay1", "visible", false);
       setIntent(u, "overlay1", "opacity", 0.5);
       setIntent(u, "overlay1", "zoomRange", [3, 12]);
@@ -444,7 +445,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
       const m = new LayerManager(map, [
         { id: "overlay1", name: "O", group: "overlay", layer: testPolyLayer },
       ]);
-      const u = new LayerUI(m);
+      const u = new LayerUI(m, TEST_ENV);
 
       u.loadPersistedState();
 
@@ -466,7 +467,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
         },
       ]);
       map.hasLayer.mockReturnValue(true);
-      const u = new LayerUI(m);
+      const u = new LayerUI(m, TEST_ENV);
       seedIntentMap(u, "visible", {});
 
       vi.useFakeTimers();
@@ -495,7 +496,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
           layer: testPolyLayer,
         },
       ]);
-      const u = new LayerUI(m);
+      const u = new LayerUI(m, TEST_ENV);
       seedIntentMap(u, "visible", { overlay1: false });
       u.intentStore.replaceProvenance({ overlay1: ["visible"] });
 
@@ -514,7 +515,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
       const m = new LayerManager(map, [
         { id: "overlay1", name: "O", group: "overlay", layer: testPolyLayer },
       ]);
-      const u = new LayerUI(m);
+      const u = new LayerUI(m, TEST_ENV);
 
       vi.useFakeTimers();
       const originalStorage = window.localStorage;
@@ -560,7 +561,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
         { id: "overlay1", name: "O", group: "overlay", layer: testPolyLayer },
         { id: "base1", name: "OSM", group: "base", layer: new TileLayer() },
       ]);
-      const u = new LayerUI(m);
+      const u = new LayerUI(m, TEST_ENV);
       seedIntentMap(u, "visible", { overlay1: false });
       // Simulate a container + rows so showSolidBasemap can iterate bases.
       const container = document.createElement("div");
@@ -643,7 +644,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
       };
       const manager = new LayerManager(map, data);
       manager.enforceOrder();
-      manager.ui = new LayerUI(manager);
+      manager.ui = new LayerUI(manager, TEST_ENV);
       vi.useFakeTimers();
       manager.attachUI(container);
       vi.advanceTimersByTime(350);
@@ -793,7 +794,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
         { id: "base1", name: "B1", group: "base", layer: baseLayer },
         { id: "canvas1", name: "Canvas", layer: null, canvas },
       ]);
-      const u = new LayerUI(m);
+      const u = new LayerUI(m, TEST_ENV);
       seedIntentMap(u, "visible", { overlay1: false, base1: false, canvas1: false });
       u.intentStore.replaceProvenance({
         overlay1: ["visible"],
@@ -956,7 +957,7 @@ describe("LayerUI opacity restore / retention", () => {
   it("applyUserState restores a stored opacity onto Path layers", () => {
     const { map, layer, panes } = makeMap();
     const m = new LayerManager(map, [{ id: "overlay1", name: "Poly", layer }]);
-    const u = new LayerUI(m);
+    const u = new LayerUI(m, TEST_ENV);
     seedIntentMap(u, "opacity", { overlay1: 0.45 });
 
     u.applyUserState();
@@ -973,7 +974,7 @@ describe("LayerUI opacity restore / retention", () => {
     const m = new LayerManager(map, [
       { id: "heat", name: "Heat", canvas, layer: null },
     ]);
-    const u = new LayerUI(m);
+    const u = new LayerUI(m, TEST_ENV);
     seedIntentMap(u, "opacity", { heat: 0.25 });
 
     u.applyUserState("heat");
@@ -990,7 +991,7 @@ describe("LayerUI opacity restore / retention", () => {
     // revert to the author default while it waits.
     const { map, layer, panes } = makeMap();
     const m = new LayerManager(map, [{ id: "overlay1", name: "Poly", layer }]);
-    const u = new LayerUI(m);
+    const u = new LayerUI(m, TEST_ENV);
     seedIntentMap(u, "opacity", { overlay1: 0.4, ghost: 0.1 });
 
     u.applyUserState();
@@ -1012,7 +1013,7 @@ describe("LayerUI opacity restore / retention", () => {
     // registered yet.
     const { map, layer } = makeMap();
     const m = new LayerManager(map, [{ id: "overlay1", name: "Poly", layer }]);
-    const u = new LayerUI(m);
+    const u = new LayerUI(m, TEST_ENV);
     seedIntentMap(u, "zoomRange", { overlay1: [4, 10], ghost: [2, 8] });
     u.intentStore.replaceProvenance({ ghost: ["zoomRange"] });
 
@@ -1028,7 +1029,7 @@ describe("LayerUI opacity restore / retention", () => {
   it("leaves a live layer alone when no opacity is stored", () => {
     const { map, layer, setStyle } = makeMap();
     const m = new LayerManager(map, [{ id: "overlay1", name: "Poly", layer }]);
-    const u = new LayerUI(m);
+    const u = new LayerUI(m, TEST_ENV);
     seedIntentMap(u, "opacity", {});
 
     u.applyUserState();
@@ -1504,7 +1505,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
 
     loadPersistedState(ui.listPanel, ui);
 
-    expect(ui.foldedGroups).toEqual(new Set(["Overlay"]));
+    expect(ui.listPanel.foldedGroups).toEqual(new Set(["Overlay"]));
     expect(ui.intentStore.get("overlay1", "opacity")).toBe(0.35);
     expect(ui.intentStore.get("overlay1", "zoomRange")).toEqual([3, 12]);
     expect(ui.intentStore.dumpProvenance().overlay1).toEqual(["opacity", "zoomRange"]);
@@ -1786,14 +1787,14 @@ describe("ui/state intentStore and per-layer state persistence", () => {
     // The value and the provenance write in one call; a reload must derive the
     // same intents.visible back from the stored record so the choice survives the
     // round trip in both directions.
-    const first = new LayerUI(manager);
+    const first = new LayerUI(manager, TEST_ENV);
     vi.useFakeTimers();
     first.setVisible("overlay1", false);
     vi.advanceTimersByTime(CONST.SAVE_DEBOUNCE_MS + 50);
     vi.useRealTimers();
 
     // Reload pass 1: the hide comes back as intent, not as the author default.
-    const u2 = new LayerUI(manager);
+    const u2 = new LayerUI(manager, TEST_ENV);
     u2.loadPersistedState();
     expect(u2.intentStore.dumpIntents()).toEqual({ overlay1: { visible: false } });
     expect(u2.intentVisible("overlay1")).toBe(false);
@@ -1805,7 +1806,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
     vi.advanceTimersByTime(CONST.SAVE_DEBOUNCE_MS + 50);
     vi.useRealTimers();
 
-    const u3 = new LayerUI(manager);
+    const u3 = new LayerUI(manager, TEST_ENV);
     u3.loadPersistedState();
     expect(u3.intentStore.dumpIntents()).toEqual({ overlay1: { visible: true } });
     expect(u3.intentVisible("overlay1")).toBe(true);
@@ -1862,7 +1863,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
     // A restored record or a test fixture can write the value without the
     // marker. The projection reads either half as "the user chose this" — a
     // bare intents.visible entry must never fall back to the author default.
-    const u = new LayerUI(manager);
+    const u = new LayerUI(manager, TEST_ENV);
     seedIntentMap(u, "visible", {});
     setIntent(u, "overlay1", "visible", false);
     u.intentStore.seedProvenance("overlay1", []);

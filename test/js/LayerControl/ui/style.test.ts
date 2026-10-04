@@ -41,7 +41,7 @@ describe("LayerUI style panel", () => {
 
   beforeEach(() => {
     ({ manager, ui, map } = initFixture());
-    ui.foldedGroups = new Set();
+    ui.listPanel.foldedGroups = new Set();
     seedIntentMap(ui, "visible", {});
     window.localStorage.removeItem(CONST.STORAGE.KEY);
     // Seed the field cache so the panel builds: collectFields walks the
@@ -99,7 +99,7 @@ describe("LayerUI style panel", () => {
 
     ui.openStylePanel("overlay1");
 
-    expect(ui.stylePanelLayerId).toBe("overlay1");
+    expect(ui.overlayPanel.stylePanelLayerId).toBe("overlay1");
     const panel = panelOf(item);
     expect(panel).not.toBeNull();
     expect(panel.getAttribute("role")).toBe("dialog");
@@ -154,7 +154,7 @@ describe("LayerUI style panel", () => {
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
 
-    expect(ui.stylePanelLayerId).toBe("overlay1");
+    expect(ui.overlayPanel.stylePanelLayerId).toBe("overlay1");
     const panel = panelOf(item);
     expect(panel).toBeDefined();
     // No labelable field -> the whole Label section is absent, not just empty.
@@ -188,7 +188,7 @@ describe("LayerUI style panel", () => {
     };
     ui.openStylePanel("overlay1");
 
-    expect(ui.stylePanelLayerId).toBeNull();
+    expect(ui.overlayPanel.stylePanelLayerId).toBeNull();
     expect(panelOf(item)).toBeUndefined();
   });
 
@@ -243,7 +243,7 @@ describe("LayerUI style panel", () => {
 
     expect(panelOf(a)).toBeUndefined();
     expect(panelOf(b)).not.toBeNull();
-    expect(ui.stylePanelLayerId).toBe("base1");
+    expect(ui.overlayPanel.stylePanelLayerId).toBe("base1");
   });
 
   it("dismisses the attributes panel when the style panel opens", () => {
@@ -267,7 +267,7 @@ describe("LayerUI style panel", () => {
 
     expect(focusSpy).toHaveBeenCalled();
     expect(panelOf(item)).toBeUndefined();
-    expect(ui.stylePanelLayerId).toBeNull();
+    expect(ui.overlayPanel.stylePanelLayerId).toBeNull();
   });
 
   it("closeStylePanel(setFocus=false) does not focus the layer row", () => {
@@ -310,7 +310,7 @@ describe("LayerUI style panel", () => {
     );
 
     expect(panelOf(item)).toBeUndefined();
-    expect(ui.stylePanelLayerId).toBeNull();
+    expect(ui.overlayPanel.stylePanelLayerId).toBeNull();
     wrapper.remove();
   });
 
@@ -376,7 +376,7 @@ describe("LayerUI style panel", () => {
   it("opens no panel for an empty layer id", () => {
     ui.openStylePanel("");
 
-    expect(ui.stylePanelLayerId).toBeNull();
+    expect(ui.overlayPanel.stylePanelLayerId).toBeNull();
   });
 
   it("renders the avoid-overlap switch, defaulting on from the page", () => {
@@ -716,7 +716,7 @@ describe("LayerUI style panel", () => {
 
     expect(dragstart.defaultPrevented).toBe(true);
     expect(item.classList.contains(CONST.CLASSES.DRAGGING)).toBe(false);
-    expect(ui.dragIdx).toBeNull();
+    expect(ui.listPanel.dragIdx).toBeNull();
   });
 
   it("a press outside the panel still starts the drag", () => {
@@ -1749,7 +1749,7 @@ describe("LayerUI style panel", () => {
     document.dispatchEvent(new MouseEvent("mousedown"));
 
     expect(panelOf(item)).toBeUndefined();
-    expect(ui.stylePanelLayerId).toBeNull();
+    expect(ui.overlayPanel.stylePanelLayerId).toBeNull();
   });
 
   it("does not observe dragstart at all (the browser targets the row)", () => {
@@ -2534,18 +2534,18 @@ describe("LayerUI style panel", () => {
       styleSetters: { labelShow: vi.fn() },
     });
     ui.openStylePanel("heat1");
-    expect(ui.styleUnsubscribe).not.toBeNull();
+    expect(ui.overlayPanel.styleUnsubscribe).not.toBeNull();
 
     // Capture the unsubscribe and verify it is called on close.
-    const unsub = ui.styleUnsubscribe!;
-    ui.styleUnsubscribe = () => {
+    const unsub = ui.overlayPanel.styleUnsubscribe!;
+    ui.overlayPanel.styleUnsubscribe = () => {
       offSpy();
       unsub();
     };
     ui.closeStylePanel(false);
 
     expect(offSpy).toHaveBeenCalled();
-    expect(ui.styleUnsubscribe).toBeNull();
+    expect(ui.overlayPanel.styleUnsubscribe).toBeNull();
   });
 
   it("empty styleSetters does not enable the delegated panel", () => {
@@ -3515,7 +3515,7 @@ describe("LayerUI style panel — zoom range", () => {
 
   beforeEach(() => {
     ({ manager, ui, map } = initFixture());
-    ui.foldedGroups = new Set();
+    ui.listPanel.foldedGroups = new Set();
     seedIntentMap(ui, "visible", {});
     window.localStorage.removeItem(CONST.STORAGE.KEY);
     ui.runtimeStore.setFields("overlay1", [{ name: "count", numeric: true }]);

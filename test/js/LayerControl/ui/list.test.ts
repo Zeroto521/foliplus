@@ -236,7 +236,7 @@ describe("ui/list row placement", () => {
     const { manager, ui } = initFixture({
       data: [{ id: "O1", name: "O1", group: "overlay" }],
     });
-    ui.foldedGroups.add(GROUP.BASE);
+    ui.listPanel.foldedGroups.add(GROUP.BASE);
 
     manager.registerLayer({
       id: "B1",
@@ -282,7 +282,7 @@ describe("ui/list row placement", () => {
     const { ui } = initFixture({
       data: [{ id: "B1", name: "B1", group: "base" }],
     });
-    ui.foldedGroups.add(GROUP.BASE);
+    ui.listPanel.foldedGroups.add(GROUP.BASE);
 
     renderInitialList(ui.listPanel, ui);
 

@@ -76,11 +76,11 @@ const dragEvent = (target: HTMLElement): DragEvent => {
 describe("ui/drag", () => {
   it("toggleFold flips the group and persists fold state", () => {
     const { ui } = initFixture();
-    const before = ui.foldedGroups.has(GROUP.OVERLAY);
+    const before = ui.listPanel.foldedGroups.has(GROUP.OVERLAY);
     toggleFold(ui.listPanel, ui, GROUP.OVERLAY);
-    expect(ui.foldedGroups.has(GROUP.OVERLAY)).toBe(!before);
+    expect(ui.listPanel.foldedGroups.has(GROUP.OVERLAY)).toBe(!before);
     toggleFold(ui.listPanel, ui, GROUP.OVERLAY);
-    expect(ui.foldedGroups.has(GROUP.OVERLAY)).toBe(before);
+    expect(ui.listPanel.foldedGroups.has(GROUP.OVERLAY)).toBe(before);
   });
 
   it("handleDrop is a no-op when no dragIdx is armed", () => {

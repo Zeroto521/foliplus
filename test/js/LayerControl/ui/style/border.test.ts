@@ -127,7 +127,7 @@ describe("layerCanBorder", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.foldedGroups = new Set();
+    ui.listPanel.foldedGroups = new Set();
     seedIntentMap(ui, "visible", {});
   });
 
@@ -284,7 +284,7 @@ describe("authoredBorder", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.foldedGroups = new Set();
+    ui.listPanel.foldedGroups = new Set();
     seedIntentMap(ui, "visible", {});
   });
 
@@ -366,7 +366,7 @@ describe("commit pipeline", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.foldedGroups = new Set();
+    ui.listPanel.foldedGroups = new Set();
     seedIntentMap(ui, "visible", {});
   });
 
@@ -553,7 +553,7 @@ describe("bindBorderRow", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.foldedGroups = new Set();
+    ui.listPanel.foldedGroups = new Set();
     seedIntentMap(ui, "visible", {});
   });
 
@@ -614,7 +614,7 @@ describe("resetLayerBorder", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.foldedGroups = new Set();
+    ui.listPanel.foldedGroups = new Set();
     seedIntentMap(ui, "visible", {});
   });
 
@@ -818,7 +818,7 @@ describe("highlight restore", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.foldedGroups = new Set();
+    ui.listPanel.foldedGroups = new Set();
     seedIntentMap(ui, "visible", {});
   });
 
@@ -991,7 +991,7 @@ describe("applyBorderToLayer", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.foldedGroups = new Set();
+    ui.listPanel.foldedGroups = new Set();
     seedIntentMap(ui, "visible", {});
   });
 
@@ -1073,7 +1073,7 @@ describe("buildBorderRow", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.foldedGroups = new Set();
+    ui.listPanel.foldedGroups = new Set();
     seedIntentMap(ui, "visible", {});
   });
 
@@ -1250,7 +1250,7 @@ describe("border apply scheduler (drag coalesce)", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.foldedGroups = new Set();
+    ui.listPanel.foldedGroups = new Set();
     seedIntentMap(ui, "visible", {});
   });
 
@@ -1410,7 +1410,7 @@ describe("border apply scheduler (drag coalesce)", () => {
     vi.stubGlobal("cancelAnimationFrame", () => {});
 
     // minimal panel chrome so closeStylePanel finds stylePanelLayerId
-    (ui as any).stylePanelLayerId = "vec1";
+    ui.overlayPanel.stylePanelLayerId = "vec1";
     commitBorderColor(ui.overlayPanel, ui, "vec1", "#333333");
     expect(leaf.setStyle).not.toHaveBeenCalled();
 

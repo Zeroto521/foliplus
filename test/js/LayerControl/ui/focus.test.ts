@@ -250,7 +250,7 @@ describe("LayerUI focus", () => {
         layer: { options: {}, eachLayer: vi.fn() },
       });
     }
-    ui.foldedGroups = new Set();
+    ui.listPanel.foldedGroups = new Set();
     seedIntentMap(ui, "visible", {});
     // Folded-group state is persisted to localStorage, so a fold from one test
     // would be re-read by the next test's LayerUI constructor and present as
@@ -1414,7 +1414,7 @@ describe("LayerUI focus", () => {
 
       // navigate to overlay1 by name so activeIdx matches getNavigableItems().
       ui.setActiveItem(1); // overlay1 is index 1 (base1 is 0).
-      expect(ui.activeIdx).toBe(1);
+      expect(ui.listPanel.activeIdx).toBe(1);
 
       // handleKeyDown requires the active element to be inside uiContainer.
       const checkbox = findItem(ui, "overlay1").querySelector(
@@ -1439,7 +1439,7 @@ describe("LayerUI focus", () => {
     it("Enter (without Alt) does NOT trigger focusLayer", () => {
       const focusSpy = vi.spyOn(ui, "focusLayer");
 
-      ui.activeIdx = 0;
+      ui.listPanel.activeIdx = 0;
       const checkbox = findItem(ui, "overlay1").querySelector(
         'input[type="checkbox"]',
       ) as HTMLInputElement;
@@ -1460,7 +1460,7 @@ describe("LayerUI focus", () => {
 
     it("Alt+Enter auto-resolves activeIdx from the focused element, then focuses that layer", () => {
       const focusSpy = vi.spyOn(ui, "focusLayer");
-      ui.activeIdx = null;
+      ui.listPanel.activeIdx = null;
 
       // Focus overlay1's checkbox — handleKeyDown resolves activeIdx
       // from the focused element before checking Alt+Enter, so even starting
@@ -1810,7 +1810,7 @@ describe("LayerUI focus", () => {
 
   describe("toggleFocusedLayer()", () => {
     it("no-ops when the keyboard cursor points at no row", () => {
-      ui.activeIdx = null;
+      ui.listPanel.activeIdx = null;
       expect(() => toggleFocusedLayer(ui.focusController, ui)).not.toThrow();
     });
 
@@ -1821,7 +1821,7 @@ describe("LayerUI focus", () => {
       bare.className = CONST.CLASSES.LAYER_ITEM;
       bare.setAttribute(CONST.DATA.LAYER_ID, "bare");
       ui.uiContainer.appendChild(bare);
-      ui.activeIdx = navigableItems().indexOf(bare);
+      ui.listPanel.activeIdx = navigableItems().indexOf(bare);
       expect(getActiveLayerItem(ui.listPanel, ui)).toBe(bare);
       const changes = vi.fn();
       document.addEventListener("change", changes);
@@ -1836,7 +1836,7 @@ describe("LayerUI focus", () => {
     it("flips the active row's checkbox and dispatches change", () => {
       const item = findItem(ui, "overlay1");
       const box = item.querySelector<HTMLInputElement>('input[type="checkbox"]')!;
-      ui.activeIdx = navigableItems().indexOf(item);
+      ui.listPanel.activeIdx = navigableItems().indexOf(item);
       const changes = vi.fn();
       box.addEventListener("change", changes);
 

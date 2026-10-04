@@ -34,7 +34,7 @@ describe("LayerUI menu", () => {
         layer: { options: {}, eachLayer: vi.fn() },
       });
     }
-    ui.foldedGroups = new Set();
+    ui.listPanel.foldedGroups = new Set();
     seedIntentMap(ui, "visible", {});
     // Folded-group state is persisted to localStorage, so a fold from one test
     // would be re-read by the next test's LayerUI constructor and present as
@@ -124,7 +124,7 @@ describe("LayerUI menu", () => {
 
       // Only one menu at a time — the new one replaced the old.
       expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(1);
-      expect(ui.activeMenu).not.toBeNull();
+      expect(ui.overlayPanel.activeMenu).not.toBeNull();
     });
 
     it("closeMoreMenu(setFocus=true) returns focus to the layer row", () => {
@@ -178,7 +178,7 @@ describe("LayerUI menu", () => {
       );
 
       expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(0);
-      expect(ui.activeMenu).toBeNull();
+      expect(ui.overlayPanel.activeMenu).toBeNull();
     });
 
     it("closes when focus leaves to a null relatedTarget", () => {
@@ -195,7 +195,7 @@ describe("LayerUI menu", () => {
       );
 
       expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(0);
-      expect(ui.activeMenu).toBeNull();
+      expect(ui.overlayPanel.activeMenu).toBeNull();
     });
 
     it("stays open while focus moves within the menu", () => {
@@ -209,7 +209,7 @@ describe("LayerUI menu", () => {
       );
 
       expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(1);
-      expect(ui.activeMenu).not.toBeNull();
+      expect(ui.overlayPanel.activeMenu).not.toBeNull();
     });
 
     it("opens without crashing when the item has no data-layer-id", () => {
@@ -720,7 +720,7 @@ describe("LayerUI menu", () => {
       click(deleteLi);
       expect(deleteLi.classList.contains(CONST.CLASSES.MENU_DELETE_ARMED)).toBe(true);
 
-      ui.activeMenu = null;
+      ui.overlayPanel.activeMenu = null;
 
       expect(activateDeleteItem(ui.overlayPanel, ui, deleteLi)).toBe(true);
       expect(deleteSpy).toHaveBeenCalledWith("");
@@ -739,7 +739,7 @@ describe("LayerUI menu", () => {
           cancelable: true,
         }),
       );
-      expect(ui.activeMenu).not.toBeNull();
+      expect(ui.overlayPanel.activeMenu).not.toBeNull();
 
       const deleteLi = deleteEntryOf(item);
       deleteLi.focus();

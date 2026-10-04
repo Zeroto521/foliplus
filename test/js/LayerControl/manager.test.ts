@@ -25,6 +25,7 @@ import {
 import { ANNOTATION_Z_OFFSET } from "#foliplus/core/layer/index.js";
 import { getLayerAlpha } from "#common/canvasAlpha.js";
 import * as Storage from "#common/storage.js";
+import { TEST_ENV } from "./ui/fixture.js";
 
 const ENFORCE_ORDER_DEBOUNCE_MS = 50;
 
@@ -1738,7 +1739,7 @@ describe("LayerManager", () => {
     // result; a null entry must be skipped rather than reaching
     // insertLayerItem. A null cannot arise from registerLayer, so this is
     // defensive — and it must stay that way.
-    const ui = new LayerUI(manager);
+    const ui = new LayerUI(manager, TEST_ENV);
     manager.pendingRegistrations.push(null as any);
     manager.ui = ui;
     expect(() => ui.attachUI(document.createElement("div"))).not.toThrow();
@@ -3302,7 +3303,7 @@ describe("LayerManager user-assigned names", () => {
     manager = new LayerManager(map, [
       { id: "ext", name: "Provider Layer", group: "overlay", layer: extLayer },
     ]);
-    manager.ui = new LayerUI(manager);
+    manager.ui = new LayerUI(manager, TEST_ENV);
     manager.attachUI(document.createElement("div"));
   });
 
@@ -3337,7 +3338,7 @@ describe("LayerManager user-assigned names", () => {
     const fresh = new LayerManager(map, [
       { id: "ext", name: "Provider Layer", group: "overlay", layer: { options: {} } },
     ]);
-    fresh.ui = new LayerUI(fresh);
+    fresh.ui = new LayerUI(fresh, TEST_ENV);
     window.localStorage.setItem(
       CONST.STORAGE.KEY,
       JSON.stringify({ renamedNames: { ext: "My Layer" } }),
@@ -3360,7 +3361,7 @@ describe("LayerManager user-assigned names", () => {
     const fresh = new LayerManager(map, [
       { id: "ext", name: "Provider Layer", group: "overlay", layer: { options: {} } },
     ]);
-    fresh.ui = new LayerUI(fresh);
+    fresh.ui = new LayerUI(fresh, TEST_ENV);
     window.localStorage.setItem(
       CONST.STORAGE.KEY,
       JSON.stringify({ renamedNames: { heatmap1: "POI Density" } }),

@@ -81,13 +81,13 @@ describe("LayerUI lifecycle — defensive rails", () => {
       // layer row and neither is any panel chrome. The handler must no-op
       // rather than call getNavigableItems / setIndex.
       const setIndexSpy = vi.fn();
-      vi.spyOn(ui.listCursor!, "setIndex").mockImplementation(setIndexSpy);
+      vi.spyOn(ui.listPanel.listCursor!, "setIndex").mockImplementation(setIndexSpy);
 
       const orphan = document.createElement("div");
       ui.uiContainer.appendChild(orphan);
       orphan.dispatchEvent(new MouseEvent("click", { bubbles: true }));
 
-      expect(ui.activeIdx).toBeNull();
+      expect(ui.listPanel.activeIdx).toBeNull();
       expect(setIndexSpy).not.toHaveBeenCalled();
     });
 

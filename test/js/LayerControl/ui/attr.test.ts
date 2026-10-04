@@ -33,7 +33,7 @@ describe("LayerUI attrs", () => {
         layer: { options: {}, eachLayer: vi.fn() },
       });
     }
-    ui.foldedGroups = new Set();
+    ui.listPanel.foldedGroups = new Set();
     seedIntentMap(ui, "visible", {});
     // Folded-group state is persisted to localStorage, so a fold from one test
     // would be re-read by the next test's LayerUI constructor and present as
@@ -287,11 +287,11 @@ describe("LayerUI attrs", () => {
 
       const item = findItem(ui, "attr-live3");
       ui.openAttrsPanel(item);
-      expect(ui.attrsUnsubscribe).toBe(unsubSpy);
+      expect(ui.overlayPanel.attrsUnsubscribe).toBe(unsubSpy);
 
       ui.closeAttrsPanel(item, false);
       expect(unsubSpy).toHaveBeenCalled();
-      expect(ui.attrsUnsubscribe).toBeNull();
+      expect(ui.overlayPanel.attrsUnsubscribe).toBeNull();
 
       vi.restoreAllMocks();
     });
@@ -559,7 +559,7 @@ describe("LayerUI attrs", () => {
       panel.dispatchEvent(
         new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
       );
-      expect(ui.pressInPanel).toBe(true);
+      expect(ui.listPanel.pressInPanel).toBe(true);
 
       // A press outside closes the panel and clears the verdict, so a stale
       // `true` cannot cancel the next legitimate drag.
@@ -567,7 +567,7 @@ describe("LayerUI attrs", () => {
         new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
       );
       expect(item.querySelector(".foliplus-layer-attrs-panel")).toBeNull();
-      expect(ui.pressInPanel).toBe(false);
+      expect(ui.listPanel.pressInPanel).toBe(false);
     });
 
     it("Escape closes an open attributes panel and returns focus to its row", () => {
@@ -601,7 +601,7 @@ describe("LayerUI attrs", () => {
       const panel = document.createElement("div");
       panel.className = CONST.CLASSES.ATTRS_PANEL;
       item.appendChild(panel);
-      ui.activeAttrsPanel = { item, panel, layerId: "overlay1" };
+      ui.overlayPanel.activeAttrsPanel = { item, panel, layerId: "overlay1" };
 
       const checkbox = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
       checkbox.focus();
@@ -614,7 +614,7 @@ describe("LayerUI attrs", () => {
         }) as unknown as KeyboardEvent,
       );
 
-      expect(ui.activeMenu).toBeNull();
+      expect(ui.overlayPanel.activeMenu).toBeNull();
       // One surface per keypress — the panel survives this Escape.
       expect(item.querySelector(".foliplus-layer-attrs-panel")).toBe(panel);
     });
