@@ -588,7 +588,7 @@ describe("LayerUI focus", () => {
   // ─────────────────── inverse mask (dim outside) ───────────────────
 
   describe("focusLayer inverse mask", () => {
-    it("draws a polygon with the view bounds as outer ring and layer bounds as hole", () => {
+    it("draws a polygon with the Web-Mercator world as outer ring and layer bounds as hole", () => {
       const polygonSpy = vi.spyOn(window.L, "polygon");
 
       ui.focusLayer("overlay1");
@@ -600,6 +600,17 @@ describe("LayerUI focus", () => {
       expect(maskCall).toBeTruthy();
       const rings = maskCall![0];
       expect(rings).toHaveLength(2);
+      // Outer ring = the Web-Mercator world envelope: ±85.05° latitude
+      // (just inside the Mercator poles) and ±180° longitude. Chosen so the
+      // dim always covers the viewport after fitBounds zooms — the SVG
+      // renderer clips the off-screen excess.
+      const outer = rings[0];
+      expect(outer).toEqual([
+        { lat: -85.05, lng: -180 },
+        { lat: 85.05, lng: -180 },
+        { lat: 85.05, lng: 180 },
+        { lat: -85.05, lng: 180 },
+      ]);
       // Hole ring = overlay1 bounds: SW(30,100) → NE(40,110).
       const hole = rings[1];
       expect(hole[0]).toEqual({ lat: 30, lng: 100 });
