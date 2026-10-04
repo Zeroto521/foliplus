@@ -1,10 +1,11 @@
 // Geocode provider registry — resolves a provider spec (built-in id, built-in
 // id + overrides, or a declarative custom provider) to a concrete
 // `GeocodeProvider`. Pure lookup — no mutable global state.
+import type { ProviderConfig } from "#foliplus/config-schema.js";
 import { createNominatim } from "./nominatim.js";
 import { createPelias } from "./pelias.js";
 import { createPhoton } from "./photon.js";
-import type { GeocodeProvider, ProviderConfig, SuggestItem } from "./type.js";
+import type { GeocodeProvider, SuggestItem } from "./type.js";
 import { interpolate, joinUrl, safeEval, toItems, withParams } from "./util.js";
 
 type ProviderFactory = (baseUrl: string) => GeocodeProvider;

@@ -6,7 +6,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   PrettierOptions,
   buildConfigSchema,
+  collectNamedTypes,
   main,
+  renderShape,
 } from "#script/build/emit-config-schema.mjs";
 
 const SHORT_NOTE = "short";
@@ -19,6 +21,10 @@ const LONG_NOTE =
 // which said nothing about the schema — the same situation
 // bundle-size-check.test.ts handles with SLOW. Assertions are unchanged.
 const SLOW = 30000;
+
+// Alias declarations are long enough that prettier wraps them; collapse the
+// output to one line so an assertion checks content, not layout.
+const oneLine = (text: string) => text.replace(/\s+/g, " ");
 
 // A minimal but representative schema dump (shape matches foliplus/_config_schema.py).
 const schema = {
@@ -39,7 +45,7 @@ const schema = {
       dynamic: false,
     },
     locale_tables: {
-      ts: "LocaleTables",
+      ts: "object_nested",
       optional: true,
       nullable: false,
       runtime_only: false,
@@ -125,6 +131,17 @@ const schema = {
         dynamic: false,
         default: true,
       },
+      // A named, shape-driven type: exercises the alias declaration and the
+      // single export block it must land in.
+      entries: {
+        ts: "LayerData",
+        name: "LayerData",
+        shape: [{ name: "string", id: "string", group: ["base", "overlay"] }],
+        optional: true,
+        nullable: false,
+        runtime_only: false,
+        dynamic: false,
+      },
     },
     SearchControl: {
       mode: {
@@ -137,12 +154,32 @@ const schema = {
         default: "coord",
       },
       provider_config: {
-        ts: "object",
+        ts: "ProviderConfig",
+        name: "ProviderConfig",
+        shape: {
+          id: "string",
+          baseUrl: ["string", "?"],
+          headers: [{ "*": "string" }, "?"],
+        },
         optional: true,
         nullable: true,
         runtime_only: false,
         dynamic: false,
         default: null,
+      },
+    },
+    // A named type driven by `values` rather than `shape` — the union half of
+    // collectNamedTypes, mirroring HeatmapControl.label_format.
+    HeatmapControl: {
+      label_format: {
+        ts: "union",
+        name: "NumberStyle",
+        values: ["auto", "int", "comma"],
+        optional: true,
+        nullable: false,
+        runtime_only: false,
+        dynamic: false,
+        default: "auto",
       },
     },
     // Shares `position` with `schema.shared` — the first merge pass wins, so the
@@ -158,6 +195,91 @@ const schema = {
     },
   },
 };
+
+// renderShape is the grammar for FieldSpec.shape. It is driven directly here
+// rather than through buildConfigSchema: each of those calls costs a prettier
+// pass, and the grammar cases are about the rendered string, not the layout.
+describe("renderShape", () => {
+  it("renders primitives and null", () => {
+    expect(renderShape("string")).toBe("string");
+    expect(renderShape("number")).toBe("number");
+    expect(renderShape(null)).toBe("null");
+  });
+
+  it("renders an all-string list as a literal union", () => {
+    expect(renderShape(["base", "overlay"])).toBe('"base" | "overlay"');
+  });
+
+  it("renders a list whose item is not a string as an array", () => {
+    expect(renderShape([{ id: "string" }])).toBe("{ id: string }[]");
+    expect(renderShape([[{ id: "string" }]])).toBe("{ id: string }[][]");
+  });
+
+  it("renders a sole '*' key as a Record", () => {
+    expect(renderShape({ "*": "string" })).toBe("Record<string, string>");
+  });
+
+  it("renders named keys with the optional marker and a null value", () => {
+    expect(renderShape({ id: "string", tag: ["string", "?"], stamp: null })).toBe(
+      "{ id: string; tag?: string; stamp: null }",
+    );
+  });
+
+  it("renders an optional Record nested in an object", () => {
+    expect(renderShape({ headers: [{ "*": "string" }, "?"] })).toBe(
+      "{ headers?: Record<string, string> }",
+    );
+  });
+
+  it("rejects the optional marker outside a dict value, naming the path", () => {
+    expect(() => renderShape(["string", "?"], "ProviderConfig.baseUrl")).toThrow(
+      'Optional marker (X, "?") at ProviderConfig.baseUrl is only valid as a dict value',
+    );
+  });
+
+  it("rejects a shape value with no known type, naming the path", () => {
+    expect(() => renderShape(42, "ProviderConfig.id")).toThrow(
+      "Unknown shape type at ProviderConfig.id: number",
+    );
+  });
+});
+
+describe("collectNamedTypes", () => {
+  it("maps each named field to its rendered type, shape- or union-driven", () => {
+    const named = collectNamedTypes(schema);
+    expect([...named.keys()].sort()).toEqual([
+      "LayerData",
+      "NumberStyle",
+      "ProviderConfig",
+    ]);
+    // No prettier here: this is the raw grammar output before layout.
+    expect(named.get("LayerData")).toBe(
+      '{ name: string; id: string; group: "base" | "overlay" }[]',
+    );
+    expect(named.get("ProviderConfig")).toBe(
+      "{ id: string; baseUrl?: string; headers?: Record<string, string> }",
+    );
+    expect(named.get("NumberStyle")).toBe('"auto" | "int" | "comma"');
+  });
+
+  it("skips a named field that has no renderable descriptor", () => {
+    // The dumper cannot produce this — derive_schema requires a shape for a
+    // named non-union type — but a hand-edited dump would reach the branch:
+    // renderType still renders the name, so the missing alias surfaces as a
+    // "Cannot find name" typecheck error rather than a silent bad type.
+    const orphan = {
+      version: 1,
+      shared: {},
+      runtime_only: {},
+      controls: {
+        SearchControl: {
+          provider_config: { ts: "ProviderConfig", name: "ProviderConfig" },
+        },
+      },
+    };
+    expect(collectNamedTypes(orphan).size).toBe(0);
+  });
+});
 
 describe("PrettierOptions", () => {
   it("resolves the repo config so format() agrees with format:check", () => {
@@ -245,7 +367,8 @@ describe("buildConfigSchema", () => {
     async () => {
       const text = await buildConfigSchema(schema);
       expect(text).toContain('mode: "coord" | "addr";');
-      expect(text).toContain("provider_config?: Record<string, unknown> | null;");
+      expect(text).toContain("provider_config?: ProviderConfig | null;");
+      expect(text).toContain("entries?: LayerData;");
     },
     SLOW,
   );
@@ -261,8 +384,70 @@ describe("buildConfigSchema", () => {
       expect(tail).toContain("ConfigSearch");
       expect(tail).toContain("ConfigRuntimeOnly");
       expect(tail).toContain("ComponentConfig");
+      // Named aliases are declared without `export` and re-exported here.
+      expect(tail).toContain("LayerData");
+      expect(tail).toContain("ProviderConfig");
       // No inline exports anywhere else.
       expect(text.indexOf("export type")).toBe(text.lastIndexOf("export type"));
+      expect(text).not.toContain("export type LayerData");
+      expect(text).not.toContain("export type ProviderConfig");
+    },
+    SLOW,
+  );
+
+  it(
+    "declares each named alias once and lets fields reference it by name",
+    async () => {
+      const text = await buildConfigSchema(schema);
+      const flat = oneLine(text);
+      expect(text.match(/^type \w+ = /gm)).toHaveLength(3);
+      expect(flat).toContain(
+        'type LayerData = { name: string; id: string; group: "base" | "overlay" }[];',
+      );
+      expect(flat).toContain(
+        "type ProviderConfig = { id: string; baseUrl?: string; headers?: Record<string, string>; };",
+      );
+      expect(flat).toContain('type NumberStyle = "auto" | "int" | "comma";');
+      // The field carries the alias, not an inlined copy of its shape.
+      expect(flat).toContain("label_format?: NumberStyle;");
+      expect(flat).not.toContain("label_format?: {");
+    },
+    SLOW,
+  );
+
+  it(
+    "emits no alias block when no field declares a name",
+    async () => {
+      const bare = {
+        version: 1,
+        shared: {
+          name: {
+            ts: "string",
+            optional: false,
+            nullable: false,
+            runtime_only: false,
+            dynamic: false,
+          },
+        },
+        runtime_only: {},
+        controls: {
+          FullscreenControl: {
+            hide_self: {
+              ts: "bool",
+              optional: false,
+              nullable: false,
+              runtime_only: false,
+              dynamic: false,
+              default: true,
+            },
+          },
+        },
+      };
+      const text = await buildConfigSchema(bare);
+      expect(text).not.toMatch(/^type \w+ = /m);
+      expect(oneLine(text)).toContain(
+        "export type { ConfigCommon, ConfigFullscreen, ConfigRuntimeOnly, ComponentConfig };",
+      );
     },
     SLOW,
   );

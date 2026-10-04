@@ -98,9 +98,6 @@ const OBJECTS = new Set([
   "object_nested",
   "array_string",
   "array_unknown",
-  "LocaleTables",
-  "NumberStyle",
-  "LayerData",
   "ControlPosition",
   // Inline union, not a name — mirrors _TS_OBJECTS on the Python side, and is
   // deliberately absent from IMPORTS (there is nothing to import for it).
@@ -118,9 +115,6 @@ const RENDER = {
   object_nested: "Record<string, Record<string, string>>",
   array_string: "string[]",
   array_unknown: "unknown[]",
-  LocaleTables: "LocaleTables",
-  NumberStyle: "NumberStyle",
-  LayerData: 'Array<{ name: string; id: string; group: "base" | "overlay" }>',
   ControlPosition: "ControlPosition",
   // Not a name: the SearchControl `provider` field is a union of a built-in
   // provider id and a custom ProviderConfig dict. Python has no alias to
@@ -133,17 +127,70 @@ const RENDER = {
  *  foliplus/_config_schema.py's IMPORTS; the Python side checks that every
  *  tag which renders as a name appears here, so a rename on one side fails
  *  the dump instead of emitting an unimported type. */
-const IMPORTS = [
-  { name: "ControlPosition", from: "leaflet" },
-  { name: "LocaleTables", from: "#common/locale.js" },
-  { name: "NumberStyle", from: "#common/format.js" },
-  { name: "ProviderConfig", from: "#core/geocode/type.js" },
-];
+const IMPORTS = [{ name: "ControlPosition", from: "leaflet" }];
 
-/** Render one field's TS type, including nullable suffix. */
+/** Render a shape descriptor (from FieldSpec.shape) as a TS type.
+ *
+ * Shape grammar (validated by _validate_shape on the Python side):
+ *   - "string" / "number" / "bool" / "null" → TS primitive
+ *   - null → TS null
+ *   - ["a", "b", ...] (all strings) → literal union
+ *   - [X, "?"] → optional field marker (dict value only)
+ *   - [[...]] or [{...}] → array (item is the first element)
+ *   - {"*": V} → Record<string, V>
+ *   - {name: V} → object with named keys
+ *
+ * JSON serializes Python tuples as lists, so the JS side disambiguates:
+ * length-2 with "?" → optional marker; all-strings → union; otherwise → array.
+ */
+const renderShape = (x, path = "") => {
+  if (x === null) return "null";
+  if (typeof x === "string") return x;
+  if (Array.isArray(x)) {
+    if (x.length === 2 && x[1] === "?") {
+      throw new Error(
+        `Optional marker (X, "?") at ${path} is only valid as a dict value`,
+      );
+    }
+    if (x.every(v => typeof v === "string")) {
+      return x.map(v => `"${v}"`).join(" | ");
+    }
+    return renderShape(x[0], `${path}[0]`) + "[]";
+  }
+  if (typeof x === "object") {
+    const keys = Object.keys(x);
+    if (keys.length === 1 && keys[0] === "*") {
+      return `Record<string, ${renderShape(x["*"], `${path}.*`)}>`;
+    }
+    return (
+      "{ " +
+      keys
+        .map(k => {
+          const v = x[k];
+          if (Array.isArray(v) && v.length === 2 && v[1] === "?") {
+            return `${k}?: ${renderShape(v[0], `${path}.${k}`)}`;
+          }
+          return `${k}: ${renderShape(v, `${path}.${k}`)}`;
+        })
+        .join("; ") +
+      " }"
+    );
+  }
+  throw new Error(`Unknown shape type at ${path}: ${typeof x}`);
+};
+
+/** Render one field's TS type, including nullable suffix.
+ *
+ * When the field carries a `name` (a generated alias), the rendered base
+ * type is the name — the alias definition is emitted elsewhere by
+ * buildConfigSchema. This covers both shape-driven types (complex objects/
+ * arrays) and union-driven types (literal unions like NumberStyle).
+ */
 const renderType = field => {
   let base;
-  if (field.ts === "union") {
+  if (field.name) {
+    base = field.name;
+  } else if (field.ts === "union") {
     if (!field.values?.length) {
       throw new Error(`Field with ts='union' must have non-empty values`);
     }
@@ -195,10 +242,36 @@ const emitInterface = (name, schema, { extendsShared = false, indent = "" } = {}
 
 // ── Core (exported for unit tests) ─────────────────────────────────────────
 
+/** Collect generated named types from the schema. Each entry is a
+ *  FieldSpec with a `name` — either shape-driven (complex types) or
+ *  union-driven (literal unions like NumberStyle). Returns a Map of
+ *  name → rendered TS type. */
+const collectNamedTypes = schema => {
+  const named = new Map();
+  const visit = fields => {
+    for (const field of Object.values(fields)) {
+      if (!field.name) continue;
+      if (field.shape) {
+        named.set(field.name, renderShape(field.shape, field.name));
+      } else if (field.ts === "union" && field.values) {
+        named.set(field.name, field.values.map(v => `"${v}"`).join(" | "));
+      }
+    }
+  };
+  visit(schema.shared);
+  visit(schema.runtime_only);
+  for (const controlSchema of Object.values(schema.controls)) {
+    visit(controlSchema);
+  }
+  return named;
+};
+
 /** Generate the config-schema.ts text for one parsed schema JSON object.
  *  Formatted through Prettier with the repo config so the output byte-matches
  *  what format:check enforces on the committed file. */
 const buildConfigSchema = async schema => {
+  const namedTypes = collectNamedTypes(schema);
+
   const lines = [
     "// AUTO-GENERATED by script/build/emit-config-schema.mjs from foliplus/_config_schema.py.",
     "// Do not edit by hand — regenerate with:",
@@ -217,6 +290,15 @@ const buildConfigSchema = async schema => {
     lines.push(`import type { ${imp.name} } from "${imp.from}";`);
   }
   lines.push("");
+
+  // Named type aliases — generated from FieldSpec.name + shape/values.
+  // Declared without `export` and re-exported in the single export block at
+  // the bottom: the eslint rule no-restricted-syntax forbids inline
+  // `export type X = ...` declarations.
+  for (const [name, type] of namedTypes) {
+    lines.push(`type ${name} = ${type};`);
+  }
+  if (namedTypes.size > 0) lines.push("");
 
   // Shared interface
   lines.push(...emitInterface("ConfigCommon", schema.shared), "");
@@ -287,7 +369,10 @@ const buildConfigSchema = async schema => {
   lines.push("");
 
   // Single export at the bottom (codebase lint rule: no inline exports).
+  // Generated named aliases come first — they are declared above but only
+  // exported here, along with the interfaces.
   const allTypes = [
+    ...namedTypes.keys(),
     "ConfigCommon",
     ...Object.keys(schema.controls).map(n => `Config${n.replace("Control", "")}`),
     "ConfigRuntimeOnly",
@@ -343,7 +428,9 @@ const main = async (o = opts) => {
 export {
   PrettierOptions,
   buildConfigSchema,
+  collectNamedTypes,
   main,
+  renderShape,
   RENDER,
   IMPORTS,
   PRIMITIVES,
