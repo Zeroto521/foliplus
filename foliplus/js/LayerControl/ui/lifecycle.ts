@@ -298,14 +298,14 @@ const bindEvents = (ui: LayerUI): void => {
       const layerInfo = registry.get(payload.id);
       if (!layerInfo) return;
       updateLayerItem(ui.listPanel, ui, layerInfo);
-      invalidateFields(ui, payload.id);
+      invalidateFields(ui.overlayPanel, ui, payload.id);
     }),
     bus.on(EVENTS.LAYER_ITEM_REFRESHED, (payload: { id: string }) => {
       const layerInfo = registry.get(payload.id);
       if (layerInfo) initLayerItem(ui.listPanel, ui, layerInfo);
     }),
     bus.on(EVENTS.LAYER_ITEM_REMOVED, (payload: { id: string }) => {
-      invalidateFields(ui, payload.id);
+      invalidateFields(ui.overlayPanel, ui, payload.id);
       dropStyleDimApplies(payload.id);
     }),
     bus.on(EVENTS.LAYER_GROUP_COUNT_CHANGED, (payload: { group: string }) => {
@@ -326,7 +326,7 @@ const bindEvents = (ui: LayerUI): void => {
     // there is actually a focus to tear down.
     bus.on(EVENTS.OVERLAY_CLEAR, () => closeMoreMenu(ui.overlayPanel, ui, true)),
     bus.on(EVENTS.OVERLAY_CLEAR, () => closeAttrsPanel(ui.overlayPanel, ui, false)),
-    bus.on(EVENTS.OVERLAY_CLEAR, () => closeStylePanel(ui, false)),
+    bus.on(EVENTS.OVERLAY_CLEAR, () => closeStylePanel(ui.overlayPanel, ui, false)),
     bus.on(EVENTS.OVERLAY_CLEAR, () => finishRename(ui.overlayPanel, ui)),
     bus.on(EVENTS.OVERLAY_CLEAR, () => {
       if (ui.isFocusing()) dismissFocus(ui.focusController, ui);
@@ -347,7 +347,7 @@ const onLayerItemCountChange = (ui: LayerUI, id: string): void => {
   if (!item) return;
   const layerInfo = ui.m.layerRegistry.get(id);
   if (!layerInfo || layerInfo.group === GROUP.BASE) return;
-  invalidateFields(ui, id);
+  invalidateFields(ui.overlayPanel, ui, id);
 
   applyRowView(ui.listPanel, ui, item, buildRowCell(ui.listPanel, ui, layerInfo));
 
@@ -394,7 +394,7 @@ const unbindEvents = (ui: LayerUI): void => {
   // the close functions directly. OVERLAY_CLEAR is reserved for the
   // "open A, close B" user-driven mutual exclusion.
   closeMoreMenu(ui.overlayPanel, ui, false);
-  closeStylePanel(ui, false);
+  closeStylePanel(ui.overlayPanel, ui, false);
   finishRename(ui.overlayPanel, ui, true);
   // Remove any focus animation still in flight (rect + row highlight).
   dismissFocus(ui.focusController, ui);

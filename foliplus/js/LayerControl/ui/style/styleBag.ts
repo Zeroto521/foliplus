@@ -1,15 +1,15 @@
-// styleBag â€” the shared write / snapshot contract for vector style dimensions
+// styleBag â€?the shared write / snapshot contract for vector style dimensions
 // (fill and border). One place owns the three invariants both faces need:
 //
-//   1. Write contract  â€” committing a value always lights that face's
+//   1. Write contract  â€?committing a value always lights that face's
 //      visibility bit (`stroke: true` / `fill: true`). An author who
 //      declared `stroke: false` / `fill: false` must not swallow the
 //      user's style-panel write (quickstart Facility Points).
-//   2. Snapshot contract â€” `captureStyleBag` records the author's FULL
+//   2. Snapshot contract â€?`captureStyleBag` records the author's FULL
 //      style bag once per leaf (all six keys, including the false flags).
 //      Reset replays that bag, so a forced-on bit goes back to the
 //      author's own value instead of sticking.
-//   3. Face scoping â€” fill and border each write / restore only their own
+//   3. Face scoping â€?fill and border each write / restore only their own
 //      face keys, so one dimension's Reset never clobbers the other's
 //      user value. The bag is whole; the faces are slices of it.
 //
@@ -19,7 +19,7 @@ import { walkLeaf } from "#core/layer/walkLeaf.js";
 import { throttleRaf } from "#common/throttle.js";
 
 /** The author's full vector style bag. Every field is always populated on
- *  capture â€” nothing downstream can tell "the author declared nothing"
+ *  capture â€?nothing downstream can tell "the author declared nothing"
  *  apart from "the author's own value". */
 type StyleBag = {
   color: string;
@@ -30,8 +30,8 @@ type StyleBag = {
   fill: boolean;
 };
 
-/** A node a style walk may reach. `setStyle` alone is not a leaf â€” groups
- *  (L.GeoJSON, L.FeatureGroup) own one too â€” so walks check `eachLayer`
+/** A node a style walk may reach. `setStyle` alone is not a leaf â€?groups
+ *  (L.GeoJSON, L.FeatureGroup) own one too â€?so walks check `eachLayer`
  *  first. */
 type StyleCarrier = L.Layer & {
   setStyle?: (style: Record<string, unknown>) => void;
@@ -47,7 +47,7 @@ type StyleSetter = StyleCarrier & {
 };
 
 /** Which visibility bit a style face owns. `"fill"` and `"stroke"` are the
- *  Leaflet Path write faces â€” the option keys `setStyle` lights. Not the
+ *  Leaflet Path write faces â€?the option keys `setStyle` lights. Not the
  *  same vocabulary as `DIM` (that is dimension registry keys, where border
  *  is `"border"`): keep the two apart, one definition per vocabulary. */
 type StyleFace = "fill" | "stroke";
@@ -60,7 +60,7 @@ const FACE = {
   STROKE: "stroke",
 } as const;
 
-/** Leaflet Path defaults â€” folium's path_options fills most of these in,
+/** Leaflet Path defaults â€?folium's path_options fills most of these in,
  *  so the fallbacks only fire for a bare Leaflet layer. */
 const STYLE_BAG_DEFAULTS: StyleBag = {
   color: "#3388ff",
@@ -177,7 +177,7 @@ const applySchedulers = new Map<string, ApplyBox>();
 const applyKey = (face: StyleFace, layerId: string): string => `${face}:${layerId}`;
 
 /** Queue the apply walk for one face. Later calls in the same frame replace
- *  `run` and coalesce into the one pending frame â€” the walk always reads
+ *  `run` and coalesce into the one pending frame â€?the walk always reads
  *  the latest intent. */
 const scheduleStyleDimApply = (
   face: StyleFace,
@@ -209,7 +209,7 @@ const cancelStyleDimApply = (face: StyleFace, layerId: string): void => {
   applySchedulers.get(applyKey(face, layerId))?.raf.cancel();
 };
 
-/** Retire every face's scheduler entry for one layer id â€” the single
+/** Retire every face's scheduler entry for one layer id â€?the single
  *  unregister drop hook. Covers fill and border in one pass so the caller
  *  never holds two scattered teardowns. */
 const dropStyleDimApplies = (layerId: string): void => {
@@ -223,7 +223,7 @@ const dropStyleDimApplies = (layerId: string): void => {
   }
 };
 
-/** Flush every face's pending walk for one layer id â€” the panel-close
+/** Flush every face's pending walk for one layer id â€?the panel-close
  *  commit boundary. Both faces must land: a dragged border left on a
  *  trailing frame would vanish when the panel disappears. */
 const flushStyleDimApplies = (layerId: string): void => {

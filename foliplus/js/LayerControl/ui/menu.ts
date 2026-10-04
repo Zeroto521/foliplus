@@ -93,8 +93,8 @@ const openMoreMenu = (op: OverlayPanel, ui: LayerUI, item: HTMLElement) => {
   // enable a panel whose Label section would not render (or vice versa).
   const canConfigure =
     (caps && (caps.opacity !== CAP_TIER.NONE || caps.zoomRange !== CAP_TIER.NONE)) ||
-    layerCanLabel(ui, layerId) ||
-    layerHasStyleDelegation(ui, layerId);
+    layerCanLabel(op, ui, layerId) ||
+    layerHasStyleDelegation(op, ui, layerId);
   const styleDisabled = focusReason === "hidden" || !canConfigure;
 
   menu.appendChild(

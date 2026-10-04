@@ -419,8 +419,8 @@ class LayerUI {
     // author's for the other.
     const layerIds = id !== undefined ? [id] : this.intentStore.userSetIds();
     for (const layerId of layerIds) {
-      applyBorderToLayer(this, layerId);
-      replayFillState(this, layerId);
+      applyBorderToLayer(this.overlayPanel, this, layerId);
+      replayFillState(this.overlayPanel, this, layerId);
     }
   }
   dropPersistedLayerState(layerId: string) {
@@ -542,16 +542,16 @@ class LayerUI {
     return closeAttrsPanel(this.overlayPanel, this, setFocus);
   }
   openStylePanel(layerId: string) {
-    return openStylePanel(this, layerId);
+    return openStylePanel(this.overlayPanel, this, layerId);
   }
   closeStylePanel(setFocus: boolean) {
-    return closeStylePanel(this, setFocus);
+    return closeStylePanel(this.overlayPanel, this, setFocus);
   }
   /** Part of the surface `manager` drives (`unregisterLayer` drops a layer's
    *  cached field list). Peer ui/ modules call the module function directly
    *  instead — see the sibling-import convention from #296. */
   invalidateFields(layerId: string) {
-    return invalidateFields(this, layerId);
+    return invalidateFields(this.overlayPanel, this, layerId);
   }
   /** Unregister teardown for the style-apply schedulers: cancel any pending
    *  rAF walk and free the Map entries (both faces in one pass) so a
@@ -565,7 +565,7 @@ class LayerUI {
    *  is captured at load time). Kept for the same reason #296 kept the menu
    *  and rename hubs. */
   applyStyleLabelState() {
-    return applyStyleLabelState(this);
+    return applyStyleLabelState(this.overlayPanel, this);
   }
   renameLayer(layerId: string) {
     return renameLayer(this.overlayPanel, this, layerId);

@@ -1,13 +1,18 @@
-// Frame-level helpers for the style panel — pure DOM builders and math.
+// Frame-level helpers for the style panel �?pure DOM builders and math.
 // No state, no events, no manager calls. Moved verbatim from ui/style.ts
 // Owns the panel's frame pieces: reset footer, and the slider-rail
 // positioning math the opacity / zoom-range rows share.
 import { dom } from "#common/dom.js";
 import type { LayerUI } from "../index.js";
+import type { OverlayPanel } from "../overlayPanel.js";
 
-/** Reset footer — divider + button, same vocabulary for the annotation
+/** Reset footer �?divider + button, same vocabulary for the annotation
  *  and the delegated panel. */
-const appendResetFooter = (ui: LayerUI, content: HTMLElement): void => {
+const appendResetFooter = (
+  op: OverlayPanel,
+  ui: LayerUI,
+  content: HTMLElement,
+): void => {
   content.append(
     dom.el("hr", { class: "foliplus-section-divider" }),
     dom.el(
@@ -30,8 +35,8 @@ const appendResetFooter = (ui: LayerUI, content: HTMLElement): void => {
  *  (`railPos`). */
 const round5 = (n: number): number => Math.round(n * 1e5) / 1e5;
 
-/** Where a percentage along a slider rail lands. Every mark on the rail —
- *  fill ends, the current-level dot and the numbers under them — goes
+/** Where a percentage along a slider rail lands. Every mark on the rail �?
+ *  fill ends, the current-level dot and the numbers under them �?goes
  *  through this one mapping, and it is the rail's own percentage: the
  *  stylesheet insets the rail by half a handle and lets the inputs reach
  *  that far beyond it, so a handle's center *is* its percentage of the

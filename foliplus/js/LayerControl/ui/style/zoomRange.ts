@@ -1,6 +1,6 @@
 // Zoom-range row: dual-thumb rail + current-zoom marker + value labels +
 // live / commit passes. Moved verbatim from ui/style.ts.
-// Used by both the delegated drawer and the annotation panel — the row is
+// Used by both the delegated drawer and the annotation panel �?the row is
 // LayerControl-owned, gated by surface capability.
 import { CAP_TIER, DIM } from "#core/layer/index.js";
 import { dom } from "#common/dom.js";
@@ -8,6 +8,7 @@ import * as CONST from "../../const.js";
 import { applyProjection, authorZoomBoundsForLayer } from "../apply.js";
 import type { LayerUI } from "../index.js";
 import { INTENT, getIntent } from "../intent.js";
+import type { OverlayPanel } from "../overlayPanel.js";
 import { railPos, round5 } from "./frame.js";
 import {
   getDimension,
@@ -21,12 +22,12 @@ import {
  *
  *  The zoomRange capability is derived at the surface (see
  *  `detectCapabilities` in core/layer/LayerSurface.ts). MarkerCluster
- *  and ImageOverlay declare `"none"` — a row that persists a value
+ *  and ImageOverlay declare `"none"` �?a row that persists a value
  *  the write cannot apply is a lie that survives reload. The colour
  *  basemap declares `"pane"` (the executor's `visible` op is the
  *  carrier, same as every other surface). No `isColorBasemap`
  *  special-case, no `group` exemption: capability alone decides. */
-const canShowZoomRange = (ui: LayerUI, layerId: string): boolean => {
+const canShowZoomRange = (op: OverlayPanel, ui: LayerUI, layerId: string): boolean => {
   const li = ui.m.layerRegistry.get(layerId);
   if (!li) return false;
   return ui.m.surfaceFor(li).capabilities.zoomRange !== CAP_TIER.NONE;
@@ -53,7 +54,7 @@ const LABEL_MIN_GAP_PCT = 12;
  *
  *  The numbers belong to the marks that cannot move: the map's two zoom limits
  *  (fixed text at the row's edges) and the current level (placed under its own
- *  dot). The draggable range carries no number of its own — it reports through
+ *  dot). The draggable range carries no number of its own �?it reports through
  *  the bubble while held, and through the rail's geometry the rest of the time.
  *
  *  `--foliplus-slider-dot-size` dots read coverage through their ring: accent where the
@@ -105,10 +106,11 @@ const syncValues = (
 };
 
 /** Update the zoom-range row's visual state: fill position, value labels,
- *  and the out-of-range dimming. Does not write to the map or persistence —
+ *  and the out-of-range dimming. Does not write to the map or persistence �?
  *  that is the commit pass's job. Pass the live thumb values so the row can
  *  update before the change is committed. */
 const syncZoomRangeRow = (
+  op: OverlayPanel,
   ui: LayerUI,
   layerId: string,
   row: HTMLElement,
@@ -159,8 +161,12 @@ const syncZoomRangeRow = (
  *  Initial values come from the layer's zoomRange intent (the persisted
  *  choice),
  *  clamped to the map's current [min, max]. When no range is stored, the
- *  full map range is used — the "author-undeclared" default. */
-const buildZoomRangeRow = (ui: LayerUI, layerId: string): HTMLElement => {
+ *  full map range is used �?the "author-undeclared" default. */
+const buildZoomRangeRow = (
+  op: OverlayPanel,
+  ui: LayerUI,
+  layerId: string,
+): HTMLElement => {
   const [mapMin, mapMax] = authorZoomBoundsForLayer(ui, layerId);
   const stored = getIntent(ui, layerId, INTENT.ZOOM_RANGE);
   const min = stored ? Math.max(stored[0], mapMin) : mapMin;
@@ -243,16 +249,17 @@ const buildZoomRangeRow = (ui: LayerUI, layerId: string): HTMLElement => {
     dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, control),
   );
   syncValues(row, min, max, current, mapMin, mapMax);
-  syncZoomRangeRow(ui, layerId, row);
+  syncZoomRangeRow(op, ui, layerId, row);
 
   return row;
 };
 
 /** Live pass: update the map and visual state without persisting. Called
  *  on every `input` event so the layer responds in real-time as the user
- *  drags a thumb — the slider is a live preview, not a deferred commit.
- *  Value-only write (`setValue`) — provenance marks on the commit pass. */
+ *  drags a thumb �?the slider is a live preview, not a deferred commit.
+ *  Value-only write (`setValue`) �?provenance marks on the commit pass. */
 const applyZoomRangeLive = (
+  op: OverlayPanel,
   ui: LayerUI,
   layerId: string,
   row: HTMLElement,
@@ -262,22 +269,22 @@ const applyZoomRangeLive = (
   const li = ui.m.layerRegistry.get(layerId);
   if (!li) return;
   ui.intentStore.setValue(layerId, INTENT.ZOOM_RANGE, [min, max]);
-  syncZoomRangeRow(ui, layerId, row, [min, max]);
+  syncZoomRangeRow(op, ui, layerId, row, [min, max]);
   applyProjection(ui, layerId);
 };
 
 /** Commit pass: persist the zoom range to localStorage. The value and the
  *  map state are already updated by {@link applyZoomRangeLive}; this records
  *  the override through the descriptor `write` (cohesive set + save). */
-const commitZoomRange = (ui: LayerUI, layerId: string): void => {
-  getDimension(DIM.ZOOM_RANGE)!.write!(ui, layerId, {});
+const commitZoomRange = (op: OverlayPanel, ui: LayerUI, layerId: string): void => {
+  getDimension(DIM.ZOOM_RANGE)!.write!(op, ui, layerId, {});
 };
 
 /** Reset one layer's zoom range to the full map range and drop its override.
  *  Thin delegate over the zoom-range descriptor's `reset` plus row chrome. */
-const resetLayerZoomRange = (ui: LayerUI, layerId: string): void => {
+const resetLayerZoomRange = (op: OverlayPanel, ui: LayerUI, layerId: string): void => {
   if (!ui.m.layerRegistry.has(layerId)) return;
-  getDimension(DIM.ZOOM_RANGE)!.reset!(ui, layerId);
+  getDimension(DIM.ZOOM_RANGE)!.reset!(op, ui, layerId);
   // Refresh the row's visual state (fill, values, out-of-range).
   const panel = ui.uiContainer.querySelector(
     `.${CONST.CLASSES.STYLE_PANEL}`,
@@ -285,7 +292,7 @@ const resetLayerZoomRange = (ui: LayerUI, layerId: string): void => {
   const row = panel?.querySelector(
     `.${CONST.CLASSES.STYLE_ZOOM_RANGE_ROW}`,
   ) as HTMLElement | null;
-  if (row) syncZoomRangeRow(ui, layerId, row);
+  if (row) syncZoomRangeRow(op, ui, layerId, row);
 };
 
 /** Register zoom range as a per-layer dimension. The descriptor owns the
@@ -293,7 +300,7 @@ const resetLayerZoomRange = (ui: LayerUI, layerId: string): void => {
 const ZOOM_RANGE_DIMENSION = registerDimension<{ min: number; max: number }>({
   key: DIM.ZOOM_RANGE,
   gate: canShowZoomRange,
-  value: (ui, layerId) => {
+  value: (op, ui, layerId) => {
     const li = ui.m.layerRegistry.get(layerId);
     if (!li) return undefined;
     const [mapMin, mapMax] = authorZoomBoundsForLayer(ui, layerId);
@@ -306,25 +313,25 @@ const ZOOM_RANGE_DIMENSION = registerDimension<{ min: number; max: number }>({
   row: buildZoomRangeRow,
   /** Intent+persist + projection. Empty patch commits an already-written
    *  live preview (mark current intent); `{min,max}` writes then marks. */
-  write: (ui, layerId, patch) => {
+  write: (op, ui, layerId, patch) => {
     const min = patch?.min;
     const max = patch?.max;
     if (min !== undefined && max !== undefined) {
-      void writeIntentKeys(ui, layerId, [[INTENT.ZOOM_RANGE, [min, max]]]);
+      void writeIntentKeys(op, ui, layerId, [[INTENT.ZOOM_RANGE, [min, max]]]);
     } else {
       const stored = ui.intentStore.get(layerId, INTENT.ZOOM_RANGE);
       if (!stored) return;
-      void writeIntentKeys(ui, layerId, [[INTENT.ZOOM_RANGE, stored]]);
+      void writeIntentKeys(op, ui, layerId, [[INTENT.ZOOM_RANGE, stored]]);
     }
     applyProjection(ui, layerId);
   },
   /** Cohesive reset: clear the override, save, re-project. */
-  reset: (ui, layerId) => {
-    resetIntentKeys(ui, layerId, [INTENT.ZOOM_RANGE]);
+  reset: (op, ui, layerId) => {
+    resetIntentKeys(op, ui, layerId, [INTENT.ZOOM_RANGE]);
     applyProjection(ui, layerId);
   },
-  valueSource: (ui, layerId) => {
-    if (!canShowZoomRange(ui, layerId)) return "none";
+  valueSource: (op, ui, layerId) => {
+    if (!canShowZoomRange(op, ui, layerId)) return "none";
     return ui.intentStore.isUserSet(layerId, INTENT.ZOOM_RANGE) ? "user" : "author";
   },
 });

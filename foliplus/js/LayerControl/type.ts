@@ -20,6 +20,7 @@ import type {
 } from "#core/layer/index.js";
 import type { LayerDimKey } from "#core/layer/type.js";
 import type { LayerUI } from "./ui/index.js";
+import type { OverlayPanel } from "./ui/overlayPanel.js";
 
 export type {
   AnnotationConfig,
@@ -187,26 +188,35 @@ type LayerDimension<D = unknown> = {
    *     declares `"none"` for the dimension it can't carry, so the gate
    *  rejects it naturally). See the registry file header for the full
    *  invariant. */
-  gate: (ui: LayerUI, layerId: string) => boolean;
+  gate: (op: OverlayPanel, ui: LayerUI, layerId: string) => boolean;
   /** Resolved current value — the user's stored override, falling back to
    *  the author's declared default when the user has never touched the
    *  dimension. `undefined` when the layer is not in the registry. */
-  value: (ui: LayerUI, layerId: string) => D | undefined;
+  value: (op: OverlayPanel, ui: LayerUI, layerId: string) => D | undefined;
   /** Build the style-panel row. The descriptor owns the DOM shape; the
    *  panel still owns event binding, because binding needs the row's
    *  parent (the panel root) to install the drag bubble and shared
    *  number-field commit handler. */
-  row: (ui: LayerUI, layerId: string) => HTMLElement;
+  row: (op: OverlayPanel, ui: LayerUI, layerId: string) => HTMLElement;
   /** Cohesive user write: persist the patch through LayerIntentStore (`set`
    *  marks provenance) then schedule the styleBag landing. Partial patch —
    *  omitted keys leave that sub-dimension untouched. */
-  write?: (ui: LayerUI, layerId: string, patch: Partial<D> | D) => void;
+  write?: (
+    op: OverlayPanel,
+    ui: LayerUI,
+    layerId: string,
+    patch: Partial<D> | D,
+  ) => void;
   /** Cohesive reset: drop the dimension's LayerIntentStore rows (values +
    *  provenance) and restore the author's styleBag face. */
-  reset?: (ui: LayerUI, layerId: string) => void;
+  reset?: (op: OverlayPanel, ui: LayerUI, layerId: string) => void;
   /** Three-state source of the effective value. Gate rejects → `"none"`;
    *  store provenance → `"user"`; otherwise `"author"`. */
-  valueSource?: (ui: LayerUI, layerId: string) => DimensionValueSource;
+  valueSource?: (
+    op: OverlayPanel,
+    ui: LayerUI,
+    layerId: string,
+  ) => DimensionValueSource;
 };
 
 export type {

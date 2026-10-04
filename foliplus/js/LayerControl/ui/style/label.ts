@@ -1,4 +1,4 @@
-// Per-layer annotation label controls — the ⚙︎ drawer's "Label" section.
+// Per-layer annotation label controls �?the ⚙︎ drawer's "Label" section.
 // Moved verbatim from ui/style.ts. Owns the field cache,
 // the toggle/select wiring through applyPatch, and the load-time
 // applyStyleLabelState snapshot seed. Called back by the panel
@@ -20,12 +20,13 @@ import * as CONST from "../../const.js";
 import type { AnnotationConfig } from "../../type.js";
 import type { LayerUI } from "../index.js";
 import { INTENT, getIntent } from "../intent.js";
+import type { OverlayPanel } from "../overlayPanel.js";
 import { saveState } from "../state.js";
 
 /** Field list for a layer (cached on the runtime store). collectFields walks
  *  every feature, so the answer is cached per layer id; invalidateFields drops
  *  a layer's entry whenever its features can change at runtime. */
-const layerFields = (ui: LayerUI, layerId: string): LabelField[] => {
+const layerFields = (op: OverlayPanel, ui: LayerUI, layerId: string): LabelField[] => {
   const cached = ui.runtimeStore.getFields(layerId);
   if (cached) return cached;
   const fields = ui.m.annotation.collectFields(layerId);
@@ -34,10 +35,10 @@ const layerFields = (ui: LayerUI, layerId: string): LabelField[] => {
 };
 
 /** Whether the layer has any labelable fields. False for base maps, the color
- *  basemap, and canvas layers (no feature.properties) — the ⋮ menu's Style
+ *  basemap, and canvas layers (no feature.properties) �?the �?menu's Style
  *  item keys off this. */
-const layerHasLabelFields = (ui: LayerUI, layerId: string): boolean =>
-  layerFields(ui, layerId).length > 0;
+const layerHasLabelFields = (op: OverlayPanel, ui: LayerUI, layerId: string): boolean =>
+  layerFields(op, ui, layerId).length > 0;
 
 /** Drop a layer's cached field list and re-render if it is currently labeling.
  *  Called when a layer's features can change (runtime createLayers) or when the
@@ -46,7 +47,7 @@ const layerHasLabelFields = (ui: LayerUI, layerId: string): boolean =>
  *  The re-render matters: the drawn labels carry text baked from the *old*
  *  fields, and the picker would now resolve a different auto field, so without
  *  it the map and the panel disagree until the user touches a control. */
-const invalidateFields = (ui: LayerUI, layerId: string): void => {
+const invalidateFields = (op: OverlayPanel, ui: LayerUI, layerId: string): void => {
   ui.runtimeStore.deleteFields(layerId);
   ui.m.annotation.invalidateAutoField(layerId);
   if (ui.m.annotation.getConfig(layerId).show) {
@@ -54,19 +55,20 @@ const invalidateFields = (ui: LayerUI, layerId: string): void => {
   }
 };
 
-/** Persist the per-layer label config — it rides the record's `layers`
+/** Persist the per-layer label config �?it rides the record's `layers`
  *  section (`layers[id].annotation`), so the same writer that saves
  *  visibility / opacity / zoom range now saves it. The legacy top-level
  *  `annotations` segment has no live source anymore: it passes through on
  *  every write, read only as the fallback when the new key is absent. */
-const persistStyleLabel = (ui: LayerUI): void => {
+const persistStyleLabel = (op: OverlayPanel, ui: LayerUI): void => {
   saveState(ui.listPanel, ui);
 };
 
 /** Apply one control change to the layer's config, re-render its labels and
  *  persist. Shared by the toggle and both selects so the update order
- *  (config → labels → storage) lives in exactly one place. */
+ *  (config �?labels �?storage) lives in exactly one place. */
 const applyPatch = (
+  op: OverlayPanel,
   ui: LayerUI,
   layerId: string,
   patch: Partial<AnnotationConfig>,
@@ -75,14 +77,14 @@ const applyPatch = (
   Object.assign(cfg, patch);
   ui.m.annotation.setConfig(layerId, cfg);
   ui.m.annotation.renderLabels(layerId);
-  persistStyleLabel(ui);
+  persistStyleLabel(op, ui);
 };
 
 /** Coerce one stored label config into a complete {@link AnnotationConfig}.
  *
  *  The single home of the per-field rules: persistence's tolerant parse only
- *  checks the object shape (and normalises colour), so every coercion — and
- *  the default of every future field, e.g. `position` — belongs here. The
+ *  checks the object shape (and normalises colour), so every coercion �?and
+ *  the default of every future field, e.g. `position` �?belongs here. The
  *  renderer consumes the result; nothing in between re-derives defaults. */
 const coerceAnnotationFields = (raw: unknown): AnnotationConfig => {
   const cfg = (raw && typeof raw === "object" ? raw : {}) as Partial<AnnotationConfig>;
@@ -109,12 +111,12 @@ const coerceAnnotationFields = (raw: unknown): AnnotationConfig => {
  *  restore: a layer already carrying a config has the live one (the user may
  *  have switched it on since the page loaded), and re-applying the snapshot over
  *  it would silently revert that. Idempotent. */
-const applyStyleLabelState = (ui: LayerUI): void => {
+const applyStyleLabelState = (op: OverlayPanel, ui: LayerUI): void => {
   const seedIds = ui.intentStore.ids();
   for (const id of seedIds) {
     const raw = getIntent(ui, id, INTENT.ANNOTATION);
     if (!raw) continue;
-    if (!layerHasLabelFields(ui, id)) continue; // stale / no fields
+    if (!layerHasLabelFields(op, ui, id)) continue; // stale / no fields
     if (ui.m.annotation.hasConfig(id)) continue; // live state wins
     const cfg = coerceAnnotationFields(raw);
     ui.m.annotation.setConfig(id, cfg);
@@ -127,7 +129,7 @@ const applyStyleLabelState = (ui: LayerUI): void => {
 
 /** Show / hide the number-format row for the field the select currently holds.
  *  Only numbers render differently under comma / percent / int, so every other
- *  field hides the row — the heatmap's "only show controls that change the
+ *  field hides the row �?the heatmap's "only show controls that change the
  *  picture" rule.
  *
  *  Takes the row itself rather than a container to search: the caller always
