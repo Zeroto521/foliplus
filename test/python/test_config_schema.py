@@ -202,6 +202,8 @@ class TestValidateShape:
         {"*": "string"},
         {"items": [{"x": "number"}]},
         {"tags": ("auto", "int", "comma")},
+        {"params": {"*": ("string", "number")}},
+        {"only": ("string",)},
         {"a": ("string", "?")},
         {"nested": {"inner": {"deep": "string"}}},
         {"matrix": [["string"]]},
@@ -236,6 +238,22 @@ class TestValidateShape:
     def test_error_reports_the_path(self) -> None:
         with pytest.raises(ValueError, match=r"T\.a\.bad"):
             _validate_shape({"a": {"bad": 42}}, "T")
+
+    def test_union_kind_is_carried_in_content_not_the_container(self) -> None:
+        # A tuple of primitive names is a primitive union (`string | number`);
+        # a tuple of anything else is a literal union. The validator accepts
+        # both and cannot tell them apart — JSON flattens tuples into lists, so
+        # both descriptors reach the generator byte-for-byte alike and it must
+        # decide by content. Asserting the round trip pins that: a dump which
+        # coerced the tuples would destroy the very signal the renderer reads.
+        primitive = {"params": {"*": ("string", "number")}}
+        literal = {"group": ("base", "overlay")}
+        _validate_shape(primitive, "T")
+        _validate_shape(literal, "T")
+        assert json.loads(json.dumps(primitive)) == {
+            "params": {"*": ["string", "number"]}
+        }
+        assert json.loads(json.dumps(literal)) == {"group": ["base", "overlay"]}
 
     def test_shape_without_a_name_has_no_emitting_target(self) -> None:
         with pytest.raises(ValueError, match="requires FieldSpec.name"):

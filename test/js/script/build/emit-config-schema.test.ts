@@ -160,6 +160,7 @@ const schema = {
           id: "string",
           baseUrl: ["string", "?"],
           headers: [{ "*": "string" }, "?"],
+          params: [{ "*": ["string", "number"] }, "?"],
         },
         optional: true,
         nullable: true,
@@ -203,16 +204,40 @@ describe("renderShape", () => {
   it("renders primitives and null", () => {
     expect(renderShape("string")).toBe("string");
     expect(renderShape("number")).toBe("number");
+    expect(renderShape("bool")).toBe("boolean");
     expect(renderShape(null)).toBe("null");
   });
 
-  it("renders an all-string list as a literal union", () => {
+  it("renders a list of primitive names as an unquoted primitive union", () => {
+    expect(renderShape(["string", "number"])).toBe("string | number");
+    expect(renderShape(["bool", "null"])).toBe("boolean | null");
+  });
+
+  it("keeps a mixed or single-element list a quoted literal union", () => {
     expect(renderShape(["base", "overlay"])).toBe('"base" | "overlay"');
+    expect(renderShape(["string", "base"])).toBe('"string" | "base"');
+    expect(renderShape(["string"])).toBe('"string"');
   });
 
   it("renders a list whose item is not a string as an array", () => {
     expect(renderShape([{ id: "string" }])).toBe("{ id: string }[]");
     expect(renderShape([[{ id: "string" }]])).toBe("{ id: string }[][]");
+  });
+
+  it("parenthesizes a union used as an array item type", () => {
+    expect(renderShape([["string", "number"]])).toBe("(string | number)[]");
+    expect(renderShape([["base", "overlay"]])).toBe('("base" | "overlay")[]');
+    // A union nested inside an object member does not make the object a union,
+    // so the object itself stays unparenthesized.
+    expect(renderShape([{ group: ["base", "overlay"] }])).toBe(
+      '{ group: "base" | "overlay" }[]',
+    );
+  });
+
+  it("renders a Record whose value is a primitive union", () => {
+    expect(renderShape({ "*": ["string", "number"] })).toBe(
+      "Record<string, string | number>",
+    );
   });
 
   it("renders a sole '*' key as a Record", () => {
@@ -242,6 +267,15 @@ describe("renderShape", () => {
       "Unknown shape type at ProviderConfig.id: number",
     );
   });
+
+  it("rejects an unknown primitive name, naming the path", () => {
+    // Mirrors _validate_shape's message on the Python side, which sorts the
+    // accepted names.
+    expect(() => renderShape("integer", "T.count")).toThrow(
+      'Unknown shape primitive "integer" at T.count — expected one of ' +
+        "bool, null, number, string",
+    );
+  });
 });
 
 describe("collectNamedTypes", () => {
@@ -257,7 +291,7 @@ describe("collectNamedTypes", () => {
       '{ name: string; id: string; group: "base" | "overlay" }[]',
     );
     expect(named.get("ProviderConfig")).toBe(
-      "{ id: string; baseUrl?: string; headers?: Record<string, string> }",
+      "{ id: string; baseUrl?: string; headers?: Record<string, string>; params?: Record<string, string | number> }",
     );
     expect(named.get("NumberStyle")).toBe('"auto" | "int" | "comma"');
   });
@@ -405,7 +439,7 @@ describe("buildConfigSchema", () => {
         'type LayerData = { name: string; id: string; group: "base" | "overlay" }[];',
       );
       expect(flat).toContain(
-        "type ProviderConfig = { id: string; baseUrl?: string; headers?: Record<string, string>; };",
+        "type ProviderConfig = { id: string; baseUrl?: string; headers?: Record<string, string>; params?: Record<string, string | number>; };",
       );
       expect(flat).toContain('type NumberStyle = "auto" | "int" | "comma";');
       // The field carries the alias, not an inlined copy of its shape.
