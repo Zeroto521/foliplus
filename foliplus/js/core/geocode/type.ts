@@ -1,6 +1,7 @@
 // Geocode provider layer — shared type definitions.
 // Pure types only (no runtime logic); imported by the runtime geocoder and
 // by components (e.g. SearchControl) so the provider contract lives in one place.
+import type { ProviderConfig } from "#foliplus/config-schema.js";
 
 /** A normalized geocoding result, provider-agnostic (WGS84, strings for precision). */
 interface SuggestItem {
@@ -46,39 +47,6 @@ interface GeocodeProvider {
   normalizeReverse(data: unknown): string;
 }
 
-/** Declarative operation config for a custom provider. */
-interface ProviderOpConfig {
-  /** URL template; supports the {q} {limit} {lon} {lat} placeholders. The
-   *  placeholders use the API-conventional `lon` name (as the underlying
-   *  geocoding API documents it); foliplus' own signatures use `lng`. */
-  url: string;
-  /** Static extra query params merged into the template URL. */
-  params?: Record<string, string | number>;
-}
-
-/**
- * Declarative (JSON-serializable) custom provider definition.
- *
- * Passed from the Python layer as the `provider` kwarg. Normalizers are
- * single-arg arrow-function source strings eval'd with a guard — CONFIG is
- * authored by the map creator, never by end users.
- */
-interface ProviderConfig {
-  id: string;
-  /** Optional base URL prefix; resolved before each op's `url`. */
-  baseUrl?: string;
-  throttleMs?: number;
-  headers?: Record<string, string>;
-  suggest?: ProviderOpConfig;
-  search?: ProviderOpConfig;
-  reverse?: ProviderOpConfig;
-  normalize?: {
-    suggest?: string;
-    search?: string;
-    reverse?: string;
-  };
-}
-
 /** A resolved forward-geocode result (already in the map's CRS). */
 interface GeocodeResult {
   lng: number;
@@ -86,10 +54,4 @@ interface GeocodeResult {
   display_name: string;
 }
 
-export type {
-  GeocodeProvider,
-  GeocodeResult,
-  ProviderConfig,
-  ProviderOpConfig,
-  SuggestItem,
-};
+export type { GeocodeProvider, GeocodeResult, SuggestItem };

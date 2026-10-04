@@ -1,6 +1,6 @@
 // HeatmapControl type definitions — shared data shapes consumed by manager,
 // data aggregation, canvas rendering, and persistence modules.
-import { type NumberStyle } from "#common/format.js";
+import type { NumberStyle } from "#foliplus/config-schema.js";
 
 /** A point marker carrying an optional numeric value (foliplus data contract). */
 type HeatmapPointMarker = (L.Marker | L.CircleMarker) & {

@@ -51,6 +51,44 @@ class CustomProvider(_CustomProviderRequired, total=False):
     normalize: Mapping[str, str]
 
 
+# Shape descriptor for the emitted ``ProviderConfig`` alias — the single
+# source for the declarative custom-provider config that
+# ``providerFromConfig()`` consumes. The ``"*"`` key marks a
+# ``Record<string, V>``; ``(X, "?")`` marks an optional field.
+# ``ProviderEndpoint`` (``suggest`` / ``search`` / ``reverse``) is inlined
+# to keep the descriptor flat. ``params`` is the primitive union
+# ``("string", "number")``: ``withParams()`` accepts both, so narrowing it to
+# strings would reject a numeric value the runtime already handles.
+_PROVIDER_CONFIG_SHAPE = {
+    "id": "string",
+    "baseUrl": ("string", "?"),
+    "throttleMs": ("number", "?"),
+    "headers": ({"*": "string"}, "?"),
+    "suggest": (
+        {
+            "url": "string",
+            "params": ({"*": ("string", "number")}, "?"),
+        },
+        "?",
+    ),
+    "search": (
+        {
+            "url": "string",
+            "params": ({"*": ("string", "number")}, "?"),
+        },
+        "?",
+    ),
+    "reverse": (
+        {
+            "url": "string",
+            "params": ({"*": ("string", "number")}, "?"),
+        },
+        "?",
+    ),
+    "normalize": ({"*": "string"}, "?"),
+}
+
+
 class SearchControl(BaseControl):
     """Coordinate and address search with a pluggable geocode provider.
 
@@ -143,6 +181,12 @@ class SearchControl(BaseControl):
     ... ).add_to(m)
     """
 
+    # Shape descriptor next to the field declaration, the same convention
+    # LayerControl uses for its dynamic `data` field. Not carried by the
+    # FieldSpec in the annotation below: a descriptor is unhashable, and
+    # Annotated metadata is hashed by get_type_hints() on Python 3.10.
+    _provider_config_shape = _PROVIDER_CONFIG_SHAPE
+
     @validate
     def __init__(
         self,
@@ -160,7 +204,8 @@ class SearchControl(BaseControl):
         provider_config: Annotated[
             ProviderConfig | None,
             FieldSpec(
-                ts="object",
+                ts="ProviderConfig",
+                name="ProviderConfig",
                 note="Overrides for a built-in provider; only valid with a "
                 "string provider.",
             ),

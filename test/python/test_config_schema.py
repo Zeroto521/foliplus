@@ -26,6 +26,7 @@ import re
 import subprocess
 import sys
 from pathlib import Path
+from typing import Annotated, Any, Literal, get_args, get_origin, get_type_hints
 
 import pytest
 
@@ -45,6 +46,8 @@ from foliplus._config_schema import (
     RUNTIME_ONLY,
     SHARED,
     FieldSpec,
+    _resolve_tag,
+    _validate_shape,
     config_fields,
     derive_schema,
     render_ts_type,
@@ -141,6 +144,158 @@ class TestSchemaCoverage:
                     f"foliplus.{obj.__name__} reflected to an empty schema — "
                     f"declare its CONFIG fields as ``__init__`` parameters."
                 )
+
+
+class TestAnnotatedMetadataHashable:
+    """``Annotated`` metadata must stay hashable.
+
+    Python 3.10's ``get_type_hints`` hashes ``Annotated`` metadata, so an
+    unhashable piece there (a ``dict``) raises ``TypeError`` on import — a
+    crash the 3.12+ test runners never see. A shape descriptor is a dict/list
+    tree, which is why a named type carries it as a ``_<name>_shape`` class
+    attribute instead of inside its ``FieldSpec``. This test is what keeps
+    that convention honest.
+    """
+
+    @staticmethod
+    def _annotated(hint: Any) -> list[Any]:
+        """Every ``Annotated`` reachable from a hint, nested ones included."""
+        found: list[Any] = []
+        stack: list[Any] = [hint]
+        while stack:
+            item = stack.pop()
+            if get_origin(item) is Annotated:
+                found.append(item)
+                stack.extend(get_args(item)[1:])
+            elif hasattr(item, "__args__"):
+                try:
+                    stack.extend(get_args(item))
+                except TypeError:
+                    pass
+        return found
+
+    @pytest.mark.parametrize("name", sorted(CONTROL_CLASSES))
+    def test_every_signature_annotated_is_hashable(self, name: str) -> None:
+        hints = get_type_hints(CONTROL_CLASSES[name].__init__, include_extras=True)
+        hints.pop("return", None)
+        bad = []
+        for param, hint in hints.items():
+            for item in self._annotated(hint):
+                try:
+                    hash(item)
+                except TypeError as exc:
+                    bad.append(f"{name}.{param}: {exc}")
+        assert not bad, "\n".join(bad)
+
+
+class TestValidateShape:
+    """The shape-descriptor grammar: valid shapes pass, bad ones fail loudly.
+
+    Every error names the path it failed at, so an author fixing a typo knows
+    which key to touch. These are the branches :func:`_validate_shape` raises
+    in — without them the validator would be untested outside the happy path.
+    """
+
+    VALID_SHAPES: list[object] = [
+        "string",
+        {"a": "number", "b": "bool", "c": "null"},
+        {"*": "string"},
+        {"items": [{"x": "number"}]},
+        {"tags": ("auto", "int", "comma")},
+        {"params": {"*": ("string", "number")}},
+        {"only": ("string",)},
+        {"a": ("string", "?")},
+        {"nested": {"inner": {"deep": "string"}}},
+        {"matrix": [["string"]]},
+    ]
+
+    @pytest.mark.parametrize("shape", VALID_SHAPES)
+    def test_valid_shapes_pass(self, shape: object) -> None:
+        _validate_shape(shape, "T")
+
+    @pytest.mark.parametrize(
+        ("shape", "message"),
+        [
+            ("int", "unknown primitive"),
+            (("string", "?"), "optional marker"),
+            (("a", 1), "union elements must be strings"),
+            ([], "empty array"),
+            ({"*": "string", "b": "string"}, "key cannot be mixed"),
+            ({"1abc": "string"}, "not a valid JS identifier"),
+            (42, "unknown shape type"),
+            ({"ok": 42}, "unknown shape type"),
+        ],
+    )
+    def test_bad_shapes_name_the_problem(self, shape: object, message: str) -> None:
+        with pytest.raises(ValueError, match=message):
+            _validate_shape(shape, "T")
+
+    def test_none_is_a_no_op(self) -> None:
+        # None is only reachable from callers that guard first; it must not
+        # raise, so a descriptor that resolves to None is harmless.
+        _validate_shape(None, "T")
+
+    def test_error_reports_the_path(self) -> None:
+        with pytest.raises(ValueError, match=r"T\.a\.bad"):
+            _validate_shape({"a": {"bad": 42}}, "T")
+
+    def test_union_kind_is_carried_in_content_not_the_container(self) -> None:
+        # A tuple of primitive names is a primitive union (`string | number`);
+        # a tuple of anything else is a literal union. The validator accepts
+        # both and cannot tell them apart — JSON flattens tuples into lists, so
+        # both descriptors reach the generator byte-for-byte alike and it must
+        # decide by content. Asserting the round trip pins that: a dump which
+        # coerced the tuples would destroy the very signal the renderer reads.
+        primitive = {"params": {"*": ("string", "number")}}
+        literal = {"group": ("base", "overlay")}
+        _validate_shape(primitive, "T")
+        _validate_shape(literal, "T")
+        assert json.loads(json.dumps(primitive)) == {
+            "params": {"*": ["string", "number"]}
+        }
+        assert json.loads(json.dumps(literal)) == {"group": ["base", "overlay"]}
+
+    def test_shape_without_a_name_has_no_emitting_target(self) -> None:
+        with pytest.raises(ValueError, match="requires FieldSpec.name"):
+            FieldSpec(shape={"a": "string"})
+
+    def test_shape_in_an_annotation_fails_before_tag_resolution(self) -> None:
+        # Reached only by calling _resolve_tag directly: via derive_schema the
+        # Optional[Annotated[...]] union that get_type_hints builds for a
+        # `= None` default aborts on hashing first, on every version.
+        with pytest.raises(ValueError, match="class attribute"):
+            _resolve_tag(
+                Annotated[dict, FieldSpec(shape={"a": "string"}, name="T")], None
+            )
+
+    def test_unrelated_type_error_from_get_type_hints_propagates(
+        self, monkeypatch
+    ) -> None:
+        # Only the unhashable case is translated into the actionable
+        # FieldSpec.shape error; every other TypeError from get_type_hints is
+        # someone else's bug and must not be swallowed.
+        import foliplus._config_schema as cfg_mod
+
+        def _boom(*args: object, **kwargs: object) -> Any:
+            raise TypeError("broken hint")
+
+        monkeypatch.setattr(cfg_mod, "get_type_hints", _boom)
+        with pytest.raises(TypeError, match="broken hint"):
+            derive_schema(ScaleControl)
+
+    def test_unhashable_error_becomes_the_shape_error(self, monkeypatch) -> None:
+        # The translation itself, independent of Python's version: 3.10
+        # produces this TypeError from a shape in Annotated, 3.11+ does not
+        # (Annotated metadata is hashed by identity), so pinning it here keeps
+        # the branch covered either way.
+        import foliplus._config_schema as cfg_mod
+
+        def _boom(*args: object, **kwargs: object) -> Any:
+            raise TypeError("unhashable type: 'dict'")
+
+        monkeypatch.setattr(cfg_mod, "get_type_hints", _boom)
+        with pytest.raises(ValueError, match="class attribute"):
+            derive_schema(ScaleControl)
 
 
 class TestSchemaMatchesConfigFields:

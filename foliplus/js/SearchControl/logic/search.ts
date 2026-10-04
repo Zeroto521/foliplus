@@ -7,16 +7,13 @@ import {
   markRequest,
   resolveProvider,
 } from "#core/geocode/index.js";
-import type {
-  GeocodeProvider,
-  ProviderConfig,
-  SuggestItem,
-} from "#core/geocode/index.js";
+import type { GeocodeProvider, SuggestItem } from "#core/geocode/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { DEL_ICON_MARKER_ANCHOR } from "#core/leaflet/index.js";
 import { mountDelIcon } from "#core/leaflet/index.js";
 import { createLocationMarker } from "#core/locationMarker.js";
 import { guardBlocked } from "#core/mode.js";
+import type { ProviderConfig } from "#foliplus/config-schema.js";
 import { debounce } from "#common/debounce.js";
 import { dom } from "#common/dom.js";
 import { fetchWithTimeout } from "#common/fetch.js";

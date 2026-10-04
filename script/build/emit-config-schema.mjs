@@ -98,9 +98,6 @@ const OBJECTS = new Set([
   "object_nested",
   "array_string",
   "array_unknown",
-  "LocaleTables",
-  "NumberStyle",
-  "LayerData",
   "ControlPosition",
   // Inline union, not a name — mirrors _TS_OBJECTS on the Python side, and is
   // deliberately absent from IMPORTS (there is nothing to import for it).
@@ -118,9 +115,6 @@ const RENDER = {
   object_nested: "Record<string, Record<string, string>>",
   array_string: "string[]",
   array_unknown: "unknown[]",
-  LocaleTables: "LocaleTables",
-  NumberStyle: "NumberStyle",
-  LayerData: 'Array<{ name: string; id: string; group: "base" | "overlay" }>',
   ControlPosition: "ControlPosition",
   // Not a name: the SearchControl `provider` field is a union of a built-in
   // provider id and a custom ProviderConfig dict. Python has no alias to
@@ -133,17 +127,127 @@ const RENDER = {
  *  foliplus/_config_schema.py's IMPORTS; the Python side checks that every
  *  tag which renders as a name appears here, so a rename on one side fails
  *  the dump instead of emitting an unimported type. */
-const IMPORTS = [
-  { name: "ControlPosition", from: "leaflet" },
-  { name: "LocaleTables", from: "#common/locale.js" },
-  { name: "NumberStyle", from: "#common/format.js" },
-  { name: "ProviderConfig", from: "#core/geocode/type.js" },
-];
+const IMPORTS = [{ name: "ControlPosition", from: "leaflet" }];
 
-/** Render one field's TS type, including nullable suffix. */
+/** Primitive shape names → their TS type. Mirrors _TS_PRIMITIVES on the
+ *  Python side minus "any", which the shape validator never accepts: the four
+ *  names in _TS_PRIMITIVE_NAMES. Only "bool" needs a real mapping, since TS
+ *  spells the type `boolean`. */
+const SHAPE_PRIMITIVES = {
+  string: "string",
+  number: "number",
+  bool: "boolean",
+  null: "null",
+};
+
+/** Tell a primitive union apart from a literal union. JSON flattens Python
+ *  tuples into lists, so the container cannot decide: the only signal is the
+ *  content. A list of ≥2 primitive names renders unquoted (`string | number`);
+ *  any other all-string list is a literal union (`"base" | "overlay"`). The
+ *  length floor keeps a one-element list a literal, so ("string",) cannot
+ *  quietly become a bare `string`. Primitive lookup is own-property only —
+ *  `in` and `[]` follow Object.prototype, so a shape element named "constructor"
+ *  would otherwise read as a primitive resolving to Object's constructor. */
+const isShapePrimitive = v => Object.prototype.hasOwnProperty.call(SHAPE_PRIMITIVES, v);
+
+const isPrimitiveUnion = x => x.length >= 2 && x.every(isShapePrimitive);
+
+/** True when `t` is a union at its own top level — a `|` outside every pair
+ *  of braces, brackets, and parens. Depth matters: `{ group: "base" |
+ *  "overlay" }` is an object holding a union, not a union itself, and must
+ *  not be parenthesized. */
+const isTopLevelUnion = t => {
+  let depth = 0;
+  for (const ch of t) {
+    if (ch === "{" || ch === "[" || ch === "(") depth += 1;
+    else if (ch === "}" || ch === "]" || ch === ")") depth -= 1;
+    else if (ch === "|" && depth === 0) return true;
+  }
+  return false;
+};
+
+/** A union is ambiguous only as an array's item type: `string | number[]`
+ *  parses as an array of numbers, so parens are needed there. `Record<…>` and
+ *  object members read fine without them. */
+const parenthesize = t => (isTopLevelUnion(t) ? `(${t})` : t);
+
+/** Render a shape descriptor (from FieldSpec.shape) as a TS type.
+ *
+ * Shape grammar (validated by _validate_shape on the Python side):
+ *   - "string" / "number" / "bool" / "null" → TS primitive (bool → boolean)
+ *   - null → TS null
+ *   - ["string", "number"] (every element a primitive name, ≥2 of them) →
+ *     primitive union, unquoted
+ *   - ["a", "b"] (any other all-string list) → literal union, quoted
+ *   - [X, "?"] → optional field marker (dict value only)
+ *   - [[...]] / [{...}] → array, the item parenthesized when it is a union
+ *   - {"*": V} → Record<string, V>
+ *   - {name: V} → object with named keys
+ *
+ * JSON serializes Python tuples as lists, so the JS side disambiguates by
+ * content: length-2 ending in "?" → optional marker; an all-primitive-name
+ * list → primitive union; any other all-string list → literal union; a list
+ * holding a non-string → array.
+ */
+const renderShape = (x, path = "") => {
+  if (x === null) return "null";
+  if (typeof x === "string") {
+    if (!isShapePrimitive(x)) {
+      throw new Error(
+        `Unknown shape primitive "${x}" at ${path} — expected one of ` +
+          Object.keys(SHAPE_PRIMITIVES).sort().join(", "),
+      );
+    }
+    return SHAPE_PRIMITIVES[x];
+  }
+  if (Array.isArray(x)) {
+    if (x.length === 2 && x[1] === "?") {
+      throw new Error(
+        `Optional marker (X, "?") at ${path} is only valid as a dict value`,
+      );
+    }
+    if (x.every(v => typeof v === "string")) {
+      if (isPrimitiveUnion(x)) {
+        return x.map(v => SHAPE_PRIMITIVES[v]).join(" | ");
+      }
+      return x.map(v => `"${v}"`).join(" | ");
+    }
+    return `${parenthesize(renderShape(x[0], `${path}[0]`))}[]`;
+  }
+  if (typeof x === "object") {
+    const keys = Object.keys(x);
+    if (keys.length === 1 && keys[0] === "*") {
+      return `Record<string, ${renderShape(x["*"], `${path}.*`)}>`;
+    }
+    return (
+      "{ " +
+      keys
+        .map(k => {
+          const v = x[k];
+          if (Array.isArray(v) && v.length === 2 && v[1] === "?") {
+            return `${k}?: ${renderShape(v[0], `${path}.${k}`)}`;
+          }
+          return `${k}: ${renderShape(v, `${path}.${k}`)}`;
+        })
+        .join("; ") +
+      " }"
+    );
+  }
+  throw new Error(`Unknown shape type at ${path}: ${typeof x}`);
+};
+
+/** Render one field's TS type, including nullable suffix.
+ *
+ * When the field carries a `name` (a generated alias), the rendered base
+ * type is the name — the alias definition is emitted elsewhere by
+ * buildConfigSchema. This covers both shape-driven types (complex objects/
+ * arrays) and union-driven types (literal unions like NumberStyle).
+ */
 const renderType = field => {
   let base;
-  if (field.ts === "union") {
+  if (field.name) {
+    base = field.name;
+  } else if (field.ts === "union") {
     if (!field.values?.length) {
       throw new Error(`Field with ts='union' must have non-empty values`);
     }
@@ -195,10 +299,36 @@ const emitInterface = (name, schema, { extendsShared = false, indent = "" } = {}
 
 // ── Core (exported for unit tests) ─────────────────────────────────────────
 
+/** Collect generated named types from the schema. Each entry is a
+ *  FieldSpec with a `name` — either shape-driven (complex types) or
+ *  union-driven (literal unions like NumberStyle). Returns a Map of
+ *  name → rendered TS type. */
+const collectNamedTypes = schema => {
+  const named = new Map();
+  const visit = fields => {
+    for (const field of Object.values(fields)) {
+      if (!field.name) continue;
+      if (field.shape) {
+        named.set(field.name, renderShape(field.shape, field.name));
+      } else if (field.ts === "union" && field.values) {
+        named.set(field.name, field.values.map(v => `"${v}"`).join(" | "));
+      }
+    }
+  };
+  visit(schema.shared);
+  visit(schema.runtime_only);
+  for (const controlSchema of Object.values(schema.controls)) {
+    visit(controlSchema);
+  }
+  return named;
+};
+
 /** Generate the config-schema.ts text for one parsed schema JSON object.
  *  Formatted through Prettier with the repo config so the output byte-matches
  *  what format:check enforces on the committed file. */
 const buildConfigSchema = async schema => {
+  const namedTypes = collectNamedTypes(schema);
+
   const lines = [
     "// AUTO-GENERATED by script/build/emit-config-schema.mjs from foliplus/_config_schema.py.",
     "// Do not edit by hand — regenerate with:",
@@ -217,6 +347,15 @@ const buildConfigSchema = async schema => {
     lines.push(`import type { ${imp.name} } from "${imp.from}";`);
   }
   lines.push("");
+
+  // Named type aliases — generated from FieldSpec.name + shape/values.
+  // Declared without `export` and re-exported in the single export block at
+  // the bottom: the eslint rule no-restricted-syntax forbids inline
+  // `export type X = ...` declarations.
+  for (const [name, type] of namedTypes) {
+    lines.push(`type ${name} = ${type};`);
+  }
+  if (namedTypes.size > 0) lines.push("");
 
   // Shared interface
   lines.push(...emitInterface("ConfigCommon", schema.shared), "");
@@ -287,7 +426,10 @@ const buildConfigSchema = async schema => {
   lines.push("");
 
   // Single export at the bottom (codebase lint rule: no inline exports).
+  // Generated named aliases come first — they are declared above but only
+  // exported here, along with the interfaces.
   const allTypes = [
+    ...namedTypes.keys(),
     "ConfigCommon",
     ...Object.keys(schema.controls).map(n => `Config${n.replace("Control", "")}`),
     "ConfigRuntimeOnly",
@@ -343,7 +485,9 @@ const main = async (o = opts) => {
 export {
   PrettierOptions,
   buildConfigSchema,
+  collectNamedTypes,
   main,
+  renderShape,
   RENDER,
   IMPORTS,
   PRIMITIVES,
