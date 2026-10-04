@@ -804,14 +804,13 @@ def derive_schema(cls: type[BaseControl]) -> ControlSchema:
                 "type carrying a FieldSpec — a dynamic field declares its "
                 "emitted alias name and shape there."
             )
-        # Both are required. ``shape`` without ``name`` is already rejected when
-        # the FieldSpec is built, so only ``meta.shape is None`` can actually
-        # fire — the name half is there to narrow the pair below.
-        if meta.name is None or meta.shape is None:
+        if meta.shape is None:
             raise ValueError(
                 f"{cls.__name__}._dynamic_fields[{name!r}] FieldSpec needs both "
                 "name= (the emitted alias) and shape= (what that alias renders)."
             )
+        # __post_init__ rejects a shape without a name; assert so mypy narrows.
+        assert meta.name is not None
         out[name] = FieldSpec(
             ts=meta.name,
             name=meta.name,
