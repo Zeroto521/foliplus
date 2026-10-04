@@ -142,10 +142,8 @@ IMPORTS: dict[str, str] = {
 # legal default, including None.
 _UNSET = object()
 
-# One message for a shape descriptor attached to an annotation, raised either
-# by :func:`_resolve_tag` (3.11+, where the descriptor is still reachable) or
-# by :func:`derive_schema` (3.10, where get_type_hints aborts first — see
-# the try/except there).
+# One message for a shape descriptor attached to an annotation, raised by
+# :func:`_resolve_tag` before tag resolution decides the wrong thing.
 _SHAPE_IN_ANNOTATION_ERROR = (
     "FieldSpec.shape must not be attached to a constructor parameter's "
     "Annotated type — a shape descriptor is unhashable and Python 3.10's "
@@ -293,13 +291,11 @@ class FieldSpec:
         because there is no emitting target.
 
         Never set this on a :class:`FieldSpec` attached to a *constructor
-        parameter*'s annotation: a descriptor is unhashable, and ``Annotated``
-        metadata is hashed by ``get_type_hints()`` on Python 3.10, so
-        importing such a module raises ``TypeError`` there. A parameter's
-        descriptor sits next to it as a class attribute, ``_<name>_shape``.
-        The one exception is a dynamic field: ``_dynamic_fields`` entries are
-        ``Annotated`` types carrying this FieldSpec, and that map is never
-        reflected, so the shape may live there.
+        parameter*'s annotation: a parameter's descriptor sits next to it as a
+        class attribute, ``_<name>_shape``. The one exception is a dynamic
+        field: ``_dynamic_fields`` entries are ``Annotated`` types carrying
+        this FieldSpec, and that map is never reflected, so the shape may
+        live there.
 
     name
         Name of a generated type alias in ``config-schema.ts``. Requires a
@@ -701,18 +697,7 @@ def derive_schema(cls: type[BaseControl]) -> ControlSchema:
     """
     init = cls.__init__
     sig = inspect.signature(init)
-    try:
-        hints = get_type_hints(init, include_extras=True)
-    except TypeError as exc:
-        # Python 3.10 wraps a `= None` default in Optional[...], which
-        # deduplicates the arms by hashing them — and Annotated metadata is
-        # hashed too, so a FieldSpec carrying an unhashable shape descriptor
-        # aborts here with a bare "unhashable type" that names no fix. Raise
-        # the same error _resolve_tag raises on 3.11+, where get_type_hints
-        # does not hash and the descriptor is still reachable.
-        if "unhashable" not in str(exc):
-            raise
-        raise ValueError(f"{cls.__name__}: {_SHAPE_IN_ANNOTATION_ERROR}") from exc
+    hints = get_type_hints(init, include_extras=True)
     out: ControlSchema = {}
     for name, param in sig.parameters.items():
         if name == "self" or name == "return" or name in _SHARED_PARAMS:

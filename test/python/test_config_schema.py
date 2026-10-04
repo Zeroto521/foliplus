@@ -283,20 +283,6 @@ class TestValidateShape:
         with pytest.raises(TypeError, match="broken hint"):
             derive_schema(ScaleControl)
 
-    def test_unhashable_error_becomes_the_shape_error(self, monkeypatch) -> None:
-        # The translation itself, independent of Python's version: 3.10
-        # produces this TypeError from a shape in Annotated, 3.11+ does not
-        # (Annotated metadata is hashed by identity), so pinning it here keeps
-        # the branch covered either way.
-        import foliplus._config_schema as cfg_mod
-
-        def _boom(*args: object, **kwargs: object) -> Any:
-            raise TypeError("unhashable type: 'dict'")
-
-        monkeypatch.setattr(cfg_mod, "get_type_hints", _boom)
-        with pytest.raises(ValueError, match="class attribute"):
-            derive_schema(ScaleControl)
-
 
 class TestSchemaMatchesConfigFields:
     """Derived ``_config_fields`` must equal the schema's non-runtime keys."""
