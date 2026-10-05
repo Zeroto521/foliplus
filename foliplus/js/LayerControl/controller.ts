@@ -38,6 +38,7 @@ import { type Debounced, debounce } from "#common/debounce.js";
 import { type Logger, createLogger } from "#common/log.js";
 import { AnnotationManager } from "./annotation/index.js";
 import * as CONST from "./const.js";
+import { LayerOrchestration } from "./domain.js";
 import { LayerPersistence } from "./persistence.js";
 import { LayerUI } from "./ui/index.js";
 import { INTENT, clearIntent, getIntent } from "./ui/intent.js";
@@ -196,6 +197,7 @@ class LayerController implements LayerAPI {
    *  own fallback, so the guard below never reads back our own write. */
   private authorMaxZoomDeclared: boolean;
   annotation: AnnotationManager;
+  domain: LayerOrchestration;
   onLayerAdd: (event: L.LeafletEvent) => void;
   getLayerPanes: (layer: L.Layer) => string[];
   private readonly T: (key: string) => string;
@@ -356,6 +358,18 @@ class LayerController implements LayerAPI {
     this.annotation = new AnnotationManager({
       map: this.map,
       layerFind: this.findLayer,
+    });
+    this.domain = new LayerOrchestration({
+      map: this.map,
+      events: this.events,
+      layerRegistry: this.layerRegistry,
+      panes: this.panes,
+      factory: this.factory,
+      order: this.order,
+      persistence: this.persistence,
+      annotation: this.annotation,
+      surfaces: this.surfaces,
+      surfacesByLayer: this.surfacesByLayer,
     });
     this.loadSavedOrder();
     this.layerRegistry.normalizeGroups();
