@@ -41,11 +41,18 @@ import type {
   AggregatedData,
   HeatmapPointMarker,
   HexFeature,
-  PointLayerInfo,
   SavedConfig,
   SelectedPoint,
 } from "./type.js";
 import { type HeatmapControlUI, rebuildLayerDropdown, resetPanel } from "./ui.js";
+
+/** A point layer collected from LayerControl. */
+interface PointLayerInfo {
+  id: string;
+  name: string;
+  layer: L.Layer | null;
+  count: number;
+}
 
 type HeatmapManagerEnv = {
   readonly T: (key: string) => string;

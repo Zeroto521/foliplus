@@ -2,8 +2,31 @@
 // ./search.ts and ./history.ts. Moved from logic.ts.
 import type { ControlEnv } from "#core/defineControl.js";
 import { COORD_BOUNDS } from "#core/geo/index.js";
+import type { SuggestItem } from "#core/geocode/index.js";
+import type { Cache } from "#common/cache.js";
+import type { Debounced } from "#common/debounce.js";
 import { MODE, type SearchType } from "../const.js";
-import type { SearchControlState } from "../type.js";
+import type { ResultItem, SearchHistoryEntry } from "../type.js";
+
+/** Subset of SearchControl state used by the logic functions (decouples the types). */
+interface SearchControlState {
+  inp: HTMLInputElement;
+  mode: SearchType;
+  modeBtn: HTMLElement;
+  cachedSuggestions: Cache<string, SuggestItem[]>;
+  searchHistory: SearchHistoryEntry[];
+  panelWrap: HTMLElement | null;
+  selectedIdx: number;
+  currentItems: ResultItem[];
+  lastSuggestFetch: number;
+  throttleTimer: ReturnType<typeof setTimeout> | null;
+  suggestAbortController: AbortController | null;
+  suggestSeq: number;
+  debouncedFetch: Debounced;
+  marker: L.Marker | null;
+  delIcon: L.Marker | null;
+  ctrl: HTMLElement;
+}
 
 /** Full context for logic functions — the control's runtime state plus the
  *  ControlEnv the factory carries (config / T / _ / log). Reuses the canonical

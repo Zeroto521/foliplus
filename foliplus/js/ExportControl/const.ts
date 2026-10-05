@@ -6,7 +6,19 @@
 // (mime type, file extension, codec class, pipeline routing) reads from one
 // `FORMAT` record — add a format by adding one row there.
 // ============================================================================
-import type { ExportFormat, FormatSpec } from "./type.js";
+import type { ExportFormat } from "./type.js";
+
+/** Per-format descriptor. */
+interface FormatSpec {
+  /** `toBlob()` / `toDataURL()` mime type. */
+  mime: string;
+  /** File extension (no dot). */
+  ext: string;
+  /** Lossy codec — the single compress pass happens at write time. */
+  lossy: boolean;
+  /** Routed through `downloadGeoTiff` instead of a plain blob download. */
+  geotiff: boolean;
+}
 
 /** Crop-box constraints. */
 const CROP = {
