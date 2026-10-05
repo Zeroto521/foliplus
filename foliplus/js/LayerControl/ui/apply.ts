@@ -31,10 +31,18 @@ import { CAP_TIER, HIDDEN, PANE_ROLE } from "#core/layer/index.js";
 import { resetGridLayerView } from "#core/leafletAdapter.js";
 import { getLayerAlpha, setLayerAlpha } from "#common/canvasAlpha.js";
 import * as CONST from "../const.js";
-import type { Projection, StateOp } from "../type.js";
+import type { Projection } from "../type.js";
 import type { LayerUI } from "./index.js";
 import { INTENT, getIntent } from "./intent.js";
 import { intentVisibleOf, projectAll, projectLayer } from "./projection.js";
+
+/** One write the carrier dispatcher accepts. `opacity` and `zoomRange`
+ *  being `undefined` mean "no user value" — a Reset back to the author's
+ *  default — not "leave the carrier alone". */
+type StateOp =
+  | { type: "visible"; value: boolean }
+  | { type: "opacity"; value: number | undefined }
+  | { type: "zoomRange"; value: [number, number] | null };
 
 /** Cache the layer's original `options.opacity` so repeated slider drags
  *  don't compound. The base is captured on first write and never re-read;

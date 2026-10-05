@@ -2,10 +2,28 @@
 // configuration from localStorage. Pure functions over the manager's public
 // state surface.
 import { bareFieldName } from "#core/labelField.js";
+import type { NumberStyle } from "#foliplus/config-schema.js";
 import { clampLabelSize } from "#common/form.js";
 import * as Storage from "#common/storage.js";
 import * as CONST from "./const.js";
-import type { ManagerLike, SavedConfig } from "./type.js";
+import type { SavedConfig } from "./type.js";
+
+/** The minimal manager state surface the persistence helpers write to. */
+interface ManagerLike {
+  selectedLayerId: string | null;
+  currentAgg: string;
+  currentMethod: string;
+  currentScheme: string;
+  numClasses: number;
+  borderWeight: number;
+  borderColor: string;
+  currentLabelShow: boolean;
+  currentLabelColor: string;
+  currentLabelSize: number;
+  currentLabelFormat: NumberStyle;
+  currentField: string;
+  hasScanned: boolean;
+}
 
 /** Load saved configuration from localStorage. */
 const loadSavedConfig = (): SavedConfig | null => {
