@@ -10,7 +10,6 @@ import {
   type CreateLayersOpts,
   GEOM_TYPE,
   GROUP,
-  KIND,
   type LabelAwareLayer,
   type LayerAPI,
   LayerFactory,
@@ -29,10 +28,8 @@ import {
 } from "#core/layer/index.js";
 import type { PaneSpec } from "#core/layer/type.js";
 import {
-  attributionEntries,
   hasAttachedPath,
   isGroupLike,
-  refreshAttributions,
 } from "#core/leafletAdapter.js";
 import { type Debounced, debounce } from "#common/debounce.js";
 import { type Logger, createLogger } from "#common/log.js";
@@ -370,6 +367,7 @@ class LayerController implements LayerAPI {
       annotation: this.annotation,
       surfaces: this.surfaces,
       surfacesByLayer: this.surfacesByLayer,
+      lastAttribution: this.lastAttribution,
     });
     this.loadSavedOrder();
     this.layerRegistry.normalizeGroups();
@@ -415,15 +413,7 @@ class LayerController implements LayerAPI {
    *  During the initial folium script phase any layeradd may make a registered
    *  layer resolvable, so unrelated adds must keep triggering enforceOrder. */
   private hasUnresolvedLayers(): boolean {
-    for (const layerInfo of this.layers) {
-      if (layerInfo.layer) continue;
-      const kind = layerInfo.kind;
-      if (kind === KIND.CANVAS || kind === KIND.SOLID || kind === KIND.CUSTOM) {
-        continue;
-      }
-      return true;
-    }
-    return false;
+    return this.domain.hasUnresolvedLayers();
   }
 
   // Order-domain forwards (bodies live on `this.order` — see savedOrder.ts).
@@ -539,13 +529,7 @@ class LayerController implements LayerAPI {
   }
 
   findLayer(idOrInfo: string | LayerInfo): L.Layer | null {
-    const layerInfo =
-      typeof idOrInfo === "string" ? this.layerRegistry.get(idOrInfo) : idOrInfo;
-    if (layerInfo?.layer) return layerInfo.layer;
-    return findLayer(
-      this.map,
-      typeof idOrInfo === "string" ? idOrInfo : (layerInfo?.id ?? ""),
-    );
+    return this.domain.findLayer(idOrInfo);
   }
 
   forEachLeaf(id: string, fn: (layer: L.Layer) => void) {
@@ -583,7 +567,7 @@ class LayerController implements LayerAPI {
    *  late re-attachment: those are all "the map now shows a different set of
    *  layers", which is what the annotation manager repaints on. */
   private emitLayerChange(id: string, kind: LayerKind): void {
-    this.events.emit(EVENTS.LAYER_CHANGE, { id, kind });
+    this.domain.emitLayerChange(id, kind);
   }
 
   registerLayer(opts: RegisterLayerOpts): HTMLElement | null {
@@ -1162,41 +1146,7 @@ class LayerController implements LayerAPI {
   }
 
   syncAttribution() {
-    const attrCtrl = this.map.attributionControl;
-    if (!attrCtrl) return;
-
-    let topAttr = "";
-    // Bases live at the tail of the list; the first visible base tile is the
-    // topmost (highest z) one — scan from the first base and stop early.
-    for (
-      let i = this.layerRegistry.firstBaseIdx;
-      i !== -1 && i < this.layers.length;
-      i++
-    ) {
-      const layerInfo = this.layers[i];
-      if (layerInfo.group !== GROUP.BASE) continue;
-      const layer = this.findLayer(layerInfo);
-      if (!(layer instanceof L.TileLayer) || !layer.options.attribution) continue;
-      if (this.map.hasLayer(layer)) {
-        topAttr = layer.options.attribution;
-        break;
-      }
-    }
-
-    // Unchanged top-most attribution: nothing to rebuild.
-    if (topAttr === this.lastAttribution) return;
-
-    const prev = this.lastAttribution;
-    this.lastAttribution = topAttr;
-    if (prev) {
-      if (attrCtrl.removeAttribution) attrCtrl.removeAttribution(prev);
-      else delete attributionEntries(attrCtrl)[prev];
-    }
-    if (topAttr) {
-      if (attrCtrl.addAttribution) attrCtrl.addAttribution(topAttr);
-      else attributionEntries(attrCtrl)[topAttr] = 1;
-    }
-    if (!attrCtrl.removeAttribution) refreshAttributions(attrCtrl);
+    this.lastAttribution = this.domain.syncAttribution();
   }
 
   attachUI(containerDiv: HTMLElement) {
@@ -1204,7 +1154,7 @@ class LayerController implements LayerAPI {
   }
 
   canReorderBetween(fromIdx: number, toIdx: number): boolean {
-    return this.layerRegistry.canReorderBetween(fromIdx, toIdx);
+    return this.domain.canReorderBetween(fromIdx, toIdx);
   }
 
   /**
