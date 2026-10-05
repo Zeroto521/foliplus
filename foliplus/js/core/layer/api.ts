@@ -43,8 +43,10 @@ const ensureLayerAPI = (map: L.Map, force = false): LayerAPI => {
       return null;
     },
     unregisterLayer: () => true,
+    /* eslint-disable @typescript-eslint/no-empty-function -- lightweight API: no registry to reorder or invalidate */
     bringLayerToFront: () => {},
     invalidateType: () => {}, // no registry in the lightweight API
+    /* eslint-enable @typescript-eslint/no-empty-function */
   });
 
   map.foliplus!.LayerAPI = {
@@ -55,6 +57,7 @@ const ensureLayerAPI = (map: L.Map, force = false): LayerAPI => {
     deleteLayer: () => false,
     forgetSavedOrder: () => false,
     dropPersistedLayerState: () => false,
+    // eslint-disable-next-line @typescript-eslint/no-empty-function -- lightweight API: no registry to reorder
     bringLayerToFront: () => {},
     setVisible: () => false,
     touchLayer: () => false,

@@ -402,11 +402,15 @@ class MeasureManager {
   private handleFor(id: string): EditHandle {
     let handle = this.editHandles.get(id);
     if (!handle) {
+      // Mutable slot defaults: each method is overwritten by the registration
+      // that owns it, so an unregistered slot is a no-op rather than a throw.
+      /* eslint-disable @typescript-eslint/no-empty-function -- slot defaults, overwritten by their registration */
       handle = {
         dispose: () => {},
         closeOverlay: () => {},
         toggleDrag: () => {},
       };
+      /* eslint-enable @typescript-eslint/no-empty-function */
       this.editHandles.set(id, handle);
     }
     return handle;

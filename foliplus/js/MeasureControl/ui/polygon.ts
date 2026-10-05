@@ -42,6 +42,9 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
   } = opts;
   const nodeDelMarkers: L.Marker[] = [];
   const dragBinds: DragBind[] = [];
+  // Mutable slot, overwritten by registerEditDragToggle() below — the empty
+  // default keeps disposal safe before that wiring runs.
+  // eslint-disable-next-line @typescript-eslint/no-empty-function -- mutable slot default
   let unregisterDragToggle: () => void = () => {};
   // Definite assignment: rebuildCentroid(initArea) runs synchronously below
   // before any callback can fire, so these are non-null in practice.
@@ -51,6 +54,8 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
   // The initial labels arrive from the drawing mode; relabel() re-issues the
   // registrations when a drag or node delete recreates the markers.
   let unregisterSegLabels = bindSegmentLabels(mgr, segLabels);
+  // Mutable slot, overwritten by the centroid registration below.
+  // eslint-disable-next-line @typescript-eslint/no-empty-function -- mutable slot default
   let unregisterCentroid: () => void = () => {};
 
   const lifecycle = attachDelLifecycle(mgr, layers, nodeDelMarkers, {
