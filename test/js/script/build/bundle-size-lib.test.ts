@@ -1,8 +1,7 @@
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "fs";
+import { mkdirSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join, resolve } from "path";
 import { afterEach, describe, expect, it } from "vitest";
-import { brotliCompressSync } from "zlib";
 import {
   EXIT_FUSE,
   EXIT_NO_BASELINE,

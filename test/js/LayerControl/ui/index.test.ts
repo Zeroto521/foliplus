@@ -8,13 +8,7 @@ import * as CONST from "#foliplus/LayerControl/const.js";
 import { LayerManager } from "#foliplus/LayerControl/manager.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { getIntent, seedIntentMap } from "#foliplus/LayerControl/ui/intent.js";
-import {
-  TileLayer,
-  findItem,
-  initFixture,
-  installLeafletGlobals,
-  makePane,
-} from "./fixture.js";
+import { findItem, initFixture, installLeafletGlobals, makePane } from "./fixture.js";
 
 describe("LayerUI shell — event subscriptions", () => {
   let manager: LayerManager;
@@ -162,10 +156,9 @@ describe("LayerUI shell — event subscriptions", () => {
 describe("LayerUI shell — delegates", () => {
   let manager: LayerManager;
   let ui: LayerUI;
-  let map: any;
 
   beforeEach(() => {
-    ({ manager, ui, map } = initFixture());
+    ({ manager, ui } = initFixture());
   });
 
   afterEach(() => {

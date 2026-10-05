@@ -233,11 +233,11 @@ describe("MarkerMode — start + click", () => {
   });
 
   it("rounds dragged coordinates to the persisted precision (matches placement)", async () => {
-    let rafCb: (() => void) | null = null;
+    let _rafCb: (() => void) | null = null;
     vi.stubGlobal(
       "requestAnimationFrame",
       vi.fn((cb: () => void) => {
-        rafCb = cb;
+        _rafCb = cb;
         return 1;
       }),
     );
@@ -312,11 +312,11 @@ describe("MarkerMode — start + click", () => {
   });
 
   it("discards a stale geocode result when a newer drag supersedes it", async () => {
-    let rafCb: (() => void) | null = null;
+    let _rafCb: (() => void) | null = null;
     vi.stubGlobal(
       "requestAnimationFrame",
       vi.fn((cb: () => void) => {
-        rafCb = cb;
+        _rafCb = cb;
         return 1;
       }),
     );
@@ -571,11 +571,11 @@ describe("MarkerMode — start + click", () => {
   });
 
   it("destroy → re-add restores the last dragged coord from localStorage", () => {
-    let rafCb: (() => void) | null = null;
+    let _rafCb: (() => void) | null = null;
     vi.stubGlobal(
       "requestAnimationFrame",
       vi.fn((cb: () => void) => {
-        rafCb = cb;
+        _rafCb = cb;
         return 1;
       }),
     );

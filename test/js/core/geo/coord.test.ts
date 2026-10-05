@@ -215,7 +215,7 @@ describe("toWgs84 / fromWgs84", () => {
     });
 
     it("transforms GCJ02 to WGS84", () => {
-      const result = toWgs84(domesticMap, 120, 30);
+      toWgs84(domesticMap, 120, 30);
       expect(transform).toHaveBeenCalledWith([120, 30], 1, 2);
     });
 
@@ -234,7 +234,7 @@ describe("toWgs84 / fromWgs84", () => {
     });
 
     it("transforms WGS84 to GCJ02", () => {
-      const result = fromWgs84(domesticMap, 120, 30);
+      fromWgs84(domesticMap, 120, 30);
       expect(transform).toHaveBeenCalledWith([120, 30], 2, 1);
     });
 

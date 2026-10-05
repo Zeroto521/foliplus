@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { LayerInfoRegistry } from "#core/layer/index.js";
 import type { LayerInfo, RegisterLayerOpts } from "#core/layer/index.js";
 

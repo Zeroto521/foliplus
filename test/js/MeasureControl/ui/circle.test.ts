@@ -366,7 +366,7 @@ describe("attachCircleUI — drag flow", () => {
 });
 
 describe("attachCircleUI — null-optionals", () => {
-  const mk = (name: string) => ({
+  const mk = (_name: string) => ({
     on: vi.fn(),
     off: vi.fn(),
     getElement: vi.fn(() => null),

@@ -115,7 +115,7 @@ const makePerfContainer = (): HTMLElement => {
 };
 
 /** Real DOM chip at `box` (container-relative). */
-const labelAt = (box: Box, perfContainer: HTMLElement): CollidableLabel => {
+const labelAt = (box: Box, _perfContainer: HTMLElement): CollidableLabel => {
   const el = document.createElement("div");
   document.body.appendChild(el);
   perfRectOf(el, box.x + PERF_CONTAINER_LEFT, box.y + PERF_CONTAINER_TOP, box.w, box.h);

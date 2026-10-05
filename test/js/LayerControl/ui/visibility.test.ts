@@ -8,7 +8,6 @@ import { getIntent, setIntent } from "#foliplus/LayerControl/ui/intent.js";
 import {
   applyVisibility,
   getLayerItems,
-  handleChange,
   handleInput,
   syncNoBasemap,
   syncToggleAll,

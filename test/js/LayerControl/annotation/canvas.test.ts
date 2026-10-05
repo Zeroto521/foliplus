@@ -3,7 +3,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AnnotationCanvas } from "#foliplus/LayerControl/annotation/canvas.js";
 import type { PlacedLabel } from "#foliplus/LayerControl/annotation/layout.js";
-import { getLayerAlpha, setLayerAlpha } from "#common/canvasAlpha.js";
+import { getLayerAlpha } from "#common/canvasAlpha.js";
 
 const makeCtx = () => ({
   font: "",

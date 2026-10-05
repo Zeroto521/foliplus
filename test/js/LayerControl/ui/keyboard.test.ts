@@ -63,7 +63,7 @@ describe("LayerUI keyboard", () => {
   // ─────────────────── focusLayer() ───────────────────
 
   describe("Enter toggles the cursor row", () => {
-    const toggleSpy = (ui: LayerUI) => {
+    const toggleSpy = (_ui: LayerUI) => {
       const orig = HTMLInputElement.prototype.dispatchEvent;
       const spy = vi.fn();
       HTMLInputElement.prototype.dispatchEvent = function (...args: any[]) {

@@ -1,15 +1,10 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { calcTiles, tilePositions } from "#foliplus/ExportControl/renderer/tile.js";
-import * as UTIL from "#foliplus/ExportControl/util.js";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { calcTiles } from "#foliplus/ExportControl/renderer/tile.js";
 import {
   installTileGlobals,
   makeEPSG3857Mock,
-  makeMockCtx,
-  makeRC,
   makeRenderer,
   makeTileLayer,
-  tilesNearCenter,
-  withPixels,
 } from "./fixture.js";
 
 vi.mock("#foliplus/ExportControl/util.js", async () => {
@@ -17,11 +12,6 @@ vi.mock("#foliplus/ExportControl/util.js", async () => {
   const loadImageBitmap = vi.fn();
   return { ...actual, loadImageBitmap };
 });
-
-class MockTileLayer {
-  _url = "";
-  options: Record<string, unknown> = {};
-}
 
 beforeEach(() => {
   installTileGlobals();
