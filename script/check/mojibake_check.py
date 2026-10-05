@@ -156,7 +156,7 @@ _SPACING_SKIP_FILES = {
     "mojibake_check.py",
     "test_mojibake_check.py",
 }
-# Characters directly BEFORING an em-dash or arrow — glue-shape on the
+# Characters directly BEFORE an em-dash or arrow — glue-shape on the
 # left. The `)` catches `foo—`/`list→` closing brackets that lost a
 # space; `"` is deliberately absent so `"— a new one crept in` (a
 # quoted string starting with a dash) stays clean.
