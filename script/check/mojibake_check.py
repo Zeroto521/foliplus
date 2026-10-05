@@ -29,13 +29,20 @@ round-trip or a formatting error that should be fixed:
    U+64AB (source ``\\u2014L``) is one member; the full 52-character
    family is generated programmatically so a new misread is caught as
    soon as it appears.
-6. **Em-dash glued to an ASCII letter** — ``\\u2014x`` or ``x\\u2014``
-   (letter adjacent to em-dash on either side). This is either a
-   mojibake residue (the misread ate the space between the em-dash and
-   the letter) or a formatting error that should be fixed. Both need
-   attention. The ``[A-Za-z0-9)]\\u2014`` rule skips the ``\\n``
-   escape sequence (backslash-n followed by em-dash) where the em-dash
-   is at the start of a logical line, not adjacent to ``n``.
+6. **Em-dash or arrow glued to ASCII text** — ``\\u2014x``,
+   ``x\\u2014``, ``\\u2192x``, or ``x\\u2192`` where the second
+   character is a letter, digit, or common punctuation (``. , ; : ! ? '
+   ` )``). Either a mojibake residue (the misread ate the space) or a
+   formatting error that should be fixed. The
+   ``[A-Za-z0-9)]\\u2014`` half uses a backslash-lookbehind to skip the
+   ``\\n\\u2014`` escape sequence (backslash-n followed by em-dash)
+   where the em-dash is at the start of a logical line, not adjacent to
+   ``n``. Deliberate exemptions: this file and its tests are skipped
+   entirely (they contain the rule bodies and test data for the
+   mojibake signatures, so a full scan would flag itself), and
+   ``CHANGELOG.md`` lines carrying historical size-delta notation
+   (``193KB\\u2192110KB``, ``PY\\u2192JS``) are skipped per-line —
+   those are release facts, not prose.
 
 None of these can be auto-fixed — the original character is already gone.
 See https://en.wikipedia.org/wiki/Mojibake and
@@ -105,13 +112,45 @@ _GBK_EMDASH_LETTER_FAMILY = "".join(
     if c is not None
 )
 
-# Rule 6: em-dash glued to an ASCII letter. Glued = mojibake residue
-# (the misread ate the space) or a formatting error — both need fixing.
-# The ``[A-Za-z0-9)]—`` rule skips the ``\n—`` escape sequence
-# (backslash-n followed by em-dash) where the em-dash is at the start
-# of a logical line, not adjacent to ``n``.
-_EMDASH_AFTER_RE = re.compile(r"—[A-Za-z]")
-_EMDASH_BEFORE_RE = re.compile(r"(?<!\\)[A-Za-z0-9)]—")
+# Rule 6: em-dash or arrow glued to ASCII text (letter, digit, or
+# punctuation on either side). Either a mojibake residue (the misread
+# ate the space) or a formatting error — both need fixing.
+#
+# The BEFORE class deliberately omits the double-quote character: an
+# em-dash that legitimately opens a quoted or f-string body (f"\u2014 Python
+# must not serialize...", "\u2014 a new one crept in") has no letter or
+# punctuation directly before the em-dash, and adding `"` to BEFORE
+# would re-flag those. Punctuation IS included so broken forms like
+# "—." (attr.ts comment from #601) still trip the rule.
+#
+# Files that legitimately contain the signatures this rule catches are
+# skipped entirely — the checker itself and its tests naturally carry
+# the rule bodies and their test data, and CHANGELOG.md is historical
+# release notes where arrows denote real transformations ("PY→JS
+# injection", "*.js → *.ts", "193KB→110KB", "716→785 tests") that we
+# don't rewrite after the fact.
+_SPACING_SKIP_FILES = {
+    "mojibake_check.py",
+    "test_mojibake_check.py",
+    "CHANGELOG.md",
+}
+# Letter/digit/paren characters used by the BEFORE patterns — an em-dash
+# or arrow at the end of a word, number, or `)` is the mojibake signature.
+# Deliberately omits `"` to spare legitimately quoted strings on the
+# BEFORE side (see _has_spacing_violation's docstring).
+_EM_BEFORE_CHARS = "A-Za-z0-9)"
+# Punctuation that is glued to an em-dash/arrow on the AFTER side —
+# the corruption shape `"—.` (attr.ts comment from #601) is caught
+# because `.` is here, while the fixed `"—".` stays clean because `"`
+# is deliberately absent from this class.
+_EM_AFTER_PUNCT = ".,;:!?'`)"
+
+_EMDASH_AFTER_RE = re.compile(r"\u2014[" + _EM_BEFORE_CHARS + _EM_AFTER_PUNCT + "]")
+_EMDASH_BEFORE_RE = re.compile(
+    r"(?<!\\)[" + _EM_BEFORE_CHARS + _EM_AFTER_PUNCT + "]\u2014"
+)
+_ARROW_AFTER_RE = re.compile(r"\u2192[" + _EM_BEFORE_CHARS + _EM_AFTER_PUNCT + "]")
+_ARROW_BEFORE_RE = re.compile(r"(?<!\\)[" + _EM_BEFORE_CHARS + "]\u2192")
 
 MOJIBAKE_RE = re.compile(
     f"â[{re.escape(_CP1252_FOLLOWS)}]"
@@ -134,16 +173,38 @@ See: https://en.wikipedia.org/wiki/Mojibake
 """
 
 
-def _find_hits(raw: bytes) -> list[tuple[int, str]]:
+def _has_spacing_violation(text: str) -> bool:
+    """Return ``True`` if ``text`` has a Rule 6 spacing violation.
+
+    Em-dash or arrow glued to a letter, digit, or common punctuation.
+    The BEFORE pattern for em-dash uses a backslash-lookbehind so the
+    ``\n—`` escape sequence (em-dash at the start of a logical line) is
+    skipped. Double-quote is deliberately absent from the BEFORE class
+    to avoid flagging em-dash that opens a quoted or f-string body.
+    """
+    return bool(
+        _EMDASH_AFTER_RE.search(text)
+        or _EMDASH_BEFORE_RE.search(text)
+        or _ARROW_AFTER_RE.search(text)
+        or _ARROW_BEFORE_RE.search(text)
+    )
+
+
+def _find_hits(raw: bytes, filepath: str = "") -> list[tuple[int, str]]:
     """Return ``(lineno, decoded_line)`` for each line containing a signature.
 
     Byte-level ``EF BF BD`` (U+FFFD) is checked directly against the raw
     bytes; text-side signatures (CP1252 misread, byte loss after
-    punctuation, GBK misread) are matched against the UTF-8 decoding.
-    Each line is split and decoded exactly once — the caller prints the
-    decoded text returned here rather than re-decoding.
+    punctuation, GBK misread, spacing violations) are matched against the
+    UTF-8 decoding. Each line is split and decoded exactly once — the
+    caller prints the decoded text returned here rather than re-decoding.
+
+    ``skip_spacing`` bypasses Rule 6 for files that legitimately contain
+    its signatures (this checker itself, its tests, historical CHANGELOG
+    size-delta lines).
     """
     hits: list[tuple[int, str]] = []
+    filepath_name = filepath.rsplit("/", 1)[-1].rsplit("\\", 1)[-1]
     for lineno, line in enumerate(raw.split(b"\n"), 1):
         if FFFD in line:
             hits.append((lineno, line.decode("utf-8", errors="replace").rstrip()))
@@ -157,11 +218,12 @@ def _find_hits(raw: bytes) -> list[tuple[int, str]]:
             hits.append((lineno, line.decode("utf-8", errors="replace").rstrip()))
             continue
         text = line.decode("utf-8", errors="replace").rstrip()
-        if (
-            MOJIBAKE_RE.search(text)
-            or _EMDASH_AFTER_RE.search(text)
-            or _EMDASH_BEFORE_RE.search(text)
-        ):
+        if MOJIBAKE_RE.search(text):
+            hits.append((lineno, text))
+            continue
+        if filepath_name in _SPACING_SKIP_FILES:
+            continue
+        if _has_spacing_violation(text):
             hits.append((lineno, text))
     return hits
 
@@ -177,7 +239,7 @@ def main() -> int:
                 raw = f.read()
         except OSError:
             continue
-        for lineno, text in _find_hits(raw):
+        for lineno, text in _find_hits(raw, filepath=filepath):
             print(f"{filepath}:{lineno}: {text}")
             failures += 1
 
