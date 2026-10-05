@@ -262,7 +262,8 @@ class PaneManager {
    *    answer in the cache. Over-invalidating is always safe here — a stale
    *    entry costs one extra `walkTree` walk, never a wrong result.
    *    `pinTree` uses the same primitive. */
-  reset(_id?: number): void {
+  reset(id?: number): void {
+    void id;
     this.generation++;
   }
 

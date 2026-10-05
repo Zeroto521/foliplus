@@ -96,7 +96,9 @@ const commitOpacityPct = (
   layerId: string,
   panel: HTMLElement,
   rawPct: number,
+  commit = false,
 ): void => {
+  void commit;
   const pct = clampPct(rawPct);
   const opacity = pct / 100;
   const li = ui.m.layerRegistry.get(layerId);

@@ -156,7 +156,7 @@ const bindEvents = (ui: LayerUI): void => {
     }
     handleChange(ui, event);
   };
-  ui.onInput = () => handleInput();
+  ui.onInput = event => handleInput(ui, event);
   ui.onClick = event => {
     const el = event.target as HTMLElement;
     // A press inside a row's floating panel (attributes / style) is the

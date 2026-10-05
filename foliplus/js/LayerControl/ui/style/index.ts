@@ -193,7 +193,7 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
       bubble.textContent = String(pct);
     }
 
-    commitOpacityPct(ui, layerId, panel, raw);
+    commitOpacityPct(ui, layerId, panel, raw, commit);
     return true;
   };
 
