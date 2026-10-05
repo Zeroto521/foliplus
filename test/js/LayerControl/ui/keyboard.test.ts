@@ -302,7 +302,7 @@ describe("LayerUI keyboard", () => {
 
     it("repeated checkbox clicks keep the row cursor visual on", () => {
       // Click is a cursor arrival: the visual stays until Escape / another
-      // row / an outside press. (#278 only removed dblclick→focusLayer.)
+      // row / an outside press. (#278 only removed dblclick → focusLayer.)
       const overlay = findItem(ui, "overlay1");
       const checkbox = overlay.querySelector(
         'input[type="checkbox"]',

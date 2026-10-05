@@ -37,7 +37,7 @@ describe("withMapCRS", () => {
     };
   });
 
-  it("converts the suggest bias center map→WGS84 before building the URL", () => {
+  it("converts the suggest bias center map → WGS84 before building the URL", () => {
     const suggest = vi.fn(
       (q: string, limit: number, center: [number, number] | null) =>
         `s(${q},${String(center)})`,
@@ -51,18 +51,18 @@ describe("withMapCRS", () => {
     expect(suggest).toHaveBeenCalledWith("x", 5, [121, 31], "en");
   });
 
-  it("converts reverse input map→WGS84 before building the URL", () => {
+  it("converts reverse input map → WGS84 before building the URL", () => {
     const wrapped = withMapCRS(makeProvider(), domesticMap);
     expect(wrapped.reverse(120, 30, "en")).toBe("r(121,31)");
   });
 
-  it("converts normalizeSuggest results WGS84→map", () => {
+  it("converts normalizeSuggest results WGS84 → map", () => {
     const wrapped = withMapCRS(makeProvider(), domesticMap);
     const items = wrapped.normalizeSuggest({});
     expect(items[0]).toMatchObject({ lng: "101", lat: "21", display_name: "A" });
   });
 
-  it("converts normalizeSearch results WGS84→map", () => {
+  it("converts normalizeSearch results WGS84 → map", () => {
     const wrapped = withMapCRS(makeProvider(), domesticMap);
     const item = wrapped.normalizeSearch({});
     expect(item).toMatchObject({ lng: "101", lat: "21" });

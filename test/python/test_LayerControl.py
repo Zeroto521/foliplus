@@ -1310,11 +1310,11 @@ class TestLayerControlBrowser:
             assert not errors, f"JS errors: {errors}"
 
     def test_remove_readd_leaves_no_listener_residue(self, browser, tmp_path):
-        """N=3 remove→add cycles must not grow map._events listener sum.
+        """N=3 remove → add cycles must not grow map._events listener sum.
 
         Hard regression gate: baseline round[0] is captured right after the
         initial addControl (harness already ran that in page setup);
-        rounds[1] and rounds[2] follow remove→add. Any drift — whether on
+        rounds[1] and rounds[2] follow remove → add. Any drift — whether on
         round[0] or in a later round — fails the assertion.
 
         The gate is what caught the `dismissFocus` → `ensureModes` first-call
@@ -6658,7 +6658,7 @@ class TestLayerPaneProbeBrowser:
     # ── overlay / plugin probes ──────────────────────────────────
 
     def test_probe_geojson_mixed_geometry(self, browser, tmp_path):
-        """#1 GeoJson: point→marker, line/polygon→path, all in one pane."""
+        """#1 GeoJson: point → marker, line/polygon → path, all in one pane."""
         geo = folium.GeoJson(_GEO_MIXED, name="Probe GeoJson")
         with use_page(self._probe, browser, tmp_path, geo, slug="p1") as (page, _):
             r = self._facts(

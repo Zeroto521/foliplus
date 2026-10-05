@@ -368,7 +368,7 @@ const applyProjection = (
     // registration still has its stored state applied on the first call.
     // Canvas-only layers have no Leaflet layer, so the author's default is
     // the ground truth — `hasLayer` would always return false and mask a
-    // real visible→hidden transition.
+    // real visible → hidden transition.
     // Late-binding fallback via manager.findLayer — the single resolve point
     // (folium may emit the TileLayer var after this control's IIFE).
     const layer = layerInfo.layer ?? ui.m.findLayer(layerInfo);
