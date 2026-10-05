@@ -4,19 +4,11 @@ import { isNativeControl } from "#core/inputOwnership.js";
 import { GROUP } from "#core/layer/index.js";
 import { ListCursor } from "#core/listCursor.js";
 import * as CONST from "../const.js";
-import { closeAttrsPanel } from "./attr.js";
 import { inFloatingPanel, owningRow } from "./context.js";
 import { toggleFold } from "./drag.js";
-import {
-  cancelFocus,
-  focusLayer,
-  isFocusing,
-  showFocusDisabledHint,
-  toggleFocusedLayer,
-} from "./focus.js";
+import { showFocusDisabledHint, toggleFocusedLayer } from "./focus.js";
 import type { LayerUI } from "./index.js";
-import { activateDeleteItem, closeMoreMenu, openMoreMenu } from "./menu.js";
-import { finishRename, renameLayer } from "./rename.js";
+import { activateDeleteItem } from "./menu.js";
 
 /** Ensure the shared ListCursor and re-apply ARIA / roving tabindex.
  *  setIndex, not adopt: callers that already painted FOCUSED (keyboard /

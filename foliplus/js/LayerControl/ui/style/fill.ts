@@ -49,7 +49,6 @@ import {
   flushStyleDimApply,
   restoreStyleDim,
   scheduleStyleDimApply,
-  styleBagOf,
   styleDimPayload,
   walkStyleLeaves,
 } from "./styleBag.js";
