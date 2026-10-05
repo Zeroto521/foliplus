@@ -214,9 +214,12 @@ class LayerFactory {
     let registered = false;
     let layerOpts: RegisterLayerOpts;
     let registerIdempotent = false;
+    // Hook slots, overwritten per surface kind (layers vs canvas) below.
+    /* eslint-disable @typescript-eslint/no-empty-function -- hook slots, overwritten per surface kind */
     let preRegister: () => void = () => {};
     let postRegister: () => void = () => {};
     let preUnregister: () => void = () => {};
+    /* eslint-enable @typescript-eslint/no-empty-function */
     let shouldUnregister: () => boolean = () => true;
     let content: SurfaceContentHandle;
 

@@ -242,6 +242,9 @@ const handleChange = (ui: LayerUI, event: Event) => {
   applyVisibility(ui, id, target.checked);
 };
 
+// Intentional no-op: the layer list has no text inputs, so `input` events need
+// no work — the handler exists only to keep the listener wiring uniform.
+// eslint-disable-next-line @typescript-eslint/no-empty-function -- intentional no-op
 const handleInput = (ui: LayerUI, event: Event) => {};
 
 export {

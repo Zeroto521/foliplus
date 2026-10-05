@@ -173,6 +173,7 @@ class DistanceMode extends PreviewMode {
       });
       // The drawing-phase cleanup (set in start()) would remove the finalized
       // polyline/nodes, so replace it with a no-op.
+      // eslint-disable-next-line @typescript-eslint/no-empty-function -- neutralizes the drawing-phase cleanup
       this._cleanup = () => {};
 
       // Cleanup drawing mode
