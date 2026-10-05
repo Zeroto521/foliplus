@@ -366,7 +366,7 @@ describe("attachCircleUI — drag flow", () => {
 });
 
 describe("attachCircleUI — null-optionals", () => {
-  const mk = (_name: string) => ({
+  const mk = () => ({
     on: vi.fn(),
     off: vi.fn(),
     getElement: vi.fn(() => null),
@@ -386,11 +386,11 @@ describe("attachCircleUI — null-optionals", () => {
     const registerLabel = vi.fn(() => () => {});
     const opts = {
       layers,
-      circle: mk("circle"),
+      circle: mk(),
       radiusLine: null,
       radiusNode: null,
-      centerFinal: mk("centerFinal"),
-      delMarker: mk("delMarker"),
+      centerFinal: mk(),
+      delMarker: mk(),
       radiusLabel: null,
       onDelete: vi.fn(),
       id: "test-id",
@@ -407,8 +407,8 @@ describe("attachCircleUI — null-optionals", () => {
   });
 
   it("center-drag skips the optional layers and updateLabel returns early when they are null", () => {
-    const circle = mk("circle");
-    const centerFinal = mk("centerFinal");
+    const circle = mk();
+    const centerFinal = mk();
     UI.attachCircleUI(
       makeMgr() as any,
       {
@@ -417,7 +417,7 @@ describe("attachCircleUI — null-optionals", () => {
         radiusLine: null,
         radiusNode: null,
         centerFinal,
-        delMarker: mk("delMarker"),
+        delMarker: mk(),
         radiusLabel: null,
         onDelete: vi.fn(),
         id: "test-id",
@@ -435,8 +435,8 @@ describe("attachCircleUI — null-optionals", () => {
   });
 
   it("radius-drag skips the radius line and label when they are null", () => {
-    const circle = mk("circle");
-    const radiusNode = mk("radiusNode");
+    const circle = mk();
+    const radiusNode = mk();
     UI.attachCircleUI(
       makeMgr() as any,
       {
@@ -444,8 +444,8 @@ describe("attachCircleUI — null-optionals", () => {
         circle,
         radiusLine: null,
         radiusNode,
-        centerFinal: mk("centerFinal"),
-        delMarker: mk("delMarker"),
+        centerFinal: mk(),
+        delMarker: mk(),
         radiusLabel: null,
         onDelete: vi.fn(),
         id: "test-id",

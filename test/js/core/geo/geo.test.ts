@@ -11,11 +11,11 @@ import {
 beforeEach(() => {
   globalThis.turf = {
     point: coords => ({ coords }),
-    distance: vi.fn((_a, _b) => 1234),
-    bearing: vi.fn((_a, _b) => 45),
-    midpoint: vi.fn((_a, _b) => ({ geometry: { coordinates: [12.5, 34.5] } })),
+    distance: vi.fn(() => 1234),
+    bearing: vi.fn(() => 45),
+    midpoint: vi.fn(() => ({ geometry: { coordinates: [12.5, 34.5] } })),
     polygon: vi.fn(coords => ({ coords })),
-    area: vi.fn(_poly => 5_000_000),
+    area: vi.fn(() => 5_000_000),
   };
 });
 

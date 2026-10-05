@@ -610,7 +610,7 @@ describe("LayerSurface.setZOverride / restoreZ", () => {
       const z = ["graph", "node", "label", "ann"].map(n =>
         Number(panes[n].style.zIndex),
       );
-      return z.map((a, _i) => z.map((b, _j) => Math.sign(a - b)));
+      return z.map(a => z.map(b => Math.sign(a - b)));
     };
     surface.setZ(620);
     const ordered = relations();
