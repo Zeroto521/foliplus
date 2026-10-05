@@ -28,10 +28,9 @@
 // a change on either side produces an op.
 import { EVENTS } from "#core/event/index.js";
 import { CAP_TIER, HIDDEN, PANE_ROLE } from "#core/layer/index.js";
-import { resetGridLayerView } from "#core/leafletAdapter.js";
 import { getLayerAlpha, setLayerAlpha } from "#common/canvasAlpha.js";
 import * as CONST from "../const.js";
-import type { Projection, StateOp } from "../type.js";
+import type { StateOp } from "../type.js";
 import type { LayerUI } from "./index.js";
 import { INTENT, getIntent } from "./intent.js";
 import { intentVisibleOf, projectAll, projectLayer } from "./projection.js";

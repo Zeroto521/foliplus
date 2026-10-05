@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { GEOM_TYPE, GROUP } from "#core/layer/index.js";
+import { GROUP } from "#core/layer/index.js";
 import type { LayerInfo } from "#core/layer/index.js";
 import { LayerIntentStore, LayerRuntimeStore } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
@@ -92,8 +92,6 @@ describe("intentVisibleOf (the intent seam)", () => {
       runtimeStore,
     } as unknown as LayerUI;
   };
-
-  const info = (id: string): LayerInfo => ({ id }) as LayerInfo;
 
   it.each([
     ["no override, no snapshot, defaults on", {}, [], {}, true],

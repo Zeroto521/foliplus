@@ -109,8 +109,16 @@ export default [
         { allowShortCircuit: true, allowTernary: true },
       ],
 
-      // tsc --noEmit already checks unused vars (noUnusedLocals)
-      "@typescript-eslint/no-unused-vars": "off",
+      // Dead imports and variables are a bug smell in production code; we
+      // catch them here rather than letting them rot. `_` prefix exempts
+      // deliberate placeholders — mock/test signatures that must accept a
+      // value they ignore (`_map`, `_opts`, `_from`, …) fall under the same
+      // convention as unused local vars, and unused `catch (e)` bindings are
+      // handled by the bare-`catch` form, not by prefixing.
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        { varsIgnorePattern: "^_", argsIgnorePattern: "^_" },
+      ],
       "no-unused-vars": "off",
 
       // Heavy-mock test suite and Leaflet interop make `any` idiomatic here.

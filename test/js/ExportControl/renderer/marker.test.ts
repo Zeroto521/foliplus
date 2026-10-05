@@ -9,8 +9,6 @@ import {
 } from "#foliplus/ExportControl/renderer/marker.js";
 import * as UTIL from "#foliplus/ExportControl/util.js";
 import {
-  captureSources,
-  makeMockCtx,
   makeRenderer,
   pinBox,
   positionedRC,
@@ -732,9 +730,7 @@ describe("marker passes — branch edges", () => {
       // Simulate two panes both resolving to the same children container.
       const map = (globalThis as any).map;
       const origGetPane = map.getPane;
-      let calls = 0;
       map.getPane = () => {
-        calls++;
         return roots;
       };
       // First pane "p1", then a second pane name also hitting the same roots.

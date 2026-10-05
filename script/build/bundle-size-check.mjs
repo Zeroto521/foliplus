@@ -41,7 +41,6 @@ import {
   fmtBytes,
   parseArgsWithBase,
   readSizes,
-  stripLeadingBlockComment,
 } from "./bundle-size-lib.mjs";
 
 // A threshold breach is a policy decision, not a broken check. The report —

@@ -203,7 +203,6 @@ describe("LayerUI overlay mutual exclusion", () => {
 
   describe("the clear point sits behind the entry's guards", () => {
     it("a blocked focus leaves an open panel alone", () => {
-      const item = findItem(ui, "overlay1");
       ui.openStylePanel("overlay1");
       expect(ui.stylePanelLayerId).toBe("overlay1");
 

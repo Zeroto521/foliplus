@@ -1,6 +1,5 @@
 // LayerControl UI — Checkbox / group-toggle visibility.
 import { GROUP } from "#core/layer/index.js";
-import { type Debounced, debounce } from "#common/debounce.js";
 import * as CONST from "../const.js";
 import { applyProjection, applyProjectionAll } from "./apply.js";
 import type { LayerUI } from "./index.js";
@@ -242,8 +241,6 @@ const handleChange = (ui: LayerUI, event: Event) => {
   applyVisibility(ui, id, target.checked);
 };
 
-const handleInput = (ui: LayerUI, event: Event) => {};
-
 export {
   getLayerItems,
   toggleAll,
@@ -253,5 +250,4 @@ export {
   syncNoBasemap,
   applyVisibility,
   handleChange,
-  handleInput,
 };

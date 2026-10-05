@@ -3,7 +3,7 @@
 // PR① acceptance: toPersisted vs old buildLayerStates field-by-field,
 // loadFromPersisted vs parseLayerState + PARSE_OVERRIDE, overrides array ↔
 // Set round-trip. Values and behaviour must match the pre-store twin.
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import type {
   LayerOverride,
   PersistedLayerState,
