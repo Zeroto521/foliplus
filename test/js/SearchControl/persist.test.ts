@@ -179,7 +179,7 @@ describe("SearchControl history — versioned envelope", () => {
   });
 
   describe("flushHistory — teardown safety", () => {
-    it("entries survive the destroy() flush→reset sequence", () => {
+    it("entries survive the destroy() flush → reset sequence", () => {
       // Mirrors SearchControl.destroy(): flushHistory(ctx()) writes the current
       // history before the in-memory array is reset. With debounceMs=0 the
       // write is already durable at saveHistory time, so flushHistory is a

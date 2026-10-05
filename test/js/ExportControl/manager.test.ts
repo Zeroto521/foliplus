@@ -1,11 +1,8 @@
-import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { ensureEvents } from "#core/event/index.js";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ensureHint } from "#core/hint.js";
-import * as CONST from "#foliplus/ExportControl/const.js";
-import { ExportManager, canvasToBlob } from "#foliplus/ExportControl/manager.js";
+import { ExportManager } from "#foliplus/ExportControl/manager.js";
 import { ExportRenderer } from "#foliplus/ExportControl/renderer/index.js";
 import * as downloadMod from "#common/download.js";
-import * as Storage from "#common/storage.js";
 
 // Hoistable mock for guardBlocked — allows per-test override to exercise the
 // blocked-path in doExport() without affecting the real ensureModes/ModeManager

@@ -1,7 +1,6 @@
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join, resolve } from "path";
-import { pathToFileURL } from "url";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   PrettierOptions,

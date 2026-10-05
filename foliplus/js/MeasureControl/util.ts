@@ -2,7 +2,6 @@
 // config/translator where a label or popup string is i18n-driven.
 import { area, bearing, centroid, distance, midpoint } from "#core/geo/index.js";
 import { reverseGeocode } from "#core/geocode/index.js";
-import { toggleDelIcon } from "#core/leaflet/index.js";
 import type { ControlEnv } from "#core/type.js";
 import { cssVar } from "#common/cssvar.js";
 import { buildPopupEl } from "#common/dom.js";

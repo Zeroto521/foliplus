@@ -12,7 +12,7 @@ const renderPaneSVG = async (
   rc: RenderCtx,
   pane: HTMLElement,
 ): Promise<void> => {
-  const { ctx, rect, scale, contRect, sw, sh } = rc;
+  const { ctx, rect, contRect, sw, sh } = rc;
   const props = [
     "fill",
     "stroke",

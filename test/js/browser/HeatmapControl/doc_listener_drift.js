@@ -1,4 +1,4 @@
-// Drift gate: two remove→add cycles with the scheme dropdown OPEN must leave
+// Drift gate: two remove → add cycles with the scheme dropdown OPEN must leave
 // the document/window listener count where it started, as measured by
 // _probe/doc_listener_probe.js, installed as a page prelude so its counts are
 // absolute rather than deltas from partway through the page's life.

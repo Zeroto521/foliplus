@@ -419,7 +419,7 @@ describe("buildEditOverlay", () => {
     overlay.open(ev);
 
     expect(onOpen).toHaveBeenCalledTimes(1);
-    // Stops layer→map propagation so the overlay's own map-click handler
+    // Stops layer → map propagation so the overlay's own map-click handler
     // (which closes it) doesn't fire right after open.
     expect(window.L.DomEvent.stopPropagation).toHaveBeenCalledWith(ev);
   });

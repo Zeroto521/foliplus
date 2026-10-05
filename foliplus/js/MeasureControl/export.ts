@@ -14,7 +14,7 @@ import { download } from "#common/download.js";
 import { formatCoord } from "#common/format.js";
 import * as CONST from "./const.js";
 import type { MeasureManager } from "./manager.js";
-import { MODE_MAP, MeasureMode } from "./mode/index.js";
+import { MODE_MAP } from "./mode/index.js";
 import type { ExportFormat } from "./type.js";
 
 /**

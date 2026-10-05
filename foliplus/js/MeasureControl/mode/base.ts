@@ -82,12 +82,14 @@ class MeasureMode {
    *  @param manager - MeasureManager instance.
    *  @param data - Persisted measurement data. */
   static restore(manager: MeasureManager, data: MeasureData): void {
+    void data;
     throw new Error(manager.log.msg(`restore not implemented for ${this.TYPE}`));
   }
 
   /** Convert a persisted measurement to a GeoJSON Feature.
    *  Subclasses override this to return their specific geometry type. */
   static toGeoFeature(env: ControlEnv, data: MeasureData): GeoJSON.Feature {
+    void data;
     throw new Error(env.log.msg(`toGeoFeature not implemented for ${this.TYPE}`));
   }
 }

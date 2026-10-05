@@ -16,7 +16,7 @@ import { applyProjection } from "../apply.js";
 import type { LayerUI } from "../index.js";
 import { INTENT, getIntent } from "../intent.js";
 import { syncNoBasemap } from "../visibility.js";
-import { railPos, round5 } from "./frame.js";
+import { round5 } from "./frame.js";
 import {
   getDimension,
   registerDimension,
@@ -96,7 +96,6 @@ const commitOpacityPct = (
   layerId: string,
   panel: HTMLElement,
   rawPct: number,
-  commit = false,
 ): void => {
   const pct = clampPct(rawPct);
   const opacity = pct / 100;

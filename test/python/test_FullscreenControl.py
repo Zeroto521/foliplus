@@ -197,7 +197,7 @@ class TestFullscreenControlBrowser:
         return page, errors
 
     def test_remove_readd_leaves_no_document_listener_residue(self, browser, tmp_path):
-        """Two remove→add cycles must not accumulate document/window listeners.
+        """Two remove → add cycles must not accumulate document/window listeners.
 
         The existing ``map._events`` gates only count listeners on the Leaflet
         map instance — the layer FullscreenControl's orphan ``map.on("unload")``

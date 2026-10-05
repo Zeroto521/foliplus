@@ -39,7 +39,7 @@ afterEach(() => {
 
 function makeEPSG3857Mock() {
   // Correct Web Mercator latLngToPoint.  At zoom z the world is 256·2^z
-  // pixels wide/high.  lng=−180→x=0, lng=+180→x=worldSize.  lat=+85.051129°
+  // pixels wide/high.  lng=−180 → x=0, lng=+180 → x=worldSize.  lat=+85.051129°
   // → y≈0 (Mercator north pole), lat=−85.051129° → y≈worldSize.
   const worldSize = (z: number) => 256 * Math.pow(2, z);
   return {

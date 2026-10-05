@@ -227,6 +227,7 @@ class PolygonMode extends PreviewMode {
       });
       // Replace the drawing-phase cleanup with a no-op (it would remove the
       // finalized polygon/nodes).
+      // eslint-disable-next-line @typescript-eslint/no-empty-function -- neutralizes the drawing-phase cleanup
       this._cleanup = () => {};
 
       // Cleanup drawing mode
