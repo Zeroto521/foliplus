@@ -124,7 +124,7 @@ class PreviewMode extends MeasureMode {
     this.previewLayers.push(layer);
     this.layers.addLayer(layer, paneName);
     // The preview is a drawing aid, not content: an export started mid-drawing
-    // must not freeze it in the picture.  Every preview funnels through here — — 
+    // must not freeze it in the picture.  Every preview funnels through here — —
     // pinToTop and moveCursorNode rebuild by remove + re-add, which is the same
     // call — — so one stamp covers the rebuilds too.  Duck-checked rather than
     // instanceof: a non-element layer simply has no getElement and is skipped.
@@ -147,7 +147,7 @@ class PreviewMode extends MeasureMode {
   }
 
   /**
-   * Re-attach a preview layer so it becomes the newest sibling in its pane — — 
+   * Re-attach a preview layer so it becomes the newest sibling in its pane — —
    * i.e. it paints above earlier siblings within that pane.
    *
    * Preview shapes update their coordinates with `setLatLngs`, which triggers
@@ -265,7 +265,7 @@ const createDeferredDelete = (): {
 
 /**
  * Register a finalized cleanup and build the shared delete-then-teardown
- * path: unregister — — teardown — — removeLayers — — business delete — — 
+ * path: unregister — — teardown — — removeLayers — — business delete — —
  * `layers.unregister`. Callers own what `teardown` / `removeLayers` /
  * `onDelete` do; this hook owns only the registerFinalized bookkeeping so
  * `attachDelLifecycle` and `MarkerMode.finalize` don't each re-implement it.
@@ -304,7 +304,7 @@ const wireFinalized = (
  * owns the overlay and the registerFinalized handle so the three attachXUI
  * builders don't each re-implement the same 5-line skeleton.
  *
- * `delMarkers` is the — — handle set the default onOpen/onEmpty toggle — — 
+ * `delMarkers` is the — — handle set the default onOpen/onEmpty toggle — —
  * distance passes its nodeDelMarkers, circle passes a single-element array.
  * Callers needing side effects (e.g. polygon's centroid — —  marker's popup
  * close) supply their own onOpen/onEmpty. DOM construction stays in the

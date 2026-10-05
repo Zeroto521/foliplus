@@ -28,7 +28,7 @@ describe("LABEL anchors", () => {
 
   it("anchors the label chip above the point so it covers the center dot", () => {
     // The centroid label and the 12×12 center dot share a latlng. The dot
-    // goes to foliplus-measure-graph, the label to foliplus-measure-label — 
+    // goes to foliplus-measure-graph, the label to foliplus-measure-label —
     // the label pane always paints above the graph pane, so pane ordering
     // alone covers the dot without any z-index or anchor trickery. The
     // default [0, -10] anchor sits the chip *above* the point (negative y in

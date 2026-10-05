@@ -727,7 +727,7 @@ describe("bindEvents", () => {
   it("fills empty string when a result item has no data-query nor text span", () => {
     const ctrl = makeCtrl();
     ctrl.panelWrap = dom.el("div");
-    // Bare item: no data-query attribute and no RESULT_TEXT child — 
+    // Bare item: no data-query attribute and no RESULT_TEXT child —
     // resultItemValue must fall through to the empty-string default.
     const bare = dom.el("div", { class: "foliplus-search-result-item" });
     ctrl.panelWrap.append(bare);

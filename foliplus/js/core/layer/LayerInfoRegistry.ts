@@ -146,7 +146,7 @@ class LayerInfoRegistry {
         opts.styleDefaultsProvider ?? existingLi?.styleDefaultsProvider ?? null,
       getBounds: opts.getBounds ?? existingLi?.getBounds ?? null,
       // Static caller-supplied metadata for the attributes panel. ` — — ` (not
-      // a spread) so a re-registration leaves the previous values in place — 
+      // a spread) so a re-registration leaves the previous values in place —
       // the provider does not necessarily resend provenance on every call,
       // and clearing it on a silent refresh would lose it.
       source: opts.source ?? existingLi?.source ?? null,

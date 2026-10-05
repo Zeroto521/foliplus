@@ -108,7 +108,7 @@ interface LayerCapabilities {
    *      `"pane"` — a `"baked"`/`"redraw"` mechanism tier is owned by T222.
    *    - "none" — no honest carrier exists. MarkerCluster's cluster icons stay
    *      in the shared `markerPane` where `eachLayer` cannot reach them, so a
-   *      pane write would fade the individual markers but not the cluster — 
+   *      pane write would fade the individual markers but not the cluster —
    *      half the layer. The UI then hides the opacity control rather than
    *      offering a knob that lies. */
   opacity: "native" | "pane" | "none";
@@ -300,7 +300,7 @@ interface LayerInfo {
   meta?: Record<string, string | number> | null;
   /** Dynamic meta provider — pull on demand, never cached. */
   metaProvider?: (() => Record<string, string | number>) | null;
-  /** Epoch ms of the layer's first registration. Set by the registry itself — 
+  /** Epoch ms of the layer's first registration. Set by the registry itself —
    *  never by the provider — so a re-registration keeps the original value. */
   registeredAt?: number;
 }
@@ -742,7 +742,7 @@ interface LayerAPI {
    *  `removedIds`, or destroy its annotation config: the id stays
    *  registerable, so a component that cleared its own data can draw again.
    *  Reachable from an explicit user action alone — the component clear paths
-   *  (Heatmap's panel Clear button and LayerControl's overflow Clear Data) — 
+   *  (Heatmap's panel Clear button and LayerControl's overflow Clear Data) —
    *  which is what keeps the two entries erasing the same thing.
    *
    *  @returns true if persisted state was dropped, false when nothing was

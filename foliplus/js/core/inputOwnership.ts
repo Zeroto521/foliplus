@@ -89,7 +89,7 @@ const keyOwner = (event: { target?: unknown }): Element | null => {
   return event.target instanceof Element ? event.target : null;
 };
 
-/** Does the element natively consume `key`, so foliplus must stand aside — 
+/** Does the element natively consume `key`, so foliplus must stand aside —
  *  neither act nor `preventDefault` — This is the one predicate every
  *  dispatch site asks before touching a key. */
 const nativeConsumesKey = (el: Element | null, key: string): boolean => {

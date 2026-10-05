@@ -77,7 +77,7 @@ class HintManager {
   constructor() {
     this.hintIcons = { ...hintIconRegistry };
     this.hintMap = new Map();
-    // When the map goes fullscreen, only the fullscreen element is visible — 
+    // When the map goes fullscreen, only the fullscreen element is visible —
     // hints appended to document.body would disappear. Migrate them to the
     // fullscreen element (and back again on exit). Standard API only — the
     // webkit prefix is dropped (see FullscreenControl/api.ts).

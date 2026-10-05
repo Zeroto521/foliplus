@@ -107,7 +107,7 @@ const hasLabelField = (layer: L.Layer): boolean => {
 };
 
 /**
- * Look up a field's sampled type. An unknown name is reported as non-numeric — 
+ * Look up a field's sampled type. An unknown name is reported as non-numeric —
  * the safe answer for a control that only changes anything on numbers.
  */
 const isNumericField = (fields: LabelField[], name: string): boolean =>

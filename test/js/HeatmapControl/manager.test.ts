@@ -1663,7 +1663,7 @@ describe("HeatmapManager — EVENTS.LAYER_DELETED auto-clear", () => {
     addOptions(ctrl.methodSelect, ["equal", "jenks"]);
     addOptions(ctrl.classSelect, ["4", "6"]);
     addOptions(ctrl.schemeSelectHidden, ["Blues", "Reds"]);
-    // The panel still shows the deleted layer's id when the clear lands — 
+    // The panel still shows the deleted layer's id when the clear lands —
     // that is the stale state this reset has to undo.
     addOptions(ctrl.layerSelect, ["", "pts"]);
     ctrl.layerSelect.value = "pts";

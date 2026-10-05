@@ -282,7 +282,7 @@ describe("LayerPersistence", () => {
 
     it("leaves a non-hex annotation color alone", () => {
       // The annotations section has no isHexColor gate (unlike layers), so
-      // values the UI would not have written still round-trip unchanged — 
+      // values the UI would not have written still round-trip unchanged —
       // the write side is equally permissive, and both consumers (canvas
       // fillStyle, color input) tolerate a bad value by falling back to
       // their default.

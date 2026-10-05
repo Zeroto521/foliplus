@@ -985,7 +985,7 @@ describe("LayerFactory", () => {
       // The lightweight LayerAPI has no registry and no ordering pass, so
       // nothing prices the pane: the inline z stays empty and the pane renders
       // at Leaflet's own z of 400. That is the value a bare canvas overlay
-      // belongs at when no ladder manages it (the same tier as overlayPane) — 
+      // belongs at when no ladder manages it (the same tier as overlayPane) —
       // and the value the PR that retired the provisional bottom step had to
       // pick for this path too.
       slotOf.mockReturnValue(null);

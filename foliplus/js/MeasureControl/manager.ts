@@ -460,7 +460,7 @@ class MeasureManager {
       const { x, y } = this.map.latLngToContainerPoint(event.latlng);
       const size = this.map.getSize();
       const gap = CONST.READOUT.ANCHOR_GAP;
-      // The chip is centered on the cursor and dropped `gap` px below it — — 
+      // The chip is centered on the cursor and dropped `gap` px below it — —
       // due south of it, the same way the area label sits south of the centroid
       // dot. When that would push it past the bottom edge, the flip re-anchors
       // it above the cursor instead.

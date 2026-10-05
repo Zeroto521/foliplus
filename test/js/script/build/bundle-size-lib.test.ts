@@ -107,7 +107,7 @@ describe("stripLeadingBlockComment", () => {
 describe("readSizes", () => {
   // readSizes compresses with brotli, and brotli crushes a repeated literal
   // to a few bytes: a fixture like "a" x 2000 compresses to ~10 B and would
-  // silently land under any fuse cap. The payload below is incompressible — 
+  // silently land under any fuse cap. The payload below is incompressible —
   // its brotli size tracks its raw length, so a fixture really does measure
   // as what we say.
   const payload = (bytes: number) => {

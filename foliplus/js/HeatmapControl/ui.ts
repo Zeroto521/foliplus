@@ -255,7 +255,7 @@ const buildLayerListItems = (ctrl: HeatmapControlUI, sel: HTMLSelectElement) => 
     updateFieldSelector(ctrl);
   }
 
-  // Selection (auto, restored, or user) and field resolution are settled here — 
+  // Selection (auto, restored, or user) and field resolution are settled here —
   // publish source-layer / agg-field so the attrs panel is current without a
   // further user edit.
   ctrl.m.syncSourceMeta();
@@ -505,7 +505,7 @@ const initScan = (ctrl: HeatmapControlUI): (() => void) => {
 const resetPanel = (ctrl: HeatmapControlUI) => {
   ctrl.m.resetState(ctrl.config);
   ctrl.m.clearHeatmapCanvas();
-  // Read the reset values off the manager instead of recomputing the defaults — 
+  // Read the reset values off the manager instead of recomputing the defaults —
   // resetState is the single source, and bindControls' initial clamp (see above)
   // is the one the class select needs.
   syncSelect(ctrl, ctrl.layerSelect, "");

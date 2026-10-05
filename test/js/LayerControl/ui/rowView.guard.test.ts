@@ -23,7 +23,7 @@ import { describe, expect, it } from "vitest";
 //   2. ACTIVE class     — `item.classList.add|remove|toggle(...ACTIVE)`
 //      Slot 2. Receiver-anchored on `item`, the row element. Scoped to
 //      LayerControl because `CONST.CLASSES.ACTIVE` is shared with
-//      MeasureControl (tool buttons) and HeatmapControl (scheme items) — 
+//      MeasureControl (tool buttons) and HeatmapControl (scheme items) —
 //      those are different components' own UI, not layer rows.
 //
 //   3. count column     — `CONST.SEL.COUNT_COL`

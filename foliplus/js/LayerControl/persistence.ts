@@ -32,7 +32,7 @@ type LiveState = {
  *  record without a `version` is read as-is and re-stamped on the next write.
  *
  *  2 → 3: the label config moved into `layers[id].annotation` (a style
- *  dimension of the layer, not a parallel segment). v2 records still read — 
+ *  dimension of the layer, not a parallel segment). v2 records still read —
  *  their `annotations[id]` entries are the fallback when the new key is
  *  absent, and the segment is passed through on every write untouched. */
 const RECORD_VERSION = 3;

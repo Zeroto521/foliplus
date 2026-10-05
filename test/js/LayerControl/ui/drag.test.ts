@@ -300,7 +300,7 @@ describe("ui/drag", () => {
 
     it("handleDragOver treats the color basemap row as a valid target", () => {
       // The color row is a base-group member like any other: it participates
-      // in drag reorder. A row WITHOUT a data-layer-id is still ignored — 
+      // in drag reorder. A row WITHOUT a data-layer-id is still ignored —
       // that is the no-layer case, not the color case.
       const layers: LayerInfo[] = [
         { id: "A", name: "A", group: "overlay" } as LayerInfo,

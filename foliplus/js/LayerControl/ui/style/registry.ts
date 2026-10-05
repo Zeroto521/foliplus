@@ -71,7 +71,7 @@ const registerDimension = <D>(d: LayerDimension<D>): LayerDimension<D> => {
   return d;
 };
 
-/** Fetch a dimension descriptor by key. `undefined` for unregistered keys — 
+/** Fetch a dimension descriptor by key. `undefined` for unregistered keys —
  *  the panel treats that as "this dimension does not apply" rather than
  *  erroring, matching the honest-degradation rule for unknown dimensions
  *  (honest degradation for unknown dimensions). */
@@ -97,7 +97,7 @@ const listDimensions = (): readonly LayerDimension<any>[] => [...registry.values
  *  states the invariant this array already implies, and
  *  `registry.test.ts` locks it (both order arrays together cover every
  *  registered built-in key and nothing more). A dimension that is
- *  registered but missing from both arrays is unreachable from the panel — 
+ *  registered but missing from both arrays is unreachable from the panel —
  *  adding a dimension without adding it to its section's order is the bug
  *  that same test catches.
  */

@@ -3,7 +3,7 @@ import apiSource from "#core/layer/api?raw";
 import typeSource from "#core/layer/type?raw";
 import { ensureLayerAPI, requireLayerAPI } from "#foliplus/core/layer/api.js";
 
-// The pin this file used to carry — "one `as unknown as`, in the layers field" — 
+// The pin this file used to carry — "one `as unknown as`, in the layers field" —
 // is gone, and its own note asked for exactly that: "If a cheaper route
 // appears, take it and delete the pin." The cheaper route was already there:
 // `LayerAPI.layers` is declared `readonly LayerInfo[]`, and a bare
@@ -161,7 +161,7 @@ describe("ensureLayerAPI", () => {
   it("no-op methods behave as specified", () => {
     const api = ensureLayerAPI(map);
     expect(api.unregisterLayer("x")).toBe(false);
-    // deleteLayer erases stored state, so the stub cannot claim to do it — 
+    // deleteLayer erases stored state, so the stub cannot claim to do it —
     // false, not undefined, like the other registry-backed no-ops.
     expect(api.deleteLayer("x")).toBe(false);
     // Same contract: forgetSavedOrder filters savedOrder, so the stub — which

@@ -1,6 +1,6 @@
 // DOM helpers and popup/marker utilities for foliplus components.
 //
-// Imported statically by components. Reverse geocoding is NOT imported here — 
+// Imported statically by components. Reverse geocoding is NOT imported here —
 // it lives in the runtime singleton (geocode.js) and is accessed
 // lazily via `foliplus.reverseGeocode` at call time, so the geocoder's shared
 // cache/throttle state is not duplicated into every component bundle.
@@ -284,7 +284,7 @@ const createInlineEditInput = (opts: {
   };
 
   input.addEventListener("keydown", (event: KeyboardEvent) => {
-    // Stop every key from reaching the document-level InteractionManager — 
+    // Stop every key from reaching the document-level InteractionManager —
     // otherwise ArrowLeft/Right (registered as layer shortcuts) preventDefault
     // and swallow the caret move, and Ctrl+Arrow would reorder the layer while
     // the user edits the name. The browser keeps its default caret/typing.

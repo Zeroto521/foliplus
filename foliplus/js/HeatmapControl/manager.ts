@@ -801,7 +801,7 @@ class HeatmapManager {
   }
 
   /** Drop the LayerControl-side record this draw left behind — visibility,
-   *  opacity, zoom range with their provenance, plus the stored order slot — 
+   *  opacity, zoom range with their provenance, plus the stored order slot —
    *  so a fresh draw of the same id starts from the author's defaults instead
    *  of inheriting the tuning the user arranged for the previous one.
    *

@@ -214,7 +214,7 @@ const applyStateOp = (
     if (carrier === CAP_TIER.NATIVE) {
       const layer = layerInfo.layer ?? ui.m.findLayer(layerInfo);
       if (layer) {
-        // Map membership. Written only when it differs from what is there — 
+        // Map membership. Written only when it differs from what is there —
         // `addLayer` on a live layer is a no-op at best and re-orders the
         // stacking at worst, so both halves collapse to one condition.
         const has = ui.m.map.hasLayer(layer);
@@ -252,7 +252,7 @@ const applyStateOp = (
       //               feedback); the next pan/zoom redraw bakes and drops
       //               the CSS. Default. Heatmap ≥5k takes this arm because
       //               a full hexagon redraw per commit is jank (measured
-      //               8ms warm / 30-320ms under load on a stub ctx @5k — 
+      //               8ms warm / 30-320ms under load on a stub ctx @5k —
       //               over a 16ms frame; real rasterization is slower).
       //
       // `capabilities.opacity` still reports `"pane"` — the write target is

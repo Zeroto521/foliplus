@@ -434,7 +434,7 @@ class LayerSurface implements LayerSurfaceContract {
     // `role` and `order` are part of the declaration, not decoration: a spec
     // whose role changes describes a different face, and the surface has to be
     // rebuilt. They are derived from the index today (`LayerFactory` writes
-    // them from position), which makes the two comparisons look redundant — 
+    // them from position), which makes the two comparisons look redundant —
     // they stop being so the moment a spec carries a role its position does
     // not imply, which is where R9's `z = f(layerIndex, role)` and the
     // per-role renderer defaults are headed.
@@ -532,7 +532,7 @@ class LayerSurface implements LayerSurfaceContract {
  *  `GridLayer` and `ImageOverlay` both fall into this bucket: `GridLayer` (and
  *  its `TileLayer` subclass) carries `options.opacity` + `minZoom`/`maxZoom`
  *  and reads them at `addLayer`; `ImageOverlay`'s `<img>` stays in the shared
- *  `overlayPane` — a pane write would fade every layer in that shared pane — 
+ *  `overlayPane` — a pane write would fade every layer in that shared pane —
  *  but its own `setOpacity` is immediate and correct. */
 const usesNativeSetter = (layer: L.Layer): boolean =>
   (typeof L.GridLayer !== "undefined" && layer instanceof L.GridLayer) ||

@@ -39,7 +39,7 @@ const clearSavedConfig = (): void => {
 const applySavedConfig = (manager: ManagerLike, saved: SavedConfig): void => {
   // A record existing at all means the user already spoke in a previous
   // session (picked a layer, or explicitly cleared the selection). Consume
-  // the one-shot auto-select guard so reload does not undo that choice — 
+  // the one-shot auto-select guard so reload does not undo that choice —
   // without this, hasScanned stays false and the single-layer auto-select
   // in buildLayerListItems re-fires after a manual clear survives reload.
   manager.hasScanned = true;

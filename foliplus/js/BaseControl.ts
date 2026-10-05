@@ -54,7 +54,7 @@ class BaseControl extends L.Control {
    * One AbortController per mounting. Installed on every `onAdd()` so
    * listeners registered inside `buildDOM()` capture the signal for that
    * mounting; aborted on `onRemove()` and the field set to `null`. A
-   * re-attached instance never carries a stale, already-aborted signal — 
+   * re-attached instance never carries a stale, already-aborted signal —
    * an aborted signal would leave every `{signal}` listener permanently
    * dead without any error (no error, no warning, just silently-dead
    * handlers), the hardest class of leak to track down. The field is

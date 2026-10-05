@@ -29,7 +29,7 @@ import { NUMBER_FORMAT } from "#common/format.js";
 import { GridLayer, findItem, initFixture, installLeafletGlobals } from "./fixture.js";
 
 /** Percentage the opacity fill is drawn at, read off its width expression.
- *  The fill's width is `calc((100% - var(--foliplus-slider-thumb-hit)) * <fraction>)` — 
+ *  The fill's width is `calc((100% - var(--foliplus-slider-thumb-hit)) * <fraction>)` —
  *  measured against the handle's travel range, not the rail's own width. */
 const fillPct = (el: HTMLElement): number =>
   Number(el.style.width.match(/^([\d.]+)%$/)?.[1] ?? NaN) / 100;
@@ -294,7 +294,7 @@ describe("LayerUI style panel", () => {
 
     // The dismiss handler has to be registered in the *capture* phase, because
     // the layer control stops mousedown from bubbling (Leaflet's
-    // disableClickPropagation). Dispatching on `document` cannot prove that — 
+    // disableClickPropagation). Dispatching on `document` cannot prove that —
     // target === currentTarget, so a bubble-phase listener would run too. A
     // wrapper that swallows the bubble, plus a press dispatched on its child,
     // does: capture runs on the way down (document is reached), bubble never
@@ -504,7 +504,7 @@ describe("LayerUI style panel", () => {
   });
 
   it("coerceAnnotationFields is the single home of the field rules", () => {
-    // Every future label field (e.g. position) extends this one function — 
+    // Every future label field (e.g. position) extends this one function —
     // the tolerant parse passes unknown keys through untouched.
     expect(coerceAnnotationFields(null)).toEqual({
       show: false,
@@ -1403,7 +1403,7 @@ describe("LayerUI style panel", () => {
   });
 
   it("declines a zoomRange row for a base layer whose surface carries no range", () => {
-    // A fake base layer with `capabilities.zoomRange` forced to "none" — 
+    // A fake base layer with `capabilities.zoomRange` forced to "none" —
     // the honest-degradation path that used to be papered over by the
     // blanket base-group guard. The panel still renders (opacity carrier is
     // intact), but the zoomRange row is omitted rather than written as a
@@ -4320,7 +4320,7 @@ describe("LayerUI style panel — zoom range", () => {
     const maxInput = row.querySelector(
       `.${CONST.CLASSES.STYLE_ZOOM_RANGE_MAX}`,
     ) as HTMLInputElement;
-    // The author declared no max, so it fell back to the map's 18 — 
+    // The author declared no max, so it fell back to the map's 18 —
     // not the persisted zoomRange value of 10.
     expect(Number(maxInput.max)).toBe(18);
   });

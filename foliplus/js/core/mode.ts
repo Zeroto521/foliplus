@@ -14,7 +14,7 @@ interface ModeChangePayload {
 }
 
 // Conflict matrix: when a component is in a non-null mode, which components
-// are blocked from performing their primary actions — 
+// are blocked from performing their primary actions —
 //
 // The policy is symmetric and exhaustive across the four interactive
 // components — any component that owns the map blocks the other three from

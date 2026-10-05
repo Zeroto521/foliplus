@@ -112,7 +112,7 @@ const attachUI = (ui: LayerUI, containerDiv: HTMLElement): void => {
 };
 
 /** Re-run the init pass when another control finishes attaching. Unsubscribes
- *  in unbindEvents(). The first pass comes from the setTimeout(0) above — 
+ *  in unbindEvents(). The first pass comes from the setTimeout(0) above —
  *  it lands after the synchronous attach sequence, so folium layers are
  *  already linked into the registry. Calls through the ui.initTypesAndVisibility
  *  / ui.applyStyleLabelState delegates (not the imported module functions) so

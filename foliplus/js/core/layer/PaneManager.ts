@@ -150,7 +150,7 @@ class PaneManager {
 
   /** Clear all pane state. Called by LayerManager.destroy().
    *  The DOM is left alone: LayerManager.destroy() clears the registry without
-   *  removing the registered layers from the map, so they are still live — 
+   *  removing the registered layers from the map, so they are still live —
    *  deleting their panes would drop them off the map. */
   destroy() {
     this.discoveryCache.clear();

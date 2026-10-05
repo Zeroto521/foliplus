@@ -200,7 +200,7 @@ describe("HeatmapControl interaction", () => {
   });
 
   it("Enter with an unrelated focused element does not select", () => {
-    // The Enter handler only fires when the active element is a dropdown item — 
+    // The Enter handler only fires when the active element is a dropdown item —
     // a stray Enter (e.g. on a plain div outside the items) must not call selectScheme.
     const ctrl = makeCtrl();
     ctrl.schemeDropdown = document.createElement("div");

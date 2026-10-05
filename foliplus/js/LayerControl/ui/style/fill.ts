@@ -107,7 +107,7 @@ const LEAFLET_DEFAULT_FILL = "#3388ff";
 
 /** Normalize a color for `<input type=color>`, which only accepts hex.
  *  3-digit hex passes through `normalizeHexColor`; named and functional
- *  colors (folium's `fillColor: "gray"`) are resolved by the browser — 
+ *  colors (folium's `fillColor: "gray"`) are resolved by the browser —
  *  jsdom cannot parse them and falls back to `#000000`, which is the
  *  accepted degradation in unit tests; the real picker shows the resolved
  *  hex. */
@@ -254,7 +254,7 @@ const commitFillOpacity = (ui: LayerUI, layerId: string, pct: number): void => {
  *  place, so by reset time we cannot re-read the author's color from the
  *  layer and must replay the captured value.
  *
- *  Both `fillColor` and `fillOpacity` are restored from the captured base — 
+ *  Both `fillColor` and `fillOpacity` are restored from the captured base —
  *  0 for a hollow polygon, Leaflet's 0.2 default when the author never
  *  declared an opacity.
  *

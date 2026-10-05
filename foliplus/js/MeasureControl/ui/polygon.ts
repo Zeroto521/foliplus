@@ -116,7 +116,7 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
   const rebuildCentroid = (currentArea?: number) => {
     const area = currentArea !== undefined ? currentArea : initArea;
     const centroid = Util.centroid(points);
-    // The centroid dot is a CircleMarker (SVG path) in the node pane — 
+    // The centroid dot is a CircleMarker (SVG path) in the node pane —
     // same approach as the circle center. The node pane paints above the
     // graph pane by pane z-index, so the dot always covers the fill.
     // The centroid label lives in the label pane (z = graph + 2), which

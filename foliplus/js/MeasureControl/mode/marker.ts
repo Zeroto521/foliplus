@@ -92,7 +92,7 @@ class MarkerMode extends MeasureMode {
       measurement.id,
     );
 
-    // The pin shares the edit overlay: clicking it in edit mode shows its — — 
+    // The pin shares the edit overlay: clicking it in edit mode shows its — —
     // and closes every other open overlay (single selection). Outside edit
     // mode the marker's default popup (address) behavior is untouched.
     const overlay = buildEditOverlay(manager, {

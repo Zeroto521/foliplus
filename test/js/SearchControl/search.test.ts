@@ -1125,7 +1125,7 @@ describe("fetchSuggestions: throttle and abort", () => {
     await tick();
     // The stale response must not have opened a panel...
     expect(ctrl.panelWrap).toBeNull();
-    // ...nor seeded the cache for a query the input no longer reads — 
+    // ...nor seeded the cache for a query the input no longer reads —
     // otherwise a later fetchSuggestions(ctrl, "abc") would render "abc"
     // results straight from cache without going to the network.
     expect(ctrl.cachedSuggestions.get("abc")).toBeUndefined();
