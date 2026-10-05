@@ -108,6 +108,11 @@ export default [
         "error",
         { allowShortCircuit: true, allowTernary: true },
       ],
+      // No `allow` entry: a signature-shaped allowance (e.g. arrow functions)
+      // would also admit genuinely dead no-ops. Deliberate stubs — lifecycle
+      // hooks, mutable slot defaults, teardown no-ops — opt out line by line
+      // with a why-comment, which keeps each one an explicit decision.
+      "@typescript-eslint/no-empty-function": "error",
 
       // tsc --noEmit already checks unused vars (noUnusedLocals)
       "@typescript-eslint/no-unused-vars": "off",
@@ -121,9 +126,18 @@ export default [
 
   // Test scripts exercise the CJS build tooling via require(); the source
   // tree and `script/` never do.
+  //
+  // no-empty-function is also off here: 166 hits, every one a mock (Canvas2D,
+  // MutationObserver, LayerRegistry.eachLayer, vi.fn() stand-ins) where the
+  // empty body *is* the stub — a full `allow` list would be equivalent to off
+  // and suppressing them line by line would add 166 directives. Runtime and
+  // `script/` keep the rule at full strength.
   {
     files: ["test/js/**/*.{js,ts}"],
-    rules: { "@typescript-eslint/no-require-imports": "off" },
+    rules: {
+      "@typescript-eslint/no-require-imports": "off",
+      "@typescript-eslint/no-empty-function": "off",
+    },
   },
 
   // ── Ambient globals: `declare var` is the canonical form here ──
