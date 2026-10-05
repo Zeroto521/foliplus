@@ -25,7 +25,7 @@ describe("LayerUI rename", () => {
         layer: { options: {}, eachLayer: vi.fn() },
       });
     }
-    ui.foldedGroups = new Set();
+    ui.listPanel.foldedGroups = new Set();
     seedIntentMap(ui, "visible", {});
     // Folded-group state is persisted to localStorage, so a fold from one test
     // would be re-read by the next test's LayerUI constructor and present as
@@ -107,8 +107,8 @@ describe("LayerUI rename", () => {
       ) as HTMLElement;
       li.click();
 
-      expect(ui.activeMenu).toBeNull();
-      expect(ui.activeRenameId).toBe("overlay1");
+      expect(ui.overlayPanel.activeMenu).toBeNull();
+      expect(ui.overlayPanel.activeRenameId).toBe("overlay1");
       const label = item.querySelector("label") as HTMLLabelElement;
       const input = label.querySelector("input") as HTMLInputElement | null;
       expect(input).not.toBeNull();
@@ -127,7 +127,7 @@ describe("LayerUI rename", () => {
       input.value = "New Name";
       input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
 
-      expect(ui.activeRenameId).toBeNull();
+      expect(ui.overlayPanel.activeRenameId).toBeNull();
       expect(label.textContent).toBe("New Name");
       expect(getIntent(ui, "overlay1", "name")).toBe("New Name");
       expect(item.classList.contains(CONST.CLASSES.RENAMING)).toBe(false);
@@ -165,7 +165,7 @@ describe("LayerUI rename", () => {
       input.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
       vi.runAllTimers();
 
-      expect(ui.activeRenameId).toBeNull();
+      expect(ui.overlayPanel.activeRenameId).toBeNull();
       expect(label.textContent).toBe("Polygons");
       expect(manager.layerRegistry.get("overlay1")!.name).toBe("Polygons");
       // Escape is an intentional abandon — no empty-name hint.
@@ -185,7 +185,7 @@ describe("LayerUI rename", () => {
       // Simulate the blur that removing the focused element fires.
       input.dispatchEvent(new Event("blur"));
 
-      expect(ui.activeRenameId).toBeNull();
+      expect(ui.overlayPanel.activeRenameId).toBeNull();
       expect(label.textContent).toBe("Polygons");
       expect(manager.layerRegistry.get("overlay1")!.name).toBe("Polygons");
     });
@@ -300,7 +300,7 @@ describe("LayerUI rename", () => {
     it("renameLayer(no-op) for an unknown layer id does nothing", () => {
       ui.renameLayer("no-such-layer");
 
-      expect(ui.activeRenameId).toBeNull();
+      expect(ui.overlayPanel.activeRenameId).toBeNull();
     });
 
     it("finishRename bails when the layer was removed from the registry mid-rename", () => {
@@ -311,7 +311,7 @@ describe("LayerUI rename", () => {
       // correct: the registry entry is gone, so there's nothing to restore.
       const item = findItem(ui, "overlay1");
       ui.renameLayer("overlay1");
-      expect(ui.activeRenameId).toBe("overlay1");
+      expect(ui.overlayPanel.activeRenameId).toBe("overlay1");
 
       manager.layerRegistry.remove("overlay1");
 
@@ -322,7 +322,7 @@ describe("LayerUI rename", () => {
 
       // finishRename cleared activeRenameId before the guard, so subsequent
       // rename calls are not blocked. No exception was thrown.
-      expect(ui.activeRenameId).toBeNull();
+      expect(ui.overlayPanel.activeRenameId).toBeNull();
     });
 
     it("Enter on the rename-layer menu item calls renameLayer (not focusLayer)", () => {
@@ -410,7 +410,7 @@ describe("LayerUI rename", () => {
       const displayed = colorItem.querySelector("label")!.textContent;
       ui.renameLayer(CONST.SOLID_BASEMAP_ID);
 
-      expect(ui.activeRenameId).toBe(CONST.SOLID_BASEMAP_ID);
+      expect(ui.overlayPanel.activeRenameId).toBe(CONST.SOLID_BASEMAP_ID);
       const label = colorItem.querySelector("label") as HTMLLabelElement;
       const input = label.querySelector("input") as HTMLInputElement | null;
       expect(input).not.toBeNull();
@@ -431,7 +431,7 @@ describe("LayerUI rename", () => {
       input.value = "My Base";
       input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
 
-      expect(ui.activeRenameId).toBeNull();
+      expect(ui.overlayPanel.activeRenameId).toBeNull();
       expect(label.textContent).toBe("My Base");
       expect(getIntent(ui, CONST.SOLID_BASEMAP_ID, "name")).toBe("My Base");
       // The colour basemap is now in the registry (for the executor) — rename

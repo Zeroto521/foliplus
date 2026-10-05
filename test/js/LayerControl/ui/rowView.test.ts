@@ -171,7 +171,7 @@ describe("buildRowCell + applyRowView (one writer per row)", () => {
       initialZoom: 5,
       seed: { layers: { overlay1: { overrides: ["zoomRange"], zoomRange: [10, 18] } } },
     });
-    ui.focusingLayerId = "overlay1";
+    ui.focusController.focusingLayerId = "overlay1";
     const cellInfo = buildRowCell(ui, overlay(ui));
     expect(cellInfo.checked).toBe(true);
     expect(cellInfo.shown).toBe(true);
@@ -328,7 +328,8 @@ describe("applyRowView (the single DOM write point)", () => {
       renamedNames: {},
       intentStore: new LayerIntentStore(),
       runtimeStore: new LayerRuntimeStore(),
-      focusingLayerId: null,
+      focusController: { focusingLayerId: null },
+      listPanel: { checkedCount: {}, foldedGroups: new Set<string>() },
       T: (k: string) => k,
       config: { locale_code: "en" },
     } as unknown as LayerUI;
@@ -371,8 +372,14 @@ describe("snapshotAuthorVisible", () => {
     // exact path the show=False zoom-sweep gate covers.
     const { ui } = initFixture({});
     vi.spyOn(ui.m, "findLayer").mockReturnValue(null);
-    snapshotAuthorVisible(ui, { id: "ghost", visible: true } as LayerInfo);
-    snapshotAuthorVisible(ui, { id: "ghost-hidden", visible: false } as LayerInfo);
+    snapshotAuthorVisible(ui, {
+      id: "ghost",
+      visible: true,
+    } as LayerInfo);
+    snapshotAuthorVisible(ui, {
+      id: "ghost-hidden",
+      visible: false,
+    } as LayerInfo);
     expect(ui.runtimeStore.hasAuthorVisible("ghost")).toBe(false);
     expect(ui.runtimeStore.hasAuthorVisible("ghost-hidden")).toBe(false);
   });
@@ -480,7 +487,7 @@ describe("the four readers agree on a half-broken record (T260)", () => {
     // The sync counters agree: the overlay row counts as on, the base row
     // keeps the no-basemap hatch off.
     syncToggleAll(ui, GROUP.OVERLAY);
-    expect(ui.checkedCount[GROUP.OVERLAY]).toEqual({ total: 1, on: 1 });
+    expect(ui.listPanel.checkedCount[GROUP.OVERLAY]).toEqual({ total: 1, on: 1 });
     syncNoBasemap(ui);
     expect(ui.m.map.getContainer().classList.contains(CONST.CLASSES.NO_BASE_MAP)).toBe(
       false,

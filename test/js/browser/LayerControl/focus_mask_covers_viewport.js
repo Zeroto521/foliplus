@@ -4,13 +4,13 @@
   if (!map || !ctrl) return { error: "missing map or ctrl" };
 
   const ui = ctrl.m.ui;
-  if (!ui.focusMask) return { error: "focusMask not drawn" };
+  if (!ui.focusController.focusMask) return { error: "focusMask not drawn" };
 
   // The outer ring is the mask polygon's first sub-ring: the "everything
   // outside the hole" boundary. For the mask to dim the entire viewport,
   // its lat/lng extremes must enclose the current viewport — otherwise the
   // pre-fitBounds viewport ring leaks bright strips around a zoomed-out view.
-  const outer = ui.focusMask.getLatLngs()[0];
+  const outer = ui.focusController.focusMask.getLatLngs()[0];
   const toLatLng = p => (p.lat != null ? p : L.latLng(p));
   let minLat = Infinity,
     maxLat = -Infinity,

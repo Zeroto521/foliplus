@@ -444,7 +444,9 @@ describe("LayerControl style-panel dimension registry — opacity descriptor", (
   it("write ignores a non-number patch", () => {
     const schedule = vi.fn();
     ui.m.persistence = { schedule } as never;
-    OPACITY_DIMENSION.write!(ui, "overlay1", { opacity: 0.4 } as never);
+    OPACITY_DIMENSION.write!(ui, "overlay1", {
+      opacity: 0.4,
+    } as never);
     OPACITY_DIMENSION.write!(ui, "overlay1", "0.5" as never);
     OPACITY_DIMENSION.write!(ui, "overlay1", null as never);
     OPACITY_DIMENSION.write!(ui, "overlay1", undefined as never);
@@ -551,7 +553,10 @@ describe("LayerControl style-panel dimension registry — fill descriptor", () =
   it("write persists the patch through IntentStore and marks provenance", () => {
     const schedule = vi.fn();
     ui.m.persistence = { schedule } as never;
-    FILL_DIMENSION.write!(ui, "overlay1", { color: "#00ff00", opacity: 0.4 });
+    FILL_DIMENSION.write!(ui, "overlay1", {
+      color: "#00ff00",
+      opacity: 0.4,
+    });
     expect(ui.intentStore.get("overlay1", "fillColor")).toBe("#00ff00");
     expect(ui.intentStore.get("overlay1", "fillOpacity")).toBe(0.4);
     expect(ui.intentStore.isUserSet("overlay1", "fillColor")).toBe(true);
@@ -577,7 +582,10 @@ describe("LayerControl style-panel dimension registry — fill descriptor", () =
   it("reset clears both fill slots and their provenance", () => {
     const schedule = vi.fn();
     ui.m.persistence = { schedule } as never;
-    FILL_DIMENSION.write!(ui, "overlay1", { color: "#ff0000", opacity: 0.5 });
+    FILL_DIMENSION.write!(ui, "overlay1", {
+      color: "#ff0000",
+      opacity: 0.5,
+    });
     FILL_DIMENSION.reset!(ui, "overlay1");
     expect(ui.intentStore.get("overlay1", "fillColor")).toBeUndefined();
     expect(ui.intentStore.get("overlay1", "fillOpacity")).toBeUndefined();
@@ -658,7 +666,10 @@ describe("LayerControl style-panel dimension registry — border descriptor", ()
   it("write persists the patch through IntentStore and marks provenance", () => {
     const schedule = vi.fn();
     ui.m.persistence = { schedule } as never;
-    BORDER_DIMENSION.write!(ui, "overlay1", { color: "#00ff00", weight: 4 });
+    BORDER_DIMENSION.write!(ui, "overlay1", {
+      color: "#00ff00",
+      weight: 4,
+    });
     expect(ui.intentStore.get("overlay1", "borderColor")).toBe("#00ff00");
     expect(ui.intentStore.get("overlay1", "borderWeight")).toBe(4);
     expect(ui.intentStore.isUserSet("overlay1", "borderColor")).toBe(true);
@@ -677,7 +688,10 @@ describe("LayerControl style-panel dimension registry — border descriptor", ()
   it("reset clears both border slots and their provenance", () => {
     const schedule = vi.fn();
     ui.m.persistence = { schedule } as never;
-    BORDER_DIMENSION.write!(ui, "overlay1", { color: "#ff0000", weight: 3 });
+    BORDER_DIMENSION.write!(ui, "overlay1", {
+      color: "#ff0000",
+      weight: 3,
+    });
     BORDER_DIMENSION.reset!(ui, "overlay1");
     expect(ui.intentStore.get("overlay1", "borderColor")).toBeUndefined();
     expect(ui.intentStore.get("overlay1", "borderWeight")).toBeUndefined();

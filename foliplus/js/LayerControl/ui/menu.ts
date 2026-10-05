@@ -183,7 +183,7 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
     if (!next || !menu.contains(next)) closeMoreMenu(ui, false);
   });
 
-  ui.activeMenu = { item, menu, layerId };
+  ui.overlayPanel.activeMenu = { item, menu, layerId };
 
   // Focus the first menu item so Enter/Space activate it and Escape closes.
   // The focus-layer entry is always appended first, so this is a straight cast.
@@ -306,7 +306,7 @@ const activateDeleteItem = (ui: LayerUI, li: HTMLElement): boolean => {
     armDelete(ui, li);
     return false;
   }
-  const layerId = ui.activeMenu?.layerId ?? "";
+  const layerId = ui.overlayPanel.activeMenu?.layerId ?? "";
   disarmDelete();
   ui.m.deleteLayer(layerId);
   return true;
@@ -315,13 +315,13 @@ const activateDeleteItem = (ui: LayerUI, li: HTMLElement): boolean => {
 /** Close the overflow menu. setFocus = true returns focus to the layer row. */
 
 const closeMoreMenu = (ui: LayerUI, setFocus: boolean) => {
-  if (!ui.activeMenu) return;
-  const item = ui.activeMenu.item;
-  const menu = ui.activeMenu.menu;
+  if (!ui.overlayPanel.activeMenu) return;
+  const item = ui.overlayPanel.activeMenu.item;
+  const menu = ui.overlayPanel.activeMenu.menu;
   // Clear the pointer before removing: the removal can trigger the menu's own
   // focusout, which calls closeMoreMenu again — that re-entrant pass must see
   // null, not call remove() on a detached menu (NotFoundError).
-  ui.activeMenu = null;
+  ui.overlayPanel.activeMenu = null;
   disarmDelete();
   menu.remove();
   if (setFocus) item.focus();

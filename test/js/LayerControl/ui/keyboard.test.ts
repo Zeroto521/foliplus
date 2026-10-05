@@ -5,6 +5,16 @@ import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerManager } from "#foliplus/LayerControl/manager.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { getIntent, seedIntentMap } from "#foliplus/LayerControl/ui/intent.js";
+import {
+  cursorRef,
+  findVisibleNeighbor,
+  getActiveLayerItem,
+  moveActiveMarker,
+  resolveActiveIdx,
+  restoreCursor,
+  syncActiveItem,
+  syncListCursor,
+} from "#foliplus/LayerControl/ui/keyboard.js";
 import { ensureModes } from "#foliplus/core/mode.js";
 import {
   allFolded,
@@ -34,7 +44,7 @@ describe("LayerUI keyboard", () => {
         layer: { options: {}, eachLayer: vi.fn() },
       });
     }
-    ui.foldedGroups = new Set();
+    ui.listPanel.foldedGroups = new Set();
     seedIntentMap(ui, "visible", {});
     // Folded-group state is persisted to localStorage, so a fold from one test
     // would be re-read by the next test's LayerUI constructor and present as
@@ -216,7 +226,7 @@ describe("LayerUI keyboard", () => {
       expect(ui.uiContainer.querySelectorAll(`.${CONST.CLASSES.FOCUSED}`)).toHaveLength(
         1,
       );
-      expect(ui.activeIdx).toBe(indexFor("overlay1"));
+      expect(ui.listPanel.activeIdx).toBe(indexFor("overlay1"));
     });
 
     it("moving the cursor removes FOCUSED from the previous row (mutual exclusivity)", () => {
@@ -234,7 +244,7 @@ describe("LayerUI keyboard", () => {
       expect(ui.uiContainer.querySelectorAll(`.${CONST.CLASSES.FOCUSED}`)).toHaveLength(
         1,
       );
-      expect(ui.activeIdx).toBe(indexFor("base1"));
+      expect(ui.listPanel.activeIdx).toBe(indexFor("base1"));
     });
 
     it("blurActiveItem removes the FOCUSED class from the current row", () => {
@@ -250,7 +260,7 @@ describe("LayerUI keyboard", () => {
         0,
       );
       // activeIdx is preserved by blurActiveItem — only the marker is lifted.
-      expect(ui.activeIdx).toBe(indexFor("overlay1"));
+      expect(ui.listPanel.activeIdx).toBe(indexFor("overlay1"));
     });
 
     it("clearActiveItem removes the FOCUSED class and resets activeIdx", () => {
@@ -258,7 +268,7 @@ describe("LayerUI keyboard", () => {
 
       ui.setActiveItem(indexFor("overlay1"));
       expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
-      expect(ui.activeIdx).toBe(indexFor("overlay1"));
+      expect(ui.listPanel.activeIdx).toBe(indexFor("overlay1"));
 
       ui.clearActiveItem();
 
@@ -266,7 +276,7 @@ describe("LayerUI keyboard", () => {
       expect(ui.uiContainer.querySelectorAll(`.${CONST.CLASSES.FOCUSED}`)).toHaveLength(
         0,
       );
-      expect(ui.activeIdx).toBeNull();
+      expect(ui.listPanel.activeIdx).toBeNull();
     });
 
     it("Escape keydown clears the FOCUSED class", () => {
@@ -293,7 +303,7 @@ describe("LayerUI keyboard", () => {
       );
       // blur-only: the cursor index is deliberately kept so an ArrowUp/Down can
       // resume from this row instead of re-lighting it from DOM focus.
-      expect(ui.activeIdx).toBe(indexFor("overlay1"));
+      expect(ui.listPanel.activeIdx).toBe(indexFor("overlay1"));
       // DOM focus stays where the user was (Escape never blurs to <body>).
       // The recipe keys only on the JS class + :hover, so lifting the class is
       // enough — no residual selector to suppress.
@@ -316,7 +326,7 @@ describe("LayerUI keyboard", () => {
       expect(ui.uiContainer.querySelectorAll(`.${CONST.CLASSES.FOCUSED}`)).toHaveLength(
         1,
       );
-      expect(ui.activeIdx).toBe(indexFor("overlay1"));
+      expect(ui.listPanel.activeIdx).toBe(indexFor("overlay1"));
     });
 
     it("clicking another row hands the cursor visual over", () => {
@@ -334,7 +344,7 @@ describe("LayerUI keyboard", () => {
 
       expect(a.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
       expect(b.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
-      expect(ui.activeIdx).toBe(indexFor("base1"));
+      expect(ui.listPanel.activeIdx).toBe(indexFor("base1"));
     });
 
     it("label click paints the cursor; Escape lifts it", () => {
@@ -342,7 +352,7 @@ describe("LayerUI keyboard", () => {
 
       const label = overlay.querySelector("label") as HTMLElement;
       label.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-      expect(ui.activeIdx).toBe(indexFor("overlay1"));
+      expect(ui.listPanel.activeIdx).toBe(indexFor("overlay1"));
       expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
 
       pressKey(overlay, "Escape");
@@ -370,7 +380,7 @@ describe("LayerUI keyboard", () => {
       expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
       // Unlike Escape this is a full reset: the user has left the panel, so
       // the next ArrowDown re-bootstraps instead of resuming from this row.
-      expect(ui.activeIdx).toBeNull();
+      expect(ui.listPanel.activeIdx).toBeNull();
       outside.remove();
     });
 
@@ -389,7 +399,7 @@ describe("LayerUI keyboard", () => {
       overlay.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
 
       expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
-      expect(ui.activeIdx).toBe(indexFor("overlay1"));
+      expect(ui.listPanel.activeIdx).toBe(indexFor("overlay1"));
       shell.replaceWith(ui.uiContainer);
     });
 
@@ -398,12 +408,12 @@ describe("LayerUI keyboard", () => {
 
       ui.focusLayer("overlay1");
       expect(ui.isFocusing()).toBe(true);
-      expect(ui.focusMask).not.toBeNull();
+      expect(ui.focusController.focusMask).not.toBeNull();
 
       pressKey(overlay, "Escape");
 
       expect(ui.isFocusing()).toBe(false);
-      expect(ui.focusMask).toBeNull();
+      expect(ui.focusController.focusMask).toBeNull();
       expect(
         ui.uiContainer.querySelectorAll(`.${CONST.CLASSES.FOCUSING}`),
       ).toHaveLength(0);
@@ -431,7 +441,7 @@ describe("LayerUI keyboard", () => {
 
       ui.focusLayer("overlay1");
       ui.setActiveItem(indexFor("overlay1"));
-      const idxBefore = ui.activeIdx;
+      const idxBefore = ui.listPanel.activeIdx;
 
       const outside = document.createElement("button");
       document.body.appendChild(outside);
@@ -442,7 +452,7 @@ describe("LayerUI keyboard", () => {
 
       expect(ui.isFocusing()).toBe(true);
       expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
-      expect(ui.activeIdx).toBe(idxBefore);
+      expect(ui.listPanel.activeIdx).toBe(idxBefore);
       outside.remove();
     });
 
@@ -454,11 +464,11 @@ describe("LayerUI keyboard", () => {
 
       ui.setActiveItem(indexFor("overlay1"));
       menuBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-      expect(ui.activeMenu).not.toBeNull();
+      expect(ui.overlayPanel.activeMenu).not.toBeNull();
 
       pressKey(overlay, "Escape");
 
-      expect(ui.activeMenu).toBeNull();
+      expect(ui.overlayPanel.activeMenu).toBeNull();
       expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
     });
 
@@ -473,7 +483,7 @@ describe("LayerUI keyboard", () => {
       );
 
       ui.renameLayer("overlay1");
-      expect(ui.activeRenameId).toBe("overlay1");
+      expect(ui.overlayPanel.activeRenameId).toBe("overlay1");
 
       const input = ui.uiContainer.querySelector(
         `.${CONST.CLASSES.RENAME_INPUT}`,
@@ -501,7 +511,7 @@ describe("LayerUI keyboard", () => {
       // and hide the cursor. Flush it and confirm the rename is fully done.
       vi.useFakeTimers();
       vi.runAllTimers();
-      expect(ui.activeRenameId).toBeNull();
+      expect(ui.overlayPanel.activeRenameId).toBeNull();
       expect(ui.uiContainer.querySelector(`.${CONST.CLASSES.RENAME_INPUT}`)).toBeNull();
     });
 
@@ -755,7 +765,7 @@ describe("LayerUI keyboard", () => {
 
       pressKey(foldBtn, "Enter");
 
-      expect(ui.foldedGroups.has(GROUP.OVERLAY)).toBe(true);
+      expect(ui.listPanel.foldedGroups.has(GROUP.OVERLAY)).toBe(true);
       expect(allFolded(children())).toBe(true);
     });
 
@@ -772,12 +782,12 @@ describe("LayerUI keyboard", () => {
       const { children } = attachWithGroup(ui);
       // The chevron is a real focusable button, so dispatch the key there.
       pressKey(overlayFoldBtn(ui.uiContainer), " ");
-      expect(ui.foldedGroups.has(GROUP.OVERLAY)).toBe(true);
+      expect(ui.listPanel.foldedGroups.has(GROUP.OVERLAY)).toBe(true);
       expect(allFolded(children())).toBe(true);
       // Fold rebuilds the panel, so re-fetch the button on the rebuilt row.
       pressKey(overlayFoldBtn(ui.uiContainer), "Enter");
 
-      expect(ui.foldedGroups.has(GROUP.OVERLAY)).toBe(false);
+      expect(ui.listPanel.foldedGroups.has(GROUP.OVERLAY)).toBe(false);
       expect(allFolded(children())).toBe(false);
     });
 
@@ -886,7 +896,12 @@ describe("LayerUI keyboard", () => {
   describe("onItemKeydown guard branches", () => {
     const keyEvent = (
       key: string,
-      opts: { ctrlKey?: boolean; shiftKey?: boolean; metaKey?: boolean } = {},
+      opts: {
+        ctrlKey?: boolean;
+        shiftKey?: boolean;
+        metaKey?: boolean;
+        altKey?: boolean;
+      } = {},
     ) =>
       new KeyboardEvent("keydown", {
         key,
@@ -898,12 +913,12 @@ describe("LayerUI keyboard", () => {
     it("Escape lifts the cursor marker but preserves the index for arrow resume", () => {
       const item = findItem(ui, "overlay1");
       ui.setActiveItem(ui.getNavigableItems().indexOf(item));
-      const idx = ui.activeIdx;
+      const idx = ui.listPanel.activeIdx;
       expect(item.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
 
       ui.handleKeyDown(keyEvent("Escape"));
 
-      expect(ui.activeIdx).toBe(idx);
+      expect(ui.listPanel.activeIdx).toBe(idx);
       expect(item.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
     });
 
@@ -917,7 +932,7 @@ describe("LayerUI keyboard", () => {
       ui.handleKeyDown(keyEvent("Enter"));
 
       expect(checkbox.checked).toBe(!before);
-      expect(ui.activeIdx).toBe(ui.getNavigableItems().indexOf(item));
+      expect(ui.listPanel.activeIdx).toBe(ui.getNavigableItems().indexOf(item));
     });
 
     it("Enter on a focused layer row toggles visibility through the row branch", () => {
@@ -937,11 +952,11 @@ describe("LayerUI keyboard", () => {
 
       more.focus();
       ui.handleKeyDown(keyEvent("Enter"));
-      expect(ui.activeMenu).not.toBeNull();
+      expect(ui.overlayPanel.activeMenu).not.toBeNull();
       expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(1);
 
       ui.handleKeyDown(keyEvent("Escape"));
-      expect(ui.activeMenu).toBeNull();
+      expect(ui.overlayPanel.activeMenu).toBeNull();
     });
   });
 
@@ -972,7 +987,7 @@ describe("LayerUI keyboard", () => {
       slider.dispatchEvent(event);
 
       expect(event.defaultPrevented).toBe(false);
-      expect(ui.activeIdx).toBeNull();
+      expect(ui.listPanel.activeIdx).toBeNull();
     });
 
     it("ArrowUp on a range slider does not move the cursor or preventDefault", () => {
@@ -992,7 +1007,7 @@ describe("LayerUI keyboard", () => {
       slider.dispatchEvent(event);
 
       expect(event.defaultPrevented).toBe(false);
-      expect(ui.activeIdx).toBeNull();
+      expect(ui.listPanel.activeIdx).toBeNull();
     });
 
     it("ArrowDown on a range slider does not move the cursor after a row was clicked first", () => {
@@ -1003,8 +1018,8 @@ describe("LayerUI keyboard", () => {
       const indexFor = (id: string) => ui.getNavigableItems().indexOf(findItem(ui, id));
       const item = findItem(ui, "overlay1");
       ui.setActiveItem(indexFor("overlay1"));
-      const rowIdx = ui.activeIdx;
-      expect(ui.listCursor?.index).toBe(rowIdx);
+      const rowIdx = ui.listPanel.activeIdx;
+      expect(ui.listPanel.listCursor?.index).toBe(rowIdx);
       expect(rowIdx).not.toBeNull();
 
       ui.openStylePanel("overlay1");
@@ -1022,14 +1037,14 @@ describe("LayerUI keyboard", () => {
       slider.dispatchEvent(event);
 
       expect(event.defaultPrevented).toBe(false);
-      expect(ui.activeIdx).toBe(rowIdx);
-      expect(ui.listCursor?.index).toBe(rowIdx);
+      expect(ui.listPanel.activeIdx).toBe(rowIdx);
+      expect(ui.listPanel.listCursor?.index).toBe(rowIdx);
     });
 
     it("Escape on a range slider still closes the style panel", () => {
       const item = findItem(ui, "overlay1");
       ui.openStylePanel("overlay1");
-      expect(ui.stylePanelLayerId).toBe("overlay1");
+      expect(ui.overlayPanel.stylePanelLayerId).toBe("overlay1");
 
       const panel = item.querySelector(`.${CONST.CLASSES.STYLE_PANEL}`)!;
       const slider = panel.querySelector(
@@ -1045,14 +1060,14 @@ describe("LayerUI keyboard", () => {
         }),
       );
 
-      expect(ui.stylePanelLayerId).toBeNull();
+      expect(ui.overlayPanel.stylePanelLayerId).toBeNull();
     });
 
     it("Escape on a checkbox inside a focused row lifts the cursor marker", () => {
       const item = findItem(ui, "overlay1");
       ui.setActiveItem(ui.getNavigableItems().indexOf(item));
       const checkbox = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
-      const idx = ui.activeIdx;
+      const idx = ui.listPanel.activeIdx;
 
       checkbox.focus();
       const event = new KeyboardEvent("keydown", {
@@ -1062,7 +1077,7 @@ describe("LayerUI keyboard", () => {
       });
       ui.handleKeyDown(event as unknown as KeyboardEvent);
 
-      expect(ui.activeIdx).toBe(idx);
+      expect(ui.listPanel.activeIdx).toBe(idx);
       expect(item.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
     });
 
@@ -1082,7 +1097,7 @@ describe("LayerUI keyboard", () => {
       );
 
       expect(checkbox.checked).toBe(!before);
-      expect(ui.activeIdx).toBe(ui.getNavigableItems().indexOf(item));
+      expect(ui.listPanel.activeIdx).toBe(ui.getNavigableItems().indexOf(item));
     });
 
     it("Enter on a focused layer row toggles visibility", () => {
@@ -1100,6 +1115,315 @@ describe("LayerUI keyboard", () => {
       );
 
       expect(checkbox.checked).toBe(!before);
+    });
+  });
+
+  describe("defensive branches", () => {
+    const indexFor = (id: string) => ui.getNavigableItems().indexOf(findItem(ui, id));
+    const keyEvent = (
+      key: string,
+      opts: {
+        ctrlKey?: boolean;
+        shiftKey?: boolean;
+        metaKey?: boolean;
+        altKey?: boolean;
+      } = {},
+    ) =>
+      new KeyboardEvent("keydown", {
+        key,
+        bubbles: true,
+        cancelable: true,
+        ...opts,
+      });
+
+    it("setActiveItem with an out-of-range index clears the cursor", () => {
+      ui.setActiveItem(-1);
+      expect(ui.listPanel.activeIdx).toBeNull();
+      expect(ui.uiContainer.querySelector(`.${CONST.CLASSES.FOCUSED}`)).toBeNull();
+    });
+
+    it("ArrowUp moves the cursor to the previous visible row", () => {
+      const overlay = findItem(ui, "overlay1");
+      ui.setActiveItem(indexFor("overlay1"));
+      const before = ui.listPanel.activeIdx;
+      pressKey(overlay, "ArrowUp");
+      expect(ui.listPanel.activeIdx).toBe((before as number) - 1);
+    });
+
+    it("folded rows are skipped when finding a visible neighbour", () => {
+      // Fold the overlay group; every overlay row is hidden, so an ArrowUp
+      // from below cannot land on one and the neighbour search returns the
+      // toggle-all header instead.
+      ui.listPanel.foldedGroups = new Set([GROUP.OVERLAY]);
+      const base = findItem(ui, "base1");
+      ui.setActiveItem(indexFor("base1"));
+      pressKey(base, "ArrowUp");
+      const focused = ui.uiContainer.querySelector(`.${CONST.CLASSES.FOCUSED}`);
+      expect(focused).not.toBeNull();
+    });
+
+    it("neighbour search returns -1 past the first and last navigable row", () => {
+      const items = ui.getNavigableItems();
+      expect(items.length).toBeGreaterThanOrEqual(2);
+      expect(findVisibleNeighbor(items, items.length - 1, 1)).toBe(-1);
+      expect(findVisibleNeighbor(items, 0, -1)).toBe(-1);
+    });
+
+    it("restoreCursor re-homes a folded group row onto its toggle-all row", () => {
+      attachWithGroup(ui);
+      ui.listPanel.foldedGroups = new Set([GROUP.OVERLAY]);
+      ui.uiContainer
+        .querySelectorAll<HTMLElement>(
+          `${CONST.SEL.LAYER_ITEM}[data-layer-type="${GROUP.OVERLAY}"]`,
+        )
+        .forEach(el => el.classList.add(CONST.CLASSES.GROUP_FOLDED));
+
+      restoreCursor(ui, "overlay1");
+
+      const lit = ui.uiContainer.querySelector(`.${CONST.CLASSES.FOCUSED}`);
+      expect(lit?.classList.contains(CONST.CLASSES.TOGGLE_ALL)).toBe(true);
+      expect(ui.listPanel.activeIdx).toBe(
+        ui.getNavigableItems().indexOf(lit as HTMLElement),
+      );
+    });
+
+    it("restoreCursor clears the cursor when the ref matches no row", () => {
+      ui.setActiveItem(0);
+      restoreCursor(ui, "ghost-layer");
+      expect(ui.listPanel.activeIdx).toBeNull();
+      expect(ui.uiContainer.querySelector(`.${CONST.CLASSES.FOCUSED}`)).toBeNull();
+    });
+
+    it("resolveActiveIdx falls back to the stored cursor when no row holds focus", () => {
+      ui.setActiveItem(1);
+      (document.activeElement as HTMLElement | null)?.blur?.();
+      expect(resolveActiveIdx(ui, ui.getNavigableItems())).toBe(1);
+    });
+
+    it("resolveActiveIdx ignores a focused row that is not navigable", () => {
+      const before = ui.listPanel.activeIdx;
+      const detached = document.createElement("div");
+      detached.className = CONST.CLASSES.LAYER_ITEM;
+      document.body.appendChild(detached);
+      detached.focus();
+      // owningRow() resolves the detached row, but getNavigableItems() only
+      // enumerates rows inside uiContainer — the index is -1 and the stored
+      // cursor must survive.
+      expect(resolveActiveIdx(ui, ui.getNavigableItems())).toBe(before);
+      document.body.removeChild(detached);
+    });
+
+    it("syncListCursor reuses an existing cursor instance", () => {
+      syncListCursor(ui);
+      const cursor = ui.listPanel.listCursor;
+      expect(cursor).not.toBeNull();
+      syncListCursor(ui);
+      expect(ui.listPanel.listCursor).toBe(cursor);
+    });
+
+    it("moveActiveMarker clears the cursor when given no item", () => {
+      ui.setActiveItem(1);
+      moveActiveMarker(ui, null, ui.getNavigableItems());
+      expect(ui.listPanel.activeIdx).toBeNull();
+    });
+
+    it("getActiveLayerItem resolves the row at the cursor index", () => {
+      ui.setActiveItem(0);
+      const item = getActiveLayerItem(ui);
+      expect(item).toBe(ui.getNavigableItems()[0]);
+    });
+
+    it("getActiveLayerItem returns null without a cursor", () => {
+      expect(ui.listPanel.activeIdx).toBeNull();
+      expect(getActiveLayerItem(ui)).toBeNull();
+    });
+
+    it("cursorRef normalizes an out-of-range cursor to null", () => {
+      ui.listPanel.activeIdx = 999;
+      expect(cursorRef(ui)).toBeNull();
+    });
+
+    it("getActiveLayerItem returns null for a stale out-of-range cursor", () => {
+      // setActiveItem guards its own index, but a fold can shrink the list
+      // under a stored cursor — the accessor must degrade to null.
+      ui.listPanel.activeIdx = 999;
+      expect(getActiveLayerItem(ui)).toBeNull();
+    });
+
+    it("neighbour search exhausts when every row is folded", () => {
+      const items = ui.getNavigableItems();
+      items.forEach(el => el.classList.add(CONST.CLASSES.GROUP_FOLDED));
+      expect(findVisibleNeighbor(items, 0, 1)).toBe(-1);
+      expect(findVisibleNeighbor(items, items.length - 1, -1)).toBe(-1);
+    });
+
+    it("syncActiveItem no-ops when no row holds focus and no cursor is stored", () => {
+      (document.activeElement as HTMLElement | null)?.blur?.();
+      expect(() => syncActiveItem(ui)).not.toThrow();
+      expect(ui.listPanel.activeIdx).toBeNull();
+    });
+
+    it("moveActiveMarker normalizes an out-of-list item to a cleared cursor", () => {
+      const detached = document.createElement("div");
+      detached.className = CONST.CLASSES.LAYER_ITEM;
+      moveActiveMarker(ui, detached, ui.getNavigableItems());
+      expect(ui.listPanel.activeIdx).toBeNull();
+      expect(ui.uiContainer.querySelector(`.${CONST.CLASSES.FOCUSED}`)).toBeNull();
+    });
+
+    it("handleKeyDown no-ops when the list has no navigable rows", () => {
+      ui.uiContainer.innerHTML = "";
+      expect(() => ui.handleKeyDown(keyEvent("ArrowDown"))).not.toThrow();
+    });
+
+    it("handleKeyDown no-ops when no row holds focus and no cursor is stored", () => {
+      (document.activeElement as HTMLElement | null)?.blur?.();
+      expect(() => ui.handleKeyDown(keyEvent("ArrowDown"))).not.toThrow();
+      expect(ui.listPanel.activeIdx).toBeNull();
+    });
+
+    it("Ctrl+ArrowUp over the top row shows the reorder hint", () => {
+      const item = findItem(ui, "base1");
+      ui.setActiveItem(ui.getNavigableItems().indexOf(item));
+      const showHint = vi.fn();
+      (ui.m.map as any).foliplus = { showHint };
+      ui.handleKeyDown(keyEvent("ArrowUp", { ctrlKey: true }));
+      expect(showHint).toHaveBeenCalled();
+    });
+
+    it("Ctrl+ArrowDown off the bottom shows the reorder hint", () => {
+      const items = ui.getNavigableItems();
+      ui.setActiveItem(items.length - 1);
+      const showHint = vi.fn();
+      (ui.m.map as any).foliplus = { showHint };
+      ui.handleKeyDown(keyEvent("ArrowDown", { ctrlKey: true }));
+      expect(showHint).toHaveBeenCalled();
+    });
+
+    it("Ctrl+ArrowDown moves the row when a neighbour exists", () => {
+      ui.setActiveItem(0);
+      const moveLayerDown = vi.spyOn(ui.m, "moveLayerDown").mockReturnValue(true);
+      expect(() =>
+        ui.handleKeyDown(keyEvent("ArrowDown", { ctrlKey: true })),
+      ).not.toThrow();
+      expect(moveLayerDown).toHaveBeenCalled();
+    });
+
+    it("Ctrl+an unhandled key is a no-op", () => {
+      ui.setActiveItem(0);
+      expect(() =>
+        ui.handleKeyDown(keyEvent("Enter", { ctrlKey: true })),
+      ).not.toThrow();
+    });
+
+    it("Alt+Enter on a row without a layer id falls through", () => {
+      const bare = document.createElement("div");
+      bare.className = CONST.CLASSES.LAYER_ITEM;
+      ui.uiContainer.appendChild(bare);
+      ui.listPanel.activeIdx = ui.getNavigableItems().indexOf(bare);
+      expect(() => ui.handleKeyDown(keyEvent("Enter", { altKey: true }))).not.toThrow();
+    });
+
+    it("Enter on an open menu item runs the action", () => {
+      const item = findItem(ui, "overlay1");
+      ui.openMoreMenu(item);
+      const li = ui.uiContainer.querySelector(
+        ".foliplus-layer-more-menu li[data-action='focus-layer']",
+      ) as HTMLElement;
+      expect(li).not.toBeNull();
+      const focusLayer = vi.spyOn(ui, "focusLayer").mockImplementation(() => {});
+      li.focus();
+      ui.handleKeyDown(keyEvent("Enter"));
+      expect(focusLayer).toHaveBeenCalled();
+    });
+
+    it("resolveActiveIdx walks a detached row that is focused via DOM override", () => {
+      const before = ui.listPanel.activeIdx;
+      const detached = document.createElement("div");
+      detached.className = CONST.CLASSES.LAYER_ITEM;
+      const desc = Object.getOwnPropertyDescriptor(document, "activeElement");
+      Object.defineProperty(document, "activeElement", {
+        configurable: true,
+        get: () => detached,
+      });
+      expect(resolveActiveIdx(ui, ui.getNavigableItems())).toBe(before);
+      if (desc?.configurable) {
+        Object.defineProperty(document, "activeElement", desc);
+      }
+    });
+
+    it("Alt+Enter focuses the navigated layer row", () => {
+      const items = ui.getNavigableItems();
+      const item = findItem(ui, "overlay1");
+      ui.setActiveItem(items.indexOf(item));
+      const focusLayer = vi.spyOn(ui, "focusLayer").mockImplementation(() => {});
+      ui.handleKeyDown(keyEvent("Enter", { altKey: true }));
+      expect(focusLayer).toHaveBeenCalledWith("overlay1");
+    });
+
+    it("Alt+Enter with a stale cursor index falls through to the key case", () => {
+      ui.listPanel.activeIdx = 999;
+      expect(() => ui.handleKeyDown(keyEvent("Enter", { altKey: true }))).not.toThrow();
+    });
+
+    it("ArrowUp at the top keeps the cursor parked", () => {
+      const items = ui.getNavigableItems();
+      const first = items[0];
+      ui.setActiveItem(0);
+      ui.handleKeyDown(keyEvent("ArrowUp"));
+      expect(ui.listPanel.activeIdx).toBe(0);
+      expect(ui.uiContainer.querySelector(`.${CONST.CLASSES.FOCUSED}`)).toBe(first);
+    });
+
+    it("ArrowDown at the bottom keeps the cursor parked", () => {
+      const items = ui.getNavigableItems();
+      const last = items[items.length - 1];
+      ui.setActiveItem(items.length - 1);
+      ui.handleKeyDown(keyEvent("ArrowDown"));
+      expect(ui.listPanel.activeIdx).toBe(items.length - 1);
+      expect(ui.uiContainer.querySelector(`.${CONST.CLASSES.FOCUSED}`)).toBe(last);
+    });
+
+    it("ArrowLeft and ArrowRight reach the toggle case", () => {
+      ui.setActiveItem(1);
+      expect(() =>
+        ui.handleKeyDown(keyEvent("ArrowLeft", { bubbles: true })),
+      ).not.toThrow();
+      expect(() =>
+        ui.handleKeyDown(keyEvent("ArrowRight", { bubbles: true })),
+      ).not.toThrow();
+    });
+
+    it("Enter with a focused more-button outside any row is a no-op", () => {
+      ui.setActiveItem(0);
+      const orphan = document.createElement("button");
+      orphan.className = CONST.CLASSES.MORE_BTN;
+      document.body.appendChild(orphan);
+      orphan.focus();
+      expect(() => ui.handleKeyDown(keyEvent("Enter"))).not.toThrow();
+      document.body.removeChild(orphan);
+    });
+
+    it("Space with a focused fold-button outside any row is a no-op", () => {
+      ui.setActiveItem(0);
+      const orphan = document.createElement("button");
+      orphan.className = CONST.CLASSES.FOLD_BTN;
+      document.body.appendChild(orphan);
+      orphan.focus();
+      expect(() => ui.handleKeyDown(keyEvent(" "))).not.toThrow();
+      document.body.removeChild(orphan);
+    });
+
+    it("Enter on a menu item with no open menu falls through", () => {
+      const item = findItem(ui, "overlay1");
+      const menu = document.createElement("ul");
+      menu.className = "foliplus-layer-more-menu";
+      const li = document.createElement("li");
+      li.setAttribute("data-action", "layer-focus");
+      menu.appendChild(li);
+      item.appendChild(menu);
+      li.focus();
+      expect(() => ui.handleKeyDown(keyEvent("Enter"))).not.toThrow();
     });
   });
 

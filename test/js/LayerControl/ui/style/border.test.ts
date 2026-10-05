@@ -114,8 +114,11 @@ const commitBorderNow = (
   kind: "color" | "weight",
   value: string | number,
 ): void => {
-  if (kind === "color") commitBorderColor(ui, layerId, value as string);
-  else commitBorderWeight(ui, layerId, value as number);
+  if (kind === "color") {
+    commitBorderColor(ui, layerId, value as string);
+  } else {
+    commitBorderWeight(ui, layerId, value as number);
+  }
   flushStyleDimApply(FACE.STROKE, layerId);
 };
 
@@ -125,7 +128,7 @@ describe("layerCanBorder", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.foldedGroups = new Set();
+    ui.listPanel.foldedGroups = new Set();
     seedIntentMap(ui, "visible", {});
   });
 
@@ -282,7 +285,7 @@ describe("authoredBorder", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.foldedGroups = new Set();
+    ui.listPanel.foldedGroups = new Set();
     seedIntentMap(ui, "visible", {});
   });
 
@@ -298,7 +301,10 @@ describe("authoredBorder", () => {
     setIntent(ui, "vec1", "borderWeight", 7);
     manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
 
-    expect(authoredBorder(ui, "vec1")).toEqual({ color: "#00ff00", weight: 4 });
+    expect(authoredBorder(ui, "vec1")).toEqual({
+      color: "#00ff00",
+      weight: 4,
+    });
   });
 
   it("descends through a group to find the first carrier", () => {
@@ -309,7 +315,10 @@ describe("authoredBorder", () => {
       layer: makeGroup(leaf, makeLeaf("#ff0000", 9)),
     });
 
-    expect(authoredBorder(ui, "grp1")).toEqual({ color: "#0000ff", weight: 1.5 });
+    expect(authoredBorder(ui, "grp1")).toEqual({
+      color: "#0000ff",
+      weight: 1.5,
+    });
   });
 
   it("reads the first feature's style from an L.GeoJSON layer, not the layer itself", () => {
@@ -323,7 +332,10 @@ describe("authoredBorder", () => {
       layer: makeGeoJsonGroup(makeLeaf("gray", 1.5), makeLeaf("#e74c3c", 6)),
     });
 
-    expect(authoredBorder(ui, "geo1")).toEqual({ color: "gray", weight: 1.5 });
+    expect(authoredBorder(ui, "geo1")).toEqual({
+      color: "gray",
+      weight: 1.5,
+    });
   });
 
   it("falls back to Leaflet's defaults when the layer declares no style", () => {
@@ -355,7 +367,7 @@ describe("commit pipeline", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.foldedGroups = new Set();
+    ui.listPanel.foldedGroups = new Set();
     seedIntentMap(ui, "visible", {});
   });
 
@@ -536,7 +548,7 @@ describe("bindBorderRow", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.foldedGroups = new Set();
+    ui.listPanel.foldedGroups = new Set();
     seedIntentMap(ui, "visible", {});
   });
 
@@ -597,7 +609,7 @@ describe("resetLayerBorder", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.foldedGroups = new Set();
+    ui.listPanel.foldedGroups = new Set();
     seedIntentMap(ui, "visible", {});
   });
 
@@ -801,7 +813,7 @@ describe("highlight restore", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.foldedGroups = new Set();
+    ui.listPanel.foldedGroups = new Set();
     seedIntentMap(ui, "visible", {});
   });
 
@@ -974,7 +986,7 @@ describe("applyBorderToLayer", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.foldedGroups = new Set();
+    ui.listPanel.foldedGroups = new Set();
     seedIntentMap(ui, "visible", {});
   });
 
@@ -1056,7 +1068,7 @@ describe("buildBorderRow", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.foldedGroups = new Set();
+    ui.listPanel.foldedGroups = new Set();
     seedIntentMap(ui, "visible", {});
   });
 
@@ -1231,7 +1243,7 @@ describe("border apply scheduler (drag coalesce)", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.foldedGroups = new Set();
+    ui.listPanel.foldedGroups = new Set();
     seedIntentMap(ui, "visible", {});
   });
 
@@ -1391,7 +1403,7 @@ describe("border apply scheduler (drag coalesce)", () => {
     vi.stubGlobal("cancelAnimationFrame", () => {});
 
     // minimal panel chrome so closeStylePanel finds stylePanelLayerId
-    (ui as any).stylePanelLayerId = "vec1";
+    ui.overlayPanel.stylePanelLayerId = "vec1";
     commitBorderColor(ui, "vec1", "#333333");
     expect(leaf.setStyle).not.toHaveBeenCalled();
 

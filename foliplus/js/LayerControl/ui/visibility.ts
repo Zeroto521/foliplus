@@ -75,7 +75,7 @@ const toggleAll = (ui: LayerUI, group: string, newState: boolean) => {
   ui.m.debouncedEnforce();
 };
 
-/** Full rescan that populates `ui.checkedCount[group]` from the DOM + intent,
+/** Full rescan that populates `ui.listPanel.checkedCount[group]` from the DOM + intent,
  *  then writes the toggle-all checkbox off the fresh count. Called only at
  *  reconcile points (attach, insert, delete, reload, bulk toggleAll) — the
  *  single-row click path uses `bumpCheckedCount` + `syncToggleAllFromCount`
@@ -104,8 +104,8 @@ const syncToggleAll = (ui: LayerUI, group: string) => {
   }
   // Tolerate a caller that constructs a thin LayerUI stub without
   // initializing the counter map (tests, late-attached panels).
-  ui.checkedCount ??= {};
-  ui.checkedCount[group] = { total, on };
+  ui.listPanel.checkedCount ??= {};
+  ui.listPanel.checkedCount[group] = { total, on };
   writeToggleAllCheckbox(ui, allCb, group);
 };
 
@@ -129,7 +129,7 @@ const writeToggleAllCheckbox = (
   allCb: HTMLInputElement,
   group: string,
 ): void => {
-  const c = ui.checkedCount?.[group] ?? { total: 0, on: 0 };
+  const c = ui.listPanel.checkedCount?.[group] ?? { total: 0, on: 0 };
   const allChecked = c.total > 0 && c.on === c.total;
   const noneChecked = c.on === 0;
   allCb.checked = allChecked;
@@ -153,11 +153,11 @@ const writeToggleAllCheckbox = (
  *  needs applying. After the first reconcile the counter is populated and
  *  every later call is O(1). */
 const bumpCheckedCount = (ui: LayerUI, group: string, delta: number): void => {
-  if (!ui.checkedCount?.[group]) {
+  if (!ui.listPanel.checkedCount?.[group]) {
     syncToggleAll(ui, group);
     return;
   }
-  const c = ui.checkedCount[group];
+  const c = ui.listPanel.checkedCount[group];
   c.on += delta;
   syncToggleAllFromCount(ui, group);
 };
@@ -222,7 +222,7 @@ const applyVisibility = (ui: LayerUI, id: string, visible: boolean): boolean => 
   // panel's row.
   if (layerInfo.group === GROUP.BASE) {
     applyProjectionAll(ui);
-    ui.styleZoomEndHandler?.();
+    ui.overlayPanel.styleZoomEndHandler?.();
   }
 
   return true;

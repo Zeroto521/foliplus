@@ -76,13 +76,13 @@ describe("LayerUI lifecycle — defensive rails", () => {
       // layer row and neither is any panel chrome. The handler must no-op
       // rather than call getNavigableItems / setIndex.
       const setIndexSpy = vi.fn();
-      vi.spyOn(ui.listCursor!, "setIndex").mockImplementation(setIndexSpy);
+      vi.spyOn(ui.listPanel.listCursor!, "setIndex").mockImplementation(setIndexSpy);
 
       const orphan = document.createElement("div");
       ui.uiContainer.appendChild(orphan);
       orphan.dispatchEvent(new MouseEvent("click", { bubbles: true }));
 
-      expect(ui.activeIdx).toBeNull();
+      expect(ui.listPanel.activeIdx).toBeNull();
       expect(setIndexSpy).not.toHaveBeenCalled();
     });
 
@@ -124,6 +124,33 @@ describe("LayerUI lifecycle — defensive rails", () => {
       label.dispatchEvent(new MouseEvent("click", { bubbles: true }));
 
       expect(showSolidBasemapSpy).not.toHaveBeenCalled();
+    });
+
+    it("onClick: a detached row outside the list leaves the cursor untouched", () => {
+      // owningRow() resolves any element matching SEL.ROW, so a row that is
+      // not part of getNavigableItems (not inside uiContainer) reaches the
+      // indexOf -1 guard — the stored cursor must survive.
+      ui.setActiveItem(1);
+      const detached = document.createElement("div");
+      detached.className = CONST.CLASSES.LAYER_ITEM;
+      const event = new MouseEvent("click", { bubbles: true });
+      Object.defineProperty(event, "target", { value: detached });
+
+      ui.onClick(event);
+
+      expect(ui.listPanel.activeIdx).toBe(1);
+    });
+
+    it("onFocusIn: a detached row outside the list does not move the cursor", () => {
+      ui.setActiveItem(1);
+      const detached = document.createElement("div");
+      detached.className = CONST.CLASSES.LAYER_ITEM;
+      const event = new Event("focusin", { bubbles: true });
+      Object.defineProperty(event, "target", { value: detached });
+
+      ui.onFocusIn(event);
+
+      expect(ui.listPanel.activeIdx).toBe(1);
     });
   });
 
@@ -335,7 +362,7 @@ describe("LayerUI lifecycle — defensive rails", () => {
     });
 
     it("LAYER_NO_BASEMAP_CHANGED refreshes the empty-state hint", () => {
-      // Signal handler runs syncNoBasemap(ui); no throw, no row drop.
+      // Signal handler runs syncNoBasemap( ui); no throw, no row drop.
       expect(() =>
         ensureEvents(map).emit(EVENTS.LAYER_NO_BASEMAP_CHANGED),
       ).not.toThrow();
@@ -351,6 +378,29 @@ describe("LayerUI lifecycle — defensive rails", () => {
       ui.unbindEvents();
       ensureEvents(map).emit(EVENTS.LAYER_LIST_REBUILD);
       expect(ui.uiContainer.querySelectorAll(CONST.SEL.LAYER_ITEM).length).toBe(before);
+    });
+
+    it("drag handlers are wired and dispatch to the drag module", () => {
+      // The bindEvents assignments (onDragOver/onDragLeave/onDrop/onDragEnd)
+      // must route DOM events to the ui/* module functions without throwing.
+      const row = ui.uiContainer.querySelector(
+        `${CONST.SEL.LAYER_ITEM}[${CONST.DATA.LAYER_ID}="overlay1"]`,
+      ) as HTMLElement;
+      const evt = (type: string): Event =>
+        new Event(type, { bubbles: true, cancelable: true });
+      expect(() => row.dispatchEvent(evt("dragstart"))).not.toThrow();
+      expect(() => row.dispatchEvent(evt("dragover"))).not.toThrow();
+      expect(() => row.dispatchEvent(evt("dragleave"))).not.toThrow();
+      expect(() => row.dispatchEvent(evt("drop"))).not.toThrow();
+      expect(() => row.dispatchEvent(evt("dragend"))).not.toThrow();
+    });
+
+    it("zoomend re-projects and more-map-click closes the menu", () => {
+      // onZoomEnd -> applyProjectionAll, onMoreMapClick -> closeMoreMenu(false).
+      expect(() => ui.onZoomEnd?.()).not.toThrow();
+      expect(() => {
+        ui.onMoreMapClick?.();
+      }).not.toThrow();
     });
   });
 });

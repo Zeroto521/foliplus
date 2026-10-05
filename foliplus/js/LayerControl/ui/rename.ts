@@ -41,7 +41,7 @@ const renameLayer = (ui: LayerUI, layerId: string): void => {
   // so the input opens with the name the UI already shows.
   const currentName = displayName(ui, layerId);
 
-  ui.activeRenameId = layerId;
+  ui.overlayPanel.activeRenameId = layerId;
   // Flag the row so CSS can stretch the input across the label+count area
   // (matching the SearchControl field's full extent) while editing.
   item?.classList.add(CONST.CLASSES.RENAMING);
@@ -53,7 +53,7 @@ const renameLayer = (ui: LayerUI, layerId: string): void => {
     // Only commit on blur while this is still the active rename. Enter/Escape
     // call finishRename() which sets activeRenameId=null and removes the
     // focused input → that removal fires a blur that must not re-commit.
-    isActive: () => ui.activeRenameId === layerId,
+    isActive: () => ui.overlayPanel.activeRenameId === layerId,
     onCommit: trimmed => {
       const changed = trimmed !== currentName;
       if (changed) {
@@ -103,9 +103,9 @@ const renameLayer = (ui: LayerUI, layerId: string): void => {
  */
 
 const finishRename = (ui: LayerUI, restoreText = true): void => {
-  if (!ui.activeRenameId) return;
-  const layerId = ui.activeRenameId;
-  ui.activeRenameId = null;
+  if (!ui.overlayPanel.activeRenameId) return;
+  const layerId = ui.overlayPanel.activeRenameId;
+  ui.overlayPanel.activeRenameId = null;
   if (!ui.uiContainer) return;
 
   const layerInfo = ui.m.layerRegistry.get(layerId);

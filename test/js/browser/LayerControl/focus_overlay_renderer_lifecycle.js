@@ -52,7 +52,7 @@
         focusRow(row);
         const during = {
           svg: countSvgs(),
-          rendererLive: ui.focusRenderer !== null,
+          rendererLive: ui.focusController.focusRenderer !== null,
         };
         ui.cancelFocus();
         cycles.push({
@@ -61,7 +61,7 @@
           ...during,
           after: {
             svg: countSvgs(),
-            rendererNull: ui.focusRenderer === null,
+            rendererNull: ui.focusController.focusRenderer === null,
           },
         });
       }
