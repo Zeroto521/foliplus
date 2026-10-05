@@ -1,5 +1,4 @@
 import { EVENTS, type EventBus, ensureEvents } from "#core/event/index.js";
-import { hasLabelField } from "#core/labelField.js";
 import { ensureLayerAPI } from "#core/layer/api.js";
 import {
   type CreateCanvasAPI,
@@ -16,17 +15,14 @@ import {
   LayerInfoRegistry,
   type LayerKind,
   LayerOrder,
-  LayerSurface,
-  PANE_ROLE,
+  type LayerSurface,
   PaneManager,
   type RegisterLayerOpts,
   countFeatureGeometry,
   findLayer,
-  topSlotZ,
   walkLeaf,
   zFor,
 } from "#core/layer/index.js";
-import type { PaneSpec } from "#core/layer/type.js";
 import {
   hasAttachedPath,
   isGroupLike,
@@ -123,36 +119,6 @@ const uninstallBringToFrontPatch = () => {
 //             clearAllLayers
 //   Private   installBringToFrontPatch, uninstallBringToFrontPatch
 
-/** The pane specs a surface is declared with: the registry entry's own, plus
- *  the label (annotation) pane when the layer's features expose a labelable
- *  field. This is the one probe behind `capabilities.annotation` — run on
- *  *every* surface resolution, so a live layer that gained its first
- *  labelable feature flips the declared specs on the next gate / menu /
- *  panel read and `matches` rebuilds the surface (pane and capability with
- *  it) — no reload. Losing the last one flips back the same way.
- *
- *  The spec rides this call's copy, never `layerInfo.paneSpecs`: the
- *  declaration belongs to the surface face (like the fill / stroke probe
- *  results), and a re-registration re-derives it fresh. A spec someone else
- *  already declared is theirs — the probe only appends what is absent and
- *  never removes a foreign declaration. */
-const withAnnotationSpec = (
-  layerInfo: LayerInfo,
-  layer: L.Layer | null,
-): PaneSpec[] => {
-  const specs = layerInfo.paneSpecs ?? [];
-  if (specs.some(spec => spec.role === PANE_ROLE.ANNOTATION)) return specs;
-  if (!layer || !hasLabelField(layer)) return specs;
-  return [
-    ...specs,
-    {
-      role: PANE_ROLE.ANNOTATION,
-      order: specs.length,
-      name: CONST.ANNOTATION_PANE_PREFIX + layerInfo.id,
-    },
-  ];
-};
-
 class LayerController implements LayerAPI {
   /** Diagnostic marker: set by LayerController (true).  The lightweight stub
    * sets this to false.  For the actual LayerControl check, prefer
@@ -188,11 +154,6 @@ class LayerController implements LayerAPI {
    *  manager forwards the public face and keeps the ownership call-sites
    *  (register gate, delete mark). */
   order: LayerOrder;
-  /** Whether the author set a finite `map.options.maxZoom`.
-
-   *  Captured in the constructor, before the first enforceOrder can write its
-   *  own fallback, so the guard below never reads back our own write. */
-  private authorMaxZoomDeclared: boolean;
   annotation: AnnotationManager;
   domain: LayerOrchestration;
   onLayerAdd: (event: L.LeafletEvent) => void;
@@ -204,10 +165,6 @@ class LayerController implements LayerAPI {
     this.map = mapInstance;
     this.T = env.T;
     this.log = env.log;
-    // Captured before the constructor's own enforceOrder can write a fallback,
-    // so the guard is the author's declaration and never our previous write.
-    // folium emits the map config once at init, ahead of every control.
-    this.authorMaxZoomDeclared = Number.isFinite(mapInstance.options?.maxZoom);
     this.events = ensureEvents(this.map);
     this.persistence = new LayerPersistence();
     // One read of the record at construction. `order` seeds the registry's
@@ -267,7 +224,6 @@ class LayerController implements LayerAPI {
     this.panes = new PaneManager(mapInstance);
     this.surfaces = new Map();
     this.surfacesByLayer = new Map();
-    this.getLayerPanes = this.resolveLayerPanes.bind(this);
 
     this.factory = new LayerFactory({
       map: this.map,
@@ -369,6 +325,7 @@ class LayerController implements LayerAPI {
       surfacesByLayer: this.surfacesByLayer,
       lastAttribution: this.lastAttribution,
     });
+    this.getLayerPanes = layer => this.domain.resolveLayerPanes(layer);
     this.loadSavedOrder();
     this.layerRegistry.normalizeGroups();
     this.enforceOrder();
@@ -1010,135 +967,19 @@ class LayerController implements LayerAPI {
    *  registry knows them only as unresolved ids and the ordering pass is where
    *  they first get a rendering face. */
   surfaceFor(layerInfo: LayerInfo): LayerSurface {
-    const layer = this.findLayer(layerInfo);
-    const spec = {
-      id: layerInfo.id,
-      layer,
-      // The registry is the only place a kind is derived, so forward its answer
-      // instead of letting the surface re-probe the tree: without this a
-      // declared `kind` (and a `custom` carrier) would be re-derived away from
-      // its own declaration on the surface side.
-      kind: layerInfo.kind,
-      custom: layerInfo.carrier.custom,
-      paneName: layerInfo.paneName,
-      paneSpecs: withAnnotationSpec(layerInfo, layer),
-      canvas: Boolean(layerInfo.carrier.canvas),
-      getBounds: layerInfo.getBounds,
-      color: layerInfo.color,
-    };
-    const existing = this.surfaces.get(layerInfo.id);
-    if (existing?.matches(spec)) return existing;
-    if (existing?.layer) {
-      // The layer object (or its declaration) was replaced. Drop the stamp
-      // index entry for the superseded layer, or a lookup by it would keep
-      // answering with a surface nobody paints into anymore.
-      this.surfacesByLayer.delete(L.stamp(existing.layer));
-    }
-    const surface = new LayerSurface(this.panes, spec);
-    this.surfaces.set(layerInfo.id, surface);
-    if (spec.layer) this.surfacesByLayer.set(L.stamp(spec.layer), surface);
-    return surface;
-  }
-
-  /** The surface that currently paints a live layer, or null. */
-  private surfaceForLayer(layer: L.Layer): LayerSurface | null {
-    return this.surfacesByLayer.get(L.stamp(layer)) ?? null;
-  }
-
-  /** Panes a registered layer's content lives in, including the pane its
-   *  surface synthesized. Falls back to the names in the layer's own tree for a
-   *  layer nobody registered. */
-  private resolveLayerPanes(layer: L.Layer): string[] {
-    const surface = this.surfaceForLayer(layer);
-    if (surface?.panes.length) return surface.paneNames;
-    return this.panes.getLayerPanes(layer);
+    return this.domain.surfaceFor(layerInfo);
   }
 
   /** Give every layer a surface and reprice its z.
    *
-   *  Re-ordering only. Panes are allocated at register time — a canvas or
-   *  color face inside `register()`, a layer's tree inside `materialize()` —
-   *  and each is priced at its own slot then, so a pane is never seen at
-   *  Leaflet's default z. Content that arrived since the last pass is
-   *  re-pinned by `materialize()` itself. What is left here is to reprice
-   *  after the registry moves (add, delete, drag) and to place the shared
-   *  panes around the ladder. */
+   *  Re-ordering only. The pass lives on the domain; the controller keeps the
+   *  re-entry guard and the debounce cancellation around it. */
   enforceOrder() {
     if (this.isEnforcing) return;
     this.debouncedEnforce?.cancel();
     this.isEnforcing = true;
     try {
-      // Leaflet's getMaxZoom() is options.maxZoom ?? <max of the layers'
-      // options.maxZoom> ?? Infinity, and folium emits a map with no declared
-      // max zoom: the map would zoom past every layer's native range into
-      // empty space. Own the ceiling in that case — the union of the
-      // registered layers' native options.maxZoom, falling back to a default
-      // when nothing declares one. The layers' native values are the author's
-      // declaration, not the user's zoomRange (which resolves through
-      // effectiveShown, not map zoom limits).
-      //
-      // Re-runs every pass instead of guarding on map.options.maxZoom: that
-      // value is our own previous write, so guarding on it froze the ceiling
-      // at the first pass and a layer registered later could never raise it.
-      // And it stays a union rather than max(prev, layers), so a removed
-      // layer's range no longer holds the ceiling up.
-      if (!this.authorMaxZoomDeclared) {
-        let max = 0;
-        for (const li of this.layers) {
-          const opts = li.layer?.options as { maxZoom?: number } | undefined;
-          if (
-            typeof opts?.maxZoom === "number" &&
-            Number.isFinite(opts.maxZoom) &&
-            opts.maxZoom > max
-          ) {
-            max = opts.maxZoom;
-          }
-        }
-        this.map.options.maxZoom = max > 0 ? max : CONST.AUTHOR_ZOOM_FALLBACK_MAX;
-      }
-      for (let i = 0; i < this.layers.length; i++) {
-        const layerInfo = this.layers[i];
-        const layer = this.findLayer(layerInfo);
-        // Base-group layers (tile basemaps + the solid-color basemap) share
-        // the 200 ladder, so a color pane interleaves with tile basemaps
-        // row-by-row. Overlay-group layers use the 600 ladder.
-        const slot = { index: i, count: this.layers.length, group: layerInfo.group };
-        const z = zFor(slot);
-
-        // Callback-only layers (createCanvas / heatmap): no Leaflet layer, but
-        // they own a dedicated pane that must still take its place in the stack.
-        if (!layer) {
-          const surface = this.surfaceFor(layerInfo);
-          surface.materialize();
-          surface.setZ(z);
-          continue;
-        }
-
-        if (!this.map.hasLayer(layer)) continue;
-
-        const surface = this.surfaceFor(layerInfo);
-        surface.materialize();
-        // One write covers every pane the face owns — including the
-        // `role: "annotation"` label pane, a PaneHandle since the surface
-        // materialized it. The ordering pass used to spot-write that pane by
-        // name here; `writeZ` prices it through the same `zFor({ role:
-        // "annotation" })` ladder now, so the special case is gone.
-        surface.setZ(z);
-      }
-
-      // Data panes start at BASE (== Leaflet's markerPane 600). Popup must sit
-      // above the highest data pane (topZ + 1), tooltip exactly at topZ, and
-      // markers (search/locate pins, ✕, data markers) one step below topZ but
-      // still above every data pane — otherwise markerPane would hide under
-      // overlays. The base comes from the ladder; the offsets are fixed.
-      const topZ = topSlotZ(this.layers.length);
-      const popupPaneEl = this.map.getPane("popupPane");
-      if (popupPaneEl) popupPaneEl.style.zIndex = String(topZ + 1);
-      const tooltipPaneEl = this.map.getPane("tooltipPane");
-      if (tooltipPaneEl) tooltipPaneEl.style.zIndex = String(topZ);
-      const markerPaneEl = this.map.getPane("markerPane");
-      if (markerPaneEl) markerPaneEl.style.zIndex = String(topZ - 1);
-
+      this.domain.enforceOrder();
       this.syncAttribution();
     } finally {
       this.isEnforcing = false;
