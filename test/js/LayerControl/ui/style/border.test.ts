@@ -252,7 +252,7 @@ describe("layerCanBorder", () => {
       name: "E",
       layer: {
         options: {},
-        eachLayer: vi.fn((_fn: (child: unknown) => void) => {
+        eachLayer: vi.fn(() => {
           // no children to dispatch
         }),
         getBounds: vi.fn(() => ({
@@ -1408,7 +1408,7 @@ describe("border apply scheduler (drag coalesce)", () => {
     commitBorderColor(ui, "vec1", "#333333");
     expect(leaf.setStyle).not.toHaveBeenCalled();
 
-    closeStylePanel(ui.overlayPanel, ui, false);
+    closeStylePanel(ui, false);
 
     expect(leaf.setStyle).toHaveBeenCalledWith({
       color: "#333333",

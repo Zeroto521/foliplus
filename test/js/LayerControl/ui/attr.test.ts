@@ -538,6 +538,18 @@ describe("LayerUI attrs", () => {
       wrapper.remove();
     });
 
+    it("a document-level mousedown (target = document) dismisses the panel", () => {
+      const item = findItem(ui, "overlay1");
+      ui.openAttrsPanel(item);
+      expect(item.querySelector(".foliplus-layer-attrs-panel")).not.toBeNull();
+
+      document.dispatchEvent(
+        new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
+      );
+
+      expect(item.querySelector(".foliplus-layer-attrs-panel")).toBeNull();
+    });
+
     it("mousedown inside the panel does not dismiss it", () => {
       const item = findItem(ui, "overlay1");
       ui.openAttrsPanel(item);
@@ -715,6 +727,24 @@ describe("LayerUI attrs", () => {
       ui.events.emit("foliplus:layer:item-count-change", { id: "other" });
 
       expect(rows(panel)).toContainEqual(["marker", "1"]);
+    });
+
+    it("closeAttrsPanel is a no-op when no panel is open", () => {
+      expect(() => ui.closeAttrsPanel()).not.toThrow();
+      expect(ui.overlayPanel.activeAttrsPanel).toBeNull();
+    });
+
+    it("header click closes an open panel", () => {
+      const item = findItem(ui, "overlay1");
+      ui.openAttrsPanel(item);
+      const panel = item.querySelector(".foliplus-layer-attrs-panel")!;
+      expect(panel).not.toBeNull();
+
+      const header = panel.querySelector(".foliplus-panel-header")!;
+      (header as HTMLElement).click();
+
+      expect(item.querySelector(".foliplus-layer-attrs-panel")).toBeNull();
+      expect(ui.overlayPanel.activeAttrsPanel).toBeNull();
     });
   });
 

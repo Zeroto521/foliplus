@@ -1796,7 +1796,7 @@ describe("LayerUI focus", () => {
       bare.setAttribute(CONST.DATA.LAYER_ID, "bare");
       ui.uiContainer.appendChild(bare);
       ui.listPanel.activeIdx = navigableItems().indexOf(bare);
-      expect(getActiveLayerItem(ui.listPanel, ui)).toBe(bare);
+      expect(getActiveLayerItem(ui)).toBe(bare);
       const changes = vi.fn();
       document.addEventListener("change", changes);
       try {
@@ -1854,18 +1854,18 @@ describe("LayerUI focus", () => {
 
   describe("focus overlay drawing", () => {
     it("creates the SVG renderer once and reuses it for the next mask", () => {
-      drawFocusMask(ui.focusController, layerBounds());
+      drawFocusMask(ui, layerBounds());
       const renderer = ui.focusController.focusRenderer!;
       expect(renderer).not.toBeNull();
 
-      drawFocusMask(ui.focusController, layerBounds());
+      drawFocusMask(ui, layerBounds());
       expect(ui.focusController.focusRenderer).toBe(renderer);
     });
 
     it("omits the renderer from the rect options when none is active", () => {
       expect(ui.focusController.focusRenderer).toBeNull();
 
-      drawFocusRect(ui.focusController, layerBounds());
+      drawFocusRect(ui, layerBounds());
 
       // The rounded marquee is the polygon call with the focus-rect class.
       const rectCall = (window.L.polygon as ReturnType<typeof vi.fn>).mock.calls.find(
@@ -1886,7 +1886,7 @@ describe("LayerUI focus", () => {
 
     it("ignores map navigation once another focus has superseded this one", () => {
       vi.useFakeTimers();
-      registerAutoCancel(ui.focusController, ui, "overlay1");
+      registerAutoCancel(ui, "overlay1");
       // Mark the focus as already discarded so the callback has nothing to clean.
       ui.focusController.focusMask = { _options: {} } as any;
       ui.focusController.focusingLayerId = "overlay2";
@@ -1900,7 +1900,7 @@ describe("LayerUI focus", () => {
 
     it("does not dismiss a focus superseded during the grace window", () => {
       vi.useFakeTimers();
-      registerAutoCancel(ui.focusController, ui, "overlay1");
+      registerAutoCancel(ui, "overlay1");
       ui.focusController.focusMask = { _options: {} } as any;
       moveendHandler()!();
       ui.focusController.focusingLayerId = "overlay2";
@@ -1915,10 +1915,10 @@ describe("LayerUI focus", () => {
   describe("highlightFocusedRow()", () => {
     it("clears the previous highlight without adopting the new row when it is null", () => {
       const item = findItem(ui, "overlay1");
-      highlightFocusedRow(ui.focusController, ui, item, "overlay1");
+      highlightFocusedRow(ui, item, "overlay1");
       expect(item.classList.contains(CONST.CLASSES.FOCUSING)).toBe(true);
 
-      highlightFocusedRow(ui.focusController, ui, null, "overlay2");
+      highlightFocusedRow(ui, null, "overlay2");
 
       expect(item.classList.contains(CONST.CLASSES.FOCUSING)).toBe(false);
       expect(ui.focusController.focusingLayerId).toBe("overlay1");
@@ -1940,7 +1940,7 @@ describe("LayerUI focus", () => {
 
     it("lifts the canvas directly when the layer has no pane of its own", () => {
       const { info, canvas } = heatInfo();
-      bringFocusedLayerToFront(ui.focusController, info);
+      bringFocusedLayerToFront(ui, info);
 
       expect(canvas.style.zIndex).toBe(String(focusLayerZ()));
       expect(canvas.classList.contains(CONST.CLASSES.FOCUS_PANE)).toBe(true);
@@ -1954,7 +1954,7 @@ describe("LayerUI focus", () => {
         name === "missing-pane" ? undefined : realGetPane(name),
       );
 
-      bringFocusedLayerToFront(ui.focusController, info);
+      bringFocusedLayerToFront(ui, info);
 
       expect(canvas.classList.contains(CONST.CLASSES.FOCUS_PANE)).toBe(true);
       expect(canvas.style.zIndex).toBe(String(focusLayerZ()));
@@ -1972,7 +1972,7 @@ describe("LayerUI focus", () => {
       map.getPane = vi.fn((name: string) =>
         name === "missing-pane" ? undefined : realGetPane(name),
       );
-      bringFocusedLayerToFront(ui.focusController, {
+      bringFocusedLayerToFront(ui, {
         id: "none",
         name: "N",
         group: "overlay",
@@ -1982,12 +1982,57 @@ describe("LayerUI focus", () => {
     });
 
     it("lifts nothing of the layer when it has neither pane nor canvas", () => {
-      bringFocusedLayerToFront(ui.focusController, {
+      bringFocusedLayerToFront(ui, {
         id: "none",
         name: "N",
         group: "overlay",
       } as LayerInfo);
       expect(ui.focusController.focusedPaneRestores).toHaveLength(LADDER_PANES);
+    });
+  });
+
+  describe("bringFocusedLayerToFront() pane-less surface discovery", () => {
+    const paneLessSurface = (layerInfo: LayerInfo) => {
+      const surface = manager.surfaceFor(layerInfo);
+      return vi.spyOn(manager, "surfaceFor").mockReturnValue({
+        ...surface,
+        panes: [],
+        setZOverride: () => false,
+      } as never);
+    };
+
+    it("discovers and lifts non-default panes when the surface owns no pane", () => {
+      const layerInfo = manager.layerRegistry.get("overlay1")!;
+      paneLessSurface(layerInfo);
+      vi.spyOn(manager, "getLayerPanes").mockReturnValue(["overlayPane", "customPane"]);
+      const lifted: Record<string, HTMLElement> = {};
+      const getPaneSpy = vi
+        .spyOn(manager.map, "getPane")
+        .mockImplementation((name: string) => {
+          const el = document.createElement("div");
+          lifted[name] = el;
+          return el;
+        });
+
+      bringFocusedLayerToFront(ui, layerInfo);
+
+      expect(getPaneSpy).toHaveBeenCalledWith("customPane");
+      // overlayPane is a shared core pane — skipped via the continue, so it
+      // is never resolved or lifted; only the layer-specific pane got the lift.
+      expect(lifted["overlayPane"]).toBeUndefined();
+      expect(lifted["customPane"].classList.contains(CONST.CLASSES.FOCUS_PANE)).toBe(
+        true,
+      );
+    });
+
+    it("falls back to an empty lift when pane discovery throws", () => {
+      const layerInfo = manager.layerRegistry.get("overlay1")!;
+      paneLessSurface(layerInfo);
+      vi.spyOn(manager, "getLayerPanes").mockImplementation(() => {
+        throw new Error("discovery failed");
+      });
+
+      expect(() => bringFocusedLayerToFront(ui, layerInfo)).not.toThrow();
     });
   });
 });

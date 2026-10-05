@@ -372,7 +372,7 @@ describe("LayerUI style panel — fill color", () => {
       name: "E",
       layer: {
         options: {},
-        eachLayer: vi.fn((_fn: (child: unknown) => void) => {
+        eachLayer: vi.fn(() => {
           // no children to dispatch
         }),
         getBounds: vi.fn(() => ({
@@ -646,7 +646,7 @@ describe("LayerUI style panel — fill color", () => {
     color.value = "#333333";
     color.dispatchEvent(new Event("input", { bubbles: true }));
 
-    closeStylePanel(ui.overlayPanel, ui, false);
+    closeStylePanel(ui, false);
 
     expect(fillLayer.leaves[0].setStyle).toHaveBeenCalledWith({
       fillColor: "#333333",

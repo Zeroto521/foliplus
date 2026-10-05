@@ -66,12 +66,7 @@ describe("LayerUI lifecycle — defensive rails", () => {
       checkbox.checked = true;
       checkbox.dispatchEvent(new Event("change", { bubbles: true }));
 
-      expect(toggleAllSpy).toHaveBeenCalledWith(
-        ui.listPanel,
-        ui,
-        "",
-        expect.any(Boolean),
-      );
+      expect(toggleAllSpy).toHaveBeenCalledWith(ui, "", expect.any(Boolean));
     });
   });
 
@@ -104,7 +99,7 @@ describe("LayerUI lifecycle — defensive rails", () => {
       const foldBtn = row.querySelector(`.${CONST.CLASSES.FOLD_BTN}`) as HTMLElement;
       foldBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
 
-      expect(toggleFoldSpy).toHaveBeenCalledWith(ui.listPanel, ui, "");
+      expect(toggleFoldSpy).toHaveBeenCalledWith(ui, "");
     });
 
     it("onClick: the color row's body no longer triggers showSolidBasemap", () => {
@@ -358,6 +353,29 @@ describe("LayerUI lifecycle — defensive rails", () => {
       ui.unbindEvents();
       ensureEvents(map).emit(EVENTS.LAYER_LIST_REBUILD);
       expect(ui.uiContainer.querySelectorAll(CONST.SEL.LAYER_ITEM).length).toBe(before);
+    });
+
+    it("drag handlers are wired and dispatch to the drag module", () => {
+      // The bindEvents assignments (onDragOver/onDragLeave/onDrop/onDragEnd)
+      // must route DOM events to the ui/* module functions without throwing.
+      const row = ui.uiContainer.querySelector(
+        `${CONST.SEL.LAYER_ITEM}[${CONST.DATA.LAYER_ID}="overlay1"]`,
+      ) as HTMLElement;
+      const evt = (type: string): Event =>
+        new Event(type, { bubbles: true, cancelable: true });
+      expect(() => row.dispatchEvent(evt("dragstart"))).not.toThrow();
+      expect(() => row.dispatchEvent(evt("dragover"))).not.toThrow();
+      expect(() => row.dispatchEvent(evt("dragleave"))).not.toThrow();
+      expect(() => row.dispatchEvent(evt("drop"))).not.toThrow();
+      expect(() => row.dispatchEvent(evt("dragend"))).not.toThrow();
+    });
+
+    it("zoomend re-projects and more-map-click closes the menu", () => {
+      // onZoomEnd -> applyProjectionAll, onMoreMapClick -> closeMoreMenu(false).
+      expect(() => ui.onZoomEnd?.()).not.toThrow();
+      expect(() => {
+        ui.onMoreMapClick?.();
+      }).not.toThrow();
     });
   });
 });

@@ -690,9 +690,9 @@ describe("LayerUI menu", () => {
       ui.openMoreMenu(item);
       const deleteLi = deleteEntryOf(item);
 
-      expect(activateDeleteItem(ui.overlayPanel, ui, deleteLi)).toBe(false);
+      expect(activateDeleteItem(ui, deleteLi)).toBe(false);
       expect(deleteSpy).not.toHaveBeenCalled();
-      expect(activateDeleteItem(ui.overlayPanel, ui, deleteLi)).toBe(true);
+      expect(activateDeleteItem(ui, deleteLi)).toBe(true);
       expect(deleteSpy).toHaveBeenCalledWith("overlay1");
     });
 
@@ -705,7 +705,7 @@ describe("LayerUI menu", () => {
       const deleteLi = deleteEntryOf(item);
       deleteLi.querySelector(CONST.SEL.MENU_DELETE_LABEL)!.remove();
 
-      expect(activateDeleteItem(ui.overlayPanel, ui, deleteLi)).toBe(false);
+      expect(activateDeleteItem(ui, deleteLi)).toBe(false);
       expect(deleteLi.classList.contains(CONST.CLASSES.MENU_DELETE_ARMED)).toBe(false);
       expect(deleteSpy).not.toHaveBeenCalled();
     });
@@ -722,7 +722,7 @@ describe("LayerUI menu", () => {
 
       ui.overlayPanel.activeMenu = null;
 
-      expect(activateDeleteItem(ui.overlayPanel, ui, deleteLi)).toBe(true);
+      expect(activateDeleteItem(ui, deleteLi)).toBe(true);
       expect(deleteSpy).toHaveBeenCalledWith("");
     });
 

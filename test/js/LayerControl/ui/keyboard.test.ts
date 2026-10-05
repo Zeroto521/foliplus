@@ -5,6 +5,11 @@ import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerManager } from "#foliplus/LayerControl/manager.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { getIntent, seedIntentMap } from "#foliplus/LayerControl/ui/intent.js";
+import {
+  findVisibleNeighbor,
+  resolveActiveIdx,
+  restoreCursor,
+} from "#foliplus/LayerControl/ui/keyboard.js";
 import { ensureModes } from "#foliplus/core/mode.js";
 import {
   allFolded,
@@ -63,7 +68,7 @@ describe("LayerUI keyboard", () => {
   // ─────────────────── focusLayer() ───────────────────
 
   describe("Enter toggles the cursor row", () => {
-    const toggleSpy = (_ui: LayerUI) => {
+    const toggleSpy = () => {
       const orig = HTMLInputElement.prototype.dispatchEvent;
       const spy = vi.fn();
       HTMLInputElement.prototype.dispatchEvent = function (...args: any[]) {
@@ -1100,6 +1105,92 @@ describe("LayerUI keyboard", () => {
       );
 
       expect(checkbox.checked).toBe(!before);
+    });
+  });
+
+  describe("defensive branches", () => {
+    const indexFor = (id: string) => ui.getNavigableItems().indexOf(findItem(ui, id));
+
+    it("setActiveItem with an out-of-range index clears the cursor", () => {
+      ui.setActiveItem(-1);
+      expect(ui.listPanel.activeIdx).toBeNull();
+      expect(ui.uiContainer.querySelector(`.${CONST.CLASSES.FOCUSED}`)).toBeNull();
+    });
+
+    it("resolveActiveIdx keeps the stored cursor when nothing is focusable", () => {
+      ui.setActiveItem(1);
+      const before = ui.listPanel.activeIdx;
+      ui.listPanel.listCursor = null;
+      // No DOM focus anywhere: resolve falls back to the stored index.
+      expect(before).not.toBeNull();
+    });
+
+    it("ArrowUp moves the cursor to the previous visible row", () => {
+      const overlay = findItem(ui, "overlay1");
+      ui.setActiveItem(indexFor("overlay1"));
+      const before = ui.listPanel.activeIdx;
+      pressKey(overlay, "ArrowUp");
+      expect(ui.listPanel.activeIdx).toBe((before as number) - 1);
+    });
+
+    it("folded rows are skipped when finding a visible neighbour", () => {
+      // Fold the overlay group; every overlay row is hidden, so an ArrowUp
+      // from below cannot land on one and the neighbour search returns the
+      // toggle-all header instead.
+      ui.listPanel.foldedGroups = new Set([GROUP.OVERLAY]);
+      const base = findItem(ui, "base1");
+      ui.setActiveItem(indexFor("base1"));
+      pressKey(base, "ArrowUp");
+      const focused = ui.uiContainer.querySelector(`.${CONST.CLASSES.FOCUSED}`);
+      expect(focused).not.toBeNull();
+    });
+
+    it("neighbour search returns -1 when every row ahead is folded", () => {
+      attachWithGroup(ui);
+      ui.listPanel.foldedGroups = new Set([GROUP.OVERLAY]);
+      ui.uiContainer
+        .querySelectorAll<HTMLElement>(
+          `${CONST.SEL.LAYER_ITEM}[data-layer-type="${GROUP.OVERLAY}"]`,
+        )
+        .forEach(el => el.classList.add(CONST.CLASSES.GROUP_FOLDED));
+      const items = ui.getNavigableItems();
+      const toggleRow = ui.uiContainer.querySelector<HTMLElement>(
+        `.${CONST.CLASSES.TOGGLE_ALL}[data-group="${GROUP.OVERLAY}"]`,
+      )!;
+      const idx = items.indexOf(toggleRow);
+      expect(idx).toBeGreaterThanOrEqual(0);
+      expect(findVisibleNeighbor(ui, items, idx, 1)).toBe(-1);
+    });
+
+    it("restoreCursor re-homes a folded group row onto its toggle-all row", () => {
+      attachWithGroup(ui);
+      ui.listPanel.foldedGroups = new Set([GROUP.OVERLAY]);
+      ui.uiContainer
+        .querySelectorAll<HTMLElement>(
+          `${CONST.SEL.LAYER_ITEM}[data-layer-type="${GROUP.OVERLAY}"]`,
+        )
+        .forEach(el => el.classList.add(CONST.CLASSES.GROUP_FOLDED));
+
+      restoreCursor(ui, "overlay1");
+
+      const lit = ui.uiContainer.querySelector(`.${CONST.CLASSES.FOCUSED}`);
+      expect(lit?.classList.contains(CONST.CLASSES.TOGGLE_ALL)).toBe(true);
+      expect(ui.listPanel.activeIdx).toBe(
+        ui.getNavigableItems().indexOf(lit as HTMLElement),
+      );
+    });
+
+    it("restoreCursor clears the cursor when the ref matches no row", () => {
+      ui.setActiveItem(0);
+      restoreCursor(ui, "ghost-layer");
+      expect(ui.listPanel.activeIdx).toBeNull();
+      expect(ui.uiContainer.querySelector(`.${CONST.CLASSES.FOCUSED}`)).toBeNull();
+    });
+
+    it("resolveActiveIdx falls back to the stored cursor when no row holds focus", () => {
+      ui.setActiveItem(1);
+      (document.activeElement as HTMLElement | null)?.blur?.();
+      expect(resolveActiveIdx(ui, ui.getNavigableItems())).toBe(1);
     });
   });
 

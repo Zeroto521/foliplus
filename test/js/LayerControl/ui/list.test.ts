@@ -218,9 +218,7 @@ describe("ui/list row placement", () => {
     });
     const rowsBefore = ui.uiContainer.querySelectorAll(CONST.SEL.LAYER_ITEM);
 
-    expect(() =>
-      insertLayerItem(ui.listPanel, ui, { id: "ghost" } as LayerInfo),
-    ).not.toThrow();
+    expect(() => insertLayerItem(ui, { id: "ghost" } as LayerInfo)).not.toThrow();
     expect(ui.uiContainer.querySelectorAll(CONST.SEL.LAYER_ITEM)).toHaveLength(
       rowsBefore.length,
     );
@@ -280,7 +278,7 @@ describe("ui/list row placement", () => {
     });
     ui.listPanel.foldedGroups.add(GROUP.BASE);
 
-    renderInitialList(ui.listPanel, ui);
+    renderInitialList(ui);
 
     const color = ui.uiContainer.querySelector<HTMLElement>(
       `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
@@ -294,17 +292,13 @@ describe("ui/list row placement", () => {
       data: [{ id: "B1", name: "B1", group: "base" }],
     });
 
-    initTypesAndVisibility(ui.listPanel, ui);
+    initTypesAndVisibility(ui);
 
     const colorLi = ui.m.layerRegistry.get(CONST.SOLID_BASEMAP_ID) as LayerInfo;
     expect(colorLi).toBeDefined();
 
-    expect(() =>
-      applyVisibility(ui.listPanel, ui, CONST.SOLID_BASEMAP_ID, true),
-    ).not.toThrow();
-    expect(() =>
-      applyVisibility(ui.listPanel, ui, CONST.SOLID_BASEMAP_ID, false),
-    ).not.toThrow();
+    expect(() => applyVisibility(ui, CONST.SOLID_BASEMAP_ID, true)).not.toThrow();
+    expect(() => applyVisibility(ui, CONST.SOLID_BASEMAP_ID, false)).not.toThrow();
   });
 
   it("color basemap lands at the base group end when a tile basemap is already registered", () => {
@@ -318,7 +312,7 @@ describe("ui/list row placement", () => {
       ],
     });
 
-    initTypesAndVisibility(ui.listPanel, ui);
+    initTypesAndVisibility(ui);
 
     const baseRows = Array.from(
       ui.uiContainer.querySelectorAll<HTMLElement>(
@@ -347,6 +341,6 @@ describe("ui/list row placement", () => {
       return originalGet(id);
     });
 
-    expect(() => initTypesAndVisibility(ui.listPanel, ui)).not.toThrow();
+    expect(() => initTypesAndVisibility(ui)).not.toThrow();
   });
 });

@@ -265,7 +265,7 @@ describe("LayerUI shell — delegates", () => {
     }
   });
 
-  it("handleInput() delegates to the module-level input handler", () => {
+  it("handleInput(ui) delegates to the module-level input handler", () => {
     // Covers the delegate wrapper at L397: the method is called when an input
     // event fires on the panel. Dispatching from a real element sets the
     // event target, which the handler reads via closest().
@@ -276,7 +276,7 @@ describe("LayerUI shell — delegates", () => {
     // Dispatch from the element so event.target is set.
     input.dispatchEvent(event);
     // Also call the wrapper directly to cover the delegate line.
-    expect(() => ui.handleInput(event)).not.toThrow();
+    expect(() => ui.handleInput(ui)).not.toThrow();
   });
 
   it("resetSolidBasemap() delegates to the colour module and flushes state", () => {
@@ -306,5 +306,43 @@ describe("LayerUI shell — delegates", () => {
     expect(ui.currentColor).toBe(CONST.COLOR.DEFAULT);
     expect(ui.runtimeStore.getAuthorVisible(CONST.SOLID_BASEMAP_ID)).toBe(false);
     expect(save).toHaveBeenCalled();
+  });
+
+  it("insertLayerItem / updateLayerItem / initLayerItem delegates reach the row modules", () => {
+    // The LayerUI delegate wrappers are the seam the manager-driven signal
+    // handlers call; each must route to the ui/* module without throwing.
+    const li = manager.layerRegistry.get("overlay1")!;
+    expect(() => ui.initLayerItem(li)).not.toThrow();
+    expect(() => ui.updateLayerItem(li)).not.toThrow();
+    expect(() => ui.insertLayerItem(li)).not.toThrow();
+    // The row exists and was re-rendered through the delegates.
+    expect(findItem(ui, "overlay1")).not.toBeNull();
+  });
+
+  it("syncToggleAll / syncNoBasemap delegates reach the visibility module", () => {
+    expect(() => ui.syncToggleAll(GROUP.OVERLAY)).not.toThrow();
+    expect(() => ui.syncNoBasemap()).not.toThrow();
+  });
+
+  it("hideSolidBasemap delegates to the colour module", () => {
+    const setVisible = vi.fn();
+    ui.m.createColor = vi.fn(() => ({
+      element: document.createElement("canvas"),
+      setColor: vi.fn(),
+      setVisible,
+      register: vi.fn(),
+      unregister: vi.fn(),
+      registered: vi.fn(() => true),
+      bringToFront: vi.fn(),
+      destroy: vi.fn(),
+    }));
+    ui.colorSurface = null;
+    ui.showSolidBasemap();
+    ui.hideSolidBasemap();
+    expect(setVisible).toHaveBeenCalledWith(false);
+  });
+
+  it("dropStyleDimApplies delegates to the style bag", () => {
+    expect(() => ui.dropStyleDimApplies("overlay1")).not.toThrow();
   });
 });

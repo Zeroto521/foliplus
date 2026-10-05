@@ -488,7 +488,7 @@ describe("the four readers agree on a half-broken record (T260)", () => {
 
     // The sync counters agree: the overlay row counts as on, the base row
     // keeps the no-basemap hatch off.
-    syncToggleAll(ui.listPanel, ui, GROUP.OVERLAY);
+    syncToggleAll(ui, GROUP.OVERLAY);
     expect(ui.listPanel.checkedCount[GROUP.OVERLAY]).toEqual({ total: 1, on: 1 });
     syncNoBasemap(ui);
     expect(ui.m.map.getContainer().classList.contains(CONST.CLASSES.NO_BASE_MAP)).toBe(

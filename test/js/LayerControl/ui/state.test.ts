@@ -857,7 +857,7 @@ describe("label config seed — read order (write-new / read-old)", () => {
       }),
     );
     const { ui } = initFixture();
-    loadPersistedState(ui.listPanel, ui);
+    loadPersistedState(ui);
 
     expect(getIntent(ui, "both", "annotation")).toEqual({
       show: true,
@@ -890,7 +890,7 @@ describe("ui/state saveFoldState", () => {
         },
       },
     } as unknown as LayerUI;
-    saveFoldState(ui.listPanel);
+    saveFoldState(ui);
     // schedule takes a getter map so a later write can read the live state
     // instead of a snapshot at schedule time.
     expect(schedule).toHaveBeenCalledTimes(1);
@@ -1392,7 +1392,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
         },
       },
     } as unknown as LayerUI;
-    loadPersistedState(bare.listPanel, bare);
+    loadPersistedState(bare);
     expect(getIntent(bare, "nullish", "annotation")).toBeUndefined();
     expect(getIntent(bare, "valid", "annotation")).toBeDefined();
   });
@@ -1418,7 +1418,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
         },
       },
     } as unknown as LayerUI;
-    loadPersistedState(bare.listPanel, bare);
+    loadPersistedState(bare);
     expect(getIntent(bare, "overlay1", "visible")).toBeUndefined();
     expect(bare.intentStore.dumpProvenance().overlay1).toEqual(["visible"]);
   });
@@ -1506,7 +1506,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
       }),
     );
 
-    loadPersistedState(ui.listPanel, ui);
+    loadPersistedState(ui);
 
     expect(ui.listPanel.foldedGroups).toEqual(new Set(["Overlay"]));
     expect(ui.intentStore.get("overlay1", "opacity")).toBe(0.35);
@@ -1536,7 +1536,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
       }),
     );
 
-    loadPersistedState(ui.listPanel, ui);
+    loadPersistedState(ui);
 
     expect(ui.intentStore.get("overlay1", "borderColor")).toBe("#0000ff");
     expect(ui.intentStore.get("overlay1", "borderWeight")).toBe(4.5);

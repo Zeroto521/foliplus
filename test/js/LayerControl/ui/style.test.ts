@@ -3105,7 +3105,7 @@ describe("LayerUI style panel", () => {
       styleProvider: () => ({}),
       styleSetters: { field: vi.fn() },
     });
-    expect(renderDelegatedStylePanel(ui.overlayPanel, ui, "dataOnly")).toBeNull();
+    expect(renderDelegatedStylePanel(ui, "dataOnly")).toBeNull();
   });
 
   it("buildBorderRow returns null when the layer has no border setters", () => {
@@ -3281,7 +3281,7 @@ describe("LayerUI style panel", () => {
       styleProvider: () => ({}),
       styleSetters: { field: vi.fn() },
     });
-    expect(renderDelegatedStylePanel(ui.overlayPanel, ui, "dataOnly")).toBeNull();
+    expect(renderDelegatedStylePanel(ui, "dataOnly")).toBeNull();
   });
 
   it("renders the opacity slider defaulting to 100", () => {
@@ -3729,7 +3729,7 @@ describe("LayerUI style panel — zoom range", () => {
       styleProvider: () => ({ labelShow: true }),
       styleSetters: { labelShow: vi.fn() },
     });
-    const panel = renderDelegatedStylePanel(ui.overlayPanel, ui, "canvas1");
+    const panel = renderDelegatedStylePanel(ui, "canvas1");
     expect(panel).not.toBeNull();
     expect(zoomRowOf(panel!)).not.toBeNull();
   });
@@ -4354,7 +4354,7 @@ describe("style utility guards", () => {
     // declared a setter has no delegation, so the drawer is not built.
     const { ui } = initFixture();
     // A plain overlay1 in the fixture has no styleSetters.
-    expect(renderDelegatedStylePanel(ui.overlayPanel, ui, "overlay1")).toBeNull();
+    expect(renderDelegatedStylePanel(ui, "overlay1")).toBeNull();
   });
 
   it("renderDelegatedStylePanel returns null when styleSetters is empty", () => {
@@ -4369,15 +4369,13 @@ describe("style utility guards", () => {
       styleProvider: () => ({}),
       styleSetters: {},
     });
-    expect(renderDelegatedStylePanel(ui.overlayPanel, ui, "emptySetters")).toBeNull();
+    expect(renderDelegatedStylePanel(ui, "emptySetters")).toBeNull();
   });
 
   it("renderDelegatedStylePanel returns null when the layer is not registered", () => {
     // Covers the `li?.styleSetters` undefined access on a missing layer.
     const { ui } = initFixture();
-    expect(
-      renderDelegatedStylePanel(ui.overlayPanel, ui, "not-a-real-layer"),
-    ).toBeNull();
+    expect(renderDelegatedStylePanel(ui, "not-a-real-layer")).toBeNull();
   });
 
   it("toggle handler tolerates a panel with no body, field select, or format row", () => {
