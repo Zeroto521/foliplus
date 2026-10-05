@@ -93,7 +93,7 @@ const BUILD_VERSION = resolveVersion();
 const resolveSharedRegistryPlugin = {
   name: "resolve-shared-registry",
   setup(build) {
-    build.onResolve({ filter: /_shared-registry\.js$/ }, _args => ({
+    build.onResolve({ filter: /_shared-registry\.js$/ }, args => ({
       path: resolve(buildJs, "_shared-registry.ts"),
     }));
   },

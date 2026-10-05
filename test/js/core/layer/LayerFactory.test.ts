@@ -51,7 +51,7 @@ describe("LayerFactory", () => {
       return vi.fn(() => ++id);
     })();
     window.L.stamp = stamp;
-    window.L.layerGroup = vi.fn((_layers?: any[], options?: { pane?: string }) => {
+    window.L.layerGroup = vi.fn((layers?: any[], options?: { pane?: string }) => {
       const children: any[] = [];
       const grp = {
         addLayer: vi.fn((l: any) => {

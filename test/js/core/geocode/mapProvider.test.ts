@@ -16,7 +16,7 @@ const makeProvider = (): GeocodeProvider => ({
   throttleMs: 0,
   headers: {},
   suggest: vi.fn(
-    (q: string, _limit: number, center: [number, number] | null) =>
+    (q: string, limit: number, center: [number, number] | null) =>
       `s(${q},${String(center)})`,
   ),
   search: vi.fn(),
@@ -39,7 +39,7 @@ describe("withMapCRS", () => {
 
   it("converts the suggest bias center map→WGS84 before building the URL", () => {
     const suggest = vi.fn(
-      (q: string, _limit: number, center: [number, number] | null) =>
+      (q: string, limit: number, center: [number, number] | null) =>
         `s(${q},${String(center)})`,
     );
     const wrapped = withMapCRS(
@@ -70,7 +70,7 @@ describe("withMapCRS", () => {
 
   it("passes through on a WGS84 map and when center is null", () => {
     const suggest = vi.fn(
-      (q: string, _limit: number, center: [number, number] | null) =>
+      (q: string, limit: number, center: [number, number] | null) =>
         `s(${q},${String(center)})`,
     );
     const wrapped = withMapCRS(

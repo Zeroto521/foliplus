@@ -530,7 +530,7 @@ const resetPanel = (ctrl: HeatmapControlUI) => {
   ctrl.extraBody.classList.add(CONST.CLASSES.HIDDEN);
 };
 
-const syncSelect = (_ctrl: HeatmapControlUI, el: HTMLSelectElement, value: string) => {
+const syncSelect = (ctrl: HeatmapControlUI, el: HTMLSelectElement, value: string) => {
   el.value = value;
   el.classList.toggle(CONST.CLASSES.CLASS_PLACEHOLDER, !value);
 };

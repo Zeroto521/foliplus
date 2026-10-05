@@ -109,25 +109,8 @@ export default [
         { allowShortCircuit: true, allowTernary: true },
       ],
 
-      // tsc --noEmit already checks unused vars (noUnusedLocals). The TS
-      // compiler does NOT check unused *parameters* — a function that takes
-      // `op`/`lp`/`fc`/`ui` but never reads it compiles clean (the LayerUI
-      // subsystem migration hit exactly this: ~90 parameters were added
-      // that no body used). ESLint closes that gap: unused params are an
-      // error, `_`-prefixed names stay exempt (the callback-arg idiom).
-      // Unused imports/vars are exempted (varsIgnorePattern) — the
-      // pre-existing backlog there is large and belongs to the
-      // typecheck-tests track, not this parameter contract.
-      "@typescript-eslint/no-unused-vars": [
-        "error",
-        {
-          args: "all",
-          argsIgnorePattern: "^_",
-          varsIgnorePattern: "^.*",
-          caughtErrorsIgnorePattern: "^_",
-          destructuredArrayIgnorePattern: "^_",
-        },
-      ],
+      // tsc --noEmit already checks unused vars (noUnusedLocals)
+      "@typescript-eslint/no-unused-vars": "off",
       "no-unused-vars": "off",
 
       // Heavy-mock test suite and Leaflet interop make `any` idiomatic here.

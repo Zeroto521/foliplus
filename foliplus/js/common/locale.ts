@@ -38,7 +38,7 @@ const resolveLocale = (
           }
         }
       }
-    } catch (_e) {
+    } catch (e) {
       // Ignore cross-origin iframe security restrictions
     }
   }
