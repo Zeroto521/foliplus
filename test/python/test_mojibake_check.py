@@ -534,6 +534,36 @@ class TestEmDashWithPunctuationGlued:
         )
         assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 0
 
+    def test_em_dash_glued_to_jsdoc_tag_is_flagged(
+        self, tmp_path, capsys, monkeypatch
+    ):
+        """Em-dash directly before a `{` (JSDoc inline tag) is flagged.
+
+        ``{`` is in the AFTER class because ``—{@link foo}`` is the same
+        spacing shape as ``—.` ` — the em-dash is glued to a following
+        token with no space between. The fixed form ``— {@link foo}``
+        has the space and stays clean.
+        """
+        f = tmp_path / "dash_jsdoc.txt"
+        f.write_bytes(
+            " * \u2014{@link applyUserState} projects it then, unchanged.\n".encode(
+                "utf-8"
+            )
+        )
+        assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 1
+
+    def test_em_dash_before_spaced_jsdoc_tag_is_clean(
+        self, tmp_path, capsys, monkeypatch
+    ):
+        """``— {@link foo}`` (space between em-dash and JSDoc tag) is clean."""
+        f = tmp_path / "dash_jsdoc_clean.txt"
+        f.write_bytes(
+            " * \u2014 {@link applyUserState} projects it then, unchanged.\n".encode(
+                "utf-8"
+            )
+        )
+        assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 0
+
 
 class TestSpacingSkipFiles:
     """Files that legitimately carry Rule 6 signatures are skipped.

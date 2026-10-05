@@ -141,9 +141,11 @@ _SPACING_SKIP_FILES = {
 _EM_BEFORE_CHARS = "A-Za-z0-9)"
 # Punctuation that is glued to an em-dash/arrow on the AFTER side —
 # the corruption shape `"—.` (attr.ts comment from #601) is caught
-# because `.` is here, while the fixed `"—".` stays clean because `"`
-# is deliberately absent from this class.
-_EM_AFTER_PUNCT = ".,;:!?'`)"
+# because `.` is here, and `—{@link ...}` (JSDoc inline tag without a
+# space before the brace) is caught because `{` is here. Both are
+# fixed by inserting a space; the fixed forms `"—".` and `— {@link ...}`
+# stay clean because `"` is deliberately absent from this class.
+_EM_AFTER_PUNCT = ".,;:!?'`{"
 
 _EMDASH_AFTER_RE = re.compile(r"\u2014[" + _EM_BEFORE_CHARS + _EM_AFTER_PUNCT + "]")
 _EMDASH_BEFORE_RE = re.compile(
