@@ -15,14 +15,14 @@ import { closeOverlays } from "./teardown.js";
  *
  * Order is deliberate, not append order:
  *
- *   1. Focus      — a view action on the map: nothing written, highest use, and
+ *   1. Focus    — a view action on the map: nothing written, highest use, and
  *                   it has its own Escape-cancel path.
- *   2. Style      — opens the layer's style panel.
- *   3. Rename     — writes to the layer itself; the only entry that hands focus
+ *   2. Style    — opens the layer's style panel.
+ *   3. Rename   — writes to the layer itself; the only entry that hands focus
  *                   to a long-lived inline editor.
  *   4. Attributes — opens the read-only detail panel. Display-only, never
  *                   disabled, so it closes the quiet part of the list.
- *   5. Delete     — behind a divider, the one destructive entry. Armed in
+ *   5. Delete   — behind a divider, the one destructive entry. Armed in
  *                   place on the first click and executed on the second; it is
  *                   rendered for every layer. The label varies by semantics:
  *                   "Delete Layer" for user-owned data layers, "Clear Data"

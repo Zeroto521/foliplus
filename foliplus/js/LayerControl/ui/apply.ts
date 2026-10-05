@@ -180,7 +180,7 @@ const carrierOf = (ui: LayerUI, layerInfo: LayerInfo): unknown => {
 
 /** Whether the executor's last write reached the same carrier as the one
  *  in front of it now. `undefined` at the call site means "no record yet"
- *  — first write always goes through, so the answer is trivially false. */
+ * — first write always goes through, so the answer is trivially false. */
 const sameCarrier = (prev: unknown, curr: unknown): boolean =>
   prev !== undefined && prev === curr;
 
@@ -189,11 +189,11 @@ const sameCarrier = (prev: unknown, curr: unknown): boolean =>
  *  Every layer resolves to exactly one write target per dimension (see
  *  `LayerSurface.capabilities.*`):
  *
- *    visible  — map membership ("native") for real L.Layers including
+ *    visible — map membership ("native") for real L.Layers including
  *               MarkerCluster, canvas HIDDEN class ("pane") for canvas-only
  *               surfaces (heatmap / measure / color face), "none" is a
  *               no-op — no honest write exists, the UI hides the checkbox.
- *    opacity  — canvas element / own pane / native setter / "none"
+ *    opacity — canvas element / own pane / native setter / "none"
  *    zoomRange — resolved through the `visible` op for all carriers.
  *               Writing `options.minZoom/maxZoom` would pollute
  *               `map.getMaxZoom()` (Leaflet derives map zoom from
@@ -214,7 +214,7 @@ const applyStateOp = (
     if (carrier === CAP_TIER.NATIVE) {
       const layer = layerInfo.layer ?? ui.m.findLayer(layerInfo);
       if (layer) {
-        // Map membership. Written only when it differs from what is there —
+        // Map membership. Written only when it differs from what is there — 
         // `addLayer` on a live layer is a no-op at best and re-orders the
         // stacking at worst, so both halves collapse to one condition.
         const has = ui.m.map.hasLayer(layer);
@@ -246,13 +246,13 @@ const applyStateOp = (
       // R11: layer alpha for self-drawn canvases. Two arms, one helper
       // (`#common/canvasAlpha`), switched by `opacityBake`:
       //
-      //   "commit"  — bake layerAlpha and redraw on the slider commit.
+      //   "commit" — bake layerAlpha and redraw on the slider commit.
       //               Cheap for a one-rect color face or a label pass.
-      //   "redraw"  — slider commit keeps CSS `opacity` (O(1), live
+      //   "redraw" — slider commit keeps CSS `opacity` (O(1), live
       //               feedback); the next pan/zoom redraw bakes and drops
       //               the CSS. Default. Heatmap ≥5k takes this arm because
       //               a full hexagon redraw per commit is jank (measured
-      //               8ms warm / 30-320ms under load on a stub ctx @5k —
+      //               8ms warm / 30-320ms under load on a stub ctx @5k — 
       //               over a 16ms frame; real rasterization is slower).
       //
       // `capabilities.opacity` still reports `"pane"` — the write target is

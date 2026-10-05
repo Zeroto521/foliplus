@@ -28,7 +28,7 @@ import type { CollidableLabel } from "#foliplus/MeasureControl/type.js";
 // The wall-clock half of MeasureControl/collision.ts's tests. Its
 // functional half stays in test/js/MeasureControl/collision.test.ts.
 //
-// The directory names the kind of test, the filename names the module —
+// The directory names the kind of test, the filename names the module — 
 // the same rule the browser/ and script/ groups follow. That keeps the
 // naming guard usable if it is ever extended beyond test/js/script/:
 // this file's stem is `collision`, which is the module it tests, so no

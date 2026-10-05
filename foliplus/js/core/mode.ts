@@ -14,7 +14,7 @@ interface ModeChangePayload {
 }
 
 // Conflict matrix: when a component is in a non-null mode, which components
-// are blocked from performing their primary actions?
+// are blocked from performing their primary actions — 
 //
 // The policy is symmetric and exhaustive across the four interactive
 // components — any component that owns the map blocks the other three from
@@ -161,7 +161,7 @@ const instances = new WeakMap<L.Map, ModeManager>();
  * First-call side effect: registers `map.on('unload', ...)` (see line below).
  * WeakMap dedupes the manager instance but does NOT skip that registration,
  * so callers that only need to *read* state should go through
- * `map.foliplus?.modes` rather than `ensureModes`. Teardown paths that call
+ * `map.foliplus — .modes` rather than `ensureModes`. Teardown paths that call
  * this without an active mode will install the unload listener for nothing.
  */
 const ensureModes = (map: L.Map): ModeManager => {

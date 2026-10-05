@@ -103,7 +103,7 @@ describe("parseSVG — strips executable content", () => {
 
   it("rejects a namespace declaration carrying a scheme", () => {
     // `xmlns` is structural and always kept, so a hostile value there must not
-    // get through either. Match by attribute name rather than `hasAttribute` —
+    // get through either. Match by attribute name rather than `hasAttribute` — 
     // that only sees the element's own default namespace.
     const out = parseSVG(
       '<svg viewBox="0 0 4 4" xmlns="http://x"><rect width="2" height="2" xmlns:xlink="javascript:alert(1)"/></svg>',

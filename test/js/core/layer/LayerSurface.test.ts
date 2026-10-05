@@ -702,7 +702,7 @@ describe("LayerSurface.matches", () => {
   // `capabilities.bounds` is derived from the OR of `hasBoundsProvider(layer)`
   // and `opts.getBounds != null`. `matches` must detect when that OR changes:
   //   - A layer with a native `getBounds` always has `capabilities.bounds: true`
-  //     regardless of the provider field, so the provider is irrelevant —
+  //     regardless of the provider field, so the provider is irrelevant — 
   //     reference equality would read "changed" on every fresh arrow.
   //   - A layer without a native `getBounds` (canvas, third-party wrapper)
   //     derives its bounds entirely from the provider, so adding or removing

@@ -1,6 +1,6 @@
 // core/inputOwnership — input ownership: the single rule for "does the
 // focused control natively consume this key, so foliplus must neither act
-// nor preventDefault?"
+// nor preventDefault — "
 //
 // The same question used to be answered five different ways across the code
 // base — a container-contains-focus check, two per-cursor `isFormInput`
@@ -89,8 +89,8 @@ const keyOwner = (event: { target?: unknown }): Element | null => {
   return event.target instanceof Element ? event.target : null;
 };
 
-/** Does the element natively consume `key`, so foliplus must stand aside —
- *  neither act nor `preventDefault`? This is the one predicate every
+/** Does the element natively consume `key`, so foliplus must stand aside — 
+ *  neither act nor `preventDefault` — This is the one predicate every
  *  dispatch site asks before touching a key. */
 const nativeConsumesKey = (el: Element | null, key: string): boolean => {
   if (OWNER_KEYS.has(key)) return false;

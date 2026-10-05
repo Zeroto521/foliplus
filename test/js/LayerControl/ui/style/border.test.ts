@@ -322,7 +322,7 @@ describe("authoredBorder", () => {
   });
 
   it("reads the first feature's style from an L.GeoJSON layer, not the layer itself", () => {
-    // L.GeoJSON defines setStyle too — it fans a style out to its features —
+    // L.GeoJSON defines setStyle too — it fans a style out to its features — 
     // so a setter-only check stops at the layer and reads its own options,
     // which hold only the style function. The panel then shows Leaflet's
     // defaults instead of the author's style on first open.

@@ -1,4 +1,4 @@
-// The wall-clock half of this module's tests lives in test/js/perf/collision.test.ts —
+// The wall-clock half of this module's tests lives in test/js/perf/collision.test.ts — 
 // see the header there for why it is split out.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as Collision from "#foliplus/MeasureControl/collision.js";
@@ -132,7 +132,7 @@ describe("placeLabels", () => {
   });
 
   it("hides the lower-priority chip at exactly 75% overlap of the smaller box", () => {
-    // bigBox (120×20) and smallBox (60×20) overlap for 45×20 = 900 px² —
+    // bigBox (120×20) and smallBox (60×20) overlap for 45×20 = 900 px² — 
     // exactly 75% of smallBox's width. smallBox has lower priority, so it
     // must be hidden. This pins the >= 0.75 boundary: a regression to
     // > 0.75 would leave smallBox visible.

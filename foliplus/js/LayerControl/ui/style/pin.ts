@@ -35,7 +35,7 @@ const pins = new WeakMap<StyleSetter, Map<string, StyleGetter>>();
 
 /** Pin one leaf's style against folium's `resetStyle` on mouseout. The pin
  *  handler runs last in the dispatch order (see above), so the user's values
- *  — read live from `getStyle` on each fire — win over the author's restore.
+ * — read live from `getStyle` on each fire — win over the author's restore.
  *  Distinct keys stack and each fire merges their output into a single
  *  `setStyle`; re-registering a key replaces its getter rather than
  *  appending another closure. */

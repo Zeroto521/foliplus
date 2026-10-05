@@ -62,7 +62,7 @@ describe("ensureMapFoliplus", () => {
     const map: StubMap = {};
     const api = ensureMapFoliplus(map);
     // The factories replace members, so the seed must be plain writable, not
-    // frozen. Read it back as a record of whatever the factories put there —
+    // frozen. Read it back as a record of whatever the factories put there — 
     // the point under test is writability, not that the values typecheck.
     const writable = api as Record<keyof MapFoliplus, unknown>;
     writable.showHint = () => {};

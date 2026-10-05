@@ -292,7 +292,7 @@ describe("PaneManager", () => {
   // `PaneSpec.name` lands on the DOM as a Leaflet pane id and CSS class
   // (createPane does both). A third party passing a name outside
   // PANE_NAME_PATTERN would plant an id collision, a compound-selector
-  // escape, or a script tag into the map container. Same for `role` —
+  // escape, or a script tag into the map container. Same for `role` — 
   // anything outside the enum would silently price as "base" in z
   // arithmetic. Bad specs are skipped (with a warn), not thrown.
 
@@ -923,7 +923,7 @@ describe("PaneManager", () => {
   });
 
   it("pinLateContent skips the GridLayer move when the target pane is missing", () => {
-    // getPane can return null for a pane name the registry still reports —
+    // getPane can return null for a pane name the registry still reports — 
     // the GridLayer branch's `paneEl &&` guard short-circuits and nothing
     // moves, but the layer is still marked handled.
     const map = { getPane: vi.fn(() => null), createPane: vi.fn() };

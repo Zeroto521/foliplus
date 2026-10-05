@@ -62,7 +62,7 @@ class AnnotationCanvas {
 
     const paint =
       style ?? (this.cachedStyle ??= resolveCanvasLabelStyle(this.container));
-    // Layer alpha is baked into the labels (R11), not applied as pane CSS —
+    // Layer alpha is baked into the labels (R11), not applied as pane CSS — 
     // the vector data panes still take the CSS path, so both sides of a mixed
     // layer must end up at the same visual opacity.
     withCanvasLayerAlpha(ctx, () => {

@@ -52,7 +52,7 @@ const EVENTS = {
    *  row reflects the state written by the preceding applyUserState pass. */
   LAYER_ITEM_REFRESHED: "foliplus:layer:item-refreshed",
   /** A row left the panel through the generic teardown path (unregisterLayer)
-   *  — a wider reach than LAYER_REMOVED for the UI subscribers: the fields
+   * — a wider reach than LAYER_REMOVED for the UI subscribers: the fields
    *  cache, the style-dimension apply schedulers, and the group toggle-all
    *  must all reconcile. Kept disjoint from LAYER_REMOVED (registry contract)
    *  so the two channels stay separately subscribable. */

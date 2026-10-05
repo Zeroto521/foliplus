@@ -162,7 +162,7 @@ const authoredBorder = (
 };
 
 /** Commit the current border color and width to the layer. Walks the layer
- *  tree and calls `setStyle({color?, weight?, stroke: true})` once per leaf
+ *  tree and calls `setStyle({color — , weight — , stroke: true})` once per leaf
  *  that has a setter — the two sub-dimensions ride the same call so a color
  *  change and a width change can never disagree about the stroke. A node
  *  without a setter is skipped silently.
@@ -264,7 +264,7 @@ const resetLayerBorder = (ui: LayerUI, layerId: string): void => {
  *  Resolution stops at two honest failures. A value no engine accepts is
  *  rejected on assignment, so the probe stays empty and the declaration is
  *  passed through. CSS Color 4 functions are accepted but reported by
- *  `getComputedStyle` unnormalized, so the rgb parse finds no channel —
+ *  `getComputedStyle` unnormalized, so the rgb parse finds no channel — 
  *  `oklch(...)`, `lab(...)` and `color(...)` reach the field as declared and
  *  the input shows its own default. That is the limit of what this boundary
  *  can say without a canvas the test doubles do not provide.

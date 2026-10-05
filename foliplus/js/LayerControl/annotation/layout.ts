@@ -3,7 +3,7 @@
 // A canvas renderer cannot be unit-tested in jsdom, so everything that decides
 // what to draw is pulled out of it: turn a feature's anchor and label text into
 // a pixel box, cull to the viewport, and plan collisions. The renderer only
-// executes the returned instructions — positioning the text, applying the halo —
+// executes the returned instructions — positioning the text, applying the halo — 
 // which leaves the whole decision side testable without a canvas.
 //
 // Boxes are *estimated*, not measured: measuring needs a canvas context. A label

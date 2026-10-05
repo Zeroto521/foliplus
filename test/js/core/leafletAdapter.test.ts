@@ -44,7 +44,7 @@ beforeEach(() => {
 //   _url                                (tile URL template: adapter-owned)
 //   _attributions, _update              (attribution control: adapter-owned)
 //   _closeButton                        (popup close button: adapter-owned)
-// It is not a claim about "every private reach". Fields outside this set —
+// It is not a claim about "every private reach". Fields outside this set — 
 // `Marker._latlng`, anything a future Leaflet adds — are simply not watched.
 // Widening the set is the way to widen the guard.
 //

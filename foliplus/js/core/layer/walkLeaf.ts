@@ -6,11 +6,11 @@
 // the layer registry. This file owns that pattern so no module reimplements
 // it. The public surface is four small functions:
 //
-//   walkLeaf(layer, fn)   — visit every leaf, no short-circuit
-//   walkTree(layer, fn)     — visit every node (containers + leaves)
-//   findLeaf(layer, pred)   — short-circuit, first leaf for which pred
+//   walkLeaf(layer, fn) — visit every leaf, no short-circuit
+//   walkTree(layer, fn)   — visit every node (containers + leaves)
+//   findLeaf(layer, pred) — short-circuit, first leaf for which pred
 //                             returns a value
-//   someLeaf(layer, pred)   — short-circuit existential
+//   someLeaf(layer, pred) — short-circuit existential
 //
 // Depth guard (`RECURSION.LAYER_DEPTH`) is applied uniformly so a malformed
 // or hostile layer graph cannot recurse to the stack. Children come from

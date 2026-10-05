@@ -552,7 +552,7 @@ describe("AnnotationManager — render & plan", () => {
   });
 
   it("mounts nothing when the map has no pane for the layer", () => {
-    // Capability "none" means the surface never declared a label pane —
+    // Capability "none" means the surface never declared a label pane — 
     // the mount must no-op honestly (no canvas, no throw) instead of
     // inventing a carrier the executor will never write to.
     const { map } = makeMap();

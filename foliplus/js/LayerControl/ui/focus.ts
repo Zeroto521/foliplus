@@ -96,7 +96,7 @@ const toggleFocusedLayer = (ui: LayerUI): void => {
  * 2. If the layer is not on the map, bring it on temporarily so the bounds
  *    and the visual highlight are consistent with the user's action.
  * 3. If the bounds area is below MIN_BOUNDS_AREA (single Marker, tiny
- *    polygon, etc.), `flyTo` the layer center instead of `fitBounds` —
+ *    polygon, etc.), `flyTo` the layer center instead of `fitBounds` — 
  *    `fitBounds` on a degenerate box has no effect.
  * 4. Draw a dashed rectangle on the exact bounds so the user sees exactly
  *    what "this layer" covers.
@@ -288,7 +288,7 @@ const dismissFocus = (ui: LayerUI): void => {
   ui.focusController.focusingLayerId = null;
   // Focus suspends inRange for its duration: with focus gone, the focused
   // layer's effective-shown falls back to intent && inRange. If its range
-  // still excludes the current zoom, the executor removes it from the map —
+  // still excludes the current zoom, the executor removes it from the map — 
   // the "unfocus returns it to hidden" half of the focus gate.
   applyProjectionAll(ui);
 };
@@ -460,7 +460,7 @@ const computeLayerBounds = (layer: L.Layer): L.LatLngBounds | null => {
 };
 
 /**
- * Draw an inverse mask that dims everything outside the focused bounds —
+ * Draw an inverse mask that dims everything outside the focused bounds — 
  * the same "inside highlighted / outside dimmed" spotlight as the export
  * crop box. The mask is a polygon of the visible view with the layer bounds
  * as a hole, rendered in a high-z pane above the layer panes but below the

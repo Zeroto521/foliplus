@@ -2,7 +2,6 @@
 // Moved from renderer.ts — nothing here depends on L or the DOM beyond the
 // types themselves, so every pass module can import without a cycle.
 import { createLogger } from "#common/log.js";
-import type { RenderCtx } from "../type.js";
 
 const log = createLogger(CONFIG.name);
 

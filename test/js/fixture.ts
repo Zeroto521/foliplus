@@ -8,7 +8,7 @@
 //   base `window.L` stub with the constructors/factories that individual test
 //   files were patching locally (MeasureControl/mode/setup.ts,
 //   MeasureControl/manager.test.ts, core/leafletAdapter.test.ts, ...). Uses
-//   `Object.assign` so the `window.L` object identity stays stable —
+//   `Object.assign` so the `window.L` object identity stays stable — 
 //   production code that captured `L` at module-import time sees the same
 //   reference the tests see.
 // - `resetState()` — registered as a global `beforeEach`. Clears
@@ -164,7 +164,7 @@ export function installWindowLExtensions(): void {
     },
     GridLayer: class extends LeafletBase {},
     TileLayer: class extends LeafletBase {},
-    // `L.LayerGroup` (the class) is deliberately NOT added —
+    // `L.LayerGroup` (the class) is deliberately NOT added — 
     // LayerFactory.ts:222 checks `L.LayerGroup?.prototype` and falls back
     // to the instance's own `addLayer` when it's undefined. Adding the class
     // would silently redirect `origAddLayer` to the prototype's `vi.fn()`,
@@ -275,7 +275,7 @@ export function resetState(): void {
 
 /**
  * Optional scoped DOM root for tests that mount their own elements. Call it
- * in a `beforeAll` and clean up in an `afterAll` (or just leave it —
+ * in a `beforeAll` and clean up in an `afterAll` (or just leave it — 
  * `document.body` is per-file in jsdom). Not auto-cleaned by
  * `resetState()` for the reason above.
  */

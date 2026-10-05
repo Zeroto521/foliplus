@@ -95,31 +95,10 @@ interface SearchControl extends BaseControl {
   setMode(newMode: string): void;
 }
 
-/** Subset of SearchControl state used by the logic functions (decouples the types). */
-interface SearchControlState {
-  inp: HTMLInputElement;
-  mode: SearchType;
-  modeBtn: HTMLElement;
-  cachedSuggestions: Cache<string, SuggestItem[]>;
-  searchHistory: SearchHistoryEntry[];
-  panelWrap: HTMLElement | null;
-  selectedIdx: number;
-  currentItems: ResultItem[];
-  lastSuggestFetch: number;
-  throttleTimer: ReturnType<typeof setTimeout> | null;
-  suggestAbortController: AbortController | null;
-  suggestSeq: number;
-  debouncedFetch: Debounced;
-  marker: L.Marker | null;
-  delIcon: L.Marker | null;
-  ctrl: HTMLElement;
-}
-
 export type {
   AddressResult,
   ResultItem,
   SearchControl,
-  SearchControlState,
   SearchHistoryEntry,
   SearchType,
 };

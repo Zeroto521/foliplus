@@ -1,4 +1,4 @@
-// MeasureControl store �?single entry point for measurement data lifecycle.
+// MeasureControl store — — single entry point for measurement data lifecycle.
 //
 // Encapsulates the measurements array, id counter, persistence (localStorage),
 // and LAYER_ITEM_COUNT_CHANGE emission. Call sites (modes, ui, export) go
@@ -56,7 +56,7 @@ class MeasureStore {
     });
   }
 
-  /** Current measurements (live reference �?mutating it without a store method
+  /** Current measurements (live reference — ?mutating it without a store method
    *  will NOT persist; use add/remove/update/clear). */
   all(): MeasureData[] {
     return this.list;
@@ -89,7 +89,7 @@ class MeasureStore {
 
   /** Restore an id onto a measurement that came back from storage without one
    *  (older versions persisted measurements without an id). Returns true if
-   *  any measurement gained an id �?the caller then persists so the id is
+   *  any measurement gained an id — — the caller then persists so the id is
    *  durable and later onUpdate / onDelete lookups resolve to the right row. */
   assignMissingIds(): boolean {
     let assigned = false;
@@ -105,12 +105,12 @@ class MeasureStore {
   /** Persist current list to localStorage and emit LAYER_ITEM_COUNT_CHANGE so
    *  LayerControl refreshes its count column.
    *
-   *  A rejected write is surfaced, because this list is unbounded �?unlike the
+   *  A rejected write is surfaced, because this list is unbounded — — unlike the
    *  other persistence callers (bounded id arrays, a single bounds pair), a long
    *  chain here can fill the quota. It is reported once per store: the state is
    *  environmental (third-party cookies off, the origin's quota taken by other
    *  tabs) so it cannot be fixed from the page, and persist() runs on every
-   *  measurement change �?repeating the hint on each click is only noise. The
+   *  measurement change — — repeating the hint on each click is only noise. The
    *  data stays live in memory and on the map; only the reload-restorable copy
    *  is lost, which is what the message says. Count emission still runs, so the
    *  LayerControl count column keeps tracking the live list. */
@@ -164,7 +164,7 @@ class MeasureStore {
 
   /** Apply an arbitrary mutation to a measurement by id WITHOUT persisting.
    *  No-op if not found (defensive: a stale id from a torn-down handle must
-   *  not crash �?the caller already unbound the drag that would have called
+   *  not crash — — the caller already unbound the drag that would have called
    *  this, so a not-found is a no-op that costs one Map lookup).
    *
    *  Used by drag handlers that persist on a throttle: the mutation runs

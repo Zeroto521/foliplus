@@ -56,8 +56,8 @@ class CircleMode extends PreviewMode {
       Util.makeNode(centerLatLng, CONST.CLASSES.NODE_SOLID),
       CONST.PANES.NODE,
     ) as L.CircleMarker;
-    // Pure create + node-pane mount (no click handler) �?strictly equivalent
-    // to the old makeDelIcon + addLayer. The �?delete click is wired in
+    // Pure create + node-pane mount (no click handler) — — strictly equivalent
+    // to the old makeDelIcon + addLayer. The — — delete click is wired in
     // attachCircleUI, which owns the deleteMeasurement from attachDelLifecycle.
     const delMarker = mountDelIcon(manager.layers, centerLatLng, {
       title: manager.T("del_tooltip"),
@@ -150,7 +150,7 @@ class CircleMode extends PreviewMode {
         );
       } else if (phase === 1) {
         const r = Util.distance(center!, event.latlng);
-        // Ignore clicks too close to center �?radius 0 creates an invisible
+        // Ignore clicks too close to center — — radius 0 creates an invisible
         // circle that cannot be interacted with and has no visual effect.
         if (r < 1) return;
         phase = 2;
@@ -190,7 +190,7 @@ class CircleMode extends PreviewMode {
       } else previews.line.setLatLngs([center, event.latlng]);
 
       // Both endpoints live in the node pane, which sits above the graph
-      // pane (circle + radius line) by z-order �?no per-frame re-ordering
+      // pane (circle + radius line) by z-order — — no per-frame re-ordering
       // needed. The radius endpoint re-creates through moveCursorNode.
       previews.node = this.moveCursorNode(event.latlng);
 
@@ -332,7 +332,7 @@ class CircleMode extends PreviewMode {
     };
   }
 
-  /** GeoJSON feature for a circle �?properties carry id, radius and center. */
+  /** GeoJSON feature for a circle — ?properties carry id, radius and center. */
   static toGeoFeature(env: ControlEnv, data: MeasureData): GeoJSON.Feature {
     const center = data.center;
     const r = data.radius || 0;

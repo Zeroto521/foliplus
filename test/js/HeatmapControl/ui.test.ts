@@ -245,7 +245,7 @@ describe("bindControls — clear (reset) button", () => {
   });
 
   it("clear falls back to library defaults when config omits style fields", () => {
-    // Python may emit a CONFIG that omits optional style fields entirely —
+    // Python may emit a CONFIG that omits optional style fields entirely — 
     // reset must fall back to the library defaults in that case.
     const { ctrl, m, panel } = setup(
       makeConfig({

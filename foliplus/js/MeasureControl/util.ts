@@ -1,4 +1,4 @@
-// MeasureControl utility functions �?no manager instance, only the control's
+// MeasureControl utility functions — — no manager instance, only the control's
 // config/translator where a label or popup string is i18n-driven.
 import { area, bearing, centroid, distance, midpoint } from "#core/geo/index.js";
 import { reverseGeocode } from "#core/geocode/index.js";
@@ -18,7 +18,7 @@ import * as CONST from "./const.js";
 // flag) live in edit.ts. Callers import them directly from there.
 
 /** Format meters to human-readable string: "999 m" under the km threshold,
- *  then "1.0 km", "1,234.5 km" �?km values keep one decimal with grouping. */
+ *  then "1.0 km", "1,234.5 km" — — km values keep one decimal with grouping. */
 const formatDistance = (meters: number): string =>
   meters >= CONST.FORMAT.KM_THRESHOLD
     ? `${formatNumber(meters / 1000, NUMBER_FORMAT.COMMA, "en", CONST.FORMAT.KM_DECIMALS)} km`
@@ -47,7 +47,7 @@ const formatArea = (sqMeters: number): string => {
 
 /** Resolve the label chip inside a marker's icon element, or null when the
  *  marker has no rendered element. Callers that read the chip must go through
- *  this rather than caching a reference �?a setIcon during a drag replaces
+ *  this rather than caching a reference — — a setIcon during a drag replaces
  *  the element. */
 const labelChipOf = (marker: L.Layer): HTMLElement | null => {
   const el = (marker as L.Marker).getElement();
@@ -107,7 +107,7 @@ const makeMidLabelDivIcon = (html: string): L.DivIcon => {
 /** SVG radius for a `.foliplus-dot` node: `(--foliplus-dot-size - --foliplus-dot-stroke) / 2`.
  *  The tokens in token.css are the only definition; this just derives the
  *  circleMarker radius so both renderings share the same outer edge.
- *  Cached after the first successful read �?`moveCursorNode` rebuilds a
+ *  Cached after the first successful read — — `moveCursorNode` rebuilds a
  *  preview marker every mousemove frame, so the two `getComputedStyle` reads
  *  must not run per frame. `resetNodeRadiusCache()` invalidates for tests. */
 let nodeRadiusCache: number | undefined;
@@ -239,7 +239,7 @@ const readLatLng = (pt: DisplayLatLng, logger: Logger): [number, number] => {
 
 /** Format the pointer's coordinate as the readout string. No CRS conversion: the
  *  map is already in whatever CRS its tiles serve, so what the operator is looking
- *  at is what the readout reports �?pointing the chip at the same spot on a
+ *  at is what the readout reports — — pointing the chip at the same spot on a
  *  GCJ02 or BD09 map must not show a shifted number. */
 const coordText = (map: L.Map, pt: DisplayLatLng, logger: Logger): string => {
   const [lng, lat] = readLatLng(pt, logger);

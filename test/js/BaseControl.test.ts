@@ -71,7 +71,7 @@ describe("BaseControl", () => {
   });
 
   it("onAdd still works without an event bus (stub map)", () => {
-    // map without foliplus: ensureEvents installs a bus, emit is a no-op —
+    // map without foliplus: ensureEvents installs a bus, emit is a no-op — 
     // onAdd must not throw.
     class TestCtrl extends BaseControl {
       buildDOM() {
@@ -156,7 +156,7 @@ describe("BaseControl", () => {
     ];
     expect(type).toBe("click");
     expect(passed).toBe(fn);
-    // The signal handed to addEventListener is the one from this mounting —
+    // The signal handed to addEventListener is the one from this mounting — 
     // this is what ties DOM listener teardown to the control's lifecycle.
     expect(options.signal).toBe(ctrl.signal);
     expect(addSpy).toHaveBeenCalledTimes(1);
@@ -566,7 +566,7 @@ describe("BaseControl", () => {
 
   it("destroy() runs once per mounting even when onRemove is called twice", () => {
     // Idempotency guard: the earlier "onRemove is idempotent" test only
-    // checked that no throw; this one checks the observable behavior —
+    // checked that no throw; this one checks the observable behavior — 
     // destroy must not run twice, or a destroy() that resets state would
     // silently re-run its teardown.
     const destroy = vi.fn();

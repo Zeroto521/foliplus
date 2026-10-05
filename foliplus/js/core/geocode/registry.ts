@@ -125,7 +125,7 @@ const providerFromConfig = (config: ProviderConfig): GeocodeProvider => {
  * the same id (across maps and across the geocoder / suggestion paths) go
  * through one throttle queue and one request-timestamp clock. The queue
  * honours the largest `throttleMs` ever declared for the id, so configuring
- * the same id with different values is safe but should not be relied on —
+ * the same id with different values is safe but should not be relied on — 
  * give each distinct API instance (different `baseUrl`/throttle) its own id.
  */
 const resolveProvider = (

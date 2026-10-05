@@ -88,7 +88,7 @@ describe("rafLoop", () => {
     // Covers the `if (!running) return;` guard inside the scheduled callback.
     // stop() sets running=false AND clears pending, so the pending callback
     // never fires at all. This test verifies the guard still works when a
-    // callback fires after running is set to false through some other path —
+    // callback fires after running is set to false through some other path — 
     // here we inject a scheduler that lets us observe the callback body.
     const tick = vi.fn(() => false);
     let fireCallback!: () => void;

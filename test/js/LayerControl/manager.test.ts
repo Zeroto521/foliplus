@@ -1334,7 +1334,7 @@ describe("LayerManager", () => {
   // touch removedIds, otherwise a cleared layer could not be re-registered.
   describe("forgetSavedOrder", () => {
     it("drops the id from savedOrder and persists the change", () => {
-      // Component clears always unregister the layer before calling this —
+      // Component clears always unregister the layer before calling this — 
       // saveOrder would otherwise re-insert an id that is still live.
       seedStorage({ order: ["A", "H", "B", "C"] });
       const m = new LayerManager(map, [
@@ -2118,7 +2118,7 @@ describe("LayerManager", () => {
 
   it("refuses to re-register a deleted id, without throwing", () => {
     // A deletion is one-way, so the id must be refused at the registration
-    // entry point rather than allowed back in. Refusal returns null and logs —
+    // entry point rather than allowed back in. Refusal returns null and logs — 
     // an exception would take down whatever was registering (a rebuild loop,
     // a late Heatmap/Measure component) instead of just dropping the layer.
     seedStorage({ removed: ["gone"] });

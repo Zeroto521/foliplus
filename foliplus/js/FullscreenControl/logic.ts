@@ -12,7 +12,7 @@ import * as SVGs from "./icon.js";
 type Env = { config: ComponentConfig; T: (key: string) => string };
 
 // ══════════════════════════════════════════════════════════════════════════════
-// updateUI (internal)  —  refresh icon, title, sibling/self visibility, hint
+// updateUI (internal) — refresh icon, title, sibling/self visibility, hint
 // ══════════════════════════════════════════════════════════════════════════════
 const updateUI = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement, env: Env) => {
   const { config, T } = env;
@@ -56,7 +56,7 @@ const showExitFailHint = (map: L.Map, env: Env) => {
 };
 
 // ══════════════════════════════════════════════════════════════════════════════
-// toggleFullscreen  —  enter/exit fullscreen via native API or pseudo mode
+// toggleFullscreen — enter/exit fullscreen via native API or pseudo mode
 // ══════════════════════════════════════════════════════════════════════════════
 const toggleFullscreen = (
   map: L.Map,
@@ -104,7 +104,7 @@ const toggleFullscreen = (
 };
 
 // ══════════════════════════════════════════════════════════════════════════════
-// makeFullscreenChangeHandler  —  the fullscreenchange handler the control
+// makeFullscreenChangeHandler — the fullscreenchange handler the control
 // binds on document through BaseControl.on, so removal rides the mounting's
 // signal (no manual teardown, and no map.on('unload') needed: Leaflet already
 // routes map.remove() → unload → control.remove() → onRemove → abort).

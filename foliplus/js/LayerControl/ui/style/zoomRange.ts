@@ -105,7 +105,7 @@ const syncValues = (
 };
 
 /** Update the zoom-range row's visual state: fill position, value labels,
- *  and the out-of-range dimming. Does not write to the map or persistence —
+ *  and the out-of-range dimming. Does not write to the map or persistence — 
  *  that is the commit pass's job. Pass the live thumb values so the row can
  *  update before the change is committed. */
 const syncZoomRangeRow = (

@@ -86,7 +86,7 @@ class DistanceMode extends PreviewMode {
       L.polyline([], { className: CONST.CLASSES.PATH_PREVIEW, interactive: false }),
     );
     // The cursor dot is the same hollow node as the circle mode's radius
-    // endpoint �?it has no meaning before the first point is placed. Created
+    // endpoint — — it has no meaning before the first point is placed. Created
     // via `moveCursorNode`, which recreates the node on every frame so the
     // attach order keeps the node newest (see PreviewMode.moveCursorNode).
     const finalPoly = this.layers.addLayer(
@@ -297,7 +297,7 @@ class DistanceMode extends PreviewMode {
     bindMapEvents(this.map, distEvents);
   }
 
-  /** GeoJSON feature for a distance polyline �?properties carry id, totalDistance and segments. */
+  /** GeoJSON feature for a distance polyline — ?properties carry id, totalDistance and segments. */
   static toGeoFeature(env: ControlEnv, data: MeasureData): GeoJSON.Feature {
     return {
       type: CONST.GEOJSON.FEATURE,

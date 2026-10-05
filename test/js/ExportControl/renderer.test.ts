@@ -293,7 +293,7 @@ describe("ExportRenderer.renderTileLayer — onProgress", () => {
 
     await makeRenderer().renderTileLayer(rc, rcTiles(rc, total), mockLayer, onProgress);
 
-    // One report per batch, counting the tiles actually painted so far —
+    // One report per batch, counting the tiles actually painted so far — 
     // never the batch index, which would credit tiles that were still loading.
     expect(onProgress.mock.calls.map(c => c[0])).toEqual([
       CONST.TILE_CONCURRENCY,
@@ -392,7 +392,7 @@ describe("ExportRenderer.renderTileLayer — onProgress", () => {
 
   it("falls back to the 1x tile when the retina fetch fails", async () => {
     // A source without retina tiles 404s every {r} URL; the draw pass must
-    // retry the recorded 1x fallback instead of blanking the whole layer —
+    // retry the recorded 1x fallback instead of blanking the whole layer — 
     // otherwise a scale>1 export loses the layer and misreports it as CORS
     // blocking.
     (UTIL.loadImageBitmap as any).mockClear();
@@ -606,7 +606,7 @@ describe("ExportRenderer.render — onProgress across tile layers", () => {
     await runRender(onProgress);
 
     // Only the visible TileLayer is sized: the hidden one and the non-tile
-    // entry are filtered out before the denominator is summed.  One call —
+    // entry are filtered out before the denominator is summed.  One call — 
     // the extent is enumerated once per export and threaded into the draw
     // pass, which is what keeps numerator and denominator in agreement.
     expect(calcTiles).toHaveBeenCalledTimes(1);
@@ -1104,7 +1104,7 @@ describe("ExportRenderer.render — layer pass routing", () => {
             {
               id: "torn",
               visible: true,
-              // Present for the tile/filter phases, gone by the render loop —
+              // Present for the tile/filter phases, gone by the render loop — 
               // as a torn-down map would appear between the two resolveLayer
               // calls.
               get layer() {

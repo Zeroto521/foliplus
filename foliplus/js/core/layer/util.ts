@@ -131,7 +131,7 @@ const getGeometryType = (layer: L.Layer): string => {
     else if (leaf instanceof L.Polyline) hasLine = true;
     // Marker / CircleMarker need a .feature envelope to be "structured,
     // downstream-consumable point data" (extractPoints / Heatmap / export
-    // all gate on .feature). A plain folium.Marker() is a geometric point —
+    // all gate on .feature). A plain folium.Marker() is a geometric point — 
     // countFeatureGeometry counts it — but without that envelope it is not
     // consumable point data, so we don't mark it as point here.
     else if (leaf instanceof L.CircleMarker || leaf instanceof L.Marker) {

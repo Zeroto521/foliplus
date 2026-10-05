@@ -153,7 +153,7 @@ const renderDelegatedStylePanel = (
   // surface can honestly carry the write. A layer with `opacity: "none"`
   // (MarkerCluster) would otherwise see a slider that writes nothing but
   // persists the value — a lie that survives reload (6.2).
-  // Row iteration follows `DELEGATED_DIM_ORDER` (see the constant above) —
+  // Row iteration follows `DELEGATED_DIM_ORDER` (see the constant above) — 
   // the same gate sweep the annotation panel uses. One collection decides
   // both the heading and the rows, so the two cannot drift. The
   // delegated-only border row is prepended before the registry sweep: it is

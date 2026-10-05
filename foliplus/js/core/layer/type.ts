@@ -79,7 +79,7 @@ interface LayerCapabilities {
    *    - "native" — an areal carrier exists; `setStyle({fillColor,
    *      fillOpacity})` writes through the tree. A solid-colour basemap
    *      also declares "native": the pane's paint *is* the fill.
-   *    - "none"   — no areal carrier. Line-only layers (Polyline, Circle
+   *    - "none" — no areal carrier. Line-only layers (Polyline, Circle
    *      without a fill), Marker, canvas, MarkerCluster, and native setter
    *      surfaces (ImageOverlay / GridLayer) all fall out.
    *
@@ -89,7 +89,7 @@ interface LayerCapabilities {
    *    - "native" — a `setStyle` leaf exists in the tree (a Path-family
    *      member: Polygon, Polyline, Circle, CircleMarker, Rectangle). The
    *      write walks `eachLayer` and calls `setStyle` per leaf.
-   *    - "none"   — no `setStyle` leaf. Marker (Icon, divIcon) and every
+   *    - "none" — no `setStyle` leaf. Marker (Icon, divIcon) and every
    *      non-vector surface (canvas, color basemap, MarkerCluster, native
    *      ImageOverlay / GridLayer) have no vector stroke axis.
    *
@@ -101,21 +101,21 @@ interface LayerCapabilities {
    *    - "native" — the layer owns its own setter (`ImageOverlay.setOpacity`,
    *      `TileLayer.options.opacity`). Immediate and correct; the UI reads/writes
    *      the layer's option, not a pane.
-   *    - "pane"   — we own a pane (or canvas face) for this layer. Vector
+   *    - "pane" — we own a pane (or canvas face) for this layer. Vector
    *      children take one CSS write on the pane; self-drawn canvases bake
    *      layerAlpha into their draws (R11, `#common/canvasAlpha`) so a large
    *      canvas does not force a GPU composite buffer. The tier still reports
    *      `"pane"` — a `"baked"`/`"redraw"` mechanism tier is owned by T222.
-   *    - "none"   — no honest carrier exists. MarkerCluster's cluster icons stay
+   *    - "none" — no honest carrier exists. MarkerCluster's cluster icons stay
    *      in the shared `markerPane` where `eachLayer` cannot reach them, so a
-   *      pane write would fade the individual markers but not the cluster —
+   *      pane write would fade the individual markers but not the cluster — 
    *      half the layer. The UI then hides the opacity control rather than
    *      offering a knob that lies. */
   opacity: "native" | "pane" | "none";
   /** Whether zoom-range visibility is honoured:
    *    - "native" — the layer's own `options.minZoom`/`maxZoom` (GridLayer).
-   *    - "pane"   — we hide the pane (or skip drawing it).
-   *    - "none"   — no honest carrier. A future surface type will supply this
+   *    - "pane" — we hide the pane (or skip drawing it).
+   *    - "none" — no honest carrier. A future surface type will supply this
    *      basemap once it is promoted to a real surface; today that layer is not
    *      in the registry at all, so no placeholder is emitted. */
   zoomRange: "native" | "pane" | "none";
@@ -125,11 +125,11 @@ interface LayerCapabilities {
    *      `L.Layer` too, so it routes here — the `kind: "cluster"` branch in
    *      `CLUSTER_CAPABILITIES` only takes over opacity / zoomRange
    *      / bounds, not visibility.
-   *    - "pane"   — the surface paints into a canvas element we own (createCanvas
+   *    - "pane" — the surface paints into a canvas element we own (createCanvas
    *      for heatmap/measure, createColor for the solid-color basemap's face);
    *      the `HIDDEN` class on that element is the carrier. One CSS write, no
    *      callback.
-   *    - "none"   — no honest carrier exists; the UI hides the checkbox rather
+   *    - "none" — no honest carrier exists; the UI hides the checkbox rather
    *      than offering one that lies. Today no materialized surface reaches
    *      here; declared so a future shape that cannot carry visibility can say
    *      so without another union change. */
@@ -192,7 +192,7 @@ interface RegisterLayerOpts {
    * rather than re-derived from the index at every z write (the removed
    * `bumpPanes` + `CHILD_PANE_STEP` pair).
    *
-   * Was `labelPane?: string | null` — that name was MeasureControl-specific
+   * Was `labelPane — : string | null` — that name was MeasureControl-specific
    * and couldn't express a second, third, or fourth pane. Measuring a circle
    * now puts nodes in a pane between paths and labels.
    */
@@ -208,10 +208,10 @@ interface RegisterLayerOpts {
   /** R11 bake policy for self-drawn canvases (see `#common/canvasAlpha`).
    *  The slider path must not regress: a full redraw of a ≥5k layer on every
    *  commit is jank, while a CSS style write is O(1).
-   *    - "commit"  — bake layerAlpha and redraw on the slider commit itself.
+   *    - "commit" — bake layerAlpha and redraw on the slider commit itself.
    *      Use when the redraw is cheap (color face: one fillRect; annotation
    *      labels: a few hundred glyphs).
-   *    - "redraw"  — slider commit keeps CSS `opacity` (cheap live feedback);
+   *    - "redraw" — slider commit keeps CSS `opacity` (cheap live feedback);
    *      the *next* pan/zoom redraw bakes layerAlpha into the draws and drops
    *      the CSS so the two never compound. Default; heatmap uses this.
    *  Drawers must always read layerAlpha via the shared helper so both arms
@@ -294,13 +294,13 @@ interface LayerInfo {
   /** Optional geographic-bounds provider (Canvas layers). See RegisterLayerOpts. */
   getBounds?: (() => L.LatLngBounds | null) | null;
   /** Static caller-supplied provenance / freshness for the attributes panel.
-   *  These survive a provider re-registration (merged with `??`). */
+   *  These survive a provider re-registration (merged with ` — — `). */
   source?: string | null;
   updatedAt?: string | number | null;
   meta?: Record<string, string | number> | null;
   /** Dynamic meta provider — pull on demand, never cached. */
   metaProvider?: (() => Record<string, string | number>) | null;
-  /** Epoch ms of the layer's first registration. Set by the registry itself —
+  /** Epoch ms of the layer's first registration. Set by the registry itself — 
    *  never by the provider — so a re-registration keeps the original value. */
   registeredAt?: number;
 }
@@ -430,7 +430,7 @@ interface CreateLayersOpts {
    * this list, written down once as `PaneSpec.order` and read back at every z
    * write — never re-derived from an array index.
    *
-   * Was `{ graphPane?: string; labelPane?: string }` — the pair hard-coded
+   * Was `{ graphPane — : string; labelPane — : string }` — the pair hard-coded
    * a two-pane shape (paths under labels) that couldn't express a node pane
    * between them, and it made core aware of measure-specific roles. An
    * ordered entry list lets the caller name any N panes in any order.
@@ -495,7 +495,7 @@ interface CreateCanvasAPI {
   /** The canvas that receives draws. Built at `createCanvas` time but mounted
    *  into its own pane only when `register()` runs, so until then the element
    *  has no parent. `ctx`, `resize` and `setVisible` are all safe before that
-   *  — they act on the element, which is never null. `resize` re-runs on mount
+   * — they act on the element, which is never null. `resize` re-runs on mount
    *  and resets the backing store when the container size has changed, so a
    *  draw made before register is not a reliable carrier: the owner re-draws
    *  from its own state at register, which is why HeatmapControl re-renders on
@@ -557,7 +557,7 @@ interface CreateLayersAPI {
    * silently ignores the pin; that is the same behavior as an empty
    * `opts.panes` — the layer goes in as-is.
    *
-   * Was `(layer, isLabel?: boolean) => L.Layer`, which was a single boolean
+   * Was `(layer, isLabel — : boolean) => L.Layer`, which was a single boolean
    * dispatch between graph and label. `isNode` had to be added to that
    * dispatch for MeasureControl to keep nodes above paths — each new role
    * meant another boolean. `paneName` accepts a component-owned string and
@@ -742,7 +742,7 @@ interface LayerAPI {
    *  `removedIds`, or destroy its annotation config: the id stays
    *  registerable, so a component that cleared its own data can draw again.
    *  Reachable from an explicit user action alone — the component clear paths
-   *  (Heatmap's panel Clear button and LayerControl's overflow Clear Data) —
+   *  (Heatmap's panel Clear button and LayerControl's overflow Clear Data) — 
    *  which is what keeps the two entries erasing the same thing.
    *
    *  @returns true if persisted state was dropped, false when nothing was

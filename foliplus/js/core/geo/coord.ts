@@ -27,7 +27,7 @@ const COORD_BOUNDS = { LON: 180, LAT: 90 };
  * Snapshot the two facts every probe needs — the map's CRS code and the list
  * of tile layer URLs — into plain values, logging any single failure once.
  *
- * getMapCrsType asks three questions (BD09?, domestic?, otherwise WGS84), and
+ * getMapCrsType asks three questions (BD09 — , domestic — , otherwise WGS84), and
  * each question originally re-read `map._layers` and `map.options.crs.code` on
  * its own. A throwing property therefore produced 3 warnings per call — and
  * geocoding calls getMapCrsType on every search, so the noise would scale with

@@ -52,7 +52,7 @@ const GRID_CELL = 64;
 
 /**
  * Below this many labels the plain pairwise sweep is the faster planner: the
- * Map and its string keys cost more than the comparisons they save (measured —
+ * Map and its string keys cost more than the comparisons they save (measured — 
  * the grid only pays off past a few hundred labels, and MeasureControl's plans
  * are tens).
  */

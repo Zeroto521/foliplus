@@ -404,7 +404,7 @@ describe("snapshotAuthorVisible", () => {
     expect(ui.runtimeStore.getAuthorVisible("heat")).toBe(true);
     expect(ui.runtimeStore.getAuthorVisible("heat-hidden")).toBe(true);
 
-    // A persisted hidden choice for a canvas layer still latches false —
+    // A persisted hidden choice for a canvas layer still latches false — 
     // the intent record is the observation, not the layer's on-map state.
     snapshotAuthorVisible(ui, {
       id: "heat-mixed",

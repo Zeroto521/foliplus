@@ -43,7 +43,7 @@ class ListPanel {
    *  `handleDragStart` because the drag event is dispatched on the row, not
    *  the panel. */
   pressInPanel: boolean = false;
-  /** Cleanup for the interaction manager (keyboard nav, drag gestures) —
+  /** Cleanup for the interaction manager (keyboard nav, drag gestures) — 
    *  called once on unbind. */
   interactionCleanup?: () => void;
 }

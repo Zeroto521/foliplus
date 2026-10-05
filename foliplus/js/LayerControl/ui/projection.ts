@@ -15,7 +15,7 @@ import { inZoomRange } from "./rowView.js";
 
 /** The user's own visibility choice, or the author's declared default
  *  (captured once at first sight by `snapshotAuthorVisible`) when the user
- *  never touched it. This is the single entry point other modules —
+ *  never touched it. This is the single entry point other modules — 
  *  `syncNoBasemap`, `rowView`, `snapshotAuthorVisible` itself, and the
  *  executor's baseline — read the intent through, so no mirror is stored on
  *  the layer record.

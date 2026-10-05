@@ -11,7 +11,7 @@
 //
 // Two pieces:
 //   inZoomRange / rowView — the projection (read-only + pure)
-//   buildRowCell / applyRowView        — gather the cell, then paint the row
+//   buildRowCell / applyRowView      — gather the cell, then paint the row
 import { GROUP } from "#core/layer/index.js";
 import { formatNumber } from "#common/format.js";
 import * as Icons from "#common/icon.js";
@@ -84,7 +84,7 @@ const inZoomRange = (ui: LayerUI, layerInfo: LayerInfo): boolean => {
  * The row visual as a pure function of the cell.
  *
  *  No DOM, no registry, no map: the same cell always gives the same row. The
- *  two rules worth naming — `active = checked` and `title = "count  type"` —
+ *  two rules worth naming — `active = checked` and `title = "count  type"` — 
  *  live here and nowhere else.
  *
  *  `active` is `checked` and nothing else. The highlight is the checkbox's own

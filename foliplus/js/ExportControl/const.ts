@@ -129,7 +129,7 @@ const SEL = {
    * semantics extend the attribute value, not the class list).
    *
    * Match rules by pass (not one universal nesting rule):
-   *   - `collectLayerMarkers` / `renderPaneCanvas`: `isExportExcluded` —
+   *   - `collectLayerMarkers` / `renderPaneCanvas`: `isExportExcluded` — 
    *     self or ancestor; markers also drop roots that contain a marked
    *     descendant (pass draws whole roots).
    *   - `renderPaneSVG`: marked nodes are pruned from the clone only.
@@ -148,7 +148,7 @@ const SEL = {
 // number of in-flight connections to a single origin (typically ~6 for HTTP/1.x).
 // Tiles are ~256 KB, so saturating slow links wastes RTTs.  We read
 // navigator.connection (downlink first, then effectiveType, then a default of 6)
-// to pick a sensible parallelism for the observed network.  No CONFIG override —
+// to pick a sensible parallelism for the observed network.  No CONFIG override — 
 // the detector handles all cases.
 // ============================================================================
 

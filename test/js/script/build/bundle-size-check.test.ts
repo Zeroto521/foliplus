@@ -270,8 +270,8 @@ describe("buildRows", () => {
     expect(rows[0].status).toBe("new");
     expect(rows[0].prev).toBeNull();
     expect(rows[0].pct).toBeNull();
-    expect(fmtPct(rows[0].curr, rows[0].prev)).toBe("—");
-    expect(fmtDelta(rows[0].curr, rows[0].prev)).toBe("—");
+    expect(fmtPct(rows[0].curr, rows[0].prev)).toBe(" — ");
+    expect(fmtDelta(rows[0].curr, rows[0].prev)).toBe(" — ");
   });
 
   it("treats a zero-size baseline entry as an unknown percentage", () => {
@@ -383,16 +383,16 @@ describe("formatters", () => {
   });
 
   it("returns em-dash for missing/new deltas", () => {
-    expect(fmtDelta(null, 100)).toBe("—");
-    expect(fmtDelta(100, null)).toBe("—");
+    expect(fmtDelta(null, 100)).toBe(" — ");
+    expect(fmtDelta(100, null)).toBe(" — ");
   });
 
   it("formats percentages with sign and guards null/zero", () => {
     expect(fmtPct(110, 100)).toBe("+10.0%");
     expect(fmtPct(90, 100)).toBe("-10.0%");
-    expect(fmtPct(null, 100)).toBe("—");
-    expect(fmtPct(100, null)).toBe("—");
-    expect(fmtPct(100, 0)).toBe("—");
+    expect(fmtPct(null, 100)).toBe(" — ");
+    expect(fmtPct(100, null)).toBe(" — ");
+    expect(fmtPct(100, 0)).toBe(" — ");
   });
 
   it("formats deltas in bytes, keeping a zero delta bare", () => {
@@ -401,8 +401,8 @@ describe("formatters", () => {
     expect(fmtDeltaBytes(411, 404)).toBe("+7 B");
     expect(fmtDeltaBytes(404, 404)).toBe("0 B");
     expect(fmtDeltaBytes(397, 404)).toBe("-7 B");
-    expect(fmtDeltaBytes(null, 404)).toBe("—");
-    expect(fmtDeltaBytes(404, null)).toBe("—");
+    expect(fmtDeltaBytes(null, 404)).toBe(" — ");
+    expect(fmtDeltaBytes(404, null)).toBe(" — ");
   });
 
   it("falls back to · for an unknown status marker", () => {
@@ -520,7 +520,7 @@ describe("check", () => {
   it("renders the total row as em-dashes when the baseline records no sizes", () => {
     // A capture taken from a build that produced nothing has an empty files map:
     // every bundle reads "new" and the total has nothing to add up, so the
-    // baseline cell must show "—" rather than a misleading 0.00 KB.
+    // baseline cell must show " — " rather than a misleading 0.00 KB.
     const root = mkTmp();
     mkDist(root, { "a.min.js": BODY });
     const report = join(root, "report.md");
@@ -531,10 +531,10 @@ describe("check", () => {
     expect(check(args, root)).toBe(0);
     const total = fmtBytes(brotli(BODY));
     expect(readFileSync(report, "utf-8")).toContain(
-      `**Total:** ${total} · **Δ** — (—) · 1 of 1 bundles changed`,
+      `**Total:** ${total} · **Δ** — ( — ) · 1 of 1 bundles changed`,
     );
     expect(readFileSync(report, "utf-8")).toContain(
-      `| **Total** | **${total}** | **—** | **—** | **—** | |`,
+      `| **Total** | **${total}** | ** — ** | ** — ** | ** — ** | |`,
     );
   });
 
