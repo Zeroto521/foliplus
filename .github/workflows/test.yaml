@@ -91,13 +91,14 @@ jobs:
       - run: make test-js
 
       - uses: codecov/codecov-action@v6
+        continue-on-error: true
         with:
-          fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
           verbose: true
           flags: ${{ job.name }}
       - uses: codecov/codecov-action@v6
         if: ${{ !cancelled() }}
+        continue-on-error: true
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           report_type: test_results
@@ -138,13 +139,14 @@ jobs:
       - run: uv run make test-python-fast
 
       - uses: codecov/codecov-action@v6
+        continue-on-error: true
         with:
-          fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
           verbose: true
           flags: ${{ job.name }}
       - uses: codecov/codecov-action@v6
         if: ${{ !cancelled() }}
+        continue-on-error: true
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           report_type: test_results
@@ -197,13 +199,14 @@ jobs:
       - run: uv run make test-browser
 
       - uses: codecov/codecov-action@v6
+        continue-on-error: true
         with:
-          fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
           verbose: true
           flags: ${{ job.name }}
       - uses: codecov/codecov-action@v6
         if: ${{ !cancelled() }}
+        continue-on-error: true
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           report_type: test_results
