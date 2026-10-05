@@ -16,7 +16,7 @@ import {
   loadHistory,
   removePanel,
 } from "./logic/index.js";
-import type { AddressResult, ResultItem, SearchHistoryEntry } from "./type.js";
+import type { ResultItem, SearchHistoryEntry } from "./type.js";
 
 class SearchControl extends defineControl({
   config: CONFIG,

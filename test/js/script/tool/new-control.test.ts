@@ -565,7 +565,6 @@ describe("CLI entry", () => {
   });
 
   it("runs main() only when launched directly as a script", async () => {
-    const log = vi.spyOn(console, "log").mockImplementation(() => {});
     const exit = trapExit();
     await expect(
       runCli("#script/tool/new-control.mjs", ["node", SCRIPT, "--help"]),

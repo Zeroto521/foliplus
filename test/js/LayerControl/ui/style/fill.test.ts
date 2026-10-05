@@ -102,7 +102,6 @@ const commitNow = (
 describe("LayerUI style panel — fill color", () => {
   let manager: LayerManager;
   let ui: LayerUI;
-  let map: any;
 
   let fillLayer: ReturnType<typeof makeFillableLayer>;
 
@@ -110,7 +109,6 @@ describe("LayerUI style panel — fill color", () => {
     const fixture = initWithFillLayer();
     manager = fixture.manager;
     ui = fixture.ui;
-    map = fixture.map;
     fillLayer = fixture.fillLayer;
     window.localStorage.removeItem(CONST.STORAGE.KEY);
   });
@@ -121,10 +119,6 @@ describe("LayerUI style panel — fill color", () => {
     vi.clearAllMocks();
     vi.useRealTimers();
   });
-
-  const panelOf = (item: HTMLElement): HTMLElement | undefined =>
-    (item.querySelector(`.${CONST.CLASSES.STYLE_PANEL}`) as HTMLElement | null) ??
-    undefined;
 
   const fillRow = (item: HTMLElement): HTMLElement | null =>
     item.querySelector(`.${CONST.CLASSES.STYLE_FILL_ROW}`);
@@ -372,7 +366,7 @@ describe("LayerUI style panel — fill color", () => {
       name: "E",
       layer: {
         options: {},
-        eachLayer: vi.fn((fn: (child: unknown) => void) => {
+        eachLayer: vi.fn(() => {
           // no children to dispatch
         }),
         getBounds: vi.fn(() => ({
@@ -791,13 +785,10 @@ describe("LayerUI style panel — fill color", () => {
 
   it("mouseout on a leaf with no stored fill does not touch the style", () => {
     const fixture = initWithFillLayer();
-    let handler: (() => void) | null = null;
     const leaf = {
       options: { fillColor: "#aabbcc", fillOpacity: 0.5, fill: true },
       setStyle: vi.fn(),
-      on: vi.fn((_type: string, fn: () => void) => {
-        handler = fn;
-      }),
+      on: vi.fn(),
     };
     fixture.fillLayer.leaves[0] = leaf;
     applyFillToLayer(fixture.ui, "overlay1"); // nothing stored — early return

@@ -23,8 +23,6 @@ beforeEach(() => {
   markRequest("nominatim", 0);
 });
 
-const tick = () => new Promise(r => setTimeout(r, 0));
-
 // Control context for logic functions that now receive ctrl.
 const ctx = () => ({
   config: { name: "SearchControl", locale_code: "en", zoom: 16 },

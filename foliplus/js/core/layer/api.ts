@@ -5,7 +5,7 @@ import { ensureHint } from "#core/hint.js";
 import { createLogger } from "#common/log.js";
 import { LayerFactory } from "./LayerFactory.js";
 import { PaneManager } from "./PaneManager.js";
-import type { LayerAPI, LayerInfo } from "./type.js";
+import type { LayerAPI } from "./type.js";
 
 /**
  * Ensure that `map.foliplus.LayerAPI` is available, creating a lightweight

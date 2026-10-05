@@ -1,6 +1,5 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { ensureEvents } from "#core/event/index.js";
-import * as CONST from "#foliplus/ExportControl/const.js";
 import { ExportManager, canvasToBlob } from "#foliplus/ExportControl/manager.js";
 import * as downloadMod from "#common/download.js";
 

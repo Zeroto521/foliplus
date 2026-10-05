@@ -11,7 +11,6 @@
 // unchanged.
 import { createLogger } from "#common/log.js";
 import * as CONST from "../const.js";
-import type { LayerManager } from "../manager.js";
 import type { LayerOverride } from "../type.js";
 import { applyProjection, applyProjectionAll } from "./apply.js";
 import { applyNameProjection } from "./context.js";

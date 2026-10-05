@@ -3,7 +3,6 @@
 import type { ControlEnv } from "#core/defineControl.js";
 import { area, bearing, centroid, distance, midpoint } from "#core/geo/index.js";
 import { reverseGeocode } from "#core/geocode/index.js";
-import { toggleDelIcon } from "#core/leaflet/index.js";
 import { cssVar } from "#common/cssvar.js";
 import { buildPopupEl } from "#common/dom.js";
 import {

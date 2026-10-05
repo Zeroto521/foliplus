@@ -49,7 +49,6 @@ import { dropStyleDimApplies } from "./style/styleBag.js";
 import {
   getLayerItems,
   handleChange,
-  handleInput,
   syncNoBasemap,
   syncToggleAll,
   toggleAll,
@@ -156,7 +155,6 @@ const bindEvents = (ui: LayerUI): void => {
     }
     handleChange(ui, event);
   };
-  ui.onInput = event => handleInput(ui, event);
   ui.onClick = event => {
     const el = event.target as HTMLElement;
     // A press inside a row's floating panel (attributes / style) is the
@@ -237,7 +235,6 @@ const bindEvents = (ui: LayerUI): void => {
   ui.geometryMarqueeCleanup = bindGeometryFocusMarquee(ui.m.map.getContainer());
 
   container.addEventListener("change", ui.onChange);
-  container.addEventListener("input", ui.onInput);
   container.addEventListener("click", ui.onClick);
   container.addEventListener("focusin", ui.onFocusIn);
   container.addEventListener("focusout", ui.onFocusOut);
@@ -394,7 +391,6 @@ const unbindEvents = (ui: LayerUI): void => {
   // Remove any focus animation still in flight (rect + row highlight).
   dismissFocus(ui);
   if (ui.onChange) container.removeEventListener("change", ui.onChange);
-  if (ui.onInput) container.removeEventListener("input", ui.onInput);
   if (ui.onClick) container.removeEventListener("click", ui.onClick);
   if (ui.onFocusIn) container.removeEventListener("focusin", ui.onFocusIn);
   if (ui.onFocusOut) container.removeEventListener("focusout", ui.onFocusOut);
@@ -417,7 +413,7 @@ const unbindEvents = (ui: LayerUI): void => {
   ui.geometryMarqueeCleanup = null;
   // Flush the last pending write before the timer is cleared.
   ui.m.persistence.flushAll();
-  ui.onChange = ui.onInput = ui.onClick = null;
+  ui.onChange = ui.onClick = null;
   ui.onFocusIn = ui.onFocusOut = null;
   ui.onDragStart = ui.onDragOver = ui.onDragLeave = null;
   ui.onDrop = ui.onDragEnd = null;
