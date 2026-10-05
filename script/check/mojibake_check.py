@@ -31,18 +31,24 @@ round-trip or a formatting error that should be fixed:
    soon as it appears.
 6. **Em-dash or arrow glued to ASCII text** — ``\\u2014x``,
    ``x\\u2014``, ``\\u2192x``, or ``x\\u2192`` where the second
-   character is a letter, digit, or common punctuation (``. , ; : ! ? '
-   ` )``). Either a mojibake residue (the misread ate the space) or a
-   formatting error that should be fixed. The
-   ``[A-Za-z0-9)]\\u2014`` half uses a backslash-lookbehind to skip the
-   ``\\n\\u2014`` escape sequence (backslash-n followed by em-dash)
-   where the em-dash is at the start of a logical line, not adjacent to
-   ``n``. Deliberate exemptions: this file and its tests are skipped
-   entirely (they contain the rule bodies and test data for the
-   mojibake signatures, so a full scan would flag itself), and
-   ``CHANGELOG.md`` lines carrying historical size-delta notation
-   (``193KB\\u2192110KB``, ``PY\\u2192JS``) are skipped per-line —
-   those are release facts, not prose.
+   character is a letter, digit, or common punctuation. Either a
+   mojibake residue (the misread ate the space) or a formatting error
+   that should be fixed. BEFORE character class is
+   ``[A-Za-z0-9)]`` plus ``.,;:!?{``; AFTER character class is
+   ``[A-Za-z0-9]`` plus the same punctuation — the two sides are
+   asymmetric so parenthesized / quoted shapes like ``(→)``, ``(—)``,
+   ``"→"``, ``'—'``, `` `—` `` stay clean while still catching
+   letter-glued forms and broken forms like ``"—."`` (period after
+   the em-dash) and ``—{@link ...}`` (JSDoc tag glued to the dash).
+   The ``[A-Za-z0-9)]\\u2014`` half uses a backslash-lookbehind to
+   skip the ``\\n\\u2014`` escape sequence (backslash-n followed by
+   em-dash) where the em-dash is at the start of a logical line, not
+   adjacent to ``n``. Deliberate exemptions: this file and its tests
+   are skipped entirely (they contain the rule bodies and test data
+   for the mojibake signatures, so a full scan would flag itself), and
+   ``CHANGELOG.md`` lines carrying historical release-note arrow
+   notation (``PY\\u2192JS``, ``193KB\\u2192110KB``, ``716\\u2192785``)
+   are exempted per line so new CHANGELOG entries still get checked.
 
 None of these can be auto-fixed — the original character is already gone.
 See https://en.wikipedia.org/wiki/Mojibake and
@@ -123,36 +129,74 @@ _GBK_EMDASH_LETTER_FAMILY = "".join(
 # would re-flag those. Punctuation IS included so broken forms like
 # "—." (attr.ts comment from #601) still trip the rule.
 #
+# BEFORE and AFTER classes are asymmetric:
+#   BEFORE = [A-Za-z0-9)] + PUNCT — the extra `)` catches `foo—` shapes
+#     like "the list →map", "text —end", "value −" (arrow/em-dash at
+#     the END of a bracketed phrase). `"` is deliberately absent here
+#     so `"— ...` and `f"— ...` (a dash opening a quoted string) stay
+#     clean.
+#   AFTER  = [A-Za-z0-9] + PUNCT — no `)`, no `'`, no backtick, no
+#     `"`. This spares the "wrapped in brackets/quotes" shapes:
+#     `(→)` `(—)` `'—'` `` `—` `` `"—"` all read as a token flanked by
+#     matching delimiters, not as mojibake residue. If a future case
+#     needs `)` here, it must be a new regex.
+# PUNCT is shared between BEFORE and AFTER — `. , ; : ! ? {` — so
+# punctuation that immediately follows the dash/arrow is treated the
+# same as a letter or digit on that side.
+#
 # Files that legitimately contain the signatures this rule catches are
 # skipped entirely — the checker itself and its tests naturally carry
-# the rule bodies and their test data, and CHANGELOG.md is historical
-# release notes where arrows denote real transformations ("PY→JS
-# injection", "*.js → *.ts", "193KB→110KB", "716→785 tests") that we
-# don't rewrite after the fact.
+# the rule bodies and their test data. CHANGELOG.md is NOT skipped
+# wholesale: historical release notes use a couple of shorthand arrow
+# shapes (``PY→JS``, ``193KB→110KB``, ``716→785``) that are meaningful
+# and shouldn't be rewritten, but new CHANGELOG entries must still be
+# checked. The exemption is line-level and pattern-based (see
+# _CHANGELOG_HISTORICAL_ARROW_RE in _find_hits).
 _SPACING_SKIP_FILES = {
     "mojibake_check.py",
     "test_mojibake_check.py",
-    "CHANGELOG.md",
 }
-# Letter/digit/paren characters used by the BEFORE patterns — an em-dash
-# or arrow at the end of a word, number, or `)` is the mojibake signature.
-# Deliberately omits `"` to spare legitimately quoted strings on the
-# BEFORE side (see _has_spacing_violation's docstring).
+# Characters directly BEFORING an em-dash or arrow — glue-shape on the
+# left. The `)` catches `foo—`/`list→` closing brackets that lost a
+# space; `"` is deliberately absent so `"— a new one crept in` (a
+# quoted string starting with a dash) stays clean.
 _EM_BEFORE_CHARS = "A-Za-z0-9)"
-# Punctuation that is glued to an em-dash/arrow on the AFTER side —
-# the corruption shape `"—.` (attr.ts comment from #601) is caught
-# because `.` is here, and `—{@link ...}` (JSDoc inline tag without a
-# space before the brace) is caught because `{` is here. Both are
-# fixed by inserting a space; the fixed forms `"—".` and `— {@link ...}`
-# stay clean because `"` is deliberately absent from this class.
-_EM_AFTER_PUNCT = ".,;:!?'`{"
+# Punctuation that can glue to either side of an em-dash or arrow —
+# the AFTER shape `"—.` (attr.ts corruption from #601) is caught via
+# the trailing `.`, and the BEFORE shape `end.→` trips on the leading
+# `.`. `{` catches JSDoc inline tags like `—{@link foo}` / `→{@link}`
+# that lost a space. `"` `'` backtick and `)` are absent — those are
+# used as paired delimiters (see the class-comment block above).
+_GLUE_PUNCT = ".,;:!?{"
 
-_EMDASH_AFTER_RE = re.compile(r"\u2014[" + _EM_BEFORE_CHARS + _EM_AFTER_PUNCT + "]")
+# AFTER character set for the right side of an em-dash / arrow — no
+# `)`, no quotes, no backticks, so wrapped shapes like `(→)` / `"—"`
+# stay clean. Shares the punctuation set with the BEFORE side.
+_EM_AFTER_CHARS = "A-Za-z0-9"
+
+_EMDASH_AFTER_RE = re.compile(r"\u2014[" + _EM_AFTER_CHARS + _GLUE_PUNCT + "]")
 _EMDASH_BEFORE_RE = re.compile(
-    r"(?<!\\)[" + _EM_BEFORE_CHARS + _EM_AFTER_PUNCT + "]\u2014"
+    r"(?<!\\)[" + _EM_BEFORE_CHARS + _GLUE_PUNCT + "]\u2014"
 )
-_ARROW_AFTER_RE = re.compile(r"\u2192[" + _EM_BEFORE_CHARS + _EM_AFTER_PUNCT + "]")
-_ARROW_BEFORE_RE = re.compile(r"(?<!\\)[" + _EM_BEFORE_CHARS + "]\u2192")
+_ARROW_AFTER_RE = re.compile(r"\u2192[" + _EM_AFTER_CHARS + _GLUE_PUNCT + "]")
+_ARROW_BEFORE_RE = re.compile(r"(?<!\\)[" + _EM_BEFORE_CHARS + _GLUE_PUNCT + "]\u2192")
+
+# CHANGELOG.md lines that use unspaced arrows as historical shorthand —
+# release notes where a metric changed between versions. Only lines
+# matching one of these are exempted from Rule 6; new entries still
+# get checked. Patterns are intentionally narrow so accidental new
+# arrows in the CHANGELOG are flagged.
+#   \b[A-Z]+→[A-Z]+\b — PY→JS style migration notation (uppercase
+#     word, arrow, uppercase word; the \b anchors stop partial matches
+#     like `PYX→J` inside a longer identifier).
+#   \d+(?:\D*→\D*|→)\d+ — numeric deltas: `716→785`, `4→3`, and also
+#     `193KB→110KB` (units like KB, tests, etc. are permitted on either
+#     side because they're non-digit, non-arrow). Requires a digit on
+#     both sides so prose like `foo→bar` is not exempted.
+_CHANGELOG_HISTORICAL_ARROW_RE = re.compile(
+    r"\b[A-Z]+\u2192[A-Z]+\b"
+    r"|\d+(?:\D*\u2192\D*|\u2192)\d+"
+)
 
 MOJIBAKE_RE = re.compile(
     f"â[{re.escape(_CP1252_FOLLOWS)}]"
@@ -179,10 +223,15 @@ def _has_spacing_violation(text: str) -> bool:
     """Return ``True`` if ``text`` has a Rule 6 spacing violation.
 
     Em-dash or arrow glued to a letter, digit, or common punctuation.
-    The BEFORE pattern for em-dash uses a backslash-lookbehind so the
-    ``\n—`` escape sequence (em-dash at the start of a logical line) is
-    skipped. Double-quote is deliberately absent from the BEFORE class
-    to avoid flagging em-dash that opens a quoted or f-string body.
+    BEFORE and AFTER character classes are asymmetric (see the class
+    comment above the regex definitions): BEFORE includes ``)`` so
+    ``foo—`` / ``list→`` trip the rule, but AFTER omits ``)`` so
+    parenthesized shapes like ``(→)`` / ``(—)`` read as token+delim and
+    are spared. Double-quote is absent from both sides so quoted
+    strings that start with or end in a dash stay clean. The BEFORE
+    pattern for em-dash uses a backslash-lookbehind so the
+    ``\\n\\u2014`` escape sequence (em-dash at the start of a logical
+    line) is skipped.
     """
     return bool(
         _EMDASH_AFTER_RE.search(text)
@@ -201,12 +250,17 @@ def _find_hits(raw: bytes, filepath: str = "") -> list[tuple[int, str]]:
     UTF-8 decoding. Each line is split and decoded exactly once — the
     caller prints the decoded text returned here rather than re-decoding.
 
-    ``skip_spacing`` bypasses Rule 6 for files that legitimately contain
-    its signatures (this checker itself, its tests, historical CHANGELOG
-    size-delta lines).
+    Files whose basename is in ``_SPACING_SKIP_FILES`` (this checker and
+    its tests) bypass Rule 6 entirely. ``CHANGELOG.md`` is not skipped
+    wholesale — instead, individual lines carrying the historical
+    release-note arrow patterns (``PY→JS``, ``193KB→110KB``,
+    ``716→785``) are exempted on a per-line basis so new
+    CHANGELOG entries still get checked.
     """
     hits: list[tuple[int, str]] = []
     filepath_name = filepath.rsplit("/", 1)[-1].rsplit("\\", 1)[-1]
+    skip_spacing = filepath_name in _SPACING_SKIP_FILES
+    is_changelog = filepath_name == "CHANGELOG.md"
     for lineno, line in enumerate(raw.split(b"\n"), 1):
         if FFFD in line:
             hits.append((lineno, line.decode("utf-8", errors="replace").rstrip()))
@@ -223,7 +277,9 @@ def _find_hits(raw: bytes, filepath: str = "") -> list[tuple[int, str]]:
         if MOJIBAKE_RE.search(text):
             hits.append((lineno, text))
             continue
-        if filepath_name in _SPACING_SKIP_FILES:
+        if skip_spacing:
+            continue
+        if is_changelog and _CHANGELOG_HISTORICAL_ARROW_RE.search(text):
             continue
         if _has_spacing_violation(text):
             hits.append((lineno, text))
