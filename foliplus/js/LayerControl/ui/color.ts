@@ -11,7 +11,6 @@
 import type { CreateColorAPI } from "#core/layer/index.js";
 import * as CONST from "../const.js";
 import type { LayerUI } from "./index.js";
-import type { ListPanel } from "./listPanel.js";
 
 const getColorSurface = (ui: LayerUI): CreateColorAPI => {
   if (!ui.colorSurface) {

@@ -17,15 +17,14 @@ import { applyProjection, applyProjectionAll } from "./apply.js";
 import { applyNameProjection } from "./context.js";
 import type { LayerUI } from "./index.js";
 import { INTENT, LIVE, getIntent } from "./intent.js";
-import type { ListPanel } from "./listPanel.js";
 
 // CONFIG is a free variable from the IIFE template wrapper (see BaseControl._template).
 const log = createLogger(CONFIG.name);
 
 /** Load every persisted dimension in one call. */
-const loadPersistedState = (lp: ListPanel, ui: LayerUI) => {
+const loadPersistedState = (ui: LayerUI) => {
   const state = ui.m.persistence.load();
-  lp.foldedGroups = new Set(state.foldedGroups);
+  ui.listPanel.foldedGroups = new Set(state.foldedGroups);
   // Intent values + provenance sink into the store. Read order is the compat
   // contract: the current `layers[id].annotation` key WINS, the legacy
   // top-level `annotations` segment is the fallback underneath (write-new /
@@ -39,8 +38,10 @@ const loadPersistedState = (lp: ListPanel, ui: LayerUI) => {
 
 /** Save fold state to localStorage. */
 
-const saveFoldState = (lp: ListPanel) => {
-  lp.m.persistence.schedule({ foldedGroups: () => [...lp.foldedGroups] });
+const saveFoldState = (ui: LayerUI) => {
+  ui.listPanel.m.persistence.schedule({
+    foldedGroups: () => [...ui.listPanel.foldedGroups],
+  });
 };
 
 /** Whether one dimension still holds a live value. An override with none means

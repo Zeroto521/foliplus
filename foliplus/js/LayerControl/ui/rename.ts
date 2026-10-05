@@ -8,7 +8,6 @@ import {
 import * as CONST from "../const.js";
 import type { LayerUI } from "./index.js";
 import { INTENT, setIntent } from "./intent.js";
-import type { OverlayPanel } from "./overlayPanel.js";
 import { displayName } from "./rowView.js";
 import { saveNamesState } from "./state.js";
 import { closeOverlays } from "./teardown.js";
@@ -22,7 +21,7 @@ import { closeOverlays } from "./teardown.js";
  * trailing space in the committed name would otherwise render as a zero-width
  * gap, so the value is trimmed on commit.
  */
-const renameLayer = (op: OverlayPanel, ui: LayerUI, layerId: string): void => {
+const renameLayer = (ui: LayerUI, layerId: string): void => {
   if (!layerId || !ui.uiContainer) return;
 
   // Validate before tearing down: an unknown id or a row without a label would
@@ -36,13 +35,13 @@ const renameLayer = (op: OverlayPanel, ui: LayerUI, layerId: string): void => {
   const label = item?.querySelector("label") as HTMLLabelElement | null;
   if (!label) return;
 
-  closeOverlays(ui.overlayPanel);
+  closeOverlays(ui);
 
   // displayName resolves rename →registry →the color layer's locale label,
   // so the input opens with the name the UI already shows.
   const currentName = displayName(ui, layerId);
 
-  op.activeRenameId = layerId;
+  ui.overlayPanel.activeRenameId = layerId;
   // Flag the row so CSS can stretch the input across the label+count area
   // (matching the SearchControl field's full extent) while editing.
   item?.classList.add(CONST.CLASSES.RENAMING);
@@ -54,7 +53,7 @@ const renameLayer = (op: OverlayPanel, ui: LayerUI, layerId: string): void => {
     // Only commit on blur while this is still the active rename. Enter/Escape
     // call finishRename() which sets activeRenameId=null and removes the
     // focused input →that removal fires a blur that must not re-commit.
-    isActive: () => op.activeRenameId === layerId,
+    isActive: () => ui.overlayPanel.activeRenameId === layerId,
     onCommit: trimmed => {
       const changed = trimmed !== currentName;
       if (changed) {
@@ -66,7 +65,7 @@ const renameLayer = (op: OverlayPanel, ui: LayerUI, layerId: string): void => {
         saveNamesState(ui);
         ui.applyUserState();
       }
-      finishRename(op, ui, true);
+      finishRename(ui, true);
     },
     onCancel: reason => {
       // Only an empty-name commit is a user mistake worth flagging;
@@ -88,9 +87,9 @@ const renameLayer = (op: OverlayPanel, ui: LayerUI, layerId: string): void => {
       // blur from re-committing. Enter and blur have no document-level
       // handler to reach, so they tear down immediately.
       if (reason === "escape") {
-        setTimeout(() => finishRename(op, ui, true), 0);
+        setTimeout(() => finishRename(ui, true), 0);
       } else {
-        finishRename(op, ui, true);
+        finishRename(ui, true);
       }
     },
   });
@@ -103,10 +102,10 @@ const renameLayer = (op: OverlayPanel, ui: LayerUI, layerId: string): void => {
  *   after (used internally to avoid a double write).
  */
 
-const finishRename = (op: OverlayPanel, ui: LayerUI, restoreText = true): void => {
-  if (!op.activeRenameId) return;
-  const layerId = op.activeRenameId;
-  op.activeRenameId = null;
+const finishRename = (ui: LayerUI, restoreText = true): void => {
+  if (!ui.overlayPanel.activeRenameId) return;
+  const layerId = ui.overlayPanel.activeRenameId;
+  ui.overlayPanel.activeRenameId = null;
   if (!ui.uiContainer) return;
 
   const layerInfo = ui.m.layerRegistry.get(layerId);

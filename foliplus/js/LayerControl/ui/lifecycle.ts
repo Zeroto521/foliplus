@@ -62,13 +62,13 @@ import {
  */
 const attachUI = (ui: LayerUI, containerDiv: HTMLElement): void => {
   ui.m.uiContainer = containerDiv;
-  loadPersistedState(ui.listPanel, ui);
-  renderInitialList(ui.listPanel, ui);
+  loadPersistedState(ui);
+  renderInitialList(ui);
   bindEvents(ui);
 
   while (ui.m.pendingRegistrations.length) {
     const layerInfo = ui.m.pendingRegistrations.shift();
-    if (layerInfo) insertLayerItem(ui.listPanel, ui, layerInfo);
+    if (layerInfo) insertLayerItem(ui, layerInfo);
   }
   // Snapshot the author's declared default before the first projection.
   // `projectLayer` reads `runtimeStore.getAuthorVisible(id) ?? true` — an absent entry
@@ -90,7 +90,7 @@ const attachUI = (ui: LayerUI, containerDiv: HTMLElement): void => {
   ui.applyUserState();
   // Re-apply ARIA/roving after insertLayerItem / applyUserState may have
   // rebuilt rows.
-  syncListCursor(ui.listPanel, ui);
+  syncListCursor(ui);
 
   // Refresh counts synchronously now. Counts are cheap to compute (the
   // provider is invoked on demand; a missing Canvas just returns null),
@@ -151,12 +151,12 @@ const bindEvents = (ui: LayerUI): void => {
         ) as HTMLInputElement | null;
         return !c || !c.checked;
       });
-      toggleAll(ui.listPanel, ui, group, noneChecked);
+      toggleAll(ui, group, noneChecked);
       return;
     }
-    handleChange(ui.listPanel, ui, event);
+    handleChange(ui, event);
   };
-  ui.onInput = event => handleInput(event);
+  ui.onInput = event => handleInput();
   ui.onClick = event => {
     const el = event.target as HTMLElement;
     // A press inside a row's floating panel (attributes / style) is the
@@ -189,14 +189,14 @@ const bindEvents = (ui: LayerUI): void => {
 
     const toggleAllEl = el.closest(CONST.SEL.TOGGLE_ALL) as HTMLElement | null;
     if (!toggleAllEl || el.closest('[data-role="toggle-all"]')) return;
-    toggleFold(ui.listPanel, ui, toggleAllEl.dataset.group ?? "");
+    toggleFold(ui, toggleAllEl.dataset.group ?? "");
   };
 
-  ui.onDragStart = event => handleDragStart(ui.listPanel, ui, event);
-  ui.onDragOver = event => handleDragOver(ui.listPanel, ui, event);
+  ui.onDragStart = event => handleDragStart(ui, event);
+  ui.onDragOver = event => handleDragOver(ui, event);
   ui.onDragLeave = event => handleDragLeave(event);
-  ui.onDrop = event => handleDrop(ui.listPanel, ui, event);
-  ui.onDragEnd = () => handleDragEnd(ui.listPanel, ui);
+  ui.onDrop = event => handleDrop(ui, event);
+  ui.onDragEnd = () => handleDragEnd(ui);
   // A real focus move is the cursor: once focus lands on a row (or a child
   // control), that row is the keyboard target.
   //
@@ -255,7 +255,7 @@ const bindEvents = (ui: LayerUI): void => {
   // works for rows created after bindEvents (registerLayer at runtime).
   ui.onMoreClick = event => handleMoreClick(ui, event);
   ui.onMoreMenuClick = event => handleMoreMenuClick(ui, event);
-  ui.onMoreMapClick = () => closeMoreMenu(ui.overlayPanel, false);
+  ui.onMoreMapClick = () => closeMoreMenu(ui, false);
   container.addEventListener("click", ui.onMoreClick);
   // Menu click must be on document because the menu is positioned absolute
   // and may visually overflow the panel bounds.
@@ -292,7 +292,7 @@ const bindEvents = (ui: LayerUI): void => {
   signalHandlers.push(
     bus.on(EVENTS.LAYER_ITEM_ADDED, (payload: { id: string }) => {
       const layerInfo = registry.get(payload.id);
-      if (layerInfo) insertLayerItem(ui.listPanel, ui, layerInfo);
+      if (layerInfo) insertLayerItem(ui, layerInfo);
     }),
     bus.on(EVENTS.LAYER_ITEM_UPDATED, (payload: { id: string }) => {
       const layerInfo = registry.get(payload.id);
@@ -309,11 +309,11 @@ const bindEvents = (ui: LayerUI): void => {
       dropStyleDimApplies(payload.id);
     }),
     bus.on(EVENTS.LAYER_GROUP_COUNT_CHANGED, (payload: { group: string }) => {
-      syncToggleAll(ui.listPanel, ui, payload.group);
+      syncToggleAll(ui, payload.group);
     }),
     bus.on(EVENTS.LAYER_LIST_REBUILD, () => {
-      renderInitialList(ui.listPanel, ui);
-      initTypesAndVisibility(ui.listPanel, ui);
+      renderInitialList(ui);
+      initTypesAndVisibility(ui);
       refreshAllCounts(ui);
     }),
     bus.on(EVENTS.LAYER_NO_BASEMAP_CHANGED, () => {
@@ -324,12 +324,12 @@ const bindEvents = (ui: LayerUI): void => {
     // is about to open sees "I'm not open" and no-ops. Focus is guarded by
     // isFocusing so the O(layers) applyProjectionAll sweep only runs when
     // there is actually a focus to tear down.
-    bus.on(EVENTS.OVERLAY_CLEAR, () => closeMoreMenu(ui.overlayPanel, true)),
-    bus.on(EVENTS.OVERLAY_CLEAR, () => closeAttrsPanel(ui.overlayPanel, ui, false)),
-    bus.on(EVENTS.OVERLAY_CLEAR, () => closeStylePanel(ui.overlayPanel, ui, false)),
-    bus.on(EVENTS.OVERLAY_CLEAR, () => finishRename(ui.overlayPanel, ui)),
+    bus.on(EVENTS.OVERLAY_CLEAR, () => closeMoreMenu(ui, true)),
+    bus.on(EVENTS.OVERLAY_CLEAR, () => closeAttrsPanel(ui, false)),
+    bus.on(EVENTS.OVERLAY_CLEAR, () => closeStylePanel(ui, false)),
+    bus.on(EVENTS.OVERLAY_CLEAR, () => finishRename(ui)),
     bus.on(EVENTS.OVERLAY_CLEAR, () => {
-      if (ui.isFocusing()) dismissFocus(ui.focusController, ui);
+      if (ui.isFocusing()) dismissFocus(ui);
     }),
   );
   ui.unsubscribeLayerSignals = signalHandlers;
@@ -388,11 +388,11 @@ const unbindEvents = (ui: LayerUI): void => {
   // here would only reach whatever subscribers are still listening, so call
   // the close functions directly. OVERLAY_CLEAR is reserved for the
   // "open A, close B" user-driven mutual exclusion.
-  closeMoreMenu(ui.overlayPanel, false);
-  closeStylePanel(ui.overlayPanel, ui, false);
-  finishRename(ui.overlayPanel, ui, true);
+  closeMoreMenu(ui, false);
+  closeStylePanel(ui, false);
+  finishRename(ui, true);
   // Remove any focus animation still in flight (rect + row highlight).
-  dismissFocus(ui.focusController, ui);
+  dismissFocus(ui);
   if (ui.onChange) container.removeEventListener("change", ui.onChange);
   if (ui.onInput) container.removeEventListener("input", ui.onInput);
   if (ui.onClick) container.removeEventListener("click", ui.onClick);
@@ -409,7 +409,7 @@ const unbindEvents = (ui: LayerUI): void => {
   }
   if (ui.onMoreMapClick) ui.m.map.off("click", ui.onMoreMapClick);
   if (ui.onZoomEnd) ui.m.map.off("zoomend", ui.onZoomEnd);
-  clearActiveItem(ui.listPanel, ui);
+  clearActiveItem(ui);
   ui.listPanel.listCursor?.destroy();
   ui.listPanel.listCursor = null;
   ui.listPanel.interactionCleanup?.();

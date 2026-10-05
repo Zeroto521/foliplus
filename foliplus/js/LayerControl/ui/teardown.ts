@@ -1,7 +1,6 @@
 // LayerControl UI — Mutual-exclusion overlay teardown.
 import { EVENTS } from "#core/event/index.js";
 import type { LayerUI } from "./index.js";
-import type { OverlayPanel } from "./overlayPanel.js";
 
 /**
  * Tear down every surface that competes for the same spot: the map's own
@@ -37,14 +36,14 @@ import type { OverlayPanel } from "./overlayPanel.js";
  * The map-popup sweep stays here because Leaflet popups are not a foliplus
  * overlay and have no subscribe-able surface of their own.
  */
-const closeOverlays = (op: OverlayPanel): void => {
+const closeOverlays = (ui: LayerUI): void => {
   // The map's own popup, cleared with the foliplus surfaces: it is Leaflet's,
   // so no panel opener ever saw it. No-op when nothing is open.
-  op.m.map.closePopup();
+  ui.overlayPanel.m.map.closePopup();
   // A folium GeoJsonPopup binds onto each sublayer (parent.bindPopup in the
   // GeoJson template), not onto map._popup — closePopup above only reaches
   // map-level popups. Sweep the layers so feature-bound popups close too.
-  op.m.map.eachLayer(layer => layer.closePopup?.());
+  ui.overlayPanel.m.map.eachLayer(layer => layer.closePopup?.());
   // Sublayer-bound popups outlive both map-level calls (the factory-bound
   // popup is not the one closePopup tracks, and eachLayer stops at top-level
   // layers). A recursive closePopup over the layer tree was tried and failed
@@ -55,7 +54,7 @@ const closeOverlays = (op: OverlayPanel): void => {
   // subscribe to this event in bindEvents and close themselves. The caller
   // of closeOverlays is about to open one of them — the matching subscriber
   // sees "I'm not open yet" and is a no-op.
-  op.events.emit(EVENTS.OVERLAY_CLEAR);
+  ui.overlayPanel.events.emit(EVENTS.OVERLAY_CLEAR);
 };
 
 export { closeOverlays };

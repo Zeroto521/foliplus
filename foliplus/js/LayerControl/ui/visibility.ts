@@ -4,7 +4,6 @@ import { type Debounced, debounce } from "#common/debounce.js";
 import * as CONST from "../const.js";
 import { applyProjection, applyProjectionAll } from "./apply.js";
 import type { LayerUI } from "./index.js";
-import type { ListPanel } from "./listPanel.js";
 import { intentVisibleOf } from "./projection.js";
 import { applyRowView, buildRowCell } from "./rowView.js";
 import { saveState, setVisible } from "./state.js";
@@ -40,7 +39,7 @@ const syncNoBasemap = (ui: LayerUI): void => {
   }
 };
 
-const toggleAll = (lp: ListPanel, ui: LayerUI, group: string, newState: boolean) => {
+const toggleAll = (ui: LayerUI, group: string, newState: boolean) => {
   const items = getLayerItems(ui, group);
   items.forEach((item: Element) => {
     const checkbox = item.querySelector(
@@ -72,17 +71,17 @@ const toggleAll = (lp: ListPanel, ui: LayerUI, group: string, newState: boolean)
 
   // Reconcile the group's count from intent: every row's intent was just
   // rewritten, so a full scan is correct and cheap here (batch operation).
-  syncToggleAll(lp, ui, group);
+  syncToggleAll(ui, group);
   syncNoBasemap(ui);
   ui.m.debouncedEnforce();
 };
 
-/** Full rescan that populates `lp.checkedCount[group]` from the DOM + intent,
+/** Full rescan that populates `ui.listPanel.checkedCount[group]` from the DOM + intent,
  *  then writes the toggle-all checkbox off the fresh count. Called only at
  *  reconcile points (attach, insert, delete, reload, bulk toggleAll) — the
  *  single-row click path uses `bumpCheckedCount` + `syncToggleAllFromCount`
  *  to keep the update O(1). */
-const syncToggleAll = (lp: ListPanel, ui: LayerUI, group: string) => {
+const syncToggleAll = (ui: LayerUI, group: string) => {
   const row = ui.uiContainer.querySelector(
     `${CONST.SEL.TOGGLE_ALL}[data-group="${group}"]`,
   );
@@ -106,15 +105,15 @@ const syncToggleAll = (lp: ListPanel, ui: LayerUI, group: string) => {
   }
   // Tolerate a caller that constructs a thin LayerUI stub without
   // initializing the counter map (tests, late-attached panels).
-  lp.checkedCount ??= {};
-  lp.checkedCount[group] = { total, on };
-  writeToggleAllCheckbox(lp, allCb, group);
+  ui.listPanel.checkedCount ??= {};
+  ui.listPanel.checkedCount[group] = { total, on };
+  writeToggleAllCheckbox(ui, allCb, group);
 };
 
 /** Write the toggle-all checkbox straight from the cached `checkedCount`.
  *  O(1) — no querySelectorAll scan. Called by `bumpCheckedCount` on the
  *  single-row click path so the tri-state is fresh in the same frame. */
-const syncToggleAllFromCount = (lp: ListPanel, ui: LayerUI, group: string): void => {
+const syncToggleAllFromCount = (ui: LayerUI, group: string): void => {
   const row = ui.uiContainer.querySelector(
     `${CONST.SEL.TOGGLE_ALL}[data-group="${group}"]`,
   );
@@ -123,20 +122,20 @@ const syncToggleAllFromCount = (lp: ListPanel, ui: LayerUI, group: string): void
     '[data-role="toggle-all"]',
   ) as HTMLInputElement | null;
   if (!allCb) return;
-  writeToggleAllCheckbox(lp, allCb, group);
+  writeToggleAllCheckbox(ui, allCb, group);
 };
 
 const writeToggleAllCheckbox = (
-  lp: ListPanel,
+  ui: LayerUI,
   allCb: HTMLInputElement,
   group: string,
 ): void => {
-  const c = lp.checkedCount?.[group] ?? { total: 0, on: 0 };
+  const c = ui.listPanel.checkedCount?.[group] ?? { total: 0, on: 0 };
   const allChecked = c.total > 0 && c.on === c.total;
   const noneChecked = c.on === 0;
   allCb.checked = allChecked;
   allCb.indeterminate = !allChecked && !noneChecked;
-  allCb.title = lp.T(
+  allCb.title = ui.listPanel.T(
     allChecked || allCb.indeterminate
       ? "toggle_all_deselect_tooltip"
       : "toggle_all_select_tooltip",
@@ -154,19 +153,14 @@ const writeToggleAllCheckbox = (
  *  already reflects the transition this caller just recorded, so no delta
  *  needs applying. After the first reconcile the counter is populated and
  *  every later call is O(1). */
-const bumpCheckedCount = (
-  lp: ListPanel,
-  ui: LayerUI,
-  group: string,
-  delta: number,
-): void => {
-  if (!lp.checkedCount?.[group]) {
-    syncToggleAll(lp, ui, group);
+const bumpCheckedCount = (ui: LayerUI, group: string, delta: number): void => {
+  if (!ui.listPanel.checkedCount?.[group]) {
+    syncToggleAll(ui, group);
     return;
   }
-  const c = lp.checkedCount[group];
+  const c = ui.listPanel.checkedCount[group];
   c.on += delta;
-  syncToggleAllFromCount(lp, ui, group);
+  syncToggleAllFromCount(ui, group);
 };
 
 /**
@@ -196,12 +190,7 @@ const bumpCheckedCount = (
  *
  * @returns true if the layer id resolved to a registry entry.
  */
-const applyVisibility = (
-  lp: ListPanel,
-  ui: LayerUI,
-  id: string,
-  visible: boolean,
-): boolean => {
+const applyVisibility = (ui: LayerUI, id: string, visible: boolean): boolean => {
   const layerInfo = ui.m.layerRegistry.get(id);
   if (!layerInfo) return false;
   const item = ui.uiContainer?.querySelector(
@@ -219,7 +208,7 @@ const applyVisibility = (
   const newChecked = intentVisibleOf(ui, id);
   const group = layerInfo.group;
   const delta = newChecked === oldChecked ? 0 : newChecked ? 1 : -1;
-  bumpCheckedCount(lp, ui, group, delta);
+  bumpCheckedCount(ui, group, delta);
 
   // Overlay toggles cannot change the visible-basemap count (syncNoBasemap
   // only reads `group === GROUP.BASE`), so skip for overlay: the call was pure O(n) waste
@@ -240,7 +229,7 @@ const applyVisibility = (
   return true;
 };
 
-const handleChange = (lp: ListPanel, ui: LayerUI, event: Event) => {
+const handleChange = (ui: LayerUI, event: Event) => {
   const target = event.target as HTMLInputElement;
   if (target.tagName.toLowerCase() !== "input" || target.type !== "checkbox") return;
 
@@ -250,10 +239,10 @@ const handleChange = (lp: ListPanel, ui: LayerUI, event: Event) => {
   const row = target.closest(CONST.SEL.LAYER_ITEM);
   const id = row?.getAttribute(CONST.DATA.LAYER_ID);
   if (!id) return;
-  applyVisibility(lp, ui, id, target.checked);
+  applyVisibility(ui, id, target.checked);
 };
 
-const handleInput = (_event: Event) => {};
+const handleInput = () => {};
 
 export {
   getLayerItems,

@@ -9,7 +9,6 @@ import * as SVGs from "../icon.js";
 import * as Util from "../util.js";
 import { ATTRS_ROW_WRAP_CHARS } from "./context.js";
 import type { LayerUI } from "./index.js";
-import type { OverlayPanel } from "./overlayPanel.js";
 import { displayName } from "./rowView.js";
 import { closeOverlays } from "./teardown.js";
 
@@ -22,8 +21,8 @@ import { closeOverlays } from "./teardown.js";
  * "—. The color basemap is included (it carries no provider data, but the
  * fixed rows still read).
  */
-const openAttrsPanel = (op: OverlayPanel, ui: LayerUI, item: HTMLElement) => {
-  closeOverlays(op);
+const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
+  closeOverlays(ui);
 
   const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
   const isColor = layerId === CONST.SOLID_BASEMAP_ID;
@@ -178,15 +177,18 @@ const openAttrsPanel = (op: OverlayPanel, ui: LayerUI, item: HTMLElement) => {
   // Live update: subscribe to LAYER_ITEM_COUNT_CHANGE (filtered by layerId)
   // so meta rows refresh in place when the store mutates.
   if (!isColor && layerId && layerInfo?.metaProvider) {
-    op.attrsUnsubscribe = ui.events.on(EVENTS.LAYER_ITEM_COUNT_CHANGE, ({ id }) => {
-      if (id !== layerId) return;
-      dlEl.replaceWith(renderList([...rows, ...buildMetaRows()]));
-    });
+    ui.overlayPanel.attrsUnsubscribe = ui.events.on(
+      EVENTS.LAYER_ITEM_COUNT_CHANGE,
+      ({ id }) => {
+        if (id !== layerId) return;
+        dlEl.replaceWith(renderList([...rows, ...buildMetaRows()]));
+      },
+    );
   }
 
   // Header click dismisses, matching bindPanelToggle on the main panels.
   // The × sits inside the header, so one listener covers both.
-  header.addEventListener("click", () => closeAttrsPanel(op, ui, true));
+  header.addEventListener("click", () => closeAttrsPanel(ui, true));
 
   // The panel sits inside a draggable layer row: a press on the panel must
   // neither start a row drag nor inherit `user-select: none`. The mousedown is
@@ -203,11 +205,11 @@ const openAttrsPanel = (op: OverlayPanel, ui: LayerUI, item: HTMLElement) => {
   // press on the map or another foliplus control would never close the
   // panel otherwise. Capture also gives this handler the first look at every
   // press, which is what makes it the right place to record the drag verdict.
-  op.attrsOutsideHandler = (event: MouseEvent) => {
+  ui.overlayPanel.attrsOutsideHandler = (event: MouseEvent) => {
     const t = event.target as HTMLElement | null;
     // Document-level dispatch can name `document` itself — no closest().
     if (!t || typeof t.closest !== "function") {
-      closeAttrsPanel(op, ui, false);
+      closeAttrsPanel(ui, false);
       return;
     }
     if (t.closest(`.${CONST.CLASSES.ATTRS_PANEL}`)) {
@@ -215,30 +217,34 @@ const openAttrsPanel = (op: OverlayPanel, ui: LayerUI, item: HTMLElement) => {
       return;
     }
     ui.listPanel.pressInPanel = false;
-    closeAttrsPanel(op, ui, false);
+    closeAttrsPanel(ui, false);
   };
-  document.addEventListener("mousedown", op.attrsOutsideHandler, true);
+  document.addEventListener("mousedown", ui.overlayPanel.attrsOutsideHandler, true);
 
-  op.activeAttrsPanel = { item, panel, layerId };
+  ui.overlayPanel.activeAttrsPanel = { item, panel, layerId };
 };
 
 /** Close the attributes panel. setFocus = true returns focus to the row. */
 
-const closeAttrsPanel = (op: OverlayPanel, ui: LayerUI, setFocus: boolean) => {
-  if (op.attrsOutsideHandler) {
-    document.removeEventListener("mousedown", op.attrsOutsideHandler, true);
-    op.attrsOutsideHandler = null;
+const closeAttrsPanel = (ui: LayerUI, setFocus: boolean) => {
+  if (ui.overlayPanel.attrsOutsideHandler) {
+    document.removeEventListener(
+      "mousedown",
+      ui.overlayPanel.attrsOutsideHandler,
+      true,
+    );
+    ui.overlayPanel.attrsOutsideHandler = null;
   }
-  if (op.attrsUnsubscribe) {
-    op.attrsUnsubscribe();
-    op.attrsUnsubscribe = null;
+  if (ui.overlayPanel.attrsUnsubscribe) {
+    ui.overlayPanel.attrsUnsubscribe();
+    ui.overlayPanel.attrsUnsubscribe = null;
   }
   // No panel, no panel press: a stale verdict would block the next real drag.
   ui.listPanel.pressInPanel = false;
-  if (!op.activeAttrsPanel) return;
-  const item = op.activeAttrsPanel.item;
-  op.activeAttrsPanel.panel.remove();
-  op.activeAttrsPanel = null;
+  if (!ui.overlayPanel.activeAttrsPanel) return;
+  const item = ui.overlayPanel.activeAttrsPanel.item;
+  ui.overlayPanel.activeAttrsPanel.panel.remove();
+  ui.overlayPanel.activeAttrsPanel = null;
   if (setFocus) item.focus();
 };
 

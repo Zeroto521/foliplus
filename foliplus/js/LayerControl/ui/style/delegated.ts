@@ -10,7 +10,6 @@ import { BORDER_WEIGHT } from "#common/form.js";
 import * as CONST from "../../const.js";
 import * as SVGs from "../../icon.js";
 import type { LayerUI } from "../index.js";
-import type { OverlayPanel } from "../overlayPanel.js";
 import { bindBorderRowShell, buildBorderRowShell } from "./border.js";
 import { appendResetFooter } from "./frame.js";
 import { DIM_ORDER, gatedRows } from "./registry.js";
@@ -83,7 +82,6 @@ const buildBorderRow = (ui: LayerUI, layerId: string): HTMLElement | null => {
  *  styleDefaultsProvider (the Python CONFIG snapshot). Returns null when the layer has
  *  no delegation (falls through to the annotation panel). */
 const renderDelegatedStylePanel = (
-  op: OverlayPanel,
   ui: LayerUI,
   layerId: string,
 ): HTMLElement | null => {
@@ -116,7 +114,7 @@ const renderDelegatedStylePanel = (
 
   // Refresh label controls and (if present) the border inputs off styleProvider,
   // skipping whatever is under activeElement.
-  op.styleRefresh = () => {
+  ui.overlayPanel.styleRefresh = () => {
     baseRefresh();
     if (!borderRow) return;
     const v = entry()?.styleProvider?.() as

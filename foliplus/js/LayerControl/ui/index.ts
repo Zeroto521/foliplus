@@ -7,7 +7,6 @@ import {
   LayerIntentStore,
   LayerRuntimeStore,
 } from "#core/layer/index.js";
-import { ListCursor } from "#core/listCursor.js";
 import * as CONST from "../const.js";
 import type { LayerManager } from "../manager.js";
 import { applyProjection, applyProjectionAll } from "./apply.js";
@@ -228,10 +227,10 @@ class LayerUI {
 
   // ── delegates: state ──
   loadPersistedState() {
-    return loadPersistedState(this.listPanel, this);
+    return loadPersistedState(this);
   }
   saveFoldState() {
-    return saveFoldState(this.listPanel);
+    return saveFoldState(this);
   }
   setVisible(id: string, visible: boolean, persist: boolean = true) {
     return setVisible(this, id, visible, persist);
@@ -269,13 +268,13 @@ class LayerUI {
   }
   // ── delegates: list ──
   initTypesAndVisibility() {
-    return initTypesAndVisibility(this.listPanel, this);
+    return initTypesAndVisibility(this);
   }
   renderInitialList() {
-    return renderInitialList(this.listPanel, this);
+    return renderInitialList(this);
   }
   insertLayerItem(layerInfo: LayerInfo) {
-    return insertLayerItem(this.listPanel, this, layerInfo);
+    return insertLayerItem(this, layerInfo);
   }
   updateLayerItem(layerInfo: LayerInfo) {
     return updateLayerItem(this, layerInfo);
@@ -290,7 +289,7 @@ class LayerUI {
     return initLayerItem(this, layerInfo);
   }
   reindexAfterMove() {
-    return reindexAfterMove(this.listPanel, this);
+    return reindexAfterMove(this);
   }
 
   // ── delegates: visibility ──
@@ -298,19 +297,19 @@ class LayerUI {
     return getLayerItems(this, group);
   }
   toggleAll(group: string, newState: boolean) {
-    return toggleAll(this.listPanel, this, group, newState);
+    return toggleAll(this, group, newState);
   }
   syncToggleAll(group: string) {
-    return syncToggleAll(this.listPanel, this, group);
+    return syncToggleAll(this, group);
   }
   syncToggleAllFromCount(group: string) {
-    return syncToggleAllFromCount(this.listPanel, this, group);
+    return syncToggleAllFromCount(this, group);
   }
   syncNoBasemap() {
     return syncNoBasemap(this);
   }
   applyVisibility(id: string, visible: boolean) {
-    return applyVisibility(this.listPanel, this, id, visible);
+    return applyVisibility(this, id, visible);
   }
   /** The user's stored visibility choice for a layer id (persisted intent
    *  or the author's declared default). This is the panel checkbox's fact,
@@ -328,10 +327,10 @@ class LayerUI {
     return applyProjectionAll(this);
   }
   handleChange(event: Event) {
-    return handleChange(this.listPanel, this, event);
+    return handleChange(this, event);
   }
-  handleInput(event: Event) {
-    return handleInput(event);
+  handleInput() {
+    return handleInput();
   }
 
   // ── delegates: keyboard ──
@@ -339,19 +338,19 @@ class LayerUI {
     return getNavigableItems(this);
   }
   setActiveItem(index: number) {
-    return setActiveItem(this.listPanel, this, index);
+    return setActiveItem(this, index);
   }
   blurActiveItem() {
     return blurActiveItem(this);
   }
   clearActiveItem() {
-    return clearActiveItem(this.listPanel, this);
+    return clearActiveItem(this);
   }
   handleOutsideMousedown(event: MouseEvent) {
-    return handleOutsideMousedown(this.listPanel, this, event);
+    return handleOutsideMousedown(this, event);
   }
   handleKeyDown(event: KeyboardEvent) {
-    return handleKeyDown(this.listPanel, this, event);
+    return handleKeyDown(this, event);
   }
   handleDblClick(event: MouseEvent) {
     return handleDblClick(this, event);
@@ -368,22 +367,22 @@ class LayerUI {
     return resetSolidBasemap(this);
   }
   openMoreMenu(item: HTMLElement) {
-    return openMoreMenu(this.overlayPanel, this, item);
+    return openMoreMenu(this, item);
   }
   closeMoreMenu(setFocus: boolean) {
-    return closeMoreMenu(this.overlayPanel, setFocus);
+    return closeMoreMenu(this, setFocus);
   }
   openAttrsPanel(item: HTMLElement) {
-    return openAttrsPanel(this.overlayPanel, this, item);
+    return openAttrsPanel(this, item);
   }
   closeAttrsPanel(setFocus: boolean) {
-    return closeAttrsPanel(this.overlayPanel, this, setFocus);
+    return closeAttrsPanel(this, setFocus);
   }
   openStylePanel(layerId: string) {
-    return openStylePanel(this.overlayPanel, this, layerId);
+    return openStylePanel(this, layerId);
   }
   closeStylePanel(setFocus: boolean) {
-    return closeStylePanel(this.overlayPanel, this, setFocus);
+    return closeStylePanel(this, setFocus);
   }
   /** Part of the surface `manager` drives (`unregisterLayer` drops a layer's
    *  cached field list). Peer ui/ modules call the module function directly
@@ -406,19 +405,19 @@ class LayerUI {
     return applyStyleLabelState(this);
   }
   renameLayer(layerId: string) {
-    return renameLayer(this.overlayPanel, this, layerId);
+    return renameLayer(this, layerId);
   }
   finishRename(cancel?: boolean) {
-    return finishRename(this.overlayPanel, this, cancel);
+    return finishRename(this, cancel);
   }
   focusLayer(layerId: string) {
-    return focusLayer(this.focusController, this, layerId);
+    return focusLayer(this, layerId);
   }
   isFocusing() {
-    return isFocusing(this.focusController);
+    return isFocusing(this);
   }
   cancelFocus() {
-    return cancelFocus(this.focusController, this);
+    return cancelFocus(this);
   }
   // ── focus helpers (also used internally by focus.ts) ──
 }

@@ -6,7 +6,6 @@ import * as CONST from "../const.js";
 import * as SVGs from "../icon.js";
 import { focusDisabledLocaleKey, focusDisabledReason } from "./focus.js";
 import type { LayerUI } from "./index.js";
-import type { OverlayPanel } from "./overlayPanel.js";
 import { layerCanLabel, layerHasStyleDelegation } from "./style/index.js";
 import { closeOverlays } from "./teardown.js";
 
@@ -41,10 +40,10 @@ import { closeOverlays } from "./teardown.js";
  *
  * A new dimensions entry belongs with Style, not at the tail.
  */
-const openMoreMenu = (op: OverlayPanel, ui: LayerUI, item: HTMLElement) => {
+const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   // Tear down the competing overlays first. The rename teardown in
   // particular keeps the row's label text fresh before we read it below.
-  closeOverlays(ui.overlayPanel);
+  closeOverlays(ui);
 
   const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
   const menu = dom.el("ul", { class: "foliplus-layer-more-menu open", role: "menu" });
@@ -181,10 +180,10 @@ const openMoreMenu = (op: OverlayPanel, ui: LayerUI, item: HTMLElement) => {
   menu.addEventListener("focusout", event => {
     const next = (event as FocusEvent).relatedTarget as Node | null;
     if (next && (next === item || item.contains(next))) return;
-    if (!next || !menu.contains(next)) closeMoreMenu(op, false);
+    if (!next || !menu.contains(next)) closeMoreMenu(ui, false);
   });
 
-  op.activeMenu = { item, menu, layerId };
+  ui.overlayPanel.activeMenu = { item, menu, layerId };
 
   // Focus the first menu item so Enter/Space activate it and Escape closes.
   // The focus-layer entry is always appended first, so this is a straight cast.
@@ -302,16 +301,12 @@ const disarmDelete = (): void => {
  *  true when the delete fired and the menu should close; false means the entry
  *  was only armed, so the menu stays open and the user sees what they are about
  *  to confirm. */
-const activateDeleteItem = (
-  op: OverlayPanel,
-  ui: LayerUI,
-  li: HTMLElement,
-): boolean => {
+const activateDeleteItem = (ui: LayerUI, li: HTMLElement): boolean => {
   if (!li.classList.contains(CONST.CLASSES.MENU_DELETE_ARMED)) {
     armDelete(ui, li);
     return false;
   }
-  const layerId = op.activeMenu?.layerId ?? "";
+  const layerId = ui.overlayPanel.activeMenu?.layerId ?? "";
   disarmDelete();
   ui.m.deleteLayer(layerId);
   return true;
@@ -319,14 +314,14 @@ const activateDeleteItem = (
 
 /** Close the overflow menu. setFocus = true returns focus to the layer row. */
 
-const closeMoreMenu = (op: OverlayPanel, setFocus: boolean) => {
-  if (!op.activeMenu) return;
-  const item = op.activeMenu.item;
-  const menu = op.activeMenu.menu;
+const closeMoreMenu = (ui: LayerUI, setFocus: boolean) => {
+  if (!ui.overlayPanel.activeMenu) return;
+  const item = ui.overlayPanel.activeMenu.item;
+  const menu = ui.overlayPanel.activeMenu.menu;
   // Clear the pointer before removing: the removal can trigger the menu's own
   // focusout, which calls closeMoreMenu again — that re-entrant pass must see
   // null, not call remove() on a detached menu (NotFoundError).
-  op.activeMenu = null;
+  ui.overlayPanel.activeMenu = null;
   disarmDelete();
   menu.remove();
   if (setFocus) item.focus();

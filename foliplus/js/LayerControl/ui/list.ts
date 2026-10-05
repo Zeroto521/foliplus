@@ -8,7 +8,6 @@ import { getColorSurface } from "./color.js";
 import type { LayerUI } from "./index.js";
 import { cursorRef, restoreCursor } from "./keyboard.js";
 import { syncListCursor } from "./keyboard.js";
-import type { ListPanel } from "./listPanel.js";
 import {
   applyRowView,
   buildRowCell,
@@ -21,7 +20,7 @@ import { syncNoBasemap, syncToggleAll } from "./visibility.js";
 /** Full re-scan of every row (used on attach/fold-toggle). Idempotent —
  *  re-run on each CONTROL_ATTACHED so late-registering components are
  *  folded in. Marks the panel ready for tests/consumers. */
-const initTypesAndVisibility = (lp: ListPanel, ui: LayerUI) => {
+const initTypesAndVisibility = (ui: LayerUI) => {
   // The colour basemap is a first-class base-group layer: `getColorSurface`
   // runs `surface.register()`, which inserts its LayerInfo through the
   // standard registerLayer path. All visibility / zoom / order machinery
@@ -58,24 +57,24 @@ const initTypesAndVisibility = (lp: ListPanel, ui: LayerUI) => {
     initLayerItem(ui, ui.m.layers[i]);
   }
   ui.m.enforceOrder();
-  syncToggleAll(lp, ui, GROUP.OVERLAY);
-  syncToggleAll(lp, ui, GROUP.BASE);
+  syncToggleAll(ui, GROUP.OVERLAY);
+  syncToggleAll(ui, GROUP.BASE);
   syncNoBasemap(ui);
   // enforceOrder may have moved rows; keep roving tabindex aligned.
-  syncListCursor(ui.listPanel, ui);
+  syncListCursor(ui);
   // Ready signal for tests: checkbox titles / .foliplus-active / counts are final
   // for the current layer set (late components re-trigger this pass and
   // re-set the attribute, so "ready" always reflects the latest pass).
   ui.uiContainer?.setAttribute("data-ready", "true");
 };
 
-const renderInitialList = (lp: ListPanel, ui: LayerUI) => {
+const renderInitialList = (ui: LayerUI) => {
   // Remember the cursor by identity — the item elements are rebuilt below,
   // so an element reference would dangle. Layer rows key on data-layer-id,
   // toggle-all rows on data-group (they have no layer id). The identity also
   // tracks the row through a reorder. Null means the cursor was never
   // established or Escape cleared it, and either way it should stay cleared.
-  const ref = cursorRef(lp, ui);
+  const ref = cursorRef(ui);
   const frag = document.createDocumentFragment();
   let hasBaseMaps = false;
   let hasOverlays = false;
@@ -83,15 +82,17 @@ const renderInitialList = (lp: ListPanel, ui: LayerUI) => {
   for (const layerInfo of ui.m.layers) {
     if (layerInfo.group !== GROUP.BASE && !hasOverlays) {
       hasOverlays = true;
-      frag.appendChild(renderToggleAllRow(lp, GROUP.OVERLAY, "data_layer_label"));
+      frag.appendChild(renderToggleAllRow(ui, GROUP.OVERLAY, "data_layer_label"));
     }
     if (layerInfo.group === GROUP.BASE && !hasBaseMaps) {
       hasBaseMaps = true;
-      frag.appendChild(renderToggleAllRow(lp, GROUP.BASE, "base_map_label"));
+      frag.appendChild(renderToggleAllRow(ui, GROUP.BASE, "base_map_label"));
     }
     const group = layerInfo.group;
     const item = renderLayerItem(ui, layerInfo);
-    if (lp.foldedGroups.has(group)) item.classList.add(CONST.CLASSES.GROUP_FOLDED);
+    if (ui.listPanel.foldedGroups.has(group)) {
+      item.classList.add(CONST.CLASSES.GROUP_FOLDED);
+    }
     frag.appendChild(item);
   }
 
@@ -100,21 +101,21 @@ const renderInitialList = (lp: ListPanel, ui: LayerUI) => {
 
   // ARIA + roving tabindex on the rebuilt rows. setIndex follows activeIdx
   // without painting the cursor class — restoreCursor() owns that visual.
-  syncListCursor(ui.listPanel, ui);
+  syncListCursor(ui);
 
   // Re-home the cursor on the rebuilt element and restore DOM focus. The
   // rebuild destroys the previously focused node, dropping focus to <body>;
   // the keyboard shortcuts are dispatched by a document-level listener whose
   // container guard requires focus inside the panel, so without this the
   // cursor dies the moment the list is rebuilt (e.g. after a fold click).
-  restoreCursor(ui.listPanel, ui, ref);
+  restoreCursor(ui, ref);
 };
 
 /** Ensure the shared ListCursor and re-apply ARIA / roving tabindex.
  *  setIndex, not adopt: callers that already painted FOCUSED (keyboard /
  *  restoreCursor) must keep it; only the pointer path adopts (strips). */
 
-const insertLayerItem = (lp: ListPanel, ui: LayerUI, layerInfo: LayerInfo) => {
+const insertLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
   const idx = ui.m.layerRegistry.indexOf(layerInfo);
   if (idx === -1) return;
   const container = ui.uiContainer;
@@ -130,14 +131,16 @@ const insertLayerItem = (lp: ListPanel, ui: LayerUI, layerInfo: LayerInfo) => {
   if (!firstOfGroup) {
     frag.appendChild(
       renderToggleAllRow(
-        lp,
+        ui,
         group,
         group === GROUP.BASE ? "base_map_label" : "data_layer_label",
       ),
     );
   }
   const item = renderLayerItem(ui, layerInfo);
-  if (lp.foldedGroups.has(group)) item.classList.add(CONST.CLASSES.GROUP_FOLDED);
+  if (ui.listPanel.foldedGroups.has(group)) {
+    item.classList.add(CONST.CLASSES.GROUP_FOLDED);
+  }
   frag.appendChild(item);
 
   if (!firstOfGroup) {
@@ -173,7 +176,7 @@ const insertLayerItem = (lp: ListPanel, ui: LayerUI, layerInfo: LayerInfo) => {
   snapshotAuthorVisible(ui, layerInfo);
   ui.applyUserState(layerInfo.id);
   // New row must join the roving tabindex / ARIA set.
-  syncListCursor(ui.listPanel, ui);
+  syncListCursor(ui);
 };
 
 const updateLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
@@ -187,8 +190,8 @@ const updateLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
   updateItemLabel(item, displayName(ui, layerInfo.id));
 };
 
-const renderToggleAllRow = (lp: ListPanel, group: string, labelKey: string) => {
-  const isFolded = lp.foldedGroups.has(group);
+const renderToggleAllRow = (ui: LayerUI, group: string, labelKey: string) => {
+  const isFolded = ui.listPanel.foldedGroups.has(group);
   return dom.el(
     "div",
     {
@@ -197,7 +200,7 @@ const renderToggleAllRow = (lp: ListPanel, group: string, labelKey: string) => {
         (isFolded ? ` ${CONST.CLASSES.FOLDED}` : ""),
       tabindex: "0",
       "data-group": group,
-      title: lp.T(isFolded ? "unfold_tooltip" : "fold_tooltip"),
+      title: ui.listPanel.T(isFolded ? "unfold_tooltip" : "fold_tooltip"),
     },
     dom.el(
       "button",
@@ -213,10 +216,10 @@ const renderToggleAllRow = (lp: ListPanel, group: string, labelKey: string) => {
         type: "checkbox",
         "data-role": "toggle-all",
         checked: "",
-        title: lp.T("toggle_all_deselect_tooltip"),
+        title: ui.listPanel.T("toggle_all_deselect_tooltip"),
       }),
     ),
-    dom.el("span", { class: CONST.CLASSES.SEPARATOR_LABEL }, lp.T(labelKey)),
+    dom.el("span", { class: CONST.CLASSES.SEPARATOR_LABEL }, ui.listPanel.T(labelKey)),
     dom.el("div", { class: "foliplus-section-divider" }),
   );
 };
@@ -320,9 +323,9 @@ const initLayerItem = (ui: LayerUI, layerInfo: LayerInfo): boolean => {
 /** Reindex all layer items after a move, preserving the active focus position.
  *  renderInitialList already re-homes the cursor and restores DOM focus, so
  *  no additional focus work is needed here. */
-const reindexAfterMove = (lp: ListPanel, ui: LayerUI): void => {
-  renderInitialList(lp, ui);
-  initTypesAndVisibility(lp, ui);
+const reindexAfterMove = (ui: LayerUI): void => {
+  renderInitialList(ui);
+  initTypesAndVisibility(ui);
   ui.refreshAllCounts();
 };
 

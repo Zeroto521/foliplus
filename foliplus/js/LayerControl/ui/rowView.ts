@@ -20,7 +20,6 @@ import * as SVGs from "../icon.js";
 import * as Util from "../util.js";
 import type { LayerUI } from "./index.js";
 import { INTENT, getIntent } from "./intent.js";
-import type { ListPanel } from "./listPanel.js";
 import { intentVisibleOf, projectLayer } from "./projection.js";
 
 /** One layer's inputs to the row visual. Nothing here is written back. */

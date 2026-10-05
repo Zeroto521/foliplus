@@ -25,7 +25,6 @@ import * as CONST from "../../const.js";
 import * as SVGs from "../../icon.js";
 import { authorZoomBoundsForLayer } from "../apply.js";
 import type { LayerUI } from "../index.js";
-import type { OverlayPanel } from "../overlayPanel.js";
 import { closeOverlays } from "../teardown.js";
 import { bindBorderRow, resetLayerBorder } from "./border.js";
 import { layerHasStyleDelegation, renderDelegatedStylePanel } from "./delegated.js";
@@ -46,15 +45,11 @@ import {
 
 /** Build the style panel DOM for a layer. Returns null when the layer owns
  *  neither a capable Label dimension nor a capable Layer dimension. */
-const renderStylePanel = (
-  op: OverlayPanel,
-  ui: LayerUI,
-  layerId: string,
-): HTMLElement | null => {
+const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
   // Third-party canvas layers (heatmap, measure) declare their own controls
   // via styleSetters — render those instead of the annotation panel.
   if (layerHasStyleDelegation(ui, layerId)) {
-    return renderDelegatedStylePanel(op, ui, layerId);
+    return renderDelegatedStylePanel(ui, layerId);
   }
   // Both sections are discovered through the dimension registry: the Layer
   // section by `DIM_ORDER`, the Label section by `LABEL_DIM_ORDER` — one
@@ -102,20 +97,20 @@ const renderStylePanel = (
 /** Open the annotation style panel for a layer. The panel is anchored to the
  *  layer's own row — the same "drop below the trigger" rule the attributes
  *  panel uses — so it needs no positioning code at all. */
-const openStylePanel = (op: OverlayPanel, ui: LayerUI, layerId: string): void => {
+const openStylePanel = (ui: LayerUI, layerId: string): void => {
   if (!layerId) return;
 
   // The row-lookup guard runs before teardown: an unknown id would clear
   // whatever the user had open and then fail to open anything. The panel
-  // render stays after closeOverlays —`renderDelegatedStylePanel` sets
+  // render stays after closeOverlays — `renderDelegatedStylePanel` sets
   // `ui.overlayPanel.styleRefresh` on this call, which `closeStylePanel` would wipe.
   const item = ui.uiContainer.querySelector(
     `${CONST.SEL.LAYER_ITEM}[${CONST.DATA.LAYER_ID}="${CSS.escape(layerId)}"]`,
   ) as HTMLElement | null;
   if (!item) return;
 
-  closeOverlays(ui.overlayPanel);
-  const panel = renderStylePanel(op, ui, layerId);
+  closeOverlays(ui);
+  const panel = renderStylePanel(ui, layerId);
   if (!panel) return;
 
   // The panel sits inside a draggable layer row: a press on the panel must
@@ -198,7 +193,7 @@ const openStylePanel = (op: OverlayPanel, ui: LayerUI, layerId: string): void =>
       bubble.textContent = String(pct);
     }
 
-    commitOpacityPct(ui, layerId, panel, raw, commit);
+    commitOpacityPct(ui, layerId, panel, raw);
     return true;
   };
 
@@ -390,10 +385,10 @@ const openStylePanel = (op: OverlayPanel, ui: LayerUI, layerId: string): void =>
         // collide switch untouched.
         applyPatch(ui, layerId, { ...ui.m.annotation.defaultConfig() });
       }
-      closeStylePanel(op, ui, true);
+      closeStylePanel(ui, true);
       return;
     }
-    if (t.closest(".foliplus-panel-header")) closeStylePanel(op, ui, true);
+    if (t.closest(".foliplus-panel-header")) closeStylePanel(ui, true);
   });
 
   item.style.position = "relative";
@@ -403,11 +398,11 @@ const openStylePanel = (op: OverlayPanel, ui: LayerUI, layerId: string): void =>
   // layer control stops bubble-phase mousedown from reaching document, so a
   // press on the map or another foliplus control would never close the
   // panel otherwise.
-  op.styleOutsideHandler = (event: MouseEvent) => {
+  ui.overlayPanel.styleOutsideHandler = (event: MouseEvent) => {
     const t = event.target as HTMLElement | null;
     // Document-level dispatch can name `document` itself — no closest().
     if (!t || typeof t.closest !== "function") {
-      closeStylePanel(op, ui, false);
+      closeStylePanel(ui, false);
       return;
     }
     if (t.closest(`.${CONST.CLASSES.STYLE_PANEL}`)) {
@@ -415,9 +410,9 @@ const openStylePanel = (op: OverlayPanel, ui: LayerUI, layerId: string): void =>
       return;
     }
     ui.listPanel.pressInPanel = false;
-    closeStylePanel(op, ui, false);
+    closeStylePanel(ui, false);
   };
-  document.addEventListener("mousedown", op.styleOutsideHandler, true);
+  document.addEventListener("mousedown", ui.overlayPanel.styleOutsideHandler, true);
 
   // When the component's own panel changes a style value while this drawer is
   // open, pull the fresh values and refresh the controls. The shared module's
@@ -425,8 +420,8 @@ const openStylePanel = (op: OverlayPanel, ui: LayerUI, layerId: string): void =>
   // one under activeElement.
   if (delegated) {
     const bus = ui.m.events;
-    const refresh = op.styleRefresh;
-    op.styleUnsubscribe = bus.on(
+    const refresh = ui.overlayPanel.styleRefresh;
+    ui.overlayPanel.styleUnsubscribe = bus.on(
       EVENTS.LAYER_STYLE_CHANGE,
       (payload: { id: string }) => {
         if (payload.id !== layerId) return;
@@ -443,31 +438,37 @@ const openStylePanel = (op: OverlayPanel, ui: LayerUI, layerId: string): void =>
     `.${CONST.CLASSES.STYLE_ZOOM_RANGE_ROW}`,
   ) as HTMLElement | null;
   if (zoomRangeRow) {
-    op.styleZoomEndHandler = () => {
+    ui.overlayPanel.styleZoomEndHandler = () => {
       syncZoomRangeRow(ui, layerId, zoomRangeRow);
     };
-    ui.m.map.on("zoomend", op.styleZoomEndHandler);
+    ui.m.map.on("zoomend", ui.overlayPanel.styleZoomEndHandler);
   }
 
-  op.stylePanelLayerId = layerId;
+  ui.overlayPanel.stylePanelLayerId = layerId;
 };
 
 /** Close the style panel. setFocus = true returns focus to the layer row. */
-const closeStylePanel = (op: OverlayPanel, ui: LayerUI, setFocus: boolean): void => {
+const closeStylePanel = (ui: LayerUI, setFocus: boolean): void => {
   // A pending apply frame (fill and/or border) must land before the panel
   // disappears: closing is a commit boundary, not a cancel (reset cancels
   // explicitly). One hook covers both faces.
-  if (op.stylePanelLayerId) flushStyleDimApplies(op.stylePanelLayerId);
-  if (op.styleOutsideHandler) {
-    document.removeEventListener("mousedown", op.styleOutsideHandler, true);
-    op.styleOutsideHandler = null;
+  if (ui.overlayPanel.stylePanelLayerId) {
+    flushStyleDimApplies(ui.overlayPanel.stylePanelLayerId);
   }
-  op.styleUnsubscribe?.();
-  op.styleUnsubscribe = null;
-  op.styleRefresh = null;
-  if (op.styleZoomEndHandler) {
-    ui.m.map.off("zoomend", op.styleZoomEndHandler);
-    op.styleZoomEndHandler = null;
+  if (ui.overlayPanel.styleOutsideHandler) {
+    document.removeEventListener(
+      "mousedown",
+      ui.overlayPanel.styleOutsideHandler,
+      true,
+    );
+    ui.overlayPanel.styleOutsideHandler = null;
+  }
+  ui.overlayPanel.styleUnsubscribe?.();
+  ui.overlayPanel.styleUnsubscribe = null;
+  ui.overlayPanel.styleRefresh = null;
+  if (ui.overlayPanel.styleZoomEndHandler) {
+    ui.m.map.off("zoomend", ui.overlayPanel.styleZoomEndHandler);
+    ui.overlayPanel.styleZoomEndHandler = null;
   }
   // No panel, no panel press: a stale verdict would block the next real drag.
   ui.listPanel.pressInPanel = false;
@@ -475,14 +476,14 @@ const closeStylePanel = (op: OverlayPanel, ui: LayerUI, setFocus: boolean): void
     `.${CONST.CLASSES.STYLE_PANEL}`,
   ) as HTMLElement | null;
   if (!panel) {
-    op.stylePanelLayerId = null;
+    ui.overlayPanel.stylePanelLayerId = null;
     return;
   }
   const item = panel.closest(CONST.SEL.LAYER_ITEM) as HTMLElement | null;
   // The field cache survives close/reopen: it is invalidated by
   // onLayerItemCountChange when a layer's features actually change, not on
   // every close (re-collecting on each open would defeat the cache).
-  op.stylePanelLayerId = null;
+  ui.overlayPanel.stylePanelLayerId = null;
   panel.remove();
   if (setFocus) item?.focus();
 };
