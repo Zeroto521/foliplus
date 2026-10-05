@@ -65,7 +65,6 @@ import {
   applyVisibility,
   getLayerItems,
   handleChange,
-  handleInput,
   syncNoBasemap,
   syncToggleAll,
   syncToggleAllFromCount,
@@ -131,7 +130,6 @@ class LayerUI {
   /** Cleanup for the geometry-focus marquee (focusin/focusout). */
   geometryMarqueeCleanup?: (() => void) | null;
   declare onChange: ((event: Event) => void) | null;
-  declare onInput: ((event: Event) => void) | null;
   declare onClick: ((event: Event) => void) | null;
   declare onFocusIn: ((event: FocusEvent) => void) | null;
   declare onFocusOut: ((event: FocusEvent) => void) | null;
@@ -402,9 +400,6 @@ class LayerUI {
   }
   handleChange(event: Event) {
     return handleChange(this, event);
-  }
-  handleInput(event: Event) {
-    return handleInput(this, event);
   }
 
   // ── delegates: keyboard ──
