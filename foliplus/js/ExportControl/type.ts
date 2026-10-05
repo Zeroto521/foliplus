@@ -76,6 +76,31 @@ interface RenderCtx {
   onProgress?: (percent: number) => void;
 }
 
+/** A tile descriptor computed by calcTiles. */
+interface TileDesc {
+  x: number;
+  y: number;
+  z: number;
+  url: string;
+  /** 1x URL to fall back to when a retina-only source 404s every {r} tile. */
+  fallback?: string;
+  left: number;
+  top: number;
+  size: number;
+  dx?: number;
+  dy?: number;
+  dw?: number;
+  dh?: number;
+}
+
+/** Per-layer tile load statistics, for the post-export CORS warning. */
+interface TileLoadStats {
+  /** Tiles the draw pass attempted to fetch. */
+  total: number;
+  /** Tiles whose fetch failed (CORS rejection, timeout, 404). */
+  failed: number;
+}
+
 export type {
   CropRect,
   CropState,
@@ -86,4 +111,6 @@ export type {
   LatLngPoint,
   RenderCtx,
   SavedBounds,
+  TileDesc,
+  TileLoadStats,
 };

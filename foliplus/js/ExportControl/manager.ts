@@ -8,9 +8,8 @@ import { type RafLoop } from "#common/rafLoop.js";
 import { cropMethods } from "./crop.js";
 import { registerInteractions } from "./interaction.js";
 import { persistenceMethods } from "./persistence.js";
-import { type TileLoadStats } from "./renderer/index.js";
 import { canvasToBlob, sessionMethods } from "./session.js";
-import type { CropRect, GeoBounds, SavedBounds } from "./type.js";
+import type { CropRect, GeoBounds, SavedBounds, TileLoadStats } from "./type.js";
 import {
   lockCropBox,
   removeCropBox,
