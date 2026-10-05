@@ -532,7 +532,7 @@ describe("applyVisibility", () => {
 // Manager façade
 //
 // `LayerManager.setVisible` is the `LayerAPI` entry point. It adds only the
-// pre-flight checks — id resolution, panel presence, the registry warning — 
+// pre-flight checks — id resolution, panel presence, the registry warning —
 // and then delegates, so a layer can be controlled from outside the panel.
 // ---------------------------------------------------------------------------
 
