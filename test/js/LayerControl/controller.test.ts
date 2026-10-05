@@ -292,7 +292,7 @@ describe("LayerController", () => {
     });
     const schedule = vi.spyOn(m.persistence, "schedule");
     m.ui = {
-      m,
+      c: m,
       invalidateFields: vi.fn(),
       syncToggleAll: vi.fn(),
       intentStore: makeStore(),
@@ -466,6 +466,14 @@ describe("LayerController", () => {
 
   it("unregisterLayer returns false for unknown id", () => {
     expect(manager.unregisterLayer("nonexistent")).toBe(false);
+  });
+
+  it("getLayerPanes falls back to the layer tree when nobody registered it", () => {
+    // A layer that never went through registerLayer has no surface in the
+    // stamp index, so resolveLayerPanes must read the pane names from the
+    // layer's own tree (PaneManager discovery) instead of the surface.
+    const orphan = { options: { pane: "customPane" } };
+    expect(manager.getLayerPanes(orphan)).toEqual(["customPane"]);
   });
 
   it("unregisterLayer sweeps child panes no longer referenced", () => {
@@ -712,6 +720,14 @@ describe("LayerController", () => {
     manager.registerLayer({ id: "x", name: "X", layer: new window.L.TileLayer() });
     manager.unregisterLayer("x");
     expect(manager.findLayer("x")).toBeNull();
+  });
+
+  it("findLayer takes a layer-info object without a live layer and falls through", () => {
+    // idOrInfo is a LayerInfo whose `layer` is still unresolved; the map has
+    // nothing under that id either, so the registry-entry branch and the map
+    // fallback both miss and the result is null.
+    const info = { id: "ghost", layer: null } as never;
+    expect(manager.findLayer(info)).toBeNull();
   });
 
   it("registerLayer uses incremental item init instead of full re-scan", () => {
@@ -1026,6 +1042,28 @@ describe("LayerController", () => {
     manager.map.hasLayer.mockReturnValue(false);
     manager.enforceOrder();
     expect(manager.lastAttribution).toBe("");
+  });
+
+  it("syncAttribution skips non-base entries while scanning for the top tile", () => {
+    // The scan walks from firstBaseIdx and normal ordering keeps overlays out
+    // of the base ladder — but a registry can hold an overlay between bases
+    // (e.g. after a raw replace), and the scan must skip it instead of
+    // treating it as a candidate attribution.
+    const tileA = new TileLayer();
+    const tileB = new TileLayer();
+    manager.map.hasLayer.mockImplementation(l => l === tileB);
+    manager.registerLayer({ id: "baseA", name: "A", layer: tileA, group: "base" });
+    manager.registerLayer({ id: "baseB", name: "B", layer: tileB, group: "base" });
+    const overlayInfo = manager.layerRegistry.get("overlay1")!;
+    // Force the interleaved layout: an invisible base, then the overlay, then
+    // a visible base — the visible tile must still win.
+    manager.layerRegistry.replace([
+      manager.layerRegistry.get("baseA")!,
+      overlayInfo,
+      manager.layerRegistry.get("baseB")!,
+    ]);
+    manager.syncAttribution();
+    expect(manager.lastAttribution).toBe("© OpenStreetMap");
   });
 
   it("syncAttribution falls back to the control's private table when Leaflet has no API", () => {
@@ -1453,7 +1491,7 @@ describe("LayerController", () => {
       ]);
       const save = vi.fn(() => saveState(m.ui));
       m.ui = {
-        m,
+        c: m,
         listPanel: {} as never,
         intentStore: makeStore(
           {
@@ -1526,7 +1564,7 @@ describe("LayerController", () => {
       const m = new LayerController(map, [{ id: "H", name: "H", group: "overlay" }]);
       const save = vi.fn(() => saveState(m.ui));
       m.ui = {
-        m,
+        c: m,
         listPanel: {} as never,
         intentStore: makeStore(
           { H: { visible: false, opacity: 0.35 } },
@@ -1773,7 +1811,7 @@ describe("LayerController", () => {
       applyUserState: (id: string) =>
         applyUserState(
           {
-            m: manager,
+            c: manager,
             uiContainer: manager.uiContainer,
             renamedNames: {},
             focusController: { focusingLayerId: null },
@@ -2022,7 +2060,7 @@ describe("LayerController", () => {
     });
     m.map.hasLayer.mockReturnValue(false);
     m.ui = {
-      m,
+      c: m,
       intentStore: makeStore(
         {
           overlay1: { opacity: 0.4, name: "Renamed" },
@@ -2715,7 +2753,7 @@ describe("LayerController", () => {
       manager.map.hasLayer.mockReturnValue(false);
       const save = vi.fn(() => saveState(manager.ui));
       manager.ui = {
-        m: manager,
+        c: manager,
         listPanel: {} as never,
         intentStore: makeStore(
           {
@@ -3704,6 +3742,108 @@ describe("LayerController user-assigned names", () => {
       const li = manager.layerRegistry.get("late");
       li.layer = { options: {} } as any;
       expect((manager as any).hasUnresolvedLayers()).toBe(false);
+    });
+  });
+
+  // ── LayerAPI contract ──
+  //
+  // LayerController is the map's LayerAPI implementation. A future refactor
+  // might rename, relocate, or drop a public member while the TypeScript
+  // `implements LayerAPI` check stays green (e.g. via a cast, a stub, or an
+  // interface widening). The assertions here pin the *runtime* surface: every
+  // member the LayerAPI interface declares must exist on a real
+  // LayerController instance and be the right kind of callable. They
+  // deliberately assert presence and shape, not behavior — the tests above
+  // cover behavior.
+
+  describe("LayerAPI contract", () => {
+    it("exposes every required LayerAPI member", () => {
+      const required = [
+        "isLayerControl",
+        "layers",
+        "registerLayer",
+        "unregisterLayer",
+        "deleteLayer",
+        "bringLayerToFront",
+        "setVisible",
+        "createCanvas",
+        "createLayers",
+        "extractPoints",
+        "getLayerPanes",
+        "getLayersByType",
+      ] as const;
+      for (const name of required) {
+        expect(name in manager, `missing ${name}`).toBe(true);
+      }
+    });
+
+    it("exposes every optional LayerAPI member", () => {
+      const optional = [
+        "forgetSavedOrder",
+        "dropPersistedLayerState",
+        "intentVisible",
+        "getFeatureCount",
+        "touchLayer",
+        "moveLayerUp",
+        "moveLayerDown",
+      ] as const;
+      for (const name of optional) {
+        expect(name in manager, `missing ${name}`).toBe(true);
+      }
+    });
+
+    it("implements every member with its declared callable shape", () => {
+      const functions: Array<[string, number]> = [
+        ["registerLayer", 1],
+        ["unregisterLayer", 1],
+        ["deleteLayer", 1],
+        ["forgetSavedOrder", 1],
+        ["dropPersistedLayerState", 1],
+        ["bringLayerToFront", 1],
+        ["setVisible", 2],
+        ["intentVisible", 1],
+        ["createCanvas", 1],
+        ["createLayers", 1],
+        ["extractPoints", 1],
+        ["getLayerPanes", 1],
+        ["getLayersByType", 1],
+        ["getFeatureCount", 1],
+        ["touchLayer", 1],
+        ["moveLayerUp", 1],
+        ["moveLayerDown", 1],
+      ] as const;
+      for (const [name, arity] of functions) {
+        expect(typeof (manager as any)[name], `${name} is callable`).toBe("function");
+        expect(
+          (manager as any)[name].length,
+          `${name} arity matches the interface`,
+        ).toBeLessThanOrEqual(arity * 2); // optional args (opts bag width) allowed
+      }
+    });
+
+    it("exposes the registry-delegating `layers` getter (isRealLayerControl probe)", () => {
+      const own = Object.getOwnPropertyDescriptor(manager, "layers");
+      const proto = Object.getOwnPropertyDescriptor(
+        Object.getPrototypeOf(manager),
+        "layers",
+      );
+      expect(Boolean(own && own.get) || Boolean(proto && proto.get)).toBe(true);
+    });
+
+    it("returns the real controller marker from isLayerControl", () => {
+      expect(manager.isLayerControl).toBe(true);
+    });
+
+    it("exposes `layers` as a read-only snapshot that refuses mutation", () => {
+      const view = manager.layers;
+      expect(Array.isArray(view)).toBe(true);
+      // The registry wraps its array in a read-only Proxy, not Object.freeze —
+      // isFrozen would be false by design. The contract that matters: a write
+      // through the view must throw, so consumers cannot rearrange the registry
+      // behind the controller's back.
+      expect(() => {
+        (view as unknown[]).push({} as never);
+      }).toThrow();
     });
   });
 });
