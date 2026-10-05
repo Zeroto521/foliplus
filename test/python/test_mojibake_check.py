@@ -437,6 +437,290 @@ class TestEmDashGlued:
         f.write_bytes("one \u2014 two\n".encode("utf-8"))
         assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 0
 
+    def test_quoted_em_dash_opening_is_clean(self, tmp_path, capsys, monkeypatch):
+        """Em-dash that opens a quoted or f-string body is not glued.
+
+        The BEFORE class deliberately omits the double-quote so that
+        f-string openings like f"— Python must not serialize..." and
+        quoted strings like "— a new one crept in" don't trip the rule.
+        Adding `"` to BEFORE would re-flag every legitimately quoted
+        string that starts with a dash.
+        """
+        f = tmp_path / "quoted_open.txt"
+        f.write_bytes(
+            'f.write_bytes("arrow\\n\u2014 em dash")\n'
+            'other = "\u2014 a new one crept in"\n'.encode("utf-8")
+        )
+        assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 0
+
+
+class TestArrowGlued:
+    """Arrow glued to ASCII (Rule 6 second half).
+
+    The ASCII arrow ``\u2192`` follows the same spacing convention as
+    the em-dash. Missing a space on either side is either mojibake
+    residue or a formatting error that should be fixed.
+    """
+
+    def test_arrow_glued_after_lowercase_is_flagged(
+        self, tmp_path, capsys, monkeypatch
+    ):
+        """Letter followed directly by arrow."""
+        f = tmp_path / "arrow_after.txt"
+        f.write_bytes("// visible\u2192hidden transition\n".encode("utf-8"))
+        assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 1
+
+    def test_arrow_glued_after_digit_is_flagged(self, tmp_path, capsys, monkeypatch):
+        """Digit followed directly by arrow."""
+        f = tmp_path / "arrow_after_num.txt"
+        f.write_bytes("the 4\u21923 rebind case\n".encode("utf-8"))
+        assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 1
+
+    def test_arrow_glued_before_is_flagged(self, tmp_path, capsys, monkeypatch):
+        """Arrow followed directly by a letter."""
+        f = tmp_path / "arrow_before.txt"
+        f.write_bytes("// the list \u2192map linkage\n".encode("utf-8"))
+        assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 1
+
+    def test_spaced_arrow_is_clean(self, tmp_path, capsys, monkeypatch):
+        """Arrow with spaces on both sides."""
+        f = tmp_path / "arrow_spaced.txt"
+        f.write_bytes("the list \u2192 map linkage\n".encode("utf-8"))
+        assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 0
+
+    def test_arrow_with_punctuation_after_is_flagged(
+        self, tmp_path, capsys, monkeypatch
+    ):
+        """Arrow glued to punctuation after (e.g. period) is flagged."""
+        f = tmp_path / "arrow_punct.txt"
+        f.write_bytes("remove \u2192add. then wait\n".encode("utf-8"))
+        assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 1
+
+    @pytest.mark.parametrize("punct", [".", ",", ";", ":", "!", "?"])
+    def test_arrow_with_glue_punctuation_after_is_flagged(
+        self, punct, tmp_path, capsys, monkeypatch
+    ):
+        """Every character in the AFTER punctuation set is glued."""
+        f = tmp_path / "arrow_punct.txt"
+        f.write_bytes(f"result \u2192value{punct} end\n".encode())
+        assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 1
+
+    def test_arrow_to_jsdoc_tag_is_flagged(self, tmp_path, capsys, monkeypatch):
+        """``→{@link}`` glued to the opening brace is flagged."""
+        f = tmp_path / "arrow_jsdoc.txt"
+        f.write_bytes(" * \u2192{@link target} resolves the token\n".encode("utf-8"))
+        assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 1
+
+    def test_arrow_before_punctuation_is_flagged(self, tmp_path, capsys, monkeypatch):
+        """``.→`` punctuation-before-arrow is flagged (before/after symmetry).
+
+        ARROW_BEFORE uses the same punctuation set as EMDASH_BEFORE so
+        that a period glued to an arrow trips just like a letter does.
+        """
+        f = tmp_path / "arrow_punct_before.txt"
+        f.write_bytes("end.\u2192 next\n".encode("utf-8"))
+        assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 1
+
+
+class TestArrowParenthesized:
+    """Arrow wrapped in ASCII brackets or quotes is not a spacing violation.
+
+    The arrow sits between an opening bracket/quote on the left and a
+    closing one on the right (or the reverse); neither side pairs with
+    the arrow in a way that reads as mojibake residue. The regex must
+    not treat these as "arrow glued to ASCII" just because the
+    neighbors happen to be non-space characters.
+    """
+
+    @pytest.mark.parametrize(
+        "content",
+        [
+            "(\u2192) marker\n",
+            "(\u2014) marker\n",
+            "(`\u2192`) marker\n",
+            "(`\u2014`) marker\n",
+            "'\u2192' marker\n",
+            "'\u2014' marker\n",
+            '"\u2192" marker\n',
+            '"\u2014" marker\n',
+        ],
+    )
+    def test_arrow_or_em_dash_wrapped_is_clean(
+        self, content, tmp_path, capsys, monkeypatch
+    ):
+        f = tmp_path / "wrapped.txt"
+        f.write_bytes(content.encode("utf-8"))
+        assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 0
+
+
+class TestEmDashWithPunctuationGlued:
+    """Em-dash glued to punctuation on the after side (Rule 6 second half).
+
+    The BEFORE class omits `"` to spare legitimately quoted strings, and
+    the AFTER class also omits `"` so `"—".` (the fixed attr.ts shape)
+    stays clean. The AFTER class does include `.` — that's what makes
+    the broken attr.ts form `"—.` trip the rule (the em-dash is glued to
+    a period on the right, not to the opening quote on the left).
+    """
+
+    def test_em_dash_glued_to_period_after_is_flagged(
+        self, tmp_path, capsys, monkeypatch
+    ):
+        """Em-dash followed by a period (broken attr.ts `"—.` shape)."""
+        f = tmp_path / "dash_period.txt"
+        f.write_bytes('* "\u2014. The color basemap is included\n'.encode("utf-8"))
+        assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 1
+
+    def test_em_dash_glued_to_quoted_is_clean(self, tmp_path, capsys, monkeypatch):
+        """The fixed form `"—".` — quote, em-dash, quote — is clean.
+
+        Neither `"` in the AFTER class nor `"` in the BEFORE class, so
+        the em-dash wrapped in quotes is not flagged.
+        """
+        f = tmp_path / "dash_quoted.txt"
+        f.write_bytes('* "—". The color basemap is included\n'.encode())
+        assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 0
+
+    def test_em_dash_glued_to_jsdoc_tag_is_flagged(self, tmp_path, capsys, monkeypatch):
+        """Em-dash directly before a `{` (JSDoc inline tag) is flagged.
+
+        ``{`` is in the AFTER class because ``—{@link foo}`` is the same
+        spacing shape as ``—.` ` — the em-dash is glued to a following
+        token with no space between. The fixed form ``— {@link foo}``
+        has the space and stays clean.
+        """
+        f = tmp_path / "dash_jsdoc.txt"
+        f.write_bytes(
+            " * \u2014{@link applyUserState} projects it then, unchanged.\n".encode(
+                "utf-8"
+            )
+        )
+        assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 1
+
+    def test_em_dash_before_spaced_jsdoc_tag_is_clean(
+        self, tmp_path, capsys, monkeypatch
+    ):
+        """``— {@link foo}`` (space between em-dash and JSDoc tag) is clean."""
+        f = tmp_path / "dash_jsdoc_clean.txt"
+        f.write_bytes(
+            " * \u2014 {@link applyUserState} projects it then, unchanged.\n".encode(
+                "utf-8"
+            )
+        )
+        assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 0
+
+    @pytest.mark.parametrize("punct", [",", ";", ":", "!", "?"])
+    def test_em_dash_with_glue_punctuation_after_is_flagged(
+        self, punct, tmp_path, capsys, monkeypatch
+    ):
+        """Every punctuation character in the AFTER set flags an em-dash."""
+        f = tmp_path / "dash_punct.txt"
+        f.write_bytes(f"text \u2014{punct} continuation\n".encode())
+        assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 1
+
+    def test_em_dash_glued_to_double_quote_after_is_clean(
+        self, tmp_path, capsys, monkeypatch
+    ):
+        """``—""`` is clean — the AFTER class omits the double-quote so
+        the fixed attr.ts form `"—".` (quote, em-dash, quote) is not
+        flagged on either quote side.
+        """
+        f = tmp_path / "dash_quote_after.txt"
+        f.write_bytes('* text \u2014" end\n'.encode("utf-8"))
+        assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 0
+
+
+class TestSpacingSkipFiles:
+    """Files that legitimately carry Rule 6 signatures are skipped.
+
+    ``mojibake_check.py`` (this checker) and ``test_mojibake_check.py``
+    contain the rule bodies and their test data — a full scan would
+    flag the checker itself. ``CHANGELOG.md`` keeps file-level skipping
+    off: the historical release notes carry a few arrows that are
+    semantic shorthand (``PY→JS`` for migration, ``193KB→110KB`` for
+    bundle size, ``716→785`` for test count), but new entries must
+    still be checked. The exemption is line-level and pattern-based:
+    only lines matching the historical-arrow regex are skipped.
+    """
+
+    def test_gate_file_skips_spacing_rule(self, tmp_path, capsys, monkeypatch):
+        """Filename match — write a Rule 6 pattern as `mojibake_check.py`.
+
+        The checker's own rule bodies and test data contain the
+        signatures Rule 6 catches, so scanning a file that carries the
+        checker's filename must not flag it.
+        """
+        f = tmp_path / "mojibake_check.py"
+        f.write_bytes("// x\u2192y\n".encode("utf-8"))
+        assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 0
+
+    def test_same_content_with_normal_filename_is_flagged(
+        self, tmp_path, capsys, monkeypatch
+    ):
+        """Same bytes, different filename — the spacing rule fires."""
+        f = tmp_path / "anything.py"
+        f.write_bytes("// x\u2192y\n".encode("utf-8"))
+        assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 1
+
+    def test_changelog_historical_arrow_line_is_exempt(
+        self, tmp_path, capsys, monkeypatch
+    ):
+        """Historical CHANGELOG lines matching the delta patterns are exempt.
+
+        ``PY→JS`` (migration notation), ``193KB→110KB`` (bundle size
+        delta), and ``716→785`` (test count delta) all use unspaced
+        arrows that are meaningful shorthand — a line-level exemption
+        keeps them readable while still catching new glued arrows.
+        """
+        f = tmp_path / "CHANGELOG.md"
+        f.write_bytes(
+            (
+                "- BaseControl: PY\u2192JS config injection\n"
+                "- Shared bundle: 193KB\u2192110KB reduction\n"
+                "- Build pipeline: 716\u2192785 tests\n"
+            ).encode("utf-8")
+        )
+        assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 0
+
+    def test_changelog_new_arrow_line_is_flagged(self, tmp_path, capsys, monkeypatch):
+        """Non-historical arrows in a CHANGELOG.md are still caught.
+
+        The exemption is scoped to lines matching the delta patterns;
+        a fresh entry that forgot a space around an arrow gets flagged
+        just like any other file.
+        """
+        f = tmp_path / "CHANGELOG.md"
+        f.write_bytes(
+            (
+                "- BaseControl: PY\u2192JS config injection\n"
+                "- New feature: foo\u2192bar without space\n"
+            ).encode("utf-8")
+        )
+        assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 1
+
+    def test_changelog_mixed_lines_only_flags_new(self, tmp_path, capsys, monkeypatch):
+        """Historical lines are exempt; only the new arrow line is flagged.
+
+        The line-level exemption means we catch the new violation without
+        also flagging the older delta lines in the same file.
+        """
+        f = tmp_path / "CHANGELOG.md"
+        f.write_bytes(
+            (
+                "- BaseControl: PY\u2192JS config injection\n"
+                "- Shared bundle: 193KB\u2192110KB reduction\n"
+                "- New feature: add\u2192apply state transition\n"
+            ).encode("utf-8")
+        )
+        result = _run([str(f)], capsys=capsys, monkeypatch=monkeypatch)
+        captured = capsys.readouterr()
+        assert result == 1
+        # Only the new arrow line should be reported — the two delta
+        # lines must be exempt.
+        lines = [l for l in captured.out.splitlines() if l.strip()]
+        assert len(lines) == 1
+        assert "apply" in lines[0]
+
 
 class TestTruncatedUtf8Sequence:
     """A UTF-8 multi-byte lead whose continuation byte was replaced with ``?``.

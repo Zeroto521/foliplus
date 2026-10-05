@@ -40,7 +40,6 @@ import {
 import type {
   AggregatedData,
   HeatmapPointMarker,
-  HexCell,
   HexFeature,
   SavedConfig,
   SelectedPoint,

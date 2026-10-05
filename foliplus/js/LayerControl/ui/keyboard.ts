@@ -4,19 +4,11 @@ import { isNativeControl } from "#core/inputOwnership.js";
 import { GROUP } from "#core/layer/index.js";
 import { ListCursor } from "#core/listCursor.js";
 import * as CONST from "../const.js";
-import { closeAttrsPanel } from "./attr.js";
 import { inFloatingPanel, owningRow } from "./context.js";
 import { toggleFold } from "./drag.js";
-import {
-  cancelFocus,
-  focusLayer,
-  isFocusing,
-  showFocusDisabledHint,
-  toggleFocusedLayer,
-} from "./focus.js";
+import { showFocusDisabledHint, toggleFocusedLayer } from "./focus.js";
 import type { LayerUI } from "./index.js";
-import { activateDeleteItem, closeMoreMenu, openMoreMenu } from "./menu.js";
-import { finishRename, renameLayer } from "./rename.js";
+import { activateDeleteItem } from "./menu.js";
 
 /** Ensure the shared ListCursor and re-apply ARIA / roving tabindex.
  *  setIndex, not adopt: callers that already painted FOCUSED (keyboard /
@@ -452,7 +444,7 @@ const focusLayerRow = (ui: LayerUI, layerId: string): void => {
     ?.focus();
 };
 
-/** Double-click on a layer row →focus the map on that layer.
+/** Double-click on a layer row → focus the map on that layer.
  *  Only dead space on the row counts: every row control is a denylist hit,
  *  and presses inside floating panels (style / attributes) are the panel's
  *  business — two quick toggles / menu clicks / rename edits / label-switch

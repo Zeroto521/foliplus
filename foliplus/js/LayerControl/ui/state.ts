@@ -11,7 +11,6 @@
 // unchanged.
 import { createLogger } from "#common/log.js";
 import * as CONST from "../const.js";
-import type { LayerManager } from "../manager.js";
 import type { LayerOverride } from "../type.js";
 import { applyProjection, applyProjectionAll } from "./apply.js";
 import { applyNameProjection } from "./context.js";
@@ -223,7 +222,7 @@ const applyUserState = (ui: LayerUI, id?: string) => {
  * Clear Data). A layer that is merely not registered right now must keep its
  * stored state, because the component that owns the id may register it later
  * in this session or on the next load
- * —{@link applyUserState} projects it then, unchanged.
+ * — {@link applyUserState} projects it then, unchanged.
  *
  * The value and its provenance leave together: a provenance marker with no
  * value would be a record claiming the user chose something the record no

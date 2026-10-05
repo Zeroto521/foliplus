@@ -21,13 +21,10 @@ import { GROUP, focusLayerZ } from "#foliplus/core/layer/index.js";
 import { ensureModes } from "#foliplus/core/mode.js";
 import {
   GridLayer,
-  allFolded,
   attachWithGroup,
   findItem,
   initFixture,
   makePane,
-  overlayFoldBtn,
-  pressKey,
 } from "./fixture.js";
 
 // ── Mocked core/mode — LayerControl.focusing ownership ──────
@@ -164,7 +161,7 @@ describe("LayerUI focusLayer — interaction lock", () => {
   });
 
   it("destroy() releases the focusing mode through unbindEvents → dismissFocus", () => {
-    const { manager, ui, map } = initFixture();
+    const { manager, ui } = initFixture();
 
     ui.focusLayer("overlay1");
     expect(getModeSpy("LayerControl")).toBe("focusing");

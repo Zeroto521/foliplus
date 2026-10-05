@@ -441,7 +441,7 @@ class AnnotationManager {
   private refresh(): void {
     if (this.canvases.size === 0) return;
     const container = this.map.getContainer();
-    const spec = (this.cachedSpec ??= specOf(container));
+    this.cachedSpec ??= specOf(container);
     const viewport = {
       x: 0,
       y: 0,

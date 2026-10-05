@@ -395,7 +395,7 @@ describe("attachPolygonUI — overlay open/close", () => {
       } as any,
     );
 
-    // Delete a node to trigger the 4→3 rebind.
+    // Delete a node to trigger the 4 → 3 rebind.
     const deletedNode = (makeDelIcon as any).mock.results[2].value as any;
     const survivor = (makeDelIcon as any).mock.results[3].value as any;
 

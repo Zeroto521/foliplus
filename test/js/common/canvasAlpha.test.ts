@@ -1,5 +1,5 @@
 // canvasAlpha — shared layer-alpha bake helpers (R11).
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
   drawAlpha,
   getLayerAlpha,

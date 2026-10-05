@@ -1,6 +1,6 @@
 // LayerControl UI — Layer attributes panel.
 import { EVENTS } from "#core/event/index.js";
-import { GEOM_TYPE, GROUP } from "#core/layer/index.js";
+import { GROUP } from "#core/layer/index.js";
 import { createRowPanel } from "#core/leaflet/index.js";
 import { dom } from "#common/dom.js";
 import { formatNumber, formatTimestamp } from "#common/format.js";
@@ -18,7 +18,7 @@ import { closeOverlays } from "./teardown.js";
  * third-party `meta` entries passed to registerLayer.
  *
  * Rows are omitted when they carry no value — a panel is not padded with
- * "—. The color basemap is included (it carries no provider data, but the
+ * "—". The color basemap is included (it carries no provider data, but the
  * fixed rows still read).
  */
 const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {

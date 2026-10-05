@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { METHOD } from "#core/classify.js";
 import * as CONST from "#foliplus/HeatmapControl/const.js";
-import { HeatmapManager } from "#foliplus/HeatmapControl/manager.js";
 import { makeManager } from "./fixture.js";
 
 describe("HeatmapManager — versioned persisted config", () => {

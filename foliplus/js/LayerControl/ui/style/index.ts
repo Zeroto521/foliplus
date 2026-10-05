@@ -28,7 +28,7 @@ import type { LayerUI } from "../index.js";
 import { closeOverlays } from "../teardown.js";
 import { bindBorderRow, resetLayerBorder } from "./border.js";
 import { layerHasStyleDelegation, renderDelegatedStylePanel } from "./delegated.js";
-import { bindFillRow, replayFillState, resetLayerFill } from "./fill.js";
+import { bindFillRow, resetLayerFill } from "./fill.js";
 import { appendResetFooter, railPos } from "./frame.js";
 import { applyPatch, layerFields, syncFormatRow } from "./label.js";
 import { clampPct, commitOpacityPct, resetLayerOpacity } from "./opacity.js";
@@ -193,7 +193,7 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
       bubble.textContent = String(pct);
     }
 
-    commitOpacityPct(ui, layerId, panel, raw, commit);
+    commitOpacityPct(ui, layerId, panel, raw);
     return true;
   };
 

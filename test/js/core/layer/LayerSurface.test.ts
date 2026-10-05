@@ -114,7 +114,7 @@ beforeEach(() => {
 
 describe("LayerSurface pane resolution", () => {
   it("takes the declared pane as base and never synthesizes one", () => {
-    const { map, host } = makeMap();
+    const { host } = makeMap();
     const surface = new LayerSurface(host, {
       id: "a",
       layer: new Path() as unknown as L.Layer,
@@ -128,7 +128,7 @@ describe("LayerSurface pane resolution", () => {
   });
 
   it("appends sub-panes in declaration order, without a renderer each", () => {
-    const { map, host } = makeMap();
+    const { host } = makeMap();
     const surface = new LayerSurface(host, {
       id: "a",
       layer: new Path() as unknown as L.Layer,
@@ -184,7 +184,7 @@ describe("LayerSurface pane resolution", () => {
   });
 
   it("gives a canvas pane no renderer", () => {
-    const { map, host } = makeMap();
+    const { host } = makeMap();
     const surface = new LayerSurface(host, {
       id: "heat",
       layer: null,
@@ -200,7 +200,7 @@ describe("LayerSurface pane resolution", () => {
     // kinds, so a colour layer must be able to interleave with two tile
     // layers. A TileLayer that stayed in the shared tilePane could only
     // order itself inside that one stack — retired.
-    const { map, host } = makeMap();
+    const { host } = makeMap();
     const surface = new LayerSurface(host, {
       id: "tiles",
       layer: new TileLayer() as unknown as L.Layer,
@@ -211,7 +211,7 @@ describe("LayerSurface pane resolution", () => {
   });
 
   it("adopts the child panes the layer's own tree names", () => {
-    const { map, panes, host } = makeMap();
+    const { panes, host } = makeMap();
     host.registerPaneSpecs(specs("own"));
     const child = new Path();
     child.options.pane = "own";
@@ -231,7 +231,7 @@ describe("LayerSurface pane resolution", () => {
   });
 
   it("synthesizes a stamp-named pane when the layer declares none", () => {
-    const { map, host } = makeMap();
+    const { host } = makeMap();
     const layer = new Group([new Marker()]);
     const surface = new LayerSurface(host, {
       id: "plain",
@@ -248,7 +248,7 @@ describe("LayerSurface pane resolution", () => {
     // Whether a pane's content takes a hit is that content's own call:
     // AnnotationCanvas writes `none` on itself, a data canvas is re-enabled by
     // the canvas rule in LayerControl/focus.css. The surface stays out of it.
-    const { map, panes, host } = makeMap();
+    const { panes, host } = makeMap();
     new LayerSurface(host, {
       id: "mixed",
       layer: new Path() as unknown as L.Layer,
@@ -263,7 +263,7 @@ describe("LayerSurface pane resolution", () => {
     // specs("graph","label") with paneName="graph" → the slice(1) loop sees
     // only "label". If someone passes specs("graph","graph"), the second "graph"
     // must not create a second pane with the same name.
-    const { map, panes, host } = makeMap();
+    const { panes, host } = makeMap();
     const surface = new LayerSurface(host, {
       id: "dup",
       layer: new Path() as unknown as L.Layer,
@@ -280,7 +280,7 @@ describe("LayerSurface pane resolution", () => {
 
 describe("LayerSurface.materialize", () => {
   it("routes a declared layer before it joins the map (I1)", () => {
-    const { map, host } = makeMap();
+    const { host } = makeMap();
     const layer = new Path();
     const surface = new LayerSurface(host, {
       id: "a",
@@ -296,7 +296,7 @@ describe("LayerSurface.materialize", () => {
   it("leaves a declared container's children to the caller's routing", () => {
     // createLayers picks a sub-pane per leaf; pinning the tree here would
     // collapse every leaf onto the base pane.
-    const { map, host } = makeMap();
+    const { host } = makeMap();
     const child = new Path();
     const group = new Group([child]);
     const surface = new LayerSurface(host, {
@@ -311,7 +311,7 @@ describe("LayerSurface.materialize", () => {
   });
 
   it("pins a synthesized surface's whole tree", () => {
-    const { map, host } = makeMap();
+    const { host } = makeMap();
     const child = new Marker();
     const layer = new Group([child]);
     const surface = new LayerSurface(host, {
@@ -330,7 +330,7 @@ describe("LayerSurface.materialize", () => {
   it("costs nothing once the content has settled", () => {
     // The property the ordering pass depends on: a pass over materialized
     // surfaces writes z and never walks a tree again.
-    const { map, host } = makeMap();
+    const { host } = makeMap();
     const reconcile = vi.spyOn(host, "pinLateContent");
     const surface = new LayerSurface(host, {
       id: "plain",
@@ -344,7 +344,7 @@ describe("LayerSurface.materialize", () => {
   });
 
   it("reconciles again once the content is marked dirty", () => {
-    const { map, host } = makeMap();
+    const { host } = makeMap();
     const reconcile = vi.spyOn(host, "pinLateContent");
     const surface = new LayerSurface(host, {
       id: "plain",
@@ -359,7 +359,7 @@ describe("LayerSurface.materialize", () => {
   });
 
   it("pins content that arrives after materialization", () => {
-    const { map, host } = makeMap();
+    const { host } = makeMap();
     const group = new Group();
     const surface = new LayerSurface(host, {
       id: "plain",
@@ -410,7 +410,7 @@ describe("LayerSurface.materialize", () => {
   });
 
   it("no-ops when the layer is null (canvas surface)", () => {
-    const { map, host } = makeMap();
+    const { host } = makeMap();
     const surface = new LayerSurface(host, {
       id: "heat",
       layer: null,
@@ -429,7 +429,7 @@ describe("LayerSurface.materialize", () => {
     // pane, which is what makes the ordering ladder (surface.setZ) reach
     // it. Without a pane here, z would live on the shared tilePane's
     // children and two basemaps could not be interleaved with a colour.
-    const { map, host } = makeMap();
+    const { host } = makeMap();
     const surface = new LayerSurface(host, {
       id: "tiles",
       layer: new TileLayer() as unknown as L.Layer,
@@ -445,7 +445,7 @@ describe("LayerSurface.setZ", () => {
   it("writes each pane's z as base + its own order, pane by pane", () => {
     // Three panes (graph, node, label — the shape MeasureControl paints) so the
     // offset is checked for the third pane too, not just the first sub-pane.
-    const { map, panes, host } = makeMap();
+    const { panes, host } = makeMap();
     const declared = specs("graph", "node", "label");
     host.registerPaneSpecs(declared);
     const graph = new Path();
@@ -467,7 +467,7 @@ describe("LayerSurface.setZ", () => {
   });
 
   it("writes the synthesized pane's z", () => {
-    const { map, panes, host } = makeMap();
+    const { panes, host } = makeMap();
     const surface = new LayerSurface(host, {
       id: "plain",
       layer: new Group([new Marker()]) as unknown as L.Layer,
@@ -610,7 +610,7 @@ describe("LayerSurface.setZOverride / restoreZ", () => {
       const z = ["graph", "node", "label", "ann"].map(n =>
         Number(panes[n].style.zIndex),
       );
-      return z.map((a, i) => z.map((b, j) => Math.sign(a - b)));
+      return z.map(a => z.map(b => Math.sign(a - b)));
     };
     surface.setZ(620);
     const ordered = relations();
@@ -624,7 +624,7 @@ describe("LayerSurface.setZOverride / restoreZ", () => {
 
 describe("LayerSurface.matches", () => {
   it("is true only for the same layer object and the same declaration", () => {
-    const { map, host } = makeMap();
+    const { host } = makeMap();
     const layer = new Group();
     const surface = new LayerSurface(host, {
       id: "a",
@@ -775,7 +775,7 @@ describe("LayerSurface.matches", () => {
 
 describe("LayerSurface.destroy", () => {
   it("releases only the pane it synthesized", () => {
-    const { map, panes, host } = makeMap();
+    const { panes, host } = makeMap();
     const synthesized = new LayerSurface(host, {
       id: "plain",
       layer: new Group([new Marker()]) as unknown as L.Layer,
@@ -867,7 +867,7 @@ describe("LayerSurface.geometryType / invalidate", () => {
 
 describe("LayerSurface capabilities", () => {
   it("reports opacity none for a MarkerClusterGroup layer", () => {
-    const { map, host } = makeMap();
+    const { host } = makeMap();
     const cluster = new MarkerClusterGroup();
     const surface = new LayerSurface(host, {
       id: "cluster",
@@ -879,7 +879,7 @@ describe("LayerSurface capabilities", () => {
   });
 
   it("instanceof false: L.MarkerClusterGroup is a function but layer is not an instance", () => {
-    const { map, host } = makeMap();
+    const { host } = makeMap();
     const saved = (window.L as { MarkerClusterGroup?: unknown }).MarkerClusterGroup;
     const Ctor = function NotCluster() {} as unknown as new (
       ...args: never[]
@@ -895,7 +895,7 @@ describe("LayerSurface capabilities", () => {
   });
 
   it("fallback: _topClusterLevel is falsy when L.MarkerClusterGroup is undefined", () => {
-    const { map, host } = makeMap();
+    const { host } = makeMap();
     const saved = (window.L as { MarkerClusterGroup?: unknown }).MarkerClusterGroup;
     (window.L as { MarkerClusterGroup?: unknown }).MarkerClusterGroup = undefined;
     const layer = new Path() as unknown as L.Layer;
@@ -908,7 +908,7 @@ describe("LayerSurface capabilities", () => {
   });
 
   it("reports native opacity and native zoomRange for a GridLayer", () => {
-    const { map, host } = makeMap();
+    const { host } = makeMap();
     const surface = new LayerSurface(host, {
       id: "tiles",
       layer: new GridLayer() as unknown as L.Layer,
@@ -919,7 +919,7 @@ describe("LayerSurface capabilities", () => {
   });
 
   it("reports native opacity but none zoomRange for an ImageOverlay", () => {
-    const { map, host } = makeMap();
+    const { host } = makeMap();
     const surface = new LayerSurface(host, {
       id: "overlay",
       layer: new ImageOverlay() as unknown as L.Layer,
@@ -979,7 +979,7 @@ describe("LayerSurface capabilities", () => {
   // below is a different reason for yes / no.
 
   it("reports bounds false for a MarkerClusterGroup (no honest carrier)", () => {
-    const { map, host } = makeMap();
+    const { host } = makeMap();
     const cluster = new MarkerClusterGroup();
     const surface = new LayerSurface(host, {
       id: "cluster",
@@ -989,7 +989,7 @@ describe("LayerSurface capabilities", () => {
   });
 
   it("reports bounds true for a GridLayer with getBounds", () => {
-    const { map, host } = makeMap();
+    const { host } = makeMap();
     const tiles = new GridLayer();
     Object.assign(tiles, { getBounds: vi.fn() });
     const surface = new LayerSurface(host, {
@@ -1000,7 +1000,7 @@ describe("LayerSurface capabilities", () => {
   });
 
   it("reports bounds false for a GridLayer without getBounds", () => {
-    const { map, host } = makeMap();
+    const { host } = makeMap();
     const surface = new LayerSurface(host, {
       id: "tiles",
       layer: new GridLayer() as unknown as L.Layer,
@@ -1009,7 +1009,7 @@ describe("LayerSurface capabilities", () => {
   });
 
   it("reports bounds true for an ImageOverlay with getBounds", () => {
-    const { map, host } = makeMap();
+    const { host } = makeMap();
     const overlay = new ImageOverlay();
     Object.assign(overlay, { getBounds: vi.fn() });
     const surface = new LayerSurface(host, {
@@ -1020,7 +1020,7 @@ describe("LayerSurface capabilities", () => {
   });
 
   it("reports bounds false for an ImageOverlay without getBounds", () => {
-    const { map, host } = makeMap();
+    const { host } = makeMap();
     const surface = new LayerSurface(host, {
       id: "overlay",
       layer: new ImageOverlay() as unknown as L.Layer,
@@ -1029,7 +1029,7 @@ describe("LayerSurface capabilities", () => {
   });
 
   it("reports bounds true for a pane-painted layer with getBounds", () => {
-    const { map, host } = makeMap();
+    const { host } = makeMap();
     const path = new Path();
     Object.assign(path, { getBounds: vi.fn() });
     const surface = new LayerSurface(host, {
@@ -1041,7 +1041,7 @@ describe("LayerSurface capabilities", () => {
   });
 
   it("reports bounds false for a pane-painted layer without getBounds", () => {
-    const { map, host } = makeMap();
+    const { host } = makeMap();
     const surface = new LayerSurface(host, {
       id: "a",
       layer: new Path() as unknown as L.Layer,
@@ -1051,7 +1051,7 @@ describe("LayerSurface capabilities", () => {
   });
 
   it("reports bounds true for a canvas surface with a getBounds provider", () => {
-    const { map, host } = makeMap();
+    const { host } = makeMap();
     const surface = new LayerSurface(host, {
       id: "canvas",
       layer: null,
@@ -1062,7 +1062,7 @@ describe("LayerSurface capabilities", () => {
   });
 
   it("reports bounds false for a canvas surface without a getBounds provider", () => {
-    const { map, host } = makeMap();
+    const { host } = makeMap();
     const surface = new LayerSurface(host, {
       id: "canvas",
       layer: null,
@@ -1075,7 +1075,7 @@ describe("LayerSurface capabilities", () => {
     // Covers the `opts.paneSpecs && opts.paneSpecs.length > 0` condition where
     // paneSpecs is truthy (non-null) but empty — the short-circuit does NOT
     // fire, and the code falls through to the `if (layer)` branch.
-    const { map, host } = makeMap();
+    const { host } = makeMap();
     const surface = new LayerSurface(host, {
       id: "empty-specs",
       layer: new Path() as unknown as L.Layer,
@@ -1085,7 +1085,7 @@ describe("LayerSurface capabilities", () => {
   });
 
   it("reports bounds true when paneSpecs is empty but the layer has getBounds", () => {
-    const { map, host } = makeMap();
+    const { host } = makeMap();
     const path = new Path();
     Object.assign(path, { getBounds: vi.fn() });
     const surface = new LayerSurface(host, {
@@ -1097,7 +1097,7 @@ describe("LayerSurface capabilities", () => {
   });
 
   it("reports bounds false when there is no layer and no canvas", () => {
-    const { map, host } = makeMap();
+    const { host } = makeMap();
     const surface = new LayerSurface(host, {
       id: "empty",
       layer: null,
@@ -1109,7 +1109,7 @@ describe("LayerSurface capabilities", () => {
     // A non-grid, non-native layer with no paneName/paneSpecs/canvas: the
     // surface synthesizes a fallback pane, and bounds is decided by the
     // layer's own getBounds method (not opts.getBounds, which is undefined).
-    const { map, host } = makeMap();
+    const { host } = makeMap();
     const path = new Path();
     Object.assign(path, { getBounds: vi.fn() });
     const surface = new LayerSurface(host, {
@@ -1120,7 +1120,7 @@ describe("LayerSurface capabilities", () => {
   });
 
   it("reports bounds false for a bare layer without getBounds (no declared pane)", () => {
-    const { map, host } = makeMap();
+    const { host } = makeMap();
     const surface = new LayerSurface(host, {
       id: "bare",
       layer: new Path() as unknown as L.Layer,
@@ -1133,7 +1133,7 @@ describe("LayerSurface capabilities", () => {
     // special character is rejected, and the surface synthesizes a fallback
     // pane instead. The log.warn at line 121 fires only for this path.
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const { map, host } = makeMap();
+    const { host } = makeMap();
     const surface = new LayerSurface(host, {
       id: "inject",
       layer: new Path() as unknown as L.Layer,

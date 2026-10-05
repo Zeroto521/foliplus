@@ -7,17 +7,9 @@
 // IntentRow / LoadSource / AnnotationConfig) and the projection types
 // (Projection / AppliedProjection) were sunk to core/layer with T270 — the
 // barrel below re-exports them so every existing `LayerControl/type` import
-// keeps working unchanged.
-import type {
-  AnnotationConfig,
-  AppliedProjection,
-  IntentRow,
-  LayerIntent,
-  LayerOverride,
-  LoadSource,
-  PersistedLayerState,
-  Projection,
-} from "#core/layer/index.js";
+// keeps working unchanged. `PersistedLayerState` is also imported locally
+// because `PersistedRecord.layers` names it directly.
+import type { PersistedLayerState } from "#core/layer/index.js";
 import type { LayerDimKey } from "#core/layer/type.js";
 import type { LayerUI } from "./ui/index.js";
 

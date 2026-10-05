@@ -22,17 +22,9 @@ import {
 } from "#foliplus/LayerControl/ui/state.js";
 import { EVENTS, ensureEvents } from "#foliplus/core/event/index.js";
 import { GEOM_TYPE } from "#foliplus/core/layer/const.js";
-import type { LayerInfo, PaneSpec } from "#foliplus/core/layer/index.js";
-import { ensureModes } from "#foliplus/core/mode.js";
+import type { PaneSpec } from "#foliplus/core/layer/index.js";
 import { getLayerAlpha } from "#common/canvasAlpha.js";
-import {
-  allFolded,
-  attachWithGroup,
-  findItem,
-  initFixture,
-  overlayFoldBtn,
-  pressKey,
-} from "./fixture.js";
+import { findItem, initFixture } from "./fixture.js";
 import { GridLayer, TileLayer, installLeafletGlobals } from "./fixture.js";
 
 /** The pane spec list `createLayers` derives from an ordered name list: the
@@ -456,7 +448,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
 
   describe("saveState on toggle", () => {
     it("persists a hidden overlay when the user unchecks it", () => {
-      const { map, removeLayer } = makeTestMap();
+      const { map } = makeTestMap();
       const m = new LayerManager(map, [
         {
           id: "overlay1",

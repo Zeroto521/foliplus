@@ -220,8 +220,10 @@ const destroyManager = (map: L.Map, mgr: HintManager): void => {
   mgr.destroy();
   instances.delete(map);
   map.foliplus!.showHint = () => log.warn("showHint called after the map unloaded");
+  /* eslint-disable @typescript-eslint/no-empty-function -- post-unload: hide/register are harmless, showHint warns */
   map.foliplus!.hideHint = () => {};
   map.foliplus!.registerHintIcon = () => {};
+  /* eslint-enable @typescript-eslint/no-empty-function */
 };
 
 /** Ensure `map.foliplus` has a per-map HintManager.  Idempotent. */
