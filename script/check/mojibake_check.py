@@ -175,9 +175,7 @@ _GLUE_PUNCT = ".,;:!?{"
 _EM_AFTER_CHARS = "A-Za-z0-9"
 
 _EMDASH_AFTER_RE = re.compile(r"\u2014[" + _EM_AFTER_CHARS + _GLUE_PUNCT + "]")
-_EMDASH_BEFORE_RE = re.compile(
-    r"(?<!\\)[" + _EM_BEFORE_CHARS + _GLUE_PUNCT + "]\u2014"
-)
+_EMDASH_BEFORE_RE = re.compile(r"(?<!\\)[" + _EM_BEFORE_CHARS + _GLUE_PUNCT + "]\u2014")
 _ARROW_AFTER_RE = re.compile(r"\u2192[" + _EM_AFTER_CHARS + _GLUE_PUNCT + "]")
 _ARROW_BEFORE_RE = re.compile(r"(?<!\\)[" + _EM_BEFORE_CHARS + _GLUE_PUNCT + "]\u2192")
 

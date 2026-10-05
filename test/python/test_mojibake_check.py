@@ -502,7 +502,7 @@ class TestArrowGlued:
     ):
         """Every character in the AFTER punctuation set is glued."""
         f = tmp_path / "arrow_punct.txt"
-        f.write_bytes(f"result \u2192value{punct} end\n".encode("utf-8"))
+        f.write_bytes(f"result \u2192value{punct} end\n".encode())
         assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 1
 
     def test_arrow_to_jsdoc_tag_is_flagged(self, tmp_path, capsys, monkeypatch):
@@ -511,9 +511,7 @@ class TestArrowGlued:
         f.write_bytes(" * \u2192{@link target} resolves the token\n".encode("utf-8"))
         assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 1
 
-    def test_arrow_before_punctuation_is_flagged(
-        self, tmp_path, capsys, monkeypatch
-    ):
+    def test_arrow_before_punctuation_is_flagged(self, tmp_path, capsys, monkeypatch):
         """``.→`` punctuation-before-arrow is flagged (before/after symmetry).
 
         ARROW_BEFORE uses the same punctuation set as EMDASH_BEFORE so
@@ -617,7 +615,7 @@ class TestEmDashWithPunctuationGlued:
     ):
         """Every punctuation character in the AFTER set flags an em-dash."""
         f = tmp_path / "dash_punct.txt"
-        f.write_bytes(f"text \u2014{punct} continuation\n".encode("utf-8"))
+        f.write_bytes(f"text \u2014{punct} continuation\n".encode())
         assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 1
 
     def test_em_dash_glued_to_double_quote_after_is_clean(
@@ -628,7 +626,7 @@ class TestEmDashWithPunctuationGlued:
         flagged on either quote side.
         """
         f = tmp_path / "dash_quote_after.txt"
-        f.write_bytes("* text \u2014\" end\n".encode("utf-8"))
+        f.write_bytes('* text \u2014" end\n'.encode("utf-8"))
         assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 0
 
 
@@ -684,9 +682,7 @@ class TestSpacingSkipFiles:
         )
         assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 0
 
-    def test_changelog_new_arrow_line_is_flagged(
-        self, tmp_path, capsys, monkeypatch
-    ):
+    def test_changelog_new_arrow_line_is_flagged(self, tmp_path, capsys, monkeypatch):
         """Non-historical arrows in a CHANGELOG.md are still caught.
 
         The exemption is scoped to lines matching the delta patterns;
@@ -702,9 +698,7 @@ class TestSpacingSkipFiles:
         )
         assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 1
 
-    def test_changelog_mixed_lines_only_flags_new(
-        self, tmp_path, capsys, monkeypatch
-    ):
+    def test_changelog_mixed_lines_only_flags_new(self, tmp_path, capsys, monkeypatch):
         """Historical lines are exempt; only the new arrow line is flagged.
 
         The line-level exemption means we catch the new violation without
