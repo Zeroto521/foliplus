@@ -62,9 +62,9 @@ const OPEN: Record<Surface, (ui: LayerUI, item: HTMLElement) => void> = {
 const IS_UP: Record<Surface, (ui: LayerUI) => boolean> = {
   attrs: ui =>
     ui.uiContainer.querySelectorAll(`.${CONST.CLASSES.ATTRS_PANEL}`).length > 0,
-  style: ui => ui.stylePanelLayerId !== null,
-  menu: ui => ui.activeMenu !== null,
-  rename: ui => ui.activeRenameId !== null,
+  style: ui => ui.overlayPanel.stylePanelLayerId !== null,
+  menu: ui => ui.overlayPanel.activeMenu !== null,
+  rename: ui => ui.overlayPanel.activeRenameId !== null,
   focus: ui => ui.isFocusing(),
 };
 
@@ -204,7 +204,7 @@ describe("LayerUI overlay mutual exclusion", () => {
   describe("the clear point sits behind the entry's guards", () => {
     it("a blocked focus leaves an open panel alone", () => {
       ui.openStylePanel("overlay1");
-      expect(ui.stylePanelLayerId).toBe("overlay1");
+      expect(ui.overlayPanel.stylePanelLayerId).toBe("overlay1");
 
       // Trips focusLayer's guardBlocked before it reaches closeOverlays.
       modeMocks.guardBlocked.mockReturnValue(true);
@@ -213,7 +213,7 @@ describe("LayerUI overlay mutual exclusion", () => {
 
       expect(modeMocks.guardBlocked).toHaveBeenCalled();
       expect(ui.isFocusing()).toBe(false);
-      expect(ui.stylePanelLayerId).toBe("overlay1");
+      expect(ui.overlayPanel.stylePanelLayerId).toBe("overlay1");
     });
 
     it("an unfocusable row leaves an open panel alone", () => {
@@ -226,17 +226,17 @@ describe("LayerUI overlay mutual exclusion", () => {
       ui.focusLayer("overlay1");
 
       expect(ui.isFocusing()).toBe(false);
-      expect(ui.stylePanelLayerId).toBe("overlay1");
+      expect(ui.overlayPanel.stylePanelLayerId).toBe("overlay1");
     });
 
     it("renameLayer with no id leaves an open panel alone", () => {
       ui.openStylePanel("overlay1");
-      expect(ui.stylePanelLayerId).toBe("overlay1");
+      expect(ui.overlayPanel.stylePanelLayerId).toBe("overlay1");
 
       ui.renameLayer("");
 
-      expect(ui.activeRenameId).toBeNull();
-      expect(ui.stylePanelLayerId).toBe("overlay1");
+      expect(ui.overlayPanel.activeRenameId).toBeNull();
+      expect(ui.overlayPanel.stylePanelLayerId).toBe("overlay1");
     });
 
     it("openStylePanel with no id leaves an open panel alone", () => {
@@ -245,7 +245,7 @@ describe("LayerUI overlay mutual exclusion", () => {
 
       ui.openStylePanel("");
 
-      expect(ui.stylePanelLayerId).toBeNull();
+      expect(ui.overlayPanel.stylePanelLayerId).toBeNull();
       expect(IS_UP.attrs(ui)).toBe(true);
     });
 
@@ -258,7 +258,7 @@ describe("LayerUI overlay mutual exclusion", () => {
 
       ui.openStylePanel("no-such-layer");
 
-      expect(ui.stylePanelLayerId).toBeNull();
+      expect(ui.overlayPanel.stylePanelLayerId).toBeNull();
       expect(IS_UP.attrs(ui)).toBe(true);
     });
   });

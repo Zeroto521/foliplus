@@ -88,7 +88,9 @@ const renderInitialList = (ui: LayerUI) => {
     }
     const group = layerInfo.group;
     const item = renderLayerItem(ui, layerInfo);
-    if (ui.foldedGroups.has(group)) item.classList.add(CONST.CLASSES.GROUP_FOLDED);
+    if (ui.listPanel.foldedGroups.has(group)) {
+      item.classList.add(CONST.CLASSES.GROUP_FOLDED);
+    }
     frag.appendChild(item);
   }
 
@@ -134,7 +136,9 @@ const insertLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
     );
   }
   const item = renderLayerItem(ui, layerInfo);
-  if (ui.foldedGroups.has(group)) item.classList.add(CONST.CLASSES.GROUP_FOLDED);
+  if (ui.listPanel.foldedGroups.has(group)) {
+    item.classList.add(CONST.CLASSES.GROUP_FOLDED);
+  }
   frag.appendChild(item);
 
   if (!firstOfGroup) {
@@ -185,7 +189,7 @@ const updateLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
 };
 
 const renderToggleAllRow = (ui: LayerUI, group: string, labelKey: string) => {
-  const isFolded = ui.foldedGroups.has(group);
+  const isFolded = ui.listPanel.foldedGroups.has(group);
   return dom.el(
     "div",
     {

@@ -4,6 +4,14 @@ import * as CONST from "#foliplus/LayerControl/const.js";
 import { LayerManager } from "#foliplus/LayerControl/manager.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 
+/** Translator env for LayerUI constructed in tests — mirrors the identity
+ *  translators the old NO_OP_ENV default provided, so `ui.T("key")` reads
+ *  `LayerControl.key` and `ui._("key")` reads `key`. */
+export const TEST_ENV = {
+  T: (key: string) => `LayerControl.${key}`,
+  _: (key: string) => key,
+};
+
 class TileLayer {
   options = { attribution: "© OpenStreetMap" };
   setZIndex = vi.fn();
@@ -253,7 +261,7 @@ const initFixture = (
     ],
   );
   manager.enforceOrder();
-  manager.ui = new LayerUI(manager);
+  manager.ui = new LayerUI(manager, TEST_ENV);
 
   vi.useFakeTimers();
   manager.attachUI(container);

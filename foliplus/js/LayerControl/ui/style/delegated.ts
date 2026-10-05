@@ -114,7 +114,7 @@ const renderDelegatedStylePanel = (
 
   // Refresh label controls and (if present) the border inputs off styleProvider,
   // skipping whatever is under activeElement.
-  ui.styleRefresh = () => {
+  ui.overlayPanel.styleRefresh = () => {
     baseRefresh();
     if (!borderRow) return;
     const v = entry()?.styleProvider?.() as

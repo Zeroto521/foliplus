@@ -7,13 +7,13 @@ import {
   LayerIntentStore,
   LayerRuntimeStore,
 } from "#core/layer/index.js";
-import { ListCursor } from "#core/listCursor.js";
 import * as CONST from "../const.js";
 import type { LayerManager } from "../manager.js";
 import { applyProjection, applyProjectionAll } from "./apply.js";
 import { closeAttrsPanel, openAttrsPanel } from "./attr.js";
 import { hideSolidBasemap, resetSolidBasemap, showSolidBasemap } from "./color.js";
 import { cancelFocus, focusLayer, isFocusing } from "./focus.js";
+import { FocusController } from "./focusController.js";
 import {
   blurActiveItem,
   clearActiveItem,
@@ -39,7 +39,9 @@ import {
   renderInitialList,
   updateLayerItem,
 } from "./list.js";
+import { ListPanel } from "./listPanel.js";
 import { closeMoreMenu, openMoreMenu } from "./menu.js";
+import { OverlayPanel } from "./overlayPanel.js";
 import { intentVisibleOf } from "./projection.js";
 import { finishRename, renameLayer } from "./rename.js";
 import { displayName } from "./rowView.js";
@@ -71,15 +73,16 @@ import {
   toggleAll,
 } from "./visibility.js";
 
-// Per-instance injection seam — LayerControl passes the env it owns; tests
-// construct LayerUI without one and fall back to identity translators so the
-// module stays free of any CONFIG reference at load time.
-const NO_OP_ENV: { T: (key: string) => string; _: (key: string) => string } = {
-  T: key => `LayerControl.${key}`,
-  _: key => key,
-};
-
-/** UI Controller for LayerControl. */
+/** UI Controller for LayerControl.
+ *  Per-panel state lives on one of three view subsystems:
+ *  - listPanel:        fold state, cursor index, drag state
+ *  - overlayPanel:     floating panels (menu / attrs / rename / style)
+ *  - focusController:  focus spotlight + inverse mask
+ *
+ *  Cross-cutting code reads state through the subsystem handle
+ *  (`ui.listPanel.foldedGroups`, `ui.overlayPanel.activeMenu`, etc.);
+ *  each subsystem owns the field and there is no compat layer.
+ */
 class LayerUI {
   manager: LayerManager;
   /** Per-map event bus — bound once in the constructor (ensure-style getters
@@ -94,14 +97,12 @@ class LayerUI {
    *  controls the style panel shares with HeatmapControl). Kept beside `T` so
    *  a test can inject either independently. */
   _: (key: string) => string;
-  foldedGroups: Set<string>;
-  /** Per-group tri-state counts maintained incrementally so a single-row
-   *  click is O(1). Populated by the full-scan `syncToggleAll` at reconcile
-   *  points (attach, insert, delete, reload) and kept in sync by
-   *  `bumpCheckedCount` on each single-row toggle. `total` is the row count
-   *  `getLayerItems(group).length` returns; `on` is the subset whose intent
-   *  is visible. `syncToggleAllFromCount` writes the checkbox off `on`. */
-  checkedCount: Record<string, { total: number; on: number }>;
+  /** View subsystem: row layout state (fold, cursor, drag). */
+  listPanel: ListPanel;
+  /** View subsystem: floating panels (menu / attrs / rename / style). */
+  overlayPanel: OverlayPanel;
+  /** View subsystem: focus spotlight + inverse mask. */
+  focusController: FocusController;
   /** Per-layer intent store — the single source for every user-chosen
    *  dimension (visible / fill / border / opacity / zoomRange / name /
    *  annotation). Absent key = never touched. Provenance rides the same
@@ -118,15 +119,6 @@ class LayerUI {
    *  upserts the LayerInfo so the pane participates in `enforceOrder`.
    *  Null until the color basemap is first displayed. */
   colorSurface: CreateColorAPI | null;
-  /** Layer id whose label is currently an inline rename input, or null. */
-  activeRenameId: string | null;
-  dragIdx: number | null;
-  lastDragHintAt: number;
-  lastDragOverItem: HTMLElement | null;
-  activeIdx: number | null;
-  /** Shared list cursor — ARIA roles + roving tabindex on navigable rows. */
-  listCursor: ListCursor | null;
-  interactionCleanup?: () => void;
   /** Cleanup for the geometry-focus marquee (focusin/focusout). */
   geometryMarqueeCleanup?: (() => void) | null;
   declare onChange: ((event: Event) => void) | null;
@@ -159,75 +151,23 @@ class LayerUI {
    *  unbind call tears down every listener; the manager no longer drives
    *  these UI methods directly. */
   unsubscribeLayerSignals: Array<() => void>;
-  /** Currently visible overflow menu (or null). */
-  declare activeMenu: {
-    item: HTMLElement;
-    menu: HTMLElement;
-    layerId: string;
-  } | null;
-  /** Currently visible attributes panel (or null). */
-  declare activeAttrsPanel: {
-    item: HTMLElement;
-    panel: HTMLElement;
-    layerId: string;
-  } | null;
-  /** Document capture-phase mousedown used to dismiss the attrs panel.
-   *  Capture is required: the layer control's disableClickPropagation
-   *  stops bubble-phase events from ever reaching document. */
-  attrsOutsideHandler: ((event: MouseEvent) => void) | null;
-  /** Same capture-phase dismiss, for the style panel. */
-  styleOutsideHandler: ((event: MouseEvent) => void) | null;
-  /** Unsubscribe for LAYER_ITEM_COUNT_CHANGE while attrs panel is open. */
-  attrsUnsubscribe: (() => void) | null;
-  /** Unsubscribe for LAYER_STYLE_CHANGE while a delegated style panel is open. */
-  styleUnsubscribe: (() => void) | null;
-  /** Refresh function for the shared label controls (set by renderDelegatedStylePanel). */
-  styleRefresh: (() => void) | null;
-  /** Map zoomend handler for the open style panel's zoom-range row: moves the
-   *  current-zoom marker and refreshes the out-of-range state. */
-  styleZoomEndHandler: (() => void) | null;
-  /** Layer id whose annotation style panel is open, or null. */
-  stylePanelLayerId: string | null;
-  /** Whether the current press began inside a floating row panel. Written on
-   *  the press (the panel's document-level capture handler) and read by
-   *  `handleDragStart`: `dragstart` is dispatched on the draggable row, so the
-   *  event itself cannot say where the press began. */
-  pressInPanel: boolean;
-  /** Temporary Rectangle overlay drawn while a focus is in progress. */
-  focusRect: L.Layer | null;
-  /** Layer id currently being focused, or null. */
-  focusingLayerId: string | null;
-  /** One-shot map move/zoom handler that auto-cancels focus when the user navigates. */
-  onFocusMapMove: (() => void) | null;
-  /** Inverse-mask polygon that dims everything outside the focused bounds. */
-  focusMask: L.Polygon | null;
-  /** SVG renderer hosting the focus overlay (mask + rectangle). */
-  focusRenderer: L.SVG | null;
-  /** Restore callbacks for pane z-indexes lifted to bring the focused layer
-   *  to the front (cleared on cancel). */
-  focusedPaneRestores: Array<() => void>;
 
   constructor(
     manager: LayerManager,
-    env: { T: (key: string) => string; _: (key: string) => string } = NO_OP_ENV,
+    env: { T: (key: string) => string; _: (key: string) => string },
   ) {
     this.manager = manager;
     this.events = ensureEvents(this.m.map);
     this.config = CONFIG;
     this.T = env.T;
     this._ = env._;
-    this.foldedGroups = new Set();
-    this.checkedCount = {};
+    this.listPanel = new ListPanel();
+    this.overlayPanel = new OverlayPanel();
+    this.focusController = new FocusController();
     this.intentStore = new LayerIntentStore();
     this.runtimeStore = new LayerRuntimeStore();
     this.currentColor = CONST.COLOR.DEFAULT;
     this.colorSurface = null;
-    this.activeRenameId = null;
-    this.dragIdx = null;
-    this.lastDragHintAt = 0;
-    this.lastDragOverItem = null;
-    this.activeIdx = null;
-    this.listCursor = null;
     this.unsubscribeCountChange = null;
     this.unsubscribeControlAttached = null;
     this.unsubscribeLayerSignals = [];
@@ -235,21 +175,6 @@ class LayerUI {
     this.onMoreMenuClick = null;
     this.onMoreMapClick = null;
     this.onZoomEnd = null;
-    this.activeMenu = null;
-    this.attrsOutsideHandler = null;
-    this.styleOutsideHandler = null;
-    this.styleUnsubscribe = null;
-    this.attrsUnsubscribe = null;
-    this.styleRefresh = null;
-    this.styleZoomEndHandler = null;
-    this.stylePanelLayerId = null;
-    this.pressInPanel = false;
-    this.focusRect = null;
-    this.focusingLayerId = null;
-    this.onFocusMapMove = null;
-    this.focusMask = null;
-    this.focusRenderer = null;
-    this.focusedPaneRestores = [];
   }
 
   /** Alias for convenience */
@@ -351,11 +276,11 @@ class LayerUI {
   updateLayerItem(layerInfo: LayerInfo) {
     return updateLayerItem(this, layerInfo);
   }
-  displayName(layerId: string) {
-    return displayName(this, layerId);
-  }
   colorLayerName() {
     return colorLayerName(this);
+  }
+  displayName(id: string) {
+    return displayName(this, id);
   }
   initLayerItem(layerInfo: LayerInfo) {
     return initLayerItem(this, layerInfo);

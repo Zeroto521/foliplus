@@ -46,7 +46,7 @@
   }
 
   // Drag alpha (registry idx of alpha) onto beta.
-  ui.dragIdx = regIdx("alpha");
+  ui.listPanel.dragIdx = regIdx("alpha");
   ui.onDrop({
     target: rowById("beta"),
     preventDefault: () => {},
@@ -64,6 +64,6 @@
     registryMoved: afterRegistry.join(",") !== beforeRegistry.join(","),
     // Panel and registry must agree once the drop has settled.
     panelMatchesRegistry: domIds().join(",") === afterRegistry.join(","),
-    dragDisarmed: ui.dragIdx === null,
+    dragDisarmed: ui.listPanel.dragIdx === null,
   };
 };

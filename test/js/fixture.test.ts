@@ -23,7 +23,7 @@ describe("makeLayerUIMock — LayerUI field completeness", () => {
   it("covers every field the LayerUI constructor initialises", () => {
     const ui = makeLayerUIMock() as Record<string, unknown>;
     // Sets
-    expect(ui.foldedGroups).toBeInstanceOf(Set);
+    expect(ui.listPanel.foldedGroups).toBeInstanceOf(Set);
     // Intent store (values + provenance axes)
     expect(ui.intentStore).toBeInstanceOf(LayerIntentStore);
     expect((ui.intentStore as LayerIntentStore).dumpIntents()).toEqual({});
@@ -35,18 +35,18 @@ describe("makeLayerUIMock — LayerUI field completeness", () => {
     expect(ui.renamedNames).toEqual({});
     // Primitives with sensible defaults
     expect(ui.currentColor).toBe("#cccccc");
-    expect(ui.lastDragHintAt).toBe(0);
-    expect(ui.pressInPanel).toBe(false);
+    expect(ui.listPanel.lastDragHintAt).toBe(0);
+    expect(ui.listPanel.pressInPanel).toBe(false);
     // Null pointers
-    expect(ui.activeRenameId).toBeNull();
-    expect(ui.dragIdx).toBeNull();
-    expect(ui.activeIdx).toBeNull();
-    expect(ui.listCursor).toBeNull();
-    expect(ui.focusRect).toBeNull();
-    expect(ui.focusingLayerId).toBeNull();
-    expect(ui.stylePanelLayerId).toBeNull();
+    expect(ui.overlayPanel.activeRenameId).toBeNull();
+    expect(ui.listPanel.dragIdx).toBeNull();
+    expect(ui.listPanel.activeIdx).toBeNull();
+    expect(ui.listPanel.listCursor).toBeNull();
+    expect(ui.focusController.focusRect).toBeNull();
+    expect(ui.focusController.focusingLayerId).toBeNull();
+    expect(ui.overlayPanel.stylePanelLayerId).toBeNull();
     // Arrays
-    expect(ui.focusedPaneRestores).toEqual([]);
+    expect(ui.focusController.focusedPaneRestores).toEqual([]);
     // m getter alias for manager
     (ui as any).manager = { foo: 1 };
     expect((ui as any).m.foo).toBe(1);

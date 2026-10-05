@@ -84,6 +84,7 @@
 - `LayerControl` / `ExportControl`: geometry focus paints a marching-ants bbox (drop the UA ring); crop box shares the same marquee language ([#548](https://github.com/Zeroto521/foliplus/pull/548))
 - `LayerControl`: user order + removed ids extracted into a `LayerOrder` class — persisted shape unchanged ([#569](https://github.com/Zeroto521/foliplus/pull/569), [#584](https://github.com/Zeroto521/foliplus/pull/584))
 - `core/defineControl`: shared entry factory — collapses the index.ts IIFE skeleton across controls; Measure/Search logic receive `ControlEnv` instead of module-level free variables ([#575](https://github.com/Zeroto521/foliplus/pull/575))
+- `LayerControl`: split `LayerUI`'s panel state into `ListPanel` / `OverlayPanel` / `FocusController` view subsystems ([#607](https://github.com/Zeroto521/foliplus/pull/607))
 
 ### Removed
 

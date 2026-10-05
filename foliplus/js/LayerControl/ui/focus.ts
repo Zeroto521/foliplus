@@ -144,7 +144,7 @@ const focusLayer = (ui: LayerUI, layerId: string) => {
         kind: layerInfo.kind,
       });
     }
-    bounds = computeLayerBounds(ui, layer);
+    bounds = computeLayerBounds(layer);
   } else if (typeof layerInfo.getBounds === "function") {
     bounds = layerInfo.getBounds();
   }
@@ -216,9 +216,9 @@ const focusLayer = (ui: LayerUI, layerId: string) => {
   });
 
   // Auto-remove focus visuals after the configured duration.
-  const ref = ui.focusRect;
+  const ref = ui.focusController.focusRect;
   setTimeout(() => {
-    if (ui.focusRect === ref) {
+    if (ui.focusController.focusRect === ref) {
       dismissFocus(ui);
     }
   }, CONST.FOCUS.RECT_DURATION_MS);
@@ -230,7 +230,9 @@ const focusLayer = (ui: LayerUI, layerId: string) => {
 
 /** Return true if a focus animation is currently active. */
 const isFocusing = (ui: LayerUI): boolean => {
-  return ui.focusRect != null || ui.focusingLayerId != null;
+  return (
+    ui.focusController.focusRect != null || ui.focusController.focusingLayerId != null
+  );
 };
 
 /** Cancel an in-flight focus: remove rect + mask + row highlight. */
@@ -261,29 +263,29 @@ const dismissFocus = (ui: LayerUI): void => {
   clearFocusedRowHighlight(ui);
   restoreHiddenLayers(ui);
   ui.m.annotation.setFocusFilter(null);
-  for (const restore of ui.focusedPaneRestores) restore();
-  ui.focusedPaneRestores = [];
+  for (const restore of ui.focusController.focusedPaneRestores) restore();
+  ui.focusController.focusedPaneRestores = [];
 
-  if (ui.focusRect) {
-    ui.m.map.removeLayer(ui.focusRect);
-    ui.focusRect = null;
+  if (ui.focusController.focusRect) {
+    ui.m.map.removeLayer(ui.focusController.focusRect);
+    ui.focusController.focusRect = null;
   }
 
-  if (ui.focusMask) {
-    ui.m.map.removeLayer(ui.focusMask);
-    ui.focusMask = null;
+  if (ui.focusController.focusMask) {
+    ui.m.map.removeLayer(ui.focusController.focusMask);
+    ui.focusController.focusMask = null;
   }
   // Tear down the SVG renderer too. Reusing it across focuses left the
   // previous focus's mask/rect paths in the SVG even after removeLayer,
   // so focusing layer A then B showed two boxes (stale A mask + new B
   // mask) with inverted dimming. A fresh renderer per focus is cheap and
   // guarantees a clean slate.
-  if (ui.focusRenderer) {
-    ui.m.map.removeLayer(ui.focusRenderer);
-    ui.focusRenderer = null;
+  if (ui.focusController.focusRenderer) {
+    ui.m.map.removeLayer(ui.focusController.focusRenderer);
+    ui.focusController.focusRenderer = null;
   }
 
-  ui.focusingLayerId = null;
+  ui.focusController.focusingLayerId = null;
   // Focus suspends inRange for its duration: with focus gone, the focused
   // layer's effective-shown falls back to intent && inRange. If its range
   // still excludes the current zoom, the executor removes it from the map —
@@ -426,7 +428,7 @@ const bringFocusedLayerToFront = (ui: LayerUI, layerInfo: LayerInfo): void => {
   } else if (layerInfo.canvas) {
     lift(layerInfo.canvas);
   }
-  ui.focusedPaneRestores = restores;
+  ui.focusController.focusedPaneRestores = restores;
 };
 
 /** Remove the container class that hides every non-focused layer. */
@@ -439,7 +441,7 @@ const restoreHiddenLayers = (ui: LayerUI): void => {
  * L.Layer subclasses without a getBounds() method; fall back to summing the
  * bounds of the layer's leaf nodes so focus still works for them.
  */
-const computeLayerBounds = (ui: LayerUI, layer: L.Layer): L.LatLngBounds | null => {
+const computeLayerBounds = (layer: L.Layer): L.LatLngBounds | null => {
   const withBounds = layer as L.Layer & { getBounds?: () => L.LatLngBounds };
   if (typeof withBounds.getBounds === "function") {
     const b = withBounds.getBounds();
@@ -480,12 +482,12 @@ const drawFocusMask = (ui: LayerUI, bounds: L.LatLngBounds): void => {
   // where a stale `.foliplus-is-focus-mode` hides the mask.
   // The overlay pane isn't in childPaneSpecs, so ensurePane skips its
   // provisional-z branch; we pin FOCUS_Z.overlay here (idempotent).
-  if (!ui.focusRenderer) {
+  if (!ui.focusController.focusRenderer) {
     const { pane } = ui.m.panes.ensurePane(CONST.FOCUS_PANE, false);
     pane.classList.add(CONST.CLASSES.FOCUS_PANE);
     pane.style.zIndex = String(FOCUS_Z.overlay);
-    ui.focusRenderer = L.svg({ pane: CONST.FOCUS_PANE });
-    ui.focusRenderer.addTo(map);
+    ui.focusController.focusRenderer = L.svg({ pane: CONST.FOCUS_PANE });
+    ui.focusController.focusRenderer.addTo(map);
   }
 
   // Outer ring: the Web-Mercator world envelope. The mask is drawn once
@@ -511,15 +513,15 @@ const drawFocusMask = (ui: LayerUI, bounds: L.LatLngBounds): void => {
     L.latLng(sw.lat, ne.lng),
   ];
 
-  ui.focusMask = L.polygon([outer, hole], {
+  ui.focusController.focusMask = L.polygon([outer, hole], {
     className: "foliplus-focus-mask",
     fillColor: "#000000",
     fillOpacity: CONST.FOCUS.MASK_OPACITY,
     stroke: false,
     interactive: false,
-    renderer: ui.focusRenderer,
+    renderer: ui.focusController.focusRenderer,
   });
-  map.addLayer(ui.focusMask);
+  map.addLayer(ui.focusController.focusMask);
 };
 
 /** Rounded-corner rectangle outline (latlng). Shared fillet math — corners
@@ -542,40 +544,40 @@ const roundedRectPoints = (bounds: L.LatLngBounds, f = 0.03): L.LatLng[] => {
 const drawFocusRect = (ui: LayerUI, bounds: L.LatLngBounds): void => {
   const map = ui.m.map;
 
-  ui.focusRect = L.polygon(roundedRectPoints(bounds), {
+  ui.focusController.focusRect = L.polygon(roundedRectPoints(bounds), {
     className: "foliplus-focus-rect",
     fill: false,
     interactive: false,
-    renderer: ui.focusRenderer ?? undefined,
+    renderer: ui.focusController.focusRenderer ?? undefined,
   });
-  map.addLayer(ui.focusRect);
+  map.addLayer(ui.focusController.focusRect);
 };
 
 /** Register a one-shot moveend/zoomend handler that auto-cancels focus. */
 const registerAutoCancel = (ui: LayerUI, layerId: string): void => {
-  ui.focusingLayerId = layerId;
+  ui.focusController.focusingLayerId = layerId;
   const handler = () => {
-    if (ui.focusingLayerId !== layerId) return;
+    if (ui.focusController.focusingLayerId !== layerId) return;
     // Grace period: the fitBounds/flyTo animation fires moveend/zoomend on
     // completion, which should NOT auto-cancel. Any move/zoom *after* the
     // grace window is a deliberate user action → cancel.
     setTimeout(() => {
-      if (ui.focusingLayerId === layerId) {
+      if (ui.focusController.focusingLayerId === layerId) {
         dismissFocus(ui);
       }
     }, CONST.FOCUS.RECT_DURATION_MS * 0.3);
   };
-  ui.onFocusMapMove = () => handler();
-  ui.m.map.on("moveend", ui.onFocusMapMove);
-  ui.m.map.on("zoomend", ui.onFocusMapMove);
+  ui.focusController.onFocusMapMove = () => handler();
+  ui.m.map.on("moveend", ui.focusController.onFocusMapMove);
+  ui.m.map.on("zoomend", ui.focusController.onFocusMapMove);
 };
 
 /** Remove the map move/zoom auto-cancel handlers. */
 const clearAutoCancel = (ui: LayerUI): void => {
-  if (ui.onFocusMapMove) {
-    ui.m.map.off("moveend", ui.onFocusMapMove);
-    ui.m.map.off("zoomend", ui.onFocusMapMove);
-    ui.onFocusMapMove = null;
+  if (ui.focusController.onFocusMapMove) {
+    ui.m.map.off("moveend", ui.focusController.onFocusMapMove);
+    ui.m.map.off("zoomend", ui.focusController.onFocusMapMove);
+    ui.focusController.onFocusMapMove = null;
   }
 };
 
@@ -588,7 +590,7 @@ const highlightFocusedRow = (
   clearFocusedRowHighlight(ui);
   if (!itemEl) return;
   itemEl.classList.add(CONST.CLASSES.FOCUSING);
-  ui.focusingLayerId = layerId;
+  ui.focusController.focusingLayerId = layerId;
 };
 
 /** Remove the `foliplus-is-focusing` class from the active row. */

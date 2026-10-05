@@ -6,10 +6,21 @@ import * as CONST from "./const.js";
 import type {
   AnnotationConfig,
   LayerOverride,
-  LiveState,
   PersistedLayerState,
   PersistedRecord,
 } from "./type.js";
+
+/** The live sources a write reads. Supply only the dimensions you own -- a
+ *  dimension you omit is left exactly as it stands in storage, so a caller that
+ *  only knows the layer order cannot wipe the fold, rename, and label state it
+ *  never touched. */
+type LiveState = {
+  order?: () => string[];
+  removed?: () => string[];
+  foldedGroups?: () => string[];
+  renamedNames?: () => Record<string, string>;
+  layers?: () => Record<string, PersistedLayerState>;
+};
 
 // CONFIG is a free variable from the IIFE template wrapper (see BaseControl._template).
 

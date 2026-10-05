@@ -8,7 +8,13 @@ import * as CONST from "#foliplus/LayerControl/const.js";
 import { LayerManager } from "#foliplus/LayerControl/manager.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { getIntent, seedIntentMap } from "#foliplus/LayerControl/ui/intent.js";
-import { findItem, initFixture, installLeafletGlobals, makePane } from "./fixture.js";
+import {
+  TEST_ENV,
+  findItem,
+  initFixture,
+  installLeafletGlobals,
+  makePane,
+} from "./fixture.js";
 
 describe("LayerUI shell — event subscriptions", () => {
   let manager: LayerManager;
@@ -135,7 +141,7 @@ describe("LayerUI shell — event subscriptions", () => {
       foliplus: { showHint: vi.fn(), hideHint: vi.fn() },
     };
     const mgr = new LayerManager(m, []);
-    mgr.ui = new LayerUI(mgr);
+    mgr.ui = new LayerUI(mgr, TEST_ENV);
     // registerLayer's pre-attach contract: overlays prepend into the
     // registry, the pending queue only defers the UI insertion until attach.
     mgr.layerRegistry.prepend(lateLayer as never);
@@ -170,7 +176,7 @@ describe("LayerUI shell — delegates", () => {
 
   it("saveFoldState persists the folded-group set", () => {
     const save = vi.spyOn(manager.persistence, "schedule");
-    ui.foldedGroups = new Set(["overlays"]);
+    ui.listPanel.foldedGroups = new Set(["overlays"]);
 
     ui.saveFoldState();
 
@@ -284,5 +290,43 @@ describe("LayerUI shell — delegates", () => {
     expect(ui.currentColor).toBe(CONST.COLOR.DEFAULT);
     expect(ui.runtimeStore.getAuthorVisible(CONST.SOLID_BASEMAP_ID)).toBe(false);
     expect(save).toHaveBeenCalled();
+  });
+
+  it("insertLayerItem / updateLayerItem / initLayerItem delegates reach the row modules", () => {
+    // The LayerUI delegate wrappers are the seam the manager-driven signal
+    // handlers call; each must route to the ui/* module without throwing.
+    const li = manager.layerRegistry.get("overlay1")!;
+    expect(() => ui.initLayerItem(li)).not.toThrow();
+    expect(() => ui.updateLayerItem(li)).not.toThrow();
+    expect(() => ui.insertLayerItem(li)).not.toThrow();
+    // The row exists and was re-rendered through the delegates.
+    expect(findItem(ui, "overlay1")).not.toBeNull();
+  });
+
+  it("syncToggleAll / syncNoBasemap delegates reach the visibility module", () => {
+    expect(() => ui.syncToggleAll(GROUP.OVERLAY)).not.toThrow();
+    expect(() => ui.syncNoBasemap()).not.toThrow();
+  });
+
+  it("hideSolidBasemap delegates to the colour module", () => {
+    const setVisible = vi.fn();
+    ui.m.createColor = vi.fn(() => ({
+      element: document.createElement("canvas"),
+      setColor: vi.fn(),
+      setVisible,
+      register: vi.fn(),
+      unregister: vi.fn(),
+      registered: vi.fn(() => true),
+      bringToFront: vi.fn(),
+      destroy: vi.fn(),
+    }));
+    ui.colorSurface = null;
+    ui.showSolidBasemap();
+    ui.hideSolidBasemap();
+    expect(setVisible).toHaveBeenCalledWith(false);
+  });
+
+  it("dropStyleDimApplies delegates to the style bag", () => {
+    expect(() => ui.dropStyleDimApplies("overlay1")).not.toThrow();
   });
 });

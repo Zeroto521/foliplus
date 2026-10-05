@@ -14,53 +14,10 @@ interface CollidableLabel {
   priority: number;
 }
 
-/** Result of a placement pass — how many chips were hidden and which ones, so
- *  callers (export, telemetry, other controls) can reason about the outcome. */
-interface PlanResult {
-  hidden: number;
-  elements: Set<HTMLElement>;
-}
-
-/** Input the overlay expects from its host — a subset of MeasureManager. */
-interface EditOverlayHost {
-  isEditMode: boolean;
-  map: L.Map;
-  registerEditOverlayCloser?: (close: () => void, id?: string) => () => void;
-  closeOtherEditOverlays?: (exceptId: string) => void;
-}
-
-/** Per-node drag options wired by bindNodeDrag. */
-interface NodeDragHandlers {
-  onDrag?: (latlng: L.LatLng) => void;
-  onEnd?: (latlng: L.LatLng) => void;
-}
-
-/** Per-node drag handle returned by bindNodeDrag. */
-interface NodeDragHandle {
-  setEnabled: (enabled: boolean) => void;
-  cleanup: () => void;
-}
-
-/** Public surface of the shared ✕ overlay returned by buildEditOverlay. */
-interface EditOverlay {
-  open: (ev: L.LeafletMouseEvent) => void;
-  close: () => void;
-  cleanup: () => void;
-}
-
 /** Handle returned by bindNodeDrag — enable/disable + unbind a node drag. */
 interface DragBind {
   setEnabled: (enabled: boolean) => void;
   cleanup: () => void;
 }
 
-export type {
-  CollidableLabel,
-  DragBind,
-  EditOverlay,
-  EditOverlayHost,
-  ExportFormat,
-  NodeDragHandle,
-  NodeDragHandlers,
-  PlanResult,
-};
+export type { CollidableLabel, DragBind, ExportFormat };

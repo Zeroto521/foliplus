@@ -23,7 +23,7 @@ const log = createLogger(CONFIG.name);
 /** Load every persisted dimension in one call. */
 const loadPersistedState = (ui: LayerUI) => {
   const state = ui.m.persistence.load();
-  ui.foldedGroups = new Set(state.foldedGroups);
+  ui.listPanel.foldedGroups = new Set(state.foldedGroups);
   // Intent values + provenance sink into the store. Read order is the compat
   // contract: the current `layers[id].annotation` key WINS, the legacy
   // top-level `annotations` segment is the fallback underneath (write-new /
@@ -38,7 +38,9 @@ const loadPersistedState = (ui: LayerUI) => {
 /** Save fold state to localStorage. */
 
 const saveFoldState = (ui: LayerUI) => {
-  ui.m.persistence.schedule({ foldedGroups: () => [...ui.foldedGroups] });
+  ui.m.persistence.schedule({
+    foldedGroups: () => [...ui.listPanel.foldedGroups],
+  });
 };
 
 /** Whether one dimension still holds a live value. An override with none means

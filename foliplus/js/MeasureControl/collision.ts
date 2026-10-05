@@ -15,7 +15,14 @@
 // space can restore it in place, and so the PNG exporter still sees it during the
 // split second before hiding.
 import { type Box, planVisible } from "#core/labelCollision.js";
-import type { CollidableLabel, PlanResult } from "./type.js";
+import type { CollidableLabel } from "./type.js";
+
+/** Result of a placement pass — how many chips were hidden and which ones, so
+ *  callers (export, telemetry, other controls) can reason about the outcome. */
+interface PlanResult {
+  hidden: number;
+  elements: Set<HTMLElement>;
+}
 
 /** Resolve a marker's label chip, or null when it is not on the map. */
 type ChipOf = (marker: L.Marker) => HTMLElement | null;
