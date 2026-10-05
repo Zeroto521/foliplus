@@ -257,20 +257,6 @@ describe("LayerUI shell — delegates", () => {
     }
   });
 
-  it("handleInput() delegates to the module-level input handler", () => {
-    // Covers the delegate wrapper at L397: the method is called when an input
-    // event fires on the panel. Dispatching from a real element sets the
-    // event target, which the handler reads via closest().
-    const input = ui.uiContainer.querySelector(
-      'input[type="checkbox"]',
-    ) as HTMLInputElement;
-    const event = new Event("input", { bubbles: true });
-    // Dispatch from the element so event.target is set.
-    input.dispatchEvent(event);
-    // Also call the wrapper directly to cover the delegate line.
-    expect(() => ui.handleInput()).not.toThrow();
-  });
-
   it("resetSolidBasemap() delegates to the colour module and flushes state", () => {
     // The manager's deleteLayer reaches this method rather than the color
     // module directly. The delegate exists so the bus-driven signal handler

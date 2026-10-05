@@ -241,8 +241,6 @@ const handleChange = (ui: LayerUI, event: Event) => {
   applyVisibility(ui, id, target.checked);
 };
 
-const handleInput = () => {};
-
 export {
   getLayerItems,
   toggleAll,
@@ -252,5 +250,4 @@ export {
   syncNoBasemap,
   applyVisibility,
   handleChange,
-  handleInput,
 };

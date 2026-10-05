@@ -8,7 +8,6 @@ import { getIntent, setIntent } from "#foliplus/LayerControl/ui/intent.js";
 import {
   applyVisibility,
   getLayerItems,
-  handleInput,
   syncNoBasemap,
   syncToggleAll,
   syncToggleAllFromCount,
@@ -1026,10 +1025,6 @@ describe("unit helpers", () => {
 
   // syncVisibility is gone: the executor is the only writer of map
   // membership, and there is no mirror helper to test.
-
-  it("handleInput is a no-op", () => {
-    expect(() => handleInput()).not.toThrow();
-  });
 
   it("toggleAll sets the row tooltips for both states", () => {
     const { ui } = initFixture();

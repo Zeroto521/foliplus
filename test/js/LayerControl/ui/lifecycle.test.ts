@@ -224,7 +224,6 @@ describe("LayerUI lifecycle — defensive rails", () => {
       ui.onMoreMapClick = null;
       ui.onZoomEnd = null;
       ui.onChange = null;
-      ui.onInput = null;
       ui.onClick = null;
       ui.onFocusIn = null;
       ui.onFocusOut = null;
