@@ -4,9 +4,7 @@
 //
 // Handlers are plain [event, fn] tuples; the same array can be passed to
 // bindMapEvents and later to unbindMapEvents for symmetric cleanup.
-
-type MapHandler = L.LeafletEventHandlerFn;
-type MapEventHandlers = Array<[string, MapHandler]>;
+import type { MapEventHandlers } from "./type.js";
 
 /**
  * Bind multiple map event handlers at once.
@@ -27,4 +25,4 @@ const unbindMapEvents = (map: L.Map, handlers: MapEventHandlers): void => {
 };
 
 export { bindMapEvents, unbindMapEvents };
-export type { MapEventHandlers };
+export type { MapEventHandlers } from "./type.js";

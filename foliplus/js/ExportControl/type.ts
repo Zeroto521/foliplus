@@ -62,6 +62,20 @@ interface SavedBounds {
   se: LatLngPoint;
 }
 
+/** Render context threaded through all rendering passes. */
+interface RenderCtx {
+  ctx: CanvasRenderingContext2D;
+  rect: { left: number; top: number; width: number; height: number };
+  scale: number;
+  contRect: DOMRect;
+  cw: number;
+  ch: number;
+  sw: number;
+  sh: number;
+  /** Reports how far the render has progressed, 0..90.  Never decreases. */
+  onProgress?: (percent: number) => void;
+}
+
 export type {
   CropRect,
   CropState,
@@ -70,5 +84,6 @@ export type {
   FormatSpec,
   GeoBounds,
   LatLngPoint,
+  RenderCtx,
   SavedBounds,
 };

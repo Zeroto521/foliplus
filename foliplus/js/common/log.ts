@@ -7,23 +7,7 @@
 // One separator everywhere — a space after `]`. A log line and a thrown
 // message differ only in how they are delivered: one goes to the console, the
 // other becomes a stack-trace heading.
-
-/** A logger bound to a fixed `[<name>] ` prefix. */
-type LogFn = (message: string, ...args: unknown[]) => void;
-
-/**
- * A logger with a fixed namespaced prefix.
- *
- * `warn` / `error` write to the console with `[<name>] `.
- * `msg` returns the same shape for a `throw new Error(...)` — it never calls
- * console. Call sites keep an explicit `throw new` so the control-flow break
- * stays visible.
- */
-interface Logger {
-  warn: LogFn;
-  error: LogFn;
-  msg: (message: string) => string;
-}
+import type { Logger } from "./type.js";
 
 /**
  * Create a logger bound to a `[<name>]` prefix.
@@ -43,4 +27,4 @@ const createLogger = (name: string): Logger => {
 };
 
 export { createLogger };
-export type { LogFn, Logger };
+export type { LogFn, Logger } from "./type.js";

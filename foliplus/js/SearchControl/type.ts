@@ -6,7 +6,11 @@ import type { ListCursor } from "#core/listCursor.js";
 import type { BaseControl } from "#foliplus/BaseControl.js";
 import type { Cache } from "#common/cache.js";
 import type { Debounced } from "#common/debounce.js";
-import type { SearchSource, SearchType } from "./const.js";
+import type { SearchSource } from "./const.js";
+import { MODE } from "./const.js";
+
+/** Search type: coordinate pair or address keyword. */
+type SearchType = (typeof MODE)[keyof typeof MODE];
 
 /** Cached address result: the raw item + its formatted display name. */
 interface AddressResult {
@@ -117,4 +121,5 @@ export type {
   SearchControl,
   SearchControlState,
   SearchHistoryEntry,
+  SearchType,
 };

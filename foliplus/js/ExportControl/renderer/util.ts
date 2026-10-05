@@ -2,22 +2,9 @@
 // Moved from renderer.ts — nothing here depends on L or the DOM beyond the
 // types themselves, so every pass module can import without a cycle.
 import { createLogger } from "#common/log.js";
+import type { RenderCtx } from "../type.js";
 
 const log = createLogger(CONFIG.name);
-
-/** Render context threaded through all rendering passes. */
-interface RenderCtx {
-  ctx: CanvasRenderingContext2D;
-  rect: { left: number; top: number; width: number; height: number };
-  scale: number;
-  contRect: DOMRect;
-  cw: number;
-  ch: number;
-  sw: number;
-  sh: number;
-  /** Reports how far the render has progressed, 0..90.  Never decreases. */
-  onProgress?: (percent: number) => void;
-}
 
 /** A tile descriptor computed by calcTiles. */
 interface TileDesc {
@@ -109,4 +96,5 @@ const withAlpha = (
 };
 
 export { isCorsBlocked, pooledEach, effectiveOpacity, withAlpha };
-export type { RenderCtx, TileDesc, TileLoadStats };
+export type { TileDesc, TileLoadStats };
+export type { RenderCtx } from "../type.js";
