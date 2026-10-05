@@ -156,7 +156,7 @@ describe("LayerUI lifecycle — defensive rails", () => {
 
   describe("onLayerItemCountChange — the refresh rails", () => {
     it("no-ops when the UI container is detached", () => {
-      ui.m.uiContainer = null as any;
+      ui.c.uiContainer = null as any;
       const getFeatureCount = vi.spyOn(manager, "getFeatureCount");
 
       ensureEvents(map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "overlay1" });
@@ -204,7 +204,7 @@ describe("LayerUI lifecycle — defensive rails", () => {
 
   describe("refreshAllCounts — the loop rails", () => {
     it("no-ops when the UI container is detached", () => {
-      ui.m.uiContainer = null as any;
+      ui.c.uiContainer = null as any;
       const getFeatureCount = vi.spyOn(manager, "getFeatureCount");
 
       ui.refreshAllCounts();
@@ -263,7 +263,7 @@ describe("LayerUI lifecycle — defensive rails", () => {
     });
 
     it("unbinds cleanly when the UI container is already gone", () => {
-      ui.m.uiContainer = null as any;
+      ui.c.uiContainer = null as any;
       expect(() => ui.unbindEvents()).not.toThrow();
     });
 
@@ -271,7 +271,7 @@ describe("LayerUI lifecycle — defensive rails", () => {
       // bindEvents ran but attachUI never set uiContainer, then the manager is
       // destroyed: the first guard `if (!container) return` must fire before
       // the handler-null loop.
-      ui.m.uiContainer = null as any;
+      ui.c.uiContainer = null as any;
       expect(() => ui.unbindEvents()).not.toThrow();
     });
   });
@@ -290,7 +290,7 @@ describe("LayerUI lifecycle — defensive rails", () => {
       // Covers the `if (!container) return` guard: bindEvents is called on a
       // manager whose uiContainer was never set (attachUI ran before bindEvents
       // in a partial-attach scenario).
-      ui.m.uiContainer = null as any;
+      ui.c.uiContainer = null as any;
       expect(() => ui.bindEvents()).not.toThrow();
     });
   });

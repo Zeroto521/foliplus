@@ -136,7 +136,7 @@ describe("buildRowCell + applyRowView (one writer per row)", () => {
   });
 
   const overlay = (ui: LayerUI): LayerInfo =>
-    ui.m.layers.find(li => li.id === "overlay1")!;
+    ui.c.layers.find(li => li.id === "overlay1")!;
 
   const box = (item: HTMLElement): HTMLInputElement =>
     item.querySelector<HTMLInputElement>('input[type="checkbox"]')!;
@@ -224,7 +224,7 @@ describe("buildRowCell + applyRowView (one writer per row)", () => {
 
   it("labels a base row with the base icon instead of probing the layer", () => {
     const { ui } = initFixture({});
-    const base = ui.m.layers.find(li => li.id === "base1")!;
+    const base = ui.c.layers.find(li => li.id === "base1")!;
     const cellInfo = buildRowCell(ui, base);
     expect(cellInfo.typeSvg).toBe(Icons.GLOBE_ICON);
     expect(cellInfo.typeLabel).toContain("type_base");
@@ -234,7 +234,7 @@ describe("buildRowCell + applyRowView (one writer per row)", () => {
     const { ui } = initFixture({
       data: [{ id: "custom1", name: "Custom", group: "overlay" }],
     });
-    const layerInfo = ui.m.layers.find(li => li.id === "custom1")!;
+    const layerInfo = ui.c.layers.find(li => li.id === "custom1")!;
     layerInfo.iconSvg = '<svg id="custom" />';
     const cellInfo = buildRowCell(ui, layerInfo);
     expect(cellInfo.typeSvg).toBe('<svg id="custom" />');
@@ -323,7 +323,7 @@ describe("applyRowView (the single DOM write point)", () => {
     // default rather than crashing.
     const layerRegistry = new Map([["x", { id: "x", layer: { options: {} } }]]);
     const bare = {
-      m: { findLayer: () => null, layerRegistry },
+      c: { findLayer: () => null, layerRegistry },
       mgmt: { getFeatureCount: () => 0 },
       renamedNames: {},
       intentStore: new LayerIntentStore(),
@@ -355,7 +355,7 @@ describe("snapshotAuthorVisible", () => {
 
   it("reads the author's default from the map at boot, once per id", () => {
     const { ui, map } = initFixture({});
-    const layerInfo = ui.m.layers.find(li => li.id === "overlay1")!;
+    const layerInfo = ui.c.layers.find(li => li.id === "overlay1")!;
     expect(ui.runtimeStore.getAuthorVisible("overlay1")).toBe(true);
 
     (map.hasLayer as ReturnType<typeof vi.fn>).mockReturnValue(false);
@@ -371,7 +371,7 @@ describe("snapshotAuthorVisible", () => {
     // idempotent — keep the later correct reading out for good. That is the
     // exact path the show=False zoom-sweep gate covers.
     const { ui } = initFixture({});
-    vi.spyOn(ui.m, "findLayer").mockReturnValue(null);
+    vi.spyOn(ui.c, "findLayer").mockReturnValue(null);
     snapshotAuthorVisible(ui, {
       id: "ghost",
       visible: true,
@@ -392,7 +392,7 @@ describe("snapshotAuthorVisible", () => {
     // default of `true`, so both snapshots latch `true`; a test that
     // wants to distinguish must seed a hidden intent first.
     const { ui } = initFixture({});
-    vi.spyOn(ui.m, "findLayer").mockReturnValue(null);
+    vi.spyOn(ui.c, "findLayer").mockReturnValue(null);
     snapshotAuthorVisible(ui, {
       id: "heat",
       canvas: document.createElement("canvas"),
@@ -425,13 +425,13 @@ describe("snapshotAuthorVisible", () => {
     // folium links its layers and must be able to record the real boot
     // membership. A `show=False` layer reads as `false` there.
     const { ui } = initFixture({});
-    const find = vi.spyOn(ui.m, "findLayer").mockReturnValue(null);
+    const find = vi.spyOn(ui.c, "findLayer").mockReturnValue(null);
     snapshotAuthorVisible(ui, { id: "late" } as LayerInfo);
     expect(ui.runtimeStore.hasAuthorVisible("late")).toBe(false);
 
     const layer = { options: {} } as L.Layer;
     find.mockReturnValue(layer);
-    (ui.m.map.hasLayer as ReturnType<typeof vi.fn>).mockReturnValue(false);
+    (ui.c.map.hasLayer as ReturnType<typeof vi.fn>).mockReturnValue(false);
     snapshotAuthorVisible(ui, { id: "late" } as LayerInfo);
     expect(ui.runtimeStore.getAuthorVisible("late")).toBe(false);
   });
@@ -443,7 +443,7 @@ describe("intentVisibleOf: what counts as the user's choice", () => {
     // can leave an entry without its provenance marker. Either half is the
     // user's choice; only the author's default is the fallback.
     const { ui } = initFixture({});
-    const layerInfo = ui.m.layers.find(li => li.id === "overlay1")!;
+    const layerInfo = ui.c.layers.find(li => li.id === "overlay1")!;
     ui.intentStore.seedProvenance("overlay1", []);
     setIntent(ui, "overlay1", "visible", false);
     expect(intentVisibleOf(ui, layerInfo.id)).toBe(false);
@@ -451,7 +451,7 @@ describe("intentVisibleOf: what counts as the user's choice", () => {
 
   it("neither half present falls back to the author's declared default", () => {
     const { ui } = initFixture({});
-    const layerInfo = ui.m.layers.find(li => li.id === "overlay1")!;
+    const layerInfo = ui.c.layers.find(li => li.id === "overlay1")!;
     ui.intentStore.seedProvenance("overlay1", []);
     clearIntent(ui, "overlay1", "visible");
     ui.runtimeStore.setAuthorVisible("overlay1", false);
@@ -468,8 +468,8 @@ describe("the four readers agree on a half-broken record (T260)", () => {
     // dropped the fallback and counted the row as hidden while its checkbox
     // read checked. All four must agree.
     const { ui } = initFixture({});
-    const li = ui.m.layers.find(l => l.id === "overlay1")!;
-    const base = ui.m.layers.find(l => l.id === "base1")!;
+    const li = ui.c.layers.find(l => l.id === "overlay1")!;
+    const base = ui.c.layers.find(l => l.id === "base1")!;
     ui.runtimeStore.setAuthorVisible("overlay1", false);
     ui.runtimeStore.setAuthorVisible("base1", false);
     ui.intentStore.seedProvenance("overlay1", ["visible"]);
@@ -489,7 +489,7 @@ describe("the four readers agree on a half-broken record (T260)", () => {
     syncToggleAll(ui, GROUP.OVERLAY);
     expect(ui.listPanel.checkedCount[GROUP.OVERLAY]).toEqual({ total: 1, on: 1 });
     syncNoBasemap(ui);
-    expect(ui.m.map.getContainer().classList.contains(CONST.CLASSES.NO_BASE_MAP)).toBe(
+    expect(ui.c.map.getContainer().classList.contains(CONST.CLASSES.NO_BASE_MAP)).toBe(
       false,
     );
   });

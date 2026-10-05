@@ -85,8 +85,8 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   // geographic extent to focus on — so it keeps its style entry enabled.
   // Basemaps are configurable too: the solid-color basemap has a fill row
   // in its style panel, and tile basemaps can still tune opacity.
-  const layerInfo = ui.m.layerRegistry.get(layerId);
-  const caps = layerInfo ? ui.m.surfaceFor(layerInfo).capabilities : null;
+  const layerInfo = ui.c.layerRegistry.get(layerId);
+  const caps = layerInfo ? ui.c.surfaceFor(layerInfo).capabilities : null;
   // `layerCanLabel` is the Label section's gate itself (pure capability
   // bit) — the menu and the panel ask one function, so the entry can never
   // enable a panel whose Label section would not render (or vice versa).
@@ -226,7 +226,7 @@ const deleteModeFor = (ui: LayerUI, layerId: string): DeleteMode => {
   // Testing the field would read every layer on a real folium map as a component
   // layer and render no delete entry at all. `findLayer` walks the map's own
   // layer registry to find the object.
-  return ui.m.findLayer(layerId) ? "delete" : "absent";
+  return ui.c.findLayer(layerId) ? "delete" : "absent";
 };
 
 /** True when the layer is owned by a foliplus component — Measure, Heatmap
@@ -234,7 +234,7 @@ const deleteModeFor = (ui: LayerUI, layerId: string): DeleteMode => {
  *  the two stay in lockstep. The solid colour basemap is handled separately in
  *  `deleteModeFor` and returns "delete" instead of "clear". */
 const isComponentLayer = (ui: LayerUI, layerId: string): boolean => {
-  return Boolean(ui.m.layerRegistry.get(layerId)?.styleSetters);
+  return Boolean(ui.c.layerRegistry.get(layerId)?.styleSetters);
 };
 
 const buildDeleteItem = (
@@ -308,7 +308,7 @@ const activateDeleteItem = (ui: LayerUI, li: HTMLElement): boolean => {
   }
   const layerId = ui.overlayPanel.activeMenu?.layerId ?? "";
   disarmDelete();
-  ui.m.deleteLayer(layerId);
+  ui.c.deleteLayer(layerId);
   return true;
 };
 

@@ -46,7 +46,7 @@ const makeUi = (
       pressInPanel: false,
     },
     saveFoldState: vi.fn(),
-    m: {
+    c: {
       layers: opts.layers ?? [],
       findLayer: vi.fn(() => ({ options: {} })),
       map: {
@@ -138,7 +138,7 @@ describe("ui/drag", () => {
         saveFoldState: vi.fn(),
         dragIdx: 0,
         lastDragOverItem: null,
-        m: {
+        c: {
           layers,
           findLayer: vi.fn(() => ({ options: {} })),
           map: {
@@ -193,7 +193,7 @@ describe("ui/drag", () => {
       handleDrop(ui, dragEvent(target));
 
       expect(reorder).toHaveBeenCalledWith(0, 1);
-      expect(ui.m.saveOrder).toHaveBeenCalled();
+      expect(ui.c.saveOrder).toHaveBeenCalled();
     });
 
     it("handleDragOver marks the row below when the id resolves past the drag index", () => {
@@ -319,7 +319,7 @@ describe("ui/drag", () => {
         config: { name: "LayerControl" },
         T: (k: string) => k,
         listPanel: { dragIdx: 0, lastDragOverItem: null, pressInPanel: false },
-        m: {
+        c: {
           layers,
           canReorderBetween: vi.fn(() => true),
           enforceOrder: vi.fn(),
@@ -422,7 +422,7 @@ describe("ui/drag", () => {
         config: { name: "LayerControl" },
         T: (key: string) => key,
         listPanel: { dragIdx: 0, lastDragOverItem: null, pressInPanel: false },
-        m: {
+        c: {
           layers,
           canReorderBetween: vi.fn(() => true),
           enforceOrder: vi.fn(),
@@ -470,7 +470,7 @@ describe("ui/drag", () => {
         config: { name: "LayerControl" },
         T: (key: string) => key,
         listPanel: { dragIdx: 1, lastDragOverItem: null, pressInPanel: false },
-        m: {
+        c: {
           layers,
           canReorderBetween: vi.fn(() => true),
           enforceOrder: vi.fn(),
@@ -686,7 +686,7 @@ describe("showReorderBlockedHint", () => {
       lastDragHintAt: 0,
       config: { name: "LayerControl" },
       T: (k: string) => k,
-      m: {
+      c: {
         map: { foliplus: { showHint } },
       },
       listPanel: {

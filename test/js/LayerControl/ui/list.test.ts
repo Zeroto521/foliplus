@@ -19,7 +19,7 @@ const makeUi = () =>
   ({
     intentStore: new LayerIntentStore(),
     renamedNames: {},
-    m: { layerRegistry: { get: () => undefined } },
+    c: { layerRegistry: { get: () => undefined } },
     T: (k: string) => k,
   }) as unknown as LayerUI;
 
@@ -29,7 +29,7 @@ describe("ui/list displayName", () => {
     intentStore.setValue("a", "name", "Renamed");
     const ui = {
       intentStore,
-      m: { layerRegistry: { get: () => ({ name: "Original" }) } },
+      c: { layerRegistry: { get: () => ({ name: "Original" }) } },
       T: (k: string) => k,
     } as unknown as LayerUI;
     expect(displayName(ui, "a")).toBe("Renamed");
@@ -294,7 +294,7 @@ describe("ui/list row placement", () => {
 
     initTypesAndVisibility(ui);
 
-    const colorLi = ui.m.layerRegistry.get(CONST.SOLID_BASEMAP_ID) as LayerInfo;
+    const colorLi = ui.c.layerRegistry.get(CONST.SOLID_BASEMAP_ID) as LayerInfo;
     expect(colorLi).toBeDefined();
 
     expect(() => applyVisibility(ui, CONST.SOLID_BASEMAP_ID, true)).not.toThrow();
@@ -335,8 +335,8 @@ describe("ui/list row placement", () => {
       data: [{ id: "B1", name: "B1", group: "base" }],
     });
 
-    const originalGet = ui.m.layerRegistry.get.bind(ui.m.layerRegistry);
-    vi.spyOn(ui.m.layerRegistry, "get").mockImplementation((id: string) => {
+    const originalGet = ui.c.layerRegistry.get.bind(ui.c.layerRegistry);
+    vi.spyOn(ui.c.layerRegistry, "get").mockImplementation((id: string) => {
       if (id === CONST.SOLID_BASEMAP_ID) return undefined;
       return originalGet(id);
     });

@@ -142,7 +142,7 @@ describe("LayerUI keyboard", () => {
 
       expect(getIntent(ui, "overlay1", "visible")).toBe(false);
       // 3 seeded layers + the colour basemap registered by initTypesAndVisibility.
-      expect(ui.m.layers.length).toBe(4);
+      expect(ui.c.layers.length).toBe(4);
     });
 
     it("Enter on the more button still opens the menu and does not toggle", () => {
@@ -1286,7 +1286,7 @@ describe("LayerUI keyboard", () => {
       const item = findItem(ui, "base1");
       ui.setActiveItem(ui.getNavigableItems().indexOf(item));
       const showHint = vi.fn();
-      (ui.m.map as any).foliplus = { showHint };
+      (ui.c.map as any).foliplus = { showHint };
       ui.handleKeyDown(keyEvent("ArrowUp", { ctrlKey: true }));
       expect(showHint).toHaveBeenCalled();
     });
@@ -1295,14 +1295,14 @@ describe("LayerUI keyboard", () => {
       const items = ui.getNavigableItems();
       ui.setActiveItem(items.length - 1);
       const showHint = vi.fn();
-      (ui.m.map as any).foliplus = { showHint };
+      (ui.c.map as any).foliplus = { showHint };
       ui.handleKeyDown(keyEvent("ArrowDown", { ctrlKey: true }));
       expect(showHint).toHaveBeenCalled();
     });
 
     it("Ctrl+ArrowDown moves the row when a neighbour exists", () => {
       ui.setActiveItem(0);
-      const moveLayerDown = vi.spyOn(ui.m, "moveLayerDown").mockReturnValue(true);
+      const moveLayerDown = vi.spyOn(ui.c, "moveLayerDown").mockReturnValue(true);
       expect(() =>
         ui.handleKeyDown(keyEvent("ArrowDown", { ctrlKey: true })),
       ).not.toThrow();

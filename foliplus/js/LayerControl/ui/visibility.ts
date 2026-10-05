@@ -19,7 +19,7 @@ const getLayerItems = (ui: LayerUI, group: string): NodeListOf<Element> => {
  *  resolveExportBackground deliberately skips (it reads only
  *  `backgroundColor`), so an empty state never reaches an export. */
 const syncNoBasemap = (ui: LayerUI): void => {
-  const anyBaseVisible = ui.m.layers.some(li => {
+  const anyBaseVisible = ui.c.layers.some(li => {
     if (li.group !== GROUP.BASE) return false;
     if (!intentVisibleOf(ui, li.id)) return false;
     // Effective visibility: intent alone isn't enough — a basemap with
@@ -29,7 +29,7 @@ const syncNoBasemap = (ui: LayerUI): void => {
     // `?? 1` treats "no override yet" as fully opaque.
     return (li.opacity ?? 1) > 0;
   });
-  ui.m.map.getContainer().classList.toggle(CONST.CLASSES.NO_BASE_MAP, !anyBaseVisible);
+  ui.c.map.getContainer().classList.toggle(CONST.CLASSES.NO_BASE_MAP, !anyBaseVisible);
   const label = ui.uiContainer.querySelector(
     `${CONST.SEL.TOGGLE_ALL}[data-group="${GROUP.BASE}"] ${CONST.SEL.SEPARATOR_LABEL}`,
   );
@@ -50,7 +50,7 @@ const toggleAll = (ui: LayerUI, group: string, newState: boolean) => {
     // registry and an index-based lookup would silently toggle a neighbor.
     const id = item.getAttribute(CONST.DATA.LAYER_ID);
     if (!id) return;
-    const layerInfo = ui.m.layerRegistry.get(id);
+    const layerInfo = ui.c.layerRegistry.get(id);
     if (!layerInfo) return;
 
     // No persist per iteration — schedule a single debounced write after the
@@ -72,7 +72,7 @@ const toggleAll = (ui: LayerUI, group: string, newState: boolean) => {
   // rewritten, so a full scan is correct and cheap here (batch operation).
   syncToggleAll(ui, group);
   syncNoBasemap(ui);
-  ui.m.debouncedEnforce();
+  ui.c.debouncedEnforce();
 };
 
 /** Full rescan that populates `ui.listPanel.checkedCount[group]` from the DOM + intent,
@@ -98,7 +98,7 @@ const syncToggleAll = (ui: LayerUI, group: string) => {
     total++;
     const id = item.getAttribute(CONST.DATA.LAYER_ID);
     if (!id) continue;
-    const layerInfo = ui.m.layerRegistry.get(id);
+    const layerInfo = ui.c.layerRegistry.get(id);
     if (!layerInfo) continue;
     if (intentVisibleOf(ui, id)) on++;
   }
@@ -190,7 +190,7 @@ const bumpCheckedCount = (ui: LayerUI, group: string, delta: number): void => {
  * @returns true if the layer id resolved to a registry entry.
  */
 const applyVisibility = (ui: LayerUI, id: string, visible: boolean): boolean => {
-  const layerInfo = ui.m.layerRegistry.get(id);
+  const layerInfo = ui.c.layerRegistry.get(id);
   if (!layerInfo) return false;
   const item = ui.uiContainer?.querySelector(
     `[${CONST.DATA.LAYER_ID}="${CSS.escape(id)}"]`,
@@ -215,7 +215,7 @@ const applyVisibility = (ui: LayerUI, id: string, visible: boolean): boolean => 
   // hatch and the group label are user-visible, cannot be deferred.
   if (layerInfo.group === GROUP.BASE) syncNoBasemap(ui);
 
-  ui.m.debouncedEnforce();
+  ui.c.debouncedEnforce();
 
   // A basemap switch changes the map's min/max zoom without firing zoomend,
   // so re-evaluate effective shown across every layer and refresh the open

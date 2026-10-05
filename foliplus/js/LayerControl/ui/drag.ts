@@ -22,7 +22,7 @@ const toggleFold = (ui: LayerUI, group: string): void => {
  *  a positional index here would drag a neighbor's layer. Returns -1 for a
  *  row with no id (or one the registry does not know). */
 const registryIdx = (ui: LayerUI, id: string | null): number => {
-  return id ? ui.m.layers.findIndex(l => l.id === id) : -1;
+  return id ? ui.c.layers.findIndex(l => l.id === id) : -1;
 };
 
 const handleDragStart = (ui: LayerUI, event: DragEvent) => {
@@ -50,7 +50,7 @@ const showReorderBlockedHint = (ui: LayerUI) => {
   const now = Date.now();
   if (now - ui.listPanel.lastDragHintAt < CONST.DRAG.HINT_COOLDOWN_MS) return;
   ui.listPanel.lastDragHintAt = now;
-  ui.m.map.foliplus!.showHint(
+  ui.c.map.foliplus!.showHint(
     ui.config.name,
     ui.T("reorder_group_only"),
     HINT_DURATION.SHORT,
@@ -74,7 +74,7 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
   item.classList.remove(CONST.CLASSES.DRAG_OVER_TOP, CONST.CLASSES.DRAG_OVER_BOTTOM);
   ui.listPanel.lastDragOverItem = item;
 
-  if (!ui.m.canReorderBetween(ui.listPanel.dragIdx, targetIdx)) {
+  if (!ui.c.canReorderBetween(ui.listPanel.dragIdx, targetIdx)) {
     if (event.dataTransfer) event.dataTransfer.dropEffect = "none";
     showReorderBlockedHint(ui);
     return;
@@ -104,7 +104,7 @@ const handleDrop = (ui: LayerUI, event: DragEvent) => {
   if (ui.listPanel.dragIdx === null) return;
   if (!target) return;
 
-  if (ui.listPanel.dragIdx < 0 || ui.listPanel.dragIdx >= ui.m.layers.length) {
+  if (ui.listPanel.dragIdx < 0 || ui.listPanel.dragIdx >= ui.c.layers.length) {
     ui.listPanel.dragIdx = null;
     return;
   }
@@ -112,7 +112,7 @@ const handleDrop = (ui: LayerUI, event: DragEvent) => {
   const targetIdx = registryIdx(ui, target.getAttribute(CONST.DATA.LAYER_ID));
   if (targetIdx < 0) return;
   if (ui.listPanel.dragIdx === targetIdx) return;
-  if (!ui.m.canReorderBetween(ui.listPanel.dragIdx, targetIdx)) {
+  if (!ui.c.canReorderBetween(ui.listPanel.dragIdx, targetIdx)) {
     showReorderBlockedHint(ui);
     return;
   }
@@ -120,13 +120,13 @@ const handleDrop = (ui: LayerUI, event: DragEvent) => {
   // Capture the dragged id before reorder: after the move the registry index
   // of the dragged layer equals targetIdx, but the id is the stable key for
   // locating its DOM row to physically relocate.
-  const dragId = ui.m.layers[ui.listPanel.dragIdx]?.id;
+  const dragId = ui.c.layers[ui.listPanel.dragIdx]?.id;
   if (!dragId) {
     ui.listPanel.dragIdx = null;
     return;
   }
 
-  ui.m.layerRegistry.reorder(ui.listPanel.dragIdx, targetIdx);
+  ui.c.layerRegistry.reorder(ui.listPanel.dragIdx, targetIdx);
 
   const movedItem = ui.uiContainer.querySelector(
     `[${CONST.DATA.LAYER_ID}="${CSS.escape(dragId)}"]`,
@@ -142,8 +142,8 @@ const handleDrop = (ui: LayerUI, event: DragEvent) => {
     target.parentNode.insertBefore(movedItem, target.nextSibling);
   }
 
-  ui.m.enforceOrder();
-  ui.m.saveOrder();
+  ui.c.enforceOrder();
+  ui.c.saveOrder();
   ui.listPanel.dragIdx = null;
 };
 

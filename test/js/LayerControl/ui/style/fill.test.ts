@@ -303,7 +303,7 @@ describe("LayerUI style panel — fill color", () => {
       capabilities: { opacity: "pane", zoomRange: "pane" },
       geometryType: () => "point",
     };
-    vi.spyOn(ui.m, "surfaceFor").mockReturnValue(fake as never);
+    vi.spyOn(ui.c, "surfaceFor").mockReturnValue(fake as never);
     expect(layerCanFill(ui, "point1")).toBe(false);
   });
 
@@ -322,7 +322,7 @@ describe("LayerUI style panel — fill color", () => {
       capabilities: { opacity: "pane", zoomRange: "pane" },
       geometryType: () => "unknown",
     };
-    vi.spyOn(ui.m, "surfaceFor").mockReturnValue(fake as never);
+    vi.spyOn(ui.c, "surfaceFor").mockReturnValue(fake as never);
 
     expect(layerCanFill(ui, "mixed2")).toBe(false);
   });

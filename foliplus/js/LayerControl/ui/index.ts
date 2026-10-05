@@ -84,7 +84,7 @@ import {
  *  each subsystem owns the field and there is no compat layer.
  */
 class LayerUI {
-  manager: LayerController;
+  controller: LayerController;
   /** Per-map event bus — bound once in the constructor (ensure-style getters
    *  return the cached instance, so hold it like the logger does). */
   events: EventBus;
@@ -145,19 +145,19 @@ class LayerUI {
   unsubscribeCountChange: (() => void) | null;
   /** Unsubscribe for the control-attached ready signal. */
   unsubscribeControlAttached: (() => void) | null;
-  /** Unsubscribers for the manager-driven layer-signal events (item add /
+  /** Unsubscribers for the controller-driven layer-signal events (item add /
    *  update / refresh, list rebuild, group count change, no-basemap
    *  change, content invalidation). Batched into one array so a single
-   *  unbind call tears down every listener; the manager no longer drives
+   *  unbind call tears down every listener; the controller no longer drives
    *  these UI methods directly. */
   unsubscribeLayerSignals: Array<() => void>;
 
   constructor(
-    manager: LayerController,
+    controller: LayerController,
     env: { T: (key: string) => string; _: (key: string) => string },
   ) {
-    this.manager = manager;
-    this.events = ensureEvents(this.m.map);
+    this.controller = controller;
+    this.events = ensureEvents(this.c.map);
     this.config = CONFIG;
     this.T = env.T;
     this._ = env._;
@@ -178,18 +178,18 @@ class LayerUI {
   }
 
   /** Alias for convenience */
-  get m() {
-    return this.manager;
+  get c() {
+    return this.controller;
   }
 
   /** The attached panel container. Only valid after attachUI(). */
   get uiContainer(): HTMLElement {
-    return this.m.uiContainer!;
+    return this.c.uiContainer!;
   }
 
   /** LayerAPI typed to expose getFeatureCount (LayerController only). */
   get mgmt(): LayerController & { getFeatureCount: (i: string) => number | null } {
-    return this.m as LayerController & { getFeatureCount: (i: string) => number | null };
+    return this.c as LayerController & { getFeatureCount: (i: string) => number | null };
   }
 
   /**
@@ -378,7 +378,7 @@ class LayerUI {
   closeStylePanel(setFocus: boolean) {
     return closeStylePanel(this, setFocus);
   }
-  /** Part of the surface `manager` drives (`unregisterLayer` drops a layer's
+  /** Part of the surface `controller` drives (`unregisterLayer` drops a layer's
    *  cached field list). Peer ui/ modules call the module function directly
    *  instead — see the sibling-import convention from #296. */
   invalidateFields(layerId: string) {

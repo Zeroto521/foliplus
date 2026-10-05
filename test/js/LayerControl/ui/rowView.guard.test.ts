@@ -293,7 +293,7 @@ describe("pattern anchors", () => {
     ).toEqual([]);
     // The map container is not a row item.
     expect(
-      matched("ui.m.map.getContainer().classList.add(CONST.CLASSES.ACTIVE)", re),
+      matched("ui.c.map.getContainer().classList.add(CONST.CLASSES.ACTIVE)", re),
     ).toEqual([]);
     // The color item is not a layer row.
     expect(matched("?.classList.add(CONST.CLASSES.ACTIVE)", re)).toEqual([]);

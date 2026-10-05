@@ -3318,7 +3318,7 @@ describe("LayerUI style panel", () => {
     // syncNoBasemap. Overlay opacity is unrelated, so a base-vs-overlay
     // toggle must be observable.
     const toggleSpy = vi.fn();
-    vi.spyOn(ui.m.map, "getContainer").mockImplementation(
+    vi.spyOn(ui.c.map, "getContainer").mockImplementation(
       () =>
         ({
           classList: { toggle: toggleSpy, remove: vi.fn() },
@@ -3343,7 +3343,7 @@ describe("LayerUI style panel", () => {
 
   it("commitOpacityPct skips the hatch sync for overlays", () => {
     const toggleSpy = vi.fn();
-    vi.spyOn(ui.m.map, "getContainer").mockImplementation(
+    vi.spyOn(ui.c.map, "getContainer").mockImplementation(
       () =>
         ({
           classList: { toggle: toggleSpy, remove: vi.fn() },
@@ -3370,7 +3370,7 @@ describe("LayerUI style panel", () => {
     // Resetting a basemap that was at 0 back to 1 flips the hatch off.
     // Same invariant as commitOpacityPct: base → sync, overlay → skip.
     const toggleSpy = vi.fn();
-    vi.spyOn(ui.m.map, "getContainer").mockImplementation(
+    vi.spyOn(ui.c.map, "getContainer").mockImplementation(
       () =>
         ({
           classList: { toggle: toggleSpy, remove: vi.fn() },
@@ -3392,7 +3392,7 @@ describe("LayerUI style panel", () => {
 
   it("resetLayerOpacity skips the hatch sync for overlays", () => {
     const toggleSpy = vi.fn();
-    vi.spyOn(ui.m.map, "getContainer").mockImplementation(
+    vi.spyOn(ui.c.map, "getContainer").mockImplementation(
       () =>
         ({
           classList: { toggle: toggleSpy, remove: vi.fn() },
@@ -4228,7 +4228,7 @@ describe("LayerUI style panel — zoom range", () => {
     maxInput.dispatchEvent(new Event("input", { bubbles: true }));
     // Polluted map max after the drag — the ratchet case.
     map.getMaxZoom.mockReturnValue(10);
-    ui.m.onZoomend?.();
+    ui.c.onZoomend?.();
     // Reopen the panel and check the bound has not been narrowed.
     ui.closeStylePanel?.(false);
     ui.openStylePanel("base1");
@@ -4381,8 +4381,8 @@ describe("style utility guards", () => {
     ui.runtimeStore.setFields("overlay1", [{ name: "count", numeric: true }]);
     // The Label section needs the annotation capability (the gate no longer
     // reads the field cache).
-    const li = ui.m.layerRegistry.get("overlay1")!;
-    const surface = ui.m.surfaceFor(li) as unknown as {
+    const li = ui.c.layerRegistry.get("overlay1")!;
+    const surface = ui.c.surfaceFor(li) as unknown as {
       capabilities: Record<string, unknown>;
     };
     surface.capabilities = { ...surface.capabilities, annotation: "pane" };
@@ -4406,7 +4406,7 @@ describe("style utility guards", () => {
     toggle.dispatchEvent(new Event("change", { bubbles: true }));
 
     // The patch is applied despite the missing elements.
-    expect(ui.m.annotation.getConfig("overlay1")!.show).toBe(true);
+    expect(ui.c.annotation.getConfig("overlay1")!.show).toBe(true);
   });
 
   it("annotation panel setup tolerates missing color/size inputs", () => {
@@ -4443,7 +4443,7 @@ describe("style utility guards", () => {
 
 describe("reset on an id the registry does not know", () => {
   it("resetLayerOpacity returns before touching state", () => {
-    // `if (!ui.m.layerRegistry.has(layerId)) return` — a Reset aimed at a
+    // `if (!ui.c.layerRegistry.has(layerId)) return` — a Reset aimed at a
     // layer that has already left must not rewrite the record or save.
     const { ui } = initFixture({});
     setIntent(ui, "ghost", "opacity", 0.4);

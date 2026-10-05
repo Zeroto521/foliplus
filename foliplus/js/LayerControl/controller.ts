@@ -90,7 +90,7 @@ const uninstallBringToFrontPatch = () => {
 //      through the registration and ordering passes (insertLayerItem,
 //      initLayerItem, invalidateFields, applyUserState, syncToggleAll,
 //      initTypesAndVisibility, renderInitialList). These are coordinator
-//      calls, not public API: they exist so the manager can drive the
+//      calls, not public API: they exist so the controller can drive the
 //      rendering side without owning DOM.
 //
 // Geometry-type probing has moved off this file — the
@@ -148,7 +148,7 @@ class LayerController implements LayerAPI {
   persistence: LayerPersistence;
   /** User-arranged order + one-way deleted-id set. Owns `savedOrder` /
    *  `removedIds` and the load / snapshot / replay / prune methods; the
-   *  manager forwards the public face and keeps the ownership call-sites
+   *  controller forwards the public face and keeps the ownership call-sites
    *  (register gate, delete mark). */
   order: LayerOrder;
   annotation: AnnotationManager;
@@ -394,7 +394,7 @@ class LayerController implements LayerAPI {
    *  @returns {string|null} "point" | "line" | "polygon" | "base" | null
    *
    *  Snapshot contract: `layerInfo.type` is a snapshot of the surface's
-   *  probe result and this method is its single writer. The manager never
+   *  probe result and this method is its single writer. The controller never
    *  calls `getGeometryType` directly — that probe lives on the surface. */
   getLayerType(id: string): string | null {
     const layerInfo = this.layerRegistry.get(id);
@@ -415,7 +415,7 @@ class LayerController implements LayerAPI {
   }
 
   /** Drop a registered layer's cached geometry type. Both the surface's
-   *  internal cache and the manager's snapshot are cleared; the next
+   *  internal cache and the controller's snapshot are cleared; the next
    *  `getLayerType` re-probes through the surface. Unknown ids are no-ops. */
   invalidateType(id: string): void {
     this.surfaces.get(id)?.invalidate();
@@ -593,7 +593,7 @@ class LayerController implements LayerAPI {
     if (this.ui) {
       if (existingIdx === -1) {
         // New row: the UI inserts the DOM row. insertLayerItem internally
-        // runs applyUserState for this id, so the manager-level applyUserState
+        // runs applyUserState for this id, so the controller-level applyUserState
         // below is a no-op on the new-row path (idempotent) and only carries
         // meaning on the re-registration branch.
         this.events.emit(EVENTS.LAYER_ITEM_ADDED, { id: opts.id });

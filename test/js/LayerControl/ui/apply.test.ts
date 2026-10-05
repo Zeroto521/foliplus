@@ -333,7 +333,7 @@ describe("executor: late-carrier replay", () => {
     // Stored opacity: the first write covers every declared non-annotation
     // pane. The label pane is excluded from CSS (R11 bakes layerAlpha into
     // AnnotationCanvas draws) so the two carriers never double-compound.
-    const applyAlpha = vi.spyOn(ui.m.annotation, "applyLayerAlpha");
+    const applyAlpha = vi.spyOn(ui.c.annotation, "applyLayerAlpha");
     setIntent(ui, "a1", "opacity", 0.3);
     ui.intentStore.seedProvenance("a1", ["opacity"]);
     applyProjection(ui, "a1");
@@ -637,7 +637,7 @@ describe("executor: carrier dispatch", () => {
     // exists to add/remove, so the class on the canvas IS the carrier.
     const canvas = document.createElement("canvas");
     const { ui } = boot([{ id: "cv", name: "CV", group: "overlay", canvas }]);
-    const li = () => ui.m.layerRegistry.get("cv")!;
+    const li = () => ui.c.layerRegistry.get("cv")!;
 
     applyStateOp(ui, li(), { type: "visible", value: false });
     expect(canvas.classList.contains("hidden")).toBe(true);
@@ -670,7 +670,7 @@ describe("executor: carrier dispatch", () => {
     const { ui, map } = boot([{ id: "nc", name: "NC", group: "overlay" }]);
     (map.addLayer as ReturnType<typeof vi.fn>).mockClear();
 
-    applyStateOp(ui, ui.m.layerRegistry.get("nc")!, {
+    applyStateOp(ui, ui.c.layerRegistry.get("nc")!, {
       type: "visible",
       value: false,
     });
@@ -685,10 +685,10 @@ describe("executor: carrier dispatch", () => {
     // there is simply no element left to stamp.
     const canvas = document.createElement("canvas");
     const { ui } = boot([{ id: "pc", name: "PC", group: "overlay", canvas }]);
-    ui.m.layerRegistry.get("pc")!.canvas = null;
+    ui.c.layerRegistry.get("pc")!.canvas = null;
 
     expect(() =>
-      applyStateOp(ui, ui.m.layerRegistry.get("pc")!, {
+      applyStateOp(ui, ui.c.layerRegistry.get("pc")!, {
         type: "visible",
         value: false,
       }),
@@ -709,11 +709,11 @@ describe("executor: carrier dispatch", () => {
         canvas: document.createElement("canvas"),
       },
     ]);
-    const li = ui.m.layerRegistry.get("pc2")!;
+    const li = ui.c.layerRegistry.get("pc2")!;
     li.canvas = null;
-    ui.m.surfaceFor = (() => ({
+    ui.c.surfaceFor = (() => ({
       capabilities: { visibility: "pane", opacity: "none", zoomRange: "none" },
-    })) as unknown as typeof ui.m.surfaceFor;
+    })) as unknown as typeof ui.c.surfaceFor;
     (map.addLayer as ReturnType<typeof vi.fn>).mockClear();
 
     applyStateOp(ui, li, { type: "visible", value: false });
@@ -729,12 +729,12 @@ describe("executor: carrier dispatch", () => {
     const { ui, map } = boot([
       { id: "nv", name: "NV", group: "overlay", layer: { options: {} } as L.Layer },
     ]);
-    const li = ui.m.layerRegistry.get("nv")!;
+    const li = ui.c.layerRegistry.get("nv")!;
     li.layer = null;
-    ui.m.findLayer = vi.fn(() => null) as typeof ui.m.findLayer;
-    ui.m.surfaceFor = (() => ({
+    ui.c.findLayer = vi.fn(() => null) as typeof ui.c.findLayer;
+    ui.c.surfaceFor = (() => ({
       capabilities: { visibility: "native", opacity: "none", zoomRange: "none" },
-    })) as unknown as typeof ui.m.surfaceFor;
+    })) as unknown as typeof ui.c.surfaceFor;
     ui.runtimeStore.setAuthorVisible("nv", true);
     (map.addLayer as ReturnType<typeof vi.fn>).mockClear();
     (map.hasLayer as ReturnType<typeof vi.fn>).mockReturnValue(false);
@@ -1036,7 +1036,7 @@ describe("executor: the branches behind the gates", () => {
       intentStore: new LayerIntentStore(),
       runtimeStore: new LayerRuntimeStore(),
       focusController: { focusingLayerId: null },
-      m: {
+      c: {
         layerRegistry: {
           get: vi.fn(() => ({ id: "n", layer: { options: {} } })),
         },
@@ -1093,7 +1093,7 @@ describe("executor: the branches behind the gates", () => {
     map.addLayer = vi.fn();
     map.removeLayer = vi.fn();
 
-    applyStateOp(ui, ui.m.layerRegistry.get("dup")!, {
+    applyStateOp(ui, ui.c.layerRegistry.get("dup")!, {
       type: "visible",
       value: true,
     });

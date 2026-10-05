@@ -17,9 +17,9 @@ import type { ListCursor } from "#core/listCursor.js";
  *  folded, which rows are checked, where the roving keyboard cursor sits,
  *  and the in-flight drag. Nothing here is domain — none of these fields
  *  persist across page reloads except what `state.ts` writes through the
- *  `ui.m.persistence` channel. */
+ *  `ui.c.persistence` channel. */
 class ListPanel {
-  /** Per-group fold state. Persisted through `ui.m.persistence` on change. */
+  /** Per-group fold state. Persisted through `ui.c.persistence` on change. */
   foldedGroups: Set<string> = new Set();
   /** Per-group tri-state checkbox counts. Rebuilt by the full-scan
    *  `syncToggleAll` at reconcile points; kept in sync by

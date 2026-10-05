@@ -269,7 +269,7 @@ describe("LayerUI shell — delegates", () => {
     // has a single seam to spy on.
     const setColor = vi.fn();
     const setVisible = vi.fn();
-    ui.m.createColor = vi.fn(() => ({
+    ui.c.createColor = vi.fn(() => ({
       element: document.createElement("canvas"),
       setColor,
       setVisible,
@@ -310,7 +310,7 @@ describe("LayerUI shell — delegates", () => {
 
   it("hideSolidBasemap delegates to the colour module", () => {
     const setVisible = vi.fn();
-    ui.m.createColor = vi.fn(() => ({
+    ui.c.createColor = vi.fn(() => ({
       element: document.createElement("canvas"),
       setColor: vi.fn(),
       setVisible,

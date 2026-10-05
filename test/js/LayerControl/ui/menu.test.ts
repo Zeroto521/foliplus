@@ -424,7 +424,7 @@ describe("LayerUI menu", () => {
     const deleteSpy = vi.fn();
 
     beforeEach(() => {
-      ui.m.deleteLayer = deleteSpy;
+      ui.c.deleteLayer = deleteSpy;
     });
 
     function click(li: HTMLLIElement) {
@@ -761,7 +761,7 @@ describe("LayerUI menu", () => {
     // "this layer is broken".
     it("disables focus with the no-bounds tooltip and keeps Style enabled", () => {
       const layerInfo = manager.layerRegistry.get("overlay1")!;
-      ui.m.surfaceFor(layerInfo).capabilities.bounds = false;
+      ui.c.surfaceFor(layerInfo).capabilities.bounds = false;
 
       const item = findItem(ui, "overlay1");
       ui.openMoreMenu(item);
@@ -831,7 +831,7 @@ describe("LayerUI menu", () => {
 
     it("does not disable the style entry when the layer has styleSetters but no label fields", () => {
       // Set styleSetters on the layer info in the registry — layerHasStyleDelegation
-      // reads from ui.m.layerRegistry, not window.foliplus.styleDelegation.
+      // reads from ui.c.layerRegistry, not window.foliplus.styleDelegation.
       const li = manager.layerRegistry.get("overlay1");
       li!.styleSetters = { color: vi.fn() };
 
@@ -852,7 +852,7 @@ describe("LayerUI menu", () => {
       const li = manager.layerRegistry.get("overlay1");
       li!.styleSetters = undefined;
       // Force the surface to report "none" capabilities
-      const surface = ui.m.surfaceFor(li!);
+      const surface = ui.c.surfaceFor(li!);
       (surface as unknown as { capabilities: Record<string, string> }).capabilities = {
         opacity: "none",
         zoomRange: "none",

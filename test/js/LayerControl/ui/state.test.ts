@@ -286,7 +286,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
       ]);
       const u = new LayerUI(m, TEST_ENV);
       u.loadPersistedState();
-      const schedule = vi.spyOn(u.m.persistence, "schedule");
+      const schedule = vi.spyOn(u.c.persistence, "schedule");
 
       u.applyUserState();
 
@@ -873,7 +873,7 @@ describe("ui/state saveFoldState", () => {
     const schedule = vi.fn();
     const ui = {
       foldedGroups: new Set(["overlay"]),
-      m: {
+      c: {
         persistence: { schedule },
         annotation: { configEntries: () => [] },
       },
@@ -1052,7 +1052,7 @@ describe("event-driven row refresh", () => {
   });
 
   it("onLayerItemCountChange re-renders the type label and count column", () => {
-    const events = ensureEvents(ui.m.map);
+    const events = ensureEvents(ui.c.map);
     const info = manager.layerRegistry.get("overlay1")!;
     // A numeric feature-count provider makes the count column render (the
     // fixture's default layers have none).
@@ -1078,7 +1078,7 @@ describe("event-driven row refresh", () => {
       .spyOn(manager.surfaces.get("overlay1"), "geometryType")
       .mockReturnValue(GEOM_TYPE.POLYGON);
 
-    ensureEvents(ui.m.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "overlay1" });
+    ensureEvents(ui.c.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "overlay1" });
 
     expect(geomSpy).toHaveBeenCalledTimes(1);
     expect(info.type).toBeNull();
@@ -1093,7 +1093,7 @@ describe("event-driven row refresh", () => {
     const info = manager.layerRegistry.get("overlay1")!;
     vi.spyOn(manager, "findLayer").mockReturnValue(null);
 
-    ensureEvents(ui.m.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "overlay1" });
+    ensureEvents(ui.c.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "overlay1" });
 
     expect(info.type).toBeNull();
     expect(
@@ -1120,7 +1120,7 @@ describe("event-driven row refresh", () => {
       "rect",
     );
 
-    ensureEvents(ui.m.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "custom1" });
+    ensureEvents(ui.c.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "custom1" });
 
     expect(item.querySelector(`.${CONST.CLASSES.TYPE_ICON_COL}`)?.innerHTML).toContain(
       "rect",
@@ -1132,7 +1132,7 @@ describe("event-driven row refresh", () => {
     // A measurement finalized at store.add fires LAYER_ITEM_COUNT_CHANGE. The
     // panes were painted at full opacity while the preview was live; this is
     // when the opacity "snaps in" to the real geometry.
-    const events = ensureEvents(ui.m.map);
+    const events = ensureEvents(ui.c.map);
     const li = manager.layerRegistry.get("overlay1")!;
     li.paneSpecs = specs("__test_opacity_pane__");
     // The projection reads the opacity value gated by the provenance
@@ -1151,7 +1151,7 @@ describe("event-driven row refresh", () => {
   });
 
   it("subscribeControlAttached reruns init when another control attaches", () => {
-    const events = ensureEvents(ui.m.map);
+    const events = ensureEvents(ui.c.map);
     events.emit(EVENTS.CONTROL_ATTACHED, { component: "ScaleControl" });
     // The callback keeps the rendered rows intact (init re-syncs, no error).
     expect(
@@ -1187,7 +1187,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
     const schedule = vi.fn();
     const bare = {
       intentStore: makeStore(),
-      m: {
+      c: {
         persistence: { schedule },
         annotation: { configEntries: () => [] },
       },
@@ -1215,7 +1215,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
         { overlay1: { visible: false } },
         { overlay1: ["visible"] },
       ),
-      m: {
+      c: {
         persistence: { schedule },
         annotation: { configEntries: () => [] },
       },
@@ -1243,7 +1243,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
         { overlay1: { zoomRange: [4, 10] } },
         { overlay1: ["zoomRange"] },
       ),
-      m: {
+      c: {
         persistence: { schedule },
         annotation: { configEntries: () => [] },
       },
@@ -1266,7 +1266,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
     const schedule = vi.fn();
     const bare = {
       intentStore: makeStore({}, { overlay1: ["zoomRange"] }),
-      m: {
+      c: {
         persistence: { schedule },
         annotation: { configEntries: () => [] },
       },
@@ -1303,7 +1303,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
     const schedule = vi.fn();
     const bare = {
       intentStore: makeStore({}, { overlay1: ["opacity"] }),
-      m: {
+      c: {
         persistence: { schedule },
         annotation: { configEntries: () => [] },
       },
@@ -1326,7 +1326,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
     const schedule = vi.fn();
     const bare = {
       intentStore: makeStore(),
-      m: {
+      c: {
         persistence: { schedule },
         annotation: { configEntries: () => [] },
       },
@@ -1348,7 +1348,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
     // disk contract intact.
     const bare = {
       intentStore: makeStore(),
-      m: {
+      c: {
         persistence: { schedule: vi.fn() },
         annotation: { configEntries: () => [] },
       },
@@ -1368,7 +1368,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
     const bare = {
       intentStore: makeStore(),
       listPanel: { foldedGroups: new Set<string>(), checkedCount: {} },
-      m: {
+      c: {
         persistence: {
           load: () =>
             ({
@@ -1395,7 +1395,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
     const bare = {
       intentStore: makeStore(),
       listPanel: { foldedGroups: new Set<string>(), checkedCount: {} },
-      m: {
+      c: {
         persistence: {
           load: () =>
             ({
@@ -1422,7 +1422,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
         a: { opacity: 0.5 },
         b: { name: "Renamed" },
       }),
-      m: { persistence: { schedule } },
+      c: { persistence: { schedule } },
     } as unknown as LayerUI;
 
     saveNamesState(bare);
@@ -1440,7 +1440,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
     const schedule = vi.fn();
     const bare = {
       intentStore: makeStore(),
-      m: {
+      c: {
         persistence: { schedule },
         annotation: { configEntries: () => [] },
         layerRegistry: new Map(),
@@ -1463,7 +1463,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const bare = {
       intentStore: makeStore(),
-      m: { persistence: { schedule: vi.fn() } },
+      c: { persistence: { schedule: vi.fn() } },
     } as unknown as LayerUI;
 
     markOverride(bare, "overlay1", "borderColor");
@@ -1570,7 +1570,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
           ],
         },
       ),
-      m: {
+      c: {
         annotation: {
           configEntries: () => [
             ["overlay1", { show: true, field: "name", format: "auto" }],
@@ -1603,7 +1603,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
     const schedule = vi.fn();
     const bare = {
       intentStore: makeStore({ overlay1: { opacity: 0.6 } }, { overlay1: ["opacity"] }),
-      m: {
+      c: {
         persistence: { schedule },
         annotation: { configEntries: () => [] },
       },
@@ -1642,7 +1642,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
           missing: ["borderColor", "borderWeight"],
         },
       ),
-      m: {
+      c: {
         persistence: { schedule },
         annotation: { configEntries: () => [] },
       },
@@ -1762,7 +1762,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
     const schedule = vi.fn();
     const bare = {
       intentStore: makeStore({ overlay1: { name: "Renamed" } }),
-      m: {
+      c: {
         persistence: { schedule },
         annotation: { configEntries: () => [] },
       },

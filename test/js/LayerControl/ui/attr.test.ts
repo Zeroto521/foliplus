@@ -431,7 +431,7 @@ describe("LayerUI attrs", () => {
     });
 
     it("shows the feature count grouped, without a stray fraction digit", () => {
-      vi.spyOn(ui.m, "getFeatureCount").mockReturnValue(1234);
+      vi.spyOn(ui.c, "getFeatureCount").mockReturnValue(1234);
 
       const item = findItem(ui, "overlay1");
       ui.openAttrsPanel(item);

@@ -42,9 +42,9 @@ import { registerDimension } from "./registry.js";
  *  capability bit). The ⋮ menu's Style item keys off the same function —
  *  one source for "can this layer show a Label section". */
 const layerCanLabel = (ui: LayerUI, layerId: string): boolean => {
-  const li = ui.m.layerRegistry.get(layerId);
+  const li = ui.c.layerRegistry.get(layerId);
   if (!li) return false;
-  return ui.m.surfaceFor(li).capabilities.annotation !== CAP_TIER.NONE;
+  return ui.c.surfaceFor(li).capabilities.annotation !== CAP_TIER.NONE;
 };
 
 /** Build the Label section's rows: the label toggle, then the body (field
@@ -59,7 +59,7 @@ const layerCanLabel = (ui: LayerUI, layerId: string): boolean => {
  *  number format, then avoid-overlap. */
 const buildLabelSection = (ui: LayerUI, layerId: string): HTMLElement => {
   const fields = layerFields(ui, layerId);
-  const cfg = ui.m.annotation.getConfig(layerId);
+  const cfg = ui.c.annotation.getConfig(layerId);
   const fmtLabel = (f: string) => ui._(`foliplus.label_format_${f}`) || f;
   // Labels are off by default — the user opens the panel, sees the field and
   // format chooser idle, and flips the switch to begin. `cfg.show ? "" : null`
@@ -231,7 +231,7 @@ const buildLabelSection = (ui: LayerUI, layerId: string): HTMLElement => {
 const ANNOTATION_DIMENSION = registerDimension<AnnotationConfig>({
   key: DIM.ANNOTATION,
   gate: layerCanLabel,
-  value: (ui, layerId) => ui.m.annotation.getConfig(layerId),
+  value: (ui, layerId) => ui.c.annotation.getConfig(layerId),
   row: buildLabelSection,
 });
 

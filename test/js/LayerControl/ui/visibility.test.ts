@@ -1054,7 +1054,7 @@ describe("unit helpers", () => {
     uiContainer.innerHTML = `<div class="foliplus-layer-toggle-all" data-group="${GROUP.OVERLAY}"></div>`;
     const ui = {
       uiContainer,
-      m: { layerRegistry: { get: () => undefined } },
+      c: { layerRegistry: { get: () => undefined } },
       T: (k: string) => k,
       listPanel: {
         checkedCount: {},
@@ -1073,7 +1073,7 @@ describe("unit helpers", () => {
     uiContainer.innerHTML = `<div class="foliplus-layer-toggle-all" data-group="${GROUP.BASE}"><span></span></div>`;
     const ui = {
       uiContainer,
-      m: {
+      c: {
         layers: [{ id: "b1", group: "base" }],
         map: { getContainer: () => document.createElement("div") },
       },
@@ -1109,7 +1109,7 @@ describe("unit helpers", () => {
           : [{ id: "b1", group: "base", opacity }];
       const ui = {
         uiContainer,
-        m: { layers, map: { getContainer: () => container } },
+        c: { layers, map: { getContainer: () => container } },
         intentStore: new LayerIntentStore(),
         runtimeStore: new LayerRuntimeStore(),
         T: (k: string) => k,
@@ -1159,7 +1159,7 @@ describe("unit helpers", () => {
     `;
     const ui = {
       uiContainer,
-      m: { layerRegistry: { get: () => ({ id: "x" }) } },
+      c: { layerRegistry: { get: () => ({ id: "x" }) } },
       intentStore: new LayerIntentStore(),
       runtimeStore: new LayerRuntimeStore(),
       T: (k: string) => k,

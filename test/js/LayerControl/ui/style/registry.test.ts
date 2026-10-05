@@ -58,7 +58,7 @@ describe("LayerControl style-panel dimension registry", () => {
     expect(ANNOTATION_DIMENSION.key).toBe("annotation");
     expect(
       ANNOTATION_DIMENSION.value(
-        { m: { annotation: { getConfig: () => ({ show: true }) } } } as never,
+        { c: { annotation: { getConfig: () => ({ show: true }) } } } as never,
         "x",
       ),
     ).toEqual({ show: true });
@@ -138,7 +138,7 @@ describe("LayerControl style-panel dimension registry — writeIntentKeys", () =
     });
     ui = fixture.ui;
     schedule = vi.fn();
-    ui.m.persistence = { schedule } as never;
+    ui.c.persistence = { schedule } as never;
   });
 
   afterEach(() => {
@@ -190,7 +190,7 @@ describe("LayerControl style-panel dimension registry — resetIntentKeys", () =
     });
     ui = fixture.ui;
     schedule = vi.fn();
-    ui.m.persistence = { schedule } as never;
+    ui.c.persistence = { schedule } as never;
   });
 
   afterEach(() => {
@@ -253,11 +253,11 @@ describe("LayerControl style-panel dimension registry — gatedRows", () => {
   // "native" | "pane" | "none". The gates read them accordingly: fill and
   // border check `=== "native"`, the rest `!== "none"`.
   const mockSurfaceFor = (capabilities: Record<string, string>) => {
-    vi.spyOn(ui.m, "surfaceFor").mockReturnValue({
+    vi.spyOn(ui.c, "surfaceFor").mockReturnValue({
       capabilities,
       paneNames: [],
       geometryType: () => "polygon",
-    } as unknown as ReturnType<typeof ui.m.surfaceFor>);
+    } as unknown as ReturnType<typeof ui.c.surfaceFor>);
   };
 
   it("collects the descriptors whose gate passes, in the caller's declared order", () => {
@@ -374,11 +374,11 @@ describe("LayerControl style-panel dimension registry — opacity descriptor", (
   });
 
   const mockSurfaceFor = (capabilities: { opacity: string; zoomRange: string }) => {
-    vi.spyOn(ui.m, "surfaceFor").mockReturnValue({
+    vi.spyOn(ui.c, "surfaceFor").mockReturnValue({
       capabilities,
       paneNames: [],
       geometryType: () => "polygon",
-    } as unknown as ReturnType<typeof ui.m.surfaceFor>);
+    } as unknown as ReturnType<typeof ui.c.surfaceFor>);
   };
 
   it('declares key = "opacity"', () => {
@@ -416,8 +416,8 @@ describe("LayerControl style-panel dimension registry — opacity descriptor", (
 
   it("write marks provenance for opacity < 1", () => {
     const schedule = vi.fn();
-    ui.m.persistence = { schedule } as never;
-    vi.spyOn(ui.m, "surfaceFor").mockReturnValue({
+    ui.c.persistence = { schedule } as never;
+    vi.spyOn(ui.c, "surfaceFor").mockReturnValue({
       capabilities: { opacity: "pane" },
       paneNames: [],
       panes: [],
@@ -429,8 +429,8 @@ describe("LayerControl style-panel dimension registry — opacity descriptor", (
 
   it("write with opacity === 1 clears the override (does not mark)", () => {
     const schedule = vi.fn();
-    ui.m.persistence = { schedule } as never;
-    vi.spyOn(ui.m, "surfaceFor").mockReturnValue({
+    ui.c.persistence = { schedule } as never;
+    vi.spyOn(ui.c, "surfaceFor").mockReturnValue({
       capabilities: { opacity: "pane" },
       paneNames: [],
       panes: [],
@@ -443,7 +443,7 @@ describe("LayerControl style-panel dimension registry — opacity descriptor", (
 
   it("write ignores a non-number patch", () => {
     const schedule = vi.fn();
-    ui.m.persistence = { schedule } as never;
+    ui.c.persistence = { schedule } as never;
     OPACITY_DIMENSION.write!(ui, "overlay1", {
       opacity: 0.4,
     } as never);
@@ -457,8 +457,8 @@ describe("LayerControl style-panel dimension registry — opacity descriptor", (
 
   it("reset clears opacity override", () => {
     const schedule = vi.fn();
-    ui.m.persistence = { schedule } as never;
-    vi.spyOn(ui.m, "surfaceFor").mockReturnValue({
+    ui.c.persistence = { schedule } as never;
+    vi.spyOn(ui.c, "surfaceFor").mockReturnValue({
       capabilities: { opacity: "pane" },
       paneNames: [],
       panes: [],
@@ -469,7 +469,7 @@ describe("LayerControl style-panel dimension registry — opacity descriptor", (
   });
 
   it("valueSource is none/author/user across the three states", () => {
-    vi.spyOn(ui.m, "surfaceFor").mockReturnValue({
+    vi.spyOn(ui.c, "surfaceFor").mockReturnValue({
       capabilities: { opacity: "pane" },
       paneNames: [],
       panes: [],
@@ -536,14 +536,14 @@ describe("LayerControl style-panel dimension registry — fill descriptor", () =
   });
 
   it("valueSource is author when the user has not set either slot", () => {
-    vi.spyOn(ui.m, "surfaceFor").mockReturnValue({
+    vi.spyOn(ui.c, "surfaceFor").mockReturnValue({
       capabilities: { fill: "native" },
     } as never);
     expect(FILL_DIMENSION.valueSource!(ui, "overlay1")).toBe("author");
   });
 
   it("valueSource is user once provenance marks a fill slot", () => {
-    vi.spyOn(ui.m, "surfaceFor").mockReturnValue({
+    vi.spyOn(ui.c, "surfaceFor").mockReturnValue({
       capabilities: { fill: "native" },
     } as never);
     ui.intentStore.set("overlay1", "fillColor", "#ff0000");
@@ -552,7 +552,7 @@ describe("LayerControl style-panel dimension registry — fill descriptor", () =
 
   it("write persists the patch through IntentStore and marks provenance", () => {
     const schedule = vi.fn();
-    ui.m.persistence = { schedule } as never;
+    ui.c.persistence = { schedule } as never;
     FILL_DIMENSION.write!(ui, "overlay1", {
       color: "#00ff00",
       opacity: 0.4,
@@ -573,7 +573,7 @@ describe("LayerControl style-panel dimension registry — fill descriptor", () =
 
   it("write with an empty patch is a no-op", () => {
     const schedule = vi.fn();
-    ui.m.persistence = { schedule } as never;
+    ui.c.persistence = { schedule } as never;
     FILL_DIMENSION.write!(ui, "overlay1", {});
     expect(ui.intentStore.dumpProvenance()).toEqual({});
     expect(schedule).not.toHaveBeenCalled();
@@ -581,7 +581,7 @@ describe("LayerControl style-panel dimension registry — fill descriptor", () =
 
   it("reset clears both fill slots and their provenance", () => {
     const schedule = vi.fn();
-    ui.m.persistence = { schedule } as never;
+    ui.c.persistence = { schedule } as never;
     FILL_DIMENSION.write!(ui, "overlay1", {
       color: "#ff0000",
       opacity: 0.5,
@@ -649,14 +649,14 @@ describe("LayerControl style-panel dimension registry — border descriptor", ()
   });
 
   it("valueSource is author when the user has not set either slot", () => {
-    vi.spyOn(ui.m, "surfaceFor").mockReturnValue({
+    vi.spyOn(ui.c, "surfaceFor").mockReturnValue({
       capabilities: { stroke: "native" },
     } as never);
     expect(BORDER_DIMENSION.valueSource!(ui, "overlay1")).toBe("author");
   });
 
   it("valueSource is user once provenance marks a border slot", () => {
-    vi.spyOn(ui.m, "surfaceFor").mockReturnValue({
+    vi.spyOn(ui.c, "surfaceFor").mockReturnValue({
       capabilities: { stroke: "native" },
     } as never);
     ui.intentStore.set("overlay1", "borderWeight", 2);
@@ -665,7 +665,7 @@ describe("LayerControl style-panel dimension registry — border descriptor", ()
 
   it("write persists the patch through IntentStore and marks provenance", () => {
     const schedule = vi.fn();
-    ui.m.persistence = { schedule } as never;
+    ui.c.persistence = { schedule } as never;
     BORDER_DIMENSION.write!(ui, "overlay1", {
       color: "#00ff00",
       weight: 4,
@@ -679,7 +679,7 @@ describe("LayerControl style-panel dimension registry — border descriptor", ()
 
   it("write with an empty patch is a no-op", () => {
     const schedule = vi.fn();
-    ui.m.persistence = { schedule } as never;
+    ui.c.persistence = { schedule } as never;
     BORDER_DIMENSION.write!(ui, "overlay1", {});
     expect(ui.intentStore.dumpProvenance()).toEqual({});
     expect(schedule).not.toHaveBeenCalled();
@@ -687,7 +687,7 @@ describe("LayerControl style-panel dimension registry — border descriptor", ()
 
   it("reset clears both border slots and their provenance", () => {
     const schedule = vi.fn();
-    ui.m.persistence = { schedule } as never;
+    ui.c.persistence = { schedule } as never;
     BORDER_DIMENSION.write!(ui, "overlay1", {
       color: "#ff0000",
       weight: 3,
@@ -751,8 +751,8 @@ describe("LayerControl style-panel dimension registry — zoomRange descriptor",
 
   it("write with {min,max} persists the range and marks provenance", () => {
     const schedule = vi.fn();
-    ui.m.persistence = { schedule } as never;
-    vi.spyOn(ui.m, "surfaceFor").mockReturnValue({
+    ui.c.persistence = { schedule } as never;
+    vi.spyOn(ui.c, "surfaceFor").mockReturnValue({
       capabilities: { zoomRange: "pane" },
       paneNames: [],
       panes: [],
@@ -764,8 +764,8 @@ describe("LayerControl style-panel dimension registry — zoomRange descriptor",
 
   it("write with empty patch commits an already-written live preview", () => {
     const schedule = vi.fn();
-    ui.m.persistence = { schedule } as never;
-    vi.spyOn(ui.m, "surfaceFor").mockReturnValue({
+    ui.c.persistence = { schedule } as never;
+    vi.spyOn(ui.c, "surfaceFor").mockReturnValue({
       capabilities: { zoomRange: "pane" },
       paneNames: [],
       panes: [],
@@ -778,7 +778,7 @@ describe("LayerControl style-panel dimension registry — zoomRange descriptor",
 
   it("write with empty patch and no stored value is a no-op", () => {
     const schedule = vi.fn();
-    ui.m.persistence = { schedule } as never;
+    ui.c.persistence = { schedule } as never;
     ZOOM_RANGE_DIMENSION.write!(ui, "overlay1", {});
     expect(schedule).not.toHaveBeenCalled();
     expect(ui.intentStore.isUserSet("overlay1", "zoomRange")).toBe(false);
@@ -786,8 +786,8 @@ describe("LayerControl style-panel dimension registry — zoomRange descriptor",
 
   it("reset clears the zoomRange override", () => {
     const schedule = vi.fn();
-    ui.m.persistence = { schedule } as never;
-    vi.spyOn(ui.m, "surfaceFor").mockReturnValue({
+    ui.c.persistence = { schedule } as never;
+    vi.spyOn(ui.c, "surfaceFor").mockReturnValue({
       capabilities: { zoomRange: "pane" },
       paneNames: [],
       panes: [],
@@ -798,7 +798,7 @@ describe("LayerControl style-panel dimension registry — zoomRange descriptor",
   });
 
   it("valueSource is none/author/user across the three states", () => {
-    vi.spyOn(ui.m, "surfaceFor").mockReturnValue({
+    vi.spyOn(ui.c, "surfaceFor").mockReturnValue({
       capabilities: { zoomRange: "pane" },
       paneNames: [],
       panes: [],

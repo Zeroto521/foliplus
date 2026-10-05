@@ -118,9 +118,9 @@ interface BorderRowBindTarget {
  *  capability check, no carrier probes, no `isColorBasemap`
  *  special-cases, no canvas exclusion. */
 const layerCanBorder = (ui: LayerUI, layerId: string): boolean => {
-  const li = ui.m.layerRegistry.get(layerId);
+  const li = ui.c.layerRegistry.get(layerId);
   if (!li) return false;
-  return ui.m.surfaceFor(li).capabilities.stroke === CAP_TIER.NATIVE;
+  return ui.c.surfaceFor(li).capabilities.stroke === CAP_TIER.NATIVE;
 };
 
 /** Leaflet's own default `Path.color` — folium's style function always
@@ -152,7 +152,7 @@ const authoredBorder = (
 ): { color: string; weight: number } => {
   // findLayer, not registry.get(id).layer: folium layers register unresolved,
   // so the registry's own reference stays null until the layer materializes.
-  const layer = ui.m.findLayer(layerId) as StyleCarrier | null;
+  const layer = ui.c.findLayer(layerId) as StyleCarrier | null;
   const carrier = layer ? firstCarrier(layer) : null;
   const bag = carrier ? styleBagOf(carrier) : undefined;
   return {
@@ -181,7 +181,7 @@ const applyBorderToLayer = (ui: LayerUI, layerId: string): void => {
   const color = getIntent(ui, layerId, INTENT.BORDER_COLOR);
   const weight = getIntent(ui, layerId, INTENT.BORDER_WEIGHT);
   if (color === undefined && weight === undefined) return;
-  const layer = ui.m.findLayer(layerId) as StyleCarrier | null;
+  const layer = ui.c.findLayer(layerId) as StyleCarrier | null;
   if (!layer) return;
   const values: Record<string, unknown> = {};
   if (color !== undefined) values.color = color;
@@ -247,7 +247,7 @@ const commitBorderWeight = (ui: LayerUI, layerId: string, weight: number): void 
  *  persisted overrides are removed either way so the next load does not
  *  re-apply a stroke the layer no longer shows. */
 const resetLayerBorder = (ui: LayerUI, layerId: string): void => {
-  if (!ui.m.layerRegistry.has(layerId)) return;
+  if (!ui.c.layerRegistry.has(layerId)) return;
   // Descriptor reset owns cancel + intent clear + styleBag restore walk.
   getDimension(DIM.BORDER)!.reset!(ui, layerId);
 };
@@ -417,7 +417,7 @@ const BORDER_DIMENSION = registerDimension<{ color: string; weight: number }>({
   key: DIM.BORDER,
   gate: layerCanBorder,
   value: (ui, layerId) => {
-    const li = ui.m.layerRegistry.get(layerId);
+    const li = ui.c.layerRegistry.get(layerId);
     if (!li) return undefined;
     const author = authoredBorder(ui, layerId);
     return {
@@ -441,7 +441,7 @@ const BORDER_DIMENSION = registerDimension<{ color: string; weight: number }>({
   reset: (ui, layerId) => {
     cancelStyleDimApply(FACE.STROKE, layerId);
     resetIntentKeys(ui, layerId, [INTENT.BORDER_COLOR, INTENT.BORDER_WEIGHT]);
-    const layer = ui.m.findLayer(layerId) as StyleCarrier | null;
+    const layer = ui.c.findLayer(layerId) as StyleCarrier | null;
     if (!layer) return;
     // Same restore walk as fill — one styleBag contract, not two copies.
     walkStyleLeaves(layer, node => restoreStyleDim(node, FACE.STROKE));

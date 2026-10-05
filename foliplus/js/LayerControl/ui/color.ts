@@ -14,7 +14,7 @@ import type { LayerUI } from "./index.js";
 
 const getColorSurface = (ui: LayerUI): CreateColorAPI => {
   if (!ui.colorSurface) {
-    const surface = ui.m.createColor({
+    const surface = ui.c.createColor({
       id: CONST.SOLID_BASEMAP_ID,
       name: ui.T("color_map_label"),
       color: CONST.COLOR.DEFAULT,
@@ -36,7 +36,7 @@ const showSolidBasemap = (ui: LayerUI, color: string) => {
   surface.setVisible(true);
   // Checking the box is a single user action — order the stack now, so the
   // pane's z lands immediately instead of after the debounce.
-  ui.m.enforceOrder();
+  ui.c.enforceOrder();
 };
 
 const hideSolidBasemap = (ui: LayerUI) => {

@@ -18,7 +18,7 @@ import { saveState } from "../state.js";
 const layerFields = (ui: LayerUI, layerId: string): LabelField[] => {
   const cached = ui.runtimeStore.getFields(layerId);
   if (cached) return cached;
-  const fields = ui.m.annotation.collectFields(layerId);
+  const fields = ui.c.annotation.collectFields(layerId);
   ui.runtimeStore.setFields(layerId, fields);
   return fields;
 };
@@ -38,9 +38,9 @@ const layerHasLabelFields = (ui: LayerUI, layerId: string): boolean =>
  *  it the map and the panel disagree until the user touches a control. */
 const invalidateFields = (ui: LayerUI, layerId: string): void => {
   ui.runtimeStore.deleteFields(layerId);
-  ui.m.annotation.invalidateAutoField(layerId);
-  if (ui.m.annotation.getConfig(layerId).show) {
-    ui.m.annotation.renderLabels(layerId);
+  ui.c.annotation.invalidateAutoField(layerId);
+  if (ui.c.annotation.getConfig(layerId).show) {
+    ui.c.annotation.renderLabels(layerId);
   }
 };
 
@@ -61,10 +61,10 @@ const applyPatch = (
   layerId: string,
   patch: Partial<AnnotationConfig>,
 ): void => {
-  const cfg = ui.m.annotation.getConfig(layerId);
+  const cfg = ui.c.annotation.getConfig(layerId);
   Object.assign(cfg, patch);
-  ui.m.annotation.setConfig(layerId, cfg);
-  ui.m.annotation.renderLabels(layerId);
+  ui.c.annotation.setConfig(layerId, cfg);
+  ui.c.annotation.renderLabels(layerId);
   persistStyleLabel(ui);
 };
 
@@ -105,13 +105,13 @@ const applyStyleLabelState = (ui: LayerUI): void => {
     const raw = getIntent(ui, id, INTENT.ANNOTATION);
     if (!raw) continue;
     if (!layerHasLabelFields(ui, id)) continue; // stale / no fields
-    if (ui.m.annotation.hasConfig(id)) continue; // live state wins
+    if (ui.c.annotation.hasConfig(id)) continue; // live state wins
     const cfg = coerceAnnotationFields(raw);
-    ui.m.annotation.setConfig(id, cfg);
+    ui.c.annotation.setConfig(id, cfg);
     // A stored `show: false` still has to act: labels left over from an earlier
     // pass would otherwise stay on the map with the toggle reading off.
-    if (cfg.show) ui.m.annotation.renderLabels(id);
-    else ui.m.annotation.clearLabels(id);
+    if (cfg.show) ui.c.annotation.renderLabels(id);
+    else ui.c.annotation.clearLabels(id);
   }
 };
 

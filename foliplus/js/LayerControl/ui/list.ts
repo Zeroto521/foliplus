@@ -25,7 +25,7 @@ const initTypesAndVisibility = (ui: LayerUI) => {
   // then treats it identically to a tile basemap. `surface.register()` is
   // idempotent, so a re-run of this pass is a no-op on the registry side.
   getColorSurface(ui);
-  const colorLi = ui.m.layerRegistry.get(CONST.SOLID_BASEMAP_ID);
+  const colorLi = ui.c.layerRegistry.get(CONST.SOLID_BASEMAP_ID);
   if (colorLi) {
     // The colour basemap starts unchecked (hidden) by default.
     ui.runtimeStore.setAuthorVisible(CONST.SOLID_BASEMAP_ID, false);
@@ -34,8 +34,8 @@ const initTypesAndVisibility = (ui: LayerUI) => {
   // Snapshot the author default before the sweep below moves any layer: it
   // re-adds a stored-shown layer and removes a stored-hidden one, so a
   // snapshot taken afterwards would record a policy decision as the author's.
-  for (let i = 0; i < ui.m.layers.length; i++) {
-    snapshotAuthorVisible(ui, ui.m.layers[i]);
+  for (let i = 0; i < ui.c.layers.length; i++) {
+    snapshotAuthorVisible(ui, ui.c.layers[i]);
   }
 
   // Apply persisted hidden state first so initLayerItem reads the corrected
@@ -51,10 +51,10 @@ const initTypesAndVisibility = (ui: LayerUI) => {
   // honest empty state. Adding a colour layer here would violate the
   // intent-only invariant: derived state may suppress display but never
   // authorise it.
-  for (let i = 0; i < ui.m.layers.length; i++) {
-    initLayerItem(ui, ui.m.layers[i]);
+  for (let i = 0; i < ui.c.layers.length; i++) {
+    initLayerItem(ui, ui.c.layers[i]);
   }
-  ui.m.enforceOrder();
+  ui.c.enforceOrder();
   syncToggleAll(ui, GROUP.OVERLAY);
   syncToggleAll(ui, GROUP.BASE);
   syncNoBasemap(ui);
@@ -77,7 +77,7 @@ const renderInitialList = (ui: LayerUI) => {
   let hasBaseMaps = false;
   let hasOverlays = false;
 
-  for (const layerInfo of ui.m.layers) {
+  for (const layerInfo of ui.c.layers) {
     if (layerInfo.group !== GROUP.BASE && !hasOverlays) {
       hasOverlays = true;
       frag.appendChild(renderToggleAllRow(ui, GROUP.OVERLAY, "data_layer_label"));
@@ -114,7 +114,7 @@ const renderInitialList = (ui: LayerUI) => {
  *  restoreCursor) must keep it; only the pointer path adopts (strips). */
 
 const insertLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
-  const idx = ui.m.layerRegistry.indexOf(layerInfo);
+  const idx = ui.c.layerRegistry.indexOf(layerInfo);
   if (idx === -1) return;
   const container = ui.uiContainer;
   const group = layerInfo.group;
@@ -156,7 +156,7 @@ const insertLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
     // the panel too, so the panel's visual order matches the drawn z-order.
     // The neighbor above is used rather than the one below so the last row of
     // a group has something to anchor on at all.
-    const above = idx > 0 ? ui.m.layers[idx - 1] : null;
+    const above = idx > 0 ? ui.c.layers[idx - 1] : null;
     const anchor =
       above && above.group === layerInfo.group
         ? container.querySelector(`[${CONST.DATA.LAYER_ID}="${CSS.escape(above.id)}"]`)
@@ -299,7 +299,7 @@ const colorLayerName = (ui: LayerUI): string => {
 /** Initialize one layer row's checkbox + type icon (incremental path).
  *  @returns {boolean} true when the row is a visible base layer. */
 const initLayerItem = (ui: LayerUI, layerInfo: LayerInfo): boolean => {
-  if (!ui.m.layerRegistry.has(layerInfo.id)) return false;
+  if (!ui.c.layerRegistry.has(layerInfo.id)) return false;
   const cell = buildRowCell(ui, layerInfo);
   // Resolve the row by data-layer-id: a late registration lands where its
   // stored slot puts it, so the DOM order can diverge from the registry — an
