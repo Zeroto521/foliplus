@@ -16,7 +16,7 @@ type RectCorners = [Vec2, Vec2, Vec2, Vec2];
  * Outline of a rounded rectangle: per corner, the two edge tangents plus
  * two bezier mid points (16 points total, closed by the caller's renderer).
  *
- * @param corners four corners, winding order (NW→NE→SE→SW)
+ * @param corners four corners, winding order (NW → NE → SE → SW)
  * @param f fillet radius as a fraction of each edge length
  */
 const roundedRectOutline = (corners: RectCorners, f = 0.03): Vec2[] => {

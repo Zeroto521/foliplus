@@ -965,7 +965,7 @@ describe("toggleAll base group", () => {
     const b2 = manager.layerRegistry.get("B2")!;
     const b2Canvas = b2.canvas as HTMLCanvasElement;
 
-    // Hide both first so the sweep has a visible→shown transition to fire.
+    // Hide both first so the sweep has a visible → shown transition to fire.
     toggleAll(ui, GROUP.BASE, false);
 
     map.addLayer.mockClear();

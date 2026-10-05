@@ -444,7 +444,7 @@ const focusLayerRow = (ui: LayerUI, layerId: string): void => {
     ?.focus();
 };
 
-/** Double-click on a layer row →focus the map on that layer.
+/** Double-click on a layer row → focus the map on that layer.
  *  Only dead space on the row counts: every row control is a denylist hit,
  *  and presses inside floating panels (style / attributes) are the panel's
  *  business — two quick toggles / menu clicks / rename edits / label-switch

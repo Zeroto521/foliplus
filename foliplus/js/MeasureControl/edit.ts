@@ -55,7 +55,7 @@ const buildEditOverlay = (
     }
     // Only one measurement shows ✕ at a time: close any other open overlay.
     host.closeOtherEditOverlays?.(id ?? "");
-    // Stop Leaflet's layer→map propagation (sets originalEvent._stopped) so
+    // Stop Leaflet's layer → map propagation (sets originalEvent._stopped) so
     // the map-level click handlers — including this overlay's own onMapClick
     // which closes it — don't immediately undo the open.
     L.DomEvent.stopPropagation(ev);

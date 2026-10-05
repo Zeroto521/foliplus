@@ -22,7 +22,7 @@ import { installLeafletGlobals } from "./fixture.js";
 // This is the quickstart regression: folium ships a `show=False`
 // layer off the map, no user override has been recorded, and the first
 // projection must leave it alone. Before the fix the executor saw
-// effective moving false→true and wrote visible=true, adding the layer to
+// effective moving false → true and wrote visible=true, adding the layer to
 // the map while the checkbox stayed unchecked.
 // ────────────────────────────────────────────────────────────────────────
 

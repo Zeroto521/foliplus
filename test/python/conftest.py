@@ -305,7 +305,7 @@ _BROWSER_DEFAULT_NAV_TIMEOUT_MS = 45_000
 #   - No 95-class anomaly visible. Observed failures are 2-20 test flakes
 #     (normal level) or non-test failures (format / lint / esbuild).
 #   - Do NOT interpret the Windows root cause as universal. A global
-#     JOBS 24→12 change would mis-cap healthy Linux CI runners.
+#     JOBS 24 → 12 change would mis-cap healthy Linux CI runners.
 #
 #   Disposition (per review):
 #   - Keep probes + tightened thresholds (contexts>3, chromium_procs>28).
