@@ -437,9 +437,7 @@ class TestEmDashGlued:
         f.write_bytes("one \u2014 two\n".encode("utf-8"))
         assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 0
 
-    def test_quoted_em_dash_opening_is_clean(
-        self, tmp_path, capsys, monkeypatch
-    ):
+    def test_quoted_em_dash_opening_is_clean(self, tmp_path, capsys, monkeypatch):
         """Em-dash that opens a quoted or f-string body is not glued.
 
         The BEFORE class deliberately omits the double-quote so that
@@ -451,8 +449,7 @@ class TestEmDashGlued:
         f = tmp_path / "quoted_open.txt"
         f.write_bytes(
             'f.write_bytes("arrow\\n\u2014 em dash")\n'
-            'other = "\u2014 a new one crept in"\n'
-            .encode("utf-8")
+            'other = "\u2014 a new one crept in"\n'.encode("utf-8")
         )
         assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 0
 
@@ -473,17 +470,13 @@ class TestArrowGlued:
         f.write_bytes("// visible\u2192hidden transition\n".encode("utf-8"))
         assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 1
 
-    def test_arrow_glued_after_digit_is_flagged(
-        self, tmp_path, capsys, monkeypatch
-    ):
+    def test_arrow_glued_after_digit_is_flagged(self, tmp_path, capsys, monkeypatch):
         """Digit followed directly by arrow."""
         f = tmp_path / "arrow_after_num.txt"
         f.write_bytes("the 4\u21923 rebind case\n".encode("utf-8"))
         assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 1
 
-    def test_arrow_glued_before_is_flagged(
-        self, tmp_path, capsys, monkeypatch
-    ):
+    def test_arrow_glued_before_is_flagged(self, tmp_path, capsys, monkeypatch):
         """Arrow followed directly by a letter."""
         f = tmp_path / "arrow_before.txt"
         f.write_bytes("// the list \u2192map linkage\n".encode("utf-8"))
@@ -517,26 +510,20 @@ class TestEmDashWithPunctuationGlued:
     ):
         """Em-dash followed by a period (broken attr.ts `"—.` shape)."""
         f = tmp_path / "dash_period.txt"
-        f.write_bytes("* \"\u2014. The color basemap is included\n".encode("utf-8"))
+        f.write_bytes('* "\u2014. The color basemap is included\n'.encode("utf-8"))
         assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 1
 
-    def test_em_dash_glued_to_quoted_is_clean(
-        self, tmp_path, capsys, monkeypatch
-    ):
+    def test_em_dash_glued_to_quoted_is_clean(self, tmp_path, capsys, monkeypatch):
         """The fixed form `"—".` — quote, em-dash, quote — is clean.
 
         Neither `"` in the AFTER class nor `"` in the BEFORE class, so
         the em-dash wrapped in quotes is not flagged.
         """
         f = tmp_path / "dash_quoted.txt"
-        f.write_bytes(
-            '* "—". The color basemap is included\n'.encode("utf-8")
-        )
+        f.write_bytes('* "—". The color basemap is included\n'.encode())
         assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 0
 
-    def test_em_dash_glued_to_jsdoc_tag_is_flagged(
-        self, tmp_path, capsys, monkeypatch
-    ):
+    def test_em_dash_glued_to_jsdoc_tag_is_flagged(self, tmp_path, capsys, monkeypatch):
         """Em-dash directly before a `{` (JSDoc inline tag) is flagged.
 
         ``{`` is in the AFTER class because ``—{@link foo}`` is the same
