@@ -74,7 +74,6 @@ import {
 } from "./visibility.js";
 
 /** UI Controller for LayerControl.
-
  *  Per-panel state lives on one of three view subsystems:
  *  - listPanel:        fold state, cursor index, drag state
  *  - overlayPanel:     floating panels (menu / attrs / rename / style)
