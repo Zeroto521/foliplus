@@ -23,10 +23,7 @@ import {
   walkLeaf,
   zFor,
 } from "#core/layer/index.js";
-import {
-  hasAttachedPath,
-  isGroupLike,
-} from "#core/leafletAdapter.js";
+import { hasAttachedPath, isGroupLike } from "#core/leafletAdapter.js";
 import { type Debounced, debounce } from "#common/debounce.js";
 import { type Logger, createLogger } from "#common/log.js";
 import { AnnotationManager } from "./annotation/index.js";
@@ -161,7 +158,11 @@ class LayerController implements LayerAPI {
   private readonly T: (key: string) => string;
   private readonly log: Logger;
 
-  constructor(mapInstance: L.Map, data: LayerInfo[], env: LayerControllerEnv = NO_OP_ENV) {
+  constructor(
+    mapInstance: L.Map,
+    data: LayerInfo[],
+    env: LayerControllerEnv = NO_OP_ENV,
+  ) {
     this.map = mapInstance;
     this.T = env.T;
     this.log = env.log;

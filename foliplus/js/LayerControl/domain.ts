@@ -7,25 +7,24 @@
 //
 // Lives beside LayerController (not in core/layer/) because it depends on
 // LayerPersistence and AnnotationManager — both LayerControl-local.
-
 import { EVENTS, type EventBus } from "#core/event/index.js";
 import { hasLabelField } from "#core/labelField.js";
-import { attributionEntries, refreshAttributions } from "#core/leafletAdapter.js";
 import type { LayerFactory } from "#core/layer/LayerFactory.js";
 import { LayerInfoRegistry } from "#core/layer/LayerInfoRegistry.js";
-import {
-  GROUP,
-  KIND,
-  PANE_ROLE,
-  type LayerKind,
-  topSlotZ,
-  zFor,
-  findLayer as findLayerUtil,
-} from "#core/layer/index.js";
 import type { LayerOrder } from "#core/layer/LayerOrder.js";
 import { LayerSurface } from "#core/layer/LayerSurface.js";
 import { PaneManager } from "#core/layer/PaneManager.js";
+import {
+  GROUP,
+  KIND,
+  type LayerKind,
+  PANE_ROLE,
+  findLayer as findLayerUtil,
+  topSlotZ,
+  zFor,
+} from "#core/layer/index.js";
 import type { LayerInfo, PaneSpec } from "#core/layer/type.js";
+import { attributionEntries, refreshAttributions } from "#core/leafletAdapter.js";
 import type { AnnotationManager } from "./annotation/index.js";
 import * as CONST from "./const.js";
 import type { LayerPersistence } from "./persistence.js";
@@ -43,7 +42,7 @@ import type { LayerPersistence } from "./persistence.js";
  *  results), and a re-registration re-derives it fresh. A spec someone else
  *  already declared is theirs — the probe only appends what is absent and
  *  never removes a foreign declaration. */
-export const withAnnotationSpec = (
+const withAnnotationSpec = (
   layerInfo: LayerInfo,
   layer: L.Layer | null,
 ): PaneSpec[] => {
@@ -318,4 +317,4 @@ class LayerOrchestration {
   }
 }
 
-export { LayerOrchestration };
+export { LayerOrchestration, withAnnotationSpec };

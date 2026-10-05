@@ -21,16 +21,20 @@ describe("LayerAPI contract", () => {
     window.CONFIG = { ...window.CONFIG, name: "LayerControl", locale_code: "en" };
 
     class Renderer {}
+
     class Path {
       options = {};
     }
+
     class TileLayer {
       options = { attribution: "© OpenStreetMap" };
       setZIndex = vi.fn();
     }
+
     class GridLayer {
       options = {};
     }
+
     window.L.TileLayer = TileLayer;
     window.L.GridLayer = GridLayer;
     window.L.Renderer = Renderer;
