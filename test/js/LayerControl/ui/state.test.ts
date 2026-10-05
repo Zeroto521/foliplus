@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LayerIntentStore } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
-import { LayerManager } from "#foliplus/LayerControl/manager.js";
+import { LayerController } from "#foliplus/LayerControl/controller.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import {
   getIntent,
@@ -121,7 +121,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
   describe("loadPersistedState / applyUserState", () => {
     it("restores a hidden overlay on attach and removes it from the map", () => {
       const { map, removeLayer } = makeTestMap();
-      const m = new LayerManager(map, [
+      const m = new LayerController(map, [
         {
           id: "overlay1",
           name: "Polygons",
@@ -147,7 +147,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
       // sweep left it off the map. That is what made a checked Commuting Routes
       // come back unchecked after a reload.
       const { map, removeLayer } = makeTestMap();
-      const m = new LayerManager(map, [
+      const m = new LayerController(map, [
         {
           id: "overlay1",
           name: "Polygons",
@@ -177,7 +177,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
       // not override the author's show=False. Without this guard the first load
       // of a map like QuickStart re-added every hidden overlay.
       const { map } = makeTestMap();
-      const m = new LayerManager(map, [
+      const m = new LayerController(map, [
         {
           id: "overlay1",
           name: "Polygons",
@@ -208,7 +208,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
       const { map } = makeTestMap();
       const canvas = document.createElement("canvas");
       canvas.classList.add("hidden");
-      const m = new LayerManager(map, [
+      const m = new LayerController(map, [
         {
           id: "canvas1",
           name: "Canvas",
@@ -234,7 +234,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
       // on the first sweep. A queued registration and an id never seen are
       // indistinguishable here, and either may still arrive — both are kept.
       const { map } = makeTestMap();
-      const m = new LayerManager(map, [
+      const m = new LayerController(map, [
         {
           id: "overlay1",
           name: "Polygons",
@@ -284,7 +284,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
         }),
       );
       const { map } = makeTestMap();
-      const m = new LayerManager(map, [
+      const m = new LayerController(map, [
         {
           id: "overlay1",
           name: "Polygons",
@@ -311,7 +311,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
     it("writes the canvas HIDDEN class for canvas-only layers (canvas/heatmap)", () => {
       const { map } = makeTestMap();
       const canvas = document.createElement("canvas");
-      const m = new LayerManager(map, [
+      const m = new LayerController(map, [
         {
           id: "canvas1",
           name: "Canvas",
@@ -338,7 +338,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
           },
         }),
       );
-      const m = new LayerManager(map, [
+      const m = new LayerController(map, [
         { id: "overlay1", name: "O", group: "overlay", layer: testPolyLayer },
         { id: "base1", name: "B", group: "base", layer: new TileLayer() },
       ]);
@@ -366,7 +366,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
           },
         }),
       );
-      const m = new LayerManager(map, [
+      const m = new LayerController(map, [
         { id: "overlay1", name: "O", group: "overlay", layer: testPolyLayer },
       ]);
       const u = new LayerUI(m, TEST_ENV);
@@ -394,7 +394,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
           },
         }),
       );
-      const m = new LayerManager(map, [
+      const m = new LayerController(map, [
         { id: "a", name: "A", group: "overlay", layer: testPolyLayer },
         { id: "b", name: "B", group: "overlay", layer: testPolyLayer },
         { id: "c", name: "C", group: "overlay", layer: testPolyLayer },
@@ -412,7 +412,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
 
     it("dropPersistedLayerState clears the fill maps and their provenance", () => {
       const { map } = makeTestMap();
-      const m = new LayerManager(map, [
+      const m = new LayerController(map, [
         { id: "overlay1", name: "O", group: "overlay", layer: testPolyLayer },
       ]);
       const u = new LayerUI(m, TEST_ENV);
@@ -442,7 +442,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
     it("ignores non-array/corrupt storage data", () => {
       const { map } = makeTestMap();
       window.localStorage.setItem(CONST.STORAGE.KEY, "not-json");
-      const m = new LayerManager(map, [
+      const m = new LayerController(map, [
         { id: "overlay1", name: "O", group: "overlay", layer: testPolyLayer },
       ]);
       const u = new LayerUI(m, TEST_ENV);
@@ -458,7 +458,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
   describe("saveState on toggle", () => {
     it("persists a hidden overlay when the user unchecks it", () => {
       const { map, removeLayer } = makeTestMap();
-      const m = new LayerManager(map, [
+      const m = new LayerController(map, [
         {
           id: "overlay1",
           name: "Polygons",
@@ -488,7 +488,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
       // must restore `visible=true` rather than reverting to the author's
       // `show=False` default.
       const { map } = makeTestMap();
-      const m = new LayerManager(map, [
+      const m = new LayerController(map, [
         {
           id: "overlay1",
           name: "Polygons",
@@ -512,7 +512,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
 
     it("debounces rapid saves into one localStorage write", () => {
       const { map } = makeTestMap();
-      const m = new LayerManager(map, [
+      const m = new LayerController(map, [
         { id: "overlay1", name: "O", group: "overlay", layer: testPolyLayer },
       ]);
       const u = new LayerUI(m, TEST_ENV);
@@ -557,7 +557,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
   describe("color layer activation is transient", () => {
     it("does not pollute intents.visible when color layer activates", () => {
       const { map } = makeTestMap();
-      const m = new LayerManager(map, [
+      const m = new LayerController(map, [
         { id: "overlay1", name: "O", group: "overlay", layer: testPolyLayer },
         { id: "base1", name: "OSM", group: "base", layer: new TileLayer() },
       ]);
@@ -642,7 +642,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
         attributionControl: { _attributions: {}, _update: vi.fn() },
         foliplus: { showHint: vi.fn(), hideHint: vi.fn() },
       };
-      const manager = new LayerManager(map, data);
+      const manager = new LayerController(map, data);
       manager.enforceOrder();
       manager.ui = new LayerUI(manager, TEST_ENV);
       vi.useFakeTimers();
@@ -789,7 +789,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
           removeLayer: rl,
         };
       })();
-      const m = new LayerManager(map, [
+      const m = new LayerController(map, [
         { id: "overlay1", name: "O", group: "overlay", layer: poly },
         { id: "base1", name: "B1", group: "base", layer: baseLayer },
         { id: "canvas1", name: "Canvas", layer: null, canvas },
@@ -959,7 +959,7 @@ describe("LayerUI opacity restore / retention", () => {
 
   it("applyUserState restores a stored opacity onto Path layers", () => {
     const { map, layer, panes } = makeMap();
-    const m = new LayerManager(map, [{ id: "overlay1", name: "Poly", layer }]);
+    const m = new LayerController(map, [{ id: "overlay1", name: "Poly", layer }]);
     const u = new LayerUI(m, TEST_ENV);
     seedIntentMap(u, "opacity", { overlay1: 0.45 });
 
@@ -974,7 +974,7 @@ describe("LayerUI opacity restore / retention", () => {
   it("applyUserState(id) applies opacity for a late-registered canvas layer", () => {
     const { map } = makeMap();
     const canvas = document.createElement("canvas");
-    const m = new LayerManager(map, [
+    const m = new LayerController(map, [
       { id: "heat", name: "Heat", canvas, layer: null },
     ]);
     const u = new LayerUI(m, TEST_ENV);
@@ -993,7 +993,7 @@ describe("LayerUI opacity restore / retention", () => {
     // component that registers later, and the user's stored opacity must not
     // revert to the author default while it waits.
     const { map, layer, panes } = makeMap();
-    const m = new LayerManager(map, [{ id: "overlay1", name: "Poly", layer }]);
+    const m = new LayerController(map, [{ id: "overlay1", name: "Poly", layer }]);
     const u = new LayerUI(m, TEST_ENV);
     seedIntentMap(u, "opacity", { overlay1: 0.4, ghost: 0.1 });
 
@@ -1015,7 +1015,7 @@ describe("LayerUI opacity restore / retention", () => {
     // ({@link markOverride} refuses it), never a value whose layer has not
     // registered yet.
     const { map, layer } = makeMap();
-    const m = new LayerManager(map, [{ id: "overlay1", name: "Poly", layer }]);
+    const m = new LayerController(map, [{ id: "overlay1", name: "Poly", layer }]);
     const u = new LayerUI(m, TEST_ENV);
     seedIntentMap(u, "zoomRange", { overlay1: [4, 10], ghost: [2, 8] });
     u.intentStore.replaceProvenance({ ghost: ["zoomRange"] });
@@ -1031,7 +1031,7 @@ describe("LayerUI opacity restore / retention", () => {
 
   it("leaves a live layer alone when no opacity is stored", () => {
     const { map, layer, setStyle } = makeMap();
-    const m = new LayerManager(map, [{ id: "overlay1", name: "Poly", layer }]);
+    const m = new LayerController(map, [{ id: "overlay1", name: "Poly", layer }]);
     const u = new LayerUI(m, TEST_ENV);
     seedIntentMap(u, "opacity", {});
 
@@ -1043,7 +1043,7 @@ describe("LayerUI opacity restore / retention", () => {
 });
 
 describe("event-driven row refresh", () => {
-  let manager: LayerManager;
+  let manager: LayerController;
   let ui: LayerUI;
 
   beforeEach(() => {
@@ -1171,7 +1171,7 @@ describe("event-driven row refresh", () => {
 // ─────────────────── intentStore + per-layer persistence ───────────────────
 
 describe("ui/state intentStore and per-layer state persistence", () => {
-  let manager: LayerManager;
+  let manager: LayerController;
   let ui: LayerUI;
   let map: any;
 

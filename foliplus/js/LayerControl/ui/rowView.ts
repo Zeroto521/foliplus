@@ -159,7 +159,7 @@ const snapshotAuthorVisible = (ui: LayerUI, layerInfo: LayerInfo): void => {
  * The type icon and its label for one layer.
  *
  *  Render-only: the surface is the probe authority, and `layerInfo.type` is
- *  that result's snapshot with a single writer (`LayerManager.getLayerType`).
+ *  that result's snapshot with a single writer (`LayerController.getLayerType`).
  *  Reading the surface here is not a second probe, and painting must not
  *  stamp the snapshot — the row is a projection, not a writer.
  */

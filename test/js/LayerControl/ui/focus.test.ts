@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#foliplus/LayerControl/const.js";
-import type { LayerManager } from "#foliplus/LayerControl/manager.js";
+import type { LayerController } from "#foliplus/LayerControl/controller.js";
 import {
   bringFocusedLayerToFront,
   computeLayerBounds,
@@ -232,7 +232,7 @@ describe("LayerUI focusLayer — interaction lock", () => {
 });
 
 describe("LayerUI focus", () => {
-  let manager: LayerManager;
+  let manager: LayerController;
   let ui: LayerUI;
   let map: any;
 

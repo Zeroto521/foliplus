@@ -1,7 +1,7 @@
 import { vi } from "vitest";
 import { GROUP } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
-import { LayerManager } from "#foliplus/LayerControl/manager.js";
+import { LayerController } from "#foliplus/LayerControl/controller.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 
 /** Translator env for LayerUI constructed in tests — mirrors the identity
@@ -84,7 +84,7 @@ class CircleMarker {
   }
 }
 
-/** Populate window.L with the stubs LayerManager / PaneManager expect. */
+/** Populate window.L with the stubs LayerController / PaneManager expect. */
 const installLeafletGlobals = () => {
   const stamp = (() => {
     let id = 0;
@@ -171,11 +171,11 @@ const initFixture = (
   options: {
     initialZoom?: number;
     maxZoom?: number;
-    data?: ConstructorParameters<typeof LayerManager>[1];
+    data?: ConstructorParameters<typeof LayerController>[1];
     /** The persisted record, written before the manager is constructed. */
     seed?: Record<string, unknown>;
   } = {},
-): { manager: LayerManager; ui: LayerUI; map: any } => {
+): { manager: LayerController; ui: LayerUI; map: any } => {
   window.CONFIG.name = "LayerControl";
   window.CONFIG.locale_code = "en";
   if (options.seed) {
@@ -247,7 +247,7 @@ const initFixture = (
     },
   };
 
-  const manager = new LayerManager(
+  const manager = new LayerController(
     map,
     options.data ?? [
       { id: "overlay1", name: "Polygons", group: "overlay", layer: polygonLayer },

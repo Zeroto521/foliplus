@@ -28,7 +28,7 @@ const ensureLayerAPI = (map: L.Map, force = false): LayerAPI => {
   ensureHint(map);
   const current = map.foliplus!.LayerAPI;
   if (!force && current) return current;
-  // force (LayerManager.destroy) downgrades a live full LayerAPI to the stub;
+  // force (LayerController.destroy) downgrades a live full LayerAPI to the stub;
   // an existing stub is already the target state, so keep it — idempotent.
   if (force && current && current.isLayerControl === false) return current;
 
@@ -68,11 +68,11 @@ const ensureLayerAPI = (map: L.Map, force = false): LayerAPI => {
 };
 
 /**
- * True when the LayerAPI is LayerManager (the real LayerControl), false
+ * True when the LayerAPI is LayerController (the real LayerControl), false
  * when it is ensureLayerAPI's lightweight stub.
  *
  * We use a capability assertion rather than trusting the isLayerControl
- * self-report flag: LayerManager exposes `layers` as a getter that
+ * self-report flag: LayerController exposes `layers` as a getter that
  * delegates to its layerRegistry, while the lightweight stub sets `layers`
  * as a plain frozen empty array (a data property with no getter).
  * Object.getOwnPropertyDescriptor distinguishes the two reliably even if
@@ -80,7 +80,7 @@ const ensureLayerAPI = (map: L.Map, force = false): LayerAPI => {
  */
 const isRealLayerControl = (api: LayerAPI | undefined): boolean => {
   if (!api) return false;
-  // LayerManager defines `layers` as a class getter (prototype property),
+  // LayerController defines `layers` as a class getter (prototype property),
   // while the lightweight stub sets it as a plain data property (own).
   // Check both the instance and the prototype chain for the getter.
   const own =
@@ -97,7 +97,7 @@ const isRealLayerControl = (api: LayerAPI | undefined): boolean => {
  * We can't just test `map.foliplus?.LayerAPI` — other foliplus subsystems
  * (hint/mode/interaction) install a lightweight LayerAPI stub that is
  * always truthy even when LayerControl was never added.  isRealLayerControl
- * asserts the registry-delegating `layers` getter that only LayerManager
+ * asserts the registry-delegating `layers` getter that only LayerController
  * has, so the guard only accepts a real LayerControl.
  *
  * @param componentName - CONFIG.name, used as the hint key and log prefix.
@@ -120,7 +120,7 @@ const requireLayerAPI = (
     throw new Error(log.msg(msg));
   }
   // isRealLayerControl returned true, so `api` is non-null (a real
-  // LayerManager).  Use the narrowed local to satisfy TS control-flow.
+  // LayerController).  Use the narrowed local to satisfy TS control-flow.
   return api!;
 };
 

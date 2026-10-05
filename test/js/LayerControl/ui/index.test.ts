@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { GROUP } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
-import { LayerManager } from "#foliplus/LayerControl/manager.js";
+import { LayerController } from "#foliplus/LayerControl/controller.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { getIntent, seedIntentMap } from "#foliplus/LayerControl/ui/intent.js";
 import {
@@ -18,7 +18,7 @@ import {
 } from "./fixture.js";
 
 describe("LayerUI shell — event subscriptions", () => {
-  let manager: LayerManager;
+  let manager: LayerController;
   let ui: LayerUI;
   let map: any;
 
@@ -141,7 +141,7 @@ describe("LayerUI shell — event subscriptions", () => {
       attributionControl: { _attributions: {}, _update: vi.fn() },
       foliplus: { showHint: vi.fn(), hideHint: vi.fn() },
     };
-    const mgr = new LayerManager(m, []);
+    const mgr = new LayerController(m, []);
     mgr.ui = new LayerUI(mgr, TEST_ENV);
     // registerLayer's pre-attach contract: overlays prepend into the
     // registry, the pending queue only defers the UI insertion until attach.
@@ -161,7 +161,7 @@ describe("LayerUI shell — event subscriptions", () => {
 });
 
 describe("LayerUI shell — delegates", () => {
-  let manager: LayerManager;
+  let manager: LayerController;
   let ui: LayerUI;
   let map: any;
 

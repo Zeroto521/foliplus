@@ -677,7 +677,7 @@ describe("PaneManager", () => {
     pm.registerPaneSpecs(specs("foliplus-measure-label"));
     pm.destroy();
     expect(pm.childPaneSpecs.size).toBe(0);
-    // LayerManager.destroy() clears the registry without removing the
+    // LayerController.destroy() clears the registry without removing the
     // registered layers from the map — they are still live, so the pane DOM
     // must survive them.
     expect(map.removeLayer).not.toHaveBeenCalled();

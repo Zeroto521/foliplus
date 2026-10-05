@@ -271,7 +271,7 @@ declare global {
   }
 
   /** LayerControl public API, exposed on `map.foliplus.LayerAPI`.
-   * Defined in core/layer/type.ts — implemented by both LayerManager (full)
+   * Defined in core/layer/type.ts — implemented by both LayerController (full)
    * and ensureLayerAPI's lightweight default. */
   type LayerAPI = CoreLayerAPI;
 

@@ -13,7 +13,7 @@
 // being present.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#foliplus/LayerControl/const.js";
-import type { LayerManager } from "#foliplus/LayerControl/manager.js";
+import type { LayerController } from "#foliplus/LayerControl/controller.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { setIntent } from "#foliplus/LayerControl/ui/intent.js";
 import { ANNOTATION_DIMENSION } from "#foliplus/LayerControl/ui/style/annotation.js";
@@ -221,7 +221,7 @@ describe("LayerControl style-panel dimension registry — resetIntentKeys", () =
 });
 
 describe("LayerControl style-panel dimension registry — gatedRows", () => {
-  let manager: LayerManager;
+  let manager: LayerController;
   let ui: LayerUI;
 
   const overlayLayer = {
@@ -329,7 +329,7 @@ describe("LayerControl style-panel dimension registry — gatedRows", () => {
 });
 
 describe("LayerControl style-panel dimension registry — opacity descriptor", () => {
-  let manager: LayerManager;
+  let manager: LayerController;
   let ui: LayerUI;
 
   const overlayLayer = {
@@ -483,7 +483,7 @@ describe("LayerControl style-panel dimension registry — opacity descriptor", (
 });
 
 describe("LayerControl style-panel dimension registry — fill descriptor", () => {
-  let manager: LayerManager;
+  let manager: LayerController;
   let ui: LayerUI;
 
   const overlayLayer = {
@@ -596,7 +596,7 @@ describe("LayerControl style-panel dimension registry — fill descriptor", () =
 });
 
 describe("LayerControl style-panel dimension registry — border descriptor", () => {
-  let manager: LayerManager;
+  let manager: LayerController;
   let ui: LayerUI;
 
   const overlayLayer = {
@@ -701,7 +701,7 @@ describe("LayerControl style-panel dimension registry — border descriptor", ()
 });
 
 describe("LayerControl style-panel dimension registry — zoomRange descriptor", () => {
-  let manager: LayerManager;
+  let manager: LayerController;
   let ui: LayerUI;
 
   const overlayLayer = {

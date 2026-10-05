@@ -8,7 +8,7 @@ import {
   LayerRuntimeStore,
 } from "#core/layer/index.js";
 import * as CONST from "../const.js";
-import type { LayerManager } from "../manager.js";
+import type { LayerController } from "../controller.js";
 import { applyProjection, applyProjectionAll } from "./apply.js";
 import { closeAttrsPanel, openAttrsPanel } from "./attr.js";
 import { hideSolidBasemap, resetSolidBasemap, showSolidBasemap } from "./color.js";
@@ -86,7 +86,7 @@ import {
  *  each subsystem owns the field and there is no compat layer.
  */
 class LayerUI {
-  manager: LayerManager;
+  manager: LayerController;
   /** Per-map event bus — bound once in the constructor (ensure-style getters
    *  return the cached instance, so hold it like the logger does). */
   events: EventBus;
@@ -156,7 +156,7 @@ class LayerUI {
   unsubscribeLayerSignals: Array<() => void>;
 
   constructor(
-    manager: LayerManager,
+    manager: LayerController,
     env: { T: (key: string) => string; _: (key: string) => string },
   ) {
     this.manager = manager;
@@ -190,9 +190,9 @@ class LayerUI {
     return this.m.uiContainer!;
   }
 
-  /** LayerAPI typed to expose getFeatureCount (LayerManager only). */
-  get mgmt(): LayerManager & { getFeatureCount: (i: string) => number | null } {
-    return this.m as LayerManager & { getFeatureCount: (i: string) => number | null };
+  /** LayerAPI typed to expose getFeatureCount (LayerController only). */
+  get mgmt(): LayerController & { getFeatureCount: (i: string) => number | null } {
+    return this.m as LayerController & { getFeatureCount: (i: string) => number | null };
   }
 
   /**
@@ -314,7 +314,7 @@ class LayerUI {
   /** The user's stored visibility choice for a layer id (persisted intent
    *  or the author's declared default). This is the panel checkbox's fact,
    *  not the map's membership — the projection's `effectiveShown` composes
-   *  intent with policy and is what the map reflects. Only LayerManager
+   *  intent with policy and is what the map reflects. Only LayerController
    *  (via the `intentVisible` API slot) and tests reach this through LayerUI;
    *  everything internal calls the module function directly. */
   intentVisible(id: string) {

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { handleMoreMenuClick } from "#foliplus/LayerControl/interaction.js";
-import type { LayerManager } from "#foliplus/LayerControl/manager.js";
+import type { LayerController } from "#foliplus/LayerControl/controller.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { seedIntentMap } from "#foliplus/LayerControl/ui/intent.js";
 import { activateDeleteItem } from "#foliplus/LayerControl/ui/menu.js";
@@ -16,7 +16,7 @@ import {
 } from "./fixture.js";
 
 describe("LayerUI menu", () => {
-  let manager: LayerManager;
+  let manager: LayerController;
   let ui: LayerUI;
   let map: any;
 

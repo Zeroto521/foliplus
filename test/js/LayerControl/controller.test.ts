@@ -2,11 +2,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
 import { LayerIntentStore, LayerRuntimeStore } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
-import { LayerManager } from "#foliplus/LayerControl/manager.js";
+import { LayerController } from "#foliplus/LayerControl/controller.js";
 import {
   installBringToFrontPatch,
   uninstallBringToFrontPatch,
-} from "#foliplus/LayerControl/manager.js";
+} from "#foliplus/LayerControl/controller.js";
 import { LayerPersistence } from "#foliplus/LayerControl/persistence.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { getIntent, setIntent } from "#foliplus/LayerControl/ui/intent.js";
@@ -60,7 +60,7 @@ class TileLayer extends GridLayer {
 
 // ===========================================================================
 // bringToFront patch refcounting (merged from guard.test.ts)
-// Runs before the main describe('LayerManager') because that block's beforeEach
+// Runs before the main describe('LayerController') because that block's beforeEach
 // replaces window.L.Path with a class lacking bringToFront on its prototype;
 // these guard tests rely on the original L mock from setup.ts.
 
@@ -107,7 +107,7 @@ describe("bringToFront patch refcounting", () => {
 const stableStamp = vi.fn(obj => obj.__id ?? (obj.__id = ++stableStampId));
 let stableStampId = 1000;
 
-describe("LayerManager", () => {
+describe("LayerController", () => {
   let manager;
   let map;
 
@@ -205,7 +205,7 @@ describe("LayerManager", () => {
       attributionControl: { _attributions: {}, _update: vi.fn() },
     };
 
-    manager = new LayerManager(map, [
+    manager = new LayerController(map, [
       { id: "overlay1", name: "Points", group: "overlay" },
       {
         id: "base1",
@@ -270,7 +270,7 @@ describe("LayerManager", () => {
     // re-reads `configEntries` on every flush, so dropping the config here
     // would wipe `layers[id].annotation` from storage the next time any
     // dimension saves — a label-only layer would lose its section for good.
-    const m = new LayerManager(map, [
+    const m = new LayerController(map, [
       {
         id: "keepcfg",
         name: "KeepCfg",
@@ -413,7 +413,7 @@ describe("LayerManager", () => {
     });
 
     it("returns true before UI is attached (pre-boot contract)", () => {
-      const fresh = new LayerManager(map, []);
+      const fresh = new LayerController(map, []);
       expect(fresh.intentVisible("x")).toBe(true);
     });
 
@@ -552,7 +552,7 @@ describe("LayerManager", () => {
       getLatLng: () => ({ lat: 0, lng: 0 }),
       feature: { properties: { name: "hello" } },
     } as unknown as L.Layer;
-    const m = new LayerManager(map, [
+    const m = new LayerController(map, [
       { id: "lbl", name: "Lbl", group: "overlay", layer: leaf },
     ]);
     m.map.hasLayer.mockReturnValue(true);
@@ -999,7 +999,7 @@ describe("LayerManager", () => {
     // Nothing registered, nothing materialized: an add has no pane to re-pin,
     // so the add is not a reason to run a pass.
     vi.useFakeTimers();
-    const fresh = new LayerManager(map, []);
+    const fresh = new LayerController(map, []);
     const spy = vi.spyOn(fresh, "enforceOrder");
     fresh.onLayerAdd({ layer: { options: {}, eachLayer: vi.fn() } });
     vi.advanceTimersByTime(ENFORCE_ORDER_DEBOUNCE_MS);
@@ -1069,7 +1069,7 @@ describe("LayerManager", () => {
       const spy = vi
         .spyOn(Storage, "loadRecord")
         .mockReturnValue(["overlay1", "base1"]);
-      const m = new LayerManager(map, [
+      const m = new LayerController(map, [
         { id: "base1", name: "B", group: "base" },
         { id: "overlay1", name: "O", group: "overlay" },
       ]);
@@ -1081,7 +1081,7 @@ describe("LayerManager", () => {
       const spy = vi
         .spyOn(Storage, "loadRecord")
         .mockReturnValue(["ghost", "overlay1", "gone", "base1"]);
-      const m = new LayerManager(map, [
+      const m = new LayerController(map, [
         { id: "base1", name: "B", group: "base" },
         { id: "overlay1", name: "O", group: "overlay" },
       ]);
@@ -1091,7 +1091,7 @@ describe("LayerManager", () => {
 
     it("ignores non-array storage data", () => {
       const spy = vi.spyOn(Storage, "loadRecord").mockReturnValue("nope");
-      const m = new LayerManager(map, [
+      const m = new LayerController(map, [
         { id: "overlay1", name: "O", group: "overlay" },
       ]);
       // falls back to the initial (insertion) order
@@ -1105,7 +1105,7 @@ describe("LayerManager", () => {
       // entry point, so both come from this one read rather than a second one
       // against a registry that has since grown.
       const spy = vi.spyOn(Storage, "loadRecord");
-      new LayerManager(map, [
+      new LayerController(map, [
         { id: "base1", name: "B", group: "base" },
         { id: "overlay1", name: "O", group: "overlay" },
       ]);
@@ -1126,7 +1126,7 @@ describe("LayerManager", () => {
   describe("saved-order replay", () => {
     it("places a late registration at its persisted position", () => {
       seedStorage({ order: ["B", "H", "A"] });
-      const m = new LayerManager(map, [
+      const m = new LayerController(map, [
         { id: "A", name: "A", group: "overlay" },
         { id: "B", name: "B", group: "overlay" },
       ]);
@@ -1141,7 +1141,7 @@ describe("LayerManager", () => {
       // of the group. That end must actually be the end — the layer is the
       // rightmost of the layers that exist, not the topmost.
       seedStorage({ order: ["B", "A", "H"] });
-      const m = new LayerManager(map, [
+      const m = new LayerController(map, [
         { id: "A", name: "A", group: "overlay" },
         { id: "B", name: "B", group: "overlay" },
       ]);
@@ -1156,7 +1156,7 @@ describe("LayerManager", () => {
       // cannot be located. The walk keeps going past the gap instead of stopping
       // there and leaving X where prepend put it.
       seedStorage({ order: ["X", "G", "Y"] });
-      const m = new LayerManager(map, [{ id: "Y", name: "Y", group: "overlay" }]);
+      const m = new LayerController(map, [{ id: "Y", name: "Y", group: "overlay" }]);
 
       m.registerLayer({ id: "X", name: "X", group: "overlay" });
 
@@ -1168,7 +1168,7 @@ describe("LayerManager", () => {
       // own saved neighbor, which is the case where the target index is not the
       // neighbor's shifted-down index.
       seedStorage({ order: ["A", "B"] });
-      const m = new LayerManager(map, [
+      const m = new LayerController(map, [
         { id: "A", name: "A", group: "overlay" },
         { id: "B", name: "B", group: "overlay" },
       ]);
@@ -1182,7 +1182,7 @@ describe("LayerManager", () => {
 
     it("leaves the registry alone for an id that is not registered", () => {
       seedStorage({ order: ["A"] });
-      const m = new LayerManager(map, [{ id: "A", name: "A", group: "overlay" }]);
+      const m = new LayerController(map, [{ id: "A", name: "A", group: "overlay" }]);
 
       expect(() => m.replaySavedOrder("ghost")).not.toThrow();
       expect(m.layers.map(l => l.id)).toEqual(["A"]);
@@ -1193,7 +1193,7 @@ describe("LayerManager", () => {
       // sorts the ranked ids by rank and leaves the unranked ones in their own
       // relative order at the bottom.
       seedStorage({ order: ["D"] });
-      const m = new LayerManager(map, [
+      const m = new LayerController(map, [
         { id: "A", name: "A", group: "overlay" },
         { id: "B", name: "B", group: "overlay" },
         { id: "C", name: "C", group: "overlay" },
@@ -1214,7 +1214,7 @@ describe("LayerManager", () => {
       // untouched — not even a snapshot that happens to match the registration
       // sequence is a user arrangement.
       seedStorage({});
-      const m = new LayerManager(map, [
+      const m = new LayerController(map, [
         { id: "fg", name: "FG", group: "overlay" },
         { id: "tile", name: "Tile", group: "base" },
       ]);
@@ -1239,7 +1239,7 @@ describe("LayerManager", () => {
       // any other layer's — a late registration that is not on the map yet
       // does not: the snapshot is what was on screen.
       seedStorage({ order: ["fg", "tile"] });
-      const m = new LayerManager(map, [
+      const m = new LayerController(map, [
         { id: "fg", name: "FG", group: "overlay" },
         { id: "tile", name: "Tile", group: "base" },
       ]);
@@ -1264,7 +1264,7 @@ describe("LayerManager", () => {
       // the dragged slot must survive. Before the fix, the color layer's slot
       // was treated as attach timing and dropped from every write, so the
       // reload fell back to the registration order (bottom of the base group).
-      const m = new LayerManager(map, [
+      const m = new LayerController(map, [
         { id: "fg", name: "FG", group: "overlay" },
         { id: "tile", name: "Tile", group: "base" },
       ]);
@@ -1292,7 +1292,7 @@ describe("LayerManager", () => {
       // the author's data — LayerControl re-creates it through registerLayer
       // (baseInsert bottom), which must replay the dragged slot from the
       // record instead of sinking to the bottom of the base block.
-      const reloaded = new LayerManager(map, [
+      const reloaded = new LayerController(map, [
         { id: "fg", name: "FG", group: "overlay" },
         { id: "tile", name: "Tile", group: "base" },
       ]);
@@ -1315,7 +1315,7 @@ describe("LayerManager", () => {
       // lands at the end of the base block (the registry end), not at the end
       // of the overlay block — the overlay-before-base invariant holds.
       seedStorage({ order: ["fg", "baseA", "baseB"] });
-      const m = new LayerManager(map, [{ id: "fg", name: "FG", group: "overlay" }]);
+      const m = new LayerController(map, [{ id: "fg", name: "FG", group: "overlay" }]);
       m.registerLayer({ id: "baseA", name: "A", group: "base" });
 
       // Neither baseB nor anything else is registered below baseA in the
@@ -1337,7 +1337,7 @@ describe("LayerManager", () => {
       // Component clears always unregister the layer before calling this —
       // saveOrder would otherwise re-insert an id that is still live.
       seedStorage({ order: ["A", "H", "B", "C"] });
-      const m = new LayerManager(map, [
+      const m = new LayerController(map, [
         { id: "A", name: "A", group: "overlay" },
         { id: "H", name: "H", group: "overlay" },
         { id: "B", name: "B", group: "overlay" },
@@ -1351,7 +1351,7 @@ describe("LayerManager", () => {
 
     it("persists the pruned order so a reload does not resurrect the old slot", () => {
       seedStorage({ order: ["A", "H", "B"] });
-      const m = new LayerManager(map, [
+      const m = new LayerController(map, [
         { id: "A", name: "A", group: "overlay" },
         { id: "H", name: "H", group: "overlay" },
         { id: "B", name: "B", group: "overlay" },
@@ -1368,7 +1368,7 @@ describe("LayerManager", () => {
 
     it("returns false for an id that is not in savedOrder", () => {
       seedStorage({ order: ["A", "B"] });
-      const m = new LayerManager(map, [
+      const m = new LayerController(map, [
         { id: "A", name: "A", group: "overlay" },
         { id: "B", name: "B", group: "overlay" },
       ]);
@@ -1376,14 +1376,14 @@ describe("LayerManager", () => {
     });
 
     it("returns false when savedOrder is null (fresh page)", () => {
-      const m = new LayerManager(map, [{ id: "A", name: "A", group: "overlay" }]);
+      const m = new LayerController(map, [{ id: "A", name: "A", group: "overlay" }]);
       expect((m as any).order.savedOrder).toBeNull();
       expect(m.forgetSavedOrder("A")).toBe(false);
     });
 
     it("does NOT add the id to removedIds — the layer stays registerable", () => {
       seedStorage({ order: ["A", "H", "B"] });
-      const m = new LayerManager(map, [
+      const m = new LayerController(map, [
         { id: "A", name: "A", group: "overlay" },
         { id: "H", name: "H", group: "overlay" },
         { id: "B", name: "B", group: "overlay" },
@@ -1402,7 +1402,7 @@ describe("LayerManager", () => {
       // (below A). With it, insertOverlayAt's prepend branch wins because the
       // id has no stored rank anymore.
       seedStorage({ order: ["A", "H", "B"] });
-      const m = new LayerManager(map, [
+      const m = new LayerController(map, [
         { id: "A", name: "A", group: "overlay" },
         { id: "H", name: "H", group: "overlay" },
         { id: "B", name: "B", group: "overlay" },
@@ -1419,7 +1419,7 @@ describe("LayerManager", () => {
       // one id and leaves the rest in their saved positions, which replay on
       // the next construction.
       seedStorage({ order: ["A", "H", "B", "C"] });
-      const m = new LayerManager(map, [
+      const m = new LayerController(map, [
         { id: "A", name: "A", group: "overlay" },
         { id: "H", name: "H", group: "overlay" },
         { id: "B", name: "B", group: "overlay" },
@@ -1431,7 +1431,7 @@ describe("LayerManager", () => {
 
       // Simulate reload: a fresh manager reads the record and gets neighbors
       // in the same relative order.
-      const fresh = new LayerManager(map, [
+      const fresh = new LayerController(map, [
         { id: "A", name: "A", group: "overlay" },
         { id: "B", name: "B", group: "overlay" },
         { id: "C", name: "C", group: "overlay" },
@@ -1447,7 +1447,7 @@ describe("LayerManager", () => {
   // cleared component can draw again from the author's defaults.
   describe("dropPersistedLayerState", () => {
     it("drops the intent row and its provenance, keeps the id registerable", () => {
-      const m = new LayerManager(map, [
+      const m = new LayerController(map, [
         { id: "A", name: "A", group: "overlay" },
         { id: "H", name: "H", group: "overlay" },
       ]);
@@ -1489,7 +1489,7 @@ describe("LayerManager", () => {
 
     it("drops the stored order slot too, so a redraw lands at the top", () => {
       seedStorage({ order: ["A", "H", "B"] });
-      const m = new LayerManager(map, [
+      const m = new LayerController(map, [
         { id: "A", name: "A", group: "overlay" },
         { id: "H", name: "H", group: "overlay" },
         { id: "B", name: "B", group: "overlay" },
@@ -1506,7 +1506,7 @@ describe("LayerManager", () => {
     it("returns false when nothing was stored for the id", () => {
       // No panel and no stored order — a clear of a layer the user never
       // touched erases nothing, and must say so rather than throwing.
-      const m = new LayerManager(map, [{ id: "H", name: "H", group: "overlay" }]);
+      const m = new LayerController(map, [{ id: "H", name: "H", group: "overlay" }]);
       expect(m.dropPersistedLayerState("H")).toBe(false);
     });
 
@@ -1523,7 +1523,7 @@ describe("LayerManager", () => {
           },
         },
       });
-      const m = new LayerManager(map, [{ id: "H", name: "H", group: "overlay" }]);
+      const m = new LayerController(map, [{ id: "H", name: "H", group: "overlay" }]);
       const save = vi.fn(() => saveState(m.ui));
       m.ui = {
         m,
@@ -1549,7 +1549,7 @@ describe("LayerManager", () => {
   });
 
   it("normalizes initial data into the full layerInfo field set", () => {
-    const m2 = new LayerManager(map, [{ id: "a", name: "A", group: "overlay" }]);
+    const m2 = new LayerController(map, [{ id: "a", name: "A", group: "overlay" }]);
     const li = m2.layers[0];
     expect(li).toMatchObject({ id: "a", name: "A", group: "overlay" });
     for (const key of ["paneName", "iconSvg", "type", "canvas"]) {
@@ -1694,7 +1694,7 @@ describe("LayerManager", () => {
     seedStorage({ removed: ["gone"] });
     window.L.DomUtil = { getPosition: vi.fn(() => ({ x: 0, y: 0 })) };
     map.getPanes = vi.fn(() => ({ mapPane: document.createElement("div") }));
-    const m2 = new LayerManager(map, [
+    const m2 = new LayerController(map, [
       { id: "kept", name: "K", group: "overlay", layer: { options: {} } },
     ]);
     const warn = vi.fn();
@@ -1717,7 +1717,7 @@ describe("LayerManager", () => {
   });
 
   it("registerLayer appends a base layer when no base exists yet", () => {
-    const m2 = new LayerManager(map, [
+    const m2 = new LayerController(map, [
       { id: "only_overlay", name: "O", group: "overlay" },
     ]);
     map.hasLayer.mockReturnValue(false);
@@ -2008,7 +2008,7 @@ describe("LayerManager", () => {
       annotations: { overlay1: { show: true, field: "name", format: "auto" } },
       layers: { overlay1: { opacity: 0.4, overrides: ["opacity"] } },
     });
-    const m = new LayerManager(map, [
+    const m = new LayerController(map, [
       { id: "overlay1", name: "O", group: "overlay", layer: { options: {} } },
       { id: "base1", name: "B", group: "base", layer: { options: {} } },
     ]);
@@ -2062,7 +2062,7 @@ describe("LayerManager", () => {
     // A stored order exists (the user arranged it); the delete prunes the id
     // from it on the same flush as removed.
     seedStorage({ order: ["overlay1", "base1"] });
-    const m = new LayerManager(map, [
+    const m = new LayerController(map, [
       { id: "overlay1", name: "O", group: "overlay", layer: { options: {} } },
       { id: "base1", name: "B", group: "base", layer: { options: {} } },
     ]);
@@ -2087,7 +2087,7 @@ describe("LayerManager", () => {
     // registerLayer alone would still put a deleted layer back into the panel
     // on the next reload.
     seedStorage({ removed: ["gone"] });
-    const m = new LayerManager(map, [
+    const m = new LayerController(map, [
       { id: "gone", name: "G", group: "overlay", layer: { options: {} } },
       { id: "kept", name: "K", group: "overlay", layer: { options: {} } },
     ]);
@@ -2107,7 +2107,7 @@ describe("LayerManager", () => {
     map.hasLayer = vi.fn(l => l === gone);
     const removeLayer = vi.fn();
     map.removeLayer = removeLayer;
-    const m = new LayerManager(map, [
+    const m = new LayerController(map, [
       { id: "gone", name: "G", group: "overlay" },
       { id: "kept", name: "K", group: "overlay" },
     ]);
@@ -2122,7 +2122,7 @@ describe("LayerManager", () => {
     // an exception would take down whatever was registering (a rebuild loop,
     // a late Heatmap/Measure component) instead of just dropping the layer.
     seedStorage({ removed: ["gone"] });
-    const m = new LayerManager(map, [
+    const m = new LayerController(map, [
       { id: "kept", name: "K", group: "overlay", layer: { options: {} } },
     ]);
     const warn = vi.fn();
@@ -2141,7 +2141,7 @@ describe("LayerManager", () => {
     // The guard is keyed on the deleted list only: an unrelated stored id must
     // not start getting refused.
     seedStorage({ removed: ["gone"] });
-    const m = new LayerManager(map, [
+    const m = new LayerController(map, [
       { id: "kept", name: "K", group: "overlay", layer: { options: {} } },
     ]);
 
@@ -2170,7 +2170,7 @@ describe("LayerManager", () => {
     // A map without LayerControl on it has a manager with a registry but no
     // panel: destroy still must unbind the layeradd listener and clear the
     // registry.
-    const m = new LayerManager(map, [{ id: "a", name: "A", group: "overlay" }]);
+    const m = new LayerController(map, [{ id: "a", name: "A", group: "overlay" }]);
     expect(m.uiContainer).toBeNull();
     m.destroy();
     expect(map.off).toHaveBeenCalledWith("layeradd", m.onLayerAdd);
@@ -2181,7 +2181,7 @@ describe("LayerManager", () => {
   it("onLayerAdd is a no-op once the manager is destroyed", () => {
     // A destroyed manager must ignore stray layeradd events, including ones
     // fired before its off() takes effect in the same teardown pass.
-    const m = new LayerManager(map, [{ id: "a", name: "A", group: "overlay" }]);
+    const m = new LayerController(map, [{ id: "a", name: "A", group: "overlay" }]);
     const spy = vi.spyOn(m, "enforceOrder");
     m.destroy();
     m.onLayerAdd({ layer: { options: {} } } as any);
@@ -2191,7 +2191,7 @@ describe("LayerManager", () => {
   it("debouncedEnforce skips scheduling once destroyed", () => {
     // A register/unregister racing the teardown must not reschedule a
     // z-order pass on a manager that no longer has a map.
-    const m = new LayerManager(map, [{ id: "a", name: "A", group: "overlay" }]);
+    const m = new LayerController(map, [{ id: "a", name: "A", group: "overlay" }]);
     const spy = vi.spyOn(m, "enforceOrder");
     m.destroy();
     m.debouncedEnforce();
@@ -2201,7 +2201,7 @@ describe("LayerManager", () => {
   it("destroy flushes a pending order write instead of cancelling it", () => {
     // persistence.destroy cancels the timer, so the UI's flush in unbindEvents
     // must run first — otherwise the last reorder in the debounce window is lost.
-    const m = new LayerManager(map, [
+    const m = new LayerController(map, [
       { id: "a", name: "A", group: "overlay" },
       { id: "b", name: "B", group: "overlay" },
     ]);
@@ -2220,7 +2220,7 @@ describe("LayerManager", () => {
   it("destroy flushes a pending intent write instead of cancelling it", () => {
     // Same ordering for per-layer intent: a hide just before teardown must
     // survive a reload, which is the whole point of the flush.
-    const m = new LayerManager(map, [{ id: "a", name: "A", group: "overlay" }]);
+    const m = new LayerController(map, [{ id: "a", name: "A", group: "overlay" }]);
     m.persistence = new LayerPersistence();
     const save = vi.spyOn(Storage, "saveRecord");
     m.persistence.schedule({
@@ -2938,7 +2938,7 @@ describe("LayerManager", () => {
 // ===========================================================================
 // moveLayerUp / moveLayerDown (merged from move.test.ts)
 
-describe("LayerManager moveLayerUp / moveLayerDown", () => {
+describe("LayerController moveLayerUp / moveLayerDown", () => {
   let manager;
   let map;
 
@@ -3046,7 +3046,7 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
   });
 
   it("moves an overlay one position up", () => {
-    manager = new LayerManager(map, [
+    manager = new LayerController(map, [
       { id: "a", name: "A", group: "overlay" },
       { id: "b", name: "B", group: "overlay" },
       { id: "c", name: "C", group: "overlay" },
@@ -3058,7 +3058,7 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
   });
 
   it("returns false when layer is already at top", () => {
-    manager = new LayerManager(map, [
+    manager = new LayerController(map, [
       { id: "a", name: "A", group: "overlay" },
       { id: "b", name: "B", group: "overlay" },
     ]);
@@ -3066,12 +3066,12 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
   });
 
   it("returns false for unknown layer id", () => {
-    manager = new LayerManager(map, [{ id: "a", name: "A", group: "overlay" }]);
+    manager = new LayerController(map, [{ id: "a", name: "A", group: "overlay" }]);
     expect(manager.moveLayerUp("unknown")).toBe(false);
   });
 
   it("does not move base layer past overlay boundary", () => {
-    manager = new LayerManager(map, [
+    manager = new LayerController(map, [
       { id: "a", name: "A", group: "overlay" },
       { id: "b", name: "B", group: "overlay" },
       { id: "base1", name: "Base", group: "base" },
@@ -3083,7 +3083,7 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
   });
 
   it("moves an overlay one position down", () => {
-    manager = new LayerManager(map, [
+    manager = new LayerController(map, [
       { id: "a", name: "A", group: "overlay" },
       { id: "b", name: "B", group: "overlay" },
       { id: "c", name: "C", group: "overlay" },
@@ -3095,7 +3095,7 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
   });
 
   it("returns false when layer is already at bottom of group", () => {
-    manager = new LayerManager(map, [
+    manager = new LayerController(map, [
       { id: "a", name: "A", group: "overlay" },
       { id: "b", name: "B", group: "overlay" },
     ]);
@@ -3103,7 +3103,7 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
   });
 
   it("does not move overlay past base boundary", () => {
-    manager = new LayerManager(map, [
+    manager = new LayerController(map, [
       { id: "a", name: "A", group: "overlay" },
       { id: "base1", name: "Base", group: "base" },
       { id: "base2", name: "Base2", group: "base" },
@@ -3112,7 +3112,7 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
   });
 
   it("moves base layer down within base group", () => {
-    manager = new LayerManager(map, [
+    manager = new LayerController(map, [
       { id: "a", name: "A", group: "overlay" },
       { id: "base1", name: "Base1", group: "base" },
       { id: "base2", name: "Base2", group: "base" },
@@ -3123,7 +3123,7 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
   });
 
   it("moveLayerUp and moveLayerDown are inverse operations", () => {
-    manager = new LayerManager(map, [
+    manager = new LayerController(map, [
       { id: "a", name: "A", group: "overlay" },
       { id: "b", name: "B", group: "overlay" },
       { id: "c", name: "C", group: "overlay" },
@@ -3147,7 +3147,7 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
   });
 
   it("maintains z-index order after move", () => {
-    manager = new LayerManager(map, [
+    manager = new LayerController(map, [
       { id: "a", name: "A", group: "overlay" },
       { id: "b", name: "B", group: "overlay" },
     ]);
@@ -3164,13 +3164,13 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
   });
 
   it("returns false when only one layer exists", () => {
-    manager = new LayerManager(map, [{ id: "a", name: "A", group: "overlay" }]);
+    manager = new LayerController(map, [{ id: "a", name: "A", group: "overlay" }]);
     expect(manager.moveLayerUp("a")).toBe(false);
     expect(manager.moveLayerDown("a")).toBe(false);
   });
 
   it("moves first overlay to the top of overlay group", () => {
-    manager = new LayerManager(map, [
+    manager = new LayerController(map, [
       { id: "a", name: "A", group: "overlay" },
       { id: "b", name: "B", group: "overlay" },
       { id: "c", name: "C", group: "overlay" },
@@ -3184,7 +3184,7 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
   });
 
   it("does not move overlay that is the only overlay into base group", () => {
-    manager = new LayerManager(map, [
+    manager = new LayerController(map, [
       { id: "a", name: "A", group: "overlay" },
       { id: "base1", name: "Base1", group: "base" },
     ]);
@@ -3192,7 +3192,7 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
   });
 
   it("reorder works across multiple base layers", () => {
-    manager = new LayerManager(map, [
+    manager = new LayerController(map, [
       { id: "a", name: "A", group: "overlay" },
       { id: "b", name: "B", group: "overlay" },
       { id: "base1", name: "Base1", group: "base" },
@@ -3208,7 +3208,7 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
   });
 
   it("moveLayerUp calls enforceOrder", () => {
-    manager = new LayerManager(map, [
+    manager = new LayerController(map, [
       { id: "a", name: "A", group: "overlay" },
       { id: "b", name: "B", group: "overlay" },
     ]);
@@ -3218,7 +3218,7 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
   });
 
   it("moveLayerDown returns false when layer is already at bottom of base group", () => {
-    manager = new LayerManager(map, [
+    manager = new LayerController(map, [
       { id: "a", name: "A", group: "overlay" },
       { id: "base1", name: "Base1", group: "base" },
     ]);
@@ -3226,7 +3226,7 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
   });
 
   it("moveLayerUp returns false when layer is the only overlay", () => {
-    manager = new LayerManager(map, [
+    manager = new LayerController(map, [
       { id: "a", name: "A", group: "overlay" },
       { id: "base1", name: "Base1", group: "base" },
     ]);
@@ -3234,7 +3234,7 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
   });
 
   it("moveLayerUp returns false when layer is the only base map", () => {
-    manager = new LayerManager(map, [
+    manager = new LayerController(map, [
       { id: "a", name: "A", group: "overlay" },
       { id: "base1", name: "Base1", group: "base" },
     ]);
@@ -3242,7 +3242,7 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
   });
 
   it("moveLayerDown calls enforceOrder", () => {
-    manager = new LayerManager(map, [
+    manager = new LayerController(map, [
       { id: "a", name: "A", group: "overlay" },
       { id: "b", name: "B", group: "overlay" },
     ]);
@@ -3256,7 +3256,7 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
     // UI's reindexAfterMove directly; it now rides the same bus the rest of
     // the reorder paths do, so a missing emit silently breaks drag + keyboard
     // reordering. Attach a bare ui + uiContainer to reach the branch.
-    manager = new LayerManager(map, [
+    manager = new LayerController(map, [
       { id: "a", name: "A", group: "overlay" },
       { id: "b", name: "B", group: "overlay" },
     ]);
@@ -3268,7 +3268,7 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
   });
 
   it("moveLayerDown rebuilds the list via LAYER_LIST_REBUILD when a UI is attached", () => {
-    manager = new LayerManager(map, [
+    manager = new LayerController(map, [
       { id: "a", name: "A", group: "overlay" },
       { id: "b", name: "B", group: "overlay" },
     ]);
@@ -3291,7 +3291,7 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
     vi.useFakeTimers();
     vi.clearAllTimers();
     window.localStorage.clear();
-    manager = new LayerManager(map, [
+    manager = new LayerController(map, [
       { id: "a", name: "A", group: "overlay" },
       { id: "b", name: "B", group: "overlay" },
       { id: "c", name: "C", group: "overlay" },
@@ -3319,7 +3319,7 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
     // that all of them are inert. If a later edit adds enforcement between the
     // check and the early return, these catch it; the per-case behavior itself
     // is covered by the boundary tests above.
-    manager = new LayerManager(map, [
+    manager = new LayerController(map, [
       { id: "a", name: "A", group: "overlay" },
       { id: "base1", name: "Base1", group: "base" },
     ]);
@@ -3355,7 +3355,7 @@ describe("LayerManager moveLayerUp / moveLayerDown", () => {
 // createLayerInfo fall through to `Reflect.get(window, id)`, which in jsdom
 // resolves to a host object and crashes enforceOrder's `instanceof` check.
 
-describe("LayerManager user-assigned names", () => {
+describe("LayerController user-assigned names", () => {
   // Assertions go through `ui.displayName(id)` — the render contract — never
   // the registry's `LayerInfo.name`, which a third-party re-registration can
   // legitimately overwrite before the refresh pushes the rename back out.
@@ -3444,7 +3444,7 @@ describe("LayerManager user-assigned names", () => {
     // provider's name, never the user's rename.
     const extLayer = { options: {} };
 
-    manager = new LayerManager(map, [
+    manager = new LayerController(map, [
       { id: "ext", name: "Provider Layer", group: "overlay", layer: extLayer },
     ]);
     manager.ui = new LayerUI(manager, TEST_ENV);
@@ -3477,9 +3477,9 @@ describe("LayerManager user-assigned names", () => {
 
   it("applies a persisted rename at startup", () => {
     // `attachUI` reads the record at call time, so the seed has to land
-    // before `attachUI` — but after the LayerManager constructor, which has
+    // before `attachUI` — but after the LayerController constructor, which has
     // already built the registry that loadPersistedState reads against.
-    const fresh = new LayerManager(map, [
+    const fresh = new LayerController(map, [
       { id: "ext", name: "Provider Layer", group: "overlay", layer: { options: {} } },
     ]);
     fresh.ui = new LayerUI(fresh, TEST_ENV);
@@ -3502,7 +3502,7 @@ describe("LayerManager user-assigned names", () => {
     // loaded the persisted names. loadNames filters value types only, so the
     // rename survives the attach and is projected the moment the layer
     // registers. A registry filter here would have reverted it on every reload.
-    const fresh = new LayerManager(map, [
+    const fresh = new LayerController(map, [
       { id: "ext", name: "Provider Layer", group: "overlay", layer: { options: {} } },
     ]);
     fresh.ui = new LayerUI(fresh, TEST_ENV);
@@ -3523,7 +3523,7 @@ describe("LayerManager user-assigned names", () => {
   it("accepts a caller-supplied name for a fresh layer", () => {
     // A fresh id has no existing entry, so the caller's `opts.name` wins
     // instead of the registry defaulting to the id.
-    const fresh = new LayerManager(map, [
+    const fresh = new LayerController(map, [
       { id: "fresh", name: "Fresh Layer", group: "overlay", layer: { options: {} } },
     ]);
 
@@ -3598,7 +3598,7 @@ describe("LayerManager user-assigned names", () => {
     // each case builds a fresh manager after setting the map's own options.
     const freshManager = (authorMaxZoom?: number) => {
       map.options = { maxZoom: authorMaxZoom };
-      return new LayerManager(map, []);
+      return new LayerController(map, []);
     };
 
     const tile = (maxZoom: number) => {

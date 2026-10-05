@@ -230,7 +230,7 @@ const deleteModeFor = (ui: LayerUI, layerId: string): DeleteMode => {
 };
 
 /** True when the layer is owned by a foliplus component — Measure, Heatmap
- *  (styleSetters). Matches the discriminator in `LayerManager.deleteLayer`, so
+ *  (styleSetters). Matches the discriminator in `LayerController.deleteLayer`, so
  *  the two stay in lockstep. The solid colour basemap is handled separately in
  *  `deleteModeFor` and returns "delete" instead of "clear". */
 const isComponentLayer = (ui: LayerUI, layerId: string): boolean => {

@@ -42,12 +42,12 @@ import { LayerPersistence } from "./persistence.js";
 import { LayerUI } from "./ui/index.js";
 import { INTENT, clearIntent, getIntent } from "./ui/intent.js";
 
-type LayerManagerEnv = {
+type LayerControllerEnv = {
   readonly T: (key: string) => string;
   readonly log: Logger;
 };
 
-const NO_OP_ENV: LayerManagerEnv = {
+const NO_OP_ENV: LayerControllerEnv = {
   T: key => `LayerControl.${key}`,
   log: createLogger("LayerControl"),
 };
@@ -77,9 +77,9 @@ const uninstallBringToFrontPatch = () => {
   L.Path.prototype.bringToFront = origBringToFront;
 };
 
-// ==================== Core Manager: LayerManager ====================
+// ==================== Core Manager: LayerController ====================
 //
-// LayerManager is the orchestrator for the LayerControl component. Its
+// LayerController is the orchestrator for the LayerControl component. Its
 // boundary splits into three layers:
 //
 //   1. **LayerAPI public surface** — the methods other controls / third
@@ -107,7 +107,7 @@ const uninstallBringToFrontPatch = () => {
 // The `layerInfo.type` field is a snapshot mirror of that surface result,
 // not a second source of truth.
 //
-// LayerManager boundary reference — which layer each method belongs to.
+// LayerController boundary reference — which layer each method belongs to.
 // Public =
 // stable contract, change carefully. Internal = LayerUI sibling read
 // surface (ui/* + LayerUI); refactorable, but coordinate with ui/*.
@@ -155,8 +155,8 @@ const withAnnotationSpec = (
   ];
 };
 
-class LayerManager implements LayerAPI {
-  /** Diagnostic marker: set by LayerManager (true).  The lightweight stub
+class LayerController implements LayerAPI {
+  /** Diagnostic marker: set by LayerController (true).  The lightweight stub
    * sets this to false.  For the actual LayerControl check, prefer
    * isRealLayerControl — a capability assertion that cannot be bypassed
    * by flag tampering — but this flag is convenient for ad-hoc logging.
@@ -201,7 +201,7 @@ class LayerManager implements LayerAPI {
   private readonly T: (key: string) => string;
   private readonly log: Logger;
 
-  constructor(mapInstance: L.Map, data: LayerInfo[], env: LayerManagerEnv = NO_OP_ENV) {
+  constructor(mapInstance: L.Map, data: LayerInfo[], env: LayerControllerEnv = NO_OP_ENV) {
     this.map = mapInstance;
     this.T = env.T;
     this.log = env.log;
@@ -367,7 +367,7 @@ class LayerManager implements LayerAPI {
 
     // Ensure the lightweight LayerAPI exists (consumers always have a valid
     // LayerAPI even without LayerControl), then upgrade to the full version.
-    // LayerManager itself implements LayerAPI, so it becomes the map's API.
+    // LayerController itself implements LayerAPI, so it becomes the map's API.
     ensureLayerAPI(this.map);
     this.map.foliplus!.LayerAPI = this;
   }
@@ -506,7 +506,7 @@ class LayerManager implements LayerAPI {
 
   /** Notify subscribers that a layer's feature count may have changed.
    *  Public API for third-party providers (e.g. Canvas layers whose data
-   *  updates independently of LayerManager) to trigger an incremental
+   *  updates independently of LayerController) to trigger an incremental
    *  panel refresh without a full re-render.  Publishes
    *  EVENTS.LAYER_ITEM_COUNT_CHANGE; LayerControl subscribes to it and
    *  refreshes the single affected row via onLayerItemCountChange.
@@ -563,7 +563,7 @@ class LayerManager implements LayerAPI {
   }
 
   /** Broadcast a layer's registry / map-membership change with the id and kind
-   *  stamped from the registry entry — LayerManager's single emit site, so
+   *  stamped from the registry entry — LayerController's single emit site, so
    *  every subscriber can filter on the payload instead of re-walking the
    *  registry. Covers register / unregister / reorder / visibility toggle /
    *  late re-attachment: those are all "the map now shows a different set of
@@ -999,7 +999,7 @@ class LayerManager implements LayerAPI {
   /** Thin forwarder only — gathers the args and hands the z arithmetic to
    *  `core/layer/z.zFor`. There is no second z-semantics here: the z-space
    *  is defined in `z.ts`, not in this file. Since R9 production code calls
-   *  `zFor` directly, but this wrapper stays because LayerManager is the
+   *  `zFor` directly, but this wrapper stays because LayerController is the
    *  LayerAPI entry point — removing it would break the contract. Tests and
    *  probes may still call it. Do not grow this into real logic. */
   computeZIndex(i: number, group: "base" | "overlay"): number {
@@ -1273,4 +1273,4 @@ class LayerManager implements LayerAPI {
   }
 }
 
-export { LayerManager, installBringToFrontPatch, uninstallBringToFrontPatch };
+export { LayerController, installBringToFrontPatch, uninstallBringToFrontPatch };

@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { GROUP } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
-import { LayerManager } from "#foliplus/LayerControl/manager.js";
+import { LayerController } from "#foliplus/LayerControl/controller.js";
 import { toggleFold } from "#foliplus/LayerControl/ui/drag.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { toggleAll } from "#foliplus/LayerControl/ui/visibility.js";
@@ -22,7 +22,7 @@ vi.mock("#foliplus/LayerControl/ui/visibility.js", async importOriginal => ({
 }));
 
 describe("LayerUI lifecycle — defensive rails", () => {
-  let manager: LayerManager;
+  let manager: LayerController;
   let ui: LayerUI;
   let map: any;
 

@@ -12,7 +12,7 @@ const COMPONENTS = {
   SearchControl: "SearchControl",
   LocateControl: "LocateControl",
   FullscreenControl: "FullscreenControl",
-  LayerManager: "LayerManager",
+  LayerController: "LayerController",
   LayerControl: "LayerControl",
   HeatmapControl: "HeatmapControl",
   ScaleControl: "ScaleControl",

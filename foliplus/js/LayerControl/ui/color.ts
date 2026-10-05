@@ -50,7 +50,7 @@ const hideSolidBasemap = (ui: LayerUI) => {
 /** Reset the colour basemap to its initial state after a delete: null the
  *  surface (so the next show re-allocates it), reset the colour to the
  *  author default, mark the id as hidden so the deletion persists, and
- *  flush. Called only from LayerManager.deleteLayer — the uncheck path
+ *  flush. Called only from LayerController.deleteLayer — the uncheck path
  *  uses `hideSolidBasemap` instead, which keeps the surface allocated so
  *  a re-check is cheap. */
 const resetSolidBasemap = (ui: LayerUI) => {

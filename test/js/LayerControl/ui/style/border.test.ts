@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { LayerManager } from "#foliplus/LayerControl/manager.js";
+import type { LayerController } from "#foliplus/LayerControl/controller.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import {
   getIntent,
@@ -124,7 +124,7 @@ const commitBorderNow = (
 };
 
 describe("layerCanBorder", () => {
-  let manager: LayerManager;
+  let manager: LayerController;
   let ui: LayerUI;
 
   beforeEach(() => {
@@ -281,7 +281,7 @@ describe("layerCanBorder", () => {
 });
 
 describe("authoredBorder", () => {
-  let manager: LayerManager;
+  let manager: LayerController;
   let ui: LayerUI;
 
   beforeEach(() => {
@@ -363,7 +363,7 @@ describe("authoredBorder", () => {
 });
 
 describe("commit pipeline", () => {
-  let manager: LayerManager;
+  let manager: LayerController;
   let ui: LayerUI;
 
   beforeEach(() => {
@@ -544,7 +544,7 @@ describe("commit pipeline", () => {
 });
 
 describe("bindBorderRow", () => {
-  let manager: LayerManager;
+  let manager: LayerController;
   let ui: LayerUI;
 
   beforeEach(() => {
@@ -605,7 +605,7 @@ describe("bindBorderRow", () => {
 });
 
 describe("resetLayerBorder", () => {
-  let manager: LayerManager;
+  let manager: LayerController;
   let ui: LayerUI;
 
   beforeEach(() => {
@@ -809,7 +809,7 @@ describe("resetLayerBorder", () => {
 });
 
 describe("highlight restore", () => {
-  let manager: LayerManager;
+  let manager: LayerController;
   let ui: LayerUI;
 
   beforeEach(() => {
@@ -982,7 +982,7 @@ describe("highlight restore", () => {
 });
 
 describe("applyBorderToLayer", () => {
-  let manager: LayerManager;
+  let manager: LayerController;
   let ui: LayerUI;
 
   beforeEach(() => {
@@ -1064,7 +1064,7 @@ describe("applyBorderToLayer", () => {
 });
 
 describe("buildBorderRow", () => {
-  let manager: LayerManager;
+  let manager: LayerController;
   let ui: LayerUI;
 
   beforeEach(() => {
@@ -1239,7 +1239,7 @@ describe("buildBorderRow", () => {
 });
 
 describe("border apply scheduler (drag coalesce)", () => {
-  let manager: LayerManager;
+  let manager: LayerController;
   let ui: LayerUI;
 
   beforeEach(() => {

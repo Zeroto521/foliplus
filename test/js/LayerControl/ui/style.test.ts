@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#foliplus/LayerControl/const.js";
-import type { LayerManager } from "#foliplus/LayerControl/manager.js";
+import type { LayerController } from "#foliplus/LayerControl/controller.js";
 import { applyProjection } from "#foliplus/LayerControl/ui/apply.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import {
@@ -35,7 +35,7 @@ const fillPct = (el: HTMLElement): number =>
   Number(el.style.width.match(/^([\d.]+)%$/)?.[1] ?? NaN) / 100;
 
 describe("LayerUI style panel", () => {
-  let manager: LayerManager;
+  let manager: LayerController;
   let ui: LayerUI;
   let map: any;
 
@@ -3509,7 +3509,7 @@ describe("LayerUI style panel", () => {
 });
 
 describe("LayerUI style panel — zoom range", () => {
-  let manager: LayerManager;
+  let manager: LayerController;
   let ui: LayerUI;
   let map: any;
 

@@ -265,7 +265,7 @@ class LayerPersistence {
    * be missed on load and nothing else calls `Storage.loadRecord`.
    *
    * Nothing here is filtered against the registry. This runs from
-   * `LayerManager`'s constructor — before any layer is registered — and again
+   * `LayerController`'s constructor — before any layer is registered — and again
    * from `LayerUI.attachUI`, which loads before HeatmapControl and
    * MeasureControl register in their own constructor, so a registry filter
    * would drop their entries on the very first attach -- showing the default
@@ -273,12 +273,12 @@ class LayerPersistence {
    * position, or losing a label config -- and every refresh. Order and
    * annotation config are user intent exactly like hidden state and names;
    * the only difference is that their replay is deferred until the id
-   * resolves. `LayerManager.replaySavedOrder` re-applies the order when a
+   * resolves. `LayerController.replaySavedOrder` re-applies the order when a
    * layer registers late, and `applyStyleLabelState` re-applies the config on
    * `CONTROL_ATTACHED`.
    *
    * An unknown id is therefore not evidence that a layer is gone. Stale ids are
-   * pruned only by `LayerManager.deleteLayer`, the one call that knows a layer
+   * pruned only by `LayerController.deleteLayer`, the one call that knows a layer
    * is gone for good: `unregisterLayer` is a generic teardown that a component's
    * empty-data pass goes through, and no read-time sweep can tell "not
    * registered yet" from "gone". Writes prune themselves through the live

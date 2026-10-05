@@ -63,7 +63,7 @@ export function makeControlEnv(
 // A base Layer-like class every L.<Shape> constructor inherits. Production
 // code touches these methods on the returned instance (addTo, remove, on,
 // off, setStyle, getElement, bringToFront, ...) — see the call sites in
-// foliplus/js/LayerControl/manager.ts and core/layer/LayerFactory.ts.
+// foliplus/js/LayerControl/controller.ts and core/layer/LayerFactory.ts.
 class LeafletBase {
   addTo = vi.fn(this as unknown as object) as any;
   remove = vi.fn() as any;
@@ -241,7 +241,7 @@ export function installWindowLExtensions(): void {
   }
 
   // `L.Path.prototype.bringToFront` is captured at module-import time by
-  // LayerControl/manager.ts and monkey-patched in a test — provide the full
+  // LayerControl/controller.ts and monkey-patched in a test — provide the full
   // set of methods production code touches on paths.
   if (L.Path?.prototype) {
     Object.assign(L.Path.prototype, {

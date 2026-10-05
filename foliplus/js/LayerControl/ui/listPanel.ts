@@ -1,7 +1,7 @@
 // LayerControl UI — ListPanel subsystem: rows, cursor, drag-reorder, fold.
 //
 // This is the first of the three view subsystems carved out of LayerUI. The
-// controller (LayerManager) owns domain state; the view subsystems own
+// controller (LayerController) owns domain state; the view subsystems own
 // per-panel state that only makes sense in the panel's own lifetime — fold
 // state, the roving cursor index, the in-flight drag, the press-in-panel
 // verdict. LayerUI holds a reference to this subsystem so shared modules

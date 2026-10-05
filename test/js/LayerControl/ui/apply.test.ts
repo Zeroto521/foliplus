@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LayerIntentStore, LayerRuntimeStore } from "#core/layer/index.js";
-import { LayerManager } from "#foliplus/LayerControl/manager.js";
+import { LayerController } from "#foliplus/LayerControl/controller.js";
 import {
   applyProjection,
   applyProjectionAll,
@@ -103,7 +103,7 @@ describe("executor: only intent authorises display", () => {
   it("gate 1 — the first projection must not add an author show=False layer", () => {
     const { container, layer, map } = makeOffMapFixture();
 
-    const manager = new LayerManager(map, [
+    const manager = new LayerController(map, [
       { id: "authorHidden", name: "Hidden", group: "overlay", layer },
     ]);
     manager.ui = new LayerUI(manager, TEST_ENV);
@@ -126,7 +126,7 @@ describe("executor: only intent authorises display", () => {
     // `effectiveShown = false`, never move it to `true`.
     const { container, layer, map } = makeOffMapFixture();
 
-    const manager = new LayerManager(map, [
+    const manager = new LayerController(map, [
       { id: "a", name: "A", group: "overlay", layer },
     ]);
     manager.ui = new LayerUI(manager, TEST_ENV);
@@ -164,7 +164,7 @@ describe("executor: intent authorises, policy only suppresses", () => {
     // restores, and neither writes back to the user's intent.
     const { container, layer, map } = makeOnMapFixture();
 
-    const manager = new LayerManager(map, [
+    const manager = new LayerController(map, [
       { id: "r", name: "Range", group: "overlay", layer },
     ]);
     manager.ui = new LayerUI(manager, TEST_ENV);
@@ -205,7 +205,7 @@ describe("executor: intent authorises, policy only suppresses", () => {
     // authorise, and it also cannot record.
     const { container, layer, map } = makeOnMapFixture();
 
-    const manager = new LayerManager(map, [
+    const manager = new LayerController(map, [
       { id: "s", name: "S", group: "overlay", layer },
     ]);
     manager.ui = new LayerUI(manager, TEST_ENV);
@@ -255,7 +255,7 @@ describe("executor: late-carrier replay", () => {
     const oldCanvas = document.createElement("canvas");
     const freshCanvas = document.createElement("canvas");
 
-    const manager = new LayerManager(map, [
+    const manager = new LayerController(map, [
       { id: "h", name: "Heat", group: "overlay", canvas: oldCanvas },
     ]);
     manager.ui = new LayerUI(manager, TEST_ENV);
@@ -313,7 +313,7 @@ describe("executor: late-carrier replay", () => {
       feature: { properties: { name: "Depot" } },
     } as unknown as L.Layer;
 
-    const manager = new LayerManager(map, [
+    const manager = new LayerController(map, [
       { id: "a1", name: "Labels", group: "overlay", layer },
     ]);
     manager.ui = new LayerUI(manager, TEST_ENV);
@@ -367,7 +367,7 @@ describe("executor: coalesced redraw-arm repaint", () => {
     const canvas = document.createElement("canvas");
     const onOpacity = vi.fn();
 
-    const manager = new LayerManager(map, [
+    const manager = new LayerController(map, [
       { id: "h", name: "Heat", group: "overlay", canvas, onOpacity },
     ]);
     manager.ui = new LayerUI(manager, TEST_ENV);
@@ -442,7 +442,7 @@ describe("executor: coalesced redraw-arm repaint", () => {
     const canvas = document.createElement("canvas");
     const onOpacity = vi.fn();
 
-    const manager = new LayerManager(map, [
+    const manager = new LayerController(map, [
       {
         id: "c",
         name: "Color",
@@ -481,7 +481,7 @@ describe("executor: coalesced redraw-arm repaint", () => {
     const canvas = document.createElement("canvas");
     const onOpacity = vi.fn();
 
-    const manager = new LayerManager(map, [
+    const manager = new LayerController(map, [
       { id: "r", name: "Replay", group: "overlay", canvas, onOpacity },
     ]);
     manager.ui = new LayerUI(manager, TEST_ENV);
@@ -532,7 +532,7 @@ describe("executor: idempotent writes", () => {
     // map/DOM writes; a spy-counted gate is what this refactor asks for.
     const { container, layer, map } = makeOffMapFixture();
 
-    const manager = new LayerManager(map, [
+    const manager = new LayerController(map, [
       { id: "p", name: "P", group: "overlay", layer },
     ]);
     manager.ui = new LayerUI(manager, TEST_ENV);
@@ -570,7 +570,7 @@ describe("executor: idempotent writes", () => {
 
     const aCanvas = document.createElement("canvas");
     const bCanvas = document.createElement("canvas");
-    const manager = new LayerManager(map, [
+    const manager = new LayerController(map, [
       { id: "b", name: "B", group: "overlay", canvas: bCanvas },
       { id: "a", name: "A", group: "overlay", canvas: aCanvas },
     ]);
@@ -613,9 +613,9 @@ describe("executor: carrier dispatch", () => {
     vi.useRealTimers();
   });
 
-  const boot = (layers: ConstructorParameters<typeof LayerManager>[1]) => {
+  const boot = (layers: ConstructorParameters<typeof LayerController>[1]) => {
     const { container, map } = makeOffMapFixture();
-    const manager = new LayerManager(map, layers);
+    const manager = new LayerController(map, layers);
     manager.ui = new LayerUI(manager, TEST_ENV);
     const ui = manager.ui as LayerUI;
     vi.useFakeTimers();
@@ -870,7 +870,7 @@ describe("projectAll: the id set is a union, not just the registry", () => {
     // after the panel attaches, so their ids are unresolvable on the first
     // pass and must not be pruned from the projection.
     const { container, map } = makeOffMapFixture();
-    const manager = new LayerManager(map, [
+    const manager = new LayerController(map, [
       { id: "a", name: "A", group: "overlay", layer: { options: {} } as L.Layer },
     ]);
     manager.ui = new LayerUI(manager, TEST_ENV);
@@ -890,7 +890,7 @@ describe("projectAll: the id set is a union, not just the registry", () => {
 
   it("projectAll treats an empty LayerIntentStore as empty", () => {
     const { container, map } = makeOffMapFixture();
-    const manager = new LayerManager(map, [
+    const manager = new LayerController(map, [
       { id: "a", name: "A", group: "overlay", layer: { options: {} } as L.Layer },
     ]);
     manager.ui = new LayerUI(manager, TEST_ENV);
@@ -916,9 +916,9 @@ describe("executor: the branches behind the gates", () => {
     vi.useRealTimers();
   });
 
-  const boot = (layers: ConstructorParameters<typeof LayerManager>[1]) => {
+  const boot = (layers: ConstructorParameters<typeof LayerController>[1]) => {
     const { container, map } = makeOffMapFixture();
-    const manager = new LayerManager(map, layers);
+    const manager = new LayerController(map, layers);
     manager.ui = new LayerUI(manager, TEST_ENV);
     const ui = manager.ui as LayerUI;
     vi.useFakeTimers();
@@ -938,7 +938,7 @@ describe("executor: the branches behind the gates", () => {
     map.addLayer = vi.fn();
     map.removeLayer = vi.fn();
 
-    const manager = new LayerManager(map, [
+    const manager = new LayerController(map, [
       { id: "on", name: "On", group: "overlay", layer },
     ]);
     manager.ui = new LayerUI(manager, TEST_ENV);
@@ -1012,7 +1012,7 @@ describe("executor: the branches behind the gates", () => {
       eachLayer: vi.fn(),
       getBounds: vi.fn(() => ({ isValid: () => true })),
     } as unknown as L.Layer;
-    const manager = new LayerManager(map, [
+    const manager = new LayerController(map, [
       { id: "gone", name: "Gone", group: "overlay", layer },
     ]);
     manager.ui = new LayerUI(manager, TEST_ENV);
@@ -1112,7 +1112,7 @@ describe("executor: the branches behind the gates", () => {
     map.hasLayer = vi.fn(() => true);
     map.addLayer = vi.fn();
 
-    const manager = new LayerManager(map, [
+    const manager = new LayerController(map, [
       { id: "up", name: "Up", group: "overlay", layer },
     ]);
     manager.ui = new LayerUI(manager, TEST_ENV);
@@ -1153,7 +1153,7 @@ describe("membership invariants: only intent + author snapshot authorise members
   const bootUnobserved = (id = "x") => {
     const { container, map } = makeOffMapFixture();
     const layer = { options: {} } as L.Layer;
-    const manager = new LayerManager(map, [{ id, name: id, group: "overlay", layer }]);
+    const manager = new LayerController(map, [{ id, name: id, group: "overlay", layer }]);
     manager.ui = new LayerUI(manager, TEST_ENV);
     const ui = manager.ui as LayerUI;
     vi.useFakeTimers();
@@ -1175,7 +1175,7 @@ describe("membership invariants: only intent + author snapshot authorise members
     // as an author-declared default, which is not the case we're pinning.
     const { map } = makeOffMapFixture();
     const layer = { options: {} } as L.Layer;
-    const manager = new LayerManager(map, [
+    const manager = new LayerController(map, [
       { id: "unobs", name: "U", group: "overlay", layer },
     ]);
     manager.ui = new LayerUI(manager, TEST_ENV);

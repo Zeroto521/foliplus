@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#foliplus/LayerControl/const.js";
-import type { LayerManager } from "#foliplus/LayerControl/manager.js";
+import type { LayerController } from "#foliplus/LayerControl/controller.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { clearIntent, getIntent, setIntent } from "#foliplus/LayerControl/ui/intent.js";
 import {
@@ -57,7 +57,7 @@ const makeFillableLayer = () => {
   return parent as unknown as L.Layer & { leaves: typeof leaves };
 };
 
-/** Build a LayerManager/UI fixture with a real fillable overlay layer
+/** Build a LayerController/UI fixture with a real fillable overlay layer
  *  registered under `overlay1`, replacing the fixture's bare polygon duck. */
 const initWithFillLayer = () => {
   // Install the stub classes FIRST so `new L.Polygon()` below creates leaves
@@ -100,7 +100,7 @@ const commitNow = (
 };
 
 describe("LayerUI style panel — fill color", () => {
-  let manager: LayerManager;
+  let manager: LayerController;
   let ui: LayerUI;
   let map: any;
 
@@ -1212,7 +1212,7 @@ describe("LayerUI style panel — fill color", () => {
 
 describe("buildFillRow", () => {
   let ui: LayerUI;
-  let manager: LayerManager;
+  let manager: LayerController;
 
   beforeEach(() => {
     const fixture = initWithFillLayer();
@@ -1492,7 +1492,7 @@ describe("buildFillRow", () => {
 
 describe("replayFillState", () => {
   let ui: LayerUI;
-  let manager: LayerManager;
+  let manager: LayerController;
   let fillLayer: ReturnType<typeof makeFillableLayer>;
 
   beforeEach(() => {

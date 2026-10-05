@@ -645,4 +645,3 @@ class LayerFactory {
 }
 
 export { LayerFactory };
-export type { CreateCanvasOpts, CreateLayersOpts } from "./type.js";
