@@ -130,7 +130,7 @@ describe("locateMe", () => {
   });
 
   it("locating hint is plain text, not an inline SVG string", () => {
-    const getCurrentPosition = geoStub();
+    geoStub();
     const ctrl = makeCtrl();
     locateMe(ctrl);
     // Hint text is rendered as a TextNode, so an inline SVG would appear as

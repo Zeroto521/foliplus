@@ -42,7 +42,7 @@ import {
 import { closeMoreMenu, openMoreMenu } from "./menu.js";
 import { intentVisibleOf } from "./projection.js";
 import { finishRename, renameLayer } from "./rename.js";
-import { applyRowView, buildRowCell, displayName } from "./rowView.js";
+import { displayName } from "./rowView.js";
 import {
   applyUserState,
   dropPersistedLayerState,

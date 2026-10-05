@@ -1,4 +1,4 @@
-// Drift gate: two remove→add cycles must leave the document/window listener
+// Drift gate: two remove → add cycles must leave the document/window listener
 // count where it started, as measured by _probe/doc_listener_probe.js. That
 // probe must be installed as a page prelude, so its counts are absolute
 // instead of deltas measured from partway through the page's life.

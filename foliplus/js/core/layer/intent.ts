@@ -114,14 +114,6 @@ type IntentRow = {
   provenance: Set<LayerOverride>;
 };
 
-/** Compile-time pin: every provenance-tracked dimension is also a disk key —
- *  `buildLayerStates` writes each override straight through under its own
- *  name, so a new `LayerOverride` without a `PersistedLayerState` field fails
- *  here rather than being silently dropped at the persistence boundary. */
-type AssertOverridesAreDiskKeys = LayerOverride extends keyof PersistedLayerState
-  ? true
-  : ["every LayerOverride must be a PersistedLayerState key"];
-
 /** The intent half of a parsed persistence record — what
  *  `LayerIntentStore.loadFromPersisted` accepts. A subset of
  *  `PersistedRecord` (order / removed / foldedGroups stay outside the

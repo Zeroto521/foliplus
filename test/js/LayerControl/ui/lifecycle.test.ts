@@ -164,7 +164,6 @@ describe("LayerUI lifecycle — defensive rails", () => {
     it("clears the count column when the count is null but the column exists", () => {
       // The else-if arm: refreshAllCounts and onLayerItemCountChange both take
       // the empty-text path when the column is present but the count is not.
-      const info = manager.layerRegistry.get("overlay1")!;
       vi.spyOn(manager, "getFeatureCount").mockReturnValue(null);
       const item = findItem(ui, "overlay1");
       const countCol = item.querySelector(CONST.SEL.COUNT_COL) as HTMLElement;

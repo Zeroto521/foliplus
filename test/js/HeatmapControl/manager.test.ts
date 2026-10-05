@@ -1760,7 +1760,7 @@ describe("constructor — CONFIG fallbacks", () => {
 
 describe("featureCountProvider", () => {
   it("returns 0 when cachedFeatures is null", () => {
-    const m = makeManager();
+    makeManager();
     const opts = window.map.foliplus.LayerAPI.createCanvas.mock.calls[0][0];
     expect(opts.featureCountProvider()).toBe(0);
   });
@@ -2101,7 +2101,7 @@ describe("computeBreaks", () => {
 
 describe("getBounds callback", () => {
   it("returns computeBounds result via createCanvas options", () => {
-    const m = makeManager();
+    makeManager();
     const opts = window.map.foliplus.LayerAPI.createCanvas.mock.calls[0][0] as {
       getBounds: () => unknown;
     };

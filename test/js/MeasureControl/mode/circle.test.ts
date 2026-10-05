@@ -178,7 +178,6 @@ describe("CircleMode — start drawing flow", () => {
 describe("CircleMode — restore wiring", () => {
   it("registers edit handles via registerFinalized and saves data", () => {
     const manager = makeManagerMock() as any;
-    const saveSpy = vi.spyOn(manager, "saveMeasurements");
     CircleMode.restore(manager, {
       id: "c_wire",
       type: "circle",

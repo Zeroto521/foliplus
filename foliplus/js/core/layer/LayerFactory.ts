@@ -14,7 +14,6 @@ import {
   GROUP,
   HIDDEN,
   KIND,
-  PANE_NAME_PATTERN,
   PANE_ROLE,
 } from "./const.js";
 import type {

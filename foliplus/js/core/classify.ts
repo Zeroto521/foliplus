@@ -37,7 +37,7 @@ const computeBreaks = (data: number[], nClasses: number, method: string): number
       const breaks: number[] = [clusters[0][0]];
       clusters.forEach(c => breaks.push(c[c.length - 1]));
       return breaks;
-    } catch (e) {
+    } catch {
       /* fall through */
     }
     return [lo, hi];

@@ -115,7 +115,7 @@ const makePerfContainer = (): HTMLElement => {
 };
 
 /** Real DOM chip at `box` (container-relative). */
-const labelAt = (box: Box, perfContainer: HTMLElement): CollidableLabel => {
+const labelAt = (box: Box): CollidableLabel => {
   const el = document.createElement("div");
   document.body.appendChild(el);
   perfRectOf(el, box.x + PERF_CONTAINER_LEFT, box.y + PERF_CONTAINER_TOP, box.w, box.h);
@@ -149,7 +149,7 @@ const planFor = (boxes: Box[], perfContainer: HTMLElement): (() => void) => {
   const projector = Collision.mapProjector({
     getContainer: () => perfContainer,
   } as unknown as L.Map);
-  const labels = boxes.map(b => labelAt(b, perfContainer));
+  const labels = boxes.map(b => labelAt(b));
   return () => Collision.placeLabels(labels, projector, true, chipOf);
 };
 

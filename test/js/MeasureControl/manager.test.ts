@@ -1615,7 +1615,7 @@ describe("MeasureManager — label cleanup", () => {
   });
 
   it("destroy tolerates an unflushed rAF — the pending plan runs against an empty set", () => {
-    const { manager, map } = makeLabelManager();
+    const { manager } = makeLabelManager();
     const marker = makeLabelMarker();
     placeLabels.mockClear();
 

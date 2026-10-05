@@ -166,7 +166,7 @@ const bindEvents = (ui: LayerUI): void => {
     // One ledger: pointer re-homes the index, Tab stop, and paints the
     // cursor visual. It stays until Escape, another row, or an outside
     // press takes over — same contract as the keyboard cursor.
-    // (#278 only removed the accidental dblclick→focusLayer zoom.)
+    // (#278 only removed the accidental dblclick → focusLayer zoom.)
     const row = owningRow(el);
     if (row) {
       const idx = getNavigableItems(ui).indexOf(row);

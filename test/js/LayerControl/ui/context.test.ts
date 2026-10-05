@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import {
   ATTRS_ROW_WRAP_CHARS,

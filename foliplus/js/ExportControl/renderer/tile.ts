@@ -116,7 +116,7 @@ const renderTileLayer = async (
   layer: L.TileLayer,
   onProgress?: (tilesDrawn: number) => void,
 ): Promise<void> => {
-  const { ctx, cw, ch } = rc;
+  const { ctx } = rc;
   if (visibleTiles.length === 0) return;
 
   // Native carrier: GridLayer's `options.opacity` is not captured by
