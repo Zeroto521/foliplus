@@ -2,8 +2,9 @@
 // Moved from renderer.ts — calcTiles, tilePositions, renderTileLayer.
 import { layerUrl } from "#core/leafletAdapter.js";
 import * as CONST from "../const.js";
+import type { RenderCtx } from "../type.js";
 import { isVisible, loadImageBitmap } from "../util.js";
-import type { RenderCtx, TileDesc, TileLoadStats } from "./util.js";
+import type { TileDesc, TileLoadStats } from "./util.js";
 
 /** Calculate tile coordinates covering geo bounds at a given zoom. */
 const calcTiles = (

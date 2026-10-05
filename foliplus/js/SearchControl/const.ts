@@ -61,4 +61,3 @@ export {
   SOURCE,
   ZOOM,
 };
-export type { SearchType } from "./type.js";

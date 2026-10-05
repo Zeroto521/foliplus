@@ -2,7 +2,8 @@
 // ./search.ts and ./history.ts. Moved from logic.ts.
 import { COORD_BOUNDS } from "#core/geo/index.js";
 import type { ControlEnv } from "#core/type.js";
-import { MODE, type SearchType } from "../const.js";
+import { MODE } from "../const.js";
+import type { SearchType } from "../type.js";
 import type { SearchControlState } from "../type.js";
 
 /** Full context for logic functions �?the control's runtime state plus the

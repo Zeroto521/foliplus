@@ -27,4 +27,3 @@ const createLogger = (name: string): Logger => {
 };
 
 export { createLogger };
-export type { LogFn, Logger } from "./type.js";

@@ -7,6 +7,7 @@ import { layerUrl } from "#core/leafletAdapter.js";
 import { createScopedTranslator } from "#common/locale.js";
 import { createLogger } from "#common/log.js";
 import * as CONST from "../const.js";
+import type { RenderCtx } from "../type.js";
 import { renderCanvasElement, renderPaneCanvas } from "./canvas.js";
 import {
   collectLayerMarkers,
@@ -18,7 +19,6 @@ import {
 import { renderPaneSVG } from "./svg.js";
 import { calcTiles, renderTileLayer, tilePositions } from "./tile.js";
 import {
-  type RenderCtx,
   type TileDesc,
   type TileLoadStats,
   isCorsBlocked,
@@ -141,7 +141,7 @@ class ExportRenderer {
     }
 
     // Shared render context threaded through all passes.
-    const rc: import("./util.js").RenderCtx = {
+    const rc: import("../type.js").RenderCtx = {
       ctx,
       rect,
       scale,
@@ -313,7 +313,7 @@ class ExportRenderer {
   }
 
   /** Render SVG content from a single pane. */
-  async renderPaneSVG(rc: import("./util.js").RenderCtx, pane: HTMLElement) {
+  async renderPaneSVG(rc: import("../type.js").RenderCtx, pane: HTMLElement) {
     return renderPaneSVG(this.container, rc, pane);
   }
 

@@ -12,7 +12,7 @@ import {
   formatLatLng,
   formatNumber,
 } from "#common/format.js";
-import type { Logger } from "#common/log.js";
+import type { Logger } from "#common/type.js";
 import * as CONST from "./const.js";
 
 // Edit-specific helpers (buildEditOverlay, bindNodeDrag, drag-synthetic click

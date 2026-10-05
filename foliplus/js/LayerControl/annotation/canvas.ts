@@ -9,11 +9,11 @@
 import { cancelMapPaneTranslate } from "#core/leaflet/index.js";
 import { setLayerAlpha, withCanvasLayerAlpha } from "#common/canvasAlpha.js";
 import {
-  type CanvasLabelStyle,
   drawCanvasLabel,
   prepareCanvasLabel,
   resolveCanvasLabelStyle,
 } from "#common/canvasLabel.js";
+import type { CanvasLabelStyle } from "#common/type.js";
 import { type PlacedLabel } from "./layout.js";
 
 /** One layer's label canvas. Painting is driven by the AnnotationManager, so

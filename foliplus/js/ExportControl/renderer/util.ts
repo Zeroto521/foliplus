@@ -97,4 +97,3 @@ const withAlpha = (
 
 export { isCorsBlocked, pooledEach, effectiveOpacity, withAlpha };
 export type { TileDesc, TileLoadStats };
-export type { RenderCtx } from "../type.js";

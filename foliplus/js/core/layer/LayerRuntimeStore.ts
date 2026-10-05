@@ -144,4 +144,3 @@ class LayerRuntimeStore {
 
 export { LayerRuntimeStore };
 export type { AppliedProjection, LayerRuntime };
-export type { Projection } from "./type.js";

@@ -25,4 +25,3 @@ const unbindMapEvents = (map: L.Map, handlers: MapEventHandlers): void => {
 };
 
 export { bindMapEvents, unbindMapEvents };
-export type { MapEventHandlers } from "./type.js";

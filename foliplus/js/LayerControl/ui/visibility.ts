@@ -1,6 +1,7 @@
 // LayerControl UI — Checkbox / group-toggle visibility.
 import { GROUP } from "#core/layer/index.js";
-import { type Debounced, debounce } from "#common/debounce.js";
+import { debounce } from "#common/debounce.js";
+import type { Debounced } from "#common/type.js";
 import * as CONST from "../const.js";
 import { applyProjection, applyProjectionAll } from "./apply.js";
 import type { LayerUI } from "./index.js";

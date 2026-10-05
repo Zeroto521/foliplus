@@ -70,4 +70,3 @@ const drawCanvasLabel = (
 };
 
 export { drawCanvasLabel, prepareCanvasLabel, resolveCanvasLabelStyle, withLabelPaint };
-export type { CanvasLabelStyle } from "./type.js";

@@ -34,8 +34,9 @@ import {
   isGroupLike,
   refreshAttributions,
 } from "#core/leafletAdapter.js";
-import { type Debounced, debounce } from "#common/debounce.js";
-import { type Logger, createLogger } from "#common/log.js";
+import { debounce } from "#common/debounce.js";
+import { createLogger } from "#common/log.js";
+import type { Debounced, Logger } from "#common/type.js";
 import { AnnotationManager } from "./annotation/index.js";
 import * as CONST from "./const.js";
 import { LayerPersistence } from "./persistence.js";

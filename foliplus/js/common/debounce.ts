@@ -26,4 +26,3 @@ const debounce = (func: (...args: unknown[]) => void, delayMs: number): Debounce
 };
 
 export { debounce };
-export type { Debounced } from "./type.js";

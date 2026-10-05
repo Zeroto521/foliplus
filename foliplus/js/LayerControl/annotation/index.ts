@@ -17,12 +17,9 @@ import {
 import { NO_FEATURE_TREE_KINDS, walkLeaf } from "#core/layer/index.js";
 import { bindMapSync } from "#core/leaflet/index.js";
 import type { NumberStyle } from "#foliplus/config-schema.js";
-import {
-  type CanvasLabelStyle,
-  resolveCanvasLabelStyle,
-  withLabelPaint,
-} from "#common/canvasLabel.js";
+import { resolveCanvasLabelStyle, withLabelPaint } from "#common/canvasLabel.js";
 import { formatLabelNumber } from "#common/format.js";
+import type { CanvasLabelStyle } from "#common/type.js";
 import * as CONST from "../const.js";
 import type { AnnotationConfig, LayerLabel } from "../type.js";
 import { AnnotationCanvas } from "./canvas.js";

@@ -1,6 +1,7 @@
-import { type Debounced, debounce } from "#common/debounce.js";
+import { debounce } from "#common/debounce.js";
 import { BORDER_WEIGHT, normalizeHexColor } from "#common/form.js";
 import * as Storage from "#common/storage.js";
+import type { Debounced } from "#common/type.js";
 import * as CONST from "./const.js";
 import type {
   AnnotationConfig,
