@@ -229,7 +229,7 @@ const syncActiveItem = (ui: LayerUI): void => {
  * key-ownership table once and drops the event if the focused control
  * natively consumes the key, so a range slider or a row checkbox parked in
  * the panel never reaches this function. This handler used to re-ask "is
- * focus inside my panel — " itself — the same answer the dispatcher had already
+ * focus inside my panel?" itself — the same answer the dispatcher had already
  * settled, which is how a new native control in a panel went unnoticed.
  *
  * Supported shortcuts:
@@ -247,7 +247,7 @@ const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
     if (ui.overlayPanel.activeRenameId) {
       // finishRename() removes the input, which blurs it to `<body>`.
       // Restore the row focus the rename started from before dropping the
-      // cursor: a cursor parked on <body> leaves the panel unreachable —     // the very next arrow key would not reach this handler. The focusin
+      // cursor: a cursor parked on <body> leaves the panel unreachable —      // the very next arrow key would not reach this handler. The focusin
       // that fires on the restored row may re-apply the class; the
       // escapeClearCursor() below runs last and wins.
       const layerId = ui.overlayPanel.activeRenameId;

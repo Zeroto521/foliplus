@@ -13,15 +13,15 @@ import {
 
 // Tests for script/build/global-namespace-plugin.mjs — every exported symbol plus the
 // plugin object itself:
-//   runtimeTarget        — canonical spec → dotted runtime target (the unit
+//   runtimeTarget          — canonical spec → dotted runtime target (the unit
 //                            mapping; sharedGlobalNamespace is a thin wrapper
 //                            around this + `foliplus.` prefix)
-//   sharedGlobalNamespace — the wrapper's public surface, exercised against
+//   sharedGlobalNamespace  — the wrapper's public surface, exercised against
 //                            the real source tree
-//   collectExports       — unit
-//   collectSources       — unit
-//   scanSharedImports    — unit
-//   globalNamespacePlugin — end to end, wired to a mock `build`
+//   collectExports         — unit
+//   collectSources         — unit
+//   scanSharedImports      — unit
+//   globalNamespacePlugin  — end to end, wired to a mock `build`
 //
 // They live in one file on purpose: this module once had a second test file,
 // named for a script that never existed, and the two asserted the same mappings

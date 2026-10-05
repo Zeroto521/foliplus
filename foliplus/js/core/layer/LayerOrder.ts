@@ -37,7 +37,7 @@ class LayerOrder {
    *
    *  Consulted at construction, where it evicts the layer from the map, and at
    *  the registration entry point, where it keeps the id out of the registry
-   * — so nothing downstream ever has to check for it. Both run before the
+   *  — so nothing downstream ever has to check for it. Both run before the
    *  panel attaches, which is why this rides the manager's `order` instance
    *  rather than the UI.
    */

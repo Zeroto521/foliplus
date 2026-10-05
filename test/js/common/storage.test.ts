@@ -94,7 +94,7 @@ describe("storage", () => {
   });
 
   it("still reports a write as landed when the backend swallows it", () => {
-    // Some sandboxed iframes accept a write and drop it without throwing — 
+    // Some sandboxed iframes accept a write and drop it without throwing —
     // saveRecord() can only observe a throw, so that case reports landed.
     runWithSetItem(
       () => {},

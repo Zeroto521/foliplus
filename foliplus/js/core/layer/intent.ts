@@ -53,7 +53,7 @@ type LayerOverride =
  *     separate, explicit task.
  *  2. A *label-only* field (position, …) belongs on {@link AnnotationConfig}
  *     instead: it nests under `layers[id].annotation`, needs no provenance
- *     entry, and flows through the tolerant annotation parse untouched — 
+ *     entry, and flows through the tolerant annotation parse untouched —
  *     only the field rule in `coerceAnnotationFields` (ui/style/label.ts)
  *     and the renderer consume it. */
 type LayerIntent = {

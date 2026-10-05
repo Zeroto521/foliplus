@@ -97,7 +97,7 @@ const isRealLayerControl = (api: LayerAPI | undefined): boolean => {
  * is present.  Shows a persistent hint and throws when the dependency is
  * missing.  Used by components that hard-depend on LayerControl (Export).
  *
- * We can't just test `map.foliplus — .LayerAPI` — other foliplus subsystems
+ * We can't just test `map.foliplus?.LayerAPI` — other foliplus subsystems
  * (hint/mode/interaction) install a lightweight LayerAPI stub that is
  * always truthy even when LayerControl was never added.  isRealLayerControl
  * asserts the registry-delegating `layers` getter that only LayerManager

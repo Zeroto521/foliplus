@@ -1,7 +1,7 @@
 // Shared rate-limit primitives for geocoding.
 //
 // Every request to a provider — through the geocoder's strictly-serialized
-// queue or through component paths (e.g. SearchControl's suggestions) — 
+// queue or through component paths (e.g. SearchControl's suggestions) —
 // records a timestamp on a provider-wide, page-global table. The queue and
 // component windows both consult that table, so a provider's rate limit is
 // honoured across call paths and across maps, not per path (Nominatim's

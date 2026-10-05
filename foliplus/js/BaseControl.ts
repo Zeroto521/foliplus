@@ -2,9 +2,9 @@
 //
 // Lifecycle contract:
 //   1. Construction — `init()` runs exactly once.
-//   2. onAdd()    — builds DOM via buildDOM()/build() and installs a fresh
+//   2. onAdd()      — builds DOM via buildDOM()/build() and installs a fresh
 //                     AbortController for this mounting.
-//   3. onRemove() — destroys lifecycle resources in order:
+//   3. onRemove()   — destroys lifecycle resources in order:
 //                        destroy() → onMap listener cleanup → effect cleanup
 //                        → abort the current signal
 //                     Then clears the abort-controller field. A re-add
@@ -17,7 +17,7 @@
 //      mandatory.
 //
 // Helper surface (exactly three, all tracked, auto-cleaned on remove):
-//   - this.on(target, event, fn, options — ) — DOM listener via
+//   - this.on(target, event, fn, options?) — DOM listener via
 //     `addEventListener(..., {signal: this.signal})`; the browser handles
 //     teardown, so the component has nothing to remember. Returns an
 //     early-unbind function. The `signal` option was introduced in Chrome 98
@@ -54,7 +54,7 @@ class BaseControl extends L.Control {
    * One AbortController per mounting. Installed on every `onAdd()` so
    * listeners registered inside `buildDOM()` capture the signal for that
    * mounting; aborted on `onRemove()` and the field set to `null`. A
-   * re-attached instance never carries a stale, already-aborted signal — 
+   * re-attached instance never carries a stale, already-aborted signal —
    * an aborted signal would leave every `{signal}` listener permanently
    * dead without any error (no error, no warning, just silently-dead
    * handlers), the hardest class of leak to track down. The field is

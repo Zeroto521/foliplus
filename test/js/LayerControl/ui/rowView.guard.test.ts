@@ -16,32 +16,32 @@ import { describe, expect, it } from "vitest";
 //
 // WHAT THIS COVERS — six patterns, one per write operation:
 //
-//   1. checkbox.checked — `(input|checkbox).checked =`
+//   1. checkbox.checked   — `(input|checkbox).checked =`
 //      Slot 1. Variable-name-anchored: the writer and the two known consumers
 //      use `input` and `checkbox`. A rename to `cb` or `el` would slip past.
 //
-//   2. ACTIVE class     — `item.classList.add|remove|toggle(...ACTIVE)`
+//   2. ACTIVE class       — `item.classList.add|remove|toggle(...ACTIVE)`
 //      Slot 2. Receiver-anchored on `item`, the row element. Scoped to
 //      LayerControl because `CONST.CLASSES.ACTIVE` is shared with
-//      MeasureControl (tool buttons) and HeatmapControl (scheme items) — 
+//      MeasureControl (tool buttons) and HeatmapControl (scheme items) —
 //      those are different components' own UI, not layer rows.
 //
-//   3. count column     — `CONST.SEL.COUNT_COL`
+//   3. count column       — `CONST.SEL.COUNT_COL`
 //      Slot 3. The selector constant is exclusive to rowView.ts. Any
 //      reference outside the writer is a bypass.
 //
-//   4. type icon        — `querySelector(...TYPE_ICON_COL)`
+//   4. type icon          — `querySelector(...TYPE_ICON_COL)`
 //      Slot 4. The selection that precedes the innerHTML write. Anchored on
 //      `querySelector` rather than the constant because list.ts also names
 //      `TYPE_ICON_COL` in a `class:` property (DOM construction, not a state
 //      write). The raw CSS string `.foliplus-type-icon-col` would slip past.
 //
-//   5. row data-title   — `setAttribute(...DATA.TITLE)`
+//   5. row data-title     — `setAttribute(...DATA.TITLE)`
 //      Slot 5a. The data attribute that persists the type label. Anchored on
 //      `setAttribute` because list.ts also names `DATA.TITLE` in an object
 //      literal (`[CONST.DATA.TITLE]: colorType`) — construction, not a write.
 //
-//   6. row HTML title   — `item.title =`
+//   6. row HTML title     — `item.title =`
 //      Slot 5b. Receiver-anchored on `item`. Scoped to LayerControl because
 //      HeatmapControl also writes `item.title` on its own UI items.
 //

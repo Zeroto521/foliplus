@@ -1,7 +1,7 @@
 // styleBag — the shared write / snapshot contract for vector style dimensions
 // (fill and border). One place owns the three invariants both faces need:
 //
-//   1. Write contract — committing a value always lights that face's
+//   1. Write contract  — committing a value always lights that face's
 //      visibility bit (`stroke: true` / `fill: true`). An author who
 //      declared `stroke: false` / `fill: false` must not swallow the
 //      user's style-panel write (quickstart Facility Points).

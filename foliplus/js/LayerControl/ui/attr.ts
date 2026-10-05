@@ -18,7 +18,7 @@ import { closeOverlays } from "./teardown.js";
  * third-party `meta` entries passed to registerLayer.
  *
  * Rows are omitted when they carry no value — a panel is not padded with
- * " — ". The color basemap is included (it carries no provider data, but the
+ * "—". The color basemap is included (it carries no provider data, but the
  * fixed rows still read).
  */
 const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
@@ -169,7 +169,7 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
     iconClass: `${CONST.CLASSES.ATTRS_ICON} foliplus-header-icon`,
   });
   // One flat list: third-party meta rows continue the same rhythm instead
-  // of opening a second group, so the panel reads as one column of facts — 
+  // of opening a second group, so the panel reads as one column of facts —
   // the same unheaded row flow the style panel uses.
   const dlEl = renderList([...rows, ...metaRows]);
   content.appendChild(dlEl);
@@ -193,7 +193,7 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
   // The panel sits inside a draggable layer row: a press on the panel must
   // neither start a row drag nor inherit `user-select: none`. The mousedown is
   // stopped here (the row's own handlers live on the container), and which side
-  // of the panel the press landed on is recorded by the outside handler below — 
+  // of the panel the press landed on is recorded by the outside handler below —
   // `dragstart` is dispatched on the draggable row, so it cannot answer that.
   panel.addEventListener("mousedown", e => e.stopPropagation());
 

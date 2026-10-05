@@ -10,7 +10,7 @@ import type { LayerUI } from "./index.js";
  * layer must drop the panels.
  *
  * The popup is Leaflet's, not foliplus's, and it has two shapes: `map._popup`
- * (a map-level popup, closed by `map.closePopup()`) and layer-bound popups — 
+ * (a map-level popup, closed by `map.closePopup()`) and layer-bound popups —
  * folium's GeoJsonPopup binds onto each sublayer via `parent.bindPopup`, so
  * `closePopup()` alone misses them. A feature-bound popup sat on top of the
  * focus spotlight because no panel opener ever saw it; clearing both shapes

@@ -21,7 +21,7 @@ const mountDelIcon = (
   latlng: L.LatLngExpression,
   opts: { title?: string; iconAnchor?: [number, number] },
   mount: (delIcon: L.Marker) => void,
-  /** When omitted the icon is created and mounted without a click handler — 
+  /** When omitted the icon is created and mounted without a click handler —
    *  callers that wire delete later (MeasureControl circle) stay strictly
    *  equivalent to a bare makeDelIcon + addLayer. */
   onDelete?: () => void,

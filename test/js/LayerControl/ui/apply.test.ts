@@ -681,7 +681,7 @@ describe("executor: carrier dispatch", () => {
 
   it("a pane-carrier visible write whose canvas vanished writes nothing", () => {
     // The surface resolved `visibility: "pane"` while the canvas existed;
-    // if the element is gone by write time the dispatcher must not throw — 
+    // if the element is gone by write time the dispatcher must not throw —
     // there is simply no element left to stamp.
     const canvas = document.createElement("canvas");
     const { ui } = boot([{ id: "pc", name: "PC", group: "overlay", canvas }]);
@@ -806,7 +806,7 @@ describe("executor: carrier dispatch", () => {
   });
 
   it("zoomRange does not write to layer options (visibility-only resolution)", () => {
-    // Writing `options.minZoom/maxZoom` pollutes `map.getMaxZoom()` — 
+    // Writing `options.minZoom/maxZoom` pollutes `map.getMaxZoom()` —
     // Leaflet derives map zoom from layer options, so the +/- controls
     // lock. The zoomRange resolves through the `visible` op instead.
     const layer = { options: {} } as L.Layer;
@@ -1068,7 +1068,7 @@ describe("executor: the branches behind the gates", () => {
   it("adds an author-visible layer that is not yet on the map", () => {
     // The other half of the membership write: gate 1 holds the executor
     // back from an *unauthorised* add, so this pins the authorised one.
-    // Author snapshot says shown, intent has no override, policy is fine — 
+    // Author snapshot says shown, intent has no override, policy is fine —
     // and the map has never been told.
     const layer = { options: {} } as L.Layer;
     const { ui, map } = boot([{ id: "a2", name: "A2", group: "overlay", layer }]);

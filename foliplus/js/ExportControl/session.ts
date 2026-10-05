@@ -315,7 +315,7 @@ const showPreview = function (this: ExportManager, blob: Blob) {
 };
 
 /** Release the export state: unlock interaction, emit AFTER_EXPORT, remove
- *  the blocker overlay. Runs on both the success and failure paths — 
+ *  the blocker overlay. Runs on both the success and failure paths —
  *  forgetting it strands `isExporting === true` with map interaction
  *  disabled and the overlay still on screen. */
 const endExport = function (this: ExportManager) {

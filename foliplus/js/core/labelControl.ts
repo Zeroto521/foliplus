@@ -58,7 +58,7 @@ type StyleSetters = Partial<{
 }>;
 
 interface RenderLabelControlsOptions {
-  /** Live style values. Returning undefined means "no values to publish" — 
+  /** Live style values. Returning undefined means "no values to publish" —
    *  refresh leaves every control untouched rather than resetting to defaults. */
   styleProvider: () => LabelStyleValues | undefined;
   /** Live setter lookup — read at event time so a layer torn down between

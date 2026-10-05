@@ -513,7 +513,7 @@ describe("LayerUI attrs", () => {
 
       // The handler has to be registered in the *capture* phase, because the
       // layer control stops mousedown from bubbling (Leaflet's
-      // disableClickPropagation). Dispatching on `document` cannot prove that — 
+      // disableClickPropagation). Dispatching on `document` cannot prove that —
       // target === currentTarget, so a bubble-phase listener would run too. A
       // wrapper that swallows the bubble, plus a press on its child, does.
       const wrapper = document.createElement("div");

@@ -70,9 +70,9 @@ describe("computeEffectiveShown", () => {
 
   it("returns false when layer is hidden", () => {
     // The new projection reads `intent && policy`; a `intents.visible` entry alone
-    // is not enough — the user must have overridden `visible` for the hidden
+    // is not enough 閳?the user must have overridden `visible` for the hidden
     // state to be authoritative. Without the override the author default
-    // wins — a derived dimension may only suppress.
+    // wins 閳?a derived dimension may only suppress.
     setIntent(mockUI, "layer1", "visible", false);
     mockUI.intentStore.seedProvenance("layer1", ["visible"]);
     expect(projectLayer(mockUI, makeLayerInfo("layer1")).effectiveShown).toBe(false);

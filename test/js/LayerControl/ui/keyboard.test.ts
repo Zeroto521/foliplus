@@ -750,7 +750,7 @@ describe("LayerUI keyboard", () => {
 
   describe("fold group via keyboard (chevron button)", () => {
     // The chevron button lives inside the toggle-all row, so focus on it
-    // resolves up to that row. Enter/Space over it must fold the group — 
+    // resolves up to that row. Enter/Space over it must fold the group —
     // not flip the row's select-all checkbox.
     //
     // The group needs two overlay layers so overlay1 isn't collapsed into the

@@ -70,7 +70,7 @@ const attachUI = (ui: LayerUI, containerDiv: HTMLElement): void => {
     if (layerInfo) insertLayerItem(ui, layerInfo);
   }
   // Snapshot the author's declared default before the first projection.
-  // `projectLayer` reads `runtimeStore.getAuthorVisible(id) — —  true` — an absent entry
+  // `projectLayer` reads `runtimeStore.getAuthorVisible(id) ?? true` — an absent entry
   // is read as "author declared visible" — which is exactly the class of
   // bug the quickstart hit: a folium `show=False` layer would come up on the map
   // on the first projection because the author's snapshot hasn't landed
@@ -112,7 +112,7 @@ const attachUI = (ui: LayerUI, containerDiv: HTMLElement): void => {
 };
 
 /** Re-run the init pass when another control finishes attaching. Unsubscribes
- *  in unbindEvents(). The first pass comes from the setTimeout(0) above — 
+ *  in unbindEvents(). The first pass comes from the setTimeout(0) above —
  *  it lands after the synchronous attach sequence, so folium layers are
  *  already linked into the registry. Calls through the ui.initTypesAndVisibility
  *  / ui.applyStyleLabelState delegates (not the imported module functions) so

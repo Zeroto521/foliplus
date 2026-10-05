@@ -3,7 +3,7 @@ import * as CONST from "#foliplus/MeasureControl/const.js";
 import { MeasureStore } from "#foliplus/MeasureControl/store.js";
 import { makeControlEnv } from "../fixture.js";
 
-// Mock Storage + ensureEvents so persistence shapes are tested in isolation — 
+// Mock Storage + ensureEvents so persistence shapes are tested in isolation —
 // the store's array/id/persist contract is covered in store.test.ts; this file
 // pins the versioned record envelope and the tolerant readers.
 const storage = vi.hoisted(() => ({

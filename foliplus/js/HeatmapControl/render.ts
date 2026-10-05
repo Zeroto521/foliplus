@@ -30,7 +30,7 @@ const drawHexagon = (
   const layerAlpha = getLayerAlpha(ctx.canvas);
   const fillAlpha = CONFIG.fill_opacity ?? 1;
   // The border branch only runs when this is > 0, so the draw path can use
-  // the resolved number directly (a second ` — — 1` here would be unreachable).
+  // the resolved number directly (a second `?? 1` here would be unreachable).
   const borderAlpha = CONFIG.border_opacity ?? 0;
   ctx.beginPath();
   ctx.moveTo(pts[0].x, pts[0].y);

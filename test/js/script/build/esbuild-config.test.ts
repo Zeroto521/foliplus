@@ -80,7 +80,7 @@ describe("esbuildCfgFor", () => {
     // The PostCSS plugin's onLoad callback (lines 46-49 of
     // script/build/esbuild-config.mjs) is the only way nested CSS becomes flat
     // CSS in the bundle. Without exercising it, a broken `postcssNesting`
-    // or `autoprefixer` config would ship nested rules to the browser — 
+    // or `autoprefixer` config would ship nested rules to the browser —
     // valid CSS that most browsers silently ignore, so the page renders
     // unstyled and nobody notices the build was fine.
     //

@@ -74,7 +74,7 @@ describe("heatmap redraw benchmark @5k", () => {
 
     // Soft budget: stub ctx is a lower bound and CI parallel load inflates
     // wall time a lot (measured 7ms warm alone vs 320ms under the full
-    // suite). The assertion is a pathological ceiling, not a 16ms gate — 
+    // suite). The assertion is a pathological ceiling, not a 16ms gate —
     // the decision rule and the quoted numbers live in the PR body.
     console.log(`[R11 bench] drawHexagon × 5000 (stub ctx): ${ms.toFixed(1)}ms`);
     expect(ms).toBeLessThan(2000); // pathological ceiling only

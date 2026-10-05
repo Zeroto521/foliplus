@@ -8,7 +8,7 @@
 //
 // The gate is the registry contract's pure two-layer shape and nothing
 // more: layer existence, then `capabilities.annotation !== "none"`. The
-// labelable-fields question that makes the row honest is NOT asked here — 
+// labelable-fields question that makes the row honest is NOT asked here —
 // it is encoded in the capability itself, decided once at the surface
 // declaration edge (`LayerManager.withAnnotationSpec` probes
 // `hasLabelField`, appends the `role: "annotation"` PaneSpec iff the probe
@@ -39,7 +39,7 @@ import { registerDimension } from "./registry.js";
  *  is registered (precondition guard) and its surface declared a label
  *  pane (`capabilities.annotation !== "none"` — the registration edge's
  *  `hasLabelField` probe already decided that, so this stays a pure
- *  capability bit). The ⋮ menu's Style item keys off the same function — 
+ *  capability bit). The ⋮ menu's Style item keys off the same function —
  *  one source for "can this layer show a Label section". */
 const layerCanLabel = (ui: LayerUI, layerId: string): boolean => {
   const li = ui.m.layerRegistry.get(layerId);
@@ -62,7 +62,7 @@ const buildLabelSection = (ui: LayerUI, layerId: string): HTMLElement => {
   const cfg = ui.m.annotation.getConfig(layerId);
   const fmtLabel = (f: string) => ui._(`foliplus.label_format_${f}`) || f;
   // Labels are off by default — the user opens the panel, sees the field and
-  // format chooser idle, and flips the switch to begin. `cfg.show — "" : null`
+  // format chooser idle, and flips the switch to begin. `cfg.show ? "" : null`
   // follows the persisted state when this is a reopen, but the *first* open
   // never reads from storage (DEFAULT_ANNOTATION.show = false). The body
   // collapses under the toggle on first paint and on every reopen where
@@ -79,7 +79,7 @@ const buildLabelSection = (ui: LayerUI, layerId: string): HTMLElement => {
   // a disabled placeholder exactly like the heatmap's `field_auto`. Disabled
   // rather than merely first, so it reads as the current state instead of an
   // option to pick: the way back to auto is Reset, which restores the default
-  // config. The per-field <option>s are appended to the select itself — 
+  // config. The per-field <option>s are appended to the select itself —
   // appending them into the first option would nest <option> inside <option>,
   // and the browser skips nested options when it builds the options list.
   const fieldSelect = dom.el(

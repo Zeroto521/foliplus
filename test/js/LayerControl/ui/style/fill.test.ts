@@ -1537,7 +1537,7 @@ describe("replayFillState", () => {
 
   it("attachUI replays a stored fill onto a registered layer", () => {
     // Regression: the initial layers never go through registerLayer (where
-    // the id-specified replay lives), so attach itself must replay fill — 
+    // the id-specified replay lives), so attach itself must replay fill —
     // otherwise a reload shows the author's default color.
     const fillLayer = makeFillableLayer();
     window.localStorage.setItem(

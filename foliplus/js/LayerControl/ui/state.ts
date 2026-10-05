@@ -104,7 +104,7 @@ const unmarkOverride = (ui: LayerUI, id: string, override: LayerOverride) => {
 };
 
 /**
- * Propagate the user's stored state — hidden visibility and renames — 
+ * Propagate the user's stored state — hidden visibility and renames —
  * into the registry and the rendered rows.
  *
  * `ui.intentStore` (the visible / name dimensions) is the source of truth; the
@@ -200,7 +200,7 @@ const applyUserState = (ui: LayerUI, id?: string) => {
     );
   }
 
-  // Deliberately no prune here. An unresolvable id is not proof of absence — 
+  // Deliberately no prune here. An unresolvable id is not proof of absence —
   // it may be a component that registers later, and the id space is bounded by
   // the layers an author ever declares, so the record cannot grow away.
   // Pruning was the one thing this sweep did that lost user work: the entry
@@ -249,7 +249,7 @@ const saveNamesState = (ui: LayerUI) => {
   ui.m.persistence.schedule({ renamedNames: () => names });
 };
 
-/** Full re-scan of every row (used on attach/fold-toggle). Idempotent — 
+/** Full re-scan of every row (used on attach/fold-toggle). Idempotent —
  *  re-run on each CONTROL_ATTACHED so late-registering components are
  *  folded in. Marks the panel ready for tests/consumers. */
 

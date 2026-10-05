@@ -43,7 +43,7 @@ const removeRecord = (key: string, name = "foliplus"): boolean => {
  * @param data - Value to persist (must be JSON-serializable).
  * @param name - Caller component name, used as the log prefix.
  * @returns Whether the value was actually written. False means the storage
- *  backend rejected the write (quota exhausted, private-mode restrictions) — 
+ *  backend rejected the write (quota exhausted, private-mode restrictions) —
  *  callers that lose user data on a failed write can surface it.
  */
 const saveRecord = (key: string, data: unknown, name = "foliplus"): boolean => {
@@ -181,7 +181,7 @@ type PersistedOpts = {
  * shared version constant would couple their independent bump cadences.
  *
  * One shape every write-through component shares: a versioned record, a single
- * write entry point, and a conditional teardown flush. The window is optional — 
+ * write entry point, and a conditional teardown flush. The window is optional —
  * 0 writes through so a change is durable the moment it happens, and a positive
  * window batches a high-frequency source behind a timer that a teardown must
  * flush or the last change is lost.

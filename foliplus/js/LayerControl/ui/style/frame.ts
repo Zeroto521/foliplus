@@ -30,7 +30,7 @@ const appendResetFooter = (ui: LayerUI, content: HTMLElement): void => {
  *  (`railPos`). */
 const round5 = (n: number): number => Math.round(n * 1e5) / 1e5;
 
-/** Where a percentage along a slider rail lands. Every mark on the rail — 
+/** Where a percentage along a slider rail lands. Every mark on the rail —
  *  fill ends, the current-level dot and the numbers under them — goes
  *  through this one mapping, and it is the rail's own percentage: the
  *  stylesheet insets the rail by half a handle and lets the inputs reach

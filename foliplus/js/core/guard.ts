@@ -6,7 +6,7 @@
 // now, TypeError later" bug) switch to `requireFoliplus(map).showHint(...)`.
 //
 // Cleanup paths (destroy / onUnload / post-detach) legitimately see an
-// undefined or torn-down namespace and stay on `map.foliplus — .` — the
+// undefined or torn-down namespace and stay on `map.foliplus?.` — the
 // accessor is for the "runtime must be live" call sites only.
 import { createLogger } from "#common/log.js";
 

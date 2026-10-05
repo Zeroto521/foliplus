@@ -31,7 +31,7 @@ import {
   planLabelLayout,
 } from "./layout.js";
 
-/** A label a layer asked for, described by its feature rather than by pixels — 
+/** A label a layer asked for, described by its feature rather than by pixels —
  *  the plan converts the latlng on every frame, so a pan leaves no stale
  *  coordinates behind. */
 interface LayerLabel {
@@ -131,7 +131,7 @@ class AnnotationManager {
     //
     // LAYER_CHANGE is the semantic replacement for the raw
     // `layeradd`/`layerremove` pair this used to read, and it covers the same
-    // writes: LayerControl emits it for every map-membership change it owns — 
+    // writes: LayerControl emits it for every map-membership change it owns —
     // register, unregister, the visibility executor's add/remove, the focus
     // re-add, and a late folium binding that resolves after this control's own
     // script. The bus also filters out the unrelated activity the raw pair
@@ -258,7 +258,7 @@ class AnnotationManager {
   }
 
   /** The field a layer's labels read: the one the config names, or — when the
-   *  config leaves it open (`field: ""`, what the picker's "Auto" entry means) — 
+   *  config leaves it open (`field: ""`, what the picker's "Auto" entry means) —
    *  the shared auto pick over the layer's fields.
    *
    *  Resolved at render time rather than written into the config, so a layer
@@ -531,7 +531,7 @@ class AnnotationManager {
     for (const label of labels) {
       const anchor = this.map.latLngToContainerPoint(label.latlng);
       // Cheap pre-cull on the anchor alone: layoutLabel walks the text per
-      // character, which is the bulk of the plan's cost on a dense layer — 
+      // character, which is the bulk of the plan's cost on a dense layer —
       // and a 6k-point layer rarely has 6k anchors on screen.
       if (
         anchor.x < viewport.x - ANCHOR_CULL_MARGIN ||
@@ -562,7 +562,7 @@ class AnnotationManager {
   }
 
   /** Whether a layer's labels take part right now: it has to be on the map, and
-   * — while a focus is active — it has to be the spotlighted layer. */
+   *  — while a focus is active — it has to be the spotlighted layer. */
   private isVisible(id: string): boolean {
     if (this.focusFilter !== null && id !== this.focusFilter) return false;
     const layer = this.layerFind(id);

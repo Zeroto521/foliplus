@@ -66,9 +66,9 @@ const carrierFor = (
  *   `items` / `byId` / `view` / `layers`
  *
  * External callers must use the Manager API for mutations:
- *   `api.registerLayer({...})` — insert/update
- *   `api.unregisterLayer(id)`  — remove
- *   `api.bringLayerToFront(id)` — reorder
+ *   `api.registerLayer({...})`   — insert/update
+ *   `api.unregisterLayer(id)`    — remove
+ *   `api.bringLayerToFront(id)`  — reorder
  */
 class LayerInfoRegistry {
   items: LayerInfo[];
@@ -99,7 +99,7 @@ class LayerInfoRegistry {
     map?: L.Map,
   ): LayerInfo {
     // Resolve-once at registration (target: no `layer: null` lazy residue on
-    // this path). A later `li.layer — —  findLayer` is the documented
+    // this path). A later `li.layer ?? findLayer` is the documented
     // late-binding fallback for folium's script-stream order only.
     const layer =
       opts.layer ||
@@ -145,8 +145,8 @@ class LayerInfoRegistry {
       styleDefaultsProvider:
         opts.styleDefaultsProvider ?? existingLi?.styleDefaultsProvider ?? null,
       getBounds: opts.getBounds ?? existingLi?.getBounds ?? null,
-      // Static caller-supplied metadata for the attributes panel. ` — — ` (not
-      // a spread) so a re-registration leaves the previous values in place — 
+      // Static caller-supplied metadata for the attributes panel. `??` (not
+      // a spread) so a re-registration leaves the previous values in place —
       // the provider does not necessarily resend provenance on every call,
       // and clearing it on a silent refresh would lose it.
       source: opts.source ?? existingLi?.source ?? null,

@@ -801,7 +801,7 @@ class HeatmapManager {
   }
 
   /** Drop the LayerControl-side record this draw left behind — visibility,
-   *  opacity, zoom range with their provenance, plus the stored order slot — 
+   *  opacity, zoom range with their provenance, plus the stored order slot —
    *  so a fresh draw of the same id starts from the author's defaults instead
    *  of inheriting the tuning the user arranged for the previous one.
    *
@@ -816,7 +816,7 @@ class HeatmapManager {
   /**
    * Publish the current source layer name + aggregation field into
    * `sourceMeta` (the object createCanvas registered), so LayerControl's
-   * attributes panel can answer "where did this heatmap come from — ".
+   * attributes panel can answer "where did this heatmap come from?".
    * Empty values are written too — the attrs panel drops blank rows.
    * `touchLayer` fires only when a published value actually changed, so a
    * no-op dropdown rebuild does not bump the panel's Updated stamp.

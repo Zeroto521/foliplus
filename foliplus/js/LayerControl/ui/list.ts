@@ -15,7 +15,7 @@ import {
 } from "./rowView.js";
 import { syncNoBasemap, syncToggleAll } from "./visibility.js";
 
-/** Full re-scan of every row (used on attach/fold-toggle). Idempotent — 
+/** Full re-scan of every row (used on attach/fold-toggle). Idempotent —
  *  re-run on each CONTROL_ATTACHED so late-registering components are
  *  folded in. Marks the panel ready for tests/consumers. */
 const initTypesAndVisibility = (ui: LayerUI) => {
@@ -41,7 +41,7 @@ const initTypesAndVisibility = (ui: LayerUI) => {
   // Apply persisted hidden state first so initLayerItem reads the corrected
   // map state: folium adds every layer before the control IIFE runs, so on
   // reload hidden layers are back on the map. An id that is not in the
-  // registry is skipped by the sweep, not dropped from the record — 
+  // registry is skipped by the sweep, not dropped from the record —
   // stored
   // state is erased only by an explicit delete.
   ui.applyUserState();
@@ -166,7 +166,7 @@ const insertLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
   }
 
   // insertLayerItem is where a late-registered (third-party) layer first
-  // shows up, so the author default is snapshotted here as well — 
+  // shows up, so the author default is snapshotted here as well —
   // before the
   // apply below, which is the other path that moves this layer. Only this
   // layer's id is applied: a full sweep would re-rewrite every renamed row
