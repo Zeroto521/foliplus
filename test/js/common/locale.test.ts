@@ -192,7 +192,7 @@ describe("createTranslator", () => {
         locale_code: "",
         locale_tables: { zh: { ok: "确定", "locale.code": "zh" } },
       };
-      const t = createTranslator(config);
+      createTranslator(config);
       expect(config.locale_code).toBe("zh");
     } finally {
       delete window.parent;
@@ -209,7 +209,7 @@ describe("createTranslator", () => {
         locale_code: "",
         locale_tables: { en: { ok: "OK", "locale.code": "en" } },
       };
-      const t = createTranslator(config);
+      createTranslator(config);
       expect(config.locale_code).toBe("en");
     } finally {
       delete window.parent;
@@ -227,7 +227,7 @@ describe("createTranslator", () => {
         locale_code: "",
         locale_tables: { zh: { ok: "确定", "locale.code": "zh" } },
       };
-      const t = createTranslator(config);
+      createTranslator(config);
       expect(config.locale_code).toBe("zh");
     } finally {
       Object.defineProperty(window, "location", {
@@ -248,7 +248,7 @@ describe("createTranslator", () => {
         locale_code: "",
         locale_tables: { zh: { ok: "确定", "locale.code": "zh" } },
       };
-      const t = createTranslator(config);
+      createTranslator(config);
       expect(config.locale_code).toBe("zh");
     } finally {
       Object.defineProperty(document, "referrer", {
@@ -266,7 +266,7 @@ describe("createTranslator", () => {
         locale_code: "",
         locale_tables: { zh: { ok: "确定", "locale.code": "zh" } },
       };
-      const t = createTranslator(config);
+      createTranslator(config);
       expect(config.locale_code).toBe("zh");
     } finally {
       document.documentElement.lang = original;

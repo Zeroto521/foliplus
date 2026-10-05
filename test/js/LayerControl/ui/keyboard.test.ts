@@ -87,7 +87,7 @@ describe("LayerUI keyboard", () => {
     it("Enter on the row checkbox toggles that layer's visibility", () => {
       const item = findItem(ui, "overlay1");
       const checkbox = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
-      const { spy, restore } = toggleSpy(ui);
+      const { spy, restore } = toggleSpy();
       const before = checkbox.checked;
 
       checkbox.focus();
@@ -108,7 +108,7 @@ describe("LayerUI keyboard", () => {
       // checkbox natively, Enter must not double-fire it.
       const item = findItem(ui, "overlay1");
       const checkbox = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
-      const { spy, restore } = toggleSpy(ui);
+      const { spy, restore } = toggleSpy();
       const before = checkbox.checked;
 
       item.focus();
@@ -144,7 +144,7 @@ describe("LayerUI keyboard", () => {
       const item = findItem(ui, "overlay1");
       const checkbox = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
       const more = item.querySelector(`.${CONST.CLASSES.MORE_BTN}`)!;
-      const { spy, restore } = toggleSpy(ui);
+      const { spy, restore } = toggleSpy();
       const before = checkbox.checked;
 
       more.focus();
@@ -307,7 +307,7 @@ describe("LayerUI keyboard", () => {
 
     it("repeated checkbox clicks keep the row cursor visual on", () => {
       // Click is a cursor arrival: the visual stays until Escape / another
-      // row / an outside press. (#278 only removed dblclick→focusLayer.)
+      // row / an outside press. (#278 only removed dblclick → focusLayer.)
       const overlay = findItem(ui, "overlay1");
       const checkbox = overlay.querySelector(
         'input[type="checkbox"]',

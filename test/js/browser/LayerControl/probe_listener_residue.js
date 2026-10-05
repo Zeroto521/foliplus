@@ -1,4 +1,4 @@
-// Drift gate: N=3 remove→add cycles must not grow map._events listener sum.
+// Drift gate: N=3 remove → add cycles must not grow map._events listener sum.
 //
 // sumMapEvents() sums the handler-array lengths inside `map._events`. That
 // private Leaflet field is the actual "how many listeners are still attached
@@ -8,7 +8,7 @@
 //
 // Baseline semantics: round[0] is captured right after the initial addControl
 // (which the harness already performed in page setup). Rounds[1] and [2] are
-// remove→add cycles; each must equal round[0]. If the sum drifts, the probe
+// remove → add cycles; each must equal round[0]. If the sum drifts, the probe
 // returns the drift so the Python caller can assert against it.
 //
 // Historical note (regression guard): a prior bug had `dismissFocus` call

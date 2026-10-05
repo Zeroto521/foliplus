@@ -54,7 +54,7 @@ napoleon_numpy_docstring = False
 # Each entry maps a package name (as it appears in the filesystem path)
 # to its GitHub repo, package-root name, and git ref. The ref may be
 # a static string or a callable that returns one (for the default
-# project, which needs dynamic version→SHA resolution on RTD).
+# project, which needs dynamic version → SHA resolution on RTD).
 _LINKCODE_REPOS = {
     "foliplus": {
         "repo": github_url,

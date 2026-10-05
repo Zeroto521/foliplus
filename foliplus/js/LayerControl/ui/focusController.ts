@@ -26,8 +26,6 @@ class FocusController {
   /** Restore callbacks for pane z-indexes lifted to bring the focused layer
    *  to the front (cleared on cancel). */
   focusedPaneRestores: Array<() => void> = [];
-
-  constructor() {}
 }
 
 export { FocusController };

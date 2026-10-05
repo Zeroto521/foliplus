@@ -28,10 +28,9 @@
 // a change on either side produces an op.
 import { EVENTS } from "#core/event/index.js";
 import { CAP_TIER, HIDDEN, PANE_ROLE } from "#core/layer/index.js";
-import { resetGridLayerView } from "#core/leafletAdapter.js";
 import { getLayerAlpha, setLayerAlpha } from "#common/canvasAlpha.js";
 import * as CONST from "../const.js";
-import type { Projection, StateOp } from "../type.js";
+import type { StateOp } from "../type.js";
 import type { LayerUI } from "./index.js";
 import { INTENT, getIntent } from "./intent.js";
 import { intentVisibleOf, projectAll, projectLayer } from "./projection.js";
@@ -368,7 +367,7 @@ const applyProjection = (
     // registration still has its stored state applied on the first call.
     // Canvas-only layers have no Leaflet layer, so the author's default is
     // the ground truth — `hasLayer` would always return false and mask a
-    // real visible→hidden transition.
+    // real visible → hidden transition.
     // Late-binding fallback via manager.findLayer — the single resolve point
     // (folium may emit the TileLayer var after this control's IIFE).
     const layer = layerInfo.layer ?? ui.m.findLayer(layerInfo);

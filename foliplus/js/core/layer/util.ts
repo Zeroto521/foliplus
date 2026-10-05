@@ -8,7 +8,7 @@ import {
 } from "../leafletAdapter.js";
 import * as CONST from "./const.js";
 import type { LabelAwareLayer, LayerCapabilities, LayerKind } from "./type.js";
-import { walkLeaf, walkTree } from "./walkLeaf.js";
+import { walkLeaf } from "./walkLeaf.js";
 
 /** Resolve a layer from the map's internal registry or a window global.
  *  @param {L.Map} map - Leaflet map.

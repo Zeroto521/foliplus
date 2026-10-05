@@ -19,7 +19,7 @@
 // Cross-check. `DOMDebugger.getEventListeners` over a CDP session returns the
 // engine's own listener lists for the same two targets; on a HeatmapControl
 // page the engine reports 24 document + 19 window listeners at the end of
-// every remove→add cycle, identical between cycles. The wrapper reproduces
+// every remove → add cycle, identical between cycles. The wrapper reproduces
 // that count from t=0, which is what makes the invariants below meaningful.
 //
 // Why a prototype wrapper, not the alternatives: getEventListeners(target) is

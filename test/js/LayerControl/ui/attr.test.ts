@@ -5,14 +5,7 @@ import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { seedIntentMap } from "#foliplus/LayerControl/ui/intent.js";
 import { ensureModes } from "#foliplus/core/mode.js";
 import { createScopedTranslator } from "#common/locale.js";
-import {
-  allFolded,
-  attachWithGroup,
-  findItem,
-  initFixture,
-  overlayFoldBtn,
-  pressKey,
-} from "./fixture.js";
+import { findItem, initFixture } from "./fixture.js";
 
 describe("LayerUI attrs", () => {
   let manager: LayerManager;
@@ -276,7 +269,6 @@ describe("LayerUI attrs", () => {
 
     it("unsubscribes the count listener when the panel closes", () => {
       const unsubSpy = vi.fn();
-      const origOn = ui.events.on;
       vi.spyOn(ui.events, "on").mockReturnValue(unsubSpy);
 
       manager.registerLayer({
