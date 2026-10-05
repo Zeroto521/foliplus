@@ -268,7 +268,7 @@ describe("LayerUI shell — delegates", () => {
     // Dispatch from the element so event.target is set.
     input.dispatchEvent(event);
     // Also call the wrapper directly to cover the delegate line.
-    expect(() => ui.handleInput(event)).not.toThrow();
+    expect(() => ui.handleInput()).not.toThrow();
   });
 
   it("resetSolidBasemap() delegates to the colour module and flushes state", () => {

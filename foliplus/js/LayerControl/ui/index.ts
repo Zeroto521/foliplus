@@ -403,8 +403,8 @@ class LayerUI {
   handleChange(event: Event) {
     return handleChange(this, event);
   }
-  handleInput(event: Event) {
-    return handleInput(this, event);
+  handleInput() {
+    return handleInput();
   }
 
   // ── delegates: keyboard ──

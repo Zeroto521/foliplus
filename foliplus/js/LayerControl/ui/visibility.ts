@@ -241,10 +241,7 @@ const handleChange = (ui: LayerUI, event: Event) => {
   applyVisibility(ui, id, target.checked);
 };
 
-const handleInput = (ui: LayerUI, event: Event) => {
-  void ui;
-  void event;
-};
+const handleInput = () => {};
 
 export {
   getLayerItems,

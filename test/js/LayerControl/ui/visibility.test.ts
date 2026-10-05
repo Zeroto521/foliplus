@@ -1027,12 +1027,8 @@ describe("unit helpers", () => {
   // syncVisibility is gone: the executor is the only writer of map
   // membership, and there is no mirror helper to test.
 
-  it("handleInput is a no-op for non-color inputs", () => {
-    const ui = makeUi();
-    const input = ui.uiContainer.querySelector(
-      'input[type="checkbox"]',
-    ) as HTMLInputElement;
-    expect(() => handleInput(ui, { target: input } as unknown as Event)).not.toThrow();
+  it("handleInput is a no-op", () => {
+    expect(() => handleInput()).not.toThrow();
   });
 
   it("toggleAll sets the row tooltips for both states", () => {
