@@ -200,7 +200,7 @@ const renderToggleAllRow = (ui: LayerUI, group: string, labelKey: string) => {
         (isFolded ? ` ${CONST.CLASSES.FOLDED}` : ""),
       tabindex: "0",
       "data-group": group,
-      title: ui.listPanel.T(isFolded ? "unfold_tooltip" : "fold_tooltip"),
+      title: ui.T(isFolded ? "unfold_tooltip" : "fold_tooltip"),
     },
     dom.el(
       "button",
@@ -216,10 +216,10 @@ const renderToggleAllRow = (ui: LayerUI, group: string, labelKey: string) => {
         type: "checkbox",
         "data-role": "toggle-all",
         checked: "",
-        title: ui.listPanel.T("toggle_all_deselect_tooltip"),
+        title: ui.T("toggle_all_deselect_tooltip"),
       }),
     ),
-    dom.el("span", { class: CONST.CLASSES.SEPARATOR_LABEL }, ui.listPanel.T(labelKey)),
+    dom.el("span", { class: CONST.CLASSES.SEPARATOR_LABEL }, ui.T(labelKey)),
     dom.el("div", { class: "foliplus-section-divider" }),
   );
 };

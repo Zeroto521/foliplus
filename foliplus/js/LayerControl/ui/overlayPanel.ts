@@ -10,9 +10,6 @@
 // menu.ts, rename.ts, teardown.ts, and every file under style/) receive an
 // OverlayPanel. Cross-subsystem code takes LayerUI and reaches into
 // `ui.overlayPanel.*`.
-import { type EventBus } from "#core/event/index.js";
-import type { LayerManager } from "../manager.js";
-
 /** Floating-surface state. Each `active*` field tracks the currently open
  *  panel of that kind, and each `*Unsubscribe` field is the bus
  *  subscription installed while that panel is open (so unbinding clears
@@ -52,23 +49,7 @@ class OverlayPanel {
   /** Layer id whose annotation style panel is open, or null. */
   stylePanelLayerId: string | null = null;
 
-  events: EventBus;
-  m: LayerManager;
-  T: (key: string) => string;
-  _: (key: string) => string;
-  config: ComponentConfig;
-
-  constructor(
-    manager: LayerManager,
-    events: EventBus,
-    env: { T: (key: string) => string; _: (key: string) => string },
-  ) {
-    this.m = manager;
-    this.events = events;
-    this.T = env.T;
-    this._ = env._;
-    this.config = CONFIG;
-  }
+  constructor() {}
 }
 
 export { OverlayPanel };

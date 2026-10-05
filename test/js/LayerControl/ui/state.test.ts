@@ -881,13 +881,13 @@ describe("ui/state saveFoldState", () => {
     const schedule = vi.fn();
     const ui = {
       foldedGroups: new Set(["overlay"]),
+      m: {
+        persistence: { schedule },
+        annotation: { configEntries: () => [] },
+      },
       listPanel: {
         foldedGroups: new Set(["overlay"]),
         checkedCount: {},
-        m: {
-          persistence: { schedule },
-          annotation: { configEntries: () => [] },
-        },
       },
     } as unknown as LayerUI;
     saveFoldState(ui);

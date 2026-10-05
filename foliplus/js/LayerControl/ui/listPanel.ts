@@ -11,17 +11,15 @@
 // ListPanel (see list.ts / rowView.ts / visibility.ts / drag.ts /
 // keyboard.ts). Cross-subsystem code takes LayerUI and reaches into
 // `ui.listPanel.*` directly.
-import { type EventBus } from "#core/event/index.js";
 import type { ListCursor } from "#core/listCursor.js";
-import { type LayerManager } from "../manager.js";
 
 /** View subsystem that owns the panel's row layout state: which groups are
  *  folded, which rows are checked, where the roving keyboard cursor sits,
  *  and the in-flight drag. Nothing here is domain — none of these fields
  *  persist across page reloads except what `state.ts` writes through the
- *  `m.persistence` channel. */
+ *  `ui.m.persistence` channel. */
 class ListPanel {
-  /** Per-group fold state. Persisted through `m.persistence` on change. */
+  /** Per-group fold state. Persisted through `ui.m.persistence` on change. */
   foldedGroups: Set<string> = new Set();
   /** Per-group tri-state checkbox counts. Rebuilt by the full-scan
    *  `syncToggleAll` at reconcile points; kept in sync by
@@ -49,32 +47,7 @@ class ListPanel {
    *  called once on unbind. */
   interactionCleanup?: () => void;
 
-  /** Per-map event bus. Injected so this subsystem never reaches back into
-   *  LayerUI for events; the reference stays valid for the panel's lifetime. */
-  events: EventBus;
-  /** LayerManager — the read-only view into the domain layer. Subsystems
-   *  call LayerAPI methods here; they never write into the manager's
-   *  internal state. */
-  m: LayerManager;
-  /** Locale-scoped translator (`ui.T("fold_tooltip")`). */
-  T: (key: string) => string;
-  /** Unscoped translator for the shared `foliplus.*` vocabulary. */
-  _: (key: string) => string;
-  /** Component config, mirrored from LayerUI so subsystem modules do not
-   *  reach back into LayerUI for `config`. */
-  config: ComponentConfig;
-
-  constructor(
-    manager: LayerManager,
-    events: EventBus,
-    env: { T: (key: string) => string; _: (key: string) => string },
-  ) {
-    this.m = manager;
-    this.events = events;
-    this.T = env.T;
-    this._ = env._;
-    this.config = CONFIG;
-  }
+  constructor() {}
 }
 
 export { ListPanel };

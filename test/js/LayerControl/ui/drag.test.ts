@@ -156,9 +156,6 @@ describe("ui/drag", () => {
           persistence: { schedule: vi.fn() } as any,
         },
       } as unknown as LayerUI;
-      ui.listPanel.m = ui.m;
-      ui.listPanel.config = ui.config;
-      ui.listPanel.T = ui.T;
       return {
         layers,
         ui,
@@ -687,6 +684,11 @@ describe("showReorderBlockedHint", () => {
     const showHint = vi.fn();
     const ui = {
       lastDragHintAt: 0,
+      config: { name: "LayerControl" },
+      T: (k: string) => k,
+      m: {
+        map: { foliplus: { showHint } },
+      },
       listPanel: {
         lastDragHintAt: 0,
         dragIdx: null,
@@ -694,11 +696,6 @@ describe("showReorderBlockedHint", () => {
         pressInPanel: false,
         foldedGroups: new Set<string>(),
         checkedCount: {},
-        config: { name: "LayerControl" },
-        T: (k: string) => k,
-        m: {
-          map: { foliplus: { showHint } },
-        },
       },
     } as unknown as LayerUI;
 

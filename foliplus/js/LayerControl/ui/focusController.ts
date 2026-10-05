@@ -9,12 +9,6 @@
 // Signature contract: modules that exclusively touch focus state (focus.ts,
 // focusMarquee.ts) receive a FocusController. Cross-subsystem code takes
 // LayerUI and reaches into `ui.focusController.*`.
-import { type EventBus } from "#core/event/index.js";
-import type { LayerManager } from "../manager.js";
-
-/** Focus overlay state. All fields are null/empty until a focus is
- *  requested and stay so after focus is cancelled — `cancelFocus` clears
- *  every field symmetrically. */
 class FocusController {
   /** Temporary rectangle overlay drawn while a focus is in progress. */
   focusRect: L.Layer | null = null;
@@ -33,23 +27,7 @@ class FocusController {
    *  to the front (cleared on cancel). */
   focusedPaneRestores: Array<() => void> = [];
 
-  events: EventBus;
-  m: LayerManager;
-  T: (key: string) => string;
-  _: (key: string) => string;
-  config: ComponentConfig;
-
-  constructor(
-    manager: LayerManager,
-    events: EventBus,
-    env: { T: (key: string) => string; _: (key: string) => string },
-  ) {
-    this.m = manager;
-    this.events = events;
-    this.T = env.T;
-    this._ = env._;
-    this.config = CONFIG;
-  }
+  constructor() {}
 }
 
 export { FocusController };

@@ -39,7 +39,7 @@ const loadPersistedState = (ui: LayerUI) => {
 /** Save fold state to localStorage. */
 
 const saveFoldState = (ui: LayerUI) => {
-  ui.listPanel.m.persistence.schedule({
+  ui.m.persistence.schedule({
     foldedGroups: () => [...ui.listPanel.foldedGroups],
   });
 };

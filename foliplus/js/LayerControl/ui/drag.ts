@@ -50,9 +50,9 @@ const showReorderBlockedHint = (ui: LayerUI) => {
   const now = Date.now();
   if (now - ui.listPanel.lastDragHintAt < CONST.DRAG.HINT_COOLDOWN_MS) return;
   ui.listPanel.lastDragHintAt = now;
-  ui.listPanel.m.map.foliplus!.showHint(
-    ui.listPanel.config.name,
-    ui.listPanel.T("reorder_group_only"),
+  ui.m.map.foliplus!.showHint(
+    ui.config.name,
+    ui.T("reorder_group_only"),
     HINT_DURATION.SHORT,
   );
 };

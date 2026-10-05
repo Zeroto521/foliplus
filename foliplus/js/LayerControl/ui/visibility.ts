@@ -135,7 +135,7 @@ const writeToggleAllCheckbox = (
   const noneChecked = c.on === 0;
   allCb.checked = allChecked;
   allCb.indeterminate = !allChecked && !noneChecked;
-  allCb.title = ui.listPanel.T(
+  allCb.title = ui.T(
     allChecked || allCb.indeterminate
       ? "toggle_all_deselect_tooltip"
       : "toggle_all_select_tooltip",

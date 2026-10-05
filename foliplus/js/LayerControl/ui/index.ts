@@ -164,9 +164,9 @@ class LayerUI {
     this.config = CONFIG;
     this.T = env.T;
     this._ = env._;
-    this.listPanel = new ListPanel(manager, this.events, env);
-    this.overlayPanel = new OverlayPanel(manager, this.events, env);
-    this.focusController = new FocusController(manager, this.events, env);
+    this.listPanel = new ListPanel();
+    this.overlayPanel = new OverlayPanel();
+    this.focusController = new FocusController();
     this.intentStore = new LayerIntentStore();
     this.runtimeStore = new LayerRuntimeStore();
     this.currentColor = CONST.COLOR.DEFAULT;
