@@ -101,7 +101,7 @@ const toggleFocusedLayer = (ui: LayerUI): void => {
  * 4. Draw a dashed rectangle on the exact bounds so the user sees exactly
  *    what "this layer" covers.
  * 5. Highlight the focused layer row with the `foliplus-is-focusing`
- *    class so the list →map linkage is visible.
+ *    class so the list → map linkage is visible.
  * 6. Call `fitBounds` with `padding` and `maxZoom` capped to current +
  *    `FOCUS.MAX_ZOOM_STEP` to avoid satellite-zoom snaps on small features.
  * 7. Auto-cancel on any subsequent map `moveend`/`zoomend` so the rect
@@ -182,7 +182,7 @@ const focusLayer = (ui: LayerUI, layerId: string) => {
   const modes = ensureModes(ui.m.map);
   modes.setMode(ui.config.name, "focusing");
 
-  // Single-point / tiny bounds →flyTo the center.
+  // Single-point / tiny bounds → flyTo the center.
   const southWest = bounds.getSouthWest();
   const northEast = bounds.getNorthEast();
   const area =
@@ -560,7 +560,7 @@ const registerAutoCancel = (ui: LayerUI, layerId: string): void => {
     if (ui.focusController.focusingLayerId !== layerId) return;
     // Grace period: the fitBounds/flyTo animation fires moveend/zoomend on
     // completion, which should NOT auto-cancel. Any move/zoom *after* the
-    // grace window is a deliberate user action →cancel.
+    // grace window is a deliberate user action → cancel.
     setTimeout(() => {
       if (ui.focusController.focusingLayerId === layerId) {
         dismissFocus(ui);
@@ -581,7 +581,7 @@ const clearAutoCancel = (ui: LayerUI): void => {
   }
 };
 
-/** Highlight the layer row that is being focused (list →map linkage). */
+/** Highlight the layer row that is being focused (list → map linkage). */
 const highlightFocusedRow = (
   ui: LayerUI,
   itemEl: HTMLElement | null,

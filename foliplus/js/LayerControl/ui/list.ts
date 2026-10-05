@@ -1,6 +1,5 @@
 // LayerControl UI — Layer row structure / list layout / insert / reindex.
 import { GROUP } from "#core/layer/index.js";
-import { ListCursor } from "#core/listCursor.js";
 import { dom, updateItemLabel } from "#common/dom.js";
 import * as CONST from "../const.js";
 import * as SVGs from "../icon.js";
@@ -14,7 +13,6 @@ import {
   displayName,
   snapshotAuthorVisible,
 } from "./rowView.js";
-import { applyUserState } from "./state.js";
 import { syncNoBasemap, syncToggleAll } from "./visibility.js";
 
 /** Full re-scan of every row (used on attach/fold-toggle). Idempotent —

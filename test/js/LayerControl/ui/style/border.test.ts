@@ -24,7 +24,6 @@ import { closeStylePanel } from "#foliplus/LayerControl/ui/style/index.js";
 import { pinnedGetterCount } from "#foliplus/LayerControl/ui/style/pin.js";
 import {
   FACE,
-  dropStyleDimApplies,
   flushStyleDimApply,
   hasStyleDimApply,
 } from "#foliplus/LayerControl/ui/style/styleBag.js";

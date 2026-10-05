@@ -157,7 +157,7 @@ describe("Nominatim provider — URL building", () => {
 });
 
 describe("Nominatim provider — normalizers", () => {
-  it("maps raw lon→lng and drops invalid entries", () => {
+  it("maps raw lon → lng and drops invalid entries", () => {
     const raw = [
       { lon: "120.0", lat: "30.0", name: "A", display_name: "A, Place" },
       { lng: "121.0", lat: "31.0", display_name: "B" },

@@ -30,7 +30,7 @@ describe("visual consistency: bake vs CSS (single shape)", () => {
   it("overlap blending differs from CSS and is accepted as canvas semantics", () => {
     // Two shapes at α=0.5 overlapping inside one canvas:
     //   per-draw bake: second shape blends against first → overlap ~0.75
-    //   CSS compositing: shapes blend at 0.5+0.5→~0.75 first, then the
+    //   CSS compositing: shapes blend at 0.5+0.5 → ~0.75 first, then the
     //   whole layer at L=0.5 → overlap ~0.375
     // Not equal. Recorded, not hidden — see the header comment.
     const a = 0.5;

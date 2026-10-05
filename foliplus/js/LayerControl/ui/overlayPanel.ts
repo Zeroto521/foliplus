@@ -48,8 +48,6 @@ class OverlayPanel {
   styleZoomEndHandler: (() => void) | null = null;
   /** Layer id whose annotation style panel is open, or null. */
   stylePanelLayerId: string | null = null;
-
-  constructor() {}
 }
 
 export { OverlayPanel };

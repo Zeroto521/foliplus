@@ -1,7 +1,7 @@
 // ExportControl crop box editing — pointer drag, keyboard nudge, pixel limit.
 // Function expressions are installed on ExportManager.prototype so `this` is
 // the manager and instance spies stay interceptable.
-import { type RafLoop, rafLoop } from "#common/rafLoop.js";
+import { rafLoop } from "#common/rafLoop.js";
 import * as CONST from "./const.js";
 import { registerDrag } from "./interaction.js";
 import type { ExportManager } from "./manager.js";

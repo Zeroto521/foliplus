@@ -37,7 +37,7 @@ const renameLayer = (ui: LayerUI, layerId: string): void => {
 
   closeOverlays(ui);
 
-  // displayName resolves rename →registry →the color layer's locale label,
+  // displayName resolves rename → registry → the color layer's locale label,
   // so the input opens with the name the UI already shows.
   const currentName = displayName(ui, layerId);
 
@@ -52,7 +52,7 @@ const renameLayer = (ui: LayerUI, layerId: string): void => {
     ariaLabel: ui.T("rename_hint"),
     // Only commit on blur while this is still the active rename. Enter/Escape
     // call finishRename() which sets activeRenameId=null and removes the
-    // focused input →that removal fires a blur that must not re-commit.
+    // focused input → that removal fires a blur that must not re-commit.
     isActive: () => ui.overlayPanel.activeRenameId === layerId,
     onCommit: trimmed => {
       const changed = trimmed !== currentName;
@@ -134,7 +134,7 @@ const finishRename = (ui: LayerUI, restoreText = true): void => {
  * 4. Draw a dashed rectangle on the exact bounds so the user sees exactly
  *    what "this layer" covers.
  * 5. Highlight the focused layer row with the `foliplus-is-focusing`
- *    class so the list →map linkage is visible.
+ *    class so the list → map linkage is visible.
  * 6. Call `fitBounds` with `padding` and `maxZoom` capped to current +
  *    `FOCUS.MAX_ZOOM_STEP` to avoid satellite-zoom snaps on small features.
  * 7. Auto-cancel on any subsequent map `moveend`/`zoomend` so the rect

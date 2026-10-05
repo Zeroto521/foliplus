@@ -44,7 +44,7 @@ import { closeMoreMenu, openMoreMenu } from "./menu.js";
 import { OverlayPanel } from "./overlayPanel.js";
 import { intentVisibleOf } from "./projection.js";
 import { finishRename, renameLayer } from "./rename.js";
-import { applyRowView, buildRowCell, displayName } from "./rowView.js";
+import { displayName } from "./rowView.js";
 import {
   applyUserState,
   dropPersistedLayerState,
@@ -67,7 +67,6 @@ import {
   applyVisibility,
   getLayerItems,
   handleChange,
-  handleInput,
   syncNoBasemap,
   syncToggleAll,
   syncToggleAllFromCount,
@@ -75,7 +74,6 @@ import {
 } from "./visibility.js";
 
 /** UI Controller for LayerControl.
-
  *  Per-panel state lives on one of three view subsystems:
  *  - listPanel:        fold state, cursor index, drag state
  *  - overlayPanel:     floating panels (menu / attrs / rename / style)
@@ -124,7 +122,6 @@ class LayerUI {
   /** Cleanup for the geometry-focus marquee (focusin/focusout). */
   geometryMarqueeCleanup?: (() => void) | null;
   declare onChange: ((event: Event) => void) | null;
-  declare onInput: ((event: Event) => void) | null;
   declare onClick: ((event: Event) => void) | null;
   declare onFocusIn: ((event: FocusEvent) => void) | null;
   declare onFocusOut: ((event: FocusEvent) => void) | null;
@@ -328,9 +325,6 @@ class LayerUI {
   }
   handleChange(event: Event) {
     return handleChange(this, event);
-  }
-  handleInput() {
-    return handleInput();
   }
 
   // ── delegates: keyboard ──

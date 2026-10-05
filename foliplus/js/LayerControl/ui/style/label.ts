@@ -3,18 +3,8 @@
 // the toggle/select wiring through applyPatch, and the load-time
 // applyStyleLabelState snapshot seed. Called back by the panel
 // assembly in index.ts.
-import {
-  AUTO_FIELD,
-  type LabelField,
-  isNumericField,
-  resolveSelectedField,
-} from "#core/labelField.js";
-import {
-  LABEL_COLOR_DEFAULT,
-  LABEL_SIZE,
-  clampLabelSize,
-  normalizeHexColor,
-} from "#common/form.js";
+import { type LabelField, isNumericField } from "#core/labelField.js";
+import { clampLabelSize, normalizeHexColor } from "#common/form.js";
 import { NUMBER_FORMAT } from "#common/format.js";
 import * as CONST from "../../const.js";
 import type { AnnotationConfig } from "../../type.js";

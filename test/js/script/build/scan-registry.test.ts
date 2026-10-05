@@ -1,5 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "fs";
-import { tmpdir } from "os";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { join, resolve } from "path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { generateRegistry, registryUsedExports } from "#script/build/scan-registry.mjs";

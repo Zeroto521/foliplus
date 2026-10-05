@@ -844,7 +844,6 @@ describe("LayerUI style panel", () => {
   });
 
   it("paints the slider accent fill to the current value", () => {
-    const li = manager.layerRegistry.get("overlay1")!;
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
@@ -954,7 +953,6 @@ describe("LayerUI style panel", () => {
     // 100% is the declared default, so a drag back to it is a reset by another
     // route and must leave no override behind -- otherwise the record keeps a
     // marker with no value for it.
-    const li = manager.layerRegistry.get("overlay1")!;
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
@@ -1020,7 +1018,6 @@ describe("LayerUI style panel", () => {
   });
 
   it("no-ops when the layer disappears between open and edit", () => {
-    const li = manager.layerRegistry.get("overlay1")!;
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
@@ -3416,7 +3413,6 @@ describe("LayerUI style panel", () => {
   });
 
   it("reopening the panel seeds the opacity slider from intents.opacity", () => {
-    const li = manager.layerRegistry.get("overlay1")!;
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
     const range = panelOf(item)!.querySelector(
@@ -3449,7 +3445,6 @@ describe("LayerUI style panel", () => {
     const range = panel.querySelector(
       ".foliplus-style-opacity-range",
     ) as HTMLInputElement;
-    const fill = panel.querySelector(".foliplus-style-opacity-fill") as HTMLElement;
     expect(range.value).toBe("100");
   });
 

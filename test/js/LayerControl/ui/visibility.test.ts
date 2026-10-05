@@ -8,8 +8,6 @@ import { getIntent, setIntent } from "#foliplus/LayerControl/ui/intent.js";
 import {
   applyVisibility,
   getLayerItems,
-  handleChange,
-  handleInput,
   syncNoBasemap,
   syncToggleAll,
   syncToggleAllFromCount,
@@ -968,7 +966,7 @@ describe("toggleAll base group", () => {
     const b2 = manager.layerRegistry.get("B2")!;
     const b2Canvas = b2.canvas as HTMLCanvasElement;
 
-    // Hide both first so the sweep has a visible→shown transition to fire.
+    // Hide both first so the sweep has a visible → shown transition to fire.
     toggleAll(ui, GROUP.BASE, false);
 
     map.addLayer.mockClear();
@@ -1028,14 +1026,6 @@ describe("unit helpers", () => {
 
   // syncVisibility is gone: the executor is the only writer of map
   // membership, and there is no mirror helper to test.
-
-  it("handleInput is a no-op for non-color inputs", () => {
-    const ui = makeUi();
-    const input = ui.uiContainer.querySelector(
-      'input[type="checkbox"]',
-    ) as HTMLInputElement;
-    expect(() => handleInput(ui)).not.toThrow();
-  });
 
   it("toggleAll sets the row tooltips for both states", () => {
     const { ui } = initFixture();

@@ -351,11 +351,11 @@ class TestMeasureControlBrowser:
             assert not errors, f"JS errors: {errors}"
 
     def test_remove_readd_leaves_no_listener_residue(self, browser, tmp_path):
-        """N=3 remove→add cycles must not grow map._events listener sum.
+        """N=3 remove → add cycles must not grow map._events listener sum.
 
         Baseline round[0] is captured right after the initial addControl
         (which the harness already performed in page setup); rounds[1] and
-        rounds[2] follow remove→add. A listener leak — whether it lands on
+        rounds[2] follow remove → add. A listener leak — whether it lands on
         round[0] or only shows up in a later round — registers as a drift
         and fails the assertion.
         """

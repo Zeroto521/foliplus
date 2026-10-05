@@ -10,7 +10,6 @@ import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { getIntent, seedIntentMap } from "#foliplus/LayerControl/ui/intent.js";
 import {
   TEST_ENV,
-  TileLayer,
   findItem,
   initFixture,
   installLeafletGlobals,
@@ -163,10 +162,9 @@ describe("LayerUI shell — event subscriptions", () => {
 describe("LayerUI shell — delegates", () => {
   let manager: LayerController;
   let ui: LayerUI;
-  let map: any;
 
   beforeEach(() => {
-    ({ manager, ui, map } = initFixture());
+    ({ manager, ui } = initFixture());
   });
 
   afterEach(() => {
@@ -263,20 +261,6 @@ describe("LayerUI shell — delegates", () => {
     for (const el of items) {
       expect(el.classList.contains(CONST.CLASSES.LAYER_ITEM)).toBe(true);
     }
-  });
-
-  it("handleInput(ui) delegates to the module-level input handler", () => {
-    // Covers the delegate wrapper at L397: the method is called when an input
-    // event fires on the panel. Dispatching from a real element sets the
-    // event target, which the handler reads via closest().
-    const input = ui.uiContainer.querySelector(
-      'input[type="checkbox"]',
-    ) as HTMLInputElement;
-    const event = new Event("input", { bubbles: true });
-    // Dispatch from the element so event.target is set.
-    input.dispatchEvent(event);
-    // Also call the wrapper directly to cover the delegate line.
-    expect(() => ui.handleInput(ui)).not.toThrow();
   });
 
   it("resetSolidBasemap() delegates to the colour module and flushes state", () => {

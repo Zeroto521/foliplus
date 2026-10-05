@@ -23,7 +23,7 @@ describe("delicon constants", () => {
 
 describe("makeDelIcon", () => {
   it("creates a marker with default anchor / z-index / html structure", () => {
-    const marker = makeDelIcon({ lat: 1, lng: 2 });
+    makeDelIcon({ lat: 1, lng: 2 });
     expect(window.L.marker).toHaveBeenCalled();
     const [latlng, opts] = window.L.marker.mock.calls[0];
     expect(latlng).toEqual({ lat: 1, lng: 2 });

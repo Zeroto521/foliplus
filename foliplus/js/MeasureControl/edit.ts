@@ -3,12 +3,33 @@
 // for readability; kept as pure helpers, not a manager class, because edit-mode
 // lifecycle (isEditMode toggle, ModeManager lock, Escape priority) lives in
 // MeasureManager and can't be cleanly delegated to a separate controller.
-import type {
-  EditOverlay,
-  EditOverlayHost,
-  NodeDragHandle,
-  NodeDragHandlers,
-} from "./type.js";
+
+/** Input the overlay expects from its host — a subset of MeasureManager. */
+interface EditOverlayHost {
+  isEditMode: boolean;
+  map: L.Map;
+  registerEditOverlayCloser?: (close: () => void, id?: string) => () => void;
+  closeOtherEditOverlays?: (exceptId: string) => void;
+}
+
+/** Per-node drag options wired by bindNodeDrag. */
+interface NodeDragHandlers {
+  onDrag?: (latlng: L.LatLng) => void;
+  onEnd?: (latlng: L.LatLng) => void;
+}
+
+/** Per-node drag handle returned by bindNodeDrag. */
+interface NodeDragHandle {
+  setEnabled: (enabled: boolean) => void;
+  cleanup: () => void;
+}
+
+/** Public surface of the shared ✕ overlay returned by buildEditOverlay. */
+interface EditOverlay {
+  open: (ev: L.LeafletMouseEvent) => void;
+  close: () => void;
+  cleanup: () => void;
+}
 
 /** Minimum container-point movement (px) to count as a drag rather than a tap. */
 const DRAG_THRESHOLD = 4;
@@ -55,7 +76,7 @@ const buildEditOverlay = (
     }
     // Only one measurement shows ✕ at a time: close any other open overlay.
     host.closeOtherEditOverlays?.(id ?? "");
-    // Stop Leaflet's layer→map propagation (sets originalEvent._stopped) so
+    // Stop Leaflet's layer → map propagation (sets originalEvent._stopped) so
     // the map-level click handlers — including this overlay's own onMapClick
     // which closes it — don't immediately undo the open.
     L.DomEvent.stopPropagation(ev);

@@ -5,7 +5,7 @@
 // constructor on `window.L` that production code touches is exercised here so
 // a new field landing in production code produces a loud test failure instead
 // of a silent crash a dozen tests downstream.
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { LayerIntentStore, LayerRuntimeStore } from "#core/layer/index.js";
 import { makeLayerUIMock } from "./fixture.js";
 

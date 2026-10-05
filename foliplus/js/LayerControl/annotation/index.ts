@@ -24,7 +24,7 @@ import {
 } from "#common/canvasLabel.js";
 import { formatLabelNumber } from "#common/format.js";
 import * as CONST from "../const.js";
-import type { AnnotationConfig, LayerLabel } from "../type.js";
+import type { AnnotationConfig } from "../type.js";
 import { AnnotationCanvas } from "./canvas.js";
 import {
   type LabelCandidate,
@@ -33,6 +33,17 @@ import {
   layoutLabel,
   planLabelLayout,
 } from "./layout.js";
+
+/** A label a layer asked for, described by its feature rather than by pixels —
+ *  the plan converts the latlng on every frame, so a pan leaves no stale
+ *  coordinates behind. */
+interface LayerLabel {
+  id: string;
+  text: string;
+  latlng: L.LatLng;
+  atPoint: boolean;
+  priority: number;
+}
 
 // CONFIG is a free variable from the IIFE template wrapper.
 
@@ -430,7 +441,7 @@ class AnnotationManager {
   private refresh(): void {
     if (this.canvases.size === 0) return;
     const container = this.map.getContainer();
-    const spec = (this.cachedSpec ??= specOf(container));
+    this.cachedSpec ??= specOf(container);
     const viewport = {
       x: 0,
       y: 0,

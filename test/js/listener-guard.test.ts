@@ -128,7 +128,7 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
   },
   {
     f: "LayerControl/ui/lifecycle.ts",
-    n: 13,
+    n: 12,
     pairedOff: 0,
     reason:
       "layer list / drag / reorder / more-menu bindings — pending migration to `this.on`",

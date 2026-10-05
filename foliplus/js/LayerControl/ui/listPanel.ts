@@ -46,8 +46,6 @@ class ListPanel {
   /** Cleanup for the interaction manager (keyboard nav, drag gestures) —
    *  called once on unbind. */
   interactionCleanup?: () => void;
-
-  constructor() {}
 }
 
 export { ListPanel };

@@ -6,9 +6,14 @@ import type { LayerController } from "#foliplus/LayerControl/controller.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { getIntent, seedIntentMap } from "#foliplus/LayerControl/ui/intent.js";
 import {
+  cursorRef,
   findVisibleNeighbor,
+  getActiveLayerItem,
+  moveActiveMarker,
   resolveActiveIdx,
   restoreCursor,
+  syncActiveItem,
+  syncListCursor,
 } from "#foliplus/LayerControl/ui/keyboard.js";
 import { ensureModes } from "#foliplus/core/mode.js";
 import {
@@ -87,7 +92,7 @@ describe("LayerUI keyboard", () => {
     it("Enter on the row checkbox toggles that layer's visibility", () => {
       const item = findItem(ui, "overlay1");
       const checkbox = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
-      const { spy, restore } = toggleSpy(ui);
+      const { spy, restore } = toggleSpy();
       const before = checkbox.checked;
 
       checkbox.focus();
@@ -108,7 +113,7 @@ describe("LayerUI keyboard", () => {
       // checkbox natively, Enter must not double-fire it.
       const item = findItem(ui, "overlay1");
       const checkbox = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
-      const { spy, restore } = toggleSpy(ui);
+      const { spy, restore } = toggleSpy();
       const before = checkbox.checked;
 
       item.focus();
@@ -144,7 +149,7 @@ describe("LayerUI keyboard", () => {
       const item = findItem(ui, "overlay1");
       const checkbox = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
       const more = item.querySelector(`.${CONST.CLASSES.MORE_BTN}`)!;
-      const { spy, restore } = toggleSpy(ui);
+      const { spy, restore } = toggleSpy();
       const before = checkbox.checked;
 
       more.focus();
@@ -307,7 +312,7 @@ describe("LayerUI keyboard", () => {
 
     it("repeated checkbox clicks keep the row cursor visual on", () => {
       // Click is a cursor arrival: the visual stays until Escape / another
-      // row / an outside press. (#278 only removed dblclick→focusLayer.)
+      // row / an outside press. (#278 only removed dblclick → focusLayer.)
       const overlay = findItem(ui, "overlay1");
       const checkbox = overlay.querySelector(
         'input[type="checkbox"]',
@@ -891,7 +896,12 @@ describe("LayerUI keyboard", () => {
   describe("onItemKeydown guard branches", () => {
     const keyEvent = (
       key: string,
-      opts: { ctrlKey?: boolean; shiftKey?: boolean; metaKey?: boolean } = {},
+      opts: {
+        ctrlKey?: boolean;
+        shiftKey?: boolean;
+        metaKey?: boolean;
+        altKey?: boolean;
+      } = {},
     ) =>
       new KeyboardEvent("keydown", {
         key,
@@ -1110,19 +1120,26 @@ describe("LayerUI keyboard", () => {
 
   describe("defensive branches", () => {
     const indexFor = (id: string) => ui.getNavigableItems().indexOf(findItem(ui, id));
+    const keyEvent = (
+      key: string,
+      opts: {
+        ctrlKey?: boolean;
+        shiftKey?: boolean;
+        metaKey?: boolean;
+        altKey?: boolean;
+      } = {},
+    ) =>
+      new KeyboardEvent("keydown", {
+        key,
+        bubbles: true,
+        cancelable: true,
+        ...opts,
+      });
 
     it("setActiveItem with an out-of-range index clears the cursor", () => {
       ui.setActiveItem(-1);
       expect(ui.listPanel.activeIdx).toBeNull();
       expect(ui.uiContainer.querySelector(`.${CONST.CLASSES.FOCUSED}`)).toBeNull();
-    });
-
-    it("resolveActiveIdx keeps the stored cursor when nothing is focusable", () => {
-      ui.setActiveItem(1);
-      const before = ui.listPanel.activeIdx;
-      ui.listPanel.listCursor = null;
-      // No DOM focus anywhere: resolve falls back to the stored index.
-      expect(before).not.toBeNull();
     });
 
     it("ArrowUp moves the cursor to the previous visible row", () => {
@@ -1145,21 +1162,11 @@ describe("LayerUI keyboard", () => {
       expect(focused).not.toBeNull();
     });
 
-    it("neighbour search returns -1 when every row ahead is folded", () => {
-      attachWithGroup(ui);
-      ui.listPanel.foldedGroups = new Set([GROUP.OVERLAY]);
-      ui.uiContainer
-        .querySelectorAll<HTMLElement>(
-          `${CONST.SEL.LAYER_ITEM}[data-layer-type="${GROUP.OVERLAY}"]`,
-        )
-        .forEach(el => el.classList.add(CONST.CLASSES.GROUP_FOLDED));
+    it("neighbour search returns -1 past the first and last navigable row", () => {
       const items = ui.getNavigableItems();
-      const toggleRow = ui.uiContainer.querySelector<HTMLElement>(
-        `.${CONST.CLASSES.TOGGLE_ALL}[data-group="${GROUP.OVERLAY}"]`,
-      )!;
-      const idx = items.indexOf(toggleRow);
-      expect(idx).toBeGreaterThanOrEqual(0);
-      expect(findVisibleNeighbor(ui, items, idx, 1)).toBe(-1);
+      expect(items.length).toBeGreaterThanOrEqual(2);
+      expect(findVisibleNeighbor(items, items.length - 1, 1)).toBe(-1);
+      expect(findVisibleNeighbor(items, 0, -1)).toBe(-1);
     });
 
     it("restoreCursor re-homes a folded group row onto its toggle-all row", () => {
@@ -1191,6 +1198,232 @@ describe("LayerUI keyboard", () => {
       ui.setActiveItem(1);
       (document.activeElement as HTMLElement | null)?.blur?.();
       expect(resolveActiveIdx(ui, ui.getNavigableItems())).toBe(1);
+    });
+
+    it("resolveActiveIdx ignores a focused row that is not navigable", () => {
+      const before = ui.listPanel.activeIdx;
+      const detached = document.createElement("div");
+      detached.className = CONST.CLASSES.LAYER_ITEM;
+      document.body.appendChild(detached);
+      detached.focus();
+      // owningRow() resolves the detached row, but getNavigableItems() only
+      // enumerates rows inside uiContainer — the index is -1 and the stored
+      // cursor must survive.
+      expect(resolveActiveIdx(ui, ui.getNavigableItems())).toBe(before);
+      document.body.removeChild(detached);
+    });
+
+    it("syncListCursor reuses an existing cursor instance", () => {
+      syncListCursor(ui);
+      const cursor = ui.listPanel.listCursor;
+      expect(cursor).not.toBeNull();
+      syncListCursor(ui);
+      expect(ui.listPanel.listCursor).toBe(cursor);
+    });
+
+    it("moveActiveMarker clears the cursor when given no item", () => {
+      ui.setActiveItem(1);
+      moveActiveMarker(ui, null, ui.getNavigableItems());
+      expect(ui.listPanel.activeIdx).toBeNull();
+    });
+
+    it("getActiveLayerItem resolves the row at the cursor index", () => {
+      ui.setActiveItem(0);
+      const item = getActiveLayerItem(ui);
+      expect(item).toBe(ui.getNavigableItems()[0]);
+    });
+
+    it("getActiveLayerItem returns null without a cursor", () => {
+      expect(ui.listPanel.activeIdx).toBeNull();
+      expect(getActiveLayerItem(ui)).toBeNull();
+    });
+
+    it("cursorRef normalizes an out-of-range cursor to null", () => {
+      ui.listPanel.activeIdx = 999;
+      expect(cursorRef(ui)).toBeNull();
+    });
+
+    it("getActiveLayerItem returns null for a stale out-of-range cursor", () => {
+      // setActiveItem guards its own index, but a fold can shrink the list
+      // under a stored cursor — the accessor must degrade to null.
+      ui.listPanel.activeIdx = 999;
+      expect(getActiveLayerItem(ui)).toBeNull();
+    });
+
+    it("neighbour search exhausts when every row is folded", () => {
+      const items = ui.getNavigableItems();
+      items.forEach(el => el.classList.add(CONST.CLASSES.GROUP_FOLDED));
+      expect(findVisibleNeighbor(items, 0, 1)).toBe(-1);
+      expect(findVisibleNeighbor(items, items.length - 1, -1)).toBe(-1);
+    });
+
+    it("syncActiveItem no-ops when no row holds focus and no cursor is stored", () => {
+      (document.activeElement as HTMLElement | null)?.blur?.();
+      expect(() => syncActiveItem(ui)).not.toThrow();
+      expect(ui.listPanel.activeIdx).toBeNull();
+    });
+
+    it("moveActiveMarker normalizes an out-of-list item to a cleared cursor", () => {
+      const detached = document.createElement("div");
+      detached.className = CONST.CLASSES.LAYER_ITEM;
+      moveActiveMarker(ui, detached, ui.getNavigableItems());
+      expect(ui.listPanel.activeIdx).toBeNull();
+      expect(ui.uiContainer.querySelector(`.${CONST.CLASSES.FOCUSED}`)).toBeNull();
+    });
+
+    it("handleKeyDown no-ops when the list has no navigable rows", () => {
+      ui.uiContainer.innerHTML = "";
+      expect(() => ui.handleKeyDown(keyEvent("ArrowDown"))).not.toThrow();
+    });
+
+    it("handleKeyDown no-ops when no row holds focus and no cursor is stored", () => {
+      (document.activeElement as HTMLElement | null)?.blur?.();
+      expect(() => ui.handleKeyDown(keyEvent("ArrowDown"))).not.toThrow();
+      expect(ui.listPanel.activeIdx).toBeNull();
+    });
+
+    it("Ctrl+ArrowUp over the top row shows the reorder hint", () => {
+      const item = findItem(ui, "base1");
+      ui.setActiveItem(ui.getNavigableItems().indexOf(item));
+      const showHint = vi.fn();
+      (ui.m.map as any).foliplus = { showHint };
+      ui.handleKeyDown(keyEvent("ArrowUp", { ctrlKey: true }));
+      expect(showHint).toHaveBeenCalled();
+    });
+
+    it("Ctrl+ArrowDown off the bottom shows the reorder hint", () => {
+      const items = ui.getNavigableItems();
+      ui.setActiveItem(items.length - 1);
+      const showHint = vi.fn();
+      (ui.m.map as any).foliplus = { showHint };
+      ui.handleKeyDown(keyEvent("ArrowDown", { ctrlKey: true }));
+      expect(showHint).toHaveBeenCalled();
+    });
+
+    it("Ctrl+ArrowDown moves the row when a neighbour exists", () => {
+      ui.setActiveItem(0);
+      const moveLayerDown = vi.spyOn(ui.m, "moveLayerDown").mockReturnValue(true);
+      expect(() =>
+        ui.handleKeyDown(keyEvent("ArrowDown", { ctrlKey: true })),
+      ).not.toThrow();
+      expect(moveLayerDown).toHaveBeenCalled();
+    });
+
+    it("Ctrl+an unhandled key is a no-op", () => {
+      ui.setActiveItem(0);
+      expect(() =>
+        ui.handleKeyDown(keyEvent("Enter", { ctrlKey: true })),
+      ).not.toThrow();
+    });
+
+    it("Alt+Enter on a row without a layer id falls through", () => {
+      const bare = document.createElement("div");
+      bare.className = CONST.CLASSES.LAYER_ITEM;
+      ui.uiContainer.appendChild(bare);
+      ui.listPanel.activeIdx = ui.getNavigableItems().indexOf(bare);
+      expect(() => ui.handleKeyDown(keyEvent("Enter", { altKey: true }))).not.toThrow();
+    });
+
+    it("Enter on an open menu item runs the action", () => {
+      const item = findItem(ui, "overlay1");
+      ui.openMoreMenu(item);
+      const li = ui.uiContainer.querySelector(
+        ".foliplus-layer-more-menu li[data-action='focus-layer']",
+      ) as HTMLElement;
+      expect(li).not.toBeNull();
+      const focusLayer = vi.spyOn(ui, "focusLayer").mockImplementation(() => {});
+      li.focus();
+      ui.handleKeyDown(keyEvent("Enter"));
+      expect(focusLayer).toHaveBeenCalled();
+    });
+
+    it("resolveActiveIdx walks a detached row that is focused via DOM override", () => {
+      const before = ui.listPanel.activeIdx;
+      const detached = document.createElement("div");
+      detached.className = CONST.CLASSES.LAYER_ITEM;
+      const desc = Object.getOwnPropertyDescriptor(document, "activeElement");
+      Object.defineProperty(document, "activeElement", {
+        configurable: true,
+        get: () => detached,
+      });
+      expect(resolveActiveIdx(ui, ui.getNavigableItems())).toBe(before);
+      if (desc?.configurable) {
+        Object.defineProperty(document, "activeElement", desc);
+      }
+    });
+
+    it("Alt+Enter focuses the navigated layer row", () => {
+      const items = ui.getNavigableItems();
+      const item = findItem(ui, "overlay1");
+      ui.setActiveItem(items.indexOf(item));
+      const focusLayer = vi.spyOn(ui, "focusLayer").mockImplementation(() => {});
+      ui.handleKeyDown(keyEvent("Enter", { altKey: true }));
+      expect(focusLayer).toHaveBeenCalledWith("overlay1");
+    });
+
+    it("Alt+Enter with a stale cursor index falls through to the key case", () => {
+      ui.listPanel.activeIdx = 999;
+      expect(() => ui.handleKeyDown(keyEvent("Enter", { altKey: true }))).not.toThrow();
+    });
+
+    it("ArrowUp at the top keeps the cursor parked", () => {
+      const items = ui.getNavigableItems();
+      const first = items[0];
+      ui.setActiveItem(0);
+      ui.handleKeyDown(keyEvent("ArrowUp"));
+      expect(ui.listPanel.activeIdx).toBe(0);
+      expect(ui.uiContainer.querySelector(`.${CONST.CLASSES.FOCUSED}`)).toBe(first);
+    });
+
+    it("ArrowDown at the bottom keeps the cursor parked", () => {
+      const items = ui.getNavigableItems();
+      const last = items[items.length - 1];
+      ui.setActiveItem(items.length - 1);
+      ui.handleKeyDown(keyEvent("ArrowDown"));
+      expect(ui.listPanel.activeIdx).toBe(items.length - 1);
+      expect(ui.uiContainer.querySelector(`.${CONST.CLASSES.FOCUSED}`)).toBe(last);
+    });
+
+    it("ArrowLeft and ArrowRight reach the toggle case", () => {
+      ui.setActiveItem(1);
+      expect(() =>
+        ui.handleKeyDown(keyEvent("ArrowLeft", { bubbles: true })),
+      ).not.toThrow();
+      expect(() =>
+        ui.handleKeyDown(keyEvent("ArrowRight", { bubbles: true })),
+      ).not.toThrow();
+    });
+
+    it("Enter with a focused more-button outside any row is a no-op", () => {
+      ui.setActiveItem(0);
+      const orphan = document.createElement("button");
+      orphan.className = CONST.CLASSES.MORE_BTN;
+      document.body.appendChild(orphan);
+      orphan.focus();
+      expect(() => ui.handleKeyDown(keyEvent("Enter"))).not.toThrow();
+      document.body.removeChild(orphan);
+    });
+
+    it("Space with a focused fold-button outside any row is a no-op", () => {
+      ui.setActiveItem(0);
+      const orphan = document.createElement("button");
+      orphan.className = CONST.CLASSES.FOLD_BTN;
+      document.body.appendChild(orphan);
+      orphan.focus();
+      expect(() => ui.handleKeyDown(keyEvent(" "))).not.toThrow();
+      document.body.removeChild(orphan);
+    });
+
+    it("Enter on a menu item with no open menu falls through", () => {
+      const item = findItem(ui, "overlay1");
+      const menu = document.createElement("ul");
+      menu.className = "foliplus-layer-more-menu";
+      const li = document.createElement("li");
+      li.setAttribute("data-action", "layer-focus");
+      menu.appendChild(li);
+      item.appendChild(menu);
+      li.focus();
+      expect(() => ui.handleKeyDown(keyEvent("Enter"))).not.toThrow();
     });
   });
 

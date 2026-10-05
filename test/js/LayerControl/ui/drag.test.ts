@@ -270,7 +270,7 @@ describe("ui/drag", () => {
     });
 
     it("handleDragLeave ignores targets that are not layer rows", () => {
-      const { ui } = makeScrambledUi();
+      makeScrambledUi();
       const nonRow = document.createElement("div");
       expect(() =>
         handleDragLeave({ target: nonRow } as unknown as DragEvent),

@@ -571,7 +571,6 @@ describe("PaneManager", () => {
     // the layer so a later setPane() cannot fall through to Leaflet's
     // default SVG renderer. This is the bug measure's preview stack had.
     const pane = document.createElement("div");
-    const renderer = { addTo: vi.fn() };
     const map = {
       getPane: vi.fn(() => pane),
       createPane: vi.fn(),

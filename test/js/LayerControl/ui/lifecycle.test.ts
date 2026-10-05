@@ -125,6 +125,33 @@ describe("LayerUI lifecycle — defensive rails", () => {
 
       expect(showSolidBasemapSpy).not.toHaveBeenCalled();
     });
+
+    it("onClick: a detached row outside the list leaves the cursor untouched", () => {
+      // owningRow() resolves any element matching SEL.ROW, so a row that is
+      // not part of getNavigableItems (not inside uiContainer) reaches the
+      // indexOf -1 guard — the stored cursor must survive.
+      ui.setActiveItem(1);
+      const detached = document.createElement("div");
+      detached.className = CONST.CLASSES.LAYER_ITEM;
+      const event = new MouseEvent("click", { bubbles: true });
+      Object.defineProperty(event, "target", { value: detached });
+
+      ui.onClick(event);
+
+      expect(ui.listPanel.activeIdx).toBe(1);
+    });
+
+    it("onFocusIn: a detached row outside the list does not move the cursor", () => {
+      ui.setActiveItem(1);
+      const detached = document.createElement("div");
+      detached.className = CONST.CLASSES.LAYER_ITEM;
+      const event = new Event("focusin", { bubbles: true });
+      Object.defineProperty(event, "target", { value: detached });
+
+      ui.onFocusIn(event);
+
+      expect(ui.listPanel.activeIdx).toBe(1);
+    });
   });
 
   describe("onLayerItemCountChange — the refresh rails", () => {
@@ -164,7 +191,6 @@ describe("LayerUI lifecycle — defensive rails", () => {
     it("clears the count column when the count is null but the column exists", () => {
       // The else-if arm: refreshAllCounts and onLayerItemCountChange both take
       // the empty-text path when the column is present but the count is not.
-      const info = manager.layerRegistry.get("overlay1")!;
       vi.spyOn(manager, "getFeatureCount").mockReturnValue(null);
       const item = findItem(ui, "overlay1");
       const countCol = item.querySelector(CONST.SEL.COUNT_COL) as HTMLElement;
@@ -225,7 +251,6 @@ describe("LayerUI lifecycle — defensive rails", () => {
       ui.onMoreMapClick = null;
       ui.onZoomEnd = null;
       ui.onChange = null;
-      ui.onInput = null;
       ui.onClick = null;
       ui.onFocusIn = null;
       ui.onFocusOut = null;
