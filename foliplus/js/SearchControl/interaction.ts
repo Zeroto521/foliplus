@@ -1,4 +1,4 @@
-// SearchControl event binding �?standalone functions called with `this` as ctrl.
+// SearchControl event binding — standalone functions called with `this` as ctrl.
 import { ensureInteraction } from "#core/interaction.js";
 import { adjustPanelZIndex, bindFoldToggle } from "#core/leaflet/index.js";
 import { ListCursor } from "#core/listCursor.js";
@@ -14,7 +14,7 @@ import {
 } from "./logic/index.js";
 import type { SearchControl } from "./type.js";
 
-/** Full ctrl type for interaction �?SearchControl instance + control ctx. */
+/** Full ctrl type for interaction — SearchControl instance + control ctx. */
 type InteractionCtrl = SearchControl & ControlEnv;
 
 /**
@@ -68,7 +68,7 @@ const moveSelection = (ctrl: InteractionCtrl, dir: number) => {
   if (ctrl.selectedIdx === -1 && dir < 0) return;
   const cursor = ensureListCursor(ctrl);
   if (!cursor) return;
-  // Tests / Enter may have written selectedIdx directly �?adopt before move.
+  // Tests / Enter may have written selectedIdx directly — adopt before move.
   if (cursor.index !== ctrl.selectedIdx) cursor.set(ctrl.selectedIdx);
   // ArrowUp from the first item clears the selection (combobox leave-list).
   if (cursor.index === 0 && dir < 0) {
@@ -83,8 +83,8 @@ const moveSelection = (ctrl: InteractionCtrl, dir: number) => {
  * Bind all DOM events for the SearchControl.
  *
  * Returns a cleanup closure for non-`on`-tracked resources (MutationObserver
- * + `interaction.register`). DOM listeners �?including input / focus /
- * scroll / resize �?go through `ctrl.on(...)` so the shared lifecycle
+ * + `interaction.register`). DOM listeners — including input / focus /
+ * scroll / resize — go through `ctrl.on(...)` so the shared lifecycle
  * signal owns their teardown.
  */
 const bindEvents = (ctrl: InteractionCtrl): (() => void) | void => {
@@ -118,7 +118,7 @@ const bindEvents = (ctrl: InteractionCtrl): (() => void) | void => {
         : ctrl.T("addr_placeholder");
 
     if (ctrl.inp.value.trim().length === 0) {
-      // Input cleared �?show history immediately
+      // Input cleared — show history immediately
       ctrl.debouncedFetch.cancel();
       fetchSuggestions(ctrl, "");
     } else if (ctrl.mode === MODE.ADDR) {
@@ -169,7 +169,7 @@ const bindEvents = (ctrl: InteractionCtrl): (() => void) | void => {
           return;
         }
         if (selected) {
-          // Guarded in renderAddressResult �?refuses to fly while another
+          // Guarded in renderAddressResult — refuses to fly while another
           // control holds a mode (showing the "blocked" hint). Only close
           // the panel on success so a mode-lock refusal keeps it open with
           // the hint visible, matching the mouse-click path.
@@ -185,8 +185,8 @@ const bindEvents = (ctrl: InteractionCtrl): (() => void) | void => {
 
   ctrl.on(ctrl.inp, "focus", () => {
     const val = ctrl.inp.value.trim();
-    // Empty input �?show search history for current mode;
-    // non-empty �?fetch suggestions (addr mode only)
+    // Empty input — show search history for current mode;
+    // non-empty — fetch suggestions (addr mode only)
     if (val.length === 0) fetchSuggestions(ctrl, "");
     else if (ctrl.mode === MODE.ADDR) fetchSuggestions(ctrl, val);
   });

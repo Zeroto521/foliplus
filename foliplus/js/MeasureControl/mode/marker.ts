@@ -92,7 +92,7 @@ class MarkerMode extends MeasureMode {
       measurement.id,
     );
 
-    // The pin shares the edit overlay: clicking it in edit mode shows its �?
+    // The pin shares the edit overlay: clicking it in edit mode shows its —
     // and closes every other open overlay (single selection). Outside edit
     // mode the marker's default popup (address) behavior is untouched.
     const overlay = buildEditOverlay(manager, {
@@ -123,7 +123,7 @@ class MarkerMode extends MeasureMode {
 
   /**
    * Wire the finalized-marker skeleton shared by `restore()` and
-   * `handleMarkerClick()`: mount the �? bind pin-drag, registerFinalized,
+   * `handleMarkerClick()`: mount the —  bind pin-drag, registerFinalized,
    * return a delete thunk. Kept as a static private helper (like
    * `bindPinDrag`) because both callers are static methods.
    *
@@ -131,9 +131,9 @@ class MarkerMode extends MeasureMode {
    * store's backing entry (a copy would leave the store stale until the
    * next full reload). `onPopupOpen` is bound to the marker's popupopen
    * event so the popup content can be refreshed when the popup is opened
-   * after a late geocode resolution �?bound after bindPinDrag but before
+   * after a late geocode resolution — bound after bindPinDrag but before
    * the deferred delete thunk is set, preserving the popup-binding position relative
-   * to the �?lifecycle in both callers.
+   * to the — lifecycle in both callers.
    */
   private static finalize(
     manager: MeasureManager,
@@ -243,7 +243,7 @@ class MarkerMode extends MeasureMode {
     this.m.store.add(measurement);
 
     // createLocationMarker resolves the address async (popup + onAddress
-    // callback) �?no separate geocode call here to avoid a duplicate request.
+    // callback) — no separate geocode call here to avoid a duplicate request.
     const marker = createLocationMarker(
       this.map,
       lngNum,
@@ -262,7 +262,7 @@ class MarkerMode extends MeasureMode {
       },
     );
 
-    // Bind delete + popup events BEFORE async geocode so the �?works even
+    // Bind delete + popup events BEFORE async geocode so the — works even
     // while the address lookup is still in flight.
     MarkerMode.finalize(this.m, marker, measurement, event.latlng, () => {
       if (measurement.address !== null) {
@@ -273,7 +273,7 @@ class MarkerMode extends MeasureMode {
     });
   }
 
-  /** GeoJSON feature for a marker �?properties carry id and address. */
+  /** GeoJSON feature for a marker — properties carry id and address. */
   static toGeoFeature(env: ControlEnv, data: MeasureData): GeoJSON.Feature {
     return {
       type: CONST.GEOJSON.FEATURE,
