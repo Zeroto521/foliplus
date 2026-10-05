@@ -10,7 +10,7 @@ import { registerInteractions } from "./interaction.js";
 import { persistenceMethods } from "./persistence.js";
 import { type TileLoadStats } from "./renderer/index.js";
 import { canvasToBlob, sessionMethods } from "./session.js";
-import type { CropRect, CropState, DragState, GeoBounds, SavedBounds } from "./type.js";
+import type { CropRect, GeoBounds, SavedBounds } from "./type.js";
 import {
   lockCropBox,
   removeCropBox,
@@ -20,6 +20,25 @@ import {
   unlockCropBox,
   updateBoxStyle,
 } from "./ui.js";
+
+/** Drag state for interactive crop box adjustment. */
+interface DragState {
+  dragging: boolean;
+  dragType: string | null;
+  lastX: number;
+  lastY: number;
+}
+
+/** Crop box state machine. */
+interface CropState {
+  overlay: HTMLElement;
+  box: HTMLElement;
+  rect: CropRect;
+  locked: boolean;
+  actions: HTMLElement;
+  geoBounds?: GeoBounds;
+  savedGeoBounds?: GeoBounds;
+}
 
 // CONFIG is a free variable from the IIFE template wrapper (see BaseControl._template).
 const T = createScopedTranslator(CONFIG);
