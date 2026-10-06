@@ -13,6 +13,8 @@
 import { EVENTS } from "#core/event/index.js";
 import { resolveSelectedField } from "#core/labelField.js";
 import { createRowPanel } from "#core/leaflet/index.js";
+import * as CONST from "#foliplus/LayerControl/const.js";
+import * as SVGs from "#foliplus/LayerControl/icon.js";
 import type { NumberStyle } from "#foliplus/config-schema.js";
 import { dom } from "#common/dom.js";
 import {
@@ -21,8 +23,6 @@ import {
   bindLiveNumber,
   normalizeHexColor,
 } from "#common/form.js";
-import * as CONST from "#foliplus/LayerControl/const.js";
-import * as SVGs from "#foliplus/LayerControl/icon.js";
 import { authorZoomBoundsForLayer } from "../apply.js";
 import type { LayerUI } from "../index.js";
 import { closeOverlays } from "../teardown.js";

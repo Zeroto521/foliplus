@@ -1,11 +1,11 @@
 // LayerControl UI — Inline layer rename.
 import { HINT_DURATION } from "#core/hint.js";
+import * as CONST from "#foliplus/LayerControl/const.js";
 import {
   createInlineEditInput,
   removeInlineEditInput,
   updateItemLabel,
 } from "#common/dom.js";
-import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerUI } from "../index.js";
 import { INTENT, setIntent } from "../intent.js";
 import { displayName } from "../listPanel/rowView.js";

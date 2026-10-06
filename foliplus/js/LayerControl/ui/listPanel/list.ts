@@ -1,8 +1,8 @@
 // LayerControl UI — Layer row structure / list layout / insert / reindex.
 import { GROUP } from "#core/layer/index.js";
-import { dom, updateItemLabel } from "#common/dom.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import * as SVGs from "#foliplus/LayerControl/icon.js";
+import { dom, updateItemLabel } from "#common/dom.js";
 import { getColorSurface } from "../color.js";
 import type { LayerUI } from "../index.js";
 import { cursorRef, restoreCursor, syncListCursor } from "./keyboard.js";

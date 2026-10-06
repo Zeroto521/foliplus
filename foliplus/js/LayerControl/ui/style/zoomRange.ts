@@ -3,8 +3,8 @@
 // Used by both the delegated drawer and the annotation panel — the row is
 // LayerControl-owned, gated by surface capability.
 import { CAP_TIER, DIM } from "#core/layer/index.js";
-import { dom } from "#common/dom.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
+import { dom } from "#common/dom.js";
 import { applyProjection, authorZoomBoundsForLayer } from "../apply.js";
 import type { LayerUI } from "../index.js";
 import { INTENT, getIntent } from "../intent.js";

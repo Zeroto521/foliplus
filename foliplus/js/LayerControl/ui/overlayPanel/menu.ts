@@ -1,9 +1,9 @@
 // LayerControl UI — Overflow (⋮) menu.
 import { CAP_TIER } from "#core/layer/index.js";
-import { dom } from "#common/dom.js";
-import * as Icons from "#common/icon.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import * as SVGs from "#foliplus/LayerControl/icon.js";
+import { dom } from "#common/dom.js";
+import * as Icons from "#common/icon.js";
 import { focusDisabledLocaleKey, focusDisabledReason } from "../focus.js";
 import type { LayerUI } from "../index.js";
 import { layerCanLabel, layerHasStyleDelegation } from "../style/index.js";
