@@ -212,7 +212,7 @@ class LayerOrder {
    */
   forgetSavedOrder(id: string): boolean {
     const saved = this.savedOrder;
-    if (!saved || !saved.includes(id)) return false;
+    if (!saved?.includes(id)) return false;
     this.savedOrder = saved.filter(other => other !== id);
     this.getPersistence().schedule({ order: () => this.savedOrder! });
     return true;

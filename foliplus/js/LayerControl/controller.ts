@@ -257,7 +257,7 @@ class LayerController implements LayerAPI {
     this.ui = null;
 
     this.debouncedEnforce = debounce(() => {
-      if (this.isDestroyed || !this.map || !this.map.getContainer()) return;
+      if (this.isDestroyed || !this.map?.getContainer()) return;
       this.enforceOrder();
     }, CONST.ENFORCE_ORDER_DEBOUNCE_MS);
 

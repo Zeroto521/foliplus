@@ -253,7 +253,7 @@ class AnnotationManager {
     const bounds = (
       leaf as L.Layer & { getBounds?: () => L.LatLngBounds }
     ).getBounds?.();
-    if (bounds && bounds.isValid()) return bounds.getCenter();
+    if (bounds?.isValid()) return bounds.getCenter();
     return null;
   }
 

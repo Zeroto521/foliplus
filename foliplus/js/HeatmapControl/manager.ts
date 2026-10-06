@@ -568,7 +568,7 @@ class HeatmapManager {
       for (const info of this.pointLayers) {
         const layer = info.layer as L.Layer & { getBounds?: () => L.LatLngBounds };
         const b = layer?.getBounds?.();
-        if (b && b.isValid()) acc.extend(b);
+        if (b?.isValid()) acc.extend(b);
       }
     }
     return acc.isValid() ? acc : null;

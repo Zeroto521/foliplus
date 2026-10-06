@@ -39,7 +39,7 @@ const safeEval = (source: string): ((data: unknown) => unknown) => {
   try {
     // Normalizer sources are authored by the map creator (not end users) and
     // pass a structural guard above; the eval is the documented contract.
-    // eslint-disable-next-line no-eval -- guarded arrow-function config
+     
     fn = (0, eval)(source);
   } catch {
     throw invalid();

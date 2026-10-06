@@ -125,7 +125,7 @@ const doExport = function (this: ExportManager) {
     r.left + r.width > vpW * 1.02 ||
     r.top + r.height > vpH * 1.02;
 
-  if (needsBigger && geoBounds && geoBounds.nw) {
+  if (needsBigger && geoBounds?.nw) {
     this.enlargeAndRender(r, scaleValue, bg, geoBounds, vpW, vpH, onProgress);
   } else void this.doRender(r, scaleValue, bg, geoBounds, onProgress);
 };
@@ -149,7 +149,7 @@ const doRender = function (
   // render passes sees the final positions after hiding controls.
   void this.mapContainer.offsetHeight;
 
-  if (geoBounds && geoBounds.nw) {
+  if (geoBounds?.nw) {
     const rect = boundsToRect(this.map, geoBounds);
     r.left = rect.left;
     r.top = rect.top;

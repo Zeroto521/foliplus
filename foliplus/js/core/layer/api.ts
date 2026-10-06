@@ -89,7 +89,7 @@ const isRealLayerControl = (api: LayerAPI | undefined): boolean => {
   const own =
     Object.getOwnPropertyDescriptor(api, "layers") ||
     Object.getOwnPropertyDescriptor(Object.getPrototypeOf(api), "layers");
-  return Boolean(own && own.get);
+  return Boolean(own?.get);
 };
 
 /**
