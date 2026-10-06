@@ -12,7 +12,7 @@ import {
   syncToggleAll,
   syncToggleAllFromCount,
   toggleAll,
-} from "#foliplus/LayerControl/ui/visibility.js";
+} from "#foliplus/LayerControl/ui/listPanel/visibility.js";
 import { initFixture, installLeafletGlobals } from "./fixture.js";
 import { TEST_ENV } from "./fixture.js";
 

@@ -114,13 +114,13 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
       "image preview click-dismiss on an ephemeral overlay img. ExportManager is a plain class (not a BaseControl subclass) with no mounting signal to route through; the listener is self-terminating — paired removeEventListener inside the same closure, plus a bounded setTimeout — and threading a signal would mean a manager↔control callback surface for no gain: an abort would drop the listener but not the img, which would linger on document.body until the timer fires anyway",
   },
   {
-    f: "LayerControl/ui/attr.ts",
+    f: "LayerControl/ui/overlayPanel/attr.ts",
     n: 3,
     pairedOff: 0,
     reason: "attribute panel event bindings — pending migration to `this.on`",
   },
   {
-    f: "LayerControl/ui/focusMarquee.ts",
+    f: "LayerControl/ui/focus/focusMarquee.ts",
     n: 2,
     pairedOff: 0,
     reason:
@@ -134,7 +134,7 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
       "layer list / drag / reorder / more-menu bindings — pending migration to `this.on`",
   },
   {
-    f: "LayerControl/ui/menu.ts",
+    f: "LayerControl/ui/overlayPanel/menu.ts",
     n: 1,
     pairedOff: 0,
     reason: "more-menu outside-click — pending migration to `this.on`",

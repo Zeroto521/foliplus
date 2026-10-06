@@ -14,7 +14,7 @@ import {
   restoreCursor,
   syncActiveItem,
   syncListCursor,
-} from "#foliplus/LayerControl/ui/keyboard.js";
+} from "#foliplus/LayerControl/ui/listPanel/keyboard.js";
 import { ensureModes } from "#foliplus/core/mode.js";
 import {
   allFolded,

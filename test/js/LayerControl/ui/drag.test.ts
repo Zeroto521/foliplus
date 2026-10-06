@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { HINT_DURATION } from "#core/hint.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
+import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import {
   handleDragEnd,
   handleDragLeave,
@@ -9,8 +10,7 @@ import {
   handleDrop,
   showReorderBlockedHint,
   toggleFold,
-} from "#foliplus/LayerControl/ui/drag.js";
-import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
+} from "#foliplus/LayerControl/ui/listPanel/drag.js";
 import type { LayerInfo } from "#foliplus/core/layer/index.js";
 import { GROUP } from "#foliplus/core/layer/index.js";
 import { initFixture } from "./fixture.js";

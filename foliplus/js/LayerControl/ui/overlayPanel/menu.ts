@@ -2,12 +2,12 @@
 import { CAP_TIER } from "#core/layer/index.js";
 import { dom } from "#common/dom.js";
 import * as Icons from "#common/icon.js";
-import * as CONST from "../const.js";
-import * as SVGs from "../icon.js";
-import { focusDisabledLocaleKey, focusDisabledReason } from "./focus.js";
-import type { LayerUI } from "./index.js";
-import { layerCanLabel, layerHasStyleDelegation } from "./style/index.js";
-import { closeOverlays } from "./teardown.js";
+import * as CONST from "../../const.js";
+import * as SVGs from "../../icon.js";
+import { focusDisabledLocaleKey, focusDisabledReason } from "../focus.js";
+import type { LayerUI } from "../index.js";
+import { layerCanLabel, layerHasStyleDelegation } from "../style/index.js";
+import { closeOverlays } from "../teardown.js";
 
 /**
  * Open the "more" overflow dropdown for a given layer row.
