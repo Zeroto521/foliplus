@@ -42,7 +42,7 @@
 //     from the files that imported the spec under that alias.
 import { readFileSync, readdirSync } from "fs";
 import { join } from "path";
-import { SHARED_SPEC_PREFIXES } from "../build-path.mjs";
+import { SHARED_SPEC_REGEX_SOURCE } from "../build-path.mjs";
 
 /** `#core/geo/index.js` → `core/geo`, `#common/dom.js` → `common/dom`.
  *  Keys `_shared-registry.ts` is generated against. */
@@ -66,12 +66,12 @@ const parseImportNames = list =>
     .filter(n => n && !/^type\s/.test(n));
 
 // `import { A, B } from "#core/x.js"`  |  `import * as X from "#common/y.js"`
-// Prefix list comes from script/build-path.mjs — one spelling with the
-// global-namespace plugin and the esbuild alias table.
+// The shared-spec pattern is composed once in script/build-path.mjs — one
+// spelling with the global-namespace plugin and the esbuild alias table.
+// Capture group 3 is the full spec including `#` (`#common/…`, `#core/…`,
+// or the exact `#foliplus/BaseControl.js`).
 const SHARED_IMPORT_RE = new RegExp(
-  `import\\s*(?:\\{([^}]+)\\}|\\*\\s*as\\s*(\\w+))\\s*from\\s*["']#((?:${SHARED_SPEC_PREFIXES.join(
-    "|",
-  )})\\/[^"']+)["']`,
+  `import\\s*(?:\\{([^}]+)\\}|\\*\\s*as\\s*(\\w+))\\s*from\\s*["'](${SHARED_SPEC_REGEX_SOURCE})["']`,
   "g",
 );
 
@@ -117,7 +117,7 @@ const scanSharedImports = dir => {
     const src = sources[i];
     let m;
     while ((m = SHARED_IMPORT_RE.exec(src))) {
-      const spec = "#" + m[3];
+      const spec = m[3];
       // m[2] present ⇒ star import, m[1] present ⇒ named import; the regex's
       // alternation guarantees exactly one, so no undefined-fallback is needed.
       if (m[2]) {
