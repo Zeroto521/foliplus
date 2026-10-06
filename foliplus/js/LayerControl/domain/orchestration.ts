@@ -26,10 +26,10 @@ import {
 } from "#core/layer/index.js";
 import type { LayerInfo, PaneSpec, RegisterLayerOpts } from "#core/layer/type.js";
 import { attributionEntries, refreshAttributions } from "#core/leafletAdapter.js";
-import type { AnnotationManager } from "./annotation/index.js";
-import * as CONST from "./const.js";
-import { LayerIntentStore } from "./domain/index.js";
-import type { LayerPersistence } from "./persistence.js";
+import type { AnnotationManager } from "../annotation/index.js";
+import * as CONST from "../const.js";
+import type { LayerPersistence } from "../persistence.js";
+import { LayerIntentStore } from "./index.js";
 
 /** The pane specs a surface is declared with: the registry entry's own, plus
  *  the label (annotation) pane when the layer's features expose a labelable
