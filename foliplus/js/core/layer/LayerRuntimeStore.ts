@@ -125,7 +125,7 @@ class LayerRuntimeStore {
    *  teardown is not a delete: a temporary component may re-register the same
    *  id and wants its projection / snapshot back), so only the delete path
    *  drops it. The intent side of that delete already runs via
-   *  `dropPersistedLayerState`; the runtime-side wiring lands with the T270
+   *  `dropPersistedLayerState`; the runtime-side wiring lands with the
    *  recycling work (contract point 4). */
   drop(id: string): void {
     this.rows.delete(id);

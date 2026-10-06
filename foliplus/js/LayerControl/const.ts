@@ -13,14 +13,8 @@ const DRAG = { HINT_COOLDOWN_MS: 800 };
 
 /** Persistent storage key. One record per map container, so multi-map pages
  *  keep their state separate and a new dimension is added by extending the
- *  record rather than by introducing a new key. Lazy getter: the key is
- *  derived from the live map, so module load never touches `map` (vitest
- *  loads the module graph before the map mock exists). */
-const STORAGE = {
-  get KEY() {
-    return `foliplus_layer_state_${map.getContainer().id}`;
-  },
-};
+ *  record rather than by introducing a new key. */
+const STORAGE = { KEY: `foliplus_layer_state_${map.getContainer().id}` };
 
 /** Color map layer. */
 const SOLID_BASEMAP_ID = "foliplus_color_map";

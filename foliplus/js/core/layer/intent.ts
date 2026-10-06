@@ -1,11 +1,11 @@
 // core — per-layer user intent: types + vocabulary (the intent domain).
 //
-// Sunk from LayerControl (T270): intent is a base-layer concept — third-party
+// Sunk from LayerControl: intent is a base-layer concept — third-party
 // layers carry user intent too, so the row store and its types live beside the
 // registry instead of inside the control. Moved verbatim from
 // `LayerControl/type.ts` (LayerOverride / LayerIntent / PersistedLayerState /
 // IntentRow / LoadSource / AnnotationConfig) and `LayerControl/ui/intent.ts`
-// (INTENT / LIVE / STYLE_KEYS / IntentKey) — T261 semantics unchanged.
+// (INTENT / LIVE / STYLE_KEYS / IntentKey) — semantics unchanged.
 import type { NumberStyle } from "#foliplus/config-schema.js";
 
 /** Per-layer annotation config (matches what persistence stores). */

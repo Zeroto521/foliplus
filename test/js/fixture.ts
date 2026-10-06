@@ -39,7 +39,11 @@
 import { vi } from "vitest";
 import type { ControlEnv } from "#core/defineControl.js";
 import { LayerRuntimeStore } from "#core/layer/index.js";
-import { LayerIntentStore } from "#foliplus/LayerControl/domain/index.js";
+// Direct import, not the domain barrel: fixture.ts loads during vitest setup,
+// before the `window.map` mock exists, and the barrel pulls in orchestration.ts
+// whose const.ts reads `map.getContainer()` at module load. LayerIntentStore
+// itself only imports the core/layer barrel, so it is safe to load early.
+import { LayerIntentStore } from "#foliplus/LayerControl/domain/LayerIntentStore.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { createScopedTranslator, createTranslator } from "#common/locale.js";
 import { createLogger } from "#common/log.js";
