@@ -24,7 +24,7 @@ import {
   type LoadSource,
   type PersistedLayerState,
   STYLE_KEYS,
-} from "#core/layer/intent.js";
+} from "#core/layer/index.js";
 
 const isOverrideKey = (key: IntentKey): key is LayerOverride =>
   Object.prototype.hasOwnProperty.call(STYLE_KEYS, key);
