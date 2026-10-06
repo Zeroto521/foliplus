@@ -164,9 +164,7 @@ describe("ensureLayerAPI", () => {
     // false on the first call (addLayer override) so register() fires, then
     // true on the second call (registerLayer) to cover the skip branch.
     const addLayer = vi.fn();
-    const hasLayer = vi.fn()
-      .mockReturnValueOnce(false)
-      .mockReturnValue(true);
+    const hasLayer = vi.fn().mockReturnValueOnce(false).mockReturnValue(true);
     const fresh = {
       foliplus: null as any,
       getContainer: vi.fn(() => ({ clientWidth: 800, clientHeight: 600 })),
@@ -179,7 +177,11 @@ describe("ensureLayerAPI", () => {
       off: vi.fn(),
     };
     const api = ensureLayerAPI(fresh);
-    const layers = api.createLayers({ id: "g2", name: "Group2", panes: [{ name: "g2" }] });
+    const layers = api.createLayers({
+      id: "g2",
+      name: "Group2",
+      panes: [{ name: "g2" }],
+    });
     const layer = { options: { pane: "g2" } } as any;
     layers.addLayer(layer);
     expect(addLayer).not.toHaveBeenCalled();
@@ -200,7 +202,11 @@ describe("ensureLayerAPI", () => {
     // the lightweight API passes () => true so the callback returns a value even
     // though there is no registry to actually remove from.
     const api = ensureLayerAPI(map);
-    const layers = api.createLayers({ id: "lg", name: "Group", panes: [{ name: "g" }] });
+    const layers = api.createLayers({
+      id: "lg",
+      name: "Group",
+      panes: [{ name: "g" }],
+    });
     const layer = { options: { pane: "g" } } as any;
     layers.addLayer(layer);
     expect(layers.registered()).toBe(true);

@@ -330,7 +330,6 @@ describe("Export.toCSV", () => {
     const fields = row.split(",");
     expect(fields[0]).toBe("x");
   });
-
 });
 
 // ── Download stub ──

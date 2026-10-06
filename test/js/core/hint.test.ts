@@ -272,6 +272,17 @@ describe("HintManager", () => {
     vi.useRealTimers();
   });
 
+  it("auto-dismisses a hint with duration and no subkey", () => {
+    vi.useFakeTimers();
+    const mgr = new HintManager();
+    mgr.showHint("key", "hello", 100);
+    expect(document.querySelectorAll(".foliplus-hint").length).toBe(1);
+
+    vi.advanceTimersByTime(101);
+    expect(document.querySelectorAll(".foliplus-hint").length).toBe(0);
+    vi.useRealTimers();
+  });
+
   it("hideHint is defensive against entries missing a timer or element", () => {
     // Same guards as destroy — a malformed entry must not throw.
     const mgr = new HintManager();
