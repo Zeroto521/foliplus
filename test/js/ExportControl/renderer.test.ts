@@ -1306,4 +1306,33 @@ describe("renderRemaining — inline SVG fallbacks", () => {
 
     expect(sources).toHaveLength(0);
   });
+
+  it("takes img path when img element has a src", async () => {
+    // When the img element has a non-empty src, the renderer attempts to
+    // load and draw it. Mock loadImage to return a mock image and verify
+    // drawImage is called.
+    const ctx = makeMockCtx();
+    const renderer = makeRenderer();
+    const container = renderer.container;
+    pinBox(container, 0, 0, 200, 200);
+
+    const wrapper = document.createElement("div");
+    pinBox(wrapper, 0, 0, 24, 24);
+    const img = document.createElement("img");
+    img.src = "data:image/png;base64,AAAA";
+    wrapper.appendChild(img);
+
+    const loadImageSpy = vi
+      .spyOn(UTIL, "loadImage")
+      .mockResolvedValue({} as HTMLImageElement);
+    const drawImageSpy = vi.spyOn(ctx, "drawImage");
+
+    await renderer.renderRemaining(makeRC(200, 200, ctx), [wrapper]);
+
+    expect(loadImageSpy).toHaveBeenCalledWith(
+      "data:image/png;base64,AAAA",
+      "anonymous",
+    );
+    expect(drawImageSpy).toHaveBeenCalled();
+  });
 });
