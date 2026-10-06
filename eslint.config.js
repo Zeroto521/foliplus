@@ -1,10 +1,13 @@
 // ESLint config for the foliplus JS/TS runtime and test suite — pass 1,
 // the non-type-aware quality rules. Run it with `npm run lint`.
 //
-// The Promise-discipline rules live in eslint.config.type.js and are run by
-// `npm run typecheck`. Keeping them out here means this config imports no
-// typescript package at all, so it reports the same result with or without
-// node_modules.
+// The Promise-discipline and other type-aware rules live in
+// eslint.config.type.js and are run by `npm run typecheck`. Keeping them out
+// here means this config doesn't load a tsconfig project program — it can run
+// standalone with or without the full typecheck setup. This file still imports
+// typescript-eslint (line 24) to spread `...tseslint.configs.recommended`,
+// which provides the TS parser and `@typescript-eslint` plugin registration;
+// those are cheap to import and don't require a type program.
 //
 // Division of labour with prettier (see .prettierrc.cjs):
 //   - prettier owns typography (indent, width, quotes, import order) and
@@ -203,6 +206,26 @@ export default [
     rules: {
       "no-console": ["error", { allow: ["warn", "error"] }],
     },
+  },
+
+  // These seven files carry a `eslint-disable-line @typescript-eslint/prefer-nullish-coalescing`
+  // for a legitimate `||` — the rule's type analysis doesn't flag them, but the
+  // directive is only "used" when that rule is active (i.e. in `npm run typecheck`,
+  // pass 2). In pass 1 the directive looks unused. Silence the report here so
+  // these files aren't permanently noisy; every other file still reports real
+  // unused directives. The directives themselves stay in place — they belong to
+  // the typecheck path and are exercised there.
+  {
+    files: [
+      "foliplus/js/LocateControl/logic.ts",
+      "foliplus/js/core/geocode/nominatim.ts",
+      "foliplus/js/core/layer/LayerFactory.ts",
+      "foliplus/js/core/layer/LayerSurface.ts",
+      "foliplus/js/HeatmapControl/render.ts",
+      "foliplus/js/ExportControl/renderer/svg.ts",
+      "foliplus/js/LayerControl/ui/overlayPanel/menu.ts",
+    ],
+    linterOptions: { reportUnusedDisableDirectives: "off" },
   },
 
   // Module surface style (source only — tests may use function declarations).
