@@ -1,7 +1,7 @@
 // LayerControl domain — LayerIntentStore: the single per-layer intent carrier.
 //
 // Domain-owned (#620 follow-up): intent is the axis on which registerLayer
-// (hidden -> skip `map.addLayer`), deleteLayer (drop row + clear name) and
+// (hidden → skip `map.addLayer`), deleteLayer (drop row + clear name) and
 // persistence replay decide — a domain concern, not a view concern. Lived
 // beside the registry in `core/layer/` since T270; parked under
 // `LayerControl/domain/` when LayerOrchestration grew its own domain module.

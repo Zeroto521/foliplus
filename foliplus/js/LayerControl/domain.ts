@@ -76,7 +76,7 @@ class LayerOrchestration {
    *  dimension (visible / fill / border / opacity / zoomRange / name /
    *  annotation). Absent key = never touched. Provenance rides the same
    *  `IntentRow` beside the values. Domain-owned because it is the axis on
-   *  which registerLayer (hidden -> skip `map.addLayer`), deleteLayer (drop
+   *  which registerLayer (hidden → skip `map.addLayer`), deleteLayer (drop
    *  row + clear name), and persistence replay decide — not a view-only
    *  concern. */
   intentStore: LayerIntentStore;
