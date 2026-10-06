@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { HINT_DURATION } from "#core/hint.js";
 import * as CONST from "#foliplus/MeasureControl/const.js";
 import * as Export from "#foliplus/MeasureControl/export.js";
+import { MarkerMode } from "#foliplus/MeasureControl/mode/index.js";
 import * as downloadMod from "#common/download.js";
 import { makeControlEnv } from "../fixture.js";
 
@@ -695,5 +696,26 @@ describe("Export.toWKT — unknown type", () => {
     const csv = Export.toCSV(env, [{ id: "x", type: "unknown" } as MeasureData]);
     const row = csv.split("\n")[1].split(",");
     expect(row[8]).toBe("");
+  });
+
+  it("wkt column is empty when the mode returns an unrecognized geometry", () => {
+    // featureToWKT's switch handles only Point/LineString/Polygon — the
+    // three geometry types the built-in modes emit. Anything else hits the
+    // default branch and returns an empty string.
+    const spy = vi.spyOn(MarkerMode, "toGeoFeature").mockReturnValue({
+      type: "Feature",
+      geometry: { type: "MultiPoint", coordinates: [[119.3, 26.08]] },
+      properties: {},
+    } as GeoJSON.Feature);
+    try {
+      // No address/center so csvEscape quotes no field and row[8] is unambiguously wkt.
+      const csv = Export.toCSV(env, [
+        { id: "x", type: CONST.MEASURE_MODE.MARKER } as MeasureData,
+      ]);
+      const row = csv.split("\n")[1].split(",");
+      expect(row[8]).toBe("");
+    } finally {
+      spy.mockRestore();
+    }
   });
 });

@@ -158,6 +158,16 @@ describe("ensureLayerAPI", () => {
     expect(addLayer).toHaveBeenCalled();
   });
 
+  it("lightweight createLayers returns a handle whose bringToFront is a no-op", () => {
+    // The lightweight LayerAPI wraps the factory's createLayers and passes a
+    // no-op bringLayerToFront callback. Calling bringToFront() on the returned
+    // handle must not throw — there is no registry to reorder in the stub.
+    const api = ensureLayerAPI(map);
+    const layers = api.createLayers({ id: "lt", name: "Lightweight" });
+    expect(() => layers.bringToFront()).not.toThrow();
+    expect(layers.bringToFront()).toBeUndefined();
+  });
+
   it("no-op methods behave as specified", () => {
     const api = ensureLayerAPI(map);
     expect(api.unregisterLayer("x")).toBe(false);

@@ -272,6 +272,97 @@ describe("createTranslator", () => {
       document.documentElement.lang = original;
     }
   });
+
+  it("skips parent html lang when there is no table for it", () => {
+    // The parent iframe's html lang points to a language the component does
+    // not ship a table for — the resolver must not pick it and must fall
+    // through to the lower-priority signals (en here).
+    Object.defineProperty(window, "parent", {
+      configurable: true,
+      value: {
+        location: { pathname: "/embed/map" },
+        document: { documentElement: { lang: "ja" } },
+      },
+    });
+    try {
+      const config = {
+        locale_code: "",
+        locale_tables: { en: { ok: "OK", "locale.code": "en" } },
+      };
+      createTranslator(config);
+      expect(config.locale_code).toBe("en");
+    } finally {
+      delete window.parent;
+    }
+  });
+
+  it("ignores document referrer when the URL has no locale path", () => {
+    // The referrer URL does not contain /en/ or /zh/ — the resolver must
+    // treat the referrer as a non-signal rather than guessing a language.
+    Object.defineProperty(document, "referrer", {
+      configurable: true,
+      get: () => "https://example.com/embed/map",
+    });
+    try {
+      const config = {
+        locale_code: "",
+        locale_tables: { en: { ok: "OK", "locale.code": "en" } },
+      };
+      createTranslator(config);
+      expect(config.locale_code).toBe("en");
+    } finally {
+      delete document.referrer;
+    }
+  });
+
+  it("keeps document lang fallback when the html lang has no table", () => {
+    // document.documentElement.lang names a language the component does not
+    // ship a table for — the resolver must not pick it and must fall
+    // through to the browser-language signal.
+    const original = document.documentElement.lang;
+    document.documentElement.lang = "fr";
+    try {
+      const config = {
+        locale_code: "",
+        locale_tables: { en: { ok: "OK", "locale.code": "en" } },
+      };
+      createTranslator(config);
+      expect(config.locale_code).toBe("en");
+    } finally {
+      document.documentElement.lang = original;
+    }
+  });
+
+  it("handles navigator.language and userLanguage both missing", () => {
+    // Some legacy browsers and older test environments expose neither
+    // navigator.language nor the IE-only navigator.userLanguage — the
+    // resolver must not blow up and must fall through to the en default.
+    const originalDescriptor = Object.getOwnPropertyDescriptor(
+      navigator,
+      "language",
+    );
+    Object.defineProperty(navigator, "language", {
+      configurable: true,
+      get: () => undefined,
+    });
+    Object.defineProperty(navigator, "userLanguage", {
+      configurable: true,
+      get: () => undefined,
+    });
+    try {
+      const config = {
+        locale_code: "",
+        locale_tables: { en: { ok: "OK", "locale.code": "en" } },
+      };
+      createTranslator(config);
+      expect(config.locale_code).toBe("en");
+    } finally {
+      if (originalDescriptor) {
+        Object.defineProperty(navigator, "language", originalDescriptor);
+      }
+      delete (navigator as Navigator & { userLanguage?: string }).userLanguage;
+    }
+  });
 });
 
 describe("createScopedTranslator", () => {

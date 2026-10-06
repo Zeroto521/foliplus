@@ -164,6 +164,16 @@ describe("HintManager", () => {
     vi.useRealTimers();
   });
 
+  it("destroy is defensive against entries missing a timer or element", () => {
+    // The guards on entry.timer and entry.element must not throw when an entry
+    // is stored without either — a defensive fallback if the map is mutated
+    // externally, not a runtime crash.
+    const mgr = new HintManager();
+    mgr.hintMap.set("ghost", { element: undefined, timer: null } as any);
+    expect(() => mgr.destroy()).not.toThrow();
+    expect(mgr.hintMap.size).toBe(0);
+  });
+
   it("migrates hints to the fullscreen element on fullscreenchange", () => {
     const mgr = new HintManager();
     mgr.showHint("key", "hello", 0);
@@ -223,6 +233,14 @@ describe("HintManager", () => {
 
     mgr.hideHint("key", "sub");
     expect(document.querySelectorAll(".foliplus-hint").length).toBe(0);
+  });
+
+  it("hideHint is defensive against entries missing a timer or element", () => {
+    // Same guards as destroy — a malformed entry must not throw.
+    const mgr = new HintManager();
+    mgr.hintMap.set("ghost", { element: undefined, timer: null } as any);
+    expect(() => mgr.hideHint("ghost")).not.toThrow();
+    expect(mgr.hintMap.has("ghost")).toBe(false);
   });
 });
 
