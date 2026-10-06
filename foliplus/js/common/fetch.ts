@@ -54,9 +54,10 @@ const fetchWithTimeout = (
   };
 
    
+  /* eslint-disable @typescript-eslint/no-empty-function -- no timeout configured: nothing to dispose */
   const composed =
     timeoutMs > 0 ? composeSignal(signal, timeoutMs) : { signal, dispose: () => {} };
-   
+  /* eslint-enable @typescript-eslint/no-empty-function */
 
   return fetch(url, {
     ...opts,
@@ -79,6 +80,7 @@ const composeSignal = (
   // If the parent signal is already aborted, pass it through directly
   // so fetch sees the abort immediately (event listeners cannot fire retroactively).
    
+  // eslint-disable-next-line @typescript-eslint/no-empty-function -- already aborted: nothing to dispose
   if (parentSignal?.aborted) return { signal: parentSignal, dispose: () => {} };
 
   const controller = new AbortController();

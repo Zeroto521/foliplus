@@ -146,9 +146,8 @@ class BaseControl extends L.Control {
   }
 
   /** Override to release resources on removal. Called before auto-unbind. */
-  destroy(): void {
-    void 0;
-  }
+  // eslint-disable-next-line @typescript-eslint/no-empty-function -- base hook; the default releases nothing
+  destroy(): void {}
 
   /**
    * The abort signal for the current mounting. Components register DOM

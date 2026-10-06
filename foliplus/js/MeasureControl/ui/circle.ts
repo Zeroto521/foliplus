@@ -39,16 +39,16 @@ const attachCircleUI = (mgr: MeasureManager, opts: CircleAttachOpts): void => {
 
   // Mutable slot, overwritten by registerEditDragToggle() below — the empty
   // default keeps disposal safe before that wiring runs.
-   
+  // eslint-disable-next-line @typescript-eslint/no-empty-function -- mutable slot default
   let unregisterDragToggle: () => void = () => {};
   const dragBinds: DragBind[] = [];
   // The single radius label persists as a marker (updateLabel() only moves and
   // restyles it), so one registration survives for the measurement's life.
-   
+  /* eslint-disable @typescript-eslint/no-empty-function -- no radius label: nothing to unregister */
   const unregisterRadiusLabel = radiusLabel
     ? mgr.registerLabel(radiusLabel, CONST.LABEL_PRIORITY.RADIUS)
     : () => {};
-   
+  /* eslint-enable @typescript-eslint/no-empty-function */
 
   const lifecycle = attachDelLifecycle(mgr, layers, [delMarker], {
     id,
