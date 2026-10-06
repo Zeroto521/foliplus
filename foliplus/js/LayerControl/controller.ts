@@ -23,13 +23,7 @@ import {
   walkLeaf,
   zFor,
 } from "#core/layer/index.js";
-import type { PaneSpec } from "#core/layer/type.js";
-import {
-  attributionEntries,
-  hasAttachedPath,
-  isGroupLike,
-  refreshAttributions,
-} from "#core/leafletAdapter.js";
+import { hasAttachedPath, isGroupLike } from "#core/leafletAdapter.js";
 import { debounce } from "#common/debounce.js";
 import type { Debounced } from "#common/type.js";
 import { createLogger } from "#common/log.js";
