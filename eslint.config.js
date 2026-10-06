@@ -58,6 +58,28 @@ export default [
       // Import ordering stays prettier's job.
       "no-duplicate-imports": "error",
 
+      // Types in a value import get the `type` keyword inline (`import { type A, B }`)
+      // so a type-only reference is never mistaken for a runtime binding.
+      // `inline-type-imports` keeps one declaration per source — no-duplicate-imports
+      // would reject a split `import { B }` + `import type { A }` pair from the
+      // same module. `disallowTypeAnnotations: false` leaves the existing
+      // `import("x").Y` type queries alone (a separate stylistic preference,
+      // not this rule's job).
+      "@typescript-eslint/consistent-type-imports": [
+        "error",
+        { fixStyle: "inline-type-imports", disallowTypeAnnotations: false },
+      ],
+
+      // A constructor whose body is only `super()` is dead code — the class
+      // inherits its parent's constructor unchanged. Pure future-guard
+      // (#620 removed one; this prevents a regression).
+      "@typescript-eslint/no-useless-constructor": "error",
+
+      // `a && a.b` collapses to `a?.b` — the optional chain is the idiom
+      // and the guard it replaces is invisible in the AST. Type-aware
+      // (needs the parser program); lives in eslint.config.type.js.
+      // See the type config for `@typescript-eslint/prefer-optional-chain`.
+
       // Python E302 / E305: blank line before function / class definitions.
       "padding-line-between-statements": [
         "error",
@@ -120,6 +142,12 @@ export default [
       // hooks, mutable slot defaults, teardown no-ops — opt out line by line
       // with a why-comment, which keeps each one an explicit decision.
       "@typescript-eslint/no-empty-function": "error",
+
+      // `allowEmptyCatch` because test cleanup runs `rmSync` / `unlinkSync`
+      // in a best-effort pattern (`try { fs.rmSync(x) } catch {}`) — the
+      // error is expected and ignored by design. Empty `if` / `for` / `try`
+      // blocks still error, which is the intent (silent bugs).
+      "no-empty": ["error", { allowEmptyCatch: true }],
 
       // Dead imports and variables are a bug smell in production code; we
       // catch them here rather than letting them rot. `_` prefix exempts
@@ -194,6 +222,27 @@ export default [
           selector: "ExportNamedDeclaration[declaration]",
           message:
             "Use a single export { … } block at the bottom of the file instead of inline export.",
+        },
+      ],
+
+      // Relative path depth: one level (`./`, `../`) is fine; two+ (`../../`
+      // and above) means the caller should reach for an alias (`#common/…`,
+      // `#core/…`, `#foliplus/…`, `#script/…`). Deeper relatives mean the
+      // module tree is out of shape — the alias is the source of truth for
+      // where a shared module lives. Source-only: tests reach up to
+      // `test/js/fixture.js` (2 levels) in six places, and adding a `#test`
+      // alias for that would be an infrastructure change with no consumer
+      // outside those test files.
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["../../*"],
+              message:
+                "Use a path alias (#common/…, #core/…, #foliplus/…, #script/…) instead of walking up two+ levels.",
+            },
+          ],
         },
       ],
     },
