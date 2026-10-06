@@ -151,7 +151,7 @@ class PreviewMode extends MeasureMode {
    * i.e. it paints above earlier siblings within that pane.
    *
    * Preview shapes update their coordinates with `setLatLngs`, which triggers
-   * Leaflet's `_updatePath` — `setPane` and pushes that `<path>` to the tail
+   * Leaflet's `_updatePath` → `setPane` and pushes that `<path>` to the tail
    * of `_rootGroup` every frame. Markers moved with `setLatLng` do not
    * participate in that re-sort, so within the label pane the preview label
    * would drop under previously-confirmed labels after a few mousemoves.
@@ -239,7 +239,7 @@ const mountDelIcon = (
   opts: { title?: string; iconAnchor?: [number, number] },
   /** Omit for pure create+mount (no click handler) — circle wires delete in
    *  attachCircleUI. Pass a thunk (or a createDeferredDelete onDelete) when
-   *  the mount should own the — click. */
+   *  the mount should own the ✕ click. */
   onDelete?: () => void,
 ): L.Marker =>
   mountDelIconShared(latlng, opts, m => layers.addLayer(m, CONST.PANES.NODE), onDelete);
@@ -265,7 +265,7 @@ const createDeferredDelete = (): {
 
 /**
  * Register a finalized cleanup and build the shared delete-then-teardown
- * path: unregister — teardown — removeLayers — business delete —
+ * path: unregister → teardown → removeLayers → business delete →
  * `layers.unregister`. Callers own what `teardown` / `removeLayers` /
  * `onDelete` do; this hook owns only the registerFinalized bookkeeping so
  * `attachDelLifecycle` and `MarkerMode.finalize` don't each re-implement it.
@@ -304,9 +304,9 @@ const wireFinalized = (
  * owns the overlay and the registerFinalized handle so the three attachXUI
  * builders don't each re-implement the same 5-line skeleton.
  *
- * `delMarkers` is the — handle set the default onOpen/onEmpty toggle —
+ * `delMarkers` is the ✕ handle set the default onOpen/onEmpty toggle —
  * distance passes its nodeDelMarkers, circle passes a single-element array.
- * Callers needing side effects (e.g. polygon's centroid —  marker's popup
+ * Callers needing side effects (e.g. polygon's centroid ✕, marker's popup
  * close) supply their own onOpen/onEmpty. DOM construction stays in the
  * caller — this hook only wires lifecycle.
  */

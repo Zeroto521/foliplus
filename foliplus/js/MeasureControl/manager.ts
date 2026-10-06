@@ -31,7 +31,7 @@ import type { CollidableLabel } from "./type.js";
 import * as Util from "./util.js";
 
 /** In edit mode, suspend every layer except the measurement panes so nodes stay
- *  draggable and shapes clickable to reveal their — handles. */
+ *  draggable and shapes clickable to reveal their ✕ handles. */
 const skipMeasureLayers = isLayerInPanes([
   CONST.PANES.GRAPH,
   CONST.PANES.NODE,
@@ -45,7 +45,7 @@ const ANON_HANDLE = " anon-edit-handle";
 
 /** Per-measurement edit-mode resource bundle: the three things a finalized
  *  measurement registers with the manager — its dispose (unbinds drag binds,
- *  edit overlay and the drag toggle), the — overlay close callback, and the
+ *  edit overlay and the drag toggle), the ✕ overlay close callback, and the
  *  node-drag toggle. Keyed by measurement id so delete drops one handle and
  *  setEditMode/clearAll/destroy each walk one collection. */
 interface EditHandle {
@@ -112,7 +112,7 @@ class MeasureManager {
    *  map listeners are only ever live inside that window. */
   private coordReadoutEvents: [string, L.LeafletEventHandlerFn][] = [];
   ctrl: HTMLElement | null;
-  /** Whether the edit overlay is active: — handles and node-drag enabled. */
+  /** Whether the edit overlay is active: ✕ handles and node-drag enabled. */
   isEditMode: boolean;
   /** The layer id used to register this manager's measure layer. */
   layerId: string;
@@ -423,7 +423,7 @@ class MeasureManager {
     this.editHandles.clear();
   }
 
-  /** Register an overlay close callback so setEditMode(false) can hide —
+  /** Register an overlay close callback so setEditMode(false) can hide ✕.
    *  `id` groups the closer with the measurement's other edit registrations.
    *  Returns an unregister function so deleted measurements drop their entry. */
   registerEditOverlayCloser = (close: () => void, id?: string): (() => void) => {
@@ -502,7 +502,7 @@ class MeasureManager {
   }
 
   /** Close every open edit overlay except the one keyed by `exceptId`, so
-   *  selecting a new measurement hides the previously selected one's —  */
+   *  selecting a new measurement hides the previously selected one's ✕. */
   closeOtherEditOverlays = (exceptId: string) => {
     this.editHandles.forEach((h, id) => {
       if (id !== exceptId) h.closeOverlay();
@@ -630,7 +630,7 @@ class MeasureManager {
     );
   }
 
-  /** Enable/disable the edit overlay: — handles and node drag. */
+  /** Enable/disable the edit overlay: ✕ handles and node drag. */
   setEditMode(on: boolean) {
     if (this.isEditMode === on) return;
     this.isEditMode = on;
@@ -664,7 +664,7 @@ class MeasureManager {
     } else {
       this.map.foliplus!.hideHint(this.config.name);
       this.hideCoordReadout();
-      // Close any open overlays so — handles don't linger after leaving edit
+      // Close any open overlays so ✕ handles don't linger after leaving edit
       // mode. Keep the handles registered so a later edit session can close
       // them again; each overlay unregisters itself on delete.
       this.editHandles.forEach(h => h.closeOverlay());

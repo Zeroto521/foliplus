@@ -57,7 +57,7 @@ class CircleMode extends PreviewMode {
       CONST.PANES.NODE,
     ) as L.CircleMarker;
     // Pure create + node-pane mount (no click handler) — strictly equivalent
-    // to the old makeDelIcon + addLayer. The — delete click is wired in
+    // to the old makeDelIcon + addLayer. The ✕ delete click is wired in
     // attachCircleUI, which owns the deleteMeasurement from attachDelLifecycle.
     const delMarker = mountDelIcon(manager.layers, centerLatLng, {
       title: manager.T("del_tooltip"),

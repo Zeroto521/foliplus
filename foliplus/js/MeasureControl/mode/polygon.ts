@@ -298,7 +298,7 @@ class PolygonMode extends PreviewMode {
         // the closing segment label).
         L.DomEvent.stopPropagation(event);
         if (points.length < 3) return;
-        // Click first or last point — finish
+        // Click first or last point → finish
         if (
           marker === nodeMarkers[0] ||
           marker === nodeMarkers[nodeMarkers.length - 1]
