@@ -1,16 +1,8 @@
 // script/build/global-namespace-plugin.mjs — esbuild plugin (P5, optimized).
-// Component bundles externalize shared-module imports to the global namespace
-// exposed by foliplus-common.min.js:
-//   - #common/*  → window.foliplus.common.<mod>
-//   - #core/*    → window.foliplus.core.<sub>  (or .hint for the top-level hint)
-//   - #foliplus/BaseControl.js → window.foliplus.BaseControl
-// Other #foliplus/* paths (a component's own const.js, icon.js,
-// config-schema.js, LayerControl/*.js, …) resolve through esbuild's alias
-// and bundle normally into the component — they are NOT externalized.
-//
-// The shared-spec regex is composed once in script/build/build-path.mjs so
-// the plugin and the scanner cannot drift. The runtime entry (name ===
-// "runtime") must NOT be externalized — it bundles the shared code.
+// Component bundles externalize #core/*, #common/* and #foliplus/BaseControl.js
+// imports to the global namespace exposed by foliplus-common.min.js
+// (window.foliplus.core / .common.<mod> / .BaseControl). The runtime entry
+// (name === "runtime") must NOT be externalized — it bundles the shared code.
 //
 // KEY OPTIMIZATION: Auto-scan component source for shared-module imports,
 // then generate shims ONLY for the actually-imported names. Unused exports
@@ -19,7 +11,7 @@
 // script/build/scan-registry.mjs uses, so publishing and reading cannot drift.
 import { existsSync, readFileSync } from "fs";
 import { dirname, resolve } from "path";
-import { SHARED_SPEC_REGEX_SOURCE } from "../build-path.mjs";
+import { SHARED_SPEC_PREFIXES } from "../build-path.mjs";
 import {
   collectSources,
   scanSharedImports as scanSharedImportsEngine,
@@ -161,7 +153,7 @@ const globalNamespacePlugin = sourceRoot => ({
     }
 
     build.onResolve(
-      { filter: new RegExp(`^(${SHARED_SPEC_REGEX_SOURCE})$`) },
+      { filter: new RegExp(`^#(${SHARED_SPEC_PREFIXES.join("|")})/`) },
       args => ({
         path: args.path,
         namespace: "foliplus-shared",

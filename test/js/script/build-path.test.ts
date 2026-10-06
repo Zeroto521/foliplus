@@ -5,9 +5,7 @@ import { pathToFileURL } from "url";
 import { describe, expect, it } from "vitest";
 import {
   PACKAGE_IMPORTS,
-  SHARED_MODULE_EXACTS,
-  SHARED_MODULE_PREFIXES,
-  SHARED_SPEC_REGEX_SOURCE,
+  SHARED_SPEC_PREFIXES,
   pathAliases,
   repoRoot,
   resolveJsRoot,
@@ -56,48 +54,14 @@ describe("build-path.mjs", () => {
     expect(PACKAGE_IMPORTS["#script/*"]).toBe("./script/*");
   });
 
-  it("SHARED_MODULE_PREFIXES is #common/#core only — #foliplus is aliased but not shared", () => {
-    // The alias table has three entries (#common/#core/#foliplus), but only
-    // #common and #core have their whole namespace published on
-    // window.foliplus. #foliplus/BaseControl.js is shared by exact name
-    // (see SHARED_MODULE_EXACTS); every other #foliplus/* path — a component
-    // importing its own const.js or config-schema.js — bundles normally
-    // through esbuild's alias and must NOT be externalized. The old test
-    // asserted the alias table and the shared set were equal; that
-    // assumption is what externalized self-imports as empty shims.
-    expect([...SHARED_MODULE_PREFIXES].sort()).toEqual(["common", "core"]);
-    for (const prefix of SHARED_MODULE_PREFIXES) {
-      expect(Object.keys(pathAliases(ROOT))).toContain(`#${prefix}`);
+  it("SHARED_SPEC_PREFIXES covers every # prefix consumers resolve", () => {
+    // import-scan.mjs, global-namespace-plugin.mjs and pathAliases share this
+    // list; a new namespace that only lands in one of them is the #518 bug.
+    expect([...SHARED_SPEC_PREFIXES].sort()).toEqual(["common", "core", "foliplus"]);
+    for (const key of Object.keys(pathAliases(ROOT))) {
+      const bare = key.slice(1);
+      expect(SHARED_SPEC_PREFIXES).toContain(bare);
     }
-    expect(SHARED_MODULE_PREFIXES).not.toContain("foliplus");
-  });
-
-  it("SHARED_MODULE_EXACTS names only #foliplus/BaseControl.js", () => {
-    // The single escape hatch: BaseControl is imported from
-    // #foliplus/BaseControl.js (not #core/… or #common/…), but the runtime
-    // publishes it on window.foliplus.BaseControl, so it must still be
-    // externalized.
-    expect(SHARED_MODULE_EXACTS).toEqual(["#foliplus/BaseControl.js"]);
-  });
-
-  it("SHARED_SPEC_REGEX_SOURCE matches the shared set and rejects non-shared #foliplus/*", () => {
-    const re = new RegExp(`^(${SHARED_SPEC_REGEX_SOURCE})$`);
-    // Shared prefixes
-    expect(re.test("#common/dom.js")).toBe(true);
-    expect(re.test("#core/hint.js")).toBe(true);
-    expect(re.test("#core/layer/LayerFactory.js")).toBe(true);
-    // Exact shared spec
-    expect(re.test("#foliplus/BaseControl.js")).toBe(true);
-    // #foliplus/* self-imports — bundled, not externalized
-    expect(re.test("#foliplus/config-schema.js")).toBe(false);
-    expect(re.test("#foliplus/LayerControl/const.js")).toBe(false);
-    expect(re.test("#foliplus/LayerControl/ui/index.js")).toBe(false);
-    expect(re.test("#foliplus/SearchControl/const.js")).toBe(false);
-    // Unrelated aliases
-    expect(re.test("#script/build.mjs")).toBe(false);
-    expect(re.test("#core")).toBe(false); // bare prefix without /
-    expect(re.test("#common")).toBe(false);
-    expect(re.test("#foliplus/BaseControl.js")).toBe(true); // exact, sanity
   });
 
   it("repoRoot walks up to the nearest package.json from a nested dir", () => {
