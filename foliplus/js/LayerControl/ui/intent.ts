@@ -7,11 +7,9 @@
 // The intent vocabulary (INTENT / LIVE / STYLE_KEYS / IntentKey) and the
 // intent-domain types sunk to `core/layer/intent.ts` with T270 — re-exported
 // here so every `ui/intent.js` import keeps working unchanged.
-import type { LayerIntent } from "#core/layer/index.js";
+import type { IntentKey, LayerIntent } from "#core/layer/index.js";
 import { INTENT, LIVE, STYLE_KEYS } from "#core/layer/index.js";
 import type { LayerUI } from "./index.js";
-
-type IntentKey = keyof LayerIntent;
 
 /** Write one intent dimension (value only — no provenance mark). */
 const setIntent = <K extends IntentKey>(

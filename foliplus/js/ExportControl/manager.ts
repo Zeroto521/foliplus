@@ -2,6 +2,7 @@
 // installed on ExportManager.prototype so method names and this.x() call-through
 // stay identical to the pre-split surface.
 import { type EventBus, ensureEvents } from "#core/event/index.js";
+import type { GeoBounds } from "#core/geo/index.js";
 import { type ModeManager, ensureModes } from "#core/mode.js";
 import { createScopedTranslator } from "#common/locale.js";
 import { type RafLoop } from "#common/rafLoop.js";
@@ -9,7 +10,7 @@ import { cropMethods } from "./crop.js";
 import { registerInteractions } from "./interaction.js";
 import { persistenceMethods } from "./persistence.js";
 import { canvasToBlob, sessionMethods } from "./session.js";
-import type { CropRect, GeoBounds, SavedBounds, TileLoadStats } from "./type.js";
+import type { CropRect, SavedBounds, TileLoadStats } from "./type.js";
 import {
   lockCropBox,
   removeCropBox,
