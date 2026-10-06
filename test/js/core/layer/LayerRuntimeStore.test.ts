@@ -1,6 +1,6 @@
 // LayerRuntimeStore — row-store unit surface.
 //
-// T270: the derived/transient twin of LayerIntentStore (projection last-write,
+// The derived/transient twin of LayerIntentStore (projection last-write,
 // field cache, author-visible snapshot, reserved breaks). One row per layer
 // id, absent axis = never derived; explicit invalidation, never a re-scan.
 import { describe, expect, it } from "vitest";

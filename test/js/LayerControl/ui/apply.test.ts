@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { LayerIntentStore, LayerRuntimeStore } from "#core/layer/index.js";
+import { LayerRuntimeStore } from "#core/layer/index.js";
 import { LayerController } from "#foliplus/LayerControl/controller.js";
+import { LayerIntentStore } from "#foliplus/LayerControl/domain/index.js";
 import {
   applyProjection,
   applyProjectionAll,

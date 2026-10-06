@@ -1,12 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
-import { LayerIntentStore, LayerRuntimeStore } from "#core/layer/index.js";
+import { LayerRuntimeStore } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import {
   LayerController,
   installBringToFrontPatch,
   uninstallBringToFrontPatch,
 } from "#foliplus/LayerControl/controller.js";
+import { LayerIntentStore } from "#foliplus/LayerControl/domain/index.js";
 import { LayerPersistence } from "#foliplus/LayerControl/persistence.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { getIntent, setIntent } from "#foliplus/LayerControl/ui/intent.js";
@@ -762,10 +763,8 @@ describe("LayerController", () => {
     const removeLayer = vi.fn();
     manager.map.addLayer = addLayer;
     manager.map.removeLayer = removeLayer;
-    manager.ui = {
-      intentStore: makeStore({ new1: { visible: false } }),
-      saveState: vi.fn(),
-    } as any;
+    manager.intentStore = makeStore({ new1: { visible: false } });
+    manager.ui = { saveState: vi.fn() } as any;
     manager.registerLayer({ id: "new1", name: "New", layer } as any);
 
     // Hidden layer is kept off the map entirely (no add, no remove) so
@@ -780,10 +779,8 @@ describe("LayerController", () => {
     const removeLayer = vi.fn();
     manager.map.addLayer = addLayer;
     manager.map.removeLayer = removeLayer;
-    manager.ui = {
-      intentStore: makeStore({ canvas1: { visible: false } }),
-      saveState: vi.fn(),
-    } as any;
+    manager.intentStore = makeStore({ canvas1: { visible: false } });
+    manager.ui = { saveState: vi.fn() } as any;
     manager.registerLayer({
       id: "canvas1",
       name: "Canvas",
@@ -803,10 +800,8 @@ describe("LayerController", () => {
     const removeLayer = vi.fn();
     manager.map.addLayer = addLayer;
     manager.map.removeLayer = removeLayer;
-    manager.ui = {
-      intentStore: makeStore({ new1: { visible: false } }),
-      saveState: vi.fn(),
-    } as any;
+    manager.intentStore = makeStore({ new1: { visible: false } });
+    manager.ui = { saveState: vi.fn() } as any;
     manager.registerLayer({ id: "new1", name: "New", layer } as any);
 
     // Hidden layers must be kept off the map entirely (skip addLayer) so
@@ -820,10 +815,8 @@ describe("LayerController", () => {
     manager.map.hasLayer.mockReturnValue(false);
     const removeLayer = vi.fn();
     manager.map.removeLayer = removeLayer;
-    manager.ui = {
-      intentStore: makeStore({ other: { visible: false } }),
-      saveState: vi.fn(),
-    } as any;
+    manager.intentStore = makeStore({ other: { visible: false } });
+    manager.ui = { saveState: vi.fn() } as any;
     manager.registerLayer({ id: "visible1", name: "V", layer } as any);
 
     expect(removeLayer).not.toHaveBeenCalled();
@@ -1940,22 +1933,24 @@ describe("LayerController", () => {
     manager.map.hasLayer.mockReturnValue(false);
     const saveState = vi.fn();
     const saveNamesState = vi.fn();
+    const store = makeStore(
+      {
+        overlay1: {
+          visible: false,
+          opacity: 0.4,
+          zoomRange: [3, 12],
+          name: "Renamed",
+        },
+        base1: { visible: false, opacity: 1 },
+      },
+      {
+        overlay1: ["visible", "opacity", "zoomRange"],
+        base1: ["visible"],
+      },
+    );
+    manager.intentStore = store;
     manager.ui = {
-      intentStore: makeStore(
-        {
-          overlay1: {
-            visible: false,
-            opacity: 0.4,
-            zoomRange: [3, 12],
-            name: "Renamed",
-          },
-          base1: { visible: false, opacity: 1 },
-        },
-        {
-          overlay1: ["visible", "opacity", "zoomRange"],
-          base1: ["visible"],
-        },
-      ),
+      intentStore: store,
       dropPersistedLayerState: (id: string) => dropPersistedLayerState(manager.ui, id),
       saveState,
       saveNamesState,
@@ -2009,14 +2004,16 @@ describe("LayerController", () => {
     manager.map.hasLayer.mockReturnValue(false);
     const saveState = vi.fn();
     const saveNamesState = vi.fn();
+    const store = makeStore(
+      {
+        overlay1: { visible: false, opacity: 0.4, zoomRange: [3, 12] },
+        base1: { visible: false, name: "Renamed" },
+      },
+      { overlay1: ["visible", "opacity"] },
+    );
+    manager.intentStore = store;
     manager.ui = {
-      intentStore: makeStore(
-        {
-          overlay1: { visible: false, opacity: 0.4, zoomRange: [3, 12] },
-          base1: { visible: false, name: "Renamed" },
-        },
-        { overlay1: ["visible", "opacity"] },
-      ),
+      intentStore: store,
       dropPersistedLayerState: (id: string) => dropPersistedLayerState(manager.ui, id),
       saveState,
       saveNamesState,
@@ -2059,15 +2056,17 @@ describe("LayerController", () => {
       collide: true,
     });
     m.map.hasLayer.mockReturnValue(false);
+    const store = makeStore(
+      {
+        overlay1: { opacity: 0.4, name: "Renamed" },
+        base1: { name: "Base" },
+      },
+      { overlay1: ["opacity"] },
+    );
+    m.intentStore = store;
     m.ui = {
       c: m,
-      intentStore: makeStore(
-        {
-          overlay1: { opacity: 0.4, name: "Renamed" },
-          base1: { name: "Base" },
-        },
-        { overlay1: ["opacity"] },
-      ),
+      intentStore: store,
       dropPersistedLayerState: (id: string) => dropPersistedLayerState(m.ui, id),
       saveState: () => saveState(m.ui),
       saveNamesState: () => saveNamesState(m.ui),
@@ -2752,16 +2751,18 @@ describe("LayerController", () => {
       // redraw inherited the previous draw's opacity and visibility.
       manager.map.hasLayer.mockReturnValue(false);
       const save = vi.fn(() => saveState(manager.ui));
+      const store = makeStore(
+        {
+          measure1: { visible: false, opacity: 0.35 },
+          overlay1: { visible: false, opacity: 0.4 },
+        },
+        { measure1: ["visible", "opacity"], overlay1: ["visible", "opacity"] },
+      );
+      manager.intentStore = store;
       manager.ui = {
         c: manager,
         listPanel: {} as never,
-        intentStore: makeStore(
-          {
-            measure1: { visible: false, opacity: 0.35 },
-            overlay1: { visible: false, opacity: 0.4 },
-          },
-          { measure1: ["visible", "opacity"], overlay1: ["visible", "opacity"] },
-        ),
+        intentStore: store,
         dropPersistedLayerState: (id: string) =>
           dropPersistedLayerState(manager.ui, id),
         saveState: save,

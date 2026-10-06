@@ -36,7 +36,6 @@ export {
 export { isContainerNode, someLeaf, walkLeaf, walkTree, findLeaf } from "./walkLeaf.js";
 export { ensureLayerAPI, requireLayerAPI } from "./api.js";
 export { CLUSTER_CAPABILITIES, deriveLayerKind } from "./util.js";
-export { LayerIntentStore } from "./LayerIntentStore.js";
 export { LayerRuntimeStore } from "./LayerRuntimeStore.js";
 export { LayerOrder } from "./LayerOrder.js";
 export type { OrderPersistence } from "./LayerOrder.js";
@@ -68,6 +67,7 @@ export type {
   LayerKind,
   PaneHandle,
   PaneRole,
+  PaneSpec,
   RegisterLayerOpts,
   ZArgs,
 } from "./type.js";

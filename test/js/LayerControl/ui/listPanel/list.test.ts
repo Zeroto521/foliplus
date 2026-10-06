@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { GROUP, type LayerInfo, LayerIntentStore } from "#core/layer/index.js";
+import { GROUP, type LayerInfo } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
+import { LayerIntentStore } from "#foliplus/LayerControl/domain/index.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import {
   applyVisibility,
