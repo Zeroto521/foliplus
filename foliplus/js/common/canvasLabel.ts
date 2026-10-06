@@ -6,19 +6,7 @@
 // same font, same fill, same halo — an annotation label and a hex value over
 // the same feature read as one language.
 import { cssVar } from "./cssvar.js";
-
-/** Everything drawing a canvas label needs, resolved from the tokens. */
-interface CanvasLabelStyle {
-  fontFamily: string;
-  fontSize: number;
-  fontWeight: string;
-  /** Ready for `ctx.font`. Derived from the three fields above so a caller that
-   *  measures text for layout uses the very same numbers this draw will. */
-  font: string;
-  color: string;
-  haloColor: string;
-  haloWidth: number;
-}
+import type { CanvasLabelStyle } from "./type.js";
 
 /** Resolve the canvas label style from the --foliplus-label-* tokens on `root` — the one
  *  place a page restyles map-label typography, for the heatmap's hex values and
@@ -81,10 +69,4 @@ const drawCanvasLabel = (
   ctx.fillText(text, x, y);
 };
 
-export {
-  drawCanvasLabel,
-  prepareCanvasLabel,
-  resolveCanvasLabelStyle,
-  withLabelPaint,
-  type CanvasLabelStyle,
-};
+export { drawCanvasLabel, prepareCanvasLabel, resolveCanvasLabelStyle, withLabelPaint };

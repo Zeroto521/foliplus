@@ -1,6 +1,5 @@
 // MeasureControl core manager — persistence, mode switching, layer management.
 import { COMPONENTS, generateId } from "#core/component.js";
-import type { ControlEnv } from "#core/defineControl.js";
 import {
   EVENTS,
   type EventBus,
@@ -14,8 +13,9 @@ import { hideDelIcons } from "#core/leaflet/index.js";
 import { bindMapEvents, unbindMapEvents } from "#core/leaflet/index.js";
 import { adjustPanelZIndex } from "#core/leaflet/index.js";
 import { type ModeManager, ensureModes, guardBlocked } from "#core/mode.js";
-import type { Logger } from "#common/log.js";
+import type { ControlEnv } from "#core/type.js";
 import { throttleRaf } from "#common/throttle.js";
+import type { Logger } from "#common/type.js";
 import { mapProjector, placeLabels } from "./collision.js";
 import * as CONST from "./const.js";
 import * as Export from "./export.js";

@@ -4,12 +4,12 @@
 import type { NumberStyle } from "#foliplus/config-schema.js";
 import { drawAlpha, getLayerAlpha, withCanvasLayerAlpha } from "#common/canvasAlpha.js";
 import {
-  type CanvasLabelStyle,
   drawCanvasLabel,
   prepareCanvasLabel,
   resolveCanvasLabelStyle,
 } from "#common/canvasLabel.js";
 import { formatLabelNumber } from "#common/format.js";
+import type { CanvasLabelStyle } from "#common/type.js";
 import * as CONST from "./const.js";
 import type { HexFeature } from "./type.js";
 

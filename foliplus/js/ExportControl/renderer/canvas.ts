@@ -2,8 +2,9 @@
 // the canvases living inside a pane.
 // Moved from renderer.ts — renderCanvasElement, renderPaneCanvas.
 import * as CONST from "../const.js";
+import type { RenderCtx } from "../type.js";
 import { isExportExcluded, isVisible, loadImage } from "../util.js";
-import { type RenderCtx, effectiveOpacity, withAlpha } from "./util.js";
+import { effectiveOpacity, withAlpha } from "./util.js";
 
 /** Render a standalone canvas element (e.g. HeatmapControl). */
 const renderCanvasElement = async (
