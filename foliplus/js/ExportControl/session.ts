@@ -4,6 +4,7 @@
 import { COMPONENTS } from "#core/component.js";
 import { EVENTS } from "#core/event/index.js";
 import { boundsToRect } from "#core/geo/index.js";
+import type { GeoBounds } from "#core/geo/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { guardBlocked } from "#core/mode.js";
 import { dom } from "#common/dom.js";
@@ -14,7 +15,7 @@ import { nextFrame } from "#common/throttle.js";
 import * as CONST from "./const.js";
 import type { ExportManager } from "./manager.js";
 import { ExportRenderer, isCorsBlocked } from "./renderer/index.js";
-import type { CropRect, GeoBounds } from "./type.js";
+import type { CropRect } from "./type.js";
 import { resolveExportBackground } from "./util.js";
 
 // CONFIG is a free variable from the IIFE template wrapper (see BaseControl._template).
