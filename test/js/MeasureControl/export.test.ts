@@ -718,4 +718,31 @@ describe("Export.toWKT — unknown type", () => {
       spy.mockRestore();
     }
   });
+
+  it("id column is empty when data.id is undefined", () => {
+    const csv = Export.toCSV(env, [{ type: CONST.MEASURE_MODE.MARKER } as MeasureData]);
+    const row = csv.split("\n")[1].split(",");
+    expect(row[0]).toBe("");
+  });
+
+  it("address column is empty when data.address is undefined", () => {
+    const csv = Export.toCSV(env, [{ id: "x", type: CONST.MEASURE_MODE.MARKER } as MeasureData]);
+    const row = csv.split("\n")[1].split(",");
+    expect(row[7]).toBe("");
+  });
+
+  it("wkt column is empty when geometry is null", () => {
+    const spy = vi.spyOn(MarkerMode, "toGeoFeature").mockReturnValue({
+      type: "Feature",
+      geometry: null,
+      properties: {},
+    } as GeoJSON.Feature);
+    try {
+      const csv = Export.toCSV(env, [{ id: "x", type: CONST.MEASURE_MODE.MARKER } as MeasureData]);
+      const row = csv.split("\n")[1].split(",");
+      expect(row[8]).toBe("");
+    } finally {
+      spy.mockRestore();
+    }
+  });
 });

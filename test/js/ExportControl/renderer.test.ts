@@ -1285,4 +1285,25 @@ describe("renderRemaining — inline SVG fallbacks", () => {
     expect(sources[0]).toContain('height="24"');
     expect(sources[0]).not.toContain("color=");
   });
+
+  it("skips img path when img element has no src", async () => {
+    // An img element with no src attribute is falsy on the `?.src` check —
+    // the renderer must not attempt to load a missing image.
+    const ctx = makeMockCtx();
+    const renderer = makeRenderer();
+    const container = renderer.container;
+    pinBox(container, 0, 0, 200, 200);
+
+    const wrapper = document.createElement("div");
+    pinBox(wrapper, 0, 0, 24, 24);
+    const img = document.createElement("img");
+    wrapper.appendChild(img);
+
+    vi.spyOn(UTIL, "loadImage").mockResolvedValue({} as any);
+    const sources = captureSources();
+
+    await renderer.renderRemaining(makeRC(200, 200, ctx), [wrapper]);
+
+    expect(sources).toHaveLength(0);
+  });
 });

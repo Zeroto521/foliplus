@@ -191,6 +191,21 @@ describe("buildPopupEl", () => {
     expect(el.querySelector("svg")).not.toBeNull();
   });
 
+  it("shows the actual address when addr is non-empty", () => {
+    const el = buildPopupEl(
+      120,
+      30,
+      "1 Main St, City",
+      "Location",
+      "Loading...",
+      "Lng,Lat:",
+      "Address:",
+    );
+    expect(el.textContent).toContain("1 Main St, City");
+    expect(el.textContent).not.toContain("Loading...");
+    expect(el.querySelector("svg")).toBeNull();
+  });
+
   it("renders a poisoned address as text, never as markup", () => {
     // `addr` is a Nominatim reverse-geocode result — the one sink in the
     // codebase fed by a third-party API the page does not control.

@@ -242,6 +242,16 @@ describe("HintManager", () => {
     expect(() => mgr.hideHint("ghost")).not.toThrow();
     expect(mgr.hintMap.has("ghost")).toBe(false);
   });
+
+  it("zIndexBase lazy-initialises on first call and reuses on subsequent calls", () => {
+    // The `hintZIndex ??=` lazy-init reads the CSS token once; the second call
+    // must skip the assignment. Two showHint calls in sequence exercise both
+    // branches of the `??=`.
+    const mgr = new HintManager();
+    mgr.showHint("a", "first");
+    mgr.showHint("b", "second");
+    expect(document.querySelectorAll(".foliplus-hint").length).toBe(2);
+  });
 });
 
 describe("ensureHint", () => {
