@@ -6,9 +6,9 @@ import {
   type LayerInfo,
   LayerRuntimeStore,
 } from "#core/layer/index.js";
-import type { LayerIntentStore } from "#foliplus/LayerControl/domain/LayerIntentStore.js";
 import * as CONST from "../const.js";
 import type { LayerController } from "../controller.js";
+import type { LayerIntentStore } from "../domain/LayerIntentStore.js";
 import { applyProjection, applyProjectionAll } from "./apply.js";
 import { hideSolidBasemap, resetSolidBasemap, showSolidBasemap } from "./color.js";
 import { cancelFocus, focusLayer, isFocusing } from "./focus.js";
