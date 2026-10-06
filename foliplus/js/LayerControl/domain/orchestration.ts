@@ -15,12 +15,12 @@ import {
   KIND,
   type LayerFactory,
   type LayerInfo,
-  LayerInfoRegistry,
+  type LayerInfoRegistry,
   type LayerKind,
   type LayerOrder,
   LayerSurface,
   PANE_ROLE,
-  PaneManager,
+  type PaneManager,
   type PaneSpec,
   type RegisterLayerOpts,
   findLayer as findLayerUtil,
@@ -31,7 +31,7 @@ import { attributionEntries, refreshAttributions } from "#core/leafletAdapter.js
 import type { AnnotationManager } from "../annotation/index.js";
 import * as CONST from "../const.js";
 import type { LayerPersistence } from "../persistence.js";
-import { LayerIntentStore } from "./LayerIntentStore.js";
+import type { LayerIntentStore } from "./LayerIntentStore.js";
 
 /** The pane specs a surface is declared with: the registry entry's own, plus
  *  the label (annotation) pane when the layer's features expose a labelable

@@ -34,8 +34,7 @@ const resultItemValue = (item: Element): string =>
  */
 const ensureListCursor = (ctrl: InteractionCtrl): ListCursor | null => {
   if (!ctrl.panelWrap) return null;
-  if (!ctrl.listCursor) {
-    ctrl.listCursor = new ListCursor({
+  ctrl.listCursor ??= new ListCursor({
       root: ctrl.panelWrap,
       itemSelector: `.${CLASSES.RESULT_ITEM}`,
       activeClass: CLASSES.ACTIVE,
@@ -46,7 +45,6 @@ const ensureListCursor = (ctrl: InteractionCtrl): ListCursor | null => {
         if (el) ctrl.inp.value = resultItemValue(el);
       },
     });
-  }
   return ctrl.listCursor;
 };
 

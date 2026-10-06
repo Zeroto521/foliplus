@@ -29,7 +29,7 @@ const renderPaneSVG = async (
   for (const svgEl of pane.querySelectorAll("svg")) {
     const svgG = svgEl.querySelector("g");
     const hasContent =
-      (svgG && svgG.children.length > 0) || // eslint-disable-line @typescript-eslint/prefer-nullish-coalescing -- left side can be false (not just nullish)
+      (svgG && svgG.children.length > 0) || // eslint-disable-line @typescript-eslint/prefer-nullish-coalescing -- left side can be false
       svgEl.querySelector("path, polygon, polyline, circle, rect, ellipse, line, text");
     if (!hasContent) continue;
 

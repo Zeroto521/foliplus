@@ -659,7 +659,7 @@ const detectCapabilities = (opts: SurfaceFaceOpts): LayerCapabilities => {
   // something this detector invents.
   const hasContentPanes =
     Boolean(opts.paneName) ||
-    (opts.paneSpecs && opts.paneSpecs.length > 0) ||
+    (opts.paneSpecs && opts.paneSpecs.length > 0) || // eslint-disable-line @typescript-eslint/prefer-nullish-coalescing -- left side can be false
     opts.canvas;
 
   // Visibility carrier: "native" for any surface backed by a real L.Layer

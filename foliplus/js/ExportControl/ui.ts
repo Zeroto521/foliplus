@@ -28,7 +28,7 @@ const renderToolbarActions = (
   mgr: ExportManager,
   { confirm, cancel }: { confirm: ToolbarButton; cancel: ToolbarButton },
 ) => {
-  const actions = mgr.cropState?.actions || mgr.exportToolBar;
+  const actions = mgr.cropState?.actions ?? mgr.exportToolBar;
   if (!actions) return;
   actions.innerHTML = "";
   createIconButton({

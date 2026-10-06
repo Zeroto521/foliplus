@@ -120,7 +120,7 @@ const parseSVG = (html: string): string => {
 
   const doc = new DOMParser().parseFromString(html, "image/svg+xml");
   const svg = doc.documentElement;
-  if (!svg || svg.nodeName !== "svg") return "";
+  if (!svg?.nodeName || svg.nodeName !== "svg") return "";
   // A well-formed SVG document has exactly one root. Extra roots make the
   // parser error out (jsdom yields a `parsererror` element, which the
   // namespace check above rejects) — report that as "no icon" rather than

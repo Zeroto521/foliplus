@@ -91,7 +91,7 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   // bit) — the menu and the panel ask one function, so the entry can never
   // enable a panel whose Label section would not render (or vice versa).
   const canConfigure =
-    (caps && (caps.opacity !== CAP_TIER.NONE || caps.zoomRange !== CAP_TIER.NONE)) ||
+    (caps && (caps.opacity !== CAP_TIER.NONE || caps.zoomRange !== CAP_TIER.NONE)) || // eslint-disable-line @typescript-eslint/prefer-nullish-coalescing -- left side can be false
     layerCanLabel(ui, layerId) ||
     layerHasStyleDelegation(ui, layerId);
   const styleDisabled = focusReason === "hidden" || !canConfigure;

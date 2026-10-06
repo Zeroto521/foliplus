@@ -40,7 +40,7 @@ const attachDistanceUI = (mgr: MeasureManager, opts: AttachOpts): void => {
   let unregisterSegLabels = bindSegmentLabels(mgr, segLabels, totalPriority);
   // Mutable slot, overwritten by registerEditDragToggle() below — the empty
   // default keeps disposal safe before that wiring runs.
-  // eslint-disable-next-line @typescript-eslint/no-empty-function -- mutable slot default
+   
   let unregisterDragToggle: () => void = () => {};
 
   const relabel = () => {

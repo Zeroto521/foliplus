@@ -30,7 +30,7 @@ const ensureLayerAPI = (map: L.Map, force = false): LayerAPI => {
   if (!force && current) return current;
   // force (LayerController.destroy) downgrades a live full LayerAPI to the stub;
   // an existing stub is already the target state, so keep it — idempotent.
-  if (force && current && current.isLayerControl === false) return current;
+  if (force && current?.isLayerControl === false) return current;
 
   // Lightweight LayerAPI — no LayerControl, no registry, no panel.
   // createLayers/createCanvas are fully functional; query methods are no-ops.
@@ -43,10 +43,10 @@ const ensureLayerAPI = (map: L.Map, force = false): LayerAPI => {
       return null;
     },
     unregisterLayer: () => true,
-    /* eslint-disable @typescript-eslint/no-empty-function -- lightweight API: no registry to reorder or invalidate */
+     
     bringLayerToFront: () => {},
     invalidateType: () => {}, // no registry in the lightweight API
-    /* eslint-enable @typescript-eslint/no-empty-function */
+     
   });
 
   map.foliplus!.LayerAPI = {
@@ -57,7 +57,7 @@ const ensureLayerAPI = (map: L.Map, force = false): LayerAPI => {
     deleteLayer: () => false,
     forgetSavedOrder: () => false,
     dropPersistedLayerState: () => false,
-    // eslint-disable-next-line @typescript-eslint/no-empty-function -- lightweight API: no registry to reorder
+     
     bringLayerToFront: () => {},
     setVisible: () => false,
     touchLayer: () => false,
@@ -87,7 +87,7 @@ const isRealLayerControl = (api: LayerAPI | undefined): boolean => {
   // while the lightweight stub sets it as a plain data property (own).
   // Check both the instance and the prototype chain for the getter.
   const own =
-    Object.getOwnPropertyDescriptor(api, "layers") ||
+    Object.getOwnPropertyDescriptor(api, "layers") ??
     Object.getOwnPropertyDescriptor(Object.getPrototypeOf(api), "layers");
   return Boolean(own?.get);
 };

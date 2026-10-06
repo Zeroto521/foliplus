@@ -173,7 +173,7 @@ class DistanceMode extends PreviewMode {
       });
       // The drawing-phase cleanup (set in start()) would remove the finalized
       // polyline/nodes, so replace it with a no-op.
-      // eslint-disable-next-line @typescript-eslint/no-empty-function -- neutralizes the drawing-phase cleanup
+       
       this._cleanup = () => {};
 
       // Cleanup drawing mode
@@ -305,12 +305,12 @@ class DistanceMode extends PreviewMode {
         id: data.id,
         type: this.TYPE,
         name: this.getNameLabel(env),
-        totalDistance: data.totalDistance || 0,
-        segments: data.segments || [],
+        totalDistance: data.totalDistance ?? 0,
+        segments: data.segments ?? [],
       },
       geometry: {
         type: CONST.GEOJSON.LINE_STRING,
-        coordinates: data.points?.map(p => [p.lng, p.lat]) || [],
+        coordinates: data.points?.map(p => [p.lng, p.lat]) ?? [],
       },
     };
   }

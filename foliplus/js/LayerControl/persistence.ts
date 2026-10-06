@@ -316,8 +316,7 @@ class LayerPersistence {
    */
   schedule(fields: LiveState): void {
     Object.assign(this.fields, fields);
-    if (!this.timer) {
-      this.timer = debounce(() => {
+    this.timer ??= debounce(() => {
         const record = parseRecord(
           Storage.loadRecord<unknown>(CONST.STORAGE.KEY, this.persistName),
         );
@@ -327,7 +326,6 @@ class LayerPersistence {
           this.persistName,
         );
       }, CONST.SAVE_DEBOUNCE_MS);
-    }
     this.timer();
   }
 

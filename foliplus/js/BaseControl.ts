@@ -146,7 +146,9 @@ class BaseControl extends L.Control {
   }
 
   /** Override to release resources on removal. Called before auto-unbind. */
-  destroy(): void {}
+  destroy(): void {
+    void 0;
+  }
 
   /**
    * The abort signal for the current mounting. Components register DOM

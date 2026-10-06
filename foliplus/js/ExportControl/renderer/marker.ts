@@ -230,7 +230,7 @@ const renderTextLabels = async (
   const { ctx, rect, scale, contRect, cw, ch } = rc;
 
   for (const root of markerRoots) {
-    const textEl = (root.querySelector(CONST.SEL.LABEL) || root) as HTMLElement;
+    const textEl = (root.querySelector(CONST.SEL.LABEL) ?? root) as HTMLElement;
     const text = textEl.textContent ?? "";
     if (!text.trim()) continue;
     if (root.querySelector("i")) continue;
@@ -340,7 +340,7 @@ const renderRemaining = async (
     // 1. <img> elements (default Leaflet markers)
     const imgEl =
       root.tagName === "IMG" ? (root as HTMLImageElement) : root.querySelector("img");
-    if (imgEl && imgEl.src) {
+    if (imgEl?.src) {
       let img: HTMLImageElement | null = null;
       let drawn = false;
       try {

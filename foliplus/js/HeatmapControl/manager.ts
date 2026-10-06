@@ -662,7 +662,7 @@ class HeatmapManager {
   getSelectedPoints(): SelectedPoint[] {
     this.valueFallbackWarned = false;
     const key = `${this.selectedLayerId}|${this.currentAgg}|${this.currentField}`;
-    if (this.cachedPoints && this.cachedPoints.key === key) {
+    if (this.cachedPoints?.key === key) {
       return this.cachedPoints.pts;
     }
 
@@ -706,7 +706,7 @@ class HeatmapManager {
     const res = this.getH3Res(zoom);
     const aggKey = `${this.selectedLayerId}|${this.currentAgg}|${this.currentField}|${res}|${this.currentMethod}|${this.currentScheme}|${this.numClasses}`;
     let aggregated: AggregatedData | undefined;
-    if (this.cachedAgg && this.cachedAgg.key === aggKey) {
+    if (this.cachedAgg?.key === aggKey) {
       aggregated = this.cachedAgg.data;
     } else {
       aggregated = this.aggregateData(pts, res) ?? undefined;

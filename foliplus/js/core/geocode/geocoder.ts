@@ -45,8 +45,8 @@ const throttled = <T>(provider: GeocodeProvider, fn: () => Promise<T>): Promise<
 
 const localeFallback = (code: string, key: string, fallback: string) => {
   const foliplus = window.foliplus || {};
-  const common = (foliplus && foliplus._TABLES && foliplus._TABLES[code]) || {};
-  return common[key] || fallback;
+  const common = (foliplus?._TABLES?.[code] ?? {}) as Record<string, string>;
+  return common[key] ?? fallback;
 };
 
 const requestJson = (provider: GeocodeProvider, url: string): Promise<unknown> =>

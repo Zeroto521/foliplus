@@ -157,7 +157,7 @@ const insertLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
     // a group has something to anchor on at all.
     const above = idx > 0 ? ui.c.layers[idx - 1] : null;
     const anchor =
-      above && above.group === layerInfo.group
+      above?.group === layerInfo.group
         ? container.querySelector(`[${CONST.DATA.LAYER_ID}="${CSS.escape(above.id)}"]`)
         : null;
     if (anchor) anchor.after(frag);

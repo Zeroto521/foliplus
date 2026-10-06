@@ -17,16 +17,13 @@ const HINT_Z_INDEX_DEFAULT = 10000;
 /** Hint z-index base, read once from the --foliplus-z-index-hint token (fallback 10000). */
 let hintZIndex: number | null = null;
 const zIndexBase = (): number => {
-  if (hintZIndex === null) {
-    hintZIndex =
-      Number(
-        cssVar(
-          document.documentElement,
-          "--foliplus-z-index-hint",
-          String(HINT_Z_INDEX_DEFAULT),
-        ),
-      ) || HINT_Z_INDEX_DEFAULT; // eslint-disable-line @typescript-eslint/prefer-nullish-coalescing -- CSS var "0" is falsy and should fall through to default
-  }
+  hintZIndex ??= Number(
+      cssVar(
+        document.documentElement,
+        "--foliplus-z-index-hint",
+        String(HINT_Z_INDEX_DEFAULT),
+      ),
+    ) || HINT_Z_INDEX_DEFAULT;
   return hintZIndex;
 };
 
@@ -88,7 +85,7 @@ class HintManager {
 
   private migrateHints() {
     const target: HTMLElement =
-      (document.fullscreenElement as HTMLElement | null) || document.body;
+      (document.fullscreenElement as HTMLElement | null) ?? document.body;
     if (target === document.documentElement) return;
     let moved = false;
     for (const entry of this.hintMap.values()) {
@@ -117,7 +114,7 @@ class HintManager {
     else if (!append) this.hideHint(key);
 
     const hintTarget: HTMLElement =
-      (document.fullscreenElement as HTMLElement | null) || document.body;
+      (document.fullscreenElement as HTMLElement | null) ?? document.body;
 
     const cls = subkey
       ? `${CLASS} ${CLASS}-${key}-${subkey}`
@@ -134,7 +131,7 @@ class HintManager {
     // unrecognised key.
     const icon = withLoadingIcon
       ? LOADING_ICON
-      : (this.hintIcons && this.hintIcons[key]) || "";
+      : (this.hintIcons?.[key] ?? "");
     const el = dom.el(
       "div",
       { class: `${cls} ${CLASS}`, parent: hintTarget },
@@ -220,10 +217,10 @@ const destroyManager = (map: L.Map, mgr: HintManager): void => {
   mgr.destroy();
   instances.delete(map);
   map.foliplus!.showHint = () => log.warn("showHint called after the map unloaded");
-  /* eslint-disable @typescript-eslint/no-empty-function -- post-unload: hide/register are harmless, showHint warns */
+   
   map.foliplus!.hideHint = () => {};
   map.foliplus!.registerHintIcon = () => {};
-  /* eslint-enable @typescript-eslint/no-empty-function */
+   
 };
 
 /** Ensure `map.foliplus` has a per-map HintManager.  Idempotent. */

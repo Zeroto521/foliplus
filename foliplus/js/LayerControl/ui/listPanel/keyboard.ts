@@ -17,14 +17,12 @@ const syncListCursor = (ui: LayerUI): void => {
   // initTypesAndVisibility is on a timer and can fire after the panel is
   // torn down (unit tests, control remove) — do not touch a detached root.
   if (!ui.uiContainer?.isConnected) return;
-  if (!ui.listPanel.listCursor) {
-    ui.listPanel.listCursor = new ListCursor({
+  ui.listPanel.listCursor ??= new ListCursor({
       root: ui.uiContainer,
       itemSelector: `${CONST.SEL.LAYER_ITEM},${CONST.SEL.TOGGLE_ALL}`,
       activeClass: CONST.CLASSES.FOCUSED,
       mode: "roving",
     });
-  }
   ui.listPanel.listCursor.refresh();
   ui.listPanel.listCursor.setIndex(ui.listPanel.activeIdx ?? -1);
 };

@@ -285,7 +285,7 @@ class MarkerMode extends MeasureMode {
       },
       geometry: {
         type: CONST.GEOJSON.POINT,
-        coordinates: [data.lng || 0, data.lat || 0],
+        coordinates: [data.lng ?? 0, data.lat ?? 0],
       },
     };
   }

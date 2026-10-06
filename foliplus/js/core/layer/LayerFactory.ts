@@ -199,8 +199,8 @@ class LayerFactory {
 
     const commonLayerOpts = {
       id: opts.id,
-      name: opts.name || opts.id,
-      iconSvg: opts.iconSvg || null,
+      name: opts.name || opts.id, // eslint-disable-line @typescript-eslint/prefer-nullish-coalescing -- empty name should fall back to id
+      iconSvg: opts.iconSvg ?? null,
       featureCountProvider: opts.featureCountProvider ?? null,
       styleProvider: opts.styleProvider ?? null,
       styleSetters: opts.styleSetters ?? null,
@@ -214,11 +214,11 @@ class LayerFactory {
     let layerOpts: RegisterLayerOpts;
     let registerIdempotent = false;
     // Hook slots, overwritten per surface kind (layers vs canvas) below.
-    /* eslint-disable @typescript-eslint/no-empty-function -- hook slots, overwritten per surface kind */
+     
     let preRegister: () => void = () => {};
     let postRegister: () => void = () => {};
     let preUnregister: () => void = () => {};
-    /* eslint-enable @typescript-eslint/no-empty-function */
+     
     let shouldUnregister: () => boolean = () => true;
     let content: SurfaceContentHandle;
 
