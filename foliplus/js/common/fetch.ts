@@ -50,7 +50,7 @@ const fetchWithTimeout = (
 ): Promise<Response> => {
   const headersInit: HeadersInit = {
     ...HTTP_CACHE_HEADERS,
-    ...(opts.headers || {}),
+    ...(opts.headers ?? {}),
   };
 
   /* eslint-disable @typescript-eslint/no-empty-function -- no timeout configured: nothing to dispose */
