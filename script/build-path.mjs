@@ -76,11 +76,45 @@ const testPathAliases = root => ({
 });
 
 /**
- * Shared-import specifier prefixes — the `#…` namespaces the import scanner
- * and the global-namespace plugin accept. Single spelling for the regex
- * consumers that used to hard-code `(?:core|common|foliplus)`.
+ * Shared-module prefixes — the `#…` namespaces where ANY import routes to
+ * the shared global namespace (`window.foliplus.common` / `window.foliplus.core`).
+ *
+ * Deliberately narrower than `SHARED_ALIASES`: `#foliplus` is an alias but
+ * NOT a shared prefix. Only `#foliplus/BaseControl.js` is shared (see
+ * `SHARED_MODULE_EXACTS`); every other `#foliplus/*` — a component's own
+ * `const.js`, `icon.js`, or `config-schema.js` — resolves through esbuild's
+ * alias table and bundles into the component.
  */
-const SHARED_SPEC_PREFIXES = SHARED_ALIASES.map(spec => spec.slice(1));
+const SHARED_MODULE_PREFIXES = ["common", "core"];
+
+/**
+ * Exact `#…` specs that are shared but don't fall under a shared prefix.
+ * `#foliplus/BaseControl.js` is the only entry today; the shared runtime
+ * publishes it on `window.foliplus.BaseControl`. Adding new entries is a
+ * two-line change here — no scanner or plugin update needed, because both
+ * read through `SHARED_SPEC_REGEX_SOURCE`.
+ */
+const SHARED_MODULE_EXACTS = ["#foliplus/BaseControl.js"];
+
+/**
+ * Regex source for a shared-module specifier, with the `#` prefix. Not
+ * anchored at either end so consumers wrap it as needed:
+ *   - scanner (script/build/import-scan.mjs): capture inside `["']…["']`
+ *   - plugin (script/build/global-namespace-plugin.mjs): wrap as `^…$`
+ *     for the `onResolve` filter
+ *
+ * Matches:
+ *   - `#common/…` and `#core/…` (prefix branch consumes the path)
+ *   - `#foliplus/BaseControl.js` (exact branch, no path)
+ *
+ * Rejects:
+ *   - `#foliplus/<anything-else>` — bundled into the component, not shared
+ *   - `#script/…` — vitest-only, never shared
+ */
+const SHARED_SPEC_REGEX_SOURCE =
+  `#(?:${SHARED_MODULE_PREFIXES.join("|")})/[^"']+` +
+  `|` +
+  SHARED_MODULE_EXACTS.map(spec => spec.replace(/\./g, "\\.")).join("|");
 
 /**
  * package.json `imports` entries for the shared aliases, derived from the
@@ -93,7 +127,9 @@ const PACKAGE_IMPORTS = Object.fromEntries(
 
 export {
   PACKAGE_IMPORTS,
-  SHARED_SPEC_PREFIXES,
+  SHARED_MODULE_EXACTS,
+  SHARED_MODULE_PREFIXES,
+  SHARED_SPEC_REGEX_SOURCE,
   pathAliases,
   repoRoot,
   resolveJsRoot,
