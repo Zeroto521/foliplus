@@ -465,6 +465,38 @@ describe("scanSharedImports", () => {
     }
   });
 
+  it("scans #foliplus/BaseControl.js but not component self-imports", () => {
+    // Regression for T313: only #foliplus/BaseControl.js is shared; a
+    // component's own #foliplus/<Component>/… imports bundle normally via
+    // esbuild's alias. The scanner must not record them, so the registry
+    // generator and the plugin don't try to shim them.
+    const fs = require("fs");
+    const path = require("path");
+    const os = require("os");
+    const base = path.join(os.tmpdir(), "dsh-test-si-fol-" + Date.now());
+    fs.mkdirSync(base, { recursive: true });
+    fs.writeFileSync(
+      path.join(base, "comp.ts"),
+      [
+        'import { BaseControl } from "#foliplus/BaseControl.js";',
+        'import { CONST } from "#foliplus/LayerControl/const.js";',
+        'import { Z_INDEX } from "#foliplus/LayerControl/ui/style/zoomRange.js";',
+        'import { ConfigSchema } from "#foliplus/config-schema.js";',
+      ].join("\n"),
+      "utf-8",
+    );
+    try {
+      const { used } = scanSharedImports(base);
+      expect(used.has("#foliplus/BaseControl.js")).toBe(true);
+      expect(used.get("#foliplus/BaseControl.js")).toEqual(new Set(["BaseControl"]));
+      expect(used.has("#foliplus/LayerControl/const.js")).toBe(false);
+      expect(used.has("#foliplus/LayerControl/ui/style/zoomRange.js")).toBe(false);
+      expect(used.has("#foliplus/config-schema.js")).toBe(false);
+    } finally {
+      fs.rmSync(base, { recursive: true, force: true });
+    }
+  });
+
   it("tracks star import property usage", () => {
     const fs = require("fs");
     const path = require("path");
@@ -524,9 +556,11 @@ describe("globalNamespacePlugin", () => {
     const handlers: {
       onResolve: (opts: { path: string }) => { path: string; namespace: string };
       onLoad: (opts: { path: string }) => { contents: string; loader: string };
+      onResolveOpts: { filter: RegExp } | undefined;
     } = {
       onResolve: () => ({ path: "", namespace: "" }),
       onLoad: () => ({ contents: "", loader: "js" }),
+      onResolveOpts: undefined,
     };
     const build: {
       initialOptions: { entryPoints?: unknown };
@@ -539,10 +573,11 @@ describe("globalNamespacePlugin", () => {
     globalNamespacePlugin(dir).setup({
       ...build,
       onResolve: (
-        _opts: unknown,
+        opts: { filter: RegExp },
         cb: (o: { path: string }) => { path: string; namespace: string },
       ) => {
         handlers.onResolve = cb;
+        handlers.onResolveOpts = opts;
       },
       onLoad: (
         _opts: unknown,
@@ -560,6 +595,26 @@ describe("globalNamespacePlugin", () => {
       path: "#core/layer.js",
       namespace: "foliplus-shared",
     });
+  });
+
+  it("onResolve filter matches the shared set and rejects non-shared #foliplus/*", () => {
+    // Regression for T313: the old filter `^#(common|core|foliplus)/`
+    // externalized component self-imports (#foliplus/LayerControl/const.js,
+    // #foliplus/config-schema.js) as empty shims, which then resolved to
+    // `undefined` at runtime. The new filter is anchored and only accepts
+    // #common/*, #core/*, and the exact #foliplus/BaseControl.js.
+    const { onResolveOpts } = setupPlugin([join(dir, "index.ts")]);
+    const filter = onResolveOpts!.filter;
+    expect(filter.test("#core/layer.js")).toBe(true);
+    expect(filter.test("#common/dom.js")).toBe(true);
+    expect(filter.test("#core/layer/LayerFactory.js")).toBe(true);
+    expect(filter.test("#foliplus/BaseControl.js")).toBe(true);
+    expect(filter.test("#foliplus/LayerControl/const.js")).toBe(false);
+    expect(filter.test("#foliplus/LayerControl/ui/index.js")).toBe(false);
+    expect(filter.test("#foliplus/config-schema.js")).toBe(false);
+    expect(filter.test("#foliplus/BaseControl.js")).toBe(true);
+    expect(filter.test("#script/build.mjs")).toBe(false);
+    expect(filter.test("#core")).toBe(false);
   });
 
   it("handles a string entryPoints and a missing initialOptions", () => {
