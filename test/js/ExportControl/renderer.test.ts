@@ -1166,7 +1166,7 @@ describe("tile fallbacks", () => {
   it("calcTiles returns empty URLs when a tile layer carries no _url", async () => {
     // MockTileLayer always sets _url, but a registry entry may hold a layer
     // whose URL was never populated (late-binding basemap, canvas-only entry
-    // re-used as a tile, etc). The renderer must not choke and must produce
+    // reused as a tile, etc). The renderer must not choke and must produce
     // the empty-string URL the tile build documents as its fallback.
     const layer = {
       options: { tileSize: 256, subdomains: "abc" },
