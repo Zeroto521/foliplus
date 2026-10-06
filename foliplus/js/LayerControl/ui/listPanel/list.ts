@@ -5,8 +5,7 @@ import * as CONST from "../../const.js";
 import * as SVGs from "../../icon.js";
 import { getColorSurface } from "../color.js";
 import type { LayerUI } from "../index.js";
-import { cursorRef, restoreCursor } from "./keyboard.js";
-import { syncListCursor } from "./keyboard.js";
+import { cursorRef, restoreCursor, syncListCursor } from "./keyboard.js";
 import {
   applyRowView,
   buildRowCell,

@@ -9,9 +9,12 @@ import {
 import { requireFoliplus } from "#core/guard.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { isLayerInPanes } from "#core/layer/index.js";
-import { hideDelIcons } from "#core/leaflet/index.js";
-import { bindMapEvents, unbindMapEvents } from "#core/leaflet/index.js";
-import { adjustPanelZIndex } from "#core/leaflet/index.js";
+import {
+  adjustPanelZIndex,
+  bindMapEvents,
+  hideDelIcons,
+  unbindMapEvents,
+} from "#core/leaflet/index.js";
 import { type ModeManager, ensureModes, guardBlocked } from "#core/mode.js";
 import type { ControlEnv } from "#core/type.js";
 import { throttleRaf } from "#common/throttle.js";

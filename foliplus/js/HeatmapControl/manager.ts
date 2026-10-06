@@ -10,13 +10,11 @@ import { NO_FEATURE_TREE_KINDS } from "#core/layer/index.js";
 import { bindMapSync } from "#core/leaflet/index.js";
 import type { NumberStyle } from "#foliplus/config-schema.js";
 import { getLayerAlpha, setLayerAlpha } from "#common/canvasAlpha.js";
-import { debounce } from "#common/debounce.js";
-import type { Debounced } from "#common/debounce.js";
+import { type Debounced, debounce } from "#common/debounce.js";
 import { BORDER_WEIGHT, clampLabelSize, normalizeHexColor } from "#common/form.js";
 import { NUMBER_FORMAT } from "#common/format.js";
 import { createLogger } from "#common/log.js";
-import { type Persisted, makePersisted } from "#common/storage.js";
-import * as Storage from "#common/storage.js";
+import { type Persisted, makePersisted, saveRecord } from "#common/storage.js";
 import type { CanvasLabelStyle, Logger } from "#common/type.js";
 import * as CONST from "./const.js";
 import {
@@ -198,7 +196,7 @@ class HeatmapManager {
     // so there is nothing to coalesce. Flush on teardown stays idempotent.
     this.persist = makePersisted({
       save: () =>
-        Storage.saveRecord(
+        saveRecord(
           CONST.STORAGE.KEY,
           {
             version: CONST.RECORD_VERSION,

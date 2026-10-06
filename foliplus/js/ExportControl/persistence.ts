@@ -1,8 +1,7 @@
 // ExportControl bounds persistence + map lock — storage restore/save and pan/zoom freeze.
 // Function expressions are installed on ExportManager.prototype so `this` is
 // the manager and instance spies stay interceptable.
-import { COORD_BOUNDS, boundsToRect } from "#core/geo/index.js";
-import type { GeoBounds } from "#core/geo/index.js";
+import { COORD_BOUNDS, type GeoBounds, boundsToRect } from "#core/geo/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { createScopedTranslator } from "#common/locale.js";
 import * as Storage from "#common/storage.js";

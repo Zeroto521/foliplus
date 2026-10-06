@@ -11,8 +11,7 @@ import {
   zFor,
 } from "#core/layer/index.js";
 import { ensureModes, guardBlocked } from "#core/mode.js";
-import type { RectCorners } from "#common/marqueeShape.js";
-import { roundedRectOutline } from "#common/marqueeShape.js";
+import { type RectCorners, roundedRectOutline } from "#common/marqueeShape.js";
 import * as CONST from "../const.js";
 import { applyProjectionAll } from "./apply.js";
 import type { LayerUI } from "./index.js";

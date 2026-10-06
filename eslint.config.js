@@ -50,7 +50,14 @@ export default [
       "script/**/*.cjs",
       "script/**/*.js",
     ],
+    plugins: {},
     rules: {
+      // One import declaration per module — the project's import
+      // convention. `import type { A }` + `import { B }` from the same
+      // module must merge into `import { B, type A }` (inline type).
+      // Import ordering stays prettier's job.
+      "no-duplicate-imports": "error",
+
       // Python E302 / E305: blank line before function / class definitions.
       "padding-line-between-statements": [
         "error",
