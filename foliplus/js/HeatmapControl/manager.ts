@@ -11,13 +11,13 @@ import { bindMapSync } from "#core/leaflet/index.js";
 import type { NumberStyle } from "#foliplus/config-schema.js";
 import { getLayerAlpha, setLayerAlpha } from "#common/canvasAlpha.js";
 import { debounce } from "#common/debounce.js";
+import type { Debounced } from "#common/debounce.js";
 import { BORDER_WEIGHT, clampLabelSize, normalizeHexColor } from "#common/form.js";
 import { NUMBER_FORMAT } from "#common/format.js";
 import { createLogger } from "#common/log.js";
 import { type Persisted, makePersisted } from "#common/storage.js";
 import * as Storage from "#common/storage.js";
-import type { CanvasLabelStyle } from "#common/type.js";
-import type { Debounced, Logger } from "#common/type.js";
+import type { CanvasLabelStyle, Logger } from "#common/type.js";
 import * as CONST from "./const.js";
 import {
   aggregateData as aggregateDataFn,
