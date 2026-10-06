@@ -287,10 +287,10 @@ const renderResults = (ctrl: SearchControlCtx, results: ResultItem[]) => {
   }
 
   ctrl.panelWrap ??= dom.el("div", {
-      class: CLASSES.RESULT_PANEL,
-      parent: map.getContainer(),
-      onclick: (event: Event) => event.stopPropagation(),
-    });
+    class: CLASSES.RESULT_PANEL,
+    parent: map.getContainer(),
+    onclick: (event: Event) => event.stopPropagation(),
+  });
 
   ctrl.panelWrap.innerHTML = "";
   ctrl.selectedIdx = -1;
@@ -362,7 +362,8 @@ const renderSuggestions = (
 
   const items: ResultItem[] = results.map((item: SuggestItem) => {
     const displayName =
-      formatAddress(item.display_name, map, ctrl.config.locale_code) || (item.name ?? "");
+      formatAddress(item.display_name, map, ctrl.config.locale_code) ||
+      (item.name ?? "");
     const coordDisplay = formatLatLng(parseFloat(item.lng), parseFloat(item.lat));
     return {
       icon: Icons.LOCATE_ICON,

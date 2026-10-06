@@ -17,7 +17,8 @@ const HINT_Z_INDEX_DEFAULT = 10000;
 /** Hint z-index base, read once from the --foliplus-z-index-hint token (fallback 10000). */
 let hintZIndex: number | null = null;
 const zIndexBase = (): number => {
-  hintZIndex ??= Number(
+  hintZIndex ??=
+    Number(
       cssVar(
         document.documentElement,
         "--foliplus-z-index-hint",
@@ -129,9 +130,7 @@ class HintManager {
     // TextNode, so a rogue locale value cannot turn a hint into markup.
     // `{ html }` must be a CHILD, not an attr — `dom.el` sets an attr for any
     // unrecognised key.
-    const icon = withLoadingIcon
-      ? LOADING_ICON
-      : (this.hintIcons?.[key] ?? "");
+    const icon = withLoadingIcon ? LOADING_ICON : (this.hintIcons?.[key] ?? "");
     const el = dom.el(
       "div",
       { class: `${cls} ${CLASS}`, parent: hintTarget },

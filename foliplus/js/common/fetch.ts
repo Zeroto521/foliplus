@@ -53,7 +53,6 @@ const fetchWithTimeout = (
     ...(opts.headers ?? {}),
   };
 
-
   /* eslint-disable @typescript-eslint/no-empty-function -- no timeout configured: nothing to dispose */
   const composed =
     timeoutMs > 0 ? composeSignal(signal, timeoutMs) : { signal, dispose: () => {} };

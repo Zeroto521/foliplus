@@ -69,9 +69,9 @@ const resolveLocale = (
   if (!lang || !tables[lang]) {
     lang = (
       typeof navigator !== "undefined"
-        ? navigator.language ??
+        ? (navigator.language ??
           (navigator as Navigator & { userLanguage?: string }).userLanguage ??
-          ""
+          "")
         : ""
     )
       .split("-")[0]

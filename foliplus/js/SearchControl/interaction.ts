@@ -35,16 +35,16 @@ const resultItemValue = (item: Element): string =>
 const ensureListCursor = (ctrl: InteractionCtrl): ListCursor | null => {
   if (!ctrl.panelWrap) return null;
   ctrl.listCursor ??= new ListCursor({
-      root: ctrl.panelWrap,
-      itemSelector: `.${CLASSES.RESULT_ITEM}`,
-      activeClass: CLASSES.ACTIVE,
-      mode: "active-descendant",
-      input: ctrl.inp,
-      onMove: (i, el) => {
-        ctrl.selectedIdx = i;
-        if (el) ctrl.inp.value = resultItemValue(el);
-      },
-    });
+    root: ctrl.panelWrap,
+    itemSelector: `.${CLASSES.RESULT_ITEM}`,
+    activeClass: CLASSES.ACTIVE,
+    mode: "active-descendant",
+    input: ctrl.inp,
+    onMove: (i, el) => {
+      ctrl.selectedIdx = i;
+      if (el) ctrl.inp.value = resultItemValue(el);
+    },
+  });
   return ctrl.listCursor;
 };
 
