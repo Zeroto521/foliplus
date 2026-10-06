@@ -23,6 +23,7 @@ import {
 import {
   blurActiveItem,
   clearActiveItem,
+  getActiveLayerItem,
   getNavigableItems,
   handleDblClick,
   handleKeyDown,
@@ -337,6 +338,15 @@ class LayerUI {
   }
 
   // ── delegates: keyboard ──
+  /** The row element the roving cursor points at (null when no cursor). Kept
+   *  on the shell rather than imported by `focus.ts` from
+   *  `listPanel/keyboard.js`: `keyboard.js` already imports `../focus.js`
+   *  for the focus-disabled hints, so a value import back from `focus.js`
+   *  would re-close that cycle. Callers reach it through the `ui` instance
+   *  they already hold, never as a free function. */
+  activeLayerItem() {
+    return getActiveLayerItem(this);
+  }
   getNavigableItems() {
     return getNavigableItems(this);
   }
