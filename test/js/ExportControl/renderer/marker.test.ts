@@ -431,6 +431,53 @@ describe("renderTextLabels", () => {
     expect(ctx.fillText).not.toHaveBeenCalled();
   });
 
+  it("reads the label text when the root holds a label child", async () => {
+    // Covers the `?? root` fallback's hit side: querySelector finds a label
+    // child, so textEl is the label — its textContent becomes the drawn text.
+    const ctx = textCtx();
+    stubFonts();
+    const root = document.createElement("div");
+    pinBox(root, 10, 10, 60, 20);
+    const label = document.createElement("span");
+    label.setAttribute("data-foliplus-export", "label");
+    label.textContent = "42 km";
+    pinBox(label, 10, 10, 60, 20);
+    root.appendChild(label);
+    const restore = withStyle({
+      backgroundColor: "rgb(0, 0, 0)",
+      fontSize: "14px",
+      fontFamily: "sans-serif",
+      color: "#fff",
+      fontWeight: "400",
+    });
+    try {
+      await renderTextLabels(makeRenderer().container, positionedRC(1000, 1000, ctx), [
+        root,
+      ]);
+      expect(ctx.fillText).toHaveBeenCalledWith("42 km", 40, 20);
+    } finally {
+      restore();
+    }
+  });
+
+  it("skips a marker whose textContent is null", async () => {
+    // Covers the `?? ""` fallback's hit side. A real DOM element always
+    // coerces `textContent = null` to the string "null", so the null case
+    // has to be forced via a property redefinition on the element itself.
+    const ctx = textCtx();
+    stubFonts();
+    const root = document.createElement("div");
+    pinBox(root, 10, 10, 60, 20);
+    Object.defineProperty(root, "textContent", {
+      get: () => null,
+      configurable: true,
+    });
+    await renderTextLabels(makeRenderer().container, positionedRC(1000, 1000, ctx), [
+      root,
+    ]);
+    expect(ctx.fillText).not.toHaveBeenCalled();
+  });
+
   it("skips a marker that carries an icon", async () => {
     const ctx = textCtx();
     stubFonts();
