@@ -1,10 +1,10 @@
 // LayerControl UI — Layer row structure / list layout / insert / reindex.
 import { GROUP } from "#core/layer/index.js";
 import { dom, updateItemLabel } from "#common/dom.js";
-import * as CONST from "../const.js";
-import * as SVGs from "../icon.js";
-import { getColorSurface } from "./color.js";
-import type { LayerUI } from "./index.js";
+import * as CONST from "../../const.js";
+import * as SVGs from "../../icon.js";
+import { getColorSurface } from "../color.js";
+import type { LayerUI } from "../index.js";
 import { cursorRef, restoreCursor, syncListCursor } from "./keyboard.js";
 import {
   applyRowView,

@@ -4,13 +4,13 @@ import { GROUP } from "#core/layer/index.js";
 import { createRowPanel } from "#core/leaflet/index.js";
 import { dom } from "#common/dom.js";
 import { formatNumber, formatTimestamp } from "#common/format.js";
-import * as CONST from "../const.js";
-import * as SVGs from "../icon.js";
-import * as Util from "../util.js";
-import { ATTRS_ROW_WRAP_CHARS } from "./context.js";
-import type { LayerUI } from "./index.js";
-import { displayName } from "./rowView.js";
-import { closeOverlays } from "./teardown.js";
+import * as CONST from "../../const.js";
+import * as SVGs from "../../icon.js";
+import * as Util from "../../util.js";
+import { ATTRS_ROW_WRAP_CHARS } from "../context.js";
+import type { LayerUI } from "../index.js";
+import { displayName } from "../listPanel/rowView.js";
+import { closeOverlays } from "../teardown.js";
 
 /**
  * Open the attributes panel for a given layer row: display-only metadata

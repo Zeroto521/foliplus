@@ -15,7 +15,7 @@ import { type RectCorners, roundedRectOutline } from "#common/marqueeShape.js";
 import * as CONST from "../const.js";
 import { applyProjectionAll } from "./apply.js";
 import type { LayerUI } from "./index.js";
-import { getActiveLayerItem } from "./keyboard.js";
+import { getActiveLayerItem } from "./listPanel/keyboard.js";
 import { closeOverlays } from "./teardown.js";
 
 /** Why a row's focus action is off. Carried as the menu item's title and as

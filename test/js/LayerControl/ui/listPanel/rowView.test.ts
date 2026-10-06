@@ -8,17 +8,18 @@ import {
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { clearIntent, getIntent, setIntent } from "#foliplus/LayerControl/ui/intent.js";
-import { intentVisibleOf, projectLayer } from "#foliplus/LayerControl/ui/projection.js";
 import {
   type RowCell,
   applyRowView,
   buildRowCell,
   rowView,
   snapshotAuthorVisible,
-} from "#foliplus/LayerControl/ui/rowView.js";
-import { syncNoBasemap, syncToggleAll } from "#foliplus/LayerControl/ui/visibility.js";
+  syncNoBasemap,
+  syncToggleAll,
+} from "#foliplus/LayerControl/ui/listPanel/index.js";
+import { intentVisibleOf, projectLayer } from "#foliplus/LayerControl/ui/projection.js";
 import * as Icons from "#common/icon.js";
-import { findItem, initFixture } from "./fixture.js";
+import { findItem, initFixture } from "../fixture.js";
 
 const LABELS = { select: "Select", deselect: "Deselect" };
 

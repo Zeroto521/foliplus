@@ -3,15 +3,15 @@ import { GROUP, type LayerInfo, LayerIntentStore } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import {
+  applyVisibility,
+  displayName,
   initLayerItem,
   initTypesAndVisibility,
   insertLayerItem,
   renderInitialList,
   updateLayerItem,
-} from "#foliplus/LayerControl/ui/list.js";
-import { displayName } from "#foliplus/LayerControl/ui/rowView.js";
-import { applyVisibility } from "#foliplus/LayerControl/ui/visibility.js";
-import { TileLayer, initFixture } from "./fixture.js";
+} from "#foliplus/LayerControl/ui/listPanel/index.js";
+import { TileLayer, initFixture } from "../fixture.js";
 
 const makeUi = () =>
   ({

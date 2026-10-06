@@ -11,7 +11,7 @@
 import type { Projection } from "../type.js";
 import type { LayerUI } from "./index.js";
 import { INTENT, getIntent } from "./intent.js";
-import { inZoomRange } from "./rowView.js";
+import { inZoomRange } from "./listPanel/rowView.js";
 
 /** The user's own visibility choice, or the author's declared default
  *  (captured once at first sight by `snapshotAuthorVisible`) when the user
