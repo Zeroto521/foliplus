@@ -24,7 +24,11 @@ import {
   topSlotZ,
   zFor,
 } from "#core/layer/index.js";
-import type { LayerInfo, PaneSpec } from "#core/layer/type.js";
+import type {
+  LayerInfo,
+  PaneSpec,
+  RegisterLayerOpts,
+} from "#core/layer/type.js";
 import { attributionEntries, refreshAttributions } from "#core/leafletAdapter.js";
 import type { AnnotationManager } from "./annotation/index.js";
 import { LayerIntentStore } from "./domain/LayerIntentStore.js";
@@ -335,6 +339,99 @@ class LayerOrchestration {
     if (tooltipPaneEl) tooltipPaneEl.style.zIndex = String(topZ);
     const markerPaneEl = this.map.getPane("markerPane");
     if (markerPaneEl) markerPaneEl.style.zIndex = String(topZ - 1);
+  }
+
+  /** The domain half of {@link LayerController.registerLayer}: build or update
+   *  the registry entry, materialize its rendering face, and decide whether the
+   *  layer joins the map on re-entry.
+   *
+   *  The `hidden` result is the only intent read of the whole registration
+   *  entry point — when the user marked the layer hidden it stays off the map
+   *  on runtime re-registration, so nothing is silently re-added. A
+   *  canvas-only hidden layer (no Leaflet layer) is projected through
+   *  `applyUserState` on the controller side; that carries the hidden intent
+   *  through the executor's single write path.
+   *
+   *  Returns the insertion outcome so the controller can dispatch the right UI
+   *  event (new row vs. re-registration) and skip `map.addLayer` when the
+   *  intent says so. No UI side effects: events, applyUserState, persistence
+   *  are all controller-owned. */
+  registerEntry(
+    opts: RegisterLayerOpts,
+    hasUi: boolean,
+  ): { layerInfo: LayerInfo; existingIdx: number; hidden: boolean } {
+    const existingLi = this.layerRegistry.get(opts.id);
+    const existingIdx = existingLi ? this.layerRegistry.indexOf(existingLi) : -1;
+    const layerInfo = this.layerRegistry.createLayerInfo(
+      opts,
+      existingLi,
+      this.map,
+    );
+
+    if (existingIdx !== -1) this.layerRegistry.upsert(layerInfo);
+    else if (layerInfo.group === GROUP.BASE) {
+      const firstBaseIdx = this.layerRegistry.firstBaseIdx;
+      const atBottom = opts.baseInsert === "bottom";
+      if (firstBaseIdx === -1 || atBottom) {
+        this.layerRegistry.insertAt(layerInfo, this.layers.length);
+      } else {
+        this.layerRegistry.insertAt(layerInfo, firstBaseIdx);
+      }
+      this.order.placeAtSavedSlot(layerInfo);
+    } else this.order.insertOverlayAt(layerInfo);
+
+    // Give the layer its rendering face and materialize it *before* it joins
+    // the map. `options.pane` is read by `map.addLayer` and ignored afterwards,
+    // so this is the last moment at which the pane can be decided without
+    // moving DOM — which is why the ordering pass no longer has to.
+    const surface = this.surfaceFor(layerInfo);
+    surface.materialize();
+    // materialize() may have written options.pane across the tree, so the
+    // cached child-pane list for this layer is stale.
+    if (opts.layer) this.panes.reset(L.stamp(opts.layer));
+
+    // Hidden gate reads the store only when the panel is attached. The store
+    // lives on the controller and survives attach, but before attach the
+    // intent has not yet been applied to any live layer, so a pre-attach
+    // registration takes the map path (a runtime re-registration with a
+    // panel still respects the user's hide).
+    const hidden = hasUi && this.intentStore.get(opts.id, INTENT.VISIBLE) === false;
+    return { layerInfo, existingIdx, hidden };
+  }
+
+  /** The domain half of {@link LayerController.unregisterLayer}: remove the
+   *  registry entry and tear down its rendering face.
+   *
+   *  Generic teardown only — it never touches persisted user state. A layer
+   *  unregistering itself may simply be temporarily empty (HeatmapControl
+   *  unregisters its canvas when the data goes empty), and nothing about that
+   *  says the user's stored opacity, zoom range, or hidden state is wanted
+   *  back at the author default. Erasing stored state is an explicit user
+   *  action and has its own entry point: {@link LayerController.deleteLayer}.
+   *
+   *  The map-level removal (`map.removeLayer` + `clearAllLayers`) stays on the
+   *  controller because it walks the Leaflet tree — a UI side effect, not a
+   *  domain decision. The registry / surface / pane teardown here is the
+   *  bookkeeping half that a re-registration must not have to redo. */
+  unregisterEntry(
+    id: string,
+  ): { layerInfo: LayerInfo | null; layer: L.Layer | null; layerStamp: number | null } {
+    const layerInfo = this.layerRegistry.remove(id);
+    if (!layerInfo) return { layerInfo: null, layer: null, layerStamp: null };
+
+    const layer = this.findLayer(layerInfo);
+    const layerStamp = layer ? L.stamp(layer) : null;
+    if (layerStamp !== null) this.panes.reset(layerStamp);
+    // The layer is off the map first (controller side), so the pane teardown
+    // never touches a live layer's renderer or path nodes. Only the pane the
+    // surface synthesized goes away: a declared pane survives, because
+    // re-registering the same id must not have to rebuild it.
+    this.surfaces.get(id)?.destroy();
+    this.surfaces.delete(id);
+    if (layerStamp !== null) this.surfacesByLayer.delete(layerStamp);
+    // Drop child-pane bookkeeping for layers that no longer use them.
+    this.panes.sweepChildPanes(this.layers);
+    return { layerInfo, layer, layerStamp };
   }
 
   /** Drop one id's persisted user state (order slot + intent row) without

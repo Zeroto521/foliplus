@@ -763,10 +763,8 @@ describe("LayerController", () => {
     const removeLayer = vi.fn();
     manager.map.addLayer = addLayer;
     manager.map.removeLayer = removeLayer;
-    manager.ui = {
-      intentStore: makeStore({ new1: { visible: false } }),
-      saveState: vi.fn(),
-    } as any;
+    manager.intentStore = makeStore({ new1: { visible: false } });
+    manager.ui = { saveState: vi.fn() } as any;
     manager.registerLayer({ id: "new1", name: "New", layer } as any);
 
     // Hidden layer is kept off the map entirely (no add, no remove) so
@@ -781,10 +779,8 @@ describe("LayerController", () => {
     const removeLayer = vi.fn();
     manager.map.addLayer = addLayer;
     manager.map.removeLayer = removeLayer;
-    manager.ui = {
-      intentStore: makeStore({ canvas1: { visible: false } }),
-      saveState: vi.fn(),
-    } as any;
+    manager.intentStore = makeStore({ canvas1: { visible: false } });
+    manager.ui = { saveState: vi.fn() } as any;
     manager.registerLayer({
       id: "canvas1",
       name: "Canvas",
@@ -804,10 +800,8 @@ describe("LayerController", () => {
     const removeLayer = vi.fn();
     manager.map.addLayer = addLayer;
     manager.map.removeLayer = removeLayer;
-    manager.ui = {
-      intentStore: makeStore({ new1: { visible: false } }),
-      saveState: vi.fn(),
-    } as any;
+    manager.intentStore = makeStore({ new1: { visible: false } });
+    manager.ui = { saveState: vi.fn() } as any;
     manager.registerLayer({ id: "new1", name: "New", layer } as any);
 
     // Hidden layers must be kept off the map entirely (skip addLayer) so
@@ -821,10 +815,8 @@ describe("LayerController", () => {
     manager.map.hasLayer.mockReturnValue(false);
     const removeLayer = vi.fn();
     manager.map.removeLayer = removeLayer;
-    manager.ui = {
-      intentStore: makeStore({ other: { visible: false } }),
-      saveState: vi.fn(),
-    } as any;
+    manager.intentStore = makeStore({ other: { visible: false } });
+    manager.ui = { saveState: vi.fn() } as any;
     manager.registerLayer({ id: "visible1", name: "V", layer } as any);
 
     expect(removeLayer).not.toHaveBeenCalled();
