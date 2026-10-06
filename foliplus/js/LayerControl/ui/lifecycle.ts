@@ -11,8 +11,11 @@ import {
   registerInteractions,
 } from "../interaction.js";
 import { applyProjection, applyProjectionAll } from "./apply.js";
-import { closeAttrsPanel } from "./attr.js";
 import { inFloatingPanel, isKeyboardVisibleFocus, owningRow } from "./context.js";
+import { dismissFocus } from "./focus.js";
+import { bindGeometryFocusMarquee } from "./focus/focusMarquee.js";
+import type { LayerUI } from "./index.js";
+import { INTENT, getIntent } from "./intent.js";
 import {
   handleDragEnd,
   handleDragLeave,
@@ -20,39 +23,36 @@ import {
   handleDragStart,
   handleDrop,
   toggleFold,
-} from "./drag.js";
-import { dismissFocus } from "./focus.js";
-import { bindGeometryFocusMarquee } from "./focusMarquee.js";
-import type { LayerUI } from "./index.js";
-import { INTENT, getIntent } from "./intent.js";
+} from "./listPanel/drag.js";
 import {
   blurActiveItem,
   clearActiveItem,
   getNavigableItems,
   handleDblClick,
   syncListCursor,
-} from "./keyboard.js";
+} from "./listPanel/keyboard.js";
 import {
   initLayerItem,
   initTypesAndVisibility,
   insertLayerItem,
   renderInitialList,
   updateLayerItem,
-} from "./list.js";
-import { closeMoreMenu } from "./menu.js";
-import { finishRename } from "./rename.js";
-import { applyRowView, buildRowCell } from "./rowView.js";
-import { snapshotAuthorVisible } from "./rowView.js";
-import { loadPersistedState } from "./state.js";
-import { closeStylePanel, invalidateFields } from "./style/index.js";
-import { dropStyleDimApplies } from "./style/styleBag.js";
+} from "./listPanel/list.js";
+import { applyRowView, buildRowCell } from "./listPanel/rowView.js";
+import { snapshotAuthorVisible } from "./listPanel/rowView.js";
 import {
   getLayerItems,
   handleChange,
   syncNoBasemap,
   syncToggleAll,
   toggleAll,
-} from "./visibility.js";
+} from "./listPanel/visibility.js";
+import { closeAttrsPanel } from "./overlayPanel/attr.js";
+import { closeMoreMenu } from "./overlayPanel/menu.js";
+import { finishRename } from "./overlayPanel/rename.js";
+import { loadPersistedState } from "./state.js";
+import { closeStylePanel, invalidateFields } from "./style/index.js";
+import { dropStyleDimApplies } from "./style/styleBag.js";
 
 /**
  * Attach UI to the given container div.

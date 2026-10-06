@@ -10,19 +10,9 @@ import type { LayerIntentStore } from "#foliplus/LayerControl/domain/LayerIntent
 import * as CONST from "../const.js";
 import type { LayerController } from "../controller.js";
 import { applyProjection, applyProjectionAll } from "./apply.js";
-import { closeAttrsPanel, openAttrsPanel } from "./attr.js";
 import { hideSolidBasemap, resetSolidBasemap, showSolidBasemap } from "./color.js";
 import { cancelFocus, focusLayer, isFocusing } from "./focus.js";
-import { FocusController } from "./focusController.js";
-import {
-  blurActiveItem,
-  clearActiveItem,
-  getNavigableItems,
-  handleDblClick,
-  handleKeyDown,
-  handleOutsideMousedown,
-  setActiveItem,
-} from "./keyboard.js";
+import { FocusController } from "./focus/focusController.js";
 import {
   attachUI,
   bindEvents,
@@ -31,6 +21,15 @@ import {
   unbindEvents,
 } from "./lifecycle.js";
 import {
+  blurActiveItem,
+  clearActiveItem,
+  getNavigableItems,
+  handleDblClick,
+  handleKeyDown,
+  handleOutsideMousedown,
+  setActiveItem,
+} from "./listPanel/keyboard.js";
+import {
   colorLayerName,
   initLayerItem,
   initTypesAndVisibility,
@@ -38,13 +37,23 @@ import {
   reindexAfterMove,
   renderInitialList,
   updateLayerItem,
-} from "./list.js";
-import { ListPanel } from "./listPanel.js";
-import { closeMoreMenu, openMoreMenu } from "./menu.js";
-import { OverlayPanel } from "./overlayPanel.js";
+} from "./listPanel/list.js";
+import { ListPanel } from "./listPanel/listPanel.js";
+import { displayName } from "./listPanel/rowView.js";
+import {
+  applyVisibility,
+  getLayerItems,
+  handleChange,
+  syncNoBasemap,
+  syncToggleAll,
+  syncToggleAllFromCount,
+  toggleAll,
+} from "./listPanel/visibility.js";
+import { closeAttrsPanel, openAttrsPanel } from "./overlayPanel/attr.js";
+import { closeMoreMenu, openMoreMenu } from "./overlayPanel/menu.js";
+import { OverlayPanel } from "./overlayPanel/overlayPanel.js";
+import { finishRename, renameLayer } from "./overlayPanel/rename.js";
 import { intentVisibleOf } from "./projection.js";
-import { finishRename, renameLayer } from "./rename.js";
-import { displayName } from "./rowView.js";
 import {
   applyUserState,
   dropPersistedLayerState,
@@ -63,15 +72,6 @@ import {
   replayFillState,
 } from "./style/index.js";
 import { dropStyleDimApplies } from "./style/styleBag.js";
-import {
-  applyVisibility,
-  getLayerItems,
-  handleChange,
-  syncNoBasemap,
-  syncToggleAll,
-  syncToggleAllFromCount,
-  toggleAll,
-} from "./visibility.js";
 
 /** UI Controller for LayerControl.
  *  Per-panel state lives on one of three view subsystems:

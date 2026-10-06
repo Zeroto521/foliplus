@@ -5,12 +5,12 @@ import {
   removeInlineEditInput,
   updateItemLabel,
 } from "#common/dom.js";
-import * as CONST from "../const.js";
-import type { LayerUI } from "./index.js";
-import { INTENT, setIntent } from "./intent.js";
-import { displayName } from "./rowView.js";
-import { saveNamesState } from "./state.js";
-import { closeOverlays } from "./teardown.js";
+import * as CONST from "../../const.js";
+import type { LayerUI } from "../index.js";
+import { INTENT, setIntent } from "../intent.js";
+import { displayName } from "../listPanel/rowView.js";
+import { saveNamesState } from "../state.js";
+import { closeOverlays } from "../teardown.js";
 
 /**
  * Turn the layer's label into an inline editable input so the user can

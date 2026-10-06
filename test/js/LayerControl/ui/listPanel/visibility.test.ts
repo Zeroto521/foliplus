@@ -13,9 +13,9 @@ import {
   syncToggleAll,
   syncToggleAllFromCount,
   toggleAll,
-} from "#foliplus/LayerControl/ui/visibility.js";
-import { initFixture, installLeafletGlobals } from "./fixture.js";
-import { TEST_ENV } from "./fixture.js";
+} from "#foliplus/LayerControl/ui/listPanel/index.js";
+import { initFixture, installLeafletGlobals } from "../fixture.js";
+import { TEST_ENV } from "../fixture.js";
 
 // ===========================================================================
 // ui/visibility.ts ?checkbox, group toggle, and the shared visibility

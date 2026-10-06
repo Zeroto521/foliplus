@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { bindGeometryFocusMarquee } from "#foliplus/LayerControl/ui/focusMarquee.js";
+import { bindGeometryFocusMarquee } from "#foliplus/LayerControl/ui/focus/index.js";
 
 const NS = "http://www.w3.org/2000/svg";
 
