@@ -53,7 +53,7 @@ const makeUi = (layers: Array<{ id: string; group: "base" | "overlay" }> = []) =
     mgmt: { getFeatureCount: () => null },
     T: () => "",
     config: { locale_code: "en" },
-    m: {
+    c: {
       layers,
       findLayer: () => ({ group: "base" }),
       layerRegistry: new Map(),
@@ -111,10 +111,10 @@ describe("ui/color", () => {
       { id: "base_2", group: "base" },
     ]);
     const tilePane = { classList: { add: vi.fn(), remove: vi.fn() } };
-    (ui.m.map as unknown as { getPane: () => typeof tilePane }).getPane = () =>
+    (ui.c.map as unknown as { getPane: () => typeof tilePane }).getPane = () =>
       tilePane;
     const removeLayer = (
-      ui.m.map as unknown as { removeLayer: ReturnType<typeof vi.fn> }
+      ui.c.map as unknown as { removeLayer: ReturnType<typeof vi.fn> }
     ).removeLayer;
     removeLayer.mockClear();
 
@@ -171,7 +171,7 @@ describe("ui/color", () => {
     // close and no provisional step left to rewrite.
     const { ui } = makeUi();
     showSolidBasemap(ui, "#ff0000");
-    expect((ui.m as any).enforceOrder).toHaveBeenCalledTimes(1);
+    expect((ui.c as any).enforceOrder).toHaveBeenCalledTimes(1);
   });
 
   it("showSolidBasemap reuses the surface on subsequent calls", () => {

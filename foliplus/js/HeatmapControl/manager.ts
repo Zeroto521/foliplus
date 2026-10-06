@@ -414,7 +414,7 @@ class HeatmapManager {
       if (this.ui) rebuildLayerDropdown(this.ui);
     }, CONST.TIMING.LAYER_SCAN_DEBOUNCE);
     // Subscribe to the semantic registry-change event instead of raw Leaflet
-    // layeradd/layerremove — LayerManager emits EVENTS.LAYER_CHANGE on
+    // layeradd/layerremove — LayerController emits EVENTS.LAYER_CHANGE on
     // register/unregister/reorder/membership, so unrelated map activity is
     // filtered out and callback-only registrations (no map.addLayer) are
     // covered too. The payload carries the changed layer's kind, so a layer

@@ -6,7 +6,7 @@
 // so the dependency direction was inverted — the order domain belongs beside
 // the registry. Renamed `SavedOrder` → `LayerOrder`; behaviour unchanged.
 //
-// The order domain of LayerManager: the user-arranged id list and the
+// The order domain of LayerController: the user-arranged id list and the
 // one-way deleted-id set, plus the methods that load / snapshot / replay /
 // prune them against the live registry. The manager keeps only the public
 // forwards (`loadSavedOrder` / `saveOrder` / `replaySavedOrder` /

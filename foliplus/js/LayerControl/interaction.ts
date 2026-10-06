@@ -7,7 +7,7 @@ import { activateDeleteItem } from "./ui/menu.js";
 /** Keyboard shortcuts registered via InteractionManager. */
 const registerInteractions = (ui: LayerUI): (() => void) => {
   const container = ui.uiContainer;
-  const interaction = ensureInteraction(ui.m.map);
+  const interaction = ensureInteraction(ui.c.map);
   return interaction.register(CONFIG.name, [
     { key: "ArrowUp", container, handler: e => ui.handleKeyDown(e as KeyboardEvent) },
     { key: "ArrowDown", container, handler: e => ui.handleKeyDown(e as KeyboardEvent) },

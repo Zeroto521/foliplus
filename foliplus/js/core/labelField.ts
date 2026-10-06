@@ -84,7 +84,7 @@ const collectLabelFields = (leaves: Iterable<L.Layer>): LabelField[] => {
  * twin of {@link collectLabelFields}, sharing `isLabelableKey` /
  * `isLabelableValue` so the two answers can never disagree.
  *
- * This is the label-pane capability probe: `LayerManager.surfaceFor` runs it
+ * This is the label-pane capability probe: `LayerController.surfaceFor` runs it
  * over a registration entry's tree on every surface resolution, so it stops
  * work at the first hit instead of sampling every key like the collector.
  * A `true` here is what appends the `role: "annotation"` PaneSpec — the

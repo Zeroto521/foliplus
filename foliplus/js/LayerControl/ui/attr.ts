@@ -26,7 +26,7 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
 
   const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
   const isColor = layerId === CONST.SOLID_BASEMAP_ID;
-  const layerInfo = ui.m.layerRegistry.get(layerId);
+  const layerInfo = ui.c.layerRegistry.get(layerId);
 
   // Row kind: a value that runs long (a URL source) drops below its label
   // and takes the full panel width instead of squeezing the label column.
@@ -56,7 +56,7 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
   // The surface is the authority for the geometry probe; reading it here is
   // the snapshot sync, not a second source of truth. EMPTY means a container
   // with no data geometry; UNKNOWN means mixed/unrecognisable data.
-  const rawGtype = layerInfo ? ui.m.surfaceFor(layerInfo).geometryType() : null;
+  const rawGtype = layerInfo ? ui.c.surfaceFor(layerInfo).geometryType() : null;
   const gtype = !rawGtype ? "unknown" : rawGtype;
   // A basemap has no data geometry, so name it by what it is rather than by
   // a geometry type it never had; a custom layer ships its own logo instead
@@ -73,7 +73,7 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
         : `type_${gtype}`;
   addRow(ui.T("attr_type"), ui.T(typeKey));
   if (!isColor) {
-    const count = layerInfo ? ui.m.getFeatureCount(layerId) : null;
+    const count = layerInfo ? ui.c.getFeatureCount(layerId) : null;
     // The panel is the detail view, so the count is grouped (1,234) rather
     // than compacted — and `comma` defaults to one fraction digit, which
     // would render a whole number as "1,234.0", so pass 0 explicitly.

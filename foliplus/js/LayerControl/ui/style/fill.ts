@@ -88,9 +88,9 @@ const isColorBasemap = (li: LayerInfo | undefined): boolean => {
  *  the capability check, no carrier probes, no `isColorBasemap`
  *  special-cases, no canvas exclusion. */
 const layerCanFill = (ui: LayerUI, layerId: string): boolean => {
-  const li = ui.m.layerRegistry.get(layerId);
+  const li = ui.c.layerRegistry.get(layerId);
   if (!li) return false;
-  return ui.m.surfaceFor(li).capabilities.fill === CAP_TIER.NATIVE;
+  return ui.c.surfaceFor(li).capabilities.fill === CAP_TIER.NATIVE;
 };
 
 /** The layer's authored base style, captured on the layer's first fill
@@ -125,7 +125,7 @@ const toHexColor = (value: string): string => {
  *  `authoredBorder`: the swatch shows what the layer is actually painting on
  *  first open, not a constant. */
 const authoredFillColor = (ui: LayerUI, layerId: string): string => {
-  const li = ui.m.layerRegistry.get(layerId);
+  const li = ui.c.layerRegistry.get(layerId);
   const layer = li?.layer as StyleCarrier | null;
   if (!layer) return LEAFLET_DEFAULT_FILL;
   let authored: string | null = null;
@@ -141,7 +141,7 @@ const authoredFillColor = (ui: LayerUI, layerId: string): string => {
  *  `options.fillOpacity`, or null when no leaf declares one. Mirrors
  *  `authoredFillColor`: the row shows what the layer is actually painting. */
 const authoredFillOpacity = (ui: LayerUI, layerId: string): number | null => {
-  const li = ui.m.layerRegistry.get(layerId);
+  const li = ui.c.layerRegistry.get(layerId);
   const layer = li?.layer as StyleCarrier | null;
   if (!layer) return null;
   let authored: number | null = null;
@@ -171,7 +171,7 @@ const VISIBLE_FILL_OPACITY = 0.2;
  *  Kept separate from the persistence plumbing (`commitFillColor`,
  *  `commitFillOpacity`) so the walk is unit-testable without a storage timer. */
 const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
-  const li = ui.m.layerRegistry.get(layerId);
+  const li = ui.c.layerRegistry.get(layerId);
   const color = getIntent(ui, layerId, INTENT.FILL_COLOR);
   const opacity = getIntent(ui, layerId, INTENT.FILL_OPACITY);
   if (color === undefined && opacity === undefined) return;
@@ -261,10 +261,10 @@ const commitFillOpacity = (ui: LayerUI, layerId: string, pct: number): void => {
  *  The persisted override is removed either way so the next load does not
  *  re-apply a color the layer no longer shows. */
 const resetLayerFill = (ui: LayerUI, layerId: string): void => {
-  if (!ui.m.layerRegistry.has(layerId)) return;
+  if (!ui.c.layerRegistry.has(layerId)) return;
   // Solid-color basemap: restore the authored default colour. No style-bag
   // face to replay — the pane's fill IS the basemap colour.
-  if (isColorBasemap(ui.m.layerRegistry.get(layerId))) {
+  if (isColorBasemap(ui.c.layerRegistry.get(layerId))) {
     cancelStyleDimApply(FACE.FILL, layerId);
     resetIntentKeys(ui, layerId, [INTENT.FILL_COLOR, INTENT.FILL_OPACITY]);
     ui.currentColor = CONST.COLOR.DEFAULT;
@@ -285,7 +285,7 @@ const resetLayerFill = (ui: LayerUI, layerId: string): void => {
  *  reflects what the layer is actually painting on first open, and named
  *  authored colors are resolved to the hex the picker can display. */
 const buildFillRow = (ui: LayerUI, layerId: string): HTMLElement => {
-  const li = ui.m.layerRegistry.get(layerId);
+  const li = ui.c.layerRegistry.get(layerId);
   const isBasemap = isColorBasemap(li!);
 
   const storedColor = getIntent(ui, layerId, INTENT.FILL_COLOR);
@@ -404,7 +404,7 @@ const FILL_DIMENSION = registerDimension<{
   key: DIM.FILL,
   gate: layerCanFill,
   value: (ui, layerId) => {
-    const li = ui.m.layerRegistry.get(layerId);
+    const li = ui.c.layerRegistry.get(layerId);
     if (!li) return undefined;
     return {
       color:
@@ -429,7 +429,7 @@ const FILL_DIMENSION = registerDimension<{
   reset: (ui, layerId) => {
     cancelStyleDimApply(FACE.FILL, layerId);
     resetIntentKeys(ui, layerId, [INTENT.FILL_COLOR, INTENT.FILL_OPACITY]);
-    const layer = ui.m.findLayer(layerId) as StyleCarrier | null;
+    const layer = ui.c.findLayer(layerId) as StyleCarrier | null;
     if (!layer) return;
     walkStyleLeaves(layer, node => restoreStyleDim(node, FACE.FILL));
   },

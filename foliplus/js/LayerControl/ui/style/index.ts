@@ -305,7 +305,7 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
       const fieldSel = panel.querySelector(
         ".foliplus-style-field-select",
       ) as HTMLSelectElement | null;
-      const cfg = ui.m.annotation.getConfig(layerId);
+      const cfg = ui.c.annotation.getConfig(layerId);
       const fields = layerFields(ui, layerId);
       const chosen = fieldSel?.value ?? cfg.field;
       const fmtRow = panel.querySelector(
@@ -370,7 +370,7 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
       if (delegated) {
         // Call each setter with its Python CONFIG default. The components own
         // the values — never write localStorage or annotation config here.
-        const li = ui.m.layerRegistry.get(layerId);
+        const li = ui.c.layerRegistry.get(layerId);
         const setters = li?.styleSetters;
         const defaults = li?.styleDefaultsProvider?.() ?? {};
         if (setters) {
@@ -383,7 +383,7 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
         // in the same order as every other control on this panel. defaultConfig
         // carries collide — DEFAULT_ANNOTATION alone would leave a user-toggled
         // collide switch untouched.
-        applyPatch(ui, layerId, { ...ui.m.annotation.defaultConfig() });
+        applyPatch(ui, layerId, { ...ui.c.annotation.defaultConfig() });
       }
       closeStylePanel(ui, true);
       return;
@@ -419,7 +419,7 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
   // refresh reads from styleProvider and writes every control, skipping the
   // one under activeElement.
   if (delegated) {
-    const bus = ui.m.events;
+    const bus = ui.c.events;
     const refresh = ui.overlayPanel.styleRefresh;
     ui.overlayPanel.styleUnsubscribe = bus.on(
       EVENTS.LAYER_STYLE_CHANGE,
@@ -441,7 +441,7 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
     ui.overlayPanel.styleZoomEndHandler = () => {
       syncZoomRangeRow(ui, layerId, zoomRangeRow);
     };
-    ui.m.map.on("zoomend", ui.overlayPanel.styleZoomEndHandler);
+    ui.c.map.on("zoomend", ui.overlayPanel.styleZoomEndHandler);
   }
 
   ui.overlayPanel.stylePanelLayerId = layerId;
@@ -467,7 +467,7 @@ const closeStylePanel = (ui: LayerUI, setFocus: boolean): void => {
   ui.overlayPanel.styleUnsubscribe = null;
   ui.overlayPanel.styleRefresh = null;
   if (ui.overlayPanel.styleZoomEndHandler) {
-    ui.m.map.off("zoomend", ui.overlayPanel.styleZoomEndHandler);
+    ui.c.map.off("zoomend", ui.overlayPanel.styleZoomEndHandler);
     ui.overlayPanel.styleZoomEndHandler = null;
   }
   // No panel, no panel press: a stale verdict would block the next real drag.

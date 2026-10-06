@@ -60,13 +60,13 @@ import {
  * @param {HTMLElement} containerDiv - The panel-content div.
  */
 const attachUI = (ui: LayerUI, containerDiv: HTMLElement): void => {
-  ui.m.uiContainer = containerDiv;
+  ui.c.uiContainer = containerDiv;
   loadPersistedState(ui);
   renderInitialList(ui);
   bindEvents(ui);
 
-  while (ui.m.pendingRegistrations.length) {
-    const layerInfo = ui.m.pendingRegistrations.shift();
+  while (ui.c.pendingRegistrations.length) {
+    const layerInfo = ui.c.pendingRegistrations.shift();
     if (layerInfo) insertLayerItem(ui, layerInfo);
   }
   // Snapshot the author's declared default before the first projection.
@@ -76,8 +76,8 @@ const attachUI = (ui: LayerUI, containerDiv: HTMLElement): void => {
   // on the first projection because the author's snapshot hasn't landed
   // yet. The snapshot is idempotent, so the later `initTypesAndVisibility`
   // re-runs don't overwrite what we took here.
-  for (let i = 0; i < ui.m.layers.length; i++) {
-    snapshotAuthorVisible(ui, ui.m.layers[i]);
+  for (let i = 0; i < ui.c.layers.length; i++) {
+    snapshotAuthorVisible(ui, ui.c.layers[i]);
   }
   // Last in the attach sequence: applyUserState() runs the full sweep
   // needed for rows rendered from the initial registry. Hidden ids are
@@ -232,7 +232,7 @@ const bindEvents = (ui: LayerUI): void => {
     row.classList.remove(CONST.CLASSES.FOCUSED);
   };
   ui.listPanel.interactionCleanup = registerInteractions(ui);
-  ui.geometryMarqueeCleanup = bindGeometryFocusMarquee(ui.m.map.getContainer());
+  ui.geometryMarqueeCleanup = bindGeometryFocusMarquee(ui.c.map.getContainer());
 
   container.addEventListener("change", ui.onChange);
   container.addEventListener("click", ui.onClick);
@@ -257,14 +257,14 @@ const bindEvents = (ui: LayerUI): void => {
   // Menu click must be on document because the menu is positioned absolute
   // and may visually overflow the panel bounds.
   document.addEventListener("click", ui.onMoreMenuClick);
-  ui.m.map.on("click", ui.onMoreMapClick);
+  ui.c.map.on("click", ui.onMoreMapClick);
   // A zoom change re-evaluates every layer's effective-shown: a layer whose
   // stored range excludes the new level is hidden, and one whose range
   // includes it is brought back. This is the "inRange" half of
   // effectiveShown = intent && inRange, and it writes through the single
   // pipeline so the checkbox / intents.visible / overrides stay untouched (#329).
   ui.onZoomEnd = () => applyProjectionAll(ui);
-  ui.m.map.on("zoomend", ui.onZoomEnd);
+  ui.c.map.on("zoomend", ui.onZoomEnd);
   // Keyboard dispatch for the "more" button (Enter/Space/Escape) is handled
   // by InteractionManager via registerInteractions() in interaction.ts,
   // which routes to handleKeyDown() — that method detects when the
@@ -273,7 +273,7 @@ const bindEvents = (ui: LayerUI): void => {
 
   // Subscribe to feature-count change events so a third-party provider
   // (Canvas layers) can update a single row without a full re-render.
-  const bus = ensureEvents(ui.m.map);
+  const bus = ensureEvents(ui.c.map);
   ui.unsubscribeCountChange = bus.on(
     EVENTS.LAYER_ITEM_COUNT_CHANGE,
     (payload: { id: string }) => onLayerItemCountChange(ui, payload.id),
@@ -284,7 +284,7 @@ const bindEvents = (ui: LayerUI): void => {
   // the view layer. Each handler does what the corresponding ui method did
   // before; the id-only payload keeps the bus a signal channel, and the
   // registry lookup here is the single source of the row's current shape.
-  const registry = ui.m.layerRegistry;
+  const registry = ui.c.layerRegistry;
   const signalHandlers: Array<() => void> = [];
   signalHandlers.push(
     bus.on(EVENTS.LAYER_ITEM_ADDED, (payload: { id: string }) => {
@@ -342,7 +342,7 @@ const onLayerItemCountChange = (ui: LayerUI, id: string): void => {
     `[${CONST.DATA.LAYER_ID}="${CSS.escape(id)}"]`,
   ) as HTMLElement | null;
   if (!item) return;
-  const layerInfo = ui.m.layerRegistry.get(id);
+  const layerInfo = ui.c.layerRegistry.get(id);
   if (!layerInfo || layerInfo.group === GROUP.BASE) return;
   invalidateFields(ui, id);
 
@@ -371,7 +371,7 @@ const refreshAllCounts = (ui: LayerUI): void => {
   );
   items.forEach((item: Element) => {
     const id = item.getAttribute(CONST.DATA.LAYER_ID);
-    const layerInfo = id ? ui.m.layerRegistry.get(id) : undefined;
+    const layerInfo = id ? ui.c.layerRegistry.get(id) : undefined;
     if (!layerInfo) return;
     applyRowView(ui, item as HTMLElement, buildRowCell(ui, layerInfo));
   });
@@ -403,8 +403,8 @@ const unbindEvents = (ui: LayerUI): void => {
   if (ui.onMoreMenuClick) {
     document.removeEventListener("click", ui.onMoreMenuClick);
   }
-  if (ui.onMoreMapClick) ui.m.map.off("click", ui.onMoreMapClick);
-  if (ui.onZoomEnd) ui.m.map.off("zoomend", ui.onZoomEnd);
+  if (ui.onMoreMapClick) ui.c.map.off("click", ui.onMoreMapClick);
+  if (ui.onZoomEnd) ui.c.map.off("zoomend", ui.onZoomEnd);
   clearActiveItem(ui);
   ui.listPanel.listCursor?.destroy();
   ui.listPanel.listCursor = null;
@@ -412,7 +412,7 @@ const unbindEvents = (ui: LayerUI): void => {
   ui.geometryMarqueeCleanup?.();
   ui.geometryMarqueeCleanup = null;
   // Flush the last pending write before the timer is cleared.
-  ui.m.persistence.flushAll();
+  ui.c.persistence.flushAll();
   ui.onChange = ui.onClick = null;
   ui.onFocusIn = ui.onFocusOut = null;
   ui.onDragStart = ui.onDragOver = ui.onDragLeave = null;

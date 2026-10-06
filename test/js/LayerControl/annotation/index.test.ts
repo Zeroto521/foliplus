@@ -736,7 +736,7 @@ describe("AnnotationManager — render & plan", () => {
 
 describe("a layer that gains labelable content gets the stored intent on its new pane", () => {
   // The label pane is declared by the registration edge's probe
-  // (`LayerManager.withAnnotationSpec`). When a live layer GAINS its first
+  // (`LayerController.withAnnotationSpec`). When a live layer GAINS its first
   // labelable feature, the next `surfaceFor` re-probes, the declared specs
   // differ, and `matches` rebuilds the surface — pane and capability
   // together. The pane name joining `surface.paneNames` is a carrier-set

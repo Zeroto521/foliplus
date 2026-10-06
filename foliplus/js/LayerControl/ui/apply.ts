@@ -98,8 +98,8 @@ const authorZoomBoundsOf = (
     minZoom?: number;
     maxZoom?: number;
   };
-  const mapMin = finiteOr(ui.m.map.getMinZoom(), 0);
-  const mapMax = finiteOr(ui.m.map.getMaxZoom(), CONST.AUTHOR_ZOOM_FALLBACK_MAX);
+  const mapMin = finiteOr(ui.c.map.getMinZoom(), 0);
+  const mapMax = finiteOr(ui.c.map.getMaxZoom(), CONST.AUTHOR_ZOOM_FALLBACK_MAX);
   const bounds: [number, number] = [
     finiteOr(opts.minZoom, mapMin),
     finiteOr(opts.maxZoom, mapMax),
@@ -110,7 +110,7 @@ const authorZoomBoundsOf = (
 
 /** Same lookup keyed by layer id — the panel code has only the id in hand. */
 const authorZoomBoundsForLayer = (ui: LayerUI, layerId: string): [number, number] =>
-  authorZoomBoundsOf(ui, ui.m.layerRegistry.get(layerId)?.layer);
+  authorZoomBoundsOf(ui, ui.c.layerRegistry.get(layerId)?.layer);
 
 /** The redraw arm does not clear CSS opacity on the write itself: the drawer
  *  that owns the face reads layerAlpha off the canvas and repaints there,
@@ -167,7 +167,7 @@ const scheduleOpacityRedraw = (
  */
 const carrierOf = (ui: LayerUI, layerInfo: LayerInfo): unknown => {
   if (layerInfo.canvas) return layerInfo.canvas;
-  const surface = ui.m.surfaceFor(layerInfo);
+  const surface = ui.c.surfaceFor(layerInfo);
   if (surface.capabilities.opacity === CAP_TIER.PANE) {
     // A stable key, not an array: `sameCarrier` compares with `===`, so a
     // freshly built array would never match and every pane layer would
@@ -210,17 +210,17 @@ const applyStateOp = (
   repaintMode: "debounce" | "none" = "none",
 ): void => {
   if (op.type === "visible") {
-    const carrier = ui.m.surfaceFor(layerInfo).capabilities.visibility;
+    const carrier = ui.c.surfaceFor(layerInfo).capabilities.visibility;
     if (carrier === CAP_TIER.NATIVE) {
-      const layer = layerInfo.layer ?? ui.m.findLayer(layerInfo);
+      const layer = layerInfo.layer ?? ui.c.findLayer(layerInfo);
       if (layer) {
         // Map membership. Written only when it differs from what is there —
         // `addLayer` on a live layer is a no-op at best and re-orders the
         // stacking at worst, so both halves collapse to one condition.
-        const has = ui.m.map.hasLayer(layer);
+        const has = ui.c.map.hasLayer(layer);
         if (op.value !== has) {
-          if (op.value) ui.m.map.addLayer(layer);
-          else ui.m.map.removeLayer(layer);
+          if (op.value) ui.c.map.addLayer(layer);
+          else ui.c.map.removeLayer(layer);
           // Map membership is not registry state: this executor is the only
           // writer of the add/remove, so it is what puts the change on the bus.
           // The annotation manager repaints per id on this event, which is
@@ -285,7 +285,7 @@ const applyStateOp = (
       layerInfo.opacity = value;
       return;
     }
-    const carrier = ui.m.surfaceFor(layerInfo).capabilities.opacity;
+    const carrier = ui.c.surfaceFor(layerInfo).capabilities.opacity;
     if (carrier === CAP_TIER.NONE) return; // no honest write exists
     const layer = layerInfo.layer;
     if (!layer) return;
@@ -315,13 +315,13 @@ const applyStateOp = (
       // CSS on the vector data panes and bake on the label canvas — both
       // sides land at the same visual opacity.
       const value = op.value ?? 1;
-      const surface = ui.m.surfaceFor(layerInfo);
+      const surface = ui.c.surfaceFor(layerInfo);
       for (const pane of surface.panes) {
         if (pane.role === PANE_ROLE.ANNOTATION) continue;
-        const el = ui.m.map.getPane(pane.name);
+        const el = ui.c.map.getPane(pane.name);
         if (el) el.style.opacity = String(value);
       }
-      ui.m.annotation.applyLayerAlpha(layerInfo.id, value);
+      ui.c.annotation.applyLayerAlpha(layerInfo.id, value);
       layerInfo.opacity = value;
     }
   }
@@ -359,7 +359,7 @@ const applyProjection = (
   id: string,
   repaintMode: "debounce" | "none" = "none",
 ): void => {
-  const layerInfo = ui.m.layerRegistry.get(id);
+  const layerInfo = ui.c.layerRegistry.get(id);
   if (!layerInfo) return;
   const next = projectLayer(ui, layerInfo);
   let prev = ui.runtimeStore.getApplied(id);
@@ -377,8 +377,8 @@ const applyProjection = (
     // real visible → hidden transition.
     // Late-binding fallback via manager.findLayer — the single resolve point
     // (folium may emit the TileLayer var after this control's IIFE).
-    const layer = layerInfo.layer ?? ui.m.findLayer(layerInfo);
-    const baselineVisible = layer ? ui.m.map.hasLayer(layer) : intentVisibleOf(ui, id);
+    const layer = layerInfo.layer ?? ui.c.findLayer(layerInfo);
+    const baselineVisible = layer ? ui.c.map.hasLayer(layer) : intentVisibleOf(ui, id);
     prev = {
       id,
       intent: { visible: baselineVisible },
@@ -406,7 +406,7 @@ const applyProjection = (
   //    object yet) from being recorded as done. The invariant lives
   //    here: nothing authorises an add unless `intent` does, so a derived
   //    dimension can only remove, never restore on its own.
-  const layer = layerInfo.layer ?? ui.m.findLayer(layerInfo);
+  const layer = layerInfo.layer ?? ui.c.findLayer(layerInfo);
   // Whether anything authorises a map write at all. Only the user's
   // own choice or an *observed* author snapshot decides membership. A layer
   // whose author default has not been observed yet (its JS global is not
@@ -421,11 +421,11 @@ const applyProjection = (
   // HIDDEN class; "none" — no carrier at all, so no meaningful "shown".
   // Reading the carrier (not the last value we wrote) makes the executor
   // converge on `effectiveShown` no matter who moved the layer in between.
-  const visibility = ui.m.surfaceFor(layerInfo).capabilities.visibility;
+  const visibility = ui.c.surfaceFor(layerInfo).capabilities.visibility;
   const currentShown =
     visibility === CAP_TIER.NATIVE
       ? layer
-        ? ui.m.map.hasLayer(layer)
+        ? ui.c.map.hasLayer(layer)
         : false
       : visibility === CAP_TIER.PANE
         ? layerInfo.canvas
