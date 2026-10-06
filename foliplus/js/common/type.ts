@@ -15,16 +15,6 @@ interface Logger {
   msg: (message: string) => string;
 }
 
-/**
- * Shared debounce utility. Returns a debounced version of `func` that
- * delays invocation until `delayMs` ms after the last call.
- * The returned function has a `.cancel()` method to clear pending timers.
- */
-type Debounced = ((...args: unknown[]) => void) & {
-  cancel: () => void;
-  flush: () => void;
-};
-
 /** Everything drawing a canvas label needs, resolved from the tokens. */
 interface CanvasLabelStyle {
   fontFamily: string;
@@ -38,4 +28,4 @@ interface CanvasLabelStyle {
   haloWidth: number;
 }
 
-export type { CanvasLabelStyle, Debounced, LogFn, Logger };
+export type { CanvasLabelStyle, LogFn, Logger };
