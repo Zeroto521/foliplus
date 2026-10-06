@@ -42,7 +42,7 @@ function makeUI(): any {
   };
   return {
     uiContainer: container,
-    m: { map },
+    c: { map },
     handleKeyDown: vi.fn(),
     handleOutsideMousedown: vi.fn(),
     openMoreMenu: vi.fn(),

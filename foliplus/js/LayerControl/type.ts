@@ -42,7 +42,7 @@ type PersistedRecord = {
   /** Layer ids the user deleted, in the order they were deleted.
    *
    *  One-way: nothing removes an entry and `deleteLayer` is the only writer.
-   *  It is read at the registration entry point alone (`LayerManager
+   *  It is read at the registration entry point alone (`LayerController
    *  .registerLayer`) so a deleted id can never re-enter the registry;
    *  nothing downstream consults it, because a deleted id is simply never
    *  registered and so never reaches them. */

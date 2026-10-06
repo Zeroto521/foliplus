@@ -153,7 +153,7 @@ window.L = {
 };
 
 // L.Path.prototype.bringToFront is captured at module import time by
-// LayerControl.manager.js — set it up before test imports.
+// LayerControl.controller.js — set it up before test imports.
 window.L.Path.prototype.bringToFront = vi.fn();
 
 // Extend the base L stub with every constructor/factory production code

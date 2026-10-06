@@ -1,5 +1,5 @@
 // removeControl → addControl must tear down the full LayerAPI (back to the
-// lightweight stub) and then upgrade it again (fresh LayerManager), with the
+// lightweight stub) and then upgrade it again (fresh LayerController), with the
 // panel re-attached.
 () => {
   const ctrl = window.__layerCtrl;

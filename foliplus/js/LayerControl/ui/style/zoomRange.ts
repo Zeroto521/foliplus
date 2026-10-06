@@ -27,9 +27,9 @@ import {
  *  carrier, same as every other surface). No `isColorBasemap`
  *  special-case, no `group` exemption: capability alone decides. */
 const canShowZoomRange = (ui: LayerUI, layerId: string): boolean => {
-  const li = ui.m.layerRegistry.get(layerId);
+  const li = ui.c.layerRegistry.get(layerId);
   if (!li) return false;
-  return ui.m.surfaceFor(li).capabilities.zoomRange !== CAP_TIER.NONE;
+  return ui.c.surfaceFor(li).capabilities.zoomRange !== CAP_TIER.NONE;
 };
 
 /** Clamp a zoom value into the map's current [min, max] range. */
@@ -118,7 +118,7 @@ const syncZoomRangeRow = (
   const range = liveRange ?? getIntent(ui, layerId, INTENT.ZOOM_RANGE);
   const min = range ? Math.max(range[0], mapMin) : mapMin;
   const max = range ? Math.min(range[1], mapMax) : mapMax;
-  const current = ui.m.map.getZoom();
+  const current = ui.c.map.getZoom();
 
   const fill = row.querySelector(
     `.${CONST.CLASSES.STYLE_ZOOM_RANGE_FILL}`,
@@ -165,7 +165,7 @@ const buildZoomRangeRow = (ui: LayerUI, layerId: string): HTMLElement => {
   const stored = getIntent(ui, layerId, INTENT.ZOOM_RANGE);
   const min = stored ? Math.max(stored[0], mapMin) : mapMin;
   const max = stored ? Math.min(stored[1], mapMax) : mapMax;
-  const current = ui.m.map.getZoom();
+  const current = ui.c.map.getZoom();
 
   const fill = dom.el("div", {
     class: `${CONST.CLASSES.SLIDER_FILL} ${CONST.CLASSES.STYLE_ZOOM_RANGE_FILL}`,
@@ -259,7 +259,7 @@ const applyZoomRangeLive = (
   min: number,
   max: number,
 ): void => {
-  const li = ui.m.layerRegistry.get(layerId);
+  const li = ui.c.layerRegistry.get(layerId);
   if (!li) return;
   ui.intentStore.setValue(layerId, INTENT.ZOOM_RANGE, [min, max]);
   syncZoomRangeRow(ui, layerId, row, [min, max]);
@@ -276,7 +276,7 @@ const commitZoomRange = (ui: LayerUI, layerId: string): void => {
 /** Reset one layer's zoom range to the full map range and drop its override.
  *  Thin delegate over the zoom-range descriptor's `reset` plus row chrome. */
 const resetLayerZoomRange = (ui: LayerUI, layerId: string): void => {
-  if (!ui.m.layerRegistry.has(layerId)) return;
+  if (!ui.c.layerRegistry.has(layerId)) return;
   getDimension(DIM.ZOOM_RANGE)!.reset!(ui, layerId);
   // Refresh the row's visual state (fill, values, out-of-range).
   const panel = ui.uiContainer.querySelector(
@@ -294,7 +294,7 @@ const ZOOM_RANGE_DIMENSION = registerDimension<{ min: number; max: number }>({
   key: DIM.ZOOM_RANGE,
   gate: canShowZoomRange,
   value: (ui, layerId) => {
-    const li = ui.m.layerRegistry.get(layerId);
+    const li = ui.c.layerRegistry.get(layerId);
     if (!li) return undefined;
     const [mapMin, mapMax] = authorZoomBoundsForLayer(ui, layerId);
     const stored = getIntent(ui, layerId, INTENT.ZOOM_RANGE);

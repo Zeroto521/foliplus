@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GROUP, HIDDEN } from "#core/layer/const.js";
 import { LayerIntentStore, LayerRuntimeStore } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
-import { LayerManager } from "#foliplus/LayerControl/manager.js";
+import { LayerController } from "#foliplus/LayerControl/controller.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { getIntent, setIntent } from "#foliplus/LayerControl/ui/intent.js";
 import {
@@ -90,7 +90,7 @@ const fixture = () => {
   // folium would have left it in.
   for (const li of layers) map._layers.set(li.layer, li.layer);
 
-  const manager = new LayerManager(map, layers);
+  const manager = new LayerController(map, layers);
   manager.ui = new LayerUI(manager, TEST_ENV);
   manager.attachUI(document.createElement("div"));
   return { map, manager, ui: manager.ui as LayerUI };
@@ -103,9 +103,9 @@ const allToggle = (ui: LayerUI, group = GROUP.OVERLAY) =>
 
 const makeUi = (
   map: FixtureMap,
-  layers: ConstructorParameters<typeof LayerManager>[1],
+  layers: ConstructorParameters<typeof LayerController>[1],
 ) => {
-  const m = new LayerManager(map, layers);
+  const m = new LayerController(map, layers);
   m.ui = new LayerUI(m, TEST_ENV);
   m.attachUI(document.createElement("div"));
   return m;
@@ -113,7 +113,7 @@ const makeUi = (
 
 describe("applyVisibility", () => {
   let map: FixtureMap;
-  let manager: LayerManager;
+  let manager: LayerController;
   let ui: LayerUI;
 
   beforeEach(() => {
@@ -259,7 +259,7 @@ describe("applyVisibility", () => {
     // The id is resolved before the panel check, so a typo does not read as a
     // missing-panel no-op.
     expect(applyVisibility(ui, "nope", false)).toBe(false);
-    const bare = new LayerManager(map, []);
+    const bare = new LayerController(map, []);
     expect(bare.setVisible("nope", false)).toBe(false);
     expect(map.addLayer).not.toHaveBeenCalled();
     expect(map.removeLayer).not.toHaveBeenCalled();
@@ -531,14 +531,14 @@ describe("applyVisibility", () => {
 // ---------------------------------------------------------------------------
 // Manager façade
 //
-// `LayerManager.setVisible` is the `LayerAPI` entry point. It adds only the
+// `LayerController.setVisible` is the `LayerAPI` entry point. It adds only the
 // pre-flight checks ?id resolution, panel presence, the registry warning ?
 // and then delegates, so a layer can be controlled from outside the panel.
 // ---------------------------------------------------------------------------
 
-describe("LayerManager.setVisible", () => {
+describe("LayerController.setVisible", () => {
   let map: FixtureMap;
-  let manager: LayerManager;
+  let manager: LayerController;
   let ui: LayerUI;
 
   beforeEach(() => {
@@ -580,14 +580,14 @@ describe("LayerManager.setVisible", () => {
     // The id is resolved first, so a typo reports the same with or without a
     // panel attached ?it cannot read as a missing-panel no-op.
     expect(manager.setVisible("nope", false)).toBe(false);
-    const bare = new LayerManager(map, []);
+    const bare = new LayerController(map, []);
     expect(bare.setVisible("nope", false)).toBe(false);
     expect(map.addLayer).not.toHaveBeenCalled();
     expect(map.removeLayer).not.toHaveBeenCalled();
   });
 
   it("refuses before the panel is attached rather than no-op-ing", () => {
-    const bare = new LayerManager(map, [
+    const bare = new LayerController(map, [
       { id: "overlay1", name: "Points", group: "overlay", layer: layerFixture() },
     ]);
     // No ui: nothing to sync the row with and no hidden-set funnel to write,
@@ -621,7 +621,7 @@ describe("LayerUI.handleChange", () => {
   };
 
   let map: FixtureMap;
-  let manager: LayerManager;
+  let manager: LayerController;
   let ui: LayerUI;
 
   beforeEach(() => {
@@ -739,7 +739,7 @@ describe("DOM order diverges from registry order", () => {
     // show=True would have added, so snapshotAuthorVisible reads true.
     for (const li of layers) map._layers.set(li.layer, li.layer);
 
-    const manager = new LayerManager(map, layers);
+    const manager = new LayerController(map, layers);
     manager.ui = new LayerUI(manager, TEST_ENV);
     manager.attachUI(document.createElement("div"));
     return { map, manager, ui: manager.ui as LayerUI };
@@ -775,7 +775,7 @@ describe("DOM order diverges from registry order", () => {
   };
 
   let map: FixtureMap;
-  let manager: LayerManager;
+  let manager: LayerController;
   let ui: LayerUI;
 
   beforeEach(() => {
@@ -908,7 +908,7 @@ describe("toggleAll base group", () => {
       attributionControl: { _attributions: {}, _update: vi.fn() },
     } as FixtureMap & Record<string, unknown>;
 
-    const layers: ConstructorParameters<typeof LayerManager>[1] = [
+    const layers: ConstructorParameters<typeof LayerController>[1] = [
       { id: "B1", name: "Base 1", group: "base", layer: layerFixture() },
       // Canvas-style base: a real canvas element, no Leaflet layer to add or remove.
       {
@@ -918,14 +918,14 @@ describe("toggleAll base group", () => {
         canvas: document.createElement("canvas"),
       },
     ];
-    const manager = new LayerManager(map, layers);
+    const manager = new LayerController(map, layers);
     manager.ui = new LayerUI(manager, TEST_ENV);
     manager.attachUI(document.createElement("div"));
     return { map, manager, ui: manager.ui as LayerUI };
   };
 
   let map: FixtureMap;
-  let manager: LayerManager;
+  let manager: LayerController;
   let ui: LayerUI;
 
   beforeEach(() => {
@@ -1054,7 +1054,7 @@ describe("unit helpers", () => {
     uiContainer.innerHTML = `<div class="foliplus-layer-toggle-all" data-group="${GROUP.OVERLAY}"></div>`;
     const ui = {
       uiContainer,
-      m: { layerRegistry: { get: () => undefined } },
+      c: { layerRegistry: { get: () => undefined } },
       T: (k: string) => k,
       listPanel: {
         checkedCount: {},
@@ -1073,7 +1073,7 @@ describe("unit helpers", () => {
     uiContainer.innerHTML = `<div class="foliplus-layer-toggle-all" data-group="${GROUP.BASE}"><span></span></div>`;
     const ui = {
       uiContainer,
-      m: {
+      c: {
         layers: [{ id: "b1", group: "base" }],
         map: { getContainer: () => document.createElement("div") },
       },
@@ -1109,7 +1109,7 @@ describe("unit helpers", () => {
           : [{ id: "b1", group: "base", opacity }];
       const ui = {
         uiContainer,
-        m: { layers, map: { getContainer: () => container } },
+        c: { layers, map: { getContainer: () => container } },
         intentStore: new LayerIntentStore(),
         runtimeStore: new LayerRuntimeStore(),
         T: (k: string) => k,
@@ -1159,7 +1159,7 @@ describe("unit helpers", () => {
     `;
     const ui = {
       uiContainer,
-      m: { layerRegistry: { get: () => ({ id: "x" }) } },
+      c: { layerRegistry: { get: () => ({ id: "x" }) } },
       intentStore: new LayerIntentStore(),
       runtimeStore: new LayerRuntimeStore(),
       T: (k: string) => k,

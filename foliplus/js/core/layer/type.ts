@@ -123,7 +123,7 @@ interface LayerCapabilities {
    *      shapes without properties): no pane, no row.
    *
    *  Declared, not probed in `detectCapabilities`: the probe lives at the
-   *  declaration edge (`LayerManager.surfaceFor`), so the capability and
+   *  declaration edge (`LayerController.surfaceFor`), so the capability and
    *  the pane itself are one fact and can never disagree — and a
    *  re-registration whose tree gained or lost labelable content re-probes
    *  there, changing the declared specs, which rebuilds the surface through
@@ -361,7 +361,7 @@ interface LayerSurface {
   readonly panes: readonly PaneHandle[];
   materialized: boolean;
   /** Release the panes this surface created. Not called by
-   *  `LayerManager.destroy()`: that drops the registry without taking the
+   *  `LayerController.destroy()`: that drops the registry without taking the
    *  registered layers off the map, so their panes are still painting. */
   destroy: () => void;
   /** The geometry type this surface's layer resolves to, cached per surface.
@@ -674,7 +674,7 @@ type SurfaceHandle =
 /** LayerControl public API, exposed on `map.foliplus.LayerAPI`.
  *
  * Two implementations must satisfy this contract:
- *   - LayerManager (full: registry + sorting + panel integration)
+ *   - LayerController (full: registry + sorting + panel integration)
  *   - ensureLayerAPI's lightweight default (createLayers/createCanvas only;
  *     registry/query methods are no-ops returning empty results)
  *
@@ -689,9 +689,9 @@ type SurfaceHandle =
  * event bus, not through this interface.
  */
 interface LayerAPI {
-  /** Diagnostic marker (true = LayerManager, false = lightweight stub).
+  /** Diagnostic marker (true = LayerController, false = lightweight stub).
    * Not authoritative for dependency checks — use isRealLayerControl, which
-   * asserts the registry-delegating `layers` getter that only LayerManager
+   * asserts the registry-delegating `layers` getter that only LayerController
    * has.  Kept for ad-hoc logging / debugging convenience.
    */
   isLayerControl: boolean;
@@ -754,7 +754,7 @@ interface LayerAPI {
    *  marked visible here may still be off the map because policy (focus,
    *  zoom range) is suppressing it. Callers that need "is it drawn right
    *  now" read the map directly; callers that need "did the user hide it"
-   *  read this. Only LayerManager implements this; the lightweight stub
+   *  read this. Only LayerController implements this; the lightweight stub
    *  has no intent storage, so a consumer sees `undefined` and falls back
    *  to `true`.
    */
@@ -775,11 +775,11 @@ interface LayerAPI {
   touchLayer?: (id: string) => boolean;
   /** Move a layer one position toward index 0, respecting group boundaries.
    *  False if already at the top, at a group boundary, or unknown.
-   *  Only LayerManager implements this — the lightweight stub has no registry. */
+   *  Only LayerController implements this — the lightweight stub has no registry. */
   moveLayerUp?: (id: string) => boolean;
   /** Move a layer one position away from index 0, respecting group boundaries.
    *  False if already at the bottom of its group or unknown.
-   *  Only LayerManager implements this — the lightweight stub has no registry. */
+   *  Only LayerController implements this — the lightweight stub has no registry. */
   moveLayerDown?: (id: string) => boolean;
 }
 

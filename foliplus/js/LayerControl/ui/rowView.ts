@@ -73,10 +73,10 @@ interface RowLabels {
 const inZoomRange = (ui: LayerUI, layerInfo: LayerInfo): boolean => {
   const range = getIntent(ui, layerInfo.id, INTENT.ZOOM_RANGE);
   if (!range) return true;
-  const min = Math.max(range[0], ui.m.map.getMinZoom());
-  const max = Math.min(range[1], ui.m.map.getMaxZoom());
+  const min = Math.max(range[0], ui.c.map.getMinZoom());
+  const max = Math.min(range[1], ui.c.map.getMaxZoom());
   if (min > max) return false;
-  const zoom = ui.m.map.getZoom();
+  const zoom = ui.c.map.getZoom();
   return zoom >= min && zoom <= max;
 };
 
@@ -117,7 +117,7 @@ const rowView = (cell: RowCell, labels: RowLabels): RowView => ({
 const displayName = (ui: LayerUI, id: string): string => {
   return (
     (getIntent(ui, id, INTENT.NAME) as string | undefined) ??
-    ui.m.layerRegistry.get(id)?.name ??
+    ui.c.layerRegistry.get(id)?.name ??
     (id === CONST.SOLID_BASEMAP_ID ? ui.T("color_map_label") : "")
   );
 };
@@ -147,11 +147,11 @@ const displayName = (ui: LayerUI, id: string): string => {
  */
 const snapshotAuthorVisible = (ui: LayerUI, layerInfo: LayerInfo): void => {
   if (ui.runtimeStore.hasAuthorVisible(layerInfo.id)) return;
-  const layer = ui.m.findLayer(layerInfo);
+  const layer = ui.c.findLayer(layerInfo);
   if (!layer && !layerInfo.canvas) return; // not linked yet — leave unknown
   ui.runtimeStore.setAuthorVisible(
     layerInfo.id,
-    layer ? ui.m.map.hasLayer(layer) : intentVisibleOf(ui, layerInfo.id),
+    layer ? ui.c.map.hasLayer(layer) : intentVisibleOf(ui, layerInfo.id),
   );
 };
 
@@ -159,7 +159,7 @@ const snapshotAuthorVisible = (ui: LayerUI, layerInfo: LayerInfo): void => {
  * The type icon and its label for one layer.
  *
  *  Render-only: the surface is the probe authority, and `layerInfo.type` is
- *  that result's snapshot with a single writer (`LayerManager.getLayerType`).
+ *  that result's snapshot with a single writer (`LayerController.getLayerType`).
  *  Reading the surface here is not a second probe, and painting must not
  *  stamp the snapshot — the row is a projection, not a writer.
  */
@@ -179,7 +179,7 @@ const rowType = (
     return { svg: layerInfo.iconSvg, key: "type_custom" };
   }
   if (layer) {
-    const gtype = ui.m.surfaceFor(layerInfo).geometryType();
+    const gtype = ui.c.surfaceFor(layerInfo).geometryType();
     return { svg: Util.getTypeSVG(gtype), key: `type_${gtype}` };
   }
   return { svg: SVGs.UNKNOWN, key: "type_unknown" };
@@ -192,7 +192,7 @@ const rowType = (
  *  cannot read a stale decoration and looking at a layer cannot move the map.
  */
 const buildRowCell = (ui: LayerUI, layerInfo: LayerInfo): RowCell => {
-  const layer = ui.m.findLayer(layerInfo);
+  const layer = ui.c.findLayer(layerInfo);
   const checked = intentVisibleOf(ui, layerInfo.id);
   const type = rowType(ui, layerInfo, layer);
   const count = ui.mgmt.getFeatureCount(layerInfo.id);

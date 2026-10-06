@@ -14,7 +14,7 @@ import type { LayerUI } from "./index.js";
 
 const getColorSurface = (ui: LayerUI): CreateColorAPI => {
   if (!ui.colorSurface) {
-    const surface = ui.m.createColor({
+    const surface = ui.c.createColor({
       id: CONST.SOLID_BASEMAP_ID,
       name: ui.T("color_map_label"),
       color: CONST.COLOR.DEFAULT,
@@ -36,7 +36,7 @@ const showSolidBasemap = (ui: LayerUI, color: string) => {
   surface.setVisible(true);
   // Checking the box is a single user action — order the stack now, so the
   // pane's z lands immediately instead of after the debounce.
-  ui.m.enforceOrder();
+  ui.c.enforceOrder();
 };
 
 const hideSolidBasemap = (ui: LayerUI) => {
@@ -50,7 +50,7 @@ const hideSolidBasemap = (ui: LayerUI) => {
 /** Reset the colour basemap to its initial state after a delete: null the
  *  surface (so the next show re-allocates it), reset the colour to the
  *  author default, mark the id as hidden so the deletion persists, and
- *  flush. Called only from LayerManager.deleteLayer — the uncheck path
+ *  flush. Called only from LayerController.deleteLayer — the uncheck path
  *  uses `hideSolidBasemap` instead, which keeps the surface allocated so
  *  a re-check is cheap. */
 const resetSolidBasemap = (ui: LayerUI) => {

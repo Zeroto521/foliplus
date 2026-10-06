@@ -15,7 +15,7 @@
 //
 // One ladder stays out on purpose: the popup/tooltip/marker relationship the
 // ordering pass writes onto Leaflet's own panes (`topZ + 1 / topZ / topZ - 1`
-// in `LayerManager.enforceOrder`). The base for those three lines comes out of
+// in `LayerController.enforceOrder`). The base for those three lines comes out of
 // the ladder (`topSlotZ`); what stays out is the fixed relationship between
 // them — they describe the relative order of Leaflet's *native* panes, not a
 // foliplus layer's slot. Folding it in would mean adding `PaneRole` values
@@ -79,7 +79,7 @@ const zFor = ({
 };
 
 /** The z one step above the topmost layer's slot — the base for the three
- *  native-pane offsets (popup / tooltip / marker) in `LayerManager.enforceOrder`. */
+ *  native-pane offsets (popup / tooltip / marker) in `LayerController.enforceOrder`. */
 const topSlotZ = (count: number): number => zFor({ index: -1, count });
 
 export { ANNOTATION_Z_OFFSET, FOCUS_Z, focusLayerZ, topSlotZ, zFor };

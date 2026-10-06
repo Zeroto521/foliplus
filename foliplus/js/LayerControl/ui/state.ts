@@ -22,7 +22,7 @@ const log = createLogger(CONFIG.name);
 
 /** Load every persisted dimension in one call. */
 const loadPersistedState = (ui: LayerUI) => {
-  const state = ui.m.persistence.load();
+  const state = ui.c.persistence.load();
   ui.listPanel.foldedGroups = new Set(state.foldedGroups);
   // Intent values + provenance sink into the store. Read order is the compat
   // contract: the current `layers[id].annotation` key WINS, the legacy
@@ -38,7 +38,7 @@ const loadPersistedState = (ui: LayerUI) => {
 /** Save fold state to localStorage. */
 
 const saveFoldState = (ui: LayerUI) => {
-  ui.m.persistence.schedule({
+  ui.c.persistence.schedule({
     foldedGroups: () => [...ui.listPanel.foldedGroups],
   });
 };
@@ -62,14 +62,14 @@ const hasLiveValue = (ui: LayerUI, id: string, override: LayerOverride): boolean
  *  layer configured *only* for labels still gets an entry (with an empty
  *  `overrides` array, which `parseLayerState` keeps for exactly this). */
 const buildLayerStates = (ui: LayerUI) => {
-  const annotations = Object.fromEntries(ui.m.annotation.configEntries());
+  const annotations = Object.fromEntries(ui.c.annotation.configEntries());
   return ui.intentStore.toPersisted(annotations);
 };
 
 /** Save the per-layer intent -- visibility, opacity, zoom range and the
  *  label config -- coalescing rapid calls. */
 const saveState = (ui: LayerUI) => {
-  ui.m.persistence.schedule({ layers: () => buildLayerStates(ui) });
+  ui.c.persistence.schedule({ layers: () => buildLayerStates(ui) });
 };
 
 /** Record that the user has set a dimension for one layer. The first action is
@@ -139,7 +139,7 @@ const unmarkOverride = (ui: LayerUI, id: string, override: LayerOverride) => {
  */
 
 const applyUserState = (ui: LayerUI, id?: string) => {
-  const registry = ui.m.layerRegistry;
+  const registry = ui.c.layerRegistry;
   const container = ui.uiContainer;
 
   // visible / opacity / zoomRange belong to the diff executor: one write per
@@ -164,7 +164,7 @@ const applyUserState = (ui: LayerUI, id?: string) => {
     // The order dimension is replayed on the same pass: this path runs once per
     // late registration, so without it the layer would keep the slot it was
     // inserted into rather than the position the user already arranged.
-    ui.m.replaySavedOrder(id);
+    ui.c.replaySavedOrder(id);
     return;
   }
 
@@ -211,7 +211,7 @@ const applyUserState = (ui: LayerUI, id?: string) => {
   // The order comes from the same read as the dimensions above, which lands
   // before late registrations -- so it is replayed across the registry that
   // exists now, and each later registration refines its own slot.
-  ui.m.replaySavedOrder();
+  ui.c.replaySavedOrder();
 };
 
 /**
@@ -246,7 +246,7 @@ const saveNamesState = (ui: LayerUI) => {
   for (const [id, name] of ui.intentStore.nameEntries()) {
     names[id] = name;
   }
-  ui.m.persistence.schedule({ renamedNames: () => names });
+  ui.c.persistence.schedule({ renamedNames: () => names });
 };
 
 /** Full re-scan of every row (used on attach/fold-toggle). Idempotent —

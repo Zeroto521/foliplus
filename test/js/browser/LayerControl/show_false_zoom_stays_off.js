@@ -24,8 +24,8 @@ async () => {
     mapLayers: map._layers ? Object.keys(map._layers) : null,
   };
 
-  // api.layers is LayerManager's getter; the lightweight stub has a frozen [].
-  // findLayer exists only on the real LayerManager.
+  // api.layers is LayerController's getter; the lightweight stub has a frozen [].
+  // findLayer exists only on the real LayerController.
   let layer = null;
   if (api.findLayer) {
     layer = api.findLayer(id);

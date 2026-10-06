@@ -1,5 +1,5 @@
 // core/LayerInfoRegistry — ordered layer data model (list + id index + read-only view).
-// Pure data, no DOM / CONFIG dependency. The LayerManager orchestrates mutations.
+// Pure data, no DOM / CONFIG dependency. The LayerController orchestrates mutations.
 import { createLogger } from "#common/log.js";
 import { safeSVG } from "#common/sanitize.js";
 import { GROUP } from "./const.js";
@@ -23,7 +23,7 @@ const MUTATING_METHODS = new Set([
 ]);
 
 /** Derive `kind` at the registration edge — the single place in the codebase
- *  where a layer's kind is derived. `LayerManager.surfaceFor` forwards the
+ *  where a layer's kind is derived. `LayerController.surfaceFor` forwards the
  *  result to `LayerSurface`, which never re-derives it, so the registry and
  *  the surface cannot disagree about what a layer is. */
 const kindFor = (opts: RegisterLayerOpts, layer: L.Layer | null): LayerKind =>

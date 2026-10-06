@@ -28,7 +28,7 @@ const DELEGATED_DIM_ORDER = DIM_ORDER.filter(
  *  (third-party canvas layers: Heatmap, Measure). The ⋮ menu's Style item
  *  also enables for these. */
 const layerHasStyleDelegation = (ui: LayerUI, layerId: string): boolean => {
-  const li = ui.m.layerRegistry.get(layerId);
+  const li = ui.c.layerRegistry.get(layerId);
   return !!li?.styleSetters && Object.keys(li.styleSetters).length > 0;
 };
 
@@ -38,13 +38,13 @@ const layerHasStyleDelegation = (ui: LayerUI, layerId: string): boolean => {
  *  the two read identically — with the `styleSetters` write target.
  *  Returns null when the layer publishes no border setters. */
 const buildBorderRow = (ui: LayerUI, layerId: string): HTMLElement | null => {
-  const li = ui.m.layerRegistry.get(layerId);
+  const li = ui.c.layerRegistry.get(layerId);
   const setters = li?.styleSetters;
   if (!setters || (!setters.borderWeight && !setters.borderColor)) return null;
 
   // Re-read the registry at event time so a layer torn down between open and
   // interaction no-ops (the setter map is gone).
-  const entry = () => ui.m.layerRegistry.get(layerId);
+  const entry = () => ui.c.layerRegistry.get(layerId);
   const values = (entry()?.styleProvider?.() ?? {}) as {
     borderWeight?: number;
     borderColor?: string;
@@ -85,7 +85,7 @@ const renderDelegatedStylePanel = (
   ui: LayerUI,
   layerId: string,
 ): HTMLElement | null => {
-  const li = ui.m.layerRegistry.get(layerId);
+  const li = ui.c.layerRegistry.get(layerId);
   const setters = li?.styleSetters;
   if (!setters || Object.keys(setters).length === 0) return null;
 
@@ -93,7 +93,7 @@ const renderDelegatedStylePanel = (
   // above: re-registering a layer swaps in a fresh LayerInfo object, so a
   // drawer left open across that swap must follow the new entry — and no-op
   // once its setters are gone.
-  const entry = () => ui.m.layerRegistry.get(layerId);
+  const entry = () => ui.c.layerRegistry.get(layerId);
   const { root, refresh: baseRefresh } = renderLabelControls({
     styleProvider: () => entry()?.styleProvider?.() as LabelStyleValues | undefined,
     getSetters: () => entry()?.styleSetters ?? {},
