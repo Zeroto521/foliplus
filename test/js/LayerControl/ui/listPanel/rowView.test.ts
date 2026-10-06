@@ -1,18 +1,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { GROUP } from "#core/layer/index.js";
-import type { LayerInfo } from "#core/layer/index.js";
-import { LayerIntentStore, LayerRuntimeStore } from "#core/layer/index.js";
+import {
+  GROUP,
+  type LayerInfo,
+  LayerIntentStore,
+  LayerRuntimeStore,
+} from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { clearIntent, getIntent, setIntent } from "#foliplus/LayerControl/ui/intent.js";
 import {
+  type RowCell,
   applyRowView,
   buildRowCell,
   rowView,
   snapshotAuthorVisible,
-} from "#foliplus/LayerControl/ui/listPanel/index.js";
-import type { RowCell } from "#foliplus/LayerControl/ui/listPanel/index.js";
-import {
   syncNoBasemap,
   syncToggleAll,
 } from "#foliplus/LayerControl/ui/listPanel/index.js";

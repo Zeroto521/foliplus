@@ -10,8 +10,7 @@ import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { clearIntent, getIntent, setIntent } from "#foliplus/LayerControl/ui/intent.js";
 import { intentVisibleOf, projectLayer } from "#foliplus/LayerControl/ui/projection.js";
 import { getLayerAlpha } from "#common/canvasAlpha.js";
-import { installLeafletGlobals } from "./fixture.js";
-import { TEST_ENV } from "./fixture.js";
+import { TEST_ENV, installLeafletGlobals } from "./fixture.js";
 
 // ────────────────────────────────────────────────────────────────────────
 // Gate: the executor must not let a derived dimension authorise

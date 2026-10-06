@@ -13,15 +13,17 @@
 //
 // Persistence projections (`toPersisted` / `loadFromPersisted`) own the
 // disk-shape bridge; `LayerControl/persistence.ts` still owns parse/serialize.
-import type {
-  AnnotationConfig,
-  IntentRow,
-  LayerIntent,
-  LayerOverride,
-  LoadSource,
-  PersistedLayerState,
+import {
+  type AnnotationConfig,
+  type IntentKey,
+  type IntentRow,
+  LIVE,
+  type LayerIntent,
+  type LayerOverride,
+  type LoadSource,
+  type PersistedLayerState,
+  STYLE_KEYS,
 } from "./intent.js";
-import { type IntentKey, LIVE, STYLE_KEYS } from "./intent.js";
 
 const isOverrideKey = (key: IntentKey): key is LayerOverride =>
   Object.prototype.hasOwnProperty.call(STYLE_KEYS, key);

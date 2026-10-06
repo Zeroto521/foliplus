@@ -11,8 +11,7 @@ import {
   showReorderBlockedHint,
   toggleFold,
 } from "#foliplus/LayerControl/ui/listPanel/index.js";
-import type { LayerInfo } from "#foliplus/core/layer/index.js";
-import { GROUP } from "#foliplus/core/layer/index.js";
+import { GROUP, type LayerInfo } from "#foliplus/core/layer/index.js";
 import { initFixture } from "../fixture.js";
 
 const makeUi = (

@@ -4,8 +4,7 @@ import { fromWgs84 } from "#core/geo/index.js";
 import { createLocationMarker } from "#core/locationMarker.js";
 import { guardBlocked } from "#core/mode.js";
 import * as Icons from "#common/icon.js";
-import { makePersisted } from "#common/storage.js";
-import * as Storage from "#common/storage.js";
+import { loadVersioned, makePersisted, saveVersioned } from "#common/storage.js";
 import { HISTORY, MODE, RECORD_VERSION, SOURCE, ZOOM } from "../const.js";
 import type { ResultItem, SearchHistoryEntry, SearchType } from "../type.js";
 import { attachSearchDelIcon, removePanel, renderResults } from "./search.js";
@@ -56,7 +55,7 @@ type StoredHistoryEntry = Partial<SearchHistoryEntry> & { label?: string };
 let persistName = "";
 const historyPersist = makePersisted({
   save: () =>
-    Storage.saveVersioned(HISTORY.STORAGE_KEY, {
+    saveVersioned(HISTORY.STORAGE_KEY, {
       data: pendingHistory,
       version: RECORD_VERSION,
       name: persistName,
@@ -68,7 +67,7 @@ let pendingHistory: SearchHistoryEntry[] = [];
 
 const loadHistory = (ctrl: SearchControlCtx): SearchHistoryEntry[] =>
   loadHistoryRows(
-    Storage.loadVersioned<StoredHistoryEntry>(HISTORY.STORAGE_KEY, {
+    loadVersioned<StoredHistoryEntry>(HISTORY.STORAGE_KEY, {
       name: ctrl.config.name,
       dataField: "entries",
     }),

@@ -1,18 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { LayerInfo } from "#core/layer/index.js";
-import { GROUP } from "#core/layer/index.js";
-import { LayerIntentStore } from "#core/layer/index.js";
+import { GROUP, type LayerInfo, LayerIntentStore } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import {
+  applyVisibility,
+  displayName,
   initLayerItem,
   initTypesAndVisibility,
   insertLayerItem,
   renderInitialList,
   updateLayerItem,
 } from "#foliplus/LayerControl/ui/listPanel/index.js";
-import { displayName } from "#foliplus/LayerControl/ui/listPanel/index.js";
-import { applyVisibility } from "#foliplus/LayerControl/ui/listPanel/index.js";
 import { TileLayer, initFixture } from "../fixture.js";
 
 const makeUi = () =>

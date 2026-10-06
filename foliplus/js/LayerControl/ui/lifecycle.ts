@@ -38,8 +38,11 @@ import {
   renderInitialList,
   updateLayerItem,
 } from "./listPanel/list.js";
-import { applyRowView, buildRowCell } from "./listPanel/rowView.js";
-import { snapshotAuthorVisible } from "./listPanel/rowView.js";
+import {
+  applyRowView,
+  buildRowCell,
+  snapshotAuthorVisible,
+} from "./listPanel/rowView.js";
 import {
   getLayerItems,
   handleChange,
