@@ -877,7 +877,9 @@ def _pin_package_path(
         )
 
 
-def _derived_control_schemas(base: type) -> list[tuple[str, ControlSchema]]:
+def _derived_control_schemas(
+    base: type[BaseControl],
+) -> list[tuple[str, ControlSchema]]:
     """Reflect every shipped control, returning ``(name, schema)`` pairs."""
     return [
         (c.__name__, derive_schema(c))
