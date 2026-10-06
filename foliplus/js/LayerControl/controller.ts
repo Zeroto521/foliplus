@@ -24,8 +24,7 @@ import {
   zFor,
 } from "#core/layer/index.js";
 import { hasAttachedPath, isGroupLike } from "#core/leafletAdapter.js";
-import { debounce } from "#common/debounce.js";
-import type { Debounced } from "#common/debounce.js";
+import { type Debounced, debounce } from "#common/debounce.js";
 import { createLogger } from "#common/log.js";
 import type { Logger } from "#common/type.js";
 import { AnnotationManager } from "./annotation/index.js";

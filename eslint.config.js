@@ -22,11 +22,6 @@
 //
 // @see https://eslint.org/docs/latest/use/configure/
 import tseslint from "typescript-eslint";
-import { importAggregate } from "./eslint/rule/import-aggregate.mjs";
-
-// Local rules that no upstream plugin provides. Kept under eslint/rule/
-// so `npm run lint` and the type-aware pass stay in one file each.
-const foliplusRules = { "import-aggregate": importAggregate };
 
 export default [
   // Guard against a bare `eslint .`, which would sweep .venv, doc/, and
@@ -55,14 +50,13 @@ export default [
       "script/**/*.cjs",
       "script/**/*.js",
     ],
-    plugins: { foliplus: { rules: foliplusRules } },
+    plugins: {},
     rules: {
-      // Same module → at most two import declarations: one value import and
-      // one type-only import, each aggregating its own bucket. The core
-      // `no-duplicate-imports` folds type and value into a single bucket,
-      // so it flags the split form this project wants; the local rule
-      // replaces it. Import ordering stays prettier's job.
-      "foliplus/import-aggregate": "error",
+      // One import declaration per module — the project's import
+      // convention. `import type { A }` + `import { B }` from the same
+      // module must merge into `import { B, type A }` (inline type).
+      // Import ordering stays prettier's job.
+      "no-duplicate-imports": "error",
 
       // Python E302 / E305: blank line before function / class definitions.
       "padding-line-between-statements": [

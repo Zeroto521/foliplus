@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { LayerInfoRegistry } from "#core/layer/index.js";
-import type { LayerInfo, RegisterLayerOpts } from "#core/layer/index.js";
+import {
+  type LayerInfo,
+  LayerInfoRegistry,
+  type RegisterLayerOpts,
+} from "#core/layer/index.js";
 
 // Compile-time contract for the layer type model.
 //

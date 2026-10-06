@@ -4,8 +4,10 @@
 // field cache, author-visible snapshot, reserved breaks). One row per layer
 // id, absent axis = never derived; explicit invalidation, never a re-scan.
 import { describe, expect, it } from "vitest";
-import type { AppliedProjection } from "#foliplus/core/layer/LayerRuntimeStore.js";
-import { LayerRuntimeStore } from "#foliplus/core/layer/LayerRuntimeStore.js";
+import {
+  type AppliedProjection,
+  LayerRuntimeStore,
+} from "#foliplus/core/layer/LayerRuntimeStore.js";
 
 const applied = (id: string, opacity = 1): AppliedProjection => ({
   id,

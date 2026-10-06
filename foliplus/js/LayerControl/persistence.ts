@@ -1,5 +1,4 @@
-import { debounce } from "#common/debounce.js";
-import type { Debounced } from "#common/debounce.js";
+import { type Debounced, debounce } from "#common/debounce.js";
 import { BORDER_WEIGHT, normalizeHexColor } from "#common/form.js";
 import * as Storage from "#common/storage.js";
 import * as CONST from "./const.js";

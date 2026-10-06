@@ -2,12 +2,13 @@
 // and the result marker. Moved from logic.ts; history lives in ./history.ts.
 import { fromWgs84, toWgs84 } from "#core/geo/index.js";
 import {
+  type GeocodeProvider,
+  type SuggestItem,
   formatAddress,
   lastRequestAt,
   markRequest,
   resolveProvider,
 } from "#core/geocode/index.js";
-import type { GeocodeProvider, SuggestItem } from "#core/geocode/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { DEL_ICON_MARKER_ANCHOR, mountDelIcon } from "#core/leaflet/index.js";
 import { createLocationMarker } from "#core/locationMarker.js";
