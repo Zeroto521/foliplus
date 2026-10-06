@@ -14,8 +14,7 @@ import { debounce } from "#common/debounce.js";
 import { BORDER_WEIGHT, clampLabelSize, normalizeHexColor } from "#common/form.js";
 import { NUMBER_FORMAT } from "#common/format.js";
 import { createLogger } from "#common/log.js";
-import { type Persisted, makePersisted } from "#common/storage.js";
-import * as Storage from "#common/storage.js";
+import { type Persisted, makePersisted, saveRecord } from "#common/storage.js";
 import type { CanvasLabelStyle, Debounced, Logger } from "#common/type.js";
 import * as CONST from "./const.js";
 import {
@@ -197,7 +196,7 @@ class HeatmapManager {
     // so there is nothing to coalesce. Flush on teardown stays idempotent.
     this.persist = makePersisted({
       save: () =>
-        Storage.saveRecord(
+        saveRecord(
           CONST.STORAGE.KEY,
           {
             version: CONST.RECORD_VERSION,

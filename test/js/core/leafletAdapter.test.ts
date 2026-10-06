@@ -3,26 +3,6 @@ import { join, resolve } from "path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import adapterSource from "#core/leafletAdapter?raw";
 import * as adapter from "#foliplus/core/leafletAdapter.js";
-import {
-  attributionEntries,
-  destroyPane,
-  getRendererContainer,
-  getRendererFor,
-  hasAttachedPath,
-  internalLayers,
-  isGroupLike,
-  layerElements,
-  layerIcon,
-  layerMap,
-  layerUrl,
-  markerShadow,
-  moveIntoPane,
-  primeControlMap,
-  refreshAttributions,
-  reinitInteraction,
-  resetGridLayerView,
-  setPopupCloseTitle,
-} from "#foliplus/core/leafletAdapter.js";
 
 // `getRendererFor` builds an SVG renderer; the shared Leaflet mock carries no
 // `svg` factory because no other module in this file needs one.
@@ -351,7 +331,7 @@ describe("destroyPane", () => {
     document.body.appendChild(pane);
     const map = makeMap({ heat: pane });
     map._paneRenderers = { heat: { id: "r" } };
-    destroyPane(map as L.Map, "heat");
+    adapter.destroyPane(map as L.Map, "heat");
     expect(pane.parentNode).toBeNull();
     expect(map._panes?.heat).toBeUndefined();
     // getRenderer() re-adds a renderer it finds off the map, so a stale entry
@@ -366,7 +346,7 @@ describe("destroyPane", () => {
     const renderer = { id: "r" };
     const map = makeMap();
     map._paneRenderers = { heat: renderer };
-    destroyPane(map as L.Map, "heat");
+    adapter.destroyPane(map as L.Map, "heat");
     expect(map.removeLayer).toHaveBeenCalledWith(renderer);
   });
 
@@ -375,7 +355,7 @@ describe("destroyPane", () => {
     const other = document.createElement("div");
     document.body.append(heat, other);
     const map = makeMap({ heat, other });
-    destroyPane(map as L.Map, "heat");
+    adapter.destroyPane(map as L.Map, "heat");
     expect(map._panes?.heat).toBeUndefined();
     expect(map._panes?.other).toBe(other);
     expect(other.parentNode).toBe(document.body);
@@ -385,7 +365,7 @@ describe("destroyPane", () => {
     const map = makeMap();
     map._panes = undefined;
     map._paneRenderers = undefined;
-    expect(() => destroyPane(map as L.Map, "never-created")).not.toThrow();
+    expect(() => adapter.destroyPane(map as L.Map, "never-created")).not.toThrow();
   });
 });
 
@@ -394,13 +374,13 @@ describe("getRendererFor", () => {
     const existing = { id: "r" };
     const map = makeMap();
     map._paneRenderers = { p: existing };
-    expect(getRendererFor(map as unknown as L.Map, "p")).toBe(existing);
+    expect(adapter.getRendererFor(map as unknown as L.Map, "p")).toBe(existing);
     expect(window.L.svg).not.toHaveBeenCalled();
   });
 
   it("builds one and registers it under the pane name", () => {
     const map = makeMap();
-    const built = getRendererFor(map as unknown as L.Map, "p");
+    const built = adapter.getRendererFor(map as unknown as L.Map, "p");
     expect(window.L.svg).toHaveBeenCalledWith({ pane: "p" });
     expect(map._paneRenderers?.p).toBe(built);
     expect((built as unknown as { addTo: unknown }).addTo).toBeDefined();
@@ -411,7 +391,7 @@ describe("getRendererFor", () => {
     window.L.svg = vi.fn(() => {
       throw new Error("no svg");
     });
-    expect(getRendererFor(map as unknown as L.Map, "p")).toBeNull();
+    expect(adapter.getRendererFor(map as unknown as L.Map, "p")).toBeNull();
   });
 });
 
@@ -425,7 +405,7 @@ describe("moveIntoPane", () => {
     } as unknown as typeof L.Path;
     const layer = new window.L.Path();
     map.hasLayer = () => false;
-    moveIntoPane(map as unknown as L.Map, layer as unknown as L.Layer, "new");
+    adapter.moveIntoPane(map as unknown as L.Map, layer as unknown as L.Layer, "new");
     expect(layer.options.pane).toBe("new");
     expect(map._paneRenderers?.new).toBe(layer.options.renderer);
   });
@@ -443,7 +423,7 @@ describe("moveIntoPane", () => {
       return map;
     };
     const layer = { options: {} } as unknown as L.Layer;
-    moveIntoPane(map as unknown as L.Map, layer, "p");
+    adapter.moveIntoPane(map as unknown as L.Map, layer, "p");
     // options.pane is read at `addLayer`, so it has to be written in between.
     expect(order).toEqual(["remove", "add"]);
     expect(layer.options.pane).toBe("p");
@@ -453,7 +433,7 @@ describe("moveIntoPane", () => {
     const map = makeMap();
     map.hasLayer = () => false;
     const layer = { options: {} } as unknown as L.Layer;
-    moveIntoPane(map as unknown as L.Map, layer, "p");
+    adapter.moveIntoPane(map as unknown as L.Map, layer, "p");
     expect(map.removeLayer).not.toHaveBeenCalled();
     expect(layer.options.pane).toBe("p");
   });
@@ -471,7 +451,7 @@ describe("moveIntoPane", () => {
     });
     map.hasLayer = () => false;
     const layer = new window.L.Path();
-    moveIntoPane(map as unknown as L.Map, layer as unknown as L.Layer, "new");
+    adapter.moveIntoPane(map as unknown as L.Map, layer as unknown as L.Layer, "new");
     expect(layer.options.pane).toBe("new");
     expect(layer.options.renderer).toBeUndefined();
   });
@@ -480,42 +460,42 @@ describe("moveIntoPane", () => {
 describe("internalLayers", () => {
   it("reads the child registry of a map or a group", () => {
     const a = {};
-    expect(internalLayers({ _layers: { a } })).toEqual({ a });
+    expect(adapter.internalLayers({ _layers: { a } })).toEqual({ a });
     // An empty registry is still a registry: callers branch on its presence.
-    expect(internalLayers({ _layers: {} })).toEqual({});
+    expect(adapter.internalLayers({ _layers: {} })).toEqual({});
   });
 
   it("is undefined for a node without one", () => {
     // The node itself is guaranteed by the caller; the field is what is probed.
-    expect(internalLayers({})).toBeUndefined();
-    expect(internalLayers({ _layers: undefined })).toBeUndefined();
+    expect(adapter.internalLayers({})).toBeUndefined();
+    expect(adapter.internalLayers({ _layers: undefined })).toBeUndefined();
   });
 });
 
 describe("isGroupLike", () => {
   it("accepts Leaflet's own eachLayer", () => {
-    expect(isGroupLike({ eachLayer: () => {} })).toBe(true);
+    expect(adapter.isGroupLike({ eachLayer: () => {} })).toBe(true);
   });
 
   it("accepts the child registry a non-Leaflet wrapper carries", () => {
-    expect(isGroupLike({ _layers: {} })).toBe(true);
+    expect(adapter.isGroupLike({ _layers: {} })).toBe(true);
   });
 
   it("rejects a leaf that carries neither", () => {
-    expect(isGroupLike({ options: {} })).toBe(false);
-    expect(isGroupLike({})).toBe(false);
+    expect(adapter.isGroupLike({ options: {} })).toBe(false);
+    expect(adapter.isGroupLike({})).toBe(false);
   });
 });
 
 describe("getRendererContainer", () => {
   it("reads the renderer's root element", () => {
     const container = document.createElement("div");
-    expect(getRendererContainer({ _container: container })).toBe(container);
+    expect(adapter.getRendererContainer({ _container: container })).toBe(container);
   });
 
   it("is null for a null renderer or one with no container", () => {
-    expect(getRendererContainer(null)).toBeNull();
-    expect(getRendererContainer({})).toBeNull();
+    expect(adapter.getRendererContainer(null)).toBeNull();
+    expect(adapter.getRendererContainer({})).toBeNull();
   });
 });
 
@@ -523,25 +503,25 @@ describe("layerIcon / layerElements", () => {
   it("layerElements collects whichever node the layer type populated", () => {
     const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
     const icon = document.createElement("img");
-    expect(layerElements({ _path: path })).toEqual([path]);
-    expect(layerElements({ _icon: icon })).toEqual([icon]);
-    expect(layerElements({})).toEqual([]);
+    expect(adapter.layerElements({ _path: path })).toEqual([path]);
+    expect(adapter.layerElements({ _icon: icon })).toEqual([icon]);
+    expect(adapter.layerElements({})).toEqual([]);
   });
 
   it("layerIcon is the icon alone, since the caller skips it in the manual pass", () => {
     const icon = document.createElement("img");
-    expect(layerIcon({ _icon: icon })).toBe(icon);
-    expect(layerIcon({})).toBeNull();
+    expect(adapter.layerIcon({ _icon: icon })).toBe(icon);
+    expect(adapter.layerIcon({})).toBeNull();
   });
 });
 
 describe("hasAttachedPath", () => {
   it("is true only while the path element is in the document", () => {
     const el = document.createElementNS("http://www.w3.org/2000/svg", "path");
-    expect(hasAttachedPath({ _path: el })).toBe(false);
+    expect(adapter.hasAttachedPath({ _path: el })).toBe(false);
     document.body.appendChild(el);
-    expect(hasAttachedPath({ _path: el })).toBe(true);
-    expect(hasAttachedPath({})).toBe(false);
+    expect(adapter.hasAttachedPath({ _path: el })).toBe(true);
+    expect(adapter.hasAttachedPath({})).toBe(false);
   });
 });
 
@@ -555,36 +535,36 @@ describe("reinitInteraction", () => {
         seen.push(this);
       },
     };
-    expect(reinitInteraction(marker)).toBe(true);
+    expect(adapter.reinitInteraction(marker)).toBe(true);
     expect(seen).toEqual([marker]);
   });
 
   it("reports false when the layer has no hook, without throwing", () => {
-    expect(reinitInteraction({})).toBe(false);
+    expect(adapter.reinitInteraction({})).toBe(false);
   });
 });
 
 describe("layerMap / markerShadow / layerUrl", () => {
   it("layerMap returns the map a layer is attached to, null when detached", () => {
     const map = { id: "map" };
-    expect(layerMap(leafStub({ _map: map }))).toBe(map);
-    expect(layerMap(leafStub({}))).toBeNull();
+    expect(adapter.layerMap(leafStub({ _map: map }))).toBe(map);
+    expect(adapter.layerMap(leafStub({}))).toBeNull();
   });
 
   it("markerShadow returns the shadow element, null when the marker has none", () => {
     const shadow = document.createElement("img");
-    expect(markerShadow(leafStub({ _shadow: shadow }))).toBe(shadow);
-    expect(markerShadow(leafStub({}))).toBeNull();
+    expect(adapter.markerShadow(leafStub({ _shadow: shadow }))).toBe(shadow);
+    expect(adapter.markerShadow(leafStub({}))).toBeNull();
   });
 
   it("layerUrl returns the tile URL template, null for a layer that has none", () => {
     // The probe takes the whole tree rather than narrowing with instanceof: a
     // registry holds whatever the map holds, and a non-tile entry answers null.
-    expect(layerUrl(leafStub({ _url: "https://x/{z}/{y}/{x}.png" }))).toBe(
+    expect(adapter.layerUrl(leafStub({ _url: "https://x/{z}/{y}/{x}.png" }))).toBe(
       "https://x/{z}/{y}/{x}.png",
     );
-    expect(layerUrl(leafStub({}))).toBeNull();
-    expect(layerUrl(leafStub({ options: {} }))).toBeNull();
+    expect(adapter.layerUrl(leafStub({}))).toBeNull();
+    expect(adapter.layerUrl(leafStub({ options: {} }))).toBeNull();
   });
 });
 
@@ -593,7 +573,7 @@ describe("attributionEntries / refreshAttributions", () => {
     // Mutation must land in the control, so this is a live handover, not a copy.
     const table = { Leaflet: 1 };
     const ctrl = leafStub({ _attributions: table, _update: () => {} });
-    const entries = attributionEntries(ctrl);
+    const entries = adapter.attributionEntries(ctrl);
     expect(entries).toBe(table);
     entries["tile"] = 1;
     expect(ctrl._attributions).toEqual({ Leaflet: 1, tile: 1 });
@@ -602,7 +582,7 @@ describe("attributionEntries / refreshAttributions", () => {
   it("refreshAttributions calls the control's own redraw", () => {
     const update = vi.fn();
     const ctrl = leafStub({ _attributions: {}, _update: update });
-    refreshAttributions(ctrl);
+    adapter.refreshAttributions(ctrl);
     expect(update).toHaveBeenCalledTimes(1);
   });
 });
@@ -610,16 +590,18 @@ describe("attributionEntries / refreshAttributions", () => {
 describe("setPopupCloseTitle", () => {
   it("writes the title onto the popup's close button", () => {
     const btn = document.createElement("a");
-    setPopupCloseTitle({ _closeButton: btn } as unknown as L.Popup, "Close");
+    adapter.setPopupCloseTitle({ _closeButton: btn } as unknown as L.Popup, "Close");
     expect(btn.title).toBe("Close");
   });
 
   it("is a no-op when the popup is null", () => {
-    expect(() => setPopupCloseTitle(null, "Close")).not.toThrow();
+    expect(() => adapter.setPopupCloseTitle(null, "Close")).not.toThrow();
   });
 
   it("is a no-op when the popup has no close button", () => {
-    expect(() => setPopupCloseTitle({} as unknown as L.Popup, "Close")).not.toThrow();
+    expect(() =>
+      adapter.setPopupCloseTitle({} as unknown as L.Popup, "Close"),
+    ).not.toThrow();
   });
 });
 
@@ -627,14 +609,14 @@ describe("primeControlMap", () => {
   it("binds the map onto the control", () => {
     const map = { id: "map" };
     const ctrl = leafStub({});
-    primeControlMap(ctrl as unknown as L.Control, map as unknown as L.Map);
+    adapter.primeControlMap(ctrl as unknown as L.Control, map as unknown as L.Map);
     expect((ctrl as { _map?: unknown })._map).toBe(map);
   });
 
   it("overwrites an earlier binding, since the caller decides when to prime", () => {
     const map = { id: "new" };
     const ctrl = leafStub({ _map: { id: "old" } });
-    primeControlMap(ctrl as unknown as L.Control, map as unknown as L.Map);
+    adapter.primeControlMap(ctrl as unknown as L.Control, map as unknown as L.Map);
     expect((ctrl as { _map?: unknown })._map).toBe(map);
   });
 });
@@ -643,11 +625,13 @@ describe("resetGridLayerView", () => {
   it("calls _resetView when the layer has one", () => {
     const reset = vi.fn();
     const layer = leafStub({ _resetView: reset });
-    resetGridLayerView(layer as unknown as L.Layer);
+    adapter.resetGridLayerView(layer as unknown as L.Layer);
     expect(reset).toHaveBeenCalledTimes(1);
   });
 
   it("is a no-op when the layer has no _resetView", () => {
-    expect(() => resetGridLayerView(leafStub({}) as unknown as L.Layer)).not.toThrow();
+    expect(() =>
+      adapter.resetGridLayerView(leafStub({}) as unknown as L.Layer),
+    ).not.toThrow();
   });
 });

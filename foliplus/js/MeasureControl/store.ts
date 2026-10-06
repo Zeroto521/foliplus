@@ -8,8 +8,12 @@
 import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import type { ControlEnv } from "#core/type.js";
-import { type Persisted, makePersisted } from "#common/storage.js";
-import * as Storage from "#common/storage.js";
+import {
+  type Persisted,
+  loadVersioned,
+  makePersisted,
+  saveVersioned,
+} from "#common/storage.js";
 import * as CONST from "./const.js";
 
 /** Central store for all measurements. Owns the array, the id counter, the
@@ -37,7 +41,7 @@ class MeasureStore {
     // quota hint below rather than through the return value.
     this.persistBinding = makePersisted({
       save: () =>
-        Storage.saveVersioned(CONST.STORAGE.KEY, {
+        saveVersioned(CONST.STORAGE.KEY, {
           data: this.list,
           version: CONST.RECORD_VERSION,
           name: this.config.name,
@@ -73,7 +77,7 @@ class MeasureStore {
    *  reader. Tolerates the legacy bare-array shape and corrupt records. */
   load(): MeasureData[] {
     return (
-      Storage.loadVersioned<MeasureData>(CONST.STORAGE.KEY, {
+      loadVersioned<MeasureData>(CONST.STORAGE.KEY, {
         name: this.config.name,
         dataField: "items",
       }) ?? []
