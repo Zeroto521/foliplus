@@ -49,7 +49,7 @@ class ExportRenderer {
    *  IIFE in the folium script stream — the registry captured `layer: null`
    *  at construction, and without this the render passes silently skip the
    *  basemap and the export is missing its base layer. Mirrors the same
-   *  pattern at LayerControl/manager.ts#210. */
+   *  pattern at LayerControl/controller.ts#210. */
   private resolveLayer(li: LayerInfo): L.Layer | null {
     // Late-binding fallback for basemaps whose TileLayer `var` was emitted
     // after the LayerControl IIFE — mirrors manager.findLayer. Explicit

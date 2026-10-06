@@ -148,8 +148,8 @@ class PaneManager {
     this.paneSpecs.delete(paneName);
   }
 
-  /** Clear all pane state. Called by LayerManager.destroy().
-   *  The DOM is left alone: LayerManager.destroy() clears the registry without
+  /** Clear all pane state. Called by LayerController.destroy().
+   *  The DOM is left alone: LayerController.destroy() clears the registry without
    *  removing the registered layers from the map, so they are still live —
    *  deleting their panes would drop them off the map. */
   destroy() {
@@ -364,7 +364,7 @@ class PaneManager {
    *   - existence — the pane is built before anything can be routed into it.
    *     `LayerFactory.addLayer` calls `register()` before it pins (and only
    *     when the group is not on the map yet, so every later call already has
-   *     the surface); `register()` reaches `LayerManager.registerLayer` →
+   *     the surface); `register()` reaches `LayerController.registerLayer` →
    *     `surfaceFor` → `new LayerSurface(...)`, whose constructor runs
    *     `addPane` → `PaneManager.ensurePane` and creates the DOM pane.
    *   - name — `LayerFactory.addLayer` gates on

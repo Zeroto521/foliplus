@@ -1,7 +1,7 @@
 // core/layer/LayerSurface — the rendering face of one registered layer.
 //
 // Before this module the answer to "where does this layer draw, and at which z"
-// was assembled in three places inside LayerManager's ordering pass: a
+// was assembled in three places inside LayerController's ordering pass: a
 // `fallbackPaneMap` keyed by `L.stamp`, a per-layer `options.paneSet` dirty
 // flag, and a queue of DOM moves replayed after the pass. The surface owns
 // those concerns instead: it resolves the pane handles once, pins
@@ -79,7 +79,7 @@ interface SurfaceFaceOpts {
   layer: L.Layer | null;
   /** Declared kind — the registry's authority (`LayerInfoRegistry.kindFor` is
    * the single place a registered layer's kind is derived), which
-   * `LayerManager.surfaceFor` forwards down here. When a direct caller
+   * `LayerController.surfaceFor` forwards down here. When a direct caller
    * declares nothing, `kindOf` probes the layer family. */
   kind?: LayerKind;
   /** Third-party carrier payload (`kind: "custom"`). The registry forwards
@@ -389,7 +389,7 @@ class LayerSurface implements LayerSurfaceContract {
   }
 
   /** Release the panes this surface synthesized. The layer is off the map by
-   *  the time this runs (LayerManager.unregisterLayer), so nothing renders into
+   *  the time this runs (LayerController.unregisterLayer), so nothing renders into
    *  them; a *declared* pane survives, which is what lets the same id be
    *  registered again without rebuilding its panes. */
   destroy(): void {
@@ -588,7 +588,7 @@ const probeVectorCarrier = (
 const detectCapabilities = (opts: SurfaceFaceOpts): LayerCapabilities => {
   const layer = opts.layer;
   // The label pane is a declared carrier, read like `bounds` rather than
-  // probed: the registration edge (`LayerManager.surfaceFor`) appends the
+  // probed: the registration edge (`LayerController.surfaceFor`) appends the
   // `role: "annotation"` spec exactly when the layer's features expose
   // labelable `feature.properties`, and the constructor below materializes
   // that spec's pane in every branch — so the capability and the pane are

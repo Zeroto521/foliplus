@@ -179,7 +179,7 @@ describe("ensureLayerAPI", () => {
     expect(api.getLayersByType("point")).toEqual([]);
   });
 
-  it("does not expose moveLayerUp / moveLayerDown — only LayerManager reorders", () => {
+  it("does not expose moveLayerUp / moveLayerDown — only LayerController reorders", () => {
     // These are declared optional on LayerAPI precisely so the lightweight stub
     // stays registry-free. A real no-op here would be a false contract: the
     // stub has no registry to reorder, so the methods are omitted rather than
@@ -198,7 +198,7 @@ describe("ensureLayerAPI", () => {
 
 describe("LayerAPI contract", () => {
   it("moveLayerUp / moveLayerDown are declared optional, matching the no-registry stub", () => {
-    // LayerManager implements the full LayerAPI (class `implements LayerAPI`),
+    // LayerController implements the full LayerAPI (class `implements LayerAPI`),
     // so a regression here — e.g. making either method required — would break
     // the lightweight stub's `satisfies LayerAPI`. `tsc --noEmit` covers the
     // implements side; this pins the optionality that keeps the stub
@@ -223,7 +223,7 @@ describe("requireLayerAPI", () => {
     expect(() => requireLayerAPI("Test", T, map)).toThrow("no_layercontrol");
   });
 
-  it("accepts a real LayerControl (layers is a getter, like LayerManager)", () => {
+  it("accepts a real LayerControl (layers is a getter, like LayerController)", () => {
     const api = {
       get layers() {
         return [];

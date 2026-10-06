@@ -26,7 +26,7 @@ const renameLayer = (ui: LayerUI, layerId: string): void => {
 
   // Validate before tearing down: an unknown id or a row without a label would
   // otherwise clear whatever the user had open and then fail to open anything.
-  const layerInfo = ui.m.layerRegistry.get(layerId);
+  const layerInfo = ui.c.layerRegistry.get(layerId);
   if (!layerInfo) return;
 
   const item = ui.uiContainer.querySelector(
@@ -71,7 +71,7 @@ const renameLayer = (ui: LayerUI, layerId: string): void => {
       // Only an empty-name commit is a user mistake worth flagging;
       // Escape is an intentional abandon — stay silent.
       if (reason === "empty") {
-        ui.m.map.foliplus!.showHint(
+        ui.c.map.foliplus!.showHint(
           ui.config.name,
           ui.T("rename_empty"),
           HINT_DURATION.SHORT,
@@ -108,7 +108,7 @@ const finishRename = (ui: LayerUI, restoreText = true): void => {
   ui.overlayPanel.activeRenameId = null;
   if (!ui.uiContainer) return;
 
-  const layerInfo = ui.m.layerRegistry.get(layerId);
+  const layerInfo = ui.c.layerRegistry.get(layerId);
   if (!layerInfo) return;
 
   const item = ui.uiContainer.querySelector(

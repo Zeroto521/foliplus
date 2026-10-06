@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#foliplus/LayerControl/const.js";
-import type { LayerManager } from "#foliplus/LayerControl/manager.js";
+import type { LayerController } from "#foliplus/LayerControl/controller.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { seedIntentMap } from "#foliplus/LayerControl/ui/intent.js";
 import { ensureModes } from "#foliplus/core/mode.js";
@@ -8,7 +8,7 @@ import { createScopedTranslator } from "#common/locale.js";
 import { findItem, initFixture } from "./fixture.js";
 
 describe("LayerUI attrs", () => {
-  let manager: LayerManager;
+  let manager: LayerController;
   let ui: LayerUI;
   let map: any;
 
@@ -431,7 +431,7 @@ describe("LayerUI attrs", () => {
     });
 
     it("shows the feature count grouped, without a stray fraction digit", () => {
-      vi.spyOn(ui.m, "getFeatureCount").mockReturnValue(1234);
+      vi.spyOn(ui.c, "getFeatureCount").mockReturnValue(1234);
 
       const item = findItem(ui, "overlay1");
       ui.openAttrsPanel(item);

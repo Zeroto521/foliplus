@@ -8,7 +8,7 @@ import {
   LayerRuntimeStore,
 } from "#core/layer/index.js";
 import * as CONST from "../const.js";
-import type { LayerManager } from "../manager.js";
+import type { LayerController } from "../controller.js";
 import { applyProjection, applyProjectionAll } from "./apply.js";
 import { closeAttrsPanel, openAttrsPanel } from "./attr.js";
 import { hideSolidBasemap, resetSolidBasemap, showSolidBasemap } from "./color.js";
@@ -84,7 +84,7 @@ import {
  *  each subsystem owns the field and there is no compat layer.
  */
 class LayerUI {
-  manager: LayerManager;
+  controller: LayerController;
   /** Per-map event bus — bound once in the constructor (ensure-style getters
    *  return the cached instance, so hold it like the logger does). */
   events: EventBus;
@@ -145,19 +145,19 @@ class LayerUI {
   unsubscribeCountChange: (() => void) | null;
   /** Unsubscribe for the control-attached ready signal. */
   unsubscribeControlAttached: (() => void) | null;
-  /** Unsubscribers for the manager-driven layer-signal events (item add /
+  /** Unsubscribers for the controller-driven layer-signal events (item add /
    *  update / refresh, list rebuild, group count change, no-basemap
    *  change, content invalidation). Batched into one array so a single
-   *  unbind call tears down every listener; the manager no longer drives
+   *  unbind call tears down every listener; the controller no longer drives
    *  these UI methods directly. */
   unsubscribeLayerSignals: Array<() => void>;
 
   constructor(
-    manager: LayerManager,
+    controller: LayerController,
     env: { T: (key: string) => string; _: (key: string) => string },
   ) {
-    this.manager = manager;
-    this.events = ensureEvents(this.m.map);
+    this.controller = controller;
+    this.events = ensureEvents(this.c.map);
     this.config = CONFIG;
     this.T = env.T;
     this._ = env._;
@@ -178,18 +178,20 @@ class LayerUI {
   }
 
   /** Alias for convenience */
-  get m() {
-    return this.manager;
+  get c() {
+    return this.controller;
   }
 
   /** The attached panel container. Only valid after attachUI(). */
   get uiContainer(): HTMLElement {
-    return this.m.uiContainer!;
+    return this.c.uiContainer!;
   }
 
-  /** LayerAPI typed to expose getFeatureCount (LayerManager only). */
-  get mgmt(): LayerManager & { getFeatureCount: (i: string) => number | null } {
-    return this.m as LayerManager & { getFeatureCount: (i: string) => number | null };
+  /** LayerAPI typed to expose getFeatureCount (LayerController only). */
+  get mgmt(): LayerController & { getFeatureCount: (i: string) => number | null } {
+    return this.c as LayerController & {
+      getFeatureCount: (i: string) => number | null;
+    };
   }
 
   /**
@@ -311,7 +313,7 @@ class LayerUI {
   /** The user's stored visibility choice for a layer id (persisted intent
    *  or the author's declared default). This is the panel checkbox's fact,
    *  not the map's membership — the projection's `effectiveShown` composes
-   *  intent with policy and is what the map reflects. Only LayerManager
+   *  intent with policy and is what the map reflects. Only LayerController
    *  (via the `intentVisible` API slot) and tests reach this through LayerUI;
    *  everything internal calls the module function directly. */
   intentVisible(id: string) {
@@ -378,7 +380,7 @@ class LayerUI {
   closeStylePanel(setFocus: boolean) {
     return closeStylePanel(this, setFocus);
   }
-  /** Part of the surface `manager` drives (`unregisterLayer` drops a layer's
+  /** Part of the surface `controller` drives (`unregisterLayer` drops a layer's
    *  cached field list). Peer ui/ modules call the module function directly
    *  instead — see the sibling-import convention from #296. */
   invalidateFields(layerId: string) {

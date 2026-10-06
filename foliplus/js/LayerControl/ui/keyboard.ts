@@ -289,9 +289,9 @@ const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
     const id = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
     if (event.key === "ArrowUp") {
       event.preventDefault();
-      const moved = ui.m.moveLayerUp(id);
+      const moved = ui.c.moveLayerUp(id);
       if (!moved) {
-        ui.m.map.foliplus!.showHint(
+        ui.c.map.foliplus!.showHint(
           ui.config.name,
           ui.T("reorder_top"),
           HINT_DURATION.SHORT,
@@ -299,9 +299,9 @@ const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
       }
     } else if (event.key === "ArrowDown") {
       event.preventDefault();
-      const moved = ui.m.moveLayerDown(id);
+      const moved = ui.c.moveLayerDown(id);
       if (!moved) {
-        ui.m.map.foliplus!.showHint(
+        ui.c.map.foliplus!.showHint(
           ui.config.name,
           ui.T("reorder_bottom"),
           HINT_DURATION.SHORT,
@@ -388,7 +388,7 @@ const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
           // an entry without one has nothing to say.
           const reason = menuLi.getAttribute("title");
           if (reason) {
-            ui.m.map.foliplus!.showHint(ui.config.name, reason, HINT_DURATION.SHORT);
+            ui.c.map.foliplus!.showHint(ui.config.name, reason, HINT_DURATION.SHORT);
           }
           break;
         }

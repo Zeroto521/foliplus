@@ -39,11 +39,11 @@ import type { LayerUI } from "./index.js";
 const closeOverlays = (ui: LayerUI): void => {
   // The map's own popup, cleared with the foliplus surfaces: it is Leaflet's,
   // so no panel opener ever saw it. No-op when nothing is open.
-  ui.m.map.closePopup();
+  ui.c.map.closePopup();
   // A folium GeoJsonPopup binds onto each sublayer (parent.bindPopup in the
   // GeoJson template), not onto map._popup — closePopup above only reaches
   // map-level popups. Sweep the layers so feature-bound popups close too.
-  ui.m.map.eachLayer(layer => layer.closePopup?.());
+  ui.c.map.eachLayer(layer => layer.closePopup?.());
   // Sublayer-bound popups outlive both map-level calls (the factory-bound
   // popup is not the one closePopup tracks, and eachLayer stops at top-level
   // layers). A recursive closePopup over the layer tree was tried and failed

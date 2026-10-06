@@ -21,7 +21,7 @@ const mockMap = {
 };
 
 const mockUI: LayerUI = {
-  m: {
+  c: {
     map: mockMap as any,
     layers: [] as any[],
     layerRegistry: {
@@ -174,14 +174,14 @@ describe("zoomRange descriptor write/live/commit/reset", () => {
 
   it("live preview on a missing layer is a no-op", () => {
     const schedule = vi.fn();
-    ui.m.persistence = { schedule } as never;
+    ui.c.persistence = { schedule } as never;
     applyZoomRangeLive(ui, "ghost", row, 1, 5);
     expect(ui.intentStore.get("ghost", "zoomRange")).toBeUndefined();
   });
 
   it("write with only min takes the else branch (no stored value)", () => {
     const schedule = vi.fn();
-    ui.m.persistence = { schedule } as never;
+    ui.c.persistence = { schedule } as never;
     ZOOM_RANGE_DIMENSION.write!(ui, "overlay1", { min: 2 } as never);
     expect(ui.intentStore.isUserSet("overlay1", "zoomRange")).toBe(false);
     expect(schedule).not.toHaveBeenCalled();
@@ -189,7 +189,7 @@ describe("zoomRange descriptor write/live/commit/reset", () => {
 
   it("write with only min after a live preview commits the stored range", () => {
     const schedule = vi.fn();
-    ui.m.persistence = { schedule } as never;
+    ui.c.persistence = { schedule } as never;
     ui.intentStore.setValue("overlay1", "zoomRange", [4, 9]);
     ZOOM_RANGE_DIMENSION.write!(ui, "overlay1", { min: 4 } as never);
     expect(ui.intentStore.get("overlay1", "zoomRange")).toEqual([4, 9]);
@@ -199,7 +199,7 @@ describe("zoomRange descriptor write/live/commit/reset", () => {
 
   it("commit marks the live value and persists", () => {
     const schedule = vi.fn();
-    ui.m.persistence = { schedule } as never;
+    ui.c.persistence = { schedule } as never;
     applyZoomRangeLive(ui, "overlay1", row, 3, 7);
     commitZoomRange(ui, "overlay1");
     expect(ui.intentStore.get("overlay1", "zoomRange")).toEqual([3, 7]);
@@ -209,7 +209,7 @@ describe("zoomRange descriptor write/live/commit/reset", () => {
 
   it("commit with no stored range is a no-op", () => {
     const schedule = vi.fn();
-    ui.m.persistence = { schedule } as never;
+    ui.c.persistence = { schedule } as never;
     commitZoomRange(ui, "overlay1");
     expect(ui.intentStore.isUserSet("overlay1", "zoomRange")).toBe(false);
     expect(schedule).not.toHaveBeenCalled();
@@ -217,7 +217,7 @@ describe("zoomRange descriptor write/live/commit/reset", () => {
 
   it("reset clears the override", () => {
     const schedule = vi.fn();
-    ui.m.persistence = { schedule } as never;
+    ui.c.persistence = { schedule } as never;
     applyZoomRangeLive(ui, "overlay1", row, 1, 5);
     commitZoomRange(ui, "overlay1");
     resetLayerZoomRange(ui, "overlay1");

@@ -159,7 +159,7 @@ describe("LayerPersistence", () => {
       // MeasureControl register in their own constructor. Pruning against the
       // registry here would drop their order position and label config on the
       // very first attach, so the record comes back whole: the order is replayed
-      // when the id registers (LayerManager.replaySavedOrder) and only
+      // when the id registers (LayerController.replaySavedOrder) and only
       // deleteLayer prunes an id that is actually gone.
       seedStorage({
         order: ["a", "ghost", "b", "gone"],

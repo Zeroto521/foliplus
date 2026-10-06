@@ -57,8 +57,8 @@ const focusDisabledReason = (ui: LayerUI, item: HTMLElement): FocusDisabledReaso
   if (box !== null && !box.checked) return "hidden";
   if (item.dataset.layerType === GROUP.BASE) return "base";
   const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
-  const layerInfo = ui.m.layerRegistry.get(layerId);
-  if (layerInfo && ui.m.surfaceFor(layerInfo).capabilities.bounds === false) {
+  const layerInfo = ui.c.layerRegistry.get(layerId);
+  if (layerInfo && ui.c.surfaceFor(layerInfo).capabilities.bounds === false) {
     return "no_bounds";
   }
   return undefined;
@@ -66,7 +66,7 @@ const focusDisabledReason = (ui: LayerUI, item: HTMLElement): FocusDisabledReaso
 
 /** Show the hint that matches a `focusDisabledReason` value. */
 const showFocusDisabledHint = (ui: LayerUI, reason: FocusDisabled): void => {
-  ui.m.map.foliplus!.showHint(
+  ui.c.map.foliplus!.showHint(
     ui.config.name,
     ui.T(focusDisabledLocaleKey(reason)),
     HINT_DURATION.SHORT,
@@ -111,11 +111,11 @@ const focusLayer = (ui: LayerUI, layerId: string) => {
   // Guard: any component holding the map (measuring, exporting, searching,
   // locating) blocks focus. One guard at the entry covers all call sites
   // (double-click, overflow menu, Alt+Enter, Enter) so none of them leak.
-  if (guardBlocked(ui.m.map, ui.config.name, ui.T("blocked"))) return;
+  if (guardBlocked(ui.c.map, ui.config.name, ui.T("blocked"))) return;
 
-  const layerInfo = ui.m.layerRegistry.get(layerId);
+  const layerInfo = ui.c.layerRegistry.get(layerId);
   if (!layerInfo) return;
-  const layer = ui.m.findLayer(layerInfo);
+  const layer = ui.c.findLayer(layerInfo);
 
   // Hidden layer: nothing to focus on — show a hint instead.
   const itemEl = ui.uiContainer.querySelector(
@@ -137,8 +137,8 @@ const focusLayer = (ui: LayerUI, layerId: string) => {
     // layer the policy pulled off (a zoom sweep, an unchecked row) rejoins
     // here for the bounds read — that add is a real membership change, so it
     // rides LAYER_CHANGE the way the executor's own writes do.
-    if (!ui.m.map.hasLayer(layer)) {
-      ui.m.map.addLayer(layer);
+    if (!ui.c.map.hasLayer(layer)) {
+      ui.c.map.addLayer(layer);
       ui.events.emit(EVENTS.LAYER_CHANGE, {
         id: layerInfo.id,
         kind: layerInfo.kind,
@@ -168,7 +168,7 @@ const focusLayer = (ui: LayerUI, layerId: string) => {
   hideOtherLayers(ui);
   // Labels of the layers just hidden must leave the screen with them: the
   // canvas draws the spotlighted layer's labels only for the duration.
-  ui.m.annotation.setFocusFilter(layerId);
+  ui.c.annotation.setFocusFilter(layerId);
   // Lift it above the hidden peers (so it can't be covered) and apply the
   // accent glow — one O(panes) pass, not a per-leaf-element loop.
   bringFocusedLayerToFront(ui, layerInfo);
@@ -179,7 +179,7 @@ const focusLayer = (ui: LayerUI, layerId: string) => {
   // setMode on the flyTo path would let export/measure render through a
   // live focus overlay. Cleared on dismissFocus — called by the auto-timeout,
   // the manual cancel, and a subsequent focus (closeOverlays runs first).
-  const modes = ensureModes(ui.m.map);
+  const modes = ensureModes(ui.c.map);
   modes.setMode(ui.config.name, "focusing");
 
   // Single-point / tiny bounds → flyTo the center.
@@ -190,10 +190,10 @@ const focusLayer = (ui: LayerUI, layerId: string) => {
   if (area < CONST.FOCUS.MIN_BOUNDS_AREA) {
     const center = bounds.getCenter();
     const maxZoom = Math.min(
-      ui.m.map.getMaxZoom(),
-      ui.m.map.getZoom() + CONST.FOCUS.MAX_ZOOM_STEP,
+      ui.c.map.getMaxZoom(),
+      ui.c.map.getZoom() + CONST.FOCUS.MAX_ZOOM_STEP,
     );
-    ui.m.map.flyTo(center, maxZoom, {
+    ui.c.map.flyTo(center, maxZoom, {
       duration: CONST.FOCUS.FIT_DURATION,
     });
     highlightFocusedRow(ui, itemEl, layerId);
@@ -205,13 +205,13 @@ const focusLayer = (ui: LayerUI, layerId: string) => {
   drawFocusRect(ui, bounds);
   highlightFocusedRow(ui, itemEl, layerId);
 
-  ui.m.map.fitBounds(bounds, {
+  ui.c.map.fitBounds(bounds, {
     animate: true,
     duration: CONST.FOCUS.FIT_DURATION,
     padding: CONST.FOCUS.PADDING,
     maxZoom: Math.min(
-      ui.m.map.getMaxZoom(),
-      ui.m.map.getZoom() + CONST.FOCUS.MAX_ZOOM_STEP,
+      ui.c.map.getMaxZoom(),
+      ui.c.map.getZoom() + CONST.FOCUS.MAX_ZOOM_STEP,
     ),
   });
 
@@ -238,7 +238,7 @@ const isFocusing = (ui: LayerUI): boolean => {
 /** Cancel an in-flight focus: remove rect + mask + row highlight. */
 const cancelFocus = (ui: LayerUI): void => {
   dismissFocus(ui);
-  ui.m.map.foliplus!.showHint(
+  ui.c.map.foliplus!.showHint(
     ui.config.name,
     ui.T("focus_cancelled"),
     HINT_DURATION.SHORT,
@@ -256,23 +256,23 @@ const dismissFocus = (ui: LayerUI): void => {
   // on the map. Guard with `isFocusing` so setMode(null) is only invoked
   // when `focusLayer` actually registered the mode.
   if (isFocusing(ui)) {
-    const modes = ensureModes(ui.m.map);
+    const modes = ensureModes(ui.c.map);
     modes.setMode(ui.config.name, null);
   }
   clearAutoCancel(ui);
   clearFocusedRowHighlight(ui);
   restoreHiddenLayers(ui);
-  ui.m.annotation.setFocusFilter(null);
+  ui.c.annotation.setFocusFilter(null);
   for (const restore of ui.focusController.focusedPaneRestores) restore();
   ui.focusController.focusedPaneRestores = [];
 
   if (ui.focusController.focusRect) {
-    ui.m.map.removeLayer(ui.focusController.focusRect);
+    ui.c.map.removeLayer(ui.focusController.focusRect);
     ui.focusController.focusRect = null;
   }
 
   if (ui.focusController.focusMask) {
-    ui.m.map.removeLayer(ui.focusController.focusMask);
+    ui.c.map.removeLayer(ui.focusController.focusMask);
     ui.focusController.focusMask = null;
   }
   // Tear down the SVG renderer too. Reusing it across focuses left the
@@ -281,7 +281,7 @@ const dismissFocus = (ui: LayerUI): void => {
   // mask) with inverted dimming. A fresh renderer per focus is cheap and
   // guarantees a clean slate.
   if (ui.focusController.focusRenderer) {
-    ui.m.map.removeLayer(ui.focusController.focusRenderer);
+    ui.c.map.removeLayer(ui.focusController.focusRenderer);
     ui.focusController.focusRenderer = null;
   }
 
@@ -307,7 +307,7 @@ const dismissFocus = (ui: LayerUI): void => {
  * marks the focused pane with `foliplus-focus-pane` so it stays visible.
  */
 const hideOtherLayers = (ui: LayerUI): void => {
-  ui.m.map.getContainer().classList.add(CONST.CLASSES.FOCUS_ACTIVE);
+  ui.c.map.getContainer().classList.add(CONST.CLASSES.FOCUS_ACTIVE);
 };
 
 /**
@@ -361,7 +361,7 @@ const bringFocusedLayerToFront = (ui: LayerUI, layerInfo: LayerInfo): void => {
   // stays off it, see there). The rest are Leaflet's own panes, outside the
   // surface's override.
   const liftZ = (name: string, order: number): void => {
-    const el = ui.m.map.getPane(name);
+    const el = ui.c.map.getPane(name);
     if (!el) return;
     const orig = el.style.zIndex;
     el.style.zIndex = String(zFor({ base: focusedZ, order }));
@@ -375,9 +375,9 @@ const bringFocusedLayerToFront = (ui: LayerUI, layerInfo: LayerInfo): void => {
 
   // The surface owns every pane a Leaflet layer paints into, so one call lifts
   // them all and `restoreZ` puts the ordering pass's z back.
-  const layer = ui.m.findLayer(layerInfo);
+  const layer = ui.c.findLayer(layerInfo);
   if (layer) {
-    const surface = ui.m.surfaceFor(layerInfo);
+    const surface = ui.c.surfaceFor(layerInfo);
     if (surface.setZOverride(focusedZ)) {
       // FOCUS_PANE on every pane — including the label pane, or the
       // focus-hide CSS would swallow the layer's own labels. The glow stays
@@ -405,7 +405,7 @@ const bringFocusedLayerToFront = (ui: LayerUI, layerInfo: LayerInfo): void => {
       // throws (the hide + glow still work without it).
       let names: string[] = [];
       try {
-        names = ui.m.getLayerPanes(layer);
+        names = ui.c.getLayerPanes(layer);
       } catch {
         names = [];
       }
@@ -413,8 +413,8 @@ const bringFocusedLayerToFront = (ui: LayerUI, layerInfo: LayerInfo): void => {
         // Skip only the shared core panes (overlay/marker/tile/...). Per-layer
         // fallback panes are unique and safe to lift — and hideOtherLayers
         // already hides them, so the two must stay symmetric.
-        if (ui.m.panes.defaultPanes.has(name)) continue;
-        const pane = ui.m.map.getPane(name);
+        if (ui.c.panes.defaultPanes.has(name)) continue;
+        const pane = ui.c.map.getPane(name);
         if (pane) lift(pane);
       }
     }
@@ -422,7 +422,7 @@ const bringFocusedLayerToFront = (ui: LayerUI, layerInfo: LayerInfo): void => {
     // Canvas-only layers own a dedicated pane (createCanvas) — lift that, not
     // the raw canvas element, so focus-hide CSS and glow attach to the pane
     // like every other layer. Fall back to the canvas if the pane is missing.
-    const canvasPane = ui.m.map.getPane(layerInfo.paneName);
+    const canvasPane = ui.c.map.getPane(layerInfo.paneName);
     if (canvasPane) lift(canvasPane);
     else if (layerInfo.canvas) lift(layerInfo.canvas);
   } else if (layerInfo.canvas) {
@@ -433,7 +433,7 @@ const bringFocusedLayerToFront = (ui: LayerUI, layerInfo: LayerInfo): void => {
 
 /** Remove the container class that hides every non-focused layer. */
 const restoreHiddenLayers = (ui: LayerUI): void => {
-  ui.m.map.getContainer().classList.remove(CONST.CLASSES.FOCUS_ACTIVE);
+  ui.c.map.getContainer().classList.remove(CONST.CLASSES.FOCUS_ACTIVE);
 };
 
 /**
@@ -467,7 +467,7 @@ const computeLayerBounds = (layer: L.Layer): L.LatLngBounds | null => {
  * focus rectangle, so the focused layer inside the hole stays bright.
  */
 const drawFocusMask = (ui: LayerUI, bounds: L.LatLngBounds): void => {
-  const map = ui.m.map;
+  const map = ui.c.map;
 
   // Shared SVG renderer + pane for the mask and rectangle. The pane goes
   // through PaneManager.ensurePane (the one entry every owned pane uses) so
@@ -483,7 +483,7 @@ const drawFocusMask = (ui: LayerUI, bounds: L.LatLngBounds): void => {
   // The overlay pane isn't in childPaneSpecs, so ensurePane skips its
   // provisional-z branch; we pin FOCUS_Z.overlay here (idempotent).
   if (!ui.focusController.focusRenderer) {
-    const { pane } = ui.m.panes.ensurePane(CONST.FOCUS_PANE, false);
+    const { pane } = ui.c.panes.ensurePane(CONST.FOCUS_PANE, false);
     pane.classList.add(CONST.CLASSES.FOCUS_PANE);
     pane.style.zIndex = String(FOCUS_Z.overlay);
     ui.focusController.focusRenderer = L.svg({ pane: CONST.FOCUS_PANE });
@@ -542,7 +542,7 @@ const roundedRectPoints = (bounds: L.LatLngBounds, f = 0.03): L.LatLng[] => {
 /** Draw the focus rectangle as accent marching ants, rounded like the other
  *  marquees. Same bounds as the mask hole — the marquee hugs the shadow edge. */
 const drawFocusRect = (ui: LayerUI, bounds: L.LatLngBounds): void => {
-  const map = ui.m.map;
+  const map = ui.c.map;
 
   ui.focusController.focusRect = L.polygon(roundedRectPoints(bounds), {
     className: "foliplus-focus-rect",
@@ -568,15 +568,15 @@ const registerAutoCancel = (ui: LayerUI, layerId: string): void => {
     }, CONST.FOCUS.RECT_DURATION_MS * 0.3);
   };
   ui.focusController.onFocusMapMove = () => handler();
-  ui.m.map.on("moveend", ui.focusController.onFocusMapMove);
-  ui.m.map.on("zoomend", ui.focusController.onFocusMapMove);
+  ui.c.map.on("moveend", ui.focusController.onFocusMapMove);
+  ui.c.map.on("zoomend", ui.focusController.onFocusMapMove);
 };
 
 /** Remove the map move/zoom auto-cancel handlers. */
 const clearAutoCancel = (ui: LayerUI): void => {
   if (ui.focusController.onFocusMapMove) {
-    ui.m.map.off("moveend", ui.focusController.onFocusMapMove);
-    ui.m.map.off("zoomend", ui.focusController.onFocusMapMove);
+    ui.c.map.off("moveend", ui.focusController.onFocusMapMove);
+    ui.c.map.off("zoomend", ui.focusController.onFocusMapMove);
     ui.focusController.onFocusMapMove = null;
   }
 };

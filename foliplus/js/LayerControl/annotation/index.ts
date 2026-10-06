@@ -65,7 +65,7 @@ const LABEL_PRIORITY = 50;
  * Panes are NOT this manager's anymore: the label pane is a declared
  * `role: "annotation"` PaneSpec of the layer's surface, created when the
  * surface materializes (the registration edge declares it iff the layer has
- * labelable fields — `LayerManager.withAnnotationSpec`). This manager only
+ * labelable fields — `LayerController.withAnnotationSpec`). This manager only
  * mounts and unmounts the canvas inside that pane, so the pane's lifetime,
  * z and opacity carrier are the surface's — the same bookkeeping as every
  * other pane the face owns.

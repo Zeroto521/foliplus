@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#foliplus/LayerControl/const.js";
-import type { LayerManager } from "#foliplus/LayerControl/manager.js";
+import type { LayerController } from "#foliplus/LayerControl/controller.js";
 import {
   bringFocusedLayerToFront,
   computeLayerBounds,
@@ -217,7 +217,7 @@ describe("LayerUI focusLayer — interaction lock", () => {
       getNorthEast: () => ({ lat: 30.00001, lng: 100.00001 }),
       getCenter: () => ({ lat: 30, lng: 100 }),
     };
-    const layer = ui.m.findLayer(ui.m.layerRegistry.get("overlay1")!);
+    const layer = ui.c.findLayer(ui.c.layerRegistry.get("overlay1")!);
     vi.spyOn(layer, "getBounds").mockReturnValue(tinyBounds);
 
     ui.focusLayer("overlay1");
@@ -229,7 +229,7 @@ describe("LayerUI focusLayer — interaction lock", () => {
 });
 
 describe("LayerUI focus", () => {
-  let manager: LayerManager;
+  let manager: LayerController;
   let ui: LayerUI;
   let map: any;
 
@@ -734,7 +734,7 @@ describe("LayerUI focus", () => {
   // ─────────────────── hide other layers (declarative CSS class) ───────────────────
 
   describe("focusLayer hides other layers", () => {
-    const container = () => ui.m.map.getContainer() as HTMLElement;
+    const container = () => ui.c.map.getContainer() as HTMLElement;
 
     it("adds the focus-active class to the map container on focus", () => {
       ui.focusLayer("overlay1");
@@ -1209,8 +1209,8 @@ describe("LayerUI focus", () => {
     // the DOM — the denylist is what they pin — so they flip the shared
     // fixture layer's capability bit rather than reshaping its data.
     const stubLabelPanelSurface = () => {
-      const li = ui.m.layerRegistry.get("overlay1")!;
-      const surface = ui.m.surfaceFor(li) as unknown as {
+      const li = ui.c.layerRegistry.get("overlay1")!;
+      const surface = ui.c.surfaceFor(li) as unknown as {
         capabilities: Record<string, unknown>;
       };
       surface.capabilities = { ...surface.capabilities, annotation: "pane" };
@@ -1723,8 +1723,8 @@ describe("LayerUI focus", () => {
     it("returns 'no_bounds' when the surface reports capabilities.bounds false", () => {
       const item = row({ checked: true, layerId: "nob" });
       const layerInfo = { id: "nob" } as LayerInfo;
-      vi.spyOn(ui.m.layerRegistry, "get").mockReturnValue(layerInfo);
-      vi.spyOn(ui.m, "surfaceFor").mockReturnValue({
+      vi.spyOn(ui.c.layerRegistry, "get").mockReturnValue(layerInfo);
+      vi.spyOn(ui.c, "surfaceFor").mockReturnValue({
         capabilities: { bounds: false } as never,
       });
       expect(focusDisabledReason(ui, item)).toBe("no_bounds");
@@ -1733,8 +1733,8 @@ describe("LayerUI focus", () => {
     it("returns undefined for a row whose surface has bounds", () => {
       const item = row({ checked: true, layerId: "with" });
       const layerInfo = { id: "with" } as LayerInfo;
-      vi.spyOn(ui.m.layerRegistry, "get").mockReturnValue(layerInfo);
-      vi.spyOn(ui.m, "surfaceFor").mockReturnValue({
+      vi.spyOn(ui.c.layerRegistry, "get").mockReturnValue(layerInfo);
+      vi.spyOn(ui.c, "surfaceFor").mockReturnValue({
         capabilities: { bounds: true } as never,
       });
       expect(focusDisabledReason(ui, item)).toBeUndefined();
@@ -1742,7 +1742,7 @@ describe("LayerUI focus", () => {
 
     it("returns undefined when no layer is registered (first post-attach pass)", () => {
       const item = row({ checked: true, layerId: "unknown" });
-      vi.spyOn(ui.m.layerRegistry, "get").mockReturnValue(undefined);
+      vi.spyOn(ui.c.layerRegistry, "get").mockReturnValue(undefined);
       expect(focusDisabledReason(ui, item)).toBeUndefined();
     });
 

@@ -1,18 +1,18 @@
 import { defineControl } from "#core/defineControl.js";
 import { createPanelControl } from "#core/leaflet/index.js";
-import * as SVGs from "./icon.js";
 import {
-  LayerManager,
+  LayerController,
   installBringToFrontPatch,
   uninstallBringToFrontPatch,
-} from "./manager.js";
+} from "./controller.js";
+import * as SVGs from "./icon.js";
 import { LayerUI } from "./ui/index.js";
 
-const LayerControl = defineControl<LayerManager>({
+const LayerControl = defineControl<LayerController>({
   config: CONFIG,
   icon: SVGs.LAYERS,
   createManager: env => {
-    const manager = new LayerManager(map, env.config.data as LayerInfo[], {
+    const manager = new LayerController(map, env.config.data as LayerInfo[], {
       T: env.T,
       log: env.log,
     });
