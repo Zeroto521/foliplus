@@ -28,7 +28,7 @@ import type { LayerInfo, PaneSpec, RegisterLayerOpts } from "#core/layer/type.js
 import { attributionEntries, refreshAttributions } from "#core/leafletAdapter.js";
 import type { AnnotationManager } from "./annotation/index.js";
 import * as CONST from "./const.js";
-import { LayerIntentStore } from "./domain/LayerIntentStore.js";
+import { LayerIntentStore } from "./domain/index.js";
 import type { LayerPersistence } from "./persistence.js";
 
 /** The pane specs a surface is declared with: the registry entry's own, plus

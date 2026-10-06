@@ -3,7 +3,7 @@ import { GROUP, HIDDEN } from "#core/layer/const.js";
 import { LayerRuntimeStore } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { LayerController } from "#foliplus/LayerControl/controller.js";
-import { LayerIntentStore } from "#foliplus/LayerControl/domain/LayerIntentStore.js";
+import { LayerIntentStore } from "#foliplus/LayerControl/domain/index.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { getIntent, setIntent } from "#foliplus/LayerControl/ui/intent.js";
 import {

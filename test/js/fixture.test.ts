@@ -7,7 +7,7 @@
 // of a silent crash a dozen tests downstream.
 import { describe, expect, it } from "vitest";
 import { LayerRuntimeStore } from "#core/layer/index.js";
-import { LayerIntentStore } from "#foliplus/LayerControl/domain/LayerIntentStore.js";
+import { LayerIntentStore } from "#foliplus/LayerControl/domain/index.js";
 import { makeLayerUIMock } from "./fixture.js";
 
 describe("window.L marker mock", () => {

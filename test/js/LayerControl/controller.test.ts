@@ -7,7 +7,7 @@ import {
   installBringToFrontPatch,
   uninstallBringToFrontPatch,
 } from "#foliplus/LayerControl/controller.js";
-import { LayerIntentStore } from "#foliplus/LayerControl/domain/LayerIntentStore.js";
+import { LayerIntentStore } from "#foliplus/LayerControl/domain/index.js";
 import { LayerPersistence } from "#foliplus/LayerControl/persistence.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { getIntent, setIntent } from "#foliplus/LayerControl/ui/intent.js";

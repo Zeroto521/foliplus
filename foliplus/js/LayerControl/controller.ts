@@ -31,7 +31,7 @@ import type { Logger } from "#common/type.js";
 import { AnnotationManager } from "./annotation/index.js";
 import * as CONST from "./const.js";
 import { LayerOrchestration } from "./domain.js";
-import { LayerIntentStore } from "./domain/LayerIntentStore.js";
+import { LayerIntentStore } from "./domain/index.js";
 import { LayerPersistence } from "./persistence.js";
 import { LayerUI } from "./ui/index.js";
 
