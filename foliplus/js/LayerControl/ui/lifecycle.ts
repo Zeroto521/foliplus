@@ -41,8 +41,7 @@ import {
 } from "./list.js";
 import { closeMoreMenu } from "./menu.js";
 import { finishRename } from "./rename.js";
-import { applyRowView, buildRowCell } from "./rowView.js";
-import { snapshotAuthorVisible } from "./rowView.js";
+import { applyRowView, buildRowCell, snapshotAuthorVisible } from "./rowView.js";
 import { loadPersistedState } from "./state.js";
 import { closeStylePanel, invalidateFields } from "./style/index.js";
 import { dropStyleDimApplies } from "./style/styleBag.js";

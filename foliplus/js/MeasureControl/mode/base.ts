@@ -1,5 +1,7 @@
-import { toggleDelIcon } from "#core/leaflet/index.js";
-import { mountDelIcon as mountDelIconShared } from "#core/leaflet/index.js";
+import {
+  mountDelIcon as mountDelIconShared,
+  toggleDelIcon,
+} from "#core/leaflet/index.js";
 import type { ControlEnv } from "#core/type.js";
 import type { Logger } from "#common/type.js";
 import * as CONST from "../const.js";

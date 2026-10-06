@@ -16,8 +16,7 @@ import { NUMBER_FORMAT } from "#common/format.js";
 import { createLogger } from "#common/log.js";
 import { type Persisted, makePersisted } from "#common/storage.js";
 import * as Storage from "#common/storage.js";
-import type { CanvasLabelStyle } from "#common/type.js";
-import type { Debounced, Logger } from "#common/type.js";
+import type { CanvasLabelStyle, Debounced, Logger } from "#common/type.js";
 import * as CONST from "./const.js";
 import {
   aggregateData as aggregateDataFn,

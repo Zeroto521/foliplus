@@ -2,8 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
 import { LayerIntentStore, LayerRuntimeStore } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
-import { LayerController } from "#foliplus/LayerControl/controller.js";
 import {
+  LayerController,
   installBringToFrontPatch,
   uninstallBringToFrontPatch,
 } from "#foliplus/LayerControl/controller.js";

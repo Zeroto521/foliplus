@@ -24,9 +24,14 @@ import { EVENTS, ensureEvents } from "#foliplus/core/event/index.js";
 import { GEOM_TYPE } from "#foliplus/core/layer/const.js";
 import type { PaneSpec } from "#foliplus/core/layer/index.js";
 import { getLayerAlpha } from "#common/canvasAlpha.js";
-import { findItem, initFixture } from "./fixture.js";
-import { GridLayer, TileLayer, installLeafletGlobals } from "./fixture.js";
-import { TEST_ENV } from "./fixture.js";
+import {
+  GridLayer,
+  TEST_ENV,
+  TileLayer,
+  findItem,
+  initFixture,
+  installLeafletGlobals,
+} from "./fixture.js";
 
 /** The pane spec list `createLayers` derives from an ordered name list: the
  *  first name is the base pane, everything after it a `sub`. */
