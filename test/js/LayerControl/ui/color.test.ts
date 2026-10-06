@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { LayerRuntimeStore } from "#core/layer/index.js";
-import { LayerIntentStore } from "#foliplus/LayerControl/domain/LayerIntentStore.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
+import { LayerIntentStore } from "#foliplus/LayerControl/domain/LayerIntentStore.js";
 import {
   hideSolidBasemap,
   resetSolidBasemap,

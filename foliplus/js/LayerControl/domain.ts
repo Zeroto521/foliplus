@@ -24,15 +24,11 @@ import {
   topSlotZ,
   zFor,
 } from "#core/layer/index.js";
-import type {
-  LayerInfo,
-  PaneSpec,
-  RegisterLayerOpts,
-} from "#core/layer/type.js";
+import type { LayerInfo, PaneSpec, RegisterLayerOpts } from "#core/layer/type.js";
 import { attributionEntries, refreshAttributions } from "#core/leafletAdapter.js";
 import type { AnnotationManager } from "./annotation/index.js";
-import { LayerIntentStore } from "./domain/LayerIntentStore.js";
 import * as CONST from "./const.js";
+import { LayerIntentStore } from "./domain/LayerIntentStore.js";
 import type { LayerPersistence } from "./persistence.js";
 
 /** The pane specs a surface is declared with: the registry entry's own, plus
@@ -362,11 +358,7 @@ class LayerOrchestration {
   ): { layerInfo: LayerInfo; existingIdx: number; hidden: boolean } {
     const existingLi = this.layerRegistry.get(opts.id);
     const existingIdx = existingLi ? this.layerRegistry.indexOf(existingLi) : -1;
-    const layerInfo = this.layerRegistry.createLayerInfo(
-      opts,
-      existingLi,
-      this.map,
-    );
+    const layerInfo = this.layerRegistry.createLayerInfo(opts, existingLi, this.map);
 
     if (existingIdx !== -1) this.layerRegistry.upsert(layerInfo);
     else if (layerInfo.group === GROUP.BASE) {
@@ -413,9 +405,11 @@ class LayerOrchestration {
    *  controller because it walks the Leaflet tree — a UI side effect, not a
    *  domain decision. The registry / surface / pane teardown here is the
    *  bookkeeping half that a re-registration must not have to redo. */
-  unregisterEntry(
-    id: string,
-  ): { layerInfo: LayerInfo | null; layer: L.Layer | null; layerStamp: number | null } {
+  unregisterEntry(id: string): {
+    layerInfo: LayerInfo | null;
+    layer: L.Layer | null;
+    layerStamp: number | null;
+  } {
     const layerInfo = this.layerRegistry.remove(id);
     if (!layerInfo) return { layerInfo: null, layer: null, layerStamp: null };
 

@@ -4,11 +4,11 @@
 // loadFromPersisted vs parseLayerState + PARSE_OVERRIDE, overrides array ↔
 // Set round-trip. Values and behaviour must match the pre-store twin.
 import { describe, expect, it } from "vitest";
+import { LayerIntentStore } from "#foliplus/LayerControl/domain/LayerIntentStore.js";
 import type {
   LayerOverride,
   PersistedLayerState,
 } from "#foliplus/LayerControl/type.js";
-import { LayerIntentStore } from "#foliplus/LayerControl/domain/LayerIntentStore.js";
 
 const ann = (over: Record<string, unknown> = {}) =>
   ({

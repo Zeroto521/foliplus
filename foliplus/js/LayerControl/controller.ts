@@ -30,8 +30,8 @@ import { createLogger } from "#common/log.js";
 import type { Logger } from "#common/type.js";
 import { AnnotationManager } from "./annotation/index.js";
 import * as CONST from "./const.js";
-import { LayerIntentStore } from "./domain/LayerIntentStore.js";
 import { LayerOrchestration } from "./domain.js";
+import { LayerIntentStore } from "./domain/LayerIntentStore.js";
 import { LayerPersistence } from "./persistence.js";
 import { LayerUI } from "./ui/index.js";
 
@@ -842,8 +842,9 @@ class LayerController implements LayerAPI {
     // legacy `annotations` segment is pruned on READ for ids in `removed`
     // (parseRecord), so a v2 entry cannot resurrect behind the new key's
     // absence.
-    const { orderDropped, intentDropped, nameCleared } = this.domain
-      .deleteEntry(id, { clearName: true });
+    const { orderDropped, intentDropped, nameCleared } = this.domain.deleteEntry(id, {
+      clearName: true,
+    });
 
     if (!this.ui) {
       this.persistence.flushAll();
