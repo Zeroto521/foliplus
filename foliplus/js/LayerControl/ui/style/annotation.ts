@@ -17,6 +17,8 @@
 import { numberFormatOptions } from "#core/labelControl.js";
 import { AUTO_FIELD, resolveSelectedField } from "#core/labelField.js";
 import { CAP_TIER, DIM } from "#core/layer/index.js";
+import * as CONST from "#foliplus/LayerControl/const.js";
+import type { AnnotationConfig } from "#foliplus/LayerControl/type.js";
 import { dom } from "#common/dom.js";
 import {
   LABEL_COLOR_DEFAULT,
@@ -29,8 +31,6 @@ import {
   normalizeHexColor,
 } from "#common/form.js";
 import { NUMBER_FORMAT } from "#common/format.js";
-import * as CONST from "../../const.js";
-import type { AnnotationConfig } from "../../type.js";
 import type { LayerUI } from "../index.js";
 import { layerFields, syncFormatRow } from "./label.js";
 import { registerDimension } from "./registry.js";

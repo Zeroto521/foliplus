@@ -82,7 +82,7 @@ const toCSV = (env: ControlEnv, measurements: MeasureData[]): string => {
     if (!data.type) continue;
 
     const row: CsvRow = {
-      id: data.id || "",
+      id: data.id ?? "",
       type: data.type,
       name: getNameForType(env, data),
       center: data.center
@@ -91,11 +91,11 @@ const toCSV = (env: ControlEnv, measurements: MeasureData[]): string => {
       totalDistance: data.totalDistance !== undefined ? String(data.totalDistance) : "",
       area: data.area !== undefined ? String(data.area) : "",
       radius: data.radius !== undefined ? String(data.radius) : "",
-      address: data.address || "",
+      address: data.address ?? "",
       wkt: toWKT(env, data),
     };
 
-    rows.push(headers.map(h => csvEscape(row[h as keyof CsvRow] || "")).join(","));
+    rows.push(headers.map(h => csvEscape(row[h as keyof CsvRow] ?? "")).join(","));
   }
 
   return rows.join("\n");
@@ -209,7 +209,7 @@ const currentExportFormat = (env: ControlEnv): ExportFormatSpec =>
 /** Filename the export writes to — shared with the success hint so
  * the two cannot drift. */
 const exportFilename = (env: ControlEnv, format: ExportFormat): string =>
-  `${env.config.filename || "measurements"}.${EXPORT_FORMAT_META[format].ext}`;
+  `${env.config.filename ?? "measurements"}.${EXPORT_FORMAT_META[format].ext}`;
 
 /**
  * Convert measurements to a Blob and trigger a file download.
@@ -224,7 +224,7 @@ const exportMeasurements = (
   if (!measurements || measurements.length === 0) return;
 
   const meta = EXPORT_FORMAT_META[format];
-  const base = env.config.filename || "measurements";
+  const base = env.config.filename ?? "measurements";
 
   download(
     new Blob([meta.serialize(env, measurements)], { type: meta.mime }),

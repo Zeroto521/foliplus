@@ -151,7 +151,7 @@ const bindEvents = (ui: LayerUI): void => {
         const c = item.querySelector(
           'input[type="checkbox"]',
         ) as HTMLInputElement | null;
-        return !c || !c.checked;
+        return !c?.checked;
       });
       toggleAll(ui, group, noneChecked);
       return;

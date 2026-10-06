@@ -402,7 +402,7 @@ class PaneManager {
     if (depth > CONST.RECURSION.PANE_DEPTH) return [];
     const key = L.stamp(layer);
     const hit = this.discoveryCache.get(key);
-    if (hit && hit.gen === this.generation) return hit.panes;
+    if (hit?.gen === this.generation) return hit.panes;
     const panes = new Set<string>();
     walkTree(
       layer,

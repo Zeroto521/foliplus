@@ -91,7 +91,7 @@ const makeLabelDivIcon = (
       `<div class="${CONST.LABEL.CLASS}${className ? " " + className : ""}" ` +
       `data-foliplus-export="label">${html}</div>`,
     iconSize: CONST.LABEL.SIZE as [number, number],
-    iconAnchor: (iconAnchor || CONST.LABEL.DEFAULT_ANCHOR) as [number, number],
+    iconAnchor: (iconAnchor ?? CONST.LABEL.DEFAULT_ANCHOR) as [number, number],
   });
 };
 

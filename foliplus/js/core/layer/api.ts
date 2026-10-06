@@ -30,7 +30,7 @@ const ensureLayerAPI = (map: L.Map, force = false): LayerAPI => {
   if (!force && current) return current;
   // force (LayerController.destroy) downgrades a live full LayerAPI to the stub;
   // an existing stub is already the target state, so keep it — idempotent.
-  if (force && current && current.isLayerControl === false) return current;
+  if (force && current?.isLayerControl === false) return current;
 
   // Lightweight LayerAPI — no LayerControl, no registry, no panel.
   // createLayers/createCanvas are fully functional; query methods are no-ops.
@@ -87,9 +87,9 @@ const isRealLayerControl = (api: LayerAPI | undefined): boolean => {
   // while the lightweight stub sets it as a plain data property (own).
   // Check both the instance and the prototype chain for the getter.
   const own =
-    Object.getOwnPropertyDescriptor(api, "layers") ||
+    Object.getOwnPropertyDescriptor(api, "layers") ??
     Object.getOwnPropertyDescriptor(Object.getPrototypeOf(api), "layers");
-  return Boolean(own && own.get);
+  return Boolean(own?.get);
 };
 
 /**

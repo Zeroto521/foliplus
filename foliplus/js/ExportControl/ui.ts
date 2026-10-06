@@ -28,7 +28,7 @@ const renderToolbarActions = (
   mgr: ExportManager,
   { confirm, cancel }: { confirm: ToolbarButton; cancel: ToolbarButton },
 ) => {
-  const actions = mgr.cropState?.actions || mgr.exportToolBar;
+  const actions = mgr.cropState?.actions ?? mgr.exportToolBar;
   if (!actions) return;
   actions.innerHTML = "";
   createIconButton({
@@ -273,7 +273,7 @@ const lockCropBox = (mgr: ExportManager, skipHint = false) => {
 
 /** Update toolbar for unlocked state (confirm button). */
 const unlockCropBox = (mgr: ExportManager) => {
-  if (!mgr.cropState || !mgr.cropState.locked) return;
+  if (!mgr.cropState?.locked) return;
   mgr.cropState.locked = false;
   mgr.cropState.box.classList.remove(CONST.CLASSES.LOCKED);
   if (mgr.mapMoveCleanup) mgr.mapMoveCleanup();

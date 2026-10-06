@@ -62,7 +62,7 @@ const providerFromConfig = (config: ProviderConfig): GeocodeProvider => {
     op?: ProviderConfig["suggest"],
     vars?: Record<string, string | number>,
   ): string => {
-    if (!op || !op.url) return "";
+    if (!op?.url) return "";
     const template = joinUrl(config.baseUrl, op.url);
     // An empty vars table leaves placeholders untouched → same as the template.
     const interpolated = interpolate(template, vars ?? {});

@@ -41,7 +41,7 @@ const placeMarker = (ctrl: LocateCtrl, lng: number, lat: number, titleKey: strin
   const T = ctrl.T;
   const _ = ctrl._;
   map.foliplus!.hideHint(config.name);
-  map.flyTo([lat, lng], config.zoom || 15);
+  map.flyTo([lat, lng], config.zoom || 15); // eslint-disable-line @typescript-eslint/prefer-nullish-coalescing -- 0 is a valid zoom
   removeMarker(ctrl);
   ctrl.marker = createLocationMarker(
     map,

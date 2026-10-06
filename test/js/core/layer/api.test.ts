@@ -158,6 +158,62 @@ describe("ensureLayerAPI", () => {
     expect(addLayer).toHaveBeenCalled();
   });
 
+  it("does not add layer to map when it is already present", () => {
+    // The registerLayer callback checks hasLayer before adding — when the
+    // mainLayer is already on the map, addLayer is skipped. hasLayer returns
+    // false on the first call (addLayer override) so register() fires, then
+    // true on the second call (registerLayer) to cover the skip branch.
+    const addLayer = vi.fn();
+    const hasLayer = vi.fn().mockReturnValueOnce(false).mockReturnValue(true);
+    const fresh = {
+      foliplus: null as any,
+      getContainer: vi.fn(() => ({ clientWidth: 800, clientHeight: 600 })),
+      getPanes: vi.fn(() => ({ mapPane: document.createElement("div") })),
+      getPane: vi.fn(() => document.createElement("div")),
+      createPane: vi.fn(() => document.createElement("div")),
+      hasLayer,
+      addLayer,
+      on: vi.fn(),
+      off: vi.fn(),
+    };
+    const api = ensureLayerAPI(fresh);
+    const layers = api.createLayers({
+      id: "g2",
+      name: "Group2",
+      panes: [{ name: "g2" }],
+    });
+    const layer = { options: { pane: "g2" } } as any;
+    layers.addLayer(layer);
+    expect(addLayer).not.toHaveBeenCalled();
+  });
+
+  it("lightweight createLayers returns a handle whose bringToFront is a no-op", () => {
+    // The lightweight LayerAPI wraps the factory's createLayers and passes a
+    // no-op bringLayerToFront callback. Calling bringToFront() on the returned
+    // handle must not throw — there is no registry to reorder in the stub.
+    const api = ensureLayerAPI(map);
+    const layers = api.createLayers({ id: "lt", name: "Lightweight" });
+    expect(() => layers.bringToFront()).not.toThrow();
+    expect(layers.bringToFront()).toBeUndefined();
+  });
+
+  it("lightweight createLayers handle unregister calls the no-op unregisterLayer", () => {
+    // The factory's unregisterLayer callback is called when unregister() runs —
+    // the lightweight API passes () => true so the callback returns a value even
+    // though there is no registry to actually remove from.
+    const api = ensureLayerAPI(map);
+    const layers = api.createLayers({
+      id: "lg",
+      name: "Group",
+      panes: [{ name: "g" }],
+    });
+    const layer = { options: { pane: "g" } } as any;
+    layers.addLayer(layer);
+    expect(layers.registered()).toBe(true);
+    layers.unregister();
+    expect(layers.registered()).toBe(false);
+  });
+
   it("no-op methods behave as specified", () => {
     const api = ensureLayerAPI(map);
     expect(api.unregisterLayer("x")).toBe(false);
@@ -170,6 +226,8 @@ describe("ensureLayerAPI", () => {
     // And dropPersistedLayerState, which erases stored state, cannot claim to
     // have erased anything on a stub that has no store.
     expect(api.dropPersistedLayerState("x")).toBe(false);
+    // Calling bringLayerToFront on the lightweight stub must not throw — it's
+    // a no-op because there's no registry to reorder.
     expect(api.bringLayerToFront("x")).toBeUndefined();
     // false, not undefined: the stub is a real method, so callers can tell a
     // no-LayerControl call apart from an unknown id on a live one.
@@ -177,6 +235,8 @@ describe("ensureLayerAPI", () => {
     expect(api.extractPoints("x")).toEqual([]);
     expect(api.getLayerPanes({} as any)).toEqual([]);
     expect(api.getLayersByType("point")).toEqual([]);
+    // touchLayer returns false on the stub — no registry to mark as touched.
+    expect(api.touchLayer("x")).toBe(false);
   });
 
   it("does not expose moveLayerUp / moveLayerDown — only LayerController reorders", () => {

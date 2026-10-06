@@ -305,12 +305,12 @@ class DistanceMode extends PreviewMode {
         id: data.id,
         type: this.TYPE,
         name: this.getNameLabel(env),
-        totalDistance: data.totalDistance || 0,
-        segments: data.segments || [],
+        totalDistance: data.totalDistance ?? 0,
+        segments: data.segments ?? [],
       },
       geometry: {
         type: CONST.GEOJSON.LINE_STRING,
-        coordinates: data.points?.map(p => [p.lng, p.lat]) || [],
+        coordinates: data.points?.map(p => [p.lng, p.lat]) ?? [],
       },
     };
   }

@@ -24,6 +24,7 @@
 // paints through `setStyle` or through a component's own canvas.
 import { CAP_TIER, DIM } from "#core/layer/index.js";
 import { findLeaf } from "#core/layer/walkLeaf.js";
+import * as CONST from "#foliplus/LayerControl/const.js";
 import { dom } from "#common/dom.js";
 import {
   BORDER_WEIGHT,
@@ -34,7 +35,6 @@ import {
   normalizeHexColor,
   numberInput,
 } from "#common/form.js";
-import * as CONST from "../../const.js";
 import type { LayerUI } from "../index.js";
 import { INTENT, type IntentKey, getIntent } from "../intent.js";
 import { pinStyleOnHighlight } from "./pin.js";

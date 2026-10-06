@@ -75,7 +75,6 @@ class Circle {
 class Marker {}
 
 class CircleMarker {
-  constructor(_latlng: unknown, _opts: unknown) {}
   options = {};
   getRadius = () => 5;
   setStyle = vi.fn();

@@ -175,6 +175,37 @@ describe("buildPopupEl", () => {
     expect(el.textContent).toContain("Loading...");
   });
 
+  it("falls back to the loading label when addr is an empty string", () => {
+    // An empty-string addr is falsy — the popup must still show something
+    // useful instead of a blank address row.
+    const el = buildPopupEl(
+      120,
+      30,
+      "",
+      "Location",
+      "Loading...",
+      "Lng,Lat:",
+      "Address:",
+    );
+    expect(el.textContent).toContain("Loading...");
+    expect(el.querySelector("svg")).not.toBeNull();
+  });
+
+  it("shows the actual address when addr is non-empty", () => {
+    const el = buildPopupEl(
+      120,
+      30,
+      "1 Main St, City",
+      "Location",
+      "Loading...",
+      "Lng,Lat:",
+      "Address:",
+    );
+    expect(el.textContent).toContain("1 Main St, City");
+    expect(el.textContent).not.toContain("Loading...");
+    expect(el.querySelector("svg")).toBeNull();
+  });
+
   it("renders a poisoned address as text, never as markup", () => {
     // `addr` is a Nominatim reverse-geocode result — the one sink in the
     // codebase fed by a third-party API the page does not control.
@@ -341,6 +372,13 @@ describe("removeInlineEditInput", () => {
 
   it("returns null for a null label", () => {
     expect(removeInlineEditInput(null)).toBeNull();
+  });
+
+  it("returns null when the label has no input", () => {
+    const label = dom.el("label");
+    label.appendChild(dom.el("span", null, "text"));
+    expect(removeInlineEditInput(label as HTMLLabelElement)).toBeNull();
+    expect(label.textContent).toBe("text");
   });
 });
 

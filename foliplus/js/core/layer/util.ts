@@ -16,8 +16,8 @@ import { walkLeaf } from "./walkLeaf.js";
  *  @returns {Object|null} Leaflet layer. */
 const findLayer = (map: L.Map, id: string): L.Layer | null => {
   if (typeof window === "undefined") return null;
-  return (internalLayers(map)?.[id] ||
-    Reflect.get(window, id) ||
+  return (internalLayers(map)?.[id] ??
+    Reflect.get(window, id) ??
     null) as L.Layer | null;
 };
 

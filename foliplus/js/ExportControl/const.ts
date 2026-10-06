@@ -200,8 +200,8 @@ const DEFAULT_CONN_CONCURRENCY: Record<string, number> = {
  */
 const detectConcurrency = (): number => {
   const conn: NetworkInformation | undefined =
-    (navigator as Navigator & { connection?: NetworkInformation }).connection ||
-    (navigator as Navigator & { mozConnection?: NetworkInformation }).mozConnection ||
+    (navigator as Navigator & { connection?: NetworkInformation }).connection ??
+    (navigator as Navigator & { mozConnection?: NetworkInformation }).mozConnection ??
     (navigator as Navigator & { webkitConnection?: NetworkInformation })
       .webkitConnection;
   if (!conn) return DEFAULT_CONCURRENCY;

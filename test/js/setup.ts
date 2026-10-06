@@ -146,7 +146,6 @@ window.L = {
     getRadius = () => 5;
   },
   CircleMarker: class {
-    constructor(_latlng?: unknown, _opts?: unknown) {}
     getRadius = () => 5;
     setStyle = vi.fn();
   },

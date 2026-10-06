@@ -1,6 +1,6 @@
 // LayerControl UI — HTML5 drag reorder + group fold.
 import { HINT_DURATION } from "#core/hint.js";
-import * as CONST from "../../const.js";
+import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerUI } from "../index.js";
 import { saveFoldState } from "../state.js";
 import { initTypesAndVisibility, renderInitialList } from "./list.js";

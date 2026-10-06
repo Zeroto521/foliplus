@@ -16,7 +16,7 @@
 // Only the control-side persistence write is narrowed away: the class depends
 // on {@link OrderPersistence} (the `schedule` slice it needs) instead of
 // `LayerPersistence`, so core/layer never imports from a control module.
-import { LayerInfoRegistry } from "./LayerInfoRegistry.js";
+import { type LayerInfoRegistry } from "./LayerInfoRegistry.js";
 import { GROUP } from "./const.js";
 import type { LayerInfo } from "./type.js";
 
@@ -212,7 +212,7 @@ class LayerOrder {
    */
   forgetSavedOrder(id: string): boolean {
     const saved = this.savedOrder;
-    if (!saved || !saved.includes(id)) return false;
+    if (!saved?.includes(id)) return false;
     this.savedOrder = saved.filter(other => other !== id);
     this.getPersistence().schedule({ order: () => this.savedOrder! });
     return true;

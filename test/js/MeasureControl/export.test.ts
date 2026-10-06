@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { HINT_DURATION } from "#core/hint.js";
 import * as CONST from "#foliplus/MeasureControl/const.js";
 import * as Export from "#foliplus/MeasureControl/export.js";
+import { MarkerMode } from "#foliplus/MeasureControl/mode/index.js";
 import * as downloadMod from "#common/download.js";
 import { makeControlEnv } from "../fixture.js";
 
@@ -312,6 +313,22 @@ describe("Export.toCSV", () => {
     const lines = csv.split("\n");
     const markerRow = lines[1];
     expect(markerRow).toContain("POINT(119.3");
+  });
+
+  it("csvEscape truthy side: id column has a value", () => {
+    // Covers the truthy side of `row[h] ?? ""` — when the row value is a
+    // non-empty string, csvEscape receives it directly (not the "" fallback).
+    const data: MeasureData = {
+      id: "x",
+      type: CONST.MEASURE_MODE.MARKER,
+      lng: 119.3,
+      lat: 26.08,
+    };
+    const csv = Export.toCSV(env, [data]);
+    const lines = csv.split("\n");
+    const row = lines[1];
+    const fields = row.split(",");
+    expect(fields[0]).toBe("x");
   });
 });
 
@@ -695,5 +712,57 @@ describe("Export.toWKT — unknown type", () => {
     const csv = Export.toCSV(env, [{ id: "x", type: "unknown" } as MeasureData]);
     const row = csv.split("\n")[1].split(",");
     expect(row[8]).toBe("");
+  });
+
+  it("wkt column is empty when the mode returns an unrecognized geometry", () => {
+    // featureToWKT's switch handles only Point/LineString/Polygon — the
+    // three geometry types the built-in modes emit. Anything else hits the
+    // default branch and returns an empty string.
+    const spy = vi.spyOn(MarkerMode, "toGeoFeature").mockReturnValue({
+      type: "Feature",
+      geometry: { type: "MultiPoint", coordinates: [[119.3, 26.08]] },
+      properties: {},
+    } as GeoJSON.Feature);
+    try {
+      // No address/center so csvEscape quotes no field and row[8] is unambiguously wkt.
+      const csv = Export.toCSV(env, [
+        { id: "x", type: CONST.MEASURE_MODE.MARKER } as MeasureData,
+      ]);
+      const row = csv.split("\n")[1].split(",");
+      expect(row[8]).toBe("");
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("id column is empty when data.id is undefined", () => {
+    const csv = Export.toCSV(env, [{ type: CONST.MEASURE_MODE.MARKER } as MeasureData]);
+    const row = csv.split("\n")[1].split(",");
+    expect(row[0]).toBe("");
+  });
+
+  it("address column is empty when data.address is undefined", () => {
+    const csv = Export.toCSV(env, [
+      { id: "x", type: CONST.MEASURE_MODE.MARKER } as MeasureData,
+    ]);
+    const row = csv.split("\n")[1].split(",");
+    expect(row[7]).toBe("");
+  });
+
+  it("wkt column is empty when geometry is null", () => {
+    const spy = vi.spyOn(MarkerMode, "toGeoFeature").mockReturnValue({
+      type: "Feature",
+      geometry: null,
+      properties: {},
+    } as GeoJSON.Feature);
+    try {
+      const csv = Export.toCSV(env, [
+        { id: "x", type: CONST.MEASURE_MODE.MARKER } as MeasureData,
+      ]);
+      const row = csv.split("\n")[1].split(",");
+      expect(row[8]).toBe("");
+    } finally {
+      spy.mockRestore();
+    }
   });
 });

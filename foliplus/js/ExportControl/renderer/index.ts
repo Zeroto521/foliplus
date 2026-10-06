@@ -169,7 +169,7 @@ class ExportRenderer {
       // report 80-95% instead of 100.  Each layer is therefore sized (which
       // does the same filtering as the draw pass) and counted, and its own
       // total is reported against the running cross-layer sum.
-      if (geoBounds && geoBounds.nw) {
+      if (geoBounds?.nw) {
         // Size every tile layer up front: the sum is the progress denominator
         // and the surviving entries are the layers that get drawn, so the
         // numerator and denominator describe the same set of tiles. The
@@ -230,7 +230,7 @@ class ExportRenderer {
         const layer = this.resolveLayer(li);
         return (
           (api.intentVisible?.(li.id) ?? true) &&
-          (li.canvas || (layer && !(layer instanceof L.TileLayer && layerUrl(layer))))
+          (li.canvas ?? (layer && !(layer instanceof L.TileLayer && layerUrl(layer))))
         );
       });
       let done = 0;

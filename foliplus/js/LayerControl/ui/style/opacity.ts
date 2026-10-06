@@ -10,8 +10,8 @@
 // (`write` / `reset` / `valueSource`); `commitOpacityPct` stays a thin
 // delegate that also syncs the panel rail (UI chrome outside the descriptor).
 import { CAP_TIER, DIM, GROUP } from "#core/layer/index.js";
+import * as CONST from "#foliplus/LayerControl/const.js";
 import { dom } from "#common/dom.js";
-import * as CONST from "../../const.js";
 import { applyProjection } from "../apply.js";
 import type { LayerUI } from "../index.js";
 import { INTENT, getIntent } from "../intent.js";

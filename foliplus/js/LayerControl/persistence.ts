@@ -316,18 +316,16 @@ class LayerPersistence {
    */
   schedule(fields: LiveState): void {
     Object.assign(this.fields, fields);
-    if (!this.timer) {
-      this.timer = debounce(() => {
-        const record = parseRecord(
-          Storage.loadRecord<unknown>(CONST.STORAGE.KEY, this.persistName),
-        );
-        Storage.saveRecord(
-          CONST.STORAGE.KEY,
-          mergeFields(record, this.fields),
-          this.persistName,
-        );
-      }, CONST.SAVE_DEBOUNCE_MS);
-    }
+    this.timer ??= debounce(() => {
+      const record = parseRecord(
+        Storage.loadRecord<unknown>(CONST.STORAGE.KEY, this.persistName),
+      );
+      Storage.saveRecord(
+        CONST.STORAGE.KEY,
+        mergeFields(record, this.fields),
+        this.persistName,
+      );
+    }, CONST.SAVE_DEBOUNCE_MS);
     this.timer();
   }
 

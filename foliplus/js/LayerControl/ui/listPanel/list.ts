@@ -1,8 +1,8 @@
 // LayerControl UI — Layer row structure / list layout / insert / reindex.
 import { GROUP } from "#core/layer/index.js";
+import * as CONST from "#foliplus/LayerControl/const.js";
+import * as SVGs from "#foliplus/LayerControl/icon.js";
 import { dom, updateItemLabel } from "#common/dom.js";
-import * as CONST from "../../const.js";
-import * as SVGs from "../../icon.js";
 import { getColorSurface } from "../color.js";
 import type { LayerUI } from "../index.js";
 import { cursorRef, restoreCursor, syncListCursor } from "./keyboard.js";
@@ -157,7 +157,7 @@ const insertLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
     // a group has something to anchor on at all.
     const above = idx > 0 ? ui.c.layers[idx - 1] : null;
     const anchor =
-      above && above.group === layerInfo.group
+      above?.group === layerInfo.group
         ? container.querySelector(`[${CONST.DATA.LAYER_ID}="${CSS.escape(above.id)}"]`)
         : null;
     if (anchor) anchor.after(frag);
