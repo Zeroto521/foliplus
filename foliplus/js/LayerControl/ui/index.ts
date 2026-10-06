@@ -73,6 +73,7 @@ import {
   replayFillState,
 } from "./style/index.js";
 import { dropStyleDimApplies } from "./style/styleBag.js";
+import type { LayerUI as LayerUISurface } from "./types.js";
 
 /** UI Controller for LayerControl.
  *  Per-panel state lives on one of three view subsystems:
@@ -84,7 +85,7 @@ import { dropStyleDimApplies } from "./style/styleBag.js";
  *  (`ui.listPanel.foldedGroups`, `ui.overlayPanel.activeMenu`, etc.);
  *  each subsystem owns the field and there is no compat layer.
  */
-class LayerUI {
+class LayerUI implements LayerUISurface {
   controller: LayerController;
   /** Per-map event bus — bound once in the constructor (ensure-style getters
    *  return the cached instance, so hold it like the logger does). */

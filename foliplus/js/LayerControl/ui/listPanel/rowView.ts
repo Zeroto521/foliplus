@@ -18,9 +18,9 @@ import * as SVGs from "#foliplus/LayerControl/icon.js";
 import * as Util from "#foliplus/LayerControl/util.js";
 import { formatNumber } from "#common/format.js";
 import * as Icons from "#common/icon.js";
-import type { LayerUI } from "../index.js";
 import { INTENT, getIntent } from "../intent.js";
 import { intentVisibleOf, projectLayer } from "../projection.js";
+import type { LayerUI } from "../types.js";
 
 /** One layer's inputs to the row visual. Nothing here is written back. */
 interface RowCell {

@@ -14,8 +14,8 @@ import { ensureModes, guardBlocked } from "#core/mode.js";
 import { type RectCorners, roundedRectOutline } from "#common/marqueeShape.js";
 import * as CONST from "../const.js";
 import { applyProjectionAll } from "./apply.js";
-import type { LayerUI } from "./index.js";
 import { closeOverlays } from "./teardown.js";
+import type { LayerUI } from "./types.js";
 
 /** Why a row's focus action is off. Carried as the menu item's title and as
  *  the hint text when a keyboard/double-click path tries to focus a row the

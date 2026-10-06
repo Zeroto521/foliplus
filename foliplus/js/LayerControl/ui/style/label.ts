@@ -8,9 +8,9 @@ import * as CONST from "#foliplus/LayerControl/const.js";
 import type { AnnotationConfig } from "#foliplus/LayerControl/type.js";
 import { clampLabelSize, normalizeHexColor } from "#common/form.js";
 import { NUMBER_FORMAT } from "#common/format.js";
-import type { LayerUI } from "../index.js";
 import { INTENT, getIntent } from "../intent.js";
 import { saveState } from "../state.js";
+import type { LayerUI } from "../types.js";
 
 /** Field list for a layer (cached on the runtime store). collectFields walks
  *  every feature, so the answer is cached per layer id; invalidateFields drops

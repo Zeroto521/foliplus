@@ -11,7 +11,7 @@
 // because `PersistedRecord.layers` names it directly.
 import type { PersistedLayerState } from "#core/layer/index.js";
 import type { LayerDimKey } from "#core/layer/type.js";
-import type { LayerUI } from "./ui/index.js";
+import type { LayerUI } from "./ui/types.js";
 
 export type {
   AnnotationConfig,

@@ -35,8 +35,8 @@ import {
   normalizeHexColor,
   numberInput,
 } from "#common/form.js";
-import type { LayerUI } from "../index.js";
 import { INTENT, type IntentKey, getIntent } from "../intent.js";
+import type { LayerUI } from "../types.js";
 import { pinStyleOnHighlight } from "./pin.js";
 import {
   getDimension,
