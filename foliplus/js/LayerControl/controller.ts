@@ -1,5 +1,4 @@
 import { EVENTS, type EventBus, ensureEvents } from "#core/event/index.js";
-import { ensureLayerAPI } from "#core/layer/api.js";
 import {
   type CreateCanvasAPI,
   type CreateCanvasOpts,
@@ -19,6 +18,7 @@ import {
   PaneManager,
   type RegisterLayerOpts,
   countFeatureGeometry,
+  ensureLayerAPI,
   findLayer,
   walkLeaf,
   zFor,
@@ -153,7 +153,7 @@ class LayerController implements LayerAPI {
   order: LayerOrder;
   annotation: AnnotationManager;
   domain: LayerOrchestration;
-  /** Per-layer intent store — domain-owned (#620 follow-up), exposed on
+  /** Per-layer intent store — domain-owned, exposed on
    *  LayerUI as a read-only getter. Read via `this.intentStore` internally
    *  (register gate, deleteLayer) and via `ui.intentStore` externally. */
   intentStore: LayerIntentStore;

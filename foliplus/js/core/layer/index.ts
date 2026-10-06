@@ -67,6 +67,7 @@ export type {
   LayerKind,
   PaneHandle,
   PaneRole,
+  PaneSpec,
   RegisterLayerOpts,
   ZArgs,
 } from "./type.js";

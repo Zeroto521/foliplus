@@ -9,22 +9,24 @@
 // LayerPersistence and AnnotationManager — both LayerControl-local.
 import { EVENTS, type EventBus } from "#core/event/index.js";
 import { hasLabelField } from "#core/labelField.js";
-import type { LayerFactory } from "#core/layer/LayerFactory.js";
-import { LayerInfoRegistry } from "#core/layer/LayerInfoRegistry.js";
-import type { LayerOrder } from "#core/layer/LayerOrder.js";
-import { LayerSurface } from "#core/layer/LayerSurface.js";
-import { PaneManager } from "#core/layer/PaneManager.js";
 import {
   GROUP,
   INTENT,
   KIND,
+  type LayerFactory,
+  type LayerInfo,
+  LayerInfoRegistry,
   type LayerKind,
+  type LayerOrder,
+  LayerSurface,
   PANE_ROLE,
+  PaneManager,
+  type PaneSpec,
+  type RegisterLayerOpts,
   findLayer as findLayerUtil,
   topSlotZ,
   zFor,
 } from "#core/layer/index.js";
-import type { LayerInfo, PaneSpec, RegisterLayerOpts } from "#core/layer/type.js";
 import { attributionEntries, refreshAttributions } from "#core/leafletAdapter.js";
 import type { AnnotationManager } from "../annotation/index.js";
 import * as CONST from "../const.js";
