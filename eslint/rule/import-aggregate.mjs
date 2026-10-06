@@ -12,8 +12,22 @@
  * `import type { A }` + `import { B }` from the same module — the
  * project's canonical split — is in different buckets and passes.
  *
+ * A same-source namespace + named pair is not itself an aggregation
+ * failure (namespace and value are different buckets), but it is
+ * redundant at runtime (`* as X` already exposes the named export) and
+ * defeats tree-shaking, so we prefer collapsing the pair to a single
+ * named import whenever the namespace form isn't needed for API-surface
+ * introspection (see the sole such case: `test/js/core/leafletAdapter.test.ts`,
+ * which reads `Object.keys(adapter)` to assert the module's public shape).
+ *
  * The core `no-duplicate-imports` folds all three buckets into one and
- * flags the split form this project wants; this rule replaces it here.
+ * flags the split form this project wants. `eslint-plugin-import`'s
+ * `no-duplicates` accepts the clean `import type { A }` + `import { B }`
+ * split when `prefer-inline: false`, but collapses `import type { A }`
+ * + `import { type X, B }` (inline type specifier alongside value
+ * specifiers) — which the project actually uses (`LayerIntentStore.ts`
+ * `./intent.js`) — with no option to loosen it.
+ *
  * Import ordering is prettier's job; this rule only enforces aggregation.
  *
  * @see eslint.config.js — where this is wired in.

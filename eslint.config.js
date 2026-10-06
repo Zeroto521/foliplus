@@ -22,9 +22,9 @@
 //
 // @see https://eslint.org/docs/latest/use/configure/
 import tseslint from "typescript-eslint";
-import { importAggregate } from "./eslint/rules/import-aggregate.mjs";
+import { importAggregate } from "./eslint/rule/import-aggregate.mjs";
 
-// Local rules that no upstream plugin provides. Kept under eslint/rules/
+// Local rules that no upstream plugin provides. Kept under eslint/rule/
 // so `npm run lint` and the type-aware pass stay in one file each.
 const foliplusRules = { "import-aggregate": importAggregate };
 
