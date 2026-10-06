@@ -146,7 +146,6 @@ class BaseControl extends L.Control {
   }
 
   /** Override to release resources on removal. Called before auto-unbind. */
-  // eslint-disable-next-line @typescript-eslint/no-empty-function -- base hook; the default releases nothing
   destroy(): void {}
 
   /**

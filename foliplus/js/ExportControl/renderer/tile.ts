@@ -13,13 +13,13 @@ const calcTiles = (
   zoom: number,
   scaleVal: number,
 ): TileDesc[] => {
-  const crs = map.options.crs || L.CRS.EPSG3857;
+  const crs = map.options.crs ?? L.CRS.EPSG3857;
   const opts = tileLayer.options as L.TileLayerOptions;
   const tileSize = typeof opts.tileSize === "number" ? opts.tileSize : 256;
-  const subdomains = opts.subdomains || "abc";
+  const subdomains = opts.subdomains ?? "abc";
   // Leaflet keeps the tile URL template off its public interface; the adapter
   // probe is the one route to it.
-  const urlTemplate = layerUrl(tileLayer) || "";
+  const urlTemplate = layerUrl(tileLayer) ?? "";
 
   // Get bounds in EPSG:3857
   const nw = crs.latLngToPoint(L.latLng(bounds.nw.lat, bounds.nw.lng), zoom);
@@ -84,7 +84,7 @@ const calcTiles = (
 const tilePositions = (map: L.Map, rc: RenderCtx, tiles: TileDesc[]): TileDesc[] => {
   const { rect, scale, contRect, cw, ch } = rc;
   const zoom = map.getZoom();
-  const crs = map.options.crs || L.CRS.EPSG3857;
+  const crs = map.options.crs ?? L.CRS.EPSG3857;
   const viewportCenter = crs.latLngToPoint(map.getCenter(), zoom);
   const vpLeft = viewportCenter.x - contRect.width / 2;
   const vpTop = viewportCenter.y - contRect.height / 2;

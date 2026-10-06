@@ -25,7 +25,7 @@ const zIndexBase = (): number => {
           "--foliplus-z-index-hint",
           String(HINT_Z_INDEX_DEFAULT),
         ),
-      ) || HINT_Z_INDEX_DEFAULT;
+      ) || HINT_Z_INDEX_DEFAULT; // eslint-disable-line @typescript-eslint/prefer-nullish-coalescing -- CSS var "0" is falsy and should fall through to default
   }
   return hintZIndex;
 };

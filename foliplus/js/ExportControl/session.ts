@@ -159,7 +159,7 @@ const doRender = function (
 
   const renderer = new ExportRenderer(this.map);
   return renderer
-    .render(r, scaleValue, bg || undefined, geoBounds, onProgress)
+    .render(r, scaleValue, bg ?? undefined, geoBounds, onProgress)
     .then(canvas => {
       this.lastTileFailures = renderer.tileFailures;
       this.onRenderSuccess(canvas, hideEls);
@@ -247,7 +247,7 @@ const onRenderSuccess = function (
 };
 
 const finishExport = async function (this: ExportManager, canvas: HTMLCanvasElement) {
-  const name = CONFIG.filename || "map";
+  const name = CONFIG.filename ?? "map";
   try {
     // Encode once into a Blob shared by the preview and the download. The
     // old canvas.toDataURL() encoded the full raster into a base64 string

@@ -17,7 +17,7 @@
  * null — nothing reads the seed value. See `MapFoliplus` in type/global.d.ts.
  */
 const ensureMapFoliplus = (map: L.Map): MapFoliplus => {
-  if (!map.foliplus) map.foliplus = { LayerAPI: null! } as unknown as MapFoliplus;
+  map.foliplus ??= { LayerAPI: null! } as unknown as MapFoliplus;
   return map.foliplus;
 };
 

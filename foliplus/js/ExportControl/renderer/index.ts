@@ -230,7 +230,7 @@ class ExportRenderer {
         const layer = this.resolveLayer(li);
         return (
           (api.intentVisible?.(li.id) ?? true) &&
-          (li.canvas || (layer && !(layer instanceof L.TileLayer && layerUrl(layer))))
+          (li.canvas ?? (layer && !(layer instanceof L.TileLayer && layerUrl(layer))))
         );
       });
       let done = 0;

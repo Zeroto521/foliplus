@@ -231,7 +231,7 @@ const renderTextLabels = async (
 
   for (const root of markerRoots) {
     const textEl = (root.querySelector(CONST.SEL.LABEL) || root) as HTMLElement;
-    const text = textEl.textContent || "";
+    const text = textEl.textContent ?? "";
     if (!text.trim()) continue;
     if (root.querySelector("i")) continue;
     const rootCS = window.getComputedStyle(root);
