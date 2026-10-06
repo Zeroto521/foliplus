@@ -17,16 +17,14 @@ const HINT_Z_INDEX_DEFAULT = 10000;
 /** Hint z-index base, read once from the --foliplus-z-index-hint token (fallback 10000). */
 let hintZIndex: number | null = null;
 const zIndexBase = (): number => {
-  if (hintZIndex === null) {
-    hintZIndex =
-      Number(
-        cssVar(
-          document.documentElement,
-          "--foliplus-z-index-hint",
-          String(HINT_Z_INDEX_DEFAULT),
-        ),
-      ) || HINT_Z_INDEX_DEFAULT;
-  }
+  hintZIndex ??=
+    Number(
+      cssVar(
+        document.documentElement,
+        "--foliplus-z-index-hint",
+        String(HINT_Z_INDEX_DEFAULT),
+      ),
+    ) || HINT_Z_INDEX_DEFAULT;
   return hintZIndex;
 };
 
@@ -88,7 +86,7 @@ class HintManager {
 
   private migrateHints() {
     const target: HTMLElement =
-      (document.fullscreenElement as HTMLElement | null) || document.body;
+      (document.fullscreenElement as HTMLElement | null) ?? document.body;
     if (target === document.documentElement) return;
     let moved = false;
     for (const entry of this.hintMap.values()) {
@@ -117,7 +115,7 @@ class HintManager {
     else if (!append) this.hideHint(key);
 
     const hintTarget: HTMLElement =
-      (document.fullscreenElement as HTMLElement | null) || document.body;
+      (document.fullscreenElement as HTMLElement | null) ?? document.body;
 
     const cls = subkey
       ? `${CLASS} ${CLASS}-${key}-${subkey}`
@@ -132,9 +130,7 @@ class HintManager {
     // TextNode, so a rogue locale value cannot turn a hint into markup.
     // `{ html }` must be a CHILD, not an attr — `dom.el` sets an attr for any
     // unrecognised key.
-    const icon = withLoadingIcon
-      ? LOADING_ICON
-      : (this.hintIcons && this.hintIcons[key]) || "";
+    const icon = withLoadingIcon ? LOADING_ICON : (this.hintIcons?.[key] ?? "");
     const el = dom.el(
       "div",
       { class: `${cls} ${CLASS}`, parent: hintTarget },
@@ -154,13 +150,11 @@ class HintManager {
     this.repositionHints();
 
     if (duration !== 0) {
-      const entry = this.hintMap.get(storeKey);
-      if (entry) {
-        entry.timer = setTimeout(
-          () => (subkey ? this.hideHint(key, subkey) : this.hideHint(storeKey)),
-          duration || HINT_DURATION.MEDIUM,
-        );
-      }
+      const entry = this.hintMap.get(storeKey)!;
+      entry.timer = setTimeout(
+        () => (subkey ? this.hideHint(key, subkey) : this.hideHint(storeKey)),
+        duration || HINT_DURATION.MEDIUM,
+      );
     }
   }
 
@@ -178,12 +172,10 @@ class HintManager {
     }
     for (const k of this.hintMap.keys()) {
       if (k === key || k.startsWith(`${key}-`) || k.startsWith(`${key}|`)) {
-        const entry = this.hintMap.get(k);
-        if (entry) {
-          if (entry.timer) clearTimeout(entry.timer);
-          if (entry.element) entry.element.remove();
-          this.hintMap.delete(k);
-        }
+        const entry = this.hintMap.get(k)!;
+        if (entry.timer) clearTimeout(entry.timer);
+        if (entry.element) entry.element.remove();
+        this.hintMap.delete(k);
       }
     }
     this.repositionHints();

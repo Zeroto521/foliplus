@@ -3,7 +3,7 @@
 // LayerAPI facade all implement these; global.d.ts re-exports them so other
 // components (MeasureControl / HeatmapControl / ExportControl) keep the same
 // global names.
-import { DIM, KIND, PANE_ROLE } from "./const.js";
+import { type DIM, type KIND, type PANE_ROLE } from "./const.js";
 
 /** One layer's projection: intent (persisted) and the derived policy state
  *  together, so a diff sees both in one comparison.

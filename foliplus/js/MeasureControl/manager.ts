@@ -28,7 +28,7 @@ import {
   registerExportClick,
   registerInteractions,
 } from "./interaction.js";
-import { MODE_MAP, MeasureMode } from "./mode/index.js";
+import { MODE_MAP, type MeasureMode } from "./mode/index.js";
 import { MeasureStore } from "./store.js";
 import type { CollidableLabel } from "./type.js";
 import * as Util from "./util.js";

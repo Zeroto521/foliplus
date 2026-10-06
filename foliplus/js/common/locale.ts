@@ -69,9 +69,9 @@ const resolveLocale = (
   if (!lang || !tables[lang]) {
     lang = (
       typeof navigator !== "undefined"
-        ? navigator.language ||
-          (navigator as Navigator & { userLanguage?: string }).userLanguage ||
-          ""
+        ? (navigator.language ??
+          (navigator as Navigator & { userLanguage?: string }).userLanguage ??
+          "")
         : ""
     )
       .split("-")[0]
@@ -106,7 +106,7 @@ const intlLocale = (code: string): string => INTL_LOCALES[code] ?? code;
 const resolveLocaleCode = (config: ComponentConfig): string => {
   if (config.locale_code) return config.locale_code;
   const table = resolveLocale("", config.locale_tables ?? null);
-  config.locale_code = (table && table["locale.code"]) || "en";
+  config.locale_code = table?.["locale.code"] ?? "en";
   return config.locale_code;
 };
 
@@ -127,8 +127,8 @@ const createTranslator = (
 
   // Merge common + component tables
   const tables = commonTables ?? window.foliplus._TABLES ?? {};
-  const common = tables[code] || {};
-  const own = (config.locale_tables || {})[code] || {};
+  const common = tables[code] ?? {};
+  const own = config.locale_tables?.[code] ?? {};
   const table = { ...common, ...own };
   table["locale.code"] = code;
 

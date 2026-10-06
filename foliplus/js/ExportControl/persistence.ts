@@ -15,7 +15,7 @@ const T = createScopedTranslator(CONFIG);
 
 const loadSavedBounds = function (this: ExportManager) {
   const data = Storage.loadRecord<SavedBounds | null>(CONST.STORAGE.KEY, CONFIG.name);
-  if (!data || !data.nw || !data.se) return;
+  if (!data?.nw || !data.se) return;
   const nw = data.nw;
   const se = data.se;
   const validLat =
@@ -66,7 +66,7 @@ const restoreFromSavedBounds = function (this: ExportManager) {
 };
 
 const onMapChange = function (this: ExportManager, skipHint?: boolean) {
-  if (!this.cropState || !this.cropState.locked) return;
+  if (!this.cropState?.locked) return;
   const newRect = boundsToRect(this.map, this.cropState.geoBounds!);
   this.cropState.rect = newRect;
   this.updateBoxStyle(this.cropState.box, newRect);

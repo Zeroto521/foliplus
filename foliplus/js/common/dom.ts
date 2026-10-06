@@ -180,7 +180,7 @@ const buildPopupEl = (
   // one HTML string.
   const addrNodes: Child[] = loading
     ? [{ html: SVGs.LOADING_ICON }, dom.el("span", null, loadingText)]
-    : [addr || loadingText];
+    : [addr!];
   return dom.el(
     "div",
     { class: "foliplus-popup-content" },

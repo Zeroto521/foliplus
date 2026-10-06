@@ -3,7 +3,7 @@ import { HINT_DURATION } from "#core/hint.js";
 import { isNativeControl } from "#core/inputOwnership.js";
 import { GROUP } from "#core/layer/index.js";
 import { ListCursor } from "#core/listCursor.js";
-import * as CONST from "../../const.js";
+import * as CONST from "#foliplus/LayerControl/const.js";
 import { inFloatingPanel, owningRow } from "../context.js";
 import { showFocusDisabledHint, toggleFocusedLayer } from "../focus.js";
 import type { LayerUI } from "../index.js";
@@ -17,14 +17,12 @@ const syncListCursor = (ui: LayerUI): void => {
   // initTypesAndVisibility is on a timer and can fire after the panel is
   // torn down (unit tests, control remove) — do not touch a detached root.
   if (!ui.uiContainer?.isConnected) return;
-  if (!ui.listPanel.listCursor) {
-    ui.listPanel.listCursor = new ListCursor({
-      root: ui.uiContainer,
-      itemSelector: `${CONST.SEL.LAYER_ITEM},${CONST.SEL.TOGGLE_ALL}`,
-      activeClass: CONST.CLASSES.FOCUSED,
-      mode: "roving",
-    });
-  }
+  ui.listPanel.listCursor ??= new ListCursor({
+    root: ui.uiContainer,
+    itemSelector: `${CONST.SEL.LAYER_ITEM},${CONST.SEL.TOGGLE_ALL}`,
+    activeClass: CONST.CLASSES.FOCUSED,
+    mode: "roving",
+  });
   ui.listPanel.listCursor.refresh();
   ui.listPanel.listCursor.setIndex(ui.listPanel.activeIdx ?? -1);
 };

@@ -123,7 +123,7 @@ const bindOutsideCollapse = (opts: {
   container: HTMLElement;
   skipCheck?: () => boolean;
 }): (() => void) => {
-  const skipCheck = opts.skipCheck || (() => false);
+  const skipCheck = opts.skipCheck ?? (() => false);
   // Sample the press in the capture phase: at that point the pressed node is
   // still live, so `contains` sees it. LayerControl's fold click rebuilds the
   // list, detaching the button before the bubble phase, which makes a bubble-

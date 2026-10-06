@@ -31,7 +31,7 @@ import { AnnotationManager } from "./annotation/index.js";
 import * as CONST from "./const.js";
 import { LayerIntentStore, LayerOrchestration } from "./domain/index.js";
 import { LayerPersistence } from "./persistence.js";
-import { LayerUI } from "./ui/index.js";
+import { type LayerUI } from "./ui/index.js";
 
 type LayerControllerEnv = {
   readonly T: (key: string) => string;
@@ -261,7 +261,7 @@ class LayerController implements LayerAPI {
     this.ui = null;
 
     this.debouncedEnforce = debounce(() => {
-      if (this.isDestroyed || !this.map || !this.map.getContainer()) return;
+      if (this.isDestroyed || !this.map?.getContainer()) return;
       this.enforceOrder();
     }, CONST.ENFORCE_ORDER_DEBOUNCE_MS);
 

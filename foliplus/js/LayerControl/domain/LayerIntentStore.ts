@@ -270,7 +270,7 @@ class LayerIntentStore {
       for (const override of declared) {
         const value = this.get(id, override);
         const live = LIVE[override];
-        if (live && live(value)) {
+        if (live?.(value)) {
           (state as Record<LayerOverride, unknown>)[override] = value;
         }
       }

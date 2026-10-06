@@ -352,7 +352,7 @@ class PolygonMode extends PreviewMode {
   /** GeoJSON feature for a polygon — properties carry id, area, segments and
    *   the persisted centroid (center). */
   static toGeoFeature(env: ControlEnv, data: MeasureData): GeoJSON.Feature {
-    const coords = data.points?.map(p => [p.lng, p.lat]) || [];
+    const coords = data.points?.map(p => [p.lng, p.lat]) ?? [];
     if (coords.length > 1) coords.push(coords[0]);
     return {
       type: CONST.GEOJSON.FEATURE,
@@ -360,8 +360,8 @@ class PolygonMode extends PreviewMode {
         id: data.id,
         type: this.TYPE,
         name: this.getNameLabel(env),
-        area: data.area || 0,
-        segments: data.segments || [],
+        area: data.area ?? 0,
+        segments: data.segments ?? [],
         // Centroid persisted on finish; absent only for data created before
         // center was introduced — intentionally not recomputed here.
         center: data.center,

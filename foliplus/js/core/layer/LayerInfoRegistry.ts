@@ -102,9 +102,9 @@ class LayerInfoRegistry {
     // this path). A later `li.layer ?? findLayer` is the documented
     // late-binding fallback for folium's script-stream order only.
     const layer =
-      opts.layer ||
-      (map && opts.id ? findLayer(map, opts.id) : null) ||
-      existingLi?.layer ||
+      opts.layer ??
+      (map && opts.id ? findLayer(map, opts.id) : null) ??
+      existingLi?.layer ??
       null;
     const canvas = opts.canvas ?? existingLi?.canvas ?? null;
     const color = opts.color ?? existingLi?.color ?? null;
@@ -306,7 +306,7 @@ class LayerInfoRegistry {
     const overlays = [];
     const bases = [];
     for (const layerInfo of this.items) {
-      if (layerInfo && layerInfo.group === GROUP.BASE) bases.push(layerInfo);
+      if (layerInfo?.group === GROUP.BASE) bases.push(layerInfo);
       else overlays.push(layerInfo);
     }
     this.items.splice(0, this.items.length, ...overlays.concat(bases));

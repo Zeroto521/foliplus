@@ -6,7 +6,7 @@ import { withCanvasLayerAlpha } from "#common/canvasAlpha.js";
 import { dom } from "#common/dom.js";
 import { createLogger } from "#common/log.js";
 import { throttleRaf } from "#common/throttle.js";
-import { PaneManager } from "./PaneManager.js";
+import { type PaneManager } from "./PaneManager.js";
 import {
   CANVAS_PANE_PREFIX,
   COLOR_PANE_PREFIX,
@@ -199,8 +199,8 @@ class LayerFactory {
 
     const commonLayerOpts = {
       id: opts.id,
-      name: opts.name || opts.id,
-      iconSvg: opts.iconSvg || null,
+      name: opts.name || opts.id, // eslint-disable-line @typescript-eslint/prefer-nullish-coalescing -- empty name should fall back to id
+      iconSvg: opts.iconSvg ?? null,
       featureCountProvider: opts.featureCountProvider ?? null,
       styleProvider: opts.styleProvider ?? null,
       styleSetters: opts.styleSetters ?? null,

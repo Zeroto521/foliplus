@@ -5,6 +5,7 @@ import {
   isCorsBlocked,
 } from "#foliplus/ExportControl/renderer/index.js";
 import * as UTIL from "#foliplus/ExportControl/util.js";
+import { captureSources, pinBox } from "./renderer/fixture.js";
 
 // renderer.ts binds its logger to CONFIG.name at module-import time, so the
 // component name has to be set before the import resolves — setup.ts leaves it
@@ -1150,5 +1151,188 @@ describe("ExportRenderer — marker pass wrappers delegate without throwing", ()
     await expect(renderer.renderFontAwesome(rc, [])).resolves.not.toThrow();
     await expect(renderer.renderTextLabels(rc, [])).resolves.not.toThrow();
     await expect(renderer.renderRemaining(rc, [])).resolves.not.toThrow();
+  });
+});
+
+//===========================================================================
+//  tile.ts fallbacks — layerUrl() ?? "" and map.options.crs ?? EPSG3857.
+//  A registry can hold tile entries whose _url was never populated (the basemap
+//  is a var that resolves after the render pass captured its ref), and a
+//  caller can hand a map whose options object has no crs field — both paths
+//  must not throw and must degrade to the documented default.
+//===========================================================================
+
+describe("tile fallbacks", () => {
+  it("calcTiles returns empty URLs when a tile layer carries no _url", async () => {
+    // MockTileLayer always sets _url, but a registry entry may hold a layer
+    // whose URL was never populated (late-binding basemap, canvas-only entry
+    // reused as a tile, etc). The renderer must not choke and must produce
+    // the empty-string URL the tile build documents as its fallback.
+    const layer = {
+      options: { tileSize: 256, subdomains: "abc" },
+    } as any;
+    const tiles = makeRenderer().calcTiles(
+      layer,
+      { nw: { lat: 26.1, lng: 119.2 }, se: { lat: 26.0, lng: 119.4 } },
+      2,
+      1,
+    );
+
+    expect(tiles).toHaveLength(1);
+    expect(tiles[0].url).toBe("");
+    // No retina placeholder in the empty template means no fallback URL is
+    // recorded either — a fallback that only exists to differ from the
+    // primary would otherwise be a duplicate.
+    expect(tiles[0]).not.toHaveProperty("fallback");
+  });
+
+  it("tilePositions falls back to L.CRS.EPSG3857 when map.options.crs is undefined", async () => {
+    // Some callers construct the renderer with a map whose options object has
+    // no crs field at all (rather than an explicit crs). The fallback must
+    // kick in — a hard-coded EPSG3857 reference would not be observable as
+    // distinct, so spy on L.CRS.EPSG3857 and assert it is the crs that
+    // actually performed the projection.
+    const epsg = {
+      ...makeEPSG3857Mock(),
+      latLngToPoint: vi.fn().mockReturnValue({ x: 256, y: 256 }),
+    };
+    (L as any).CRS = { EPSG3857: epsg };
+    const map = {
+      options: {},
+      getZoom: () => 2,
+      getCenter: () => ({ lat: 26.08, lng: 119.3 }),
+      getContainer: () => document.createElement("div"),
+      foliplus: { LayerAPI: withApi([]) },
+    } as any;
+
+    const rc = makeRC(4096, 4096);
+    const tiles = withPixels(tilesNearCenter(CONST.TILE_CONCURRENCY));
+    const out = new ExportRenderer(map).tilePositions(rc, tiles as any[]);
+
+    expect(epsg.latLngToPoint).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+    );
+    expect(out).toHaveLength(tiles.length);
+  });
+});
+
+//===========================================================================
+//  marker.ts renderRemaining SVG branch — zero-bbox fallback (width || 24,
+//  height || 24) and the colorParent conditional (with vs without a parent).
+//  Both branches sit inside the inline-SVG path, so exercise them by letting
+//  renderRemaining reach the SVG element and capturing the serialized XML
+//  that feeds loadImage; the width/height attributes on the clone reflect
+//  which side of each `||` was taken.
+//===========================================================================
+
+describe("renderRemaining — inline SVG fallbacks", () => {
+  it("falls back to 24 for a zero-width bbox and inherits the parent's color", async () => {
+    // A divIcon SVG with no layout has a zero-size bounding rect; without the
+    // `|| 24` fallback the clone would be serialized as width="0" and the
+    // exported marker would vanish. When the SVG is nested in a container
+    // (the normal divIcon shape), the clone picks up the container's color.
+    const ctx = makeMockCtx();
+    const renderer = makeRenderer();
+    const container = renderer.container;
+    pinBox(container, 0, 0, 200, 200);
+
+    const wrapper = document.createElement("div");
+    pinBox(wrapper, 0, 0, 24, 24);
+    const svg = document.createElementNS(CONST.SVG_NS, "svg");
+    pinBox(svg, 0, 0, 0, 0);
+    wrapper.appendChild(svg);
+
+    vi.spyOn(window, "getComputedStyle").mockReturnValue({
+      color: "rgb(255, 0, 0)",
+    } as CSSStyleDeclaration);
+    vi.spyOn(UTIL, "loadImage").mockResolvedValue({} as any);
+    const sources = captureSources();
+
+    await renderer.renderRemaining(makeRC(200, 200, ctx), [wrapper]);
+
+    expect(sources[0]).toContain('width="24"');
+    expect(sources[0]).toContain('height="24"');
+    expect(sources[0]).toContain('color="rgb(255, 0, 0)"');
+  });
+
+  it("omits the color attribute when the svg has no parent and preserves non-zero dimensions", async () => {
+    // A root-level SVG (no parent) must not get a color attribute stamped on
+    // the clone — the parent is where the color lives, so without it the
+    // clone keeps its own inline color. The non-zero width also has to
+    // survive untouched; only the zero height takes the 24 fallback.
+    const ctx = makeMockCtx();
+    const renderer = makeRenderer();
+    const container = renderer.container;
+    pinBox(container, 0, 0, 200, 200);
+
+    const wrapper = document.createElement("div");
+    pinBox(wrapper, 0, 0, 88, 8);
+    const svg = document.createElementNS(CONST.SVG_NS, "svg");
+    // The svg must be inside the wrapper so root.querySelector("svg")
+    // locates it, but its own parentElement must read null to exercise the
+    // false side of `colorParent ? … : ""`.
+    pinBox(svg, 0, 0, 88, 0);
+    wrapper.appendChild(svg);
+    vi.spyOn(svg, "parentElement", "get").mockReturnValue(null);
+
+    vi.spyOn(UTIL, "loadImage").mockResolvedValue({} as any);
+    const sources = captureSources();
+
+    await renderer.renderRemaining(makeRC(200, 200, ctx), [wrapper]);
+
+    expect(sources[0]).toContain('width="88"');
+    expect(sources[0]).toContain('height="24"');
+    expect(sources[0]).not.toContain("color=");
+  });
+
+  it("skips img path when img element has no src", async () => {
+    // An img element with no src attribute is falsy on the `?.src` check —
+    // the renderer must not attempt to load a missing image.
+    const ctx = makeMockCtx();
+    const renderer = makeRenderer();
+    const container = renderer.container;
+    pinBox(container, 0, 0, 200, 200);
+
+    const wrapper = document.createElement("div");
+    pinBox(wrapper, 0, 0, 24, 24);
+    const img = document.createElement("img");
+    wrapper.appendChild(img);
+
+    vi.spyOn(UTIL, "loadImage").mockResolvedValue({} as any);
+    const sources = captureSources();
+
+    await renderer.renderRemaining(makeRC(200, 200, ctx), [wrapper]);
+
+    expect(sources).toHaveLength(0);
+  });
+
+  it("takes img path when img element has a src", async () => {
+    // When the img element has a non-empty src, the renderer attempts to
+    // load and draw it. Mock loadImage to return a mock image and verify
+    // drawImage is called.
+    const ctx = makeMockCtx();
+    const renderer = makeRenderer();
+    const container = renderer.container;
+    pinBox(container, 0, 0, 200, 200);
+
+    const wrapper = document.createElement("div");
+    pinBox(wrapper, 0, 0, 24, 24);
+    const img = document.createElement("img");
+    img.src = "data:image/png;base64,AAAA";
+    wrapper.appendChild(img);
+
+    const loadImageSpy = vi
+      .spyOn(UTIL, "loadImage")
+      .mockResolvedValue({} as HTMLImageElement);
+    const drawImageSpy = vi.spyOn(ctx, "drawImage");
+
+    await renderer.renderRemaining(makeRC(200, 200, ctx), [wrapper]);
+
+    expect(loadImageSpy).toHaveBeenCalledWith(
+      "data:image/png;base64,AAAA",
+      "anonymous",
+    );
+    expect(drawImageSpy).toHaveBeenCalled();
   });
 });

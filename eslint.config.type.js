@@ -54,7 +54,19 @@ export default [
       "@typescript-eslint/no-floating-promises": "error",
       "@typescript-eslint/require-await": "error",
       "@typescript-eslint/no-misused-promises": "error",
+
+      // `a && a.b` → `a?.b`. Type-aware (narrows by type); the non-type
+      // variant is a syntax-level shortcut that misses `string & ""` and
+      // other edge cases the type info catches.
       "@typescript-eslint/prefer-optional-chain": "error",
+
+      // `x || fallback` → `x ?? fallback` when the fallback path only needs
+      // null/undefined, not every falsy value. The rule's type analysis
+      // narrows each hit — `x || 0`, `x || ""`, `x || false` all stay
+      // alone because `??` would change semantics. `ignoreTernaryTests`
+      // keeps `cond ? x : y` out of scope (the rule would propose a
+      // `cond ?? x`, which is a different expression, not an operator
+      // upgrade).
       "@typescript-eslint/prefer-nullish-coalescing": [
         "error",
         { ignoreTernaryTests: true },
