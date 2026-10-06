@@ -28,7 +28,7 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit && eslint -c eslint.config.type.js \"foliplus/js/**/*.ts\"",
     "typecheck:tests": "vitest run --config vitest.config.mjs test/js/tsconfig.test.ts",
-    "lint": "eslint \"foliplus/js/**/*.ts\" \"test/js/**/*.ts\" \"script/**/*.mjs\"",
+    "lint": "eslint -c eslint.config.type.js \"foliplus/js/**/*.ts\" \"test/js/**/*.ts\" \"script/**/*.mjs\"",
     "format:check": "prettier --check \"foliplus/js/**/*.{js,ts}\" \"foliplus/css/**/*.css\" \"script/**/*.{js,cjs,mjs,ts}\" \"test/js/**/*.{js,ts}\"",
     "bundle-size:check": "node script/build/bundle-size-check.mjs",
     "bundle-size:fuse": "node script/build/bundle-fuse.mjs"
