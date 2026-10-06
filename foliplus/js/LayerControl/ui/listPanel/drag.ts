@@ -1,9 +1,9 @@
 // LayerControl UI — HTML5 drag reorder + group fold.
 import { HINT_DURATION } from "#core/hint.js";
-import * as CONST from "../const.js";
-import type { LayerUI } from "./index.js";
+import * as CONST from "../../const.js";
+import type { LayerUI } from "../index.js";
+import { saveFoldState } from "../state.js";
 import { initTypesAndVisibility, renderInitialList } from "./list.js";
-import { saveFoldState } from "./state.js";
 
 /** Fold or unfold one group. Shared by the pointer (row click) and the
  *  keyboard (Enter / Space over the chevron) so both paths stay in sync. */

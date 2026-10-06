@@ -7,17 +7,21 @@ import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { GROUP } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { LayerController } from "#foliplus/LayerControl/controller.js";
-import { toggleFold } from "#foliplus/LayerControl/ui/drag.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
-import { toggleAll } from "#foliplus/LayerControl/ui/visibility.js";
+import { toggleFold } from "#foliplus/LayerControl/ui/listPanel/index.js";
+import { toggleAll } from "#foliplus/LayerControl/ui/listPanel/index.js";
 import { findItem, initFixture } from "./fixture.js";
 
-vi.mock("#foliplus/LayerControl/ui/drag.js", async importOriginal => ({
-  ...(await importOriginal<typeof import("#foliplus/LayerControl/ui/drag.js")>()),
+vi.mock("#foliplus/LayerControl/ui/listPanel/drag.js", async importOriginal => ({
+  ...(await importOriginal<
+    typeof import("#foliplus/LayerControl/ui/listPanel/drag.js")
+  >()),
   toggleFold: vi.fn(),
 }));
-vi.mock("#foliplus/LayerControl/ui/visibility.js", async importOriginal => ({
-  ...(await importOriginal<typeof import("#foliplus/LayerControl/ui/visibility.js")>()),
+vi.mock("#foliplus/LayerControl/ui/listPanel/visibility.js", async importOriginal => ({
+  ...(await importOriginal<
+    typeof import("#foliplus/LayerControl/ui/listPanel/visibility.js")
+  >()),
   toggleAll: vi.fn(),
 }));
 

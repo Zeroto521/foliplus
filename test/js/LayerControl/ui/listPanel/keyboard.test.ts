@@ -14,7 +14,7 @@ import {
   restoreCursor,
   syncActiveItem,
   syncListCursor,
-} from "#foliplus/LayerControl/ui/keyboard.js";
+} from "#foliplus/LayerControl/ui/listPanel/index.js";
 import { ensureModes } from "#foliplus/core/mode.js";
 import {
   allFolded,
@@ -23,7 +23,7 @@ import {
   initFixture,
   overlayFoldBtn,
   pressKey,
-} from "./fixture.js";
+} from "../fixture.js";
 
 describe("LayerUI keyboard", () => {
   let manager: LayerController;

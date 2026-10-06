@@ -138,7 +138,7 @@ const OUT_OF_CHARTER: ReadonlyArray<{
 
 // ── Path resolution and scanning ───────────────────────────────
 
-const WRITER = "LayerControl/ui/rowView.ts";
+const WRITER = "LayerControl/ui/listPanel/rowView.ts";
 
 const REPO_ROOT = process.cwd();
 const JS_ROOT = resolve(REPO_ROOT, "foliplus/js");

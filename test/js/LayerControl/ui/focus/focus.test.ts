@@ -15,7 +15,7 @@ import {
 } from "#foliplus/LayerControl/ui/focus.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { seedIntentMap } from "#foliplus/LayerControl/ui/intent.js";
-import { getActiveLayerItem } from "#foliplus/LayerControl/ui/keyboard.js";
+import { getActiveLayerItem } from "#foliplus/LayerControl/ui/listPanel/index.js";
 import type { LayerInfo } from "#foliplus/core/layer/index.js";
 import { GROUP, focusLayerZ } from "#foliplus/core/layer/index.js";
 import { ensureModes } from "#foliplus/core/mode.js";
@@ -25,7 +25,7 @@ import {
   findItem,
   initFixture,
   makePane,
-} from "./fixture.js";
+} from "../fixture.js";
 
 // ── Mocked core/mode — LayerControl.focusing ownership ──────
 // core/mode owns guardBlocked() and ModeManager.setMode(); these tests cover

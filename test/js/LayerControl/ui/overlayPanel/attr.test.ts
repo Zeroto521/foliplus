@@ -5,7 +5,7 @@ import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { seedIntentMap } from "#foliplus/LayerControl/ui/intent.js";
 import { ensureModes } from "#foliplus/core/mode.js";
 import { createScopedTranslator } from "#common/locale.js";
-import { findItem, initFixture } from "./fixture.js";
+import { findItem, initFixture } from "../fixture.js";
 
 describe("LayerUI attrs", () => {
   let manager: LayerController;

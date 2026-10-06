@@ -3,12 +3,12 @@ import { HINT_DURATION } from "#core/hint.js";
 import { isNativeControl } from "#core/inputOwnership.js";
 import { GROUP } from "#core/layer/index.js";
 import { ListCursor } from "#core/listCursor.js";
-import * as CONST from "../const.js";
-import { inFloatingPanel, owningRow } from "./context.js";
+import * as CONST from "../../const.js";
+import { inFloatingPanel, owningRow } from "../context.js";
+import { showFocusDisabledHint, toggleFocusedLayer } from "../focus.js";
+import type { LayerUI } from "../index.js";
+import { activateDeleteItem } from "../overlayPanel/menu.js";
 import { toggleFold } from "./drag.js";
-import { showFocusDisabledHint, toggleFocusedLayer } from "./focus.js";
-import type { LayerUI } from "./index.js";
-import { activateDeleteItem } from "./menu.js";
 
 /** Ensure the shared ListCursor and re-apply ARIA / roving tabindex.
  *  setIndex, not adopt: callers that already painted FOCUSED (keyboard /
