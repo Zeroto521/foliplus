@@ -6,7 +6,7 @@ import { adjustPanelZIndex } from "#core/leaflet/index.js";
 import { dom } from "#common/dom.js";
 import * as CONST from "./const.js";
 import { registerDropdownEvents, registerSchemeBarEvents } from "./interaction.js";
-import { HeatmapManager } from "./manager.js";
+import { type HeatmapManager } from "./manager.js";
 import { panelContentHTML } from "./template.js";
 
 /** Shape of the HeatmapControl instance as consumed by UI functions. */

@@ -10,10 +10,10 @@
 import { EVENTS, type EventBus } from "#core/event/index.js";
 import { hasLabelField } from "#core/labelField.js";
 import type { LayerFactory } from "#core/layer/LayerFactory.js";
-import { LayerInfoRegistry } from "#core/layer/LayerInfoRegistry.js";
+import { type LayerInfoRegistry } from "#core/layer/LayerInfoRegistry.js";
 import type { LayerOrder } from "#core/layer/LayerOrder.js";
 import { LayerSurface } from "#core/layer/LayerSurface.js";
-import { PaneManager } from "#core/layer/PaneManager.js";
+import { type PaneManager } from "#core/layer/PaneManager.js";
 import {
   GROUP,
   KIND,

@@ -31,7 +31,7 @@ import { AnnotationManager } from "./annotation/index.js";
 import * as CONST from "./const.js";
 import { LayerOrchestration } from "./domain.js";
 import { LayerPersistence } from "./persistence.js";
-import { LayerUI } from "./ui/index.js";
+import { type LayerUI } from "./ui/index.js";
 import { INTENT, clearIntent, getIntent } from "./ui/intent.js";
 
 type LayerControllerEnv = {
