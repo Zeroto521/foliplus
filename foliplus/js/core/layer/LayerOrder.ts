@@ -1,7 +1,7 @@
 // core — LayerOrder: the collection-level ordering intent (user-arranged id
 // list + one-way deleted-id set).
 //
-// Sunk from `LayerControl/savedOrder.ts` (T270): `LayerAPI.forgetSavedOrder`
+// Sunk from `LayerControl/savedOrder.ts`: `LayerAPI.forgetSavedOrder`
 // is a real consumer (third-party components reset the order through the API),
 // so the dependency direction was inverted — the order domain belongs beside
 // the registry. Renamed `SavedOrder` → `LayerOrder`; behaviour unchanged.

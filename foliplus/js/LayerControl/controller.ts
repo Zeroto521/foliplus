@@ -1,5 +1,4 @@
 import { EVENTS, type EventBus, ensureEvents } from "#core/event/index.js";
-import { ensureLayerAPI } from "#core/layer/api.js";
 import {
   type CreateCanvasAPI,
   type CreateCanvasOpts,
@@ -19,6 +18,7 @@ import {
   PaneManager,
   type RegisterLayerOpts,
   countFeatureGeometry,
+  ensureLayerAPI,
   findLayer,
   walkLeaf,
   zFor,
@@ -29,10 +29,9 @@ import { createLogger } from "#common/log.js";
 import type { Logger } from "#common/type.js";
 import { AnnotationManager } from "./annotation/index.js";
 import * as CONST from "./const.js";
-import { LayerOrchestration } from "./domain.js";
+import { LayerIntentStore, LayerOrchestration } from "./domain/index.js";
 import { LayerPersistence } from "./persistence.js";
 import { type LayerUI } from "./ui/index.js";
-import { INTENT, clearIntent, getIntent } from "./ui/intent.js";
 
 type LayerControllerEnv = {
   readonly T: (key: string) => string;
@@ -154,6 +153,10 @@ class LayerController implements LayerAPI {
   order: LayerOrder;
   annotation: AnnotationManager;
   domain: LayerOrchestration;
+  /** Per-layer intent store — domain-owned, exposed on
+   *  LayerUI as a read-only getter. Read via `this.intentStore` internally
+   *  (register gate, deleteLayer) and via `ui.intentStore` externally. */
+  intentStore: LayerIntentStore;
   onLayerAdd: (event: L.LeafletEvent) => void;
   getLayerPanes: (layer: L.Layer) => string[];
   private readonly T: (key: string) => string;
@@ -226,6 +229,7 @@ class LayerController implements LayerAPI {
     this.panes = new PaneManager(mapInstance);
     this.surfaces = new Map();
     this.surfacesByLayer = new Map();
+    this.intentStore = new LayerIntentStore();
 
     this.factory = new LayerFactory({
       map: this.map,
@@ -326,6 +330,7 @@ class LayerController implements LayerAPI {
       surfaces: this.surfaces,
       surfacesByLayer: this.surfacesByLayer,
       lastAttribution: this.lastAttribution,
+      getIntentStore: () => this.intentStore,
     });
     this.getLayerPanes = layer => this.domain.resolveLayerPanes(layer);
     this.loadSavedOrder();
@@ -546,42 +551,17 @@ class LayerController implements LayerAPI {
       return null;
     }
 
-    const existingLi = this.layerRegistry.get(opts.id);
-    const existingIdx = existingLi ? this.layerRegistry.indexOf(existingLi) : -1;
-    const layerInfo = this.layerRegistry.createLayerInfo(opts, existingLi, this.map);
-
-    if (existingIdx !== -1) this.layerRegistry.upsert(layerInfo);
-    else if (layerInfo.group === GROUP.BASE) {
-      const firstBaseIdx = this.layerRegistry.firstBaseIdx;
-      const atBottom = opts.baseInsert === "bottom";
-      if (firstBaseIdx === -1 || atBottom) {
-        this.layerRegistry.insertAt(layerInfo, this.layers.length);
-      } else {
-        this.layerRegistry.insertAt(layerInfo, firstBaseIdx);
-      }
-      this.order.placeAtSavedSlot(layerInfo);
-    } else this.order.insertOverlayAt(layerInfo);
-
-    // I1: give the layer its rendering face and materialize it *before* it
-    // joins the map. `options.pane` is read by `map.addLayer` and ignored
-    // afterwards, so this is the last moment at which the pane can be decided
-    // without moving DOM — which is why the ordering pass no longer has to.
-    const surface = this.surfaceFor(layerInfo);
-    surface.materialize();
-    // materialize() may have written options.pane across the tree, so the
-    // cached child-pane list for this layer is stale.
-    if (opts.layer) this.panes.reset(L.stamp(opts.layer));
+    const { layerInfo, existingIdx, hidden } = this.domain.registerEntry(
+      opts,
+      Boolean(this.ui),
+    );
 
     // If the layer was previously hidden by the user, keep it off the map on
     // re-entry so it isn't silently re-added by runtime re-registration. A
     // canvas-only hidden layer (no Leaflet layer, HIDDEN class carrier) is
     // handled by `applyUserState` further below, which re-projects the hidden
     // intent and writes the carrier through the executor's single write path.
-    if (
-      (!this.ui || getIntent(this.ui, opts.id, INTENT.VISIBLE) !== false) &&
-      opts.layer &&
-      !this.map.hasLayer(opts.layer)
-    ) {
+    if (!hidden && opts.layer && !this.map.hasLayer(opts.layer)) {
       this.map.addLayer(opts.layer);
     }
 
@@ -721,25 +701,13 @@ class LayerController implements LayerAPI {
    * @returns {boolean} true if layer was found and removed, false otherwise.
    */
   unregisterLayer(id: string): boolean {
-    const layerInfo = this.layerRegistry.remove(id);
+    const { layerInfo, layer } = this.domain.unregisterEntry(id);
     if (!layerInfo) return false;
 
-    const layer = this.findLayer(layerInfo);
     if (layer) {
       if (this.map.hasLayer(layer)) this.map.removeLayer(layer);
       this.clearAllLayers(layer);
     }
-    const layerStamp = layer ? L.stamp(layer) : null;
-    if (layerStamp !== null) this.panes.reset(layerStamp);
-    // The layer is off the map first (above), so the pane teardown never
-    // touches a live layer's renderer or path nodes. Only the pane the surface
-    // synthesized goes away: a declared pane survives, because re-registering
-    // the same id must not have to rebuild it.
-    this.surfaces.get(id)?.destroy();
-    this.surfaces.delete(id);
-    if (layerStamp !== null) this.surfacesByLayer.delete(layerStamp);
-    // Drop child-pane bookkeeping for layers that no longer use them.
-    this.panes.sweepChildPanes(this.layers);
 
     if (this.uiContainer) {
       const target = this.uiContainer.querySelector(
@@ -829,7 +797,8 @@ class LayerController implements LayerAPI {
       // owns. Both halves of a clear must erase, or the next draw inherits the
       // half nobody pruned.
       this.events.emit(EVENTS.LAYER_DELETED, { id });
-      this.dropPersistedLayerState(id);
+      const { orderDropped, intentDropped } = this.domain.deleteEntry(id);
+      if (this.ui && (orderDropped || intentDropped)) this.ui.saveState();
       this.persistence.flushAll();
       return true;
     }
@@ -861,27 +830,26 @@ class LayerController implements LayerAPI {
     // answering for a removed id.
     this.annotation.destroyLayer(id);
 
-    // Drop every persisted value for this id (stored order + per-layer intent)
-    // through the same prune the component branch and the panel Clear use.
-    // `saveState` is called inside only when something actually dropped, so a
-    // delete of an untuned layer no longer rewrites the whole `layers` map.
-
+    // Drop every persisted value for this id (stored order + per-layer intent
+    // + name rider) through the domain. `saveState` / `saveNamesState` are
+    // called only when something actually dropped, so a delete of an untuned
+    // layer no longer rewrites the whole `layers` map.
+    //
     // The label config needs no schedule here: it rides `layers[id]`
     // (the live config is gone via `annotation.destroyLayer` above), and the
     // legacy `annotations` segment is pruned on READ for ids in `removed`
     // (parseRecord), so a v2 entry cannot resurrect behind the new key's
     // absence.
-
-    this.dropPersistedLayerState(id);
+    const { orderDropped, intentDropped, nameCleared } = this.domain.deleteEntry(id, {
+      clearName: true,
+    });
 
     if (!this.ui) {
       this.persistence.flushAll();
       return true;
     }
-    if (getIntent(this.ui, id, INTENT.NAME) != null) {
-      clearIntent(this.ui, id, INTENT.NAME);
-      this.ui.saveNamesState();
-    }
+    if (orderDropped || intentDropped) this.ui.saveState();
+    if (nameCleared) this.ui.saveNamesState();
     this.events.emit(EVENTS.LAYER_GROUP_COUNT_CHANGED, {
       group: layerInfo.group,
     });

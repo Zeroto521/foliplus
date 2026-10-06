@@ -4,11 +4,11 @@ import { type EventBus, ensureEvents } from "#core/event/index.js";
 import {
   type CreateColorAPI,
   type LayerInfo,
-  LayerIntentStore,
   LayerRuntimeStore,
 } from "#core/layer/index.js";
 import * as CONST from "../const.js";
 import type { LayerController } from "../controller.js";
+import type { LayerIntentStore } from "../domain/index.js";
 import { applyProjection, applyProjectionAll } from "./apply.js";
 import { hideSolidBasemap, resetSolidBasemap, showSolidBasemap } from "./color.js";
 import { cancelFocus, focusLayer, isFocusing } from "./focus.js";
@@ -106,8 +106,16 @@ class LayerUI {
   /** Per-layer intent store — the single source for every user-chosen
    *  dimension (visible / fill / border / opacity / zoomRange / name /
    *  annotation). Absent key = never touched. Provenance rides the same
-   *  `IntentRow` beside the values (`IntentRow.provenance`). */
-  intentStore: LayerIntentStore;
+   *  `IntentRow` beside the values (`IntentRow.provenance`).
+   *
+   *  Domain-owned: `ui.c.domain.intentStore` is the single instance and
+   *  every ui/* reader goes through this getter. Read-only — callers that
+   *  need a different store must inject it on the controller side (tests do
+   *  this via `makeLayerUIMock`'s `extra.intentStore` override, which
+   *  shadows the getter on the mock object). */
+  get intentStore(): LayerIntentStore {
+    return this.c.domain.intentStore;
+  }
   /** Per-layer derived/transient state — the runtime half of the base:
    *  projection last-write, field cache, author-visible snapshot. Mirrors the
    *  intent store row shape (Map by id, O(1)); dropped symmetrically with the
@@ -164,7 +172,6 @@ class LayerUI {
     this.listPanel = new ListPanel();
     this.overlayPanel = new OverlayPanel();
     this.focusController = new FocusController();
-    this.intentStore = new LayerIntentStore();
     this.runtimeStore = new LayerRuntimeStore();
     this.currentColor = CONST.COLOR.DEFAULT;
     this.colorSurface = null;

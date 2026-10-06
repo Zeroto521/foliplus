@@ -5,7 +5,7 @@
 // axis (`IntentRow.provenance`).
 //
 // The intent vocabulary (INTENT / LIVE / STYLE_KEYS / IntentKey) and the
-// intent-domain types sunk to `core/layer/intent.ts` with T270 — re-exported
+// intent-domain types sunk to `core/layer/intent.ts` — re-exported
 // here so every `ui/intent.js` import keeps working unchanged.
 import {
   INTENT,

@@ -19,7 +19,7 @@ class FocusController {
   onFocusMapMove: (() => void) | null = null;
   /** Inverse-mask polygon that dims everything outside the focused bounds.
    *  The polygon is a world envelope minus the focus bounds, so panning
-   *  off-screen does not leave a stale ring (see #605). */
+   *  off-screen does not leave a stale ring. */
   focusMask: L.Polygon | null = null;
   /** SVG renderer hosting the focus overlay (mask + rectangle). */
   focusRenderer: L.SVG | null = null;

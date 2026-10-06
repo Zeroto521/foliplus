@@ -5,7 +5,7 @@
 //
 // Intent-domain types (LayerOverride / LayerIntent / PersistedLayerState /
 // IntentRow / LoadSource / AnnotationConfig) and the projection types
-// (Projection / AppliedProjection) were sunk to core/layer with T270 — the
+// (Projection / AppliedProjection) were sunk to core/layer — the
 // barrel below re-exports them so every existing `LayerControl/type` import
 // keeps working unchanged. `PersistedLayerState` is also imported locally
 // because `PersistedRecord.layers` names it directly.
