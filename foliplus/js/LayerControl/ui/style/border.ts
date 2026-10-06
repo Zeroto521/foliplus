@@ -34,7 +34,7 @@ import {
   normalizeHexColor,
   numberInput,
 } from "#common/form.js";
-import * as CONST from "../../const.js";
+import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerUI } from "../index.js";
 import { INTENT, type IntentKey, getIntent } from "../intent.js";
 import { pinStyleOnHighlight } from "./pin.js";

@@ -7,8 +7,8 @@ import { type LabelStyleValues, renderLabelControls } from "#core/labelControl.j
 import { DIM } from "#core/layer/index.js";
 import { createRowPanel } from "#core/leaflet/index.js";
 import { BORDER_WEIGHT } from "#common/form.js";
-import * as CONST from "../../const.js";
-import * as SVGs from "../../icon.js";
+import * as CONST from "#foliplus/LayerControl/const.js";
+import * as SVGs from "#foliplus/LayerControl/icon.js";
 import type { LayerUI } from "../index.js";
 import { bindBorderRowShell, buildBorderRowShell } from "./border.js";
 import { appendResetFooter } from "./frame.js";

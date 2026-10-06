@@ -29,8 +29,8 @@ import {
   normalizeHexColor,
 } from "#common/form.js";
 import { NUMBER_FORMAT } from "#common/format.js";
-import * as CONST from "../../const.js";
-import type { AnnotationConfig } from "../../type.js";
+import * as CONST from "#foliplus/LayerControl/const.js";
+import type { AnnotationConfig } from "#foliplus/LayerControl/type.js";
 import type { LayerUI } from "../index.js";
 import { layerFields, syncFormatRow } from "./label.js";
 import { registerDimension } from "./registry.js";

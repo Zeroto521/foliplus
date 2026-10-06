@@ -1,6 +1,6 @@
 // LayerControl UI — Checkbox / group-toggle visibility.
 import { GROUP } from "#core/layer/index.js";
-import * as CONST from "../../const.js";
+import * as CONST from "#foliplus/LayerControl/const.js";
 import { applyProjection, applyProjectionAll } from "../apply.js";
 import type { LayerUI } from "../index.js";
 import { intentVisibleOf } from "../projection.js";

@@ -21,8 +21,8 @@ import {
   bindLiveNumber,
   normalizeHexColor,
 } from "#common/form.js";
-import * as CONST from "../../const.js";
-import * as SVGs from "../../icon.js";
+import * as CONST from "#foliplus/LayerControl/const.js";
+import * as SVGs from "#foliplus/LayerControl/icon.js";
 import { authorZoomBoundsForLayer } from "../apply.js";
 import type { LayerUI } from "../index.js";
 import { closeOverlays } from "../teardown.js";

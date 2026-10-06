@@ -3,7 +3,7 @@ import { HINT_DURATION } from "#core/hint.js";
 import { isNativeControl } from "#core/inputOwnership.js";
 import { GROUP } from "#core/layer/index.js";
 import { ListCursor } from "#core/listCursor.js";
-import * as CONST from "../../const.js";
+import * as CONST from "#foliplus/LayerControl/const.js";
 import { inFloatingPanel, owningRow } from "../context.js";
 import { showFocusDisabledHint, toggleFocusedLayer } from "../focus.js";
 import type { LayerUI } from "../index.js";

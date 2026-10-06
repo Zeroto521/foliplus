@@ -53,7 +53,7 @@
 // public extensibility API (a `registerDimension` re-exported from
 // `LayerControl/index.ts`) is deferred.
 import { DIM } from "#core/layer/index.js";
-import type { LayerDimension } from "../../type.js";
+import type { LayerDimension } from "#foliplus/LayerControl/type.js";
 import type { LayerUI } from "../index.js";
 import type { IntentKey } from "../intent.js";
 import { saveState } from "../state.js";
