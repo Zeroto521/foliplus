@@ -337,10 +337,7 @@ describe("createTranslator", () => {
     // Some legacy browsers and older test environments expose neither
     // navigator.language nor the IE-only navigator.userLanguage — the
     // resolver must not blow up and must fall through to the en default.
-    const originalDescriptor = Object.getOwnPropertyDescriptor(
-      navigator,
-      "language",
-    );
+    const originalDescriptor = Object.getOwnPropertyDescriptor(navigator, "language");
     Object.defineProperty(navigator, "language", {
       configurable: true,
       get: () => undefined,
