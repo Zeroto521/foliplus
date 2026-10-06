@@ -314,6 +314,22 @@ describe("Export.toCSV", () => {
     const markerRow = lines[1];
     expect(markerRow).toContain("POINT(119.3");
   });
+
+  it('csvEscape fallback handles undefined row values via ?? ""', () => {
+    // Defensive: if getNameForType ever returns undefined (e.g. unrecognised
+    // type), the ?? "" on the csvEscape line prevents csvEscape from receiving
+    // a non-string argument.
+    const spy = vi.spyOn(Export, "getNameForType").mockReturnValue(undefined);
+    try {
+      const csv = Export.toCSV(env, [markerData]);
+      const lines = csv.split("\n");
+      const markerRow = lines[1];
+      // The name column (index 2) should be empty, not "undefined"
+      expect(markerRow).not.toContain("undefined");
+    } finally {
+      spy.mockRestore();
+    }
+  });
 });
 
 // ── Download stub ──
@@ -726,7 +742,9 @@ describe("Export.toWKT — unknown type", () => {
   });
 
   it("address column is empty when data.address is undefined", () => {
-    const csv = Export.toCSV(env, [{ id: "x", type: CONST.MEASURE_MODE.MARKER } as MeasureData]);
+    const csv = Export.toCSV(env, [
+      { id: "x", type: CONST.MEASURE_MODE.MARKER } as MeasureData,
+    ]);
     const row = csv.split("\n")[1].split(",");
     expect(row[7]).toBe("");
   });
@@ -738,7 +756,9 @@ describe("Export.toWKT — unknown type", () => {
       properties: {},
     } as GeoJSON.Feature);
     try {
-      const csv = Export.toCSV(env, [{ id: "x", type: CONST.MEASURE_MODE.MARKER } as MeasureData]);
+      const csv = Export.toCSV(env, [
+        { id: "x", type: CONST.MEASURE_MODE.MARKER } as MeasureData,
+      ]);
       const row = csv.split("\n")[1].split(",");
       expect(row[8]).toBe("");
     } finally {
