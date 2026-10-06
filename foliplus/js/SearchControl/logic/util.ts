@@ -4,7 +4,7 @@ import { COORD_BOUNDS } from "#core/geo/index.js";
 import type { SuggestItem } from "#core/geocode/index.js";
 import type { ControlEnv } from "#core/type.js";
 import type { Cache } from "#common/cache.js";
-import type { Debounced } from "#common/type.js";
+import type { Debounced } from "#common/debounce.js";
 import { MODE } from "../const.js";
 import type { ResultItem, SearchHistoryEntry, SearchType } from "../type.js";
 

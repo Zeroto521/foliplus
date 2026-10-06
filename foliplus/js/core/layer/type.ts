@@ -822,12 +822,6 @@ interface ZArgs {
   base?: number;
 }
 
-/** A node in the layer tree a probe walk may reach. */
-type StyleProbeNode = {
-  setStyle?: (style: Record<string, unknown>) => void;
-  eachLayer?: (fn: (layer: L.Layer) => void) => void;
-};
-
 export type {
   CreateCanvasAPI,
   CreateCanvasOpts,
@@ -850,7 +844,6 @@ export type {
   PaneSpec,
   Projection,
   RegisterLayerOpts,
-  StyleProbeNode,
   SurfaceContentHandle,
   SurfaceContentOpts,
   SurfaceHandle,
