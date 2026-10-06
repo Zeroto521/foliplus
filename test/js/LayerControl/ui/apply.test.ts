@@ -1153,7 +1153,9 @@ describe("membership invariants: only intent + author snapshot authorise members
   const bootUnobserved = (id = "x") => {
     const { container, map } = makeOffMapFixture();
     const layer = { options: {} } as L.Layer;
-    const manager = new LayerController(map, [{ id, name: id, group: "overlay", layer }]);
+    const manager = new LayerController(map, [
+      { id, name: id, group: "overlay", layer },
+    ]);
     manager.ui = new LayerUI(manager, TEST_ENV);
     const ui = manager.ui as LayerUI;
     vi.useFakeTimers();

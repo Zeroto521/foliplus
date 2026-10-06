@@ -189,7 +189,9 @@ class LayerUI {
 
   /** LayerAPI typed to expose getFeatureCount (LayerController only). */
   get mgmt(): LayerController & { getFeatureCount: (i: string) => number | null } {
-    return this.c as LayerController & { getFeatureCount: (i: string) => number | null };
+    return this.c as LayerController & {
+      getFeatureCount: (i: string) => number | null;
+    };
   }
 
   /**

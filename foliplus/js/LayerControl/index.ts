@@ -1,11 +1,11 @@
 import { defineControl } from "#core/defineControl.js";
 import { createPanelControl } from "#core/leaflet/index.js";
-import * as SVGs from "./icon.js";
 import {
   LayerController,
   installBringToFrontPatch,
   uninstallBringToFrontPatch,
 } from "./controller.js";
+import * as SVGs from "./icon.js";
 import { LayerUI } from "./ui/index.js";
 
 const LayerControl = defineControl<LayerController>({
