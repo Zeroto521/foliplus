@@ -2,8 +2,9 @@
 // and draw under the pane's effective opacity.
 // Moved from renderer.ts — renderPaneSVG.
 import * as CONST from "../const.js";
+import type { RenderCtx } from "../type.js";
 import { loadImage } from "../util.js";
-import { type RenderCtx, effectiveOpacity, withAlpha } from "./util.js";
+import { effectiveOpacity, withAlpha } from "./util.js";
 
 /** Render SVG content from a single pane. */
 const renderPaneSVG = async (

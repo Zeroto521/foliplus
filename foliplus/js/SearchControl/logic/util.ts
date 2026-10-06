@@ -1,11 +1,12 @@
 // Shared SearchControl logic scaffolding — coordinate parsing, called by
 // ./search.ts and ./history.ts. Moved from logic.ts.
-import type { ControlEnv } from "#core/defineControl.js";
 import { COORD_BOUNDS } from "#core/geo/index.js";
 import type { SuggestItem } from "#core/geocode/index.js";
+import type { ControlEnv } from "#core/type.js";
 import type { Cache } from "#common/cache.js";
-import type { Debounced } from "#common/debounce.js";
-import { MODE, type SearchType } from "../const.js";
+import type { Debounced } from "#common/type.js";
+import { MODE } from "../const.js";
+import type { SearchType } from "../type.js";
 import type { ResultItem, SearchHistoryEntry } from "../type.js";
 
 /** Subset of SearchControl state used by the logic functions (decouples the types). */

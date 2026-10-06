@@ -6,15 +6,8 @@ import { guardBlocked } from "#core/mode.js";
 import * as Icons from "#common/icon.js";
 import { makePersisted } from "#common/storage.js";
 import * as Storage from "#common/storage.js";
-import {
-  HISTORY,
-  MODE,
-  RECORD_VERSION,
-  SOURCE,
-  type SearchType,
-  ZOOM,
-} from "../const.js";
-import type { ResultItem, SearchHistoryEntry } from "../type.js";
+import { HISTORY, MODE, RECORD_VERSION, SOURCE, ZOOM } from "../const.js";
+import type { ResultItem, SearchHistoryEntry, SearchType } from "../type.js";
 import { attachSearchDelIcon, removePanel, renderResults } from "./search.js";
 import { type SearchControlCtx, canonicalQuery } from "./util.js";
 

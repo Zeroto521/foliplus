@@ -14,7 +14,7 @@ export {
 export { mountDelIcon } from "./deliconMount.js";
 export { cancelMapPaneTranslate } from "./domAdapter.js";
 export { bindMapEvents, unbindMapEvents } from "./mapEvent.js";
-export type { MapEventHandlers } from "./mapEvent.js";
+export type { MapEventHandlers } from "./type.js";
 export {
   adjustPanelZIndex,
   bindFoldToggle,

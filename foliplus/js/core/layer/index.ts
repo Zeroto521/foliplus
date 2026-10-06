@@ -40,11 +40,8 @@ export { LayerRuntimeStore } from "./LayerRuntimeStore.js";
 export { LayerOrder } from "./LayerOrder.js";
 export type { OrderPersistence } from "./LayerOrder.js";
 export { INTENT, LIVE, STYLE_KEYS } from "./intent.js";
-export type {
-  AppliedProjection,
-  LayerRuntime,
-  Projection,
-} from "./LayerRuntimeStore.js";
+export type { AppliedProjection, LayerRuntime } from "./LayerRuntimeStore.js";
+export type { Projection } from "./type.js";
 export type {
   AnnotationConfig,
   IntentKey,

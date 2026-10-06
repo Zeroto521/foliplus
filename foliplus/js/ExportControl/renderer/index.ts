@@ -7,6 +7,7 @@ import { layerUrl } from "#core/leafletAdapter.js";
 import { createScopedTranslator } from "#common/locale.js";
 import { createLogger } from "#common/log.js";
 import * as CONST from "../const.js";
+import type { RenderCtx, TileDesc, TileLoadStats } from "../type.js";
 import { renderCanvasElement, renderPaneCanvas } from "./canvas.js";
 import {
   collectLayerMarkers,
@@ -17,13 +18,7 @@ import {
 } from "./marker.js";
 import { renderPaneSVG } from "./svg.js";
 import { calcTiles, renderTileLayer, tilePositions } from "./tile.js";
-import {
-  type RenderCtx,
-  type TileDesc,
-  type TileLoadStats,
-  isCorsBlocked,
-  pooledEach,
-} from "./util.js";
+import { isCorsBlocked, pooledEach } from "./util.js";
 
 // CONFIG is a free variable from the IIFE template wrapper (see BaseControl._template).
 const T = createScopedTranslator(CONFIG);
@@ -141,7 +136,7 @@ class ExportRenderer {
     }
 
     // Shared render context threaded through all passes.
-    const rc: import("./util.js").RenderCtx = {
+    const rc: import("../type.js").RenderCtx = {
       ctx,
       rect,
       scale,
@@ -183,7 +178,7 @@ class ExportRenderer {
         // exactly like any other pane.
         const zoom = this.map.getZoom();
         const sizedTiles: Array<{
-          tiles: import("./util.js").TileDesc[];
+          tiles: import("../type.js").TileDesc[];
           count: number;
           layer: L.TileLayer;
         }> = [];
@@ -293,7 +288,7 @@ class ExportRenderer {
 
   /** Viewport-clip a tile list to the crop rect. Pure geometry — the class
    *  entry point is a thin delegate of `renderer/tile.js:tilePositions`. */
-  tilePositions(rc: RenderCtx, tiles: import("./util.js").TileDesc[]): TileDesc[] {
+  tilePositions(rc: RenderCtx, tiles: import("../type.js").TileDesc[]): TileDesc[] {
     return tilePositions(this.map, rc, tiles);
   }
 
@@ -305,7 +300,7 @@ class ExportRenderer {
    *  still missing from the picture, which is what the bar is for. */
   async renderTileLayer(
     rc: RenderCtx,
-    visibleTiles: import("./util.js").TileDesc[],
+    visibleTiles: import("../type.js").TileDesc[],
     layer: L.TileLayer,
     onProgress?: (tilesDrawn: number) => void,
   ) {
@@ -313,7 +308,7 @@ class ExportRenderer {
   }
 
   /** Render SVG content from a single pane. */
-  async renderPaneSVG(rc: import("./util.js").RenderCtx, pane: HTMLElement) {
+  async renderPaneSVG(rc: import("../type.js").RenderCtx, pane: HTMLElement) {
     return renderPaneSVG(this.container, rc, pane);
   }
 
@@ -355,4 +350,3 @@ class ExportRenderer {
 }
 
 export { ExportRenderer, isCorsBlocked, pooledEach };
-export type { TileLoadStats };

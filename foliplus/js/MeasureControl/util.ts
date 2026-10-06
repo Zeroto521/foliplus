@@ -1,8 +1,8 @@
 // MeasureControl utility functions — no manager instance, only the control's
 // config/translator where a label or popup string is i18n-driven.
-import type { ControlEnv } from "#core/defineControl.js";
 import { area, bearing, centroid, distance, midpoint } from "#core/geo/index.js";
 import { reverseGeocode } from "#core/geocode/index.js";
+import type { ControlEnv } from "#core/type.js";
 import { cssVar } from "#common/cssvar.js";
 import { buildPopupEl } from "#common/dom.js";
 import {
@@ -11,7 +11,7 @@ import {
   formatLatLng,
   formatNumber,
 } from "#common/format.js";
-import type { Logger } from "#common/log.js";
+import type { Logger } from "#common/type.js";
 import * as CONST from "./const.js";
 
 // Edit-specific helpers (buildEditOverlay, bindNodeDrag, drag-synthetic click

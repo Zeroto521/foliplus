@@ -8,8 +8,8 @@
 //   - coordinates ([lng, lat])             -> longitude/latitude in degrees
 // The measurement type label (properties.name / CSV name column) is i18n-
 // translated via each mode's getNameLabel(), falling back to English.
-import type { ControlEnv } from "#core/defineControl.js";
 import { HINT_DURATION } from "#core/hint.js";
+import type { ControlEnv } from "#core/type.js";
 import { download } from "#common/download.js";
 import { formatCoord } from "#common/format.js";
 import * as CONST from "./const.js";

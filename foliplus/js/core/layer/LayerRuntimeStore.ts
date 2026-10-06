@@ -7,26 +7,7 @@
 // on unregister. Derived state only: nothing here is user input, and every
 // entry is invalidatable (explicit invalidation, never a full re-scan).
 import type { LabelField } from "#core/labelField.js";
-
-/** One layer's projection: intent (persisted) and the derived policy state
- *  together, so a diff sees both in one comparison.
- *
- *  `intent.visible` is what the checkbox shows — the user's choice when they
- *  made one, otherwise the author's declared default.
- *  `effectiveShown` is the composite `intent && policy` and is what the
- *  executor writes to map membership. Only `intent` may authorise display;
- *  `policy` (focus, zoom range) may only suppress it. That is the invariant
- *  that keeps a derived dimension from ever adding a layer back onto the
- *  map — the class of bug the quickstart regression records, and the structural root of the
- *  one-way gate that used to live in state.ts.
- */
-interface Projection {
-  id: string;
-  intent: { visible: boolean };
-  effectiveShown: boolean;
-  opacity: number | undefined;
-  zoomRange: [number, number] | null;
-}
+import type { Projection } from "./type.js";
 
 /** The executor's projection snapshot: the pure projection plus the carrier
  *  identity the last write landed on. Recording carrier is what closes
@@ -162,4 +143,4 @@ class LayerRuntimeStore {
 }
 
 export { LayerRuntimeStore };
-export type { AppliedProjection, LayerRuntime, Projection };
+export type { AppliedProjection, LayerRuntime };

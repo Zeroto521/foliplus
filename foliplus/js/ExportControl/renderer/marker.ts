@@ -3,6 +3,7 @@
 // Moved from renderer.ts — collectLayerMarkers, renderMarkers, renderFontAwesome,
 // renderTextLabels, renderRemaining.
 import * as CONST from "../const.js";
+import type { RenderCtx } from "../type.js";
 import {
   ensureFont,
   isExportExcluded,
@@ -10,7 +11,7 @@ import {
   loadImage,
   loadImageBitmap,
 } from "../util.js";
-import { type RenderCtx, effectiveOpacity, pooledEach, withAlpha } from "./util.js";
+import { effectiveOpacity, pooledEach, withAlpha } from "./util.js";
 
 /** Collect markers belonging to a specific layer's panes. */
 const collectLayerMarkers = (layer: L.Layer): HTMLElement[] => {

@@ -35,19 +35,10 @@
 // `map.removeControl()` + `map.addControl()` always rebuilds a fresh manager.
 import { BaseControl } from "#foliplus/BaseControl.js";
 import { createScopedTranslator, createTranslator } from "#common/locale.js";
-import { type Logger, createLogger } from "#common/log.js";
+import { createLogger } from "#common/log.js";
+import type { Logger } from "#common/type.js";
 import { createControlEnv } from "./controlEnv.js";
-
-/** Environment handed to `setup` / `createManager` and carried on the
- *  generated control instance (`ctrl.config` / `ctrl.T` / `ctrl._` / `ctrl.log`).
- *  `T` scopes keys by the component name; `_` is the bare lookup that
- *  identity-comparison sites (NAME_LABEL_KEY) need. */
-type ControlEnv = {
-  config: ComponentConfig;
-  T: (key: string) => string;
-  _: (key: string) => string;
-  log: Logger;
-};
+import type { ControlEnv } from "./type.js";
 
 /** The spec handed to {@link defineControl}. */
 type DefineControlSpec<M = unknown> = {
@@ -138,4 +129,4 @@ const defineControl = <M = unknown>(spec: DefineControlSpec<M>): ControlClass =>
 };
 
 export { defineControl };
-export type { ControlClass, ControlEnv, DefineControlSpec };
+export type { ControlClass, DefineControlSpec };
