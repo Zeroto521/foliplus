@@ -1,9 +1,10 @@
-// core — LayerIntentStore: the single per-layer intent carrier.
+// LayerControl domain — LayerIntentStore: the single per-layer intent carrier.
 //
-// Sunk from `LayerControl/ui/intentStore.ts` (T270): intent is a base-layer
-// concept — third-party layers carry user intent too — so the row store lives
-// beside the registry. Renamed `IntentStore` → `LayerIntentStore`; T261
-// semantics unchanged.
+// Domain-owned (#620 follow-up): intent is the axis on which registerLayer
+// (hidden -> skip `map.addLayer`), deleteLayer (drop row + clear name) and
+// persistence replay decide — a domain concern, not a view concern. Lived
+// beside the registry in `core/layer/` since T270; parked under
+// `LayerControl/domain/` when LayerOrchestration grew its own domain module.
 //
 // One `Map<id, IntentRow>` row store replaces the old parallel mirrors
 // (`ui.intents` + `ui.intentProvenance`). The row keeps the value axis
@@ -20,8 +21,8 @@ import type {
   LayerOverride,
   LoadSource,
   PersistedLayerState,
-} from "./intent.js";
-import { type IntentKey, LIVE, STYLE_KEYS } from "./intent.js";
+} from "#core/layer/intent.js";
+import { type IntentKey, LIVE, STYLE_KEYS } from "#core/layer/intent.js";
 
 const isOverrideKey = (key: IntentKey): key is LayerOverride =>
   Object.prototype.hasOwnProperty.call(STYLE_KEYS, key);

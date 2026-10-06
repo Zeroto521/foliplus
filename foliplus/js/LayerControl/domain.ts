@@ -26,6 +26,7 @@ import {
 import type { LayerInfo, PaneSpec } from "#core/layer/type.js";
 import { attributionEntries, refreshAttributions } from "#core/leafletAdapter.js";
 import type { AnnotationManager } from "./annotation/index.js";
+import { LayerIntentStore } from "./domain/LayerIntentStore.js";
 import * as CONST from "./const.js";
 import type { LayerPersistence } from "./persistence.js";
 
@@ -71,6 +72,14 @@ class LayerOrchestration {
   private surfaces: Map<string, LayerSurface>;
   private surfacesByLayer: Map<number, LayerSurface>;
   private lastAttribution: string | null;
+  /** Per-layer intent store — the single source for every user-chosen
+   *  dimension (visible / fill / border / opacity / zoomRange / name /
+   *  annotation). Absent key = never touched. Provenance rides the same
+   *  `IntentRow` beside the values. Domain-owned because it is the axis on
+   *  which registerLayer (hidden -> skip `map.addLayer`), deleteLayer (drop
+   *  row + clear name), and persistence replay decide — not a view-only
+   *  concern. */
+  intentStore: LayerIntentStore;
   /** Whether the author set a finite `map.options.maxZoom`.
    *
    *  Captured in the constructor, before the first enforceOrder can write its
@@ -89,6 +98,7 @@ class LayerOrchestration {
     surfaces: Map<string, LayerSurface>;
     surfacesByLayer: Map<number, LayerSurface>;
     lastAttribution: string | null;
+    intentStore: LayerIntentStore;
   }) {
     this.map = deps.map;
     this.events = deps.events;
@@ -101,6 +111,7 @@ class LayerOrchestration {
     this.surfaces = deps.surfaces;
     this.surfacesByLayer = deps.surfacesByLayer;
     this.lastAttribution = deps.lastAttribution;
+    this.intentStore = deps.intentStore;
     // Same capture the controller used to do: the author's declaration,
     // read before any enforceOrder can write its own fallback.
     this.authorMaxZoomDeclared = Number.isFinite(deps.map.options?.maxZoom);

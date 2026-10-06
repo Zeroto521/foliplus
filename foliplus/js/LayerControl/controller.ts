@@ -28,6 +28,7 @@ import { type Debounced, debounce } from "#common/debounce.js";
 import { type Logger, createLogger } from "#common/log.js";
 import { AnnotationManager } from "./annotation/index.js";
 import * as CONST from "./const.js";
+import { LayerIntentStore } from "./domain/LayerIntentStore.js";
 import { LayerOrchestration } from "./domain.js";
 import { LayerPersistence } from "./persistence.js";
 import { LayerUI } from "./ui/index.js";
@@ -153,6 +154,10 @@ class LayerController implements LayerAPI {
   order: LayerOrder;
   annotation: AnnotationManager;
   domain: LayerOrchestration;
+  /** Per-layer intent store — domain-owned (#620 follow-up), exposed on
+   *  LayerUI as a read-only getter. Read via `this.intentStore` internally
+   *  (register gate, deleteLayer) and via `ui.intentStore` externally. */
+  intentStore: LayerIntentStore;
   onLayerAdd: (event: L.LeafletEvent) => void;
   getLayerPanes: (layer: L.Layer) => string[];
   private readonly T: (key: string) => string;
@@ -225,6 +230,7 @@ class LayerController implements LayerAPI {
     this.panes = new PaneManager(mapInstance);
     this.surfaces = new Map();
     this.surfacesByLayer = new Map();
+    this.intentStore = new LayerIntentStore();
 
     this.factory = new LayerFactory({
       map: this.map,
@@ -325,6 +331,7 @@ class LayerController implements LayerAPI {
       surfaces: this.surfaces,
       surfacesByLayer: this.surfacesByLayer,
       lastAttribution: this.lastAttribution,
+      intentStore: this.intentStore,
     });
     this.getLayerPanes = layer => this.domain.resolveLayerPanes(layer);
     this.loadSavedOrder();

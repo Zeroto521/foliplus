@@ -38,7 +38,8 @@
 //   not a test of a module.
 import { vi } from "vitest";
 import type { ControlEnv } from "#core/defineControl.js";
-import { LayerIntentStore, LayerRuntimeStore } from "#core/layer/index.js";
+import { LayerRuntimeStore } from "#core/layer/index.js";
+import { LayerIntentStore } from "#foliplus/LayerControl/domain/LayerIntentStore.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { createScopedTranslator, createTranslator } from "#common/locale.js";
 import { createLogger } from "#common/log.js";

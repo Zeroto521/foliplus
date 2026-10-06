@@ -8,7 +8,7 @@ import type {
   LayerOverride,
   PersistedLayerState,
 } from "#foliplus/LayerControl/type.js";
-import { LayerIntentStore } from "#foliplus/core/layer/LayerIntentStore.js";
+import { LayerIntentStore } from "#foliplus/LayerControl/domain/LayerIntentStore.js";
 
 const ann = (over: Record<string, unknown> = {}) =>
   ({

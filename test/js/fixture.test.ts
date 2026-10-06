@@ -6,7 +6,8 @@
 // a new field landing in production code produces a loud test failure instead
 // of a silent crash a dozen tests downstream.
 import { describe, expect, it } from "vitest";
-import { LayerIntentStore, LayerRuntimeStore } from "#core/layer/index.js";
+import { LayerRuntimeStore } from "#core/layer/index.js";
+import { LayerIntentStore } from "#foliplus/LayerControl/domain/LayerIntentStore.js";
 import { makeLayerUIMock } from "./fixture.js";
 
 describe("window.L marker mock", () => {
