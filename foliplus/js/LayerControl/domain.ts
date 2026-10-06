@@ -16,6 +16,7 @@ import { LayerSurface } from "#core/layer/LayerSurface.js";
 import { PaneManager } from "#core/layer/PaneManager.js";
 import {
   GROUP,
+  INTENT,
   KIND,
   type LayerKind,
   PANE_ROLE,
@@ -78,14 +79,23 @@ class LayerOrchestration {
    *  `IntentRow` beside the values. Domain-owned because it is the axis on
    *  which registerLayer (hidden → skip `map.addLayer`), deleteLayer (drop
    *  row + clear name), and persistence replay decide — not a view-only
-   *  concern. */
-  intentStore: LayerIntentStore;
+   *  concern.
+   *
+   *  Backed by a getter so the controller can swap it out (tests do this by
+   *  injecting a mock via `manager.intentStore = mock`); the domain never
+   *  caches a stale reference. */
+  get intentStore(): LayerIntentStore {
+    return this.deps.getIntentStore();
+  }
   /** Whether the author set a finite `map.options.maxZoom`.
    *
    *  Captured in the constructor, before the first enforceOrder can write its
    *  own fallback, so the guard below never reads back our own write. */
   private authorMaxZoomDeclared: boolean;
 
+  private deps: {
+    getIntentStore: () => LayerIntentStore;
+  };
   constructor(deps: {
     map: L.Map;
     events: EventBus;
@@ -98,8 +108,9 @@ class LayerOrchestration {
     surfaces: Map<string, LayerSurface>;
     surfacesByLayer: Map<number, LayerSurface>;
     lastAttribution: string | null;
-    intentStore: LayerIntentStore;
+    getIntentStore: () => LayerIntentStore;
   }) {
+    this.deps = { getIntentStore: deps.getIntentStore };
     this.map = deps.map;
     this.events = deps.events;
     this.layerRegistry = deps.layerRegistry;
@@ -111,7 +122,6 @@ class LayerOrchestration {
     this.surfaces = deps.surfaces;
     this.surfacesByLayer = deps.surfacesByLayer;
     this.lastAttribution = deps.lastAttribution;
-    this.intentStore = deps.intentStore;
     // Same capture the controller used to do: the author's declaration,
     // read before any enforceOrder can write its own fallback.
     this.authorMaxZoomDeclared = Number.isFinite(deps.map.options?.maxZoom);
@@ -325,6 +335,38 @@ class LayerOrchestration {
     if (tooltipPaneEl) tooltipPaneEl.style.zIndex = String(topZ);
     const markerPaneEl = this.map.getPane("markerPane");
     if (markerPaneEl) markerPaneEl.style.zIndex = String(topZ - 1);
+  }
+
+  /** Drop one id's persisted user state (order slot + intent row) without
+   *  retiring the layer — the domain half of {@link LayerController.deleteLayer}
+   *  and its public `dropPersistedLayerState` counterpart.
+   *
+   *  `clearName` also drops the name rider, which {@link LayerIntentStore.dropRow}
+   *  deliberately leaves (it prunes only override dims + provenance). The
+   *  component-clear branch of `deleteLayer` keeps the name (a cleared heatmap
+   *  is still the user's heatmap); the regular-branch delete drops it because
+   *  the layer is gone for good.
+   *
+   *  Returns what actually changed so the controller can decide which
+   *  persistence writes to schedule — an untuned layer must not rewrite the
+   *  whole `layers` map on a delete. No UI side effects: the controller owns
+   *  `saveState` / `saveNamesState` / events. */
+  deleteEntry(
+    id: string,
+    opts: { clearName?: boolean } = {},
+  ): {
+    orderDropped: boolean;
+    intentDropped: boolean;
+    nameCleared: boolean;
+  } {
+    const orderDropped = this.order.forgetSavedOrder(id);
+    const intentDropped = this.intentStore.dropRow(id);
+    let nameCleared = false;
+    if (opts.clearName && this.intentStore.get(id, INTENT.NAME) != null) {
+      this.intentStore.clearValue(id, INTENT.NAME);
+      nameCleared = true;
+    }
+    return { orderDropped, intentDropped, nameCleared };
   }
 }
 

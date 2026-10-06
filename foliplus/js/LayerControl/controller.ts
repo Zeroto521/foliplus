@@ -333,7 +333,7 @@ class LayerController implements LayerAPI {
       surfaces: this.surfaces,
       surfacesByLayer: this.surfacesByLayer,
       lastAttribution: this.lastAttribution,
-      intentStore: this.intentStore,
+      getIntentStore: () => this.intentStore,
     });
     this.getLayerPanes = layer => this.domain.resolveLayerPanes(layer);
     this.loadSavedOrder();
@@ -837,7 +837,8 @@ class LayerController implements LayerAPI {
       // owns. Both halves of a clear must erase, or the next draw inherits the
       // half nobody pruned.
       this.events.emit(EVENTS.LAYER_DELETED, { id });
-      this.dropPersistedLayerState(id);
+      const { orderDropped, intentDropped } = this.domain.deleteEntry(id);
+      if (this.ui && (orderDropped || intentDropped)) this.ui.saveState();
       this.persistence.flushAll();
       return true;
     }
@@ -869,27 +870,25 @@ class LayerController implements LayerAPI {
     // answering for a removed id.
     this.annotation.destroyLayer(id);
 
-    // Drop every persisted value for this id (stored order + per-layer intent)
-    // through the same prune the component branch and the panel Clear use.
-    // `saveState` is called inside only when something actually dropped, so a
-    // delete of an untuned layer no longer rewrites the whole `layers` map.
-
+    // Drop every persisted value for this id (stored order + per-layer intent
+    // + name rider) through the domain. `saveState` / `saveNamesState` are
+    // called only when something actually dropped, so a delete of an untuned
+    // layer no longer rewrites the whole `layers` map.
+    //
     // The label config needs no schedule here: it rides `layers[id]`
     // (the live config is gone via `annotation.destroyLayer` above), and the
     // legacy `annotations` segment is pruned on READ for ids in `removed`
     // (parseRecord), so a v2 entry cannot resurrect behind the new key's
     // absence.
-
-    this.dropPersistedLayerState(id);
+    const { orderDropped, intentDropped, nameCleared } = this.domain
+      .deleteEntry(id, { clearName: true });
 
     if (!this.ui) {
       this.persistence.flushAll();
       return true;
     }
-    if (getIntent(this.ui, id, INTENT.NAME) != null) {
-      clearIntent(this.ui, id, INTENT.NAME);
-      this.ui.saveNamesState();
-    }
+    if (orderDropped || intentDropped) this.ui.saveState();
+    if (nameCleared) this.ui.saveNamesState();
     this.events.emit(EVENTS.LAYER_GROUP_COUNT_CHANGED, {
       group: layerInfo.group,
     });
