@@ -201,6 +201,28 @@ describe("HintManager", () => {
     mgr.destroy();
   });
 
+  it("does not migrate hints when fullscreenElement is documentElement", () => {
+    const mgr = new HintManager();
+    mgr.showHint("key", "hello", 0);
+    const el = document.querySelector(".foliplus-hint")!;
+    expect(el.parentElement).toBe(document.body);
+
+    Object.defineProperty(document, "fullscreenElement", {
+      configurable: true,
+      get: () => document.documentElement,
+    });
+    document.dispatchEvent(new Event("fullscreenchange"));
+
+    // documentElement is the guard — hints stay in body
+    expect(el.parentElement).toBe(document.body);
+
+    Object.defineProperty(document, "fullscreenElement", {
+      configurable: true,
+      get: () => null,
+    });
+    mgr.destroy();
+  });
+
   it("shows a hint inside the fullscreen element and anchors it with relative", () => {
     vi.spyOn(window, "getComputedStyle").mockReturnValue({
       position: "static",
@@ -235,12 +257,36 @@ describe("HintManager", () => {
     expect(document.querySelectorAll(".foliplus-hint").length).toBe(0);
   });
 
+  it("hideHint with a subkey and duration clears the timer", () => {
+    vi.useFakeTimers();
+    const mgr = new HintManager();
+    mgr.showHint("key", "one", 100, false, "sub");
+    const els = document.querySelectorAll(".foliplus-hint");
+    expect(els.length).toBe(1);
+
+    mgr.hideHint("key", "sub");
+    expect(document.querySelectorAll(".foliplus-hint").length).toBe(0);
+
+    vi.advanceTimersByTime(1000);
+    expect(document.querySelectorAll(".foliplus-hint").length).toBe(0);
+    vi.useRealTimers();
+  });
+
   it("hideHint is defensive against entries missing a timer or element", () => {
     // Same guards as destroy — a malformed entry must not throw.
     const mgr = new HintManager();
     mgr.hintMap.set("ghost", { element: undefined, timer: null } as any);
     expect(() => mgr.hideHint("ghost")).not.toThrow();
     expect(mgr.hintMap.has("ghost")).toBe(false);
+  });
+
+  it("hideHint with subkey is defensive against entries missing an element", () => {
+    // The subkey branch has its own element guard — a malformed entry with no
+    // element must not throw when hideHint(key, subkey) is called.
+    const mgr = new HintManager();
+    mgr.hintMap.set("key|sub", { element: undefined, timer: null } as any);
+    expect(() => mgr.hideHint("key", "sub")).not.toThrow();
+    expect(mgr.hintMap.has("key|sub")).toBe(false);
   });
 
   it("zIndexBase lazy-initialises on first call and reuses on subsequent calls", () => {

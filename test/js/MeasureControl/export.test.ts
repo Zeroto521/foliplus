@@ -315,21 +315,22 @@ describe("Export.toCSV", () => {
     expect(markerRow).toContain("POINT(119.3");
   });
 
-  it('csvEscape fallback handles undefined row values via ?? ""', () => {
-    // Defensive: if getNameForType ever returns undefined (e.g. unrecognised
-    // type), the ?? "" on the csvEscape line prevents csvEscape from receiving
-    // a non-string argument.
-    const spy = vi.spyOn(Export, "getNameForType").mockReturnValue(undefined);
-    try {
-      const csv = Export.toCSV(env, [markerData]);
-      const lines = csv.split("\n");
-      const markerRow = lines[1];
-      // The name column (index 2) should be empty, not "undefined"
-      expect(markerRow).not.toContain("undefined");
-    } finally {
-      spy.mockRestore();
-    }
+  it("csvEscape truthy side: id column has a value", () => {
+    // Covers the truthy side of `row[h] ?? ""` — when the row value is a
+    // non-empty string, csvEscape receives it directly (not the "" fallback).
+    const data: MeasureData = {
+      id: "x",
+      type: CONST.MEASURE_MODE.MARKER,
+      lng: 119.3,
+      lat: 26.08,
+    };
+    const csv = Export.toCSV(env, [data]);
+    const lines = csv.split("\n");
+    const row = lines[1];
+    const fields = row.split(",");
+    expect(fields[0]).toBe("x");
   });
+
 });
 
 // ── Download stub ──

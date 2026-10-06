@@ -373,6 +373,13 @@ describe("removeInlineEditInput", () => {
   it("returns null for a null label", () => {
     expect(removeInlineEditInput(null)).toBeNull();
   });
+
+  it("returns null when the label has no input", () => {
+    const label = dom.el("label");
+    label.appendChild(dom.el("span", null, "text"));
+    expect(removeInlineEditInput(label as HTMLLabelElement)).toBeNull();
+    expect(label.textContent).toBe("text");
+  });
 });
 
 describe("createInlineEditInput", () => {
