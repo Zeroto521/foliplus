@@ -10,13 +10,14 @@ import { NO_FEATURE_TREE_KINDS } from "#core/layer/index.js";
 import { bindMapSync } from "#core/leaflet/index.js";
 import type { NumberStyle } from "#foliplus/config-schema.js";
 import { getLayerAlpha, setLayerAlpha } from "#common/canvasAlpha.js";
-import { type CanvasLabelStyle } from "#common/canvasLabel.js";
-import { type Debounced, debounce } from "#common/debounce.js";
+import { debounce } from "#common/debounce.js";
 import { BORDER_WEIGHT, clampLabelSize, normalizeHexColor } from "#common/form.js";
 import { NUMBER_FORMAT } from "#common/format.js";
-import { type Logger, createLogger } from "#common/log.js";
+import { createLogger } from "#common/log.js";
 import { type Persisted, makePersisted } from "#common/storage.js";
 import * as Storage from "#common/storage.js";
+import type { CanvasLabelStyle } from "#common/type.js";
+import type { Debounced, Logger } from "#common/type.js";
 import * as CONST from "./const.js";
 import {
   aggregateData as aggregateDataFn,

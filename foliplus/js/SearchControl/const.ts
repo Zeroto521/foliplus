@@ -1,8 +1,6 @@
 // SearchControl constants — CSS classes, search parameters, zoom levels.
 
 const MODE = { COORD: "coord", ADDR: "addr" } as const;
-/** Search type: coordinate pair or address keyword. */
-type SearchType = (typeof MODE)[keyof typeof MODE];
 const SOURCE = { SUGGESTION: "suggestion", HISTORY: "history" } as const;
 /** Result source: live geocode hit or saved history entry. */
 type SearchSource = (typeof SOURCE)[keyof typeof SOURCE];
@@ -54,7 +52,6 @@ const RECORD_VERSION = 1;
 
 export {
   type SearchSource,
-  type SearchType,
   AUTOCOMPLETE,
   CLASSES,
   HISTORY,

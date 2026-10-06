@@ -1,10 +1,10 @@
-import type { ControlEnv } from "#core/defineControl.js";
 import { HINT_DURATION } from "#core/hint.js";
 import {
   type MapEventHandlers,
   bindMapEvents,
   unbindMapEvents,
 } from "#core/leaflet/index.js";
+import type { ControlEnv } from "#core/type.js";
 import { stopEvent } from "#common/dom.js";
 import * as CONST from "../const.js";
 import type { MeasureManager } from "../manager.js";

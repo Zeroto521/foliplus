@@ -5,9 +5,9 @@
 // through this store instead of poking manager.measurements + saveMeasurements
 // directly, mirroring LayerControl's persistence.ts convention: one store
 // class, keys in const.ts STORAGE, no direct Storage access outside.
-import type { ControlEnv } from "#core/defineControl.js";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
+import type { ControlEnv } from "#core/type.js";
 import { type Persisted, makePersisted } from "#common/storage.js";
 import * as Storage from "#common/storage.js";
 import * as CONST from "./const.js";

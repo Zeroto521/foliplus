@@ -2,47 +2,9 @@
 // Moved from renderer.ts — nothing here depends on L or the DOM beyond the
 // types themselves, so every pass module can import without a cycle.
 import { createLogger } from "#common/log.js";
+import type { TileLoadStats } from "../type.js";
 
 const log = createLogger(CONFIG.name);
-
-/** Render context threaded through all rendering passes. */
-interface RenderCtx {
-  ctx: CanvasRenderingContext2D;
-  rect: { left: number; top: number; width: number; height: number };
-  scale: number;
-  contRect: DOMRect;
-  cw: number;
-  ch: number;
-  sw: number;
-  sh: number;
-  /** Reports how far the render has progressed, 0..90.  Never decreases. */
-  onProgress?: (percent: number) => void;
-}
-
-/** A tile descriptor computed by calcTiles. */
-interface TileDesc {
-  x: number;
-  y: number;
-  z: number;
-  url: string;
-  /** 1x URL to fall back to when a retina-only source 404s every {r} tile. */
-  fallback?: string;
-  left: number;
-  top: number;
-  size: number;
-  dx?: number;
-  dy?: number;
-  dw?: number;
-  dh?: number;
-}
-
-/** Per-layer tile load statistics, for the post-export CORS warning. */
-interface TileLoadStats {
-  /** Tiles the draw pass attempted to fetch. */
-  total: number;
-  /** Tiles whose fetch failed (CORS rejection, timeout, 404). */
-  failed: number;
-}
 
 /** True when a layer's tiles predominantly failed to load — most often a tile
  *  source that rejects CORS requests (the map renders fine as opaque images,
@@ -109,4 +71,3 @@ const withAlpha = (
 };
 
 export { isCorsBlocked, pooledEach, effectiveOpacity, withAlpha };
-export type { RenderCtx, TileDesc, TileLoadStats };
