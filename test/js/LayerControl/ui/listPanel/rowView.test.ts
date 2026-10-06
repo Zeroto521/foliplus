@@ -10,15 +10,15 @@ import {
   buildRowCell,
   rowView,
   snapshotAuthorVisible,
-} from "#foliplus/LayerControl/ui/listPanel/rowView.js";
-import type { RowCell } from "#foliplus/LayerControl/ui/listPanel/rowView.js";
+} from "#foliplus/LayerControl/ui/listPanel/index.js";
+import type { RowCell } from "#foliplus/LayerControl/ui/listPanel/index.js";
 import {
   syncNoBasemap,
   syncToggleAll,
-} from "#foliplus/LayerControl/ui/listPanel/visibility.js";
+} from "#foliplus/LayerControl/ui/listPanel/index.js";
 import { intentVisibleOf, projectLayer } from "#foliplus/LayerControl/ui/projection.js";
 import * as Icons from "#common/icon.js";
-import { findItem, initFixture } from "./fixture.js";
+import { findItem, initFixture } from "../fixture.js";
 
 const LABELS = { select: "Select", deselect: "Deselect" };
 

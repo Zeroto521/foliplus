@@ -10,10 +10,10 @@ import {
   insertLayerItem,
   renderInitialList,
   updateLayerItem,
-} from "#foliplus/LayerControl/ui/listPanel/list.js";
-import { displayName } from "#foliplus/LayerControl/ui/listPanel/rowView.js";
-import { applyVisibility } from "#foliplus/LayerControl/ui/listPanel/visibility.js";
-import { TileLayer, initFixture } from "./fixture.js";
+} from "#foliplus/LayerControl/ui/listPanel/index.js";
+import { displayName } from "#foliplus/LayerControl/ui/listPanel/index.js";
+import { applyVisibility } from "#foliplus/LayerControl/ui/listPanel/index.js";
+import { TileLayer, initFixture } from "../fixture.js";
 
 const makeUi = () =>
   ({

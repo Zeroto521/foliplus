@@ -4,7 +4,7 @@ import type { LayerController } from "#foliplus/LayerControl/controller.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { getIntent, seedIntentMap } from "#foliplus/LayerControl/ui/intent.js";
 import { ensureModes } from "#foliplus/core/mode.js";
-import { findItem, initFixture } from "./fixture.js";
+import { findItem, initFixture } from "../fixture.js";
 
 describe("LayerUI rename", () => {
   let manager: LayerController;
