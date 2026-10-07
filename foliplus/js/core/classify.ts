@@ -21,7 +21,11 @@ type ClassifyMethod = (typeof METHOD)[keyof typeof METHOD];
  * yields an empty array. Breaks are monotonically non-decreasing so callers
  * can bisect them into class indices.
  */
-const computeBreaks = (data: number[], numClasses: number, method: string): number[] => {
+const computeBreaks = (
+  data: number[],
+  numClasses: number,
+  method: string,
+): number[] => {
   if (data.length === 0) return [];
   const sorted = data.slice().sort((a, b) => a - b);
   const n = sorted.length;
