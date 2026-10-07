@@ -199,7 +199,7 @@ class ExportRenderer {
             sizedTiles.push({ tiles, count: tiles.length, layer });
           }
         }
-        const grandTotal = sizedTiles.reduce((sum, li) => sum + li.count, 0);
+        const grandTotal = sizedTiles.reduce((sum, bucket) => sum + bucket.count, 0);
 
         if (grandTotal > 0) {
           let tilesDone = 0;
