@@ -196,13 +196,6 @@ class LayerUI implements LayerUISurface {
     return this.c.uiContainer!;
   }
 
-  /** LayerAPI typed to expose getFeatureCount (LayerController only). */
-  get mgmt(): LayerController & { getFeatureCount: (i: string) => number | null } {
-    return this.c as LayerController & {
-      getFeatureCount: (i: string) => number | null;
-    };
-  }
-
   /**
    * Attach UI to the given container div.
    * @param {HTMLElement} containerDiv - The panel-content div.

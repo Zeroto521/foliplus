@@ -51,7 +51,6 @@ const makeUi = (layers: Array<{ id: string; group: "base" | "overlay" }> = []) =
     runtimeStore: new LayerRuntimeStore(),
     renamedNames: {},
     focusingLayerId: null,
-    mgmt: { getFeatureCount: () => null },
     T: () => "",
     config: { locale_code: "en" },
     c: {

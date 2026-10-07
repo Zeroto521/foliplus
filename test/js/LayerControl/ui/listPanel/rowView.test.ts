@@ -245,7 +245,7 @@ describe("buildRowCell + applyRowView (one writer per row)", () => {
 
   it("shows the feature count in the count column and in the tooltip", () => {
     const { ui } = initFixture({});
-    vi.spyOn(ui.mgmt, "getFeatureCount").mockReturnValue(12);
+    vi.spyOn(ui.c, "getFeatureCount").mockReturnValue(12);
     const layerInfo = overlay(ui);
     const cellInfo = buildRowCell(ui, layerInfo);
     expect(cellInfo.countText).toBe("12");
@@ -323,8 +323,7 @@ describe("applyRowView (the single DOM write point)", () => {
     // default rather than crashing.
     const layerRegistry = new Map([["x", { id: "x", layer: { options: {} } }]]);
     const bare = {
-      c: { findLayer: () => null, layerRegistry },
-      mgmt: { getFeatureCount: () => 0 },
+      c: { findLayer: () => null, layerRegistry, getFeatureCount: () => 0 },
       renamedNames: {},
       intentStore: new LayerIntentStore(),
       runtimeStore: new LayerRuntimeStore(),
