@@ -3,8 +3,8 @@ import * as SVGs from "#foliplus/HeatmapControl/icon.js";
 
 describe("HEXAGON", () => {
   it("is an SVG string", () => {
-    expect(SVGs.HEXAGON).toContain("<svg");
-    expect(SVGs.HEXAGON).toContain("</svg>");
-    expect(SVGs.HEXAGON).toContain("polygon");
+    expect(SVGs.ICON_HEXAGON).toContain("<svg");
+    expect(SVGs.ICON_HEXAGON).toContain("</svg>");
+    expect(SVGs.ICON_HEXAGON).toContain("polygon");
   });
 });

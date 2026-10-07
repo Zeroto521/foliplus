@@ -17,7 +17,7 @@ type Env = { config: ComponentConfig; T: (key: string) => string };
 const updateUI = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement, env: Env) => {
   const { config, T } = env;
   const isFull = Boolean(getFullscreenEl()) || map.isFullscreen;
-  fsBtn.innerHTML = isFull ? SVGs.MINIMIZE : SVGs.MAXIMIZE;
+  fsBtn.innerHTML = isFull ? SVGs.ICON_MINIMIZE : SVGs.ICON_MAXIMIZE;
   fsBtn.title = isFull ? T("title_cancel") : T("title");
 
   if (config.hide_others) {

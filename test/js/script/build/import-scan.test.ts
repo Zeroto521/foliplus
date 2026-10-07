@@ -93,8 +93,8 @@ const EQUIV_CORPUS: Record<string, string> = {
     'Storage.load("key");',
     'Storage.save("key", 1);',
     'import * as Icons from "#common/icons.js";',
-    "const a = Icons.DOWNLOAD_ICON;",
-    "const b = Icons.CLOSE_ICON;",
+    "const a = Icons.ICON_DOWNLOAD;",
+    "const b = Icons.ICON_CLOSE;",
   ].join("\n"),
   "sub/nested.ts": 'import { nested } from "#core/nested/index.js";',
   // Both predecessors dropped .d.ts; keep them asserting that.
@@ -104,7 +104,7 @@ const EQUIV_CORPUS: Record<string, string> = {
 const EQUIV_REGISTRY_VIEW = {
   "common/alpha": ["alpha"],
   "common/eps": ["eps", "zeta"],
-  "common/icons": ["CLOSE_ICON", "DOWNLOAD_ICON"],
+  "common/icons": ["ICON_CLOSE", "ICON_DOWNLOAD"],
   "common/store": ["load", "save"],
   "core/beta": ["beta"],
   "core/iota": ["iota"],
@@ -124,7 +124,7 @@ const EQUIV_PLUGIN_VIEW = {
     "#foliplus/BaseControl.js": ["BaseControl"],
   },
   starUsed: {
-    "#common/icons.js": ["CLOSE_ICON", "DOWNLOAD_ICON"],
+    "#common/icons.js": ["ICON_CLOSE", "ICON_DOWNLOAD"],
     "#common/store.js": ["load", "save"],
   },
 } as const;

@@ -20,7 +20,7 @@ import type { ResultItem, SearchHistoryEntry, SearchType } from "./type.js";
 
 class SearchControl extends defineControl({
   config: CONFIG,
-  icon: SVGs.SEARCH,
+  icon: SVGs.ICON_SEARCH,
   setup: () => ensureHint(map),
 }) {
   declare container: HTMLElement;
@@ -81,7 +81,7 @@ class SearchControl extends defineControl({
     const { container, ctrl, toolBar, toggleBtn } = createFoldControl({
       cssClass: CLASSES.MAP_SEARCH,
       toggleTitle: this.T("btn_title"),
-      toggleSvg: SVGs.SEARCH,
+      toggleSvg: SVGs.ICON_SEARCH,
       position: this.config.position,
     });
     ctrl.id = `${this.config.name}_${this.config.position}_ctrl`;
@@ -93,7 +93,7 @@ class SearchControl extends defineControl({
     const modeBtn = createIconButton({
       class: CLASSES.SEARCH_MODE_BTN,
       title: this.T("mode_coord"),
-      svg: Icons.GLOBE_ICON,
+      svg: Icons.ICON_GLOBE,
       parent: toolBar,
     });
     const inp = dom.el("input", {
@@ -104,7 +104,7 @@ class SearchControl extends defineControl({
     const clearBtn = createIconButton({
       class: "foliplus-ctrl-btn foliplus-close-btn",
       title: this.T("clear_title"),
-      svg: Icons.CLOSE_ICON,
+      svg: Icons.ICON_CLOSE,
     });
     this.modeBtn = modeBtn;
     this.inp = inp;
@@ -149,11 +149,11 @@ class SearchControl extends defineControl({
   setMode(newMode: SearchType) {
     this.mode = newMode;
     if (this.mode === MODE.COORD) {
-      this.modeBtn.innerHTML = Icons.GLOBE_ICON;
+      this.modeBtn.innerHTML = Icons.ICON_GLOBE;
       this.modeBtn.title = this.T("mode_coord");
       this.inp.placeholder = this.T("coord_placeholder");
     } else {
-      this.modeBtn.innerHTML = Icons.LOCATION_PIN;
+      this.modeBtn.innerHTML = Icons.ICON_LOCATION_PIN;
       this.modeBtn.title = this.T("mode_addr");
       this.inp.placeholder = this.T("addr_placeholder");
     }

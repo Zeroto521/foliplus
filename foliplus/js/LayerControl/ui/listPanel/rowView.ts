@@ -154,7 +154,7 @@ const rowType = (
     if (layerInfo.id === CONST.SOLID_BASEMAP_ID) {
       return { svg: SVGs.ICON_COLOR, key: "type_color_map" };
     }
-    return { svg: Icons.GLOBE_ICON, key: "type_base" };
+    return { svg: Icons.ICON_GLOBE, key: "type_base" };
   }
   if (layerInfo.iconSvg) {
     return { svg: layerInfo.iconSvg, key: "type_custom" };
@@ -163,7 +163,7 @@ const rowType = (
     const gtype = ui.c.surfaceFor(layerInfo).geometryType();
     return { svg: Util.getTypeSVG(gtype), key: `type_${gtype}` };
   }
-  return { svg: SVGs.UNKNOWN, key: "type_unknown" };
+  return { svg: SVGs.ICON_UNKNOWN, key: "type_unknown" };
 };
 
 /**

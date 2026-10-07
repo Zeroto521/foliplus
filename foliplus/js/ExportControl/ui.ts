@@ -202,12 +202,12 @@ const showCropBox = (mgr: ExportManager) => {
   renderToolbarActions(mgr, {
     confirm: {
       title: mgr.T("btn_confirm"),
-      svg: SVGs.CHECK,
+      svg: SVGs.ICON_CHECK,
       onclick: () => mgr.lockCropBox(),
     },
     cancel: {
       title: mgr.T("btn_cancel"),
-      svg: Icons.CLOSE_ICON,
+      svg: Icons.ICON_CLOSE,
       onclick: () => mgr.removeCropBox(),
     },
   });
@@ -246,12 +246,12 @@ const lockCropBox = (mgr: ExportManager, skipHint = false) => {
   renderToolbarActions(mgr, {
     confirm: {
       title: mgr.T("btn_export"),
-      svg: Icons.DOWNLOAD_ICON,
+      svg: Icons.ICON_DOWNLOAD,
       onclick: () => mgr.doExport(),
     },
     cancel: {
       title: mgr.T("btn_cancel"),
-      svg: Icons.CLOSE_ICON,
+      svg: Icons.ICON_CLOSE,
       onclick: () => mgr.unlockCropBox(),
     },
   });
@@ -280,12 +280,12 @@ const unlockCropBox = (mgr: ExportManager) => {
   renderToolbarActions(mgr, {
     confirm: {
       title: mgr.T("btn_confirm"),
-      svg: SVGs.CHECK,
+      svg: SVGs.ICON_CHECK,
       onclick: () => mgr.lockCropBox(),
     },
     cancel: {
       title: mgr.T("btn_cancel"),
-      svg: Icons.CLOSE_ICON,
+      svg: Icons.ICON_CLOSE,
       onclick: () => mgr.removeCropBox(),
     },
   });

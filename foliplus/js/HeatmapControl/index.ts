@@ -8,7 +8,7 @@ import { bindControls, initScan, setupObserver } from "./ui.js";
 
 class HeatmapControl extends defineControl({
   config: CONFIG,
-  icon: SVGs.HEXAGON,
+  icon: SVGs.ICON_HEXAGON,
   setup: () => ensureLayerAPI(map),
 }) {
   /** Backing store for the lazy `mgr` accessor; `destroy()` nulls it so a
@@ -55,7 +55,7 @@ class HeatmapControl extends defineControl({
     const { container, ctrl, panelContent, destroy } = createPanelControl({
       cssClass: CONST.CLASSES.HEATMAP_CTRL,
       toggleTitle: this.T("title"),
-      toggleSvg: SVGs.HEXAGON,
+      toggleSvg: SVGs.ICON_HEXAGON,
       panelTitle: this.T("title"),
       closeTitle: this.T("close_title"),
       collapseOnOutside: this.config.collapse_on_outside,

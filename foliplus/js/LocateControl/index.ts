@@ -18,7 +18,7 @@ const CROSSHAIR = `
 // Idle crosshair + shared foliplus spinner, toggled by the .loading button class.
 const BTN_HTML = `
   <span class="locate-btn-icon">${CROSSHAIR}</span>
-  <span class="locate-btn-loading">${Icons.LOADING_ICON}</span>`;
+  <span class="locate-btn-loading">${Icons.ICON_LOADING}</span>`;
 
 const LocateControl = defineControl({
   config: CONFIG,

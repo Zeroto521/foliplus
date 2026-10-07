@@ -240,7 +240,7 @@ const renderSuggestions = (
       (item.name ?? "");
     const coordDisplay = formatLatLng(parseFloat(item.lng), parseFloat(item.lat));
     return {
-      icon: Icons.LOCATION_PIN,
+      icon: Icons.ICON_LOCATION_PIN,
       source: SOURCE.SUGGESTION,
       primaryText: displayName,
       coordDisplay,

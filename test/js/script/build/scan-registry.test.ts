@@ -67,7 +67,7 @@ describe("registryUsedExports", () => {
     const dir = mkDir("test", {
       "Component1/index.ts": `
         import * as Icons from "#common/icon.js";
-        const x = Icons.CLOSE_ICON;
+        const x = Icons.ICON_CLOSE;
         const y = Icons.OPEN;
       `,
       "Component1/util.ts": `
@@ -77,7 +77,7 @@ describe("registryUsedExports", () => {
       `,
     });
     const result = usedExports(dir);
-    expect(result["common/icon"]).toContain("CLOSE_ICON");
+    expect(result["common/icon"]).toContain("ICON_CLOSE");
     expect(result["common/icon"]).toContain("OPEN");
     expect(result["common/storage"]).toContain("loadRecord");
     expect(result["common/storage"]).toContain("saveRecord");
@@ -89,12 +89,12 @@ describe("registryUsedExports", () => {
         import * as Icons from "#common/icon.js";
         const arr = [];
         arr.forEach(x => Icons[x]);
-        arr.push(Icons.CLOSE_ICON);
+        arr.push(Icons.ICON_CLOSE);
         arr.length;
       `,
     });
     const result = usedExports(dir);
-    expect(result["common/icon"]).toContain("CLOSE_ICON");
+    expect(result["common/icon"]).toContain("ICON_CLOSE");
     // Should NOT contain array methods
     expect(result["common/icon"]).not.toContain("forEach");
     expect(result["common/icon"]).not.toContain("push");

@@ -8,7 +8,7 @@ import { buildFullscreenChangeHandler, toggleFullscreen } from "./logic.js";
 
 const FullscreenControl = defineControl({
   config: CONFIG,
-  icon: SVGs.MAXIMIZE,
+  icon: SVGs.ICON_MAXIMIZE,
   setup: () => ensureHint(map),
   buildDOM(this: any) {
     if (map.zoomControl) map.removeControl(map.zoomControl);
@@ -30,7 +30,7 @@ const FullscreenControl = defineControl({
       class: `${CLASSES.TOOL_BTN} ${CLASSES.ZOOM_IN}`,
       title: this.T("zoom_in"),
       ariaLabel: this.T("zoom_in"),
-      svg: SVGs.ZOOM_IN,
+      svg: SVGs.ICON_ZOOM_IN,
       parent: container,
       onclick: event => {
         L.DomEvent.stopPropagation(event);
@@ -42,7 +42,7 @@ const FullscreenControl = defineControl({
       class: `${CLASSES.TOOL_BTN} ${CLASSES.ZOOM_OUT}`,
       title: this.T("zoom_out"),
       ariaLabel: this.T("zoom_out"),
-      svg: SVGs.ZOOM_OUT,
+      svg: SVGs.ICON_ZOOM_OUT,
       parent: container,
       onclick: event => {
         L.DomEvent.stopPropagation(event);
@@ -54,7 +54,7 @@ const FullscreenControl = defineControl({
       class: `${CLASSES.TOOL_BTN} ${CLASSES.TOGGLE}`,
       title: this.T("title"),
       ariaLabel: this.T("title"),
-      svg: SVGs.MAXIMIZE,
+      svg: SVGs.ICON_MAXIMIZE,
       parent: container,
       onclick: event => {
         L.DomEvent.stopPropagation(event);

@@ -127,7 +127,7 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
         tabindex: "0",
         title: ui.T("rename_layer_tooltip"),
       },
-      { html: Icons.EDIT_ICON },
+      { html: Icons.ICON_EDIT },
       ui.T("rename_layer"),
     ),
   );
@@ -143,7 +143,7 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
         tabindex: "0",
         title: ui.T("attributes_layer_tooltip"),
       },
-      { html: Icons.INFO_ICON },
+      { html: Icons.ICON_INFO },
       ui.T("attributes_layer"),
     ),
   );
@@ -259,7 +259,7 @@ const buildDeleteItem = (
       tabindex: "0",
       title: tooltip,
     },
-    { html: Icons.DELETE_ICON },
+    { html: Icons.ICON_DELETE },
     label,
   );
   return item;
