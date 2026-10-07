@@ -36,4 +36,5 @@ const assertComponentName = (name: string): void => {
 };
 
 export { COMPONENTS, assertComponentName, generateId };
+// eslint-disable-next-line import/no-unused-modules -- type-only export (rule bug: ignoreUnusedTypeExports doesn't work for `export { type X }`)
 export type { ComponentName };

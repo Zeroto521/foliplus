@@ -404,7 +404,6 @@ export {
   initDebouncedFetch,
   positionPanel,
   removePanel,
-  renderAddressResult,
   renderResults,
   renderSuggestions,
   searchAddress,

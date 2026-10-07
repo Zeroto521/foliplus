@@ -149,6 +149,10 @@ export default [
         },
       ],
 
+      // Dead-export detector lives in eslint.config.type.js (needs the
+      // TS program for `ignoreUnusedTypeExports` to work). See the type
+      // config for the rule's `ignoreExports` patterns and rationale.
+
       // One import declaration per module — the project's import
       // convention. `import type { A }` + `import { B }` from the same
       // module must merge into `import { B, type A }` (inline type).
@@ -350,4 +354,5 @@ export default [
       ],
     },
   },
+
 ];

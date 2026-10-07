@@ -64,7 +64,6 @@ const seedIntentMap = <K extends IntentKey>(
 export {
   INTENT,
   LIVE,
-  STYLE_KEYS,
   clearIntent,
   dropIntent,
   getIntent,

@@ -214,12 +214,10 @@ const withinRect = <T extends PlacedLabel>(labels: readonly T[], rect: Box): T[]
 
 export {
   HIDE_OVERLAP,
-  hOverlap,
   hides,
-  intersects,
   planVisible,
-  vOverlap,
   withinRect,
   type Box,
+  // eslint-disable-next-line import/no-unused-modules -- type-only export (rule bug: ignoreUnusedTypeExports doesn't work for `export { type X }`)
   type PlacedLabel,
 };

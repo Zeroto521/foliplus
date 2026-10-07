@@ -236,9 +236,11 @@ const hasStyleDimApply = (face: StyleFace, layerId: string): boolean =>
   applySchedulers.has(applyKey(face, layerId));
 
 export {
+  // eslint-disable-next-line import/no-unused-modules -- type-only export (rule bug: ignoreUnusedTypeExports doesn't work for `export { type X }`)
   type StyleBag,
   type StyleCarrier,
   FACE,
+  // eslint-disable-next-line import/no-unused-modules -- type-only export (rule bug: ignoreUnusedTypeExports doesn't work for `export { type X }`)
   type StyleFace,
   type StyleSetter,
   STYLE_BAG_DEFAULTS,

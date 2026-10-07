@@ -440,6 +440,5 @@ export {
   bindLayerEvents,
   onLayerItemCountChange,
   refreshAllCounts,
-  subscribeControlAttached,
   unbindEvents,
 };

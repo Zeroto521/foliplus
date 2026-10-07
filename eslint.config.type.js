@@ -36,13 +36,15 @@ import { fileURLToPath } from "node:url";
 import tseslint from "typescript-eslint";
 import base from "./eslint.config.js";
 
+const importPlugin = (await import("eslint-plugin-import")).default;
+
 const root = dirname(fileURLToPath(import.meta.url));
 
 export default [
   ...base,
   {
     files: ["foliplus/js/**/*.ts"],
-    plugins: { "@typescript-eslint": tseslint.plugin },
+    plugins: { "@typescript-eslint": tseslint.plugin, import: importPlugin },
     languageOptions: {
       parser: tseslint.parser,
       parserOptions: {
@@ -70,6 +72,41 @@ export default [
       "@typescript-eslint/prefer-nullish-coalescing": [
         "error",
         { ignoreTernaryTests: true },
+      ],
+
+      // Dead-export detector. Catches exports that nothing in the tree
+      // imports — a bug smell in production code and a bundle-size leak.
+      //
+      // Runs here (with `parserOptions.project`) rather than in the base
+      // config because `ignoreUnusedTypeExports` needs the TS program to
+      // distinguish type-only exports from value exports. Without the
+      // program, the rule can't tell `export type { Foo }` from
+      // `export { Foo }` and fires on every type export.
+      //
+      // The rule reads `.eslintrc.json` for its ignore patterns (a
+      // flat-config limitation — see eslint-plugin-import#3079); the
+      // file at the repo root mirrors the flat-config `ignores`.
+      //
+      // `ignoreExports` exempts the structural surfaces the rule can't
+      // see as consumers: re-export bridges and component entry points
+      // (index.ts), type-only modules (type.ts), test fixtures, build
+      // tooling, and config-schema.ts (consumed by Python's Jinja
+      // loader). `ignoreUnusedTypeExports` handles TS type-only edges
+      // the resolver can't track. The rule then only fires on internal
+      // modules, where dead exports actually hide.
+      "import/no-unused-modules": [
+        "error",
+        {
+          unusedExports: true,
+          ignoreUnusedTypeExports: true,
+          ignoreExports: [
+            "**/index.ts",
+            "**/type.ts",
+            "foliplus/js/config-schema.ts",
+            "test/js/**/*.{js,ts}",
+            "script/**/*.{js,cjs,mjs}",
+          ],
+        },
       ],
     },
   },
