@@ -3,7 +3,7 @@ import { attachDelClick } from "#core/leaflet/index.js";
 import * as CONST from "../const.js";
 import { bindNodeDrag, markDragSyntheticClick } from "../edit.js";
 import type { MeasureManager } from "../manager.js";
-import { attachDelLifecycle, mountDelIcon } from "../mode/base.js";
+import { attachDelLifecycle, mountMeasureDelIcon } from "../mode/base.js";
 import type { DragBind } from "../type.js";
 import * as Util from "../util.js";
 import {
@@ -87,7 +87,7 @@ const attachDistanceUI = (mgr: MeasureManager, opts: AttachOpts): void => {
     const isFirst = idx === 0;
     const isLastWhenTwo = points.length === 2 && idx === 1;
     const title = isFirst || isLastWhenTwo ? mgr.T("del_all") : mgr.T("del_node");
-    const delMarker = mountDelIcon(
+    const delMarker = mountMeasureDelIcon(
       layers,
       node.getLatLng(),
       { title },
