@@ -2,6 +2,7 @@
 // LayerControl composes these via LayerController; other controls consume the
 // LayerAPI facade (map.foliplus.LayerAPI) rather than importing core directly.
 export {
+  ANNOTATION_PANE_PREFIX,
   CANVAS_PANE_PREFIX,
   CAP_TIER,
   COLOR_PANE_PREFIX,

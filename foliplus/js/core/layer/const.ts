@@ -24,8 +24,17 @@ const HIDDEN = "hidden";
 
 /** Auto-generated per-layer fallback pane (hyphenated, stamp-keyed).
  *  Named component panes share the same hyphen convention — see
- *  CANVAS_PANE_PREFIX and LayerControl's ANNOTATION_PANE_PREFIX. */
+ *  ANNOTATION_PANE_PREFIX, CANVAS_PANE_PREFIX, and COLOR_PANE_PREFIX. */
 const FALLBACK_PANE_PREFIX = "foliplus-pane-";
+
+/** Pane name prefix for a layer's annotation labels (LayerControl
+ *  AnnotationManager). One pane per labeled layer, so its labels sit at that
+ *  layer's place in the stack; LayerController.enforceOrder z-orders each
+ *  pane just above its layer. Also read by ExportControl's renderer, which
+ *  walks each layer's label pane right after its content so the exported
+ *  stack order matches the map's. Owned by core so both sides read one
+ *  definition and the pane-prefix family cannot drift. */
+const ANNOTATION_PANE_PREFIX = "foliplus-annotation-";
 
 /** Pane name prefix for `createCanvas` overlays (HeatmapControl).
  *  Hyphenated like `foliplus-annotation-*` — these are named, component-owned
@@ -141,6 +150,7 @@ const CONTENT_KIND = {
 } as const;
 
 export {
+  ANNOTATION_PANE_PREFIX,
   CACHE,
   CANVAS_PANE_PREFIX,
   CAP_TIER,
