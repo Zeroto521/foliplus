@@ -537,18 +537,10 @@ class MeasureManager {
 
   /** True unless collision detection was switched off (Python default, overridable
    *  from the layer style drawer at runtime). */
-  private labelCollide = true;
+  labelCollide = true;
   /** True unless the labels were switched off (Python default, overridable
    *  from the layer style drawer at runtime). */
-  private labelShow = true;
-
-  get labelsCollide(): boolean {
-    return this.labelCollide;
-  }
-
-  get labelsVisible(): boolean {
-    return this.labelShow;
-  }
+  labelShow = true;
 
   /** Runtime toggle for label visibility (the drawer's label switch). Hides
    *  every chip via the same `visibility` mechanism collision uses, so the two
@@ -628,7 +620,7 @@ class MeasureManager {
     placeLabels(
       this.collidableLabels,
       mapProjector(this.map),
-      this.labelsCollide,
+      this.labelCollide,
       Util.labelChipOf,
     );
   }

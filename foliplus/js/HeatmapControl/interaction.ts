@@ -4,7 +4,7 @@ import { ensureInteraction } from "#core/interaction.js";
 const registerSchemeBarEvents = (map: L.Map, ctrl: any): (() => void) => {
   const schemes = CONFIG.schemes ?? [];
   const setScheme = (name: string) => {
-    ctrl.mgr.currentScheme = name;
+    ctrl.mgr.scheme = name;
     if (ctrl.schemeSelectHidden) ctrl.schemeSelectHidden.value = name;
     ctrl.updateScheme();
   };
@@ -14,7 +14,7 @@ const registerSchemeBarEvents = (map: L.Map, ctrl: any): (() => void) => {
       key: "ArrowUp",
       element: ctrl.schemeBar,
       handler: () => {
-        const idx = schemes.indexOf(ctrl.mgr.currentScheme);
+        const idx = schemes.indexOf(ctrl.mgr.scheme);
         if (idx > 0) {
           setScheme(schemes[idx - 1]);
         }
@@ -24,7 +24,7 @@ const registerSchemeBarEvents = (map: L.Map, ctrl: any): (() => void) => {
       key: "ArrowDown",
       element: ctrl.schemeBar,
       handler: () => {
-        const idx = schemes.indexOf(ctrl.mgr.currentScheme);
+        const idx = schemes.indexOf(ctrl.mgr.scheme);
         if (idx < schemes.length - 1) {
           setScheme(schemes[idx + 1]);
         }

@@ -817,10 +817,10 @@ class TestHeatmapControlBrowser:
             assert vals["borderColor"] in ("#333", "#333333"), (
                 f"borderColor got {vals['borderColor']}"
             )
-            assert vals["currentLabelShow"] is True, "currentLabelShow should be True"
-            assert vals["currentMethod"] == "jenks"
-            assert vals["currentScheme"] == "Reds"
-            assert vals["currentAgg"] == "count"
+            assert vals["labelShow"] is True, "labelShow should be True"
+            assert vals["method"] == "jenks"
+            assert vals["scheme"] == "Reds"
+            assert vals["agg"] == "count"
             assert not errors, f"JS errors: {errors}"
 
     def test_layer_selection_triggers_render(self, browser, tmp_path):
@@ -1207,7 +1207,7 @@ class TestHeatmapControlBrowser:
             mgr = page.evaluate(_js("HeatmapControl/read_manager_state"))
             assert mgr["numClasses"] == 6, f"expected 6 got {mgr['numClasses']}"
             assert mgr["borderWeight"] == 1.5
-            assert mgr["currentMethod"] == "jenks"
+            assert mgr["method"] == "jenks"
             assert not errors, f"JS errors: {errors}"
 
     def test_render_all_flag_integration(self, browser, tmp_path):

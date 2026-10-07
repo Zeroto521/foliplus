@@ -5,9 +5,9 @@
     numClasses: m.numClasses,
     borderWeight: m.borderWeight,
     borderColor: m.borderColor,
-    currentLabelShow: m.currentLabelShow,
-    currentMethod: m.currentMethod,
-    currentScheme: m.currentScheme,
-    currentAgg: m.currentAgg,
+    labelShow: m.labelShow,
+    method: m.method,
+    scheme: m.scheme,
+    agg: m.agg,
   };
 };
