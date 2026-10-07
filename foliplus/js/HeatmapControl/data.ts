@@ -45,13 +45,13 @@ const readMarkerField = (
   return marker.feature?.properties?.[key];
 };
 
-/** Build a chroma color scale with `n` colors. Falls back to GRAY array
+/** Build a chroma color scale with `count` colors. Falls back to GRAY array
  *  when chroma is unavailable. */
-const getColorScale = (name: string, n: number): string[] => {
+const getColorScale = (name: string, count: number): string[] => {
   if (typeof chroma !== "undefined") {
-    return chroma.scale(name).mode("lab").colors(n) as string[];
+    return chroma.scale(name).mode("lab").colors(count) as string[];
   }
-  return Array(n).fill(CONST.GRAY);
+  return Array(count).fill(CONST.GRAY);
 };
 
 /** Aggregate selected points into H3 hex cells with sum/count/min/max. */
@@ -77,8 +77,8 @@ const aggregateData = (
       cell.count += 1;
       if (pt.value < cell.min) cell.min = pt.value;
       if (pt.value > cell.max) cell.max = pt.value;
-    } catch (e) {
-      log.warn("h3 cell conversion failed", pt.lat, pt.lng, e);
+    } catch (err) {
+      log.warn("h3 cell conversion failed", pt.lat, pt.lng, err);
     }
   });
 
@@ -105,9 +105,9 @@ const aggregateData = (
     return null;
   }
 
-  const nClassesCapped = Math.min(numClasses, allVals.length);
-  const breaks = computeBreaks(allVals, nClassesCapped, currentMethod);
-  const classColors = getColorScale(currentScheme, nClassesCapped);
+  const numClassesCapped = Math.min(numClasses, allVals.length);
+  const breaks = computeBreaks(allVals, numClassesCapped, currentMethod);
+  const classColors = getColorScale(currentScheme, numClassesCapped);
   const valueToClassIdx = (val: number): number => {
     if (breaks.length < 2) return 0;
     for (let i = 1; i < breaks.length; i++) if (val <= breaks[i]) return i - 1;
@@ -128,8 +128,8 @@ const buildFeatures = (
     const fillColor = classColors[classIdx];
     let centroid: [number, number] | null = null;
     try {
-      const c = h3.cellToLatLng(h3Idx);
-      centroid = [c[0], c[1]];
+      const pt = h3.cellToLatLng(h3Idx);
+      centroid = [pt[0], pt[1]];
     } catch {
       /* fallback */
     }
@@ -151,8 +151,8 @@ const buildFeatures = (
         geometry: { type: "Polygon", coordinates: [coords] },
         properties: { value: val, classIdx, fillColor, h3: h3Idx, centroid },
       });
-    } catch (e) {
-      log.warn("h3 boundary conversion failed", h3Idx, e);
+    } catch (err) {
+      log.warn("h3 boundary conversion failed", h3Idx, err);
     }
   }
   return features;
