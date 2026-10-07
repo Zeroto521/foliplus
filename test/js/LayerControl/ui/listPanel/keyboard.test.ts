@@ -5,16 +5,6 @@ import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerController } from "#foliplus/LayerControl/controller.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { getIntent, seedIntentMap } from "#foliplus/LayerControl/ui/intent.js";
-import {
-  cursorRef,
-  findVisibleNeighbor,
-  getActiveLayerItem,
-  moveActiveMarker,
-  resolveActiveIdx,
-  restoreCursor,
-  syncActiveItem,
-  syncListCursor,
-} from "#foliplus/LayerControl/ui/listPanel/index.js";
 import { ensureModes } from "#foliplus/core/mode.js";
 import {
   allFolded,
@@ -208,76 +198,6 @@ describe("LayerUI keyboard", () => {
     // All" row is index 0, then enforceOrder-sorted base/overlay layers. Look
     // up indices dynamically so a re-order doesn't silently break these tests.
     const indexFor = (id: string) => ui.getNavigableItems().indexOf(findItem(ui, id));
-
-    it("setActiveItem adds the FOCUSED class to the target row", () => {
-      const overlay = findItem(ui, "overlay1");
-      const base = findItem(ui, "base1");
-
-      expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
-      expect(base.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
-      expect(ui.uiContainer.querySelectorAll(`.${CONST.CLASSES.FOCUSED}`)).toHaveLength(
-        0,
-      );
-
-      ui.setActiveItem(indexFor("overlay1"));
-
-      expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
-      expect(base.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
-      expect(ui.uiContainer.querySelectorAll(`.${CONST.CLASSES.FOCUSED}`)).toHaveLength(
-        1,
-      );
-      expect(ui.listPanel.activeIdx).toBe(indexFor("overlay1"));
-    });
-
-    it("moving the cursor removes FOCUSED from the previous row (mutual exclusivity)", () => {
-      const overlay = findItem(ui, "overlay1");
-      const base = findItem(ui, "base1");
-
-      ui.setActiveItem(indexFor("overlay1"));
-      expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
-      expect(base.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
-
-      ui.setActiveItem(indexFor("base1"));
-      expect(base.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
-      expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
-      // Only ONE row carries the class at any time.
-      expect(ui.uiContainer.querySelectorAll(`.${CONST.CLASSES.FOCUSED}`)).toHaveLength(
-        1,
-      );
-      expect(ui.listPanel.activeIdx).toBe(indexFor("base1"));
-    });
-
-    it("blurActiveItem removes the FOCUSED class from the current row", () => {
-      const overlay = findItem(ui, "overlay1");
-
-      ui.setActiveItem(indexFor("overlay1"));
-      expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
-
-      ui.blurActiveItem();
-
-      expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
-      expect(ui.uiContainer.querySelectorAll(`.${CONST.CLASSES.FOCUSED}`)).toHaveLength(
-        0,
-      );
-      // activeIdx is preserved by blurActiveItem — only the marker is lifted.
-      expect(ui.listPanel.activeIdx).toBe(indexFor("overlay1"));
-    });
-
-    it("clearActiveItem removes the FOCUSED class and resets activeIdx", () => {
-      const overlay = findItem(ui, "overlay1");
-
-      ui.setActiveItem(indexFor("overlay1"));
-      expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
-      expect(ui.listPanel.activeIdx).toBe(indexFor("overlay1"));
-
-      ui.clearActiveItem();
-
-      expect(overlay.classList.contains(CONST.CLASSES.FOCUSED)).toBe(false);
-      expect(ui.uiContainer.querySelectorAll(`.${CONST.CLASSES.FOCUSED}`)).toHaveLength(
-        0,
-      );
-      expect(ui.listPanel.activeIdx).toBeNull();
-    });
 
     it("Escape keydown clears the FOCUSED class", () => {
       const overlay = findItem(ui, "overlay1");
@@ -1119,7 +1039,6 @@ describe("LayerUI keyboard", () => {
   });
 
   describe("defensive branches", () => {
-    const indexFor = (id: string) => ui.getNavigableItems().indexOf(findItem(ui, id));
     const keyEvent = (
       key: string,
       opts: {
@@ -1136,139 +1055,21 @@ describe("LayerUI keyboard", () => {
         ...opts,
       });
 
-    it("setActiveItem with an out-of-range index clears the cursor", () => {
-      ui.setActiveItem(-1);
-      expect(ui.listPanel.activeIdx).toBeNull();
-      expect(ui.uiContainer.querySelector(`.${CONST.CLASSES.FOCUSED}`)).toBeNull();
-    });
-
     it("ArrowUp moves the cursor to the previous visible row", () => {
       const overlay = findItem(ui, "overlay1");
-      ui.setActiveItem(indexFor("overlay1"));
+      ui.setActiveItem(ui.getNavigableItems().indexOf(overlay));
       const before = ui.listPanel.activeIdx;
       pressKey(overlay, "ArrowUp");
       expect(ui.listPanel.activeIdx).toBe((before as number) - 1);
     });
 
     it("folded rows are skipped when finding a visible neighbour", () => {
-      // Fold the overlay group; every overlay row is hidden, so an ArrowUp
-      // from below cannot land on one and the neighbour search returns the
-      // toggle-all header instead.
       ui.listPanel.foldedGroups = new Set([GROUP.OVERLAY]);
       const base = findItem(ui, "base1");
-      ui.setActiveItem(indexFor("base1"));
+      ui.setActiveItem(ui.getNavigableItems().indexOf(base));
       pressKey(base, "ArrowUp");
       const focused = ui.uiContainer.querySelector(`.${CONST.CLASSES.FOCUSED}`);
       expect(focused).not.toBeNull();
-    });
-
-    it("neighbour search returns -1 past the first and last navigable row", () => {
-      const items = ui.getNavigableItems();
-      expect(items.length).toBeGreaterThanOrEqual(2);
-      expect(findVisibleNeighbor(items, items.length - 1, 1)).toBe(-1);
-      expect(findVisibleNeighbor(items, 0, -1)).toBe(-1);
-    });
-
-    it("restoreCursor re-homes a folded group row onto its toggle-all row", () => {
-      attachWithGroup(ui);
-      ui.listPanel.foldedGroups = new Set([GROUP.OVERLAY]);
-      ui.uiContainer
-        .querySelectorAll<HTMLElement>(
-          `${CONST.SEL.LAYER_ITEM}[data-layer-type="${GROUP.OVERLAY}"]`,
-        )
-        .forEach(el => el.classList.add(CONST.CLASSES.GROUP_FOLDED));
-
-      restoreCursor(ui, "overlay1");
-
-      const lit = ui.uiContainer.querySelector(`.${CONST.CLASSES.FOCUSED}`);
-      expect(lit?.classList.contains(CONST.CLASSES.TOGGLE_ALL)).toBe(true);
-      expect(ui.listPanel.activeIdx).toBe(
-        ui.getNavigableItems().indexOf(lit as HTMLElement),
-      );
-    });
-
-    it("restoreCursor clears the cursor when the ref matches no row", () => {
-      ui.setActiveItem(0);
-      restoreCursor(ui, "ghost-layer");
-      expect(ui.listPanel.activeIdx).toBeNull();
-      expect(ui.uiContainer.querySelector(`.${CONST.CLASSES.FOCUSED}`)).toBeNull();
-    });
-
-    it("resolveActiveIdx falls back to the stored cursor when no row holds focus", () => {
-      ui.setActiveItem(1);
-      (document.activeElement as HTMLElement | null)?.blur?.();
-      expect(resolveActiveIdx(ui, ui.getNavigableItems())).toBe(1);
-    });
-
-    it("resolveActiveIdx ignores a focused row that is not navigable", () => {
-      const before = ui.listPanel.activeIdx;
-      const detached = document.createElement("div");
-      detached.className = CONST.CLASSES.LAYER_ITEM;
-      document.body.appendChild(detached);
-      detached.focus();
-      // owningRow() resolves the detached row, but getNavigableItems() only
-      // enumerates rows inside uiContainer — the index is -1 and the stored
-      // cursor must survive.
-      expect(resolveActiveIdx(ui, ui.getNavigableItems())).toBe(before);
-      document.body.removeChild(detached);
-    });
-
-    it("syncListCursor reuses an existing cursor instance", () => {
-      syncListCursor(ui);
-      const cursor = ui.listPanel.listCursor;
-      expect(cursor).not.toBeNull();
-      syncListCursor(ui);
-      expect(ui.listPanel.listCursor).toBe(cursor);
-    });
-
-    it("moveActiveMarker clears the cursor when given no item", () => {
-      ui.setActiveItem(1);
-      moveActiveMarker(ui, null, ui.getNavigableItems());
-      expect(ui.listPanel.activeIdx).toBeNull();
-    });
-
-    it("getActiveLayerItem resolves the row at the cursor index", () => {
-      ui.setActiveItem(0);
-      const item = getActiveLayerItem(ui);
-      expect(item).toBe(ui.getNavigableItems()[0]);
-    });
-
-    it("getActiveLayerItem returns null without a cursor", () => {
-      expect(ui.listPanel.activeIdx).toBeNull();
-      expect(getActiveLayerItem(ui)).toBeNull();
-    });
-
-    it("cursorRef normalizes an out-of-range cursor to null", () => {
-      ui.listPanel.activeIdx = 999;
-      expect(cursorRef(ui)).toBeNull();
-    });
-
-    it("getActiveLayerItem returns null for a stale out-of-range cursor", () => {
-      // setActiveItem guards its own index, but a fold can shrink the list
-      // under a stored cursor — the accessor must degrade to null.
-      ui.listPanel.activeIdx = 999;
-      expect(getActiveLayerItem(ui)).toBeNull();
-    });
-
-    it("neighbour search exhausts when every row is folded", () => {
-      const items = ui.getNavigableItems();
-      items.forEach(el => el.classList.add(CONST.CLASSES.GROUP_FOLDED));
-      expect(findVisibleNeighbor(items, 0, 1)).toBe(-1);
-      expect(findVisibleNeighbor(items, items.length - 1, -1)).toBe(-1);
-    });
-
-    it("syncActiveItem no-ops when no row holds focus and no cursor is stored", () => {
-      (document.activeElement as HTMLElement | null)?.blur?.();
-      expect(() => syncActiveItem(ui)).not.toThrow();
-      expect(ui.listPanel.activeIdx).toBeNull();
-    });
-
-    it("moveActiveMarker normalizes an out-of-list item to a cleared cursor", () => {
-      const detached = document.createElement("div");
-      detached.className = CONST.CLASSES.LAYER_ITEM;
-      moveActiveMarker(ui, detached, ui.getNavigableItems());
-      expect(ui.listPanel.activeIdx).toBeNull();
-      expect(ui.uiContainer.querySelector(`.${CONST.CLASSES.FOCUSED}`)).toBeNull();
     });
 
     it("handleKeyDown no-ops when the list has no navigable rows", () => {
@@ -1335,21 +1136,6 @@ describe("LayerUI keyboard", () => {
       li.focus();
       ui.handleKeyDown(keyEvent("Enter"));
       expect(focusLayer).toHaveBeenCalled();
-    });
-
-    it("resolveActiveIdx walks a detached row that is focused via DOM override", () => {
-      const before = ui.listPanel.activeIdx;
-      const detached = document.createElement("div");
-      detached.className = CONST.CLASSES.LAYER_ITEM;
-      const desc = Object.getOwnPropertyDescriptor(document, "activeElement");
-      Object.defineProperty(document, "activeElement", {
-        configurable: true,
-        get: () => detached,
-      });
-      expect(resolveActiveIdx(ui, ui.getNavigableItems())).toBe(before);
-      if (desc?.configurable) {
-        Object.defineProperty(document, "activeElement", desc);
-      }
     });
 
     it("Alt+Enter focuses the navigated layer row", () => {

@@ -10,8 +10,26 @@
 // Nothing in this file touches the map, the registry, or storage.
 import type { Projection } from "../type.js";
 import { INTENT, getIntent } from "./intent.js";
-import { inZoomRange } from "./listPanel/rowView.js";
 import type { LayerUI } from "./surface.js";
+
+/**
+ * Whether the stored range covers the map's current zoom.
+ *
+ *  The map's range can be narrower than the user's stored endpoints (a basemap
+ *  switch), so the endpoints are clamped here while the *stored* values stay
+ *  untouched — reversibility: switching the basemap back must restore the
+ *  original choice. If both endpoints clamp past each other the whole
+ *  range is outside the map and no zoom can land inside it.
+ */
+const inZoomRange = (ui: LayerUI, layerInfo: LayerInfo): boolean => {
+  const range = getIntent(ui, layerInfo.id, INTENT.ZOOM_RANGE);
+  if (!range) return true;
+  const min = Math.max(range[0], ui.c.map.getMinZoom());
+  const max = Math.min(range[1], ui.c.map.getMaxZoom());
+  if (min > max) return false;
+  const zoom = ui.c.map.getZoom();
+  return zoom >= min && zoom <= max;
+};
 
 /** The user's own visibility choice, or the author's declared default
  *  (captured once at first sight by `snapshotAuthorVisible`) when the user
@@ -75,4 +93,4 @@ const projectAll = (ui: LayerUI): Map<string, Projection> => {
   return result;
 };
 
-export { projectAll, projectLayer, intentVisibleOf };
+export { projectAll, projectLayer, intentVisibleOf, inZoomRange };
