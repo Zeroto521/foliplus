@@ -6,6 +6,7 @@
 // (mime type, file extension, codec class, pipeline routing) reads from one
 // `FORMAT` record — add a format by adding one row there.
 // ============================================================================
+import { ANNOTATION_PANE_PREFIX } from "#core/layer/index.js";
 import type { ExportFormat } from "./type.js";
 
 /** Per-format descriptor. */
@@ -78,11 +79,6 @@ const CLASSES = {
 };
 
 const SVG_NS = "http://www.w3.org/2000/svg";
-
-/** Leaflet pane-name prefix for LayerControl's per-layer annotation labels.
- *  The renderer walks each layer's label pane right after its content, so the
- *  exported stack order matches the map's (a layer above covers the labels). */
-const ANNOTATION_PANE_PREFIX = "foliplus-annotation-";
 
 /** DOM selectors used during render. */
 const SEL = {
