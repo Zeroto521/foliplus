@@ -41,9 +41,11 @@ export {
   moveActiveMarker,
   blurActiveItem,
   clearActiveItem,
-  handleOutsideMousedown,
   resolveActiveIdx,
   syncActiveItem,
+} from "./cursor.js";
+export {
+  handleOutsideMousedown,
   handleKeyDown,
   escapeClearCursor,
   focusLayerRow,
