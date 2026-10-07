@@ -55,10 +55,10 @@ describe("computeBreaks", () => {
     const breaks = computeBreaks([0, 10, 20, 30, 40], 4, "equal");
     expect(breaks[0]).toBe(0);
     expect(breaks[breaks.length - 1]).toBe(40);
-    expect(breaks.length).toBe(5); // nClasses + 1
+    expect(breaks.length).toBe(5); // numClasses + 1
   });
 
-  it("limits nClasses to min(nClasses, data length)", () => {
+  it("limits numClasses to min(numClasses, data length)", () => {
     expect(computeBreaks([1, 2], 2, "equal")).toEqual([1, 2]);
   });
 
