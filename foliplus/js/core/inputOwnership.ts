@@ -3,8 +3,8 @@
 // nor preventDefault?"
 //
 // The same question used to be answered five different ways across the code
-// base — a container-contains-focus check, two per-cursor `isFormInput`
-// copies, a class-list enumeration, an `instanceof` narrowing, and a selector
+// base — a container-contains-focus check, two per-cursor form-input checks,
+// a class-list enumeration, an `instanceof` narrowing, and a selector
 // whitelist. Every one of them enumerated the controls to *skip*, so adding a
 // single native control to a panel meant patching every copy and missing one
 // was a bug.
