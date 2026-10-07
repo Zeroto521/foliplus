@@ -317,6 +317,15 @@ interface LabelAwareLayer extends L.Layer {
   isLabel?: boolean;
 }
 
+/** Anything we may be asked to pin into a pane: a leaf, or a container that
+ *  enumerates its children. Shared by PaneManager's tree pin and
+ *  LayerSurface's `pinLateContent` delegate — the two walks must agree on what
+ *  a "container" is (`eachLayer`, not `isGroupLike`), so one definition per
+ *  vocabulary. */
+interface PinnableNode extends L.Layer {
+  eachLayer?: (fn: (layer: L.Layer) => void) => void;
+}
+
 /** What a surface's pane is for. `annotation` and `preview` have no producer
  *  yet — they arrive with the components that declare them (label pane,
  *  measure preview) — but they are spelled here so the union is the contract
@@ -842,6 +851,7 @@ export type {
   PaneHandle,
   PaneRole,
   PaneSpec,
+  PinnableNode,
   Projection,
   RegisterLayerOpts,
   SurfaceContentHandle,
