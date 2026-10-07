@@ -205,13 +205,11 @@ export default [
   },
 
   // ── `import/no-cycle` exemptions ──
-  // The value-edge graph still has three pre-existing cycles:
+  // The value-edge graph still has two pre-existing cycles:
   //   1. LayerControl/ui/listPanel — drag ↔ keyboard ↔ list triangle
   //      (list.ts imports keyboard.ts:cursorRef; keyboard.ts imports
   //      drag.ts:toggleFold; drag.ts imports list.ts:renderInitialList)
   //   2. LayerControl/ui/listPanel/rowView ↔ projection (bidirectional)
-  //   3. SearchControl/logic/history ↔ search (bidirectional; surfaced
-  //      when this rule was added — not in the original T308 debt list)
   // Each is safe at bundle time (the tree-shaker resolves the runtime
   // ordering) but is a genuine value cycle. They belong in their own
   // cleanup PRs — the whole point of this rule is to catch *new* cycles
@@ -225,8 +223,6 @@ export default [
       "foliplus/js/LayerControl/ui/listPanel/list.ts",
       "foliplus/js/LayerControl/ui/listPanel/rowView.ts",
       "foliplus/js/LayerControl/ui/projection.ts",
-      "foliplus/js/SearchControl/logic/history.ts",
-      "foliplus/js/SearchControl/logic/search.ts",
     ],
     rules: {
       "import/no-cycle": "off",
