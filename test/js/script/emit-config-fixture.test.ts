@@ -71,7 +71,7 @@ const schema = {
     // array, non-empty array, and a nested object. Names are synthetic — the
     // real schema dump never declares an empty array or object default.
     DemoControl: {
-      n_classes: field("number", 6),
+      num_classes: field("number", 6),
       label_show: field("bool", true),
       groups: field("array_string", []),
       schemes: field("array_string", ["Blues", "Reds"]),
@@ -183,7 +183,7 @@ describe("buildConfigFixture", () => {
     "renders every JSON value shape formatValue can receive",
     async () => {
       const text = await buildConfigFixture(schema);
-      expect(text).toMatch(/n_classes: 6,/);
+      expect(text).toMatch(/num_classes: 6,/);
       expect(text).toMatch(/label_show: true,/);
       expect(text).toMatch(/groups: \[\],/);
       expect(text).toMatch(/schemes: \["Blues", "Reds"\],/);
