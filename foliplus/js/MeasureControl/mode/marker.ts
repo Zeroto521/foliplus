@@ -14,7 +14,7 @@ import * as Util from "../util.js";
 import {
   MeasureMode,
   createDeferredDelete,
-  mountDelIcon,
+  mountMeasureDelIcon,
   wireFinalized,
 } from "./base.js";
 
@@ -142,10 +142,10 @@ class MarkerMode extends MeasureMode {
     at: L.LatLngExpression,
     onPopupOpen?: () => void,
   ): () => void {
-    // mountDelIcon fires before the delete thunk exists, so the click
+    // mountMeasureDelIcon fires before the delete thunk exists, so the click
     // callback is a deferred ref assigned after wireFinalized below.
     const { onDelete, setDelete } = createDeferredDelete();
-    const delMarker = mountDelIcon(
+    const delMarker = mountMeasureDelIcon(
       manager.layers,
       at,
       { title: manager.T("del_tooltip"), iconAnchor: DEL_ICON_MARKER_ANCHOR },

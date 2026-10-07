@@ -1,7 +1,4 @@
-import {
-  mountDelIcon as mountDelIconShared,
-  toggleDelIcon,
-} from "#core/leaflet/index.js";
+import { mountDelIcon, toggleDelIcon } from "#core/leaflet/index.js";
 import type { ControlEnv } from "#core/type.js";
 import type { Logger } from "#common/type.js";
 import * as CONST from "../const.js";
@@ -227,15 +224,15 @@ class PreviewMode extends MeasureMode {
 
 // ==================== Finalized Lifecycle Hook ====================
 /**
- * MeasureControl's delete-icon mount: the shared `mountDelIcon` pinned to the
- * node pane. Kept as a thin wrapper because its six call sites (distance,
- * polygon ×2, marker, circle ×2) pass the layers API first, while the shared
- * helper takes a mounter — that is the only difference between Measure and
- * Locate/Search.
+ * MeasureControl's delete-icon mount (`mountMeasureDelIcon`): the shared
+ * `mountDelIcon` pinned to the node pane. Kept as a thin wrapper because its
+ * six call sites (distance, polygon ×2, marker, circle ×2) pass the layers API
+ * first, while the shared helper takes a mounter — that is the only difference
+ * between Measure and Locate/Search.
  * `toggleDelIcon` and `layers.removeLayer` stay generic — callers use them
  * directly when toggling visibility or tearing down.
  */
-const mountDelIcon = (
+const mountMeasureDelIcon = (
   layers: CreateLayersAPI,
   latlng: L.LatLngExpression,
   opts: { title?: string; iconAnchor?: [number, number] },
@@ -244,10 +241,10 @@ const mountDelIcon = (
    *  the mount should own the ✕ click. */
   onDelete?: () => void,
 ): L.Marker =>
-  mountDelIconShared(latlng, opts, m => layers.addLayer(m, CONST.PANES.NODE), onDelete);
+  mountDelIcon(latlng, opts, m => layers.addLayer(m, CONST.PANES.NODE), onDelete);
 
 /**
- * Deferred delete callback for `mountDelIcon`'s `onDelete` slot. The shared
+ * Deferred delete callback for `mountMeasureDelIcon`'s `onDelete` slot. The shared
  * mount binds the click handler at mount time, but the real delete thunk is
  * only available after `attachDelLifecycle` / `wireFinalized` runs. Capture
  * `onDelete` at mount, assign the real thunk later via `setDelete`.
@@ -350,7 +347,7 @@ const attachDelLifecycle = (
 export {
   attachDelLifecycle,
   createDeferredDelete,
-  mountDelIcon,
+  mountMeasureDelIcon,
   wireFinalized,
   MeasureMode,
   PreviewMode,
