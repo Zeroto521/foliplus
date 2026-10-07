@@ -88,6 +88,67 @@ export default [
       // cleanup PRs, not here.
       "import/no-cycle": ["error", { maxDepth: 10 }],
 
+      // Layered dependency direction — the runtime tree is a strict DAG:
+      //   common/  (bottom: DOM/storage/format utilities)
+      //     ↑
+      //   core/    (domain: layer, geocode, event, leaflet adapter, mode)
+      //     ↑
+      //   {Component}Control/   (LayerControl, SearchControl, MeasureControl, …)
+      //
+      // `#foliplus/config-schema.js` and `#foliplus/BaseControl.js` are
+      // top-level shared modules at the same layer as common/ and core/
+      // (imported by both); they are intentionally NOT in these targets —
+      // only cross-layer upward edges are forbidden. Two zones, no
+      // pre-existing violations in the tree (verified: common→core 0,
+      // core→component 0).
+      //
+      // Semantic note (the names invert from intuition): `target` matches
+      // against the *importing file* (the source of the edge), `from`
+      // matches against the *imported path* (the destination). So this
+      // reads as "files matching target are forbidden from importing
+      // anything matching from".
+      "import/no-restricted-paths": [
+        "error",
+        {
+          zones: [
+            {
+              // common/ is the bottom layer — never imports upward.
+              target: ["./foliplus/js/common/**"],
+              from: [
+                "./foliplus/js/core/**",
+                "./foliplus/js/LayerControl/**",
+                "./foliplus/js/SearchControl/**",
+                "./foliplus/js/MeasureControl/**",
+                "./foliplus/js/LocateControl/**",
+                "./foliplus/js/ExportControl/**",
+                "./foliplus/js/FullscreenControl/**",
+                "./foliplus/js/HeatmapControl/**",
+                "./foliplus/js/ScaleControl/**",
+              ],
+              message:
+                "common/ is the bottom layer: no upward deps to core/ or component dirs.",
+            },
+            {
+              // core/ may reach common/ and the top-level shared modules,
+              // but never reaches down into a component's implementation.
+              target: ["./foliplus/js/core/**"],
+              from: [
+                "./foliplus/js/LayerControl/**",
+                "./foliplus/js/SearchControl/**",
+                "./foliplus/js/MeasureControl/**",
+                "./foliplus/js/LocateControl/**",
+                "./foliplus/js/ExportControl/**",
+                "./foliplus/js/FullscreenControl/**",
+                "./foliplus/js/HeatmapControl/**",
+                "./foliplus/js/ScaleControl/**",
+              ],
+              message:
+                "core/ cannot depend on component implementations (LayerControl, SearchControl, …).",
+            },
+          ],
+        },
+      ],
+
       // One import declaration per module — the project's import
       // convention. `import type { A }` + `import { B }` from the same
       // module must merge into `import { B, type A }` (inline type).
