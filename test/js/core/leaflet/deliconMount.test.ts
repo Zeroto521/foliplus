@@ -58,7 +58,7 @@ describe("mountDelIcon", () => {
 
   it("binds no click handler when onDelete is omitted (strict bare-mount equivalence)", () => {
     // MeasureControl circle wires the ✕ delete later in attachCircleUI, so the
-    // mount step must stay equivalent to a bare makeDelIcon + addLayer: no
+    // mount step must stay equivalent to a bare buildDelIcon + addLayer: no
     // attachDelClick, hence no extra stopEvent and no no-op handler.
     const { on } = makeDelIconWithEl();
     const mount = vi.fn();

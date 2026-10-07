@@ -104,15 +104,15 @@ const toggleFullscreen = (
 };
 
 // ══════════════════════════════════════════════════════════════════════════════
-// makeFullscreenChangeHandler  —  the fullscreenchange handler the control
+// buildFullscreenChangeHandler  —  the fullscreenchange handler the control
 // binds on document through BaseControl.on, so removal rides the mounting's
 // signal (no manual teardown, and no map.on('unload') needed: Leaflet already
 // routes map.remove() → unload → control.remove() → onRemove → abort).
 // ══════════════════════════════════════════════════════════════════════════════
-const makeFullscreenChangeHandler =
+const buildFullscreenChangeHandler =
   (map: L.Map, fsBtn: HTMLElement, container: HTMLElement, env: Env) => () => {
     map.isFullscreen = Boolean(getFullscreenEl());
     updateUI(map, fsBtn, container, env);
   };
 
-export { makeFullscreenChangeHandler, toggleFullscreen, updateUI };
+export { buildFullscreenChangeHandler, toggleFullscreen, updateUI };

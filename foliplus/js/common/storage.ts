@@ -146,7 +146,7 @@ type Persisted = {
 };
 
 /**
- * Options for {@link makePersisted}.
+ * Options for {@link createPersisted}.
  * @property save - Write the current state. Called by {@link Persisted.schedule}
  *  and {@link Persisted.flush}. Return `true` on success, `false` when the
  *  storage backend rejected the write (quota exhausted, private-mode restrictions).
@@ -186,7 +186,7 @@ type PersistedOpts = {
  * window batches a high-frequency source behind a timer that a teardown must
  * flush or the last change is lost.
  */
-const makePersisted = ({
+const createPersisted = ({
   save,
   debounceMs = 0,
   onFlushError,
@@ -210,7 +210,7 @@ const makePersisted = ({
 export {
   loadRecord,
   loadVersioned,
-  makePersisted,
+  createPersisted,
   removeRecord,
   saveRecord,
   saveVersioned,

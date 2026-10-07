@@ -27,7 +27,7 @@ class DistanceMode extends PreviewMode {
     const nodeMarkers: L.CircleMarker[] = [];
     points.forEach((pt: L.LatLng, i: number) => {
       const node = mgr.layers.addLayer(
-        Util.makeNode(pt, i === 0 ? CONST.CLASSES.NODE_SOLID : undefined),
+        Util.buildNode(pt, i === 0 ? CONST.CLASSES.NODE_SOLID : undefined),
         CONST.PANES.NODE,
       ) as L.CircleMarker;
       node.bringToFront();
@@ -45,7 +45,7 @@ class DistanceMode extends PreviewMode {
         const mid = Util.midpoint(prev, cur);
         const label = mgr.layers.addLayer(
           L.marker([mid.lat, mid.lng], {
-            icon: Util.makeMidLabelDivIcon(
+            icon: Util.buildMidLabelDivIcon(
               Util.formatSegmentLabel(mgr, prev, cur, accTotal),
             ),
           }),
@@ -144,7 +144,7 @@ class DistanceMode extends PreviewMode {
         const mid = Util.midpoint(prevPt, lastPt);
         segLabels[segLabels.length - 1].setLatLng([mid.lat, mid.lng]);
         segLabels[segLabels.length - 1].setIcon(
-          Util.makeMidLabelDivIcon(
+          Util.buildMidLabelDivIcon(
             Util.formatSegmentLabel(this.mgr, prevPt, lastPt, total),
           ),
         );
@@ -205,7 +205,7 @@ class DistanceMode extends PreviewMode {
         previewDistLabel,
         mid,
         labelText,
-        Util.makeMidLabelDivIcon,
+        Util.buildMidLabelDivIcon,
       );
     };
 
@@ -227,7 +227,7 @@ class DistanceMode extends PreviewMode {
       poly.addLatLng(event.latlng);
 
       const marker = this.layers.addLayer(
-        Util.makeNode(
+        Util.buildNode(
           event.latlng,
           points.length === 1 ? CONST.CLASSES.NODE_SOLID : undefined,
         ),
@@ -255,7 +255,7 @@ class DistanceMode extends PreviewMode {
             points[points.length - 2],
           );
           prevLabel.setIcon(
-            Util.makeMidLabelDivIcon(
+            Util.buildMidLabelDivIcon(
               Util.formatSegmentLabel(
                 this.mgr,
                 points[points.length - 3],
@@ -268,7 +268,7 @@ class DistanceMode extends PreviewMode {
 
         const label = this.layers.addLayer(
           L.marker([mid.lat, mid.lng], {
-            icon: Util.makeMidLabelDivIcon(
+            icon: Util.buildMidLabelDivIcon(
               Util.formatSegmentLabel(
                 this.mgr,
                 points[points.length - 2],

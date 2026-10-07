@@ -80,7 +80,7 @@ const buildPopup = (
 };
 
 /** Create a divIcon for a label marker. */
-const makeLabelDivIcon = (
+const buildLabelDivIcon = (
   html: string,
   iconAnchor?: [number, number],
   className?: string,
@@ -96,8 +96,8 @@ const makeLabelDivIcon = (
 };
 
 /** Create a divIcon for a segment label centered on the line midpoint. */
-const makeMidLabelDivIcon = (html: string): L.DivIcon => {
-  return makeLabelDivIcon(
+const buildMidLabelDivIcon = (html: string): L.DivIcon => {
+  return buildLabelDivIcon(
     html,
     CONST.LABEL.MID_ANCHOR as [number, number],
     CONST.LABEL.CLASS_MID,
@@ -128,7 +128,7 @@ const resetNodeRadiusCache = (): void => {
 };
 
 /** Create a measure node circle marker. */
-const makeNode = (
+const buildNode = (
   latlng: L.LatLng,
   className: string = CONST.CLASSES.NODE_HOLLOW,
 ): L.CircleMarker => {
@@ -137,7 +137,7 @@ const makeNode = (
 
 /** A non-interactive node used for transient previews (center, centroid and
  *  the live cursor dot while a shape is being drawn). */
-const makePreviewNode = (
+const buildPreviewNode = (
   latlng: L.LatLng,
   className: string = CONST.CLASSES.NODE_HOLLOW,
 ): L.CircleMarker => {
@@ -272,8 +272,8 @@ export {
   setLabelText,
   getEventTarget,
   geocodeAddress,
-  makeLabelDivIcon,
-  makeMidLabelDivIcon,
-  makeNode,
-  makePreviewNode,
+  buildLabelDivIcon,
+  buildMidLabelDivIcon,
+  buildNode,
+  buildPreviewNode,
 };

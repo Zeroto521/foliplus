@@ -33,7 +33,7 @@ class PolygonMode extends PreviewMode {
     const nodeMarkers: L.CircleMarker[] = [];
     points.forEach((pt: L.LatLng) => {
       const node = mgr.layers.addLayer(
-        Util.makeNode(pt),
+        Util.buildNode(pt),
         CONST.PANES.NODE,
       ) as L.CircleMarker;
       node.bringToFront();
@@ -49,7 +49,7 @@ class PolygonMode extends PreviewMode {
         const mid = Util.midpoint(prev, cur);
         const label = mgr.layers.addLayer(
           L.marker([mid.lat, mid.lng], {
-            icon: Util.makeMidLabelDivIcon(Util.formatDistance(seg.distance)),
+            icon: Util.buildMidLabelDivIcon(Util.formatDistance(seg.distance)),
           }),
           CONST.PANES.LABEL,
         ) as L.Marker;
@@ -178,7 +178,7 @@ class PolygonMode extends PreviewMode {
       const closeMid = Util.midpoint(lastPt, firstPt);
       const closeLabel = this.layers.addLayer(
         L.marker([closeMid.lat, closeMid.lng], {
-          icon: Util.makeMidLabelDivIcon(Util.formatDistance(lastSeg.distance)),
+          icon: Util.buildMidLabelDivIcon(Util.formatDistance(lastSeg.distance)),
         }),
         CONST.PANES.LABEL,
       );
@@ -187,7 +187,7 @@ class PolygonMode extends PreviewMode {
       // Format last open segment label (if it exists)
       if (segLabels.length > 1) {
         segLabels[segLabels.length - 2].setIcon(
-          Util.makeMidLabelDivIcon(
+          Util.buildMidLabelDivIcon(
             Util.formatDistance(segments[segments.length - 2].distance),
           ),
         );
@@ -258,7 +258,7 @@ class PolygonMode extends PreviewMode {
         previewDistLabel,
         mid,
         labelText,
-        Util.makeMidLabelDivIcon,
+        Util.buildMidLabelDivIcon,
       );
     };
 
@@ -284,7 +284,7 @@ class PolygonMode extends PreviewMode {
       poly.setLatLngs([points[points.length - 1], event.latlng]);
 
       const marker = this.layers.addLayer(
-        Util.makeNode(event.latlng),
+        Util.buildNode(event.latlng),
         CONST.PANES.NODE,
       ) as L.CircleMarker;
       marker.bringToFront();
@@ -316,13 +316,13 @@ class PolygonMode extends PreviewMode {
             points[points.length - 3],
             points[points.length - 2],
           );
-          prevLabel.setIcon(Util.makeMidLabelDivIcon(Util.formatDistance(prevSeg)));
+          prevLabel.setIcon(Util.buildMidLabelDivIcon(Util.formatDistance(prevSeg)));
         }
 
         const mid = Util.midpoint(points[points.length - 2], points[points.length - 1]);
         const label = this.layers.addLayer(
           L.marker([mid.lat, mid.lng], {
-            icon: Util.makeMidLabelDivIcon(Util.formatDistance(seg)),
+            icon: Util.buildMidLabelDivIcon(Util.formatDistance(seg)),
           }),
           CONST.PANES.LABEL,
         ) as L.Marker;

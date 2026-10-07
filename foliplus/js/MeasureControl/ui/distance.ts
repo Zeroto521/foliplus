@@ -50,7 +50,7 @@ const attachDistanceUI = (mgr: MeasureManager, opts: AttachOpts): void => {
       const mid = Util.midpoint(points[i], points[i + 1]);
       label.setLatLng([mid.lat, mid.lng]);
       label.setIcon(
-        Util.makeMidLabelDivIcon(
+        Util.buildMidLabelDivIcon(
           Util.formatSegmentLabel(mgr, points[i], points[i + 1], cumulative),
         ),
       );

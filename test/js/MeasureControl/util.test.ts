@@ -104,8 +104,8 @@ describe("formatArea", () => {
 });
 
 describe("label div icons", () => {
-  it("makeLabelDivIcon builds a divIcon with label html", () => {
-    Util.makeLabelDivIcon("hi", [0, -10], "extra");
+  it("buildLabelDivIcon builds a divIcon with label html", () => {
+    Util.buildLabelDivIcon("hi", [0, -10], "extra");
     expect(window.L.divIcon).toHaveBeenCalled();
     const opts = window.L.divIcon.mock.calls[0][0];
     expect(opts.html).toContain("foliplus-measure-label");
@@ -113,22 +113,22 @@ describe("label div icons", () => {
     expect(opts.html).toContain("hi");
   });
 
-  it("makeMidLabelDivIcon uses the mid anchor and class", () => {
-    Util.makeMidLabelDivIcon("mid");
+  it("buildMidLabelDivIcon uses the mid anchor and class", () => {
+    Util.buildMidLabelDivIcon("mid");
     const opts = window.L.divIcon.mock.calls[0][0];
     expect(opts.html).toContain("foliplus-measure-label-mid");
   });
 
-  it("makeLabelDivIcon falls back to the default anchor when none is given", () => {
-    Util.makeLabelDivIcon("hi");
+  it("buildLabelDivIcon falls back to the default anchor when none is given", () => {
+    Util.buildLabelDivIcon("hi");
     const opts = window.L.divIcon.mock.calls[0][0];
     expect(opts.iconAnchor).toEqual([0, -10]);
   });
 });
 
-describe("makeNode", () => {
+describe("buildNode", () => {
   it("creates a circle marker with default class", () => {
-    Util.makeNode({ lat: 1, lng: 2 });
+    Util.buildNode({ lat: 1, lng: 2 });
     expect(window.L.circleMarker).toHaveBeenCalledWith(
       { lat: 1, lng: 2 },
       { radius: 5, className: CONST.CLASSES.NODE_HOLLOW },
@@ -141,7 +141,7 @@ describe("makeNode", () => {
   });
 
   it("accepts a custom className", () => {
-    Util.makeNode({ lat: 1, lng: 2 }, "custom");
+    Util.buildNode({ lat: 1, lng: 2 }, "custom");
     expect(window.L.circleMarker.mock.calls[0][1].className).toBe("custom");
   });
 });

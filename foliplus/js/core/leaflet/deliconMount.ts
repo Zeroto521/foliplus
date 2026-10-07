@@ -1,9 +1,9 @@
 // Mounting a delete icon — create it, add it to a map or layer tree, and bind
 // its click handler. Kept outside delicon.ts: the MeasureControl ui tests mock
-// that module and spy `makeDelIcon` / `attachDelClick` to enumerate the ✕ they
+// that module and spy `buildDelIcon` / `attachDelClick` to enumerate the ✕ they
 // create. A same-module caller resolves those through its local bindings, so
 // the spies would see nothing — the composition must cross the module boundary.
-import { attachDelClick, bindDelIconToPopup, makeDelIcon } from "./delicon.js";
+import { attachDelClick, bindDelIconToPopup, buildDelIcon } from "./delicon.js";
 
 /**
  * Create, mount, and click-bind a delete icon in one call — the shared
@@ -23,11 +23,11 @@ const mountDelIcon = (
   mount: (delIcon: L.Marker) => void,
   /** When omitted the icon is created and mounted without a click handler —
    *  callers that wire delete later (MeasureControl circle) stay strictly
-   *  equivalent to a bare makeDelIcon + addLayer. */
+   *  equivalent to a bare buildDelIcon + addLayer. */
   onDelete?: () => void,
   popupMarker?: L.Marker | null,
 ): L.Marker => {
-  const delIcon = makeDelIcon(latlng, opts);
+  const delIcon = buildDelIcon(latlng, opts);
   mount(delIcon);
   if (onDelete) attachDelClick(delIcon, onDelete);
   if (popupMarker) bindDelIconToPopup(popupMarker, delIcon);

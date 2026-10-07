@@ -175,7 +175,7 @@ class PreviewMode extends MeasureMode {
    */
   moveCursorNode(latlng: L.LatLng): L.CircleMarker {
     if (this.cursorNode) this.removePreview(this.cursorNode);
-    this.cursorNode = this.addPreview(Util.makePreviewNode(latlng), CONST.PANES.NODE);
+    this.cursorNode = this.addPreview(Util.buildPreviewNode(latlng), CONST.PANES.NODE);
     return this.cursorNode;
   }
 

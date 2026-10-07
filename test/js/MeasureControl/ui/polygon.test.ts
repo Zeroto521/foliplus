@@ -5,38 +5,38 @@ import { installStubs, makeMgr } from "./fixture.js";
 
 const {
   attachDelClick,
-  makeDelIcon,
+  buildDelIcon,
   mountDelIcon,
   toggleDelIcon,
-  realMakeDelIcon,
+  realBuildDelIcon,
   dragHandlers,
 } = vi.hoisted(() => ({
   attachDelClick: vi.fn((marker: any, cb: () => void) => {
     marker._delClick = cb;
   }),
-  makeDelIcon: vi.fn((...args: any[]) => realMakeDelIcon.value(...args)),
+  buildDelIcon: vi.fn((...args: any[]) => realBuildDelIcon.value(...args)),
   // mountDelIcon is mocked as a whole rather than delegating to the real
   // helper: the helper resolves attachDelClick through ./delicon.js, which
   // this mock does not reach, so no marker would get _delClick.
   mountDelIcon: vi.fn(
     (latlng: any, opts: any, mount: (m: any) => void, onDelete?: () => void) => {
-      const marker = makeDelIcon(latlng, opts);
+      const marker = buildDelIcon(latlng, opts);
       mount(marker);
       if (onDelete) attachDelClick(marker, onDelete);
       return marker;
     },
   ),
   toggleDelIcon: vi.fn(),
-  realMakeDelIcon: { value: null as any },
+  realBuildDelIcon: { value: null as any },
   dragHandlers: [] as Array<Record<string, (...args: any[]) => any>>,
 }));
 
 vi.mock("#core/leaflet/index.js", async importOriginal => {
   const actual = await importOriginal<typeof import("#core/leaflet/index.js")>();
-  realMakeDelIcon.value = actual.makeDelIcon;
+  realBuildDelIcon.value = actual.buildDelIcon;
   return {
     ...actual,
-    makeDelIcon,
+    buildDelIcon,
     attachDelClick,
     toggleDelIcon,
     hideDelIcons: vi.fn(),
@@ -137,7 +137,7 @@ describe("attachPolygonUI", () => {
     const labelOpts = (window.L.marker as any).mock.calls[0][1];
     expect(labelOpts.zIndexOffset).toBe(CONST.LABEL.CENTROID_Z_OFFSET);
     expect(labelOpts.interactive).toBe(false);
-    expect(makeDelIcon).toHaveBeenCalled();
+    expect(buildDelIcon).toHaveBeenCalled();
     expect(addLayerCalls[2].pane).toBe(CONST.PANES.NODE);
   });
 
@@ -189,8 +189,8 @@ describe("attachPolygonUI", () => {
       } as any,
     );
 
-    const centroidDel = (makeDelIcon as any).mock.results[0].value;
-    const node0Del = (makeDelIcon as any).mock.results[1].value;
+    const centroidDel = (buildDelIcon as any).mock.results[0].value;
+    const node0Del = (buildDelIcon as any).mock.results[1].value;
     const centroidDot = (window.L.circleMarker as any).mock.results[0].value;
     const centroidEl = { style: {} };
     centroidDot.getElement = vi.fn(() => centroidEl);
@@ -243,7 +243,7 @@ describe("attachPolygonUI", () => {
       } as any,
     );
 
-    const nodeDel = (makeDelIcon as any).mock.results;
+    const nodeDel = (buildDelIcon as any).mock.results;
     const deletedNode = nodeDel[2].value as any;
 
     const survivor = nodeDel[3].value as any;
@@ -396,8 +396,8 @@ describe("attachPolygonUI — overlay open/close", () => {
     );
 
     // Delete a node to trigger the 4 → 3 rebind.
-    const deletedNode = (makeDelIcon as any).mock.results[2].value as any;
-    const survivor = (makeDelIcon as any).mock.results[3].value as any;
+    const deletedNode = (buildDelIcon as any).mock.results[2].value as any;
+    const survivor = (buildDelIcon as any).mock.results[3].value as any;
 
     deletedNode._delClick();
 
@@ -614,8 +614,8 @@ describe("attachPolygonUI — edge cases", () => {
     const onDelete = opts.onDelete as any;
     const onUpdate = opts.onUpdate as any;
 
-    // makeDelIcon order: [0]=centroid, [1..n]=per-node. So mock.results[2] is node 1's del.
-    (makeDelIcon as any).mock.results[2].value._delClick();
+    // buildDelIcon order: [0]=centroid, [1..n]=per-node. So mock.results[2] is node 1's del.
+    (buildDelIcon as any).mock.results[2].value._delClick();
 
     expect(onDelete).not.toHaveBeenCalled();
     expect(onUpdate).not.toHaveBeenCalled();
@@ -637,7 +637,7 @@ describe("attachPolygonUI — edge cases", () => {
 
     // Splice 1 → 4 remaining; `points.length === 3` is false (L187 false arm),
     // onUpdate is undefined (L204 false arm).
-    (makeDelIcon as any).mock.results[2].value._delClick();
+    (buildDelIcon as any).mock.results[2].value._delClick();
 
     expect(opts.points).toHaveLength(4);
     expect(opts.onUpdate).toBeUndefined();

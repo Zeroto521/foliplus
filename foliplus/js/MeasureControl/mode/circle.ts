@@ -49,15 +49,15 @@ class CircleMode extends PreviewMode {
       }),
     ) as L.Polyline;
     const radiusNode = mgr.layers.addLayer(
-      Util.makeNode(targetLatLng),
+      Util.buildNode(targetLatLng),
       CONST.PANES.NODE,
     ) as L.CircleMarker;
     const centerFinal = mgr.layers.addLayer(
-      Util.makeNode(centerLatLng, CONST.CLASSES.NODE_SOLID),
+      Util.buildNode(centerLatLng, CONST.CLASSES.NODE_SOLID),
       CONST.PANES.NODE,
     ) as L.CircleMarker;
     // Pure create + node-pane mount (no click handler) — strictly equivalent
-    // to the old makeDelIcon + addLayer. The ✕ delete click is wired in
+    // to the old buildDelIcon + addLayer. The ✕ delete click is wired in
     // attachCircleUI, which owns the deleteMeasurement from attachDelLifecycle.
     const delMarker = mountMeasureDelIcon(mgr.layers, centerLatLng, {
       title: mgr.T("del_tooltip"),
@@ -66,7 +66,7 @@ class CircleMode extends PreviewMode {
     const mid = Util.midpoint(centerLatLng, targetLatLng);
     const radiusLabel = mgr.layers.addLayer(
       L.marker([mid.lat, mid.lng], {
-        icon: Util.makeLabelDivIcon(
+        icon: Util.buildLabelDivIcon(
           Util.formatDistance(r),
           CONST.LABEL.RADIUS_ANCHOR as [number, number],
           CONST.LABEL.CLASS_RADIUS,
@@ -139,7 +139,7 @@ class CircleMode extends PreviewMode {
       if (phase === 0) {
         center = event.latlng;
         previews.center = this.addPreview(
-          Util.makePreviewNode(center, CONST.CLASSES.NODE_SOLID),
+          Util.buildPreviewNode(center, CONST.CLASSES.NODE_SOLID),
           CONST.PANES.NODE,
         );
         phase = 1;
@@ -200,7 +200,7 @@ class CircleMode extends PreviewMode {
         mid,
         Util.formatDistance(r),
         t =>
-          Util.makeLabelDivIcon(
+          Util.buildLabelDivIcon(
             t,
             CONST.LABEL.RADIUS_ANCHOR as [number, number],
             CONST.LABEL.CLASS_RADIUS,
@@ -252,12 +252,12 @@ class CircleMode extends PreviewMode {
         }),
       );
       const radiusNode = this.layers.addLayer(
-        Util.makeNode(finalTargetLatLng),
+        Util.buildNode(finalTargetLatLng),
         CONST.PANES.NODE,
       );
 
       const centerFinal = this.layers.addLayer(
-        Util.makeNode(centerLatLng, CONST.CLASSES.NODE_SOLID),
+        Util.buildNode(centerLatLng, CONST.CLASSES.NODE_SOLID),
         CONST.PANES.NODE,
       );
       // See restore(): pure create + mount; click wired in attachCircleUI.
@@ -268,7 +268,7 @@ class CircleMode extends PreviewMode {
       const mid = Util.midpoint(centerLatLng, finalTargetLatLng);
       const radiusLabel = this.layers.addLayer(
         L.marker([mid.lat, mid.lng], {
-          icon: Util.makeLabelDivIcon(
+          icon: Util.buildLabelDivIcon(
             Util.formatDistance(r),
             CONST.LABEL.RADIUS_ANCHOR as [number, number],
             CONST.LABEL.CLASS_RADIUS,
