@@ -153,9 +153,9 @@ const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
   // is a dedicated keyboard entry point (in addition to the overflow menu) so
   // power users can focus without leaving the keyboard.
   if (event.altKey && event.key === "Enter" && ui.listPanel.activeIdx !== null) {
-    const item = items[ui.listPanel.activeIdx];
-    if (item) {
-      const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
+    const focusItem = items[ui.listPanel.activeIdx];
+    if (focusItem) {
+      const layerId = focusItem.getAttribute(CONST.DATA.LAYER_ID) ?? "";
       if (layerId) {
         event.preventDefault();
         ui.focusLayer(layerId);
@@ -186,10 +186,10 @@ const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
       if (document.activeElement?.classList.contains(CONST.CLASSES.MORE_BTN)) {
         event.preventDefault();
         event.stopPropagation();
-        const item = (document.activeElement as HTMLElement).closest(
+        const menuItem = (document.activeElement as HTMLElement).closest(
           CONST.SEL.LAYER_ITEM,
         ) as HTMLElement | null;
-        if (item) ui.openMoreMenu(item);
+        if (menuItem) ui.openMoreMenu(menuItem);
         break;
       }
       // The chevron button is focused — that key folds the group, not

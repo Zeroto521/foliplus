@@ -207,21 +207,21 @@ class PolygonMode extends PreviewMode {
           this.mgr.store.remove(polyId);
         },
         onUpdate: () => {
-          const { segments } = Util.recalculateSegments(points);
+          const { segments: updatedSegs } = Util.recalculateSegments(points);
           // Add closing segment
           const n = points.length;
-          segments.push({
+          updatedSegs.push({
             lng: points[0].lng,
             lat: points[0].lat,
             distance: Util.distance(points[n - 1], points[0]),
             bearing: Util.bearing(points[n - 1], points[0]),
           });
-          const centroid = Util.centroid(points);
+          const newCentroid = Util.centroid(points);
           this.mgr.store.update(polyId, {
             points: points.map(p => ({ lng: p.lng, lat: p.lat })),
-            segments,
+            segments: updatedSegs,
             area: Util.area(points),
-            center: { lng: centroid.lng, lat: centroid.lat },
+            center: { lng: newCentroid.lng, lat: newCentroid.lat },
           });
         },
       });
@@ -290,13 +290,13 @@ class PolygonMode extends PreviewMode {
       marker.bringToFront();
       nodeMarkers.push(marker);
 
-      marker.on("click", (event: L.LeafletMouseEvent) => {
+      marker.on("click", (clickEvent: L.LeafletMouseEvent) => {
         // Clicking an existing node must not propagate to the map click
         // handler, which would push a duplicate point and create an
         // overlapping label (e.g. re-clicking the 2nd point of a 2-point
         // Polygon creates a duplicate + "0 m" label that overlaps with
         // the closing segment label).
-        L.DomEvent.stopPropagation(event);
+        L.DomEvent.stopPropagation(clickEvent);
         if (points.length < 3) return;
         // Click first or last point → finish
         if (

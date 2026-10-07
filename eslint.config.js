@@ -265,6 +265,17 @@ export default [
       // Heavy-mock test suite and Leaflet interop make `any` idiomatic here.
       // tsconfig's noImplicitAny still catches implicit ones.
       "@typescript-eslint/no-explicit-any": "off",
+
+      // Variable shadowing is a common source of subtle bugs. `allow: ["_","e"]`
+      // permits the project's catch-parameter idiom (`catch (e)`) and the
+      // underscore-prefix convention for deliberate placeholders. `ignoreTypeValueShadow`
+      // allows a type declaration to shadow a value of the same name (the TS
+      // pattern `class Foo {}` + `type Foo = …` is legal and used for
+      // constructor-vs-instance type splitting).
+      "@typescript-eslint/no-shadow": [
+        "error",
+        { allow: ["_", "e"], ignoreTypeValueShadow: true },
+      ],
     },
   },
 
@@ -287,6 +298,10 @@ export default [
     rules: {
       "@typescript-eslint/no-require-imports": "off",
       "@typescript-eslint/no-empty-function": "off",
+      // Test mocks shadow source variables by design (vi.fn() as typeof L,
+      // fixture objects reusing production names). no-shadow adds no value
+      // in a codebase that is 100% mock-driven.
+      "@typescript-eslint/no-shadow": "off",
     },
   },
 
