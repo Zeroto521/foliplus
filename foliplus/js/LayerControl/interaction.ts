@@ -58,15 +58,15 @@ const handleMoreMenuClick = (ui: LayerUI, event: Event): void => {
     if (ui.overlayPanel.activeMenu) ui.closeMoreMenu(false);
     return;
   }
-  const li = target.closest(`.foliplus-layer-more-menu li`) as HTMLElement | null;
-  if (!li) return;
-  const action = li.dataset.action ?? "";
+  const menuItem = target.closest(`.foliplus-layer-more-menu li`) as HTMLElement | null;
+  if (!menuItem) return;
+  const action = menuItem.dataset.action ?? "";
   // Skip disabled items (hidden layer). Keep menu open so user sees why.
-  if (li.getAttribute("disabled")) return;
+  if (menuItem.getAttribute("disabled")) return;
   if (action === CONST.ACTION.DELETE_LAYER) {
     // Armed in place: the first click arms, the second one deletes. While armed
     // the menu stays open so the confirming state is visible.
-    if (activateDeleteItem(ui, li)) ui.closeMoreMenu(true);
+    if (activateDeleteItem(ui, menuItem)) ui.closeMoreMenu(true);
     return;
   }
   if (action === CONST.ACTION.FOCUS_LAYER) {
@@ -79,10 +79,10 @@ const handleMoreMenuClick = (ui: LayerUI, event: Event): void => {
     ui.openStylePanel(ui.overlayPanel.activeMenu?.layerId ?? "");
   }
   // Attributes anchors to the menu's own row — the menu is the source of
-  // truth for which row owns it, and falling back to `li` would anchor the
-  // panel to the menu's own <li> if the menu state were lost.
+  // truth for which row owns it, and falling back to `menuItem` would anchor
+  // the panel to the menu's own <li> if the menu state were lost.
   if (action === CONST.ACTION.ATTRS_LAYER) {
-    ui.openAttrsPanel(ui.overlayPanel.activeMenu?.item ?? li);
+    ui.openAttrsPanel(ui.overlayPanel.activeMenu?.item ?? menuItem);
   }
   // rename-layer keeps focus on the inline input, so do not return focus to
   // the row (that blur would immediately commit the pre-edit value).
