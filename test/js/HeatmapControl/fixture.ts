@@ -111,6 +111,7 @@ function makeManager(confOverrides: Partial<ComponentConfig> = {}) {
     T: createScopedTranslator(window.CONFIG),
     log: { warn: () => {}, error: () => {}, msg: (m: string) => m },
   });
+  manager.init();
   manager.overlay = {
     canvas: null,
     ctx: null,

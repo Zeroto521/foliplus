@@ -48,7 +48,11 @@ class HeatmapControl extends defineControl({
   }
 
   get mgr(): HeatmapManager {
-    return (this.manager ??= new HeatmapManager(map, { T: this.T, log: this.log }));
+    return (this.manager ??= (() => {
+      const m = new HeatmapManager(map, { T: this.T, log: this.log });
+      m.init();
+      return m;
+    })());
   }
 
   buildDOM() {

@@ -72,7 +72,7 @@ class HeatmapManager {
   private readonly log: Logger;
   /** Per-map event bus — bound once in the constructor (ensure-style getters
    *  return the cached instance, so hold it like the logger does). */
-  events: EventBus;
+  declare events: EventBus;
   selectedLayerId: string | null;
   pointLayers: PointLayerInfo[];
   agg: string;
@@ -96,13 +96,13 @@ class HeatmapManager {
   /** Style provider — shared by the layer drawer and the heatmap panel's
    *  label controls (core/labelControl). Reads live state; the drawer refreshes on
    *  LAYER_STYLE_CHANGE. */
-  styleProvider: () => Record<string, unknown>;
+  declare styleProvider: () => Record<string, unknown>;
   /** Style setters — shared by the layer drawer and the heatmap panel's
    *  label controls. Each setter updates state, renders, persists, and emits
    *  LAYER_STYLE_CHANGE so the other panel's refresh fires. */
-  styleSetters: Record<string, (v: unknown) => void>;
+  declare styleSetters: Record<string, (v: unknown) => void>;
   valueFallbackWarned: boolean;
-  overlay: CreateCanvasAPI;
+  declare overlay: CreateCanvasAPI;
   /**
    * Mutable metadata published to LayerControl's attributes panel (source
    * layer name + aggregation field). Created once and handed to createCanvas
@@ -115,12 +115,12 @@ class HeatmapManager {
    * here as the partial it actually holds (only `ctrl` at construction) rather
    * than cast to `HeatmapControlUI` at every use site.
    */
-  ui: HeatmapControlUI | null;
-  cachedPoints: { key: string; pts: SelectedPoint[] } | null;
-  cachedFeatures: HexFeature[] | null;
-  cachedAgg: { key: string; data: AggregatedData } | null;
-  cachedLabelStyle: CanvasLabelStyle | null;
-  renderAll: boolean;
+  declare ui: HeatmapControlUI | null;
+  declare cachedPoints: { key: string; pts: SelectedPoint[] } | null;
+  declare cachedFeatures: HexFeature[] | null;
+  declare cachedAgg: { key: string; data: AggregatedData } | null;
+  declare cachedLabelStyle: CanvasLabelStyle | null;
+  declare renderAll: boolean;
   /**
    * One-shot guard for the single-layer auto-select in buildLayerListItems.
    * Set to true in initScan after the first successful rebuild (or the
@@ -133,7 +133,7 @@ class HeatmapManager {
    * (clearSavedConfig) deletes the record and takes the manager back to the
    * Python-declared state, so auto-select may fire again after that.
    */
-  hasScanned: boolean;
+  declare hasScanned: boolean;
   declare mapCleanup: () => void;
   declare onZoomEnd: Debounced;
   declare onLayerChange: Debounced;
@@ -147,7 +147,7 @@ class HeatmapManager {
   /** Persisted-config binding — write-through (no debounce window). Owns the
    *  save entry point so teardown flush is idempotent. The flat inline-version
    *  record stays as-is (no envelope), matching the pre-existing shape. */
-  private persist: Persisted;
+  declare private persist: Persisted;
 
   /**
    * @param mapInstance - Leaflet map instance.
@@ -189,6 +189,16 @@ class HeatmapManager {
     this.labelFormat = (CONFIG.label_format ?? NUMBER_FORMAT.AUTO) as NumberStyle;
     this.valueFallbackWarned = false;
     this.sourceMeta = {};
+  }
+
+  /**
+   * Init phase — persist binding, style delegation, overlay construction,
+   * export listener, cache resets, and map event wiring. Split out of the
+   * constructor so deps wiring and state assembly are separate phases
+   * (mirrors MeasureManager). Called by the lazy createManager factory in
+   * index.ts.
+   */
+  init() {
     // Write-through binding: config is durable the moment a UI change lands,
     // so there is nothing to coalesce. Flush on teardown stays idempotent.
     this.persist = createPersisted({
@@ -325,7 +335,7 @@ class HeatmapManager {
       // drops the CSS so the two carriers never compound.
       opacityBake: "redraw",
       onOpacity: () => {
-        // Opacity-change repaint: drop the slider’s CSS carrier first so
+        // Opacity-change repaint: drop the slider's CSS carrier first so
         // drawHexagon bakes layerAlpha into pixels and the two never compound.
         if (this.overlay.canvas) this.overlay.canvas.style.opacity = "";
         this.redrawHeatmap();
