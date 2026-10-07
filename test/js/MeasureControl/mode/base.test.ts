@@ -16,10 +16,10 @@ import { initMocks, makeEnv, makeManagerMock } from "./setup.js";
 beforeEach(initMocks);
 
 describe("MeasureMode — base class", () => {
-  it("m getter returns manager", () => {
+  it("mgr field holds the manager", () => {
     const manager = makeManagerMock();
     const mode = new MeasureMode(manager);
-    expect(mode.m).toBe(manager);
+    expect(mode.mgr).toBe(manager);
   });
 
   it("cleanup calls _cleanup once and nulls it", () => {

@@ -18,15 +18,15 @@ class DistanceMode extends PreviewMode {
   static NAME_LABEL = "Distance Measurement";
   static NAME_LABEL_KEY = "name_distance";
 
-  static restore(manager: MeasureManager, data: MeasureData) {
+  static restore(mgr: MeasureManager, data: MeasureData) {
     const points = Util.pointsToLatLngs(data.points!);
-    const finalPoly = manager.layers.addLayer(
+    const finalPoly = mgr.layers.addLayer(
       L.polyline(points, { className: CONST.CLASSES.PATH_SOLID, interactive: true }),
     ) as L.Polyline;
 
     const nodeMarkers: L.CircleMarker[] = [];
     points.forEach((pt: L.LatLng, i: number) => {
-      const node = manager.layers.addLayer(
+      const node = mgr.layers.addLayer(
         Util.makeNode(pt, i === 0 ? CONST.CLASSES.NODE_SOLID : undefined),
         CONST.PANES.NODE,
       ) as L.CircleMarker;
@@ -43,10 +43,10 @@ class DistanceMode extends PreviewMode {
         const cur = points[i + 1] || { lat: seg.lat, lng: seg.lng };
         if (!prev || !cur) return;
         const mid = Util.midpoint(prev, cur);
-        const label = manager.layers.addLayer(
+        const label = mgr.layers.addLayer(
           L.marker([mid.lat, mid.lng], {
             icon: Util.makeMidLabelDivIcon(
-              Util.formatSegmentLabel(manager, prev, cur, accTotal),
+              Util.formatSegmentLabel(mgr, prev, cur, accTotal),
             ),
           }),
           CONST.PANES.LABEL,
@@ -55,17 +55,17 @@ class DistanceMode extends PreviewMode {
       });
     }
 
-    attachDistanceUI(manager, {
-      layers: manager.layers,
+    attachDistanceUI(mgr, {
+      layers: mgr.layers,
       finalPoly,
       nodeMarkers,
       segLabels,
       points,
       id: data.id!,
-      onDelete: () => manager.store.remove(data.id!),
+      onDelete: () => mgr.store.remove(data.id!),
       onUpdate: () => {
         const { segments, totalDistance } = Util.recalculateSegments(points);
-        manager.store.update(data.id!, {
+        mgr.store.update(data.id!, {
           points: points.map(p => ({ lng: p.lng, lat: p.lat })),
           segments,
           totalDistance,
@@ -112,7 +112,7 @@ class DistanceMode extends PreviewMode {
       if (this.isFinished) return;
       if (points.length < 2) {
         this.cleanup();
-        this.m.clearActiveMode();
+        this.mgr.clearActiveMode();
         return;
       }
       this.isFinished = true;
@@ -129,7 +129,7 @@ class DistanceMode extends PreviewMode {
         distance: Util.distance(points[i], points[i + 1]),
         bearing: Util.bearing(points[i], points[i + 1]),
       }));
-      this.m.store.add({
+      this.mgr.store.add({
         id: distId,
         type: this.type,
         points: points.map(p => ({ lng: p.lng, lat: p.lat })),
@@ -145,14 +145,14 @@ class DistanceMode extends PreviewMode {
         segLabels[segLabels.length - 1].setLatLng([mid.lat, mid.lng]);
         segLabels[segLabels.length - 1].setIcon(
           Util.makeMidLabelDivIcon(
-            Util.formatSegmentLabel(this.m, prevPt, lastPt, total),
+            Util.formatSegmentLabel(this.mgr, prevPt, lastPt, total),
           ),
         );
       }
 
       // Attach toggle/delete UI (shared with restoreDistance). It self-registers
       // its dispose via registerFinalized, so clearAll/destroy can unbind it.
-      attachDistanceUI(this.m, {
+      attachDistanceUI(this.mgr, {
         layers: this.layers,
         finalPoly,
         nodeMarkers,
@@ -160,11 +160,11 @@ class DistanceMode extends PreviewMode {
         points,
         id: distId,
         onDelete: () => {
-          this.m.store.remove(distId);
+          this.mgr.store.remove(distId);
         },
         onUpdate: () => {
           const { segments, totalDistance } = Util.recalculateSegments(points);
-          this.m.store.update(distId, {
+          this.mgr.store.update(distId, {
             points: points.map(p => ({ lng: p.lng, lat: p.lat })),
             segments,
             totalDistance,
@@ -184,7 +184,7 @@ class DistanceMode extends PreviewMode {
         this.layers.removeLayer(previewDistLabel);
         previewDistLabel = null;
       }
-      this.m.clearActiveMode();
+      this.mgr.clearActiveMode();
     };
 
     const onDistMove = (event: L.LeafletMouseEvent) => {
@@ -195,7 +195,7 @@ class DistanceMode extends PreviewMode {
       const showDist = total + seg;
       const lastPt = points[points.length - 1];
       const mid = Util.midpoint(lastPt, event.latlng);
-      const labelText = Util.formatSegmentLabel(this.m, lastPt, event.latlng, showDist);
+      const labelText = Util.formatSegmentLabel(this.mgr, lastPt, event.latlng, showDist);
       previewDistLabel = this.updateOrCreateLabel(
         previewDistLabel,
         mid,
@@ -205,7 +205,7 @@ class DistanceMode extends PreviewMode {
     };
 
     const onDistClick = (event: L.LeafletMouseEvent) => {
-      if (this.m.currentMode !== this.type) return;
+      if (this.mgr.currentMode !== this.type) return;
       if (
         points.some(
           (p: L.LatLng) => p.lat === event.latlng.lat && p.lng === event.latlng.lng,
@@ -252,7 +252,7 @@ class DistanceMode extends PreviewMode {
           prevLabel.setIcon(
             Util.makeMidLabelDivIcon(
               Util.formatSegmentLabel(
-                this.m,
+                this.mgr,
                 points[points.length - 3],
                 points[points.length - 2],
                 prevSeg,
@@ -265,7 +265,7 @@ class DistanceMode extends PreviewMode {
           L.marker([mid.lat, mid.lng], {
             icon: Util.makeMidLabelDivIcon(
               Util.formatSegmentLabel(
-                this.m,
+                this.mgr,
                 points[points.length - 2],
                 points[points.length - 1],
                 total,

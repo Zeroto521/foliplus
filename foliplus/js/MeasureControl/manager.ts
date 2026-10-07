@@ -229,8 +229,8 @@ class MeasureManager {
   }
 
   // ── Persistence (compatibility shell over MeasureStore) ──
-  // Browser tests and legacy call sites read `manager.measurements` /
-  // call `saveMeasurements()` directly; new code should use `manager.store`.
+  // Browser tests and legacy call sites read `mgr.measurements` /
+  // call `saveMeasurements()` directly; new code should use `mgr.store`.
 
   /** Live measurements array. Reads return the store's backing array; writes
    *  hydrate the store in place (used by tests + legacy seed paths). Mutating

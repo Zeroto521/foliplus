@@ -23,7 +23,7 @@ class MeasureMode {
     return label === this.NAME_LABEL_KEY ? this.NAME_LABEL : label;
   }
 
-  manager: MeasureManager;
+  mgr: MeasureManager;
   map: L.Map;
   layers: CreateLayersAPI;
   _cleanup: (() => void) | null;
@@ -37,20 +37,15 @@ class MeasureMode {
   _: (key: string) => string;
   log: Logger;
 
-  constructor(manager: MeasureManager) {
-    this.manager = manager;
-    this.map = manager.map;
-    this.layers = manager.layers;
+  constructor(mgr: MeasureManager) {
+    this.mgr = mgr;
+    this.map = mgr.map;
+    this.layers = mgr.layers;
     this._cleanup = null;
-    this.config = manager.config;
-    this.T = manager.T;
-    this._ = manager._;
-    this.log = manager.log;
-  }
-
-  /** Shorthand for manager */
-  get m() {
-    return this.manager;
+    this.config = mgr.config;
+    this.T = mgr.T;
+    this._ = mgr._;
+    this.log = mgr.log;
   }
 
   /** Shorthand for mode type */
@@ -73,16 +68,16 @@ class MeasureMode {
 
   /** Generate a unique measurement ID with type prefix. */
   nextMeasurementId(): string {
-    return this.m.nextMeasurementId(this.type);
+    return this.mgr.nextMeasurementId(this.type);
   }
 
   /** Rebuild a persisted measurement from data.
    *  Subclasses override this to restore their specific visual elements.
-   *  @param manager - MeasureManager instance.
+   *  @param mgr - MeasureManager instance.
    *  @param data - Persisted measurement data. */
-  static restore(manager: MeasureManager, data: MeasureData): void {
+  static restore(mgr: MeasureManager, data: MeasureData): void {
     void data;
-    throw new Error(manager.log.msg(`restore not implemented for ${this.TYPE}`));
+    throw new Error(mgr.log.msg(`restore not implemented for ${this.TYPE}`));
   }
 
   /** Convert a persisted measurement to a GeoJSON Feature.
@@ -103,8 +98,8 @@ class PreviewMode extends MeasureMode {
   isFinished: boolean;
   private cursorNode: L.CircleMarker | null;
 
-  constructor(manager: MeasureManager) {
-    super(manager);
+  constructor(mgr: MeasureManager) {
+    super(mgr);
     this.previewLayers = [];
     this.isFinished = false;
     this.cursorNode = null;

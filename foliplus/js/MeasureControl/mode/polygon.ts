@@ -19,11 +19,11 @@ class PolygonMode extends PreviewMode {
   static NAME_LABEL_KEY = "name_polygon";
 
   /** Rebuild a persisted polygon measurement.
-   *  @param {MeasureManager} manager - MeasureManager instance.
+   *  @param {MeasureManager} mgr - MeasureManager instance.
    *  @param {Object} data - Persisted measurement data. */
-  static restore(manager: MeasureManager, data: MeasureData) {
+  static restore(mgr: MeasureManager, data: MeasureData) {
     const points = Util.pointsToLatLngs(data.points!);
-    const finalPoly = manager.layers.addLayer(
+    const finalPoly = mgr.layers.addLayer(
       L.polygon(points, {
         className: `${CONST.CLASSES.PATH_SOLID} ${CONST.CLASSES.SHAPE_FILL}`,
         interactive: true,
@@ -32,7 +32,7 @@ class PolygonMode extends PreviewMode {
 
     const nodeMarkers: L.CircleMarker[] = [];
     points.forEach((pt: L.LatLng) => {
-      const node = manager.layers.addLayer(
+      const node = mgr.layers.addLayer(
         Util.makeNode(pt),
         CONST.PANES.NODE,
       ) as L.CircleMarker;
@@ -47,7 +47,7 @@ class PolygonMode extends PreviewMode {
         const cur = points[i + 1] || { lat: seg.lat, lng: seg.lng };
         if (!prev || !cur) return;
         const mid = Util.midpoint(prev, cur);
-        const label = manager.layers.addLayer(
+        const label = mgr.layers.addLayer(
           L.marker([mid.lat, mid.lng], {
             icon: Util.makeMidLabelDivIcon(Util.formatDistance(seg.distance)),
           }),
@@ -57,15 +57,15 @@ class PolygonMode extends PreviewMode {
       });
     }
 
-    attachPolygonUI(manager, {
-      layers: manager.layers,
+    attachPolygonUI(mgr, {
+      layers: mgr.layers,
       finalPoly,
       nodeMarkers,
       segLabels,
       points,
       area: data.area ?? 0,
       id: data.id!,
-      onDelete: () => manager.store.remove(data.id!),
+      onDelete: () => mgr.store.remove(data.id!),
       onUpdate: () => {
         const newArea = Util.area(points);
         const { segments } = Util.recalculateSegments(points);
@@ -76,7 +76,7 @@ class PolygonMode extends PreviewMode {
           bearing: Util.bearing(points[points.length - 1], points[0]),
         });
         const centroid = Util.centroid(points);
-        manager.store.update(data.id!, {
+        mgr.store.update(data.id!, {
           points: points.map((p: L.LatLng) => ({ lng: p.lng, lat: p.lat })),
           segments,
           area: newArea,
@@ -133,7 +133,7 @@ class PolygonMode extends PreviewMode {
       if (this.isFinished) return;
       if (points.length < 3) {
         this.cleanup();
-        this.m.clearActiveMode();
+        this.mgr.clearActiveMode();
         return;
       }
       this.isFinished = true;
@@ -163,7 +163,7 @@ class PolygonMode extends PreviewMode {
       };
       segments.push(lastSeg);
       const centroid = Util.centroid(points);
-      this.m.store.add({
+      this.mgr.store.add({
         id: polyId,
         type: this.type,
         points: points.map(p => ({ lng: p.lng, lat: p.lat })),
@@ -195,7 +195,7 @@ class PolygonMode extends PreviewMode {
 
       // Attach toggle/delete UI (shared with restorePolygon). It self-registers
       // its dispose via registerFinalized, so clearAll/destroy can unbind it.
-      attachPolygonUI(this.m, {
+      attachPolygonUI(this.mgr, {
         layers: this.layers,
         finalPoly,
         nodeMarkers,
@@ -204,7 +204,7 @@ class PolygonMode extends PreviewMode {
         area,
         id: polyId,
         onDelete: () => {
-          this.m.store.remove(polyId);
+          this.mgr.store.remove(polyId);
         },
         onUpdate: () => {
           const { segments } = Util.recalculateSegments(points);
@@ -217,7 +217,7 @@ class PolygonMode extends PreviewMode {
             bearing: Util.bearing(points[n - 1], points[0]),
           });
           const centroid = Util.centroid(points);
-          this.m.store.update(polyId, {
+          this.mgr.store.update(polyId, {
             points: points.map(p => ({ lng: p.lng, lat: p.lat })),
             segments,
             area: Util.area(points),
@@ -240,7 +240,7 @@ class PolygonMode extends PreviewMode {
         this.layers.removeLayer(previewDistLabel);
         previewDistLabel = null;
       }
-      this.m.clearActiveMode();
+      this.mgr.clearActiveMode();
     };
 
     const onPolyMove = (event: L.LeafletMouseEvent) => {
@@ -263,7 +263,7 @@ class PolygonMode extends PreviewMode {
     };
 
     const onPolyClick = (event: L.LeafletMouseEvent) => {
-      if (this.m.currentMode !== this.type) return;
+      if (this.mgr.currentMode !== this.type) return;
       // Skip if click is on an existing node marker — the marker's own click
       // handler (registered below) will handle finishing. Without this guard,
       // the map click fires before the marker handler and pushes a duplicate point,
