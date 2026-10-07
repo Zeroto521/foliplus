@@ -61,16 +61,6 @@ type PersistedRecord = {
   layers: Record<string, PersistedLayerState>;
 };
 
-/** A leaf whose `setStyle` is there for real. Narrowing through a guard
- *  rather than a `typeof` test keeps call sites plain method calls, which
- *  matters: Leaflet's `Path.setStyle` runs `setOptions(this, style)`, so a
- *  method captured into a local and called detached would see `this` as
- *  undefined and throw instead of writing. */
-type StyleSetter = {
-  setStyle: (style: Record<string, unknown>) => void;
-  on?: (type: string, fn: () => void) => void;
-};
-
 /** Who currently owns this dimension's effective value. `"user"` — the
  *  store holds a provenance marker; `"author"` — declared default still in
  *  force; `"none"` — the gate rejects the layer for this dimension (an
@@ -123,4 +113,4 @@ type LayerDimension<D = unknown> = {
   valueSource?: (ui: LayerUI, layerId: string) => DimensionValueSource;
 };
 
-export type { DimensionValueSource, LayerDimension, PersistedRecord, StyleSetter };
+export type { DimensionValueSource, LayerDimension, PersistedRecord };
