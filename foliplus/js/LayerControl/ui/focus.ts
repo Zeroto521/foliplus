@@ -14,8 +14,7 @@ import { ensureModes, guardBlocked } from "#core/mode.js";
 import { type RectCorners, roundedRectOutline } from "#common/marqueeShape.js";
 import * as CONST from "../const.js";
 import { applyProjectionAll } from "./apply.js";
-import type { LayerUI } from "./index.js";
-import { getActiveLayerItem } from "./listPanel/keyboard.js";
+import type { LayerUI } from "./surface.js";
 import { closeOverlays } from "./teardown.js";
 
 /** Why a row's focus action is off. Carried as the menu item's title and as
@@ -74,7 +73,10 @@ const showFocusDisabledHint = (ui: LayerUI, reason: FocusDisabled): void => {
 
 /** Toggle visibility of the currently focused layer. */
 const toggleFocusedLayer = (ui: LayerUI): void => {
-  const item = getActiveLayerItem(ui);
+  // Through the shell instance, not an import of `listPanel/keyboard.js`:
+  // `keyboard.js` imports this file (`../focus.js`) for the focus-disabled
+  // hints, so a value import back would re-close that cycle.
+  const item = ui.activeLayerItem();
   if (!item) return;
   const checkbox = item.querySelector(
     'input[type="checkbox"]',

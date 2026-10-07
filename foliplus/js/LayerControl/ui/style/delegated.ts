@@ -9,7 +9,7 @@ import { createRowPanel } from "#core/leaflet/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import * as SVGs from "#foliplus/LayerControl/icon.js";
 import { BORDER_WEIGHT } from "#common/form.js";
-import type { LayerUI } from "../index.js";
+import type { LayerUI } from "../surface.js";
 import { bindBorderRowShell, buildBorderRowShell } from "./border.js";
 import { appendResetFooter } from "./frame.js";
 import { DIM_ORDER, gatedRows } from "./registry.js";

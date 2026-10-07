@@ -6,10 +6,10 @@ import {
   removeInlineEditInput,
   updateItemLabel,
 } from "#common/dom.js";
-import type { LayerUI } from "../index.js";
 import { INTENT, setIntent } from "../intent.js";
 import { displayName } from "../listPanel/rowView.js";
 import { saveNamesState } from "../state.js";
+import type { LayerUI } from "../surface.js";
 import { closeOverlays } from "../teardown.js";
 
 /**

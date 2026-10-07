@@ -13,9 +13,9 @@ import { CAP_TIER, DIM, GROUP } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { dom } from "#common/dom.js";
 import { applyProjection } from "../apply.js";
-import type { LayerUI } from "../index.js";
 import { INTENT, getIntent } from "../intent.js";
 import { syncNoBasemap } from "../listPanel/visibility.js";
+import type { LayerUI } from "../surface.js";
 import { round5 } from "./frame.js";
 import {
   getDimension,

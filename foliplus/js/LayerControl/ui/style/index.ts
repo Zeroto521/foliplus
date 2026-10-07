@@ -24,7 +24,7 @@ import {
   normalizeHexColor,
 } from "#common/form.js";
 import { authorZoomBoundsForLayer } from "../apply.js";
-import type { LayerUI } from "../index.js";
+import type { LayerUI } from "../surface.js";
 import { closeOverlays } from "../teardown.js";
 import { bindBorderRow, resetLayerBorder } from "./border.js";
 import { layerHasStyleDelegation, renderDelegatedStylePanel } from "./delegated.js";

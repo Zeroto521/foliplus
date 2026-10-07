@@ -14,7 +14,6 @@ import { applyProjection, applyProjectionAll } from "./apply.js";
 import { inFloatingPanel, isKeyboardVisibleFocus, owningRow } from "./context.js";
 import { dismissFocus } from "./focus.js";
 import { bindGeometryFocusMarquee } from "./focus/focusMarquee.js";
-import type { LayerUI } from "./index.js";
 import { INTENT, getIntent } from "./intent.js";
 import {
   handleDragEnd,
@@ -56,6 +55,7 @@ import { finishRename } from "./overlayPanel/rename.js";
 import { loadPersistedState } from "./state.js";
 import { closeStylePanel, invalidateFields } from "./style/index.js";
 import { dropStyleDimApplies } from "./style/styleBag.js";
+import type { LayerUI } from "./surface.js";
 
 /**
  * Attach UI to the given container div.

@@ -4,7 +4,7 @@ import * as CONST from "#foliplus/LayerControl/const.js";
 import * as SVGs from "#foliplus/LayerControl/icon.js";
 import { dom, updateItemLabel } from "#common/dom.js";
 import { getColorSurface } from "../color.js";
-import type { LayerUI } from "../index.js";
+import type { LayerUI } from "../surface.js";
 import { cursorRef, restoreCursor, syncListCursor } from "./keyboard.js";
 import {
   applyRowView,

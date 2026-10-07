@@ -30,9 +30,9 @@ import { EVENTS } from "#core/event/index.js";
 import { CAP_TIER, HIDDEN, PANE_ROLE } from "#core/layer/index.js";
 import { getLayerAlpha, setLayerAlpha } from "#common/canvasAlpha.js";
 import * as CONST from "../const.js";
-import type { LayerUI } from "./index.js";
 import { INTENT, getIntent } from "./intent.js";
 import { intentVisibleOf, projectAll, projectLayer } from "./projection.js";
+import type { LayerUI } from "./surface.js";
 
 /** One write the carrier dispatcher accepts. `opacity` and `zoomRange`
  *  being `undefined` mean "no user value" — a Reset back to the author's

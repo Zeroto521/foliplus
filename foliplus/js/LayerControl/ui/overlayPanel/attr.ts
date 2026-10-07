@@ -8,8 +8,8 @@ import * as Util from "#foliplus/LayerControl/util.js";
 import { dom } from "#common/dom.js";
 import { formatNumber, formatTimestamp } from "#common/format.js";
 import { ATTRS_ROW_WRAP_CHARS } from "../context.js";
-import type { LayerUI } from "../index.js";
 import { displayName } from "../listPanel/rowView.js";
+import type { LayerUI } from "../surface.js";
 import { closeOverlays } from "../teardown.js";
 
 /**

@@ -14,7 +14,7 @@ import {
   type LayerIntent,
   STYLE_KEYS,
 } from "#core/layer/index.js";
-import type { LayerUI } from "./index.js";
+import type { LayerUI } from "./surface.js";
 
 /** Write one intent dimension (value only — no provenance mark). */
 const setIntent = <K extends IntentKey>(

@@ -52,11 +52,10 @@
 // overwrite. This registry is currently an internal surface only — the
 // public extensibility API (a `registerDimension` re-exported from
 // `LayerControl/index.ts`) is deferred.
-import { DIM } from "#core/layer/index.js";
+import { DIM, type IntentKey } from "#core/layer/index.js";
 import type { LayerDimension } from "#foliplus/LayerControl/type.js";
-import type { LayerUI } from "../index.js";
-import type { IntentKey } from "../intent.js";
 import { saveState } from "../state.js";
+import type { LayerUI } from "../surface.js";
 
 const registry: Map<string, LayerDimension<any>> = new Map();
 

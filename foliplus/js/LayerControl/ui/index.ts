@@ -23,6 +23,7 @@ import {
 import {
   blurActiveItem,
   clearActiveItem,
+  getActiveLayerItem,
   getNavigableItems,
   handleDblClick,
   handleKeyDown,
@@ -72,6 +73,7 @@ import {
   replayFillState,
 } from "./style/index.js";
 import { dropStyleDimApplies } from "./style/styleBag.js";
+import type { LayerUI as LayerUISurface } from "./surface.js";
 
 /** UI Controller for LayerControl.
  *  Per-panel state lives on one of three view subsystems:
@@ -83,7 +85,7 @@ import { dropStyleDimApplies } from "./style/styleBag.js";
  *  (`ui.listPanel.foldedGroups`, `ui.overlayPanel.activeMenu`, etc.);
  *  each subsystem owns the field and there is no compat layer.
  */
-class LayerUI {
+class LayerUI implements LayerUISurface {
   controller: LayerController;
   /** Per-map event bus — bound once in the constructor (ensure-style getters
    *  return the cached instance, so hold it like the logger does). */
@@ -337,6 +339,15 @@ class LayerUI {
   }
 
   // ── delegates: keyboard ──
+  /** The row element the roving cursor points at (null when no cursor). Kept
+   *  on the shell rather than imported by `focus.ts` from
+   *  `listPanel/keyboard.js`: `keyboard.js` already imports `../focus.js`
+   *  for the focus-disabled hints, so a value import back from `focus.js`
+   *  would re-close that cycle. Callers reach it through the `ui` instance
+   *  they already hold, never as a free function. */
+  activeLayerItem() {
+    return getActiveLayerItem(this);
+  }
   getNavigableItems() {
     return getNavigableItems(this);
   }

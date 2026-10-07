@@ -2,9 +2,9 @@
 import { GROUP } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { applyProjection, applyProjectionAll } from "../apply.js";
-import type { LayerUI } from "../index.js";
 import { intentVisibleOf } from "../projection.js";
 import { saveState, setVisible } from "../state.js";
+import type { LayerUI } from "../surface.js";
 import { applyRowView, buildRowCell } from "./rowView.js";
 
 const getLayerItems = (ui: LayerUI, group: string): NodeListOf<Element> => {

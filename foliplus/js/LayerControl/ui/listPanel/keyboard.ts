@@ -6,8 +6,8 @@ import { ListCursor } from "#core/listCursor.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { inFloatingPanel, owningRow } from "../context.js";
 import { showFocusDisabledHint, toggleFocusedLayer } from "../focus.js";
-import type { LayerUI } from "../index.js";
 import { activateDeleteItem } from "../overlayPanel/menu.js";
+import type { LayerUI } from "../surface.js";
 import { toggleFold } from "./drag.js";
 
 /** Ensure the shared ListCursor and re-apply ARIA / roving tabindex.

@@ -14,8 +14,8 @@ import * as CONST from "../const.js";
 import type { LayerOverride } from "../type.js";
 import { applyProjection, applyProjectionAll } from "./apply.js";
 import { applyNameProjection } from "./context.js";
-import type { LayerUI } from "./index.js";
 import { INTENT, LIVE, getIntent } from "./intent.js";
+import type { LayerUI } from "./surface.js";
 
 // CONFIG is a free variable from the IIFE template wrapper (see BaseControl._template).
 const log = createLogger(CONFIG.name);
