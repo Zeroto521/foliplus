@@ -94,7 +94,7 @@ describe("renderPaneCanvas", () => {
     return p;
   };
 
-  const canvasEl = (left, top, width, height) => {
+  const canvasEl = (left: number, top: number, width: number, height: number) => {
     const ce = document.createElement("canvas");
     ce.className = "leaflet-map-pane foliplus-heatmap-canvas";
     pinBox(ce, left, top, width, height);

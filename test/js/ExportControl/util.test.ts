@@ -239,7 +239,7 @@ describe("loadImage", () => {
       private _src = "";
       crossOrigin?: string;
       constructor() {
-        images.push(this);
+        images.push(this as unknown as HTMLImageElement);
       }
       get onload() {
         return this._onload;

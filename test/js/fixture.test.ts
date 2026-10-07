@@ -10,6 +10,32 @@ import { LayerRuntimeStore } from "#core/layer/index.js";
 import { LayerIntentStore } from "#foliplus/LayerControl/domain/index.js";
 import { makeLayerUIMock } from "./fixture.js";
 
+// LayerUI keeps its fields private, so the completeness gate reads the mock
+// through this explicit view instead of a `Record<string, unknown>` cast,
+// which would leave every nested access `unknown`.
+type UiView = {
+  listPanel: {
+    foldedGroups: Set<string>;
+    lastDragHintAt: number;
+    pressInPanel: boolean;
+    dragIdx: unknown;
+    activeIdx: unknown;
+    listCursor: unknown;
+  };
+  overlayPanel: {
+    activeRenameId: unknown;
+    stylePanelLayerId: unknown;
+  };
+  focusController: {
+    focusRect: unknown;
+    focusingLayerId: unknown;
+    focusedPaneRestores: unknown[];
+  };
+  intentStore: LayerIntentStore;
+  runtimeStore: LayerRuntimeStore;
+  currentColor: string;
+};
+
 describe("window.L marker mock", () => {
   it("every marker instance exposes bindPopup (the missing-bindPopup incident)", () => {
     const marker = window.L.marker!();
@@ -22,13 +48,13 @@ describe("window.L marker mock", () => {
 
 describe("makeLayerUIMock — LayerUI field completeness", () => {
   it("covers every field the LayerUI constructor initialises", () => {
-    const ui = makeLayerUIMock() as Record<string, unknown>;
+    const ui = makeLayerUIMock() as unknown as UiView;
     // Sets
     expect(ui.listPanel.foldedGroups).toBeInstanceOf(Set);
     // Intent store (values + provenance axes)
     expect(ui.intentStore).toBeInstanceOf(LayerIntentStore);
-    expect((ui.intentStore as LayerIntentStore).dumpIntents()).toEqual({});
-    expect((ui.intentStore as LayerIntentStore).dumpProvenance()).toEqual({});
+    expect(ui.intentStore.dumpIntents()).toEqual({});
+    expect(ui.intentStore.dumpProvenance()).toEqual({});
     // Maps
     expect(ui.runtimeStore).toBeInstanceOf(LayerRuntimeStore);
     expect(ui.runtimeStore.ids()).toEqual([]);

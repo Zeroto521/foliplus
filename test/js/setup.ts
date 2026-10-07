@@ -24,16 +24,16 @@ class MockStorage {
   clear() {
     this._store = {};
   }
-  getItem(key) {
+  getItem(key: string): string | null {
     return key in this._store ? this._store[key] : null;
   }
-  setItem(key, value) {
+  setItem(key: string, value: string): void {
     this._store[key] = String(value);
   }
-  removeItem(key) {
+  removeItem(key: string): void {
     delete this._store[key];
   }
-  key(index) {
+  key(index: number): string | null {
     return Object.keys(this._store)[index] ?? null;
   }
 }
@@ -58,12 +58,12 @@ if (!hasLocalStorage) {
 // dispatch path applies and tests can pass `pointerId` in init.
 if (!globalThis.PointerEvent) {
   globalThis.PointerEvent = class PointerEvent extends MouseEvent {
-    override pointerId: number | null;
+    pointerId: number | null;
     constructor(type: string, init: PointerEventInit = {}) {
       super(type, init);
       this.pointerId = init.pointerId ?? 0;
     }
-  };
+  } as unknown as typeof PointerEvent;
 }
 
 // vitest's URL.createObjectURL polyfill (makeCompatBlob) accesses blob._buffer,
@@ -113,8 +113,8 @@ window.L = {
     disableScrollPropagation: vi.fn(),
   },
   Control: class {},
-  latLng: (lat, lng) => ({ lat, lng }),
-  point: (x, y) => ({ x, y }),
+  latLng: (lat: number, lng: number) => ({ lat, lng }),
+  point: (x: number, y: number) => ({ x, y }),
   marker: vi.fn(() => ({
     bindPopup: vi.fn(),
     openPopup: vi.fn(),
@@ -188,7 +188,7 @@ window.map = {
 // Mock turf (needed by MeasureControl: turf.circle, turf.distance, etc.
 // export.ts implements WKT inline (no turf.wkt dependency).
 globalThis.turf = {
-  point: coords => ({
+  point: (coords: number[]) => ({
     type: "Feature",
     properties: {},
     geometry: { type: "Point", coordinates: coords },
