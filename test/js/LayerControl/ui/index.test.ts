@@ -321,7 +321,7 @@ describe("LayerUI shell — delegates", () => {
       destroy: vi.fn(),
     }));
     ui.colorSurface = null;
-    ui.showSolidBasemap();
+    (ui as any).showSolidBasemap();
     ui.hideSolidBasemap();
     expect(setVisible).toHaveBeenCalledWith(false);
   });

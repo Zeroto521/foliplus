@@ -39,8 +39,8 @@ const makeFillableLayer = () => {
     return leaf;
   };
   const leaves = [
-    makeLeaf({ fillColor: "#aabbcc", fillOpacity: 0.5, fill: true }),
-    makeLeaf({ fillColor: "#ddeeff", fillOpacity: 0.7, fill: true }),
+    makeLeaf({ fillColor: "#aabbcc", fillOpacity: 0.5, fill: true } as any),
+    makeLeaf({ fillColor: "#ddeeff", fillOpacity: 0.7, fill: true } as any),
   ];
   const parent = {
     options: {},
@@ -954,7 +954,7 @@ describe("LayerUI style panel — fill color", () => {
       color: CONST.COLOR.DEFAULT,
     });
     const li = manager.layerRegistry.get(CONST.SOLID_BASEMAP_ID)!;
-    manager.surfaceFor(li).capabilities = {
+    (manager.surfaceFor(li) as any).capabilities = {
       opacity: "pane",
       zoomRange: "none",
       relocatable: false,
@@ -1298,7 +1298,7 @@ describe("buildFillRow", () => {
   it("degrades to the default swatch when the browser probe returns a non-hex", () => {
     // The <input type=color> probe always yields hex in jsdom and Chromium;
     // if a UA ever returns garbage, the swatch must not receive it raw.
-    const orig = document.createElement.bind(document);
+    const orig = document.createElement.bind(document) as any;
     vi.spyOn(document, "createElement").mockImplementationOnce(
       (tag: string, ...args: unknown[]) => {
         const el = orig(tag, ...args);

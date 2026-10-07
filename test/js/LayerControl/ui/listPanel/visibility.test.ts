@@ -36,13 +36,14 @@ const layerFixture = () => ({ options: {} as Record<string, unknown> });
 
 interface FixtureMap {
   _layers: Map<unknown, unknown>;
-  hasLayer: ReturnType<typeof vi.fn>;
-  addLayer: ReturnType<typeof vi.fn>;
-  removeLayer: ReturnType<typeof vi.fn>;
-  getContainer: ReturnType<typeof vi.fn>;
-  getPane: ReturnType<typeof vi.fn>;
-  createPane: ReturnType<typeof vi.fn>;
-  invalidateSize: ReturnType<typeof vi.fn>;
+  hasLayer: any;
+  addLayer: any;
+  removeLayer: any;
+  getContainer: any;
+  getPane: any;
+  createPane: any;
+  invalidateSize: any;
+  getZoom: any;
   attributionControl: { _attributions: Record<string, number>; _update: () => void };
 }
 
@@ -78,7 +79,7 @@ const fixture = () => {
     options: { maxZoom: 18 },
     _paneRenderers: {},
     attributionControl: { _attributions: {}, _update: vi.fn() },
-  } as FixtureMap & Record<string, unknown>;
+  } as unknown as FixtureMap & Record<string, unknown>;
 
   const layers = [
     { id: "overlay1", name: "Points", group: "overlay", layer: layerFixture() },
@@ -189,12 +190,14 @@ describe("applyVisibility", () => {
     const seeded = makeUi(map, [
       { id: "overlay1", name: "Points", group: "overlay", layer: layerFixture() },
     ]);
-    expect(seeded.ui.intentVisible("overlay1")).toBe(false);
+    expect(seeded.ui!.intentVisible("overlay1")).toBe(false);
     expect(applyVisibility(seeded.ui as LayerUI, "overlay1", true)).toBe(true);
-    expect(seeded.ui.intentVisible("overlay1")).toBe(true);
+    expect(seeded.ui!.intentVisible("overlay1")).toBe(true);
     expect(
-      seeded.ui.uiContainer.querySelector(
-        `[${CONST.DATA.LAYER_ID}="overlay1"] input[type="checkbox"]`,
+      (
+        seeded.ui!.uiContainer.querySelector(
+          `[${CONST.DATA.LAYER_ID}="overlay1"] input[type="checkbox"]`,
+        ) as HTMLInputElement
       )?.checked,
     ).toBe(true);
     seeded.ui = null;
@@ -227,8 +230,10 @@ describe("applyVisibility", () => {
     // Intent is recorded: the box is checked and the layer is no longer hidden.
     expect(getIntent(ui, "overlay1", "visible")).not.toBe(false);
     expect(
-      ui.uiContainer.querySelector(
-        `[${CONST.DATA.LAYER_ID}="overlay1"] input[type="checkbox"]`,
+      (
+        ui.uiContainer.querySelector(
+          `[${CONST.DATA.LAYER_ID}="overlay1"] input[type="checkbox"]`,
+        ) as HTMLInputElement
       )?.checked,
     ).toBe(true);
     // ...but policy suppresses the display: no map write at all.
@@ -299,7 +304,7 @@ describe("applyVisibility", () => {
     const fresh = makeUi(map, [
       { id: "overlay1", name: "Points", group: "overlay", layer: layerFixture() },
     ]);
-    expect(fresh.ui.intentVisible("overlay1")).toBe(false);
+    expect(fresh.ui!.intentVisible("overlay1")).toBe(false);
     fresh.ui = null;
     fresh.destroy();
   });
@@ -325,7 +330,7 @@ describe("applyVisibility", () => {
     const fresh = makeUi(map, [
       { id: "overlay1", name: "Points", group: "overlay", layer: layerFixture() },
     ]);
-    expect(fresh.ui.intentVisible("overlay1")).toBe(true);
+    expect(fresh.ui!.intentVisible("overlay1")).toBe(true);
     fresh.ui = null;
     fresh.destroy();
   });
@@ -348,8 +353,10 @@ describe("applyVisibility", () => {
     expect(map.removeLayer).toHaveBeenCalledWith(layer);
     expect(map.hasLayer(layer)).toBe(false);
     expect(
-      fresh.ui.uiContainer.querySelector(
-        `[${CONST.DATA.LAYER_ID}="base1"] input[type="checkbox"]`,
+      (
+        fresh.ui!.uiContainer.querySelector(
+          `[${CONST.DATA.LAYER_ID}="base1"] input[type="checkbox"]`,
+        ) as HTMLInputElement
       )?.checked,
     ).toBe(false);
 
@@ -570,8 +577,10 @@ describe("LayerController.setVisible", () => {
     expect(map.removeLayer).toHaveBeenCalledWith(layer);
     expect(map.hasLayer(layer)).toBe(false);
     expect(
-      ui.uiContainer.querySelector(
-        `[${CONST.DATA.LAYER_ID}="ov"] input[type="checkbox"]`,
+      (
+        ui.uiContainer.querySelector(
+          `[${CONST.DATA.LAYER_ID}="ov"] input[type="checkbox"]`,
+        ) as HTMLInputElement
       )?.checked,
     ).toBe(false);
   });
@@ -617,7 +626,7 @@ describe("LayerUI.handleChange", () => {
     ) as HTMLInputElement | null;
     if (!cb) throw new Error(`no checkbox for ${id}`);
     cb.checked = checked;
-    ui.handleChange({ target: cb } as Event);
+    ui.handleChange({ target: cb } as unknown as Event);
   };
 
   let map: FixtureMap;
@@ -665,7 +674,7 @@ describe("LayerUI.handleChange", () => {
     const stray = document.createElement("input");
     stray.type = "checkbox";
     stray.checked = false;
-    ui.handleChange({ target: stray } as Event);
+    ui.handleChange({ target: stray } as unknown as Event);
 
     expect(map.addLayer).not.toHaveBeenCalled();
     expect(map.removeLayer).not.toHaveBeenCalled();
@@ -728,7 +737,7 @@ describe("DOM order diverges from registry order", () => {
       _paneRenderers: {},
       options: { maxZoom: 18 },
       attributionControl: { _attributions: {}, _update: vi.fn() },
-    } as FixtureMap & Record<string, unknown>;
+    } as unknown as FixtureMap & Record<string, unknown>;
 
     const layers = [
       { id: "A", name: "Layer A", group: "overlay", layer: layerFixture() },
@@ -810,7 +819,7 @@ describe("DOM order diverges from registry order", () => {
     const layerA = manager.layerRegistry.get("A")!.layer as { options: object };
 
     cb.checked = false;
-    ui.handleChange({ target: cb } as Event);
+    ui.handleChange({ target: cb } as unknown as Event);
 
     expect(ui.intentVisible("A")).toBe(false);
     expect(map.removeLayer).toHaveBeenCalledWith(layerA);
@@ -906,7 +915,7 @@ describe("toggleAll base group", () => {
       _paneRenderers: {},
       options: { maxZoom: 18 },
       attributionControl: { _attributions: {}, _update: vi.fn() },
-    } as FixtureMap & Record<string, unknown>;
+    } as unknown as FixtureMap & Record<string, unknown>;
 
     const layers: ConstructorParameters<typeof LayerController>[1] = [
       { id: "B1", name: "Base 1", group: "base", layer: layerFixture() },

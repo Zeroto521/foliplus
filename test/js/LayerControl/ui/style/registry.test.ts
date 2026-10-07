@@ -13,6 +13,7 @@
 // being present.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { LayerController } from "#foliplus/LayerControl/controller.js";
+import type { LayerDimension } from "#foliplus/LayerControl/type.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { setIntent } from "#foliplus/LayerControl/ui/intent.js";
 import { ANNOTATION_DIMENSION } from "#foliplus/LayerControl/ui/style/annotation.js";
@@ -39,7 +40,7 @@ const testDim = {
   gate: () => true,
   value: () => 42,
   row: () => document.createElement("div"),
-};
+} as unknown as LayerDimension<number>;
 
 // Register once per module graph. `opacity.ts` already ran this for the
 // built-in dim at import time; this is the same contract for tests.
@@ -94,7 +95,7 @@ describe("LayerControl style-panel dimension registry", () => {
     // within a section is the display contract; listDimensions is insertion
     // order.
     const registered = listDimensions().map(d => d.key);
-    const builtIn = registered.filter(k => k !== TEST_DIM_KEY);
+    const builtIn = registered.filter(k => k !== (TEST_DIM_KEY as any));
     const ordered = [...DIM_ORDER, ...LABEL_DIM_ORDER];
     expect(new Set(ordered)).toEqual(new Set(builtIn));
     expect(ordered.length).toBe(new Set(ordered).size);

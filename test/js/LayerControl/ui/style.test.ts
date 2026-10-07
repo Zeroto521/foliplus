@@ -100,7 +100,7 @@ describe("LayerUI style panel", () => {
     ui.openStylePanel("overlay1");
 
     expect(ui.overlayPanel.stylePanelLayerId).toBe("overlay1");
-    const panel = panelOf(item);
+    const panel = panelOf(item)!;
     expect(panel).not.toBeNull();
     expect(panel.getAttribute("role")).toBe("dialog");
   });
@@ -108,7 +108,7 @@ describe("LayerUI style panel", () => {
   it("builds on the shared panel vocabulary (header, content, close)", () => {
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
-    const panel = panelOf(item);
+    const panel = panelOf(item)!;
 
     expect(panel.classList.contains("foliplus-panel")).toBe(true);
     expect(panel.querySelector(".foliplus-panel-header")).not.toBeNull();
@@ -123,7 +123,7 @@ describe("LayerUI style panel", () => {
   it("renders the toggle and both selects from the layer's config", () => {
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
-    const panel = panelOf(item);
+    const panel = panelOf(item)!;
 
     const toggle = panel.querySelector(
       ".foliplus-style-toggle-input",
@@ -155,7 +155,7 @@ describe("LayerUI style panel", () => {
     ui.openStylePanel("overlay1");
 
     expect(ui.overlayPanel.stylePanelLayerId).toBe("overlay1");
-    const panel = panelOf(item);
+    const panel = panelOf(item)!;
     expect(panel).toBeDefined();
     // No labelable field -> the whole Label section is absent, not just empty.
     expect(panel!.querySelector(".foliplus-style-toggle-input")).toBeNull();
@@ -179,7 +179,7 @@ describe("LayerUI style panel", () => {
     // label bit included — `annotation: "none"` is what says "no labelable
     // content" (a missing key would read as capable).
     const li = manager.layerRegistry.get("overlay1")!;
-    manager.surfaceFor(li).capabilities = {
+    (manager.surfaceFor(li) as any).capabilities = {
       opacity: "none",
       zoomRange: "none",
       annotation: "none",
@@ -317,7 +317,7 @@ describe("LayerUI style panel", () => {
   it("mousedown inside the panel does not dismiss it", () => {
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
-    const panel = panelOf(item);
+    const panel = panelOf(item)!;
 
     panel.dispatchEvent(
       new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
@@ -328,7 +328,7 @@ describe("LayerUI style panel", () => {
   it("a press outside the panel dismisses it via the outside-mousedown hook", () => {
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
-    const panel = panelOf(item);
+    const panel = panelOf(item)!;
 
     // jsdom does not populate event.target on dispatch, so pin it directly.
     const pressOn = (el: Element): void => {
@@ -353,7 +353,7 @@ describe("LayerUI style panel", () => {
     const renderLabels = vi.spyOn(manager.annotation, "renderLabels");
     const saveAnnotations = vi.spyOn(manager.persistence, "schedule");
 
-    const toggle = panelOf(item).querySelector(
+    const toggle = panelOf(item)!.querySelector(
       ".foliplus-style-toggle-input",
     ) as HTMLInputElement;
     toggle.checked = true;
@@ -383,7 +383,7 @@ describe("LayerUI style panel", () => {
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
 
-    const collide = panelOf(item).querySelector(
+    const collide = panelOf(item)!.querySelector(
       ".foliplus-style-collide-input",
     ) as HTMLInputElement;
     // No stored choice yet: the page default (label_collide ?? true) is on.
@@ -396,7 +396,7 @@ describe("LayerUI style panel", () => {
     ui.openStylePanel("overlay1");
     const setConfig = vi.spyOn(manager.annotation, "setConfig");
 
-    const collide = panelOf(item).querySelector(
+    const collide = panelOf(item)!.querySelector(
       ".foliplus-style-collide-input",
     ) as HTMLInputElement;
     collide.checked = false;
@@ -411,7 +411,7 @@ describe("LayerUI style panel", () => {
     ui.openStylePanel("overlay1");
 
     const rows = [
-      ...panelOf(item).querySelectorAll(".foliplus-style-body .foliplus-form-row"),
+      ...panelOf(item)!.querySelectorAll(".foliplus-style-body .foliplus-form-row"),
     ];
     const labels = rows.map(
       r => r.querySelector(".foliplus-form-label")?.textContent ?? "",
@@ -431,10 +431,10 @@ describe("LayerUI style panel", () => {
     ui.openStylePanel("overlay1");
     const renderLabels = vi.spyOn(manager.annotation, "renderLabels");
 
-    const color = panelOf(item).querySelector(
+    const color = panelOf(item)!.querySelector(
       ".foliplus-style-label-color-input",
     ) as HTMLInputElement;
-    const size = panelOf(item).querySelector(
+    const size = panelOf(item)!.querySelector(
       ".foliplus-style-label-size-input",
     ) as HTMLInputElement;
 
@@ -459,14 +459,14 @@ describe("LayerUI style panel", () => {
       show: true,
       color: "",
       size: 0,
-    });
+    } as any);
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
 
-    const color = panelOf(item).querySelector(
+    const color = panelOf(item)!.querySelector(
       ".foliplus-style-label-color-input",
     ) as HTMLInputElement;
-    const size = panelOf(item).querySelector(
+    const size = panelOf(item)!.querySelector(
       ".foliplus-style-label-size-input",
     ) as HTMLInputElement;
     expect(color.value).toBe("#ffffff");
@@ -479,13 +479,13 @@ describe("LayerUI style panel", () => {
       field: "count",
       format: NUMBER_FORMAT.AUTO,
       collide: false,
-    });
+    } as any);
     ui.applyStyleLabelState();
     const item = findItem(ui, "overlay1");
 
     ui.openStylePanel("overlay1");
 
-    const collide = panelOf(item).querySelector(
+    const collide = panelOf(item)!.querySelector(
       ".foliplus-style-collide-input",
     ) as HTMLInputElement;
     expect(collide.checked).toBe(false);
@@ -494,7 +494,9 @@ describe("LayerUI style panel", () => {
   it("normalizes non-string persisted values instead of trusting storage", () => {
     // localStorage is writable by anything on the page, so a field or format of
     // the wrong shape must not reach the config as-is.
-    seedIntentMap(ui, "annotation", { overlay1: { show: true, field: 42, format: 7 } });
+    seedIntentMap(ui, "annotation", {
+      overlay1: { show: true, field: 42, format: 7 } as any,
+    });
 
     ui.applyStyleLabelState();
 
@@ -526,7 +528,7 @@ describe("LayerUI style panel", () => {
       show: true,
       field: "count",
       format: "" as never,
-    });
+    } as any);
     const item = findItem(ui, "overlay1");
 
     ui.openStylePanel("overlay1");
@@ -539,7 +541,7 @@ describe("LayerUI style panel", () => {
     ui.openStylePanel("overlay1");
     const setConfig = vi.spyOn(manager.annotation, "setConfig");
 
-    const field = panelOf(item).querySelector(
+    const field = panelOf(item)!.querySelector(
       ".foliplus-style-field-select",
     ) as HTMLSelectElement;
     field.value = "count";
@@ -552,8 +554,8 @@ describe("LayerUI style panel", () => {
   it("skips syncFormatRow when the format row is absent from the DOM", () => {
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
-    panelOf(item).querySelector(".foliplus-style-format-row")?.remove();
-    const field = panelOf(item).querySelector(
+    panelOf(item)!.querySelector(".foliplus-style-format-row")?.remove();
+    const field = panelOf(item)!.querySelector(
       ".foliplus-style-field-select",
     ) as HTMLSelectElement;
     field.value = "count";
@@ -564,8 +566,8 @@ describe("LayerUI style panel", () => {
   it("omits the format key when the format select is absent from the DOM", () => {
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
-    panelOf(item).querySelector(".foliplus-style-format-select")?.remove();
-    const field = panelOf(item).querySelector(
+    panelOf(item)!.querySelector(".foliplus-style-format-select")?.remove();
+    const field = panelOf(item)!.querySelector(
       ".foliplus-style-field-select",
     ) as HTMLSelectElement;
     field.value = "count";
@@ -666,7 +668,7 @@ describe("LayerUI style panel", () => {
       show: true,
       field: "name",
       format: NUMBER_FORMAT.AUTO,
-    });
+    } as any);
 
     ui.openStylePanel("overlay1");
 
@@ -683,7 +685,7 @@ describe("LayerUI style panel", () => {
       show: true,
       field: "count",
       format: NUMBER_FORMAT.AUTO,
-    });
+    } as any);
 
     ui.openStylePanel("overlay1");
     expect(formatRowOf(item).classList.contains("foliplus-hidden")).toBe(false);
@@ -755,7 +757,7 @@ describe("LayerUI style panel", () => {
     ui.openStylePanel("overlay1");
     const setConfig = vi.spyOn(manager.annotation, "setConfig");
 
-    const format = panelOf(item).querySelector(
+    const format = panelOf(item)!.querySelector(
       ".foliplus-style-format-select",
     ) as HTMLSelectElement;
     format.value = NUMBER_FORMAT.COMMA;
@@ -774,9 +776,9 @@ describe("LayerUI style panel", () => {
       show: true,
       field: "count",
       format: NUMBER_FORMAT.INT,
-    });
+    } as any);
 
-    const btn = panelOf(item).querySelector(
+    const btn = panelOf(item)!.querySelector(
       ".foliplus-style-reset-btn",
     ) as HTMLButtonElement;
     btn.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
@@ -800,9 +802,9 @@ describe("LayerUI style panel", () => {
       field: "count",
       format: NUMBER_FORMAT.AUTO,
       collide: false,
-    });
+    } as any);
 
-    const btn = panelOf(item).querySelector(
+    const btn = panelOf(item)!.querySelector(
       ".foliplus-style-reset-btn",
     ) as HTMLButtonElement;
     btn.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
@@ -1068,7 +1070,7 @@ describe("LayerUI style panel", () => {
   it("header click closes the panel", () => {
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
-    const panel = panelOf(item);
+    const panel = panelOf(item)!;
 
     panel
       .querySelector(".foliplus-panel-header")!
@@ -1111,7 +1113,7 @@ describe("LayerUI style panel", () => {
 
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
-    const panel = panelOf(item);
+    const panel = panelOf(item)!;
     expect(panel, "the style panel rendered").toBeTruthy();
 
     expect(panel!.querySelector(".foliplus-style-opacity-range")).toBeNull();
@@ -1373,7 +1375,7 @@ describe("LayerUI style panel", () => {
 
     const item = findItem(ui, "tileBase1");
     ui.openStylePanel("tileBase1");
-    const panel = panelOf(item);
+    const panel = panelOf(item)!;
     expect(panel, "the style panel rendered").toBeTruthy();
 
     expect(panel!.querySelector(".foliplus-style-zoom-range-row")).not.toBeNull();
@@ -1396,7 +1398,7 @@ describe("LayerUI style panel", () => {
 
     const item = findItem(ui, "colormap");
     ui.openStylePanel("colormap");
-    const panel = panelOf(item);
+    const panel = panelOf(item)!;
     expect(panel, "the style panel rendered").toBeTruthy();
 
     expect(panel!.querySelector(".foliplus-style-zoom-range-row")).not.toBeNull();
@@ -1421,7 +1423,7 @@ describe("LayerUI style panel", () => {
 
     const item = findItem(ui, "norange1");
     ui.openStylePanel("norange1");
-    const panel = panelOf(item);
+    const panel = panelOf(item)!;
     expect(panel, "the style panel rendered").toBeTruthy();
 
     expect(panel!.querySelector(".foliplus-style-zoom-range-row")).toBeNull();
@@ -1436,7 +1438,7 @@ describe("LayerUI style panel", () => {
 
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
-    const panel = panelOf(item);
+    const panel = panelOf(item)!;
 
     // Panel is rendered (fields are cached) but without the opacity row.
     if (panel) {
@@ -1541,7 +1543,7 @@ describe("LayerUI style panel", () => {
       show: true,
       field: "count",
       format: NUMBER_FORMAT.AUTO,
-    });
+    } as any);
     const renderLabels = vi.spyOn(manager.annotation, "renderLabels");
 
     ui.invalidateFields("overlay1");
@@ -1554,7 +1556,7 @@ describe("LayerUI style panel", () => {
       show: false,
       field: "",
       format: NUMBER_FORMAT.AUTO,
-    });
+    } as any);
     const renderLabels = vi.spyOn(manager.annotation, "renderLabels");
 
     ui.invalidateFields("overlay1");
@@ -1590,7 +1592,7 @@ describe("LayerUI style panel", () => {
 
   it("applyStyleLabelState seeds a stored config for a layer that has none", () => {
     seedIntentMap(ui, "annotation", {
-      overlay1: { show: true, field: "count", format: NUMBER_FORMAT.AUTO },
+      overlay1: { show: true, field: "count", format: NUMBER_FORMAT.AUTO } as any,
     });
     const setConfig = vi.spyOn(manager.annotation, "setConfig");
     const renderLabels = vi.spyOn(manager.annotation, "renderLabels");
@@ -1616,7 +1618,7 @@ describe("LayerUI style panel", () => {
         color: 42 as unknown as string,
         size: "big" as unknown as number,
         format: NUMBER_FORMAT.AUTO,
-      },
+      } as any,
     });
     const setConfig = vi.spyOn(manager.annotation, "setConfig");
 
@@ -1639,7 +1641,7 @@ describe("LayerUI style panel", () => {
         color: "#abc",
         size: 99,
         format: NUMBER_FORMAT.AUTO,
-      },
+      } as any,
     });
     const setConfig = vi.spyOn(manager.annotation, "setConfig");
 
@@ -1663,9 +1665,9 @@ describe("LayerUI style panel", () => {
       show: false,
       field: "",
       format: NUMBER_FORMAT.AUTO,
-    });
+    } as any);
     seedIntentMap(ui, "annotation", {
-      overlay1: { show: true, field: "count", format: NUMBER_FORMAT.AUTO },
+      overlay1: { show: true, field: "count", format: NUMBER_FORMAT.AUTO } as any,
     });
     const setConfig = vi.spyOn(manager.annotation, "setConfig");
     const renderLabels = vi.spyOn(manager.annotation, "renderLabels");
@@ -1680,7 +1682,7 @@ describe("LayerUI style panel", () => {
   it("applyStyleLabelState renders a shown config whose field is still auto", () => {
     // `field: ""` is the Auto sentinel, not "no field" — a shown config with it
     // must still render (renderLabels resolves the auto pick).
-    seedIntentMap(ui, "annotation", { overlay1: { show: true, field: "" } });
+    seedIntentMap(ui, "annotation", { overlay1: { show: true, field: "" } as any });
     const renderLabels = vi.spyOn(manager.annotation, "renderLabels");
 
     ui.applyStyleLabelState();
@@ -1689,7 +1691,9 @@ describe("LayerUI style panel", () => {
   });
 
   it("applyStyleLabelState skips configs that are switched off", () => {
-    seedIntentMap(ui, "annotation", { overlay1: { show: false, field: "count" } });
+    seedIntentMap(ui, "annotation", {
+      overlay1: { show: false, field: "count" } as any,
+    });
     const renderLabels = vi.spyOn(manager.annotation, "renderLabels");
     const clearLabels = vi.spyOn(manager.annotation, "clearLabels");
 
@@ -1703,7 +1707,7 @@ describe("LayerUI style panel", () => {
 
   it("applyStyleLabelState skips stale ids whose layers are gone", () => {
     seedIntentMap(ui, "annotation", {
-      ghost: { show: true, field: "count", format: NUMBER_FORMAT.AUTO },
+      ghost: { show: true, field: "count", format: NUMBER_FORMAT.AUTO } as any,
     });
     const setConfig = vi.spyOn(manager.annotation, "setConfig");
     const renderLabels = vi.spyOn(manager.annotation, "renderLabels");
@@ -1791,7 +1795,7 @@ describe("LayerUI style panel", () => {
       show: true,
       field: "count",
       format: NUMBER_FORMAT.AUTO,
-    });
+    } as any);
     const item = findItem(ui, "overlay1");
 
     ui.openStylePanel("overlay1");
@@ -2871,7 +2875,7 @@ describe("LayerUI style panel", () => {
       id: "heat1",
       name: "Heat",
       canvas: document.createElement("canvas"),
-      styleProvider: () => provide(),
+      styleProvider: (() => provide()) as any,
       styleSetters: { labelShow: vi.fn() },
     });
     const item = findItem(ui, "heat1");
@@ -3682,7 +3686,7 @@ describe("LayerUI style panel — zoom range", () => {
     const before = dot.style.left;
 
     map.getZoom.mockReturnValue(12);
-    zoomEndHandler?.();
+    (zoomEndHandler as any)?.();
 
     const after = dot.style.left;
     expect(before).not.toBe(after);
@@ -3705,7 +3709,7 @@ describe("LayerUI style panel — zoom range", () => {
     const beforeCurrent = spans[1].textContent;
 
     map.getZoom.mockReturnValue(12);
-    zoomEndHandler?.();
+    (zoomEndHandler as any)?.();
 
     const afterCurrent = spans[1].textContent;
     expect(afterCurrent).toBe("12");
@@ -3790,7 +3794,7 @@ describe("LayerUI style panel — zoom range", () => {
     // honest carrier, so the row now renders for it just like any overlay.
     const item = findItem(ui, "base1");
     ui.openStylePanel("base1");
-    const panel = panelOf(item);
+    const panel = panelOf(item)!;
     if (!panel) return;
     const row = zoomRowOf(panel);
     expect(row).not.toBeNull();
@@ -4228,7 +4232,7 @@ describe("LayerUI style panel — zoom range", () => {
     maxInput.dispatchEvent(new Event("input", { bubbles: true }));
     // Polluted map max after the drag — the ratchet case.
     map.getMaxZoom.mockReturnValue(10);
-    ui.c.onZoomend?.();
+    (ui.c as any).onZoomend?.();
     // Reopen the panel and check the bound has not been narrowed.
     ui.closeStylePanel?.(false);
     ui.openStylePanel("base1");
@@ -4390,7 +4394,7 @@ describe("style utility guards", () => {
       item.querySelector(`.${CONST.CLASSES.STYLE_PANEL}`) as HTMLElement | null;
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
-    const panel = panelOf(item);
+    const panel = panelOf(item)!;
     expect(panel).not.toBeNull();
 
     // Remove the body, field select, and format row.

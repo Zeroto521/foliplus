@@ -167,7 +167,9 @@ describe("LayerUI overlay mutual exclusion", () => {
     // opener ever saw it. Both shapes are cleared.
     it("an opener closes the popup the map left open", () => {
       const layerPopup = vi.fn();
-      map.eachLayer.mockImplementation(fn => fn({ closePopup: layerPopup }, "layer"));
+      map.eachLayer.mockImplementation((fn: any) =>
+        fn({ closePopup: layerPopup }, "layer"),
+      );
 
       ui.openMoreMenu(findItem(ui, "overlay1"));
 
@@ -177,7 +179,9 @@ describe("LayerUI overlay mutual exclusion", () => {
 
     it("focusLayer closes it along with the panels it replaces", () => {
       const layerPopup = vi.fn();
-      map.eachLayer.mockImplementation(fn => fn({ closePopup: layerPopup }, "layer"));
+      map.eachLayer.mockImplementation((fn: any) =>
+        fn({ closePopup: layerPopup }, "layer"),
+      );
 
       ui.focusLayer("overlay1");
 
@@ -190,7 +194,7 @@ describe("LayerUI overlay mutual exclusion", () => {
       // Tile layers and similar carry no popup; the optional call keeps the
       // sweep from throwing on them.
       const layerPopup = vi.fn();
-      map.eachLayer.mockImplementation(fn => {
+      map.eachLayer.mockImplementation((fn: any) => {
         fn({}, "tile");
         fn({ closePopup: layerPopup }, "geojson");
       });

@@ -1057,7 +1057,7 @@ describe("executor: the branches behind the gates", () => {
       },
     } as never;
 
-    const info = { id: "n", layer: { options: {} } } as never;
+    const info = { id: "n", layer: { options: {} } } as any;
     const projection = projectLayer(bare, info);
     expect(projection.intent.visible).toBe(true);
     expect(projection.effectiveShown).toBe(true);

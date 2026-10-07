@@ -374,11 +374,11 @@ describe("snapshotAuthorVisible", () => {
     snapshotAuthorVisible(ui, {
       id: "ghost",
       visible: true,
-    } as LayerInfo);
+    } as unknown as LayerInfo);
     snapshotAuthorVisible(ui, {
       id: "ghost-hidden",
       visible: false,
-    } as LayerInfo);
+    } as unknown as LayerInfo);
     expect(ui.runtimeStore.hasAuthorVisible("ghost")).toBe(false);
     expect(ui.runtimeStore.hasAuthorVisible("ghost-hidden")).toBe(false);
   });

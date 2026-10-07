@@ -25,7 +25,7 @@ const makeUi = (layers: Array<{ id: string; group: "base" | "overlay" }> = []) =
 
   const colorRow = document.createElement("div");
   colorRow.className = CONST.CLASSES.LAYER_ITEM;
-  colorRow.innerHTML = `<input type="color" class="${CONST.CLASSES.COLOR_INPUT}" />`;
+  colorRow.innerHTML = `<input type="color" class="${(CONST.CLASSES as any).COLOR_INPUT}" />`;
   uiContainer.appendChild(colorRow);
 
   // The color basemap owns a dedicated pane + canvas (via factory.createColor),
