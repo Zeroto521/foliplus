@@ -7,7 +7,7 @@ import * as CONST from "#foliplus/LayerControl/const.js";
 import { dom } from "#common/dom.js";
 import { applyProjection, authorZoomBoundsForLayer } from "../apply.js";
 import { INTENT, getIntent } from "../intent.js";
-import type { LayerUI } from "../types.js";
+import type { LayerUI } from "../surface.js";
 import { railPos } from "./frame.js";
 import {
   getDimension,

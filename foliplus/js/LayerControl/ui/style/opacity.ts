@@ -15,7 +15,7 @@ import { dom } from "#common/dom.js";
 import { applyProjection } from "../apply.js";
 import { INTENT, getIntent } from "../intent.js";
 import { syncNoBasemap } from "../listPanel/visibility.js";
-import type { LayerUI } from "../types.js";
+import type { LayerUI } from "../surface.js";
 import { round5 } from "./frame.js";
 import {
   getDimension,

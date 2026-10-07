@@ -20,7 +20,7 @@ import { formatNumber } from "#common/format.js";
 import * as Icons from "#common/icon.js";
 import { INTENT, getIntent } from "../intent.js";
 import { intentVisibleOf, projectLayer } from "../projection.js";
-import type { LayerUI } from "../types.js";
+import type { LayerUI } from "../surface.js";
 
 /** One layer's inputs to the row visual. Nothing here is written back. */
 interface RowCell {

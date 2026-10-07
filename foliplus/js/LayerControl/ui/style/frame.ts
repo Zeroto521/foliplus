@@ -3,7 +3,7 @@
 // Owns the panel's frame pieces: reset footer, and the slider-rail
 // positioning math the opacity / zoom-range rows share.
 import { dom } from "#common/dom.js";
-import type { LayerUI } from "../types.js";
+import type { LayerUI } from "../surface.js";
 
 /** Reset footer — divider + button, same vocabulary for the annotation
  *  and the delegated panel. */

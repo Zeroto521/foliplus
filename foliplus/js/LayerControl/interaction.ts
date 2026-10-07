@@ -2,7 +2,7 @@
 import { ensureInteraction } from "#core/interaction.js";
 import * as CONST from "./const.js";
 import { activateDeleteItem } from "./ui/overlayPanel/menu.js";
-import type { LayerUI } from "./ui/types.js";
+import type { LayerUI } from "./ui/surface.js";
 
 /** Keyboard shortcuts registered via InteractionManager. */
 const registerInteractions = (ui: LayerUI): (() => void) => {

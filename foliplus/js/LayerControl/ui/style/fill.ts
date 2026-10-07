@@ -33,7 +33,7 @@ import {
 } from "#common/form.js";
 import { showSolidBasemap } from "../color.js";
 import { INTENT, type IntentKey, getIntent } from "../intent.js";
-import type { LayerUI } from "../types.js";
+import type { LayerUI } from "../surface.js";
 import { pinStyleOnHighlight } from "./pin.js";
 import {
   getDimension,

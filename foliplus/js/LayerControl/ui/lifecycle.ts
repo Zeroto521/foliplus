@@ -55,7 +55,7 @@ import { finishRename } from "./overlayPanel/rename.js";
 import { loadPersistedState } from "./state.js";
 import { closeStylePanel, invalidateFields } from "./style/index.js";
 import { dropStyleDimApplies } from "./style/styleBag.js";
-import type { LayerUI } from "./types.js";
+import type { LayerUI } from "./surface.js";
 
 /**
  * Attach UI to the given container div.

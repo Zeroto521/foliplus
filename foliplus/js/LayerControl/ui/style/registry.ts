@@ -55,7 +55,7 @@
 import { DIM, type IntentKey } from "#core/layer/index.js";
 import type { LayerDimension } from "#foliplus/LayerControl/type.js";
 import { saveState } from "../state.js";
-import type { LayerUI } from "../types.js";
+import type { LayerUI } from "../surface.js";
 
 const registry: Map<string, LayerDimension<any>> = new Map();
 

@@ -73,7 +73,7 @@ import {
   replayFillState,
 } from "./style/index.js";
 import { dropStyleDimApplies } from "./style/styleBag.js";
-import type { LayerUI as LayerUISurface } from "./types.js";
+import type { LayerUI as LayerUISurface } from "./surface.js";
 
 /** UI Controller for LayerControl.
  *  Per-panel state lives on one of three view subsystems:

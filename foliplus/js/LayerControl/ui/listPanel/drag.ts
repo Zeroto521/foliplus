@@ -2,7 +2,7 @@
 import { HINT_DURATION } from "#core/hint.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { saveFoldState } from "../state.js";
-import type { LayerUI } from "../types.js";
+import type { LayerUI } from "../surface.js";
 import { initTypesAndVisibility, renderInitialList } from "./list.js";
 
 /** Fold or unfold one group. Shared by the pointer (row click) and the

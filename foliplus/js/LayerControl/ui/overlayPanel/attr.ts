@@ -9,8 +9,8 @@ import { dom } from "#common/dom.js";
 import { formatNumber, formatTimestamp } from "#common/format.js";
 import { ATTRS_ROW_WRAP_CHARS } from "../context.js";
 import { displayName } from "../listPanel/rowView.js";
+import type { LayerUI } from "../surface.js";
 import { closeOverlays } from "../teardown.js";
-import type { LayerUI } from "../types.js";
 
 /**
  * Open the attributes panel for a given layer row: display-only metadata

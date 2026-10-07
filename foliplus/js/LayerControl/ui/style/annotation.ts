@@ -31,7 +31,7 @@ import {
   normalizeHexColor,
 } from "#common/form.js";
 import { NUMBER_FORMAT } from "#common/format.js";
-import type { LayerUI } from "../types.js";
+import type { LayerUI } from "../surface.js";
 import { layerFields, syncFormatRow } from "./label.js";
 import { registerDimension } from "./registry.js";
 

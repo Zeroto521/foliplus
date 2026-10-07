@@ -10,7 +10,7 @@ import { clampLabelSize, normalizeHexColor } from "#common/form.js";
 import { NUMBER_FORMAT } from "#common/format.js";
 import { INTENT, getIntent } from "../intent.js";
 import { saveState } from "../state.js";
-import type { LayerUI } from "../types.js";
+import type { LayerUI } from "../surface.js";
 
 /** Field list for a layer (cached on the runtime store). collectFields walks
  *  every feature, so the answer is cached per layer id; invalidateFields drops

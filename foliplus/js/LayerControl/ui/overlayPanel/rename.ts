@@ -9,8 +9,8 @@ import {
 import { INTENT, setIntent } from "../intent.js";
 import { displayName } from "../listPanel/rowView.js";
 import { saveNamesState } from "../state.js";
+import type { LayerUI } from "../surface.js";
 import { closeOverlays } from "../teardown.js";
-import type { LayerUI } from "../types.js";
 
 /**
  * Turn the layer's label into an inline editable input so the user can
