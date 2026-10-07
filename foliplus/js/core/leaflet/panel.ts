@@ -298,7 +298,7 @@ const createPanelHeader = (opts: {
         title: opts.closeTitle,
         "aria-label": opts.closeTitle,
       },
-      { html: SVGs.CLOSE_ICON },
+      { html: SVGs.ICON_CLOSE },
     ),
   );
   return header;

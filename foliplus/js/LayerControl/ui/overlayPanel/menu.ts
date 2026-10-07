@@ -65,7 +65,9 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
     "aria-disabled": focusDisabled ? "true" : "false",
   };
 
-  menu.appendChild(dom.el("li", itemAttrs, { html: SVGs.FOCUS }, ui.T("focus_layer")));
+  menu.appendChild(
+    dom.el("li", itemAttrs, { html: SVGs.ICON_FOCUS }, ui.T("focus_layer")),
+  );
 
   if (focusDisabled) menu.lastElementChild!.setAttribute("disabled", "disabled");
 
@@ -108,7 +110,7 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
           : ui.T("style_layer_tooltip"),
         "aria-disabled": styleDisabled ? "true" : "false",
       },
-      { html: SVGs.STYLE },
+      { html: SVGs.ICON_STYLE },
       ui.T("style_layer"),
     ),
   );
@@ -125,7 +127,7 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
         tabindex: "0",
         title: ui.T("rename_layer_tooltip"),
       },
-      { html: Icons.EDIT_ICON },
+      { html: Icons.ICON_EDIT },
       ui.T("rename_layer"),
     ),
   );
@@ -141,7 +143,7 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
         tabindex: "0",
         title: ui.T("attributes_layer_tooltip"),
       },
-      { html: Icons.INFO_ICON },
+      { html: Icons.ICON_INFO },
       ui.T("attributes_layer"),
     ),
   );
@@ -257,7 +259,7 @@ const buildDeleteItem = (
       tabindex: "0",
       title: tooltip,
     },
-    { html: Icons.DELETE_ICON },
+    { html: Icons.ICON_DELETE },
     label,
   );
   return item;

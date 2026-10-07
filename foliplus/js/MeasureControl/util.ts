@@ -20,9 +20,9 @@ import * as CONST from "./const.js";
 /** Format meters to human-readable string: "999 m" under the km threshold,
  *  then "1.0 km", "1,234.5 km" — km values keep one decimal with grouping. */
 const formatDistance = (meters: number): string =>
-  meters >= CONST.FORMAT.KM_THRESHOLD
-    ? `${formatNumber(meters / 1000, NUMBER_FORMAT.COMMA, "en", CONST.FORMAT.KM_DECIMALS)} km`
-    : `${formatNumber(meters, NUMBER_FORMAT.COMMA, "en", CONST.FORMAT.SMALL_DECIMALS)} m`;
+  meters >= CONST.UNIT_FORMAT.KM_THRESHOLD
+    ? `${formatNumber(meters / 1000, NUMBER_FORMAT.COMMA, "en", CONST.UNIT_FORMAT.KM_DECIMALS)} km`
+    : `${formatNumber(meters, NUMBER_FORMAT.COMMA, "en", CONST.UNIT_FORMAT.SMALL_DECIMALS)} m`;
 
 /** Format a segment label: "45° | 1.2 km", or just "1.2 km" when show_bearing is off. */
 const formatSegmentLabel = (
@@ -40,9 +40,9 @@ const formatSegmentLabel = (
 /** Format area: "999,999 m²" below a km², then "1.23 km²", "1,234.57 km²". */
 const formatArea = (sqMeters: number): string => {
   if (sqMeters >= 1_000_000) {
-    return `${formatNumber(sqMeters / 1_000_000, NUMBER_FORMAT.COMMA, "en", CONST.FORMAT.KM2_DECIMALS)} km²`;
+    return `${formatNumber(sqMeters / 1_000_000, NUMBER_FORMAT.COMMA, "en", CONST.UNIT_FORMAT.KM2_DECIMALS)} km²`;
   }
-  return `${formatNumber(sqMeters, NUMBER_FORMAT.COMMA, "en", CONST.FORMAT.SMALL_DECIMALS)} m²`;
+  return `${formatNumber(sqMeters, NUMBER_FORMAT.COMMA, "en", CONST.UNIT_FORMAT.SMALL_DECIMALS)} m²`;
 };
 
 /** Resolve the label chip inside a marker's icon element, or null when the

@@ -140,7 +140,7 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
     ) as L.Marker;
     unregisterCentroid = mgr.registerLabel(
       centroidLabel,
-      CONST.LABEL_PRIORITY.CENTROID,
+      CONST.LABEL_PRIORITY_BY_ROLE.CENTROID,
     );
     centroidDelMarker = mountMeasureDelIcon(
       layers,

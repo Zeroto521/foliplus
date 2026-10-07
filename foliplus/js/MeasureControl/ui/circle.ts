@@ -46,7 +46,7 @@ const attachCircleUI = (mgr: MeasureManager, opts: CircleAttachOpts): void => {
   // restyles it), so one registration survives for the measurement's life.
   /* eslint-disable @typescript-eslint/no-empty-function -- no radius label: nothing to unregister */
   const unregisterRadiusLabel = radiusLabel
-    ? mgr.registerLabel(radiusLabel, CONST.LABEL_PRIORITY.RADIUS)
+    ? mgr.registerLabel(radiusLabel, CONST.LABEL_PRIORITY_BY_ROLE.RADIUS)
     : () => {};
   /* eslint-enable @typescript-eslint/no-empty-function */
 

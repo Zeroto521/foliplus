@@ -1,5 +1,5 @@
 import { ANNOTATION_PANE_PREFIX, FOCUS_Z } from "#core/layer/index.js";
-import { LABEL_COLOR_DEFAULT, LABEL_SIZE } from "#common/form.js";
+import { DEFAULT_LABEL_COLOR, LABEL_SIZE } from "#common/form.js";
 import { NUMBER_FORMAT } from "#common/format.js";
 
 /** Timing / delay constants. */
@@ -236,7 +236,7 @@ const AUTHOR_ZOOM_FALLBACK_MAX = 20;
 const DEFAULT_ANNOTATION = {
   show: false,
   field: "",
-  color: LABEL_COLOR_DEFAULT,
+  color: DEFAULT_LABEL_COLOR,
   size: LABEL_SIZE.SIZE_DEFAULT,
   format: NUMBER_FORMAT.AUTO,
 } as const;

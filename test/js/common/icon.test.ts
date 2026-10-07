@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import * as ICON from "#common/icon.js";
 
-describe("", () => {
+describe("ICON_LOADING", () => {
   it("is an SVG string", () => {
-    expect(ICON.LOADING_ICON).toContain("<svg");
-    expect(ICON.LOADING_ICON).toContain("foliplus-spin");
+    expect(ICON.ICON_LOADING).toContain("<svg");
+    expect(ICON.ICON_LOADING).toContain("foliplus-spin");
   });
 
   it("carries its own paint instead of inheriting from the host button", () => {
@@ -14,7 +14,7 @@ describe("", () => {
     // a solid pie slice with a notch. Presentation attributes keep this
     // working everywhere, and being lowest-priority CSS still lets a component
     // recolor the spinner.
-    const path = ICON.LOADING_ICON.match(/<path[^>]*>/)?.[0] ?? "";
+    const path = ICON.ICON_LOADING.match(/<path[^>]*>/)?.[0] ?? "";
     expect(path).toContain('fill="none"');
     expect(path).toContain('stroke="currentColor"');
     expect(path).toContain("stroke-width=");
@@ -22,37 +22,37 @@ describe("", () => {
   });
 });
 
-describe("", () => {
+describe("ICON_CLOSE", () => {
   it("is an SVG string", () => {
-    expect(ICON.CLOSE_ICON).toContain("<svg");
-    expect(ICON.CLOSE_ICON).toContain("line");
+    expect(ICON.ICON_CLOSE).toContain("<svg");
+    expect(ICON.ICON_CLOSE).toContain("line");
   });
 });
 
-describe("PIN_ICON", () => {
+describe("ICON_PIN", () => {
   it("is an SVG string inside a div", () => {
-    expect(ICON.PIN_ICON).toContain("foliplus-pin");
-    expect(ICON.PIN_ICON).toContain("<svg");
+    expect(ICON.ICON_PIN).toContain("foliplus-pin");
+    expect(ICON.ICON_PIN).toContain("<svg");
   });
 });
 
-describe("", () => {
+describe("ICON_LOCATION_PIN", () => {
   it("is an SVG string", () => {
-    expect(ICON.LOCATION_PIN).toContain("<svg");
-    expect(ICON.LOCATION_PIN).toContain("path");
+    expect(ICON.ICON_LOCATION_PIN).toContain("<svg");
+    expect(ICON.ICON_LOCATION_PIN).toContain("path");
   });
 });
 
-describe("", () => {
+describe("ICON_GLOBE", () => {
   it("is an SVG string", () => {
-    expect(ICON.GLOBE_ICON).toContain("<svg");
-    expect(ICON.GLOBE_ICON).toContain("circle");
+    expect(ICON.ICON_GLOBE).toContain("<svg");
+    expect(ICON.ICON_GLOBE).toContain("circle");
   });
 });
 
-describe("", () => {
+describe("ICON_EDIT", () => {
   it("is an SVG string", () => {
-    expect(ICON.EDIT_ICON).toContain("<svg");
-    expect(ICON.EDIT_ICON).toContain("</svg>");
+    expect(ICON.ICON_EDIT).toContain("<svg");
+    expect(ICON.ICON_EDIT).toContain("</svg>");
   });
 });

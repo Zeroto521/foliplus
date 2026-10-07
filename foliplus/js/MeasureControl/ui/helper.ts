@@ -54,7 +54,7 @@ const findPointIndex = (points: L.LatLng[], target: L.LatLng): number => {
 const bindSegmentLabels = (
   mgr: MeasureManager,
   segLabels: L.Marker[],
-  priority: (index: number) => number = () => CONST.LABEL_PRIORITY.SEGMENT,
+  priority: (index: number) => number = () => CONST.LABEL_PRIORITY_BY_ROLE.SEGMENT,
 ): (() => void) => {
   let unregisters: Array<() => void> = [];
   const refresh = () => {

@@ -33,8 +33,8 @@ const attachDistanceUI = (mgr: MeasureManager, opts: AttachOpts): void => {
   // against any per-segment label — losing it would drop the line's length.
   const totalPriority = (i: number): number =>
     i === segLabels.length - 1
-      ? CONST.LABEL_PRIORITY.TOTAL
-      : CONST.LABEL_PRIORITY.SEGMENT;
+      ? CONST.LABEL_PRIORITY_BY_ROLE.TOTAL
+      : CONST.LABEL_PRIORITY_BY_ROLE.SEGMENT;
   const nodeDelMarkers: L.Marker[] = [];
   const dragBinds: DragBind[] = [];
   let unregisterSegLabels = bindSegmentLabels(mgr, segLabels, totalPriority);

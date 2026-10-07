@@ -1,89 +1,89 @@
 import { describe, expect, it } from "vitest";
 import * as SVGs from "#foliplus/LayerControl/icon.js";
 
-describe("LAYERS", () => {
+describe("ICON_LAYERS", () => {
   it("is an SVG string", () => {
-    expect(SVGs.LAYERS).toContain("<svg");
-    expect(SVGs.LAYERS).toContain("polygon");
+    expect(SVGs.ICON_LAYERS).toContain("<svg");
+    expect(SVGs.ICON_LAYERS).toContain("polygon");
   });
 });
 
-describe("DRAG_HANDLE", () => {
+describe("ICON_DRAG_HANDLE", () => {
   it("is an SVG string with drag handle class", () => {
-    expect(SVGs.DRAG_HANDLE).toContain("drag-handle");
-    expect(SVGs.DRAG_HANDLE).toContain("circle");
+    expect(SVGs.ICON_DRAG_HANDLE).toContain("drag-handle");
+    expect(SVGs.ICON_DRAG_HANDLE).toContain("circle");
   });
 });
 
-describe("POINT", () => {
+describe("ICON_POINT", () => {
   it("is an SVG string", () => {
-    expect(SVGs.POINT).toContain("<svg");
-    expect(SVGs.POINT).toContain("circle");
+    expect(SVGs.ICON_POINT).toContain("<svg");
+    expect(SVGs.ICON_POINT).toContain("circle");
   });
 });
 
-describe("LINE", () => {
+describe("ICON_LINE", () => {
   it("is an SVG string", () => {
-    expect(SVGs.LINE).toContain("<svg");
-    expect(SVGs.LINE).toContain("path");
+    expect(SVGs.ICON_LINE).toContain("<svg");
+    expect(SVGs.ICON_LINE).toContain("path");
   });
 });
 
-describe("POLYGON", () => {
+describe("ICON_POLYGON", () => {
   it("is an SVG string", () => {
-    expect(SVGs.POLYGON).toContain("<svg");
-    expect(SVGs.POLYGON).toContain("polygon");
+    expect(SVGs.ICON_POLYGON).toContain("<svg");
+    expect(SVGs.ICON_POLYGON).toContain("polygon");
   });
 });
 
-describe("EMPTY", () => {
+describe("ICON_EMPTY", () => {
   it("is an SVG string", () => {
-    expect(SVGs.EMPTY).toContain("<svg");
-    expect(SVGs.EMPTY).toContain("dashed");
+    expect(SVGs.ICON_EMPTY).toContain("<svg");
+    expect(SVGs.ICON_EMPTY).toContain("dashed");
   });
 });
 
-describe("UNKNOWN", () => {
+describe("ICON_UNKNOWN", () => {
   it("is an SVG string", () => {
-    expect(SVGs.UNKNOWN).toContain("<svg");
-    expect(SVGs.UNKNOWN).toContain("</svg>");
+    expect(SVGs.ICON_UNKNOWN).toContain("<svg");
+    expect(SVGs.ICON_UNKNOWN).toContain("</svg>");
   });
 });
 
-describe("COLOR", () => {
+describe("ICON_COLOR", () => {
   it("is an SVG string with paint-bucket path", () => {
-    expect(SVGs.COLOR).toContain("<svg");
-    expect(SVGs.COLOR).toContain("path");
+    expect(SVGs.ICON_COLOR).toContain("<svg");
+    expect(SVGs.ICON_COLOR).toContain("path");
   });
 });
 
-describe("FOLD", () => {
+describe("ICON_FOLD", () => {
   it("is an SVG string with polyline", () => {
-    expect(SVGs.FOLD).toContain("<svg");
-    expect(SVGs.FOLD).toContain("polyline");
+    expect(SVGs.ICON_FOLD).toContain("<svg");
+    expect(SVGs.ICON_FOLD).toContain("polyline");
   });
 });
 
-describe("MORE", () => {
+describe("ICON_MORE", () => {
   it("is an SVG string with three vertical dots", () => {
-    expect(SVGs.MORE).toContain("<svg");
+    expect(SVGs.ICON_MORE).toContain("<svg");
     // Three circles at cy=6, 12, 18
-    expect(SVGs.MORE).toMatch(/cx="12"[^>]*cy="6"/);
-    expect(SVGs.MORE).toMatch(/cx="12"[^>]*cy="12"/);
-    expect(SVGs.MORE).toMatch(/cx="12"[^>]*cy="18"/);
+    expect(SVGs.ICON_MORE).toMatch(/cx="12"[^>]*cy="6"/);
+    expect(SVGs.ICON_MORE).toMatch(/cx="12"[^>]*cy="12"/);
+    expect(SVGs.ICON_MORE).toMatch(/cx="12"[^>]*cy="18"/);
   });
 });
 
-describe("FOCUS", () => {
+describe("ICON_FOCUS", () => {
   it("is an SVG string with corner brackets + center dot", () => {
-    expect(SVGs.FOCUS).toContain("<svg");
+    expect(SVGs.ICON_FOCUS).toContain("<svg");
     // Center dot (solid fill)
-    expect(SVGs.FOCUS).toContain('class="solid"');
-    expect((SVGs.FOCUS.match(/circle/g) ?? []).length).toBe(1);
+    expect(SVGs.ICON_FOCUS).toContain('class="solid"');
+    expect((SVGs.ICON_FOCUS.match(/circle/g) ?? []).length).toBe(1);
     // Four corner brackets (extent frame)
-    expect(SVGs.FOCUS).toContain("M3 9 V3 H9");
-    expect(SVGs.FOCUS).toContain("M15 3 H21 V9");
-    expect(SVGs.FOCUS).toContain("M21 15 V21 H15");
-    expect(SVGs.FOCUS).toContain("M9 21 H3 V15");
+    expect(SVGs.ICON_FOCUS).toContain("M3 9 V3 H9");
+    expect(SVGs.ICON_FOCUS).toContain("M15 3 H21 V9");
+    expect(SVGs.ICON_FOCUS).toContain("M21 15 V21 H15");
+    expect(SVGs.ICON_FOCUS).toContain("M9 21 H3 V15");
   });
 });

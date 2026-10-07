@@ -4,22 +4,22 @@ import * as CommonIcons from "#common/icon.js";
 
 describe("CAMERA", () => {
   it("is an SVG string", () => {
-    expect(SVGs.CAMERA).toContain("<svg");
-    expect(SVGs.CAMERA).toContain("</svg>");
-    expect(SVGs.CAMERA).toContain("circle");
+    expect(SVGs.ICON_CAMERA).toContain("<svg");
+    expect(SVGs.ICON_CAMERA).toContain("</svg>");
+    expect(SVGs.ICON_CAMERA).toContain("circle");
   });
 });
 
 describe("CHECK", () => {
   it("is an SVG string", () => {
-    expect(SVGs.CHECK).toContain("<svg");
-    expect(SVGs.CHECK).toContain("polyline");
+    expect(SVGs.ICON_CHECK).toContain("<svg");
+    expect(SVGs.ICON_CHECK).toContain("polyline");
   });
 });
 
-describe("DOWNLOAD_ICON", () => {
+describe("ICON_DOWNLOAD", () => {
   it("is an SVG string", () => {
-    expect(CommonIcons.DOWNLOAD_ICON).toContain("<svg");
-    expect(CommonIcons.DOWNLOAD_ICON).toContain("path");
+    expect(CommonIcons.ICON_DOWNLOAD).toContain("<svg");
+    expect(CommonIcons.ICON_DOWNLOAD).toContain("path");
   });
 });

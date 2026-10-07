@@ -7,10 +7,10 @@ import { type RectCorners, roundedRectOutline } from "#common/marqueeShape.js";
 
 const MARQUEE_PAD = 4;
 const NS = "http://www.w3.org/2000/svg";
-const SEL = "path.foliplus-focus-rect";
+const MARQUEE_SEL = "path.foliplus-focus-rect";
 
 const clearMarquees = (root: ParentNode = document): void => {
-  root.querySelectorAll(SEL).forEach(n => n.remove());
+  root.querySelectorAll(MARQUEE_SEL).forEach(n => n.remove());
 };
 
 const outlineToPath = (pts: { u: number; v: number }[]): string =>

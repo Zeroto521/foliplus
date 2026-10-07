@@ -152,7 +152,7 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
   // otherwise fall back to the geometry glyph the layer row shows.
   const typeSvg =
     layerInfo?.iconSvg ??
-    (isColor ? SVGs.COLOR : layer ? Util.getTypeSVG(gtype) : SVGs.UNKNOWN);
+    (isColor ? SVGs.ICON_COLOR : layer ? Util.getTypeSVG(gtype) : SVGs.ICON_UNKNOWN);
 
   // Shell (surface, header, content scroll) comes from the shared row-panel
   // factory, so this surface is built by the same code as the per-layer style

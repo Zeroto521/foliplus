@@ -70,7 +70,7 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
   const { panel, content } = createRowPanel({
     cssClass: CONST.CLASSES.STYLE_PANEL,
     title: ui.T("style_layer"),
-    iconSvg: SVGs.STYLE,
+    iconSvg: SVGs.ICON_STYLE,
     closeTitle: ui.T("close_title"),
     iconClass: "foliplus-layer-style-icon foliplus-header-icon",
   });

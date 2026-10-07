@@ -185,7 +185,7 @@ const renderHistory = (ctrl: SearchControlCtx, mode: SearchType) => {
     // Fall back to the stored query only if the entry's own display is missing.
     const reEntry = (isAddr ? entry.addrDisplay : entry.coordDisplay) || entry.query;
     return {
-      icon: isAddr ? Icons.LOCATION_PIN : Icons.GLOBE_ICON,
+      icon: isAddr ? Icons.ICON_LOCATION_PIN : Icons.ICON_GLOBE,
       source: SOURCE.HISTORY,
       primaryText: display,
       query: reEntry,

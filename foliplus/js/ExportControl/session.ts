@@ -401,7 +401,7 @@ const downloadGeoTiff = function (
   });
 
   const blob = new Blob([tiffBuffer], { type: "image/tiff" });
-  this.claimDownload(blob, `${name}.${CONST.FORMAT.geotiff.ext}`);
+  this.claimDownload(blob, `${name}.${CONST.EXPORT_FORMAT_SPEC.geotiff.ext}`);
 };
 
 /** Handle render failure. */

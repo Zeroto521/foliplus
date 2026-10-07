@@ -10,7 +10,7 @@ import { LayerUI } from "./ui/index.js";
 
 const LayerControl = defineControl<LayerController>({
   config: CONFIG,
-  icon: SVGs.LAYERS,
+  icon: SVGs.ICON_LAYERS,
   createManager: env => {
     const manager = new LayerController(map, env.config.data as LayerInfo[], {
       T: env.T,
@@ -25,7 +25,7 @@ const LayerControl = defineControl<LayerController>({
       cssClass: "foliplus-layer-ctrl",
       ctrlId: `${this.config.name}_ctrl`,
       toggleTitle: this.T("toggle_title"),
-      toggleSvg: SVGs.LAYERS,
+      toggleSvg: SVGs.ICON_LAYERS,
       panelTitle: this.T("panel_title"),
       closeTitle: this.T("close_title"),
       collapseOnOutside: this.config.collapse_on_outside,

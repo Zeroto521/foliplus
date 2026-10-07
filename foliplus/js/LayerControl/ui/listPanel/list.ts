@@ -204,7 +204,7 @@ const renderToggleAllRow = (ui: LayerUI, group: string, labelKey: string) => {
       {
         class: CONST.CLASSES.FOLD_BTN,
       },
-      { html: SVGs.FOLD },
+      { html: SVGs.ICON_FOLD },
     ),
     dom.el(
       "div",
@@ -243,7 +243,7 @@ const renderLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
       title: ui.T("more_tooltip"),
       "aria-label": ui.T("more_tooltip"),
     },
-    { html: SVGs.MORE },
+    { html: SVGs.ICON_MORE },
   );
   // All layers get the "more" button — data layers can focus + rename, base
   // maps can rename (focus on a base map is a harmless full-world fitBounds).
@@ -252,7 +252,7 @@ const renderLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
     dom.el(
       "span",
       { class: CONST.CLASSES.DRAG_CELL, title: ui.T("drag_tooltip") },
-      { html: SVGs.DRAG_HANDLE },
+      { html: SVGs.ICON_DRAG_HANDLE },
     ),
     dom.el(
       "div",

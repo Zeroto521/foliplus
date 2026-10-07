@@ -12,7 +12,7 @@ type ExportScheduler = (fn: () => void, ms: number) => ReturnType<typeof setTime
 
 const ExportControl = defineControl<ExportManager>({
   config: CONFIG,
-  icon: SVGs.CAMERA,
+  icon: SVGs.ICON_CAMERA,
   setup: env => requireLayerAPI(env.config.name, env.T, map),
   createManager: () =>
     new ExportManager(
@@ -24,7 +24,7 @@ const ExportControl = defineControl<ExportManager>({
     const { container, ctrl, toolBar, toggleBtn } = createFoldControl({
       cssClass: `foliplus-export-ctrl`,
       toggleTitle: this.T("btn_title"),
-      toggleSvg: SVGs.CAMERA,
+      toggleSvg: SVGs.ICON_CAMERA,
       position: this.config.position,
     });
     // Self-declare export DOM-copy opt-out via the data attribute (primary

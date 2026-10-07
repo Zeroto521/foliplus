@@ -507,8 +507,8 @@ describe("scanSharedImports", () => {
       path.join(base, "comp.ts"),
       [
         'import * as Icons from "#common/icon.js";',
-        "console.log(Icons.LOADING_ICON);",
-        "console.log(Icons.CLOSE_ICON);",
+        "console.log(Icons.ICON_LOADING);",
+        "console.log(Icons.ICON_CLOSE);",
       ].join("\n"),
       "utf-8",
     );
@@ -517,7 +517,7 @@ describe("scanSharedImports", () => {
       expect(used.size).toBe(0);
       expect(starUsed.has("#common/icon.js")).toBe(true);
       expect(starUsed.get("#common/icon.js")).toEqual(
-        new Set(["LOADING_ICON", "CLOSE_ICON"]),
+        new Set(["ICON_LOADING", "ICON_CLOSE"]),
       );
     } finally {
       fs.rmSync(base, { recursive: true, force: true });

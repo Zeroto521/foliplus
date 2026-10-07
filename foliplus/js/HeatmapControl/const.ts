@@ -2,7 +2,7 @@
 // ``import * as CONST`` so callers keep the ``CONST.X`` access pattern.
 // Only pure static constants live here; CONFIG-derived values are accessed
 // via ``CONFIG.*`` directly in the consuming code.
-import { LABEL_COLOR_DEFAULT, LABEL_SIZE } from "#common/form.js";
+import { DEFAULT_LABEL_COLOR, LABEL_SIZE } from "#common/form.js";
 
 const TIMING = {
   ZOOM_DEBOUNCE: 200,
@@ -58,7 +58,7 @@ const CLASS_COUNT = {
  *  style drawer never redeclares 6/32/11. */
 const LABEL = {
   ...LABEL_SIZE,
-  COLOR_DEFAULT: LABEL_COLOR_DEFAULT,
+  COLOR_DEFAULT: DEFAULT_LABEL_COLOR,
 };
 
 const CLASSES = {

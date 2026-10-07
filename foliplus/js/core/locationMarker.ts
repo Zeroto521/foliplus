@@ -48,7 +48,7 @@ const createLocationMarker = (
   const marker = L.marker([lat, lng], {
     icon: L.divIcon({
       className: "",
-      html: SVGs.PIN_ICON,
+      html: SVGs.ICON_PIN,
       iconSize: PIN.SIZE,
       iconAnchor: PIN.ANCHOR,
       popupAnchor: PIN.POPUP_ANCHOR,
