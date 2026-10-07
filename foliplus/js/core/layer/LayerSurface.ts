@@ -236,7 +236,7 @@ class LayerSurface implements LayerSurfaceContract {
     // Reverse edge, and it is deliberate: discovery lives on the map-level
     // host, not here, because its cache cannot be invalidated from a surface.
     // `discoverChildPanes` memoises by `L.stamp(layer)` in `host.discoveryCache`,
-    // and the invalidators are `pinTree` / `reset` — both called by
+    // and the invalidators are `pinTree` / `invalidateDiscoveryCache` — both called by
     // `LayerFactory` and `pinLateContent` for *any* node they happen to pin,
     // including descendants of this layer that this surface never sees. A
     // per-surface cache would have no hook for "someone repinned one of my

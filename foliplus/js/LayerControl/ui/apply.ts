@@ -2,7 +2,7 @@
 //
 // `applyProjection(ui, id)` reads the layer's projection from
 // `projection.ts`, diffs it against the last projection it wrote to the map
-// `runtimeStore.getApplied(id)`), and calls `applyStateOp` only for the dimensions
+// `runtimeStore.getApplied(id)`), and calls `dispatchStateOp` only for the dimensions
 // that actually moved. The old model — a sweep that re-read the whole
 // registry per layer, walked `intents.visible` / `intents.opacity` / `intents.zoomRange`
 // by id, and picked per-dimension helpers — is what made the three
@@ -61,10 +61,10 @@ const authorOpacityBaseOf = (layer: L.Layer): number => {
 
 /** The layer's own author-declared min/max, frozen on first write.
  *
- *  Frozen, not re-read: `applyStateOp` writes `options.minZoom/maxZoom` on
+ *  Frozen, not re-read: `dispatchStateOp` writes `options.minZoom/maxZoom` on
  *  every live drag, so reading them back next time would feed the slider
  *  its own last drag — a ratchet that shrinks the slider's range with
- *  every drag. The snapshot is captured in `applyStateOp` before the write,
+ *  every drag. The snapshot is captured in `dispatchStateOp` before the write,
  *  which is also what makes persistence-replay safe: on reload the state
  *  replay fires before the panel opens, so any snapshot that captures at
  *  first read would already see `options.maxZoom` set to the persisted
@@ -203,7 +203,7 @@ const sameCarrier = (prev: unknown, curr: unknown): boolean =>
  *  nothing must not persist — when the surface declares "none" we skip
  *  the write instead of faking one on a shared carrier.
  */
-const applyStateOp = (
+const dispatchStateOp = (
   ui: LayerUI,
   layerInfo: LayerInfo,
   op: StateOp,
@@ -328,7 +328,7 @@ const applyStateOp = (
 };
 
 /** Diff the current projection against the last one we wrote, and call
- *  `applyStateOp` only for the dimensions that moved.
+ *  `dispatchStateOp` only for the dimensions that moved.
  *
  *  Ordering: `visible (effective)` and `opacity` are independent of the
  *  projection's `zoomRange`, so they apply in either order. `zoomRange`
@@ -433,7 +433,7 @@ const applyProjection = (
           : false
         : false;
   if (authorised && currentShown !== next.effectiveShown) {
-    applyStateOp(
+    dispatchStateOp(
       ui,
       layerInfo,
       { type: "visible", value: next.effectiveShown },
@@ -443,13 +443,18 @@ const applyProjection = (
   // 2. Opacity — independent of zoom/focus. Rewritten whenever the carrier
   //    has moved, not just when the value has.
   if (prev.opacity !== next.opacity || !sameCarrier(prev.carrier, carrierToken)) {
-    applyStateOp(ui, layerInfo, { type: "opacity", value: next.opacity }, repaintMode);
+    dispatchStateOp(
+      ui,
+      layerInfo,
+      { type: "opacity", value: next.opacity },
+      repaintMode,
+    );
   }
   // 3. Zoom range — last, because the pane carrier's effective-shown
   //    recalculation in step 1 reads the range as of the projection
   //    (the new one), not the executor's previous write.
   if (prev.zoomRange !== next.zoomRange) {
-    applyStateOp(
+    dispatchStateOp(
       ui,
       layerInfo,
       { type: "zoomRange", value: next.zoomRange },
@@ -474,4 +479,9 @@ const applyProjectionAll = (
   for (const [id] of projectAll(ui)) applyProjection(ui, id, repaintMode);
 };
 
-export { applyProjection, applyProjectionAll, applyStateOp, authorZoomBoundsForLayer };
+export {
+  applyProjection,
+  applyProjectionAll,
+  dispatchStateOp,
+  authorZoomBoundsForLayer,
+};
