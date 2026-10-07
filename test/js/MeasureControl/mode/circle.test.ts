@@ -74,7 +74,7 @@ describe("CircleMode — toGeoFeature", () => {
     };
     globalThis.turf.circle = vi.fn(() => mockCircle);
 
-    const feature = CircleMode.toGeoFeature(makeEnv(), {
+    const feature: any = CircleMode.toGeoFeature(makeEnv(), {
       id: "c1",
       type: "circle",
       center: { lng: 121, lat: 31 },
@@ -96,7 +96,7 @@ describe("CircleMode — toGeoFeature", () => {
   });
 
   it("returns a Point when center or radius is missing", () => {
-    const feature = CircleMode.toGeoFeature(makeEnv(), {
+    const feature: any = CircleMode.toGeoFeature(makeEnv(), {
       id: "c2",
       type: "circle",
       radius: 0,

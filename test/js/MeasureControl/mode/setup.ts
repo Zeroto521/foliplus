@@ -1,7 +1,7 @@
 // Shared Leaflet + turf mock setup for MeasureControl mode tests.
 // Each test file imports initMocks and calls it inside beforeEach.
 import { vi } from "vitest";
-import type { ControlEnv } from "#core/defineControl.js";
+import type { ControlEnv } from "#core/type.js";
 import { isDragSyntheticClick } from "#foliplus/MeasureControl/edit.js";
 import type { MeasureManager } from "#foliplus/MeasureControl/manager.js";
 import { makeControlEnv } from "../../fixture.js";

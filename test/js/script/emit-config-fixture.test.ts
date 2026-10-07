@@ -227,7 +227,7 @@ describe("main", () => {
       const outPath = join(dir, "config-fixture.ts");
       writeFileSync(jsonPath, JSON.stringify(schema), "utf-8");
 
-      await main({ json: jsonPath, out: outPath });
+      await main({ json: jsonPath, out: outPath } as any);
 
       const text = readFileSync(outPath, "utf-8");
       expect(text).toContain(

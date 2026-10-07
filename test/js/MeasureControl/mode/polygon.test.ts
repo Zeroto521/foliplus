@@ -204,7 +204,7 @@ describe("PolygonMode — finish saves centroid", () => {
 
 describe("PolygonMode — toGeoFeature", () => {
   it("returns a Polygon with area in properties", () => {
-    const feature = PolygonMode.toGeoFeature(makeEnv(), {
+    const feature: any = PolygonMode.toGeoFeature(makeEnv(), {
       id: "p1",
       type: "polygon",
       points: [
@@ -232,7 +232,7 @@ describe("PolygonMode — toGeoFeature", () => {
   });
 
   it("includes persisted center in properties", () => {
-    const feature = PolygonMode.toGeoFeature(makeEnv(), {
+    const feature: any = PolygonMode.toGeoFeature(makeEnv(), {
       id: "p2",
       type: "polygon",
       points: [
@@ -245,7 +245,7 @@ describe("PolygonMode — toGeoFeature", () => {
   });
 
   it("leaves center undefined for legacy data without it", () => {
-    const feature = PolygonMode.toGeoFeature(makeEnv(), {
+    const feature: any = PolygonMode.toGeoFeature(makeEnv(), {
       id: "p3",
       type: "polygon",
       points: [

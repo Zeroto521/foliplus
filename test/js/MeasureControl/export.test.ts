@@ -211,7 +211,7 @@ describe("Export.toGeoJSON", () => {
     ]);
     const data = JSON.parse(json);
     expect(data.features.length).toBe(4);
-    expect(data.features.map(f => f.geometry.type)).toEqual([
+    expect(data.features.map((f: any) => f.geometry.type)).toEqual([
       "Point",
       "LineString",
       "Polygon",
@@ -754,7 +754,7 @@ describe("Export.toWKT — unknown type", () => {
       type: "Feature",
       geometry: null,
       properties: {},
-    } as GeoJSON.Feature);
+    } as unknown as GeoJSON.Feature);
     try {
       const csv = Export.toCSV(env, [
         { id: "x", type: CONST.MEASURE_MODE.MARKER } as MeasureData,

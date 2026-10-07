@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { cssVar } from "#common/cssvar.js";
 
 describe("cssVar", () => {
-  let el;
+  let el: HTMLElement;
 
   beforeEach(() => {
     el = document.createElement("div");

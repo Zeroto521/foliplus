@@ -77,7 +77,7 @@ function makeManager(confOverrides: Partial<ComponentConfig> = {}) {
     })),
   };
   globalThis.ss = {
-    ckmeans: vi.fn(data => data.map(v => [v])),
+    ckmeans: vi.fn((data: any) => data.map((v: any) => [v])),
     quantileSorted: vi.fn((sorted, q) => sorted[Math.floor(q * (sorted.length - 1))]),
   };
 

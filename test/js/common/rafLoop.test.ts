@@ -93,9 +93,9 @@ describe("rafLoop", () => {
     const tick = vi.fn(() => false);
     let fireCallback!: () => void;
     const loop = rafLoop(tick, {
-      scheduler: fn => {
+      scheduler: (fn: () => void) => {
         fireCallback = fn;
-        return 0;
+        return 0 as any;
       },
     });
     loop.start();
@@ -119,9 +119,9 @@ describe("rafLoop", () => {
         return shouldStop;
       },
       {
-        scheduler: fn => {
+        scheduler: (fn: () => void) => {
           fireCallback = fn;
-          return 0;
+          return 0 as any;
         },
       },
     );

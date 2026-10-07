@@ -261,7 +261,7 @@ describe("DistanceMode — label count equals n-1", () => {
 
 describe("DistanceMode — toGeoFeature", () => {
   it("returns a LineString with totalDistance in properties", () => {
-    const feature = DistanceMode.toGeoFeature(makeEnv(), {
+    const feature: any = DistanceMode.toGeoFeature(makeEnv(), {
       id: "d1",
       type: "distance",
       points: [

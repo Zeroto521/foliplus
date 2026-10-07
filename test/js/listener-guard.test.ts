@@ -354,7 +354,7 @@ const scan = (re: RegExp, scope?: string[]): Array<{ f: string; n: number }> => 
 const checkListenerRegistrations = (
   call: string,
   tree: ReadonlyArray<{ f: string; n: number }>,
-  allow: ReadonlyArray<{ f: string; n: number; pairedOff: number }>,
+  allow: ReadonlyArray<{ f: string; n: number; pairedOff: number; reason?: string }>,
 ): string[] => {
   const problems: string[] = [];
   const pinned = new Map<string, number>();

@@ -119,7 +119,7 @@ describe("aggregateData", () => {
       })),
     } as never;
     globalThis.ss = {
-      ckmeans: vi.fn(data => data.map(v => [v])),
+      ckmeans: vi.fn((data: any) => data.map((v: any) => [v])),
       quantileSorted: vi.fn(),
     } as never;
   });
@@ -221,8 +221,8 @@ describe("buildFeatures", () => {
         abc: { sum: 10, count: 5, min: 1, max: 5 },
         def: { sum: 20, count: 8, min: 2, max: 6 },
       },
-      getAggValue: cell => cell.count,
-      valueToClassIdx: val => Math.min(val - 1, 0),
+      getAggValue: (cell: any) => cell.count,
+      valueToClassIdx: (val: any) => Math.min(val - 1, 0),
       classColors: ["#ff0000", "#00ff00"],
     };
     const features = buildFeatures(aggregated, LOG);
@@ -255,7 +255,7 @@ describe("buildFeatures", () => {
     ]);
     const feats = buildFeatures(
       {
-        hexCells: { abc: { sum: 1, count: 1 } },
+        hexCells: { abc: { sum: 1, count: 1, min: 1, max: 1 } },
         getAggValue: c => c.count,
         valueToClassIdx: () => 0,
         classColors: ["#ff0000"],

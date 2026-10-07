@@ -13,7 +13,7 @@ beforeEach(initMocks);
 
 beforeEach(() => {
   vi.mocked(reverseGeocode).mockReset();
-  vi.mocked(reverseGeocode).mockResolvedValue(null);
+  vi.mocked(reverseGeocode).mockResolvedValue(null as any);
 });
 
 /** Flush all pending microtasks (the onEnd → geocodeAddress await chain spans
@@ -35,7 +35,7 @@ describe("MarkerMode — TYPE", () => {
 
 describe("MarkerMode — toGeoFeature", () => {
   it("returns a Point feature with address as name", () => {
-    const feature = MarkerMode.toGeoFeature(makeEnv(), {
+    const feature: any = MarkerMode.toGeoFeature(makeEnv(), {
       id: "m1",
       type: "marker",
       lng: 121.5,
@@ -50,7 +50,7 @@ describe("MarkerMode — toGeoFeature", () => {
   });
 
   it("uses fallback name when address is missing", () => {
-    const feature = MarkerMode.toGeoFeature(makeEnv(), {
+    const feature: any = MarkerMode.toGeoFeature(makeEnv(), {
       id: "m2",
       type: "marker",
       lng: 0,
@@ -60,7 +60,7 @@ describe("MarkerMode — toGeoFeature", () => {
   });
 
   it("includes id in properties", () => {
-    const feature = MarkerMode.toGeoFeature(makeEnv(), {
+    const feature: any = MarkerMode.toGeoFeature(makeEnv(), {
       id: "m3",
       type: "marker",
       lng: 0,

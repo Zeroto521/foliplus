@@ -127,7 +127,7 @@ describe("createTranslator", () => {
     try {
       // No locale_code and no tables at all -- the auto-detect chain finds no
       // table for the browser language, so the code settles on en.
-      const config = {};
+      const config: any = {};
       const t = createTranslator(config);
       expect(config.locale_code).toBe("en");
       expect(t("locale.code")).toBe("en");
@@ -175,7 +175,7 @@ describe("createTranslator", () => {
       expect(config.locale_code).toBe("zh");
       expect(t("ok")).toBe("确定");
     } finally {
-      delete window.parent;
+      delete (window as any).parent;
     }
   });
 
@@ -195,7 +195,7 @@ describe("createTranslator", () => {
       createTranslator(config);
       expect(config.locale_code).toBe("zh");
     } finally {
-      delete window.parent;
+      delete (window as any).parent;
     }
   });
 
@@ -212,7 +212,7 @@ describe("createTranslator", () => {
       createTranslator(config);
       expect(config.locale_code).toBe("en");
     } finally {
-      delete window.parent;
+      delete (window as any).parent;
     }
   });
 
@@ -292,7 +292,7 @@ describe("createTranslator", () => {
       createTranslator(config);
       expect(config.locale_code).toBe("en");
     } finally {
-      delete window.parent;
+      delete (window as any).parent;
     }
   });
 
@@ -311,7 +311,7 @@ describe("createTranslator", () => {
       createTranslator(config);
       expect(config.locale_code).toBe("en");
     } finally {
-      delete document.referrer;
+      delete (document as any).referrer;
     }
   });
 
