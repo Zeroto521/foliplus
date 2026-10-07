@@ -14,8 +14,8 @@ const loadRecord = <T>(key: string, name = "foliplus"): T | null => {
   try {
     const data = window.localStorage.getItem(key);
     return data ? (JSON.parse(data) as T) : null;
-  } catch (e) {
-    createLogger(name).warn(`failed to load saved data (key=${key})`, e);
+  } catch (err) {
+    createLogger(name).warn(`failed to load saved data (key=${key})`, err);
     return null;
   }
 };
@@ -31,8 +31,8 @@ const removeRecord = (key: string, name = "foliplus"): boolean => {
     const existed = window.localStorage.getItem(key) !== null;
     window.localStorage.removeItem(key);
     return existed;
-  } catch (e) {
-    createLogger(name).warn(`failed to remove data (key=${key})`, e);
+  } catch (err) {
+    createLogger(name).warn(`failed to remove data (key=${key})`, err);
     return false;
   }
 };
@@ -50,8 +50,8 @@ const saveRecord = (key: string, data: unknown, name = "foliplus"): boolean => {
   try {
     window.localStorage.setItem(key, JSON.stringify(data));
     return true;
-  } catch (e) {
-    createLogger(name).warn(`failed to save data (key=${key})`, e);
+  } catch (err) {
+    createLogger(name).warn(`failed to save data (key=${key})`, err);
     return false;
   }
 };
@@ -195,8 +195,8 @@ const makePersisted = ({
     try {
       const ok = save();
       if (!ok) onFlushError?.(new Error("persist write failed"));
-    } catch (e) {
-      onFlushError?.(e);
+    } catch (err) {
+      onFlushError?.(err);
     }
   };
   const timer = debounceMs > 0 ? debounce(() => doSave(), debounceMs) : null;
