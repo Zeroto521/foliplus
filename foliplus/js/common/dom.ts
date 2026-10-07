@@ -17,7 +17,7 @@ const BOOL_PROPS = new Set([
   "defaultChecked",
 ]);
 const PROPS = new Set(["value", "defaultValue"]);
-const EVENTS = new Set([
+const DOM_EVENT_KEYS = new Set([
   "onclick",
   "ondblclick",
   "onchange",
@@ -91,7 +91,7 @@ const dom = {
         else if (key === "innerHTML") el.innerHTML = String(val);
         else if (BOOL_PROPS.has(key)) Reflect.set(el, key, val === "" || val === true);
         else if (PROPS.has(key)) Reflect.set(el, key, val);
-        else if (EVENTS.has(key)) {
+        else if (DOM_EVENT_KEYS.has(key)) {
           const handler = val as EventListener;
           Reflect.set(el, "on" + key.slice(2), handler);
         } else el.setAttribute(key, String(val));
