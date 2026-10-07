@@ -26,7 +26,7 @@
     "new-control": "node script/tool/new-control.mjs",
     "test": "vitest run --coverage",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit && node script/typecheck-tests.mjs && eslint -c eslint.config.type.js \"foliplus/js/**/*.ts\"",
+    "typecheck": "tsc --noEmit && node script/typecheck-test.mjs && eslint -c eslint.config.type.js \"foliplus/js/**/*.ts\"",
     "typecheck:tests": "vitest run --config vitest.config.mjs test/js/tsconfig.test.ts",
     "lint": "eslint -c eslint.config.type.js \"foliplus/js/**/*.ts\" \"test/js/**/*.ts\" \"script/**/*.mjs\"",
     "format:check": "prettier --check \"foliplus/js/**/*.{js,ts}\" \"foliplus/css/**/*.css\" \"script/**/*.{js,cjs,mjs,ts}\" \"test/js/**/*.{js,ts}\"",

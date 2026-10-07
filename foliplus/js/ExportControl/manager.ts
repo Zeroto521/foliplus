@@ -219,4 +219,5 @@ class ExportManager {
 // identical to the pre-split class methods.
 Object.assign(ExportManager.prototype, cropMethods, persistenceMethods, sessionMethods);
 
-export { ExportManager, canvasToBlob, type CropState };
+export { ExportManager, canvasToBlob };
+export type { CropState };

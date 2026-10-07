@@ -3,7 +3,7 @@
 // (the root tsconfig owns them), everything else is gating. A regression here
 // would silently swallow real test errors, so the split is asserted directly.
 import { describe, expect, it } from "vitest";
-import { PRODUCTION, parseErrors } from "#script/typecheck-tests.mjs";
+import { PRODUCTION, parseErrors } from "#script/typecheck-test.mjs";
 
 describe("parseErrors", () => {
   it("groups each error with its continuation lines", () => {

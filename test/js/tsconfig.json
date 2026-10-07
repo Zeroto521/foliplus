@@ -2,7 +2,7 @@
   // Typecheck program for the test suite. Same strictness as the production
   // program (inherited from ../../tsconfig.json) — tests are NOT exempt.
   //
-  // Part of `npm run typecheck` via `script/typecheck-tests.mjs`, which runs
+  // Part of `npm run typecheck` via `script/typecheck-test.mjs`, which runs
   // this program and filters the production-source lines: `test/js/globals.d.ts`
   // declares `L`/`ss`/`turf` loose (`any`) so mocked fakes stay assignable, and
   // that looseness cascades TS7006/TS18046 into ~20 production lines when they

@@ -106,4 +106,5 @@ const placeLabels = (
   return { hidden: toHide.size, elements: toHide };
 };
 
-export { mapProjector, placeLabels, type PlanResult, type ChipOf, type Projector };
+export { mapProjector, placeLabels };
+export type { PlanResult, ChipOf, Projector };
