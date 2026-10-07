@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   loadRecord,
   loadVersioned,
-  makePersisted,
+  createPersisted,
   removeRecord,
   saveRecord,
   saveVersioned,
@@ -222,10 +222,10 @@ describe("storage", () => {
     });
   });
 
-  describe("makePersisted", () => {
+  describe("createPersisted", () => {
     it("writes through synchronously with debounceMs=0", () => {
       const saveMock = vi.fn(() => true);
-      const p = makePersisted({
+      const p = createPersisted({
         save: saveMock,
         debounceMs: 0,
       });
@@ -236,7 +236,7 @@ describe("storage", () => {
     it("coalesces writes with debounceMs>0", () => {
       vi.useFakeTimers();
       const saveMock = vi.fn(() => true);
-      const p = makePersisted({
+      const p = createPersisted({
         save: saveMock,
         debounceMs: 100,
       });
@@ -252,7 +252,7 @@ describe("storage", () => {
     it("flush writes the pending save and prevents the debounce from firing again", () => {
       vi.useFakeTimers();
       const saveMock = vi.fn(() => true);
-      const p = makePersisted({
+      const p = createPersisted({
         save: saveMock,
         debounceMs: 100,
       });
@@ -266,7 +266,7 @@ describe("storage", () => {
 
     it("flush is a no-op when nothing is pending", () => {
       const saveMock = vi.fn(() => true);
-      const p = makePersisted({
+      const p = createPersisted({
         save: saveMock,
         debounceMs: 100,
       });
@@ -277,7 +277,7 @@ describe("storage", () => {
 
     it("flush is idempotent after the pending write fires", () => {
       const saveMock = vi.fn(() => true);
-      const p = makePersisted({
+      const p = createPersisted({
         save: saveMock,
         debounceMs: 100,
       });
@@ -292,7 +292,7 @@ describe("storage", () => {
     it("cancel drops a pending write", () => {
       vi.useFakeTimers();
       const saveMock = vi.fn(() => true);
-      const p = makePersisted({
+      const p = createPersisted({
         save: saveMock,
         debounceMs: 100,
       });
@@ -305,7 +305,7 @@ describe("storage", () => {
 
     it("cancel is a no-op with write-through", () => {
       const saveMock = vi.fn(() => true);
-      const p = makePersisted({
+      const p = createPersisted({
         save: saveMock,
         debounceMs: 0,
       });
@@ -316,7 +316,7 @@ describe("storage", () => {
 
     it("calls onFlushError when save throws during schedule", () => {
       const onFlushError = vi.fn();
-      const p = makePersisted({
+      const p = createPersisted({
         save: () => {
           throw new Error("quota");
         },
@@ -332,7 +332,7 @@ describe("storage", () => {
       // private mode). A caller that treats every `saveRecord()` return as success
       // would silently drop data.
       const onFlushError = vi.fn();
-      const p = makePersisted({
+      const p = createPersisted({
         save: () => false,
         debounceMs: 0,
         onFlushError,
@@ -343,7 +343,7 @@ describe("storage", () => {
 
     it("does not call onFlushError when save returns true", () => {
       const onFlushError = vi.fn();
-      const p = makePersisted({
+      const p = createPersisted({
         save: () => true,
         debounceMs: 0,
         onFlushError,

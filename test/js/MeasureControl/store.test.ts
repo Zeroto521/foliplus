@@ -11,7 +11,7 @@ const storage = vi.hoisted(() => ({
   saveRecord: vi.fn(),
   loadVersioned: vi.fn(),
   saveVersioned: vi.fn(),
-  makePersisted: vi.fn(),
+  createPersisted: vi.fn(),
 }));
 const events = vi.hoisted(() => ({
   emit: vi.fn(),
@@ -22,7 +22,7 @@ vi.mock("#common/storage.js", () => ({
   saveRecord: storage.saveRecord,
   loadVersioned: storage.loadVersioned,
   saveVersioned: storage.saveVersioned,
-  makePersisted: storage.makePersisted,
+  createPersisted: storage.createPersisted,
 }));
 
 vi.mock("#core/event/index.js", () => ({
@@ -54,11 +54,11 @@ beforeEach(() => {
   // Default success — a failure is an explicit per-test mock.
   storage.saveVersioned.mockReset();
   storage.saveVersioned.mockReturnValue(true);
-  // makePersisted: return a binding whose schedule() calls the mocked
+  // createPersisted: return a binding whose schedule() calls the mocked
   // saveVersioned. This preserves the test's ability to assert on saveVersioned
   // call arguments and return values while going through the binding layer.
-  storage.makePersisted.mockReset();
-  storage.makePersisted.mockImplementation(
+  storage.createPersisted.mockReset();
+  storage.createPersisted.mockImplementation(
     ({
       save,
       onFlushError,

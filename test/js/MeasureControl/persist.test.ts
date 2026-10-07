@@ -11,7 +11,7 @@ const storage = vi.hoisted(() => ({
   saveRecord: vi.fn(),
   loadVersioned: vi.fn(),
   saveVersioned: vi.fn(),
-  makePersisted: vi.fn(),
+  createPersisted: vi.fn(),
 }));
 const events = vi.hoisted(() => ({
   emit: vi.fn(),
@@ -22,7 +22,7 @@ vi.mock("#common/storage.js", () => ({
   saveRecord: storage.saveRecord,
   loadVersioned: storage.loadVersioned,
   saveVersioned: storage.saveVersioned,
-  makePersisted: storage.makePersisted,
+  createPersisted: storage.createPersisted,
 }));
 
 vi.mock("#core/event/index.js", () => ({
@@ -47,8 +47,8 @@ beforeEach(() => {
   storage.loadVersioned.mockReset();
   storage.saveVersioned.mockReset();
   storage.saveVersioned.mockReturnValue(true);
-  storage.makePersisted.mockReset();
-  storage.makePersisted.mockImplementation(
+  storage.createPersisted.mockReset();
+  storage.createPersisted.mockImplementation(
     ({
       save,
       onFlushError,

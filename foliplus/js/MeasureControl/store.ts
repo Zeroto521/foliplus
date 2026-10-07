@@ -11,7 +11,7 @@ import type { ControlEnv } from "#core/type.js";
 import {
   type Persisted,
   loadVersioned,
-  makePersisted,
+  createPersisted,
   saveVersioned,
 } from "#common/storage.js";
 import * as CONST from "./const.js";
@@ -39,7 +39,7 @@ class MeasureStore {
     // Write-through binding: the array is durable the moment a mutation lands,
     // so teardown flush is a no-op safety net. Failure surfaces through the
     // quota hint below rather than through the return value.
-    this.persistBinding = makePersisted({
+    this.persistBinding = createPersisted({
       save: () =>
         saveVersioned(CONST.STORAGE.KEY, {
           data: this.list,

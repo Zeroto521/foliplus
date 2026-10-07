@@ -4,7 +4,7 @@ import { fromWgs84 } from "#core/geo/index.js";
 import { createLocationMarker } from "#core/locationMarker.js";
 import { guardBlocked } from "#core/mode.js";
 import * as Icons from "#common/icon.js";
-import { loadVersioned, makePersisted, saveVersioned } from "#common/storage.js";
+import { loadVersioned, createPersisted, saveVersioned } from "#common/storage.js";
 import { HISTORY, MODE, RECORD_VERSION, SOURCE, ZOOM } from "../const.js";
 import type { ResultItem, SearchHistoryEntry, SearchType } from "../type.js";
 import { attachSearchDelIcon, removePanel, renderResults } from "./panel.js";
@@ -53,7 +53,7 @@ type StoredHistoryEntry = Partial<SearchHistoryEntry> & { label?: string };
 // `persistName` is set by saveHistory/flushHistory before schedule/flush so the
 // closure reads the correct component name without a module-level CONFIG free variable.
 let persistName = "";
-const historyPersist = makePersisted({
+const historyPersist = createPersisted({
   save: () =>
     saveVersioned(HISTORY.STORAGE_KEY, {
       data: pendingHistory,

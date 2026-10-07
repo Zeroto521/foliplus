@@ -14,7 +14,7 @@ import { type Debounced, debounce } from "#common/debounce.js";
 import { BORDER_WEIGHT, clampLabelSize, normalizeHexColor } from "#common/form.js";
 import { NUMBER_FORMAT } from "#common/format.js";
 import { createLogger } from "#common/log.js";
-import { type Persisted, makePersisted, saveRecord } from "#common/storage.js";
+import { type Persisted, createPersisted, saveRecord } from "#common/storage.js";
 import type { CanvasLabelStyle, Logger } from "#common/type.js";
 import * as CONST from "./const.js";
 import {
@@ -194,7 +194,7 @@ class HeatmapManager {
     this.sourceMeta = {};
     // Write-through binding: config is durable the moment a UI change lands,
     // so there is nothing to coalesce. Flush on teardown stays idempotent.
-    this.persist = makePersisted({
+    this.persist = createPersisted({
       save: () =>
         saveRecord(
           CONST.STORAGE.KEY,
