@@ -191,7 +191,7 @@ describe("bindControls — clear (reset) button", () => {
   it("resets every control to config defaults and collapses the panel", () => {
     const config = makeConfig({
       color_scheme: "Blues",
-      n_classes: 4,
+      num_classes: 4,
       method: "equal",
     });
     const { ctrl, m, panel } = setup(config);
@@ -212,7 +212,7 @@ describe("bindControls — clear (reset) button", () => {
     expect(m.selectedLayerId).toBeNull();
     expect(m.agg).toBe(CONST.AGG.COUNT);
     expect(m.field).toBe("");
-    expect(m.numClasses).toBe(config.n_classes);
+    expect(m.numClasses).toBe(config.num_classes);
     expect(m.method).toBe(config.method);
     expect(m.scheme).toBe(config.color_scheme);
     expect(clearSaved).toHaveBeenCalledTimes(1);
@@ -222,7 +222,7 @@ describe("bindControls — clear (reset) button", () => {
     expect(ctrl.ctrl.classList.contains(CONST.CLASSES.EXPANDED)).toBe(false);
 
     expect(ctrl.aggSelect.value).toBe(CONST.AGG.COUNT);
-    expect(ctrl.classSelect.value).toBe(String(config.n_classes));
+    expect(ctrl.classSelect.value).toBe(String(config.num_classes));
     expect(ctrl.methodSelect.value).toBe(config.method);
     expect(ctrl.schemeSelectHidden.value).toBe(config.color_scheme);
   });
@@ -251,7 +251,7 @@ describe("bindControls — clear (reset) button", () => {
       makeConfig({
         color_scheme: undefined,
         method: undefined,
-        n_classes: undefined,
+        num_classes: undefined,
         field: undefined,
       }),
     );
@@ -273,7 +273,11 @@ describe("bindControls — clear (reset) button", () => {
 
 describe("resetPanel — shared reset (Clear button + more-menu clear)", () => {
   it("resets state, canvas, and every dropdown back to the declared defaults", () => {
-    const config = makeConfig({ color_scheme: "Blues", n_classes: 4, method: "equal" });
+    const config = makeConfig({
+      color_scheme: "Blues",
+      num_classes: 4,
+      method: "equal",
+    });
     const { ctrl, m } = setup(config);
     m.selectedLayerId = "p1";
     m.agg = CONST.AGG.SUM;
@@ -292,12 +296,12 @@ describe("resetPanel — shared reset (Clear button + more-menu clear)", () => {
     expect(m.field).toBe("");
     expect(m.method).toBe(config.method);
     expect(m.scheme).toBe(config.color_scheme);
-    expect(m.numClasses).toBe(config.n_classes);
+    expect(m.numClasses).toBe(config.num_classes);
     expect(m.cachedFeatures).toBeNull();
 
     expect(ctrl.layerSelect.value).toBe("");
     expect(ctrl.aggSelect.value).toBe(CONST.AGG.COUNT);
-    expect(ctrl.classSelect.value).toBe(String(config.n_classes));
+    expect(ctrl.classSelect.value).toBe(String(config.num_classes));
     expect(ctrl.methodSelect.value).toBe(config.method);
     expect(ctrl.schemeSelectHidden.value).toBe(config.color_scheme);
     expect(ctrl.fieldSelect.value).toBe("");

@@ -85,6 +85,7 @@
 - `LayerControl`: user order + removed ids extracted into a `LayerOrder` class — persisted shape unchanged ([#569](https://github.com/Zeroto521/foliplus/pull/569), [#584](https://github.com/Zeroto521/foliplus/pull/584))
 - `core/defineControl`: shared entry factory — collapses the index.ts IIFE skeleton across controls; Measure/Search logic receive `ControlEnv` instead of module-level free variables ([#575](https://github.com/Zeroto521/foliplus/pull/575))
 - `LayerControl`: rework the layer-panel architecture — split `LayerUI` into `ListPanel` / `OverlayPanel` / `FocusController` view subsystems, extract orchestration into a `LayerOrchestration` domain, and fold the per-layer intent store into it ([#607](https://github.com/Zeroto521/foliplus/pull/607), [#620](https://github.com/Zeroto521/foliplus/pull/620), [#625](https://github.com/Zeroto521/foliplus/pull/625))
+- `HeatmapControl`: rename the `n_classes` constructor parameter to `num_classes` — public API change; `HeatmapControl(n_classes=…)` now raises `TypeError`, use `num_classes=…` ([#652](https://github.com/Zeroto521/foliplus/pull/652))
 
 ### Removed
 

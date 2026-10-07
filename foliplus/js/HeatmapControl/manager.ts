@@ -175,7 +175,7 @@ class HeatmapManager {
     this.scheme = CONFIG.color_scheme ?? "Reds";
     this.method = CONFIG.method ?? CLASSIFY_METHOD.JENKS;
     this.autoFieldKey = null;
-    this.numClasses = CONFIG.n_classes ?? CONST.CLASS_COUNT.DEFAULT;
+    this.numClasses = CONFIG.num_classes ?? CONST.CLASS_COUNT.DEFAULT;
     this.borderWeight = CONFIG.border_weight ?? BORDER_WEIGHT.DEFAULT;
     this.borderColor = CONFIG.border_color ?? CONST.GRAY;
     // Python default is True; only an explicit false turns labels off — same
@@ -771,7 +771,7 @@ class HeatmapManager {
     this.autoFieldKey = null;
     this.agg = config.agg ?? CONST.AGG.COUNT;
     this.field = "";
-    this.numClasses = config.n_classes ?? CONST.CLASS_COUNT.DEFAULT;
+    this.numClasses = config.num_classes ?? CONST.CLASS_COUNT.DEFAULT;
     this.method = config.method ?? CLASSIFY_METHOD.JENKS;
     this.scheme = config.color_scheme ?? "Reds";
   }

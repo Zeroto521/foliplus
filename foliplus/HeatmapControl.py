@@ -60,7 +60,7 @@ class HeatmapControl(BaseControl):
     method : Literal["jenks", "quantile", "equal", "heads"], default "jenks"
         Default classification method.
 
-    n_classes : int, default 6
+    num_classes : int, default 6
         Number of classification classes, range 2-9.
 
     agg : Literal["count", "sum", "avg", "min", "max"], default "count"
@@ -125,7 +125,7 @@ class HeatmapControl(BaseControl):
         position: ControlPosition = "topleft",
         color_scheme: str = "Reds",
         method: METHOD = "jenks",
-        n_classes: Annotated[int, Bound(2, 9)] = 6,
+        num_classes: Annotated[int, Bound(2, 9)] = 6,
         agg: AGG = "count",
         schemes: Annotated[
             list[str], FieldSpec(ts="", note="Available color scheme names.")
@@ -152,7 +152,7 @@ class HeatmapControl(BaseControl):
         super().__init__(position=position, locale=locale)
         self.color_scheme = color_scheme
         self.method = method
-        self.n_classes = n_classes
+        self.num_classes = num_classes
         self.agg = agg
         self.schemes = schemes
         self.border_weight = border_weight
