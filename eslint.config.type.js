@@ -1,39 +1,45 @@
-// ESLint config — pass 2, the type-aware Promise-discipline rules. Run it with
-// `npm run typecheck`, which runs `tsc --noEmit` first and then
-// `eslint -c eslint.config.js -c eslint.config.type.js`.
+// ESLint config — pass 2, the type-aware rules (Promise discipline + nullish /
+// optional-chain upgrades). Run it with `npm run typecheck`, which runs
+// `tsc --noEmit` first and then `eslint -c eslint.config.type.js`.
 //
-// These three rules need the TypeScript type system, so they are held here
-// rather than in eslint.config.js: keeping them out of pass 1 means that
-// config imports no typescript package at all.
+// This file spreads eslint.config.js as its base: `...base` carries the TS
+// parser + `@typescript-eslint` plugin registration (from
+// `...tseslint.configs.recommended`) and every quality rule pass 1 owns
+// (no-eval, no-implicit-coercion, no-unused-vars, …) into this config. The
+// appended block adds parserOptions with the tsconfig project so type-aware
+// rules can read the type system, plus those rules themselves.
 //
-// They are reported alongside `tsc --noEmit` because both read the same
-// tsconfig program — a Promise-discipline failure is a type error and belongs
-// next to the other type errors.
+// Why spread instead of `eslint -c a -c b`: ESLint 9's `-c` flag only applies
+// the last one, so the double-config command silently dropped every pass 1
+// rule in typecheck (T298). Spreading base inline keeps both layers in one
+// config array without a second CLI pass.
 //
-// `no-floating-promises` is the workhorse: an unhandled Promise needs an
-// `await`, a `return`, or a `.catch`. `require-await` catches `async`
-// functions that never await, so the keyword can be dropped.
-// `no-misused-promises` catches an async function handed to a callback
-// position that expects a sync return value.
+// Type-aware rule list (all scoped to foliplus/js/**/*.ts, which is what
+// tsconfig includes — test/js/** is out because it isn't in the program):
+//   no-floating-promises  — unhandled Promise needs an `await`, `return`, or
+//                           `.catch`.
+//   require-await         — `async` functions that never await, so the
+//                           keyword can be dropped.
+//   no-misused-promises   — an async function handed to a callback position
+//                           that expects a sync return value.
+//   prefer-optional-chain — `a && a.b` → `a?.b`. Type-narrowed: catches cases
+//                           the syntax-only variant misses (`string & ""` etc).
+//   prefer-nullish-coalescing — `x || fallback` → `x ?? fallback` when the
+//                           fallback only needs null/undefined, not every
+//                           falsy value. `ignoreTernaryTests` keeps `cond ? x : y`
+//                           out of scope (the rule would propose `cond ?? x`,
+//                           a different expression).
 //
 // @see https://typescript-eslint.io/rules/no-floating-promises/
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import tseslint from "typescript-eslint";
+import base from "./eslint.config.js";
 
 const root = dirname(fileURLToPath(import.meta.url));
 
-// One entry, not three. It registers the plugin itself rather than spreading
-// `...tseslint.configs.recommended`, which would re-enable the rules pass 1
-// deliberately turns off (no-explicit-any, no-unused-vars, no-require-imports)
-// — this config adds three Promise rules and nothing else. The parser and the
-// parserOptions live in the same block so there is one place that declares the
-// language environment for these rules.
-//
-// eslint.config.js's `ignores` do not apply here: these rules need type
-// information, so they are scoped by `files` to what tsconfig includes.
-// test/js/** is out because it is not in the tsconfig program.
 export default [
+  ...base,
   {
     files: ["foliplus/js/**/*.ts"],
     plugins: { "@typescript-eslint": tseslint.plugin },

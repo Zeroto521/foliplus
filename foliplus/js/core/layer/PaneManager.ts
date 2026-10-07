@@ -17,7 +17,7 @@ import {
   markerShadow,
 } from "../leafletAdapter.js";
 import * as CONST from "./const.js";
-import type { PaneSpec } from "./type.js";
+import type { PaneSpec, PinnableNode } from "./type.js";
 import { isContainerNode, walkTree } from "./walkLeaf.js";
 import { zFor } from "./z.js";
 
@@ -25,12 +25,6 @@ const log = createLogger("PaneManager");
 
 /** A Leaflet Path layer with the mutable option surface we set on. */
 type PathWithPane = L.Path & { options: L.PathOptions & { pane?: string } };
-
-/** Anything we may be asked to pin into a pane: a leaf, or a container that
- *  enumerates its children. */
-type PinnableNode = L.Layer & {
-  eachLayer?: (fn: (layer: L.Layer) => void) => void;
-};
 
 /** One bookkeeping scope: panes and their specs live per map, so a manager
  *  built for one map never sees another map's names.

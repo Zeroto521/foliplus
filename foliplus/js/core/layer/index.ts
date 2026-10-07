@@ -68,6 +68,7 @@ export type {
   PaneHandle,
   PaneRole,
   PaneSpec,
+  PinnableNode,
   RegisterLayerOpts,
   ZArgs,
 } from "./type.js";

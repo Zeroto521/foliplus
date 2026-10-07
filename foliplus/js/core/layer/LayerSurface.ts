@@ -37,6 +37,7 @@ import type {
   PaneHandle,
   PaneRole,
   PaneSpec,
+  PinnableNode,
 } from "./type.js";
 import { CLUSTER_CAPABILITIES, deriveLayerKind, getGeometryType } from "./util.js";
 import { zFor } from "./z.js";
@@ -100,14 +101,6 @@ interface SurfaceFaceOpts {
    *  honest carrier for focus, so the UI disables the action rather than
    *  letting a click land as a silent no-op. */
   getBounds?: (() => L.LatLngBounds | null) | null;
-}
-
-/** A layer with the mutable option surface the pin writes to. Containers carry
- *  `eachLayer`, and Leaflet ignores a group's pane for its children — which is
- *  why the pin hands such a node's whole tree to `pinLateContent` instead of
- *  writing one pane name onto the group. */
-interface PinnableNode extends L.Layer {
-  eachLayer?: (fn: (layer: L.Layer) => void) => void;
 }
 
 /** Whether a node enumerates children. `eachLayer`, not `isGroupLike`: the pin

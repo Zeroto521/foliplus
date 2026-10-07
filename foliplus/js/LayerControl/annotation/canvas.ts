@@ -14,7 +14,7 @@ import {
   resolveCanvasLabelStyle,
 } from "#common/canvasLabel.js";
 import type { CanvasLabelStyle } from "#common/type.js";
-import { type PlacedLabel } from "./layout.js";
+import { type PlannedLabel } from "./layout.js";
 
 /** One layer's label canvas. Painting is driven by the AnnotationManager, so
  *  there is nothing to schedule or listen for here. */
@@ -26,7 +26,7 @@ class AnnotationCanvas {
   private cachedStyle: CanvasLabelStyle | null = null;
   /** Last plan handed to `paint`, so an opacity commit can repaint without
    *  going back through the layout. Empty until the first paint. */
-  private lastPlanned: readonly PlacedLabel[] = [];
+  private lastPlanned: readonly PlannedLabel[] = [];
 
   constructor(map: L.Map, pane: HTMLElement) {
     this.map = map;
@@ -49,7 +49,7 @@ class AnnotationCanvas {
 
   /** Paint this layer's slice of the plan; replaces the previous frame.
    *  `style` overlays runtime color/size on the shared --foliplus-label-* tokens. */
-  paint(planned: readonly PlacedLabel[], style?: CanvasLabelStyle): void {
+  paint(planned: readonly PlannedLabel[], style?: CanvasLabelStyle): void {
     this.lastPlanned = planned;
     this.resize();
     this.updatePosition();
