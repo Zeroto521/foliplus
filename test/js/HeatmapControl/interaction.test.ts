@@ -18,7 +18,7 @@ function makeCtrl(): any {
     schemeBar,
     schemeDropdown,
     schemeSelectHidden,
-    mgr: { currentScheme: "thermal" },
+    mgr: { scheme: "thermal" },
     updateScheme: vi.fn(),
     toggleDropdown: vi.fn(),
     selectScheme: vi.fn(),
@@ -48,7 +48,7 @@ describe("HeatmapControl interaction", () => {
     // still register without throwing, and ArrowUp/Down become no-ops.
     delete (window as any).CONFIG.schemes;
     const ctrl = makeCtrl();
-    ctrl.mgr.currentScheme = "any";
+    ctrl.mgr.scheme = "any";
     const cleanup = registerSchemeBarEvents(ctrl.map, ctrl);
     document.body.appendChild(ctrl.schemeBar);
     ctrl.schemeBar.dispatchEvent(
@@ -58,26 +58,26 @@ describe("HeatmapControl interaction", () => {
       new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
     );
     expect(ctrl.updateScheme).not.toHaveBeenCalled();
-    expect(ctrl.mgr.currentScheme).toBe("any");
+    expect(ctrl.mgr.scheme).toBe("any");
     cleanup();
   });
 
   it("ArrowUp from middle goes to prev", () => {
     const ctrl = makeCtrl();
-    ctrl.mgr.currentScheme = "rainbow";
+    ctrl.mgr.scheme = "rainbow";
     const cleanup = registerSchemeBarEvents(ctrl.map, ctrl);
     document.body.appendChild(ctrl.schemeBar);
     ctrl.schemeBar.dispatchEvent(
       new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true }),
     );
     expect(ctrl.updateScheme).toHaveBeenCalled();
-    expect(ctrl.mgr.currentScheme).toBe("thermal");
+    expect(ctrl.mgr.scheme).toBe("thermal");
     cleanup();
   });
 
   it("ArrowUp at first does nothing", () => {
     const ctrl = makeCtrl();
-    ctrl.mgr.currentScheme = "thermal";
+    ctrl.mgr.scheme = "thermal";
     const cleanup = registerSchemeBarEvents(ctrl.map, ctrl);
     document.body.appendChild(ctrl.schemeBar);
     ctrl.schemeBar.dispatchEvent(
@@ -89,42 +89,42 @@ describe("HeatmapControl interaction", () => {
 
   it("ArrowDown from middle goes to next", () => {
     const ctrl = makeCtrl();
-    ctrl.mgr.currentScheme = "rainbow";
+    ctrl.mgr.scheme = "rainbow";
     const cleanup = registerSchemeBarEvents(ctrl.map, ctrl);
     document.body.appendChild(ctrl.schemeBar);
     ctrl.schemeBar.dispatchEvent(
       new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
     );
     expect(ctrl.updateScheme).toHaveBeenCalled();
-    expect(ctrl.mgr.currentScheme).toBe("grayscale");
+    expect(ctrl.mgr.scheme).toBe("grayscale");
     cleanup();
   });
 
   it("ArrowDown at last does nothing", () => {
     const ctrl = makeCtrl();
-    ctrl.mgr.currentScheme = "grayscale";
+    ctrl.mgr.scheme = "grayscale";
     const cleanup = registerSchemeBarEvents(ctrl.map, ctrl);
     document.body.appendChild(ctrl.schemeBar);
     ctrl.schemeBar.dispatchEvent(
       new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
     );
     expect(ctrl.updateScheme).not.toHaveBeenCalled();
-    expect(ctrl.mgr.currentScheme).toBe("grayscale");
+    expect(ctrl.mgr.scheme).toBe("grayscale");
     cleanup();
   });
 
   it("schemeSelectHidden is optional on ArrowUp", () => {
-    // ArrowUp sets currentScheme and then tries to mirror the value onto the
+    // ArrowUp sets scheme and then tries to mirror the value onto the
     // hidden <select>; a bare ctrl without schemeSelectHidden must not throw.
     const ctrl = makeCtrl();
     ctrl.schemeSelectHidden = null;
-    ctrl.mgr.currentScheme = "rainbow";
+    ctrl.mgr.scheme = "rainbow";
     const cleanup = registerSchemeBarEvents(ctrl.map, ctrl);
     document.body.appendChild(ctrl.schemeBar);
     ctrl.schemeBar.dispatchEvent(
       new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true }),
     );
-    expect(ctrl.mgr.currentScheme).toBe("thermal");
+    expect(ctrl.mgr.scheme).toBe("thermal");
     expect(ctrl.updateScheme).toHaveBeenCalled();
     cleanup();
   });

@@ -10,15 +10,15 @@ describe("HeatmapManager — versioned persisted config", () => {
     it("includes version alongside every other persisted field", () => {
       const m = makeManager();
       m.selectedLayerId = "layer_abc";
-      m.currentAgg = CONST.AGG.SUM;
-      m.currentMethod = METHOD.QUANTILE;
-      m.currentScheme = "Blues";
+      m.agg = CONST.AGG.SUM;
+      m.method = METHOD.QUANTILE;
+      m.scheme = "Blues";
       m.numClasses = 4;
       m.borderWeight = 2;
       m.borderColor = "#ff0000";
-      m.currentLabelShow = true;
-      m.currentLabelFormat = "comma";
-      m.currentField = "price";
+      m.labelShow = true;
+      m.labelFormat = "comma";
+      m.field = "price";
 
       m.saveConfig();
 
@@ -102,9 +102,9 @@ describe("HeatmapManager — versioned persisted config", () => {
       // apply every field to the manager's state.
       m.applySavedConfig(legacy as Parameters<typeof m.applySavedConfig>[0]);
       expect(m.selectedLayerId).toBe("x");
-      expect(m.currentAgg).toBe("sum");
-      expect(m.currentMethod).toBe("jenks");
-      expect(m.currentScheme).toBe("Reds");
+      expect(m.agg).toBe("sum");
+      expect(m.method).toBe("jenks");
+      expect(m.scheme).toBe("Reds");
     });
 
     it("returns a record with an older/unknown version value unchanged", () => {
@@ -137,15 +137,15 @@ describe("HeatmapManager — versioned persisted config", () => {
         field: "properties.qty",
       } as Parameters<typeof m.applySavedConfig>[0]);
       expect(m.selectedLayerId).toBe("layer_xyz");
-      expect(m.currentAgg).toBe("max");
-      expect(m.currentMethod).toBe("equal");
-      expect(m.currentScheme).toBe("Greens");
+      expect(m.agg).toBe("max");
+      expect(m.method).toBe("equal");
+      expect(m.scheme).toBe("Greens");
       expect(m.numClasses).toBe(5);
       expect(m.borderWeight).toBe(3);
       expect(m.borderColor).toBe("#00ff00");
-      expect(m.currentLabelShow).toBe(true);
-      expect(m.currentLabelFormat).toBe("percent");
-      expect(m.currentField).toBe("qty");
+      expect(m.labelShow).toBe(true);
+      expect(m.labelFormat).toBe("percent");
+      expect(m.field).toBe("qty");
     });
 
     it("clamps numClasses to valid range", () => {
@@ -159,11 +159,11 @@ describe("HeatmapManager — versioned persisted config", () => {
 
     it("applies only present fields, keeps defaults for missing", () => {
       const m = makeManager();
-      m.currentAgg = "custom_agg";
+      m.agg = "custom_agg";
       m.applySavedConfig({ agg: "sum" });
-      expect(m.currentAgg).toBe("sum");
-      expect(m.currentMethod).toBe("jenks");
-      expect(m.currentScheme).toBe("Reds");
+      expect(m.agg).toBe("sum");
+      expect(m.method).toBe("jenks");
+      expect(m.scheme).toBe("Reds");
     });
 
     it("sets selectedLayerId to null when layerId is missing", () => {
@@ -185,8 +185,8 @@ describe("HeatmapManager — versioned persisted config", () => {
     it("writes the pending config on flush, and is idempotent", () => {
       const m = makeManager();
       m.selectedLayerId = "layer_x";
-      m.currentAgg = CONST.AGG.AVG;
-      m.currentScheme = "Greens";
+      m.agg = CONST.AGG.AVG;
+      m.scheme = "Greens";
       m.numClasses = 5;
       m.saveConfig(); // schedule a write — flush below lands it
 
@@ -220,14 +220,14 @@ describe("HeatmapManager — versioned persisted config", () => {
     it("save → load → apply preserves every field (version travels with the record)", () => {
       const m1 = makeManager();
       m1.selectedLayerId = "r1";
-      m1.currentAgg = "avg";
-      m1.currentMethod = "heads";
-      m1.currentScheme = "Viridis";
+      m1.agg = "avg";
+      m1.method = "heads";
+      m1.scheme = "Viridis";
       m1.numClasses = 3;
       m1.borderWeight = 0.5;
       m1.borderColor = "#111111";
-      m1.currentLabelShow = true;
-      m1.currentField = "value";
+      m1.labelShow = true;
+      m1.field = "value";
       m1.saveConfig();
 
       const stored = JSON.parse(window.localStorage.getItem(KEY)!);
@@ -238,19 +238,19 @@ describe("HeatmapManager — versioned persisted config", () => {
       expect(loaded).toEqual(stored);
       m2.applySavedConfig(loaded!);
       expect(m2.selectedLayerId).toBe("r1");
-      expect(m2.currentAgg).toBe("avg");
-      expect(m2.currentMethod).toBe("heads");
-      expect(m2.currentScheme).toBe("Viridis");
+      expect(m2.agg).toBe("avg");
+      expect(m2.method).toBe("heads");
+      expect(m2.scheme).toBe("Viridis");
       expect(m2.numClasses).toBe(3);
       expect(m2.borderWeight).toBe(0.5);
       expect(m2.borderColor).toBe("#111111");
-      expect(m2.currentLabelShow).toBe(true);
-      expect(m2.currentField).toBe("value");
+      expect(m2.labelShow).toBe(true);
+      expect(m2.field).toBe("value");
     });
 
     it("preserves falsy values (false / 0) through save → load → apply", () => {
       const m1 = makeManager();
-      m1.currentLabelShow = false;
+      m1.labelShow = false;
       m1.borderWeight = 0;
       m1.saveConfig();
 
@@ -259,7 +259,7 @@ describe("HeatmapManager — versioned persisted config", () => {
       expect(loaded).not.toBeNull();
       m2.applySavedConfig(loaded!);
 
-      expect(m2.currentLabelShow).toBe(false);
+      expect(m2.labelShow).toBe(false);
       expect(m2.borderWeight).toBe(0);
     });
   });

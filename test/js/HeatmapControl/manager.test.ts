@@ -20,37 +20,37 @@ describe("getPointValue", () => {
   });
 
   it("returns 1 when agg is COUNT", () => {
-    m.currentAgg = CONST.AGG.COUNT;
+    m.agg = CONST.AGG.COUNT;
     expect(m.getPointValue({})).toBe(1);
   });
 
   it("returns 1 as fallback for missing field", () => {
-    m.currentAgg = CONST.AGG.SUM;
-    m.currentField = "nonexistent";
+    m.agg = CONST.AGG.SUM;
+    m.field = "nonexistent";
     expect(m.getPointValue({})).toBe(1);
   });
 });
 
 describe("getPointValue — additional gaps", () => {
-  it("uses autoFieldKey when currentField is empty", () => {
+  it("uses autoFieldKey when field is empty", () => {
     const m = makeManager();
-    m.currentAgg = CONST.AGG.SUM;
-    m.currentField = "";
+    m.agg = CONST.AGG.SUM;
+    m.field = "";
     m.autoFieldKey = "value";
     expect(m.getPointValue({ value: 42 })).toBe(42);
   });
 
-  it("uses currentField when it is set", () => {
+  it("uses field when it is set", () => {
     const m = makeManager();
-    m.currentAgg = CONST.AGG.SUM;
-    m.currentField = "options.value";
+    m.agg = CONST.AGG.SUM;
+    m.field = "options.value";
     expect(m.getPointValue({ options: { value: 99 } })).toBe(99);
   });
 
   it("warns on value fallback (once per render)", () => {
     const m = makeManager();
-    m.currentAgg = CONST.AGG.SUM;
-    m.currentField = "bad_field";
+    m.agg = CONST.AGG.SUM;
+    m.field = "bad_field";
     m.valueFallbackWarned = false;
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     expect(m.getPointValue({})).toBe(1);
@@ -76,9 +76,9 @@ describe("HeatmapManager — caching & lifecycle", () => {
   it("stays a pure canvas clear — the render empty states keep the user's selection", () => {
     const m = makeManager();
     m.selectedLayerId = "pts";
-    m.currentAgg = CONST.AGG.SUM;
-    m.currentField = "price";
-    m.currentMethod = "quantile";
+    m.agg = CONST.AGG.SUM;
+    m.field = "price";
+    m.method = "quantile";
     m.numClasses = 9;
     m.autoFieldKey = "price";
 
@@ -87,9 +87,9 @@ describe("HeatmapManager — caching & lifecycle", () => {
     m.renderFeatures([]);
 
     expect(m.selectedLayerId).toBe("pts");
-    expect(m.currentAgg).toBe(CONST.AGG.SUM);
-    expect(m.currentField).toBe("price");
-    expect(m.currentMethod).toBe("quantile");
+    expect(m.agg).toBe(CONST.AGG.SUM);
+    expect(m.field).toBe("price");
+    expect(m.method).toBe("quantile");
     expect(m.numClasses).toBe(9);
     expect(m.autoFieldKey).toBe("price");
   });
@@ -138,7 +138,7 @@ describe("HeatmapManager — caching & lifecycle", () => {
       hooks: { before: [], after: [] },
     };
     m.cachedFeatures = [] as never;
-    m.currentLabelShow = false;
+    m.labelShow = false;
     // resolveLabelStyle runs unconditionally before the feature loop.
     m.ui = { ...makeCtrl(m), ctrl: document.createElement("div") };
     m.map.getContainer = vi.fn(() => {
@@ -245,7 +245,7 @@ describe("HeatmapManager — caching & lifecycle", () => {
     const m = makeManager();
     m.ui = { ctrl: document.createElement("div") };
     m.resolveLabelStyle();
-    m.currentLabelSize = 18;
+    m.labelSize = 18;
     m.cachedLabelStyle = null;
     expect(m.resolveLabelStyle().font).toContain("18px");
   });
@@ -465,7 +465,7 @@ describe("getSelectedPoints", () => {
     const m = makeManager();
     m.selectedLayerId = "layer1";
     m.pointLayers = [{ id: "layer1", name: "P", layer: {}, count: 2 }];
-    m.currentAgg = CONST.AGG.COUNT;
+    m.agg = CONST.AGG.COUNT;
     window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
       { lat: 1, lng: 2, marker: {} },
       { lat: 3, lng: 4, marker: {} },
@@ -918,7 +918,7 @@ describe("initScan — single-layer auto-select on first scan only", () => {
     ]);
     m.selectedLayerId = "p1";
     // A non-count agg exercises the full field-selector refresh path.
-    m.currentAgg = CONST.AGG.SUM;
+    m.agg = CONST.AGG.SUM;
     const ctrl = makeCtrl(m);
     const renderSpy = vi.spyOn(m, "renderHexagons");
     const fieldSpy = vi.spyOn(m, "collectFields");
@@ -1229,10 +1229,10 @@ describe("HeatmapManager — style delegation", () => {
       borderColor: "#333333",
     });
 
-    m.currentLabelShow = false;
-    m.currentLabelColor = "#ff0000";
-    m.currentLabelSize = 16;
-    m.currentLabelFormat = "comma";
+    m.labelShow = false;
+    m.labelColor = "#ff0000";
+    m.labelSize = 16;
+    m.labelFormat = "comma";
     expect(opts.styleProvider!()).toEqual({
       labelShow: false,
       labelColor: "#ff0000",
@@ -1246,7 +1246,7 @@ describe("HeatmapManager — style delegation", () => {
   it("constructs with empty field when CONFIG.field is absent", () => {
     delete (window.CONFIG as Record<string, unknown>).field;
     const m = makeManager();
-    expect(m.currentField).toBe("");
+    expect(m.field).toBe("");
   });
 
   it("labelShow setter flips state, re-renders and persists", () => {
@@ -1257,7 +1257,7 @@ describe("HeatmapManager — style delegation", () => {
 
     opts.styleSetters!.labelShow!(false);
 
-    expect(m.currentLabelShow).toBe(false);
+    expect(m.labelShow).toBe(false);
     expect(renderSpy).toHaveBeenCalled();
     expect(saveSpy).toHaveBeenCalled();
   });
@@ -1310,10 +1310,10 @@ describe("HeatmapManager — style delegation", () => {
     });
 
     // Runtime toggles must not leak into the Reset snapshot.
-    m.currentLabelShow = false;
-    m.currentLabelColor = "#00ff00";
-    m.currentLabelSize = 20;
-    m.currentLabelFormat = "comma";
+    m.labelShow = false;
+    m.labelColor = "#00ff00";
+    m.labelSize = 20;
+    m.labelFormat = "comma";
     expect(opts.styleDefaultsProvider!()).toEqual({
       labelShow: true,
       labelColor: "#ffffff",
@@ -1331,11 +1331,11 @@ describe("HeatmapManager — style delegation", () => {
     const opts = getCanvasOpts();
 
     opts.styleSetters!.labelColor!("#00ff00");
-    expect(m.currentLabelColor).toBe("#00ff00");
+    expect(m.labelColor).toBe("#00ff00");
     expect(m.cachedLabelStyle).toBeNull();
 
     opts.styleSetters!.labelSize!(18);
-    expect(m.currentLabelSize).toBe(18);
+    expect(m.labelSize).toBe(18);
     expect(redrawSpy).toHaveBeenCalled();
     expect(saveSpy).toHaveBeenCalled();
   });
@@ -1345,10 +1345,10 @@ describe("HeatmapManager — style delegation", () => {
     const opts = getCanvasOpts();
 
     opts.styleSetters!.labelSize!(99);
-    expect(m.currentLabelSize).toBe(CONST.LABEL.SIZE_MAX);
+    expect(m.labelSize).toBe(CONST.LABEL.SIZE_MAX);
 
     opts.styleSetters!.labelSize!(1);
-    expect(m.currentLabelSize).toBe(CONST.LABEL.SIZE_MIN);
+    expect(m.labelSize).toBe(CONST.LABEL.SIZE_MIN);
   });
 
   it("labelColor setter ignores non-string values and normalizes #rgb", () => {
@@ -1356,10 +1356,10 @@ describe("HeatmapManager — style delegation", () => {
     const opts = getCanvasOpts();
 
     opts.styleSetters!.labelColor!(42);
-    expect(m.currentLabelColor).toBe("#ffffff");
+    expect(m.labelColor).toBe("#ffffff");
 
     opts.styleSetters!.labelColor!("#abc");
-    expect(m.currentLabelColor).toBe("#aabbcc");
+    expect(m.labelColor).toBe("#aabbcc");
   });
 
   it("labelSize setter ignores NaN and non-number values", () => {
@@ -1367,10 +1367,10 @@ describe("HeatmapManager — style delegation", () => {
     const opts = getCanvasOpts();
 
     opts.styleSetters!.labelSize!(Number.NaN);
-    expect(m.currentLabelSize).toBe(11);
+    expect(m.labelSize).toBe(11);
 
     opts.styleSetters!.labelSize!("18" as unknown as number);
-    expect(m.currentLabelSize).toBe(11);
+    expect(m.labelSize).toBe(11);
   });
 
   it("labelColor and labelSize setters work without a bound panel", () => {
@@ -1381,8 +1381,8 @@ describe("HeatmapManager — style delegation", () => {
       getCanvasOpts().styleSetters!.labelColor!("#00ff00");
       getCanvasOpts().styleSetters!.labelSize!(20);
     }).not.toThrow();
-    expect(m.currentLabelColor).toBe("#00ff00");
-    expect(m.currentLabelSize).toBe(20);
+    expect(m.labelColor).toBe("#00ff00");
+    expect(m.labelSize).toBe(20);
   });
 
   it("labelFormat setter updates state, redraws labels and persists", () => {
@@ -1393,7 +1393,7 @@ describe("HeatmapManager — style delegation", () => {
 
     opts.styleSetters!.labelFormat!("comma");
 
-    expect(m.currentLabelFormat).toBe("comma");
+    expect(m.labelFormat).toBe("comma");
     expect(redrawSpy).toHaveBeenCalled();
     expect(saveSpy).toHaveBeenCalled();
   });
@@ -1404,17 +1404,17 @@ describe("HeatmapManager — style delegation", () => {
 
     opts.styleSetters!.labelFormat!(42);
 
-    expect(m.currentLabelFormat).toBe("auto");
+    expect(m.labelFormat).toBe("auto");
   });
 
-  it("currentLabelFormat seeds from CONFIG.label_format", () => {
+  it("labelFormat seeds from CONFIG.label_format", () => {
     const m = makeManager({ label_format: "percent" });
-    expect(m.currentLabelFormat).toBe("percent");
+    expect(m.labelFormat).toBe("percent");
   });
 
   it("labelFormat defaults to auto when CONFIG omits label_format", () => {
     const m = makeManager({ label_format: undefined });
-    expect(m.currentLabelFormat).toBe("auto");
+    expect(m.labelFormat).toBe("auto");
   });
 
   it("labelShow defaults to true when CONFIG omits label_show", () => {
@@ -1425,7 +1425,7 @@ describe("HeatmapManager — style delegation", () => {
       styleDefaultsProvider?: () => Record<string, unknown>;
     };
 
-    expect(m.currentLabelShow).toBe(true);
+    expect(m.labelShow).toBe(true);
     expect(opts.styleDefaultsProvider!().labelShow).toBe(true);
   });
 
@@ -1541,8 +1541,8 @@ describe("HeatmapManager — source meta for the attrs panel", () => {
     const m = makeManager();
     m.pointLayers = [{ id: "pts", name: "Stores", layer: null, count: 2 }];
     m.selectedLayerId = "pts";
-    m.currentAgg = "sum";
-    m.currentField = "properties.sales";
+    m.agg = "sum";
+    m.field = "properties.sales";
 
     m.syncSourceMeta();
 
@@ -1555,8 +1555,8 @@ describe("HeatmapManager — source meta for the attrs panel", () => {
     const m = makeManager();
     m.pointLayers = [{ id: "pts", name: "Stores", layer: null, count: 1 }];
     m.selectedLayerId = "pts";
-    m.currentAgg = "count";
-    m.currentField = "properties.sales";
+    m.agg = "count";
+    m.field = "properties.sales";
 
     m.syncSourceMeta();
 
@@ -1564,12 +1564,12 @@ describe("HeatmapManager — source meta for the attrs panel", () => {
     expect(m.sourceMeta["HeatmapControl.meta_agg_field"]).toBe("");
   });
 
-  it("uses the auto field when currentField is empty", () => {
+  it("uses the auto field when field is empty", () => {
     const m = makeManager();
     m.pointLayers = [{ id: "pts", name: "Stores", layer: null, count: 1 }];
     m.selectedLayerId = "pts";
-    m.currentAgg = "avg";
-    m.currentField = "";
+    m.agg = "avg";
+    m.field = "";
     m.autoFieldKey = "properties.dwell";
 
     m.syncSourceMeta();
@@ -1593,8 +1593,8 @@ describe("HeatmapManager — source meta for the attrs panel", () => {
     const m = makeManager();
     m.pointLayers = [{ id: "pts", name: "Stores", layer: null, count: 1 }];
     m.selectedLayerId = "pts";
-    m.currentAgg = "max";
-    m.currentField = "value";
+    m.agg = "max";
+    m.field = "value";
 
     m.syncSourceMeta();
 
@@ -1616,7 +1616,7 @@ describe("HeatmapManager — source meta for the attrs panel", () => {
     const m = makeManager();
     m.pointLayers = [{ id: "pts", name: "Stores", layer: null, count: 1 }];
     m.selectedLayerId = "pts";
-    m.currentAgg = "count";
+    m.agg = "count";
 
     m.syncSourceMeta();
     const touch = window.map.foliplus.LayerAPI.touchLayer;
@@ -1669,12 +1669,12 @@ describe("HeatmapManager — EVENTS.LAYER_DELETED auto-clear", () => {
     ctrl.layerSelect.value = "pts";
     m.ui = ctrl;
     m.selectedLayerId = "pts";
-    m.currentAgg = CONST.AGG.SUM;
-    m.currentField = "price";
+    m.agg = CONST.AGG.SUM;
+    m.field = "price";
     m.autoFieldKey = "price";
-    m.currentScheme = "Greens";
+    m.scheme = "Greens";
     m.numClasses = 8;
-    m.currentMethod = "quantile";
+    m.method = "quantile";
     const clearSpy = vi.spyOn(m, "clearHeatmapCanvas");
     const saveSpy = vi.spyOn(m, "saveConfig");
     const clearSaved = vi.spyOn(m, "clearSavedConfig");
@@ -1684,10 +1684,10 @@ describe("HeatmapManager — EVENTS.LAYER_DELETED auto-clear", () => {
     // State back to the declared defaults, no stale selection left behind.
     expect(m.selectedLayerId).toBeNull();
     expect(m.autoFieldKey).toBeNull();
-    expect(m.currentAgg).toBe(CONST.AGG.COUNT);
-    expect(m.currentField).toBe("");
-    expect(m.currentMethod).toBe(config.method);
-    expect(m.currentScheme).toBe(config.color_scheme);
+    expect(m.agg).toBe(CONST.AGG.COUNT);
+    expect(m.field).toBe("");
+    expect(m.method).toBe(config.method);
+    expect(m.scheme).toBe(config.color_scheme);
     expect(m.numClasses).toBe(config.n_classes);
     expect(m.cachedFeatures).toBeNull();
     // Every dropdown reflects the reset — the reported bug was the panel
@@ -1715,9 +1715,9 @@ describe("HeatmapManager — EVENTS.LAYER_DELETED auto-clear", () => {
     const m = makeManager();
     m.ui = null;
     m.selectedLayerId = "pts";
-    m.currentAgg = CONST.AGG.SUM;
-    m.currentField = "price";
-    m.currentScheme = "Greens";
+    m.agg = CONST.AGG.SUM;
+    m.field = "price";
+    m.scheme = "Greens";
     m.numClasses = 8;
     m.autoFieldKey = "price";
     const clearSpy = vi.spyOn(m, "clearHeatmapCanvas");
@@ -1731,10 +1731,10 @@ describe("HeatmapManager — EVENTS.LAYER_DELETED auto-clear", () => {
     expect(clearSaved).not.toHaveBeenCalled();
     expect(m.selectedLayerId).toBeNull();
     expect(m.autoFieldKey).toBeNull();
-    expect(m.currentAgg).toBe(CONST.AGG.COUNT);
-    expect(m.currentField).toBe("");
-    expect(m.currentScheme).toBe("Reds");
-    expect(m.currentMethod).toBe("jenks");
+    expect(m.agg).toBe(CONST.AGG.COUNT);
+    expect(m.field).toBe("");
+    expect(m.scheme).toBe("Reds");
+    expect(m.method).toBe("jenks");
     expect(m.numClasses).toBe(6);
   });
 });
@@ -1750,9 +1750,9 @@ describe("constructor — CONFIG fallbacks", () => {
       label_color: undefined,
       label_size: undefined,
     });
-    expect(m.currentAgg).toBe(CONST.AGG.COUNT);
-    expect(m.currentScheme).toBe("Reds");
-    expect(m.currentMethod).toBe("jenks");
+    expect(m.agg).toBe(CONST.AGG.COUNT);
+    expect(m.scheme).toBe("Reds");
+    expect(m.method).toBe("jenks");
     expect(m.numClasses).toBe(CONST.CLASS_COUNT.DEFAULT);
     expect(m.borderColor).toBe(CONST.GRAY);
   });
@@ -1891,25 +1891,25 @@ describe("redrawHeatmap — edge cases", () => {
     setupCanvas(m);
     m.cachedFeatures = [makeFeature([0, 0])] as never;
     m.renderAll = true;
-    m.currentLabelShow = false;
+    m.labelShow = false;
     m.redrawHeatmap();
   });
 
-  it("draws labels when currentLabelShow is true", () => {
+  it("draws labels when labelShow is true", () => {
     const m = makeManager();
     setupCanvas(m);
     m.cachedFeatures = [makeFeature([0, 0])] as never;
     m.renderAll = false;
-    m.currentLabelShow = true;
+    m.labelShow = true;
     m.redrawHeatmap();
   });
 
-  it("skips labels when currentLabelShow is false", () => {
+  it("skips labels when labelShow is false", () => {
     const m = makeManager();
     setupCanvas(m);
     m.cachedFeatures = [makeFeature([0, 0])] as never;
     m.renderAll = false;
-    m.currentLabelShow = false;
+    m.labelShow = false;
     m.redrawHeatmap();
   });
 
@@ -1918,7 +1918,7 @@ describe("redrawHeatmap — edge cases", () => {
     setupCanvas(m);
     m.cachedFeatures = [makeFeature(null)] as never;
     m.renderAll = false;
-    m.currentLabelShow = false;
+    m.labelShow = false;
     m.redrawHeatmap();
   });
 
@@ -1928,7 +1928,7 @@ describe("redrawHeatmap — edge cases", () => {
     m.cachedFeatures = [makeFeature([100, 100])] as never;
     m.map.getBounds = vi.fn(() => ({ contains: () => false }));
     m.renderAll = false;
-    m.currentLabelShow = false;
+    m.labelShow = false;
     m.redrawHeatmap();
   });
 });
@@ -2073,9 +2073,9 @@ describe("clearHeatmapCanvas — null overlay", () => {
 describe("resetState — CONFIG fallbacks", () => {
   it("uses library defaults when config omits optional fields", () => {
     const m = makeManager();
-    m.currentAgg = CONST.AGG.SUM;
-    m.currentMethod = "quantile";
-    m.currentScheme = "Greens";
+    m.agg = CONST.AGG.SUM;
+    m.method = "quantile";
+    m.scheme = "Greens";
     m.numClasses = 9;
     m.resetState({
       agg: undefined,
@@ -2083,10 +2083,10 @@ describe("resetState — CONFIG fallbacks", () => {
       method: undefined,
       color_scheme: undefined,
     });
-    expect(m.currentAgg).toBe(CONST.AGG.COUNT);
+    expect(m.agg).toBe(CONST.AGG.COUNT);
     expect(m.numClasses).toBe(CONST.CLASS_COUNT.DEFAULT);
-    expect(m.currentMethod).toBe("jenks");
-    expect(m.currentScheme).toBe("Reds");
+    expect(m.method).toBe("jenks");
+    expect(m.scheme).toBe("Reds");
   });
 });
 
@@ -2151,7 +2151,7 @@ describe("onOpacity callback (R11 redraw arm)", () => {
       hooks: { before: [], after: [] },
     };
     m.cachedFeatures = [] as never;
-    m.currentLabelShow = false;
+    m.labelShow = false;
     m.ui = { ...makeCtrl(m), ctrl: document.createElement("div") };
     m.map.getContainer = vi.fn(() => {
       const c = document.createElement("div");
@@ -2218,7 +2218,7 @@ describe("redrawHeatmap — preserveCss branch", () => {
       hooks: { before: [], after: [] },
     };
     m.cachedFeatures = [] as never;
-    m.currentLabelShow = false;
+    m.labelShow = false;
     m.ui = { ...makeCtrl(m), ctrl: document.createElement("div") };
     m.map.getContainer = vi.fn(() => {
       const c = document.createElement("div");

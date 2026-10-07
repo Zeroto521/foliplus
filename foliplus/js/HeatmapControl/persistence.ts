@@ -11,17 +11,17 @@ import type { SavedConfig } from "./type.js";
 /** The minimal manager state surface the persistence helpers write to. */
 interface ManagerLike {
   selectedLayerId: string | null;
-  currentAgg: string;
-  currentMethod: string;
-  currentScheme: string;
+  agg: string;
+  method: string;
+  scheme: string;
   numClasses: number;
   borderWeight: number;
   borderColor: string;
-  currentLabelShow: boolean;
-  currentLabelColor: string;
-  currentLabelSize: number;
-  currentLabelFormat: NumberStyle;
-  currentField: string;
+  labelShow: boolean;
+  labelColor: string;
+  labelSize: number;
+  labelFormat: NumberStyle;
+  field: string;
   hasScanned: boolean;
 }
 
@@ -43,9 +43,9 @@ const applySavedConfig = (mgr: ManagerLike, saved: SavedConfig): void => {
   // without this, hasScanned stays false and the single-layer auto-select
   // in buildLayerListItems re-fires after a manual clear survives reload.
   mgr.hasScanned = true;
-  if (saved.agg) mgr.currentAgg = saved.agg;
-  if (saved.method) mgr.currentMethod = saved.method;
-  if (saved.scheme) mgr.currentScheme = saved.scheme;
+  if (saved.agg) mgr.agg = saved.agg;
+  if (saved.method) mgr.method = saved.method;
+  if (saved.scheme) mgr.scheme = saved.scheme;
   if (saved.numClasses !== undefined) {
     mgr.numClasses = Math.min(
       CONST.CLASS_COUNT.MAX,
@@ -56,13 +56,13 @@ const applySavedConfig = (mgr: ManagerLike, saved: SavedConfig): void => {
     mgr.borderWeight = saved.borderWeight;
   }
   if (saved.borderColor) mgr.borderColor = saved.borderColor;
-  if (saved.labelShow !== undefined) mgr.currentLabelShow = saved.labelShow;
-  if (saved.labelColor) mgr.currentLabelColor = saved.labelColor;
+  if (saved.labelShow !== undefined) mgr.labelShow = saved.labelShow;
+  if (saved.labelColor) mgr.labelColor = saved.labelColor;
   if (saved.labelSize !== undefined) {
-    mgr.currentLabelSize = clampLabelSize(saved.labelSize);
+    mgr.labelSize = clampLabelSize(saved.labelSize);
   }
-  if (saved.labelFormat) mgr.currentLabelFormat = saved.labelFormat;
-  if (saved.field) mgr.currentField = bareFieldName(saved.field);
+  if (saved.labelFormat) mgr.labelFormat = saved.labelFormat;
+  if (saved.field) mgr.field = bareFieldName(saved.field);
   mgr.selectedLayerId = saved.layerId ?? null;
 };
 

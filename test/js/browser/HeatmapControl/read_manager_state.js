@@ -5,7 +5,7 @@
     numClasses: m.numClasses,
     borderWeight: m.borderWeight,
     borderColor: m.borderColor,
-    currentMethod: m.currentMethod,
-    currentScheme: m.currentScheme,
+    method: m.method,
+    scheme: m.scheme,
   };
 };

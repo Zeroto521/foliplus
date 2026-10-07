@@ -126,13 +126,13 @@ class ModeManager {
 
   /** Check whether a component is blocked by any active mode. */
   isBlocked(component: string): boolean {
-    return this.findBlocking(component) !== null;
+    return this.getBlocking(component) !== null;
   }
 
-  /** Find the component currently blocking the given component, or null.
+  /** Get the component currently blocking the given component, or null.
    *  Used by guardBlocked to pick a specific hint text describing *why*
    *  the action is blocked (e.g. "Measurement in progress" vs generic). */
-  findBlocking(component: string): string | null {
+  getBlocking(component: string): string | null {
     for (const [otherComp, otherMode] of this.modes) {
       if (otherMode === null) continue;
       const blocked = BLOCKED_BY[otherComp];
@@ -194,7 +194,7 @@ const guardBlocked = (
   // before exporting" instead of the generic "Map is temporarily unavailable").
   let text = hintFallback;
   if (candidates?.length) {
-    const blocker = modes.findBlocking(name);
+    const blocker = modes.getBlocking(name);
     if (blocker) {
       const candidate = candidates.find(c => c.blockedBy === blocker);
       if (candidate) text = candidate.text;
