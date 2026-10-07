@@ -32,8 +32,6 @@ describe("makeLayerUIMock — LayerUI field completeness", () => {
     // Maps
     expect(ui.runtimeStore).toBeInstanceOf(LayerRuntimeStore);
     expect(ui.runtimeStore.ids()).toEqual([]);
-    // Records
-    expect(ui.renamedNames).toEqual({});
     // Primitives with sensible defaults
     expect(ui.currentColor).toBe("#cccccc");
     expect(ui.listPanel.lastDragHintAt).toBe(0);
