@@ -15,7 +15,7 @@ import { cancelFocus, focusLayer, isFocusing } from "./focus.js";
 import { FocusController } from "./focus/focusController.js";
 import {
   attachUI,
-  bindEvents,
+  bindLayerEvents,
   onLayerItemCountChange,
   refreshAllCounts,
   unbindEvents,
@@ -208,7 +208,7 @@ class LayerUI implements LayerUISurface {
 
   /** Load every persisted dimension in one call. */
   bindEvents() {
-    return bindEvents(this);
+    return bindLayerEvents(this);
   }
 
   /** Called when a layer's content changes (count or type may shift at runtime).
