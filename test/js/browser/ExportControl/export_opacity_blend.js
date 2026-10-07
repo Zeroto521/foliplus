@@ -7,7 +7,7 @@
   // marker — without this the opaque tile pixels would mask the marker's
   // alpha in the final image. `setVisible` records the intent and drives
   // the map; directly writing `layer.visible` would no longer reach the
-  // executor after T126 collapsed that mirror.
+  // executor after #498 collapsed that mirror.
   for (const li of [...api.layers]) {
     if (li.layer instanceof L.TileLayer) api.setVisible(li.id, false);
   }

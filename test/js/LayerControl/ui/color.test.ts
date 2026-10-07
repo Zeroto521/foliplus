@@ -49,7 +49,6 @@ const makeUi = (layers: Array<{ id: string; group: "base" | "overlay" }> = []) =
     syncToggleAll: vi.fn(),
     intentStore: new LayerIntentStore(),
     runtimeStore: new LayerRuntimeStore(),
-    renamedNames: {},
     focusingLayerId: null,
     T: () => "",
     config: { locale_code: "en" },
