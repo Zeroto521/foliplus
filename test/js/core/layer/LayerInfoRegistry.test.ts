@@ -1,22 +1,23 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { LayerInfoRegistry } from "#foliplus/core/layer/LayerInfoRegistry.js";
+import type { LayerInfo } from "#foliplus/core/layer/type.js";
 
 describe("LayerInfoRegistry", () => {
-  let registry;
+  let registry: LayerInfoRegistry;
 
   beforeEach(() => {
     registry = new LayerInfoRegistry([
       { id: "overlay1", name: "Points", group: "overlay" },
       { id: "overlay2", name: "Lines", group: "overlay" },
       { id: "base1", name: "OpenStreetMap", group: "base" },
-    ]);
+    ] as unknown as LayerInfo[]);
   });
 
   describe("constructor", () => {
     it("builds items and byId index", () => {
       expect(registry.size).toBe(3);
-      expect(registry.get("overlay1").name).toBe("Points");
-      expect(registry.get("base1").group === "base").toBe(true);
+      expect(registry.get("overlay1")!.name).toBe("Points");
+      expect(registry.get("base1")!.group === "base").toBe(true);
     });
 
     it("resolves firstBaseIdx", () => {
@@ -27,7 +28,7 @@ describe("LayerInfoRegistry", () => {
       const r = new LayerInfoRegistry([
         { id: "a", group: "overlay" },
         { id: "b", group: "overlay" },
-      ]);
+      ] as unknown as LayerInfo[]);
       expect(r.firstBaseIdx).toBe(-1);
     });
   });
@@ -47,17 +48,19 @@ describe("LayerInfoRegistry", () => {
     });
 
     it("preserves existing values from existingLi", () => {
-      const info = registry.createLayerInfo(
-        { id: "test" },
-        { name: "Existing", opacity: 0.5 },
-      );
+      const info = registry.createLayerInfo({ id: "test" }, {
+        name: "Existing",
+        opacity: 0.5,
+      } as unknown as LayerInfo);
       expect(info.name).toBe("Existing");
       expect(info.opacity).toBe(0.5);
     });
 
     it("preserves metaProvider from existingLi on re-registration", () => {
       const metaProvider = () => ({ count: 1 });
-      const info = registry.createLayerInfo({ id: "test" }, { metaProvider });
+      const info = registry.createLayerInfo({ id: "test" }, {
+        metaProvider,
+      } as unknown as LayerInfo);
       expect(info.metaProvider).toBe(metaProvider);
     });
 
@@ -137,7 +140,7 @@ describe("LayerInfoRegistry", () => {
 
     it("updates an existing layer in place", () => {
       registry.upsert(registry.createLayerInfo({ id: "overlay1", name: "Updated" }));
-      expect(registry.get("overlay1").name).toBe("Updated");
+      expect(registry.get("overlay1")!.name).toBe("Updated");
       expect(registry.size).toBe(3);
     });
   });
@@ -201,7 +204,7 @@ describe("LayerInfoRegistry", () => {
         { id: "base1", name: "B1", group: "base" },
         { id: "overlay1", name: "O1", group: "overlay" },
         { id: "base2", name: "B2", group: "base" },
-      ]);
+      ] as unknown as LayerInfo[]);
       r.normalizeGroups();
       expect(r.at(0).id).toBe("overlay1");
       expect(r.at(1).group === "base").toBe(true);
@@ -236,7 +239,7 @@ describe("LayerInfoRegistry", () => {
   describe("readonly view", () => {
     it("throws on mutation via list", () => {
       expect(() => {
-        registry.layers.push({ id: "x" });
+        registry.layers.push({ id: "x" } as unknown as LayerInfo);
       }).toThrow();
     });
 
@@ -259,7 +262,7 @@ describe("LayerInfoRegistry", () => {
       // Index assignment bypasses the MUTATING_METHODS list — the set trap is
       // the backstop that must throw.
       expect(() => {
-        registry.layers[0] = { id: "x" };
+        registry.layers[0] = { id: "x" } as unknown as LayerInfo;
       }).toThrow();
     });
 
@@ -287,7 +290,7 @@ describe("LayerInfoRegistry", () => {
       registry.replace(newList);
       expect(registry.size).toBe(2);
       expect(registry.at(0).id).toBe("a");
-      expect(registry.get("b").group === "base").toBe(true);
+      expect(registry.get("b")!.group === "base").toBe(true);
       expect(registry.firstBaseIdx).toBe(1);
     });
   });
@@ -295,11 +298,11 @@ describe("LayerInfoRegistry", () => {
   describe("indexOf", () => {
     it("returns the index of a layer info", () => {
       const li = registry.get("overlay1");
-      expect(registry.indexOf(li)).toBe(0);
+      expect(registry.indexOf(li!)).toBe(0);
     });
 
     it("returns -1 for an unknown layer info", () => {
-      expect(registry.indexOf({ id: "nope" })).toBe(-1);
+      expect(registry.indexOf({ id: "nope" } as unknown as LayerInfo)).toBe(-1);
     });
   });
 

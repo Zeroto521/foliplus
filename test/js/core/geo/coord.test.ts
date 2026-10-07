@@ -143,7 +143,7 @@ describe("CRS probe error reporting", () => {
     // probeMap reads each fact once, so one failing read must not multiply into
     // repeated noise — getMapCrsType asks three questions per call.
     getMapCrsType(throwingCodeMap());
-    const messages = console.warn.mock.calls.map(call => call[0]);
+    const messages = vi.mocked(console.warn).mock.calls.map(call => call[0]);
     expect(messages).toEqual([
       "[foliplus] map CRS code unreadable (CRS fallback to WGS84):",
     ]);
@@ -163,7 +163,7 @@ describe("CRS probe error reporting", () => {
       },
     };
     expect(getMapCrsType(map)).toBe("WGS84");
-    const messages = console.warn.mock.calls.map(call => call[0]);
+    const messages = vi.mocked(console.warn).mock.calls.map(call => call[0]);
     // Order follows probeMap: _layers is read first, crs.code second.
     expect(messages).toEqual([
       "[foliplus] tile layer URL traversal failed (CRS fallback to WGS84):",

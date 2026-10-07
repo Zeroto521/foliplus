@@ -256,7 +256,7 @@ describe("guardBlocked", () => {
     const { map } = makeMapWithLeaf();
     const showHint = vi.fn();
     ensureModes(map as any);
-    map.foliplus!.showHint = showHint;
+    (map as any).foliplus!.showHint = showHint;
     return { map, showHint };
   };
 

@@ -554,7 +554,7 @@ describe("LayerSurface.setZOverride / restoreZ", () => {
     // empty panes array. Every kind that has a real layer now gets at least
     // one synthesized pane, including GridLayer (first-class basemaps).
     const { host } = makeMap();
-    const surface = new LayerSurface(host, { id: "ghost" });
+    const surface = new LayerSurface(host, { id: "ghost" } as any);
     expect(surface.panes).toEqual([]);
     expect(surface.setZOverride(8990)).toBe(false);
     expect(surface.restoreZ()).toBe(false);
@@ -1190,16 +1190,16 @@ describe("kind declaration (cluster / tile|vector)", () => {
 
   it("deriveLayerKind: GridLayer is tile, Path/Marker is vector", () => {
     expect(
-      deriveLayerKind({ id: "t", layer: new GridLayer() as unknown as L.Layer }),
+      deriveLayerKind({ id: "t", layer: new GridLayer() as unknown as L.Layer } as any),
     ).toBe("tile");
-    expect(deriveLayerKind({ id: "v", layer: new Path() as unknown as L.Layer })).toBe(
-      "vector",
-    );
     expect(
-      deriveLayerKind({ id: "m", layer: new Marker() as unknown as L.Layer }),
+      deriveLayerKind({ id: "v", layer: new Path() as unknown as L.Layer } as any),
     ).toBe("vector");
     expect(
-      deriveLayerKind({ id: "g", layer: new Group([]) as unknown as L.Layer }),
+      deriveLayerKind({ id: "m", layer: new Marker() as unknown as L.Layer } as any),
+    ).toBe("vector");
+    expect(
+      deriveLayerKind({ id: "g", layer: new Group([]) as unknown as L.Layer } as any),
     ).toBe("vector");
   });
 
@@ -1209,17 +1209,21 @@ describe("kind declaration (cluster / tile|vector)", () => {
         id: "x",
         layer: new Path() as unknown as L.Layer,
         kind: "cluster",
-      }),
+      } as any),
     ).toBe("cluster");
-    expect(deriveLayerKind({ id: "s", layer: null, color: "#000" })).toBe("solid");
-    expect(deriveLayerKind({ id: "c", layer: null, canvas: true })).toBe("canvas");
-    expect(deriveLayerKind({ id: "u", layer: null, custom: {} })).toBe("custom");
+    expect(deriveLayerKind({ id: "s", layer: null, color: "#000" } as any)).toBe(
+      "solid",
+    );
+    expect(deriveLayerKind({ id: "c", layer: null, canvas: true } as any)).toBe(
+      "canvas",
+    );
+    expect(deriveLayerKind({ id: "u", layer: null, custom: {} } as any)).toBe("custom");
     // Pending Leaflet-layer registration is NOT custom (see hasUnresolvedLayers).
-    expect(deriveLayerKind({ id: "p", layer: null })).toBe("vector");
+    expect(deriveLayerKind({ id: "p", layer: null } as any)).toBe("vector");
     // L.LayerGroup is a vector-family container.
     (window as { L: Record<string, unknown> }).L.LayerGroup = Group;
     expect(
-      deriveLayerKind({ id: "g2", layer: new Group([]) as unknown as L.Layer }),
+      deriveLayerKind({ id: "g2", layer: new Group([]) as unknown as L.Layer } as any),
     ).toBe("vector");
   });
 

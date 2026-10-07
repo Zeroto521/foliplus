@@ -222,10 +222,10 @@ describe("ensureLayerAPI", () => {
     expect(api.deleteLayer("x")).toBe(false);
     // Same contract: forgetSavedOrder filters savedOrder, so the stub — which
     // has no savedOrder — returns false to signal "nothing was forgotten".
-    expect(api.forgetSavedOrder("x")).toBe(false);
+    expect(api.forgetSavedOrder!("x")).toBe(false);
     // And dropPersistedLayerState, which erases stored state, cannot claim to
     // have erased anything on a stub that has no store.
-    expect(api.dropPersistedLayerState("x")).toBe(false);
+    expect(api.dropPersistedLayerState!("x")).toBe(false);
     // Calling bringLayerToFront on the lightweight stub must not throw — it's
     // a no-op because there's no registry to reorder.
     expect(api.bringLayerToFront("x")).toBeUndefined();
@@ -236,7 +236,7 @@ describe("ensureLayerAPI", () => {
     expect(api.getLayerPanes({} as any)).toEqual([]);
     expect(api.getLayersByType("point")).toEqual([]);
     // touchLayer returns false on the stub — no registry to mark as touched.
-    expect(api.touchLayer("x")).toBe(false);
+    expect(api.touchLayer!("x")).toBe(false);
   });
 
   it("does not expose moveLayerUp / moveLayerDown — only LayerController reorders", () => {

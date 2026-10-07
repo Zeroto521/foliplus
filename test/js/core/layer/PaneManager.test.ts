@@ -715,7 +715,10 @@ describe("PaneManager", () => {
     const childPath = document.createElement("path");
     const map = { getPane: vi.fn(() => paneEl), createPane: vi.fn() };
     const pm = new PaneManager(map);
-    const child = { getElement: () => childPath, options: {} };
+    const child = {
+      getElement: () => childPath,
+      options: {} as Record<string, unknown>,
+    };
     Object.setPrototypeOf(child, new window.L.Path());
     const parent = {
       eachLayer: (cb: (c: unknown) => void) => cb(child),
@@ -841,7 +844,7 @@ describe("PaneManager", () => {
     container.className = "leaflet-layer";
     const layer = {
       getContainer: () => container,
-      options: {},
+      options: {} as Record<string, unknown>,
       eachLayer: undefined,
     };
     Object.setPrototypeOf(layer, new window.L.GridLayer());
@@ -884,7 +887,7 @@ describe("PaneManager", () => {
     const pm = new PaneManager(map);
     const renderer = { _container: document.createElement("div") };
 
-    const layer = { options: {}, eachLayer: undefined };
+    const layer = { options: {} as Record<string, unknown>, eachLayer: undefined };
     Object.setPrototypeOf(layer, new window.L.GridLayer());
 
     expect(() =>
@@ -933,7 +936,7 @@ describe("PaneManager", () => {
     const container = document.createElement("div");
     const layer = {
       getContainer: () => container,
-      options: {},
+      options: {} as Record<string, unknown>,
       eachLayer: undefined,
     };
     Object.setPrototypeOf(layer, new window.L.GridLayer());
@@ -955,7 +958,7 @@ describe("PaneManager", () => {
 
     const layer = {
       getContainer: () => null,
-      options: {},
+      options: {} as Record<string, unknown>,
       eachLayer: undefined,
     };
     Object.setPrototypeOf(layer, new window.L.GridLayer());
