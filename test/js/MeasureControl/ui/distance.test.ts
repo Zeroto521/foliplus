@@ -332,8 +332,12 @@ describe("attachDistanceUI", () => {
       CONST.LABEL_PRIORITY_BY_ROLE.SEGMENT,
       CONST.LABEL_PRIORITY_BY_ROLE.TOTAL,
     ]);
-    expect(CONST.LABEL_PRIORITY_BY_ROLE.TOTAL).toBeGreaterThan(CONST.LABEL_PRIORITY_BY_ROLE.SEGMENT);
-    expect(CONST.LABEL_PRIORITY_BY_ROLE.TOTAL).toBeLessThan(CONST.LABEL_PRIORITY_BY_ROLE.CENTROID);
+    expect(CONST.LABEL_PRIORITY_BY_ROLE.TOTAL).toBeGreaterThan(
+      CONST.LABEL_PRIORITY_BY_ROLE.SEGMENT,
+    );
+    expect(CONST.LABEL_PRIORITY_BY_ROLE.TOTAL).toBeLessThan(
+      CONST.LABEL_PRIORITY_BY_ROLE.CENTROID,
+    );
   });
 
   it("re-registers the total priority after deleting an inner node", () => {

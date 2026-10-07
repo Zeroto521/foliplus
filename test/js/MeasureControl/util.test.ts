@@ -312,7 +312,9 @@ describe("formatting constants", () => {
 
   it("the km branch carries one more digit than the meters branch", () => {
     expect(CONST.UNIT_FORMAT.KM_DECIMALS).toBe(1);
-    expect(CONST.UNIT_FORMAT.KM_DECIMALS).toBeGreaterThan(CONST.UNIT_FORMAT.SMALL_DECIMALS);
+    expect(CONST.UNIT_FORMAT.KM_DECIMALS).toBeGreaterThan(
+      CONST.UNIT_FORMAT.SMALL_DECIMALS,
+    );
   });
 
   it("the km² branch carries two decimals", () => {
