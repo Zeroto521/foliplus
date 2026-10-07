@@ -3383,7 +3383,7 @@ describe("LayerController moveLayerUp / moveLayerDown", () => {
 // ===========================================================================
 // User-assigned display names (rename persistence)
 //
-// `LayerUI.renamedNames` is the source of truth; the registry's
+// `intentStore.nameEntries()` is the source of truth; the registry's
 // `LayerInfo.name` is a projection refreshed by `applyUserState()`. A
 // third-party layer that re-registers itself re-advertises its own metadata,
 // so a re-registration used to reset `name` back to the provider's original

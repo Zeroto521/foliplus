@@ -736,7 +736,7 @@ class LayerController implements LayerAPI {
     // it is part of that surviving intent (a flush after this point must
     // not erase `layers[id].annotation` from storage).
     this.annotation.unloadLayer(id);
-    // Emitting unconditionally: bindEvents has not run when there is no UI, so
+    // Emitting unconditionally: bindLayerEvents has not run when there is no UI, so
     // the subscribers simply do not fire — same effect as the previous
     // `this.ui?.` guards, without a null-check chain on the manager side.
     this.events.emit(EVENTS.LAYER_ITEM_REMOVED, { id });

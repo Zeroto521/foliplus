@@ -315,7 +315,6 @@ export function makeLayerUIMock(extra: Overrides = {}): LayerUI {
     intentStore: new LayerIntentStore(),
     runtimeStore: new LayerRuntimeStore(),
     currentColor: "#cccccc",
-    renamedNames: {},
     // Declared handler fields
     onChange: null,
     onInput: null,
