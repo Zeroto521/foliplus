@@ -312,7 +312,7 @@ describe("LayerFactory", () => {
       expect(graphSub.hasLayer(layer)).toBe(true);
     });
 
-    it("mainLayer.addLayer honours an explicit options.pane that matches a sub-pane", () => {
+    it("mainLayer.addLayer honors an explicit options.pane that matches a sub-pane", () => {
       const api = factory.createLayers({
         id: "test",
         name: "Test",
@@ -320,7 +320,7 @@ describe("LayerFactory", () => {
       });
       const layer = new window.L.Path();
       layer.options.pane = "label1";
-      // The wrapper honours a declared `options.pane` when the name is in
+      // The wrapper honors a declared `options.pane` when the name is in
       // the factory's declared pane list — no separate flag needed.
       api.mainLayer.addLayer(layer);
       expect(layer.options.pane).toBe("label1");

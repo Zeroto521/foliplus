@@ -4,7 +4,7 @@
 // queue or through component paths (e.g. SearchControl's suggestions) —
 // records a timestamp on a provider-wide, page-global table. The queue and
 // component windows both consult that table, so a provider's rate limit is
-// honoured across call paths and across maps, not per path (Nominatim's
+// honored across call paths and across maps, not per path (Nominatim's
 // 1 req/s is a server-side global limit).
 //
 // Tasks are strictly serialized: the next task does not start until the
@@ -25,7 +25,7 @@ const markRequest = (id: string, at: number = Date.now()): number => {
 
 // Largest min-interval ever declared for a provider id. Multiple controls may
 // configure the same id with different throttleMs (e.g. one with a 500ms
-// override, another 2000ms); the queue must honour the strictest declaration
+// override, another 2000ms); the queue must honor the strictest declaration
 // seen so far, never the laxest, or the permissive instance would exceed its
 // own upstream limit while sharing the queue.
 const minIntervals = new Map<string, number>();

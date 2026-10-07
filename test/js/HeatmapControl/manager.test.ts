@@ -1073,7 +1073,7 @@ describe("event-bus bindings", () => {
   it.each(["tile", "solid", "canvas"])(
     "ignores a LAYER_CHANGE whose kind (%s) can never hold point markers",
     async kind => {
-      // A tile basemap, a solid colour face and a self-drawn canvas all answer
+      // A tile basemap, a solid color face and a self-drawn canvas all answer
       // "base"/null from getLayerType, so getLayersByType("point") never
       // returned them — their churn cannot change the source list. The payload
       // lets the handler skip the scan outright; without the skip every

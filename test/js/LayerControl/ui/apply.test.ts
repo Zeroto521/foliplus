@@ -14,7 +14,7 @@ import { getLayerAlpha } from "#common/canvasAlpha.js";
 import { TEST_ENV, installLeafletGlobals } from "./fixture.js";
 
 // ────────────────────────────────────────────────────────────────────────
-// Gate: the executor must not let a derived dimension authorise
+// Gate: the executor must not let a derived dimension authorize
 // display. Only user intent (or the author's declared default) determines
 // map membership; effective = intent && policy, so a derived dimension
 // (focus, zoom range) can only pull a layer off the map — never push one
@@ -115,13 +115,13 @@ describe("executor: only intent authorises display", () => {
 
     // The invariant: author's declared default (off map) is respected.
     // The first projection may add a layer only if the user (or the
-    // author's snapshot) authorised it — neither did here.
+    // author's snapshot) authorized it — neither did here.
     expect(map.addLayer).not.toHaveBeenCalled();
   });
 
   it("gate 2 — a layer off the map stays off through a zoom change", () => {
     // #329 structural lock: zoom is a policy dimension, so it can never
-    // authorise display. A derived dimension may only suppress, never
+    // authorize display. A derived dimension may only suppress, never
     // a stored zoomRange that excludes the current zoom can only keep
     // `effectiveShown = false`, never move it to `true`.
     const { container, layer, map } = makeOffMapFixture();
@@ -202,7 +202,7 @@ describe("executor: intent authorises, policy only suppresses", () => {
     // range, the checkbox, intent values, and provenance are byte-identical
     // to before. The layer goes off the map (that is policy working), but
     // the user's own choice is not touched — the derived dimension cannot
-    // authorise, and it also cannot record.
+    // authorize, and it also cannot record.
     const { container, layer, map } = makeOnMapFixture();
 
     const manager = new LayerController(map, [
@@ -786,7 +786,7 @@ describe("executor: carrier dispatch", () => {
   });
 
   it("a native opacity carrier without setOpacity writes options.opacity", () => {
-    // GridLayer / TileLayer honour `options.opacity` at the next tile cycle
+    // GridLayer / TileLayer honor `options.opacity` at the next tile cycle
     // rather than through a setter.
     const layer = { options: { opacity: 0.8 } } as L.Layer;
     const { ui, manager } = boot([
@@ -819,7 +819,7 @@ describe("executor: carrier dispatch", () => {
     map.removeLayer.mockImplementation(() => {
       onMap = false;
     });
-    ui.intentStore.seedProvenance("z", ["visible"]); // authorise map writes
+    ui.intentStore.seedProvenance("z", ["visible"]); // authorize map writes
 
     // A range that includes the current zoom: layer is added.
     setIntent(ui, "z", "zoomRange", [4, 10]);
@@ -1067,7 +1067,7 @@ describe("executor: the branches behind the gates", () => {
 
   it("adds an author-visible layer that is not yet on the map", () => {
     // The other half of the membership write: gate 1 holds the executor
-    // back from an *unauthorised* add, so this pins the authorised one.
+    // back from an *unauthorized* add, so this pins the authorized one.
     // Author snapshot says shown, intent has no override, policy is fine —
     // and the map has never been told.
     const layer = { options: {} } as L.Layer;

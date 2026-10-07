@@ -24,7 +24,7 @@
 // pane at all. So leave those three lines where they are: a fixed
 // relationship, not a ladder.
 //
-// Division of labour: core owns the z space — every value the layer stack
+// Division of labor: core owns the z space — every value the layer stack
 // writes, including the focus spotlight ceiling. LayerControl owns *when* to
 // use it (the focus state machine), not what the numbers are. That is why
 // `FOCUS_Z` lives here rather than in the component dir: a second home would

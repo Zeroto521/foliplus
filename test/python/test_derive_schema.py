@@ -293,7 +293,7 @@ def test_bare_literal_alias_falls_back_to_union() -> None:
     The alias case — ``LABEL_FORMAT``-style — requires ``FieldSpec(ts=...)``
     on the alias; without it the reflector cannot distinguish a bare
     ``Literal`` from a ``Literal`` that is really an alias (get_type_hints
-    evaluates the alias away). The current behaviour is to emit a literal
+    evaluates the alias away). The current behavior is to emit a literal
     union, which is a safe downgrade: it renders to a valid TS type. A
     stricter refusal would need alias-identity tracking, which the
     contract rejects as a central table.

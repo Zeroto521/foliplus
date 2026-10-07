@@ -292,7 +292,7 @@ const dispatchStateOp = (
     if (carrier === CAP_TIER.NATIVE) {
       // The layer paints through a setter of its own. `setOpacity`
       // (ImageOverlay) is immediate; `options.opacity` (GridLayer /
-      // TileLayer) is honoured at the next tile cycle. The slider is a
+      // TileLayer) is honored at the next tile cycle. The slider is a
       // multiplier over the author's declared default, so the base is
       // captured once.
       const opts = layer.options as L.LayerOptions & { opacity?: number };
@@ -350,9 +350,9 @@ const dispatchStateOp = (
  *  && policy` — a derived dimension (focus, zoom range) can only pull a
  *  layer off the map, never push one onto it. That is why this executor is
  *  the only write path for map membership and why `intent.visible` is no
- *  longer diffed separately: any change that would authorise an add goes
+ *  longer diffed separately: any change that would authorize an add goes
  *  through `intent`, so the effective value already reflects the user's
- *  authorisation. The one-way gate is now the shape of this diff.
+ *  authorization. The one-way gate is now the shape of this diff.
  */
 const applyProjection = (
   ui: LayerUI,
@@ -404,10 +404,10 @@ const applyProjection = (
   //    executor converge on `effectiveShown` no matter who moved the layer in
   //    between — and it is what keeps a write that could not land (no layer
   //    object yet) from being recorded as done. The invariant lives
-  //    here: nothing authorises an add unless `intent` does, so a derived
+  //    here: nothing authorizes an add unless `intent` does, so a derived
   //    dimension can only remove, never restore on its own.
   const layer = layerInfo.layer ?? ui.c.findLayer(layerInfo);
-  // Whether anything authorises a map write at all. Only the user's
+  // Whether anything authorizes a map write at all. Only the user's
   // own choice or an *observed* author snapshot decides membership. A layer
   // whose author default has not been observed yet (its JS global is not
   // linked) and that the user never touched is not this executor's to

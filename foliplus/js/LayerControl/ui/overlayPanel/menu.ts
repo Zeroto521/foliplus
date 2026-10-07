@@ -151,7 +151,7 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   // modes share the entry: user-owned data layers (retire the id for good,
   // tile basemaps included — dropping to a bare background is a legal end
   // state), component-owned layers (Measure, Heatmap: clear their data through
-  // LAYER_DELETED, id stays registerable), and the solid colour basemap (clear
+  // LAYER_DELETED, id stays registerable), and the solid color basemap (clear
   // the fill and return to the grid empty state). The label and tooltip vary
   // by mode — "Delete Layer" for real deletion, "Clear Data" for component
   // clear — so the action name matches the effect.
@@ -215,8 +215,8 @@ let armedDeleteTimer: ReturnType<typeof setTimeout> | undefined;
 
 const deleteModeFor = (ui: LayerUI, layerId: string): DeleteMode => {
   if (!layerId) return "absent";
-  // The solid colour basemap uses delete semantics (row disappears, id stays
-  // registerable so the colour can be re-picked) — same as a user data layer.
+  // The solid color basemap uses delete semantics (row disappears, id stays
+  // registerable so the color can be re-picked) — same as a user data layer.
   if (layerId === CONST.SOLID_BASEMAP_ID) return "delete";
   // Component-owned layers (Measure, Heatmap) clear their data instead of being
   // retired. The id stays registerable so the component can re-draw.
@@ -231,7 +231,7 @@ const deleteModeFor = (ui: LayerUI, layerId: string): DeleteMode => {
 
 /** True when the layer is owned by a foliplus component — Measure, Heatmap
  *  (styleSetters). Matches the discriminator in `LayerController.deleteLayer`, so
- *  the two stay in lockstep. The solid colour basemap is handled separately in
+ *  the two stay in lockstep. The solid color basemap is handled separately in
  *  `deleteModeFor` and returns "delete" instead of "clear". */
 const isComponentLayer = (ui: LayerUI, layerId: string): boolean => {
   return Boolean(ui.c.layerRegistry.get(layerId)?.styleSetters);

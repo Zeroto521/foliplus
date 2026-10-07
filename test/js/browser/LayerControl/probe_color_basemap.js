@@ -1,6 +1,6 @@
 // Probe: solid-color basemap DOM path after the pane fix.
 //
-// The colour basemap is a first-class base-group layer: it owns a dedicated
+// The color basemap is a first-class base-group layer: it owns a dedicated
 // pane + canvas (created through `factory.createColor`), so it participates
 // in the layer z ladder exactly like tile basemaps. Row order = visual stack
 // order. The old container-background contract (--color-layer-bg,
@@ -14,7 +14,7 @@
     '.foliplus-layer-item[data-layer-id="foliplus_color_map"]',
   );
   if (!item) return { itemFound: false };
-  // Show the colour basemap via its checkbox — the only legitimate path.
+  // Show the color basemap via its checkbox — the only legitimate path.
   // Clicking the row body no longer activates the color layer (#494).
   const cb = item.querySelector('input[type="checkbox"]');
   if (!cb) return { itemFound: true, itemActive: false, reason: "no checkbox" };
