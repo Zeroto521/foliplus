@@ -222,7 +222,7 @@ const TILE_CONCURRENCY: number = detectConcurrency();
 // Export formats — single source for everything format-specific.
 // ============================================================================
 
-const FORMAT: Record<ExportFormat, FormatSpec> = {
+const EXPORT_FORMAT_SPEC: Record<ExportFormat, FormatSpec> = {
   png: { mime: "image/png", ext: "png", lossy: false, geotiff: false },
   // `ext` is the historical user-visible name — `jpeg`, not `jpg`.
   jpeg: { mime: "image/jpeg", ext: "jpeg", lossy: true, geotiff: false },
@@ -233,17 +233,19 @@ const FORMAT: Record<ExportFormat, FormatSpec> = {
 /** Lossless mime for intermediate `toDataURL()` snapshots inside the renderer.
  * Composing passes must stay lossless — encoding to the requested format is
  * applied once, at download time. */
-const MIME_LOSSLESS = FORMAT.png.mime;
+const MIME_LOSSLESS = EXPORT_FORMAT_SPEC.png.mime;
 
 /** Resolve a runtime `CONFIG.format` to a table key. Python's `ExportControl`
- * rejects anything outside `FORMAT`, so this only guards misconfiguration. */
+ * rejects anything outside `EXPORT_FORMAT_SPEC`, so this only guards misconfiguration. */
 const resolveFormat = (raw: unknown): ExportFormat =>
-  typeof raw === "string" && Object.prototype.hasOwnProperty.call(FORMAT, raw)
+  typeof raw === "string" &&
+  Object.prototype.hasOwnProperty.call(EXPORT_FORMAT_SPEC, raw)
     ? (raw as ExportFormat)
     : "png";
 
 /** The record for `CONFIG.format` — no cast, no DEFAULT fallback. */
-const currentFormat = (): FormatSpec => FORMAT[resolveFormat(CONFIG.format)];
+const currentFormat = (): FormatSpec =>
+  EXPORT_FORMAT_SPEC[resolveFormat(CONFIG.format)];
 
 // ============================================================================
 // Public API — every consumer reads CONST.<name>; add nothing to this block
@@ -261,7 +263,7 @@ export {
   SEL,
   detectConcurrency,
   TILE_CONCURRENCY,
-  FORMAT,
+  EXPORT_FORMAT_SPEC,
   MIME_LOSSLESS,
   resolveFormat,
   currentFormat,

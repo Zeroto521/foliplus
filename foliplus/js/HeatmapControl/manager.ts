@@ -299,7 +299,7 @@ class HeatmapManager {
     this.overlay = map.foliplus!.LayerAPI!.createCanvas({
       id: this.layerId,
       name: this.T("title"),
-      iconSvg: SVGs.HEXAGON,
+      iconSvg: SVGs.ICON_HEXAGON,
       featureCountProvider: () => this.cachedFeatures?.length ?? 0,
       getBounds: () => this.computeBounds(),
       // Shared with the registry — syncSourceMeta mutates it in place so the

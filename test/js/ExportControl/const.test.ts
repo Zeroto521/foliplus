@@ -61,7 +61,7 @@ describe("TIMING", () => {
 
 describe("FORMAT", () => {
   it("has one record per exportable format", () => {
-    expect(Object.keys(CONST.FORMAT).sort()).toEqual([
+    expect(Object.keys(CONST.EXPORT_FORMAT_SPEC).sort()).toEqual([
       "geotiff",
       "jpeg",
       "png",
@@ -70,25 +70,25 @@ describe("FORMAT", () => {
   });
 
   it("maps format to mime type, extension, and pipeline flags", () => {
-    expect(CONST.FORMAT.png).toEqual({
+    expect(CONST.EXPORT_FORMAT_SPEC.png).toEqual({
       mime: "image/png",
       ext: "png",
       lossy: false,
       geotiff: false,
     });
-    expect(CONST.FORMAT.jpeg).toEqual({
+    expect(CONST.EXPORT_FORMAT_SPEC.jpeg).toEqual({
       mime: "image/jpeg",
       ext: "jpeg",
       lossy: true,
       geotiff: false,
     });
-    expect(CONST.FORMAT.webp).toEqual({
+    expect(CONST.EXPORT_FORMAT_SPEC.webp).toEqual({
       mime: "image/webp",
       ext: "webp",
       lossy: true,
       geotiff: false,
     });
-    expect(CONST.FORMAT.geotiff).toEqual({
+    expect(CONST.EXPORT_FORMAT_SPEC.geotiff).toEqual({
       mime: "image/tiff",
       ext: "tif",
       lossy: false,
@@ -97,21 +97,25 @@ describe("FORMAT", () => {
   });
 
   it("keeps only lossless formats free of the lossy flag", () => {
-    expect(CONST.FORMAT.png.lossy).toBe(false);
-    expect(CONST.FORMAT.geotiff.lossy).toBe(false);
-    expect(CONST.FORMAT.jpeg.lossy).toBe(true);
-    expect(CONST.FORMAT.webp.lossy).toBe(true);
+    expect(CONST.EXPORT_FORMAT_SPEC.png.lossy).toBe(false);
+    expect(CONST.EXPORT_FORMAT_SPEC.geotiff.lossy).toBe(false);
+    expect(CONST.EXPORT_FORMAT_SPEC.jpeg.lossy).toBe(true);
+    expect(CONST.EXPORT_FORMAT_SPEC.webp.lossy).toBe(true);
   });
 
   it("has no DEFAULT or tif fallback key", () => {
-    expect(Object.prototype.hasOwnProperty.call(CONST.FORMAT, "DEFAULT")).toBe(false);
-    expect(Object.prototype.hasOwnProperty.call(CONST.FORMAT, "tif")).toBe(false);
+    expect(
+      Object.prototype.hasOwnProperty.call(CONST.EXPORT_FORMAT_SPEC, "DEFAULT"),
+    ).toBe(false);
+    expect(Object.prototype.hasOwnProperty.call(CONST.EXPORT_FORMAT_SPEC, "tif")).toBe(
+      false,
+    );
   });
 });
 
 describe("resolveFormat", () => {
   it("returns the key for every known format", () => {
-    for (const fmt of Object.keys(CONST.FORMAT)) {
+    for (const fmt of Object.keys(CONST.EXPORT_FORMAT_SPEC)) {
       expect(CONST.resolveFormat(fmt)).toBe(fmt);
     }
   });
@@ -131,7 +135,7 @@ describe("resolveFormat", () => {
 describe("currentFormat", () => {
   it("returns the record for CONFIG.format", () => {
     window.CONFIG = { ...window.CONFIG, format: "jpeg" };
-    expect(CONST.currentFormat()).toBe(CONST.FORMAT.jpeg);
+    expect(CONST.currentFormat()).toBe(CONST.EXPORT_FORMAT_SPEC.jpeg);
   });
 
   it("resolves geotiff through the table, not a hardcoded branch", () => {
@@ -144,7 +148,7 @@ describe("currentFormat", () => {
     const saved = window.CONFIG;
     delete (window.CONFIG as Record<string, unknown>).format;
     try {
-      expect(CONST.currentFormat()).toBe(CONST.FORMAT.png);
+      expect(CONST.currentFormat()).toBe(CONST.EXPORT_FORMAT_SPEC.png);
     } finally {
       window.CONFIG = saved;
     }
@@ -153,7 +157,7 @@ describe("currentFormat", () => {
 
 describe("MIME_LOSSLESS", () => {
   it("is the png mime for intermediate snapshots", () => {
-    expect(CONST.MIME_LOSSLESS).toBe(CONST.FORMAT.png.mime);
+    expect(CONST.MIME_LOSSLESS).toBe(CONST.EXPORT_FORMAT_SPEC.png.mime);
     expect(CONST.MIME_LOSSLESS).toBe("image/png");
   });
 });

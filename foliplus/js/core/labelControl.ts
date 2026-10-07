@@ -10,7 +10,7 @@
 // component-scoped `T`, so no component carries a private copy of the keys.
 import { dom } from "#common/dom.js";
 import {
-  LABEL_COLOR_DEFAULT,
+  DEFAULT_LABEL_COLOR,
   LABEL_SIZE,
   bindLiveColor,
   bindLiveNumber,
@@ -102,7 +102,7 @@ const renderLabelControls = (opts: RenderLabelControlsOptions): LabelControlsRes
           value:
             typeof values.labelColor === "string"
               ? values.labelColor
-              : LABEL_COLOR_DEFAULT,
+              : DEFAULT_LABEL_COLOR,
           className: CLS.STYLE_LABEL_COLOR_INPUT,
           ariaLabel: T("foliplus.label_color"),
         })

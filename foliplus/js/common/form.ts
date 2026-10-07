@@ -13,7 +13,7 @@ const LABEL_SIZE = {
   SIZE_DEFAULT: 11,
 } as const;
 
-const LABEL_COLOR_DEFAULT = "#ffffff";
+const DEFAULT_LABEL_COLOR = "#ffffff";
 
 /** Shared border weight bounds for hexagon outlines. One home for the
  *  heatmap panel and the layer style drawer so the two never drift. */
@@ -131,7 +131,7 @@ export {
   colorInput,
   formRow,
   inlineControls,
-  LABEL_COLOR_DEFAULT,
+  DEFAULT_LABEL_COLOR,
   LABEL_SIZE,
   normalizeHexColor,
   numberInput,

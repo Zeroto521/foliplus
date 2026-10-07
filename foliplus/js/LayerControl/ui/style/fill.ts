@@ -55,7 +55,7 @@ import {
 
 /** The swatch's last resort when even the browser probe cannot resolve the
  *  authored color to a hex — black, matching an empty `<input type=color>`. */
-const FILL_COLOR_DEFAULT = "#000000";
+const DEFAULT_FILL_COLOR = "#000000";
 
 /** Whether the layer is a solid-color basemap: a base layer whose fill is the
  *  value on `layerInfo.color` rather than a Leaflet layer's geometry.
@@ -117,7 +117,7 @@ const toHexColor = (value: string): string => {
   probe.type = "color";
   probe.value = value;
   const hex = probe.value;
-  return /^#[0-9a-fA-F]{6}$/.test(hex) ? hex : FILL_COLOR_DEFAULT;
+  return /^#[0-9a-fA-F]{6}$/.test(hex) ? hex : DEFAULT_FILL_COLOR;
 };
 
 /** The layer's authored fill color — the first style leaf's `options.fillColor`,

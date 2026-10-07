@@ -8,7 +8,7 @@ import { formatCoord } from "./format.js";
 import * as SVGs from "./icon.js";
 
 // ── DOM constants ───────────────────────────────────────────────
-const BOOL_PROPS = new Set([
+const DOM_BOOL_PROPS = new Set([
   "checked",
   "selected",
   "disabled",
@@ -16,7 +16,7 @@ const BOOL_PROPS = new Set([
   "indeterminate",
   "defaultChecked",
 ]);
-const PROPS = new Set(["value", "defaultValue"]);
+const DOM_PROPS = new Set(["value", "defaultValue"]);
 const DOM_EVENT_KEYS = new Set([
   "onclick",
   "ondblclick",
@@ -89,8 +89,9 @@ const dom = {
           } else el.style.cssText = String(val);
         } else if (key === "parent") (val as HTMLElement).appendChild(el);
         else if (key === "innerHTML") el.innerHTML = String(val);
-        else if (BOOL_PROPS.has(key)) Reflect.set(el, key, val === "" || val === true);
-        else if (PROPS.has(key)) Reflect.set(el, key, val);
+        else if (DOM_BOOL_PROPS.has(key)) {
+          Reflect.set(el, key, val === "" || val === true);
+        } else if (DOM_PROPS.has(key)) Reflect.set(el, key, val);
         else if (DOM_EVENT_KEYS.has(key)) {
           const handler = val as EventListener;
           Reflect.set(el, "on" + key.slice(2), handler);
@@ -179,7 +180,7 @@ const buildPopupEl = (
   // nodes so the spinner (trusted) and the label (locale JSON) never share
   // one HTML string.
   const addrNodes: Child[] = loading
-    ? [{ html: SVGs.LOADING_ICON }, dom.el("span", null, loadingText)]
+    ? [{ html: SVGs.ICON_LOADING }, dom.el("span", null, loadingText)]
     : [addr!];
   return dom.el(
     "div",

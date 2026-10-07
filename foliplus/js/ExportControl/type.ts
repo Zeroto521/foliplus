@@ -13,7 +13,7 @@ interface CropRect {
   height: number;
 }
 
-/** Export format key — mirrors Python's `ExportControl.FORMAT` literal. */
+/** Export format key — mirrors Python's `ExportControl.FORMAT` Literal type. */
 type ExportFormat = "png" | "jpeg" | "webp" | "geotiff";
 
 /** Loaded saved bounds from storage. */

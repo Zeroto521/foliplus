@@ -4,7 +4,7 @@
 import { ensureMapFoliplus } from "#core/mapApi.js";
 import { cssVar } from "#common/cssvar.js";
 import { dom } from "#common/dom.js";
-import { LOADING_ICON } from "#common/icon.js";
+import { ICON_LOADING } from "#common/icon.js";
 import { createLogger } from "#common/log.js";
 import { parseSVG } from "#common/sanitize.js";
 
@@ -12,7 +12,7 @@ const log = createLogger("Hint");
 
 const BASE = { BOTTOM: 20, STACK_GAP: 40 };
 const CLASS = "foliplus-hint";
-const HINT_Z_INDEX_DEFAULT = 10000;
+const DEFAULT_HINT_Z_INDEX = 10000;
 
 /** Hint z-index base, read once from the --foliplus-z-index-hint token (fallback 10000). */
 let hintZIndex: number | null = null;
@@ -22,9 +22,9 @@ const zIndexBase = (): number => {
       cssVar(
         document.documentElement,
         "--foliplus-z-index-hint",
-        String(HINT_Z_INDEX_DEFAULT),
+        String(DEFAULT_HINT_Z_INDEX),
       ),
-    ) || HINT_Z_INDEX_DEFAULT;
+    ) || DEFAULT_HINT_Z_INDEX;
   return hintZIndex;
 };
 
@@ -130,7 +130,7 @@ class HintManager {
     // TextNode, so a rogue locale value cannot turn a hint into markup.
     // `{ html }` must be a CHILD, not an attr — `dom.el` sets an attr for any
     // unrecognised key.
-    const icon = withLoadingIcon ? LOADING_ICON : (this.hintIcons?.[key] ?? "");
+    const icon = withLoadingIcon ? ICON_LOADING : (this.hintIcons?.[key] ?? "");
     const el = dom.el(
       "div",
       { class: `${cls} ${CLASS}`, parent: hintTarget },

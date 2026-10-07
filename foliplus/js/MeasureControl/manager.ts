@@ -168,7 +168,7 @@ class MeasureManager {
         { name: CONST.PANES.NODE },
         { name: CONST.PANES.LABEL, isLabel: true },
       ],
-      iconSvg: SVGs.RULER,
+      iconSvg: SVGs.ICON_RULER,
       featureCountProvider: () => this.store.count(),
       // The layer style drawer renders these two switches; the component owns
       // the values (single source — both UIs call the same setters).

@@ -126,7 +126,7 @@ const layerCanBorder = (ui: LayerUI, layerId: string): boolean => {
 /** Leaflet's own default `Path.color` — folium's style function always
  *  populates `options.color`, so this only fires for a bare Leaflet layer
  *  with no style declaration at all. */
-const STYLE_BORDER_DEFAULT = "#3388ff";
+const DEFAULT_STYLE_BORDER = "#3388ff";
 
 /** The first leaf that carries a style — the row's initial value is read
  *  from it, so a swatch or a number field never shows a value the layer is
@@ -156,7 +156,7 @@ const authoredBorder = (
   const carrier = layer ? firstCarrier(layer) : null;
   const bag = carrier ? styleBagOf(carrier) : undefined;
   return {
-    color: bag?.color ?? carrier?.options?.color ?? STYLE_BORDER_DEFAULT,
+    color: bag?.color ?? carrier?.options?.color ?? DEFAULT_STYLE_BORDER,
     weight: bag?.weight ?? carrier?.options?.weight ?? BORDER_WEIGHT.DEFAULT,
   };
 };

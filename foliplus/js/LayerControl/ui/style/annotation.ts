@@ -21,7 +21,7 @@ import * as CONST from "#foliplus/LayerControl/const.js";
 import type { AnnotationConfig } from "#foliplus/LayerControl/type.js";
 import { dom } from "#common/dom.js";
 import {
-  LABEL_COLOR_DEFAULT,
+  DEFAULT_LABEL_COLOR,
   LABEL_SIZE,
   clampLabelSize,
   colorInput as formColorInput,
@@ -107,7 +107,7 @@ const buildLabelSection = (ui: LayerUI, layerId: string): HTMLElement => {
 
   // Appearance row — same chrome as the heatmap border / delegated drawer.
   const colorInput = formColorInput({
-    value: normalizeHexColor(cfg.color || LABEL_COLOR_DEFAULT),
+    value: normalizeHexColor(cfg.color || DEFAULT_LABEL_COLOR),
     className: CONST.CLASSES.STYLE_LABEL_COLOR_INPUT,
     ariaLabel: ui._("foliplus.label_color"),
   }) as HTMLInputElement;
