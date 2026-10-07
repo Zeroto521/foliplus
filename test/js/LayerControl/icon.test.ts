@@ -29,10 +29,10 @@ describe("LINE", () => {
   });
 });
 
-describe("POLYGON", () => {
+describe("ICON_POLYGON", () => {
   it("is an SVG string", () => {
-    expect(SVGs.POLYGON).toContain("<svg");
-    expect(SVGs.POLYGON).toContain("polygon");
+    expect(SVGs.ICON_POLYGON).toContain("<svg");
+    expect(SVGs.ICON_POLYGON).toContain("polygon");
   });
 });
 
@@ -50,10 +50,10 @@ describe("UNKNOWN", () => {
   });
 });
 
-describe("COLOR", () => {
+describe("ICON_COLOR", () => {
   it("is an SVG string with paint-bucket path", () => {
-    expect(SVGs.COLOR).toContain("<svg");
-    expect(SVGs.COLOR).toContain("path");
+    expect(SVGs.ICON_COLOR).toContain("<svg");
+    expect(SVGs.ICON_COLOR).toContain("path");
   });
 });
 
@@ -74,16 +74,16 @@ describe("MORE", () => {
   });
 });
 
-describe("FOCUS", () => {
+describe("ICON_FOCUS", () => {
   it("is an SVG string with corner brackets + center dot", () => {
-    expect(SVGs.FOCUS).toContain("<svg");
+    expect(SVGs.ICON_FOCUS).toContain("<svg");
     // Center dot (solid fill)
-    expect(SVGs.FOCUS).toContain('class="solid"');
-    expect((SVGs.FOCUS.match(/circle/g) ?? []).length).toBe(1);
+    expect(SVGs.ICON_FOCUS).toContain('class="solid"');
+    expect((SVGs.ICON_FOCUS.match(/circle/g) ?? []).length).toBe(1);
     // Four corner brackets (extent frame)
-    expect(SVGs.FOCUS).toContain("M3 9 V3 H9");
-    expect(SVGs.FOCUS).toContain("M15 3 H21 V9");
-    expect(SVGs.FOCUS).toContain("M21 15 V21 H15");
-    expect(SVGs.FOCUS).toContain("M9 21 H3 V15");
+    expect(SVGs.ICON_FOCUS).toContain("M3 9 V3 H9");
+    expect(SVGs.ICON_FOCUS).toContain("M15 3 H21 V9");
+    expect(SVGs.ICON_FOCUS).toContain("M21 15 V21 H15");
+    expect(SVGs.ICON_FOCUS).toContain("M9 21 H3 V15");
   });
 });

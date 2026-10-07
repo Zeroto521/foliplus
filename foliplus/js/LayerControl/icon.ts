@@ -26,7 +26,7 @@ const LINE = `
     <path d="M3 20 L9 6 L15 18 L21 4"/>
   </svg>`;
 
-const POLYGON = `
+const ICON_POLYGON = `
   <svg viewBox="0 0 24 24">
     <polygon points="12,4 20,9 17,19 7,19 4,9"/>
   </svg>`;
@@ -44,7 +44,7 @@ const UNKNOWN = `
     <circle cx="12" cy="17" r="1.5" class="solid"/>
   </svg>`;
 
-const COLOR = `
+const ICON_COLOR = `
   <svg viewBox="0 0 24 24">
     <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c1.1 0 2-.9 2-2v-1c0-.6.4-1 1-1h2c3.3 0 6-2.7 6-6 0-5.5-4.5-10-10-10z"/>
     <circle cx="7.5" cy="9.5" r="1.5" class="solid"/>
@@ -68,7 +68,7 @@ const MORE = `
   </svg>`;
 
 /** "Focus on layer" icon — corner brackets (extent) + center dot (aim). */
-const FOCUS = `
+const ICON_FOCUS = `
   <svg viewBox="0 0 24 24">
     <path d="M3 9 V3 H9 M15 3 H21 V9 M21 15 V21 H15 M9 21 H3 V15"/>
     <circle cx="12" cy="12" r="2.2" class="solid"/>
@@ -77,22 +77,22 @@ const FOCUS = `
 /** "Layer style" glyph — a capital T, the classic type/style mark. The
  *  style panel currently exposes the label dimension; further dimensions
  *  (color, opacity) join the same menu under this same glyph. */
-const STYLE = `
+const ICON_STYLE = `
   <svg viewBox="0 0 24 24">
     <path d="M5 4 H19 M12 4 V20"/>
   </svg>`;
 
 export {
-  COLOR,
   DRAG_HANDLE,
   EMPTY,
   FOLD,
-  FOCUS,
+  ICON_COLOR,
+  ICON_FOCUS,
+  ICON_POLYGON,
+  ICON_STYLE,
   LAYERS,
   LINE,
   MORE,
   POINT,
-  POLYGON,
-  STYLE,
   UNKNOWN,
 };

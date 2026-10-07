@@ -10,7 +10,7 @@ import * as SVGs from "./icon.js";
 const getTypeSVG = (type: string | null): string => {
   if (type === GEOM_TYPE.POINT) return SVGs.POINT;
   else if (type === GEOM_TYPE.LINE) return SVGs.LINE;
-  else if (type === GEOM_TYPE.POLYGON) return SVGs.POLYGON;
+  else if (type === GEOM_TYPE.POLYGON) return SVGs.ICON_POLYGON;
   else if (type === GEOM_TYPE.EMPTY) return SVGs.EMPTY;
   return SVGs.UNKNOWN;
 };

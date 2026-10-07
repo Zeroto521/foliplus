@@ -65,7 +65,9 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
     "aria-disabled": focusDisabled ? "true" : "false",
   };
 
-  menu.appendChild(dom.el("li", itemAttrs, { html: SVGs.FOCUS }, ui.T("focus_layer")));
+  menu.appendChild(
+    dom.el("li", itemAttrs, { html: SVGs.ICON_FOCUS }, ui.T("focus_layer")),
+  );
 
   if (focusDisabled) menu.lastElementChild!.setAttribute("disabled", "disabled");
 
@@ -108,7 +110,7 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
           : ui.T("style_layer_tooltip"),
         "aria-disabled": styleDisabled ? "true" : "false",
       },
-      { html: SVGs.STYLE },
+      { html: SVGs.ICON_STYLE },
       ui.T("style_layer"),
     ),
   );

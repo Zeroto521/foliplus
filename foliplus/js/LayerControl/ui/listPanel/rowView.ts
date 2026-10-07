@@ -152,7 +152,7 @@ const rowType = (
   if (layerInfo.group === GROUP.BASE) {
     // The colour basemap uses its own swatch icon, not the globe.
     if (layerInfo.id === CONST.SOLID_BASEMAP_ID) {
-      return { svg: SVGs.COLOR, key: "type_color_map" };
+      return { svg: SVGs.ICON_COLOR, key: "type_color_map" };
     }
     return { svg: Icons.GLOBE_ICON, key: "type_base" };
   }

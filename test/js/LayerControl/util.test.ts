@@ -4,7 +4,7 @@ import { getTypeSVG } from "#foliplus/LayerControl/util.js";
 
 describe("getTypeSVG", () => {
   it("maps geometry types to their SVG icons", () => {
-    expect(getTypeSVG("polygon")).toBe(SVGs.POLYGON);
+    expect(getTypeSVG("polygon")).toBe(SVGs.ICON_POLYGON);
     expect(getTypeSVG("line")).toBe(SVGs.LINE);
     expect(getTypeSVG("point")).toBe(SVGs.POINT);
     expect(getTypeSVG("empty")).toBe(SVGs.EMPTY);
