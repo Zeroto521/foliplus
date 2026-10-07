@@ -315,7 +315,7 @@ class LayerFactory {
           panes.pinTree(layer, requested);
           const target = subLayers.get(requested)!;
           const result = target.addLayer(layer);
-          panes.reset(L.stamp(mainLayer));
+          panes.invalidateDiscoveryCache(L.stamp(mainLayer));
           invalidateType(opts.id);
           if (!onDataChangeSkip) onDataChange?.(opts.id);
           return result;
@@ -327,8 +327,8 @@ class LayerFactory {
         for (const g of subLayers.values()) {
           if (g.hasLayer(layer)) {
             const result = g.removeLayer(layer);
-            panes.reset(L.stamp(mainLayer));
-            panes.reset(L.stamp(layer));
+            panes.invalidateDiscoveryCache(L.stamp(mainLayer));
+            panes.invalidateDiscoveryCache(L.stamp(layer));
             invalidateType(opts.id);
             if (!onDataChangeSkip) onDataChange?.(opts.id);
             return result;

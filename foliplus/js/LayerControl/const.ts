@@ -1,4 +1,4 @@
-import { FOCUS_Z } from "#core/layer/index.js";
+import { ANNOTATION_PANE_PREFIX, FOCUS_Z } from "#core/layer/index.js";
 import { LABEL_COLOR_DEFAULT, LABEL_SIZE } from "#common/form.js";
 import { NUMBER_FORMAT } from "#common/format.js";
 
@@ -53,11 +53,6 @@ const FOCUS = {
 
 /** Leaflet pane name for the focus overlay (mask + rectangle). */
 const FOCUS_PANE = "foliplus-focus-overlay";
-
-/** Leaflet pane name prefix for a layer's annotation labels: one pane per
- *  labeled layer, so its labels sit at that layer's place in the stack.
- *  `LayerController.enforceOrder` z-orders each pane just above its layer. */
-const ANNOTATION_PANE_PREFIX = "foliplus-annotation-";
 
 /** CSS class names. */
 const CLASSES = {

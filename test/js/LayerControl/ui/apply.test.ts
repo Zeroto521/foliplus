@@ -5,7 +5,7 @@ import { LayerIntentStore } from "#foliplus/LayerControl/domain/index.js";
 import {
   applyProjection,
   applyProjectionAll,
-  applyStateOp,
+  dispatchStateOp,
 } from "#foliplus/LayerControl/ui/apply.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { clearIntent, getIntent, setIntent } from "#foliplus/LayerControl/ui/intent.js";
@@ -639,10 +639,10 @@ describe("executor: carrier dispatch", () => {
     const { ui } = boot([{ id: "cv", name: "CV", group: "overlay", canvas }]);
     const li = () => ui.c.layerRegistry.get("cv")!;
 
-    applyStateOp(ui, li(), { type: "visible", value: false });
+    dispatchStateOp(ui, li(), { type: "visible", value: false });
     expect(canvas.classList.contains("hidden")).toBe(true);
 
-    applyStateOp(ui, li(), { type: "visible", value: true });
+    dispatchStateOp(ui, li(), { type: "visible", value: true });
     expect(canvas.classList.contains("hidden")).toBe(false);
   });
 
@@ -670,7 +670,7 @@ describe("executor: carrier dispatch", () => {
     const { ui, map } = boot([{ id: "nc", name: "NC", group: "overlay" }]);
     (map.addLayer as ReturnType<typeof vi.fn>).mockClear();
 
-    applyStateOp(ui, ui.c.layerRegistry.get("nc")!, {
+    dispatchStateOp(ui, ui.c.layerRegistry.get("nc")!, {
       type: "visible",
       value: false,
     });
@@ -688,7 +688,7 @@ describe("executor: carrier dispatch", () => {
     ui.c.layerRegistry.get("pc")!.canvas = null;
 
     expect(() =>
-      applyStateOp(ui, ui.c.layerRegistry.get("pc")!, {
+      dispatchStateOp(ui, ui.c.layerRegistry.get("pc")!, {
         type: "visible",
         value: false,
       }),
@@ -716,7 +716,7 @@ describe("executor: carrier dispatch", () => {
     })) as unknown as typeof ui.c.surfaceFor;
     (map.addLayer as ReturnType<typeof vi.fn>).mockClear();
 
-    applyStateOp(ui, li, { type: "visible", value: false });
+    dispatchStateOp(ui, li, { type: "visible", value: false });
 
     expect(map.addLayer).not.toHaveBeenCalled();
   });
@@ -739,7 +739,7 @@ describe("executor: carrier dispatch", () => {
     (map.addLayer as ReturnType<typeof vi.fn>).mockClear();
     (map.hasLayer as ReturnType<typeof vi.fn>).mockReturnValue(false);
 
-    applyStateOp(ui, li, { type: "visible", value: true });
+    dispatchStateOp(ui, li, { type: "visible", value: true });
     applyProjection(ui, "nv");
 
     expect(map.addLayer).not.toHaveBeenCalled();
@@ -1093,7 +1093,7 @@ describe("executor: the branches behind the gates", () => {
     map.addLayer = vi.fn();
     map.removeLayer = vi.fn();
 
-    applyStateOp(ui, ui.c.layerRegistry.get("dup")!, {
+    dispatchStateOp(ui, ui.c.layerRegistry.get("dup")!, {
       type: "visible",
       value: true,
     });

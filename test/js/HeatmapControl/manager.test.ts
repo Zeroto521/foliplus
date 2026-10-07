@@ -2228,7 +2228,7 @@ describe("redrawHeatmap — preserveCss branch", () => {
     });
     m.map.getBounds = vi.fn(() => ({ contains: () => true }));
 
-    // Simulate the state after applyStateOp: CSS set AND layerAlpha !== 1.
+    // Simulate the state after dispatchStateOp: CSS set AND layerAlpha !== 1.
     canvas.style.opacity = "0.5";
     setLayerAlpha(canvas, 0.5);
 
