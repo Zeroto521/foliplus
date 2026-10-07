@@ -223,9 +223,15 @@ class MeasureManager {
       this.config.show_live_coords !== false ? this.buildCoordReadout() : null;
 
     this.bindGlobalEvents();
-    this.restoreMeasurements();
     this.bindLayerRemoved();
     this.bindLayerDeleted();
+  }
+
+  /** Restore persisted measurements. Called by the lazy `createManager`
+   *  factory immediately after construction — kept out of the constructor
+   *  so deps wiring and state restore are separate phases. */
+  init() {
+    this.restoreMeasurements();
   }
 
   // ── Persistence (compatibility shell over MeasureStore) ──
