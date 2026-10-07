@@ -184,11 +184,11 @@ class LayerController implements LayerAPI {
     // for every layer at page load, so gating the registry alone would drop the
     // row while the map kept painting it across a reload. One pass does both.
     this.layerRegistry = new LayerInfoRegistry(
-      data.filter(li => {
-        if (!removedIds.has(li.id)) return true;
+      data.filter(layerInfo => {
+        if (!removedIds.has(layerInfo.id)) return true;
         // Late-binding fallback (folium script-stream order) — same single
         // point as `findLayer` / ExportControl's `resolveLayer`.
-        const layer = li.layer ?? findLayer(this.map, li.id);
+        const layer = layerInfo.layer ?? findLayer(this.map, layerInfo.id);
         if (layer && this.map.hasLayer(layer)) this.map.removeLayer(layer);
         return false;
       }),
@@ -243,12 +243,12 @@ class LayerController implements LayerAPI {
       // rewrites later. Index and size are stable by the time registerLayer
       // has inserted, so the lookup is exact.
       slotOf: id => {
-        const li = this.layerRegistry.get(id);
-        return li
+        const layerInfo = this.layerRegistry.get(id);
+        return layerInfo
           ? {
-              index: this.layerRegistry.indexOf(li),
+              index: this.layerRegistry.indexOf(layerInfo),
               count: this.layers.length,
-              group: li.group,
+              group: layerInfo.group,
             }
           : null;
       },
@@ -297,11 +297,11 @@ class LayerController implements LayerAPI {
       // resolves through `opts.layer`, so its entry already carries the layer
       // by the time this handler runs.
       const stamp = L.stamp(event.layer);
-      for (const li of this.layers) {
-        if (li.layer) continue;
-        const resolved = findLayer(this.map, li.id);
+      for (const layerInfo of this.layers) {
+        if (layerInfo.layer) continue;
+        const resolved = findLayer(this.map, layerInfo.id);
         if (resolved && L.stamp(resolved) === stamp) {
-          this.emitLayerChange(li.id, li.kind);
+          this.emitLayerChange(layerInfo.id, layerInfo.kind);
           break;
         }
       }

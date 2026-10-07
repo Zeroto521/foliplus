@@ -58,9 +58,9 @@ import {
 const FILL_COLOR_DEFAULT = "#000000";
 
 /** Whether the layer is a solid-color basemap: a base layer whose fill is the
- *  value on `li.color` rather than a Leaflet layer's geometry.
+ *  value on `layerInfo.color` rather than a Leaflet layer's geometry.
  *
- *  `li.color` is the discriminator, not `li.canvas`: the colour basemap *does*
+ *  `layerInfo.color` is the discriminator, not `layerInfo.canvas`: the colour basemap *does*
  *  carry a `canvas` (its face element, which the export renderer draws — see
  *  `LayerFactory.createColor`), so excluding on `canvas` would never match it
  *  and silently drops its fill row. A heatmap canvas has no `color`, so it
@@ -69,9 +69,9 @@ const FILL_COLOR_DEFAULT = "#000000";
  *  Used only by write paths (applyFillToLayer, resetLayerFill, buildFillRow)
  *  to route the colour basemap's fill to `showSolidBasemap` instead of walking
  *  leaves. The gate (`layerCanFill`) reads the capability, not this. */
-const isColorBasemap = (li: LayerInfo | undefined): boolean => {
-  if (!li || li.styleSetters) return false;
-  return Boolean(li.color) && li.group === GROUP.BASE;
+const isColorBasemap = (layerInfo: LayerInfo | undefined): boolean => {
+  if (!layerInfo || layerInfo.styleSetters) return false;
+  return Boolean(layerInfo.color) && layerInfo.group === GROUP.BASE;
 };
 
 /** Whether the layer's surface can honestly carry a fill write.
@@ -88,9 +88,9 @@ const isColorBasemap = (li: LayerInfo | undefined): boolean => {
  *  the capability check, no carrier probes, no `isColorBasemap`
  *  special-cases, no canvas exclusion. */
 const layerCanFill = (ui: LayerUI, layerId: string): boolean => {
-  const li = ui.c.layerRegistry.get(layerId);
-  if (!li) return false;
-  return ui.c.surfaceFor(li).capabilities.fill === CAP_TIER.NATIVE;
+  const layerInfo = ui.c.layerRegistry.get(layerId);
+  if (!layerInfo) return false;
+  return ui.c.surfaceFor(layerInfo).capabilities.fill === CAP_TIER.NATIVE;
 };
 
 /** The layer's authored base style, captured on the layer's first fill
@@ -125,8 +125,8 @@ const toHexColor = (value: string): string => {
  *  `authoredBorder`: the swatch shows what the layer is actually painting on
  *  first open, not a constant. */
 const authoredFillColor = (ui: LayerUI, layerId: string): string => {
-  const li = ui.c.layerRegistry.get(layerId);
-  const layer = li?.layer as StyleCarrier | null;
+  const layerInfo = ui.c.layerRegistry.get(layerId);
+  const layer = layerInfo?.layer as StyleCarrier | null;
   if (!layer) return LEAFLET_DEFAULT_FILL;
   let authored: string | null = null;
   walkStyleLeaves(layer, leaf => {
@@ -141,8 +141,8 @@ const authoredFillColor = (ui: LayerUI, layerId: string): string => {
  *  `options.fillOpacity`, or null when no leaf declares one. Mirrors
  *  `authoredFillColor`: the row shows what the layer is actually painting. */
 const authoredFillOpacity = (ui: LayerUI, layerId: string): number | null => {
-  const li = ui.c.layerRegistry.get(layerId);
-  const layer = li?.layer as StyleCarrier | null;
+  const layerInfo = ui.c.layerRegistry.get(layerId);
+  const layer = layerInfo?.layer as StyleCarrier | null;
   if (!layer) return null;
   let authored: number | null = null;
   walkStyleLeaves(layer, leaf => {
@@ -171,7 +171,7 @@ const VISIBLE_FILL_OPACITY = 0.2;
  *  Kept separate from the persistence plumbing (`commitFillColor`,
  *  `commitFillOpacity`) so the walk is unit-testable without a storage timer. */
 const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
-  const li = ui.c.layerRegistry.get(layerId);
+  const layerInfo = ui.c.layerRegistry.get(layerId);
   const color = getIntent(ui, layerId, INTENT.FILL_COLOR);
   const opacity = getIntent(ui, layerId, INTENT.FILL_OPACITY);
   if (color === undefined && opacity === undefined) return;
@@ -180,7 +180,7 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
   // Route to showSolidBasemap instead of walking leaves (the basemap has none).
   // Syncs ui.currentColor so a later checkbox toggle re-applies the same
   // color.
-  if (isColorBasemap(li)) {
+  if (isColorBasemap(layerInfo)) {
     if (color !== undefined) {
       ui.currentColor = color;
       showSolidBasemap(ui, color);
@@ -188,7 +188,7 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
     return;
   }
 
-  const layer = li?.layer as StyleCarrier | null;
+  const layer = layerInfo?.layer as StyleCarrier | null;
   if (!layer) return;
   const values: Record<string, unknown> = {};
   if (color !== undefined) values.fillColor = color;
@@ -285,8 +285,8 @@ const resetLayerFill = (ui: LayerUI, layerId: string): void => {
  *  reflects what the layer is actually painting on first open, and named
  *  authored colors are resolved to the hex the picker can display. */
 const buildFillRow = (ui: LayerUI, layerId: string): HTMLElement => {
-  const li = ui.c.layerRegistry.get(layerId);
-  const isBasemap = isColorBasemap(li!);
+  const layerInfo = ui.c.layerRegistry.get(layerId);
+  const isBasemap = isColorBasemap(layerInfo!);
 
   const storedColor = getIntent(ui, layerId, INTENT.FILL_COLOR);
   const color = toHexColor(
@@ -404,8 +404,8 @@ const FILL_DIMENSION = registerDimension<{
   key: DIM.FILL,
   gate: layerCanFill,
   value: (ui, layerId) => {
-    const li = ui.c.layerRegistry.get(layerId);
-    if (!li) return undefined;
+    const layerInfo = ui.c.layerRegistry.get(layerId);
+    if (!layerInfo) return undefined;
     return {
       color:
         getIntent(ui, layerId, INTENT.FILL_COLOR) ?? authoredFillColor(ui, layerId),

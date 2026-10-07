@@ -118,9 +118,9 @@ interface BorderRowBindTarget {
  *  capability check, no carrier probes, no `isColorBasemap`
  *  special-cases, no canvas exclusion. */
 const layerCanBorder = (ui: LayerUI, layerId: string): boolean => {
-  const li = ui.c.layerRegistry.get(layerId);
-  if (!li) return false;
-  return ui.c.surfaceFor(li).capabilities.stroke === CAP_TIER.NATIVE;
+  const layerInfo = ui.c.layerRegistry.get(layerId);
+  if (!layerInfo) return false;
+  return ui.c.surfaceFor(layerInfo).capabilities.stroke === CAP_TIER.NATIVE;
 };
 
 /** Leaflet's own default `Path.color` — folium's style function always
@@ -417,8 +417,8 @@ const BORDER_DIMENSION = registerDimension<{ color: string; weight: number }>({
   key: DIM.BORDER,
   gate: layerCanBorder,
   value: (ui, layerId) => {
-    const li = ui.c.layerRegistry.get(layerId);
-    if (!li) return undefined;
+    const layerInfo = ui.c.layerRegistry.get(layerId);
+    if (!layerInfo) return undefined;
     const author = authoredBorder(ui, layerId);
     return {
       color: getIntent(ui, layerId, INTENT.BORDER_COLOR) ?? author.color,

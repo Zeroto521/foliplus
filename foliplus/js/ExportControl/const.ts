@@ -85,7 +85,7 @@ const SEL = {
   /**
    * Canvas overlays inside a layer's own content panes. Registered canvas
    * layers (HeatmapControl via `createCanvas`) are rendered by
-   * `renderCanvasElement` from `li.canvas`, not this selector; this one
+   * `renderCanvasElement` from `layerInfo.canvas`, not this selector; this one
    * exists for canvas elements a third-party layer mounts directly in its
    * pane. Keep it generic — the pane walk already scopes the search.
    * **A new canvas overlay must be added here or to
@@ -104,7 +104,7 @@ const SEL = {
   /**
    * Hide-pass only (not traversal skip): Leaflet control host + this
    * control's own bar. Same list as main — layout hide during export.
-   * Content canvases are NOT listed: they paint via `li.canvas` and must
+   * Content canvases are NOT listed: they paint via `layerInfo.canvas` and must
    * stay measurable. Traversal exclusion is SKIP_EXPORT, not this list.
    */
   CONTROL: ".leaflet-control-container, .foliplus-export-ctrl",
@@ -131,7 +131,7 @@ const SEL = {
    *   - `renderPaneSVG`: marked nodes are pruned from the clone only.
    * Pane-level hiding (focus) is a transient view state and the export
    * ignores it — see renderPaneSVG.  Content canvases (Heatmap via
-   * `li.canvas`) are painted by the special path and must NOT carry this
+   * `layerInfo.canvas`) are painted by the special path and must NOT carry this
    * marker — exclude is chrome opt-out, not "drop layer".
    */
   SKIP_EXPORT: '[data-foliplus-export="exclude"], .foliplus-skip-export',

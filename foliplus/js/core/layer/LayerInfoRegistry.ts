@@ -99,7 +99,7 @@ class LayerInfoRegistry {
     map?: L.Map,
   ): LayerInfo {
     // Resolve-once at registration (target: no `layer: null` lazy residue on
-    // this path). A later `li.layer ?? findLayer` is the documented
+    // this path). A later `layerInfo.layer ?? findLayer` is the documented
     // late-binding fallback for folium's script-stream order only.
     const layer =
       opts.layer ??
@@ -212,9 +212,9 @@ class LayerInfoRegistry {
   /** Stamp `updatedAt` to now — runtime mutations (heatmap field, measure
    *  edits) that do not re-register the layer still refresh the attrs panel. */
   touch(id: string): boolean {
-    const li = this.byId.get(id);
-    if (!li) return false;
-    li.updatedAt = Date.now();
+    const layerInfo = this.byId.get(id);
+    if (!layerInfo) return false;
+    layerInfo.updatedAt = Date.now();
     return true;
   }
 

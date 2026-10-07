@@ -42,9 +42,9 @@ import { registerDimension } from "./registry.js";
  *  capability bit). The ⋮ menu's Style item keys off the same function —
  *  one source for "can this layer show a Label section". */
 const layerCanLabel = (ui: LayerUI, layerId: string): boolean => {
-  const li = ui.c.layerRegistry.get(layerId);
-  if (!li) return false;
-  return ui.c.surfaceFor(li).capabilities.annotation !== CAP_TIER.NONE;
+  const layerInfo = ui.c.layerRegistry.get(layerId);
+  if (!layerInfo) return false;
+  return ui.c.surfaceFor(layerInfo).capabilities.annotation !== CAP_TIER.NONE;
 };
 
 /** Build the Label section's rows: the label toggle, then the body (field

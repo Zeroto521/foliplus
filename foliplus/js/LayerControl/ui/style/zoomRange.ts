@@ -27,9 +27,9 @@ import {
  *  carrier, same as every other surface). No `isColorBasemap`
  *  special-case, no `group` exemption: capability alone decides. */
 const canShowZoomRange = (ui: LayerUI, layerId: string): boolean => {
-  const li = ui.c.layerRegistry.get(layerId);
-  if (!li) return false;
-  return ui.c.surfaceFor(li).capabilities.zoomRange !== CAP_TIER.NONE;
+  const layerInfo = ui.c.layerRegistry.get(layerId);
+  if (!layerInfo) return false;
+  return ui.c.surfaceFor(layerInfo).capabilities.zoomRange !== CAP_TIER.NONE;
 };
 
 /** Clamp a zoom value into the map's current [min, max] range. */
@@ -259,8 +259,8 @@ const applyZoomRangeLive = (
   min: number,
   max: number,
 ): void => {
-  const li = ui.c.layerRegistry.get(layerId);
-  if (!li) return;
+  const layerInfo = ui.c.layerRegistry.get(layerId);
+  if (!layerInfo) return;
   ui.intentStore.setValue(layerId, INTENT.ZOOM_RANGE, [min, max]);
   syncZoomRangeRow(ui, layerId, row, [min, max]);
   applyProjection(ui, layerId);
@@ -294,8 +294,8 @@ const ZOOM_RANGE_DIMENSION = registerDimension<{ min: number; max: number }>({
   key: DIM.ZOOM_RANGE,
   gate: canShowZoomRange,
   value: (ui, layerId) => {
-    const li = ui.c.layerRegistry.get(layerId);
-    if (!li) return undefined;
+    const layerInfo = ui.c.layerRegistry.get(layerId);
+    if (!layerInfo) return undefined;
     const [mapMin, mapMax] = authorZoomBoundsForLayer(ui, layerId);
     const stored = getIntent(ui, layerId, INTENT.ZOOM_RANGE);
     return {

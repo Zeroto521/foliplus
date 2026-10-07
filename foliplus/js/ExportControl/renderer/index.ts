@@ -50,11 +50,11 @@ class ExportRenderer {
    *  at construction, and without this the render passes silently skip the
    *  basemap and the export is missing its base layer. Mirrors the same
    *  pattern at LayerControl/controller.ts#210. */
-  private resolveLayer(li: LayerInfo): L.Layer | null {
+  private resolveLayer(layerInfo: LayerInfo): L.Layer | null {
     // Late-binding fallback for basemaps whose TileLayer `var` was emitted
     // after the LayerControl IIFE — mirrors manager.findLayer. Explicit
     // no-carrier entries (canvas/solid/custom) return null here by design.
-    return li.layer ?? findLayer(this.map, li.id);
+    return layerInfo.layer ?? findLayer(this.map, layerInfo.id);
   }
 
   /** Calculate tile coordinates covering geo bounds at a given zoom. */
@@ -174,7 +174,7 @@ class ExportRenderer {
         // and the surviving entries are the layers that get drawn, so the
         // numerator and denominator describe the same set of tiles. The
         // solid-color basemap, when visible, is a separate canvas entry in
-        // `li.canvas` — it paints over the tile layer above it in row order
+        // `layerInfo.canvas` — it paints over the tile layer above it in row order
         // exactly like any other pane.
         const zoom = this.map.getZoom();
         const sizedTiles: Array<{
@@ -182,10 +182,10 @@ class ExportRenderer {
           count: number;
           layer: L.TileLayer;
         }> = [];
-        for (const li of layers) {
-          const layer = this.resolveLayer(li);
+        for (const layerInfo of layers) {
+          const layer = this.resolveLayer(layerInfo);
           if (
-            !(api.intentVisible?.(li.id) ?? true) ||
+            !(api.intentVisible?.(layerInfo.id) ?? true) ||
             !(layer instanceof L.TileLayer) ||
             !layerUrl(layer)
           ) {
@@ -226,21 +226,21 @@ class ExportRenderer {
       // leave the layer range permanently short of its top.  The filter must
       // stay in step with what the loop body consumes, since every surviving
       // entry is counted as one unit of progress.
-      const passable = layers.filter(li => {
-        const layer = this.resolveLayer(li);
+      const passable = layers.filter(layerInfo => {
+        const layer = this.resolveLayer(layerInfo);
         return (
-          (api.intentVisible?.(li.id) ?? true) &&
-          (li.canvas ?? (layer && !(layer instanceof L.TileLayer && layerUrl(layer))))
+          (api.intentVisible?.(layerInfo.id) ?? true) &&
+          (layerInfo.canvas ?? (layer && !(layer instanceof L.TileLayer && layerUrl(layer))))
         );
       });
       let done = 0;
       for (let i = passable.length - 1; i >= 0; i--) {
-        const li = passable[i];
-        const layer = this.resolveLayer(li);
+        const layerInfo = passable[i];
+        const layer = this.resolveLayer(layerInfo);
 
         // Callback-only layers (e.g. HeatmapControl canvas) — render via stored canvas
-        if (li.canvas) {
-          await this.renderCanvasElement(rc, li.canvas);
+        if (layerInfo.canvas) {
+          await this.renderCanvasElement(rc, layerInfo.canvas);
           done++;
         } else if (layer) {
           // SVG paths, Canvas elements, and Markers in this layer's panes
@@ -257,7 +257,7 @@ class ExportRenderer {
           // Drawing them here — right after this layer, before the next layer
           // up — keeps the export's stack order identical to the map's: a layer
           // above covers this layer's labels.
-          const labelPane = this.map.getPane(CONST.ANNOTATION_PANE_PREFIX + li.id);
+          const labelPane = this.map.getPane(CONST.ANNOTATION_PANE_PREFIX + layerInfo.id);
           if (labelPane) {
             await this.renderPaneCanvas(rc, labelPane, CONST.SEL.ANNOTATION_CANVAS);
           }
