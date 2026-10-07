@@ -76,15 +76,15 @@ class HintManager {
     this.hintIcons = { ...hintIconRegistry };
     this.hintMap = new Map();
     // When the map goes fullscreen, only the fullscreen element is visible —
-    // hints appended to document.body would disappear. Migrate them to the
+    // hints appended to document.body would disappear. Move them onto the
     // fullscreen element (and back again on exit). Standard API only — the
     // webkit prefix is dropped (see FullscreenControl/api.ts).
-    this.onFullscreenChange = () => this.migrateHints();
+    this.onFullscreenChange = () => this.reattachHints();
     document.addEventListener("fullscreenchange", this.onFullscreenChange);
     activeManagers.add(this);
   }
 
-  private migrateHints() {
+  private reattachHints() {
     const target: HTMLElement =
       (document.fullscreenElement as HTMLElement | null) ?? document.body;
     if (target === document.documentElement) return;
@@ -158,6 +158,8 @@ class HintManager {
     }
   }
 
+  /** Clear a hint: drop its element and pending timer (not just hide).
+   *  Without a subkey, every variant under `key` is dropped. */
   hideHint(key: string, subkey?: string) {
     if (subkey) {
       const storeKey = `${key}|${subkey}`;
