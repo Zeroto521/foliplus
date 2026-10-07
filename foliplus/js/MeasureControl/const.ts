@@ -45,7 +45,7 @@ const READOUT = {
  *  overlap heavily. Segment labels are the most numerous (a dense polygon
  *  stacks dozens of them), so they give way to the unique centroid / radius
  *  value first. */
-const LABEL_PRIORITY = {
+const LABEL_PRIORITY_BY_ROLE = {
   SEGMENT: 60,
   /** The distance mode's final label also carries the cumulative total. */
   TOTAL: 70,
@@ -54,7 +54,7 @@ const LABEL_PRIORITY = {
 };
 
 /** Formatting. */
-const FORMAT = {
+const UNIT_FORMAT = {
   KM_THRESHOLD: 1000,
   // Area gets one extra digit: the unit conversion squares, so error grows
   // faster and a 2nd digit carries real information.
@@ -149,8 +149,8 @@ export {
   TIMING,
   LABEL,
   READOUT,
-  LABEL_PRIORITY,
-  FORMAT,
+  LABEL_PRIORITY_BY_ROLE,
+  UNIT_FORMAT,
   ID,
   PANES,
   CLASSES,

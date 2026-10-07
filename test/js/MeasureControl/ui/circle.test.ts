@@ -158,7 +158,7 @@ describe("attachCircleUI — delete flow", () => {
     UI.attachCircleUI(mgr as any, opts as any);
 
     const labelCall = (mgr.registerLabel as any).mock.calls.find(
-      (c: any[]) => c[1] === CONST.LABEL_PRIORITY.RADIUS,
+      (c: any[]) => c[1] === CONST.LABEL_PRIORITY_BY_ROLE.RADIUS,
     );
     expect(labelCall).toBeDefined();
   });

@@ -12,7 +12,7 @@ const CIRCLE = `
     <circle cx="12" cy="12" r="1.5" class="solid"/>
   </svg>`;
 
-const POLYGON = `
+const ICON_POLYGON = `
   <svg viewBox="0 0 24 24">
     <polygon points="12,3 21,9 18,21 6,21 3,9"/>
     <circle cx="12" cy="3" r="1.5" class="solid"/>
@@ -28,4 +28,4 @@ const EDIT_NODES = `
     <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
   </svg>`;
 
-export { CIRCLE, EDIT_NODES, POLYGON, RULER };
+export { CIRCLE, EDIT_NODES, ICON_POLYGON, RULER };

@@ -328,12 +328,12 @@ describe("attachDistanceUI", () => {
 
     const priorities = registerLabel.mock.calls.map(c => c[1]);
     expect(priorities).toEqual([
-      CONST.LABEL_PRIORITY.SEGMENT,
-      CONST.LABEL_PRIORITY.SEGMENT,
-      CONST.LABEL_PRIORITY.TOTAL,
+      CONST.LABEL_PRIORITY_BY_ROLE.SEGMENT,
+      CONST.LABEL_PRIORITY_BY_ROLE.SEGMENT,
+      CONST.LABEL_PRIORITY_BY_ROLE.TOTAL,
     ]);
-    expect(CONST.LABEL_PRIORITY.TOTAL).toBeGreaterThan(CONST.LABEL_PRIORITY.SEGMENT);
-    expect(CONST.LABEL_PRIORITY.TOTAL).toBeLessThan(CONST.LABEL_PRIORITY.CENTROID);
+    expect(CONST.LABEL_PRIORITY_BY_ROLE.TOTAL).toBeGreaterThan(CONST.LABEL_PRIORITY_BY_ROLE.SEGMENT);
+    expect(CONST.LABEL_PRIORITY_BY_ROLE.TOTAL).toBeLessThan(CONST.LABEL_PRIORITY_BY_ROLE.CENTROID);
   });
 
   it("re-registers the total priority after deleting an inner node", () => {
@@ -364,14 +364,14 @@ describe("attachDistanceUI", () => {
     );
 
     expect(registerLabel.mock.calls.map(c => c[1])).toEqual([
-      CONST.LABEL_PRIORITY.SEGMENT,
-      CONST.LABEL_PRIORITY.TOTAL,
+      CONST.LABEL_PRIORITY_BY_ROLE.SEGMENT,
+      CONST.LABEL_PRIORITY_BY_ROLE.TOTAL,
     ]);
 
     (buildDelIcon.mock.results[1].value as any)._delClick();
 
     const lastCall = registerLabel.mock.calls.at(-1);
-    expect(lastCall?.[1]).toBe(CONST.LABEL_PRIORITY.TOTAL);
+    expect(lastCall?.[1]).toBe(CONST.LABEL_PRIORITY_BY_ROLE.TOTAL);
   });
 });
 

@@ -37,7 +37,7 @@ const MeasureControl = defineControl<MeasureManager>({
       {
         mode: CONST.MEASURE_MODE.POLYGON,
         title: this.T("tool_polygon"),
-        svg: SVGs.POLYGON,
+        svg: SVGs.ICON_POLYGON,
       },
       {
         mode: CONST.MEASURE_MODE.CIRCLE,

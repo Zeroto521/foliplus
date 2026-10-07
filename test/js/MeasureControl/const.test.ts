@@ -121,8 +121,8 @@ describe("LABEL anchors", () => {
 
 describe("FORMAT", () => {
   it("defines formatting", () => {
-    expect(CONST.FORMAT.KM_THRESHOLD).toBe(1000);
-    expect(CONST.FORMAT.KM_DECIMALS).toBe(1);
+    expect(CONST.UNIT_FORMAT.KM_THRESHOLD).toBe(1000);
+    expect(CONST.UNIT_FORMAT.KM_DECIMALS).toBe(1);
   });
 });
 

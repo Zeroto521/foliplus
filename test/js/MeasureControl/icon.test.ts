@@ -8,10 +8,10 @@ describe("RULER", () => {
   });
 });
 
-describe("POLYGON", () => {
+describe("ICON_POLYGON", () => {
   it("is an SVG string", () => {
-    expect(SVGs.POLYGON).toContain("<svg");
-    expect(SVGs.POLYGON).toContain("</svg>");
+    expect(SVGs.ICON_POLYGON).toContain("<svg");
+    expect(SVGs.ICON_POLYGON).toContain("</svg>");
   });
 });
 
