@@ -8,7 +8,7 @@
 //     isDefaultPane / discoverChildPanes / getLayerPanes
 //   ── Leaflet DOM integration (browser tests) ──
 //     ensurePane / ensureVector / pinTree / pinLateContent / removePane /
-//     reset / destroy
+//     invalidateDiscoveryCache / destroy
 import { createLogger } from "#common/log.js";
 import {
   destroyPane,
@@ -30,7 +30,7 @@ type PathWithPane = L.Path & { options: L.PathOptions & { pane?: string } };
  *  built for one map never sees another map's names.
  *
  *  One invalidation primitive — a generation counter:
- *    Every state-changing call (`pinTree` / `reset` / `destroy`) bumps
+ *    Every state-changing call (`pinTree` / `invalidateDiscoveryCache` / `destroy`) bumps
  *    `generation` by one, which makes every previously memoised entry stale
  *    until it is rewalked. There is no per-node precise delete anywhere: the
  *    walk already pays for each node it touches, so the entries we would have
@@ -71,7 +71,7 @@ class PaneManager {
    */
   private readonly paneSpecs = new Map<string, PaneSpec>();
   /** The generation at which entries in `discoveryCache` were computed. Bumped
-   *  by `pinTree` / `reset` / `destroy`; an entry whose `gen` is behind this
+   *  by `pinTree` / `invalidateDiscoveryCache` / `destroy`; an entry whose `gen` is behind this
    *  value is stale and is recomputed on its next read. */
   private generation = 0;
   /** Discovery results keyed by `L.stamp`, capped by
@@ -256,7 +256,7 @@ class PaneManager {
    *    answer in the cache. Over-invalidating is always safe here — a stale
    *    entry costs one extra `walkTree` walk, never a wrong result.
    *    `pinTree` uses the same primitive. */
-  reset(id?: number): void {
+  invalidateDiscoveryCache(id?: number): void {
     void id;
     this.generation++;
   }
@@ -390,8 +390,8 @@ class PaneManager {
   /** Find all custom panes used by a container's tree.
    *  Memoised per layer stamp and capped by `CACHE.PANE_DISCOVERY_ENTRIES`.
    *  Entries carry the generation they were written at; an entry from a
-   *  different generation is recomputed, so `pinTree` / `reset` / `destroy`
-   *  all invalidate uniformly without a per-node delete. */
+   *  different generation is recomputed, so `pinTree` / `invalidateDiscoveryCache` /
+   *  `destroy` all invalidate uniformly without a per-node delete. */
   discoverChildPanes(layer: L.Layer, depth = 0): string[] {
     if (depth > CONST.RECURSION.PANE_DEPTH) return [];
     const key = L.stamp(layer);

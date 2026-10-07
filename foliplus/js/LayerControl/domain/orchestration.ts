@@ -382,7 +382,7 @@ class LayerOrchestration {
     surface.materialize();
     // materialize() may have written options.pane across the tree, so the
     // cached child-pane list for this layer is stale.
-    if (opts.layer) this.panes.reset(L.stamp(opts.layer));
+    if (opts.layer) this.panes.invalidateDiscoveryCache(L.stamp(opts.layer));
 
     // Hidden gate reads the store only when the panel is attached. The store
     // lives on the controller and survives attach, but before attach the
@@ -417,7 +417,7 @@ class LayerOrchestration {
 
     const layer = this.findLayer(layerInfo);
     const layerStamp = layer ? L.stamp(layer) : null;
-    if (layerStamp !== null) this.panes.reset(layerStamp);
+    if (layerStamp !== null) this.panes.invalidateDiscoveryCache(layerStamp);
     // The layer is off the map first (controller side), so the pane teardown
     // never touches a live layer's renderer or path nodes. Only the pane the
     // surface synthesized goes away: a declared pane survives, because
