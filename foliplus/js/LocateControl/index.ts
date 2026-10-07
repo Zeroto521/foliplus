@@ -5,7 +5,7 @@ import * as Icons from "#common/icon.js";
 import { locateMe, removeMarker } from "./logic.js";
 
 // AMap-style crosshair locate icon (stroke-rendered, inherits common button SVG styles).
-const LOCATE_ICON = `
+const CROSSHAIR = `
   <svg viewBox="0 0 24 24">
     <circle cx="12" cy="12" r="6"/>
     <circle cx="12" cy="12" r="1.8"/>
@@ -17,12 +17,12 @@ const LOCATE_ICON = `
 
 // Idle crosshair + shared foliplus spinner, toggled by the .loading button class.
 const BTN_HTML = `
-  <span class="locate-btn-icon">${LOCATE_ICON}</span>
+  <span class="locate-btn-icon">${CROSSHAIR}</span>
   <span class="locate-btn-loading">${Icons.LOADING_ICON}</span>`;
 
 const LocateControl = defineControl({
   config: CONFIG,
-  icon: LOCATE_ICON,
+  icon: CROSSHAIR,
   setup: () => ensureHint(map),
   buildDOM(this: any) {
     const outer = dom.el("div", { class: "leaflet-bar leaflet-control" });
