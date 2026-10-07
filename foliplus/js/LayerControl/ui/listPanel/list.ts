@@ -18,7 +18,7 @@ import { syncNoBasemap, syncToggleAll } from "./visibility.js";
  *  re-run on each CONTROL_ATTACHED so late-registering components are
  *  folded in. Marks the panel ready for tests/consumers. */
 const initTypesAndVisibility = (ui: LayerUI) => {
-  // The colour basemap is a first-class base-group layer: `getColorSurface`
+  // The color basemap is a first-class base-group layer: `getColorSurface`
   // runs `surface.register()`, which inserts its LayerInfo through the
   // standard registerLayer path. All visibility / zoom / order machinery
   // then treats it identically to a tile basemap. `surface.register()` is
@@ -26,7 +26,7 @@ const initTypesAndVisibility = (ui: LayerUI) => {
   getColorSurface(ui);
   const colorLi = ui.c.layerRegistry.get(CONST.SOLID_BASEMAP_ID);
   if (colorLi) {
-    // The colour basemap starts unchecked (hidden) by default.
+    // The color basemap starts unchecked (hidden) by default.
     ui.runtimeStore.setAuthorVisible(CONST.SOLID_BASEMAP_ID, false);
   }
 
@@ -47,9 +47,9 @@ const initTypesAndVisibility = (ui: LayerUI) => {
 
   // First-load visibility is the author's `show=`: no code fallback for
   // "no basemap visible" — the A′ hatch (see paintNoBasemapHatch) is the
-  // honest empty state. Adding a colour layer here would violate the
+  // honest empty state. Adding a color layer here would violate the
   // intent-only invariant: derived state may suppress display but never
-  // authorise it.
+  // authorize it.
   for (let i = 0; i < ui.c.layers.length; i++) {
     initLayerItem(ui, ui.c.layers[i]);
   }

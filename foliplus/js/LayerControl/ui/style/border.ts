@@ -113,7 +113,7 @@ interface BorderRowBindTarget {
  *  `detectCapabilities` in core/layer/LayerSurface.ts) — a layer whose
  *  tree has no `setStyle` leaf declares `"none"`, so the gate rejects
  *  it naturally. Canvas layers, MarkerCluster, GridLayer / ImageOverlay,
- *  and the colour basemap all declare `"none"` for stroke. No extra
+ *  and the color basemap all declare `"none"` for stroke. No extra
  *  checks belong here: the invariant is that `gate` is exactly the
  *  capability check, no carrier probes, no `isColorBasemap`
  *  special-cases, no canvas exclusion. */
@@ -224,7 +224,7 @@ const scheduleBorderApply = (ui: LayerUI, layerId: string): void => {
  *  sweep over every feature of the layer.
  *
  *  Called from `bindLiveColor`, so `rawColor` is a raw `input.value` and is
- *  normalised to 6-digit lowercase hex before landing in storage. */
+ *  normalized to 6-digit lowercase hex before landing in storage. */
 const commitBorderColor = (ui: LayerUI, layerId: string, rawColor: string): void => {
   const color = normalizeHexColor(rawColor);
   if (getIntent(ui, layerId, INTENT.BORDER_COLOR) === color) return;

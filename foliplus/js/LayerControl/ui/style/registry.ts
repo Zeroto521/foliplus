@@ -21,7 +21,7 @@
 //     for fill, etc.) belong to *capability derivation* at the
 //     surface, not the gate — otherwise every gate is a fresh
 //     restatement of the surface.
-//   - `isColorBasemap` cases ("solid colour counts as fillable", "count
+//   - `isColorBasemap` cases ("solid color counts as fillable", "count
 //     as zoomRange-able") are capability declarations, not gate
 //     special-cases.
 //   - canvas / styleSetters exclusion is *already* covered: a canvas-only

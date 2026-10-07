@@ -15,7 +15,7 @@
 //     backdrop into a screenshot (measured: identical pixels with a transparent
 //     and an opaque background). So "fullscreen vs non-fullscreen pixel
 //     parity" cannot be the assertion; the parity asserted here is of the
-//     element's own paint (colour + hatch), which must not change on entering
+//     element's own paint (color + hatch), which must not change on entering
 //     fullscreen.
 //
 // Fullscreen needs transient user activation, so the caller arms a button here
@@ -31,7 +31,7 @@
   if (!map) return { error: "map missing" };
   const container = map.getContainer();
 
-  /** Split a computed colour into its channels so the caller can assert on
+  /** Split a computed color into its channels so the caller can assert on
    *  opacity and lightness without string-matching rgb()/rgba() forms. */
   const channels = color => {
     const m = color.match(/rgba?\(([^)]+)\)/);

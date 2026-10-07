@@ -1,10 +1,10 @@
 () => {
   // Report the most frequent non-transparent RGB on the renderer's output
-  // canvas. Used alongside a specific-colour sampler so a test failure can
-  // distinguish "the target colour is missing because nothing was drawn"
-  // from "the target colour is missing because a different layer drew
+  // canvas. Used alongside a specific-color sampler so a test failure can
+  // distinguish "the target color is missing because nothing was drawn"
+  // from "the target color is missing because a different layer drew
   // instead". Bins by exact RGB rather than quantising, since our test
-  // colours are all solid and any deviation means something regressed.
+  // colors are all solid and any deviation means something regressed.
   const canvases = window._capturedCanvases || [];
   if (canvases.length === 0) return null;
   const c = canvases[canvases.length - 1];

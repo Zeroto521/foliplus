@@ -71,7 +71,7 @@ const applyPatch = (
 /** Coerce one stored label config into a complete {@link AnnotationConfig}.
  *
  *  The single home of the per-field rules: persistence's tolerant parse only
- *  checks the object shape (and normalises colour), so every coercion — and
+ *  checks the object shape (and normalizes color), so every coercion — and
  *  the default of every future field, e.g. `position` — belongs here. The
  *  renderer consumes the result; nothing in between re-derives defaults. */
 const coerceAnnotationFields = (raw: unknown): AnnotationConfig => {

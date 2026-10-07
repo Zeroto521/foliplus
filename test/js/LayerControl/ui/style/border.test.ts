@@ -206,7 +206,7 @@ describe("layerCanBorder", () => {
   });
 
   it("declines a basemap-like surface — pane opacity but no zoom range", () => {
-    // The colour basemap has no vector stroke axis, so the probe returns
+    // The color basemap has no vector stroke axis, so the probe returns
     // "none" and the gate rejects it.
     manager.registerLayer({
       id: "bas1",

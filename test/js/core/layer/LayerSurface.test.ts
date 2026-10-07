@@ -197,7 +197,7 @@ describe("LayerSurface pane resolution", () => {
 
   it("gives a GridLayer its own synthesized pane — z is per-layer, not shared", () => {
     // First-class basemaps: row order must equal z order across
-    // kinds, so a colour layer must be able to interleave with two tile
+    // kinds, so a color layer must be able to interleave with two tile
     // layers. A TileLayer that stayed in the shared tilePane could only
     // order itself inside that one stack — retired.
     const { host } = makeMap();
@@ -428,7 +428,7 @@ describe("LayerSurface.materialize", () => {
     // The reconciled write: the layer's DOM ends up in the surface's own
     // pane, which is what makes the ordering ladder (surface.setZ) reach
     // it. Without a pane here, z would live on the shared tilePane's
-    // children and two basemaps could not be interleaved with a colour.
+    // children and two basemaps could not be interleaved with a color.
     const { host } = makeMap();
     const surface = new LayerSurface(host, {
       id: "tiles",

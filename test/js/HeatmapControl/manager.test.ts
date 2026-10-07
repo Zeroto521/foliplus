@@ -1073,7 +1073,7 @@ describe("event-bus bindings", () => {
   it.each(["tile", "solid", "canvas"])(
     "ignores a LAYER_CHANGE whose kind (%s) can never hold point markers",
     async kind => {
-      // A tile basemap, a solid colour face and a self-drawn canvas all answer
+      // A tile basemap, a solid color face and a self-drawn canvas all answer
       // "base"/null from getLayerType, so getLayersByType("point") never
       // returned them — their churn cannot change the source list. The payload
       // lets the handler skip the scan outright; without the skip every
@@ -1647,7 +1647,11 @@ describe("HeatmapManager — EVENTS.LAYER_DELETED auto-clear", () => {
   });
 
   it("resets the panel to its initial state when own layer is deleted", () => {
-    const config = makeConfig({ color_scheme: "Blues", n_classes: 4, method: "equal" });
+    const config = makeConfig({
+      color_scheme: "Blues",
+      num_classes: 4,
+      method: "equal",
+    });
     const m = makeManager();
     const ctrl = makeCtrl(m, config);
     // The fixture's selects are bare elements: without options, `el.value`
@@ -1688,14 +1692,14 @@ describe("HeatmapManager — EVENTS.LAYER_DELETED auto-clear", () => {
     expect(m.field).toBe("");
     expect(m.method).toBe(config.method);
     expect(m.scheme).toBe(config.color_scheme);
-    expect(m.numClasses).toBe(config.n_classes);
+    expect(m.numClasses).toBe(config.num_classes);
     expect(m.cachedFeatures).toBeNull();
     // Every dropdown reflects the reset — the reported bug was the panel
     // still showing the cleared layer and field.
     expect(ctrl.layerSelect.value).toBe("");
     expect(ctrl.aggSelect.value).toBe(CONST.AGG.COUNT);
     expect(ctrl.methodSelect.value).toBe(config.method);
-    expect(ctrl.classSelect.value).toBe(String(config.n_classes));
+    expect(ctrl.classSelect.value).toBe(String(config.num_classes));
     expect(ctrl.schemeSelectHidden.value).toBe(config.color_scheme);
     expect(ctrl.extraBody.classList.contains(CONST.CLASSES.HIDDEN)).toBe(true);
     // The cleared selection is persisted rather than the record dropped: a
@@ -1745,7 +1749,7 @@ describe("constructor — CONFIG fallbacks", () => {
       agg: undefined,
       color_scheme: undefined,
       method: undefined,
-      n_classes: undefined,
+      num_classes: undefined,
       border_color: undefined,
       label_color: undefined,
       label_size: undefined,
@@ -2079,7 +2083,7 @@ describe("resetState — CONFIG fallbacks", () => {
     m.numClasses = 9;
     m.resetState({
       agg: undefined,
-      n_classes: undefined,
+      num_classes: undefined,
       method: undefined,
       color_scheme: undefined,
     });

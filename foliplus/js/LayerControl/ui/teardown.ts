@@ -23,7 +23,7 @@ import type { LayerUI } from "./surface.js";
  * hand-written list (which is how focus-layer slipped out of the set: it was
  * a map state, not a floating panel, so no openAttrsPanel saw it).
  *
- * The close flags stay per-caller and are not normalised: the menu returns
+ * The close flags stay per-caller and are not normalized: the menu returns
  * focus to the row (a cursor parked on <body> makes Escape unreachable), the
  * panels do not, and a rename commits rather than cancels.
  *

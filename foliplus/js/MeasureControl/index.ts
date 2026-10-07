@@ -15,7 +15,11 @@ const MeasureControl = defineControl<MeasureManager>({
   config: CONFIG,
   icon: SVGs.ICON_RULER,
   setup: () => ensureLayerAPI(map),
-  createManager: env => new MeasureManager(map, env),
+  createManager: env => {
+    const m = new MeasureManager(map, env);
+    m.init();
+    return m;
+  },
   buildDOM(this: any) {
     const { container, ctrl, toolBar, toggleBtn } = createFoldControl({
       cssClass: "foliplus-measure-ctrl",

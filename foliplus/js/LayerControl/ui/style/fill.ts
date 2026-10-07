@@ -12,7 +12,7 @@
 // === "native"`. The fill capability is probe-derived at the surface (a
 // tree walk for areal `setStyle` leaves), so a line-only layer, a marker,
 // a canvas layer, MarkerCluster, GridLayer / ImageOverlay all declare
-// `"none"` and the gate rejects them naturally. A solid-colour basemap
+// `"none"` and the gate rejects them naturally. A solid-color basemap
 // declares `"native"` — the pane's paint *is* the fill.
 //
 // UI chrome: shared `form.colorInput` + `bindLiveColor`, the same recipe as
@@ -60,14 +60,14 @@ const DEFAULT_FILL_COLOR = "#000000";
 /** Whether the layer is a solid-color basemap: a base layer whose fill is the
  *  value on `layerInfo.color` rather than a Leaflet layer's geometry.
  *
- *  `layerInfo.color` is the discriminator, not `layerInfo.canvas`: the colour basemap *does*
+ *  `layerInfo.color` is the discriminator, not `layerInfo.canvas`: the color basemap *does*
  *  carry a `canvas` (its face element, which the export renderer draws — see
  *  `LayerFactory.createColor`), so excluding on `canvas` would never match it
  *  and silently drops its fill row. A heatmap canvas has no `color`, so it
  *  still belongs to the canvas family and is excluded here.
  *
  *  Used only by write paths (applyFillToLayer, resetLayerFill, buildFillRow)
- *  to route the colour basemap's fill to `showSolidBasemap` instead of walking
+ *  to route the color basemap's fill to `showSolidBasemap` instead of walking
  *  leaves. The gate (`layerCanFill`) reads the capability, not this. */
 const isColorBasemap = (layerInfo: LayerInfo | undefined): boolean => {
   if (!layerInfo || layerInfo.styleSetters) return false;
@@ -82,7 +82,7 @@ const isColorBasemap = (layerInfo: LayerInfo | undefined): boolean => {
  *  tree has no areal `setStyle` leaf (Polygon, Circle, CircleMarker)
  *  declares `"none"`, so the gate rejects it naturally. Line-only layers
  *  (Polyline), markers, canvas layers, MarkerCluster, GridLayer /
- *  ImageOverlay all declare `"none"` for fill. A solid-colour basemap
+ *  ImageOverlay all declare `"none"` for fill. A solid-color basemap
  *  declares `"native"` — the pane's paint *is* the fill.
  *  No extra checks belong here: the invariant is that `gate` is exactly
  *  the capability check, no carrier probes, no `isColorBasemap`
@@ -262,8 +262,8 @@ const commitFillOpacity = (ui: LayerUI, layerId: string, pct: number): void => {
  *  re-apply a color the layer no longer shows. */
 const resetLayerFill = (ui: LayerUI, layerId: string): void => {
   if (!ui.c.layerRegistry.has(layerId)) return;
-  // Solid-color basemap: restore the authored default colour. No style-bag
-  // face to replay — the pane's fill IS the basemap colour.
+  // Solid-color basemap: restore the authored default color. No style-bag
+  // face to replay — the pane's fill IS the basemap color.
   if (isColorBasemap(ui.c.layerRegistry.get(layerId))) {
     cancelStyleDimApply(FACE.FILL, layerId);
     resetIntentKeys(ui, layerId, [INTENT.FILL_COLOR, INTENT.FILL_OPACITY]);

@@ -9,7 +9,7 @@ async () => {
   // painted under — the moving preview label vanished below the earlier
   // chip.
   //
-  // A real "finalised label then second preview" probe is not reproducible
+  // A real "finalized label then second preview" probe is not reproducible
   // here: after `finishCircle` commits, `bindLayerRemoved` reacts to the
   // measure layer's `LAYER_REMOVED` (from `clearActiveMode()`'s
   // `this.layers.unregister()`) and silently clears the mode, so the second
@@ -35,7 +35,7 @@ async () => {
         text: el.querySelector(".foliplus-measure-label-radius")?.textContent ?? "",
       }));
 
-  // Plant one older finalised-style label chip in the measure label pane,
+  // Plant one older finalized-style label chip in the measure label pane,
   // via the same factory `finishCircle` uses.
   mm.layers.addLayer(
     L.marker([26.0805, 119.3005], {

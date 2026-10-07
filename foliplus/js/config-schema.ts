@@ -45,7 +45,7 @@ interface ConfigFullscreen extends ConfigCommon {
 interface ConfigHeatmap extends ConfigCommon {
   color_scheme: string;
   method: "jenks" | "quantile" | "equal" | "heads";
-  n_classes: number;
+  num_classes: number;
   agg: "count" | "sum" | "avg" | "min" | "max";
   schemes: string[]; // Available color scheme names.
   border_weight: number;
@@ -115,7 +115,7 @@ interface ComponentConfig {
   hide_others?: boolean;
   color_scheme?: string;
   method?: "jenks" | "quantile" | "equal" | "heads";
-  n_classes?: number;
+  num_classes?: number;
   agg?: "count" | "sum" | "avg" | "min" | "max";
   schemes?: string[]; // Available color scheme names.
   border_weight?: number;

@@ -2,7 +2,7 @@
 //
 // PR① acceptance: toPersisted vs old buildLayerStates field-by-field,
 // loadFromPersisted vs parseLayerState + PARSE_OVERRIDE, overrides array ↔
-// Set round-trip. Values and behaviour must match the pre-store twin.
+// Set round-trip. Values and behavior must match the pre-store twin.
 import { describe, expect, it } from "vitest";
 import { LayerIntentStore } from "#foliplus/LayerControl/domain/index.js";
 import type {

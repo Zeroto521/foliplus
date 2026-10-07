@@ -59,7 +59,7 @@ const isUnitInterval = (value: unknown): value is number =>
 /** A stored zoom range: two finite numbers with the low end not above the
  *  high. Bounds are the map's business -- the handles are confined to the map's
  *  own range by the UI, so the record does not invent one of its own, and a
- *  range the map could no longer honour is still the user's stated choice. */
+ *  range the map could no longer honor is still the user's stated choice. */
 const parseZoomRange = (raw: unknown): [number, number] | null => {
   if (!Array.isArray(raw) || raw.length !== 2) return null;
   const [min, max] = raw as [unknown, unknown];
@@ -87,7 +87,7 @@ const isBorderWeight = (value: unknown): value is number =>
 const isHexColor = (value: unknown): value is string =>
   typeof value === "string" && /^#[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$/.test(value);
 
-/** Disk parser per provenance key: normalises the stored value or returns
+/** Disk parser per provenance key: normalizes the stored value or returns
  *  `null` to drop a corrupt one (its marker is dropped with it).
  *
  *  `Record<LayerOverride, …>` is the extension pin — a new dimension without
@@ -110,7 +110,7 @@ const PARSE_OVERRIDE: Record<
 
 const OVERRIDE_VALUES = Object.keys(PARSE_OVERRIDE) as LayerOverride[];
 
-/** One stored label (annotation) config: an object, colour-normalised the
+/** One stored label (annotation) config: an object, color-normalized the
  *  same way in the new `layers[id].annotation` key and the legacy
  *  `annotations[id]` segment so both read paths hand the seed identical
  *  shapes. Field-level coercion (size clamps, format enums, collide)
@@ -124,7 +124,7 @@ const parseAnnotationConfig = (raw: unknown): AnnotationConfig | null => {
   if (typeof out.color === "string") {
     out.color = normalizeHexColor(out.color);
   }
-  // Structural tolerance, not a lie: only the object shape and the colour
+  // Structural tolerance, not a lie: only the object shape and the color
   // are checked here — the field-level coercion is `applyStyleLabelState`'s
   // (it clamps sizes, normalizes formats, defaults collide), which is where
   // the value is actually applied. The cast says "reader validates", the

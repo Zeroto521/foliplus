@@ -531,7 +531,7 @@ class TestRuntimeZeroChange:
 
     def test_schema_module_does_not_touch_basecontrol(self) -> None:
         # _config_schema.py imports nothing from foliplus.* at module level;
-        # importing it must not alter BaseControl's behaviour. Verified in a
+        # importing it must not alter BaseControl's behavior. Verified in a
         # subprocess so this test cannot mutate the test-runner's module state
         # (importlib.reload would redefine BaseControl in place and split class
         # identity).

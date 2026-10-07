@@ -7,7 +7,7 @@ no second table to keep in sync with the signature:
   (``position``, ``mode``, ``format``, ``method``, ``agg``, ``export_format``,
   ``label_format``).
 * ``Annotated[T, Bound(...)]`` — the value must be a real number inside the
-  bounds (``zoom``, ``n_classes``, ``quality``, ``opacity``, ``scale``, ...).
+  bounds (``zoom``, ``num_classes``, ``quality``, ``opacity``, ``scale``, ...).
 * ``T | None`` — ``None`` is always accepted, ``T`` is validated otherwise.
 
 Only those two explicit forms are enforced. Plain annotations such as ``bool``,

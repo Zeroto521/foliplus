@@ -22,7 +22,7 @@ import {
  *  The zoomRange capability is derived at the surface (see
  *  `detectCapabilities` in core/layer/LayerSurface.ts). MarkerCluster
  *  and ImageOverlay declare `"none"` — a row that persists a value
- *  the write cannot apply is a lie that survives reload. The colour
+ *  the write cannot apply is a lie that survives reload. The color
  *  basemap declares `"pane"` (the executor's `visible` op is the
  *  carrier, same as every other surface). No `isColorBasemap`
  *  special-case, no `group` exemption: capability alone decides. */

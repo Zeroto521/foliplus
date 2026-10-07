@@ -323,7 +323,7 @@ describe("formatting constants", () => {
 
   it("the km threshold matches the divisor used by formatDistance", () => {
     // formatDistance divides by a hard-coded 1000, so a changed threshold here
-    // would silently desynchronise the unit label from the magnitude.
+    // would silently desynchronize the unit label from the magnitude.
     expect(CONST.UNIT_FORMAT.KM_THRESHOLD).toBe(1000);
   });
 

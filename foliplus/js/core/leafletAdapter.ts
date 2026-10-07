@@ -59,7 +59,7 @@ type LayerWithUrl = L.Layer & { _url?: string };
 
 /** `GridLayer._resetView` is a protected method that rebuilds the level set
  *  after a runtime options change. Changing `options.minZoom`/`maxZoom` on
- *  its own does not remove already-loaded tiles — Leaflet only honours the
+ *  its own does not remove already-loaded tiles — Leaflet only honors the
  *  new range at the next `_resetView`. The zoom-range native carrier needs
  *  this call to make its write visible. */
 type GridLayerWithReset = L.GridLayer & { _resetView?: () => void };
