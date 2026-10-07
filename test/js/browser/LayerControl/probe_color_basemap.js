@@ -15,7 +15,7 @@
   );
   if (!item) return { itemFound: false };
   // Show the color basemap via its checkbox — the only legitimate path.
-  // Clicking the row body no longer activates the color layer (T201).
+  // Clicking the row body no longer activates the color layer (#494).
   const cb = item.querySelector('input[type="checkbox"]');
   if (!cb) return { itemFound: true, itemActive: false, reason: "no checkbox" };
   if (!cb.checked) cb.click();

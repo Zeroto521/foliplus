@@ -37,7 +37,7 @@ const layerHasStyleDelegation = (ui: LayerUI, layerId: string): boolean => {
  *  builder in `./border.js` — same shell as the vector border row, so
  *  the two read identically — with the `styleSetters` write target.
  *  Returns null when the layer publishes no border setters. */
-const buildBorderRow = (ui: LayerUI, layerId: string): HTMLElement | null => {
+const buildDelegatedBorderRow = (ui: LayerUI, layerId: string): HTMLElement | null => {
   const layerInfo = ui.c.layerRegistry.get(layerId);
   const setters = layerInfo?.styleSetters;
   if (!setters || (!setters.borderWeight && !setters.borderColor)) return null;
@@ -104,7 +104,7 @@ const renderDelegatedStylePanel = (
   // it groups with the LayerControl-owned rows rather than as its own section.
   let borderRow: HTMLElement | null = null;
   if (setters.borderWeight || setters.borderColor) {
-    borderRow = buildBorderRow(ui, layerId);
+    borderRow = buildDelegatedBorderRow(ui, layerId);
   }
 
   // No presentation control at all (a data-only setter such as the
@@ -175,7 +175,7 @@ const renderDelegatedStylePanel = (
 
 export {
   DELEGATED_DIM_ORDER,
-  buildBorderRow,
+  buildDelegatedBorderRow,
   layerHasStyleDelegation,
   renderDelegatedStylePanel,
 };

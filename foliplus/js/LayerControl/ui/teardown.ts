@@ -32,7 +32,7 @@ import type { LayerUI } from "./surface.js";
  * "focus cancelled" hint for the Escape path only.
  *
  * Folium's own overlays are event-driven: each subsystem subscribes to
- * OVERLAY_CLEAR in `bindEvents` and closes itself when it hears the signal.
+ * OVERLAY_CLEAR in `bindLayerEvents` and closes itself when it hears the signal.
  * The map-popup sweep stays here because Leaflet popups are not a foliplus
  * overlay and have no subscribe-able surface of their own.
  */
@@ -51,7 +51,7 @@ const closeOverlays = (ui: LayerUI): void => {
   // Layer.closePopup. DOM sweep is the only measured-effective fallback.
   document.querySelectorAll(".leaflet-popup").forEach(el => el.remove());
   // Folium's overlay subsystems (menu, attrs, style, rename, focus) each
-  // subscribe to this event in bindEvents and close themselves. The caller
+  // subscribe to this event in bindLayerEvents and close themselves. The caller
   // of closeOverlays is about to open one of them — the matching subscriber
   // sees "I'm not open yet" and is a no-op.
   ui.events.emit(EVENTS.OVERLAY_CLEAR);

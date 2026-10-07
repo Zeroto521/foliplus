@@ -40,7 +40,7 @@ describe("LayerUI lifecycle — defensive rails", () => {
     vi.useRealTimers();
   });
 
-  describe("bindEvents — the toggle-all row and its group fallback", () => {
+  describe("bindLayerEvents — the toggle-all row and its group fallback", () => {
     it("onChange: a toggle-all checkbox with no row ancestor does not throw", () => {
       // The row lookup is defensive: a checkbox outside a rendered row still
       // fires change, and the guard must no-op rather than dereference null.
@@ -73,7 +73,7 @@ describe("LayerUI lifecycle — defensive rails", () => {
     });
   });
 
-  describe("bindEvents — click path outside a layer row", () => {
+  describe("bindLayerEvents — click path outside a layer row", () => {
     it("onClick: a click on an element with no owning row is ignored", () => {
       // Row-less clicks are common: the color-item row is deliberately NOT a
       // layer row and neither is any panel chrome. The handler must no-op
@@ -106,7 +106,7 @@ describe("LayerUI lifecycle — defensive rails", () => {
     });
 
     it("onClick: the color row's body no longer triggers showSolidBasemap", () => {
-      // T201: row-body clicks used to call showSolidBasemap directly; the
+      // #494: row-body clicks used to call showSolidBasemap directly; the
       // checkbox's change event is the only legitimate path
       // (applyVisibility → the executor's canvas HIDDEN write → showSolidBasemap).
       // A second call from here would rebuild the list mid-click and leave the
@@ -243,7 +243,7 @@ describe("LayerUI lifecycle — defensive rails", () => {
 
   describe("unbindEvents — the null-handler rails", () => {
     it("unbinds cleanly when every handler is already null", () => {
-      // Detached-before-attach scenario: attachUI never ran bindEvents, so all
+      // Detached-before-attach scenario: attachUI never ran bindLayerEvents, so all
       // handlers are null and the guards must not throw. This exercises every
       // `if (ui.onX)` false branch at once.
       ui.onKeyDown = null;
@@ -271,7 +271,7 @@ describe("LayerUI lifecycle — defensive rails", () => {
     });
 
     it("unbinds cleanly when the container is missing but handlers are set", () => {
-      // bindEvents ran but attachUI never set uiContainer, then the manager is
+      // bindLayerEvents ran but attachUI never set uiContainer, then the manager is
       // destroyed: the first guard `if (!container) return` must fire before
       // the handler-null loop.
       ui.c.uiContainer = null as any;
@@ -288,10 +288,10 @@ describe("LayerUI lifecycle — defensive rails", () => {
     });
   });
 
-  describe("bindEvents — the container-null guard", () => {
+  describe("bindLayerEvents — the container-null guard", () => {
     it("no-ops when the UI container is already null", () => {
-      // Covers the `if (!container) return` guard: bindEvents is called on a
-      // manager whose uiContainer was never set (attachUI ran before bindEvents
+      // Covers the `if (!container) return` guard: bindLayerEvents is called on a
+      // manager whose uiContainer was never set (attachUI ran before bindLayerEvents
       // in a partial-attach scenario).
       ui.c.uiContainer = null as any;
       expect(() => ui.bindEvents()).not.toThrow();
@@ -384,7 +384,7 @@ describe("LayerUI lifecycle — defensive rails", () => {
     });
 
     it("drag handlers are wired and dispatch to the drag module", () => {
-      // The bindEvents assignments (onDragOver/onDragLeave/onDrop/onDragEnd)
+      // The bindLayerEvents assignments (onDragOver/onDragLeave/onDrop/onDragEnd)
       // must route DOM events to the ui/* module functions without throwing.
       const row = ui.uiContainer.querySelector(
         `${CONST.SEL.LAYER_ITEM}[${CONST.DATA.LAYER_ID}="overlay1"]`,
