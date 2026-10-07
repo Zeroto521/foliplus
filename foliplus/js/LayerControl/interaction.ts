@@ -34,7 +34,7 @@ const registerInteractions = (ui: LayerUI): (() => void) => {
 
 /**
  * Click handler for the overflow ("more") button. Uses event delegation on
- * the container so it works for rows created after bindEvents.
+ * the container so it works for rows created after bindLayerEvents.
  */
 const handleMoreClick = (ui: LayerUI, event: Event): void => {
   const btn = (event.target as HTMLElement).closest(

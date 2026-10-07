@@ -26,13 +26,13 @@ const formatDistance = (meters: number): string =>
 
 /** Format a segment label: "45° | 1.2 km", or just "1.2 km" when show_bearing is off. */
 const formatSegmentLabel = (
-  ctx: ControlEnv,
+  env: ControlEnv,
   a: { lng: number; lat: number },
   b: { lng: number; lat: number },
   meters: number,
 ): string => {
   const dist = formatDistance(meters);
-  if (!ctx.config.show_bearing) return dist;
+  if (!env.config.show_bearing) return dist;
   const bVal = Math.round(bearing(a, b));
   return `${bVal}° | ${dist}`;
 };
@@ -63,7 +63,7 @@ const setLabelText = (marker: L.Layer, text: string) => {
 /** Build the popup body for a marker location. Returns an element, so a
  *  reverse-geocoded address can only ever reach the DOM as a TextNode. */
 const buildPopup = (
-  ctx: ControlEnv,
+  env: ControlEnv,
   lng: number,
   lat: number,
   addr: string | null = null,
@@ -72,10 +72,10 @@ const buildPopup = (
     lng,
     lat,
     addr,
-    ctx.T("popup_title"),
-    ctx.T("popup_loading"),
-    ctx.T("popup_loc_label"),
-    ctx.T("popup_addr_label"),
+    env.T("popup_title"),
+    env.T("popup_loading"),
+    env.T("popup_loc_label"),
+    env.T("popup_addr_label"),
   );
 };
 

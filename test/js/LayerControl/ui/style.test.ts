@@ -9,7 +9,7 @@ import {
   setIntent,
 } from "#foliplus/LayerControl/ui/intent.js";
 import {
-  buildBorderRow,
+  buildDelegatedBorderRow,
   renderDelegatedStylePanel,
 } from "#foliplus/LayerControl/ui/style/delegated.js";
 import {
@@ -3105,7 +3105,7 @@ describe("LayerUI style panel", () => {
     expect(renderDelegatedStylePanel(ui, "dataOnly")).toBeNull();
   });
 
-  it("buildBorderRow returns null when the layer has no border setters", () => {
+  it("buildDelegatedBorderRow returns null when the layer has no border setters", () => {
     manager.registerLayer({
       id: "dataOnly",
       name: "DataOnly",
@@ -3113,7 +3113,7 @@ describe("LayerUI style panel", () => {
       styleProvider: () => ({}),
       styleSetters: { field: vi.fn() },
     });
-    expect(buildBorderRow(ui, "dataOnly")).toBeNull();
+    expect(buildDelegatedBorderRow(ui, "dataOnly")).toBeNull();
   });
 
   it("delegated Reset restores borderWeight and borderColor from styleDefaultsProvider", () => {

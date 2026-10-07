@@ -66,7 +66,7 @@ const attachUI = (ui: LayerUI, containerDiv: HTMLElement): void => {
   ui.c.uiContainer = containerDiv;
   loadPersistedState(ui);
   renderInitialList(ui);
-  bindEvents(ui);
+  bindLayerEvents(ui);
 
   while (ui.c.pendingRegistrations.length) {
     const layerInfo = ui.c.pendingRegistrations.shift();
@@ -131,7 +131,7 @@ const subscribeControlAttached = (ui: LayerUI): void => {
 };
 
 /** Load every persisted dimension in one call. */
-const bindEvents = (ui: LayerUI): void => {
+const bindLayerEvents = (ui: LayerUI): void => {
   const container = ui.uiContainer;
   if (!container) return;
 
@@ -252,7 +252,7 @@ const bindEvents = (ui: LayerUI): void => {
   );
 
   // Overflow ("more") button → dropdown menu. Uses event delegation so it
-  // works for rows created after bindEvents (registerLayer at runtime).
+  // works for rows created after bindLayerEvents (registerLayer at runtime).
   ui.onMoreClick = event => handleMoreClick(ui, event);
   ui.onMoreMenuClick = event => handleMoreMenuClick(ui, event);
   ui.onMoreMapClick = () => closeMoreMenu(ui, false);
@@ -437,7 +437,7 @@ const unbindEvents = (ui: LayerUI): void => {
 
 export {
   attachUI,
-  bindEvents,
+  bindLayerEvents,
   onLayerItemCountChange,
   refreshAllCounts,
   subscribeControlAttached,
