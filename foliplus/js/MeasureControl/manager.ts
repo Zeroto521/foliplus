@@ -50,7 +50,7 @@ const ANON_HANDLE = " anon-edit-handle";
  *  measurement registers with the manager — its dispose (unbinds drag binds,
  *  edit overlay and the drag toggle), the ✕ overlay close callback, and the
  *  node-drag toggle. Keyed by measurement id so delete drops one handle and
- *  setEditMode/clearAll/destroy each walk one collection. */
+ *  applyEditMode/clearAll/destroy each walk one collection. */
 interface EditHandle {
   dispose: () => void;
   closeOverlay: () => void;
@@ -288,7 +288,7 @@ class MeasureManager {
     this.onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       if (this.currentMode) this.clearActiveMode();
-      else if (this.isEditMode) this.setEditMode(false);
+      else if (this.isEditMode) this.applyEditMode(false);
     };
     this.interactionCleanup = registerInteractions(this);
 
@@ -318,7 +318,7 @@ class MeasureManager {
     }
     if (mode === CONST.MEASURE_MODE.EDIT) {
       if (this.isEditMode) {
-        this.setEditMode(false);
+        this.applyEditMode(false);
         return;
       }
       // Edit and drawing modes are mutually exclusive: cancel any active
@@ -334,7 +334,7 @@ class MeasureManager {
         );
         return;
       }
-      this.setEditMode(true);
+      this.applyEditMode(true);
       return;
     }
     if (this.currentMode === mode) {
@@ -345,7 +345,7 @@ class MeasureManager {
 
     // Starting a drawing mode exits edit mode so node handles / drag don't
     // coexist with the drawing cursor.
-    if (this.isEditMode) this.setEditMode(false);
+    if (this.isEditMode) this.applyEditMode(false);
 
     // Symmetric lock with the other interactive components (focus / export).
     if (
@@ -426,7 +426,7 @@ class MeasureManager {
     this.editHandles.clear();
   }
 
-  /** Register an overlay close callback so setEditMode(false) can hide ✕.
+  /** Register an overlay close callback so applyEditMode(false) can hide ✕.
    *  `id` groups the closer with the measurement's other edit registrations.
    *  Returns an unregister function so deleted measurements drop their entry. */
   registerEditOverlayCloser = (close: () => void, id?: string): (() => void) => {
@@ -512,7 +512,7 @@ class MeasureManager {
     });
   };
 
-  /** Register a node-drag toggle so setEditMode toggles dragging directly.
+  /** Register a node-drag toggle so applyEditMode toggles dragging directly.
    *  `id` groups the toggle with the measurement's other edit registrations.
    *  Returns an unregister function so deleted measurements drop their entry. */
   registerEditDragToggle = (
@@ -634,7 +634,7 @@ class MeasureManager {
   }
 
   /** Enable/disable the edit overlay: ✕ handles and node drag. */
-  setEditMode(on: boolean) {
+  applyEditMode(on: boolean) {
     if (this.isEditMode === on) return;
     this.isEditMode = on;
     // Edit mode owns the map like a drawing mode, but it edits the measurement
@@ -676,7 +676,7 @@ class MeasureManager {
 
   /** Deactivate current mode, clean up events, and hide hints. */
   clearActiveMode() {
-    if (this.isEditMode) this.setEditMode(false);
+    if (this.isEditMode) this.applyEditMode(false);
     this.currentMode = null;
     // Clearing the mode restores map-layer interaction (core/mode lock).
     this.modes.setMode(this.config.name, null);
