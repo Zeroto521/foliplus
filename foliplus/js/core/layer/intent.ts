@@ -41,8 +41,9 @@ type LayerOverride =
  *  Absent key = the user never chose that dimension (the author's declared
  *  default stays in force). Provenance is a separate axis
  *  (`IntentRow.provenance` / `LayerOverride`) and is deliberately not on this
- *  record. Disk shape is unchanged: `buildLayerStates` / `renamedNames`
- *  remain the only persistence projections.
+ *  record. Disk shape is unchanged; the bridge is now
+ *  `LayerIntentStore.toPersisted`, which returns the same `{ layers,
+ *  renamedNames }` record this type describes.
  *
  *  **Adding a dimension** (e.g. label visibility or label position):
  *  1. A *user-settable* dim with an author default (like `visible`) gains a

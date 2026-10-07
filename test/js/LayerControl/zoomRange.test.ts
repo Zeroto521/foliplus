@@ -46,7 +46,6 @@ const mockUI: LayerUI = {
   intentStore: new LayerIntentStore(),
   runtimeStore: new LayerRuntimeStore(),
   foldedGroups: new Set(),
-  renamedNames: {},
   stylePanelLayerId: null,
   styleOutsideHandler: null,
   pressInPanel: false,

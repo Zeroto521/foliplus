@@ -3574,7 +3574,7 @@ class TestLayerControlBrowser:
 
             # Check the colour basemap's checkbox — the only legitimate path
             # to show the color layer. Clicking the row body no longer does
-            # it (T201).
+            # it (#494).
             toggle = page.evaluate(_js("LayerControl/toggle_color_checkbox"))
             assert toggle is not None and toggle["ok"] is True, toggle
             page.wait_for_timeout(500)
