@@ -849,10 +849,10 @@ class TestHeatmapControlBrowser:
 
             # overlay (Canvas) should be visible with content after renderHexagons
             has_cached = page.evaluate(
-                "window.__heatmapCtrl.manager.cachedFeatures !== null && window.__heatmapCtrl.manager.cachedFeatures !== undefined"
+                "window.__heatmapCtrl.mgr.cachedFeatures !== null && window.__heatmapCtrl.mgr.cachedFeatures !== undefined"
             )
             canvas_visible = page.evaluate(
-                "window.__heatmapCtrl.manager.overlay.canvas && window.__heatmapCtrl.manager.overlay.canvas.style.display !== 'none'"
+                "window.__heatmapCtrl.mgr.overlay.canvas && window.__heatmapCtrl.mgr.overlay.canvas.style.display !== 'none'"
             )
             assert has_cached, "cachedFeatures should be set after layer selection"
             assert canvas_visible, "Canvas should be visible after layer selection"
@@ -882,8 +882,8 @@ class TestHeatmapControlBrowser:
             # Select a layer (persists via sel.onchange) and bump numClasses.
             page.evaluate(_js("HeatmapControl/select_layer"), opts[1])
             page.wait_for_timeout(500)
-            page.evaluate("window.__heatmapCtrl.manager.numClasses = 4")
-            page.evaluate("window.__heatmapCtrl.manager.saveConfig()")
+            page.evaluate("window.__heatmapCtrl.mgr.numClasses = 4")
+            page.evaluate("window.__heatmapCtrl.mgr.saveConfig()")
 
             stored = page.evaluate(
                 "() => { const k = Object.keys(localStorage).find(x => x.startsWith('foliplus_heatmap_')); return k ? localStorage.getItem(k) : null; }"
@@ -902,7 +902,7 @@ class TestHeatmapControlBrowser:
 
             state = page.evaluate(
                 """() => {
-                  const m = window.__heatmapCtrl.manager;
+                  const m = window.__heatmapCtrl.mgr;
                   return {
                     layerId: m.selectedLayerId,
                     numClasses: m.numClasses,
@@ -969,7 +969,7 @@ class TestHeatmapControlBrowser:
             page.wait_for_timeout(3000)
             state = page.evaluate(
                 """() => {
-                  const m = window.__heatmapCtrl.manager;
+                  const m = window.__heatmapCtrl.mgr;
                   return {
                     layerId: m.selectedLayerId,
                     numClasses: m.numClasses,
@@ -1006,7 +1006,7 @@ class TestHeatmapControlBrowser:
             # drew its canvas and registered it with LayerControl.
             pre = page.evaluate(
                 """() => {
-                  const m = window.__heatmapCtrl.manager;
+                  const m = window.__heatmapCtrl.mgr;
                   const layers = window.map.foliplus.LayerAPI.layers;
                   return {
                     selected: m.selectedLayerId,
@@ -1024,7 +1024,7 @@ class TestHeatmapControlBrowser:
             # Delete the heatmap's own layer from LayerControl's more menu.
             removed = page.evaluate(
                 """() => {
-                  const m = window.__heatmapCtrl.manager;
+                  const m = window.__heatmapCtrl.mgr;
                   const before = window.map.foliplus.LayerAPI.layers.length;
                   window.map.foliplus.LayerAPI.deleteLayer(m.layerId);
                   return before - window.map.foliplus.LayerAPI.layers.length;
@@ -1034,14 +1034,14 @@ class TestHeatmapControlBrowser:
                 f"expected the heatmap layer deleted, removed {removed}"
             )
 
-            page.evaluate("() => window.__heatmapCtrl.manager.flush()")
+            page.evaluate("() => window.__heatmapCtrl.mgr.flush()")
 
             # Segment 1 — the delete clears the live page immediately, and the
             # empty selection is PERSISTED (a record with layerId: null) rather
             # than dropped. That persisted record is the whole point.
             seg1 = page.evaluate(
                 """() => {
-                  const m = window.__heatmapCtrl.manager;
+                  const m = window.__heatmapCtrl.mgr;
                   const key = Object.keys(localStorage).find(
                     x => x.startsWith("foliplus_heatmap_")
                   );
@@ -1078,7 +1078,7 @@ class TestHeatmapControlBrowser:
             heatmap_ready(page)
             seg2 = page.evaluate(
                 """() => {
-                  const m = window.__heatmapCtrl.manager;
+                  const m = window.__heatmapCtrl.mgr;
                   return {
                     selected: m.selectedLayerId,
                     hasFeatures: m.cachedFeatures !== null,
@@ -1167,14 +1167,14 @@ class TestHeatmapControlBrowser:
                 page.wait_for_timeout(2000)
 
             # Call clearHeatmapCanvas
-            page.evaluate("window.__heatmapCtrl.manager.clearHeatmapCanvas()")
+            page.evaluate("window.__heatmapCtrl.mgr.clearHeatmapCanvas()")
             page.wait_for_timeout(500)
 
             cached_gone = page.evaluate(
-                "window.__heatmapCtrl.manager.cachedFeatures === null"
+                "window.__heatmapCtrl.mgr.cachedFeatures === null"
             )
             canvas_gone = page.evaluate(
-                "window.__heatmapCtrl.manager.overlay.canvas && window.__heatmapCtrl.manager.overlay.canvas.classList.contains('hidden')"
+                "window.__heatmapCtrl.mgr.overlay.canvas && window.__heatmapCtrl.mgr.overlay.canvas.classList.contains('hidden')"
             )
             assert cached_gone, "cachedFeatures should be null after clear"
             assert canvas_gone, "Canvas should be hidden after clear"
@@ -1197,7 +1197,7 @@ class TestHeatmapControlBrowser:
             heatmap_ready(page)
 
             # Change some values
-            page.evaluate("window.__heatmapCtrl.manager.numClasses = 4")
+            page.evaluate("window.__heatmapCtrl.mgr.numClasses = 4")
             # Click clear
             page.evaluate(
                 "document.querySelector('.foliplus-heatmap-ctrl .foliplus-heatmap-btn-clear').click()"
@@ -1227,16 +1227,16 @@ class TestHeatmapControlBrowser:
 
             # BEFORE_EXPORT sets renderAll = true
             page.evaluate(
-                "window.__heatmapCtrl.manager.map.foliplus.events.emit('foliplus:export:before', { component: 'ExportControl' })"
+                "window.__heatmapCtrl.mgr.map.foliplus.events.emit('foliplus:export:before', { component: 'ExportControl' })"
             )
-            render_all = page.evaluate("window.__heatmapCtrl.manager.renderAll")
+            render_all = page.evaluate("window.__heatmapCtrl.mgr.renderAll")
             assert render_all is True, "renderAll should be True after BEFORE_EXPORT"
 
             # AFTER_EXPORT resets renderAll = false
             page.evaluate(
-                "window.__heatmapCtrl.manager.map.foliplus.events.emit('foliplus:export:after', { component: 'ExportControl' })"
+                "window.__heatmapCtrl.mgr.map.foliplus.events.emit('foliplus:export:after', { component: 'ExportControl' })"
             )
-            render_all = page.evaluate("window.__heatmapCtrl.manager.renderAll")
+            render_all = page.evaluate("window.__heatmapCtrl.mgr.renderAll")
             assert render_all is False, "renderAll should be False after AFTER_EXPORT"
             assert not errors, f"JS errors: {errors}"
 
@@ -1257,7 +1257,7 @@ class TestHeatmapControlBrowser:
 
             # Set cachedAgg to simulate stale data
             page.evaluate(
-                "window.__heatmapCtrl.manager.cachedAgg = { key: 'old', data: 'data' }"
+                "window.__heatmapCtrl.mgr.cachedAgg = { key: 'old', data: 'data' }"
             )
             # Emit the semantic LayerControl registry-change event on the EventBus
             # (replaces the old raw map.fire('layeradd') — the manager now
@@ -1265,11 +1265,11 @@ class TestHeatmapControlBrowser:
             # carries {id, kind} so the handler can filter on kind without a
             # registry walk).
             page.evaluate(
-                "window.__heatmapCtrl.manager.map.foliplus.events.emit("
+                "window.__heatmapCtrl.mgr.map.foliplus.events.emit("
                 "'foliplus:layer:change', { id: 'pts', kind: 'vector' })"
             )
             page.wait_for_timeout(1000)
-            cached = page.evaluate("window.__heatmapCtrl.manager.cachedAgg")
+            cached = page.evaluate("window.__heatmapCtrl.mgr.cachedAgg")
             assert cached is None, "cachedAgg should be nulled after layer change"
             assert not errors, f"JS errors: {errors}"
 
@@ -1279,13 +1279,13 @@ class TestHeatmapControlBrowser:
             page,
             errors,
         ):
-            page.evaluate("window.__heatmapCtrl.manager.cachedFeatures = { f: 1 }")
+            page.evaluate("window.__heatmapCtrl.mgr.cachedFeatures = { f: 1 }")
             page.evaluate(
-                "window.__heatmapCtrl.manager.cachedAgg = { key: 'k', data: 'd' }"
+                "window.__heatmapCtrl.mgr.cachedAgg = { key: 'k', data: 'd' }"
             )
-            page.evaluate("window.__heatmapCtrl.manager.clearHeatmapCanvas()")
-            features = page.evaluate("window.__heatmapCtrl.manager.cachedFeatures")
-            agg = page.evaluate("window.__heatmapCtrl.manager.cachedAgg")
+            page.evaluate("window.__heatmapCtrl.mgr.clearHeatmapCanvas()")
+            features = page.evaluate("window.__heatmapCtrl.mgr.cachedFeatures")
+            agg = page.evaluate("window.__heatmapCtrl.mgr.cachedAgg")
             assert features is None, "cachedFeatures should be nulled"
             assert agg is None, "cachedAgg should be nulled"
             assert not errors, f"JS errors: {errors}"
@@ -1512,7 +1512,7 @@ class TestHeatmapAutoFieldBrowser:
             # collectFields returns fields in the order they are discovered
             # during marker iteration.  The exact key depends on V8 property
             # enumeration order — the important thing is deterministic choice.
-            auto_key = page.evaluate("window.__heatmapCtrl.manager.autoFieldKey")
+            auto_key = page.evaluate("window.__heatmapCtrl.mgr.autoFieldKey")
             assert auto_key in ("population", "density"), (
                 f"Unexpected autoFieldKey '{auto_key}'"
             )
@@ -1561,7 +1561,7 @@ class TestHeatmapAutoFieldBrowser:
             assert field_val == "", f"Expected empty string (AUTO), got '{field_val}'"
 
             # Single field → pickAutoField returns it directly
-            auto_key = page.evaluate("window.__heatmapCtrl.manager.autoFieldKey")
+            auto_key = page.evaluate("window.__heatmapCtrl.mgr.autoFieldKey")
             assert auto_key == "elevation", f"Expected 'elevation', got '{auto_key}'"
 
             # The single property option should be visible

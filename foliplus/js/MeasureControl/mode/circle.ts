@@ -28,43 +28,43 @@ class CircleMode extends PreviewMode {
   static NAME_LABEL_KEY = "name_circle";
 
   /** Rebuild a persisted circle measurement.
-   *  @param {MeasureManager} manager - MeasureManager instance.
+   *  @param {MeasureManager} mgr - MeasureManager instance.
    *  @param {Object} data - Persisted measurement data. */
-  static restore(manager: MeasureManager, data: MeasureData) {
+  static restore(mgr: MeasureManager, data: MeasureData) {
     const centerLatLng = L.latLng(data.center!.lat, data.center!.lng);
     const targetLatLng = L.latLng(data.target!.lat, data.target!.lng);
     const r = data.radius ?? 0;
 
-    const circle = manager.layers.addLayer(
+    const circle = mgr.layers.addLayer(
       L.circle(centerLatLng, {
         radius: r,
         className: `${CONST.CLASSES.PATH_SOLID} ${CONST.CLASSES.SHAPE_FILL}`,
         interactive: true,
       }),
     ) as L.Circle;
-    const radiusLine = manager.layers.addLayer(
+    const radiusLine = mgr.layers.addLayer(
       L.polyline([centerLatLng, targetLatLng], {
         className: CONST.CLASSES.PATH_DASHED,
         interactive: true,
       }),
     ) as L.Polyline;
-    const radiusNode = manager.layers.addLayer(
+    const radiusNode = mgr.layers.addLayer(
       Util.makeNode(targetLatLng),
       CONST.PANES.NODE,
     ) as L.CircleMarker;
-    const centerFinal = manager.layers.addLayer(
+    const centerFinal = mgr.layers.addLayer(
       Util.makeNode(centerLatLng, CONST.CLASSES.NODE_SOLID),
       CONST.PANES.NODE,
     ) as L.CircleMarker;
     // Pure create + node-pane mount (no click handler) — strictly equivalent
     // to the old makeDelIcon + addLayer. The ✕ delete click is wired in
     // attachCircleUI, which owns the deleteMeasurement from attachDelLifecycle.
-    const delMarker = mountMeasureDelIcon(manager.layers, centerLatLng, {
-      title: manager.T("del_tooltip"),
+    const delMarker = mountMeasureDelIcon(mgr.layers, centerLatLng, {
+      title: mgr.T("del_tooltip"),
     }) as L.Marker;
 
     const mid = Util.midpoint(centerLatLng, targetLatLng);
-    const radiusLabel = manager.layers.addLayer(
+    const radiusLabel = mgr.layers.addLayer(
       L.marker([mid.lat, mid.lng], {
         icon: Util.makeLabelDivIcon(
           Util.formatDistance(r),
@@ -76,8 +76,8 @@ class CircleMode extends PreviewMode {
       CONST.PANES.LABEL,
     ) as L.Marker;
 
-    attachCircleUI(manager, {
-      layers: manager.layers,
+    attachCircleUI(mgr, {
+      layers: mgr.layers,
       circle,
       radiusLine,
       radiusNode,
@@ -85,12 +85,12 @@ class CircleMode extends PreviewMode {
       delMarker,
       radiusLabel,
       id: data.id!,
-      onDelete: () => manager.store.remove(data.id!),
+      onDelete: () => mgr.store.remove(data.id!),
       onEnd: () => {
         const center = circle.getLatLng();
         const target = radiusNode!.getLatLng();
         const r = circle.getRadius();
-        manager.store.mutateAndPersist(data.id!, m => {
+        mgr.store.mutateAndPersist(data.id!, m => {
           m.center = { lng: center.lng, lat: center.lat };
           m.target = { lng: target.lng, lat: target.lat };
           m.radius = r;
@@ -125,7 +125,7 @@ class CircleMode extends PreviewMode {
     const onMapClick = (event: L.LeafletMouseEvent) => {
       if (
         isFinalizing ||
-        this.m.currentMode !== this.type ||
+        this.mgr.currentMode !== this.type ||
         (phase !== 0 && phase !== 1)
       ) {
         return;
@@ -157,7 +157,7 @@ class CircleMode extends PreviewMode {
         lastFinishTime = Date.now();
         const savedCenter = center;
         this.cleanup();
-        this.m.clearActiveMode();
+        this.mgr.clearActiveMode();
         isFinalizing = true;
         setTimeout(() => {
           finishCircle(savedCenter!, r, event.latlng);
@@ -167,7 +167,7 @@ class CircleMode extends PreviewMode {
     };
 
     const onMouseMove = (event: L.LeafletMouseEvent) => {
-      if (phase !== 1 || !center || this.m.currentMode !== this.type) return;
+      if (phase !== 1 || !center || this.mgr.currentMode !== this.type) return;
       const r = Util.distance(center!, event.latlng);
 
       if (!previews.circle) {
@@ -210,7 +210,7 @@ class CircleMode extends PreviewMode {
 
     const onContext = (event: L.LeafletMouseEvent) => {
       stopEvent(event);
-      this.m.clearActiveMode();
+      this.mgr.clearActiveMode();
     };
 
     const finishCircle = (
@@ -279,7 +279,7 @@ class CircleMode extends PreviewMode {
       );
 
       const circleId = this.nextMeasurementId();
-      this.m.store.add({
+      this.mgr.store.add({
         id: circleId,
         type: this.type,
         center: { lng: centerLatLng.lng, lat: centerLatLng.lat },
@@ -288,7 +288,7 @@ class CircleMode extends PreviewMode {
         area: Math.PI * r * r,
       });
 
-      attachCircleUI(this.m, {
+      attachCircleUI(this.mgr, {
         layers: this.layers,
         circle: circle as L.Circle,
         radiusLine: radiusLine as L.Polyline,
@@ -298,7 +298,7 @@ class CircleMode extends PreviewMode {
         radiusLabel: radiusLabel as L.Marker,
         id: circleId,
         onDelete: () => {
-          this.m.store.remove(circleId);
+          this.mgr.store.remove(circleId);
         },
         onEnd: () => {
           const c = circle as L.Circle;
@@ -306,7 +306,7 @@ class CircleMode extends PreviewMode {
           const center = c.getLatLng();
           const target = n.getLatLng();
           const r = c.getRadius();
-          this.m.store.mutateAndPersist(circleId, m => {
+          this.mgr.store.mutateAndPersist(circleId, m => {
             m.center = { lng: center.lng, lat: center.lat };
             m.target = { lng: target.lng, lat: target.lat };
             m.radius = r;

@@ -1,6 +1,6 @@
 () => {
   // Read the heatmap manager state after clearing.
-  const m = window.__heatmapCtrl.manager;
+  const m = window.__heatmapCtrl.mgr;
   return {
     numClasses: m.numClasses,
     borderWeight: m.borderWeight,

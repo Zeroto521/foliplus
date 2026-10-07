@@ -14,7 +14,7 @@ async () => {
 
   // Writes are debounced (SAVE_DEBOUNCE_MS), so every read waits past the flush.
   const wait = ms => new Promise(r => setTimeout(r, ms));
-  const lid = () => hm.manager.layerId;
+  const lid = () => hm.mgr.layerId;
 
   const stored = () => {
     const key = Object.keys(localStorage).find(k =>

@@ -2,7 +2,7 @@
 //
 // Encapsulates the measurements array, id counter, persistence (localStorage),
 // and LAYER_ITEM_COUNT_CHANGE emission. Call sites (modes, ui, export) go
-// through this store instead of poking manager.measurements + saveMeasurements
+// through this store instead of poking mgr.measurements + saveMeasurements
 // directly, mirroring LayerControl's persistence.ts convention: one store
 // class, keys in const.ts STORAGE, no direct Storage access outside.
 import { EVENTS, ensureEvents } from "#core/event/index.js";

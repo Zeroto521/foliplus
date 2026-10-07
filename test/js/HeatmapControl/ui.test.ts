@@ -807,7 +807,7 @@ describe("refreshSchemeDropdownItems — malformed items", () => {
     fakeItem.setAttribute("data-scheme-name", "Reds");
     // No bar child — renderColorBar would throw on null.innerHTML.
     ctrl.schemeDropdown!.appendChild(fakeItem);
-    const getColorScaleSpy = vi.spyOn(ctrl.m, "getColorScale");
+    const getColorScaleSpy = vi.spyOn(ctrl.mgr, "getColorScale");
     ctrl.classSelect.value = "4";
     fire(ctrl.classSelect, "change");
     expect(ctrl.schemeDropdown).not.toBeNull();

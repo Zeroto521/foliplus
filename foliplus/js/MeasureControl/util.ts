@@ -168,14 +168,14 @@ const animateDashSweep = (path: SVGElement | null) => {
  * address unchanged if the lookup fails so a drag never erases a good address.
  */
 const geocodeAddress = async (
-  manager: { map: L.Map },
+  mgr: { map: L.Map },
   lng: number,
   lat: number,
   code: string,
   previous: string | null,
 ): Promise<string | null> => {
   try {
-    return (await reverseGeocode(manager.map, lng, lat, code)) ?? previous;
+    return (await reverseGeocode(mgr.map, lng, lat, code)) ?? previous;
   } catch {
     return previous;
   }

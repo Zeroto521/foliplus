@@ -1,6 +1,6 @@
 () => {
   // Read the heatmap manager state on panel expand to verify auto-select.
-  const m = window.__heatmapCtrl.manager;
+  const m = window.__heatmapCtrl.mgr;
   return {
     selectedLayerId: m.selectedLayerId,
     hasCachedFeatures: m.cachedFeatures !== null && m.cachedFeatures !== undefined,
