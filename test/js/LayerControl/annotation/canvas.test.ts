@@ -2,7 +2,7 @@
 // own pane; it paints the slice the manager hands it and nothing else.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AnnotationCanvas } from "#foliplus/LayerControl/annotation/canvas.js";
-import type { PlacedLabel } from "#foliplus/LayerControl/annotation/layout.js";
+import type { PlannedLabel } from "#foliplus/LayerControl/annotation/layout.js";
 import { getLayerAlpha } from "#common/canvasAlpha.js";
 
 const makeCtx = () => ({
@@ -20,7 +20,7 @@ const makeCtx = () => ({
 });
 
 /** A planned label at a given box (the plan has already positioned it). */
-const placed = (text: string, box = { x: 10, y: 20, w: 40, h: 12 }): PlacedLabel => ({
+const placed = (text: string, box = { x: 10, y: 20, w: 40, h: 12 }): PlannedLabel => ({
   id: text,
   text,
   atPoint: true,

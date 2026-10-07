@@ -26,7 +26,7 @@ import { AnnotationCanvas } from "./canvas.js";
 import {
   type LabelCandidate,
   type LabelSpec,
-  type PlacedLabel,
+  type PlannedLabel,
   layoutLabel,
   planLabelLayout,
 } from "./layout.js";
@@ -99,7 +99,7 @@ class AnnotationManager {
    *  the planned boxes by the delta from it instead of re-planning. */
   private planOrigin: { x: number; y: number } | null = null;
   /** What the last full plan handed each canvas, kept for the pan translate. */
-  private readonly lastPlanned = new Map<string, PlacedLabel[]>();
+  private readonly lastPlanned = new Map<string, PlannedLabel[]>();
 
   constructor(opts: { map: L.Map; layerFind: (id: string) => L.Layer | null }) {
     this.map = opts.map;
@@ -522,7 +522,7 @@ class AnnotationManager {
 
   /** What one layer's canvas draws: its own labels, laid out, culled to the
    *  viewport and — unless the layer opted out — thinned by collision. */
-  private plannedFor(id: string, spec: LabelSpec, viewport: Box): PlacedLabel[] {
+  private plannedFor(id: string, spec: LabelSpec, viewport: Box): PlannedLabel[] {
     if (!this.isVisible(id)) return [];
     const labels = this.labelsByLayer.get(id);
     if (!labels || labels.length === 0) return [];
