@@ -7,7 +7,7 @@ import {
   attachDelClick,
   bindDelIconToPopup,
   hideDelIcons,
-  makeDelIcon,
+  buildDelIcon,
   toggleDelIcon,
 } from "#core/leaflet/index.js";
 
@@ -21,9 +21,9 @@ describe("delicon constants", () => {
   });
 });
 
-describe("makeDelIcon", () => {
+describe("buildDelIcon", () => {
   it("creates a marker with default anchor / z-index / html structure", () => {
-    makeDelIcon({ lat: 1, lng: 2 });
+    buildDelIcon({ lat: 1, lng: 2 });
     expect(window.L.marker).toHaveBeenCalled();
     const [latlng, opts] = window.L.marker.mock.calls[0];
     expect(latlng).toEqual({ lat: 1, lng: 2 });
@@ -41,7 +41,7 @@ describe("makeDelIcon", () => {
   });
 
   it("lets callers override className / anchor / z-index / title", () => {
-    makeDelIcon(
+    buildDelIcon(
       { lat: 1, lng: 2 },
       {
         className: "extra",

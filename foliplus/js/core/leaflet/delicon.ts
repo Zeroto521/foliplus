@@ -17,8 +17,8 @@ const DEL_ICON_MARKER_ANCHOR: [number, number] = [0, 24];
 /** Z-index offset so the ✕ always renders above the marker it floats on. */
 const DEL_ICON_Z_OFFSET = 11000; // above the pin (PIN.Z_OFFSET = 10000)
 
-/** Create a delete icon marker (X icon, common version). */
-const makeDelIcon = (
+/** Build a delete icon marker (X icon, common version). */
+const buildDelIcon = (
   latlng: L.LatLngExpression,
   opts: {
     className?: string;
@@ -91,7 +91,7 @@ export {
   DEL_ICON_Z_OFFSET,
   attachDelClick,
   hideDelIcons,
-  makeDelIcon,
+  buildDelIcon,
   toggleDelIcon,
   bindDelIconToPopup,
 };

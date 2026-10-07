@@ -5,38 +5,38 @@ import { installStubs, makeConfig, makeMgr } from "./fixture.js";
 
 const {
   attachDelClick,
-  makeDelIcon,
+  buildDelIcon,
   mountDelIcon,
   toggleDelIcon,
-  realMakeDelIcon,
+  realBuildDelIcon,
   dragHandlers,
 } = vi.hoisted(() => ({
   attachDelClick: vi.fn((marker: any, cb: () => void) => {
     marker._delClick = cb;
   }),
-  makeDelIcon: vi.fn((...args: any[]) => realMakeDelIcon.value(...args)),
+  buildDelIcon: vi.fn((...args: any[]) => realBuildDelIcon.value(...args)),
   // mountDelIcon is mocked as a whole rather than delegating to the real
   // helper: the helper resolves attachDelClick through ./delicon.js, which
   // this mock does not reach, so no marker would get _delClick.
   mountDelIcon: vi.fn(
     (latlng: any, opts: any, mount: (m: any) => void, onDelete?: () => void) => {
-      const marker = makeDelIcon(latlng, opts);
+      const marker = buildDelIcon(latlng, opts);
       mount(marker);
       if (onDelete) attachDelClick(marker, onDelete);
       return marker;
     },
   ),
   toggleDelIcon: vi.fn(),
-  realMakeDelIcon: { value: null as any },
+  realBuildDelIcon: { value: null as any },
   dragHandlers: [] as Array<Record<string, (...args: any[]) => any>>,
 }));
 
 vi.mock("#core/leaflet/index.js", async importOriginal => {
   const actual = await importOriginal<typeof import("#core/leaflet/index.js")>();
-  realMakeDelIcon.value = actual.makeDelIcon;
+  realBuildDelIcon.value = actual.buildDelIcon;
   return {
     ...actual,
-    makeDelIcon,
+    buildDelIcon,
     attachDelClick,
     toggleDelIcon,
     hideDelIcons: vi.fn(),
@@ -107,7 +107,7 @@ describe("attachDistanceUI", () => {
   it("creates a delete icon per node", () => {
     const opts = makeOpts();
     UI.attachDistanceUI(makeMgr() as any, opts as any);
-    expect(makeDelIcon).toHaveBeenCalled();
+    expect(buildDelIcon).toHaveBeenCalled();
   });
 
   it("reads the delete-icon titles through the manager-bound translator (injected config), not window.CONFIG", () => {
@@ -124,7 +124,7 @@ describe("attachDistanceUI", () => {
       const mgr = makeMgr(config);
       UI.attachDistanceUI(mgr as any, makeOpts() as any);
 
-      const titles = (makeDelIcon as any).mock.calls.map(c => c[1]?.title);
+      const titles = (buildDelIcon as any).mock.calls.map(c => c[1]?.title);
       expect(titles).toEqual(["INJECTED del_all", "INJECTED del_all"]);
       expect(mgr.T).toHaveBeenCalledWith("del_all");
       expect(mgr.T).not.toHaveBeenCalledWith("del_node");
@@ -169,11 +169,11 @@ describe("attachDistanceUI", () => {
       } as any,
     );
 
-    const lastDel = (makeDelIcon as any).mock.results[2].value as any;
+    const lastDel = (buildDelIcon as any).mock.results[2].value as any;
     const iconEl = { title: "" };
     (lastDel.getElement as any).mockReturnValue(iconEl);
 
-    const middleDel = (makeDelIcon as any).mock.results[1].value as any;
+    const middleDel = (buildDelIcon as any).mock.results[1].value as any;
     (middleDel as any)._delClick();
 
     expect(iconEl.title).toBe("Delete measurement");
@@ -230,8 +230,8 @@ describe("attachDistanceUI", () => {
       } as any,
     );
 
-    const middleDel = (makeDelIcon as any).mock.results[1].value as any;
-    const lastDel = (makeDelIcon as any).mock.results[2].value as any;
+    const middleDel = (buildDelIcon as any).mock.results[1].value as any;
+    const lastDel = (buildDelIcon as any).mock.results[2].value as any;
 
     const postBindClickHandlers: Array<(e: any) => void> = [];
     (lastDel.on as any).mockImplementation((ev: string, fn: (e: any) => void) => {
@@ -291,7 +291,7 @@ describe("attachDistanceUI", () => {
 
     expect(registerLabel).toHaveBeenCalledTimes(2);
 
-    const middleDel = (makeDelIcon as any).mock.results[1].value;
+    const middleDel = (buildDelIcon as any).mock.results[1].value;
     const beforeCalls = registerLabel.mock.calls.length;
 
     (middleDel as any)._delClick();
@@ -368,7 +368,7 @@ describe("attachDistanceUI", () => {
       CONST.LABEL_PRIORITY.TOTAL,
     ]);
 
-    (makeDelIcon.mock.results[1].value as any)._delClick();
+    (buildDelIcon.mock.results[1].value as any)._delClick();
 
     const lastCall = registerLabel.mock.calls.at(-1);
     expect(lastCall?.[1]).toBe(CONST.LABEL_PRIORITY.TOTAL);
@@ -566,7 +566,7 @@ describe("attachDistanceUI — whole-distance delete flow", () => {
     // With 2 points, both endpoints are del-all. Clicking either triggers
     // deleteMeasurement, which runs dispose() → dragBinds[i].cleanup() +
     // unregisterSegLabels() + unregisterDragToggle().
-    const firstEndpointDel = (makeDelIcon as any).mock.results[0].value as any;
+    const firstEndpointDel = (buildDelIcon as any).mock.results[0].value as any;
     (firstEndpointDel as any)._delClick();
 
     expect(registerLabel).toHaveBeenCalled();
@@ -623,7 +623,7 @@ describe("attachDistanceUI — edge cases", () => {
     const onDelete = opts.onDelete as any;
     const onUpdate = opts.onUpdate as any;
 
-    (makeDelIcon as any).mock.results[1].value._delClick();
+    (buildDelIcon as any).mock.results[1].value._delClick();
 
     expect(onDelete).not.toHaveBeenCalled();
     expect(onUpdate).not.toHaveBeenCalled();
@@ -644,7 +644,7 @@ describe("attachDistanceUI — edge cases", () => {
 
     // 4 points → splice 1 → 3 remaining; `points.length === 2` is false, so the
     // last-endpoint rebind block is skipped.
-    (makeDelIcon as any).mock.results[1].value._delClick();
+    (buildDelIcon as any).mock.results[1].value._delClick();
 
     expect(onUpdate).toHaveBeenCalledWith(opts.points);
     expect(opts.points).toHaveLength(3);

@@ -8,7 +8,7 @@ export {
   attachDelClick,
   bindDelIconToPopup,
   hideDelIcons,
-  makeDelIcon,
+  buildDelIcon,
   toggleDelIcon,
 } from "./delicon.js";
 export { mountDelIcon } from "./deliconMount.js";
