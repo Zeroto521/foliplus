@@ -75,24 +75,24 @@ class HeatmapManager {
   events: EventBus;
   selectedLayerId: string | null;
   pointLayers: PointLayerInfo[];
-  currentAgg: string;
+  agg: string;
   /** Selected aggregation field — starts empty (no Python-side declaration),
    *  becomes the first numeric property name in auto mode, or whatever the
    *  user picked from the field dropdown. */
-  currentField: string;
-  currentScheme: string;
-  currentMethod: string;
+  field: string;
+  scheme: string;
+  method: string;
   autoFieldKey: string | null;
   numClasses: number;
   borderWeight: number;
   borderColor: string;
-  currentLabelShow: boolean;
+  labelShow: boolean;
   /** Runtime label color/size — heatmap panel and layer drawer both write these. */
-  currentLabelColor: string;
-  currentLabelSize: number;
+  labelColor: string;
+  labelSize: number;
   /** Runtime label number format — heatmap panel and layer drawer both write
    *  this; Python CONFIG only seeds the initial value. */
-  currentLabelFormat: NumberStyle;
+  labelFormat: NumberStyle;
   /** Style provider — shared by the layer drawer and the heatmap panel's
    *  label controls (core/labelControl). Reads live state; the drawer refreshes on
    *  LAYER_STYLE_CHANGE. */
@@ -170,26 +170,23 @@ class HeatmapManager {
     // State management
     this.selectedLayerId = null;
     this.pointLayers = [];
-    this.currentAgg = CONFIG.agg ?? CONST.AGG.COUNT;
-    this.currentField = "";
-    this.currentScheme = CONFIG.color_scheme ?? "Reds";
-    this.currentMethod = CONFIG.method ?? CLASSIFY_METHOD.JENKS;
+    this.agg = CONFIG.agg ?? CONST.AGG.COUNT;
+    this.field = "";
+    this.scheme = CONFIG.color_scheme ?? "Reds";
+    this.method = CONFIG.method ?? CLASSIFY_METHOD.JENKS;
     this.autoFieldKey = null;
     this.numClasses = CONFIG.n_classes ?? CONST.CLASS_COUNT.DEFAULT;
     this.borderWeight = CONFIG.border_weight ?? BORDER_WEIGHT.DEFAULT;
     this.borderColor = CONFIG.border_color ?? CONST.GRAY;
     // Python default is True; only an explicit false turns labels off — same
     // `!== false` rule MeasureControl uses for label_show / label_collide.
-    this.currentLabelShow = CONFIG.label_show !== false;
+    this.labelShow = CONFIG.label_show !== false;
     // Color inputs require #rrggbb — normalize the short #fff Python default.
-    this.currentLabelColor = normalizeHexColor(
+    this.labelColor = normalizeHexColor(
       CONFIG.label_color ?? CONST.LABEL.COLOR_DEFAULT,
     );
-    this.currentLabelSize = clampLabelSize(
-      CONFIG.label_size ?? CONST.LABEL.SIZE_DEFAULT,
-    );
-    this.currentLabelFormat = (CONFIG.label_format ??
-      NUMBER_FORMAT.AUTO) as NumberStyle;
+    this.labelSize = clampLabelSize(CONFIG.label_size ?? CONST.LABEL.SIZE_DEFAULT);
+    this.labelFormat = (CONFIG.label_format ?? NUMBER_FORMAT.AUTO) as NumberStyle;
     this.valueFallbackWarned = false;
     this.sourceMeta = {};
     // Write-through binding: config is durable the moment a UI change lands,
@@ -201,27 +198,27 @@ class HeatmapManager {
           {
             version: CONST.RECORD_VERSION,
             layerId: this.selectedLayerId,
-            agg: this.currentAgg,
-            method: this.currentMethod,
-            scheme: this.currentScheme,
+            agg: this.agg,
+            method: this.method,
+            scheme: this.scheme,
             numClasses: this.numClasses,
             borderWeight: this.borderWeight,
             borderColor: this.borderColor,
-            labelShow: this.currentLabelShow,
-            labelColor: this.currentLabelColor,
-            labelSize: this.currentLabelSize,
-            labelFormat: this.currentLabelFormat,
-            field: this.currentField,
+            labelShow: this.labelShow,
+            labelColor: this.labelColor,
+            labelSize: this.labelSize,
+            labelFormat: this.labelFormat,
+            field: this.field,
           } satisfies SavedConfig,
           CONFIG.name,
         ),
     });
     // Snapshot the Python CONFIG style defaults before any runtime toggle so
     // Reset restores exactly what construction started from (never localStorage).
-    const defaultLabelShow = this.currentLabelShow;
-    const defaultLabelColor = this.currentLabelColor;
-    const defaultLabelSize = this.currentLabelSize;
-    const defaultLabelFormat = this.currentLabelFormat;
+    const defaultLabelShow = this.labelShow;
+    const defaultLabelColor = this.labelColor;
+    const defaultLabelSize = this.labelSize;
+    const defaultLabelFormat = this.labelFormat;
     const defaultBorderWeight = this.borderWeight;
     const defaultBorderColor = this.borderColor;
     // Style delegation for the layer style drawer. The drawer mirrors every
@@ -230,16 +227,16 @@ class HeatmapManager {
     // dispatches changes through the same setters and refreshes from the same
     // provider.
     this.styleProvider = () => ({
-      labelShow: this.currentLabelShow,
-      labelColor: this.currentLabelColor,
-      labelSize: this.currentLabelSize,
-      labelFormat: this.currentLabelFormat,
+      labelShow: this.labelShow,
+      labelColor: this.labelColor,
+      labelSize: this.labelSize,
+      labelFormat: this.labelFormat,
       borderWeight: this.borderWeight,
       borderColor: this.borderColor,
     });
     this.styleSetters = {
       labelShow: v => {
-        this.currentLabelShow = v === true;
+        this.labelShow = v === true;
         this.renderHexagons();
         this.saveConfig();
         this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
@@ -248,8 +245,8 @@ class HeatmapManager {
       // Size/color only rewrite label paint — drop the cached style and
       // redraw from the feature cache.
       labelColor: v => {
-        this.currentLabelColor =
-          typeof v === "string" ? normalizeHexColor(v) : this.currentLabelColor;
+        this.labelColor =
+          typeof v === "string" ? normalizeHexColor(v) : this.labelColor;
         this.cachedLabelStyle = null;
         this.redrawHeatmap();
         this.saveConfig();
@@ -257,9 +254,8 @@ class HeatmapManager {
         this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
       },
       labelSize: v => {
-        const nextSize =
-          typeof v === "number" && !Number.isNaN(v) ? v : this.currentLabelSize;
-        this.currentLabelSize = clampLabelSize(nextSize);
+        const nextSize = typeof v === "number" && !Number.isNaN(v) ? v : this.labelSize;
+        this.labelSize = clampLabelSize(nextSize);
         this.cachedLabelStyle = null;
         this.redrawHeatmap();
         this.saveConfig();
@@ -269,7 +265,7 @@ class HeatmapManager {
       // Format only rewrites the label text — redraw from cache, skip the
       // H3 re-aggregation that labelShow triggers.
       labelFormat: v => {
-        this.currentLabelFormat = (
+        this.labelFormat = (
           typeof v === "string" ? v : NUMBER_FORMAT.AUTO
         ) as NumberStyle;
         this.redrawHeatmap();
@@ -517,7 +513,7 @@ class HeatmapManager {
     this.cachedFeatures.forEach(feat => {
       if (!isVisible(feat)) return;
       this.drawHexagon(ctx, feat);
-      if (this.currentLabelShow) this.drawHexLabel(ctx, feat, labelCfg);
+      if (this.labelShow) this.drawHexLabel(ctx, feat, labelCfg);
     });
     if (preserveCss) setLayerAlpha(this.overlay.canvas, layerAlpha);
   }
@@ -535,8 +531,8 @@ class HeatmapManager {
     if (this.cachedLabelStyle) return this.cachedLabelStyle;
     this.cachedLabelStyle = resolveLabelStyleFn(
       this.ui!.ctrl,
-      this.currentLabelSize,
-      this.currentLabelColor,
+      this.labelSize,
+      this.labelColor,
     );
     return this.cachedLabelStyle;
   }
@@ -547,7 +543,7 @@ class HeatmapManager {
     feat: HexFeature,
     style: CanvasLabelStyle,
   ) {
-    drawHexLabelFn(ctx, feat, style, this.map, this.currentLabelFormat);
+    drawHexLabelFn(ctx, feat, style, this.map, this.labelFormat);
   }
 
   // --- Data Extraction ---
@@ -651,13 +647,13 @@ class HeatmapManager {
   }
 
   getPointValue(marker: L.Marker | L.CircleMarker): number {
-    if (this.currentAgg === CONST.AGG.COUNT) return 1;
-    const key = this.currentField || this.autoFieldKey;
+    if (this.agg === CONST.AGG.COUNT) return 1;
+    const key = this.field || this.autoFieldKey;
     const val = this.readMarkerField(marker, key);
     if (val === undefined || isNaN(val)) {
       if (!this.valueFallbackWarned) {
         this.valueFallbackWarned = true;
-        this.log.warn("value fallback to 1", this.currentField);
+        this.log.warn("value fallback to 1", this.field);
       }
       return 1;
     }
@@ -666,7 +662,7 @@ class HeatmapManager {
 
   getSelectedPoints(): SelectedPoint[] {
     this.valueFallbackWarned = false;
-    const key = `${this.selectedLayerId}|${this.currentAgg}|${this.currentField}`;
+    const key = `${this.selectedLayerId}|${this.agg}|${this.field}`;
     if (this.cachedPoints?.key === key) {
       return this.cachedPoints.pts;
     }
@@ -709,7 +705,7 @@ class HeatmapManager {
     const pts = this.getSelectedPoints();
     const zoom = this.map.getZoom();
     const res = this.getH3Res(zoom);
-    const aggKey = `${this.selectedLayerId}|${this.currentAgg}|${this.currentField}|${res}|${this.currentMethod}|${this.currentScheme}|${this.numClasses}`;
+    const aggKey = `${this.selectedLayerId}|${this.agg}|${this.field}|${res}|${this.method}|${this.scheme}|${this.numClasses}`;
     let aggregated: AggregatedData | undefined;
     if (this.cachedAgg?.key === aggKey) {
       aggregated = this.cachedAgg.data;
@@ -726,10 +722,10 @@ class HeatmapManager {
     return aggregateDataFn(
       pts,
       res,
-      this.currentAgg,
+      this.agg,
       this.numClasses,
-      this.currentMethod,
-      this.currentScheme,
+      this.method,
+      this.scheme,
       () => this.clearHeatmapCanvas(),
       this.log,
     );
@@ -773,11 +769,11 @@ class HeatmapManager {
   resetState(config: ComponentConfig) {
     this.selectedLayerId = null;
     this.autoFieldKey = null;
-    this.currentAgg = config.agg ?? CONST.AGG.COUNT;
-    this.currentField = "";
+    this.agg = config.agg ?? CONST.AGG.COUNT;
+    this.field = "";
     this.numClasses = config.n_classes ?? CONST.CLASS_COUNT.DEFAULT;
-    this.currentMethod = config.method ?? CLASSIFY_METHOD.JENKS;
-    this.currentScheme = config.color_scheme ?? "Reds";
+    this.method = config.method ?? CLASSIFY_METHOD.JENKS;
+    this.scheme = config.color_scheme ?? "Reds";
   }
 
   /** Load saved configuration from localStorage into this manager's state. */
@@ -829,8 +825,8 @@ class HeatmapManager {
       ? (this.pointLayers.find(i => i.id === this.selectedLayerId)?.name ?? "")
       : "";
     let fieldLabel = "";
-    if (this.selectedLayerId && this.currentAgg !== CONST.AGG.COUNT) {
-      const key = this.currentField || this.autoFieldKey;
+    if (this.selectedLayerId && this.agg !== CONST.AGG.COUNT) {
+      const key = this.field || this.autoFieldKey;
       if (key) fieldLabel = bareFieldName(key);
     }
 

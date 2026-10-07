@@ -58,10 +58,10 @@ const getColorScale = (name: string, count: number): string[] => {
 const aggregateData = (
   pts: SelectedPoint[],
   res: number,
-  currentAgg: string,
+  agg: string,
   numClasses: number,
-  currentMethod: string,
-  currentScheme: string,
+  method: string,
+  scheme: string,
   onEmpty: () => void,
   log: Logger,
 ): AggregatedData | null => {
@@ -83,7 +83,7 @@ const aggregateData = (
   });
 
   const getAggValue = (cell: HexCell): number => {
-    switch (currentAgg) {
+    switch (agg) {
       case CONST.AGG.COUNT:
         return cell.count;
       case CONST.AGG.SUM:
@@ -106,8 +106,8 @@ const aggregateData = (
   }
 
   const numClassesCapped = Math.min(numClasses, allVals.length);
-  const breaks = computeBreaks(allVals, numClassesCapped, currentMethod);
-  const classColors = getColorScale(currentScheme, numClassesCapped);
+  const breaks = computeBreaks(allVals, numClassesCapped, method);
+  const classColors = getColorScale(scheme, numClassesCapped);
   const valueToClassIdx = (val: number): number => {
     if (breaks.length < 2) return 0;
     for (let i = 1; i < breaks.length; i++) if (val <= breaks[i]) return i - 1;

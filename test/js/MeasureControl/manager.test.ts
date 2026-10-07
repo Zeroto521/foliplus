@@ -1331,12 +1331,12 @@ describe("MeasureManager — registerLabel lifecycle", () => {
     );
   });
 
-  it("labelsCollide defaults to true and flips via setLabelCollide", () => {
+  it("labelCollide defaults to true and flips via setLabelCollide", () => {
     const { manager } = makeLabelManager();
-    expect(manager.labelsCollide).toBe(true);
+    expect(manager.labelCollide).toBe(true);
 
     manager.setLabelCollide(false);
-    expect(manager.labelsCollide).toBe(false);
+    expect(manager.labelCollide).toBe(false);
   });
 
   it("forwards the marker and priority to the label passed into placeLabels", () => {
@@ -1667,12 +1667,12 @@ describe("MeasureManager — label cleanup", () => {
     expect(spy).toHaveBeenCalledWith(false);
   });
 
-  it("labelsVisible getter returns the live labelShow value", () => {
+  it("labelShow reflects the live value set by setLabelsVisible", () => {
     const { manager } = makeLabelManager();
-    expect(manager.labelsVisible).toBe(true);
+    expect(manager.labelShow).toBe(true);
 
     manager.setLabelsVisible(false);
-    expect(manager.labelsVisible).toBe(false);
+    expect(manager.labelShow).toBe(false);
   });
 
   it("setLabelsVisible tolerates a marker whose chip is missing", () => {

@@ -107,24 +107,24 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
       Math.max(CONST.CLASS_COUNT.MIN, ctrl.mgr.numClasses),
     ),
   );
-  ctrl.methodSelect.value = ctrl.mgr.currentMethod;
-  ctrl.aggSelect.value = ctrl.mgr.currentAgg;
+  ctrl.methodSelect.value = ctrl.mgr.method;
+  ctrl.aggSelect.value = ctrl.mgr.agg;
 
   // Populate scheme options and set current value
   (ctrl.config.schemes ?? []).forEach(name => {
     dom.el("option", { value: name, parent: ctrl.schemeSelectHidden }, name);
   });
-  ctrl.schemeSelectHidden.value = ctrl.mgr.currentScheme;
+  ctrl.schemeSelectHidden.value = ctrl.mgr.scheme;
 
   ctrl.aggSelect.onchange = () => {
-    ctrl.mgr.currentAgg = ctrl.aggSelect.value;
+    ctrl.mgr.agg = ctrl.aggSelect.value;
     updateFieldSelector(ctrl);
     ctrl.mgr.renderHexagons();
     persist(ctrl);
   };
 
   ctrl.fieldSelect.onchange = () => {
-    ctrl.mgr.currentField = ctrl.fieldSelect.value;
+    ctrl.mgr.field = ctrl.fieldSelect.value;
     syncSelect(ctrl, ctrl.fieldSelect, ctrl.fieldSelect.value);
     ctrl.mgr.renderHexagons();
     persist(ctrl);
@@ -132,7 +132,7 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
   };
 
   ctrl.methodSelect.onchange = () => {
-    ctrl.mgr.currentMethod = ctrl.methodSelect.value;
+    ctrl.mgr.method = ctrl.methodSelect.value;
     ctrl.mgr.renderHexagons();
     persist(ctrl);
   };
@@ -163,7 +163,7 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
   };
 
   ctrl.schemeSelectHidden.onchange = () => {
-    ctrl.mgr.currentScheme = ctrl.schemeSelectHidden.value;
+    ctrl.mgr.scheme = ctrl.schemeSelectHidden.value;
     updateSchemeBar(ctrl);
     ctrl.mgr.renderHexagons();
     persist(ctrl);
@@ -254,7 +254,7 @@ const buildLayerListItems = (ctrl: HeatmapControlUI, sel: HTMLSelectElement) => 
     ctrl.mgr.renderHexagons();
   } else if (ctrl.mgr.selectedLayerId) {
     // Restored selection (localStorage / rebuild): resolve the field list
-    // first so autoFieldKey is fresh — syncSourceMeta reads it under currentField.
+    // first so autoFieldKey is fresh — syncSourceMeta reads it under field.
     updateFieldSelector(ctrl);
   }
 
@@ -290,7 +290,7 @@ const rebuildLayerDropdown = (ctrl: HeatmapControlUI) => {
 
 const updateFieldSelector = (ctrl: HeatmapControlUI) => {
   if (!ctrl.fieldWrap || !ctrl.fieldSelect) return;
-  if (ctrl.mgr.currentAgg === CONST.AGG.COUNT) {
+  if (ctrl.mgr.agg === CONST.AGG.COUNT) {
     ctrl.fieldWrap.classList.add(CONST.CLASSES.HIDDEN);
     return;
   }
@@ -318,10 +318,10 @@ const updateFieldSelector = (ctrl: HeatmapControlUI) => {
     dom.el("option", { value: f, parent: ctrl.fieldSelect }, f);
   });
 
-  if (ctrl.mgr.currentField && !fields.includes(ctrl.mgr.currentField)) {
-    ctrl.mgr.currentField = "";
+  if (ctrl.mgr.field && !fields.includes(ctrl.mgr.field)) {
+    ctrl.mgr.field = "";
   }
-  ctrl.fieldSelect.value = ctrl.mgr.currentField;
+  ctrl.fieldSelect.value = ctrl.mgr.field;
 
   syncSelect(ctrl, ctrl.fieldSelect, ctrl.fieldSelect.value);
 };
@@ -344,13 +344,8 @@ const renderColorBar = (
 };
 
 const updateSchemeBar = (ctrl: HeatmapControlUI) => {
-  renderColorBar(
-    ctrl,
-    ctrl.schemeBarInner,
-    ctrl.mgr.currentScheme,
-    ctrl.mgr.numClasses,
-  );
-  ctrl.schemeBar.title = ctrl.mgr.currentScheme;
+  renderColorBar(ctrl, ctrl.schemeBarInner, ctrl.mgr.scheme, ctrl.mgr.numClasses);
+  ctrl.schemeBar.title = ctrl.mgr.scheme;
 };
 
 const refreshSchemeDropdownItems = (ctrl: HeatmapControlUI) => {
@@ -389,7 +384,7 @@ const toggleSchemeDropdown = (ctrl: HeatmapControlUI) => {
       "data-scheme-name": name,
       parent: ctrl.schemeDropdown,
     });
-    if (name === ctrl.mgr.currentScheme) {
+    if (name === ctrl.mgr.scheme) {
       item.classList.add(CONST.CLASSES.ACTIVE);
       focusIdx = idx;
     }
@@ -419,7 +414,7 @@ const toggleSchemeDropdown = (ctrl: HeatmapControlUI) => {
 };
 
 const selectScheme = (ctrl: HeatmapControlUI, name: string) => {
-  ctrl.mgr.currentScheme = name;
+  ctrl.mgr.scheme = name;
   ctrl.schemeSelectHidden.value = name;
   updateSchemeBar(ctrl);
   if (ctrl.schemeDropdown) {
@@ -517,7 +512,7 @@ const resetPanel = (ctrl: HeatmapControlUI) => {
   // resetState is the single source, and bindControls' initial clamp (see above)
   // is the one the class select needs.
   syncSelect(ctrl, ctrl.layerSelect, "");
-  syncSelect(ctrl, ctrl.aggSelect, ctrl.mgr.currentAgg);
+  syncSelect(ctrl, ctrl.aggSelect, ctrl.mgr.agg);
   syncSelect(
     ctrl,
     ctrl.classSelect,
@@ -528,8 +523,8 @@ const resetPanel = (ctrl: HeatmapControlUI) => {
       ),
     ),
   );
-  syncSelect(ctrl, ctrl.methodSelect, ctrl.mgr.currentMethod);
-  ctrl.schemeSelectHidden.value = ctrl.mgr.currentScheme;
+  syncSelect(ctrl, ctrl.methodSelect, ctrl.mgr.method);
+  ctrl.schemeSelectHidden.value = ctrl.mgr.scheme;
   updateSchemeBar(ctrl);
   updateFieldSelector(ctrl);
   // Drop the published source rows — the canvas unregisters on clear, but the

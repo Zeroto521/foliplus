@@ -55,15 +55,15 @@ const drawHexagon = (
  *  restyle hex labels without a CSS override. */
 const resolveLabelStyle = (
   ctrl: HTMLElement,
-  currentLabelSize: number,
-  currentLabelColor: string,
+  labelSize: number,
+  labelColor: string,
 ): CanvasLabelStyle => {
   const base = resolveCanvasLabelStyle(ctrl);
   return {
     ...base,
-    fontSize: currentLabelSize,
-    font: `${base.fontWeight} ${currentLabelSize}px ${base.fontFamily}`,
-    color: currentLabelColor,
+    fontSize: labelSize,
+    font: `${base.fontWeight} ${labelSize}px ${base.fontFamily}`,
+    color: labelColor,
   };
 };
 
@@ -73,14 +73,14 @@ const drawHexLabel = (
   feat: HexFeature,
   style: CanvasLabelStyle,
   map: L.Map,
-  currentLabelFormat: NumberStyle,
+  labelFormat: NumberStyle,
 ) => {
   const centroid = feat.properties.centroid;
   if (!centroid) return;
   const pt = map.latLngToContainerPoint(L.latLng(centroid[0], centroid[1]));
   const text = formatLabelNumber(
     feat.properties.value ?? 0,
-    currentLabelFormat,
+    labelFormat,
     CONFIG.locale_code,
   );
   withCanvasLayerAlpha(ctx, () => {

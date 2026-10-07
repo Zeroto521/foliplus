@@ -67,10 +67,10 @@ describe("bindControls — template render and initial values", () => {
 
   it("initialises controls from the manager state", () => {
     const { ctrl, m } = setup();
-    expect(ctrl.methodSelect.value).toBe(m.currentMethod);
-    expect(ctrl.aggSelect.value).toBe(m.currentAgg);
+    expect(ctrl.methodSelect.value).toBe(m.method);
+    expect(ctrl.aggSelect.value).toBe(m.agg);
     expect(ctrl.classSelect.value).toBe(String(m.numClasses));
-    expect(ctrl.schemeSelectHidden.value).toBe(m.currentScheme);
+    expect(ctrl.schemeSelectHidden.value).toBe(m.scheme);
   });
 
   it("clamps an out-of-range manager numClasses into the select options", () => {
@@ -86,7 +86,7 @@ describe("bindControls — template render and initial values", () => {
     const { ctrl, m } = setup();
     const options = Array.from(ctrl.schemeSelectHidden.options).map(o => o.value);
     expect(options).toEqual(["Reds", "Blues", "Greens"]);
-    expect(ctrl.schemeBar.title).toBe(m.currentScheme);
+    expect(ctrl.schemeBar.title).toBe(m.scheme);
     expect(ctrl.schemeBarInner.childElementCount).toBeGreaterThan(0);
   });
 });
@@ -98,7 +98,7 @@ describe("bindControls — change handlers", () => {
     const render = vi.spyOn(m, "renderHexagons");
     ctrl.aggSelect.value = CONST.AGG.SUM;
     fire(ctrl.aggSelect, "change");
-    expect(m.currentAgg).toBe(CONST.AGG.SUM);
+    expect(m.agg).toBe(CONST.AGG.SUM);
     expect(render).toHaveBeenCalled();
     expect(save).toHaveBeenCalled();
     expect(ctrl.fieldWrap.classList.contains(CONST.CLASSES.HIDDEN)).toBe(false);
@@ -108,7 +108,7 @@ describe("bindControls — change handlers", () => {
     expect(ctrl.fieldWrap.classList.contains(CONST.CLASSES.HIDDEN)).toBe(true);
   });
 
-  it("field change sets currentField, disables auto-field and persists", () => {
+  it("field change sets field, disables auto-field and persists", () => {
     const { ctrl, m } = setup();
     m.pointLayers = [{ id: "p1", name: "P1", layer: {}, count: 2 }];
     m.selectedLayerId = "p1";
@@ -127,7 +127,7 @@ describe("bindControls — change handlers", () => {
     const render = vi.spyOn(m, "renderHexagons");
     ctrl.fieldSelect.value = "sales";
     fire(ctrl.fieldSelect, "change");
-    expect(m.currentField).toBe("sales");
+    expect(m.field).toBe("sales");
     expect(render).toHaveBeenCalled();
     expect(save).toHaveBeenCalled();
   });
@@ -138,7 +138,7 @@ describe("bindControls — change handlers", () => {
     const render = vi.spyOn(m, "renderHexagons");
     ctrl.methodSelect.value = METHOD.QUANTILE;
     fire(ctrl.methodSelect, "change");
-    expect(m.currentMethod).toBe(METHOD.QUANTILE);
+    expect(m.method).toBe(METHOD.QUANTILE);
     expect(render).toHaveBeenCalled();
     expect(save).toHaveBeenCalled();
   });
@@ -170,7 +170,7 @@ describe("bindControls — change handlers", () => {
     const render = vi.spyOn(m, "renderHexagons");
     ctrl.schemeSelectHidden.value = "Blues";
     fire(ctrl.schemeSelectHidden, "change");
-    expect(m.currentScheme).toBe("Blues");
+    expect(m.scheme).toBe("Blues");
     expect(ctrl.schemeBar.title).toBe("Blues");
     expect(render).toHaveBeenCalled();
     expect(save).toHaveBeenCalled();
@@ -196,12 +196,12 @@ describe("bindControls — clear (reset) button", () => {
     });
     const { ctrl, m, panel } = setup(config);
     m.selectedLayerId = "p1";
-    m.currentAgg = CONST.AGG.SUM;
-    m.currentField = "x";
+    m.agg = CONST.AGG.SUM;
+    m.field = "x";
     m.autoFieldKey = "y";
-    m.currentScheme = "Greens";
+    m.scheme = "Greens";
     m.numClasses = 8;
-    m.currentMethod = "quantile";
+    m.method = "quantile";
 
     const clearBtn = panel.querySelector(
       `[${CONST.DATA_ATTR.BTN_CLEAR}]`,
@@ -210,11 +210,11 @@ describe("bindControls — clear (reset) button", () => {
     clearBtn.click();
 
     expect(m.selectedLayerId).toBeNull();
-    expect(m.currentAgg).toBe(CONST.AGG.COUNT);
-    expect(m.currentField).toBe("");
+    expect(m.agg).toBe(CONST.AGG.COUNT);
+    expect(m.field).toBe("");
     expect(m.numClasses).toBe(config.n_classes);
-    expect(m.currentMethod).toBe(config.method);
-    expect(m.currentScheme).toBe(config.color_scheme);
+    expect(m.method).toBe(config.method);
+    expect(m.scheme).toBe(config.color_scheme);
     expect(clearSaved).toHaveBeenCalledTimes(1);
 
     expect(ctrl.extraBody.classList.contains(CONST.CLASSES.HIDDEN)).toBe(true);
@@ -255,18 +255,18 @@ describe("bindControls — clear (reset) button", () => {
         field: undefined,
       }),
     );
-    m.currentScheme = "Greens";
+    m.scheme = "Greens";
     m.numClasses = 8;
-    m.currentMethod = "quantile";
+    m.method = "quantile";
     const clearBtn = panel.querySelector(
       `[${CONST.DATA_ATTR.BTN_CLEAR}]`,
     ) as HTMLButtonElement;
     clearBtn.click();
 
-    expect(m.currentScheme).toBe("Reds");
+    expect(m.scheme).toBe("Reds");
     expect(m.numClasses).toBe(CONST.CLASS_COUNT.DEFAULT);
-    expect(m.currentMethod).toBe(METHOD.JENKS);
-    expect(m.currentField).toBe("");
+    expect(m.method).toBe(METHOD.JENKS);
+    expect(m.field).toBe("");
     expect(ctrl.aggSelect.value).toBe(CONST.AGG.COUNT);
   });
 });
@@ -276,22 +276,22 @@ describe("resetPanel — shared reset (Clear button + more-menu clear)", () => {
     const config = makeConfig({ color_scheme: "Blues", n_classes: 4, method: "equal" });
     const { ctrl, m } = setup(config);
     m.selectedLayerId = "p1";
-    m.currentAgg = CONST.AGG.SUM;
-    m.currentField = "price";
+    m.agg = CONST.AGG.SUM;
+    m.field = "price";
     m.autoFieldKey = "price";
-    m.currentScheme = "Greens";
+    m.scheme = "Greens";
     m.numClasses = 8;
-    m.currentMethod = "quantile";
+    m.method = "quantile";
     m.cachedFeatures = [] as never;
 
     resetPanel(ctrl);
 
     expect(m.selectedLayerId).toBeNull();
     expect(m.autoFieldKey).toBeNull();
-    expect(m.currentAgg).toBe(CONST.AGG.COUNT);
-    expect(m.currentField).toBe("");
-    expect(m.currentMethod).toBe(config.method);
-    expect(m.currentScheme).toBe(config.color_scheme);
+    expect(m.agg).toBe(CONST.AGG.COUNT);
+    expect(m.field).toBe("");
+    expect(m.method).toBe(config.method);
+    expect(m.scheme).toBe(config.color_scheme);
     expect(m.numClasses).toBe(config.n_classes);
     expect(m.cachedFeatures).toBeNull();
 
@@ -311,7 +311,7 @@ describe("resetPanel — shared reset (Clear button + more-menu clear)", () => {
 
     resetPanel(ctrl);
 
-    expect(m.currentAgg).toBe(CONST.AGG.SUM);
+    expect(m.agg).toBe(CONST.AGG.SUM);
     expect(ctrl.aggSelect.value).toBe(CONST.AGG.SUM);
   });
 
@@ -356,7 +356,7 @@ describe("bindControls — scheme dropdown", () => {
     ctrl.schemeBar.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     const items = ctrl.schemeDropdown!.querySelectorAll(CONST.SEL.SCHEME_DROPDOWN_ITEM);
     (items[1] as HTMLElement).click();
-    expect(m.currentScheme).toBe("Blues");
+    expect(m.scheme).toBe("Blues");
     expect(ctrl.schemeSelectHidden.value).toBe("Blues");
     expect(ctrl.schemeDropdown).toBeNull();
     expect(render).toHaveBeenCalled();
@@ -379,7 +379,7 @@ describe("bindControls — scheme dropdown", () => {
     const save = vi.spyOn(m, "saveConfig");
     const render = vi.spyOn(m, "renderHexagons");
     ctrl.selectScheme?.(1);
-    expect(m.currentScheme).toBe("Blues");
+    expect(m.scheme).toBe("Blues");
     expect(ctrl.schemeSelectHidden.value).toBe("Blues");
     expect(render).toHaveBeenCalled();
     expect(save).toHaveBeenCalled();
@@ -389,7 +389,7 @@ describe("bindControls — scheme dropdown", () => {
     const { ctrl, m } = setup();
     const save = vi.spyOn(m, "saveConfig");
     ctrl.selectScheme?.(99);
-    expect(m.currentScheme).toBe("Reds");
+    expect(m.scheme).toBe("Reds");
     expect(save).not.toHaveBeenCalled();
   });
 
@@ -397,7 +397,7 @@ describe("bindControls — scheme dropdown", () => {
     const { ctrl, m } = setup();
     // Manager state comes from window.CONFIG at construction, so move it off the
     // scheme list to force the fallback focus branch.
-    m.currentScheme = "NoSuchScheme";
+    m.scheme = "NoSuchScheme";
     ctrl.schemeBar.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     expect(ctrl.schemeDropdown).not.toBeNull();
     const items = ctrl.schemeDropdown!.querySelectorAll(CONST.SEL.SCHEME_DROPDOWN_ITEM);
@@ -481,7 +481,7 @@ describe("layer dropdown — source meta publish", () => {
     ctrl.layerSelect.value = "p1";
     fire(ctrl.layerSelect, "change");
 
-    expect(m.currentAgg).toBe(CONST.AGG.SUM);
+    expect(m.agg).toBe(CONST.AGG.SUM);
     expect(m.sourceMeta["HeatmapControl.meta_source_layer"]).toBe("Stores");
     expect(m.sourceMeta["HeatmapControl.meta_agg_field"]).toBe("sales");
     expect(window.map.foliplus.LayerAPI.touchLayer).toHaveBeenCalledWith(m.layerId);
@@ -508,8 +508,8 @@ describe("layer dropdown — source meta publish", () => {
     // Restored from localStorage: layer already selected, field still auto.
     m.pointLayers = [{ id: "p1", name: "Stores", layer: {}, count: 2 }];
     m.selectedLayerId = "p1";
-    m.currentAgg = "avg";
-    m.currentField = "";
+    m.agg = "avg";
+    m.field = "";
     m.autoFieldKey = null;
     window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
       {
@@ -527,12 +527,12 @@ describe("layer dropdown — source meta publish", () => {
     expect(m.sourceMeta["HeatmapControl.meta_agg_field"]).toBe("dwell");
   });
 
-  it("clears a stale currentField that is no longer in the layer's fields", () => {
+  it("clears a stale field that is no longer in the layer's fields", () => {
     const m = makeManager();
     m.pointLayers = [{ id: "p1", name: "Stores", layer: {}, count: 1 }];
     m.selectedLayerId = "p1";
-    m.currentAgg = "sum";
-    m.currentField = "old_field";
+    m.agg = "sum";
+    m.field = "old_field";
     window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
       {
         lat: 1,
@@ -544,15 +544,15 @@ describe("layer dropdown — source meta publish", () => {
     const ctrl = makeCtrl(m, makeConfig());
     rebuildLayerDropdown(ctrl);
 
-    expect(m.currentField).toBe("");
+    expect(m.field).toBe("");
   });
 
-  it("preserves a currentField that is still in the layer's fields", () => {
+  it("preserves a field that is still in the layer's fields", () => {
     const m = makeManager();
     m.pointLayers = [{ id: "p1", name: "Stores", layer: {}, count: 1 }];
     m.selectedLayerId = "p1";
-    m.currentAgg = "sum";
-    m.currentField = "sales";
+    m.agg = "sum";
+    m.field = "sales";
     window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
       {
         lat: 1,
@@ -564,7 +564,7 @@ describe("layer dropdown — source meta publish", () => {
     const ctrl = makeCtrl(m, makeConfig());
     rebuildLayerDropdown(ctrl);
 
-    expect(m.currentField).toBe("sales");
+    expect(m.field).toBe("sales");
   });
 });
 
@@ -657,9 +657,9 @@ describe("bindControls — saved-config restore", () => {
     const ctrl = makeCtrl(m, makeConfig());
     const panel = document.createElement("div");
     bindControls(ctrl, panel);
-    expect(m.currentScheme).toBe("Blues");
+    expect(m.scheme).toBe("Blues");
     expect(m.numClasses).toBe(4);
-    expect(m.currentAgg).toBe(CONST.AGG.SUM);
+    expect(m.agg).toBe(CONST.AGG.SUM);
   });
 });
 
@@ -684,7 +684,7 @@ describe("selectScheme — CONFIG.schemes edge cases", () => {
     const { ctrl, m } = setup(makeConfig({ schemes: undefined }));
     const save = vi.spyOn(m, "saveConfig");
     ctrl.selectScheme?.(0);
-    expect(m.currentScheme).toBe("Reds");
+    expect(m.scheme).toBe("Reds");
     expect(save).not.toHaveBeenCalled();
   });
 });
@@ -771,7 +771,7 @@ describe("updateFieldSelector — null field controls", () => {
     ctrl.fieldWrap = null;
     ctrl.aggSelect.value = CONST.AGG.SUM;
     fire(ctrl.aggSelect, "change");
-    expect(m.currentAgg).toBe(CONST.AGG.SUM);
+    expect(m.agg).toBe(CONST.AGG.SUM);
   });
 
   it("agg change tolerates a null fieldSelect", () => {
@@ -779,7 +779,7 @@ describe("updateFieldSelector — null field controls", () => {
     ctrl.fieldSelect = null;
     ctrl.aggSelect.value = CONST.AGG.SUM;
     fire(ctrl.aggSelect, "change");
-    expect(m.currentAgg).toBe(CONST.AGG.SUM);
+    expect(m.agg).toBe(CONST.AGG.SUM);
   });
 });
 
