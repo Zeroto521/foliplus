@@ -25,10 +25,12 @@ import {
   clearActiveItem,
   getActiveLayerItem,
   getNavigableItems,
+  setActiveItem,
+} from "./listPanel/cursor.js";
+import {
   handleDblClick,
   handleKeyDown,
   handleOutsideMousedown,
-  setActiveItem,
 } from "./listPanel/keyboard.js";
 import {
   colorLayerName,
