@@ -1,12 +1,23 @@
 // SearchControl result panel DOM helpers — pure panel show/hide/render
-// utilities, no business logic (no history, no geocode). Shared by ./search.ts
-// (suggestions) and ./history.ts (history entries render as panel items).
-// Kept cycle-free: imports nothing from ./search.js or ./history.js.
+// utilities plus ✕ marker cleanup. No search or history business logic;
+// shared by ./search.ts (suggestions) and ./history.ts (history entries
+// render as panel items). Kept cycle-free: imports nothing from
+// ./search.js or ./history.js.
+//
+// `map` is a free variable injected by the Python-side IIFE wrapper —
+// same mechanism as ./search.ts; declared in type/global.d.ts.
 import { DEL_ICON_MARKER_ANCHOR, mountDelIcon } from "#core/leaflet/index.js";
 import { dom } from "#common/dom.js";
 import { CLASSES } from "../const.js";
 import type { ResultItem } from "../type.js";
 import { type SearchControlCtx } from "./util.js";
+
+// listCursor lives on SearchControl but not on SearchControlState; panel.ts
+// only touches it at panel-lifecycle boundaries (destroy on teardown, refresh
+// after a re-render), so both methods must be present.
+type CursorAware = SearchControlCtx & {
+  listCursor?: { destroy: () => void; refresh: () => void } | null;
+};
 
 /**
  * Attach a floating ✕ delete icon to the search marker.
@@ -52,7 +63,7 @@ const removePanel = (ctrl: SearchControlCtx) => {
   }
   ctrl.selectedIdx = -1;
   ctrl.currentItems = [];
-  const withCursor = ctrl as { listCursor?: { destroy: () => void } | null };
+  const withCursor = ctrl as CursorAware;
   withCursor.listCursor?.destroy();
   withCursor.listCursor = null;
 };
@@ -132,7 +143,7 @@ const renderResults = (ctrl: SearchControlCtx, results: ResultItem[]) => {
     );
   }
   // Re-tag ARIA after the rebuild (cursor may already exist from a prior panel).
-  const withCursor = ctrl as { listCursor?: { refresh: () => void } | null };
+  const withCursor = ctrl as CursorAware;
   withCursor.listCursor?.refresh();
 };
 
