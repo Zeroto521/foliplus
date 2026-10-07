@@ -267,7 +267,9 @@ const buildDeleteItem = (
  *  confirmation text and the entry fills, so the second click is unambiguous
  *  without borrowing the accent color (which already means hover and focus). */
 const armDelete = (ui: LayerUI, menuItem: HTMLElement): void => {
-  const label = menuItem.querySelector<HTMLElement>(`.${CONST.CLASSES.MENU_DELETE_LABEL}`);
+  const label = menuItem.querySelector<HTMLElement>(
+    `.${CONST.CLASSES.MENU_DELETE_LABEL}`,
+  );
   if (!label) return;
   disarmDelete();
   const isClear = menuItem.dataset.mode === "clear";

@@ -230,7 +230,8 @@ class ExportRenderer {
         const layer = this.resolveLayer(layerInfo);
         return (
           (api.intentVisible?.(layerInfo.id) ?? true) &&
-          (layerInfo.canvas ?? (layer && !(layer instanceof L.TileLayer && layerUrl(layer))))
+          (layerInfo.canvas ??
+            (layer && !(layer instanceof L.TileLayer && layerUrl(layer))))
         );
       });
       let done = 0;
@@ -257,7 +258,9 @@ class ExportRenderer {
           // Drawing them here — right after this layer, before the next layer
           // up — keeps the export's stack order identical to the map's: a layer
           // above covers this layer's labels.
-          const labelPane = this.map.getPane(CONST.ANNOTATION_PANE_PREFIX + layerInfo.id);
+          const labelPane = this.map.getPane(
+            CONST.ANNOTATION_PANE_PREFIX + layerInfo.id,
+          );
           if (labelPane) {
             await this.renderPaneCanvas(rc, labelPane, CONST.SEL.ANNOTATION_CANVAS);
           }

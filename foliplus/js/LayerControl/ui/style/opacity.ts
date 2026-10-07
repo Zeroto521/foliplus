@@ -119,7 +119,9 @@ const commitOpacityPct = (
  *  appears for keyboard input the same as for a drag. */
 const buildOpacityRow = (ui: LayerUI, layerId: string): HTMLElement => {
   const layerInfo = ui.c.layerRegistry.get(layerId);
-  const pct = opacityToPct(getIntent(ui, layerId, INTENT.OPACITY) ?? layerInfo?.opacity);
+  const pct = opacityToPct(
+    getIntent(ui, layerId, INTENT.OPACITY) ?? layerInfo?.opacity,
+  );
   const fill = dom.el("div", {
     class: `${CONST.CLASSES.SLIDER_FILL} ${CONST.CLASSES.STYLE_OPACITY_FILL}`,
     style: `width:${opacityFillWidth(pct)}`,
