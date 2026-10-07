@@ -68,7 +68,6 @@ interface LayerUI {
   // ── controller / DOM views ──
   readonly c: LayerController;
   readonly uiContainer: HTMLElement;
-  readonly mgmt: LayerController & { getFeatureCount: (i: string) => number | null };
 
   // ── delegates the modules call on the shell ──
   activeLayerItem(): HTMLElement | null;

@@ -195,7 +195,7 @@ const buildRowCell = (ui: LayerUI, layerInfo: LayerInfo): RowCell => {
   const layer = ui.c.findLayer(layerInfo);
   const checked = intentVisibleOf(ui, layerInfo.id);
   const type = rowType(ui, layerInfo, layer);
-  const count = ui.mgmt.getFeatureCount(layerInfo.id);
+  const count = ui.c.getFeatureCount(layerInfo.id);
   return {
     id: layerInfo.id,
     name: displayName(ui, layerInfo.id),
