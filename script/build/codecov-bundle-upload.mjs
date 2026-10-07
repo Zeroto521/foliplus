@@ -287,11 +287,11 @@ const main = async (argv = process.argv.slice(2)) => {
     } else {
       console.log(result.message);
     }
-  } catch (e) {
-    if (String(e.message).includes("CODECOV_TOKEN")) {
-      console.error(`${WARN} ${e.message}`);
+  } catch (err) {
+    if (String(err.message).includes("CODECOV_TOKEN")) {
+      console.error(`${WARN} ${err.message}`);
     } else {
-      console.error(e);
+      console.error(err);
     }
     process.exit(1);
   }

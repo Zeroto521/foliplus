@@ -16,6 +16,12 @@ import { dismissFocus } from "./focus.js";
 import { bindGeometryFocusMarquee } from "./focus/focusMarquee.js";
 import { INTENT, getIntent } from "./intent.js";
 import {
+  blurActiveItem,
+  clearActiveItem,
+  getNavigableItems,
+  syncListCursor,
+} from "./listPanel/cursor.js";
+import {
   handleDragEnd,
   handleDragLeave,
   handleDragOver,
@@ -23,13 +29,7 @@ import {
   handleDrop,
   toggleFold,
 } from "./listPanel/drag.js";
-import {
-  blurActiveItem,
-  clearActiveItem,
-  getNavigableItems,
-  handleDblClick,
-  syncListCursor,
-} from "./listPanel/keyboard.js";
+import { handleDblClick } from "./listPanel/keyboard.js";
 import {
   initLayerItem,
   initTypesAndVisibility,
