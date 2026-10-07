@@ -43,7 +43,7 @@ interface LabelCandidate {
 }
 
 /** A label with its screen box and how the renderer should center its text. */
-interface PlacedLabel extends LabelCandidate {
+interface PlannedLabel extends LabelCandidate {
   box: Box;
 }
 
@@ -72,7 +72,7 @@ const estimateTextWidth = (text: string, fontSize: number): number => {
  *  below it — the [0, -10] relationship the DOM labels use.
  *  shape leaves: centered on the anchor in both axes.
  *  Both are centered horizontally: text extends from the anchor left and right. */
-const layoutLabel = (label: LabelCandidate, spec: LabelSpec): PlacedLabel => {
+const layoutLabel = (label: LabelCandidate, spec: LabelSpec): PlannedLabel => {
   const w = estimateTextWidth(label.text, spec.fontSize) + 2 * spec.haloWidth;
   const h = spec.fontSize + 2 * spec.haloWidth;
   // The halo grows the box symmetrically around the *text center*, so the
@@ -108,7 +108,7 @@ const planLabelLayout = (
   spec: LabelSpec,
   viewport: Box,
   overlap: number = 0.5,
-): PlacedLabel[] => {
+): PlannedLabel[] => {
   const placed = labels.map(label => layoutLabel(label, spec));
   const survivors = planVisible(withinRect(placed, viewport), overlap);
   return placed.filter(label => survivors.has(label));
@@ -119,5 +119,5 @@ export {
   planLabelLayout,
   type LabelCandidate,
   type LabelSpec,
-  type PlacedLabel,
+  type PlannedLabel,
 };
