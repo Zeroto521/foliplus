@@ -28,7 +28,7 @@ import type { OverlayPanel } from "./overlayPanel/overlayPanel.js";
 
 /** What the `ui/*` modules read off the shell. See the header for the cycle
  *  this interface breaks, and `ui/index.js` for the class it mirrors. */
-export interface LayerUI {
+interface LayerUI {
   // ── env ──
   events: EventBus;
   config: ComponentConfig;
@@ -91,3 +91,5 @@ export interface LayerUI {
   isFocusing(): boolean;
   cancelFocus(): void;
 }
+
+export type { LayerUI };
