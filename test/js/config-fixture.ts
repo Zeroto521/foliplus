@@ -34,7 +34,7 @@ const CONFIG_DEFAULTS: Record<string, Partial<ComponentConfig>> = {
     label_show: true,
     label_size: 11,
     method: "jenks",
-    n_classes: 6,
+    num_classes: 6,
     schemes: ["Blues", "Greens", "Reds", "Oranges", "Purples", "YlOrRd", "Viridis"],
   },
   LayerControl: {

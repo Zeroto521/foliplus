@@ -46,7 +46,7 @@ class TestHeatmapControlPython:
         html = render_control(HeatmapControl())
         assert_config_value(html, "color_scheme", "Reds")
         assert_config_value(html, "method", "jenks")
-        assert_config_value(html, "n_classes", 6)
+        assert_config_value(html, "num_classes", 6)
         assert_config_value(html, "agg", "count")
         assert_config_value(html, "border_weight", 1.5)
         assert_config_value(html, "label_show", True)
@@ -60,7 +60,7 @@ class TestHeatmapControlPython:
             HeatmapControl(
                 color_scheme="Reds",
                 method="quantile",
-                n_classes=4,
+                num_classes=4,
                 agg="sum",
                 schemes=["Reds", "Blues"],
                 border_weight=2.0,
@@ -70,7 +70,7 @@ class TestHeatmapControlPython:
         )
         assert_config_value(html, "color_scheme", "Reds")
         assert_config_value(html, "method", "quantile")
-        assert_config_value(html, "n_classes", 4)
+        assert_config_value(html, "num_classes", 4)
         assert_config_value(html, "agg", "sum")
         assert_config_value(html, "border_weight", 2.0)
         assert_config_value(html, "label_show", False)
@@ -90,26 +90,26 @@ class TestHeatmapControlPython:
         with pytest.raises(ValueError, match="agg must be one of"):
             HeatmapControl(agg="invalid")
 
-    def test_invalid_n_classes_raises_too_low(self):
-        """n_classes below 2 raises ValueError."""
+    def test_invalid_num_classes_raises_too_low(self):
+        """num_classes below 2 raises ValueError."""
         with pytest.raises(
-            ValueError, match="n_classes must be an int between 2 and 9"
+            ValueError, match="num_classes must be an int between 2 and 9"
         ):
-            HeatmapControl(n_classes=1)
+            HeatmapControl(num_classes=1)
 
-    def test_invalid_n_classes_raises_too_high(self):
-        """n_classes above 9 raises ValueError."""
+    def test_invalid_num_classes_raises_too_high(self):
+        """num_classes above 9 raises ValueError."""
         with pytest.raises(
-            ValueError, match="n_classes must be an int between 2 and 9"
+            ValueError, match="num_classes must be an int between 2 and 9"
         ):
-            HeatmapControl(n_classes=10)
+            HeatmapControl(num_classes=10)
 
-    def test_invalid_n_classes_raises_not_int(self):
-        """Non-int n_classes raises ValueError."""
+    def test_invalid_num_classes_raises_not_int(self):
+        """Non-int num_classes raises ValueError."""
         with pytest.raises(
-            ValueError, match="n_classes must be an int between 2 and 9"
+            ValueError, match="num_classes must be an int between 2 and 9"
         ):
-            HeatmapControl(n_classes=6.5)
+            HeatmapControl(num_classes=6.5)
 
     def test_invalid_fill_opacity_raises(self):
         """Opacity outside 0.0-1.0 raises ValueError."""
