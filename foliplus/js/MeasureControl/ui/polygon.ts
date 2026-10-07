@@ -96,7 +96,7 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
       const mid = Util.midpoint(points[i], points[next]);
       const label = layers.addLayer(
         L.marker([mid.lat, mid.lng], {
-          icon: Util.makeMidLabelDivIcon(
+          icon: Util.buildMidLabelDivIcon(
             Util.formatDistance(Util.distance(points[i], points[next])),
           ),
         }),
@@ -124,12 +124,12 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
     // sit at z = Y; after zoom `sortLayers` re-sorts by Y, so the label's
     // offset (2000) keeps it above its own segment labels.
     centroidDot = layers.addLayer(
-      Util.makeNode(centroid, CONST.CLASSES.NODE_SOLID),
+      Util.buildNode(centroid, CONST.CLASSES.NODE_SOLID),
       CONST.PANES.NODE,
     ) as L.CircleMarker;
     centroidLabel = layers.addLayer(
       L.marker(centroid, {
-        icon: Util.makeLabelDivIcon(
+        icon: Util.buildLabelDivIcon(
           Util.formatArea(area),
           CONST.LABEL.CENTROID_ANCHOR as [number, number],
         ),

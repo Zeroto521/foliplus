@@ -54,7 +54,7 @@ const installStubs = () => {
       off: vi.fn(),
       setLatLng: vi.fn(),
     })),
-    // makeNode builds L.CircleMarker nodes (shared with the edit-mode node
+    // buildNode builds L.CircleMarker nodes (shared with the edit-mode node
     // markers and the center dot); stub it so polygon-mode UI tests reach
     // rebuildCentroid.
     circleMarker: vi.fn(() => ({
