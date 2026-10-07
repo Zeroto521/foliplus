@@ -1,5 +1,5 @@
 () => {
-  // Toggle the colour basemap's real checkbox (not the colour picker).
+  // Toggle the color basemap's real checkbox (not the color picker).
   const row = document.querySelector(
     '.foliplus-layer-item[data-layer-id="foliplus_color_map"]',
   );

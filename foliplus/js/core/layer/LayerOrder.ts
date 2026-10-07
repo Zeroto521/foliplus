@@ -4,14 +4,14 @@
 // Sunk from `LayerControl/savedOrder.ts`: `LayerAPI.forgetSavedOrder`
 // is a real consumer (third-party components reset the order through the API),
 // so the dependency direction was inverted — the order domain belongs beside
-// the registry. Renamed `SavedOrder` → `LayerOrder`; behaviour unchanged.
+// the registry. Renamed `SavedOrder` → `LayerOrder`; behavior unchanged.
 //
 // The order domain of LayerController: the user-arranged id list and the
 // one-way deleted-id set, plus the methods that load / snapshot / replay /
 // prune them against the live registry. The manager keeps only the public
 // forwards (`loadSavedOrder` / `saveOrder` / `replaySavedOrder` /
 // `forgetSavedOrder`) and the ownership call-sites (`removedIds` gate and
-// mark). Value and behaviour are unchanged: method bodies moved as-is.
+// mark). Value and behavior are unchanged: method bodies moved as-is.
 //
 // Only the control-side persistence write is narrowed away: the class depends
 // on {@link OrderPersistence} (the `schedule` slice it needs) instead of
@@ -128,7 +128,7 @@ class LayerOrder {
 
   /** Move `layerInfo` just before the first saved-order neighbor that is
    *  registered. Neighbors that are not registered yet cannot be located, so
-   *  this places it at the best spot the live registry can honour and a later
+   *  this places it at the best spot the live registry can honor and a later
    *  replay refines it as the neighbors arrive. */
   private placeBeforeSavedNeighbor(
     layerInfo: LayerInfo,
@@ -166,7 +166,7 @@ class LayerOrder {
   /** Where a new overlay enters the stack.
    *
    *  A layer without a stored position goes on top — a fresh layer has no user
-   *  arrangement to honour, and top is what every other caller of `prepend`
+   *  arrangement to honor, and top is what every other caller of `prepend`
    *  promises. With a stored position it takes the slot the user already chose.
    *  The placement is done here rather than left to a later sweep, because a
    *  registration that lands before the UI attaches never gets that sweep.

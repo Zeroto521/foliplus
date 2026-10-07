@@ -3,7 +3,7 @@
 // The registry is the discovery surface for per-layer dimensions. These
 // tests cover the *surface*: descriptor shape, duplicate-key rejection,
 // and the built-in `opacity` descriptor delegating gate/value/row to
-// the existing helpers. Behaviour of the helpers themselves lives in
+// the existing helpers. Behavior of the helpers themselves lives in
 // ./style.test.ts — kept here is only what changes when the registry is
 // involved.
 //

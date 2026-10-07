@@ -4,7 +4,7 @@
 // exactly where the Windows separator bug lived (a hardcoded "/" prefix on a
 // `path.resolve()`-based dir never matched a backslash path, so every Windows
 // build silently skipped the transforms), so the guard gets a regression net
-// of its own: `isSourceFile` pins the normalisation with backslash paths on
+// of its own: `isSourceFile` pins the normalization with backslash paths on
 // every platform, and the plugin is exercised end-to-end against a temp
 // source dir with a real file (no fs/esbuild mocking needed).
 import { mkdtempSync, rmSync, writeFileSync } from "fs";

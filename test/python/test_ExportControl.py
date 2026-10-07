@@ -1233,7 +1233,7 @@ class TestExportControlBrowser:
 
     @staticmethod
     def _solid_tile_url(rgb: tuple[int, int, int]) -> str:
-        """A 256x256 solid-colour tile as a data URI.
+        """A 256x256 solid-color tile as a data URI.
 
         A ``TileLayer`` built from it is a genuine basemap that paints real
         pixels with no network at all — browser tests block every tile host —
@@ -1249,7 +1249,7 @@ class TestExportControlBrowser:
     def _solid_tile_layer(
         rgb: tuple[int, int, int], name: str, opacity: float = 1.0
     ) -> folium.TileLayer:
-        """A ``folium.TileLayer`` backed by a solid-colour data URI.
+        """A ``folium.TileLayer`` backed by a solid-color data URI.
 
         ``TileLayer`` takes the URL as its first positional argument
         (``tiles``); passing ``url_template=`` as a keyword swallows the
@@ -1566,7 +1566,7 @@ class TestExportControlBrowser:
 
             # Drive the color input through the real LayerControl UI path so
             # the color pane canvas gets painted with the chosen color,
-            # exactly as `showSolidBasemap` does. The colour lives on a pane-
+            # exactly as `showSolidBasemap` does. The color lives on a pane-
             # owned canvas now (not on the container's CSS variable), so the
             # container keeps its default background and the export renderer
             # draws the pane canvas as a layer.
@@ -1749,9 +1749,9 @@ class TestExportControlBrowser:
 
         The bottom basemap paints at full opacity and the top one at 0.5, so
         the expected pixel is the two layers blended. Sampling that blend —
-        rather than either source colour — is what proves *both* drew: if the
-        upper basemap dropped out the image is the lower colour, and if the
-        lower one dropped out it is the upper colour over transparency.
+        rather than either source color — is what proves *both* drew: if the
+        upper basemap dropped out the image is the lower color, and if the
+        lower one dropped out it is the upper color over transparency.
 
         The layers are added *after* LayerControl (the ``_make_page``
         convention, matching real user code that writes
@@ -1775,7 +1775,7 @@ class TestExportControlBrowser:
             panel_ready(page)
             self._install_canvas_hook(page)
 
-            # Both tile basemaps are visible; the colour basemap paints via
+            # Both tile basemaps are visible; the color basemap paints via
             # container background (not a tile layer), so its `visible` flag
             # is not the right gate for "both basemaps drew".
             state = page.evaluate(_js("ExportControl/no_basemap_state"))
@@ -1796,7 +1796,7 @@ class TestExportControlBrowser:
             assert result is not None, "Export canvas not captured"
             assert result["total"] > 0, "Export canvas is empty"
             # The blend dominates: 0.5 * red + 0.5 * blue, so the whole image
-            # is one colour only if both basemaps painted.
+            # is one color only if both basemaps painted.
             assert result["hit"] > result["total"] * 0.8, (
                 f"blended basemap pixels not dominant: {result} dominant={dominant} probe={probe}"
             )

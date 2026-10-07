@@ -187,7 +187,7 @@ const bindNodeDrag = (
 
 // Module-scoped flag: the `onEnd` handler calls markDragSyntheticClick() on
 // drag end, so the ensuing click (a drag ends with mouseup, which also fires
-// a click) is recognised as synthetic and ignored by buildEditOverlay.
+// a click) is recognized as synthetic and ignored by buildEditOverlay.
 // Lives on this module (not window) since both mark and check now import from
 // the same edit.ts — no need for a global cross-closure channel.
 let dragSyntheticClick = false;

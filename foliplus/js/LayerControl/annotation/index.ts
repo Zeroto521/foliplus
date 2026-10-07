@@ -143,13 +143,13 @@ class AnnotationManager {
         // All product emit sites carry {id, kind} — a missing payload here
         // means an external caller fired the event without the contract.
         // Fallback to full refresh (repaint every label-bearing layer), which
-        // is the old raw layeradd/layerremove behaviour.
+        // is the old raw layeradd/layerremove behavior.
         if (!payload) {
           this.refresh();
           return;
         }
         const { id, kind } = payload;
-        // A tile basemap, a solid colour face, and a self-drawn canvas never
+        // A tile basemap, a solid color face, and a self-drawn canvas never
         // get an annotation pane — the registration edge declares it only for
         // a labelable feature tree — so they can never own a canvas to repaint.
         if (NO_FEATURE_TREE_KINDS.has(kind)) return;

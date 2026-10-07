@@ -212,7 +212,7 @@ class LocaleConfig:
     def get(self, key: str, default: str | None = None) -> str:
         """Look up a localized string by key, falling back to the key itself.
 
-        An explicit ``default=""`` is honoured (an empty translation is valid),
+        An explicit ``default=""`` is honored (an empty translation is valid),
         so the key fallback only applies when ``default`` is ``None``.
         """
         if default is not None:

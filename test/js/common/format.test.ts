@@ -161,7 +161,7 @@ describe("formatNumber", () => {
   it("percent caps decimals via fractionDigits (0 gives whole percents)", () => {
     expect(formatNumber(0.3333, "percent", "en", 0)).toBe("33%");
     expect(formatNumber(0.3333, "percent", "en", 2)).toBe("33.33%");
-    // The annotation panel passes 0 for comma/int; percent now honours it too.
+    // The annotation panel passes 0 for comma/int; percent now honors it too.
     expect(formatNumber(0.35, "percent", "en", 0)).toBe("35%");
   });
 });

@@ -1220,7 +1220,7 @@ class TestMeasureControlBrowser:
         last marker child of the label pane.
 
         The label was moved in place with `setLatLng`, which keeps the sibling
-        position from creation time. Once a finalised circle's label had
+        position from creation time. Once a finalized circle's label had
         entered the pane after the preview started, the preview chip stayed
         ahead of it and was painted under — the moving preview label visually
         disappeared below the earlier measurement's label.

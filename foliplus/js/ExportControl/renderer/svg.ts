@@ -41,7 +41,7 @@ const renderPaneSVG = async (
     // A pane's own `visibility` is a transient view state — focus hides every
     // non-focused pane with one CSS rule — and the export has to ignore it, or
     // a focused export silently drops every vector.  A child's own
-    // `visibility` is content and must be honoured.  The trouble is that
+    // `visibility` is content and must be honored.  The trouble is that
     // `visibility` inherits, so a computed read returns the ancestor
     // contribution dressed up as the child's own.  Flipping the pane's inline
     // value neutralises just that: inline style beats focus.css's author

@@ -131,7 +131,7 @@ describe("LayerUI keyboard", () => {
       ui.handleChange({ target: cb } as Event);
 
       expect(getIntent(ui, "overlay1", "visible")).toBe(false);
-      // 3 seeded layers + the colour basemap registered by initTypesAndVisibility.
+      // 3 seeded layers + the color basemap registered by initTypesAndVisibility.
       expect(ui.c.layers.length).toBe(4);
     });
 

@@ -328,7 +328,7 @@ describe("ui/list row placement", () => {
 
   it("initTypesAndVisibility skips the color block when the registry has no color layer", () => {
     // Defensive guard: if getColorSurface's register() failed to insert the
-    // colour basemap (race, surface unavailable), the zoom-range / hidden
+    // color basemap (race, surface unavailable), the zoom-range / hidden
     // override block must be skipped without crashing.
     const { ui } = initFixture({
       data: [{ id: "B1", name: "B1", group: "base" }],

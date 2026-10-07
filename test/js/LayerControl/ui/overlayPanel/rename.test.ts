@@ -265,7 +265,7 @@ describe("LayerUI rename", () => {
     });
 
     it("renaming the color basemap updates the color input's aria-label too", () => {
-      // The colour row now carries a real checkbox (visibility toggle through
+      // The color row now carries a real checkbox (visibility toggle through
       // the executor). Both the label cell and the checkbox must announce the
       // rename, otherwise assistive tech keeps reading the locale default.
       const item = findItem(ui, CONST.SOLID_BASEMAP_ID);
@@ -434,7 +434,7 @@ describe("LayerUI rename", () => {
       expect(ui.overlayPanel.activeRenameId).toBeNull();
       expect(label.textContent).toBe("My Base");
       expect(getIntent(ui, CONST.SOLID_BASEMAP_ID, "name")).toBe("My Base");
-      // The colour basemap is now in the registry (for the executor) — rename
+      // The color basemap is now in the registry (for the executor) — rename
       // still persists to renamedNames, not the registry entry's name field.
       expect(manager.layerRegistry.get(CONST.SOLID_BASEMAP_ID)?.name).not.toBe(
         "My Base",

@@ -421,7 +421,7 @@ class BaseControl(JSCSSMixin, MacroElement):
         An explicit per-instance assignment still wins, so branca's ``Element``
         contract is intact: ``Element.__init__(template=...)`` and the
         ``__setstate__`` unpickling path both store into the instance dict and
-        are honoured. Pickling is unaffected either way — ``__getstate__`` pops
+        are honored. Pickling is unaffected either way — ``__getstate__`` pops
         ``_template`` from the instance dict, which is absent when the class
         cache is in use.
         """

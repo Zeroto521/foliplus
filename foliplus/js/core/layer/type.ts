@@ -11,7 +11,7 @@ import { type DIM, type KIND, type PANE_ROLE } from "./const.js";
  *  `intent.visible` is what the checkbox shows — the user's choice when they
  *  made one, otherwise the author's declared default.
  *  `effectiveShown` is the composite `intent && policy` and is what the
- *  executor writes to map membership. Only `intent` may authorise display;
+ *  executor writes to map membership. Only `intent` may authorize display;
  *  `policy` (focus, zoom range) may only suppress it. That is the invariant
  *  that keeps a derived dimension from ever adding a layer back onto the
  *  map — the class of bug the quickstart regression records, and the structural root of the
@@ -77,7 +77,7 @@ interface LayerCapabilities {
    *  CircleMarker in Leaflet 1.x; `hasFillLeaf` accepts Polygon and
    *  `instanceof L.Circle`) with a `setStyle` leaf.
    *    - "native" — an areal carrier exists; `setStyle({fillColor,
-   *      fillOpacity})` writes through the tree. A solid-colour basemap
+   *      fillOpacity})` writes through the tree. A solid-color basemap
    *      also declares "native": the pane's paint *is* the fill.
    *    - "none"   — no areal carrier. Line-only layers (Polyline, Circle
    *      without a fill), Marker, canvas, MarkerCluster, and native setter
@@ -112,7 +112,7 @@ interface LayerCapabilities {
    *      half the layer. The UI then hides the opacity control rather than
    *      offering a knob that lies. */
   opacity: "native" | "pane" | "none";
-  /** Whether zoom-range visibility is honoured:
+  /** Whether zoom-range visibility is honored:
    *    - "native" — the layer's own `options.minZoom`/`maxZoom` (GridLayer).
    *    - "pane"   — we hide the pane (or skip drawing it).
    *    - "none"   — no honest carrier. A future surface type will supply this

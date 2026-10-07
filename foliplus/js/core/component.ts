@@ -26,7 +26,7 @@ const generateId = (prefix: string, namespace?: string): string =>
   namespace ? `${prefix}_${namespace}` : prefix;
 
 /** Runtime assertion that a CONFIG.name matches a known component.
- *  Call early in component initialisation (constructor / onAdd). */
+ *  Call early in component initialization (constructor / onAdd). */
 const assertComponentName = (name: string): void => {
   if (!(Object.values(COMPONENTS) as string[]).includes(name)) {
     log.error(`invalid component name: "${name}"`, {

@@ -150,7 +150,7 @@ const rowType = (
   layer: L.Layer | null,
 ): { svg: string; key: string } => {
   if (layerInfo.group === GROUP.BASE) {
-    // The colour basemap uses its own swatch icon, not the globe.
+    // The color basemap uses its own swatch icon, not the globe.
     if (layerInfo.id === CONST.SOLID_BASEMAP_ID) {
       return { svg: SVGs.COLOR, key: "type_color_map" };
     }

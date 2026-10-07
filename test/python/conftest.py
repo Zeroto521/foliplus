@@ -274,7 +274,7 @@ _BROWSER_DEFAULT_NAV_TIMEOUT_MS = 45_000
 # rather than filed as an unsolved flake.
 #
 # Sampling cadence is deliberately low (every Nth ``new_page()``) so the
-# probe itself does not distort the very behaviour it is measuring.
+# probe itself does not distort the very behavior it is measuring.
 # Threshold warnings fire once per metric per worker session — enough to
 # leave a marker in the run log, quiet enough to not spam healthy rounds.
 #

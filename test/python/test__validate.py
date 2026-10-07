@@ -27,7 +27,7 @@ class _Indexable:
     """Integer-like object that is not an ``int`` (stands in for numpy scalars).
 
     numpy's integer scalars are not registered with :class:`numbers.Integral`, so
-    they can only be recognised through the ``__index__`` protocol — exactly what
+    they can only be recognized through the ``__index__`` protocol — exactly what
     this stand-in exercises without depending on numpy.
     """
 
