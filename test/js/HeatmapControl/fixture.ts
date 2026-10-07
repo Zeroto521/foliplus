@@ -124,15 +124,15 @@ function makeManager(confOverrides: Partial<ComponentConfig> = {}) {
 
 /** HeatmapControlUI-shaped fixture carrying its own CONFIG + translator. */
 function makeCtrl(
-  m: HeatmapManager,
+  mgr: HeatmapManager,
   config: ComponentConfig = makeConfig(),
 ): HeatmapControlUI {
-  // initScan reaches the map via ctrl.m.map — mirror the window.map foliplus
+  // initScan reaches the map via ctrl.mgr.map — mirror the window.map foliplus
   // stub (LayerAPI + showHint) onto the manager's map so the API and hint
   // paths resolve to the same mocks the tests stub.
-  (m.map as unknown as { foliplus?: unknown }).foliplus = window.map.foliplus;
+  (mgr.map as unknown as { foliplus?: unknown }).foliplus = window.map.foliplus;
   return {
-    m,
+    mgr,
     // The real control routes document-level listeners through its mounting
     // signal (BaseControl.on). The fixture has no signal, so it binds for
     // real and hands back the matching unbind — the outside-click tests

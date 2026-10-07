@@ -11,7 +11,9 @@ class HeatmapControl extends defineControl({
   icon: SVGs.HEXAGON,
   setup: () => ensureLayerAPI(map),
 }) {
-  manager: HeatmapManager | null = null;
+  /** Backing store for the lazy `mgr` accessor; `destroy()` nulls it so a
+   *  re-add rebuilds a fresh manager. */
+  private _mgr: HeatmapManager | null = null;
   schemeDropdown: HTMLElement | null;
   expandHookDone: boolean;
   declare ctrl: HTMLElement;
@@ -45,8 +47,12 @@ class HeatmapControl extends defineControl({
     this.selectScheme = null;
   }
 
-  get m(): HeatmapManager {
-    return (this.manager ??= new HeatmapManager(map, { T: this.T, log: this.log }));
+  get mgr(): HeatmapManager {
+    return (this._mgr ??= new HeatmapManager(map, { T: this.T, log: this.log }));
+  }
+
+  set mgr(value: HeatmapManager | null) {
+    this._mgr = value;
   }
 
   buildDOM() {
@@ -62,7 +68,7 @@ class HeatmapControl extends defineControl({
     // from outliving a control that is removed but not garbage-collected.
     this.effect(() => destroy);
     this.ctrl = ctrl;
-    this.m.ui = this;
+    this.mgr.ui = this;
     bindControls(this, panelContent);
     setupObserver(this);
     this.startScan();
@@ -90,8 +96,8 @@ class HeatmapControl extends defineControl({
     this.dropdownCleanup?.();
     this.dropdownCleanup = null;
 
-    const mgr = this.manager;
-    this.manager = null;
+    const mgr = this.mgr;
+    this.mgr = null;
     if (!mgr) return;
     if (mgr.mapCleanup) mgr.mapCleanup();
     if (mgr.onZoomEnd) {

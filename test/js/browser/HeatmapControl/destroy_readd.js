@@ -27,7 +27,7 @@
     map.removeControl(ctrl);
     removed.push(document.querySelector(".foliplus-heatmap-ctrl") === null);
     map.addControl(ctrl);
-    hasManager.push(!!ctrl.m);
+    hasManager.push(!!ctrl.mgr);
     rounds.push(sumMapEvents());
   }
   const drift = rounds.slice(1).some(n => n > rounds[0]);
