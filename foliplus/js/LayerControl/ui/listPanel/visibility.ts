@@ -3,7 +3,7 @@ import { GROUP } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { applyProjection, applyProjectionAll } from "../apply.js";
 import { intentVisibleOf } from "../projection.js";
-import { saveState, setVisible } from "../state.js";
+import { saveState, setVisibleIntent } from "../state.js";
 import type { LayerUI } from "../surface.js";
 import { applyRowView, buildRowCell } from "./rowView.js";
 
@@ -55,9 +55,9 @@ const toggleAll = (ui: LayerUI, group: string, newState: boolean) => {
 
     // No persist per iteration — schedule a single debounced write after the
     // loop so the debounce timer isn't reset for every layer.
-    setVisible(ui, id, newState, false);
+    setVisibleIntent(ui, id, newState, false);
     // The executor is the only writer of map membership for this layer:
-    // setVisible recorded the intent, so the projection's `visible` field
+    // setVisibleIntent recorded the intent, so the projection's `visible` field
     // now matches the intended state and the diff fires whatever op is
     // needed.
     applyProjection(ui, id);
@@ -168,7 +168,7 @@ const bumpCheckedCount = (ui: LayerUI, group: string, delta: number): void => {
  * The panel checkbox has always driven this transition, and that was the only
  * path — there was no way to hide a layer by id from outside the DOM. This
  * takes the same transition on either source (a change event or
- * {@link LayerUI.setVisible}): map membership, the canvas-only callback, the
+ * {@link LayerUI.setVisibleIntent}): map membership, the canvas-only callback, the
  * `visible` flag, the row's checkbox + tooltip + active class, the persisted
  * hidden intent, the group toggle-all, and the debounced z-order enforcement.
  *
@@ -197,7 +197,7 @@ const applyVisibility = (ui: LayerUI, id: string, visible: boolean): boolean => 
   ) as HTMLElement | null;
 
   const oldChecked = intentVisibleOf(ui, id);
-  setVisible(ui, id, visible);
+  setVisibleIntent(ui, id, visible);
   applyProjection(ui, id);
 
   // Paint last: the cell reads the intent this transition just recorded.

@@ -262,7 +262,7 @@ const saveNamesState = (ui: LayerUI) => {
  *   caller schedules a single save after the loop instead of resetting the
  *   debounce timer for every layer.
  */
-const setVisible = (
+const setVisibleIntent = (
   ui: LayerUI,
   id: string,
   visible: boolean,
@@ -298,5 +298,5 @@ export {
   applyUserState,
   dropPersistedLayerState,
   saveNamesState,
-  setVisible,
+  setVisibleIntent,
 };

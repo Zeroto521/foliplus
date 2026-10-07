@@ -64,7 +64,7 @@ import {
   saveFoldState,
   saveNamesState,
   saveState,
-  setVisible,
+  setVisibleIntent,
 } from "./state.js";
 import { applyBorderToLayer } from "./style/border.js";
 import {
@@ -235,8 +235,8 @@ class LayerUI implements LayerUISurface {
   saveFoldState() {
     return saveFoldState(this);
   }
-  setVisible(id: string, visible: boolean, persist: boolean = true) {
-    return setVisible(this, id, visible, persist);
+  setVisibleIntent(id: string, visible: boolean, persist: boolean = true) {
+    return setVisibleIntent(this, id, visible, persist);
   }
   saveState() {
     return saveState(this);
