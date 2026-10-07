@@ -7,7 +7,7 @@ import * as Icons from "#common/icon.js";
 import { loadVersioned, makePersisted, saveVersioned } from "#common/storage.js";
 import { HISTORY, MODE, RECORD_VERSION, SOURCE, ZOOM } from "../const.js";
 import type { ResultItem, SearchHistoryEntry, SearchType } from "../type.js";
-import { attachSearchDelIcon, removePanel, renderResults } from "./search.js";
+import { attachSearchDelIcon, removePanel, renderResults } from "./panel.js";
 import { type SearchControlCtx, canonicalQuery } from "./util.js";
 
 /** Dedup key. Type is part of it: typing "120,32" in addr mode yields a

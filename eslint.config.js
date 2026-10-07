@@ -82,8 +82,7 @@ export default [
       // it — that only matters when the value edge itself is what closes the
       // cycle.
       //
-      // File-level exemptions at the bottom of this file (LayerControl
-      // listPanel triangle + rowView/projection bidirectional, SearchControl
+      // File-level exemptions at the bottom of this file (SearchControl
       // history/search bidirectional). These are pre-existing value cycles
       // that were already in the shipped codebase; they belong in their own
       // cleanup PRs, not here.
@@ -204,28 +203,11 @@ export default [
     },
   },
 
-  // ── `import/no-cycle` exemptions ──
-  // The value-edge graph still has two pre-existing cycles:
-  //   1. LayerControl/ui/listPanel/rowView ↔ projection (bidirectional)
-  //   2. SearchControl/logic/history ↔ search (bidirectional; surfaced
-  //      when this rule was added — not in the original T308 debt list)
-  // Each is safe at bundle time (the tree-shaker resolves the runtime
-  // ordering) but is a genuine value cycle. They belong in their own
-  // cleanup PRs — the whole point of this rule is to catch *new* cycles
-  // so they can't hide inside unrelated refactors. Exempting them here
-  // instead of `eslint-disable-next-line` keeps the exemption in one
-  // place, right next to the rule it relaxes.
-  {
-    files: [
-      "foliplus/js/LayerControl/ui/listPanel/rowView.ts",
-      "foliplus/js/LayerControl/ui/projection.ts",
-      "foliplus/js/SearchControl/logic/history.ts",
-      "foliplus/js/SearchControl/logic/search.ts",
-    ],
-    rules: {
-      "import/no-cycle": "off",
-    },
-  },
+  // ── `import/no-cycle` is enabled globally ──
+  // Both pre-existing value cycles have been broken:
+  //   - LayerControl/ui/listPanel/rowView ↔ projection (broken in #640)
+  //   - SearchControl/logic/history ↔ search (broken in this PR via panel.ts)
+  // The rule now catches *any* new cycle outright.
 
   // Test scripts exercise the CJS build tooling via require(); the source
   // tree and `script/` never do.

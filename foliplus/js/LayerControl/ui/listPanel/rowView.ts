@@ -19,7 +19,7 @@ import * as Util from "#foliplus/LayerControl/util.js";
 import { formatNumber } from "#common/format.js";
 import * as Icons from "#common/icon.js";
 import { INTENT, getIntent } from "../intent.js";
-import { intentVisibleOf, projectLayer } from "../projection.js";
+import { inZoomRange, intentVisibleOf, projectLayer } from "../projection.js";
 import type { LayerUI } from "../surface.js";
 
 /** One layer's inputs to the row visual. Nothing here is written back. */
@@ -60,25 +60,6 @@ interface RowLabels {
   select: string;
   deselect: string;
 }
-
-/**
- * Whether the stored range covers the map's current zoom.
- *
- *  The map's range can be narrower than the user's stored endpoints (a basemap
- *  switch), so the endpoints are clamped here while the *stored* values stay
- *  untouched — reversibility: switching the basemap back must restore the
- *  original choice. If both endpoints clamp past each other the whole
- *  range is outside the map and no zoom can land inside it.
- */
-const inZoomRange = (ui: LayerUI, layerInfo: LayerInfo): boolean => {
-  const range = getIntent(ui, layerInfo.id, INTENT.ZOOM_RANGE);
-  if (!range) return true;
-  const min = Math.max(range[0], ui.c.map.getMinZoom());
-  const max = Math.min(range[1], ui.c.map.getMaxZoom());
-  if (min > max) return false;
-  const zoom = ui.c.map.getZoom();
-  return zoom >= min && zoom <= max;
-};
 
 /**
  * The row visual as a pure function of the cell.
