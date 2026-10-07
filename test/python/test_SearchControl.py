@@ -211,13 +211,13 @@ class TestSearchControlBrowser:
         ):
             self._expand(page)
 
-            # Verify the mode button shows the pin icon (LOCATE_ICON) for address mode
-            # LOCATE_ICON has a small circle at cy=9 (pin head), GLOBE_ICON has a large circle at cy=12
+            # Verify the mode button shows the pin icon (LOCATION_PIN) for address mode
+            # LOCATION_PIN has a small circle at cy=9 (pin head), GLOBE_ICON has a large circle at cy=12
             is_pin = page.evaluate(
                 """document.querySelector('.foliplus-search-mode-btn')
                     .querySelector('circle[cx="12"][cy="9"]') !== null"""
             )
-            assert is_pin, "Expected pin icon (LOCATE_ICON) for address mode"
+            assert is_pin, "Expected pin icon (LOCATION_PIN) for address mode"
 
             # Verify the placeholder is for address search
             placeholder = page.evaluate("document.querySelector('input').placeholder")
@@ -249,7 +249,7 @@ class TestSearchControlBrowser:
             ), f"Expected coordinate placeholder, got: {placeholder}"
 
     def test_mode_switch_icon(self, browser, tmp_path):
-        """Toggling mode switches from GLOBE_ICON (coord) to LOCATE_ICON (addr)."""
+        """Toggling mode switches from GLOBE_ICON (coord) to LOCATION_PIN (addr)."""
         with use_page(self._make_page, browser, tmp_path, mode="coord") as (
             page,
             errors,
@@ -257,7 +257,7 @@ class TestSearchControlBrowser:
             self._expand(page)
 
             # Coord mode starts with GLOBE_ICON (globe) icon
-            # GLOBE_ICON has a large circle at cy=12, LOCATE_ICON has a small circle at cy=9
+            # GLOBE_ICON has a large circle at cy=12, LOCATION_PIN has a small circle at cy=9
             is_globe = page.evaluate(
                 """document.querySelector('.foliplus-search-mode-btn')
                     .querySelector('circle[cx="12"][cy="12"][r="10"]') !== null"""
@@ -268,13 +268,13 @@ class TestSearchControlBrowser:
             page.evaluate("document.querySelector('.foliplus-search-mode-btn').click()")
             page.wait_for_timeout(500)
 
-            # After switch, should be address mode with LOCATE_ICON (pin) icon
+            # After switch, should be address mode with LOCATION_PIN (pin) icon
             is_pin = page.evaluate(
                 """document.querySelector('.foliplus-search-mode-btn')
                     .querySelector('circle[cx="12"][cy="9"]') !== null"""
             )
             assert is_pin, (
-                "Expected pin icon (LOCATE_ICON) after mode switch to address"
+                "Expected pin icon (LOCATION_PIN) after mode switch to address"
             )
 
             # Also verify input placeholder was updated

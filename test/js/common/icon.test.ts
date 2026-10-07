@@ -38,8 +38,8 @@ describe("PIN_ICON", () => {
 
 describe("", () => {
   it("is an SVG string", () => {
-    expect(ICON.LOCATE_ICON).toContain("<svg");
-    expect(ICON.LOCATE_ICON).toContain("path");
+    expect(ICON.LOCATION_PIN).toContain("<svg");
+    expect(ICON.LOCATION_PIN).toContain("path");
   });
 });
 

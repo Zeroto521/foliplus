@@ -30,7 +30,7 @@ const PIN_ICON = `
     </svg>
   </div>`;
 
-const LOCATE_ICON = `
+const LOCATION_PIN = `
   <svg viewBox="0 0 24 24">
     <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
     <circle cx="12" cy="9" r="2.5"/>
@@ -80,6 +80,6 @@ export {
   GLOBE_ICON,
   INFO_ICON,
   LOADING_ICON,
-  LOCATE_ICON,
+  LOCATION_PIN,
   PIN_ICON,
 };

@@ -366,7 +366,7 @@ const renderSuggestions = (
       (item.name ?? "");
     const coordDisplay = formatLatLng(parseFloat(item.lng), parseFloat(item.lat));
     return {
-      icon: Icons.LOCATE_ICON,
+      icon: Icons.LOCATION_PIN,
       source: SOURCE.SUGGESTION,
       primaryText: displayName,
       coordDisplay,
