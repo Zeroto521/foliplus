@@ -273,7 +273,11 @@ describe("bindControls — clear (reset) button", () => {
 
 describe("resetPanel — shared reset (Clear button + more-menu clear)", () => {
   it("resets state, canvas, and every dropdown back to the declared defaults", () => {
-    const config = makeConfig({ color_scheme: "Blues", num_classes: 4, method: "equal" });
+    const config = makeConfig({
+      color_scheme: "Blues",
+      num_classes: 4,
+      method: "equal",
+    });
     const { ctrl, m } = setup(config);
     m.selectedLayerId = "p1";
     m.agg = CONST.AGG.SUM;

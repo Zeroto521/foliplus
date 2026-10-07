@@ -1647,7 +1647,11 @@ describe("HeatmapManager — EVENTS.LAYER_DELETED auto-clear", () => {
   });
 
   it("resets the panel to its initial state when own layer is deleted", () => {
-    const config = makeConfig({ color_scheme: "Blues", num_classes: 4, method: "equal" });
+    const config = makeConfig({
+      color_scheme: "Blues",
+      num_classes: 4,
+      method: "equal",
+    });
     const m = makeManager();
     const ctrl = makeCtrl(m, config);
     // The fixture's selects are bare elements: without options, `el.value`
