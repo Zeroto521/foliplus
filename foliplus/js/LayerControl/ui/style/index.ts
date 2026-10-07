@@ -370,9 +370,9 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
       if (delegated) {
         // Call each setter with its Python CONFIG default. The components own
         // the values — never write localStorage or annotation config here.
-        const li = ui.c.layerRegistry.get(layerId);
-        const setters = li?.styleSetters;
-        const defaults = li?.styleDefaultsProvider?.() ?? {};
+        const layerInfo = ui.c.layerRegistry.get(layerId);
+        const setters = layerInfo?.styleSetters;
+        const defaults = layerInfo?.styleDefaultsProvider?.() ?? {};
         if (setters) {
           for (const [key, setter] of Object.entries(setters)) {
             if (key in defaults) setter(defaults[key]);

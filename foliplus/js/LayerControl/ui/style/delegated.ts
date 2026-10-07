@@ -28,8 +28,8 @@ const DELEGATED_DIM_ORDER = DIM_ORDER.filter(
  *  (third-party canvas layers: Heatmap, Measure). The ⋮ menu's Style item
  *  also enables for these. */
 const layerHasStyleDelegation = (ui: LayerUI, layerId: string): boolean => {
-  const li = ui.c.layerRegistry.get(layerId);
-  return !!li?.styleSetters && Object.keys(li.styleSetters).length > 0;
+  const layerInfo = ui.c.layerRegistry.get(layerId);
+  return !!layerInfo?.styleSetters && Object.keys(layerInfo.styleSetters).length > 0;
 };
 
 /** Build the border-style row for a delegated layer (only HeatmapControl
@@ -38,8 +38,8 @@ const layerHasStyleDelegation = (ui: LayerUI, layerId: string): boolean => {
  *  the two read identically — with the `styleSetters` write target.
  *  Returns null when the layer publishes no border setters. */
 const buildBorderRow = (ui: LayerUI, layerId: string): HTMLElement | null => {
-  const li = ui.c.layerRegistry.get(layerId);
-  const setters = li?.styleSetters;
+  const layerInfo = ui.c.layerRegistry.get(layerId);
+  const setters = layerInfo?.styleSetters;
   if (!setters || (!setters.borderWeight && !setters.borderColor)) return null;
 
   // Re-read the registry at event time so a layer torn down between open and
@@ -85,8 +85,8 @@ const renderDelegatedStylePanel = (
   ui: LayerUI,
   layerId: string,
 ): HTMLElement | null => {
-  const li = ui.c.layerRegistry.get(layerId);
-  const setters = li?.styleSetters;
+  const layerInfo = ui.c.layerRegistry.get(layerId);
+  const setters = layerInfo?.styleSetters;
   if (!setters || Object.keys(setters).length === 0) return null;
 
   // Both hooks re-read the registry instead of closing over the entry fetched
@@ -169,7 +169,7 @@ const renderDelegatedStylePanel = (
   }
 
   // Reset only when the component published its Python CONFIG defaults.
-  if (li.styleDefaultsProvider) appendResetFooter(ui, content);
+  if (layerInfo.styleDefaultsProvider) appendResetFooter(ui, content);
   return panel;
 };
 

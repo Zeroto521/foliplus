@@ -282,8 +282,8 @@ class LayerOrchestration {
     // layer's range no longer holds the ceiling up.
     if (!this.authorMaxZoomDeclared) {
       let max = 0;
-      for (const li of this.layers) {
-        const opts = li.layer?.options as { maxZoom?: number } | undefined;
+      for (const layerInfo of this.layers) {
+        const opts = layerInfo.layer?.options as { maxZoom?: number } | undefined;
         if (
           typeof opts?.maxZoom === "number" &&
           Number.isFinite(opts.maxZoom) &&

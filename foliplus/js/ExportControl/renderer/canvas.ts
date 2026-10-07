@@ -47,7 +47,7 @@ const renderPaneCanvas = async (
   const { ctx, rect, scale, contRect, cw, ch } = rc;
   for (const ce of pane.querySelectorAll(selector)) {
     // SKIP_EXPORT: self or ancestor (chrome host). Registered canvas layers
-    // paint via `li.canvas` and never reach this pane walk.
+    // paint via `layerInfo.canvas` and never reach this pane walk.
     if (isExportExcluded(ce)) continue;
     try {
       const r = ce.getBoundingClientRect();

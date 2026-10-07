@@ -207,7 +207,7 @@ const DELETE_ARMED_TIMEOUT_MS = 3000;
 let armedDelete: {
   ui: LayerUI;
   label: HTMLElement;
-  li: HTMLElement;
+  menuItem: HTMLElement;
   isClear: boolean;
   originalTitle: string;
 } | null = null;
@@ -266,18 +266,20 @@ const buildDeleteItem = (
 /** Turn the delete entry into its confirming state: the label swaps to the
  *  confirmation text and the entry fills, so the second click is unambiguous
  *  without borrowing the accent color (which already means hover and focus). */
-const armDelete = (ui: LayerUI, li: HTMLElement): void => {
-  const label = li.querySelector<HTMLElement>(`.${CONST.CLASSES.MENU_DELETE_LABEL}`);
+const armDelete = (ui: LayerUI, menuItem: HTMLElement): void => {
+  const label = menuItem.querySelector<HTMLElement>(
+    `.${CONST.CLASSES.MENU_DELETE_LABEL}`,
+  );
   if (!label) return;
   disarmDelete();
-  const isClear = li.dataset.mode === "clear";
+  const isClear = menuItem.dataset.mode === "clear";
   // The title attribute is set by buildDeleteItem at entry construction, so
   // there is no null to fall back to.
-  const originalTitle = li.getAttribute("title")!;
-  armedDelete = { ui, label, li, isClear, originalTitle };
+  const originalTitle = menuItem.getAttribute("title")!;
+  armedDelete = { ui, label, menuItem, isClear, originalTitle };
   label.textContent = ui.T(isClear ? "clear_data_confirm" : "delete_layer_confirm");
-  li.classList.add(CONST.CLASSES.MENU_DELETE_ARMED);
-  li.setAttribute(
+  menuItem.classList.add(CONST.CLASSES.MENU_DELETE_ARMED);
+  menuItem.setAttribute(
     "title",
     ui.T(isClear ? "clear_data_confirm" : "delete_layer_confirm"),
   );
@@ -292,8 +294,8 @@ const disarmDelete = (): void => {
   const armed = armedDelete;
   if (!armed) return;
   armed.label.textContent = armed.ui.T(armed.isClear ? "clear_data" : "delete_layer");
-  armed.li.setAttribute("title", armed.originalTitle);
-  armed.li.classList.remove(CONST.CLASSES.MENU_DELETE_ARMED);
+  armed.menuItem.setAttribute("title", armed.originalTitle);
+  armed.menuItem.classList.remove(CONST.CLASSES.MENU_DELETE_ARMED);
   armedDelete = null;
 };
 
@@ -301,9 +303,9 @@ const disarmDelete = (): void => {
  *  true when the delete fired and the menu should close; false means the entry
  *  was only armed, so the menu stays open and the user sees what they are about
  *  to confirm. */
-const activateDeleteItem = (ui: LayerUI, li: HTMLElement): boolean => {
-  if (!li.classList.contains(CONST.CLASSES.MENU_DELETE_ARMED)) {
-    armDelete(ui, li);
+const activateDeleteItem = (ui: LayerUI, menuItem: HTMLElement): boolean => {
+  if (!menuItem.classList.contains(CONST.CLASSES.MENU_DELETE_ARMED)) {
+    armDelete(ui, menuItem);
     return false;
   }
   const layerId = ui.overlayPanel.activeMenu?.layerId ?? "";

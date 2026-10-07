@@ -269,8 +269,8 @@ class PaneManager {
    *  re-creating the pane would not re-parent it. */
   sweepChildPanes(layers: ReadonlyArray<{ paneSpecs?: readonly PaneSpec[] }>) {
     const used = new Set<string>();
-    for (const li of layers) {
-      for (const spec of li.paneSpecs ?? []) {
+    for (const layerInfo of layers) {
+      for (const spec of layerInfo.paneSpecs ?? []) {
         used.add(spec.name);
       }
     }

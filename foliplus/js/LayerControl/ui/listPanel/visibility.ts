@@ -19,15 +19,15 @@ const getLayerItems = (ui: LayerUI, group: string): NodeListOf<Element> => {
  *  resolveExportBackground deliberately skips (it reads only
  *  `backgroundColor`), so an empty state never reaches an export. */
 const syncNoBasemap = (ui: LayerUI): void => {
-  const anyBaseVisible = ui.c.layers.some(li => {
-    if (li.group !== GROUP.BASE) return false;
-    if (!intentVisibleOf(ui, li.id)) return false;
+  const anyBaseVisible = ui.c.layers.some(layerInfo => {
+    if (layerInfo.group !== GROUP.BASE) return false;
+    if (!intentVisibleOf(ui, layerInfo.id)) return false;
     // Effective visibility: intent alone isn't enough — a basemap with
     // `opacity = 0` is visually empty too, so the hatch should still show.
-    // `li.opacity` is written by the executor on every opacity change and
+    // `layerInfo.opacity` is written by the executor on every opacity change and
     // is undefined until the first write (freshly registered layers), so
     // `?? 1` treats "no override yet" as fully opaque.
-    return (li.opacity ?? 1) > 0;
+    return (layerInfo.opacity ?? 1) > 0;
   });
   ui.c.map.getContainer().classList.toggle(CONST.CLASSES.NO_BASE_MAP, !anyBaseVisible);
   const label = ui.uiContainer.querySelector(

@@ -29,9 +29,9 @@ import {
  *  pane we do not own) get no opacity row — a slider that writes nothing but
  *  persists the value would fail silently. */
 const layerCanOpacity = (ui: LayerUI, layerId: string): boolean => {
-  const li = ui.c.layerRegistry.get(layerId);
-  if (!li) return false;
-  return ui.c.surfaceFor(li).capabilities.opacity !== CAP_TIER.NONE;
+  const layerInfo = ui.c.layerRegistry.get(layerId);
+  if (!layerInfo) return false;
+  return ui.c.surfaceFor(layerInfo).capabilities.opacity !== CAP_TIER.NONE;
 };
 
 /** UI percentage (0-100) for a stored opacity (0-1). */
@@ -99,12 +99,12 @@ const commitOpacityPct = (
 ): void => {
   const pct = clampPct(rawPct);
   const opacity = pct / 100;
-  const li = ui.c.layerRegistry.get(layerId);
-  if (!li) return;
+  const layerInfo = ui.c.layerRegistry.get(layerId);
+  if (!layerInfo) return;
   // Only touch the layer when the value actually moved: a drag revisits steps
   // (and the commit re-sends the live value), and for a plain layer each pass
   // is a sweep over every feature.
-  if (li.opacity === opacity) return;
+  if (layerInfo.opacity === opacity) return;
   getDimension(DIM.OPACITY)!.write!(ui, layerId, opacity);
   syncOpacityInputs(panel, pct);
 };
@@ -118,8 +118,10 @@ const commitOpacityPct = (
  *  accessible name and value, arrow / Home / End drive it, and the bubble
  *  appears for keyboard input the same as for a drag. */
 const buildOpacityRow = (ui: LayerUI, layerId: string): HTMLElement => {
-  const li = ui.c.layerRegistry.get(layerId);
-  const pct = opacityToPct(getIntent(ui, layerId, INTENT.OPACITY) ?? li?.opacity);
+  const layerInfo = ui.c.layerRegistry.get(layerId);
+  const pct = opacityToPct(
+    getIntent(ui, layerId, INTENT.OPACITY) ?? layerInfo?.opacity,
+  );
   const fill = dom.el("div", {
     class: `${CONST.CLASSES.SLIDER_FILL} ${CONST.CLASSES.STYLE_OPACITY_FILL}`,
     style: `width:${opacityFillWidth(pct)}`,
@@ -173,8 +175,8 @@ const buildOpacityRow = (ui: LayerUI, layerId: string): HTMLElement => {
 /** Reset one layer's opacity to fully opaque and drop its persisted entry.
  *  Thin delegate over the opacity descriptor's `reset`. */
 const resetLayerOpacity = (ui: LayerUI, layerId: string): void => {
-  const li = ui.c.layerRegistry.get(layerId);
-  if (!li) return;
+  const layerInfo = ui.c.layerRegistry.get(layerId);
+  if (!layerInfo) return;
   getDimension(DIM.OPACITY)!.reset!(ui, layerId);
 };
 
@@ -191,8 +193,8 @@ const OPACITY_DIMENSION = registerDimension<number>({
   key: DIM.OPACITY,
   gate: layerCanOpacity,
   value: (ui, layerId) => {
-    const li = ui.c.layerRegistry.get(layerId);
-    return getIntent(ui, layerId, INTENT.OPACITY) ?? li?.opacity;
+    const layerInfo = ui.c.layerRegistry.get(layerId);
+    return getIntent(ui, layerId, INTENT.OPACITY) ?? layerInfo?.opacity;
   },
   row: buildOpacityRow,
   /** Intent+persist + projection. `opacity === 1` clears (no override);
@@ -208,15 +210,15 @@ const OPACITY_DIMENSION = registerDimension<number>({
       void writeIntentKeys(ui, layerId, [[INTENT.OPACITY, opacity]]);
     }
     applyProjection(ui, layerId, "debounce");
-    const li = ui.c.layerRegistry.get(layerId);
-    if (li?.group === GROUP.BASE) syncNoBasemap(ui);
+    const layerInfo = ui.c.layerRegistry.get(layerId);
+    if (layerInfo?.group === GROUP.BASE) syncNoBasemap(ui);
   },
   /** Cohesive reset: clear the override, save, re-project, hatch sync. */
   reset: (ui, layerId) => {
     resetIntentKeys(ui, layerId, [INTENT.OPACITY]);
     applyProjection(ui, layerId, "debounce");
-    const li = ui.c.layerRegistry.get(layerId);
-    if (li?.group === GROUP.BASE) syncNoBasemap(ui);
+    const layerInfo = ui.c.layerRegistry.get(layerId);
+    if (layerInfo?.group === GROUP.BASE) syncNoBasemap(ui);
   },
   valueSource: (ui, layerId) => {
     if (!layerCanOpacity(ui, layerId)) return "none";
