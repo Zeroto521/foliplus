@@ -16,7 +16,7 @@
 // value. This is the unified hook both self-managed style dimensions
 // (fill, border) share: one handler per leaf merges every keyed getter
 // into a single `setStyle` on fire.
-import { isStyleSetter, type StyleSetter } from "./styleBag.js";
+import { type StyleSetter, isStyleSetter } from "./styleBag.js";
 
 type StyleGetter = () => Record<string, unknown> | null;
 
