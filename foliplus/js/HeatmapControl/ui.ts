@@ -327,9 +327,9 @@ const renderColorBar = (
   ctrl: HeatmapControlUI,
   container: HTMLElement,
   name: string,
-  nClasses: number,
+  numClasses: number,
 ) => {
-  const colors = ctrl.m.getColorScale(name, nClasses);
+  const colors = ctrl.m.getColorScale(name, numClasses);
   container.innerHTML = "";
   for (const color of colors) {
     dom.el("div", {

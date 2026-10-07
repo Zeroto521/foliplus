@@ -27,7 +27,7 @@ const MeasureControl = defineControl<MeasureManager>({
       {
         mode: CONST.MEASURE_MODE.MARKER,
         title: this.T("tool_marker"),
-        svg: Icons.LOCATE_ICON,
+        svg: Icons.LOCATION_PIN,
       },
       {
         mode: CONST.MEASURE_MODE.DISTANCE,

@@ -153,7 +153,7 @@ class SearchControl extends defineControl({
       this.modeBtn.title = this.T("mode_coord");
       this.inp.placeholder = this.T("coord_placeholder");
     } else {
-      this.modeBtn.innerHTML = Icons.LOCATE_ICON;
+      this.modeBtn.innerHTML = Icons.LOCATION_PIN;
       this.modeBtn.title = this.T("mode_addr");
       this.inp.placeholder = this.T("addr_placeholder");
     }
