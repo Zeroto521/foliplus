@@ -21,19 +21,23 @@ type ClassifyMethod = (typeof METHOD)[keyof typeof METHOD];
  * yields an empty array. Breaks are monotonically non-decreasing so callers
  * can bisect them into class indices.
  */
-const computeBreaks = (data: number[], nClasses: number, method: string): number[] => {
+const computeBreaks = (
+  data: number[],
+  numClasses: number,
+  method: string,
+): number[] => {
   if (data.length === 0) return [];
   const sorted = data.slice().sort((a, b) => a - b);
   const n = sorted.length;
   if (n <= 2) return [sorted[0], sorted[n - 1]];
-  nClasses = Math.max(3, Math.min(nClasses, n));
+  numClasses = Math.max(3, Math.min(numClasses, n));
 
   const lo = sorted[0];
   const hi = sorted[n - 1];
 
   if (method === METHOD.JENKS) {
     try {
-      const clusters = ss.ckmeans(data, nClasses);
+      const clusters = ss.ckmeans(data, numClasses);
       const breaks: number[] = [clusters[0][0]];
       clusters.forEach(c => breaks.push(c[c.length - 1]));
       return breaks;
@@ -43,20 +47,20 @@ const computeBreaks = (data: number[], nClasses: number, method: string): number
     return [lo, hi];
   } else if (method === METHOD.QUANTILE) {
     const b: number[] = [lo];
-    for (let i = 1; i < nClasses; i++) {
-      b.push(ss.quantileSorted(sorted, i / nClasses));
+    for (let i = 1; i < numClasses; i++) {
+      b.push(ss.quantileSorted(sorted, i / numClasses));
     }
     return b.concat(hi);
   } else if (method === METHOD.HEADS) {
     const b: number[] = [lo];
-    for (let i = 1; i < nClasses; i++) {
-      b.push(sorted[Math.min(Math.floor((i * n) / nClasses), n - 1)]);
+    for (let i = 1; i < numClasses; i++) {
+      b.push(sorted[Math.min(Math.floor((i * n) / numClasses), n - 1)]);
     }
     return b.concat(hi);
   }
-  const step = (hi - lo) / nClasses;
+  const step = (hi - lo) / numClasses;
   const b: number[] = [];
-  for (let i = 0; i <= nClasses; i++) b.push(lo + step * i);
+  for (let i = 0; i <= numClasses; i++) b.push(lo + step * i);
   return b;
 };
 

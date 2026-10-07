@@ -257,8 +257,9 @@ class HeatmapManager {
         this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
       },
       labelSize: v => {
-        const n = typeof v === "number" && !Number.isNaN(v) ? v : this.currentLabelSize;
-        this.currentLabelSize = clampLabelSize(n);
+        const nextSize =
+          typeof v === "number" && !Number.isNaN(v) ? v : this.currentLabelSize;
+        this.currentLabelSize = clampLabelSize(nextSize);
         this.cachedLabelStyle = null;
         this.redrawHeatmap();
         this.saveConfig();
@@ -279,8 +280,12 @@ class HeatmapManager {
       // Border weight only redraws the hexagon strokes — the H3 aggregation
       // result is unaffected.
       borderWeight: v => {
-        const n = typeof v === "number" && !Number.isNaN(v) ? v : this.borderWeight;
-        this.borderWeight = Math.min(BORDER_WEIGHT.MAX, Math.max(BORDER_WEIGHT.MIN, n));
+        const nextWeight =
+          typeof v === "number" && !Number.isNaN(v) ? v : this.borderWeight;
+        this.borderWeight = Math.min(
+          BORDER_WEIGHT.MAX,
+          Math.max(BORDER_WEIGHT.MIN, nextWeight),
+        );
         this.redrawHeatmap();
         this.saveConfig();
         this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
@@ -372,12 +377,12 @@ class HeatmapManager {
       // stamped it cannot tell "user hid it" apart from "zoom hid it" at
       // restore time.
       onHide: () => {
-        const c = this.overlay.canvas;
-        if (c) c.style.visibility = "hidden";
+        const el = this.overlay.canvas;
+        if (el) el.style.visibility = "hidden";
       },
       onShow: () => {
-        const c = this.overlay.canvas;
-        if (c) c.style.visibility = "";
+        const el = this.overlay.canvas;
+        if (el) el.style.visibility = "";
       },
     });
 
@@ -387,8 +392,8 @@ class HeatmapManager {
         // Safety clear in case a rebuild swapped the canvas between the
         // immediate handler and this debounced one; the style write is
         // idempotent and never touches the HIDDEN class.
-        const c = this.overlay.canvas;
-        if (c) c.style.visibility = "";
+        const el = this.overlay.canvas;
+        if (el) el.style.visibility = "";
       }
     }, CONST.TIMING.ZOOM_DEBOUNCE);
     this.map.on("zoomend", this.onZoomEnd);
@@ -505,8 +510,8 @@ class HeatmapManager {
     const bounds = this.renderAll ? null : this.map.getBounds();
     const isVisible = (feat: HexFeature) => {
       if (!bounds) return true;
-      const c = feat.properties.centroid;
-      return !!c && bounds.contains(L.latLng(c[0], c[1]));
+      const pt = feat.properties.centroid;
+      return !!pt && bounds.contains(L.latLng(pt[0], pt[1]));
     };
 
     this.cachedFeatures.forEach(feat => {
@@ -560,8 +565,8 @@ class HeatmapManager {
           // GeoJSON order [lng, lat].
           for (const [lng, lat] of ring) acc.extend([lat, lng]);
         } else {
-          const c = feat.properties.centroid;
-          if (c) acc.extend([c[0], c[1]]);
+          const pt = feat.properties.centroid;
+          if (pt) acc.extend([pt[0], pt[1]]);
         }
       }
     } else {
@@ -616,10 +621,10 @@ class HeatmapManager {
         }
         const props = marker.feature?.properties;
         if (!props) return;
-        Object.keys(props).forEach(k => {
-          if (typeof props[k] === "number" && !seen.has(k)) {
-            seen.add(k);
-            fields.push(k);
+        Object.keys(props).forEach(fieldName => {
+          if (typeof props[fieldName] === "number" && !seen.has(fieldName)) {
+            seen.add(fieldName);
+            fields.push(fieldName);
           }
         });
       });
@@ -691,8 +696,8 @@ class HeatmapManager {
     return getColorScaleFn(name, n);
   }
 
-  computeBreaks(data: number[], nClasses: number, method: string): number[] {
-    return computeBreaksFn(data, nClasses, method);
+  computeBreaks(data: number[], numClasses: number, method: string): number[] {
+    return computeBreaksFn(data, numClasses, method);
   }
 
   renderHexagons() {
