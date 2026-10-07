@@ -1,4 +1,4 @@
-// Row lookup: updateLayerItem must resolve the row by data-layer-id, not by the
+// Row lookup: updateLayerItemLabel must resolve the row by data-layer-id, not by the
 // layer's registry index.
 //
 // Reorder the registry so a neighbor sits at alpha's registry index, then
@@ -36,7 +36,7 @@
   }
 
   m.layerRegistry.byId.get("alpha").name = "A2";
-  ui.updateLayerItem(m.layerRegistry.byId.get("alpha"));
+  ui.updateLayerItemLabel(m.layerRegistry.byId.get("alpha"));
 
   return {
     alphaRegistryIndex: alphaIdx,
