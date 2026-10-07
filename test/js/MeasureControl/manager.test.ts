@@ -98,6 +98,7 @@ function makeManager(opts?: { id?: string }) {
   };
 
   const manager = new MeasureManager(map, env, opts);
+  manager.init();
   return { manager, map, container, layers };
 }
 
@@ -1273,7 +1274,9 @@ function makeLabelManager(config: Partial<typeof window.CONFIG> = {}) {
     },
   };
 
-  return { manager: new MeasureManager(map, env), map, container, layers };
+  const manager = new MeasureManager(map, env);
+  manager.init();
+  return { manager, map, container, layers };
 }
 
 beforeEach(() => {
