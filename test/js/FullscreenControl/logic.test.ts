@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CLASSES } from "#foliplus/FullscreenControl/const.js";
 import {
-  makeFullscreenChangeHandler,
+  buildFullscreenChangeHandler,
   toggleFullscreen,
   updateUI,
 } from "#foliplus/FullscreenControl/logic.js";
@@ -169,7 +169,7 @@ describe("toggleFullscreen — pseudo path", () => {
   });
 });
 
-describe("makeFullscreenChangeHandler", () => {
+describe("buildFullscreenChangeHandler", () => {
   let fsBtn;
   let container;
   let mapMock;
@@ -182,19 +182,19 @@ describe("makeFullscreenChangeHandler", () => {
   });
 
   it("returns a handler function", () => {
-    const handler = makeFullscreenChangeHandler(mapMock, fsBtn, container, makeEnv());
+    const handler = buildFullscreenChangeHandler(mapMock, fsBtn, container, makeEnv());
     expect(typeof handler).toBe("function");
   });
 
   it("handler calls updateUI (MAXIMIZE when not fullscreen)", () => {
-    const handler = makeFullscreenChangeHandler(mapMock, fsBtn, container, makeEnv());
+    const handler = buildFullscreenChangeHandler(mapMock, fsBtn, container, makeEnv());
     handler();
     expect(mapMock.isFullscreen).toBe(false);
     expect(fsBtn.innerHTML).toContain("M8 3H5"); // MAXIMIZE
   });
 
   it("handler syncs isFullscreen from the native fullscreen element", () => {
-    const handler = makeFullscreenChangeHandler(mapMock, fsBtn, container, makeEnv());
+    const handler = buildFullscreenChangeHandler(mapMock, fsBtn, container, makeEnv());
     mocks.getFullscreenEl.mockReturnValue({});
     handler();
     expect(mapMock.isFullscreen).toBe(true);

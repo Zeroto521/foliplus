@@ -4,7 +4,7 @@ import { createIconButton, dom } from "#common/dom.js";
 import { FULLSCREEN_CHANGE, isEnabled } from "./api.js";
 import { CLASSES, containerId } from "./const.js";
 import * as SVGs from "./icon.js";
-import { makeFullscreenChangeHandler, toggleFullscreen } from "./logic.js";
+import { buildFullscreenChangeHandler, toggleFullscreen } from "./logic.js";
 
 const FullscreenControl = defineControl({
   config: CONFIG,
@@ -72,7 +72,7 @@ const FullscreenControl = defineControl({
       this.on(
         document,
         FULLSCREEN_CHANGE,
-        makeFullscreenChangeHandler(map, fsBtn, container, {
+        buildFullscreenChangeHandler(map, fsBtn, container, {
           config: this.config,
           T: this.T,
         }),
