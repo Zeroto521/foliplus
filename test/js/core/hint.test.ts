@@ -441,16 +441,16 @@ describe("map unload teardown", () => {
     vi.useFakeTimers();
     const map = makeMap();
     const mgr = ensureHint(map);
-    // migrateHints is called through a bound arrow, so spying the class
+    // reattachHints is called through a bound arrow, so spying the class
     // method is the only way to observe the document listener afterwards.
-    const migrateSpy = vi.spyOn(mgr, "migrateHints" as any);
+    const reattachSpy = vi.spyOn(mgr, "reattachHints" as any);
     mgr.showHint("persist", "still open", HINT_DURATION.PERSIST);
     // Grab the element this manager just created. A global selector would
     // also match stray nodes left behind by sibling tests.
     const el = mgr.hintMap.values().next().value!.element;
 
     document.dispatchEvent(new Event("fullscreenchange"));
-    expect(migrateSpy).toHaveBeenCalledTimes(1); // listener still bound
+    expect(reattachSpy).toHaveBeenCalledTimes(1); // listener still bound
     expect(el.isConnected).toBe(true);
 
     expect(fire(map, "unload")).toBe(1);
@@ -458,7 +458,7 @@ describe("map unload teardown", () => {
     expect(el.isConnected).toBe(false);
 
     document.dispatchEvent(new Event("fullscreenchange"));
-    expect(migrateSpy).toHaveBeenCalledTimes(1); // listener unbound
+    expect(reattachSpy).toHaveBeenCalledTimes(1); // listener unbound
 
     // A second manager (another map on the page) proves teardown is scoped:
     // it still receives newly registered icons, and icon propagation does not
@@ -471,7 +471,7 @@ describe("map unload teardown", () => {
     expect(mgr.hintMap.size).toBe(0); // dead manager untouched
 
     other.destroy();
-    migrateSpy.mockRestore();
+    reattachSpy.mockRestore();
     vi.useRealTimers();
   });
 

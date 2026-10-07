@@ -376,22 +376,22 @@ describe("PaneManager", () => {
     expect(pm.childPaneSpecs.get("d")?.role).toBe("preview");
   });
 
-  it("reset invalidates the discovery cache", () => {
-    // reset bumps the generation: entries computed before it are dropped on
-    // their next read rather than cleared eagerly. Assert via the visible
-    // contract — a layer whose options changed in the gap comes back with the
-    // new name, not the pre-reset cached value.
+  it("invalidateDiscoveryCache invalidates the discovery cache", () => {
+    // invalidateDiscoveryCache bumps the generation: entries computed before
+    // it are dropped on their next read rather than cleared eagerly. Assert via
+    // the visible contract — a layer whose options changed in the gap comes
+    // back with the new name, not the pre-invalidation cached value.
     const map = { getPane: vi.fn(), createPane: vi.fn() };
     const pm = new PaneManager(map);
     const layer = { options: { pane: "a" } } as unknown as L.Layer;
     expect(pm.discoverChildPanes(layer)).toEqual(["a"]);
     layer.options.pane = "b";
     expect(pm.discoverChildPanes(layer)).toEqual(["a"]);
-    pm.reset();
+    pm.invalidateDiscoveryCache();
     expect(pm.discoverChildPanes(layer)).toEqual(["b"]);
   });
 
-  it("reset(id) keeps its signature and invalidates structure-wide", () => {
+  it("invalidateDiscoveryCache(id) keeps its signature and invalidates structure-wide", () => {
     // The stamp argument is retained for the stamp-only callers and ignored on
     // purpose: a repinned subtree can invalidate entries the caller holds no
     // reference to, while over-invalidating costs one extra `forEachLayer`
@@ -406,7 +406,7 @@ describe("PaneManager", () => {
     a.options.pane = "a2";
     b.options.pane = "b2";
     // Both still served from cache — the stamp argument is ignored.
-    pm.reset(window.L.stamp({}));
+    pm.invalidateDiscoveryCache(window.L.stamp({}));
     expect(pm.discoverChildPanes(a)).toEqual(["a2"]);
     expect(pm.discoverChildPanes(b)).toEqual(["b2"]);
   });
@@ -428,11 +428,11 @@ describe("PaneManager", () => {
     const pm = new PaneManager(map);
     const layer = { options: { pane: "foliplus-measure-graph" } };
     expect(pm.discoverChildPanes(layer)).toEqual(["foliplus-measure-graph"]);
-    // Second call must hit the cache — the options change is ignored until reset
+    // Second call must hit the cache — the options change is ignored until invalidation
     layer.options.pane = "other_pane";
     expect(pm.discoverChildPanes(layer)).toEqual(["foliplus-measure-graph"]);
     // After an invalidation the new pane is observed
-    pm.reset(window.L.stamp(layer));
+    pm.invalidateDiscoveryCache(window.L.stamp(layer));
     expect(pm.discoverChildPanes(layer)).toEqual(["other_pane"]);
   });
 
@@ -1035,7 +1035,7 @@ describe("dual map isolation", () => {
     // Both caches keyed by the same layer stamp — invalidate only A's. B
     // must keep serving its own cached entry even though the layer's options
     // move in the gap.
-    pmA.reset(L.stamp(layer));
+    pmA.invalidateDiscoveryCache(L.stamp(layer));
     layer.options.pane = "changed";
     expect(pmA.discoverChildPanes(layer)).toEqual(["changed"]);
     expect(pmB.discoverChildPanes(layer)).toEqual(["custom"]);

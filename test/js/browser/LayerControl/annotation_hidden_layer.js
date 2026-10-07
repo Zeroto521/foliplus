@@ -36,7 +36,7 @@
   return (async () => {
     await frame();
     const before = count();
-    // Hide through the intent API (setVisible -> applyStateOp -> map.removeLayer
+    // Hide through the intent API (setVisible -> dispatchStateOp -> map.removeLayer
     // + LAYER_CHANGE) rather than raw map.removeLayer: the annotation manager
     // reads LAYER_CHANGE, not the native `layerremove`, so a direct map call
     // would not reach it. The panel checkbox goes through the same path.

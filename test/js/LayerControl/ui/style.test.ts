@@ -4209,7 +4209,7 @@ describe("LayerUI style panel — zoom range", () => {
   });
 
   it("does not ratchet the slider's max when the map derives from the write", () => {
-    // If applyStateOp wrote layer.options.maxZoom, Leaflet would derive
+    // If dispatchStateOp wrote layer.options.maxZoom, Leaflet would derive
     // the map's max from the layer's max, and the map's max would drop to
     // the last drag. The WeakMap snapshot prevents the slider from
     // re-reading the polluted value. The mock simulates the pollution.
