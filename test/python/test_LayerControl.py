@@ -6432,8 +6432,8 @@ class TestLayerControlBrowser:
             assert state["dragDisarmed"] is True
             assert not errors, f"JS errors: {errors}"
 
-    def test_updatelayeritem_updates_only_the_id_match_row(self, browser, tmp_path):
-        """updateLayerItem pushes a rename onto the row named by data-layer-id,
+    def test_updatelayeritemlabel_updates_only_the_id_match_row(self, browser, tmp_path):
+        """updateLayerItemLabel pushes a rename onto the row named by data-layer-id,
         not the row at the layer's registry index."""
         with use_page(self._make_page, browser, tmp_path, slug="updatelayeritem") as (
             page,
