@@ -99,6 +99,11 @@ class LayerRuntimeStore {
 
   // ── authorVisible (author-declared default snapshot) ───────────────
 
+  /** The author-declared default, or undefined when this id was never
+   *  observed — callers supply the fallback themselves (`?? true`). Absent
+   *  and a stored `false` are distinct states here, which is why the
+   *  presence check below exists separately instead of being derived
+   *  from this. */
   getAuthorVisible(id: string): boolean | undefined {
     return this.rows.get(id)?.authorVisible;
   }
@@ -107,6 +112,9 @@ class LayerRuntimeStore {
     this.ensure(id).authorVisible = visible;
   }
 
+  /** Whether a default was ever snapshotted for this id. True also for a
+   *  stored `false` — {@link getAuthorVisible} cannot tell that from an id
+   *  that was never observed, both collapse to undefined. */
   hasAuthorVisible(id: string): boolean {
     return this.rows.get(id)?.authorVisible !== undefined;
   }
