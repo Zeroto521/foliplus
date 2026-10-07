@@ -226,9 +226,4 @@ const OPACITY_DIMENSION = registerDimension<number>({
   },
 });
 
-export {
-  OPACITY_DIMENSION,
-  clampPct,
-  commitOpacityPct,
-  resetLayerOpacity,
-};
+export { OPACITY_DIMENSION, clampPct, commitOpacityPct, resetLayerOpacity };

@@ -163,7 +163,8 @@ class DistanceMode extends PreviewMode {
           this.mgr.store.remove(distId);
         },
         onUpdate: () => {
-          const { segments: updatedSegs, totalDistance } = Util.recalculateSegments(points);
+          const { segments: updatedSegs, totalDistance } =
+            Util.recalculateSegments(points);
           this.mgr.store.update(distId, {
             points: points.map(p => ({ lng: p.lng, lat: p.lat })),
             segments: updatedSegs,
