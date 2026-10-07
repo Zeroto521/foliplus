@@ -29,6 +29,13 @@
 // @see https://eslint.org/docs/latest/use/configure/
 import tseslint from "typescript-eslint";
 
+// `import/no-cycle` runs with the syntax-level pass, not the type-aware one.
+// It needs a TS-capable resolver (the repo's `.js` extension spec resolves to
+// `.ts` files, and `#core/*`-style aliases rely on tsconfig `paths`) — the
+// typescript resolver is the only one that handles both. See the exemption
+// block at the bottom for the files still flagged by the rule.
+const importPlugin = (await import("eslint-plugin-import")).default;
+
 export default [
   // Guard against a bare `eslint .`, which would sweep .venv, doc/, and
   // the build output. The lint script's globs already avoid those, so
@@ -56,8 +63,32 @@ export default [
       "script/**/*.cjs",
       "script/**/*.js",
     ],
-    plugins: {},
+    plugins: { import: importPlugin },
+    settings: {
+      // eslint-plugin-import's default `validExtensions` is
+      // `['.js', '.mjs', '.cjs']`; without these the builder silently drops
+      // every `.ts` import it can't parse, and `no-cycle` never fires.
+      "import/extensions": [".js", ".mjs", ".cjs", ".ts", ".tsx"],
+      "import/resolver": {
+        typescript: { project: "./tsconfig.json" },
+      },
+    },
     rules: {
+      // Circular dependencies are almost always a smell — they complicate
+      // initialization order and make tree-shaking / module bundling fragile.
+      // `import/no-cycle` runs here (syntax-level, no type program) rather
+      // than in eslint.config.type.js. It ignores type-only imports by
+      // default, so a `import type { X } from "./sibling"` edge never trips
+      // it — that only matters when the value edge itself is what closes the
+      // cycle.
+      //
+      // File-level exemptions at the bottom of this file (LayerControl
+      // listPanel triangle + rowView/projection bidirectional, SearchControl
+      // history/search bidirectional). These are pre-existing value cycles
+      // that were already in the shipped codebase; they belong in their own
+      // cleanup PRs, not here.
+      "import/no-cycle": ["error", { maxDepth: 10 }],
+
       // One import declaration per module — the project's import
       // convention. `import type { A }` + `import { B }` from the same
       // module must merge into `import { B, type A }` (inline type).
@@ -170,6 +201,35 @@ export default [
       // Heavy-mock test suite and Leaflet interop make `any` idiomatic here.
       // tsconfig's noImplicitAny still catches implicit ones.
       "@typescript-eslint/no-explicit-any": "off",
+    },
+  },
+
+  // ── `import/no-cycle` exemptions ──
+  // The value-edge graph still has three pre-existing cycles:
+  //   1. LayerControl/ui/listPanel — drag ↔ keyboard ↔ list triangle
+  //      (list.ts imports keyboard.ts:cursorRef; keyboard.ts imports
+  //      drag.ts:toggleFold; drag.ts imports list.ts:renderInitialList)
+  //   2. LayerControl/ui/listPanel/rowView ↔ projection (bidirectional)
+  //   3. SearchControl/logic/history ↔ search (bidirectional; surfaced
+  //      when this rule was added — not in the original T308 debt list)
+  // Each is safe at bundle time (the tree-shaker resolves the runtime
+  // ordering) but is a genuine value cycle. They belong in their own
+  // cleanup PRs — the whole point of this rule is to catch *new* cycles
+  // so they can't hide inside unrelated refactors. Exempting them here
+  // instead of `eslint-disable-next-line` keeps the exemption in one
+  // place, right next to the rule it relaxes.
+  {
+    files: [
+      "foliplus/js/LayerControl/ui/listPanel/drag.ts",
+      "foliplus/js/LayerControl/ui/listPanel/keyboard.ts",
+      "foliplus/js/LayerControl/ui/listPanel/list.ts",
+      "foliplus/js/LayerControl/ui/listPanel/rowView.ts",
+      "foliplus/js/LayerControl/ui/projection.ts",
+      "foliplus/js/SearchControl/logic/history.ts",
+      "foliplus/js/SearchControl/logic/search.ts",
+    ],
+    rules: {
+      "import/no-cycle": "off",
     },
   },
 
