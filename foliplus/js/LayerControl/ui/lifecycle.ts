@@ -35,7 +35,7 @@ import {
   initTypesAndVisibility,
   insertLayerItem,
   renderInitialList,
-  updateLayerItem,
+  updateLayerItemLabel,
 } from "./listPanel/list.js";
 import {
   applyRowView,
@@ -297,7 +297,7 @@ const bindEvents = (ui: LayerUI): void => {
     bus.on(EVENTS.LAYER_ITEM_UPDATED, (payload: { id: string }) => {
       const layerInfo = registry.get(payload.id);
       if (!layerInfo) return;
-      updateLayerItem(ui, layerInfo);
+      updateLayerItemLabel(ui, layerInfo);
       invalidateFields(ui, payload.id);
     }),
     bus.on(EVENTS.LAYER_ITEM_REFRESHED, (payload: { id: string }) => {

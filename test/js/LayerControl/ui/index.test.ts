@@ -292,12 +292,12 @@ describe("LayerUI shell — delegates", () => {
     expect(save).toHaveBeenCalled();
   });
 
-  it("insertLayerItem / updateLayerItem / initLayerItem delegates reach the row modules", () => {
+  it("insertLayerItem / updateLayerItemLabel / initLayerItem delegates reach the row modules", () => {
     // The LayerUI delegate wrappers are the seam the manager-driven signal
     // handlers call; each must route to the ui/* module without throwing.
     const li = manager.layerRegistry.get("overlay1")!;
     expect(() => ui.initLayerItem(li)).not.toThrow();
-    expect(() => ui.updateLayerItem(li)).not.toThrow();
+    expect(() => ui.updateLayerItemLabel(li)).not.toThrow();
     expect(() => ui.insertLayerItem(li)).not.toThrow();
     // The row exists and was re-rendered through the delegates.
     expect(findItem(ui, "overlay1")).not.toBeNull();

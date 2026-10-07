@@ -1796,7 +1796,7 @@ describe("LayerController", () => {
     const canvas = document.createElement("canvas");
     manager.registerLayer({ id: "heat", name: "Heat", canvas });
     manager.ui = {
-      updateLayerItem: vi.fn(),
+      updateLayerItemLabel: vi.fn(),
       initLayerItem: vi.fn(),
       syncToggleAll: vi.fn(),
       insertLayerItem: vi.fn(),

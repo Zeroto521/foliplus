@@ -331,7 +331,7 @@ describe("LayerUI lifecycle — defensive rails", () => {
       // Covers the `if (!layerInfo) return` guard: a stale id (unregistered
       // after the event was emitted, or a third-party bundle emitting an
       // id the panel does not track) must be a silent no-op, not a null
-      // deref on updateLayerItem / invalidateFields.
+      // deref on updateLayerItemLabel / invalidateFields.
       const rowsBefore = ui.uiContainer.querySelectorAll(CONST.SEL.LAYER_ITEM).length;
       expect(() =>
         ensureEvents(map).emit(EVENTS.LAYER_ITEM_UPDATED, {

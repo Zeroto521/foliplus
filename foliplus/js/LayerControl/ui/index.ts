@@ -39,7 +39,7 @@ import {
   insertLayerItem,
   reindexAfterMove,
   renderInitialList,
-  updateLayerItem,
+  updateLayerItemLabel,
 } from "./listPanel/list.js";
 import { ListPanel } from "./listPanel/listPanel.js";
 import { displayName } from "./listPanel/rowView.js";
@@ -279,8 +279,8 @@ class LayerUI implements LayerUISurface {
   insertLayerItem(layerInfo: LayerInfo) {
     return insertLayerItem(this, layerInfo);
   }
-  updateLayerItem(layerInfo: LayerInfo) {
-    return updateLayerItem(this, layerInfo);
+  updateLayerItemLabel(layerInfo: LayerInfo) {
+    return updateLayerItemLabel(this, layerInfo);
   }
   colorLayerName() {
     return colorLayerName(this);
