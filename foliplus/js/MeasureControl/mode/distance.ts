@@ -195,7 +195,12 @@ class DistanceMode extends PreviewMode {
       const showDist = total + seg;
       const lastPt = points[points.length - 1];
       const mid = Util.midpoint(lastPt, event.latlng);
-      const labelText = Util.formatSegmentLabel(this.mgr, lastPt, event.latlng, showDist);
+      const labelText = Util.formatSegmentLabel(
+        this.mgr,
+        lastPt,
+        event.latlng,
+        showDist,
+      );
       previewDistLabel = this.updateOrCreateLabel(
         previewDistLabel,
         mid,

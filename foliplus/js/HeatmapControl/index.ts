@@ -13,7 +13,7 @@ class HeatmapControl extends defineControl({
 }) {
   /** Backing store for the lazy `mgr` accessor; `destroy()` nulls it so a
    *  re-add rebuilds a fresh manager. */
-  private _mgr: HeatmapManager | null = null;
+  private mgrBacking: HeatmapManager | null = null;
   schemeDropdown: HTMLElement | null;
   expandHookDone: boolean;
   declare ctrl: HTMLElement;
@@ -48,11 +48,7 @@ class HeatmapControl extends defineControl({
   }
 
   get mgr(): HeatmapManager {
-    return (this._mgr ??= new HeatmapManager(map, { T: this.T, log: this.log }));
-  }
-
-  set mgr(value: HeatmapManager | null) {
-    this._mgr = value;
+    return (this.mgrBacking ??= new HeatmapManager(map, { T: this.T, log: this.log }));
   }
 
   buildDOM() {
@@ -97,7 +93,7 @@ class HeatmapControl extends defineControl({
     this.dropdownCleanup = null;
 
     const mgr = this.mgr;
-    this.mgr = null;
+    this.mgrBacking = null;
     if (!mgr) return;
     if (mgr.mapCleanup) mgr.mapCleanup();
     if (mgr.onZoomEnd) {

@@ -102,7 +102,10 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
 
   // Set initial values from manager defaults
   ctrl.classSelect.value = String(
-    Math.min(CONST.CLASS_COUNT.MAX, Math.max(CONST.CLASS_COUNT.MIN, ctrl.mgr.numClasses)),
+    Math.min(
+      CONST.CLASS_COUNT.MAX,
+      Math.max(CONST.CLASS_COUNT.MIN, ctrl.mgr.numClasses),
+    ),
   );
   ctrl.methodSelect.value = ctrl.mgr.currentMethod;
   ctrl.aggSelect.value = ctrl.mgr.currentAgg;
@@ -341,7 +344,12 @@ const renderColorBar = (
 };
 
 const updateSchemeBar = (ctrl: HeatmapControlUI) => {
-  renderColorBar(ctrl, ctrl.schemeBarInner, ctrl.mgr.currentScheme, ctrl.mgr.numClasses);
+  renderColorBar(
+    ctrl,
+    ctrl.schemeBarInner,
+    ctrl.mgr.currentScheme,
+    ctrl.mgr.numClasses,
+  );
   ctrl.schemeBar.title = ctrl.mgr.currentScheme;
 };
 
