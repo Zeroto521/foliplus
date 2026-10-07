@@ -1481,7 +1481,7 @@ describe("LayerUI style panel", () => {
     // Every row obeys one rule: Style is clickable only while the row is
     // checked. A basemap row is not exempt — consulted ahead of the basemap
     // "no extent" verdict, an off row is simply hidden and has nothing to
-    // style. The colour basemap starts unchecked, so its Style entry starts
+    // style. The color basemap starts unchecked, so its Style entry starts
     // disabled and turns on with the box.
     const item = ui.uiContainer.querySelector(
       `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,

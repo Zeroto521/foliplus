@@ -511,7 +511,7 @@ def _evaluate(arg: Any) -> Any:
     With `from __future__ import annotations` the arm of a spelled-out union
     (``list[str] | None``) can reach the reflector as the string ``"None"``
     rather than the type. Resolve it against the module's globals so a
-    nullable union is recognised the same way whether it is spelled
+    nullable union is recognized the same way whether it is spelled
     ``X | None`` or ``Optional[X]``.
     """
     if not isinstance(arg, str):

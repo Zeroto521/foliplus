@@ -699,10 +699,10 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
       });
     });
 
-    it("does not activate the colour layer when no base layers are registered", () => {
+    it("does not activate the color layer when no base layers are registered", () => {
       // Intent-only invariant: no code fallback when there are no basemaps.
       // First-load visibility is the author's `show=` — if the author wrote
-      // no basemap, the map is empty (A-hatch) rather than the colour being
+      // no basemap, the map is empty (A-hatch) rather than the color being
       // silently drawn to fill the blank.
       const poly = {
         options: {},

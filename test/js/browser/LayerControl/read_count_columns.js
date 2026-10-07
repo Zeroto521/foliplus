@@ -2,7 +2,7 @@
   const api = window.map.foliplus && window.map.foliplus.LayerAPI;
   if (!api) return null;
   const out = {};
-  // Overlay data rows only — the colour basemap is a base-group row, so
+  // Overlay data rows only — the color basemap is a base-group row, so
   // excluding base excludes it, matching read_overlay_item_displays.
   const items = document.querySelectorAll(
     '.foliplus-layer-item:not([data-layer-type="base"])',

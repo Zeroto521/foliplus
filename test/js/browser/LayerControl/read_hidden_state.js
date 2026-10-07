@@ -25,7 +25,7 @@
   // Registry entries carry no .layer for folium's TileLayer/FeatureGroup, so
   // the registry view alone cannot answer "is it on the map" -- the manager's
   // own resolver has to. A null here means the row's layer was never
-  // resolved, which no reload can honour.
+  // resolved, which no reload can honor.
   const resolve = id => {
     if (api && api.findLayer) {
       try {
@@ -52,7 +52,7 @@
   });
   // Registry entries must back every rendered row -- otherwise the row state
   // has no source of truth and this test cannot say whether the reload
-  // honoured the persisted hidden set. Throwing rather than returning a flag:
+  // honored the persisted hidden set. Throwing rather than returning a flag:
   // every consumer of this fixture wants the same answer, and an opaque
   // assertion elsewhere would be harder to read than the ids here.
   const missing = out.filter(r => r.visible === null).map(r => r.id);

@@ -208,7 +208,7 @@ describe("applyVisibility", () => {
     // the executor writes nothing and the layer stays off the map until the
     // zoom re-enters the range. The old path applied `visible: true`
     // straight to map membership ?added first, retracted on the next sweep.
-    // A derived dimension may only suppress, never authorise.
+    // A derived dimension may only suppress, never authorize.
     (map.getZoom as ReturnType<typeof vi.fn>).mockReturnValue(2);
     const layer = manager.layerRegistry.get("overlay1")!.layer as L.Layer;
 
@@ -512,7 +512,7 @@ describe("applyVisibility", () => {
         );
         expect(overlayCalls).toEqual([]);
 
-        // Base click (colour row): syncNoBasemap called, so NO_BASE_MAP is
+        // Base click (color row): syncNoBasemap called, so NO_BASE_MAP is
         // toggled.
         toggleMock.mockClear();
         applyVisibility(u2, CONST.SOLID_BASEMAP_ID, true);
@@ -872,9 +872,9 @@ describe("DOM order diverges from registry order", () => {
   });
 
   it("toggleAll does not activate the colour layer when the base group is cleared", () => {
-    // First-class basemaps: the colour layer is one row like any other, not a
+    // First-class basemaps: the color layer is one row like any other, not a
     // stand-in for the absence of a base. Clearing the base group leaves the
-    // colour's own checkbox untouched (intent-only invariant).
+    // color's own checkbox untouched (intent-only invariant).
     ui.toggleAll(GROUP.BASE, false);
   });
 });
@@ -983,8 +983,8 @@ describe("toggleAll base group", () => {
   });
 
   it("does not touch the colour layer when the base group is toggled", () => {
-    // The colour layer coexists with tile basemaps: toggling the base group
-    // must not hide or show the colour ?each carries its own checkbox and
+    // The color layer coexists with tile basemaps: toggling the base group
+    // must not hide or show the color ?each carries its own checkbox and
     // its own visibility.
     ui.toggleAll(GROUP.BASE, false);
 
@@ -1029,7 +1029,7 @@ describe("unit helpers", () => {
 
   it("toggleAll sets the row tooltips for both states", () => {
     const { ui } = initFixture();
-    // Only overlay checkboxes: the colour basemap is a base row and is not
+    // Only overlay checkboxes: the color basemap is a base row and is not
     // toggled by overlay group operations.
     const boxes = () =>
       Array.from(

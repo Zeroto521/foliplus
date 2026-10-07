@@ -419,7 +419,7 @@ class HeatmapManager {
     // filtered out and callback-only registrations (no map.addLayer) are
     // covered too. The payload carries the changed layer's kind, so a layer
     // that cannot hold point markers is dropped without a map walk: a tile
-    // basemap, a solid colour face, and a self-drawn canvas all come back
+    // basemap, a solid color face, and a self-drawn canvas all come back
     // "base"/null from getLayerType, so scanMapLayers would have filtered them
     // out and the source list would come out identical.
     this.removeLayerChangeListener = this.events.on(EVENTS.LAYER_CHANGE, payload => {

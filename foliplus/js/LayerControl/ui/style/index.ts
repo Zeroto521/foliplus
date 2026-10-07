@@ -58,7 +58,7 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
   // (capability "none") but still owns the Layer section; a fielded layer
   // owns the Label section even when no Layer dimension applies. The ⋮ menu
   // enables Style on the same two signals — `layerCanLabel` IS the
-  // annotation dimension's gate — so the panel honours them rather than
+  // annotation dimension's gate — so the panel honors them rather than
   // demanding both.
   const layerRows = gatedRows(ui, layerId, DIM_ORDER);
   const labelRows = gatedRows(ui, layerId, LABEL_DIM_ORDER);

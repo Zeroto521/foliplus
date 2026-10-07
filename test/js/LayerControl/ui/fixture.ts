@@ -66,7 +66,7 @@ class Polyline {
 }
 
 // Real Leaflet: Circle extends CircleMarker (not the reverse). Both carry a
-// fill, so the areal probe must recognise them by `getRadius`, not by class.
+// fill, so the areal probe must recognize them by `getRadius`, not by class.
 class Circle {
   options = {};
   getRadius = () => 5;

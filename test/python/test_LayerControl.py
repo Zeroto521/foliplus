@@ -2296,7 +2296,7 @@ class TestLayerControlBrowser:
         and that the registry view and the map's own layer set agree, before any
         hiding happens. Anything the persistence funnel drops would show here.
 
-        The page declares one overlay with ``show=False``, but that is honoured
+        The page declares one overlay with ``show=False``, but that is honored
         by folium's own renderer, not by LayerControl: folium 0.14.0 emits
         ``.addTo(map)`` unconditionally and never removes it, so on that version
         every declared layer starts on the map. What this test pins is therefore
@@ -2347,7 +2347,7 @@ class TestLayerControlBrowser:
             # The fixture throws if a rendered row has no registry entry, since
             # such a row's state has no source of truth. A null here means the
             # manager's own resolver could not find the Leaflet layer -- that
-            # row cannot be added or removed, so no state on it can be honoured
+            # row cannot be added or removed, so no state on it can be honored
             # after a reload.
             unresolved = [r for r in info["rows"] if r["onMap"] is None]
             assert not unresolved, f"unresolved layers in registry: {unresolved}"
@@ -2622,7 +2622,7 @@ class TestLayerControlBrowser:
                 )
                 # Nothing may be persisted when the user never toggled: the
                 # unhide sweep must not synthesise a choice and write it down,
-                # and a runtime-created row (the colour basemap) must not
+                # and a runtime-created row (the color basemap) must not
                 # rewrite the order the user arranged.
                 assert rows["storage"] == load_storage, (
                     f"reload with no user choice wrote a stored record\n{rows}"
@@ -3130,7 +3130,7 @@ class TestLayerControlBrowser:
 
         The face paints ``stroke="gray"``; the swatch must therefore read
         ``#808080``, the hex for that same color, not black and not
-        Leaflet's default. The neighbouring line keeps its own stroke, which
+        Leaflet's default. The neighboring line keeps its own stroke, which
         pins the assertion to the color form rather than to anything the
         map does with it.
         """
@@ -3497,7 +3497,7 @@ class TestLayerControlBrowser:
                 timeout=5000,
             )
 
-            # Count DOM items before fold (3 overlays + 1 default OSM base + 1 colour basemap)
+            # Count DOM items before fold (3 overlays + 1 default OSM base + 1 color basemap)
             before = page.evaluate(
                 "document.querySelectorAll('.foliplus-layer-item').length"
             )
@@ -3544,7 +3544,7 @@ class TestLayerControlBrowser:
             )
 
     def test_color_layer_coexists_with_tiles(self, browser, tmp_path):
-        """Colour and tile basemaps coexist. Checking the colour basemap's
+        """Color and tile basemaps coexist. Checking the color basemap's
         checkbox activates its own pane (the retired
         `foliplus-layer-tile-hidden` contract is gone — tiles stay in the DOM
         and remain fetchable)."""
@@ -3572,7 +3572,7 @@ class TestLayerControlBrowser:
             )
             page.wait_for_timeout(500)
 
-            # Check the colour basemap's checkbox — the only legitimate path
+            # Check the color basemap's checkbox — the only legitimate path
             # to show the color layer. Clicking the row body no longer does
             # it (T201).
             toggle = page.evaluate(_js("LayerControl/toggle_color_checkbox"))
@@ -3588,12 +3588,12 @@ class TestLayerControlBrowser:
             assert result["colorBg"] is True, "color item should have active class"
 
     def test_color_basemap_checkbox_toggles_visibility(self, browser, tmp_path):
-        """Checking the colour basemap's checkbox must toggle its visibility.
+        """Checking the color basemap's checkbox must toggle its visibility.
 
         The row's checkbox column holds a real ``<input type="checkbox">``
         (like every other basemap row).  Checking it paints the container
         background (``.foliplus-active`` + ``--color-layer-bg``); unchecking it clears
-        both.  Without the fix the row has only a colour picker and no
+        both.  Without the fix the row has only a color picker and no
         checkbox, so the toggle cannot happen.
         """
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
@@ -6145,7 +6145,7 @@ class TestLayerControlBrowser:
         come back on the map after reload.
 
         The load path runs ``applyZoomRangeStateOne`` for every layer with
-        a stored zoomRange. A stored zoom-range intent alone is not authorisation
+        a stored zoomRange. A stored zoom-range intent alone is not authorization
         to re-add a layer the author left off the map — only ``applyUserState``'s
         unhide branch (a visible override present) is.
         """

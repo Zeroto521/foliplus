@@ -103,7 +103,7 @@ describe("ui/color", () => {
   });
 
   it("showSolidBasemap leaves base layers on the map and the shared tilePane untouched", () => {
-    // First-class basemap: colour and tiles coexist. The colour layer owns
+    // First-class basemap: color and tiles coexist. The color layer owns
     // its own pane — it must not remove any tile layer from the map nor
     // touch Leaflet's shared tilePane.
     const { ui } = makeUi([
@@ -126,9 +126,9 @@ describe("ui/color", () => {
   });
 
   it("showSolidBasemap does not repaint base rows' checkboxes or active class", () => {
-    // The colour layer is one row like any other; it must not paint
-    // neighbouring rows' state. Intent-only invariant: a derived decision
-    // (this colour layer became active) never authorises unchecking a
+    // The color layer is one row like any other; it must not paint
+    // neighboring rows' state. Intent-only invariant: a derived decision
+    // (this color layer became active) never authorizes unchecking a
     // basemap the user explicitly chose.
     const { ui } = makeUi([
       { id: "base_1", group: "base" },
@@ -188,7 +188,7 @@ describe("ui/color", () => {
     expect(setColor).toHaveBeenLastCalledWith("#00ff00");
   });
 
-  it("resetSolidBasemap nulls the surface, resets the colour, and flushes", () => {
+  it("resetSolidBasemap nulls the surface, resets the color, and flushes", () => {
     // The delete-path reset: unlike hideSolidBasemap (which keeps the surface
     // allocated so a re-check is cheap), a delete must release the canvas and
     // re-mark the id hidden so the deletion survives a reload.

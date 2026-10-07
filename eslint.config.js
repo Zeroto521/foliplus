@@ -12,7 +12,7 @@
 // and `@typescript-eslint` plugin registration; those are cheap to import
 // and don't require a type program.
 //
-// Division of labour with prettier (see .prettierrc.cjs):
+// Division of labor with prettier (see .prettierrc.cjs):
 //   - prettier owns typography (indent, width, quotes, import order) and
 //     preserves existing blank lines but never adds or removes them.
 //   - eslint owns code quality (eqeqeq, no-implicit-coercion, ...) and one

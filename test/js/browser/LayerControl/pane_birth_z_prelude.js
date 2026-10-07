@@ -5,7 +5,7 @@
   // paints; a reader that runs later is already past the ordering pass.
   //
   // Installed via page.add_init_script, which runs before the page's scripts,
-  // so `L` does not exist yet. Poll for it: the map is initialised by the base
+  // so `L` does not exist yet. Poll for it: the map is initialized by the base
   // template scripts and the components' createPane calls come from later
   // script tags, so the hook lands in time.
   if (window.__t203Panes) return;

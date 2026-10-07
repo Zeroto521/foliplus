@@ -803,9 +803,9 @@ class LayerController implements LayerAPI {
       return true;
     }
 
-    // The colour basemap is also component-owned: clearing it unregisters the
+    // The color basemap is also component-owned: clearing it unregisters the
     // surface and resets the fill state so the map returns to the grid empty
-    // state. The id stays registerable so the colour can be re-picked.
+    // state. The id stays registerable so the color can be re-picked.
     if (id === CONST.SOLID_BASEMAP_ID) {
       const removed = this.unregisterLayer(id);
       if (!removed) return false;

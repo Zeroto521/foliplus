@@ -514,7 +514,7 @@ describe("LayerPersistence", () => {
           e: { zoomRange: [12, 3], overrides: ["zoomRange"] },
         },
       });
-      // a, b, d and e claim a choice the record cannot honour, so they are
+      // a, b, d and e claim a choice the record cannot honor, so they are
       // dropped entirely; c keeps its value and its provenance.
       expect(makePersistence().load().layers).toEqual({
         c: { opacity: 0.5, overrides: ["opacity"] },

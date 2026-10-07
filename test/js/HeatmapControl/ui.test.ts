@@ -305,7 +305,7 @@ describe("resetPanel — shared reset (Clear button + more-menu clear)", () => {
   });
 
   it("resets the aggregation to the declared default, not count", () => {
-    // The constructor honours config.agg, so a clear has to land back on the
+    // The constructor honors config.agg, so a clear has to land back on the
     // declared value instead of dropping an agg="sum" map to count.
     const { ctrl, m } = setup(makeConfig({ agg: "sum" }));
 

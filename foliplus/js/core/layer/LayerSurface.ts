@@ -223,7 +223,7 @@ class LayerSurface implements LayerSurfaceContract {
 
     // No declared pane: every layer gets a synthesized one so each carries
     // its own z in the ordering ladder (row order = z order across
-    // kinds — a colour layer must be able to interleave with two tile layers).
+    // kinds — a color layer must be able to interleave with two tile layers).
     // GridLayer/TileLayer used to short-circuit here and paint in the shared
     // tilePane, which confined their z to that one shared stack; first-class
     // basemaps retire that.
@@ -601,7 +601,7 @@ const detectCapabilities = (opts: SurfaceFaceOpts): LayerCapabilities => {
     // silent no-op. `fill: "native"` — the pane's paint *is* the fill — and
     // `zoomRange: "pane"` so the row renders (the executor's `visible` op is
     // the carrier, same as every other surface). Stroke stays "none": there
-    // is no vector stroke axis on a solid colour.
+    // is no vector stroke axis on a solid color.
     return {
       fill: CAP_TIER.NATIVE,
       stroke: CAP_TIER.NONE,
@@ -625,7 +625,7 @@ const detectCapabilities = (opts: SurfaceFaceOpts): LayerCapabilities => {
 
   if (layer && usesNativeSetter(layer)) {
     // ImageOverlay's zoomRange is declared in options but not runtime-effective
-    // once attached: only GridLayer honours min/maxZoom live. Native setter
+    // once attached: only GridLayer honors min/maxZoom live. Native setter
     // surfaces (GridLayer / ImageOverlay) own no `setStyle` leaf, so both
     // vector axes are "none".
     const zoomRange: LayerCapabilities["zoomRange"] =

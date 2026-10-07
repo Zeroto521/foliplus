@@ -802,7 +802,7 @@ class TestHeatmapControlBrowser:
             assert not errors, f"JS errors: {errors}"
 
     def test_default_values_initialized(self, browser, tmp_path):
-        """Constructor initialises all user-configurable defaults."""
+        """Constructor initializes all user-configurable defaults."""
         with use_page(self._make_page, browser, tmp_path, expose_ctrl=True) as (
             page,
             errors,
