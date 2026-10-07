@@ -4,7 +4,7 @@ import { fromWgs84 } from "#core/geo/index.js";
 import { createLocationMarker } from "#core/locationMarker.js";
 import { guardBlocked } from "#core/mode.js";
 import * as Icons from "#common/icon.js";
-import { loadVersioned, createPersisted, saveVersioned } from "#common/storage.js";
+import { createPersisted, loadVersioned, saveVersioned } from "#common/storage.js";
 import { HISTORY, MODE, RECORD_VERSION, SOURCE, ZOOM } from "../const.js";
 import type { ResultItem, SearchHistoryEntry, SearchType } from "../type.js";
 import { attachSearchDelIcon, removePanel, renderResults } from "./panel.js";

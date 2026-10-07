@@ -6,8 +6,8 @@ import {
   DEL_ICON_Z_OFFSET,
   attachDelClick,
   bindDelIconToPopup,
-  hideDelIcons,
   buildDelIcon,
+  hideDelIcons,
   toggleDelIcon,
 } from "#core/leaflet/index.js";
 

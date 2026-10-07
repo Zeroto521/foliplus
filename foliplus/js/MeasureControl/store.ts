@@ -10,8 +10,8 @@ import { HINT_DURATION } from "#core/hint.js";
 import type { ControlEnv } from "#core/type.js";
 import {
   type Persisted,
-  loadVersioned,
   createPersisted,
+  loadVersioned,
   saveVersioned,
 } from "#common/storage.js";
 import * as CONST from "./const.js";

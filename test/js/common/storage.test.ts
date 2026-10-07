@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  createPersisted,
   loadRecord,
   loadVersioned,
-  createPersisted,
   removeRecord,
   saveRecord,
   saveVersioned,
