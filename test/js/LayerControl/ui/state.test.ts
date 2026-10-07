@@ -17,7 +17,7 @@ import {
   saveFoldState,
   saveNamesState,
   saveState,
-  setVisible,
+  setVisibleIntent,
   unmarkOverride,
 } from "#foliplus/LayerControl/ui/state.js";
 import { EVENTS, ensureEvents } from "#foliplus/core/event/index.js";
@@ -468,7 +468,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
       seedIntentMap(u, "visible", {});
 
       vi.useFakeTimers();
-      u.setVisible("overlay1", false);
+      u.setVisibleIntent("overlay1", false);
       vi.advanceTimersByTime(CONST.SAVE_DEBOUNCE_MS + 50);
       vi.useRealTimers();
 
@@ -498,7 +498,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
       u.intentStore.replaceProvenance({ overlay1: ["visible"] });
 
       vi.useFakeTimers();
-      u.setVisible("overlay1", true);
+      u.setVisibleIntent("overlay1", true);
       vi.advanceTimersByTime(CONST.SAVE_DEBOUNCE_MS + 50);
       vi.useRealTimers();
 
@@ -530,9 +530,9 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
         configurable: true,
       });
       try {
-        u.setVisible("overlay1", false);
-        u.setVisible("overlay1", true);
-        u.setVisible("overlay1", false);
+        u.setVisibleIntent("overlay1", false);
+        u.setVisibleIntent("overlay1", true);
+        u.setVisibleIntent("overlay1", false);
         expect(setItem).not.toHaveBeenCalled();
 
         vi.advanceTimersByTime(CONST.SAVE_DEBOUNCE_MS + 50);
@@ -1198,7 +1198,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
       },
     } as unknown as LayerUI;
 
-    setVisible(bare, "overlay1", false);
+    setVisibleIntent(bare, "overlay1", false);
 
     expect(bare.intentStore.isUserSet("overlay1", "visible")).toBe(true);
     const fields = schedule.mock.calls[0][0] as {
@@ -1226,7 +1226,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
       },
     } as unknown as LayerUI;
 
-    setVisible(bare, "overlay1", true);
+    setVisibleIntent(bare, "overlay1", true);
 
     expect(getIntent(bare, "overlay1", "visible")).not.toBe(false);
     const fields = schedule.mock.calls[0][0] as {
@@ -1789,7 +1789,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
     // round trip in both directions.
     const first = new LayerUI(manager, TEST_ENV);
     vi.useFakeTimers();
-    first.setVisible("overlay1", false);
+    first.setVisibleIntent("overlay1", false);
     vi.advanceTimersByTime(CONST.SAVE_DEBOUNCE_MS + 50);
     vi.useRealTimers();
 
@@ -1802,7 +1802,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
 
     // Restore, then reload pass 2: the value flips to true, provenance stays.
     vi.useFakeTimers();
-    u2.setVisible("overlay1", true);
+    u2.setVisibleIntent("overlay1", true);
     vi.advanceTimersByTime(CONST.SAVE_DEBOUNCE_MS + 50);
     vi.useRealTimers();
 
@@ -1818,9 +1818,9 @@ describe("ui/state intentStore and per-layer state persistence", () => {
     // toggles must end with the *last* choice in both halves — the record must
     // not drift to an intermediate state or drop the marker.
     vi.useFakeTimers();
-    ui.setVisible("overlay1", false);
-    ui.setVisible("overlay1", true);
-    ui.setVisible("overlay1", false);
+    ui.setVisibleIntent("overlay1", false);
+    ui.setVisibleIntent("overlay1", true);
+    ui.setVisibleIntent("overlay1", false);
     vi.advanceTimersByTime(CONST.SAVE_DEBOUNCE_MS + 50);
     vi.useRealTimers();
 
@@ -1835,7 +1835,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
 
     // Un-hide once more: the last write wins in both halves.
     vi.useFakeTimers();
-    ui.setVisible("overlay1", true);
+    ui.setVisibleIntent("overlay1", true);
     vi.advanceTimersByTime(CONST.SAVE_DEBOUNCE_MS + 50);
     vi.useRealTimers();
 

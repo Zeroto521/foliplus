@@ -438,7 +438,7 @@ describe("snapshotAuthorVisible", () => {
 
 describe("intentVisibleOf: what counts as the user's choice", () => {
   it("a bare intents.visible entry is already a choice — the row reads unchecked", () => {
-    // `setVisible` always marks, but a restored record or a direct write
+    // `setVisibleIntent` always marks, but a restored record or a direct write
     // can leave an entry without its provenance marker. Either half is the
     // user's choice; only the author's default is the fallback.
     const { ui } = initFixture({});

@@ -40,7 +40,7 @@ const inZoomRange = (ui: LayerUI, layerInfo: LayerInfo): boolean => {
  *
  *  The user's choice is signalled by the dimension's `overrides` provenance
  *  marker *or* by the value being present on the intent record. The two travel
- *  together out of `loadPersistedState` and `setVisible`, so either alone still
+ *  together out of `loadPersistedState` and `setVisibleIntent`, so either alone still
  *  means "the user chose this" — a caller that records the value (a restored
  *  record, a test fixture, a re-registration replay) must not have it silently
  *  read back as the author's default. */

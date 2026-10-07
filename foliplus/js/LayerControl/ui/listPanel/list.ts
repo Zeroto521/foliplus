@@ -176,7 +176,7 @@ const insertLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
   syncListCursor(ui);
 };
 
-const updateLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
+const updateLayerItemLabel = (ui: LayerUI, layerInfo: LayerInfo) => {
   const item = ui.uiContainer.querySelector(
     `[${CONST.DATA.LAYER_ID}="${CSS.escape(layerInfo.id)}"]`,
   ) as HTMLElement | null;
@@ -342,7 +342,7 @@ export {
   initTypesAndVisibility,
   renderInitialList,
   insertLayerItem,
-  updateLayerItem,
+  updateLayerItemLabel,
   renderToggleAllRow,
   renderLayerItem,
   colorLayerName,

@@ -2,7 +2,7 @@ export {
   initTypesAndVisibility,
   renderInitialList,
   insertLayerItem,
-  updateLayerItem,
+  updateLayerItemLabel,
   renderToggleAllRow,
   renderLayerItem,
   colorLayerName,

@@ -39,7 +39,7 @@ import {
   insertLayerItem,
   reindexAfterMove,
   renderInitialList,
-  updateLayerItem,
+  updateLayerItemLabel,
 } from "./listPanel/list.js";
 import { ListPanel } from "./listPanel/listPanel.js";
 import { displayName } from "./listPanel/rowView.js";
@@ -64,7 +64,7 @@ import {
   saveFoldState,
   saveNamesState,
   saveState,
-  setVisible,
+  setVisibleIntent,
 } from "./state.js";
 import { applyBorderToLayer } from "./style/border.js";
 import {
@@ -235,8 +235,8 @@ class LayerUI implements LayerUISurface {
   saveFoldState() {
     return saveFoldState(this);
   }
-  setVisible(id: string, visible: boolean, persist: boolean = true) {
-    return setVisible(this, id, visible, persist);
+  setVisibleIntent(id: string, visible: boolean, persist: boolean = true) {
+    return setVisibleIntent(this, id, visible, persist);
   }
   saveState() {
     return saveState(this);
@@ -279,8 +279,8 @@ class LayerUI implements LayerUISurface {
   insertLayerItem(layerInfo: LayerInfo) {
     return insertLayerItem(this, layerInfo);
   }
-  updateLayerItem(layerInfo: LayerInfo) {
-    return updateLayerItem(this, layerInfo);
+  updateLayerItemLabel(layerInfo: LayerInfo) {
+    return updateLayerItemLabel(this, layerInfo);
   }
   colorLayerName() {
     return colorLayerName(this);

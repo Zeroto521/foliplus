@@ -254,7 +254,7 @@ describe("MeasureManager — mode switching", () => {
     const { manager, map, container } = makeManager();
     map.getSize = () => ({ x: 1000, y: 800 });
     map.latLngToContainerPoint = () => ({ x: 100, y: 100 });
-    manager.setEditMode(true);
+    manager.applyEditMode(true);
     const readout = container.querySelector<HTMLElement>(".foliplus-measure-readout")!;
     expect(readout.hidden).toBe(true); // not positioned yet
     const move = (map.on as any).mock.calls.find(
@@ -263,7 +263,7 @@ describe("MeasureManager — mode switching", () => {
     move({ latlng: { lat: 31, lng: 121 } });
     expect(readout.hidden).toBe(false);
     // Leaving edit mode hides it.
-    manager.setEditMode(false);
+    manager.applyEditMode(false);
     expect(readout.hidden).toBe(true);
   });
 
@@ -383,10 +383,10 @@ describe("MeasureManager — mode switching", () => {
     // (isEditMode=true, currentMode=distance) state; we synthesize that state
     // here to exercise the clearActiveMode branch.
     const { manager } = makeManager();
-    manager.setEditMode(true);
+    manager.applyEditMode(true);
     manager.currentMode = CONST.MEASURE_MODE.DISTANCE;
 
-    const spy = vi.spyOn(manager, "setEditMode");
+    const spy = vi.spyOn(manager, "applyEditMode");
 
     manager.clearActiveMode();
 
@@ -396,7 +396,7 @@ describe("MeasureManager — mode switching", () => {
   });
 });
 
-describe("MeasureManager — setEditMode", () => {
+describe("MeasureManager — applyEditMode", () => {
   it("shows the edit hint and activates the edit button when enabled", () => {
     const { manager } = makeManager();
     const editBtn = document.createElement("button");
@@ -405,7 +405,7 @@ describe("MeasureManager — setEditMode", () => {
     otherBtn.dataset.mode = CONST.MEASURE_MODE.DISTANCE;
     manager.toolBtns = [editBtn, otherBtn];
 
-    manager.setEditMode(true);
+    manager.applyEditMode(true);
 
     expect(manager.isEditMode).toBe(true);
     expect(editBtn.classList.contains(CONST.CLASSES.ACTIVE)).toBe(true);
@@ -421,10 +421,10 @@ describe("MeasureManager — setEditMode", () => {
     const { manager, container } = makeManager();
     expect(container.classList.contains(CONST.CLASSES.EDITING)).toBe(false);
 
-    manager.setEditMode(true);
+    manager.applyEditMode(true);
     expect(container.classList.contains(CONST.CLASSES.EDITING)).toBe(true);
 
-    manager.setEditMode(false);
+    manager.applyEditMode(false);
     expect(container.classList.contains(CONST.CLASSES.EDITING)).toBe(false);
   });
 
@@ -433,10 +433,10 @@ describe("MeasureManager — setEditMode", () => {
     const editBtn = document.createElement("button");
     editBtn.dataset.mode = CONST.MEASURE_MODE.EDIT;
     manager.toolBtns = [editBtn];
-    manager.setEditMode(true);
+    manager.applyEditMode(true);
     manager.map.foliplus!.showHint.mockClear();
 
-    manager.setEditMode(false);
+    manager.applyEditMode(false);
 
     expect(manager.isEditMode).toBe(false);
     expect(editBtn.classList.contains(CONST.CLASSES.ACTIVE)).toBe(false);
@@ -446,9 +446,9 @@ describe("MeasureManager — setEditMode", () => {
 
   it("is idempotent for the same state", () => {
     const { manager } = makeManager();
-    manager.setEditMode(true);
+    manager.applyEditMode(true);
     manager.map.foliplus!.showHint.mockClear();
-    manager.setEditMode(true); // no-op
+    manager.applyEditMode(true); // no-op
     expect(manager.map.foliplus!.showHint).not.toHaveBeenCalled();
   });
 
@@ -459,8 +459,8 @@ describe("MeasureManager — setEditMode", () => {
     manager.registerEditOverlayCloser(close1, "m1");
     manager.registerEditOverlayCloser(close2, "m2");
 
-    manager.setEditMode(true);
-    manager.setEditMode(false);
+    manager.applyEditMode(true);
+    manager.applyEditMode(false);
 
     expect(close1).toHaveBeenCalledTimes(1);
     expect(close2).toHaveBeenCalledTimes(1);
@@ -472,13 +472,13 @@ describe("MeasureManager — setEditMode", () => {
     manager.registerEditOverlayCloser(close, "m1");
 
     // First session: open → close
-    manager.setEditMode(true);
-    manager.setEditMode(false);
+    manager.applyEditMode(true);
+    manager.applyEditMode(false);
     expect(close).toHaveBeenCalledTimes(1);
 
     // Second session must still close (regression: closers were cleared on exit)
-    manager.setEditMode(true);
-    manager.setEditMode(false);
+    manager.applyEditMode(true);
+    manager.applyEditMode(false);
     expect(close).toHaveBeenCalledTimes(2);
   });
 
@@ -505,20 +505,20 @@ describe("MeasureManager — setEditMode", () => {
 
     unregister();
 
-    manager.setEditMode(true);
-    manager.setEditMode(false);
+    manager.applyEditMode(true);
+    manager.applyEditMode(false);
     expect(close).not.toHaveBeenCalled();
   });
 
-  it("toggles registered drag binds on setEditMode (nodes draggable without click-first)", () => {
+  it("toggles registered drag binds on applyEditMode (nodes draggable without click-first)", () => {
     const { manager } = makeManager();
     const toggle = vi.fn();
     manager.registerEditDragToggle(toggle, "m1");
 
-    manager.setEditMode(true);
+    manager.applyEditMode(true);
     expect(toggle).toHaveBeenCalledWith(true);
 
-    manager.setEditMode(false);
+    manager.applyEditMode(false);
     expect(toggle).toHaveBeenCalledWith(false);
   });
 
@@ -528,7 +528,7 @@ describe("MeasureManager — setEditMode", () => {
     const unregister = manager.registerEditDragToggle(toggle, "m1");
 
     unregister();
-    manager.setEditMode(true);
+    manager.applyEditMode(true);
     expect(toggle).not.toHaveBeenCalled();
   });
 
@@ -661,7 +661,7 @@ describe("MeasureManager — setEditMode", () => {
 
   it("setMode drawing cancels edit mode (mutual exclusivity)", () => {
     const { manager } = makeManager();
-    manager.setEditMode(true);
+    manager.applyEditMode(true);
 
     manager.setMode(CONST.MEASURE_MODE.DISTANCE);
 
@@ -771,8 +771,8 @@ describe("MeasureManager — global events", () => {
 
   it("Escape keydown exits edit mode when no drawing mode is active", () => {
     const { manager } = makeManager();
-    const spy = vi.spyOn(manager, "setEditMode");
-    manager.setEditMode(true);
+    const spy = vi.spyOn(manager, "applyEditMode");
+    manager.applyEditMode(true);
     manager.currentMode = null;
     document.dispatchEvent(
       new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
@@ -785,7 +785,7 @@ describe("MeasureManager — global events", () => {
     // early and must not clear mode or edit state.
     const { manager } = makeManager();
     const clearSpy = vi.spyOn(manager, "clearActiveMode");
-    const editSpy = vi.spyOn(manager, "setEditMode");
+    const editSpy = vi.spyOn(manager, "applyEditMode");
     manager.currentMode = CONST.MEASURE_MODE.DISTANCE;
     document.dispatchEvent(
       new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
@@ -1142,12 +1142,12 @@ describe("MeasureManager — mode-driven layer interaction lock", () => {
       }),
     );
 
-    manager.setEditMode(true);
+    manager.applyEditMode(true);
     expect(dataLeaf.options.interactive).toBe(false);
     expect(dataLeaf.removeInteractiveTarget).toHaveBeenCalled();
     expect(measureLeaf.options.interactive).toBe(true); // kept draggable/clickable
 
-    manager.setEditMode(false);
+    manager.applyEditMode(false);
     expect(dataLeaf.options.interactive).toBe(true);
     expect(dataLeaf.addInteractiveTarget).toHaveBeenCalled();
   });
@@ -1177,7 +1177,7 @@ describe("MeasureManager — onMapClick handler", () => {
 
   it("does NOT exit edit mode when clicking empty space", () => {
     const { manager } = makeManager();
-    manager.setEditMode(true);
+    manager.applyEditMode(true);
     expect(manager.isEditMode).toBe(true);
 
     const handler = manager.map.on.mock.calls.find(
@@ -1197,7 +1197,7 @@ describe("MeasureManager — onMapClick handler", () => {
 
   it("ignores a del-icon click in edit mode", () => {
     const { manager } = makeManager();
-    manager.setEditMode(true);
+    manager.applyEditMode(true);
 
     const clickHandler = manager.map.on.mock.calls.find(
       ([ev]: [string]) => ev === "click",

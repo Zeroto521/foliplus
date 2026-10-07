@@ -10,7 +10,7 @@ import {
   initTypesAndVisibility,
   insertLayerItem,
   renderInitialList,
-  updateLayerItem,
+  updateLayerItemLabel,
 } from "#foliplus/LayerControl/ui/listPanel/index.js";
 import { TileLayer, initFixture } from "../fixture.js";
 
@@ -259,7 +259,7 @@ describe("ui/list row placement", () => {
     expect(baseRow!.classList.contains(CONST.CLASSES.GROUP_FOLDED)).toBe(true);
   });
 
-  it("updateLayerItem bails when the row is no longer on the panel", () => {
+  it("updateLayerItemLabel bails when the row is no longer on the panel", () => {
     // registerLayer's count change can land after the row was removed (a layer
     // deleted mid-sweep). The refresh must not raise and must not rebuild a row.
     const { ui } = initFixture({
@@ -267,7 +267,7 @@ describe("ui/list row placement", () => {
     });
     ui.uiContainer.querySelector<HTMLElement>(`[${CONST.DATA.LAYER_ID}="A"]`)!.remove();
 
-    expect(() => updateLayerItem(ui, { id: "A" } as LayerInfo)).not.toThrow();
+    expect(() => updateLayerItemLabel(ui, { id: "A" } as LayerInfo)).not.toThrow();
     expect(ui.uiContainer.querySelector(`[${CONST.DATA.LAYER_ID}="A"]`)).toBeNull();
   });
 
