@@ -203,25 +203,11 @@ export default [
     },
   },
 
-  // ── `import/no-cycle` exemptions ──
-  // The value-edge graph still has one pre-existing cycle:
-  //   1. SearchControl/logic/history ↔ search (bidirectional; surfaced
-  //      when this rule was added — not in the original T308 debt list)
-  // It is safe at bundle time (the tree-shaker resolves the runtime
-  // ordering) but is a genuine value cycle. It belongs in its own
-  // cleanup PR — the whole point of this rule is to catch *new* cycles
-  // so they can't hide inside unrelated refactors. Exempting it here
-  // instead of `eslint-disable-next-line` keeps the exemption in one
-  // place, right next to the rule it relaxes.
-  {
-    files: [
-      "foliplus/js/SearchControl/logic/history.ts",
-      "foliplus/js/SearchControl/logic/search.ts",
-    ],
-    rules: {
-      "import/no-cycle": "off",
-    },
-  },
+  // ── `import/no-cycle` is enabled globally ──
+  // Both pre-existing value cycles have been broken:
+  //   - LayerControl/ui/listPanel/rowView ↔ projection (broken in #640)
+  //   - SearchControl/logic/history ↔ search (broken in this PR via panel.ts)
+  // The rule now catches *any* new cycle outright.
 
   // Test scripts exercise the CJS build tooling via require(); the source
   // tree and `script/` never do.
