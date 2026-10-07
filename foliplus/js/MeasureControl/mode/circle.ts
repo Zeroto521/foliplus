@@ -10,7 +10,7 @@ import * as CONST from "../const.js";
 import type { MeasureManager } from "../manager.js";
 import { attachCircleUI } from "../ui/index.js";
 import * as Util from "../util.js";
-import { PreviewMode, mountDelIcon } from "./base.js";
+import { PreviewMode, mountMeasureDelIcon } from "./base.js";
 
 interface CirclePreviews {
   center: L.CircleMarker | null;
@@ -59,7 +59,7 @@ class CircleMode extends PreviewMode {
     // Pure create + node-pane mount (no click handler) — strictly equivalent
     // to the old makeDelIcon + addLayer. The ✕ delete click is wired in
     // attachCircleUI, which owns the deleteMeasurement from attachDelLifecycle.
-    const delMarker = mountDelIcon(manager.layers, centerLatLng, {
+    const delMarker = mountMeasureDelIcon(manager.layers, centerLatLng, {
       title: manager.T("del_tooltip"),
     }) as L.Marker;
 
@@ -261,7 +261,7 @@ class CircleMode extends PreviewMode {
         CONST.PANES.NODE,
       );
       // See restore(): pure create + mount; click wired in attachCircleUI.
-      const delMarker = mountDelIcon(this.layers, centerLatLng, {
+      const delMarker = mountMeasureDelIcon(this.layers, centerLatLng, {
         title: this.T("del_tooltip"),
       });
 

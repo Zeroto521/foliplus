@@ -4,7 +4,7 @@ import { stopEvent } from "#common/dom.js";
 import * as CONST from "../const.js";
 import { bindNodeDrag, markDragSyntheticClick } from "../edit.js";
 import type { MeasureManager } from "../manager.js";
-import { attachDelLifecycle, mountDelIcon } from "../mode/base.js";
+import { attachDelLifecycle, mountMeasureDelIcon } from "../mode/base.js";
 import type { DragBind } from "../type.js";
 import * as Util from "../util.js";
 import {
@@ -142,7 +142,7 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
       centroidLabel,
       CONST.LABEL_PRIORITY.CENTROID,
     );
-    centroidDelMarker = mountDelIcon(
+    centroidDelMarker = mountMeasureDelIcon(
       layers,
       centroid,
       { title: mgr.T("del_all") },
@@ -167,7 +167,7 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
 
   nodeMarkers.forEach(node => {
     const is3pt = points.length === 3;
-    const delMarker = mountDelIcon(
+    const delMarker = mountMeasureDelIcon(
       layers,
       node.getLatLng(),
       { title: is3pt ? mgr.T("del_all") : mgr.T("del_node") },
