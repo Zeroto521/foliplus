@@ -50,14 +50,14 @@ const withAnnotationSpec = (
   layerInfo: LayerInfo,
   layer: L.Layer | null,
 ): PaneSpec[] => {
-  const specs = layerInfo.paneSpecs ?? [];
-  if (specs.some(spec => spec.role === PANE_ROLE.ANNOTATION)) return specs;
-  if (!layer || !hasLabelField(layer)) return specs;
+  const paneSpecs = layerInfo.paneSpecs ?? [];
+  if (paneSpecs.some(spec => spec.role === PANE_ROLE.ANNOTATION)) return paneSpecs;
+  if (!layer || !hasLabelField(layer)) return paneSpecs;
   return [
-    ...specs,
+    ...paneSpecs,
     {
       role: PANE_ROLE.ANNOTATION,
-      order: specs.length,
+      order: paneSpecs.length,
       name: CONST.ANNOTATION_PANE_PREFIX + layerInfo.id,
     },
   ];
@@ -210,7 +210,7 @@ class LayerOrchestration {
    *  they first get a rendering face. */
   surfaceFor(layerInfo: LayerInfo): LayerSurface {
     const layer = this.findLayer(layerInfo);
-    const spec = {
+    const surfaceFace = {
       id: layerInfo.id,
       layer,
       // The registry is the only place a kind is derived, so forward its answer
@@ -226,16 +226,18 @@ class LayerOrchestration {
       color: layerInfo.color,
     };
     const existing = this.surfaces.get(layerInfo.id);
-    if (existing?.matches(spec)) return existing;
+    if (existing?.matches(surfaceFace)) return existing;
     if (existing?.layer) {
       // The layer object (or its declaration) was replaced. Drop the stamp
       // index entry for the superseded layer, or a lookup by it would keep
       // answering with a surface nobody paints into anymore.
       this.surfacesByLayer.delete(L.stamp(existing.layer));
     }
-    const surface = new LayerSurface(this.panes, spec);
+    const surface = new LayerSurface(this.panes, surfaceFace);
     this.surfaces.set(layerInfo.id, surface);
-    if (spec.layer) this.surfacesByLayer.set(L.stamp(spec.layer), surface);
+    if (surfaceFace.layer) {
+      this.surfacesByLayer.set(L.stamp(surfaceFace.layer), surface);
+    }
     return surface;
   }
 
