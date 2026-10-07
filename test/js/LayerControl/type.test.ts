@@ -65,7 +65,7 @@ describe("RegisterLayerOpts", () => {
 
   it("rejects a removed field that used to leak intent onto the substrate", () => {
     // `visible` used to live on RegisterLayerOpts / LayerInfo as a mirror of
-    // the map's membership. T126 folded it into the persisted intent, so it
+    // the map's membership. #498 folded it into the persisted intent, so it
     // no longer accepts a caller value at all — an index-signature hole that
     // would let callers write a stray `visible` back onto LayerInfo is
     // exactly what this file exists to close.

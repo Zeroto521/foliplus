@@ -1007,7 +1007,7 @@ describe("InteractionManager", () => {
       el.focus();
       // A mousedown event has no key property — the guard's first condition
       // (eventType === "keydown" || "keyup") is false, so it never reaches
-      // isArrowKey or isFormInput.
+      // the `nativeConsumesKey` table.
       const event = new MouseEvent("mousedown", {
         bubbles: true,
         cancelable: true,

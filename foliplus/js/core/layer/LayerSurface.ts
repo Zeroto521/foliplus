@@ -162,8 +162,8 @@ class LayerSurface implements LayerSurfaceContract {
   contentDirty = false;
 
   private readonly host: PaneManager;
-  private readonly specs: readonly PaneSpec[];
-  private readonly spec: SurfaceDeclaration;
+  private readonly paneSpecs: readonly PaneSpec[];
+  private readonly surfaceDecl: SurfaceDeclaration;
   /** The pane this surface synthesized because the layer declared none. Its
    *  content is pinned here; a declared pane's content is routed by whoever
    *  declared it (createLayers), so there is nothing for us to pin. */
@@ -173,7 +173,7 @@ class LayerSurface implements LayerSurfaceContract {
     this.host = host;
     this.id = opts.id;
     this.layer = opts.layer;
-    this.specs = opts.paneSpecs ?? [];
+    this.paneSpecs = opts.paneSpecs ?? [];
 
     // The declared paneName is a third-party input that reaches the DOM as a
     // Leaflet pane id / class. If it fails `PANE_NAME_PATTERN`, treat it as
@@ -188,7 +188,7 @@ class LayerSurface implements LayerSurfaceContract {
       );
     }
     const layer = opts.layer;
-    this.spec = {
+    this.surfaceDecl = {
       layer,
       kind: kindOf(opts),
       custom: opts.custom !== undefined,
@@ -210,9 +210,9 @@ class LayerSurface implements LayerSurfaceContract {
       // appended label pane, for one), and a position-based read would
       // stamp that spec's role onto the base pane while never booking the
       // pane the extra spec names.
-      const base = this.specs.find(spec => spec.name === declared);
+      const base = this.paneSpecs.find(spec => spec.name === declared);
       this.addPane(declared, !opts.canvas, base?.role, base?.order);
-      for (const spec of this.specs) {
+      for (const spec of this.paneSpecs) {
         if (spec.name !== declared) {
           this.addPane(spec.name, false, spec.role, spec.order);
         }
@@ -275,7 +275,7 @@ class LayerSurface implements LayerSurfaceContract {
    *  booked are skipped, so the base pane stays `panes[0]` and `reconcile`
    *  still pins content into it. */
   private addMissingSpecs(): void {
-    for (const spec of this.specs) {
+    for (const spec of this.paneSpecs) {
       if (!this.panes.some(pane => pane.name === spec.name)) {
         this.addPane(spec.name, false, spec.role, spec.order);
       }
@@ -423,7 +423,7 @@ class LayerSurface implements LayerSurfaceContract {
    *  lack the method — adding or removing it changes the capability and must
    *  trigger a rebuild. */
   matches(opts: SurfaceFaceOpts): boolean {
-    const specs = opts.paneSpecs ?? [];
+    const paneSpecs = opts.paneSpecs ?? [];
     // `role` and `order` are part of the declaration, not decoration: a spec
     // whose role changes describes a different face, and the surface has to be
     // rebuilt. They are derived from the index today (`LayerFactory` writes
@@ -432,12 +432,12 @@ class LayerSurface implements LayerSurfaceContract {
     // not imply, which is where R9's `z = f(layerIndex, role)` and the
     // per-role renderer defaults are headed.
     const samePanes =
-      this.specs.length === specs.length &&
-      this.specs.every(
+      this.paneSpecs.length === paneSpecs.length &&
+      this.paneSpecs.every(
         (spec, i) =>
-          spec.role === specs[i].role &&
-          spec.order === specs[i].order &&
-          spec.name === specs[i].name,
+          spec.role === paneSpecs[i].role &&
+          spec.order === paneSpecs[i].order &&
+          spec.name === paneSpecs[i].name,
       );
     // Probe results are part of the declaration: a tree that gained or lost a
     // `setStyle` leaf describes a different face, and the surface has to be
@@ -446,15 +446,15 @@ class LayerSurface implements LayerSurfaceContract {
     // by the layer's own tree and the surface is resolved once per register,
     // so the cost is one tree walk per re-registration, not per frame.
     return (
-      this.spec.layer === opts.layer &&
-      this.spec.kind === kindOf(opts) &&
-      this.spec.custom === (opts.custom !== undefined) &&
-      this.spec.paneName === declaredPaneName(opts.paneName) &&
-      this.spec.canvas === Boolean(opts.canvas) &&
-      this.spec.color === (opts.color != null) &&
-      Boolean(this.spec.getBounds) === Boolean(opts.getBounds ?? null) &&
-      this.spec.fill === probeVectorCarrier(opts.layer, "fill") &&
-      this.spec.stroke === probeVectorCarrier(opts.layer, "stroke") &&
+      this.surfaceDecl.layer === opts.layer &&
+      this.surfaceDecl.kind === kindOf(opts) &&
+      this.surfaceDecl.custom === (opts.custom !== undefined) &&
+      this.surfaceDecl.paneName === declaredPaneName(opts.paneName) &&
+      this.surfaceDecl.canvas === Boolean(opts.canvas) &&
+      this.surfaceDecl.color === (opts.color != null) &&
+      Boolean(this.surfaceDecl.getBounds) === Boolean(opts.getBounds ?? null) &&
+      this.surfaceDecl.fill === probeVectorCarrier(opts.layer, "fill") &&
+      this.surfaceDecl.stroke === probeVectorCarrier(opts.layer, "stroke") &&
       samePanes
     );
   }
@@ -534,7 +534,7 @@ const usesNativeSetter = (layer: L.Layer): boolean =>
 /** Resolve one vector-style probe against the layer's tree. `axis` picks
  *  the probe (`stroke` → `hasSetStyleLeaf`, `fill` → `hasFillLeaf`). A
  *  null layer yields "none" — there is no tree to walk. Called from the
- *  constructor (to seed `spec.stroke` / `spec.fill`) and from `matches`
+ *  constructor (to seed `surfaceDecl.stroke` / `surfaceDecl.fill`) and from `matches`
  *  (to detect a tree change on re-registration). */
 const probeVectorCarrier = (
   layer: L.Layer | null,

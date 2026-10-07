@@ -466,7 +466,7 @@ describe("scanSharedImports", () => {
   });
 
   it("scans #foliplus/BaseControl.js but not component self-imports", () => {
-    // Regression for T313: only #foliplus/BaseControl.js is shared; a
+    // Regression for #628: only #foliplus/BaseControl.js is shared; a
     // component's own #foliplus/<Component>/… imports bundle normally via
     // esbuild's alias. The scanner must not record them, so the registry
     // generator and the plugin don't try to shim them.
@@ -598,7 +598,7 @@ describe("globalNamespacePlugin", () => {
   });
 
   it("onResolve filter matches the shared set and rejects non-shared #foliplus/*", () => {
-    // Regression for T313: the old filter `^#(common|core|foliplus)/`
+    // Regression for #628: the old filter `^#(common|core|foliplus)/`
     // externalized component self-imports (#foliplus/LayerControl/const.js,
     // #foliplus/config-schema.js) as empty shims, which then resolved to
     // `undefined` at runtime. The new filter is anchored and only accepts

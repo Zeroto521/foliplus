@@ -106,7 +106,7 @@ describe("LayerUI lifecycle — defensive rails", () => {
     });
 
     it("onClick: the color row's body no longer triggers showSolidBasemap", () => {
-      // T201: row-body clicks used to call showSolidBasemap directly; the
+      // #494: row-body clicks used to call showSolidBasemap directly; the
       // checkbox's change event is the only legitimate path
       // (applyVisibility → the executor's canvas HIDDEN write → showSolidBasemap).
       // A second call from here would rebuild the list mid-click and leave the
