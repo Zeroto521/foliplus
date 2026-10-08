@@ -129,5 +129,6 @@ const defineControl = <M = unknown>(spec: DefineControlSpec<M>): ControlClass =>
 };
 
 export { defineControl };
-// eslint-disable-next-line import/no-unused-modules -- type-only export (rule bug: ignoreUnusedTypeExports doesn't work for `export { type X }`)
+
+// eslint-disable-next-line import/no-unused-modules -- type-only export (rule bug: ignoreUnusedTypeExports doesn't work for export { type X })
 export type { ControlClass, DefineControlSpec };
