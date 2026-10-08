@@ -39,7 +39,7 @@
   // Wait for the panel to refresh so rows render.
   return new Promise(resolve => {
     setTimeout(() => {
-      const ui = ctrl.m.ui;
+      const ui = ctrl.mgr.ui;
       const before = countSvgs();
 
       const cycles = [];

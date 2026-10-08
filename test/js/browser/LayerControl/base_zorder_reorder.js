@@ -15,7 +15,7 @@
   delete window.__probe;
   const ctrl = window.__layerCtrl;
   if (!ctrl) return { error: "ctrl missing" };
-  const m = ctrl.m;
+  const m = ctrl.mgr;
 
   const tilePane = document.querySelector(".leaflet-tile-pane");
   const read = () => {

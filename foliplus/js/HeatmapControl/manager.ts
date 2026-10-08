@@ -5,7 +5,7 @@ import {
 } from "#core/classify.js";
 import { generateId } from "#core/component.js";
 import { EVENTS, type EventBus, ensureEvents } from "#core/event/index.js";
-import { bareFieldName } from "#core/labelField.js";
+import { bareFieldName } from "#core/label/index.js";
 import { NO_FEATURE_TREE_KINDS } from "#core/layer/index.js";
 import { bindMapSync } from "#core/leaflet/index.js";
 import type { NumberStyle } from "#foliplus/config-schema.js";

@@ -25,7 +25,7 @@ describe("InteractionManager", () => {
   afterEach(() => (document.body.innerHTML = ""));
 
   it("register returns a cleanup function", async () => {
-    const { ensureInteraction } = await import("#core/interaction.js");
+    const { ensureInteraction } = await import("#core/interaction/index.js");
     const map = makeMap();
     const cleanup = ensureInteraction(map).register("Test", [
       { key: "Escape", handler: vi.fn() },
@@ -35,7 +35,7 @@ describe("InteractionManager", () => {
   });
 
   it("element-level shortcut fires on matching keydown", async () => {
-    const { ensureInteraction } = await import("#core/interaction.js");
+    const { ensureInteraction } = await import("#core/interaction/index.js");
     const map = makeMap();
     const el = document.createElement("input");
     const handler = vi.fn();
@@ -46,7 +46,7 @@ describe("InteractionManager", () => {
   });
 
   it("element-level shortcut does not fire on non-matching key", async () => {
-    const { ensureInteraction } = await import("#core/interaction.js");
+    const { ensureInteraction } = await import("#core/interaction/index.js");
     const map = makeMap();
     const el = document.createElement("input");
     const handler = vi.fn();
@@ -57,7 +57,7 @@ describe("InteractionManager", () => {
   });
 
   it("once option auto-removes after first trigger", async () => {
-    const { ensureInteraction } = await import("#core/interaction.js");
+    const { ensureInteraction } = await import("#core/interaction/index.js");
     const map = makeMap();
     const el = document.createElement("input");
     const handler = vi.fn();
@@ -71,7 +71,7 @@ describe("InteractionManager", () => {
   });
 
   it("unregister removes all shortcuts for a component", async () => {
-    const { ensureInteraction } = await import("#core/interaction.js");
+    const { ensureInteraction } = await import("#core/interaction/index.js");
     const map = makeMap();
     const el = document.createElement("input");
     const handler = vi.fn();
@@ -82,7 +82,7 @@ describe("InteractionManager", () => {
   });
 
   it("supports mouse events via event field", async () => {
-    const { ensureInteraction } = await import("#core/interaction.js");
+    const { ensureInteraction } = await import("#core/interaction/index.js");
     const map = makeMap();
     const el = document.createElement("div");
     const handler = vi.fn();
@@ -98,7 +98,7 @@ describe("InteractionManager", () => {
   });
 
   it("preventDefault: false observes a document-level event without swallowing it", async () => {
-    const { ensureInteraction } = await import("#core/interaction.js");
+    const { ensureInteraction } = await import("#core/interaction/index.js");
     const map = makeMap();
     const handler = vi.fn();
     ensureInteraction(map).register("Test", [
@@ -115,7 +115,7 @@ describe("InteractionManager", () => {
   });
 
   it("default swallow holds for document-level events (preventDefault + stopPropagation)", async () => {
-    const { ensureInteraction } = await import("#core/interaction.js");
+    const { ensureInteraction } = await import("#core/interaction/index.js");
     const map = makeMap();
     const handler = vi.fn();
     ensureInteraction(map).register("Test", [{ event: "mousedown", handler }]);
@@ -132,7 +132,7 @@ describe("InteractionManager", () => {
   });
 
   it("container option filters by focus", async () => {
-    const { ensureInteraction } = await import("#core/interaction.js");
+    const { ensureInteraction } = await import("#core/interaction/index.js");
     const map = makeMap();
     const container = document.createElement("div");
     document.body.appendChild(container);
@@ -156,7 +156,7 @@ describe("InteractionManager", () => {
   });
 
   it("tied-priority: container shortcut wins over pure document shortcut", async () => {
-    const { ensureInteraction } = await import("#core/interaction.js");
+    const { ensureInteraction } = await import("#core/interaction/index.js");
     const map = makeMap();
     const container = document.createElement("div");
     document.body.appendChild(container);
@@ -187,7 +187,7 @@ describe("InteractionManager", () => {
   });
 
   it("tied-priority container shortcuts: innermost container wins", async () => {
-    const { ensureInteraction } = await import("#core/interaction.js");
+    const { ensureInteraction } = await import("#core/interaction/index.js");
     const map = makeMap();
     const outer = document.createElement("div");
     document.body.appendChild(outer);
@@ -221,7 +221,7 @@ describe("InteractionManager", () => {
   });
 
   it("explicit priority overrides container depth tie-breaking", async () => {
-    const { ensureInteraction } = await import("#core/interaction.js");
+    const { ensureInteraction } = await import("#core/interaction/index.js");
     const map = makeMap();
     const outer = document.createElement("div");
     document.body.appendChild(outer);
@@ -255,7 +255,7 @@ describe("InteractionManager", () => {
   });
 
   it("element-level ctrl modifier requires ctrlKey or metaKey", async () => {
-    const { ensureInteraction } = await import("#core/interaction.js");
+    const { ensureInteraction } = await import("#core/interaction/index.js");
     const map = makeMap();
     const el = document.createElement("input");
     const handler = vi.fn();
@@ -275,7 +275,7 @@ describe("InteractionManager", () => {
   });
 
   it("element-level meta modifier requires metaKey", async () => {
-    const { ensureInteraction } = await import("#core/interaction.js");
+    const { ensureInteraction } = await import("#core/interaction/index.js");
     const map = makeMap();
     const el = document.createElement("input");
     const handler = vi.fn();
@@ -297,7 +297,7 @@ describe("InteractionManager", () => {
   });
 
   it("element-level shift modifier requires shiftKey", async () => {
-    const { ensureInteraction } = await import("#core/interaction.js");
+    const { ensureInteraction } = await import("#core/interaction/index.js");
     const map = makeMap();
     const el = document.createElement("input");
     const handler = vi.fn();
@@ -319,7 +319,7 @@ describe("InteractionManager", () => {
   });
 
   it("element-level alt modifier requires altKey", async () => {
-    const { ensureInteraction } = await import("#core/interaction.js");
+    const { ensureInteraction } = await import("#core/interaction/index.js");
     const map = makeMap();
     const el = document.createElement("input");
     const handler = vi.fn();
@@ -341,7 +341,7 @@ describe("InteractionManager", () => {
   });
 
   it("register third-arg container applies default container to unscoped defs", async () => {
-    const { ensureInteraction } = await import("#core/interaction.js");
+    const { ensureInteraction } = await import("#core/interaction/index.js");
     const map = makeMap();
     const defaultContainer = document.createElement("div");
     document.body.appendChild(defaultContainer);
@@ -375,7 +375,7 @@ describe("InteractionManager", () => {
   });
 
   it("depth sort: container shortcut wins over non-container shortcut", async () => {
-    const { ensureInteraction } = await import("#core/interaction.js");
+    const { ensureInteraction } = await import("#core/interaction/index.js");
     const map = makeMap();
     const container = document.createElement("div");
     document.body.appendChild(container);
@@ -404,7 +404,7 @@ describe("InteractionManager", () => {
   });
 
   it("container-bound shortcuts: non-container shortcut fires when focus is outside", async () => {
-    const { ensureInteraction } = await import("#core/interaction.js");
+    const { ensureInteraction } = await import("#core/interaction/index.js");
     const map = makeMap();
     const container = document.createElement("div");
     document.body.appendChild(container);
@@ -431,7 +431,7 @@ describe("InteractionManager", () => {
   });
 
   it("MutationObserver: non-HTMLElement removed node is skipped", async () => {
-    const { ensureInteraction } = await import("#core/interaction.js");
+    const { ensureInteraction } = await import("#core/interaction/index.js");
     const map = makeMap();
     const wrapper = document.createElement("div");
     document.body.appendChild(wrapper);
@@ -455,7 +455,7 @@ describe("InteractionManager", () => {
   });
 
   it("initialize map.foliplus namespace if missing", async () => {
-    const { ensureInteraction } = await import("#core/interaction.js");
+    const { ensureInteraction } = await import("#core/interaction/index.js");
     const map = makeBareMap();
     expect(map.foliplus).toBeUndefined();
     ensureInteraction(map);
@@ -469,7 +469,7 @@ describe("InteractionManager", () => {
   // thing noticing if the fields stopped being set.
 
   it("stamps each stored entry with its own sequential order", async () => {
-    const { ensureInteraction } = await import("#core/interaction.js");
+    const { ensureInteraction } = await import("#core/interaction/index.js");
     const im = ensureInteraction(makeMap());
     im.register("A", [{ key: "a", handler: vi.fn() }]);
     im.register("B", [
@@ -481,7 +481,7 @@ describe("InteractionManager", () => {
   });
 
   it("records the resolved event type the element listener is bound under", async () => {
-    const { ensureInteraction } = await import("#core/interaction.js");
+    const { ensureInteraction } = await import("#core/interaction/index.js");
     const im = ensureInteraction(makeMap());
     const el = document.createElement("input");
     im.register("El", [
@@ -494,7 +494,7 @@ describe("InteractionManager", () => {
   });
 
   it("removes via the exact closure stored on the entry", async () => {
-    const { ensureInteraction } = await import("#core/interaction.js");
+    const { ensureInteraction } = await import("#core/interaction/index.js");
     const im = ensureInteraction(makeMap());
     const el = document.createElement("input");
     const spy = vi.spyOn(HTMLElement.prototype, "removeEventListener");
@@ -509,7 +509,7 @@ describe("InteractionManager", () => {
   });
 
   it("leaves elementHandler/elementType unset for document-level shortcuts", async () => {
-    const { ensureInteraction } = await import("#core/interaction.js");
+    const { ensureInteraction } = await import("#core/interaction/index.js");
     const im = ensureInteraction(makeMap());
     im.register("Doc", [{ key: "Escape", handler: vi.fn() }]);
     const entry = im["shortcuts"][0] as any;
@@ -519,7 +519,7 @@ describe("InteractionManager", () => {
   });
 
   it("unregister removes the entry's own listener using the stored fields", async () => {
-    const { ensureInteraction } = await import("#core/interaction.js");
+    const { ensureInteraction } = await import("#core/interaction/index.js");
     const im = ensureInteraction(makeMap());
     const el = document.createElement("input");
     const handler = vi.fn();
@@ -532,7 +532,7 @@ describe("InteractionManager", () => {
   });
 
   it("unregister leaves other components' element listeners intact", async () => {
-    const { ensureInteraction } = await import("#core/interaction.js");
+    const { ensureInteraction } = await import("#core/interaction/index.js");
     const im = ensureInteraction(makeMap());
     const elA = document.createElement("input");
     const elB = document.createElement("input");
@@ -548,7 +548,7 @@ describe("InteractionManager", () => {
   });
 
   it("non-container shortcut fires when focus is outside any container (tied priority)", async () => {
-    const { ensureInteraction } = await import("#core/interaction.js");
+    const { ensureInteraction } = await import("#core/interaction/index.js");
     const map = makeMap();
     const container = document.createElement("div");
     container.tabIndex = 0;
@@ -577,7 +577,7 @@ describe("InteractionManager", () => {
   });
 
   it("destroy clears all shortcuts and listeners", async () => {
-    const { ensureInteraction } = await import("#core/interaction.js");
+    const { ensureInteraction } = await import("#core/interaction/index.js");
     const map = makeMap();
     const im = ensureInteraction(map);
 
@@ -595,7 +595,7 @@ describe("InteractionManager", () => {
   });
 
   it("clear() removes element-bound listeners when shortcuts include element bindings", async () => {
-    const { ensureInteraction } = await import("#core/interaction.js");
+    const { ensureInteraction } = await import("#core/interaction/index.js");
     const map = makeMap();
     const im = ensureInteraction(map);
     const el = document.createElement("input");
@@ -613,7 +613,7 @@ describe("InteractionManager", () => {
   });
 
   it("reverse container depth sort: container-registered-first does not win over doc shortcut", async () => {
-    const { ensureInteraction } = await import("#core/interaction.js");
+    const { ensureInteraction } = await import("#core/interaction/index.js");
     const map = makeMap();
     const container = document.createElement("div");
     document.body.appendChild(container);
@@ -645,7 +645,7 @@ describe("InteractionManager", () => {
   });
 
   it("same-priority document-level shortcuts: last-registered wins (later registration takes priority)", async () => {
-    const { ensureInteraction } = await import("#core/interaction.js");
+    const { ensureInteraction } = await import("#core/interaction/index.js");
     const map = makeMap();
     const handler1 = vi.fn();
     const handler2 = vi.fn();
@@ -668,7 +668,7 @@ describe("InteractionManager", () => {
   });
 
   it("last-registered shortcut wins even when priorities differ only by 0", async () => {
-    const { ensureInteraction } = await import("#core/interaction.js");
+    const { ensureInteraction } = await import("#core/interaction/index.js");
     const map = makeMap();
     const handler1 = vi.fn();
     const handler2 = vi.fn();
@@ -691,7 +691,7 @@ describe("InteractionManager", () => {
   });
 
   it("destroy also works when map.foliplus was not pre-existing", async () => {
-    const { ensureInteraction } = await import("#core/interaction.js");
+    const { ensureInteraction } = await import("#core/interaction/index.js");
     const map = makeBareMap();
     const im = ensureInteraction(map);
     im.destroy();
@@ -700,7 +700,7 @@ describe("InteractionManager", () => {
   });
 
   it("handleEvent filters document-level shortcuts by ctrl/meta/shift modifiers", async () => {
-    const { ensureInteraction } = await import("#core/interaction.js");
+    const { ensureInteraction } = await import("#core/interaction/index.js");
     const map = makeMap();
     const handler = vi.fn();
 
@@ -719,7 +719,7 @@ describe("InteractionManager", () => {
   });
 
   it("handleEvent filters document-level meta modifier", async () => {
-    const { ensureInteraction } = await import("#core/interaction.js");
+    const { ensureInteraction } = await import("#core/interaction/index.js");
     const map = makeMap();
     const handler = vi.fn();
 
@@ -737,7 +737,7 @@ describe("InteractionManager", () => {
   });
 
   it("handleEvent filters document-level shift modifier", async () => {
-    const { ensureInteraction } = await import("#core/interaction.js");
+    const { ensureInteraction } = await import("#core/interaction/index.js");
     const map = makeMap();
     const handler = vi.fn();
 
@@ -755,7 +755,7 @@ describe("InteractionManager", () => {
   });
 
   it("handleEvent filters document-level alt modifier", async () => {
-    const { ensureInteraction } = await import("#core/interaction.js");
+    const { ensureInteraction } = await import("#core/interaction/index.js");
     const map = makeMap();
     const handler = vi.fn();
 
@@ -773,7 +773,7 @@ describe("InteractionManager", () => {
   });
 
   it("handleEvent dispatches to only the highest-priority matching shortcut", async () => {
-    const { ensureInteraction } = await import("#core/interaction.js");
+    const { ensureInteraction } = await import("#core/interaction/index.js");
     const map = makeMap();
     const container = document.createElement("div");
     container.tabIndex = 0;
@@ -802,7 +802,7 @@ describe("InteractionManager", () => {
   });
 
   it("handleEvent filters by event type (keydown vs mouse)", async () => {
-    const { ensureInteraction } = await import("#core/interaction.js");
+    const { ensureInteraction } = await import("#core/interaction/index.js");
     const map = makeMap();
     const container = document.createElement("div");
     container.tabIndex = 0;
@@ -840,7 +840,7 @@ describe("InteractionManager", () => {
 
   describe("form-control arrow-key guard", () => {
     it("ArrowDown on textarea is not swallowed", async () => {
-      const { ensureInteraction } = await import("#core/interaction.js");
+      const { ensureInteraction } = await import("#core/interaction/index.js");
       const map = makeMap();
       const container = document.createElement("div");
       container.tabIndex = 0;
@@ -865,7 +865,7 @@ describe("InteractionManager", () => {
     });
 
     it("ArrowDown on select is not swallowed", async () => {
-      const { ensureInteraction } = await import("#core/interaction.js");
+      const { ensureInteraction } = await import("#core/interaction/index.js");
       const map = makeMap();
       const container = document.createElement("div");
       container.tabIndex = 0;
@@ -889,7 +889,7 @@ describe("InteractionManager", () => {
     });
 
     it("ArrowDown on input[type=text] is not swallowed", async () => {
-      const { ensureInteraction } = await import("#core/interaction.js");
+      const { ensureInteraction } = await import("#core/interaction/index.js");
       const map = makeMap();
       const container = document.createElement("div");
       container.tabIndex = 0;
@@ -914,7 +914,7 @@ describe("InteractionManager", () => {
     });
 
     it("ArrowDown on checkbox is NOT skipped (does not consume arrows)", async () => {
-      const { ensureInteraction } = await import("#core/interaction.js");
+      const { ensureInteraction } = await import("#core/interaction/index.js");
       const map = makeMap();
       const container = document.createElement("div");
       container.tabIndex = 0;
@@ -939,7 +939,7 @@ describe("InteractionManager", () => {
     });
 
     it("ArrowDown on radio is NOT skipped (does not consume arrows)", async () => {
-      const { ensureInteraction } = await import("#core/interaction.js");
+      const { ensureInteraction } = await import("#core/interaction/index.js");
       const map = makeMap();
       const container = document.createElement("div");
       container.tabIndex = 0;
@@ -964,7 +964,7 @@ describe("InteractionManager", () => {
     });
 
     it("non-arrow key on a form control is NOT skipped by the guard", async () => {
-      const { ensureInteraction } = await import("#core/interaction.js");
+      const { ensureInteraction } = await import("#core/interaction/index.js");
       const map = makeMap();
       const container = document.createElement("div");
       container.tabIndex = 0;
@@ -992,7 +992,7 @@ describe("InteractionManager", () => {
     });
 
     it("non-keyboard event skips the guard entirely", async () => {
-      const { ensureInteraction } = await import("#core/interaction.js");
+      const { ensureInteraction } = await import("#core/interaction/index.js");
       const map = makeMap();
       const container = document.createElement("div");
       container.tabIndex = 0;
@@ -1019,7 +1019,7 @@ describe("InteractionManager", () => {
     });
 
     it("keyup on a form control is also let through", async () => {
-      const { ensureInteraction } = await import("#core/interaction.js");
+      const { ensureInteraction } = await import("#core/interaction/index.js");
       const map = makeMap();
       const container = document.createElement("div");
       container.tabIndex = 0;

@@ -71,8 +71,8 @@
 
   // --- Focus on the canvas layer so the vector pane gets hidden ---
   const layerCtrl = window.__layerCtrl;
-  if (layerCtrl && layerCtrl.m && layerCtrl.m.ui) {
-    layerCtrl.m.ui.focusLayer("__focus_canvas__");
+  if (layerCtrl && layerCtrl.mgr && layerCtrl.mgr.ui) {
+    layerCtrl.mgr.ui.focusLayer("__focus_canvas__");
   }
 
   // --- Compute window rectangles in export-canvas pixel coords ---

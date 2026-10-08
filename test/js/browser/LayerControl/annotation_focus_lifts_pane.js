@@ -1,6 +1,6 @@
 () => {
   const ctrl = window.__layerCtrl;
-  const mgr = ctrl && ctrl.m.annotation;
+  const mgr = ctrl && ctrl.mgr.annotation;
   const api = window.map.foliplus && window.map.foliplus.LayerAPI;
   if (!mgr || !api) return null;
 
@@ -28,7 +28,7 @@
     [26.1, 119.32, "gamma"],
     [26.11, 119.33, "delta"],
   ]);
-  ctrl.m.enforceOrder();
+  ctrl.mgr.enforceOrder();
 
   // Pane names come from the Leaflet _panes registry, not the DOM id —
   // createPane does not set element.id, so read through map.getPane.

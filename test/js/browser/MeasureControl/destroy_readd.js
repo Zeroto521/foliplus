@@ -30,7 +30,7 @@
     map.removeControl(ctrl);
     removed.push(document.querySelector(".foliplus-measure-ctrl") === null);
     map.addControl(ctrl);
-    hasManager.push(!!ctrl.m);
+    hasManager.push(!!ctrl.mgr);
     btnCount.push(
       document.querySelectorAll(".foliplus-measure-ctrl .foliplus-tool-btn").length,
     );

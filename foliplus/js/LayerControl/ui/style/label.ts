@@ -3,7 +3,7 @@
 // the toggle/select wiring through applyPatch, and the load-time
 // applyStyleLabelState snapshot seed. Called back by the panel
 // assembly in index.ts.
-import { type LabelField, isNumericField } from "#core/labelField.js";
+import { type LabelField, isNumericField } from "#core/label/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { AnnotationConfig } from "#foliplus/LayerControl/type.js";
 import { clampLabelSize, normalizeHexColor } from "#common/form.js";

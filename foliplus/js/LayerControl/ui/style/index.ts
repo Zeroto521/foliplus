@@ -11,7 +11,7 @@
 // live in ./label.ts, ./opacity.ts, ./zoomRange.ts, ./delegated.ts;
 // frame-level helpers (reset footer, rail positioning) live in ./frame.ts.
 import { EVENTS } from "#core/event/index.js";
-import { resolveSelectedField } from "#core/labelField.js";
+import { resolveSelectedField } from "#core/label/index.js";
 import { createRowPanel } from "#core/leaflet/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import * as SVGs from "#foliplus/LayerControl/icon.js";

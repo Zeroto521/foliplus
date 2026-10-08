@@ -1,7 +1,7 @@
 () => {
   const ctrl = window.__layerCtrl;
-  const map = ctrl.m.map;
-  const ui = ctrl.m.ui;
+  const map = ctrl.mgr.map;
+  const ui = ctrl.mgr.ui;
   const api = map.foliplus.LayerAPI;
 
   // Register a GeoJSON point layer — zoomRange capability = "pane".
@@ -16,7 +16,7 @@
     ],
   });
   api.registerLayer({ id: "zr_clamp", name: "ZRClamp", layer: geo });
-  ctrl.m.enforceOrder();
+  ctrl.mgr.enforceOrder();
 
   ui.openStylePanel("zr_clamp");
   const row = document.querySelector(".foliplus-style-zoom-range-row");
