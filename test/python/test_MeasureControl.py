@@ -256,10 +256,10 @@ class TestMeasureControlBrowser:
         html = m.get_root().render()
         # Inject test hooks at the control-entry line. The manager is created
         # lazily by the control's getter during addTo, so expose the control
-        # first and read back its manager via `m` (dev build keeps these names).
+        # first and read back its manager via `mgr` (dev build keeps these names).
         html, n = re.subn(
             r"(new MeasureControl\(\{ position: CONFIG\.position \}\)\.addTo\(map\);)",
-            r"window.__measureCtrl = \1 window.__measureManager = window.__measureCtrl.m; window.__map = map; window.__measureStorageKey = STORAGE.KEY;",
+            r"window.__measureCtrl = \1 window.__measureManager = window.__measureCtrl.mgr; window.__map = map; window.__measureStorageKey = STORAGE.KEY;",
             html,
             count=1,
         )

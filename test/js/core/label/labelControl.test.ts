@@ -1,9 +1,9 @@
-// core/labelControl.ts — the shared label-control renderer that the heatmap
+// core/label/labelControl.ts — the shared label-control renderer that the heatmap
 // panel and LayerControl's style drawer both build from. These tests pin its
 // contract: which rows a declaration renders, how changes dispatch, how the
 // refresh mirrors a remote write, and where its vocabulary resolves from.
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { renderLabelControls } from "#core/labelControl.js";
+import { renderLabelControls } from "#core/label/index.js";
 import { createTranslator } from "#common/locale.js";
 
 interface Values {

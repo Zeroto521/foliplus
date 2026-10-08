@@ -1,7 +1,7 @@
 () => {
   const ctrl = window.__layerCtrl;
-  const map = ctrl.m.map;
-  const ui = ctrl.m.ui;
+  const map = ctrl.mgr.map;
+  const ui = ctrl.mgr.ui;
   const api = map.foliplus.LayerAPI;
 
   const geo = L.geoJson({
@@ -15,7 +15,7 @@
     ],
   });
   api.registerLayer({ id: "zr_oor", name: "ZROOR", layer: geo });
-  ctrl.m.enforceOrder();
+  ctrl.mgr.enforceOrder();
 
   const current = map.getZoom();
 

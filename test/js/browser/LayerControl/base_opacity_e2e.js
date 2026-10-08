@@ -12,9 +12,9 @@
 () => {
   const ctrl = window.__layerCtrl;
   if (!ctrl) return { error: "no __layerCtrl" };
-  const map = ctrl.m.map;
+  const map = ctrl.mgr.map;
   const api = map.foliplus.LayerAPI;
-  const ui = ctrl.m.ui;
+  const ui = ctrl.mgr.ui;
   const container = map.getContainer();
   const COLOR_ID = "foliplus_color_map";
 

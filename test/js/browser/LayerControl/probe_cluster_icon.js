@@ -6,7 +6,7 @@
 // markerPane (shared). "both must be handled" is the design consequence.
 () => {
   const map = window.map;
-  const m = window.__layerCtrl.m;
+  const m = window.__layerCtrl.mgr;
   // Force clustering to initialize + render cluster icons. markercluster
   // initializes lazily on moveend/zoomend; the map must have a finite
   // maxZoom (a maxZoom-defining base tile provides one).

@@ -93,7 +93,7 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
       "KeyboardManager binds per-element + document listeners on behalf of multiple controls; migration means threading a signal through the manager API",
   },
   {
-    f: "core/labelControl.ts",
+    f: "core/label/labelControl.ts",
     n: 1,
     pairedOff: 0,
     reason:

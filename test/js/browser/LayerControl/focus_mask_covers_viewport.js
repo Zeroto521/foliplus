@@ -3,7 +3,7 @@
   const ctrl = window.__layerCtrl;
   if (!map || !ctrl) return { error: "missing map or ctrl" };
 
-  const ui = ctrl.m.ui;
+  const ui = ctrl.mgr.ui;
   if (!ui.focusController.focusMask) return { error: "focusMask not drawn" };
 
   // The outer ring is the mask polygon's first sub-ring: the "everything

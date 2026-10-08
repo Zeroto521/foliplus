@@ -6816,7 +6816,7 @@ class TestLayerPaneProbeBrowser:
             r = self._facts(page, {"id": t1.get_name(), "native": "tile-setopacity"})
             sibling = page.evaluate(
                 """([idA, idB]) => {
-                  const m = window.__layerCtrl.m;
+                  const m = window.__layerCtrl.mgr;
                   const a = m.findLayer(m.layers.find(l => l.id === idA));
                   const b = m.findLayer(m.layers.find(l => l.id === idB));
                   a.setOpacity(0.4);

@@ -1,6 +1,6 @@
 () => {
   const ctrl = window.__layerCtrl;
-  const mgr = ctrl && ctrl.m.annotation;
+  const mgr = ctrl && ctrl.mgr.annotation;
   const api = window.map.foliplus && window.map.foliplus.LayerAPI;
   if (!mgr || !api) return null;
 
@@ -28,7 +28,7 @@
   ]);
   // enforceOrder is debounced; run it now so each layer's pane — and its
   // annotation pane — gets the z that places it in the stack.
-  ctrl.m.enforceOrder();
+  ctrl.mgr.enforceOrder();
 
   return new Promise(resolve => {
     requestAnimationFrame(() =>
