@@ -2125,6 +2125,7 @@ describe("NO_OP_ENV T fallback", () => {
       foliplus: window.map.foliplus,
     };
     const m = new HeatmapManager(map);
+    m.init();
     expect(m.T("title")).toBe("HeatmapControl.title");
   });
 });
