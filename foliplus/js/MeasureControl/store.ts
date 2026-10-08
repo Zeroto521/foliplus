@@ -50,6 +50,7 @@ class MeasureStore {
       onFlushError: () => {
         if (!this.warned) {
           this.warned = true;
+          // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- foliplus.showHint may be undefined
           this.map.foliplus?.showHint?.(
             this.config.name,
             this.T("err_not_saved"),

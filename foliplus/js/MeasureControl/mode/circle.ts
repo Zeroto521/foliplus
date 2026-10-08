@@ -148,6 +148,7 @@ class CircleMode extends PreviewMode {
           this.T("hint_circle_radius"),
           HINT_DURATION.PERSIST,
         );
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- phase variable is set at runtime
       } else if (phase === 1) {
         const r = Util.distance(center!, event.latlng);
         // Ignore clicks too close to center — radius 0 creates an invisible
@@ -219,6 +220,7 @@ class CircleMode extends PreviewMode {
       targetLatLng: L.LatLng,
     ) => {
       const finalTargetLatLng =
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- targetLatLng may be undefined from caller
         targetLatLng || L.CRS.Earth.destination!(centerLatLng, r, 90);
 
       const circle = this.layers.addLayer(

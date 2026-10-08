@@ -208,6 +208,7 @@ class MeasureManager {
     this.offModeChange = this.events.on(EVENTS.MODE_CHANGE, ({ component, mode }) => {
       if (component === COMPONENTS.ExportControl && mode !== null && this.currentMode) {
         this.clearActiveMode();
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- foliplus.showHint may be undefined
         this.map.foliplus?.showHint?.(
           this.config.name,
           this.T("export_paused"),
@@ -252,6 +253,7 @@ class MeasureManager {
   saveMeasurements() {
     this.store.persist();
     // Runtime content changed — refresh the attributes panel timestamp.
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- foliplus.LayerAPI may be partial seed
     this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
   }
 
@@ -269,6 +271,7 @@ class MeasureManager {
     // measurement and exports carry a stable id.
     if (this.store.assignMissingIds()) this.store.persist();
     this.store.all().forEach(m => {
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- MODE_MAP may miss for unknown types; restore may be absent
       MODE_MAP[m.type as keyof typeof MODE_MAP]?.restore?.(this, m);
     });
     // Notify LayerControl to refresh the count column now that the
@@ -281,6 +284,7 @@ class MeasureManager {
   bindGlobalEvents() {
     this.onMapClick = (event: L.LeafletMouseEvent) => {
       const t = Util.getEventTarget(event);
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- event target may be null
       if (t?.closest?.(CONST.SEL.DEL_ICON)) return;
       // In edit mode, a click on empty map space is handled by each overlay's
       // own map-click handler (which closes it) — it does NOT exit edit mode.
@@ -401,6 +405,7 @@ class MeasureManager {
     }
 
     const ModeClass = MODE_MAP[mode as keyof typeof MODE_MAP];
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- MODE_MAP may miss for unknown types at runtime
     this.modeInstance = ModeClass ? new ModeClass(this) : null;
     this.modeInstance?.start();
   }
@@ -731,6 +736,7 @@ class MeasureManager {
     // the next draw is new content, so the id must leave the stored order or
     // insertOverlayAt will place the re-drawn measurement back at the old
     // slot instead of the top.
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- foliplus.LayerAPI may be partial seed
     this.map.foliplus?.LayerAPI?.forgetSavedOrder?.(this.layerId);
   }
 
@@ -740,8 +746,11 @@ class MeasureManager {
    *  restoreMeasurements). clearAll() would wipe the saved list here, losing
    *  everything the user had — hence the split above. */
   destroy() {
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- off* callbacks may be undefined before bind
     if (this.offModeChange) this.offModeChange();
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- off* callbacks may be undefined
     if (this.offLayerRemoved) this.offLayerRemoved();
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- off* callbacks may be undefined
     if (this.offLayerDeleted) this.offLayerDeleted();
     this.map.off("unload", this.onUnload);
     this.scheduleLabelPlan.cancel();
@@ -764,6 +773,7 @@ class MeasureManager {
     this.offLayerRemoved = this.events.on(EVENTS.LAYER_REMOVED, ((payload: {
       id?: string;
     }) => {
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- payload may be undefined from external emit
       if (payload?.id === this.layerId) {
         this.clearActiveMode();
       }

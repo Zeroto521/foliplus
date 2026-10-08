@@ -24,6 +24,7 @@ import type { ExportFormat } from "./type.js";
  */
 const toGeoJSON = (env: ControlEnv, measurements: MeasureData[]): string => {
   const features = measurements
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- MODE_MAP lookup may miss for unknown types
     .map(m => MODE_MAP[m.type as keyof typeof MODE_MAP]?.toGeoFeature(env, m))
     .filter((f): f is GeoJSON.Feature => Boolean(f));
 
@@ -54,6 +55,7 @@ interface CsvRow {
  * Escape a CSV field value.
  */
 const csvEscape = (value: string | number): string => {
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- value may be undefined at runtime despite type
   const str = String(value ?? "");
   if (str.includes(",") || str.includes('"') || str.includes("\n")) {
     return '"' + str.replace(/"/g, '""') + '"';
@@ -95,6 +97,7 @@ const toCSV = (env: ControlEnv, measurements: MeasureData[]): string => {
       wkt: toWKT(env, data),
     };
 
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- CSV row values may be missing
     rows.push(headers.map(h => csvEscape(row[h as keyof CsvRow] ?? "")).join(","));
   }
 
@@ -108,6 +111,7 @@ const toCSV = (env: ControlEnv, measurements: MeasureData[]): string => {
  */
 const getNameForType = (env: ControlEnv, data: MeasureData): string => {
   const ModeClass = MODE_MAP[data.type as keyof typeof MODE_MAP];
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- MODE_MAP may miss for unknown types
   if (!ModeClass) return data.type;
   return ModeClass.getNameLabel(env);
 };
@@ -115,6 +119,7 @@ const getNameForType = (env: ControlEnv, data: MeasureData): string => {
 /** Convert a single measurement to a WKT string (empty when unknown type). */
 const toWKT = (env: ControlEnv, data: MeasureData): string => {
   const ModeClass = MODE_MAP[data.type as keyof typeof MODE_MAP];
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- MODE_MAP may miss for unknown types
   if (!ModeClass) return "";
   return featureToWKT(ModeClass.toGeoFeature(env, data));
 };
@@ -126,6 +131,7 @@ const toWKT = (env: ControlEnv, data: MeasureData): string => {
  */
 const featureToWKT = (feature: GeoJSON.Feature): string => {
   const geom = feature.geometry;
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- geometry may be undefined for null features
   if (!geom) return "";
   switch (geom.type) {
     case CONST.GEOJSON.POINT: {
@@ -221,6 +227,7 @@ const exportMeasurements = (
   measurements: MeasureData[],
   format: ExportFormat,
 ): void => {
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- measurements may be empty at runtime
   if (!measurements || measurements.length === 0) return;
 
   const meta = EXPORT_FORMAT_META[format];
@@ -240,8 +247,10 @@ const exportMeasurements = (
 const handleExportClick = (mgr: MeasureManager) => (event: Event) => {
   event.stopPropagation();
   const measurements = mgr.store.all();
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- measurements may be empty at runtime
   if (!measurements || measurements.length === 0) {
     // foliplus is per-map — hint via the manager's map instance.
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- foliplus.showHint may be undefined
     mgr.map.foliplus?.showHint?.(
       mgr.config.name,
       mgr.T("export_no_data"),
@@ -257,6 +266,7 @@ const handleExportClick = (mgr: MeasureManager) => (event: Event) => {
     exportMeasurements(mgr.env, measurements, format);
   } catch (err) {
     mgr.log.warn("export failed:", err);
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- foliplus.showHint may be undefined
     mgr.map.foliplus?.showHint?.(
       mgr.config.name,
       mgr.T("export_fail") + mgr.T("err_export"),
@@ -266,6 +276,7 @@ const handleExportClick = (mgr: MeasureManager) => (event: Event) => {
   }
   // Reported only after the download call returns: a throwing export never
   // wrote the file, so success is not claimed on that path.
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- foliplus.showHint may be undefined
   mgr.map.foliplus?.showHint?.(
     mgr.config.name,
     mgr.T("export_success") +
