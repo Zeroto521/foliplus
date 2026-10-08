@@ -239,6 +239,7 @@ class HeatmapManager {
         this.labelShow = v === true;
         this.renderHexagons();
         this.saveConfig();
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- foliplus/LayerAPI/touchLayer may be undefined
         this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
         this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
       },
@@ -250,6 +251,7 @@ class HeatmapManager {
         this.cachedLabelStyle = null;
         this.redrawHeatmap();
         this.saveConfig();
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- foliplus/LayerAPI/touchLayer may be undefined
         this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
         this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
       },
@@ -259,6 +261,7 @@ class HeatmapManager {
         this.cachedLabelStyle = null;
         this.redrawHeatmap();
         this.saveConfig();
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- foliplus/LayerAPI/touchLayer may be undefined
         this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
         this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
       },
@@ -270,6 +273,7 @@ class HeatmapManager {
         ) as NumberStyle;
         this.redrawHeatmap();
         this.saveConfig();
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- foliplus/LayerAPI/touchLayer may be undefined
         this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
         this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
       },
@@ -284,6 +288,7 @@ class HeatmapManager {
         );
         this.redrawHeatmap();
         this.saveConfig();
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- foliplus/LayerAPI/touchLayer may be undefined
         this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
         this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
       },
@@ -292,6 +297,7 @@ class HeatmapManager {
           typeof v === "string" ? normalizeHexColor(v) : this.borderColor;
         this.redrawHeatmap();
         this.saveConfig();
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- foliplus/LayerAPI/touchLayer may be undefined
         this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
         this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
       },

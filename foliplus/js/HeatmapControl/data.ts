@@ -40,6 +40,7 @@ const readMarkerField = (
   if (!field) return undefined;
   const extended = marker as HeatmapPointMarker;
   if (field === "value") return extended.value;
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- options may be undefined on HeatmapPointMarker
   if (field === "options.value") return extended.options?.value;
   const key = bareFieldName(field);
   return marker.feature?.properties?.[key];
@@ -65,14 +66,14 @@ const aggregateData = (
   onEmpty: () => void,
   log: Logger,
 ): AggregatedData | null => {
-  const hexCells: Record<string, HexCell> = {};
+  const hexCells: Partial<Record<string, HexCell>> = {};
   pts.forEach(pt => {
     try {
       const h3Idx = h3.latLngToCell(pt.lat, pt.lng, res);
       if (!hexCells[h3Idx]) {
         hexCells[h3Idx] = { sum: 0, count: 0, min: Infinity, max: -Infinity };
       }
-      const cell = hexCells[h3Idx];
+      const cell = hexCells[h3Idx]!;
       cell.sum += pt.value;
       cell.count += 1;
       if (pt.value < cell.min) cell.min = pt.value;
