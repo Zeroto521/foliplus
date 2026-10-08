@@ -1,4 +1,4 @@
-// core/labelCollision — pure label-collision geometry.
+// core/label/labelCollision — pure label-collision geometry.
 //
 // Text labels drawn over a map collide when they overlap, so the least important
 // one drops out instead of drifting away from its anchor: a label that moves is

@@ -22,7 +22,7 @@ import {
   resetLayerOpacity,
 } from "#foliplus/LayerControl/ui/style/opacity.js";
 import { resetLayerZoomRange } from "#foliplus/LayerControl/ui/style/zoomRange.js";
-import { AUTO_FIELD } from "#foliplus/core/labelField.js";
+import { AUTO_FIELD } from "#core/label/index.js";
 import { ensureModes } from "#foliplus/core/mode.js";
 import { getLayerAlpha } from "#common/canvasAlpha.js";
 import { NUMBER_FORMAT } from "#common/format.js";

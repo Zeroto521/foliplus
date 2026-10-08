@@ -1,7 +1,7 @@
 // HeatmapControl persistence — loading, applying, and clearing saved heatmap
 // configuration from localStorage. Pure functions over the manager's public
 // state surface.
-import { bareFieldName } from "#core/labelField.js";
+import { bareFieldName } from "#core/label/index.js";
 import type { NumberStyle } from "#foliplus/config-schema.js";
 import { clampLabelSize } from "#common/form.js";
 import * as Storage from "#common/storage.js";

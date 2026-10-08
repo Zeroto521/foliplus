@@ -4,7 +4,7 @@ import {
   hides,
   planVisible,
   withinRect,
-} from "#foliplus/core/labelCollision.js";
+} from "#core/label/index.js";
 
 /** A label at (x, y) that is `w` wide and one line tall. */
 const at = (x: number, y: number, priority: number, w = 40) => ({

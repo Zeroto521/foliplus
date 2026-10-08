@@ -8,12 +8,13 @@
 // covers whom", so a cross-layer plan would only make an upper layer's labels
 // vanish under a lower layer's — the layers themselves are the avoidance.
 import { EVENTS, ensureEvents } from "#core/event/index.js";
-import { type Box, withinRect } from "#core/labelCollision.js";
 import {
+  type Box,
   type LabelField,
   autoLabelField,
   collectLabelFields,
-} from "#core/labelField.js";
+  withinRect,
+} from "#core/label/index.js";
 import { NO_FEATURE_TREE_KINDS, walkLeaf } from "#core/layer/index.js";
 import { bindMapSync } from "#core/leaflet/index.js";
 import type { NumberStyle } from "#foliplus/config-schema.js";
