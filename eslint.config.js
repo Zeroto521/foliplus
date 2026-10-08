@@ -99,8 +99,8 @@ export default [
       // top-level shared modules at the same layer as common/ and core/
       // (imported by both); they are intentionally NOT in these targets —
       // only cross-layer upward edges are forbidden. Two zones, no
-      // pre-existing violations in the tree (verified: common→core 0,
-      // core→component 0).
+      // pre-existing violations in the tree (verified: common to core 0,
+      // core to component 0).
       //
       // Semantic note (the names invert from intuition): `target` matches
       // against the *importing file* (the source of the edge), `from`
