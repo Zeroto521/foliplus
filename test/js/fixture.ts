@@ -37,8 +37,8 @@
 //   `test/js/script/` to name a real module there, and a shared harness is
 //   not a test of a module.
 import { vi } from "vitest";
-import type { ControlEnv } from "#core/defineControl.js";
 import { LayerRuntimeStore } from "#core/layer/index.js";
+import type { ControlEnv } from "#core/type.js";
 // Direct import, not the domain barrel: fixture.ts loads during vitest setup,
 // before the `window.map` mock exists, and the barrel pulls in orchestration.ts
 // whose const.ts reads `map.getContainer()` at module load. LayerIntentStore
@@ -70,7 +70,7 @@ export function makeControlEnv(
 // off, setStyle, getElement, bringToFront, ...) — see the call sites in
 // foliplus/js/LayerControl/controller.ts and core/layer/LayerFactory.ts.
 class LeafletBase {
-  addTo = vi.fn(this as unknown as object) as any;
+  addTo = vi.fn(this as unknown as () => LeafletBase) as any;
   remove = vi.fn() as any;
   on = vi.fn() as any;
   off = vi.fn() as any;

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   type LayerInfo,
   LayerInfoRegistry,
+  type PaneSpec,
   type RegisterLayerOpts,
 } from "#core/layer/index.js";
 
@@ -75,7 +76,7 @@ describe("RegisterLayerOpts", () => {
     // The closure is verified at compile time by the two directives above; a
     // runtime assertion would have to construct a `LayerInfo` with the removed
     // field, which is exactly what the closure exists to prevent.
-    const li = new LayerInfoRegistry([{ id: "l1", name: "L1" }], null).at(0)!;
+    const li = new LayerInfoRegistry([{ id: "l1", name: "L1" } as any], null).at(0)!;
     expect(Object.keys(li)).not.toContain("visible");
     expect(Object.keys(li)).not.toContain("onToggle");
   });
@@ -92,7 +93,7 @@ describe("RegisterLayerOpts", () => {
       '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">' +
       '<rect x="0" y="0" width="16" height="16"/></svg>';
 
-    const paneSpecs = [
+    const paneSpecs: PaneSpec[] = [
       { role: "base", order: 0, name: "a" },
       { role: "sub", order: 1, name: "b" },
     ];
@@ -139,7 +140,7 @@ describe("RegisterLayerOpts", () => {
 // `undefined` without a diagnostic.
 describe("LayerInfo", () => {
   it("exposes only fields the registry populates", () => {
-    const li = new LayerInfoRegistry([{ id: "l1", name: "L1" }], null).at(0);
+    const li = new LayerInfoRegistry([{ id: "l1", name: "L1" } as any], null).at(0);
 
     // @ts-expect-error unknown properties are not part of LayerInfo
     const unknown = li.anythingGoes;
@@ -151,7 +152,7 @@ describe("LayerInfo", () => {
   });
 
   it("cannot be widened with an unknown key", () => {
-    const li = new LayerInfoRegistry([{ id: "l1", name: "L1" }], null).at(0);
+    const li = new LayerInfoRegistry([{ id: "l1", name: "L1" } as any], null).at(0);
 
     const widened: LayerInfo = {
       ...li,

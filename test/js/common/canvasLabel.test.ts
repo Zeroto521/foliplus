@@ -2,12 +2,12 @@
 // heatmap's hex values and LayerControl's annotation labels.
 import { describe, expect, it, vi } from "vitest";
 import {
-  type CanvasLabelStyle,
   drawCanvasLabel,
   prepareCanvasLabel,
   resolveCanvasLabelStyle,
   withLabelPaint,
 } from "#common/canvasLabel.js";
+import type { CanvasLabelStyle } from "#common/type.js";
 
 /** A container carrying the shared --foliplus-label-* tokens (jsdom reads inline
  *  custom properties through getComputedStyle, the same way the real page
@@ -128,9 +128,9 @@ describe("prepareCanvasLabel", () => {
       haloWidth: 3,
     };
     // First call assigns; second call with a matching ctx.font skips.
-    prepareCanvasLabel(c, style);
+    prepareCanvasLabel(c as any, style);
     c.font = style.font;
-    prepareCanvasLabel(c, style);
+    prepareCanvasLabel(c as any, style);
     expect(c.textAlign).toBe("center");
   });
 
@@ -138,6 +138,9 @@ describe("prepareCanvasLabel", () => {
     const c = ctx();
     const style: CanvasLabelStyle = {
       font: "bold 12px sans-serif",
+      fontFamily: "sans-serif",
+      fontSize: 12,
+      fontWeight: "bold",
       color: "#fff",
       haloColor: "rgba(0, 0, 0, 0.75)",
       haloWidth: 3,
@@ -157,6 +160,9 @@ describe("drawCanvasLabel", () => {
     const c = ctx();
     const style: CanvasLabelStyle = {
       font: "bold 12px sans-serif",
+      fontFamily: "sans-serif",
+      fontSize: 12,
+      fontWeight: "bold",
       color: "#fff",
       haloColor: "rgba(0, 0, 0, 0.75)",
       haloWidth: 3,

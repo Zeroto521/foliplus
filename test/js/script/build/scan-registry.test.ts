@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { join, resolve } from "path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { generateRegistry, registryUsedExports } from "#script/build/scan-registry.mjs";
-import { runCli, trapExit } from "../../fixture";
+import { runCli, trapExit } from "../../fixture.js";
 
 const FS = require("fs");
 const PATH = require("path");

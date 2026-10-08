@@ -964,7 +964,7 @@ describe("LayerPersistence", () => {
         a: { visible: false, overrides: ["visible"] },
       };
       const p = makePersistence();
-      p.schedule({ layers: () => layers });
+      p.schedule({ layers: () => layers as Record<string, any> });
 
       layers.a = { visible: true, overrides: ["visible"] };
       p.flushAll();

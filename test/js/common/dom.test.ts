@@ -67,7 +67,7 @@ describe("dom.el", () => {
   it("inserts HTML via { html: ... }", () => {
     const el = dom.el("div", null, { html: "<span>inner</span>" });
     expect(el.querySelector("span")).not.toBeNull();
-    expect(el.querySelector("span").textContent).toBe("inner");
+    expect(el.querySelector("span")!.textContent).toBe("inner");
   });
 
   it("appends child element", () => {

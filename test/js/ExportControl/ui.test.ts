@@ -2,8 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { HINT_DURATION } from "#core/hint.js";
 import { ensureModes } from "#core/mode.js";
 import * as CONST from "#foliplus/ExportControl/const.js";
-import { ExportManager } from "#foliplus/ExportControl/manager.js";
-import type { CropState } from "#foliplus/ExportControl/type.js";
+import { type CropState, ExportManager } from "#foliplus/ExportControl/manager.js";
 import {
   removeCropBox,
   showCropBox,
@@ -15,14 +14,15 @@ import { createScopedTranslator } from "#common/locale.js";
 function makeMapMock() {
   const container = document.createElement("div");
   // getBoundingClientRect is used by showCropBox to size the default crop box.
-  container.getBoundingClientRect = () => ({
-    left: 0,
-    top: 0,
-    width: 500,
-    height: 400,
-    right: 500,
-    bottom: 400,
-  });
+  container.getBoundingClientRect = () =>
+    ({
+      left: 0,
+      top: 0,
+      width: 500,
+      height: 400,
+      right: 500,
+      bottom: 400,
+    }) as DOMRect;
   return {
     getContainer: () => container,
     getBounds: () => ({
@@ -60,7 +60,7 @@ function makeManager() {
   };
   const manager = new ExportManager(makeMapMock());
   const toolBar = document.createElement("div");
-  manager.attachUI(null, toolBar);
+  manager.attachUI(null as unknown as HTMLElement, toolBar);
   return manager;
 }
 
@@ -96,7 +96,7 @@ describe("ExportControl ui — extra hint and toolbar paths", () => {
 });
 
 describe("ExportControl ui — crop mode via ModeManager", () => {
-  let manager;
+  let manager: any;
 
   beforeEach(() => {
     manager = makeManager();
@@ -190,7 +190,7 @@ describe("ExportControl ui — hints and toolbar via the injected config", () =>
 
   it("showGlobalHint uses the injected config name", () => {
     const manager = inject(makeManager());
-    manager.showGlobalHint("working");
+    (manager.showGlobalHint as (text: string) => void)("working");
     expect(manager.map.foliplus.showHint).toHaveBeenCalledWith(
       "ExportControl",
       "working",
@@ -249,7 +249,7 @@ describe("ExportControl ui — hints and toolbar via the injected config", () =>
     );
     // onMapChange may refresh the size hint, but the locked-instruction hint
     // is what skipHint suppresses.
-    expect(texts.some(t => t.includes("hint_locked"))).toBe(false);
+    expect(texts.some((t: string) => t.includes("hint_locked"))).toBe(false);
   });
 
   it("showGlobalHint with loading passes the spinner flag through", () => {
@@ -339,7 +339,7 @@ describe("ExportControl ui — crop-state guards and locked map sync", () => {
     };
     const map = eventsMap();
     const manager = new ExportManager(map);
-    manager.attachUI(null, document.createElement("div"));
+    manager.attachUI(null as unknown as HTMLElement, document.createElement("div"));
     return { manager, map };
   };
 
@@ -455,7 +455,7 @@ describe("ExportControl ui — crop-state guards and locked map sync", () => {
     manager.onMapChange = vi.fn();
     showCropBox(manager);
     manager.lockCropBox();
-    manager.onMapChange.mockClear();
+    (manager.onMapChange as any).mockClear();
 
     // Locked (geo-anchored): a map move re-projects the box, zoomend refreshes it.
     map.fire("move");
@@ -466,7 +466,7 @@ describe("ExportControl ui — crop-state guards and locked map sync", () => {
 
     // Unlocked: a stray map event must not move the box the user is still editing.
     manager.cropState!.locked = false;
-    manager.onMapChange.mockClear();
+    (manager.onMapChange as any).mockClear();
     map.fire("move");
     flushRaf();
     map.fire("zoomend");

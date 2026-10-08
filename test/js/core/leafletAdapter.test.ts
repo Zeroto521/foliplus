@@ -414,14 +414,14 @@ describe("moveIntoPane", () => {
     const map = makeMap();
     const order: string[] = [];
     map.hasLayer = () => true;
-    map.removeLayer = () => {
+    map.removeLayer = (() => {
       order.push("remove");
       return map;
-    };
-    map.addLayer = () => {
+    }) as any;
+    map.addLayer = (() => {
       order.push("add");
       return map;
-    };
+    }) as any;
     const layer = { options: {} } as unknown as L.Layer;
     adapter.moveIntoPane(map as unknown as L.Map, layer, "p");
     // options.pane is read at `addLayer`, so it has to be written in between.
@@ -482,7 +482,7 @@ describe("isGroupLike", () => {
   });
 
   it("rejects a leaf that carries neither", () => {
-    expect(adapter.isGroupLike({ options: {} })).toBe(false);
+    expect(adapter.isGroupLike({ options: {} } as any)).toBe(false);
     expect(adapter.isGroupLike({})).toBe(false);
   });
 });

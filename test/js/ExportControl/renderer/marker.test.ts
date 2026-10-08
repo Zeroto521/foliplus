@@ -20,6 +20,11 @@ import {
   withStyle,
 } from "./fixture.js";
 
+type MockCtx = CanvasRenderingContext2D & {
+  drawImage: { mock: { calls: any[][] } };
+  fillText: { mock: { calls: any[][] } };
+};
+
 vi.mock("#foliplus/ExportControl/util.js", async () => {
   const actual = await vi.importActual<any>("#foliplus/ExportControl/util.js");
   const loadImageBitmap = vi.fn();
@@ -131,12 +136,12 @@ describe("collectLayerMarkers", () => {
 });
 
 describe("renderMarkers", () => {
-  const markerEl = (bg, opts: Record<string, string> = {}) => {
+  const markerEl = (bg: string, opts: Record<string, string> = {}) => {
     const el = document.createElement("div");
     pinBox(el, 10, 10, 20, 20);
     const style = { ...opts, backgroundImage: bg };
     const restore = withStyle(style);
-    el.__restoreStyle = restore;
+    (el as HTMLDivElement & { __restoreStyle: () => void }).__restoreStyle = restore;
     return el;
   };
 
@@ -165,7 +170,7 @@ describe("renderMarkers", () => {
     stubLoad();
     await renderMarkers(makeRenderer().container, positionedRC(1000, 1000, ctx), [el]);
     expect(ctx.drawImage).toHaveBeenCalledTimes(1);
-    const [, sx, sy, sw, sh] = ctx.drawImage.mock.calls[0];
+    const [, sx, sy, sw, sh] = (ctx as MockCtx).drawImage.mock.calls[0];
     expect(sx).toBeCloseTo(16);
     expect(sy).toBeCloseTo(8);
     expect(sw).toBeCloseTo(80);
@@ -227,7 +232,7 @@ describe("renderMarkers", () => {
       backgroundSize: "20px 20px",
       backgroundPosition: "0 0",
     });
-    child.__restoreStyle = restore;
+    (child as HTMLDivElement & { __restoreStyle: () => void }).__restoreStyle = restore;
     root.appendChild(child);
     stubBitmaps();
     stubLoad();
@@ -259,7 +264,7 @@ describe("renderFontAwesome", () => {
         root,
       ]);
       expect(ctx.fillText).toHaveBeenCalledTimes(1);
-      expect(ctx.fillText.mock.calls[0][0]).toBe(
+      expect((ctx as MockCtx).fillText.mock.calls[0][0]).toBe(
         String.fromCharCode(parseInt("f000", 16)),
       );
     } finally {
@@ -286,7 +291,7 @@ describe("renderFontAwesome", () => {
       await renderFontAwesome(makeRenderer().container, positionedRC(1000, 1000, ctx), [
         root,
       ]);
-      expect(ctx.fillText.mock.calls[0][0]).toBe("A");
+      expect((ctx as MockCtx).fillText.mock.calls[0][0]).toBe("A");
       // "normal" is normalized to 400 in the font spec.
       expect(ctx.font).toContain("400");
     } finally {
@@ -409,11 +414,11 @@ describe("renderTextLabels", () => {
       ]);
       expect(ctx.fillText).toHaveBeenCalledTimes(2);
       // Two lines sit symmetric about the label center, spacing 1.2 * fontSize.
-      const [y0, y1] = ctx.fillText.mock.calls.map(c => c[2]);
+      const [y0, y1] = (ctx as MockCtx).fillText.mock.calls.map((c: any[]) => c[2]);
       expect(y1 - y0).toBeCloseTo(14 * 1.2);
       expect(ctx.fillText).toHaveBeenNthCalledWith(1, "a", 40, 21.6);
-      expect(ctx.fillText.mock.calls[1][0]).toBe("b");
-      expect(ctx.fillText.mock.calls[1][2]).toBeCloseTo(38.4);
+      expect((ctx as MockCtx).fillText.mock.calls[1][0]).toBe("b");
+      expect((ctx as MockCtx).fillText.mock.calls[1][2]).toBeCloseTo(38.4);
     } finally {
       restore();
     }

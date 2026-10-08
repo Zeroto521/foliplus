@@ -17,7 +17,7 @@ describe("nominatimUrl", () => {
       lat: "30",
       lon: "120",
       zoom: 18,
-      nullVal: null,
+      nullVal: null as any,
     });
     expect(url).toContain("lat=30");
     expect(url).toContain("lon=120");
@@ -46,8 +46,8 @@ describe("nominatimUrl", () => {
 describe("formatAddress", () => {
   it("returns empty string for empty input", () => {
     expect(formatAddress("")).toBe("");
-    expect(formatAddress(null)).toBe("");
-    expect(formatAddress(undefined)).toBe("");
+    expect(formatAddress(null as any)).toBe("");
+    expect(formatAddress(undefined as any)).toBe("");
   });
 
   it("filters postal codes and numeric tokens", () => {

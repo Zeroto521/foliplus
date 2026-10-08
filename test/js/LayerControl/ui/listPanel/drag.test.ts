@@ -629,7 +629,13 @@ describe("ui/drag", () => {
     it("handleDragStart tolerates a null dataTransfer", () => {
       const ui = makeUi({
         layers: [
-          { id: "a", name: "A", layer: {} as L.Layer, visible: true, group: "base" },
+          {
+            id: "a",
+            name: "A",
+            layer: {} as L.Layer,
+            visible: true,
+            group: "base",
+          } as any,
         ],
         containers: ["a", "b"],
       });
@@ -655,7 +661,13 @@ describe("ui/drag", () => {
     it("handleDragStart sets effectAllowed on a real dataTransfer", () => {
       const ui = makeUi({
         layers: [
-          { id: "a", name: "A", layer: {} as L.Layer, visible: true, group: "base" },
+          {
+            id: "a",
+            name: "A",
+            layer: {} as L.Layer,
+            visible: true,
+            group: "base",
+          } as any,
         ],
         containers: ["a", "b"],
       });

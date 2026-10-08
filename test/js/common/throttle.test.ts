@@ -3,8 +3,8 @@ import { nextFrame, throttleRaf } from "#common/throttle.js";
 
 describe("throttleRaf", () => {
   beforeEach(() => {
-    vi.stubGlobal("requestAnimationFrame", cb => setTimeout(cb, 0));
-    vi.stubGlobal("cancelAnimationFrame", id => clearTimeout(id));
+    vi.stubGlobal("requestAnimationFrame", (cb: any) => setTimeout(cb, 0));
+    vi.stubGlobal("cancelAnimationFrame", (id: any) => clearTimeout(id));
   });
 
   afterEach(() => {
@@ -65,8 +65,8 @@ describe("throttleRaf", () => {
 
 describe("nextFrame", () => {
   beforeEach(() => {
-    vi.stubGlobal("requestAnimationFrame", cb => setTimeout(cb, 0));
-    vi.stubGlobal("cancelAnimationFrame", id => clearTimeout(id));
+    vi.stubGlobal("requestAnimationFrame", (cb: any) => setTimeout(cb, 0));
+    vi.stubGlobal("cancelAnimationFrame", (id: any) => clearTimeout(id));
   });
 
   afterEach(() => {

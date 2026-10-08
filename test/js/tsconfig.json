@@ -2,16 +2,13 @@
   // Typecheck program for the test suite. Same strictness as the production
   // program (inherited from ../../tsconfig.json) — tests are NOT exempt.
   //
-  // Run `npm run typecheck:tests`. This program is red and is therefore NOT
-  // part of `npm run typecheck` / CI. Measured 2026-09-17: ~1614 errors of
-  // which ~1222 are implicit-any cascades (TS7005/7034/7006/7031/18046) and
-  // ~392 are real mismatches (TS2339/2345/2322/2352/2493/2348/2740/...). The
-  // counts are kept deliberately approximate — they move with every test added —
-  // but the *shape* is the contract: the vast majority is cascading implicit
-  // any from a mock-heavy surface (vi.fn() without type args, `{}` stub
-  // objects, partial fake events), not type-safety holes. Lifting the gate
-  // means typing those, not relaxing anything here. The split is asserted in
-  // test/js/tsconfig.test.ts.
+  // Part of `npm run typecheck` via `script/typecheck-test.mjs`, which runs
+  // this program and filters the production-source lines: `test/js/globals.d.ts`
+  // declares `L`/`ss`/`turf` loose (`any`) so mocked fakes stay assignable, and
+  // that looseness cascades TS7006/TS18046 into ~20 production lines when they
+  // get pulled in as test imports. Those files are type-checked strictly by the
+  // root tsconfig (the first step of `npm run typecheck`), so the balance here
+  // is the `test/js` lines only — that one is the CI gate.
   //
   // The differences from the production program are all about what the tests
   // need to compile at all: `node` types for the script/ fixtures that touch

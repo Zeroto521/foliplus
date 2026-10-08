@@ -60,7 +60,7 @@ describe("LayerIntent helpers", () => {
       format: "auto",
       color: "#000",
       fontSize: 12,
-    });
+    } as any);
     dropIntent(u, "a");
     expect(getIntent(u, "a", "visible")).toBeUndefined();
     expect(getIntent(u, "a", "opacity")).toBeUndefined();
@@ -88,7 +88,7 @@ describe("LayerIntent helpers", () => {
       format: "auto",
       color: "#111",
       fontSize: 11,
-    });
+    } as any);
     expect(hasIntentValue(u, "a", "visible")).toBe(true);
     expect(hasIntentValue(u, "a", "fillColor")).toBe(true);
     expect(hasIntentValue(u, "a", "borderWeight")).toBe(true); // 0 is a live value

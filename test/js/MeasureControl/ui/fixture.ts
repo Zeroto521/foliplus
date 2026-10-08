@@ -69,7 +69,7 @@ const installStubs = () => {
     DomEvent: { stopPropagation: vi.fn() },
   };
   globalThis.turf = {
-    point: coords => ({ coords }),
+    point: (coords: unknown) => ({ coords }),
     distance: vi.fn(() => 100),
     bearing: vi.fn(() => 45),
     midpoint: vi.fn(() => ({

@@ -14,6 +14,7 @@ import {
   searchAddress,
   searchCoord,
 } from "#foliplus/SearchControl/logic/search.js";
+import type { SearchControlCtx } from "#foliplus/SearchControl/logic/util.js";
 import type { SearchHistoryEntry } from "#foliplus/SearchControl/type.js";
 import { ensureModes } from "#foliplus/core/mode.js";
 
@@ -24,18 +25,19 @@ beforeEach(() => {
 });
 
 // Control context for logic functions that now receive ctrl.
-const ctx = () => ({
-  config: { name: "SearchControl", locale_code: "en", zoom: 16 },
-  T: (k: string) => `SearchControl.${k}`,
-  _: (k: string) => k,
-  log: {
-    msg: (m: string) => m,
-    warn: (...args: unknown[]) =>
-      console.warn(`[SearchControl] ${args[0]}`, ...args.slice(1)),
-    error: vi.fn(),
-  },
-  _map: window.map,
-});
+const ctx = (): SearchControlCtx =>
+  ({
+    config: { name: "SearchControl", locale_code: "en", zoom: 16 },
+    T: (k: string) => `SearchControl.${k}`,
+    _: (k: string) => k,
+    log: {
+      msg: (m: string) => m,
+      warn: (...args: unknown[]) =>
+        console.warn(`[SearchControl] ${args[0]}`, ...args.slice(1)),
+      error: vi.fn(),
+    },
+    _map: window.map,
+  }) as unknown as SearchControlCtx;
 
 describe("searchCoord — history recording", () => {
   it("records a coord search entry after successful search", async () => {

@@ -568,7 +568,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
         classList: { add: vi.fn(), remove: vi.fn() },
         appendChild: vi.fn(),
         style: {},
-      });
+      } as any);
 
       u.showSolidBasemap("#000000");
 
@@ -602,6 +602,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
         name: string;
         group?: "base" | "overlay";
         layer?: any;
+        paneName?: string;
       }>,
     ) => {
       window.CONFIG.name = "LayerControl";
@@ -635,7 +636,6 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
         createPane: vi.fn(() => document.createElement("div")),
         _container: container,
         _layers: {},
-        options: { maxZoom: 18 },
         attributionControl: { _attributions: {}, _update: vi.fn() },
         foliplus: { showHint: vi.fn(), hideHint: vi.fn() },
       };
@@ -1080,8 +1080,8 @@ describe("event-driven row refresh", () => {
     // it to EMPTY, which the row renders verbatim.
     const info = manager.layerRegistry.get("overlay1")!;
     const geomSpy = vi
-      .spyOn(manager.surfaces.get("overlay1"), "geometryType")
-      .mockReturnValue(GEOM_TYPE.POLYGON);
+      .spyOn(manager.surfaces.get("overlay1")!, "geometryType")
+      .mockReturnValue(GEOM_TYPE.POLYGON as any);
 
     ensureEvents(ui.c.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "overlay1" });
 

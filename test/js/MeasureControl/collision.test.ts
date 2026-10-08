@@ -2,7 +2,7 @@
 // see the header there for why it is split out.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as Collision from "#foliplus/MeasureControl/collision.js";
-import type { CollidableLabel, PlanResult } from "#foliplus/MeasureControl/type.js";
+import type { CollidableLabel } from "#foliplus/MeasureControl/type.js";
 
 type Box = { x: number; y: number; w: number; h: number };
 
@@ -40,7 +40,7 @@ const label = (
   return { el, lb: { marker: markerFor(el), priority } };
 };
 
-const plan = (labels: CollidableLabel[], collide = true): PlanResult =>
+const plan = (labels: CollidableLabel[], collide = true): Collision.PlanResult =>
   Collision.placeLabels(labels, projector, collide, chipOf);
 
 const ANCHOR: Box = { x: 0, y: 0, w: 60, h: 20 };

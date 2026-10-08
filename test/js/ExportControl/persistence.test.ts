@@ -218,7 +218,7 @@ describe("persistenceMethods — saveBounds", () => {
 });
 
 describe("persistenceMethods — restoreFromSavedBounds", () => {
-  let manager;
+  let manager: any;
 
   beforeEach(() => {
     manager = makeManager();
@@ -314,7 +314,7 @@ describe("persistenceMethods — restoreFromSavedBounds", () => {
 });
 
 describe("persistenceMethods — onMapChange", () => {
-  let manager;
+  let manager: any;
 
   beforeEach(() => {
     manager = makeManager();
@@ -371,7 +371,7 @@ describe("persistenceMethods — onMapChange", () => {
 });
 
 describe("persistenceMethods — lockMap / unlockMap", () => {
-  let manager;
+  let manager: any;
 
   beforeEach(() => {
     manager = makeManager();

@@ -214,7 +214,7 @@ describe("AnnotationManager — config", () => {
       field: "name",
       color: "#ff0000",
       size: 16,
-      format: "auto",
+      format: "auto" as const,
       collide: false,
     };
     mgr.setConfig("l1", cfg);

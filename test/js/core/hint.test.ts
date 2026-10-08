@@ -305,8 +305,8 @@ describe("HintManager", () => {
     // must skip the assignment. Two showHint calls in sequence exercise both
     // branches of the `??=`.
     const mgr = new HintManager();
-    mgr.showHint("a", "first");
-    mgr.showHint("b", "second");
+    mgr.showHint("a", "first", HINT_DURATION.PERSIST);
+    mgr.showHint("b", "second", HINT_DURATION.PERSIST);
     expect(document.querySelectorAll(".foliplus-hint").length).toBe(2);
   });
 });

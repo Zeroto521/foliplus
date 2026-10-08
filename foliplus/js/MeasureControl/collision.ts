@@ -107,3 +107,4 @@ const placeLabels = (
 };
 
 export { mapProjector, placeLabels };
+export type { PlanResult, ChipOf, Projector };

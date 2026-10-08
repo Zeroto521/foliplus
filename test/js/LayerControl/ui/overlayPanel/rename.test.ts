@@ -367,7 +367,7 @@ describe("LayerUI rename", () => {
       input.value = "New Name";
 
       const toggleSpy = vi.fn();
-      ui.toggleFocusedLayer = toggleSpy;
+      (ui as any).toggleFocusedLayer = toggleSpy;
 
       input.dispatchEvent(
         new KeyboardEvent("keydown", {
@@ -388,7 +388,7 @@ describe("LayerUI rename", () => {
       const colorItem = ui.uiContainer.querySelector(
         `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
       )!;
-      ui.openMoreMenu(colorItem);
+      ui.openMoreMenu(colorItem as HTMLElement);
 
       const focusLi = colorItem.querySelector(
         `.foliplus-layer-more-menu li[data-action="${CONST.ACTION.FOCUS_LAYER}"]`,
@@ -679,7 +679,7 @@ describe("LayerUI rename", () => {
       expect(setItem).not.toHaveBeenCalled();
       vi.advanceTimersByTime(CONST.SAVE_DEBOUNCE_MS + 50);
 
-      const namesCall = setItem.mock.calls.find((c: [string, string]) => {
+      const namesCall = setItem.mock.calls.find((c: any) => {
         try {
           return "overlay1" in (JSON.parse(c[1]).renamedNames ?? {});
         } catch {
@@ -721,7 +721,7 @@ describe("LayerUI rename", () => {
 
       vi.advanceTimersByTime(CONST.SAVE_DEBOUNCE_MS + 50);
 
-      const namesCall = setItem.mock.calls.find((c: [string, string]) => {
+      const namesCall = setItem.mock.calls.find((c: any) => {
         try {
           return "overlay1" in (JSON.parse(c[1]).renamedNames ?? {});
         } catch {

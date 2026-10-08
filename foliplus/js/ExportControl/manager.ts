@@ -220,3 +220,4 @@ class ExportManager {
 Object.assign(ExportManager.prototype, cropMethods, persistenceMethods, sessionMethods);
 
 export { ExportManager, canvasToBlob };
+export type { CropState };

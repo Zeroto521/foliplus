@@ -99,7 +99,7 @@ class MockControl {
     (container as any)._leaflet_id = this._id;
     map._control._controls[this._id] = { instance: this };
     const posEl =
-      map._control[
+      (map._control as any)[
         (this.options.position as
           "bottomleft" | "bottomright" | "topleft" | "topright" | undefined) ??
           "bottomleft"
@@ -116,12 +116,11 @@ class MockControl {
   }
 }
 
-// ── Mock L.Control.Scale: reproduces the leaky listener pattern ──────────────
 class MockScaleControl extends MockControl {
   _update = (): void => {
     // Write the "25 km" style label, exactly like real L.Control.Scale does.
     const line = this._container?.querySelector(".leaflet-control-scale-line");
-    if (line) line.textContent = `${Math.round(250 / this._map.getZoom())} m`;
+    if (line) line.textContent = `${Math.round(250 / this._map!.getZoom())} m`;
   };
 
   onAdd(map: MockMap): HTMLElement {
@@ -136,8 +135,9 @@ class MockScaleControl extends MockControl {
     map.on("move", this._update, this);
     return el;
   }
-  onRemove(map: MockMap): void {
-    map.off("move", this._update, this);
+  onRemove(_map?: MockMap): void {
+    const target = _map ?? this._map;
+    target?.off("move", this._update, this);
   }
 }
 
@@ -176,7 +176,7 @@ describe("ScaleControl inner-Leaflet-Scale teardown", () => {
     await import("#foliplus/ScaleControl/index.js");
 
     mockMap = (window as any).map as MockMap;
-    scaleWrap = document.querySelector<HTMLElement>(".foliplus-scale-wrap");
+    scaleWrap = document.querySelector<HTMLElement>(".foliplus-scale-wrap")!;
     expect(scaleWrap, "IIFE should have mounted the scale wrap").not.toBeNull();
 
     outerCtrl = Object.values(mockMap._control._controls)
