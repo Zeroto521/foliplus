@@ -26,6 +26,7 @@ const updateUI = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement, env: E
       .querySelectorAll(".leaflet-control, .foliplus-scale-wrap");
     const cid = containerId(config.name, config.position as string);
     for (const c of controls) {
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- closest may be absent on non-Element
       if (c.contains(container) || c.closest?.(`#${cid}`)) continue;
       c.classList.toggle(CLASSES.HIDDEN, isFull);
     }
@@ -38,6 +39,7 @@ const updateUI = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement, env: E
     for (const btn of selfBtns) btn.classList.toggle(CLASSES.HIDDEN, isFull);
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- foliplus.showHint may be undefined
   map.foliplus!.showHint?.(
     config.name,
     isFull ? T("enter") : T("exit"),
@@ -48,10 +50,12 @@ const updateUI = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement, env: E
 // A rejected request must not report the transition that just failed — each
 // branch announces what actually happened to the user instead.
 const showUnsupportedHint = (map: L.Map, env: Env) => {
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- foliplus.showHint may be undefined
   map.foliplus!.showHint?.(env.config.name, env.T("unsupported"), HINT_DURATION.MEDIUM);
 };
 
 const showExitFailHint = (map: L.Map, env: Env) => {
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- foliplus.showHint may be undefined
   map.foliplus!.showHint?.(env.config.name, env.T("exit_fail"), HINT_DURATION.MEDIUM);
 };
 

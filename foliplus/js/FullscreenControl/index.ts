@@ -11,6 +11,7 @@ const FullscreenControl = defineControl({
   icon: SVGs.ICON_MAXIMIZE,
   setup: () => ensureHint(map),
   buildDOM(this: any) {
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- zoomControl may be null
     if (map.zoomControl) map.removeControl(map.zoomControl);
     else {
       const zoomEl = map.getContainer().querySelector(".leaflet-control-zoom");
