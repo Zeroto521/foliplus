@@ -1,5 +1,5 @@
 // ExportControl interaction — keyboard + pointer event registration.
-import { ensureInteraction } from "#core/interaction.js";
+import { ensureInteraction } from "#core/interaction/index.js";
 import * as CONST from "./const.js";
 import type { ExportManager } from "./manager.js";
 

@@ -2,7 +2,7 @@
 // Sub-modules (event.ts, logic.ts) import these instead of the index entry
 // to avoid a type-level circular dependency (index → event → index).
 import type { SuggestItem } from "#core/geocode/index.js";
-import type { ListCursor } from "#core/listCursor.js";
+import type { ListCursor } from "#core/interaction/index.js";
 import type { BaseControl } from "#foliplus/BaseControl.js";
 import type { Cache } from "#common/cache.js";
 import type { Debounced } from "#common/debounce.js";

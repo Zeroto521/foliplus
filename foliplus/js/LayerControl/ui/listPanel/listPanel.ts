@@ -11,7 +11,7 @@
 // ListPanel (see list.ts / rowView.ts / visibility.ts / drag.ts /
 // keyboard.ts). Cross-subsystem code takes LayerUI and reaches into
 // `ui.listPanel.*` directly.
-import type { ListCursor } from "#core/listCursor.js";
+import type { ListCursor } from "#core/interaction/index.js";
 
 /** View subsystem that owns the panel's row layout state: which groups are
  *  folded, which rows are checked, where the roving keyboard cursor sits,
