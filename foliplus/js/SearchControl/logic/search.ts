@@ -194,6 +194,7 @@ const renderAddressResult = (
     lat = result.lat;
   } else {
     const item = (result as AddressResult).item;
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- displayName may be undefined
     displayName = (result as AddressResult).displayName ?? "";
     const converted = fromWgs84(map, parseFloat(item.lng), parseFloat(item.lat));
     lng = converted[0];
@@ -227,7 +228,7 @@ const renderSuggestions = (
   results: SuggestItem[],
   query: string,
 ) => {
-  if (!results || results.length === 0) {
+  if (results.length === 0) {
     removePanel(ctrl);
     return;
   }
@@ -351,6 +352,7 @@ const fetchSuggestions = (ctrl: SearchControlCtx, query: string) => {
       // results is always an array (normalizeSuggest), so index 0 is either
       // an item or undefined.
       const first = results[0];
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- first may be undefined if results is empty
       if (first) {
         window.foliplus.cacheSuggestion(
           map,
