@@ -99,13 +99,6 @@ export default [
         {
           unusedExports: true,
           ignoreUnusedTypeExports: true,
-          ignoreExports: [
-            "**/index.ts",
-            "**/type.ts",
-            "foliplus/js/config-schema.ts",
-            "test/js/**/*.{js,ts}",
-            "script/**/*.{js,cjs,mjs}",
-          ],
         },
       ],
 
@@ -123,6 +116,18 @@ export default [
         "error",
         { checkTypePredicates: true },
       ],
+    },
+  },
+  {
+    files: [
+      "foliplus/js/**/index.ts",
+      "foliplus/js/**/type.ts",
+      "foliplus/js/config-schema.ts",
+      "test/js/**/*.{js,ts}",
+      "script/**/*.{js,cjs,mjs}",
+    ],
+    rules: {
+      "import/no-unused-modules": "off",
     },
   },
 ];

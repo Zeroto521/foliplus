@@ -214,8 +214,11 @@ const withinRect = <T extends PlacedLabel>(labels: readonly T[], rect: Box): T[]
 
 export {
   HIDE_OVERLAP,
+  hOverlap,
   hides,
+  intersects,
   planVisible,
+  vOverlap,
   withinRect,
   type Box,
   type PlacedLabel,
