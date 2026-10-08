@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ListCursor } from "#core/listCursor.js";
+import { ListCursor } from "#core/interaction/index.js";
 
 const makeList = (n = 3) => {
   const root = document.createElement("div");
