@@ -162,8 +162,10 @@ class BaseControl extends L.Control {
   get signal(): AbortSignal {
     if (!this.ac) {
       throw new Error(
-        `${this.constructor.name}: read of \`signal\` on a detached control — ` +
-          `register listeners inside onAdd/buildDOM, not at construction.`,
+        log.msg(
+          `${this.constructor.name}: read of \`signal\` on a detached control — ` +
+            `register listeners inside onAdd/buildDOM, not at construction.`,
+        ),
       );
     }
     return this.ac.signal;
