@@ -45,7 +45,6 @@ class PolygonMode extends PreviewMode {
       data.segments.forEach((seg, i: number) => {
         const prev = points[i];
         const cur = points[i + 1] || { lat: seg.lat, lng: seg.lng };
-
         if (!prev || !cur) return;
         const mid = Util.midpoint(prev, cur);
         const label = mgr.layers.addLayer(

@@ -40,7 +40,6 @@ const layerHasStyleDelegation = (ui: LayerUI, layerId: string): boolean => {
 const buildDelegatedBorderRow = (ui: LayerUI, layerId: string): HTMLElement | null => {
   const layerInfo = ui.c.layerRegistry.get(layerId);
   const setters = layerInfo?.styleSetters;
-
   if (!setters || (!setters.borderWeight && !setters.borderColor)) return null;
 
   // Re-read the registry at event time so a layer torn down between open and
@@ -70,7 +69,6 @@ const buildDelegatedBorderRow = (ui: LayerUI, layerId: string): HTMLElement | nu
     onChangeColor: hasColor
       ? value => entry()?.styleSetters?.borderColor?.(value)
       : undefined,
-
     onChangeWeight: hasWeight
       ? value => entry()?.styleSetters?.borderWeight?.(value)
       : undefined,
@@ -105,7 +103,6 @@ const renderDelegatedStylePanel = (
   // Border row (HeatmapControl only today) — the component's own styling, so
   // it groups with the LayerControl-owned rows rather than as its own section.
   let borderRow: HTMLElement | null = null;
-
   if (setters.borderWeight || setters.borderColor) {
     borderRow = buildDelegatedBorderRow(ui, layerId);
   }

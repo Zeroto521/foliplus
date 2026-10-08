@@ -40,7 +40,6 @@ const readMarkerField = (
   if (!field) return undefined;
   const extended = marker as HeatmapPointMarker;
   if (field === "value") return extended.value;
-
   if (field === "options.value") return extended.options?.value;
   const key = bareFieldName(field);
   return marker.feature?.properties?.[key];

@@ -69,7 +69,6 @@ class LayerIntentStore {
    *  new marker — matching the old `hasLiveValue` default arm. */
   hasLive(id: string, override: LayerOverride): boolean {
     const live = LIVE[override];
-
     return live ? live(this.get(id, override)) : true;
   }
 
@@ -266,18 +265,15 @@ class LayerIntentStore {
         ? [...row.provenance].filter(override => this.hasLive(id, override))
         : [];
       const annotation = liveAnnotations[id];
-
       if (declared.length === 0 && !annotation) continue;
       const state: PersistedLayerState = { overrides: declared };
       for (const override of declared) {
         const value = this.get(id, override);
         const live = LIVE[override];
-
         if (live?.(value)) {
           (state as Record<LayerOverride, unknown>)[override] = value;
         }
       }
-
       if (annotation) state.annotation = annotation;
       states[id] = state;
     }
@@ -303,7 +299,6 @@ class LayerIntentStore {
       for (const override of entry.overrides) {
         const value = entry[override];
         const live = LIVE[override];
-
         if (live && value !== undefined && live(value)) {
           // Disk key == provenance key == intent key (identity map).
           (this.ensure(id).intent as Record<LayerOverride, unknown>)[override] = value;

@@ -52,7 +52,6 @@ const buildDelIcon = (
 const attachDelClick = (delMarker: L.Layer, callback: () => void) => {
   delMarker.on("click", (event: L.LeafletMouseEvent) => {
     const t = (event.originalEvent as MouseEvent)?.target as HTMLElement | null;
-
     if (t?.closest?.(`[data-${DEL_ICON_ROLE}]`)) {
       stopEvent(event);
       callback();

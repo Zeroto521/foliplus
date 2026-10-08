@@ -24,7 +24,6 @@ import type { ExportFormat } from "./type.js";
  */
 const toGeoJSON = (env: ControlEnv, measurements: MeasureData[]): string => {
   const features = measurements
-
     .map(m => MODE_MAP[m.type as keyof typeof MODE_MAP]?.toGeoFeature(env, m))
     .filter((f): f is GeoJSON.Feature => Boolean(f));
 
@@ -109,7 +108,6 @@ const toCSV = (env: ControlEnv, measurements: MeasureData[]): string => {
  */
 const getNameForType = (env: ControlEnv, data: MeasureData): string => {
   const ModeClass = MODE_MAP[data.type as keyof typeof MODE_MAP];
-
   if (!ModeClass) return data.type;
   return ModeClass.getNameLabel(env);
 };
@@ -117,7 +115,6 @@ const getNameForType = (env: ControlEnv, data: MeasureData): string => {
 /** Convert a single measurement to a WKT string (empty when unknown type). */
 const toWKT = (env: ControlEnv, data: MeasureData): string => {
   const ModeClass = MODE_MAP[data.type as keyof typeof MODE_MAP];
-
   if (!ModeClass) return "";
   return featureToWKT(ModeClass.toGeoFeature(env, data));
 };
@@ -129,7 +126,6 @@ const toWKT = (env: ControlEnv, data: MeasureData): string => {
  */
 const featureToWKT = (feature: GeoJSON.Feature): string => {
   const geom = feature.geometry;
-
   if (!geom) return "";
   switch (geom.type) {
     case CONST.GEOJSON.POINT: {
@@ -244,10 +240,8 @@ const exportMeasurements = (
 const handleExportClick = (mgr: MeasureManager) => (event: Event) => {
   event.stopPropagation();
   const measurements = mgr.store.all();
-
   if (!measurements || measurements.length === 0) {
     // foliplus is per-map — hint via the manager's map instance.
-
     mgr.map.foliplus?.showHint?.(
       mgr.config.name,
       mgr.T("export_no_data"),
@@ -263,7 +257,6 @@ const handleExportClick = (mgr: MeasureManager) => (event: Event) => {
     exportMeasurements(mgr.env, measurements, format);
   } catch (err) {
     mgr.log.warn("export failed:", err);
-
     mgr.map.foliplus?.showHint?.(
       mgr.config.name,
       mgr.T("export_fail") + mgr.T("err_export"),
@@ -273,7 +266,6 @@ const handleExportClick = (mgr: MeasureManager) => (event: Event) => {
   }
   // Reported only after the download call returns: a throwing export never
   // wrote the file, so success is not claimed on that path.
-
   mgr.map.foliplus?.showHint?.(
     mgr.config.name,
     mgr.T("export_success") +

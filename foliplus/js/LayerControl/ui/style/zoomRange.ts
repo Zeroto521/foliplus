@@ -308,7 +308,6 @@ const ZOOM_RANGE_DIMENSION = registerDimension<{ min: number; max: number }>({
    *  live preview (mark current intent); `{min,max}` writes then marks. */
   write: (ui, layerId, patch) => {
     const min = patch?.min;
-
     const max = patch?.max;
     if (min !== undefined && max !== undefined) {
       void writeIntentKeys(ui, layerId, [[INTENT.ZOOM_RANGE, [min, max]]]);

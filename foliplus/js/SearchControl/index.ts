@@ -64,7 +64,6 @@ class SearchControl extends defineControl({
 
   destroy() {
     removePanel(this);
-
     if (this.debouncedFetch) this.debouncedFetch.cancel();
     if (this.addrAbortController) this.addrAbortController.abort();
     if (this.suggestAbortController) this.suggestAbortController.abort();

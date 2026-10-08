@@ -59,7 +59,6 @@ const rafLoop = (
       pending = null;
       if (!running) return;
       if (tick(key)) return stop();
-
       if (running) schedule();
     }, interval);
   };

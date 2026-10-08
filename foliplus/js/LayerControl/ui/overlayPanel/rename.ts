@@ -106,7 +106,6 @@ const finishRename = (ui: LayerUI, restoreText = true): void => {
   if (!ui.overlayPanel.activeRenameId) return;
   const layerId = ui.overlayPanel.activeRenameId;
   ui.overlayPanel.activeRenameId = null;
-
   if (!ui.uiContainer) return;
 
   const layerInfo = ui.c.layerRegistry.get(layerId);

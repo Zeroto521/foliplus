@@ -83,7 +83,6 @@ const featuresToItems = (
   }>) {
     const coords = f?.geometry?.coordinates;
     if (!Array.isArray(coords) || coords.length < 2) continue;
-
     const props = f?.properties ?? {};
     out.push({
       lng: String(coords[0]),

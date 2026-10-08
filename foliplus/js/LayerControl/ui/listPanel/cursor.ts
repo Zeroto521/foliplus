@@ -13,7 +13,6 @@ import type { LayerUI } from "../surface.js";
 const syncListCursor = (ui: LayerUI): void => {
   // initTypesAndVisibility is on a timer and can fire after the panel is
   // torn down (unit tests, control remove) — do not touch a detached root.
-
   if (!ui.uiContainer?.isConnected) return;
   ui.listPanel.listCursor ??= new ListCursor({
     root: ui.uiContainer,
@@ -31,7 +30,6 @@ const syncListCursor = (ui: LayerUI): void => {
 const cursorRef = (ui: LayerUI): string | null => {
   if (ui.listPanel.activeIdx === null) return null;
   const el = getNavigableItems(ui)[ui.listPanel.activeIdx];
-
   return el
     ? (el.getAttribute(CONST.DATA.LAYER_ID) ?? el.getAttribute("data-group"))
     : null;

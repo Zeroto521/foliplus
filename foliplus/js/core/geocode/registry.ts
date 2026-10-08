@@ -137,7 +137,6 @@ const resolveProvider = (
 ): GeocodeProvider => {
   if (typeof provider === "string") {
     const factory = BUILTIN_FACTORIES[provider];
-
     if (!factory) {
       throw new Error(log.msg(`unknown geocode provider: ${provider}`));
     }

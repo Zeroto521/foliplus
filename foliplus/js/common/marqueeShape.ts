@@ -48,5 +48,4 @@ const roundedRectOutline = (corners: RectCorners, f = 0.03): Vec2[] => {
 
 export { roundedRectOutline };
 
-// eslint-disable-next-line import/no-unused-modules -- type-only export (rule bug: ignoreUnusedTypeExports doesn't work for export { type X })
-export type { RectCorners, Vec2 };
+export type { RectCorners };

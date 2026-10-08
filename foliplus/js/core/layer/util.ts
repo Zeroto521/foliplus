@@ -52,7 +52,6 @@ const findLayer = (map: L.Map, id: string): L.Layer | null => {
  */
 const setInteractive = (layer: L.Layer, interactive: boolean): void => {
   const opts = layer.options as L.LayerOptions & { interactive?: boolean };
-
   if (!opts || opts.interactive === interactive) return;
   opts.interactive = interactive;
   if (!layerMap(layer)) return;
@@ -105,7 +104,6 @@ const suspendMapInteractions = (
     walkLeaf(top, leaf => {
       if (skip?.(leaf)) return;
       const opts = leaf.options as L.LayerOptions & { interactive?: boolean };
-
       if (opts?.interactive) disabled.push(leaf);
     });
   });

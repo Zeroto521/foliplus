@@ -133,7 +133,6 @@ const subscribeControlAttached = (ui: LayerUI): void => {
 /** Load every persisted dimension in one call. */
 const bindLayerEvents = (ui: LayerUI): void => {
   const container = ui.uiContainer;
-
   if (!container) return;
 
   ui.onChange = event => {
@@ -383,7 +382,6 @@ const refreshAllCounts = (ui: LayerUI): void => {
 
 const unbindEvents = (ui: LayerUI): void => {
   const container = ui.uiContainer;
-
   if (!container) return;
   // Unmount must clean up unconditionally — a subscription may already have
   // been `off`'d by a third party, or is about to be. Emitting OVERLAY_CLEAR

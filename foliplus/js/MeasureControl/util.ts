@@ -154,7 +154,6 @@ const buildPreviewNode = (
 /** Animate a dash-sweep effect on a finalized polyline/polygon. */
 const animateDashSweep = (path: SVGElement | null) => {
   if (!path) return;
-
   const len = (path as SVGPathElement).getTotalLength?.() || 0;
   if (len <= 0) return;
   path.style.setProperty(CONST.STYLE.SWEEP_LENGTH, String(len));

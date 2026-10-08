@@ -154,7 +154,6 @@ const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
   // power users can focus without leaving the keyboard.
   if (event.altKey && event.key === "Enter" && ui.listPanel.activeIdx !== null) {
     const focusItem = items[ui.listPanel.activeIdx];
-
     if (focusItem) {
       const layerId = focusItem.getAttribute(CONST.DATA.LAYER_ID) ?? "";
       if (layerId) {
@@ -207,7 +206,6 @@ const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
       }
       // Menu item (li) is focused — trigger the focus-layer action.
       // Skip disabled items so the hidden-layer guard applies to keyboard too.
-
       const menuLi = ((document.activeElement as HTMLElement | null)?.closest?.(
         ".foliplus-layer-more-menu li",
       ) ?? null) as HTMLElement | null;

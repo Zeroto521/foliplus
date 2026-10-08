@@ -494,7 +494,6 @@ class LayerSurface implements LayerSurfaceContract {
   private reconcile(): void {
     if (!this.layer) return;
     const base = this.panes[0];
-
     if (!base) return;
     if (this.pinTarget) {
       // A synthesized pane owns the whole tree — pin everything into it.

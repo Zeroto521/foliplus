@@ -201,7 +201,6 @@ const onPointerDown = function (this: ExportManager, event: PointerEvent) {
   // contract, so a single move event routed to a different target
   // (crossing the Leaflet controls above the crop overlay, or a tile
   // boundary) is silently dropped and the box lands short of the cursor.
-
   if (event.pointerId !== null && target.setPointerCapture) {
     try {
       target.setPointerCapture(event.pointerId);
@@ -293,14 +292,12 @@ const onPointerUp = function (this: ExportManager, event: PointerEvent) {
   // Give the pointer back. Skip it when the gesture never started — a
   // synthetic pointerup with no matching down must not strip the .dragging
   // class off a box that is mid-drag by another pointer.
-
   if (wasDragging && event.pointerId !== null) {
     // event.target can be document or any non-element (jsdom, synthetic
     // events) — only Elements have hasPointerCapture. Browsers also
     // release capture automatically on pointerup, so this is belt and
     // braces for pointercancel, which has no such guarantee.
     const target = event.target;
-
     if (target instanceof Element && target.hasPointerCapture?.(event.pointerId)) {
       try {
         target.releasePointerCapture(event.pointerId);

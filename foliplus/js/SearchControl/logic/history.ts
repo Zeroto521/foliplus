@@ -78,7 +78,6 @@ const loadHistoryRows = (data: StoredHistoryEntry[] | null): SearchHistoryEntry[
   if (!Array.isArray(data)) return [];
   // Drop non-object rows ([null], strings, numbers) that a corrupted store
   // can produce; reading `row.type` on them would throw.
-
   const rows = data.filter(row => row != null && typeof row === "object");
   // Migrate stored entries to the current format, supplying the defaults that
   // older versions never wrote.

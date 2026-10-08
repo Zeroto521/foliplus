@@ -100,15 +100,10 @@ const captureStyleBag = (node: StyleCarrier): StyleBag => {
   if (existing) return existing;
   const bag: StyleBag = {
     color: node.options?.color ?? STYLE_BAG_DEFAULTS.color,
-
     weight: node.options?.weight ?? STYLE_BAG_DEFAULTS.weight,
-
     stroke: node.options?.stroke ?? STYLE_BAG_DEFAULTS.stroke,
-
     fillColor: node.options?.fillColor ?? STYLE_BAG_DEFAULTS.fillColor,
-
     fillOpacity: node.options?.fillOpacity ?? STYLE_BAG_DEFAULTS.fillOpacity,
-
     fill: node.options?.fill ?? STYLE_BAG_DEFAULTS.fill,
   };
   authorStyleBase.set(node, bag);
@@ -241,12 +236,8 @@ const hasStyleDimApply = (face: StyleFace, layerId: string): boolean =>
   applySchedulers.has(applyKey(face, layerId));
 
 export {
-  // eslint-disable-next-line import/no-unused-modules -- type-only export (rule bug: ignoreUnusedTypeExports doesn't work for export { type X })
-  type StyleBag,
   type StyleCarrier,
   FACE,
-  // eslint-disable-next-line import/no-unused-modules -- type-only export (rule bug: ignoreUnusedTypeExports doesn't work for export { type X })
-  type StyleFace,
   type StyleSetter,
   STYLE_BAG_DEFAULTS,
   cancelStyleDimApply,

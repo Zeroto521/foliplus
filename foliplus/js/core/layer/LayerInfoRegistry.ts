@@ -108,7 +108,6 @@ class LayerInfoRegistry {
       null;
     const canvas = opts.canvas ?? existingLi?.canvas ?? null;
     const color = opts.color ?? existingLi?.color ?? null;
-
     const custom = opts.custom ?? existingLi?.carrier?.custom;
     return {
       // A re-registration's caller name is the provider's own metadata, which
@@ -324,7 +323,6 @@ class LayerInfoRegistry {
     if (fromIdx >= this.items.length || toIdx >= this.items.length) return false;
     const from = this.items[fromIdx];
     const to = this.items[toIdx];
-
     if (!from || !to) return false;
     if (from.group !== to.group) return false;
 

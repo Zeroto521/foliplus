@@ -134,7 +134,6 @@ const authoredFillColor = (ui: LayerUI, layerId: string): string => {
       authored = leaf.options.fillColor;
     }
   });
-
   return authored ?? LEAFLET_DEFAULT_FILL;
 };
 

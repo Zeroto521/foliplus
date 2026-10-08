@@ -154,9 +154,7 @@ class ExportRenderer {
     // render all passes per-layer to preserve cross-technology z-order.
     // Uses api.layers (read-only view of LayerInfoRegistry's ordered array).
     const api = map.foliplus!.LayerAPI;
-
     const layers = api?.layers;
-
     if (layers) {
       // Progress is reported as a share of every tile across all visible tile
       // layers, not per layer: with several visible TileLayers each of a

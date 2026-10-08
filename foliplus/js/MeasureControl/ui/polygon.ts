@@ -188,7 +188,6 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
                 d.off("click");
                 d.on("click", (event: L.LeafletMouseEvent) => {
                   const t = Util.getEventTarget(event);
-
                   if (t?.closest?.(CONST.SEL.DEL_ICON)) {
                     stopEvent(event);
                     deleteMeasurement();
@@ -201,7 +200,6 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
 
             finalPoly.setLatLngs(points);
             relabel();
-
             if (onUpdate) {
               opts.area = Util.area(points);
               onUpdate();
@@ -226,7 +224,6 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
         const pIdx = findPtIdx();
         if (pIdx === -1) return;
         points[pIdx] = latlng;
-
         if (onUpdate) {
           opts.area = Util.area(points);
           onUpdate();
@@ -255,7 +252,6 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
       },
       onEnd: () => {
         markDragSyntheticClick();
-
         if (onUpdate) {
           opts.area = Util.area(points);
           onUpdate();

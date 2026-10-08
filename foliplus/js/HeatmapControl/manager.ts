@@ -253,7 +253,6 @@ class HeatmapManager {
         this.labelShow = v === true;
         this.renderHexagons();
         this.saveConfig();
-
         this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
         this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
       },
@@ -265,7 +264,6 @@ class HeatmapManager {
         this.cachedLabelStyle = null;
         this.redrawHeatmap();
         this.saveConfig();
-
         this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
         this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
       },
@@ -275,7 +273,6 @@ class HeatmapManager {
         this.cachedLabelStyle = null;
         this.redrawHeatmap();
         this.saveConfig();
-
         this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
         this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
       },
@@ -287,7 +284,6 @@ class HeatmapManager {
         ) as NumberStyle;
         this.redrawHeatmap();
         this.saveConfig();
-
         this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
         this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
       },
@@ -302,7 +298,6 @@ class HeatmapManager {
         );
         this.redrawHeatmap();
         this.saveConfig();
-
         this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
         this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
       },
@@ -311,7 +306,6 @@ class HeatmapManager {
           typeof v === "string" ? normalizeHexColor(v) : this.borderColor;
         this.redrawHeatmap();
         this.saveConfig();
-
         this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
         this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
       },
@@ -347,7 +341,6 @@ class HeatmapManager {
       onOpacity: () => {
         // Opacity-change repaint: drop the slider's CSS carrier first so
         // drawHexagon bakes layerAlpha into pixels and the two never compound.
-
         if (this.overlay.canvas) this.overlay.canvas.style.opacity = "";
         this.redrawHeatmap();
       },
@@ -395,12 +388,10 @@ class HeatmapManager {
       // restore time.
       onHide: () => {
         const el = this.overlay.canvas;
-
         if (el) el.style.visibility = "hidden";
       },
       onShow: () => {
         const el = this.overlay.canvas;
-
         if (el) el.style.visibility = "";
       },
     });
@@ -412,7 +403,6 @@ class HeatmapManager {
         // immediate handler and this debounced one; the style write is
         // idempotent and never touches the HIDDEN class.
         const el = this.overlay.canvas;
-
         if (el) el.style.visibility = "";
       }
     }, CONST.TIMING.ZOOM_DEBOUNCE);
@@ -451,7 +441,6 @@ class HeatmapManager {
       // All product emit sites carry {id, kind} — a missing payload here
       // means an external caller fired the event without the contract.
       // Fallback: treat as a full layer change and rescan.
-
       if (!payload) {
         this.onLayerChange();
         return;
@@ -582,7 +571,6 @@ class HeatmapManager {
     if (this.cachedFeatures?.length) {
       for (const feat of this.cachedFeatures) {
         const ring = feat.geometry?.coordinates?.[0];
-
         if (ring?.length) {
           // GeoJSON order [lng, lat].
           for (const [lng, lat] of ring) acc.extend([lat, lng]);
@@ -594,7 +582,6 @@ class HeatmapManager {
     } else {
       for (const info of this.pointLayers) {
         const layer = info.layer as L.Layer & { getBounds?: () => L.LatLngBounds };
-
         const b = layer?.getBounds?.();
         if (b?.isValid()) acc.extend(b);
       }
@@ -632,14 +619,12 @@ class HeatmapManager {
     layers.forEach(info => {
       map.foliplus!.LayerAPI!.extractPoints(info.id).forEach(pt => {
         const marker = pt.marker;
-
         if (!marker) return;
         const extended = marker as HeatmapPointMarker;
         if (typeof extended.value === "number" && !seen.has("value")) {
           seen.add("value");
           fields.push("value");
         }
-
         if (typeof extended.options?.value === "number" && !seen.has("options.value")) {
           seen.add("options.value");
           fields.push("options.value");
@@ -779,14 +764,12 @@ class HeatmapManager {
   clearHeatmapCanvas() {
     this.cachedFeatures = null;
     this.cachedAgg = null;
-
     if (this.overlay) this.overlay.unregister();
     // The panel row is gone and the next draw is new content: drop this id
     // from the stored order so the next registration lands at the top of the
     // overlay stack instead of returning to the slot the user arranged.
     // Without this, insertOverlayAt would find a stored rank and placeBeforeSavedNeighbor
     // would put the redrawn heatmap back where it was, not on top.
-
     this.map.foliplus?.LayerAPI?.forgetSavedOrder?.(this.layerId);
     this.ui?.schemeBarCleanup?.();
     this.ui?.dropdownCleanup?.();
@@ -873,7 +856,6 @@ class HeatmapManager {
     // Stamp updatedAt so the panel's "Updated" row tracks the latest binding.
     // Free `map` (window.map) — same channel createCanvas / scanMapLayers use;
     // `this.map` is the Leaflet instance and may not carry the foliplus namespace.
-
     map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
   }
 

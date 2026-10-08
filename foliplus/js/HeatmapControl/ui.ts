@@ -248,7 +248,6 @@ const buildLayerListItems = (ctrl: HeatmapControlUI, sel: HTMLSelectElement) => 
     !ctrl.mgr.selectedLayerId
   ) {
     ctrl.mgr.selectedLayerId = ctrl.mgr.pointLayers[0].id;
-
     if (ctrl.extraBody) ctrl.extraBody.classList.remove(CONST.CLASSES.HIDDEN);
     syncSelect(ctrl, sel, ctrl.mgr.selectedLayerId);
     updateFieldSelector(ctrl);
@@ -269,7 +268,6 @@ const buildLayerListItems = (ctrl: HeatmapControlUI, sel: HTMLSelectElement) => 
 
   sel.onchange = () => {
     ctrl.mgr.selectedLayerId = sel.value || null;
-
     if (ctrl.extraBody) {
       ctrl.extraBody.classList.toggle(CONST.CLASSES.HIDDEN, !ctrl.mgr.selectedLayerId);
     }
@@ -281,7 +279,6 @@ const buildLayerListItems = (ctrl: HeatmapControlUI, sel: HTMLSelectElement) => 
   };
 
   syncSelect(ctrl, sel, sel.value);
-
   if (ctrl.extraBody) {
     ctrl.extraBody.classList.toggle(CONST.CLASSES.HIDDEN, !ctrl.mgr.selectedLayerId);
   }
@@ -465,7 +462,6 @@ const initScan = (ctrl: HeatmapControlUI): (() => void) => {
         updateFieldSelector(ctrl);
         if (!ctrl.mgr.cachedFeatures) ctrl.mgr.renderHexagons();
       }
-
       ctrl.ctrl?.setAttribute("data-ready", "true");
       done = true;
       cleanup();
@@ -481,7 +477,6 @@ const initScan = (ctrl: HeatmapControlUI): (() => void) => {
         HINT_DURATION.LONG,
       );
       ctrl.mgr.hasScanned = true;
-
       ctrl.ctrl?.setAttribute("data-ready", "true");
       done = true;
       cleanup();

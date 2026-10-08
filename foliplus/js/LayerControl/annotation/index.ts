@@ -145,7 +145,6 @@ class AnnotationManager {
         // means an external caller fired the event without the contract.
         // Fallback to full refresh (repaint every label-bearing layer), which
         // is the old raw layeradd/layerremove behavior.
-
         if (!payload) {
           this.refresh();
           return;
@@ -250,7 +249,6 @@ class AnnotationManager {
     const getLatLng = (leaf as L.Layer & { getLatLng?: () => L.LatLng }).getLatLng;
     if (typeof getLatLng === "function") {
       const ll = getLatLng.call(leaf);
-
       if (ll) return ll;
     }
     const bounds = (
@@ -452,7 +450,6 @@ class AnnotationManager {
     // translates by the delta from here (same source latLngToContainerPoint
     // uses, so the translate matches a re-plan exactly).
     const mapPane = this.map.getPanes().mapPane;
-
     this.planOrigin = mapPane ? { ...L.DomUtil.getPosition(mapPane) } : null;
     this.lastPlanned.clear();
     for (const [id, canvas] of this.canvases) {
@@ -486,7 +483,6 @@ class AnnotationManager {
   private refreshPan(): void {
     if (this.canvases.size === 0) return;
     const mapPane = this.map.getPanes().mapPane;
-
     const pos = mapPane ? L.DomUtil.getPosition(mapPane) : null;
     if (!this.planOrigin || !pos) {
       this.refresh();

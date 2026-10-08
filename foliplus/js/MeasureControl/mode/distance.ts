@@ -41,7 +41,6 @@ class DistanceMode extends PreviewMode {
         accTotal += seg.distance;
         const prev = points[i];
         const cur = points[i + 1] || { lat: seg.lat, lng: seg.lng };
-
         if (!prev || !cur) return;
         const mid = Util.midpoint(prev, cur);
         const label = mgr.layers.addLayer(

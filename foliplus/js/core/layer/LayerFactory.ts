@@ -286,11 +286,9 @@ class LayerFactory {
       }
 
       const proto = L.LayerGroup?.prototype;
-
       const origAddLayer = proto
         ? proto.addLayer.bind(mainLayer)
         : mainLayer.addLayer.bind(mainLayer);
-
       const origRemoveLayer = proto
         ? proto.removeLayer.bind(mainLayer)
         : mainLayer.removeLayer.bind(mainLayer);

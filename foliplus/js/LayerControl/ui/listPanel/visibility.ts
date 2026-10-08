@@ -104,7 +104,6 @@ const syncToggleAll = (ui: LayerUI, group: string) => {
   }
   // Tolerate a caller that constructs a thin LayerUI stub without
   // initializing the counter map (tests, late-attached panels).
-
   ui.listPanel.checkedCount ??= {};
   ui.listPanel.checkedCount[group] = { total, on };
   writeToggleAllCheckbox(ui, allCb, group);
@@ -193,7 +192,6 @@ const bumpCheckedCount = (ui: LayerUI, group: string, delta: number): void => {
 const applyVisibility = (ui: LayerUI, id: string, visible: boolean): boolean => {
   const layerInfo = ui.c.layerRegistry.get(id);
   if (!layerInfo) return false;
-
   const item = ui.uiContainer?.querySelector(
     `[${CONST.DATA.LAYER_ID}="${CSS.escape(id)}"]`,
   ) as HTMLElement | null;

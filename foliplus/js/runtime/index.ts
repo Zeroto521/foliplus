@@ -37,7 +37,6 @@ import "./_shared-registry.js";
 
 // -- Global namespace bootstrap --
 // Ensure the global namespace object exists.
-
 if (!window.foliplus || typeof window.foliplus !== "object") {
   window.foliplus = {} as Foliplus;
 }
@@ -63,7 +62,6 @@ if (!foliplus.isInitialized) {
   });
 
   // Core module - single file, manually registered.
-
   if (!foliplus.core) foliplus.core = {};
   foliplus.core.component = { COMPONENTS, assertComponentName, generateId };
   // Mode module - single file, manually registered.

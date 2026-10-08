@@ -62,7 +62,6 @@ const initTypesAndVisibility = (ui: LayerUI) => {
   // Ready signal for tests: checkbox titles / .foliplus-active / counts are final
   // for the current layer set (late components re-trigger this pass and
   // re-set the attribute, so "ready" always reflects the latest pass).
-
   ui.uiContainer?.setAttribute("data-ready", "true");
 };
 

@@ -23,7 +23,6 @@ const bindOpenOverlay = (
 ): void => {
   layer.on("click", (event: L.LeafletMouseEvent) => {
     const t = Util.getEventTarget(event);
-
     if (t?.closest?.(CONST.SEL.DEL_ICON)) return;
     openOverlay(event);
   });

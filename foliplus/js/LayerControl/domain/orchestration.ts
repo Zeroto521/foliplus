@@ -126,7 +126,6 @@ class LayerOrchestration {
     this.lastAttribution = deps.lastAttribution;
     // Same capture the controller used to do: the author's declaration,
     // read before any enforceOrder can write its own fallback.
-
     this.authorMaxZoomDeclared = Number.isFinite(deps.map.options?.maxZoom);
   }
 

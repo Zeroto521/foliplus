@@ -157,7 +157,6 @@ const authoredBorder = (
   const bag = carrier ? styleBagOf(carrier) : undefined;
   return {
     color: bag?.color ?? carrier?.options?.color ?? DEFAULT_STYLE_BORDER,
-
     weight: bag?.weight ?? carrier?.options?.weight ?? BORDER_WEIGHT.DEFAULT,
   };
 };

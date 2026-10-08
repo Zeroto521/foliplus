@@ -109,12 +109,9 @@ const isGroupLike = (node: LayerTreeNode): boolean =>
  *      node and `createPane` never rebuilds. */
 const destroyPane = (map: L.Map, name: string): void => {
   const renderer = map._paneRenderers?.[name];
-
   if (renderer && map.hasLayer(renderer)) map.removeLayer(renderer);
-
   if (map._paneRenderers) delete map._paneRenderers[name];
   map.getPane(name)?.remove();
-
   if (map._panes) delete map._panes[name];
 };
 
@@ -151,12 +148,10 @@ const moveIntoPane = (map: L.Map, layer: L.Layer, paneName: string): void => {
  *    built (the caller then leaves the layer on Leaflet's default renderer). */
 const getRendererFor = (map: L.Map, name: string): L.SVG | null => {
   const existing = map._paneRenderers?.[name];
-
   if (existing) return existing as L.SVG;
   try {
     const renderer = L.svg({ pane: name });
     renderer.addTo(map);
-
     if (map._paneRenderers) map._paneRenderers[name] = renderer;
     return renderer;
   } catch {
@@ -169,7 +164,6 @@ const getRendererContainer = (renderer: LeafInternals | null): HTMLElement | nul
   renderer?._container ?? null;
 
 /** The map a layer is attached to, or null while it is off the map. */
-
 const layerMap = (layer: L.Layer): L.Map | null => (layer as LayerWithMap)._map ?? null;
 
 /** A tile layer's URL template, or null when the layer carries none.

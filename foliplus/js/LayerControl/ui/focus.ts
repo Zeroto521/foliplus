@@ -446,7 +446,6 @@ const computeLayerBounds = (layer: L.Layer): L.LatLngBounds | null => {
   const withBounds = layer as L.Layer & { getBounds?: () => L.LatLngBounds };
   if (typeof withBounds.getBounds === "function") {
     const b = withBounds.getBounds();
-
     if (b?.isValid()) return b;
   }
   const acc = L.latLngBounds([]);
@@ -458,7 +457,6 @@ const computeLayerBounds = (layer: L.Layer): L.LatLngBounds | null => {
       hasLeaf = true;
     }
   });
-
   return hasLeaf ? acc : null;
 };
 

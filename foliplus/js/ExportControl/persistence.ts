@@ -15,7 +15,6 @@ const T = createScopedTranslator(CONFIG);
 
 const loadSavedBounds = function (this: ExportManager) {
   const data = Storage.loadRecord<SavedBounds | null>(CONST.STORAGE.KEY, CONFIG.name);
-
   if (!data?.nw || !data.se) return;
   const nw = data.nw;
   const se = data.se;

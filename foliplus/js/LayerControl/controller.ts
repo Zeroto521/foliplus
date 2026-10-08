@@ -641,7 +641,6 @@ class LayerController implements LayerAPI {
     if (!item) return;
     const idx = this.layerRegistry.indexOf(item);
     if (idx <= 0) return;
-
     if (item?.group === GROUP.BASE) return;
     this.layerRegistry.moveToFront(id);
     this.enforceOrder();
@@ -968,7 +967,6 @@ class LayerController implements LayerAPI {
    *  re-entry guard and the debounce cancellation around it. */
   enforceOrder() {
     if (this.isEnforcing) return;
-
     this.debouncedEnforce?.cancel();
     this.isEnforcing = true;
     try {
@@ -1041,9 +1039,7 @@ class LayerController implements LayerAPI {
 
   destroy() {
     this.isDestroyed = true;
-
     if (this.map && this.onLayerAdd) this.map.off("layeradd", this.onLayerAdd);
-
     if (this.debouncedEnforce) this.debouncedEnforce.cancel();
     // Flush before destroy: the writes are debounced at 100ms, wide enough for
     // the control to be removed before the timer fires. unbindEvents also

@@ -79,7 +79,6 @@ const locateMe = (ctrl: LocateCtrl) => {
   const T = ctrl.T;
   if (guardBlocked(map, config.name, T("blocked"))) return;
   const geo = navigator.geolocation;
-
   if (!geo) {
     map.foliplus!.showHint(config.name, T("geo_error"), HINT_DURATION.LONG);
     return;

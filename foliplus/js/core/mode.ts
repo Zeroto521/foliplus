@@ -136,7 +136,6 @@ class ModeManager {
     for (const [otherComp, otherMode] of this.modes) {
       if (otherMode === null) continue;
       const blocked = BLOCKED_BY[otherComp];
-
       if (blocked?.includes(component)) return otherComp;
     }
     return null;
@@ -201,12 +200,8 @@ const guardBlocked = (
       if (candidate) text = candidate.text;
     }
   }
-
   map.foliplus?.showHint?.(name, text, HINT_DURATION.SHORT);
   return true;
 };
 
 export { ModeManager, ensureModes, guardBlocked };
-
-// eslint-disable-next-line import/no-unused-modules -- type-only export (rule bug: ignoreUnusedTypeExports doesn't work for export { type X })
-export type { ModeChangePayload };

@@ -71,7 +71,6 @@ const createLocationMarker = (
     void reverseGeocode(map, lng, lat, code)
       .then((resolved: string) => {
         if (onAddress) onAddress(resolved);
-
         if (marker?.getPopup?.()?.isOpen()) {
           marker.setPopupContent(
             buildPopupEl(

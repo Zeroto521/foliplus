@@ -75,7 +75,6 @@ const hasCrsCode = (code: string, codePattern: string): boolean =>
 const isBaiduCRS = (map: L.Map | null, probe: Probe): boolean => {
   try {
     const LCRS = L.CRS as { Baidu?: L.CRS };
-
     if (LCRS?.Baidu && map?.options.crs === LCRS.Baidu) return true;
   } catch (err) {
     // Fires when reading `L.CRS` itself throws — e.g. Leaflet failed to load

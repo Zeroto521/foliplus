@@ -151,7 +151,6 @@ const buildLabelSection = (ui: LayerUI, layerId: string): HTMLElement => {
     },
     ...formatOpts,
   );
-
   (formatSelect as HTMLSelectElement).value = cfg.format || NUMBER_FORMAT.AUTO;
 
   // Numeric-only: hide the format dropdown when the picked field is not a

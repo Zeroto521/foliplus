@@ -27,11 +27,9 @@ const ensureLayerAPI = (map: L.Map, force = false): LayerAPI => {
   // Ensure per-map hint system (creates map.foliplus if needed, idempotent).
   ensureHint(map);
   const current = map.foliplus!.LayerAPI;
-
   if (!force && current) return current;
   // force (LayerController.destroy) downgrades a live full LayerAPI to the stub;
   // an existing stub is already the target state, so keep it — idempotent.
-
   if (force && current?.isLayerControl === false) return current;
 
   // Lightweight LayerAPI — no LayerControl, no registry, no panel.

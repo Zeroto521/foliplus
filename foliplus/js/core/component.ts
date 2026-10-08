@@ -18,8 +18,6 @@ const COMPONENTS = {
   ScaleControl: "ScaleControl",
 } as const;
 
-type ComponentName = (typeof COMPONENTS)[keyof typeof COMPONENTS];
-
 /** Generate a namespaced ID for multi-instance support.
  *  e.g. generateId("foliplus_measure", "a") → "foliplus_measure_a". */
 const generateId = (prefix: string, namespace?: string): string =>
@@ -36,6 +34,3 @@ const assertComponentName = (name: string): void => {
 };
 
 export { COMPONENTS, assertComponentName, generateId };
-
-// eslint-disable-next-line import/no-unused-modules -- type-only export (rule bug: ignoreUnusedTypeExports doesn't work for export { type X })
-export type { ComponentName };

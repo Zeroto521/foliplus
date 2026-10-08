@@ -208,7 +208,6 @@ class MeasureManager {
     this.offModeChange = this.events.on(EVENTS.MODE_CHANGE, ({ component, mode }) => {
       if (component === COMPONENTS.ExportControl && mode !== null && this.currentMode) {
         this.clearActiveMode();
-
         this.map.foliplus?.showHint?.(
           this.config.name,
           this.T("export_paused"),
@@ -253,7 +252,6 @@ class MeasureManager {
   saveMeasurements() {
     this.store.persist();
     // Runtime content changed — refresh the attributes panel timestamp.
-
     this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
   }
 
@@ -283,7 +281,6 @@ class MeasureManager {
   bindGlobalEvents() {
     this.onMapClick = (event: L.LeafletMouseEvent) => {
       const t = Util.getEventTarget(event);
-
       if (t?.closest?.(CONST.SEL.DEL_ICON)) return;
       // In edit mode, a click on empty map space is handled by each overlay's
       // own map-click handler (which closes it) — it does NOT exit edit mode.
@@ -404,7 +401,6 @@ class MeasureManager {
     }
 
     const ModeClass = MODE_MAP[mode as keyof typeof MODE_MAP];
-
     this.modeInstance = ModeClass ? new ModeClass(this) : null;
     this.modeInstance?.start();
   }
@@ -735,7 +731,6 @@ class MeasureManager {
     // the next draw is new content, so the id must leave the stored order or
     // insertOverlayAt will place the re-drawn measurement back at the old
     // slot instead of the top.
-
     this.map.foliplus?.LayerAPI?.forgetSavedOrder?.(this.layerId);
   }
 
@@ -746,9 +741,7 @@ class MeasureManager {
    *  everything the user had — hence the split above. */
   destroy() {
     if (this.offModeChange) this.offModeChange();
-
     if (this.offLayerRemoved) this.offLayerRemoved();
-
     if (this.offLayerDeleted) this.offLayerDeleted();
     this.map.off("unload", this.onUnload);
     this.scheduleLabelPlan.cancel();
