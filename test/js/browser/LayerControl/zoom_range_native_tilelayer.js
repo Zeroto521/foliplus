@@ -6,7 +6,7 @@
 async () => {
   const spec = window.__probe;
   delete window.__probe;
-  const m = window.__layerCtrl.m;
+  const m = window.__layerCtrl.mgr;
   const li = m.layers.find(l => l.id === spec.id);
   if (!li) return { error: "layer not found: " + spec.id };
   const tile = m.findLayer(li);

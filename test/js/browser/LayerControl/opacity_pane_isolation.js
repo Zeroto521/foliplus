@@ -1,8 +1,8 @@
 () => {
   const ctrl = window.__layerCtrl;
-  const map = ctrl.m.map;
+  const map = ctrl.mgr.map;
   const api = map.foliplus.LayerAPI;
-  const ui = ctrl.m.ui;
+  const ui = ctrl.mgr.ui;
 
   const pointLayer = (id, name, lng) => {
     const geo = L.geoJson({
@@ -70,7 +70,7 @@
   const plainNeighbour = pointLayer("op_plain_nb", "PlainNeighbour", 119.42);
   // Run the ordering pass now instead of waiting out its debounce: it is what
   // assigns each layer its own pane and migrates the content into it.
-  ctrl.m.enforceOrder();
+  ctrl.mgr.enforceOrder();
   const plainPane = paneOf(plain);
   const plainPaneBefore = plainPane ? plainPane.style.opacity : null;
   const plainOpened = setOpacityViaSlider("op_plain");
@@ -131,7 +131,7 @@
     { style: { fillOpacity: 0, color: "#000", weight: 2 } },
   );
   api.registerLayer({ id: "op_hollow", name: "Hollow", layer: hollowGeo });
-  ctrl.m.enforceOrder();
+  ctrl.mgr.enforceOrder();
   const hollowPane = paneOf(hollowGeo);
   setOpacityViaSlider("op_hollow");
   const hollowPaneAfter = hollowPane ? hollowPane.style.opacity : null;
@@ -192,19 +192,19 @@
     name: "AnnotatedNb",
     layer: neighborGeo,
   });
-  ctrl.m.enforceOrder();
+  ctrl.mgr.enforceOrder();
 
   // Enable labels on both layers.
-  ctrl.m.annotation.setConfig("op_annotated", {
-    ...ctrl.m.annotation.getConfig("op_annotated"),
+  ctrl.mgr.annotation.setConfig("op_annotated", {
+    ...ctrl.mgr.annotation.getConfig("op_annotated"),
     show: true,
   });
-  ctrl.m.annotation.renderLabels("op_annotated");
-  ctrl.m.annotation.setConfig("op_annotated_nb", {
-    ...ctrl.m.annotation.getConfig("op_annotated_nb"),
+  ctrl.mgr.annotation.renderLabels("op_annotated");
+  ctrl.mgr.annotation.setConfig("op_annotated_nb", {
+    ...ctrl.mgr.annotation.getConfig("op_annotated_nb"),
     show: true,
   });
-  ctrl.m.annotation.renderLabels("op_annotated_nb");
+  ctrl.mgr.annotation.renderLabels("op_annotated_nb");
 
   const annotatedGeoPane = paneOf(annotatedGeo);
   const annotationPane = map.getPane("foliplus-annotation-op_annotated");
