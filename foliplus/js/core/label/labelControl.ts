@@ -319,11 +319,8 @@ const renderLabelControls = (opts: RenderLabelControlsOptions): LabelControlsRes
 
 export {
   type LabelStyleValues,
-  // eslint-disable-next-line import/no-unused-modules -- type-only export (rule bug: ignoreUnusedTypeExports doesn't work for `export { type X }`)
   type StyleSetters,
-  // eslint-disable-next-line import/no-unused-modules -- type-only export (rule bug: ignoreUnusedTypeExports doesn't work for `export { type X }`)
   type RenderLabelControlsOptions,
-  // eslint-disable-next-line import/no-unused-modules -- type-only export (rule bug: ignoreUnusedTypeExports doesn't work for `export { type X }`)
   type LabelControlsResult,
   numberFormatOptions,
   renderLabelControls,
