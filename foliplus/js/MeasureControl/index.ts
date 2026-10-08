@@ -74,9 +74,9 @@ const MeasureControl = defineControl<MeasureManager>({
       if (!mode) exportBtn = btn;
     });
 
-    this.m.ctrl = ctrl;
-    this.m.toolBtns = Array.from(toolBar.querySelectorAll(CONST.SEL.TOOL_BTN));
-    this.m.bindExportClick(exportBtn!);
+    this.mgr.ctrl = ctrl;
+    this.mgr.toolBtns = Array.from(toolBar.querySelectorAll(CONST.SEL.TOOL_BTN));
+    this.mgr.bindExportClick(exportBtn!);
 
     bindFoldToggle({ container: ctrl, toggleBtn });
 
@@ -85,14 +85,14 @@ const MeasureControl = defineControl<MeasureManager>({
       bindOutsideCollapse({
         container: ctrl,
         skipCheck: () =>
-          this.m.currentMode !== null || this.config.collapse_on_outside === false,
+          this.mgr.currentMode !== null || this.config.collapse_on_outside === false,
       }),
     );
 
-    this.m.toolBtns.forEach((btn: HTMLElement) => {
+    this.mgr.toolBtns.forEach((btn: HTMLElement) => {
       btn.onclick = (event: MouseEvent) => {
         event.stopPropagation();
-        this.m.setMode(btn.dataset.mode ?? null);
+        this.mgr.setMode(btn.dataset.mode ?? null);
       };
     });
 

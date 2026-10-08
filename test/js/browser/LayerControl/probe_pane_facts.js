@@ -7,7 +7,7 @@
 //   4. whether the layer's native setter is effective immediately
 //
 // Driver: window.__probe = {
-//   id:        "<registry id>"     resolve via window.__layerCtrl.m.layers
+//   id:        "<registry id>"     resolve via window.__layerCtrl.mgr.layers
 //   layerVar:  "<global var name>" alternative when the layer is not registered
 //   build:     "<tag>"             construct an unregistered layer in-page
 //   add:       "<tag>"             runtime mutation to apply before fact 3
@@ -19,7 +19,7 @@
   const map = window.map;
   const ctrl = window.__layerCtrl;
   if (!map || !ctrl) return { error: "map or __layerCtrl missing" };
-  const m = ctrl.m;
+  const m = ctrl.mgr;
 
   const SHARED = new Set([
     "mapPane",

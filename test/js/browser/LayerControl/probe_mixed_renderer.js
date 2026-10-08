@@ -42,7 +42,7 @@
   const ctx = canvas.getContext("2d");
   ctx.fillStyle = "rgba(255,0,0,1)";
   ctx.fillRect(0, 0, 100, 100);
-  window.__layerCtrl.m.enforceOrder();
+  window.__layerCtrl.mgr.enforceOrder();
 
   const paneNameOf = el => {
     let n = el;

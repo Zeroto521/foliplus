@@ -1,7 +1,7 @@
 async () => {
   const ctrl = window.__layerCtrl;
-  const map = ctrl.m.map;
-  const ui = ctrl.m.ui;
+  const map = ctrl.mgr.map;
+  const ui = ctrl.mgr.ui;
   const api = map.foliplus.LayerAPI;
 
   const geo = L.geoJson({
@@ -15,7 +15,7 @@ async () => {
     ],
   });
   api.registerLayer({ id: "zr_zoomend", name: "ZRZoomEnd", layer: geo });
-  ctrl.m.enforceOrder();
+  ctrl.mgr.enforceOrder();
 
   ui.openStylePanel("zr_zoomend");
   const row = document.querySelector(".foliplus-style-zoom-range-row");

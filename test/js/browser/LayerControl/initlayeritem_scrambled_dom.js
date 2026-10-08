@@ -6,7 +6,7 @@
 // initLayerItem for alpha: an index-based lookup would have stamped alpha's
 // name into the checkbox of whatever layer is at that position.
 () => {
-  const m = window.__layerCtrl.m;
+  const m = window.__layerCtrl.mgr;
   if (!m || !m.ui) throw new Error("__layerCtrl / manager ui missing");
   const ui = m.ui;
   const rowById = id =>

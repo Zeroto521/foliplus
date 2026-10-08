@@ -31,11 +31,11 @@ const ExportControl = defineControl<ExportManager>({
     // carrier). Hide-pass still lists this bar in SEL.CONTROL (layout);
     // the attribute is for traversal skip (SKIP_EXPORT), same as delicon.
     ctrl.setAttribute("data-foliplus-export", "exclude");
-    this.m.attachUI(ctrl, toolBar);
+    this.mgr.attachUI(ctrl, toolBar);
     toggleBtn.onclick = () => {
-      if (this.m.cropState) this.m.removeCropBox();
-      else if (this.m.savedBounds) this.m.restoreFromSavedBounds();
-      else this.m.showCropBox();
+      if (this.mgr.cropState) this.mgr.removeCropBox();
+      else if (this.mgr.savedBounds) this.mgr.restoreFromSavedBounds();
+      else this.mgr.showCropBox();
     };
     return container;
   },
