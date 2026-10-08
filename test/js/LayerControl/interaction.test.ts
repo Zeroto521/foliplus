@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ensureInteraction } from "#core/interaction.js";
+import { ensureInteraction } from "#core/interaction/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import {
   handleMoreClick,
@@ -13,7 +13,7 @@ import {
 // Each call to ensureInteraction() returns a fresh object, but that IS the
 // object registerInteractions() uses, so we can grab the register spy from
 // ensureInteraction's mock results after each call.
-vi.mock("#core/interaction.js", () => ({
+vi.mock("#core/interaction/index.js", () => ({
   ensureInteraction: vi.fn(() => ({
     register: vi.fn(() => () => {}),
   })),

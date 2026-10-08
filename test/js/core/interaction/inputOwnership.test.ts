@@ -1,12 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   OWNER_KEYS,
+  ensureInteraction,
   isNativeControl,
   keyOwner,
   nativeClass,
   nativeConsumesKey,
-} from "#core/inputOwnership.js";
-import { ensureInteraction } from "#core/interaction.js";
+} from "#core/interaction/index.js";
 
 // ─────────────────────────────────────────────────────────────────────────
 // The input-ownership gate table.

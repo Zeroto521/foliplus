@@ -86,7 +86,7 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
       "HintManager registers fullscreenchange at document level; the manager owns its own lifecycle, independent of any single control",
   },
   {
-    f: "core/interaction.ts",
+    f: "core/interaction/interaction.ts",
     n: 2,
     pairedOff: 0,
     reason:
@@ -100,7 +100,7 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
       "free-standing label widget in core, not yet routed through a BaseControl instance",
   },
   {
-    f: "core/listCursor.ts",
+    f: "core/interaction/listCursor.ts",
     n: 1,
     pairedOff: 0,
     reason:
