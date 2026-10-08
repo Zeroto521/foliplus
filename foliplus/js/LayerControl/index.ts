@@ -36,7 +36,7 @@ const LayerControl = defineControl<LayerController>({
     // class for teardown on remove.
     this.effect(() => destroy);
 
-    this.m.attachUI(panelContent);
+    this.mgr.attachUI(panelContent);
 
     return container;
   },

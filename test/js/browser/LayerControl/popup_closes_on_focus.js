@@ -13,7 +13,7 @@
         requestAnimationFrame(() => {
           const popupOpenBefore = !!map.getContainer().querySelector(".leaflet-popup");
 
-          const ui = ctrl.m && ctrl.m.ui;
+          const ui = ctrl.mgr && ctrl.mgr.ui;
           if (!ui || !ui.focusLayer || !ui.isFocusing) {
             return resolve({ error: "LayerUI not reachable", popupOpenBefore });
           }

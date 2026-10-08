@@ -7,7 +7,7 @@
 // handleDrop treats as a self-drop and aborts, leaving the registry behind the
 // panel.
 () => {
-  const m = window.__layerCtrl.m;
+  const m = window.__layerCtrl.mgr;
   if (!m || !m.ui) throw new Error("__layerCtrl / manager ui missing");
   const ui = m.ui;
   if (typeof ui.onDrop !== "function") {

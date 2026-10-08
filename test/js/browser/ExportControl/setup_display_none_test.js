@@ -56,8 +56,8 @@
 
   // --- Focus on the canvas layer so the vector pane gets hidden ---
   const layerCtrl = window.__layerCtrl;
-  if (layerCtrl && layerCtrl.m && layerCtrl.m.ui) {
-    layerCtrl.m.ui.focusLayer("__displaynone_canvas__");
+  if (layerCtrl && layerCtrl.mgr && layerCtrl.mgr.ui) {
+    layerCtrl.mgr.ui.focusLayer("__displaynone_canvas__");
   }
 
   // --- Window rectangles (same layout as focus_three_carriers.js) ---

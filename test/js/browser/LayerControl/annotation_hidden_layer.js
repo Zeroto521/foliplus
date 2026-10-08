@@ -1,6 +1,6 @@
 () => {
   const ctrl = window.__layerCtrl;
-  const mgr = ctrl && ctrl.m.annotation;
+  const mgr = ctrl && ctrl.mgr.annotation;
   const api = window.map.foliplus && window.map.foliplus.LayerAPI;
   if (!mgr || !api) return null;
 
