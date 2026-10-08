@@ -11,6 +11,9 @@
  * step of `npm run typecheck`), so filtering them here loses nothing — and
  * filtering anything else would hide real test errors, which is the failure
  * mode this script exists to prevent.
+ *
+ * The parsing and the split are pure so they can be asserted directly; only
+ * `runTsc` and the `main` shell touch the filesystem or the exit status.
  */
 import { spawnSync } from "node:child_process";
 import { dirname, resolve } from "node:path";
@@ -20,6 +23,13 @@ const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 /** Paths whose errors belong to the production program, not this one. */
 const PRODUCTION = /^foliplus\//;
+
+/**
+ * The subset of spawnSync's result this script reads. Looser than
+ * `SpawnSyncReturns` on purpose: `main` is called with fakes in its tests.
+ *
+ * @typedef {{error?: unknown, status?: number | null, stdout?: string, stderr?: string}} SpawnResult
+ */
 
 /**
  * Group tsc output into one block per error. A block starts at a line of the
@@ -48,41 +58,73 @@ const parseErrors = text => {
   return blocks;
 };
 
-const main = () => {
-  const out = spawnSync(
-    process.execPath,
+/**
+ * The filter itself: production blocks out, everything else gating. The count
+ * of dropped blocks is returned so the summary can state how much was
+ * filtered — an unexplained filter is where a real test error would hide.
+ *
+ * @param {{path: string, lines: string[]}[]} blocks — parseErrors output
+ * @returns {{gated: {path: string, lines: string[]}[], filtered: number}}
+ */
+const filterProduction = blocks => {
+  const gated = [];
+  let filtered = 0;
+  for (const block of blocks) {
+    if (PRODUCTION.test(block.path)) filtered += 1;
+    else gated.push(block);
+  }
+  return { gated, filtered };
+};
+
+/** The only tsc invocation; `spawn` is injectable so the call is testable. */
+const runTsc = ({
+  spawn = spawnSync,
+  execPath = process.execPath,
+  cwd = REPO_ROOT,
+} = {}) =>
+  spawn(
+    execPath,
     [
-      resolve(REPO_ROOT, "node_modules/typescript/bin/tsc"),
+      resolve(cwd, "node_modules/typescript/bin/tsc"),
       "--noEmit",
       "--pretty",
       "false",
       "-p",
       "test/js/tsconfig.json",
     ],
-    { cwd: REPO_ROOT, encoding: "utf8" },
+    { cwd, encoding: "utf8" },
   );
+
+/**
+ * One pass: run tsc, filter, report. Returns the exit code rather than
+ * exiting, so the shell can run in-process without killing the caller.
+ * Status 2 is tsc's "compilation failed", which still carries usable output.
+ *
+ * @param {{run?: () => SpawnResult, log?: (text: string) => void, error?: (text: string) => void}} options
+ * @returns {number} the process exit code
+ */
+const main = ({ run = runTsc, log = console.log, error = console.error } = {}) => {
+  const out = run();
 
   if (out.error || (out.status !== 0 && out.status !== 2)) {
-    console.error(out.error ? String(out.error) : `tsc exited ${out.status}`);
-    process.exit(1);
+    error(out.error ? String(out.error) : `tsc exited ${out.status}`);
+    return 1;
   }
 
-  const blocks = parseErrors(`${out.stdout ?? ""}\n${out.stderr ?? ""}`);
-  const gated = blocks.filter(b => !PRODUCTION.test(b.path));
-  const filtered = blocks.length - gated.length;
-
-  if (gated.length) {
-    for (const block of gated) console.error(block.lines.join("\n"));
-    process.exit(1);
-  }
-  console.log(
-    `test/js typecheck: 0 errors` +
-      ` (production lines filtered by design: ${filtered})`,
+  const { gated, filtered } = filterProduction(
+    parseErrors(`${out.stdout ?? ""}\n${out.stderr ?? ""}`),
   );
+  if (gated.length) {
+    for (const block of gated) error(block.lines.join("\n"));
+    return 1;
+  }
+
+  log(`test/js typecheck: 0 errors (production lines filtered by design: ${filtered})`);
+  return 0;
 };
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  main();
+  process.exitCode = main();
 }
 
-export { PRODUCTION, parseErrors };
+export { PRODUCTION, filterProduction, main, parseErrors, runTsc };
