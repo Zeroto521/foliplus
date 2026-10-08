@@ -98,7 +98,7 @@ const aggregateData = (
     }
   };
 
-  const allVals = Object.values(hexCells).map(getAggValue);
+  const allVals = (Object.values(hexCells) as HexCell[]).map(getAggValue);
   if (allVals.length === 0) {
     onEmpty();
     return null;
@@ -112,7 +112,7 @@ const aggregateData = (
     for (let i = 1; i < breaks.length; i++) if (val <= breaks[i]) return i - 1;
     return breaks.length - 2;
   };
-  return { hexCells, getAggValue, valueToClassIdx, classColors };
+  return { hexCells: hexCells as Record<string, HexCell>, getAggValue, valueToClassIdx, classColors };
 };
 
 /** Build GeoJSON features from aggregated hex cells. */

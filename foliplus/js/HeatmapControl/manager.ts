@@ -333,6 +333,7 @@ class HeatmapManager {
       onOpacity: () => {
         // Opacity-change repaint: drop the slider’s CSS carrier first so
         // drawHexagon bakes layerAlpha into pixels and the two never compound.
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- Canvas.canvas optional in Leaflet type; guard is defensive
         if (this.overlay.canvas) this.overlay.canvas.style.opacity = "";
         this.redrawHeatmap();
       },
@@ -370,6 +371,7 @@ class HeatmapManager {
       hideEvents: ["zoomstart"],
       showEvents: ["zoomend"],
       onMove: () => {
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- Canvas.canvas + cachedFeatures may be undefined
         if (this.overlay.canvas && this.cachedFeatures) this.redrawHeatmap();
       },
       // Anti-flicker: the painted bitmap is borrowed away for the zoom and
@@ -380,10 +382,12 @@ class HeatmapManager {
       // restore time.
       onHide: () => {
         const el = this.overlay.canvas;
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- Canvas.canvas optional
         if (el) el.style.visibility = "hidden";
       },
       onShow: () => {
         const el = this.overlay.canvas;
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- Canvas.canvas optional
         if (el) el.style.visibility = "";
       },
     });
@@ -395,6 +399,7 @@ class HeatmapManager {
         // immediate handler and this debounced one; the style write is
         // idempotent and never touches the HIDDEN class.
         const el = this.overlay.canvas;
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- Canvas.canvas optional
         if (el) el.style.visibility = "";
       }
     }, CONST.TIMING.ZOOM_DEBOUNCE);
@@ -433,6 +438,7 @@ class HeatmapManager {
       // All product emit sites carry {id, kind} — a missing payload here
       // means an external caller fired the event without the contract.
       // Fallback: treat as a full layer change and rescan.
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- external emit may omit payload
       if (!payload) {
         this.onLayerChange();
         return;
@@ -480,6 +486,7 @@ class HeatmapManager {
 
   /** Redraw the heatmap canvas from cached features. */
   redrawHeatmap() {
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- overlay.canvas + cachedFeatures may be undefined
     if (!this.overlay.canvas || !this.cachedFeatures) return;
     // R11 dual-path handoff. Two cases:
     //
@@ -562,7 +569,9 @@ class HeatmapManager {
     const acc = L.latLngBounds([]);
     if (this.cachedFeatures?.length) {
       for (const feat of this.cachedFeatures) {
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- GeoJSON geometry/coordinates may be undefined
         const ring = feat.geometry?.coordinates?.[0];
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- coordinates array may be empty/undefined
         if (ring?.length) {
           // GeoJSON order [lng, lat].
           for (const [lng, lat] of ring) acc.extend([lat, lng]);
@@ -574,6 +583,7 @@ class HeatmapManager {
     } else {
       for (const info of this.pointLayers) {
         const layer = info.layer as L.Layer & { getBounds?: () => L.LatLngBounds };
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- getBounds may be absent on unknown layers
         const b = layer?.getBounds?.();
         if (b?.isValid()) acc.extend(b);
       }
@@ -611,12 +621,14 @@ class HeatmapManager {
     layers.forEach(info => {
       map.foliplus!.LayerAPI!.extractPoints(info.id).forEach(pt => {
         const marker = pt.marker;
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- extractPoints may return null markers
         if (!marker) return;
         const extended = marker as HeatmapPointMarker;
         if (typeof extended.value === "number" && !seen.has("value")) {
           seen.add("value");
           fields.push("value");
         }
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- options.value may be absent
         if (typeof extended.options?.value === "number" && !seen.has("options.value")) {
           seen.add("options.value");
           fields.push("options.value");
@@ -703,6 +715,7 @@ class HeatmapManager {
   }
 
   renderHexagons() {
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- map/overlay may be null before init
     if (!this.map || !this.overlay) return;
     if (!this.selectedLayerId) {
       this.clearHeatmapCanvas();
@@ -756,12 +769,14 @@ class HeatmapManager {
   clearHeatmapCanvas() {
     this.cachedFeatures = null;
     this.cachedAgg = null;
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- overlay may be null before init
     if (this.overlay) this.overlay.unregister();
     // The panel row is gone and the next draw is new content: drop this id
     // from the stored order so the next registration lands at the top of the
     // overlay stack instead of returning to the slot the user arranged.
     // Without this, insertOverlayAt would find a stored rank and placeBeforeSavedNeighbor
     // would put the redrawn heatmap back where it was, not on top.
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- foliplus.LayerAPI may be partial seed
     this.map.foliplus?.LayerAPI?.forgetSavedOrder?.(this.layerId);
     this.ui?.schemeBarCleanup?.();
     this.ui?.dropdownCleanup?.();
@@ -815,6 +830,7 @@ class HeatmapManager {
    * run it — a reload is not a clear.
    */
   clearLayerState() {
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- foliplus.LayerAPI may be partial seed
     this.map.foliplus?.LayerAPI?.dropPersistedLayerState?.(this.layerId);
   }
 
@@ -848,6 +864,7 @@ class HeatmapManager {
     // Stamp updatedAt so the panel's "Updated" row tracks the latest binding.
     // Free `map` (window.map) — same channel createCanvas / scanMapLayers use;
     // `this.map` is the Leaflet instance and may not carry the foliplus namespace.
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- foliplus.LayerAPI may be partial seed
     map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
   }
 
