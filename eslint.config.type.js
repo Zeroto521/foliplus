@@ -78,10 +78,9 @@ export default [
       // imports — a bug smell in production code and a bundle-size leak.
       //
       // Runs here (with `parserOptions.project`) rather than in the base
-      // config because `ignoreUnusedTypeExports` needs the TS program to
-      // distinguish type-only exports from value exports. Without the
-      // program, the rule can't tell `export type { Foo }` from
-      // `export { Foo }` and fires on every type export.
+      // config because the rule needs the TS program to resolve imports
+      // across the codebase. Without the program, the resolver can't
+      // follow `#common/*` or `#core/*` aliases and fires on every export.
       //
       // The rule reads `.eslintrc.json` for its ignore patterns (a
       // flat-config limitation — see eslint-plugin-import#3079); the
@@ -91,14 +90,16 @@ export default [
       // see as consumers: re-export bridges and component entry points
       // (index.ts), type-only modules (type.ts), test fixtures, build
       // tooling, and config-schema.ts (consumed by Python's Jinja
-      // loader). `ignoreUnusedTypeExports` handles TS type-only edges
-      // the resolver can't track. The rule then only fires on internal
-      // modules, where dead exports actually hide.
+      // loader). Type-only dead exports are caught by the rule like any
+      // other — the `ignoreUnusedTypeExports` option was tested and found
+      // ineffective for standalone `export type { X }` statements (the
+      // 6 dead exports in this PR fired with the option enabled), so it
+      // has been removed. The rule then only fires on internal modules,
+      // where dead exports actually hide.
       "import/no-unused-modules": [
         "error",
         {
           unusedExports: true,
-          ignoreUnusedTypeExports: true,
         },
       ],
     },
