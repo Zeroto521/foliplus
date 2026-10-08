@@ -26,12 +26,12 @@ describe("defineControl — bare shell", () => {
     expect(typeof ctrl.log.warn).toBe("function");
   });
 
-  it("omits manager/m when createManager is not provided", () => {
+  it("omits manager/mgr when createManager is not provided", () => {
     // Fullscreen / Scale / Locate / Search keep state on the instance.
     const Ctrl = defineControl({ config: makeConfig() });
     const ctrl = new Ctrl() as any;
     expect(ctrl.manager).toBeUndefined();
-    expect(ctrl.m).toBeUndefined();
+    expect(ctrl.mgr).toBeUndefined();
   });
 });
 
@@ -44,16 +44,16 @@ describe("defineControl — optional spec arms", () => {
     expect(env.config.name).toBe("TestControl");
   });
 
-  it("manager starts null and m lazily creates exactly once", () => {
+  it("manager starts null and mgr lazily creates exactly once", () => {
     const createManager = vi.fn(() => ({ id: "mgr" }));
     const Ctrl = defineControl({ config: makeConfig(), createManager });
     const ctrl = new Ctrl() as any;
     expect(ctrl.manager).toBeNull();
-    const m1 = ctrl.m;
+    const m1 = ctrl.mgr;
     expect(createManager).toHaveBeenCalledTimes(1);
     expect(m1).toEqual({ id: "mgr" });
     // Re-read returns the cached instance, no second factory call.
-    expect(ctrl.m).toBe(m1);
+    expect(ctrl.mgr).toBe(m1);
     expect(createManager).toHaveBeenCalledTimes(1);
   });
 
@@ -86,7 +86,7 @@ describe("defineControl — optional spec arms", () => {
       destroy,
     } as any);
     const ctrl = new Ctrl() as any;
-    void ctrl.m; // materialize the manager
+    void ctrl.mgr; // materialize the manager
     ctrl.destroy();
     expect(destroy).toHaveBeenCalledTimes(1);
     expect(ctrl.manager).toBeNull();
@@ -106,12 +106,12 @@ describe("defineControl — optional spec arms", () => {
     const createManager = vi.fn(() => ({ id: "mgr" }));
     const Ctrl = defineControl({ config: makeConfig(), createManager });
     const ctrl = new Ctrl() as any;
-    const m1 = ctrl.m;
+    const m1 = ctrl.mgr;
     expect(m1).toEqual({ id: "mgr" });
     ctrl.destroy();
     expect(ctrl.manager).toBeNull();
     // Re-access rebuilds — the factory's nulling is what makes re-add fresh.
-    expect(ctrl.m).toEqual({ id: "mgr" });
+    expect(ctrl.mgr).toEqual({ id: "mgr" });
     expect(createManager).toHaveBeenCalledTimes(2);
   });
 });
