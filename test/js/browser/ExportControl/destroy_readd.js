@@ -6,7 +6,7 @@
   window.map.removeControl(ctrl);
   const removed = document.querySelector(".foliplus-export-ctrl") === null;
   window.map.addControl(ctrl);
-  const mgr = ctrl.m;
+  const mgr = ctrl.mgr;
   return {
     removed,
     hasManager: !!mgr,

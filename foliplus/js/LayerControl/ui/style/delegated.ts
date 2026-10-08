@@ -3,7 +3,7 @@
 // ui/style.ts. Owns the delegation probe used by the ⋮ menu, and the
 // "Label" drawer that layers their own setters alongside LayerControl's
 // opacity / zoom-range rows.
-import { type LabelStyleValues, renderLabelControls } from "#core/labelControl.js";
+import { type LabelStyleValues, renderLabelControls } from "#core/label/index.js";
 import { DIM } from "#core/layer/index.js";
 import { createRowPanel } from "#core/leaflet/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";

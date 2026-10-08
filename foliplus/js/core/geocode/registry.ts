@@ -2,11 +2,14 @@
 // id + overrides, or a declarative custom provider) to a concrete
 // `GeocodeProvider`. Pure lookup — no mutable global state.
 import type { ProviderConfig } from "#foliplus/config-schema.js";
+import { createLogger } from "#common/log.js";
 import { createNominatim } from "./nominatim.js";
 import { createPelias } from "./pelias.js";
 import { createPhoton } from "./photon.js";
 import type { GeocodeProvider } from "./type.js";
 import { interpolate, joinUrl, safeEval, toItems, withParams } from "./util.js";
+
+const log = createLogger("foliplus");
 
 type ProviderFactory = (baseUrl: string) => GeocodeProvider;
 
@@ -51,7 +54,7 @@ const applyConfig = (
  * Normalizer sources are eval'd via `safeEval`, which throws on malformed input.
  */
 const providerFromConfig = (config: ProviderConfig): GeocodeProvider => {
-  if (!config.id) throw new Error("[foliplus] custom provider requires an id");
+  if (!config.id) throw new Error(log.msg("custom provider requires an id"));
 
   const norm = config.normalize ?? {};
   const normalizeSuggestFn = norm.suggest ? safeEval(norm.suggest) : null;
@@ -135,7 +138,9 @@ const resolveProvider = (
   if (typeof provider === "string") {
     const factory = BUILTIN_FACTORIES[provider];
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- BUILTIN_FACTORIES may miss for unknown providers
-    if (!factory) throw new Error(`[foliplus] unknown geocode provider: ${provider}`);
+    if (!factory) {
+      throw new Error(log.msg(`unknown geocode provider: ${provider}`));
+    }
     return config && Object.keys(config).length
       ? applyConfig(BUILTIN_PROVIDERS[provider], factory, config)
       : BUILTIN_PROVIDERS[provider];

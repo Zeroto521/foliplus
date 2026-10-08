@@ -54,8 +54,11 @@
 // `LayerControl/index.ts`) is deferred.
 import { DIM, type IntentKey } from "#core/layer/index.js";
 import type { LayerDimension } from "#foliplus/LayerControl/type.js";
+import { createLogger } from "#common/log.js";
 import { saveState } from "../state.js";
 import type { LayerUI } from "../surface.js";
+
+const log = createLogger("LayerControl");
 
 const registry: Map<string, LayerDimension<any>> = new Map();
 
@@ -64,7 +67,7 @@ const registry: Map<string, LayerDimension<any>> = new Map();
  *  saved state no longer round-trips. */
 const registerDimension = <D>(d: LayerDimension<D>): LayerDimension<D> => {
   if (registry.has(d.key)) {
-    throw new Error(`LayerControl: dimension "${d.key}" already registered`);
+    throw new Error(log.msg(`dimension "${d.key}" already registered`));
   }
   registry.set(d.key, d);
   return d;

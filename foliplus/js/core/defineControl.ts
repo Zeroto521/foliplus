@@ -2,12 +2,12 @@
 //
 // Collapses the skeleton every component index.ts used to repeat:
 // createControlEnv → createScopedTranslator → optional bootstrap →
-// `class XControl extends BaseControl` with the lazy `manager` / `get m()`
+// `class XControl extends BaseControl` with the lazy `manager` / `get mgr()`
 // pair → `new XControl({ position: CONFIG.position }).addTo(map)`.
 //
 // The factory collects only the genuine common skeleton. Differences stay in
 // the spec: controls that keep state on the instance (Search, Fullscreen,
-// Scale, Locate) omit `createManager` and get no `manager` / `m` at all;
+// Scale, Locate) omit `createManager` and get no `manager` / `mgr` at all;
 // controls with a heavy class body (Search, Heatmap) extend the factory's
 // return value instead. Extra per-control methods go in the `methods` bag,
 // Object.assigned onto the prototype so `this`-self-calls keep resolving.
@@ -91,7 +91,7 @@ const defineControl = <M = unknown>(spec: DefineControlSpec<M>): ControlClass =>
       enumerable: true,
       configurable: true,
     });
-    Object.defineProperty(Control.prototype, "m", {
+    Object.defineProperty(Control.prototype, "mgr", {
       configurable: true,
       enumerable: false,
       get(this: Control & { manager: M | null }) {

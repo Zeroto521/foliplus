@@ -48,8 +48,8 @@
     clicked = true;
   });
   mg.mainLayer.addLayer(gj);
-  if (window.__layerCtrl && window.__layerCtrl.m) {
-    window.__layerCtrl.m.enforceOrder();
+  if (window.__layerCtrl && window.__layerCtrl.mgr) {
+    window.__layerCtrl.mgr.enforceOrder();
   }
 
   const pane = window.map.getPane(PANE);

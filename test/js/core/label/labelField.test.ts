@@ -7,7 +7,7 @@ import {
   hasLabelField,
   isNumericField,
   resolveSelectedField,
-} from "#foliplus/core/labelField.js";
+} from "#core/label/index.js";
 
 /** A leaf that carries a GeoJSON feature, or one that carries none. */
 const leaf = (properties?: Record<string, unknown>): L.Layer =>

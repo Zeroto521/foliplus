@@ -13,7 +13,7 @@
  * option `role=option` (override via `roles.item`). Option ids are
  * generated for `aria-activedescendant`.
  */
-import { keyOwner, nativeConsumesKey } from "#core/inputOwnership.js";
+import { keyOwner, nativeConsumesKey } from "./inputOwnership.js";
 
 type ListCursorMode = "roving" | "active-descendant";
 type ListCursorRoles = {

@@ -1,5 +1,5 @@
 // HeatmapControl interaction — scheme bar/dropdown keyboard events.
-import { ensureInteraction } from "#core/interaction.js";
+import { ensureInteraction } from "#core/interaction/index.js";
 
 const registerSchemeBarEvents = (map: L.Map, ctrl: any): (() => void) => {
   const schemes = CONFIG.schemes ?? [];

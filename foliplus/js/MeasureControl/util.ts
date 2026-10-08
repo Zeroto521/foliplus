@@ -11,8 +11,11 @@ import {
   formatLatLng,
   formatNumber,
 } from "#common/format.js";
+import { createLogger } from "#common/log.js";
 import type { Logger } from "#common/type.js";
 import * as CONST from "./const.js";
+
+const log = createLogger("MeasureControl");
 
 // Edit-specific helpers (buildEditOverlay, bindNodeDrag, drag-synthetic click
 // flag) live in edit.ts. Callers import them directly from there.
@@ -118,7 +121,7 @@ const nodeRadius = (): number => {
     cssVar(document.documentElement, "--foliplus-dot-stroke", ""),
   );
   if (!Number.isFinite(size) || !Number.isFinite(stroke) || size <= stroke) {
-    throw new Error("foliplus: --foliplus-dot-size / --foliplus-dot-stroke unreadable");
+    throw new Error(log.msg("--foliplus-dot-size / --foliplus-dot-stroke unreadable"));
   }
   nodeRadiusCache = (size - stroke) / 2;
   return nodeRadiusCache;

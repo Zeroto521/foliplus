@@ -1,5 +1,5 @@
 // LayerControl interaction — keyboard navigation + overflow-menu click handlers.
-import { ensureInteraction } from "#core/interaction.js";
+import { ensureInteraction } from "#core/interaction/index.js";
 import * as CONST from "./const.js";
 import { activateDeleteItem } from "./ui/overlayPanel/menu.js";
 import type { LayerUI } from "./ui/surface.js";

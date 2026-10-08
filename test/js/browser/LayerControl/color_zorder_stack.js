@@ -16,7 +16,7 @@
   const ctrl = window.__layerCtrl;
   const map = window.map;
   if (!ctrl || !map) return { error: "ctrl or map missing" };
-  const m = ctrl.m;
+  const m = ctrl.mgr;
 
   // Read the z-index of a pane by its class prefix.
   const zOfPaneWithPrefix = prefix => {

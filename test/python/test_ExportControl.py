@@ -417,12 +417,12 @@ class TestExportControlBrowser:
         html = TestExportControlBrowser._stub_html(m.get_root().render())
         # Inject test hooks at the control-entry line: a synchronous rafLoop
         # scheduler (read by the lazily-created manager), then the control and
-        # its manager read back via `m` (dev build keeps these names). The
+        # its manager read back via `mgr` (dev build keeps these names). The
         # LayerControl instance is exposed too, so export tests can drive
         # annotation labels.
         html, n = re.subn(
             r"(new ExportControl\(\{ position: CONFIG\.position \}\)\.addTo\(map\);)",
-            r"window.__foliplusExportScheduler = function(fn){return 0;}; window.__exportCtrl = \1 window.__exportManager = window.__exportCtrl.m; window.__map = map;",
+            r"window.__foliplusExportScheduler = function(fn){return 0;}; window.__exportCtrl = \1 window.__exportManager = window.__exportCtrl.mgr; window.__map = map;",
             html,
             count=1,
         )
@@ -437,14 +437,14 @@ class TestExportControlBrowser:
         # Inject MeasureControl hooks if present.
         html, n = re.subn(
             r"(new MeasureControl\(\{ position: CONFIG\.position \}\)\.addTo\(map\);)",
-            r"window.__measureCtrl = \1 window.__measureManager = window.__measureCtrl.m;",
+            r"window.__measureCtrl = \1 window.__measureManager = window.__measureCtrl.mgr;",
             html,
             count=1,
         )
         if n == 0:
             html, n = re.subn(
                 r"(new MeasureControl\([^)]*\)\.addTo\(map\);)",
-                r"window.__measureCtrl = \1 window.__measureManager = window.__measureCtrl.m;",
+                r"window.__measureCtrl = \1 window.__measureManager = window.__measureCtrl.mgr;",
                 html,
                 count=1,
             )

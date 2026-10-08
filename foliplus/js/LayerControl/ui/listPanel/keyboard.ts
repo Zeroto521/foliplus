@@ -2,7 +2,7 @@
 // The roving cursor state lives in ./cursor.js; this module owns the key
 // handler and the mousedown/dblclick listeners that call into it.
 import { HINT_DURATION } from "#core/hint.js";
-import { isNativeControl } from "#core/inputOwnership.js";
+import { isNativeControl } from "#core/interaction/index.js";
 import { GROUP } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { inFloatingPanel } from "../context.js";

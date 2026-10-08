@@ -10,7 +10,7 @@
   const spec = window.__probe;
   delete window.__probe;
   const map = window.map;
-  const m = window.__layerCtrl.m;
+  const m = window.__layerCtrl.mgr;
   m.enforceOrder();
   const paneNameOf = el => {
     let n = el;

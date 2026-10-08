@@ -5,7 +5,7 @@
 // rename alpha in place. An index-based lookup would have written the new name
 // into whoever is at that position.
 () => {
-  const m = window.__layerCtrl.m;
+  const m = window.__layerCtrl.mgr;
   if (!m || !m.ui) throw new Error("__layerCtrl / manager ui missing");
   const ui = m.ui;
   const rowById = id =>

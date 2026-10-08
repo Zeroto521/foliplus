@@ -21,8 +21,8 @@
   window.__inputGate.records = [];
 
   const ctrl = window.__layerCtrl;
-  const map = ctrl.m.map;
-  const ui = ctrl.m.ui;
+  const map = ctrl.mgr.map;
+  const ui = ctrl.mgr.ui;
 
   // A GeoJSON layer carries zoomRange capability "pane", so its style panel
   // renders the dual-thumb slider.
@@ -37,7 +37,7 @@
     ],
   });
   map.foliplus.LayerAPI.registerLayer({ id: "ng_gate", name: "NGGate", layer: geo });
-  ctrl.m.enforceOrder();
+  ctrl.mgr.enforceOrder();
   ui.openStylePanel("ng_gate");
 
   // The max thumb rests at the map's max zoom, so ArrowDown has room to step
