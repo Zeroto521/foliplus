@@ -126,9 +126,7 @@ describe("sharedGlobalNamespace", () => {
   });
 
   it("maps the label barrel to foliplus.core.label", () => {
-    expect(sharedGlobalNamespace("#core/label/index.js")).toBe(
-      "foliplus.core.label",
-    );
+    expect(sharedGlobalNamespace("#core/label/index.js")).toBe("foliplus.core.label");
   });
 
   it("maps leafletAdapter.js to foliplus.core.leafletAdapter", () => {

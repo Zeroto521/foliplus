@@ -1,10 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  HIDE_OVERLAP,
-  hides,
-  planVisible,
-  withinRect,
-} from "#core/label/index.js";
+import { HIDE_OVERLAP, hides, planVisible, withinRect } from "#core/label/index.js";
 
 /** A label at (x, y) that is `w` wide and one line tall. */
 const at = (x: number, y: number, priority: number, w = 40) => ({

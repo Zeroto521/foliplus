@@ -14,7 +14,11 @@
 // `hasLabelField`, appends the `role: "annotation"` PaneSpec iff the probe
 // hits, and `detectCapabilities` reads that spec back). A second probe in
 // the gate would be exactly the drift the gate invariant forbids.
-import { AUTO_FIELD, numberFormatOptions, resolveSelectedField } from "#core/label/index.js";
+import {
+  AUTO_FIELD,
+  numberFormatOptions,
+  resolveSelectedField,
+} from "#core/label/index.js";
 import { CAP_TIER, DIM } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { AnnotationConfig } from "#foliplus/LayerControl/type.js";
