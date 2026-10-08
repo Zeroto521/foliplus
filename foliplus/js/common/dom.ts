@@ -147,14 +147,12 @@ const createIconButton = (opts: {
  */
 const stopEvent = (event: Event | { originalEvent?: Event }): void => {
   const d = (event as { originalEvent?: Event }).originalEvent ?? (event as Event);
-  (
-    d as Event & { stopPropagation?: () => void; preventDefault?: () => void }
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- stopPropagation may be absent on non-Event objects
-  )?.stopPropagation?.();
-  (
-    d as Event & { stopPropagation?: () => void; preventDefault?: () => void }
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- preventDefault may be absent
-  )?.preventDefault?.();
+  (d as Event & { stopPropagation?: () => void; preventDefault?: () => void })
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- stopPropagation may be absent on non-Event objects
+    ?.stopPropagation?.();
+  (d as Event & { stopPropagation?: () => void; preventDefault?: () => void })
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- preventDefault may be absent
+    ?.preventDefault?.();
 };
 
 /**

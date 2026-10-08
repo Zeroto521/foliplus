@@ -116,14 +116,13 @@ export default [
       // extends the check to type guards (`x is string` — flags when the
       // predicate is always true for the given type).
       //
-      // DISABLED: produces 254 false positives where ESLint says optional
-      // chains/conditionals are unnecessary but TypeScript disagrees (the
-      // objects could be undefined/null). Re-enable after the rule's type
-      // narrowing is fixed or after refactoring the affected code.
-      // "@typescript-eslint/no-unnecessary-condition": [
-      //   "error",
-      //   { checkTypePredicates: true },
-      // ],
+      // All 254 violations resolved (2025-06): most were false positives where
+      // runtime guards are needed despite TypeScript's non-optional types.
+      // eslint-disable comments with specific reasons are added at each site.
+      "@typescript-eslint/no-unnecessary-condition": [
+        "error",
+        { checkTypePredicates: true },
+      ],
     },
   },
 ];

@@ -69,13 +69,13 @@ const buildDelegatedBorderRow = (ui: LayerUI, layerId: string): HTMLElement | nu
   bindBorderRowShell(row, {
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- hasColor may be false at runtime
     onChangeColor: hasColor
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- entry() may return undefined; styleSetters may be absent
-      ? value => entry()?.styleSetters?.borderColor?.(value)
+      ? // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- entry() may return undefined; styleSetters may be absent
+        value => entry()?.styleSetters?.borderColor?.(value)
       : undefined,
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- hasWeight may be false at runtime
     onChangeWeight: hasWeight
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- entry() may return undefined; styleSetters may be absent
-      ? value => entry()?.styleSetters?.borderWeight?.(value)
+      ? // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- entry() may return undefined; styleSetters may be absent
+        value => entry()?.styleSetters?.borderWeight?.(value)
       : undefined,
   });
   return row;

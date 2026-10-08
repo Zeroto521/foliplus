@@ -148,7 +148,7 @@ class CircleMode extends PreviewMode {
           this.T("hint_circle_radius"),
           HINT_DURATION.PERSIST,
         );
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- phase variable is set at runtime
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- phase variable is set at runtime
       } else if (phase === 1) {
         const r = Util.distance(center!, event.latlng);
         // Ignore clicks too close to center — radius 0 creates an invisible
