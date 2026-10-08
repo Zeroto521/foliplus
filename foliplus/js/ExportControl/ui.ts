@@ -309,10 +309,14 @@ const removeCropBox = (mgr: ExportManager) => {
     mgr.mapMoveCleanup();
     mgr.mapMoveCleanup = null;
   }
-  mgr.cropMousedownCleanup?.();
-  if (mgr.cropState.overlay.parentNode) mgr.cropState.overlay.remove();
-  if (mgr.cropState.box.parentNode) mgr.cropState.box.remove();
-  mgr.cropState.actions.innerHTML = "";
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- cropState may be partially torn down; tests assert this guard
+  if (mgr.cropState.box) mgr.cropMousedownCleanup?.();
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- overlay may be null in torn-down state
+  if (mgr.cropState.overlay?.parentNode) mgr.cropState.overlay.remove();
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- box may be null in torn-down state
+  if (mgr.cropState.box?.parentNode) mgr.cropState.box.remove();
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- actions may be null in torn-down state
+  if (mgr.cropState.actions) mgr.cropState.actions.innerHTML = "";
   if (mgr.exportCtrl) {
     mgr.exportCtrl.classList.remove(CONST.CLASSES.EXPANDED);
     mgr.exportCtrl.classList.add(CONST.CLASSES.COLLAPSED);

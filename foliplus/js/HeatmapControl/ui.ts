@@ -248,7 +248,8 @@ const buildLayerListItems = (ctrl: HeatmapControlUI, sel: HTMLSelectElement) => 
     !ctrl.mgr.selectedLayerId
   ) {
     ctrl.mgr.selectedLayerId = ctrl.mgr.pointLayers[0].id;
-    ctrl.extraBody.classList.remove(CONST.CLASSES.HIDDEN);
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- extraBody may be null before DOM built; tests assert this guard
+    if (ctrl.extraBody) ctrl.extraBody.classList.remove(CONST.CLASSES.HIDDEN);
     syncSelect(ctrl, sel, ctrl.mgr.selectedLayerId);
     updateFieldSelector(ctrl);
     ctrl.mgr.renderHexagons();
@@ -268,7 +269,10 @@ const buildLayerListItems = (ctrl: HeatmapControlUI, sel: HTMLSelectElement) => 
 
   sel.onchange = () => {
     ctrl.mgr.selectedLayerId = sel.value || null;
-    ctrl.extraBody.classList.toggle(CONST.CLASSES.HIDDEN, !ctrl.mgr.selectedLayerId);
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- extraBody may be null before DOM built; tests assert this guard
+    if (ctrl.extraBody) {
+      ctrl.extraBody.classList.toggle(CONST.CLASSES.HIDDEN, !ctrl.mgr.selectedLayerId);
+    }
     syncSelect(ctrl, sel, sel.value);
     updateFieldSelector(ctrl);
     if (ctrl.mgr.selectedLayerId) ctrl.mgr.renderHexagons();
@@ -277,14 +281,20 @@ const buildLayerListItems = (ctrl: HeatmapControlUI, sel: HTMLSelectElement) => 
   };
 
   syncSelect(ctrl, sel, sel.value);
-  ctrl.extraBody.classList.toggle(CONST.CLASSES.HIDDEN, !ctrl.mgr.selectedLayerId);
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- extraBody may be null before DOM built; tests assert this guard
+  if (ctrl.extraBody) {
+    ctrl.extraBody.classList.toggle(CONST.CLASSES.HIDDEN, !ctrl.mgr.selectedLayerId);
+  }
 };
 
 const rebuildLayerDropdown = (ctrl: HeatmapControlUI) => {
-  buildLayerListItems(ctrl, ctrl.layerSelect);
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- layerSelect may be null before DOM built; tests assert this guard
+  if (ctrl.layerSelect) buildLayerListItems(ctrl, ctrl.layerSelect);
 };
 
 const updateFieldSelector = (ctrl: HeatmapControlUI) => {
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- fieldWrap/fieldSelect may be null before DOM built; tests assert this guard
+  if (!ctrl.fieldWrap || !ctrl.fieldSelect) return;
   if (ctrl.mgr.agg === CONST.AGG.COUNT) {
     ctrl.fieldWrap.classList.add(CONST.CLASSES.HIDDEN);
     return;
@@ -457,7 +467,8 @@ const initScan = (ctrl: HeatmapControlUI): (() => void) => {
         updateFieldSelector(ctrl);
         if (!ctrl.mgr.cachedFeatures) ctrl.mgr.renderHexagons();
       }
-      ctrl.ctrl.setAttribute("data-ready", "true");
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- ctrl may be null during teardown; tests assert this guard
+      ctrl.ctrl?.setAttribute("data-ready", "true");
       done = true;
       cleanup();
     } else if (final) {
@@ -473,7 +484,8 @@ const initScan = (ctrl: HeatmapControlUI): (() => void) => {
         HINT_DURATION.LONG,
       );
       ctrl.mgr.hasScanned = true;
-      ctrl.ctrl.setAttribute("data-ready", "true");
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- ctrl may be null during teardown; tests assert this guard
+      ctrl.ctrl?.setAttribute("data-ready", "true");
       done = true;
       cleanup();
     }
