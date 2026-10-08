@@ -3,7 +3,7 @@
 // labels (canvas). Both answer the same two questions — which fields a layer
 // offers, and which one to fall back to when the user has not chosen — so the
 // answers live here rather than drifting apart per component.
-import { walkLeaf } from "./layer/walkLeaf.js";
+import { walkLeaf } from "../layer/walkLeaf.js";
 
 /**
  * One labelable field found on a layer's features.
