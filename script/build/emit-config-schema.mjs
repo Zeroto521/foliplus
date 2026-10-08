@@ -119,7 +119,7 @@ const RENDER = {
   // Not a name: the SearchControl `provider` field is a union of a built-in
   // provider id and a custom ProviderConfig dict. Python has no alias to
   // name that union, so the tag renders it inline. Kept out of IMPORTS and
-  // of the Python↔TS name check for exactly this reason.
+  // of the Python ↔ TS name check for exactly this reason.
   "string | ProviderConfig": "string | ProviderConfig",
 };
 

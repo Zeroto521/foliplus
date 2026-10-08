@@ -103,7 +103,7 @@ describe("production type-system bypasses", () => {
     expect(problems).toEqual([]);
   });
 
-  // CONFIG↔Python parity moved to test/python/test_config_schema.py — the
+  // CONFIG ↔ Python parity moved to test/python/test_config_schema.py — the
   // JS side of that check was driving a Python subprocess per CI run, which
   // is what the build itself was pulling Python in for. Same assertions,
   // now in pytest where foliplus is already importable.

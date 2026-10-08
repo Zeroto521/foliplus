@@ -38,7 +38,7 @@ const importPlugin = (await import("eslint-plugin-import")).default;
 
 // Component directories — single source of truth for the no-restricted-paths
 // zones. Adding a new component requires only appending its name here; all
-// three zone groups (common→component, core→component, component↔component)
+// three zone groups (common → component, core → component, component ↔ component)
 // update automatically.
 const COMPONENT_DIRS = [
   "LayerControl",
