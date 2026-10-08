@@ -154,7 +154,7 @@ const buildPreviewNode = (
 /** Animate a dash-sweep effect on a finalized polyline/polygon. */
 const animateDashSweep = (path: SVGElement | null) => {
   if (!path) return;
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- getTotalLength may be absent on non-SVGPath elements
+
   const len = (path as SVGPathElement).getTotalLength?.() || 0;
   if (len <= 0) return;
   path.style.setProperty(CONST.STYLE.SWEEP_LENGTH, String(len));
@@ -179,7 +179,6 @@ const geocodeAddress = async (
   previous: string | null,
 ): Promise<string | null> => {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- reverseGeocode may return null on failure
     return (await reverseGeocode(mgr.map, lng, lat, code)) ?? previous;
   } catch {
     return previous;
@@ -253,7 +252,6 @@ const coordText = (map: L.Map, pt: DisplayLatLng, logger: Logger): string => {
 
 /** Normalize the Leaflet mouse event target to a plain HTMLElement or null. */
 const getEventTarget = (event: L.LeafletMouseEvent): HTMLElement | null =>
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- originalEvent.target may be non-HTMLElement
   ((event.originalEvent as MouseEvent)?.target as HTMLElement | null) ?? null;
 
 export {

@@ -41,7 +41,7 @@ class DistanceMode extends PreviewMode {
         accTotal += seg.distance;
         const prev = points[i];
         const cur = points[i + 1] || { lat: seg.lat, lng: seg.lng };
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- array access may return undefined
+
         if (!prev || !cur) return;
         const mid = Util.midpoint(prev, cur);
         const label = mgr.layers.addLayer(

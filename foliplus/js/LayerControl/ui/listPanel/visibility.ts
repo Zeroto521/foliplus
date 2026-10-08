@@ -104,7 +104,7 @@ const syncToggleAll = (ui: LayerUI, group: string) => {
   }
   // Tolerate a caller that constructs a thin LayerUI stub without
   // initializing the counter map (tests, late-attached panels).
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- checkedCount may be undefined on thin stubs
+
   ui.listPanel.checkedCount ??= {};
   ui.listPanel.checkedCount[group] = { total, on };
   writeToggleAllCheckbox(ui, allCb, group);
@@ -130,7 +130,6 @@ const writeToggleAllCheckbox = (
   allCb: HTMLInputElement,
   group: string,
 ): void => {
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- checkedCount may be undefined on thin stubs
   const c = ui.listPanel.checkedCount?.[group] ?? { total: 0, on: 0 };
   const allChecked = c.total > 0 && c.on === c.total;
   const noneChecked = c.on === 0;
@@ -155,7 +154,6 @@ const writeToggleAllCheckbox = (
  *  needs applying. After the first reconcile the counter is populated and
  *  every later call is O(1). */
 const bumpCheckedCount = (ui: LayerUI, group: string, delta: number): void => {
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- checkedCount may be undefined on thin stubs
   if (!ui.listPanel.checkedCount?.[group]) {
     syncToggleAll(ui, group);
     return;
@@ -195,7 +193,7 @@ const bumpCheckedCount = (ui: LayerUI, group: string, delta: number): void => {
 const applyVisibility = (ui: LayerUI, id: string, visible: boolean): boolean => {
   const layerInfo = ui.c.layerRegistry.get(id);
   if (!layerInfo) return false;
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- uiContainer may be null before attach
+
   const item = ui.uiContainer?.querySelector(
     `[${CONST.DATA.LAYER_ID}="${CSS.escape(id)}"]`,
   ) as HTMLElement | null;

@@ -20,7 +20,6 @@ const withParams = (url: string, params?: Record<string, string | number>): stri
   if (!params || url === "") return url;
   const parsed = new URL(url);
   for (const [k, v] of Object.entries(params)) {
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- params values may be null
     if (v != null) parsed.searchParams.set(k, String(v));
   }
   return parsed.toString();
@@ -75,7 +74,6 @@ const featuresToItems = (
   data: unknown,
   displayNameOf: (props: Record<string, unknown>) => string,
 ): SuggestItem[] => {
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- data may not have features property
   const features = (data as { features?: unknown })?.features;
   if (!Array.isArray(features)) return [];
   const out: SuggestItem[] = [];
@@ -83,10 +81,9 @@ const featuresToItems = (
     geometry?: { coordinates?: unknown };
     properties?: Record<string, unknown>;
   }>) {
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- geometry/coordinates may be absent
     const coords = f?.geometry?.coordinates;
     if (!Array.isArray(coords) || coords.length < 2) continue;
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- properties may be absent
+
     const props = f?.properties ?? {};
     out.push({
       lng: String(coords[0]),

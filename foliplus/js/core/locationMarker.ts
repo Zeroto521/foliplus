@@ -71,7 +71,7 @@ const createLocationMarker = (
     void reverseGeocode(map, lng, lat, code)
       .then((resolved: string) => {
         if (onAddress) onAddress(resolved);
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- marker/getPopup may be undefined
+
         if (marker?.getPopup?.()?.isOpen()) {
           marker.setPopupContent(
             buildPopupEl(

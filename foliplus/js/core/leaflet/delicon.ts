@@ -51,9 +51,8 @@ const buildDelIcon = (
 /** Attach a click handler to a delete icon marker via Leaflet event. */
 const attachDelClick = (delMarker: L.Layer, callback: () => void) => {
   delMarker.on("click", (event: L.LeafletMouseEvent) => {
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- originalEvent.target may be null
     const t = (event.originalEvent as MouseEvent)?.target as HTMLElement | null;
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- t may be null
+
     if (t?.closest?.(`[data-${DEL_ICON_ROLE}]`)) {
       stopEvent(event);
       callback();

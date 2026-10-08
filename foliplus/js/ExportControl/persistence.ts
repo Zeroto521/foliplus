@@ -15,7 +15,7 @@ const T = createScopedTranslator(CONFIG);
 
 const loadSavedBounds = function (this: ExportManager) {
   const data = Storage.loadRecord<SavedBounds | null>(CONST.STORAGE.KEY, CONFIG.name);
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- data may be null, nw/se may be absent from legacy records
+
   if (!data?.nw || !data.se) return;
   const nw = data.nw;
   const se = data.se;
@@ -81,7 +81,6 @@ const onMapChange = function (this: ExportManager, skipHint?: boolean) {
  *  pan/zoom from shifting layer positions mid-render (which caused
  *  offset or clipped exports). */
 const lockMap = function (this: ExportManager) {
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- this.map may be undefined in partially torn-down state; tests assert this guard
   if (!this.map) return;
   this.map.dragging.disable();
   this.map.scrollWheelZoom.disable();
@@ -93,7 +92,6 @@ const lockMap = function (this: ExportManager) {
 
 /** Restore map interactions after export. */
 const unlockMap = function (this: ExportManager) {
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- this.map may be undefined in partially torn-down state; tests assert this guard
   if (!this.map) return;
   this.map.dragging.enable();
   this.map.scrollWheelZoom.enable();

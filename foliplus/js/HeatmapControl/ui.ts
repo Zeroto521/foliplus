@@ -248,7 +248,7 @@ const buildLayerListItems = (ctrl: HeatmapControlUI, sel: HTMLSelectElement) => 
     !ctrl.mgr.selectedLayerId
   ) {
     ctrl.mgr.selectedLayerId = ctrl.mgr.pointLayers[0].id;
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- extraBody may be null before DOM built; tests assert this guard
+
     if (ctrl.extraBody) ctrl.extraBody.classList.remove(CONST.CLASSES.HIDDEN);
     syncSelect(ctrl, sel, ctrl.mgr.selectedLayerId);
     updateFieldSelector(ctrl);
@@ -269,7 +269,7 @@ const buildLayerListItems = (ctrl: HeatmapControlUI, sel: HTMLSelectElement) => 
 
   sel.onchange = () => {
     ctrl.mgr.selectedLayerId = sel.value || null;
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- extraBody may be null before DOM built; tests assert this guard
+
     if (ctrl.extraBody) {
       ctrl.extraBody.classList.toggle(CONST.CLASSES.HIDDEN, !ctrl.mgr.selectedLayerId);
     }
@@ -281,19 +281,17 @@ const buildLayerListItems = (ctrl: HeatmapControlUI, sel: HTMLSelectElement) => 
   };
 
   syncSelect(ctrl, sel, sel.value);
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- extraBody may be null before DOM built; tests assert this guard
+
   if (ctrl.extraBody) {
     ctrl.extraBody.classList.toggle(CONST.CLASSES.HIDDEN, !ctrl.mgr.selectedLayerId);
   }
 };
 
 const rebuildLayerDropdown = (ctrl: HeatmapControlUI) => {
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- layerSelect may be null before DOM built; tests assert this guard
   if (ctrl.layerSelect) buildLayerListItems(ctrl, ctrl.layerSelect);
 };
 
 const updateFieldSelector = (ctrl: HeatmapControlUI) => {
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- fieldWrap/fieldSelect may be null before DOM built; tests assert this guard
   if (!ctrl.fieldWrap || !ctrl.fieldSelect) return;
   if (ctrl.mgr.agg === CONST.AGG.COUNT) {
     ctrl.fieldWrap.classList.add(CONST.CLASSES.HIDDEN);
@@ -467,7 +465,7 @@ const initScan = (ctrl: HeatmapControlUI): (() => void) => {
         updateFieldSelector(ctrl);
         if (!ctrl.mgr.cachedFeatures) ctrl.mgr.renderHexagons();
       }
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- ctrl may be null during teardown; tests assert this guard
+
       ctrl.ctrl?.setAttribute("data-ready", "true");
       done = true;
       cleanup();
@@ -476,7 +474,6 @@ const initScan = (ctrl: HeatmapControlUI): (() => void) => {
       // hint points the user at the right fix: isLayerControl===false means
       // only the lightweight LayerAPI stub is installed (no LayerControl
       // added), whereas true means LayerControl is present but has no data.
-      // eslint-disable-next-line -- foliplus.LayerAPI optional chain: type declares non-optional, but runtime seed may be partial
       const missingLayerControl = !ctrl.mgr.map.foliplus?.LayerAPI?.isLayerControl;
       ctrl.mgr.map.foliplus!.showHint(
         ctrl.config.name,
@@ -484,7 +481,7 @@ const initScan = (ctrl: HeatmapControlUI): (() => void) => {
         HINT_DURATION.LONG,
       );
       ctrl.mgr.hasScanned = true;
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- ctrl may be null during teardown; tests assert this guard
+
       ctrl.ctrl?.setAttribute("data-ready", "true");
       done = true;
       cleanup();

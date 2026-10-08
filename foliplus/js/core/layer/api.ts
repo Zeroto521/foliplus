@@ -27,11 +27,11 @@ const ensureLayerAPI = (map: L.Map, force = false): LayerAPI => {
   // Ensure per-map hint system (creates map.foliplus if needed, idempotent).
   ensureHint(map);
   const current = map.foliplus!.LayerAPI;
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- LayerAPI may be undefined before init
+
   if (!force && current) return current;
   // force (LayerController.destroy) downgrades a live full LayerAPI to the stub;
   // an existing stub is already the target state, so keep it — idempotent.
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- current may be undefined
+
   if (force && current?.isLayerControl === false) return current;
 
   // Lightweight LayerAPI — no LayerControl, no registry, no panel.

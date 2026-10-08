@@ -137,7 +137,7 @@ const resolveProvider = (
 ): GeocodeProvider => {
   if (typeof provider === "string") {
     const factory = BUILTIN_FACTORIES[provider];
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- BUILTIN_FACTORIES may miss for unknown providers
+
     if (!factory) {
       throw new Error(log.msg(`unknown geocode provider: ${provider}`));
     }

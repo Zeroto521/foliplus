@@ -40,7 +40,7 @@ const readMarkerField = (
   if (!field) return undefined;
   const extended = marker as HeatmapPointMarker;
   if (field === "value") return extended.value;
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- options may be undefined on HeatmapPointMarker
+
   if (field === "options.value") return extended.options?.value;
   const key = bareFieldName(field);
   return marker.feature?.properties?.[key];

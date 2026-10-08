@@ -37,7 +37,7 @@ import "./_shared-registry.js";
 
 // -- Global namespace bootstrap --
 // Ensure the global namespace object exists.
-// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- window.foliplus may be undefined before init
+
 if (!window.foliplus || typeof window.foliplus !== "object") {
   window.foliplus = {} as Foliplus;
 }
@@ -63,7 +63,7 @@ if (!foliplus.isInitialized) {
   });
 
   // Core module - single file, manually registered.
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- core may be undefined before init
+
   if (!foliplus.core) foliplus.core = {};
   foliplus.core.component = { COMPONENTS, assertComponentName, generateId };
   // Mode module - single file, manually registered.

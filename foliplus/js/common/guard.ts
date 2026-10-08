@@ -9,7 +9,7 @@ import { createLogger } from "#common/log.js";
 // name is known at module level.
 const requireRuntime = (componentName: string): void => {
   const log = createLogger(componentName);
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- window.foliplus may be undefined before runtime init
+
   if (!window.foliplus) {
     throw new Error(log.msg("foliplus runtime not found, plugin disabled."));
   }

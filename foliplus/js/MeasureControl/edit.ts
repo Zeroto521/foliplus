@@ -118,7 +118,6 @@ const bindNodeDrag = (
   // which re-creates their SVG path, so a captured element reference would go
   // stale and the `move` cursor would silently stop applying.
   const setCursor = (cursor: string) => {
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- getElement may be absent on non-marker layers
     const el = ((node as L.Marker).getElement?.() as HTMLElement | null) ?? null;
     if (el) el.style.cursor = cursor;
   };

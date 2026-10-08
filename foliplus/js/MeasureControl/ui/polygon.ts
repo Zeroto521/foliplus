@@ -188,7 +188,7 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
                 d.off("click");
                 d.on("click", (event: L.LeafletMouseEvent) => {
                   const t = Util.getEventTarget(event);
-                  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- event target may be null
+
                   if (t?.closest?.(CONST.SEL.DEL_ICON)) {
                     stopEvent(event);
                     deleteMeasurement();
@@ -201,7 +201,7 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
 
             finalPoly.setLatLngs(points);
             relabel();
-            // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- onUpdate may be undefined
+
             if (onUpdate) {
               opts.area = Util.area(points);
               onUpdate();
@@ -226,7 +226,7 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
         const pIdx = findPtIdx();
         if (pIdx === -1) return;
         points[pIdx] = latlng;
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- onUpdate may be undefined
+
         if (onUpdate) {
           opts.area = Util.area(points);
           onUpdate();
@@ -255,7 +255,7 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
       },
       onEnd: () => {
         markDragSyntheticClick();
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- onUpdate may be undefined
+
         if (onUpdate) {
           opts.area = Util.area(points);
           onUpdate();

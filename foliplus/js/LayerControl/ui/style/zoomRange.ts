@@ -307,9 +307,8 @@ const ZOOM_RANGE_DIMENSION = registerDimension<{ min: number; max: number }>({
   /** Intent+persist + projection. Empty patch commits an already-written
    *  live preview (mark current intent); `{min,max}` writes then marks. */
   write: (ui, layerId, patch) => {
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- patch may be undefined for empty commits
     const min = patch?.min;
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- patch may be undefined
+
     const max = patch?.max;
     if (min !== undefined && max !== undefined) {
       void writeIntentKeys(ui, layerId, [[INTENT.ZOOM_RANGE, [min, max]]]);

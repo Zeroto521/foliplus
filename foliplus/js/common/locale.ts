@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unnecessary-condition -- locale detection uses runtime guards on potentially undefined values (navigator, window.parent, tables lookup) that TypeScript cannot verify */
-
 // Locale resolution for the foliplus runtime.
 //
 // Detects the browser language and selects a locale table from the ones

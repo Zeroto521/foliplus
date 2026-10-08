@@ -64,7 +64,7 @@ class SearchControl extends defineControl({
 
   destroy() {
     removePanel(this);
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- debouncedFetch may be null
+
     if (this.debouncedFetch) this.debouncedFetch.cancel();
     if (this.addrAbortController) this.addrAbortController.abort();
     if (this.suggestAbortController) this.suggestAbortController.abort();

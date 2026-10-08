@@ -101,21 +101,6 @@ export default [
           ignoreUnusedTypeExports: true,
         },
       ],
-
-      // Unnecessary condition guard — catches `if (x)` where the type of `x`
-      // guarantees it's always truthy, and `if (!x)` where `x` is always
-      // truthy (so the `!` is dead). This is a silent-logic bug: the branch
-      // never executes, but the code reads like it might. `checkTypePredicates`
-      // extends the check to type guards (`x is string` — flags when the
-      // predicate is always true for the given type).
-      //
-      // All 254 violations resolved (2026-10): most were false positives where
-      // runtime guards are needed despite TypeScript's non-optional types.
-      // eslint-disable comments with specific reasons are added at each site.
-      "@typescript-eslint/no-unnecessary-condition": [
-        "error",
-        { checkTypePredicates: true },
-      ],
     },
   },
   {

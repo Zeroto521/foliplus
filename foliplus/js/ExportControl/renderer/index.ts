@@ -154,9 +154,9 @@ class ExportRenderer {
     // render all passes per-layer to preserve cross-technology z-order.
     // Uses api.layers (read-only view of LayerInfoRegistry's ordered array).
     const api = map.foliplus!.LayerAPI;
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- api may be undefined despite ! assertion
+
     const layers = api?.layers;
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- layers may be undefined
+
     if (layers) {
       // Progress is reported as a share of every tile across all visible tile
       // layers, not per layer: with several visible TileLayers each of a

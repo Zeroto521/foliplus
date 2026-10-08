@@ -110,7 +110,6 @@ const attachUI = (ui: LayerUI, containerDiv: HTMLElement): void => {
   // cheap and converge on the final layer state.
   subscribeControlAttached(ui);
   setTimeout(() => {
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- uiContainer may be null before attach
     if (ui.uiContainer?.isConnected) ui.initTypesAndVisibility();
   }, 0);
 };
@@ -123,7 +122,6 @@ const attachUI = (ui: LayerUI, containerDiv: HTMLElement): void => {
  *  `vi.spyOn(ui, ...)` in tests can still observe the re-run. */
 const subscribeControlAttached = (ui: LayerUI): void => {
   ui.unsubscribeControlAttached = ui.events.on(EVENTS.CONTROL_ATTACHED, () => {
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- uiContainer may be null before attach
     if (!ui.uiContainer?.isConnected) return;
     ui.initTypesAndVisibility();
     // Re-apply is idempotent: a late-registered layer may just now have
@@ -135,7 +133,7 @@ const subscribeControlAttached = (ui: LayerUI): void => {
 /** Load every persisted dimension in one call. */
 const bindLayerEvents = (ui: LayerUI): void => {
   const container = ui.uiContainer;
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- uiContainer may be null before attach
+
   if (!container) return;
 
   ui.onChange = event => {
@@ -343,7 +341,6 @@ const bindLayerEvents = (ui: LayerUI): void => {
  *  createLayers API (Point + LineString, etc.) shows the correct icon,
  *  not the one cached at initial attach. */
 const onLayerItemCountChange = (ui: LayerUI, id: string): void => {
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- uiContainer may be null before attach
   if (!ui.uiContainer) return;
   const item = ui.uiContainer.querySelector(
     `[${CONST.DATA.LAYER_ID}="${CSS.escape(id)}"]`,
@@ -372,7 +369,6 @@ const onLayerItemCountChange = (ui: LayerUI, id: string): void => {
 
 /** Repaint every layer row from its cell — count, type, tooltip and box. */
 const refreshAllCounts = (ui: LayerUI): void => {
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- uiContainer may be null before attach
   if (!ui.uiContainer) return;
   const items = ui.uiContainer.querySelectorAll(
     `${CONST.SEL.LAYER_ITEM}:not(${CONST.SEL.TOGGLE_ALL})`,
@@ -387,7 +383,7 @@ const refreshAllCounts = (ui: LayerUI): void => {
 
 const unbindEvents = (ui: LayerUI): void => {
   const container = ui.uiContainer;
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- uiContainer may be null before attach
+
   if (!container) return;
   // Unmount must clean up unconditionally — a subscription may already have
   // been `off`'d by a third party, or is about to be. Emitting OVERLAY_CLEAR

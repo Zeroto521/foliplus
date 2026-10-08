@@ -23,7 +23,7 @@ const bindOpenOverlay = (
 ): void => {
   layer.on("click", (event: L.LeafletMouseEvent) => {
     const t = Util.getEventTarget(event);
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- event target may be null
+
     if (t?.closest?.(CONST.SEL.DEL_ICON)) return;
     openOverlay(event);
   });

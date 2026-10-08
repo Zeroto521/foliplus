@@ -119,7 +119,6 @@ const isNumericField = (fields: LabelField[], name: string): boolean =>
  * all when the layer holds no numbers.
  */
 const autoLabelField = (fields: LabelField[]): string =>
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- fields may be empty; find may return undefined
   (fields.find(f => f.numeric) ?? fields[0])?.name ?? "";
 
 /**

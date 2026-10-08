@@ -40,7 +40,7 @@ const layerHasStyleDelegation = (ui: LayerUI, layerId: string): boolean => {
 const buildDelegatedBorderRow = (ui: LayerUI, layerId: string): HTMLElement | null => {
   const layerInfo = ui.c.layerRegistry.get(layerId);
   const setters = layerInfo?.styleSetters;
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- styleSetters may be absent at runtime
+
   if (!setters || (!setters.borderWeight && !setters.borderColor)) return null;
 
   // Re-read the registry at event time so a layer torn down between open and
@@ -67,15 +67,12 @@ const buildDelegatedBorderRow = (ui: LayerUI, layerId: string): HTMLElement | nu
     weightAria: ui._("foliplus.border_weight"),
   });
   bindBorderRowShell(row, {
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- hasColor may be false at runtime
     onChangeColor: hasColor
-      ? // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- entry() may return undefined; styleSetters may be absent
-        value => entry()?.styleSetters?.borderColor?.(value)
+      ? value => entry()?.styleSetters?.borderColor?.(value)
       : undefined,
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- hasWeight may be false at runtime
+
     onChangeWeight: hasWeight
-      ? // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- entry() may return undefined; styleSetters may be absent
-        value => entry()?.styleSetters?.borderWeight?.(value)
+      ? value => entry()?.styleSetters?.borderWeight?.(value)
       : undefined,
   });
   return row;
@@ -108,7 +105,7 @@ const renderDelegatedStylePanel = (
   // Border row (HeatmapControl only today) — the component's own styling, so
   // it groups with the LayerControl-owned rows rather than as its own section.
   let borderRow: HTMLElement | null = null;
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- styleSetters keys may be absent at runtime
+
   if (setters.borderWeight || setters.borderColor) {
     borderRow = buildDelegatedBorderRow(ui, layerId);
   }

@@ -49,7 +49,7 @@ const saveFoldState = (ui: LayerUI) => {
  *  dimensions) are treated as live so markOverride never drops a new marker. */
 const hasLiveValue = (ui: LayerUI, id: string, override: LayerOverride): boolean => {
   const live = LIVE[override];
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- LIVE map may miss for future overrides
+
   return live ? live(getIntent(ui, id, override)) : true;
 };
 
@@ -183,7 +183,7 @@ const applyUserState = (ui: LayerUI, id?: string) => {
       // The color basemap has no registry entry — only its row label.
       applyNameProjection(
         null,
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- container may be null before attach
+
         container?.querySelector(
           `[${CONST.DATA.LAYER_ID}="${CSS.escape(layerId)}"]`,
         ) as HTMLElement | null,
@@ -195,7 +195,7 @@ const applyUserState = (ui: LayerUI, id?: string) => {
     if (!layerInfo) continue; // not registered yet — its stored state is kept
     applyNameProjection(
       layerInfo,
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- container may be null before attach
+
       container?.querySelector(
         `[${CONST.DATA.LAYER_ID}="${CSS.escape(layerId)}"]`,
       ) as HTMLElement | null,

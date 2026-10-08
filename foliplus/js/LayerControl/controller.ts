@@ -279,7 +279,6 @@ class LayerController implements LayerAPI {
     this.ui = null;
 
     this.debouncedEnforce = debounce(() => {
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- map may be null after destroy; container may be null
       if (this.isDestroyed || !this.map?.getContainer()) return;
       this.enforceOrder();
     }, CONST.ENFORCE_ORDER_DEBOUNCE_MS);
@@ -557,7 +556,6 @@ class LayerController implements LayerAPI {
   }
 
   registerLayer(opts: RegisterLayerOpts): HTMLElement | null {
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- opts may be undefined at runtime
     if (!opts?.id) throw new Error(this.log.msg(this.T("id_required")));
 
     // A deleted layer is refused, not erased: the id has left the registry for
@@ -643,7 +641,7 @@ class LayerController implements LayerAPI {
     if (!item) return;
     const idx = this.layerRegistry.indexOf(item);
     if (idx <= 0) return;
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- item may be undefined from indexOf
+
     if (item?.group === GROUP.BASE) return;
     this.layerRegistry.moveToFront(id);
     this.enforceOrder();
@@ -970,7 +968,7 @@ class LayerController implements LayerAPI {
    *  re-entry guard and the debounce cancellation around it. */
   enforceOrder() {
     if (this.isEnforcing) return;
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- debouncedEnforce may be undefined before init
+
     this.debouncedEnforce?.cancel();
     this.isEnforcing = true;
     try {
@@ -1043,9 +1041,9 @@ class LayerController implements LayerAPI {
 
   destroy() {
     this.isDestroyed = true;
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- map/onLayerAdd may be null after destroy
+
     if (this.map && this.onLayerAdd) this.map.off("layeradd", this.onLayerAdd);
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- debouncedEnforce may be undefined
+
     if (this.debouncedEnforce) this.debouncedEnforce.cancel();
     // Flush before destroy: the writes are debounced at 100ms, wide enough for
     // the control to be removed before the timer fires. unbindEvents also

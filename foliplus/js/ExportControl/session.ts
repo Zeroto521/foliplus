@@ -342,7 +342,7 @@ const downloadGeoTiff = function (
   // (this.savedBounds) as the primary source, falling back to
   // cropState.geoBounds for programmatic/called-outside-export use.
   const geoBounds = this.savedBounds ?? this.cropState?.geoBounds;
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- geoBounds may be undefined, nw/se may be absent from legacy records
+
   if (!geoBounds?.nw || !geoBounds?.se) {
     // GeoTIFF requires geo bounds — without them we can't embed
     // georeferencing.  Show a hint instead of silently falling back.

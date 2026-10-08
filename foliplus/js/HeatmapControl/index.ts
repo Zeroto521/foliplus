@@ -98,14 +98,14 @@ class HeatmapControl extends defineControl({
 
     const mgr = this.mgr;
     this.manager = null;
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- mapCleanup may be null
+
     if (mgr.mapCleanup) mgr.mapCleanup();
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- onZoomEnd may be null
+
     if (mgr.onZoomEnd) {
       mgr.onZoomEnd.cancel();
       mgr.map.off("zoomend", mgr.onZoomEnd);
     }
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- onLayerChange may be null
+
     if (mgr.onLayerChange) {
       mgr.onLayerChange.cancel();
       mgr.removeLayerChangeListener();

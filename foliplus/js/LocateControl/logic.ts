@@ -79,7 +79,7 @@ const locateMe = (ctrl: LocateCtrl) => {
   const T = ctrl.T;
   if (guardBlocked(map, config.name, T("blocked"))) return;
   const geo = navigator.geolocation;
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- navigator.geolocation may be undefined
+
   if (!geo) {
     map.foliplus!.showHint(config.name, T("geo_error"), HINT_DURATION.LONG);
     return;

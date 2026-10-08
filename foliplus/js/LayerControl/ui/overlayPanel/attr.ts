@@ -132,7 +132,6 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
     };
     return Object.entries(merged)
       .filter(([, v]) => {
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- metaProvider values may contain null/empty
         return v != null && v !== "";
       })
       .map(([key, value]) => [

@@ -154,7 +154,7 @@ const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
   // power users can focus without leaving the keyboard.
   if (event.altKey && event.key === "Enter" && ui.listPanel.activeIdx !== null) {
     const focusItem = items[ui.listPanel.activeIdx];
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- items array may not contain the index
+
     if (focusItem) {
       const layerId = focusItem.getAttribute(CONST.DATA.LAYER_ID) ?? "";
       if (layerId) {
@@ -207,7 +207,7 @@ const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
       }
       // Menu item (li) is focused — trigger the focus-layer action.
       // Skip disabled items so the hidden-layer guard applies to keyboard too.
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- activeElement may be null
+
       const menuLi = ((document.activeElement as HTMLElement | null)?.closest?.(
         ".foliplus-layer-more-menu li",
       ) ?? null) as HTMLElement | null;
@@ -272,7 +272,6 @@ const escapeClearCursor = (ui: LayerUI): void => {
  *  would leave the panel unreachable. */
 
 const focusLayerRow = (ui: LayerUI, layerId: string): void => {
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- uiContainer may be null; layerId may be empty string
   if (!ui.uiContainer || !layerId) return;
   ui.uiContainer
     .querySelector<HTMLElement>(`[${CONST.DATA.LAYER_ID}="${CSS.escape(layerId)}"]`)

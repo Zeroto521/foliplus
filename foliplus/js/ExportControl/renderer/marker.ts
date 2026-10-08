@@ -231,7 +231,7 @@ const renderTextLabels = async (
 
   for (const root of markerRoots) {
     const textEl = (root.querySelector(CONST.SEL.LABEL) ?? root) as HTMLElement;
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- textContent is string | null per DOM lib
+
     const text = textEl.textContent ?? "";
     if (!text.trim()) continue;
     if (root.querySelector("i")) continue;

@@ -108,7 +108,7 @@ class LayerInfoRegistry {
       null;
     const canvas = opts.canvas ?? existingLi?.canvas ?? null;
     const color = opts.color ?? existingLi?.color ?? null;
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- carrier may be undefined
+
     const custom = opts.custom ?? existingLi?.carrier?.custom;
     return {
       // A re-registration's caller name is the provider's own metadata, which
@@ -307,7 +307,6 @@ class LayerInfoRegistry {
     const overlays = [];
     const bases = [];
     for (const layerInfo of this.items) {
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- layerInfo may be undefined from iteration
       if (layerInfo?.group === GROUP.BASE) bases.push(layerInfo);
       else overlays.push(layerInfo);
     }
@@ -320,13 +319,12 @@ class LayerInfoRegistry {
    * Check whether a layer at fromIdx can be reordered to toIdx.
    * Only same-group (base↔base or overlay↔overlay) reordering is allowed. */
   canReorderBetween(fromIdx: number, toIdx: number): boolean {
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- indices may be null at runtime despite type
     if (fromIdx == null || toIdx == null) return false;
     if (fromIdx < 0 || toIdx < 0) return false;
     if (fromIdx >= this.items.length || toIdx >= this.items.length) return false;
     const from = this.items[fromIdx];
     const to = this.items[toIdx];
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- items array access may return undefined
+
     if (!from || !to) return false;
     if (from.group !== to.group) return false;
 
