@@ -159,9 +159,6 @@ class LayerController implements LayerAPI {
   declare intentStore: LayerIntentStore;
   declare onLayerAdd: (event: L.LeafletEvent) => void;
   declare getLayerPanes: (layer: L.Layer) => string[];
-  /** Initial layer seed captured by the constructor for the init phase — the
-   *  registry is built from this list (minus removed ids) inside `init()`. */
-  private readonly initialLayers: LayerInfo[];
   private readonly T: (key: string) => string;
   private readonly log: Logger;
 
@@ -175,30 +172,24 @@ class LayerController implements LayerAPI {
     this.log = env.log;
     this.events = ensureEvents(this.map);
     this.persistence = new LayerPersistence();
-    this.initialLayers = data;
-    // Delegates to `init` so the storage recovery, factory assembly, and
-    // listener wiring live in a separate phase (mirrors MeasureManager).
-    // Constructor return completes with init done; external callers never see
-    // an intermediate state.
-    this.init();
-    this.loadSavedOrder();
-    this.layerRegistry.normalizeGroups();
-    this.enforceOrder();
-    // Before any export, flush pending debounced enforceOrder so the exported
-    // image matches the panel's layer order.
-    this.events.on(EVENTS.BEFORE_EXPORT, () => this.enforceOrder());
-    // Ensure the lightweight LayerAPI exists (consumers always have a valid
-    // LayerAPI even without LayerControl), then upgrade to the full version.
-    // LayerController itself implements LayerAPI, so it becomes the map's API.
-    ensureLayerAPI(this.map);
-    this.map.foliplus!.LayerAPI = this;
+    // Delegates to `init` so storage recovery, factory assembly, application
+    // tail, and LayerAPI mounting live in a separate phase (mirrors
+    // MeasureManager). Constructor return completes with init done; external
+    // callers never see an intermediate state.
+    this.init(data);
   }
 
-  /** Second phase: storage recovery, registry/factory/domain assembly, and
-   *  listener wiring. Called synchronously from the constructor so the
-   *  external API is never observed in an intermediate state — the phase
-   *  split is semantic (deps wiring vs state assembly), not temporal. */
-  init() {
+  /** Second phase: storage recovery, registry/factory/domain assembly,
+   *  application tail (loadSavedOrder / normalizeGroups / enforceOrder /
+   *  BEFORE_EXPORT listener), and LayerAPI mounting. Called synchronously
+   *  from the constructor so the external API is never observed in an
+   *  intermediate state — the phase split is semantic (deps wiring vs state
+   *  assembly), not temporal.
+   *
+   *  @param data - Initial layer seed. The registry is built from this list
+   *   (minus removed ids) here rather than being captured on the constructor
+   *   as a field, so the init phase reads it directly. */
+  init(data: LayerInfo[]) {
     // One read of the record at construction. `order` seeds the registry's
     // starting arrangement, and `removed` gates both entry points an id can
     // reach the registry through — this bulk build and registerLayer later — so
@@ -211,7 +202,7 @@ class LayerController implements LayerAPI {
     // for every layer at page load, so gating the registry alone would drop the
     // row while the map kept painting it across a reload. One pass does both.
     this.layerRegistry = new LayerInfoRegistry(
-      this.initialLayers.filter(layerInfo => {
+      data.filter(layerInfo => {
         if (!removedIds.has(layerInfo.id)) return true;
         // Late-binding fallback (folium script-stream order) — same single
         // point as `findLayer` / ExportControl's `resolveLayer`.
@@ -360,6 +351,22 @@ class LayerController implements LayerAPI {
       getIntentStore: () => this.intentStore,
     });
     this.getLayerPanes = layer => this.domain.resolveLayerPanes(layer);
+
+    // Application tail — persisted order replay, group normalization, first
+    // enforce, and the export-listener wiring. Runs after the assembly phase
+    // above so `this.order` / `this.layerRegistry` / `this.factory` / `this.domain`
+    // are all populated when these run.
+    this.loadSavedOrder();
+    this.layerRegistry.normalizeGroups();
+    this.enforceOrder();
+    // Before any export, flush pending debounced enforceOrder so the exported
+    // image matches the panel's layer order.
+    this.events.on(EVENTS.BEFORE_EXPORT, () => this.enforceOrder());
+    // Ensure the lightweight LayerAPI exists (consumers always have a valid
+    // LayerAPI even without LayerControl), then upgrade to the full version.
+    // LayerController itself implements LayerAPI, so it becomes the map's API.
+    ensureLayerAPI(this.map);
+    this.map.foliplus!.LayerAPI = this;
   }
 
   /** Ordered layers (read-only view; always reflects the registry). */
