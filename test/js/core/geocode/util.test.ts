@@ -40,7 +40,7 @@ describe("withParams", () => {
   it("appends params and skips nullish values", () => {
     const url = withParams("https://api.example.com/search?q=x", {
       size: "5",
-      skip: null,
+      skip: null as any,
     });
     expect(url).toContain("q=x");
     expect(url).toContain("size=5");

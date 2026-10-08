@@ -192,7 +192,7 @@ describe("attachPolygonUI", () => {
     const centroidDel = (buildDelIcon as any).mock.results[0].value;
     const node0Del = (buildDelIcon as any).mock.results[1].value;
     const centroidDot = (window.L.circleMarker as any).mock.results[0].value;
-    const centroidEl = { style: {} };
+    const centroidEl: { style: { cursor?: string } } = { style: {} };
     centroidDot.getElement = vi.fn(() => centroidEl);
 
     const toggle = (mgr.registerEditDragToggle as any).mock.calls[0][0];

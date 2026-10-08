@@ -13,7 +13,7 @@ afterEach(() => {
 });
 
 describe("getPointValue", () => {
-  let m;
+  let m: any;
 
   beforeEach(() => {
     m = makeManager();
@@ -234,7 +234,7 @@ describe("HeatmapManager — caching & lifecycle", () => {
 
   it("resolveLabelStyle caches the computed style", () => {
     const m = makeManager();
-    m.ui = { ctrl: document.createElement("div") };
+    m.ui = { ctrl: document.createElement("div") } as any;
     const style1 = m.resolveLabelStyle();
     const style2 = m.resolveLabelStyle();
     expect(style1).toBe(style2);
@@ -243,7 +243,7 @@ describe("HeatmapManager — caching & lifecycle", () => {
 
   it("resolveLabelStyle picks up a runtime size change after cache clear", () => {
     const m = makeManager();
-    m.ui = { ctrl: document.createElement("div") };
+    m.ui = { ctrl: document.createElement("div") } as any;
     m.resolveLabelStyle();
     m.labelSize = 18;
     m.cachedLabelStyle = null;
@@ -473,7 +473,7 @@ describe("getSelectedPoints", () => {
     const pts = m.getSelectedPoints();
     expect(pts).toHaveLength(2);
     expect(m.cachedPoints).toBeDefined();
-    expect(m.cachedPoints.key).toContain("layer1");
+    expect(m.cachedPoints!.key).toContain("layer1");
   });
 });
 
@@ -1062,7 +1062,7 @@ describe("event-bus bindings", () => {
     m.cachedPoints = { key: "p", pts: [] } as HeatmapManager["cachedPoints"];
 
     vi.useFakeTimers();
-    ensureEvents(m.map).emit(EVENTS.LAYER_CHANGE as never);
+    ensureEvents(m.map).emit(EVENTS.LAYER_CHANGE as string);
     await vi.runOnlyPendingTimersAsync();
     vi.useRealTimers();
 
@@ -1072,7 +1072,7 @@ describe("event-bus bindings", () => {
 
   it.each(["tile", "solid", "canvas"])(
     "ignores a LAYER_CHANGE whose kind (%s) can never hold point markers",
-    async kind => {
+    async (kind: any) => {
       // A tile basemap, a solid color face and a self-drawn canvas all answer
       // "base"/null from getLayerType, so getLayersByType("point") never
       // returned them — their churn cannot change the source list. The payload
@@ -1214,7 +1214,7 @@ describe("HeatmapManager — style delegation", () => {
     expect(typeof opts.styleSetters?.labelFormat).toBe("function");
     // Aggregation field is data config — not delegated into the style drawer.
     expect(opts.styleSetters?.field).toBeUndefined();
-    expect(opts.fieldOptions).toBeUndefined();
+    expect((opts as any).fieldOptions).toBeUndefined();
   });
 
   it("styleProvider returns the live labelShow, color, size and format values", () => {
@@ -1771,7 +1771,7 @@ describe("featureCountProvider", () => {
 
   it("returns the feature count when cachedFeatures is set", () => {
     const m = makeManager();
-    m.cachedFeatures = [{}, {}, {}];
+    m.cachedFeatures = [{}, {}, {}] as any;
     const opts = window.map.foliplus.LayerAPI.createCanvas.mock.calls[0][0];
     expect(opts.featureCountProvider()).toBe(3);
   });

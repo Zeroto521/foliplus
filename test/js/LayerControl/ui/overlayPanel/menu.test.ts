@@ -314,7 +314,7 @@ describe("LayerUI menu", () => {
     it("double-click on a base basemap row does not call focusLayer", () => {
       const item = findItem(ui, "base1");
       const focusSpy = vi.spyOn(ui, "focusLayer");
-      ui.handleDblClick({ target: item, bubbles: true } as MouseEvent);
+      ui.handleDblClick({ target: item, bubbles: true } as unknown as MouseEvent);
       expect(focusSpy).not.toHaveBeenCalled();
       focusSpy.mockRestore();
     });
@@ -446,7 +446,9 @@ describe("LayerUI menu", () => {
 
       const lis = Array.from(item.querySelectorAll(".foliplus-layer-more-menu > li"));
       const divider = lis.find(li => li.classList.contains(CONST.CLASSES.MENU_DIVIDER));
-      const deleteLi = lis.find(li => li.dataset.action === CONST.ACTION.DELETE_LAYER);
+      const deleteLi = lis.find(
+        li => (li as HTMLElement).dataset.action === CONST.ACTION.DELETE_LAYER,
+      );
       expect(divider).toBeDefined();
       expect(deleteLi).toBeDefined();
       expect(lis.indexOf(divider!)).toBe(lis.length - 2);
@@ -456,7 +458,7 @@ describe("LayerUI menu", () => {
     it("renders a delete entry for the colour basemap, not disabled", () => {
       const colorItem = ui.uiContainer.querySelector(
         `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
-      )!;
+      ) as HTMLElement;
       ui.openMoreMenu(colorItem);
 
       const deleteLi = deleteEntryOf(colorItem);
@@ -584,7 +586,7 @@ describe("LayerUI menu", () => {
     it("arms on the first click and deletes on the second for the colour basemap", () => {
       const item = ui.uiContainer.querySelector(
         `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
-      )!;
+      ) as HTMLElement;
       ui.openMoreMenu(item);
       const deleteLi = deleteEntryOf(item);
 
@@ -632,7 +634,9 @@ describe("LayerUI menu", () => {
         layer: { options: {}, eachLayer: vi.fn() },
         styleSetters: {},
       } as never);
-      const item = ui.uiContainer.querySelector(`[${CONST.DATA.LAYER_ID}="measure1"]`)!;
+      const item = ui.uiContainer.querySelector(
+        `[${CONST.DATA.LAYER_ID}="measure1"]`,
+      ) as HTMLElement;
       ui.openMoreMenu(item);
       const deleteLi = deleteEntryOf(item)!;
       expect(deleteLi.dataset.mode).toBe("clear");
@@ -784,7 +788,9 @@ describe("LayerUI menu", () => {
 
   describe("more button keyboard shortcut", () => {
     it("Enter on more button opens the menu instead of toggling the checkbox", () => {
-      const btn = findItem(ui, "overlay1").querySelector(`.${CONST.CLASSES.MORE_BTN}`)!;
+      const btn = findItem(ui, "overlay1").querySelector(
+        `.${CONST.CLASSES.MORE_BTN}`,
+      ) as HTMLElement;
       const item = findItem(ui, "overlay1");
 
       // Spy on checkbox dispatchEvent to prove toggle wasn't triggered.
@@ -793,7 +799,7 @@ describe("LayerUI menu", () => {
       HTMLInputElement.prototype.dispatchEvent = function (...args: any[]) {
         const ev = args[0] as Event;
         if (ev.type === "change") toggleSpy();
-        return origDispatchEvent.apply(this, args);
+        return origDispatchEvent.apply(this, args as [Event]);
       };
 
       // Focus the more button so document.activeElement is inside the
@@ -857,7 +863,7 @@ describe("LayerUI menu", () => {
         opacity: "none",
         zoomRange: "none",
         annotation: "none",
-        relocatable: false,
+        relocatable: false as any,
       };
 
       const item = findItem(ui, "overlay1");

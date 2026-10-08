@@ -4,6 +4,7 @@ import {
   ExportRenderer,
   isCorsBlocked,
 } from "#foliplus/ExportControl/renderer/index.js";
+import type { TileDesc } from "#foliplus/ExportControl/type.js";
 import * as UTIL from "#foliplus/ExportControl/util.js";
 import { captureSources, pinBox } from "./renderer/fixture.js";
 
@@ -148,13 +149,13 @@ const tilesNearCenter = (n: number) =>
 /** Give every tile real output coordinates so the draw call has something to
  *  paint and the drawn counter can advance. */
 
-const withPixels = (tiles: unknown[]) =>
+const withPixels = (tiles: TileDesc[]) =>
   tiles.map(t => ({
     ...t,
-    dx: (t as any).left,
-    dy: (t as any).top,
-    dw: (t as any).size,
-    dh: (t as any).size,
+    dx: t.left,
+    dy: t.top,
+    dw: t.size,
+    dh: t.size,
   }));
 /** renderTileLayer takes the clipped list, not the layer: build the input it
  *  draws by running the real viewport filter over `tilesNearCenter`.  The
@@ -197,14 +198,15 @@ describe("ExportRenderer.render — canvas creation", () => {
   beforeEach(() => {
     container = document.createElement("div");
     container.id = "test";
-    container.getBoundingClientRect = () => ({
-      left: 0,
-      top: 0,
-      width: 800,
-      height: 600,
-      right: 800,
-      bottom: 600,
-    });
+    container.getBoundingClientRect = () =>
+      ({
+        left: 0,
+        top: 0,
+        width: 800,
+        height: 600,
+        right: 800,
+        bottom: 600,
+      }) as DOMRect;
     const map = {
       options: { crs: makeEPSG3857Mock() },
       getContainer: () => container,
@@ -334,12 +336,12 @@ describe("ExportRenderer.renderTileLayer — onProgress", () => {
     // whole layer: it is simply left out of the count and the rest is drawn.
     stubBitmaps();
     const ctx = makeMockCtx();
-    ctx.drawImage.mockImplementation((src?: unknown) => {
+    (ctx.drawImage as any).mockImplementation((src?: unknown) => {
       if (src && typeof src === "object" && (src as { _bad?: boolean })._bad) {
         throw new Error("draw failed");
       }
     });
-    UTIL.loadImageBitmap
+    (UTIL.loadImageBitmap as any)
       .mockImplementationOnce(() =>
         Promise.resolve({ _bad: true, close: () => {} } as any),
       )
@@ -1039,7 +1041,7 @@ describe("ExportRenderer.render — layer pass routing", () => {
     expect(textPasses).toHaveBeenCalledTimes(1);
     expect(remainingPasses).toHaveBeenCalledTimes(1);
     // Same single argument across the chain: the roots the sweep produced.
-    const rootsArg = markerPasses.mock.calls[0][1];
+    const rootsArg: HTMLElement[] = markerPasses.mock.calls[0][1] as HTMLElement[];
     expect(rootsArg).toHaveLength(1);
     expect(rootsArg[0]).toBe(markerEl);
     expect(iconPasses.mock.calls[0][1]).toBe(rootsArg);

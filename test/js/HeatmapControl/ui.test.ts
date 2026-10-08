@@ -734,7 +734,7 @@ describe("buildLayerListItems — null extraBody tolerance", () => {
     m.hasScanned = false;
     m.selectedLayerId = null;
     const ctrl = makeCtrl(m, makeConfig());
-    ctrl.extraBody = null;
+    ctrl.extraBody = null as any;
     expect(() => rebuildLayerDropdown(ctrl)).not.toThrow();
     expect(m.selectedLayerId).toBe("p1");
   });
@@ -744,7 +744,7 @@ describe("buildLayerListItems — null extraBody tolerance", () => {
     m.pointLayers = [{ id: "p1", name: "P1", layer: {}, count: 1 }];
     const ctrl = makeCtrl(m, makeConfig());
     rebuildLayerDropdown(ctrl);
-    ctrl.extraBody = null;
+    ctrl.extraBody = null as any;
     ctrl.layerSelect.value = "p1";
     fire(ctrl.layerSelect, "change");
     expect(m.selectedLayerId).toBe("p1");
@@ -754,7 +754,7 @@ describe("buildLayerListItems — null extraBody tolerance", () => {
     const m = makeManager();
     m.pointLayers = [{ id: "p1", name: "P1", layer: {}, count: 1 }];
     const ctrl = makeCtrl(m, makeConfig());
-    ctrl.extraBody = null;
+    ctrl.extraBody = null as any;
     rebuildLayerDropdown(ctrl);
     expect(ctrl.layerSelect.value).toBe("p1");
   });
@@ -764,7 +764,7 @@ describe("rebuildLayerDropdown — null layerSelect", () => {
   it("no-ops when layerSelect is null", () => {
     const m = makeManager();
     const ctrl = makeCtrl(m, makeConfig());
-    ctrl.layerSelect = null;
+    ctrl.layerSelect = null as any;
     expect(() => rebuildLayerDropdown(ctrl)).not.toThrow();
   });
 });
@@ -772,7 +772,7 @@ describe("rebuildLayerDropdown — null layerSelect", () => {
 describe("updateFieldSelector — null field controls", () => {
   it("agg change tolerates a null fieldWrap", () => {
     const { ctrl, m } = setup();
-    ctrl.fieldWrap = null;
+    ctrl.fieldWrap = null as any;
     ctrl.aggSelect.value = CONST.AGG.SUM;
     fire(ctrl.aggSelect, "change");
     expect(m.agg).toBe(CONST.AGG.SUM);
@@ -780,7 +780,7 @@ describe("updateFieldSelector — null field controls", () => {
 
   it("agg change tolerates a null fieldSelect", () => {
     const { ctrl, m } = setup();
-    ctrl.fieldSelect = null;
+    ctrl.fieldSelect = null as any;
     ctrl.aggSelect.value = CONST.AGG.SUM;
     fire(ctrl.aggSelect, "change");
     expect(m.agg).toBe(CONST.AGG.SUM);

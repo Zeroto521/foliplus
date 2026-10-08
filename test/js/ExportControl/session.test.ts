@@ -75,13 +75,16 @@ function makeManager(
   return manager;
 }
 
-function setCropState(manager, rect = { left: 10, top: 10, width: 100, height: 100 }) {
+function setCropState(
+  manager: any,
+  rect = { left: 10, top: 10, width: 100, height: 100 },
+) {
   const box = document.createElement("div");
   manager.cropState = { rect, locked: false, box, geoBounds: null };
 }
 
 describe("sessionMethods — export events", () => {
-  let manager;
+  let manager: any;
 
   beforeEach(() => {
     manager = makeManager();
@@ -143,7 +146,7 @@ describe("sessionMethods — export events", () => {
 });
 
 describe("sessionMethods — download paths", () => {
-  let manager;
+  let manager: any;
 
   beforeAll(async () => {
     const geotiff = (await import("geotiff")) as any;

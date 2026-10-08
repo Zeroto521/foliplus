@@ -21,14 +21,14 @@ import { getLayerAlpha, setLayerAlpha } from "#common/canvasAlpha.js";
 // `shouldUnregister` there rather than reworking this file's fixtures.
 
 describe("LayerFactory", () => {
-  let factory;
-  let map;
-  let panes;
-  let registerLayer;
-  let unregisterLayer;
-  let bringLayerToFront;
-  let invalidateType;
-  let slotOf;
+  let factory: any;
+  let map: any;
+  let panes: any;
+  let registerLayer: any;
+  let unregisterLayer: any;
+  let bringLayerToFront: any;
+  let invalidateType: any;
+  let slotOf: any;
 
   beforeEach(() => {
     class TileLayer {
@@ -116,7 +116,7 @@ describe("LayerFactory", () => {
     invalidateType = vi.fn();
     // A real registry answers a slot; the lightweight LayerAPI answers null,
     // which leaves the pane at Leaflet's own z.
-    slotOf = vi.fn(() => ({ index: 0, count: 3, group: "overlay" }));
+    slotOf = vi.fn(() => ({ index: 0, count: 3, group: "overlay" as const }));
 
     factory = new LayerFactory({
       map,
@@ -306,7 +306,7 @@ describe("LayerFactory", () => {
       api.mainLayer.addLayer(layer);
       expect(layer.options.pane).toBe("graph1");
       // The sub-layer, not mainLayer, now owns the leaf.
-      const subLayers = Array.from(api.mainLayer.getLayers());
+      const subLayers: any[] = Array.from(api.mainLayer.getLayers());
       expect(subLayers.length).toBe(2); // graph + label sub-layers
       const graphSub = subLayers.find(g => g.options.pane === "graph1");
       expect(graphSub.hasLayer(layer)).toBe(true);
@@ -324,7 +324,7 @@ describe("LayerFactory", () => {
       // the factory's declared pane list — no separate flag needed.
       api.mainLayer.addLayer(layer);
       expect(layer.options.pane).toBe("label1");
-      const subLayers = Array.from(api.mainLayer.getLayers());
+      const subLayers: any[] = Array.from(api.mainLayer.getLayers());
       const labelSub = subLayers.find(g => g.options.pane === "label1");
       expect(labelSub.hasLayer(layer)).toBe(true);
     });
@@ -342,7 +342,7 @@ describe("LayerFactory", () => {
       layer.options.pane = "__not_ours__";
       api.mainLayer.addLayer(layer);
       // Not directly on mainLayer — it is in the base sub-layer.
-      const subLayers = Array.from(api.mainLayer.getLayers());
+      const subLayers: any[] = Array.from(api.mainLayer.getLayers());
       const directOnMain = subLayers.filter(g => g === layer).length;
       expect(directOnMain).toBe(0);
       expect(subLayers.some(g => g.hasLayer(layer))).toBe(true);
@@ -760,7 +760,7 @@ describe("LayerFactory", () => {
       api.mainLayer.addLayer(layer);
       // The layer is pinned to the base sub-layer, not directly on mainLayer.
       expect(api.mainLayer.getLayers()).not.toContain(layer);
-      const subLayers = Array.from(api.mainLayer.getLayers());
+      const subLayers: any[] = Array.from(api.mainLayer.getLayers());
       expect(subLayers.some(g => g.hasLayer(layer))).toBe(true);
     });
   });
@@ -806,6 +806,7 @@ describe("LayerFactory", () => {
         },
         unregisterLayer: () => true,
         bringLayerToFront: () => {},
+        invalidateType: () => {},
       });
       const onOpacity = vi.fn();
       f.createCanvas({
@@ -969,7 +970,7 @@ describe("LayerFactory", () => {
     });
 
     it("creates no pane before register, then prices the pane at its slot z", () => {
-      const slot = { index: 2, count: 4, group: "overlay" };
+      const slot = { index: 2, count: 4, group: "overlay" as const };
       slotOf.mockReturnValue(slot);
       const api = factory.createCanvas({ id: "canvas_test" });
       const paneName = "foliplus-canvas-canvas_test";
@@ -1044,7 +1045,7 @@ describe("LayerFactory", () => {
       try {
         const api = factory.createCanvas({ id: "canvas_test" });
         const handlers = Object.fromEntries(
-          map.on.mock.calls.map(([ev, cb]) => [ev, cb]),
+          map.on.mock.calls.map(([ev, cb]: [any, any]) => [ev, cb]),
         ) as Record<string, () => void>;
 
         window.L.DomUtil.getPosition = vi.fn(() => ({ x: -30, y: -12 }));
@@ -1301,7 +1302,7 @@ describe("LayerFactory", () => {
       // covered: a fresh pane carries Leaflet's default z of 400 — above every
       // basemap — so the pane is not born until register, when its slot
       // already exists and the slot's z can be written at birth.
-      const slot = { index: 0, count: 2, group: "base" };
+      const slot = { index: 0, count: 2, group: "base" as const };
       slotOf.mockReturnValue(slot);
       const h = make("solid");
       expect(map._panes["foliplus-color-solid"]).toBeUndefined();
@@ -1348,6 +1349,7 @@ describe("LayerFactory", () => {
         },
         unregisterLayer: () => true,
         bringLayerToFront: () => {},
+        invalidateType: () => {},
       });
       const h = f.createColor({ id: "solid", color: "#3366cc" });
       h.register();
@@ -1375,7 +1377,7 @@ describe("LayerFactory", () => {
       try {
         const h = make("solid");
         const handlers = Object.fromEntries(
-          map.on.mock.calls.map(([ev, cb]) => [ev, cb]),
+          map.on.mock.calls.map(([ev, cb]: [any, any]) => [ev, cb]),
         ) as Record<string, () => void>;
 
         window.L.DomUtil.getPosition = vi.fn(() => ({ x: -30, y: -12 }));

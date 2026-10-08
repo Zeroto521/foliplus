@@ -124,7 +124,7 @@ describe("attachDistanceUI", () => {
       const mgr = makeMgr(config);
       UI.attachDistanceUI(mgr as any, makeOpts() as any);
 
-      const titles = (buildDelIcon as any).mock.calls.map(c => c[1]?.title);
+      const titles = (buildDelIcon as any).mock.calls.map((c: any) => c[1]?.title);
       expect(titles).toEqual(["INJECTED del_all", "INJECTED del_all"]);
       expect(mgr.T).toHaveBeenCalledWith("del_all");
       expect(mgr.T).not.toHaveBeenCalledWith("del_node");
@@ -326,7 +326,7 @@ describe("attachDistanceUI", () => {
       } as any,
     );
 
-    const priorities = registerLabel.mock.calls.map(c => c[1]);
+    const priorities = registerLabel.mock.calls.map((c: any) => c[1]);
     expect(priorities).toEqual([
       CONST.LABEL_PRIORITY_BY_ROLE.SEGMENT,
       CONST.LABEL_PRIORITY_BY_ROLE.SEGMENT,
@@ -367,14 +367,14 @@ describe("attachDistanceUI", () => {
       } as any,
     );
 
-    expect(registerLabel.mock.calls.map(c => c[1])).toEqual([
+    expect(registerLabel.mock.calls.map((c: any) => c[1])).toEqual([
       CONST.LABEL_PRIORITY_BY_ROLE.SEGMENT,
       CONST.LABEL_PRIORITY_BY_ROLE.TOTAL,
     ]);
 
     (buildDelIcon.mock.results[1].value as any)._delClick();
 
-    const lastCall = registerLabel.mock.calls.at(-1);
+    const lastCall = registerLabel.mock.calls.at(-1) as any[];
     expect(lastCall?.[1]).toBe(CONST.LABEL_PRIORITY_BY_ROLE.TOTAL);
   });
 });

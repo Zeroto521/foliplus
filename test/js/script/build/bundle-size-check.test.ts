@@ -23,7 +23,7 @@ import {
   toolVersion,
 } from "#script/build/bundle-size-check.mjs";
 import { stripLeadingBlockComment } from "#script/build/bundle-size-lib.mjs";
-import { runCli, trapExit } from "../../fixture";
+import { runCli, trapExit } from "../../fixture.js";
 
 type BundleArgs = {
   help: boolean;
@@ -1002,7 +1002,7 @@ describe("toolchain drift", () => {
       if (typeof text === "string" && /"name"\s*:\s*"esbuild"/.test(text)) {
         throw new Error("bad json");
       }
-      return parse(text, ...rest);
+      return parse(text, ...(rest as any[]));
     }) as typeof JSON.parse;
     try {
       const out = runCheck(root, {

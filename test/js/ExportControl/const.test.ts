@@ -124,7 +124,7 @@ describe("resolveFormat", () => {
     expect(CONST.resolveFormat("tif")).toBe("png");
     expect(CONST.resolveFormat("jpeg2000")).toBe("png");
     expect(CONST.resolveFormat(undefined)).toBe("png");
-    expect(CONST.resolveFormat()).toBe("png");
+    expect((CONST.resolveFormat as (raw?: unknown) => string)()).toBe("png");
   });
 
   it("rejects inherited property names", () => {

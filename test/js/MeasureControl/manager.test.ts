@@ -607,7 +607,7 @@ describe("MeasureManager — applyEditMode", () => {
   it("clearAll drops the layer id from the stored order so a redraw lands on top", () => {
     const { manager, map } = makeManager();
     const forgetSavedOrder = vi.fn(() => true);
-    map.foliplus.LayerAPI.forgetSavedOrder = forgetSavedOrder;
+    (map.foliplus.LayerAPI as any).forgetSavedOrder = forgetSavedOrder;
 
     manager.clearAll();
 
@@ -616,7 +616,7 @@ describe("MeasureManager — applyEditMode", () => {
 
   it("clearAll tolerates a LayerAPI without forgetSavedOrder", () => {
     const { manager, map } = makeManager();
-    delete map.foliplus.LayerAPI.forgetSavedOrder;
+    delete (map.foliplus.LayerAPI as any).forgetSavedOrder;
     expect(() => manager.clearAll()).not.toThrow();
   });
 

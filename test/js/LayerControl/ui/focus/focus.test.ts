@@ -75,9 +75,9 @@ vi.mock("#core/mode.js", () => ({
 describe("LayerUI focusLayer — interaction lock", () => {
   // Shorthands for the live mock spies. These are the SAME function objects
   // the code under test (focusLayer / dismissFocus) calls.
-  const setModeSpy = modeMocks._setMode as ReturnType<typeof vi.fn>;
-  const getModeSpy = modeMocks._getMode as ReturnType<typeof vi.fn>;
-  const guardBlockedSpy = modeMocks.guardBlocked as ReturnType<typeof vi.fn>;
+  const setModeSpy = modeMocks._setMode as any;
+  const getModeSpy = modeMocks._getMode as any;
+  const guardBlockedSpy = modeMocks.guardBlocked as any;
 
   let ui: LayerUI;
   let map: any;
@@ -314,7 +314,7 @@ describe("LayerUI focus", () => {
       // 4 corners x (2 tangents + 2 bezier mids) = 16 points, closed loop.
       const rings = (L.polygon as unknown as ReturnType<typeof vi.fn>).mock.calls.at(
         -1,
-      )[0] as L.LatLng[];
+      )![0] as L.LatLng[];
       expect(rings.length).toBe(16);
       expect(map.addLayer).toHaveBeenCalled();
     });
@@ -363,14 +363,13 @@ describe("LayerUI focus", () => {
       // addLayer may be called for the rectangle overlay, but NOT for the
       // layer itself (already on the map).
       const layerArgs = map.addLayer.mock.calls
-        .map(c => c[0])
+        .map((c: any) => c[0])
         .filter((arg: any) => arg && typeof arg.getBounds === "function");
       expect(layerArgs.length).toBe(0);
     });
 
     it("bails out when bounds are invalid", () => {
       const layer = manager.findLayer(manager.layerRegistry.get("overlay1")!);
-      // @ts-expect-error — override mocked getBounds
       layer.getBounds.mockImplementationOnce(() => ({ isValid: () => false }));
 
       ui.focusLayer("overlay1");
@@ -383,9 +382,8 @@ describe("LayerUI focus", () => {
       // A third-party layer without getBounds() — focus must fall back to
       // summing its children's bounds instead of throwing.
       const layer = manager.findLayer(manager.layerRegistry.get("overlay1")!);
-      // @ts-expect-error — strip getBounds to simulate a custom L.Layer subclass
       layer.getBounds = undefined;
-      // @ts-expect-error — eachLayer iterates two leaf children
+      // eachLayer iterates two leaf children
       layer.eachLayer = (fn: (c: unknown) => void) => {
         for (const b of [
           { sw: { lat: 30, lng: 100 }, ne: { lat: 40, lng: 110 } },
@@ -516,7 +514,6 @@ describe("LayerUI focus", () => {
         getNorthEast: () => ({ lat: 30.000001, lng: 100.000001 }),
         getCenter: () => ({ lat: 30, lng: 100 }),
       };
-      // @ts-expect-error — override mocked getBounds
       layer.getBounds.mockReturnValue(tinyBounds);
 
       ui.focusLayer("overlay1");
@@ -594,7 +591,7 @@ describe("LayerUI focus", () => {
         c => (c[1] as { className?: string })?.className === "foliplus-focus-mask",
       );
       expect(maskCall).toBeTruthy();
-      const rings = maskCall![0];
+      const rings = maskCall![0] as any;
       expect(rings).toHaveLength(2);
       // Outer ring = the Web-Mercator world envelope: ±85.05° latitude
       // (just inside the Mercator poles) and ±180° longitude. Chosen so the
@@ -620,7 +617,7 @@ describe("LayerUI focus", () => {
 
       ui.focusLayer("overlay1");
 
-      const opts = polygonSpy.mock.calls[0][1];
+      const opts = polygonSpy.mock.calls[0][1] as any;
       expect(opts.fillOpacity).toBe(CONST.FOCUS.MASK_OPACITY);
       expect(opts.fillColor).toBe("#000000");
       expect(opts.stroke).toBe(false);
@@ -699,7 +696,7 @@ describe("LayerUI focus", () => {
         (c: unknown[]) =>
           Array.isArray((c[0] as unknown[])?.[0]) && (c[0] as unknown[]).length === 2,
       );
-      const hole = (maskCalls.at(-1)![0] as unknown[])[1];
+      const hole = (maskCalls.at(-1)![0] as unknown[])[1] as any;
       expect(hole[0]).toEqual({ lat: 35, lng: 105 });
 
       // And it still tears down cleanly.
@@ -719,7 +716,6 @@ describe("LayerUI focus", () => {
         getNorthEast: () => ({ lat: 30.000001, lng: 100.000001 }),
         getCenter: () => ({ lat: 30, lng: 100 }),
       };
-      // @ts-expect-error — override mocked getBounds
       layer.getBounds.mockReturnValue(tinyBounds);
 
       ui.focusLayer("overlay1");
@@ -1049,7 +1045,7 @@ describe("LayerUI focus", () => {
       ui.focusLayer("tiles");
 
       // The layer's own pane got the focus class — the direct lift path.
-      const layerPane = map.getPane(gridLayer.options.pane);
+      const layerPane = map.getPane((gridLayer.options as any).pane);
       expect(layerPane?.classList.contains(CONST.CLASSES.FOCUS_PANE)).toBe(true);
 
       ui.cancelFocus();
@@ -1220,7 +1216,7 @@ describe("LayerUI focus", () => {
       const label = findItem(ui, "overlay1").querySelector(
         `.${CONST.CLASSES.LAYER_LABEL}`,
       )!;
-      ui.handleDblClick({ target: label, bubbles: true } as MouseEvent);
+      ui.handleDblClick({ target: label, bubbles: true } as unknown as MouseEvent);
       expect(focusSpy).toHaveBeenCalledWith("overlay1");
       focusSpy.mockRestore();
     });
@@ -1230,7 +1226,7 @@ describe("LayerUI focus", () => {
       const more = findItem(ui, "overlay1").querySelector(
         `.${CONST.CLASSES.MORE_BTN}`,
       )!;
-      ui.handleDblClick({ target: more, bubbles: true } as MouseEvent);
+      ui.handleDblClick({ target: more, bubbles: true } as unknown as MouseEvent);
       expect(focusSpy).not.toHaveBeenCalled();
       focusSpy.mockRestore();
     });
@@ -1243,7 +1239,7 @@ describe("LayerUI focus", () => {
       const checkbox = findItem(ui, "overlay1").querySelector(
         'input[type="checkbox"]',
       )!;
-      ui.handleDblClick({ target: checkbox, bubbles: true } as MouseEvent);
+      ui.handleDblClick({ target: checkbox, bubbles: true } as unknown as MouseEvent);
       expect(focusSpy).not.toHaveBeenCalled();
       focusSpy.mockRestore();
     });
@@ -1254,7 +1250,7 @@ describe("LayerUI focus", () => {
       const focusSpy = vi.spyOn(ui, "focusLayer");
       const item = findItem(ui, "base1");
 
-      ui.handleDblClick({ target: item, bubbles: true } as MouseEvent);
+      ui.handleDblClick({ target: item, bubbles: true } as unknown as MouseEvent);
 
       expect(focusSpy).not.toHaveBeenCalled();
       expect(hintSpy).toHaveBeenCalledWith(
@@ -1274,7 +1270,7 @@ describe("LayerUI focus", () => {
       const checkbox = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
       checkbox.checked = false;
 
-      ui.handleDblClick({ target: item, bubbles: true } as MouseEvent);
+      ui.handleDblClick({ target: item, bubbles: true } as unknown as MouseEvent);
       expect(focusSpy).toHaveBeenCalledWith("overlay1");
       focusSpy.mockRestore();
     });
@@ -1282,7 +1278,7 @@ describe("LayerUI focus", () => {
     it("does NOT focus the layer on a dblclick of the fold button", () => {
       const focusSpy = vi.spyOn(ui, "focusLayer");
       const { foldBtn } = attachWithGroup(ui);
-      ui.handleDblClick({ target: foldBtn, bubbles: true } as MouseEvent);
+      ui.handleDblClick({ target: foldBtn, bubbles: true } as unknown as MouseEvent);
       expect(focusSpy).not.toHaveBeenCalled();
       focusSpy.mockRestore();
     });
@@ -1294,7 +1290,7 @@ describe("LayerUI focus", () => {
         `.${CONST.CLASSES.RENAME_INPUT}`,
       ) as HTMLElement;
       expect(input).not.toBeNull();
-      ui.handleDblClick({ target: input, bubbles: true } as MouseEvent);
+      ui.handleDblClick({ target: input, bubbles: true } as unknown as MouseEvent);
       expect(focusSpy).not.toHaveBeenCalled();
       focusSpy.mockRestore();
     });
@@ -1310,7 +1306,7 @@ describe("LayerUI focus", () => {
         ".foliplus-layer-more-menu li",
       ) as HTMLElement;
       expect(menuItem).not.toBeNull();
-      ui.handleDblClick({ target: menuItem, bubbles: true } as MouseEvent);
+      ui.handleDblClick({ target: menuItem, bubbles: true } as unknown as MouseEvent);
       expect(focusSpy).not.toHaveBeenCalled();
       focusSpy.mockRestore();
     });
@@ -1320,7 +1316,7 @@ describe("LayerUI focus", () => {
       const handle = findItem(ui, "overlay1").querySelector(
         ".drag-handle",
       ) as HTMLElement;
-      ui.handleDblClick({ target: handle, bubbles: true } as MouseEvent);
+      ui.handleDblClick({ target: handle, bubbles: true } as unknown as MouseEvent);
       expect(focusSpy).not.toHaveBeenCalled();
       focusSpy.mockRestore();
     });
@@ -1337,7 +1333,7 @@ describe("LayerUI focus", () => {
         ".foliplus-toggle-slider",
       ) as HTMLElement;
       expect(slider).not.toBeNull();
-      ui.handleDblClick({ target: slider, bubbles: true } as MouseEvent);
+      ui.handleDblClick({ target: slider, bubbles: true } as unknown as MouseEvent);
       expect(focusSpy).not.toHaveBeenCalled();
       focusSpy.mockRestore();
       ui.closeStylePanel(false);
@@ -1355,7 +1351,7 @@ describe("LayerUI focus", () => {
         `.${CONST.CLASSES.STYLE_FIELD_SELECT}`,
       ) as HTMLElement;
       expect(select).not.toBeNull();
-      ui.handleDblClick({ target: select, bubbles: true } as MouseEvent);
+      ui.handleDblClick({ target: select, bubbles: true } as unknown as MouseEvent);
       expect(focusSpy).not.toHaveBeenCalled();
       focusSpy.mockRestore();
       ui.closeStylePanel(false);
@@ -1375,7 +1371,7 @@ describe("LayerUI focus", () => {
       const slider = collide.parentElement!.querySelector(
         ".foliplus-toggle-slider",
       ) as HTMLElement;
-      ui.handleDblClick({ target: slider, bubbles: true } as MouseEvent);
+      ui.handleDblClick({ target: slider, bubbles: true } as unknown as MouseEvent);
       expect(focusSpy).not.toHaveBeenCalled();
       focusSpy.mockRestore();
       ui.closeStylePanel(false);
@@ -1387,7 +1383,7 @@ describe("LayerUI focus", () => {
       ui.openAttrsPanel(item);
       const panel = item.querySelector(`.${CONST.CLASSES.ATTRS_PANEL}`) as HTMLElement;
       expect(panel).not.toBeNull();
-      ui.handleDblClick({ target: panel, bubbles: true } as MouseEvent);
+      ui.handleDblClick({ target: panel, bubbles: true } as unknown as MouseEvent);
       expect(focusSpy).not.toHaveBeenCalled();
       focusSpy.mockRestore();
       ui.closeAttrsPanel(false);
@@ -1397,7 +1393,7 @@ describe("LayerUI focus", () => {
       const focusSpy = vi.spyOn(ui, "focusLayer");
       const outside = document.createElement("div");
       document.body.appendChild(outside);
-      ui.handleDblClick({ target: outside, bubbles: true } as MouseEvent);
+      ui.handleDblClick({ target: outside, bubbles: true } as unknown as MouseEvent);
       expect(focusSpy).not.toHaveBeenCalled();
       outside.remove();
       focusSpy.mockRestore();
@@ -1560,7 +1556,6 @@ describe("LayerUI focus", () => {
         getNorthEast: () => ({ lat: 30.000001, lng: 100.000001 }),
         getCenter: () => ({ lat: 30, lng: 100 }),
       };
-      // @ts-expect-error — override mocked getBounds
       layer.getBounds.mockReturnValue(tinyBounds);
 
       ui.focusLayer("overlay1");
@@ -1724,8 +1719,8 @@ describe("LayerUI focus", () => {
       const layerInfo = { id: "nob" } as LayerInfo;
       vi.spyOn(ui.c.layerRegistry, "get").mockReturnValue(layerInfo);
       vi.spyOn(ui.c, "surfaceFor").mockReturnValue({
-        capabilities: { bounds: false } as never,
-      });
+        capabilities: { bounds: false } as any,
+      } as any);
       expect(focusDisabledReason(ui, item)).toBe("no_bounds");
     });
 
@@ -1734,8 +1729,8 @@ describe("LayerUI focus", () => {
       const layerInfo = { id: "with" } as LayerInfo;
       vi.spyOn(ui.c.layerRegistry, "get").mockReturnValue(layerInfo);
       vi.spyOn(ui.c, "surfaceFor").mockReturnValue({
-        capabilities: { bounds: true } as never,
-      });
+        capabilities: { bounds: true } as any,
+      } as any);
       expect(focusDisabledReason(ui, item)).toBeUndefined();
     });
 
@@ -2002,13 +1997,13 @@ describe("LayerUI focus", () => {
       paneLessSurface(layerInfo);
       vi.spyOn(manager, "getLayerPanes").mockReturnValue(["overlayPane", "customPane"]);
       const lifted: Record<string, HTMLElement> = {};
-      const getPaneSpy = vi
-        .spyOn(manager.map, "getPane")
-        .mockImplementation((name: string) => {
-          const el = document.createElement("div");
-          lifted[name] = el;
-          return el;
-        });
+      const getPaneSpy = vi.spyOn(manager.map, "getPane").mockImplementation(((
+        name: string,
+      ) => {
+        const el = document.createElement("div");
+        lifted[name] = el;
+        return el;
+      }) as any);
 
       bringFocusedLayerToFront(ui, layerInfo);
 

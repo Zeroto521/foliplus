@@ -200,7 +200,7 @@ describe("fetchWithTimeout", () => {
           return;
         }
         opts.signal?.addEventListener("abort", () => {
-          reject(opts.signal.reason);
+          reject(opts.signal!.reason);
         });
         void resolve;
       });

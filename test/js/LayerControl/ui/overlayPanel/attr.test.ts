@@ -83,7 +83,7 @@ describe("LayerUI attrs", () => {
       const item = findItem(ui, "overlay1");
       ui.openAttrsPanel(item);
 
-      const panel = item.querySelector(".foliplus-layer-attrs-panel")!;
+      const panel = item.querySelector(".foliplus-layer-attrs-panel") as HTMLElement;
       expect(panel.getAttribute("aria-label")).toBe("ATTRIBUTES PANEL");
       expect(panel.textContent).toContain("KIND");
     });
@@ -93,7 +93,7 @@ describe("LayerUI attrs", () => {
 
       ui.openAttrsPanel(item);
 
-      const panel = item.querySelector(".foliplus-layer-attrs-panel")!;
+      const panel = item.querySelector(".foliplus-layer-attrs-panel") as HTMLElement;
       expect(panel).not.toBeNull();
       expect(panel.getAttribute("role")).toBe("dialog");
       const rendered = rows(panel);
@@ -128,7 +128,7 @@ describe("LayerUI attrs", () => {
 
       const item = findItem(ui, "attr-prov1");
       ui.openAttrsPanel(item);
-      const panel = item.querySelector(".foliplus-layer-attrs-panel")!;
+      const panel = item.querySelector(".foliplus-layer-attrs-panel") as HTMLElement;
       const rendered = rows(panel);
 
       // The layer name is the panel header now, not a row.
@@ -176,7 +176,9 @@ describe("LayerUI attrs", () => {
       const item = findItem(ui, "attr-int");
       ui.openAttrsPanel(item);
 
-      const rendered = rows(item.querySelector(".foliplus-layer-attrs-panel")!);
+      const rendered = rows(
+        item.querySelector(".foliplus-layer-attrs-panel") as HTMLElement,
+      );
       expect(rendered).toContainEqual(["features", "3"]);
     });
 
@@ -188,7 +190,7 @@ describe("LayerUI attrs", () => {
 
       ui.openAttrsPanel(ghost);
 
-      const panel = ghost.querySelector(".foliplus-layer-attrs-panel")!;
+      const panel = ghost.querySelector(".foliplus-layer-attrs-panel") as HTMLElement;
       // No registry entry → no source / created / updated rows; the panel
       // still renders (with the empty fallback branches).
       expect(panel).not.toBeNull();
@@ -222,7 +224,9 @@ describe("LayerUI attrs", () => {
       const item = findItem(ui, "attr-meta1");
       ui.openAttrsPanel(item);
 
-      const rendered = rows(item.querySelector(".foliplus-layer-attrs-panel")!);
+      const rendered = rows(
+        item.querySelector(".foliplus-layer-attrs-panel") as HTMLElement,
+      );
       // Static meta + dynamic meta merged; same-key dynamic wins.
       expect(rendered).toContainEqual(["area_km2", "12.5"]);
       expect(rendered).toContainEqual(["features", "0"]);
@@ -244,7 +248,9 @@ describe("LayerUI attrs", () => {
       count = 7;
       ui.events.emit("foliplus:layer:item-count-change", { id: "attr-live1" });
 
-      const rendered = rows(item.querySelector(".foliplus-layer-attrs-panel")!);
+      const rendered = rows(
+        item.querySelector(".foliplus-layer-attrs-panel") as HTMLElement,
+      );
       expect(rendered).toContainEqual(["features", "7"]);
     });
 
@@ -263,7 +269,9 @@ describe("LayerUI attrs", () => {
       // Emit for a different layer id — the panel should not refresh.
       ui.events.emit("foliplus:layer:item-count-change", { id: "other-layer" });
 
-      const rendered = rows(item.querySelector(".foliplus-layer-attrs-panel")!);
+      const rendered = rows(
+        item.querySelector(".foliplus-layer-attrs-panel") as HTMLElement,
+      );
       expect(rendered).toContainEqual(["features", "0"]);
     });
 
@@ -281,7 +289,7 @@ describe("LayerUI attrs", () => {
       ui.openAttrsPanel(item);
       expect(ui.overlayPanel.attrsUnsubscribe).toBe(unsubSpy);
 
-      ui.closeAttrsPanel(item, false);
+      (ui.closeAttrsPanel as any)(item, false);
       expect(unsubSpy).toHaveBeenCalled();
       expect(ui.overlayPanel.attrsUnsubscribe).toBeNull();
 
@@ -318,7 +326,7 @@ describe("LayerUI attrs", () => {
       ui.openAttrsPanel(item);
 
       expect(
-        rows(item.querySelector(".foliplus-layer-attrs-panel")!).find(
+        rows(item.querySelector(".foliplus-layer-attrs-panel") as HTMLElement).find(
           ([k]) => k === "LayerControl.attr_updated_at",
         )?.[1],
         // Derived from the same Date + options the implementation formats, so
@@ -340,7 +348,7 @@ describe("LayerUI attrs", () => {
 
       // Visibility is intentionally not listed; the panel still opens and
       // names the layer.
-      const panel = item.querySelector(".foliplus-layer-attrs-panel")!;
+      const panel = item.querySelector(".foliplus-layer-attrs-panel") as HTMLElement;
       const labels = Array.from(panel.querySelectorAll(".foliplus-form-label")).map(
         el => el.textContent,
       );
@@ -353,11 +361,11 @@ describe("LayerUI attrs", () => {
     it("color basemap shows type and no provenance rows", () => {
       const item = ui.uiContainer.querySelector(
         `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
-      )!;
+      ) as HTMLElement;
 
       ui.openAttrsPanel(item);
 
-      const panel = item.querySelector(".foliplus-layer-attrs-panel")!;
+      const panel = item.querySelector(".foliplus-layer-attrs-panel") as HTMLElement;
       const keys = rows(panel).map(([label]) => label);
       // No source / timestamp registered → the color basemap's panel shows its
       // type only.
@@ -376,16 +384,16 @@ describe("LayerUI attrs", () => {
       const baseItem = findItem(ui, "attr-base1");
       ui.openAttrsPanel(baseItem);
       expect(
-        rows(baseItem.querySelector(".foliplus-layer-attrs-panel")!),
+        rows(baseItem.querySelector(".foliplus-layer-attrs-panel") as HTMLElement),
       ).toContainEqual(["LayerControl.attr_type", "LayerControl.type_base"]);
 
       ui.closeAttrsPanel(false);
       const colorItem = ui.uiContainer.querySelector(
         `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
-      )!;
+      ) as HTMLElement;
       ui.openAttrsPanel(colorItem);
       expect(
-        rows(colorItem.querySelector(".foliplus-layer-attrs-panel")!),
+        rows(colorItem.querySelector(".foliplus-layer-attrs-panel") as HTMLElement),
       ).toContainEqual(["LayerControl.attr_type", "LayerControl.type_color_map"]);
     });
 
@@ -402,10 +410,9 @@ describe("LayerUI attrs", () => {
       expect(manager.layerRegistry.get("attr-surface1")!.type).toBeNull();
 
       ui.openAttrsPanel(item);
-      expect(rows(item.querySelector(".foliplus-layer-attrs-panel")!)).toContainEqual([
-        "LayerControl.attr_type",
-        "LayerControl.type_polygon",
-      ]);
+      expect(
+        rows(item.querySelector(".foliplus-layer-attrs-panel") as HTMLElement),
+      ).toContainEqual(["LayerControl.attr_type", "LayerControl.type_polygon"]);
     });
 
     it("names a custom (iconSvg) layer as custom, not by its underlying geometry", () => {
@@ -424,10 +431,9 @@ describe("LayerUI attrs", () => {
 
       const item = findItem(ui, "attr-custom1");
       ui.openAttrsPanel(item);
-      expect(rows(item.querySelector(".foliplus-layer-attrs-panel")!)).toContainEqual([
-        "LayerControl.attr_type",
-        "LayerControl.type_custom",
-      ]);
+      expect(
+        rows(item.querySelector(".foliplus-layer-attrs-panel") as HTMLElement),
+      ).toContainEqual(["LayerControl.attr_type", "LayerControl.type_custom"]);
     });
 
     it("shows the feature count grouped, without a stray fraction digit", () => {
@@ -436,9 +442,9 @@ describe("LayerUI attrs", () => {
       const item = findItem(ui, "overlay1");
       ui.openAttrsPanel(item);
 
-      const count = rows(item.querySelector(".foliplus-layer-attrs-panel")!).find(
-        ([k]) => k === "LayerControl.attr_feature_count",
-      )?.[1];
+      const count = rows(
+        item.querySelector(".foliplus-layer-attrs-panel") as HTMLElement,
+      ).find(([k]) => k === "LayerControl.attr_feature_count")?.[1];
       // `comma` is language-agnostic (always en grouping) and the panel passes
       // fractionDigits 0, so the value is exactly "1,234" — not "1,234.0".
       expect(count).toBe("1,234");
@@ -447,7 +453,7 @@ describe("LayerUI attrs", () => {
     it("builds on the shared panel vocabulary (header, content, form rows)", () => {
       const item = findItem(ui, "overlay1");
       ui.openAttrsPanel(item);
-      const panel = item.querySelector(".foliplus-layer-attrs-panel")!;
+      const panel = item.querySelector(".foliplus-layer-attrs-panel") as HTMLElement;
 
       expect(panel.classList.contains("foliplus-panel")).toBe(true);
       expect(panel.querySelector(".foliplus-panel-header")).not.toBeNull();
@@ -545,7 +551,7 @@ describe("LayerUI attrs", () => {
     it("mousedown inside the panel does not dismiss it", () => {
       const item = findItem(ui, "overlay1");
       ui.openAttrsPanel(item);
-      const panel = item.querySelector(".foliplus-layer-attrs-panel")!;
+      const panel = item.querySelector(".foliplus-layer-attrs-panel") as HTMLElement;
       panel.dispatchEvent(
         new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
       );
@@ -558,7 +564,7 @@ describe("LayerUI attrs", () => {
       // here, on the press, and read by handleDragStart.
       const item = findItem(ui, "overlay1");
       ui.openAttrsPanel(item);
-      const panel = item.querySelector(".foliplus-layer-attrs-panel")!;
+      const panel = item.querySelector(".foliplus-layer-attrs-panel") as HTMLElement;
 
       panel.dispatchEvent(
         new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
@@ -637,7 +643,7 @@ describe("LayerUI attrs", () => {
     it("dismisses the panel on a press outside it, keeps it on a press inside", () => {
       const item = findItem(ui, "overlay1");
       ui.openAttrsPanel(item);
-      const panel = item.querySelector(".foliplus-layer-attrs-panel")!;
+      const panel = item.querySelector(".foliplus-layer-attrs-panel") as HTMLElement;
 
       // jsdom does not populate event.target on dispatch, so pin it directly.
       const pressOn = (el: Element): void => {
@@ -663,7 +669,9 @@ describe("LayerUI attrs", () => {
 
       const item = findItem(ui, "attr-prov0");
       ui.openAttrsPanel(item);
-      const rendered = rows(item.querySelector(".foliplus-layer-attrs-panel")!);
+      const rendered = rows(
+        item.querySelector(".foliplus-layer-attrs-panel") as HTMLElement,
+      );
 
       expect(rendered).toContainEqual(["marker", "0"]);
       expect(rendered).toContainEqual(["distance", "2"]);
@@ -679,7 +687,9 @@ describe("LayerUI attrs", () => {
 
       const item = findItem(ui, "attr-prov1");
       ui.openAttrsPanel(item);
-      const rendered = rows(item.querySelector(".foliplus-layer-attrs-panel")!);
+      const rendered = rows(
+        item.querySelector(".foliplus-layer-attrs-panel") as HTMLElement,
+      );
 
       expect(rendered).toContainEqual(["marker", "3"]);
       expect(rendered).not.toContainEqual(["marker", "5"]);
@@ -695,7 +705,7 @@ describe("LayerUI attrs", () => {
       const item = findItem(ui, "attr-prov2");
       ui.openAttrsPanel(item);
 
-      const panel = item.querySelector(".foliplus-layer-attrs-panel")!;
+      const panel = item.querySelector(".foliplus-layer-attrs-panel") as HTMLElement;
       expect(rows(panel)).toContainEqual(["marker", "0"]);
 
       count = 2;
@@ -713,7 +723,7 @@ describe("LayerUI attrs", () => {
       const item = findItem(ui, "attr-prov3");
       ui.openAttrsPanel(item);
 
-      const panel = item.querySelector(".foliplus-layer-attrs-panel")!;
+      const panel = item.querySelector(".foliplus-layer-attrs-panel") as HTMLElement;
       expect(rows(panel)).toContainEqual(["marker", "1"]);
 
       ui.events.emit("foliplus:layer:item-count-change", { id: "other" });
@@ -722,14 +732,14 @@ describe("LayerUI attrs", () => {
     });
 
     it("closeAttrsPanel is a no-op when no panel is open", () => {
-      expect(() => ui.closeAttrsPanel()).not.toThrow();
+      expect(() => (ui.closeAttrsPanel as any)()).not.toThrow();
       expect(ui.overlayPanel.activeAttrsPanel).toBeNull();
     });
 
     it("header click closes an open panel", () => {
       const item = findItem(ui, "overlay1");
       ui.openAttrsPanel(item);
-      const panel = item.querySelector(".foliplus-layer-attrs-panel")!;
+      const panel = item.querySelector(".foliplus-layer-attrs-panel") as HTMLElement;
       expect(panel).not.toBeNull();
 
       const header = panel.querySelector(".foliplus-panel-header")!;

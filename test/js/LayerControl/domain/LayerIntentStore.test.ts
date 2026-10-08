@@ -71,7 +71,7 @@ describe("LayerIntentStore — get/set/clear/mark/unmark", () => {
 
     store.setRaw("b", "name", "N");
     expect(store.get("b", "name")).toBe("N");
-    expect(store.isUserSet("b", "name")).toBe(false);
+    expect(store.isUserSet("b", "name" as any)).toBe(false);
   });
 
   it("mark is idempotent and keeps insertion order", () => {
@@ -405,7 +405,7 @@ describe("LayerIntentStore — disk-shape equality with the old twin", () => {
       const declared = (provenance[id] ?? []).filter(o => LIVE[o]?.(intents[id]?.[o]));
       const annotation = annotations[id];
       if (declared.length === 0 && !annotation) continue;
-      const state: PersistedLayerState = { overrides: declared };
+      const state: PersistedLayerState = { overrides: declared as any };
       for (const o of declared) {
         const value = intents[id]?.[o];
         if (LIVE[o](value)) {
@@ -504,7 +504,7 @@ describe("LayerIntentStore — disk-shape equality with the old twin", () => {
       // live map is the annotations arg (old buildLayerStates input).
       const liveAnn = sc.annotations as Record<string, never>;
       const viaStore = store.toPersisted(liveAnn);
-      const viaOld = oldBuild(sc.intents, sc.provenance, liveAnn);
+      const viaOld = oldBuild(sc.intents as any, sc.provenance as any, liveAnn);
       expect(viaStore).toEqual(viaOld);
     });
   }

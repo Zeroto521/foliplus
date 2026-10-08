@@ -5,21 +5,23 @@ import {
   loadHistory,
   saveHistory,
 } from "#foliplus/SearchControl/logic/history.js";
+import type { SearchControlCtx } from "#foliplus/SearchControl/logic/util.js";
 import type { SearchHistoryEntry } from "#foliplus/SearchControl/type.js";
 
 // Control context for logic functions that now receive ctrl.
-const ctx = () => ({
-  config: { name: "SearchControl", locale_code: "en", zoom: 16 },
-  T: (k: string) => `SearchControl.${k}`,
-  _: (k: string) => k,
-  log: {
-    msg: (m: string) => m,
-    warn: (...args: unknown[]) =>
-      console.warn(`[SearchControl] ${args[0]}`, ...args.slice(1)),
-    error: vi.fn(),
-  },
-  _map: window.map,
-});
+const ctx = (): SearchControlCtx =>
+  ({
+    config: { name: "SearchControl", locale_code: "en", zoom: 16 },
+    T: (k: string) => `SearchControl.${k}`,
+    _: (k: string) => k,
+    log: {
+      msg: (m: string) => m,
+      warn: (...args: unknown[]) =>
+        console.warn(`[SearchControl] ${args[0]}`, ...args.slice(1)),
+      error: vi.fn(),
+    },
+    _map: window.map,
+  }) as unknown as SearchControlCtx;
 
 describe("SearchControl history — versioned envelope", () => {
   describe("saveHistory — writes { version, entries }", () => {

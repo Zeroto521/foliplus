@@ -12,7 +12,7 @@ import {
   runUpload,
   uploadStats,
 } from "#script/build/codecov-bundle-upload.mjs";
-import { runCli, trapExit } from "../../fixture";
+import { runCli, trapExit } from "../../fixture.js";
 
 let tmp = "";
 afterEach(() => {
@@ -349,6 +349,7 @@ describe("branch arms left open by the happy path", () => {
   it("omits Authorization when getPreSignedUrl has no token (tokenless)", async () => {
     const fetchImpl = vi.fn(async () => jsonRes(200, { url: "https://signed" }));
     await getPreSignedUrl({
+      token: undefined as any,
       serviceParams: { commit: "c", slug: "a/b" },
       fetchImpl: fetchImpl as unknown as typeof fetch,
     });

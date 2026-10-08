@@ -69,7 +69,7 @@ describe("LayerUI keyboard", () => {
       HTMLInputElement.prototype.dispatchEvent = function (...args: any[]) {
         const ev = args[0] as Event;
         if (ev.type === "change") spy();
-        return orig.apply(this, args);
+        return orig.apply(this, args as any);
       };
       return {
         spy,
@@ -128,7 +128,7 @@ describe("LayerUI keyboard", () => {
       ) as HTMLInputElement;
 
       cb.checked = false;
-      ui.handleChange({ target: cb } as Event);
+      ui.handleChange({ target: cb } as unknown as Event);
 
       expect(getIntent(ui, "overlay1", "visible")).toBe(false);
       // 3 seeded layers + the color basemap registered by initTypesAndVisibility.
@@ -142,7 +142,7 @@ describe("LayerUI keyboard", () => {
       const { spy, restore } = toggleSpy();
       const before = checkbox.checked;
 
-      more.focus();
+      (more as HTMLElement).focus();
       ui.handleKeyDown(
         new KeyboardEvent("keydown", {
           key: "Enter",
@@ -870,7 +870,7 @@ describe("LayerUI keyboard", () => {
       const item = findItem(ui, "overlay1");
       const more = item.querySelector(`.${CONST.CLASSES.MORE_BTN}`)!;
 
-      more.focus();
+      (more as HTMLElement).focus();
       ui.handleKeyDown(keyEvent("Enter"));
       expect(ui.overlayPanel.activeMenu).not.toBeNull();
       expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(1);
@@ -1173,10 +1173,10 @@ describe("LayerUI keyboard", () => {
     it("ArrowLeft and ArrowRight reach the toggle case", () => {
       ui.setActiveItem(1);
       expect(() =>
-        ui.handleKeyDown(keyEvent("ArrowLeft", { bubbles: true })),
+        ui.handleKeyDown(keyEvent("ArrowLeft", { bubbles: true } as any)),
       ).not.toThrow();
       expect(() =>
-        ui.handleKeyDown(keyEvent("ArrowRight", { bubbles: true })),
+        ui.handleKeyDown(keyEvent("ArrowRight", { bubbles: true } as any)),
       ).not.toThrow();
     });
 

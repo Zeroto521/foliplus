@@ -139,7 +139,7 @@ describe("LayerUI lifecycle — defensive rails", () => {
       const event = new MouseEvent("click", { bubbles: true });
       Object.defineProperty(event, "target", { value: detached });
 
-      ui.onClick(event);
+      ui.onClick!(event);
 
       expect(ui.listPanel.activeIdx).toBe(1);
     });
@@ -151,7 +151,7 @@ describe("LayerUI lifecycle — defensive rails", () => {
       const event = new Event("focusin", { bubbles: true });
       Object.defineProperty(event, "target", { value: detached });
 
-      ui.onFocusIn(event);
+      ui.onFocusIn!(event as any);
 
       expect(ui.listPanel.activeIdx).toBe(1);
     });
@@ -246,7 +246,7 @@ describe("LayerUI lifecycle — defensive rails", () => {
       // Detached-before-attach scenario: attachUI never ran bindLayerEvents, so all
       // handlers are null and the guards must not throw. This exercises every
       // `if (ui.onX)` false branch at once.
-      ui.onKeyDown = null;
+      (ui as any).onKeyDown = null;
       ui.unsubscribeCountChange = null;
       ui.unsubscribeControlAttached = null;
       ui.onMoreClick = null;
@@ -402,7 +402,7 @@ describe("LayerUI lifecycle — defensive rails", () => {
       // onZoomEnd -> applyProjectionAll, onMoreMapClick -> closeMoreMenu(false).
       expect(() => ui.onZoomEnd?.()).not.toThrow();
       expect(() => {
-        ui.onMoreMapClick?.();
+        ui.onMoreMapClick?.(null as any);
       }).not.toThrow();
     });
   });

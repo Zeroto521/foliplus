@@ -11,7 +11,7 @@ import {
   main,
   readSizes,
 } from "#script/build/bundle-fuse.mjs";
-import { runCli, trapExit } from "../../fixture";
+import { runCli, trapExit } from "../../fixture.js";
 
 // The fuse judges brotli bytes. A repeated-literal fixture would collapse to
 // a few bytes and quietly land under every cap, so the "breach" case would

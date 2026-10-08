@@ -11,7 +11,7 @@ import {
 const mocks = vi.hoisted(() => ({
   FULLSCREEN_CHANGE: "fullscreenchange",
   isEnabled: false,
-  getFullscreenEl: vi.fn(() => null),
+  getFullscreenEl: vi.fn<() => HTMLElement | null>(() => null),
 }));
 
 vi.mock("#foliplus/FullscreenControl/api.js", () => ({
@@ -24,7 +24,7 @@ vi.mock("#foliplus/FullscreenControl/api.js", () => ({
   },
 }));
 
-const makeContainer = () => {
+const makeContainer = (): HTMLElement => {
   const el = document.createElement("div");
   el.innerHTML = `
     <button class="foliplus-fullscreen-toggle"></button>
@@ -34,32 +34,37 @@ const makeContainer = () => {
   return el;
 };
 
-const makeMapMock = container => ({
-  getContainer: () => container,
-  isFullscreen: false,
-  invalidateSize: vi.fn(),
-  foliplus: { showHint: vi.fn(), hideHint: vi.fn() },
-  on: vi.fn(),
-  off: vi.fn(),
-});
+const makeMapMock = (container: HTMLElement): L.Map =>
+  ({
+    getContainer: () => container,
+    isFullscreen: false,
+    invalidateSize: vi.fn(),
+    foliplus: { showHint: vi.fn(), hideHint: vi.fn() },
+    on: vi.fn(),
+    off: vi.fn(),
+  }) as L.Map;
 
-const makeNativeMapMock = container => {
+const makeNativeMapMock = (container: HTMLElement): L.Map => {
   const map = makeMapMock(container);
-  map.getContainer().requestFullscreen = vi.fn(() => Promise.resolve());
+  (
+    map.getContainer() as HTMLElement & { requestFullscreen: () => Promise<void> }
+  ).requestFullscreen = vi.fn(() => Promise.resolve());
   return map;
 };
 
 // Mirrors what defineControl hands off via ControlEnv — T is the identity
 // translator so tests can still compare on the raw key.
-const makeEnv = (overrides: Partial<ComponentConfig> = {}) => ({
+const makeEnv = (
+  overrides: Partial<ComponentConfig> = {},
+): { config: ComponentConfig; T: (k: string) => string } => ({
   config: { name: "FullscreenControl", ...overrides } as ComponentConfig,
   T: (k: string) => k,
 });
 
 describe("updateUI", () => {
-  let fsBtn;
-  let container;
-  let mapMock;
+  let fsBtn: HTMLElement;
+  let container: HTMLElement;
+  let mapMock: L.Map;
 
   beforeEach(() => {
     fsBtn = document.createElement("button");
@@ -68,7 +73,7 @@ describe("updateUI", () => {
       getContainer: () => container,
       isFullscreen: false,
       foliplus: { showHint: vi.fn(), hideHint: vi.fn() },
-    };
+    } as L.Map;
   });
 
   it("sets MAXIMIZE icon + title when not fullscreen", () => {
@@ -132,9 +137,9 @@ describe("updateUI", () => {
 });
 
 describe("toggleFullscreen — pseudo path", () => {
-  let fsBtn;
-  let container;
-  let mapMock;
+  let fsBtn: HTMLElement;
+  let container: HTMLElement;
+  let mapMock: L.Map;
 
   beforeEach(() => {
     mocks.isEnabled = false;
@@ -170,9 +175,9 @@ describe("toggleFullscreen — pseudo path", () => {
 });
 
 describe("buildFullscreenChangeHandler", () => {
-  let fsBtn;
-  let container;
-  let mapMock;
+  let fsBtn: HTMLElement;
+  let container: HTMLElement;
+  let mapMock: L.Map;
 
   beforeEach(() => {
     mocks.getFullscreenEl.mockReturnValue(null);
@@ -195,7 +200,7 @@ describe("buildFullscreenChangeHandler", () => {
 
   it("handler syncs isFullscreen from the native fullscreen element", () => {
     const handler = buildFullscreenChangeHandler(mapMock, fsBtn, container, makeEnv());
-    mocks.getFullscreenEl.mockReturnValue({});
+    mocks.getFullscreenEl.mockReturnValue(document.createElement("div"));
     handler();
     expect(mapMock.isFullscreen).toBe(true);
     expect(fsBtn.innerHTML).toContain("M8 3v3"); // MINIMIZE
@@ -203,9 +208,9 @@ describe("buildFullscreenChangeHandler", () => {
 });
 
 describe("toggleFullscreen — native API path", () => {
-  let fsBtn;
-  let container;
-  let mapMock;
+  let fsBtn: HTMLElement;
+  let container: HTMLElement;
+  let mapMock: L.Map;
 
   beforeEach(() => {
     mocks.isEnabled = true;
@@ -289,7 +294,7 @@ describe("toggleFullscreen — native API path", () => {
     });
 
     it("exits when getFullscreenEl returns an element", async () => {
-      mocks.getFullscreenEl.mockReturnValue({});
+      mocks.getFullscreenEl.mockReturnValue(document.createElement("div"));
       document.exitFullscreen = vi.fn(() => Promise.resolve());
       toggleFullscreen(mapMock, fsBtn, container, makeEnv());
       expect(document.exitFullscreen).toHaveBeenCalled();

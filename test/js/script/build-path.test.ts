@@ -30,8 +30,8 @@ describe("build-path.mjs", () => {
   });
 
   it("testPathAliases adds #script without mutating pathAliases", () => {
-    const shared = pathAliases(ROOT);
-    const test = testPathAliases(ROOT);
+    const shared = pathAliases(ROOT) as Record<string, string>;
+    const test = testPathAliases(ROOT) as Record<string, string>;
     expect(test["#script"]).toBe(resolve(ROOT, "script"));
     expect(test["#common"]).toBe(shared["#common"]);
     expect(shared["#script"]).toBeUndefined();

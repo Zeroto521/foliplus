@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ControlEnv } from "#core/defineControl.js";
 import { reverseGeocode } from "#core/geocode/index.js";
+import type { ControlEnv } from "#core/type.js";
 import * as CONST from "#foliplus/MeasureControl/const.js";
 import {
   bindNodeDrag,
@@ -30,7 +30,7 @@ beforeEach(() => {
   isDragSyntheticClick();
   vi.mocked(reverseGeocode).mockReset();
   globalThis.turf = {
-    point: coords => ({ coords }),
+    point: (coords: unknown) => ({ coords }),
     polygon: vi.fn(rings => ({ type: "Polygon", coordinates: rings })),
     area: vi.fn(() => 5000),
     midpoint: vi.fn(() => ({ geometry: { coordinates: [50, 50] } })),
@@ -393,7 +393,7 @@ describe("buildEditOverlay", () => {
 
   it("exposes open and cleanup", () => {
     const mgr = makeMgr();
-    const overlay = buildEditOverlay(mgr as any, {});
+    const overlay = buildEditOverlay(mgr as any, {} as any);
 
     expect(typeof overlay.open).toBe("function");
     expect(typeof overlay.cleanup).toBe("function");
@@ -479,7 +479,7 @@ describe("buildEditOverlay", () => {
 
     // find the map-click handler registered by buildEditOverlay
     overlay.open({} as any);
-    const mapClickHandler = map.on.mock.calls.find(([ev]) => ev === "click")?.[1];
+    const mapClickHandler = map.on.mock.calls.find(([ev]: any) => ev === "click")?.[1];
     expect(mapClickHandler).toBeDefined();
     mapClickHandler();
     expect(onEmpty).toHaveBeenCalledTimes(1);
@@ -492,7 +492,7 @@ describe("buildEditOverlay", () => {
     const overlay = buildEditOverlay(mgr as any, { onOpen: vi.fn(), onEmpty });
 
     overlay.open({} as any);
-    const mapClickHandler = map.on.mock.calls.find(([ev]) => ev === "click")?.[1];
+    const mapClickHandler = map.on.mock.calls.find(([ev]: any) => ev === "click")?.[1];
     markDragSyntheticClick();
     mapClickHandler();
     expect(onEmpty).not.toHaveBeenCalled();
@@ -619,9 +619,15 @@ describe("bindNodeDrag", () => {
     setEnabled(true);
 
     // find handlers
-    const onDown = (node.on as any).mock.calls.find(([ev]) => ev === "mousedown")?.[1];
-    const onNodeUp = (node.on as any).mock.calls.find(([ev]) => ev === "mouseup")?.[1];
-    const onMove = (map.on as any).mock.calls.find(([ev]) => ev === "mousemove")?.[1];
+    const onDown = (node.on as any).mock.calls.find(
+      ([ev]: any) => ev === "mousedown",
+    )?.[1];
+    const onNodeUp = (node.on as any).mock.calls.find(
+      ([ev]: any) => ev === "mouseup",
+    )?.[1];
+    const onMove = (map.on as any).mock.calls.find(
+      ([ev]: any) => ev === "mousemove",
+    )?.[1];
 
     onDown({ originalEvent: { clientX: 0, clientY: 0 }, latlng: { lat: 1, lng: 1 } });
     expect(map.dragging.disable).toHaveBeenCalled();
@@ -673,8 +679,12 @@ describe("bindNodeDrag", () => {
     };
     const { setEnabled } = bindNodeDrag(node as any, null, map as any, { onDrag });
     setEnabled(true);
-    const onDown = (node.on as any).mock.calls.find(([ev]) => ev === "mousedown")?.[1];
-    const onMove = (map.on as any).mock.calls.find(([ev]) => ev === "mousemove")?.[1];
+    const onDown = (node.on as any).mock.calls.find(
+      ([ev]: any) => ev === "mousedown",
+    )?.[1];
+    const onMove = (map.on as any).mock.calls.find(
+      ([ev]: any) => ev === "mousemove",
+    )?.[1];
 
     onDown({ originalEvent: { clientX: 0, clientY: 0 } });
     onMove({ originalEvent: { clientX: 10, clientY: 0 }, latlng: { lat: 2, lng: 2 } });
@@ -695,7 +705,9 @@ describe("bindNodeDrag", () => {
     };
     const { setEnabled } = bindNodeDrag(node as any, null, map as any, {});
     // enabled defaults to false
-    const onDown = (node.on as any).mock.calls.find(([ev]) => ev === "mousedown")?.[1];
+    const onDown = (node.on as any).mock.calls.find(
+      ([ev]: any) => ev === "mousedown",
+    )?.[1];
     onDown({});
     expect(map.dragging.disable).not.toHaveBeenCalled();
     setEnabled(true);
@@ -715,9 +727,13 @@ describe("bindNodeDrag", () => {
 
     const { setEnabled } = bindNodeDrag(node as any, null, map as any, { onEnd });
     setEnabled(true);
-    const onDown = (node.on as any).mock.calls.find(([ev]) => ev === "mousedown")?.[1];
-    const onMove = (map.on as any).mock.calls.find(([ev]) => ev === "mousemove")?.[1];
-    const onUp = (map.on as any).mock.calls.find(([ev]) => ev === "mouseup")?.[1];
+    const onDown = (node.on as any).mock.calls.find(
+      ([ev]: any) => ev === "mousedown",
+    )?.[1];
+    const onMove = (map.on as any).mock.calls.find(
+      ([ev]: any) => ev === "mousemove",
+    )?.[1];
+    const onUp = (map.on as any).mock.calls.find(([ev]: any) => ev === "mouseup")?.[1];
 
     onDown({ originalEvent: { clientX: 0, clientY: 0 } });
     // movement of 2px < DRAG_THRESHOLD (4px)
@@ -737,8 +753,12 @@ describe("bindNodeDrag", () => {
     };
     const { setEnabled } = bindNodeDrag(node as any, null, map as any, { onDrag });
     setEnabled(true);
-    const onDown = (node.on as any).mock.calls.find(([ev]) => ev === "mousedown")?.[1];
-    const onMove = (map.on as any).mock.calls.find(([ev]) => ev === "mousemove")?.[1];
+    const onDown = (node.on as any).mock.calls.find(
+      ([ev]: any) => ev === "mousedown",
+    )?.[1];
+    const onMove = (map.on as any).mock.calls.find(
+      ([ev]: any) => ev === "mousemove",
+    )?.[1];
 
     onDown({ originalEvent: undefined, latlng: { lat: 1, lng: 1 } });
     expect(map.dragging.disable).not.toHaveBeenCalled();
@@ -824,7 +844,7 @@ describe("geocodeAddress", () => {
   });
 
   it("returns previous address when reverseGeocode returns null", async () => {
-    vi.mocked(reverseGeocode).mockReturnValue(Promise.resolve(null));
+    vi.mocked(reverseGeocode).mockReturnValue(Promise.resolve(null as any));
     const mgr = { map: {} };
     const prev = "fallback address";
     const result = await Util.geocodeAddress(mgr as any, 121, 31, "en", prev);

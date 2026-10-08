@@ -126,10 +126,10 @@ describe("bindNodeDrag", () => {
     const { cleanup } = bindNodeDrag(node as any, null, map as any, {});
 
     const mousedownHandler = (node.on as any).mock.calls.find(
-      ([ev]) => ev === "mousedown",
+      ([ev]: any) => ev === "mousedown",
     )?.[1];
     const mouseupHandler = (node.on as any).mock.calls.find(
-      ([ev]) => ev === "mouseup",
+      ([ev]: any) => ev === "mouseup",
     )?.[1];
 
     cleanup();
@@ -144,9 +144,11 @@ describe("bindNodeDrag", () => {
     const { cleanup } = bindNodeDrag(node as any, null, map as any, {});
 
     const moveHandler = (map.on as any).mock.calls.find(
-      ([ev]) => ev === "mousemove",
+      ([ev]: any) => ev === "mousemove",
     )?.[1];
-    const upHandler = (map.on as any).mock.calls.find(([ev]) => ev === "mouseup")?.[1];
+    const upHandler = (map.on as any).mock.calls.find(
+      ([ev]: any) => ev === "mouseup",
+    )?.[1];
 
     cleanup();
 
@@ -175,8 +177,12 @@ describe("bindNodeDrag", () => {
     const { setEnabled } = bindNodeDrag(node as any, null, map as any, { onDrag });
     setEnabled(true);
 
-    const onDown = (node.on as any).mock.calls.find(([ev]) => ev === "mousedown")?.[1];
-    const onMove = (map.on as any).mock.calls.find(([ev]) => ev === "mousemove")?.[1];
+    const onDown = (node.on as any).mock.calls.find(
+      ([ev]: any) => ev === "mousedown",
+    )?.[1];
+    const onMove = (map.on as any).mock.calls.find(
+      ([ev]: any) => ev === "mousemove",
+    )?.[1];
 
     onDown({ originalEvent: { clientX: 0, clientY: 0 } });
     onMove({

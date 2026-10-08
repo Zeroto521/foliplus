@@ -91,13 +91,13 @@ export const tilesNearCenter = (n: number) =>
     size: 256,
   }));
 
-export const withPixels = (tiles: unknown[]) =>
+export const withPixels = (tiles: Array<{ left: number; top: number; size: number }>) =>
   tiles.map(t => ({
     ...t,
-    dx: (t as any).left,
-    dy: (t as any).top,
-    dw: (t as any).size,
-    dh: (t as any).size,
+    dx: t.left,
+    dy: t.top,
+    dw: t.size,
+    dh: t.size,
   }));
 
 export function stubBitmaps(width = 64, height = 64) {
