@@ -11,7 +11,7 @@
 // token sizes and the text length. Culling and collision only need a
 // conservative footprint — a slightly wide box keeps a label, a slightly narrow
 // one may hide it.
-import { type Box, planVisible, withinRect } from "#core/labelCollision.js";
+import { type Box, planVisible, withinRect } from "#core/label/index.js";
 
 /** The label typography the renderer will apply; taken from the shared --foliplus-label-*
  *  tokens by the renderer and handed in as plain numbers. */

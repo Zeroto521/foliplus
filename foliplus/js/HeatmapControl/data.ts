@@ -2,7 +2,7 @@
 // breaks, color scales, and field extraction. No `this` dependency: every
 // stateful value is passed in explicitly.
 import { computeBreaks } from "#core/classify.js";
-import { autoLabelField, bareFieldName } from "#core/labelField.js";
+import { autoLabelField, bareFieldName } from "#core/label/index.js";
 import type { Logger } from "#common/type.js";
 import * as CONST from "./const.js";
 import type {

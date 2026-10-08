@@ -8,7 +8,7 @@
 // Lives beside LayerController (not in core/layer/) because it depends on
 // LayerPersistence and AnnotationManager — both LayerControl-local.
 import { EVENTS, type EventBus } from "#core/event/index.js";
-import { hasLabelField } from "#core/labelField.js";
+import { hasLabelField } from "#core/label/index.js";
 import {
   GROUP,
   INTENT,
