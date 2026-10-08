@@ -152,15 +152,12 @@ const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
   // Alt+Enter: focus-layer on the currently navigated layer item. This
   // is a dedicated keyboard entry point (in addition to the overflow menu) so
   // power users can focus without leaving the keyboard.
-  if (event.altKey && event.key === "Enter" && ui.listPanel.activeIdx !== null) {
-    const focusItem = items[ui.listPanel.activeIdx];
-    if (focusItem) {
-      const layerId = focusItem.getAttribute(CONST.DATA.LAYER_ID) ?? "";
-      if (layerId) {
-        event.preventDefault();
-        ui.focusLayer(layerId);
-        return;
-      }
+  if (event.altKey && event.key === "Enter") {
+    const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
+    if (layerId) {
+      event.preventDefault();
+      ui.focusLayer(layerId);
+      return;
     }
   }
 
