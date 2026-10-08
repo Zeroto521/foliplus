@@ -145,7 +145,7 @@ const nudgeStart = function (this: ExportManager, key: string) {
         // Clean up the suppressed-transition class on auto-stop. Explicit
         // nudgeStop() (from keyup) also clears it, so this covers the Enter/
         // Escape path where keyup never fires for the arrow key.
-        this.cropState?.box?.classList.remove(CONST.CLASSES.DRAGGING);
+        this.cropState?.box.classList.remove(CONST.CLASSES.DRAGGING);
         return true;
       }
       return false;
@@ -201,6 +201,7 @@ const onPointerDown = function (this: ExportManager, event: PointerEvent) {
   // contract, so a single move event routed to a different target
   // (crossing the Leaflet controls above the crop overlay, or a tile
   // boundary) is silently dropped and the box lands short of the cursor.
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- setPointerCapture may be absent in older browsers despite DOM lib optimism
   if (event.pointerId !== null && target.setPointerCapture) {
     try {
       target.setPointerCapture(event.pointerId);
@@ -292,12 +293,14 @@ const onPointerUp = function (this: ExportManager, event: PointerEvent) {
   // Give the pointer back. Skip it when the gesture never started — a
   // synthetic pointerup with no matching down must not strip the .dragging
   // class off a box that is mid-drag by another pointer.
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- pointerId may be null for synthetic mouse events despite DOM lib typing
   if (wasDragging && event.pointerId !== null) {
     // event.target can be document or any non-element (jsdom, synthetic
     // events) — only Elements have hasPointerCapture. Browsers also
     // release capture automatically on pointerup, so this is belt and
     // braces for pointercancel, which has no such guarantee.
     const target = event.target;
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- hasPointerCapture may be absent in older browsers
     if (target instanceof Element && target.hasPointerCapture?.(event.pointerId)) {
       try {
         target.releasePointerCapture(event.pointerId);

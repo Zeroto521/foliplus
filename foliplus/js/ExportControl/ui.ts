@@ -309,10 +309,10 @@ const removeCropBox = (mgr: ExportManager) => {
     mgr.mapMoveCleanup();
     mgr.mapMoveCleanup = null;
   }
-  if (mgr.cropState.box) mgr.cropMousedownCleanup?.();
-  if (mgr.cropState.overlay?.parentNode) mgr.cropState.overlay.remove();
-  if (mgr.cropState.box?.parentNode) mgr.cropState.box.remove();
-  if (mgr.cropState.actions) mgr.cropState.actions.innerHTML = "";
+  mgr.cropMousedownCleanup?.();
+  if (mgr.cropState.overlay.parentNode) mgr.cropState.overlay.remove();
+  if (mgr.cropState.box.parentNode) mgr.cropState.box.remove();
+  mgr.cropState.actions.innerHTML = "";
   if (mgr.exportCtrl) {
     mgr.exportCtrl.classList.remove(CONST.CLASSES.EXPANDED);
     mgr.exportCtrl.classList.add(CONST.CLASSES.COLLAPSED);
