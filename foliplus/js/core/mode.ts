@@ -136,6 +136,7 @@ class ModeManager {
     for (const [otherComp, otherMode] of this.modes) {
       if (otherMode === null) continue;
       const blocked = BLOCKED_BY[otherComp];
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- BLOCKED_BY may miss for unknown components
       if (blocked?.includes(component)) return otherComp;
     }
     return null;
@@ -200,6 +201,7 @@ const guardBlocked = (
       if (candidate) text = candidate.text;
     }
   }
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- foliplus.showHint may be undefined
   map.foliplus?.showHint?.(name, text, HINT_DURATION.SHORT);
   return true;
 };

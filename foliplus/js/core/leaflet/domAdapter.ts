@@ -6,6 +6,7 @@
 // inside mapPane (directly or via a child pane) and need this on every paint.
 const cancelMapPaneTranslate = (canvas: HTMLCanvasElement, map: L.Map): void => {
   const mapPane = map.getPanes().mapPane;
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- mapPane may be null for non-standard CRS
   if (!mapPane) return;
   const pos = L.DomUtil.getPosition(mapPane);
   canvas.style.left = `${-pos.x}px`;

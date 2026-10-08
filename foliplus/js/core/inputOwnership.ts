@@ -70,6 +70,7 @@ const nativeClass = (el: Element | null): NativeClass => {
   if (tag === "textarea") return "edit";
   if (tag === "select") return "select";
   if (tag === "input") {
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- type property may be undefined on non-input elements
     const type = (el as HTMLInputElement).type?.toLowerCase() ?? "text";
     if (NONE_TYPES.has(type)) return "none";
     if (TOGGLE_TYPES.has(type)) return "toggle";

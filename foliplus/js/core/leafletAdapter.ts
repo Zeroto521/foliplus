@@ -108,10 +108,14 @@ const isGroupLike = (node: LayerTreeNode): boolean =>
  *    - the pane element and `_panes`, or `getPane` keeps returning a detached
  *      node and `createPane` never rebuilds. */
 const destroyPane = (map: L.Map, name: string): void => {
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- _paneRenderers may be undefined
   const renderer = map._paneRenderers?.[name];
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- renderer may be undefined
   if (renderer && map.hasLayer(renderer)) map.removeLayer(renderer);
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- _paneRenderers may be undefined
   if (map._paneRenderers) delete map._paneRenderers[name];
   map.getPane(name)?.remove();
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- _panes may be undefined
   if (map._panes) delete map._panes[name];
 };
 
@@ -147,11 +151,14 @@ const moveIntoPane = (map: L.Map, layer: L.Layer, paneName: string): void => {
  *  @returns the pane's renderer, or null when it has none and none could be
  *    built (the caller then leaves the layer on Leaflet's default renderer). */
 const getRendererFor = (map: L.Map, name: string): L.SVG | null => {
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- _paneRenderers may be undefined
   const existing = map._paneRenderers?.[name];
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- existing may be undefined
   if (existing) return existing as L.SVG;
   try {
     const renderer = L.svg({ pane: name });
     renderer.addTo(map);
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- _paneRenderers may be undefined
     if (map._paneRenderers) map._paneRenderers[name] = renderer;
     return renderer;
   } catch {
@@ -164,6 +171,7 @@ const getRendererContainer = (renderer: LeafInternals | null): HTMLElement | nul
   renderer?._container ?? null;
 
 /** The map a layer is attached to, or null while it is off the map. */
+// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- _map may be null when layer is off map
 const layerMap = (layer: L.Layer): L.Map | null => (layer as LayerWithMap)._map ?? null;
 
 /** A tile layer's URL template, or null when the layer carries none.

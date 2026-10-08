@@ -52,6 +52,7 @@ const findLayer = (map: L.Map, id: string): L.Layer | null => {
  */
 const setInteractive = (layer: L.Layer, interactive: boolean): void => {
   const opts = layer.options as L.LayerOptions & { interactive?: boolean };
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- options may be undefined
   if (!opts || opts.interactive === interactive) return;
   opts.interactive = interactive;
   if (!layerMap(layer)) return;
@@ -104,6 +105,7 @@ const suspendMapInteractions = (
     walkLeaf(top, leaf => {
       if (skip?.(leaf)) return;
       const opts = leaf.options as L.LayerOptions & { interactive?: boolean };
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- opts may be undefined
       if (opts?.interactive) disabled.push(leaf);
     });
   });
@@ -206,6 +208,7 @@ const CLUSTER_CAPABILITIES: Omit<LayerCapabilities, "annotation"> = {
  *  the shared `markerPane` and never enter `eachLayer` — a pane write would
  *  fade the leaves and not the clusters (half the layer). */
 const isMarkerCluster = (layer: L.Layer): boolean => {
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- MarkerClusterGroup may be absent from L
   const ctor = (window.L as { MarkerClusterGroup?: unknown })?.MarkerClusterGroup;
   if (
     typeof ctor === "function" &&

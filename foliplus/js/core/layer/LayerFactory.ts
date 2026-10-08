@@ -285,10 +285,13 @@ class LayerFactory {
         mainLayer.addLayer(g);
       }
 
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- LayerGroup prototype may be undefined
       const proto = L.LayerGroup?.prototype;
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- proto may be undefined
       const origAddLayer = proto
         ? proto.addLayer.bind(mainLayer)
         : mainLayer.addLayer.bind(mainLayer);
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- proto may be undefined
       const origRemoveLayer = proto
         ? proto.removeLayer.bind(mainLayer)
         : mainLayer.removeLayer.bind(mainLayer);
@@ -539,6 +542,7 @@ class LayerFactory {
       };
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- content.kind may be a different string at runtime
     if (opts.content.kind !== CONTENT_KIND.CANVAS) {
       throw new Error(
         log.msg(

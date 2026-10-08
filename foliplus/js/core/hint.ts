@@ -130,6 +130,7 @@ class HintManager {
     // TextNode, so a rogue locale value cannot turn a hint into markup.
     // `{ html }` must be a CHILD, not an attr — `dom.el` sets an attr for any
     // unrecognised key.
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- hintIcons may be undefined; key may not exist
     const icon = withLoadingIcon ? ICON_LOADING : (this.hintIcons?.[key] ?? "");
     const el = dom.el(
       "div",
@@ -166,6 +167,7 @@ class HintManager {
       const entry = this.hintMap.get(storeKey);
       if (entry) {
         if (entry.timer) clearTimeout(entry.timer);
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- element may be undefined
         if (entry.element) entry.element.remove();
         this.hintMap.delete(storeKey);
       }
@@ -176,6 +178,7 @@ class HintManager {
       if (k === key || k.startsWith(`${key}-`) || k.startsWith(`${key}|`)) {
         const entry = this.hintMap.get(k)!;
         if (entry.timer) clearTimeout(entry.timer);
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- element may be undefined
         if (entry.element) entry.element.remove();
         this.hintMap.delete(k);
       }
@@ -195,6 +198,7 @@ class HintManager {
   destroy() {
     for (const entry of this.hintMap.values()) {
       if (entry.timer) clearTimeout(entry.timer);
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- element may be undefined
       if (entry.element) entry.element.remove();
     }
     this.hintMap.clear();

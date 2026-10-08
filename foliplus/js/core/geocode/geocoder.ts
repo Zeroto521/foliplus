@@ -44,7 +44,9 @@ const throttled = <T>(provider: GeocodeProvider, fn: () => Promise<T>): Promise<
   queueOf(provider)(fn);
 
 const localeFallback = (code: string, key: string, fallback: string) => {
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- window.foliplus may be undefined
   const foliplus = window.foliplus || {};
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- _TABLES may be undefined; code may not exist
   const common = (foliplus?._TABLES?.[code] ?? {}) as Record<string, string>;
   return common[key] ?? fallback;
 };

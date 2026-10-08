@@ -32,6 +32,7 @@ const nominatimUrl = (
   const url = new URL(endpoint || "", base);
   url.searchParams.set("format", NOMINATIM.FORMAT);
   for (const [k, v] of Object.entries(params)) {
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- params values may contain null
     if (v != null) url.searchParams.set(k, String(v));
   }
 

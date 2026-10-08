@@ -59,6 +59,7 @@ const rafLoop = (
       pending = null;
       if (!running) return;
       if (tick(key)) return stop();
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- running flag may be set to false during tick
       if (running) schedule();
     }, interval);
   };

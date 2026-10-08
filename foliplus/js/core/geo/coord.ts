@@ -53,6 +53,7 @@ const probeMap = (map: L.Map | null): Probe => {
   }
   let code = "";
   try {
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- map may be null; options/crs may be absent
     code = map?.options?.crs?.code ?? "";
   } catch (err) {
     log.warn("map CRS code unreadable (CRS fallback to WGS84):", err);
@@ -75,6 +76,7 @@ const hasCrsCode = (code: string, codePattern: string): boolean =>
 const isBaiduCRS = (map: L.Map | null, probe: Probe): boolean => {
   try {
     const LCRS = L.CRS as { Baidu?: L.CRS };
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- Baidu CRS may be absent; map may be null
     if (LCRS?.Baidu && map?.options.crs === LCRS.Baidu) return true;
   } catch (err) {
     // Fires when reading `L.CRS` itself throws — e.g. Leaflet failed to load
