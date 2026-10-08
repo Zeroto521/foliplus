@@ -148,6 +148,7 @@ const buildLabelSection = (ui: LayerUI, layerId: string): HTMLElement => {
     },
     ...formatOpts,
   );
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- cfg.format may be undefined from config
   (formatSelect as HTMLSelectElement).value = cfg.format || NUMBER_FORMAT.AUTO;
 
   // Numeric-only: hide the format dropdown when the picked field is not a

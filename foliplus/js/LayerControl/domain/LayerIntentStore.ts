@@ -69,6 +69,7 @@ class LayerIntentStore {
    *  new marker — matching the old `hasLiveValue` default arm. */
   hasLive(id: string, override: LayerOverride): boolean {
     const live = LIVE[override];
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- future-proof: override may not be in LIVE map
     return live ? live(this.get(id, override)) : true;
   }
 
@@ -235,6 +236,7 @@ class LayerIntentStore {
     this.clearAll();
     for (const [id, intent] of Object.entries(map)) {
       for (const [key, value] of Object.entries(intent)) {
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- persisted values may contain undefined entries
         if (value !== undefined) {
           (this.ensure(id).intent as Record<string, unknown>)[key] = value;
         }
@@ -265,15 +267,18 @@ class LayerIntentStore {
         ? [...row.provenance].filter(override => this.hasLive(id, override))
         : [];
       const annotation = liveAnnotations[id];
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- both may be empty at runtime
       if (declared.length === 0 && !annotation) continue;
       const state: PersistedLayerState = { overrides: declared };
       for (const override of declared) {
         const value = this.get(id, override);
         const live = LIVE[override];
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- LIVE map lookup may miss for future overrides
         if (live?.(value)) {
           (state as Record<LayerOverride, unknown>)[override] = value;
         }
       }
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- annotation may be undefined
       if (annotation) state.annotation = annotation;
       states[id] = state;
     }
@@ -299,6 +304,7 @@ class LayerIntentStore {
       for (const override of entry.overrides) {
         const value = entry[override];
         const live = LIVE[override];
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- LIVE map and value may be absent at runtime
         if (live && value !== undefined && live(value)) {
           // Disk key == provenance key == intent key (identity map).
           (this.ensure(id).intent as Record<LayerOverride, unknown>)[override] = value;

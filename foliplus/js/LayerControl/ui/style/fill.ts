@@ -130,10 +130,12 @@ const authoredFillColor = (ui: LayerUI, layerId: string): string => {
   if (!layer) return LEAFLET_DEFAULT_FILL;
   let authored: string | null = null;
   walkStyleLeaves(layer, leaf => {
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- leaf.options may be undefined
     if (authored === null && leaf.options?.fillColor != null) {
       authored = leaf.options.fillColor;
     }
   });
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- authored set inside callback, may remain null
   return authored ?? LEAFLET_DEFAULT_FILL;
 };
 
@@ -146,6 +148,7 @@ const authoredFillOpacity = (ui: LayerUI, layerId: string): number | null => {
   if (!layer) return null;
   let authored: number | null = null;
   walkStyleLeaves(layer, leaf => {
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- leaf.options may be undefined
     if (authored === null && typeof leaf.options?.fillOpacity === "number") {
       authored = leaf.options.fillOpacity;
     }

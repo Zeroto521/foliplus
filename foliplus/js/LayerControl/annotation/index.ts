@@ -144,6 +144,7 @@ class AnnotationManager {
         // means an external caller fired the event without the contract.
         // Fallback to full refresh (repaint every label-bearing layer), which
         // is the old raw layeradd/layerremove behavior.
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- external emit may omit payload
         if (!payload) {
           this.refresh();
           return;
@@ -248,6 +249,7 @@ class AnnotationManager {
     const getLatLng = (leaf as L.Layer & { getLatLng?: () => L.LatLng }).getLatLng;
     if (typeof getLatLng === "function") {
       const ll = getLatLng.call(leaf);
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- getLatLng may return undefined for unknown layers
       if (ll) return ll;
     }
     const bounds = (
@@ -449,6 +451,7 @@ class AnnotationManager {
     // translates by the delta from here (same source latLngToContainerPoint
     // uses, so the translate matches a re-plan exactly).
     const mapPane = this.map.getPanes().mapPane;
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- mapPane may be null for non-standard CRS
     this.planOrigin = mapPane ? { ...L.DomUtil.getPosition(mapPane) } : null;
     this.lastPlanned.clear();
     for (const [id, canvas] of this.canvases) {
@@ -482,6 +485,7 @@ class AnnotationManager {
   private refreshPan(): void {
     if (this.canvases.size === 0) return;
     const mapPane = this.map.getPanes().mapPane;
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- mapPane may be null for non-standard CRS
     const pos = mapPane ? L.DomUtil.getPosition(mapPane) : null;
     if (!this.planOrigin || !pos) {
       this.refresh();
@@ -613,6 +617,7 @@ const specOf = (root: HTMLElement): LabelSpec => {
 
 /** Parse a string value to a number when it's genuinely numeric. */
 const parseNum = (v: string): number | null => {
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- v may be undefined at runtime despite string type
   if (v === "" || v == null) return null;
   const n = Number(v);
   return Number.isFinite(n) ? n : null;

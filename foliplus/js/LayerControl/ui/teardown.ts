@@ -43,6 +43,7 @@ const closeOverlays = (ui: LayerUI): void => {
   // A folium GeoJsonPopup binds onto each sublayer (parent.bindPopup in the
   // GeoJson template), not onto map._popup — closePopup above only reaches
   // map-level popups. Sweep the layers so feature-bound popups close too.
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- closePopup may be absent on unknown layer types
   ui.c.map.eachLayer(layer => layer.closePopup?.());
   // Sublayer-bound popups outlive both map-level calls (the factory-bound
   // popup is not the one closePopup tracks, and eachLayer stops at top-level

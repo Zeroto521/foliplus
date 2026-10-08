@@ -62,6 +62,7 @@ const initTypesAndVisibility = (ui: LayerUI) => {
   // Ready signal for tests: checkbox titles / .foliplus-active / counts are final
   // for the current layer set (late components re-trigger this pass and
   // re-set the attribute, so "ready" always reflects the latest pass).
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- uiContainer may be null before attach
   ui.uiContainer?.setAttribute("data-ready", "true");
 };
 

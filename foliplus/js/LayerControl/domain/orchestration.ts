@@ -50,6 +50,7 @@ const withAnnotationSpec = (
   layerInfo: LayerInfo,
   layer: L.Layer | null,
 ): PaneSpec[] => {
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- paneSpecs may be undefined at runtime
   const paneSpecs = layerInfo.paneSpecs ?? [];
   if (paneSpecs.some(spec => spec.role === PANE_ROLE.ANNOTATION)) return paneSpecs;
   if (!layer || !hasLabelField(layer)) return paneSpecs;
@@ -126,6 +127,7 @@ class LayerOrchestration {
     this.lastAttribution = deps.lastAttribution;
     // Same capture the controller used to do: the author's declaration,
     // read before any enforceOrder can write its own fallback.
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- map.options may be undefined
     this.authorMaxZoomDeclared = Number.isFinite(deps.map.options?.maxZoom);
   }
 

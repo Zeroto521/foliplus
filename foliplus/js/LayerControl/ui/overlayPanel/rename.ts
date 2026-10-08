@@ -22,6 +22,7 @@ import { closeOverlays } from "../teardown.js";
  * gap, so the value is trimmed on commit.
  */
 const renameLayer = (ui: LayerUI, layerId: string): void => {
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- layerId may be empty; uiContainer may be null
   if (!layerId || !ui.uiContainer) return;
 
   // Validate before tearing down: an unknown id or a row without a label would
@@ -106,6 +107,7 @@ const finishRename = (ui: LayerUI, restoreText = true): void => {
   if (!ui.overlayPanel.activeRenameId) return;
   const layerId = ui.overlayPanel.activeRenameId;
   ui.overlayPanel.activeRenameId = null;
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- uiContainer may be null before attach
   if (!ui.uiContainer) return;
 
   const layerInfo = ui.c.layerRegistry.get(layerId);

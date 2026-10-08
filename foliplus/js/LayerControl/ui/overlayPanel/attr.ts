@@ -131,7 +131,10 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
       ...(layerInfo?.metaProvider?.() ?? {}),
     };
     return Object.entries(merged)
-      .filter(([, v]) => v != null && v !== "")
+      .filter(([, v]) => {
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- metaProvider values may contain null/empty
+        return v != null && v !== "";
+      })
       .map(([key, value]) => [
         key,
         typeof value === "number"

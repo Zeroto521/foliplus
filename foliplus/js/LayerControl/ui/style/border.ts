@@ -156,7 +156,9 @@ const authoredBorder = (
   const carrier = layer ? firstCarrier(layer) : null;
   const bag = carrier ? styleBagOf(carrier) : undefined;
   return {
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- bag may be undefined if carrier has no style bag
     color: bag?.color ?? carrier?.options?.color ?? DEFAULT_STYLE_BORDER,
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- bag may be undefined
     weight: bag?.weight ?? carrier?.options?.weight ?? BORDER_WEIGHT.DEFAULT,
   };
 };

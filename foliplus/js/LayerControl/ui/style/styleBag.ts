@@ -99,11 +99,17 @@ const captureStyleBag = (node: StyleCarrier): StyleBag => {
   const existing = authorStyleBase.get(node);
   if (existing) return existing;
   const bag: StyleBag = {
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- StyleCarrier.options is optional per type
     color: node.options?.color ?? STYLE_BAG_DEFAULTS.color,
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- StyleCarrier.options is optional
     weight: node.options?.weight ?? STYLE_BAG_DEFAULTS.weight,
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- StyleCarrier.options is optional
     stroke: node.options?.stroke ?? STYLE_BAG_DEFAULTS.stroke,
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- StyleCarrier.options is optional
     fillColor: node.options?.fillColor ?? STYLE_BAG_DEFAULTS.fillColor,
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- StyleCarrier.options is optional
     fillOpacity: node.options?.fillOpacity ?? STYLE_BAG_DEFAULTS.fillOpacity,
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- StyleCarrier.options is optional
     fill: node.options?.fill ?? STYLE_BAG_DEFAULTS.fill,
   };
   authorStyleBase.set(node, bag);

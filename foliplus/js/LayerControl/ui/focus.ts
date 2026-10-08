@@ -446,6 +446,7 @@ const computeLayerBounds = (layer: L.Layer): L.LatLngBounds | null => {
   const withBounds = layer as L.Layer & { getBounds?: () => L.LatLngBounds };
   if (typeof withBounds.getBounds === "function") {
     const b = withBounds.getBounds();
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- getBounds may return undefined for unknown layers
     if (b?.isValid()) return b;
   }
   const acc = L.latLngBounds([]);
@@ -457,6 +458,7 @@ const computeLayerBounds = (layer: L.Layer): L.LatLngBounds | null => {
       hasLeaf = true;
     }
   });
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- hasLeaf set inside callback, may be false
   return hasLeaf ? acc : null;
 };
 
