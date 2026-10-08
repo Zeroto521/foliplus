@@ -4,10 +4,12 @@
 // A regression here would silently swallow real test errors, so both are
 // asserted directly, along with the main() shell that reports on them.
 import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it, vi } from "vitest";
 import {
   PRODUCTION,
   filterProduction,
+  isMain,
   main,
   parseErrors,
   runTsc,
@@ -225,5 +227,18 @@ describe("main", () => {
     expect(log).toHaveBeenCalledWith(
       "test/js typecheck: 0 errors (production lines filtered by design: 0)",
     );
+  });
+});
+
+describe("isMain", () => {
+  it("fires when node runs the file directly", () => {
+    const url = "file:///C:/repo/script/typecheck-test.mjs";
+    expect(isMain(url, fileURLToPath(url))).toBe(true);
+  });
+
+  it("stays quiet when a different file is running", () => {
+    const url = "file:///C:/repo/script/typecheck-test.mjs";
+    expect(isMain(url, fileURLToPath("file:///C:/repo/vitest.mjs"))).toBe(false);
+    expect(isMain(url, undefined)).toBe(false);
   });
 });

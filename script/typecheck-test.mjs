@@ -129,8 +129,20 @@ const main = ({ run = runTsc, log = console.log, error = console.error } = {}) =
   return 0;
 };
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  process.exitCode = main();
-}
+/**
+ * Whether node was told to run this file, rather than some test importing it.
+ * Both sides are taken as arguments so the comparison is testable without
+ * touching `process`.
+ *
+ * @param {string} importMetaUrl the caller's own `import.meta.url`
+ * @param {string | undefined} argv1 node's `process.argv[1]`
+ * @returns {boolean}
+ */
+const isMain = (importMetaUrl, argv1) => argv1 === fileURLToPath(importMetaUrl);
 
-export { PRODUCTION, filterProduction, main, parseErrors, runTsc };
+// The module's only load-time side effect. One expression, so the decision and
+// the action sit on the same line and importing the module leaves nothing
+// behind.
+process.exitCode = isMain(import.meta.url, process.argv[1]) ? main() : process.exitCode;
+
+export { PRODUCTION, filterProduction, isMain, main, parseErrors, runTsc };
