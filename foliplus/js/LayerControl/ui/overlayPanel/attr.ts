@@ -131,9 +131,7 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
       ...(layerInfo?.metaProvider?.() ?? {}),
     };
     return Object.entries(merged)
-      .filter(([, v]) => {
-        return v != null && v !== "";
-      })
+      .filter(([, v]) => v != null && v !== "")
       .map(([key, value]) => [
         key,
         typeof value === "number"

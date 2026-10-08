@@ -244,10 +244,6 @@ class HeatmapManager {
       borderWeight: this.borderWeight,
       borderColor: this.borderColor,
     });
-    // All style setters call foliplus.LayerAPI.touchLayer to stamp updatedAt
-    // in the attrs panel. LayerAPI is typed non-optional but the runtime seed
-    // may be partial (lightweight stub without touchLayer), so each call is
-    // guarded — the eslint-disable below acknowledges this runtime boundary.
     this.styleSetters = {
       labelShow: v => {
         this.labelShow = v === true;

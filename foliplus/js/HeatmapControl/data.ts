@@ -65,12 +65,17 @@ const aggregateData = (
   onEmpty: () => void,
   log: Logger,
 ): AggregatedData | null => {
-  const hexCells: Partial<Record<string, HexCell>> = {};
+  const hexCells = new Map<string, HexCell>();
   pts.forEach(pt => {
     try {
       const h3Idx = h3.latLngToCell(pt.lat, pt.lng, res);
-      hexCells[h3Idx] ??= { sum: 0, count: 0, min: Infinity, max: -Infinity };
-      const cell = hexCells[h3Idx]!;
+      const cell = hexCells.get(h3Idx) ?? {
+        sum: 0,
+        count: 0,
+        min: Infinity,
+        max: -Infinity,
+      };
+      if (!hexCells.has(h3Idx)) hexCells.set(h3Idx, cell);
       cell.sum += pt.value;
       cell.count += 1;
       if (pt.value < cell.min) cell.min = pt.value;
@@ -97,7 +102,7 @@ const aggregateData = (
     }
   };
 
-  const allVals = (Object.values(hexCells) as HexCell[]).map(getAggValue);
+  const allVals = [...hexCells.values()].map(getAggValue);
   if (allVals.length === 0) {
     onEmpty();
     return null;
@@ -112,7 +117,7 @@ const aggregateData = (
     return breaks.length - 2;
   };
   return {
-    hexCells: hexCells as Record<string, HexCell>,
+    hexCells: Object.fromEntries(hexCells),
     getAggValue,
     valueToClassIdx,
     classColors,

@@ -95,12 +95,19 @@ export default [
       //     ↑
       //   {Component}Control/   (LayerControl, SearchControl, MeasureControl, …)
       //
+      // Components are peers — they communicate via `window.foliplus.events`
+      // (event bus) and `map.foliplus.LayerAPI` (shared runtime), never by
+      // importing each other's private implementations. Eight zones (one per
+      // component) enforce this: each component is forbidden from importing
+      // from any other component directory.
+      //
       // `#foliplus/config-schema.js` and `#foliplus/BaseControl.js` are
       // top-level shared modules at the same layer as common/ and core/
       // (imported by both); they are intentionally NOT in these targets —
-      // only cross-layer upward edges are forbidden. Two zones, no
-      // pre-existing violations in the tree (verified: common to core 0,
-      // core to component 0).
+      // only cross-layer upward edges are forbidden. Ten zones total (2
+      // layered + 8 component isolation), no pre-existing violations in the
+      // tree (verified: common to core 0, core to component 0, component to
+      // component 0).
       //
       // Semantic note (the names invert from intuition): `target` matches
       // against the *importing file* (the source of the edge), `from`
@@ -144,6 +151,121 @@ export default [
               ],
               message:
                 "core/ cannot depend on component implementations (LayerControl, SearchControl, …).",
+            },
+            // Component-to-component isolation — peers communicate via
+            // window.foliplus.events (event bus) and map.foliplus.LayerAPI,
+            // never by importing each other's private implementations.
+            {
+              target: ["./foliplus/js/LayerControl/**"],
+              from: [
+                "./foliplus/js/SearchControl/**",
+                "./foliplus/js/MeasureControl/**",
+                "./foliplus/js/LocateControl/**",
+                "./foliplus/js/ExportControl/**",
+                "./foliplus/js/FullscreenControl/**",
+                "./foliplus/js/HeatmapControl/**",
+                "./foliplus/js/ScaleControl/**",
+              ],
+              message:
+                "Components communicate via window.foliplus.events, not by importing each other's private implementations.",
+            },
+            {
+              target: ["./foliplus/js/SearchControl/**"],
+              from: [
+                "./foliplus/js/LayerControl/**",
+                "./foliplus/js/MeasureControl/**",
+                "./foliplus/js/LocateControl/**",
+                "./foliplus/js/ExportControl/**",
+                "./foliplus/js/FullscreenControl/**",
+                "./foliplus/js/HeatmapControl/**",
+                "./foliplus/js/ScaleControl/**",
+              ],
+              message:
+                "Components communicate via window.foliplus.events, not by importing each other's private implementations.",
+            },
+            {
+              target: ["./foliplus/js/MeasureControl/**"],
+              from: [
+                "./foliplus/js/LayerControl/**",
+                "./foliplus/js/SearchControl/**",
+                "./foliplus/js/LocateControl/**",
+                "./foliplus/js/ExportControl/**",
+                "./foliplus/js/FullscreenControl/**",
+                "./foliplus/js/HeatmapControl/**",
+                "./foliplus/js/ScaleControl/**",
+              ],
+              message:
+                "Components communicate via window.foliplus.events, not by importing each other's private implementations.",
+            },
+            {
+              target: ["./foliplus/js/LocateControl/**"],
+              from: [
+                "./foliplus/js/LayerControl/**",
+                "./foliplus/js/SearchControl/**",
+                "./foliplus/js/MeasureControl/**",
+                "./foliplus/js/ExportControl/**",
+                "./foliplus/js/FullscreenControl/**",
+                "./foliplus/js/HeatmapControl/**",
+                "./foliplus/js/ScaleControl/**",
+              ],
+              message:
+                "Components communicate via window.foliplus.events, not by importing each other's private implementations.",
+            },
+            {
+              target: ["./foliplus/js/ExportControl/**"],
+              from: [
+                "./foliplus/js/LayerControl/**",
+                "./foliplus/js/SearchControl/**",
+                "./foliplus/js/MeasureControl/**",
+                "./foliplus/js/LocateControl/**",
+                "./foliplus/js/FullscreenControl/**",
+                "./foliplus/js/HeatmapControl/**",
+                "./foliplus/js/ScaleControl/**",
+              ],
+              message:
+                "Components communicate via window.foliplus.events, not by importing each other's private implementations.",
+            },
+            {
+              target: ["./foliplus/js/FullscreenControl/**"],
+              from: [
+                "./foliplus/js/LayerControl/**",
+                "./foliplus/js/SearchControl/**",
+                "./foliplus/js/MeasureControl/**",
+                "./foliplus/js/LocateControl/**",
+                "./foliplus/js/ExportControl/**",
+                "./foliplus/js/HeatmapControl/**",
+                "./foliplus/js/ScaleControl/**",
+              ],
+              message:
+                "Components communicate via window.foliplus.events, not by importing each other's private implementations.",
+            },
+            {
+              target: ["./foliplus/js/HeatmapControl/**"],
+              from: [
+                "./foliplus/js/LayerControl/**",
+                "./foliplus/js/SearchControl/**",
+                "./foliplus/js/MeasureControl/**",
+                "./foliplus/js/LocateControl/**",
+                "./foliplus/js/ExportControl/**",
+                "./foliplus/js/FullscreenControl/**",
+                "./foliplus/js/ScaleControl/**",
+              ],
+              message:
+                "Components communicate via window.foliplus.events, not by importing each other's private implementations.",
+            },
+            {
+              target: ["./foliplus/js/ScaleControl/**"],
+              from: [
+                "./foliplus/js/LayerControl/**",
+                "./foliplus/js/SearchControl/**",
+                "./foliplus/js/MeasureControl/**",
+                "./foliplus/js/LocateControl/**",
+                "./foliplus/js/ExportControl/**",
+                "./foliplus/js/FullscreenControl/**",
+                "./foliplus/js/HeatmapControl/**",
+              ],
+              message:
+                "Components communicate via window.foliplus.events, not by importing each other's private implementations.",
             },
           ],
         },
