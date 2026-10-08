@@ -3,7 +3,6 @@
     "foliplus/dist/**",
     "node_modules/**",
     "test/js/browser/**",
-    "doc/**",
-    "script/sonda/**"
+    "doc/**"
   ]
 }

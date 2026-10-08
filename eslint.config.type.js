@@ -116,7 +116,7 @@ export default [
       // extends the check to type guards (`x is string` — flags when the
       // predicate is always true for the given type).
       //
-      // All 254 violations resolved (2025-06): most were false positives where
+      // All 254 violations resolved (2026-10): most were false positives where
       // runtime guards are needed despite TypeScript's non-optional types.
       // eslint-disable comments with specific reasons are added at each site.
       "@typescript-eslint/no-unnecessary-condition": [
