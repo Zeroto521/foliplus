@@ -68,6 +68,14 @@ describe("parseErrors", () => {
       { path: "test/js/y.test.ts", lines: [testError, "  continuation"] },
     ]);
   });
+
+  it("captures a Windows drive-letter path whole", () => {
+    const line =
+      "C:\\Users\\x\\repo\\test\\js\\y.test.ts(1,1): error TS7005: Variable 'x' implicitly has an 'any' type.";
+    expect(parseErrors(line)).toEqual([
+      { path: "C:\\Users\\x\\repo\\test\\js\\y.test.ts", lines: [line] },
+    ]);
+  });
 });
 
 describe("filterProduction", () => {
@@ -97,6 +105,15 @@ describe("filterProduction", () => {
     );
     expect(filtered).toBe(0);
     expect(gated[0].path).toBe("");
+  });
+
+  it("only filters the repo-relative prefix, never an absolute one", () => {
+    const absolute =
+      "C:\\Users\\x\\repo\\foliplus\\js\\y.ts(1,1): error TS7006: Parameter 'p' implicitly has an 'any' type.";
+    const { gated, filtered } = filterProduction(parseErrors(absolute));
+
+    expect(filtered).toBe(0);
+    expect(gated[0].path).toBe("C:\\Users\\x\\repo\\foliplus\\js\\y.ts");
   });
 
   it("returns empty counts for clean output", () => {

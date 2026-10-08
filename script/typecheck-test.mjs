@@ -16,12 +16,18 @@
  * `runTsc` and the `main` shell touch the filesystem or the exit status.
  */
 import { spawnSync } from "node:child_process";
-import { dirname, resolve } from "node:path";
+import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { repoRoot } from "./build-path.mjs";
 
-const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const REPO_ROOT = repoRoot(import.meta.url);
 
-/** Paths whose errors belong to the production program, not this one. */
+/**
+ * Paths whose errors belong to the production program, not this one. tsc
+ * reports paths relative to the program root, so this is a repo-relative
+ * prefix — `.claude/` and similar siblings are not in the program's include
+ * set and can never surface here.
+ */
 const PRODUCTION = /^foliplus\//;
 
 /**
