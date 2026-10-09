@@ -80,7 +80,7 @@ const positionPanel = (ctrl: SearchControlCtx) => {
 };
 
 const renderResults = (ctrl: SearchControlCtx, results: ResultItem[]) => {
-  if (!results || results.length === 0) {
+  if (results.length === 0) {
     removePanel(ctrl);
     return;
   }

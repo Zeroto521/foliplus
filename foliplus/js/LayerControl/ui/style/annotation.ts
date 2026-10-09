@@ -238,4 +238,4 @@ const ANNOTATION_DIMENSION = registerDimension<AnnotationConfig>({
   row: buildLabelSection,
 });
 
-export { ANNOTATION_DIMENSION, buildLabelSection, layerCanLabel };
+export { ANNOTATION_DIMENSION, layerCanLabel };

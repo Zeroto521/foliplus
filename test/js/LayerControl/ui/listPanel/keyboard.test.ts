@@ -1190,6 +1190,15 @@ describe("LayerUI keyboard", () => {
       document.body.removeChild(orphan);
     });
 
+    it("Enter with a focused more-button inside a row opens the menu", () => {
+      const item = findItem(ui, "overlay1");
+      const moreBtn = item.querySelector(`.${CONST.CLASSES.MORE_BTN}`) as HTMLElement;
+      moreBtn.focus();
+      const openMoreMenu = vi.spyOn(ui, "openMoreMenu").mockImplementation(() => {});
+      ui.handleKeyDown(keyEvent("Enter"));
+      expect(openMoreMenu).toHaveBeenCalledWith(item);
+    });
+
     it("Space with a focused fold-button outside any row is a no-op", () => {
       ui.setActiveItem(0);
       const orphan = document.createElement("button");

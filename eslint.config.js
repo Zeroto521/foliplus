@@ -36,6 +36,22 @@ import tseslint from "typescript-eslint";
 // block at the bottom for the files still flagged by the rule.
 const importPlugin = (await import("eslint-plugin-import")).default;
 
+// Component directories — single source of truth for the no-restricted-paths
+// zones. Adding a new component requires only appending its name here; all
+// three zone groups (common → component, core → component, component ↔ component)
+// update automatically.
+const COMPONENT_DIRS = [
+  "LayerControl",
+  "SearchControl",
+  "MeasureControl",
+  "LocateControl",
+  "ExportControl",
+  "FullscreenControl",
+  "HeatmapControl",
+  "ScaleControl",
+];
+const COMPONENT_GLOBS = COMPONENT_DIRS.map(d => `./foliplus/js/${d}/**`);
+
 export default [
   // Guard against a bare `eslint .`, which would sweep .venv, doc/, and
   // the build output. The lint script's globs already avoid those, so
@@ -87,6 +103,74 @@ export default [
       // that were already in the shipped codebase; they belong in their own
       // cleanup PRs, not here.
       "import/no-cycle": ["error", { maxDepth: 10 }],
+
+      // Layered dependency direction — the runtime tree is a strict DAG:
+      //   common/  (bottom: DOM/storage/format utilities)
+      //     ↑
+      //   core/    (domain: layer, geocode, event, leaflet adapter, mode)
+      //     ↑
+      //   {Component}Control/   (LayerControl, SearchControl, MeasureControl, …)
+      //
+      // Components are peers — they communicate via `window.foliplus.events`
+      // (event bus) and `map.foliplus.LayerAPI` (shared runtime), never by
+      // importing each other's private implementations. Eight zones (one per
+      // component) enforce this: each component is forbidden from importing
+      // from any other component directory.
+      //
+      // `#foliplus/config-schema.js` and `#foliplus/BaseControl.js` are
+      // top-level shared modules at the same layer as common/ and core/
+      // (imported by both); they are intentionally NOT in these targets —
+      // only cross-layer upward edges are forbidden. Ten zones total (2
+      // layered + 8 component isolation), no pre-existing violations in the
+      // tree (verified: common to core 0, core to component 0, component to
+      // component 0).
+      //
+      // Semantic note (the names invert from intuition): `target` matches
+      // against the *importing file* (the source of the edge), `from`
+      // matches against the *imported path* (the destination). So this
+      // reads as "files matching target are forbidden from importing
+      // anything matching from".
+      //
+      // Component directories are defined once below and expanded into
+      // glob patterns. Adding a new component requires only appending its
+      // name to COMPONENT_DIRS — all three zone groups update automatically.
+      "import/no-restricted-paths": [
+        "error",
+        {
+          zones: [
+            // Zone 1: common/ is the bottom layer — never imports upward.
+            {
+              target: ["./foliplus/js/common/**"],
+              from: ["./foliplus/js/core/**", ...COMPONENT_GLOBS],
+              message:
+                "common/ is the bottom layer: no upward deps to core/ or component dirs.",
+            },
+            // Zone 2: core/ may reach common/ and the top-level shared
+            // modules, but never reaches down into a component's
+            // implementation.
+            {
+              target: ["./foliplus/js/core/**"],
+              from: COMPONENT_GLOBS,
+              message:
+                "core/ cannot depend on component implementations (LayerControl, SearchControl, …).",
+            },
+            // Zones 3–10: Component-to-component isolation — peers
+            // communicate via window.foliplus.events (event bus) and
+            // map.foliplus.LayerAPI, never by importing each other's
+            // private implementations. Generated from COMPONENT_DIRS.
+            ...COMPONENT_DIRS.map((dir, i) => ({
+              target: [`./foliplus/js/${dir}/**`],
+              from: COMPONENT_GLOBS.filter((_, j) => j !== i),
+              message:
+                "Components communicate via window.foliplus.events, not by importing each other's private implementations.",
+            })),
+          ],
+        },
+      ],
+
+      // Dead-export detector lives in eslint.config.type.js (needs the
+      // TS program for `ignoreUnusedTypeExports` to work). See the type
+      // config for the rule's `ignoreExports` patterns and rationale.
 
       // One import declaration per module — the project's import
       // convention. `import type { A }` + `import { B }` from the same
@@ -200,6 +284,17 @@ export default [
       // Heavy-mock test suite and Leaflet interop make `any` idiomatic here.
       // tsconfig's noImplicitAny still catches implicit ones.
       "@typescript-eslint/no-explicit-any": "off",
+
+      // Variable shadowing is a common source of subtle bugs. `allow: ["_","e"]`
+      // permits the project's catch-parameter idiom (`catch (e)`) and the
+      // underscore-prefix convention for deliberate placeholders. `ignoreTypeValueShadow`
+      // allows a type declaration to shadow a value of the same name (the TS
+      // pattern `class Foo {}` + `type Foo = …` is legal and used for
+      // constructor-vs-instance type splitting).
+      "@typescript-eslint/no-shadow": [
+        "error",
+        { allow: ["_", "e"], ignoreTypeValueShadow: true },
+      ],
     },
   },
 
@@ -222,6 +317,10 @@ export default [
     rules: {
       "@typescript-eslint/no-require-imports": "off",
       "@typescript-eslint/no-empty-function": "off",
+      // Test mocks shadow source variables by design (vi.fn() as typeof L,
+      // fixture objects reusing production names). no-shadow adds no value
+      // in a codebase that is 100% mock-driven.
+      "@typescript-eslint/no-shadow": "off",
     },
   },
 

@@ -163,7 +163,7 @@ type NetworkInformation = {
   effectiveType?: string;
 };
 
-const CONN_CONCURRENCY: Record<string, number> = {
+const CONN_CONCURRENCY: Partial<Record<string, number>> = {
   "slow-2g": 2,
   "2g": 2,
   "3g": 4,
@@ -172,7 +172,7 @@ const CONN_CONCURRENCY: Record<string, number> = {
   wifi: DEFAULT_CONCURRENCY,
 };
 
-const DEFAULT_CONN_CONCURRENCY: Record<string, number> = {
+const DEFAULT_CONN_CONCURRENCY: Partial<Record<string, number>> = {
   offline: 0,
   "slow-2g": 2,
   "2g": 2,

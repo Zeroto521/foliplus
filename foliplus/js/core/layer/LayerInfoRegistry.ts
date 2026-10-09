@@ -316,7 +316,7 @@ class LayerInfoRegistry {
 
   /**
    * Check whether a layer at fromIdx can be reordered to toIdx.
-   * Only same-group (base↔base or overlay↔overlay) reordering is allowed. */
+   * Only same-group (base ↔ base or overlay ↔ overlay) reordering is allowed. */
   canReorderBetween(fromIdx: number, toIdx: number): boolean {
     if (fromIdx == null || toIdx == null) return false;
     if (fromIdx < 0 || toIdx < 0) return false;

@@ -98,7 +98,6 @@ class HeatmapControl extends defineControl({
 
     const mgr = this.mgr;
     this.manager = null;
-    if (!mgr) return;
     if (mgr.mapCleanup) mgr.mapCleanup();
     if (mgr.onZoomEnd) {
       mgr.onZoomEnd.cancel();

@@ -163,10 +163,11 @@ class DistanceMode extends PreviewMode {
           this.mgr.store.remove(distId);
         },
         onUpdate: () => {
-          const { segments, totalDistance } = Util.recalculateSegments(points);
+          const { segments: updatedSegs, totalDistance } =
+            Util.recalculateSegments(points);
           this.mgr.store.update(distId, {
             points: points.map(p => ({ lng: p.lng, lat: p.lat })),
-            segments,
+            segments: updatedSegs,
             totalDistance,
           });
         },
@@ -236,8 +237,8 @@ class DistanceMode extends PreviewMode {
       marker.bringToFront();
       nodeMarkers.push(marker);
 
-      marker.on("click", (event: L.LeafletMouseEvent) => {
-        L.DomEvent.stopPropagation(event);
+      marker.on("click", (clickEvent: L.LeafletMouseEvent) => {
+        L.DomEvent.stopPropagation(clickEvent);
         if (points.length < 2) return;
         if (marker === nodeMarkers[nodeMarkers.length - 1]) finishDist();
       });

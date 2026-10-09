@@ -241,4 +241,4 @@ const ensureHint = (map: L.Map): HintManager => {
   return mgr;
 };
 
-export { destroyManager, ensureHint, HINT_DURATION, HintManager, registerHintIcon };
+export { ensureHint, HINT_DURATION, HintManager, registerHintIcon };

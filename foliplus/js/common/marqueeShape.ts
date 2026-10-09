@@ -48,4 +48,4 @@ const roundedRectOutline = (corners: RectCorners, f = 0.03): Vec2[] => {
 
 export { roundedRectOutline };
 
-export type { RectCorners, Vec2 };
+export type { RectCorners };

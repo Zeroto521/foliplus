@@ -331,13 +331,10 @@ const ZOOM_RANGE_DIMENSION = registerDimension<{ min: number; max: number }>({
 
 export {
   applyZoomRangeLive,
-  buildZoomRangeRow,
-  canShowZoomRange,
   clampZoom,
   commitZoomRange,
   resetLayerZoomRange,
   syncZoomRangeRow,
-  syncValues,
   ZOOM_RANGE_DIMENSION,
   zoomToPct,
 };

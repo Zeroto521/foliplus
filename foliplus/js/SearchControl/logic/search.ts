@@ -227,7 +227,7 @@ const renderSuggestions = (
   results: SuggestItem[],
   query: string,
 ) => {
-  if (!results || results.length === 0) {
+  if (results.length === 0) {
     removePanel(ctrl);
     return;
   }
@@ -404,7 +404,6 @@ export {
   initDebouncedFetch,
   positionPanel,
   removePanel,
-  renderAddressResult,
   renderResults,
   renderSuggestions,
   searchAddress,

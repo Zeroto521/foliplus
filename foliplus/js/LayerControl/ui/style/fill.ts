@@ -452,7 +452,6 @@ export {
   commitFillColor,
   commitFillOpacity,
   FILL_DIMENSION,
-  isColorBasemap,
   layerCanFill,
   replayFillState,
   resetLayerFill,

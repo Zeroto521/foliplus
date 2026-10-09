@@ -205,4 +205,3 @@ const guardBlocked = (
 };
 
 export { ModeManager, ensureModes, guardBlocked };
-export type { ModeChangePayload };

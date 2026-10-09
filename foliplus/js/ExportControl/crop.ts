@@ -145,7 +145,7 @@ const nudgeStart = function (this: ExportManager, key: string) {
         // Clean up the suppressed-transition class on auto-stop. Explicit
         // nudgeStop() (from keyup) also clears it, so this covers the Enter/
         // Escape path where keyup never fires for the arrow key.
-        this.cropState?.box?.classList.remove(CONST.CLASSES.DRAGGING);
+        this.cropState?.box.classList.remove(CONST.CLASSES.DRAGGING);
         return true;
       }
       return false;

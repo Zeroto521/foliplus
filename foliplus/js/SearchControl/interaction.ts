@@ -205,8 +205,7 @@ const bindEvents = (ctrl: InteractionCtrl): (() => void) | void => {
 
   return () => {
     collapseObserver.disconnect();
-    const interaction = ensureInteraction(map);
-    interaction.unregister(ctrl.config.name);
+    ensureInteraction(map).unregister(ctrl.config.name);
   };
 };
 

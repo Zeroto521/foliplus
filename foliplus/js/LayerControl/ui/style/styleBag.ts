@@ -236,10 +236,8 @@ const hasStyleDimApply = (face: StyleFace, layerId: string): boolean =>
   applySchedulers.has(applyKey(face, layerId));
 
 export {
-  type StyleBag,
   type StyleCarrier,
   FACE,
-  type StyleFace,
   type StyleSetter,
   STYLE_BAG_DEFAULTS,
   cancelStyleDimApply,

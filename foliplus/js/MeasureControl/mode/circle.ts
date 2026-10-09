@@ -89,12 +89,12 @@ class CircleMode extends PreviewMode {
       onEnd: () => {
         const center = circle.getLatLng();
         const target = radiusNode!.getLatLng();
-        const r = circle.getRadius();
+        const newR = circle.getRadius();
         mgr.store.mutateAndPersist(data.id!, m => {
           m.center = { lng: center.lng, lat: center.lat };
           m.target = { lng: target.lng, lat: target.lat };
-          m.radius = r;
-          m.area = Math.PI * r * r;
+          m.radius = newR;
+          m.area = Math.PI * newR * newR;
         });
       },
     });
@@ -303,14 +303,14 @@ class CircleMode extends PreviewMode {
         onEnd: () => {
           const c = circle as L.Circle;
           const n = radiusNode as L.CircleMarker;
-          const center = c.getLatLng();
+          const newCenter = c.getLatLng();
           const target = n.getLatLng();
-          const r = c.getRadius();
+          const newR = c.getRadius();
           this.mgr.store.mutateAndPersist(circleId, m => {
-            m.center = { lng: center.lng, lat: center.lat };
+            m.center = { lng: newCenter.lng, lat: newCenter.lat };
             m.target = { lng: target.lng, lat: target.lat };
-            m.radius = r;
-            m.area = Math.PI * r * r;
+            m.radius = newR;
+            m.area = Math.PI * newR * newR;
           });
         },
       });

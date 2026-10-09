@@ -129,4 +129,3 @@ const defineControl = <M = unknown>(spec: DefineControlSpec<M>): ControlClass =>
 };
 
 export { defineControl };
-export type { ControlClass, DefineControlSpec };
