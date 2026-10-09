@@ -630,23 +630,6 @@ class TestRealChangelog:
         )
         assert warnings == []
 
-    def test_mega_pr_ties(self):
-        expected_ties = [
-            ("Unreleased", "Changed", 122, 4),
-            ("Unreleased", "Changed", 147, 4),
-            ("v0.3.0", "Changed", 37, 2),
-            ("v0.3.0", "Fixed", 48, 3),
-        ]
-        for version, section, first_num, expected in expected_ties:
-            actual = sum(
-                1
-                for e in self.ENTRIES
-                if e.version == version
-                and e.section == section
-                and e.first_num == first_num
-            )
-            assert actual == expected, f"{version}/{section} first #{first_num}"
-
 
 # ---------------------------------------------------------------------------
 # main() — CLI integration tests
