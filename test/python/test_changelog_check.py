@@ -632,8 +632,8 @@ class TestRealChangelog:
 
     def test_mega_pr_ties(self):
         expected_ties = [
-            ("Unreleased", "Changed", 122, 4),
-            ("Unreleased", "Changed", 147, 4),
+            ("v0.4.0", "Changed", 122, 4),
+            ("v0.4.0", "Changed", 147, 4),
             ("v0.3.0", "Changed", 37, 2),
             ("v0.3.0", "Fixed", 48, 3),
         ]
