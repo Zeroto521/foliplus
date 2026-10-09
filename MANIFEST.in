@@ -10,6 +10,7 @@ prune foliplus.egg-info
 prune script
 prune test
 exclude .editorconfig
+exclude .eslintrc.json
 exclude .gitattributes
 exclude .gitignore
 exclude .nvmrc
@@ -17,6 +18,8 @@ exclude .pre-commit-config.yaml
 exclude .prettierrc.cjs
 exclude .readthedocs.yaml
 exclude codecov.yaml
+exclude eslint.config.js
+exclude eslint.config.type.js
 exclude Makefile
 exclude package.json
 exclude tsconfig.json
