@@ -72,7 +72,7 @@ def _load_component_tables() -> dict[str, dict[str, dict[str, str]]]:
         stem = path.stem
         if "." not in stem:
             continue
-        comp, _lang = stem.rsplit(".", 1)
+        comp = stem.split(".")[0]
         if comp == "common":
             continue
         table: dict[str, str] = loads(path.read_text(encoding="utf-8"))

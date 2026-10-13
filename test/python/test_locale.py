@@ -250,6 +250,33 @@ class TestLoadBuiltinTables:
         assert "zh" in tables["HeatmapControl"]
         assert tables["HeatmapControl"]["en"]["locale.code"] == "en"
 
+    def test_load_component_tables_skips_edge_cases(self):
+        """Files without a dot in the stem, without locale.code, and common.* are skipped."""
+        from foliplus.locale import _load_component_tables
+
+        tmp_no_dot = _LOCALE_DIR / "README.json"
+        tmp_no_code = _LOCALE_DIR / "HeatmapControl.xx.json"
+        tmps = []
+        try:
+            tmp_no_dot.write_text('{"hello": "world"}', encoding="utf-8")
+            # A component file missing locale.code — the table is skipped.
+            tmp_no_code.write_text('{"key": "val"}', encoding="utf-8")
+            tmps = [tmp_no_dot, tmp_no_code]
+            _load_component_tables.cache_clear()
+            tables = _load_component_tables()
+            # No-dot file: "README" has no ".", so it's skipped.
+            assert "README" not in tables
+            # No-code file: stem "HeatmapControl.xx" has a dot, so comp is
+            # "HeatmapControl", but locale.code is missing → code is "" → skipped.
+            # HeatmapControl should still have en/zh from the real files,
+            # but no "xx" entry.
+            assert "xx" not in tables.get("HeatmapControl", {})
+        finally:
+            _load_component_tables.cache_clear()
+            for tmp in tmps:
+                if tmp.exists():
+                    tmp.unlink()
+
 
 class TestFromFile:
     def test_json_file(self):

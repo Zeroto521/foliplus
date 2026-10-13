@@ -169,7 +169,7 @@ declare global {
     /** Per-component locale tables injected once per map by BaseControl.py.
      *  Maps component name to a dict of language code → string table, so
      *  the browser can auto-detect language at runtime. */
-    _COMPONENT_TABLES: Record<string, Record<string, Record<string, string>>>;
+    _COMPONENT_TABLES?: Record<string, Record<string, Record<string, string>>>;
     /** Shared core modules, exposed by the generated `_shared-registry.ts`;
      *  `runtime/index.ts` also writes `component` and `mode` directly. */
     core: Record<string, unknown>;
