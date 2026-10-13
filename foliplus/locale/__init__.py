@@ -56,6 +56,32 @@ def _load_tables(pattern: str) -> dict[str, dict[str, str]]:
     return tables
 
 
+@cache
+def _load_component_tables() -> dict[str, dict[str, dict[str, str]]]:
+    """Load all per-component locale tables, grouped by component name.
+
+    Returns a dict mapping component name to a dict of language code →
+    string table.  Skips ``common.*.json`` (handled by ``_TABLES``).
+
+    The result is injected once per map as ``window.foliplus._COMPONENT_TABLES``
+    so the browser can pick a language table at runtime regardless of the
+    Python-side ``locale`` parameter.
+    """
+    result: dict[str, dict[str, dict[str, str]]] = {}
+    for path in sorted(_LOCALE_DIR.glob("*.json")):
+        stem = path.stem
+        if "." not in stem:
+            continue
+        comp, _lang = stem.rsplit(".", 1)
+        if comp == "common":
+            continue
+        table: dict[str, str] = loads(path.read_text(encoding="utf-8"))
+        code = table.get("locale.code", "")
+        if code:
+            result.setdefault(comp, {})[code] = table
+    return result
+
+
 def resolve_locale(locale: str | LocaleConfig | None, component: str) -> LocaleConfig:
     """Normalize a ``locale`` parameter to a :class:`LocaleConfig` instance.
 

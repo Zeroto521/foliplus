@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- `BaseControl`: move per-component locale tables to the shared bundle (`window.foliplus._COMPONENT_TABLES`) so the browser can auto-detect language at runtime; `CONFIG.locale_tables` now carries only user-custom strings (`LocaleConfig.from_json`), fixing `locale=None` showing English on a zh browser
+
 ## [v0.4.0] (2026-10-10)
 
 ### Added
