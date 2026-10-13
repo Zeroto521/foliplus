@@ -143,9 +143,10 @@ class TestExportControlPython:
     def test_locale_config_bare_has_no_custom_strings(self):
         """A bare LocaleConfig records the code but ships no custom table.
 
-        The code is sent to JS, which ships the built-in tables and lets the
-        browser pick the language — so this asserts the *absence* of a custom
-        table rather than that translation took effect.
+        The code is sent to JS, which ships the built-in tables via
+        _COMPONENT_TABLES and lets the browser pick the language — so this
+        asserts the *absence* of a custom table rather than that translation
+        took effect.
         """
         from foliplus.locale import LocaleConfig
 
@@ -154,10 +155,8 @@ class TestExportControlPython:
         assert ctrl._locale_code == "zh"
         config = json.loads(ctrl._config_block)
         assert config["locale_code"] == "zh"
-        table = config["locale_tables"]["zh"]
-        # Built-in table is present, unmodified — no custom override layered on.
-        builtin = _load_tables("ExportControl.*.json")["zh"]
-        assert table == builtin
+        # Built-in tables are in the shared bundle, not per-instance CONFIG.
+        assert config["locale_tables"] == {}
 
 
 class TestExportControlRendering:

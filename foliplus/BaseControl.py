@@ -4,15 +4,16 @@ Every foliplus component (FullscreenControl, HeatmapControl, LayerControl, ...)
 inherits from :class:`BaseControl`. This module owns the Python → JS bridge:
 
 * **Shared assets** — the merged shared stylesheet (``css/common/*.css``),
-  ``runtime.js`` (with ``runtime/*.js`` bundled) and the common locale tables are
-  emitted **once per map** into ``<head>`` by :meth:`BaseControl.render`,
+  ``runtime.js`` (with ``runtime/*.js`` bundled), and the common locale tables
+  (``_TABLES``) plus all per-component locale tables (``_COMPONENT_TABLES``)
+  are emitted **once per map** into ``<head>`` by :meth:`BaseControl.render`,
   deduplicated by :data:`_SHARED_ASSETS_NAME`.
 
 * **Config serialization** — each control's instance attributes are serialized into
   the JS ``CONFIG`` object. The static part is assembled by :meth:`BaseControl._build_config`
   (shared ``name``/``position`` keys + schema-derived :attr:`_config_fields` +
   dynamic :meth:`_extra_config` data), then :attr:`BaseControl._config_block` overlays
-  the locale tables and code.
+  the locale tables (custom strings only) and code.
 """
 
 from __future__ import annotations
@@ -33,7 +34,7 @@ from ._cdn_loader import load_cdn
 from ._config_schema import config_fields, derive_schema
 from ._typing import ControlPosition
 from ._validate import validate
-from .locale import LocaleConfig, _load_tables, resolve_locale
+from .locale import LocaleConfig, _load_component_tables, _load_tables, resolve_locale
 
 src_dir = Path(__file__).parent
 dist_dir = src_dir / "dist"
@@ -81,8 +82,9 @@ def _build_shared_header() -> str:
     """Build the shared asset bundle (<style> + <script>) injected once per map.
 
     Contains the merged shared stylesheet (all of css/common/), runtime.js
-    (with runtime/*.js bundled in), and the common locale tables (shared by
-    all components).
+    (with runtime/*.js bundled in), the common locale tables (shared by
+    all components), and the per-component locale tables (all languages for
+    all components, so the browser can auto-detect language at runtime).
     Built once and cached at module level.
     """
     missing = [
@@ -106,6 +108,7 @@ def _build_shared_header() -> str:
         f"{js}\n"
         "window.foliplus = window.foliplus || {};\n"
         f"window.foliplus._TABLES = {_safe_json(_load_tables('common.*.json'))};\n"
+        f"window.foliplus._COMPONENT_TABLES = {_safe_json(_load_component_tables())};\n"
         "</script>"
     )
 
@@ -223,7 +226,10 @@ class BaseControl(JSCSSMixin, MacroElement):
     :attr:`_config_fields` tuple each subclass exposes is derived from that table at
     class-definition time, and may be extended with dynamic render-time data by
     overriding :meth:`_extra_config`. The base class merges these with the shared
-    ``name``/``position`` keys and the locale tables into the ``CONFIG`` dict.
+    ``name``/``position`` keys and the locale code into the ``CONFIG`` dict.
+    Built-in component locale tables are injected once per map in
+    ``window.foliplus._COMPONENT_TABLES``; only user-custom strings
+    (:meth:`LocaleConfig.from_json`) ship per-instance in ``CONFIG.locale_tables``.
 
     Parameters
     ----------
@@ -319,8 +325,9 @@ class BaseControl(JSCSSMixin, MacroElement):
         :attr:`_config`) and overlays the two render-time pieces only known when
         the template is rendered:
 
-        * ``locale_tables`` — this control's own locale table for resolving translated
-          strings at runtime.
+        * ``locale_tables`` — user-custom string table (only from
+          :meth:`LocaleConfig.from_json`; built-in component tables are injected
+          once per map in ``window.foliplus._COMPONENT_TABLES``).
         * ``locale_code`` — the resolved language code (``"en"``, ``"zh"``, ...).
 
         Returns ``"{}"`` when the config is empty, otherwise a JSON string safe for
@@ -333,19 +340,14 @@ class BaseControl(JSCSSMixin, MacroElement):
         string execute as script.
         """
         config = dict(self._build_config())
-        # A LocaleConfig carrying its own strings (from_json / resolve_locale) layers
-        # those over a built-in per-component table, so a partial custom table only
-        # overrides the keys it declares and leaves the rest translated. A code that
-        # has no built-in table (a genuinely new language from from_json) falls back
-        # to English, which carries every key. Empty strings mean "auto-detect at
-        # runtime", so ship the built-in tables with no overlay.
+        # Built-in component tables are injected once per map in
+        # window.foliplus._COMPONENT_TABLES. Only user-custom strings
+        # (LocaleConfig.from_json) need to ship per-instance in CONFIG.
         code = self._locale.code if self._locale else ""
         strings = self._locale._strings if self._locale else {}
         builtins = _load_tables(f"{self._name}.*.json")
-        base = dict(builtins.get(code, builtins.get("en", {})))
-        config["locale_tables"] = {
-            code or "en": {**base, **strings} if strings else base
-        }
+        custom = strings and strings != builtins.get(code, {})
+        config["locale_tables"] = {code: strings} if custom else {}
         config["locale_code"] = code
         # config always contains at least name/position — never empty.
         return _safe_json(config)
@@ -391,11 +393,11 @@ class BaseControl(JSCSSMixin, MacroElement):
     def render(self, **kwargs: Any) -> str:
         """Inject the shared asset bundle into the figure header exactly once.
 
-        The runtime JS, shared CSS, and locale tables are identical for every control,
-        so they are emitted a single time per map (deduplicated by
-        :data:`_SHARED_ASSETS_NAME`) instead of being repeated in each control's
-        template. Placing them in ``<head>`` also guarantees they load before any
-        control's body script runs.
+        The runtime JS, shared CSS, common locale tables, and per-component
+        locale tables are identical for every control, so they are emitted a
+        single time per map (deduplicated by :data:`_SHARED_ASSETS_NAME`)
+        instead of being repeated in each control's template. Placing them in
+        ``<head>`` also guarantees they load before any control's body script runs.
         """
         figure = self.get_root()
         if (

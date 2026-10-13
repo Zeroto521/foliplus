@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- `BaseControl`: locale tables now ship once per map in the shared bundle (`_COMPONENT_TABLES`), so `locale=None` auto-detects the browser language instead of falling back to English; `CONFIG.locale_tables` keeps only custom strings ([#667](https://github.com/Zeroto521/foliplus/pull/667))
+
 ## [v0.4.0] (2026-10-10)
 
 ### Added
