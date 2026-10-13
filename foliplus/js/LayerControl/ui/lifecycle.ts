@@ -235,7 +235,10 @@ const bindLayerEvents = (ui: LayerUI): void => {
     row.classList.remove(CONST.CLASSES.FOCUSED);
   };
   ui.listPanel.interactionCleanup = registerInteractions(ui);
-  ui.geometryMarqueeCleanup = bindGeometryFocusMarquee(ui.c.map.getContainer());
+  ui.geometryMarqueeCleanup = bindGeometryFocusMarquee(
+    ui.c.map.getContainer(),
+    ui.c.map,
+  );
 
   container.addEventListener("change", ui.onChange);
   container.addEventListener("click", ui.onClick);
