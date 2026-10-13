@@ -28,6 +28,13 @@ describe("createTranslator", () => {
       en: { ok: "OK", greeting: "Hello", "locale.code": "en" },
       zh: { ok: "确定", greeting: "你好", "locale.code": "zh" },
     };
+    // Component tables injected once per map.
+    window.foliplus._COMPONENT_TABLES = {
+      HeatmapControl: {
+        en: { "HeatmapControl.title": "Hexbin", "locale.code": "en" },
+        zh: { "HeatmapControl.title": "网格聚合", "locale.code": "zh" },
+      },
+    };
   });
 
   it("uses explicit locale code from config", () => {
@@ -359,6 +366,80 @@ describe("createTranslator", () => {
       }
       delete (navigator as Navigator & { userLanguage?: string }).userLanguage;
     }
+  });
+
+  it("auto-detects zh from _COMPONENT_TABLES when locale_tables is empty", () => {
+    // Reproduces the user's scenario: locale=None (auto-detect), browser
+    // is zh-CN, and _COMPONENT_TABLES has zh. The translator must pick zh.
+    const original = navigator.language;
+    Object.defineProperty(navigator, "language", {
+      configurable: true,
+      get: () => "zh-CN",
+    });
+    try {
+      const config = {
+        name: "HeatmapControl",
+        locale_code: "",
+        locale_tables: {},
+      };
+      const t = createTranslator(config);
+      expect(config.locale_code).toBe("zh");
+      expect(t("HeatmapControl.title")).toBe("网格聚合");
+    } finally {
+      Object.defineProperty(navigator, "language", {
+        configurable: true,
+        get: () => original,
+      });
+    }
+  });
+
+  it("custom strings override component built-in tables", () => {
+    window.foliplus._COMPONENT_TABLES = {
+      HeatmapControl: {
+        en: { "HeatmapControl.title": "Hexbin" },
+        zh: { "HeatmapControl.title": "网格聚合" },
+      },
+    };
+    const config = {
+      name: "HeatmapControl",
+      locale_code: "zh",
+      locale_tables: { zh: { "HeatmapControl.title": "自定义" } },
+    };
+    const t = createTranslator(config);
+    expect(t("HeatmapControl.title")).toBe("自定义"); // custom overrides zh
+  });
+
+  it("falls back to config.locale_tables when _COMPONENT_TABLES is absent", () => {
+    // Backward compat: old foliplus without _COMPONENT_TABLES injection.
+    delete window.foliplus._COMPONENT_TABLES;
+    const config = {
+      name: "HeatmapControl",
+      locale_code: "zh",
+      locale_tables: { zh: { "HeatmapControl.title": "网格聚合" } },
+    };
+    const t = createTranslator(config);
+    expect(t("HeatmapControl.title")).toBe("网格聚合");
+  });
+
+  it("falls back to en component table when code has no built-in", () => {
+    // Custom language (ja) with no built-in table: custom strings win,
+    // other keys fall back to en component table.
+    window.foliplus._COMPONENT_TABLES = {
+      HeatmapControl: {
+        en: {
+          "HeatmapControl.title": "Hexbin",
+          "HeatmapControl.layer": "Layer",
+        },
+      },
+    };
+    const config = {
+      name: "HeatmapControl",
+      locale_code: "ja",
+      locale_tables: { ja: { "HeatmapControl.title": "こんにちは" } },
+    };
+    const t = createTranslator(config);
+    expect(t("HeatmapControl.title")).toBe("こんにちは"); // custom wins
+    expect(t("HeatmapControl.layer")).toBe("Layer"); // en fallback
   });
 });
 

@@ -125,13 +125,21 @@ class TestLocaleConfig:
         assert cfg.get("HeatmapControl.title") == "HeatmapControl.title"
 
     def test_control_uses_builtin_table_for_string_locale(self):
-        """A str locale reaches the JS CONFIG as a non-empty per-code table."""
+        """A str locale sets locale_code; built-in tables ship via _COMPONENT_TABLES."""
         from foliplus import HeatmapControl
 
         config = json.loads(HeatmapControl(locale="zh")._config_block)
         assert config["locale_code"] == "zh"
-        tables = config["locale_tables"]
-        assert "zh" in tables and tables["zh"]["HeatmapControl.title"]
+        # Built-in tables are in the shared bundle, not per-instance CONFIG.
+        assert config["locale_tables"] == {}
+
+    def test_locale_none_ships_empty_tables_and_empty_code(self):
+        """locale=None (auto-detect) ships no per-instance tables; the browser picks from _COMPONENT_TABLES."""
+        from foliplus import HeatmapControl
+
+        config = json.loads(HeatmapControl()._config_block)
+        assert config["locale_code"] == ""
+        assert config["locale_tables"] == {}
 
     def test_code_property(self):
         assert resolve_locale("en", "HeatmapControl").code == "en"
@@ -229,6 +237,45 @@ class TestLoadBuiltinTables:
         finally:
             if tmp.exists():
                 tmp.unlink()
+
+    def test_load_component_tables_groups_by_component(self):
+        """_load_component_tables returns {component: {lang: table}}, skipping common."""
+        from foliplus.locale import _load_component_tables
+
+        tables = _load_component_tables()
+        # Should have entries for each component, not common.
+        assert "common" not in tables
+        assert "HeatmapControl" in tables
+        assert "en" in tables["HeatmapControl"]
+        assert "zh" in tables["HeatmapControl"]
+        assert tables["HeatmapControl"]["en"]["locale.code"] == "en"
+
+    def test_load_component_tables_skips_edge_cases(self):
+        """Files without a dot in the stem, without locale.code, and common.* are skipped."""
+        from foliplus.locale import _load_component_tables
+
+        tmp_no_dot = _LOCALE_DIR / "README.json"
+        tmp_no_code = _LOCALE_DIR / "HeatmapControl.xx.json"
+        tmps = []
+        try:
+            tmp_no_dot.write_text('{"hello": "world"}', encoding="utf-8")
+            # A component file missing locale.code — the table is skipped.
+            tmp_no_code.write_text('{"key": "val"}', encoding="utf-8")
+            tmps = [tmp_no_dot, tmp_no_code]
+            _load_component_tables.cache_clear()
+            tables = _load_component_tables()
+            # No-dot file: "README" has no ".", so it's skipped.
+            assert "README" not in tables
+            # No-code file: stem "HeatmapControl.xx" has a dot, so comp is
+            # "HeatmapControl", but locale.code is missing → code is "" → skipped.
+            # HeatmapControl should still have en/zh from the real files,
+            # but no "xx" entry.
+            assert "xx" not in tables.get("HeatmapControl", {})
+        finally:
+            _load_component_tables.cache_clear()
+            for tmp in tmps:
+                if tmp.exists():
+                    tmp.unlink()
 
 
 class TestFromFile:
@@ -346,7 +393,7 @@ class TestPartialCustomTable:
             os.unlink(tmp)
 
     def test_omitted_keys_keep_builtin_translation(self):
-        """One custom key overrides; the other 27 keep their built-in strings."""
+        """One custom key overrides; other keys come from _COMPONENT_TABLES at runtime."""
         from foliplus import HeatmapControl
 
         config = self._config(
@@ -354,12 +401,11 @@ class TestPartialCustomTable:
         )
         table = config["locale_tables"]["ja"]
         assert table["HeatmapControl.title"] == "こんにちは"
-        # Builtin en table carries every key, so the fallback is a real
-        # translation, not a bare key.
-        assert table["HeatmapControl.layer"] == "Layer"
+        # Built-in en table is in the shared bundle, not per-instance CONFIG.
+        assert "HeatmapControl.layer" not in table
 
-    def test_custom_table_not_bare_key(self):
-        """Every key of the builtin table resolves to a real string."""
+    def test_custom_table_ships_only_its_own_keys(self):
+        """CONFIG.locale_tables only carries the custom strings, not built-in keys."""
         from foliplus import HeatmapControl
 
         config = self._config(
@@ -367,8 +413,9 @@ class TestPartialCustomTable:
         )
         builtin = _load_tables("HeatmapControl.en.json")["en"]
         table = config["locale_tables"]["ja"]
-        for key in builtin:
-            assert table[key], f"key {key!r} fell through to a bare key"
+        # Only the custom key should be present, not all builtin keys.
+        assert "HeatmapControl.title" in table
+        assert "HeatmapControl.layer" not in table
 
     def test_custom_table_ships_only_its_own_code(self):
         """Common keys (foliplus.*) come from the shared bundle, not config."""
@@ -382,7 +429,7 @@ class TestPartialCustomTable:
         assert config["locale_code"] == "ja"
 
     def test_works_for_other_control(self):
-        """The merge path is component-agnostic."""
+        """The custom table ships in CONFIG for any component."""
         from foliplus import SearchControl
 
         config = self._config(
@@ -390,7 +437,8 @@ class TestPartialCustomTable:
         )
         table = config["locale_tables"]["de"]
         assert table["SearchControl.btn_title"] == "Suchen"
-        assert table["SearchControl.coord_placeholder"]
+        # Built-in fallback is in the shared bundle, not per-instance CONFIG.
+        assert "SearchControl.coord_placeholder" not in table
 
 
 class TestToFile:

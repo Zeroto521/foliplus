@@ -282,6 +282,13 @@ class TestBaseControlRendering:
         assert '"locale.code":"en"' in html or '"locale.code": "en"' in html
         assert '"locale.code":"zh"' in html or '"locale.code": "zh"' in html
 
+    def test_component_tables_injected(self, base_map: folium.Map):
+        """Per-component locale tables are injected in the shared header."""
+        from foliplus import SearchControl
+
+        html = render_control(SearchControl())
+        assert "window.foliplus._COMPONENT_TABLES" in html
+
     def test_shared_assets_deduplicated(self, base_map: folium.Map):
         """Shared assets (runtime.js, the merged stylesheet, locale tables) are injected only once per map."""
         from foliplus import HeatmapControl, LayerControl, SearchControl
@@ -293,6 +300,7 @@ class TestBaseControlRendering:
         html = render(base_map)
         # Shared locale tables table definition is injected exactly once
         assert html.count("window.foliplus._TABLES = {") == 1
+        assert html.count("window.foliplus._COMPONENT_TABLES = {") == 1
         # Common CSS root custom properties definition is injected exactly once
         assert html.count("--foliplus-ctrl-bg:") == 1
 

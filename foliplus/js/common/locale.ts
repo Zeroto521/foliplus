@@ -1,8 +1,8 @@
 // Locale resolution for the foliplus runtime.
 //
-// Detects the browser language and selects a locale table from the ones
-// injected per-component. Used when a control's locale code is not fixed
-// by the user.
+// Detects the browser language and selects a locale table from the
+// component tables injected once per map (`window.foliplus._COMPONENT_TABLES`).
+// CONFIG.locale_tables carries only user-custom strings (from LocaleConfig.from_json).
 
 type LocaleTables = Record<string, Record<string, string>>;
 
@@ -105,15 +105,18 @@ const intlLocale = (code: string): string => INTL_LOCALES[code] ?? code;
  */
 const resolveLocaleCode = (config: ComponentConfig): string => {
   if (config.locale_code) return config.locale_code;
-  const table = resolveLocale("", config.locale_tables ?? null);
+  const componentTables = window.foliplus._COMPONENT_TABLES?.[config.name] ?? {};
+  const tables = { ...componentTables, ...config.locale_tables };
+  const table = resolveLocale("", tables);
   config.locale_code = table?.["locale.code"] ?? "en";
   return config.locale_code;
 };
 
 /**
  * Create a translator function for a component.
- * Merges common tables with component-specific tables (``config.locale_tables``)
- * and resolves the active language.
+ * Merges common tables with component-specific tables (from the shared
+ * ``window.foliplus._COMPONENT_TABLES`` injection) and user-custom strings
+ * (``config.locale_tables``).
  *
  * The common tables are an optional injection seam: pass them in to keep
  * the function pure, or omit them to fall back to the runtime global
@@ -125,11 +128,14 @@ const createTranslator = (
 ): ((key: string) => string) => {
   const code = resolveLocaleCode(config);
 
-  // Merge common + component tables
+  // Merge common + component built-in + custom tables
   const tables = commonTables ?? window.foliplus._TABLES ?? {};
   const common = tables[code] ?? {};
-  const own = config.locale_tables?.[code] ?? {};
-  const table = { ...common, ...own };
+  const componentTables = window.foliplus._COMPONENT_TABLES ?? {};
+  const component =
+    componentTables[config.name]?.[code] ?? componentTables[config.name]?.["en"] ?? {};
+  const custom = config.locale_tables?.[code] ?? {};
+  const table = { ...common, ...component, ...custom };
   table["locale.code"] = code;
 
   return k => (table[k] !== undefined ? table[k] : k);
