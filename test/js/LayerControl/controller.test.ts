@@ -233,6 +233,53 @@ describe("LayerController", () => {
     expect(grid.options.pane).toMatch(new RegExp(`^${FALLBACK_PANE_PREFIX}`));
   });
 
+  it("markBasePanes self-heals: a base→overlay re-registration drops the stale class", () => {
+    // The ordering pass stamps `.foliplus-base-pane` on every base-group
+    // surface's panes and removes it from overlay-group panes. When a layer
+    // is unregistered and re-registered with the same id but a different
+    // group (base → overlay), the surface is recreated but the pane DOM
+    // element is reused (`map.getPane(name)` is idempotent by name). The
+    // ordering pass must remove the stale class on the next sweep —
+    // otherwise the re-registered overlay would be skipped by the hide
+    // rule when something else is focused, and the focus target would fail
+    // to stand out.
+    manager.map.hasLayer.mockReturnValue(true);
+    // Cache panes by name so re-registration reuses the same DOM element.
+    const panes = new Map<string, HTMLElement>();
+    const realGetPane = map.getPane;
+    map.getPane = vi.fn((name: string) => {
+      if (!panes.has(name)) panes.set(name, realGetPane(name));
+      return panes.get(name)!;
+    });
+
+    // Phase 1: register as base-group, run the ordering pass, the pane gets
+    // the exclusion class.
+    manager.registerLayer({
+      id: "swap",
+      name: "Swap",
+      group: "base",
+      layer: new TileLayer(),
+      paneName: "swapPane",
+    });
+    manager.enforceOrder();
+    const swapPane = panes.get("swapPane")!;
+    expect(swapPane.classList.contains(CONST.CLASSES.BASE_PANE)).toBe(true);
+
+    // Phase 2: unregister, re-register as overlay-group with the same id
+    // and paneName, run the ordering pass again. The same pane DOM element
+    // must now have the class removed.
+    manager.unregisterLayer("swap");
+    manager.registerLayer({
+      id: "swap",
+      name: "Swap",
+      group: "overlay",
+      layer: new TileLayer(),
+      paneName: "swapPane",
+    });
+    manager.enforceOrder();
+    expect(swapPane.classList.contains(CONST.CLASSES.BASE_PANE)).toBe(false);
+  });
+
   it("slots a layer's label pane just above that layer", () => {
     manager.map.hasLayer.mockReturnValue(true);
     // Labelable overlay: the registration edge declares the
