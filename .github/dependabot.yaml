@@ -1,0 +1,41 @@
+# Weekly cadence, one block per ecosystem, PRs grouped per ecosystem so a
+# single "bump X deps" PR carries all the versions that landed at once.
+# `open-pull-requests-limit` caps how many Dependabot PRs can sit open at
+# once; the oldest gets closed when the cap is hit.
+version: 2
+updates:
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    commit-message:
+      prefix: "BOT"
+    groups:
+      python:
+        patterns: ["*"]
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
+    commit-message:
+      prefix: "BOT"
+    groups:
+      node:
+        patterns: ["*"]
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "wednesday"
+    commit-message:
+      prefix: "BOT"
+    groups:
+      actions:
+        patterns: ["*"]
+    open-pull-requests-limit: 5
