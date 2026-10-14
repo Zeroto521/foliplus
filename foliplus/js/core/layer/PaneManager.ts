@@ -14,7 +14,6 @@ import {
   destroyPane,
   getRendererContainer,
   getRendererFor,
-  markerShadow,
 } from "../leafletAdapter.js";
 import * as CONST from "./const.js";
 import type { PaneSpec, PinnableNode } from "./type.js";
@@ -202,27 +201,10 @@ class PaneManager {
           groups.get(container)!.push(pathEl);
         }
         if (l instanceof L.Marker && paneEl) {
-          const shadow = markerShadow(l);
           const iconEl = l.getElement();
-          // Append shadow and icon as a pair whenever either is not yet in the
-          // target pane, OR both are in the pane but in the wrong order (icon
-          // before shadow). Leaflet can recreate marker DOM during extreme zoom
-          // (zoom to min then back), leaving icon before shadow — `needsMove`
-          // would see both as "in place" and preserve the broken order.
-          const shadowInside = shadow?.parentNode === paneEl;
-          const iconInside = iconEl?.parentNode === paneEl;
-          const swapped =
-            shadowInside &&
-            iconInside &&
-            (iconEl!.compareDocumentPosition(shadow!) &
-              Node.DOCUMENT_POSITION_PRECEDING) !==
-              0;
-          const needsMove = !shadowInside || !iconInside || swapped;
-          if (needsMove) {
+          if (iconEl && iconEl.parentNode !== paneEl) {
             if (!markerGroups.has(paneEl)) markerGroups.set(paneEl, []);
-            const group = markerGroups.get(paneEl)!;
-            if (shadow) group.push(shadow);
-            if (iconEl) group.push(iconEl);
+            markerGroups.get(paneEl)!.push(iconEl);
           }
         }
         // A GridLayer (TileLayer included) paints through its own container

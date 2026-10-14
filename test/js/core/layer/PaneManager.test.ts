@@ -744,19 +744,16 @@ describe("PaneManager", () => {
       options: {},
       eachLayer: undefined,
     };
-    // Force instanceof checks by setting prototypes
     Object.setPrototypeOf(layer, new window.L.Marker());
     const renderer = { _container: document.createElement("div") };
     pm.pinLateContent([{ layer, paneName: "foliplus-measure-graph", renderer }]);
     expect(icon.parentNode).toBe(paneEl);
-    expect(shadow.parentNode).toBe(paneEl);
   });
 
   it("pinLateContent batches every marker of one pane into a single append", () => {
     // The second marker against the same target pane is the path where the
     // per-pane group already exists — and it is what proves the batch appends
-    // both markers (shadow then icon, per marker) instead of replacing the
-    // first one's nodes.
+    // both icons (not just the last one) instead of replacing the first.
     const paneEl = document.createElement("div");
     const map = { getPane: vi.fn(() => paneEl), createPane: vi.fn() };
     const pm = new PaneManager(map);
@@ -780,19 +777,14 @@ describe("PaneManager", () => {
         renderer,
       })),
     );
-    expect(Array.from(paneEl.children)).toEqual([
-      markers[0].shadow,
-      markers[0].icon,
-      markers[1].shadow,
-      markers[1].icon,
-    ]);
+    expect(Array.from(paneEl.children)).toEqual([markers[0].icon, markers[1].icon]);
   });
 
   it("pinLateContent is idempotent for markers already in the target pane", () => {
     // A reconcile re-runs this after every content change, so a node that is
     // already where it belongs must not be re-appended — appending a node that
-    // is already a child re-orders it. A marker with no shadow at all has to
-    // survive the same pass.
+    // is already a child re-orders it. A marker with no icon element yet has
+    // to survive the same pass.
     const paneEl = document.createElement("div");
     document.body.appendChild(paneEl);
     const map = { getPane: vi.fn(() => paneEl), createPane: vi.fn() };
@@ -800,104 +792,41 @@ describe("PaneManager", () => {
     const renderer = { _container: document.createElement("div") };
 
     const icon = document.createElement("img");
-    const shadow = document.createElement("img");
-    paneEl.append(shadow, icon);
+    paneEl.appendChild(icon);
     const inPlace = {
       getElement: () => icon,
-      _shadow: shadow,
       options: {},
       eachLayer: undefined,
     };
     Object.setPrototypeOf(inPlace, new window.L.Marker());
 
     const bareIcon = document.createElement("img");
-    const noShadow = {
+    const newIcon = {
       getElement: () => bareIcon,
       options: {},
       eachLayer: undefined,
     };
-    Object.setPrototypeOf(noShadow, new window.L.Marker());
+    Object.setPrototypeOf(newIcon, new window.L.Marker());
 
     pm.pinLateContent([
       { layer: inPlace, paneName: "foliplus-measure-graph", renderer },
-      { layer: noShadow, paneName: "foliplus-measure-graph", renderer },
+      { layer: newIcon, paneName: "foliplus-measure-graph", renderer },
     ]);
 
-    // The settled pair keeps its position; only the shadow-less marker's icon
-    // is appended, after it.
-    expect(Array.from(paneEl.children)).toEqual([shadow, icon, bareIcon]);
+    expect(Array.from(paneEl.children)).toEqual([icon, bareIcon]);
   });
 
-  it("pinLateContent keeps shadow before icon when re-appended asymmetrically", () => {
-    // Regression: zoom re-triggers `enforceOrder` → `pinLateContent`. If a
-    // marker's shadow was already settled into the pane but its icon was not
-    // (or vice versa), the old per-node `!== paneEl` guard appended only the
-    // missing element. When the shadow lagged the icon, the shadow got pushed
-    // *after* the icon and drew on top of it — the reported zoom z-order flip.
-    // The fix treats shadow+icon as a pair: whenever either is missing from the
-    // target pane, both are re-appended in the correct order.
-    const paneEl = document.createElement("div");
-    document.body.appendChild(paneEl);
-    const map = { getPane: vi.fn(() => paneEl), createPane: vi.fn() };
-    const pm = new PaneManager(map);
-    const renderer = { _container: document.createElement("div") };
-
-    const icon = document.createElement("img");
-    const shadow = document.createElement("img");
-    // Simulate the partial state a re-pin finds: icon already settled, shadow
-    // still outside (or the reverse).
-    paneEl.appendChild(icon);
-    const layer = {
-      getElement: () => icon,
-      _shadow: shadow,
-      options: {},
-      eachLayer: undefined,
-    };
-    Object.setPrototypeOf(layer, new window.L.Marker());
-
-    pm.pinLateContent([{ layer, paneName: "foliplus-measure-graph", renderer }]);
-
-    // Shadow is re-appended in front of the icon, restoring the correct z.
-    expect(Array.from(paneEl.children)).toEqual([shadow, icon]);
-  });
-
-  it("pinLateContent skips a null shadow when only the icon needs moving", () => {
-    // A marker without a shadow (e.g. a custom DivIcon) must not push a null
-    // element into the group — the `if (shadow)` guard keeps the group clean.
-    const paneEl = document.createElement("div");
-    document.body.appendChild(paneEl);
-    const map = { getPane: vi.fn(() => paneEl), createPane: vi.fn() };
-    const pm = new PaneManager(map);
-    const renderer = { _container: document.createElement("div") };
-
-    const icon = document.createElement("img");
-    const layer = {
-      getElement: () => icon,
-      _shadow: null,
-      options: {},
-      eachLayer: undefined,
-    };
-    Object.setPrototypeOf(layer, new window.L.Marker());
-
-    pm.pinLateContent([{ layer, paneName: "foliplus-measure-graph", renderer }]);
-
-    expect(Array.from(paneEl.children)).toEqual([icon]);
-  });
-
-  it("pinLateContent skips a null icon element when only the shadow needs moving", () => {
+  it("pinLateContent skips a null icon element", () => {
     // A marker whose icon has not yet been created (e.g. before it joins the
-    // map) must not push a null element into the group — the `if (iconEl)`
-    // guard keeps the group clean.
+    // map) must not push a null element into the group.
     const paneEl = document.createElement("div");
     document.body.appendChild(paneEl);
     const map = { getPane: vi.fn(() => paneEl), createPane: vi.fn() };
     const pm = new PaneManager(map);
     const renderer = { _container: document.createElement("div") };
 
-    const shadow = document.createElement("img");
     const layer = {
       getElement: () => null,
-      _shadow: shadow,
       options: {},
       eachLayer: undefined,
     };
@@ -905,24 +834,23 @@ describe("PaneManager", () => {
 
     pm.pinLateContent([{ layer, paneName: "foliplus-measure-graph", renderer }]);
 
-    expect(Array.from(paneEl.children)).toEqual([shadow]);
+    expect(Array.from(paneEl.children)).toEqual([]);
   });
 
-  it("pinLateContent re-appends a swapped pair (icon before shadow)", () => {
-    // Leaflet can recreate marker DOM during extreme zoom (zoom to min then
-    // back), leaving icon before shadow in the pane. The `needsMove` guard
-    // must detect this swapped order and re-append both in the correct
-    // sequence — membership alone is not enough.
+  it("pinLateContent does not move marker shadow into the target pane", () => {
+    // Shadow stays in Leaflet's shadowPane (z=500); only the icon is moved
+    // into the foliplus pane (z>=600). This keeps shadow below icon by z-index
+    // alone — no DOM-order dependency, no zIndexOffset risk.
     const paneEl = document.createElement("div");
     document.body.appendChild(paneEl);
+    const shadowPane = document.createElement("div");
+    const icon = document.createElement("img");
+    const shadow = document.createElement("img");
+    shadowPane.appendChild(shadow);
     const map = { getPane: vi.fn(() => paneEl), createPane: vi.fn() };
     const pm = new PaneManager(map);
     const renderer = { _container: document.createElement("div") };
 
-    const icon = document.createElement("img");
-    const shadow = document.createElement("img");
-    // Construct the broken order: icon appears before shadow.
-    paneEl.append(icon, shadow);
     const layer = {
       getElement: () => icon,
       _shadow: shadow,
@@ -933,7 +861,15 @@ describe("PaneManager", () => {
 
     pm.pinLateContent([{ layer, paneName: "foliplus-measure-graph", renderer }]);
 
-    expect(Array.from(paneEl.children)).toEqual([shadow, icon]);
+    expect(icon.parentNode).toBe(paneEl);
+    expect(shadow.parentNode).toBe(shadowPane);
+
+    // Second call: idempotent — shadow must still be in shadowPane, icon
+    // still in the foliplus pane. This guards against a pin that re-appends
+    // shadow on every pass.
+    pm.pinLateContent([{ layer, paneName: "foliplus-measure-graph", renderer }]);
+    expect(shadow.parentNode).toBe(shadowPane);
+    expect(icon.parentNode).toBe(paneEl);
   });
 
   it("pinLateContent moves a GridLayer's container into the target pane", () => {
