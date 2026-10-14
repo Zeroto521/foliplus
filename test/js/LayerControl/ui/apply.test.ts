@@ -104,7 +104,7 @@ describe("executor: only intent authorises display", () => {
     const { container, layer, map } = makeOffMapFixture();
 
     const manager = new LayerController(map, [
-      { id: "authorHidden", name: "Hidden", group: "overlay", layer },
+      { id: "authorHidden", name: "Hidden", group: "overlay", layer, show: false },
     ]);
     manager.ui = new LayerUI(manager, TEST_ENV);
 
@@ -127,7 +127,7 @@ describe("executor: only intent authorises display", () => {
     const { container, layer, map } = makeOffMapFixture();
 
     const manager = new LayerController(map, [
-      { id: "a", name: "A", group: "overlay", layer },
+      { id: "a", name: "A", group: "overlay", layer, show: false },
     ]);
     manager.ui = new LayerUI(manager, TEST_ENV);
     const ui = manager.ui as LayerUI;
@@ -533,7 +533,7 @@ describe("executor: idempotent writes", () => {
     const { container, layer, map } = makeOffMapFixture();
 
     const manager = new LayerController(map, [
-      { id: "p", name: "P", group: "overlay", layer },
+      { id: "p", name: "P", group: "overlay", layer, show: false },
     ]);
     manager.ui = new LayerUI(manager, TEST_ENV);
     const ui = manager.ui as LayerUI;
@@ -840,7 +840,13 @@ describe("executor: carrier dispatch", () => {
 
   it("the LayerUI delegates reach the same executor", () => {
     const { ui, map, manager } = boot([
-      { id: "d", name: "D", group: "overlay", layer: { options: {} } as L.Layer },
+      {
+        id: "d",
+        name: "D",
+        group: "overlay",
+        layer: { options: {} } as L.Layer,
+        show: false,
+      },
     ]);
     setIntent(ui, "d", "opacity", 0.6);
     ui.intentStore.seedProvenance("d", ["opacity"]);
@@ -1147,14 +1153,13 @@ describe("membership invariants: only intent + author snapshot authorise members
     vi.useRealTimers();
   });
 
-  /** Boot a manager with one leaflet layer not yet on the map. No
-   *  persisted dimension, no author snapshot observed — the folium
-   *  `show=False` boot state. */
+  /** Boot a manager with one leaflet layer that the author declared
+   *  hidden (`show: false`) and is not on the map. No user intent. */
   const bootUnobserved = (id = "x") => {
     const { container, map } = makeOffMapFixture();
     const layer = { options: {} } as L.Layer;
     const manager = new LayerController(map, [
-      { id, name: id, group: "overlay", layer },
+      { id, name: id, group: "overlay", layer, show: false },
     ]);
     manager.ui = new LayerUI(manager, TEST_ENV);
     const ui = manager.ui as LayerUI;
@@ -1164,31 +1169,6 @@ describe("membership invariants: only intent + author snapshot authorise members
     vi.useRealTimers();
     return { map, manager, ui, layer };
   };
-
-  it("an unobserved layer is not added when policy is fully permissive", () => {
-    // No user intent, no author snapshot observed, policy permissive.
-    // The projection's `effectiveShown` is `true` (intent falls back to
-    // the author default of `true`), but the `authorised` gate in the
-    // executor refuses to write — turning a guess into an add is exactly
-    // what the one-way gate must prevent.
-    //
-    // Attach happens later: the snapshot in `initTypesAndVisibility` would
-    // have observed the fixture's `hasLayer=false` and recorded the layer
-    // as an author-declared default, which is not the case we're pinning.
-    const { map } = makeOffMapFixture();
-    const layer = { options: {} } as L.Layer;
-    const manager = new LayerController(map, [
-      { id: "unobs", name: "U", group: "overlay", layer },
-    ]);
-    manager.ui = new LayerUI(manager, TEST_ENV);
-    const ui = manager.ui as LayerUI;
-
-    expect(ui.runtimeStore.hasAuthorVisible("unobs")).toBe(false);
-    expect(getIntent(ui, "unobs", "visible")).not.toBe(false);
-
-    applyProjectionAll(ui);
-    expect(map.addLayer).not.toHaveBeenCalled();
-  });
 
   it("a policy-only flip can never add a layer the user has hidden", () => {
     // intent.visible = false (user chose to hide), policy permissive.

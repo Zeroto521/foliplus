@@ -6,12 +6,7 @@ import { dom, updateItemLabel } from "#common/dom.js";
 import { getColorSurface } from "../color.js";
 import type { LayerUI } from "../surface.js";
 import { cursorRef, restoreCursor, syncListCursor } from "./cursor.js";
-import {
-  applyRowView,
-  buildRowCell,
-  displayName,
-  snapshotAuthorVisible,
-} from "./rowView.js";
+import { applyRowView, buildRowCell, displayName } from "./rowView.js";
 import { syncNoBasemap, syncToggleAll } from "./visibility.js";
 
 /** Full re-scan of every row (used on attach/fold-toggle). Idempotent —
@@ -28,13 +23,6 @@ const initTypesAndVisibility = (ui: LayerUI) => {
   if (colorLi) {
     // The color basemap starts unchecked (hidden) by default.
     ui.runtimeStore.setAuthorVisible(CONST.SOLID_BASEMAP_ID, false);
-  }
-
-  // Snapshot the author default before the sweep below moves any layer: it
-  // re-adds a stored-shown layer and removes a stored-hidden one, so a
-  // snapshot taken afterwards would record a policy decision as the author's.
-  for (let i = 0; i < ui.c.layers.length; i++) {
-    snapshotAuthorVisible(ui, ui.c.layers[i]);
   }
 
   // Apply persisted hidden state first so initLayerItem reads the corrected
@@ -164,13 +152,12 @@ const insertLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
     else container.insertBefore(frag, firstOfGroup);
   }
 
-  // insertLayerItem is where a late-registered (third-party) layer first
-  // shows up, so the author default is snapshotted here as well —
-  // before the
-  // apply below, which is the other path that moves this layer. Only this
-  // layer's id is applied: a full sweep would re-rewrite every renamed row
-  // on each registration.
-  snapshotAuthorVisible(ui, layerInfo);
+  // Late registration — seed the author's default here, once per id.
+  // Initial layers were already seeded in `LayerUI`'s constructor; a
+  // late-registered layer has no data[] entry, so `?? true` applies folium's
+  // default. The setter is idempotent (overwrites the same value), so
+  // re-registration is harmless.
+  ui.runtimeStore.setAuthorVisible(layerInfo.id, layerInfo.show ?? true);
   ui.applyUserState(layerInfo.id);
   // New row must join the roving tabindex / ARIA set.
   syncListCursor(ui);
