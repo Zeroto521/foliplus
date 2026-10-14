@@ -2,7 +2,8 @@
   // Wait for the geometry path to render
   return new Promise((resolve, reject) => {
     const check = () => {
-      if (!document.querySelector("path.leaflet-interactive")) return setTimeout(check, 50);
+      if (!document.querySelector("path.leaflet-interactive"))
+        return setTimeout(check, 50);
       const path = document.querySelector("path.leaflet-interactive");
       if (!path) return setTimeout(check, 50);
       // Focus the path to trigger the marquee
@@ -18,10 +19,13 @@
     const collectState = () => {
       const path = document.querySelector("path.leaflet-interactive");
       const marquee = document.querySelector("path.foliplus-focus-rect");
-      if (!path || !marquee) { resolve({error: "path or marquee missing"}); return; }
-      const toBB = (el) => {
+      if (!path || !marquee) {
+        resolve({ error: "path or marquee missing" });
+        return;
+      }
+      const toBB = el => {
         const b = el.getBBox();
-        return {x: b.x, y: b.y, w: b.width, h: b.height};
+        return { x: b.x, y: b.y, w: b.width, h: b.height };
       };
       const before = {
         geomBB: toBB(path),
@@ -35,22 +39,29 @@
       let done = false;
       map.on("moveend", function once() {
         // After moveend, wait 2 rAF for the browser to reflow and our fix to run
-        requestAnimationFrame(() => requestAnimationFrame(() => {
-          if (done) return;
-          done = true;
-          // Re-query the marquee — the rAF redraw replaces the old element.
-          const mq2 = document.querySelector("path.foliplus-focus-rect");
-          const after = {
-            geomBB: toBB(path),
-            marqueeBB: mq2 ? toBB(mq2) : null,
-            marqueeD: mq2 ? mq2.getAttribute("d") : null,
-            zoom: map.getZoom(),
-          };
-          resolve({before, after});
-        }));
+        requestAnimationFrame(() =>
+          requestAnimationFrame(() => {
+            if (done) return;
+            done = true;
+            // Re-query the marquee — the rAF redraw replaces the old element.
+            const mq2 = document.querySelector("path.foliplus-focus-rect");
+            const after = {
+              geomBB: toBB(path),
+              marqueeBB: mq2 ? toBB(mq2) : null,
+              marqueeD: mq2 ? mq2.getAttribute("d") : null,
+              zoom: map.getZoom(),
+            };
+            resolve({ before, after });
+          }),
+        );
       });
       // Safety timeout
-      setTimeout(() => { if (!done) { done = true; resolve({before, after: null}); } }, 5000);
+      setTimeout(() => {
+        if (!done) {
+          done = true;
+          resolve({ before, after: null });
+        }
+      }, 5000);
     };
     check();
   });
