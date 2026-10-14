@@ -233,7 +233,7 @@ describe("LayerController", () => {
     expect(grid.options.pane).toMatch(new RegExp(`^${FALLBACK_PANE_PREFIX}`));
   });
 
-  it("markBasePanes self-heals: a base→overlay re-registration drops the stale class", () => {
+  it("markBasePanes self-heals: a base -> overlay re-registration drops the stale class", () => {
     // The ordering pass stamps `.foliplus-base-pane` on every base-group
     // surface's panes and removes it from overlay-group panes. When a layer
     // is unregistered and re-registered with the same id but a different
