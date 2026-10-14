@@ -212,9 +212,11 @@ class PaneManager {
           const shadowIn = shadow?.parentNode === paneEl;
           const iconIn = iconEl?.parentNode === paneEl;
           const swapped =
-            shadowIn && iconIn &&
+            shadowIn &&
+            iconIn &&
             (iconEl!.compareDocumentPosition(shadow!) &
-              Node.DOCUMENT_POSITION_PRECEDING) !== 0;
+              Node.DOCUMENT_POSITION_PRECEDING) !==
+              0;
           const needsMove = !shadowIn || !iconIn || swapped;
           if (needsMove) {
             if (!markerGroups.has(paneEl)) markerGroups.set(paneEl, []);
