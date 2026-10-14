@@ -395,6 +395,35 @@ describe("AnnotationManager — author-declared annotation", () => {
     expect(cfg.color).toBe(CONST.DEFAULT_ANNOTATION.color);
   });
 
+  it("falls back when the declared field is not a string", () => {
+    // A number is the realistic typo: an author passes a column value instead of
+    // a column name. It must not reach the label renderer as text.
+    const { map } = makeMap();
+    const layer = {
+      options: { foliplus: { annotation: { field: 1200, format: "comma" } } },
+    } as unknown as L.Layer;
+    const mgr = new AnnotationManager({ map, layerFind: () => layer });
+
+    const cfg = mgr.getConfig("l1");
+    expect(cfg.field).toBe(CONST.DEFAULT_ANNOTATION.field);
+    // A valid sibling still applies — the bad key drops out on its own.
+    expect(cfg.format).toBe(NUMBER_FORMAT.COMMA);
+  });
+
+  it("reads nothing when foliplus carries no annotation", () => {
+    // `foliplus` is a namespace folium and third-party layers share, so a layer
+    // can carry other dimensions (`icon`, label typography) with nothing declared
+    // for this control. The declaration is absent, not empty — every key stays at
+    // the built-in default.
+    const { map } = makeMap();
+    const layer = {
+      options: { foliplus: { icon: { color: "#ff0000" } } },
+    } as unknown as L.Layer;
+    const mgr = new AnnotationManager({ map, layerFind: () => layer });
+
+    expect(mgr.getConfig("l1")).toEqual(mgr.defaultConfig());
+  });
+
   it("takes the user's stored choice over the declaration", () => {
     const { map } = makeMap();
     const layer = {
