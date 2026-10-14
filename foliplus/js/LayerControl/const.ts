@@ -36,8 +36,7 @@ const FOCUS = {
   /** Bounds area (deg²) below which we treat the layer as a single point → flyTo center. */
   MIN_BOUNDS_AREA: 0.0001,
   /** Opacity of the "dim outside" mask. Keep in sync with ExportControl's
-   *  --foliplus-export-dim-color (rgba(0,0,0,0.4)) so both selection boxes dim alike,
-   *  and with --foliplus-focus-basemap-opacity in token.css. */
+   *  --foliplus-export-dim-color (rgba(0,0,0,0.4)) so both selection boxes dim alike. */
   MASK_OPACITY: 0.4,
   /** Z-index of the focus overlay pane (mask + rectangle). Layer panes live
    *  below this; the focused layer is temporarily lifted just below it so

@@ -5909,9 +5909,6 @@ class TestLayerControlBrowser:
 
             from PIL import Image
 
-            # Sample a point 15px above the polygon's top edge — outside the
-            # polygon (pure basemap) but inside the focus rect's 32px padding
-            # ring (no mask).
             # Sample the polygon center — inside the polygon (definitely inside
             # the focus rect, so the mask does not apply) and on the basemap
             # underneath (the polygon's fill_opacity=0.5 lets the basemap show
@@ -5942,11 +5939,6 @@ class TestLayerControlBrowser:
             screenshot_after = page.screenshot()
             img_after = Image.open(io.BytesIO(screenshot_after))
             pixel_after = img_after.getpixel((px, py))
-            page.wait_for_timeout(200)  # let the opacity transition settle
-            screenshot_after = page.screenshot()
-            img_after = Image.open(io.BytesIO(screenshot_after))
-            pixel_after = img_after.getpixel((px, py))
-            print(f"DEBUG sample=({px},{py}) before={pixel_before} after={pixel_after}")
 
             # The focused basemap interior must not be darker than unfocused.
             # With opacity, the pixel blends toward the container background
