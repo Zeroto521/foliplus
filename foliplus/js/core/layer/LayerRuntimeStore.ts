@@ -2,7 +2,7 @@
 //
 // The runtime half of the base: `LayerIntentStore` holds what the user chose,
 // `LayerRuntimeStore` holds what the map actually is — projection results,
-// field caches, the author-visible snapshot, and (reserved) breaks caches.
+// field caches, the author-visible seed, and (reserved) breaks caches.
 // One row per layer id, O(1) lookup, dropped symmetrically with the intent row
 // on unregister. Derived state only: nothing here is user input, and every
 // entry is invalidatable (explicit invalidation, never a full re-scan).
@@ -29,11 +29,10 @@ interface LayerRuntime {
   applied?: AppliedProjection;
   /** Per-layer label-field cache (collectFields walks every feature). */
   fields?: LabelField[];
-  /** The author's declared default per layer id, snapshotted once per id from
-   *  the map membership at first sight. Folium ships the layer list without a
-   *  visibility field, so the author's `show=` default reaches the UI only as
-   *  the map state folium left behind when the panel boots — captured before
-   *  the policy starts moving layers (see `intentVisibleOf`). */
+  /** The author's declared default per layer id, seeded from CONFIG
+   *  `data[].show` at attach time (initial layers) or registration time
+   *  (late-registered layers). Python carries the fact through
+   *  `item.show`; JS no longer infers it from map membership. */
   authorVisible?: boolean;
 }
 
@@ -100,7 +99,7 @@ class LayerRuntimeStore {
   // ── authorVisible (author-declared default snapshot) ───────────────
 
   /** The author-declared default, or undefined when this id was never
-   *  observed — callers supply the fallback themselves (`?? true`). Absent
+   *  seeded — callers supply the fallback themselves (`?? true`). Absent
    *  and a stored `false` are distinct states here, which is why the
    *  presence check below exists separately instead of being derived
    *  from this. */
@@ -112,9 +111,9 @@ class LayerRuntimeStore {
     this.ensure(id).authorVisible = visible;
   }
 
-  /** Whether a default was ever snapshotted for this id. True also for a
+  /** Whether a default was ever seeded for this id. True also for a
    *  stored `false` — {@link getAuthorVisible} cannot tell that from an id
-   *  that was never observed, both collapse to undefined. */
+   *  that was never seeded, both collapse to undefined. */
   hasAuthorVisible(id: string): boolean {
     return this.rows.get(id)?.authorVisible !== undefined;
   }

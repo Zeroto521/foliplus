@@ -99,7 +99,12 @@ class LayerControl(BaseControl):
             FieldSpec(
                 name="LayerData",
                 shape=[
-                    {"name": "string", "id": "string", "group": ("base", "overlay")}
+                    {
+                        "name": "string",
+                        "id": "string",
+                        "group": ("base", "overlay"),
+                        "show": "bool",
+                    }
                 ],
             ),
         ]
@@ -155,6 +160,7 @@ class LayerControl(BaseControl):
                     "name": item.layer_name,
                     "id": name,
                     "group": "overlay" if item.overlay else "base",
+                    "show": bool(getattr(item, "show", True)),
                 }
             )
 

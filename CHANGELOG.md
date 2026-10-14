@@ -5,6 +5,8 @@
 ### Added
 
 - `LayerControl`: layers can now declare label defaults (field/format/collision) via `foliplus={"annotation": {...}}`, which turns the layer's labels on at load; the user's own choice still wins over the declaration ([#669](https://github.com/Zeroto521/foliplus/pull/669))
+- `LayerControl`: a layer's `show=` declaration now reaches the panel as a fact (via `data[].show`) instead of being inferred from the map state at boot; the old inference was order-dependent and let a `show=False` layer come back onto the map on the first zoom sweep ([#669](https://github.com/Zeroto521/foliplus/pull/669))
+- `LayerControl`: a layer's `show=` declaration now reaches the panel as a fact (via `data[].show`) instead of being inferred from the map state at boot; the old inference was order-dependent and let a `show=False` layer come back onto the map on the first zoom sweep ([#669](https://github.com/Zeroto521/foliplus/pull/669))
 
 ### Changed
 

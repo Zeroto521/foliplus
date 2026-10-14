@@ -177,6 +177,16 @@ class LayerUI implements LayerUISurface {
     this.overlayPanel = new OverlayPanel();
     this.focusController = new FocusController();
     this.runtimeStore = new LayerRuntimeStore();
+    // Seed the author's declared default straight off the Python-config data
+    // (data[].show), before any policy moves layers. `createLayerInfo` has
+    // already normalised `show` to folium's default when absent, so reading
+    // every id here lands the correct answer for the initial registry. Late
+    // registrations (Heatmap / Measure) have no data[] entry — they keep
+    // the `?? true` fallback in `intentVisibleOf`, matching folium's
+    // "show=True is the default" contract.
+    for (const layerInfo of this.c.layers) {
+      this.runtimeStore.setAuthorVisible(layerInfo.id, layerInfo.show ?? true);
+    }
     this.currentColor = CONST.COLOR.DEFAULT;
     this.colorSurface = null;
     this.unsubscribeCountChange = null;
