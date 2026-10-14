@@ -22,7 +22,6 @@ async () => {
   api.registerLayer({ id: "__shadow_zoom__", name: "ShadowZoom", layer: geo });
   ctrl.mgr.enforceOrder();
 
-  // Find the foliplus pane for this layer.
   const findPane = () => {
     for (const [name, paneEl] of Object.entries(map._panes)) {
       if (name.startsWith("foliplus-pane-")) {
@@ -49,19 +48,28 @@ async () => {
     };
   };
 
-  const before = readOrder();
+  const waitZoom = () =>
+    new Promise(resolve => {
+      map.once("zoomend", resolve);
+      setTimeout(resolve, 800);
+    });
 
-  // Zoom in to trigger the debounced enforceOrder.
-  const zoomFrom = map.getZoom();
-  map.setZoom(zoomFrom + 1);
-  await new Promise(resolve => {
-    map.once("zoomend", resolve);
-    setTimeout(resolve, 500);
-  });
-  // Give the debounce time to fire.
-  await new Promise(resolve => setTimeout(resolve, 200));
+  const originalZoom = map.getZoom();
+  const states = [];
 
-  const after = readOrder();
+  states.push({ step: "initial", ...readOrder() });
 
-  return { before, after, zoomFrom, zoomTo: zoomFrom + 1 };
+  map.setZoom(map.getMinZoom());
+  await waitZoom();
+  states.push({ step: "zoom-to-min", ...readOrder() });
+
+  map.setZoom(originalZoom);
+  await waitZoom();
+  states.push({ step: "zoom-back", ...readOrder() });
+
+  map.setZoom(originalZoom - 1);
+  await waitZoom();
+  states.push({ step: "zoom-out-again", ...readOrder() });
+
+  return { states, originalZoom, minZoom: map.getMinZoom() };
 };

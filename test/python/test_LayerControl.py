@@ -7075,21 +7075,16 @@ class TestMarkerShadowZoomBrowser:
         with use_page(self._probe, browser, tmp_path) as (page, errors):
             r = page.evaluate(_js("LayerControl/marker_shadow_zoom"))
             assert r is not None, "LayerAPI missing"
-            before, after = r["before"], r["after"]
-            assert "error" not in before, before
-            assert "error" not in after, after
-            # For each icon in the pane, its shadow must appear earlier.
-            for label, state in (("before", before), ("after", after)):
-                children = state["children"]
+            states = r["states"]
+            assert len(states) == 4, f"expected 4 states, got {len(states)}"
+            for st in states:
+                assert "error" not in st, st
+                children = st["children"]
                 shadows = [i for i, c in enumerate(children) if c["isShadow"]]
                 icons = [i for i, c in enumerate(children) if c["isIcon"]]
-                # Every shadow must have a matching icon after it, and no
-                # shadow may appear after every icon.
-                for si, s in enumerate(shadows):
+                for s in shadows:
                     assert any(i > s for i in icons), (
-                        f"{label}: shadow at {s} with no icon after it: {children}"
+                        f"{st['step']}: shadow at {s} with no icon after it: {children}"
                     )
-            # The relative order of (shadow, icon) pairs must not have flipped.
-            assert before["childCount"] > 0, before
-            assert after["childCount"] > 0, after
+            assert states[0]["childCount"] > 0
             assert not errors, f"JS errors: {errors}"

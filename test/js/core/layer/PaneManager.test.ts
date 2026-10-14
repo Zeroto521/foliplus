@@ -908,6 +908,34 @@ describe("PaneManager", () => {
     expect(Array.from(paneEl.children)).toEqual([shadow]);
   });
 
+  it("pinLateContent re-appends a swapped pair (icon before shadow)", () => {
+    // Leaflet can recreate marker DOM during extreme zoom (zoom to min then
+    // back), leaving icon before shadow in the pane. The `needsMove` guard
+    // must detect this swapped order and re-append both in the correct
+    // sequence — membership alone is not enough.
+    const paneEl = document.createElement("div");
+    document.body.appendChild(paneEl);
+    const map = { getPane: vi.fn(() => paneEl), createPane: vi.fn() };
+    const pm = new PaneManager(map);
+    const renderer = { _container: document.createElement("div") };
+
+    const icon = document.createElement("img");
+    const shadow = document.createElement("img");
+    // Construct the broken order: icon appears before shadow.
+    paneEl.append(icon, shadow);
+    const layer = {
+      getElement: () => icon,
+      _shadow: shadow,
+      options: {},
+      eachLayer: undefined,
+    };
+    Object.setPrototypeOf(layer, new window.L.Marker());
+
+    pm.pinLateContent([{ layer, paneName: "foliplus-measure-graph", renderer }]);
+
+    expect(Array.from(paneEl.children)).toEqual([shadow, icon]);
+  });
+
   it("pinLateContent moves a GridLayer's container into the target pane", () => {
     // Tile basemaps are GridLayers: Leaflet appends their container to
     // `options.pane` once at addLayer, so rewriting options.pane alone never
