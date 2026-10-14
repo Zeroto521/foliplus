@@ -10,6 +10,8 @@ updates:
     schedule:
       interval: "weekly"
       day: "monday"
+    commit-message:
+      prefix: "BOT"
     groups:
       python:
         patterns: ["*"]
@@ -21,6 +23,9 @@ updates:
     schedule:
       interval: "weekly"
       day: "tuesday"
+    commit-message:
+      prefix: "BOT"
+      prefix-development: "BOT"
     groups:
       node:
         patterns: ["*"]
@@ -32,6 +37,8 @@ updates:
     schedule:
       interval: "weekly"
       day: "wednesday"
+    commit-message:
+      prefix: "BOT"
     groups:
       actions:
         patterns: ["*"]
