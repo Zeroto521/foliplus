@@ -1127,6 +1127,34 @@ class TestLayerControlRendering:
                 "it is pointer/state-driven, not rebuild-driven"
             )
 
+    def test_focus_hide_rule_excludes_base_panes(self):
+        """The focus-mode hide rule keeps basemaps visible via a dedicated tag.
+
+        The rule ``.foliplus-is-focus-mode .foliplus-layer-pane:not(.foliplus-focus-pane):not(.foliplus-base-pane)``
+        excludes both the focused layer's pane (``.foliplus-focus-pane``) and
+        every base-group pane (``.foliplus-base-pane``). Without the base
+        exclusion, the tile basemap pane and the solid-color basemap pane are
+        hidden along with the other data layers, and the map container's grey
+        background shows through — the user sees a hard grey rectangle instead
+        of a dimmed basemap.
+        """
+        css = read_css("foliplus/css/LayerControl/index.css")
+        # The rule spans multiple lines in source; check the two :not()
+        # exclusions appear together on the same rule (matched by the
+        # `visibility: hidden` body).
+        marker = ".foliplus-focus-pane):not(.foliplus-base-pane)"
+        assert marker in css, (
+            "the focus-mode hide rule must exclude both the focused layer's "
+            f"pane and the base-group panes: {marker}"
+        )
+        # The body of the rule must still apply visibility:hidden — the
+        # exclusion is an :not(), not a property flip.
+        rule_body = _rule(css, marker)
+        assert "visibility: hidden" in rule_body, (
+            "the focus-mode hide rule must still set visibility: hidden on "
+            f"the panes it matches: {rule_body}"
+        )
+
 
 def _write_html(m: folium.Map, path) -> None:
     """Render *m* to *path*, exposing the map as ``window.map``.
@@ -5608,6 +5636,89 @@ class TestLayerControlBrowser:
                 "the focus overlay pane div must inherit pointer-events: none "
                 f"from the base class, got {result['panePointerEvents']!r}"
             )
+
+    def test_focus_keeps_base_panes_visible(self, browser, tmp_path):
+        """Basemaps stay visible during focus — they are dimmed, not hidden.
+
+        Before this fix, ``.foliplus-is-focus-mode`` hid every
+        ``.foliplus-layer-pane`` except the focused one. Tile basemaps and the
+        solid-color basemap paint into their own foliplus panes (registered
+        through the LayerControl like any other layer), so the basemap was
+        hidden too — the user saw the map container's default grey background
+        instead of a dimmed basemap. The ``.foliplus-base-pane`` exclusion tag
+        on every base-group pane keeps them visible; the mask on top produces
+        the dimming the user expects.
+        """
+        # A tile basemap + an overlay polygon so focus has a target.
+        base = folium.TileLayer(
+            "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+            name="OSM",
+            attr="OSM",
+            overlay=False,
+        )
+        fg = folium.FeatureGroup(name="Zone", overlay=True, show=True)
+        folium.Polygon(
+            locations=[[26.0, 119.2], [26.2, 119.2], [26.2, 119.5], [26.0, 119.5]],
+        ).add_to(fg)
+        with use_page(
+            self._make_page,
+            browser,
+            tmp_path,
+            base,
+            fg,
+            slug="focus_keeps_base_visible",
+        ) as (page, _):
+            page.evaluate(
+                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            result = page.evaluate(_js("LayerControl/focus_keeps_base_panes_visible"))
+            assert result is not None and not result.get("error"), (
+                f"focus probe failed: {result}"
+            )
+            assert result["focusActive"] is True, (
+                f"focus mode must be active: {result}"
+            )
+            assert result["maskPanePresent"] is True, (
+                f"focus mask pane must exist: {result}"
+            )
+            # Classify the panes and check each category.
+            base_panes = [p for p in result["panes"] if p["baseExcl"]]
+            focus_panes = [p for p in result["panes"] if p["focusExcl"]]
+            other_panes = [
+                p
+                for p in result["panes"]
+                if not p["baseExcl"] and not p["focusExcl"]
+            ]
+            assert len(base_panes) >= 1, (
+                "at least one base-group pane (the tile basemap) must carry "
+                f"foliplus-base-pane: {result['panes']}"
+            )
+            for pane in base_panes:
+                assert pane["visibility"] == "visible", (
+                    "a base-group pane must stay visible during focus — the "
+                    f"dim mask does the dimming, not visibility:hidden: {pane}"
+                )
+            assert len(focus_panes) >= 2, (
+                "the focused layer's pane and the focus overlay pane must both "
+                f"carry foliplus-focus-pane: {result['panes']}"
+            )
+            for pane in focus_panes:
+                assert pane["visibility"] == "visible", (
+                    f"a foliplus-focus-pane pane must stay visible: {pane}"
+                )
+            # Any other pane (an overlay data layer that isn't the focused
+            # one, e.g. a second polygon) must be hidden — otherwise the
+            # focused layer is not visually isolated.
+            for pane in other_panes:
+                assert pane["visibility"] == "hidden", (
+                    "a non-focus, non-base foliplus-layer-pane must be hidden "
+                    f"during focus so the focused layer stands out: {pane}"
+                )
 
     def test_focus_overlay_renderer_lifecycle(self, browser, tmp_path):
         """Each focus owns exactly one SVG renderer in the overlay pane.
