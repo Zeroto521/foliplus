@@ -8,6 +8,7 @@ import { AnnotationManager } from "#foliplus/LayerControl/annotation/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { applyProjection } from "#foliplus/LayerControl/ui/apply.js";
 import { setIntent } from "#foliplus/LayerControl/ui/intent.js";
+import { NUMBER_FORMAT } from "#common/format.js";
 import { initFixture } from "../ui/fixture.js";
 
 const mocks = vi.hoisted(() => {
@@ -267,6 +268,180 @@ describe("AnnotationManager — config", () => {
     expect(mgr.resolveField("a")).toBe("v");
     // A second read hits the auto-field cache instead of re-walking the layer.
     expect(mgr.resolveField("a")).toBe("v");
+  });
+});
+
+describe("AnnotationManager — author-declared annotation", () => {
+  const pageCollideOff = (fn: () => void) => {
+    const saved = (window as { CONFIG?: Record<string, unknown> }).CONFIG;
+    (window as { CONFIG?: Record<string, unknown> }).CONFIG = {
+      ...saved,
+      label_collide: false,
+    };
+    try {
+      fn();
+    } finally {
+      (window as { CONFIG?: Record<string, unknown> }).CONFIG = saved;
+    }
+  };
+
+  it("reads the declaration off the layer itself", () => {
+    const { map } = makeMap();
+    const layer = {
+      options: { foliplus: { annotation: { field: "store", format: "comma" } } },
+    } as unknown as L.Layer;
+    const mgr = new AnnotationManager({ map, layerFind: () => layer });
+
+    const cfg = mgr.getConfig("l1");
+    expect(cfg.field).toBe("store");
+    expect(cfg.format).toBe(NUMBER_FORMAT.COMMA);
+    // Only the declared keys travel up; everything else stays at the default.
+    expect(cfg.collide).toBe(true);
+    expect(cfg.show).toBe(CONST.DEFAULT_ANNOTATION.show);
+  });
+
+  it("descends into a container's children for a nested declaration", () => {
+    const child = {
+      options: { foliplus: { annotation: { field: "nested" } } },
+    } as unknown as L.Layer;
+    const { map } = makeMap();
+    const mgr = new AnnotationManager({
+      map,
+      layerFind: () => mkGroup([child]),
+    });
+
+    expect(mgr.getConfig("l1").field).toBe("nested");
+  });
+
+  it("does not cache a layer that cannot be resolved yet", () => {
+    const { map } = makeMap();
+    const layer = {
+      options: { foliplus: { annotation: { field: "late" } } },
+    } as unknown as L.Layer;
+    let resolved = false;
+    const find = vi.fn(() => (resolved ? layer : null));
+    const mgr = new AnnotationManager({ map, layerFind: find });
+
+    expect(mgr.getConfig("l1").field).toBe(CONST.DEFAULT_ANNOTATION.field);
+    resolved = true;
+    expect(mgr.getConfig("l1").field).toBe("late");
+  });
+
+  it("caches the read once the layer is resolved", () => {
+    const { map } = makeMap();
+    const layer = {
+      options: { foliplus: { annotation: { field: "cached" } } },
+    } as unknown as L.Layer;
+    const find = vi.fn(() => layer);
+    const mgr = new AnnotationManager({ map, layerFind: find });
+
+    expect(mgr.getConfig("l1").field).toBe("cached");
+    expect(mgr.getConfig("l1").field).toBe("cached");
+    expect(find).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the page-level collide when only a field is declared", () => {
+    pageCollideOff(() => {
+      const { map } = makeMap();
+      const layer = {
+        options: { foliplus: { annotation: { field: "store" } } },
+      } as unknown as L.Layer;
+      const mgr = new AnnotationManager({ map, layerFind: () => layer });
+
+      const cfg = mgr.getConfig("l1");
+      expect(cfg.field).toBe("store");
+      // The declaration is PARTIAL: an undeclared collide must stay off, not
+      // be coerced to true. This is what coerceAnnotationFields would clobber.
+      expect(cfg.collide).toBe(false);
+    });
+  });
+
+  it("lets the declared collide win over the page-level default", () => {
+    pageCollideOff(() => {
+      const { map } = makeMap();
+      const layer = {
+        options: { foliplus: { annotation: { field: "store", collide: true } } },
+      } as unknown as L.Layer;
+      const mgr = new AnnotationManager({ map, layerFind: () => layer });
+
+      expect(mgr.getConfig("l1").collide).toBe(true);
+    });
+  });
+
+  it("drops undeclared and invalid keys", () => {
+    const { map } = makeMap();
+    const layer = {
+      options: {
+        foliplus: {
+          annotation: {
+            field: "store",
+            format: "thousands",
+            collide: "yes",
+            color: "#00ff00",
+            show: true,
+          },
+        },
+      },
+    } as unknown as L.Layer;
+    const mgr = new AnnotationManager({ map, layerFind: () => layer });
+
+    const cfg = mgr.getConfig("l1");
+    expect(cfg.field).toBe("store");
+    // An unknown format degrades to the default instead of being written
+    // through, and a non-boolean collide is dropped rather than coerced.
+    expect(cfg.format).toBe(CONST.DEFAULT_ANNOTATION.format);
+    expect(cfg.collide).toBe(true);
+    expect(cfg.show).toBe(CONST.DEFAULT_ANNOTATION.show);
+    expect(cfg.color).toBe(CONST.DEFAULT_ANNOTATION.color);
+  });
+
+  it("takes the user's stored choice over the declaration", () => {
+    const { map } = makeMap();
+    const layer = {
+      options: { foliplus: { annotation: { field: "store", format: "comma" } } },
+    } as unknown as L.Layer;
+    const mgr = new AnnotationManager({ map, layerFind: () => layer });
+    mgr.setConfig("l1", {
+      ...mgr.getConfig("l1"),
+      field: "other",
+      format: NUMBER_FORMAT.PERCENT,
+    });
+
+    const cfg = mgr.getConfig("l1");
+    expect(cfg.field).toBe("other");
+    expect(cfg.format).toBe(NUMBER_FORMAT.PERCENT);
+  });
+
+  it("tolerates keys the control does not consume", () => {
+    const { map } = makeMap();
+    const layer = {
+      options: {
+        foliplus: {
+          icon: { color: "#ff0000" },
+          annotation: { field: "store" },
+        },
+      },
+    } as unknown as L.Layer;
+    const mgr = new AnnotationManager({ map, layerFind: () => layer });
+
+    expect(() => mgr.getConfig("l1")).not.toThrow();
+    expect(mgr.getConfig("l1").field).toBe("store");
+  });
+
+  it("clearConfig deletes the entry so the declaration shows through", () => {
+    const { map } = makeMap();
+    const layer = {
+      options: { foliplus: { annotation: { field: "store" } } },
+    } as unknown as L.Layer;
+    const mgr = new AnnotationManager({ map, layerFind: () => layer });
+    mgr.setConfig("l1", { ...mgr.getConfig("l1"), field: "other" });
+    expect(mgr.getConfig("l1").field).toBe("other");
+
+    mgr.clearConfig("l1");
+
+    expect(mgr.hasConfig("l1")).toBe(false);
+    expect(mgr.configEntries()).toHaveLength(0);
+    expect(mgr.getConfig("l1").field).toBe("store");
   });
 });
 
