@@ -9,7 +9,6 @@ import {
   applyRowView,
   buildRowCell,
   rowView,
-  snapshotAuthorVisible,
   syncNoBasemap,
   syncToggleAll,
 } from "#foliplus/LayerControl/ui/listPanel/index.js";
@@ -337,102 +336,6 @@ describe("applyRowView (the single DOM write point)", () => {
     const result = buildRowCell(bare, info);
     expect(result.checked).toBe(true);
     expect(result.shown).toBe(true);
-  });
-});
-
-describe("snapshotAuthorVisible", () => {
-  beforeEach(() => {
-    window.localStorage.clear();
-    document.body.innerHTML = "";
-  });
-
-  afterEach(() => {
-    document.body.innerHTML = "";
-    vi.useRealTimers();
-    vi.restoreAllMocks();
-  });
-
-  it("reads the author's default from the map at boot, once per id", () => {
-    const { ui, map } = initFixture({});
-    const layerInfo = ui.c.layers.find(li => li.id === "overlay1")!;
-    expect(ui.runtimeStore.getAuthorVisible("overlay1")).toBe(true);
-
-    (map.hasLayer as ReturnType<typeof vi.fn>).mockReturnValue(false);
-    snapshotAuthorVisible(ui, layerInfo);
-    expect(ui.runtimeStore.getAuthorVisible("overlay1")).toBe(true);
-  });
-
-  it("leaves the snapshot unknown while the layer's object is not linked yet", () => {
-    // Folium emits a layer's JS global *after* the control's IIFE, so at
-    // attach a registry entry has no resolvable layer yet and there is no
-    // honest map state to read. Latching the registry flag here would record
-    // `true` for an author `show=False` layer and — the snapshot being
-    // idempotent — keep the later correct reading out for good. That is the
-    // exact path the show=False zoom-sweep gate covers.
-    const { ui } = initFixture({});
-    vi.spyOn(ui.c, "findLayer").mockReturnValue(null);
-    snapshotAuthorVisible(ui, {
-      id: "ghost",
-      visible: true,
-    } as unknown as LayerInfo);
-    snapshotAuthorVisible(ui, {
-      id: "ghost-hidden",
-      visible: false,
-    } as unknown as LayerInfo);
-    expect(ui.runtimeStore.hasAuthorVisible("ghost")).toBe(false);
-    expect(ui.runtimeStore.hasAuthorVisible("ghost-hidden")).toBe(false);
-  });
-
-  it("records the intent value for a canvas-only layer with no map to observe", () => {
-    // A canvas layer never has a Leaflet layer to observe at any point, so
-    // the snapshot reads the intent (`intentVisibleOf`) as its ground truth
-    // — a leaflet layer reads the map, a canvas reads the intent record.
-    // With no persisted dimension the intent falls back to the author
-    // default of `true`, so both snapshots latch `true`; a test that
-    // wants to distinguish must seed a hidden intent first.
-    const { ui } = initFixture({});
-    vi.spyOn(ui.c, "findLayer").mockReturnValue(null);
-    snapshotAuthorVisible(ui, {
-      id: "heat",
-      canvas: document.createElement("canvas"),
-    } as unknown as LayerInfo);
-    snapshotAuthorVisible(ui, {
-      id: "heat-hidden",
-      canvas: document.createElement("canvas"),
-    } as unknown as LayerInfo);
-    expect(ui.runtimeStore.getAuthorVisible("heat")).toBe(true);
-    expect(ui.runtimeStore.getAuthorVisible("heat-hidden")).toBe(true);
-
-    // A persisted hidden choice for a canvas layer still latches false —
-    // the intent record is the observation, not the layer's on-map state.
-    snapshotAuthorVisible(ui, {
-      id: "heat-mixed",
-      canvas: document.createElement("canvas"),
-    } as unknown as LayerInfo);
-    setIntent(ui, "heat-mixed", "visible", false);
-    ui.intentStore.seedProvenance("heat-mixed", ["visible"]);
-    snapshotAuthorVisible(ui, {
-      id: "heat-mixed",
-      canvas: document.createElement("canvas"),
-    } as unknown as LayerInfo);
-    // The snapshot is idempotent — the first read wins.
-    expect(ui.runtimeStore.getAuthorVisible("heat-mixed")).toBe(true);
-  });
-
-  it("lets a later pass latch the truth once the layer is linked", () => {
-    // The unknown state is not a dead end: initTypesAndVisibility runs after
-    // folium links its layers and must be able to record the real boot
-    // membership. A `show=False` layer reads as `false` there.
-    const { ui } = initFixture({});
-    const find = vi.spyOn(ui.c, "findLayer").mockReturnValue(null);
-    snapshotAuthorVisible(ui, { id: "late" } as LayerInfo);
-    expect(ui.runtimeStore.hasAuthorVisible("late")).toBe(false);
-
-    const layer = { options: {} } as L.Layer;
-    find.mockReturnValue(layer);
-    (ui.c.map.hasLayer as ReturnType<typeof vi.fn>).mockReturnValue(false);
-    snapshotAuthorVisible(ui, { id: "late" } as LayerInfo);
-    expect(ui.runtimeStore.getAuthorVisible("late")).toBe(false);
   });
 });
 

@@ -69,6 +69,36 @@ describe("LayerInfoRegistry", () => {
       expect(info.metaProvider).toBeNull();
     });
 
+    it("carries the author's declared show, false included", () => {
+      expect(registry.createLayerInfo({ id: "test", show: false }).show).toBe(false);
+      expect(registry.createLayerInfo({ id: "test", show: true }).show).toBe(true);
+    });
+
+    it("leaves show absent when the author declared nothing", () => {
+      // Not normalised to `true` here: the registry must not invent a value
+      // the caller never gave. The seed sites apply folium's default, so a
+      // reader that forgets to would be the bug, not a silent `true`.
+      expect(registry.createLayerInfo({ id: "test" }).show).toBeUndefined();
+    });
+
+    it("keeps the stored show when a re-registration omits it", () => {
+      // A provider re-adding its layer re-advertises only its own metadata;
+      // dropping the author's `show` there would resurrect a hidden layer.
+      const info = registry.createLayerInfo(
+        { id: "overlay1" },
+        registry.createLayerInfo({ id: "overlay1", show: false }),
+      );
+      expect(info.show).toBe(false);
+    });
+
+    it("lets an explicit show win on re-registration", () => {
+      const info = registry.createLayerInfo(
+        { id: "overlay1", show: true },
+        registry.createLayerInfo({ id: "overlay1", show: false }),
+      );
+      expect(info.show).toBe(true);
+    });
+
     it("keeps the current name when a layer is re-registered", () => {
       // A third-party provider re-adding its layer re-advertises its own name.
       // Taking the caller's value would reset the display name on every
