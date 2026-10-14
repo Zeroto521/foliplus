@@ -180,6 +180,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
           name: "Polygons",
           group: "overlay",
           layer: testPolyLayer,
+          show: false,
         },
       ]);
       const u = new LayerUI(m, TEST_ENV);
