@@ -5494,6 +5494,64 @@ class TestLayerControlBrowser:
                 f"marquee must keep the march animation, got {result}"
             )
 
+    def test_geometry_focus_marquee_survives_zoom(self, browser, tmp_path):
+        """Focused geometry's marching-ants bbox stays locked to the geometry
+        across a zoom change.
+
+        #668 wired the marquee to re-derive from the live bbox on `moveend`,
+        but `getBBox()` is cached by the browser's SVG layout engine and only
+        refreshes on the next frame. A synchronous redraw inside `moveend`
+        reads the pre-zoom bbox and the marquee freezes at the old position.
+        The fix defers the redraw with `requestAnimationFrame`. This test
+        captures real pixel bboxes before and after a zoom and asserts the
+        marquee tracks the geometry within 1px (plus the 4px pad).
+        """
+        fg = folium.FeatureGroup(name="Zone", overlay=True, show=True)
+        folium.Polygon(
+            locations=[[26.0, 119.2], [26.2, 119.2], [26.2, 119.5], [26.0, 119.5]],
+        ).add_to(fg)
+        with use_page(
+            self._make_page, browser, tmp_path, fg, slug="geom_focus_zoom_lock"
+        ) as (page, _):
+            result = page.evaluate(
+                _js("LayerControl/geometry_focus_zoom_stays_locked")
+            )
+            assert result is not None and "before" in result, (
+                f"geometry_focus_zoom_stays_locked failed: {result}"
+            )
+            before, after = result["before"], result["after"]
+            assert after is not None, (
+                f"zoom moveend never fired within 5s: {result}"
+            )
+            assert after["marqueeBB"] is not None, (
+                f"marquee vanished after zoom: {result}"
+            )
+            # The marquee is the geometry bbox + 4px pad on all sides.
+            pad = 4
+            tol = 1.0
+            gb, mb = before["geomBB"], before["marqueeBB"]
+            assert abs(mb["x"] - (gb["x"] - pad)) <= tol, (
+                f"before zoom: marquee left edge {mb['x']} != geom {gb['x']} - pad {pad}"
+            )
+            assert abs(mb["y"] - (gb["y"] - pad)) <= tol, (
+                f"before zoom: marquee top edge {mb['y']} != geom {gb['y']} - pad {pad}"
+            )
+            gb, mb = after["geomBB"], after["marqueeBB"]
+            assert abs(mb["x"] - (gb["x"] - pad)) <= tol, (
+                f"AFTER zoom: marquee left edge {mb['x']} != geom {gb['x']} - pad {pad} "
+                f"(marquee froze at old position)"
+            )
+            assert abs(mb["y"] - (gb["y"] - pad)) <= tol, (
+                f"AFTER zoom: marquee top edge {mb['y']} != geom {gb['y']} - pad {pad} "
+                f"(marquee froze at old position)"
+            )
+            assert abs(mb["w"] - (gb["w"] + 2 * pad)) <= tol, (
+                f"AFTER zoom: marquee width {mb['w']} != geom {gb['w']} + 2*pad"
+            )
+            assert abs(mb["h"] - (gb["h"] + 2 * pad)) <= tol, (
+                f"AFTER zoom: marquee height {mb['h']} != geom {gb['h']} + 2*pad"
+            )
+
     def test_focus_overlay_pane_keeps_spotlight_visible(self, browser, tmp_path):
         """The focus overlay pane carries both the base and exclusion classes.
 

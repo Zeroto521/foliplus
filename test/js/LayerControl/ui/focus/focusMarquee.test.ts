@@ -136,7 +136,7 @@ describe("bindGeometryFocusMarquee", () => {
     unbind();
   });
 
-  it("redraws the marquee from the live bbox on map moveend", () => {
+  it("redraws the marquee from the live bbox on map moveend", async () => {
     const { path, group } = makeSvgPath();
     root.appendChild(group.ownerSVGElement!);
     const { map, fire } = makeMap();
@@ -146,9 +146,14 @@ describe("bindGeometryFocusMarquee", () => {
     const stale = group.querySelector("path.foliplus-focus-rect")!.getAttribute("d")!;
 
     // Leaflet re-projects every path on moveend (pan, zoom, flyTo), rewriting
-    // the geometry's bbox in pixel space. The marquee must follow it.
+    // the geometry's bbox in pixel space. The binder defers the redraw with
+    // requestAnimationFrame because the browser's SVG bbox cache only refreshes
+    // on the next frame — a synchronous drawMarquee reads a stale bbox.
     stubBBox(path, { x: 20, y: 20, width: 40, height: 40 });
     fire("moveend");
+
+    // Wait for the rAF-deferred redraw to run.
+    await new Promise(r => requestAnimationFrame(r));
 
     const live = group.querySelector("path.foliplus-focus-rect")!.getAttribute("d")!;
     expect(live).not.toBe(stale);
@@ -159,7 +164,7 @@ describe("bindGeometryFocusMarquee", () => {
     unbind();
   });
 
-  it("drops the marquee when the focused path leaves the map", () => {
+  it("drops the marquee when the focused path leaves the map", async () => {
     const { path, svg } = makeSvgPath();
     root.appendChild(svg);
     const { map, fire } = makeMap();
@@ -170,6 +175,9 @@ describe("bindGeometryFocusMarquee", () => {
 
     svg.remove(); // layer removed from the map
     fire("moveend");
+    // The redraw is deferred to rAF (see the moveend test above); wait for
+    // it to clear the orphaned marquee.
+    await new Promise(r => requestAnimationFrame(r));
     expect(document.querySelectorAll("path.foliplus-focus-rect").length).toBe(0);
     unbind();
   });
