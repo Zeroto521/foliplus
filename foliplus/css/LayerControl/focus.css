@@ -69,8 +69,12 @@ path.foliplus-focus-mask {
   }
 }
 
-/* While focusing, hide every layer pane except the focused one. */
-.foliplus-is-focus-mode .foliplus-layer-pane:not(.foliplus-focus-pane) {
+/* While focusing, hide every layer pane except the focused one and the
+   basemaps. Basemaps carry the `.foliplus-base-pane` exclusion tag so the
+   dim mask on top can still cover them: the basemap keeps the spatial
+   context, only the mask darkens the area outside the focused bounds. */
+.foliplus-is-focus-mode
+  .foliplus-layer-pane:not(.foliplus-focus-pane):not(.foliplus-base-pane) {
   visibility: hidden;
 }
 

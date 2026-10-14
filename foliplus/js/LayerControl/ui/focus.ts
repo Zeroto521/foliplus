@@ -296,16 +296,19 @@ const dismissFocus = (ui: LayerUI): void => {
 
 /**
  * Hide every other visible layer so the focused layer stands out.
- * Works alongside the inverse mask (which dims the basemap + everything
- * outside the bounds). The basemap (tilePane) has no `foliplus-layer-pane`
- * class, so it is naturally excluded and keeps the spatial context.
+ * Works alongside the inverse mask (which dims the area outside the
+ * bounds). Basemaps carry `.foliplus-base-pane` and are excluded from
+ * this rule — they stay visible under focus so the mask alone produces
+ * the dimming effect (the map container's background color, otherwise
+ * revealed when the basemap is hidden, reads as a hard "grey").
  *
  * Declarative: one class write on the map container. CSS
- * `.foliplus-is-focus-mode .foliplus-layer-pane:not(.foliplus-focus-pane)`
- * hides every layer pane except the focused one — instead of a JS
- * visibility loop over N panes. Canvas layers (heatmap) live in their own
- * pane, so they are covered by the same rule. `bringFocusedLayerToFront`
- * marks the focused pane with `foliplus-focus-pane` so it stays visible.
+ * `.foliplus-is-focus-mode .foliplus-layer-pane:not(.foliplus-focus-pane):not(.foliplus-base-pane)`
+ * hides every layer pane except the focused one and the basemaps —
+ * instead of a JS visibility loop over N panes. Canvas layers (heatmap)
+ * live in their own pane, so they are covered by the same rule.
+ * `bringFocusedLayerToFront` marks the focused pane with
+ * `.foliplus-focus-pane` so it stays visible.
  */
 const hideOtherLayers = (ui: LayerUI): void => {
   ui.c.map.getContainer().classList.add(CONST.CLASSES.FOCUS_ACTIVE);
