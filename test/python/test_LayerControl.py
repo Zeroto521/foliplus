@@ -5680,9 +5680,7 @@ class TestLayerControlBrowser:
             assert result is not None and not result.get("error"), (
                 f"focus probe failed: {result}"
             )
-            assert result["focusActive"] is True, (
-                f"focus mode must be active: {result}"
-            )
+            assert result["focusActive"] is True, f"focus mode must be active: {result}"
             assert result["maskPanePresent"] is True, (
                 f"focus mask pane must exist: {result}"
             )
@@ -5690,9 +5688,7 @@ class TestLayerControlBrowser:
             base_panes = [p for p in result["panes"] if p["baseExcl"]]
             focus_panes = [p for p in result["panes"] if p["focusExcl"]]
             other_panes = [
-                p
-                for p in result["panes"]
-                if not p["baseExcl"] and not p["focusExcl"]
+                p for p in result["panes"] if not p["baseExcl"] and not p["focusExcl"]
             ]
             assert len(base_panes) >= 1, (
                 "at least one base-group pane (the tile basemap) must carry "
