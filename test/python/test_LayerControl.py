@@ -1166,8 +1166,7 @@ class TestLayerControlRendering:
         )
         dim_body = _rule(css, dim_marker)
         assert "opacity" in dim_body, (
-            "the base panes must be dimmed with `opacity`: "
-            f"{dim_body}"
+            f"the base panes must be dimmed with `opacity`: {dim_body}"
         )
         assert "--foliplus-focus-basemap-opacity" in dim_body, (
             "the base pane dim rule must reference the token "
@@ -1184,8 +1183,7 @@ class TestLayerControlRendering:
         """
         token_css = read_css("foliplus/css/common/token.css")
         assert "--foliplus-focus-basemap-opacity" in token_css, (
-            "the --foliplus-focus-basemap-opacity token must be defined in "
-            "token.css"
+            "the --foliplus-focus-basemap-opacity token must be defined in token.css"
         )
         # Extract the value and assert it is a valid opacity (0..1).
         import re
