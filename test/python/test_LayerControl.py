@@ -1166,8 +1166,7 @@ class TestLayerControlRendering:
         # a contract.
         dim_marker = ".foliplus-is-focus-mode .foliplus-base-pane"
         assert dim_marker in css, (
-            "the focus-mode dim rule must target the base panes via "
-            f"{dim_marker}"
+            f"the focus-mode dim rule must target the base panes via {dim_marker}"
         )
         dim_body = _rule(css, dim_marker)
         assert "filter" in dim_body, (
@@ -5802,8 +5801,7 @@ class TestLayerControlBrowser:
             )
             for pane in color_panes:
                 assert pane["visibility"] == "visible", (
-                    "the color basemap's pane must stay visible during focus: "
-                    f"{pane}"
+                    f"the color basemap's pane must stay visible during focus: {pane}"
                 )
             assert len(focus_panes) >= 2, (
                 "the focused layer's pane and the focus overlay pane must both "
