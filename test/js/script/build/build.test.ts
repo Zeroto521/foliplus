@@ -63,7 +63,11 @@ describe("build artifacts", () => {
 
   it("common JS exposes foliplus.version", () => {
     const content = readFileSync(resolve(distDir, "foliplus-common.min.js"), "utf-8");
-    expect(content).toContain("foliplus.version");
+    // Assert the assigned value, not the identifier: the bundler renames the
+    // local `foliplus` binding under `build` (minified), so matching the bare
+    // text "foliplus.version" only holds for a `build:dev` artifact. The version
+    // literal itself is never renamed.
+    expect(content).toMatch(/\.version\s*=\s*["']v?\d+\.\d+\.\d+/);
   });
 
   it("component JS externalizes the shared control factory", () => {
