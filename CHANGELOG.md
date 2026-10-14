@@ -13,6 +13,7 @@
 ### Fixed
 
 - `LayerControl`: the geometry focus marquee now follows its layer across pan/zoom instead of drifting away from the geometry ([#668](https://github.com/Zeroto521/foliplus/pull/668))
+- `LayerControl`: basemaps (tile and solid-color) now stay visible while a layer is focused — they are dimmed by the focus mask instead of being hidden by the focus-mode CSS rule, so the map container's default grey background no longer shows through
 
 ## [v0.4.0] (2026-10-10)
 
