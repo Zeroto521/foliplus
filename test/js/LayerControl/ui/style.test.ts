@@ -900,6 +900,23 @@ describe("LayerUI style panel", () => {
     expect(render).not.toHaveBeenCalled();
   });
 
+  it("does not render a declaration the layer has no labelable fields for", () => {
+    // A declaration is an author's promise about the panel's starting point, not a
+    // reason to paint. Building a canvas over an empty field list would leave a
+    // blank layer with the toggle reading on.
+    const li = manager.layerRegistry.get("overlay1")!;
+    (li.layer as any).options.foliplus = { annotation: { field: "count" } };
+    ui.runtimeStore.deleteFields("overlay1");
+    expect(layerHasLabelFields(ui, "overlay1")).toBe(false);
+
+    const render = vi
+      .spyOn(manager.annotation, "renderLabels")
+      .mockImplementation(() => []);
+    ui.applyStyleLabelState();
+
+    expect(render).not.toHaveBeenCalledWith("overlay1");
+  });
+
   // ─────────────────── row groups + opacity ───────────────────
 
   it("renders the layer and label rows with no group headings", () => {
