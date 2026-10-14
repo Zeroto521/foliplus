@@ -7111,7 +7111,9 @@ class TestMarkerShadowZoomBrowser:
             shadow_pane_z = int(pane_z["shadowPane"])
             # The data panes are the ones at Z_INDEX.BASE (=600) or above.
             data_pane_zs = [
-                int(v) for k, v in pane_z.items() if k.startswith("foliplus-pane") and int(v) >= 600
+                int(v)
+                for k, v in pane_z.items()
+                if k.startswith("foliplus-pane") and int(v) >= 600
             ]
             assert data_pane_zs, "no foliplus data pane found"
             assert shadow_pane_z < min(data_pane_zs), (
