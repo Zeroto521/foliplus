@@ -28,7 +28,7 @@ jobs:
       }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           # Keep tags/history available for setuptools_scm versioning
           fetch-depth: 0
@@ -94,7 +94,7 @@ jobs:
 
       - run: ls dist/ -l
 
-      - uses: pypa/gh-action-pypi-publish@v1.14.0
+      - uses: pypa/gh-action-pypi-publish@v1.14.2
         with:
           user: __token__
           password: ${{ secrets.TEST_PYPI_API_TOKEN }}
@@ -114,7 +114,7 @@ jobs:
 
       - run: ls dist/ -l
 
-      - uses: pypa/gh-action-pypi-publish@v1.14.0
+      - uses: pypa/gh-action-pypi-publish@v1.14.2
         with:
           user: __token__
           password: ${{ secrets.PYPI_API_TOKEN }}
@@ -134,7 +134,7 @@ jobs:
 
       - run: ls dist/ -l
 
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           draft: true
           prerelease: ${{ contains(github.ref, 'rc') }}

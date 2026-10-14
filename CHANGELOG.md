@@ -12,7 +12,7 @@
 
 ### Fixed
 
-- `LayerControl`: the geometry focus marquee now follows its layer across pan/zoom instead of drifting away from the geometry ([#668](https://github.com/Zeroto521/foliplus/pull/668))
+- `LayerControl`: the geometry focus marquee now follows its layer across pan/zoom instead of drifting away from the geometry ([#668](https://github.com/Zeroto521/foliplus/pull/668), [#670](https://github.com/Zeroto521/foliplus/pull/670))
 - `LayerControl`: basemaps stay visible while a layer is focused — they fade instead of disappearing, so the map's grey background no longer shows through ([#675](https://github.com/Zeroto521/foliplus/pull/675))
 
 ## [v0.4.0] (2026-10-10)
