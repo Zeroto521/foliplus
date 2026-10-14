@@ -4,7 +4,7 @@
 
 ### Added
 
-- `LayerControl`: declarative per-layer label defaults — `foliplus={"annotation": {...}}` on a layer's own options seeds the style panel's starting field, number format and avoid-overlap switch; the user's own choice still wins, and Reset restores the declaration rather than a hardcoded default ([#669](https://github.com/Zeroto521/foliplus/pull/669))
+- `LayerControl`: layers can now declare label defaults (field/format/collision) via `foliplus={"annotation": {...}}`, overriding the built-in default while the user's own choice still wins ([#669](https://github.com/Zeroto521/foliplus/pull/669))
 
 ### Changed
 

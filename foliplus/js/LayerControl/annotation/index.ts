@@ -262,7 +262,9 @@ class AnnotationManager {
    *  writing a full default record is what lets the author's declaration show
    *  through: getConfig then reads "built-in defaults ⊕ author declaration",
    *  and collide still comes from the page-level `label_collide` default.
-   *  Distinct from `unloadLayer`, which must keep the config across a teardown. */
+   *  Distinct from `unloadLayer`, which must keep the config across a teardown.
+   *  `authorCache` is deliberately left alone — the declaration belongs to the
+   *  layer, not the user, so only `destroyLayer` drops that entry. */
   clearConfig(id: string): void {
     this.config.delete(id);
   }
