@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- `LayerControl`: declarative per-layer label defaults — `foliplus={"annotation": {...}}` on a layer's own options seeds the style panel's starting field, number format and avoid-overlap switch; the user's own choice still wins, and Reset restores the declaration rather than a hardcoded default
+
 ### Changed
 
 - `BaseControl`: locale tables now ship once per map in the shared bundle (`_COMPONENT_TABLES`), so `locale=None` auto-detects the browser language instead of falling back to English; `CONFIG.locale_tables` keeps only custom strings ([#667](https://github.com/Zeroto521/foliplus/pull/667))

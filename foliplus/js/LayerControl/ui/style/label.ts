@@ -68,6 +68,19 @@ const applyPatch = (
   persistStyleLabel(ui);
 };
 
+/** Reset one layer's label config by REMOVING the entry, not by writing the
+ *  defaults back. `this.config` sits above the author's declaration in
+ *  getConfig's merge, so a written default would shadow the author's `field` —
+ *  and persisting that shadow would keep it across a reload, so one Reset
+ *  would kill the declaration for good. Deleting restores "never configured
+ *  by the user", where collide still comes from the page-level default.
+ *  Same update order as applyPatch, minus the write. */
+const resetStyleLabel = (ui: LayerUI, layerId: string): void => {
+  ui.c.annotation.clearConfig(layerId);
+  ui.c.annotation.renderLabels(layerId);
+  persistStyleLabel(ui);
+};
+
 /** Coerce one stored label config into a complete {@link AnnotationConfig}.
  *
  *  The single home of the per-field rules: persistence's tolerant parse only
@@ -135,5 +148,6 @@ export {
   invalidateFields,
   layerFields,
   layerHasLabelFields,
+  resetStyleLabel,
   syncFormatRow,
 };
