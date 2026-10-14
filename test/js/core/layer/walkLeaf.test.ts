@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   findLeaf,
+  findNode,
   isContainerNode,
   someLeaf,
   walkLeaf,
@@ -120,6 +121,84 @@ describe("findLeaf", () => {
     const g = group(leaf("x"));
     const result = findLeaf(g, () => undefined, 0, 0);
     expect(result).toBeUndefined();
+  });
+});
+
+describe("findNode", () => {
+  const declared = (value: string, children: unknown[] = []) => ({
+    options: { foliplus: { annotation: { field: value } } },
+    eachLayer: (fn: (l: unknown) => void) => children.forEach(fn),
+  });
+
+  it("returns the container's own value, which walkLeaf never visits", () => {
+    const g = declared("on-container", [leaf("a")]);
+    const result = findNode(
+      g,
+      n =>
+        (n as { options?: { foliplus?: { annotation?: { field: string } } } }).options
+          ?.foliplus?.annotation?.field,
+    );
+    expect(result).toBe("on-container");
+  });
+
+  it("root first: the container's own value wins over a child's", () => {
+    const g = declared("outer", [declared("inner")]);
+    let visits = 0;
+    const result = findNode(g, n => {
+      visits += 1;
+      return (n as { options?: { foliplus?: { annotation?: { field: string } } } })
+        .options?.foliplus?.annotation?.field;
+    });
+    expect(result).toBe("outer");
+    expect(visits).toBe(1);
+  });
+
+  it("descends into children when the container declares nothing", () => {
+    const child = declared("on-child");
+    const g = { eachLayer: (fn: (l: unknown) => void) => fn(child) };
+    const result = findNode(
+      g,
+      n =>
+        (n as { options?: { foliplus?: { annotation?: { field: string } } } }).options
+          ?.foliplus?.annotation?.field,
+    );
+    expect(result).toBe("on-child");
+  });
+
+  it("returns the first hit and skips the remaining siblings", () => {
+    const miss = leaf("miss");
+    const hit = declared("hit");
+    const after = declared("after");
+    const g = group(miss, hit, after);
+    let visits = 0;
+    const result = findNode(g, n => {
+      visits += 1;
+      return (n as { options?: { foliplus?: { annotation?: { field: string } } } })
+        .options?.foliplus?.annotation?.field;
+    });
+    expect(result).toBe("hit");
+    expect(visits).toBe(3); // g, miss, hit — after is never visited
+  });
+
+  it("depth guard: does not recurse past maxDepth", () => {
+    const g = group(declared("deep"));
+    const result = findNode(
+      g,
+      n =>
+        (n as { options?: { foliplus?: { annotation?: { field: string } } } }).options
+          ?.foliplus?.annotation?.field,
+      0,
+      0,
+    );
+    expect(result).toBeUndefined();
+  });
+
+  it("returns undefined on a falsy layer and when nothing is declared", () => {
+    const pred = vi.fn(() => undefined);
+    expect(findNode(null, pred)).toBeUndefined();
+    expect(pred).not.toHaveBeenCalled();
+    const g = group(leaf("a"), leaf("b"));
+    expect(findNode(g, () => undefined)).toBeUndefined();
   });
 });
 
