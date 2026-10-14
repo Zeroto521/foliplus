@@ -209,15 +209,15 @@ class PaneManager {
           // before shadow). Leaflet can recreate marker DOM during extreme zoom
           // (zoom to min then back), leaving icon before shadow — `needsMove`
           // would see both as "in place" and preserve the broken order.
-          const shadowIn = shadow?.parentNode === paneEl;
-          const iconIn = iconEl?.parentNode === paneEl;
+          const shadowInside = shadow?.parentNode === paneEl;
+          const iconInside = iconEl?.parentNode === paneEl;
           const swapped =
-            shadowIn &&
-            iconIn &&
+            shadowInside &&
+            iconInside &&
             (iconEl!.compareDocumentPosition(shadow!) &
               Node.DOCUMENT_POSITION_PRECEDING) !==
               0;
-          const needsMove = !shadowIn || !iconIn || swapped;
+          const needsMove = !shadowInside || !iconInside || swapped;
           if (needsMove) {
             if (!markerGroups.has(paneEl)) markerGroups.set(paneEl, []);
             const group = markerGroups.get(paneEl)!;
