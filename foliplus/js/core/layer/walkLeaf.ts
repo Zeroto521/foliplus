@@ -4,18 +4,24 @@
 // bag walks, focus/annotation bounds collection, suspendMapInteractions, ...)
 // used to follow the same pattern: check `eachLayer`, recurse, fall back to
 // the layer registry. This file owns that pattern so no module reimplements
-// it. The public surface is four small functions:
+// it. The public surface is five small functions:
 //
 //   walkLeaf(layer, fn)   — visit every leaf, no short-circuit
 //   walkTree(layer, fn)     — visit every node (containers + leaves)
 //   findLeaf(layer, pred)   — short-circuit, first leaf for which pred
 //                             returns a value
+//   findNode(layer, pred)   — short-circuit, first NODE (container or leaf)
 //   someLeaf(layer, pred)   — short-circuit existential
 //
 // Depth guard (`RECURSION.LAYER_DEPTH`) is applied uniformly so a malformed
 // or hostile layer graph cannot recurse to the stack. Children come from
 // `eachLayer` when present (Leaflet containers); the layer registry is a
 // fallback for window globals and ad-hoc wrappers.
+//
+// Node-level vs leaf-level matters: the leaf functions skip containers, so a
+// value carried on a container's own options (a folium `foliplus={...}`
+// declaration) is invisible to them. `findNode` is `findLeaf`'s
+// container-level counterpart — the only node-level short-circuit here.
 import { internalLayers, isGroupLike } from "#core/leafletAdapter.js";
 import * as CONST from "./const.js";
 
@@ -94,6 +100,27 @@ const findLeaf = <T>(
   return pred(layer as L.Layer);
 };
 
+/** Short-circuit over every node, root first: containers and leaves alike.
+ *  `findLeaf` skips containers, so a value carried on a container's own
+ *  options is reachable only here. */
+const findNode = <T>(
+  layer: UnknownLayer,
+  pred: (node: L.Layer) => T | undefined,
+  depth = 0,
+  maxDepth = DEFAULT_MAX_DEPTH,
+): T | undefined => {
+  if (!layer || depth > maxDepth) return undefined;
+  const own = pred(layer as L.Layer);
+  if (own !== undefined) return own;
+  if (isGroupLike(layer as TreeNode)) {
+    for (const kid of childrenOf(layer)) {
+      const r = findNode<T>(kid, pred, depth + 1, maxDepth);
+      if (r !== undefined) return r;
+    }
+  }
+  return undefined;
+};
+
 /** Short-circuit existential: `true` when any leaf satisfies `pred`. */
 const someLeaf = (
   layer: UnknownLayer,
@@ -111,4 +138,4 @@ const someLeaf = (
   return pred(layer as L.Layer);
 };
 
-export { isContainerNode, someLeaf, walkLeaf, walkTree, findLeaf };
+export { isContainerNode, someLeaf, walkLeaf, walkTree, findLeaf, findNode };

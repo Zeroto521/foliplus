@@ -30,7 +30,7 @@ import { bindBorderRow, resetLayerBorder } from "./border.js";
 import { layerHasStyleDelegation, renderDelegatedStylePanel } from "./delegated.js";
 import { bindFillRow, resetLayerFill } from "./fill.js";
 import { appendResetFooter, railPos } from "./frame.js";
-import { applyPatch, layerFields, syncFormatRow } from "./label.js";
+import { applyPatch, layerFields, resetStyleLabel, syncFormatRow } from "./label.js";
 import { clampPct, commitOpacityPct, resetLayerOpacity } from "./opacity.js";
 import { DIM_ORDER, LABEL_DIM_ORDER, gatedRows } from "./registry.js";
 import { flushStyleDimApplies } from "./styleBag.js";
@@ -379,11 +379,11 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
           }
         }
       } else {
-        // Through applyPatch, so the reset writes config, re-renders and persists
-        // in the same order as every other control on this panel. defaultConfig
-        // carries collide — DEFAULT_ANNOTATION alone would leave a user-toggled
-        // collide switch untouched.
-        applyPatch(ui, layerId, { ...ui.c.annotation.defaultConfig() });
+        // Labels are a LayerControl-owned dimension too: the reset drops the
+        // layer's config entry rather than writing the defaults back in, so the
+        // author's declared annotation shows through again and the drop is what
+        // gets persisted (a reload does not restore the user's choice).
+        resetStyleLabel(ui, layerId);
       }
       closeStylePanel(ui, true);
       return;

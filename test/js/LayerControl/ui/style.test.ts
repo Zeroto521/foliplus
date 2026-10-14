@@ -812,6 +812,111 @@ describe("LayerUI style panel", () => {
     expect(manager.annotation.getConfig("overlay1").collide).toBe(true);
   });
 
+  it("reset drops the entry, so the author's declaration shows through", () => {
+    // A declaration lives on the layer's own options (folium's
+    // `explore(foliplus=...)`), not in CONFIG. Writing the defaults back on
+    // Reset would shadow the author's field, and persisting that shadow would
+    // keep it for good.
+    const li = manager.layerRegistry.get("overlay1")!;
+    (li.layer as any).options.foliplus = { annotation: { field: "declared" } };
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    manager.annotation.setConfig("overlay1", {
+      show: true,
+      field: "count",
+      format: NUMBER_FORMAT.AUTO,
+      collide: false,
+    } as any);
+    expect(manager.annotation.getConfig("overlay1").field).toBe("count");
+
+    // Arm the timers before the click: the save is debounced, and the timer
+    // must be created against the fake clock to be advanceable.
+    vi.useFakeTimers();
+    const btn = panelOf(item)!.querySelector(
+      ".foliplus-style-reset-btn",
+    ) as HTMLButtonElement;
+    btn.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+    vi.advanceTimersByTime(CONST.SAVE_DEBOUNCE_MS + 50);
+
+    expect(manager.annotation.hasConfig("overlay1")).toBe(false);
+    expect(manager.annotation.getConfig("overlay1").field).toBe("declared");
+    // The declaration implies show, so the labels are back on — Reset returns the
+    // layer to the author's default, not to "labels off".
+    expect(manager.annotation.getConfig("overlay1").show).toBe(true);
+    // No stored choice means collide comes from the page-level default again.
+    expect(manager.annotation.getConfig("overlay1").collide).toBe(true);
+    // configEntries is the record's only source for the annotation key, so an
+    // empty result is what keeps a reload from re-seeding the shadow.
+    expect(manager.annotation.configEntries()).toHaveLength(0);
+    const rec = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!);
+    expect(rec.layers.overlay1?.annotation).toBeUndefined();
+  });
+
+  it("renders the labels a layer declares, with no panel interaction", () => {
+    // The load-time half of the declaration: getConfig's `show` alone draws
+    // nothing, because the canvas is only built by renderLabels. This sweep is
+    // what puts a declared field on the map at all.
+    const li = manager.layerRegistry.get("overlay1")!;
+    (li.layer as any).options.foliplus = { annotation: { field: "count" } };
+
+    const render = vi
+      .spyOn(manager.annotation, "renderLabels")
+      .mockImplementation(() => []);
+    ui.applyStyleLabelState();
+
+    expect(render).toHaveBeenCalledWith("overlay1");
+  });
+
+  it("leaves labels off when the declaration says show: false", () => {
+    const li = manager.layerRegistry.get("overlay1")!;
+    (li.layer as any).options.foliplus = {
+      annotation: { field: "count", show: false },
+    };
+
+    const render = vi
+      .spyOn(manager.annotation, "renderLabels")
+      .mockImplementation(() => []);
+    ui.applyStyleLabelState();
+
+    expect(render).not.toHaveBeenCalledWith("overlay1");
+  });
+
+  it("does not re-render a layer the user has configured for themselves", () => {
+    // The live config wins over the declaration, so the sweep must not redraw a
+    // layer the user has already tuned.
+    const li = manager.layerRegistry.get("overlay1")!;
+    (li.layer as any).options.foliplus = { annotation: { field: "count" } };
+    manager.annotation.setConfig("overlay1", {
+      show: true,
+      field: "name",
+      format: NUMBER_FORMAT.AUTO,
+    } as any);
+
+    const render = vi
+      .spyOn(manager.annotation, "renderLabels")
+      .mockImplementation(() => []);
+    ui.applyStyleLabelState();
+
+    expect(render).not.toHaveBeenCalled();
+  });
+
+  it("does not render a declaration the layer has no labelable fields for", () => {
+    // A declaration is an author's promise about the panel's starting point, not a
+    // reason to paint. Building a canvas over an empty field list would leave a
+    // blank layer with the toggle reading on.
+    const li = manager.layerRegistry.get("overlay1")!;
+    (li.layer as any).options.foliplus = { annotation: { field: "count" } };
+    ui.runtimeStore.deleteFields("overlay1");
+    expect(layerHasLabelFields(ui, "overlay1")).toBe(false);
+
+    const render = vi
+      .spyOn(manager.annotation, "renderLabels")
+      .mockImplementation(() => []);
+    ui.applyStyleLabelState();
+
+    expect(render).not.toHaveBeenCalledWith("overlay1");
+  });
+
   // ─────────────────── row groups + opacity ───────────────────
 
   it("renders the layer and label rows with no group headings", () => {
