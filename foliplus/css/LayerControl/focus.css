@@ -73,17 +73,16 @@ path.foliplus-focus-mask {
    basemaps, and dim the basemaps so they read as background rather than
    competing with the focused layer. Basemaps carry the `.foliplus-base-pane`
    exclusion tag so they are skipped by the hide rule above; a separate
-   `filter` rule dims them (brightness 0.6 / saturate 0.75) without touching
-   alpha — `opacity` would let the map container's grey background show
-   through on the solid-color basemap, which is the very "grey" this rule
-   set exists to remove. The mask on top darkens the area outside the
-   focused bounds on top of that. */
+   `opacity` rule dims them toward the map container's background color —
+   the basemap stays visible as a faint backdrop, which is what the user
+   expects when a layer is focused. The mask on top darkens the area
+   outside the focused bounds on top of that. */
 .foliplus-is-focus-mode
   .foliplus-layer-pane:not(.foliplus-focus-pane):not(.foliplus-base-pane) {
   visibility: hidden;
 }
 .foliplus-is-focus-mode .foliplus-base-pane {
-  filter: brightness(0.6) saturate(0.75);
+  opacity: var(--foliplus-focus-basemap-opacity);
 }
 
 @keyframes foliplus-focus-march {

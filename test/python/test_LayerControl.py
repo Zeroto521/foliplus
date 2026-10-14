@@ -1136,11 +1136,9 @@ class TestLayerControlRendering:
         exclusion, the tile basemap pane and the solid-color basemap pane are
         hidden along with the other data layers, and the map container's grey
         background shows through — the user sees a hard grey rectangle instead
-        of a dimmed basemap. A separate ``filter`` rule dims the base panes
-        themselves so they read as background rather than competing with the
-        focused layer; ``filter`` (not ``opacity``) is the right tool because
-        ``opacity`` would let the map container's grey background show through
-        on the solid-color basemap.
+        of a dimmed basemap. A separate ``opacity`` rule dims the base panes
+        toward the map container's background color so they read as a faint
+        backdrop behind the focused layer.
         """
         css = read_css("foliplus/css/LayerControl/index.css")
         # The rule spans multiple lines in source; check the two :not()
@@ -1158,22 +1156,47 @@ class TestLayerControlRendering:
             "the focus-mode hide rule must still set visibility: hidden on "
             f"the panes it matches: {rule_body}"
         )
-        # The base panes must be dimmed via a `filter` on the whole pane —
-        # `filter` does not touch alpha, so the map container's grey
-        # background cannot leak through the solid-color basemap's canvas.
-        # Assert on the property name and one of the filter functions rather
-        # than the exact numbers: the specific strength is a tuning dial, not
-        # a contract.
+        # The base panes must be dimmed via `opacity` — the pane blends toward
+        # the map container's background color, so the basemap reads as a faint
+        # backdrop. Assert on the property name and the token reference rather
+        # than the exact value: the specific strength is a tuning dial.
         dim_marker = ".foliplus-is-focus-mode .foliplus-base-pane"
         assert dim_marker in css, (
             f"the focus-mode dim rule must target the base panes via {dim_marker}"
         )
         dim_body = _rule(css, dim_marker)
-        assert "filter" in dim_body, (
-            "the base panes must be dimmed with `filter`, not `opacity` "
-            f"(which would leak the map container's grey background): "
+        assert "opacity" in dim_body, (
+            "the base panes must be dimmed with `opacity`: "
             f"{dim_body}"
         )
+        assert "--foliplus-focus-basemap-opacity" in dim_body, (
+            "the base pane dim rule must reference the token "
+            f"--foliplus-focus-basemap-opacity: {dim_body}"
+        )
+
+    def test_focus_basemap_opacity_token_exists(self):
+        """The --foliplus-focus-basemap-opacity token is defined in token.css.
+
+        The focus dim rule references this token; without it the rule would
+        fall back to the initial value (opaque). The token must live in
+        token.css (style_check.py rule 4: bare CSS custom properties must
+        carry the --foliplus-* prefix and be defined only in token.css).
+        """
+        token_css = read_css("foliplus/css/common/token.css")
+        assert "--foliplus-focus-basemap-opacity" in token_css, (
+            "the --foliplus-focus-basemap-opacity token must be defined in "
+            "token.css"
+        )
+        # Extract the value and assert it is a valid opacity (0..1).
+        import re
+
+        match = re.search(
+            r"--foliplus-focus-basemap-opacity:\s*([\d.]+)\s*;",
+            token_css,
+        )
+        assert match is not None, "token value must be a number"
+        value = float(match.group(1))
+        assert 0 < value < 1, f"opacity must be between 0 and 1: {value}"
 
 
 def _write_html(m: folium.Map, path) -> None:
@@ -5818,6 +5841,131 @@ class TestLayerControlBrowser:
                 assert pane["visibility"] == "hidden", (
                     "a non-focus, non-base foliplus-layer-pane must be hidden "
                     f"during focus so the focused layer stands out: {pane}"
+                )
+
+    def test_focus_basemap_dim_direction(self, browser, tmp_path):
+        """The focused basemap interior must NOT be darker than unfocused.
+
+        The dim rule uses `opacity`, which blends the basemap toward the map
+        container's background color — the result is lighter, not darker.
+        A `filter: brightness(...)` would darken the pane uniformly (including
+        the interior), which is the wrong direction: the user expects the
+        basemap to fade into the background, not to sink into shadow. This
+        pixel-level gate catches a regression where someone changes the rule
+        back to a filter.
+
+        The test enables the solid-color basemap because OSM tiles are 404 in
+        browser tests — a transparent tile pane makes `opacity` a no-op on the
+        pixel, so the gate cannot distinguish the two rules. It samples a pixel
+        in the focus rectangle's padding ring: outside the polygon (no overlay
+        contamination) but inside the focus rect (no mask), so the delta
+        reflects only the basemap's opacity change. The padding ring is 32px
+        (FOCUS.PADDING); 15px inside it gives a comfortable margin.
+        """
+        base = folium.TileLayer(
+            "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+            name="OSM",
+            attr="OSM",
+            overlay=False,
+        )
+        fg = folium.FeatureGroup(name="Zone", overlay=True, show=True)
+        folium.Polygon(
+            locations=[[26.0, 119.2], [26.2, 119.2], [26.2, 119.5], [26.0, 119.5]],
+        ).add_to(fg)
+        with use_page(
+            self._make_page,
+            browser,
+            tmp_path,
+            base,
+            fg,
+            slug="focus_basemap_direction",
+        ) as (page, _):
+            page.evaluate(
+                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            # Pan the map to center the polygon so the sample point is inside
+            # the viewport. The polygon's top edge is north of the default map
+            # center; without panning, the padding-ring sample would be above
+            # the viewport (negative y) and the pixel read would be out-of-bounds.
+            page.evaluate("() => window.map.panTo([26.1, 119.35])")
+            page.wait_for_timeout(500)
+
+            # Enable the solid-color basemap so there is a visible basemap to
+            # dim. OSM tiles are 404 in browser tests, so the tile pane is
+            # transparent and `opacity` on it would have no visible effect.
+            color_result = page.evaluate(_js("LayerControl/toggle_color_checkbox"))
+            assert color_result.get("ok") is True, (
+                f"failed to enable color basemap: {color_result}"
+            )
+            # Wait for the color basemap canvas to paint.
+            page.wait_for_timeout(300)
+
+            import io
+
+            from PIL import Image
+
+            # Sample a point 15px above the polygon's top edge — outside the
+            # polygon (pure basemap) but inside the focus rect's 32px padding
+            # ring (no mask).
+            # Sample the polygon center — inside the polygon (definitely inside
+            # the focus rect, so the mask does not apply) and on the basemap
+            # underneath (the polygon's fill_opacity=0.5 lets the basemap show
+            # through at 50%). The pixel is a blend of polygon fill and basemap;
+            # the delta comes only from the basemap's opacity change.
+            box = page.evaluate(
+                "() => { "
+                "const p = window.map.latLngToContainerPoint([26.1, 119.35]); "
+                "const c = window.map.getContainer().getBoundingClientRect(); "
+                "return {x: c.left + p.x, y: c.top + p.y}; }"
+            )
+            px, py = int(box["x"]), int(box["y"])
+
+            # Capture before focus.
+            screenshot_before = page.screenshot()
+            img_before = Image.open(io.BytesIO(screenshot_before))
+            pixel_before = img_before.getpixel((px, py))
+
+            # Trigger focus by dblclicking the first overlay layer row.
+            result = page.evaluate(_js("LayerControl/focus_keeps_base_panes_visible"))
+            assert result is not None and not result.get("error"), (
+                f"focus probe failed: {result}"
+            )
+            assert result["focusActive"] is True, f"focus mode must be active: {result}"
+
+            # Capture after focus.
+            page.wait_for_timeout(200)  # let the opacity transition settle
+            screenshot_after = page.screenshot()
+            img_after = Image.open(io.BytesIO(screenshot_after))
+            pixel_after = img_after.getpixel((px, py))
+            page.wait_for_timeout(200)  # let the opacity transition settle
+            screenshot_after = page.screenshot()
+            img_after = Image.open(io.BytesIO(screenshot_after))
+            pixel_after = img_after.getpixel((px, py))
+            print(f"DEBUG sample=({px},{py}) before={pixel_before} after={pixel_after}")
+
+            # The focused basemap interior must not be darker than unfocused.
+            # With opacity, the pixel blends toward the container background
+            # (#ddd ≈ 221), so the focused pixel is lighter. With a filter,
+            # it would be darker.
+            before_r, before_g, before_b = pixel_before[:3]
+            after_r, after_g, after_b = pixel_after[:3]
+            for channel, b, a in [
+                ("R", before_r, after_r),
+                ("G", before_g, after_g),
+                ("B", before_b, after_b),
+            ]:
+                delta = a - b
+                assert delta >= 0, (
+                    f"the focused basemap interior must not be darker than "
+                    f"unfocused in channel {channel}: before={b}, after={a}, "
+                    f"delta={delta} — the dim rule must use `opacity` "
+                    f"(which blends toward the container background), not "
+                    f"`filter` (which darkens uniformly)"
                 )
 
     def test_focus_overlay_renderer_lifecycle(self, browser, tmp_path):
