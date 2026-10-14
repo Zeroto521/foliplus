@@ -14,7 +14,7 @@
 ### Fixed
 
 - `LayerControl`: the geometry focus marquee now follows its layer across pan/zoom instead of drifting away from the geometry ([#668](https://github.com/Zeroto521/foliplus/pull/668), [#670](https://github.com/Zeroto521/foliplus/pull/670))
-- `LayerControl`: layers whose JS global lands after the control's own script now resolve properly on `layeradd` — the registry entry rewrites `layer` / `carrier.layer` / `kind` so the fill swatch and every kind-gated capability reflect the real layer, instead of falling back to defaults ([#677](https://github.com/Zeroto521/foliplus/pull/677))
+- `LayerControl`: layers whose JS global lands after the control's own script now resolve properly on `layeradd` — the registry entry rewrites `layer` / `carrier.layer` / `kind` so the fill swatch and every kind-gated capability reflect the real layer, instead of falling back to defaults
 
 ## [v0.4.0] (2026-10-10)
 
