@@ -181,8 +181,9 @@ interface RegisterLayerOpts {
   custom?: unknown;
   group?: "base" | "overlay";
   /** Author's declared initial visibility — mirrors CONFIG `data[].show`.
-   *  Absent means the author did not specify, so `createLayerInfo` normalises
-   *  it to `true` (folium's own default). */
+   *  Absent means the author did not specify; readers default it to `true`
+   *  (folium's own default), so the registry does not have to invent a
+   *  value the caller never gave. */
   show?: boolean;
   /** New base layer insertion: "top" (default, tile basemaps) or "bottom"
    *  (solid-color basemap — lowest z, tiles cover it). */
@@ -276,11 +277,12 @@ interface LayerInfo {
   /** See {@link RegisterLayerOpts.opacityBake}. */
   opacityBake?: "commit" | "redraw";
   group: "base" | "overlay";
-  /** Author's declared initial visibility — pulled from CONFIG `data[].show`
-   *  at registration. Python's `item.show` on the folium Layer; a missing
-   *  field reads as `true` (folium's own default). The single source the UI
-   *  writes into `runtimeStore.authorVisible` at attach time, replacing the
-   *  old `snapshotAuthorVisible` inference from `map.hasLayer`. */
+  /** Author's declared initial visibility — carried from CONFIG `data[].show`
+   *  (Python's `item.show` on the folium Layer). Absent means the author did
+   *  not declare one; the UI reads it through `?? true` (folium's own
+   *  default) at the seed sites. This is the single source those seeds write
+   *  into `runtimeStore.authorVisible`, replacing the old
+   *  `snapshotAuthorVisible` inference from `map.hasLayer`. */
   show?: boolean;
   paneName: string | null;
   /** The panes this layer paints into, in draw order. */

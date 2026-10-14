@@ -152,11 +152,11 @@ const insertLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
     else container.insertBefore(frag, firstOfGroup);
   }
 
-  // Late registration — seed the author's declared default here, once per
-  // id. Initial layers were already seeded in `LayerUI`'s constructor from
-  // `data[].show`; a late-registered layer has no data[] entry, so this is
-  // the only pass that sees its `show`. The setter is idempotent (overwrites
-  // the same value), so re-registration is harmless.
+  // Late registration — seed the author's default here, once per id.
+  // Initial layers were already seeded in `LayerUI`'s constructor; a
+  // late-registered layer has no data[] entry, so `?? true` applies folium's
+  // default. The setter is idempotent (overwrites the same value), so
+  // re-registration is harmless.
   ui.runtimeStore.setAuthorVisible(layerInfo.id, layerInfo.show ?? true);
   ui.applyUserState(layerInfo.id);
   // New row must join the roving tabindex / ARIA set.

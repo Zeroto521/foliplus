@@ -121,8 +121,11 @@ class LayerInfoRegistry {
       onOpacity: opts.onOpacity ?? existingLi?.onOpacity ?? null,
       opacityBake: opts.opacityBake ?? existingLi?.opacityBake ?? "redraw",
       group: opts.group ?? existingLi?.group ?? GROUP.OVERLAY,
-      // Normalise to folium's own default so the UI never sees `undefined`.
-      show: opts.show ?? existingLi?.show ?? true,
+      // Carried, never normalised: a caller that declared nothing leaves it
+      // absent, and the seed sites apply folium's `true` default. Normalising
+      // here would make every reader's `?? true` dead code — and would invent
+      // a value for the callers that never spoke.
+      show: opts.show ?? existingLi?.show,
       paneName: opts.paneName ?? existingLi?.paneName ?? null,
       paneSpecs: opts.paneSpecs ?? existingLi?.paneSpecs ?? [],
       // The only externally supplied HTML in the layer model: callers of

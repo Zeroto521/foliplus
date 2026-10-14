@@ -30,9 +30,9 @@ interface LayerRuntime {
   /** Per-layer label-field cache (collectFields walks every feature). */
   fields?: LabelField[];
   /** The author's declared default per layer id, seeded from CONFIG
-   *  `data[].show` at attach time (initial layers) or registration time
-   *  (late-registered layers). Python carries the fact through
-   *  `item.show`; JS no longer infers it from map membership. */
+   *  `data[].show` at attach time for initial layers, or to `true` for
+   *  late-registered layers (folium's convention). Python carries the fact
+   *  through `item.show`; JS no longer infers it from map membership. */
   authorVisible?: boolean;
 }
 

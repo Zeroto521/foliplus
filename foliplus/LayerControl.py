@@ -160,7 +160,7 @@ class LayerControl(BaseControl):
                     "name": item.layer_name,
                     "id": name,
                     "group": "overlay" if item.overlay else "base",
-                    "show": bool(getattr(item, "show", True)),
+                    "show": bool(item.show),
                 }
             )
 
