@@ -12,9 +12,7 @@
 
   // dblclick the first overlay layer row (skip the base-group rows).
   const rows = Array.from(document.querySelectorAll(".foliplus-layer-item"));
-  const overlayRow = rows.find(
-    row => row.dataset.layerType !== "base",
-  );
+  const overlayRow = rows.find(row => row.dataset.layerType !== "base");
   if (!overlayRow) return { error: "no overlay row found", rows: rows.length };
   overlayRow.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
 
@@ -25,15 +23,15 @@
         if (!container.classList.contains("foliplus-is-focus-mode")) {
           return resolve({ error: "focus mode did not activate" });
         }
-        const panes = Array.from(
-          document.querySelectorAll(".foliplus-layer-pane"),
-        ).map(el => ({
-          name: (el.id && el.id.replace(/^leaflet-/, "")) || el.className,
-          base: el.classList.contains("foliplus-layer-pane"),
-          baseExcl: el.classList.contains("foliplus-base-pane"),
-          focusExcl: el.classList.contains("foliplus-focus-pane"),
-          visibility: getComputedStyle(el).visibility,
-        }));
+        const panes = Array.from(document.querySelectorAll(".foliplus-layer-pane")).map(
+          el => ({
+            name: (el.id && el.id.replace(/^leaflet-/, "")) || el.className,
+            base: el.classList.contains("foliplus-layer-pane"),
+            baseExcl: el.classList.contains("foliplus-base-pane"),
+            focusExcl: el.classList.contains("foliplus-focus-pane"),
+            visibility: getComputedStyle(el).visibility,
+          }),
+        );
         const maskPane = map.getPane("foliplus-focus-overlay");
         resolve({
           focusActive: true,
