@@ -5513,16 +5513,12 @@ class TestLayerControlBrowser:
         with use_page(
             self._make_page, browser, tmp_path, fg, slug="geom_focus_zoom_lock"
         ) as (page, _):
-            result = page.evaluate(
-                _js("LayerControl/geometry_focus_zoom_stays_locked")
-            )
+            result = page.evaluate(_js("LayerControl/geometry_focus_zoom_stays_locked"))
             assert result is not None and "before" in result, (
                 f"geometry_focus_zoom_stays_locked failed: {result}"
             )
             before, after = result["before"], result["after"]
-            assert after is not None, (
-                f"zoom moveend never fired within 5s: {result}"
-            )
+            assert after is not None, f"zoom moveend never fired within 5s: {result}"
             assert after["marqueeBB"] is not None, (
                 f"marquee vanished after zoom: {result}"
             )
