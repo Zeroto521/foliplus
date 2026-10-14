@@ -9,7 +9,12 @@
 import type { ControlPosition } from "leaflet";
 
 type NumberStyle = "auto" | "int" | "comma" | "percent";
-type LayerData = { name: string; id: string; group: "base" | "overlay" }[];
+type LayerData = {
+  name: string;
+  id: string;
+  group: "base" | "overlay";
+  show: boolean;
+}[];
 type ProviderConfig = {
   id: string;
   baseUrl?: string;

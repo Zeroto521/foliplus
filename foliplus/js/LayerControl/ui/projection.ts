@@ -32,11 +32,11 @@ const inZoomRange = (ui: LayerUI, layerInfo: LayerInfo): boolean => {
 };
 
 /** The user's own visibility choice, or the author's declared default
- *  (captured once at first sight by `snapshotAuthorVisible`) when the user
- *  never touched it. This is the single entry point other modules —
- *  `syncNoBasemap`, `rowView`, `snapshotAuthorVisible` itself, and the
- *  executor's baseline — read the intent through, so no mirror is stored on
- *  the layer record.
+ *  (read from CONFIG `data[].show`, seeded into `runtimeStore.authorVisible`
+ *  at attach time) when the user never touched it. This is the single entry
+ *  point other modules — `syncNoBasemap`, `rowView`, and the executor's
+ *  baseline — read the intent through, so no mirror is stored on the layer
+ *  record.
  *
  *  The user's choice is signalled by the dimension's `overrides` provenance
  *  marker *or* by the value being present on the intent record. The two travel
@@ -56,8 +56,10 @@ const intentVisibleOf = (ui: LayerUI, id: string): boolean => {
  *  policy inputs (focus, map zoom). Read-only. */
 const projectLayer = (ui: LayerUI, layerInfo: LayerInfo): Projection => {
   const id = layerInfo.id;
-  // The author's default is the map state folium left at boot (see
-  // `snapshotAuthorVisible`), captured before any policy moved layers.
+  // The author's default is the CONFIG `data[].show` fact, seeded into
+  // `runtimeStore.authorVisible` at attach time (initial layers) or
+  // registration time (late-registered layers) — read through
+  // `intentVisibleOf` below, never off the map's own state.
   const intent = intentVisibleOf(ui, id);
 
   // Policy is independent of intent: focus overrides range, range may
