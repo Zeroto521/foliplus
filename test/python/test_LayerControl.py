@@ -6988,3 +6988,54 @@ class TestPaneBirthZBrowser:
             f"ordering pass moved the pane: {r}"
         )
         assert not errors, f"JS errors: {errors}"
+
+
+class TestMarkerShadowZoomBrowser:
+    """Marker shadow stays below icon across a zoom re-pin.
+
+    ``enforceOrder`` is debounced and re-runs on zoom end. Each re-run walks
+    the layer tree and re-pins content into the target pane. If the pin
+    collected shadow and icon as independent `!== paneEl` guards, a marker
+    whose shadow was already settled while its icon was not (or vice versa)
+    would have only the missing element appended — putting the shadow after
+    the icon and letting it paint on top.
+    """
+
+    @staticmethod
+    def _probe(browser, tmp_path, slug="shadow_zoom"):
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        LayerControl().add_to(m)
+        html = m.get_root().render()
+        html, n = re.subn(
+            r"(new LayerControl\(\{ position: CONFIG\.position \}\)\.addTo\(map\);)",
+            r"window.__layerCtrl = \1",
+            html,
+            count=1,
+        )
+        assert n == 1
+        page, errors = make_browser_page(browser, tmp_path, html, slug)
+        page.wait_for_selector(".foliplus-layer-ctrl", state="attached", timeout=10000)
+        return page, errors
+
+    def test_shadow_stays_below_icon_after_zoom(self, browser, tmp_path):
+        with use_page(self._probe, browser, tmp_path) as (page, errors):
+            r = page.evaluate(_js("LayerControl/marker_shadow_zoom"))
+            assert r is not None, "LayerAPI missing"
+            before, after = r["before"], r["after"]
+            assert "error" not in before, before
+            assert "error" not in after, after
+            # For each icon in the pane, its shadow must appear earlier.
+            for label, state in (("before", before), ("after", after)):
+                children = state["children"]
+                shadows = [i for i, c in enumerate(children) if c["isShadow"]]
+                icons = [i for i, c in enumerate(children) if c["isIcon"]]
+                # Every shadow must have a matching icon after it, and no
+                # shadow may appear after every icon.
+                for si, s in enumerate(shadows):
+                    assert any(i > s for i in icons), (
+                        f"{label}: shadow at {s} with no icon after it: {children}"
+                    )
+            # The relative order of (shadow, icon) pairs must not have flipped.
+            assert before["childCount"] > 0, before
+            assert after["childCount"] > 0, after
+            assert not errors, f"JS errors: {errors}"

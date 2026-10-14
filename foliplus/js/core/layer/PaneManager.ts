@@ -203,14 +203,21 @@ class PaneManager {
         }
         if (l instanceof L.Marker && paneEl) {
           const shadow = markerShadow(l);
-          if (shadow && shadow.parentNode !== paneEl) {
-            if (!markerGroups.has(paneEl)) markerGroups.set(paneEl, []);
-            markerGroups.get(paneEl)!.push(shadow);
-          }
           const iconEl = l.getElement();
-          if (iconEl && iconEl.parentNode !== paneEl) {
+          // Append shadow and icon as a pair whenever either is not yet in the
+          // target pane: the shadow must always precede its icon in DOM order
+          // (Leaflet draws shadows behind icons via stacking). If only the icon
+          // were queued when the shadow is missing, `appendChild` would place the
+          // shadow *after* the icon and cover it — the zoom-time re-order that
+          // `enforceOrder`'s debounce re-triggers for every marker.
+          const needsMove =
+            (shadow != null && shadow.parentNode !== paneEl) ||
+            (iconEl != null && iconEl.parentNode !== paneEl);
+          if (needsMove) {
             if (!markerGroups.has(paneEl)) markerGroups.set(paneEl, []);
-            markerGroups.get(paneEl)!.push(iconEl);
+            const group = markerGroups.get(paneEl)!;
+            if (shadow) group.push(shadow);
+            if (iconEl) group.push(iconEl);
           }
         }
         // A GridLayer (TileLayer included) paints through its own container

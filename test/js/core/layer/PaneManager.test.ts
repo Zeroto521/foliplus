@@ -828,6 +828,39 @@ describe("PaneManager", () => {
     expect(Array.from(paneEl.children)).toEqual([shadow, icon, bareIcon]);
   });
 
+  it("pinLateContent keeps shadow before icon when re-appended asymmetrically", () => {
+    // Regression: zoom re-triggers `enforceOrder` → `pinLateContent`. If a
+    // marker's shadow was already settled into the pane but its icon was not
+    // (or vice versa), the old per-node `!== paneEl` guard appended only the
+    // missing element. When the shadow lagged the icon, the shadow got pushed
+    // *after* the icon and drew on top of it — the reported zoom z-order flip.
+    // The fix treats shadow+icon as a pair: whenever either is missing from the
+    // target pane, both are re-appended in the correct order.
+    const paneEl = document.createElement("div");
+    document.body.appendChild(paneEl);
+    const map = { getPane: vi.fn(() => paneEl), createPane: vi.fn() };
+    const pm = new PaneManager(map);
+    const renderer = { _container: document.createElement("div") };
+
+    const icon = document.createElement("img");
+    const shadow = document.createElement("img");
+    // Simulate the partial state a re-pin finds: icon already settled, shadow
+    // still outside (or the reverse).
+    paneEl.appendChild(icon);
+    const layer = {
+      getElement: () => icon,
+      _shadow: shadow,
+      options: {},
+      eachLayer: undefined,
+    };
+    Object.setPrototypeOf(layer, new window.L.Marker());
+
+    pm.pinLateContent([{ layer, paneName: "foliplus-measure-graph", renderer }]);
+
+    // Shadow is re-appended in front of the icon, restoring the correct z.
+    expect(Array.from(paneEl.children)).toEqual([shadow, icon]);
+  });
+
   it("pinLateContent moves a GridLayer's container into the target pane", () => {
     // Tile basemaps are GridLayers: Leaflet appends their container to
     // `options.pane` once at addLayer, so rewriting options.pane alone never
