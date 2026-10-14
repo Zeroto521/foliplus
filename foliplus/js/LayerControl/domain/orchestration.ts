@@ -63,18 +63,22 @@ const withAnnotationSpec = (
   ];
 };
 
-/** Mark every pane of a base-group surface with the `.foliplus-base-pane`
- *  exclusion class. The `.foliplus-is-focus-mode` hide rule skips panes with
- *  this class, so tile basemaps and the solid-color basemap stay visible
- *  under focus — the dim mask on top preserves spatial context instead of
- *  revealing the map container's grey background. Idempotent: `classList.add`
- *  is a no-op on repeat calls, so the ordering pass can re-stamp freely.
- *  Overlay-group surfaces are no-ops (the group is the gate, not the presence
- *  of panes). */
+/** Stamp the `.foliplus-base-pane` exclusion class on every pane of a
+ *  base-group surface, and remove it from every pane of an overlay-group
+ *  surface. The `.foliplus-is-focus-mode` hide rule skips panes with the
+ *  class, so tile basemaps and the solid-color basemap stay visible and
+ *  are dimmed by the focus `filter` instead of being hidden — the dim mask
+ *  on top preserves spatial context outside the focused bounds. `toggle`
+ *  makes this idempotent *and* self-healing: an id that was previously
+ *  registered as a base-group layer and re-registered as an overlay (via
+ *  `unregisterLayer` + `registerLayer`) must not keep the stale class, or
+ *  the re-registered overlay pane would be skipped by the hide rule and
+ *  the focused layer would fail to stand out. Idempotent for the common
+ *  no-op case; the ordering pass re-stamps freely on each sweep. */
 const markBasePanes = (surface: LayerSurface, group: "base" | "overlay"): void => {
-  if (group !== GROUP.BASE) return;
+  const want = group === GROUP.BASE;
   for (const pane of surface.panes) {
-    pane.element.classList.add(CONST.CLASSES.BASE_PANE);
+    pane.element.classList.toggle(CONST.CLASSES.BASE_PANE, want);
   }
 };
 

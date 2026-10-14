@@ -70,12 +70,20 @@ path.foliplus-focus-mask {
 }
 
 /* While focusing, hide every layer pane except the focused one and the
-   basemaps. Basemaps carry the `.foliplus-base-pane` exclusion tag so the
-   dim mask on top can still cover them: the basemap keeps the spatial
-   context, only the mask darkens the area outside the focused bounds. */
+   basemaps, and dim the basemaps so they read as background rather than
+   competing with the focused layer. Basemaps carry the `.foliplus-base-pane`
+   exclusion tag so they are skipped by the hide rule above; a separate
+   `filter` rule dims them (brightness 0.6 / saturate 0.75) without touching
+   alpha — `opacity` would let the map container's grey background show
+   through on the solid-color basemap, which is the very "grey" this rule
+   set exists to remove. The mask on top darkens the area outside the
+   focused bounds on top of that. */
 .foliplus-is-focus-mode
   .foliplus-layer-pane:not(.foliplus-focus-pane):not(.foliplus-base-pane) {
   visibility: hidden;
+}
+.foliplus-is-focus-mode .foliplus-base-pane {
+  filter: brightness(0.6) saturate(0.75);
 }
 
 @keyframes foliplus-focus-march {

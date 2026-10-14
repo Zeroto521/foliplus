@@ -1136,7 +1136,11 @@ class TestLayerControlRendering:
         exclusion, the tile basemap pane and the solid-color basemap pane are
         hidden along with the other data layers, and the map container's grey
         background shows through — the user sees a hard grey rectangle instead
-        of a dimmed basemap.
+        of a dimmed basemap. A separate ``filter`` rule dims the base panes
+        themselves so they read as background rather than competing with the
+        focused layer; ``filter`` (not ``opacity``) is the right tool because
+        ``opacity`` would let the map container's grey background show through
+        on the solid-color basemap.
         """
         css = read_css("foliplus/css/LayerControl/index.css")
         # The rule spans multiple lines in source; check the two :not()
@@ -1153,6 +1157,23 @@ class TestLayerControlRendering:
         assert "visibility: hidden" in rule_body, (
             "the focus-mode hide rule must still set visibility: hidden on "
             f"the panes it matches: {rule_body}"
+        )
+        # The base panes must be dimmed via a `filter` on the whole pane —
+        # `filter` does not touch alpha, so the map container's grey
+        # background cannot leak through the solid-color basemap's canvas.
+        # Assert on the property name and one of the filter functions rather
+        # than the exact numbers: the specific strength is a tuning dial, not
+        # a contract.
+        dim_marker = ".foliplus-is-focus-mode .foliplus-base-pane"
+        assert dim_marker in css, (
+            "the focus-mode dim rule must target the base panes via "
+            f"{dim_marker}"
+        )
+        dim_body = _rule(css, dim_marker)
+        assert "filter" in dim_body, (
+            "the base panes must be dimmed with `filter`, not `opacity` "
+            f"(which would leak the map container's grey background): "
+            f"{dim_body}"
         )
 
 
@@ -5646,8 +5667,13 @@ class TestLayerControlBrowser:
         through the LayerControl like any other layer), so the basemap was
         hidden too — the user saw the map container's default grey background
         instead of a dimmed basemap. The ``.foliplus-base-pane`` exclusion tag
-        on every base-group pane keeps them visible; the mask on top produces
-        the dimming the user expects.
+        on every base-group pane keeps them visible; the dim mask on top
+        produces the dimming the user expects.
+
+        The color basemap is created lazily on first show, so we toggle its
+        checkbox on before focusing — this also exercises the ``!layer``
+        branch of the ordering pass (color basemaps have no Leaflet layer),
+        which is the code path that used to skip ``markBasePanes``.
         """
         # A tile basemap + an overlay polygon so focus has a target.
         base = folium.TileLayer(
@@ -5676,6 +5702,12 @@ class TestLayerControlBrowser:
                 state="attached",
                 timeout=5000,
             )
+            # Turn the color basemap on so its lazily-created pane is in the
+            # DOM before we focus — the ``!layer`` branch of the ordering
+            # pass is what used to skip ``markBasePanes``.
+            toggle = page.evaluate(_js("LayerControl/toggle_color_checkbox"))
+            assert toggle is not None and toggle.get("ok") is True, toggle
+            page.wait_for_timeout(200)
             result = page.evaluate(_js("LayerControl/focus_keeps_base_panes_visible"))
             assert result is not None and not result.get("error"), (
                 f"focus probe failed: {result}"
@@ -5690,14 +5722,34 @@ class TestLayerControlBrowser:
             other_panes = [
                 p for p in result["panes"] if not p["baseExcl"] and not p["focusExcl"]
             ]
-            assert len(base_panes) >= 1, (
-                "at least one base-group pane (the tile basemap) must carry "
+            assert len(base_panes) >= 2, (
+                "at least two base-group panes must be present — the tile "
+                f"basemap and the solid-color basemap — and each must carry "
                 f"foliplus-base-pane: {result['panes']}"
             )
             for pane in base_panes:
                 assert pane["visibility"] == "visible", (
                     "a base-group pane must stay visible during focus — the "
                     f"dim mask does the dimming, not visibility:hidden: {pane}"
+                )
+            # The solid-color basemap pane must specifically be base-excluded
+            # and visible — it is the case that used to fall through the
+            # ordering pass (no Leaflet layer) and therefore never got the
+            # class stamp. Its pane id encodes the layer id.
+            color_panes = [
+                p
+                for p in base_panes
+                if "color" in p["name"].lower() or "color_map" in p["name"]
+            ]
+            assert len(color_panes) >= 1, (
+                "the solid-color basemap's pane must be present and base-excluded "
+                f"— the lazy-creation path must still reach markBasePanes: "
+                f"{result['panes']}"
+            )
+            for pane in color_panes:
+                assert pane["visibility"] == "visible", (
+                    "the color basemap's pane must stay visible during focus: "
+                    f"{pane}"
                 )
             assert len(focus_panes) >= 2, (
                 "the focused layer's pane and the focus overlay pane must both "
