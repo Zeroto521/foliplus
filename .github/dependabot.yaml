@@ -1,8 +1,7 @@
 # Weekly cadence, one block per ecosystem, PRs grouped per ecosystem so a
 # single "bump X deps" PR carries all the versions that landed at once.
-# `open-pull-requests-limit` caps concurrent open PRs; `rebaseable: true`
-# lets Dependabot auto-rebase an open PR instead of opening a fresh one
-# when it goes stale.
+# `open-pull-requests-limit` caps how many Dependabot PRs can sit open at
+# once; the oldest gets closed when the cap is hit.
 version: 2
 updates:
   - package-ecosystem: "pip"
@@ -16,7 +15,6 @@ updates:
       python:
         patterns: ["*"]
     open-pull-requests-limit: 5
-    rebaseable: true
 
   - package-ecosystem: "npm"
     directory: "/"
@@ -30,7 +28,6 @@ updates:
       node:
         patterns: ["*"]
     open-pull-requests-limit: 5
-    rebaseable: true
 
   - package-ecosystem: "github-actions"
     directory: "/"
@@ -43,4 +40,3 @@ updates:
       actions:
         patterns: ["*"]
     open-pull-requests-limit: 5
-    rebaseable: true
