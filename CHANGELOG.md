@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- `LayerControl`: layers can now declare label defaults (field/format/collision) via `foliplus={"annotation": {...}}`, which turns the layer's labels on at load; the user's own choice still wins over the declaration ([#669](https://github.com/Zeroto521/foliplus/pull/669))
+
 ### Changed
 
 - `BaseControl`: locale tables now ship once per map in the shared bundle (`_COMPONENT_TABLES`), so `locale=None` auto-detects the browser language instead of falling back to English; `CONFIG.locale_tables` keeps only custom strings ([#667](https://github.com/Zeroto521/foliplus/pull/667))
