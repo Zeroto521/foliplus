@@ -840,7 +840,9 @@ describe("LayerUI style panel", () => {
 
     expect(manager.annotation.hasConfig("overlay1")).toBe(false);
     expect(manager.annotation.getConfig("overlay1").field).toBe("declared");
-    expect(manager.annotation.getConfig("overlay1").show).toBe(false);
+    // The declaration implies show, so the labels are back on — Reset returns the
+    // layer to the author's default, not to "labels off".
+    expect(manager.annotation.getConfig("overlay1").show).toBe(true);
     // No stored choice means collide comes from the page-level default again.
     expect(manager.annotation.getConfig("overlay1").collide).toBe(true);
     // configEntries is the record's only source for the annotation key, so an
@@ -848,6 +850,54 @@ describe("LayerUI style panel", () => {
     expect(manager.annotation.configEntries()).toHaveLength(0);
     const rec = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!);
     expect(rec.layers.overlay1?.annotation).toBeUndefined();
+  });
+
+  it("renders the labels a layer declares, with no panel interaction", () => {
+    // The load-time half of the declaration: getConfig's `show` alone draws
+    // nothing, because the canvas is only built by renderLabels. This sweep is
+    // what puts a declared field on the map at all.
+    const li = manager.layerRegistry.get("overlay1")!;
+    (li.layer as any).options.foliplus = { annotation: { field: "count" } };
+
+    const render = vi
+      .spyOn(manager.annotation, "renderLabels")
+      .mockImplementation(() => []);
+    ui.applyStyleLabelState();
+
+    expect(render).toHaveBeenCalledWith("overlay1");
+  });
+
+  it("leaves labels off when the declaration says show: false", () => {
+    const li = manager.layerRegistry.get("overlay1")!;
+    (li.layer as any).options.foliplus = {
+      annotation: { field: "count", show: false },
+    };
+
+    const render = vi
+      .spyOn(manager.annotation, "renderLabels")
+      .mockImplementation(() => []);
+    ui.applyStyleLabelState();
+
+    expect(render).not.toHaveBeenCalledWith("overlay1");
+  });
+
+  it("does not re-render a layer the user has configured for themselves", () => {
+    // The live config wins over the declaration, so the sweep must not redraw a
+    // layer the user has already tuned.
+    const li = manager.layerRegistry.get("overlay1")!;
+    (li.layer as any).options.foliplus = { annotation: { field: "count" } };
+    manager.annotation.setConfig("overlay1", {
+      show: true,
+      field: "name",
+      format: NUMBER_FORMAT.AUTO,
+    } as any);
+
+    const render = vi
+      .spyOn(manager.annotation, "renderLabels")
+      .mockImplementation(() => []);
+    ui.applyStyleLabelState();
+
+    expect(render).not.toHaveBeenCalled();
   });
 
   // ─────────────────── row groups + opacity ───────────────────

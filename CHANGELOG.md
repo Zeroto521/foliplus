@@ -4,7 +4,7 @@
 
 ### Added
 
-- `LayerControl`: layers can now declare label defaults (field/format/collision) via `foliplus={"annotation": {...}}`, overriding the built-in default while the user's own choice still wins ([#669](https://github.com/Zeroto521/foliplus/pull/669))
+- `LayerControl`: layers can now declare label defaults (field/format/collision) via `foliplus={"annotation": {...}}`, which turns the layer's labels on at load; the user's own choice still wins over the declaration ([#669](https://github.com/Zeroto521/foliplus/pull/669))
 
 ### Changed
 

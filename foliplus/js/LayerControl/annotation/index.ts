@@ -98,6 +98,12 @@ const pickDeclaredAnnotation = (
     out.format = raw.format;
   }
   if (typeof raw.collide === "boolean") out.collide = raw.collide;
+  // Declaring a field turns the layer's labels on — the built-in default is off,
+  // so a field alone would be visible only as the panel's starting value. An
+  // explicit `show: false` is the escape hatch: name a field for the panel's
+  // starting point while keeping the map clean.
+  if (typeof raw.show === "boolean") out.show = raw.show;
+  else if (out.field !== undefined) out.show = true;
   return out;
 };
 
@@ -249,7 +255,13 @@ class AnnotationManager {
       layer,
       node => (node.options as FoliplusLayerOptions | undefined)?.foliplus,
     );
-    const out = pickDeclaredAnnotation(declared?.annotation);
+    // No foliplus namespace yet: the load-time sweep can read a layer before
+    // it has attached one (folium lands a layer's script after the control's),
+    // so an empty read is provisional — caching it would shadow the declaration
+    // that arrives later, for the life of the page. Only a resolved namespace
+    // is static and cacheable.
+    if (!declared) return {};
+    const out = pickDeclaredAnnotation(declared.annotation);
     this.authorCache.set(id, out); // the declaration is static once resolved
     return out;
   }

@@ -110,7 +110,13 @@ const attachUI = (ui: LayerUI, containerDiv: HTMLElement): void => {
   // cheap and converge on the final layer state.
   subscribeControlAttached(ui);
   setTimeout(() => {
-    if (ui.uiContainer?.isConnected) ui.initTypesAndVisibility();
+    if (!ui.uiContainer?.isConnected) return;
+    ui.initTypesAndVisibility();
+    // Same replay here as the CONTROL_ATTACHED handler below: folium's layers
+    // are added after the control's own script, so that event has already
+    // fired by the time their registry entries exist, and a page with only a
+    // LayerControl would never have its label config applied. Idempotent.
+    ui.applyStyleLabelState();
   }, 0);
 };
 

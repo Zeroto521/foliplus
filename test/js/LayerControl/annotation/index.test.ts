@@ -295,9 +295,10 @@ describe("AnnotationManager — author-declared annotation", () => {
     const cfg = mgr.getConfig("l1");
     expect(cfg.field).toBe("store");
     expect(cfg.format).toBe(NUMBER_FORMAT.COMMA);
-    // Only the declared keys travel up; everything else stays at the default.
+    // Only the declared keys travel up. A declared field also turns the labels
+    // on — the built-in default is off, so a field alone would show nowhere.
     expect(cfg.collide).toBe(true);
-    expect(cfg.show).toBe(CONST.DEFAULT_ANNOTATION.show);
+    expect(cfg.show).toBe(true);
   });
 
   it("descends into a container's children for a nested declaration", () => {
@@ -325,6 +326,24 @@ describe("AnnotationManager — author-declared annotation", () => {
     expect(mgr.getConfig("l1").field).toBe(CONST.DEFAULT_ANNOTATION.field);
     resolved = true;
     expect(mgr.getConfig("l1").field).toBe("late");
+  });
+
+  it("does not cache an empty read for a layer that declares later", () => {
+    // folium lands a layer's script after the control's own, so the load-time
+    // sweep can read a layer while it still carries no foliplus namespace.
+    // Caching that empty read would shadow the declaration that arrives a tick
+    // later — for the life of the page.
+    const { map } = makeMap();
+    const layer = { options: {} } as unknown as L.Layer & {
+      options: Record<string, unknown>;
+    };
+    const mgr = new AnnotationManager({ map, layerFind: () => layer });
+
+    expect(mgr.getConfig("l1").show).toBe(CONST.DEFAULT_ANNOTATION.show);
+
+    layer.options.foliplus = { annotation: { field: "store" } };
+    expect(mgr.getConfig("l1").field).toBe("store");
+    expect(mgr.getConfig("l1").show).toBe(true);
   });
 
   it("caches the read once the layer is resolved", () => {
@@ -391,7 +410,9 @@ describe("AnnotationManager — author-declared annotation", () => {
     // through, and a non-boolean collide is dropped rather than coerced.
     expect(cfg.format).toBe(CONST.DEFAULT_ANNOTATION.format);
     expect(cfg.collide).toBe(true);
-    expect(cfg.show).toBe(CONST.DEFAULT_ANNOTATION.show);
+    // `show` is a legal declaration key now, so an explicit `true` survives;
+    // `color` is not one, so it drops out of the same record.
+    expect(cfg.show).toBe(true);
     expect(cfg.color).toBe(CONST.DEFAULT_ANNOTATION.color);
   });
 
@@ -408,6 +429,25 @@ describe("AnnotationManager — author-declared annotation", () => {
     expect(cfg.field).toBe(CONST.DEFAULT_ANNOTATION.field);
     // A valid sibling still applies — the bad key drops out on its own.
     expect(cfg.format).toBe(NUMBER_FORMAT.COMMA);
+    // Activation rides on a real field name: a field that did not survive
+    // validation must not turn the labels on.
+    expect(cfg.show).toBe(CONST.DEFAULT_ANNOTATION.show);
+  });
+
+  it("keeps labels off when the author declares show: false", () => {
+    // The escape hatch: the field is named so the panel starts on a sensible
+    // value, but the author wants no labels on the map.
+    const { map } = makeMap();
+    const layer = {
+      options: {
+        foliplus: { annotation: { field: "store", show: false } },
+      },
+    } as unknown as L.Layer;
+    const mgr = new AnnotationManager({ map, layerFind: () => layer });
+
+    const cfg = mgr.getConfig("l1");
+    expect(cfg.field).toBe("store");
+    expect(cfg.show).toBe(false);
   });
 
   it("reads nothing when foliplus carries no annotation", () => {

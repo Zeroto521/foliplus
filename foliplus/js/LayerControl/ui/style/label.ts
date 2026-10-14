@@ -111,7 +111,13 @@ const coerceAnnotationFields = (raw: unknown): AnnotationConfig => {
  *  `ui.intentStore` annotation is the *load-time snapshot*, so this is a seed, not a
  *  restore: a layer already carrying a config has the live one (the user may
  *  have switched it on since the page loaded), and re-applying the snapshot over
- *  it would silently revert that. Idempotent. */
+ *  it would silently revert that. Idempotent.
+ *
+ *  The trailing sweep is the declaration's load-time render: a declaration is the
+ *  author's default, not user intent, so the seed loop never sees it, and
+ *  getConfig's `show: true` alone draws nothing — the canvas is only built by
+ *  renderLabels. Without it `field` would be visible in the panel but never on the
+ *  map. */
 const applyStyleLabelState = (ui: LayerUI): void => {
   const seedIds = ui.intentStore.ids();
   for (const id of seedIds) {
@@ -125,6 +131,13 @@ const applyStyleLabelState = (ui: LayerUI): void => {
     // pass would otherwise stay on the map with the toggle reading off.
     if (cfg.show) ui.c.annotation.renderLabels(id);
     else ui.c.annotation.clearLabels(id);
+  }
+  for (const layerInfo of ui.c.layers) {
+    const id = layerInfo.id;
+    if (ui.c.annotation.hasConfig(id)) continue; // live state wins
+    if (!ui.c.annotation.getConfig(id).show) continue;
+    if (!layerHasLabelFields(ui, id)) continue;
+    ui.c.annotation.renderLabels(id);
   }
 };
 
