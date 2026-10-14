@@ -32,7 +32,7 @@ jobs:
   bundle:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - uses: ./.github/actions/setup-deps
@@ -122,7 +122,7 @@ jobs:
             echo "_Table = brotli-compressed, banner excluded; treemap = uncompressed._"
           } >> bundle-report.md
 
-      - uses: marocchino/sticky-pull-request-comment@v2
+      - uses: marocchino/sticky-pull-request-comment@v3
         if: ${{ github.event.pull_request }}
         continue-on-error: true # fork PRs lack comment permission
         with:
