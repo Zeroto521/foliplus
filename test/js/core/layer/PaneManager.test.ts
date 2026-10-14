@@ -861,6 +861,53 @@ describe("PaneManager", () => {
     expect(Array.from(paneEl.children)).toEqual([shadow, icon]);
   });
 
+  it("pinLateContent skips a null shadow when only the icon needs moving", () => {
+    // A marker without a shadow (e.g. a custom DivIcon) must not push a null
+    // element into the group — the `if (shadow)` guard keeps the group clean.
+    const paneEl = document.createElement("div");
+    document.body.appendChild(paneEl);
+    const map = { getPane: vi.fn(() => paneEl), createPane: vi.fn() };
+    const pm = new PaneManager(map);
+    const renderer = { _container: document.createElement("div") };
+
+    const icon = document.createElement("img");
+    const layer = {
+      getElement: () => icon,
+      _shadow: null,
+      options: {},
+      eachLayer: undefined,
+    };
+    Object.setPrototypeOf(layer, new window.L.Marker());
+
+    pm.pinLateContent([{ layer, paneName: "foliplus-measure-graph", renderer }]);
+
+    expect(Array.from(paneEl.children)).toEqual([icon]);
+  });
+
+  it("pinLateContent skips a null icon element when only the shadow needs moving", () => {
+    // A marker whose icon has not yet been created (e.g. before it joins the
+    // map) must not push a null element into the group — the `if (iconEl)`
+    // guard keeps the group clean.
+    const paneEl = document.createElement("div");
+    document.body.appendChild(paneEl);
+    const map = { getPane: vi.fn(() => paneEl), createPane: vi.fn() };
+    const pm = new PaneManager(map);
+    const renderer = { _container: document.createElement("div") };
+
+    const shadow = document.createElement("img");
+    const layer = {
+      getElement: () => null,
+      _shadow: shadow,
+      options: {},
+      eachLayer: undefined,
+    };
+    Object.setPrototypeOf(layer, new window.L.Marker());
+
+    pm.pinLateContent([{ layer, paneName: "foliplus-measure-graph", renderer }]);
+
+    expect(Array.from(paneEl.children)).toEqual([shadow]);
+  });
+
   it("pinLateContent moves a GridLayer's container into the target pane", () => {
     // Tile basemaps are GridLayers: Leaflet appends their container to
     // `options.pane` once at addLayer, so rewriting options.pane alone never

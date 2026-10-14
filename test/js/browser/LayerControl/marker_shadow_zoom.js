@@ -10,7 +10,7 @@ async () => {
       {
         type: "Feature",
         properties: { name: "p1" },
-        geometry: { type: "Point", coordinates: [119.30, 26.08] },
+        geometry: { type: "Point", coordinates: [119.3, 26.08] },
       },
       {
         type: "Feature",
@@ -54,12 +54,12 @@ async () => {
   // Zoom in to trigger the debounced enforceOrder.
   const zoomFrom = map.getZoom();
   map.setZoom(zoomFrom + 1);
-  await new Promise((resolve) => {
+  await new Promise(resolve => {
     map.once("zoomend", resolve);
     setTimeout(resolve, 500);
   });
   // Give the debounce time to fire.
-  await new Promise((resolve) => setTimeout(resolve, 200));
+  await new Promise(resolve => setTimeout(resolve, 200));
 
   const after = readOrder();
 
