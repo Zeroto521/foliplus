@@ -182,6 +182,51 @@ describe("bindGeometryFocusMarquee", () => {
     unbind();
   });
 
+  it("focusout cancels a pending rAF redraw", async () => {
+    const { path, svg } = makeSvgPath();
+    root.appendChild(svg);
+    const { map, fire } = makeMap();
+    const unbind = bindGeometryFocusMarquee(root, map);
+
+    path.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
+    expect(document.querySelectorAll("path.foliplus-focus-rect").length).toBe(1);
+
+    fire("moveend"); // schedules rAF, rafId set
+    // Focusout cancels the pending rAF (cancelPending → cancelAnimationFrame)
+    path.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
+    expect(document.querySelectorAll("path.foliplus-focus-rect").length).toBe(0);
+
+    // Await rAF to confirm the cancelled rAF did not redraw the marquee.
+    await new Promise(r => requestAnimationFrame(r));
+    expect(document.querySelectorAll("path.foliplus-focus-rect").length).toBe(0);
+    unbind();
+  });
+
+  it("coalesces rapid moveends into one rAF redraw", async () => {
+    const { path, group } = makeSvgPath();
+    root.appendChild(group.ownerSVGElement!);
+    const { map, fire } = makeMap();
+    const unbind = bindGeometryFocusMarquee(root, map);
+
+    path.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
+    const first = group.querySelector("path.foliplus-focus-rect")!.getAttribute("d")!;
+
+    // First moveend schedules rAF (rafId set).
+    stubBBox(path, { x: 10, y: 10, width: 20, height: 20 });
+    fire("moveend");
+    // Second moveend must be coalesced (rafId already set → early return).
+    stubBBox(path, { x: 30, y: 30, width: 40, height: 40 });
+    fire("moveend");
+
+    await new Promise(r => requestAnimationFrame(r));
+
+    // Marquee reflects the SECOND bbox (the latest), not the first.
+    const live = group.querySelector("path.foliplus-focus-rect")!.getAttribute("d")!;
+    expect(live).toContain("26.0"); // 30 - MARQUEE_PAD = 26
+    expect(live).not.toBe(first);
+    unbind();
+  });
+
   it("focusout on a non-path target does not throw", () => {
     const { map } = makeMap();
     const unbind = bindGeometryFocusMarquee(root, map);
