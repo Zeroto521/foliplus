@@ -1,7 +1,7 @@
 {
   "ExportControl": {
     "geotiff": "https://cdn.jsdelivr.net/npm/geotiff@3/dist-browser/geotiff.js",
-    "pako": "https://cdn.jsdelivr.net/npm/pako@2/dist/pako.min.js"
+    "pako": "https://cdn.jsdelivr.net/npm/pako@3/dist/browser/pako.umd.min.js"
   },
   "HeatmapControl": {
     "h3-js": "https://cdn.jsdelivr.net/npm/h3-js@4/dist/h3-js.umd.js",
