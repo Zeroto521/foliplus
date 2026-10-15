@@ -1366,6 +1366,25 @@ describe("LayerUI focus", () => {
           );
         }
       });
+
+      it("skips a base layer whose surface is missing", () => {
+        registerBase("base2");
+
+        // surfaceFor is typed to always return a surface, but hideOtherLayers
+        // carries a `if (!surface) continue` guard against a missing one —
+        // cover that defensive branch: no base may be marked, no throw.
+        const realSurfaceFor = ui.c.surfaceFor.bind(ui.c);
+        vi
+          .spyOn(ui.c, "surfaceFor")
+          .mockImplementation((li: LayerInfo) =>
+            li.group === GROUP.BASE ? null : realSurfaceFor(li),
+          ) as unknown as void;
+
+        expect(() => ui.focusLayer("overlay1")).not.toThrow();
+        expect(
+          document.querySelectorAll(`.${CONST.CLASSES.FOCUS_BASEMAP}`).length,
+        ).toBe(0);
+      });
     });
   });
 
