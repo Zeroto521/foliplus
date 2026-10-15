@@ -14,6 +14,7 @@ import { ensureModes, guardBlocked } from "#core/mode.js";
 import { type RectCorners, roundedRectOutline } from "#common/marqueeShape.js";
 import * as CONST from "../const.js";
 import { applyProjectionAll } from "./apply.js";
+import { projectLayer } from "./projection.js";
 import type { LayerUI } from "./surface.js";
 import { closeOverlays } from "./teardown.js";
 
@@ -297,14 +298,11 @@ const dismissFocus = (ui: LayerUI): void => {
 /**
  * Hide every other visible layer so the focused layer stands out.
  * Works alongside the inverse mask (which dims the area outside the
- * bounds). Basemaps carry `.foliplus-base-pane` and are excluded from
- * this rule — they stay visible under focus so the mask alone produces
- * the dimming effect (the map container's background color, otherwise
- * revealed when the basemap is hidden, reads as a hard "grey").
- *
- * Declarative: one class write on the map container. CSS
- * `.foliplus-is-focus-mode .foliplus-layer-pane:not(.foliplus-focus-pane):not(.foliplus-base-pane)`
- * hides every layer pane except the focused one and the basemaps —
+ * bounds). The active basemap (topmost base layer that is effectiveShown)
+ * is exempted from this rule and dimmed — other base panes are hidden
+ * like data layers. Declarative: one class write on the map container.
+ * CSS `.foliplus-is-focus-mode .foliplus-layer-pane:not(.foliplus-focus-pane):not(.foliplus-focus-basemap)`
+ * hides every layer pane except the focused one and the active basemap —
  * instead of a JS visibility loop over N panes. Canvas layers (heatmap)
  * live in their own pane, so they are covered by the same rule.
  * `bringFocusedLayerToFront` marks the focused pane with
@@ -312,6 +310,29 @@ const dismissFocus = (ui: LayerUI): void => {
  */
 const hideOtherLayers = (ui: LayerUI): void => {
   ui.c.map.getContainer().classList.add(CONST.CLASSES.FOCUS_ACTIVE);
+
+  // Mark the active basemap (topmost base layer that is effectiveShown)
+  // so it stays visible and is dimmed. Other base panes are hidden like
+  // data layers. Restore functions are stored in focusedPaneRestores so
+  // dismissFocus clears the marking.
+  const layers = ui.c.layers;
+  for (let i = layers.length - 1; i >= 0; i--) {
+    const li = layers[i];
+    if (li.group !== GROUP.BASE) continue;
+    const proj = projectLayer(ui, li);
+    if (!proj.effectiveShown) continue;
+    const surface = ui.c.surfaceFor(li);
+    if (!surface) continue;
+    for (const pane of surface.panes) {
+      pane.element.classList.add(CONST.CLASSES.FOCUS_BASEMAP);
+    }
+    ui.focusController.focusedPaneRestores.push(() => {
+      for (const pane of surface.panes) {
+        pane.element.classList.remove(CONST.CLASSES.FOCUS_BASEMAP);
+      }
+    });
+    break; // only the topmost base layer
+  }
 };
 
 /**

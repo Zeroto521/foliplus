@@ -1198,14 +1198,14 @@ describe("LayerUI focus", () => {
     // `hideOtherLayers` adds `foliplus-is-focus-mode` to the container and
     // trusts the CSS in `focus.css` to do the visibility bookkeeping. These
     // tests pin that CSS contract against jsdom's real selector engine —
-    // base panes and the focused layer's pane are excluded, every other
-    // `foliplus-layer-pane` is matched. The Python-side companion test only
-    // greps the CSS source for the two `:not()` exclusions; this one proves
-    // the rule *behaves* the way it reads.
+    // the active basemap and the focused layer's pane are excluded, every
+    // other `foliplus-layer-pane` is matched. The Python-side companion test
+    // only greps the CSS source for the two `:not()` exclusions; this one
+    // proves the rule *behaves* the way it reads.
 
     describe("focus-mode hide rule (CSS selector contract)", () => {
       const HIDE_RULE =
-        ".foliplus-is-focus-mode .foliplus-layer-pane:not(.foliplus-focus-pane):not(.foliplus-base-pane)";
+        ".foliplus-is-focus-mode .foliplus-layer-pane:not(.foliplus-focus-pane):not(.foliplus-focus-basemap)";
       const makeContainer = (focusMode: boolean): HTMLElement => {
         const el = document.createElement("div");
         el.classList.add("leaflet-container");
@@ -1232,9 +1232,9 @@ describe("LayerUI focus", () => {
         expect(document.querySelectorAll(HIDE_RULE)).toContain(pane);
       });
 
-      it("does not match a base-group pane (the tile basemap / color basemap)", () => {
+      it("does not match the active basemap pane", () => {
         const container = makeContainer(true);
-        const basePane = makePane(["foliplus-base-pane"]);
+        const basePane = makePane(["foliplus-focus-basemap"]);
         container.appendChild(basePane);
         document.body.appendChild(container);
 
@@ -1252,16 +1252,25 @@ describe("LayerUI focus", () => {
 
       it("does not match a pane that carries both exclusions (defensive: a basemap that is also the focused layer)", () => {
         const container = makeContainer(true);
-        const both = makePane(["foliplus-focus-pane", "foliplus-base-pane"]);
+        const both = makePane(["foliplus-focus-pane", "foliplus-focus-basemap"]);
         container.appendChild(both);
         document.body.appendChild(container);
 
         expect(document.querySelectorAll(HIDE_RULE)).not.toContain(both);
       });
 
+      it("matches a non-active base pane (a base layer that is not the topmost effectiveShown)", () => {
+        const container = makeContainer(true);
+        const basePane = makePane(["foliplus-base-pane"]);
+        container.appendChild(basePane);
+        document.body.appendChild(container);
+
+        expect(document.querySelectorAll(HIDE_RULE)).toContain(basePane);
+      });
+
       it("does not match any pane when focus is not active (the outer class is the gate)", () => {
         const container = makeContainer(false);
-        const base = makePane(["foliplus-base-pane"]);
+        const base = makePane(["foliplus-focus-basemap"]);
         const focused = makePane(["foliplus-focus-pane"]);
         const other = makePane([]);
         container.appendChild(base);
@@ -1274,7 +1283,7 @@ describe("LayerUI focus", () => {
 
       it("matches only the unmarked panes when a mix of pane types is present under focus", () => {
         const container = makeContainer(true);
-        const basePane = makePane(["foliplus-base-pane"]);
+        const basePane = makePane(["foliplus-focus-basemap"]);
         const focusPane = makePane(["foliplus-focus-pane"]);
         const otherPane = makePane([]);
         container.appendChild(basePane);

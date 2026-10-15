@@ -1,11 +1,12 @@
 () => {
   // Trigger focus by dblclicking the first overlay layer row, then report
   // the visibility of every foliplus-layer-pane as focus.css + the
-  // .foliplus-base-pane exclusion class leave it. Base panes (OSM tiles +
-  // the solid-color basemap, if present) must stay `visibility: visible`
-  // so the dim mask on top preserves spatial context; overlay data panes
-  // must be `visibility: hidden` so the focused layer stands out. The
-  // focused layer's pane carries foliplus-focus-pane and is also visible.
+  // .foliplus-focus-basemap exclusion class leave it. The active basemap
+  // (topmost base layer that is effectiveShown) must stay `visibility: visible`
+  // so the dim mask on top preserves spatial context; other base panes and
+  // overlay data panes must be `visibility: hidden` so the focused layer
+  // stands out. The focused layer's pane carries foliplus-focus-pane and
+  // is also visible.
   const map = window.map;
   const ctrl = window.__layerCtrl;
   if (!map || !ctrl) return { error: "missing map or ctrl" };
@@ -28,6 +29,7 @@
             name: (el.id && el.id.replace(/^leaflet-/, "")) || el.className,
             base: el.classList.contains("foliplus-layer-pane"),
             baseExcl: el.classList.contains("foliplus-base-pane"),
+            focusBasemap: el.classList.contains("foliplus-focus-basemap"),
             focusExcl: el.classList.contains("foliplus-focus-pane"),
             visibility: getComputedStyle(el).visibility,
           }),

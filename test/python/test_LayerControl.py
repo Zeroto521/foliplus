@@ -1127,27 +1127,26 @@ class TestLayerControlRendering:
                 "it is pointer/state-driven, not rebuild-driven"
             )
 
-    def test_focus_hide_rule_excludes_base_panes(self):
-        """The focus-mode hide rule keeps basemaps visible via a dedicated tag.
+    def test_focus_hide_rule_excludes_active_basemap(self):
+        """The focus-mode hide rule keeps the active basemap visible via a dedicated tag.
 
-        The rule ``.foliplus-is-focus-mode .foliplus-layer-pane:not(.foliplus-focus-pane):not(.foliplus-base-pane)``
+        The rule ``.foliplus-is-focus-mode .foliplus-layer-pane:not(.foliplus-focus-pane):not(.foliplus-focus-basemap)``
         excludes both the focused layer's pane (``.foliplus-focus-pane``) and
-        every base-group pane (``.foliplus-base-pane``). Without the base
-        exclusion, the tile basemap pane and the solid-color basemap pane are
-        hidden along with the other data layers, and the map container's grey
-        background shows through — the user sees a hard grey rectangle instead
-        of a dimmed basemap. A separate ``opacity`` rule dims the base panes
-        toward the map container's background color so they read as a faint
-        backdrop behind the focused layer.
+        the active basemap pane (``.foliplus-focus-basemap``, topmost base
+        layer that is effectiveShown). Without the active-basemap exclusion,
+        the basemap pane is hidden along with the other layers, and the map
+        container's grey background shows through. A separate ``opacity`` rule
+        dims the active basemap toward the map container's background color so
+        it reads as a faint backdrop behind the focused layer.
         """
         css = read_css("foliplus/css/LayerControl/index.css")
         # The rule spans multiple lines in source; check the two :not()
         # exclusions appear together on the same rule (matched by the
         # `visibility: hidden` body).
-        marker = ".foliplus-focus-pane):not(.foliplus-base-pane)"
+        marker = ".foliplus-focus-pane):not(.foliplus-focus-basemap)"
         assert marker in css, (
             "the focus-mode hide rule must exclude both the focused layer's "
-            f"pane and the base-group panes: {marker}"
+            f"pane and the active basemap pane: {marker}"
         )
         # The body of the rule must still apply visibility:hidden — the
         # exclusion is an :not(), not a property flip.
@@ -1156,20 +1155,21 @@ class TestLayerControlRendering:
             "the focus-mode hide rule must still set visibility: hidden on "
             f"the panes it matches: {rule_body}"
         )
-        # The base panes must be dimmed via `opacity` — the pane blends toward
+        # The active basemap must be dimmed via `opacity` — the pane blends toward
         # the map container's background color, so the basemap reads as a faint
         # backdrop. Assert on the property name and the token reference rather
         # than the exact value: the specific strength is a tuning dial.
-        dim_marker = ".foliplus-is-focus-mode .foliplus-base-pane"
+        dim_marker = ".foliplus-is-focus-mode .foliplus-focus-basemap"
         assert dim_marker in css, (
-            f"the focus-mode dim rule must target the base panes via {dim_marker}"
+            f"the focus-mode dim rule must target the active basemap via {dim_marker}"
         )
         dim_body = _rule(css, dim_marker)
         assert "opacity" in dim_body, (
-            f"the base panes must be dimmed with `opacity`: {dim_body}"
+            "the active basemap must be dimmed with `opacity`: "
+            f"{dim_body}"
         )
         assert "--foliplus-focus-basemap-opacity" in dim_body, (
-            "the base pane dim rule must reference the token "
+            "the active basemap dim rule must reference the token "
             f"--foliplus-focus-basemap-opacity: {dim_body}"
         )
 
@@ -1180,21 +1180,37 @@ class TestLayerControlRendering:
         fall back to the initial value (opaque). The token must live in
         token.css (style_check.py rule 4: bare CSS custom properties must
         carry the --foliplus-* prefix and be defined only in token.css).
+        The value is either a direct number (0..1) or a reference to another
+        token (e.g. var(--foliplus-alpha-30)).
         """
         token_css = read_css("foliplus/css/common/token.css")
         assert "--foliplus-focus-basemap-opacity" in token_css, (
             "the --foliplus-focus-basemap-opacity token must be defined in token.css"
         )
-        # Extract the value and assert it is a valid opacity (0..1).
+        # Extract the value and assert it is either a valid opacity number
+        # (0..1) or a reference to another token.
         import re
 
         match = re.search(
-            r"--foliplus-focus-basemap-opacity:\s*([\d.]+)\s*;",
+            r"--foliplus-focus-basemap-opacity:\s*([^;]+)\s*;",
             token_css,
         )
-        assert match is not None, "token value must be a number"
-        value = float(match.group(1))
-        assert 0 < value < 1, f"opacity must be between 0 and 1: {value}"
+        assert match is not None, "token value must be defined"
+        value = match.group(1).strip()
+        # If it's a reference to another token, it must be a --foliplus-* token.
+        if value.startswith("var("):
+            assert "--foliplus-" in value, (
+                "token reference must point to a --foliplus-* token: "
+                f"{value}"
+            )
+        else:
+            # It must be a valid opacity number (0..1).
+            assert value.replace(".", "", 1).isdigit(), (
+                "token value must be a number or a var() reference: "
+                f"{value}"
+            )
+            num = float(value)
+            assert 0 < num < 1, f"opacity must be between 0 and 1: {num}"
 
 
 def _write_html(m: folium.Map, path) -> None:
@@ -5736,18 +5752,15 @@ class TestLayerControlBrowser:
         """Basemaps stay visible during focus — they are dimmed, not hidden.
 
         Before this fix, ``.foliplus-is-focus-mode`` hid every
-        ``.foliplus-layer-pane`` except the focused one. Tile basemaps and the
-        solid-color basemap paint into their own foliplus panes (registered
-        through the LayerControl like any other layer), so the basemap was
-        hidden too — the user saw the map container's default grey background
-        instead of a dimmed basemap. The ``.foliplus-base-pane`` exclusion tag
-        on every base-group pane keeps them visible; the dim mask on top
-        produces the dimming the user expects.
+        ``.foliplus-layer-pane`` except the focused one. The active basemap
+        (topmost base layer that is effectiveShown) is exempted via
+        `.foliplus-focus-basemap` and stays visible; other base panes and
+        overlay data panes are hidden so the focused layer stands out. The
+        dim mask on top preserves spatial context.
 
         The color basemap is created lazily on first show, so we toggle its
         checkbox on before focusing — this also exercises the ``!layer``
-        branch of the ordering pass (color basemaps have no Leaflet layer),
-        which is the code path that used to skip ``markBasePanes``.
+        branch of the ordering pass (color basemaps have no Leaflet layer).
         """
         # A tile basemap + an overlay polygon so focus has a target.
         base = folium.TileLayer(
@@ -5777,8 +5790,7 @@ class TestLayerControlBrowser:
                 timeout=5000,
             )
             # Turn the color basemap on so its lazily-created pane is in the
-            # DOM before we focus — the ``!layer`` branch of the ordering
-            # pass is what used to skip ``markBasePanes``.
+            # DOM before we focus.
             toggle = page.evaluate(_js("LayerControl/toggle_color_checkbox"))
             assert toggle is not None and toggle.get("ok") is True, toggle
             page.wait_for_timeout(200)
@@ -5790,40 +5802,29 @@ class TestLayerControlBrowser:
             assert result["maskPanePresent"] is True, (
                 f"focus mask pane must exist: {result}"
             )
-            # Classify the panes and check each category.
-            base_panes = [p for p in result["panes"] if p["baseExcl"]]
+            # Classify the panes: active basemap, focused layer, and others.
+            focus_basemap_panes = [
+                p for p in result["panes"] if p["focusBasemap"]
+            ]
             focus_panes = [p for p in result["panes"] if p["focusExcl"]]
             other_panes = [
-                p for p in result["panes"] if not p["baseExcl"] and not p["focusExcl"]
-            ]
-            assert len(base_panes) >= 2, (
-                "at least two base-group panes must be present — the tile "
-                f"basemap and the solid-color basemap — and each must carry "
-                f"foliplus-base-pane: {result['panes']}"
-            )
-            for pane in base_panes:
-                assert pane["visibility"] == "visible", (
-                    "a base-group pane must stay visible during focus — the "
-                    f"dim mask does the dimming, not visibility:hidden: {pane}"
-                )
-            # The solid-color basemap pane must specifically be base-excluded
-            # and visible — it is the case that used to fall through the
-            # ordering pass (no Leaflet layer) and therefore never got the
-            # class stamp. Its pane id encodes the layer id.
-            color_panes = [
                 p
-                for p in base_panes
-                if "color" in p["name"].lower() or "color_map" in p["name"]
+                for p in result["panes"]
+                if not p["focusBasemap"] and not p["focusExcl"]
             ]
-            assert len(color_panes) >= 1, (
-                "the solid-color basemap's pane must be present and base-excluded "
-                f"— the lazy-creation path must still reach markBasePanes: "
-                f"{result['panes']}"
+            # The active basemap must be present and visible.
+            assert len(focus_basemap_panes) >= 1, (
+                "the active basemap's pane must be present and marked with "
+                f"foliplus-focus-basemap: {result['panes']}"
             )
-            for pane in color_panes:
+            for pane in focus_basemap_panes:
                 assert pane["visibility"] == "visible", (
-                    f"the color basemap's pane must stay visible during focus: {pane}"
+                    "the active basemap's pane must stay visible during focus "
+                    f"— the dim mask does the dimming, not visibility:hidden: "
+                    f"{pane}"
                 )
+            # The focused layer's pane and the focus overlay pane must be
+            # visible.
             assert len(focus_panes) >= 2, (
                 "the focused layer's pane and the focus overlay pane must both "
                 f"carry foliplus-focus-pane: {result['panes']}"
@@ -5832,13 +5833,14 @@ class TestLayerControlBrowser:
                 assert pane["visibility"] == "visible", (
                     f"a foliplus-focus-pane pane must stay visible: {pane}"
                 )
-            # Any other pane (an overlay data layer that isn't the focused
-            # one, e.g. a second polygon) must be hidden — otherwise the
-            # focused layer is not visually isolated.
+            # Any other pane (including non-active base panes and overlay data
+            # layers) must be hidden — otherwise the focused layer is not
+            # visually isolated.
             for pane in other_panes:
                 assert pane["visibility"] == "hidden", (
-                    "a non-focus, non-base foliplus-layer-pane must be hidden "
-                    f"during focus so the focused layer stands out: {pane}"
+                    "a non-focus, non-active-basemap foliplus-layer-pane must "
+                    f"be hidden during focus so the focused layer stands out: "
+                    f"{pane}"
                 )
 
     def test_focus_basemap_dim_direction(self, browser, tmp_path):

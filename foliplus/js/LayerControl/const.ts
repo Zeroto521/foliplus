@@ -90,6 +90,13 @@ const CLASSES = {
   /** Marked on the focused layer's pane(s)/canvas so it stays visible while
    *  every other layer is hidden by the `.foliplus-is-focus-mode` rule. */
   FOCUS_PANE: "foliplus-focus-pane",
+  /** Marked on the panes of the active basemap (topmost base layer that is
+   *  effectiveShown) while a layer is focused. Only this basemap is exempted
+   *  from the hide rule and dimmed — other base panes are hidden like data
+   *  layers. The class is applied dynamically during focus, not stamped by
+   *  `markBasePanes` (which still marks `.BASE_PANE` for the static group
+   *  tag). */
+  FOCUS_BASEMAP: "foliplus-focus-basemap",
   /** Marked on every pane of a base-group layer (tile basemaps and the
    *  solid-color basemap). The `.foliplus-is-focus-mode` hide rule excludes
    *  these so the basemap stays visible under focus: the mask dims the

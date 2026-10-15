@@ -406,12 +406,11 @@
     var(--foliplus-space-md) * 2 + var(--foliplus-font-size-md) *
       var(--foliplus-line-height-hint)
   );
-  /* Focus basemap dim: the opacity applied to base-group panes while a layer
+  /* Focus basemap dim: the opacity applied to the active basemap while a layer
      is focused. The pane blends toward the map container's background color,
      so the basemap reads as a faint backdrop behind the focused layer rather
-     than competing with it. 0.45 keeps the spatial context visible while
-     clearly de-emphasizing the basemap. */
-  --foliplus-focus-basemap-opacity: 0.45;
+     than competing with it. References the shared alpha scale for consistency. */
+  --foliplus-focus-basemap-opacity: var(--foliplus-alpha-30);
 
   /* ── Common (dot anchors) ──
      Fill and stroke colors for map/crop anchor dots. Geometry tokens
