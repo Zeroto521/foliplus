@@ -5,6 +5,7 @@
 ### Added
 
 - `LayerControl`: layers can now declare label defaults (field/format/collision) via `foliplus={"annotation": {...}}`, which turns the layer's labels on at load; the user's own choice still wins over the declaration ([#669](https://github.com/Zeroto521/foliplus/pull/669))
+- `LayerControl`: a `show=False` layer no longer reappears on a zoom sweep — the panel reads its visibility from Python instead of inferring it from map state ([#676](https://github.com/Zeroto521/foliplus/pull/676))
 
 ### Changed
 
@@ -12,7 +13,9 @@
 
 ### Fixed
 
-- `LayerControl`: the geometry focus marquee now follows its layer across pan/zoom instead of drifting away from the geometry ([#668](https://github.com/Zeroto521/foliplus/pull/668))
+- `LayerControl`: the geometry focus marquee now follows its layer across pan/zoom instead of drifting away from the geometry ([#668](https://github.com/Zeroto521/foliplus/pull/668), [#670](https://github.com/Zeroto521/foliplus/pull/670))
+- `LayerControl`: marker shadows now stay below their icons after a zoom-triggered re-pin, instead of flipping above and covering the icon ([#674](https://github.com/Zeroto521/foliplus/pull/674))
+- `LayerControl`: layers registered before their map object arrives now resolve on `layeradd`, so the fill swatch and layer-kind logic see the real layer instead of a fallback ([#679](https://github.com/Zeroto521/foliplus/pull/679))
 - `LayerControl`: rapid successive `focusLayer` calls no longer leave an orphan mask (rect gone, mask stuck) — the geometry-focus marquee used the same CSS class as the focus overlay rect, so its `clearMarquees` document-wide sweep deleted the focus rect on every `moveend` ([#680](https://github.com/Zeroto521/foliplus/pull/680))
 
 ## [v0.4.0] (2026-10-10)

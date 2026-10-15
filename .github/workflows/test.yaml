@@ -28,7 +28,7 @@ jobs:
     name: format
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-deps
       - run: npm run format:check
 
@@ -36,7 +36,7 @@ jobs:
     name: lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-deps
       - run: npm run lint
 
@@ -44,7 +44,7 @@ jobs:
     name: typecheck
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-deps
       - run: npm run typecheck
 
@@ -61,8 +61,8 @@ jobs:
     permissions:
       issues: read
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
       - run: python script/check/changelog_check.py --path CHANGELOG.md
         env:
           GITHUB_REPOSITORY: ${{ github.repository }}
@@ -85,18 +85,18 @@ jobs:
     name: js
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-deps
 
       - run: make test-js
 
-      - uses: codecov/codecov-action@v6
+      - uses: codecov/codecov-action@v7
         with:
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
           verbose: true
           flags: ${{ job.name }}
-      - uses: codecov/codecov-action@v6
+      - uses: codecov/codecov-action@v7
         if: ${{ !cancelled() }}
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -118,7 +118,7 @@ jobs:
           - python: "3.14"
             folium: "latest"
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           # Full history needed for setuptools_scm to derive __version__ from tags.
           fetch-depth: 0
@@ -137,13 +137,13 @@ jobs:
       # tests live in the `browser` job below (single cell) — see comment there.
       - run: uv run make test-python-fast
 
-      - uses: codecov/codecov-action@v6
+      - uses: codecov/codecov-action@v7
         with:
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
           verbose: true
           flags: ${{ job.name }}
-      - uses: codecov/codecov-action@v6
+      - uses: codecov/codecov-action@v7
         if: ${{ !cancelled() }}
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -161,7 +161,7 @@ jobs:
     name: browser
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           # Full history needed for setuptools_scm to derive __version__ from tags.
           fetch-depth: 0
@@ -179,14 +179,14 @@ jobs:
         run: |
           version=$(uv run python -c 'import importlib.metadata as m; print(m.version("playwright"))')
           echo "version=$version" >> "$GITHUB_OUTPUT"
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ steps.pwver.outputs.version }}
           restore-keys: playwright-${{ runner.os }}-
 
       # Persist the CDN cache proxy's download dir across runs (see conftest).
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: /tmp/foliplus-cdn-cache
           key: foliplus-cdn-cache-${{ runner.os }}-${{ hashFiles('foliplus/cdn.json') }}
@@ -196,13 +196,13 @@ jobs:
 
       - run: uv run make test-browser
 
-      - uses: codecov/codecov-action@v6
+      - uses: codecov/codecov-action@v7
         with:
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
           verbose: true
           flags: ${{ job.name }}
-      - uses: codecov/codecov-action@v6
+      - uses: codecov/codecov-action@v7
         if: ${{ !cancelled() }}
         with:
           token: ${{ secrets.CODECOV_TOKEN }}

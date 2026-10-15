@@ -8,11 +8,18 @@
 // clearMarquees's document-wide querySelectorAll remove the focus overlay's
 // rect on every marquee redraw — a moveend-triggered silent DOM theft.
 //
-// The marquee rides in the geometry's own group (the renderer's root group,
-// not the SVG root) so Leaflet's viewBox transform carries it across the map
-// during a pan. Leaflet re-projects every path on `moveend` — pan, zoom,
-// flyTo — which rewrites the geometry's `d` and orphans a frozen bbox, so the
-// binder re-derives the marquee from the live bbox on that event.
+// The marquee rides in the geometry's own parent. In foliplus's layer panes
+// the polygon paths are direct children of the pane's <svg> (not inside a <g>),
+// so the marquee shares that <svg>'s coordinate space and rides the same
+// viewBox transform across the map during a pan.
+//
+// Leaflet re-projects every path on `moveend` — pan, zoom, flyTo — which
+// rewrites the geometry's `d` synchronously before the event fires. But the
+// browser's SVG layout engine caches getBBox() and only refreshes it on the
+// next frame, so a synchronous drawMarquee(target) on `moveend` reads a stale
+// bbox and the marquee freezes at the pre-zoom position. The binder defers
+// the redraw with requestAnimationFrame and coalesces rapid moveends (wheel
+// zoom fires many in a row) into one rAF redraw.
 //
 // Corner rounding uses the shared roundedRectOutline (same math as focus.ts).
 import { type RectCorners, roundedRectOutline } from "#common/marqueeShape.js";
@@ -32,7 +39,7 @@ const outlineToPath = (pts: { u: number; v: number }[]): string =>
 
 const drawMarquee = (geometry: SVGGraphicsElement | null): void => {
   clearMarquees();
-  // The geometry's own group is the coordinate space its bbox lives in. A path
+  // The geometry's own parent is the coordinate space its bbox lives in. A path
   // removed from the map mid-focus has no SVG ancestor either, so the marquee
   // is dropped instead of orphaned in the root.
   if (!geometry?.ownerSVGElement) return;
@@ -60,31 +67,48 @@ const isMapPath = (el: EventTarget | null): el is SVGGraphicsElement =>
 /** Bind focusin/focusout marquee on map paths under `root`. Returns unbind. */
 const bindGeometryFocusMarquee = (root: HTMLElement, map: L.Map): (() => void) => {
   let target: SVGGraphicsElement | null = null;
+  let rafId: number | null = null;
+
+  const cancelPending = (): void => {
+    if (rafId !== null) {
+      cancelAnimationFrame(rafId);
+      rafId = null;
+    }
+  };
+
+  const scheduleDraw = (): void => {
+    if (rafId !== null) return;
+    rafId = requestAnimationFrame(() => {
+      rafId = null;
+      drawMarquee(target);
+    });
+  };
 
   const onFocusIn = (ev: FocusEvent): void => {
     const t = ev.target;
     if (isMapPath(t)) {
       target = t;
+      // Cancel any pending rAF redraw — focusin already drew with the
+      // current bbox, and a stale rAF would re-draw over it.
+      cancelPending();
       drawMarquee(t);
     }
   };
   const onFocusOut = (ev: FocusEvent): void => {
     if (isMapPath(ev.target)) {
       target = null;
+      cancelPending();
       drawMarquee(null);
     }
   };
-  // Rederive after every view change; a no-op while no geometry is focused.
-  const onMoveEnd = (): void => {
-    drawMarquee(target);
-  };
   root.addEventListener("focusin", onFocusIn);
   root.addEventListener("focusout", onFocusOut);
-  map.on("moveend", onMoveEnd);
+  map.on("moveend", scheduleDraw);
   return () => {
-    map.off("moveend", onMoveEnd);
+    map.off("moveend", scheduleDraw);
     root.removeEventListener("focusin", onFocusIn);
     root.removeEventListener("focusout", onFocusOut);
+    cancelPending();
     target = null;
     drawMarquee(null);
   };

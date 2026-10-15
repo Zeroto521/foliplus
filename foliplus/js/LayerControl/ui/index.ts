@@ -13,6 +13,7 @@ import { applyProjection, applyProjectionAll } from "./apply.js";
 import { hideSolidBasemap, resetSolidBasemap, showSolidBasemap } from "./color.js";
 import { cancelFocus, focusLayer, isFocusing } from "./focus.js";
 import { FocusController } from "./focus/focusController.js";
+import { seedAuthorVisible } from "./intent.js";
 import {
   attachUI,
   bindLayerEvents,
@@ -177,6 +178,13 @@ class LayerUI implements LayerUISurface {
     this.overlayPanel = new OverlayPanel();
     this.focusController = new FocusController();
     this.runtimeStore = new LayerRuntimeStore();
+    // Seed the author's declared default off the registry, which carries
+    // `show` from the Python config (data[].show), before any policy moves
+    // layers. Late registrations (Heatmap / Measure) have no data[] entry and
+    // get the same seed in `insertLayerItem`.
+    for (const layerInfo of this.c.layers) {
+      seedAuthorVisible(this, layerInfo);
+    }
     this.currentColor = CONST.COLOR.DEFAULT;
     this.colorSurface = null;
     this.unsubscribeCountChange = null;

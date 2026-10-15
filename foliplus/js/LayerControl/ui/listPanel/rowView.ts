@@ -104,39 +104,6 @@ const displayName = (ui: LayerUI, id: string): string => {
 };
 
 /**
- * Snapshot the author's declared default once per layer id, from the map
- * membership the layer was registered with.
- *
- *  Folium ships the layer list without a visibility field, so the author's
- *  `show=` default reaches the panel only as the map state left behind at
- *  boot. It must be read before the first policy sweep: applyUserState
- *  re-adds a stored-shown layer and removes a stored-hidden one, so a
- *  snapshot taken afterwards would record a policy decision as the author's.
- *
- *  Once per id — the repeat is a no-op, which is what keeps the value stable
- *  across initTypesAndVisibility's idempotent re-runs. Because the value is
- *  latched, it may only be taken from an *observed* map state: a folium
- *  layer's JS global is emitted after the control's IIFE, so at attach the
- *  layer is not resolvable yet and the only honest answer is "not yet
- *  known". Latching the map's current state there would record `true`
- *  for an author `show=False` layer and, the snapshot being idempotent,
- *  keep the later correct reading out for good — which is how a `show=False`
- *  layer came back onto the map on the first zoom sweep.
- *
- *  A canvas-only layer is the exception: it has no Leaflet layer to observe
- *  at any point, so its declared `visible` is the ground truth.
- */
-const snapshotAuthorVisible = (ui: LayerUI, layerInfo: LayerInfo): void => {
-  if (ui.runtimeStore.hasAuthorVisible(layerInfo.id)) return;
-  const layer = ui.c.findLayer(layerInfo);
-  if (!layer && !layerInfo.canvas) return; // not linked yet — leave unknown
-  ui.runtimeStore.setAuthorVisible(
-    layerInfo.id,
-    layer ? ui.c.map.hasLayer(layer) : intentVisibleOf(ui, layerInfo.id),
-  );
-};
-
-/**
  * The type icon and its label for one layer.
  *
  *  Render-only: the surface is the probe authority, and `layerInfo.type` is
@@ -236,7 +203,6 @@ export {
   displayName,
   inZoomRange,
   rowView,
-  snapshotAuthorVisible,
   type RowCell,
   type RowLabels,
   type RowView,

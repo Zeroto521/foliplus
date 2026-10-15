@@ -56,7 +56,24 @@ type LayerOverride =
  *     instead: it nests under `layers[id].annotation`, needs no provenance
  *     entry, and flows through the tolerant annotation parse untouched —
  *     only the field rule in `coerceAnnotationFields` (ui/style/label.ts)
- *     and the renderer consume it. */
+ *     and the renderer consume it.
+ *  3. How an *author default* is read depends on what consumes it:
+ *     display-only → read live off the carrier (optionally cached per id);
+ *     feeding an incremental write → freeze on first write (a re-read would
+ *     feed the leaf its own last write — the slider compounds); no carrier
+ *     to read → seed once at the delivery point, where a *fact* (Python's
+ *     `data[].show`) beats an observation of map state. The seven readers
+ *     today follow exactly this split — `authoredFillColor` /
+ *     `authoredFillOpacity` / `authoredBorder` / `authorAnnotation` live,
+ *     `authorOpacityBase` / `authorZoomBounds` frozen, `authorVisible`
+ *     seeded.
+ *  4. A *snapshot* field — one derived at registration from the layer
+ *     object (`layer` / `carrier` / `kind`) — is refreshed by a single
+ *     rebuild point (rebuild the entry, then `upsert` in place), not by
+ *     each consumer falling back independently. `registry.get` is the
+ *     consumer-side default; a snapshot is only ever rewritten by its own
+ *     resolution edge, so a late-arriving layer lands once and the
+ *     consumer sees the rebuilt entry rather than N independent fallbacks. */
 type LayerIntent = {
   /** Layer id → the user's visibility choice (true = shown). */
   visible?: boolean;
