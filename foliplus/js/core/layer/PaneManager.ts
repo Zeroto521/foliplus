@@ -14,7 +14,6 @@ import {
   destroyPane,
   getRendererContainer,
   getRendererFor,
-  markerShadow,
 } from "../leafletAdapter.js";
 import * as CONST from "./const.js";
 import type { PaneSpec, PinnableNode } from "./type.js";
@@ -202,11 +201,6 @@ class PaneManager {
           groups.get(container)!.push(pathEl);
         }
         if (l instanceof L.Marker && paneEl) {
-          const shadow = markerShadow(l);
-          if (shadow && shadow.parentNode !== paneEl) {
-            if (!markerGroups.has(paneEl)) markerGroups.set(paneEl, []);
-            markerGroups.get(paneEl)!.push(shadow);
-          }
           const iconEl = l.getElement();
           if (iconEl && iconEl.parentNode !== paneEl) {
             if (!markerGroups.has(paneEl)) markerGroups.set(paneEl, []);
