@@ -4,6 +4,7 @@ import * as CONST from "#foliplus/LayerControl/const.js";
 import * as SVGs from "#foliplus/LayerControl/icon.js";
 import { dom, updateItemLabel } from "#common/dom.js";
 import { getColorSurface } from "../color.js";
+import { seedAuthorVisible } from "../intent.js";
 import type { LayerUI } from "../surface.js";
 import { cursorRef, restoreCursor, syncListCursor } from "./cursor.js";
 import { applyRowView, buildRowCell, displayName } from "./rowView.js";
@@ -154,10 +155,10 @@ const insertLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
 
   // Late registration — seed the author's default here, once per id.
   // Initial layers were already seeded in `LayerUI`'s constructor; a
-  // late-registered layer has no data[] entry, so `?? true` applies folium's
-  // default. The setter is idempotent (overwrites the same value), so
-  // re-registration is harmless.
-  ui.runtimeStore.setAuthorVisible(layerInfo.id, layerInfo.show ?? true);
+  // late-registered layer has no data[] entry, so folium's default applies.
+  // The setter is idempotent (overwrites the same value), so re-registration
+  // is harmless.
+  seedAuthorVisible(ui, layerInfo);
   ui.applyUserState(layerInfo.id);
   // New row must join the roving tabindex / ARIA set.
   syncListCursor(ui);
