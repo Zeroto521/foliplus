@@ -66,7 +66,14 @@ type LayerOverride =
  *     today follow exactly this split — `authoredFillColor` /
  *     `authoredFillOpacity` / `authoredBorder` / `authorAnnotation` live,
  *     `authorOpacityBase` / `authorZoomBounds` frozen, `authorVisible`
- *     seeded. */
+ *     seeded.
+ *  4. A *snapshot* field — one derived at registration from the layer
+ *     object (`layer` / `carrier` / `kind`) — is refreshed by a single
+ *     rebuild point (rebuild the entry, then `upsert` in place), not by
+ *     each consumer falling back independently. `registry.get` is the
+ *     consumer-side default; a snapshot is only ever rewritten by its own
+ *     resolution edge, so a late-arriving layer lands once and the
+ *     consumer sees the rebuilt entry rather than N independent fallbacks. */
 type LayerIntent = {
   /** Layer id → the user's visibility choice (true = shown). */
   visible?: boolean;

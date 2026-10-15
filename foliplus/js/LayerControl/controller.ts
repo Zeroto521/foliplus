@@ -314,12 +314,28 @@ class LayerController implements LayerAPI {
       // registration-driven add to one emit: registerLayer's own `map.addLayer`
       // resolves through `opts.layer`, so its entry already carries the layer
       // by the time this handler runs.
+      //
+      // Emitting alone is not enough: the registry entry would keep reading
+      // `layer: null` forever, and every downstream field derived from that
+      // snapshot (`carrier.layer`, the pending `kind` for a tile basemap)
+      // would stay stale — consumers that read the entry directly (the fill
+      // swatch, maxZoom scanning) never see the resolved layer. Rebuild the
+      // entry through the same edge as every other registration so `layer`,
+      // `kind`, and `carrier` re-derive from the real object, and write it
+      // back through `upsert` (in place: no reorder, no re-registration of
+      // the caller's fields). `registeredAt` comes back through `existingLi`
+      // so the first-registration timestamp is preserved.
       const stamp = L.stamp(event.layer);
       for (const layerInfo of this.layers) {
         if (layerInfo.layer) continue;
         const resolved = findLayer(this.map, layerInfo.id);
         if (resolved && L.stamp(resolved) === stamp) {
-          this.emitLayerChange(layerInfo.id, layerInfo.kind);
+          const rebuilt = this.layerRegistry.createLayerInfo(
+            { id: layerInfo.id, layer: resolved },
+            layerInfo,
+          );
+          this.layerRegistry.upsert(rebuilt);
+          this.emitLayerChange(layerInfo.id, rebuilt.kind);
           break;
         }
       }
