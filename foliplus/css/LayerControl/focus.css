@@ -82,7 +82,7 @@ path.foliplus-focus-mask {
   visibility: hidden;
 }
 .foliplus-is-focus-mode .foliplus-focus-basemap {
-  opacity: var(--foliplus-focus-basemap-opacity);
+  opacity: var(--foliplus-alpha-30);
 }
 
 @keyframes foliplus-focus-march {

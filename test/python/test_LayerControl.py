@@ -1167,47 +1167,10 @@ class TestLayerControlRendering:
         assert "opacity" in dim_body, (
             f"the active basemap must be dimmed with `opacity`: {dim_body}"
         )
-        assert "--foliplus-focus-basemap-opacity" in dim_body, (
-            "the active basemap dim rule must reference the token "
-            f"--foliplus-focus-basemap-opacity: {dim_body}"
+        assert "var(--foliplus-alpha-30)" in dim_body, (
+            "the active basemap dim rule must reference the shared alpha scale "
+            f"--foliplus-alpha-30: {dim_body}"
         )
-
-    def test_focus_basemap_opacity_token_exists(self):
-        """The --foliplus-focus-basemap-opacity token is defined in token.css.
-
-        The focus dim rule references this token; without it the rule would
-        fall back to the initial value (opaque). The token must live in
-        token.css (style_check.py rule 4: bare CSS custom properties must
-        carry the --foliplus-* prefix and be defined only in token.css).
-        The value is either a direct number (0..1) or a reference to another
-        token (e.g. var(--foliplus-alpha-30)).
-        """
-        token_css = read_css("foliplus/css/common/token.css")
-        assert "--foliplus-focus-basemap-opacity" in token_css, (
-            "the --foliplus-focus-basemap-opacity token must be defined in token.css"
-        )
-        # Extract the value and assert it is either a valid opacity number
-        # (0..1) or a reference to another token.
-        import re
-
-        match = re.search(
-            r"--foliplus-focus-basemap-opacity:\s*([^;]+)\s*;",
-            token_css,
-        )
-        assert match is not None, "token value must be defined"
-        value = match.group(1).strip()
-        # If it's a reference to another token, it must be a --foliplus-* token.
-        if value.startswith("var("):
-            assert "--foliplus-" in value, (
-                f"token reference must point to a --foliplus-* token: {value}"
-            )
-        else:
-            # It must be a valid opacity number (0..1).
-            assert value.replace(".", "", 1).isdigit(), (
-                f"token value must be a number or a var() reference: {value}"
-            )
-            num = float(value)
-            assert 0 < num < 1, f"opacity must be between 0 and 1: {num}"
 
 
 def _write_html(m: folium.Map, path) -> None:
