@@ -1165,8 +1165,7 @@ class TestLayerControlRendering:
         )
         dim_body = _rule(css, dim_marker)
         assert "opacity" in dim_body, (
-            "the active basemap must be dimmed with `opacity`: "
-            f"{dim_body}"
+            f"the active basemap must be dimmed with `opacity`: {dim_body}"
         )
         assert "--foliplus-focus-basemap-opacity" in dim_body, (
             "the active basemap dim rule must reference the token "
@@ -1200,14 +1199,12 @@ class TestLayerControlRendering:
         # If it's a reference to another token, it must be a --foliplus-* token.
         if value.startswith("var("):
             assert "--foliplus-" in value, (
-                "token reference must point to a --foliplus-* token: "
-                f"{value}"
+                f"token reference must point to a --foliplus-* token: {value}"
             )
         else:
             # It must be a valid opacity number (0..1).
             assert value.replace(".", "", 1).isdigit(), (
-                "token value must be a number or a var() reference: "
-                f"{value}"
+                f"token value must be a number or a var() reference: {value}"
             )
             num = float(value)
             assert 0 < num < 1, f"opacity must be between 0 and 1: {num}"
@@ -5803,9 +5800,7 @@ class TestLayerControlBrowser:
                 f"focus mask pane must exist: {result}"
             )
             # Classify the panes: active basemap, focused layer, and others.
-            focus_basemap_panes = [
-                p for p in result["panes"] if p["focusBasemap"]
-            ]
+            focus_basemap_panes = [p for p in result["panes"] if p["focusBasemap"]]
             focus_panes = [p for p in result["panes"] if p["focusExcl"]]
             other_panes = [
                 p
