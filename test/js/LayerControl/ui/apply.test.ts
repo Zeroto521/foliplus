@@ -5,6 +5,7 @@ import { LayerIntentStore } from "#foliplus/LayerControl/domain/index.js";
 import {
   applyProjection,
   applyProjectionAll,
+  authorZoomBoundsForLayer,
   dispatchStateOp,
 } from "#foliplus/LayerControl/ui/apply.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
@@ -835,6 +836,26 @@ describe("executor: carrier dispatch", () => {
     setIntent(ui, "tile", "opacity", 0.25);
     applyProjection(ui, "tile");
     expect((layer.options as { opacity?: number }).opacity).toBe(0.2);
+  });
+
+  it("memoizeLayer skips caching for a null layer — a later call with the same id still reads fresh", () => {
+    // The zoom-bounds memo is keyed by layer identity. A layer id that the
+    // registry doesn't know about (or a layer that hasn't materialized yet)
+    // means `ui.c.layerRegistry.get(id)?.layer` is undefined and the memo
+    // takes its null-layer branch: no cache entry, no cache lookup. Every
+    // call falls through to the read closure, so the map's live min/max is
+    // consulted each time — the correct answer for a not-yet-registered
+    // layer, whose author bounds could still arrive.
+    const { ui } = boot([]);
+    const first = authorZoomBoundsForLayer(ui, "ghost");
+    expect(first).toEqual([0, 18]);
+
+    // A later call re-reads the map, not a cached value from the first call.
+    // We verify this by advancing the map's maxZoom and seeing the new value
+    // — a cached result would still report 18.
+    (ui as any).c.map.getMaxZoom = vi.fn(() => 20);
+    const second = authorZoomBoundsForLayer(ui, "ghost");
+    expect(second).toEqual([0, 20]);
   });
 
   it("zoomRange does not write to layer options (visibility-only resolution)", () => {
