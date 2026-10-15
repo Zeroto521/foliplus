@@ -1296,6 +1296,77 @@ describe("LayerUI focus", () => {
         expect(matched[0]).toBe(otherPane);
       });
     });
+
+    // ── hideOtherLayers marks the active basemap ──
+    // The CSS contract tests above prove which panes the hide rule matches;
+    // these prove the JS side actually stamps `.foliplus-focus-basemap` on
+    // the right panes. `hideOtherLayers` runs inside `focusLayer`, so the
+    // tests drive it through the public entry (no direct export).
+
+    describe("hideOtherLayers marks only the active basemap", () => {
+      const registerBase = (id: string): void => {
+        manager.registerLayer({
+          id,
+          name: id,
+          group: "base",
+          layer: { options: {} },
+          paneName: `${id}Pane`,
+        });
+        manager.enforceOrder();
+      };
+      const basePanes = (id: string) => {
+        const li = manager.layerRegistry.get(id)!;
+        return ui.c.surfaceFor(li)!.panes;
+      };
+
+      it("marks the topmost effectiveShown base pane and skips a hidden base", () => {
+        registerBase("base2");
+        seedIntentMap(ui, "visible", { base2: false }); // user-hidden base
+
+        ui.focusLayer("overlay1");
+
+        // base1 (effectiveShown) is the topmost visible base → marked.
+        for (const pane of basePanes("base1")) {
+          expect(pane.element.classList.contains(CONST.CLASSES.FOCUS_BASEMAP)).toBe(
+            true,
+          );
+        }
+        // base2 (effectiveShown=false) is not marked — it hides like a data
+        // layer instead of staying visible under the dim.
+        for (const pane of basePanes("base2")) {
+          expect(pane.element.classList.contains(CONST.CLASSES.FOCUS_BASEMAP)).toBe(
+            false,
+          );
+        }
+
+        // The restore was queued; canceling focus clears the marking.
+        expect(ui.focusController.focusedPaneRestores.length).toBeGreaterThan(0);
+        ui.cancelFocus();
+        for (const pane of basePanes("base1")) {
+          expect(pane.element.classList.contains(CONST.CLASSES.FOCUS_BASEMAP)).toBe(
+            false,
+          );
+        }
+      });
+
+      it("marks only the topmost of two effectiveShown base layers", () => {
+        registerBase("base2"); // base2 visible like base1
+
+        ui.focusLayer("overlay1");
+
+        // base2 registered after base1 → topmost base → the active basemap.
+        for (const pane of basePanes("base2")) {
+          expect(pane.element.classList.contains(CONST.CLASSES.FOCUS_BASEMAP)).toBe(
+            true,
+          );
+        }
+        for (const pane of basePanes("base1")) {
+          expect(pane.element.classList.contains(CONST.CLASSES.FOCUS_BASEMAP)).toBe(
+            false,
+          );
+        }
+      });
+    });
   });
 
   // ─────────────────── overflow menu ───────────────────

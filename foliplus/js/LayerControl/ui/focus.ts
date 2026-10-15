@@ -315,8 +315,12 @@ const hideOtherLayers = (ui: LayerUI): void => {
   // so it stays visible and is dimmed. Other base panes are hidden like
   // data layers. Restore functions are stored in focusedPaneRestores so
   // dismissFocus clears the marking.
+  //
+  // The registry order is topmost-first: `zFor` prices a layer at
+  // `base + (count - index) * step`, so a smaller index sits higher in the
+  // stack. Iterating forward finds the topmost base first.
   const layers = ui.c.layers;
-  for (let i = layers.length - 1; i >= 0; i--) {
+  for (let i = 0; i < layers.length; i++) {
     const li = layers[i];
     if (li.group !== GROUP.BASE) continue;
     const proj = projectLayer(ui, li);
@@ -453,7 +457,7 @@ const bringFocusedLayerToFront = (ui: LayerUI, layerInfo: LayerInfo): void => {
   } else if (layerInfo.canvas) {
     lift(layerInfo.canvas);
   }
-  ui.focusController.focusedPaneRestores = restores;
+  ui.focusController.focusedPaneRestores.push(...restores);
 };
 
 /** Remove the container class that hides every non-focused layer. */
