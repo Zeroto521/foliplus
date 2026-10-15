@@ -9,12 +9,23 @@
       // Focus the path to trigger the marquee
       path.setAttribute("tabindex", "-1");
       path.focus();
-      // Wait for marquee to appear
+      // Wait for marquee to appear (5s safety — a class-name regression
+      // would hang this loop forever without it, stalling CI for hours).
+      let marqueeDone = false;
       const waitMarquee = () => {
-        if (document.querySelector("path.foliplus-focus-marquee"))
+        if (marqueeDone) return;
+        if (document.querySelector("path.foliplus-focus-marquee")) {
+          marqueeDone = true;
           return collectState();
+        }
         setTimeout(waitMarquee, 50);
       };
+      setTimeout(() => {
+        if (!marqueeDone) {
+          marqueeDone = true;
+          resolve({ error: "marquee never appeared within 5s" });
+        }
+      }, 5000);
       waitMarquee();
     };
     const collectState = () => {
