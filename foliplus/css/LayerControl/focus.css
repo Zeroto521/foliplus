@@ -17,7 +17,8 @@
 }
 
 /* Geometry focus: kill the UA ring (black on Windows / system blue on macOS).
-   The selection signal is the marching-ants bbox (see .foliplus-focus-rect),
+   The selection signal is the marching-ants bbox (.foliplus-focus-marquee for
+   geometry focus, .foliplus-focus-rect for the LayerControl focus overlay),
    not a restyle of the geometry stroke — a dashed stroke would fight line data. */
 .leaflet-interactive:focus,
 .leaflet-interactive:focus-visible {
@@ -25,8 +26,12 @@
 }
 
 /* Focus bounds marquee: accent marching ants + soft glow. Used by LayerControl's
-   focusLayer rect and by the geometry-focus bbox (rect element). */
-.foliplus-focus-rect {
+   focusLayer rect (.foliplus-focus-rect) and by the geometry-focus bbox
+   (.foliplus-focus-marquee). The class names MUST stay distinct — clearMarquees
+   does a document-wide querySelectorAll, so a shared name would let the marquee
+   teardown delete the focus overlay's rect. */
+.foliplus-focus-rect,
+.foliplus-focus-marquee {
   fill: none;
   stroke: var(--foliplus-accent-primary);
   stroke-dasharray: var(--foliplus-dash-rhythm);
@@ -88,7 +93,8 @@ path.foliplus-focus-mask {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .foliplus-focus-rect {
+  .foliplus-focus-rect,
+  .foliplus-focus-marquee {
     animation: none;
   }
   path.foliplus-focus-mask {

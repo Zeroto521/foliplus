@@ -1,7 +1,12 @@
 // Marching-ants bbox on geometry focus.
 // A focused map path must not restyle its own stroke (lines would go dashed);
 // draw a bounds marquee with the same look as the LayerControl focus rect
-// instead: class `foliplus-focus-rect` on an SVG path sized to the path bbox.
+// instead: class `foliplus-focus-marquee` on an SVG path sized to the path bbox.
+//
+// NOTE: the class name MUST be distinct from `foliplus-focus-rect` (used by
+// focus.ts for the focus overlay rectangle). Sharing the name would let
+// clearMarquees's document-wide querySelectorAll remove the focus overlay's
+// rect on every marquee redraw — a moveend-triggered silent DOM theft.
 //
 // The marquee rides in the geometry's own group (the renderer's root group,
 // not the SVG root) so Leaflet's viewBox transform carries it across the map
@@ -14,7 +19,7 @@ import { type RectCorners, roundedRectOutline } from "#common/marqueeShape.js";
 
 const MARQUEE_PAD = 4;
 const NS = "http://www.w3.org/2000/svg";
-const MARQUEE_SEL = "path.foliplus-focus-rect";
+const MARQUEE_SEL = "path.foliplus-focus-marquee";
 
 const clearMarquees = (root: ParentNode = document): void => {
   root.querySelectorAll(MARQUEE_SEL).forEach(n => n.remove());
@@ -41,7 +46,7 @@ const drawMarquee = (geometry: SVGGraphicsElement | null): void => {
     { u: box.x - MARQUEE_PAD, v: box.y + box.height + MARQUEE_PAD },
   ];
   const el = document.createElementNS(NS, "path");
-  el.setAttribute("class", "foliplus-focus-rect");
+  el.setAttribute("class", "foliplus-focus-marquee");
   el.setAttribute("d", outlineToPath(roundedRectOutline(corners)));
   // Sit above the geometry so the marquee reads as a selection frame.
   host.appendChild(el);
