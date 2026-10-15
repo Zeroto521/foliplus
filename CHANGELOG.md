@@ -17,7 +17,7 @@
 - `LayerControl`: marker shadows now stay below their icons after a zoom-triggered re-pin, instead of flipping above and covering the icon ([#674](https://github.com/Zeroto521/foliplus/pull/674))
 - `LayerControl`: basemaps stay visible while a layer is focused — they fade instead of disappearing, so the map's grey background no longer shows through ([#675](https://github.com/Zeroto521/foliplus/pull/675))
 - `LayerControl`: layers registered before their map object arrives now resolve on `layeradd`, so the fill swatch and layer-kind logic see the real layer instead of a fallback ([#679](https://github.com/Zeroto521/foliplus/pull/679))
-- `LayerControl`: rapid successive `focusLayer` calls no longer leave an orphan mask (rect gone, mask stuck) — the geometry-focus marquee used the same CSS class as the focus overlay rect, so its `clearMarquees` document-wide sweep deleted the focus rect on every `moveend` ([#680](https://github.com/Zeroto521/foliplus/pull/680))
+- `LayerControl`: rapid focus switches no longer leave an orphan mask — the geometry-focus marquee now uses its own class, so its cleanup no longer deletes the focus rect ([#680](https://github.com/Zeroto521/foliplus/pull/680))
 
 ## [v0.4.0] (2026-10-10)
 
