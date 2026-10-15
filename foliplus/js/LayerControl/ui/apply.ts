@@ -42,22 +42,48 @@ type StateOp =
   | { type: "opacity"; value: number | undefined }
   | { type: "zoomRange"; value: [number, number] | null };
 
+/** Lazy-cached per-layer read for the multiplier-write family: freeze an
+ *  author-declared value on first access, never re-read.
+ *
+ *  Shared by `authorOpacityBaseOf` and `authorZoomBoundsOf` below. Both
+ *  freeze on first write and never re-read (the slider is a multiplier /
+ *  bounds overlay on the author's declared value), but their read closures
+ *  differ — opacity reads `options.opacity` and defaults to 1, while zoom
+ *  bounds also folds in `map.getMinZoom/MaxZoom` and cannot collapse to a
+ *  single constant fallback. What they share is the lazy-capture skeleton
+ *  itself: one `WeakMap<L.Layer, T>` container, one key (`layer`), one
+ *  closure (`read`). Keeping the skeleton in one place makes the two
+ *  readers' cache discipline identical, so a new multiplier family adds a
+ *  cache + closure, not another copy of the fetch-or-compute dance.
+ *
+ *  Uses `!== undefined` (not truthy) for the cache-hit test so a valid
+ *  zero-valued opacity base is returned, not re-read. A null/undefined
+ *  layer (a layer that hasn't materialized yet) writes no cache entry,
+ *  so a later call with a live layer starts fresh. */
+const memoizeLayer = <T>(
+  cache: WeakMap<L.Layer, T>,
+  layer: L.Layer | null | undefined,
+  read: () => T,
+): T => {
+  const hit = layer ? cache.get(layer) : undefined;
+  if (hit !== undefined) return hit;
+  const value = read();
+  if (layer) cache.set(layer, value);
+  return value;
+};
+
 /** Cache the layer's original `options.opacity` so repeated slider drags
  *  don't compound. The base is captured on first write and never re-read;
  *  the slider value is a multiplier over the author's declared default. */
 const authorOpacityBase = new WeakMap<L.Layer, number>();
 
-const authorOpacityBaseOf = (layer: L.Layer): number => {
-  let base = authorOpacityBase.get(layer);
-  if (base === undefined) {
+const authorOpacityBaseOf = (layer: L.Layer): number =>
+  memoizeLayer(authorOpacityBase, layer, () => {
     // A Leaflet layer always has `options` — PaneManager already walks
     // `options.pane` for every layer before we get here.
     const opts = layer.options as L.LayerOptions & { opacity?: number };
-    base = typeof opts.opacity === "number" ? opts.opacity : 1;
-    authorOpacityBase.set(layer, base);
-  }
-  return base;
-};
+    return typeof opts.opacity === "number" ? opts.opacity : 1;
+  });
 
 /** The layer's own author-declared min/max, frozen on first write.
  *

@@ -15,8 +15,9 @@
 //
 // A node with `setStyle` alone is not a carrier (L.GeoJSON owns one too),
 // so walks below descend `eachLayer` first and treat a setter as a leaf.
-import { walkLeaf } from "#core/layer/walkLeaf.js";
+import { findLeaf, walkLeaf } from "#core/layer/walkLeaf.js";
 import { throttleRaf } from "#common/throttle.js";
+import type { LayerUI } from "../surface.js";
 
 /** The author's full vector style bag. Every field is always populated on
  *  capture — nothing downstream can tell "the author declared nothing"
@@ -114,6 +115,60 @@ const captureStyleBag = (node: StyleCarrier): StyleBag => {
  *  written. Reset must not invent a style for an untouched leaf. */
 const styleBagOf = (node: StyleCarrier): StyleBag | undefined =>
   authorStyleBase.get(node);
+
+/** The first leaf that carries a real `setStyle` — the row's initial value
+ *  is read from it, so a swatch or a number field never shows a value the
+ *  layer is not actually painting.
+ *
+ *  Groups are always descended, never returned. L.GeoJSON defines `setStyle`
+ *  itself — it fans the style out to its features — so a setter-only check
+ *  stops at the group and reads its own options, which hold only the style
+ *  function: the panel then shows Leaflet's defaults instead of the author's
+ *  stroke, which is the stroke the layer is actually painting. */
+const firstStyleLeaf = (node: StyleCarrier): StyleSetter | null =>
+  findLeaf<StyleSetter>(node, leaf => (isStyleSetter(leaf) ? leaf : undefined)) ?? null;
+
+/**
+ * Coverage-write family reader — the single shared source for the "author's
+ * declared style" of a vector layer, before any user write has mutated it.
+ * All three existing readers (fill color, fill opacity, border color/weight)
+ * walk the same path: `findLayer` → first style leaf → captured bag if any,
+ * else live options, else the dimension's own default. `bag ?? options ??
+ * default` is the priority everywhere so the panel shows the author's paint,
+ * not the last user drag that mutates `options` in place.
+ *
+ * `fillOpacity` stays nullable: a layer that declares no fill opacity means
+ * "the row shows what the layer is actually painting," which is
+ * `VISIBLE_FILL_OPACITY` at the row layer, not `STYLE_BAG_DEFAULTS.fillOpacity`
+ * (that constant is the bag's capture-time floor, not the display floor).
+ *
+ * Called through `ui.c.findLayer`, not `layerRegistry.get(id).layer` —
+ * folium registers its layers before its map object is available, so the
+ * registry's own reference can be stale for a just-attached control; the
+ * controller's `findLayer` re-resolves against the live map. Same
+ * late-binding defense used by `applyBorderToLayer` and
+ * `FILL_DIMENSION.reset`.
+ */
+const styleBaseOf = (
+  ui: LayerUI,
+  layerId: string,
+): {
+  fillColor: string;
+  fillOpacity: number | null;
+  color: string;
+  weight: number;
+} => {
+  const layer = ui.c.findLayer(layerId) as StyleCarrier | null;
+  const carrier = layer ? firstStyleLeaf(layer) : null;
+  const bag = carrier ? styleBagOf(carrier) : undefined;
+  const opts = (carrier?.options ?? {}) as Partial<StyleBag>;
+  return {
+    fillColor: bag?.fillColor ?? opts.fillColor ?? STYLE_BAG_DEFAULTS.fillColor,
+    fillOpacity: bag?.fillOpacity ?? opts.fillOpacity ?? null,
+    color: bag?.color ?? opts.color ?? STYLE_BAG_DEFAULTS.color,
+    weight: bag?.weight ?? opts.weight ?? STYLE_BAG_DEFAULTS.weight,
+  };
+};
 
 /** Build a write payload from the user's value keys, always lighting the
  *  face's visibility bit. Omit a value key to leave the author's default
@@ -252,6 +307,7 @@ export {
   restoreStyleDim,
   scheduleStyleDimApply,
   styleBagOf,
+  styleBaseOf,
   styleDimPayload,
   walkStyleLeaves,
 };

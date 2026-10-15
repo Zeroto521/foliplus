@@ -49,6 +49,7 @@ import {
   flushStyleDimApply,
   restoreStyleDim,
   scheduleStyleDimApply,
+  styleBaseOf,
   styleDimPayload,
   walkStyleLeaves,
 } from "./styleBag.js";
@@ -93,18 +94,6 @@ const layerCanFill = (ui: LayerUI, layerId: string): boolean => {
   return ui.c.surfaceFor(layerInfo).capabilities.fill === CAP_TIER.NATIVE;
 };
 
-/** The layer's authored base style, captured on the layer's first fill
- *  write and never re-read. Same recipe as `authorOpacityBase` in
- *  ui/apply.ts: the slider is a multiplier over the author's value, so the
- *  base is read once at first write and the value in front of us on the
- *  next write is the *last write*, not the author's.
-/** Leaflet's own default `fillColor` for vector paths, and the swatch's last
- *  resort when no leaf exposes an authored color. folium's default style
- *  function always populates `options.fillColor` (it translates
- *  `__folium_color` through `feature.properties.style`), so this only fires
- *  for bare Leaflet layers with no style function at all. */
-const LEAFLET_DEFAULT_FILL = "#3388ff";
-
 /** Normalize a color for `<input type=color>`, which only accepts hex.
  *  3-digit hex passes through `normalizeHexColor`; named and functional
  *  colors (folium's `fillColor: "gray"`) are resolved by the browser —
@@ -121,37 +110,18 @@ const toHexColor = (value: string): string => {
 };
 
 /** The layer's authored fill color — the first style leaf's `options.fillColor`,
- *  or Leaflet's default when nothing is declared. Mirrors the border row's
- *  `authoredBorder`: the swatch shows what the layer is actually painting on
- *  first open, not a constant. */
-const authoredFillColor = (ui: LayerUI, layerId: string): string => {
-  const layerInfo = ui.c.layerRegistry.get(layerId);
-  const layer = layerInfo?.layer as StyleCarrier | null;
-  if (!layer) return LEAFLET_DEFAULT_FILL;
-  let authored: string | null = null;
-  walkStyleLeaves(layer, leaf => {
-    if (authored === null && leaf.options?.fillColor != null) {
-      authored = leaf.options.fillColor;
-    }
-  });
-  return authored ?? LEAFLET_DEFAULT_FILL;
-};
+ *  or Leaflet's default when nothing is declared. The swatch shows what the
+ *  layer is actually painting on first open, not a constant. Delegates to
+ *  `styleBaseOf` so the fill and border rows share one reader. */
+const authoredFillColor = (ui: LayerUI, layerId: string): string =>
+  styleBaseOf(ui, layerId).fillColor;
 
 /** The layer's authored fill opacity — the first style leaf's
  *  `options.fillOpacity`, or null when no leaf declares one. Mirrors
- *  `authoredFillColor`: the row shows what the layer is actually painting. */
-const authoredFillOpacity = (ui: LayerUI, layerId: string): number | null => {
-  const layerInfo = ui.c.layerRegistry.get(layerId);
-  const layer = layerInfo?.layer as StyleCarrier | null;
-  if (!layer) return null;
-  let authored: number | null = null;
-  walkStyleLeaves(layer, leaf => {
-    if (authored === null && typeof leaf.options?.fillOpacity === "number") {
-      authored = leaf.options.fillOpacity;
-    }
-  });
-  return authored;
-};
+ *  `authoredFillColor`; the row layer falls back to
+ *  `VISIBLE_FILL_OPACITY` for the display. */
+const authoredFillOpacity = (ui: LayerUI, layerId: string): number | null =>
+  styleBaseOf(ui, layerId).fillOpacity;
 
 /** A visible `fillOpacity` used to *display* the row's opacity input when
  *  neither a stored override nor an authored value exists. 0.2 matches

@@ -159,6 +159,35 @@ describe("LayerInfoRegistry", () => {
       expect(info.layer).toBe(layer);
       expect(info.carrier.layer).toBe(layer);
     });
+
+    it("snapshots the layer's declared options.opacity when no caller value", () => {
+      // folium's TileLayer(opacity=0.7) sets `options.opacity` on the Leaflet
+      // layer but never surfaces it through RegisterLayerOpts — a bare `?? 1`
+      // snapshot would print 100% in the panel while the map rendered 70%.
+      const layer = { options: { opacity: 0.7 } } as unknown as L.Layer;
+      const info = registry.createLayerInfo({ id: "tiles", layer });
+      expect(info.opacity).toBe(0.7);
+    });
+
+    it("prefers opts.opacity over layer.options.opacity on re-registration", () => {
+      // The caller's explicit value always wins — a user drag must not be
+      // re-clobbered by the author's declaration on a silent refresh.
+      const layer = { options: { opacity: 0.7 } } as unknown as L.Layer;
+      const info = registry.createLayerInfo({ id: "tiles", opacity: 0.5, layer });
+      expect(info.opacity).toBe(0.5);
+    });
+
+    it("falls back to 1 when the layer has no numeric options.opacity", () => {
+      const layer = { options: {} } as unknown as L.Layer;
+      const info = registry.createLayerInfo({ id: "bare", layer });
+      expect(info.opacity).toBe(1);
+    });
+
+    it("falls back to 1 when layer is null (canvas/color/custom shapes)", () => {
+      const canvas = {} as HTMLCanvasElement;
+      const info = registry.createLayerInfo({ id: "heat", canvas });
+      expect(info.opacity).toBe(1);
+    });
   });
 
   describe("upsert", () => {

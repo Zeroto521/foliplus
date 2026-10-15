@@ -7,6 +7,7 @@ import {
   faceSlice,
   restoreStyleDim,
   styleBagOf,
+  styleBaseOf,
   styleDimPayload,
 } from "#foliplus/LayerControl/ui/style/styleBag.js";
 
@@ -147,6 +148,87 @@ describe("faceSlice", () => {
       fillColor: "#222222",
       fillOpacity: 0.3,
       fill: true,
+    });
+  });
+});
+
+describe("styleBaseOf", () => {
+  // Minimal LayerUI mock: styleBaseOf only touches ui.c.findLayer.
+  const mockUi = (layer: unknown) => ({ c: { findLayer: () => layer } }) as any;
+
+  it("reads the first style leaf's options before any capture", () => {
+    const leaf = makeLeaf({
+      color: "#111111",
+      weight: 3,
+      fillColor: "#222222",
+      fillOpacity: 0.4,
+    });
+    expect(styleBaseOf(mockUi(leaf), "vec1")).toEqual({
+      color: "#111111",
+      weight: 3,
+      fillColor: "#222222",
+      fillOpacity: 0.4,
+    });
+  });
+
+  it("prefers the captured bag over live options after a user write", () => {
+    const leaf = makeLeaf({ color: "#111111", fillColor: "#222222" });
+    // A user write captures the authored bag first, then mutates options.
+    commitStyleDim(leaf, { color: "#ff0000" }, FACE.STROKE);
+    expect(leaf.options.color).toBe("#ff0000"); // live options are polluted
+    expect(styleBaseOf(mockUi(leaf), "vec1").color).toBe("#111111");
+    // The fill face was never written — still read live from options.
+    expect(styleBaseOf(mockUi(leaf), "vec1").fillColor).toBe("#222222");
+  });
+
+  it("returns Leaflet defaults for a layer that declares no style", () => {
+    const leaf = makeLeaf();
+    const base = styleBaseOf(mockUi(leaf), "vec1");
+    expect(base.color).toBe(STYLE_BAG_DEFAULTS.color);
+    expect(base.weight).toBe(STYLE_BAG_DEFAULTS.weight);
+    expect(base.fillColor).toBe(STYLE_BAG_DEFAULTS.fillColor);
+    // fillOpacity stays nullable — the row layer's display falls back to
+    // VISIBLE_FILL_OPACITY, not the bag's capture-time floor.
+    expect(base.fillOpacity).toBeNull();
+  });
+
+  it("returns Leaflet defaults when the layer is null (late-binding miss)", () => {
+    const base = styleBaseOf(mockUi(null), "ghost1");
+    expect(base.color).toBe(STYLE_BAG_DEFAULTS.color);
+    expect(base.weight).toBe(STYLE_BAG_DEFAULTS.weight);
+    expect(base.fillColor).toBe(STYLE_BAG_DEFAULTS.fillColor);
+    expect(base.fillOpacity).toBeNull();
+  });
+
+  it("descends through a group to read the first leaf's style", () => {
+    const leaf = makeLeaf({ color: "#0000ff", weight: 1.5 });
+    const group: any = {
+      options: {},
+      eachLayer: vi.fn((fn: (child: unknown) => void) => fn(leaf)),
+    };
+    expect(styleBaseOf(mockUi(group), "grp1")).toMatchObject({
+      color: "#0000ff",
+      weight: 1.5,
+    });
+  });
+
+  it("fill and border consumers share one reader — same output shape", () => {
+    // The whole point of this helper is that `authoredFillColor`,
+    // `authoredFillOpacity`, and `authoredBorder` all read from the same
+    // call site. Assert that a single styleBaseOf call gives both faces
+    // consistent values, so neither row can drift from the other.
+    const leaf = makeLeaf({
+      color: "#aabbcc",
+      weight: 2,
+      fillColor: "#ddeeff",
+      fillOpacity: 0.3,
+    });
+    const base = styleBaseOf(mockUi(leaf), "vec1");
+    expect(base).toEqual({
+      color: "#aabbcc",
+      weight: 2,
+      fillColor: "#ddeeff",
+      fillOpacity: 0.3,
     });
   });
 });

@@ -805,6 +805,38 @@ describe("executor: carrier dispatch", () => {
     expect((layer.options as { opacity?: number }).opacity).toBe(0.4);
   });
 
+  it("freezes the opacity base on the first write; later slider drags never re-read the mutated options", () => {
+    // memoizeLayer idempotency contract: the base is captured once from
+    // `options.opacity` at first access and never re-read. `dispatchStateOp`
+    // writes the multiplied value back to `options.opacity`, so a second call
+    // that re-read options.opacity would compound (0.8 → 0.4 → 0.24). The
+    // frozen skeleton keeps it at 0.8 * slider — the second drag lands at
+    // 0.8 * 0.6 = 0.48, not the ratcheted 0.24.
+    const layer = { options: { opacity: 0.8 } } as L.Layer;
+    const { ui, manager } = boot([
+      { id: "tile", name: "Tile", group: "overlay", layer },
+    ]);
+    vi.spyOn(manager, "surfaceFor").mockReturnValue({
+      capabilities: { opacity: "native", zoomRange: "native" },
+      paneNames: [],
+      geometryType: () => "polygon",
+    } as unknown as ReturnType<typeof manager.surfaceFor>);
+
+    setIntent(ui, "tile", "opacity", 0.5);
+    ui.intentStore.seedProvenance("tile", ["opacity"]);
+    applyProjection(ui, "tile");
+    expect((layer.options as { opacity?: number }).opacity).toBe(0.4);
+
+    setIntent(ui, "tile", "opacity", 0.6);
+    applyProjection(ui, "tile");
+    expect((layer.options as { opacity?: number }).opacity).toBe(0.48);
+
+    // Third drag — the base is still 0.8, not the previous 0.48.
+    setIntent(ui, "tile", "opacity", 0.25);
+    applyProjection(ui, "tile");
+    expect((layer.options as { opacity?: number }).opacity).toBe(0.2);
+  });
+
   it("zoomRange does not write to layer options (visibility-only resolution)", () => {
     // Writing `options.minZoom/maxZoom` pollutes `map.getMaxZoom()` —
     // Leaflet derives map zoom from layer options, so the +/- controls

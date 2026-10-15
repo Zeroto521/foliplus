@@ -109,6 +109,20 @@ class LayerInfoRegistry {
     const canvas = opts.canvas ?? existingLi?.canvas ?? null;
     const color = opts.color ?? existingLi?.color ?? null;
     const custom = opts.custom ?? existingLi?.carrier?.custom;
+    // Author-declared base: folium's `TileLayer(opacity=0.7)` lands on
+    // `layer.options.opacity` without surfacing as `opts.opacity`, so a bare
+    // `?? 1` snapshot would print 100% in the panel while the map renders
+    // 70%. Same read as `authorOpacityBaseOf` (LayerControl/ui/apply.ts),
+    // but a different capture discipline — that one is a per-layer WeakMap
+    // frozen on first write, this one is a one-shot snapshot at registration;
+    // they share only the read site, not the caching strategy. `opacity` is
+    // not on the base `L.LayerOptions` type (it lives on GridLayer /
+    // TileLayer / ImageOverlay), so the cast matches the apply.ts read.
+    const authorOpts = layer?.options as { opacity?: unknown } | undefined;
+    const authorOpacity =
+      opts.opacity ??
+      existingLi?.opacity ??
+      (typeof authorOpts?.opacity === "number" ? authorOpts.opacity : 1);
     return {
       // A re-registration's caller name is the provider's own metadata, which
       // resets `name` and would clobber a user rename on the next render or
@@ -117,7 +131,7 @@ class LayerInfoRegistry {
       // source of truth for what the user last saw).
       name: existingLi ? existingLi.name : (opts.name ?? opts.id),
       id: opts.id,
-      opacity: opts.opacity ?? existingLi?.opacity ?? 1,
+      opacity: authorOpacity,
       onOpacity: opts.onOpacity ?? existingLi?.onOpacity ?? null,
       opacityBake: opts.opacityBake ?? existingLi?.opacityBake ?? "redraw",
       group: opts.group ?? existingLi?.group ?? GROUP.OVERLAY,
