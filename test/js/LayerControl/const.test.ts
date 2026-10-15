@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { GEOM_TYPE, GROUP, RECURSION, Z_INDEX } from "#foliplus/core/layer/const.js";
@@ -130,6 +132,22 @@ describe("FOCUS", () => {
     expect(CONST.FOCUS.MASK_OPACITY).toBe(0.4);
   });
 
+  it("MASK_OPACITY matches the CSS token --foliplus-export-dim-color", () => {
+    // The two values must stay in sync — both dim selection boxes alike.
+    // This is a gate, not a comment: if someone changes one and forgets
+    // the other, this test goes red.
+    const ROOT = resolve(__dirname, "../../..");
+    const tokenCss = readFileSync(
+      resolve(ROOT, "foliplus/css/common/token.css"),
+      "utf-8",
+    );
+    const match = tokenCss.match(
+      /--foliplus-export-dim-color:\s*rgba\(\s*0\s*,\s*0\s*,\s*0\s*,\s*([\d.]+)\s*\)/,
+    );
+    expect(match).not.toBeNull();
+    expect(parseFloat(match![1])).toBe(CONST.FOCUS.MASK_OPACITY);
+  });
+
   it("defines the focus overlay pane z-index", () => {
     expect(CONST.FOCUS.PANE_Z).toBe(9000);
   });
@@ -156,10 +174,18 @@ describe("CLASSES opacity controls", () => {
   });
 });
 
-describe("CLASSES.FOCUS_ACTIVE / FOCUS_PANE / FOCUS_GLOW", () => {
+describe("CLASSES.FOCUS_ACTIVE / FOCUS_PANE / FOCUS_GLOW / FOCUS_BASEMAP / BASE_PANE", () => {
   it("defines the container + focused-pane classes for declarative hiding", () => {
     expect(CONST.CLASSES.FOCUS_ACTIVE).toBe("foliplus-is-focus-mode");
     expect(CONST.CLASSES.FOCUS_PANE).toBe("foliplus-focus-pane");
     expect(CONST.CLASSES.FOCUS_GLOW).toBe("foliplus-focus-glow");
+  });
+
+  it("defines the focus-basemap class for active basemap visibility under focus", () => {
+    expect(CONST.CLASSES.FOCUS_BASEMAP).toBe("foliplus-focus-basemap");
+  });
+
+  it("defines the base-pane class for static group tagging", () => {
+    expect(CONST.CLASSES.BASE_PANE).toBe("foliplus-base-pane");
   });
 });

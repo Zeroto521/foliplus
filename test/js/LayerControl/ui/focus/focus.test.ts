@@ -1193,6 +1193,198 @@ describe("LayerUI focus", () => {
       ui.cancelFocus();
       expect(canvas.style.zIndex).toBe("5");
     });
+
+    // ── CSS selector contract for the declarative hide rule ──
+    // `hideOtherLayers` adds `foliplus-is-focus-mode` to the container and
+    // trusts the CSS in `focus.css` to do the visibility bookkeeping. These
+    // tests pin that CSS contract against jsdom's real selector engine —
+    // the active basemap and the focused layer's pane are excluded, every
+    // other `foliplus-layer-pane` is matched. The Python-side companion test
+    // only greps the CSS source for the two `:not()` exclusions; this one
+    // proves the rule *behaves* the way it reads.
+
+    describe("focus-mode hide rule (CSS selector contract)", () => {
+      const HIDE_RULE =
+        ".foliplus-is-focus-mode .foliplus-layer-pane:not(.foliplus-focus-pane):not(.foliplus-focus-basemap)";
+      const makeContainer = (focusMode: boolean): HTMLElement => {
+        const el = document.createElement("div");
+        el.classList.add("leaflet-container");
+        if (focusMode) el.classList.add("foliplus-is-focus-mode");
+        return el;
+      };
+      const makePane = (extraClasses: string[]): HTMLElement => {
+        const el = document.createElement("div");
+        el.classList.add("foliplus-layer-pane");
+        for (const cls of extraClasses) el.classList.add(cls);
+        return el;
+      };
+
+      afterEach(() => {
+        document.body.innerHTML = "";
+      });
+
+      it("matches an ordinary overlay pane when focus is active", () => {
+        const container = makeContainer(true);
+        const pane = makePane([]);
+        container.appendChild(pane);
+        document.body.appendChild(container);
+
+        expect(document.querySelectorAll(HIDE_RULE)).toContain(pane);
+      });
+
+      it("does not match the active basemap pane", () => {
+        const container = makeContainer(true);
+        const basePane = makePane(["foliplus-focus-basemap"]);
+        container.appendChild(basePane);
+        document.body.appendChild(container);
+
+        expect(document.querySelectorAll(HIDE_RULE)).not.toContain(basePane);
+      });
+
+      it("does not match the focused layer's own pane", () => {
+        const container = makeContainer(true);
+        const focusedPane = makePane(["foliplus-focus-pane"]);
+        container.appendChild(focusedPane);
+        document.body.appendChild(container);
+
+        expect(document.querySelectorAll(HIDE_RULE)).not.toContain(focusedPane);
+      });
+
+      it("does not match a pane that carries both exclusions (defensive: a basemap that is also the focused layer)", () => {
+        const container = makeContainer(true);
+        const both = makePane(["foliplus-focus-pane", "foliplus-focus-basemap"]);
+        container.appendChild(both);
+        document.body.appendChild(container);
+
+        expect(document.querySelectorAll(HIDE_RULE)).not.toContain(both);
+      });
+
+      it("matches a non-active base pane (a base layer that is not the topmost effectiveShown)", () => {
+        const container = makeContainer(true);
+        const basePane = makePane(["foliplus-base-pane"]);
+        container.appendChild(basePane);
+        document.body.appendChild(container);
+
+        expect(document.querySelectorAll(HIDE_RULE)).toContain(basePane);
+      });
+
+      it("does not match any pane when focus is not active (the outer class is the gate)", () => {
+        const container = makeContainer(false);
+        const base = makePane(["foliplus-focus-basemap"]);
+        const focused = makePane(["foliplus-focus-pane"]);
+        const other = makePane([]);
+        container.appendChild(base);
+        container.appendChild(focused);
+        container.appendChild(other);
+        document.body.appendChild(container);
+
+        expect(document.querySelectorAll(HIDE_RULE).length).toBe(0);
+      });
+
+      it("matches only the unmarked panes when a mix of pane types is present under focus", () => {
+        const container = makeContainer(true);
+        const basePane = makePane(["foliplus-focus-basemap"]);
+        const focusPane = makePane(["foliplus-focus-pane"]);
+        const otherPane = makePane([]);
+        container.appendChild(basePane);
+        container.appendChild(focusPane);
+        container.appendChild(otherPane);
+        document.body.appendChild(container);
+
+        const matched = Array.from(document.querySelectorAll(HIDE_RULE));
+        expect(matched).toHaveLength(1);
+        expect(matched[0]).toBe(otherPane);
+      });
+    });
+
+    // ── hideOtherLayers marks the active basemap ──
+    // The CSS contract tests above prove which panes the hide rule matches;
+    // these prove the JS side actually stamps `.foliplus-focus-basemap` on
+    // the right panes. `hideOtherLayers` runs inside `focusLayer`, so the
+    // tests drive it through the public entry (no direct export).
+
+    describe("hideOtherLayers marks only the active basemap", () => {
+      const registerBase = (id: string): void => {
+        manager.registerLayer({
+          id,
+          name: id,
+          group: "base",
+          layer: { options: {} },
+          paneName: `${id}Pane`,
+        });
+        manager.enforceOrder();
+      };
+      const basePanes = (id: string) => {
+        const li = manager.layerRegistry.get(id)!;
+        return ui.c.surfaceFor(li)!.panes;
+      };
+
+      it("marks the topmost effectiveShown base pane and skips a hidden base", () => {
+        registerBase("base2");
+        seedIntentMap(ui, "visible", { base2: false }); // user-hidden base
+
+        ui.focusLayer("overlay1");
+
+        // base1 (effectiveShown) is the topmost visible base → marked.
+        for (const pane of basePanes("base1")) {
+          expect(pane.element.classList.contains(CONST.CLASSES.FOCUS_BASEMAP)).toBe(
+            true,
+          );
+        }
+        // base2 (effectiveShown=false) is not marked — it hides like a data
+        // layer instead of staying visible under the dim.
+        for (const pane of basePanes("base2")) {
+          expect(pane.element.classList.contains(CONST.CLASSES.FOCUS_BASEMAP)).toBe(
+            false,
+          );
+        }
+
+        // The restore was queued; canceling focus clears the marking.
+        expect(ui.focusController.focusedPaneRestores.length).toBeGreaterThan(0);
+        ui.cancelFocus();
+        for (const pane of basePanes("base1")) {
+          expect(pane.element.classList.contains(CONST.CLASSES.FOCUS_BASEMAP)).toBe(
+            false,
+          );
+        }
+      });
+
+      it("marks only the topmost of two effectiveShown base layers", () => {
+        registerBase("base2"); // base2 visible like base1
+
+        ui.focusLayer("overlay1");
+
+        // base2 registered after base1 → topmost base → the active basemap.
+        for (const pane of basePanes("base2")) {
+          expect(pane.element.classList.contains(CONST.CLASSES.FOCUS_BASEMAP)).toBe(
+            true,
+          );
+        }
+        for (const pane of basePanes("base1")) {
+          expect(pane.element.classList.contains(CONST.CLASSES.FOCUS_BASEMAP)).toBe(
+            false,
+          );
+        }
+      });
+
+      it("skips a base layer whose surface is missing", () => {
+        registerBase("base2");
+
+        // surfaceFor is typed to always return a surface, but hideOtherLayers
+        // carries a `if (!surface) continue` guard against a missing one —
+        // cover that defensive branch: no base may be marked, no throw.
+        const realSurfaceFor = ui.c.surfaceFor.bind(ui.c);
+        vi.spyOn(ui.c, "surfaceFor").mockImplementation(((li: LayerInfo) =>
+          li.group === GROUP.BASE
+            ? null
+            : realSurfaceFor(li)) as unknown as typeof ui.c.surfaceFor);
+
+        expect(() => ui.focusLayer("overlay1")).not.toThrow();
+        expect(
+          document.querySelectorAll(`.${CONST.CLASSES.FOCUS_BASEMAP}`).length,
+        ).toBe(0);
+      });
+    });
   });
 
   // ─────────────────── overflow menu ───────────────────
