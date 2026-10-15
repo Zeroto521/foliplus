@@ -1016,6 +1016,102 @@ describe("LayerController", () => {
     }
   });
 
+  it("rewrites the registry entry when a pending layer resolves (bad order: control before layer)", () => {
+    // Bad script order: the control registers a layer by id before folium
+    // lands its JS global, so the entry lands with `layer: null` and a
+    // pending `kind`. When the real object joins the map via `layeradd`, the
+    // entry must be rewritten so `layer`, `carrier.layer`, and `kind` all
+    // reflect the resolved layer — not just emit on the bus, which was the
+    // original bug. Without the write-back, every consumer that reads
+    // `layerInfo.layer` directly (the fill swatch, maxZoom scanning) sees a
+    // stale `null` forever.
+    const realStamp = window.L.stamp;
+    window.L.stamp = stableStamp;
+    try {
+      manager.registerLayer({ id: "late", name: "Late", group: "base" });
+      const arrived = new window.L.TileLayer();
+      map._layers["late"] = arrived;
+
+      manager.onLayerAdd({ layer: arrived });
+
+      const info = manager.layerRegistry.get("late")!;
+      expect(info.layer).toBe(arrived);
+      expect(info.carrier.layer).toBe(arrived);
+      // The pending entry derived `kind` as "vector" (no layer to probe); a
+      // real GridLayer must re-derive to "tile" so NO_FEATURE_TREE_KINDS and
+      // every downstream kind gate see the honest shape.
+      expect(info.kind).toBe("tile");
+      // `overlay1` seeded by `beforeEach` still sits pending (that test
+      // doesn't resolve it), so `hasUnresolvedLayers()` on the whole registry
+      // isn't the right check here — the invariant is that the just-resolved
+      // entry is no longer pending. Assert it directly.
+      expect(info.layer === null && info.kind === "vector").toBe(false);
+    } finally {
+      window.L.stamp = realStamp;
+    }
+  });
+
+  it("keeps the entry correct when the layer arrives before the control (good order)", () => {
+    // Regression: the pre-fix path was already correct here. Registering with
+    // `opts.layer` present resolves at the edge, so the entry lands with the
+    // right `layer`, `carrier.layer`, and `kind` from the start — and the
+    // fix must not disturb that path.
+    const tile = new window.L.TileLayer();
+    manager.registerLayer({ id: "early", name: "Early", group: "base", layer: tile });
+
+    const info = manager.layerRegistry.get("early")!;
+    expect(info.layer).toBe(tile);
+    expect(info.carrier.layer).toBe(tile);
+    expect(info.kind).toBe("tile");
+    // `overlay1` seeded by `beforeEach` is deliberately still pending, so we
+    // scope the check to the entry this test just registered.
+    expect(info.layer === null && info.kind === "vector").toBe(false);
+  });
+
+  it("no entry mixes layer:null with a carrier-dependent kind (invariant)", () => {
+    // The pending `kind` fallback for a `layer:null` entry is `vector`
+    // (util.ts: deriveLayerKind). Only the three explicit no-carrier shapes
+    // (canvas / solid / custom) may legitimately sit at `layer:null` — every
+    // other `kind` combined with a null layer means the entry is either
+    // still pending (not yet resolved) or was resolved incorrectly and left
+    // stale. This is the guard that the fix writes back rather than merely
+    // emitting: without the upsert, a resolved TileLayer would keep the
+    // pending kind and this assert would catch it.
+    const realStamp = window.L.stamp;
+    window.L.stamp = stableStamp;
+    try {
+      // Resolve the seeded `overlay1` before the invariant check so we can
+      // assert globally — the check is about the resolved state, not the
+      // transient pending one.
+      const overlay = new window.L.Path();
+      map._layers["overlay1"] = overlay;
+      manager.onLayerAdd({ layer: overlay });
+
+      manager.registerLayer({
+        id: "custom",
+        name: "C",
+        group: "overlay",
+        custom: { x: 1 },
+      });
+      const tile = new window.L.TileLayer();
+      map._layers["tileLate"] = tile;
+      manager.registerLayer({ id: "tileLate", name: "TL", group: "base" });
+      manager.onLayerAdd({ layer: tile });
+
+      const noCarrierKinds = new Set(["canvas", "solid", "custom"]);
+      for (const entry of manager.layers) {
+        if (entry.layer === null) {
+          expect(
+            noCarrierKinds.has(entry.kind),
+            `entry "${entry.id}" has layer:null with kind "${entry.kind}"`,
+          ).toBe(true);
+        }
+      }
+    } finally {
+      window.L.stamp = realStamp;
+    }
+  });
+
   it("onLayerAdd responds to container layers (GeoJSON/FeatureGroup) too", () => {
     // Container layers (L.GeoJSON / FeatureGroup) previously fell through the
     // Path/Marker filter, so their addTo never re-ran enforceOrder. Any
