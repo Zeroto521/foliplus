@@ -385,7 +385,7 @@ class TestExportControlBrowser:
         """Remove blocking CDN <script> tags and inject stubs for GeoTIFF/pako."""
         for cdn in (
             "geotiff@3/dist-browser/geotiff.js",
-            "pako@2/dist/pako.min.js",
+            "pako@3/dist/browser/pako.umd.min.js",
             "gcoord@1/dist/gcoord.global.prod.js",
             "turf@6/turf.min.js",
         ):
