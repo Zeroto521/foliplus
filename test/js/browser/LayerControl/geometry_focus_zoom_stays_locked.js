@@ -11,14 +11,15 @@
       path.focus();
       // Wait for marquee to appear
       const waitMarquee = () => {
-        if (document.querySelector("path.foliplus-focus-rect")) return collectState();
+        if (document.querySelector("path.foliplus-focus-marquee"))
+          return collectState();
         setTimeout(waitMarquee, 50);
       };
       waitMarquee();
     };
     const collectState = () => {
       const path = document.querySelector("path.leaflet-interactive");
-      const marquee = document.querySelector("path.foliplus-focus-rect");
+      const marquee = document.querySelector("path.foliplus-focus-marquee");
       if (!path || !marquee) {
         resolve({ error: "path or marquee missing" });
         return;
@@ -44,7 +45,7 @@
             if (done) return;
             done = true;
             // Re-query the marquee — the rAF redraw replaces the old element.
-            const mq2 = document.querySelector("path.foliplus-focus-rect");
+            const mq2 = document.querySelector("path.foliplus-focus-marquee");
             const after = {
               geomBB: toBB(path),
               marqueeBB: mq2 ? toBB(mq2) : null,
