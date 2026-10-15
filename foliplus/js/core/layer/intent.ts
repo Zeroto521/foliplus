@@ -62,11 +62,10 @@ type LayerOverride =
  *     feeding an incremental write → freeze on first write (a re-read would
  *     feed the leaf its own last write — the slider compounds); no carrier
  *     to read → seed once at the delivery point, where a *fact* (Python's
- *     `data[].show`) beats an observation of map state. The seven readers
- *     today follow exactly this split — `authoredFillColor` /
- *     `authoredFillOpacity` / `authoredBorder` / `authorAnnotation` live,
- *     `authorOpacityBase` / `authorZoomBounds` frozen, `authorVisible`
- *     seeded.
+ *     `data[].show`) beats an observation of map state. The readers
+ *     today follow exactly this split — `styleBaseOf` (fill and border
+ *     color/weight/opacity) live, `authorOpacityBase` / `authorZoomBounds`
+ *     frozen, `authorVisible` seeded.
  *  4. A *snapshot* field — one derived at registration from the layer
  *     object (`layer` / `carrier` / `kind`) — is refreshed by a single
  *     rebuild point (rebuild the entry, then `upsert` in place), not by

@@ -109,20 +109,6 @@ const toHexColor = (value: string): string => {
   return /^#[0-9a-fA-F]{6}$/.test(hex) ? hex : DEFAULT_FILL_COLOR;
 };
 
-/** The layer's authored fill color — the first style leaf's `options.fillColor`,
- *  or Leaflet's default when nothing is declared. The swatch shows what the
- *  layer is actually painting on first open, not a constant. Delegates to
- *  `styleBaseOf` so the fill and border rows share one reader. */
-const authoredFillColor = (ui: LayerUI, layerId: string): string =>
-  styleBaseOf(ui, layerId).fillColor;
-
-/** The layer's authored fill opacity — the first style leaf's
- *  `options.fillOpacity`, or null when no leaf declares one. Mirrors
- *  `authoredFillColor`; the row layer falls back to
- *  `VISIBLE_FILL_OPACITY` for the display. */
-const authoredFillOpacity = (ui: LayerUI, layerId: string): number | null =>
-  styleBaseOf(ui, layerId).fillOpacity;
-
 /** A visible `fillOpacity` used to *display* the row's opacity input when
  *  neither a stored override nor an authored value exists. 0.2 matches
  *  Leaflet's own default, so a row for a layer that never declared a fill
@@ -158,7 +144,12 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
     return;
   }
 
-  const layer = layerInfo?.layer as StyleCarrier | null;
+  // Snapshot-then-resolve: the registry's own `layer` reference is fast and
+  // stable once populated, so it wins; the controller's `findLayer` re-resolves
+  // against the live map for a folium layer whose registry reference is still
+  // null. Same late-binding defense used by `applyBorderToLayer` and
+  // `FILL_DIMENSION.reset`.
+  const layer = (layerInfo?.layer ?? ui.c.findLayer(layerId)) as StyleCarrier | null;
   if (!layer) return;
   const values: Record<string, unknown> = {};
   if (color !== undefined) values.fillColor = color;
@@ -258,9 +249,15 @@ const buildFillRow = (ui: LayerUI, layerId: string): HTMLElement => {
   const layerInfo = ui.c.layerRegistry.get(layerId);
   const isBasemap = isColorBasemap(layerInfo!);
 
+  // One styleBaseOf call feeds both the color swatch and the fill-opacity
+  // input. `authoredFillColor` and `authoredFillOpacity` each walked the
+  // layer separately before; a single call here avoids the double
+  // findLayer + firstStyleLeaf traversal on every row paint.
+  const base = isBasemap ? null : styleBaseOf(ui, layerId);
+
   const storedColor = getIntent(ui, layerId, INTENT.FILL_COLOR);
   const color = toHexColor(
-    storedColor ?? (isBasemap ? CONST.COLOR.DEFAULT : authoredFillColor(ui, layerId)),
+    storedColor ?? (isBasemap ? CONST.COLOR.DEFAULT : base!.fillColor),
   );
   const colorInput = formColorInput({
     value: color,
@@ -279,8 +276,7 @@ const buildFillRow = (ui: LayerUI, layerId: string): HTMLElement => {
   }
 
   const storedOpacity = getIntent(ui, layerId, INTENT.FILL_OPACITY);
-  const authoredOpacity = authoredFillOpacity(ui, layerId);
-  const opacityPct = (storedOpacity ?? authoredOpacity ?? VISIBLE_FILL_OPACITY) * 100;
+  const opacityPct = (storedOpacity ?? base!.fillOpacity ?? VISIBLE_FILL_OPACITY) * 100;
   const opacityInput = numberInput({
     value: opacityPct,
     min: 0,
@@ -376,11 +372,13 @@ const FILL_DIMENSION = registerDimension<{
   value: (ui, layerId) => {
     const layerInfo = ui.c.layerRegistry.get(layerId);
     if (!layerInfo) return undefined;
+    // One styleBaseOf call feeds both keys; authoredFillColor /
+    // authoredFillOpacity each walked the layer separately before, doubling
+    // the findLayer + firstStyleLeaf traversal per paint.
+    const base = styleBaseOf(ui, layerId);
     return {
-      color:
-        getIntent(ui, layerId, INTENT.FILL_COLOR) ?? authoredFillColor(ui, layerId),
-      opacity:
-        getIntent(ui, layerId, INTENT.FILL_OPACITY) ?? authoredFillOpacity(ui, layerId),
+      color: getIntent(ui, layerId, INTENT.FILL_COLOR) ?? base.fillColor,
+      opacity: getIntent(ui, layerId, INTENT.FILL_OPACITY) ?? base.fillOpacity,
     };
   },
   row: buildFillRow,

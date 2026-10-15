@@ -212,11 +212,37 @@ describe("styleBaseOf", () => {
     });
   });
 
+  it("reads only the first leaf's fillColor — a later leaf's value never leaks in", () => {
+    // The old `authoredFillColor` walked every leaf and took the first
+    // `fillColor != null`; `styleBaseOf` matches `authoredBorder`'s existing
+    // semantics — take the FIRST leaf with `setStyle` and read ONLY that
+    // leaf's options. For a mixed group where the first leaf declares no
+    // fillColor but a later leaf does, the result is the default, not the
+    // later leaf's value. This locks the unified semantics in place:
+    // the panel shows the first feature's actual paint, even if a sibling
+    // has a different fill, because that's what the author painted on the
+    // first feature the map will hit.
+    const firstLeaf = makeLeaf({ color: "#111111" }); // no fillColor
+    const laterLeaf = makeLeaf({ color: "#222222", fillColor: "#00ff00" });
+    const group: any = {
+      options: {},
+      eachLayer: vi.fn((fn: (child: unknown) => void) => {
+        fn(firstLeaf);
+        fn(laterLeaf);
+      }),
+    };
+    const base = styleBaseOf(mockUi(group), "grp1");
+    expect(base.fillColor).toBe(STYLE_BAG_DEFAULTS.fillColor);
+    expect(base.fillColor).not.toBe("#00ff00");
+    // The border face still reads the first leaf's declared color.
+    expect(base.color).toBe("#111111");
+  });
+
   it("fill and border consumers share one reader — same output shape", () => {
-    // The whole point of this helper is that `authoredFillColor`,
-    // `authoredFillOpacity`, and `authoredBorder` all read from the same
-    // call site. Assert that a single styleBaseOf call gives both faces
-    // consistent values, so neither row can drift from the other.
+    // The whole point of this helper is that fill and border rows read
+    // from the same call site (`styleBaseOf`), so neither row can drift
+    // from the other. Assert a single styleBaseOf call gives both faces
+    // consistent values.
     const leaf = makeLeaf({
       color: "#aabbcc",
       weight: 2,

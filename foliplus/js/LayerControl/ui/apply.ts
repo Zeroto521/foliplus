@@ -307,7 +307,11 @@ const dispatchStateOp = (
     }
     const carrier = ui.c.surfaceFor(layerInfo).capabilities.opacity;
     if (carrier === CAP_TIER.NONE) return; // no honest write exists
-    const layer = layerInfo.layer;
+    // Snapshot-then-resolve: registry reference wins when populated, the
+    // controller's findLayer re-resolves against the live map for a folium
+    // layer whose registry reference is still null. Same late-binding
+    // defense as the zoom-range and visible-write paths below.
+    const layer = layerInfo.layer ?? ui.c.findLayer(layerInfo);
     if (!layer) return;
     if (carrier === CAP_TIER.NATIVE) {
       // The layer paints through a setter of its own. `setOpacity`
