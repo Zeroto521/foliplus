@@ -388,8 +388,11 @@ describe("LayerSurface.materialize", () => {
     });
     surface.materialize();
     const paneEl = surface.panes[0].element;
-    // Shadow first, then icon — Marker.onAdd's own order.
-    expect(Array.from(paneEl.children)).toEqual([attached._shadow, attached.element]);
+    // Icon moves into the foliplus pane; shadow stays where Leaflet put it
+    // (body here) because shadowPane is the correct resting place for
+    // shadows and the pane boundary alone keeps icon above shadow.
+    expect(Array.from(paneEl.children)).toEqual([attached.element]);
+    expect(attached._shadow.parentNode).toBe(document.body);
   });
 
   it("moves an attached path into the pane's renderer", () => {

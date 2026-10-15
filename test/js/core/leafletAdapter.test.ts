@@ -179,8 +179,6 @@ describe("leafletAdapter is the only module touching the named Leaflet privates"
       "_paneRenderers",
       "_panes",
       "_path",
-      "_resetView",
-      "_shadow",
       "_update",
       "_url",
     ]);
@@ -256,21 +254,19 @@ describe("leafletAdapter is the only module touching the named Leaflet privates"
 
 // ── The adapter itself ─────────────────────────────────────────
 //
-// `_map` is `protected` on Leaflet's Layer and `_shadow` on Marker. Neither can
-// be declared in type/global.d.ts — a public declaration of either stops Marker
+// `_map` is `protected` on Leaflet's Layer. A public declaration stops Marker
 // from being assignable to Layer, which every `map.eachLayer` consumer in the
-// tree depends on — so each probe narrows to the one field it reads. `_url`
-// is the third: it is declared on TileLayer, but the probes take the whole
-// layer tree. That is the whole type-system cost of this module, and it is
+// tree depends on — so that probe narrows to the one field it reads. `_url`
+// is declared on TileLayer, but the probes take the whole layer tree: callers
+// hand over whatever a registry holds and deliberately do not narrow with
+// `instanceof`. That is the whole type-system cost of this module, and it is
 // held here.
 describe("source pins", () => {
-  it("narrows to a private field three times, never through `unknown`", () => {
+  it("narrows to a private field, never through `unknown`", () => {
     expect(adapterSource).not.toMatch(/\bas\s+(unknown|any)\b/);
     expect(adapterSource.match(/as [A-Z]\w+/g)).toEqual([
       "as LayerWithMap",
       "as LayerWithUrl",
-      "as GridLayerWithReset",
-      "as MarkerWithShadow",
     ]);
   });
 
@@ -281,10 +277,8 @@ describe("source pins", () => {
   it("exports the private reaches and the relocation primitives, never a bare public hop", () => {
     // A forwarder over Leaflet's public API would add a call without removing a
     // private reach. `destroyPane` and `getRendererFor` are here because both
-    // have to agree with `_paneRenderers`; `moveIntoPane` is here because it
-    // re-pins `options.renderer` through that registry (and is the single
-    // remove+add point). `setPaneZ` and the like stay out: a plain DOM write is
-    // exactly the hop this charter refuses.
+    // have to agree with `_paneRenderers`. `setPaneZ` and the like stay out: a
+    // plain DOM write is exactly the hop this charter refuses.
     expect(Object.keys(adapter).sort()).toEqual([
       "attributionEntries",
       "destroyPane",
@@ -297,12 +291,9 @@ describe("source pins", () => {
       "layerIcon",
       "layerMap",
       "layerUrl",
-      "markerShadow",
-      "moveIntoPane",
       "primeControlMap",
       "refreshAttributions",
       "reinitInteraction",
-      "resetGridLayerView",
       "setPopupCloseTitle",
     ]);
   });
@@ -395,68 +386,6 @@ describe("getRendererFor", () => {
   });
 });
 
-describe("moveIntoPane", () => {
-  it("re-pins a Path's renderer to the target pane before re-adding", () => {
-    // The private half: `options.pane` alone would leave the Path on the
-    // renderer its *old* pane still holds.
-    const map = makeMap();
-    window.L.Path = class {
-      options: Record<string, unknown> = { pane: "old", renderer: { id: "stale" } };
-    } as unknown as typeof L.Path;
-    const layer = new window.L.Path();
-    map.hasLayer = () => false;
-    adapter.moveIntoPane(map as unknown as L.Map, layer as unknown as L.Layer, "new");
-    expect(layer.options.pane).toBe("new");
-    expect(map._paneRenderers?.new).toBe(layer.options.renderer);
-  });
-
-  it("removes and re-adds a layer that is already on the map", () => {
-    const map = makeMap();
-    const order: string[] = [];
-    map.hasLayer = () => true;
-    map.removeLayer = (() => {
-      order.push("remove");
-      return map;
-    }) as any;
-    map.addLayer = (() => {
-      order.push("add");
-      return map;
-    }) as any;
-    const layer = { options: {} } as unknown as L.Layer;
-    adapter.moveIntoPane(map as unknown as L.Map, layer, "p");
-    // options.pane is read at `addLayer`, so it has to be written in between.
-    expect(order).toEqual(["remove", "add"]);
-    expect(layer.options.pane).toBe("p");
-  });
-
-  it("leaves a detached layer detached", () => {
-    const map = makeMap();
-    map.hasLayer = () => false;
-    const layer = { options: {} } as unknown as L.Layer;
-    adapter.moveIntoPane(map as unknown as L.Map, layer, "p");
-    expect(map.removeLayer).not.toHaveBeenCalled();
-    expect(layer.options.pane).toBe("p");
-  });
-
-  it("drops a stale renderer when no replacement can be built", () => {
-    // `getRendererFor` degrades to null. A Path must then fall back to
-    // Leaflet's own renderer for the new pane rather than keep pointing at the
-    // old pane's.
-    const map = makeMap();
-    window.L.Path = class {
-      options: Record<string, unknown> = { pane: "old", renderer: { id: "stale" } };
-    } as unknown as typeof L.Path;
-    window.L.svg = vi.fn(() => {
-      throw new Error("no svg");
-    });
-    map.hasLayer = () => false;
-    const layer = new window.L.Path();
-    adapter.moveIntoPane(map as unknown as L.Map, layer as unknown as L.Layer, "new");
-    expect(layer.options.pane).toBe("new");
-    expect(layer.options.renderer).toBeUndefined();
-  });
-});
-
 describe("internalLayers", () => {
   it("reads the child registry of a map or a group", () => {
     const a = {};
@@ -544,17 +473,11 @@ describe("reinitInteraction", () => {
   });
 });
 
-describe("layerMap / markerShadow / layerUrl", () => {
+describe("layerMap / layerUrl", () => {
   it("layerMap returns the map a layer is attached to, null when detached", () => {
     const map = { id: "map" };
     expect(adapter.layerMap(leafStub({ _map: map }))).toBe(map);
     expect(adapter.layerMap(leafStub({}))).toBeNull();
-  });
-
-  it("markerShadow returns the shadow element, null when the marker has none", () => {
-    const shadow = document.createElement("img");
-    expect(adapter.markerShadow(leafStub({ _shadow: shadow }))).toBe(shadow);
-    expect(adapter.markerShadow(leafStub({}))).toBeNull();
   });
 
   it("layerUrl returns the tile URL template, null for a layer that has none", () => {
@@ -618,20 +541,5 @@ describe("primeControlMap", () => {
     const ctrl = leafStub({ _map: { id: "old" } });
     adapter.primeControlMap(ctrl as unknown as L.Control, map as unknown as L.Map);
     expect((ctrl as { _map?: unknown })._map).toBe(map);
-  });
-});
-
-describe("resetGridLayerView", () => {
-  it("calls _resetView when the layer has one", () => {
-    const reset = vi.fn();
-    const layer = leafStub({ _resetView: reset });
-    adapter.resetGridLayerView(layer as unknown as L.Layer);
-    expect(reset).toHaveBeenCalledTimes(1);
-  });
-
-  it("is a no-op when the layer has no _resetView", () => {
-    expect(() =>
-      adapter.resetGridLayerView(leafStub({}) as unknown as L.Layer),
-    ).not.toThrow();
   });
 });
