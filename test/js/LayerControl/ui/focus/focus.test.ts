@@ -1374,11 +1374,10 @@ describe("LayerUI focus", () => {
         // carries a `if (!surface) continue` guard against a missing one —
         // cover that defensive branch: no base may be marked, no throw.
         const realSurfaceFor = ui.c.surfaceFor.bind(ui.c);
-        vi
-          .spyOn(ui.c, "surfaceFor")
-          .mockImplementation((li: LayerInfo) =>
-            li.group === GROUP.BASE ? null : realSurfaceFor(li),
-          ) as unknown as void;
+        vi.spyOn(ui.c, "surfaceFor").mockImplementation(((li: LayerInfo) =>
+          li.group === GROUP.BASE
+            ? null
+            : realSurfaceFor(li)) as unknown as typeof ui.c.surfaceFor);
 
         expect(() => ui.focusLayer("overlay1")).not.toThrow();
         expect(
