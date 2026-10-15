@@ -652,6 +652,39 @@ describe("LayerUI focus", () => {
       expect(projectLayer(ui, infoOf("overlay1")).opacity).toBe(1);
       expect(projectLayer(ui, infoOf("overlay2")).opacity).toBe(0.7);
     });
+
+    it("focusLayer applies the opacity override through the executor (not just the projection)", () => {
+      // The projection-level assertions above catch `projectLayer` returning
+      // 1, but they pass even if focusLayer never calls applyProjectionAll:
+      // `focusingLayerId` is also set by `highlightFocusedRow` /
+      // `registerAutoCancel` later in the same call, so the pure projection
+      // already reads 1 by the time focusLayer returns. This case pins the
+      // apply step itself — the override must reach the executor's written
+      // state, which is what lands on the carrier (pane style / layer
+      // options) the user actually sees. Without `applyProjectionAll(ui)`
+      // inside focusLayer, `runtimeStore.getApplied().opacity` stays at the
+      // last sweep's value and the carrier never updates.
+      setIntent(ui, "overlay1", "opacity", 0.4);
+      ui.intentStore.seedProvenance("overlay1", ["opacity"]);
+
+      // Baseline: no sweep has run since setIntent, so the applied state
+      // still holds the author's default (1) from the init pass.
+      expect(infoOf("overlay1").opacity).toBe(1);
+
+      ui.focusLayer("overlay1");
+
+      // The focus-driven 1 must be the value the executor last wrote —
+      // visible on both the runtime record and the LayerInfo field the
+      // carrier write stamps.
+      expect(ui.runtimeStore.getApplied("overlay1")?.opacity).toBe(1);
+      expect(infoOf("overlay1").opacity).toBe(1);
+
+      ui.cancelFocus();
+
+      // dismissFocus's sweep lands the author's stored intent back.
+      expect(ui.runtimeStore.getApplied("overlay1")?.opacity).toBe(0.4);
+      expect(infoOf("overlay1").opacity).toBe(0.4);
+    });
   });
 
   // ─────────────────── inverse mask (dim outside) ───────────────────
