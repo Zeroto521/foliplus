@@ -90,6 +90,19 @@ path.foliplus-focus-mask {
   opacity: var(--foliplus-alpha-30);
 }
 
+/* Focus shows only data content (foliplus panes + the active basemap). Leaflet's
+   native UI floaters — marker shadows, hover tooltips, popups — never belong in
+   a focused layer's spotlight, so they are all hidden while focus is active.
+   The hide is declarative (removed with `.foliplus-is-focus-mode`); hover
+   residue that outlived the pre-focus DOM sweep comes back with the class
+   removal. Popup already has a JS close on focus; the CSS here is the double
+   safety for anything that opens during the focus animation. */
+.foliplus-is-focus-mode .leaflet-shadow-pane,
+.foliplus-is-focus-mode .leaflet-tooltip-pane,
+.foliplus-is-focus-mode .leaflet-popup-pane {
+  visibility: hidden;
+}
+
 @keyframes foliplus-focus-march {
   to {
     stroke-dashoffset: -10;
