@@ -250,9 +250,8 @@ const buildFillRow = (ui: LayerUI, layerId: string): HTMLElement => {
   const isBasemap = isColorBasemap(layerInfo!);
 
   // One styleBaseOf call feeds both the color swatch and the fill-opacity
-  // input. `authoredFillColor` and `authoredFillOpacity` each walked the
-  // layer separately before; a single call here avoids the double
-  // findLayer + firstStyleLeaf traversal on every row paint.
+  // input — the two values used to be read by separate walks, doubling
+  // the findLayer + firstStyleLeaf traversal on every row paint.
   const base = isBasemap ? null : styleBaseOf(ui, layerId);
 
   const storedColor = getIntent(ui, layerId, INTENT.FILL_COLOR);
@@ -372,9 +371,8 @@ const FILL_DIMENSION = registerDimension<{
   value: (ui, layerId) => {
     const layerInfo = ui.c.layerRegistry.get(layerId);
     if (!layerInfo) return undefined;
-    // One styleBaseOf call feeds both keys; authoredFillColor /
-    // authoredFillOpacity each walked the layer separately before, doubling
-    // the findLayer + firstStyleLeaf traversal per paint.
+    // One styleBaseOf call feeds both keys; reading them separately
+    // doubled the findLayer + firstStyleLeaf traversal per paint.
     const base = styleBaseOf(ui, layerId);
     return {
       color: getIntent(ui, layerId, INTENT.FILL_COLOR) ?? base.fillColor,

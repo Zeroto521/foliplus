@@ -213,7 +213,7 @@ describe("styleBaseOf", () => {
   });
 
   it("reads only the first leaf's fillColor — a later leaf's value never leaks in", () => {
-    // The old `authoredFillColor` walked every leaf and took the first
+    // The old fill-color reader walked every leaf and took the first
     // `fillColor != null`; `styleBaseOf` matches `authoredBorder`'s existing
     // semantics — take the FIRST leaf with `setStyle` and read ONLY that
     // leaf's options. For a mixed group where the first leaf declares no
