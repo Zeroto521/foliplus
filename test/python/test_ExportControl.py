@@ -383,15 +383,10 @@ class TestExportControlBrowser:
     @staticmethod
     def _stub_html(html: str) -> str:
         """Remove blocking CDN <script> tags and inject stubs for GeoTIFF/pako."""
-        for cdn in (
-            "geotiff@3/dist-browser/geotiff.js",
-            "pako@3/dist/browser/pako.umd.min.js",
-            "gcoord@1/dist/gcoord.global.prod.js",
-            "turf@6/turf.min.js",
-        ):
-            html = html.replace(
-                f'<script src="https://cdn.jsdelivr.net/npm/{cdn}"></script>', ""
-            )
+        from foliplus._cdn_loader import load_cdn
+
+        for _name, url in load_cdn("ExportControl"):
+            html = html.replace(f'<script src="{url}"></script>', "")
         marker = 'CONFIG = {"name": "ExportControl"'
         idx = html.find(marker)
         if idx > 0:

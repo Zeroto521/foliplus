@@ -17,6 +17,7 @@ from conftest import (
 )
 
 from foliplus import MeasureControl
+from foliplus._cdn_loader import load_cdn
 
 
 class TestMeasureControlPython:
@@ -265,14 +266,11 @@ class TestMeasureControlBrowser:
         )
         assert n == 1, "MeasureControl instantiation not found in rendered HTML"
         # Remove blocking CDN <script> tags (gcoord and turf added by default_js)
-        html = html.replace(
-            '<script src="https://cdn.jsdelivr.net/npm/gcoord@1/dist/gcoord.global.prod.js"></script>',
-            "",
-        )
-        html = html.replace(
-            '<script src="https://cdn.jsdelivr.net/npm/@turf/turf@7/turf.min.js"></script>',
-            '<script>window.turf = { distance: (a,b,o) => L.latLng(a.geometry.coordinates[1],a.geometry.coordinates[0]).distanceTo(L.latLng(b.geometry.coordinates[1],b.geometry.coordinates[0])), bearing: (a,b) => { const dL = (b.geometry.coordinates[0]-a.geometry.coordinates[0])*Math.PI/180; const l1 = a.geometry.coordinates[1]*Math.PI/180; const l2 = b.geometry.coordinates[1]*Math.PI/180; const y = Math.sin(dL)*Math.cos(l2); const x = Math.cos(l1)*Math.sin(l2)-Math.sin(l1)*Math.cos(l2)*Math.cos(dL); return (Math.atan2(y,x)*180/Math.PI+360)%360; }, area: (p) => { const R = 6378137; const d2r = Math.PI/180; const pts = p.geometry.coordinates[0]; let a = 0; for (let i = 0; i < pts.length-1; i++) { const p1 = pts[i], p2 = pts[i+1]; a += (p2[0] - p1[0]) * d2r * (2 + Math.sin(p1[1]*d2r) + Math.sin(p2[1]*d2r)); } return Math.abs(a * R * R / 2); }, point: (c) => ({ geometry: { coordinates: [c[0], c[1]], type: "Point" } }), polygon: (c) => ({ geometry: { coordinates: c, type: "Polygon" } }), midpoint: (a,b) => ({ geometry: { coordinates: [(a.geometry.coordinates[0]+b.geometry.coordinates[0])/2, (a.geometry.coordinates[1]+b.geometry.coordinates[1])/2], type: "Point" } }) };</script>',
-        )
+        _stubs = {
+            "turf": '<script>window.turf = { distance: (a,b,o) => L.latLng(a.geometry.coordinates[1],a.geometry.coordinates[0]).distanceTo(L.latLng(b.geometry.coordinates[1],b.geometry.coordinates[0])), bearing: (a,b) => { const dL = (b.geometry.coordinates[0]-a.geometry.coordinates[0])*Math.PI/180; const l1 = a.geometry.coordinates[1]*Math.PI/180; const l2 = b.geometry.coordinates[1]*Math.PI/180; const y = Math.sin(dL)*Math.cos(l2); const x = Math.cos(l1)*Math.sin(l2)-Math.sin(l1)*Math.cos(l2)*Math.cos(dL); return (Math.atan2(y,x)*180/Math.PI+360)%360; }, area: (p) => { const R = 6378137; const d2r = Math.PI/180; const pts = p.geometry.coordinates[0]; let a = 0; for (let i = 0; i < pts.length-1; i++) { const p1 = pts[i], p2 = pts[i+1]; a += (p2[0] - p1[0]) * d2r * (2 + Math.sin(p1[1]*d2r) + Math.sin(p2[1]*d2r)); } return Math.abs(a * R * R / 2); }, point: (c) => ({ geometry: { coordinates: [c[0], c[1]], type: "Point" } }), polygon: (c) => ({ geometry: { coordinates: c, type: "Polygon" } }), midpoint: (a,b) => ({ geometry: { coordinates: [(a.geometry.coordinates[0]+b.geometry.coordinates[0])/2, (a.geometry.coordinates[1]+b.geometry.coordinates[1])/2], type: "Point" } }) };</script>',
+        }
+        for _name, url in load_cdn("MeasureControl"):
+            html = html.replace(f'<script src="{url}"></script>', _stubs.get(_name, ""))
         page, errors = make_browser_page(browser, tmp_path, html, "measure")
         page.wait_for_selector(
             ".foliplus-measure-ctrl", state="attached", timeout=10000
@@ -1243,14 +1241,11 @@ class TestMeasureControlBrowser:
         MeasureControl().add_to(m)
 
         html = m.get_root().render()
-        html = html.replace(
-            '<script src="https://cdn.jsdelivr.net/npm/gcoord@1/dist/gcoord.global.prod.js"></script>',
-            "",
-        )
-        html = html.replace(
-            '<script src="https://cdn.jsdelivr.net/npm/@turf/turf@7/turf.min.js"></script>',
-            '<script>window.turf = { distance: (a,b,o) => 0, bearing: (a,b) => 0, area: (p) => 0, point: (c) => ({ geometry: { coordinates: c, type: "Point" } }), polygon: (c) => ({ geometry: { coordinates: c, type: "Polygon" } }), midpoint: (a,b) => ({ geometry: { coordinates: [0,0], type: "Point" } }) };</script>',
-        )
+        _stubs = {
+            "turf": '<script>window.turf = { distance: (a,b,o) => 0, bearing: (a,b) => 0, area: (p) => 0, point: (c) => ({ geometry: { coordinates: c, type: "Point" } }), polygon: (c) => ({ geometry: { coordinates: c, type: "Polygon" } }), midpoint: (a,b) => ({ geometry: { coordinates: [0,0], type: "Point" } }) };</script>',
+        }
+        for _name, url in load_cdn("MeasureControl"):
+            html = html.replace(f'<script src="{url}"></script>', _stubs.get(_name, ""))
         with use_page(
             make_browser_page, browser, tmp_path, html, "measure_no_layer"
         ) as (page, errors):

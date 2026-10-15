@@ -3,7 +3,7 @@
 ``cdn.json`` is the single source of truth for CDN dependencies, but a few of
 those packages are *also* npm devDependencies (test doubles, TS types). The two
 sides can drift: a dependabot bump of npm ``pako`` to 3 leaves the browser
-loading ``pako@2`` while ``global.d.ts`` resolves the type from 3.
+on the older major while ``global.d.ts`` resolves the type from the new one.
 
 Browser tests stub every CDN global, so nothing ever loads the real CDN build —
 ``cdn.json``'s versions are otherwise unverified. This test is the guard.
@@ -38,11 +38,14 @@ def _major_of(spec: str) -> int | None:
     return int(m.group()) if m else None
 
 
+def _cdn_data() -> dict[str, dict[str, str]]:
+    return json.loads(_CDN_JSON.read_text(encoding="utf-8"))
+
+
 def _cdn_packages() -> dict[str, int]:
     """``{npm package name: major version}`` extracted from every cdn.json URL."""
-    data = json.loads(_CDN_JSON.read_text(encoding="utf-8"))
     packages: dict[str, int] = {}
-    for entries in data.values():
+    for entries in _cdn_data().values():
         for url in entries.values():
             m = _NPM_URL.search(url)
             if not m:
@@ -90,4 +93,26 @@ class TestCdnNpmVersionConsistency:
         assert not missing, (
             f"guard covers {sorted(shared)}, missing {missing}\n"
             "The URL extractor stopped resolving real packages — the guard is blind."
+        )
+
+    def test_tests_read_cdn_urls_from_the_loader(self):
+        """Test files must not hand-copy cdn.json urls.
+
+        A ``<package>@<version>`` fragment copied out of cdn.json is what
+        drifted on the pako bump: it had to be fixed in cdn.json, package.json
+        and a test file at once. Only cdn.json package names are matched, so
+        deps that are not foliplus's (leaflet, folium, bootstrap) are skipped.
+        """
+        names = {n for entries in _cdn_data().values() for n in entries}
+        hits: list[str] = []
+        for path in sorted((ROOT / "test" / "python").glob("*.py")):
+            text = path.read_text(encoding="utf-8")
+            for name in sorted(names):
+                for m in re.finditer(rf"{re.escape(name)}@\d", text):
+                    hits.append(
+                        f"{path.name}:{text.count(chr(10), 0, m.start()) + 1} {m.group()}"
+                    )
+        assert not hits, (
+            "hardcoded cdn.json urls in tests — read them via "
+            "load_cdn(<Control>) instead:\n  " + "\n  ".join(hits)
         )
