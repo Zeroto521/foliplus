@@ -10,7 +10,7 @@
 ### Changed
 
 - `BaseControl`: locale tables now ship once per map in the shared bundle (`_COMPONENT_TABLES`), so `locale=None` auto-detects the browser language instead of falling back to English; `CONFIG.locale_tables` keeps only custom strings ([#667](https://github.com/Zeroto521/foliplus/pull/667))
-- Package: Python 3.15 support — classifiers, CI matrix (replacing 3.14), browser-test job, and Read the Docs all now run on 3.15
+- Package: Python 3.15 support — classifiers, CI matrix (replacing 3.14), browser-test job, and Read the Docs all now run on 3.15 ([#688](https://github.com/Zeroto521/foliplus/pull/688))
 
 ### Fixed
 
