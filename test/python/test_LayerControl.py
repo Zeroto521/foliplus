@@ -6919,9 +6919,7 @@ class TestLayerControlBrowser:
             )
             for name in ("shadowPane", "tooltipPane", "popupPane"):
                 pane = result["during"][name]
-                assert pane["present"] is True, (
-                    f"{name} must exist on the map: {pane}"
-                )
+                assert pane["present"] is True, f"{name} must exist on the map: {pane}"
                 assert pane["visibility"] == "hidden", (
                     f"{name} must be `visibility: hidden` during focus "
                     f"— focus.css must hide Leaflet's own UI panes: {pane}"
