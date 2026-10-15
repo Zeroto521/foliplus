@@ -361,6 +361,12 @@ const applyProjection = (
 ): void => {
   const layerInfo = ui.c.layerRegistry.get(id);
   if (!layerInfo) return;
+  // A surface is mandatory for a write target (see `carrierOf` / `dispatchStateOp`
+  // below) — the same defensive gate `hideOtherLayers` carries against a
+  // missing surface. A layer whose surface could not be built (a late-
+  // registered entry the ordering pass hasn't stamped yet, or a test
+  // fixture that returns `null`) has nothing to write to, so skip it.
+  if (!ui.c.surfaceFor(layerInfo)) return;
   const next = projectLayer(ui, layerInfo);
   let prev = ui.runtimeStore.getApplied(id);
 

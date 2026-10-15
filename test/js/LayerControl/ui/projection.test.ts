@@ -7,7 +7,7 @@ import { LayerRuntimeStore } from "#core/layer/index.js";
 import { LayerIntentStore } from "#foliplus/LayerControl/domain/index.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { clearIntent, setIntent } from "#foliplus/LayerControl/ui/intent.js";
-import { inZoomRange } from "#foliplus/LayerControl/ui/projection.js";
+import { inZoomRange, projectLayer } from "#foliplus/LayerControl/ui/projection.js";
 
 const makeLayerInfo = (id: string) => ({ id, layer: null, canvas: null }) as any;
 
@@ -115,5 +115,54 @@ describe("inZoomRange (policy predicate on its own)", () => {
 
     clearIntent(ui, "l1", "zoomRange");
     expect(inZoomRange(ui, makeLayerInfo("l1"))).toBe(true);
+  });
+});
+
+// projectLayer composes the projection formula with the user's intent.
+// These cases pin the focus-driven opacity override: the user's stored value
+// stays in the intent store untouched, but the projection reports 1 for the
+// focused layer only. The zoom-range policy half is already covered above and
+// separately in apply.test.ts; those branches share one gate (`focusingLayerId
+// != null`) and are not re-tested here.
+describe("projectLayer (focus-driven opacity override)", () => {
+  it("returns the stored opacity when nothing is focused", () => {
+    const ui = makeUI();
+    setIntent(ui, "l1", "opacity", 0.4);
+    expect(projectLayer(ui, makeLayerInfo("l1")).opacity).toBe(0.4);
+  });
+
+  it("returns undefined for opacity when no intent is stored (author's default)", () => {
+    const ui = makeUI();
+    expect(projectLayer(ui, makeLayerInfo("l1")).opacity).toBeUndefined();
+  });
+
+  it("forces opacity to 1 for the focused layer, leaving the intent untouched", () => {
+    const ui = makeUI();
+    setIntent(ui, "l1", "opacity", 0.4);
+    ui.focusController.focusingLayerId = "l1";
+    expect(projectLayer(ui, makeLayerInfo("l1")).opacity).toBe(1);
+    // The intent store is not written by the projection — dismissFocus's
+    // replay lands the author's value back on the next sweep.
+    expect(ui.intentStore.get("l1", "opacity")).toBe(0.4);
+  });
+
+  it("does not override opacity on a non-focused layer during another focus", () => {
+    const ui = makeUI();
+    setIntent(ui, "l1", "opacity", 0.4);
+    setIntent(ui, "l2", "opacity", 0.7);
+    ui.focusController.focusingLayerId = "l1";
+    // The focused layer is forced to 1.
+    expect(projectLayer(ui, makeLayerInfo("l1")).opacity).toBe(1);
+    // The other layer keeps its own intent — the override is single-layer,
+    // unlike the zoom-range policy which is a blanket `!= null` gate.
+    expect(projectLayer(ui, makeLayerInfo("l2")).opacity).toBe(0.7);
+  });
+
+  it("covers an undefined-opacity focused layer to 1 (fully opaque)", () => {
+    const ui = makeUI();
+    // No intent stored — the focused layer's projection reads 1, matching
+    // the author's default, so the executor's diff is a no-op there.
+    ui.focusController.focusingLayerId = "l1";
+    expect(projectLayer(ui, makeLayerInfo("l1")).opacity).toBe(1);
   });
 });
