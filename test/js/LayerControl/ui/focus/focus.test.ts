@@ -1404,6 +1404,74 @@ describe("LayerUI focus", () => {
         expect(matched).toHaveLength(1);
         expect(matched[0]).toBe(otherPane);
       });
+
+      // ── Leaflet's native UI panes get their own hide rules ──
+      // HIDE_RULE only touches `foliplus-layer-pane`. Marker shadows, hover
+      // tooltips, and popups live in Leaflet's `leaflet-*-pane` divs (the
+      // shadow stays in `shadowPane` per the pane-ownership rule from the
+      // marker-shadow fix), so they escape the foliplus rule entirely. Three
+      // dedicated selectors hide them during focus — one per native pane.
+      // These matchers must be kept in sync with `focus.css`: delete one of
+      // the three selectors and the matching case below goes red.
+      const NATIVE_PANE_RULES: Record<string, string> = {
+        "shadow-pane": ".foliplus-is-focus-mode .leaflet-shadow-pane",
+        "tooltip-pane": ".foliplus-is-focus-mode .leaflet-tooltip-pane",
+        "popup-pane": ".foliplus-is-focus-mode .leaflet-popup-pane",
+      };
+
+      it("hides Leaflet's shadow pane during focus (marker shadows escape the foliplus rule)", () => {
+        const container = makeContainer(true);
+        const shadowPane = document.createElement("div");
+        shadowPane.classList.add("leaflet-shadow-pane");
+        container.appendChild(shadowPane);
+        document.body.appendChild(container);
+
+        expect(document.querySelectorAll(NATIVE_PANE_RULES["shadow-pane"])).toContain(
+          shadowPane,
+        );
+      });
+
+      it("hides Leaflet's tooltip pane during focus (hover tooltips escape the foliplus rule)", () => {
+        const container = makeContainer(true);
+        const tooltipPane = document.createElement("div");
+        tooltipPane.classList.add("leaflet-tooltip-pane");
+        container.appendChild(tooltipPane);
+        document.body.appendChild(container);
+
+        expect(document.querySelectorAll(NATIVE_PANE_RULES["tooltip-pane"])).toContain(
+          tooltipPane,
+        );
+      });
+
+      it("hides Leaflet's popup pane during focus (popup during focus animation)", () => {
+        const container = makeContainer(true);
+        const popupPane = document.createElement("div");
+        popupPane.classList.add("leaflet-popup-pane");
+        container.appendChild(popupPane);
+        document.body.appendChild(container);
+
+        expect(document.querySelectorAll(NATIVE_PANE_RULES["popup-pane"])).toContain(
+          popupPane,
+        );
+      });
+
+      it("the native pane rules do not match when focus is not active", () => {
+        const container = makeContainer(false);
+        const shadowPane = document.createElement("div");
+        shadowPane.classList.add("leaflet-shadow-pane");
+        const tooltipPane = document.createElement("div");
+        tooltipPane.classList.add("leaflet-tooltip-pane");
+        const popupPane = document.createElement("div");
+        popupPane.classList.add("leaflet-popup-pane");
+        container.appendChild(shadowPane);
+        container.appendChild(tooltipPane);
+        container.appendChild(popupPane);
+        document.body.appendChild(container);
+
+        for (const rule of Object.values(NATIVE_PANE_RULES)) {
+          expect(document.querySelectorAll(rule).length).toBe(0);
+        }
+      });
     });
 
     // ── hideOtherLayers marks the active basemap ──

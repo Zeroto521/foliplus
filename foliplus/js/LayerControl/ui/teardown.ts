@@ -33,8 +33,11 @@ import type { LayerUI } from "./surface.js";
  *
  * Folium's own overlays are event-driven: each subsystem subscribes to
  * OVERLAY_CLEAR in `bindLayerEvents` and closes itself when it hears the signal.
- * The map-popup sweep stays here because Leaflet popups are not a foliplus
- * overlay and have no subscribe-able surface of their own.
+ * The Leaflet-native sweep (popups + hover tooltips) stays here because
+ * Leaflet's own overlays are not foliplus overlays and have no subscribe-able
+ * surface of their own. Tooltips get the same treatment as popups: hover-out
+ * would hide one, but focus's visibility rule is scoped to the focus class,
+ * so a tooltip that survives the sweep would come back to life on hover-out.
  */
 const closeOverlays = (ui: LayerUI): void => {
   // The map's own popup, cleared with the foliplus surfaces: it is Leaflet's,
@@ -49,7 +52,11 @@ const closeOverlays = (ui: LayerUI): void => {
   // layers). A recursive closePopup over the layer tree was tried and failed
   // in the browser test — the sublayer popup factory is unreachable through
   // Layer.closePopup. DOM sweep is the only measured-effective fallback.
+  // Hover tooltips get the same treatment: a residual tooltip at focus time
+  // would reappear on hover-out because visibility:hidden only applies while
+  // the focus class is on, so clear them before focus activates.
   document.querySelectorAll(".leaflet-popup").forEach(el => el.remove());
+  document.querySelectorAll(".leaflet-tooltip").forEach(el => el.remove());
   // Folium's overlay subsystems (menu, attrs, style, rename, focus) each
   // subscribe to this event in bindLayerEvents and close themselves. The caller
   // of closeOverlays is about to open one of them — the matching subscriber

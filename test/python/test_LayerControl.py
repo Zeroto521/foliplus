@@ -6831,6 +6831,123 @@ class TestLayerControlBrowser:
             assert result["focusing"] is True, f"focus did not activate: {result}"
             assert not errors, f"JS errors: {errors}"
 
+    def test_focus_hides_native_ui_panes(self, browser, tmp_path):
+        """Focus-mode CSS hides Leaflet's own UI panes: marker shadows, hover
+        tooltips, and popups.
+
+        The existing hide rule only matches `.foliplus-layer-pane`, so the
+        three Leaflet-native floaters all escape focus — a marker's shadow
+        keeps painting, a hover tooltip gets *lifted* above the mask by
+        `bringFocusedLayerToFront`'s `liftZ("tooltipPane", 3)` call, and a
+        popup can open during the focus animation. The three dedicated
+        selectors in `focus.css` (`leaflet-shadow-pane`, `leaflet-tooltip-pane`,
+        `leaflet-popup-pane`) each `visibility: hidden` under
+        `.foliplus-is-focus-mode`; `dismissFocus`'s class removal restores them.
+        Companion teardown sweeps `.leaflet-tooltip` alongside `.leaflet-popup`
+        so hover residue does not reappear on hover-out after focus ends.
+
+        The probe drives focus by dblclicking the polygon row and samples
+        `getComputedStyle(pane).visibility` before, during, and after. The
+        tooltip is opened programmatically via `openTooltip()` (hover timing
+        is unreliable in headless) and the shadow pane is seeded with a
+        synthetic `.leaflet-shadow-image` — folium's default awesome-marker
+        icon does not carry a shadow, but the CSS rule is pane-scoped so the
+        element inside just has to exist for the assertion to be meaningful.
+        """
+        # Polygon layer: focus target. Marker layer: produces a tooltip on
+        # hover. folium.Marker's default folium.Icon (AwesomeMarkers) does
+        # not set a shadow_url, so we do not depend on the shadow pane
+        # carrying any element — the CSS rule hides the pane div itself,
+        # which is the contract we pin here.
+        fg_polygon = folium.FeatureGroup(name="Zones", overlay=True, show=True)
+        folium.Polygon(
+            locations=[[26.0, 119.2], [26.2, 119.2], [26.2, 119.5], [26.0, 119.5]],
+        ).add_to(fg_polygon)
+        fg_marker = folium.FeatureGroup(name="Points", overlay=True, show=True)
+        folium.Marker([26.05, 119.25], name="P1", tooltip="Tooltip text").add_to(
+            fg_marker
+        )
+
+        with use_page(
+            self._make_page,
+            browser,
+            tmp_path,
+            fg_polygon,
+            fg_marker,
+            slug="focus_native_panes",
+        ) as (page, errors):
+            panel_ready(page)
+
+            # Expose the test marker to the snippet so it can `openTooltip()`
+            # deterministically. The var name is the folium hash suffix.
+            marker_var = page.evaluate(
+                """
+                () => {
+                  const s = Array.from(document.scripts)
+                    .map(n => n.textContent).join("\\n");
+                  const m = s.match(/var (marker_[a-f0-9]+) = L\\.marker/);
+                  return m ? m[1] : null;
+                }
+                """
+            )
+            assert marker_var is not None, "could not find the folium marker var"
+            page.evaluate(f"() => {{ window.__testMarker = window.{marker_var}; }}")
+
+            result = page.evaluate(_js("LayerControl/focus_hides_native_panes"))
+            assert result is not None and "error" not in result, (
+                f"focus_hides_native_panes snippet failed: {result}"
+            )
+
+            # Pre-focus: the synthetic shadow image and the opened tooltip are
+            # both in the DOM, so the hide assertions below aren't vacuous.
+            assert result["before"]["shadowImage"] is True, (
+                "shadow pane must carry a .leaflet-shadow-image element before "
+                f"focus (else the shadow-pane assertion is vacuous): "
+                f"{result['before']}"
+            )
+            assert result["before"]["tooltipEl"] is True, (
+                f"openTooltip() must have produced a .leaflet-tooltip element "
+                f"before focus: {result['before']}"
+            )
+            assert result["before"]["containerFocus"] is False, (
+                "focus must not be active before the dblclick"
+            )
+
+            # During focus: all three native panes must be `visibility: hidden`.
+            assert result["during"]["containerFocus"] is True, (
+                f"focus mode did not activate: {result['during']}"
+            )
+            for name in ("shadowPane", "tooltipPane", "popupPane"):
+                pane = result["during"][name]
+                assert pane["present"] is True, f"{name} must exist on the map: {pane}"
+                assert pane["visibility"] == "hidden", (
+                    f"{name} must be `visibility: hidden` during focus "
+                    f"— focus.css must hide Leaflet's own UI panes: {pane}"
+                )
+
+            # After cancel: the `.foliplus-is-focus-mode` class must be gone,
+            # so the CSS rule releases the panes. The tooltip DOM element may
+            # have been removed by `closeOverlays`' `.leaflet-tooltip` sweep
+            # during focus (intentional — hover residue must not resurrect on
+            # hover-out after focus ends), so `after.tooltipEl` is expected to
+            # be false; only the container-focus flip is asserted.
+            assert result["after"]["containerFocus"] is False, (
+                f"focus mode must be released after cancelFocus: {result['after']}"
+            )
+            # Shadow pane survives (the marker is still on the map; only
+            # visibility changed during focus), so its restored visibility is
+            # checkable. Tooltip and popup elements may have been swept, so we
+            # only assert the visibility value when they survived — either way
+            # the assertion does not depend on the sweep outcome.
+            assert result["after"]["shadowPane"]["present"] is True, (
+                f"shadow pane must survive cancelFocus: {result['after']}"
+            )
+            assert result["after"]["shadowPane"]["visibility"] == "visible", (
+                f"shadow pane must be restored to `visibility: visible` after "
+                f"focus is cancelled: {result['after']}"
+            )
+            assert not errors, f"JS errors: {errors}"
+
     def test_late_layer_fill_swatch_reads_authored_color(self, browser, tmp_path):
         """#679: bad script order — the control's own script lands before a
         layer's JS global, so the registry entry starts at `layer: null`

@@ -19,6 +19,7 @@
 - `LayerControl`: layers registered before their map object arrives now resolve on `layeradd`, so the fill swatch and layer-kind logic see the real layer instead of a fallback ([#679](https://github.com/Zeroto521/foliplus/pull/679))
 - `LayerControl`: rapid focus switches no longer leave an orphan mask — the geometry-focus marquee now uses its own class, so its cleanup no longer deletes the focus rect ([#680](https://github.com/Zeroto521/foliplus/pull/680))
 - `LayerControl`: a focused layer's own opacity is temporarily forced to fully opaque during focus, and returns to its authored value on cancel ([#681](https://github.com/Zeroto521/foliplus/pull/681))
+- `LayerControl`: marker shadows, hover tooltips, and popups no longer survive focus mode — Leaflet's native UI panes are hidden while a layer is focused, alongside the data panes ([#683](https://github.com/Zeroto521/foliplus/pull/683))
 
 ## [v0.4.0] (2026-10-10)
 
