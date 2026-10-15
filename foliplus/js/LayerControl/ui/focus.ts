@@ -14,6 +14,7 @@ import { ensureModes, guardBlocked } from "#core/mode.js";
 import { type RectCorners, roundedRectOutline } from "#common/marqueeShape.js";
 import * as CONST from "../const.js";
 import { applyProjectionAll } from "./apply.js";
+import { projectLayer } from "./projection.js";
 import type { LayerUI } from "./surface.js";
 import { closeOverlays } from "./teardown.js";
 
@@ -296,19 +297,46 @@ const dismissFocus = (ui: LayerUI): void => {
 
 /**
  * Hide every other visible layer so the focused layer stands out.
- * Works alongside the inverse mask (which dims the basemap + everything
- * outside the bounds). The basemap (tilePane) has no `foliplus-layer-pane`
- * class, so it is naturally excluded and keeps the spatial context.
- *
- * Declarative: one class write on the map container. CSS
- * `.foliplus-is-focus-mode .foliplus-layer-pane:not(.foliplus-focus-pane)`
- * hides every layer pane except the focused one — instead of a JS
- * visibility loop over N panes. Canvas layers (heatmap) live in their own
- * pane, so they are covered by the same rule. `bringFocusedLayerToFront`
- * marks the focused pane with `foliplus-focus-pane` so it stays visible.
+ * Works alongside the inverse mask (which dims the area outside the
+ * bounds). The active basemap (topmost base layer that is effectiveShown)
+ * is exempted from this rule and dimmed — other base panes are hidden
+ * like data layers. Declarative: one class write on the map container.
+ * CSS `.foliplus-is-focus-mode .foliplus-layer-pane:not(.foliplus-focus-pane):not(.foliplus-focus-basemap)`
+ * hides every layer pane except the focused one and the active basemap —
+ * instead of a JS visibility loop over N panes. Canvas layers (heatmap)
+ * live in their own pane, so they are covered by the same rule.
+ * `bringFocusedLayerToFront` marks the focused pane with
+ * `.foliplus-focus-pane` so it stays visible.
  */
 const hideOtherLayers = (ui: LayerUI): void => {
   ui.c.map.getContainer().classList.add(CONST.CLASSES.FOCUS_ACTIVE);
+
+  // Mark the active basemap (topmost base layer that is effectiveShown)
+  // so it stays visible and is dimmed. Other base panes are hidden like
+  // data layers. Restore functions are stored in focusedPaneRestores so
+  // dismissFocus clears the marking.
+  //
+  // The registry order is topmost-first: `zFor` prices a layer at
+  // `base + (count - index) * step`, so a smaller index sits higher in the
+  // stack. Iterating forward finds the topmost base first.
+  const layers = ui.c.layers;
+  for (let i = 0; i < layers.length; i++) {
+    const li = layers[i];
+    if (li.group !== GROUP.BASE) continue;
+    const proj = projectLayer(ui, li);
+    if (!proj.effectiveShown) continue;
+    const surface = ui.c.surfaceFor(li);
+    if (!surface) continue;
+    for (const pane of surface.panes) {
+      pane.element.classList.add(CONST.CLASSES.FOCUS_BASEMAP);
+    }
+    ui.focusController.focusedPaneRestores.push(() => {
+      for (const pane of surface.panes) {
+        pane.element.classList.remove(CONST.CLASSES.FOCUS_BASEMAP);
+      }
+    });
+    break; // only the topmost base layer
+  }
 };
 
 /**
@@ -429,7 +457,7 @@ const bringFocusedLayerToFront = (ui: LayerUI, layerInfo: LayerInfo): void => {
   } else if (layerInfo.canvas) {
     lift(layerInfo.canvas);
   }
-  ui.focusController.focusedPaneRestores = restores;
+  ui.focusController.focusedPaneRestores.push(...restores);
 };
 
 /** Remove the container class that hides every non-focused layer. */
