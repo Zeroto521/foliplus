@@ -184,6 +184,17 @@ const focusLayer = (ui: LayerUI, layerId: string) => {
   const modes = ensureModes(ui.c.map);
   modes.setMode(ui.config.name, "focusing");
 
+  // Seed `focusingLayerId` before the projection sweep so `projectLayer` sees
+  // the focus immediately — registerAutoCancel below would otherwise set it
+  // only after the fitBounds/flyTo branches, which would let the sweep fall
+  // through on a half-transparent target. The redundant write there is
+  // idempotent. `applyProjectionAll` lands the focused layer's opacity=1
+  // override (see projection.ts); zoom-range's `focusingLayerId != null`
+  // policy is driven by the same flag, so this one sweep is a no-op for the
+  // layers it already covers.
+  ui.focusController.focusingLayerId = layerId;
+  applyProjectionAll(ui);
+
   // Single-point / tiny bounds → flyTo the center.
   const southWest = bounds.getSouthWest();
   const northEast = bounds.getNorthEast();

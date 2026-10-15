@@ -18,6 +18,7 @@
 - `LayerControl`: basemaps stay visible while a layer is focused — they fade instead of disappearing, so the map's grey background no longer shows through ([#675](https://github.com/Zeroto521/foliplus/pull/675))
 - `LayerControl`: layers registered before their map object arrives now resolve on `layeradd`, so the fill swatch and layer-kind logic see the real layer instead of a fallback ([#679](https://github.com/Zeroto521/foliplus/pull/679))
 - `LayerControl`: rapid focus switches no longer leave an orphan mask — the geometry-focus marquee now uses its own class, so its cleanup no longer deletes the focus rect ([#680](https://github.com/Zeroto521/foliplus/pull/680))
+- `LayerControl`: a focused layer's own opacity is temporarily forced to fully opaque during focus, and returns to its authored value on cancel ([#681](https://github.com/Zeroto521/foliplus/pull/681))
 
 ## [v0.4.0] (2026-10-10)
 

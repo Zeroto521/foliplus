@@ -14,8 +14,13 @@ import {
   toggleFocusedLayer,
 } from "#foliplus/LayerControl/ui/focus.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
-import { seedIntentMap } from "#foliplus/LayerControl/ui/intent.js";
+import {
+  getIntent,
+  seedIntentMap,
+  setIntent,
+} from "#foliplus/LayerControl/ui/intent.js";
 import { getActiveLayerItem } from "#foliplus/LayerControl/ui/listPanel/index.js";
+import { projectLayer } from "#foliplus/LayerControl/ui/projection.js";
 import { GROUP, type LayerInfo, focusLayerZ } from "#foliplus/core/layer/index.js";
 import { ensureModes } from "#foliplus/core/mode.js";
 import {
@@ -575,6 +580,110 @@ describe("LayerUI focus", () => {
       expect(focusSpy).toHaveBeenCalledWith("overlay1");
 
       focusSpy.mockRestore();
+    });
+  });
+
+  // ─────────────────── focus-driven opacity override ───────────────────
+  // Focus forces the focused layer's opacity to 1 in the projection so a
+  // half-transparent target still reads as fully opaque while the spotlight
+  // is up. The user's stored intent is left untouched — dismissFocus's
+  // sweep lands the author's value back. Zoom-range policy is separate and
+  // pinned elsewhere (zoomRange.test.ts / projection.test.ts).
+
+  describe("focusLayer opacity override", () => {
+    const infoOf = (id: string) => manager.layerRegistry.get(id)!;
+
+    it("leaves the stored opacity intent untouched and reports 1 during focus", () => {
+      setIntent(ui, "overlay1", "opacity", 0.4);
+      ui.intentStore.seedProvenance("overlay1", ["opacity"]);
+
+      ui.focusLayer("overlay1");
+
+      // The intent store is not written by the projection — this is what
+      // dismissFocus relies on to restore the author's value.
+      expect(getIntent(ui, "overlay1", "opacity")).toBe(0.4);
+      expect(projectLayer(ui, infoOf("overlay1")).opacity).toBe(1);
+    });
+
+    it("restores the stored opacity on cancelFocus", () => {
+      setIntent(ui, "overlay1", "opacity", 0.4);
+      ui.intentStore.seedProvenance("overlay1", ["opacity"]);
+
+      ui.focusLayer("overlay1");
+      expect(projectLayer(ui, infoOf("overlay1")).opacity).toBe(1);
+
+      ui.cancelFocus();
+      expect(projectLayer(ui, infoOf("overlay1")).opacity).toBe(0.4);
+    });
+
+    it("covers a fully-opaque focused layer (no intent stored) to 1", () => {
+      ui.focusLayer("overlay1");
+
+      // No intent entry: the projection reads 1 both before and during
+      // focus — the executor's diff is a no-op there.
+      expect(getIntent(ui, "overlay1", "opacity")).toBeUndefined();
+      expect(projectLayer(ui, infoOf("overlay1")).opacity).toBe(1);
+    });
+
+    it("does not lift the opacity of a non-focused layer", () => {
+      setIntent(ui, "overlay1", "opacity", 0.4);
+      ui.intentStore.seedProvenance("overlay1", ["opacity"]);
+
+      manager.registerLayer({
+        id: "overlay2",
+        name: "Shapes",
+        layer: {
+          options: {},
+          eachLayer: vi.fn(),
+          getBounds: () => ({
+            isValid: () => true,
+            getSouthWest: () => ({ lat: 30, lng: 100 }),
+            getNorthEast: () => ({ lat: 40, lng: 110 }),
+          }),
+        } as unknown as L.Layer,
+      });
+      setIntent(ui, "overlay2", "opacity", 0.7);
+      ui.intentStore.seedProvenance("overlay2", ["opacity"]);
+
+      ui.focusLayer("overlay1");
+
+      // Focused layer is forced to 1; the sibling keeps its own intent —
+      // the override is single-layer, not a blanket policy like zoom-range.
+      expect(projectLayer(ui, infoOf("overlay1")).opacity).toBe(1);
+      expect(projectLayer(ui, infoOf("overlay2")).opacity).toBe(0.7);
+    });
+
+    it("focusLayer applies the opacity override through the executor (not just the projection)", () => {
+      // The projection-level assertions above catch `projectLayer` returning
+      // 1, but they pass even if focusLayer never calls applyProjectionAll:
+      // `focusingLayerId` is also set by `highlightFocusedRow` /
+      // `registerAutoCancel` later in the same call, so the pure projection
+      // already reads 1 by the time focusLayer returns. This case pins the
+      // apply step itself — the override must reach the executor's written
+      // state, which is what lands on the carrier (pane style / layer
+      // options) the user actually sees. Without `applyProjectionAll(ui)`
+      // inside focusLayer, `runtimeStore.getApplied().opacity` stays at the
+      // last sweep's value and the carrier never updates.
+      setIntent(ui, "overlay1", "opacity", 0.4);
+      ui.intentStore.seedProvenance("overlay1", ["opacity"]);
+
+      // Baseline: no sweep has run since setIntent, so the applied state
+      // still holds the author's default (1) from the init pass.
+      expect(infoOf("overlay1").opacity).toBe(1);
+
+      ui.focusLayer("overlay1");
+
+      // The focus-driven 1 must be the value the executor last wrote —
+      // visible on both the runtime record and the LayerInfo field the
+      // carrier write stamps.
+      expect(ui.runtimeStore.getApplied("overlay1")?.opacity).toBe(1);
+      expect(infoOf("overlay1").opacity).toBe(1);
+
+      ui.cancelFocus();
+
+      // dismissFocus's sweep lands the author's stored intent back.
+      expect(ui.runtimeStore.getApplied("overlay1")?.opacity).toBe(0.4);
+      expect(infoOf("overlay1").opacity).toBe(0.4);
     });
   });
 

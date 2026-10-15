@@ -70,8 +70,14 @@ const projectLayer = (ui: LayerUI, layerInfo: LayerInfo): Projection => {
 
   // A dimension's value being present is what the sweep has always read as
   // the user's choice (a restored record, a late replay). The provenance
-  // marker lives on `IntentRow.provenance`, not on this projection.
-  const opacity = getIntent(ui, id, INTENT.OPACITY);
+  // marker lives on `IntentRow.provenance`, not on this projection. Focus
+  // forces opacity to 1 for the *focused* layer only (see focus.ts) — the
+  // user's intent is left untouched, so dismissFocus's replay lands the
+  // author's value back. Different from `policy` above: zoom-range is a
+  // permissive gate for every layer during focus (`!= null`), opacity is a
+  // single-layer override (`=== id`).
+  const intentOpacity = getIntent(ui, id, INTENT.OPACITY);
+  const opacity = ui.focusController.focusingLayerId === id ? 1 : intentOpacity;
   const zoomRange = getIntent(ui, id, INTENT.ZOOM_RANGE) ?? null;
 
   return { id, intent: { visible: intent }, effectiveShown, opacity, zoomRange };
