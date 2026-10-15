@@ -13,6 +13,7 @@ import { applyProjection, applyProjectionAll } from "./apply.js";
 import { hideSolidBasemap, resetSolidBasemap, showSolidBasemap } from "./color.js";
 import { cancelFocus, focusLayer, isFocusing } from "./focus.js";
 import { FocusController } from "./focus/focusController.js";
+import { seedAuthorVisible } from "./intent.js";
 import {
   attachUI,
   bindLayerEvents,
@@ -179,11 +180,10 @@ class LayerUI implements LayerUISurface {
     this.runtimeStore = new LayerRuntimeStore();
     // Seed the author's declared default off the registry, which carries
     // `show` from the Python config (data[].show), before any policy moves
-    // layers. `?? true` is folium's own default for a layer whose author
-    // declared nothing. Late registrations (Heatmap / Measure) have no
-    // data[] entry and get the same `?? true` in `insertLayerItem`.
+    // layers. Late registrations (Heatmap / Measure) have no data[] entry and
+    // get the same seed in `insertLayerItem`.
     for (const layerInfo of this.c.layers) {
-      this.runtimeStore.setAuthorVisible(layerInfo.id, layerInfo.show ?? true);
+      seedAuthorVisible(this, layerInfo);
     }
     this.currentColor = CONST.COLOR.DEFAULT;
     this.colorSurface = null;
