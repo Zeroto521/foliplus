@@ -9,16 +9,28 @@
       // Focus the path to trigger the marquee
       path.setAttribute("tabindex", "-1");
       path.focus();
-      // Wait for marquee to appear
+      // Wait for marquee to appear (5s safety — a class-name regression
+      // would hang this loop forever without it, stalling CI for hours).
+      let marqueeDone = false;
       const waitMarquee = () => {
-        if (document.querySelector("path.foliplus-focus-rect")) return collectState();
+        if (marqueeDone) return;
+        if (document.querySelector("path.foliplus-focus-marquee")) {
+          marqueeDone = true;
+          return collectState();
+        }
         setTimeout(waitMarquee, 50);
       };
+      setTimeout(() => {
+        if (!marqueeDone) {
+          marqueeDone = true;
+          resolve({ error: "marquee never appeared within 5s" });
+        }
+      }, 5000);
       waitMarquee();
     };
     const collectState = () => {
       const path = document.querySelector("path.leaflet-interactive");
-      const marquee = document.querySelector("path.foliplus-focus-rect");
+      const marquee = document.querySelector("path.foliplus-focus-marquee");
       if (!path || !marquee) {
         resolve({ error: "path or marquee missing" });
         return;
@@ -44,7 +56,7 @@
             if (done) return;
             done = true;
             // Re-query the marquee — the rAF redraw replaces the old element.
-            const mq2 = document.querySelector("path.foliplus-focus-rect");
+            const mq2 = document.querySelector("path.foliplus-focus-marquee");
             const after = {
               geomBB: toBB(path),
               marqueeBB: mq2 ? toBB(mq2) : null,

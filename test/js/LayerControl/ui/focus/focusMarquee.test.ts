@@ -76,14 +76,14 @@ describe("bindGeometryFocusMarquee", () => {
     const unbind = bindGeometryFocusMarquee(root, map);
 
     path.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
-    const marquee = group.querySelector("path.foliplus-focus-rect");
+    const marquee = group.querySelector("path.foliplus-focus-marquee");
     expect(marquee).not.toBeNull();
     // 4 corners × (2 tangents + 2 bezier mids) = 16 outline points.
     const d = marquee!.getAttribute("d")!;
     expect((d.match(/L/g) ?? []).length).toBe(15); // 15 L + 1 M, closed with Z
 
     path.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
-    expect(group.querySelector("path.foliplus-focus-rect")).toBeNull();
+    expect(group.querySelector("path.foliplus-focus-marquee")).toBeNull();
     unbind();
   });
 
@@ -94,13 +94,13 @@ describe("bindGeometryFocusMarquee", () => {
     const unbind = bindGeometryFocusMarquee(root, map);
 
     path.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
-    expect(group.contains(document.querySelector("path.foliplus-focus-rect"))).toBe(
+    expect(group.contains(document.querySelector("path.foliplus-focus-marquee"))).toBe(
       true,
     );
     // A direct child of the SVG root would sit outside the projection group.
     expect(
       [...svg.children].some(
-        n => (n as Element).getAttribute("class") === "foliplus-focus-rect",
+        n => (n as Element).getAttribute("class") === "foliplus-focus-marquee",
       ),
     ).toBe(false);
     unbind();
@@ -115,7 +115,7 @@ describe("bindGeometryFocusMarquee", () => {
 
     path.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
     root.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
-    expect(group.querySelector("path.foliplus-focus-rect")).toBeNull();
+    expect(group.querySelector("path.foliplus-focus-marquee")).toBeNull();
     unbind();
   });
 
@@ -130,7 +130,7 @@ describe("bindGeometryFocusMarquee", () => {
     a.path.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
     b.path.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
     // B's marquee is the only one left (A's was cleared on the new draw).
-    const rects = document.querySelectorAll("path.foliplus-focus-rect");
+    const rects = document.querySelectorAll("path.foliplus-focus-marquee");
     expect(rects.length).toBe(1);
     expect(b.group.contains(rects[0])).toBe(true);
     unbind();
@@ -143,7 +143,9 @@ describe("bindGeometryFocusMarquee", () => {
     const unbind = bindGeometryFocusMarquee(root, map);
 
     path.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
-    const stale = group.querySelector("path.foliplus-focus-rect")!.getAttribute("d")!;
+    const stale = group
+      .querySelector("path.foliplus-focus-marquee")!
+      .getAttribute("d")!;
 
     // Leaflet re-projects every path on moveend (pan, zoom, flyTo), rewriting
     // the geometry's bbox in pixel space. The binder defers the redraw with
@@ -155,12 +157,12 @@ describe("bindGeometryFocusMarquee", () => {
     // Wait for the rAF-deferred redraw to run.
     await new Promise(r => requestAnimationFrame(r));
 
-    const live = group.querySelector("path.foliplus-focus-rect")!.getAttribute("d")!;
+    const live = group.querySelector("path.foliplus-focus-marquee")!.getAttribute("d")!;
     expect(live).not.toBe(stale);
     // New bbox left edge is 20 - MARQUEE_PAD = 16; the stale one was -4.
     expect(live).toContain("16.0");
     expect(stale).not.toContain("16.0");
-    expect(document.querySelectorAll("path.foliplus-focus-rect").length).toBe(1);
+    expect(document.querySelectorAll("path.foliplus-focus-marquee").length).toBe(1);
     unbind();
   });
 
@@ -171,14 +173,14 @@ describe("bindGeometryFocusMarquee", () => {
     const unbind = bindGeometryFocusMarquee(root, map);
 
     path.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
-    expect(document.querySelectorAll("path.foliplus-focus-rect").length).toBe(1);
+    expect(document.querySelectorAll("path.foliplus-focus-marquee").length).toBe(1);
 
     svg.remove(); // layer removed from the map
     fire("moveend");
     // The redraw is deferred to rAF (see the moveend test above); wait for
     // it to clear the orphaned marquee.
     await new Promise(r => requestAnimationFrame(r));
-    expect(document.querySelectorAll("path.foliplus-focus-rect").length).toBe(0);
+    expect(document.querySelectorAll("path.foliplus-focus-marquee").length).toBe(0);
     unbind();
   });
 
@@ -189,16 +191,16 @@ describe("bindGeometryFocusMarquee", () => {
     const unbind = bindGeometryFocusMarquee(root, map);
 
     path.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
-    expect(document.querySelectorAll("path.foliplus-focus-rect").length).toBe(1);
+    expect(document.querySelectorAll("path.foliplus-focus-marquee").length).toBe(1);
 
     fire("moveend"); // schedules rAF, rafId set
     // Focusout cancels the pending rAF (cancelPending → cancelAnimationFrame)
     path.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
-    expect(document.querySelectorAll("path.foliplus-focus-rect").length).toBe(0);
+    expect(document.querySelectorAll("path.foliplus-focus-marquee").length).toBe(0);
 
     // Await rAF to confirm the cancelled rAF did not redraw the marquee.
     await new Promise(r => requestAnimationFrame(r));
-    expect(document.querySelectorAll("path.foliplus-focus-rect").length).toBe(0);
+    expect(document.querySelectorAll("path.foliplus-focus-marquee").length).toBe(0);
     unbind();
   });
 
@@ -209,7 +211,9 @@ describe("bindGeometryFocusMarquee", () => {
     const unbind = bindGeometryFocusMarquee(root, map);
 
     path.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
-    const first = group.querySelector("path.foliplus-focus-rect")!.getAttribute("d")!;
+    const first = group
+      .querySelector("path.foliplus-focus-marquee")!
+      .getAttribute("d")!;
 
     // First moveend schedules rAF (rafId set).
     stubBBox(path, { x: 10, y: 10, width: 20, height: 20 });
@@ -221,7 +225,7 @@ describe("bindGeometryFocusMarquee", () => {
     await new Promise(r => requestAnimationFrame(r));
 
     // Marquee reflects the SECOND bbox (the latest), not the first.
-    const live = group.querySelector("path.foliplus-focus-rect")!.getAttribute("d")!;
+    const live = group.querySelector("path.foliplus-focus-marquee")!.getAttribute("d")!;
     expect(live).toContain("26.0"); // 30 - MARQUEE_PAD = 26
     expect(live).not.toBe(first);
     unbind();
@@ -243,7 +247,7 @@ describe("bindGeometryFocusMarquee", () => {
     const { map } = makeMap();
     const unbind = bindGeometryFocusMarquee(root, map);
     path.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
-    expect(document.querySelectorAll("path.foliplus-focus-rect")).toHaveLength(0);
+    expect(document.querySelectorAll("path.foliplus-focus-marquee")).toHaveLength(0);
     unbind();
   });
 
@@ -255,13 +259,13 @@ describe("bindGeometryFocusMarquee", () => {
 
     path.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
     unbind();
-    expect(document.querySelectorAll("path.foliplus-focus-rect")).toHaveLength(0);
+    expect(document.querySelectorAll("path.foliplus-focus-marquee")).toHaveLength(0);
 
     // After unbind, focusin must not draw again.
     path.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
-    expect(document.querySelectorAll("path.foliplus-focus-rect")).toHaveLength(0);
+    expect(document.querySelectorAll("path.foliplus-focus-marquee")).toHaveLength(0);
     // And the map listener must be gone with it.
     fire("moveend");
-    expect(document.querySelectorAll("path.foliplus-focus-rect")).toHaveLength(0);
+    expect(document.querySelectorAll("path.foliplus-focus-marquee")).toHaveLength(0);
   });
 });
