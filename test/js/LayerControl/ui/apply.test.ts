@@ -5,6 +5,7 @@ import { LayerIntentStore } from "#foliplus/LayerControl/domain/index.js";
 import {
   applyProjection,
   applyProjectionAll,
+  authorZoomBoundsForLayer,
   dispatchStateOp,
 } from "#foliplus/LayerControl/ui/apply.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
@@ -803,6 +804,58 @@ describe("executor: carrier dispatch", () => {
     applyProjection(ui, "tile");
 
     expect((layer.options as { opacity?: number }).opacity).toBe(0.4);
+  });
+
+  it("freezes the opacity base on the first write; later slider drags never re-read the mutated options", () => {
+    // memoizeLayer idempotency contract: the base is captured once from
+    // `options.opacity` at first access and never re-read. `dispatchStateOp`
+    // writes the multiplied value back to `options.opacity`, so a second call
+    // that re-read options.opacity would compound (0.8 → 0.4 → 0.24). The
+    // frozen skeleton keeps it at 0.8 * slider — the second drag lands at
+    // 0.8 * 0.6 = 0.48, not the ratcheted 0.24.
+    const layer = { options: { opacity: 0.8 } } as L.Layer;
+    const { ui, manager } = boot([
+      { id: "tile", name: "Tile", group: "overlay", layer },
+    ]);
+    vi.spyOn(manager, "surfaceFor").mockReturnValue({
+      capabilities: { opacity: "native", zoomRange: "native" },
+      paneNames: [],
+      geometryType: () => "polygon",
+    } as unknown as ReturnType<typeof manager.surfaceFor>);
+
+    setIntent(ui, "tile", "opacity", 0.5);
+    ui.intentStore.seedProvenance("tile", ["opacity"]);
+    applyProjection(ui, "tile");
+    expect((layer.options as { opacity?: number }).opacity).toBe(0.4);
+
+    setIntent(ui, "tile", "opacity", 0.6);
+    applyProjection(ui, "tile");
+    expect((layer.options as { opacity?: number }).opacity).toBe(0.48);
+
+    // Third drag — the base is still 0.8, not the previous 0.48.
+    setIntent(ui, "tile", "opacity", 0.25);
+    applyProjection(ui, "tile");
+    expect((layer.options as { opacity?: number }).opacity).toBe(0.2);
+  });
+
+  it("memoizeLayer skips caching for a null layer — a later call with the same id still reads fresh", () => {
+    // The zoom-bounds memo is keyed by layer identity. A layer id that the
+    // registry doesn't know about (or a layer that hasn't materialized yet)
+    // means `ui.c.layerRegistry.get(id)?.layer` is undefined and the memo
+    // takes its null-layer branch: no cache entry, no cache lookup. Every
+    // call falls through to the read closure, so the map's live min/max is
+    // consulted each time — the correct answer for a not-yet-registered
+    // layer, whose author bounds could still arrive.
+    const { ui } = boot([]);
+    const first = authorZoomBoundsForLayer(ui, "ghost");
+    expect(first).toEqual([0, 18]);
+
+    // A later call re-reads the map, not a cached value from the first call.
+    // We verify this by advancing the map's maxZoom and seeing the new value
+    // — a cached result would still report 18.
+    (ui as any).c.map.getMaxZoom = vi.fn(() => 20);
+    const second = authorZoomBoundsForLayer(ui, "ghost");
+    expect(second).toEqual([0, 20]);
   });
 
   it("zoomRange does not write to layer options (visibility-only resolution)", () => {

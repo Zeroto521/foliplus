@@ -23,7 +23,6 @@
 // annotation label row, so a border row reads identically whether the layer
 // paints through `setStyle` or through a component's own canvas.
 import { CAP_TIER, DIM } from "#core/layer/index.js";
-import { findLeaf } from "#core/layer/walkLeaf.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { dom } from "#common/dom.js";
 import {
@@ -47,14 +46,12 @@ import {
 import {
   FACE,
   type StyleCarrier,
-  type StyleSetter,
   cancelStyleDimApply,
   commitStyleDim,
   flushStyleDimApply,
-  isStyleSetter,
   restoreStyleDim,
   scheduleStyleDimApply,
-  styleBagOf,
+  styleBaseOf,
   styleDimPayload,
   walkStyleLeaves,
 } from "./styleBag.js";
@@ -123,42 +120,19 @@ const layerCanBorder = (ui: LayerUI, layerId: string): boolean => {
   return ui.c.surfaceFor(layerInfo).capabilities.stroke === CAP_TIER.NATIVE;
 };
 
-/** Leaflet's own default `Path.color` — folium's style function always
- *  populates `options.color`, so this only fires for a bare Leaflet layer
- *  with no style declaration at all. */
-const DEFAULT_STYLE_BORDER = "#3388ff";
-
-/** The first leaf that carries a style — the row's initial value is read
- *  from it, so a swatch or a number field never shows a value the layer is
- *  not actually painting.
- *
- *  Groups are always descended, never returned. L.GeoJSON defines `setStyle`
- *  itself — it fans the style out to its features — so a setter-only check
- *  stops at the group and reads its own options, which hold only the style
- *  function: the panel then shows Leaflet's defaults instead of the author's
- *  stroke, which is the stroke the layer is actually painting. */
-const firstCarrier = (node: StyleCarrier): StyleSetter | null =>
-  findLeaf<StyleSetter>(node, leaf => (isStyleSetter(leaf) ? leaf : undefined)) ?? null;
-
 /** The authored border of one layer, or the Leaflet defaults for a layer
  *  that has no declared style. Reads the captured base first — `setStyle`
  *  mutates `options` in place, so after a write the layer's own options no
  *  longer hold the author's stroke and the base is the only copy. Never
  *  reads the user's stored value, so a stored value cannot feed back into
- *  the base and make a Reset restore the user's own choice. */
+ *  the base and make a Reset restore the user's own choice. Delegates to
+ *  `styleBaseOf` so the border and fill rows share one reader. */
 const authoredBorder = (
   ui: LayerUI,
   layerId: string,
 ): { color: string; weight: number } => {
-  // findLayer, not registry.get(id).layer: folium layers register unresolved,
-  // so the registry's own reference stays null until the layer materializes.
-  const layer = ui.c.findLayer(layerId) as StyleCarrier | null;
-  const carrier = layer ? firstCarrier(layer) : null;
-  const bag = carrier ? styleBagOf(carrier) : undefined;
-  return {
-    color: bag?.color ?? carrier?.options?.color ?? DEFAULT_STYLE_BORDER,
-    weight: bag?.weight ?? carrier?.options?.weight ?? BORDER_WEIGHT.DEFAULT,
-  };
+  const base = styleBaseOf(ui, layerId);
+  return { color: base.color, weight: base.weight };
 };
 
 /** Commit the current border color and width to the layer. Walks the layer
