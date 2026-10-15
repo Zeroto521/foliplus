@@ -63,7 +63,18 @@ describe("build artifacts", () => {
 
   it("common JS exposes foliplus.version", () => {
     const content = readFileSync(resolve(distDir, "foliplus-common.min.js"), "utf-8");
-    expect(content).toContain("foliplus.version");
+    // Assert the assigned value, not the identifier: the bundler renames the
+    // module-local `foliplus` binding under `build` (minified), so the bare
+    // text "foliplus.version" only held for a `build:dev` artifact. The value
+    // is a compile-time define and is never renamed.
+    //
+    // The value is read from the banner rather than assuming a shape: `git
+    // describe --tags --always` yields `v0.4.0-7-g43d90a9c` on a tagged
+    // checkout but a bare short hash (`ce0770b`) on CI's tagless detached
+    // checkout, so banner and runtime property are asserted as one pair.
+    const banner = /foliplus@([^\s*]+)/.exec(content)?.[1];
+    expect(banner, "version banner missing").toBeTruthy();
+    expect(/\.version\s*=\s*["']([^"']+)["']/.exec(content)?.[1]).toBe(banner);
   });
 
   it("component JS externalizes the shared control factory", () => {

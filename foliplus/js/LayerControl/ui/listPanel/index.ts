@@ -16,7 +16,6 @@ export {
   displayName,
   inZoomRange,
   rowView,
-  snapshotAuthorVisible,
   type RowCell,
   type RowLabels,
   type RowView,
