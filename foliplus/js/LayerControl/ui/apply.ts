@@ -117,22 +117,16 @@ const finiteOr = (v: number | undefined, fallback: number): number =>
 const authorZoomBoundsOf = (
   ui: LayerUI,
   layer: L.Layer | null | undefined,
-): [number, number] => {
-  const stored = layer ? authorZoomBounds.get(layer) : undefined;
-  if (stored) return stored;
-  const opts = (layer?.options ?? {}) as L.LayerOptions & {
-    minZoom?: number;
-    maxZoom?: number;
-  };
-  const mapMin = finiteOr(ui.c.map.getMinZoom(), 0);
-  const mapMax = finiteOr(ui.c.map.getMaxZoom(), CONST.AUTHOR_ZOOM_FALLBACK_MAX);
-  const bounds: [number, number] = [
-    finiteOr(opts.minZoom, mapMin),
-    finiteOr(opts.maxZoom, mapMax),
-  ];
-  if (layer) authorZoomBounds.set(layer, bounds);
-  return bounds;
-};
+): [number, number] =>
+  memoizeLayer(authorZoomBounds, layer, () => {
+    const opts = (layer?.options ?? {}) as L.LayerOptions & {
+      minZoom?: number;
+      maxZoom?: number;
+    };
+    const mapMin = finiteOr(ui.c.map.getMinZoom(), 0);
+    const mapMax = finiteOr(ui.c.map.getMaxZoom(), CONST.AUTHOR_ZOOM_FALLBACK_MAX);
+    return [finiteOr(opts.minZoom, mapMin), finiteOr(opts.maxZoom, mapMax)];
+  });
 
 /** Same lookup keyed by layer id — the panel code has only the id in hand. */
 const authorZoomBoundsForLayer = (ui: LayerUI, layerId: string): [number, number] =>
