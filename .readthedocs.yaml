@@ -7,7 +7,7 @@ build:
   os: ubuntu-lts-latest
   tools:
     nodejs: "24"
-    python: "3.14"
+    python: "3.15"
   jobs:
     post_checkout:
       - git fetch --unshallow || true

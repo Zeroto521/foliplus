@@ -78,7 +78,7 @@ jobs:
   # Makefile-invariant test in `test/js/script/Makefile.test.ts`).
   # `make test-python-fast` also builds internally before pytest. `python`
   # runs the non-browser suite on the version matrix; `browser` runs the
-  # Playwright suite once (3.14 × folium latest). All entry points are the
+  # Playwright suite once (3.15 × folium latest). All entry points are the
   # same Makefile commands a developer runs locally, so CI drift stays
   # visible.
   js:
@@ -115,7 +115,7 @@ jobs:
         include:
           - python: "3.11"
             folium: "0.14.0"
-          - python: "3.14"
+          - python: "3.15"
             folium: "latest"
     steps:
       - uses: actions/checkout@v7
@@ -151,7 +151,7 @@ jobs:
           flags: ${{ job.name }}
 
   browser:
-    # Browser tests once (3.14 × folium latest), not on the matrix: they are
+    # Browser tests once (3.15 × folium latest), not on the matrix: they are
     # Playwright-bound, slow, and version-independent — running them twice buys
     # nothing. `make test-browser` is the same entry point a developer runs
     # locally. The CDN cache proxy in test/python/conftest.py serves folium's
@@ -167,7 +167,7 @@ jobs:
           fetch-depth: 0
       - uses: ./.github/actions/setup-deps
         with:
-          python-version: "3.14"
+          python-version: "3.15"
 
       - run: uv sync --group test
 
