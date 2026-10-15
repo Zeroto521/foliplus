@@ -12,11 +12,11 @@ import {
 } from "#core/layer/index.js";
 import { ensureModes, guardBlocked } from "#core/mode.js";
 import { type RectCorners, roundedRectOutline } from "#common/marqueeShape.js";
-import * as CONST from "../const.js";
-import { applyProjectionAll } from "./apply.js";
-import { projectLayer } from "./projection.js";
-import type { LayerUI } from "./surface.js";
-import { closeOverlays } from "./teardown.js";
+import * as CONST from "#foliplus/LayerControl/const.js";
+import { applyProjectionAll } from "../apply.js";
+import { projectLayer } from "../projection.js";
+import type { LayerUI } from "../surface.js";
+import { closeOverlays } from "../teardown.js";
 
 /** Why a row's focus action is off. Carried as the menu item's title and as
  *  the hint text when a keyboard/double-click path tries to focus a row the
@@ -75,8 +75,8 @@ const showFocusDisabledHint = (ui: LayerUI, reason: FocusDisabled): void => {
 /** Toggle visibility of the currently focused layer. */
 const toggleFocusedLayer = (ui: LayerUI): void => {
   // Through the shell instance, not an import of `listPanel/keyboard.js`:
-  // `keyboard.js` imports this file (`../focus.js`) for the focus-disabled
-  // hints, so a value import back would re-close that cycle.
+  // `keyboard.js` imports this file (`../focus/focus.js`) for the
+  // focus-disabled hints, so a value import back would re-close that cycle.
   const item = ui.activeLayerItem();
   if (!item) return;
   const checkbox = item.querySelector(

@@ -4,7 +4,7 @@ import * as CONST from "#foliplus/LayerControl/const.js";
 import * as SVGs from "#foliplus/LayerControl/icon.js";
 import { dom } from "#common/dom.js";
 import * as Icons from "#common/icon.js";
-import { focusDisabledLocaleKey, focusDisabledReason } from "../focus.js";
+import { focusDisabledLocaleKey, focusDisabledReason } from "../focus/focus.js";
 import { layerCanLabel, layerHasStyleDelegation } from "../style/index.js";
 import type { LayerUI } from "../surface.js";
 import { closeOverlays } from "../teardown.js";

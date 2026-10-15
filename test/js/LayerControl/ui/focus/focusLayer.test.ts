@@ -12,7 +12,7 @@ import {
   registerAutoCancel,
   showFocusDisabledHint,
   toggleFocusedLayer,
-} from "#foliplus/LayerControl/ui/focus.js";
+} from "#foliplus/LayerControl/ui/focus/focus.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import {
   getIntent,

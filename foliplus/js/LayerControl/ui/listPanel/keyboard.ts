@@ -6,7 +6,7 @@ import { isNativeControl } from "#core/interaction/index.js";
 import { GROUP } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { inFloatingPanel } from "../context.js";
-import { showFocusDisabledHint, toggleFocusedLayer } from "../focus.js";
+import { showFocusDisabledHint, toggleFocusedLayer } from "../focus/focus.js";
 import { activateDeleteItem } from "../overlayPanel/menu.js";
 import type { LayerUI } from "../surface.js";
 import {

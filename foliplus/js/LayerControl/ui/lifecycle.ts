@@ -12,7 +12,7 @@ import {
 } from "../interaction.js";
 import { applyProjection, applyProjectionAll } from "./apply.js";
 import { inFloatingPanel, isKeyboardVisibleFocus, owningRow } from "./context.js";
-import { dismissFocus } from "./focus.js";
+import { dismissFocus } from "./focus/focus.js";
 import { bindGeometryFocusMarquee } from "./focus/focusMarquee.js";
 import { INTENT, getIntent } from "./intent.js";
 import {

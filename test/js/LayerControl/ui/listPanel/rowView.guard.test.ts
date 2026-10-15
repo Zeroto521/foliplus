@@ -126,7 +126,7 @@ const OUT_OF_CHARTER: ReadonlyArray<{
   reason: string;
 }> = [
   {
-    file: "LayerControl/ui/focus.ts",
+    file: "LayerControl/ui/focus/focus.ts",
     slot: "checkbox.checked",
     n: 1,
     reason:
