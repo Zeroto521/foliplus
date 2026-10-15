@@ -6576,6 +6576,53 @@ class TestLayerControlBrowser:
             assert result["focusing"] is True, f"focus did not activate: {result}"
             assert not errors, f"JS errors: {errors}"
 
+    def test_late_layer_fill_swatch_reads_authored_color(self, browser, tmp_path):
+        """#679: bad script order — the control's own script lands before a
+        layer's JS global, so the registry entry starts at `layer: null`
+        with a pending `kind`. The late-binding hook must rewrite the entry
+        when the real object arrives via `layeradd`; otherwise every
+        consumer that reads `layerInfo.layer` directly falls back to
+        Leaflet's own default `#3388ff` forever. This gate is the raw
+        user-visible symptom: the fill swatch must show the author's
+        declared `fillColor`, not the fallback.
+
+        `_make_page` puts LayerControl first and the layer second — the
+        natural folium render order, so the JS global genuinely lands
+        after the control's script. No test-only reordering.
+        """
+        fg = folium.FeatureGroup(name="Zone", overlay=True, show=True)
+        folium.Polygon(
+            locations=[[26.0, 119.2], [26.2, 119.2], [26.2, 119.5], [26.0, 119.5]],
+            fill_color="#ffa500",
+            fill=True,
+        ).add_to(fg)
+        with use_page(
+            self._make_page,
+            browser,
+            tmp_path,
+            fg,
+            slug="late_fill_swatch",
+        ) as (page, errors):
+            panel_ready(page)
+            result = page.evaluate(_js("LayerControl/late_layer_fill_swatch"))
+            assert result is not None and result.get("panel") is True, (
+                f"probe did not open the style panel: {result}"
+            )
+            # The swatch reads the author's declared `fillColor`, not
+            # Leaflet's default `#3388ff` (the fallback that used to be
+            # sticky when the entry stayed pending).
+            assert result["fillValue"].lower() == "#ffa500", (
+                f"fill swatch must read the author's declared fillColor, got "
+                f"{result['fillValue']!r}: {result}"
+            )
+            # And no entry is still pending once folium's script has
+            # streamed — that is the invariant the fix writes back.
+            assert result["unresolved"] == [], (
+                f"every layer must be resolved after the script stream, got "
+                f"unresolved={result['unresolved']} on row {result.get('id')!r}"
+            )
+            assert not errors, f"JS errors: {errors}"
+
 
 # ── pane-surface probe ─────────────────────────────────────────────────
 #
