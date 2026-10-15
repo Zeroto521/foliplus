@@ -26,6 +26,7 @@ from foliplus import (
     ScaleControl,
     SearchControl,
 )
+from foliplus._cdn_loader import load_cdn
 
 # Not a support range — foliplus does not pin Leaflet. 1.0.0 is the API
 # floor (`map.getPane`); Folium's pin is covered by the rest of the suite.
@@ -45,16 +46,10 @@ MOUNTED_SELECTORS = (
 
 
 def _rewrite_leaflet(html: str, version: str) -> str:
-    """Pin Leaflet to *version* and drop helper CDNs (gcoord/turf)."""
+    """Pin Leaflet to *version* and drop MeasureControl's helper CDNs."""
     html = re.sub(r"leaflet@\d+\.\d+\.\d+", f"leaflet@{version}", html)
-    html = html.replace(
-        '<script src="https://cdn.jsdelivr.net/npm/gcoord@1/dist/gcoord.global.prod.js"></script>',
-        "",
-    )
-    html = html.replace(
-        '<script src="https://cdn.jsdelivr.net/npm/@turf/turf@7/turf.min.js"></script>',
-        "",
-    )
+    for _name, url in load_cdn("MeasureControl"):
+        html = html.replace(f'<script src="{url}"></script>', "")
     return html
 
 

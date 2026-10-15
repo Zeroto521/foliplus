@@ -21,6 +21,7 @@ from conftest import (
 )
 
 from foliplus import HeatmapControl
+from foliplus._cdn_loader import load_cdn
 
 
 class TestHeatmapControlPython:
@@ -140,17 +141,15 @@ class TestHeatmapControlRendering:
 
     def test_contains_h3_dependency(self):
         html = render_control(HeatmapControl())
-        assert "h3-js@4" in html
-        assert "h3-js.umd.js" in html
+        assert dict(load_cdn("HeatmapControl"))["h3-js"] in html
 
     def test_contains_ss_dependency(self):
         html = render_control(HeatmapControl())
-        assert "simple-statistics.min.js" in html
+        assert dict(load_cdn("HeatmapControl"))["simple-statistics"] in html
 
     def test_contains_chroma_dependency(self):
         html = render_control(HeatmapControl())
-        assert "chroma-js@2" in html
-        assert "chroma.min.js" in html
+        assert dict(load_cdn("HeatmapControl"))["chroma-js"] in html
 
     def test_locale_zh(self):
         html = render_control(HeatmapControl(locale="zh"))
@@ -360,14 +359,8 @@ class TestHeatmapControlBrowser:
     @staticmethod
     def _stub_html(html: str) -> str:
         """Remove blocking CDN <script> tags and inject stubs for h3/ss/chroma."""
-        for cdn in (
-            "h3-js@4/dist/h3-js.umd.js",
-            "simple-statistics@7/dist/simple-statistics.min.js",
-            "chroma-js@2/chroma.min.js",
-        ):
-            html = html.replace(
-                f'<script src="https://cdn.jsdelivr.net/npm/{cdn}"></script>', ""
-            )
+        for _name, url in load_cdn("HeatmapControl"):
+            html = html.replace(f'<script src="{url}"></script>', "")
         marker = 'CONFIG = {"name": "HeatmapControl"'
         idx = html.find(marker)
         if idx > 0:
@@ -1401,18 +1394,8 @@ class TestHeatmapAutoFieldBrowser:
         page = browser.new_page()
 
         # Remove blocking CDN <script> tags
-        html = html.replace(
-            '<script src="https://cdn.jsdelivr.net/npm/h3-js@4/dist/h3-js.umd.js"></script>',
-            "",
-        )
-        html = html.replace(
-            '<script src="https://cdn.jsdelivr.net/npm/simple-statistics@7/dist/simple-statistics.min.js"></script>',
-            "",
-        )
-        html = html.replace(
-            '<script src="https://cdn.jsdelivr.net/npm/chroma-js@2/chroma.min.js"></script>',
-            "",
-        )
+        for _name, url in load_cdn("HeatmapControl"):
+            html = html.replace(f'<script src="{url}"></script>', "")
         # Inject stubs for h3/ss/chroma before the HeatmapControl IIFE
         idx = html.find("// ==================== SVG Icons ====================")
         if idx > 0:
