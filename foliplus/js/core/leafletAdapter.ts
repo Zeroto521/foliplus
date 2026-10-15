@@ -43,26 +43,17 @@ type LeafInternals = {
   _initInteraction?: () => void;
 };
 
-/** The two reaches that cannot be declared anywhere: `_map` is `protected` on
- *  Leaflet's `Layer` and `_shadow` on `Marker`. Making either public in
+/** `_map` is `protected` on Leaflet's `Layer`. Making it public in
  *  type/global.d.ts stops `Marker` from being assignable to `Layer` — which
- *  every `map.eachLayer` consumer in the tree depends on — so each probe below
+ *  every `map.eachLayer` consumer in the tree depends on — so the probe below
  *  narrows to the one field it reads instead. */
 type LayerWithMap = L.Layer & { _map?: L.Map | null };
-type MarkerWithShadow = L.Marker & { _shadow?: HTMLElement };
 
 /** `_url` is declared on `TileLayer` only, but callers hand over whatever the
  *  map's child registry holds — and they deliberately do not narrow with
  *  `instanceof`, because a registry entry that is not a TileLayer simply has no
  *  URL rather than being a programming error. */
 type LayerWithUrl = L.Layer & { _url?: string };
-
-/** `GridLayer._resetView` is a protected method that rebuilds the level set
- *  after a runtime options change. Changing `options.minZoom`/`maxZoom` on
- *  its own does not remove already-loaded tiles — Leaflet only honors the
- *  new range at the next `_resetView`. The zoom-range native carrier needs
- *  this call to make its write visible. */
-type GridLayerWithReset = L.GridLayer & { _resetView?: () => void };
 
 /** The attribution control's two internals, described structurally.
  *
@@ -115,27 +106,6 @@ const destroyPane = (map: L.Map, name: string): void => {
   if (map._panes) delete map._panes[name];
 };
 
-/** Relocate a layer to a pane by remove + re-add, re-pinning its renderer.
- *
- *  `options.pane` is read at `map.addLayer`, so a layer already on the map can
- *  only change panes by being removed and re-added. It re-pins
- *  `options.renderer` through {@link getRendererFor} so a Path lands in the new
- *  pane's renderer rather than the one its old pane still holds — which is the
- *  private half, and what makes this more than a hop over Leaflet's public API.
- *
- *  No consumer in R3; the first one arrives with the content-source hook (R6b),
- *  which is where a pane change while the layer is attached becomes
- *  reachable. */
-const moveIntoPane = (map: L.Map, layer: L.Layer, paneName: string): void => {
-  const attached = map.hasLayer(layer);
-  if (attached) map.removeLayer(layer);
-  layer.options.pane = paneName;
-  if (layer instanceof L.Path) {
-    layer.options.renderer = getRendererFor(map, paneName) ?? undefined;
-  }
-  if (attached) map.addLayer(layer);
-};
-
 /** The SVG renderer a pane's Path layers must be pinned to, created on demand.
  *
  *  Leaflet's `_paneRenderers` is both the lookup and the record: `getRenderer`
@@ -175,17 +145,6 @@ const layerMap = (layer: L.Layer): L.Map | null => (layer as LayerWithMap)._map 
 const layerUrl = (layer: L.Layer): string | null =>
   (layer as LayerWithUrl)._url ?? null;
 
-/** Rebuild a GridLayer's level set after a runtime options change.
- *
- *  Leaflet does not self-apply `options.minZoom`/`maxZoom`: already-loaded
- *  tiles stay in the container until `_resetView` rebuilds the level set.
- *  The zoom-range native carrier writes the options and then calls this so
- *  the range is visible immediately rather than silently stale. */
-const resetGridLayerView = (layer: L.Layer): void => {
-  const g = layer as GridLayerWithReset;
-  if (typeof g._resetView === "function") g._resetView();
-};
-
 /** A marker's icon element, or null. Kept apart from `layerElements` because
  *  `setInteractive` re-runs the marker's own interaction setup for this node and
  *  must skip it in the manual class / hit-target pass. */
@@ -209,11 +168,6 @@ const layerElements = (layer: LeafInternals): HTMLElement[] =>
  *  z-order pass does (it briefly removes layers from the map) and a concurrent
  *  mousemove can still reach. */
 const hasAttachedPath = (layer: LeafInternals): boolean => !!layer._path?.parentNode;
-
-/** A marker's shadow element, or null. Migrating a marker moves the shadow
- *  alongside its icon, and `eachLayer` never surfaces it. */
-const markerShadow = (marker: L.Marker): HTMLElement | null =>
-  (marker as MarkerWithShadow)._shadow ?? null;
 
 /** Re-run a marker's own interaction setup: `Marker._initInteraction` re-adds
  *  the icon class, the hit target and the dragging hooks, and early-returns when
@@ -285,11 +239,8 @@ export {
   layerIcon,
   layerMap,
   layerUrl,
-  markerShadow,
-  moveIntoPane,
   primeControlMap,
   refreshAttributions,
   reinitInteraction,
-  resetGridLayerView,
   setPopupCloseTitle,
 };
