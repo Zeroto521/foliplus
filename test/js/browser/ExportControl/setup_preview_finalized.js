@@ -5,10 +5,16 @@
     if (!mm || !map) return { error: "no mm or map" };
     // Finalized line near center (inside crop box).
     mm.layers.mainLayer.addLayer(
-      L.polyline([[26.078, 119.298], [26.076, 119.302]], {
-        color: "red",
-        weight: 4,
-      }),
+      L.polyline(
+        [
+          [26.078, 119.298],
+          [26.076, 119.302],
+        ],
+        {
+          color: "red",
+          weight: 4,
+        },
+      ),
     );
     // Preview: enter distance mode, click once (right area).
     mm.setMode("distance");
