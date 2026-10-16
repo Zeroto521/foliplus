@@ -27,7 +27,7 @@ from folium import Element
 
 from foliplus import HeatmapControl, LayerControl
 
-from .helpers import _expand_panel, _tiny_png, _write_html
+from .helper import _expand_panel, _tiny_png, _write_html
 
 
 class TestLayerControlBrowser:

@@ -8,16 +8,6 @@ import folium
 from folium import Element
 
 
-def _rule(css: str, tail: str) -> str:
-    """Body of the first rule whose selector ends with *tail*.
-
-    Used to check one declaration without matching the same property in a
-    neighboring rule (e.g. `margin-top` in the track rule but not the thumb's).
-    """
-    start = css.index(tail)
-    return css[start : css.index("}", start)]
-
-
 def _write_html(m: folium.Map, path) -> None:
     """Render *m* to *path*, exposing the map as ``window.map``.
 

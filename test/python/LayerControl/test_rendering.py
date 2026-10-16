@@ -27,7 +27,15 @@ from folium import Element
 
 from foliplus import HeatmapControl, LayerControl
 
-from .helpers import _rule
+
+def _rule(css: str, tail: str) -> str:
+    """Body of the first rule whose selector ends with *tail*.
+
+    Used to check one declaration without matching the same property in a
+    neighboring rule (e.g. `margin-top` in the track rule but not the thumb's).
+    """
+    start = css.index(tail)
+    return css[start : css.index("}", start)]
 
 
 class TestLayerControlRendering:
