@@ -396,5 +396,3 @@ class TestLayerPaneProbeBrowser:
                 f"background differs across fullscreen: {before['bg']} -> {state['bg']}"
             )
             assert state["hatch"] is True, f"hatch lost in fullscreen: {state}"
-
-

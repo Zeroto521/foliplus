@@ -117,5 +117,3 @@ class TestLayerControlPython:
         # child set is Carto + openstreetmap. What matters is that reaching
         # Carto from two places did not double it.
         assert set(names) == {"Carto", "openstreetmap"}, f"unexpected layers: {names}"
-
-

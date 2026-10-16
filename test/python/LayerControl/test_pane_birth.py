@@ -66,5 +66,3 @@ class TestPaneBirthZBrowser:
             f"ordering pass moved the pane: {r}"
         )
         assert not errors, f"JS errors: {errors}"
-
-
