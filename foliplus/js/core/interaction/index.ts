@@ -1,6 +1,6 @@
 // core/interaction — keyboard / input ownership / list navigation.
-export { InteractionManager, ensureInteraction } from "./interaction.js";
-export type { InteractionDef } from "./interaction.js";
+export { InteractionManager, ensureInteraction } from "./interactionManager.js";
+export type { InteractionDef } from "./type.js";
 export {
   OWNER_KEYS,
   isNativeControl,
