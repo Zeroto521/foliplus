@@ -2,6 +2,7 @@
 // breaks, color scales, and field extraction. No `this` dependency: every
 // stateful value is passed in explicitly.
 import { computeBreaks } from "#core/classify.js";
+import { vertexMean } from "#core/geo/index.js";
 import { autoLabelField, bareFieldName } from "#core/label/index.js";
 import type { Logger } from "#common/type.js";
 import * as CONST from "./const.js";
@@ -146,13 +147,8 @@ const buildFeatures = (
       const coords = boundary.map(p => [p[1], p[0]]);
       coords.push(coords[0]);
       if (!centroid) {
-        let cx = 0;
-        let cy = 0;
-        for (let j = 0; j < coords.length - 1; j++) {
-          cx += coords[j][0];
-          cy += coords[j][1];
-        }
-        centroid = [cy / (coords.length - 1), cx / (coords.length - 1)];
+        const mean = vertexMean(boundary.map(p => ({ lng: p[1], lat: p[0] })));
+        centroid = [mean.lat, mean.lng];
       }
       features.push({
         type: "Feature",
