@@ -1364,7 +1364,7 @@ class TestLayerControlBrowser:
 
         The gate is what caught the `dismissFocus` → `ensureModes` first-call
         side effect leaking a `map.on('unload', ...)` handler at round[1]
-        (fix in foliplus/js/LayerControl/ui/focus.ts). See the probe comment
+        (fix in foliplus/js/LayerControl/ui/focus/index.ts). See the probe comment
         in test/js/browser/LayerControl/probe_listener_residue.js for the
         historical note.
         """
