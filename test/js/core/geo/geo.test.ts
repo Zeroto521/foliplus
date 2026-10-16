@@ -174,6 +174,50 @@ describe("geo.areaCentroid", () => {
     expect(c.lat).toBeLessThan(5);
   });
 
+  it("returns (0,0) for a Polygon whose signed area cancels to zero", () => {
+    // Three collinear vertices: the shoelace sum is zero (no enclosed area),
+    // so the degenerate guard falls through to the origin sentinel.
+    const c = areaCentroid({
+      type: "Polygon",
+      coordinates: [
+        [
+          [0, 0],
+          [1, 0],
+          [2, 0],
+          [0, 0],
+        ],
+      ],
+    });
+    expect(c).toEqual({ lat: 0, lng: 0 });
+  });
+
+  it("returns (0,0) for a MultiPolygon whose parts are all degenerate", () => {
+    // Two degenerate polygons: both have zero signed area, so `totalArea`
+    // stays zero and the fallback origin is returned.
+    const c = areaCentroid({
+      type: "MultiPolygon",
+      coordinates: [
+        [
+          [
+            [0, 0],
+            [1, 0],
+            [2, 0],
+            [0, 0],
+          ],
+        ],
+        [
+          [
+            [5, 5],
+            [6, 5],
+            [7, 5],
+            [5, 5],
+          ],
+        ],
+      ],
+    });
+    expect(c).toEqual({ lat: 0, lng: 0 });
+  });
+
   it("merges MultiPolygon parts by |area|, not by vertex count", () => {
     // A 10×10 square and a 1×1 square side by side. The area-weighted
     // centroid sits near the big square's center, not at the midpoint of
