@@ -13,7 +13,7 @@ from .helper import _make_page
 class TestExportRenderBrowser:
     """Browser tests for scale/marker/vector/saved-bounds rendering in exported PNG."""
 
-    def test_leaves_live_tile_layers_untouched(browser, tmp_path):
+    def test_leaves_live_tile_layers_untouched(self, browser, tmp_path):
         """ExportControl no longer rewrites live tile layers' crossOrigin nor
         registers a permanent layeradd listener — the removed CORS pre-setup
         blanked non-CORS base maps, flashed the viewport on init, and leaked
@@ -39,7 +39,7 @@ class TestExportRenderBrowser:
             )
             assert not errors, f"JS errors: {errors}"
 
-    def test_export_vector_and_marker_content(browser, tmp_path):
+    def test_export_vector_and_marker_content(self, browser, tmp_path):
         """Export with vector polygon + Marker layers produces non-blank canvas."""
 
         # Add a polygon (vector layer)
@@ -125,7 +125,7 @@ class TestExportRenderBrowser:
                 f"No visible overlay layers. api={api_layers} errors={errors}"
             )
 
-    def test_scale_attr_dim_below_mask(browser, tmp_path):
+    def test_scale_attr_dim_below_mask(self, browser, tmp_path):
         """Scale/attribution stay below the dim mask (z-index stacking).
 
         Regression: when the crop box was attached to map._mapPane (which has
@@ -172,7 +172,7 @@ class TestExportRenderBrowser:
                 f"Mask z={info['boxZ']} must be above attr z={info['attrZ']}"
             )
 
-    def test_scale_visible_under_deep_layer_stack(browser, tmp_path):
+    def test_scale_visible_under_deep_layer_stack(self, browser, tmp_path):
         """Deep overlay stack must not cover the export-mode scale control.
 
         T241 conflict: scale/attr z=850 sat inside the layer band
@@ -220,7 +220,7 @@ class TestExportRenderBrowser:
                 f"crop mask must stay above scale: {info}"
             )
 
-    def test_saved_bounds_restore(browser, tmp_path):
+    def test_saved_bounds_restore(self, browser, tmp_path):
         """Saved bounds in localStorage restore the crop box on toggle."""
         with use_page(_make_page, browser, tmp_path) as (page, _):
             # Pre-set localStorage with saved bounds using the exact storage key.

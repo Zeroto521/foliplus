@@ -20,7 +20,7 @@ from .helper import (
 class TestExportCompositeBrowser:
     """Browser tests for compositing heatmap / annotation / basemap / hatch into the exported PNG."""
 
-    def test_export_with_heatmap_canvas(browser, tmp_path):
+    def test_export_with_heatmap_canvas(self, browser, tmp_path):
         """Export captures the pixels a canvas layer draws.
 
         The canvas layer's ``foliplus-canvas-layer`` class marks it as
@@ -69,7 +69,7 @@ class TestExportCompositeBrowser:
             assert result["total"] > 0, f"No pixels drawn in export: {result}"
             assert len(errors) == 0, f"JS errors on canvas export: {errors}"
 
-    def test_export_excludes_self_declared_marked_elements(browser, tmp_path):
+    def test_export_excludes_self_declared_marked_elements(self, browser, tmp_path):
         """data-foliplus-export=exclude chrome stays out of the export.
 
         Traversal-skip contract (data attribute) + hide list (CONTROL, same
@@ -136,7 +136,7 @@ class TestExportCompositeBrowser:
             )
             assert len(errors) == 0, f"JS errors on export-exclude export: {errors}"
 
-    def test_export_with_annotation_labels(browser, tmp_path):
+    def test_export_with_annotation_labels(self, browser, tmp_path):
         """Export captures the annotation label pixels at their positions.
 
         The pixel-position comparison is the gate: for every opaque pixel in
@@ -232,7 +232,7 @@ class TestExportCompositeBrowser:
             )
             assert len(errors) == 0, f"JS errors on annotation export: {errors}"
 
-    def test_export_uses_solid_color_basemap_as_background(browser, tmp_path):
+    def test_export_uses_solid_color_basemap_as_background(self, browser, tmp_path):
         """Picking a solid-color basemap → the export canvas is filled with it.
 
         Before this fix the export background came from ``CONFIG.background`` (a
@@ -292,7 +292,9 @@ class TestExportCompositeBrowser:
             assert len(errors) == 0, f"JS errors on color-basemap export: {errors}"
 
     def test_export_uses_leaflet_default_background_without_color_basemap(
-        browser, tmp_path
+        self,
+        browser,
+        tmp_path,
     ):
         """No solid-color basemap → the export canvas is filled with the map
         container's default background (Leaflet's ``#ddd``).
@@ -352,7 +354,7 @@ class TestExportCompositeBrowser:
             )
             assert len(errors) == 0, f"JS errors on default-bg export: {errors}"
 
-    def test_no_basemap_hatch_never_reaches_the_export(browser, tmp_path):
+    def test_no_basemap_hatch_never_reaches_the_export(self, browser, tmp_path):
         """Empty-basemap state: the map shows the A' hatch, the export does not.
 
         With every basemap unchecked the map container turns into an empty
@@ -420,7 +422,7 @@ class TestExportCompositeBrowser:
             assert band["band"] == 0, f"hatch pixels leaked into the export: {band}"
             assert len(errors) == 0, f"JS errors on no-basemap export: {errors}"
 
-    def test_export_composites_both_visible_basemaps(browser, tmp_path):
+    def test_export_composites_both_visible_basemaps(self, browser, tmp_path):
         """Two basemaps both on: the export holds both layers' pixels.
 
         Basemaps are now first-class and no longer mutually exclusive, and tile
@@ -485,7 +487,7 @@ class TestExportCompositeBrowser:
             )
             assert len(errors) == 0, f"JS errors on two-basemap export: {errors}"
 
-    def test_export_marker_opacity_blend(browser, tmp_path):
+    def test_export_marker_opacity_blend(self, browser, tmp_path):
         """Marker layer opacity is captured in the export via ancestor-chain alpha.
 
         R5 moved opacity writes to the pane element; the four DOM rendering

@@ -14,7 +14,7 @@ from .helper import _install_canvas_hook, _make_page
 class TestExportFocusBrowser:
     """Browser tests for locked_follow / focus carriers / visibility behavior in the exported PNG."""
 
-    def test_locked_box_follows_zoom(browser, tmp_path):
+    def test_locked_box_follows_zoom(self, browser, tmp_path):
         """Locked crop box follows the map after zoom."""
         with use_page(_make_page, browser, tmp_path) as (page, _):
             page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
@@ -39,7 +39,7 @@ class TestExportFocusBrowser:
                 f"Box disappeared after zoom, size={after_zoom}"
             )
 
-    def test_drag_crop_box_no_jump(browser, tmp_path):
+    def test_drag_crop_box_no_jump(self, browser, tmp_path):
         """Dragging the crop box center must move it continuously, without a
         single frame that jumps the box past the natural frame-to-frame delta.
 
@@ -89,7 +89,7 @@ class TestExportFocusBrowser:
                 f"when the per-step target was {per_step}px. All deltas: {deltas}"
             )
 
-    def test_locked_box_drag_out_stays_out_after_confirm(browser, tmp_path):
+    def test_locked_box_drag_out_stays_out_after_confirm(self, browser, tmp_path):
         """Dragging the crop box partially outside the viewport, then pressing
         confirm, must not snap the box back inside.
 
@@ -141,7 +141,7 @@ class TestExportFocusBrowser:
                 f"dragged to {after_drag['l']}, after confirm {after_confirm['l']}"
             )
 
-    def test_export_focus_three_carriers_survive(browser, tmp_path):
+    def test_export_focus_three_carriers_survive(self, browser, tmp_path):
         """Focus state: all three carriers (vector, marker, canvas) survive export.
 
         Focus mode hides non-focused layer panes with CSS `visibility: hidden`.
@@ -217,7 +217,7 @@ class TestExportFocusBrowser:
 
             assert len(errors) == 0, f"JS errors on focus export: {errors}"
 
-    def test_export_focus_element_display_none(browser, tmp_path):
+    def test_export_focus_element_display_none(self, browser, tmp_path):
         """Reverse gate: element's own display:none is respected in export.
 
         Sets display:none on a specific SVG path (blue polygon), exports, and
@@ -293,7 +293,7 @@ class TestExportFocusBrowser:
 
             assert len(errors) == 0, f"JS errors on display:none export: {errors}"
 
-    def test_export_visibility_hidden_behavior(browser, tmp_path):
+    def test_export_visibility_hidden_behavior(self, browser, tmp_path):
         """Empirical test: does the export draw visibility:hidden elements?
 
         Sets visibility:hidden on a blue polygon's SVG path, exports, and
@@ -358,7 +358,7 @@ class TestExportFocusBrowser:
 
             assert len(errors) == 0, f"JS errors on visibility:hidden export: {errors}"
 
-    def test_export_preview_excluded_finalized_retained(browser, tmp_path):
+    def test_export_preview_excluded_finalized_retained(self, browser, tmp_path):
         """Preview lines are excluded from export; finalized lines are retained.
 
         SKIP_EXPORT stamps the `.foliplus-skip-export` class on preview elements (addPreview).
@@ -513,7 +513,7 @@ class TestExportFocusBrowser:
 
             assert len(errors) == 0, f"JS errors on preview export: {errors}"
 
-    def test_export_no_preview_finalized_retained(browser, tmp_path):
+    def test_export_no_preview_finalized_retained(self, browser, tmp_path):
         """Reverse gate: finalized line survives when not in drawing state.
 
         Without a preview, the SKIP_EXPORT pruning has nothing to remove. The
