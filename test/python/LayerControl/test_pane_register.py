@@ -48,7 +48,7 @@ from .helper import _expand_panel, _geo_mixed, _tiny_png, _write_html
 # color basemap, mixed renderer, tile maxZoom refresh).
 
 
-class TestLayerPaneProbeBrowser:
+class TestLayerPaneRegisterBrowser:
     """Pane-surface probe — measured pane-surface facts."""
 
     @staticmethod

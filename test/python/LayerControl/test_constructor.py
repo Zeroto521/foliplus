@@ -28,7 +28,7 @@ from folium import Element
 from foliplus import HeatmapControl, LayerControl
 
 
-class TestLayerControlPython:
+class TestLayerControlConstructor:
     """Python-side property tests."""
 
     def test_name(self):

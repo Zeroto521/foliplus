@@ -28,7 +28,7 @@ from folium import Element
 from foliplus import HeatmapControl, LayerControl
 
 
-class TestPaneBirthZBrowser:
+class TestPaneZBrowser:
     """A pane is born already carrying its slot's z — never Leaflet's 400.
 
     Leaflet gives a fresh pane ``z-index: 400`` from its base CSS, above every
