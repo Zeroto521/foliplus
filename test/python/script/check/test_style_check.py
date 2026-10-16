@@ -829,6 +829,14 @@ class TestCheckSiblingDirCollision:
         f.write_text("export * from './focusController.js'\n", encoding="utf-8")
         assert mod.check_sibling_dir_collision(str(f)) == []
 
+    def test_direction_2_bare_filename_no_directory_is_clean(self):
+        """No directory part in the path — direction 2 is skipped entirely."""
+        assert mod.check_sibling_dir_collision("bare.ts") == []
+
+    def test_direction_2_single_level_directory_is_clean(self):
+        """Directory with no parent (single-level path) — no ext loop."""
+        assert mod.check_sibling_dir_collision("foo/index.ts") == []
+
     def test_direction_2_non_source_sibling_is_clean(self, tmp_path):
         """A sibling ``.py`` or ``.md`` file is not a JS module — clean."""
         parent_file = tmp_path / "focus.py"
