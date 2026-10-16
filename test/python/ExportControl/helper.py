@@ -127,13 +127,7 @@ def _run_export(page) -> None:
         ".foliplus-export-box.foliplus-locked", state="attached", timeout=5000
     )
     page.locator(".foliplus-tool-bar .foliplus-confirm").click()
-    page.wait_for_function(
-        """() => {
-            const ctrl = document.querySelector('.foliplus-export-ctrl');
-            return ctrl && ctrl.classList.contains('foliplus-is-collapsed');
-        }""",
-        timeout=30000,
-    )
+    page.wait_for_function(_js("ExportControl/wait_export_collapsed"), timeout=30000)
     page.wait_for_timeout(2000)
 
 
@@ -143,47 +137,25 @@ def _install_canvas_hook(page) -> None:
     ``test_export_marker_opacity_blend`` uses; fresh-page-per-test means
     the patch can't leak.
     """
-    page.evaluate(
-        """() => {
-            window._capturedCanvases = [];
-            const orig = document.createElement.bind(document);
-            document.createElement = function(tag, ...args) {
-                const el = orig(tag, ...args);
-                if (tag === 'canvas') {
-                    window._capturedCanvases.push(el);
-                }
-                return el;
-            };
-        }"""
-    )
+    page.evaluate(_js("ExportControl/install_canvas_hook"))
 
 
-def _red_pixels_in_export(
-    page,
-    match=[230, 30, 30],
-    tol=30,
-    alpha_min=200,
+def _sample_pixels_in_export(
+    page, match: tuple[int, ...], tol: int, alpha_min: int
 ) -> dict:
     """Count pixels matching ``match`` in the renderer's output canvas."""
     page.evaluate(
-        f"""() => {{
-            window._sampleColor = {match};
-            window._sampleTol = {tol};
-            window._sampleAlphaMin = {alpha_min};
-        }}"""
+        _js("ExportControl/set_sample_params"),
+        {"color": list(match), "tol": tol, "alphaMin": alpha_min},
     )
     return page.evaluate(_js("ExportControl/sample_export_canvas"))
 
 
-def _sample_bg_pixels_in_export(
-    page, match: list[int], tol: int = 20, alpha_min: int = 200
-) -> dict:
-    """Count pixels matching ``match`` in the renderer's output canvas."""
-    page.evaluate(
-        f"""() => {{
-            window._sampleColor = {match};
-            window._sampleTol = {tol};
-            window._sampleAlphaMin = {alpha_min};
-        }}"""
-    )
-    return page.evaluate(_js("ExportControl/sample_export_canvas"))
+def _red_pixels_in_export(page) -> dict:
+    """Count red pixels in the renderer's output canvas (default match/tol)."""
+    return _sample_pixels_in_export(page, (230, 30, 30), 30, 200)
+
+
+def _sample_bg_pixels_in_export(page, match: list[int]) -> dict:
+    """Count pixels matching ``match`` with a tighter tolerance for bg fills."""
+    return _sample_pixels_in_export(page, tuple(match), 20, 200)

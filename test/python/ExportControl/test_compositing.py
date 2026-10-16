@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import json
-
 import folium
 from conftest import _js, panel_ready, use_page
 
@@ -52,11 +50,7 @@ class TestExportCompositeBrowser:
             )
             page.locator(".foliplus-tool-bar .foliplus-confirm").click()
             page.wait_for_function(
-                """() => {
-                    const ctrl = document.querySelector('.foliplus-export-ctrl');
-                    return ctrl && ctrl.classList.contains('foliplus-is-collapsed');
-                }""",
-                timeout=30000,
+                _js("ExportControl/wait_export_collapsed"), timeout=30000
             )
             page.wait_for_timeout(2000)
 
@@ -108,20 +102,17 @@ class TestExportCompositeBrowser:
             )
             page.locator(".foliplus-tool-bar .foliplus-confirm").click()
             page.wait_for_function(
-                """() => {
-                    const ctrl = document.querySelector('.foliplus-export-ctrl');
-                    return ctrl && ctrl.classList.contains('foliplus-is-collapsed');
-                }""",
-                timeout=30000,
+                _js("ExportControl/wait_export_collapsed"), timeout=30000
             )
             page.wait_for_timeout(2000)
 
             page.evaluate(
-                f"""() => {{
-                    window._probes = {json.dumps([state["wholeCanvasRed"], state["wholeCanvasPurple"]])};
-                    window._sampleTol = 40;
-                    window._sampleAlphaMin = 100;
-                }}"""
+                _js("ExportControl/set_sample_probes"),
+                {
+                    "probes": [state["wholeCanvasRed"], state["wholeCanvasPurple"]],
+                    "tol": 40,
+                    "alphaMin": 100,
+                },
             )
             result = page.evaluate(_js("ExportControl/sample_export_window_color"))
             assert result is not None, "Export canvas not captured"
@@ -172,28 +163,11 @@ class TestExportCompositeBrowser:
             )
             page.locator(".foliplus-tool-bar .foliplus-confirm").click()
             page.wait_for_function(
-                """() => {
-                    const ctrl = document.querySelector('.foliplus-export-ctrl');
-                    return ctrl && ctrl.classList.contains('foliplus-is-collapsed');
-                }""",
-                timeout=30000,
+                _js("ExportControl/wait_export_collapsed"), timeout=30000
             )
             page.wait_for_timeout(2000)
 
-            after = page.evaluate(
-                """() => {
-                    const canvas = window.map
-                        .getPane("foliplus-annotation-__export_ann__")
-                        ?.querySelector("canvas");
-                    if (!canvas) return 0;
-                    const data = canvas
-                        .getContext("2d")
-                        .getImageData(0, 0, canvas.width, canvas.height).data;
-                    let n = 0;
-                    for (let i = 3; i < data.length; i += 4) if (data[i] > 0) n++;
-                    return n;
-                }"""
-            )
+            after = page.evaluate(_js("ExportControl/annotation_canvas_opaque_count"))
             assert after > 0, f"annotation labels lost after export: {after}"
 
             # Pixel gate: the export canvas now has an opaque background
@@ -205,26 +179,7 @@ class TestExportCompositeBrowser:
             # exclude of that class would drop the labels and leave zero
             # non-background pixels.
             result = page.evaluate(
-                """() => {
-                    const canvases = window._capturedCanvases || [];
-                    if (canvases.length === 0) return { found: false };
-                    const c = canvases[canvases.length - 1];
-                    const ctx = c.getContext('2d');
-                    if (!ctx) return { found: false };
-                    const { data } = ctx.getImageData(0, 0, c.width, c.height);
-                    // Count pixels that are NOT the background gray (221,221,221)
-                    // within tolerance 20. These are the annotation label pixels.
-                    let nonBg = 0;
-                    for (let i = 0; i < data.length; i += 4) {
-                        if (data[i + 3] === 0) continue;
-                        const isBg =
-                            Math.abs(data[i] - 221) < 20 &&
-                            Math.abs(data[i + 1] - 221) < 20 &&
-                            Math.abs(data[i + 2] - 221) < 20;
-                        if (!isBg) nonBg++;
-                    }
-                    return { found: true, nonBg };
-                }"""
+                _js("ExportControl/annotation_nonbg_pixel_count")
             )
             assert result["found"] is True, result
             assert result["nonBg"] > 0, (
@@ -270,11 +225,7 @@ class TestExportCompositeBrowser:
             )
             page.locator(".foliplus-tool-bar .foliplus-confirm").click()
             page.wait_for_function(
-                """() => {
-                    const ctrl = document.querySelector('.foliplus-export-ctrl');
-                    return ctrl && ctrl.classList.contains('foliplus-is-collapsed');
-                }""",
-                timeout=30000,
+                _js("ExportControl/wait_export_collapsed"), timeout=30000
             )
             page.wait_for_timeout(2000)
 
@@ -292,9 +243,7 @@ class TestExportCompositeBrowser:
             assert len(errors) == 0, f"JS errors on color-basemap export: {errors}"
 
     def test_export_uses_leaflet_default_background_without_color_basemap(
-        self,
-        browser,
-        tmp_path,
+        self, browser, tmp_path
     ):
         """No solid-color basemap → the export canvas is filled with the map
         container's default background (Leaflet's ``#ddd``).
@@ -313,15 +262,7 @@ class TestExportCompositeBrowser:
 
             # No color basemap picked: container should be in its default
             # state (Leaflet #ddd, no .foliplus-active, no --color-layer-bg).
-            state = page.evaluate(
-                """() => {
-                    const c = document.querySelector(".leaflet-container");
-                    return {
-                        bg: getComputedStyle(c).backgroundColor,
-                        hasActive: c.classList.contains("foliplus-active"),
-                    };
-                }"""
-            )
+            state = page.evaluate(_js("ExportControl/check_default_bg_state"))
             assert state["bg"] == "rgb(221, 221, 221)", state
             assert state["hasActive"] is False, state
 
@@ -336,11 +277,7 @@ class TestExportCompositeBrowser:
             )
             page.locator(".foliplus-tool-bar .foliplus-confirm").click()
             page.wait_for_function(
-                """() => {
-                    const ctrl = document.querySelector('.foliplus-export-ctrl');
-                    return ctrl && ctrl.classList.contains('foliplus-is-collapsed');
-                }""",
-                timeout=30000,
+                _js("ExportControl/wait_export_collapsed"), timeout=30000
             )
             page.wait_for_timeout(2000)
 
@@ -507,23 +444,7 @@ class TestExportCompositeBrowser:
             assert state["paneOpacity"] == "0.4", state
             assert state["paneName"] == "__export_opacity_pane__", state
 
-            # Hook document.createElement to capture the export canvas —
-            # the renderer creates it internally and never attaches it to the DOM.
-            # The patch is not restored: use_page gives each test a fresh page,
-            # so the interception cannot leak between tests.
-            page.evaluate(
-                """() => {
-                    window._capturedCanvases = [];
-                    const orig = document.createElement.bind(document);
-                    document.createElement = function(tag, ...args) {
-                        const el = orig(tag, ...args);
-                        if (tag === 'canvas') {
-                            window._capturedCanvases.push(el);
-                        }
-                        return el;
-                    };
-                }"""
-            )
+            _install_canvas_hook(page)
 
             # Full export flow: open, lock, export.
             page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
@@ -536,11 +457,7 @@ class TestExportCompositeBrowser:
             )
             page.locator(".foliplus-tool-bar .foliplus-confirm").click()
             page.wait_for_function(
-                """() => {
-                    const ctrl = document.querySelector('.foliplus-export-ctrl');
-                    return ctrl && ctrl.classList.contains('foliplus-is-collapsed');
-                }""",
-                timeout=30000,
+                _js("ExportControl/wait_export_collapsed"), timeout=30000
             )
             page.wait_for_timeout(2000)
 
@@ -556,33 +473,6 @@ class TestExportCompositeBrowser:
             # background by more than tolerance 30 in any channel — this
             # catches "marker drawn at any opacity" and "marker not drawn
             # at all" (all pixels would be gray).
-            result = page.evaluate(
-                """() => {
-                    const canvases = window._capturedCanvases || [];
-                    if (canvases.length === 0) return { found: false };
-                    const c = canvases.reduce(
-                        (best, cv) =>
-                            cv.width * cv.height > best.width * best.height ? cv : best,
-                        canvases[0],
-                    );
-                    const ctx = c.getContext('2d');
-                    if (!ctx) return { found: false };
-                    const data = ctx.getImageData(0, 0, c.width, c.height).data;
-                    let nonBg = 0;
-                    let sample = null;
-                    for (let i = 0; i < data.length; i += 4) {
-                        if (data[i + 3] === 0) continue;
-                        const isBg =
-                            Math.abs(data[i] - 221) <= 30 &&
-                            Math.abs(data[i + 1] - 221) <= 30 &&
-                            Math.abs(data[i + 2] - 221) <= 30;
-                        if (!isBg) {
-                            nonBg++;
-                            if (!sample) sample = [data[i], data[i + 1], data[i + 2]];
-                        }
-                    }
-                    return { found: true, nonBg, sample };
-                }"""
-            )
+            result = page.evaluate(_js("ExportControl/marker_opacity_pixel_check"))
             assert result["found"] is True, result
             assert result["nonBg"] > 0, f"Marker pixels missing from export: {result}"

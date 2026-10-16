@@ -62,22 +62,7 @@ class TestExportCropBoxBrowser:
                 state="attached",
                 timeout=5000,
             )
-            info = page.evaluate(
-                """() => {
-                const handle = document.querySelector('.foliplus-export-handle');
-                const center = document.querySelector('.foliplus-export-center');
-                const measure = (el) => {
-                    const cs = getComputedStyle(el);
-                    const r = el.getBoundingClientRect();
-                    return {
-                        boxSizing: cs.boxSizing,
-                        w: r.width, h: r.height,
-                        border: parseFloat(cs.borderTopWidth),
-                    };
-                };
-                return { handle: measure(handle), center: measure(center) };
-            }"""
-            )
+            info = page.evaluate(_js("ExportControl/read_anchor_dots_geometry"))
             handle, center = info["handle"], info["center"]
             # Outer diameter comes from the shared token (12.5px default).
             # Tight tolerance: a regression to 12px or 13px must fail.
@@ -138,16 +123,7 @@ class TestExportCropBoxBrowser:
                 state="attached",
                 timeout=5000,
             )
-            radii = page.evaluate(
-                """() => {
-                const h = document.querySelector('.foliplus-export-handle');
-                const c = document.querySelector('.foliplus-export-center');
-                return {
-                  handle: getComputedStyle(h).borderRadius,
-                  center: getComputedStyle(c).borderRadius,
-                };
-            }"""
-            )
+            radii = page.evaluate(_js("ExportControl/read_anchor_border_radius"))
             # --foliplus-radius-round is 50%; both square boxes must resolve to it.
             assert radii["handle"] == "50%", radii
             assert radii["center"] == "50%", radii

@@ -103,11 +103,7 @@ class TestExportRenderBrowser:
 
             # Wait for export to finish — control collapses on completion
             page.wait_for_function(
-                """() => {
-                const ctrl = document.querySelector('.foliplus-export-ctrl');
-                return ctrl && ctrl.classList.contains('foliplus-is-collapsed');
-            }""",
-                timeout=30000,
+                _js("ExportControl/wait_export_collapsed"), timeout=30000
             )
             page.wait_for_timeout(500)
 

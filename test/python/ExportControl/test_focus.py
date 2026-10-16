@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import json
-
 from conftest import _js, use_page
 
 from foliplus import MeasureControl
@@ -180,23 +178,18 @@ class TestExportFocusBrowser:
                 ".foliplus-export-box.foliplus-locked", state="attached", timeout=5000
             )
             page.locator(".foliplus-tool-bar .foliplus-confirm").click()
-            page.wait_for_function(
-                """() => {
-                    const ctrl = document.querySelector('.foliplus-export-ctrl');
-                    return ctrl && ctrl.classList.contains('foliplus-is-collapsed');
-                }""",
-                timeout=30000,
-            )
+            page.wait_for_function(_js("ExportControl/wait_export_collapsed"), timeout=30000)
             page.wait_for_timeout(2000)
 
             # Sample three windows in the export canvas.
             page.evaluate(
-                f"""() => {{
-                    window._sampleWindows = {json.dumps(state["windows"])};
-                    window._sampleColor = [230, 30, 30];
-                    window._sampleTol = 30;
-                    window._sampleAlphaMin = 100;
-                }}"""
+                _js("ExportControl/set_sample_window_params"),
+                {
+                    "windows": state["windows"],
+                    "color": [230, 30, 30],
+                    "tol": 30,
+                    "alphaMin": 100,
+                },
             )
             result = page.evaluate(_js("ExportControl/sample_export_window"))
             assert result is not None, "Export canvas not captured"
@@ -257,23 +250,18 @@ class TestExportFocusBrowser:
                 ".foliplus-export-box.foliplus-locked", state="attached", timeout=5000
             )
             page.locator(".foliplus-tool-bar .foliplus-confirm").click()
-            page.wait_for_function(
-                """() => {
-                    const ctrl = document.querySelector('.foliplus-export-ctrl');
-                    return ctrl && ctrl.classList.contains('foliplus-is-collapsed');
-                }""",
-                timeout=30000,
-            )
+            page.wait_for_function(_js("ExportControl/wait_export_collapsed"), timeout=30000)
             page.wait_for_timeout(2000)
 
             # Sample the vector window — should have 0 blue pixels (path pruned).
             page.evaluate(
-                f"""() => {{
-                    window._sampleWindows = {json.dumps(state["windows"])};
-                    window._sampleColor = [0, 0, 230];
-                    window._sampleTol = 30;
-                    window._sampleAlphaMin = 100;
-                }}"""
+                _js("ExportControl/set_sample_window_params"),
+                {
+                    "windows": state["windows"],
+                    "color": [0, 0, 230],
+                    "tol": 30,
+                    "alphaMin": 100,
+                },
             )
             result = page.evaluate(_js("ExportControl/sample_export_window"))
             assert result is not None, "Export canvas not captured"
@@ -283,9 +271,8 @@ class TestExportFocusBrowser:
             )
             # Also verify the other two carriers are still present.
             page.evaluate(
-                """() => {
-                    window._sampleColor = [230, 30, 30];
-                }"""
+                _js("ExportControl/set_sample_color"),
+                {"color": [230, 30, 30]},
             )
             result2 = page.evaluate(_js("ExportControl/sample_export_window"))
             assert result2["marker"]["hit"] > 0, f"Marker carrier missing: {result2}"
@@ -331,23 +318,18 @@ class TestExportFocusBrowser:
                 ".foliplus-export-box.foliplus-locked", state="attached", timeout=5000
             )
             page.locator(".foliplus-tool-bar .foliplus-confirm").click()
-            page.wait_for_function(
-                """() => {
-                    const ctrl = document.querySelector('.foliplus-export-ctrl');
-                    return ctrl && ctrl.classList.contains('foliplus-is-collapsed');
-                }""",
-                timeout=30000,
-            )
+            page.wait_for_function(_js("ExportControl/wait_export_collapsed"), timeout=30000)
             page.wait_for_timeout(2000)
 
             # Sample the vector window for blue pixels.
             page.evaluate(
-                f"""() => {{
-                    window._sampleWindows = {json.dumps(state["windows"])};
-                    window._sampleColor = [0, 0, 230];
-                    window._sampleTol = 30;
-                    window._sampleAlphaMin = 100;
-                }}"""
+                _js("ExportControl/set_sample_window_params"),
+                {
+                    "windows": state["windows"],
+                    "color": [0, 0, 230],
+                    "tol": 30,
+                    "alphaMin": 100,
+                },
             )
             result = page.evaluate(_js("ExportControl/sample_export_window"))
             assert result is not None, "Export canvas not captured"
@@ -381,47 +363,12 @@ class TestExportFocusBrowser:
             page.on("pageerror", lambda e: errors.append(str(e)))
 
             # Expose __measureManager (not injected by _make_page).
-            debug = page.evaluate(
-                """() => {
-                    return {
-                        hasCtrl: !!window.__measureCtrl,
-                        hasManager: !!window.__measureManager,
-                        hasMap: !!window.__map,
-                    };
-                }"""
-            )
+            debug = page.evaluate(_js("ExportControl/check_measure_manager"))
             assert debug["hasCtrl"] is True, f"__measureCtrl not set: {debug}"
             assert debug["hasManager"] is True, f"__measureManager not set: {debug}"
 
             # Set up finalized line + preview line.
-            state = page.evaluate(
-                """() => {
-                    return (function(){
-                        const mm = window.__measureManager;
-                        const map = window.__map;
-                        if (!mm || !map) return { error: 'no mm or map' };
-                        // Finalized line near center (inside crop box).
-                        mm.layers.mainLayer.addLayer(
-                            L.polyline(
-                                [[26.078,119.298],[26.076,119.302]],
-                                {color:'red', weight:4}
-                            )
-                        );
-                        // Preview: enter distance mode, click once (right area).
-                        mm.setMode('distance');
-                        map.fire('click', {latlng: L.latLng(26.078, 119.303)});
-                        map.fire('mousemove', {latlng: L.latLng(26.076, 119.304)});
-                        return {
-                            finalized: true,
-                            preview: true,
-                            windows: {
-                                left:  {x:620, y:360, w:40, h:40},
-                                right: {x:200, y:360, w:40, h:40},
-                            },
-                        };
-                    })();
-                }"""
-            )
+            state = page.evaluate(_js("ExportControl/setup_preview_finalized"))
             assert state is not None and "error" not in state, state
             assert state["finalized"] is True, state
             assert state["preview"] is True, state
@@ -430,13 +377,7 @@ class TestExportFocusBrowser:
             _install_canvas_hook(page)
 
             # Cancel measuring mode so ExportControl is not blocked.
-            page.evaluate(
-                """() => {
-                    if (window.__measureManager) {
-                        window.__measureManager.clearActiveMode();
-                    }
-                }"""
-            )
+            page.evaluate(_js("ExportControl/clear_measure_mode"))
 
             # Full export flow.
             page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
@@ -448,58 +389,24 @@ class TestExportFocusBrowser:
                 ".foliplus-export-box.foliplus-locked", state="attached", timeout=5000
             )
             page.locator(".foliplus-tool-bar .foliplus-confirm").click()
-            page.wait_for_function(
-                """() => {
-                    const ctrl = document.querySelector('.foliplus-export-ctrl');
-                    return ctrl && ctrl.classList.contains('foliplus-is-collapsed');
-                }""",
-                timeout=30000,
-            )
+            page.wait_for_function(_js("ExportControl/wait_export_collapsed"), timeout=30000)
             page.wait_for_timeout(2000)
 
             # Sample both windows.
             page.evaluate(
-                f"""() => {{
-                    window._sampleWindows = {json.dumps(state["windows"])};
-                    window._sampleColor = [230, 30, 30];
-                    window._sampleTol = 30;
-                    window._sampleAlphaMin = 100;
-                }}"""
+                _js("ExportControl/set_sample_window_params"),
+                {
+                    "windows": state["windows"],
+                    "color": [230, 30, 30],
+                    "tol": 30,
+                    "alphaMin": 100,
+                },
             )
             result = page.evaluate(_js("ExportControl/sample_export_window"))
             assert result is not None, "Export canvas not captured"
 
             # Debug: check canvas state.
-            debug2 = page.evaluate(
-                """() => {
-                    const canvases = window._capturedCanvases || [];
-                    const ec = canvases[canvases.length - 1];
-                    if (!ec) return { error: 'no canvas', n: canvases.length };
-                    const ctx = ec.getContext('2d');
-                    const data = ctx.getImageData(0, 0, ec.width, ec.height);
-                    let nonTrans = 0, minX=9999, maxX=0, minY=9999, maxY=0;
-                    let rSum=0, gSum=0, bSum=0;
-                    for (let i = 0; i < data.data.length; i += 4) {
-                        if (data.data[i+3] > 10) {
-                            nonTrans++;
-                            const px = i / 4;
-                            const x = px % ec.width;
-                            const y = Math.floor(px / ec.width);
-                            if (x < minX) minX = x;
-                            if (x > maxX) maxX = x;
-                            if (y < minY) minY = y;
-                            if (y > maxY) maxY = y;
-                            rSum += data.data[i]; gSum += data.data[i+1]; bSum += data.data[i+2];
-                        }
-                    }
-                    return {
-                        canvasW: ec.width, canvasH: ec.height,
-                        nonTransparent: nonTrans,
-                        bbox: {x: minX, y: minY, w: maxX-minX, h: maxY-minY},
-                        avgRGB: nonTrans > 0 ? [Math.round(rSum/nonTrans), Math.round(gSum/nonTrans), Math.round(bSum/nonTrans)] : null,
-                    };
-                }"""
-            )
+            debug2 = page.evaluate(_js("ExportControl/debug_export_canvas"))
             print(f"[debug] canvas state: {debug2}")
 
             # Finalized line must be in the export.
@@ -532,38 +439,12 @@ class TestExportFocusBrowser:
             page.on("pageerror", lambda e: errors.append(str(e)))
 
             # Expose __measureManager (not injected by _make_page).
-            debug = page.evaluate(
-                """() => {
-                    return {
-                        hasCtrl: !!window.__measureCtrl,
-                        hasManager: !!window.__measureManager,
-                        hasMap: !!window.__map,
-                    };
-                }"""
-            )
+            debug = page.evaluate(_js("ExportControl/check_measure_manager"))
             assert debug["hasCtrl"] is True, f"__measureCtrl not set: {debug}"
             assert debug["hasManager"] is True, f"__measureManager not set: {debug}"
 
             # Set up only a finalized line (no preview).
-            state = page.evaluate(
-                """() => {
-                    const mm = window.__measureManager;
-                    if (!mm) return { error: 'no mm' };
-                    mm.layers.mainLayer.addLayer(
-                        L.polyline(
-                            [[26.078,119.298],[26.076,119.302]],
-                            {color:'red', weight:4}
-                        )
-                    );
-                    return {
-                        finalized: true,
-                        preview: false,
-                        windows: {
-                            left: {x:620, y:360, w:40, h:40},
-                        },
-                    };
-                }"""
-            )
+            state = page.evaluate(_js("ExportControl/setup_finalized_only"))
             assert state is not None and "error" not in state, state
             assert state["finalized"] is True, state
             assert state["preview"] is False, state
@@ -579,22 +460,17 @@ class TestExportFocusBrowser:
                 ".foliplus-export-box.foliplus-locked", state="attached", timeout=5000
             )
             page.locator(".foliplus-tool-bar .foliplus-confirm").click()
-            page.wait_for_function(
-                """() => {
-                    const ctrl = document.querySelector('.foliplus-export-ctrl');
-                    return ctrl && ctrl.classList.contains('foliplus-is-collapsed');
-                }""",
-                timeout=30000,
-            )
+            page.wait_for_function(_js("ExportControl/wait_export_collapsed"), timeout=30000)
             page.wait_for_timeout(2000)
 
             page.evaluate(
-                f"""() => {{
-                    window._sampleWindows = {json.dumps(state["windows"])};
-                    window._sampleColor = [230, 30, 30];
-                    window._sampleTol = 30;
-                    window._sampleAlphaMin = 100;
-                }}"""
+                _js("ExportControl/set_sample_window_params"),
+                {
+                    "windows": state["windows"],
+                    "color": [230, 30, 30],
+                    "tol": 30,
+                    "alphaMin": 100,
+                },
             )
             result = page.evaluate(_js("ExportControl/sample_export_window"))
             assert result is not None, "Export canvas not captured"
