@@ -735,10 +735,11 @@ class TestCheckSiblingDirCollision:
         v = mod.check_sibling_dir_collision(str(f))
         assert len(v) == 1
         assert v[0][0] == 0  # file-level, no line number
-        assert "focus.ts" in v[0][1]
+        assert "sibling dir" in v[0][1]
         assert "focus/" in v[0][1]
         assert "./focus.js" in v[0][1]
         assert "./focus/index.js" in v[0][1]
+        assert "move the file into the dir" in v[0][1]
 
     def test_collision_in_nested_directory_is_reported(self, tmp_path):
         """Deep nesting is handled the same as the flat case."""
@@ -794,10 +795,10 @@ class TestCheckSiblingDirCollision:
         v = mod.check_sibling_dir_collision(str(f))
         assert len(v) == 1
         assert v[0][0] == 0
-        assert "sibling file `focus.ts`" in v[0][1]
-        assert "focus/" in v[0][1]
+        assert "dir `focus/`" in v[0][1]
         assert "./focus.js" in v[0][1]
         assert "./focus/index.js" in v[0][1]
+        assert "move the file into the dir" in v[0][1]
 
     def test_direction_2_sibling_js_file_is_reported(self, tmp_path):
         """Direction 2 also catches a ``.js`` sibling in the parent."""
@@ -809,7 +810,7 @@ class TestCheckSiblingDirCollision:
         f.write_text("export * from './focusController.js'\n", encoding="utf-8")
         v = mod.check_sibling_dir_collision(str(f))
         assert len(v) == 1
-        assert "sibling file `focus.js`" in v[0][1]
+        assert "dir `focus/`" in v[0][1]
 
     def test_direction_2_without_sibling_is_clean(self, tmp_path):
         """No sibling source file in the parent — no violation."""
@@ -858,7 +859,7 @@ class TestCheckSiblingDirCollision:
         v = mod.check_file(str(f))
         assert len(v) == 1
         assert v[0][0] == 0
-        assert "sibling file `focus.ts`" in v[0][1]
+        assert "dir `focus/`" in v[0][1]
 
     def test_check_file_integrates_sibling_collision(self, tmp_path):
         """End-to-end: ``check_file`` reports the sibling-dir violation."""
@@ -981,5 +982,5 @@ class TestMain:
         f.write_text("export * from './focusController.js'\n", encoding="utf-8")
         assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 1
         captured = capsys.readouterr()
-        assert "sibling file `focus.ts`" in captured.out
+        assert "dir `focus/`" in captured.out
         assert "code-style violation(s)" in captured.err

@@ -346,6 +346,15 @@ def check_plural_names(filepath: str) -> list[tuple[int, str]]:
     return violations
 
 
+def _btype_message(module: str, sibling: str) -> str:
+    """Shared wording for a file/dir name collision (B-type stutter)."""
+    return (
+        f"`{module}` and {sibling} share a name — `./{module}.js` and "
+        f"`./{module}/index.js` resolve to different modules; move the "
+        f"file into the dir or rename it"
+    )
+
+
 def check_sibling_dir_collision(filepath: str) -> list[tuple[int, str]]:
     """Rule 5: report files whose name collides with a sibling dir.
 
@@ -369,14 +378,7 @@ def check_sibling_dir_collision(filepath: str) -> list[tuple[int, str]]:
 
     sibling_dir = os.path.join(directory, base) if directory else base
     if os.path.isdir(sibling_dir):
-        return [
-            (
-                0,
-                f"`{basename}` and sibling dir `{base}/` share a name — "
-                f"`./{base}.js` and `./{base}/index.js` resolve to different "
-                f"modules; move the file into the dir or rename it",
-            )
-        ]
+        return [(0, _btype_message(base, f"sibling dir `{base}/`"))]
 
     if directory:
         parent, dir_name = os.path.split(directory)
@@ -384,16 +386,7 @@ def check_sibling_dir_collision(filepath: str) -> list[tuple[int, str]]:
             for ext in (".ts", ".js"):
                 sibling_file = os.path.join(parent, dir_name + ext)
                 if os.path.isfile(sibling_file):
-                    return [
-                        (
-                            0,
-                            f"sibling file `{dir_name}{ext}` and dir "
-                            f"`{dir_name}/` share a name — `./{dir_name}.js` "
-                            f"and `./{dir_name}/index.js` resolve to "
-                            f"different modules; merge into one module or "
-                            f"rename it",
-                        )
-                    ]
+                    return [(0, _btype_message(dir_name, f"dir `{dir_name}/`"))]
 
     return []
 
