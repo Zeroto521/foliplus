@@ -27,7 +27,25 @@ from folium import Element
 
 from foliplus import HeatmapControl, LayerControl
 
-from .helpers import _expand_panel, _write_html
+from .helpers import _expand_panel, _geo_mixed, _tiny_png, _write_html
+
+# ── pane-surface probe ─────────────────────────────────────────────────
+#
+# Test-only suite: measures the four facts the LayerSurface refactor (R3+)
+# relies on, against the real Leaflet/folium DOM. No product code is
+# changed here. Each method locks in a *measured* behavior so a later
+# Leaflet/folium/plugin upgrade that invalidates a design assumption
+# surfaces as a test failure instead of a silent regression.
+#
+# The four facts per probe:
+#   1. where the content actually lives (pane name; shared or per-layer)
+#   2. whether CSS opacity written to that pane reaches the content
+#   3. whether DOM created at runtime inherits the same pane
+#   4. whether the layer's native setter is effective immediately
+#
+# `probe_pane_facts.js` is the shared harness; the other `probe_*.js`
+# snippets cover cases the harness cannot (heat canvas, cluster icon,
+# color basemap, mixed renderer, tile maxZoom refresh).
 
 
 class TestLayerPaneProbeBrowser:
@@ -109,7 +127,7 @@ class TestLayerPaneProbeBrowser:
 
     def test_probe_geojson_mixed_geometry(self, browser, tmp_path):
         """#1 GeoJson: point → marker, line/polygon → path, all in one pane."""
-        geo = folium.GeoJson(_GEO_MIXED, name="Probe GeoJson")
+        geo = folium.GeoJson(_geo_mixed, name="Probe GeoJson")
         with use_page(self._probe, browser, tmp_path, geo, slug="p1") as (page, _):
             r = self._facts(
                 page,
@@ -206,7 +224,7 @@ class TestLayerPaneProbeBrowser:
         only moves Path elements + Marker icons); setOpacity is immediate."""
         from folium.raster_layers import ImageOverlay
 
-        img = ImageOverlay(_TINY_PNG, [[26.0, 119.2], [26.2, 119.4]], name="Img")
+        img = ImageOverlay(_tiny_png, [[26.0, 119.2], [26.2, 119.4]], name="Img")
         with use_page(self._probe, browser, tmp_path, img, slug="p5") as (
             page,
             _,

@@ -27,7 +27,7 @@ from folium import Element
 
 from foliplus import HeatmapControl, LayerControl
 
-from .helpers import _expand_panel, _write_html
+from .helpers import _expand_panel, _tiny_png, _write_html
 
 
 class TestLayerControlBrowser:
@@ -5196,7 +5196,7 @@ class TestLayerControlBrowser:
                 "https://tiles.foliplus.test/**",
                 lambda route: route.fulfill(
                     status=200,
-                    body=base64.b64decode(_TINY_PNG.split(",", 1)[1]),
+                    body=base64.b64decode(_tiny_png.split(",", 1)[1]),
                     content_type="image/png",
                 ),
             )
@@ -5812,62 +5812,3 @@ class TestLayerControlBrowser:
                 f"unresolved={result['unresolved']} on row {result.get('id')!r}"
             )
             assert not errors, f"JS errors: {errors}"
-
-
-# ── pane-surface probe ─────────────────────────────────────────────────
-#
-# Test-only suite: measures the four facts the LayerSurface refactor (R3+)
-# relies on, against the real Leaflet/folium DOM. No product code is
-# changed here. Each method locks in a *measured* behavior so a later
-# Leaflet/folium/plugin upgrade that invalidates a design assumption
-# surfaces as a test failure instead of a silent regression.
-#
-# The four facts per probe:
-#   1. where the content actually lives (pane name; shared or per-layer)
-#   2. whether CSS opacity written to that pane reaches the content
-#   3. whether DOM created at runtime inherits the same pane
-#   4. whether the layer's native setter is effective immediately
-#
-# `probe_pane_facts.js` is the shared harness; the other `probe_*.js`
-# snippets cover cases the harness cannot (heat canvas, cluster icon,
-# color basemap, mixed renderer, tile maxZoom refresh).
-
-_GEO_MIXED = {
-    "type": "FeatureCollection",
-    "features": [
-        {
-            "type": "Feature",
-            "properties": {},
-            "geometry": {"type": "Point", "coordinates": [119.30, 26.08]},
-        },
-        {
-            "type": "Feature",
-            "properties": {},
-            "geometry": {
-                "type": "LineString",
-                "coordinates": [[119.29, 26.07], [119.31, 26.09]],
-            },
-        },
-        {
-            "type": "Feature",
-            "properties": {},
-            "geometry": {
-                "type": "Polygon",
-                "coordinates": [
-                    [
-                        [119.28, 26.06],
-                        [119.32, 26.06],
-                        [119.32, 26.10],
-                        [119.28, 26.10],
-                        [119.28, 26.06],
-                    ]
-                ],
-            },
-        },
-    ],
-}
-
-_TINY_PNG = (
-    "data:image/png;base64,"
-    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
-)

@@ -55,3 +55,44 @@ def _expand_panel(m: folium.Map) -> None:
             "});</script>"
         )
     )
+
+
+_geo_mixed = {
+    "type": "FeatureCollection",
+    "features": [
+        {
+            "type": "Feature",
+            "properties": {},
+            "geometry": {"type": "Point", "coordinates": [119.30, 26.08]},
+        },
+        {
+            "type": "Feature",
+            "properties": {},
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [[119.29, 26.07], [119.31, 26.09]],
+            },
+        },
+        {
+            "type": "Feature",
+            "properties": {},
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [119.28, 26.06],
+                        [119.32, 26.06],
+                        [119.32, 26.10],
+                        [119.28, 26.10],
+                        [119.28, 26.06],
+                    ]
+                ],
+            },
+        },
+    ],
+}
+
+_tiny_png = (
+    "data:image/png;base64,"
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+)
