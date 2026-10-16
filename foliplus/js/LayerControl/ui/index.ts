@@ -11,8 +11,7 @@ import type { LayerController } from "../controller.js";
 import type { LayerIntentStore } from "../domain/index.js";
 import { applyProjection, applyProjectionAll } from "./apply.js";
 import { hideSolidBasemap, resetSolidBasemap, showSolidBasemap } from "./color.js";
-import { cancelFocus, focusLayer, isFocusing } from "./focus.js";
-import { FocusController } from "./focus/focusController.js";
+import { FocusController, cancelFocus, focusLayer, isFocusing } from "./focus/index.js";
 import { seedAuthorVisible } from "./intent.js";
 import {
   attachUI,
@@ -343,11 +342,12 @@ class LayerUI implements LayerUISurface {
 
   // ── delegates: keyboard ──
   /** The row element the roving cursor points at (null when no cursor). Kept
-   *  on the shell rather than imported by `focus.ts` from
-   *  `listPanel/keyboard.js`: `keyboard.js` already imports `../focus.js`
-   *  for the focus-disabled hints, so a value import back from `focus.js`
-   *  would re-close that cycle. Callers reach it through the `ui` instance
-   *  they already hold, never as a free function. */
+   *  on the shell rather than imported by `focus/index.ts` from
+   *  `listPanel/keyboard.js`: `keyboard.js` already imports
+   *  `../focus/index.js` for the focus-disabled hints, so a value import
+   *  back from `focus/index.js` would re-close that cycle. Callers reach it
+   *  through the `ui` instance they already hold, never as a free
+   *  function. */
   activeLayerItem() {
     return getActiveLayerItem(this);
   }

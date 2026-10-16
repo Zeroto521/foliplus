@@ -12,8 +12,8 @@ import {
 } from "../interaction.js";
 import { applyProjection, applyProjectionAll } from "./apply.js";
 import { inFloatingPanel, isKeyboardVisibleFocus, owningRow } from "./context.js";
-import { dismissFocus } from "./focus.js";
 import { bindGeometryFocusMarquee } from "./focus/focusMarquee.js";
+import { dismissFocus } from "./focus/index.js";
 import { INTENT, getIntent } from "./intent.js";
 import {
   blurActiveItem,
