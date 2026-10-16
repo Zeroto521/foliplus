@@ -22,6 +22,11 @@
      fragments the single source of truth. Both are rejected in
      declarations, `var()` references, and JS string literals alike.
 
+  5. File and sibling-directory name collision. `ui/focus.ts` next to
+     `ui/focus/` makes `./focus.js` and `./focus/index.js` resolve to
+     different modules — B-type stutter. Move the file into the directory
+     (as its `index.ts`) or rename it.
+
 Note: `function` declarations and inline exports (`export const x`) are
 covered by eslint's `func-style` and `no-restricted-syntax` rules — see
 `eslint.config.js`. This script does not duplicate them.
@@ -338,6 +343,29 @@ def check_plural_names(filepath: str) -> list[tuple[int, str]]:
     return violations
 
 
+def check_sibling_dir_collision(filepath: str) -> list[tuple[int, str]]:
+    """Rule 5: report files whose basename shares a name with a sibling dir.
+
+    ``ui/focus.ts`` next to ``ui/focus/`` makes ``./focus.js`` and
+    ``./focus/index.js`` resolve to different modules — B-type stutter.
+    Barrels (``foo/index.ts``) are naturally exempt: their basename is
+    ``index``, which never matches the parent directory name ``foo``.
+    """
+    directory, basename = os.path.split(filepath)
+    base, _ = os.path.splitext(basename)
+    sibling = os.path.join(directory, base) if directory else base
+    if os.path.isdir(sibling):
+        return [
+            (
+                0,
+                f"`{basename}` and sibling dir `{base}/` share a name — "
+                f"`./{base}.js` and `./{base}/index.js` resolve to different "
+                f"modules; move the file into the dir or rename it",
+            )
+        ]
+    return []
+
+
 def check_file(filepath: str) -> list[tuple[int, str]]:
     try:
         with open(filepath, encoding="utf-8") as f:
@@ -363,6 +391,7 @@ def check_file(filepath: str) -> list[tuple[int, str]]:
         + check_plural_names(filepath)
         + check_spelling(lines)
         + check_custom_property_prefix(code_lines, filepath)
+        + check_sibling_dir_collision(filepath)
     )
 
 
@@ -391,7 +420,7 @@ def main() -> int:
             "block at file end + optional `export type { ... }`, "
             "(2) singular file names, (3) American spelling in code/strings, "
             "(4) CSS custom properties namespaced as `--foliplus-*` with "
-            "definitions in `token.css`. "
+            "definitions in `token.css`, (5) file/sibling-dir name collision. "
             "Function declarations and inline exports are covered by eslint "
             "(func-style, no-restricted-syntax).",
             file=sys.stderr,
