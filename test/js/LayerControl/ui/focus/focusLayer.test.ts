@@ -2394,5 +2394,25 @@ describe("LayerUI focus", () => {
 
       expect(() => bringFocusedLayerToFront(ui, layerInfo)).not.toThrow();
     });
+
+    it("skips a discovered pane that the map doesn't have", () => {
+      // getLayerPanes names a pane whose DOM node was never created —
+      // best-effort discovery: skip the missing one without breaking the lift.
+      const layerInfo = manager.layerRegistry.get("overlay1")!;
+      paneLessSurface(layerInfo);
+      vi.spyOn(manager, "getLayerPanes").mockReturnValue([
+        "overlayPane",
+        "phantom_pane",
+      ]);
+      const getPaneSpy = vi.spyOn(manager.map, "getPane").mockImplementation(((
+        name: string,
+      ) => {
+        if (name === "phantom_pane") return null;
+        return document.createElement("div");
+      }) as any);
+
+      expect(() => bringFocusedLayerToFront(ui, layerInfo)).not.toThrow();
+      expect(getPaneSpy).toHaveBeenCalledWith("phantom_pane");
+    });
   });
 });

@@ -72,14 +72,14 @@ const hideOtherLayers = (ui: LayerUI): void => {
 const bringFocusedLayerToFront = (ui: LayerUI, layerInfo: LayerInfo): void => {
   const restores: Array<() => void> = [];
   const focusedZ = focusLayerZ();
-  const lift = (el: HTMLElement, z = focusedZ, glow = true): void => {
+  const lift = (el: HTMLElement, z = focusedZ): void => {
     const orig = el.style.zIndex;
     el.style.zIndex = String(z);
     // Mark the focused pane/canvas so the `.foliplus-is-focus-mode` CSS rule
     // (`:not(.foliplus-focus-pane)`) keeps it visible while hiding the rest.
     el.classList.add(CONST.CLASSES.FOCUS_PANE);
     // Glow: applied at pane level (one element), fading in via CSS animation.
-    if (glow) el.classList.add(CONST.CLASSES.FOCUS_GLOW);
+    el.classList.add(CONST.CLASSES.FOCUS_GLOW);
     restores.push(() => {
       el.style.zIndex = orig;
       el.classList.remove(CONST.CLASSES.FOCUS_PANE);
