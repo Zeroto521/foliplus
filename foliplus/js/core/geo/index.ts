@@ -8,5 +8,5 @@ export {
   distance,
   midpoint,
   vertexMean,
-} from "./geo.js";
-export type { GeoBounds, LatLngPoint, Rect } from "./geo.js";
+} from "./geodesic.js";
+export type { GeoBounds, LatLngPoint, Rect } from "./type.js";
