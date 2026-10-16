@@ -204,11 +204,12 @@ class TestExportCropBoxBrowser:
         through to drag the crop box instead of firing feature handlers), and
         closing the crop box restores it."""
         with use_page(_make_page, browser, tmp_path) as (page, errors):
-            page.evaluate(
-                "window.__featureMarker = L.marker([26.08, 119.30]).addTo(window.__map).bindPopup('x');"
-            )
+            page.evaluate(_js("ExportControl/create_feature_marker"))
             page.wait_for_timeout(300)
-            assert page.evaluate("window.__featureMarker.options.interactive") is True
+            assert (
+                page.evaluate(_js("ExportControl/read_feature_marker_interactive"))
+                is True
+            )
 
             # Open crop selection → the centralized ModeManager lock disables the marker.
             page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
@@ -216,28 +217,27 @@ class TestExportCropBoxBrowser:
                 ".foliplus-export-box", state="attached", timeout=5000
             )
             page.wait_for_timeout(300)
+            assert page.evaluate(_js("ExportControl/read_export_mode")) == "selecting"
             assert (
-                page.evaluate(
-                    "window.__exportManager.map.foliplus.modes.getMode('ExportControl')"
-                )
-                == "selecting"
+                page.evaluate(_js("ExportControl/read_feature_marker_interactive"))
+                is False
             )
-            assert page.evaluate("window.__featureMarker.options.interactive") is False
 
             # A DOM click on the marker's icon must NOT open its popup while the
             # crop box owns the map.
-            page.evaluate(
-                "window.__featureMarker.getElement().dispatchEvent(new MouseEvent('click', { bubbles: true }))"
-            )
+            page.evaluate(_js("ExportControl/click_feature_marker"))
             page.wait_for_timeout(300)
-            popup_open = page.evaluate("!!document.querySelector('.leaflet-popup')")
+            popup_open = page.evaluate(_js("ExportControl/has_leaflet_popup"))
             assert not popup_open, "feature popup opened during crop selection"
 
             # Close the crop box (Escape) → interaction restored.
             page.keyboard.press("Escape")
             page.wait_for_selector(".foliplus-export-box", state="hidden", timeout=5000)
             page.wait_for_timeout(300)
-            assert page.evaluate("window.__featureMarker.options.interactive") is True
+            assert (
+                page.evaluate(_js("ExportControl/read_feature_marker_interactive"))
+                is True
+            )
             assert not errors, f"JS errors: {errors}"
 
     def test_enter_locks_crop_box(self, browser, tmp_path):
@@ -267,26 +267,13 @@ class TestExportCropBoxBrowser:
                 ".foliplus-export-box", state="attached", timeout=5000
             )
             # The arrow shortcuts are container-bound — focus the map container.
-            page.evaluate(
-                "() => { const c = window.__map.getContainer(); "
-                "c.setAttribute('tabindex', '-1'); c.focus(); }"
-            )
-            rect0 = page.evaluate(
-                "() => { const r = window.__exportManager.cropState.rect; "
-                "return { l: r.left, t: r.top }; }"
-            )
-            center0 = page.evaluate(
-                "() => { const c = window.__map.getCenter(); return [c.lat, c.lng]; }"
-            )
+            page.evaluate(_js("ExportControl/focus_map_container"))
+            rect0 = page.evaluate(_js("ExportControl/read_crop_rect"))
+            center0 = page.evaluate(_js("ExportControl/read_map_center"))
             page.keyboard.press("ArrowRight")
             page.keyboard.press("ArrowDown")
-            rect1 = page.evaluate(
-                "() => { const r = window.__exportManager.cropState.rect; "
-                "return { l: r.left, t: r.top }; }"
-            )
-            center1 = page.evaluate(
-                "() => { const c = window.__map.getCenter(); return [c.lat, c.lng]; }"
-            )
+            rect1 = page.evaluate(_js("ExportControl/read_crop_rect"))
+            center1 = page.evaluate(_js("ExportControl/read_map_center"))
             # Box moved by NUDGE_STEP in both axes; the map must NOT pan
             # (Leaflet's built-in arrow-key handler is disabled while editing).
             assert rect1["l"] == pytest.approx(rect0["l"] + 3)
@@ -300,19 +287,10 @@ class TestExportCropBoxBrowser:
             page.wait_for_selector(
                 ".foliplus-export-box", state="attached", timeout=5000
             )
-            page.evaluate(
-                "() => { const c = window.__map.getContainer(); "
-                "c.setAttribute('tabindex', '-1'); c.focus(); }"
-            )
+            page.evaluate(_js("ExportControl/focus_map_container"))
             # Tag the size-hint element so we can detect if it gets rebuilt.
-            page.evaluate(
-                "() => { document.querySelector('.foliplus-hint-ExportControl-size')"
-                ".setAttribute('data-mark', '1'); }"
-            )
-            before = page.evaluate(
-                "() => { const r = window.__exportManager.cropState.rect; "
-                "return { l: r.left, w: r.width, h: r.height }; }"
-            )
+            page.evaluate(_js("ExportControl/mark_size_hint"))
+            before = page.evaluate(_js("ExportControl/read_crop_rect"))
 
             # Simulate a held key: one keydown starts the smooth-nudge loop,
             # then OS auto-repeat fires repeated keydowns for the same key.
@@ -323,20 +301,14 @@ class TestExportCropBoxBrowser:
             # one NUDGE_STEP regardless of how many repeats follow.
             page.keyboard.down("ArrowRight")
             for _ in range(4):
-                page.evaluate(
-                    "() => document.dispatchEvent(new KeyboardEvent('keydown', "
-                    "{ key: 'ArrowRight', bubbles: true }))"
-                )
+                page.evaluate(_js("ExportControl/dispatch_arrow_keydown"))
 
             # The box suppresses its transition while nudging, so it tracks the
             # keystrokes instead of chasing them (a transition would make the
             # box lag behind and only settle after the key is released).
             box = page.locator(".foliplus-export-box")
             assert box.get_attribute("class").endswith("dragging")
-            after = page.evaluate(
-                "() => { const r = window.__exportManager.cropState.rect; "
-                "return { l: r.left, w: r.width, h: r.height }; }"
-            )
+            after = page.evaluate(_js("ExportControl/read_crop_rect"))
             # Repeats are ignored while the loop runs -> exactly one NUDGE_STEP.
             assert after["l"] == pytest.approx(before["l"] + 3)
             assert after["w"] == pytest.approx(before["w"])
@@ -344,13 +316,7 @@ class TestExportCropBoxBrowser:
 
             # A pure move keeps the size constant, so the hint is never refreshed —
             # refreshing would rebuild the element and replay its entry animation.
-            assert (
-                page.evaluate(
-                    "() => document.querySelector('.foliplus-hint-ExportControl-size')"
-                    ".getAttribute('data-mark')"
-                )
-                == "1"
-            )
+            assert page.evaluate(_js("ExportControl/read_size_hint_mark")) == "1"
 
             # Releasing the key restores the transition.
             page.keyboard.up("ArrowRight")
@@ -360,13 +326,7 @@ class TestExportCropBoxBrowser:
             # R changes the size, so the hint must be refreshed (and rebuilt).
             page.keyboard.press("r")
             page.wait_for_timeout(150)
-            assert (
-                page.evaluate(
-                    "() => document.querySelector('.foliplus-hint-ExportControl-size')?"
-                    ".getAttribute('data-mark')"
-                )
-                != "1"
-            )
+            assert page.evaluate(_js("ExportControl/read_size_hint_mark")) != "1"
 
     def test_r_resets_crop_box(self, browser, tmp_path):
         """R resets the unlocked crop box to the default centered size."""
@@ -375,28 +335,16 @@ class TestExportCropBoxBrowser:
             page.wait_for_selector(
                 ".foliplus-export-box", state="attached", timeout=5000
             )
-            default = page.evaluate(
-                "() => { const r = window.__exportManager.defaultRect(); "
-                "return { l: r.left, t: r.top, w: r.width, h: r.height }; }"
-            )
-            page.evaluate(
-                "() => { const c = window.__map.getContainer(); "
-                "c.setAttribute('tabindex', '-1'); c.focus(); }"
-            )
+            default = page.evaluate(_js("ExportControl/read_default_rect"))
+            page.evaluate(_js("ExportControl/focus_map_container"))
             # Nudge away from default so a reset is observable.
             page.keyboard.press("ArrowRight")
             page.keyboard.press("ArrowRight")
             page.keyboard.press("ArrowDown")
-            moved = page.evaluate(
-                "() => { const r = window.__exportManager.cropState.rect; "
-                "return { l: r.left, t: r.top, w: r.width, h: r.height }; }"
-            )
+            moved = page.evaluate(_js("ExportControl/read_crop_rect"))
             assert moved != default, "expected box to move before reset"
             page.keyboard.press("r")
-            after = page.evaluate(
-                "() => { const r = window.__exportManager.cropState.rect; "
-                "return { l: r.left, t: r.top, w: r.width, h: r.height }; }"
-            )
+            after = page.evaluate(_js("ExportControl/read_crop_rect"))
             assert after == pytest.approx(default)
 
     def test_export_mode_class(self, browser, tmp_path):
@@ -410,9 +358,7 @@ class TestExportCropBoxBrowser:
                 timeout=5000,
             )
             # Check export mode class on body
-            has_mode = page.evaluate(
-                "document.body.classList.contains('foliplus-export-mode')"
-            )
+            has_mode = page.evaluate(_js("ExportControl/read_body_export_mode"))
             assert has_mode, "body should have foliplus-export-mode class"
             # Check on map container
             has_map_mode = page.evaluate(_js("ExportControl/read_export_mode_class"))
