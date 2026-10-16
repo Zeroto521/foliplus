@@ -195,9 +195,7 @@ class TestSearchControlBrowser:
 
     def _expand(self, page):
         """Click the toggle button and wait for the expanded state."""
-        page.evaluate(
-            "document.querySelector('.foliplus-search .foliplus-toggle-btn').click()"
-        )
+        page.evaluate(_js("SearchControl/click_toggle_btn"))
         page.wait_for_selector(
             ".foliplus-search.foliplus-is-expanded", state="attached", timeout=5000
         )
@@ -213,14 +211,11 @@ class TestSearchControlBrowser:
 
             # Verify the mode button shows the pin icon (ICON_LOCATION_PIN) for address mode
             # ICON_LOCATION_PIN has a small circle at cy=9 (pin head), ICON_GLOBE has a large circle at cy=12
-            is_pin = page.evaluate(
-                """document.querySelector('.foliplus-search-mode-btn')
-                    .querySelector('circle[cx="12"][cy="9"]') !== null"""
-            )
+            is_pin = page.evaluate(_js("SearchControl/read_mode_icon_coord"))
             assert is_pin, "Expected pin icon (ICON_LOCATION_PIN) for address mode"
 
             # Verify the placeholder is for address search
-            placeholder = page.evaluate("document.querySelector('input').placeholder")
+            placeholder = page.evaluate(_js("SearchControl/read_input_placeholder"))
             assert "address" in placeholder.lower() or "地址" in placeholder, (
                 f"Expected address placeholder, got: {placeholder}"
             )
@@ -231,7 +226,7 @@ class TestSearchControlBrowser:
             self._expand(page)
 
             # Verify the placeholder is for coordinate search
-            placeholder = page.evaluate("document.querySelector('input').placeholder")
+            placeholder = page.evaluate(_js("SearchControl/read_input_placeholder"))
             # Coordinate placeholders contain lat/lng terms (en: "latitude/longitude",
             # zh: "经度/纬度").
             assert any(
@@ -258,27 +253,21 @@ class TestSearchControlBrowser:
 
             # Coord mode starts with ICON_GLOBE (globe) icon
             # ICON_GLOBE has a large circle at cy=12, ICON_LOCATION_PIN has a small circle at cy=9
-            is_globe = page.evaluate(
-                """document.querySelector('.foliplus-search-mode-btn')
-                    .querySelector('circle[cx="12"][cy="12"][r="10"]') !== null"""
-            )
+            is_globe = page.evaluate(_js("SearchControl/read_mode_icon_alt"))
             assert is_globe, "Expected globe icon for coord mode"
 
             # Click mode switch button → switches to address mode
-            page.evaluate("document.querySelector('.foliplus-search-mode-btn').click()")
+            page.evaluate(_js("SearchControl/click_mode_btn"))
             page.wait_for_timeout(500)
 
             # After switch, should be address mode with ICON_LOCATION_PIN (pin) icon
-            is_pin = page.evaluate(
-                """document.querySelector('.foliplus-search-mode-btn')
-                    .querySelector('circle[cx="12"][cy="9"]') !== null"""
-            )
+            is_pin = page.evaluate(_js("SearchControl/read_mode_icon_coord"))
             assert is_pin, (
                 "Expected pin icon (ICON_LOCATION_PIN) after mode switch to address"
             )
 
             # Also verify input placeholder was updated
-            placeholder = page.evaluate("document.querySelector('input').placeholder")
+            placeholder = page.evaluate(_js("SearchControl/read_input_placeholder"))
             assert "address" in placeholder.lower() or "地址" in placeholder, (
                 f"Expected address placeholder after switch, got: {placeholder}"
             )
@@ -289,12 +278,12 @@ class TestSearchControlBrowser:
             self._expand(page)
 
             # Type something in the input
-            page.evaluate("document.querySelector('input').value = '26.08,119.30'")
+            page.evaluate(_js("SearchControl/set_input_value"), "26.08,119.30")
             # Click clear button
-            page.evaluate("document.querySelector('.foliplus-ctrl-btn').click()")
+            page.evaluate(_js("SearchControl/click_ctrl_btn"))
             page.wait_for_timeout(500)
 
-            cleared = page.evaluate("document.querySelector('input').value")
+            cleared = page.evaluate(_js("SearchControl/read_input_value"))
             assert cleared == "", f"Expected empty input after clear, got: '{cleared}'"
 
     def test_del_icon_removes_pin_and_clears_input(self, browser, tmp_path):
@@ -361,7 +350,7 @@ class TestSearchControlBrowser:
             page.wait_for_selector(".foliplus-search", state="attached", timeout=10000)
             # Wait for LayerControl enforceOrder to create data panes (debounced).
             page.wait_for_function(
-                "() => !!document.querySelector('.leaflet-pane[class*=foliplus-layer]')",
+                _js("SearchControl/read_layer_pane_present"),
                 timeout=10000,
             )
             z = page.evaluate(_js("SearchControl/read_pane_zindex"))
@@ -385,9 +374,7 @@ class TestSearchControlBrowser:
             page.wait_for_timeout(300)
 
             # Verify control is collapsed
-            ctrl_has_collapsed = page.evaluate(
-                "document.querySelector('.foliplus-search').classList.contains('foliplus-is-collapsed')"
-            )
+            ctrl_has_collapsed = page.evaluate(_js("SearchControl/read_is_collapsed"))
             assert ctrl_has_collapsed, "Expected control to be collapsed after Escape"
 
     def test_panel_collapses_on_outside_press_by_default(self, browser, tmp_path):
@@ -399,19 +386,17 @@ class TestSearchControlBrowser:
         """
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
             self._expand(page)
-            assert page.evaluate(
-                "() => { const c = document.querySelector('.foliplus-search');"
-                " return c.classList.contains('foliplus-is-expanded')"
-                " && !c.classList.contains('foliplus-is-collapsed'); }"
-            ), "the search panel did not expand"
+            assert page.evaluate(_js("SearchControl/read_is_expanded")), (
+                "the search panel did not expand"
+            )
 
             page.mouse.click(900, 450)
             page.wait_for_selector(
                 ".foliplus-search.foliplus-is-collapsed", state="attached", timeout=5000
             )
-            assert page.evaluate(
-                "document.querySelector('.foliplus-search').classList.contains('foliplus-is-collapsed')"
-            ), "the search panel stayed open after an outside press"
+            assert page.evaluate(_js("SearchControl/read_is_collapsed")), (
+                "the search panel stayed open after an outside press"
+            )
             assert not errors, f"JS errors: {errors}"
 
     def test_result_panel_body_mount(self, browser, tmp_path):
@@ -427,11 +412,9 @@ class TestSearchControlBrowser:
             page.wait_for_timeout(600)  # > debounce 300ms
 
             # Suggestions container should be on body, not inside toolBar
-            on_body = page.evaluate(
-                "document.body.querySelector('.foliplus-search-result-panel') !== null"
-            )
+            on_body = page.evaluate(_js("SearchControl/read_result_panel_present"))
             in_toolbar = page.evaluate(
-                "document.querySelector('.foliplus-tool-bar .foliplus-search-result-panel') !== null"
+                _js("SearchControl/read_tool_bar_result_panel_present")
             )
             # The suggestions may or may not appear (depends on network), but
             # the key test is that they're NOT in toolBar
@@ -464,7 +447,7 @@ class TestSearchControlBrowser:
             page.wait_for_timeout(200)
 
             # Placeholder should still be address-related (not lost)
-            placeholder = page.evaluate("document.querySelector('input').placeholder")
+            placeholder = page.evaluate(_js("SearchControl/read_input_placeholder"))
             assert placeholder and len(placeholder) > 0, (
                 f"Placeholder should not be empty, got: '{placeholder}'"
             )
