@@ -86,7 +86,7 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
       "HintManager registers fullscreenchange at document level; the manager owns its own lifecycle, independent of any single control",
   },
   {
-    f: "core/interaction/interaction.ts",
+    f: "core/interaction/interactionManager.ts",
     n: 2,
     pairedOff: 0,
     reason:

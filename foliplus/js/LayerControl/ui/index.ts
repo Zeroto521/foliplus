@@ -27,6 +27,7 @@ import {
   getNavigableItems,
   setActiveItem,
 } from "./listPanel/cursor.js";
+import { ListPanel } from "./listPanel/index.js";
 import {
   handleDblClick,
   handleKeyDown,
@@ -41,7 +42,6 @@ import {
   renderInitialList,
   updateLayerItemLabel,
 } from "./listPanel/list.js";
-import { ListPanel } from "./listPanel/listPanel.js";
 import { displayName } from "./listPanel/rowView.js";
 import {
   applyVisibility,
@@ -53,8 +53,8 @@ import {
   toggleAll,
 } from "./listPanel/visibility.js";
 import { closeAttrsPanel, openAttrsPanel } from "./overlayPanel/attr.js";
+import { OverlayPanel } from "./overlayPanel/index.js";
 import { closeMoreMenu, openMoreMenu } from "./overlayPanel/menu.js";
-import { OverlayPanel } from "./overlayPanel/overlayPanel.js";
 import { finishRename, renameLayer } from "./overlayPanel/rename.js";
 import { intentVisibleOf } from "./projection.js";
 import {
