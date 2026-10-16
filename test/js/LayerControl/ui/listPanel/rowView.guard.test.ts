@@ -115,7 +115,7 @@ const PATTERNS: GuardPattern[] = [
 // Counted exceptions to the charter, named by file, slot, count, and reason.
 // A new reach in a whitelisted file beyond the recorded count still fails.
 //
-// The single entry is the momentary flip in focus.ts — a toggle that
+// The single entry is the momentary flip in focus/index.ts — a toggle that
 // dispatches `change`, which triggers applyUserState → applyRowView and
 // redraws the row from the corrected intent. It is a transient input flip,
 // not a terminal visual write, so the guard permits it.
@@ -126,7 +126,7 @@ const OUT_OF_CHARTER: ReadonlyArray<{
   reason: string;
 }> = [
   {
-    file: "LayerControl/ui/focus.ts",
+    file: "LayerControl/ui/focus/index.ts",
     slot: "checkbox.checked",
     n: 1,
     reason:
@@ -192,7 +192,7 @@ describe("applyRowView is the only module writing row visual slots", () => {
   });
 
   it("confines every row visual write to the writer or to a counted exception", () => {
-    // The exception list holds exactly one entry (focus.ts). That is the
+    // The exception list holds exactly one entry (focus/index.ts). That is the
     // state the guard asserts on, so a new allowance shows up as an edit
     // to the array and to this assertion together, not as a quietly
     // widened scan.

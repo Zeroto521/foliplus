@@ -23,8 +23,8 @@ import { type CreateColorAPI, type LayerRuntimeStore } from "#core/layer/index.j
 import type { LayerController } from "../controller.js";
 import type { LayerIntentStore } from "../domain/index.js";
 import type { FocusController } from "./focus/focusController.js";
-import type { ListPanel } from "./listPanel/listPanel.js";
-import type { OverlayPanel } from "./overlayPanel/overlayPanel.js";
+import type { ListPanel } from "./listPanel/index.js";
+import type { OverlayPanel } from "./overlayPanel/index.js";
 
 /** What the `ui/*` modules read off the shell. See the header for the cycle
  *  this interface breaks, and `ui/index.js` for the class it mirrors. */
