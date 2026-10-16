@@ -132,11 +132,10 @@ describe("AnnotationManager — formatting and fields", () => {
   });
 
   it("anchors points to their own location", () => {
-    expect(
-      mgr.resolveAnchor(
-        mkLeaf({ latlng: { lat: 40, lng: -74 } }),
-      ),
-    ).toEqual({ lat: 40, lng: -74 });
+    expect(mgr.resolveAnchor(mkLeaf({ latlng: { lat: 40, lng: -74 } }))).toEqual({
+      lat: 40,
+      lng: -74,
+    });
   });
 
   it("anchors a Polygon to its area centroid, not its bounds center", () => {
@@ -229,7 +228,13 @@ describe("AnnotationManager — formatting and fields", () => {
     expect(
       mgr.resolveAnchor(
         mkLeaf({
-          geometry: { type: "LineString", coordinates: [[0, 0], [10, 10]] },
+          geometry: {
+            type: "LineString",
+            coordinates: [
+              [0, 0],
+              [10, 10],
+            ],
+          },
           boundsCenter: { lat: 5, lng: 5 },
         }),
       ),

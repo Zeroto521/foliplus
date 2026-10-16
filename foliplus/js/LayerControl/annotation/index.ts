@@ -346,9 +346,7 @@ class AnnotationManager {
       const ll = getLatLng.call(leaf);
       if (ll) return ll;
     }
-    const feature = (
-      leaf as L.Layer & { feature?: GeoJSON.Feature }
-    ).feature;
+    const feature = (leaf as L.Layer & { feature?: GeoJSON.Feature }).feature;
     const geom = feature?.geometry;
     if (geom && (geom.type === "Polygon" || geom.type === "MultiPolygon")) {
       return areaCentroid(geom);
