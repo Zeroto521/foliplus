@@ -226,9 +226,7 @@ class TestExportFocusBrowser:
         code in renderPaneSVG removes display:none elements from the clone,
         so they never appear in the SVG string and produce zero pixels.
         """
-        with use_page(
-            _make_page, browser, tmp_path, slug="export_display_none"
-        ) as (
+        with use_page(_make_page, browser, tmp_path, slug="export_display_none") as (
             page,
             _,
         ):

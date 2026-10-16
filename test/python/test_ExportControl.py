@@ -149,6 +149,7 @@ class TestExportControlPython:
         # Built-in tables are in the shared bundle, not per-instance CONFIG.
         assert config["locale_tables"] == {}
 
+
 class TestExportControlRendering:
     def test_default_params(self):
         html = render_control(ExportControl())

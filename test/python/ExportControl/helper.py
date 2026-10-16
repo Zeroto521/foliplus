@@ -30,6 +30,7 @@ def _stub_html(html: str) -> str:
             html = html[: semi + 1] + stub + html[semi + 1 :]
     return html
 
+
 def _make_page(browser, tmp_path, *layers, slug="export"):
     from foliplus import LayerControl
 
@@ -73,12 +74,11 @@ def _make_page(browser, tmp_path, *layers, slug="export"):
             count=1,
         )
     if n == 0 and any(isinstance(l, MeasureControl) for l in layers):
-        raise AssertionError(
-            "MeasureControl instantiation not found in rendered HTML"
-        )
+        raise AssertionError("MeasureControl instantiation not found in rendered HTML")
     page, errors = make_browser_page(browser, tmp_path, html, slug)
     page.wait_for_selector(".foliplus-export-ctrl", state="attached", timeout=10000)
     return page, errors
+
 
 def _solid_tile_url(rgb: tuple[int, int, int]) -> str:
     """A 256x256 solid-color tile as a data URI.
@@ -92,6 +92,7 @@ def _solid_tile_url(rgb: tuple[int, int, int]) -> str:
     buf = io.BytesIO()
     Image.new("RGB", (256, 256), rgb).save(buf, "PNG")
     return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
+
 
 def _solid_tile_layer(
     rgb: tuple[int, int, int], name: str, opacity: float = 1.0
@@ -111,6 +112,7 @@ def _solid_tile_layer(
         show=True,
         opacity=opacity,
     )
+
 
 def _run_export(page) -> None:
     """Drive the full export flow: open the control, lock the box, export.
@@ -134,6 +136,7 @@ def _run_export(page) -> None:
     )
     page.wait_for_timeout(2000)
 
+
 def _install_canvas_hook(page) -> None:
     """Hook ``document.createElement`` to capture canvases the renderer
     makes internally (never attached to the DOM). Same trick
@@ -154,6 +157,7 @@ def _install_canvas_hook(page) -> None:
         }"""
     )
 
+
 def _red_pixels_in_export(
     page,
     match=[230, 30, 30],
@@ -169,6 +173,7 @@ def _red_pixels_in_export(
         }}"""
     )
     return page.evaluate(_js("ExportControl/sample_export_canvas"))
+
 
 def _sample_bg_pixels_in_export(
     page, match: list[int], tol: int = 20, alpha_min: int = 200
