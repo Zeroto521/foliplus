@@ -274,6 +274,35 @@ describe("AnnotationManager — formatting and fields", () => {
     expect(mgr.resolveAnchor(group)).toEqual({ lat: 5, lng: 5 });
   });
 
+  it("treats a leaf with both getLatLng and polygon geometry as a path", () => {
+    // An L.Circle carries both — it has getLatLng (the center point) AND a
+    // polygon feature. The anchor decision must be governed by the geometry,
+    // not by duck-typing on getLatLng: isPointAnchor is false so the label
+    // is centered as a path, while resolveAnchor still honours getLatLng
+    // (the live center of the circle) rather than recomputing from geometry.
+    // Without this assertion, the two reads could drift: isPointAnchor would
+    // report true and offset the label as a marker below a path center.
+    const circle: L.Layer = {
+      getLatLng: () => ({ lat: 4, lng: 6 }),
+      feature: {
+        geometry: {
+          type: "Polygon" as const,
+          coordinates: [
+            [
+              [0, 0],
+              [0, 10],
+              [10, 10],
+              [10, 0],
+              [0, 0],
+            ],
+          ],
+        },
+      },
+    };
+    expect(mgr.isPointAnchor(circle)).toBe(false);
+    expect(mgr.resolveAnchor(circle)).toEqual({ lat: 4, lng: 6 });
+  });
+
   it("returns null when the leaf has neither geometry nor bounds", () => {
     expect(mgr.resolveAnchor({} as L.Layer)).toBeNull();
   });

@@ -324,18 +324,34 @@ class AnnotationManager {
     return String(props[field]);
   }
 
-  /** Whether a leaf's anchor is its own point (a marker) rather than the center
-   *  of its extents (a path). Same duck-typing `resolveAnchor` walks, exposed so
-   *  the anchor kind and the anchor point are decided from one reading. */
+  /** Anchor kind of a leaf, read once and used to decide BOTH the anchor
+   *  point and whether the label offsets as a point or a path. The kind is
+   *  derived from the leaf's `feature.geometry` when present (Polygon /
+   *  MultiPolygon → area centroid, other → bounds center), and from the
+   *  presence of `getLatLng` as the marker fallback when geometry is
+   *  absent. Reading the kind once keeps `isPointAnchor` and `resolveAnchor`
+   *  from drifting apart on leaves that carry both (e.g. an L.Circle). */
+  private anchorKind(leaf: L.Layer): "point" | "path" {
+    const geom = (leaf as L.Layer & { feature?: GeoJSON.Feature }).feature?.geometry;
+    if (geom) return "path";
+    return typeof (leaf as L.Layer & { getLatLng?: () => L.LatLng }).getLatLng ===
+      "function"
+      ? "point"
+      : "path";
+  }
+
+  /** Whether the label for a leaf offsets as a point (marker) rather than
+   *  as a path centroid. Same read `resolveAnchor` uses to pick the anchor. */
   isPointAnchor(leaf: L.Layer): boolean {
-    return (
-      typeof (leaf as L.Layer & { getLatLng?: () => L.LatLng }).getLatLng === "function"
-    );
+    return this.anchorKind(leaf) === "point";
   }
 
   /** Resolve the anchor latlng for a feature leaf.
-   *  Point markers → `getLatLng()`; Polygon / MultiPolygon → area centroid;
-   *  other paths (Polyline, etc.) → bounds center.
+   *  Point (marker, no geometry) → `getLatLng()`; Polygon / MultiPolygon →
+   *  area centroid; other paths → bounds center. `getLatLng` still wins on
+   *  a leaf that carries BOTH (e.g. a Circle) so the label follows the
+   *  marker's live position; `anchorKind` reports such a leaf as "path" so
+   *  the offset is drawn for a shape, not a marker.
    *  Returns null when the leaf has no usable geometry. */
   resolveAnchor(leaf: L.Layer): L.LatLng | null {
     // Duck-type for a point accessor (markers expose getLatLng); fall back to
@@ -346,8 +362,7 @@ class AnnotationManager {
       const ll = getLatLng.call(leaf);
       if (ll) return ll;
     }
-    const feature = (leaf as L.Layer & { feature?: GeoJSON.Feature }).feature;
-    const geom = feature?.geometry;
+    const geom = (leaf as L.Layer & { feature?: GeoJSON.Feature }).feature?.geometry;
     if (geom && (geom.type === "Polygon" || geom.type === "MultiPolygon")) {
       return areaCentroid(geom);
     }
