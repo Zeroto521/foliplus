@@ -709,9 +709,17 @@ class TestCheckSiblingDirCollision:
 
     The B-type stutter: ``ui/focus.ts`` next to ``ui/focus/`` makes
     ``./focus.js`` and ``./focus/index.js`` resolve to different modules.
-    The check is basename-scoped, so barrels (``foo/index.ts``) are naturally
-    exempt — their basename is ``index``, which never matches the parent
-    directory name ``foo``. No special-casing needed.
+    Two directions are checked, because pre-commit only sees changed files:
+
+      * direction 1: the file's basename matches a sibling directory
+        (``foo.ts`` + ``foo/``);
+      * direction 2: the file's own directory basename matches a sibling
+        source file one level up (``foo/index.ts`` + ``foo.ts``).
+
+    Barrels (``foo/index.ts``) are naturally exempt from direction 1 —
+    their basename is ``index``, which never matches the parent directory
+    name ``foo`` — but direction 2 still guards them, which is the whole
+    point (that is the ``focus.ts`` → ``focus/`` refactor).
     """
 
     def test_no_sibling_directory_is_clean(self, tmp_path):
@@ -772,6 +780,77 @@ class TestCheckSiblingDirCollision:
         f_mjs = tmp_path / "focus.mjs"
         f_mjs.write_text("export {};\n", encoding="utf-8")
         assert mod.check_sibling_dir_collision(str(f_ts)) == []
+
+    # --- Direction 2: ``foo/index.ts`` with a sibling ``foo.ts`` above. ---
+
+    def test_direction_2_sibling_ts_file_is_reported(self, tmp_path):
+        """``foo/index.ts`` + parent ``foo.ts`` — the reverse creation order."""
+        parent_file = tmp_path / "focus.ts"
+        parent_file.write_text("const x = 1\n", encoding="utf-8")
+        subdir = tmp_path / "focus"
+        subdir.mkdir()
+        f = subdir / "index.ts"
+        f.write_text("export * from './focusController.js'\n", encoding="utf-8")
+        v = mod.check_sibling_dir_collision(str(f))
+        assert len(v) == 1
+        assert v[0][0] == 0
+        assert "sibling file `focus.ts`" in v[0][1]
+        assert "focus/" in v[0][1]
+        assert "./focus.js" in v[0][1]
+        assert "./focus/index.js" in v[0][1]
+
+    def test_direction_2_sibling_js_file_is_reported(self, tmp_path):
+        """Direction 2 also catches a ``.js`` sibling in the parent."""
+        parent_file = tmp_path / "focus.js"
+        parent_file.write_text("export {};\n", encoding="utf-8")
+        subdir = tmp_path / "focus"
+        subdir.mkdir()
+        f = subdir / "index.ts"
+        f.write_text("export * from './focusController.js'\n", encoding="utf-8")
+        v = mod.check_sibling_dir_collision(str(f))
+        assert len(v) == 1
+        assert "sibling file `focus.js`" in v[0][1]
+
+    def test_direction_2_without_sibling_is_clean(self, tmp_path):
+        """No sibling source file in the parent — no violation."""
+        subdir = tmp_path / "focus"
+        subdir.mkdir()
+        f = subdir / "index.ts"
+        f.write_text("export * from './focusController.js'\n", encoding="utf-8")
+        assert mod.check_sibling_dir_collision(str(f)) == []
+
+    def test_direction_2_grandparent_is_not_checked(self, tmp_path):
+        """Direction 2 only looks one level up — not the grandparent."""
+        deep = tmp_path / "a" / "b" / "focus"
+        deep.mkdir(parents=True)
+        parent_file = tmp_path / "a" / "focus.ts"  # not b/focus.ts
+        parent_file.write_text("const x = 1\n", encoding="utf-8")
+        f = deep / "index.ts"
+        f.write_text("export * from './focusController.js'\n", encoding="utf-8")
+        assert mod.check_sibling_dir_collision(str(f)) == []
+
+    def test_direction_2_non_source_sibling_is_clean(self, tmp_path):
+        """A sibling ``.py`` or ``.md`` file is not a JS module — clean."""
+        parent_file = tmp_path / "focus.py"
+        parent_file.write_text("x = 1\n", encoding="utf-8")
+        subdir = tmp_path / "focus"
+        subdir.mkdir()
+        f = subdir / "index.ts"
+        f.write_text("export * from './focusController.js'\n", encoding="utf-8")
+        assert mod.check_sibling_dir_collision(str(f)) == []
+
+    def test_check_file_integrates_direction_2(self, tmp_path):
+        """``check_file`` reports direction 2 end-to-end."""
+        parent_file = tmp_path / "focus.ts"
+        parent_file.write_text("const x = 1\n", encoding="utf-8")
+        subdir = tmp_path / "focus"
+        subdir.mkdir()
+        f = subdir / "index.ts"
+        f.write_text("export * from './focusController.js'\n", encoding="utf-8")
+        v = mod.check_file(str(f))
+        assert len(v) == 1
+        assert v[0][0] == 0
+        assert "sibling file `focus.ts`" in v[0][1]
 
     def test_check_file_integrates_sibling_collision(self, tmp_path):
         """End-to-end: ``check_file`` reports the sibling-dir violation."""
@@ -881,3 +960,18 @@ class TestMain:
         assert "sibling dir" in captured.out
         assert "code-style violation(s)" in captured.err
         assert "file/sibling-dir" in captured.err
+
+    def test_direction_2_sibling_file_via_cli_reports_and_exits_one(
+        self, tmp_path, capsys, monkeypatch
+    ):
+        """Direction 2 on the CLI: parent sibling file must also trip the gate."""
+        parent_file = tmp_path / "focus.ts"
+        parent_file.write_text("const x = 1\n", encoding="utf-8")
+        subdir = tmp_path / "focus"
+        subdir.mkdir()
+        f = subdir / "index.ts"
+        f.write_text("export * from './focusController.js'\n", encoding="utf-8")
+        assert _run([str(f)], capsys=capsys, monkeypatch=monkeypatch) == 1
+        captured = capsys.readouterr()
+        assert "sibling file `focus.ts`" in captured.out
+        assert "code-style violation(s)" in captured.err

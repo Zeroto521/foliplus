@@ -24,8 +24,11 @@
 
   5. File and sibling-directory name collision. `ui/focus.ts` next to
      `ui/focus/` makes `./focus.js` and `./focus/index.js` resolve to
-     different modules — B-type stutter. Move the file into the directory
-     (as its `index.ts`) or rename it.
+     different modules — B-type stutter. Both creation directions are
+     caught: `foo.ts` + `foo/` (file lands on a directory) and
+     `foo/index.ts` + `foo.ts` (dir lands on a file — the reverse
+     refactor). Move the file into the directory (as its `index.ts`) or
+     rename it.
 
 Note: `function` declarations and inline exports (`export const x`) are
 covered by eslint's `func-style` and `no-restricted-syntax` rules — see
@@ -344,17 +347,28 @@ def check_plural_names(filepath: str) -> list[tuple[int, str]]:
 
 
 def check_sibling_dir_collision(filepath: str) -> list[tuple[int, str]]:
-    """Rule 5: report files whose basename shares a name with a sibling dir.
+    """Rule 5: report files whose name collides with a sibling dir.
 
-    ``ui/focus.ts`` next to ``ui/focus/`` makes ``./focus.js`` and
-    ``./focus/index.js`` resolve to different modules — B-type stutter.
-    Barrels (``foo/index.ts``) are naturally exempt: their basename is
-    ``index``, which never matches the parent directory name ``foo``.
+    B-type stutter: ``ui/focus.ts`` next to ``ui/focus/`` makes ``./focus.js``
+    and ``./focus/index.js`` resolve to different modules. Two directions —
+    pre-commit only sees changed files, so the reverse creation order must
+    also be caught:
+
+    Direction 1: file basename matches a sibling directory in the same
+        directory (``foo.ts`` + ``foo/``).
+    Direction 2: this file's own directory basename matches a sibling
+        source file one level up (``foo/index.ts`` + ``foo.ts``).
+
+    Barrels (``foo/index.ts``) are naturally exempt from direction 1 —
+    their basename is ``index``, never ``foo`` — but direction 2 still
+    guards them, which is the whole point (the ``focus.ts`` → ``focus/``
+    refactor is exactly the reverse direction).
     """
     directory, basename = os.path.split(filepath)
     base, _ = os.path.splitext(basename)
-    sibling = os.path.join(directory, base) if directory else base
-    if os.path.isdir(sibling):
+
+    sibling_dir = os.path.join(directory, base) if directory else base
+    if os.path.isdir(sibling_dir):
         return [
             (
                 0,
@@ -363,6 +377,24 @@ def check_sibling_dir_collision(filepath: str) -> list[tuple[int, str]]:
                 f"modules; move the file into the dir or rename it",
             )
         ]
+
+    if directory:
+        parent, dir_name = os.path.split(directory)
+        if dir_name and parent:
+            for ext in (".ts", ".js"):
+                sibling_file = os.path.join(parent, dir_name + ext)
+                if os.path.isfile(sibling_file):
+                    return [
+                        (
+                            0,
+                            f"sibling file `{dir_name}{ext}` and dir "
+                            f"`{dir_name}/` share a name — `./{dir_name}.js` "
+                            f"and `./{dir_name}/index.js` resolve to "
+                            f"different modules; merge into one module or "
+                            f"rename it",
+                        )
+                    ]
+
     return []
 
 
