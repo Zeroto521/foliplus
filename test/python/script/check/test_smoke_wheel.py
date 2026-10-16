@@ -25,7 +25,7 @@ from pathlib import Path
 import pytest
 
 HERE = Path(__file__).resolve().parent
-REPO_ROOT = HERE.parent.parent
+REPO_ROOT = HERE.parents[3]
 SCRIPT = REPO_ROOT / "script" / "check" / "smoke-wheel.py"
 
 # `locate_controls()` inspects `dir(foliplus)`, so the stub must look like a
