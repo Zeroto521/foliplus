@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   area,
+  areaCentroid,
   bearing,
   boundsToRect,
   centroid,
@@ -124,5 +125,85 @@ describe("geo.area", () => {
         [0, 0],
       ],
     ]);
+  });
+});
+
+describe("geo.areaCentroid", () => {
+  it("computes the shoelace centroid of a Polygon", () => {
+    // Unit square: shoelace centroid is the geometric center.
+    const c = areaCentroid({
+      type: "Polygon",
+      coordinates: [
+        [
+          [0, 0],
+          [0, 1],
+          [1, 1],
+          [1, 0],
+          [0, 0],
+        ],
+      ],
+    });
+    expect(c).toEqual({ lat: 0.5, lng: 0.5 });
+  });
+
+  it("subtracts holes from the outer ring (signed shoelace)", () => {
+    // 10×10 square with a 2×2 hole in the upper-right quadrant.
+    // Signed-area centroid of the resulting annulus is NOT the square's center.
+    const c = areaCentroid({
+      type: "Polygon",
+      coordinates: [
+        [
+          [0, 0],
+          [0, 10],
+          [10, 10],
+          [10, 0],
+          [0, 0],
+        ],
+        [
+          [8, 8],
+          [9, 8],
+          [9, 9],
+          [8, 9],
+          [8, 8],
+        ],
+      ],
+    });
+    // 96-area annulus; centroid shifted toward the lower-left of the outer
+    // ring because the hole eats from the upper-right.
+    expect(c.lng).toBeLessThan(5);
+    expect(c.lat).toBeLessThan(5);
+  });
+
+  it("merges MultiPolygon parts by |area|, not by vertex count", () => {
+    // A 10×10 square and a 1×1 square side by side. The area-weighted
+    // centroid sits near the big square's center, not at the midpoint of
+    // the two bounding boxes (which would be turf.centerOfMass's convex
+    // shortcut on MultiPolygon).
+    const c = areaCentroid({
+      type: "MultiPolygon",
+      coordinates: [
+        [
+          [
+            [0, 0],
+            [0, 10],
+            [10, 10],
+            [10, 0],
+            [0, 0],
+          ],
+        ],
+        [
+          [
+            [20, 0],
+            [20, 1],
+            [21, 1],
+            [21, 0],
+            [20, 0],
+          ],
+        ],
+      ],
+    });
+    // Weighted average: (100 * 5 + 1 * 20.5) / 101, y symmetric at (100*5 + 1*0.5)/101.
+    expect(c.lng).toBeCloseTo((100 * 5 + 20.5) / 101, 5);
+    expect(c.lat).toBeCloseTo((100 * 5 + 0.5) / 101, 5);
   });
 });
