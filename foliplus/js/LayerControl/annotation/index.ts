@@ -325,15 +325,18 @@ class AnnotationManager {
   }
 
   /** Anchor kind of a leaf, read once and used to decide BOTH the anchor
-   *  point and whether the label offsets as a point or a path. The kind is
-   *  derived from the leaf's `feature.geometry` when present (Polygon /
-   *  MultiPolygon → area centroid, other → bounds center), and from the
-   *  presence of `getLatLng` as the marker fallback when geometry is
-   *  absent. Reading the kind once keeps `isPointAnchor` and `resolveAnchor`
-   *  from drifting apart on leaves that carry both (e.g. an L.Circle). */
+   *  point and whether the label offsets as a point or a path. The kind
+   *  tracks the geometry type when `feature.geometry` is present — Point /
+   *  MultiPoint → "point" (offset below the marker), anything else → "path"
+   *  (centered on the shape's centroid / bounds). When no geometry is present
+   *  the marker accessor decides: `getLatLng` → "point", otherwise → "path".
+   *  Reading the kind once keeps `isPointAnchor` and `resolveAnchor` from
+   *  drifting apart on leaves that carry both (e.g. an L.Circle). */
   private anchorKind(leaf: L.Layer): "point" | "path" {
     const geom = (leaf as L.Layer & { feature?: GeoJSON.Feature }).feature?.geometry;
-    if (geom) return "path";
+    if (geom) {
+      return geom.type === "Point" || geom.type === "MultiPoint" ? "point" : "path";
+    }
     return typeof (leaf as L.Layer & { getLatLng?: () => L.LatLng }).getLatLng ===
       "function"
       ? "point"

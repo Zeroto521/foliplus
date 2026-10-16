@@ -303,6 +303,26 @@ describe("AnnotationManager — formatting and fields", () => {
     expect(mgr.resolveAnchor(circle)).toEqual({ lat: 4, lng: 6 });
   });
 
+  it("treats a GeoJSON Point leaf (getLatLng + Point geometry) as a point", () => {
+    // L.GeoJSON attaches `.feature` to every sub-layer, so a Point feature
+    // carries BOTH getLatLng (the marker's position) AND a Point-typed
+    // feature.geometry. Both must say "point": the label offsets below the
+    // marker rather than centering on it. This assertion locks that in —
+    // without it, a regression that collapses Point into the generic "path"
+    // branch would silently center every GeoJSON point label on its marker.
+    const pointLeaf: L.Layer = {
+      getLatLng: () => ({ lat: 40, lng: -74 }),
+      feature: {
+        geometry: {
+          type: "Point" as const,
+          coordinates: [-74, 40],
+        },
+      },
+    };
+    expect(mgr.isPointAnchor(pointLeaf)).toBe(true);
+    expect(mgr.resolveAnchor(pointLeaf)).toEqual({ lat: 40, lng: -74 });
+  });
+
   it("returns null when the leaf has neither geometry nor bounds", () => {
     expect(mgr.resolveAnchor({} as L.Layer)).toBeNull();
   });
