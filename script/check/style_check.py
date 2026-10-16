@@ -22,6 +22,14 @@
      fragments the single source of truth. Both are rejected in
      declarations, `var()` references, and JS string literals alike.
 
+  5. File and sibling-directory name collision. `ui/focus.ts` next to
+     `ui/focus/` makes `./focus.js` and `./focus/index.js` resolve to
+     different modules — B-type stutter. Both creation directions are
+     caught: `foo.ts` + `foo/` (file lands on a directory) and
+     `foo/index.ts` + `foo.ts` (dir lands on a file — the reverse
+     refactor). Move the file into the directory (as its `index.ts`) or
+     rename it.
+
 Note: `function` declarations and inline exports (`export const x`) are
 covered by eslint's `func-style` and `no-restricted-syntax` rules — see
 `eslint.config.js`. This script does not duplicate them.
@@ -338,6 +346,51 @@ def check_plural_names(filepath: str) -> list[tuple[int, str]]:
     return violations
 
 
+def _btype_message(module: str, sibling: str) -> str:
+    """Shared wording for a file/dir name collision (B-type stutter)."""
+    return (
+        f"`{module}` and {sibling} share a name — `./{module}.js` and "
+        f"`./{module}/index.js` resolve to different modules; move the "
+        f"file into the dir or rename it"
+    )
+
+
+def check_sibling_dir_collision(filepath: str) -> list[tuple[int, str]]:
+    """Rule 5: report files whose name collides with a sibling dir.
+
+    B-type stutter: ``ui/focus.ts`` next to ``ui/focus/`` makes ``./focus.js``
+    and ``./focus/index.js`` resolve to different modules. Two directions —
+    pre-commit only sees changed files, so the reverse creation order must
+    also be caught:
+
+    Direction 1: file basename matches a sibling directory in the same
+        directory (``foo.ts`` + ``foo/``).
+    Direction 2: this file's own directory basename matches a sibling
+        source file one level up (``foo/index.ts`` + ``foo.ts``).
+
+    Barrels (``foo/index.ts``) are naturally exempt from direction 1 —
+    their basename is ``index``, never ``foo`` — but direction 2 still
+    guards them, which is the whole point (the ``focus.ts`` → ``focus/``
+    refactor is exactly the reverse direction).
+    """
+    directory, basename = os.path.split(filepath)
+    base, _ = os.path.splitext(basename)
+
+    sibling_dir = os.path.join(directory, base) if directory else base
+    if os.path.isdir(sibling_dir):
+        return [(0, _btype_message(base, f"sibling dir `{base}/`"))]
+
+    if directory:
+        parent, dir_name = os.path.split(directory)
+        if dir_name and parent:
+            for ext in (".ts", ".js"):
+                sibling_file = os.path.join(parent, dir_name + ext)
+                if os.path.isfile(sibling_file):
+                    return [(0, _btype_message(dir_name, f"dir `{dir_name}/`"))]
+
+    return []
+
+
 def check_file(filepath: str) -> list[tuple[int, str]]:
     try:
         with open(filepath, encoding="utf-8") as f:
@@ -363,6 +416,7 @@ def check_file(filepath: str) -> list[tuple[int, str]]:
         + check_plural_names(filepath)
         + check_spelling(lines)
         + check_custom_property_prefix(code_lines, filepath)
+        + check_sibling_dir_collision(filepath)
     )
 
 
@@ -391,7 +445,7 @@ def main() -> int:
             "block at file end + optional `export type { ... }`, "
             "(2) singular file names, (3) American spelling in code/strings, "
             "(4) CSS custom properties namespaced as `--foliplus-*` with "
-            "definitions in `token.css`. "
+            "definitions in `token.css`, (5) file/sibling-dir name collision. "
             "Function declarations and inline exports are covered by eslint "
             "(func-style, no-restricted-syntax).",
             file=sys.stderr,
