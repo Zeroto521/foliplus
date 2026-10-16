@@ -1,24 +1,6 @@
 // Geodesic coordinate helpers (turf.js) — pure functions shared by components.
 // `turf` and `L` are globals provided by the page (Leaflet + turf via CDN).
-
-interface LatLngPoint {
-  lng: number;
-  lat: number;
-}
-
-/** Geo bounds with northwest and southeast corners. */
-interface GeoBounds {
-  nw: LatLngPoint;
-  se: LatLngPoint;
-}
-
-/** Screen-space rectangle. */
-interface Rect {
-  left: number;
-  top: number;
-  width: number;
-  height: number;
-}
+import type { GeoBounds, LatLngPoint, Rect } from "./type.js";
 
 /** Convert geo bounds (nw/se) to a screen-space rect using the map's projection. */
 const boundsToRect = (map: L.Map, bounds: GeoBounds): Rect => {
@@ -111,4 +93,3 @@ const areaCentroid = (geometry: GeoJSON.Polygon | GeoJSON.MultiPolygon): L.LatLn
 };
 
 export { area, areaCentroid, bearing, boundsToRect, distance, midpoint, vertexMean };
-export type { GeoBounds, LatLngPoint, Rect };
