@@ -1,6 +1,6 @@
 // LayerControl UI — Focus subsystem entry (lifecycle + row linkage).
 // The overlay painting lives in `overlay.ts`, the pane bookkeeping in
-// `panes.ts`, the disabled-state hints in `hint.ts`; this file re-exports
+// `pane.ts`, the disabled-state hints in `hint.ts`; this file re-exports
 // all three so the existing external import surface (`./focus/index.js`)
 // stays unchanged.
 import { EVENTS } from "#core/event/index.js";
@@ -16,7 +16,7 @@ import {
   bringFocusedLayerToFront,
   hideOtherLayers,
   restoreHiddenLayers,
-} from "./panes.js";
+} from "./pane.js";
 
 /** Toggle visibility of the currently focused layer. */
 const toggleFocusedLayer = (ui: LayerUI): void => {
@@ -310,11 +310,7 @@ export {
   focusDisabledReason,
   showFocusDisabledHint,
 } from "./hint.js";
-export {
-  bringFocusedLayerToFront,
-  hideOtherLayers,
-  restoreHiddenLayers,
-} from "./panes.js";
+export { bringFocusedLayerToFront } from "./pane.js";
 export { computeLayerBounds, drawFocusMask, drawFocusRect } from "./overlay.js";
 export { FocusController } from "./focusController.js";
 export { bindGeometryFocusMarquee } from "./focusMarquee.js";
