@@ -82,7 +82,7 @@ repos:
         language: python
         types: [text]
 
-      # Enforces three code-style rules on foliplus/js/*.ts, build-tool
+      # Enforces code-style rules on foliplus/js/*.ts, build-tool
       # modules under script/ (all subdirs), and the CSS custom-property
       # namespace on foliplus/css/*.css:
       #   (1) one value export block at file end + optional `export type {}`
@@ -91,6 +91,7 @@ repos:
       #   (2) singular file names — also checked on script/**/*.{mjs,cjs,js}
       #   (3) American spelling in identifiers and string literals
       #   (4) bare CSS custom properties rejected — must carry --foliplus-*
+      #   (5) file/sibling-dir name collision (B-type stutter guard)
       # Function declarations and inline exports are covered by eslint's
       # `func-style` and `no-restricted-syntax` — see eslint.config.js.
       # Check-only — refactor in the editor. Barrels (index.ts) and
