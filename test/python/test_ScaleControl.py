@@ -104,9 +104,7 @@ class TestScaleControlBrowser:
     def test_scale_visible(self, browser, tmp_path):
         """Scale wrap is visible in the DOM."""
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
-            visible = page.evaluate(
-                "document.querySelector('.foliplus-scale-wrap') !== null"
-            )
+            visible = page.evaluate(_js("ScaleControl/read_scale_wrap_present"))
             assert visible
             assert not errors, f"JS errors: {errors}"
 
@@ -116,9 +114,7 @@ class TestScaleControlBrowser:
             page,
             errors,
         ):
-            has_label = page.evaluate(
-                "document.querySelector('.foliplus-scale-zoom-label') !== null"
-            )
+            has_label = page.evaluate(_js("ScaleControl/read_zoom_label_present"))
             assert has_label
             assert not errors, f"JS errors: {errors}"
 
@@ -128,27 +124,21 @@ class TestScaleControlBrowser:
             page,
             errors,
         ):
-            has_label = page.evaluate(
-                "document.querySelector('.foliplus-scale-zoom-label') !== null"
-            )
+            has_label = page.evaluate(_js("ScaleControl/read_zoom_label_present"))
             assert not has_label
             assert not errors, f"JS errors: {errors}"
 
     def test_scale_leaflet_class(self, browser, tmp_path):
         """Scale has leaflet-control-scale-line class in DOM."""
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
-            has_class = page.evaluate(
-                "document.querySelector('.leaflet-control-scale-line') !== null"
-            )
+            has_class = page.evaluate(_js("ScaleControl/read_scale_line_present"))
             assert has_class
             assert not errors, f"JS errors: {errors}"
 
     def test_scale_shows_metric_text(self, browser, tmp_path):
         """Scale line displays metric units (km/m)."""
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
-            scale_text = page.evaluate(
-                "document.querySelector('.leaflet-control-scale-line')?.textContent"
-            )
+            scale_text = page.evaluate(_js("ScaleControl/read_scale_line_text"))
             assert scale_text
             assert any(u in scale_text for u in ["km", "m"])
             assert not errors, f"JS errors: {errors}"
@@ -159,9 +149,7 @@ class TestScaleControlBrowser:
             page,
             errors,
         ):
-            label_text = page.evaluate(
-                "document.querySelector('.foliplus-scale-zoom-label')?.textContent"
-            )
+            label_text = page.evaluate(_js("ScaleControl/read_zoom_label_text"))
             assert label_text
             assert "Zoom Level" in label_text or "地图级别" in label_text
             assert any(c.isdigit() for c in label_text)

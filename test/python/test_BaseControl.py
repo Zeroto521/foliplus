@@ -884,10 +884,7 @@ class TestButtonRadiusBrowser:
         return page, errors
 
     def _radius(self, page, selector: str) -> str:
-        return page.evaluate(
-            "sel => getComputedStyle(document.querySelector(sel)).borderRadius",
-            selector,
-        )
+        return page.evaluate(_js("BaseControl/read_border_radius"), selector)
 
     def _corner_pink_counts(self, page, selector: str) -> list[int]:
         """Per-corner pink-pixel counts (6x6 block) of the hovered button.

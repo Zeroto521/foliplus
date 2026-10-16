@@ -16,7 +16,7 @@ import re
 
 import folium
 import pytest
-from conftest import make_browser_page, use_page
+from conftest import _js, make_browser_page, use_page
 
 from foliplus import (
     FullscreenControl,
@@ -80,12 +80,7 @@ class TestLeafletCompatBrowser:
                 ".foliplus-panel-content[data-ready]", state="attached", timeout=10000
             )
 
-            loaded, has_api = page.evaluate(
-                """() => [
-                (window.L && window.L.version || '').split('+')[0],
-                !!(window.map && window.map.foliplus && window.map.foliplus.LayerAPI),
-                ]"""
-            )
+            loaded, has_api = page.evaluate(_js("leaflet_compat/read_leaflet_api"))
             assert loaded == version, f"expected Leaflet {version}, got {loaded}"
             assert has_api, "map.foliplus.LayerAPI missing"
 
