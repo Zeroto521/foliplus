@@ -79,10 +79,23 @@ const makeMap = () => {
 const mkLeaf = (opts: {
   props?: Record<string, unknown>;
   latlng?: { lat: number; lng: number };
+  geometry?: GeoJSON.Geometry;
+  boundsCenter?: { lat: number; lng: number };
 }): L.Layer => {
   const leaf: Record<string, unknown> = {};
-  if (opts.props) leaf.feature = { properties: opts.props };
+  if (opts.props || opts.geometry) {
+    leaf.feature = {
+      properties: opts.props,
+      ...(opts.geometry ? { geometry: opts.geometry } : {}),
+    };
+  }
   if (opts.latlng) leaf.getLatLng = () => opts.latlng;
+  if (opts.boundsCenter) {
+    leaf.getBounds = () => ({
+      isValid: () => true,
+      getCenter: () => opts.boundsCenter!,
+    });
+  }
   return leaf as unknown as L.Layer;
 };
 
@@ -118,43 +131,200 @@ describe("AnnotationManager — formatting and fields", () => {
     expect(mgr.formatValue("abc", "percent", "en")).toBe("abc");
   });
 
-  it("resolves a point anchor, a bounds center, or null", () => {
+  it("anchors points to their own location", () => {
+    expect(mgr.resolveAnchor(mkLeaf({ latlng: { lat: 40, lng: -74 } }))).toEqual({
+      lat: 40,
+      lng: -74,
+    });
+  });
+
+  it("anchors a Polygon to its area centroid, not its bounds center", () => {
+    // 10×10 square: bounds center (5,5) == area centroid (5,5), so this
+    // case alone wouldn't distinguish the two. Pair it with the concave
+    // case below.
+    const square: GeoJSON.Polygon = {
+      type: "Polygon",
+      coordinates: [
+        [
+          [0, 0],
+          [0, 10],
+          [10, 10],
+          [10, 0],
+          [0, 0],
+        ],
+      ],
+    };
+    expect(mgr.resolveAnchor(mkLeaf({ geometry: square }))).toEqual({
+      lat: 5,
+      lng: 5,
+    });
+  });
+
+  it("anchors a Polygon with a hole by signed area (bounds center diverges)", () => {
+    // 10×10 square with a 2×2 hole in the upper-right: the area centroid
+    // shifts toward the un-drilled lower-left, while the bounds center
+    // stays at (5,5). This is the assertion that would go red if the
+    // polygon branch ever regressed to `getBounds().getCenter()`.
+    const holed: GeoJSON.Polygon = {
+      type: "Polygon",
+      coordinates: [
+        [
+          [0, 0],
+          [0, 10],
+          [10, 10],
+          [10, 0],
+          [0, 0],
+        ],
+        [
+          [8, 8],
+          [9, 8],
+          [9, 9],
+          [8, 9],
+          [8, 8],
+        ],
+      ],
+    };
+    const c = mgr.resolveAnchor(mkLeaf({ geometry: holed }));
+    expect(c!.lng).toBeLessThan(5);
+    expect(c!.lat).toBeLessThan(5);
+  });
+
+  it("anchors a MultiPolygon by |area|-weighted centroid", () => {
+    // A 10×10 square and a 1×1 square side by side: the area-weighted
+    // centroid sits near the big square's center, not at the midpoint of
+    // the two bounding boxes. This assertion is what would go red if the
+    // MultiPolygon branch ever routed through `turf.centerOfMass` (whose
+    // convex-hull shortcut lands at the midpoint).
+    const multi: GeoJSON.MultiPolygon = {
+      type: "MultiPolygon",
+      coordinates: [
+        [
+          [
+            [0, 0],
+            [0, 10],
+            [10, 10],
+            [10, 0],
+            [0, 0],
+          ],
+        ],
+        [
+          [
+            [20, 0],
+            [20, 1],
+            [21, 1],
+            [21, 0],
+            [20, 0],
+          ],
+        ],
+      ],
+    };
+    expect(mgr.resolveAnchor(mkLeaf({ geometry: multi }))).toEqual({
+      lat: (100 * 5 + 0.5) / 101,
+      lng: (100 * 5 + 20.5) / 101,
+    });
+  });
+
+  it("anchors a non-polygon path (Polyline) to its bounds center", () => {
     expect(
-      mgr.resolveAnchor({
-        getLatLng: () => ({ lat: 40, lng: -74 }),
-      } as unknown as L.Layer),
-    ).toEqual({ lat: 40, lng: -74 });
-    expect(
-      mgr.resolveAnchor({
-        getBounds: () => ({
-          isValid: () => true,
-          getCenter: () => ({ lat: 1, lng: 2 }),
+      mgr.resolveAnchor(
+        mkLeaf({
+          geometry: {
+            type: "LineString",
+            coordinates: [
+              [0, 0],
+              [10, 10],
+            ],
+          },
+          boundsCenter: { lat: 5, lng: 5 },
         }),
-      } as unknown as L.Layer),
-    ).toEqual({ lat: 1, lng: 2 });
-    // A leaf whose getLatLng exists but returns null/undefined is not a
-    // marker whose point is undefined — it falls through to bounds, so a
-    // group whose "point" accessor resolves to nothing still gets an anchor
-    // from its extents.
+      ),
+    ).toEqual({ lat: 5, lng: 5 });
+  });
+
+  it("falls back to bounds when no geometry is attached", () => {
+    // A layer whose feature object carries only `properties` (no geometry)
+    // still gets an anchor from its extents.
     expect(
-      mgr.resolveAnchor({
-        getLatLng: () => null,
-        getBounds: () => ({
-          isValid: () => true,
-          getCenter: () => ({ lat: 1, lng: 2 }),
-        }),
-      } as unknown as L.Layer),
+      mgr.resolveAnchor(
+        mkLeaf({ props: { v: "1" }, boundsCenter: { lat: 1, lng: 2 } }),
+      ),
     ).toEqual({ lat: 1, lng: 2 });
+  });
+
+  it("does not treat a null-returning getLatLng as a valid point anchor", () => {
+    // A group whose "point" accessor resolves to null is not a marker with
+    // an undefined location — it falls through to the geometry-aware path.
+    const group: L.Layer = {
+      getLatLng: () => null,
+      feature: {
+        geometry: {
+          type: "Polygon" as const,
+          coordinates: [
+            [
+              [0, 0],
+              [0, 10],
+              [10, 10],
+              [10, 0],
+              [0, 0],
+            ],
+          ],
+        },
+      },
+    };
+    expect(mgr.resolveAnchor(group)).toEqual({ lat: 5, lng: 5 });
+  });
+
+  it("treats a leaf with both getLatLng and polygon geometry as a path", () => {
+    // An L.Circle carries both — it has getLatLng (the center point) AND a
+    // polygon feature. The anchor decision must be governed by the geometry,
+    // not by duck-typing on getLatLng: isPointAnchor is false so the label
+    // is centered as a path, while resolveAnchor still honours getLatLng
+    // (the live center of the circle) rather than recomputing from geometry.
+    // Without this assertion, the two reads could drift: isPointAnchor would
+    // report true and offset the label as a marker below a path center.
+    const circle: L.Layer = {
+      getLatLng: () => ({ lat: 4, lng: 6 }),
+      feature: {
+        geometry: {
+          type: "Polygon" as const,
+          coordinates: [
+            [
+              [0, 0],
+              [0, 10],
+              [10, 10],
+              [10, 0],
+              [0, 0],
+            ],
+          ],
+        },
+      },
+    };
+    expect(mgr.isPointAnchor(circle)).toBe(false);
+    expect(mgr.resolveAnchor(circle)).toEqual({ lat: 4, lng: 6 });
+  });
+
+  it("treats a GeoJSON Point leaf (getLatLng + Point geometry) as a point", () => {
+    // L.GeoJSON attaches `.feature` to every sub-layer, so a Point feature
+    // carries BOTH getLatLng (the marker's position) AND a Point-typed
+    // feature.geometry. Both must say "point": the label offsets below the
+    // marker rather than centering on it. This assertion locks that in —
+    // without it, a regression that collapses Point into the generic "path"
+    // branch would silently center every GeoJSON point label on its marker.
+    const pointLeaf: L.Layer = {
+      getLatLng: () => ({ lat: 40, lng: -74 }),
+      feature: {
+        geometry: {
+          type: "Point" as const,
+          coordinates: [-74, 40],
+        },
+      },
+    };
+    expect(mgr.isPointAnchor(pointLeaf)).toBe(true);
+    expect(mgr.resolveAnchor(pointLeaf)).toEqual({ lat: 40, lng: -74 });
+  });
+
+  it("returns null when the leaf has neither geometry nor bounds", () => {
     expect(mgr.resolveAnchor({} as L.Layer)).toBeNull();
-    expect(
-      mgr.resolveAnchor({
-        getLatLng: () => null,
-        getBounds: () => ({
-          isValid: () => true,
-          getCenter: () => ({ lat: 1, lng: 2 }),
-        }),
-      } as unknown as L.Layer),
-    ).toEqual({ lat: 1, lng: 2 });
   });
 
   it("reads a field off feature.properties", () => {

@@ -8,6 +8,7 @@
 // covers whom", so a cross-layer plan would only make an upper layer's labels
 // vanish under a lower layer's — the layers themselves are the avoidance.
 import { EVENTS, ensureEvents } from "#core/event/index.js";
+import { areaCentroid } from "#core/geo/index.js";
 import {
   type Box,
   type LabelField,
@@ -323,25 +324,50 @@ class AnnotationManager {
     return String(props[field]);
   }
 
-  /** Whether a leaf's anchor is its own point (a marker) rather than the center
-   *  of its extents (a path). Same duck-typing `resolveAnchor` walks, exposed so
-   *  the anchor kind and the anchor point are decided from one reading. */
+  /** Anchor kind of a leaf, read once and used to decide BOTH the anchor
+   *  point and whether the label offsets as a point or a path. The kind
+   *  tracks the geometry type when `feature.geometry` is present — Point /
+   *  MultiPoint → "point" (offset below the marker), anything else → "path"
+   *  (centered on the shape's centroid / bounds). When no geometry is present
+   *  the marker accessor decides: `getLatLng` → "point", otherwise → "path".
+   *  Reading the kind once keeps `isPointAnchor` and `resolveAnchor` from
+   *  drifting apart on leaves that carry both (e.g. an L.Circle). */
+  private anchorKind(leaf: L.Layer): "point" | "path" {
+    const geom = (leaf as L.Layer & { feature?: GeoJSON.Feature }).feature?.geometry;
+    if (geom) {
+      return geom.type === "Point" || geom.type === "MultiPoint" ? "point" : "path";
+    }
+    return typeof (leaf as L.Layer & { getLatLng?: () => L.LatLng }).getLatLng ===
+      "function"
+      ? "point"
+      : "path";
+  }
+
+  /** Whether the label for a leaf offsets as a point (marker) rather than
+   *  as a path centroid. Same read `resolveAnchor` uses to pick the anchor. */
   isPointAnchor(leaf: L.Layer): boolean {
-    return (
-      typeof (leaf as L.Layer & { getLatLng?: () => L.LatLng }).getLatLng === "function"
-    );
+    return this.anchorKind(leaf) === "point";
   }
 
   /** Resolve the anchor latlng for a feature leaf.
-   *  Point markers → getLatLng(); polygon/line → bounds center.
+   *  Point (marker, no geometry) → `getLatLng()`; Polygon / MultiPolygon →
+   *  area centroid; other paths → bounds center. `getLatLng` still wins on
+   *  a leaf that carries BOTH (e.g. a Circle) so the label follows the
+   *  marker's live position; `anchorKind` reports such a leaf as "path" so
+   *  the offset is drawn for a shape, not a marker.
    *  Returns null when the leaf has no usable geometry. */
   resolveAnchor(leaf: L.Layer): L.LatLng | null {
     // Duck-type for a point accessor (markers expose getLatLng); fall back to
-    // bounds center for paths. Avoids instanceof against a possibly-mocked L.
+    // a geometry-aware anchor for paths. Avoids instanceof against a
+    // possibly-mocked L.
     const getLatLng = (leaf as L.Layer & { getLatLng?: () => L.LatLng }).getLatLng;
     if (typeof getLatLng === "function") {
       const ll = getLatLng.call(leaf);
       if (ll) return ll;
+    }
+    const geom = (leaf as L.Layer & { feature?: GeoJSON.Feature }).feature?.geometry;
+    if (geom && (geom.type === "Polygon" || geom.type === "MultiPolygon")) {
+      return areaCentroid(geom);
     }
     const bounds = (
       leaf as L.Layer & { getBounds?: () => L.LatLngBounds }
@@ -405,7 +431,8 @@ class AnnotationManager {
       const anchor = this.resolveAnchor(leaf);
       if (raw === null || anchor === null) return;
       // The anchor kind is decided once here; the plan reads it to offset a
-      // point label below its marker and center a path label on its centroid.
+      // point label below its marker and center a path label on its resolved
+      // anchor (area centroid for polygons, bounds center for lines).
       const atPoint = this.isPointAnchor(leaf);
       const text = this.formatValue(raw, cfg.format, locale);
       if (!text) return;

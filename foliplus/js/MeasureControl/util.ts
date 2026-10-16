@@ -1,6 +1,6 @@
 // MeasureControl utility functions — no manager instance, only the control's
 // config/translator where a label or popup string is i18n-driven.
-import { area, bearing, centroid, distance, midpoint } from "#core/geo/index.js";
+import { area, bearing, distance, midpoint, vertexMean } from "#core/geo/index.js";
 import { reverseGeocode } from "#core/geocode/index.js";
 import type { ControlEnv } from "#core/type.js";
 import { cssVar } from "#common/cssvar.js";
@@ -258,7 +258,7 @@ export {
   area,
   bearing,
   buildPopup,
-  centroid,
+  vertexMean,
   coordText,
   distance,
   formatArea,
