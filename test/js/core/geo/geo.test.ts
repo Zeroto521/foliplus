@@ -218,6 +218,35 @@ describe("geo.areaCentroid", () => {
     expect(c).toEqual({ lat: 0, lng: 0 });
   });
 
+  it("skips empty or sub-triangular rings without producing NaN", () => {
+    // An empty ring (or one with fewer than 3 vertices) would produce NaN
+    // under the old `(i + 1) % ring.length` indexing when the modulo hit 0.
+    // The guard treats such rings as no-ops, so the centroid still comes from
+    // the remaining valid rings.
+    const c = areaCentroid({
+      type: "MultiPolygon",
+      coordinates: [
+        [
+          [], // empty ring — must be skipped, not contribute NaN
+          [
+            [0, 0],
+            [0, 10],
+            [10, 10],
+            [10, 0],
+            [0, 0],
+          ],
+        ],
+        [
+          [
+            [0, 0],
+            [1, 0],
+          ], // 2-vertex ring — also skipped
+        ],
+      ],
+    });
+    expect(c).toEqual({ lat: 5, lng: 5 });
+  });
+
   it("merges MultiPolygon parts by |area|, not by vertex count", () => {
     // A 10×10 square and a 1×1 square side by side. The area-weighted
     // centroid sits near the big square's center, not at the midpoint of

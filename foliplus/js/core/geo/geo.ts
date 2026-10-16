@@ -73,37 +73,41 @@ const areaCentroid = (geometry: GeoJSON.Polygon | GeoJSON.MultiPolygon): L.LatLn
   const polygons: GeoJSON.Position[][][] =
     geometry.type === "Polygon" ? [geometry.coordinates] : geometry.coordinates;
   let totalArea = 0;
-  let cx = 0;
-  let cy = 0;
+  let weightedX = 0;
+  let weightedY = 0;
   for (const rings of polygons) {
     let polyArea = 0;
     let px = 0;
     let py = 0;
     for (const ring of rings) {
-      let a = 0;
-      let rx = 0;
-      let ry = 0;
-      for (let i = 0; i < ring.length; i++) {
-        const [x0, y0] = ring[i];
-        const [x1, y1] = ring[(i + 1) % ring.length];
+      if (ring.length < 3) continue;
+      // Rolling two-pointer: seed the first point, walk the rest, close the
+      // ring separately. Avoids the modulo on every edge.
+      let [x0, y0] = ring[0];
+      for (let i = 1; i < ring.length; i++) {
+        const [x1, y1] = ring[i];
         const cross = x0 * y1 - x1 * y0;
-        a += cross;
-        rx += (x0 + x1) * cross;
-        ry += (y0 + y1) * cross;
+        polyArea += cross;
+        px += (x0 + x1) * cross;
+        py += (y0 + y1) * cross;
+        x0 = x1;
+        y0 = y1;
       }
-      polyArea += a;
-      px += rx;
-      py += ry;
+      const [xClose, yClose] = ring[0];
+      const crossClose = x0 * yClose - xClose * y0;
+      polyArea += crossClose;
+      px += (x0 + xClose) * crossClose;
+      py += (y0 + yClose) * crossClose;
     }
     if (polyArea === 0) continue;
     const cxAbs = px / (3 * polyArea);
     const cyAbs = py / (3 * polyArea);
     totalArea += Math.abs(polyArea);
-    cx += cxAbs * Math.abs(polyArea);
-    cy += cyAbs * Math.abs(polyArea);
+    weightedX += cxAbs * Math.abs(polyArea);
+    weightedY += cyAbs * Math.abs(polyArea);
   }
   if (totalArea === 0) return L.latLng(0, 0);
-  return L.latLng(cy / totalArea, cx / totalArea);
+  return L.latLng(weightedY / totalArea, weightedX / totalArea);
 };
 
 export { area, areaCentroid, bearing, boundsToRect, distance, midpoint, vertexMean };
