@@ -74,7 +74,7 @@ class TestLayerPaneRegisterBrowser:
 
     @staticmethod
     def _facts(page, spec: dict) -> dict:
-        page.evaluate(f"window.__probe = {json.dumps(spec)}")
+        page.evaluate(_js("LayerControl/set_probe"), spec)
         return page.evaluate(_js("LayerControl/probe_pane_facts"))
 
     # ── R3: materialize at registration (I1 / I2) ──────────────────
@@ -211,7 +211,10 @@ class TestLayerPaneRegisterBrowser:
             page,
             _,
         ):
-            page.evaluate(f"window.__probe = {json.dumps({'id': heat.get_name()})}")
+            page.evaluate(
+                _js("LayerControl/set_probe"),
+                {"id": heat.get_name()},
+            )
             r = page.evaluate(_js("LayerControl/probe_heat_canvas"))
         assert r["found"] is True
         assert r["pane"] == "overlayPane"
@@ -249,18 +252,7 @@ class TestLayerPaneRegisterBrowser:
         per-layer fallback pane; runtime-added markers inherit it. This is
         the C-tier contract — register to get the pane carrier."""
         with use_page(self._probe, browser, tmp_path, slug="p6b") as (page, _):
-            page.evaluate(
-                """() => {
-                  const api = window.map.foliplus.LayerAPI;
-                  const fg = L.featureGroup([
-                    L.polygon([[26.30, 119.20], [26.34, 119.20], [26.32, 119.25]]),
-                    L.marker([26.33, 119.23]),
-                  ]);
-                  fg.addTo(window.map);
-                  api.registerLayer({ id: '__tp_fg__', name: 'TP FG', layer: fg });
-                  return true;
-                }"""
-            )
+            page.evaluate(_js("LayerControl/setup_tp_fg"))
             r = self._facts(page, {"id": "__tp_fg__", "add": "group-addmarker"})
         assert all(h["pane"].startswith("foliplus-pane-") for h in r["homes"])
         assert not any(h["shared"] for h in r["homes"])
@@ -281,16 +273,7 @@ class TestLayerPaneRegisterBrowser:
         ):
             r = self._facts(page, {"id": t1.get_name(), "native": "tile-setopacity"})
             sibling = page.evaluate(
-                """([idA, idB]) => {
-                  const m = window.__layerCtrl.mgr;
-                  const a = m.findLayer(m.layers.find(l => l.id === idA));
-                  const b = m.findLayer(m.layers.find(l => l.id === idB));
-                  a.setOpacity(0.4);
-                  const effA = getComputedStyle(a._container).opacity;
-                  const effB = getComputedStyle(b._container).opacity;
-                  a.setOpacity(1);
-                  return { effA, effB };
-                }""",
+                _js("LayerControl/sibling_opacity_rendered"),
                 [t1.get_name(), t2.get_name()],
             )
         assert r["native"]["eff"] == 0.4
@@ -305,7 +288,10 @@ class TestLayerPaneRegisterBrowser:
             page,
             _,
         ):
-            page.evaluate(f"window.__probe = {json.dumps({'id': t1.get_name()})}")
+            page.evaluate(
+                _js("LayerControl/set_probe"),
+                {"id": t1.get_name()},
+            )
             r = page.evaluate(_js("LayerControl/probe_tile_maxzoom"))
         assert r["before"] > 0
         assert r["afterSet"] == r["before"]  # no immediate effect
@@ -380,7 +366,7 @@ class TestLayerPaneRegisterBrowser:
             page.wait_for_timeout(500)
 
             # Arm the empty-basemap state and mount the fullscreen trigger.
-            page.evaluate("window.__probe = { action: 'arm' }")
+            page.evaluate(_js("LayerControl/set_probe"), {"action": "arm"})
             armed = page.evaluate(_js("LayerControl/hatch_fullscreen_parity"))
             assert armed["ok"] is True, armed
             before = armed["state"]
