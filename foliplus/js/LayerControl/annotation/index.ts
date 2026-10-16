@@ -8,6 +8,7 @@
 // covers whom", so a cross-layer plan would only make an upper layer's labels
 // vanish under a lower layer's — the layers themselves are the avoidance.
 import { EVENTS, ensureEvents } from "#core/event/index.js";
+import { areaCentroid } from "#core/geo/index.js";
 import {
   type Box,
   type LabelField,
@@ -333,15 +334,24 @@ class AnnotationManager {
   }
 
   /** Resolve the anchor latlng for a feature leaf.
-   *  Point markers → getLatLng(); polygon/line → bounds center.
+   *  Point markers → `getLatLng()`; Polygon / MultiPolygon → area centroid;
+   *  other paths (Polyline, etc.) → bounds center.
    *  Returns null when the leaf has no usable geometry. */
   resolveAnchor(leaf: L.Layer): L.LatLng | null {
     // Duck-type for a point accessor (markers expose getLatLng); fall back to
-    // bounds center for paths. Avoids instanceof against a possibly-mocked L.
+    // a geometry-aware anchor for paths. Avoids instanceof against a
+    // possibly-mocked L.
     const getLatLng = (leaf as L.Layer & { getLatLng?: () => L.LatLng }).getLatLng;
     if (typeof getLatLng === "function") {
       const ll = getLatLng.call(leaf);
       if (ll) return ll;
+    }
+    const feature = (
+      leaf as L.Layer & { feature?: GeoJSON.Feature }
+    ).feature;
+    const geom = feature?.geometry;
+    if (geom && (geom.type === "Polygon" || geom.type === "MultiPolygon")) {
+      return areaCentroid(geom);
     }
     const bounds = (
       leaf as L.Layer & { getBounds?: () => L.LatLngBounds }
@@ -405,7 +415,8 @@ class AnnotationManager {
       const anchor = this.resolveAnchor(leaf);
       if (raw === null || anchor === null) return;
       // The anchor kind is decided once here; the plan reads it to offset a
-      // point label below its marker and center a path label on its centroid.
+      // point label below its marker and center a path label on its resolved
+      // anchor (area centroid for polygons, bounds center for lines).
       const atPoint = this.isPointAnchor(leaf);
       const text = this.formatValue(raw, cfg.format, locale);
       if (!text) return;
