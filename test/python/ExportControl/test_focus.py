@@ -178,7 +178,9 @@ class TestExportFocusBrowser:
                 ".foliplus-export-box.foliplus-locked", state="attached", timeout=5000
             )
             page.locator(".foliplus-tool-bar .foliplus-confirm").click()
-            page.wait_for_function(_js("ExportControl/wait_export_collapsed"), timeout=30000)
+            page.wait_for_function(
+                _js("ExportControl/wait_export_collapsed"), timeout=30000
+            )
             page.wait_for_timeout(2000)
 
             # Sample three windows in the export canvas.
@@ -250,7 +252,9 @@ class TestExportFocusBrowser:
                 ".foliplus-export-box.foliplus-locked", state="attached", timeout=5000
             )
             page.locator(".foliplus-tool-bar .foliplus-confirm").click()
-            page.wait_for_function(_js("ExportControl/wait_export_collapsed"), timeout=30000)
+            page.wait_for_function(
+                _js("ExportControl/wait_export_collapsed"), timeout=30000
+            )
             page.wait_for_timeout(2000)
 
             # Sample the vector window — should have 0 blue pixels (path pruned).
@@ -318,7 +322,9 @@ class TestExportFocusBrowser:
                 ".foliplus-export-box.foliplus-locked", state="attached", timeout=5000
             )
             page.locator(".foliplus-tool-bar .foliplus-confirm").click()
-            page.wait_for_function(_js("ExportControl/wait_export_collapsed"), timeout=30000)
+            page.wait_for_function(
+                _js("ExportControl/wait_export_collapsed"), timeout=30000
+            )
             page.wait_for_timeout(2000)
 
             # Sample the vector window for blue pixels.
@@ -389,7 +395,9 @@ class TestExportFocusBrowser:
                 ".foliplus-export-box.foliplus-locked", state="attached", timeout=5000
             )
             page.locator(".foliplus-tool-bar .foliplus-confirm").click()
-            page.wait_for_function(_js("ExportControl/wait_export_collapsed"), timeout=30000)
+            page.wait_for_function(
+                _js("ExportControl/wait_export_collapsed"), timeout=30000
+            )
             page.wait_for_timeout(2000)
 
             # Sample both windows.
@@ -460,7 +468,9 @@ class TestExportFocusBrowser:
                 ".foliplus-export-box.foliplus-locked", state="attached", timeout=5000
             )
             page.locator(".foliplus-tool-bar .foliplus-confirm").click()
-            page.wait_for_function(_js("ExportControl/wait_export_collapsed"), timeout=30000)
+            page.wait_for_function(
+                _js("ExportControl/wait_export_collapsed"), timeout=30000
+            )
             page.wait_for_timeout(2000)
 
             page.evaluate(

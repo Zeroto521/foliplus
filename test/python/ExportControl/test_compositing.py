@@ -178,9 +178,7 @@ class TestExportCompositeBrowser:
             # annotation canvas carries `.foliplus-canvas-layer`; a blanket
             # exclude of that class would drop the labels and leave zero
             # non-background pixels.
-            result = page.evaluate(
-                _js("ExportControl/annotation_nonbg_pixel_count")
-            )
+            result = page.evaluate(_js("ExportControl/annotation_nonbg_pixel_count"))
             assert result["found"] is True, result
             assert result["nonBg"] > 0, (
                 f"annotation label pixels missing from export: {result}"
