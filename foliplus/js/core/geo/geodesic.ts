@@ -1,5 +1,6 @@
-// Geodesic coordinate helpers (turf.js) — pure functions shared by components.
-// `turf` and `L` are globals provided by the page (Leaflet + turf via CDN).
+// Core geometry helpers for foliplus — geodesic measurement via turf,
+// plus projection-adjacent helpers. `turf` and `L` are globals provided
+// by the page (Leaflet + turf via CDN).
 import type { GeoBounds, LatLngPoint, Rect } from "./type.js";
 
 /** Convert geo bounds (nw/se) to a screen-space rect using the map's projection. */
