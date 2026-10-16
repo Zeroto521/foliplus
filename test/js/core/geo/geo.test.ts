@@ -4,9 +4,9 @@ import {
   areaCentroid,
   bearing,
   boundsToRect,
-  centroid,
   distance,
   midpoint,
+  vertexMean,
 } from "#core/geo/index.js";
 
 beforeEach(() => {
@@ -87,9 +87,9 @@ describe("geo.midpoint", () => {
   });
 });
 
-describe("geo.centroid", () => {
+describe("geo.vertexMean", () => {
   it("averages vertex lat/lng", () => {
-    const c = centroid([
+    const c = vertexMean([
       { lng: 0, lat: 0 },
       { lng: 0, lat: 10 },
       { lng: 10, lat: 10 },

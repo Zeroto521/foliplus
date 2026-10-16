@@ -5,8 +5,8 @@ export {
   areaCentroid,
   bearing,
   boundsToRect,
-  centroid,
   distance,
   midpoint,
+  vertexMean,
 } from "./geo.js";
 export type { GeoBounds, LatLngPoint, Rect } from "./geo.js";

@@ -52,11 +52,12 @@ const midpoint = (a: LatLngPoint, b: LatLngPoint): L.LatLng => {
   return L.latLng(coord[1], coord[0]);
 };
 
-/** Centroid (arithmetic mean of vertices) of a polygon. */
-const centroid = (points: LatLngPoint[]): L.LatLng => {
-  const cx = points.reduce((s, p) => s + p.lat, 0) / points.length;
-  const cy = points.reduce((s, p) => s + p.lng, 0) / points.length;
-  return L.latLng(cx, cy);
+/** Arithmetic mean of vertices — a cheap approximation, NOT the mass center.
+ *  Use `areaCentroid` for the area-weighted mass center of a polygon. */
+const vertexMean = (points: LatLngPoint[]): L.LatLng => {
+  const latSum = points.reduce((s, p) => s + p.lat, 0) / points.length;
+  const lngSum = points.reduce((s, p) => s + p.lng, 0) / points.length;
+  return L.latLng(latSum, lngSum);
 };
 
 /** Geodesic area of a polygon using turf.js. */
@@ -105,5 +106,5 @@ const areaCentroid = (geometry: GeoJSON.Polygon | GeoJSON.MultiPolygon): L.LatLn
   return L.latLng(cy / totalArea, cx / totalArea);
 };
 
-export { area, areaCentroid, bearing, boundsToRect, centroid, distance, midpoint };
+export { area, areaCentroid, bearing, boundsToRect, distance, midpoint, vertexMean };
 export type { GeoBounds, LatLngPoint, Rect };

@@ -75,7 +75,7 @@ class PolygonMode extends PreviewMode {
           distance: Util.distance(points[points.length - 1], points[0]),
           bearing: Util.bearing(points[points.length - 1], points[0]),
         });
-        const centroid = Util.centroid(points);
+        const centroid = Util.vertexMean(points);
         mgr.store.update(data.id!, {
           points: points.map((p: L.LatLng) => ({ lng: p.lng, lat: p.lat })),
           segments,
@@ -162,7 +162,7 @@ class PolygonMode extends PreviewMode {
         bearing: Util.bearing(points[points.length - 1], points[0]),
       };
       segments.push(lastSeg);
-      const centroid = Util.centroid(points);
+      const centroid = Util.vertexMean(points);
       this.mgr.store.add({
         id: polyId,
         type: this.type,
@@ -216,7 +216,7 @@ class PolygonMode extends PreviewMode {
             distance: Util.distance(points[n - 1], points[0]),
             bearing: Util.bearing(points[n - 1], points[0]),
           });
-          const newCentroid = Util.centroid(points);
+          const newCentroid = Util.vertexMean(points);
           this.mgr.store.update(polyId, {
             points: points.map(p => ({ lng: p.lng, lat: p.lat })),
             segments: updatedSegs,
