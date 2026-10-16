@@ -757,7 +757,7 @@ class TestCheckSiblingDirCollision:
         f.write_text("const x = 1\n", encoding="utf-8")
         assert mod.check_sibling_dir_collision(str(f)) == []
 
-    def test_sibiling_directory_with_different_name_is_clean(self, tmp_path):
+    def test_sibling_directory_with_different_name_is_clean(self, tmp_path):
         """Sibling directory with a different basename is not a collision."""
         other = tmp_path / "panels"
         other.mkdir()
