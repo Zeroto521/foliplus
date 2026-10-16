@@ -52,11 +52,12 @@ const midpoint = (a: LatLngPoint, b: LatLngPoint): L.LatLng => {
   return L.latLng(coord[1], coord[0]);
 };
 
-/** Centroid (arithmetic mean of vertices) of a polygon. */
-const centroid = (points: LatLngPoint[]): L.LatLng => {
-  const cx = points.reduce((s, p) => s + p.lat, 0) / points.length;
-  const cy = points.reduce((s, p) => s + p.lng, 0) / points.length;
-  return L.latLng(cx, cy);
+/** Arithmetic mean of vertices — a cheap approximation, NOT the mass center.
+ *  Use `areaCentroid` for the area-weighted mass center of a polygon. */
+const vertexMean = (points: LatLngPoint[]): L.LatLng => {
+  const latSum = points.reduce((s, p) => s + p.lat, 0) / points.length;
+  const lngSum = points.reduce((s, p) => s + p.lng, 0) / points.length;
+  return L.latLng(latSum, lngSum);
 };
 
 /** Geodesic area of a polygon using turf.js. */
@@ -67,5 +68,47 @@ const area = (points: LatLngPoint[]): number => {
   return turf.area(turf.polygon([coords]));
 };
 
-export { area, bearing, boundsToRect, centroid, distance, midpoint };
+/** Area-weighted centroid of a Polygon or MultiPolygon (shoelace, holes net out). */
+const areaCentroid = (geometry: GeoJSON.Polygon | GeoJSON.MultiPolygon): L.LatLng => {
+  const polygons: GeoJSON.Position[][][] =
+    geometry.type === "Polygon" ? [geometry.coordinates] : geometry.coordinates;
+  let totalArea = 0;
+  let weightedX = 0;
+  let weightedY = 0;
+  for (const rings of polygons) {
+    let polyArea = 0;
+    let px = 0;
+    let py = 0;
+    for (const ring of rings) {
+      if (ring.length < 3) continue;
+      // Rolling two-pointer: seed the first point, walk the rest, close the
+      // ring separately. Avoids the modulo on every edge.
+      let [x0, y0] = ring[0];
+      for (let i = 1; i < ring.length; i++) {
+        const [x1, y1] = ring[i];
+        const cross = x0 * y1 - x1 * y0;
+        polyArea += cross;
+        px += (x0 + x1) * cross;
+        py += (y0 + y1) * cross;
+        x0 = x1;
+        y0 = y1;
+      }
+      const [xClose, yClose] = ring[0];
+      const crossClose = x0 * yClose - xClose * y0;
+      polyArea += crossClose;
+      px += (x0 + xClose) * crossClose;
+      py += (y0 + yClose) * crossClose;
+    }
+    if (polyArea === 0) continue;
+    const cxAbs = px / (3 * polyArea);
+    const cyAbs = py / (3 * polyArea);
+    totalArea += Math.abs(polyArea);
+    weightedX += cxAbs * Math.abs(polyArea);
+    weightedY += cyAbs * Math.abs(polyArea);
+  }
+  if (totalArea === 0) return L.latLng(0, 0);
+  return L.latLng(weightedY / totalArea, weightedX / totalArea);
+};
+
+export { area, areaCentroid, bearing, boundsToRect, distance, midpoint, vertexMean };
 export type { GeoBounds, LatLngPoint, Rect };

@@ -1,11 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   area,
+  areaCentroid,
   bearing,
   boundsToRect,
-  centroid,
   distance,
   midpoint,
+  vertexMean,
 } from "#core/geo/index.js";
 
 beforeEach(() => {
@@ -86,9 +87,9 @@ describe("geo.midpoint", () => {
   });
 });
 
-describe("geo.centroid", () => {
+describe("geo.vertexMean", () => {
   it("averages vertex lat/lng", () => {
-    const c = centroid([
+    const c = vertexMean([
       { lng: 0, lat: 0 },
       { lng: 0, lat: 10 },
       { lng: 10, lat: 10 },
@@ -124,5 +125,158 @@ describe("geo.area", () => {
         [0, 0],
       ],
     ]);
+  });
+});
+
+describe("geo.areaCentroid", () => {
+  it("computes the shoelace centroid of a Polygon", () => {
+    // Unit square: shoelace centroid is the geometric center.
+    const c = areaCentroid({
+      type: "Polygon",
+      coordinates: [
+        [
+          [0, 0],
+          [0, 1],
+          [1, 1],
+          [1, 0],
+          [0, 0],
+        ],
+      ],
+    });
+    expect(c).toEqual({ lat: 0.5, lng: 0.5 });
+  });
+
+  it("subtracts holes from the outer ring (signed shoelace)", () => {
+    // 10×10 square with a 2×2 hole in the upper-right quadrant.
+    // Signed-area centroid of the resulting annulus is NOT the square's center.
+    const c = areaCentroid({
+      type: "Polygon",
+      coordinates: [
+        [
+          [0, 0],
+          [0, 10],
+          [10, 10],
+          [10, 0],
+          [0, 0],
+        ],
+        [
+          [8, 8],
+          [9, 8],
+          [9, 9],
+          [8, 9],
+          [8, 8],
+        ],
+      ],
+    });
+    // 96-area annulus; centroid shifted toward the lower-left of the outer
+    // ring because the hole eats from the upper-right.
+    expect(c.lng).toBeLessThan(5);
+    expect(c.lat).toBeLessThan(5);
+  });
+
+  it("returns (0,0) for a Polygon whose signed area cancels to zero", () => {
+    // Three collinear vertices: the shoelace sum is zero (no enclosed area),
+    // so the degenerate guard falls through to the origin sentinel.
+    const c = areaCentroid({
+      type: "Polygon",
+      coordinates: [
+        [
+          [0, 0],
+          [1, 0],
+          [2, 0],
+          [0, 0],
+        ],
+      ],
+    });
+    expect(c).toEqual({ lat: 0, lng: 0 });
+  });
+
+  it("returns (0,0) for a MultiPolygon whose parts are all degenerate", () => {
+    // Two degenerate polygons: both have zero signed area, so `totalArea`
+    // stays zero and the fallback origin is returned.
+    const c = areaCentroid({
+      type: "MultiPolygon",
+      coordinates: [
+        [
+          [
+            [0, 0],
+            [1, 0],
+            [2, 0],
+            [0, 0],
+          ],
+        ],
+        [
+          [
+            [5, 5],
+            [6, 5],
+            [7, 5],
+            [5, 5],
+          ],
+        ],
+      ],
+    });
+    expect(c).toEqual({ lat: 0, lng: 0 });
+  });
+
+  it("skips empty or sub-triangular rings without producing NaN", () => {
+    // An empty ring (or one with fewer than 3 vertices) would produce NaN
+    // under the old `(i + 1) % ring.length` indexing when the modulo hit 0.
+    // The guard treats such rings as no-ops, so the centroid still comes from
+    // the remaining valid rings.
+    const c = areaCentroid({
+      type: "MultiPolygon",
+      coordinates: [
+        [
+          [], // empty ring — must be skipped, not contribute NaN
+          [
+            [0, 0],
+            [0, 10],
+            [10, 10],
+            [10, 0],
+            [0, 0],
+          ],
+        ],
+        [
+          [
+            [0, 0],
+            [1, 0],
+          ], // 2-vertex ring — also skipped
+        ],
+      ],
+    });
+    expect(c).toEqual({ lat: 5, lng: 5 });
+  });
+
+  it("merges MultiPolygon parts by |area|, not by vertex count", () => {
+    // A 10×10 square and a 1×1 square side by side. The area-weighted
+    // centroid sits near the big square's center, not at the midpoint of
+    // the two bounding boxes (which would be turf.centerOfMass's convex
+    // shortcut on MultiPolygon).
+    const c = areaCentroid({
+      type: "MultiPolygon",
+      coordinates: [
+        [
+          [
+            [0, 0],
+            [0, 10],
+            [10, 10],
+            [10, 0],
+            [0, 0],
+          ],
+        ],
+        [
+          [
+            [20, 0],
+            [20, 1],
+            [21, 1],
+            [21, 0],
+            [20, 0],
+          ],
+        ],
+      ],
+    });
+    // Weighted average: (100 * 5 + 1 * 20.5) / 101, y symmetric at (100*5 + 1*0.5)/101.
+    expect(c.lng).toBeCloseTo((100 * 5 + 20.5) / 101, 5);
+    expect(c.lat).toBeCloseTo((100 * 5 + 0.5) / 101, 5);
   });
 });
