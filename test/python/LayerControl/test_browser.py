@@ -4768,9 +4768,7 @@ class TestLayerControlBrowser:
             def row_wake(idx):
                 # The Row-cursor wake of a sibling row: glow + drag grip.
                 # Nothing may suppress it — it is the row's own state display.
-                return page.evaluate(
-                    _js("LayerControl/row_wake"), [idx, ROW]
-                )
+                return page.evaluate(_js("LayerControl/row_wake"), [idx, ROW])
 
             def overlay_topmost(sel):
                 # The point at the overlay's center must resolve to the overlay
@@ -4926,9 +4924,7 @@ class TestLayerControlBrowser:
                 ),
             )
             panel_ready(page)
-            page.evaluate(
-                _js("LayerControl/set_probe"), {"id": t1.get_name()}
-            )
+            page.evaluate(_js("LayerControl/set_probe"), {"id": t1.get_name()})
             result = page.evaluate(_js("LayerControl/zoom_range_native_tilelayer"))
             assert result is not None, result
             assert result.get("error") is None, f"setup failed: {result}"
@@ -4968,9 +4964,7 @@ class TestLayerControlBrowser:
             if not actual_id:
                 raise AssertionError("ZROffProbe layer not found in registry")
             # Re-set probe with the actual id.
-            page.evaluate(
-                _js("LayerControl/set_probe"), {"id": actual_id}
-            )
+            page.evaluate(_js("LayerControl/set_probe"), {"id": actual_id})
             result = page.evaluate(_js("LayerControl/show_false_zoom_stays_off"))
             assert result is not None, result
             assert result.get("error") is None, f"setup failed: {result}"
@@ -5041,7 +5035,9 @@ class TestLayerControlBrowser:
             page.wait_for_timeout(500)
 
             # Read the layer's state after reload.
-            result = page.evaluate(_js("LayerControl/read_zroffreload_on_map_with_error"))
+            result = page.evaluate(
+                _js("LayerControl/read_zroffreload_on_map_with_error")
+            )
             assert result is not None, "evaluation returned None"
             assert result.get("error") is None, f"setup failed: {result}"
             # folium 0.14 adds every layer regardless of show=False, so on
@@ -5355,9 +5351,7 @@ class TestLayerControlBrowser:
             # deterministically. The var name is the folium hash suffix.
             marker_var = page.evaluate(_js("LayerControl/find_marker_var"))
             assert marker_var is not None, "could not find the folium marker var"
-            page.evaluate(
-                _js("LayerControl/set_test_marker"), marker_var
-            )
+            page.evaluate(_js("LayerControl/set_test_marker"), marker_var)
 
             result = page.evaluate(_js("LayerControl/focus_hides_native_panes"))
             assert result is not None and "error" not in result, (
