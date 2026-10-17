@@ -1,9 +1,11 @@
 async () => {
   // Guard: a user-set zoom range (the style-panel slider's intent) pulls
   // the layer off the map when the current zoom falls outside it — so the
-  // paint observation goes false even though the author declared no
-  // min/max. At zoom 1, a base whose stored range starts at 5 must be
-  // "not painting" and the hatch must show.
+  // paint observation goes false and the hatch must show. This is the
+  // "zoom outside every stored range" case that actually fires: unlike the
+  // author's declared min/max (which the ordering pass folds into the
+  // map's own maxZoom, so the map cannot zoom past them), a user range is
+  // intent-only and independent of the map ceiling.
   const ctrl = window.__layerCtrl;
   if (!ctrl) return { error: "no __layerCtrl" };
   const map = ctrl.mgr.map;
@@ -20,9 +22,6 @@ async () => {
   }
   const [a] = bases;
   const aLayer = api.findLayer(a.id);
-  if (aLayer?.options?.minZoom != null || aLayer?.options?.maxZoom != null) {
-    return { error: "fixture base must declare no min/max zoom", a };
-  }
 
   // Fixture opens at zoom_start=1 — no zoom round-trip needed.
   const before = { hatch: hasHatch(), onMap: aLayer ? map.hasLayer(aLayer) : null };

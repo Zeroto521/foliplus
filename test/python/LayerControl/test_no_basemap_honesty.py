@@ -84,6 +84,39 @@ def _build_html_plain(tmp_path, name: str) -> str:
     return str(html_path)
 
 
+def _build_html_pair_plain(tmp_path, name: str) -> str:
+    """Two bases with no declared min/max — for the user-range zoom guard.
+
+    The user-range sweep needs the map ceiling above every stored range:
+    the ordering pass folds the *author's* maxZoom into `map.options
+    .maxZoom`, so an author-declared range cannot be zoomed past (the map
+    clamps and the top layer always paints at the ceiling). A user-set
+    range is intent-only, independent of the map ceiling — the case where
+    "zoom outside every range" is actually reachable.
+    """
+    m = folium.Map(
+        location=[26.08, 119.30],
+        zoom_start=1,
+        max_zoom=18,
+        tiles=None,
+    )
+    LayerControl().add_to(m)
+    folium.TileLayer(
+        "https://a.tile.openstreetmap.org/{z}/{x}/{y}.png",
+        name="Base A",
+        attr="© OSM",
+    ).add_to(m)
+    folium.TileLayer(
+        "https://b.tile.openstreetmap.org/{z}/{x}/{y}.png",
+        name="Base B",
+        attr="© OSM",
+    ).add_to(m)
+    _expand_panel(m)
+    html_path = tmp_path / f"{name}.html"
+    _write_html(m, html_path)
+    return str(html_path)
+
+
 def _load_with_ctrl(browser, tmp_path, html_path: str, name: str):
     """Load the HTML with ``window.__layerCtrl`` exposed for the probe."""
     html = open(html_path, encoding="utf-8").read()
@@ -136,14 +169,18 @@ class TestHatchHonestyBrowser:
         assert not errors, f"JS errors: {errors}"
 
     def test_zoom_out_of_all_ranges_shows_hatch(self, browser, tmp_path):
-        """Zooming past every declared range must turn the hatch on.
+        """Zooming past every stored user range must turn the hatch on.
 
         The sweep inside `applyProjectionAll` re-evaluates every layer's
         paint observation on zoom-end, but it never refreshed the hatch
         until this fix. So a zoom that leaves every basemap outside its
-        own min/max used to sit with no hatch and no explanation.
+        stored range used to sit with no hatch and no explanation.
+
+        The ranges here are user-set intent (not the author's declared
+        min/max — the ordering pass folds those into the map's own
+        maxZoom, so the map clamps before they can be zoomed past).
         """
-        html_path = _build_html(tmp_path, "hatch_zoom_out")
+        html_path = _build_html_pair_plain(tmp_path, "hatch_zoom_out")
         with use_page(
             _load_with_ctrl, browser, tmp_path, html_path, "hatch_zoom_out"
         ) as (page, errors):
@@ -155,20 +192,20 @@ class TestHatchHonestyBrowser:
             r = page.evaluate(_js("LayerControl/hatch_zoom_out_of_all_ranges"))
 
         assert r.get("error") is None, f"probe errored: {r}"
-        # Zoom 1 is inside A's [1,2] → a base paints → no hatch.
+        # Zoom 1 is inside A's stored [1,2] → a base paints → no hatch.
         assert r["atInA"]["hatch"] is False, (
             f"hatch on while A is in range: {r['atInA']}"
         )
-        # Zoom 5 is above both A's max (2) and B's max (4) → both out.
+        # Zoom 5 is above both stored ranges ([1,2] and [3,4]) → both out.
         assert r["atGap"]["hatch"] is True, (
-            f"hatch did not appear after zooming past every declared range: "
+            f"hatch did not appear after zooming past every stored range: "
             f"{r['atGap']}"
         )
-        # Zoom 3 is inside B's [3,4] → hatch off again.
+        # Zoom 3 is inside B's stored [3,4] → hatch off again.
         assert r["atInB"]["hatch"] is False, (
             f"hatch should clear once a base re-enters range: {r['atInB']}"
         )
-        # Zoom 4 is still above A's max but inside B's — hatch stays off.
+        # Zoom 4 is still above A's range but inside B's — hatch stays off.
         assert r["atOutHigh"]["hatch"] is False, (
             f"hatch on while B is in range at 4: {r['atOutHigh']}"
         )

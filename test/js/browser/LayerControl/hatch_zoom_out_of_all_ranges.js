@@ -1,11 +1,19 @@
 async () => {
-  // Guard: zooming past every basemap's declared min/max zoom must turn the
-  // hatch on, and zooming back into one's range must turn it off. The
+  // Guard: zooming outside every basemap's *stored user range* must turn
+  // the hatch on, and zooming back inside one must turn it off. The
   // trigger is the zoom-end sweep inside `applyProjectionAll`, which now
   // reconciles the hatch from the paint observation.
+  //
+  // The author's declared min/max is deliberately NOT used here: the
+  // ordering pass folds layer maxZoom into the map's own maxZoom, so the
+  // map cannot zoom past them (setZoom clamps, and the top layer always
+  // paints at the ceiling). A user-set range is intent-only — independent
+  // of the map ceiling — so it is the case where "zoom outside every
+  // range" is reachable.
   const ctrl = window.__layerCtrl;
   if (!ctrl) return { error: "no __layerCtrl" };
   const map = ctrl.mgr.map;
+  const ui = ctrl.mgr.ui;
   const api = map.foliplus.LayerAPI;
   const container = map.getContainer();
   const COLOR_ID = "foliplus_color_map";
@@ -16,13 +24,17 @@ async () => {
   if (bases.length !== 2) {
     return { error: `expected 2 real tile bases, got ${bases.length}` };
   }
+  const [a, b] = bases;
 
-  // setZoom to the *current* zoom fires no zoomend, so only await the event
-  // when the zoom actually moves; the sweep's syncNoBasemap runs inside the
-  // zoomend handler, so the event boundary is the settle point.
+  // User sets disjoint ranges: A paints at zoom 1-2, B at 3-4.
+  ui.intentStore.setValue(a.id, "zoomRange", [1, 2]);
+  ui.intentStore.setValue(b.id, "zoomRange", [3, 4]);
+  ui.applyProjectionAll();
+  await wait(80);
+
   const to = async z => {
-    const before = map.getZoom();
-    if (before !== z) {
+    const beforeZoom = map.getZoom();
+    if (beforeZoom !== z) {
       map.setZoom(z);
       await new Promise(r => map.once("zoomend", r));
       await wait(40);
@@ -30,12 +42,11 @@ async () => {
     return { zoom: map.getZoom(), hatch: hasHatch() };
   };
 
-  // Fixture opens at zoom 1, inside A's declared [1,2] → no hatch.
-  const atInA = await to(1);
-  const atGap = await to(5); // Above both A's max (2) and B's max (4) → hatch.
-  const atInB = await to(3); // B's declared [3,4] covers 3 → hatch off.
-  const atOutHigh = await to(4); // Still above A's max; B in range → off.
-  const atBack = await to(1); // A re-enters → hatch off.
+  const atInA = await to(1); // A's range covers 1 → no hatch.
+  const atGap = await to(5); // Above both ranges → hatch.
+  const atInB = await to(3); // B's range covers 3 → hatch off.
+  const atOutHigh = await to(4); // A out, B still in → off.
+  const atBack = await to(1); // A re-enters → off.
 
   return { atInA, atGap, atInB, atOutHigh, atBack };
 };
