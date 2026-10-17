@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import folium
 from conftest import _js, make_browser_page, panel_ready, use_page
+
 from foliplus import LayerControl
 
 
@@ -39,7 +40,9 @@ class TestRowPressScopeBrowser:
     @staticmethod
     def _sample_wash(page) -> str:
         """Computed value of --foliplus-accent-soft-bg — never hardcode a hex/rgb."""
-        return page.evaluate(_js("LayerControl/sample_token"), "--foliplus-accent-soft-bg")
+        return page.evaluate(
+            _js("LayerControl/sample_token"), "--foliplus-accent-soft-bg"
+        )
 
     @staticmethod
     def _read_row_bg(page) -> str:
@@ -149,7 +152,9 @@ class TestRowPressScopeBrowser:
             page.wait_for_timeout(200)  # let the menu settle
 
             # Press on the first menu item (focus-layer).
-            item = page.locator(".foliplus-layer-more-menu.open li[data-action='focus-layer']")
+            item = page.locator(
+                ".foliplus-layer-more-menu.open li[data-action='focus-layer']"
+            )
             item.hover()
             page.mouse.down()
             try:
