@@ -50,10 +50,7 @@ def _make_page(
     html = m.get_root().render()
     if expose_ctrl:
         html = _expose_ctrl(html)
-    page, errors = make_browser_page(
-        browser, tmp_path, html, "fullscreen", prelude=prelude
-    )
-    return page, errors
+    return make_browser_page(browser, tmp_path, html, "fullscreen", prelude=prelude)
 
 
 def _enter_fullscreen(page, hide_self=True):

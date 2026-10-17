@@ -317,11 +317,5 @@ const renderLabelControls = (opts: RenderLabelControlsOptions): LabelControlsRes
   return { root, refresh };
 };
 
-export {
-  type LabelStyleValues,
-  type StyleSetters,
-  type RenderLabelControlsOptions,
-  type LabelControlsResult,
-  numberFormatOptions,
-  renderLabelControls,
-};
+export { numberFormatOptions, renderLabelControls };
+export type { LabelStyleValues };

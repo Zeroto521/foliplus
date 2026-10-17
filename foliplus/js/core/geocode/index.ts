@@ -3,13 +3,7 @@
 export * from "./type.js";
 export * from "./util.js";
 export { BUILTIN_PROVIDERS, providerFromConfig, resolveProvider } from "./registry.js";
-export {
-  DEFAULT_BASE_URL,
-  NOMINATIM,
-  createNominatim,
-  formatAddress,
-  nominatimUrl,
-} from "./nominatim.js";
+export { createNominatim, formatAddress, nominatimUrl } from "./nominatim.js";
 export { createPhoton } from "./photon.js";
 export { createPelias } from "./pelias.js";
 export { createThrottleQueue, lastRequestAt, markRequest } from "./rateLimit.js";

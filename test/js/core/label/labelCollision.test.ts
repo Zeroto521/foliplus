@@ -328,7 +328,7 @@ describe("planVisible — grid edges", () => {
   it("states its precondition: a zero-width box degenerates the rule", () => {
     // Not a behavior to preserve — the contract. The grid's equivalence rests
     // on "hidden ⇒ the boxes share a cell", which needs a strictly positive
-    // threshold; at a zero width the criterion collapses to `hOverlap >= 0`,
+    // threshold; at a zero width the criterion collapses to `horizontalOverlap >= 0`,
     // which even a separated pair satisfies. Both callers pass real widths.
     const zeroWidth = { x: 0, y: 0, w: 0, h: 16 };
     const apart = { x: 200, y: 0, w: 40, h: 16 };
