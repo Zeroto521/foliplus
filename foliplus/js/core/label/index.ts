@@ -6,7 +6,6 @@ export {
   hides,
   intersects,
   planVisible,
-  vOverlap,
   withinRect,
   type Box,
   type PlacedLabel,

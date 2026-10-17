@@ -58,4 +58,4 @@ const createPhoton = (baseUrl: string = DEFAULT_BASE_URL): GeocodeProvider => {
   };
 };
 
-export { DEFAULT_BASE_URL, createPhoton };
+export { createPhoton };

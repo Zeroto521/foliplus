@@ -9,8 +9,3 @@ export {
   nativeConsumesKey,
 } from "./inputOwnership.js";
 export { ListCursor } from "./listCursor.js";
-export type {
-  ListCursorMode,
-  ListCursorOptions,
-  ListCursorRoles,
-} from "./listCursor.js";

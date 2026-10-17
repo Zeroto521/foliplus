@@ -405,7 +405,6 @@ export {
   positionPanel,
   removePanel,
   renderResults,
-  renderSuggestions,
   searchAddress,
   searchCoord,
 };
