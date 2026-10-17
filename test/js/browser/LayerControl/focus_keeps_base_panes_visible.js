@@ -28,7 +28,6 @@
           el => ({
             name: (el.id && el.id.replace(/^leaflet-/, "")) || el.className,
             base: el.classList.contains("foliplus-layer-pane"),
-            baseExcl: el.classList.contains("foliplus-base-pane"),
             focusBasemap: el.classList.contains("foliplus-focus-basemap"),
             focusExcl: el.classList.contains("foliplus-focus-pane"),
             visibility: getComputedStyle(el).visibility,
