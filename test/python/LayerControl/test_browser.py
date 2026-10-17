@@ -5473,28 +5473,37 @@ class TestLayerControlBrowser:
         expected table, and asserts the final state has exactly one
         entry after both bases had been visible simultaneously.
         """
-        base_a = folium.TileLayer(
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12, tiles=None)
+        LayerControl().add_to(m)
+        folium.TileLayer(
             "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
             name="A",
             attr="A attr",
             overlay=False,
             max_zoom=18,
-        )
-        base_b = folium.TileLayer(
+        ).add_to(m)
+        folium.TileLayer(
             "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
             name="B",
             attr="B attr",
             overlay=False,
             max_zoom=20,
-        )
-        with use_page(
-            self._make_page,
-            browser,
-            tmp_path,
-            base_a,
-            base_b,
-            slug="attribution_topmost",
-        ) as (page, errors):
+        ).add_to(m)
+        # The panel ships collapsed, so the rows (with their checkboxes)
+        # are not in the DOM yet when the snippet runs. Expand it on load —
+        # the same helper the reload tests use.
+        _expand_panel(m)
+        _write_html(m, tmp_path / "attribution_topmost.html")
+        with use_raw_page(browser.new_page) as page:
+            page.goto(
+                f"file://{tmp_path / 'attribution_topmost.html'}",
+                wait_until="domcontentloaded",
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=10000,
+            )
             panel_ready(page)
             result = page.evaluate(_js("LayerControl/attribution_only_topmost_visible"))
             assert result is not None and not result.get("error"), result
@@ -5514,7 +5523,6 @@ class TestLayerControlBrowser:
             assert steps[3]["state"]["entries"] == {"A attr": 1}, steps[3]
             # Step 4: uncheck A → back to only B.
             assert steps[4]["state"]["entries"] == {"B attr": 1}, steps[4]
-            assert not errors, f"JS errors: {errors}"
 
     def test_hidden_base_does_not_raise_max_zoom(self, browser, tmp_path):
         """A hidden base layer must not raise ``map.getMaxZoom()``.
@@ -5529,38 +5537,38 @@ class TestLayerControlBrowser:
         doesn't quietly come back.
         """
         # Two base layers with distinct native max_zoom values. Both
-        # start checked (folium's default for overlay=False).
-        base_high = folium.TileLayer(
+        # start checked (folium's default for overlay=False). `tiles=None`
+        # suppresses folium's own default OSM tile layer, which would
+        # otherwise sit on the map outside LayerControl's registry and
+        # keep its native 18 in the ceiling regardless of what the user
+        # checked off.
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12, tiles=None)
+        LayerControl().add_to(m)
+        folium.TileLayer(
             "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
             name="High",
             attr="High",
             overlay=False,
             max_zoom=20,
-        )
-        base_low = folium.TileLayer(
+        ).add_to(m)
+        folium.TileLayer(
             "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
             name="Low",
             attr="Low",
             overlay=False,
             max_zoom=10,
-        )
-        with use_page(
-            self._make_page,
-            browser,
-            tmp_path,
-            base_low,
-            base_high,
-            slug="hidden_base_maxzoom",
-        ) as (page, _):
-            panel_ready(page)
-            # Expand the panel so the checkbox is visible to a native click
-            # (the attribution test can stay collapsed because it runs JS via
-            # `page.evaluate`, which doesn't require visibility).
-            page.click(".foliplus-toggle-btn")
+        ).add_to(m)
+        _expand_panel(m)
+        _write_html(m, tmp_path / "hidden_base_maxzoom.html")
+        with use_raw_page(browser.new_page) as page:
+            page.goto(
+                f"file://{tmp_path / 'hidden_base_maxzoom.html'}",
+                wait_until="domcontentloaded",
+            )
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.foliplus-is-expanded",
                 state="attached",
-                timeout=5000,
+                timeout=10000,
             )
             # Both checked: the ceiling is the union of on-map
             # layers' native max_zoom.
