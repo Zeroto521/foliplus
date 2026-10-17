@@ -624,15 +624,21 @@ def build_graph(
                 for sym in file_exports[source]:
                     graph[(source, sym)].append((fp, sym))
 
-    # Re-export edges: source provides symbol to dest (re-exporter)
+    # Re-export edges: source provides symbol to dest (re-exporter).
+    # Two directions needed for BFS:
+    #   (source, sym) → (barrel, sym)  — source feeds barrel (for barrel chains)
+    #   (barrel, sym) → (source, sym)  — barrel forwards to source (for BFS to
+    #       reach consumers via the source file's import edges)
     for fp, fa in analyses.items():
         for local_sym, (source, source_sym) in fa.named_re_exports.items():
             graph[(source, source_sym)].append((fp, local_sym))
+            graph[(fp, local_sym)].append((source, source_sym))
 
         for source in fa.star_re_exports:
             if source in file_exports:
                 for sym in file_exports[source]:
                     graph[(source, sym)].append((fp, sym))
+                    graph[(fp, sym)].append((source, sym))
 
     return dict(graph)
 

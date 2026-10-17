@@ -387,6 +387,93 @@ class TestFindDeadExports:
         dead = mod.find_dead_exports(barrel_files, graph, sinks)
         assert len(dead) == 0
 
+    def test_forwarding_edge_exists(self, tmp_path):
+        """Re-export must create a forwarding edge (barrel -> source) for BFS."""
+        a = _make(tmp_path, "a.ts", "export const x = 1;\n")
+        b = _make(tmp_path, "index.ts", "export { x } from './a.js';\n")
+        analyses = {
+            str(a): mod.parse_file(str(a), a.read_text(), str(tmp_path)),
+            str(b): mod.parse_file(str(b), b.read_text(), str(tmp_path)),
+        }
+        graph = mod.build_graph(analyses, str(tmp_path))
+        # Forwarding edge: barrel -> source (for BFS to reach consumers)
+        assert (str(b), "x") in graph
+        assert (str(a), "x") in graph[(str(b), "x")]
+        # Backward edge: source -> barrel (for barrel chains)
+        assert (str(a), "x") in graph
+        assert (str(b), "x") in graph[(str(a), "x")]
+
+    def test_star_forwarding_edge_exists(self, tmp_path):
+        """Star re-export must also create forwarding edges."""
+        a = _make(tmp_path, "a.ts", "export const x = 1;\nexport const y = 2;\n")
+        b = _make(tmp_path, "index.ts", "export * from './a.js';\n")
+        analyses = {
+            str(a): mod.parse_file(str(a), a.read_text(), str(tmp_path)),
+            str(b): mod.parse_file(str(b), b.read_text(), str(tmp_path)),
+        }
+        graph = mod.build_graph(analyses, str(tmp_path))
+        assert (str(b), "x") in graph
+        assert (str(a), "x") in graph[(str(b), "x")]
+        assert (str(b), "y") in graph
+        assert (str(a), "y") in graph[(str(b), "y")]
+
+
+class TestReverseValidation:
+    """Reverse validation: real dead exports must be reported."""
+
+    def test_defined_but_never_imported_is_reported(self, tmp_path):
+        """Symbol defined in source, re-exported from barrel, but nobody
+        imports it from the barrel — must be reported as dead."""
+        a = _make(tmp_path, "a.ts", "export const deadSym = 1;\n")
+        b = _make(tmp_path, "index.ts", "export { deadSym } from './a.js';\n")
+        analyses = {
+            str(a): mod.parse_file(str(a), a.read_text(), str(tmp_path)),
+            str(b): mod.parse_file(str(b), b.read_text(), str(tmp_path)),
+        }
+        graph = mod.build_graph(analyses, str(tmp_path))
+        sinks = mod.compute_sinks(analyses, graph, set())
+        barrel_files = {fp: fa for fp, fa in analyses.items() if fa.is_barrel_scope}
+        dead = mod.find_dead_exports(barrel_files, graph, sinks)
+        assert len(dead) == 1
+        assert dead[0][0] == str(b)
+        assert dead[0][2] == "deadSym"
+
+    def test_live_symbol_is_not_reported(self, tmp_path):
+        """Symbol defined, re-exported from barrel, AND imported by a
+        real code file — must NOT be reported."""
+        a = _make(tmp_path, "a.ts", "export const liveSym = 1;\n")
+        b = _make(tmp_path, "index.ts", "export { liveSym } from './a.js';\n")
+        c = _make(tmp_path, "c.ts", "import { liveSym } from './index.js';\nconst z = liveSym;\n")
+        analyses = {
+            str(a): mod.parse_file(str(a), a.read_text(), str(tmp_path)),
+            str(b): mod.parse_file(str(b), b.read_text(), str(tmp_path)),
+            str(c): mod.parse_file(str(c), c.read_text(), str(tmp_path)),
+        }
+        graph = mod.build_graph(analyses, str(tmp_path))
+        sinks = mod.compute_sinks(analyses, graph, set())
+        barrel_files = {fp: fa for fp, fa in analyses.items() if fa.is_barrel_scope}
+        dead = mod.find_dead_exports(barrel_files, graph, sinks)
+        assert len(dead) == 0
+
+    def test_deep_barrel_chain_live_is_not_reported(self, tmp_path):
+        """Symbol defined, re-exported through two barrels, AND imported
+        by a real code file — must NOT be reported."""
+        a = _make(tmp_path, "a.ts", "export const deepSym = 1;\n")
+        b = _make(tmp_path, "index.ts", "export { deepSym } from './a.js';\n")
+        c = _make(tmp_path, "sub/index.ts", "export * from '../index.js';\n")
+        d = _make(tmp_path, "sub/d.ts", "import { deepSym } from './index.js';\nconst z = deepSym;\n")
+        analyses = {
+            str(a): mod.parse_file(str(a), a.read_text(), str(tmp_path)),
+            str(b): mod.parse_file(str(b), b.read_text(), str(tmp_path)),
+            str(c): mod.parse_file(str(c), c.read_text(), str(tmp_path)),
+            str(d): mod.parse_file(str(d), d.read_text(), str(tmp_path)),
+        }
+        graph = mod.build_graph(analyses, str(tmp_path))
+        sinks = mod.compute_sinks(analyses, graph, set())
+        barrel_files = {fp: fa for fp, fa in analyses.items() if fa.is_barrel_scope}
+        dead = mod.find_dead_exports(barrel_files, graph, sinks)
+        assert len(dead) == 0
+
 
 class TestMain:
     def test_main_on_repo_root(self, capsys, monkeypatch):
