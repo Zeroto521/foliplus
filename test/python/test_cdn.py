@@ -38,15 +38,21 @@ def _major_of(spec: str) -> int | None:
     return int(m.group()) if m else None
 
 
-def _cdn_data() -> dict[str, dict[str, str]]:
+def _cdn_data() -> dict[str, dict[str, object]]:
     return json.loads(_CDN_JSON.read_text(encoding="utf-8"))
 
 
 def _cdn_packages() -> dict[str, int]:
-    """``{npm package name: major version}`` extracted from every cdn.json URL."""
+    """``{npm package name: major version}`` extracted from every cdn.json URL.
+
+    Entries can be a bare string (classic ``<script src>``) or a dict with
+    ``kind`` + ``url`` (module / css). Only the ``url`` field is scanned for
+    npm package names.
+    """
     packages: dict[str, int] = {}
     for entries in _cdn_data().values():
-        for url in entries.values():
+        for raw in entries.values():
+            url = raw if isinstance(raw, str) else raw.get("url", "")
             m = _NPM_URL.search(url)
             if not m:
                 continue

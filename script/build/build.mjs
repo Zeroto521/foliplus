@@ -36,6 +36,23 @@ import { esbuildCfgFor } from "./esbuild-config.mjs";
 import { globalNamespacePlugin } from "./global-namespace-plugin.mjs";
 import { expandEntry, mergeCss } from "./merge-css.mjs";
 
+// ── Cascade layers ────────────────────────────────────────────────────
+// The wa-* layer order declaration, emitted at the top of every foliplus
+// stylesheet. `foliplus` is named last in the declaration so the foliplus
+// layer — when rules are ever placed in it — wins over the library's layers.
+//
+// Deliberately NOT wrapped: foliplus rules stay **unlayered**. Unlayered
+// rules outrank every cascade layer, which is what keeps foliplus's own
+// skin winning over both the wa-* layers AND the host page's unlayered
+// resets (Bootstrap `ol,ul` …). Wrapping foliplus in `@layer foliplus`
+// would demote it below those host resets — the T266 regression the
+// browser suite catches as "menu shell padding-left drifted".
+const LAYER_DECL = `@layer wa-native, wa-base, wa-utilities, wa-color-palette, wa-color-variant, wa-theme, wa-theme-dimension, wa-theme-overrides, foliplus;`;
+
+/** Prepend the layer-order declaration to a merged foliplus stylesheet.
+ *  The foliplus rules themselves stay unlayered — see the note above. */
+const prependLayerDecl = css => `${LAYER_DECL}\n${css}`;
+
 // Sonda is only loaded when --sonda is passed (lazy dynamic import).
 // Returns the API used to merge per-build metafiles into one combined report.
 let sondaApi = null;
@@ -259,11 +276,12 @@ const buildEntries = (components, withSonda) => {
     const outName = name === SHARED_ENTRY ? "common" : name;
     artifacts.push(enable(artifact([js], out(`foliplus-${outName}.min.js`), name)));
     // A split component stylesheet (`css/{Name}/index.css`) is merged below
-    // from its modules; flat `css/{Name}.css` entries feed esbuild directly.
+    // from its modules; flat `css/{Name}.css` entries are wrapped in the
+    // foliplus cascade layer and fed through the same temp-file path.
     if (css && !css.endsWith("index.css")) {
-      // CSS carries no runtime deps — `banner.js` is a JS-only concern
-      // (the shared-runtime assertion runs in the browser, not on stylesheets).
-      artifacts.push(enable(artifact([css], out(`foliplus-${outName}.min.css`), name)));
+      const tmpCss = resolve(buildCss, basename(css));
+      writeFileSync(tmpCss, prependLayerDecl(readFileSync(css, "utf-8")), "utf-8");
+      artifacts.push(enable(artifact([tmpCss], out(`foliplus-${outName}.min.css`), name)));
     }
   }
 
@@ -286,7 +304,7 @@ const buildEntries = (components, withSonda) => {
   for (const [file, body] of merged) {
     if (!body) continue;
     const tmpCss = resolve(buildCss, file);
-    writeFileSync(tmpCss, body, "utf-8");
+    writeFileSync(tmpCss, prependLayerDecl(body), "utf-8");
     const outName = file === "common.css" ? "common" : file.replace(/\.css$/, "");
     // CSS carries no runtime deps — see the earlier split-stylesheet call.
     artifacts.push(

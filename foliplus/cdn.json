@@ -8,6 +8,20 @@
     "simple-statistics": "https://cdn.jsdelivr.net/npm/simple-statistics@7/dist/simple-statistics.min.js",
     "chroma-js": "https://cdn.jsdelivr.net/npm/chroma-js@2/chroma.min.js"
   },
+  "LayerControl": {
+    "wa-slider": {
+      "kind": "module",
+      "url": "https://esm.sh/@awesome.me/webawesome@3.14.0/dist/components/slider/slider.js"
+    },
+    "wa-theme": {
+      "kind": "css",
+      "url": "https://unpkg.com/@awesome.me/webawesome@3.14.0/dist/styles/themes/default.css"
+    },
+    "wa-brand": {
+      "kind": "css",
+      "url": "https://unpkg.com/@awesome.me/webawesome@3.14.0/dist/styles/color/variants/brand.css"
+    }
+  },
   "LocateControl": {
     "gcoord": "https://cdn.jsdelivr.net/npm/gcoord@1/dist/gcoord.global.prod.js"
   },

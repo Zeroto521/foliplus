@@ -24,13 +24,13 @@ from pathlib import Path
 from textwrap import dedent
 from typing import Any
 
-from branca.element import Element, Figure
+from branca.element import CssLink, Element, Figure
 from folium import MacroElement
 from folium.elements import JSCSSMixin
 from jinja2 import Template
 from jinja2.utils import htmlsafe_json_dumps
 
-from ._cdn_loader import load_cdn
+from ._cdn_loader import load_cdn, load_css, load_modules
 from ._config_schema import config_fields, derive_schema
 from ._typing import ControlPosition
 from ._validate import validate
@@ -398,6 +398,25 @@ class BaseControl(JSCSSMixin, MacroElement):
         single time per map (deduplicated by :data:`_SHARED_ASSETS_NAME`)
         instead of being repeated in each control's template. Placing them in
         ``<head>`` also guarantees they load before any control's body script runs.
+
+        After the shared assets, this method injects any per-control CDN
+        entries that require non-classic loading:
+
+        * ``kind: "css"`` entries become ``<link rel="stylesheet">`` in the
+          ``<head>`` (via :class:`branca.element.CssLink`), deduplicated by
+          URL. CSS in the head avoids FOUC.
+        * ``kind: "module"`` entries become ``<script type="module">`` in
+          the ``<body>`` (via :class:`branca.element.Element`), because
+          folium's ``default_js`` cannot set the ``type`` attribute. Landing
+          in the body is safe for custom elements: the browser upgrades
+          ``<wa-*>`` elements asynchronously once the module loads.
+
+        The ESM body placement means ``wa-*`` elements created by foliplus
+        code before the module arrives are not yet upgraded. foliplus code
+        must therefore set **attributes** (observed, applied on upgrade)
+        rather than calling properties or methods synchronously. Where a
+        property must be set (e.g. ``valueFormatter``), await
+        ``customElements.whenDefined("<tag>")`` first.
         """
         figure = self.get_root()
         if (
@@ -407,6 +426,22 @@ class BaseControl(JSCSSMixin, MacroElement):
             figure.header.add_child(
                 Element(_build_shared_header()), name=_SHARED_ASSETS_NAME
             )
+
+        # Inject non-classic CDN entries (CSS in head, module scripts in body),
+        # deduplicated by URL so multiple controls sharing an entry emit it once.
+        for _name, url in load_css(self._name):
+            if url not in figure.header._children:
+                figure.header.add_child(CssLink(url), name=url)
+        for _name, url in load_modules(self._name):
+            key = f"foliplus_module_{url}"
+            if key not in figure.html._children:
+                figure.html.add_child(
+                    Element(
+                        f'<script type="module" src="{url}"></script>',
+                    ),
+                    name=key,
+                )
+
         html: str = super().render(**kwargs)
         return html
 
