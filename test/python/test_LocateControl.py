@@ -153,9 +153,7 @@ class TestLocateControlBrowser:
     def test_button_present(self, browser, tmp_path):
         """The locate button is rendered by default."""
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
-            has_btn = page.evaluate(
-                "document.querySelector('.foliplus-locate-btn') !== null"
-            )
+            has_btn = page.evaluate(_js("LocateControl/read_locate_btn_present"))
             assert has_btn, "Locate button not found"
             assert not errors, f"JS errors: {errors}"
 

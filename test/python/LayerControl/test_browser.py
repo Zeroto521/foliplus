@@ -60,14 +60,7 @@ class TestLayerControlBrowser:
     @staticmethod
     def _sample_token(page, name: str) -> str:
         """Computed color of a design token — never hardcode a hex/rgb."""
-        return page.evaluate(
-            "name => { const p = document.createElement('div');"
-            " p.style.background = `var(${name})`;"
-            " document.body.appendChild(p);"
-            " const c = getComputedStyle(p).backgroundColor;"
-            " p.remove(); return c; }",
-            name,
-        )
+        return page.evaluate(_js("LayerControl/sample_token"), name)
 
     @staticmethod
     def _sample_neutral0(page):
@@ -77,12 +70,7 @@ class TestLayerControlBrowser:
     @staticmethod
     def _panel_open(page, selector: str) -> bool:
         """True while the panel at *selector* is expanded, not collapsed."""
-        return page.evaluate(
-            "sel => { const c = document.querySelector(sel);"
-            " return !!c && c.classList.contains('foliplus-is-expanded')"
-            " && !c.classList.contains('foliplus-is-collapsed'); }",
-            selector,
-        )
+        return page.evaluate(_js("LayerControl/panel_open"), selector)
 
     def test_menu_shell_keeps_design_padding_under_bootstrap(self, browser, tmp_path):
         """T266: the layer more-menu shell keeps its design padding on a host
@@ -101,26 +89,18 @@ class TestLayerControlBrowser:
         with use_page(
             self._make_page, browser, tmp_path, layer, slug="menu_shell_padding"
         ) as (page, errors):
-            page.evaluate(
-                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
-            )
+            page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.foliplus-is-expanded",
                 state="attached",
                 timeout=5000,
             )
             page.wait_for_timeout(400)
-            page.evaluate(
-                "() => document.querySelectorAll("
-                "'.foliplus-layer-item .foliplus-layer-more-btn')[0].click()"
-            )
+            page.evaluate(_js("LayerControl/click_first_more_btn"))
             page.wait_for_selector(
                 ".foliplus-layer-more-menu.open", state="attached", timeout=5000
             )
-            padding_left = page.evaluate(
-                "() => getComputedStyle("
-                "  document.querySelector('.foliplus-layer-more-menu.open')).paddingLeft"
-            )
+            padding_left = page.evaluate(_js("LayerControl/read_more_menu_padding"))
             assert padding_left == "0px", (
                 f"menu shell padding-left drifted under Bootstrap: {padding_left!r}"
             )
@@ -134,9 +114,7 @@ class TestLayerControlBrowser:
             page,
             errors,
         ):
-            page.evaluate(
-                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
-            )
+            page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.foliplus-is-expanded",
                 state="attached",
@@ -155,9 +133,7 @@ class TestLayerControlBrowser:
             page.wait_for_selector(
                 ".foliplus-hint-LayerControl", state="attached", timeout=5000
             )
-            hint_text = page.evaluate(
-                'document.querySelector(".foliplus-hint-LayerControl")?.textContent || ""'
-            )
+            hint_text = page.evaluate(_js("LayerControl/read_hint_text"))
             assert ("same group" in hint_text.lower()) or ("同分组" in hint_text)
 
     def test_remove_readd_restores_layer_api(self, browser, tmp_path):
@@ -331,9 +307,7 @@ class TestLayerControlBrowser:
             page,
             _,
         ):
-            page.evaluate(
-                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
-            )
+            page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.foliplus-is-expanded",
                 state="attached",
@@ -351,24 +325,7 @@ class TestLayerControlBrowser:
                 ".foliplus-layer-rename-input", state="attached", timeout=5000
             )
 
-            m = page.evaluate(
-                """() => {
-                  const row = [...document.querySelectorAll('.foliplus-layer-item')]
-                    .find(r => r.querySelector('.foliplus-layer-rename-input'));
-                  const input = row?.querySelector('.foliplus-layer-rename-input');
-                  if (!row || !input) return null;
-                  const rr = row.getBoundingClientRect();
-                  const ir = input.getBoundingClientRect();
-                  return {
-                    rowH: Math.round(rr.height),
-                    inputH: Math.round(ir.height),
-                    inputX: Math.round(ir.x),
-                    labelX: Math.round(row.querySelector('.foliplus-layer-label').getBoundingClientRect().x),
-                    padTop: getComputedStyle(row).paddingTop,
-                    padBottom: getComputedStyle(row).paddingBottom,
-                  };
-                }"""
-            )
+            m = page.evaluate(_js("LayerControl/read_rename_input_geom"))
             assert m is not None, "no renaming row found"
             # Row's vertical padding is dropped while renaming…
             assert m["padTop"] == "0px", f"row padTop={m['padTop']}"
@@ -514,7 +471,7 @@ class TestLayerControlBrowser:
                 f"the canvas is not the hit target: {result}"
             )
             page.click("#foliplus-probe-clickable-canvas")
-            assert page.evaluate("window.__clickableDataCanvasHits") == 1, (
+            assert page.evaluate(_js("LayerControl/read_clickable_canvas_hits")) == 1, (
                 f"the real click never reached the canvas: {result}"
             )
             assert not errors, f"JS errors: {errors}"
@@ -942,9 +899,7 @@ class TestLayerControlBrowser:
             page.wait_for_selector(
                 ".foliplus-layer-ctrl", state="attached", timeout=10000
             )
-            page.evaluate(
-                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
-            )
+            page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.foliplus-is-expanded",
                 state="attached",
@@ -975,9 +930,7 @@ class TestLayerControlBrowser:
             page.wait_for_selector(
                 ".foliplus-layer-ctrl", state="attached", timeout=10000
             )
-            page.evaluate(
-                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
-            )
+            page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.foliplus-is-expanded",
                 state="attached",
@@ -1049,9 +1002,7 @@ class TestLayerControlBrowser:
             page.wait_for_selector(
                 ".foliplus-layer-ctrl", state="attached", timeout=10000
             )
-            page.evaluate(
-                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
-            )
+            page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.foliplus-is-expanded",
                 state="attached",
@@ -1087,9 +1038,7 @@ class TestLayerControlBrowser:
             page.wait_for_selector(
                 ".foliplus-layer-ctrl", state="attached", timeout=10000
             )
-            page.evaluate(
-                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
-            )
+            page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.foliplus-is-expanded",
                 state="attached",
@@ -1116,9 +1065,7 @@ class TestLayerControlBrowser:
     def test_color_layer_item_title(self, browser, tmp_path):
         """Color layer item title shows the color map label."""
         with use_page(self._make_page, browser, tmp_path) as (page, _):
-            page.evaluate(
-                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
-            )
+            page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.foliplus-is-expanded",
                 state="attached",
@@ -1642,9 +1589,9 @@ class TestLayerControlBrowser:
 
         with use_raw_page(browser.new_page) as page:
             page.add_init_script(
-                f"localStorage.setItem("
-                f"'foliplus_layer_state_{match.group(1)}', "
-                f"{json.dumps(json.dumps(seed))});"
+                _js("LayerControl/seed_layer_state")
+                .replace("__KEY__", match.group(1))
+                .replace("__SEED__", json.dumps(json.dumps(seed)))
             )
             page.goto(f"file://{html_path}", wait_until="domcontentloaded")
             page.wait_for_selector(
@@ -1764,9 +1711,9 @@ class TestLayerControlBrowser:
 
         with use_raw_page(browser.new_page) as page:
             page.add_init_script(
-                f"localStorage.setItem("
-                f"'foliplus_layer_state_{match.group(1)}', "
-                f"{json.dumps(json.dumps(seed))});"
+                _js("LayerControl/seed_layer_state")
+                .replace("__KEY__", match.group(1))
+                .replace("__SEED__", json.dumps(json.dumps(seed)))
             )
             page.goto(f"file://{html_path}", wait_until="domcontentloaded")
             page.wait_for_selector(
@@ -2219,9 +2166,7 @@ class TestLayerControlBrowser:
             page.wait_for_selector(
                 ".foliplus-layer-ctrl", state="attached", timeout=10000
             )
-            page.evaluate(
-                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
-            )
+            page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.foliplus-is-expanded",
                 state="attached",
@@ -2264,9 +2209,7 @@ class TestLayerControlBrowser:
             page.wait_for_selector(
                 ".foliplus-layer-ctrl", state="attached", timeout=10000
             )
-            page.evaluate(
-                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
-            )
+            page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.foliplus-is-expanded",
                 state="attached",
@@ -2306,9 +2249,7 @@ class TestLayerControlBrowser:
             page.wait_for_selector(
                 ".foliplus-layer-ctrl", state="attached", timeout=10000
             )
-            page.evaluate(
-                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
-            )
+            page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.foliplus-is-expanded",
                 state="attached",
@@ -2351,9 +2292,7 @@ class TestLayerControlBrowser:
             page.wait_for_selector(
                 ".foliplus-layer-ctrl", state="attached", timeout=10000
             )
-            page.evaluate(
-                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
-            )
+            page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.foliplus-is-expanded",
                 state="attached",
@@ -2361,9 +2300,7 @@ class TestLayerControlBrowser:
             )
 
             # Count DOM items before fold (3 overlays + 1 default OSM base + 1 color basemap)
-            before = page.evaluate(
-                "document.querySelectorAll('.foliplus-layer-item').length"
-            )
+            before = page.evaluate(_js("LayerControl/count_layer_items"))
             assert before > 0, "Expected at least 1 layer item"
 
             # Fold overlay
@@ -2371,9 +2308,7 @@ class TestLayerControlBrowser:
             page.wait_for_timeout(300)
 
             # Count DOM items after fold — should still be same (not removed)
-            after = page.evaluate(
-                "document.querySelectorAll('.foliplus-layer-item').length"
-            )
+            after = page.evaluate(_js("LayerControl/count_layer_items"))
             assert after == before, (
                 f"Expected {before} items after fold, got {after} — DOM items should not be removed"
             )
@@ -2425,9 +2360,7 @@ class TestLayerControlBrowser:
             page.wait_for_selector(
                 ".foliplus-layer-ctrl", state="attached", timeout=10000
             )
-            page.evaluate(
-                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
-            )
+            page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.foliplus-is-expanded",
                 state="attached",
@@ -2469,9 +2402,7 @@ class TestLayerControlBrowser:
             page.wait_for_selector(
                 ".foliplus-layer-ctrl", state="attached", timeout=10000
             )
-            page.evaluate(
-                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
-            )
+            page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.foliplus-is-expanded",
                 state="attached",
@@ -2523,9 +2454,7 @@ class TestLayerControlBrowser:
         """
         tile = folium.TileLayer("CartoDB positron", name="Light Canvas", overlay=False)
         with use_page(self._make_page, browser, tmp_path, tile) as (page, _):
-            page.evaluate(
-                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
-            )
+            page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.foliplus-is-expanded",
                 state="attached",
@@ -2555,7 +2484,7 @@ class TestLayerControlBrowser:
             initialColorZ = state["colorPaneZ"]
 
             # Case 1: move color above tile → color pane z increases.
-            page.evaluate("window.__probe = { action: 'above' }")
+            page.evaluate(_js("LayerControl/set_probe"), {"action": "above"})
             state = page.evaluate(_js("LayerControl/color_zorder_stack"))
             assert state["ok"] is True
             assert state["colorPaneZ"] > initialColorZ, (
@@ -2563,7 +2492,7 @@ class TestLayerControlBrowser:
             )
 
             # Case 2: move color below tile → color pane z drops below the tile pane.
-            page.evaluate("window.__probe = { action: 'below' }")
+            page.evaluate(_js("LayerControl/set_probe"), {"action": "below"})
             state = page.evaluate(_js("LayerControl/color_zorder_stack"))
             assert state["ok"] is True
             assert state["colorPaneZ"] < state["tilePaneZ"], (
@@ -2576,7 +2505,7 @@ class TestLayerControlBrowser:
             )
 
             # Case 3: reorder back above → z-indexes flip again (live).
-            page.evaluate("window.__probe = { action: 'above' }")
+            page.evaluate(_js("LayerControl/set_probe"), {"action": "above"})
             state = page.evaluate(_js("LayerControl/color_zorder_stack"))
             assert state["ok"] is True
             assert state["colorPaneZ"] > state["tilePaneZ"], (
@@ -2596,9 +2525,7 @@ class TestLayerControlBrowser:
         tile_a = folium.TileLayer("CartoDB positron", name="Tiles A", overlay=False)
         tile_b = folium.TileLayer("OpenStreetMap", name="Tiles B", overlay=False)
         with use_page(self._make_page, browser, tmp_path, tile_a, tile_b) as (page, _):
-            page.evaluate(
-                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
-            )
+            page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.foliplus-is-expanded",
                 state="attached",
@@ -2627,7 +2554,7 @@ class TestLayerControlBrowser:
 
             # Swap the last tile above the first; the two tile panes' z must
             # flip with the row order.
-            page.evaluate("window.__probe = { action: 'swap-tiles' }")
+            page.evaluate(_js("LayerControl/set_probe"), {"action": "swap-tiles"})
             state2 = page.evaluate(_js("LayerControl/base_zorder_reorder"))
             assert state2["ok"] is True, state2
             zs2 = {b["id"]: b["z"] for b in state2["bases"]}
@@ -2706,9 +2633,7 @@ class TestLayerControlBrowser:
             page.wait_for_selector(
                 ".foliplus-layer-ctrl", state="attached", timeout=10000
             )
-            page.evaluate(
-                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
-            )
+            page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.foliplus-is-expanded",
                 state="attached",
@@ -2735,9 +2660,7 @@ class TestLayerControlBrowser:
     def test_color_layer_pointer_cursor(self, browser, tmp_path):
         """Color layer item shows move cursor on hover (draggable in base group)."""
         with use_page(self._make_page, browser, tmp_path) as (page, _):
-            page.evaluate(
-                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
-            )
+            page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.foliplus-is-expanded",
                 state="attached",
@@ -2764,9 +2687,7 @@ class TestLayerControlBrowser:
             page.wait_for_selector(
                 ".foliplus-layer-ctrl", state="attached", timeout=10000
             )
-            page.evaluate(
-                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
-            )
+            page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.foliplus-is-expanded",
                 state="attached",
@@ -2871,9 +2792,7 @@ class TestLayerControlBrowser:
             page.wait_for_selector(
                 ".foliplus-layer-ctrl", state="attached", timeout=10000
             )
-            page.evaluate(
-                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
-            )
+            page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.foliplus-is-expanded",
                 state="attached",
@@ -2919,9 +2838,7 @@ class TestLayerControlBrowser:
             page,
             _,
         ):
-            page.evaluate(
-                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
-            )
+            page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.foliplus-is-expanded",
                 state="attached",
@@ -3095,9 +3012,7 @@ class TestLayerControlBrowser:
     def test_handle_change_resets_paneset_on_show(self, browser, tmp_path):
         """Checkbox toggle triggers handleChange which re-pins layers."""
         with use_page(self._make_page, browser, tmp_path) as (page, _):
-            page.evaluate(
-                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
-            )
+            page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.foliplus-is-expanded",
                 state="attached",
@@ -3116,9 +3031,7 @@ class TestLayerControlBrowser:
             page,
             _,
         ):
-            page.evaluate(
-                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
-            )
+            page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.foliplus-is-expanded",
                 state="attached",
@@ -3155,9 +3068,7 @@ class TestLayerControlBrowser:
             page,
             _,
         ):
-            page.evaluate(
-                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
-            )
+            page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.foliplus-is-expanded",
                 state="attached",
@@ -3177,9 +3088,7 @@ class TestLayerControlBrowser:
             page,
             _,
         ):
-            page.evaluate(
-                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
-            )
+            page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.foliplus-is-expanded",
                 state="attached",
@@ -3210,9 +3119,7 @@ class TestLayerControlBrowser:
             page,
             _,
         ):
-            page.evaluate(
-                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
-            )
+            page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.foliplus-is-expanded",
                 state="attached",
@@ -3228,26 +3135,12 @@ class TestLayerControlBrowser:
             panel_ready(page)
             # Force a truly unchecked row — do not trust show=False across
             # folium versions (0.14 still checks them).
-            page.evaluate(
-                "() => { const box = document.querySelector("
-                "    '.foliplus-layer-item input[type=checkbox]');"
-                " if (box && box.checked) {"
-                "   box.checked = false;"
-                "   box.dispatchEvent(new Event('change', {bubbles: true}));"
-                " } }"
-            )
+            page.evaluate(_js("LayerControl/force_first_checkbox_unchecked"))
             # Move the mouse off the panel so a data row reads its resting state.
             page.mouse.move(0, 0)
             page.wait_for_timeout(120)
 
-            rest = page.evaluate(
-                "() => { const r = document.querySelector('.foliplus-layer-item');"
-                " const cs = getComputedStyle(r);"
-                " const d = r.querySelector('.drag-handle');"
-                " return { bg: cs.backgroundColor, shadow: cs.boxShadow,"
-                " drag: d ? getComputedStyle(d).opacity : null,"
-                " active: r.classList.contains('foliplus-active') }; }"
-            )
+            rest = page.evaluate(_js("LayerControl/read_row_rest_with_active"))
             assert rest["active"] is False, (
                 f"reference row must be unchecked after the forced toggle, got {rest}"
             )
@@ -3277,13 +3170,7 @@ class TestLayerControlBrowser:
             # Hover a data row and confirm it matches the keyboard cursor exactly.
             page.hover(".foliplus-layer-item")
             page.wait_for_timeout(120)
-            hover = page.evaluate(
-                "() => { const r = document.querySelector('.foliplus-layer-item');"
-                " const cs = getComputedStyle(r);"
-                " const d = r.querySelector('.drag-handle');"
-                " return { bg: cs.backgroundColor, shadow: cs.boxShadow,"
-                " drag: d ? getComputedStyle(d).opacity : null }; }"
-            )
+            hover = page.evaluate(_js("LayerControl/read_row_rest"))
             assert hover["bg"] == kb["bg"], (
                 f"hover {hover['bg']} must equal keyboard {kb['bg']}"
             )
@@ -3306,9 +3193,7 @@ class TestLayerControlBrowser:
             page,
             _,
         ):
-            page.evaluate(
-                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
-            )
+            page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.foliplus-is-expanded",
                 state="attached",
@@ -3355,11 +3240,7 @@ class TestLayerControlBrowser:
             # Real hover on the unchecked row: same white as the JS cursor class.
             page.hover(".foliplus-layer-item:not(.foliplus-active)")
             page.wait_for_timeout(120)
-            hover_bg = page.evaluate(
-                "() => getComputedStyle("
-                "  document.querySelector('.foliplus-layer-item:not(.foliplus-active)')"
-                ").backgroundColor"
-            )
+            hover_bg = page.evaluate(_js("LayerControl/read_inactive_row_bg"))
             assert hover_bg == white, (
                 f"mouse hover must turn the row white too, got {hover_bg}"
             )
@@ -3376,9 +3257,7 @@ class TestLayerControlBrowser:
             page,
             _,
         ):
-            page.evaluate(
-                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
-            )
+            page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.foliplus-is-expanded",
                 state="attached",
@@ -3413,9 +3292,7 @@ class TestLayerControlBrowser:
             page,
             _,
         ):
-            page.evaluate(
-                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
-            )
+            page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.foliplus-is-expanded",
                 state="attached",
@@ -3434,9 +3311,7 @@ class TestLayerControlBrowser:
         """Space toggles the focused layer's checkbox."""
         overlay = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)
         with use_page(self._make_page, browser, tmp_path, overlay) as (page, _):
-            page.evaluate(
-                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
-            )
+            page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.foliplus-is-expanded",
                 state="attached",
@@ -3452,9 +3327,7 @@ class TestLayerControlBrowser:
         """Enter toggles the focused layer's checkbox."""
         overlay = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)
         with use_page(self._make_page, browser, tmp_path, overlay) as (page, _):
-            page.evaluate(
-                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
-            )
+            page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.foliplus-is-expanded",
                 state="attached",
@@ -3470,9 +3343,7 @@ class TestLayerControlBrowser:
         """ArrowLeft toggles the focused layer's checkbox."""
         overlay = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)
         with use_page(self._make_page, browser, tmp_path, overlay) as (page, _):
-            page.evaluate(
-                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
-            )
+            page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.foliplus-is-expanded",
                 state="attached",
@@ -3488,9 +3359,7 @@ class TestLayerControlBrowser:
         """ArrowRight toggles the focused layer's checkbox."""
         overlay = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)
         with use_page(self._make_page, browser, tmp_path, overlay) as (page, _):
-            page.evaluate(
-                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
-            )
+            page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.foliplus-is-expanded",
                 state="attached",
@@ -3510,9 +3379,7 @@ class TestLayerControlBrowser:
             page,
             _,
         ):
-            page.evaluate(
-                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
-            )
+            page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.foliplus-is-expanded",
                 state="attached",
@@ -3552,9 +3419,7 @@ class TestLayerControlBrowser:
             page,
             _,
         ):
-            page.evaluate(
-                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
-            )
+            page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.foliplus-is-expanded",
                 state="attached",
@@ -3610,9 +3475,7 @@ class TestLayerControlBrowser:
             page,
             _,
         ):
-            page.evaluate(
-                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
-            )
+            page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.foliplus-is-expanded",
                 state="attached",
@@ -3632,9 +3495,7 @@ class TestLayerControlBrowser:
             page,
             _,
         ):
-            page.evaluate(
-                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
-            )
+            page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.foliplus-is-expanded",
                 state="attached",
@@ -3650,9 +3511,7 @@ class TestLayerControlBrowser:
         """Escape clears the keyboard-active focus state."""
         overlay = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)
         with use_page(self._make_page, browser, tmp_path, overlay) as (page, _):
-            page.evaluate(
-                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
-            )
+            page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.foliplus-is-expanded",
                 state="attached",
@@ -3699,58 +3558,32 @@ class TestLayerControlBrowser:
             # the class. Cancel the cursor again for a deterministically
             # cancelled row, hover with the real pointer, then move it away
             # and assert the fall-back.
-            page.evaluate(
-                "() => { const r = document.querySelector("
-                "    '.foliplus-layer-item.foliplus-active'"
-                ");"
-                " r.focus();"
-                " r.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', bubbles: true})); }"
-            )
+            page.evaluate(_js("LayerControl/dispatch_escape_on_active"))
             page.hover(".foliplus-layer-item.foliplus-active")
             # The grip is the one recipe property with an opacity transition
             # (color/box-shadow are transition: none), so wait it out before
             # measuring or the computed value is mid-flight.
             page.wait_for_function(
-                "() => getComputedStyle("
-                "  document.querySelector("
-                "    '.foliplus-layer-item.foliplus-active .foliplus-drag-cell .drag-handle'"
-                "  )"
-                ").opacity === '1'",
+                _js("LayerControl/wait_drag_handle_opacity"),
+                arg=[
+                    ".foliplus-layer-item.foliplus-active .foliplus-drag-cell .drag-handle",
+                    0,
+                    "1",
+                ],
                 timeout=2000,
             )
-            on_hover = page.evaluate(
-                "() => { const r = document.querySelector('.foliplus-layer-item.foliplus-active');"
-                " return {"
-                "  grip: getComputedStyle("
-                "    r.querySelector('.foliplus-drag-cell .drag-handle')"
-                "  ).opacity,"
-                "  more: getComputedStyle("
-                "    r.querySelector('.foliplus-layer-more-btn')"
-                "  ).color,"
-                "  glow: getComputedStyle(r).boxShadow !== 'none',"
-                " }; }"
-            )
+            on_hover = page.evaluate(_js("LayerControl/read_active_row_lit"))
             page.mouse.move(5, 400)
             page.wait_for_function(
-                "() => getComputedStyle("
-                "  document.querySelector("
-                "    '.foliplus-layer-item.foliplus-active .foliplus-drag-cell .drag-handle'"
-                "  )"
-                ").opacity === '0'",
+                _js("LayerControl/wait_drag_handle_opacity"),
+                arg=[
+                    ".foliplus-layer-item.foliplus-active .foliplus-drag-cell .drag-handle",
+                    0,
+                    "0",
+                ],
                 timeout=2000,
             )
-            off_hover = page.evaluate(
-                "() => { const r = document.querySelector('.foliplus-layer-item.foliplus-active');"
-                " return {"
-                "  grip: getComputedStyle("
-                "    r.querySelector('.foliplus-drag-cell .drag-handle')"
-                "  ).opacity,"
-                "  more: getComputedStyle("
-                "    r.querySelector('.foliplus-layer-more-btn')"
-                "  ).color,"
-                "  bg: getComputedStyle(r).backgroundColor,"
-                " }; }"
-            )
+            off_hover = page.evaluate(_js("LayerControl/read_active_row_state"))
             assert on_hover["grip"] == "1", (
                 "hovering the cancelled row must show the drag grip, got "
                 + str(on_hover)
@@ -3786,9 +3619,7 @@ class TestLayerControlBrowser:
         """
         overlay = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)
         with use_page(self._make_page, browser, tmp_path, overlay) as (page, _):
-            page.evaluate(
-                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
-            )
+            page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.foliplus-is-expanded",
                 state="attached",
@@ -3798,26 +3629,10 @@ class TestLayerControlBrowser:
             white = self._sample_neutral0(page)
 
             def snapshot():
-                return page.evaluate(
-                    "() => [...document.querySelectorAll('.foliplus-layer-item')]"
-                    ".map(r => { const cs = getComputedStyle(r);"
-                    "  const g = r.querySelector('.foliplus-drag-cell .drag-handle');"
-                    "  const m = r.querySelector('.foliplus-layer-more-btn');"
-                    "  const i = r.querySelector('.foliplus-type-icon-col');"
-                    "  return { bg: cs.backgroundColor,"
-                    "    glow: cs.boxShadow !== 'none',"
-                    "    grip: g ? getComputedStyle(g).opacity : null,"
-                    "    more: m ? getComputedStyle(m).color : null,"
-                    "    icon: i ? getComputedStyle(i).color : null }; })"
-                )
+                return page.evaluate(_js("LayerControl/read_all_row_state"))
 
             def escape_first_row():
-                page.evaluate(
-                    "() => { const r = document.querySelector('.foliplus-layer-item');"
-                    " r.focus();"
-                    " r.dispatchEvent(new KeyboardEvent("
-                    "    'keydown', {key: 'Escape', bubbles: true})); }"
-                )
+                page.evaluate(_js("LayerControl/dispatch_escape_on_first_row"))
 
             # ── checked rows: the restored row must equal the reference ──
             escape_first_row()
@@ -3836,12 +3651,7 @@ class TestLayerControlBrowser:
             )
 
             # ── unchecked rows: same contract against the plain surface ──
-            page.evaluate(
-                "() => [...document.querySelectorAll("
-                "    '.foliplus-layer-item input[type=checkbox]'"
-                ")].forEach(i => { i.checked = false;"
-                " i.dispatchEvent(new Event('change', {bubbles: true})); })"
-            )
+            page.evaluate(_js("LayerControl/uncheck_all_row_checkboxes"))
             escape_first_row()
             page.wait_for_timeout(300)
             unchecked = snapshot()
@@ -3877,9 +3687,7 @@ class TestLayerControlBrowser:
         """
         overlay = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)
         with use_page(self._make_page, browser, tmp_path, overlay) as (page, _):
-            page.evaluate(
-                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
-            )
+            page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.foliplus-is-expanded",
                 state="attached",
@@ -3912,9 +3720,7 @@ class TestLayerControlBrowser:
         overlay = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)
         with use_page(self._make_page, browser, tmp_path, overlay) as (page, errors):
             panel_ready(page)
-            page.evaluate(
-                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
-            )
+            page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.foliplus-is-expanded",
                 state="attached",
@@ -3967,9 +3773,7 @@ class TestLayerControlBrowser:
         overlay = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)
         with use_page(self._make_page, browser, tmp_path, overlay) as (page, errors):
             panel_ready(page)
-            page.evaluate(
-                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
-            )
+            page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.foliplus-is-expanded",
                 state="attached",
@@ -4020,9 +3824,7 @@ class TestLayerControlBrowser:
         """
         overlay = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)
         with use_page(self._make_page, browser, tmp_path, overlay) as (page, _):
-            page.evaluate(
-                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
-            )
+            page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.foliplus-is-expanded",
                 state="attached",
@@ -4050,9 +3852,7 @@ class TestLayerControlBrowser:
         """
         overlay = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)
         with use_page(self._make_page, browser, tmp_path, overlay) as (page, _):
-            page.evaluate(
-                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
-            )
+            page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.foliplus-is-expanded",
                 state="attached",
@@ -4089,9 +3889,7 @@ class TestLayerControlBrowser:
         overlay = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)
         base = folium.TileLayer("OpenStreetMap", name="OSM", overlay=False)
         with use_page(self._make_page, browser, tmp_path, overlay, base) as (page, _):
-            page.evaluate(
-                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
-            )
+            page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.foliplus-is-expanded",
                 state="attached",
@@ -4137,9 +3935,7 @@ class TestLayerControlBrowser:
             locations=[[26.0, 119.2], [26.2, 119.2], [26.2, 119.5], [26.0, 119.5]],
         ).add_to(fg)
         with use_page(self._make_page, browser, tmp_path, fg) as (page, _):
-            page.evaluate(
-                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
-            )
+            page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.foliplus-is-expanded",
                 state="attached",
@@ -4173,9 +3969,7 @@ class TestLayerControlBrowser:
             page,
             _,
         ):
-            page.evaluate(
-                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
-            )
+            page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.foliplus-is-expanded",
                 state="attached",
@@ -4227,9 +4021,7 @@ class TestLayerControlBrowser:
             page.wait_for_selector(
                 ".foliplus-layer-ctrl", state="attached", timeout=10000
             )
-            page.evaluate(
-                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
-            )
+            page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.foliplus-is-expanded",
                 state="attached",
@@ -4271,9 +4063,7 @@ class TestLayerControlBrowser:
             page,
             _,
         ):
-            page.evaluate(
-                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
-            )
+            page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.foliplus-is-expanded",
                 state="attached",
@@ -4284,10 +4074,7 @@ class TestLayerControlBrowser:
             assert result["rectDrawn"] is True, f"focus rect missing, got {result}"
 
             accent = self._sample_token(page, "--foliplus-accent-primary")
-            dash = page.evaluate(
-                "getComputedStyle(document.documentElement)"
-                ".getPropertyValue('--foliplus-dash-rhythm').trim()"
-            )
+            dash = page.evaluate(_js("LayerControl/read_dash_rhythm"))
             assert result["stroke"] == accent, (
                 f"focus rect stroke must be the accent token, "
                 f"got {result['stroke']} vs {accent}"
@@ -4321,9 +4108,7 @@ class TestLayerControlBrowser:
             self._make_page, browser, tmp_path, fg, slug="geom_focus_ants"
         ) as (page, _):
             page.emulate_media(reduced_motion="no-preference")
-            page.evaluate(
-                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
-            )
+            page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.foliplus-is-expanded",
                 state="attached",
@@ -4340,10 +4125,7 @@ class TestLayerControlBrowser:
             )
 
             accent = self._sample_token(page, "--foliplus-accent-primary")
-            dash = page.evaluate(
-                "getComputedStyle(document.documentElement)"
-                ".getPropertyValue('--foliplus-dash-rhythm').trim()"
-            )
+            dash = page.evaluate(_js("LayerControl/read_dash_rhythm"))
             assert result["marqueeStroke"] == accent, (
                 f"marquee stroke must be accent, "
                 f"got {result['marqueeStroke']} vs {accent}"
@@ -4435,9 +4217,7 @@ class TestLayerControlBrowser:
             fg,
             slug="focus_overlay_pane",
         ) as (page, _):
-            page.evaluate(
-                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
-            )
+            page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.foliplus-is-expanded",
                 state="attached",
@@ -4509,9 +4289,7 @@ class TestLayerControlBrowser:
             fg,
             slug="focus_overlay_click",
         ) as (page, _):
-            page.evaluate(
-                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
-            )
+            page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.foliplus-is-expanded",
                 state="attached",
@@ -4559,9 +4337,7 @@ class TestLayerControlBrowser:
             fg,
             slug="focus_keeps_base_visible",
         ) as (page, _):
-            page.evaluate(
-                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
-            )
+            page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.foliplus-is-expanded",
                 state="attached",
@@ -4656,9 +4432,7 @@ class TestLayerControlBrowser:
             fg,
             slug="focus_basemap_direction",
         ) as (page, _):
-            page.evaluate(
-                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
-            )
+            page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.foliplus-is-expanded",
                 state="attached",
@@ -4668,7 +4442,7 @@ class TestLayerControlBrowser:
             # the viewport. The polygon's top edge is north of the default map
             # center; without panning, the padding-ring sample would be above
             # the viewport (negative y) and the pixel read would be out-of-bounds.
-            page.evaluate("() => window.map.panTo([26.1, 119.35])")
+            page.evaluate(_js("LayerControl/pan_to_foliplus"))
             page.wait_for_timeout(500)
 
             # Enable the solid-color basemap so there is a visible basemap to
@@ -4690,12 +4464,7 @@ class TestLayerControlBrowser:
             # underneath (the polygon's fill_opacity=0.5 lets the basemap show
             # through at 50%). The pixel is a blend of polygon fill and basemap;
             # the delta comes only from the basemap's opacity change.
-            box = page.evaluate(
-                "() => { "
-                "const p = window.map.latLngToContainerPoint([26.1, 119.35]); "
-                "const c = window.map.getContainer().getBoundingClientRect(); "
-                "return {x: c.left + p.x, y: c.top + p.y}; }"
-            )
+            box = page.evaluate(_js("LayerControl/project_foliplus_latlng"))
             px, py = int(box["x"]), int(box["y"])
 
             # Capture before focus.
@@ -4804,9 +4573,7 @@ class TestLayerControlBrowser:
             layers.append(fg)
 
         with use_page(self._make_page, browser, tmp_path, *layers) as (page, _):
-            page.evaluate(
-                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
-            )
+            page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.foliplus-is-expanded",
                 state="attached",
@@ -4830,7 +4597,7 @@ class TestLayerControlBrowser:
                 )
 
             # Toggling another layer's checkbox must not zero out the counts.
-            page.evaluate("window.__test_layer_name = 'Beta'")
+            page.evaluate(_js("LayerControl/set_test_layer_name_beta"))
             page.evaluate(_js("LayerControl/click_checkbox_by_name"))
             page.wait_for_timeout(300)
 
@@ -4868,9 +4635,7 @@ class TestLayerControlBrowser:
         with use_page(
             self._make_page, browser, tmp_path, layer, slug="outside_click"
         ) as (page, errors):
-            page.evaluate(
-                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
-            )
+            page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.foliplus-is-expanded",
                 state="attached",
@@ -4909,9 +4674,7 @@ class TestLayerControlBrowser:
             slug="outside_click_on",
             collapse_on_outside=True,
         ) as (page, errors):
-            page.evaluate(
-                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
-            )
+            page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.foliplus-is-expanded",
                 state="attached",
@@ -4946,9 +4709,7 @@ class TestLayerControlBrowser:
             page,
             errors,
         ):
-            page.evaluate(
-                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
-            )
+            page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.foliplus-is-expanded",
                 state="attached",
@@ -4962,19 +4723,11 @@ class TestLayerControlBrowser:
             page.wait_for_timeout(500)
 
             page.mouse.move(5, 400)
-            page.evaluate(
-                "() => document.querySelectorAll('"
-                ".foliplus-layer-item[data-layer-type=overlay] "
-                ".foliplus-layer-more-btn')[0].click()"
-            )
+            page.evaluate(_js("LayerControl/click_first_overlay_more_btn"))
             page.wait_for_selector(
                 ".foliplus-layer-more-menu.open", state="attached", timeout=5000
             )
-            page.evaluate(
-                "() => document.querySelector("
-                "  '.foliplus-layer-more-menu li[data-action=layer-attributes]'"
-                ").click()"
-            )
+            page.evaluate(_js("LayerControl/click_layer_attributes"))
             page.wait_for_selector(
                 ".foliplus-layer-attrs-panel", state="attached", timeout=5000
             )
@@ -5003,9 +4756,7 @@ class TestLayerControlBrowser:
             for i in range(3)
         ]
         with use_page(self._make_page, browser, tmp_path, *layers) as (page, _):
-            page.evaluate(
-                'document.querySelector(".foliplus-layer-ctrl .foliplus-toggle-btn").click()'
-            )
+            page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.foliplus-is-expanded",
                 state="attached",
@@ -5019,35 +4770,15 @@ class TestLayerControlBrowser:
             def row_wake(idx):
                 # The Row-cursor wake of a sibling row: glow + drag grip.
                 # Nothing may suppress it — it is the row's own state display.
-                return page.evaluate(
-                    "idx => { const r = document.querySelectorAll('" + ROW + "')[idx];"
-                    " if (!r) return null;"
-                    " const cs = getComputedStyle(r);"
-                    " const g = r.querySelector('.foliplus-drag-cell .drag-handle');"
-                    " return { glow: cs.boxShadow !== 'none',"
-                    "  grip: g ? getComputedStyle(g).opacity : null }; }",
-                    idx,
-                )
+                return page.evaluate(_js("LayerControl/row_wake"), [idx, ROW])
 
             def overlay_topmost(sel):
                 # The point at the overlay's center must resolve to the overlay
                 # itself — a lit sibling would otherwise paint over it.
-                return page.evaluate(
-                    "sel => { const el = document.querySelector(sel);"
-                    " if (!el) return null;"
-                    " const r = el.getBoundingClientRect();"
-                    " const hit = document.elementFromPoint("
-                    "   r.left + r.width / 2, r.top + r.height / 2);"
-                    " return hit ? !!hit.closest(sel) : null; }",
-                    sel,
-                )
+                return page.evaluate(_js("LayerControl/overlay_topmost"), sel)
 
             def open_more_on_first_row():
-                page.evaluate(
-                    "() => document.querySelectorAll('"
-                    + ROW
-                    + " .foliplus-layer-more-btn')[0].click()"
-                )
+                page.evaluate(_js("LayerControl/click_first_row_more_btn"), ROW)
                 page.wait_for_selector(
                     ".foliplus-layer-more-menu.open", state="attached", timeout=5000
                 )
@@ -5056,11 +4787,8 @@ class TestLayerControlBrowser:
             open_more_on_first_row()
             page.hover(":nth-match(" + ROW + ", 2)")
             page.wait_for_function(
-                "() => getComputedStyle("
-                "  document.querySelectorAll('"
-                + ROW
-                + " .foliplus-drag-cell .drag-handle')[1]"
-                ").opacity === '1'",
+                _js("LayerControl/wait_drag_handle_opacity"),
+                arg=[ROW + " .foliplus-drag-cell .drag-handle", 1, "1"],
                 timeout=2000,
             )
             assert page.is_visible(".foliplus-layer-more-menu.open")
@@ -5077,11 +4805,9 @@ class TestLayerControlBrowser:
             # that owns it stays lit while the pointer is on the menu.
             page.hover(".foliplus-layer-more-menu.open li")
             page.wait_for_timeout(250)
-            assert page.evaluate(
-                "() => { const r = document.querySelector("
-                "  '.foliplus-layer-item:has(.foliplus-layer-more-menu.open)');"
-                " return r ? getComputedStyle(r).boxShadow !== 'none' : null; }"
-            ), "the row owning the open menu must stay lit while hovering it"
+            assert page.evaluate(_js("LayerControl/read_owner_row_lit")), (
+                "the row owning the open menu must stay lit while hovering it"
+            )
 
             # ── attrs panel open: same contract ──
             # Escape closes the menu without collapsing the panel (a click
@@ -5092,11 +4818,7 @@ class TestLayerControlBrowser:
             )
             page.mouse.move(5, 400)
             open_more_on_first_row()
-            page.evaluate(
-                "() => document.querySelector("
-                "  '.foliplus-layer-more-menu li[data-action=layer-attributes]'"
-                ").click()"
-            )
+            page.evaluate(_js("LayerControl/click_layer_attributes"))
             page.wait_for_selector(
                 ".foliplus-layer-attrs-panel", state="attached", timeout=5000
             )
@@ -5105,8 +4827,8 @@ class TestLayerControlBrowser:
             SEP = ".foliplus-layer-sep.foliplus-layer-toggle-all"
             page.hover(SEP)
             page.wait_for_function(
-                "() => { const r = document.querySelector('" + SEP + "');"
-                " return getComputedStyle(r).boxShadow !== 'none'; }",
+                _js("LayerControl/wait_sep_glow"),
+                arg=SEP,
                 timeout=2000,
             )
             assert overlay_topmost(".foliplus-layer-attrs-panel") is True, (
@@ -5198,7 +4920,7 @@ class TestLayerControlBrowser:
                 ),
             )
             panel_ready(page)
-            page.evaluate("window.__probe = " + json.dumps({"id": t1.get_name()}))
+            page.evaluate(_js("LayerControl/set_probe"), {"id": t1.get_name()})
             result = page.evaluate(_js("LayerControl/zoom_range_native_tilelayer"))
             assert result is not None, result
             assert result.get("error") is None, f"setup failed: {result}"
@@ -5234,20 +4956,11 @@ class TestLayerControlBrowser:
         ):
             panel_ready(page)
             # Get the layer's actual id (folium generates one).
-            actual_id = page.evaluate("""
-                () => {
-                    const el = document.querySelector('.leaflet-container');
-                    const map = (el && window[el.id]) || window.map;
-                    const api = map.foliplus && map.foliplus.LayerAPI;
-                    if (!api || !api.layers) return null;
-                    const layer = api.layers.find(l => l.name === 'ZROffProbe');
-                    return layer ? layer.id : null;
-                }
-            """)
+            actual_id = page.evaluate(_js("LayerControl/find_zroffprobe_id"))
             if not actual_id:
                 raise AssertionError("ZROffProbe layer not found in registry")
             # Re-set probe with the actual id.
-            page.evaluate("window.__probe = " + json.dumps({"id": actual_id}))
+            page.evaluate(_js("LayerControl/set_probe"), {"id": actual_id})
             result = page.evaluate(_js("LayerControl/show_false_zoom_stays_off"))
             assert result is not None, result
             assert result.get("error") is None, f"setup failed: {result}"
@@ -5303,45 +5016,9 @@ class TestLayerControlBrowser:
             # layer, simulating a user who previously set a zoom range for it.
             # On reload, applyUserState will restore this entry and run
             # applyZoomRangeStateOne — which must NOT add the layer to the map.
-            page.evaluate("""
-                () => {
-                    const el = document.querySelector('.leaflet-container');
-                    const map = (el && window[el.id]) || window.map;
-                    const api = map.foliplus && map.foliplus.LayerAPI;
-                    const layer = api.layers.find(l => l.name === 'ZROffReload');
-                    const id = layer ? layer.id : null;
-                    if (!id) throw new Error('ZROffReload not found in registry');
-                    const key = 'foliplus_layer_state_' + el.id;
-                    const record = JSON.parse(localStorage.getItem(key) || '{}');
-                    record.version = 1;
-                    record.order = record.order || null;
-                    record.foldedGroups = record.foldedGroups || [];
-                    record.renamedNames = record.renamedNames || {};
-                    record.annotations = record.annotations || {};
-                    record.layers = record.layers || {};
-                    record.layers[id] = {
-                        zoomRange: [3, 12],
-                        overrides: ['zoomRange'],
-                    };
-                    localStorage.setItem(key, JSON.stringify(record));
-                    return id;
-                }
-            """)
+            page.evaluate(_js("LayerControl/seed_zroffreload_storage"))
             # Capture the layer's map membership before reload.
-            before = page.evaluate("""
-                () => {
-                    const el = document.querySelector('.leaflet-container');
-                    const map = (el && window[el.id]) || window.map;
-                    if (!map) return null;
-                    const api = map.foliplus && map.foliplus.LayerAPI;
-                    if (!api) return null;
-                    const layer = api.layers.find(l => l.name === 'ZROffReload');
-                    if (!layer) return null;
-                    const leafletLayer = api.findLayer(layer.id);
-                    if (!leafletLayer) return null;
-                    return map.hasLayer(leafletLayer);
-                }
-            """)
+            before = page.evaluate(_js("LayerControl/read_zroffreload_on_map_nullable"))
             page.reload(wait_until="domcontentloaded")
             page.wait_for_selector(
                 ".foliplus-layer-ctrl", state="attached", timeout=10000
@@ -5354,22 +5031,9 @@ class TestLayerControlBrowser:
             page.wait_for_timeout(500)
 
             # Read the layer's state after reload.
-            result = page.evaluate("""
-                () => {
-                    const el = document.querySelector('.leaflet-container');
-                    const map = (el && window[el.id]) || window.map;
-                    if (!map) return { error: 'map not found' };
-                    const api = map.foliplus && map.foliplus.LayerAPI;
-                    if (!api) return { error: 'LayerAPI not found' };
-                    const layer = api.layers.find(l => l.name === 'ZROffReload');
-                    if (!layer) return { error: 'ZROffReload not in registry' };
-                    const leafletLayer = api.findLayer(layer.id);
-                    if (!leafletLayer) return { error: 'no Leaflet layer' };
-                    return {
-                        onMap: map.hasLayer(leafletLayer),
-                    };
-                }
-            """)
+            result = page.evaluate(
+                _js("LayerControl/read_zroffreload_on_map_with_error")
+            )
             assert result is not None, "evaluation returned None"
             assert result.get("error") is None, f"setup failed: {result}"
             # folium 0.14 adds every layer regardless of show=False, so on
@@ -5468,21 +5132,7 @@ class TestLayerControlBrowser:
             # The commit half lands in storage behind the write debounce.
             page.wait_for_timeout(300)
             stored = page.evaluate(
-                """(id) => {
-                    const key = Object.keys(localStorage).find(k =>
-                        k.startsWith("foliplus_layer_state_"));
-                    const record = key
-                        ? JSON.parse(localStorage.getItem(key) || "null")
-                        : null;
-                    const entry = record && record.layers
-                        ? record.layers[id]
-                        : null;
-                    return {
-                        stored: entry ? entry.zoomRange : null,
-                        overrides: entry ? entry.overrides : null,
-                    };
-                }""",
-                result["id"],
+                _js("LayerControl/read_layer_storage_entry"), result["id"]
             )
             assert stored["stored"] == result["committed"], (
                 f"the committed range did not reach storage: {stored}"
@@ -5695,18 +5345,9 @@ class TestLayerControlBrowser:
 
             # Expose the test marker to the snippet so it can `openTooltip()`
             # deterministically. The var name is the folium hash suffix.
-            marker_var = page.evaluate(
-                """
-                () => {
-                  const s = Array.from(document.scripts)
-                    .map(n => n.textContent).join("\\n");
-                  const m = s.match(/var (marker_[a-f0-9]+) = L\\.marker/);
-                  return m ? m[1] : null;
-                }
-                """
-            )
+            marker_var = page.evaluate(_js("LayerControl/find_marker_var"))
             assert marker_var is not None, "could not find the folium marker var"
-            page.evaluate(f"() => {{ window.__testMarker = window.{marker_var}; }}")
+            page.evaluate(_js("LayerControl/set_test_marker"), marker_var)
 
             result = page.evaluate(_js("LayerControl/focus_hides_native_panes"))
             assert result is not None and "error" not in result, (

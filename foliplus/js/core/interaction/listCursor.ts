@@ -244,4 +244,3 @@ class ListCursor {
 }
 
 export { ListCursor };
-export type { ListCursorMode, ListCursorOptions, ListCursorRoles };

@@ -46,9 +46,8 @@ export { ensureLayerAPI, requireLayerAPI } from "./api.js";
 export { CLUSTER_CAPABILITIES, deriveLayerKind } from "./util.js";
 export { LayerRuntimeStore } from "./LayerRuntimeStore.js";
 export { LayerOrder } from "./LayerOrder.js";
-export type { OrderPersistence } from "./LayerOrder.js";
 export { INTENT, LIVE, STYLE_KEYS } from "./intent.js";
-export type { AppliedProjection, LayerRuntime } from "./LayerRuntimeStore.js";
+export type { AppliedProjection } from "./LayerRuntimeStore.js";
 export type { Projection } from "./type.js";
 export type {
   AnnotationConfig,
@@ -69,7 +68,6 @@ export type {
   LabelAwareLayer,
   LayerAPI,
   LayerCapabilities,
-  LayerCarrier,
   LayerDimKey,
   LayerInfo,
   LayerKind,

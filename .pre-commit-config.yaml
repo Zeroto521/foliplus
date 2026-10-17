@@ -102,3 +102,18 @@ repos:
         entry: python script/check/style_check.py
         language: python
         files: (^foliplus/js/.*\.ts$|^foliplus/css/.*\.css$|^script/.*\.(mjs|cjs|js)$)
+
+      # Dead barrel/type.ts export gate: detects barrel re-exports and type
+      # exports with zero consumers repo-wide. Builds a (file, symbol)
+      # dependency graph across all .ts files and reports exports that
+      # cannot reach a terminal consumer (real code file, test file, IIFE
+      # entry, config-schema.ts, or Python string reference). Barrel chains
+      # (index.ts → index.ts → real code) are resolved via BFS reachability.
+      # Exempts 8 IIFE component entry index.ts files and config-schema.ts.
+      # Check-only — remove the export or the symbol.
+      - id: dead-barrel-export
+        name: dead-barrel-export
+        entry: python script/check/dead_barrel_export.py
+        language: python
+        files: ^foliplus/js/.*\.ts$
+        pass_filenames: false
