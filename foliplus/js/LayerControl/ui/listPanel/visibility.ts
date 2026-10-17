@@ -200,6 +200,15 @@ const applyVisibility = (ui: LayerUI, id: string, visible: boolean): boolean => 
   setVisibleIntent(ui, id, visible);
   applyProjection(ui, id);
 
+  // On a base check (false → true) push the id onto the activation stack so
+  // syncAttribution picks this base's attr rather than the first visible base
+  // in registry order (which under folium's default OSM would always win).
+  // An uncheck does not record — the user just took one off, so the
+  // previously-active base in the stack (if still visible) is what should show.
+  if (visible && layerInfo.group === GROUP.BASE && oldChecked !== visible) {
+    ui.c.recordBaseCheck(id);
+  }
+
   // Paint last: the cell reads the intent this transition just recorded.
   if (item) applyRowView(ui, item, buildRowCell(ui, layerInfo));
 

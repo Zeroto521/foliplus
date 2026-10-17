@@ -4,11 +4,15 @@
   // attribution entry table plus the map's max zoom.
   //
   // Every syncAttribution is a full clear + rebuild of the entry table, so
-  // the assertions in the caller pin the invariant "exactly one entry == the
-  // topmost visible base's attr" through a real browser sequence that the
-  // mock-only unit tests cannot exercise (Leaflet's own `layeradd` handler
-  // fires before the debounced sync, which is what made the "stack two
-  // entries" bug visible in the first place).
+  // the assertions in the caller pin the invariant "exactly one entry ==
+  // the base the user last activated" through a real browser sequence that
+  // the mock-only unit tests cannot exercise (Leaflet's own `layeradd`
+  // handler fires before the debounced sync, which is what made the
+  // "stack two entries" bug visible in the first place).
+  //
+  // The sequence deliberately leaves both A and B unchecked for one step
+  // (step 1) — only the map's default OSM is on at that point — so the
+  // caller can verify the fallback kicks in when no user base is visible.
   const map = window.map;
   if (!map) return { error: "no window.map" };
 
@@ -30,15 +34,17 @@
 
   return new Promise(async resolve => {
     const result = { steps: [] };
+    result.initial = read();
     for (const [action, name] of [
       ["uncheck", "A"],
       ["uncheck", "B"],
       ["check", "B"],
       ["check", "A"],
       ["uncheck", "A"],
+      ["uncheck", "B"],
     ]) {
       const r = toggleByName(name);
-      await new Promise(res => setTimeout(res, 200));
+      await new Promise(res => setTimeout(res, 250));
       result.steps.push({ action, name, r, state: read() });
     }
     resolve(result);

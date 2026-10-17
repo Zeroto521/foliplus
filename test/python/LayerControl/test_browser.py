@@ -5456,24 +5456,37 @@ class TestLayerControlBrowser:
 
     def test_attribution_only_topmost_visible(self, browser, tmp_path):
         """Regression guard: with multiple base layers checked, the
-        attribution control shows exactly one entry — the topmost visible
-        base's attr — never two.
+        attribution control shows exactly one entry — the base the user
+        last activated — never two, and never the default OSM copyright
+        when the user has checked another base.
 
-        Before the fix, foliplus's `syncAttribution` kept a single
-        ``lastAttribution`` cache and diffed against it. When a second
-        base was checked under an already-visible first base, Leaflet's
-        own ``layeradd`` handler had already added its entry, so the
-        table held both; a diff-against-cache then early-returned and
-        never cleaned up the newcomer. A real browser with Leaflet's
-        attribution control in the loop is required — the vitest mock
-        (``{ _attributions: {} }``) never sees this path.
+        Before the fix, foliplus's `syncAttribution` walked the registry
+        from `firstBaseIdx` and took the first visible base's attr. Under
+        `folium.Map()`'s default OSM (always at index 0 of the base group
+        because every later registration inserts at the front), the walk
+        always picked the default OSM, so no matter which user base the
+        user checked, the rendered attribution was the OSM copyright.
+        A second bug compounded it: the pre-`checkedBasesStack` rebuild
+        kept a single `lastAttribution` cache and diffed against it, so
+        when a second base was checked under an already-visible first
+        base, Leaflet's own `layeradd` handler had already added its
+        entry and the diff-against-cache early-returned without cleaning
+        the newcomer up.
 
-        The snippet walks the sequence uncheck A → uncheck B → check B →
-        check A → uncheck A so every intermediate state has a known
-        expected table, and asserts the final state has exactly one
-        entry after both bases had been visible simultaneously.
+        The fix keeps a `checkedBasesStack` — one push per base check —
+        and walks it most-recent-first, falling back to the first visible
+        base when the stack is empty (the pre-activation page-load case).
+        The snippet walks uncheck A → uncheck B → check B → check A →
+        uncheck A → uncheck B so every intermediate state has a known
+        expected table, and every step exercises the stack through a real
+        browser with Leaflet's attribution control in the loop.
         """
-        m = folium.Map(location=[26.08, 119.30], zoom_start=12, tiles=None)
+        # Use folium's default map — the default OpenStreetMap tile layer
+        # is registered as a base at LayerControl's index 0 of the base
+        # group, exactly the real-world scenario that made the old
+        # "first visible base" rule render the OSM copyright for every
+        # user-checked base.
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
         LayerControl().add_to(m)
         folium.TileLayer(
             "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
@@ -5489,9 +5502,6 @@ class TestLayerControlBrowser:
             overlay=False,
             max_zoom=20,
         ).add_to(m)
-        # The panel ships collapsed, so the rows (with their checkboxes)
-        # are not in the DOM yet when the snippet runs. Expand it on load —
-        # the same helper the reload tests use.
         _expand_panel(m)
         _write_html(m, tmp_path / "attribution_topmost.html")
         with use_raw_page(browser.new_page) as page:
@@ -5508,21 +5518,38 @@ class TestLayerControlBrowser:
             result = page.evaluate(_js("LayerControl/attribution_only_topmost_visible"))
             assert result is not None and not result.get("error"), result
             steps = result["steps"]
-            assert len(steps) == 5, f"expected 5 steps, got {len(steps)}: {result}"
+            assert len(steps) == 6, f"expected 6 steps, got {len(steps)}: {result}"
             for step in steps:
                 assert step["r"]["ok"] is True, f"toggle failed: {step}"
-            # Step 0: uncheck A → only B visible → only B's attr.
-            assert steps[0]["state"]["entries"] == {"B attr": 1}, steps[0]
-            # Step 1: uncheck B → neither visible → table empty.
-            assert steps[1]["state"]["entries"] == {}, steps[1]
-            # Step 2: check B → only B → only B's attr.
+            # Initial state: exactly one entry — whatever the fallback
+            # picks from the visible base set (default OSM plus A and B
+            # are all on at page load, so this is the first visible base
+            # in registry order).
+            assert len(result["initial"]["entries"]) == 1, result["initial"]
+            # Step 1 (uncheck B): only the default OSM is on, and the
+            # stack is still empty — fallback kicks in. The entry must be
+            # the OSM default, i.e. not "A attr" or "B attr".
+            step1_entries = steps[1]["state"]["entries"]
+            assert len(step1_entries) == 1, steps[1]
+            assert "A attr" not in step1_entries, steps[1]
+            assert "B attr" not in step1_entries, steps[1]
+            # Step 2 (check B): stack=[B], B's attr wins even though the
+            # default OSM is still on the map at index 0 of the base
+            # group. This is the exact regression: previously the walk
+            # would have picked the OSM copyright here.
             assert steps[2]["state"]["entries"] == {"B attr": 1}, steps[2]
-            # Step 3: check A → both visible, A on top (registered later)
-            # → only A's attr. This is the exact regression: previously
-            # the table held both entries here.
+            # Step 3 (check A): stack=[B, A], A is newest → A's attr wins.
             assert steps[3]["state"]["entries"] == {"A attr": 1}, steps[3]
-            # Step 4: uncheck A → back to only B.
+            # Step 4 (uncheck A): stack still [B, A], A is no longer on
+            # the map, so the walk falls through A to B. This is the
+            # "stale stack entry falls through" invariant.
             assert steps[4]["state"]["entries"] == {"B attr": 1}, steps[4]
+            # Step 5 (uncheck B): both user bases off, only the default
+            # OSM visible — fall back to it. Same shape as step 1.
+            step5_entries = steps[5]["state"]["entries"]
+            assert len(step5_entries) == 1, steps[5]
+            assert "A attr" not in step5_entries, steps[5]
+            assert "B attr" not in step5_entries, steps[5]
 
     def test_hidden_base_does_not_raise_max_zoom(self, browser, tmp_path):
         """A hidden base layer must not raise ``map.getMaxZoom()``.
