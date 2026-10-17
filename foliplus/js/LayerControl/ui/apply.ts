@@ -36,7 +36,14 @@ import type { LayerUI } from "./surface.js";
 
 /** One write the carrier dispatcher accepts. `opacity` being
  *  `undefined` means "no user value" — a Reset back to the author's
- *  default — not "leave the carrier alone". */
+ *  default — not "leave the carrier alone".
+ *
+ *  No `zoomRange` variant: zoomRange is carried by the `visible` op
+ *  (`effectiveShown` change triggers map-membership diff). Writing
+ *  `options.minZoom/maxZoom` would clamp GridLayer to the range rather
+ *  than hide it, and only GridLayer honors those options — Path/GeoJSON/
+ *  Marker silently ignore them. Two write sources for "why is this
+ *  invisible" breaks the intent-only invariant. */
 type StateOp =
   { type: "visible"; value: boolean } | { type: "opacity"; value: number | undefined };
 
