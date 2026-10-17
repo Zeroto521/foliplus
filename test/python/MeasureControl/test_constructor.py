@@ -11,7 +11,7 @@ from conftest import (
 from foliplus import MeasureControl
 
 
-class TestMeasureControlPython:
+class TestMeasureControlConstructor:
     """Python-side property tests."""
 
     def test_name(self):

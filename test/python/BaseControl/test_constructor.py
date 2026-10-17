@@ -24,7 +24,7 @@ from foliplus import (
 )
 
 
-class TestBaseControlPython:
+class TestBaseControlConstructor:
     """Python-side API tests for BaseControl internals."""
 
     def test_config_fields_defaults_to_empty(self):

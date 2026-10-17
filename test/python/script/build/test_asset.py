@@ -37,6 +37,7 @@ from foliplus.BaseControl import (
     _build_component_template,
     _build_shared_header,
     _load_asset,
+    control_assets,
     dist_dir,
     expected_artifacts,
 )
@@ -49,7 +50,7 @@ from foliplus.SearchControl import SearchControl
 # asserted in both stacks without either suite re-deriving the names.
 EXPECTED = expected_artifacts()
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = Path(__file__).resolve().parents[4]
 SCRIPT_PATH = REPO_ROOT / "script" / "check" / "smoke-wheel.py"
 
 
@@ -259,8 +260,6 @@ def test_smoke_script_shares_the_naming_scheme():
     verifying. If it drifted, the gate would check filenames the render never
     opens — a manifest that passes while the bundles stay empty.
     """
-    from foliplus.BaseControl import control_assets
-
     smoke = _smoke_module()
     for name in set(
         n.rsplit(".min.", 1)[0].removeprefix("foliplus-") for n in EXPECTED

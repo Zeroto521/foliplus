@@ -11,7 +11,7 @@ from conftest import (
 from foliplus import HeatmapControl
 
 
-class TestHeatmapControlPython:
+class TestHeatmapControlConstructor:
     """Python-side property tests."""
 
     def test_name(self):
