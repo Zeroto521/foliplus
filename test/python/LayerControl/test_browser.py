@@ -5812,3 +5812,132 @@ class TestLayerControlBrowser:
                 f"unresolved={result['unresolved']} on row {result.get('id')!r}"
             )
             assert not errors, f"JS errors: {errors}"
+
+    def test_attribution_only_topmost_visible(self, browser, tmp_path):
+        """Regression guard: with multiple base layers checked, the
+        attribution control shows exactly one entry — the topmost visible
+        base's attr — never two.
+
+        Before the fix, foliplus's `syncAttribution` kept a single
+        ``lastAttribution`` cache and diffed against it. When a second
+        base was checked under an already-visible first base, Leaflet's
+        own ``layeradd`` handler had already added its entry, so the
+        table held both; a diff-against-cache then early-returned and
+        never cleaned up the newcomer. A real browser with Leaflet's
+        attribution control in the loop is required — the vitest mock
+        (``{ _attributions: {} }``) never sees this path.
+
+        The snippet walks the sequence uncheck A → uncheck B → check B →
+        check A → uncheck A so every intermediate state has a known
+        expected table, and asserts the final state has exactly one
+        entry after both bases had been visible simultaneously.
+        """
+        base_a = folium.TileLayer(
+            "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+            name="A",
+            attr="A attr",
+            overlay=False,
+            max_zoom=18,
+        )
+        base_b = folium.TileLayer(
+            "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+            name="B",
+            attr="B attr",
+            overlay=False,
+            max_zoom=20,
+        )
+        with use_page(
+            self._make_page,
+            browser,
+            tmp_path,
+            base_a,
+            base_b,
+            slug="attribution_topmost",
+        ) as (page, errors):
+            panel_ready(page)
+            result = page.evaluate(
+                _js("LayerControl/attribution_only_topmost_visible")
+            )
+            assert result is not None and not result.get("error"), result
+            steps = result["steps"]
+            assert len(steps) == 5, f"expected 5 steps, got {len(steps)}: {result}"
+            for step in steps:
+                assert step["r"]["ok"] is True, f"toggle failed: {step}"
+            # Step 0: uncheck A → only B visible → only B's attr.
+            assert steps[0]["state"]["entries"] == {"B attr": 1}, steps[0]
+            # Step 1: uncheck B → neither visible → table empty.
+            assert steps[1]["state"]["entries"] == {}, steps[1]
+            # Step 2: check B → only B → only B's attr.
+            assert steps[2]["state"]["entries"] == {"B attr": 1}, steps[2]
+            # Step 3: check A → both visible, A on top (registered later)
+            # → only A's attr. This is the exact regression: previously
+            # the table held both entries here.
+            assert steps[3]["state"]["entries"] == {"A attr": 1}, steps[3]
+            # Step 4: uncheck A → back to only B.
+            assert steps[4]["state"]["entries"] == {"B attr": 1}, steps[4]
+            assert not errors, f"JS errors: {errors}"
+
+    def test_hidden_base_does_not_raise_max_zoom(self, browser, tmp_path):
+        """A hidden base layer must not raise ``map.getMaxZoom()``.
+
+        foliplus used to write a static union of *all registered*
+        layers' native ``options.maxZoom`` into ``map.options.maxZoom``
+        on every ``enforceOrder`` pass — including layers the user had
+        checked off. Since Leaflet's ``getMaxZoom`` returns
+        ``options.maxZoom ?? <max of on-map layers>`,` removing the
+        static write lets a hidden base stop raising the ceiling. This
+        pins that behavior in a real browser so a future regression
+        doesn't quietly come back.
+        """
+        # Two base layers with distinct native max_zoom values. Both
+        # start checked (folium's default for overlay=False).
+        base_high = folium.TileLayer(
+            "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+            name="High",
+            attr="High",
+            overlay=False,
+            max_zoom=20,
+        )
+        base_low = folium.TileLayer(
+            "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+            name="Low",
+            attr="Low",
+            overlay=False,
+            max_zoom=10,
+        )
+        with use_page(
+            self._make_page,
+            browser,
+            tmp_path,
+            base_low,
+            base_high,
+            slug="hidden_base_maxzoom",
+        ) as (page, _):
+            panel_ready(page)
+            # Both checked: the ceiling is the union of on-map
+            # layers' native max_zoom.
+            both = page.evaluate(
+                "() => ({ zoom: window.map.getMaxZoom(), "
+                "         entries: Object.keys(window.map.attributionControl._attributions) })"
+            )
+            assert both["entries"] == ["High"], both
+            assert both["zoom"] == 20, both
+            # Uncheck "High" — the ceiling must drop to "Low"'s native
+            # 10. Before the fix, "High" was still registered and its
+            # native max_zoom would have kept the ceiling at 20.
+            page.evaluate(
+                "() => { const r = [...document.querySelectorAll('.foliplus-layer-item')]"
+                ".find(r => r.querySelector('.foliplus-layer-name')?.textContent?.trim() === 'High');"
+                " if (r) r.querySelector('input[type=checkbox]').click(); }"
+            )
+            page.wait_for_timeout(300)
+            low_only = page.evaluate(
+                "() => ({ zoom: window.map.getMaxZoom(), "
+                "         entries: Object.keys(window.map.attributionControl._attributions) })"
+            )
+            assert low_only["entries"] == ["Low"], low_only
+            assert low_only["zoom"] == 10, (
+                f"a hidden base must not raise getMaxZoom, got {low_only['zoom']} "
+                "(expected 10 from the visible 'Low' layer's native max_zoom): "
+                f"{low_only}"
+            )

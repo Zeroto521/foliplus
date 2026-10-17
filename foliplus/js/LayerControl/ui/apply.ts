@@ -34,13 +34,11 @@ import { INTENT, getIntent } from "./intent.js";
 import { intentVisibleOf, projectAll, projectLayer } from "./projection.js";
 import type { LayerUI } from "./surface.js";
 
-/** One write the carrier dispatcher accepts. `opacity` and `zoomRange`
- *  being `undefined` mean "no user value" — a Reset back to the author's
+/** One write the carrier dispatcher accepts. `opacity` being
+ *  `undefined` means "no user value" — a Reset back to the author's
  *  default — not "leave the carrier alone". */
 type StateOp =
-  | { type: "visible"; value: boolean }
-  | { type: "opacity"; value: number | undefined }
-  | { type: "zoomRange"; value: [number, number] | null };
+  { type: "visible"; value: boolean } | { type: "opacity"; value: number | undefined };
 
 /** Lazy-cached per-layer read for the multiplier-write family: freeze an
  *  author-declared value on first access, never re-read.
@@ -87,25 +85,21 @@ const authorOpacityBaseOf = (layer: L.Layer): number =>
 
 /** The layer's own author-declared min/max, frozen on first write.
  *
- *  Frozen, not re-read: `dispatchStateOp` writes `options.minZoom/maxZoom` on
- *  every live drag, so reading them back next time would feed the slider
- *  its own last drag — a ratchet that shrinks the slider's range with
- *  every drag. The snapshot is captured in `dispatchStateOp` before the write,
+ *  Frozen, not re-read: the zoomRange UI mutates `layerInfo.zoomRange` on
+ *  every commit, and any future write-through to `options.minZoom/maxZoom`
+ *  would feed the slider its own last drag — a ratchet that shrinks the
+ *  slider's range with every drag. The snapshot is captured on first read,
  *  which is also what makes persistence-replay safe: on reload the state
- *  replay fires before the panel opens, so any snapshot that captures at
- *  first read would already see `options.maxZoom` set to the persisted
- *  value, freezing the slider at that last drag instead of at the author's
- *  declared range.
+ *  replay fires before the panel opens, so a read-at-first-access would
+ *  already see the persisted value, freezing the slider at that last drag
+ *  instead of at the author's declared range.
  *
  *  `layer.options.minZoom/maxZoom` fall back to the map's declared values
  *  when the layer declares none — a TileLayer without `options.maxZoom`
  *  means "whatever the map allows", not "Infinity". `map.getMaxZoom()`
  *  itself returns `Infinity` for a map without a declared max, so that
  *  path gets its own finite fallback: `CONST.AUTHOR_ZOOM_FALLBACK_MAX`, so
- *  the values row can never print the literal string "Infinity".
- *
- *  Min end is symmetric: dragging the left thumb writes `options.minZoom`,
- *  which would ratchet the slider's own min upward on the next build. */
+ *  the values row can never print the literal string "Infinity". */
 const authorZoomBounds = new WeakMap<L.Layer, [number, number]>();
 
 const finiteOr = (v: number | undefined, fallback: number): number =>
@@ -355,14 +349,11 @@ const dispatchStateOp = (
  *  `dispatchStateOp` only for the dimensions that moved.
  *
  *  Ordering: `visible (effective)` and `opacity` are independent of the
- *  projection's `zoomRange`, so they apply in either order. `zoomRange`
- *  applies last because the `pane` carrier's effective-shown recalculation
- *  needs the new range in effect before it decides whether the layer stays
- *  on the map — doing it in the other order would write an effective-shown
- *  computed off the old range. The `effectiveShown` write that follows a
- *  `zoomRange` change is therefore computed from the projection's new
- *  `zoomRange`, not from the executor's current state (the projection
- *  has already seen the new range).
+ *  projection's `zoomRange`, so they apply in either order. The zoomRange
+ *  dimension itself is *not* dispatched here — it resolves through the
+ *  `visible` op (the projection's `effectiveShown` already folds in the
+ *  current range), so a zoomRange change flows through as a map-membership
+ *  diff on `effectiveShown`, not as its own state op.
  *
  *  `ui.runtimeStore.setApplied` records what was written so the next call is a
  *  diff, not a full write. The map is keyed by id (not by `layerInfo`
@@ -477,17 +468,6 @@ const applyProjection = (
       ui,
       layerInfo,
       { type: "opacity", value: next.opacity },
-      repaintMode,
-    );
-  }
-  // 3. Zoom range — last, because the pane carrier's effective-shown
-  //    recalculation in step 1 reads the range as of the projection
-  //    (the new one), not the executor's previous write.
-  if (prev.zoomRange !== next.zoomRange) {
-    dispatchStateOp(
-      ui,
-      layerInfo,
-      { type: "zoomRange", value: next.zoomRange },
       repaintMode,
     );
   }

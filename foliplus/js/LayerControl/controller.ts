@@ -142,7 +142,6 @@ class LayerController implements LayerAPI {
    *  start from a layer rather than from a registry entry. */
   declare private surfacesByLayer: Map<number, LayerSurface>;
   declare factory: LayerFactory;
-  declare lastAttribution: string | null;
   declare ui: LayerUI | null;
   declare debouncedEnforce: Debounced;
   persistence: LayerPersistence;
@@ -275,7 +274,6 @@ class LayerController implements LayerAPI {
       onDataChange: id => this.refreshCount(id),
     });
 
-    this.lastAttribution = null;
     this.ui = null;
 
     this.debouncedEnforce = debounce(() => {
@@ -363,7 +361,6 @@ class LayerController implements LayerAPI {
       annotation: this.annotation,
       surfaces: this.surfaces,
       surfacesByLayer: this.surfacesByLayer,
-      lastAttribution: this.lastAttribution,
       getIntentStore: () => this.intentStore,
     });
     this.getLayerPanes = layer => this.domain.resolveLayerPanes(layer);
@@ -994,7 +991,7 @@ class LayerController implements LayerAPI {
   }
 
   syncAttribution() {
-    this.lastAttribution = this.domain.syncAttribution();
+    this.domain.syncAttribution();
   }
 
   attachUI(containerDiv: HTMLElement) {

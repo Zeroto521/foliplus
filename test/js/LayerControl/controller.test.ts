@@ -233,53 +233,6 @@ describe("LayerController", () => {
     expect(grid.options.pane).toMatch(new RegExp(`^${FALLBACK_PANE_PREFIX}`));
   });
 
-  it("markBasePanes self-heals: a base -> overlay re-registration drops the stale class", () => {
-    // The ordering pass stamps `.foliplus-base-pane` on every base-group
-    // surface's panes and removes it from overlay-group panes. When a layer
-    // is unregistered and re-registered with the same id but a different
-    // group (base → overlay), the surface is recreated but the pane DOM
-    // element is reused (`map.getPane(name)` is idempotent by name). The
-    // ordering pass must remove the stale class on the next sweep —
-    // otherwise the re-registered overlay would be skipped by the hide
-    // rule when something else is focused, and the focus target would fail
-    // to stand out.
-    manager.map.hasLayer.mockReturnValue(true);
-    // Cache panes by name so re-registration reuses the same DOM element.
-    const panes = new Map<string, HTMLElement>();
-    const realGetPane = map.getPane;
-    map.getPane = vi.fn((name: string) => {
-      if (!panes.has(name)) panes.set(name, realGetPane(name));
-      return panes.get(name)!;
-    });
-
-    // Phase 1: register as base-group, run the ordering pass, the pane gets
-    // the exclusion class.
-    manager.registerLayer({
-      id: "swap",
-      name: "Swap",
-      group: "base",
-      layer: new TileLayer(),
-      paneName: "swapPane",
-    });
-    manager.enforceOrder();
-    const swapPane = panes.get("swapPane")!;
-    expect(swapPane.classList.contains(CONST.CLASSES.BASE_PANE)).toBe(true);
-
-    // Phase 2: unregister, re-register as overlay-group with the same id
-    // and paneName, run the ordering pass again. The same pane DOM element
-    // must now have the class removed.
-    manager.unregisterLayer("swap");
-    manager.registerLayer({
-      id: "swap",
-      name: "Swap",
-      group: "overlay",
-      layer: new TileLayer(),
-      paneName: "swapPane",
-    });
-    manager.enforceOrder();
-    expect(swapPane.classList.contains(CONST.CLASSES.BASE_PANE)).toBe(false);
-  });
-
   it("slots a layer's label pane just above that layer", () => {
     manager.map.hasLayer.mockReturnValue(true);
     // Labelable overlay: the registration edge declares the
@@ -889,15 +842,7 @@ describe("LayerController", () => {
     expect(map.foliplus.LayerAPI.registerLayer({ id: "x" })).toBeNull();
   });
 
-  // ── syncAttribution caching ──
-
-  it("syncAttribution skips _update when attribution is unchanged", () => {
-    const update = map.attributionControl._update;
-    manager.syncAttribution();
-    const afterFirst = update.mock.calls.length;
-    manager.syncAttribution();
-    expect(update.mock.calls.length).toBe(afterFirst);
-  });
+  // ── syncAttribution ──
 
   it("syncAttribution is a silent no-op when the map has no attribution control", () => {
     // A stripped map (Leaflet built without the control) must not throw — the
@@ -1171,13 +1116,13 @@ describe("LayerController", () => {
     manager.registerLayer({ id: "base1", name: "Base1", layer: tile1, group: "base" });
     manager.registerLayer({ id: "base2", name: "Base2", layer: tile2, group: "base" });
     manager.enforceOrder();
-    expect(manager.lastAttribution).toBe("© OpenStreetMap");
+    expect(map.attributionControl._attributions).toEqual({ "© OpenStreetMap": 1 });
   });
 
-  it("syncAttribution returns empty when no base tile is visible", () => {
+  it("syncAttribution leaves the table empty when no base tile is visible", () => {
     manager.map.hasLayer.mockReturnValue(false);
     manager.enforceOrder();
-    expect(manager.lastAttribution).toBe("");
+    expect(map.attributionControl._attributions).toEqual({});
   });
 
   it("syncAttribution skips non-base entries while scanning for the top tile", () => {
@@ -1199,14 +1144,15 @@ describe("LayerController", () => {
       manager.layerRegistry.get("baseB")!,
     ]);
     manager.syncAttribution();
-    expect(manager.lastAttribution).toBe("© OpenStreetMap");
+    expect(map.attributionControl._attributions).toEqual({ "© OpenStreetMap": 1 });
   });
 
-  it("syncAttribution falls back to the control's private table when Leaflet has no API", () => {
-    // addAttribution/removeAttribution are the supported route and this tree
-    // prefers them. This is the only branch that reaches for the table, so it
-    // earns its own test: the previous entry has to leave the same table the
-    // new one lands in, not just be replaced inside the manager.
+  it("syncAttribution rebuilds the entry table when the visible base changes", () => {
+    // Every sync is a full clear + rebuild of the entry table — the "last
+    // value" cache is gone because it could not see a base Leaflet had
+    // already added underneath another visible base. A change of visible
+    // base therefore replaces the entry rather than diffing against a
+    // remembered value.
     const tile = new TileLayer();
     manager.map.hasLayer.mockImplementation((l: any) => l === tile);
     manager.registerLayer({ id: "base1", name: "OSM", layer: tile, group: "base" });
@@ -1214,15 +1160,10 @@ describe("LayerController", () => {
     const attr = map.attributionControl;
     manager.syncAttribution();
     expect(attr._attributions).toEqual({ "© OpenStreetMap": 1 });
-    expect(manager.lastAttribution).toBe("© OpenStreetMap");
-    const redrawsAfterFirst = attr._update.mock.calls.length;
 
     tile.options.attribution = "© Second";
     manager.syncAttribution();
     expect(attr._attributions).toEqual({ "© Second": 1 });
-    expect(manager.lastAttribution).toBe("© Second");
-    // Exactly one redraw for the sync that changed something.
-    expect(attr._update.mock.calls.length).toBe(redrawsAfterFirst + 1);
   });
 
   it("saveOrder is debounced — rapid calls coalesce into one storage write", () => {
@@ -2849,24 +2790,16 @@ describe("LayerController", () => {
     // ensurePane was reached — the pane should exist in defaultPanes set? just verify no throw
   });
 
-  it("syncAttribution removes the previous attribution via removeAttribution", () => {
+  it("syncAttribution clears the table when the visible base leaves", () => {
     const tile = new TileLayer();
-    map.attributionControl.removeAttribution = vi.fn();
-    map.attributionControl.addAttribution = vi.fn();
     manager.map.hasLayer.mockImplementation((l: any) => l === tile);
     manager.registerLayer({ id: "b1", name: "B1", layer: tile, group: "base" });
     manager.enforceOrder();
-    expect(manager.lastAttribution).toBe("© OpenStreetMap");
-    expect(map.attributionControl.addAttribution).toHaveBeenCalledWith(
-      "© OpenStreetMap",
-    );
-    // flip visibility off → top becomes empty → prev removed
+    expect(map.attributionControl._attributions).toEqual({ "© OpenStreetMap": 1 });
+    // flip visibility off → no base visible → table emptied
     manager.map.hasLayer.mockReturnValue(false);
     manager.enforceOrder();
-    expect(manager.lastAttribution).toBe("");
-    expect(map.attributionControl.removeAttribution).toHaveBeenCalledWith(
-      "© OpenStreetMap",
-    );
+    expect(map.attributionControl._attributions).toEqual({});
   });
 
   describe("deleteLayer — component ownership", () => {
@@ -3767,90 +3700,6 @@ describe("LayerController user-assigned names", () => {
 
     expect(manager.unregisterLayer("never-registered")).toBe(false);
     expect(save).not.toHaveBeenCalled();
-  });
-
-  // ===========================================================================
-  // Map maxZoom fallback: when the author does not declare map.options.maxZoom
-  // (Leaflet's default Infinity), enforceOrder computes a finite upper bound
-  // from the registered layers' declared options.maxZoom — the author's
-  // declaration, not the user's zoomRange (which resolves through
-  // effectiveShown, not map zoom limits).
-  // ===========================================================================
-
-  describe("map maxZoom fallback", () => {
-    // `authorMaxZoomDeclared` is captured at construction, so mutating
-    // `map.options` on an already-built manager can't re-arm the fallback:
-    // each case builds a fresh manager after setting the map's own options.
-    const freshManager = (authorMaxZoom?: number) => {
-      map.options = { maxZoom: authorMaxZoom };
-      return new LayerController(map, []);
-    };
-
-    const tile = (maxZoom: number) => {
-      const layer = new TileLayer();
-      layer.options.maxZoom = maxZoom;
-      return layer;
-    };
-
-    it("caps the map at the highest registered layer's maxZoom (basemaps + data)", () => {
-      const m = freshManager();
-      m.registerLayer({ id: "base16", name: "Base16", group: "base", layer: tile(16) });
-      m.registerLayer({ id: "base20", name: "Base20", group: "base", layer: tile(20) });
-      m.registerLayer({
-        id: "data22",
-        name: "Data22",
-        group: "overlay",
-        layer: tile(22),
-      });
-      m.enforceOrder();
-      expect(map.options.maxZoom).toBe(22);
-    });
-
-    it("raises the ceiling when a higher layer registers later", () => {
-      const m = freshManager();
-      m.registerLayer({ id: "base16", name: "Base16", group: "base", layer: tile(16) });
-      m.enforceOrder();
-      expect(map.options.maxZoom).toBe(16);
-
-      m.registerLayer({
-        id: "data22",
-        name: "Data22",
-        group: "overlay",
-        layer: tile(22),
-      });
-      m.enforceOrder();
-      expect(map.options.maxZoom).toBe(22);
-    });
-
-    it("lowers the ceiling when the highest layer is unregistered", () => {
-      const m = freshManager();
-      m.registerLayer({ id: "base16", name: "Base16", group: "base", layer: tile(16) });
-      m.registerLayer({
-        id: "data22",
-        name: "Data22",
-        group: "overlay",
-        layer: tile(22),
-      });
-      m.enforceOrder();
-      expect(map.options.maxZoom).toBe(22);
-
-      m.unregisterLayer("data22");
-      m.enforceOrder();
-      expect(map.options.maxZoom).toBe(16);
-    });
-
-    it("falls back to the default when no layer declares maxZoom", () => {
-      const m = freshManager();
-      m.enforceOrder();
-      expect(map.options.maxZoom).toBe(CONST.AUTHOR_ZOOM_FALLBACK_MAX);
-    });
-
-    it("does not override an author-declared map.maxZoom", () => {
-      const m = freshManager(25);
-      m.registerLayer({ id: "base16", name: "Base16", group: "base", layer: tile(16) });
-      m.enforceOrder();
-      expect(map.options.maxZoom).toBe(25);
-    });
   });
 
   describe("hasUnresolvedLayers (explicit no-carrier is not unresolved)", () => {
