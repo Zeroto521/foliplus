@@ -12,7 +12,7 @@ from conftest import (
 from foliplus import FullscreenControl
 
 
-class TestFullscreeControlRendering:
+class TestFullscreenControlRendering:
     def test_default_params(self):
         html = render_control(FullscreenControl())
         assert "foliplus-fullscreen-toggle" in html

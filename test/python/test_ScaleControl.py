@@ -16,7 +16,7 @@ from conftest import (
 from foliplus import ScaleControl
 
 
-class TestScaleControlPython:
+class TestScaleControlConstructor:
     """Python-side property tests."""
 
     def test_name(self):
