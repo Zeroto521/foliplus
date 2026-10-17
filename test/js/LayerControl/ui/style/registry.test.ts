@@ -12,9 +12,7 @@
 // is at file scope below; every test after it can rely on the test dim
 // being present.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { LayerRuntimeStore } from "#core/layer/index.js";
 import type { LayerController } from "#foliplus/LayerControl/controller.js";
-import { LayerIntentStore } from "#foliplus/LayerControl/domain/index.js";
 import type { LayerDimension } from "#foliplus/LayerControl/type.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { setIntent } from "#foliplus/LayerControl/ui/intent.js";
@@ -428,6 +426,14 @@ describe("LayerControl style-panel dimension registry — opacity descriptor", (
       opacity: 0.7,
     } as never);
     expect(OPACITY_DIMENSION.value(ui, "overlay1")).toBe(0.7);
+  });
+
+  it("value forces 1 while the layer is focused", () => {
+    // The focus override lives in `currentOpacity`, which the descriptor
+    // delegates to: a focused layer reads 1 regardless of stored intent.
+    setIntent(ui, "overlay1", "opacity", 0.3);
+    ui.focusController.focusingLayerId = "overlay1";
+    expect(OPACITY_DIMENSION.value(ui, "overlay1")).toBe(1);
   });
 
   it("write marks provenance for opacity < 1", () => {

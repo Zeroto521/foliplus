@@ -387,6 +387,22 @@ describe("core/layer util", () => {
       expect(paintsAtZoom(map, layer)).toBe(true);
     });
 
+    it("checks each endpoint independently — minZoom without maxZoom", () => {
+      const map = makeMap(5);
+      const layer = { options: { minZoom: 3 } } as L.Layer;
+      expect(paintsAtZoom(map, layer)).toBe(true);
+      const low = makeMap(2);
+      expect(paintsAtZoom(low, layer)).toBe(false);
+    });
+
+    it("checks each endpoint independently — maxZoom without minZoom", () => {
+      const map = makeMap(2);
+      const layer = { options: { maxZoom: 3 } } as L.Layer;
+      expect(paintsAtZoom(map, layer)).toBe(true);
+      const high = makeMap(4);
+      expect(paintsAtZoom(high, layer)).toBe(false);
+    });
+
     it("treats a null layer as not painting", () => {
       const map = makeMap(3);
       expect(paintsAtZoom(map, null)).toBe(false);
