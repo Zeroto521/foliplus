@@ -113,4 +113,4 @@ type LayerDimension<D = unknown> = {
   valueSource?: (ui: LayerUI, layerId: string) => DimensionValueSource;
 };
 
-export type { DimensionValueSource, LayerDimension, PersistedRecord };
+export type { LayerDimension, PersistedRecord };
