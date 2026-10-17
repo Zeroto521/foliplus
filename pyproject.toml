@@ -76,6 +76,18 @@ foliplus = [
 testpaths = ["test/python"]
 python_files = ["test_*.py"]
 addopts = "-v --tb=short --cov=foliplus --cov-report=term-missing"
+# Override default to keep recursing into `build/` — the JS-side mirror at
+# `test/python/script/build/` is real test code, not a build artifact.
+norecursedirs = [
+  "*.egg",
+  ".*",
+  "_darcs",
+  "CVS",
+  "dist",
+  "node_modules",
+  "venv",
+  "{arch}",
+]
 markers = [
   "browser: marks tests that require a Playwright browser (e.g., Browser test classes)",
 ]
