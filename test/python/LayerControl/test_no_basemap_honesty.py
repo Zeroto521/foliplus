@@ -129,12 +129,9 @@ class TestHatchHonestyBrowser:
         assert r["before"]["hatch"] is False, (
             f"A is in range at zoom=1, no hatch expected: {r['before']}"
         )
-        assert r["after"]["delReturn"] is True, (
-            f"deleteLayer failed: {r['after']}"
-        )
+        assert r["after"]["delReturn"] is True, f"deleteLayer failed: {r['after']}"
         assert r["after"]["hatch"] is True, (
-            f"hatch did not appear after deleting the sole in-range base: "
-            f"{r['after']}"
+            f"hatch did not appear after deleting the sole in-range base: {r['after']}"
         )
         assert not errors, f"JS errors: {errors}"
 
