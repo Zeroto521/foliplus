@@ -19,10 +19,8 @@ async () => {
   const [a, b] = bases;
   const hasHatch = () => container.classList.contains("foliplus-no-base-map");
 
-  map.setZoom(1);
-  await new Promise(r => map.once("zoomend", r));
-  await wait(80);
-
+  // The fixture opens at zoom_start=1, inside A's declared [1,2] — no zoom
+  // round-trip needed; just confirm the baseline before deleting.
   const before = {
     zoom: map.getZoom(),
     hatch: hasHatch(),

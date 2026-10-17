@@ -17,17 +17,24 @@ async () => {
     return { error: `expected 2 real tile bases, got ${bases.length}` };
   }
 
+  // setZoom to the *current* zoom fires no zoomend, so only await the event
+  // when the zoom actually moves; the sweep's syncNoBasemap runs inside the
+  // zoomend handler, so the event boundary is the settle point.
   const to = async z => {
-    map.setZoom(z);
-    await new Promise(r => map.once("zoomend", r));
-    await wait(80);
+    const before = map.getZoom();
+    if (before !== z) {
+      map.setZoom(z);
+      await new Promise(r => map.once("zoomend", r));
+      await wait(40);
+    }
     return { zoom: map.getZoom(), hatch: hasHatch() };
   };
 
-  const atInA = await to(1); // A's declared [1,2] covers 1 → no hatch.
+  // Fixture opens at zoom 1, inside A's declared [1,2] → no hatch.
+  const atInA = await to(1);
   const atGap = await to(5); // Above both A's max (2) and B's max (4) → hatch.
   const atInB = await to(3); // B's declared [3,4] covers 3 → hatch off.
-  const atOutHigh = await to(4); // Still above A's max → both out → hatch.
+  const atOutHigh = await to(4); // Still above A's max; B in range → off.
   const atBack = await to(1); // A re-enters → hatch off.
 
   return { atInA, atGap, atInB, atOutHigh, atBack };

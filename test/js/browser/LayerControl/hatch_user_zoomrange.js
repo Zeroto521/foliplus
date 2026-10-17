@@ -24,9 +24,7 @@ async () => {
     return { error: "fixture base must declare no min/max zoom", a };
   }
 
-  map.setZoom(1);
-  await new Promise(r => map.once("zoomend", r));
-  await wait(80);
+  // Fixture opens at zoom_start=1 — no zoom round-trip needed.
   const before = { hatch: hasHatch(), onMap: aLayer ? map.hasLayer(aLayer) : null };
 
   ui.intentStore.setValue(a.id, "zoomRange", [5, 10]);
