@@ -319,5 +319,4 @@ class InteractionManager {
   }
 }
 
-export { InteractionManager, ensureInteraction };
-export type { InteractionDef };
+export { ensureInteraction };

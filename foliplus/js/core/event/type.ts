@@ -34,4 +34,4 @@ interface EventPayloadMap {
   [EVENTS.OVERLAY_CLEAR]: void;
 }
 
-export type { EventPayloadMap, LayerChangePayload };
+export type { EventPayloadMap };

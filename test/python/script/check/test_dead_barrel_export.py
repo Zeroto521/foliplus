@@ -35,6 +35,12 @@ class _ModuleView:
     def __getitem__(self, name: str):
         return self._ns[name]
 
+    def __setitem__(self, name: str, value):
+        self._ns[name] = value
+
+    def get(self, name: str, default=None):
+        return self._ns.get(name, default)
+
 
 mod = _ModuleView(runpy.run_path(str(SCRIPT)))
 
@@ -490,3 +496,127 @@ class TestMain:
         if exit_code == 1:
             assert "dead barrel export" in captured.out
             assert "dead barrel export(s)" in captured.err
+
+    def test_main_reports_dead_on_tmp_repo(self, tmp_path, capsys, monkeypatch):
+        """main() over a tiny repo with a dead export exits 1 and reports it."""
+        _make(tmp_path, "foliplus/js/a.ts", "export const deadSym = 1;\n")
+        _make(
+            tmp_path,
+            "foliplus/js/index.ts",
+            "export { deadSym } from './a.js';\n",
+        )
+        # A corrupt .ts file must be skipped, not fatal (UnicodeDecodeError
+        # path in the read loop).
+        (tmp_path / "foliplus" / "js" / "bad.ts").write_bytes(b"\xff\xfe\x00bad")
+        monkeypatch.setitem(mod["main"].__globals__, "REPO_ROOT", tmp_path)
+        monkeypatch.setattr(sys, "argv", ["dead_barrel_export.py"])
+        rc = mod.main()
+        captured = capsys.readouterr()
+        assert rc == 1
+        assert "dead barrel export 'deadSym'" in captured.out
+        assert "dead barrel export(s)" in captured.err
+        assert "index.ts:" in captured.out
+
+    def test_main_returns_zero_on_tmp_repo(self, tmp_path, monkeypatch):
+        """main() over a small repo with a live export chain exits 0."""
+        _make(tmp_path, "foliplus/js/a.ts", "export const liveSym = 1;\n")
+        _make(
+            tmp_path,
+            "foliplus/js/index.ts",
+            "export { liveSym } from './a.js';\n",
+        )
+        _make(
+            tmp_path,
+            "foliplus/js/c.ts",
+            "import { liveSym } from './index.js';\nconst z = liveSym;\n",
+        )
+        monkeypatch.setitem(mod["main"].__globals__, "REPO_ROOT", tmp_path)
+        monkeypatch.setattr(sys, "argv", ["dead_barrel_export.py"])
+        rc = mod.main()
+        assert rc == 0
+
+
+class TestCoverageGaps:
+    """Targeted tests for defensive/resilience branches."""
+
+    def test_default_import_handled(self, tmp_path):
+        _make(tmp_path, "a.ts", "export default 1;\n")
+        f = _make(tmp_path, "index.ts", "import X from './a.js';\n")
+        fa = mod.parse_file(str(f), f.read_text(), str(tmp_path))
+        assert "X" in fa.named_imports
+        assert fa.named_imports["X"][1] == "default"
+
+    def test_find_ts_files_missing_dir(self, tmp_path):
+        assert mod.find_ts_files(str(tmp_path)) == set()
+
+    def test_find_python_files_missing_dir(self, tmp_path):
+        assert mod.find_python_files(str(tmp_path)) == set()
+
+    def test_collect_python_references_missing_file(self, tmp_path):
+        """A path that cannot be opened is skipped, not fatal."""
+        assert mod.collect_python_references({str(tmp_path / "nope.py")}) == set()
+
+    def test_duplicate_reexport_symbol(self, tmp_path):
+        """Re-exporting the same symbol twice keeps the first line number."""
+        _make(tmp_path, "a.ts", "export const x = 1;\n")
+        f = _make(
+            tmp_path,
+            "index.ts",
+            "export { x } from './a.js';\nexport { x } from './a.js';\n",
+        )
+        fa = mod.parse_file(str(f), f.read_text(), str(tmp_path))
+        assert len(fa.exports_by_line) == 1
+
+    def test_star_to_unanalysed_source(self, tmp_path):
+        """Star re-exports/imports whose source is not in the analyses dict
+        are skipped in graph/sink construction."""
+        provider = _make(tmp_path, "sub/provider.ts", "export const p = 1;\n")
+        idx = _make(
+            tmp_path,
+            "index.ts",
+            "export * from './sub/provider.js';\n",
+        )
+        consumer = _make(
+            tmp_path,
+            "consumer.ts",
+            "import * as NS from './sub/provider.js';\nconst z = NS.p;\n",
+        )
+        # provider.ts exists on disk but is deliberately excluded from the
+        # analyses dict — its star edges must be skipped, not crash.
+        analyses = {
+            str(idx): mod.parse_file(str(idx), idx.read_text(), str(tmp_path)),
+            str(consumer): mod.parse_file(
+                str(consumer), consumer.read_text(), str(tmp_path)
+            ),
+        }
+        graph = mod.build_graph(analyses, str(tmp_path))
+        sinks = mod.compute_sinks(analyses, graph, set())
+        # The barrel has no exports of its own (star target is unanalysed).
+        barrel_files = {fp: fa for fp, fa in analyses.items() if fa.is_barrel_scope}
+        dead = mod.find_dead_exports(barrel_files, graph, sinks)
+        assert len(dead) == 0
+        assert str(provider) not in str(graph)
+
+    def test_bfs_cycle_hits_visited(self, tmp_path):
+        """A diamond star-re-export (two paths into one target) enqueues the
+        target twice — BFS must skip the already-visited node instead of
+        re-walking, then report the dead export."""
+        n = _make(tmp_path, "n.ts", "export const z = 1;\n")
+        x = _make(tmp_path, "x.ts", "export * from './n.js';\n")
+        y = _make(tmp_path, "y.ts", "export * from './n.js';\n")
+        b = _make(
+            tmp_path,
+            "index.ts",
+            "export * from './x.js';\nexport * from './y.js';\n",
+        )
+        analyses = {
+            str(f): mod.parse_file(str(f), f.read_text(), str(tmp_path))
+            for f in (n, x, y, b)
+        }
+        graph = mod.build_graph(analyses, str(tmp_path))
+        sinks = mod.compute_sinks(analyses, graph, set())
+        barrel_files = {fp: fa for fp, fa in analyses.items() if fa.is_barrel_scope}
+        dead = mod.find_dead_exports(barrel_files, graph, sinks)
+        assert len(dead) == 1
+        assert dead[0][0] == str(b)
+        assert dead[0][2] == "z"

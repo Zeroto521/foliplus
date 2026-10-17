@@ -150,4 +150,4 @@ class LayerRuntimeStore {
 }
 
 export { LayerRuntimeStore };
-export type { AppliedProjection, LayerRuntime };
+export type { AppliedProjection };

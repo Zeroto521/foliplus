@@ -488,4 +488,4 @@ class LayerOrchestration {
   }
 }
 
-export { LayerOrchestration, withAnnotationSpec };
+export { LayerOrchestration };

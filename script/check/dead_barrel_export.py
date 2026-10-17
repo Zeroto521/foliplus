@@ -21,6 +21,8 @@ Usage (called by pre-commit with ``pass_filenames: false``):
 
 from __future__ import annotations
 
+import builtins
+import keyword
 import os
 import re
 import sys
@@ -181,6 +183,7 @@ class FileAnalysis:
         "star_imports",
         "named_re_exports",
         "star_re_exports",
+        "star_reexport_lines",
         "imports_any",
         "is_pure_barrel",
         "is_iife_entry",
@@ -200,6 +203,8 @@ class FileAnalysis:
         # local_symbol → (source_file, source_symbol)
         self.named_re_exports: dict[str, tuple[str, str]] = {}
         self.star_re_exports: set[str] = set()
+        # source_file → lineno (for reporting star-reexported symbols)
+        self.star_reexport_lines: dict[str, int] = {}
         # All locally-imported symbol names (for sink detection)
         self.imports_any: set[str] = set()
         self.is_pure_barrel = True
@@ -233,7 +238,7 @@ def _parse_symbol_list(text: str) -> list[tuple[str, str]]:
 
 def _line_of_offset(text: str, offset: int) -> int:
     """Return 1-based line number of an offset in text."""
-    return text[:offset].count("\n") + 1
+    return text.count("\n", 0, offset) + 1
 
 
 def parse_file(filepath: str, text: str, repo_root: str) -> FileAnalysis:
@@ -323,6 +328,7 @@ def parse_file(filepath: str, text: str, repo_root: str) -> FileAnalysis:
         source = _resolve_import(filepath, specifier, repo_root)
         if source:
             fa.star_re_exports.add(source)
+            fa.star_reexport_lines[source] = _line_of_offset(text, m.start())
 
     # Parse named exports (no `from`)
     for m in EXPORT_NAMED_RE.finditer(code):
@@ -432,140 +438,11 @@ def collect_python_references(
     Crude heuristic: any TS identifier that appears as a whole word in a
     Python file is considered a reference. False positives are acceptable
     (they only prevent false negatives). Filters out short names (1-2 chars)
-    and common Python keywords to reduce noise.
+    and Python keywords/builtins to reduce noise — the stdlib set replaces a
+    hand-maintained list that drifted (dupes, and builtins like ``eval`` /
+    ``exec`` were missing).
     """
-    # Common Python keywords and builtins that should not count as TS symbols.
-    _PY_KEYWORDS = frozenset(
-        [
-            "and",
-            "as",
-            "assert",
-            "async",
-            "await",
-            "break",
-            "class",
-            "continue",
-            "def",
-            "del",
-            "elif",
-            "else",
-            "except",
-            "False",
-            "finally",
-            "for",
-            "from",
-            "global",
-            "if",
-            "import",
-            "in",
-            "is",
-            "lambda",
-            "None",
-            "nonlocal",
-            "not",
-            "or",
-            "pass",
-            "raise",
-            "return",
-            "True",
-            "try",
-            "while",
-            "with",
-            "yield",
-            "print",
-            "self",
-            "cls",
-            "str",
-            "int",
-            "float",
-            "bool",
-            "list",
-            "dict",
-            "set",
-            "tuple",
-            "type",
-            "super",
-            "object",
-            "isinstance",
-            "hasattr",
-            "getattr",
-            "setattr",
-            "repr",
-            "len",
-            "range",
-            "enumerate",
-            "zip",
-            "map",
-            "filter",
-            "sorted",
-            "min",
-            "max",
-            "sum",
-            "any",
-            "all",
-            "abs",
-            "round",
-            "open",
-            "file",
-            "type",
-            "open",
-            "append",
-            "extend",
-            "insert",
-            "pop",
-            "remove",
-            "clear",
-            "copy",
-            "update",
-            "items",
-            "keys",
-            "values",
-            "get",
-            "index",
-            "count",
-            "join",
-            "split",
-            "strip",
-            "replace",
-            "format",
-            "startswith",
-            "endswith",
-            "find",
-            "encode",
-            "decode",
-            "upper",
-            "lower",
-            "title",
-            "capitalize",
-            "swapcase",
-            "isspace",
-            "isalpha",
-            "isdigit",
-            "isalnum",
-            "isupper",
-            "islower",
-            "isnumeric",
-            "join",
-            "split",
-            "lstrip",
-            "rstrip",
-            "center",
-            "ljust",
-            "rjust",
-            "zfill",
-            "encode",
-            "decode",
-            "encode",
-            "decode",
-            "iter",
-            "iter",
-            "iter",
-            "next",
-            "iter",
-            "iter",
-            "iter",
-        ]
-    )
+    _PY_KEYWORDS: frozenset[str] = frozenset(keyword.kwlist) | frozenset(dir(builtins))
     refs: set[str] = set()
     for pyfile in python_files:
         try:
@@ -610,6 +487,18 @@ def build_graph(
                         if sym not in file_exports[fp]:
                             file_exports[fp].add(sym)
                             changed = True
+
+    # Write the star-reexport closure back into FileAnalysis.exports so
+    # find_dead_exports checks symbols forwarded via `export * from` too
+    # (they are invisible in parse_file, which cannot know the target's
+    # exports yet). Line info comes from the star statement itself.
+    for fp, fa in analyses.items():
+        for source in fa.star_re_exports:
+            if source in file_exports and source in fa.star_reexport_lines:
+                lineno = fa.star_reexport_lines[source]
+                for sym in file_exports[source]:
+                    fa.exports.add(sym)
+                    fa.exports_by_line.setdefault(sym, (lineno, "star-re-export"))
 
     # Now build the adjacency list
     graph: dict[tuple[str, str], list[tuple[str, str]]] = defaultdict(list)

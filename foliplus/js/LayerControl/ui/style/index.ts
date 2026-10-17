@@ -488,7 +488,7 @@ const closeStylePanel = (ui: LayerUI, setFocus: boolean): void => {
   if (setFocus) item?.focus();
 };
 
-export { closeStylePanel, openStylePanel, renderStylePanel };
+export { closeStylePanel, openStylePanel };
 
 // Re-exports for external callers (menu.ts, attr.ts, ui/index.ts, tests):
 // the style barrel still surfaces the same six symbols the pre-split
