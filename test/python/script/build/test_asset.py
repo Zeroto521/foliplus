@@ -49,7 +49,7 @@ from foliplus.SearchControl import SearchControl
 # asserted in both stacks without either suite re-deriving the names.
 EXPECTED = expected_artifacts()
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = Path(__file__).resolve().parents[4]
 SCRIPT_PATH = REPO_ROOT / "script" / "check" / "smoke-wheel.py"
 
 

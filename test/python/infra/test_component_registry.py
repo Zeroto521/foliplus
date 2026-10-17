@@ -16,7 +16,7 @@ from pathlib import Path
 
 import pytest
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[3]
 PKG = ROOT / "foliplus"
 
 #: Base class, not a public control component.
@@ -139,7 +139,7 @@ class TestDocs:
 class TestPythonTests:
     def test_build_components_derived_from_package(self):
         """test_build.py must derive COMPONENTS from the package (not a hand list)."""
-        text = _read(ROOT / "test" / "python" / "test_build.py")
+        text = _read(ROOT / "test" / "python" / "script" / "build" / "test_build.py")
         assert "glob" in text and "*Control.py" in text, (
             "test_build.py should discover COMPONENTS via "
             'Path(foliplus.__file__).parent.glob("*Control.py")'

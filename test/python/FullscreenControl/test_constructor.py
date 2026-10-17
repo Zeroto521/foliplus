@@ -5,7 +5,7 @@ from __future__ import annotations
 from foliplus import FullscreenControl
 
 
-class TestFullscreenControlPython:
+class TestFullscreenControlConstructor:
     """Python-side property tests."""
 
     def test_name(self):

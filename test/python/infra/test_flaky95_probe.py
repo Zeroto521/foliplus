@@ -28,7 +28,7 @@ import conftest
 import pytest
 from conftest import _Flaky95Probe, _is_chromium_process
 
-TEST_DIR = Path(__file__).parent
+TEST_DIR = Path(__file__).resolve().parent.parent
 
 # ``health-<YYYYMMDD>-<HHMMSS>-<worker>-<pid>.jsonl`` — the pid suffix is
 # what keeps two rounds that start in the same second from interleaving.

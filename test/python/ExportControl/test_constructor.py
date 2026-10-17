@@ -9,7 +9,7 @@ import pytest
 from foliplus import ExportControl
 
 
-class TestExportControlPython:
+class TestExportControlConstructor:
     """Python-side property tests."""
 
     def test_name(self):
