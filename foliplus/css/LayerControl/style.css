@@ -20,27 +20,60 @@
   }
 
   /* ── Zoom-range row ──────────────────────────────────────────────
-     Dual-thumb slider on a rail with a current-zoom marker. The two
-     <input type=range> elements overlay the rail; only their thumbs take
-     pointer events, so a mousedown lands on whichever thumb is nearer. The
-     selected range fills the rail with the accent color, and a vertical line
-     marks the map's current zoom. A dimmed state (.out-of-range) appears when
-     the current zoom falls outside the selected range. Geometry comes from the
-     shared --foliplus-slider-* tokens (token.css), so this rail is the same 8px capsule
-     the opacity row uses. */
+     A <wa-slider range> (B1: replaced the dual <input type=range> which
+     deadlocked on overlapping thumbs) with a current-zoom marker overlay.
+     The slider's own thumbs/tooltip come from the library; foliplus adds
+     the "where am I" readout and the out-of-range dimming. */
   .foliplus-style-zoom-range-row {
-    /* The rail, the fill, the readout dots, the numbers and the handles are the
-       shared slider component (common/slider.css). This row states only what its
-       own coverage state looks like. */
-    .foliplus-style-zoom-range-current-value {
-      color: var(--foliplus-text-primary);
-      font-weight: var(--foliplus-font-weight-medium);
+    .foliplus-style-zoom-range-slider {
+      display: block;
+      width: 100%;
     }
 
-    /* Out of range: the rail dims to signal the current zoom is outside the
+    /* Current-zoom marker: a thin vertical line overlaid on the wa-slider,
+       positioned by JS at the map's current zoom level. Unlike the
+       reference-slot tick labels (which are wa-slider-owned), this is
+       foliplus's own chrome — it shows "where am I" relative to the
+       slider's range, not a value the slider holds. The label rides under
+       the line, hidden when it would sit on a limit. */
+    .foliplus-style-zoom-range-current-marker {
+      position: absolute;
+      top: 0;
+      bottom: var(--foliplus-font-size-md);
+      width: 2px;
+      background: var(--foliplus-text-primary);
+      border-radius: 1px;
+      transform: translateX(-50%);
+      pointer-events: none;
+      transition: left var(--foliplus-transition-fast);
+    }
+    .foliplus-style-zoom-range-current-marker::after {
+      content: "";
+      position: absolute;
+      top: -4px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 8px;
+      height: 8px;
+      background: var(--foliplus-text-primary);
+      border-radius: 50%;
+    }
+    .foliplus-style-zoom-range-current-value {
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      margin-top: var(--foliplus-size-2);
+      color: var(--foliplus-text-primary);
+      font-size: var(--foliplus-font-size-sm);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    /* Out of range: the slider dims to signal the current zoom is outside the
        selected range. */
     &.foliplus-zoom-range-out-of-range {
-      .foliplus-slider-rail {
+      wa-slider {
         opacity: var(--foliplus-alpha-50);
       }
     }

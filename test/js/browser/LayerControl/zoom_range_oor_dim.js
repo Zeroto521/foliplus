@@ -27,45 +27,33 @@
     return { error: "zoom range row not rendered" };
   }
 
-  const minInput = row.querySelector(".foliplus-style-zoom-range-min");
-  const maxInput = row.querySelector(".foliplus-style-zoom-range-max");
+  const slider = row.querySelector("wa-slider");
 
   // Range [mapMin, current-1] — current is above max, so out of range.
-  maxInput.value = String(current - 1);
-  maxInput.dispatchEvent(new Event("change", { bubbles: true }));
+  slider.maxValue = current - 1;
+  slider.dispatchEvent(new Event("change", { bubbles: true }));
 
   const rowOor = row.classList.contains("foliplus-zoom-range-out-of-range");
   const rowTitle = row.title;
-  const trackBg = row.querySelector(".foliplus-style-zoom-range-track");
-  const fillBg = row.querySelector(".foliplus-style-zoom-range-fill");
-  const marker = row.querySelector(".foliplus-style-zoom-range-dot-current");
-  const markerLabel = row.querySelector(".foliplus-style-zoom-range-current-value");
-  const markerRing = marker ? getComputedStyle(marker).borderColor : null;
+  const marker = row.querySelector(".foliplus-style-zoom-range-current-marker");
+  const markerLabel = row.querySelector(
+    ".foliplus-style-zoom-range-current-marker .foliplus-style-zoom-range-current-value",
+  );
   const markerLabelText = markerLabel ? markerLabel.textContent : null;
   const currentValueColor = markerLabel ? getComputedStyle(markerLabel).color : null;
-  const minLabel = row.querySelector(
-    ".foliplus-style-zoom-range-value span:nth-child(1)",
-  );
-  const maxLabel = row.querySelector(
-    ".foliplus-style-zoom-range-value span:nth-child(2)",
-  );
-
-  // Snapshot the computed styles BEFORE closing the panel: a detached element
-  // reports an empty `backgroundColor`, and the return object is built after the
-  // close below.
-  const fillComputedBg = fillBg ? getComputedStyle(fillBg).backgroundColor : null;
+  const sliderComputedOpacity = slider ? getComputedStyle(slider).opacity : null;
+  const limitMin = row.querySelector(".foliplus-style-zoom-range-limit-min");
+  const limitMax = row.querySelector(".foliplus-style-zoom-range-limit-max");
 
   ui.closeStylePanel(false);
   return {
     current,
     rowOor,
     rowTitle,
-    trackComputedBg: trackBg ? getComputedStyle(trackBg).backgroundColor : null,
-    fillComputedBg,
-    currentValueColor,
-    markerRing,
     markerLabelText,
-    minLabelText: minLabel ? minLabel.textContent : null,
-    maxLabelText: maxLabel ? maxLabel.textContent : null,
+    currentValueColor,
+    sliderComputedOpacity,
+    limitMinText: limitMin ? limitMin.textContent : null,
+    limitMaxText: limitMax ? limitMax.textContent : null,
   };
 };

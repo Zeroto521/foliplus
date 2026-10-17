@@ -3732,7 +3732,7 @@ class TestLayerControlBrowser:
                 "the thumb rests on its floor, so ArrowDown has nowhere to go: "
                 + str(arm)
             )
-            assert arm["focusedType"] == "range", f"slider not focused: {arm}"
+            assert arm["focusedTag"] == "wa-slider", f"slider not focused: {arm}"
 
             page.keyboard.press("ArrowDown")
 
@@ -3752,7 +3752,7 @@ class TestLayerControlBrowser:
                 "foliplus cancelled ArrowDown meant for the slider: "
                 + str(read["records"])
             )
-            assert recs[0]["type"] == "range", str(read["records"])
+            assert recs[0]["tag"] == "wa-slider", str(read["records"])
             # The cursor is compared against its pre-press baseline, not against
             # "absent": opening the style panel and focusing the checkbox both
             # legitimately light the row cursor, so only a change is in scope.
@@ -4861,7 +4861,7 @@ class TestLayerControlBrowser:
             assert not errors, f"JS errors: {errors}"
 
     def test_zoom_range_oor_dim(self, browser, tmp_path):
-        """Out-of-range: track dims, tooltip appears, current label shows."""
+        """Out-of-range: row dims, tooltip appears, current label shows."""
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
             panel_ready(page)
             result = page.evaluate(_js("LayerControl/zoom_range_oor_dim"))
@@ -4870,19 +4870,16 @@ class TestLayerControlBrowser:
             assert result["rowOor"] is True, f"row not marked out-of-range: {result}"
             assert result["rowTitle"], "row tooltip missing when out of range"
             assert result["markerLabelText"], "current-zoom label missing from marker"
-            # Out of range is a readout on the dots' rings, not a recoloring:
-            # the rail keeps its accent fill and the text stays ink, so nothing
-            # about "the layer is hidden at this zoom" is carried by color on
-            # the numbers the user reads.
-            assert result["fillComputedBg"] != self._sample_token(
-                page, "--foliplus-neutral-500"
-            ), "out of range must not gray the selection"
+            # Out of range is a dim on the whole slider (the library's track
+            # stays colored), not a recoloring of the readout the user reads.
             assert result["currentValueColor"] == self._sample_token(
                 page, "--foliplus-text-primary"
             ), "out of range must not recolor the current level"
-            assert result["markerRing"] == self._sample_token(
-                page, "--foliplus-neutral-500"
-            ), "out of range, the current dot must read as uncovered"
+            assert float(result["sliderComputedOpacity"]) < 1, (
+                "out of range must dim the slider: " + str(result)
+            )
+            assert result["limitMinText"], "min limit tick missing"
+            assert result["limitMaxText"], "max limit tick missing"
             assert not errors, f"JS errors: {errors}"
 
     def test_zoom_range_zoomend_marker_moves(self, browser, tmp_path):
@@ -4898,8 +4895,8 @@ class TestLayerControlBrowser:
             assert result["labelUpdated"] is True, (
                 f"current-zoom label did not update on zoomend: {result}"
             )
-            assert result["afterCovered"] is True, (
-                f"current dot missing after zoomend: {result}"
+            assert result["afterInside"] is True, (
+                f"current marker missing after zoomend: {result}"
             )
             assert not errors, f"JS errors: {errors}"
 

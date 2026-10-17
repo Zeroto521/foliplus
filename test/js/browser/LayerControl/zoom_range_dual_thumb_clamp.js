@@ -1,4 +1,4 @@
-() => {
+async () => {
   const ctrl = window.__layerCtrl;
   const map = ctrl.mgr.map;
   const ui = ctrl.mgr.ui;
@@ -25,36 +25,38 @@
     return { error: "zoom range row not rendered" };
   }
 
-  const minInput = row.querySelector(".foliplus-style-zoom-range-min");
-  const maxInput = row.querySelector(".foliplus-style-zoom-range-max");
-  if (!minInput || !maxInput) {
+  const slider = row.querySelector("wa-slider");
+  if (!slider) {
     ui.closeStylePanel(false);
-    return { error: "inputs not found" };
+    return { error: "wa-slider not found" };
   }
+  const wait = () => slider.updateComplete;
 
   const mapMin = map.getMinZoom();
   const mapMax = map.getMaxZoom();
-  const initialMin = parseInt(minInput.value, 10);
-  const initialMax = parseInt(maxInput.value, 10);
+  const initialMin = Number(slider.minValue);
+  const initialMax = Number(slider.maxValue);
 
-  // Drag min past max — min should clamp to max (two thumbs never cross).
-  const crossVal = initialMax + 1;
-  minInput.value = String(crossVal);
-  minInput.dispatchEvent(new Event("change", { bubbles: true }));
-
-  const minAfterCross = parseInt(minInput.value, 10);
-  const maxAfterCross = parseInt(maxInput.value, 10);
+  // Drag min past max — the component clamps min back to max (the "two thumbs
+  // never cross" invariant is the library's own, §4.0.2 of the design
+  // contract). foliplus reads what the component reports; it no longer clamps.
+  slider.minValue = initialMax + 1;
+  await wait();
+  const minAfterCross = Number(slider.minValue);
+  const maxAfterCross = Number(slider.maxValue);
 
   // Reset: drag max back to full range.
-  maxInput.value = String(mapMax);
-  maxInput.dispatchEvent(new Event("change", { bubbles: true }));
+  slider.maxValue = mapMax;
+  await wait();
 
-  // Drag max below min — max should clamp to min.
-  maxInput.value = String(initialMin - 1);
-  maxInput.dispatchEvent(new Event("change", { bubbles: true }));
+  // Drag max below min — the component clamps max back to min.
+  slider.maxValue = initialMin - 1;
+  await wait();
+  const minAfterReverse = Number(slider.minValue);
+  const maxAfterReverse = Number(slider.maxValue);
 
-  const minAfterReverse = parseInt(minInput.value, 10);
-  const maxAfterReverse = parseInt(maxInput.value, 10);
+  // Commit pass — the library's reported range is what gets persisted.
+  slider.dispatchEvent(new Event("change", { bubbles: true }));
 
   ui.closeStylePanel(false);
   return {
@@ -62,7 +64,6 @@
     mapMax,
     initialMin,
     initialMax,
-    crossVal,
     minAfterCross,
     maxAfterCross,
     minAfterReverse,

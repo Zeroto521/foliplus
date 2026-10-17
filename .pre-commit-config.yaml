@@ -91,6 +91,7 @@ repos:
       #   (2) singular file names — also checked on script/**/*.{mjs,cjs,js}
       #   (3) American spelling in identifiers and string literals
       #   (4) bare CSS custom properties rejected — must carry --foliplus-*
+      #       or --wa-*; definitions of either live in token.css only
       #   (5) file/sibling-dir name collision (B-type stutter guard)
       # Function declarations and inline exports are covered by eslint's
       # `func-style` and `no-restricted-syntax` — see eslint.config.js.

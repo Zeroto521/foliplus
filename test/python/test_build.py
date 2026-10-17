@@ -57,20 +57,24 @@ class TestBuildArtifacts:
         css = (dist / "foliplus-common.min.css").read_text(encoding="utf-8")
         assert "foliplus@" in css, "CSS artifact missing version banner"
 
-    def test_dist_css_has_no_layer_syntax(self):
-        """T266: the shipped stylesheets carry no `@layer`.
+    def test_dist_css_has_layer_declaration(self):
+        """The shipped stylesheets carry the cascade layer declaration.
 
-        The layer wrap was reverted because in an embedded widget the host
-        page's unlayered resets (Bootstrap `ol,ul`, …) outrank a layered rule
-        at any specificity. The build keeps the merge order (tokens first,
-        then base, then components) without the layer syntax, so specificity
-        order governs: foliplus shell selectors like
-        `.foliplus-layer-ctrl .foliplus-layer-more-menu` (0,2,0) naturally
-        beat `ul` (0,0,1).
+        B1: the wa-* layer order is declared at the top of every foliplus
+        stylesheet so the library's layers (loaded after via <link>) slot
+        into a known order. The foliplus rules themselves stay **unlayered**
+        on purpose: unlayered rules outrank every cascade layer, which is
+        what keeps foliplus's skin winning over both wa-* layers and the
+        host page's unlayered resets (Bootstrap). Wrapping foliplus in
+        `@layer foliplus` demotes it below those resets — the T266
+        regression (menu shell padding-left drift) this test guards against.
         """
         dist = _dist()
         if not dist.exists():
             pytest.skip("dist/ not built")
         for css_path in dist.glob("*.min.css"):
             css = css_path.read_text(encoding="utf-8")
-            assert "@layer" not in css, f"{css_path.name}: @layer survived"
+            assert "@layer" in css, f"{css_path.name}: @layer declaration missing"
+            assert "@layer foliplus {" not in css, (
+                f"{css_path.name}: foliplus rules must stay unlayered (T266)"
+            )

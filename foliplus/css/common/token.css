@@ -425,3 +425,24 @@
     --foliplus-input-breathe-anim: none;
   }
 }
+
+/* ── Web Awesome theme overrides ──────────────────────────────────────
+   The single place foliplus defines `--wa-*` tokens (§5.1 of the ui-kit
+   design contract). Scoped to the zoom-range control so the library's own
+   defaults stay intact elsewhere — the brand red is applied only where the
+   product surface wants it (verified: `--wa-color-brand-50: #e74c3c` on the
+   wrapper resolves to the product red; the root keeps the library default).
+
+   `--wa-form-control-activated-color` is the paint token the slider's
+   shadow styles read for both the track indicator and the thumb ring
+   (theme: `--wa-form-control-activated-color: var(--wa-color-brand-fill-loud)`,
+   resolved at the root, so a control-scoped `--wa-color-brand-*` override
+   does not reach the paint — the leaf token must be re-pointed instead,
+   verified against the component's computed styles). */
+@layer wa-theme-overrides {
+  .foliplus-style-zoom-range-control {
+    --wa-form-control-activated-color: var(--foliplus-red-500);
+    --wa-color-brand-50: var(--foliplus-red-500);
+    --wa-color-brand-60: var(--foliplus-red-600);
+  }
+}

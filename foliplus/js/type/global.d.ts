@@ -301,6 +301,15 @@ declare global {
   /** pako (CDN, ExportControl). Deflate/inflate for GeoTIFF compression. */
   const pako: typeof import("pako");
 
+  /** Web Awesome slider custom element (ESM, loaded via `<script type="module">`).
+   *  Properties set asynchronously after upgrade — see BaseControl.render. */
+  interface WaSliderElement extends HTMLElement {
+    range: boolean;
+    minValue: number;
+    maxValue: number;
+    valueFormatter?: (v: number) => string;
+  }
+
   interface Window {
     foliplus: Foliplus;
     CONFIG: ComponentConfig;

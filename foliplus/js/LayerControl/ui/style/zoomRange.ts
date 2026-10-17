@@ -1,7 +1,18 @@
-// Zoom-range row: dual-thumb rail + current-zoom marker + value labels +
+// Zoom-range row: wa-slider range + current-zoom marker + value labels +
 // live / commit passes. Moved verbatim from ui/style.ts.
 // Used by both the delegated drawer and the annotation panel — the row is
 // LayerControl-owned, gated by surface capability.
+//
+// B1: replaced the dual <input type=range> with <wa-slider range> to close
+// the double-thumb deadlock (see ui-kit design contract §4.0.2). The current-
+// zoom indicator is a foliplus-owned overlay div (方案 B), not the wa-slider's
+// reference slot — it represents map state relative to the slider, not a
+// slider value. The slider's own tick labels live in the reference slot.
+//
+// Events: wa-slider dispatches native `input` / `change` events
+// (bubbles:true, composed:true) — the panel-level delegation in
+// style/index.ts is the single handler for both flavours, same as opacity.
+// No listener is bound here; buildZoomRangeRow only renders the row.
 import { CAP_TIER, DIM } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { dom } from "#common/dom.js";
@@ -32,10 +43,6 @@ const canShowZoomRange = (ui: LayerUI, layerId: string): boolean => {
   return ui.c.surfaceFor(layerInfo).capabilities.zoomRange !== CAP_TIER.NONE;
 };
 
-/** Clamp a zoom value into the map's current [min, max] range. */
-const clampZoom = (value: number, mapMin: number, mapMax: number): number =>
-  Math.max(mapMin, Math.min(mapMax, Math.round(value)));
-
 /** Percentage of a zoom value within [mapMin, mapMax]. */
 const zoomToPct = (zoom: number, mapMin: number, mapMax: number): number => {
   const range = mapMax - mapMin;
@@ -49,16 +56,13 @@ const zoomToPct = (zoom: number, mapMin: number, mapMax: number): number => {
  *  only a readout. */
 const LABEL_MIN_GAP_PCT = 12;
 
-/** Write the values row and the three readout dots.
+/** Write the current-zoom marker and the reference-slot limit labels.
  *
- *  The numbers belong to the marks that cannot move: the map's two zoom limits
- *  (fixed text at the row's edges) and the current level (placed under its own
- *  dot). The draggable range carries no number of its own — it reports through
- *  the bubble while held, and through the rail's geometry the rest of the time.
- *
- *  `--foliplus-slider-dot-size` dots read coverage through their ring: accent where the
- *  layer renders (inside the range), gray where it does not. The current dot
- *  rides the row's existing out-of-range class for the same readout. */
+ *  The limits belong to the marks that cannot move (the map's two zoom
+ *  bounds, shown as wa-slider reference-slot ticks). The current level is a
+ *  foliplus-owned overlay under its own marker — the slider's own tooltip
+ *  covers the draggable values, so the persistent readout is the marker.
+ */
 const syncValues = (
   row: HTMLElement,
   min: number,
@@ -67,44 +71,35 @@ const syncValues = (
   mapMin: number,
   mapMax: number,
 ): void => {
-  const spans = [
-    ...row.querySelectorAll(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_VAL} span`),
-  ] as HTMLElement[];
-  if (spans.length >= 3) {
-    const [minEl, currentEl, maxEl] = spans;
-    // The ends' positions come from the stylesheet (`:first-child` /
-    // `:last-child`), so only the text is ours.
-    minEl.textContent = String(mapMin);
-    maxEl.textContent = String(mapMax);
+  const refMin = row.querySelector(
+    `.${CONST.CLASSES.STYLE_ZOOM_RANGE_LIMIT_MIN}`,
+  ) as HTMLElement | null;
+  const refMax = row.querySelector(
+    `.${CONST.CLASSES.STYLE_ZOOM_RANGE_LIMIT_MAX}`,
+  ) as HTMLElement | null;
+  if (refMin) refMin.textContent = String(mapMin);
+  if (refMax) refMax.textContent = String(mapMax);
+
+  const marker = row.querySelector(
+    `.${CONST.CLASSES.STYLE_ZOOM_RANGE_CURRENT_MARKER}`,
+  ) as HTMLElement | null;
+  if (marker) {
     const currentPct = zoomToPct(current, mapMin, mapMax);
-    currentEl.textContent = String(current);
-    currentEl.style.left = railPos(currentPct);
+    marker.style.left = railPos(currentPct);
+    const label = marker.querySelector(
+      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_CURRENT_VALUE}`,
+    );
+    if (label) label.textContent = String(current);
     // The current level can sit on top of a limit at the ends of the map's
     // range, where the limit's own number already says it.
     const clear =
       Math.abs(currentPct) >= LABEL_MIN_GAP_PCT &&
       Math.abs(currentPct - 100) >= LABEL_MIN_GAP_PCT;
-    currentEl.classList.toggle(CONST.CLASSES.SLIDER_LABEL_HIDDEN, !clear);
-  }
-
-  const dots: [string, number, boolean][] = [
-    ["-min", mapMin, min <= mapMin],
-    ["-max", mapMax, max >= mapMax],
-    ["-current", current, current >= min && current <= max],
-  ];
-  for (const [suffix, value, covered] of dots) {
-    const dot = row.querySelector(
-      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_DOT}${suffix}`,
-    ) as HTMLElement | null;
-    if (!dot) continue;
-    if (suffix === "-current") {
-      dot.style.left = railPos(zoomToPct(value, mapMin, mapMax));
-    }
-    dot.classList.toggle(CONST.CLASSES.SLIDER_DOT_COVERED, covered);
+    marker.classList.toggle(CONST.CLASSES.SLIDER_LABEL_HIDDEN, !clear);
   }
 };
 
-/** Update the zoom-range row's visual state: fill position, value labels,
+/** Update the zoom-range row's visual state: slider values, marker, labels,
  *  and the out-of-range dimming. Does not write to the map or persistence —
  *  that is the commit pass's job. Pass the live thumb values so the row can
  *  update before the change is committed. */
@@ -120,46 +115,41 @@ const syncZoomRangeRow = (
   const max = range ? Math.min(range[1], mapMax) : mapMax;
   const current = ui.c.map.getZoom();
 
-  const fill = row.querySelector(
-    `.${CONST.CLASSES.STYLE_ZOOM_RANGE_FILL}`,
-  ) as HTMLElement | null;
-  if (fill) {
-    fill.style.left = railPos(zoomToPct(min, mapMin, mapMax));
-    fill.style.right = `calc(100% - ${railPos(zoomToPct(max, mapMin, mapMax))})`;
+  const slider = row.querySelector("wa-slider") as WaSliderElement | null;
+  if (slider) {
+    // minValue/maxValue do not reflect to attributes (verified against the
+    // component source), so write the properties; the attributes are only
+    // the upgrade-time initial values set by buildZoomRangeRow.
+    slider.minValue = min;
+    slider.maxValue = max;
   }
 
   syncValues(row, min, max, current, mapMin, mapMax);
 
-  // Out-of-range: dim the row when the current zoom falls outside [min, max].
   const outOfRange = current < min || current > max;
   row.classList.toggle(CONST.CLASSES.STYLE_ZOOM_RANGE_OUT_OF_RANGE, outOfRange);
   row.title = outOfRange
     ? ui.T("style_zoom_range_out_of_range").replace("{zoom}", String(current))
     : ui.T("style_zoom_range_current").replace("{zoom}", String(current));
-
-  // The handles' tooltips carry the range the rail draws but the row no longer
-  // prints.
-  for (const [tail, value] of [
-    [CONST.CLASSES.STYLE_ZOOM_RANGE_MIN, min],
-    [CONST.CLASSES.STYLE_ZOOM_RANGE_MAX, max],
-  ] as const) {
-    const input = row.querySelector(`.${tail}`) as HTMLInputElement | null;
-    if (input) input.title = `${ui.T("style_zoom_range")} ${value}`;
-  }
 };
 
-/** Build the zoom-range form row: a dual-thumb slider on a track with a
- *  current-zoom marker and value labels.
+/** Build the zoom-range form row: a <wa-slider range> with a current-zoom
+ *  marker overlay and reference-slot tick labels.
  *
- *  The two <input type=range> elements overlay each other; only their thumbs
- *  are interactive (pointer-events: none on the inputs, auto on the thumbs).
- *  The track shows the selected range as an accent fill, and a vertical line
- *  marks the map's current zoom level.
+ *  The wa-slider handles both thumbs natively (range mode), which closes the
+ *  dual-<input type=range> deadlock where overlapping thumbs could not be
+ *  separated. The current-zoom marker is a foliplus-owned overlay div
+ *  (方案 B), positioned at the map's current zoom level — it represents
+ *  map state relative to the slider, not a slider value.
  *
  *  Initial values come from the layer's zoomRange intent (the persisted
- *  choice),
- *  clamped to the map's current [min, max]. When no range is stored, the
- *  full map range is used — the "author-undeclared" default. */
+ *  choice), clamped to the map's current [min, max]. When no range is stored,
+ *  the full map range is used — the "author-undeclared" default.
+ *
+ *  Values are written as attributes (observed, applied on upgrade): the ESM
+ *  lands in <body>, so the element is not upgraded at creation time. Only
+ *  the valueFormatter property is deferred to customElements.whenDefined.
+ */
 const buildZoomRangeRow = (ui: LayerUI, layerId: string): HTMLElement => {
   const [mapMin, mapMax] = authorZoomBoundsForLayer(ui, layerId);
   const stored = getIntent(ui, layerId, INTENT.ZOOM_RANGE);
@@ -167,71 +157,57 @@ const buildZoomRangeRow = (ui: LayerUI, layerId: string): HTMLElement => {
   const max = stored ? Math.min(stored[1], mapMax) : mapMax;
   const current = ui.c.map.getZoom();
 
-  const fill = dom.el("div", {
-    class: `${CONST.CLASSES.SLIDER_FILL} ${CONST.CLASSES.STYLE_ZOOM_RANGE_FILL}`,
-    style: `left:${railPos(zoomToPct(min, mapMin, mapMax))};right:calc(100% - ${railPos(
-      zoomToPct(max, mapMin, mapMax),
-    )})`,
-  });
-
-  // The readout dots: the map's two limits are pinned by CSS, the current level
-  // is placed by syncValues.
-  const dot = (suffix: string): HTMLElement =>
-    dom.el("span", {
-      class:
-        `${CONST.CLASSES.SLIDER_DOT} ${CONST.CLASSES.SLIDER_DOT}${suffix}` +
-        ` ${CONST.CLASSES.STYLE_ZOOM_RANGE_DOT} ${CONST.CLASSES.STYLE_ZOOM_RANGE_DOT}${suffix}`,
-    });
-
-  const minInput = dom.el("input", {
-    type: "range",
-    class: `${CONST.CLASSES.SLIDER_HANDLE} ${CONST.CLASSES.STYLE_ZOOM_RANGE_MIN}`,
+  const slider = dom.el("wa-slider", {
+    range: "",
     min: String(mapMin),
     max: String(mapMax),
     step: "1",
-    value: String(min),
-    "aria-label": ui.T("style_zoom_range_min"),
-  });
-  const maxInput = dom.el("input", {
-    type: "range",
-    class: `${CONST.CLASSES.SLIDER_HANDLE} ${CONST.CLASSES.STYLE_ZOOM_RANGE_MAX}`,
-    min: String(mapMin),
-    max: String(mapMax),
-    step: "1",
-    value: String(max),
-    "aria-label": ui.T("style_zoom_range_max"),
-  });
+    "min-value": String(min),
+    "max-value": String(max),
+    "with-tooltip": "",
+    class: CONST.CLASSES.STYLE_ZOOM_RANGE_SLIDER,
+  }) as WaSliderElement;
 
-  // DOM order is the paint order for these positioned siblings; the two
-  // textures on the rail itself come from CSS.
-  const track = dom.el(
-    "div",
-    { class: `${CONST.CLASSES.SLIDER_RAIL} ${CONST.CLASSES.STYLE_ZOOM_RANGE_TRACK}` },
-    fill,
-    dot("-min"),
-    dot("-max"),
-    dot("-current"),
-    minInput,
-    maxInput,
+  // Reference slot: tick labels at the map's zoom limits. These are
+  // wa-slider-owned elements rendered inside the slider's shadow boundary;
+  // their position is computed by the slider from the min/max range.
+  const refMin = dom.el(
+    "span",
+    { slot: "reference", class: CONST.CLASSES.STYLE_ZOOM_RANGE_LIMIT_MIN },
+    String(mapMin),
   );
+  const refMax = dom.el(
+    "span",
+    { slot: "reference", class: CONST.CLASSES.STYLE_ZOOM_RANGE_LIMIT_MAX },
+    String(mapMax),
+  );
+  slider.appendChild(refMin);
+  slider.appendChild(refMax);
 
-  const values = dom.el(
+  // Async upgrade: set valueFormatter after the custom element upgrades.
+  // ESM lands in body, so the element is not yet upgraded at creation time.
+  void customElements.whenDefined("wa-slider").then(() => {
+    slider.valueFormatter = (v: number) => String(Math.round(v));
+  });
+
+  // Current-zoom marker: a foliplus-owned overlay div positioned at the map's
+  // current zoom level. This is not a wa-slider reference slot (which is for
+  // slider values) — it shows "where am I" relative to the slider's range.
+  const marker = dom.el(
     "div",
-    { class: `${CONST.CLASSES.SLIDER_VALUES} ${CONST.CLASSES.STYLE_ZOOM_RANGE_VAL}` },
-    dom.el("span", {}, String(mapMin)),
+    { class: CONST.CLASSES.STYLE_ZOOM_RANGE_CURRENT_MARKER },
     dom.el(
       "span",
       { class: CONST.CLASSES.STYLE_ZOOM_RANGE_CURRENT_VALUE },
       String(current),
     ),
-    dom.el("span", {}, String(mapMax)),
   );
 
   const control = dom.el(
     "div",
     { class: `${CONST.CLASSES.SLIDER} ${CONST.CLASSES.STYLE_ZOOM_RANGE_CONTROL}` },
-    track,
-    values,
+    slider,
+    marker,
   );
 
   const row = dom.el(
@@ -331,10 +307,8 @@ const ZOOM_RANGE_DIMENSION = registerDimension<{ min: number; max: number }>({
 
 export {
   applyZoomRangeLive,
-  clampZoom,
   commitZoomRange,
   resetLayerZoomRange,
   syncZoomRangeRow,
   ZOOM_RANGE_DIMENSION,
-  zoomToPct,
 };

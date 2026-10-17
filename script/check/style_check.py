@@ -21,6 +21,9 @@
      namespace contract; a `--foliplus-x: value` outside `token.css`
      fragments the single source of truth. Both are rejected in
      declarations, `var()` references, and JS string literals alike.
+     The `--wa-*` prefix is the vendored Web Awesome namespace: references
+     are allowed anywhere; definitions are restricted to `token.css`
+     (the single override point).
 
   5. File and sibling-directory name collision. `ui/focus.ts` next to
      `ui/focus/` makes `./focus.js` and `./focus/index.js` resolve to
@@ -115,18 +118,22 @@ TYPE_FILE_RE = re.compile(r"(^|/)types?\.ts$")
 # source keeps the host-page override surface namespaced; test files are out
 # of scope. Definitions outside token.css are rejected — the single source of
 # truth for tokens is token.css, organized by tier with section comments.
+# The `--wa-*` prefix is the vendored Web Awesome namespace: references are
+# allowed anywhere; definitions are restricted to token.css (the single
+# override point for the vendored system's visual identity).
 BARE_CUSTOM_PROPERTY_RE = re.compile(r"--[a-zA-Z][\w-]*")
 FOLIPLUS_PREFIX = "--foliplus-"
+WA_PREFIX = "--wa-"
 TOKEN_CSS = "foliplus/css/common/token.css"
-# After a --foliplus-* name, optional whitespace then a colon = a definition.
+# After a --foliplus-* or --wa-* name, optional whitespace then a colon = a definition.
 DEFINITION_RE = re.compile(r"\s*:")
 
 
 def check_custom_property_prefix(
     lines: list[str], filename: str = ""
 ) -> list[tuple[int, str]]:
-    """Rule 4: report bare (non-`--foliplus-`) custom property names, and
-    definitions outside token.css."""
+    """Rule 4: report bare (non-namespaced) custom property names, and
+    definitions of `--foliplus-*` or `--wa-*` outside token.css."""
     violations: list[tuple[int, str]] = []
     is_token = filename.endswith("token.css")
     for lineno, raw in enumerate(lines, 1):
@@ -139,6 +146,16 @@ def check_custom_property_prefix(
                         (
                             lineno,
                             f"CSS custom property definition `{name}` must live in {TOKEN_CSS} — move it there with its tier section.",
+                        )
+                    )
+                continue
+            if name.startswith(WA_PREFIX):
+                # --wa-* references are allowed anywhere; definitions only in token.css.
+                if not is_token and DEFINITION_RE.match(raw, m.end()):
+                    violations.append(
+                        (
+                            lineno,
+                            f"`--wa-*` definition `{name}` must live in {TOKEN_CSS} — the single override point for the vendored Web Awesome namespace.",
                         )
                     )
                 continue
