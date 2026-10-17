@@ -74,7 +74,6 @@ class LayerOrchestration {
   private annotation: AnnotationManager;
   private surfaces: Map<string, LayerSurface>;
   private surfacesByLayer: Map<number, LayerSurface>;
-  private lastAttribution: string | null;
   /** Per-layer intent store — the single source for every user-chosen
    *  dimension (visible / fill / border / opacity / zoomRange / name /
    *  annotation). Absent key = never touched. Provenance rides the same
@@ -89,14 +88,10 @@ class LayerOrchestration {
   get intentStore(): LayerIntentStore {
     return this.deps.getIntentStore();
   }
-  /** Whether the author set a finite `map.options.maxZoom`.
-   *
-   *  Captured in the constructor, before the first enforceOrder can write its
-   *  own fallback, so the guard below never reads back our own write. */
-  private authorMaxZoomDeclared: boolean;
 
   private deps: {
     getIntentStore: () => LayerIntentStore;
+    getCheckedBasesStack: () => readonly string[];
   };
   constructor(deps: {
     map: L.Map;
@@ -109,10 +104,13 @@ class LayerOrchestration {
     annotation: AnnotationManager;
     surfaces: Map<string, LayerSurface>;
     surfacesByLayer: Map<number, LayerSurface>;
-    lastAttribution: string | null;
     getIntentStore: () => LayerIntentStore;
+    getCheckedBasesStack: () => readonly string[];
   }) {
-    this.deps = { getIntentStore: deps.getIntentStore };
+    this.deps = {
+      getIntentStore: deps.getIntentStore,
+      getCheckedBasesStack: deps.getCheckedBasesStack,
+    };
     this.map = deps.map;
     this.events = deps.events;
     this.layerRegistry = deps.layerRegistry;
@@ -123,10 +121,6 @@ class LayerOrchestration {
     this.annotation = deps.annotation;
     this.surfaces = deps.surfaces;
     this.surfacesByLayer = deps.surfacesByLayer;
-    this.lastAttribution = deps.lastAttribution;
-    // Same capture the controller used to do: the author's declaration,
-    // read before any enforceOrder can write its own fallback.
-    this.authorMaxZoomDeclared = Number.isFinite(deps.map.options?.maxZoom);
   }
 
   /** Ordered layers (read-only view; always reflects the registry). */
@@ -164,43 +158,77 @@ class LayerOrchestration {
     return this.layerRegistry.canReorderBetween(fromIdx, toIdx);
   }
 
-  /** Syncs the attribution control to the top visible base tile.
-   *  Returns the new attribution value ('' when none) so the controller can
-   *  keep its public field in sync. */
-  syncAttribution(): string {
+  /** Syncs the attribution control to show exactly one entry: the base the
+   *  user last checked that is still visible.
+   *
+   *  Walking the user's check-stack most-recent-first is the whole point:
+   *  the first visible base in registry order is not the base the user last
+   *  activated, and under `folium.Map()`'s default OSM (always index 0 in
+   *  the base group) the first-visible-base rule pinned every rendered
+   *  attribution to the default OSM copyright — clicking any other base
+   *  looked like it did nothing. The stack answers "which base is the user
+   *  currently looking at" directly. When the stack is empty (page just
+   *  loaded, no interaction yet) or every entry has been unchecked, fall
+   *  back to the first visible base in registry order — that is the base
+   *  the map is showing by default, and it is what the pre-fix code rendered.
+   *
+   *  foliplus is the sole writer of the entry table. Leaflet's own
+   *  `layeradd` handler increments a per-layer entry on every base tile
+   *  layer addition (and decrements on remove), so diffing against a cached
+   *  "last value" is unsound under multiple simultaneous base layers: a base
+   *  that Leaflet already registered underneath another visible base would
+   *  linger in the table and show up in the rendered attribution. Clearing
+   *  and rebuilding the table on every sync makes the invariant "exactly one
+   *  entry == the base the user is looking at" independent of Leaflet's own
+   *  bookkeeping order.
+   *
+   *  `attributionEntries` hands back the live table by reference and
+   *  `refreshAttributions` re-runs the control's private redraw — the two are
+   *  the sanctioned adapter route around Leaflet's private
+   *  `addAttribution` / `removeAttribution` / `_update`. */
+  syncAttribution(): void {
     const attrCtrl = this.map.attributionControl;
-    if (!attrCtrl) return this.lastAttribution ?? "";
+    if (!attrCtrl) return;
 
     let topAttr = "";
-    for (
-      let i = this.layerRegistry.firstBaseIdx;
-      i !== -1 && i < this.layers.length;
-      i++
-    ) {
-      const layerInfo = this.layers[i];
-      if (layerInfo.group !== GROUP.BASE) continue;
+    // Newest-first walk of the user's check stack. Stale entries (unregistered
+    // or unchecked bases) fall through; we stop at the first base that is
+    // still on the map and has an attribution string.
+    const stack = this.deps.getCheckedBasesStack();
+    for (let i = stack.length - 1; i >= 0; i--) {
+      const layerInfo = this.layerRegistry.get(stack[i]);
+      if (layerInfo?.group !== GROUP.BASE) continue;
       const layer = this.findLayer(layerInfo);
       if (!(layer instanceof L.TileLayer) || !layer.options.attribution) continue;
-      if (this.map.hasLayer(layer)) {
-        topAttr = layer.options.attribution;
-        break;
+      if (!this.map.hasLayer(layer)) continue;
+      topAttr = layer.options.attribution;
+      break;
+    }
+
+    if (!topAttr) {
+      // Fallback for the pre-activation case: the first visible base in
+      // registry order. That is what the map shows by default when no
+      // interaction has happened yet, and it matches the visual default.
+      for (
+        let i = this.layerRegistry.firstBaseIdx;
+        i !== -1 && i < this.layers.length;
+        i++
+      ) {
+        const layerInfo = this.layers[i];
+        if (layerInfo.group !== GROUP.BASE) continue;
+        const layer = this.findLayer(layerInfo);
+        if (!(layer instanceof L.TileLayer) || !layer.options.attribution) continue;
+        if (this.map.hasLayer(layer)) {
+          topAttr = layer.options.attribution;
+          break;
+        }
       }
     }
 
-    if (topAttr === this.lastAttribution) return this.lastAttribution;
-
-    const prev = this.lastAttribution;
-    this.lastAttribution = topAttr;
-    if (prev) {
-      if (attrCtrl.removeAttribution) attrCtrl.removeAttribution(prev);
-      else delete attributionEntries(attrCtrl)[prev];
-    }
-    if (topAttr) {
-      if (attrCtrl.addAttribution) attrCtrl.addAttribution(topAttr);
-      else attributionEntries(attrCtrl)[topAttr] = 1;
-    }
-    if (!attrCtrl.removeAttribution) refreshAttributions(attrCtrl);
-    return this.lastAttribution;
+    const entries = attributionEntries(attrCtrl);
+    for (const key of Object.keys(entries)) delete entries[key];
+    if (topAttr) entries[topAttr] = 1;
+    refreshAttributions(attrCtrl);
   }
 
   /** The surface for a registry entry, built on first use. Registration builds
@@ -268,34 +296,6 @@ class LayerOrchestration {
    *  The controller holds the re-entry guard (`isEnforcing`) and the debounce
    *  cancellation; this pass assumes it is safe to run. */
   enforceOrder() {
-    // Leaflet's getMaxZoom() is options.maxZoom ?? <max of the layers'
-    // options.maxZoom> ?? Infinity, and folium emits a map with no declared
-    // max zoom: the map would zoom past every layer's native range into
-    // empty space. Own the ceiling in that case — the union of the
-    // registered layers' native options.maxZoom, falling back to a default
-    // when nothing declares one. The layers' native values are the author's
-    // declaration, not the user's zoomRange (which resolves through
-    // effectiveShown, not map zoom limits).
-    //
-    // Re-runs every pass instead of guarding on map.options.maxZoom: that
-    // value is our own previous write, so guarding on it froze the ceiling
-    // at the first pass and a layer registered later could never raise it.
-    // And it stays a union rather than max(prev, layers), so a removed
-    // layer's range no longer holds the ceiling up.
-    if (!this.authorMaxZoomDeclared) {
-      let max = 0;
-      for (const layerInfo of this.layers) {
-        const opts = layerInfo.layer?.options as { maxZoom?: number } | undefined;
-        if (
-          typeof opts?.maxZoom === "number" &&
-          Number.isFinite(opts.maxZoom) &&
-          opts.maxZoom > max
-        ) {
-          max = opts.maxZoom;
-        }
-      }
-      this.map.options.maxZoom = max > 0 ? max : CONST.AUTHOR_ZOOM_FALLBACK_MAX;
-    }
     // Give every layer a surface and reprice its z.
     for (let i = 0; i < this.layers.length; i++) {
       const layerInfo = this.layers[i];

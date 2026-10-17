@@ -5453,3 +5453,164 @@ class TestLayerControlBrowser:
                 f"unresolved={result['unresolved']} on row {result.get('id')!r}"
             )
             assert not errors, f"JS errors: {errors}"
+
+    def test_attribution_only_topmost_visible(self, browser, tmp_path):
+        """Regression guard: with multiple base layers checked, the
+        attribution control shows exactly one entry — the base the user
+        last activated — never two, and never the default OSM copyright
+        when the user has checked another base.
+
+        Before the fix, foliplus's `syncAttribution` walked the registry
+        from `firstBaseIdx` and took the first visible base's attr. Under
+        `folium.Map()`'s default OSM (always at index 0 of the base group
+        because every later registration inserts at the front), the walk
+        always picked the default OSM, so no matter which user base the
+        user checked, the rendered attribution was the OSM copyright.
+        A second bug compounded it: the pre-`checkedBasesStack` rebuild
+        kept a single `lastAttribution` cache and diffed against it, so
+        when a second base was checked under an already-visible first
+        base, Leaflet's own `layeradd` handler had already added its
+        entry and the diff-against-cache early-returned without cleaning
+        the newcomer up.
+
+        The fix keeps a `checkedBasesStack` — one push per base check —
+        and walks it most-recent-first, falling back to the first visible
+        base when the stack is empty (the pre-activation page-load case).
+        The snippet walks uncheck A → uncheck B → check B → check A →
+        uncheck A → uncheck B so every intermediate state has a known
+        expected table, and every step exercises the stack through a real
+        browser with Leaflet's attribution control in the loop.
+        """
+        # Use folium's default map — the default OpenStreetMap tile layer
+        # is registered as a base at LayerControl's index 0 of the base
+        # group, exactly the real-world scenario that made the old
+        # "first visible base" rule render the OSM copyright for every
+        # user-checked base.
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        LayerControl().add_to(m)
+        folium.TileLayer(
+            "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+            name="A",
+            attr="A attr",
+            overlay=False,
+            max_zoom=18,
+        ).add_to(m)
+        folium.TileLayer(
+            "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+            name="B",
+            attr="B attr",
+            overlay=False,
+            max_zoom=20,
+        ).add_to(m)
+        _expand_panel(m)
+        _write_html(m, tmp_path / "attribution_topmost.html")
+        with use_raw_page(browser.new_page) as page:
+            page.goto(
+                f"file://{tmp_path / 'attribution_topmost.html'}",
+                wait_until="domcontentloaded",
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=10000,
+            )
+            panel_ready(page)
+            result = page.evaluate(_js("LayerControl/attribution_only_topmost_visible"))
+            assert result is not None and not result.get("error"), result
+            steps = result["steps"]
+            assert len(steps) == 6, f"expected 6 steps, got {len(steps)}: {result}"
+            for step in steps:
+                assert step["r"]["ok"] is True, f"toggle failed: {step}"
+            # Initial state: exactly one entry — whatever the fallback
+            # picks from the visible base set (default OSM plus A and B
+            # are all on at page load, so this is the first visible base
+            # in registry order).
+            assert len(result["initial"]["entries"]) == 1, result["initial"]
+            # Step 1 (uncheck B): only the default OSM is on, and the
+            # stack is still empty — fallback kicks in. The entry must be
+            # the OSM default, i.e. not "A attr" or "B attr".
+            step1_entries = steps[1]["state"]["entries"]
+            assert len(step1_entries) == 1, steps[1]
+            assert "A attr" not in step1_entries, steps[1]
+            assert "B attr" not in step1_entries, steps[1]
+            # Step 2 (check B): stack=[B], B's attr wins even though the
+            # default OSM is still on the map at index 0 of the base
+            # group. This is the exact regression: previously the walk
+            # would have picked the OSM copyright here.
+            assert steps[2]["state"]["entries"] == {"B attr": 1}, steps[2]
+            # Step 3 (check A): stack=[B, A], A is newest → A's attr wins.
+            assert steps[3]["state"]["entries"] == {"A attr": 1}, steps[3]
+            # Step 4 (uncheck A): stack still [B, A], A is no longer on
+            # the map, so the walk falls through A to B. This is the
+            # "stale stack entry falls through" invariant.
+            assert steps[4]["state"]["entries"] == {"B attr": 1}, steps[4]
+            # Step 5 (uncheck B): both user bases off, only the default
+            # OSM visible — fall back to it. Same shape as step 1.
+            step5_entries = steps[5]["state"]["entries"]
+            assert len(step5_entries) == 1, steps[5]
+            assert "A attr" not in step5_entries, steps[5]
+            assert "B attr" not in step5_entries, steps[5]
+
+    def test_hidden_base_does_not_raise_max_zoom(self, browser, tmp_path):
+        """A hidden base layer must not raise ``map.getMaxZoom()``.
+
+        foliplus used to write a static union of *all registered*
+        layers' native ``options.maxZoom`` into ``map.options.maxZoom``
+        on every ``enforceOrder`` pass — including layers the user had
+        checked off. Since Leaflet's ``getMaxZoom`` returns
+        ``options.maxZoom ?? <max of on-map layers>`,` removing the
+        static write lets a hidden base stop raising the ceiling. This
+        pins that behavior in a real browser so a future regression
+        doesn't quietly come back.
+        """
+        # Two base layers with distinct native max_zoom values. Both
+        # start checked (folium's default for overlay=False). `tiles=None`
+        # suppresses folium's own default OSM tile layer, which would
+        # otherwise sit on the map outside LayerControl's registry and
+        # keep its native 18 in the ceiling regardless of what the user
+        # checked off.
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12, tiles=None)
+        LayerControl().add_to(m)
+        folium.TileLayer(
+            "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+            name="High",
+            attr="High",
+            overlay=False,
+            max_zoom=20,
+        ).add_to(m)
+        folium.TileLayer(
+            "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+            name="Low",
+            attr="Low",
+            overlay=False,
+            max_zoom=10,
+        ).add_to(m)
+        _expand_panel(m)
+        _write_html(m, tmp_path / "hidden_base_maxzoom.html")
+        with use_raw_page(browser.new_page) as page:
+            page.goto(
+                f"file://{tmp_path / 'hidden_base_maxzoom.html'}",
+                wait_until="domcontentloaded",
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=10000,
+            )
+            # Both checked: the ceiling is the union of on-map
+            # layers' native max_zoom.
+            both = page.evaluate(_js("LayerControl/read_zoom_and_entries"))
+            assert both["entries"] == {"High": 1}, both
+            assert both["zoom"] == 20, both
+            # Uncheck "High" — the ceiling must drop to "Low"'s native
+            # 10. Before the fix, "High" was still registered and its
+            # native max_zoom would have kept the ceiling at 20.
+            page.click("input[aria-label='High']")
+            page.wait_for_timeout(300)
+            low_only = page.evaluate(_js("LayerControl/read_zoom_and_entries"))
+            assert low_only["entries"] == {"Low": 1}, low_only
+            assert low_only["zoom"] == 10, (
+                f"a hidden base must not raise getMaxZoom, got {low_only['zoom']} "
+                "(expected 10 from the visible 'Low' layer's native max_zoom): "
+                f"{low_only}"
+            )

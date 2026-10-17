@@ -92,25 +92,21 @@ const authorOpacityBaseOf = (layer: L.Layer): number =>
 
 /** The layer's own author-declared min/max, frozen on first write.
  *
- *  Frozen, not re-read: `dispatchStateOp` writes `options.minZoom/maxZoom` on
- *  every live drag, so reading them back next time would feed the slider
- *  its own last drag — a ratchet that shrinks the slider's range with
- *  every drag. The snapshot is captured in `dispatchStateOp` before the write,
+ *  Frozen, not re-read: the zoomRange UI mutates `layerInfo.zoomRange` on
+ *  every commit, and any future write-through to `options.minZoom/maxZoom`
+ *  would feed the slider its own last drag — a ratchet that shrinks the
+ *  slider's range with every drag. The snapshot is captured on first read,
  *  which is also what makes persistence-replay safe: on reload the state
- *  replay fires before the panel opens, so any snapshot that captures at
- *  first read would already see `options.maxZoom` set to the persisted
- *  value, freezing the slider at that last drag instead of at the author's
- *  declared range.
+ *  replay fires before the panel opens, so a read-at-first-access would
+ *  already see the persisted value, freezing the slider at that last drag
+ *  instead of at the author's declared range.
  *
  *  `layer.options.minZoom/maxZoom` fall back to the map's declared values
  *  when the layer declares none — a TileLayer without `options.maxZoom`
  *  means "whatever the map allows", not "Infinity". `map.getMaxZoom()`
  *  itself returns `Infinity` for a map without a declared max, so that
  *  path gets its own finite fallback: `CONST.AUTHOR_ZOOM_FALLBACK_MAX`, so
- *  the values row can never print the literal string "Infinity".
- *
- *  Min end is symmetric: dragging the left thumb writes `options.minZoom`,
- *  which would ratchet the slider's own min upward on the next build. */
+ *  the values row can never print the literal string "Infinity". */
 const authorZoomBounds = new WeakMap<L.Layer, [number, number]>();
 
 const finiteOr = (v: number | undefined, fallback: number): number =>
