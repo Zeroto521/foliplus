@@ -13,8 +13,9 @@ import { CAP_TIER, DIM, GROUP } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { dom } from "#common/dom.js";
 import { applyProjection } from "../apply.js";
-import { INTENT, getIntent } from "../intent.js";
+import { INTENT } from "../intent.js";
 import { syncNoBasemap } from "../listPanel/visibility.js";
+import { currentOpacity } from "../projection.js";
 import type { LayerUI } from "../surface.js";
 import { round5 } from "./frame.js";
 import {
@@ -119,9 +120,7 @@ const commitOpacityPct = (
  *  appears for keyboard input the same as for a drag. */
 const buildOpacityRow = (ui: LayerUI, layerId: string): HTMLElement => {
   const layerInfo = ui.c.layerRegistry.get(layerId);
-  const pct = opacityToPct(
-    getIntent(ui, layerId, INTENT.OPACITY) ?? layerInfo?.opacity,
-  );
+  const pct = opacityToPct(layerInfo ? currentOpacity(ui, layerInfo) : undefined);
   const fill = dom.el("div", {
     class: `${CONST.CLASSES.SLIDER_FILL} ${CONST.CLASSES.STYLE_OPACITY_FILL}`,
     style: `width:${opacityFillWidth(pct)}`,
@@ -194,7 +193,7 @@ const OPACITY_DIMENSION = registerDimension<number>({
   gate: layerCanOpacity,
   value: (ui, layerId) => {
     const layerInfo = ui.c.layerRegistry.get(layerId);
-    return getIntent(ui, layerId, INTENT.OPACITY) ?? layerInfo?.opacity;
+    return layerInfo ? currentOpacity(ui, layerInfo) : undefined;
   },
   row: buildOpacityRow,
   /** Intent+persist + projection. `opacity === 1` clears (no override);

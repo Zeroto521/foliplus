@@ -81,6 +81,9 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
         on: vi.fn(),
         off: vi.fn(),
         hasLayer: vi.fn(l => l === testPolyLayer),
+        getZoom: vi.fn(() => 12),
+        getMinZoom: vi.fn(() => 0),
+        getMaxZoom: vi.fn(() => 18),
         addLayer,
         removeLayer,
         getContainer: vi.fn(() => {
@@ -775,6 +778,9 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
             on: vi.fn(),
             off: vi.fn(),
             hasLayer: vi.fn(() => true),
+            getZoom: vi.fn(() => 12),
+            getMinZoom: vi.fn(() => 0),
+            getMaxZoom: vi.fn(() => 18),
             addLayer: vi.fn(),
             removeLayer: rl,
             getContainer: vi.fn(() => document.createElement("div")),
@@ -1452,8 +1458,11 @@ describe("ui/state intentStore and per-layer state persistence", () => {
         layerRegistry: new Map(),
         layers: [],
         replaySavedOrder: vi.fn(),
+        map: { getContainer: () => document.createElement("div") },
       },
+      focusController: { focusingLayerId: null },
       uiContainer: null,
+      syncNoBasemap: vi.fn(),
     } as unknown as LayerUI;
 
     expect(buildLayerStates(bare)).toEqual({});

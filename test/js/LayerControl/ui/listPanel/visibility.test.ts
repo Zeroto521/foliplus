@@ -720,6 +720,9 @@ describe("DOM order diverges from registry order", () => {
       off: vi.fn(),
       invalidateSize: vi.fn(),
       getContainer: vi.fn(() => document.createElement("div")),
+      getZoom: vi.fn(() => 12),
+      getMinZoom: vi.fn(() => 0),
+      getMaxZoom: vi.fn(() => 18),
       getPane: vi.fn(() => document.createElement("div")),
       createPane: vi.fn(() => {
         const p = document.createElement("div");
@@ -898,6 +901,9 @@ describe("toggleAll base group", () => {
       off: vi.fn(),
       invalidateSize: vi.fn(),
       getContainer: vi.fn(() => document.createElement("div")),
+      getZoom: vi.fn(() => 12),
+      getMinZoom: vi.fn(() => 0),
+      getMaxZoom: vi.fn(() => 18),
       getPane: vi.fn(() => document.createElement("div")),
       createPane: vi.fn(() => {
         const p = document.createElement("div");
@@ -1083,11 +1089,17 @@ describe("unit helpers", () => {
     const ui = {
       uiContainer,
       c: {
-        layers: [{ id: "b1", group: "base" }],
-        map: { getContainer: () => document.createElement("div") },
+        layers: [{ id: "b1", group: "base", layer: layerFixture() }],
+        map: {
+          getContainer: () => document.createElement("div"),
+          getZoom: () => 0,
+          hasLayer: () => true,
+        },
+        findLayer: () => layerFixture(),
       },
       intentStore: new LayerIntentStore(),
       runtimeStore: new LayerRuntimeStore(),
+      focusController: { focusingLayerId: null },
       T: (k: string) => k,
       listPanel: {
         checkedCount: {},
@@ -1112,15 +1124,25 @@ describe("unit helpers", () => {
       const uiContainer = document.createElement("div");
       uiContainer.innerHTML = `<div class="foliplus-layer-toggle-all" data-group="${GROUP.BASE}"><span></span></div>`;
       const container = document.createElement("div");
+      const layer = layerFixture();
       const layers =
         opacity === undefined
-          ? [{ id: "b1", group: "base" }]
-          : [{ id: "b1", group: "base", opacity }];
+          ? [{ id: "b1", group: "base", layer }]
+          : [{ id: "b1", group: "base", opacity, layer }];
       const ui = {
         uiContainer,
-        c: { layers, map: { getContainer: () => container } },
+        c: {
+          layers,
+          map: {
+            getContainer: () => container,
+            getZoom: () => 0,
+            hasLayer: () => true,
+          },
+          findLayer: () => layer,
+        },
         intentStore: new LayerIntentStore(),
         runtimeStore: new LayerRuntimeStore(),
+        focusController: { focusingLayerId: null },
         T: (k: string) => k,
         listPanel: { checkedCount: {}, foldedGroups: new Set<string>() },
       } as unknown as LayerUI;

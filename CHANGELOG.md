@@ -23,6 +23,7 @@
 - `LayerControl`: marker shadows, hover tooltips, and popups no longer survive focus mode — Leaflet's native UI panes are hidden while a layer is focused, alongside the data panes ([#683](https://github.com/Zeroto521/foliplus/pull/683))
 - `LayerControl`: the opacity row now shows the author's declared default (e.g. `TileLayer(opacity=0.7)` prints 70%, not 100%) — the registry snapshots `layer.options.opacity` at registration when no caller value is present ([#684](https://github.com/Zeroto521/foliplus/pull/684))
 - `LayerControl`: polygon and multipolygon labels anchor on the shape's area centroid instead of the bounding-box center, so labels sit inside the shape on concave and multi-part polygons ([#691](https://github.com/Zeroto521/foliplus/pull/691))
+- `LayerControl`: the no-basemap hatch now follows what actually paints — a basemap outside its own min/max zoom or at opacity 0 is treated as invisible, and the hatch refreshes on zoom and delete ([#PR](https://github.com/Zeroto521/foliplus/pull/PR))
 
 ## [v0.4.0] (2026-10-10)
 
