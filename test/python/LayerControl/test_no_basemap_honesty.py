@@ -198,8 +198,7 @@ class TestHatchHonestyBrowser:
         )
         # Zoom 5 is above both stored ranges ([1,2] and [3,4]) → both out.
         assert r["atGap"]["hatch"] is True, (
-            f"hatch did not appear after zooming past every stored range: "
-            f"{r['atGap']}"
+            f"hatch did not appear after zooming past every stored range: {r['atGap']}"
         )
         # Zoom 3 is inside B's stored [3,4] → hatch off again.
         assert r["atInB"]["hatch"] is False, (
