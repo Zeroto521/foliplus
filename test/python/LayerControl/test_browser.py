@@ -5855,9 +5855,7 @@ class TestLayerControlBrowser:
             slug="attribution_topmost",
         ) as (page, errors):
             panel_ready(page)
-            result = page.evaluate(
-                _js("LayerControl/attribution_only_topmost_visible")
-            )
+            result = page.evaluate(_js("LayerControl/attribution_only_topmost_visible"))
             assert result is not None and not result.get("error"), result
             steps = result["steps"]
             assert len(steps) == 5, f"expected 5 steps, got {len(steps)}: {result}"
