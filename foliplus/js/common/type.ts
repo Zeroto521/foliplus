@@ -28,4 +28,4 @@ interface CanvasLabelStyle {
   haloWidth: number;
 }
 
-export type { CanvasLabelStyle, LogFn, Logger };
+export type { CanvasLabelStyle, Logger };

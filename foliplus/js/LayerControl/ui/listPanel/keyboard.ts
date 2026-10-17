@@ -306,10 +306,4 @@ const handleDblClick = (ui: LayerUI, event: MouseEvent): void => {
   ui.focusLayer(layerId);
 };
 
-export {
-  handleOutsideMousedown,
-  handleKeyDown,
-  escapeClearCursor,
-  focusLayerRow,
-  handleDblClick,
-};
+export { handleOutsideMousedown, handleKeyDown, handleDblClick };
