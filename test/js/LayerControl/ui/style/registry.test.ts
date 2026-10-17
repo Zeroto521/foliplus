@@ -12,7 +12,9 @@
 // is at file scope below; every test after it can rely on the test dim
 // being present.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { LayerRuntimeStore } from "#core/layer/index.js";
 import type { LayerController } from "#foliplus/LayerControl/controller.js";
+import { LayerIntentStore } from "#foliplus/LayerControl/domain/index.js";
 import type { LayerDimension } from "#foliplus/LayerControl/type.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { setIntent } from "#foliplus/LayerControl/ui/intent.js";
@@ -413,6 +415,19 @@ describe("LayerControl style-panel dimension registry — opacity descriptor", (
   it("value returns the user's stored override when one exists", () => {
     setIntent(ui, "overlay1", "opacity", 0.3);
     expect(OPACITY_DIMENSION.value(ui, "overlay1")).toBe(0.3);
+  });
+
+  it("value falls back to the layer's own opacity when no intent is stored", () => {
+    // `currentOpacity` resolves the author's declared default: the layer's
+    // `opacity` (seeded at registration from `options.opacity`) when the
+    // user never touched the slider — or 1 when the layer never declared
+    // one (the fixture layer registers without an opacity).
+    expect(OPACITY_DIMENSION.value(ui, "overlay1")).toBe(1);
+    vi.spyOn(ui.c.layerRegistry, "get").mockReturnValue({
+      ...ui.c.layerRegistry.get("overlay1")!,
+      opacity: 0.7,
+    } as never);
+    expect(OPACITY_DIMENSION.value(ui, "overlay1")).toBe(0.7);
   });
 
   it("write marks provenance for opacity < 1", () => {

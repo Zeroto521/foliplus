@@ -7,9 +7,14 @@ import { LayerRuntimeStore } from "#core/layer/index.js";
 import { LayerIntentStore } from "#foliplus/LayerControl/domain/index.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { clearIntent, setIntent } from "#foliplus/LayerControl/ui/intent.js";
-import { inZoomRange, projectLayer } from "#foliplus/LayerControl/ui/projection.js";
+import {
+  currentOpacity,
+  inZoomRange,
+  projectLayer,
+} from "#foliplus/LayerControl/ui/projection.js";
 
-const makeLayerInfo = (id: string) => ({ id, layer: null, canvas: null }) as any;
+const makeLayerInfo = (id: string, opts: { opacity?: number } = {}) =>
+  ({ id, layer: null, canvas: null, opacity: opts.opacity }) as any;
 
 const makeUI = (
   opts: {
@@ -164,5 +169,30 @@ describe("projectLayer (focus-driven opacity override)", () => {
     // the author's default, so the executor's diff is a no-op there.
     ui.focusController.focusingLayerId = "l1";
     expect(projectLayer(ui, makeLayerInfo("l1")).opacity).toBe(1);
+  });
+});
+
+describe("currentOpacity (resolved opacity read)", () => {
+  it("returns the stored intent when set", () => {
+    const ui = makeUI();
+    setIntent(ui, "l1", "opacity", 0.4);
+    expect(currentOpacity(ui, makeLayerInfo("l1"))).toBe(0.4);
+  });
+
+  it("falls back to layerInfo.opacity when no intent is stored", () => {
+    const ui = makeUI();
+    expect(currentOpacity(ui, makeLayerInfo("l1", { opacity: 0.7 }))).toBe(0.7);
+  });
+
+  it("falls back to 1 when neither intent nor layerInfo.opacity exists", () => {
+    const ui = makeUI();
+    expect(currentOpacity(ui, makeLayerInfo("l1"))).toBe(1);
+  });
+
+  it("forces 1 for the focused layer regardless of stored values", () => {
+    const ui = makeUI();
+    setIntent(ui, "l1", "opacity", 0.4);
+    ui.focusController.focusingLayerId = "l1";
+    expect(currentOpacity(ui, makeLayerInfo("l1", { opacity: 0.2 }))).toBe(1);
   });
 });
