@@ -1589,9 +1589,9 @@ class TestLayerControlBrowser:
 
         with use_raw_page(browser.new_page) as page:
             page.add_init_script(
-                f"localStorage.setItem("
-                f"'foliplus_layer_state_{match.group(1)}', "
-                f"{json.dumps(json.dumps(seed))});"
+                _js("LayerControl/seed_layer_state")
+                .replace("__KEY__", match.group(1))
+                .replace("__SEED__", json.dumps(json.dumps(seed)))
             )
             page.goto(f"file://{html_path}", wait_until="domcontentloaded")
             page.wait_for_selector(
@@ -1711,9 +1711,9 @@ class TestLayerControlBrowser:
 
         with use_raw_page(browser.new_page) as page:
             page.add_init_script(
-                f"localStorage.setItem("
-                f"'foliplus_layer_state_{match.group(1)}', "
-                f"{json.dumps(json.dumps(seed))});"
+                _js("LayerControl/seed_layer_state")
+                .replace("__KEY__", match.group(1))
+                .replace("__SEED__", json.dumps(json.dumps(seed)))
             )
             page.goto(f"file://{html_path}", wait_until="domcontentloaded")
             page.wait_for_selector(
@@ -3564,21 +3564,23 @@ class TestLayerControlBrowser:
             # (color/box-shadow are transition: none), so wait it out before
             # measuring or the computed value is mid-flight.
             page.wait_for_function(
-                "() => getComputedStyle("
-                "  document.querySelector("
-                "    '.foliplus-layer-item.foliplus-active .foliplus-drag-cell .drag-handle'"
-                "  )"
-                ").opacity === '1'",
+                _js("LayerControl/wait_drag_handle_opacity"),
+                arg=[
+                    ".foliplus-layer-item.foliplus-active .foliplus-drag-cell .drag-handle",
+                    0,
+                    "1",
+                ],
                 timeout=2000,
             )
             on_hover = page.evaluate(_js("LayerControl/read_active_row_lit"))
             page.mouse.move(5, 400)
             page.wait_for_function(
-                "() => getComputedStyle("
-                "  document.querySelector("
-                "    '.foliplus-layer-item.foliplus-active .foliplus-drag-cell .drag-handle'"
-                "  )"
-                ").opacity === '0'",
+                _js("LayerControl/wait_drag_handle_opacity"),
+                arg=[
+                    ".foliplus-layer-item.foliplus-active .foliplus-drag-cell .drag-handle",
+                    0,
+                    "0",
+                ],
                 timeout=2000,
             )
             off_hover = page.evaluate(_js("LayerControl/read_active_row_state"))
@@ -4785,11 +4787,8 @@ class TestLayerControlBrowser:
             open_more_on_first_row()
             page.hover(":nth-match(" + ROW + ", 2)")
             page.wait_for_function(
-                "() => getComputedStyle("
-                "  document.querySelectorAll('"
-                + ROW
-                + " .foliplus-drag-cell .drag-handle')[1]"
-                ").opacity === '1'",
+                _js("LayerControl/wait_drag_handle_opacity"),
+                arg=[ROW + " .foliplus-drag-cell .drag-handle", 1, "1"],
                 timeout=2000,
             )
             assert page.is_visible(".foliplus-layer-more-menu.open")
@@ -4828,8 +4827,8 @@ class TestLayerControlBrowser:
             SEP = ".foliplus-layer-sep.foliplus-layer-toggle-all"
             page.hover(SEP)
             page.wait_for_function(
-                "() => { const r = document.querySelector('" + SEP + "');"
-                " return getComputedStyle(r).boxShadow !== 'none'; }",
+                _js("LayerControl/wait_sep_glow"),
+                arg=SEP,
                 timeout=2000,
             )
             assert overlay_topmost(".foliplus-layer-attrs-panel") is True, (
