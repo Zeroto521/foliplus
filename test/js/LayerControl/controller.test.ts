@@ -1132,7 +1132,12 @@ describe("LayerController", () => {
     custom.options.attribution = "Custom base";
     manager.map.hasLayer.mockImplementation((l: any) => l === osm || l === custom);
     manager.registerLayer({ id: "osm", name: "OSM", layer: osm, group: "base" });
-    manager.registerLayer({ id: "custom", name: "Custom", layer: custom, group: "base" });
+    manager.registerLayer({
+      id: "custom",
+      name: "Custom",
+      layer: custom,
+      group: "base",
+    });
     // No activation yet — fallback picks the first visible base, which is
     // "custom" (registered later, so at the front of the base group).
     manager.enforceOrder();
@@ -1171,9 +1176,7 @@ describe("LayerController", () => {
 
     // Uncheck C — the stack still holds [A, B, C], but C is no longer
     // on the map, so the walk skips it and picks B.
-    manager.map.hasLayer.mockImplementation(
-      (l: any) => l === a || l === b,
-    );
+    manager.map.hasLayer.mockImplementation((l: any) => l === a || l === b);
     manager.syncAttribution();
     expect(map.attributionControl._attributions).toEqual({ B: 1 });
 
