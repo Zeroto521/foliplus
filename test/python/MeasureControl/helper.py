@@ -15,9 +15,9 @@ from foliplus._cdn_loader import load_cdn
 # Kept here so the two _make_page variants (with / without LayerControl)
 # share one source of truth.
 _TURF_STUB = (
-    '<script>window.turf = { distance: (a,b,o) => '
+    "<script>window.turf = { distance: (a,b,o) => "
     "L.latLng(a.geometry.coordinates[1],a.geometry.coordinates[0]).distanceTo("
-    'L.latLng(b.geometry.coordinates[1],b.geometry.coordinates[0])), '
+    "L.latLng(b.geometry.coordinates[1],b.geometry.coordinates[0])), "
     "bearing: (a,b) => { const dL = "
     "(b.geometry.coordinates[0]-a.geometry.coordinates[0])*Math.PI/180; "
     "const l1 = a.geometry.coordinates[1]*Math.PI/180; "
@@ -34,7 +34,7 @@ _TURF_STUB = (
     "return Math.abs(a * R * R / 2); }, "
     'point: (c) => ({ geometry: { coordinates: [c[0], c[1]], type: "Point" } }), '
     'polygon: (c) => ({ geometry: { coordinates: c, type: "Polygon" } }), '
-    'midpoint: (a,b) => ({ geometry: { coordinates: '
+    "midpoint: (a,b) => ({ geometry: { coordinates: "
     "[(a.geometry.coordinates[0]+b.geometry.coordinates[0])/2, "
     "(a.geometry.coordinates[1]+b.geometry.coordinates[1])/2], "
     'type: "Point" } }) };</script>'

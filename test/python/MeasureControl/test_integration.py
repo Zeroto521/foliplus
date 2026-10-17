@@ -8,7 +8,7 @@ from conftest import _js, make_browser_page, use_page
 from foliplus import MeasureControl
 from foliplus._cdn_loader import load_cdn
 
-from .helper import _stub_cdn, _TURF_STUB
+from .helper import _TURF_STUB, _stub_cdn
 
 
 class TestMeasureIntegrationBrowser:

@@ -21,9 +21,10 @@ class TestMeasureDistanceBrowser:
 
     def test_distance_labels_no_bearing_when_disabled(self, browser, tmp_path):
         """show_bearing=False omits the bearing from distance labels."""
-        with use_page(
-            _make_page, browser, tmp_path, show_bearing=False
-        ) as (page, errors):
+        with use_page(_make_page, browser, tmp_path, show_bearing=False) as (
+            page,
+            errors,
+        ):
             page.evaluate(_js("MeasureControl/draw_distance"))
             page.wait_for_timeout(500)
             labels = page.evaluate(_js("MeasureControl/read_labels"))
