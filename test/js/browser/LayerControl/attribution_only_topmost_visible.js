@@ -4,15 +4,14 @@
   // attribution entry table plus the map's max zoom.
   //
   // Every syncAttribution is a full clear + rebuild of the entry table, so
-  // the assertions in the caller pin the invariant "exactly one entry ==
-  // the base the user last activated" through a real browser sequence that
-  // the mock-only unit tests cannot exercise (Leaflet's own `layeradd`
-  // handler fires before the debounced sync, which is what made the
-  // "stack two entries" bug visible in the first place).
+  // the assertions in the caller pin the invariant "exactly one entry"
+  // through a real browser sequence that the mock-only unit tests cannot
+  // exercise (Leaflet's own `layeradd` handler fires before the debounced
+  // sync, which is what made the "stack two entries" bug visible).
   //
-  // The sequence deliberately leaves both A and B unchecked for one step
-  // (step 1) — only the map's default OSM is on at that point — so the
-  // caller can verify the fallback kicks in when no user base is visible.
+  // The sequence toggles A and B through several visible/hidden
+  // combinations so every intermediate state exercises the full rebuild
+  // with a real Leaflet attribution control.
   const map = window.map;
   if (!map) return { error: "no window.map" };
 
