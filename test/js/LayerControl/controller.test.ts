@@ -1119,14 +1119,13 @@ describe("LayerController", () => {
     expect(map.attributionControl._attributions).toEqual({ "© OpenStreetMap": 1 });
   });
 
-  it("syncAttribution shows the last-checked base's attr over the first-visible-base fallback", () => {
-    // The point of the check-stack: under folium's default OSM, the first
-    // visible base in registry order is often the "wrong" one — a later-
-    // registered base sits at index 0 of the base group (insertAt
-    // firstBaseIdx), so it wins the fallback walk even when the user
-    // just clicked a different base. Here osm registers first and custom
-    // second, so custom lands at index 0 of the base group; the fallback
-    // picks custom, but the user then checks osm, and its attr wins.
+  it("syncAttribution fully rebuilds the table on every call — no stale Leaflet entries linger", () => {
+    // Two visible bases: the topmost (registry index 0, which is the
+    // later-registered one under insertAt firstBaseIdx) wins. Every sync
+    // clears the table first — so a stale entry Leaflet's own layeradd
+    // callback may have added cannot survive a subsequent sync. Without the
+    // full-clear step, the table would grow with every toggle and the
+    // attribution line would stack every base's credit.
     const osm = new TileLayer(); // default attribution
     const custom = new TileLayer();
     custom.options.attribution = "Custom base";
@@ -1138,74 +1137,11 @@ describe("LayerController", () => {
       layer: custom,
       group: "base",
     });
-    // No activation yet — fallback picks the first visible base, which is
-    // "custom" (registered later, so at the front of the base group).
-    manager.enforceOrder();
-    expect(map.attributionControl._attributions).toEqual({ "Custom base": 1 });
-    // User clicks the OSM row. The stack now points at "osm", and its
-    // attribution wins even though custom still sits at index 0 of the
-    // base group. Without the stack, this would still show "Custom base"
-    // — the pre-fix bug under folium's default OSM.
-    manager.recordBaseCheck("osm");
+    // Seed a stale entry as if Leaflet's layeradd for osm had already run.
+    const ac = map.attributionControl;
+    ac._attributions = { "© OpenStreetMap": 1 };
     manager.syncAttribution();
-    expect(map.attributionControl._attributions).toEqual({ "© OpenStreetMap": 1 });
-  });
-
-  it("syncAttribution walks the check-stack newest-first, falling through stale entries", () => {
-    // Three bases: all visible, in this check order (oldest → newest):
-    //   A, B, C. syncAttribution should pick C's attr. If C is then
-    // unchecked, the walk falls through C (no longer on the map) and picks
-    // B — the next-most-recent entry — without touching A. If B is also
-    // unchecked, only A remains, and the walk falls through to it.
-    const a = new TileLayer();
-    a.options.attribution = "A";
-    const b = new TileLayer();
-    b.options.attribution = "B";
-    const c = new TileLayer();
-    c.options.attribution = "C";
-    manager.map.hasLayer.mockImplementation((l: any) => l === a || l === b || l === c);
-    manager.registerLayer({ id: "A", name: "A", layer: a, group: "base" });
-    manager.registerLayer({ id: "B", name: "B", layer: b, group: "base" });
-    manager.registerLayer({ id: "C", name: "C", layer: c, group: "base" });
-
-    manager.recordBaseCheck("A");
-    manager.recordBaseCheck("B");
-    manager.recordBaseCheck("C");
-    manager.syncAttribution();
-    expect(map.attributionControl._attributions).toEqual({ C: 1 });
-
-    // Uncheck C — the stack still holds [A, B, C], but C is no longer
-    // on the map, so the walk skips it and picks B.
-    manager.map.hasLayer.mockImplementation((l: any) => l === a || l === b);
-    manager.syncAttribution();
-    expect(map.attributionControl._attributions).toEqual({ B: 1 });
-
-    // Uncheck B too — fall through to A.
-    manager.map.hasLayer.mockImplementation((l: any) => l === a);
-    manager.syncAttribution();
-    expect(map.attributionControl._attributions).toEqual({ A: 1 });
-  });
-
-  it("syncAttribution falls back to first-visible-base when the stack is empty", () => {
-    // Page-load case: no user interaction yet, so the stack is empty and the
-    // first visible base in registry order is the one whose attr renders.
-    // That is the pre-fix behavior and remains the correct default when
-    // nothing has been checked.
-    const tile = new TileLayer();
-    manager.map.hasLayer.mockImplementation((l: any) => l === tile);
-    manager.registerLayer({ id: "only", name: "Only", layer: tile, group: "base" });
-    manager.enforceOrder();
-    expect(map.attributionControl._attributions).toEqual({ "© OpenStreetMap": 1 });
-  });
-
-  it("syncAttribution falls back to empty table when the stack entries are all unregistered", () => {
-    // Defensive: if a persisted-ish stack somehow refers to ids that no
-    // longer exist in the registry, and no base is visible, the table
-    // should be empty rather than holding a stale entry.
-    (manager as any).checkedBasesStack = ["ghost"];
-    manager.map.hasLayer.mockReturnValue(false);
-    manager.syncAttribution();
-    expect(map.attributionControl._attributions).toEqual({});
+    expect(ac._attributions).toEqual({ "Custom base": 1 });
   });
 
   it("syncAttribution leaves the table empty when no base tile is visible", () => {

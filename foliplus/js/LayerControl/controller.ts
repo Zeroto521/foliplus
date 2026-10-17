@@ -158,12 +158,6 @@ class LayerController implements LayerAPI {
   declare intentStore: LayerIntentStore;
   declare onLayerAdd: (event: L.LeafletEvent) => void;
   declare getLayerPanes: (layer: L.Layer) => string[];
-  /** Ordered stack of base ids the user has checked, most recent last.
-   *  syncAttribution prefers the newest entry that is still visible — that is
-   *  the base the user last activated, not the first visible base in registry
-   *  order (which under `folium.Map()`'s default OSM always wins and would
-   *  make every user-checked base render the same attribution). */
-  declare private checkedBasesStack: string[];
   private readonly T: (key: string) => string;
   private readonly log: Logger;
 
@@ -253,7 +247,6 @@ class LayerController implements LayerAPI {
     this.surfaces = new Map();
     this.surfacesByLayer = new Map();
     this.intentStore = new LayerIntentStore();
-    this.checkedBasesStack = [];
 
     this.factory = new LayerFactory({
       map: this.map,
@@ -369,7 +362,6 @@ class LayerController implements LayerAPI {
       surfaces: this.surfaces,
       surfacesByLayer: this.surfacesByLayer,
       getIntentStore: () => this.intentStore,
-      getCheckedBasesStack: () => this.checkedBasesStack,
     });
     this.getLayerPanes = layer => this.domain.resolveLayerPanes(layer);
 
@@ -1000,30 +992,6 @@ class LayerController implements LayerAPI {
 
   syncAttribution() {
     this.domain.syncAttribution();
-  }
-
-  /** Record that the user just checked a base row. Called from the panel
-   *  checkbox handler (via `applyVisibility`) only on the true transition —
-   *  an uncheck does not activate anything, so it does not touch the stack.
-   *
-   *  `syncAttribution` reads the stack most-recent-first and picks the newest
-   *  entry that is still visible as the base whose attribution shows. That is
-   *  the base the user last activated, not the first visible base in registry
-   *  order — which under `folium.Map()`'s default OSM always wins and would
-   *  render the same attribution no matter which base the user checks.
-   *  Re-checking the same id is a re-push (idempotent for `syncAttribution`,
-   *  which walks newest-first and stops at the first visible hit), and
-   *  deleting an id from the stack is not needed — an entry that no longer
-   *  resolves just falls through on the next sync. */
-  recordBaseCheck(id: string): void {
-    this.checkedBasesStack = this.checkedBasesStack.filter(x => x !== id);
-    this.checkedBasesStack.push(id);
-  }
-
-  /** Snapshot of the check-stack for the domain to read. Backed by the
-   *  controller's own field so tests can inject a mock like `intentStore`. */
-  getCheckedBasesStack(): readonly string[] {
-    return this.checkedBasesStack;
   }
 
   attachUI(containerDiv: HTMLElement) {

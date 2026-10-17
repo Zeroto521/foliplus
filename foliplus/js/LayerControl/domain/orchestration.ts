@@ -91,7 +91,6 @@ class LayerOrchestration {
 
   private deps: {
     getIntentStore: () => LayerIntentStore;
-    getCheckedBasesStack: () => readonly string[];
   };
   constructor(deps: {
     map: L.Map;
@@ -105,11 +104,9 @@ class LayerOrchestration {
     surfaces: Map<string, LayerSurface>;
     surfacesByLayer: Map<number, LayerSurface>;
     getIntentStore: () => LayerIntentStore;
-    getCheckedBasesStack: () => readonly string[];
   }) {
     this.deps = {
       getIntentStore: deps.getIntentStore,
-      getCheckedBasesStack: deps.getCheckedBasesStack,
     };
     this.map = deps.map;
     this.events = deps.events;
@@ -158,19 +155,15 @@ class LayerOrchestration {
     return this.layerRegistry.canReorderBetween(fromIdx, toIdx);
   }
 
-  /** Syncs the attribution control to show exactly one entry: the base the
-   *  user last checked that is still visible.
+  /** Syncs the attribution control to show exactly one entry: the topmost
+   *  visible base's attribution.
    *
-   *  Walking the user's check-stack most-recent-first is the whole point:
-   *  the first visible base in registry order is not the base the user last
-   *  activated, and under `folium.Map()`'s default OSM (always index 0 in
-   *  the base group) the first-visible-base rule pinned every rendered
-   *  attribution to the default OSM copyright — clicking any other base
-   *  looked like it did nothing. The stack answers "which base is the user
-   *  currently looking at" directly. When the stack is empty (page just
-   *  loaded, no interaction yet) or every entry has been unchecked, fall
-   *  back to the first visible base in registry order — that is the base
-   *  the map is showing by default, and it is what the pre-fix code rendered.
+   *  Registry order is list order, and index 0 is the visually topmost layer
+   *  (`zFor` prices `count - index`). The first checked base that is
+   *  effective shown is therefore the one whose attribution the user expects.
+   *  `map.hasLayer` is the effective-shown gate — `apply.ts` drives
+   *  `map.addLayer/removeLayer` off `effectiveShown`, so a layer that is not
+   *  on the map is not "being shown" by the user's choice.
    *
    *  foliplus is the sole writer of the entry table. Leaflet's own
    *  `layeradd` handler increments a per-layer entry on every base tile
@@ -179,7 +172,7 @@ class LayerOrchestration {
    *  that Leaflet already registered underneath another visible base would
    *  linger in the table and show up in the rendered attribution. Clearing
    *  and rebuilding the table on every sync makes the invariant "exactly one
-   *  entry == the base the user is looking at" independent of Leaflet's own
+   *  entry == the topmost visible base's attr" independent of Leaflet's own
    *  bookkeeping order.
    *
    *  `attributionEntries` hands back the live table by reference and
@@ -191,38 +184,18 @@ class LayerOrchestration {
     if (!attrCtrl) return;
 
     let topAttr = "";
-    // Newest-first walk of the user's check stack. Stale entries (unregistered
-    // or unchecked bases) fall through; we stop at the first base that is
-    // still on the map and has an attribution string.
-    const stack = this.deps.getCheckedBasesStack();
-    for (let i = stack.length - 1; i >= 0; i--) {
-      const layerInfo = this.layerRegistry.get(stack[i]);
-      if (layerInfo?.group !== GROUP.BASE) continue;
+    for (
+      let i = this.layerRegistry.firstBaseIdx;
+      i !== -1 && i < this.layers.length;
+      i++
+    ) {
+      const layerInfo = this.layers[i];
+      if (layerInfo.group !== GROUP.BASE) continue;
       const layer = this.findLayer(layerInfo);
       if (!(layer instanceof L.TileLayer) || !layer.options.attribution) continue;
       if (!this.map.hasLayer(layer)) continue;
       topAttr = layer.options.attribution;
       break;
-    }
-
-    if (!topAttr) {
-      // Fallback for the pre-activation case: the first visible base in
-      // registry order. That is what the map shows by default when no
-      // interaction has happened yet, and it matches the visual default.
-      for (
-        let i = this.layerRegistry.firstBaseIdx;
-        i !== -1 && i < this.layers.length;
-        i++
-      ) {
-        const layerInfo = this.layers[i];
-        if (layerInfo.group !== GROUP.BASE) continue;
-        const layer = this.findLayer(layerInfo);
-        if (!(layer instanceof L.TileLayer) || !layer.options.attribution) continue;
-        if (this.map.hasLayer(layer)) {
-          topAttr = layer.options.attribution;
-          break;
-        }
-      }
     }
 
     const entries = attributionEntries(attrCtrl);

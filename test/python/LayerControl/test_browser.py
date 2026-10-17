@@ -5456,36 +5456,30 @@ class TestLayerControlBrowser:
 
     def test_attribution_only_topmost_visible(self, browser, tmp_path):
         """Regression guard: with multiple base layers checked, the
-        attribution control shows exactly one entry — the base the user
-        last activated — never two, and never the default OSM copyright
-        when the user has checked another base.
+        attribution control shows exactly one entry — the topmost one in
+        registry order (list order = z-order) — never two, and never a
+        lower base's credit when a higher base is also visible.
 
-        Before the fix, foliplus's `syncAttribution` walked the registry
-        from `firstBaseIdx` and took the first visible base's attr. Under
-        `folium.Map()`'s default OSM (always at index 0 of the base group
-        because every later registration inserts at the front), the walk
-        always picked the default OSM, so no matter which user base the
-        user checked, the rendered attribution was the OSM copyright.
-        A second bug compounded it: the pre-`checkedBasesStack` rebuild
-        kept a single `lastAttribution` cache and diffed against it, so
-        when a second base was checked under an already-visible first
-        base, Leaflet's own `layeradd` handler had already added its
-        entry and the diff-against-cache early-returned without cleaning
-        the newcomer up.
+        Before the fix, foliplus kept a single ``lastAttribution`` cache
+        and diffed the new entry against it. When a second base was
+        checked under an already-visible first base, Leaflet's own
+        ``layeradd`` handler had already added its entry and the
+        diff-against-cache early-returned without cleaning the newcomer
+        up, so the attribution line stacked every checked base's credit.
 
-        The fix keeps a `checkedBasesStack` — one push per base check —
-        and walks it most-recent-first, falling back to the first visible
-        base when the stack is empty (the pre-activation page-load case).
-        The snippet walks uncheck A → uncheck B → check B → check A →
-        uncheck A → uncheck B so every intermediate state has a known
-        expected table, and every step exercises the stack through a real
-        browser with Leaflet's attribution control in the loop.
+        The fix clears the entry table on every sync and rebuilds it from
+        a single registry-order scan: the first visible base from
+        ``firstBaseIdx`` wins. The snippet walks uncheck A → uncheck B →
+        check B → check A → uncheck A → uncheck B so every intermediate
+        state has a known expected table, and every step exercises the
+        full rebuild through a real browser with Leaflet's attribution
+        control in the loop.
         """
         # Use folium's default map — the default OpenStreetMap tile layer
         # is registered as a base at LayerControl's index 0 of the base
-        # group, exactly the real-world scenario that made the old
-        # "first visible base" rule render the OSM copyright for every
-        # user-checked base.
+        # group at construction time. Each later user base is inserted
+        # at ``firstBaseIdx`` (the front of the base group), so B ends
+        # up topmost and OSM at the bottom.
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
         LayerControl().add_to(m)
         folium.TileLayer(
@@ -5521,35 +5515,80 @@ class TestLayerControlBrowser:
             assert len(steps) == 6, f"expected 6 steps, got {len(steps)}: {result}"
             for step in steps:
                 assert step["r"]["ok"] is True, f"toggle failed: {step}"
-            # Initial state: exactly one entry — whatever the fallback
-            # picks from the visible base set (default OSM plus A and B
-            # are all on at page load, so this is the first visible base
-            # in registry order).
-            assert len(result["initial"]["entries"]) == 1, result["initial"]
-            # Step 1 (uncheck B): only the default OSM is on, and the
-            # stack is still empty — fallback kicks in. The entry must be
-            # the OSM default, i.e. not "A attr" or "B attr".
-            step1_entries = steps[1]["state"]["entries"]
-            assert len(step1_entries) == 1, steps[1]
-            assert "A attr" not in step1_entries, steps[1]
-            assert "B attr" not in step1_entries, steps[1]
-            # Step 2 (check B): stack=[B], B's attr wins even though the
-            # default OSM is still on the map at index 0 of the base
-            # group. This is the exact regression: previously the walk
-            # would have picked the OSM copyright here.
-            assert steps[2]["state"]["entries"] == {"B attr": 1}, steps[2]
-            # Step 3 (check A): stack=[B, A], A is newest → A's attr wins.
-            assert steps[3]["state"]["entries"] == {"A attr": 1}, steps[3]
-            # Step 4 (uncheck A): stack still [B, A], A is no longer on
-            # the map, so the walk falls through A to B. This is the
-            # "stale stack entry falls through" invariant.
+            # Initial state: B is topmost (last inserted at front), so
+            # its attr wins.
+            assert result["initial"]["entries"] == {"B attr": 1}, result["initial"]
+            # Step 1 (uncheck A): B still topmost → B's attr.
+            assert steps[1]["state"]["entries"] == {"B attr": 1}, steps[1]
+            # Step 2 (uncheck B): only A and OSM visible — A is now
+            # topmost (B was removed from the map).
+            assert steps[2]["state"]["entries"] == {"A attr": 1}, steps[2]
+            # Step 3 (check B): B is topmost again → B's attr.
+            assert steps[3]["state"]["entries"] == {"B attr": 1}, steps[3]
+            # Step 4 (check A): A is below B in registry order, so B
+            # still wins. This is the regression guard: the old
+            # "last-checked wins" rule would have flipped to A here.
             assert steps[4]["state"]["entries"] == {"B attr": 1}, steps[4]
-            # Step 5 (uncheck B): both user bases off, only the default
-            # OSM visible — fall back to it. Same shape as step 1.
-            step5_entries = steps[5]["state"]["entries"]
-            assert len(step5_entries) == 1, steps[5]
-            assert "A attr" not in step5_entries, steps[5]
-            assert "B attr" not in step5_entries, steps[5]
+            # Step 5 (uncheck A): only B and OSM visible — B topmost.
+            assert steps[5]["state"]["entries"] == {"B attr": 1}, steps[5]
+            # Step 6 (uncheck B): only the default OSM visible.
+            step6_entries = steps[6]["state"]["entries"]
+            assert len(step6_entries) == 1, steps[6]
+            assert "A attr" not in step6_entries, steps[6]
+            assert "B attr" not in step6_entries, steps[6]
+
+    def test_attribution_sync_no_flicker(self, browser, tmp_path):
+        """Flicker guard: reading the attribution table in the same JS
+        task as the checkbox click shows exactly one entry — the
+        topmost visible base's credit — not two.
+
+        Leaflet's ``layeradd`` fires ``addAttribution`` synchronously
+        during the click. If ``syncAttribution`` were debounced, the
+        table would carry both the pre-existing topmost base's attr and
+        the newly-added base's attr for ~50 ms — a visible flicker. The
+        synchronous call in ``visibility.ts`` rebuilds the table right
+        after the click is processed, before ``debouncedEnforce`` runs.
+        """
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        LayerControl().add_to(m)
+        folium.TileLayer(
+            "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+            name="A",
+            attr="A attr",
+            overlay=False,
+            max_zoom=18,
+        ).add_to(m)
+        # B starts hidden: the flicker window is the moment between
+        # Leaflet's synchronous addAttribution (fired on layeradd during
+        # the click) and the debounced syncAttribution that would rebuild
+        # the table. Turning B ON is the flicker trigger.
+        folium.TileLayer(
+            "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+            name="B",
+            attr="B attr",
+            overlay=False,
+            max_zoom=20,
+            show=False,
+        ).add_to(m)
+        _expand_panel(m)
+        _write_html(m, tmp_path / "attribution_sync.html")
+        with use_raw_page(browser.new_page) as page:
+            page.goto(
+                f"file://{tmp_path / 'attribution_sync.html'}",
+                wait_until="domcontentloaded",
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=10000,
+            )
+            panel_ready(page)
+            result = page.evaluate(_js("LayerControl/attribution_sync_no_flicker"))
+            assert result is not None and not result.get("error"), result
+            # Same-JS-task read after the click: the table must be
+            # exactly one entry. A is topmost (registered before B), so
+            # its attr wins regardless of the click order.
+            assert result["entries"] == {"A attr": 1}, result
 
     def test_hidden_base_does_not_raise_max_zoom(self, browser, tmp_path):
         """A hidden base layer must not raise ``map.getMaxZoom()``.

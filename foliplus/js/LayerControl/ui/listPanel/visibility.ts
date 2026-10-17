@@ -200,15 +200,6 @@ const applyVisibility = (ui: LayerUI, id: string, visible: boolean): boolean => 
   setVisibleIntent(ui, id, visible);
   applyProjection(ui, id);
 
-  // On a base check (false → true) push the id onto the activation stack so
-  // syncAttribution picks this base's attr rather than the first visible base
-  // in registry order (which under folium's default OSM would always win).
-  // An uncheck does not record — the user just took one off, so the
-  // previously-active base in the stack (if still visible) is what should show.
-  if (visible && layerInfo.group === GROUP.BASE && oldChecked !== visible) {
-    ui.c.recordBaseCheck(id);
-  }
-
   // Paint last: the cell reads the intent this transition just recorded.
   if (item) applyRowView(ui, item, buildRowCell(ui, layerInfo));
 
@@ -229,8 +220,7 @@ const applyVisibility = (ui: LayerUI, id: string, visible: boolean): boolean => 
   // so a debounced syncAttribution would let the intermediate state (both
   // bases' attrs, or a lingering removed base's attr) render for ~50ms — a
   // visible flicker. Sync the attribution table right after the check state
-  // and the stack are updated (recordBaseCheck above), before debouncedEnforce
-  // re-prices z-order.
+  // is updated, before debouncedEnforce re-prices z-order.
   if (layerInfo.group === GROUP.BASE) ui.c.syncAttribution();
 
   ui.c.debouncedEnforce();
