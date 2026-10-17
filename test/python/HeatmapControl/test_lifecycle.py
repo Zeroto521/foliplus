@@ -1,4 +1,4 @@
-"""Browser tests for HeatmapControl remove→add lifecycle and listener hygiene."""
+"""Browser tests for HeatmapControl remove → add lifecycle and listener hygiene."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from .helper import _make_page
 
 class TestHeatmapControlLifecycleBrowser:
     """Verify destroy() + addControl restarts the scan cleanly, and that
-    remove→add cycles leave no listener residue on map, document, or window."""
+    remove → add cycles leave no listener residue on map, document, or window."""
 
     def test_remove_readd_restarts_scan(self, browser, tmp_path):
         """destroy() + addControl restarts the initial scan and re-renders."""
