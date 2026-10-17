@@ -3677,8 +3677,12 @@ describe("LayerUI style panel — zoom range", () => {
     expect(slider.getAttribute("step")).toBe("1");
     expect(slider.getAttribute("min-value")).toBe("0");
     expect(slider.getAttribute("max-value")).toBe("18");
-    expect(row.querySelector(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_LIMIT_MIN}`)).not.toBeNull();
-    expect(row.querySelector(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_LIMIT_MAX}`)).not.toBeNull();
+    expect(
+      row.querySelector(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_LIMIT_MIN}`),
+    ).not.toBeNull();
+    expect(
+      row.querySelector(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_LIMIT_MAX}`),
+    ).not.toBeNull();
     const marker = row.querySelector(
       `.${CONST.CLASSES.STYLE_ZOOM_RANGE_CURRENT_MARKER}`,
     );
@@ -4309,9 +4313,7 @@ describe("LayerUI style panel — zoom range", () => {
     const slider = sliderOf(row);
     expect(slider.getAttribute("max")).not.toBe("Infinity");
     expect(Number(slider.getAttribute("max"))).toBe(20);
-    const limitMax = row.querySelector(
-      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_LIMIT_MAX}`,
-    );
+    const limitMax = row.querySelector(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_LIMIT_MAX}`);
     expect(limitMax!.textContent).not.toBe("Infinity");
   });
 

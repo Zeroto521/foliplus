@@ -1,7 +1,5 @@
 () => {
-  const slider = document.querySelector(
-    ".foliplus-style-zoom-range-row wa-slider",
-  );
+  const slider = document.querySelector(".foliplus-style-zoom-range-row wa-slider");
   if (!slider) return { error: "zoom range wa-slider not rendered" };
 
   const row = document.querySelector('.foliplus-layer-item[data-layer-id="ng_gate"]');

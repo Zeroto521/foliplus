@@ -419,28 +419,27 @@ class BaseControl(JSCSSMixin, MacroElement):
         ``customElements.whenDefined("<tag>")`` first.
         """
         figure = self.get_root()
-        if (
-            isinstance(figure, Figure)
-            and _SHARED_ASSETS_NAME not in figure.header._children
-        ):
-            figure.header.add_child(
-                Element(_build_shared_header()), name=_SHARED_ASSETS_NAME
-            )
-
-        # Inject non-classic CDN entries (CSS in head, module scripts in body),
-        # deduplicated by URL so multiple controls sharing an entry emit it once.
-        for _name, url in load_css(self._name):
-            if url not in figure.header._children:
-                figure.header.add_child(CssLink(url), name=url)
-        for _name, url in load_modules(self._name):
-            key = f"foliplus_module_{url}"
-            if key not in figure.html._children:
-                figure.html.add_child(
-                    Element(
-                        f'<script type="module" src="{url}"></script>',
-                    ),
-                    name=key,
+        if isinstance(figure, Figure):
+            if _SHARED_ASSETS_NAME not in figure.header._children:
+                figure.header.add_child(
+                    Element(_build_shared_header()), name=_SHARED_ASSETS_NAME
                 )
+
+            # Inject non-classic CDN entries (CSS in head, module scripts in
+            # body), deduplicated by URL so multiple controls sharing an
+            # entry emit it once.
+            for _name, url in load_css(self._name):
+                if url not in figure.header._children:
+                    figure.header.add_child(CssLink(url), name=url)
+            for _name, url in load_modules(self._name):
+                key = f"foliplus_module_{url}"
+                if key not in figure.html._children:
+                    figure.html.add_child(
+                        Element(
+                            f'<script type="module" src="{url}"></script>',
+                        ),
+                        name=key,
+                    )
 
         html: str = super().render(**kwargs)
         return html

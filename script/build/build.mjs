@@ -281,7 +281,9 @@ const buildEntries = (components, withSonda) => {
     if (css && !css.endsWith("index.css")) {
       const tmpCss = resolve(buildCss, basename(css));
       writeFileSync(tmpCss, prependLayerDecl(readFileSync(css, "utf-8")), "utf-8");
-      artifacts.push(enable(artifact([tmpCss], out(`foliplus-${outName}.min.css`), name)));
+      artifacts.push(
+        enable(artifact([tmpCss], out(`foliplus-${outName}.min.css`), name)),
+      );
     }
   }
 

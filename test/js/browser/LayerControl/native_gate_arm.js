@@ -44,9 +44,7 @@ async () => {
   // ArrowDown has room to step it — the min thumb starts at mapMin and
   // cannot go further down. min-value/max-value are the contract surface
   // (foliplus-written attributes, applied on upgrade).
-  const slider = document.querySelector(
-    ".foliplus-style-zoom-range-row wa-slider",
-  );
+  const slider = document.querySelector(".foliplus-style-zoom-range-row wa-slider");
   if (!slider) {
     ui.closeStylePanel(false);
     return { error: "zoom range wa-slider not rendered" };
