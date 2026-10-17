@@ -2,21 +2,15 @@
 // resolution. Consumers import one barrel instead of three sibling modules.
 export {
   HIDE_OVERLAP,
-  hOverlap,
   hides,
-  intersects,
   planVisible,
   withinRect,
   type Box,
-  type PlacedLabel,
 } from "./labelCollision.js";
 export {
   numberFormatOptions,
   renderLabelControls,
   type LabelStyleValues,
-  type StyleSetters,
-  type RenderLabelControlsOptions,
-  type LabelControlsResult,
 } from "./labelControl.js";
 export {
   AUTO_FIELD,
