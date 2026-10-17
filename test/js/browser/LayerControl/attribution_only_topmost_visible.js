@@ -14,7 +14,7 @@
 
   const toggleByName = name => {
     const row = [...document.querySelectorAll(".foliplus-layer-item")].find(
-      r => r.querySelector(".foliplus-layer-name")?.textContent?.trim() === name,
+      r => r.querySelector(".foliplus-layer-label")?.textContent?.trim() === name,
     );
     if (!row) return { ok: false, reason: `no row for ${name}` };
     const cb = row.querySelector('input[type="checkbox"]');

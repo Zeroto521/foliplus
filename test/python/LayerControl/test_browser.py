@@ -5553,28 +5553,27 @@ class TestLayerControlBrowser:
             slug="hidden_base_maxzoom",
         ) as (page, _):
             panel_ready(page)
+            # Expand the panel so the checkbox is visible to a native click
+            # (the attribution test can stay collapsed because it runs JS via
+            # `page.evaluate`, which doesn't require visibility).
+            page.click(".foliplus-toggle-btn")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
             # Both checked: the ceiling is the union of on-map
             # layers' native max_zoom.
-            both = page.evaluate(
-                "() => ({ zoom: window.map.getMaxZoom(), "
-                "         entries: Object.keys(window.map.attributionControl._attributions) })"
-            )
-            assert both["entries"] == ["High"], both
+            both = page.evaluate(_js("LayerControl/read_zoom_and_entries"))
+            assert both["entries"] == {"High": 1}, both
             assert both["zoom"] == 20, both
             # Uncheck "High" — the ceiling must drop to "Low"'s native
             # 10. Before the fix, "High" was still registered and its
             # native max_zoom would have kept the ceiling at 20.
-            page.evaluate(
-                "() => { const r = [...document.querySelectorAll('.foliplus-layer-item')]"
-                ".find(r => r.querySelector('.foliplus-layer-name')?.textContent?.trim() === 'High');"
-                " if (r) r.querySelector('input[type=checkbox]').click(); }"
-            )
+            page.click("input[aria-label='High']")
             page.wait_for_timeout(300)
-            low_only = page.evaluate(
-                "() => ({ zoom: window.map.getMaxZoom(), "
-                "         entries: Object.keys(window.map.attributionControl._attributions) })"
-            )
-            assert low_only["entries"] == ["Low"], low_only
+            low_only = page.evaluate(_js("LayerControl/read_zoom_and_entries"))
+            assert low_only["entries"] == {"Low": 1}, low_only
             assert low_only["zoom"] == 10, (
                 f"a hidden base must not raise getMaxZoom, got {low_only['zoom']} "
                 "(expected 10 from the visible 'Low' layer's native max_zoom): "
