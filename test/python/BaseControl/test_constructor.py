@@ -75,6 +75,7 @@ class TestBaseControlPython:
 
     def test_build_config_missing_export_field_raises(self):
         """If _config_fields names an attribute that doesn't exist, _build_config raises."""
+
         class BadControl(BaseControl):
             _config_fields = ("nonexistent",)
 
@@ -84,6 +85,7 @@ class TestBaseControlPython:
 
     def test_build_config_missing_export_field_names_control(self):
         """The error message names the declaring control and the offending field."""
+
         class BadControl(BaseControl):
             _config_fields = ("typo",)
 
@@ -95,6 +97,7 @@ class TestBaseControlPython:
 
     def test_build_config_missing_export_field_fails_fast(self):
         """Only the first missing field is reported; validation stops there."""
+
         class BadControl(BaseControl):
             _config_fields = ("alpha", "beta")
 
@@ -106,6 +109,7 @@ class TestBaseControlPython:
 
     def test_build_config_allows_none_value_export_field(self):
         """An exported field may legitimately be None."""
+
         class NullControl(BaseControl):
             _config_fields = ("nullable",)
 
@@ -117,6 +121,7 @@ class TestBaseControlPython:
 
     def test_build_config_field_set_in_subclass_init(self):
         """Validation passes when _config_fields fields are set after super().__init__."""
+
         class LateControl(BaseControl):
             _config_fields = ("late_value",)
 
@@ -155,6 +160,7 @@ class TestBaseControlPython:
     def test_config_fields_shared_keys_extra_config_merge_order(self):
         """_build_config merge order: shared keys → export fields → extra_config.
         Later wins on conflicts."""
+
         class OverrideControl(BaseControl):
             _config_fields = ("position",)
 
