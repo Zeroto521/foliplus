@@ -61,9 +61,10 @@ class TestHeatmapControlSelectionBrowser:
 
     def test_panel_interaction(self, browser, tmp_path):
         """Open heatmap panel, verify layer dropdown populates."""
-        with use_page(
-            _make_page, browser, tmp_path, expose_ctrl=True
-        ) as (page, errors):
+        with use_page(_make_page, browser, tmp_path, expose_ctrl=True) as (
+            page,
+            errors,
+        ):
             page.evaluate(_js("HeatmapControl/click_toggle_button"))
             page.wait_for_selector(
                 ".foliplus-heatmap-ctrl.foliplus-is-expanded",

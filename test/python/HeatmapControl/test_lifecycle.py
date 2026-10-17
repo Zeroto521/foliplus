@@ -64,9 +64,7 @@ class TestHeatmapControlLifecycleBrowser:
             )
             assert not errors, f"JS errors: {errors}"
 
-    def test_remove_readd_leaves_no_document_listener_residue(
-        self, browser, tmp_path
-    ):
+    def test_remove_readd_leaves_no_document_listener_residue(self, browser, tmp_path):
         """Two remove → add cycles with the dropdown open must not accumulate
         document/window listeners.
 
@@ -118,9 +116,7 @@ class TestHeatmapControlLifecycleBrowser:
             heatmap_ready(page)
             assert not errors, f"JS errors: {errors}"
 
-    def test_probe_leak_listener_doc_control_group_moves(
-        self, browser, tmp_path
-    ):
+    def test_probe_leak_listener_doc_control_group_moves(self, browser, tmp_path):
         """Bare and signal-managed document listeners must both move the count.
 
         Control group for the drift gate above: without these two directions the

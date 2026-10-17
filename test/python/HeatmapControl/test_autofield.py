@@ -31,9 +31,10 @@ class TestHeatmapAutoFieldBrowser:
                 "geometry": {"type": "Point", "coordinates": [119.31, 26.09]},
             },
         ]
-        with use_page(
-            _make_autofield_page, tmp_path, browser, features, agg="sum"
-        ) as (page, errors):
+        with use_page(_make_autofield_page, tmp_path, browser, features, agg="sum") as (
+            page,
+            errors,
+        ):
             # Select the first layer (there's only one)
             options = page.evaluate(_js("HeatmapControl/read_layer_options_all"))
             # Skip the empty/default option, pick the first real layer
@@ -48,9 +49,7 @@ class TestHeatmapAutoFieldBrowser:
                 ".foliplus-heatmap-ctrl .foliplus-heatmap-extra-body"
                 " > .foliplus-form-row:nth-child(1) .foliplus-form-control select"
             )
-            page.evaluate(
-                _js("HeatmapControl/set_select_value"), [agg_select, "sum"]
-            )
+            page.evaluate(_js("HeatmapControl/set_select_value"), [agg_select, "sum"])
             page.evaluate(_js("HeatmapControl/dispatch_select_change"), agg_select)
             page.wait_for_timeout(500)
 
@@ -60,11 +59,15 @@ class TestHeatmapAutoFieldBrowser:
                 ".foliplus-heatmap-ctrl .foliplus-heatmap-field"
                 " .foliplus-form-control select"
             )
-            field_val = page.evaluate(_js("HeatmapControl/read_select_value"), field_select)
+            field_val = page.evaluate(
+                _js("HeatmapControl/read_select_value"), field_select
+            )
             assert field_val == "", f"Expected empty string (AUTO), got '{field_val}'"
 
             # Verify field options include our properties
-            field_opts = page.evaluate(_js("HeatmapControl/read_select_options"), field_select)
+            field_opts = page.evaluate(
+                _js("HeatmapControl/read_select_options"), field_select
+            )
             assert "population" in field_opts, f"Missing 'population': {field_opts}"
             assert "density" in field_opts, f"Missing 'density': {field_opts}"
 
@@ -92,9 +95,10 @@ class TestHeatmapAutoFieldBrowser:
                 "geometry": {"type": "Point", "coordinates": [119.31, 26.09]},
             },
         ]
-        with use_page(
-            _make_autofield_page, tmp_path, browser, features, agg="avg"
-        ) as (page, errors):
+        with use_page(_make_autofield_page, tmp_path, browser, features, agg="avg") as (
+            page,
+            errors,
+        ):
             options = page.evaluate(_js("HeatmapControl/read_layer_options_all"))
             real_options = [v for v in options if v]
             assert len(real_options) >= 1
@@ -117,7 +121,9 @@ class TestHeatmapAutoFieldBrowser:
                 ".foliplus-heatmap-ctrl .foliplus-heatmap-field"
                 " .foliplus-form-control select"
             )
-            field_val = page.evaluate(_js("HeatmapControl/read_select_value"), field_select)
+            field_val = page.evaluate(
+                _js("HeatmapControl/read_select_value"), field_select
+            )
             assert field_val == "", f"Expected empty string (AUTO), got '{field_val}'"
 
             # Single field → pickAutoField returns it directly
@@ -125,7 +131,9 @@ class TestHeatmapAutoFieldBrowser:
             assert auto_key == "elevation", f"Expected 'elevation', got '{auto_key}'"
 
             # The single property option should be visible
-            field_opts = page.evaluate(_js("HeatmapControl/read_select_options"), field_select)
+            field_opts = page.evaluate(
+                _js("HeatmapControl/read_select_options"), field_select
+            )
             assert "elevation" in field_opts, f"Missing 'elevation': {field_opts}"
 
             assert not errors, f"JS errors: {errors}"

@@ -17,9 +17,10 @@ class TestHeatmapControlCacheBrowser:
 
     def test_render_all_flag_integration(self, browser, tmp_path):
         """renderAll is toggled via EventBus BEFORE_EXPORT / AFTER_EXPORT events."""
-        with use_page(
-            _make_page, browser, tmp_path, expose_ctrl=True
-        ) as (page, errors):
+        with use_page(_make_page, browser, tmp_path, expose_ctrl=True) as (
+            page,
+            errors,
+        ):
             page.evaluate(_js("HeatmapControl/click_toggle_button"))
             page.wait_for_selector(
                 ".foliplus-heatmap-ctrl.foliplus-is-expanded",
@@ -40,9 +41,10 @@ class TestHeatmapControlCacheBrowser:
 
     def test_cached_agg_invalidation_on_layer_change(self, browser, tmp_path):
         """cachedAgg is nulled when the layer changes (via onLayerChange)."""
-        with use_page(
-            _make_page, browser, tmp_path, expose_ctrl=True
-        ) as (page, errors):
+        with use_page(_make_page, browser, tmp_path, expose_ctrl=True) as (
+            page,
+            errors,
+        ):
             page.evaluate(_js("HeatmapControl/click_toggle_button"))
             page.wait_for_selector(
                 ".foliplus-heatmap-ctrl.foliplus-is-expanded",
@@ -65,9 +67,10 @@ class TestHeatmapControlCacheBrowser:
 
     def test_clear_heatmap_canvas_resets_caches(self, browser, tmp_path):
         """clearHeatmapCanvas resets all aggregation caches (but not autoFieldKey)."""
-        with use_page(
-            _make_page, browser, tmp_path, expose_ctrl=True
-        ) as (page, errors):
+        with use_page(_make_page, browser, tmp_path, expose_ctrl=True) as (
+            page,
+            errors,
+        ):
             page.evaluate(_js("HeatmapControl/seed_cached_features"))
             page.evaluate(_js("HeatmapControl/seed_cached_agg_kd"))
             page.evaluate(_js("HeatmapControl/call_clear_heatmap_canvas"))

@@ -223,9 +223,10 @@ class TestHeatmapControlPersistBrowser:
 
     def test_clear_all_removes_content(self, browser, tmp_path):
         """clearHeatmapCanvas() clears cached data and hides the overlay."""
-        with use_page(
-            _make_page, browser, tmp_path, expose_ctrl=True
-        ) as (page, errors):
+        with use_page(_make_page, browser, tmp_path, expose_ctrl=True) as (
+            page,
+            errors,
+        ):
             # Render some content first
             page.evaluate(_js("HeatmapControl/click_toggle_button"))
             page.wait_for_selector(
@@ -251,9 +252,10 @@ class TestHeatmapControlPersistBrowser:
 
     def test_clear_button_works(self, browser, tmp_path):
         """Pressing the clear button resets all controls and clears layers."""
-        with use_page(
-            _make_page, browser, tmp_path, expose_ctrl=True
-        ) as (page, errors):
+        with use_page(_make_page, browser, tmp_path, expose_ctrl=True) as (
+            page,
+            errors,
+        ):
             page.evaluate(_js("HeatmapControl/click_toggle_button"))
             page.wait_for_selector(
                 ".foliplus-heatmap-ctrl.foliplus-is-expanded",

@@ -12,13 +12,12 @@ from conftest import _js, heatmap_ready, make_browser_page
 from foliplus import HeatmapControl
 from foliplus._cdn_loader import load_cdn
 
-
 _H3_STUB = (
     'window.h3={latLngToCell:function(){return ""},'
-    'cellToBoundary:function(c){return [[0,0],[0,0],[0,0]]},'
-    'cellToLatLng:function(){return [0,0]}};'
-    'window.ss={jenks:function(){return[0,1]},quantile:function(){return 0.5}};'
-    'window.chroma={scale:function(){return{mode:function(){return{'
+    "cellToBoundary:function(c){return [[0,0],[0,0],[0,0]]},"
+    "cellToLatLng:function(){return [0,0]}};"
+    "window.ss={jenks:function(){return[0,1]},quantile:function(){return 0.5}};"
+    "window.chroma={scale:function(){return{mode:function(){return{"
     'colors:function(){return["#f00"]}}}}}};'
 )
 
@@ -121,9 +120,7 @@ def _make_page(
     page, errors = make_browser_page(
         browser, tmp_path, html, "heatmap", prelude=prelude
     )
-    page.wait_for_selector(
-        ".foliplus-heatmap-ctrl", state="attached", timeout=10000
-    )
+    page.wait_for_selector(".foliplus-heatmap-ctrl", state="attached", timeout=10000)
     return page, errors
 
 
@@ -180,9 +177,7 @@ def _make_autofield_page(
     )
     page.goto(f"file://{html_path}", wait_until="domcontentloaded")
 
-    page.wait_for_selector(
-        ".foliplus-heatmap-ctrl", state="attached", timeout=10000
-    )
+    page.wait_for_selector(".foliplus-heatmap-ctrl", state="attached", timeout=10000)
 
     page.evaluate(_js("HeatmapControl/click_toggle_button"))
     page.wait_for_selector(

@@ -41,18 +41,17 @@ class TestHeatmapControlPanelBrowser:
             )
             assert not errors, f"JS errors: {errors}"
 
-    def test_panel_stays_open_on_outside_press_when_disabled(
-        self, browser, tmp_path
-    ):
+    def test_panel_stays_open_on_outside_press_when_disabled(self, browser, tmp_path):
         """``collapse_on_outside=False`` also works for HeatmapControl.
 
         The second half of the wiring proof: the flag reaches the shell through
         the same option for both controls, so it is not a LayerControl special
         case.
         """
-        with use_page(
-            _make_page, browser, tmp_path, collapse_on_outside=False
-        ) as (page, errors):
+        with use_page(_make_page, browser, tmp_path, collapse_on_outside=False) as (
+            page,
+            errors,
+        ):
             page.evaluate(_js("HeatmapControl/click_toggle_button"))
             page.wait_for_selector(
                 ".foliplus-heatmap-ctrl.foliplus-is-expanded",
@@ -72,9 +71,10 @@ class TestHeatmapControlPanelBrowser:
 
     def test_default_values_initialized(self, browser, tmp_path):
         """Constructor initializes all user-configurable defaults."""
-        with use_page(
-            _make_page, browser, tmp_path, expose_ctrl=True
-        ) as (page, errors):
+        with use_page(_make_page, browser, tmp_path, expose_ctrl=True) as (
+            page,
+            errors,
+        ):
             vals = page.evaluate(_js("HeatmapControl/read_defaults"))
             assert vals["numClasses"] == 6, (
                 f"numClasses expected 6 got {vals['numClasses']}"
@@ -93,9 +93,10 @@ class TestHeatmapControlPanelBrowser:
 
     def test_layer_selection_triggers_render(self, browser, tmp_path):
         """Selecting a layer calls renderHexagons (cachedFeatures should be set)."""
-        with use_page(
-            _make_page, browser, tmp_path, expose_ctrl=True
-        ) as (page, errors):
+        with use_page(_make_page, browser, tmp_path, expose_ctrl=True) as (
+            page,
+            errors,
+        ):
             page.evaluate(_js("HeatmapControl/click_toggle_button"))
             page.wait_for_selector(
                 ".foliplus-heatmap-ctrl.foliplus-is-expanded",
