@@ -826,9 +826,9 @@ class TestLayerControlRendering:
         flat = re.sub(r"\s+", " ", css)
         # The press wash is the row's own :active — not a panel or menu press.
         assert "background: var(--foliplus-accent-soft-bg)" in flat
-        assert re.search(
-            r":not\(\s*:has\(\.foliplus-row-panel :active", flat
-        ), "row :active wash must carve out row-internal overlays"
+        assert re.search(r":not\(\s*:has\(\.foliplus-row-panel :active", flat), (
+            "row :active wash must carve out row-internal overlays"
+        )
         # Locate the press-wash rule block (the :active selector that owns
         # accent-soft-bg), not the first occurrence of the token anywhere.
         m = re.search(
