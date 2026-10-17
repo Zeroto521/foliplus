@@ -895,8 +895,12 @@ describe("LayerUI keyboard", () => {
       ui.openStylePanel("overlay1");
       const panel = item.querySelector(`.${CONST.CLASSES.STYLE_PANEL}`)!;
       const slider = panel.querySelector(
-        `.${CONST.CLASSES.STYLE_ZOOM_RANGE_MIN}`,
-      ) as HTMLInputElement;
+        `.${CONST.CLASSES.STYLE_ZOOM_RANGE_SLIDER}`,
+      ) as HTMLElement;
+      // A real wa-slider host is focusable (its shadow thumb holds focus and
+      // document.activeElement returns the host); jsdom will not focus an
+      // element whose tabindex is -1, so pin the interactive tabindex first.
+      slider.tabIndex = 0;
 
       slider.focus();
       const event = new KeyboardEvent("keydown", {
@@ -915,8 +919,12 @@ describe("LayerUI keyboard", () => {
       ui.openStylePanel("overlay1");
       const panel = item.querySelector(`.${CONST.CLASSES.STYLE_PANEL}`)!;
       const slider = panel.querySelector(
-        `.${CONST.CLASSES.STYLE_ZOOM_RANGE_MAX}`,
-      ) as HTMLInputElement;
+        `.${CONST.CLASSES.STYLE_ZOOM_RANGE_SLIDER}`,
+      ) as HTMLElement;
+      // A real wa-slider host is focusable (its shadow thumb holds focus and
+      // document.activeElement returns the host); jsdom will not focus an
+      // element whose tabindex is -1, so pin the interactive tabindex first.
+      slider.tabIndex = 0;
 
       slider.focus();
       const event = new KeyboardEvent("keydown", {
@@ -945,8 +953,12 @@ describe("LayerUI keyboard", () => {
       ui.openStylePanel("overlay1");
       const panel = item.querySelector(`.${CONST.CLASSES.STYLE_PANEL}`)!;
       const slider = panel.querySelector(
-        `.${CONST.CLASSES.STYLE_ZOOM_RANGE_MIN}`,
-      ) as HTMLInputElement;
+        `.${CONST.CLASSES.STYLE_ZOOM_RANGE_SLIDER}`,
+      ) as HTMLElement;
+      // A real wa-slider host is focusable (its shadow thumb holds focus and
+      // document.activeElement returns the host); jsdom will not focus an
+      // element whose tabindex is -1, so pin the interactive tabindex first.
+      slider.tabIndex = 0;
 
       slider.focus();
       const event = new KeyboardEvent("keydown", {
@@ -968,8 +980,12 @@ describe("LayerUI keyboard", () => {
 
       const panel = item.querySelector(`.${CONST.CLASSES.STYLE_PANEL}`)!;
       const slider = panel.querySelector(
-        `.${CONST.CLASSES.STYLE_ZOOM_RANGE_MIN}`,
-      ) as HTMLInputElement;
+        `.${CONST.CLASSES.STYLE_ZOOM_RANGE_SLIDER}`,
+      ) as HTMLElement;
+      // A real wa-slider host is focusable (its shadow thumb holds focus and
+      // document.activeElement returns the host); jsdom will not focus an
+      // element whose tabindex is -1, so pin the interactive tabindex first.
+      slider.tabIndex = 0;
 
       slider.focus();
       slider.dispatchEvent(

@@ -83,7 +83,7 @@
       `:${(n.textContent || "").replace(/\s+/g, " ").trim().slice(0, 16)}`,
   );
 
-  const minInput = zoomRow.querySelector(".foliplus-style-zoom-range-min");
+  const minInput = zoomRow.querySelector("wa-slider");
   const mapMin = Number(map.getMinZoom());
   const mapMax = Number(map.getMaxZoom());
   const current = Number(map.getZoom());
@@ -93,7 +93,7 @@
   // Live pass — the HIDDEN class is what hides the canvas, not a map
   // write, since a canvas has no Leaflet layer to add or remove.
   const visibleBefore = !canvas.classList.contains("hidden");
-  minInput.value = String(outMin);
+  minInput.minValue = outMin;
   const dispatched = minInput.dispatchEvent(new Event("input", { bubbles: true }));
   const hiddenOut = canvas.classList.contains("hidden");
   const rowOutOfRange = zoomRow.classList.contains("foliplus-zoom-range-out-of-range");
@@ -106,13 +106,13 @@
     rangeMap.layers && rangeMap.layers[li.id] ? rangeMap.layers[li.id].zoomRange : null;
 
   // Dragging the bound back is reversible.
-  minInput.value = String(mapMin);
+  minInput.minValue = mapMin;
   minInput.dispatchEvent(new Event("input", { bubbles: true }));
   const visibleBack = !canvas.classList.contains("hidden");
 
   // Commit pass — the out-of-range range is persisted on the real path too
   // (markOverride + saveState), behind the write debounce.
-  minInput.value = String(outMin);
+  minInput.minValue = outMin;
   minInput.dispatchEvent(new Event("change", { bubbles: true }));
 
   return {

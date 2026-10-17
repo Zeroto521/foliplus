@@ -41,6 +41,11 @@ const STEP_TYPES = new Set([
   "week",
   "month",
 ]);
+/** Web Awesome custom controls that step through a value like a native
+ *  `input[type=range]` (arrows / PageUp / PageDown). B1: wa-slider's thumbs
+ *  are shadow-DOM focus targets, so the focused element is the custom element
+ *  itself — the table must classify it or foliplus would swallow the keys. */
+const STEP_CUSTOM_TAGS = new Set(["wa-slider"]);
 const TOGGLE_TYPES = new Set(["checkbox", "radio"]);
 
 /** Elements a user drives with the pointer — controls plus the editable
@@ -76,6 +81,7 @@ const nativeClass = (el: Element | null): NativeClass => {
     if (STEP_TYPES.has(type)) return "step";
     return "edit";
   }
+  if (STEP_CUSTOM_TAGS.has(tag)) return "step";
   if (isEditableEl(el)) return "editable";
   return "none";
 };

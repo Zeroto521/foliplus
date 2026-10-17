@@ -1,6 +1,8 @@
 () => {
-  const slider = document.querySelector(".foliplus-style-zoom-range-max");
-  if (!slider) return { error: "zoom range max slider not rendered" };
+  const slider = document.querySelector(
+    ".foliplus-style-zoom-range-row wa-slider",
+  );
+  if (!slider) return { error: "zoom range wa-slider not rendered" };
 
   const row = document.querySelector('.foliplus-layer-item[data-layer-id="ng_gate"]');
   if (!row) return { error: "gate layer row not found" };
@@ -13,7 +15,7 @@
   const rowFocused = !!document.querySelector(".foliplus-is-focused-row");
   cb.focus();
   return {
-    sliderAfter: Number(slider.value),
+    sliderAfter: Number(slider.maxValue),
     cbBefore: cb.checked,
     cbTag: cb.tagName.toLowerCase(),
     cbType: cb.type,

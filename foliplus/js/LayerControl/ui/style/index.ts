@@ -23,7 +23,6 @@ import {
   bindLiveNumber,
   normalizeHexColor,
 } from "#common/form.js";
-import { authorZoomBoundsForLayer } from "../apply.js";
 import type { LayerUI } from "../surface.js";
 import { closeOverlays } from "../teardown.js";
 import { bindBorderRow, resetLayerBorder } from "./border.js";
@@ -36,11 +35,9 @@ import { DIM_ORDER, LABEL_DIM_ORDER, gatedRows } from "./registry.js";
 import { flushStyleDimApplies } from "./styleBag.js";
 import {
   applyZoomRangeLive,
-  clampZoom,
   commitZoomRange,
   resetLayerZoomRange,
   syncZoomRangeRow,
-  zoomToPct,
 } from "./zoomRange.js";
 
 /** Build the style panel DOM for a layer. Returns null when the layer owns
@@ -200,67 +197,28 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
   /** Shared zoom-range handler for both panel flavours. The live pass
    *  (`input` event) updates the map and visual state in real-time so the
    *  layer responds as the user drags a thumb. The commit pass (`change`
-   *  event) persists the value to localStorage. */
+   *  event) persists the value to localStorage.
+   *
+   *  B1: the target is the `<wa-slider range>` element, not two stacked
+   *  `<input type=range>`. The component dispatches native `input`/`change`
+   *  events (bubbles + composed) and guarantees `min <= max` internally
+   *  (verified against its source), so foliplus reads the two live values
+   *  off `minValue`/`maxValue` and no longer clamps crossings itself. */
   const handleZoomRangeTarget = (t: EventTarget | null, commit: boolean): boolean => {
-    if (!(t instanceof HTMLInputElement)) return false;
-    if (
-      !t.classList.contains(CONST.CLASSES.STYLE_ZOOM_RANGE_MIN) &&
-      !t.classList.contains(CONST.CLASSES.STYLE_ZOOM_RANGE_MAX)
-    ) {
-      return false;
-    }
+    if (!(t instanceof HTMLElement)) return false;
+    if (!t.classList.contains(CONST.CLASSES.STYLE_ZOOM_RANGE_SLIDER)) return false;
     const row = panel.querySelector(
       `.${CONST.CLASSES.STYLE_ZOOM_RANGE_ROW}`,
     ) as HTMLElement | null;
     if (!row) return true;
 
-    const minInput = row.querySelector(
-      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_MIN}`,
-    ) as HTMLInputElement;
-    const maxInput = row.querySelector(
-      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_MAX}`,
-    ) as HTMLInputElement;
-    const [mapMin, mapMax] = authorZoomBoundsForLayer(ui, layerId);
-    let min = clampZoom(parseFloat(minInput.value), mapMin, mapMax);
-    let max = clampZoom(parseFloat(maxInput.value), mapMin, mapMax);
-
-    // Two thumbs never cross: dragging min at max clamps min to max,
-    // and vice versa. This is the 31.5 "two thumbs never cross" rule.
-    if (min > max) {
-      if (t === minInput) {
-        min = max;
-        minInput.value = String(min);
-      } else {
-        max = min;
-        maxInput.value = String(max);
-      }
-    }
-
-    // The values row already tracks the drag live, so the end being held is
-    // marked there rather than by a bubble: a bubble has to clear the rail,
-    // which puts it over the row above (measured: it covered the opacity row's
-    // number field), and it duplicates a readout that is already on screen.
-    // Live readout: a bubble above the handle being held. The numbers below the
-    // rail belong to the fixed limits and the current level, so the range's own
-    // value has to come from the drag.
-    const track = row.querySelector(
-      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_TRACK}`,
-    ) as HTMLElement | null;
-    let bubble = track?.querySelector(
-      `.${CONST.CLASSES.SLIDER_BUBBLE}`,
-    ) as HTMLElement | null;
-    if (commit) {
-      bubble?.remove();
-    } else if (track) {
-      if (!bubble) {
-        bubble = dom.el("div", { class: CONST.CLASSES.SLIDER_BUBBLE });
-        track.appendChild(bubble);
-      }
-      bubble.style.left = railPos(
-        zoomToPct(t === minInput ? min : max, mapMin, mapMax),
-      );
-      bubble.textContent = String(t === minInput ? min : max);
-    }
+    const slider = t as WaSliderElement;
+    // minValue/maxValue are reactive properties the component updates on
+    // drag; they do not reflect to attributes, so there is no attribute
+    // fallback to read. The library's tooltip owns the live readout.
+    const min = slider.minValue;
+    const max = slider.maxValue;
+    if (!(Number.isFinite(min) && Number.isFinite(max))) return true;
 
     applyZoomRangeLive(ui, layerId, row, min, max);
 

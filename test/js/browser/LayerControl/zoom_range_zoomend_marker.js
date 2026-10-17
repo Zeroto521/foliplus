@@ -24,8 +24,10 @@ async () => {
     return { error: "zoom range row not rendered" };
   }
 
-  const marker = row.querySelector(".foliplus-style-zoom-range-dot-current");
-  const markerLabel = row.querySelector(".foliplus-style-zoom-range-current-value");
+  const marker = row.querySelector(".foliplus-style-zoom-range-current-marker");
+  const markerLabel = row.querySelector(
+    ".foliplus-style-zoom-range-current-marker .foliplus-style-zoom-range-current-value",
+  );
   const before = map.getZoom();
   const beforeLeft = marker ? marker.style.left : null;
   const beforeLabel = markerLabel ? markerLabel.textContent : null;
@@ -36,8 +38,8 @@ async () => {
   const after = map.getZoom();
   const afterLeft = marker ? marker.style.left : null;
   const afterLabel = markerLabel ? markerLabel.textContent : null;
-  const afterCovered = marker
-    ? marker.classList.contains("foliplus-slider-dot-covered")
+  const afterInside = marker
+    ? !marker.classList.contains("foliplus-slider-label-hidden")
     : null;
   ui.closeStylePanel(false);
   return {
@@ -49,6 +51,6 @@ async () => {
     beforeLabel,
     afterLabel,
     labelUpdated: afterLabel !== beforeLabel,
-    afterCovered,
+    afterInside,
   };
 };

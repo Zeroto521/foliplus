@@ -1,4 +1,4 @@
-() => {
+async () => {
   // Record keydowns observed on document through Chromium's own pipeline —
   // a capture listener reports the browser's final `defaultPrevented`, so
   // "foliplus did not cancel this key" is a measured fact, not an inference.
@@ -25,7 +25,7 @@
   const ui = ctrl.mgr.ui;
 
   // A GeoJSON layer carries zoomRange capability "pane", so its style panel
-  // renders the dual-thumb slider.
+  // renders the wa-slider range row.
   const geo = L.geoJson({
     type: "FeatureCollection",
     features: [
@@ -40,14 +40,42 @@
   ctrl.mgr.enforceOrder();
   ui.openStylePanel("ng_gate");
 
-  // The max thumb rests at the map's max zoom, so ArrowDown has room to step
-  // it — the min thumb starts at mapMin and cannot go further down.
-  const slider = document.querySelector(".foliplus-style-zoom-range-max");
-  if (!slider || slider.type !== "range") {
+  // The wa-slider host. The max thumb rests at the map's max zoom, so
+  // ArrowDown has room to step it — the min thumb starts at mapMin and
+  // cannot go further down. min-value/max-value are the contract surface
+  // (foliplus-written attributes, applied on upgrade).
+  const slider = document.querySelector(
+    ".foliplus-style-zoom-range-row wa-slider",
+  );
+  if (!slider) {
     ui.closeStylePanel(false);
-    return { error: "zoom range max slider not rendered" };
+    return { error: "zoom range wa-slider not rendered" };
   }
-  slider.focus();
+
+  // The shadow root exists as soon as the element upgrades, but the Lit
+  // render is async: the thumbs land on the next update. Wait for the first
+  // render before reaching into the shadow DOM (a bounded wait — the
+  // component owns its lifecycle, this is the driving gesture).
+  await slider.updateComplete;
+
+  // Focus the max thumb the way a user does (a click lands in the shadow
+  // DOM); document.activeElement retargets to the host, which is what the
+  // input-ownership table sees. Reaching into the shadow root here is the
+  // driving gesture, not an assertion on wa internals.
+  const thumb = slider.shadowRoot
+    ? slider.shadowRoot.querySelector('[part="thumb-max"], [part~="thumb-max"]')
+    : null;
+  if (!thumb) {
+    const parts = slider.shadowRoot
+      ? [...slider.shadowRoot.querySelectorAll("[part]")].map(
+          e => `${e.id || e.tagName}:${e.getAttribute("part")}`,
+        )
+      : [];
+    const sr = slider.shadowRoot ? "open" : "none";
+    ui.closeStylePanel(false);
+    return { error: "max thumb part not found in shadow root", sr, parts };
+  }
+  thumb.focus();
 
   const row = document.querySelector('.foliplus-layer-item[data-layer-id="ng_gate"]');
   const cb = row ? row.querySelector('input[type="checkbox"]') : null;
@@ -56,12 +84,12 @@
   // so a post-press read alone cannot say who moved it.
   const rowFocused = !!document.querySelector(".foliplus-is-focused-row");
   return {
-    sliderBefore: Number(slider.value),
+    sliderBefore: Number(slider.maxValue),
     sliderStep: Number(slider.step),
     sliderMin: Number(slider.min),
     sliderMax: Number(slider.max),
     mapMax: Number(map.getMaxZoom()),
-    focusedType: document.activeElement.type,
+    focusedTag: document.activeElement.tagName.toLowerCase(),
     cbBefore: cb ? cb.checked : null,
     rowFocused,
   };
