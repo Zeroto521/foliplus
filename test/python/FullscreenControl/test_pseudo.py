@@ -59,9 +59,7 @@ class TestFullscreenPseudoBrowser:
             # Exit. The toggle button is hidden while fullscreen, so click
             # via JS (Playwright's page.click would fail on the hidden element).
             page.evaluate(_js("FullscreenControl/click_toggle"))
-            page.wait_for_function(
-                _js("FullscreenControl/read_pseudo_fullscreen_off")
-            )
+            page.wait_for_function(_js("FullscreenControl/read_pseudo_fullscreen_off"))
             visible = page.evaluate(_js("FullscreenControl/read_zoom_visible"))
             assert visible, "zoom not restored after exiting pseudo-fullscreen"
             assert not errors, f"JS errors: {errors}"
@@ -89,7 +87,9 @@ class TestFullscreenPseudoBrowser:
             )
             # Native API is intact at load time — this is the precondition
             # that makes a snapshot read take the native branch.
-            assert page.evaluate(_js("FullscreenControl/read_fullscreen_enabled")) is True
+            assert (
+                page.evaluate(_js("FullscreenControl/read_fullscreen_enabled")) is True
+            )
             assert (
                 page.evaluate(_js("FullscreenControl/read_exit_fullscreen_type"))
                 == "function"
@@ -98,8 +98,7 @@ class TestFullscreenPseudoBrowser:
             # Flip the flag only now, after every module has been evaluated.
             page.evaluate(_js("FullscreenControl/disable_fullscreen_enabled"))
             assert (
-                page.evaluate(_js("FullscreenControl/read_fullscreen_enabled"))
-                is False
+                page.evaluate(_js("FullscreenControl/read_fullscreen_enabled")) is False
             )
 
             page.click(".foliplus-fullscreen-toggle")
@@ -107,7 +106,9 @@ class TestFullscreenPseudoBrowser:
             # A snapshot read would have called requestFullscreen() instead —
             # no native fullscreen session, and the container carries the
             # pseudo class.
-            assert page.evaluate(_js("FullscreenControl/read_fullscreen_element")) is None
+            assert (
+                page.evaluate(_js("FullscreenControl/read_fullscreen_element")) is None
+            )
             hidden = page.evaluate(_js("FullscreenControl/read_zoom_hidden"))
             assert hidden, "zoom not hidden after a late downgrade to pseudo mode"
             assert not errors, f"JS errors: {errors}"
@@ -138,7 +139,9 @@ class TestFullscreenPseudoBrowser:
             )
 
             # Nothing entered fullscreen.
-            assert page.evaluate(_js("FullscreenControl/read_fullscreen_element")) is None
+            assert (
+                page.evaluate(_js("FullscreenControl/read_fullscreen_element")) is None
+            )
             assert not page.evaluate(_js("FullscreenControl/read_pseudo_fullscreen_on"))
             # The toggle was not re-drawn into the "entered" state either.
             icon = page.evaluate(_js("FullscreenControl/read_toggle_path_d"))
