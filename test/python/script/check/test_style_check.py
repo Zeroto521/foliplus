@@ -11,8 +11,11 @@ Five rules are checked:
   2. singular file names (``pelias``, ``focus``, ``canvas`` are whitelisted);
   3. American spelling in identifiers and string literals — comments are
      exempt because they carry English prose;
-  4. CSS custom properties must carry the ``--foliplus-`` prefix (declarations,
-     ``var()`` references and JS string literals alike);
+  4. CSS custom properties must carry the ``--foliplus-`` prefix
+     (declarations, ``var()`` references and JS string literals alike);
+     definitions must live in ``token.css``. The ``--wa-*`` prefix
+     (vendored Web Awesome) is allowed: references anywhere, definitions
+     only in ``token.css``.
   5. a file's basename must not share a name with a sibling directory (the
      B-type stutter that made ``./focus.js`` and ``./focus/index.js`` point at
      different modules).
@@ -702,6 +705,31 @@ class TestCheckCustomPropertyPrefix:
         f = tmp_path / "doc.ts"
         f.write_text("// the --ctrl-bg on hover\nexport { x }\n", encoding="utf-8")
         assert mod.check_file(str(f)) == []
+
+    # --- --wa-* namespace (vendored Web Awesome) ---
+
+    def test_wa_reference_outside_token_css_passes(self):
+        """--wa-* references are allowed anywhere."""
+        lines = ["color: var(--wa-color-brand-50);\n"]
+        assert mod.check_custom_property_prefix(lines, "MeasureControl.css") == []
+
+    def test_wa_definition_outside_token_css_reported(self):
+        """--wa-* definitions outside token.css are rejected."""
+        lines = ["--wa-color-brand-50: #e74c3c;\n"]
+        v = mod.check_custom_property_prefix(lines, "MeasureControl.css")
+        assert len(v) == 1
+        assert "must live in" in v[0][1]
+        assert "token.css" in v[0][1]
+
+    def test_wa_definition_in_token_css_passes(self):
+        """--wa-* definitions inside token.css pass (the override point)."""
+        lines = ["--wa-color-brand-50: #e74c3c;\n"]
+        assert mod.check_custom_property_prefix(lines, "token.css") == []
+
+    def test_wa_reference_in_token_css_passes(self):
+        """--wa-* references inside token.css pass."""
+        lines = ["color: var(--wa-color-brand-50);\n"]
+        assert mod.check_custom_property_prefix(lines, "token.css") == []
 
 
 class TestCheckSiblingDirCollision:
