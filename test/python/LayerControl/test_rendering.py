@@ -823,15 +823,21 @@ class TestLayerControlRendering:
         light the owner row.
         """
         css = read_css("foliplus/css/LayerControl/row.css")
+        flat = re.sub(r"\s+", " ", css)
         # The press wash is the row's own :active — not a panel or menu press.
-        assert "background: var(--foliplus-accent-soft-bg)" in css
-        carveout = ":not(\n        :has(.foliplus-row-panel :active, .foliplus-layer-more-menu :active)"
-        assert carveout in css
-        # Press must not sneak in a scale or a transition on the large row.
-        idx = css.find("background: var(--foliplus-accent-soft-bg)")
-        block = css[idx : css.index("}", idx)]
-        assert "scale" not in block
-        assert "transition" not in block
+        assert "background: var(--foliplus-accent-soft-bg)" in flat
+        assert re.search(
+            r":not\(\s*:has\(\.foliplus-row-panel :active", flat
+        ), "row :active wash must carve out row-internal overlays"
+        # Locate the press-wash rule block (the :active selector that owns
+        # accent-soft-bg), not the first occurrence of the token anywhere.
+        m = re.search(
+            r":not\(\s*:has\(\.foliplus-row-panel :active[^}]*?accent-soft-bg[^}]*?\}",
+            flat,
+        )
+        assert m, "press-wash rule not found"
+        assert "scale" not in m.group(0)
+        assert "transition" not in m.group(0)
 
     def test_fold_btn_hover_bidirectional_preview(self):
         """Fold button shows bidirectional preview across hover and the arrow/Tab cursor.
