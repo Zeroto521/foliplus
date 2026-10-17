@@ -131,4 +131,4 @@ const createNominatim = (baseUrl: string = DEFAULT_BASE_URL): GeocodeProvider =>
   },
 });
 
-export { DEFAULT_BASE_URL, NOMINATIM, createNominatim, formatAddress, nominatimUrl };
+export { createNominatim, formatAddress, nominatimUrl };

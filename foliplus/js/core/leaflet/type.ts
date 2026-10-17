@@ -3,4 +3,4 @@
 type MapHandler = L.LeafletEventHandlerFn;
 type MapEventHandlers = Array<[string, MapHandler]>;
 
-export type { MapEventHandlers, MapHandler };
+export type { MapEventHandlers };
