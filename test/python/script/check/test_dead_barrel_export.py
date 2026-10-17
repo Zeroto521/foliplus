@@ -443,7 +443,11 @@ class TestReverseValidation:
         real code file — must NOT be reported."""
         a = _make(tmp_path, "a.ts", "export const liveSym = 1;\n")
         b = _make(tmp_path, "index.ts", "export { liveSym } from './a.js';\n")
-        c = _make(tmp_path, "c.ts", "import { liveSym } from './index.js';\nconst z = liveSym;\n")
+        c = _make(
+            tmp_path,
+            "c.ts",
+            "import { liveSym } from './index.js';\nconst z = liveSym;\n",
+        )
         analyses = {
             str(a): mod.parse_file(str(a), a.read_text(), str(tmp_path)),
             str(b): mod.parse_file(str(b), b.read_text(), str(tmp_path)),
@@ -461,7 +465,11 @@ class TestReverseValidation:
         a = _make(tmp_path, "a.ts", "export const deepSym = 1;\n")
         b = _make(tmp_path, "index.ts", "export { deepSym } from './a.js';\n")
         c = _make(tmp_path, "sub/index.ts", "export * from '../index.js';\n")
-        d = _make(tmp_path, "sub/d.ts", "import { deepSym } from './index.js';\nconst z = deepSym;\n")
+        d = _make(
+            tmp_path,
+            "sub/d.ts",
+            "import { deepSym } from './index.js';\nconst z = deepSym;\n",
+        )
         analyses = {
             str(a): mod.parse_file(str(a), a.read_text(), str(tmp_path)),
             str(b): mod.parse_file(str(b), b.read_text(), str(tmp_path)),
