@@ -14,7 +14,6 @@ const applied = (id: string, opacity = 1): AppliedProjection => ({
   intent: { visible: true },
   effectiveShown: true,
   opacity,
-  zoomRange: null,
   carrier: null,
 });
 
