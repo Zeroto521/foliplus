@@ -65,7 +65,6 @@ tmp/
 .mypy_cache/
 .ruff_cache/
 .pytest_cache/
-pytest-of-*/
 .playwright-mcp
 .playwright-cli/
 
