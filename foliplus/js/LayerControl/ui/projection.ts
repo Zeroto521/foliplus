@@ -52,6 +52,19 @@ const intentVisibleOf = (ui: LayerUI, id: string): boolean => {
   return hasVisible ? (visible ?? true) : authorDefault;
 };
 
+/** The layer's opacity right now: the user's intent when set, otherwise the
+ *  author's declared default (`layerInfo.opacity`, seeded at registration
+ *  from `layer.options.opacity`), and 1 while the layer is focused.
+ *
+ *  This is the *resolved* value — `undefined` is folded into the author's
+ *  default. It is distinct from `Projection.opacity`, which keeps
+ *  `undefined` = "the user never intervened" because the executor's diff
+ *  needs that distinction. */
+const currentOpacity = (ui: LayerUI, layerInfo: LayerInfo): number =>
+  ui.focusController.focusingLayerId === layerInfo.id
+    ? 1
+    : (getIntent(ui, layerInfo.id, INTENT.OPACITY) ?? layerInfo.opacity ?? 1);
+
 /** Build one layer's projection from the persisted intent and the current
  *  policy inputs (focus, map zoom). Read-only. */
 const projectLayer = (ui: LayerUI, layerInfo: LayerInfo): Projection => {
@@ -75,12 +88,12 @@ const projectLayer = (ui: LayerUI, layerInfo: LayerInfo): Projection => {
   // user's intent is left untouched, so dismissFocus's replay lands the
   // author's value back. Different from `policy` above: zoom-range is a
   // permissive gate for every layer during focus (`!= null`), opacity is a
-  // single-layer override (`=== id`).
+  // single-layer override (`=== id`). This `opacity` keeps its
+  // `number | undefined` semantics on purpose (see `currentOpacity`).
   const intentOpacity = getIntent(ui, id, INTENT.OPACITY);
   const opacity = ui.focusController.focusingLayerId === id ? 1 : intentOpacity;
-  const zoomRange = getIntent(ui, id, INTENT.ZOOM_RANGE) ?? null;
 
-  return { id, intent: { visible: intent }, effectiveShown, opacity, zoomRange };
+  return { id, intent: { visible: intent }, effectiveShown, opacity };
 };
 
 /** Project every id the panel or the executor cares about. The set is the
@@ -104,4 +117,4 @@ const projectAll = (ui: LayerUI): Map<string, Projection> => {
   return result;
 };
 
-export { projectAll, projectLayer, intentVisibleOf, inZoomRange };
+export { projectAll, projectLayer, intentVisibleOf, inZoomRange, currentOpacity };

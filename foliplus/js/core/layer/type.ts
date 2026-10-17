@@ -22,7 +22,6 @@ interface Projection {
   intent: { visible: boolean };
   effectiveShown: boolean;
   opacity: number | undefined;
-  zoomRange: [number, number] | null;
 }
 
 /** What a registered layer *is* — the target discriminator, not how it paints.

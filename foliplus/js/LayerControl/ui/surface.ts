@@ -89,6 +89,7 @@ interface LayerUI {
   focusLayer(layerId: string): void;
   isFocusing(): boolean;
   cancelFocus(): void;
+  syncNoBasemap(): void;
 }
 
 export type { LayerUI };
