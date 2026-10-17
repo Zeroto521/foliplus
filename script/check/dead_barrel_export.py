@@ -77,13 +77,13 @@ EXPORT_STAR_RE = re.compile(
 )
 # Named export (no `from`): `export { X, Y }` or `export type { X }`
 EXPORT_NAMED_RE = re.compile(
-    r'export\s+(?:type\s+)?\{([^}]+)\}\s*(?!\s*from)',
+    r"export\s+(?:type\s+)?\{([^}]+)\}\s*(?!\s*from)",
     re.MULTILINE | re.DOTALL,
 )
 # Inline export: `export const X`, `export function X`, `export class X`,
 # `export interface X`, `export type X`, `export enum X`
 INLINE_EXPORT_RE = re.compile(
-    r'export\s+(?:const|let|var|function|class|interface|type|enum)\s+([A-Za-z_$][\w$]*)',
+    r"export\s+(?:const|let|var|function|class|interface|type|enum)\s+([A-Za-z_$][\w$]*)",
     re.MULTILINE,
 )
 
@@ -245,9 +245,12 @@ def parse_file(filepath: str, text: str, repo_root: str) -> FileAnalysis:
     rel = os.path.relpath(filepath, repo_root).replace(os.sep, "/")
     fa.is_test_file = rel.startswith("test/js/") or rel.startswith("test/python/")
     fa.is_exempt = rel == CONFIG_SCHEMA
-    fa.is_barrel_scope = rel in ("index.ts", "type.ts", "types.ts") or rel.endswith(
-        "/index.ts"
-    ) or rel.endswith("/type.ts") or rel.endswith("/types.ts")
+    fa.is_barrel_scope = (
+        rel in ("index.ts", "type.ts", "types.ts")
+        or rel.endswith("/index.ts")
+        or rel.endswith("/type.ts")
+        or rel.endswith("/types.ts")
+    )
 
     # Check if file is a pure barrel (only imports and re-exports)
     code = strip_for_parsing(text)
@@ -434,25 +437,133 @@ def collect_python_references(
     # Common Python keywords and builtins that should not count as TS symbols.
     _PY_KEYWORDS = frozenset(
         [
-            "and", "as", "assert", "async", "await", "break", "class",
-            "continue", "def", "del", "elif", "else", "except", "False",
-            "finally", "for", "from", "global", "if", "import", "in",
-            "is", "lambda", "None", "nonlocal", "not", "or", "pass",
-            "raise", "return", "True", "try", "while", "with", "yield",
-            "print", "self", "cls", "str", "int", "float", "bool", "list",
-            "dict", "set", "tuple", "type", "super", "object", "isinstance",
-            "hasattr", "getattr", "setattr", "repr", "len", "range",
-            "enumerate", "zip", "map", "filter", "sorted", "min", "max",
-            "sum", "any", "all", "abs", "round", "open", "file", "type",
-            "open", "append", "extend", "insert", "pop", "remove", "clear",
-            "copy", "update", "items", "keys", "values", "get", "index",
-            "count", "join", "split", "strip", "replace", "format", "startswith",
-            "endswith", "find", "encode", "decode", "upper", "lower", "title",
-            "capitalize", "swapcase", "isspace", "isalpha", "isdigit",
-            "isalnum", "isupper", "islower", "isnumeric", "join", "split",
-            "lstrip", "rstrip", "center", "ljust", "rjust", "zfill",
-            "encode", "decode", "encode", "decode", "iter", "iter",
-            "iter", "next", "iter", "iter", "iter",
+            "and",
+            "as",
+            "assert",
+            "async",
+            "await",
+            "break",
+            "class",
+            "continue",
+            "def",
+            "del",
+            "elif",
+            "else",
+            "except",
+            "False",
+            "finally",
+            "for",
+            "from",
+            "global",
+            "if",
+            "import",
+            "in",
+            "is",
+            "lambda",
+            "None",
+            "nonlocal",
+            "not",
+            "or",
+            "pass",
+            "raise",
+            "return",
+            "True",
+            "try",
+            "while",
+            "with",
+            "yield",
+            "print",
+            "self",
+            "cls",
+            "str",
+            "int",
+            "float",
+            "bool",
+            "list",
+            "dict",
+            "set",
+            "tuple",
+            "type",
+            "super",
+            "object",
+            "isinstance",
+            "hasattr",
+            "getattr",
+            "setattr",
+            "repr",
+            "len",
+            "range",
+            "enumerate",
+            "zip",
+            "map",
+            "filter",
+            "sorted",
+            "min",
+            "max",
+            "sum",
+            "any",
+            "all",
+            "abs",
+            "round",
+            "open",
+            "file",
+            "type",
+            "open",
+            "append",
+            "extend",
+            "insert",
+            "pop",
+            "remove",
+            "clear",
+            "copy",
+            "update",
+            "items",
+            "keys",
+            "values",
+            "get",
+            "index",
+            "count",
+            "join",
+            "split",
+            "strip",
+            "replace",
+            "format",
+            "startswith",
+            "endswith",
+            "find",
+            "encode",
+            "decode",
+            "upper",
+            "lower",
+            "title",
+            "capitalize",
+            "swapcase",
+            "isspace",
+            "isalpha",
+            "isdigit",
+            "isalnum",
+            "isupper",
+            "islower",
+            "isnumeric",
+            "join",
+            "split",
+            "lstrip",
+            "rstrip",
+            "center",
+            "ljust",
+            "rjust",
+            "zfill",
+            "encode",
+            "decode",
+            "encode",
+            "decode",
+            "iter",
+            "iter",
+            "iter",
+            "next",
+            "iter",
+            "iter",
+            "iter",
         ]
     )
     refs: set[str] = set()
@@ -636,9 +747,7 @@ def find_dead_exports(
                         queue.append(neighbor)
 
             if not found:
-                lineno, kind = fa.exports_by_line.get(
-                    sym, (0, "unknown")
-                )
+                lineno, kind = fa.exports_by_line.get(sym, (0, "unknown"))
                 dead.append((fp, lineno, sym, kind))
 
     return dead
@@ -674,9 +783,7 @@ def main() -> int:
     sinks = compute_sinks(analyses, graph, python_refs)
 
     # Filter barrel files (index.ts and type.ts)
-    barrel_files = {
-        fp: fa for fp, fa in analyses.items() if fa.is_barrel_scope
-    }
+    barrel_files = {fp: fa for fp, fa in analyses.items() if fa.is_barrel_scope}
 
     # Find dead exports
     dead = find_dead_exports(barrel_files, graph, sinks)

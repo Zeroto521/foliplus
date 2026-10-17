@@ -159,22 +159,29 @@ class TestFileAnalysis:
         assert not fa.is_barrel_scope
 
     def test_config_schema_exempt(self, tmp_path):
-        f = _make(tmp_path, "foliplus/js/config-schema.ts",
-                  "export type { X } from './a.js';\n")
+        f = _make(
+            tmp_path,
+            "foliplus/js/config-schema.ts",
+            "export type { X } from './a.js';\n",
+        )
         fa = mod.parse_file(str(f), f.read_text(), str(tmp_path))
         assert fa.is_exempt
 
     def test_pure_barrel_detection(self, tmp_path):
-        f = _make(tmp_path, "index.ts",
-                  "export { x } from './a.js';\n"
-                  "export { y } from './b.js';\n")
+        f = _make(
+            tmp_path,
+            "index.ts",
+            "export { x } from './a.js';\nexport { y } from './b.js';\n",
+        )
         fa = mod.parse_file(str(f), f.read_text(), str(tmp_path))
         assert fa.is_pure_barrel
 
     def test_non_pure_barrel_with_code(self, tmp_path):
-        f = _make(tmp_path, "index.ts",
-                  "class Foo {\n  bar: string = 'x';\n}\n"
-                  "export { Foo };\n")
+        f = _make(
+            tmp_path,
+            "index.ts",
+            "class Foo {\n  bar: string = 'x';\n}\nexport { Foo };\n",
+        )
         fa = mod.parse_file(str(f), f.read_text(), str(tmp_path))
         assert not fa.is_pure_barrel
 
@@ -183,39 +190,37 @@ class TestParseFile:
     def test_named_imports(self, tmp_path):
         _make(tmp_path, "a.ts", "export const a = 1;\n")
         _make(tmp_path, "b.ts", "export const b = 2;\n")
-        f = _make(tmp_path, "index.ts",
-                  "import { a } from './a.js';\n"
-                  "import { b } from './b.js';\n")
+        f = _make(
+            tmp_path,
+            "index.ts",
+            "import { a } from './a.js';\nimport { b } from './b.js';\n",
+        )
         fa = mod.parse_file(str(f), f.read_text(), str(tmp_path))
         assert "a" in fa.named_imports
         assert "b" in fa.named_imports
 
     def test_named_imports_with_alias(self, tmp_path):
         _make(tmp_path, "a.ts", "export const a = 1;\n")
-        f = _make(tmp_path, "index.ts",
-                  "import { a as b } from './a.js';\n")
+        f = _make(tmp_path, "index.ts", "import { a as b } from './a.js';\n")
         fa = mod.parse_file(str(f), f.read_text(), str(tmp_path))
         assert "b" in fa.named_imports
         assert fa.named_imports["b"][1] == "a"
 
     def test_type_imports(self, tmp_path):
         _make(tmp_path, "a.ts", "export type X = number;\n")
-        f = _make(tmp_path, "index.ts",
-                  "import type { X } from './a.js';\n")
+        f = _make(tmp_path, "index.ts", "import type { X } from './a.js';\n")
         fa = mod.parse_file(str(f), f.read_text(), str(tmp_path))
         assert "X" in fa.named_imports
 
     def test_star_imports(self, tmp_path):
         _make(tmp_path, "const.ts", "export const C = 1;\n")
-        f = _make(tmp_path, "index.ts",
-                  "import * as CONST from './const.js';\n")
+        f = _make(tmp_path, "index.ts", "import * as CONST from './const.js';\n")
         fa = mod.parse_file(str(f), f.read_text(), str(tmp_path))
         assert len(fa.star_imports) == 1
 
     def test_named_re_exports(self, tmp_path):
         _make(tmp_path, "a.ts", "export const a = 1;\nexport const b = 2;\n")
-        f = _make(tmp_path, "index.ts",
-                  "export { a, b } from './a.js';\n")
+        f = _make(tmp_path, "index.ts", "export { a, b } from './a.js';\n")
         fa = mod.parse_file(str(f), f.read_text(), str(tmp_path))
         assert "a" in fa.named_re_exports
         assert "b" in fa.named_re_exports
@@ -229,13 +234,16 @@ class TestParseFile:
         assert fa.exports_by_line["x"][1] == "define"
 
     def test_inline_exports(self, tmp_path):
-        f = _make(tmp_path, "util.ts",
-                  "export const x = 1;\n"
-                  "export function foo() {}\n"
-                  "export class Bar {}\n"
-                  "export interface Baz {}\n"
-                  "export type Qux = number;\n"
-                  "export enum Foo { A, B }\n")
+        f = _make(
+            tmp_path,
+            "util.ts",
+            "export const x = 1;\n"
+            "export function foo() {}\n"
+            "export class Bar {}\n"
+            "export interface Baz {}\n"
+            "export type Qux = number;\n"
+            "export enum Foo { A, B }\n",
+        )
         fa = mod.parse_file(str(f), f.read_text(), str(tmp_path))
         for sym in ["x", "foo", "Bar", "Baz", "Qux", "Foo"]:
             assert sym in fa.exports
@@ -243,10 +251,11 @@ class TestParseFile:
     def test_exports_by_line(self, tmp_path):
         _make(tmp_path, "a.ts", "export const a = 1;\n")
         _make(tmp_path, "b.ts", "export const b = 2;\n")
-        f = _make(tmp_path, "index.ts",
-                  "// comment\n"
-                  "export { a } from './a.js';\n"
-                  "export { b } from './b.js';\n")
+        f = _make(
+            tmp_path,
+            "index.ts",
+            "// comment\nexport { a } from './a.js';\nexport { b } from './b.js';\n",
+        )
         fa = mod.parse_file(str(f), f.read_text(), str(tmp_path))
         assert fa.exports_by_line["a"][0] == 2
         assert fa.exports_by_line["b"][0] == 3
@@ -311,8 +320,7 @@ class TestComputeSinks:
 
     def test_pure_barrel_import_is_not_sink(self, tmp_path):
         a = _make(tmp_path, "a.ts", "export const x = 1;\n")
-        b = _make(tmp_path, "index.ts",
-                  "import { x } from './a.js';\nexport { x };\n")
+        b = _make(tmp_path, "index.ts", "import { x } from './a.js';\nexport { x };\n")
         analyses = {
             str(a): mod.parse_file(str(a), a.read_text(), str(tmp_path)),
             str(b): mod.parse_file(str(b), b.read_text(), str(tmp_path)),
@@ -364,7 +372,9 @@ class TestFindDeadExports:
         a = _make(tmp_path, "a.ts", "export const x = 1;\n")
         b = _make(tmp_path, "index.ts", "export { x } from './a.js';\n")
         c = _make(tmp_path, "sub/index.ts", "export * from '../index.js';\n")
-        d = _make(tmp_path, "sub/d.ts", "import { x } from './index.js';\nconst y = x;\n")
+        d = _make(
+            tmp_path, "sub/d.ts", "import { x } from './index.js';\nconst y = x;\n"
+        )
         analyses = {
             str(a): mod.parse_file(str(a), a.read_text(), str(tmp_path)),
             str(b): mod.parse_file(str(b), b.read_text(), str(tmp_path)),
