@@ -1368,13 +1368,13 @@ describe("LayerUI focus", () => {
         expect(document.querySelectorAll(HIDE_RULE)).not.toContain(both);
       });
 
-      it("matches a non-active base pane (a base layer that is not the topmost effectiveShown)", () => {
+      it("matches a base pane that is not the active basemap (any non-focused, non-focus-basemap layer-pane)", () => {
         const container = makeContainer(true);
-        const basePane = makePane(["foliplus-base-pane"]);
-        container.appendChild(basePane);
+        const otherBase = makePane([]);
+        container.appendChild(otherBase);
         document.body.appendChild(container);
 
-        expect(document.querySelectorAll(HIDE_RULE)).toContain(basePane);
+        expect(document.querySelectorAll(HIDE_RULE)).toContain(otherBase);
       });
 
       it("does not match any pane when focus is not active (the outer class is the gate)", () => {

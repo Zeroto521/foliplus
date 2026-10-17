@@ -34,13 +34,11 @@ import { INTENT, getIntent } from "./intent.js";
 import { intentVisibleOf, projectAll, projectLayer } from "./projection.js";
 import type { LayerUI } from "./surface.js";
 
-/** One write the carrier dispatcher accepts. `opacity` and `zoomRange`
- *  being `undefined` mean "no user value" — a Reset back to the author's
+/** One write the carrier dispatcher accepts. `opacity` being
+ *  `undefined` means "no user value" — a Reset back to the author's
  *  default — not "leave the carrier alone". */
 type StateOp =
-  | { type: "visible"; value: boolean }
-  | { type: "opacity"; value: number | undefined }
-  | { type: "zoomRange"; value: [number, number] | null };
+  { type: "visible"; value: boolean } | { type: "opacity"; value: number | undefined };
 
 /** Lazy-cached per-layer read for the multiplier-write family: freeze an
  *  author-declared value on first access, never re-read.
@@ -355,14 +353,11 @@ const dispatchStateOp = (
  *  `dispatchStateOp` only for the dimensions that moved.
  *
  *  Ordering: `visible (effective)` and `opacity` are independent of the
- *  projection's `zoomRange`, so they apply in either order. `zoomRange`
- *  applies last because the `pane` carrier's effective-shown recalculation
- *  needs the new range in effect before it decides whether the layer stays
- *  on the map — doing it in the other order would write an effective-shown
- *  computed off the old range. The `effectiveShown` write that follows a
- *  `zoomRange` change is therefore computed from the projection's new
- *  `zoomRange`, not from the executor's current state (the projection
- *  has already seen the new range).
+ *  projection's `zoomRange`, so they apply in either order. The zoomRange
+ *  dimension itself is *not* dispatched here — it resolves through the
+ *  `visible` op (the projection's `effectiveShown` already folds in the
+ *  current range), so a zoomRange change flows through as a map-membership
+ *  diff on `effectiveShown`, not as its own state op.
  *
  *  `ui.runtimeStore.setApplied` records what was written so the next call is a
  *  diff, not a full write. The map is keyed by id (not by `layerInfo`
@@ -477,17 +472,6 @@ const applyProjection = (
       ui,
       layerInfo,
       { type: "opacity", value: next.opacity },
-      repaintMode,
-    );
-  }
-  // 3. Zoom range — last, because the pane carrier's effective-shown
-  //    recalculation in step 1 reads the range as of the projection
-  //    (the new one), not the executor's previous write.
-  if (prev.zoomRange !== next.zoomRange) {
-    dispatchStateOp(
-      ui,
-      layerInfo,
-      { type: "zoomRange", value: next.zoomRange },
       repaintMode,
     );
   }

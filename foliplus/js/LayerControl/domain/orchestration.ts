@@ -63,27 +63,6 @@ const withAnnotationSpec = (
   ];
 };
 
-/** Stamp the `.foliplus-base-pane` exclusion class on every pane of a
- *  base-group surface, and remove it from every pane of an overlay-group
- *  surface. The `.foliplus-is-focus-mode` hide rule skips panes with the
- *  class, so tile basemaps and the solid-color basemap stay visible and
- *  are dimmed by the focus `filter` instead of being hidden — the dim mask
- *  on top preserves spatial context outside the focused bounds. Explicit
- *  `add` / `remove` (rather than `classList.toggle(cls, want)`) keeps this
- *  compatible with test fixtures that model `classList` with only the two
- *  verbs — the contract here is "ensure present / ensure absent", which
- *  `{add, remove}` already expresses. Idempotent for the common case; the
- *  ordering pass re-stamps freely on each sweep, and a base-group pane
- *  re-registered as an overlay drops the stale class so the new overlay
- *  is not skipped by the hide rule when something else is focused. */
-const markBasePanes = (surface: LayerSurface, group: "base" | "overlay"): void => {
-  const want = group === GROUP.BASE;
-  for (const pane of surface.panes) {
-    if (want) pane.element.classList.add(CONST.CLASSES.BASE_PANE);
-    else pane.element.classList.remove(CONST.CLASSES.BASE_PANE);
-  }
-};
-
 class LayerOrchestration {
   private map: L.Map;
   private events: EventBus;
@@ -333,7 +312,6 @@ class LayerOrchestration {
         const surface = this.surfaceFor(layerInfo);
         surface.materialize();
         surface.setZ(z);
-        markBasePanes(surface, layerInfo.group);
         continue;
       }
 
@@ -347,7 +325,6 @@ class LayerOrchestration {
       // name here; `writeZ` prices it through the same `zFor({ role:
       // "annotation" })` ladder now, so the special case is gone.
       surface.setZ(z);
-      markBasePanes(surface, layerInfo.group);
     }
 
     // Data panes start at BASE (== Leaflet's markerPane 600). Popup must sit
