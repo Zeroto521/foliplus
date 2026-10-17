@@ -69,7 +69,6 @@ export type {
   LabelAwareLayer,
   LayerAPI,
   LayerCapabilities,
-  LayerCarrier,
   LayerDimKey,
   LayerInfo,
   LayerKind,

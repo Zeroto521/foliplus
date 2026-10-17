@@ -148,4 +148,4 @@ const resolveProvider = (
   return BUILTIN_PROVIDERS.nominatim;
 };
 
-export { BUILTIN_FACTORIES, BUILTIN_PROVIDERS, providerFromConfig, resolveProvider };
+export { BUILTIN_PROVIDERS, providerFromConfig, resolveProvider };

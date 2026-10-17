@@ -8,7 +8,6 @@ export {
   positionPanel,
   removePanel,
   renderResults,
-  renderSuggestions,
   searchAddress,
   searchCoord,
 } from "./search.js";

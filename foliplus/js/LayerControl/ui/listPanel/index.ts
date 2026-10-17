@@ -33,13 +33,7 @@ import {
   showReorderBlockedHint,
   toggleFold,
 } from "./drag.js";
-import {
-  escapeClearCursor,
-  focusLayerRow,
-  handleDblClick,
-  handleKeyDown,
-  handleOutsideMousedown,
-} from "./keyboard.js";
+import { handleDblClick, handleKeyDown, handleOutsideMousedown } from "./keyboard.js";
 import {
   colorLayerName,
   initLayerItem,
@@ -152,13 +146,7 @@ export {
   resolveActiveIdx,
   syncActiveItem,
 };
-export {
-  handleOutsideMousedown,
-  handleKeyDown,
-  escapeClearCursor,
-  focusLayerRow,
-  handleDblClick,
-};
+export { handleOutsideMousedown, handleKeyDown, handleDblClick };
 export {
   getLayerItems,
   toggleAll,
