@@ -67,12 +67,12 @@ const GRID_MAX_SPAN = 4096;
 
 /** Horizontal overlap width of two boxes, or 0 when they do not overlap on the
  *  x-axis. */
-const hOverlap = (a: Box, b: Box): number =>
+const horizontalOverlap = (a: Box, b: Box): number =>
   Math.max(0, Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x));
 
 /** Vertical overlap height of two boxes, or 0 when they do not overlap on the
  *  y-axis. */
-const vOverlap = (a: Box, b: Box): number =>
+const verticalOverlap = (a: Box, b: Box): number =>
   Math.max(0, Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y));
 
 /** True when two labels overlap enough on screen to warrant hiding one.
@@ -84,7 +84,7 @@ const vOverlap = (a: Box, b: Box): number =>
  *  caller knows its label shape — flat bars tolerate the default, taller or
  *  boxier ones may want more before a hide is worth it. */
 const hides = (a: Box, b: Box, overlap: number = HIDE_OVERLAP): boolean =>
-  vOverlap(a, b) > 0 && hOverlap(a, b) >= Math.min(a.w, b.w) * overlap;
+  verticalOverlap(a, b) > 0 && horizontalOverlap(a, b) >= Math.min(a.w, b.w) * overlap;
 
 /**
  * Which labels survive one pass: for every heavily-overlapping group the
@@ -212,13 +212,5 @@ const intersects = (a: Box, b: Box): boolean =>
 const withinRect = <T extends PlacedLabel>(labels: readonly T[], rect: Box): T[] =>
   labels.filter(label => intersects(label.box, rect));
 
-export {
-  HIDE_OVERLAP,
-  hOverlap,
-  hides,
-  intersects,
-  planVisible,
-  withinRect,
-  type Box,
-  type PlacedLabel,
-};
+export { HIDE_OVERLAP, hides, planVisible, withinRect };
+export type { Box };

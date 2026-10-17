@@ -220,4 +220,3 @@ class LayerOrder {
 }
 
 export { LayerOrder };
-export type { OrderPersistence };
