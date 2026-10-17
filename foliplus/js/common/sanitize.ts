@@ -1,11 +1,10 @@
 // SVG sanitisation — the single gate for every HTML sink that accepts SVG
 // strings from a caller other than this bundle's own icon tables.
 //
-// Three sinks need it: LayerControl's type-icon column (opts.iconSvg from
-// LayerAPI.registerLayer / createLayers), HintManager's registered hint icons,
-// and — via the element-returning popup builder — reverse-geocoded addresses.
-// The three trust domains are disjoint (third-party API options, locale JSON,
-// author code), so the gate has to be an allowlist rather than a per-caller
+// Two sinks need it: LayerControl's type-icon column (opts.iconSvg from
+// LayerAPI.registerLayer / createLayers), and HintManager's registered hint
+// icons. The two trust domains are disjoint (third-party API options, locale
+// JSON), so the gate has to be an allowlist rather than a per-caller
 // escape hatch.
 
 const XHTML_NS = "http://www.w3.org/1999/xhtml";
