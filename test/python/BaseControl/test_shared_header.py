@@ -7,7 +7,12 @@ The poisoned shared table is staged in a temp dir so the checked-in
 from __future__ import annotations
 
 import json
+import tempfile
 from pathlib import Path
+
+from foliplus import locale
+from foliplus.BaseControl import _build_shared_header
+from foliplus.locale import _load_tables
 
 from .helper import (
     ESCAPED,
@@ -23,11 +28,6 @@ class TestSharedHeaderEscaping:
 
     @staticmethod
     def _header_with_payload():
-        import tempfile
-
-        from foliplus import locale
-        from foliplus.locale import _load_tables
-
         with tempfile.TemporaryDirectory() as tmp:
             tmp = Path(tmp)
             (tmp / "common.en.json").write_text(
@@ -42,16 +42,12 @@ class TestSharedHeaderEscaping:
             locale._LOCALE_DIR = tmp
             try:
                 _load_tables.cache_clear()
-                from foliplus.BaseControl import _build_shared_header
-
                 _build_shared_header.cache_clear()
                 header = _build_shared_header()
                 _build_shared_header.cache_clear()
             finally:
                 locale._LOCALE_DIR = original_dir
                 _load_tables.cache_clear()
-                from foliplus.BaseControl import _build_shared_header
-
                 _build_shared_header.cache_clear()
         return header
 
@@ -71,11 +67,6 @@ class TestSharedHeaderEscaping:
 
     def test_tables_terminators_escaped(self):
         """The _TABLES line takes the U+2028 pass too — same choke point as CONFIG."""
-        import tempfile
-
-        from foliplus import locale
-        from foliplus.locale import _load_tables
-
         with tempfile.TemporaryDirectory() as tmp:
             tmp = Path(tmp)
             (tmp / "common.en.json").write_text(
@@ -86,16 +77,12 @@ class TestSharedHeaderEscaping:
             locale._LOCALE_DIR = tmp
             try:
                 _load_tables.cache_clear()
-                from foliplus.BaseControl import _build_shared_header
-
                 _build_shared_header.cache_clear()
                 header = _build_shared_header()
                 _build_shared_header.cache_clear()
             finally:
                 locale._LOCALE_DIR = original_dir
                 _load_tables.cache_clear()
-                from foliplus.BaseControl import _build_shared_header
-
                 _build_shared_header.cache_clear()
 
         assert LS not in header and PS not in header

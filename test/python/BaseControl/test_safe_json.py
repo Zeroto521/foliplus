@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 
+from foliplus.BaseControl import _safe_json
+
 from .helper import (
     LINE_TERMINATORS,
     LS,
@@ -18,8 +20,6 @@ class TestSafeJson:
 
     def test_escapes_all_four_html_sensitive_characters(self):
         """<, >, &, ' are rewritten; none may reach the script tag raw."""
-        from foliplus.BaseControl import _safe_json
-
         out = _safe_json({"n": "</script> & 'quoted'"})
 
         assert "<" not in out and ">" not in out
@@ -28,8 +28,6 @@ class TestSafeJson:
 
     def test_escalines_line_terminators(self):
         """U+2028/U+2029 are emitted as \\uXXXX escapes, never literally."""
-        from foliplus.BaseControl import _safe_json
-
         out = _safe_json({"n": LINE_TERMINATORS})
 
         assert LS not in out and PS not in out
@@ -39,8 +37,6 @@ class TestSafeJson:
 
     def test_keeps_ascii_off_for_cjk(self):
         """CJK stays literal — ensure_ascii=False is deliberate, not incidental."""
-        from foliplus.BaseControl import _safe_json
-
         out = _safe_json({"n": "中文图层"})
 
         assert "中文图层" in out
@@ -48,8 +44,6 @@ class TestSafeJson:
 
     def test_no_terminator_injection_on_clean_input(self):
         """The replace pass must not manufacture escapes for values that had none."""
-        from foliplus.BaseControl import _safe_json
-
         out = _safe_json({"n": "plain text 中文 & <tag>"})
 
         assert "u2028" not in out and "u2029" not in out
@@ -57,8 +51,6 @@ class TestSafeJson:
 
     def test_round_trips_every_json_type(self):
         """Numbers, booleans, None, lists and nesting survive the escaping."""
-        from foliplus.BaseControl import _safe_json
-
         value = {
             "s": "</script>",
             "i": 42,
@@ -73,6 +65,4 @@ class TestSafeJson:
 
     def test_returns_plain_str(self):
         """The template interpolates this into ``| safe`` — it must be a str."""
-        from foliplus.BaseControl import _safe_json
-
         assert type(_safe_json({"a": 1})) is str

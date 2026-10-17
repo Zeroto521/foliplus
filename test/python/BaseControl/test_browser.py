@@ -16,6 +16,8 @@ import folium
 from conftest import _js, make_browser_page, use_page
 from PIL import Image
 
+from foliplus import LayerControl
+
 
 class TestButtonRadiusBrowser:
     """T251 guard: foliplus button :hover keeps its radius under Bootstrap."""
@@ -29,8 +31,6 @@ class TestButtonRadiusBrowser:
         # Any foliplus control injects the shared stylesheet into the page;
         # without one the foliplus CSS never ships and the buttons would
         # render with Bootstrap's reset alone.
-        from foliplus import LayerControl
-
         LayerControl().add_to(m)
         html = m.get_root().render()
         page, errors = make_browser_page(browser, tmp_path, html, "btn_radius")

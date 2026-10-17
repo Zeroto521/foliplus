@@ -5,7 +5,12 @@ from __future__ import annotations
 from pathlib import Path
 
 import folium
-from conftest import read_css_dir, render_control
+from conftest import (
+    read_css,
+    read_css_dir,
+    render,
+    render_control,
+)
 
 from foliplus import FullscreenControl, HeatmapControl, LayerControl, SearchControl
 
@@ -23,8 +28,6 @@ class TestBaseControlRendering:
         """After rendering, _config is still accessible and contains expected keys."""
         ctrl = SearchControl(mode="coord", zoom=15)
         ctrl.add_to(base_map)
-        from conftest import render
-
         render(base_map)
         assert ctrl._config["name"] == "SearchControl"
         assert ctrl._config["mode"] == "coord"
@@ -36,8 +39,6 @@ class TestBaseControlRendering:
         fc = FullscreenControl(hide_self=False)
         sc.add_to(base_map)
         fc.add_to(base_map)
-        from conftest import render
-
         render(base_map)
         assert sc._config["mode"] == "addr"
         assert fc._config["hide_self"] is False
@@ -64,8 +65,6 @@ class TestBaseControlRendering:
         SearchControl().add_to(base_map)
         LayerControl().add_to(base_map)
         HeatmapControl().add_to(base_map)
-
-        from conftest import render
 
         html = render(base_map)
         # Shared locale tables table definition is injected exactly once
@@ -114,8 +113,6 @@ class TestBaseControlRendering:
 
     def test_z_policy_export_header_pointer(self):
         """ExportControl.css points at the policy table instead of re-laddering."""
-        from conftest import read_css
-
         css = read_css("foliplus/css/ExportControl.css")
         assert "token.css" in css
         # Cross-system hint/fullscreen narration no longer lives here.
