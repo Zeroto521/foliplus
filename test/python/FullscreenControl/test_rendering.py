@@ -1,40 +1,15 @@
-"""Tests for foliplus.FullscreenControl.
-
-Non-browser tests only. Browser-based interaction checks live in
-``test/python/FullscreenControl/`` and are auto-marked
-``pytest.mark.browser`` by ``conftest.pytest_collection_modifyitems``.
-"""
+"""Rendered-HTML and CSS assertions for foliplus.FullscreenControl."""
 
 from __future__ import annotations
 
-from conftest import assert_config_value, assert_locale, render_control
+from conftest import (
+    assert_config_value,
+    assert_locale,
+    read_css,
+    render_control,
+)
 
 from foliplus import FullscreenControl
-
-
-class TestFullscreenControlPython:
-    """Python-side property tests."""
-
-    def test_name(self):
-        assert FullscreenControl()._name == "FullscreenControl"
-
-    def test_default_position(self):
-        assert FullscreenControl().position == "bottomright"
-
-    def test_custom_position(self):
-        assert FullscreenControl(position="topleft").position == "topleft"
-
-    def test_default_hide_self(self):
-        assert FullscreenControl().hide_self is True
-
-    def test_custom_hide_self(self):
-        assert FullscreenControl(hide_self=False).hide_self is False
-
-    def test_default_locale(self):
-        assert FullscreenControl()._locale_code == ""
-
-    def test_custom_locale(self):
-        assert FullscreenControl(locale="zh")._locale_code == "zh"
 
 
 class TestFullscreeControlRendering:
@@ -65,8 +40,6 @@ class TestFullscreeControlRendering:
 
     def test_css_z_index_tokenized(self):
         """Fullscreen z-index 99999 is tokenized, not a magic number in a rule."""
-        from conftest import read_css
-
         css = read_css("foliplus/css/FullscreenControl.css")
         assert "var(--foliplus-z-index-fullscreen)" in css
         # The rule uses the token; the literal may only appear in a comment.
