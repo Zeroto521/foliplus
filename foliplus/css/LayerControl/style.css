@@ -69,6 +69,12 @@
       font-variant-numeric: tabular-nums;
       white-space: nowrap;
     }
+    /* Label overlap suppression. The current-level number rides under its
+       own marker; when it would land on top of a fixed end number the
+       row hides it (the end's own number already says that spot). */
+    .foliplus-slider-label-hidden {
+      visibility: hidden;
+    }
 
     /* Out of range: the slider dims to signal the current zoom is outside the
        selected range. */

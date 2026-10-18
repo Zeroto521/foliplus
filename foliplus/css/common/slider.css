@@ -255,10 +255,6 @@
 .foliplus-slider-values > span:last-child {
   left: 100%;
 }
-/* Dropped when its mark is too close to another to sit under it. */
-.foliplus-slider-label-hidden {
-  visibility: hidden;
-}
 
 /* Live value, above the handle being held. Above is the only direction with
    room on a rail this short. */

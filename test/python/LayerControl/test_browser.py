@@ -4900,6 +4900,31 @@ class TestLayerControlBrowser:
             )
             assert not errors, f"JS errors: {errors}"
 
+    def test_zoom_range_current_label_hidden_at_end(self, browser, tmp_path):
+        """The current-value label is hidden when the marker would overlap an end.
+
+        `.foliplus-slider-label-hidden` was moved from common/slider.css into
+        LayerControl/style.css (zoom-range block) because the row is its only
+        consumer now. This guards that the class still resolves to
+        `visibility: hidden` on the current-value span.
+        """
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            panel_ready(page)
+            result = page.evaluate(
+                _js("LayerControl/zoom_range_current_label_hidden")
+            )
+            assert result is not None, result
+            assert result.get("error") is None, f"setup failed: {result}"
+            # At the map's min zoom the marker sits at 0% of the rail, inside
+            # LABEL_MIN_GAP_PCT of the min end, so the label must be hidden.
+            assert result["atMin"]["classListHidden"] is True, result["atMin"]
+            assert result["atMin"]["visibility"] == "hidden", result["atMin"]
+            # In the middle the label is inside the "clear" zone and visible.
+            assert result["atMid"]["classListHidden"] is False, result["atMid"]
+            assert result["atMid"]["visibility"] == "visible", result["atMid"]
+            assert not errors, f"JS errors: {errors}"
+
+
     def test_zoom_range_native_tilelayer(self, browser, tmp_path):
         """Native carrier: GridLayer minZoom/maxZoom hides tiles on reset."""
         t1 = folium.TileLayer(

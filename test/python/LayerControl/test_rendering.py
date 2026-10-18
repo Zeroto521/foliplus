@@ -781,6 +781,11 @@ class TestLayerControlRendering:
         assert "--foliplus-slider-thumb-ring" not in css
         assert "foliplus-zoom-range-out-of-range .foliplus-slider-fill" not in css
         assert ".foliplus-style-zoom-range-current-value" in css
+        # The label-hidden rule lives here (not in common/slider.css): the
+        # current-value label is the only thing that needs it, and only the
+        # zoom-range row produces it.
+        label_hidden = _rule(css, ".foliplus-slider-label-hidden {")
+        assert "visibility: hidden" in label_hidden
 
     def test_style_panel_locale_keys_present(self):
         """Opacity key is injected into the LayerControl bundle."""
