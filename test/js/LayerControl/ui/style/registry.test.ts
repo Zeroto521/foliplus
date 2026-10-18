@@ -415,6 +415,27 @@ describe("LayerControl style-panel dimension registry — opacity descriptor", (
     expect(OPACITY_DIMENSION.value(ui, "overlay1")).toBe(0.3);
   });
 
+  it("value falls back to the layer's own opacity when no intent is stored", () => {
+    // `currentOpacity` resolves the author's declared default: the layer's
+    // `opacity` (seeded at registration from `options.opacity`) when the
+    // user never touched the slider — or 1 when the layer never declared
+    // one (the fixture layer registers without an opacity).
+    expect(OPACITY_DIMENSION.value(ui, "overlay1")).toBe(1);
+    vi.spyOn(ui.c.layerRegistry, "get").mockReturnValue({
+      ...ui.c.layerRegistry.get("overlay1")!,
+      opacity: 0.7,
+    } as never);
+    expect(OPACITY_DIMENSION.value(ui, "overlay1")).toBe(0.7);
+  });
+
+  it("value forces 1 while the layer is focused", () => {
+    // The focus override lives in `currentOpacity`, which the descriptor
+    // delegates to: a focused layer reads 1 regardless of stored intent.
+    setIntent(ui, "overlay1", "opacity", 0.3);
+    ui.focusController.focusingLayerId = "overlay1";
+    expect(OPACITY_DIMENSION.value(ui, "overlay1")).toBe(1);
+  });
+
   it("write marks provenance for opacity < 1", () => {
     const schedule = vi.fn();
     ui.c.persistence = { schedule } as never;

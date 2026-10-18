@@ -29,6 +29,7 @@ export { PaneManager } from "./PaneManager.js";
 export {
   findLayer,
   isLayerInPanes,
+  paintsAtZoom,
   setInteractive,
   suspendMapInteractions,
   getGeometryType,

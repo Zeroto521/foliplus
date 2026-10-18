@@ -8,6 +8,7 @@ import {
   zFor,
 } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
+import { basePaints } from "../listPanel/visibility.js";
 import { projectLayer } from "../projection.js";
 import type { LayerUI } from "../surface.js";
 
@@ -40,7 +41,11 @@ const hideOtherLayers = (ui: LayerUI): void => {
     const li = layers[i];
     if (li.group !== GROUP.BASE) continue;
     const proj = projectLayer(ui, li);
-    if (!proj.effectiveShown) continue;
+    // The projection's effectiveShown folds in focus (policy = true), but
+    // the author's zoom range and transparency are physical facts focus
+    // must not override — a base outside its own min/max zoom paints
+    // nothing even while focused, so it cannot be the "active basemap".
+    if (!proj.effectiveShown || !basePaints(ui, li)) continue;
     const surface = ui.c.surfaceFor(li);
     if (!surface) continue;
     for (const pane of surface.panes) {

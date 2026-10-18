@@ -6,6 +6,7 @@ import {
   findLayer,
   getGeometryType,
   isLayerInPanes,
+  paintsAtZoom,
   setInteractive,
   suspendMapInteractions,
 } from "#foliplus/core/layer/util.js";
@@ -346,6 +347,71 @@ describe("core/layer util", () => {
       const group = wrap(marker);
       expect(countFeatureGeometry(group as never)).toBe(1);
       expect(getGeometryType(group as never)).toBe("point");
+    });
+  });
+
+  describe("paintsAtZoom", () => {
+    const makeMap = (zoom: number) =>
+      ({
+        getZoom: () => zoom,
+        hasLayer: (layer: L.Layer) => layer !== null,
+      }) as unknown as L.Map;
+
+    it("returns false for a layer not on the map", () => {
+      const map = { getZoom: () => 3, hasLayer: () => false } as unknown as L.Map;
+      const layer = { options: {} } as L.Layer;
+      expect(paintsAtZoom(map, layer)).toBe(false);
+    });
+
+    it("returns false when the zoom is below the layer's minZoom", () => {
+      const map = makeMap(1);
+      const layer = { options: { minZoom: 3, maxZoom: 4 } } as L.Layer;
+      expect(paintsAtZoom(map, layer)).toBe(false);
+    });
+
+    it("returns false when the zoom is above the layer's maxZoom", () => {
+      const map = makeMap(5);
+      const layer = { options: { minZoom: 3, maxZoom: 4 } } as L.Layer;
+      expect(paintsAtZoom(map, layer)).toBe(false);
+    });
+
+    it("returns true when the zoom is inside the layer's range", () => {
+      const map = makeMap(3);
+      const layer = { options: { minZoom: 3, maxZoom: 4 } } as L.Layer;
+      expect(paintsAtZoom(map, layer)).toBe(true);
+    });
+
+    it("skips the range check for layers without minZoom/maxZoom", () => {
+      const map = makeMap(7);
+      const layer = { options: {} } as L.Layer;
+      expect(paintsAtZoom(map, layer)).toBe(true);
+    });
+
+    it("checks each endpoint independently — minZoom without maxZoom", () => {
+      const map = makeMap(5);
+      const layer = { options: { minZoom: 3 } } as L.Layer;
+      expect(paintsAtZoom(map, layer)).toBe(true);
+      const low = makeMap(2);
+      expect(paintsAtZoom(low, layer)).toBe(false);
+    });
+
+    it("checks each endpoint independently — maxZoom without minZoom", () => {
+      const map = makeMap(2);
+      const layer = { options: { maxZoom: 3 } } as L.Layer;
+      expect(paintsAtZoom(map, layer)).toBe(true);
+      const high = makeMap(4);
+      expect(paintsAtZoom(high, layer)).toBe(false);
+    });
+
+    it("treats a null layer as not painting", () => {
+      const map = makeMap(3);
+      expect(paintsAtZoom(map, null)).toBe(false);
+    });
+
+    it("handles a layer with no options object (no declared range)", () => {
+      const map = makeMap(7);
+      const layer = {} as L.Layer;
+      expect(paintsAtZoom(map, layer)).toBe(true);
     });
   });
 

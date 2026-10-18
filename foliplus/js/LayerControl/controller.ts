@@ -111,7 +111,7 @@ const uninstallBringToFrontPatch = () => {
 //   Internal  surfaceFor, surfaceForLayer, enforceOrder, debouncedEnforce,
 //             hasUnresolvedLayers, onLayerAdd, loadSavedOrder, saveOrder,
 //             replaySavedOrder (order domain on `this.order` / LayerOrder.ts),
-//             syncAttribution, attachUI, destroy, canReorderBetween,
+//             syncAttribution, desiredAttribution, attachUI, destroy, canReorderBetween,
 //             findLayer, refreshCount, forEachLeaf,
 //             clearAllLayers
 //   Private   installBringToFrontPatch, uninstallBringToFrontPatch
@@ -142,7 +142,6 @@ class LayerController implements LayerAPI {
    *  start from a layer rather than from a registry entry. */
   declare private surfacesByLayer: Map<number, LayerSurface>;
   declare factory: LayerFactory;
-  declare lastAttribution: string | null;
   declare ui: LayerUI | null;
   declare debouncedEnforce: Debounced;
   persistence: LayerPersistence;
@@ -275,7 +274,6 @@ class LayerController implements LayerAPI {
       onDataChange: id => this.refreshCount(id),
     });
 
-    this.lastAttribution = null;
     this.ui = null;
 
     this.debouncedEnforce = debounce(() => {
@@ -363,7 +361,6 @@ class LayerController implements LayerAPI {
       annotation: this.annotation,
       surfaces: this.surfaces,
       surfacesByLayer: this.surfacesByLayer,
-      lastAttribution: this.lastAttribution,
       getIntentStore: () => this.intentStore,
     });
     this.getLayerPanes = layer => this.domain.resolveLayerPanes(layer);
@@ -993,8 +990,12 @@ class LayerController implements LayerAPI {
     }
   }
 
+  desiredAttribution(): string {
+    return this.domain.desiredAttribution();
+  }
+
   syncAttribution() {
-    this.lastAttribution = this.domain.syncAttribution();
+    this.domain.syncAttribution();
   }
 
   attachUI(containerDiv: HTMLElement) {

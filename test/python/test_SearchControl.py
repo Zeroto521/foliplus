@@ -14,10 +14,10 @@ from conftest import (
     use_page,
 )
 
-from foliplus import SearchControl
+from foliplus import LayerControl, SearchControl
 
 
-class TestSearchControlPython:
+class TestSearchControlConstructor:
     """Python-side property tests."""
 
     def test_name(self):
@@ -318,8 +318,6 @@ class TestSearchControlBrowser:
         Data panes start at the markerPane's z-index (BASE == 600), so without
         the markerPane lift the pin would be hidden under overlay polygons.
         """
-        from foliplus import LayerControl
-
         m = folium.Map(location=[31.23, 121.47], zoom_start=10)
         LayerControl().add_to(m)
         SearchControl().add_to(m)

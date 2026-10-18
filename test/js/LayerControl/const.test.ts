@@ -174,7 +174,7 @@ describe("CLASSES opacity controls", () => {
   });
 });
 
-describe("CLASSES.FOCUS_ACTIVE / FOCUS_PANE / FOCUS_GLOW / FOCUS_BASEMAP / BASE_PANE", () => {
+describe("CLASSES.FOCUS_ACTIVE / FOCUS_PANE / FOCUS_GLOW / FOCUS_BASEMAP", () => {
   it("defines the container + focused-pane classes for declarative hiding", () => {
     expect(CONST.CLASSES.FOCUS_ACTIVE).toBe("foliplus-is-focus-mode");
     expect(CONST.CLASSES.FOCUS_PANE).toBe("foliplus-focus-pane");
@@ -183,9 +183,5 @@ describe("CLASSES.FOCUS_ACTIVE / FOCUS_PANE / FOCUS_GLOW / FOCUS_BASEMAP / BASE_
 
   it("defines the focus-basemap class for active basemap visibility under focus", () => {
     expect(CONST.CLASSES.FOCUS_BASEMAP).toBe("foliplus-focus-basemap");
-  });
-
-  it("defines the base-pane class for static group tagging", () => {
-    expect(CONST.CLASSES.BASE_PANE).toBe("foliplus-base-pane");
   });
 });

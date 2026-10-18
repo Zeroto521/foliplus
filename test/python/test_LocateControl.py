@@ -20,7 +20,7 @@ from conftest import (
 from foliplus import LocateControl
 
 
-class TestLocateControlPython:
+class TestLocateControlConstructor:
     """Python-side property tests."""
 
     def test_name(self):
