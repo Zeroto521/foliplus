@@ -1,8 +1,8 @@
 // LayerControl UI — Checkbox / group-toggle visibility.
-import { GROUP } from "#core/layer/index.js";
+import { GROUP, paintsAtZoom } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { applyProjection, applyProjectionAll } from "../apply.js";
-import { intentVisibleOf } from "../projection.js";
+import { currentOpacity, intentVisibleOf } from "../projection.js";
 import { saveState, setVisibleIntent } from "../state.js";
 import type { LayerUI } from "../surface.js";
 import { applyRowView, buildRowCell } from "./rowView.js";
@@ -13,24 +13,35 @@ const getLayerItems = (ui: LayerUI, group: string): NodeListOf<Element> => {
   );
 };
 
+/** Whether a base layer actually paints right now: on the map, inside its own
+ *  zoom range, and not fully transparent. This is the observation the
+ *  consumers asking "which basemap is on screen?" share — hatch, attribution
+ *  and focus each used to assemble a different subset of these four facts. */
+const basePaints = (ui: LayerUI, layerInfo: LayerInfo): boolean =>
+  paintsAtZoom(ui.c.map, layerInfo.layer ?? ui.c.findLayer(layerInfo)) &&
+  currentOpacity(ui, layerInfo) > 0;
+
 /** A′ no-basemap hatch: paint on the map container and swap the group label
  *  to `no_base_map_label` when zero basemaps are visible. The hatch is CSS
  *  `background-image` on the Leaflet container, which ExportControl's
  *  resolveExportBackground deliberately skips (it reads only
- *  `backgroundColor`), so an empty state never reaches an export. */
+ *  `backgroundColor`), so an empty state never reaches an export.
+ *
+ *  The judge is the paint observation, not the intent flag: a basemap can be
+ *  "checked" yet absent from the screen (outside its own `minZoom/maxZoom`,
+ *  off the map, or dragged to opacity 0). `intentVisibleOf` alone would name
+ *  such a layer visible and keep the hatch off a container that is really
+ *  empty. */
 const syncNoBasemap = (ui: LayerUI): void => {
-  const anyBaseVisible = ui.c.layers.some(layerInfo => {
-    if (layerInfo.group !== GROUP.BASE) return false;
-    if (!intentVisibleOf(ui, layerInfo.id)) return false;
-    // Effective visibility: intent alone isn't enough — a basemap with
-    // `opacity = 0` is visually empty too, so the hatch should still show.
-    // `layerInfo.opacity` is written by the executor on every opacity change and
-    // is undefined until the first write (freshly registered layers), so
-    // `?? 1` treats "no override yet" as fully opaque.
-    return (layerInfo.opacity ?? 1) > 0;
-  });
+  const anyBaseVisible = ui.c.layers.some(
+    li => li.group === GROUP.BASE && basePaints(ui, li),
+  );
   ui.c.map.getContainer().classList.toggle(CONST.CLASSES.NO_BASE_MAP, !anyBaseVisible);
-  const label = ui.uiContainer.querySelector(
+  // The label lives on the panel, which may not be attached yet when the
+  // projection sweep calls this (attachUI wires the container first, but
+  // thin stubs and teardown states have none) — the hatch is the contract,
+  // the label is a cosmetic companion.
+  const label = ui.uiContainer?.querySelector(
     `${CONST.SEL.TOGGLE_ALL}[data-group="${GROUP.BASE}"] ${CONST.SEL.SEPARATOR_LABEL}`,
   );
   if (label) {
@@ -182,10 +193,10 @@ const bumpCheckedCount = (ui: LayerUI, group: string, delta: number): void => {
  * reload, bulk toggleAll), so a single-row click does not walk every row in
  * the group.
  *
- * `syncNoBasemap` only reads `group === GROUP.BASE && intent`; an overlay toggle cannot
- * change the visible-basemap count, so this path skips it for overlays and
- * only calls it for base rows where the hatch and the group label are the
- * user-visible output.
+ * `syncNoBasemap` only reads base rows through `basePaints` (paint
+ * observation); an overlay toggle cannot change that count, so this path
+ * skips it for overlays and only calls it for base rows where the hatch
+ * and the group label are the user-visible output.
  *
  * @returns true if the layer id resolved to a registry entry.
  */
@@ -255,6 +266,7 @@ export {
   syncToggleAll,
   syncToggleAllFromCount,
   bumpCheckedCount,
+  basePaints,
   syncNoBasemap,
   applyVisibility,
   handleChange,

@@ -339,8 +339,18 @@
        persistent selection. Large rows do not scale; deliberately no
        transition (rows rebuild on every list render — a background
        transition would flash checked rows). Declared after the hover recipe
-       so the press wash wins on equal specificity while the button is down. */
-    &:not([data-layer-type="base"]):active {
+       so the press wash wins on equal specificity while the button is down.
+
+       The :not(:has(...)) carve-out keeps the press wash scoped to real
+       row interaction: the row panel (style/attrs) and the ⋮ menu are
+       appended inside the row, and CSS :active matches the pressed element
+       plus every ancestor, so a press on any panel/menu control would
+       otherwise light the owner row. The row's own label / checkbox /
+       drag-cell still receive the wash. :has is already in use below
+       (line ~359) so no browser support regression. */
+    &:not([data-layer-type="base"]):not(
+        :has(.foliplus-row-panel :active, .foliplus-layer-more-menu :active)
+      ):active {
       background: var(--foliplus-accent-soft-bg);
     }
   }
