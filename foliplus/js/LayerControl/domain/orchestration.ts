@@ -24,6 +24,7 @@ import {
   type PaneSpec,
   type RegisterLayerOpts,
   findLayer as findLayerUtil,
+  paintsAtZoom,
   topSlotZ,
   zFor,
 } from "#core/layer/index.js";
@@ -161,9 +162,10 @@ class LayerOrchestration {
    *  Registry order is list order, and index 0 is the visually topmost layer
    *  (`zFor` prices `count - index`). The first checked base that is
    *  effective shown is therefore the one whose attribution the user expects.
-   *  `map.hasLayer` is the effective-shown gate — `apply.ts` drives
-   *  `map.addLayer/removeLayer` off `effectiveShown`, so a layer that is not
-   *  on the map is not "being shown" by the user's choice.
+   *  `paintsAtZoom` is the effective-shown gate — a layer must be on the map
+   *  (`hasLayer`) AND its zoom must be within its own `minZoom/maxZoom` range
+   *  (outside that range Leaflet's GridLayer builds no tiles, so it isn't
+   *  painting). A layer that is checked but not painting is not "being shown".
    *
    *  foliplus is the sole writer of the entry table. Leaflet's own
    *  `layeradd` handler increments a per-layer entry on every base tile
@@ -193,7 +195,7 @@ class LayerOrchestration {
       if (layerInfo.group !== GROUP.BASE) continue;
       const layer = this.findLayer(layerInfo);
       if (!(layer instanceof L.TileLayer) || !layer.options.attribution) continue;
-      if (!this.map.hasLayer(layer)) continue;
+      if (!paintsAtZoom(this.map, layer)) continue;
       topAttr = layer.options.attribution;
       break;
     }
