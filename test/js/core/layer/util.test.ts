@@ -407,6 +407,12 @@ describe("core/layer util", () => {
       const map = makeMap(3);
       expect(paintsAtZoom(map, null)).toBe(false);
     });
+
+    it("handles a layer with no options object (no declared range)", () => {
+      const map = makeMap(7);
+      const layer = {} as L.Layer;
+      expect(paintsAtZoom(map, layer)).toBe(true);
+    });
   });
 
   describe("setInteractive", () => {

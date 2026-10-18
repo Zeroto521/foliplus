@@ -59,18 +59,26 @@ const intentVisibleOf = (ui: LayerUI, id: string): boolean => {
  *  This is the *resolved* value — `undefined` is folded into the author's
  *  default. It is distinct from `Projection.opacity`, which keeps
  *  `undefined` = "the user never intervened" because the executor's diff
- *  needs that distinction. A null layer (a style row for an id the registry
- *  no longer holds) resolves to `undefined` — the caller treats "no layer"
- *  as "no value". */
-const currentOpacity = (
+ *  needs that distinction. A missing layer (a style row for an id the
+ *  registry no longer holds) resolves to `undefined` — the caller treats
+ *  "no layer" as "no value". The overload for a known layer drops the
+ *  undefined arm so callers with a registry-guaranteed layer (`basePaints`)
+ *  read a plain number. */
+function currentOpacity(ui: LayerUI, layerInfo: LayerInfo): number;
+function currentOpacity(
   ui: LayerUI,
   layerInfo: LayerInfo | undefined,
-): number | undefined =>
-  layerInfo
+): number | undefined;
+function currentOpacity(
+  ui: LayerUI,
+  layerInfo: LayerInfo | undefined,
+): number | undefined {
+  return layerInfo
     ? ui.focusController.focusingLayerId === layerInfo.id
       ? 1
       : (getIntent(ui, layerInfo.id, INTENT.OPACITY) ?? layerInfo.opacity ?? 1)
     : undefined;
+}
 
 /** Build one layer's projection from the persisted intent and the current
  *  policy inputs (focus, map zoom). Read-only. */

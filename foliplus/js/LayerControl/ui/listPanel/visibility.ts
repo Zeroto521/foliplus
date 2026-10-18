@@ -19,7 +19,7 @@ const getLayerItems = (ui: LayerUI, group: string): NodeListOf<Element> => {
  *  and focus each used to assemble a different subset of these four facts. */
 const basePaints = (ui: LayerUI, layerInfo: LayerInfo): boolean =>
   paintsAtZoom(ui.c.map, layerInfo.layer ?? ui.c.findLayer(layerInfo)) &&
-  (currentOpacity(ui, layerInfo) ?? 0) > 0;
+  currentOpacity(ui, layerInfo) > 0;
 
 /** A′ no-basemap hatch: paint on the map container and swap the group label
  *  to `no_base_map_label` when zero basemaps are visible. The hatch is CSS
