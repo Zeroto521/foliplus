@@ -94,20 +94,18 @@ const authorOpacityBaseOf = (layer: L.Layer): number =>
  *
  *  #709 deleted the `zoomRange` state op, so nothing in foliplus writes
  *  `layer.options.minZoom/maxZoom` anymore — the slider commits to the
- *  intent store instead. The freeze survives for a different reason:
- *  `map.getMaxZoom()` is recomputed by the ordering pass (which raises
- *  `map.options.maxZoom` from registered layers' declarations), so a live
- *  re-read here would let the slider's range drift with that recompute.
- *  The snapshot is taken on first access, which is also what makes
- *  persistence-replay safe: on reload the state replay fires before the
- *  panel opens, so a snapshot at first read sees the pre-replay map state.
+ *  intent store instead. The freeze survives for persistence-replay safety:
+ *  on reload the state replay fires before the panel opens, so a snapshot at
+ *  first read sees the pre-replay map state, not a drifted live re-read.
  *
  *  `layer.options.minZoom/maxZoom` fall back to the map's declared values
  *  when the layer declares none — a TileLayer without `options.maxZoom`
  *  means "whatever the map allows", not "Infinity". `map.getMaxZoom()`
- *  itself returns `Infinity` for a map without a declared max, so that
- *  path gets its own finite fallback: `CONST.AUTHOR_ZOOM_FALLBACK_MAX`, so
- *  the values row can never print the literal string "Infinity". */
+ *  returns `Infinity` for a map without a declared max, so that path gets
+ *  its own finite fallback: `CONST.AUTHOR_ZOOM_FALLBACK_MAX`. This is a
+ *  display-only guard — the values row must not print the literal string
+ *  "Infinity" — and is decoupled from the map's actual zoom ceiling, which
+ *  Leaflet now derives on its own from layers actually on the map. */
 const authorZoomBounds = new WeakMap<L.Layer, [number, number]>();
 
 const finiteOr = (v: number | undefined, fallback: number): number =>

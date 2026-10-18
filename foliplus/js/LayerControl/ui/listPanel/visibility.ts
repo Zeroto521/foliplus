@@ -226,6 +226,14 @@ const applyVisibility = (ui: LayerUI, id: string, visible: boolean): boolean => 
   // hatch and the group label are user-visible, cannot be deferred.
   if (layerInfo.group === GROUP.BASE) syncNoBasemap(ui);
 
+  // Base check/uncheck changes the attribution table immediately: Leaflet's
+  // layeradd/layerremove fires addAttribution/removeAttribution synchronously,
+  // so a debounced syncAttribution would let the intermediate state (both
+  // bases' attrs, or a lingering removed base's attr) render for ~50ms — a
+  // visible flicker. Sync the attribution table right after the check state
+  // is updated, before debouncedEnforce re-prices z-order.
+  if (layerInfo.group === GROUP.BASE) ui.c.syncAttribution();
+
   ui.c.debouncedEnforce();
 
   // A basemap switch changes the map's min/max zoom without firing zoomend,

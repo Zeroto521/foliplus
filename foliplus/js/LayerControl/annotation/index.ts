@@ -684,7 +684,11 @@ class AnnotationManager {
   }
 
   /** Whether a layer's labels take part right now: it has to be on the map, and
-   *  — while a focus is active — it has to be the spotlighted layer. */
+   *  — while a focus is active — it has to be the spotlighted layer.
+   *
+   *  Uses `map.hasLayer` rather than `paintsAtZoom` because annotations are
+   *  rendered on a vector canvas — there is no GridLayer zoom gate that
+   *  would skip drawing outside `minZoom`/`maxZoom`. */
   private isVisible(id: string): boolean {
     if (this.focusFilter !== null && id !== this.focusFilter) return false;
     const layer = this.layerFind(id);
