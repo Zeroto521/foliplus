@@ -207,7 +207,8 @@
 
 - Add plugins: `FullscreenControl`, `HeatmapControl`, `LayerControl`, `SearchControl`, `MeasureControl`, `ScaleControl`
 
-[unreleased]: https://github.com/Zeroto521/foliplus/compare/v0.4.0...HEAD
+[unreleased]: https://github.com/Zeroto521/foliplus/compare/v0.4.1...HEAD
+[v0.4.1]: https://github.com/Zeroto521/foliplus/releases/tag/v0.4.1
 [v0.4.0]: https://github.com/Zeroto521/foliplus/releases/tag/v0.4.0
 [v0.3.0]: https://github.com/Zeroto521/foliplus/releases/tag/v0.3.0
 [v0.2.0]: https://github.com/Zeroto521/foliplus/releases/tag/v0.2.0
