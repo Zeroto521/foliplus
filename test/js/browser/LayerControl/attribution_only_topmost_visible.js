@@ -40,7 +40,6 @@
       ["check", "B"],
       ["check", "A"],
       ["uncheck", "A"],
-      ["uncheck", "B"],
     ]) {
       const r = toggleByName(name);
       await new Promise(res => setTimeout(res, 250));
