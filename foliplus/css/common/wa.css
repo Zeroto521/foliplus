@@ -1,0 +1,115 @@
+@import "token.css";
+
+/* ══════════════════════════════════════════════════════════════════════
+   Web Awesome slider skin — foliplus design language
+
+   Every wa-slider in a foliplus surface gets the same rail, thumb, fill
+   and tooltip as the retired custom slider component. The component owns
+   the geometry (track size, thumb position via CSS vars); this block
+   only recolors and resizes via ::part() overrides, reading foliplus
+   tokens exclusively.
+
+   Scoped to foliplus surfaces so the library's default skin stays intact
+   outside foliplus. The :where() wrapper does not add specificity — if
+   a shadow-inner rule beats a ::part() rule on the same property, the
+   fallback is to use a concrete selector (discussed with the arch).
+   ══════════════════════════════════════════════════════════════════════ */
+
+:where(.foliplus-ctrl, .foliplus-panel, [class^="foliplus-"]) {
+  /* ── Wa-slider geometry overrides ───────────────────────────────
+     The component's :host sets --track-size and --thumb-width/-height
+     in em. Overriding them on the host element (which the shadow DOM
+     inherits) is what lets the positioning calcs use foliplus sizes. */
+  wa-slider {
+    --track-size: var(--foliplus-slider-rail-height);
+    --thumb-width: var(--foliplus-slider-thumb-hit);
+    --thumb-height: var(--foliplus-slider-thumb-hit);
+    --marker-width: var(--foliplus-slider-dot-size);
+    --marker-height: var(--foliplus-slider-dot-size);
+    /* Inset the rail so the thumb's center reaches the rail's ends —
+       the thumb travels the full row width without poking out. */
+    margin: 0 calc(var(--foliplus-slider-thumb-size) / 2);
+    box-sizing: content-box;
+  }
+
+  /* ── Track (rail) ─────────────────────────────────────────────── */
+  wa-slider::part(track) {
+    background-color: var(--foliplus-slider-rail-bg);
+    background-image: var(--foliplus-slider-rail-pattern);
+    background-size: var(--foliplus-slider-rail-pattern-size);
+    border: var(--foliplus-border-thin) solid var(--foliplus-input-border);
+    border-radius: calc(var(--foliplus-slider-rail-height) / 2);
+  }
+
+  /* ── Indicator (covered span) ───────────────────────────────────
+     Flat accent — a gradient made the bar read as a different (darker)
+     red at one end. */
+  wa-slider::part(indicator) {
+    background-color: var(--foliplus-accent-primary);
+    border-radius: calc(var(--foliplus-slider-rail-height) / 2);
+  }
+
+  /* ── Thumb ──────────────────────────────────────────────────────
+     24px hit box (WCAG 2.5.8) with a 14px painted thumb: white core +
+     accent ring. The ring is a radial-gradient inside the content box
+     — a border would land on the hit box and leave a gap around the dot.
+     background-clip: content-box keeps the painted thumb at the token
+     size rather than the hit box. */
+  wa-slider::part(thumb) {
+    border: 0;
+    background-image: radial-gradient(
+      circle,
+      var(--foliplus-neutral-0) 0 var(--foliplus-slider-thumb-core),
+      var(--foliplus-slider-thumb-ring) var(--foliplus-slider-thumb-core)
+        calc(var(--foliplus-slider-thumb-core) + var(--foliplus-size-2))
+    );
+    background-clip: content-box;
+    background-color: transparent;
+    padding: var(--foliplus-slider-thumb-pad);
+    box-sizing: content-box;
+    border-radius: 50%;
+    cursor: grab;
+    transition:
+      transform var(--foliplus-transition-fast),
+      box-shadow var(--foliplus-transition-fast);
+  }
+
+  /* Hover: small grow. */
+  wa-slider::part(thumb):hover {
+    transform: scale(1.1);
+  }
+
+  /* Held: larger grow + accent glow. */
+  wa-slider::part(thumb):active {
+    cursor: grabbing;
+    transform: scale(1.15);
+    box-shadow: var(--foliplus-slider-thumb-glow);
+  }
+
+  /* Keyboard focus: same grow as held + the panel's focus ring. */
+  wa-slider::part(thumb):focus-visible {
+    transform: scale(1.15);
+    box-shadow: var(--foliplus-focus-ring);
+  }
+
+  /* ── Tooltip (drag bubble) ──────────────────────────────────────
+     Dark pill with an arrow, matching the retired slider-bubble. */
+  wa-slider::part(tooltip__tooltip) {
+    background-color: var(--foliplus-text-primary);
+    color: var(--foliplus-neutral-0);
+    border-radius: var(--foliplus-radius-sm);
+    font-size: var(--foliplus-font-size-sm);
+    font-variant-numeric: tabular-nums;
+  }
+  wa-slider::part(tooltip__arrow) {
+    border-top-color: var(--foliplus-text-primary);
+  }
+
+  /* ── Markers (reference-slot ticks) ─────────────────────────────
+     The library hides the first and last markers by default. For the
+     zoom-range row, those are the map's zoom limits — the two values
+     foliplus wants to show. Override the display:none. */
+  wa-slider::part(marker) {
+    background-color: var(--foliplus-neutral-0);
+  }
+}

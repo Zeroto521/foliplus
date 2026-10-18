@@ -302,9 +302,13 @@ declare global {
   const pako: typeof import("pako");
 
   /** Web Awesome slider custom element (ESM, loaded via `<script type="module">`).
-   *  Properties set asynchronously after upgrade — see BaseControl.render. */
+   *  Properties set asynchronously after upgrade — see BaseControl.render.
+   *  Single-value mode reads `value` (a number, from the component's internal
+   *  state); range mode reads `minValue`/`maxValue`. */
   interface WaSliderElement extends HTMLElement {
     range: boolean;
+    /** Single-value mode: the current value (number, clamped to [min, max]). */
+    value: number;
     minValue: number;
     maxValue: number;
     valueFormatter?: (v: number) => string;

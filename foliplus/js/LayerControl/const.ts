@@ -146,6 +146,7 @@ const CLASSES = {
   STYLE_OPACITY_FILL: "foliplus-style-opacity-fill",
   STYLE_OPACITY_RANGE: "foliplus-style-opacity-range",
   STYLE_OPACITY_RAIL: "foliplus-style-opacity-rail",
+  STYLE_OPACITY_SLIDER: "foliplus-style-opacity-slider",
   STYLE_OPACITY_DOT: "foliplus-style-opacity-dot",
   STYLE_OPACITY_VALUES: "foliplus-style-opacity-values",
   /** Zoom-range row: a dual-thumb slider with a current-zoom marker.

@@ -166,7 +166,7 @@ describe("LayerUI style panel", () => {
     // carrier. Border and fill need a setStyle leaf (the fill / border gate),
     // and the
     // fixture's bare group has none, so those rows are absent here.
-    expect(panel!.querySelector(".foliplus-style-opacity-range")).not.toBeNull();
+    expect(panel!.querySelector(".foliplus-style-opacity-slider")).not.toBeNull();
     expect(panel!.querySelector(".foliplus-style-zoom-range-row")).not.toBeNull();
     expect(panel!.querySelector(".foliplus-style-border-row")).toBeNull();
     expect(panel!.querySelector(".foliplus-style-fill-row")).toBeNull();
@@ -926,7 +926,7 @@ describe("LayerUI style panel", () => {
     // Headings are gone; the two groups are told apart by document order.
     expect(panel.querySelectorAll(".foliplus-section-heading")).toHaveLength(0);
     const order = [...panel.querySelectorAll("*")];
-    const layer = panel.querySelector(".foliplus-style-opacity-range");
+    const layer = panel.querySelector(".foliplus-style-opacity-slider");
     const label = panel.querySelector(".foliplus-style-toggle-input");
     expect(layer).not.toBeNull();
     expect(label).not.toBeNull();
@@ -955,13 +955,13 @@ describe("LayerUI style panel", () => {
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
     const range = panel.querySelector(
-      ".foliplus-style-opacity-range",
+      ".foliplus-style-opacity-slider",
     ) as HTMLInputElement;
     const fill = panel.querySelector(".foliplus-style-opacity-fill") as HTMLElement;
     // Freshly opened → full width.
     expect(fillPct(fill)).toBeCloseTo(1);
 
-    range.value = "35";
+    slider.value = 35;
     range.dispatchEvent(new Event("input", { bubbles: true }));
 
     expect(fillPct(fill)).toBeCloseTo(0.35);
@@ -980,10 +980,10 @@ describe("LayerUI style panel", () => {
     ui.openStylePanel("heat1");
     const panel = panelOf(item)!;
     const range = panel.querySelector(
-      ".foliplus-style-opacity-range",
+      ".foliplus-style-opacity-slider",
     ) as HTMLInputElement;
 
-    range.value = "40";
+    slider.value = 40;
     range.dispatchEvent(new Event("input", { bubbles: true }));
 
     // CSS arm for live feedback; layerAlpha is stored for the next redraw.
@@ -1005,10 +1005,10 @@ describe("LayerUI style panel", () => {
     ui.openStylePanel("color1");
     const panel = panelOf(item)!;
     const range = panel.querySelector(
-      ".foliplus-style-opacity-range",
+      ".foliplus-style-opacity-slider",
     ) as HTMLInputElement;
 
-    range.value = "40";
+    slider.value = 40;
     range.dispatchEvent(new Event("input", { bubbles: true }));
 
     expect(getLayerAlpha(li.canvas)).toBeCloseTo(0.4);
@@ -1029,10 +1029,10 @@ describe("LayerUI style panel", () => {
     ui.openStylePanel("color2");
     const panel = panelOf(item)!;
     const range = panel.querySelector(
-      ".foliplus-style-opacity-range",
+      ".foliplus-style-opacity-slider",
     ) as HTMLInputElement;
 
-    range.value = "50";
+    slider.value = 50;
     range.dispatchEvent(new Event("input", { bubbles: true }));
 
     expect(onOpacity).toHaveBeenCalledWith(0.5);
@@ -1044,9 +1044,9 @@ describe("LayerUI style panel", () => {
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
     const range = panel.querySelector(
-      ".foliplus-style-opacity-range",
+      ".foliplus-style-opacity-slider",
     ) as HTMLInputElement;
-    range.value = "30";
+    slider.value = 30;
     range.dispatchEvent(new Event("input", { bubbles: true }));
 
     const btn = panel.querySelector(".foliplus-style-reset-btn") as HTMLButtonElement;
@@ -1064,14 +1064,14 @@ describe("LayerUI style panel", () => {
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
     const range = panel.querySelector(
-      ".foliplus-style-opacity-range",
+      ".foliplus-style-opacity-slider",
     ) as HTMLInputElement;
 
-    range.value = "30";
+    slider.value = 30;
     range.dispatchEvent(new Event("input", { bubbles: true }));
     expect(ui.intentStore.isUserSet("overlay1", "opacity")).toBe(true);
 
-    range.value = "100";
+    slider.value = 100;
     range.dispatchEvent(new Event("input", { bubbles: true }));
 
     expect(getIntent(ui, "overlay1", "opacity")).toBeUndefined();
@@ -1083,10 +1083,10 @@ describe("LayerUI style panel", () => {
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
     const range = panelOf(item)!.querySelector(
-      ".foliplus-style-opacity-range",
+      ".foliplus-style-opacity-slider",
     ) as HTMLInputElement;
 
-    range.value = "0";
+    slider.value = 0;
     range.dispatchEvent(new Event("input", { bubbles: true }));
 
     expect(getIntent(ui, "overlay1", "opacity")).toBe(0);
@@ -1108,9 +1108,9 @@ describe("LayerUI style panel", () => {
     ui.openStylePanel("heat1");
     const panel = panelOf(item)!;
     const range = panel.querySelector(
-      ".foliplus-style-opacity-range",
+      ".foliplus-style-opacity-slider",
     ) as HTMLInputElement;
-    range.value = "15";
+    slider.value = 15;
     range.dispatchEvent(new Event("input", { bubbles: true }));
     expect(li.opacity).toBe(0.15);
 
@@ -1129,13 +1129,13 @@ describe("LayerUI style panel", () => {
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
     const range = panel.querySelector(
-      ".foliplus-style-opacity-range",
+      ".foliplus-style-opacity-slider",
     ) as HTMLInputElement;
 
     // The row outlives its registry entry (a provider unregistered the layer).
     vi.spyOn(manager.layerRegistry, "get").mockReturnValue(undefined);
     expect(() => {
-      range.value = "20";
+      slider.value = 20;
       range.dispatchEvent(new Event("input", { bubbles: true }));
     }).not.toThrow();
 
@@ -1221,7 +1221,7 @@ describe("LayerUI style panel", () => {
     const panel = panelOf(item)!;
     expect(panel, "the style panel rendered").toBeTruthy();
 
-    expect(panel!.querySelector(".foliplus-style-opacity-range")).toBeNull();
+    expect(panel!.querySelector(".foliplus-style-opacity-slider")).toBeNull();
     expect(panel!.querySelector(".foliplus-style-zoom-range-row")).toBeNull();
   });
 
@@ -1277,9 +1277,9 @@ describe("LayerUI style panel", () => {
     const index = (sel: string) =>
       rows.findIndex(row => row.matches(sel) || row.querySelector(sel) !== null);
     expect(index(".foliplus-style-border-row")).toBeLessThan(
-      index(".foliplus-style-opacity-range"),
+      index(".foliplus-style-opacity-slider"),
     );
-    expect(index(".foliplus-style-opacity-range")).toBeLessThan(
+    expect(index(".foliplus-style-opacity-slider")).toBeLessThan(
       index(".foliplus-style-zoom-range-row"),
     );
   });
@@ -1326,7 +1326,7 @@ describe("LayerUI style panel", () => {
     const positions = [
       index(".foliplus-style-fill-row"),
       index(".foliplus-style-border-row"),
-      index(".foliplus-style-opacity-range"),
+      index(".foliplus-style-opacity-slider"),
       index(".foliplus-style-zoom-range-row"),
     ];
     expect(positions.every(pos => pos >= 0)).toBe(true);
@@ -1381,7 +1381,7 @@ describe("LayerUI style panel", () => {
     const rowSel = [
       ".foliplus-style-fill-row",
       ".foliplus-style-border-row",
-      ".foliplus-style-opacity-range",
+      ".foliplus-style-opacity-slider",
       ".foliplus-style-zoom-range-row",
     ];
 
@@ -1445,7 +1445,7 @@ describe("LayerUI style panel", () => {
     const panelD = panelOf(itemD)!;
     const delegatedRows = rowSel.filter(sel => panelD.querySelector(sel));
     expect(delegatedRows).toEqual([
-      ".foliplus-style-opacity-range",
+      ".foliplus-style-opacity-slider",
       ".foliplus-style-zoom-range-row",
     ]);
   });
@@ -1547,7 +1547,7 @@ describe("LayerUI style panel", () => {
 
     // Panel is rendered (fields are cached) but without the opacity row.
     if (panel) {
-      expect(panel.querySelector(".foliplus-style-opacity-range")).toBeNull();
+      expect(panel.querySelector(".foliplus-style-opacity-slider")).toBeNull();
     }
 
     // Restore for cleanup
@@ -2454,7 +2454,7 @@ describe("LayerUI style panel", () => {
     expect(panel.querySelectorAll(".foliplus-section-heading")).toHaveLength(0);
     const order = [...panel.querySelectorAll("*")];
     expect(
-      order.indexOf(panel.querySelector(".foliplus-style-opacity-range")!),
+      order.indexOf(panel.querySelector(".foliplus-style-opacity-slider")!),
     ).toBeLessThan(order.indexOf(showToggle as unknown as Element));
   });
 
@@ -2483,7 +2483,7 @@ describe("LayerUI style panel", () => {
     ui.openStylePanel("borderOnly");
     const panel = panelOf(item)!;
 
-    expect(panel.querySelector(`.${CONST.CLASSES.STYLE_OPACITY_RANGE}`)).toBeNull();
+    expect(panel.querySelector(`.${CONST.CLASSES.STYLE_OPACITY_SLIDER}`)).toBeNull();
     expect(panel.querySelector(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_ROW}`)).toBeNull();
     // No group headings — the Layer rows still render on their own.
     expect(panel.querySelectorAll(".foliplus-section-heading")).toHaveLength(0);
@@ -2529,7 +2529,7 @@ describe("LayerUI style panel", () => {
     expect(panel.querySelector(`.${CONST.CLASSES.STYLE_BORDER_ROW}`)).toBeNull();
 
     // Opacity and zoomRange are LayerControl-owned — they survive.
-    expect(panel.querySelector(`.${CONST.CLASSES.STYLE_OPACITY_RANGE}`)).not.toBeNull();
+    expect(panel.querySelector(`.${CONST.CLASSES.STYLE_OPACITY_SLIDER}`)).not.toBeNull();
     expect(
       panel.querySelector(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_ROW}`),
     ).not.toBeNull();
@@ -3395,14 +3395,14 @@ describe("LayerUI style panel", () => {
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
     const range = panel.querySelector(
-      ".foliplus-style-opacity-range",
+      ".foliplus-style-opacity-slider",
     ) as HTMLInputElement;
     expect(range).not.toBeNull();
     expect(range.type).toBe("range");
     expect(range.min).toBe("0");
     expect(range.max).toBe("100");
     expect(range.step).toBe("1");
-    expect(range.value).toBe("100");
+    expect(slider.value).toBe(100);
   });
 
   it("an opacity change applies to the layer and persists", () => {
@@ -3411,10 +3411,10 @@ describe("LayerUI style panel", () => {
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
     const range = panel.querySelector(
-      ".foliplus-style-opacity-range",
+      ".foliplus-style-opacity-slider",
     ) as HTMLInputElement;
 
-    range.value = "60";
+    slider.value = 60;
     range.dispatchEvent(new Event("input", { bubbles: true }));
 
     expect(li.opacity).toBe(0.6);
@@ -3437,9 +3437,9 @@ describe("LayerUI style panel", () => {
       const item = findItem(ui, "base1");
       ui.openStylePanel("base1");
       const range = panelOf(item)!.querySelector(
-        ".foliplus-style-opacity-range",
+        ".foliplus-style-opacity-slider",
       ) as HTMLInputElement;
-      range.value = "0";
+      slider.value = 0;
       range.dispatchEvent(new Event("input", { bubbles: true }));
       const baseCalls = toggleSpy.mock.calls.filter(
         c => c[0] === CONST.CLASSES.NO_BASE_MAP,
@@ -3462,9 +3462,9 @@ describe("LayerUI style panel", () => {
       const item = findItem(ui, "overlay1");
       ui.openStylePanel("overlay1");
       const range = panelOf(item)!.querySelector(
-        ".foliplus-style-opacity-range",
+        ".foliplus-style-opacity-slider",
       ) as HTMLInputElement;
-      range.value = "0";
+      slider.value = 0;
       range.dispatchEvent(new Event("input", { bubbles: true }));
       const calls = toggleSpy.mock.calls.filter(
         c => c[0] === CONST.CLASSES.NO_BASE_MAP,
@@ -3525,16 +3525,16 @@ describe("LayerUI style panel", () => {
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
     const range = panelOf(item)!.querySelector(
-      ".foliplus-style-opacity-range",
+      ".foliplus-style-opacity-slider",
     ) as HTMLInputElement;
-    range.value = "25";
+    slider.value = 25;
     range.dispatchEvent(new Event("input", { bubbles: true }));
     ui.closeStylePanel(false);
 
     ui.openStylePanel("overlay1");
     const reopened = panelOf(item)!;
     expect(
-      (reopened.querySelector(".foliplus-style-opacity-range") as HTMLInputElement)
+      (reopened.querySelector(".foliplus-style-opacity-slider") as HTMLInputElement)
         .value,
     ).toBe("25");
     expect(
@@ -3552,9 +3552,9 @@ describe("LayerUI style panel", () => {
     const panel = panelOf(item)!;
 
     const range = panel.querySelector(
-      ".foliplus-style-opacity-range",
+      ".foliplus-style-opacity-slider",
     ) as HTMLInputElement;
-    expect(range.value).toBe("100");
+    expect(slider.value).toBe(100);
   });
 
   it("omits the opacity row for a surface that cannot carry it (delegated)", () => {
@@ -3573,7 +3573,7 @@ describe("LayerUI style panel", () => {
     const panel = panelOf(item)!;
 
     // No opacity row at all.
-    expect(panel.querySelector(".foliplus-style-opacity-range")).toBeNull();
+    expect(panel.querySelector(".foliplus-style-opacity-slider")).toBeNull();
     expect(panel.querySelector(".foliplus-style-opacity-number")).toBeNull();
     // The delegated label controls are still there.
     expect(panel.querySelector(".foliplus-style-label-size-input")).not.toBeNull();
@@ -3604,7 +3604,7 @@ describe("LayerUI style panel", () => {
     ui.openStylePanel("cluster2");
     const panel = panelOf(item)!;
 
-    expect(panel.querySelector(".foliplus-style-opacity-range")).toBeNull();
+    expect(panel.querySelector(".foliplus-style-opacity-slider")).toBeNull();
     expect(panel.querySelector(".foliplus-style-opacity-number")).toBeNull();
     // Annotation rows are still there.
     expect(panel.querySelector(".foliplus-style-field-select")).not.toBeNull();
@@ -3954,40 +3954,19 @@ describe("LayerUI style panel — zoom range", () => {
     expect(hasRow).not.toBeNull();
   });
 
-  it("the live pass (input) drives the opacity row and floats the value", () => {
+  it("the live pass (input) drives the opacity row", () => {
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
-    const range = panel.querySelector(
-      `.${CONST.CLASSES.STYLE_OPACITY_RANGE}`,
-    ) as HTMLInputElement;
-    const fill = panel.querySelector(
-      `.${CONST.CLASSES.STYLE_OPACITY_FILL}`,
-    ) as HTMLElement;
-    const rail = panel.querySelector(
-      `.${CONST.CLASSES.STYLE_OPACITY_RAIL}`,
-    ) as HTMLElement;
+    const slider = panel.querySelector(
+      `.${CONST.CLASSES.STYLE_OPACITY_SLIDER}`,
+    ) as WaSliderElement;
 
-    range.value = "40";
-    range.dispatchEvent(new Event("input", { bubbles: true }));
+    slider.value = 40;
+    slider.dispatchEvent(new Event("input", { bubbles: true }));
 
-    // The live pass moves the fill and shows the value above the handle.
-    expect(fill.style.width).toBe("40%");
-    const bubble = rail.querySelector(
-      `.${CONST.CLASSES.SLIDER_BUBBLE}`,
-    ) as HTMLElement | null;
-    expect(bubble).not.toBeNull();
-    expect(bubble!.textContent).toBe("40");
-
-    // A second live pass reuses that bubble instead of stacking another.
-    range.value = "60";
-    range.dispatchEvent(new Event("input", { bubbles: true }));
-    expect(rail.querySelectorAll(`.${CONST.CLASSES.SLIDER_BUBBLE}`).length).toBe(1);
-    expect(bubble!.textContent).toBe("60");
-
-    // The settle pass takes it away again.
-    range.dispatchEvent(new Event("change", { bubbles: true }));
-    expect(rail.querySelector(`.${CONST.CLASSES.SLIDER_BUBBLE}`)).toBeNull();
+    // The live pass writes the opacity to the layer.
+    expect(manager.layerRegistry.get("overlay1")!.opacity).toBe(0.4);
   });
 
   it("ignores a live value that does not parse", () => {
@@ -3995,24 +3974,18 @@ describe("LayerUI style panel — zoom range", () => {
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
-    const range = panel.querySelector(
-      `.${CONST.CLASSES.STYLE_OPACITY_RANGE}`,
-    ) as HTMLInputElement;
-    const rail = panel.querySelector(
-      `.${CONST.CLASSES.STYLE_OPACITY_RAIL}`,
-    ) as HTMLElement;
+    const slider = panel.querySelector(
+      `.${CONST.CLASSES.STYLE_OPACITY_SLIDER}`,
+    ) as WaSliderElement;
     const before = li.opacity;
 
-    // A range input refuses to hold a non-numeric value — it falls back to the
-    // mid-point — so the guard is reached through a field that kept the
-    // slider's class but no longer constrains its value, the shape a
-    // consumer's hand-edited markup has. It must not write through.
-    range.type = "text";
-    range.value = "abc";
-    range.dispatchEvent(new Event("input", { bubbles: true }));
+    // A live value outside [0, 100] is ignored — the handler returns without
+    // writing. The wa-slider clamps its own value, so this is reached only by
+    // a hand-edited element or a race; the guard is still load-bearing.
+    slider.value = -5;
+    slider.dispatchEvent(new Event("input", { bubbles: true }));
 
     expect(li.opacity).toBe(before);
-    expect(rail.querySelector(`.${CONST.CLASSES.SLIDER_BUBBLE}`)).toBeNull();
   });
 
   it("a single-level map yields a zero percentage rather than NaN", () => {
@@ -4111,7 +4084,7 @@ describe("LayerUI style panel — zoom range", () => {
     ui.openStylePanel("cluster3");
     const panel = panelOf(item)!;
 
-    expect(panel.querySelector(`.${CONST.CLASSES.STYLE_OPACITY_RANGE}`)).toBeNull();
+    expect(panel.querySelector(`.${CONST.CLASSES.STYLE_OPACITY_SLIDER}`)).toBeNull();
     expect(zoomRowOf(panel)).toBeNull();
     expect(
       panel.querySelector(`.${CONST.CLASSES.STYLE_LABEL_SIZE_INPUT}`),
@@ -4124,7 +4097,7 @@ describe("LayerUI style panel — zoom range", () => {
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
     const range = panel.querySelector(
-      `.${CONST.CLASSES.STYLE_OPACITY_RANGE}`,
+      `.${CONST.CLASSES.STYLE_OPACITY_SLIDER}`,
     ) as HTMLInputElement;
 
     // The handle outlives the rail it was drawn in, and the rail took the fill
@@ -4132,7 +4105,7 @@ describe("LayerUI style panel — zoom range", () => {
     // so the write still has to land.
     panel.appendChild(range);
     panel.querySelector(`.${CONST.CLASSES.STYLE_OPACITY_RAIL}`)?.remove();
-    range.value = "30";
+    slider.value = 30;
     range.dispatchEvent(new Event("input", { bubbles: true }));
 
     expect(panel.querySelector(`.${CONST.CLASSES.STYLE_OPACITY_FILL}`)).toBeNull();
@@ -4194,7 +4167,7 @@ describe("LayerUI style panel — zoom range", () => {
     ui.openStylePanel("rangeOnly");
     const panel = panelOf(item)!;
 
-    expect(panel.querySelector(`.${CONST.CLASSES.STYLE_OPACITY_RANGE}`)).toBeNull();
+    expect(panel.querySelector(`.${CONST.CLASSES.STYLE_OPACITY_SLIDER}`)).toBeNull();
     expect(zoomRowOf(panel)).not.toBeNull();
   });
 
@@ -4213,7 +4186,7 @@ describe("LayerUI style panel — zoom range", () => {
     ui.openStylePanel("annotOnly");
     const panel = panelOf(item)!;
 
-    expect(panel.querySelector(`.${CONST.CLASSES.STYLE_OPACITY_RANGE}`)).toBeNull();
+    expect(panel.querySelector(`.${CONST.CLASSES.STYLE_OPACITY_SLIDER}`)).toBeNull();
     expect(zoomRowOf(panel)).not.toBeNull();
   });
 

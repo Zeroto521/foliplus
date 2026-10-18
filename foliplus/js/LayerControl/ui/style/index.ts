@@ -16,7 +16,6 @@ import { createRowPanel } from "#core/leaflet/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import * as SVGs from "#foliplus/LayerControl/icon.js";
 import type { NumberStyle } from "#foliplus/config-schema.js";
-import { dom } from "#common/dom.js";
 import {
   LABEL_SIZE,
   bindLiveColor,
@@ -28,9 +27,9 @@ import { closeOverlays } from "../teardown.js";
 import { bindBorderRow, resetLayerBorder } from "./border.js";
 import { layerHasStyleDelegation, renderDelegatedStylePanel } from "./delegated.js";
 import { bindFillRow, resetLayerFill } from "./fill.js";
-import { appendResetFooter, railPos } from "./frame.js";
+import { appendResetFooter } from "./frame.js";
 import { applyPatch, layerFields, resetStyleLabel, syncFormatRow } from "./label.js";
-import { clampPct, commitOpacityPct, resetLayerOpacity } from "./opacity.js";
+import { commitOpacityPct, resetLayerOpacity } from "./opacity.js";
 import { DIM_ORDER, LABEL_DIM_ORDER, gatedRows } from "./registry.js";
 import { flushStyleDimApplies } from "./styleBag.js";
 import {
@@ -164,31 +163,18 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
   // re-read them as visibility toggles.
 
   /** Shared opacity handler for both panel flavours (LayerControl-owned).
-   *  `commit` separates the live pass from the settle pass a drag ends with. */
+   *  `commit` separates the live pass from the settle pass a drag ends with.
+   *
+   *  The target is the `<wa-slider>` element (single-thumb). The component
+   *  dispatches native `input`/`change` events (bubbles + composed) and owns
+   *  the live drag tooltip internally via its shadow `::part(tooltip)` —
+   *  foliplus does not build a separate bubble. */
   const handleOpacityTarget = (t: EventTarget | null, commit: boolean): boolean => {
-    if (!(t instanceof HTMLInputElement)) return false;
-    if (!t.classList.contains(CONST.CLASSES.STYLE_OPACITY_RANGE)) return false;
-    const raw = parseFloat(t.value);
+    if (!(t instanceof HTMLElement)) return false;
+    if (!t.classList.contains(CONST.CLASSES.STYLE_OPACITY_SLIDER)) return false;
+    const slider = t as WaSliderElement;
+    const raw = slider.value;
     if (!commit && !(raw >= 0 && raw <= 100)) return true;
-
-    // Live value above the handle, the same affordance the zoom range uses.
-    const rail = panel.querySelector(
-      `.${CONST.CLASSES.STYLE_OPACITY_RAIL}`,
-    ) as HTMLElement | null;
-    let bubble = rail?.querySelector(
-      `.${CONST.CLASSES.SLIDER_BUBBLE}`,
-    ) as HTMLElement | null;
-    if (commit) {
-      bubble?.remove();
-    } else if (rail) {
-      if (!bubble) {
-        bubble = dom.el("div", { class: CONST.CLASSES.SLIDER_BUBBLE });
-        rail.appendChild(bubble);
-      }
-      const pct = clampPct(raw);
-      bubble.style.left = railPos(pct);
-      bubble.textContent = String(pct);
-    }
 
     commitOpacityPct(ui, layerId, panel, raw);
     return true;

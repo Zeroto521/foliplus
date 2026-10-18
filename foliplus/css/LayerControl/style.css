@@ -84,4 +84,79 @@
       }
     }
   }
+
+  /* ── Opacity row ──────────────────────────────────────────────────
+     A <wa-slider> single-thumb with end-dot and end-number overlays.
+     The slider's own thumb/rail/fill/tooltip come from the library
+     (skinned via common/wa.css); foliplus adds only the fixed scale
+     readout — the two end dots and the 0/100 numbers. */
+  .foliplus-style-opacity-track {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+    /* Room for a thumb at its held size (1.15x) above the rail — the tallest
+       thing in the row, since the 24px hit box is invisible. */
+    padding-top: var(--foliplus-space-sm);
+    gap: var(--foliplus-space-xs);
+  }
+
+  .foliplus-style-opacity-slider {
+    display: block;
+    width: 100%;
+  }
+
+  /* End dots: white core + ring, accent when the covered span reaches that
+     end. These are foliplus-owned overlays (not wa-slider reference slots),
+     so they sit outside the slider's shadow boundary and are positioned by
+     this block. */
+  .foliplus-style-opacity-track .foliplus-slider-dot {
+    position: absolute;
+    top: 50%;
+    width: var(--foliplus-slider-dot-size);
+    height: var(--foliplus-slider-dot-size);
+    box-sizing: border-box;
+    background: var(--foliplus-neutral-0);
+    border: var(--foliplus-size-2) solid var(--foliplus-neutral-500);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    transition: border-color var(--foliplus-transition-fast);
+  }
+  .foliplus-style-opacity-track .foliplus-slider-dot-min {
+    left: calc(var(--foliplus-slider-thumb-size) / 2);
+  }
+  .foliplus-style-opacity-track .foliplus-slider-dot-max {
+    left: calc(100% - var(--foliplus-slider-thumb-size) / 2);
+  }
+  .foliplus-style-opacity-track .foliplus-slider-dot-covered {
+    border-color: var(--foliplus-accent-primary);
+  }
+
+  /* The scale's numbers, under the marks they belong to: the fixed ends at
+     the row's edges. Same inset as the rail so a label's 0% / 100% means
+     the rail's end — which is where its dot sits — instead of the cell's
+     edge. */
+  .foliplus-style-opacity-values {
+    position: relative;
+    margin: 0 calc(var(--foliplus-slider-thumb-size) / 2);
+    height: var(--foliplus-font-size-md);
+    line-height: var(--foliplus-font-size-md);
+    font-size: var(--foliplus-font-size-sm);
+    color: var(--foliplus-text-primary);
+    font-variant-numeric: tabular-nums;
+  }
+  .foliplus-style-opacity-values > span {
+    position: absolute;
+    top: 0;
+    transform: translateX(-50%);
+    white-space: nowrap;
+  }
+  .foliplus-style-opacity-values > span:first-child {
+    left: 0;
+  }
+  .foliplus-style-opacity-values > span:last-child {
+    left: 100%;
+  }
 }

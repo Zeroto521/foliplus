@@ -1,4 +1,4 @@
-// Opacity row: single-thumb rail + fill + end dots + live commit pipeline.
+// Opacity row: wa-slider single-thumb + end dots overlay + live commit pipeline.
 // Moved verbatim from ui/style.ts; the frame helpers it
 // reaches into live in ./frame.ts. `buildOpacityRow` and the sync /
 // commit functions are used both by the delegated drawer (delegated.ts)
@@ -9,6 +9,13 @@
 // as the first per-layer dimension. The descriptor owns intent+persist
 // (`write` / `reset` / `valueSource`); `commitOpacityPct` stays a thin
 // delegate that also syncs the panel rail (UI chrome outside the descriptor).
+//
+// The <wa-slider> replaces the old dual-<input type=range> + custom rail/fill/
+// handle DOM. The component dispatches native `input`/`change` events
+// (bubbles + composed) and owns the thumb, rail, fill and drag tooltip
+// internally (via its shadow parts). Foliplus adds only the end-dot readout
+// and the fixed end numbers, as overlay elements outside the slider's shadow
+// boundary — the same pattern the zoom-range row uses for its current-marker.
 import { CAP_TIER, DIM, GROUP } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { dom } from "#common/dom.js";
@@ -17,7 +24,6 @@ import { INTENT } from "../intent.js";
 import { syncNoBasemap } from "../listPanel/visibility.js";
 import { currentOpacity } from "../projection.js";
 import type { LayerUI } from "../surface.js";
-import { round5 } from "./frame.js";
 import {
   getDimension,
   registerDimension,
@@ -45,10 +51,6 @@ const opacityToPct = (opacity: number | undefined): number =>
 const clampPct = (raw: number, fallback = 100): number =>
   Number.isFinite(raw) ? Math.max(0, Math.min(100, Math.round(raw))) : fallback;
 
-/** Fill width for the single-thumb opacity rail: the rail's own percentage,
- *  which is where the handle's center sits. */
-const opacityFillWidth = (pct: number): string => `${round5(pct)}%`;
-
 /** Ring color of the opacity row's two end dots. The covered span is always
  *  [0, pct], so the 0 end is red by construction — the layer is painted from
  *  there whatever the value — and 100 is red only when the layer is fully
@@ -74,17 +76,12 @@ const syncOpacityDots = (track: HTMLElement, pct: number): void => {
  *  commit pass, which rewrites it to the resolved value the same way the shared
  *  number field does on blur. */
 const syncOpacityInputs = (panel: HTMLElement, pct: number): void => {
-  const range = panel.querySelector(
-    `.${CONST.CLASSES.STYLE_OPACITY_RANGE}`,
-  ) as HTMLInputElement;
-  const fill = panel.querySelector(
-    `.${CONST.CLASSES.STYLE_OPACITY_FILL}`,
-  ) as HTMLElement | null;
-  range.value = String(pct);
-  // The fill starts where the thumb's center sits at 0% and ends on it at the
-  // current value — the handle's own travel range, so the two never disagree at
-  // the ends (a rail-relative width leaves a sliver of accent past the handle).
-  if (fill) fill.style.width = opacityFillWidth(pct);
+  const slider = panel.querySelector(
+    `.${CONST.CLASSES.STYLE_OPACITY_SLIDER}`,
+  ) as WaSliderElement | null;
+  if (slider) {
+    slider.value = pct;
+  }
   syncOpacityDots(panel, pct);
 };
 
@@ -110,58 +107,60 @@ const commitOpacityPct = (
   syncOpacityInputs(panel, pct);
 };
 
-/** Build the opacity form row: the shared slider component, nothing else.
+/** Build the opacity form row: a <wa-slider> single-thumb with end-dot
+ *  and end-number overlays.
  *
  *  There is no number field: the value is already on screen three ways (the
  *  fill's length, the drag bubble, the end numbers) and the field cost the rail
  *  two thirds of its width — it is the reason the zoom range's rail is longer
- *  than this one. The range input keeps the value reachable: it carries the
+ *  than this one. The wa-slider keeps the value reachable: it carries the
  *  accessible name and value, arrow / Home / End drive it, and the bubble
- *  appears for keyboard input the same as for a drag. */
+ *  appears for keyboard input the same as for a drag.
+ *
+ *  The end dots and numbers are foliplus-owned overlays outside the slider's
+ *  shadow boundary — the wa-slider's reference slot is for slider-value ticks
+ *  (a semantic the opacity row does not have), so the fixed scale readout lives
+ *  here instead. */
 const buildOpacityRow = (ui: LayerUI, layerId: string): HTMLElement => {
   const pct = opacityToPct(currentOpacity(ui, ui.c.layerRegistry.get(layerId)));
-  const fill = dom.el("div", {
-    class: `${CONST.CLASSES.SLIDER_FILL} ${CONST.CLASSES.STYLE_OPACITY_FILL}`,
-    style: `width:${opacityFillWidth(pct)}`,
-  });
+
+  const slider = dom.el("wa-slider", {
+    min: "0",
+    max: "100",
+    step: "1",
+    value: String(pct),
+    "with-tooltip": "",
+    "aria-label": ui.T("style_opacity"),
+    class: CONST.CLASSES.STYLE_OPACITY_SLIDER,
+  }) as WaSliderElement;
+
+  // End dots: white core + ring, accent when the covered span reaches that end.
+  // Foliplus-owned overlays (not wa-slider reference slots), positioned by the
+  // row's own CSS.
   const dot = (suffix: string): HTMLElement =>
     dom.el("span", {
       class:
         `${CONST.CLASSES.SLIDER_DOT} ${CONST.CLASSES.SLIDER_DOT}${suffix}` +
         ` ${CONST.CLASSES.STYLE_OPACITY_DOT} ${CONST.CLASSES.STYLE_OPACITY_DOT}${suffix}`,
     });
-  const range = dom.el("input", {
-    type: "range",
-    class: `${CONST.CLASSES.SLIDER_HANDLE} ${CONST.CLASSES.STYLE_OPACITY_RANGE}`,
-    min: "0",
-    max: "100",
-    step: "1",
-    value: String(pct),
-    "aria-label": ui.T("style_opacity"),
-  });
-  const rail = dom.el(
-    "div",
-    { class: `${CONST.CLASSES.SLIDER_RAIL} ${CONST.CLASSES.STYLE_OPACITY_RAIL}` },
-    fill,
-    dot("-min"),
-    dot("-max"),
-    range,
-  );
-  // The scale's ends, so the row matches the zoom range's: fixed numbers under
-  // the fixed dots. The value itself stays in the number field beside them.
+
   const values = dom.el(
     "div",
     { class: `${CONST.CLASSES.SLIDER_VALUES} ${CONST.CLASSES.STYLE_OPACITY_VALUES}` },
     dom.el("span", {}, "0"),
     dom.el("span", {}, "100"),
   );
+
   const track = dom.el(
     "div",
     { class: `${CONST.CLASSES.SLIDER} ${CONST.CLASSES.STYLE_OPACITY_TRACK}` },
-    rail,
+    slider,
+    dot("-min"),
+    dot("-max"),
     values,
   );
   syncOpacityDots(track, pct);
+
   return dom.el(
     "div",
     { class: CONST.CLASSES.FORM_ROW },
