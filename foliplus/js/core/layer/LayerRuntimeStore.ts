@@ -7,7 +7,7 @@
 // on unregister. Derived state only: nothing here is user input, and every
 // entry is invalidatable (explicit invalidation, never a full re-scan).
 import type { LabelField } from "#core/label/index.js";
-import type { Projection } from "./type.js";
+import type { LayerSnapshot, Projection } from "./type.js";
 
 /** The executor's projection snapshot: the pure projection plus the carrier
  *  identity the last write landed on. Recording carrier is what closes
@@ -29,6 +29,9 @@ interface LayerRuntime {
   applied?: AppliedProjection;
   /** Per-layer label-field cache (collectFields walks every feature). */
   fields?: LabelField[];
+  /** Per-layer point snapshot — geometry + normalised numeric fields, built
+   *  once on first read, invalidated at the same points as `fields`. */
+  snapshot?: LayerSnapshot;
   /** The author's declared default per layer id, seeded from CONFIG
    *  `data[].show` at attach time for initial layers, or to `true` for
    *  late-registered layers (folium's convention). Python carries the fact
@@ -93,6 +96,23 @@ class LayerRuntimeStore {
     const row = this.rows.get(id);
     if (!row) return;
     delete row.fields;
+    this.prune(id);
+  }
+
+  // ── snapshot (point snapshot cache) ────────────────────────────────
+
+  getSnapshot(id: string): LayerSnapshot | undefined {
+    return this.rows.get(id)?.snapshot;
+  }
+
+  setSnapshot(id: string, snapshot: LayerSnapshot): void {
+    this.ensure(id).snapshot = snapshot;
+  }
+
+  deleteSnapshot(id: string): void {
+    const row = this.rows.get(id);
+    if (!row) return;
+    delete row.snapshot;
     this.prune(id);
   }
 

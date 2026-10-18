@@ -2,7 +2,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#foliplus/HeatmapControl/const.js";
 import {
+  aggregateBins,
   aggregateData,
+  binPoints,
   buildFeatures,
   getColorScale,
   getH3Res,
@@ -285,5 +287,94 @@ describe("buildFeatures", () => {
     );
     expect(feats).toHaveLength(0);
     warn.mockRestore();
+  });
+});
+
+describe("binPoints", () => {
+  beforeEach(() => {
+    globalThis.h3 = { latLngToCell: vi.fn(() => "cell_a") } as never;
+  });
+
+  it("groups points by h3 index, preserving encounter order within a cell", () => {
+    globalThis.h3.latLngToCell = vi.fn(lat => `cell_${lat}`);
+    const pts = [
+      makePt({ lat: 1 }),
+      makePt({ lat: 2 }),
+      makePt({ lat: 1 }),
+      makePt({ lat: 2 }),
+    ];
+    const bins = binPoints(pts, 4, LOG);
+    expect(bins).toEqual(
+      new Map([
+        ["cell_1", [0, 2]],
+        ["cell_2", [1, 3]],
+      ]),
+    );
+  });
+
+  it("skips a point whose h3 conversion throws and warns once", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    globalThis.h3 = {
+      latLngToCell: vi
+        .fn()
+        .mockImplementationOnce(() => {
+          throw new Error("h3 fail");
+        })
+        .mockImplementation(() => "cell_ok"),
+    } as never;
+    const bins = binPoints([makePt({ value: 1 }), makePt({ value: 2 })], 4, LOG);
+    expect(bins).toEqual(new Map([["cell_ok", [1]]]));
+    expect(warn).toHaveBeenCalledTimes(1);
+    warn.mockRestore();
+  });
+
+  it("returns an empty map for an empty input", () => {
+    expect(binPoints([], 4, LOG)).toEqual(new Map());
+  });
+});
+
+describe("aggregateBins", () => {
+  it("computes sum / count / min / max per cell", () => {
+    const pts = [makePt({ value: 5 }), makePt({ value: 3 }), makePt({ value: 8 })];
+    const bins = new Map([["cell_a", [0, 1, 2]]]);
+    const cells = aggregateBins(bins, pts);
+    expect(cells.get("cell_a")).toEqual({ sum: 16, count: 3, min: 3, max: 8 });
+  });
+
+  it("supports multiple cells", () => {
+    const pts = [makePt({ value: 1 }), makePt({ value: 2 }), makePt({ value: 4 })];
+    const bins = new Map([
+      ["cell_a", [0, 1]],
+      ["cell_b", [2]],
+    ]);
+    const cells = aggregateBins(bins, pts);
+    expect(cells).toEqual(
+      new Map([
+        ["cell_a", { sum: 3, count: 2, min: 1, max: 2 }],
+        ["cell_b", { sum: 4, count: 1, min: 4, max: 4 }],
+      ]),
+    );
+  });
+
+  it("skips a bin whose index list is empty (a filter can empty a cell)", () => {
+    const pts = [makePt({ value: 1 })];
+    const bins = new Map([
+      ["cell_a", []],
+      ["cell_b", [0]],
+    ]);
+    const cells = aggregateBins(bins, pts);
+    expect(cells.has("cell_a")).toBe(false);
+    expect(cells.get("cell_b")).toEqual({ sum: 1, count: 1, min: 1, max: 1 });
+  });
+
+  it("never calls h3 — the geometry is upstream, this is pure arithmetic", () => {
+    // The whole point of the split: a filter change that keeps the bins
+    // but changes the points runs aggregateBins alone, so spying on h3
+    // confirms the call path stays away from the geometry.
+    const h3Calls = vi.fn();
+    globalThis.h3 = { latLngToCell: h3Calls } as never;
+    const pts = [makePt({ value: 1 }), makePt({ value: 2 })];
+    aggregateBins(new Map([["cell_a", [0, 1]]]), pts);
+    expect(h3Calls).not.toHaveBeenCalled();
   });
 });

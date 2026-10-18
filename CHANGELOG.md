@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- `core/layer`: snapshot axis on `LayerRuntimeStore` — a layer's points, numeric fields, and value ranges are built once and cached alongside the fields cache
+- `core/layer`: filter AST (`and` / `or` / `atom`) and pure evaluator over `SnapshotPoint`, so filtering is a tree walk rather than a string parse
+- `HeatmapControl`: `aggregateData` is now a wrapper over `binPoints` (H3 geometry only) and `aggregateBins` (pure arithmetic), so a filter change can skip the geometry step
+
 ## [v0.4.1] (2026-10-18)
 
 ### Added
