@@ -162,16 +162,16 @@
   .foliplus-layer-more-menu li.foliplus-layer-more-menu-delete-armed,
   .foliplus-layer-more-menu li.foliplus-layer-more-menu-delete-armed:hover {
     background: var(--foliplus-accent-primary);
-    color: var(--foliplus-neutral-0);
+    color: var(--foliplus-on-accent);
   }
   .foliplus-layer-more-menu li.foliplus-layer-more-menu-delete-armed:active,
   .foliplus-layer-more-menu li.foliplus-layer-more-menu-delete-armed:hover:active {
     background: var(--foliplus-accent-hover);
-    color: var(--foliplus-neutral-0);
+    color: var(--foliplus-on-accent);
   }
   .foliplus-layer-more-menu li.foliplus-layer-more-menu-delete-armed svg,
   .foliplus-layer-more-menu li.foliplus-layer-more-menu-delete-armed:hover svg {
-    color: var(--foliplus-neutral-0);
-    stroke: var(--foliplus-neutral-0);
+    color: var(--foliplus-on-accent);
+    stroke: var(--foliplus-on-accent);
   }
 }

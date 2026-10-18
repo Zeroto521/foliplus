@@ -288,7 +288,7 @@
        resting unchecked row and an interaction target cannot disagree
        (one "white via the container", one "painted white"). Checked rows
        override with the wash below; hover / Tab / arrow paint white on top. */
-    background: var(--foliplus-neutral-0);
+    background: var(--foliplus-surface);
 
     /* Rows take DOM focus (arrow cursor, Tab, Escape-restore). The browser's
        default dark outline is never the focus signal here — the red glow is —
@@ -322,7 +322,7 @@
         0 calc(-1 * var(--foliplus-size-2)) var(--foliplus-size-4)
           var(--foliplus-accent-primary),
         0 var(--foliplus-size-2) var(--foliplus-size-4) var(--foliplus-accent-primary);
-      background: var(--foliplus-neutral-0);
+      background: var(--foliplus-surface);
 
       .foliplus-drag-cell .drag-handle {
         opacity: 1;
