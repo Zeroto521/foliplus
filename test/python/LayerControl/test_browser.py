@@ -5580,14 +5580,14 @@ class TestLayerControlBrowser:
             assert result["initial"]["entries"] == {"A attr": 1}, result["initial"]
             # Step 1 (moveLayerUp B): B moves to index 0, B's attr wins.
             assert result["steps"][0]["ok"] is True, result["steps"][0]
-            assert result["steps"][0]["state"]["entries"] == {"B attr": 1}, (
-                result["steps"][0]
-            )
+            assert result["steps"][0]["state"]["entries"] == {"B attr": 1}, result[
+                "steps"
+            ][0]
             # Step 2 (moveLayerDown B): B moves back, A's attr wins again.
             assert result["steps"][1]["ok"] is True, result["steps"][1]
-            assert result["steps"][1]["state"]["entries"] == {"A attr": 1}, (
-                result["steps"][1]
-            )
+            assert result["steps"][1]["state"]["entries"] == {"A attr": 1}, result[
+                "steps"
+            ][1]
 
     def test_attribution_sync_no_flicker(self, browser, tmp_path):
         """Flicker guard: reading the attribution table in the same JS
