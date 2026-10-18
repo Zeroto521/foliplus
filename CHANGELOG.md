@@ -1,10 +1,10 @@
 # Changelog
 
-## [Unreleased]
+## [v0.4.1] (2026-10-18)
 
 ### Added
 
-- `LayerControl`: layers can now declare label defaults (field/format/collision) via `foliplus={"annotation": {...}}`, which turns the layer's labels on at load; the user's own choice still wins over the declaration ([#669](https://github.com/Zeroto521/foliplus/pull/669))
+- `LayerControl`: layers can declare label defaults (field/format/collision) via `foliplus={"annotation": {...}}`, which turns the layer's labels on at load — a later choice in the panel still wins ([#669](https://github.com/Zeroto521/foliplus/pull/669))
 - `LayerControl`: a `show=False` layer no longer reappears on a zoom sweep — the panel reads its visibility from Python instead of inferring it from map state ([#676](https://github.com/Zeroto521/foliplus/pull/676))
 
 ### Changed
@@ -14,17 +14,12 @@
 
 ### Fixed
 
-- `LayerControl`: the geometry focus marquee now follows its layer across pan/zoom instead of drifting away from the geometry ([#668](https://github.com/Zeroto521/foliplus/pull/668), [#670](https://github.com/Zeroto521/foliplus/pull/670))
+- `LayerControl`: focus mode is now self-contained — the marquee follows its layer across pan/zoom, basemaps fade instead of vanishing, the spotlighted layer renders fully opaque, rapid switches leave no orphan mask, and Leaflet's native shadows, tooltips and popups hide alongside the data panes ([#668](https://github.com/Zeroto521/foliplus/pull/668), [#670](https://github.com/Zeroto521/foliplus/pull/670), [#675](https://github.com/Zeroto521/foliplus/pull/675), [#680](https://github.com/Zeroto521/foliplus/pull/680), [#681](https://github.com/Zeroto521/foliplus/pull/681), [#683](https://github.com/Zeroto521/foliplus/pull/683))
 - `LayerControl`: marker shadows now stay below their icons after a zoom-triggered re-pin, instead of flipping above and covering the icon ([#674](https://github.com/Zeroto521/foliplus/pull/674))
-- `LayerControl`: basemaps stay visible while a layer is focused — they fade instead of disappearing, so the map's grey background no longer shows through ([#675](https://github.com/Zeroto521/foliplus/pull/675))
 - `LayerControl`: layers registered before their map object arrives now resolve on `layeradd`, so the fill swatch and layer-kind logic see the real layer instead of a fallback ([#679](https://github.com/Zeroto521/foliplus/pull/679))
-- `LayerControl`: rapid focus switches no longer leave an orphan mask — the geometry-focus marquee now uses its own class, so its cleanup no longer deletes the focus rect ([#680](https://github.com/Zeroto521/foliplus/pull/680))
-- `LayerControl`: a focused layer's own opacity is temporarily forced to fully opaque during focus, and returns to its authored value on cancel ([#681](https://github.com/Zeroto521/foliplus/pull/681))
-- `LayerControl`: marker shadows, hover tooltips, and popups no longer survive focus mode — Leaflet's native UI panes are hidden while a layer is focused, alongside the data panes ([#683](https://github.com/Zeroto521/foliplus/pull/683))
 - `LayerControl`: the opacity row now shows the author's declared default (e.g. `TileLayer(opacity=0.7)` prints 70%, not 100%) — the registry snapshots `layer.options.opacity` at registration when no caller value is present ([#684](https://github.com/Zeroto521/foliplus/pull/684))
 - `LayerControl`: polygon and multipolygon labels anchor on the shape's area centroid instead of the bounding-box center, so labels sit inside the shape on concave and multi-part polygons ([#691](https://github.com/Zeroto521/foliplus/pull/691))
-- `LayerControl`: with several basemaps checked, the attribution line now names only the topmost one instead of stacking every checked basemap's credit ([#702](https://github.com/Zeroto521/foliplus/pull/702))
-- `LayerControl`: the map's zoom ceiling now follows Leaflet's own derivation — only layers actually on the map raise it, so a hidden basemap no longer holds the ceiling up ([#702](https://github.com/Zeroto521/foliplus/pull/702))
+- `LayerControl`: with several basemaps checked, the attribution line names only the topmost one instead of stacking every checked basemap's credit, and the map's zoom ceiling follows Leaflet's own derivation — a hidden basemap no longer raises it or holds it up ([#702](https://github.com/Zeroto521/foliplus/pull/702))
 - `LayerControl`: the no-basemap hatch now reflects which basemaps actually paint — outside their own zoom range or at opacity 0 they count as invisible ([#712](https://github.com/Zeroto521/foliplus/pull/712))
 
 ## [v0.4.0] (2026-10-10)
