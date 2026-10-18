@@ -815,15 +815,29 @@ class TestLayerControlRendering:
         every list render). Base basemap rows stay quiet. Declared after the
         hover recipe so the press wash wins on equal specificity while the
         button is down.
+
+        The :not(:has(...)) carve-out keeps the wash scoped to real row
+        interaction: the row panel and the ⋮ menu are appended inside the
+        row, and CSS :active matches the pressed element plus every
+        ancestor, so a press on any panel/menu control would otherwise
+        light the owner row.
         """
         css = read_css("foliplus/css/LayerControl/row.css")
-        assert '&:not([data-layer-type="base"]):active' in css
-        assert "background: var(--foliplus-accent-soft-bg)" in css
-        # Press must not sneak in a scale or a transition on the large row.
-        idx = css.find('&:not([data-layer-type="base"]):active')
-        block = css[idx : css.index("}", idx)]
-        assert "scale" not in block
-        assert "transition" not in block
+        flat = re.sub(r"\s+", " ", css)
+        # The press wash is the row's own :active — not a panel or menu press.
+        assert "background: var(--foliplus-accent-soft-bg)" in flat
+        assert re.search(r":not\(\s*:has\(\.foliplus-row-panel :active", flat), (
+            "row :active wash must carve out row-internal overlays"
+        )
+        # Locate the press-wash rule block (the :active selector that owns
+        # accent-soft-bg), not the first occurrence of the token anywhere.
+        m = re.search(
+            r":not\(\s*:has\(\.foliplus-row-panel :active[^}]*?accent-soft-bg[^}]*?\}",
+            flat,
+        )
+        assert m, "press-wash rule not found"
+        assert "scale" not in m.group(0)
+        assert "transition" not in m.group(0)
 
     def test_fold_btn_hover_bidirectional_preview(self):
         """Fold button shows bidirectional preview across hover and the arrow/Tab cursor.
