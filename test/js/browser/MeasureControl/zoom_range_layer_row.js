@@ -1,4 +1,4 @@
-() => {
+async () => {
   // MeasureControl registers through createLayers: a real Leaflet layer group,
   // so its zoom-range write lands on map membership (native carrier). That
   // surface was never excluded by the canvas gate, so this probe pins the row
@@ -25,7 +25,9 @@
 
   const zoomRow = panel.querySelector(".foliplus-style-zoom-range-row");
   if (!zoomRow) return { error: "zoom range row not rendered", id: li.id };
-  const minInput = zoomRow.querySelector(".foliplus-style-zoom-range-min");
+  const slider = zoomRow.querySelector("wa-slider");
+  if (!slider) return { error: "zoom range wa-slider not found", id: li.id };
+  await slider.updateComplete;
 
   const mapMin = Number(map.getMinZoom());
   const mapMax = Number(map.getMaxZoom());
@@ -33,12 +35,12 @@
   const outMin = Math.min(mapMax, current + 1);
 
   const onMapBefore = map.hasLayer(li.layer);
-  minInput.value = String(outMin);
-  minInput.dispatchEvent(new Event("input", { bubbles: true }));
+  slider.minValue = outMin;
+  slider.dispatchEvent(new Event("input", { bubbles: true }));
   const onMapOut = map.hasLayer(li.layer);
 
-  minInput.value = String(mapMin);
-  minInput.dispatchEvent(new Event("input", { bubbles: true }));
+  slider.minValue = mapMin;
+  slider.dispatchEvent(new Event("input", { bubbles: true }));
   const onMapBack = map.hasLayer(li.layer);
 
   return {
