@@ -1191,6 +1191,81 @@ describe("LayerController", () => {
     expect(attr._attributions).toEqual({ "© Second": 1 });
   });
 
+  // ── desiredAttribution (pure, no Leaflet writes) ──
+
+  it("desiredAttribution returns empty string when no base tile is visible", () => {
+    manager.map.hasLayer.mockReturnValue(false);
+    expect(manager.desiredAttribution()).toBe("");
+  });
+
+  it("desiredAttribution picks the topmost visible base in registry order", () => {
+    const tileA = new TileLayer();
+    tileA.options.attribution = "A attr";
+    const tileB = new TileLayer();
+    tileB.options.attribution = "B attr";
+    manager.map.hasLayer.mockImplementation((l: any) => l === tileA || l === tileB);
+    manager.registerLayer({ id: "bA", name: "A", layer: tileA, group: "base" });
+    manager.registerLayer({ id: "bB", name: "B", layer: tileB, group: "base" });
+    // B registers second → inserted at firstBaseIdx → index 0 → topmost
+    expect(manager.desiredAttribution()).toBe("B attr");
+  });
+
+  it("desiredAttribution skips non-TileLayer layers", () => {
+    const nonTile = { options: {} } as unknown as L.Layer;
+    manager.map.hasLayer.mockImplementation((l: any) => l === nonTile);
+    manager.registerLayer({ id: "ng", name: "NG", layer: nonTile, group: "base" });
+    expect(manager.desiredAttribution()).toBe("");
+  });
+
+  it("desiredAttribution skips layers outside their own zoom range", () => {
+    const tile = new TileLayer();
+    tile.options.attribution = "Hidden";
+    tile.options.maxZoom = 5;
+    manager.map.getZoom.mockReturnValue(10);
+    manager.map.hasLayer.mockImplementation((l: any) => l === tile);
+    manager.registerLayer({ id: "hidden", name: "H", layer: tile, group: "base" });
+    expect(manager.desiredAttribution()).toBe("");
+  });
+
+  // ── syncAttribution settled fast-path ──
+
+  it("syncAttribution skips redraw when the table is already settled", () => {
+    const tile = new TileLayer(); // default attribution
+    manager.map.hasLayer.mockImplementation((l: any) => l === tile);
+    manager.registerLayer({ id: "b1", name: "B1", layer: tile, group: "base" });
+
+    const ac = map.attributionControl;
+    const updateSpy = vi.fn();
+    ac._update = updateSpy;
+
+    // First call: table starts empty → must rebuild and call _update.
+    manager.syncAttribution();
+    expect(updateSpy).toHaveBeenCalledTimes(1);
+    expect(ac._attributions).toEqual({ "© OpenStreetMap": 1 });
+
+    // Second call: table already has the expected single entry → skip.
+    manager.syncAttribution();
+    expect(updateSpy).toHaveBeenCalledTimes(1); // unchanged
+  });
+
+  it("syncAttribution rebuilds when Leaflet added a second entry behind our back", () => {
+    const tile = new TileLayer(); // default attribution
+    manager.map.hasLayer.mockImplementation((l: any) => l === tile);
+    manager.registerLayer({ id: "b1", name: "B1", layer: tile, group: "base" });
+
+    const ac = map.attributionControl;
+    const updateSpy = vi.fn();
+    ac._update = updateSpy;
+
+    // Seed a stale second entry as if Leaflet's layeradd for another base ran.
+    ac._attributions = { "© OpenStreetMap": 1, Stale: 1 };
+
+    // Settled check must see the wrong key count and fall through to rebuild.
+    manager.syncAttribution();
+    expect(updateSpy).toHaveBeenCalledTimes(1);
+    expect(ac._attributions).toEqual({ "© OpenStreetMap": 1 });
+  });
+
   it("saveOrder is debounced — rapid calls coalesce into one storage write", () => {
     vi.useFakeTimers();
     const spy = vi.spyOn(Storage, "saveRecord");

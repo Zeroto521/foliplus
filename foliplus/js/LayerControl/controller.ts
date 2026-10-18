@@ -111,7 +111,7 @@ const uninstallBringToFrontPatch = () => {
 //   Internal  surfaceFor, surfaceForLayer, enforceOrder, debouncedEnforce,
 //             hasUnresolvedLayers, onLayerAdd, loadSavedOrder, saveOrder,
 //             replaySavedOrder (order domain on `this.order` / LayerOrder.ts),
-//             syncAttribution, attachUI, destroy, canReorderBetween,
+//             syncAttribution, desiredAttribution, attachUI, destroy, canReorderBetween,
 //             findLayer, refreshCount, forEachLeaf,
 //             clearAllLayers
 //   Private   installBringToFrontPatch, uninstallBringToFrontPatch
@@ -988,6 +988,10 @@ class LayerController implements LayerAPI {
     } finally {
       this.isEnforcing = false;
     }
+  }
+
+  desiredAttribution(): string {
+    return this.domain.desiredAttribution();
   }
 
   syncAttribution() {

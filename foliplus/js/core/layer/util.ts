@@ -189,6 +189,13 @@ const isLayerInPanes = (panes: readonly string[]): ((leaf: L.Layer) => boolean) 
  *  yet `map.hasLayer()` still reports true. Consumers answering "is this
  *  layer visible?" must fold both facts in, or they name a layer the screen
  *  does not show. Layers without `minZoom/maxZoom` skip the range check.
+ *
+ *  Scope: Leaflet only applies the min/max zoom gate to **GridLayer**
+ *  descendants (TileLayer, WMS, ImageOverlay, etc.). `L.Path` / `L.Marker`
+ *  and other vector layers declare `maxZoom` but still render at any zoom —
+ *  using this predicate for them would produce false negatives (e.g. labels
+ *  vanishing at zoom levels where the vector layer is clearly on screen).
+ *  Callers must be in a tile-layer context.
  */
 const paintsAtZoom = (map: L.Map, layer: L.Layer | null | undefined): boolean => {
   if (!layer || !map.hasLayer(layer)) return false;

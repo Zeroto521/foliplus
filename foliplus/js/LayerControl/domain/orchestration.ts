@@ -156,8 +156,9 @@ class LayerOrchestration {
     return this.layerRegistry.canReorderBetween(fromIdx, toIdx);
   }
 
-  /** Syncs the attribution control to show exactly one entry: the topmost
-   *  visible base's attribution.
+  /** Which attribution string belongs to the topmost *painting* base — `''`
+   *  when none paints. Pure (no Leaflet writes), so it is unit-testable
+   *  without mocking the control's private table.
    *
    *  Registry order is list order, and index 0 is the visually topmost layer
    *  (`zFor` prices `count - index`). The first checked base that is
@@ -166,6 +167,25 @@ class LayerOrchestration {
    *  (`hasLayer`) AND its zoom must be within its own `minZoom/maxZoom` range
    *  (outside that range Leaflet's GridLayer builds no tiles, so it isn't
    *  painting). A layer that is checked but not painting is not "being shown".
+   */
+  desiredAttribution(): string {
+    for (
+      let i = this.layerRegistry.firstBaseIdx;
+      i !== -1 && i < this.layers.length;
+      i++
+    ) {
+      const layerInfo = this.layers[i];
+      if (layerInfo.group !== GROUP.BASE) continue;
+      const layer = this.findLayer(layerInfo);
+      if (!(layer instanceof L.TileLayer) || !layer.options.attribution) continue;
+      if (!paintsAtZoom(this.map, layer)) continue;
+      return layer.options.attribution;
+    }
+    return "";
+  }
+
+  /** Syncs the attribution control to show exactly one entry: the topmost
+   *  visible base's attribution.
    *
    *  foliplus is the sole writer of the entry table. Leaflet's own
    *  `layeradd` handler increments a per-layer entry on every base tile
@@ -184,24 +204,21 @@ class LayerOrchestration {
   syncAttribution(): void {
     const attrCtrl = this.map.attributionControl;
     if (!attrCtrl) return;
-
-    let topAttr = "";
-    for (
-      let i = this.layerRegistry.firstBaseIdx;
-      i !== -1 && i < this.layers.length;
-      i++
-    ) {
-      const layerInfo = this.layers[i];
-      if (layerInfo.group !== GROUP.BASE) continue;
-      const layer = this.findLayer(layerInfo);
-      if (!(layer instanceof L.TileLayer) || !layer.options.attribution) continue;
-      if (!paintsAtZoom(this.map, layer)) continue;
-      topAttr = layer.options.attribution;
-      break;
-    }
-
+    const topAttr = this.desiredAttribution();
     const entries = attributionEntries(attrCtrl);
-    for (const key of Object.keys(entries)) delete entries[key];
+    const keys = Object.keys(entries);
+    // Already exactly the expected single entry: skip the redraw. `_update()`
+    // rewrites the attribution element, and this runs on every ordering pass
+    // (register / delete / drag), so an unchanged table must not pay for it.
+    // Reading the *live* table (not a private cache) still catches an entry
+    // Leaflet's own layeradd added behind our back — that makes the key count
+    // wrong and falls through to the rebuild.
+    const settled =
+      topAttr === ""
+        ? keys.length === 0
+        : keys.length === 1 && keys[0] === topAttr && entries[topAttr] === 1;
+    if (settled) return;
+    for (const key of keys) delete entries[key];
     if (topAttr) entries[topAttr] = 1;
     refreshAttributions(attrCtrl);
   }
