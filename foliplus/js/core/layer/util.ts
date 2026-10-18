@@ -182,6 +182,23 @@ const isLayerInPanes = (panes: readonly string[]): ((leaf: L.Layer) => boolean) 
   };
 };
 
+/** Whether the layer actually paints at the map's current zoom.
+ *
+ *  `GridLayer._setView` sets `_tileZoom = undefined` when the zoom falls
+ *  outside the layer's own `options.minZoom/maxZoom`, so it builds no tile —
+ *  yet `map.hasLayer()` still reports true. Consumers answering "is this
+ *  layer visible?" must fold both facts in, or they name a layer the screen
+ *  does not show. Layers without `minZoom/maxZoom` skip the range check.
+ */
+const paintsAtZoom = (map: L.Map, layer: L.Layer | null | undefined): boolean => {
+  if (!layer || !map.hasLayer(layer)) return false;
+  const opts = (layer.options ?? {}) as { minZoom?: number; maxZoom?: number };
+  const z = map.getZoom();
+  if (typeof opts.minZoom === "number" && z < opts.minZoom) return false;
+  if (typeof opts.maxZoom === "number" && z > opts.maxZoom) return false;
+  return true;
+};
+
 /** Honest capability profile for `kind: "cluster"`. Named so the UI and the
  *  regression suite share one answer: cluster icons live in the shared
  *  `markerPane` (opacity/zoomRange/bounds have no honest carrier), but the
@@ -265,6 +282,7 @@ export {
   deriveLayerKind,
   findLayer,
   isLayerInPanes,
+  paintsAtZoom,
   setInteractive,
   suspendMapInteractions,
   getGeometryType,
