@@ -84,10 +84,12 @@ package-lock.json
 .task/
 .claude/
 .claude/plans/myagents/
+.agents/
 .foliplus/
 memory/
 .myagents/
 myagents_files/
+AGENTS.md
 CLAUDE.md
 HEARTBEAT.md
 UPDATE_MEMORY.md
