@@ -119,8 +119,7 @@ const commitOpacityPct = (
  *  accessible name and value, arrow / Home / End drive it, and the bubble
  *  appears for keyboard input the same as for a drag. */
 const buildOpacityRow = (ui: LayerUI, layerId: string): HTMLElement => {
-  const layerInfo = ui.c.layerRegistry.get(layerId);
-  const pct = opacityToPct(layerInfo ? currentOpacity(ui, layerInfo) : undefined);
+  const pct = opacityToPct(currentOpacity(ui, ui.c.layerRegistry.get(layerId)));
   const fill = dom.el("div", {
     class: `${CONST.CLASSES.SLIDER_FILL} ${CONST.CLASSES.STYLE_OPACITY_FILL}`,
     style: `width:${opacityFillWidth(pct)}`,
@@ -191,10 +190,7 @@ const resetLayerOpacity = (ui: LayerUI, layerId: string): void => {
 const OPACITY_DIMENSION = registerDimension<number>({
   key: DIM.OPACITY,
   gate: layerCanOpacity,
-  value: (ui, layerId) => {
-    const layerInfo = ui.c.layerRegistry.get(layerId);
-    return layerInfo ? currentOpacity(ui, layerInfo) : undefined;
-  },
+  value: (ui, layerId) => currentOpacity(ui, ui.c.layerRegistry.get(layerId)),
   row: buildOpacityRow,
   /** Intent+persist + projection. `opacity === 1` clears (no override);
    *  any other number marks via LayerIntentStore.set. A non-number patch is a
