@@ -311,6 +311,9 @@ declare global {
     value: number;
     minValue: number;
     maxValue: number;
+    min: number;
+    max: number;
+    step: number;
     valueFormatter?: (v: number) => string;
   }
 
