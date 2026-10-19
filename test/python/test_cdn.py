@@ -122,3 +122,57 @@ class TestCdnNpmVersionConsistency:
             "hardcoded cdn.json urls in tests — read them via "
             "load_cdn(<Control>) instead:\n  " + "\n  ".join(hits)
         )
+
+
+class TestCdnLoaderKindDispatch:
+    """load_cdn / load_modules / load_css partition entries by kind."""
+
+    def test_load_cdn_returns_only_classic(self):
+        """load_cdn returns only bare-string (classic) entries."""
+        from foliplus._cdn_loader import load_cdn
+
+        results = load_cdn("LayerControl")
+        for _name, _url in results:
+            raw = _cdn_data()["LayerControl"].get(_name)
+            assert raw is None or isinstance(raw, str), (
+                f"{_name} is not a classic entry but was returned by load_cdn"
+            )
+
+    def test_load_modules_returns_only_modules(self):
+        """load_modules returns only kind=module entries."""
+        from foliplus._cdn_loader import load_modules
+
+        results = load_modules("LayerControl")
+        names = {n for n, _u in results}
+        assert "wa-slider" in names, (
+            "wa-slider is kind=module in cdn.json but load_modules missed it"
+        )
+        for name, url in results:
+            raw = _cdn_data()["LayerControl"].get(name, {})
+            assert isinstance(raw, dict) and raw.get("kind") == "module"
+
+    def test_load_css_returns_only_css(self):
+        """load_css returns only kind=css entries."""
+        from foliplus._cdn_loader import load_css
+
+        results = load_css("LayerControl")
+        names = {n for n, _u in results}
+        assert {"wa-theme", "wa-brand"} <= names, (
+            f"wa-theme/wa-brand are kind=css but load_css returned {names}"
+        )
+        for name, url in results:
+            raw = _cdn_data()["LayerControl"].get(name, {})
+            assert isinstance(raw, dict) and raw.get("kind") == "css"
+
+    def test_classic_control_loads_via_load_cdn_only(self):
+        """A control with only classic entries returns [] for modules and css."""
+        from foliplus._cdn_loader import load_css, load_modules
+
+        cdn = _cdn_data()
+        classic_only = [
+            k for k, v in cdn.items() if all(isinstance(e, str) for e in v.values())
+        ]
+        assert classic_only, "no classic-only control in cdn.json"
+        ctrl = classic_only[0]
+        assert load_modules(ctrl) == []
+        assert load_css(ctrl) == []

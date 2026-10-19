@@ -278,3 +278,17 @@ class TestBaseControlRendering:
         block = css[idx : css.index("}", idx)]
         assert "var(--foliplus-focus-ring)" in block
         assert "box-shadow var(--foliplus-transition-fast)" in block
+
+    # ── CDN kind injection (module + css) ──
+
+    def test_layer_control_injects_module_script(self, base_map: folium.Map):
+        """LayerControl's wa-slider entry (kind=module) emits <script type="module">."""
+        html = render_control(LayerControl())
+        assert '<script type="module"' in html
+        assert "esm.sh/@awesome.me/webawesome" in html
+
+    def test_layer_control_injects_css_link(self, base_map: folium.Map):
+        """LayerControl's wa-theme/wa-brand entries (kind=css) emit <link rel="stylesheet">."""
+        html = render_control(LayerControl())
+        assert '<link rel="stylesheet"' in html
+        assert "unpkg.com/@awesome.me/webawesome" in html
