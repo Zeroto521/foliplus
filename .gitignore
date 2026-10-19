@@ -87,7 +87,7 @@ package-lock.json
 .agents/
 .foliplus/
 # Local scratch
-.holiplus/
+.foliplus/
 debug.log
 memory/
 .myagents/

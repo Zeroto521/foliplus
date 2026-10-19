@@ -84,7 +84,24 @@ async () => {
           };
         }
 
-        // 4. Tooltip
+        // 4. Reference-slot alignment: label centers vs thumb center
+        const refs = slider.querySelectorAll('[slot="reference"]');
+        const refThumb = shadow.querySelector('[part="thumb"]');
+        if (refs.length >= 2 && refThumb) {
+          const refRects = [...refs].map(r => r.getBoundingClientRect());
+          const refThumbRect = refThumb.getBoundingClientRect();
+          const refThumbCenter = (refThumbRect.left + refThumbRect.right) / 2;
+          results.opacityRefAlign = {
+            refMinCenter: (refRects[0].left + refRects[0].right) / 2,
+            refMaxCenter: (refRects[1].left + refRects[1].right) / 2,
+            thumbCenter: refThumbCenter,
+            thumbWidth: refThumbRect.width,
+            deltaMin: (refRects[0].left + refRects[0].right) / 2 - refThumbCenter,
+            deltaMax: (refRects[1].left + refRects[1].right) / 2 - refThumbCenter,
+          };
+        }
+
+        // 5. Tooltip
         const tooltip = shadow.querySelector('[part="tooltip__tooltip"]');
         if (tooltip) {
           const tipCs = cs(tooltip);

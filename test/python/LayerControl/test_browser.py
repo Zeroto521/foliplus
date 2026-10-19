@@ -4996,6 +4996,7 @@ class TestLayerControlBrowser:
                     "Tooltip",
                     "Markers",
                     "HostVars",
+                    "RefAlign",
                 ):
                     k = prefix + part
                     if k in result:
