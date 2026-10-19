@@ -12,6 +12,10 @@
 
 - `CSS`: design tokens split surface from on-accent and expose a focus color, so a theme can invert one without the other ([#714](https://github.com/Zeroto521/foliplus/pull/714))
 
+### Fixed
+
+- `LayerControl`: `setVisible` now emits `LAYER_CHANGE` for canvas layers, matching native layers ([#716](https://github.com/Zeroto521/foliplus/pull/716))
+
 ## [v0.4.1] (2026-10-18)
 
 ### Added

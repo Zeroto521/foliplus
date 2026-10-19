@@ -29,10 +29,13 @@
 import { EVENTS } from "#core/event/index.js";
 import { CAP_TIER, HIDDEN, PANE_ROLE } from "#core/layer/index.js";
 import { getLayerAlpha, setLayerAlpha } from "#common/canvasAlpha.js";
+import { createLogger } from "#common/log.js";
 import * as CONST from "../const.js";
 import { INTENT, getIntent } from "./intent.js";
 import { intentVisibleOf, projectAll, projectLayer } from "./projection.js";
 import type { LayerUI } from "./surface.js";
+
+const log = createLogger("LayerControl");
 
 /** One write the carrier dispatcher accepts. `opacity` being
  *  `undefined` means "no user value" — a Reset back to the author's
@@ -222,13 +225,22 @@ const sameCarrier = (prev: unknown, curr: unknown): boolean =>
  *  The "none" carrier check is the rule that a slider that writes
  *  nothing must not persist — when the surface declares "none" we skip
  *  the write instead of faking one on a shared carrier.
+ *
+ *  Return value: whether a real state write landed on the carrier. The
+ *  caller (`applyProjection`) emits `LAYER_CHANGE` only when this is
+ *  `true`, so a write that could not land (no layer object, no canvas
+ *  element, value already matching the carrier) never manufactures a
+ *  change notification. `LAYER_CHANGE` is the semantic replacement for
+ *  Leaflet's native `layeradd`/`layerremove` — canvas-only surfaces
+ *  have no native counterpart, so the executor's write is what puts
+ *  them on the bus alongside native layers.
  */
 const dispatchStateOp = (
   ui: LayerUI,
   layerInfo: LayerInfo,
   op: StateOp,
   repaintMode: "debounce" | "none" = "none",
-): void => {
+): boolean => {
   if (op.type === "visible") {
     const carrier = ui.c.surfaceFor(layerInfo).capabilities.visibility;
     if (carrier === CAP_TIER.NATIVE) {
@@ -241,25 +253,24 @@ const dispatchStateOp = (
         if (op.value !== has) {
           if (op.value) ui.c.map.addLayer(layer);
           else ui.c.map.removeLayer(layer);
-          // Map membership is not registry state: this executor is the only
-          // writer of the add/remove, so it is what puts the change on the bus.
-          // The annotation manager repaints per id on this event, which is
-          // where the native `layeradd`/`layerremove` used to reach it.
-          ui.events.emit(EVENTS.LAYER_CHANGE, {
-            id: layerInfo.id,
-            kind: layerInfo.kind,
-          });
+          return true;
         }
       }
     } else if (carrier === CAP_TIER.PANE) {
       // Canvas HIDDEN class — the carrier for canvas-only surfaces that have
-      // no Leaflet layer to add/remove.
+      // no Leaflet layer to add/remove. The class flip is the write; only a
+      // flip counts as one (a no-op toggle is not a change), which matches
+      // the NATIVE branch's "only write when the value differs" rule.
       const canvas = layerInfo.canvas;
-      if (canvas) canvas.classList.toggle(HIDDEN, !op.value);
+      if (canvas) {
+        const wasHidden = canvas.classList.contains(HIDDEN);
+        canvas.classList.toggle(HIDDEN, !op.value);
+        return wasHidden === op.value;
+      }
     }
     // "none" — no honest write exists; the UI hides the checkbox rather
     // than offering one that lies.
-    return;
+    return false;
   }
   if (op.type === "opacity") {
     if (layerInfo.canvas) {
@@ -303,16 +314,16 @@ const dispatchStateOp = (
         scheduleOpacityRedraw(layerInfo, repaintMode);
       }
       layerInfo.opacity = value;
-      return;
+      return false;
     }
     const carrier = ui.c.surfaceFor(layerInfo).capabilities.opacity;
-    if (carrier === CAP_TIER.NONE) return; // no honest write exists
+    if (carrier === CAP_TIER.NONE) return false; // no honest write exists
     // Snapshot-then-resolve: registry reference wins when populated, the
     // controller's findLayer re-resolves against the live map for a folium
     // layer whose registry reference is still null. Same late-binding
-    // defense as the zoom-range and visible-write paths below.
+    // defense as the visible-write path above.
     const layer = layerInfo.layer ?? ui.c.findLayer(layerInfo);
-    if (!layer) return;
+    if (!layer) return false;
     if (carrier === CAP_TIER.NATIVE) {
       // The layer paints through a setter of its own. `setOpacity`
       // (ImageOverlay) is immediate; `options.opacity` (GridLayer /
@@ -348,7 +359,14 @@ const dispatchStateOp = (
       ui.c.annotation.applyLayerAlpha(layerInfo.id, value);
       layerInfo.opacity = value;
     }
+    return false;
   }
+  // `StateOp` is closed, so reaching this line means a new variant was added
+  // to the union without extending this dispatcher. Throwing — rather than
+  // returning a silent `false` — is what a maintainer wants in that case:
+  // the missing branch is loud, not lost.
+  const exhaustive: never = op;
+  throw log.msg(`unreachable dispatchStateOp type: ${JSON.stringify(exhaustive)}`);
 };
 
 /** Diff the current projection against the last one we wrote, and call
@@ -459,12 +477,26 @@ const applyProjection = (
           : false
         : false;
   if (authorised && currentShown !== next.effectiveShown) {
-    dispatchStateOp(
+    const wrote = dispatchStateOp(
       ui,
       layerInfo,
       { type: "visible", value: next.effectiveShown },
       repaintMode,
     );
+    // `LAYER_CHANGE` is the bus notification for a real visibility flip —
+    // not for a projection sweep that found the carrier already matched.
+    // Only the executor's own write lands here; late binding (a layer
+    // whose JS global arrives after this control's IIFE) rides its own
+    // emit through `controller.onLayerAdd`, and focus's pull-back writes
+    // through `focusLayer`'s own emit. Gating on `wrote` keeps a missing
+    // layer reference or a value that did not flip from manufacturing a
+    // change event the subscriber cannot observe.
+    if (wrote) {
+      ui.events.emit(EVENTS.LAYER_CHANGE, {
+        id: layerInfo.id,
+        kind: layerInfo.kind,
+      });
+    }
   }
   // 2. Opacity — independent of zoom/focus. Rewritten whenever the carrier
   //    has moved, not just when the value has.

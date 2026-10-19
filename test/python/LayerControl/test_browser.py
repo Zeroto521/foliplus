@@ -2582,6 +2582,48 @@ class TestLayerControlBrowser:
                 f"got {result}"
             )
 
+    def test_canvas_setvisible_emits_layer_change(self, browser, tmp_path):
+        """setVisible on a canvas layer emits LAYER_CHANGE, matching native layers.
+
+        Canvas-only surfaces (heatmap / measure / color face) have no Leaflet
+        layer to add/remove; their visibility carrier is the canvas element's
+        HIDDEN class. The executor's write of that class is the write that
+        rides the bus alongside the native branch's map-membership writes —
+        without it, subscribers (annotation, controller) would see canvas
+        layers appear/disappear silently. A repeated setVisible that does
+        not flip the class must not re-emit.
+        """
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            panel_ready(page)
+            result = page.evaluate(_js("LayerControl/create_canvas_visibility_emits"))
+            assert result is not None, result
+            assert not errors, f"JS errors: {errors}"
+
+            # Registration itself emits one LAYER_CHANGE (layer entered the map).
+            # That is a distinct lifecycle event from the setVisible writes we
+            # are guarding; the counter is baselined past it.
+            assert result["registerEmits"] == 1, result
+
+            # setVisible(false): canvas gains HIDDEN and one LAYER_CHANGE rides
+            # the bus — the canvas carrier flip matching native add/remove.
+            assert result["hiddenAfterFalse"] is True, result
+            assert result["eventsAfterFalse"] == 1, result
+            assert result["lastAfterFalse"] == {
+                "id": "__test_canvas_vis__",
+                "kind": "canvas",
+            }, result
+
+            # setVisible(true): class removed and another LAYER_CHANGE.
+            assert result["hiddenAfterTrue"] is False, result
+            assert result["eventsAfterTrue"] == 2, result
+            assert result["lastAfterTrue"] == {
+                "id": "__test_canvas_vis__",
+                "kind": "canvas",
+            }, result
+
+            # Re-hide flips the class again: still one event per flip.
+            assert result["eventsAfterSecondFalse"] == 3, result
+
     def test_register_re_register_preserves_fields(self, browser, tmp_path):
         """A partial re-register never drops previously registered fields.
 
