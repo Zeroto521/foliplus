@@ -5010,26 +5010,18 @@ class TestLayerControlBrowser:
                 lines.append("```json")
                 lines.append(json.dumps(hover_diag, indent=2))
                 lines.append("```")
-            elif hover_result:
-                lines.append("\n## Opacity — thumb active\n")
-                lines.append("(null — thumb element not found during mousedown)")
 
             lines.append("\n## Summary\n")
-            ot = result.get("opacityTrack", {})
-            zt = result.get("zoomTrack", {})
-            lines.append(f"- Opacity track border-width: {ot.get('border-width', '?')}")
-            lines.append(f"- Zoom track border-width: {zt.get('border-width', '?')}")
+            opacity_track = result.get("opacityTrack", {})
+            zoom_track = result.get("zoomTrack", {})
+            lines.append(f"- Opacity track border-width: {opacity_track.get('border-width', '?')}")
+            lines.append(f"- Zoom track border-width: {zoom_track.get('border-width', '?')}")
             lines.append(f"- Opacity markers: {len(result.get('opacityMarkers', []))}")
             lines.append(f"- Zoom markers: {len(result.get('zoomMarkers', []))}")
             if hover_diag:
-                if "error" in hover_diag:
-                    lines.append(f"- Hover CSS check error: {hover_diag['error']}")
-                else:
-                    lines.append(
-                        f"- Hover/active CSS rules found: {hover_diag.get('hoverRulesFound', 0)}"
-                    )
-                    for rule in hover_diag.get("hoverRules", []):
-                        lines.append(f"  - {rule[:120]}")
+                lines.append(
+                    f"- Hover/active CSS rules found: {hover_diag.get('hoverRulesFound', 0)}"
+                )
 
             report_path = report_dir / "measurement-report.md"
             report_path.write_text("\n".join(lines), encoding="utf-8")

@@ -125,6 +125,18 @@ BARE_CUSTOM_PROPERTY_RE = re.compile(r"--[a-zA-Z][\w-]*")
 FOLIPLUS_PREFIX = "--foliplus-"
 WA_PREFIX = "--wa-"
 TOKEN_CSS = "foliplus/css/common/token.css"
+WA_CSS = "foliplus/css/common/wa.css"
+# Library protocol variables: CSS custom properties that wa-slider's shadow DOM
+# reads as host-level geometry inputs. wa.css overrides these to bridge
+# foliplus tokens into the library's geometry calculations. Renaming them
+# breaks the shadow DOM contract — the library reads the bare names.
+LIB_PROTOCOL_VARS = {
+    "--track-size",
+    "--thumb-width",
+    "--thumb-height",
+    "--marker-width",
+    "--marker-height",
+}
 # After a --foliplus-* or --wa-* name, optional whitespace then a colon = a definition.
 DEFINITION_RE = re.compile(r"\s*:")
 
@@ -133,9 +145,16 @@ def check_custom_property_prefix(
     lines: list[str], filename: str = ""
 ) -> list[tuple[int, str]]:
     """Rule 4: report bare (non-namespaced) custom property names, and
-    definitions of `--foliplus-*` or `--wa-*` outside token.css."""
+    definitions of `--foliplus-*` or `--wa-*` outside token.css.
+
+    Exception: library protocol variables (`--track-size`, `--thumb-*`,
+    `--marker-*`) in wa.css are allowed — these are CSS custom properties
+    that wa-slider's shadow DOM reads as host-level geometry inputs.
+    wa.css overrides them to bridge foliplus tokens into the library's
+    geometry calculations; renaming them breaks the shadow DOM contract."""
     violations: list[tuple[int, str]] = []
     is_token = filename.endswith("token.css")
+    is_wa_css = filename.endswith("wa.css")
     for lineno, raw in enumerate(lines, 1):
         for m in BARE_CUSTOM_PROPERTY_RE.finditer(raw):
             name = m.group(0)
@@ -158,6 +177,9 @@ def check_custom_property_prefix(
                             f"`--wa-*` definition `{name}` must live in {TOKEN_CSS} — the single override point for the vendored Web Awesome namespace.",
                         )
                     )
+                continue
+            # Library protocol variables in wa.css: allowed.
+            if is_wa_css and name in LIB_PROTOCOL_VARS:
                 continue
             violations.append(
                 (
