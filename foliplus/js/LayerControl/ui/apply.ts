@@ -362,8 +362,8 @@ const dispatchStateOp = (
   // to the union without extending this dispatcher. Throwing — rather than
   // returning a silent `false` — is what a maintainer wants in that case:
   // the missing branch is loud, not lost.
-  const _exhaustive: never = op;
-  throw new Error(`unreachable dispatchStateOp type: ${JSON.stringify(_exhaustive)}`);
+  const exhaustive: never = op;
+  throw new Error(`unreachable dispatchStateOp type: ${JSON.stringify(exhaustive)}`);
 };
 
 /** Diff the current projection against the last one we wrote, and call
