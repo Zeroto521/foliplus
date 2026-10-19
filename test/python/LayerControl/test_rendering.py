@@ -398,7 +398,7 @@ class TestLayerControlRendering:
         # would disagree about what "white row" means).
         parent_body_start = css.index("{", compound)
         parent_snip = css[parent_body_start : parent_body_start + 400]
-        assert "background: var(--foliplus-neutral-0)" in parent_snip, (
+        assert "background: var(--foliplus-surface)" in parent_snip, (
             "recipe rows must rest on the explicit white surface"
         )
         assert "background: transparent" not in parent_snip, (
@@ -407,7 +407,7 @@ class TestLayerControlRendering:
         # White surface is painted whenever the row is the interaction target
         # (hover / Tab / arrow share this recipe). Checked rows show the wash
         # only at rest — the cursor paints white on top.
-        assert "background: var(--foliplus-neutral-0)" in recipe
+        assert "background: var(--foliplus-surface)" in recipe
         # Bottom glow is outboard; the next row's opaque surface would cover
         # it without a stacking lift on the interaction target.
         assert "position: relative" in recipe
@@ -892,7 +892,7 @@ class TestLayerControlRendering:
 
           - checkbox: bg var(--foliplus-input-bg) -> var(--foliplus-accent-primary);
                       border var(--foliplus-input-border) -> var(--foliplus-accent-primary)
-          - layer item (.foliplus-active): bg var(--foliplus-panel-bg) -> var(--foliplus-accent-light)
+          - layer item (.foliplus-active): bg var(--foliplus-surface) -> var(--foliplus-accent-light)
           - toggle-all row: same mechanism if its bg ever changes on rebuild
 
         Transitions are kept only on properties that do not change on rebuild

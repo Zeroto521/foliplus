@@ -15,7 +15,7 @@
     probe.remove();
     return c;
   };
-  const white = token("--foliplus-neutral-0");
+  const white = token("--foliplus-surface");
   const wash = token("--foliplus-accent-light");
 
   const pick = el => {

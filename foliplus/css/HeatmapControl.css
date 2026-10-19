@@ -11,10 +11,10 @@
 }
 .foliplus-heatmap-fill-secondary {
   fill: currentColor;
-  /* Deliberately not tokenized: 0.08 sits between --foliplus-alpha-05 (bg) and
-     --foliplus-alpha-15 (center) to keep the second/third hex visibly lighter.
-     var(--foliplus-alpha-10) does not exist, so tokenizing this would force a
-     jump to 0.15 and erase the layering. */
+  /* Deliberately not tokenized: 0.08 sits between --foliplus-alpha-05 (bg)
+     and --foliplus-alpha-15 (center) to keep the second/third hex visibly
+     lighter than either step. The nearest token, --foliplus-alpha-10, is
+     close but not identical, so tokenizing would nudge the layering. */
   opacity: 0.08;
   stroke: none;
 }

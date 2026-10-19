@@ -41,13 +41,13 @@
 }
 /* Hollow: neutral fill, accent ring. */
 .foliplus-dot-hollow {
-  fill: var(--foliplus-neutral-0);
+  fill: var(--foliplus-on-accent);
   stroke: var(--foliplus-accent-primary);
 }
 /* Solid: accent fill, neutral ring. */
 .foliplus-dot-solid {
   fill: var(--foliplus-accent-primary);
-  stroke: var(--foliplus-neutral-0);
+  stroke: var(--foliplus-on-accent);
 }
 
 /* ── Common Icon Size ──
