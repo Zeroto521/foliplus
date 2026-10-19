@@ -36,7 +36,7 @@ async () => {
       if (shadow) {
         const cs = el => {
           const s = window.getComputedStyle(el);
-          const pick = (p) => s.getPropertyValue(p).trim();
+          const pick = p => s.getPropertyValue(p).trim();
           return pick;
         };
 
@@ -132,7 +132,7 @@ async () => {
       if (shadow) {
         const cs = el => {
           const s = window.getComputedStyle(el);
-          const pick = (p) => s.getPropertyValue(p).trim();
+          const pick = p => s.getPropertyValue(p).trim();
           return pick;
         };
 

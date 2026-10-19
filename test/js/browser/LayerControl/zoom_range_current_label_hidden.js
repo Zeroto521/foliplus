@@ -33,8 +33,7 @@ async () => {
     return { error: "marker/current-value missing" };
   }
 
-  const waitForZoomend = () =>
-    new Promise(resolve => map.once("zoomend", resolve));
+  const waitForZoomend = () => new Promise(resolve => map.once("zoomend", resolve));
 
   // Set zoom to the map's min (0): the current marker sits at 0% of the rail,
   // within LABEL_MIN_GAP_PCT of the min end, so the label must be hidden.

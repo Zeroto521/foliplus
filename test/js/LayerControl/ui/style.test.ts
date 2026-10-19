@@ -2512,7 +2512,9 @@ describe("LayerUI style panel", () => {
     expect(panel.querySelector(`.${CONST.CLASSES.STYLE_BORDER_ROW}`)).toBeNull();
 
     // Opacity and zoomRange are LayerControl-owned — they survive.
-    expect(panel.querySelector(`.${CONST.CLASSES.STYLE_OPACITY_SLIDER}`)).not.toBeNull();
+    expect(
+      panel.querySelector(`.${CONST.CLASSES.STYLE_OPACITY_SLIDER}`),
+    ).not.toBeNull();
     expect(
       panel.querySelector(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_ROW}`),
     ).not.toBeNull();
@@ -3516,8 +3518,10 @@ describe("LayerUI style panel", () => {
     ui.openStylePanel("overlay1");
     const reopened = panelOf(item)!;
     expect(
-      Number((reopened.querySelector(".foliplus-style-opacity-slider") as WaSliderElement)
-        .value),
+      Number(
+        (reopened.querySelector(".foliplus-style-opacity-slider") as WaSliderElement)
+          .value,
+      ),
     ).toBe(25);
   });
 
