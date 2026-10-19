@@ -86,6 +86,9 @@ package-lock.json
 .claude/plans/myagents/
 .agents/
 .foliplus/
+# Local scratch
+.holiplus/
+debug.log
 memory/
 .myagents/
 myagents_files/
