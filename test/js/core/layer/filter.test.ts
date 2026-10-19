@@ -213,7 +213,7 @@ describe("select", () => {
     expect(kept[0].fields.count).toBe(1);
   });
 
-  it("matches an and-of-atoms as the stage-3 UI produces", () => {
+  it("matches an and-of-atoms group of conditions", () => {
     const snap = snapshot([
       { count: 1, size: 3 },
       { count: 5, size: 3 },
