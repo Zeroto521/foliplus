@@ -312,6 +312,7 @@ export function makeLayerUIMock(extra: Overrides = {}): LayerUI {
     config: {} as any,
     T: (key: string) => key,
     _: (key: string) => key,
+    log: createLogger("LayerControl"),
     intentStore: new LayerIntentStore(),
     runtimeStore: new LayerRuntimeStore(),
     currentColor: "#cccccc",

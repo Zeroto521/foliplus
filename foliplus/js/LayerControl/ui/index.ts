@@ -6,6 +6,7 @@ import {
   type LayerInfo,
   LayerRuntimeStore,
 } from "#core/layer/index.js";
+import type { Logger } from "#common/type.js";
 import * as CONST from "../const.js";
 import type { LayerController } from "../controller.js";
 import type { LayerIntentStore } from "../domain/index.js";
@@ -101,6 +102,11 @@ class LayerUI implements LayerUISurface {
    *  controls the style panel shares with HeatmapControl). Kept beside `T` so
    *  a test can inject either independently. */
   _: (key: string) => string;
+  /** Component logger — every ui/* module reads diagnostics through `ui.log`
+   *  so all LayerControl output shares one `[LayerControl]` prefix. Bound at
+   *  construction from the runtime env (`env.log`), which is the same
+   *  instance the controller holds. */
+  log: Logger;
   /** View subsystem: row layout state (fold, cursor, drag). */
   listPanel: ListPanel;
   /** View subsystem: floating panels (menu / attrs / rename / style). */
@@ -166,13 +172,18 @@ class LayerUI implements LayerUISurface {
 
   constructor(
     controller: LayerController,
-    env: { T: (key: string) => string; _: (key: string) => string },
+    env: {
+      T: (key: string) => string;
+      _: (key: string) => string;
+      log: Logger;
+    },
   ) {
     this.controller = controller;
     this.events = ensureEvents(this.c.map);
     this.config = CONFIG;
     this.T = env.T;
     this._ = env._;
+    this.log = env.log;
     this.listPanel = new ListPanel();
     this.overlayPanel = new OverlayPanel();
     this.focusController = new FocusController();

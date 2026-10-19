@@ -20,6 +20,7 @@
 // constructor or the class identity takes the class type from `ui/index.js`.
 import { type EventBus } from "#core/event/index.js";
 import { type CreateColorAPI, type LayerRuntimeStore } from "#core/layer/index.js";
+import type { Logger } from "#common/type.js";
 import type { LayerController } from "../controller.js";
 import type { LayerIntentStore } from "../domain/index.js";
 import type { FocusController } from "./focus/focusController.js";
@@ -34,6 +35,7 @@ interface LayerUI {
   config: ComponentConfig;
   T: (key: string) => string;
   _: (key: string) => string;
+  log: Logger;
 
   // ── view subsystems ──
   listPanel: ListPanel;
