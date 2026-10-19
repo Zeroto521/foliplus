@@ -1,5 +1,12 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- `LayerControl`: opacity row and zoom-range row now use the Web Awesome slider component (`<wa-slider>`) instead of a custom dual-`<input type=range>` implementation — the library owns the thumb, rail, fill, tooltip, and clamp logic; foliplus keeps only the end-dot readout and the "where am I" marker as overlay elements
+- `LayerControl`: the retired `slider.css` is deleted; the shared wa-slider skin (`common/wa.css`) reads all geometry from foliplus tokens via `--wa-*` → `--foliplus-*` bridge mappings
+
 ## [v0.4.1] (2026-10-18)
 
 ### Added
