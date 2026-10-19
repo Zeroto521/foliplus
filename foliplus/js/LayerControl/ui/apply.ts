@@ -358,7 +358,12 @@ const dispatchStateOp = (
     }
     return false;
   }
-  return false;
+  // `StateOp` is closed, so reaching this line means a new variant was added
+  // to the union without extending this dispatcher. Throwing — rather than
+  // returning a silent `false` — is what a maintainer wants in that case:
+  // the missing branch is loud, not lost.
+  const _exhaustive: never = op;
+  throw new Error(`unreachable dispatchStateOp type: ${JSON.stringify(_exhaustive)}`);
 };
 
 /** Diff the current projection against the last one we wrote, and call

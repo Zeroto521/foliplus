@@ -919,6 +919,22 @@ describe("executor: carrier dispatch", () => {
     expect(map.addLayer).not.toHaveBeenCalled();
   });
 
+  it("throws on an unknown StateOp type — the exhaustiveness guard fires", () => {
+    // `StateOp` is a closed union (`"visible" | "opacity"`). If someone adds
+    // a new variant without extending the dispatcher, the trailing
+    // `const _exhaustive: never = op; throw ...` is what makes the missing
+    // branch loud instead of a silent `return false`. Exercised here by
+    // deliberately violating the union — the throw is the honest outcome.
+    const { ui } = boot([{ id: "x", name: "X", group: "overlay" }]);
+
+    expect(() =>
+      dispatchStateOp(ui, ui.c.layerRegistry.get("x")!, {
+        type: "bogus" as never,
+        value: 0,
+      }),
+    ).toThrow(/unreachable dispatchStateOp type/);
+  });
+
   it("a 'none' opacity carrier stores nothing and writes nothing", () => {
     // A slider that writes nothing must not pretend it wrote. MarkerCluster
     // icons live in the shared markerPane, which no per-layer CSS write can
