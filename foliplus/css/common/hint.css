@@ -23,7 +23,7 @@
   box-sizing: border-box;
   max-width: min(var(--foliplus-hint-max-width, 480px), 80vw);
   white-space: normal;
-  color: var(--foliplus-neutral-0);
+  color: var(--foliplus-on-accent);
   font-size: var(--foliplus-font-size-md);
   font-weight: var(--foliplus-font-weight-medium);
   line-height: var(--foliplus-line-height-hint);

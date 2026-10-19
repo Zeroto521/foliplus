@@ -63,9 +63,9 @@ class TestLayerControlBrowser:
         return page.evaluate(_js("LayerControl/sample_token"), name)
 
     @staticmethod
-    def _sample_neutral0(page):
-        """Computed color of `var(--foliplus-neutral-0)` — never hardcode a hex/rgb."""
-        return TestLayerControlBrowser._sample_token(page, "--foliplus-neutral-0")
+    def _sample_surface(page):
+        """Computed color of `var(--foliplus-surface)` — never hardcode a hex/rgb."""
+        return TestLayerControlBrowser._sample_token(page, "--foliplus-surface")
 
     @staticmethod
     def _panel_open(page, selector: str) -> bool:
@@ -3150,7 +3150,7 @@ class TestLayerControlBrowser:
 
             kb = page.evaluate(_js("LayerControl/read_row_cursor_style"))
             assert kb is not None and "error" not in kb, f"cursor snippet failed: {kb}"
-            white = self._sample_neutral0(page)
+            white = self._sample_surface(page)
             assert kb["bg"] == white, (
                 f"keyboard cursor must paint the white surface, "
                 f"got {kb['bg']} vs token {white}"
@@ -3181,7 +3181,7 @@ class TestLayerControlBrowser:
     def test_row_cursor_turns_row_white_on_hover_tab_and_arrow(self, browser, tmp_path):
         """Hover, Tab and arrow-key cursor all turn the row white.
 
-        The interaction target always paints `var(--foliplus-neutral-0)` — including on
+        The interaction target always paints `var(--foliplus-surface)` — including on
         a checked row, whose `.foliplus-active` wash is only the rest surface. White is
         sampled from the token live, never hardcoded. Dropping the class (what
         Escape does) returns the rest surface. Tab is covered by the focusin
@@ -3270,7 +3270,7 @@ class TestLayerControlBrowser:
             assert result["isFold"] is True, (
                 f"cursor should be on the fold row, got {result}"
             )
-            white = self._sample_neutral0(page)
+            white = self._sample_surface(page)
             assert result["bg"] == white, (
                 f"fold row cursor must paint the white surface, got {result['bg']}"
             )
@@ -3626,7 +3626,7 @@ class TestLayerControlBrowser:
                 timeout=5000,
             )
             panel_ready(page)
-            white = self._sample_neutral0(page)
+            white = self._sample_surface(page)
 
             def snapshot():
                 return page.evaluate(_js("LayerControl/read_all_row_state"))

@@ -20,7 +20,7 @@
    what ExportControl's resolveExportBackground ignores (it only reads
    `backgroundColor`), so the hatch never reaches an export. */
 .leaflet-container.foliplus-no-base-map {
-  background-color: var(--foliplus-panel-bg, #ffffff);
+  background-color: var(--foliplus-surface);
   background-image: repeating-conic-gradient(
     rgba(0, 0, 0, var(--foliplus-alpha-05)) 0% 25%,
     rgba(255, 255, 255, var(--foliplus-alpha-05)) 0% 50%

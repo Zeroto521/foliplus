@@ -7,7 +7,7 @@
   // Sample the design-token white the recipe is supposed to paint — never
   // hardcode a hex/rgb value (folium versions differ in resting row state).
   const probe = document.createElement("div");
-  probe.style.background = "var(--foliplus-neutral-0)";
+  probe.style.background = "var(--foliplus-surface)";
   document.body.appendChild(probe);
   const white = getComputedStyle(probe).backgroundColor;
   probe.remove();
