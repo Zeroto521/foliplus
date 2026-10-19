@@ -105,7 +105,7 @@
   display: inline-block;
   backdrop-filter: blur(8px);
   background: rgba(0, 0, 0, var(--foliplus-alpha-50));
-  color: var(--foliplus-neutral-0);
+  color: var(--foliplus-on-accent);
   padding: var(--foliplus-space-xs) var(--foliplus-space-sm);
   border-radius: var(--foliplus-radius-sm);
   border: var(--foliplus-border-thin) solid

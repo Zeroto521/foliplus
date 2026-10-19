@@ -19,12 +19,12 @@
 
   /* ── Alpha Scale ── */
   --foliplus-alpha-05: 0.05;
+  --foliplus-alpha-10: 0.1;
   --foliplus-alpha-15: 0.15;
   --foliplus-alpha-20: 0.2;
   --foliplus-alpha-30: 0.3;
   --foliplus-alpha-50: 0.5;
   --foliplus-alpha-70: 0.7;
-  --foliplus-alpha-80: 0.8;
   --foliplus-alpha-95: 0.95;
 
   /* ── Neutral Palette ── */
@@ -60,8 +60,14 @@
   --foliplus-accent-hover: var(--foliplus-red-600);
   --foliplus-accent-light: var(--foliplus-red-50);
 
-  --foliplus-btn-primary-bg: var(--foliplus-accent-primary);
-  --foliplus-btn-primary-hover: var(--foliplus-accent-hover);
+  /* ── Surface roles ──
+     --foliplus-neutral-0 plays two roles that a theme must be able to split:
+     a page surface (which inverts with the theme) and text painted on a
+     colored chip (which must stay light). One token cannot serve both. */
+  --foliplus-surface: var(--foliplus-neutral-0);
+  --foliplus-surface-raised: var(--foliplus-neutral-100);
+  --foliplus-on-accent: var(--foliplus-neutral-0);
+
   --foliplus-btn-secondary-border: var(--foliplus-neutral-300);
 
   /* ── Effects ── */
@@ -71,11 +77,17 @@
     var(--foliplus-red-rgb),
     var(--foliplus-alpha-50)
   );
-  /* Unified keyboard focus ring: thin accent hairline + soft red glow.
+  /* Focus is not brand emphasis: a themed UI may recolor it independently
+     (Web Awesome exposes a separate focus semantic), and the ring must stay
+     legible when the accent sits right next to it. The default keeps today's
+     accent red. */
+  --foliplus-focus-color: var(--foliplus-accent-primary);
+  --foliplus-focus-halo: rgba(var(--foliplus-red-rgb), var(--foliplus-alpha-50));
+  /* Unified keyboard focus ring: thin accent hairline + soft glow.
      Single source of truth for all :focus-visible rules across foliplus. */
   --foliplus-focus-ring:
-    0 0 0 var(--foliplus-border-thin) var(--foliplus-accent-primary),
-    0 0 0 var(--foliplus-size-4) var(--foliplus-accent-soft-shadow);
+    0 0 0 var(--foliplus-border-thin) var(--foliplus-focus-color),
+    0 0 0 var(--foliplus-size-4) var(--foliplus-focus-halo);
   --foliplus-accent-soft-bg: rgba(var(--foliplus-red-rgb), var(--foliplus-alpha-05));
   --foliplus-ctrl-bg-translucent: rgba(255, 255, 255, var(--foliplus-alpha-70));
   --foliplus-panel-shadow: 0 var(--foliplus-size-4) var(--foliplus-size-12)
@@ -196,6 +208,7 @@
      this box, never push the control column — one vertical line for all
      panels. */
   --foliplus-form-label-width: 88px;
+  --foliplus-form-number-width: 52px;
   /* Toast width cap. Below the 480px viewport the media block in hint.css
      widens the cap to calc(100vw - 16px); the breakpoint 480px there is the
      same value and must stay in sync with this token (media queries do not

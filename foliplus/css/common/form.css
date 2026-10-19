@@ -145,7 +145,7 @@
     width: var(--foliplus-size-16);
     left: var(--foliplus-size-2);
     bottom: var(--foliplus-size-2);
-    background-color: var(--foliplus-neutral-0);
+    background-color: var(--foliplus-surface);
     border-radius: var(--foliplus-radius-round);
     transition:
       transform var(--foliplus-transition-fast),
