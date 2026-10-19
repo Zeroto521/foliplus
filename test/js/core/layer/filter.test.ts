@@ -77,6 +77,28 @@ describe("atom ops", () => {
     expect(matches(makePt({ type: 4 }), expr)).toBe(false);
   });
 
+  it("a malformed atom missing its input reads false", () => {
+    // The evaluator tolerates a hand-built AST with an `op` whose input
+    // is missing. A `between` with no range falls back to [0,0] so only
+    // zero matches — the safe default is "match the narrowest thing"
+    // rather than "match everything". Same idea for `in` with no values.
+    const noRange: LayerFilter = {
+      kind: "atom",
+      field: "count",
+      op: "between",
+    };
+    expect(matches(makePt({ count: 0 }), noRange)).toBe(true);
+    expect(matches(makePt({ count: 1 }), noRange)).toBe(false);
+    expect(matches(makePt({ count: -5 }), noRange)).toBe(false);
+    const noValues: LayerFilter = {
+      kind: "atom",
+      field: "count",
+      op: "in",
+    };
+    expect(matches(makePt({ count: 1 }), noValues)).toBe(false);
+    expect(matches(makePt({ count: 0 }), noValues)).toBe(false);
+  });
+
   it("a missing field is false for every op", () => {
     const missing: LayerFilter[] = [
       { kind: "atom", field: "absent", op: "between", range: [0, 100] },

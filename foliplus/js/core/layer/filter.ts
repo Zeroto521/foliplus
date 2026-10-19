@@ -72,12 +72,8 @@ const matches = (pt: SnapshotPoint, expr: FilterExpr | undefined): boolean => {
           return v !== expr.value;
         case "in":
           return expr.values?.includes(v) ?? false;
-        default:
-          return false;
       }
     }
-    default:
-      return false;
   }
 };
 

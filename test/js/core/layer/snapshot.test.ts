@@ -89,6 +89,22 @@ describe("buildLayerSnapshot — walk and dedupe", () => {
     expect(snap.points).toHaveLength(0);
   });
 
+  it("includes a marker whose feature carries no properties — normalisation yields empty fields", () => {
+    const m = makeMarker({ lat: 1, lng: 1, feature: {} });
+    const snap = buildLayerSnapshot(group(m), NOOP_LOGGER);
+    expect(snap.points).toHaveLength(1);
+    expect(snap.points[0].fields).toEqual({});
+    expect(snap.numericFields).toEqual([]);
+    expect(snap.ranges).toEqual({});
+  });
+
+  it("skips a marker whose getLatLng returns null", () => {
+    const m = makeMarker({ lat: 1, lng: 1, feature: { properties: { count: 1 } } });
+    m.getLatLng = () => null;
+    const snap = buildLayerSnapshot(group(m), NOOP_LOGGER);
+    expect(snap.points).toHaveLength(0);
+  });
+
   it("dedupes markers by stamp — the same object twice yields one row", () => {
     const original = makeMarker({
       lat: 5,

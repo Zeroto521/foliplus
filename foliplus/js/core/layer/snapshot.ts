@@ -118,7 +118,6 @@ const buildLayerSnapshot = (layer: L.Layer, log: Logger): LayerSnapshot => {
     const f = pt.fields;
     for (const key of Object.keys(f)) {
       const entry = ranges[key];
-      if (!entry) continue;
       const v = f[key];
       const [lo, hi] = entry;
       if (v < lo) ranges[key] = [v, hi];
