@@ -42,7 +42,7 @@ const STEP_TYPES = new Set([
   "month",
 ]);
 /** Web Awesome custom controls that step through a value like a native
- *  `input[type=range]` (arrows / PageUp / PageDown). B1: wa-slider's thumbs
+ *  `input[type=range]` (arrows / PageUp / PageDown). wa-slider's thumbs
  *  are shadow-DOM focus targets, so the focused element is the custom element
  *  itself — the table must classify it or foliplus would swallow the keys. */
 const STEP_CUSTOM_TAGS = new Set(["wa-slider"]);

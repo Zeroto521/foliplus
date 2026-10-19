@@ -20,7 +20,7 @@
   }
 
   /* ── Zoom-range row ──────────────────────────────────────────────
-     A <wa-slider range> (B1: replaced the dual <input type=range> which
+     A <wa-slider range> (replaced the dual <input type=range> which
      deadlocked on overlapping thumbs) with a current-zoom marker overlay.
      The slider's own thumbs/tooltip come from the library; foliplus adds
      the "where am I" readout and the out-of-range dimming. */

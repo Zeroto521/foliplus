@@ -185,7 +185,7 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
    *  layer responds as the user drags a thumb. The commit pass (`change`
    *  event) persists the value to localStorage.
    *
-   *  B1: the target is the `<wa-slider range>` element, not two stacked
+   *  The target is the `<wa-slider range>` element, not two stacked
    *  `<input type=range>`. The component dispatches native `input`/`change`
    *  events (bubbles + composed) and guarantees `min <= max` internally
    *  (verified against its source), so foliplus reads the two live values

@@ -3,11 +3,11 @@
 // Used by both the delegated drawer and the annotation panel — the row is
 // LayerControl-owned, gated by surface capability.
 //
-// B1: replaced the dual <input type=range> with <wa-slider range> to close
-// the double-thumb deadlock (see ui-kit design contract §4.0.2). The current-
-// zoom indicator is a foliplus-owned overlay div (方案 B), not the wa-slider's
-// reference slot — it represents map state relative to the slider, not a
-// slider value. The slider's own tick labels live in the reference slot.
+// <wa-slider range> replaced the dual <input type=range> to close
+// the double-thumb deadlock where overlapping thumbs could not be separated.
+// The current-zoom indicator is a foliplus-owned overlay div, not the
+// wa-slider's reference slot — it represents map state relative to the slider,
+// not a slider value. The slider's own tick labels live in the reference slot.
 //
 // Events: wa-slider dispatches native `input` / `change` events
 // (bubbles:true, composed:true) — the panel-level delegation in
@@ -138,8 +138,8 @@ const syncZoomRangeRow = (
  *
  *  The wa-slider handles both thumbs natively (range mode), which closes the
  *  dual-<input type=range> deadlock where overlapping thumbs could not be
- *  separated. The current-zoom marker is a foliplus-owned overlay div
- *  (方案 B), positioned at the map's current zoom level — it represents
+ *  separated. The current-zoom marker is a foliplus-owned overlay div,
+ *  positioned at the map's current zoom level — it represents
  *  map state relative to the slider, not a slider value.
  *
  *  Initial values come from the layer's zoomRange intent (the persisted

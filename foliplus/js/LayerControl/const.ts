@@ -164,7 +164,7 @@ const CLASSES = {
   STYLE_ZOOM_RANGE_MAX: "foliplus-style-zoom-range-max",
   STYLE_ZOOM_RANGE_CURRENT_VALUE: "foliplus-style-zoom-range-current-value",
   STYLE_ZOOM_RANGE_VAL: "foliplus-style-zoom-range-value",
-  /** The wa-slider element itself (B1: replaced the dual <input type=range>). */
+  /** The wa-slider element itself (replaced the dual <input type=range>). */
   STYLE_ZOOM_RANGE_SLIDER: "foliplus-style-zoom-range-slider",
   /** Reference-slot tick labels at the map's zoom limits (wa-slider-owned
    *  surface, foliplus class for lookup). */

@@ -3622,9 +3622,9 @@ describe("LayerUI style panel — zoom range", () => {
     row.querySelector(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_SLIDER}`) as HTMLElement;
 
   /** Simulate a wa-slider drag: set the two thumb values (what the component
-   *  reports via its reactive minValue/maxValue after a drag — the design
-   *  contract's §4.0.2 "component-owned clamp" means foliplus reads these,
-   *  never clamps crossings itself) and dispatch the native event. */
+   *  reports via its reactive minValue/maxValue after a drag — the component
+   *  clamps crossings itself, so foliplus reads these and never clamps on its
+   *  own) and dispatch the native event. */
   const drag = (
     slider: HTMLElement,
     min: number,
@@ -3722,10 +3722,10 @@ describe("LayerUI style panel — zoom range", () => {
   });
 
   it("pushes max when min is dragged past it (component-owned clamp)", () => {
-    // The design contract §4.0.2: wa-slider clamps crossings itself — dragging
-    // min past max reports both thumbs at the dragged value. foliplus writes
-    // what the component reports; it no longer clamps (min == max stays
-    // expressible, the "only at one level" case).
+    // The wa-slider clamps crossings itself — dragging min past max reports
+    // both thumbs at the dragged value. foliplus writes what the component
+    // reports; it no longer clamps (min == max stays expressible, the "only at
+    // one level" case).
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
