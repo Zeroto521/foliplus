@@ -74,10 +74,36 @@
       box-shadow var(--foliplus-transition-fast);
   }
 
+  /* Hover grows the thumb; the press state adds the held halo. Both read the
+     same tokens the retired custom slider used, so the two rows keep one
+     physical feel. */
+  wa-slider::part(thumb):hover {
+    transform: scale(1.1);
+  }
+  wa-slider::part(thumb):active {
+    cursor: grabbing;
+    transform: scale(1.15);
+    box-shadow: var(--foliplus-slider-thumb-glow);
+  }
+
   /* Keyboard focus: grow + the panel's focus ring. */
   wa-slider::part(thumb):focus-visible {
     transform: scale(1.15);
     box-shadow: var(--foliplus-focus-ring);
+  }
+
+  /* ── Reference-slot labels ─────────────────────────────────────────
+     The library lays out reference-slot spans with flex space-between;
+     foliplus only rethemes the text. The spans are light DOM, so a plain
+     descendant selector outranks the library's ::slotted(*) — no !important. */
+  wa-slider::part(references) {
+    margin-block-start: var(--foliplus-space-xs);
+  }
+  wa-slider > [slot="reference"] {
+    font-size: var(--foliplus-font-size-sm);
+    color: var(--foliplus-text-primary);
+    font-variant-numeric: tabular-nums;
+    line-height: var(--foliplus-font-size-md);
   }
 
   /* ── Tooltip (drag bubble) ──────────────────────────────────────

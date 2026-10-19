@@ -19,6 +19,39 @@
     display: flex;
   }
 
+  /* ── Shared slider overlays ────────────────────────────────────────
+     Readout dots and value labels that both the opacity and zoom-range
+     rows layer over their wa-sliders. The dots sit on the rail ends and
+     the current level; the values label the fixed scale. One set of
+     rules, two rows. */
+  .foliplus-slider-dot {
+    position: absolute;
+    /* Rail centre: padding-top + border + rail-half. Measured in
+       .foliplus/style.css to match wa-slider::part(track) geometry. */
+    top: calc(
+      var(--foliplus-space-sm) +
+        var(--foliplus-border-thin) +
+        var(--foliplus-slider-rail-height) / 2
+    );
+    width: var(--foliplus-slider-dot-size);
+    height: var(--foliplus-slider-dot-size);
+    box-sizing: border-box;
+    background: var(--foliplus-on-accent);
+    border: var(--foliplus-size-2) solid var(--foliplus-neutral-500);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+  }
+  .foliplus-slider-dot-covered {
+    border-color: var(--foliplus-accent-primary);
+  }
+  .foliplus-slider-dot-min,
+  .foliplus-slider-dot-max {
+    left: 0;
+  }
+  .foliplus-slider-dot-max {
+    left: 100%;
+  }
+
   /* ── Zoom-range row ──────────────────────────────────────────────
      A <wa-slider range> (replaced the dual <input type=range> which
      deadlocked on overlapping thumbs) with a current-zoom marker overlay.
@@ -30,9 +63,12 @@
       width: 100%;
     }
 
-    /* Current-zoom marker: a thin vertical line overlaid on the wa-slider,
-       positioned by JS at the map's current zoom level. The label rides
-       under the line, hidden when it would sit on a limit. */
+    /* Current-zoom marker: reuses .foliplus-slider-dot for geometry and
+       visual; the accent border distinguishes it from the gray end dots.
+       The label rides under the dot, hidden when it would sit on a limit. */
+    .foliplus-style-zoom-range-current-marker {
+      border-color: var(--foliplus-accent-primary);
+    }
     .foliplus-style-zoom-range-current-value {
       position: absolute;
       top: 100%;
@@ -41,7 +77,6 @@
       margin-top: var(--foliplus-size-2);
       color: var(--foliplus-text-primary);
       font-size: var(--foliplus-font-size-sm);
-      font-variant-numeric: tabular-nums;
       white-space: nowrap;
     }
     .foliplus-slider-label-hidden {
@@ -67,9 +102,6 @@
     display: flex;
     flex-direction: column;
     flex: 1;
-    min-width: 0;
-    /* Room for a thumb at its held size (1.15x) above the rail — the tallest
-       thing in the row, since the 24px hit box is invisible. */
     padding-top: var(--foliplus-space-sm);
     gap: var(--foliplus-space-xs);
   }

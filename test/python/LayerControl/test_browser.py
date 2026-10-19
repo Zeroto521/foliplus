@@ -5030,6 +5030,11 @@ class TestLayerControlBrowser:
             report_path = report_dir / "measurement-report.md"
             report_path.write_text("\n".join(lines), encoding="utf-8")
             assert not errors, f"JS errors: {errors}"
+            assert hover_diag is not None, "hover diagnosis missing"
+            assert "error" not in hover_diag, f"CSS read failed: {hover_diag}"
+            assert hover_diag["hoverRulesFound"] == 2, (
+                f"expected 2 hover+active thumb rules, got {hover_diag}"
+            )
 
     def test_zoom_range_native_tilelayer(self, browser, tmp_path):
         """Native carrier: GridLayer minZoom/maxZoom hides tiles on reset."""

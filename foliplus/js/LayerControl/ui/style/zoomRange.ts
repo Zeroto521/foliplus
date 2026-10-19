@@ -80,6 +80,18 @@ const syncValues = (
   if (refMin) refMin.textContent = String(mapMin);
   if (refMax) refMax.textContent = String(mapMax);
 
+  // End dots: covered when the selected range reaches that map limit.
+  const dotMin = row.querySelector(`.${CONST.CLASSES.SLIDER_DOT_MIN}`);
+  const dotMax = row.querySelector(`.${CONST.CLASSES.SLIDER_DOT_MAX}`);
+  dotMin?.classList.toggle(
+    CONST.CLASSES.SLIDER_DOT_COVERED,
+    min <= mapMin,
+  );
+  dotMax?.classList.toggle(
+    CONST.CLASSES.SLIDER_DOT_COVERED,
+    max >= mapMax,
+  );
+
   const marker = row.querySelector(
     `.${CONST.CLASSES.STYLE_ZOOM_RANGE_CURRENT_MARKER}`,
   ) as HTMLElement | null;
@@ -190,12 +202,23 @@ const buildZoomRangeRow = (ui: LayerUI, layerId: string): HTMLElement => {
     slider.valueFormatter = (v: number) => String(Math.round(v));
   });
 
-  // Current-zoom marker: a foliplus-owned overlay div positioned at the map's
-  // current zoom level. This is not a wa-slider reference slot (which is for
-  // slider values) — it shows "where am I" relative to the slider's range.
+  // End dots: same visual language as the opacity row — a white core with a
+  // gray ring at the map's two zoom limits. Foliplus-owned overlays outside
+  // the slider's shadow boundary, positioned by the shared CSS.
+  const dot = (suffix: string): HTMLElement =>
+    dom.el("span", {
+      class: `${CONST.CLASSES.SLIDER_DOT} ${CONST.CLASSES.SLIDER_DOT}${suffix}`,
+    });
+
+  // Current-zoom marker: a 10px dot (reuses the shared .foliplus-slider-dot
+  // visual) positioned at the map's current zoom level. Shows "where am I"
+  // relative to the range. Accent border distinguishes it from the gray
+  // end dots.
   const marker = dom.el(
     "div",
-    { class: CONST.CLASSES.STYLE_ZOOM_RANGE_CURRENT_MARKER },
+    {
+      class: `${CONST.CLASSES.SLIDER_DOT} ${CONST.CLASSES.STYLE_ZOOM_RANGE_CURRENT_MARKER}`,
+    },
     dom.el(
       "span",
       { class: CONST.CLASSES.STYLE_ZOOM_RANGE_CURRENT_VALUE },
@@ -207,6 +230,8 @@ const buildZoomRangeRow = (ui: LayerUI, layerId: string): HTMLElement => {
     "div",
     { class: `${CONST.CLASSES.SLIDER} ${CONST.CLASSES.STYLE_ZOOM_RANGE_CONTROL}` },
     slider,
+    dot("-min"),
+    dot("-max"),
     marker,
   );
 

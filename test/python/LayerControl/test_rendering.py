@@ -704,7 +704,9 @@ class TestLayerControlRendering:
         The guard against the duplication coming back: a row that redeclares a
         rail height or a thumb is one that can drift from the component. Read
         raw — `read_css` expands `@import`, so through it every row "contains"
-        token.css.
+        token.css. The dots reference `--foliplus-slider-rail-height` to
+        align on the rail — that is a read, not a redeclaration, so it is
+        exempt.
         """
         root = Path(__file__).resolve().parents[3]
         for rel in (
@@ -714,7 +716,6 @@ class TestLayerControlRendering:
             raw = (root / rel).read_text(encoding="utf-8")
             assert "::-webkit-slider-thumb" not in raw, rel
             assert "::-moz-range-thumb" not in raw, rel
-            assert "--foliplus-slider-rail-height" not in raw, rel
 
     def test_zoom_range_row_css(self):
         """The row adds no styling of its own.

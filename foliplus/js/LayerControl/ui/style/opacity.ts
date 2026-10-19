@@ -134,6 +134,14 @@ const buildOpacityRow = (ui: LayerUI, layerId: string): HTMLElement => {
     class: CONST.CLASSES.STYLE_OPACITY_SLIDER,
   }) as WaSliderElement;
 
+  // End labels: wa-slider reference-slot spans, laid out by the library's
+  // flex space-between. Foliplus rethemes via wa.css (light DOM, so a plain
+  // descendant selector outranks the library's ::slotted).
+  const refMin = dom.el("span", { slot: "reference" }, "0");
+  const refMax = dom.el("span", { slot: "reference" }, "100");
+  slider.appendChild(refMin);
+  slider.appendChild(refMax);
+
   // End dots: white core + ring, accent when the covered span reaches that end.
   // Foliplus-owned overlays (not wa-slider reference slots), positioned by the
   // row's own CSS.
@@ -144,20 +152,12 @@ const buildOpacityRow = (ui: LayerUI, layerId: string): HTMLElement => {
         ` ${CONST.CLASSES.STYLE_OPACITY_DOT} ${CONST.CLASSES.STYLE_OPACITY_DOT}${suffix}`,
     });
 
-  const values = dom.el(
-    "div",
-    { class: `${CONST.CLASSES.SLIDER_VALUES} ${CONST.CLASSES.STYLE_OPACITY_VALUES}` },
-    dom.el("span", {}, "0"),
-    dom.el("span", {}, "100"),
-  );
-
   const track = dom.el(
     "div",
     { class: `${CONST.CLASSES.SLIDER} ${CONST.CLASSES.STYLE_OPACITY_TRACK}` },
     slider,
     dot("-min"),
     dot("-max"),
-    values,
   );
   syncOpacityDots(track, pct);
 
