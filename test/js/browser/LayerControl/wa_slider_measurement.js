@@ -194,6 +194,5 @@ async () => {
     }
   }
 
-  ui.closeStylePanel(false);
   return results;
 };

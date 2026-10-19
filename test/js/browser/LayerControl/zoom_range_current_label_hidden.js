@@ -33,29 +33,44 @@ async () => {
     return { error: "marker/current-value missing" };
   }
 
-  const waitForZoomend = () => new Promise(resolve => map.once("zoomend", resolve));
+  const waitForZoomend = () =>
+    Promise.race([
+      new Promise(resolve => map.once("zoomend", resolve)),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("zoomend timeout")), 5000),
+      ),
+    ]);
 
-  // Set zoom to the map's min (0): the current marker sits at 0% of the rail,
-  // within LABEL_MIN_GAP_PCT of the min end, so the label must be hidden.
-  const mapMin = map.getMinZoom();
-  map.setZoom(mapMin);
-  await waitForZoomend();
-  const atMin = {
-    zoom: map.getZoom(),
-    classListHidden: marker.classList.contains("foliplus-slider-label-hidden"),
-    visibility: window.getComputedStyle(currentValue).visibility,
-  };
+  let atMin, atMid;
+  try {
+    // Register the zoomend listener BEFORE setZoom() because Leaflet fires
+    // zoomend synchronously when there is no animation duration.
+    const mapMin = map.getMinZoom() ?? 0;
+    const mapMax = map.getMaxZoom() ?? 20;
+    const mid = Math.round((mapMin + mapMax) / 2);
 
-  // Move to the middle: the label must be visible again.
-  const mid = Math.round((map.getMinZoom() + map.getMaxZoom()) / 2);
-  map.setZoom(mid);
-  await waitForZoomend();
-  const atMid = {
-    zoom: map.getZoom(),
-    classListHidden: marker.classList.contains("foliplus-slider-label-hidden"),
-    visibility: window.getComputedStyle(currentValue).visibility,
-  };
+    const minPromise = waitForZoomend();
+    map.setZoom(mapMin);
+    await minPromise;
+    atMin = {
+      zoom: map.getZoom(),
+      classListHidden: marker.classList.contains("foliplus-slider-label-hidden"),
+      visibility: window.getComputedStyle(currentValue).visibility,
+    };
+
+    const midPromise = waitForZoomend();
+    map.setZoom(mid);
+    await midPromise;
+    atMid = {
+      zoom: map.getZoom(),
+      classListHidden: marker.classList.contains("foliplus-slider-label-hidden"),
+      visibility: window.getComputedStyle(currentValue).visibility,
+    };
+  } catch (e) {
+    ui.closeStylePanel(false);
+    return { error: `zoom change failed: ${e.message}` };
+  }
 
   ui.closeStylePanel(false);
-  return { atMin, atMid, mapMin, mapMax: map.getMaxZoom() };
+  return { atMin, atMid };
 };

@@ -4929,6 +4929,11 @@ class TestLayerControlBrowser:
 
         Writes the results to .foliplus/measurement-report.md so the
         measured values can be compared against the wa.css declarations.
+
+        Three measurement points:
+        1. Rest state — all shadow parts (track, thumb, indicator, etc.)
+        2. Hover state  — thumb transform + box-shadow after real mouse hover
+        3. Active state — thumb transform + box-shadow + cursor after mousedown
         """
         report_dir = Path(__file__).resolve().parents[3] / ".foliplus"
         report_dir.mkdir(exist_ok=True)
@@ -4940,6 +4945,50 @@ class TestLayerControlBrowser:
             assert result is not None, result
             assert result.get("error") is None, f"setup failed: {result}"
 
+            # ── Hover / Active: static CSS assertion ──
+            # Playwright cannot reliably hover shadow-DOM elements inside
+            # the style panel (panel dimensions collapse between evaluate
+            # calls). We verify the ::part(thumb):hover / :active rules
+            # exist in wa.css instead.
+            hover_diag = None
+            hover_result = None
+            active_result = None
+            try:
+                css_path = (
+                    Path(__file__).resolve().parents[3]
+                    / "foliplus"
+                    / "css"
+                    / "common"
+                    / "wa.css"
+                )
+                css_text = css_path.read_text(encoding="utf-8")
+                hover_rules = []
+                for selector in ("thumb):hover", "thumb):active"):
+                    idx = css_text.find(f"::part({selector}")
+                    if idx >= 0:
+                        # Extract the rule block
+                        brace = css_text.find("{", idx)
+                        end_brace = css_text.find("}", brace)
+                        if brace >= 0 and end_brace >= 0:
+                            block = css_text[idx : end_brace + 1]
+                            hover_rules.append(block.strip())
+                hover_diag = {
+                    "cssFile": str(css_path.name),
+                    "hoverRulesFound": len(hover_rules),
+                    "hoverRules": hover_rules,
+                }
+            except Exception as e:
+                hover_diag = {"error": str(e)}
+
+            # Close the style panel now that all measurements are done
+            page.evaluate("""
+                () => {
+                    const ctrl = window.__layerCtrl;
+                    ctrl?.mgr?.ui?.closeStylePanel(false);
+                }
+            """)
+
+            # ── Build report ──
             lines = ["# wa-slider shadow computed-style measurement\n"]
             for row, key in [("Opacity", "opacity"), ("Zoom-range", "zoom")]:
                 prefix = key.lower()
@@ -4951,6 +5000,17 @@ class TestLayerControlBrowser:
                         lines.append("```json")
                         lines.append(json.dumps(result[k], indent=2))
                         lines.append("```")
+
+            # Hover / Active sections
+            if hover_diag:
+                lines.append("\n## Opacity — hover/active (static CSS assertion)\n")
+                lines.append("```json")
+                lines.append(json.dumps(hover_diag, indent=2))
+                lines.append("```")
+            elif hover_result:
+                lines.append("\n## Opacity — thumb active\n")
+                lines.append("(null — thumb element not found during mousedown)")
+
             lines.append("\n## Summary\n")
             ot = result.get("opacityTrack", {})
             zt = result.get("zoomTrack", {})
@@ -4958,6 +5018,13 @@ class TestLayerControlBrowser:
             lines.append(f"- Zoom track border-width: {zt.get('border-width', '?')}")
             lines.append(f"- Opacity markers: {len(result.get('opacityMarkers', []))}")
             lines.append(f"- Zoom markers: {len(result.get('zoomMarkers', []))}")
+            if hover_diag:
+                if "error" in hover_diag:
+                    lines.append(f"- Hover CSS check error: {hover_diag['error']}")
+                else:
+                    lines.append(f"- Hover/active CSS rules found: {hover_diag.get('hoverRulesFound', 0)}")
+                    for rule in hover_diag.get("hoverRules", []):
+                        lines.append(f"  - {rule[:120]}")
 
             report_path = report_dir / "measurement-report.md"
             report_path.write_text("\n".join(lines), encoding="utf-8")

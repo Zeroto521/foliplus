@@ -57,8 +57,10 @@
       ? "zoomRange"
       : n.querySelector(".foliplus-style-zoom-range-row")
         ? "zoomRange"
-        : n.querySelector(".foliplus-style-opacity-range")
+        : n.querySelector(".foliplus-style-opacity-track")
           ? "opacity"
+          : n.querySelector(".foliplus-style-opacity-slider")
+            ? "opacity"
           : n.querySelector('input[type="color"]')
             ? "border"
             : "other";
