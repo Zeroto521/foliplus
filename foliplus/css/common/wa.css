@@ -74,19 +74,7 @@
       box-shadow var(--foliplus-transition-fast);
   }
 
-  /* Hover: small grow. */
-  wa-slider::part(thumb):hover {
-    transform: scale(1.1);
-  }
-
-  /* Held: larger grow + accent glow. */
-  wa-slider::part(thumb):active {
-    cursor: grabbing;
-    transform: scale(1.15);
-    box-shadow: var(--foliplus-slider-thumb-glow);
-  }
-
-  /* Keyboard focus: same grow as held + the panel's focus ring. */
+  /* Keyboard focus: grow + the panel's focus ring. */
   wa-slider::part(thumb):focus-visible {
     transform: scale(1.15);
     box-shadow: var(--foliplus-focus-ring);
@@ -94,22 +82,4 @@
 
   /* ── Tooltip (drag bubble) ──────────────────────────────────────
      Dark pill with an arrow, matching the retired slider-bubble. */
-  wa-slider::part(tooltip__tooltip) {
-    background-color: var(--foliplus-text-primary);
-    color: var(--foliplus-neutral-0);
-    border-radius: var(--foliplus-radius-sm);
-    font-size: var(--foliplus-font-size-sm);
-    font-variant-numeric: tabular-nums;
-  }
-  wa-slider::part(tooltip__arrow) {
-    border-top-color: var(--foliplus-text-primary);
-  }
-
-  /* ── Markers (reference-slot ticks) ─────────────────────────────
-     The library hides the first and last markers by default. For the
-     zoom-range row, those are the map's zoom limits — the two values
-     foliplus wants to show. Override the display:none. */
-  wa-slider::part(marker) {
-    background-color: var(--foliplus-neutral-0);
-  }
 }

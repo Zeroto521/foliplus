@@ -61,9 +61,9 @@
           ? "opacity"
           : n.querySelector(".foliplus-style-opacity-slider")
             ? "opacity"
-          : n.querySelector('input[type="color"]')
-            ? "border"
-            : "other";
+            : n.querySelector('input[type="color"]')
+              ? "border"
+              : "other";
 
   // Drawer shape: the rows LayerControl adds read before the rows the
   // component delegated, and among themselves they run border, opacity,

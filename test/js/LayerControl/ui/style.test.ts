@@ -28,12 +28,6 @@ import { getLayerAlpha } from "#common/canvasAlpha.js";
 import { NUMBER_FORMAT } from "#common/format.js";
 import { GridLayer, findItem, initFixture, installLeafletGlobals } from "./fixture.js";
 
-/** Percentage the opacity fill is drawn at, read off its width expression.
- *  The fill's width is `calc((100% - var(--foliplus-slider-thumb-hit)) * <fraction>)` —
- *  measured against the handle's travel range, not the rail's own width. */
-const fillPct = (el: HTMLElement): number =>
-  Number(el.style.width.match(/^([\d.]+)%$/)?.[1] ?? NaN) / 100;
-
 describe("LayerUI style panel", () => {
   let manager: LayerController;
   let ui: LayerUI;

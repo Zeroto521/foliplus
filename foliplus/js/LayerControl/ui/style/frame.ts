@@ -26,8 +26,7 @@ const appendResetFooter = (ui: LayerUI, content: HTMLElement): void => {
 };
 
 /** Round to 5 decimals for inline calc() strings; the value is a position,
- *  not a secret. Used by opacity.ts (`opacityFillWidth`) and zoomRange.ts
- *  (`railPos`). */
+ *  not a secret. */
 const round5 = (n: number): number => Math.round(n * 1e5) / 1e5;
 
 /** Where a percentage along a slider rail lands. Every mark on the rail —
@@ -37,8 +36,7 @@ const round5 = (n: number): number => Math.round(n * 1e5) / 1e5;
  *  that far beyond it, so a handle's center *is* its percentage of the
  *  rail, and every mark that shares the mapping lands on it.
  *
- *  Used by the opacity row (via `opacityFillWidth`) and the zoom-range row
- *  (via `railPos`). */
+ *  Used by the zoom-range row. */
 const railPos = (pct: number): string => `${round5(pct)}%`;
 
-export { appendResetFooter, railPos, round5 };
+export { appendResetFooter, railPos };

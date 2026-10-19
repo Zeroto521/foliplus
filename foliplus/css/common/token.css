@@ -459,9 +459,6 @@
     --wa-focus-ring: var(--foliplus-focus-ring);
     /* Reference-slot tick label color. */
     --wa-color-text-quiet: var(--foliplus-text-secondary);
-    /* Brand red — the library's brand tokens, pointed at foliplus accent. */
-    --wa-color-brand-50: var(--foliplus-accent-primary);
-    --wa-color-brand-60: var(--foliplus-accent-primary);
     /* Font: inherit from the parent so wa controls match foliplus body text. */
     --wa-font-family-body: inherit;
   }
