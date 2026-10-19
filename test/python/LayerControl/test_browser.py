@@ -5014,8 +5014,12 @@ class TestLayerControlBrowser:
             lines.append("\n## Summary\n")
             opacity_track = result.get("opacityTrack", {})
             zoom_track = result.get("zoomTrack", {})
-            lines.append(f"- Opacity track border-width: {opacity_track.get('border-width', '?')}")
-            lines.append(f"- Zoom track border-width: {zoom_track.get('border-width', '?')}")
+            lines.append(
+                f"- Opacity track border-width: {opacity_track.get('border-width', '?')}"
+            )
+            lines.append(
+                f"- Zoom track border-width: {zoom_track.get('border-width', '?')}"
+            )
             lines.append(f"- Opacity markers: {len(result.get('opacityMarkers', []))}")
             lines.append(f"- Zoom markers: {len(result.get('zoomMarkers', []))}")
             if hover_diag:
