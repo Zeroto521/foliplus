@@ -23,8 +23,8 @@
 // an explicit contract and a numeric `properties` entry warns once per
 // layer so a silently dropped value is not invisible.
 import type { Logger } from "#common/type.js";
-import { walkLeaf } from "./walkLeaf.js";
 import type { LabelAwareLayer, LayerSnapshot, SnapshotPoint } from "./type.js";
+import { walkLeaf } from "./walkLeaf.js";
 
 /** Extended marker carrying the folium data contract. Mirrors
  *  `HeatmapPointMarker` on the component side; kept as its own type here
@@ -80,10 +80,7 @@ const normalizeFields = (
  *  because they carry no `feature` and would otherwise contribute
  *  empty rows. `numericFields` is first-seen order; `ranges` is
  *  computed alongside `points`, not in a second walk. */
-const buildLayerSnapshot = (
-  layer: L.Layer,
-  log: Logger,
-): LayerSnapshot => {
+const buildLayerSnapshot = (layer: L.Layer, log: Logger): LayerSnapshot => {
   const points: SnapshotPoint[] = [];
   const numericFields: string[] = [];
   const seenField = new Set<string>();

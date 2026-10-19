@@ -8,6 +8,7 @@ import {
   type AppliedProjection,
   LayerRuntimeStore,
 } from "#foliplus/core/layer/LayerRuntimeStore.js";
+import type { LayerSnapshot } from "#foliplus/core/layer/type.js";
 
 const applied = (id: string, opacity = 1): AppliedProjection => ({
   id,
@@ -91,6 +92,34 @@ describe("LayerRuntimeStore — fields axis (label-field cache)", () => {
     store.deleteFields("l1");
     expect(store.getFields("l1")).toBeUndefined();
     expect(store.getApplied("l1")).toBeDefined();
+  });
+});
+
+describe("LayerRuntimeStore — snapshot axis (point snapshot cache)", () => {
+  const emptySnap: LayerSnapshot = {
+    points: [],
+    numericFields: [],
+    ranges: {},
+  };
+
+  it("setSnapshot/getSnapshot round-trip the built snapshot", () => {
+    const store = new LayerRuntimeStore();
+    store.setSnapshot("l1", emptySnap);
+    expect(store.getSnapshot("l1")).toBe(emptySnap);
+  });
+
+  it("deleteSnapshot invalidates per id without touching other axes", () => {
+    const store = new LayerRuntimeStore();
+    store.setSnapshot("l1", emptySnap);
+    store.setApplied("l1", applied("l1"));
+    store.deleteSnapshot("l1");
+    expect(store.getSnapshot("l1")).toBeUndefined();
+    expect(store.getApplied("l1")).toBeDefined();
+  });
+
+  it("deleteSnapshot on an absent id is a no-op", () => {
+    const store = new LayerRuntimeStore();
+    expect(() => store.deleteSnapshot("ghost")).not.toThrow();
   });
 });
 

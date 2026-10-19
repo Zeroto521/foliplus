@@ -91,4 +91,4 @@ const select = (snapshot: LayerSnapshot, filter: LayerFilter): SnapshotPoint[] =
 };
 
 export { matches, select };
-export type { FilterAtom, FilterExpr, LayerFilter };
+export type { LayerFilter };

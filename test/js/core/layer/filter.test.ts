@@ -12,12 +12,7 @@
 // `{ SnapshotPoint, LayerFilter }`, so this file exercises them directly
 // without a browser.
 import { describe, expect, it } from "vitest";
-import { matches, select } from "#core/layer/filter.js";
-import type {
-  FilterAtom,
-  FilterExpr,
-  LayerFilter,
-} from "#core/layer/filter.js";
+import { type LayerFilter, matches, select } from "#core/layer/filter.js";
 import type { LayerSnapshot, SnapshotPoint } from "#core/layer/type.js";
 
 const makePt = (fields: Record<string, number> = {}): SnapshotPoint => ({
@@ -172,9 +167,7 @@ describe("undefined filter", () => {
 });
 
 describe("select", () => {
-  const snapshot = (
-    fieldsList: Array<Record<string, number>>,
-  ): LayerSnapshot => ({
+  const snapshot = (fieldsList: Array<Record<string, number>>): LayerSnapshot => ({
     points: fieldsList.map(fields => makePt(fields)),
     numericFields: [],
     ranges: {},

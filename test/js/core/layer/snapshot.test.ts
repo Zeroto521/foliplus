@@ -19,6 +19,7 @@ import { createLogger } from "#common/log.js";
 // `L.CircleMarker`), so each test file that reaches `instanceof` brings
 // its own class stubs.
 class Marker {}
+
 class CircleMarker {}
 
 beforeEach(() => {
