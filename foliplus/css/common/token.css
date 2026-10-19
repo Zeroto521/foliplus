@@ -449,14 +449,6 @@
    concrete selector (see common/wa.css for the ::part() overrides). */
 @layer wa-theme-overrides {
   :where(.foliplus-ctrl, .foliplus-panel, [class^="foliplus-"]) {
-    /* Slider paint: the indicator fill and thumb ring read this. */
-    --wa-form-control-activated-color: var(--foliplus-accent-primary);
-    /* Slider track background (the uncovered span). */
-    --wa-color-neutral-fill-normal: var(--foliplus-slider-rail-bg);
-    /* Slider thumb border and marker background (the painted surface). */
-    --wa-color-surface-default: var(--foliplus-neutral-0);
-    /* Focus ring on slider thumbs and other wa controls. */
-    --wa-focus-ring: var(--foliplus-focus-ring);
     /* Reference-slot tick label color. */
     --wa-color-text-quiet: var(--foliplus-text-secondary);
     /* Font: inherit from the parent so wa controls match foliplus body text. */
