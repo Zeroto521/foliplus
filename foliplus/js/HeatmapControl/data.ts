@@ -55,7 +55,69 @@ const getColorScale = (name: string, count: number): string[] => {
   return Array(count).fill(CONST.GRAY);
 };
 
-/** Aggregate selected points into H3 hex cells with sum/count/min/max. */
+/** Bin points by H3 resolution. Geometry only — the h3 call lives here and
+ *  nowhere else. Returns a map from H3 index to the indices of points in
+ *  that cell, so a filter change that only changes the *set* of points
+ *  never touches the geometry. The wrapper `aggregateData` chains this
+ *  with `aggregateBins`; consumers that want to keep the bin map across
+ *  filter changes call this directly and hold the result in a cache. */
+const binPoints = (
+  pts: SelectedPoint[],
+  res: number,
+  log: Logger,
+): Map<string, number[]> => {
+  const bins = new Map<string, number[]>();
+  pts.forEach((pt, i) => {
+    try {
+      const h3Idx = h3.latLngToCell(pt.lat, pt.lng, res);
+      let idxs = bins.get(h3Idx);
+      if (!idxs) {
+        idxs = [];
+        bins.set(h3Idx, idxs);
+      }
+      idxs.push(i);
+    } catch (err) {
+      log.warn("h3 cell conversion failed", pt.lat, pt.lng, err);
+    }
+  });
+  return bins;
+};
+
+/** Aggregate the binned indices into sum/count/min/max cells. Pure
+ *  arithmetic over the point array — no `h3` calls, so a filter change
+ *  that keeps the geometry but changes the selected subset only runs
+ *  this function. Cells with an empty index list are dropped so the
+ *  unfiltered path is byte-identical to the pre-refactor output. The
+ *  aggregation choice (`count | sum | avg | min | max`) is applied at
+ *  the wrapper level via `getAggValue`, so this function always computes
+ *  every statistic — a filter change never forces a re-computation. */
+const aggregateBins = (
+  bins: Map<string, number[]>,
+  pts: SelectedPoint[],
+): Map<string, HexCell> => {
+  const cells = new Map<string, HexCell>();
+  for (const [h3Idx, idxs] of bins) {
+    if (idxs.length === 0) continue;
+    let sum = 0;
+    let count = 0;
+    let min = Infinity;
+    let max = -Infinity;
+    for (const i of idxs) {
+      const v = pts[i].value;
+      sum += v;
+      count += 1;
+      if (v < min) min = v;
+      if (v > max) max = v;
+    }
+    cells.set(h3Idx, { sum, count, min, max });
+  }
+  return cells;
+};
+
+/** Aggregate selected points into H3 hex cells with sum/count/min/max.
+ *  Thin wrapper over `binPoints` (geometry) and `aggregateBins` (pure
+ *  arithmetic) so the pre-refactor call site is unchanged. The split
+ *  is what lets a filter change re-run only the arithmetic half. */
 const aggregateData = (
   pts: SelectedPoint[],
   res: number,
@@ -66,25 +128,12 @@ const aggregateData = (
   onEmpty: () => void,
   log: Logger,
 ): AggregatedData | null => {
-  const hexCells = new Map<string, HexCell>();
-  pts.forEach(pt => {
-    try {
-      const h3Idx = h3.latLngToCell(pt.lat, pt.lng, res);
-      const cell = hexCells.get(h3Idx) ?? {
-        sum: 0,
-        count: 0,
-        min: Infinity,
-        max: -Infinity,
-      };
-      if (!hexCells.has(h3Idx)) hexCells.set(h3Idx, cell);
-      cell.sum += pt.value;
-      cell.count += 1;
-      if (pt.value < cell.min) cell.min = pt.value;
-      if (pt.value > cell.max) cell.max = pt.value;
-    } catch (err) {
-      log.warn("h3 cell conversion failed", pt.lat, pt.lng, err);
-    }
-  });
+  const bins = binPoints(pts, res, log);
+  const hexCells = aggregateBins(bins, pts);
+  if (hexCells.size === 0) {
+    onEmpty();
+    return null;
+  }
 
   const getAggValue = (cell: HexCell): number => {
     switch (agg) {
@@ -104,11 +153,6 @@ const aggregateData = (
   };
 
   const allVals = [...hexCells.values()].map(getAggValue);
-  if (allVals.length === 0) {
-    onEmpty();
-    return null;
-  }
-
   const numClassesCapped = Math.min(numClasses, allVals.length);
   const breaks = computeBreaks(allVals, numClassesCapped, method);
   const classColors = getColorScale(scheme, numClassesCapped);
@@ -163,7 +207,9 @@ const buildFeatures = (
 };
 
 export {
+  aggregateBins,
   aggregateData,
+  binPoints,
   buildFeatures,
   getColorScale,
   getH3Res,
