@@ -187,21 +187,17 @@ const CLASSES = {
    *  level" without hiding the row itself (the user may still want to change
    *  it). */
   STYLE_ZOOM_RANGE_OUT_OF_RANGE: "foliplus-zoom-range-out-of-range",
-  /* ── Shared slider component (common/slider.css) ──
-     Both range controls are this component; the rows below add their own hook
-     classes for behavior and tests, and set `--foliplus-slider-thumb-ring` for their
-     own coverage state. Geometry is declared once, in the component. */
+  /* ── Shared slider overlay classes ──
+     The rail geometry lives in the wa-slider skin (common/wa.css).
+     These are the foliplus-owned overlay classes the rows layer on top:
+     end-dot readouts, value labels, and the label-hidden state. */
   SLIDER: "foliplus-slider",
-  SLIDER_RAIL: "foliplus-slider-rail",
-  SLIDER_FILL: "foliplus-slider-fill",
   SLIDER_DOT: "foliplus-slider-dot",
   SLIDER_DOT_COVERED: "foliplus-slider-dot-covered",
   SLIDER_DOT_MIN: "foliplus-slider-dot-min",
   SLIDER_DOT_MAX: "foliplus-slider-dot-max",
-  SLIDER_HANDLE: "foliplus-slider-handle",
   SLIDER_VALUES: "foliplus-slider-values",
   SLIDER_LABEL_HIDDEN: "foliplus-slider-label-hidden",
-  SLIDER_BUBBLE: "foliplus-slider-bubble",
   /** Shared form-row layout classes (also used by HeatmapControl template). */
   FORM_ROW: "foliplus-form-row",
   FORM_LABEL: "foliplus-form-label",

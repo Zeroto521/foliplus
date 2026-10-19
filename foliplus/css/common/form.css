@@ -208,7 +208,7 @@
 }
 
 /* ── Opacity control (LayerControl style drawer) ──
-   The row is the shared slider component (common/slider.css) plus the shared
-   number field, so it is level with the heatmap's border row and needs no slider
-   rules of its own. The `.foliplus-style-opacity-*` classes are hooks for
-   behavior and tests, not a second set of geometry. */
+   The row is the shared wa-slider skin (common/wa.css) with foliplus-owned
+   overlay dots and end numbers, so it is level with the heatmap's border row
+   and needs no slider rules of its own. The `.foliplus-style-opacity-*`
+   classes are hooks for behavior and tests, not a second set of geometry. */

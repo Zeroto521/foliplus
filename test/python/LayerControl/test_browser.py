@@ -4903,10 +4903,10 @@ class TestLayerControlBrowser:
     def test_zoom_range_current_label_hidden_at_end(self, browser, tmp_path):
         """The current-value label is hidden when the marker would overlap an end.
 
-        `.foliplus-slider-label-hidden` was moved from common/slider.css into
-        LayerControl/style.css (zoom-range block) because the row is its only
-        consumer now. This guards that the class still resolves to
-        `visibility: hidden` on the current-value span.
+        `.foliplus-slider-label-hidden` lives in LayerControl/style.css
+        (zoom-range block) because the row is its only consumer. This guards
+        that the class still resolves to `visibility: hidden` on the
+        current-value span.
         """
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
             panel_ready(page)
