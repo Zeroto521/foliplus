@@ -4910,9 +4910,7 @@ class TestLayerControlBrowser:
         """
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
             panel_ready(page)
-            result = page.evaluate(
-                _js("LayerControl/zoom_range_current_label_hidden")
-            )
+            result = page.evaluate(_js("LayerControl/zoom_range_current_label_hidden"))
             assert result is not None, result
             assert result.get("error") is None, f"setup failed: {result}"
             # At the map's min zoom the marker sits at 0% of the rail, inside
@@ -4939,9 +4937,7 @@ class TestLayerControlBrowser:
         report_dir.mkdir(exist_ok=True)
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
             panel_ready(page)
-            result = page.evaluate(
-                _js("LayerControl/wa_slider_measurement")
-            )
+            result = page.evaluate(_js("LayerControl/wa_slider_measurement"))
             assert result is not None, result
             assert result.get("error") is None, f"setup failed: {result}"
 
@@ -4992,8 +4988,15 @@ class TestLayerControlBrowser:
             lines = ["# wa-slider shadow computed-style measurement\n"]
             for row, key in [("Opacity", "opacity"), ("Zoom-range", "zoom")]:
                 prefix = key.lower()
-                for part in ("Track", "Thumb", "Thumbs", "Indicator",
-                             "Tooltip", "Markers", "HostVars"):
+                for part in (
+                    "Track",
+                    "Thumb",
+                    "Thumbs",
+                    "Indicator",
+                    "Tooltip",
+                    "Markers",
+                    "HostVars",
+                ):
                     k = prefix + part
                     if k in result:
                         lines.append(f"\n## {row} — {part.lower()}\n")
@@ -5022,14 +5025,15 @@ class TestLayerControlBrowser:
                 if "error" in hover_diag:
                     lines.append(f"- Hover CSS check error: {hover_diag['error']}")
                 else:
-                    lines.append(f"- Hover/active CSS rules found: {hover_diag.get('hoverRulesFound', 0)}")
+                    lines.append(
+                        f"- Hover/active CSS rules found: {hover_diag.get('hoverRulesFound', 0)}"
+                    )
                     for rule in hover_diag.get("hoverRules", []):
                         lines.append(f"  - {rule[:120]}")
 
             report_path = report_dir / "measurement-report.md"
             report_path.write_text("\n".join(lines), encoding="utf-8")
             assert not errors, f"JS errors: {errors}"
-
 
     def test_zoom_range_native_tilelayer(self, browser, tmp_path):
         """Native carrier: GridLayer minZoom/maxZoom hides tiles on reset."""
