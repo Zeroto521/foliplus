@@ -43,7 +43,7 @@ async () => {
       `.foliplus-layer-item[data-layer-id="${id}"] li[data-action="style-layer"]`,
     )
     .click();
-  const range = document.querySelector(".foliplus-style-opacity-range");
+  const range = document.querySelector(".foliplus-style-opacity-slider");
   if (!range) {
     return {
       error: "opacity slider not found",

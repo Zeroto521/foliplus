@@ -33,6 +33,17 @@
     /* Current-zoom marker: a thin vertical line overlaid on the wa-slider,
        positioned by JS at the map's current zoom level. The label rides
        under the line, hidden when it would sit on a limit. */
+    .foliplus-style-zoom-range-current-value {
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      margin-top: var(--foliplus-size-2);
+      color: var(--foliplus-text-primary);
+      font-size: var(--foliplus-font-size-sm);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
     .foliplus-slider-label-hidden {
       visibility: hidden;
     }

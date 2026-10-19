@@ -82,4 +82,19 @@
 
   /* ── Tooltip (drag bubble) ──────────────────────────────────────
      Dark pill with an arrow, matching the retired slider-bubble. */
+  wa-slider::part(tooltip__tooltip) {
+    background-color: var(--foliplus-text-primary);
+    color: var(--foliplus-neutral-0);
+    border-radius: var(--foliplus-radius-sm);
+    font-size: var(--foliplus-font-size-sm);
+    padding: var(--foliplus-size-1) var(--foliplus-size-2);
+    pointer-events: none;
+  }
+
+  /* ── Marker (tick marks) ─────────────────────────────────────────
+     Reference-slot tick dots, same visual as the opacity row's end dots. */
+  wa-slider::part(marker) {
+    background-color: var(--foliplus-neutral-500);
+    border-radius: 50%;
+  }
 }

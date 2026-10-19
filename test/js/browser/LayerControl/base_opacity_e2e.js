@@ -30,7 +30,7 @@
 
   const setSlider = id => {
     ui.openStylePanel(id);
-    const range = document.querySelector(".foliplus-style-opacity-range");
+    const range = document.querySelector(".foliplus-style-opacity-slider");
     if (!range) {
       ui.closeStylePanel(false);
       return null;

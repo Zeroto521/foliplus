@@ -19,7 +19,7 @@
   const canvas = pane ? pane.querySelector("canvas.foliplus-canvas-layer") : null;
   // The slider is rebuilt each time the style panel opens, so it reports the
   // value the panel loaded from storage rather than a stale input.
-  const slider = document.querySelector(".foliplus-style-opacity-range");
+  const slider = document.querySelector(".foliplus-style-opacity-slider");
   return {
     id,
     key,

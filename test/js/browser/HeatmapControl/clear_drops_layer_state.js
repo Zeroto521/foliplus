@@ -71,7 +71,7 @@ async () => {
     if (!li || li.getAttribute("disabled")) return "style-disabled";
     li.click();
     await wait(120);
-    const range = document.querySelector(".foliplus-style-opacity-range");
+    const range = document.querySelector(".foliplus-style-opacity-slider");
     if (!range) return "no-slider";
     range.value = "35";
     range.dispatchEvent(new Event("input", { bubbles: true }));

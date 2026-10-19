@@ -54,7 +54,7 @@
 
   const setOpacityViaSlider = id => {
     ui.openStylePanel(id);
-    const range = document.querySelector(".foliplus-style-opacity-range");
+    const range = document.querySelector(".foliplus-style-opacity-slider");
     if (!range) {
       ui.closeStylePanel(false);
       return false;
@@ -212,7 +212,7 @@
 
   // Set opacity to 0.
   ui.openStylePanel("op_annotated");
-  const rangeD = document.querySelector(".foliplus-style-opacity-range");
+  const rangeD = document.querySelector(".foliplus-style-opacity-slider");
   if (rangeD) {
     rangeD.value = "0";
     rangeD.dispatchEvent(new Event("input", { bubbles: true }));
