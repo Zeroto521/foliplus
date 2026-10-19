@@ -4924,6 +4924,45 @@ class TestLayerControlBrowser:
             assert result["atMid"]["visibility"] == "visible", result["atMid"]
             assert not errors, f"JS errors: {errors}"
 
+    def test_wa_slider_shadow_computed_styles(self, browser, tmp_path):
+        """Capture computed styles of wa-slider shadow parts for measurement.
+
+        Writes the results to .foliplus/measurement-report.md so the
+        measured values can be compared against the wa.css declarations.
+        """
+        report_dir = Path(__file__).resolve().parents[3] / ".foliplus"
+        report_dir.mkdir(exist_ok=True)
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            panel_ready(page)
+            result = page.evaluate(
+                _js("LayerControl/wa_slider_measurement")
+            )
+            assert result is not None, result
+            assert result.get("error") is None, f"setup failed: {result}"
+
+            lines = ["# wa-slider shadow computed-style measurement\n"]
+            for row, key in [("Opacity", "opacity"), ("Zoom-range", "zoom")]:
+                prefix = key.lower()
+                for part in ("Track", "Thumb", "Thumbs", "Indicator",
+                             "Tooltip", "Markers", "HostVars"):
+                    k = prefix + part
+                    if k in result:
+                        lines.append(f"\n## {row} — {part.lower()}\n")
+                        lines.append("```json")
+                        lines.append(json.dumps(result[k], indent=2))
+                        lines.append("```")
+            lines.append("\n## Summary\n")
+            ot = result.get("opacityTrack", {})
+            zt = result.get("zoomTrack", {})
+            lines.append(f"- Opacity track border-width: {ot.get('border-width', '?')}")
+            lines.append(f"- Zoom track border-width: {zt.get('border-width', '?')}")
+            lines.append(f"- Opacity markers: {len(result.get('opacityMarkers', []))}")
+            lines.append(f"- Zoom markers: {len(result.get('zoomMarkers', []))}")
+
+            report_path = report_dir / "measurement-report.md"
+            report_path.write_text("\n".join(lines), encoding="utf-8")
+            assert not errors, f"JS errors: {errors}"
+
 
     def test_zoom_range_native_tilelayer(self, browser, tmp_path):
         """Native carrier: GridLayer minZoom/maxZoom hides tiles on reset."""
