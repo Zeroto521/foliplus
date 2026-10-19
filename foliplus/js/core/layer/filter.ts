@@ -3,8 +3,8 @@
 // A layer's filter is a tree of `and | or | atom` nodes, or absent. Absent
 // means "no filtering" and is distinct from an empty `and` (which matches
 // everything). The tree shape supports nested grouping today even though
-// the first renderer (stage 3) only emits flat AND lists — the AST stays
-// fixed so a grouped UI is a new renderer, not a data migration.
+// the first renderer only emits flat AND lists — the AST stays fixed so
+// a grouped UI is a new renderer, not a data migration.
 //
 // No DOM, no Leaflet, no h3 — the evaluator is pure over
 // `{ SnapshotPoint, LayerFilter }`, so it is unit-testable without a
@@ -78,11 +78,15 @@ const matches = (pt: SnapshotPoint, expr: FilterExpr | undefined): boolean => {
 };
 
 /** Apply a filter to a snapshot. `undefined` = no filtering, returns the
- *  source array unchanged; an absent field on any point is false, so a
- *  filter over a snapshot whose points never carried that field returns
- *  an empty array. */
-const select = (snapshot: LayerSnapshot, filter: LayerFilter): SnapshotPoint[] => {
-  if (!filter) return [...snapshot.points];
+ *  snapshot's points array by reference — callers must not mutate it. A
+ *  filter returns a new array of the matching points; an absent field on
+ *  any point is false, so a filter over points that never carried that
+ *  field returns an empty array. */
+const select = (
+  snapshot: LayerSnapshot,
+  filter: LayerFilter,
+): ReadonlyArray<SnapshotPoint> => {
+  if (!filter) return snapshot.points;
   return snapshot.points.filter(p => matches(p, filter));
 };
 
