@@ -14,7 +14,7 @@
 
 ### Fixed
 
-- `LayerControl`: `setVisible` now emits `LAYER_CHANGE` for canvas layers (heatmap / measure / color face), matching native layers — a canvas-only surface has no Leaflet add/remove, so the executor's HIDDEN-class flip is now the single bus event alongside the native branch ([#716](https://github.com/Zeroto521/foliplus/pull/716))
+- `LayerControl`: `setVisible` now emits `LAYER_CHANGE` for canvas layers, matching native layers ([#716](https://github.com/Zeroto521/foliplus/pull/716))
 
 ## [v0.4.1] (2026-10-18)
 
