@@ -16,7 +16,7 @@ const LayerControl = defineControl<LayerController>({
       T: env.T,
       log: env.log,
     });
-    manager.ui = new LayerUI(manager, { T: env.T, _: env._ });
+    manager.ui = new LayerUI(manager, { T: env.T, _: env._, log: env.log });
     return manager;
   },
   buildDOM(this: any) {
