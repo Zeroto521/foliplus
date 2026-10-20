@@ -842,6 +842,47 @@ interface ZArgs {
   base?: number;
 }
 
+/** One point leaf of a layer, with its normalised numeric fields.
+ *
+ *  A marker carries a value in three shapes today — `value` (folium's
+ *  documented contract), `options.value` (the same contract via the
+ *  Leaflet options bag), and a bare `feature.properties.<key>` (GeoJSON's
+ *  standard container). `fields` collapses them to one flat record so
+ *  downstream consumers (aggregation, filtering) never re-branch the
+ *  three cases. When the same key appears in both an explicit contract
+ *  and `feature.properties`, the explicit contract wins; the collision
+ *  is not silent (see `buildLayerSnapshot`).
+ */
+interface SnapshotPoint {
+  readonly lat: number;
+  readonly lng: number;
+  /** The marker, for consumers that need to reuse Leaflet identity. */
+  readonly marker: L.Marker | L.CircleMarker;
+  /** Normalised numeric fields, key → value. Only `typeof v === "number" &&
+   *  Number.isFinite(v)` — NaN / ±Infinity / numeric strings are excluded,
+   *  so a predicate that reads the record never sees a sentinel value. */
+  readonly fields: Readonly<Record<string, number>>;
+}
+
+/** A layer's point leaves, read once and cached alongside the runtime row.
+ *
+ *  Geometry (`points`) and value summaries (`numericFields`, `ranges`)
+ *  are computed in one pass over `walkLeaf`; binning depends on the
+ *  coordinates, filtering only on field values, and every reader of the
+ *  snapshot shares the same single source instead of walking the layer
+ *  again. Consumers that need a per-cell geometric grouping (the
+ *  Heatmap's H3 resolution) bin the snapshot themselves and cache that
+ *  derived view separately.
+ */
+interface LayerSnapshot {
+  /** Every point leaf, deduped by `L.stamp`, in walk order. */
+  readonly points: ReadonlyArray<SnapshotPoint>;
+  /** Numeric field names, first-seen order — the picker's contents. */
+  readonly numericFields: ReadonlyArray<string>;
+  /** Field name → [min, max] over finite values, for slider bounds. */
+  readonly ranges: Readonly<Record<string, readonly [number, number]>>;
+}
+
 export type {
   CreateCanvasAPI,
   CreateCanvasOpts,
@@ -856,10 +897,12 @@ export type {
   LayerKind,
   LayerCapabilities,
   LayerInfo,
+  LayerSnapshot,
   LayerSurface,
   PaneHandle,
   PaneRole,
   PaneSpec,
+  SnapshotPoint,
   PinnableNode,
   Projection,
   RegisterLayerOpts,

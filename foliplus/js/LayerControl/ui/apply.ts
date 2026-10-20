@@ -222,13 +222,22 @@ const sameCarrier = (prev: unknown, curr: unknown): boolean =>
  *  The "none" carrier check is the rule that a slider that writes
  *  nothing must not persist — when the surface declares "none" we skip
  *  the write instead of faking one on a shared carrier.
+ *
+ *  Return value: whether a real state write landed on the carrier. The
+ *  caller (`applyProjection`) emits `LAYER_CHANGE` only when this is
+ *  `true`, so a write that could not land (no layer object, no canvas
+ *  element, value already matching the carrier) never manufactures a
+ *  change notification. `LAYER_CHANGE` is the semantic replacement for
+ *  Leaflet's native `layeradd`/`layerremove` — canvas-only surfaces
+ *  have no native counterpart, so the executor's write is what puts
+ *  them on the bus alongside native layers.
  */
 const dispatchStateOp = (
   ui: LayerUI,
   layerInfo: LayerInfo,
   op: StateOp,
   repaintMode: "debounce" | "none" = "none",
-): void => {
+): boolean => {
   if (op.type === "visible") {
     const carrier = ui.c.surfaceFor(layerInfo).capabilities.visibility;
     if (carrier === CAP_TIER.NATIVE) {
@@ -241,25 +250,24 @@ const dispatchStateOp = (
         if (op.value !== has) {
           if (op.value) ui.c.map.addLayer(layer);
           else ui.c.map.removeLayer(layer);
-          // Map membership is not registry state: this executor is the only
-          // writer of the add/remove, so it is what puts the change on the bus.
-          // The annotation manager repaints per id on this event, which is
-          // where the native `layeradd`/`layerremove` used to reach it.
-          ui.events.emit(EVENTS.LAYER_CHANGE, {
-            id: layerInfo.id,
-            kind: layerInfo.kind,
-          });
+          return true;
         }
       }
     } else if (carrier === CAP_TIER.PANE) {
       // Canvas HIDDEN class — the carrier for canvas-only surfaces that have
-      // no Leaflet layer to add/remove.
+      // no Leaflet layer to add/remove. The class flip is the write; only a
+      // flip counts as one (a no-op toggle is not a change), which matches
+      // the NATIVE branch's "only write when the value differs" rule.
       const canvas = layerInfo.canvas;
-      if (canvas) canvas.classList.toggle(HIDDEN, !op.value);
+      if (canvas) {
+        const wasHidden = canvas.classList.contains(HIDDEN);
+        canvas.classList.toggle(HIDDEN, !op.value);
+        return wasHidden === op.value;
+      }
     }
     // "none" — no honest write exists; the UI hides the checkbox rather
     // than offering one that lies.
-    return;
+    return false;
   }
   if (op.type === "opacity") {
     if (layerInfo.canvas) {
@@ -303,16 +311,16 @@ const dispatchStateOp = (
         scheduleOpacityRedraw(layerInfo, repaintMode);
       }
       layerInfo.opacity = value;
-      return;
+      return false;
     }
     const carrier = ui.c.surfaceFor(layerInfo).capabilities.opacity;
-    if (carrier === CAP_TIER.NONE) return; // no honest write exists
+    if (carrier === CAP_TIER.NONE) return false; // no honest write exists
     // Snapshot-then-resolve: registry reference wins when populated, the
     // controller's findLayer re-resolves against the live map for a folium
     // layer whose registry reference is still null. Same late-binding
-    // defense as the zoom-range and visible-write paths below.
+    // defense as the visible-write path above.
     const layer = layerInfo.layer ?? ui.c.findLayer(layerInfo);
-    if (!layer) return;
+    if (!layer) return false;
     if (carrier === CAP_TIER.NATIVE) {
       // The layer paints through a setter of its own. `setOpacity`
       // (ImageOverlay) is immediate; `options.opacity` (GridLayer /
@@ -348,7 +356,14 @@ const dispatchStateOp = (
       ui.c.annotation.applyLayerAlpha(layerInfo.id, value);
       layerInfo.opacity = value;
     }
+    return false;
   }
+  // `StateOp` is closed, so reaching this line means a new variant was added
+  // to the union without extending this dispatcher. Throwing — rather than
+  // returning a silent `false` — is what a maintainer wants in that case:
+  // the missing branch is loud, not lost.
+  const exhaustive: never = op;
+  throw ui.log.msg(`unreachable dispatchStateOp type: ${JSON.stringify(exhaustive)}`);
 };
 
 /** Diff the current projection against the last one we wrote, and call
@@ -390,6 +405,12 @@ const applyProjection = (
   if (!ui.c.surfaceFor(layerInfo)) return;
   const next = projectLayer(ui, layerInfo);
   let prev = ui.runtimeStore.getApplied(id);
+
+  // Whether this call is the first projection for this id. Recorded from the
+  // pre-init state of `prev`, because `applyProjection` seeds a baseline
+  // projection into `runtimeStore` on its first run — subsequent calls then
+  // diff against that baseline (see below).
+  const isFirstPass = !prev;
 
   if (!prev) {
     // First pass — the baseline is what the map currently shows, not the
@@ -458,14 +479,23 @@ const applyProjection = (
           ? !layerInfo.canvas.classList.contains(HIDDEN)
           : false
         : false;
+  // 1. Effective-shown — the composite `intent && policy`. Written only
+  //    when the value actually differs from what is on the carrier.
+  //    `dispatchStateOp` returns whether a real write landed; we keep
+  //    that answer on `wroteVisible` because it is what gates the
+  //    `LAYER_CHANGE` bus notification further down (see below) — a
+  //    late-bound layer reference whose `findLayer` still returns null
+  //    must not manufacture a change event nobody can observe.
+  let wroteVisible = false;
   if (authorised && currentShown !== next.effectiveShown) {
-    dispatchStateOp(
+    wroteVisible = dispatchStateOp(
       ui,
       layerInfo,
       { type: "visible", value: next.effectiveShown },
       repaintMode,
     );
   }
+
   // 2. Opacity — independent of zoom/focus. Rewritten whenever the carrier
   //    has moved, not just when the value has.
   if (prev.opacity !== next.opacity || !sameCarrier(prev.carrier, carrierToken)) {
@@ -477,11 +507,56 @@ const applyProjection = (
     );
   }
 
+  // 3. Intent — diff against the *last applied intent*, not the map state.
+  //    `LAYER_CHANGE` rides `effectiveShown = intent && policy`, so a user
+  //    who checks a box for a layer whose zoom range excludes the current
+  //    zoom changes nothing observable on the map — no CHANGE event.
+  //    `LAYER_INTENT_CHANGE` is the separate channel for that user-only
+  //    signal: subscribers that mirror the user's checkbox state in their
+  //    own UI (an external toggle, a mode badge, a slider) listen to it
+  //    rather than re-reading the registry after every interaction.
+  //
+  //    First pass is skipped (no `prev` to diff against, and a first paint
+  //    is not a user action). `prev.intent.visible` is the value we last
+  //    recorded — updated by the `setApplied` write below — so a repeated
+  //    call with the same intent is a no-op.
+  const intentMoved = !isFirstPass && prev.intent?.visible !== next.intent.visible;
+
+  // 4. Submit the new baseline *before* notifying. Reentrant callers — a
+  //    subscriber that calls `applyProjection` synchronously during one of
+  //    the emits below — diff against the value they read from
+  //    `runtimeStore.getApplied`, and that value is already fresh by the
+  //    time they look, so a same-value write-back cannot re-trigger the
+  //    same notification, and a reverse correction lands its own baseline
+  //    without being clobbered by an outer commit after it returns. There
+  //    is no second `setApplied` at the bottom of this function.
   ui.runtimeStore.setApplied(id, {
     ...next,
     effectiveShown: next.effectiveShown,
     carrier: carrierToken,
   });
+
+  // 5. Bus notifications. Order: `LAYER_CHANGE` first (the map-facing
+  //    flip subscribers most often react to), then `LAYER_INTENT_CHANGE`
+  //    (the user-only channel for policy-gated intent movements).
+  //    Gating `LAYER_CHANGE` on `wroteVisible` — not on the pre-emit
+  //    `currentShown !== next.effectiveShown` diff — is what keeps a
+  //    missing layer reference or a value that did not actually flip
+  //    from manufacturing a change event nobody can observe.
+  if (wroteVisible) {
+    ui.events.emit(EVENTS.LAYER_CHANGE, {
+      id: layerInfo.id,
+      kind: layerInfo.kind,
+    });
+  }
+
+  if (intentMoved) {
+    ui.events.emit(EVENTS.LAYER_INTENT_CHANGE, {
+      id: layerInfo.id,
+      kind: layerInfo.kind,
+      intent: { visible: next.intent.visible },
+    });
+  }
 };
 
 /** Diff every layer's projection. Called on attach, on late

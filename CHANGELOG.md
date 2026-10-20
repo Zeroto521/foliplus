@@ -2,11 +2,21 @@
 
 ## [Unreleased]
 
+### Added
+
+- `core/layer`: snapshot axis on `LayerRuntimeStore` — a layer's points, numeric fields, and value ranges are built once and cached alongside the fields cache ([#715](https://github.com/Zeroto521/foliplus/pull/715))
+- `core/layer`: filter AST (`and` / `or` / `atom`) and pure evaluator over `SnapshotPoint`, so filtering is a tree walk rather than a string parse ([#715](https://github.com/Zeroto521/foliplus/pull/715))
+- `HeatmapControl`: `aggregateData` is now a wrapper over `binPoints` (H3 geometry only) and `aggregateBins` (pure arithmetic), so a filter change can skip the geometry step ([#715](https://github.com/Zeroto521/foliplus/pull/715))
+
 ### Changed
 
 - `LayerControl`: opacity row and zoom-range row now use the Web Awesome slider component (`<wa-slider>`) instead of a custom dual-`<input type=range>` implementation — the library owns the thumb, rail, fill, tooltip, and clamp logic; foliplus keeps only the end dots, the scale numbers, and the "where am I" marker, drawn on one box that spans exactly the rail so they land on the rail's ends rather than the row's edges ([#706](https://github.com/Zeroto521/foliplus/pull/706))
 - `LayerControl`: the retired `slider.css` is deleted; the shared wa-slider skin (`common/wa.css`) reads all geometry from foliplus tokens via `--wa-*` → `--foliplus-*` bridge mappings, and the foliplus-owned box, marks and scale numbers live next to it as `common/slider.css` so a future slider widget inherits the same readout ([#706](https://github.com/Zeroto521/foliplus/pull/706))
 - `CSS`: design tokens split surface from on-accent and expose a focus color, so a theme can invert one without the other ([#714](https://github.com/Zeroto521/foliplus/pull/714))
+
+### Fixed
+
+- `LayerControl`: layer visibility events are consistent and reentrancy-safe — `LAYER_CHANGE` tracks the actual flip, `LAYER_INTENT_CHANGE` the user's choice, and a subscriber's write-back never loops ([#716](https://github.com/Zeroto521/foliplus/pull/716), [#719](https://github.com/Zeroto521/foliplus/pull/719), [#720](https://github.com/Zeroto521/foliplus/pull/720))
 
 ## [v0.4.1] (2026-10-18)
 

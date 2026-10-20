@@ -7,8 +7,27 @@
 const EVENTS = {
   /** The registry or map membership changed for one layer: registered,
    *  unregistered, reordered, toggled on/off, or re-attached. Carries the
-   *  layer's id and kind so subscribers never re-query the registry. */
+   *  layer's id and kind so subscribers never re-query the registry.
+   *
+   *  Semantic scope: this is *effective* visibility — the layer's actual
+   *  map-membership flip after policy (focus, zoom range) has been applied.
+   *  The user's own intent is a separate channel; see LAYER_INTENT_CHANGE. */
   LAYER_CHANGE: "foliplus:layer:change",
+  /** The user's own visibility choice changed (`intent.visible`),
+   *  independent of whether the layer's effective map-membership also
+   *  changed. Policy (zoom range, focus) may gate the effective flip, so
+   *  a user who checks a box while the layer sits outside its zoom range
+   *  fires this event without a LAYER_CHANGE — subscribers that mirror
+   *  the user's intent in their own UI (checkboxes, sliders, controls)
+   *  ride this channel, not LAYER_CHANGE. Fires from the executor's
+   *  intent diff, so every write path (API, panel checkbox, bulk toggle)
+   *  reaches the bus through one point.
+   *
+   *  Extensibility rule for future per-dimension intent events (opacity,
+   *  zoom range, style): a new public event must follow this same shape
+   *  — independent intent channel, semantic separation from LAYER_CHANGE,
+   *  emit only when the user's stored choice actually moved. */
+  LAYER_INTENT_CHANGE: "foliplus:layer:intent-change",
   /** A layer left the registry through the generic teardown
    *  (`unregisterLayer`): the id is gone from the registry but stays
    *  registerable — nothing about a teardown says the user's stored state is

@@ -3,6 +3,7 @@ import { GROUP } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { LayerController } from "#foliplus/LayerControl/controller.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
+import { createLogger } from "#common/log.js";
 
 /** Translator env for LayerUI constructed in tests — mirrors the identity
  *  translators the old NO_OP_ENV default provided, so `ui.T("key")` reads
@@ -10,6 +11,7 @@ import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 export const TEST_ENV = {
   T: (key: string) => `LayerControl.${key}`,
   _: (key: string) => key,
+  log: createLogger("LayerControl"),
 };
 
 class TileLayer {

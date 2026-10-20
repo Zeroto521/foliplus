@@ -9,16 +9,12 @@
 // Intent load/build/mark/unmark/drop sink into `ui.intentStore`; the
 // exported names stay as thin delegates so callers and test spies are
 // unchanged.
-import { createLogger } from "#common/log.js";
 import * as CONST from "../const.js";
 import type { LayerOverride } from "../type.js";
 import { applyProjection, applyProjectionAll } from "./apply.js";
 import { applyNameProjection } from "./context.js";
 import { INTENT, LIVE, getIntent } from "./intent.js";
 import type { LayerUI } from "./surface.js";
-
-// CONFIG is a free variable from the IIFE template wrapper (see BaseControl._template).
-const log = createLogger(CONFIG.name);
 
 /** Load every persisted dimension in one call. */
 const loadPersistedState = (ui: LayerUI) => {
@@ -85,7 +81,7 @@ const saveState = (ui: LayerUI) => {
  */
 const markOverride = (ui: LayerUI, id: string, override: LayerOverride) => {
   if (!hasLiveValue(ui, id, override)) {
-    log.warn(
+    ui.log.warn(
       `markOverride("${override}", "${id}"): no stored value for this dimension, ` +
         `marker not recorded — set the value before marking`,
     );

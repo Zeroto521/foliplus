@@ -71,11 +71,13 @@ export type {
   LayerCapabilities,
   LayerDimKey,
   LayerInfo,
+  LayerSnapshot,
   LayerKind,
   PaneHandle,
   PaneRole,
   PaneSpec,
   PinnableNode,
   RegisterLayerOpts,
+  SnapshotPoint,
   ZArgs,
 } from "./type.js";
