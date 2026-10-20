@@ -406,6 +406,12 @@ const applyProjection = (
   const next = projectLayer(ui, layerInfo);
   let prev = ui.runtimeStore.getApplied(id);
 
+  // Whether this call is the first projection for this id. Recorded from the
+  // pre-init state of `prev`, because `applyProjection` seeds a baseline
+  // projection into `runtimeStore` on its first run — subsequent calls then
+  // diff against that baseline (see below).
+  const isFirstPass = !prev;
+
   if (!prev) {
     // First pass — the baseline is what the map currently shows, not the
     // author's declared default. A layer that hasn't been added to the map
@@ -495,7 +501,36 @@ const applyProjection = (
       });
     }
   }
-  // 2. Opacity — independent of zoom/focus. Rewritten whenever the carrier
+  // 2. User intent — independent of the effective flip above.
+  //
+  // `LAYER_CHANGE` rides `effectiveShown = intent && policy`, so a user
+  // who checks a box for a layer whose zoom range excludes the current
+  // zoom changes nothing observable on the map — no CHANGE event.
+  // `LAYER_INTENT_CHANGE` is the separate channel for that user-only
+  // signal: subscribers that mirror the user's checkbox state in their
+  // own UI (an external toggle, a mode badge, a slider) listen to it
+  // rather than re-reading the registry after every interaction.
+  //
+  // Diffed against the *last applied intent*, not against the map state:
+  // on a policy-gated flip (zoomRange excludes), the effective value is
+  // unchanged but the user's stored choice has moved, and that movement
+  // is exactly what this event carries. Same id-payload shape as
+  // LAYER_CHANGE plus the resolved `intent.visible` so the subscriber
+  // does not have to round-trip through the registry.
+  //
+  // First pass is skipped (no `prev` to diff against, and a first paint
+  // is not a user action). `prev.intent.visible` is the value we last
+  // recorded — see the `setApplied` write at the bottom of this
+  // function — so a repeated call with the same intent is a no-op.
+  if (!isFirstPass && prev.intent?.visible !== next.intent.visible) {
+    ui.events.emit(EVENTS.LAYER_INTENT_CHANGE, {
+      id: layerInfo.id,
+      kind: layerInfo.kind,
+      intent: { visible: next.intent.visible },
+    });
+  }
+
+  // 3. Opacity — independent of zoom/focus. Rewritten whenever the carrier
   //    has moved, not just when the value has.
   if (prev.opacity !== next.opacity || !sameCarrier(prev.carrier, carrierToken)) {
     dispatchStateOp(

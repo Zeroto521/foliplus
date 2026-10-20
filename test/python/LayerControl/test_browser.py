@@ -2624,6 +2624,67 @@ class TestLayerControlBrowser:
             # Re-hide flips the class again: still one event per flip.
             assert result["eventsAfterSecondFalse"] == 3, result
 
+    def test_setvisible_out_of_zoom_range_fires_intent_not_change(
+        self, browser, tmp_path
+    ):
+        """A setVisible(true) that policy gates fires LAYER_INTENT_CHANGE only.
+
+        User-reported boundary: a layer with a stored zoom range that
+        excludes the current map zoom is policy-hidden. Flipping the
+        user's checkbox changes the stored intent but not the effective
+        map membership — the zoom-range policy still blocks it.
+
+        `LAYER_CHANGE` rides the effective flip (`intent && policy`), so
+        a policy-gated flip fires nothing on that channel. External
+        controls that mirror the user's checkbox state in their own UI
+        (a cycling slider, a mode badge) would never hear the movement
+        and would desync from the panel. `LAYER_INTENT_CHANGE` is the
+        separate channel for that user-only signal.
+
+        This is the exact boundary the executor's effective-only emit
+        could not see: the LAYER_CHANGE emission is gated on
+        `wrote === true`, and a policy-gated flip writes nothing to
+        the map.
+        """
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            panel_ready(page)
+            result = page.evaluate(
+                _js("LayerControl/intent_change_gated_by_zoom_range")
+            )
+            assert result is not None, result
+            assert result.get("error") is None, f"setup failed: {result}"
+            assert not errors, f"JS errors: {errors}"
+
+            # Precondition: the map is at zoom 12, the stored range is
+            # [15, 18], and setVisible(false) recorded a false intent
+            # while the layer was already policy-hidden.
+            assert result["zoom"] == 12, result
+            assert result["range"] == [15, 18], result
+            assert result["beforeShow"]["intentVisible"] is False, result
+            assert result["beforeShow"]["onMap"] is False, result
+            assert result["ok"] is True, result
+
+            # After setVisible(true): the stored intent flipped, the
+            # checkbox the panel shows is checked, but the layer never
+            # entered the map — the zoom-range policy still gates it.
+            assert result["afterShow"]["intentVisible"] is True, result
+            assert result["afterShow"]["onMap"] is False, result
+
+            # Only one LAYER_INTENT_CHANGE for this layer, carrying the
+            # fresh intent the user just recorded.
+            assert result["intentCount"] == 1, result
+            assert result["intentPayloads"] == [
+                {
+                    "id": "__test_intent_gated__",
+                    "kind": "vector",
+                    "intent": {"visible": True},
+                }
+            ], result
+
+            # No LAYER_CHANGE on the effective channel — the layer
+            # stayed off the map throughout the setVisible(true) call.
+            assert result["changeCount"] == 0, result
+
     def test_register_re_register_preserves_fields(self, browser, tmp_path):
         """A partial re-register never drops previously registered fields.
 

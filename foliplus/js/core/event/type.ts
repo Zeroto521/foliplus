@@ -14,8 +14,20 @@ interface LayerChangePayload {
   kind: LayerKind;
 }
 
+/** The user's visibility choice moved. Payload carries the fresh intent
+ *  so a subscriber that mirrors the choice (checkbox state, external
+ *  slider, mode badge) does not have to round-trip through the registry
+ *  to read what the user just set. Same id-only carrier shape as
+ *  LAYER_CHANGE — this one additionally carries the resolved value. */
+interface LayerIntentChangePayload {
+  id: string;
+  kind: LayerKind;
+  intent: { visible: boolean };
+}
+
 interface EventPayloadMap {
   [EVENTS.LAYER_CHANGE]: LayerChangePayload;
+  [EVENTS.LAYER_INTENT_CHANGE]: LayerIntentChangePayload;
   [EVENTS.LAYER_REMOVED]: { id: string };
   [EVENTS.LAYER_DELETED]: { id: string };
   [EVENTS.MODE_CHANGE]: { component: string; mode: string | null };
