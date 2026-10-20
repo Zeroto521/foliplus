@@ -14,7 +14,7 @@
 
 ### Fixed
 
-- `LayerControl`: `setVisible` now emits `LAYER_CHANGE` for canvas layers, matching native layers ([#716](https://github.com/Zeroto521/foliplus/pull/716))
+- `LayerControl`: visibility events are consistent for canvas and native layers — `LAYER_CHANGE` rides the actual flip, and new `LAYER_INTENT_CHANGE` carries the user's intent even when a zoom range hides the layer ([#716](https://github.com/Zeroto521/foliplus/pull/716), [#719](https://github.com/Zeroto521/foliplus/pull/719))
 
 ## [v0.4.1] (2026-10-18)
 

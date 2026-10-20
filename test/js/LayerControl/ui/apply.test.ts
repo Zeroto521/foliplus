@@ -820,6 +820,180 @@ describe("executor: carrier dispatch", () => {
     });
   });
 
+  describe("LAYER_INTENT_CHANGE from applyProjection", () => {
+    // `LAYER_CHANGE` rides the effective flip (intent && policy), so a
+    // user-only intent movement gated by zoomRange never reaches it.
+    // `LAYER_INTENT_CHANGE` is the separate channel for that user-only
+    // signal — subscribers that mirror the user's checkbox state in
+    // their own UI listen to it rather than re-reading the registry.
+    //
+    // Semantic matrix (intent / effective flip):
+    //   intent moved + effective moved → INTENT + CHANGE
+    //   intent moved + effective same  → INTENT only (policy-gated)
+    //   intent same  + effective moved → CHANGE only (zoom sweep)
+    //   intent same  + effective same  → neither
+    //   first projection               → neither (no prev to diff)
+
+    it("intent flip with an effective flip fires INTENT and CHANGE", () => {
+      const canvas = document.createElement("canvas");
+      const { ui, manager } = boot([
+        { id: "ie-both", name: "IE-Both", group: "overlay", canvas },
+      ]);
+      ui.runtimeStore.setAuthorVisible("ie-both", true);
+      applyProjection(ui, "ie-both");
+      expect(canvas.classList.contains(HIDDEN)).toBe(false);
+
+      const intentSeen: Array<{
+        id: string;
+        kind: string;
+        intent: { visible: boolean };
+      }> = [];
+      const changeSeen: Array<{ id: string; kind: string }> = [];
+      manager.events.on(EVENTS.LAYER_INTENT_CHANGE, payload =>
+        intentSeen.push(
+          payload as {
+            id: string;
+            kind: string;
+            intent: { visible: boolean };
+          },
+        ),
+      );
+      manager.events.on(EVENTS.LAYER_CHANGE, payload =>
+        changeSeen.push(payload as { id: string; kind: string }),
+      );
+
+      setIntent(ui, "ie-both", "visible", false);
+      applyProjection(ui, "ie-both");
+
+      expect(intentSeen).toEqual([
+        { id: "ie-both", kind: "canvas", intent: { visible: false } },
+      ]);
+      expect(changeSeen).toEqual([{ id: "ie-both", kind: "canvas" }]);
+      expect(canvas.classList.contains(HIDDEN)).toBe(true);
+    });
+
+    it("intent flip gated by zoomRange fires INTENT only, not CHANGE", () => {
+      // The core policy-gated case: intent moves but the effective
+      // visibility is already off (range excludes the current zoom),
+      // so the executor has no map-membership write to notify of.
+      // Only the user-only channel fires — external UIs reading INTENT
+      // see the checkbox movement even though the layer never appears.
+      const canvas = document.createElement("canvas");
+      const { ui, manager } = boot([
+        { id: "ie-oor", name: "IE-OOR", group: "overlay", canvas },
+      ]);
+      ui.runtimeStore.setAuthorVisible("ie-oor", true);
+      // Push the range entirely above the current zoom (mock returns 5):
+      // the layer starts hidden from the start, and stays hidden no
+      // matter what the user's checkbox says.
+      setIntent(ui, "ie-oor", "zoomRange", [15, 18]);
+      ui.intentStore.seedProvenance("ie-oor", ["zoomRange"]);
+      // Establish a false intent baseline first, so the second apply
+      // below can exercise a real intent flip gated by the range.
+      setIntent(ui, "ie-oor", "visible", false);
+      applyProjection(ui, "ie-oor");
+      expect(canvas.classList.contains(HIDDEN)).toBe(true);
+
+      const intentSeen: Array<{ intent: { visible: boolean } }> = [];
+      const changeSeen: unknown[] = [];
+      manager.events.on(EVENTS.LAYER_INTENT_CHANGE, payload =>
+        intentSeen.push(payload as { intent: { visible: boolean } }),
+      );
+      manager.events.on(EVENTS.LAYER_CHANGE, payload => changeSeen.push(payload));
+
+      // User checks the box. Intent flips false → true; policy keeps the
+      // layer off the map, so no effective change, no LAYER_CHANGE.
+      setIntent(ui, "ie-oor", "visible", true);
+      applyProjection(ui, "ie-oor");
+
+      expect(intentSeen).toEqual([
+        { id: "ie-oor", kind: "canvas", intent: { visible: true } },
+      ]);
+      expect(changeSeen).toEqual([]);
+      expect(canvas.classList.contains(HIDDEN)).toBe(true);
+    });
+
+    it("effective flip without intent change fires CHANGE only, not INTENT", () => {
+      // A zoom sweep that pushes a layer out of its range moves
+      // effectiveShown without touching the user's stored intent —
+      // the executor's one policy-gated path. Only LAYER_CHANGE fires.
+      const layer = { options: {} } as L.Layer;
+      const onMap = { current: false };
+      const { ui, manager, map } = boot([
+        { id: "ie-oom", name: "IE-OOM", group: "overlay", layer },
+      ]);
+      ui.runtimeStore.setAuthorVisible("ie-oom", true);
+      map.hasLayer = vi.fn((l: L.Layer) => onMap.current && l === layer);
+      map.addLayer = vi.fn(() => {
+        onMap.current = true;
+      });
+      map.removeLayer = vi.fn(() => {
+        onMap.current = false;
+      });
+      applyProjection(ui, "ie-oom");
+      expect(onMap.current).toBe(true);
+
+      const intentSeen: unknown[] = [];
+      const changeSeen: Array<{ id: string; kind: string }> = [];
+      manager.events.on(EVENTS.LAYER_INTENT_CHANGE, payload =>
+        intentSeen.push(payload),
+      );
+      manager.events.on(EVENTS.LAYER_CHANGE, payload =>
+        changeSeen.push(payload as { id: string; kind: string }),
+      );
+
+      setIntent(ui, "ie-oom", "zoomRange", [0, 1]);
+      ui.intentStore.seedProvenance("ie-oom", ["zoomRange"]);
+      applyProjectionAll(ui);
+
+      expect(onMap.current).toBe(false);
+      expect(changeSeen).toEqual([{ id: "ie-oom", kind: "vector" }]);
+      expect(intentSeen).toEqual([]);
+    });
+
+    it("a repeated applyProjection with the same intent fires neither event", () => {
+      const canvas = document.createElement("canvas");
+      const { ui, manager } = boot([
+        { id: "ie-nochange", name: "IE-NoChange", group: "overlay", canvas },
+      ]);
+      ui.runtimeStore.setAuthorVisible("ie-nochange", true);
+      applyProjection(ui, "ie-nochange");
+
+      const intentSpy = vi.fn();
+      const changeSpy = vi.fn();
+      manager.events.on(EVENTS.LAYER_INTENT_CHANGE, intentSpy);
+      manager.events.on(EVENTS.LAYER_CHANGE, changeSpy);
+
+      applyProjection(ui, "ie-nochange");
+      applyProjection(ui, "ie-nochange");
+
+      expect(intentSpy).not.toHaveBeenCalled();
+      expect(changeSpy).not.toHaveBeenCalled();
+    });
+
+    it("the first projection records a baseline without emitting", () => {
+      // First pass has no `prev` to diff against — nothing to say has
+      // "changed". Recording the baseline is a projection, not a
+      // user action.
+      const canvas = document.createElement("canvas");
+      const { ui, manager } = boot([
+        { id: "ie-first", name: "IE-First", group: "overlay", canvas },
+      ]);
+      ui.runtimeStore.setAuthorVisible("ie-first", true);
+      ui.runtimeStore.deleteApplied("ie-first");
+
+      const intentSpy = vi.fn();
+      const changeSpy = vi.fn();
+      manager.events.on(EVENTS.LAYER_INTENT_CHANGE, intentSpy);
+      manager.events.on(EVENTS.LAYER_CHANGE, changeSpy);
+
+      applyProjection(ui, "ie-first");
+
+      expect(intentSpy).not.toHaveBeenCalled();
+      expect(changeSpy).not.toHaveBeenCalled();
+    });
+  });
+
   it("applyProjection reads the canvas class back as the current carrier state", () => {
     // The executor's `currentShown` comes from the live class, not from
     // runtime `applied` row: a canvas somebody hid out-of-band converges back to
