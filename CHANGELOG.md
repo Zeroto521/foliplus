@@ -14,7 +14,7 @@
 
 ### Fixed
 
-- `LayerControl`: visibility events are consistent for canvas and native layers — `LAYER_CHANGE` rides the actual flip, and new `LAYER_INTENT_CHANGE` carries the user's intent even when a zoom range hides the layer; the applied baseline is committed before notifying subscribers, so a synchronous write-back in a subscriber callback neither recurses nor gets clobbered ([#716](https://github.com/Zeroto521/foliplus/pull/716), [#719](https://github.com/Zeroto521/foliplus/pull/719), [#720](https://github.com/Zeroto521/foliplus/pull/720))
+- `LayerControl`: layer visibility events are consistent and reentrancy-safe — `LAYER_CHANGE` tracks the actual flip, `LAYER_INTENT_CHANGE` the user's choice, and a subscriber's write-back never loops ([#716](https://github.com/Zeroto521/foliplus/pull/716), [#719](https://github.com/Zeroto521/foliplus/pull/719), [#720](https://github.com/Zeroto521/foliplus/pull/720))
 
 ## [v0.4.1] (2026-10-18)
 
