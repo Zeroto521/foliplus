@@ -479,58 +479,24 @@ const applyProjection = (
           ? !layerInfo.canvas.classList.contains(HIDDEN)
           : false
         : false;
+  // 1. Effective-shown — the composite `intent && policy`. Written only
+  //    when the value actually differs from what is on the carrier.
+  //    `dispatchStateOp` returns whether a real write landed; we keep
+  //    that answer on `wroteVisible` because it is what gates the
+  //    `LAYER_CHANGE` bus notification further down (see below) — a
+  //    late-bound layer reference whose `findLayer` still returns null
+  //    must not manufacture a change event nobody can observe.
+  let wroteVisible = false;
   if (authorised && currentShown !== next.effectiveShown) {
-    const wrote = dispatchStateOp(
+    wroteVisible = dispatchStateOp(
       ui,
       layerInfo,
       { type: "visible", value: next.effectiveShown },
       repaintMode,
     );
-    // `LAYER_CHANGE` is the bus notification for a real visibility flip —
-    // not for a projection sweep that found the carrier already matched.
-    // Only the executor's own write lands here; late binding (a layer
-    // whose JS global arrives after this control's IIFE) rides its own
-    // emit through `controller.onLayerAdd`, and focus's pull-back writes
-    // through `focusLayer`'s own emit. Gating on `wrote` keeps a missing
-    // layer reference or a value that did not flip from manufacturing a
-    // change event the subscriber cannot observe.
-    if (wrote) {
-      ui.events.emit(EVENTS.LAYER_CHANGE, {
-        id: layerInfo.id,
-        kind: layerInfo.kind,
-      });
-    }
-  }
-  // 2. User intent — independent of the effective flip above.
-  //
-  // `LAYER_CHANGE` rides `effectiveShown = intent && policy`, so a user
-  // who checks a box for a layer whose zoom range excludes the current
-  // zoom changes nothing observable on the map — no CHANGE event.
-  // `LAYER_INTENT_CHANGE` is the separate channel for that user-only
-  // signal: subscribers that mirror the user's checkbox state in their
-  // own UI (an external toggle, a mode badge, a slider) listen to it
-  // rather than re-reading the registry after every interaction.
-  //
-  // Diffed against the *last applied intent*, not against the map state:
-  // on a policy-gated flip (zoomRange excludes), the effective value is
-  // unchanged but the user's stored choice has moved, and that movement
-  // is exactly what this event carries. Same id-payload shape as
-  // LAYER_CHANGE plus the resolved `intent.visible` so the subscriber
-  // does not have to round-trip through the registry.
-  //
-  // First pass is skipped (no `prev` to diff against, and a first paint
-  // is not a user action). `prev.intent.visible` is the value we last
-  // recorded — see the `setApplied` write at the bottom of this
-  // function — so a repeated call with the same intent is a no-op.
-  if (!isFirstPass && prev.intent?.visible !== next.intent.visible) {
-    ui.events.emit(EVENTS.LAYER_INTENT_CHANGE, {
-      id: layerInfo.id,
-      kind: layerInfo.kind,
-      intent: { visible: next.intent.visible },
-    });
   }
 
-  // 3. Opacity — independent of zoom/focus. Rewritten whenever the carrier
+  // 2. Opacity — independent of zoom/focus. Rewritten whenever the carrier
   //    has moved, not just when the value has.
   if (prev.opacity !== next.opacity || !sameCarrier(prev.carrier, carrierToken)) {
     dispatchStateOp(
@@ -541,11 +507,56 @@ const applyProjection = (
     );
   }
 
+  // 3. Intent — diff against the *last applied intent*, not the map state.
+  //    `LAYER_CHANGE` rides `effectiveShown = intent && policy`, so a user
+  //    who checks a box for a layer whose zoom range excludes the current
+  //    zoom changes nothing observable on the map — no CHANGE event.
+  //    `LAYER_INTENT_CHANGE` is the separate channel for that user-only
+  //    signal: subscribers that mirror the user's checkbox state in their
+  //    own UI (an external toggle, a mode badge, a slider) listen to it
+  //    rather than re-reading the registry after every interaction.
+  //
+  //    First pass is skipped (no `prev` to diff against, and a first paint
+  //    is not a user action). `prev.intent.visible` is the value we last
+  //    recorded — updated by the `setApplied` write below — so a repeated
+  //    call with the same intent is a no-op.
+  const intentMoved = !isFirstPass && prev.intent?.visible !== next.intent.visible;
+
+  // 4. Submit the new baseline *before* notifying. Reentrant callers — a
+  //    subscriber that calls `applyProjection` synchronously during one of
+  //    the emits below — diff against the value they read from
+  //    `runtimeStore.getApplied`, and that value is already fresh by the
+  //    time they look, so a same-value write-back cannot re-trigger the
+  //    same notification, and a reverse correction lands its own baseline
+  //    without being clobbered by an outer commit after it returns. There
+  //    is no second `setApplied` at the bottom of this function.
   ui.runtimeStore.setApplied(id, {
     ...next,
     effectiveShown: next.effectiveShown,
     carrier: carrierToken,
   });
+
+  // 5. Bus notifications. Order: `LAYER_CHANGE` first (the map-facing
+  //    flip subscribers most often react to), then `LAYER_INTENT_CHANGE`
+  //    (the user-only channel for policy-gated intent movements).
+  //    Gating `LAYER_CHANGE` on `wroteVisible` — not on the pre-emit
+  //    `currentShown !== next.effectiveShown` diff — is what keeps a
+  //    missing layer reference or a value that did not actually flip
+  //    from manufacturing a change event nobody can observe.
+  if (wroteVisible) {
+    ui.events.emit(EVENTS.LAYER_CHANGE, {
+      id: layerInfo.id,
+      kind: layerInfo.kind,
+    });
+  }
+
+  if (intentMoved) {
+    ui.events.emit(EVENTS.LAYER_INTENT_CHANGE, {
+      id: layerInfo.id,
+      kind: layerInfo.kind,
+      intent: { visible: next.intent.visible },
+    });
+  }
 };
 
 /** Diff every layer's projection. Called on attach, on late
