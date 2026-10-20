@@ -7,7 +7,7 @@
 - `core/layer`: snapshot axis on `LayerRuntimeStore` — a layer's points, numeric fields, and value ranges are built once and cached alongside the fields cache ([#715](https://github.com/Zeroto521/foliplus/pull/715))
 - `core/layer`: filter AST (`and` / `or` / `atom`) and pure evaluator over `SnapshotPoint`, so filtering is a tree walk rather than a string parse ([#715](https://github.com/Zeroto521/foliplus/pull/715))
 - `HeatmapControl`: `aggregateData` is now a wrapper over `binPoints` (H3 geometry only) and `aggregateBins` (pure arithmetic), so a filter change can skip the geometry step ([#715](https://github.com/Zeroto521/foliplus/pull/715))
-- `LayerControl`: new `LAYER_INTENT_CHANGE` event — the user's own visibility choice now moves on its own channel, so external controls can mirror the checkbox even when a zoom range keeps the layer off the map
+- `LayerControl`: new `LAYER_INTENT_CHANGE` event — the user's own visibility choice now moves on its own channel, so external controls can mirror the checkbox even when a zoom range keeps the layer off the map ([#719](https://github.com/Zeroto521/foliplus/pull/719))
 
 ### Changed
 
