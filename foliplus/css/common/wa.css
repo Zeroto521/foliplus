@@ -50,11 +50,13 @@
   }
 
   /* ── Thumb ──────────────────────────────────────────────────────
-     24px hit box (WCAG 2.5.8) with a 14px painted thumb: white core +
-     accent ring. The ring is a radial-gradient inside the content box
-     — a border would land on the hit box and leave a gap around the dot.
-     background-clip: content-box keeps the painted thumb at the token
-     size rather than the hit box. */
+     A 14px painted thumb: white core + accent ring, drawn with a
+     radial-gradient inside the content box. The library's thumb is
+     both the painted size and the hit size (no transparent padding is
+     possible through --thumb-width), but the interactive target of a
+     slider is the whole track, not the thumb alone — clicking anywhere
+     on the rail positions it — so the hit area comfortably exceeds the
+     WCAG 2.5.8 24px minimum. */
   wa-slider::part(thumb) {
     border: 0;
     background-image: radial-gradient(
@@ -115,12 +117,5 @@
     font-size: var(--foliplus-font-size-sm);
     padding: var(--foliplus-size-1) var(--foliplus-size-2);
     pointer-events: none;
-  }
-
-  /* ── Marker (tick marks) ─────────────────────────────────────────
-     Reference-slot tick dots, same visual as the opacity row's end dots. */
-  wa-slider::part(marker) {
-    background-color: var(--foliplus-neutral-500);
-    border-radius: 50%;
   }
 }

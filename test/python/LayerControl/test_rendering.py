@@ -690,7 +690,7 @@ class TestLayerControlRendering:
         assert "--thumb-width: var(--foliplus-slider-thumb-hit)" in css
         assert "--marker-width: var(--foliplus-slider-dot-size)" in css
         # Part-based skin rules for the track, thumb, indicator, and tooltip.
-        for part in ("track", "thumb", "indicator", "tooltip__tooltip", "marker"):
+        for part in ("track", "thumb", "indicator", "tooltip__tooltip"):
             assert f"::part({part})" in css
         # The bridge from --wa-* to --foliplus-* tokens is in token.css.
         assert "--wa-form-control-activated-color" in tokens
