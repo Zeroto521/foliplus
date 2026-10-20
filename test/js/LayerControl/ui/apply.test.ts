@@ -850,11 +850,13 @@ describe("executor: carrier dispatch", () => {
       }> = [];
       const changeSeen: Array<{ id: string; kind: string }> = [];
       manager.events.on(EVENTS.LAYER_INTENT_CHANGE, payload =>
-        intentSeen.push(payload as {
-          id: string;
-          kind: string;
-          intent: { visible: boolean };
-        }),
+        intentSeen.push(
+          payload as {
+            id: string;
+            kind: string;
+            intent: { visible: boolean };
+          },
+        ),
       );
       manager.events.on(EVENTS.LAYER_CHANGE, payload =>
         changeSeen.push(payload as { id: string; kind: string }),
@@ -897,9 +899,7 @@ describe("executor: carrier dispatch", () => {
       manager.events.on(EVENTS.LAYER_INTENT_CHANGE, payload =>
         intentSeen.push(payload as { intent: { visible: boolean } }),
       );
-      manager.events.on(EVENTS.LAYER_CHANGE, payload =>
-        changeSeen.push(payload),
-      );
+      manager.events.on(EVENTS.LAYER_CHANGE, payload => changeSeen.push(payload));
 
       // User checks the box. Intent flips false → true; policy keeps the
       // layer off the map, so no effective change, no LAYER_CHANGE.
