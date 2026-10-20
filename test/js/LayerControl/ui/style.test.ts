@@ -3642,7 +3642,7 @@ describe("LayerUI style panel — zoom range", () => {
     expect(row).not.toBeNull();
   });
 
-  it("renders the wa-slider with reference ticks and the current marker", () => {
+  it("renders the wa-slider with limit labels and the current marker", () => {
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
     const row = zoomRowOf(panelOf(item)!)!;

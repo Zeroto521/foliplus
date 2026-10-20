@@ -117,10 +117,10 @@ const commitOpacityPct = (
  *  accessible name and value, arrow / Home / End drive it, and the bubble
  *  appears for keyboard input the same as for a drag.
  *
- *  The end dots and numbers are foliplus-owned overlays outside the slider's
- *  shadow boundary — the wa-slider's reference slot is for slider-value ticks
- *  (a semantic the opacity row does not have), so the fixed scale readout lives
- *  here instead. */
+ *  The end dots and numbers are foliplus-owned marks outside the slider's
+ *  shadow boundary. They sit in one box with the rail, so a percentage on
+ *  that box is a position on the rail; the library's own reference slot
+ *  cannot do that — its flex layout cannot centre a label on the rail's end. */
 const buildOpacityRow = (ui: LayerUI, layerId: string): HTMLElement => {
   const pct = opacityToPct(currentOpacity(ui, ui.c.layerRegistry.get(layerId)));
 
@@ -134,17 +134,19 @@ const buildOpacityRow = (ui: LayerUI, layerId: string): HTMLElement => {
     class: CONST.CLASSES.STYLE_OPACITY_SLIDER,
   }) as WaSliderElement;
 
-  // End labels: wa-slider reference-slot spans, laid out by the library's
-  // flex space-between. Foliplus rethemes via wa.css (light DOM, so a plain
-  // descendant selector outranks the library's ::slotted).
-  const refMin = dom.el("span", { slot: "reference" }, "0");
-  const refMax = dom.el("span", { slot: "reference" }, "100");
-  slider.appendChild(refMin);
-  slider.appendChild(refMax);
+  // Scale numbers: foliplus-owned, in the same half-thumb inset box as the
+  // rail, so each label's centre lands on the rail's end. The library's
+  // reference slot lays its spans out with flex space-between, which
+  // right-aligns "100" instead of centring it on the end it belongs to.
+  const values = dom.el(
+    "div",
+    { class: CONST.CLASSES.SLIDER_VALUES },
+    dom.el("span", {}, "0"),
+    dom.el("span", {}, "100"),
+  );
 
   // End dots: white core + ring, accent when the covered span reaches that end.
-  // Foliplus-owned overlays (not wa-slider reference slots), positioned by the
-  // row's own CSS.
+  // Foliplus-owned marks on the shared rail box, positioned by the row's CSS.
   const dot = (suffix: string): HTMLElement =>
     dom.el("span", {
       class:
@@ -156,8 +158,8 @@ const buildOpacityRow = (ui: LayerUI, layerId: string): HTMLElement => {
     "div",
     { class: `${CONST.CLASSES.SLIDER} ${CONST.CLASSES.STYLE_OPACITY_TRACK}` },
     slider,
-    dot("-min"),
-    dot("-max"),
+    dom.el("div", { class: CONST.CLASSES.SLIDER_MARKS }, dot("-min"), dot("-max")),
+    values,
   );
   syncOpacityDots(track, pct);
 

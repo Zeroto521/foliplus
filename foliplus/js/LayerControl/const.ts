@@ -166,8 +166,9 @@ const CLASSES = {
   STYLE_ZOOM_RANGE_VAL: "foliplus-style-zoom-range-value",
   /** The wa-slider element itself (replaced the dual <input type=range>). */
   STYLE_ZOOM_RANGE_SLIDER: "foliplus-style-zoom-range-slider",
-  /** Reference-slot tick labels at the map's zoom limits (wa-slider-owned
-   *  surface, foliplus class for lookup). */
+  /** Limit labels under the map's two zoom bounds. Foliplus-owned spans in
+   *  the row's scale box (not the library's reference slot, whose flex layout
+   *  cannot centre a label on the rail's end). */
   STYLE_ZOOM_RANGE_LIMIT_MIN: "foliplus-style-zoom-range-limit-min",
   STYLE_ZOOM_RANGE_LIMIT_MAX: "foliplus-style-zoom-range-limit-max",
   /** Current-zoom marker: a foliplus-owned overlay div positioned at the
@@ -192,6 +193,9 @@ const CLASSES = {
      These are the foliplus-owned overlay classes the rows layer on top:
      end-dot readouts, value labels, and the label-hidden state. */
   SLIDER: "foliplus-slider",
+  /** Zero-height box spanning exactly the rail: marks placed on it by
+   *  percentage land on the rail without any thumb-size arithmetic. */
+  SLIDER_MARKS: "foliplus-slider-marks",
   SLIDER_DOT: "foliplus-slider-dot",
   SLIDER_DOT_COVERED: "foliplus-slider-dot-covered",
   SLIDER_DOT_MIN: "foliplus-slider-dot-min",

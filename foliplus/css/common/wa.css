@@ -26,8 +26,8 @@
     --thumb-height: var(--foliplus-slider-thumb-hit);
     --marker-width: var(--foliplus-slider-dot-size);
     --marker-height: var(--foliplus-slider-dot-size);
-    /* Inset the rail so the thumb's center reaches the rail's ends —
-       the thumb travels the full row width without poking out. */
+    /* Inset the host from the row's edges by half a thumb so the thumb's
+       travel reaches the rail's ends without the row poking out. */
     margin: 0 calc(var(--foliplus-slider-thumb-size) / 2);
     box-sizing: content-box;
   }
@@ -92,20 +92,6 @@
   wa-slider::part(thumb):focus-visible {
     transform: scale(1.15);
     box-shadow: var(--foliplus-focus-ring);
-  }
-
-  /* ── Reference-slot labels ─────────────────────────────────────────
-     The library lays out reference-slot spans with flex space-between;
-     foliplus only rethemes the text. The spans are light DOM, so a plain
-     descendant selector outranks the library's ::slotted(*) — no !important. */
-  wa-slider::part(references) {
-    margin-block-start: var(--foliplus-space-xs);
-  }
-  wa-slider > [slot="reference"] {
-    font-size: var(--foliplus-font-size-sm);
-    color: var(--foliplus-text-primary);
-    font-variant-numeric: tabular-nums;
-    line-height: var(--foliplus-font-size-md);
   }
 
   /* ── Tooltip (drag bubble) ──────────────────────────────────────

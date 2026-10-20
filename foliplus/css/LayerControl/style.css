@@ -3,8 +3,9 @@
   Floating panel opened from a data layer's ⋮ menu. It IS a foliplus panel —
   the surface carries `foliplus-panel foliplus-row-panel`, the same shell the
   attributes panel gets from `createRowPanel` (common/panel.ts), so anchoring,
-  width, card chrome and header come from one place. This block only sizes the
-  label glyph and states the two controls form.css does not cover.
+  width, card chrome and header come from one place. This block owns the
+  slider rows' chrome: the shared box, the marks drawn on the rail, and the
+  scale's numbers.
   ══════════════════════════════════════════════════════════════════════ */
 .foliplus-layer-ctrl {
   /* LayerControl's SVGs are viewBox-only, so the glyph needs an explicit
@@ -19,20 +20,52 @@
     display: flex;
   }
 
-  /* ── Shared slider overlays ────────────────────────────────────────
-     Readout dots and value labels that both the opacity and zoom-range
-     rows layer over their wa-sliders. The dots sit on the rail ends and
-     the current level; the values label the fixed scale. One set of
-     rules, two rows. */
-  .foliplus-slider-dot {
+  /* ── Shared slider box ─────────────────────────────────────────────
+     Both slider rows (opacity, zoom range) place the <wa-slider> and the
+     foliplus-owned marks on one box: the rail's percentage is the box's
+     percentage, so a dot, a number or the current-zoom marker needs no
+     second coordinate system.
+
+     The library insets its host by half a thumb (common/wa.css) so the
+     thumb's travel reaches the rail's ends. `width: auto` keeps that inset
+     inside the row — a percentage width would add the margins on top and
+     push the rail half a thumb past the row's right edge. */
+  .foliplus-slider {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+    /* Room for a thumb at its held size above the rail. */
+    padding-top: var(--foliplus-space-sm);
+    gap: var(--foliplus-space-xs);
+  }
+  .foliplus-style-opacity-slider,
+  .foliplus-style-zoom-range-slider {
+    display: block;
+    width: auto;
+  }
+
+  /* ── Marks on the rail ────────────────────────────────────────────
+     A zero-height box spanning exactly the rail: its left and right edges
+     are the rail's ends, its vertical origin is the rail's centre line.
+     A mark is placed by percentage alone — no thumb-size arithmetic, and
+     no dependence on the library's internal layout. */
+  .foliplus-slider-marks {
     position: absolute;
-    /* Rail centre: padding-top + border + rail-half. Measured in
-       .foliplus/style.css to match wa-slider::part(track) geometry. */
     top: calc(
-      var(--foliplus-space-sm) +
-        var(--foliplus-border-thin) +
+      var(--foliplus-space-sm) + var(--foliplus-border-thin) +
         var(--foliplus-slider-rail-height) / 2
     );
+    left: calc(var(--foliplus-slider-thumb-size) / 2);
+    right: calc(var(--foliplus-slider-thumb-size) / 2);
+    height: 0;
+    pointer-events: none;
+  }
+
+  .foliplus-slider-dot {
+    position: absolute;
+    top: 0;
     width: var(--foliplus-slider-dot-size);
     height: var(--foliplus-slider-dot-size);
     box-sizing: border-box;
@@ -40,32 +73,59 @@
     border: var(--foliplus-size-2) solid var(--foliplus-neutral-500);
     border-radius: 50%;
     transform: translate(-50%, -50%);
+    /* Coverage is a state the row flips as the value moves; easing keeps
+       the readout from snapping. */
+    transition: border-color var(--foliplus-transition-fast);
   }
   .foliplus-slider-dot-covered {
     border-color: var(--foliplus-accent-primary);
   }
-  .foliplus-slider-dot-min,
-  .foliplus-slider-dot-max {
+  .foliplus-slider-dot-min {
     left: 0;
   }
   .foliplus-slider-dot-max {
     left: 100%;
   }
 
+  /* ── Scale numbers ────────────────────────────────────────────────
+     Under the marks they belong to: the box takes the rail's half-thumb
+     inset, so the first label is centred on 0% and the last on 100% —
+     both are the rail's ends, which is where their dots are. */
+  .foliplus-slider-values {
+    position: relative;
+    margin: 0 calc(var(--foliplus-slider-thumb-size) / 2);
+    height: var(--foliplus-font-size-md);
+    line-height: var(--foliplus-font-size-md);
+    font-size: var(--foliplus-font-size-sm);
+    color: var(--foliplus-text-primary);
+    font-variant-numeric: tabular-nums;
+  }
+  .foliplus-slider-values > span {
+    position: absolute;
+    top: 0;
+    transform: translateX(-50%);
+    white-space: nowrap;
+  }
+  .foliplus-slider-values > span:first-child {
+    left: 0;
+  }
+  .foliplus-slider-values > span:last-child {
+    left: 100%;
+  }
+  /* Dropped when its mark is too close to another to sit under it. */
+  .foliplus-slider-label-hidden {
+    visibility: hidden;
+  }
+
   /* ── Zoom-range row ──────────────────────────────────────────────
      A <wa-slider range> (replaced the dual <input type=range> which
-     deadlocked on overlapping thumbs) with a current-zoom marker overlay.
-     The slider's own thumbs/tooltip come from the library; foliplus adds
-     the "where am I" readout and the out-of-range dimming. */
+     deadlocked on overlapping thumbs) plus foliplus-owned marks: the two
+     map-limit dots and the "where am I" marker. */
   .foliplus-style-zoom-range-row {
-    .foliplus-style-zoom-range-slider {
-      display: block;
-      width: 100%;
-    }
-
     /* Current-zoom marker: reuses .foliplus-slider-dot for geometry and
-       visual; the accent border distinguishes it from the gray end dots.
-       The label rides under the dot, hidden when it would sit on a limit. */
+       visual; the accent border distinguishes it from the gray limit dots.
+       Its label rides under the dot and is hidden when it would sit on a
+       limit. */
     .foliplus-style-zoom-range-current-marker {
       border-color: var(--foliplus-accent-primary);
     }
@@ -79,9 +139,6 @@
       font-size: var(--foliplus-font-size-sm);
       white-space: nowrap;
     }
-    .foliplus-slider-label-hidden {
-      visibility: hidden;
-    }
 
     /* Out of range: the slider dims to signal the current zoom is outside the
        selected range. */
@@ -93,21 +150,7 @@
   }
 
   /* ── Opacity row ──────────────────────────────────────────────────
-     A <wa-slider> single-thumb with end-dot and end-number overlays.
-     The slider's own thumb/rail/fill/tooltip come from the library
-     (skinned via common/wa.css); foliplus adds only the fixed scale
-     readout — the two end dots and the 0/100 numbers. */
-  .foliplus-style-opacity-track {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    padding-top: var(--foliplus-space-sm);
-    gap: var(--foliplus-space-xs);
-  }
-
-  .foliplus-style-opacity-slider {
-    display: block;
-    width: 100%;
-  }
+     A <wa-slider> single-thumb with the shared end dots and end numbers.
+     The rail, thumb, fill and drag bubble are the library's (skinned in
+     common/wa.css); this row contributes no geometry of its own. */
 }

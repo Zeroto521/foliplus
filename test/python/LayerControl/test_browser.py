@@ -4922,6 +4922,38 @@ class TestLayerControlBrowser:
             assert result["atMid"]["visibility"] == "visible", result["atMid"]
             assert not errors, f"JS errors: {errors}"
 
+    def test_slider_marks_sit_on_the_rail(self, browser, tmp_path):
+        """End dots and the current-zoom marker line up with the wa-slider rail.
+
+        The rail lives in the component's shadow root; the marks are foliplus
+        light-DOM overlays placed from the row's own box. If the host's width
+        or inset disagrees with the rail, the dots drift to the row's edges
+        instead of the rail's ends (measured 7 px outside before this gate).
+        """
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            panel_ready(page)
+            result = page.evaluate(_js("LayerControl/wa_slider_marks"))
+            assert result is not None
+            for row in ("opacity", "zoom"):
+                data = result[row]
+                assert data.get("error") is None, (row, data)
+                track = data["track"]
+                # Half a pixel of layout rounding is the only slack allowed.
+                assert abs(data["dotMin"]["cx"] - track["left"]) <= 0.5, (row, data)
+                assert abs(data["dotMax"]["cx"] - track["right"]) <= 0.5, (row, data)
+                assert abs(data["dotMin"]["cy"] - track["cy"]) <= 0.5, (row, data)
+                assert abs(data["dotMax"]["cy"] - track["cy"]) <= 0.5, (row, data)
+                # The numbers are foliplus-owned, not the library's flex box.
+                assert data["referenceSlots"] == 0, (row, data)
+                assert data["values"] == 2, (row, data)
+
+            marker = result["zoom"]["marker"]
+            assert marker is not None, result["zoom"]
+            track = result["zoom"]["track"]
+            assert track["left"] <= marker["cx"] <= track["right"], result["zoom"]
+            assert abs(marker["cy"] - track["cy"]) <= 0.5, result["zoom"]
+            assert not errors, f"JS errors: {errors}"
+
     def test_wa_slider_shadow_computed_styles(self, browser, tmp_path):
         """Capture computed styles of wa-slider shadow parts for measurement.
 
