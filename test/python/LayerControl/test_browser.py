@@ -4986,6 +4986,13 @@ class TestLayerControlBrowser:
 
             # ── Build report ──
             lines = ["# wa-slider shadow computed-style measurement\n"]
+            # Panel-diagnostic section (ancestor visibility chain)
+            if "panelDiag" in result:
+                lines.append("\n## Panel — ancestor visibility chain\n")
+                lines.append("```json")
+                lines.append(json.dumps(result["panelDiag"], indent=2))
+                lines.append("```")
+
             for row, key in [("Opacity", "opacity"), ("Zoom-range", "zoom")]:
                 prefix = key.lower()
                 for part in (
@@ -4996,6 +5003,7 @@ class TestLayerControlBrowser:
                     "Tooltip",
                     "Markers",
                     "HostVars",
+                    "RefDebug",
                     "RefAlign",
                 ):
                     k = prefix + part

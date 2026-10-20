@@ -17,6 +17,15 @@ async () => {
   api.registerLayer({ id: "wa_measure", name: "WaMeasure", layer: geo });
   ctrl.mgr.enforceOrder();
 
+  // Expand the layer control first — the row lives inside
+  // `.foliplus-panel-wrap { display: none }` until `.foliplus-is-expanded`
+  // is applied, and a zero-layout ancestor collapses every rect measured
+  // inside it to 0×0.
+  const layerCtrl = document.querySelector(".foliplus-layer-ctrl");
+  if (layerCtrl && !layerCtrl.classList.contains("foliplus-is-expanded")) {
+    layerCtrl.querySelector(".foliplus-toggle-btn")?.click();
+  }
+
   ui.openStylePanel("wa_measure");
   const panel = document.querySelector(".foliplus-layer-style-panel");
   if (!panel) {
@@ -26,12 +35,23 @@ async () => {
 
   const results = {};
 
+  // The panel is added to the DOM by openStylePanel; the layout engine
+  // hasn't computed its rect yet on this frame. Two forced reflows
+  // (measure then measure) let the browser settle the panel, the
+  // wa-slider inside it, and the shadow references before we read any
+  // getBoundingClientRect() — otherwise refs / thumbs come back 0×0.
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+  await panel.offsetParent; // eslint-disable-line no-unused-expressions
+
   // ── Opacity row ──
   const opacityRow = panel.querySelector(".foliplus-style-opacity-track");
   if (opacityRow) {
     const slider = opacityRow.querySelector("wa-slider");
     if (slider) {
       await slider.updateComplete;
+      // Empty here = the shadow root was unreachable; the block below
+      // overwrites it with the real measurement once it is.
+      results.opacityRefDebug = {};
       const shadow = slider.shadowRoot;
       if (shadow) {
         const cs = el => {
@@ -56,8 +76,9 @@ async () => {
           };
         }
 
-        // 2. Thumb: hover state
-        const thumb = shadow.querySelector('[part="thumb"]');
+        // 2. Thumb: hover state. `part*="thumb"` handles both single-value
+        // ("thumb") and range mode ("thumb thumb-min"/"thumb thumb-max").
+        const thumb = shadow.querySelector('[part*="thumb"]');
         if (thumb) {
           const thumbCs = cs(thumb);
           results.opacityThumb = {
@@ -85,8 +106,38 @@ async () => {
         }
 
         // 4. Reference-slot alignment: label centers vs thumb center
+        // The library marks thumbs with "thumb thumb-min"/"thumb thumb-max"
+        // in range mode and "thumb" in single-value mode, so use a partial
+        // match. Measure the refs container alongside the track/thumb so we
+        // can tell how far the label endpoints sit from where the thumb
+        // actually travels.
         const refs = slider.querySelectorAll('[slot="reference"]');
-        const refThumb = shadow.querySelector('[part="thumb"]');
+        const refThumb = shadow.querySelector('[part*="thumb"]');
+        const refContainer = shadow.querySelector('[part*="reference"]');
+        const trackEl = shadow.querySelector('[part="track"]');
+        const rectOf = el => {
+          if (!el) return null;
+          const r = el.getBoundingClientRect();
+          const cs = window.getComputedStyle(el);
+          return {
+            left: r.left,
+            right: r.right,
+            width: r.width,
+            csWidth: cs.width,
+            boxSizing: cs.boxSizing,
+            position: cs.position,
+          };
+        };
+        results.opacityRefDebug = {
+          refsCount: refs.length,
+          refThumbFound: !!refThumb,
+          refThumbPart: refThumb ? refThumb.getAttribute("part") : null,
+          refsHtml: [...refs].map(r => r.outerHTML.slice(0, 80)),
+          sliderRect: rectOf(slider),
+          trackRect: rectOf(trackEl),
+          refContainerRect: rectOf(refContainer),
+          thumbRect: rectOf(refThumb),
+        };
         if (refs.length >= 2 && refThumb) {
           const refRects = [...refs].map(r => r.getBoundingClientRect());
           const refThumbRect = refThumb.getBoundingClientRect();
