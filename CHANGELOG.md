@@ -10,10 +10,12 @@
 
 ### Changed
 
+- `LayerControl`: the opacity and zoom-range rows are rebuilt on one dependency-free slider primitive (`common/slider.ts`) — single or dual thumb, pointer + keyboard, ARIA, disabled / RTL / description support, a value bubble portaled to `<body>`, and a collapsed range that slides as one instead of dead-locking; the dual `<input type=range>` implementation and its compensation tokens are gone ([#721](https://github.com/Zeroto521/foliplus/pull/721))
 - `CSS`: design tokens split surface from on-accent and expose a focus color, so a theme can invert one without the other ([#714](https://github.com/Zeroto521/foliplus/pull/714))
 
 ### Fixed
 
+- `LayerControl`: the slider value bubble is no longer clipped by the panel, overlapping range thumbs can be dragged apart in both directions, and the opacity row's end dots report coverage from `min` to the thumb (the 0 end is accent) ([#721](https://github.com/Zeroto521/foliplus/pull/721))
 - `LayerControl`: layer visibility events are consistent and reentrancy-safe — `LAYER_CHANGE` tracks the actual flip, `LAYER_INTENT_CHANGE` the user's choice, and a subscriber's write-back never loops ([#716](https://github.com/Zeroto521/foliplus/pull/716), [#719](https://github.com/Zeroto521/foliplus/pull/719), [#720](https://github.com/Zeroto521/foliplus/pull/720))
 
 ## [v0.4.1] (2026-10-18)
