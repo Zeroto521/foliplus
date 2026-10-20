@@ -5,7 +5,7 @@
 ### Changed
 
 - `LayerControl`: opacity row and zoom-range row now use the Web Awesome slider component (`<wa-slider>`) instead of a custom dual-`<input type=range>` implementation — the library owns the thumb, rail, fill, tooltip, and clamp logic; foliplus keeps only the end dots, the scale numbers, and the "where am I" marker, drawn on one box that spans exactly the rail so they land on the rail's ends rather than the row's edges ([#706](https://github.com/Zeroto521/foliplus/pull/706))
-- `LayerControl`: the retired `slider.css` is deleted; the shared wa-slider skin (`common/wa.css`) reads all geometry from foliplus tokens via `--wa-*` → `--foliplus-*` bridge mappings ([#706](https://github.com/Zeroto521/foliplus/pull/706))
+- `LayerControl`: the retired `slider.css` is deleted; the shared wa-slider skin (`common/wa.css`) reads all geometry from foliplus tokens via `--wa-*` → `--foliplus-*` bridge mappings, and the foliplus-owned box, marks and scale numbers live next to it as `common/slider.css` so a future slider widget inherits the same readout ([#706](https://github.com/Zeroto521/foliplus/pull/706))
 - `CSS`: design tokens split surface from on-accent and expose a focus color, so a theme can invert one without the other ([#714](https://github.com/Zeroto521/foliplus/pull/714))
 
 ## [v0.4.1] (2026-10-18)

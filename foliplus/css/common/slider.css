@@ -1,0 +1,112 @@
+@import "token.css";
+
+/* ══════════════════════════════════════════════════════════════════════
+  Slider — foliplus-owned chrome around a slider widget
+
+  The widget (wa-slider, or anything that puts its track in the same place)
+  owns the rail, the thumbs, the fill and the drag bubble. This file owns
+  what the widget cannot: the scale readout. The box, the end dots and the
+  numbers are foliplus light-DOM elements, and they are laid out on *one*
+  box so a percentage means the same thing for all of them.
+
+  Two coordinate spaces, one relationship:
+
+      .foliplus-slider                 the row's control cell
+        <wa-slider>                    inset by half a thumb ⇒ the rail
+        .foliplus-slider-marks         exactly the rail: 0%–100%, centre line
+          .foliplus-slider-dot-*       readout dots on the rail's ends
+        .foliplus-slider-values        same inset ⇒ 0% and 100% are the ends
+          <span>                       the scale's numbers
+
+  The marks and the values are outside the widget's shadow root on purpose:
+  a component's internal layout is not a contract, and its reference slot
+  lays labels out with flex space-between (which cannot centre a number on
+  the rail's end).
+  ══════════════════════════════════════════════════════════════════════ */
+
+.foliplus-slider {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  /* Room for a thumb at its held size above the rail. */
+  padding-top: var(--foliplus-space-sm);
+  gap: var(--foliplus-space-xs);
+}
+
+/* The widget is inset by half a thumb so its thumb's travel reaches the
+   rail's ends. `width: auto` keeps that inset inside the row — a percentage
+   width would add the margins on top and push the rail half a thumb past
+   the row's right edge. */
+.foliplus-slider > wa-slider {
+  display: block;
+  width: auto;
+}
+
+/* ── Marks on the rail ──────────────────────────────────────────────
+   A zero-height box spanning exactly the rail: its left and right edges are
+   the rail's ends, its vertical origin is the rail's centre line. A mark is
+   placed by percentage alone — no thumb-size arithmetic, and no dependence
+   on the widget's internal layout. */
+.foliplus-slider-marks {
+  position: absolute;
+  top: calc(
+    var(--foliplus-space-sm) + var(--foliplus-border-thin) +
+      var(--foliplus-slider-rail-height) / 2
+  );
+  left: calc(var(--foliplus-slider-thumb-size) / 2);
+  right: calc(var(--foliplus-slider-thumb-size) / 2);
+  height: 0;
+  pointer-events: none;
+}
+
+.foliplus-slider-dot {
+  position: absolute;
+  top: 0;
+  width: var(--foliplus-slider-dot-size);
+  height: var(--foliplus-slider-dot-size);
+  box-sizing: border-box;
+  background: var(--foliplus-on-accent);
+  border: var(--foliplus-size-2) solid var(--foliplus-neutral-500);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  /* Coverage is a state the consumer flips as the value moves; easing keeps
+     the readout from snapping. */
+  transition: border-color var(--foliplus-transition-fast);
+}
+.foliplus-slider-dot-covered {
+  border-color: var(--foliplus-accent-primary);
+}
+.foliplus-slider-dot-min {
+  left: 0;
+}
+.foliplus-slider-dot-max {
+  left: 100%;
+}
+
+/* ── Scale numbers ──────────────────────────────────────────────────
+   Under the marks they belong to: the box takes the rail's half-thumb
+   inset, so the first label is centred on 0% and the last on 100% — both
+   are the rail's ends, which is where their dots are. */
+.foliplus-slider-values {
+  position: relative;
+  margin: 0 calc(var(--foliplus-slider-thumb-size) / 2);
+  height: var(--foliplus-font-size-md);
+  line-height: var(--foliplus-font-size-md);
+  font-size: var(--foliplus-font-size-sm);
+  color: var(--foliplus-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+.foliplus-slider-values > span {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+.foliplus-slider-values > span:first-child {
+  left: 0;
+}
+.foliplus-slider-values > span:last-child {
+  left: 100%;
+}
