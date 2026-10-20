@@ -1,7 +1,7 @@
-// Frame-level helpers for the style panel — pure DOM builders and math.
-// No state, no events, no manager calls. Moved verbatim from ui/style.ts
-// Owns the panel's frame pieces: reset footer, and the slider-rail
-// positioning math the opacity / zoom-range rows share.
+// Frame-level helpers for the style panel — pure DOM builders.
+// No state, no events, no manager calls. The rail positioning math that used
+// to live here moved into the slider primitive (common/slider.ts), which owns
+// the track's coordinate space.
 import { dom } from "#common/dom.js";
 import type { LayerUI } from "../surface.js";
 
@@ -25,20 +25,4 @@ const appendResetFooter = (ui: LayerUI, content: HTMLElement): void => {
   );
 };
 
-/** Round to 5 decimals for inline calc() strings; the value is a position,
- *  not a secret. Used by opacity.ts (`opacityFillWidth`) and zoomRange.ts
- *  (`railPos`). */
-const round5 = (n: number): number => Math.round(n * 1e5) / 1e5;
-
-/** Where a percentage along a slider rail lands. Every mark on the rail —
- *  fill ends, the current-level dot and the numbers under them — goes
- *  through this one mapping, and it is the rail's own percentage: the
- *  stylesheet insets the rail by half a handle and lets the inputs reach
- *  that far beyond it, so a handle's center *is* its percentage of the
- *  rail, and every mark that shares the mapping lands on it.
- *
- *  Used by the opacity row (via `opacityFillWidth`) and the zoom-range row
- *  (via `railPos`). */
-const railPos = (pct: number): string => `${round5(pct)}%`;
-
-export { appendResetFooter, railPos, round5 };
+export { appendResetFooter };

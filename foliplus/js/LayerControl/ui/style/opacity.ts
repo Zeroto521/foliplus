@@ -1,23 +1,22 @@
-// Opacity row: single-thumb rail + fill + end dots + live commit pipeline.
-// Moved verbatim from ui/style.ts; the frame helpers it
-// reaches into live in ./frame.ts. `buildOpacityRow` and the sync /
-// commit functions are used both by the delegated drawer (delegated.ts)
-// and the annotation panel (index.ts) — the row is LayerControl-owned,
-// not annotation-owned.
+// Opacity row: the shared slider primitive + the layer's opacity commit path.
+//
+// The row is one <div> handed to Slider. The primitive owns the rail, thumb,
+// fill, end dots and the drag bubble (portaled to <body> so the panel cannot
+// clip it); this module owns what an opacity change *means*.
 //
 // Also registered in the style-panel dimension registry (./registry.ts)
 // as the first per-layer dimension. The descriptor owns intent+persist
-// (`write` / `reset` / `valueSource`); `commitOpacityPct` stays a thin
-// delegate that also syncs the panel rail (UI chrome outside the descriptor).
+// (write / reset / valueSource); commitOpacityPct stays a thin delegate that
+// also syncs the panel rail (UI chrome outside the descriptor).
 import { CAP_TIER, DIM, GROUP } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { dom } from "#common/dom.js";
+import { Slider, sliderOf } from "#common/slider.js";
 import { applyProjection } from "../apply.js";
 import { INTENT } from "../intent.js";
 import { syncNoBasemap } from "../listPanel/visibility.js";
 import { currentOpacity } from "../projection.js";
 import type { LayerUI } from "../surface.js";
-import { round5 } from "./frame.js";
 import {
   getDimension,
   registerDimension,
@@ -26,7 +25,7 @@ import {
 } from "./registry.js";
 
 /** Whether the layer's surface can honestly carry an opacity write. Layers with
- *  `opacity: "none"` (e.g. MarkerCluster, whose cluster icons live in a shared
+ *  opacity: "none" (e.g. MarkerCluster, whose cluster icons live in a shared
  *  pane we do not own) get no opacity row — a slider that writes nothing but
  *  persists the value would fail silently. */
 const layerCanOpacity = (ui: LayerUI, layerId: string): boolean => {
@@ -45,57 +44,14 @@ const opacityToPct = (opacity: number | undefined): number =>
 const clampPct = (raw: number, fallback = 100): number =>
   Number.isFinite(raw) ? Math.max(0, Math.min(100, Math.round(raw))) : fallback;
 
-/** Fill width for the single-thumb opacity rail: the rail's own percentage,
- *  which is where the handle's center sits. */
-const opacityFillWidth = (pct: number): string => `${round5(pct)}%`;
-
-/** Ring color of the opacity row's two end dots. The covered span is always
- *  [0, pct], so the 0 end is red by construction — the layer is painted from
- *  there whatever the value — and 100 is red only when the layer is fully
- *  opaque. Same readout the zoom range's limits give, where a limit is covered
- *  once the range reaches it. */
-const syncOpacityDots = (track: HTMLElement, pct: number): void => {
-  const marks: [string, boolean][] = [
-    ["-min", true],
-    ["-max", pct >= 100],
-  ];
-  for (const [suffix, covered] of marks) {
-    track
-      .querySelector(`.${CONST.CLASSES.STYLE_OPACITY_DOT}${suffix}`)
-      ?.classList.toggle(CONST.CLASSES.SLIDER_DOT_COVERED, covered);
-  }
-};
-
-/** Write one resolved percentage into the slider and its number field.
- *
- *  The slider always takes the value — its thumb has to follow whoever moved
- *  the other control. The number field is left alone while the user is typing
- *  in it, or the caret would jump to the end on every keystroke; `force` is the
- *  commit pass, which rewrites it to the resolved value the same way the shared
- *  number field does on blur. */
-const syncOpacityInputs = (panel: HTMLElement, pct: number): void => {
-  const range = panel.querySelector(
-    `.${CONST.CLASSES.STYLE_OPACITY_RANGE}`,
-  ) as HTMLInputElement;
-  const fill = panel.querySelector(
-    `.${CONST.CLASSES.STYLE_OPACITY_FILL}`,
-  ) as HTMLElement | null;
-  range.value = String(pct);
-  // The fill starts where the thumb's center sits at 0% and ends on it at the
-  // current value — the handle's own travel range, so the two never disagree at
-  // the ends (a rail-relative width leaves a sliver of accent past the handle).
-  if (fill) fill.style.width = opacityFillWidth(pct);
-  syncOpacityDots(panel, pct);
-};
-
-/** Apply a UI percentage to the layer, persist it, and sync the rail.
- *  Thin delegate over the opacity descriptor's `write`: the panel rail
- *  sync stays here because the panel root is a UI argument that does not
- *  belong on the descriptor contract. */
+/** Apply a UI percentage to the layer, persist it, and sync the thumb.
+ *  Thin delegate over the opacity descriptor's write: the panel rail sync
+ *  stays here because the slider host is a UI argument that does not belong
+ *  on the descriptor contract. */
 const commitOpacityPct = (
   ui: LayerUI,
   layerId: string,
-  panel: HTMLElement,
+  host: HTMLElement,
   rawPct: number,
 ): void => {
   const pct = clampPct(rawPct);
@@ -105,73 +61,49 @@ const commitOpacityPct = (
   // Only touch the layer when the value actually moved: a drag revisits steps
   // (and the commit re-sends the live value), and for a plain layer each pass
   // is a sweep over every feature.
-  if (layerInfo.opacity === opacity) return;
-  getDimension(DIM.OPACITY)!.write!(ui, layerId, opacity);
-  syncOpacityInputs(panel, pct);
+  if (layerInfo.opacity !== opacity) {
+    getDimension(DIM.OPACITY)!.write!(ui, layerId, opacity);
+  }
+  // A clamped value has to reach the thumb even when the layer did not move:
+  // an out-of-range write must not leave the control showing the old number.
+  sliderOf(host)?.setValue(pct, { silent: true });
 };
 
-/** Build the opacity form row: the shared slider component, nothing else.
+/** Build the opacity form row: the shared slider, nothing else.
  *
  *  There is no number field: the value is already on screen three ways (the
  *  fill's length, the drag bubble, the end numbers) and the field cost the rail
- *  two thirds of its width — it is the reason the zoom range's rail is longer
- *  than this one. The range input keeps the value reachable: it carries the
- *  accessible name and value, arrow / Home / End drive it, and the bubble
- *  appears for keyboard input the same as for a drag. */
+ *  two thirds of its width. The slider keeps the value reachable: the thumb
+ *  carries the accessible name and value, arrow / Home / End drive it, and the
+ *  bubble appears for keyboard input the same as for a drag. */
 const buildOpacityRow = (ui: LayerUI, layerId: string): HTMLElement => {
   const pct = opacityToPct(currentOpacity(ui, ui.c.layerRegistry.get(layerId)));
-  const fill = dom.el("div", {
-    class: `${CONST.CLASSES.SLIDER_FILL} ${CONST.CLASSES.STYLE_OPACITY_FILL}`,
-    style: `width:${opacityFillWidth(pct)}`,
+  const host = dom.el("div", {
+    class: `${CONST.CLASSES.STYLE_OPACITY_TRACK} ${CONST.CLASSES.STYLE_OPACITY_SLIDER}`,
   });
-  const dot = (suffix: string): HTMLElement =>
-    dom.el("span", {
-      class:
-        `${CONST.CLASSES.SLIDER_DOT} ${CONST.CLASSES.SLIDER_DOT}${suffix}` +
-        ` ${CONST.CLASSES.STYLE_OPACITY_DOT} ${CONST.CLASSES.STYLE_OPACITY_DOT}${suffix}`,
-    });
-  const range = dom.el("input", {
-    type: "range",
-    class: `${CONST.CLASSES.SLIDER_HANDLE} ${CONST.CLASSES.STYLE_OPACITY_RANGE}`,
-    min: "0",
-    max: "100",
-    step: "1",
-    value: String(pct),
-    "aria-label": ui.T("style_opacity"),
+  new Slider(host, {
+    min: 0,
+    max: 100,
+    step: 1,
+    value: pct,
+    label: ui.T("style_opacity"),
+    marks: [
+      { at: 0, tone: "limit" },
+      { at: 100, tone: "limit" },
+    ],
+    values: { min: "0", max: "100" },
+    input: value => commitOpacityPct(ui, layerId, host, Number(value)),
   });
-  const rail = dom.el(
-    "div",
-    { class: `${CONST.CLASSES.SLIDER_RAIL} ${CONST.CLASSES.STYLE_OPACITY_RAIL}` },
-    fill,
-    dot("-min"),
-    dot("-max"),
-    range,
-  );
-  // The scale's ends, so the row matches the zoom range's: fixed numbers under
-  // the fixed dots. The value itself stays in the number field beside them.
-  const values = dom.el(
-    "div",
-    { class: `${CONST.CLASSES.SLIDER_VALUES} ${CONST.CLASSES.STYLE_OPACITY_VALUES}` },
-    dom.el("span", {}, "0"),
-    dom.el("span", {}, "100"),
-  );
-  const track = dom.el(
-    "div",
-    { class: `${CONST.CLASSES.SLIDER} ${CONST.CLASSES.STYLE_OPACITY_TRACK}` },
-    rail,
-    values,
-  );
-  syncOpacityDots(track, pct);
   return dom.el(
     "div",
     { class: CONST.CLASSES.FORM_ROW },
     dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui.T("style_opacity")),
-    dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, track),
+    dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, host),
   );
 };
 
 /** Reset one layer's opacity to fully opaque and drop its persisted entry.
- *  Thin delegate over the opacity descriptor's `reset`. */
+ *  Thin delegate over the opacity descriptor's reset. */
 const resetLayerOpacity = (ui: LayerUI, layerId: string): void => {
   const layerInfo = ui.c.layerRegistry.get(layerId);
   if (!layerInfo) return;
@@ -179,20 +111,20 @@ const resetLayerOpacity = (ui: LayerUI, layerId: string): void => {
 };
 
 /** Register opacity as a per-layer dimension. The descriptor owns the
- *  intent+persist slots; `commitOpacityPct` / `resetLayerOpacity` stay as
- *  thin delegates (panel rail sync remains in the commit helper).
+ *  intent+persist slots; commitOpacityPct / resetLayerOpacity stay as thin
+ *  delegates (panel rail sync remains in the commit helper).
  *
  *  **opacity === 1 clears the override** — fully opaque is the declared
  *  default, so there is no user choice to persist. That rule lives in
- *  `write` so every writer agrees.
+ *  write so every writer agrees.
  *
- *  Gate invariant: existence then `capabilities.opacity !== "none"`. */
+ *  Gate invariant: existence then capabilities.opacity !== "none". */
 const OPACITY_DIMENSION = registerDimension<number>({
   key: DIM.OPACITY,
   gate: layerCanOpacity,
   value: (ui, layerId) => currentOpacity(ui, ui.c.layerRegistry.get(layerId)),
   row: buildOpacityRow,
-  /** Intent+persist + projection. `opacity === 1` clears (no override);
+  /** Intent+persist + projection. opacity === 1 clears (no override);
    *  any other number marks via LayerIntentStore.set. A non-number patch is a
    *  no-op (descriptor callers always pass a finite 0-1 value). */
   write: (ui, layerId, patch) => {
@@ -221,4 +153,4 @@ const OPACITY_DIMENSION = registerDimension<number>({
   },
 });
 
-export { OPACITY_DIMENSION, clampPct, commitOpacityPct, resetLayerOpacity };
+export { OPACITY_DIMENSION, clampPct, resetLayerOpacity };
