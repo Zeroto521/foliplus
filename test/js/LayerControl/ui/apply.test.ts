@@ -1113,15 +1113,12 @@ describe("executor: carrier dispatch", () => {
 
         let intentTotal = 0;
         let changeTotal = 0;
-        let sawA = 0;
-        let sawB = 0;
-        manager.events.on(EVENTS.LAYER_INTENT_CHANGE, payload => {
+        manager.events.on(EVENTS.LAYER_INTENT_CHANGE, () => {
           intentTotal++;
           ui.setVisibleIntent("re-entry-3", true, false);
           ui.applyProjection("re-entry-3");
         });
         manager.events.on(EVENTS.LAYER_INTENT_CHANGE, () => {
-          sawB++;
           ui.setVisibleIntent("re-entry-3", true, false);
           ui.applyProjection("re-entry-3");
         });
