@@ -29,13 +29,10 @@
 import { EVENTS } from "#core/event/index.js";
 import { CAP_TIER, HIDDEN, PANE_ROLE } from "#core/layer/index.js";
 import { getLayerAlpha, setLayerAlpha } from "#common/canvasAlpha.js";
-import { createLogger } from "#common/log.js";
 import * as CONST from "../const.js";
 import { INTENT, getIntent } from "./intent.js";
 import { intentVisibleOf, projectAll, projectLayer } from "./projection.js";
 import type { LayerUI } from "./surface.js";
-
-const log = createLogger("LayerControl");
 
 /** One write the carrier dispatcher accepts. `opacity` being
  *  `undefined` means "no user value" — a Reset back to the author's
@@ -366,7 +363,7 @@ const dispatchStateOp = (
   // returning a silent `false` — is what a maintainer wants in that case:
   // the missing branch is loud, not lost.
   const exhaustive: never = op;
-  throw log.msg(`unreachable dispatchStateOp type: ${JSON.stringify(exhaustive)}`);
+  throw ui.log.msg(`unreachable dispatchStateOp type: ${JSON.stringify(exhaustive)}`);
 };
 
 /** Diff the current projection against the last one we wrote, and call

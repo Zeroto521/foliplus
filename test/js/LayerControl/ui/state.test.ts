@@ -24,6 +24,7 @@ import { EVENTS, ensureEvents } from "#foliplus/core/event/index.js";
 import { GEOM_TYPE } from "#foliplus/core/layer/const.js";
 import type { PaneSpec } from "#foliplus/core/layer/index.js";
 import { getLayerAlpha } from "#common/canvasAlpha.js";
+import { createLogger } from "#common/log.js";
 import {
   GridLayer,
   TEST_ENV,
@@ -1342,6 +1343,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
         persistence: { schedule },
         annotation: { configEntries: () => [] },
       },
+      log: createLogger("LayerControl"),
     } as unknown as LayerUI;
 
     markOverride(bare, "overlay1", "zoomRange");
@@ -1479,6 +1481,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
     const bare = {
       intentStore: makeStore(),
       c: { persistence: { schedule: vi.fn() } },
+      log: createLogger("LayerControl"),
     } as unknown as LayerUI;
 
     markOverride(bare, "overlay1", "borderColor");
