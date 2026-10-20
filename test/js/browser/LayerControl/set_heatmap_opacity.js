@@ -23,10 +23,25 @@
       `.foliplus-layer-item[data-layer-id="${id}"] li[data-action="style-layer"]`,
     )
     .click();
-  const range = document.querySelector(".foliplus-style-opacity-range");
-  if (!range) return { error: "opacity slider not found", id };
-  range.value = "35";
-  range.dispatchEvent(new Event("input", { bubbles: true }));
-  range.dispatchEvent(new Event("change", { bubbles: true }));
-  return { id, value: Number(range.value) };
+  const host = document.querySelector(".foliplus-style-opacity-track");
+  if (!host) return { error: "opacity slider not found", id };
+  // Pointerdown on the thumb + pointerup on the track: the primitive's real
+  // drag path, including the release that commits.
+  const track = host.querySelector(".foliplus-slider-track");
+  const thumb = host.querySelector(".foliplus-slider-thumb");
+  const rect = track.getBoundingClientRect();
+  const x = rect.left + rect.width * 0.35;
+  const y = rect.top + rect.height / 2;
+  const base = {
+    bubbles: true,
+    cancelable: true,
+    clientX: x,
+    clientY: y,
+    pointerId: 16,
+    pointerType: "mouse",
+    button: 0,
+  };
+  thumb.dispatchEvent(new PointerEvent("pointerdown", { ...base, buttons: 1 }));
+  track.dispatchEvent(new PointerEvent("pointerup", { ...base, buttons: 0 }));
+  return { id, value: Number(thumb.getAttribute("aria-valuenow")) };
 };

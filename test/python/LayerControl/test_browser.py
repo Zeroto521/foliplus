@@ -3811,14 +3811,14 @@ class TestLayerControlBrowser:
             )
 
     def test_native_gate_range_slider_arrowdown(self, browser, tmp_path):
-        """ArrowDown on a focused zoom-range slider moves the thumb, never the row cursor.
+        """ArrowDown on a focused zoom-range thumb moves the thumb, never the row cursor.
 
         Row 1 of the input-ownership table, exercised through Chromium's real
         keyboard pipeline: the key is pressed with ``page.keyboard`` after a
         real focus, and a capture listener reports the browser's final
-        ``defaultPrevented``. Both halves of the gate are measured — the native
-        behavior actually happened, and foliplus did not cancel the key to
-        take it over. Synthetic ``dispatchEvent`` cannot prove either.
+        ``defaultPrevented``. Both halves of the gate are measured — the thumb
+        actually stepped, and the row cursor did not follow the keypress.
+        Synthetic ``dispatchEvent`` cannot prove either.
         """
         overlay = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)
         with use_page(self._make_page, browser, tmp_path, overlay) as (page, errors):
@@ -3835,7 +3835,7 @@ class TestLayerControlBrowser:
                 "the thumb rests on its floor, so ArrowDown has nowhere to go: "
                 + str(arm)
             )
-            assert arm["focusedType"] == "range", f"slider not focused: {arm}"
+            assert arm["focusedType"] == "slider", f"slider thumb not focused: {arm}"
 
             page.keyboard.press("ArrowDown")
 
@@ -3855,7 +3855,7 @@ class TestLayerControlBrowser:
                 "foliplus cancelled ArrowDown meant for the slider: "
                 + str(read["records"])
             )
-            assert recs[0]["type"] == "range", str(read["records"])
+            assert recs[0]["type"] == "slider", str(read["records"])
             # The cursor is compared against its pre-press baseline, not against
             # "absent": opening the style panel and focusing the checkbox both
             # legitimately light the row cursor, so only a change is in scope.

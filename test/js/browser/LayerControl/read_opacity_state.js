@@ -19,7 +19,8 @@
   const canvas = pane ? pane.querySelector("canvas.foliplus-canvas-layer") : null;
   // The slider is rebuilt each time the style panel opens, so it reports the
   // value the panel loaded from storage rather than a stale input.
-  const slider = document.querySelector(".foliplus-style-opacity-range");
+  const host = document.querySelector(".foliplus-style-opacity-track");
+  const thumb = host ? host.querySelector(".foliplus-slider-thumb") : null;
   return {
     id,
     key,
@@ -27,6 +28,6 @@
     overrides: entry ? entry.overrides : null,
     canvasRegistered: Boolean(canvas),
     canvasOpacity: canvas ? canvas.style.opacity : null,
-    sliderValue: slider ? Number(slider.value) : null,
+    sliderValue: thumb ? Number(thumb.getAttribute("aria-valuenow")) : null,
   };
 };

@@ -52,15 +52,41 @@
     !!el &&
     /leaflet-(overlay|marker|tile|shadow|tooltip|popup)-pane/.test(el.className);
 
+  // Drag the single opacity thumb through the primitive's real pointer path.
+  const driveOpacity = (host, pct) => {
+    const track = host.querySelector(".foliplus-slider-track");
+    const thumb = host.querySelector(".foliplus-slider-thumb");
+    const rect = track.getBoundingClientRect();
+    if (!rect.width) {
+      // The panel was opened in this same tick; if layout has not produced a
+      // track yet, fall back to the primitive's public setter rather than
+      // reading a zero-width rail as "value 0".
+      window.foliplus?.common?.slider?.sliderOf?.(host)?.setValue(pct);
+      return;
+    }
+    const x = rect.left + rect.width * (pct / 100);
+    const y = rect.top + rect.height / 2;
+    const base = {
+      bubbles: true,
+      cancelable: true,
+      clientX: x,
+      clientY: y,
+      pointerId: 14,
+      pointerType: "mouse",
+      button: 0,
+    };
+    thumb.dispatchEvent(new PointerEvent("pointerdown", { ...base, buttons: 1 }));
+    track.dispatchEvent(new PointerEvent("pointerup", { ...base, buttons: 0 }));
+  };
+
   const setOpacityViaSlider = id => {
     ui.openStylePanel(id);
-    const range = document.querySelector(".foliplus-style-opacity-range");
-    if (!range) {
+    const host = document.querySelector(".foliplus-style-opacity-track");
+    if (!host) {
       ui.closeStylePanel(false);
       return false;
     }
-    range.value = "40";
-    range.dispatchEvent(new Event("input", { bubbles: true }));
+    driveOpacity(host, 40);
     ui.closeStylePanel(false);
     return true;
   };
@@ -212,11 +238,8 @@
 
   // Set opacity to 0.
   ui.openStylePanel("op_annotated");
-  const rangeD = document.querySelector(".foliplus-style-opacity-range");
-  if (rangeD) {
-    rangeD.value = "0";
-    rangeD.dispatchEvent(new Event("input", { bubbles: true }));
-  }
+  const hostD = document.querySelector(".foliplus-style-opacity-track");
+  if (hostD) driveOpacity(hostD, 0);
   ui.closeStylePanel(false);
 
   // R11: the label canvas bakes layerAlpha; read it back from the shared

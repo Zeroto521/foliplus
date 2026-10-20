@@ -881,8 +881,7 @@ describe("LayerUI keyboard", () => {
   });
 
   describe("form controls inside floating panels", () => {
-    // Arrow keys on a range slider inside the style panel must not move the
-    // row keyboard cursor. The native slider behavior is more useful than
+    // Arrow keys on a range slider inside the style panel must move the,    // thumb, not the row keyboard cursor. The primitive owns the key and,    // stops it from reaching the list.
     // jumping to the next layer row.
 
     beforeEach(() => {
@@ -890,43 +889,47 @@ describe("LayerUI keyboard", () => {
       ui.runtimeStore.setFields("overlay1", [{ name: "count", numeric: true }]);
     });
 
-    it("ArrowDown on a range slider does not move the cursor or preventDefault", () => {
+    it("ArrowDown on a range slider steps the thumb and does not move the cursor", () => {
       const item = findItem(ui, "overlay1");
       ui.openStylePanel("overlay1");
       const panel = item.querySelector(`.${CONST.CLASSES.STYLE_PANEL}`)!;
-      const slider = panel.querySelector(
-        `.${CONST.CLASSES.STYLE_ZOOM_RANGE_MIN}`,
-      ) as HTMLInputElement;
+      const thumb = panel
+        .querySelector(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_CONTROL}`)!
+        .querySelectorAll<HTMLElement>(".foliplus-slider-thumb")[1];
+      const before = Number(thumb.getAttribute("aria-valuenow"));
 
-      slider.focus();
+      thumb.focus();
       const event = new KeyboardEvent("keydown", {
         key: "ArrowDown",
         bubbles: true,
         cancelable: true,
       });
-      slider.dispatchEvent(event);
+      thumb.dispatchEvent(event);
 
-      expect(event.defaultPrevented).toBe(false);
+      expect(event.defaultPrevented).toBe(true);
+      expect(Number(thumb.getAttribute("aria-valuenow"))).toBe(before - 1);
       expect(ui.listPanel.activeIdx).toBeNull();
     });
 
-    it("ArrowUp on a range slider does not move the cursor or preventDefault", () => {
+    it("ArrowUp on a range slider steps the thumb and does not move the cursor", () => {
       const item = findItem(ui, "overlay1");
       ui.openStylePanel("overlay1");
       const panel = item.querySelector(`.${CONST.CLASSES.STYLE_PANEL}`)!;
-      const slider = panel.querySelector(
-        `.${CONST.CLASSES.STYLE_ZOOM_RANGE_MAX}`,
-      ) as HTMLInputElement;
+      const thumb = panel
+        .querySelector(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_CONTROL}`)!
+        .querySelectorAll<HTMLElement>(".foliplus-slider-thumb")[0];
+      const before = Number(thumb.getAttribute("aria-valuenow"));
 
-      slider.focus();
+      thumb.focus();
       const event = new KeyboardEvent("keydown", {
         key: "ArrowUp",
         bubbles: true,
         cancelable: true,
       });
-      slider.dispatchEvent(event);
+      thumb.dispatchEvent(event);
 
-      expect(event.defaultPrevented).toBe(false);
+      expect(event.defaultPrevented).toBe(true);
+      expect(Number(thumb.getAttribute("aria-valuenow"))).toBe(before + 1);
       expect(ui.listPanel.activeIdx).toBeNull();
     });
 
@@ -944,19 +947,19 @@ describe("LayerUI keyboard", () => {
 
       ui.openStylePanel("overlay1");
       const panel = item.querySelector(`.${CONST.CLASSES.STYLE_PANEL}`)!;
-      const slider = panel.querySelector(
-        `.${CONST.CLASSES.STYLE_ZOOM_RANGE_MIN}`,
-      ) as HTMLInputElement;
+      const thumb = panel
+        .querySelector(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_CONTROL}`)!
+        .querySelectorAll<HTMLElement>(".foliplus-slider-thumb")[1];
 
-      slider.focus();
+      thumb.focus();
       const event = new KeyboardEvent("keydown", {
         key: "ArrowDown",
         bubbles: true,
         cancelable: true,
       });
-      slider.dispatchEvent(event);
+      thumb.dispatchEvent(event);
 
-      expect(event.defaultPrevented).toBe(false);
+      expect(event.defaultPrevented).toBe(true);
       expect(ui.listPanel.activeIdx).toBe(rowIdx);
       expect(ui.listPanel.listCursor?.index).toBe(rowIdx);
     });
@@ -967,12 +970,12 @@ describe("LayerUI keyboard", () => {
       expect(ui.overlayPanel.stylePanelLayerId).toBe("overlay1");
 
       const panel = item.querySelector(`.${CONST.CLASSES.STYLE_PANEL}`)!;
-      const slider = panel.querySelector(
-        `.${CONST.CLASSES.STYLE_ZOOM_RANGE_MIN}`,
-      ) as HTMLInputElement;
+      const thumb = panel
+        .querySelector(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_CONTROL}`)!
+        .querySelectorAll<HTMLElement>(".foliplus-slider-thumb")[0];
 
-      slider.focus();
-      slider.dispatchEvent(
+      thumb.focus();
+      thumb.dispatchEvent(
         new KeyboardEvent("keydown", {
           key: "Escape",
           bubbles: true,

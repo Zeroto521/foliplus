@@ -24,31 +24,36 @@ async () => {
     return { error: "zoom range row not rendered" };
   }
 
-  const marker = row.querySelector(".foliplus-style-zoom-range-dot-current");
-  const markerLabel = row.querySelector(".foliplus-style-zoom-range-current-value");
-  const before = map.getZoom();
-  const beforeLeft = marker ? marker.style.left : null;
-  const beforeLabel = markerLabel ? markerLabel.textContent : null;
+  // The primitive rebuilds the marks when the current level moves, so every
+  // read must re-query the live nodes rather than keep a stale reference.
+  const readMarker = () => {
+    const marker = row.querySelector(".foliplus-slider-dot-current");
+    const label = row.querySelector(".foliplus-slider-value-current");
+    return {
+      left: marker ? marker.style.left : null,
+      label: label ? label.textContent : null,
+      covered: marker ? marker.classList.contains("foliplus-slider-dot-covered") : null,
+    };
+  };
 
-  map.setZoom(before - 2);
+  const before = readMarker();
+  const beforeZoom = map.getZoom();
+
+  map.setZoom(beforeZoom - 2);
   await new Promise(resolve => map.once("zoomend", resolve));
 
-  const after = map.getZoom();
-  const afterLeft = marker ? marker.style.left : null;
-  const afterLabel = markerLabel ? markerLabel.textContent : null;
-  const afterCovered = marker
-    ? marker.classList.contains("foliplus-slider-dot-covered")
-    : null;
+  const after = readMarker();
+  const afterZoom = map.getZoom();
   ui.closeStylePanel(false);
   return {
-    before,
-    after,
-    beforeLeft,
-    afterLeft,
-    markerMoved: beforeLeft !== afterLeft,
-    beforeLabel,
-    afterLabel,
-    labelUpdated: afterLabel !== beforeLabel,
-    afterCovered,
+    before: beforeZoom,
+    after: afterZoom,
+    beforeLeft: before.left,
+    afterLeft: after.left,
+    markerMoved: before.left !== after.left,
+    beforeLabel: before.label,
+    afterLabel: after.label,
+    labelUpdated: after.label !== before.label,
+    afterCovered: after.covered,
   };
 };

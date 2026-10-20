@@ -11,7 +11,7 @@
         window.__inputGate.records.push({
           key: e.key,
           tag: e.target.tagName.toLowerCase(),
-          type: e.target.type || "",
+          type: e.target.type || e.target.getAttribute("role") || "",
           prevented: e.defaultPrevented,
         });
       },
@@ -42,12 +42,13 @@
 
   // The max thumb rests at the map's max zoom, so ArrowDown has room to step
   // it — the min thumb starts at mapMin and cannot go further down.
-  const slider = document.querySelector(".foliplus-style-zoom-range-max");
-  if (!slider || slider.type !== "range") {
+  const host = document.querySelector(".foliplus-style-zoom-range-control");
+  const thumb = host ? host.querySelectorAll(".foliplus-slider-thumb")[1] : null;
+  if (!thumb || thumb.getAttribute("role") !== "slider") {
     ui.closeStylePanel(false);
-    return { error: "zoom range max slider not rendered" };
+    return { error: "zoom range max thumb not rendered" };
   }
-  slider.focus();
+  thumb.focus();
 
   const row = document.querySelector('.foliplus-layer-item[data-layer-id="ng_gate"]');
   const cb = row ? row.querySelector('input[type="checkbox"]') : null;
@@ -56,12 +57,13 @@
   // so a post-press read alone cannot say who moved it.
   const rowFocused = !!document.querySelector(".foliplus-is-focused-row");
   return {
-    sliderBefore: Number(slider.value),
-    sliderStep: Number(slider.step),
-    sliderMin: Number(slider.min),
-    sliderMax: Number(slider.max),
+    sliderBefore: Number(thumb.getAttribute("aria-valuenow")),
+    sliderStep: 1,
+    sliderMin: Number(thumb.getAttribute("aria-valuemin")),
+    sliderMax: Number(thumb.getAttribute("aria-valuemax")),
     mapMax: Number(map.getMaxZoom()),
-    focusedType: document.activeElement.type,
+    focusedType:
+      document.activeElement.type || document.activeElement.getAttribute("role") || "",
     cbBefore: cb ? cb.checked : null,
     rowFocused,
   };
