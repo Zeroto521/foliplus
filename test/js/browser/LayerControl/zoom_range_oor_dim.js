@@ -72,6 +72,7 @@
   // reports an empty `backgroundColor`, and the return object is built after the
   // close below.
   const fillComputedBg = fillBg ? getComputedStyle(fillBg).backgroundColor : null;
+  const fillOpacity = fillBg ? getComputedStyle(fillBg).opacity : null;
 
   ui.closeStylePanel(false);
   return {
@@ -80,6 +81,7 @@
     rowTitle,
     trackComputedBg: trackBg ? getComputedStyle(trackBg).backgroundColor : null,
     fillComputedBg,
+    fillOpacity,
     currentValueColor,
     markerRing,
     markerLabelText,

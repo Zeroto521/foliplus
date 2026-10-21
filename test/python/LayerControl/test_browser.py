@@ -4964,8 +4964,8 @@ class TestLayerControlBrowser:
             assert not errors, f"JS errors: {errors}"
 
     def test_zoom_range_oor_dim(self, browser, tmp_path):
-        """Out-of-range: the title explains it, the current dot greys, and the
-        control itself stays crisp (no dimming: it is still operable)."""
+        """Out-of-range: only the selected span dims; the thumbs, rail and
+        numbers stay crisp, the current dot greys, and the title explains."""
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
             panel_ready(page)
             result = page.evaluate(_js("LayerControl/zoom_range_oor_dim"))
@@ -4974,10 +4974,12 @@ class TestLayerControlBrowser:
             assert result["rowOor"] is True, f"row not marked out-of-range: {result}"
             assert result["rowTitle"], "row tooltip missing when out of range"
             assert result["markerLabelText"], "current-zoom label missing from marker"
-            # Out of range is a readout on the dots' rings, not a recoloring:
-            # the rail keeps its accent fill and the text stays ink, so nothing
-            # about "the layer is hidden at this zoom" is carried by color on
-            # the numbers the user reads.
+            # Only the selected span dims (opacity), and its color is untouched:
+            # the fill still reads as accent, just at half strength. The thumbs
+            # and the numbers are not recolored.
+            assert result["fillOpacity"] == "0.5", (
+                "out of range, the selected span must dim to alpha-50"
+            )
             assert result["fillComputedBg"] != self._sample_token(
                 page, "--foliplus-neutral-500"
             ), "out of range must not gray the selection"
