@@ -210,7 +210,7 @@ const OPACITY_DIMENSION = registerDimension<number>({
     // Announce last, after the hatch: on a layer's first projection the pass
     // can still converge a stale map membership, and that flip is a real
     // change worth notifying.
-    if (layerInfo) emitDelta(ui, layerInfo, moved);
+    emitDelta(ui, layerInfo, moved);
   },
   /** Cohesive reset: clear the override, save, re-project, hatch sync. */
   reset: (ui, layerId) => {
@@ -221,7 +221,7 @@ const OPACITY_DIMENSION = registerDimension<number>({
     // Announce last, after the hatch: on a layer's first projection the pass
     // can still converge a stale map membership, and that flip is a real
     // change worth notifying.
-    if (layerInfo) emitDelta(ui, layerInfo, moved);
+    emitDelta(ui, layerInfo, moved);
   },
   valueSource: (ui, layerId) => {
     if (!layerCanOpacity(ui, layerId)) return "none";

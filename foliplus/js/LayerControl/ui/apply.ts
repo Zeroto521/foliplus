@@ -571,8 +571,18 @@ const applyProjection = (
  *  the committed value through `intentVisibleOf` rather than a snapshot
  *  taken inside the pass, so it reports the choice the store actually holds
  *  at delivery time — a caller that re-enters through this same helper sees
- *  its own correction, not the value the outer pass started from. */
-const emitDelta = (ui: LayerUI, layerInfo: LayerInfo, delta: ProjectionDelta): void => {
+ *  its own correction, not the value the outer pass started from.
+ *
+ *  `layerInfo` may be undefined: the entry can be gone by the time a caller
+ *  looks it up, if a subscriber unregistered the layer during an earlier
+ *  delivery of the same batch. That is a no-delivery, not a throw — the delta
+ *  was real, the recipient is simply gone. */
+const emitDelta = (
+  ui: LayerUI,
+  layerInfo: LayerInfo | undefined,
+  delta: ProjectionDelta,
+): void => {
+  if (!layerInfo) return;
   if (delta.wroteVisible) {
     ui.events.emit(EVENTS.LAYER_CHANGE, {
       id: layerInfo.id,
@@ -589,15 +599,15 @@ const emitDelta = (ui: LayerUI, layerInfo: LayerInfo, delta: ProjectionDelta): v
 };
 
 /** Notify a batch of passes in the order they were swept, without
- *  interleaving. Unresolvable ids (intent records whose layer never
- *  registered) are skipped — they produced no pass at all. */
+ *  interleaving. Ids the registry no longer knows — a subscriber that
+ *  unregistered a layer during an earlier delivery of this same round —
+ *  deliver nothing rather than throwing. */
 const emitDeltas = (
   ui: LayerUI,
   deltas: ReadonlyArray<{ id: string; delta: ProjectionDelta }>,
 ): void => {
   for (const { id, delta } of deltas) {
-    const layerInfo = ui.c.layerRegistry.get(id);
-    if (layerInfo) emitDelta(ui, layerInfo, delta);
+    emitDelta(ui, ui.c.layerRegistry.get(id), delta);
   }
 };
 

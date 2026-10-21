@@ -178,4 +178,33 @@ describe("layer notification contract", () => {
     // would have shown only ["alpha"] at the first delivery.
     expect(removedAtDelivery[0]).toEqual(["alpha", "beta"]);
   });
+
+  it("a subscriber that unregisters a later layer does not strand the sweep", () => {
+    // The sweep decides what moves before it announces anything, so a delta
+    // can still name a layer that has left the registry by the time its own
+    // delivery comes around. That is a no-delivery, not a throw: the sweep
+    // skips the gone layer instead of dropping whatever came after it.
+    const layerA = polygonLayer();
+    const layerB = polygonLayer();
+    const { ui } = initFixture({
+      data: [
+        { id: "alpha", name: "Alpha", group: "overlay", layer: layerA },
+        { id: "beta", name: "Beta", group: "overlay", layer: layerB },
+      ],
+    });
+    for (const id of ["alpha", "beta"]) {
+      setIntent(ui, id, "zoomRange", [0, 1]);
+      ui.intentStore.seedProvenance(id, ["zoomRange"]);
+    }
+
+    const seen: string[] = [];
+    ui.events.on(EVENTS.LAYER_CHANGE, payload => {
+      seen.push(payload.id);
+      if (payload.id === "alpha") ui.c.layerRegistry.remove("beta");
+    });
+
+    expect(() => ui.onZoomEnd?.()).not.toThrow();
+    expect(seen).toEqual(["alpha"]);
+    expect(ui.c.layerRegistry.has("beta")).toBe(false);
+  });
 });
