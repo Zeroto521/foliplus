@@ -1096,4 +1096,3 @@ class TestLayerControlRendering:
             "the active basemap dim rule must reference the shared alpha scale "
             f"--foliplus-alpha-30: {dim_body}"
         )
-
