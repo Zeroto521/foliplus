@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { SLIDER } from "#foliplus/LayerControl/const.js";
 import { Slider, type SliderOptions, sliderOf } from "#foliplus/LayerControl/slider.js";
 
 const hosts: HTMLElement[] = [];
@@ -12,7 +13,7 @@ const make = (options: SliderOptions) => {
 };
 
 const thumb = (host: HTMLElement, index = 0): HTMLElement =>
-  host.querySelectorAll<HTMLElement>(".foliplus-slider-thumb")[index];
+  host.querySelectorAll<HTMLElement>(`.${SLIDER.THUMB}`)[index];
 
 const press = (el: HTMLElement, key: string): void => {
   el.dispatchEvent(
@@ -41,7 +42,7 @@ const fakeRect = ({
   }) as DOMRect;
 
 const trackOf = (host: HTMLElement): HTMLElement =>
-  host.querySelector(".foliplus-slider-track") as HTMLElement;
+  host.querySelector(`.${SLIDER.TRACK}`) as HTMLElement;
 
 /** jsdom reports a 0×0 rect for everything; the pointer paths need a rail. */
 const stubTrack = (host: HTMLElement, init: RectInit = {}): HTMLElement => {
@@ -75,11 +76,11 @@ describe("Slider primitive", () => {
       label: "透明度",
       values: { min: "0", max: "100" },
     });
-    expect(single.host.querySelectorAll(".foliplus-slider-thumb")).toHaveLength(1);
+    expect(single.host.querySelectorAll(`.${SLIDER.THUMB}`)).toHaveLength(1);
     expect(thumb(single.host).getAttribute("aria-valuenow")).toBe("40");
 
     const range = make({ min: 0, max: 19, value: [4, 8], label: "可见范围" });
-    expect(range.host.querySelectorAll(".foliplus-slider-thumb")).toHaveLength(2);
+    expect(range.host.querySelectorAll(`.${SLIDER.THUMB}`)).toHaveLength(2);
     expect(range.host.getAttribute("role")).toBe("group");
   });
 
@@ -149,7 +150,7 @@ describe("Slider primitive", () => {
       disabled: true,
       change,
     });
-    expect(host.classList.contains("is-disabled")).toBe(true);
+    expect(host.classList.contains(SLIDER.DISABLED)).toBe(true);
     expect(thumb(host).getAttribute("aria-disabled")).toBe("true");
     expect(thumb(host).tabIndex).toBe(-1);
     press(thumb(host), "ArrowRight");
@@ -207,15 +208,13 @@ describe("Slider primitive", () => {
       { at: 0, tone: "limit" },
       { at: 19, tone: "limit" },
     ]);
-    expect(host.querySelectorAll(".foliplus-slider-dot")).toHaveLength(2);
+    expect(host.querySelectorAll(`.${SLIDER.DOT}`)).toHaveLength(2);
     slider.setCurrent({ at: 13, text: "13" });
-    expect(host.querySelector(".foliplus-slider-value-current")?.textContent).toBe(
-      "13",
-    );
+    expect(host.querySelector(`.${SLIDER.VALUE_CURRENT}`)?.textContent).toBe("13");
     slider.setCurrent(null);
-    expect(host.querySelector(".foliplus-slider-value-current")).toBeNull();
+    expect(host.querySelector(`.${SLIDER.VALUE_CURRENT}`)).toBeNull();
     slider.setCurrent(null);
-    expect(host.querySelector(".foliplus-slider-value-current")).toBeNull();
+    expect(host.querySelector(`.${SLIDER.VALUE_CURRENT}`)).toBeNull();
   });
 
   it("toggles describedBy and disabled state in place", () => {
@@ -246,7 +245,7 @@ describe("Slider primitive", () => {
     const { host } = make({ min: 0, max: 100, value: 42, label: "x" });
     const thumbEl = thumb(host);
     thumbEl.dispatchEvent(new Event("focus"));
-    const bubble = document.querySelector(".foliplus-slider-bubble") as HTMLElement;
+    const bubble = document.querySelector(`.${SLIDER.BUBBLE}`) as HTMLElement;
     expect(bubble.classList.contains("is-on")).toBe(true);
     sliderOf(host)!.dismissBubble();
     expect(bubble.classList.contains("is-on")).toBe(false);
@@ -313,7 +312,7 @@ describe("Slider primitive", () => {
     const thumbEl = thumb(host);
     thumbEl.dispatchEvent(new Event("focus"));
     press(thumbEl, "ArrowRight");
-    const bubble = document.querySelector(".foliplus-slider-bubble") as HTMLElement;
+    const bubble = document.querySelector(`.${SLIDER.BUBBLE}`) as HTMLElement;
     await new Promise(resolve => window.setTimeout(resolve, 40));
     expect(bubble.textContent).toBe("41");
     thumbEl.dispatchEvent(new Event("blur"));
@@ -379,7 +378,7 @@ describe("Slider primitive", () => {
     const thumbEl = thumb(host);
     thumbEl.dispatchEvent(new Event("focus"));
     press(thumbEl, "ArrowRight");
-    const bubble = document.querySelector(".foliplus-slider-bubble") as HTMLElement;
+    const bubble = document.querySelector(`.${SLIDER.BUBBLE}`) as HTMLElement;
     await new Promise(resolve => window.setTimeout(resolve, 40));
     expect(bubble.textContent).toBe("41");
     thumbEl.dispatchEvent(new Event("blur"));
@@ -481,7 +480,7 @@ describe("Slider primitive", () => {
     const { host } = make({ min: 0, max: 100, value: 42, label: "x" });
     const thumbEl = thumb(host);
     thumbEl.dispatchEvent(new Event("focus"));
-    const bubble = document.querySelector(".foliplus-slider-bubble") as HTMLElement;
+    const bubble = document.querySelector(`.${SLIDER.BUBBLE}`) as HTMLElement;
     expect(bubble).not.toBeNull();
     expect(bubble.textContent).toBe("42");
     expect(bubble.classList.contains("is-on")).toBe(true);
@@ -494,7 +493,7 @@ describe("Slider primitive", () => {
     const thumbEl = thumb(host);
     thumbEl.dispatchEvent(new Event("focus"));
     press(thumbEl, "ArrowRight");
-    const bubble = document.querySelector(".foliplus-slider-bubble") as HTMLElement;
+    const bubble = document.querySelector(`.${SLIDER.BUBBLE}`) as HTMLElement;
     expect(bubble.textContent).toBe("41");
   });
 
@@ -503,7 +502,7 @@ describe("Slider primitive", () => {
     const thumbEl = thumb(host);
     thumbEl.getBoundingClientRect = () =>
       fakeRect({ left: 100, top: 2, width: 14, height: 14 });
-    const bubble = document.querySelector(".foliplus-slider-bubble") as HTMLElement;
+    const bubble = document.querySelector(`.${SLIDER.BUBBLE}`) as HTMLElement;
     bubble.getBoundingClientRect = () =>
       fakeRect({ left: 0, top: 0, width: 40, height: 30 });
     thumbEl.dispatchEvent(new Event("focus"));
@@ -542,15 +541,15 @@ describe("Slider primitive", () => {
       current: { at: 12, text: "12" },
     });
     const slider = sliderOf(host)!;
-    const dot = host.querySelector(".foliplus-slider-dot");
-    const label = host.querySelector(".foliplus-slider-value-current");
+    const dot = host.querySelector(`.${SLIDER.DOT}`);
+    const label = host.querySelector(`.${SLIDER.VALUE_CURRENT}`);
     slider.setMarks([
       { at: 0, tone: "limit" },
       { at: 19, tone: "limit" },
     ]);
     slider.setCurrent({ at: 12, text: "12" });
-    expect(host.querySelector(".foliplus-slider-dot")).toBe(dot);
-    expect(host.querySelector(".foliplus-slider-value-current")).toBe(label);
+    expect(host.querySelector(`.${SLIDER.DOT}`)).toBe(dot);
+    expect(host.querySelector(`.${SLIDER.VALUE_CURRENT}`)).toBe(label);
   });
 
   it("tears down the instance and its DOM", () => {
@@ -558,7 +557,7 @@ describe("Slider primitive", () => {
     slider.destroy();
     expect(sliderOf(host)).toBeUndefined();
     expect(host.children).toHaveLength(0);
-    expect(host.classList.contains("foliplus-slider")).toBe(false);
+    expect(host.classList.contains(SLIDER.ROOT)).toBe(false);
   });
 
   it("inverts the pointer mapping in RTL", () => {
@@ -583,7 +582,7 @@ describe("Slider primitive", () => {
     const { host } = make({ min: 0, max: 100, value: 42, label: "x" });
     const thumbEl = thumb(host);
     thumbEl.dispatchEvent(new Event("focus"));
-    const bubble = document.querySelector(".foliplus-slider-bubble") as HTMLElement;
+    const bubble = document.querySelector(`.${SLIDER.BUBBLE}`) as HTMLElement;
     bubble.getBoundingClientRect = () =>
       fakeRect({ left: 0, top: 0, width: 40, height: 30 });
     thumbEl.getBoundingClientRect = () =>
@@ -605,10 +604,10 @@ describe("Slider primitive", () => {
     const { host } = make({ min: 0, max: 100, value: 40, label: "x" });
     const slider = sliderOf(host)!;
     slider.setMarks([{ at: 0 }, { at: 100 }]);
-    expect(host.querySelectorAll(".foliplus-slider-dot")).toHaveLength(2);
+    expect(host.querySelectorAll(`.${SLIDER.DOT}`)).toHaveLength(2);
     // The same data again compares equal through the tone fallback.
     slider.setMarks([{ at: 0 }, { at: 100 }]);
-    expect(host.querySelectorAll(".foliplus-slider-dot")).toHaveLength(2);
+    expect(host.querySelectorAll(`.${SLIDER.DOT}`)).toHaveLength(2);
   });
 
   it("clamps the upper thumb when it is dragged below the lower one", () => {
@@ -674,7 +673,7 @@ describe("Slider primitive", () => {
     thumb(host).dispatchEvent(pointer("pointerdown", 80));
     expect(sliderOf(host)!.value).toBe(40);
     expect(
-      host.querySelector(".foliplus-slider-thumb")?.classList.contains("is-dragging"),
+      host.querySelector(`.${SLIDER.THUMB}`)?.classList.contains(SLIDER.DRAGGING),
     ).toBe(false);
   });
 
@@ -695,7 +694,7 @@ describe("Slider primitive", () => {
     press(thumbA, "ArrowRight"); // schedules a placement frame
     thumb(b.host).dispatchEvent(new Event("focus")); // owner changes
     await new Promise(resolve => window.setTimeout(resolve, 40));
-    const bubble = document.querySelector(".foliplus-slider-bubble") as HTMLElement;
+    const bubble = document.querySelector(`.${SLIDER.BUBBLE}`) as HTMLElement;
     expect(bubble.textContent).toBe("60");
   });
 
@@ -706,7 +705,7 @@ describe("Slider primitive", () => {
     thumbEl.dispatchEvent(new Event("blur"));
     thumbEl.dispatchEvent(new Event("focus"));
     await new Promise(resolve => window.setTimeout(resolve, 200));
-    const bubble = document.querySelector(".foliplus-slider-bubble") as HTMLElement;
+    const bubble = document.querySelector(`.${SLIDER.BUBBLE}`) as HTMLElement;
     expect(bubble.classList.contains("is-on")).toBe(true);
     expect(bubble.hidden).toBe(false);
   });
@@ -728,7 +727,7 @@ describe("Slider primitive", () => {
     sliderOf(host)!.setMarks([{ at: 50, tone: "current" }]);
     expect(
       host
-        .querySelector(".foliplus-slider-dot")!
+        .querySelector(`.${SLIDER.DOT}`)!
         .classList.contains("foliplus-slider-dot-current"),
     ).toBe(true);
   });
@@ -744,14 +743,14 @@ describe("Slider primitive", () => {
     });
     expect(
       host
-        .querySelector(".foliplus-slider-value-current")!
-        .classList.contains("foliplus-slider-label-hidden"),
+        .querySelector(`.${SLIDER.VALUE_CURRENT}`)!
+        .classList.contains(SLIDER.LABEL_HIDDEN),
     ).toBe(true);
     sliderOf(host)!.setCurrent({ at: 50, text: "50", hideGapPct: 10 });
     expect(
       host
-        .querySelector(".foliplus-slider-value-current")!
-        .classList.contains("foliplus-slider-label-hidden"),
+        .querySelector(`.${SLIDER.VALUE_CURRENT}`)!
+        .classList.contains(SLIDER.LABEL_HIDDEN),
     ).toBe(false);
   });
 
@@ -778,7 +777,7 @@ describe("Slider primitive", () => {
     const thumbEl = thumb(host);
     thumbEl.dispatchEvent(new Event("focus"));
     press(thumbEl, "ArrowRight");
-    const bubble = document.querySelector(".foliplus-slider-bubble") as HTMLElement;
+    const bubble = document.querySelector(`.${SLIDER.BUBBLE}`) as HTMLElement;
     expect(bubble.textContent).toBe("41");
   });
 
@@ -847,14 +846,14 @@ describe("Slider primitive", () => {
     expect(sliderOf(host)!.value).toBe(20);
     expect(change).toHaveBeenCalledWith(20);
     expect(
-      host.querySelector(".foliplus-slider-thumb")?.classList.contains("is-dragging"),
+      host.querySelector(`.${SLIDER.THUMB}`)?.classList.contains(SLIDER.DRAGGING),
     ).toBe(false);
   });
 
   it("mounts the bubble on the fullscreen element", () => {
     const { host } = make({ min: 0, max: 100, value: 42, label: "x" });
     thumb(host).dispatchEvent(new Event("focus"));
-    const bubble = document.querySelector(".foliplus-slider-bubble") as HTMLElement;
+    const bubble = document.querySelector(`.${SLIDER.BUBBLE}`) as HTMLElement;
     const stage = document.createElement("div");
     document.body.appendChild(stage);
     Object.defineProperty(document, "fullscreenElement", {
@@ -893,9 +892,7 @@ describe("Slider primitive", () => {
     hosts.push(host);
     new Slider(host, { min: 0, max: 100, value: 25, label: "x" });
     await new Promise(resolve => window.setTimeout(resolve, 40));
-    expect(host.querySelector<HTMLElement>(".foliplus-slider-thumb")!.style.left).toBe(
-      "25%",
-    );
+    expect(host.querySelector<HTMLElement>(`.${SLIDER.THUMB}`)!.style.left).toBe("25%");
   });
 
   it("picks up an RTL ancestor after mounting", async () => {
@@ -907,7 +904,7 @@ describe("Slider primitive", () => {
     wrap.appendChild(host);
     document.body.appendChild(wrap);
     hosts.push(wrap);
-    const thumbEl = () => host.querySelector<HTMLElement>(".foliplus-slider-thumb")!;
+    const thumbEl = () => host.querySelector<HTMLElement>(`.${SLIDER.THUMB}`)!;
     expect(thumbEl().style.left).toBe("25%");
     await new Promise(resolve => window.setTimeout(resolve, 40));
     expect(thumbEl().style.left).toBe("75%");
