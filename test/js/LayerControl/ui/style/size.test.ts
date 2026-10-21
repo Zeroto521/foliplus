@@ -98,7 +98,6 @@ const sizeInput = (row: HTMLElement): HTMLInputElement =>
 describe("layerCanSize", () => {
   let manager: LayerController;
   let ui: LayerUI;
-  let layer: any;
 
   beforeEach(() => {
     ({ manager, ui } = fixtureWithRadiusLayer());
@@ -505,7 +504,6 @@ describe("bindSizeRow", () => {
 describe("panel integration", () => {
   let manager: LayerController;
   let ui: LayerUI;
-  let layer: any;
 
   const rows = (row: HTMLElement) =>
     Array.from(

@@ -78,6 +78,8 @@ class GridShape {
 
 class GroupShape {
   options: Record<string, unknown> = {};
+  /** Set by one test to exercise the foliplus-declaration branch. */
+  foliplus?: Record<string, unknown>;
 
   constructor(private readonly kids: unknown[] = []) {}
 
@@ -114,7 +116,6 @@ const makeSurface = (layer: unknown) => {
   return new LayerSurface(host, {
     id: "size",
     layer: layer as L.Layer | null,
-    styleSetters: {},
   });
 };
 
