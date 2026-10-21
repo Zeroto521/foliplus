@@ -676,6 +676,38 @@ describe("LayerPersistence", () => {
       });
     });
 
+    it("keeps sizes inside the shared bounds, rounding, and drops the rest", () => {
+      // A corrupt entry must not silently resize the layer: out of bounds and
+      // non-numeric values are dropped with their provenance marker, and a
+      // fractional value is rounded because the field steps by one.
+      seedStorage({
+        layers: {
+          a: { size: 30, overrides: ["size"] },
+          b: { size: 30.6, overrides: ["size"] },
+          c: { size: 1, overrides: ["size"] },
+          d: { size: 64, overrides: ["size"] },
+          e: { size: 0, overrides: ["size"] },
+          f: { size: -5, overrides: ["size"] },
+          g: { size: 65, overrides: ["size"] },
+          h: { size: "30", overrides: ["size"] },
+          // JSON.stringify turns a non-finite value into null on disk, so these
+          // two exercise the non-number branch: either way they cannot resize.
+          i: { size: NaN, overrides: ["size"] },
+          j: { size: Infinity, overrides: ["size"] },
+          k: { size: { px: 30 }, overrides: ["size"] },
+          l: { size: 30, borderColor: "#abcdef", overrides: ["size", "borderColor"] },
+        },
+      });
+      expect(makePersistence().load().layers).toEqual({
+        a: { size: 30, overrides: ["size"] },
+        b: { size: 31, overrides: ["size"] },
+        c: { size: 1, overrides: ["size"] },
+        d: { size: 64, overrides: ["size"] },
+        // Provenance is recorded in the dimension registry's own order, not the
+        // seeded one.
+        l: { size: 30, borderColor: "#abcdef", overrides: ["borderColor", "size"] },
+      });
+    });
     it("drops a fill override whose value fails validation", () => {
       seedStorage({
         layers: {

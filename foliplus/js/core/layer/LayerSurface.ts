@@ -22,7 +22,7 @@
 // No CONFIG / translator dependency: core/layer, not a component dir.
 import { createLogger } from "#common/log.js";
 import type { PaneManager } from "./PaneManager.js";
-import { hasFillLeaf, hasSetStyleLeaf } from "./capability.js";
+import { hasFillLeaf, hasRadiusLeaf, hasSetStyleLeaf } from "./capability.js";
 import {
   CAP_TIER,
   FALLBACK_PANE_PREFIX,
@@ -605,6 +605,7 @@ const detectCapabilities = (opts: SurfaceFaceOpts): LayerCapabilities => {
     return {
       fill: CAP_TIER.NATIVE,
       stroke: CAP_TIER.NONE,
+      size: CAP_TIER.NONE,
       opacity: CAP_TIER.PANE,
       zoomRange: CAP_TIER.PANE,
       annotation,
@@ -633,6 +634,7 @@ const detectCapabilities = (opts: SurfaceFaceOpts): LayerCapabilities => {
     return {
       fill: CAP_TIER.NONE,
       stroke: CAP_TIER.NONE,
+      size: CAP_TIER.NONE,
       opacity: CAP_TIER.NATIVE,
       zoomRange,
       annotation,
@@ -669,6 +671,7 @@ const detectCapabilities = (opts: SurfaceFaceOpts): LayerCapabilities => {
     return {
       fill: probeVectorCarrier(layer, "fill"),
       stroke: probeVectorCarrier(layer, "stroke"),
+      size: hasRadiusLeaf(layer) ? CAP_TIER.NATIVE : CAP_TIER.NONE,
       opacity: CAP_TIER.PANE,
       zoomRange: CAP_TIER.PANE,
       annotation,
@@ -685,6 +688,7 @@ const detectCapabilities = (opts: SurfaceFaceOpts): LayerCapabilities => {
     return {
       fill: probeVectorCarrier(layer, "fill"),
       stroke: probeVectorCarrier(layer, "stroke"),
+      size: hasRadiusLeaf(layer) ? CAP_TIER.NATIVE : CAP_TIER.NONE,
       opacity: CAP_TIER.PANE,
       zoomRange: CAP_TIER.PANE,
       annotation,
@@ -698,6 +702,7 @@ const detectCapabilities = (opts: SurfaceFaceOpts): LayerCapabilities => {
   return {
     fill: CAP_TIER.NONE,
     stroke: CAP_TIER.NONE,
+    size: CAP_TIER.NONE,
     opacity: CAP_TIER.NONE,
     zoomRange: CAP_TIER.NONE,
     annotation,

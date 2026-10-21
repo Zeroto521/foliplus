@@ -12,6 +12,7 @@
 // frame-level helpers (reset footer, rail positioning) live in ./frame.ts.
 import { EVENTS } from "#core/event/index.js";
 import { resolveSelectedField } from "#core/label/index.js";
+import { DIM } from "#core/layer/index.js";
 import { createRowPanel } from "#core/leaflet/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import * as SVGs from "#foliplus/LayerControl/icon.js";
@@ -32,6 +33,7 @@ import { appendResetFooter } from "./frame.js";
 import { applyPatch, layerFields, resetStyleLabel, syncFormatRow } from "./label.js";
 import { resetLayerOpacity } from "./opacity.js";
 import { DIM_ORDER, LABEL_DIM_ORDER, gatedRows } from "./registry.js";
+import { bindSizeRow, buildSizeRow, resetLayerSize } from "./size.js";
 import { flushStyleDimApplies } from "./styleBag.js";
 import { resetLayerZoomRange, syncZoomRangeRow } from "./zoomRange.js";
 
@@ -76,7 +78,17 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
   // `LABEL_DIM_ORDER` comments in `./registry.js`). Neither group carries a
   // heading any more: the panel reads as one flat row list, and Layer before
   // Label is what document order alone conveys.
-  for (const dim of layerRows) content.append(dim.row(ui, layerId));
+  for (const dim of layerRows) {
+    content.append(dim.row(ui, layerId));
+    // The size row is not a registry dimension (see ./size.js) — it rides the
+    // fill row's position, because a CircleMarker's fill and its radius are
+    // one idea. The row returns `null` for a Polygon or a metre-radius Circle,
+    // both of which own a fill row but no pixel-radius leaf, so those stay alone.
+    if (dim.key === DIM.FILL) {
+      const sizeRow = buildSizeRow(ui, layerId);
+      if (sizeRow) content.append(sizeRow);
+    }
+  }
   // The Label section's gate is a pure capability bit (layer exists +
   // `capabilities.annotation !== "none"`) — the labelable-fields probe that
   // keeps the row honest lives at the surface declaration edge, so the panel
@@ -152,6 +164,11 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
       `.${CONST.CLASSES.STYLE_FILL_ROW}`,
     ) as HTMLElement | null;
     if (fillRow) bindFillRow(ui, layerId, fillRow);
+    // Size rides the same flavour as fill: the delegated drawer never renders it.
+    const sizeRow = panel.querySelector(
+      `.${CONST.CLASSES.STYLE_SIZE_ROW}`,
+    ) as HTMLElement | null;
+    if (sizeRow) bindSizeRow(ui, layerId, sizeRow);
   }
 
   // The slider rows wire their own live/commit callbacks when the primitive is
@@ -233,6 +250,9 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
       // Fill is LayerControl-owned on the annotation flavour only (the gate
       // excludes delegated layers).
       resetLayerFill(ui, layerId);
+      // Size is LayerControl-owned too: restore the author's radius and drop
+      // the persisted value, so a reload does not re-apply it.
+      resetLayerSize(ui, layerId);
       // Border is LayerControl-owned too: restore the author's stroke and drop
       // the persisted color / width, so a reload does not re-apply them.
       resetLayerBorder(ui, layerId);

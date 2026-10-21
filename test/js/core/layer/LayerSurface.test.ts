@@ -949,6 +949,7 @@ describe("LayerSurface capabilities", () => {
       annotation: "none",
       fill: "native",
       stroke: "none",
+      size: "none",
       relocatable: true,
       bounds: false,
       visibility: "pane",
@@ -1183,6 +1184,7 @@ describe("kind declaration (cluster / tile|vector)", () => {
     expect(CLUSTER_CAPABILITIES).toEqual({
       fill: "none",
       stroke: "none",
+      size: "none",
       opacity: "none",
       zoomRange: "none",
       visibility: "native",

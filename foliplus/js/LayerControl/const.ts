@@ -20,6 +20,19 @@ const STORAGE = { KEY: `foliplus_layer_state_${map.getContainer().id}` };
 const SOLID_BASEMAP_ID = "foliplus_color_map";
 const COLOR = { DEFAULT: "#cccccc" };
 
+/** Shared bounds for a layer's fixed pixel radius (CircleMarker only). One
+ *  home so the number field, the persistence parser and the write path cannot
+ *  drift apart. */
+const SIZE = {
+  MIN: 1,
+  MAX: 64,
+  STEP: 1,
+  /** Leaflet's own `CircleMarker` default — the field's value when the
+   *  author declared nothing and the entry loses to `bindLiveNumber`'s
+   *  invalid-input branch. */
+  DEFAULT: 5,
+} as const;
+
 /** Focus-on-layer behavior. */
 const FOCUS = {
   /** How long the focus rectangle stays visible. */
@@ -141,6 +154,11 @@ const CLASSES = {
   STYLE_FILL_ROW: "foliplus-style-fill-row",
   STYLE_FILL_COLOR_INPUT: "foliplus-style-fill-color-input",
   STYLE_FILL_OPACITY_NUMBER: "foliplus-style-fill-opacity-number",
+  /** Size row (CircleMarker only): a number field plus its unit suffix. Its
+   *  own class so the change delegation and the tests can tell it from the
+   *  label-size and border-weight number fields. */
+  STYLE_SIZE_ROW: "foliplus-style-size-row",
+  STYLE_SIZE_INPUT: "foliplus-style-size-input",
   /** Opacity row: the slider host, its class and the row hook. */
   STYLE_OPACITY_TRACK: "foliplus-style-opacity-track",
   STYLE_OPACITY_SLIDER: "foliplus-style-opacity-slider",
@@ -232,6 +250,7 @@ export {
   FOCUS_PANE,
   SAVE_DEBOUNCE_MS,
   SEL,
+  SIZE,
   SOLID_BASEMAP_ID,
   STORAGE,
 };
