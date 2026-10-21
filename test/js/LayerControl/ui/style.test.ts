@@ -10,6 +10,7 @@ import {
   seedIntentMap,
   setIntent,
 } from "#foliplus/LayerControl/ui/intent.js";
+import { renderInitialList } from "#foliplus/LayerControl/ui/listPanel/list.js";
 import {
   buildDelegatedBorderRow,
   renderDelegatedStylePanel,
@@ -956,6 +957,31 @@ describe("LayerUI style panel", () => {
     expect(
       labelSection!.querySelector(`.${CONST.CLASSES.STYLE_TOGGLE_INPUT}`),
     ).not.toBeNull();
+  });
+
+  it("finishes sliders before a list rebuild", () => {
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const panel = panelOf(item)!;
+    const host = panel.querySelector(
+      "." + CONST.CLASSES.STYLE_OPACITY_TRACK,
+    ) as HTMLElement;
+    const finish = vi.spyOn(sliderOf(host)!, "finish");
+    // A reorder / fold rebuild clears the container without closing the panel.
+    renderInitialList(ui);
+    expect(finish).toHaveBeenCalled();
+  });
+
+  it("finishes sliders when their layer is unregistered", () => {
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const panel = panelOf(item)!;
+    const host = panel.querySelector(
+      "." + CONST.CLASSES.STYLE_OPACITY_TRACK,
+    ) as HTMLElement;
+    const finish = vi.spyOn(sliderOf(host)!, "finish");
+    manager.unregisterLayer("overlay1");
+    expect(finish).toHaveBeenCalled();
   });
 
   it("finishes every slider before the panel is removed", () => {

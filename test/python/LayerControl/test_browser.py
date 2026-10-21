@@ -4984,7 +4984,12 @@ class TestLayerControlBrowser:
             assert not errors, f"JS errors: {errors}"
 
     def test_zoom_range_close_mid_drag_commits(self, browser, tmp_path):
-        """Closing the panel while a drag is live commits what the pointer set."""
+        """Closing the panel while a drag is live commits what the pointer set.
+
+        The pointer is never released, so only the close can emit the change.
+        The assertions distinguish the in-memory preview (written by input,
+        unmarked) from the committed state (user override, debounced record).
+        """
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
             panel_ready(page)
             result = page.evaluate(_js("LayerControl/close_mid_drag"))
@@ -4993,14 +4998,32 @@ class TestLayerControlBrowser:
             assert result["afterMove"] == result["target"], (
                 f"the drag did not reach the target: {result}"
             )
+            assert result["markedBefore"] is False, (
+                f"an uncommitted preview must not be a user override: {result}"
+            )
+            assert result["draggingBefore"] is True, (
+                f"the probe did not start a drag: {result}"
+            )
             assert result["panelGone"] is True, result
-            assert result["draggingLeft"] is False, (
-                f"a detached slider kept its dragging state: {result}"
+            assert result["markedAfter"] is True, (
+                f"closing mid-drag did not mark the user override: {result}"
+            )
+            assert result["draggingAfter"] is False, (
+                f"the retained host kept its dragging state: {result}"
             )
             assert result["storedAfterClose"] == [
                 result["minAfterClose"],
                 result["afterMove"],
-            ], f"closing mid-drag did not persist the preview: {result}"
+            ], f"the committed range is wrong: {result}"
+            disk = result.get("disk")
+            assert disk is not None, (
+                f"closing mid-drag did not write the record: {result}"
+            )
+            assert "zoomRange" in (disk["overrides"] or []), disk
+            assert disk["zoomRange"] == [
+                result["minAfterClose"],
+                result["afterMove"],
+            ], f"the stored range is wrong: {disk}"
             assert not errors, f"JS errors: {errors}"
 
     def test_zoom_range_oor_dim(self, browser, tmp_path):

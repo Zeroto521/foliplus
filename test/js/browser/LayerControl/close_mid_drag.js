@@ -68,27 +68,52 @@ async () => {
     new PointerEvent("pointermove", { ...base, clientX: xOf(target), buttons: 1 }),
   );
   const afterMove = valueOf(1);
+  // The input pass wrote the preview value but must not mark a user override.
   const storedBeforeClose = ui.intentStore.get("zr_close", "zoomRange") ?? null;
+  const markedBefore = ui.intentStore.isUserSet("zr_close", "zoomRange");
+  const draggingBefore = host.querySelector(".is-dragging") !== null;
 
-  // Close while the drag is still live: the pointer has not been released.
+  // Close while the drag is still live: no pointerup is sent, so only the
+  // panel close can produce the change event.
   ui.closeStylePanel(false);
+  const markedAfter = ui.intentStore.isUserSet("zr_close", "zoomRange");
+  const draggingAfter = host.querySelector(".is-dragging") !== null;
   const storedAfterClose = ui.intentStore.get("zr_close", "zoomRange") ?? null;
-  const draggingLeft = document.querySelector(".is-dragging") !== null;
 
-  // Release after the element is gone, as a browser would (capture is lost).
-  track.dispatchEvent(
-    new PointerEvent("pointerup", { ...base, clientX: xOf(target), buttons: 0 }),
-  );
+  // The record write is debounced; wait past the debounce and read the disk
+  // record, not the in-memory preview.
+  await new Promise(resolve => setTimeout(resolve, 300));
+  let disk = null;
+  for (let i = 0; i < localStorage.length; i += 1) {
+    const key = localStorage.key(i);
+    if (!key || !key.includes("foliplus")) continue;
+    try {
+      const data = JSON.parse(localStorage.getItem(key));
+      const entry = data?.layers?.["zr_close"];
+      if (entry) {
+        disk = {
+          key,
+          overrides: entry.overrides ?? null,
+          zoomRange: entry.zoomRange ?? null,
+        };
+        break;
+      }
+    } catch {
+      // Not this key.
+    }
+  }
 
   return {
-    xStart: xOf(start),
-    xTarget: xOf(target),
     start,
     target,
     afterMove,
     storedBeforeClose,
+    markedBefore,
+    draggingBefore,
+    markedAfter,
+    draggingAfter,
     storedAfterClose,
-    draggingLeft,
+    disk,
     panelGone: !document.querySelector(".foliplus-layer-style-panel"),
     valueAfterClose: valueOf(1),
     minAfterClose: valueOf(0),
