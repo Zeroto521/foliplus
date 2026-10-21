@@ -14,6 +14,7 @@
 // callbacks; the exported sliderOf() gives a later pass (a reset, an external
 // commit) access to the instance without re-rendering the row.
 import { dom } from "#common/dom.js";
+import { SLIDER } from "./const.js";
 
 /** One thumb (number) or a range (min/max pair). */
 type SliderValue = number | [number, number];
@@ -117,7 +118,7 @@ const ensureBubble = (): HTMLElement => {
   let el = bubbleEl;
   if (!el) {
     el = dom.el("div", {
-      class: "foliplus-slider-bubble",
+      class: SLIDER.BUBBLE,
       "aria-hidden": "true",
     });
     el.hidden = true;
@@ -205,24 +206,24 @@ class Slider {
       : [initial as number];
 
     this.root = host;
-    host.classList.add("foliplus-slider");
+    host.classList.add(SLIDER.ROOT);
     host.dataset.mode = this.range ? "range" : "single";
     if (this.range) {
       host.setAttribute("role", "group");
       host.setAttribute("aria-label", this.opts.label);
     }
 
-    this.track = dom.el("div", { class: "foliplus-slider-track" });
-    this.rail = dom.el("div", { class: "foliplus-slider-rail" });
-    this.fill = dom.el("div", { class: "foliplus-slider-fill" });
+    this.track = dom.el("div", { class: SLIDER.TRACK });
+    this.rail = dom.el("div", { class: SLIDER.RAIL });
+    this.fill = dom.el("div", { class: SLIDER.FILL });
     this.rail.appendChild(this.fill);
-    this.marksLayer = dom.el("div", { class: "foliplus-slider-marks" });
-    this.valuesRow = dom.el("div", { class: "foliplus-slider-values" });
+    this.marksLayer = dom.el("div", { class: SLIDER.MARKS });
+    this.valuesRow = dom.el("div", { class: SLIDER.VALUES });
     this.track.append(this.rail, this.marksLayer);
 
     this.values.forEach((_, index) => {
       const thumb = dom.el("div", {
-        class: "foliplus-slider-thumb",
+        class: SLIDER.THUMB,
         role: "slider",
         tabindex: "0",
         "data-index": String(index),
@@ -347,7 +348,7 @@ class Slider {
 
   /** Mirror the ARIA state onto the thumbs and the group. */
   private applyAria(): void {
-    this.root.classList.toggle("is-disabled", this.disabled);
+    this.root.classList.toggle(SLIDER.DISABLED, this.disabled);
     const described = this.opts.describedBy;
     this.thumbs.forEach(thumb => {
       thumb.tabIndex = this.disabled ? -1 : 0;
@@ -434,8 +435,8 @@ class Slider {
     this.valuesRow.replaceChildren();
     if (!this.opts.values) return;
     this.valuesRow.append(
-      dom.el("span", { class: "foliplus-slider-value-min" }, this.opts.values.min),
-      dom.el("span", { class: "foliplus-slider-value-max" }, this.opts.values.max),
+      dom.el("span", { class: SLIDER.VALUE_MIN }, this.opts.values.min),
+      dom.el("span", { class: SLIDER.VALUE_MAX }, this.opts.values.max),
     );
     this.renderCurrent();
   }
@@ -445,11 +446,7 @@ class Slider {
     this.currentEl = null;
     const current = this.opts.current;
     if (!current || !this.opts.values) return;
-    const label = dom.el(
-      "span",
-      { class: "foliplus-slider-value-current" },
-      current.text,
-    );
+    const label = dom.el("span", { class: SLIDER.VALUE_CURRENT }, current.text);
     this.currentEl = label;
     this.valuesRow.appendChild(label);
   }
@@ -458,9 +455,7 @@ class Slider {
     this.marksLayer.replaceChildren();
     this.dotEls = (this.opts.marks ?? []).map(mark => {
       const dot = dom.el("span", {
-        class:
-          "foliplus-slider-dot" +
-          (mark.tone === "current" ? " foliplus-slider-dot-current" : ""),
+        class: SLIDER.DOT + (mark.tone === "current" ? ` ${SLIDER.DOT_CURRENT}` : ""),
         "data-at": String(mark.at),
         "aria-hidden": "true",
       });
@@ -501,7 +496,7 @@ class Slider {
     for (const dot of this.dotEls) {
       const at = Number(dot.dataset.at);
       dot.style.left = `${this.visualPct(at)}%`;
-      dot.classList.toggle("foliplus-slider-dot-covered", at >= lo && at <= hi);
+      dot.classList.toggle(SLIDER.DOT_COVERED, at >= lo && at <= hi);
     }
 
     if (this.currentEl && this.opts.current) {
@@ -510,7 +505,7 @@ class Slider {
       const gap = current.hideGapPct ?? 0;
       const nearEnd =
         gap > 0 && (this.pct(current.at) < gap || this.pct(current.at) > 100 - gap);
-      this.currentEl.classList.toggle("foliplus-slider-label-hidden", nearEnd);
+      this.currentEl.classList.toggle(SLIDER.LABEL_HIDDEN, nearEnd);
     }
 
     if (this.active >= 0) this.updateBubble();
@@ -564,7 +559,7 @@ class Slider {
     } catch {
       // Pointer capture is an optimisation; the element listeners still fire.
     }
-    this.thumbs[index].classList.add("is-dragging");
+    this.thumbs[index].classList.add(SLIDER.DRAGGING);
     this.thumbs[index].focus({ preventScroll: true });
     // A press on a stacked pair is ambiguous and waits for the first movement:
     // applying the press position would move one thumb off the stack and turn
@@ -582,7 +577,7 @@ class Slider {
     const drag = this.drag;
     if (!drag) return;
     this.drag = null;
-    this.thumbs[drag.index]?.classList.remove("is-dragging");
+    this.thumbs[drag.index]?.classList.remove(SLIDER.DRAGGING);
     this.hideBubble();
     if (commit && drag.dirty) this.emit("change");
   }

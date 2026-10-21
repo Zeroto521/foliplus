@@ -38,10 +38,11 @@
 
 .foliplus-slider-track {
   position: relative;
-  /* The track is the full form-control width: the rail and the numbers line
-     up with the fields below, and a thumb at either end overhangs by half a
-     thumb into the row's own padding. */
+  /* Inset by half a thumb: the travel is the rail, so a thumb parked at 0/100
+     keeps its outer edge on the control's edge. The control therefore reads
+     exactly as wide as the fields below — the circles do not overhang. */
   height: var(--foliplus-slider-thumb-size);
+  margin: 0 calc(var(--foliplus-slider-thumb-size) / 2);
   touch-action: none;
   cursor: pointer;
 }
@@ -166,6 +167,8 @@
    inset, so 0% and 100% are the rail's ends. */
 .foliplus-slider-values {
   position: relative;
+  /* Same inset as the track, so a number sits under the thumb that owns it. */
+  margin: 0 calc(var(--foliplus-slider-thumb-size) / 2);
   height: var(--foliplus-font-size-md);
   line-height: var(--foliplus-font-size-md);
   font-size: var(--foliplus-font-size-sm);
