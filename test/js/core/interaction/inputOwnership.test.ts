@@ -63,6 +63,17 @@ const ROWS: { label: string; cls: RowClass; make: () => HTMLElement }[] = [
     cls: "step" as const,
     make: () => input(type),
   })),
+  {
+    // The ARIA equivalent of a range input: a slider primitive's thumb.
+    label: 'div[role="slider"]',
+    cls: "step",
+    make: () => {
+      const el = document.createElement("div");
+      el.setAttribute("role", "slider");
+      el.tabIndex = 0;
+      return el;
+    },
+  },
   ...["checkbox", "radio"].map(type => ({
     label: `input[type=${type}]`,
     cls: "toggle" as const,
@@ -448,6 +459,12 @@ describe("isNativeControl", () => {
     for (const tag of ["button", "input", "select", "textarea"]) {
       expect(isNativeControl(document.createElement(tag)), tag).toBe(true);
     }
+  });
+
+  it('returns true for a role="slider" thumb', () => {
+    const el = document.createElement("div");
+    el.setAttribute("role", "slider");
+    expect(isNativeControl(el)).toBe(true);
   });
 
   it("returns true for a contenteditable element", () => {

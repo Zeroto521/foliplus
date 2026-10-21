@@ -2,6 +2,7 @@
 import { GROUP } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import * as SVGs from "#foliplus/LayerControl/icon.js";
+import { finishSlidersIn } from "#foliplus/LayerControl/slider.js";
 import { dom, updateItemLabel } from "#common/dom.js";
 import { getColorSurface } from "../color.js";
 import { seedAuthorVisible } from "../intent.js";
@@ -82,6 +83,10 @@ const renderInitialList = (ui: LayerUI) => {
     frag.appendChild(item);
   }
 
+  // The rebuild drops every row (and any style panel anchored in one). A drag
+  // that is still live has already produced a value; finish it before the DOM
+  // goes, or its change event is lost with the node.
+  finishSlidersIn(ui.uiContainer);
   ui.uiContainer.innerHTML = "";
   ui.uiContainer.appendChild(frag);
 

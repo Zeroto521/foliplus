@@ -31,6 +31,7 @@ import { AnnotationManager } from "./annotation/index.js";
 import * as CONST from "./const.js";
 import { LayerIntentStore, LayerOrchestration } from "./domain/index.js";
 import { LayerPersistence } from "./persistence.js";
+import { finishSlidersIn } from "./slider.js";
 import { type LayerUI } from "./ui/index.js";
 
 type LayerControllerEnv = {
@@ -748,6 +749,9 @@ class LayerController implements LayerAPI {
         `[${CONST.DATA.LAYER_ID}="${CSS.escape(id)}"]`,
       );
       if (target) {
+        // Finalise an in-flight user edit before its panel leaves the DOM: the
+        // drag value is the user's, not teardown state.
+        finishSlidersIn(target);
         target.remove();
         // Check if the group is now empty and remove the toggle-all row if so.
         const group = layerInfo.group;
