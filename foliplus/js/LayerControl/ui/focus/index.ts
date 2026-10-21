@@ -7,7 +7,7 @@ import { EVENTS } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { ensureModes, guardBlocked } from "#core/mode.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
-import { applyProjectionAll } from "../apply.js";
+import { applyProjectionAll, emitDeltas } from "../apply.js";
 import type { LayerUI } from "../surface.js";
 import { closeOverlays } from "../teardown.js";
 import { showFocusDisabledHint } from "./hint.js";
@@ -137,7 +137,10 @@ const focusLayer = (ui: LayerUI, layerId: string) => {
   // policy is driven by the same flag, so this one sweep is a no-op for the
   // layers it already covers.
   ui.focusController.focusingLayerId = layerId;
-  applyProjectionAll(ui);
+  // One settled round: the sweep lands the focused layer's opacity override
+  // and the policy changes, then each moved layer announces once in registry
+  // order — never a mid-sweep spray.
+  emitDeltas(ui, applyProjectionAll(ui));
 
   // Single-point / tiny bounds → flyTo the center.
   const southWest = bounds.getSouthWest();
@@ -246,8 +249,9 @@ const dismissFocus = (ui: LayerUI): void => {
   // Focus suspends inRange for its duration: with focus gone, the focused
   // layer's effective-shown falls back to intent && inRange. If its range
   // still excludes the current zoom, the executor removes it from the map —
-  // the "unfocus returns it to hidden" half of the focus gate.
-  applyProjectionAll(ui);
+  // the "unfocus returns it to hidden" half of the focus gate. Last step of
+  // the teardown: the sweep, then one announcement per moved layer.
+  emitDeltas(ui, applyProjectionAll(ui));
 };
 
 /** Register a one-shot moveend/zoomend handler that auto-cancels focus. */

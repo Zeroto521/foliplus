@@ -1,7 +1,13 @@
 // LayerControl UI — Checkbox / group-toggle visibility.
 import { GROUP, paintsAtZoom } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
-import { applyProjection, applyProjectionAll } from "../apply.js";
+import {
+  type ProjectionDelta,
+  applyProjection,
+  applyProjectionAll,
+  emitDelta,
+  emitDeltas,
+} from "../apply.js";
 import { currentOpacity, intentVisibleOf } from "../projection.js";
 import { saveState, setVisibleIntent } from "../state.js";
 import type { LayerUI } from "../surface.js";
@@ -51,6 +57,7 @@ const syncNoBasemap = (ui: LayerUI): void => {
 
 const toggleAll = (ui: LayerUI, group: string, newState: boolean) => {
   const items = getLayerItems(ui, group);
+  const moved: Array<{ layerInfo: LayerInfo; delta: ProjectionDelta }> = [];
   items.forEach((item: Element) => {
     const checkbox = item.querySelector(
       'input[type="checkbox"]',
@@ -71,7 +78,8 @@ const toggleAll = (ui: LayerUI, group: string, newState: boolean) => {
     // setVisibleIntent recorded the intent, so the projection's `visible` field
     // now matches the intended state and the diff fires whatever op is
     // needed.
-    applyProjection(ui, id);
+    const delta = applyProjection(ui, id);
+    if (delta.wroteVisible || delta.intentMoved) moved.push({ layerInfo, delta });
     applyRowView(ui, item as HTMLElement, buildRowCell(ui, layerInfo));
   });
 
@@ -84,6 +92,17 @@ const toggleAll = (ui: LayerUI, group: string, newState: boolean) => {
   syncToggleAll(ui, group);
   syncNoBasemap(ui);
   ui.c.debouncedEnforce();
+
+  // Announce last, in registry order: the loop above walked the DOM, which can
+  // diverge from the registry on a late registration, and a subscriber that
+  // re-enters during this notify must see the finished count and hatch.
+  const registered = ui.c.layers;
+  moved
+    .slice()
+    .sort((a, b) => {
+      return registered.indexOf(a.layerInfo) - registered.indexOf(b.layerInfo);
+    })
+    .forEach(({ layerInfo, delta }) => emitDelta(ui, layerInfo, delta));
 };
 
 /** Full rescan that populates `ui.listPanel.checkedCount[group]` from the DOM + intent,
@@ -209,9 +228,10 @@ const applyVisibility = (ui: LayerUI, id: string, visible: boolean): boolean => 
 
   const oldChecked = intentVisibleOf(ui, id);
   setVisibleIntent(ui, id, visible);
-  applyProjection(ui, id);
+  const ownDelta = applyProjection(ui, id);
 
-  // Paint last: the cell reads the intent this transition just recorded.
+  // Paint after the projection lands: the cell reads the intent this
+  // transition just recorded.
   if (item) applyRowView(ui, item, buildRowCell(ui, layerInfo));
 
   // Incremental tri-state: O(1) count update rather than a full rescan.
@@ -239,10 +259,19 @@ const applyVisibility = (ui: LayerUI, id: string, visible: boolean): boolean => 
   // A basemap switch changes the map's min/max zoom without firing zoomend,
   // so re-evaluate effective shown across every layer and refresh the open
   // panel's row.
+  let swept: Array<{ id: string; delta: ProjectionDelta }> = [];
   if (layerInfo.group === GROUP.BASE) {
-    applyProjectionAll(ui);
+    swept = applyProjectionAll(ui);
     ui.overlayPanel.styleZoomEndHandler?.();
   }
+
+  // Announce last — the row paint, the tri-state count, the basemap hatch and
+  // the attribution table are all settled, so a subscriber that re-enters here
+  // sees the finished panel. The own-layer delta goes out before the sweep's:
+  // it is the layer the user acted on, and the sweep's own entry for it is
+  // empty (the first pass above already wrote its baseline).
+  emitDelta(ui, layerInfo, ownDelta);
+  emitDeltas(ui, swept);
 
   return true;
 };

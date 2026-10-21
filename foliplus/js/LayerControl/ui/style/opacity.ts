@@ -12,7 +12,7 @@
 import { CAP_TIER, DIM, GROUP } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { dom } from "#common/dom.js";
-import { applyProjection } from "../apply.js";
+import { applyProjection, emitDelta } from "../apply.js";
 import { INTENT } from "../intent.js";
 import { syncNoBasemap } from "../listPanel/visibility.js";
 import { currentOpacity } from "../projection.js";
@@ -204,16 +204,24 @@ const OPACITY_DIMENSION = registerDimension<number>({
     } else {
       void writeIntentKeys(ui, layerId, [[INTENT.OPACITY, opacity]]);
     }
-    applyProjection(ui, layerId, "debounce");
+    const moved = applyProjection(ui, layerId, "debounce");
     const layerInfo = ui.c.layerRegistry.get(layerId);
     if (layerInfo?.group === GROUP.BASE) syncNoBasemap(ui);
+    // Announce last, after the hatch: on a layer's first projection the pass
+    // can still converge a stale map membership, and that flip is a real
+    // change worth notifying.
+    if (layerInfo) emitDelta(ui, layerInfo, moved);
   },
   /** Cohesive reset: clear the override, save, re-project, hatch sync. */
   reset: (ui, layerId) => {
     resetIntentKeys(ui, layerId, [INTENT.OPACITY]);
-    applyProjection(ui, layerId, "debounce");
+    const moved = applyProjection(ui, layerId, "debounce");
     const layerInfo = ui.c.layerRegistry.get(layerId);
     if (layerInfo?.group === GROUP.BASE) syncNoBasemap(ui);
+    // Announce last, after the hatch: on a layer's first projection the pass
+    // can still converge a stale map membership, and that flip is a real
+    // change worth notifying.
+    if (layerInfo) emitDelta(ui, layerInfo, moved);
   },
   valueSource: (ui, layerId) => {
     if (!layerCanOpacity(ui, layerId)) return "none";

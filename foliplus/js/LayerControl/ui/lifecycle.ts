@@ -10,7 +10,7 @@ import {
   handleMoreMenuClick,
   registerInteractions,
 } from "../interaction.js";
-import { applyProjection, applyProjectionAll } from "./apply.js";
+import { applyProjection, applyProjectionAll, emitDelta, emitDeltas } from "./apply.js";
 import { inFloatingPanel, isKeyboardVisibleFocus, owningRow } from "./context.js";
 import { bindGeometryFocusMarquee } from "./focus/focusMarquee.js";
 import { dismissFocus } from "./focus/index.js";
@@ -261,7 +261,11 @@ const bindLayerEvents = (ui: LayerUI): void => {
   // includes it is brought back. This is the "inRange" half of
   // effectiveShown = intent && inRange, and it writes through the single
   // pipeline so the checkbox / intents.visible / overrides stay untouched (#329).
-  ui.onZoomEnd = () => applyProjectionAll(ui);
+  // One settled round, not a mid-sweep spray: every layer is diffed first,
+  // then each moved layer announces once, in registry order.
+  ui.onZoomEnd = () => {
+    emitDeltas(ui, applyProjectionAll(ui));
+  };
   ui.c.map.on("zoomend", ui.onZoomEnd);
   // Keyboard dispatch for the "more" button (Enter/Space/Escape) is handled
   // by InteractionManager via registerInteractions() in interaction.ts,
@@ -357,7 +361,9 @@ const onLayerItemCountChange = (ui: LayerUI, id: string): void => {
   // new and re-applies it through the carrier dispatcher.
   if (getIntent(ui, id, INTENT.OPACITY) !== undefined) {
     ui.runtimeStore.deleteApplied(id);
-    applyProjection(ui, id);
+    // The row above has already been repainted, so the projection is the last
+    // side effect — its notify goes out on that delta, not inside the pass.
+    emitDelta(ui, layerInfo, applyProjection(ui, id));
   }
 };
 

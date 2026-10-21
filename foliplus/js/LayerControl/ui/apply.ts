@@ -224,8 +224,8 @@ const sameCarrier = (prev: unknown, curr: unknown): boolean =>
  *  the write instead of faking one on a shared carrier.
  *
  *  Return value: whether a real state write landed on the carrier. The
- *  caller (`applyProjection`) emits `LAYER_CHANGE` only when this is
- *  `true`, so a write that could not land (no layer object, no canvas
+ *  caller (`applyProjection`) gates `LAYER_CHANGE` on this through
+ *  `emitDelta`, so a write that could not land (no layer object, no canvas
  *  element, value already matching the carrier) never manufactures a
  *  change notification. `LAYER_CHANGE` is the semantic replacement for
  *  Leaflet's native `layeradd`/`layerremove` — canvas-only surfaces
@@ -366,6 +366,16 @@ const dispatchStateOp = (
   throw ui.log.msg(`unreachable dispatchStateOp type: ${JSON.stringify(exhaustive)}`);
 };
 
+/** What one projection pass actually moved. The operation that ran the
+ *  pass owns the bus notification and emits on this — not on the pass
+ *  itself (see the contract note on `applyProjection` below). */
+type ProjectionDelta = {
+  wroteVisible: boolean;
+  intentMoved: boolean;
+};
+
+const NO_DELTA: ProjectionDelta = { wroteVisible: false, intentMoved: false };
+
 /** Diff the current projection against the last one we wrote, and call
  *  `dispatchStateOp` only for the dimensions that moved.
  *
@@ -389,20 +399,29 @@ const dispatchStateOp = (
  *  longer diffed separately: any change that would authorize an add goes
  *  through `intent`, so the effective value already reflects the user's
  *  authorization. The one-way gate is now the shape of this diff.
+ *
+ *  This pass never emits. It returns a `ProjectionDelta` and its caller —
+ *  the operation layer that owns the user action — emits through
+ *  `emitDelta` once every side effect of that operation has landed (row
+ *  paint, tri-state count, basemap hatch, attribution). A notify fired
+ *  mid-operation would hand a subscriber a partially-updated UI: a
+ *  re-entrant subscriber re-projects against a stale row, a group count
+ *  delta is computed from pre-update state, and a subscriber that throws
+ *  or tears the map down leaves the operation's own paint behind.
  */
 const applyProjection = (
   ui: LayerUI,
   id: string,
   repaintMode: "debounce" | "none" = "none",
-): void => {
+): ProjectionDelta => {
   const layerInfo = ui.c.layerRegistry.get(id);
-  if (!layerInfo) return;
+  if (!layerInfo) return NO_DELTA;
   // A surface is mandatory for a write target (see `carrierOf` / `dispatchStateOp`
   // below) — the same defensive gate `hideOtherLayers` carries against a
   // missing surface. A layer whose surface could not be built (a late-
   // registered entry the ordering pass hasn't stamped yet, or a test
   // fixture that returns `null`) has nothing to write to, so skip it.
-  if (!ui.c.surfaceFor(layerInfo)) return;
+  if (!ui.c.surfaceFor(layerInfo)) return NO_DELTA;
   const next = projectLayer(ui, layerInfo);
   let prev = ui.runtimeStore.getApplied(id);
 
@@ -483,8 +502,8 @@ const applyProjection = (
   //    when the value actually differs from what is on the carrier.
   //    `dispatchStateOp` returns whether a real write landed; we keep
   //    that answer on `wroteVisible` because it is what gates the
-  //    `LAYER_CHANGE` bus notification further down (see below) — a
-  //    late-bound layer reference whose `findLayer` still returns null
+  //    `LAYER_CHANGE` bus notification the caller emits on this delta —
+  //    a late-bound layer reference whose `findLayer` still returns null
   //    must not manufacture a change event nobody can observe.
   let wroteVisible = false;
   if (authorised && currentShown !== next.effectiveShown) {
@@ -522,9 +541,9 @@ const applyProjection = (
   //    call with the same intent is a no-op.
   const intentMoved = !isFirstPass && prev.intent?.visible !== next.intent.visible;
 
-  // 4. Submit the new baseline *before* notifying. Reentrant callers — a
-  //    subscriber that calls `applyProjection` synchronously during one of
-  //    the emits below — diff against the value they read from
+  // 4. Submit the new baseline *before* returning. Reentrant callers — an
+  //    operation layer that re-projects inside its own notify, or the next
+  //    call after this one — diff against the value they read from
   //    `runtimeStore.getApplied`, and that value is already fresh by the
   //    time they look, so a same-value write-back cannot re-trigger the
   //    same notification, and a reverse correction lands its own baseline
@@ -536,26 +555,49 @@ const applyProjection = (
     carrier: carrierToken,
   });
 
-  // 5. Bus notifications. Order: `LAYER_CHANGE` first (the map-facing
-  //    flip subscribers most often react to), then `LAYER_INTENT_CHANGE`
-  //    (the user-only channel for policy-gated intent movements).
-  //    Gating `LAYER_CHANGE` on `wroteVisible` — not on the pre-emit
-  //    `currentShown !== next.effectiveShown` diff — is what keeps a
-  //    missing layer reference or a value that did not actually flip
-  //    from manufacturing a change event nobody can observe.
-  if (wroteVisible) {
+  return { wroteVisible, intentMoved };
+};
+
+/** The single bus notification point for a projection pass: `LAYER_CHANGE`
+ *  (the map-facing flip subscribers most often react to) first, then
+ *  `LAYER_INTENT_CHANGE` (the user-only channel for policy-gated intent
+ *  movements). Every operation layer routes its notify through here, so the
+ *  two-order rule has one home and a new caller cannot drift from it.
+ *
+ *  `LAYER_CHANGE` is gated on `wroteVisible` — not on the pre-notify
+ *  `currentShown !== next.effectiveShown` diff — which is what keeps a
+ *  missing layer reference or a value that did not actually flip from
+ *  manufacturing a change event nobody can observe. The intent payload reads
+ *  the committed value through `intentVisibleOf` rather than a snapshot
+ *  taken inside the pass, so it reports the choice the store actually holds
+ *  at delivery time — a caller that re-enters through this same helper sees
+ *  its own correction, not the value the outer pass started from. */
+const emitDelta = (ui: LayerUI, layerInfo: LayerInfo, delta: ProjectionDelta): void => {
+  if (delta.wroteVisible) {
     ui.events.emit(EVENTS.LAYER_CHANGE, {
       id: layerInfo.id,
       kind: layerInfo.kind,
     });
   }
-
-  if (intentMoved) {
+  if (delta.intentMoved) {
     ui.events.emit(EVENTS.LAYER_INTENT_CHANGE, {
       id: layerInfo.id,
       kind: layerInfo.kind,
-      intent: { visible: next.intent.visible },
+      intent: { visible: intentVisibleOf(ui, layerInfo.id) },
     });
+  }
+};
+
+/** Notify a batch of passes in the order they were swept, without
+ *  interleaving. Unresolvable ids (intent records whose layer never
+ *  registered) are skipped — they produced no pass at all. */
+const emitDeltas = (
+  ui: LayerUI,
+  deltas: ReadonlyArray<{ id: string; delta: ProjectionDelta }>,
+): void => {
+  for (const { id, delta } of deltas) {
+    const layerInfo = ui.c.layerRegistry.get(id);
+    if (layerInfo) emitDelta(ui, layerInfo, delta);
   }
 };
 
@@ -569,18 +611,33 @@ const applyProjection = (
  *  label from the fresh projection, so the sweep must call it at the end.
  *  Goes through the `ui.syncNoBasemap` delegate to avoid a cross-module
  *  import back into `listPanel/visibility.js` (which already imports
- *  `apply.js` — a direct import here would close the cycle). */
+ *  `apply.js` — a direct import here would close the cycle).
+ *
+ *  Returns only the layers that actually moved, in sweep order — the sweep
+ *  is registry order, with intent-only ids that never registered pruned by
+ *  `projectAll`. The caller emits through `emitDeltas` after its own
+ *  reconcile steps, so a batch announces as one settled round instead of a
+ *  mid-sweep spray. */
 const applyProjectionAll = (
   ui: LayerUI,
   repaintMode: "debounce" | "none" = "none",
-): void => {
-  for (const [id] of projectAll(ui)) applyProjection(ui, id, repaintMode);
+): Array<{ id: string; delta: ProjectionDelta }> => {
+  const deltas: Array<{ id: string; delta: ProjectionDelta }> = [];
+  for (const [id] of projectAll(ui)) {
+    const delta = applyProjection(ui, id, repaintMode);
+    if (delta.wroteVisible || delta.intentMoved) deltas.push({ id, delta });
+  }
   ui.syncNoBasemap();
+  return deltas;
 };
+
+export type { ProjectionDelta };
 
 export {
   applyProjection,
   applyProjectionAll,
   dispatchStateOp,
+  emitDelta,
+  emitDeltas,
   authorZoomBoundsForLayer,
 };

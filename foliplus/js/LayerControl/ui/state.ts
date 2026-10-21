@@ -11,7 +11,7 @@
 // unchanged.
 import * as CONST from "../const.js";
 import type { LayerOverride } from "../type.js";
-import { applyProjection, applyProjectionAll } from "./apply.js";
+import { applyProjection, applyProjectionAll, emitDelta, emitDeltas } from "./apply.js";
 import { applyNameProjection } from "./context.js";
 import { INTENT, LIVE, getIntent } from "./intent.js";
 import type { LayerUI } from "./surface.js";
@@ -152,7 +152,7 @@ const applyUserState = (ui: LayerUI, id?: string) => {
     // One id, one projection: a late registration replays every stored
     // dimension on the same pass — visibility, opacity and zoom range — so
     // nothing needs a per-caller replay path: a late arrival replays itself.
-    applyProjection(ui, id, "none");
+    const moved = applyProjection(ui, id, "none");
     const rename = getIntent(ui, id, INTENT.NAME);
     if (rename != null) {
       applyNameProjection(layerInfo, null, rename);
@@ -161,6 +161,11 @@ const applyUserState = (ui: LayerUI, id?: string) => {
     // late registration, so without it the layer would keep the slot it was
     // inserted into rather than the position the user already arranged.
     ui.c.replaySavedOrder(id);
+    // Announce last: a late registration can join the map on this replay,
+    // which is a real membership change no other path notifies — a bus-only
+    // consumer (annotation repaints its labels) would otherwise never learn
+    // about the layer.
+    emitDelta(ui, layerInfo, moved);
     return;
   }
 
@@ -170,7 +175,7 @@ const applyUserState = (ui: LayerUI, id?: string) => {
   // inverse. Walking the registry asserts every layer's map membership
   // against the persisted intent; the color basemap has no registry entry,
   // so its rename still comes from the store's name dimension.
-  applyProjectionAll(ui, "none");
+  const swept = applyProjectionAll(ui, "none");
   for (const layerId of ui.intentStore.ids()) {
     const rename = getIntent(ui, layerId, INTENT.NAME);
     if (rename == null) continue;
@@ -208,6 +213,12 @@ const applyUserState = (ui: LayerUI, id?: string) => {
   // before late registrations -- so it is replayed across the registry that
   // exists now, and each later registration refines its own slot.
   ui.c.replaySavedOrder();
+
+  // Announce last, one round for the whole replay: a late registration can join
+  // the map here, which is a real membership change no other path notifies —
+  // a bus-only consumer (annotation repaints its labels) would otherwise
+  // never learn about the layer.
+  emitDeltas(ui, swept);
 };
 
 /**

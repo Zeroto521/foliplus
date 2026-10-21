@@ -14,7 +14,7 @@
 
 ### Fixed
 
-- `LayerControl`: layer visibility events are consistent and reentrancy-safe — `LAYER_CHANGE` tracks the actual flip, `LAYER_INTENT_CHANGE` the user's choice, and a subscriber's write-back never loops ([#716](https://github.com/Zeroto521/foliplus/pull/716), [#719](https://github.com/Zeroto521/foliplus/pull/719), [#720](https://github.com/Zeroto521/foliplus/pull/720))
+- `LayerControl`: layer visibility events are consistent and reentrancy-safe — `LAYER_CHANGE` tracks the actual flip, `LAYER_INTENT_CHANGE` the user's choice, a subscriber's write-back never loops, and every notify fires only after the operation's own side effects have settled ([#716](https://github.com/Zeroto521/foliplus/pull/716), [#719](https://github.com/Zeroto521/foliplus/pull/719), [#720](https://github.com/Zeroto521/foliplus/pull/720), [#723](https://github.com/Zeroto521/foliplus/pull/723))
 
 ## [v0.4.1] (2026-10-18)
 

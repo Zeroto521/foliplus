@@ -648,12 +648,13 @@ describe("executor: carrier dispatch", () => {
     expect(canvas.classList.contains("hidden")).toBe(false);
   });
 
-  describe("LAYER_CHANGE from applyProjection", () => {
-    // Emit is the executor's job at the diff boundary, not at the carrier
-    // writer: both map-membership and canvas-HIDDEN-class writes are
+  describe("LAYER_CHANGE — emitted once the operation has settled", () => {
+    // The executor does not emit; the operation layer does, after its own
+    // side effects (carrier write, row paint, tri-state count, hatch) have
+    // landed. Both map-membership and canvas-HIDDEN-class writes are
     // visibility flips, so both ride the same `LAYER_CHANGE` notification.
-    // The dispatcher returns `wrote` so a projection sweep that finds the
-    // carrier already matched never manufactures a change event.
+    // The dispatcher returns `wrote` so a projection that finds the carrier
+    // already matched never manufactures a change event.
 
     it("a canvas hide emits LAYER_CHANGE and the callback reads the new class", () => {
       const canvas = document.createElement("canvas");
@@ -670,8 +671,7 @@ describe("executor: carrier dispatch", () => {
         observedHidden.push(canvas.classList.contains(HIDDEN));
       });
 
-      setIntent(ui, "cv-e", "visible", false);
-      applyProjection(ui, "cv-e");
+      ui.applyVisibility("cv-e", false);
 
       expect(seen).toEqual([{ id: "cv-e", kind: "canvas" }]);
       expect(observedHidden).toEqual([true]);
@@ -684,8 +684,7 @@ describe("executor: carrier dispatch", () => {
         { id: "cv-f", name: "CV-F", group: "overlay", canvas },
       ]);
       ui.runtimeStore.setAuthorVisible("cv-f", true);
-      setIntent(ui, "cv-f", "visible", false);
-      applyProjection(ui, "cv-f");
+      ui.applyVisibility("cv-f", false);
 
       const seen: Array<{ id: string; kind: string } | undefined> = [];
       const observedHidden: Array<boolean | undefined> = [];
@@ -694,8 +693,7 @@ describe("executor: carrier dispatch", () => {
         observedHidden.push(canvas.classList.contains(HIDDEN));
       });
 
-      setIntent(ui, "cv-f", "visible", true);
-      applyProjection(ui, "cv-f");
+      ui.applyVisibility("cv-f", true);
 
       expect(seen).toEqual([{ id: "cv-f", kind: "canvas" }]);
       expect(observedHidden).toEqual([false]);
@@ -748,7 +746,7 @@ describe("executor: carrier dispatch", () => {
 
       setIntent(ui, "zv", "zoomRange", [0, 1]);
       ui.intentStore.seedProvenance("zv", ["zoomRange"]);
-      applyProjectionAll(ui);
+      ui.onZoomEnd?.();
 
       expect(onMap.current).toBe(false);
       expect(seen.length).toBe(1);
@@ -772,7 +770,7 @@ describe("executor: carrier dispatch", () => {
       applyProjection(ui, "zv2");
       setIntent(ui, "zv2", "zoomRange", [0, 1]);
       ui.intentStore.seedProvenance("zv2", ["zoomRange"]);
-      applyProjectionAll(ui);
+      ui.onZoomEnd?.();
       expect(onMap.current).toBe(false);
 
       const seen: Array<{ id: string; kind: string } | undefined> = [];
@@ -781,7 +779,7 @@ describe("executor: carrier dispatch", () => {
       });
 
       clearIntent(ui, "zv2", "zoomRange");
-      applyProjectionAll(ui);
+      ui.onZoomEnd?.();
 
       expect(onMap.current).toBe(true);
       expect(seen.length).toBe(1);
@@ -820,7 +818,7 @@ describe("executor: carrier dispatch", () => {
     });
   });
 
-  describe("LAYER_INTENT_CHANGE from applyProjection", () => {
+  describe("LAYER_INTENT_CHANGE — emitted once the operation has settled", () => {
     // `LAYER_CHANGE` rides the effective flip (intent && policy), so a
     // user-only intent movement gated by zoomRange never reaches it.
     // `LAYER_INTENT_CHANGE` is the separate channel for that user-only
@@ -862,8 +860,7 @@ describe("executor: carrier dispatch", () => {
         changeSeen.push(payload as { id: string; kind: string }),
       );
 
-      setIntent(ui, "ie-both", "visible", false);
-      applyProjection(ui, "ie-both");
+      ui.applyVisibility("ie-both", false);
 
       expect(intentSeen).toEqual([
         { id: "ie-both", kind: "canvas", intent: { visible: false } },
@@ -903,8 +900,7 @@ describe("executor: carrier dispatch", () => {
 
       // User checks the box. Intent flips false → true; policy keeps the
       // layer off the map, so no effective change, no LAYER_CHANGE.
-      setIntent(ui, "ie-oor", "visible", true);
-      applyProjection(ui, "ie-oor");
+      ui.applyVisibility("ie-oor", true);
 
       expect(intentSeen).toEqual([
         { id: "ie-oor", kind: "canvas", intent: { visible: true } },
@@ -944,7 +940,7 @@ describe("executor: carrier dispatch", () => {
 
       setIntent(ui, "ie-oom", "zoomRange", [0, 1]);
       ui.intentStore.seedProvenance("ie-oom", ["zoomRange"]);
-      applyProjectionAll(ui);
+      ui.onZoomEnd?.();
 
       expect(onMap.current).toBe(false);
       expect(changeSeen).toEqual([{ id: "ie-oom", kind: "vector" }]);
@@ -994,20 +990,23 @@ describe("executor: carrier dispatch", () => {
     });
 
     describe("reentrancy", () => {
-      // A subscriber that calls `applyProjection` synchronously during
+      // A subscriber that re-enters through the operation layer during
       // `LAYER_INTENT_CHANGE` sees whatever `runtimeStore.getApplied`
-      // returns at that moment. If the baseline is stale, a same-value
-      // write-back looks like a new change and re-emits; if the outer
-      // then re-writes its own projection on return, the inner snapshot
-      // is clobbered and the next real change looks like a no-op.
+      // returns at that moment. The projection commits its baseline before
+      // returning to the operation layer, so that baseline is fresh by the
+      // time the subscriber runs. If it were stale, a same-value write-back
+      // looks like a new change and re-emits; if the outer operation then
+      // re-wrote its own projection on return, the inner snapshot would be
+      // clobbered and the next real change would look like a no-op.
 
       it("a subscriber that writes the same value back emits exactly once", () => {
         // The recursive write-back loop: a subscriber that observes the
-        // intent and mirrors it through `setVisibleIntent` would, before
+        // intent and mirrors it through the operation layer would, before
         // the fix, see the stale baseline (still the pre-emit value),
-        // diff to a false positive, and re-emit. `setApplied` now runs
-        // before the emit, so the reentrant projection diffs against the
-        // already-committed value and no further emit fires.
+        // diff to a false positive, and re-emit. The projection commits
+        // its baseline before the operation emits, so the reentrant
+        // operation diffs against the already-committed value and no
+        // further emit fires.
         const canvas = document.createElement("canvas");
         const { ui, manager } = boot([
           { id: "re-entry-1", name: "Re-Entry-1", group: "overlay", canvas },
@@ -1019,20 +1018,18 @@ describe("executor: carrier dispatch", () => {
         const intentSpy = vi.fn();
         const changeSpy = vi.fn();
         // A mirroring subscriber: on every intent change it re-applies
-        // the same intent through the public write path. Before the
-        // submit-before-emit fix, the inner call read a stale baseline
+        // the same intent through the public operation. Before the
+        // commit-before-emit fix, the inner call read a stale baseline
         // (outer's commit hadn't landed yet), saw the same value as a
         // new change, and re-emitted — the loop only stopped because a
         // call-budget safety net tripped it after six rounds.
         manager.events.on(EVENTS.LAYER_INTENT_CHANGE, payload => {
           intentSpy(payload);
-          ui.setVisibleIntent(payload.id, payload.intent.visible, false);
-          ui.applyProjection(payload.id);
+          ui.applyVisibility(payload.id, payload.intent.visible);
         });
         manager.events.on(EVENTS.LAYER_CHANGE, payload => changeSpy(payload));
 
-        setIntent(ui, "re-entry-1", "visible", false);
-        applyProjection(ui, "re-entry-1");
+        ui.applyVisibility("re-entry-1", false);
 
         expect(intentSpy).toHaveBeenCalledTimes(1);
         expect(intentSpy.mock.calls[0][0].intent.visible).toBe(false);
@@ -1041,15 +1038,15 @@ describe("executor: carrier dispatch", () => {
       });
 
       it("a subscriber that reverses the value reports the new intent immediately", () => {
-        // Reverse correction: the outer projection flips intent false
-        // → true and emits; a subscriber that disagrees calls
-        // `setVisibleIntent(false)` + `applyProjection` synchronously.
+        // Reverse correction: the outer operation flips intent false
+        // → true and emits; a subscriber that disagrees applies
+        // `visible: false` through the same operation, synchronously.
         // The inner projection must land its own baseline without the
         // outer re-overwriting it on return, so the emitted intent and
         // the runtimeStore agree. Without this the outer would write
         // its own projection back over the inner snapshot and the
         // subscriber's correction would only surface on the next
-        // applyProjectionAll — a `zoomend` sweep nobody is waiting for.
+        // zoomend sweep — one nobody is waiting for.
         const canvas = document.createElement("canvas");
         const { ui, manager } = boot([
           { id: "re-entry-2", name: "Re-Entry-2", group: "overlay", canvas },
@@ -1071,18 +1068,17 @@ describe("executor: carrier dispatch", () => {
           changeSeen.push(payload as { id: string; kind: string }),
         );
         // The reentrant subscriber: the outer flip triggers its handler,
-        // which disagrees and writes back the opposite value through
-        // setVisibleIntent + applyProjection. Because setApplied
-        // commits before the emit, the inner projection reads a fresh
-        // baseline, sees its own diff as a real movement, and lands
-        // its own setApplied — which is the last snapshot that wins.
+        // which disagrees and writes back the opposite value. Because the
+        // projection commits its baseline before the outer operation emits,
+        // the inner projection reads a fresh baseline, sees its own diff as
+        // a real movement, and lands its own setApplied — the last snapshot
+        // that wins. Its operation then emits, so the correction is visible
+        // immediately rather than on a later zoomend sweep.
         manager.events.on(EVENTS.LAYER_INTENT_CHANGE, () => {
-          ui.setVisibleIntent("re-entry-2", false, false);
-          ui.applyProjection("re-entry-2");
+          ui.applyVisibility("re-entry-2", false);
         });
 
-        setIntent(ui, "re-entry-2", "visible", true);
-        applyProjection(ui, "re-entry-2");
+        ui.applyVisibility("re-entry-2", true);
 
         // Outer fired once (intent true), inner fired once (intent
         // false). The inner's setApplied must have survived the outer
@@ -1098,9 +1094,9 @@ describe("executor: carrier dispatch", () => {
 
       it("two subscribers that both re-write terminate with a consistent final state", () => {
         // Two subscribers reacting to the same emit each write their
-        // own projection back. Both read the fresh baseline the outer
+        // own operation back. Both read the fresh baseline the outer
         // just committed; neither re-emits, so no infinite loop, and
-        // the last writer's `setApplied` is what wins. The outer
+        // the last writer's baseline is what wins. The outer operation
         // never re-commits over the inner — the final `getApplied`
         // matches the intent the last subscriber put in the store.
         const canvas = document.createElement("canvas");
@@ -1115,18 +1111,15 @@ describe("executor: carrier dispatch", () => {
         let changeTotal = 0;
         manager.events.on(EVENTS.LAYER_INTENT_CHANGE, () => {
           intentTotal++;
-          ui.setVisibleIntent("re-entry-3", true, false);
-          ui.applyProjection("re-entry-3");
+          ui.applyVisibility("re-entry-3", true);
         });
         manager.events.on(EVENTS.LAYER_INTENT_CHANGE, () => {
-          ui.setVisibleIntent("re-entry-3", true, false);
-          ui.applyProjection("re-entry-3");
+          ui.applyVisibility("re-entry-3", true);
         });
         manager.events.on(EVENTS.LAYER_CHANGE, () => changeTotal++);
 
         expect(() => {
-          setIntent(ui, "re-entry-3", "visible", false);
-          applyProjection(ui, "re-entry-3");
+          ui.applyVisibility("re-entry-3", false);
         }).not.toThrow();
 
         expect(intentTotal).toBeLessThanOrEqual(4);

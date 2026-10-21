@@ -5,7 +5,7 @@
 import { CAP_TIER, DIM } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { dom } from "#common/dom.js";
-import { applyProjection, authorZoomBoundsForLayer } from "../apply.js";
+import { applyProjection, authorZoomBoundsForLayer, emitDelta } from "../apply.js";
 import { INTENT, getIntent } from "../intent.js";
 import type { LayerUI } from "../surface.js";
 import { railPos } from "./frame.js";
@@ -263,7 +263,9 @@ const applyZoomRangeLive = (
   if (!layerInfo) return;
   ui.intentStore.setValue(layerId, INTENT.ZOOM_RANGE, [min, max]);
   syncZoomRangeRow(ui, layerId, row, [min, max]);
-  applyProjection(ui, layerId);
+  // Announce last: the row chrome above is already settled, so a subscriber
+  // that re-enters sees the dragged value, not a mid-drag row.
+  emitDelta(ui, layerInfo, applyProjection(ui, layerId));
 };
 
 /** Commit pass: persist the zoom range to localStorage. The value and the
@@ -316,12 +318,18 @@ const ZOOM_RANGE_DIMENSION = registerDimension<{ min: number; max: number }>({
       if (!stored) return;
       void writeIntentKeys(ui, layerId, [[INTENT.ZOOM_RANGE, stored]]);
     }
-    applyProjection(ui, layerId);
+    const layerInfo = ui.c.layerRegistry.get(layerId);
+    if (!layerInfo) return;
+    // The commit pass owns its own notify: the intent write above is the only
+    // side effect, so the delta goes out on the projection it just ran.
+    emitDelta(ui, layerInfo, applyProjection(ui, layerId));
   },
   /** Cohesive reset: clear the override, save, re-project. */
   reset: (ui, layerId) => {
     resetIntentKeys(ui, layerId, [INTENT.ZOOM_RANGE]);
-    applyProjection(ui, layerId);
+    const layerInfo = ui.c.layerRegistry.get(layerId);
+    if (!layerInfo) return;
+    emitDelta(ui, layerInfo, applyProjection(ui, layerId));
   },
   valueSource: (ui, layerId) => {
     if (!canShowZoomRange(ui, layerId)) return "none";
