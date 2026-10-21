@@ -57,7 +57,7 @@ const syncNoBasemap = (ui: LayerUI): void => {
 
 const toggleAll = (ui: LayerUI, group: string, newState: boolean) => {
   const items = getLayerItems(ui, group);
-  const moved: Array<{ layerInfo: LayerInfo; delta: ProjectionDelta }> = [];
+  const moved = new Map<string, ProjectionDelta>();
   items.forEach((item: Element) => {
     const checkbox = item.querySelector(
       'input[type="checkbox"]',
@@ -79,7 +79,7 @@ const toggleAll = (ui: LayerUI, group: string, newState: boolean) => {
     // now matches the intended state and the diff fires whatever op is
     // needed.
     const delta = applyProjection(ui, id);
-    if (delta.wroteVisible || delta.intentMoved) moved.push({ layerInfo, delta });
+    if (delta.wroteVisible || delta.intentMoved) moved.set(id, delta);
     applyRowView(ui, item as HTMLElement, buildRowCell(ui, layerInfo));
   });
 
@@ -96,13 +96,19 @@ const toggleAll = (ui: LayerUI, group: string, newState: boolean) => {
   // Announce last, in registry order: the loop above walked the DOM, which can
   // diverge from the registry on a late registration, and a subscriber that
   // re-enters during this notify must see the finished count and hatch.
-  const registered = ui.c.layers;
-  moved
-    .slice()
-    .sort((a, b) => {
-      return registered.indexOf(a.layerInfo) - registered.indexOf(b.layerInfo);
-    })
-    .forEach(({ layerInfo, delta }) => emitDelta(ui, layerInfo, delta));
+  //
+  // Order by walking the registry against the Map, not by sorting — a
+  // comparator needs an `indexOf` per call and that is a linear identity scan
+  // of the registry, so sorting pays a full scan for every comparison. Carrying
+  // ids rather than `LayerInfo` snapshots is what lets `emitDeltas` re-read the
+  // registry at delivery: a layer a subscriber unregistered inside an earlier
+  // delivery here would otherwise be announced on a snapshot it no longer owns.
+  const announced: Array<{ id: string; delta: ProjectionDelta }> = [];
+  for (const layerInfo of ui.c.layers) {
+    const delta = moved.get(layerInfo.id);
+    if (delta) announced.push({ id: layerInfo.id, delta });
+  }
+  emitDeltas(ui, announced);
 };
 
 /** Full rescan that populates `ui.listPanel.checkedCount[group]` from the DOM + intent,
