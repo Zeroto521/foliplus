@@ -3851,8 +3851,10 @@ class TestLayerControlBrowser:
             assert len(recs) == 1, (
                 f"ArrowDown observed {len(recs)} times: {read['records']}"
             )
-            assert recs[0]["prevented"] is False, (
-                "foliplus cancelled ArrowDown meant for the slider: "
+            # The custom slider owns ArrowDown: cancel page scrolling, but let
+            # the key bubble (the shared dispatcher stands aside by ownership).
+            assert recs[0]["prevented"] is True, (
+                "the slider must cancel the page default for ArrowDown: "
                 + str(read["records"])
             )
             assert recs[0]["type"] == "slider", str(read["records"])
@@ -4946,21 +4948,59 @@ class TestLayerControlBrowser:
     # a real Leaflet tile container.
 
     def test_zoom_range_dual_thumb_clamp(self, browser, tmp_path):
-        """Two thumbs never cross: dragging min past max clamps min to max."""
+        """Two thumbs never cross: each drag really moves, then clamps.
+
+        The probe presses a thumb at its current value and moves to the target
+        (a press at the target would pick a thumb by side instead of grabbing
+        the one asked for), and uses one layer per direction so the second drag
+        does not start on an already-merged pair.
+        """
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
             panel_ready(page)
             result = page.evaluate(_js("LayerControl/zoom_range_dual_thumb_clamp"))
             assert result is not None, result
             assert result.get("error") is None, f"setup failed: {result}"
+            assert result["forwardMoved"], (
+                f"the forward drag never changed a value: {result}"
+            )
             assert result["clampForward"], (
                 f"min did not clamp to max when dragged past: {result}"
+            )
+            assert result["minAfterCross"] == result["maxAfterCross"], result
+            assert result["reverseMoved"], (
+                f"the reverse drag never changed a value: {result}"
             )
             assert result["clampReverse"], (
                 f"max did not clamp to min when dragged below: {result}"
             )
-            assert result["stored"] is not None, (
-                "zoomRange was not persisted after commit"
+            assert result["storedForward"] == [
+                result["minAfterCross"],
+                result["maxAfterCross"],
+            ], f"forward range was not persisted: {result}"
+            assert result["storedReverse"] == [
+                result["minAfterReverse"],
+                result["maxAfterReverse"],
+            ], f"reverse range was not persisted: {result}"
+            assert not errors, f"JS errors: {errors}"
+
+    def test_zoom_range_close_mid_drag_commits(self, browser, tmp_path):
+        """Closing the panel while a drag is live commits what the pointer set."""
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            panel_ready(page)
+            result = page.evaluate(_js("LayerControl/close_mid_drag"))
+            assert result is not None, result
+            assert result.get("error") is None, f"setup failed: {result}"
+            assert result["afterMove"] == result["target"], (
+                f"the drag did not reach the target: {result}"
             )
+            assert result["panelGone"] is True, result
+            assert result["draggingLeft"] is False, (
+                f"a detached slider kept its dragging state: {result}"
+            )
+            assert result["storedAfterClose"] == [
+                result["minAfterClose"],
+                result["afterMove"],
+            ], f"closing mid-drag did not persist the preview: {result}"
             assert not errors, f"JS errors: {errors}"
 
     def test_zoom_range_oor_dim(self, browser, tmp_path):

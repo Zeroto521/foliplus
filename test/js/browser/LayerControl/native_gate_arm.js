@@ -1,7 +1,8 @@
 () => {
-  // Record keydowns observed on document through Chromium's own pipeline —
-  // a capture listener reports the browser's final `defaultPrevented`, so
-  // "foliplus did not cancel this key" is a measured fact, not an inference.
+  // Record keydowns observed on document through Chromium's own pipeline.
+  // `prevented` is a getter over the live event: a capture listener runs
+  // BEFORE the target handler, so reading the boolean here would only ever
+  // report false. The probe's read step serialises the getter after dispatch.
   // Installed once; every arm resets the log so each press is read on its own.
   if (!window.__inputGate) {
     window.__inputGate = { records: [] };
@@ -12,7 +13,9 @@
           key: e.key,
           tag: e.target.tagName.toLowerCase(),
           type: e.target.type || e.target.getAttribute("role") || "",
-          prevented: e.defaultPrevented,
+          get prevented() {
+            return e.defaultPrevented;
+          },
         });
       },
       true,

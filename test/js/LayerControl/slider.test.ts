@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { SLIDER } from "#foliplus/LayerControl/const.js";
 import { Slider, type SliderOptions, sliderOf } from "#foliplus/LayerControl/slider.js";
+import { SLIDER } from "#common/sliderClass.js";
 
 const hosts: HTMLElement[] = [];
 
@@ -908,5 +908,70 @@ describe("Slider primitive", () => {
     expect(thumbEl().style.left).toBe("25%");
     await new Promise(resolve => window.setTimeout(resolve, 40));
     expect(thumbEl().style.left).toBe("75%");
+  });
+
+  it("follows the visual direction with horizontal arrows in RTL", () => {
+    const host = document.createElement("div");
+    host.style.direction = "rtl";
+    document.body.appendChild(host);
+    hosts.push(host);
+    new Slider(host, { min: 0, max: 100, value: 50, label: "x" });
+    const thumbEl = host.querySelector<HTMLElement>("." + SLIDER.THUMB)!;
+    press(thumbEl, "ArrowRight");
+    expect(sliderOf(host)!.value).toBe(49);
+    press(thumbEl, "ArrowLeft");
+    expect(sliderOf(host)!.value).toBe(50);
+    press(thumbEl, "ArrowUp");
+    expect(sliderOf(host)!.value).toBe(51);
+  });
+
+  it("commits an in-flight drag when finish() is called", () => {
+    const change = vi.fn();
+    const { host } = make({ min: 0, max: 100, value: 0, label: "x", change });
+    const track = stubTrack(host);
+    track.dispatchEvent(pointer("pointerdown", 40));
+    expect(sliderOf(host)!.value).toBe(40);
+    sliderOf(host)!.finish();
+    expect(change).toHaveBeenCalledWith(40);
+    // The release after the session ended must not emit a second change.
+    track.dispatchEvent(pointer("pointerup", 40));
+    expect(change).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not touch the DOM when a pointer move keeps the same value", async () => {
+    const { host } = make({ min: 0, max: 100, value: 20, label: "x" });
+    const track = stubTrack(host);
+    track.dispatchEvent(pointer("pointerdown", 20));
+    let mutations = 0;
+    const observer = new MutationObserver(list => {
+      mutations += list.length;
+    });
+    observer.observe(host, {
+      subtree: true,
+      attributes: true,
+      childList: true,
+      characterData: true,
+    });
+    for (let i = 0; i < 5; i += 1) {
+      track.dispatchEvent(pointer("pointermove", 20));
+    }
+    await new Promise(resolve => window.setTimeout(resolve, 0));
+    observer.disconnect();
+    expect(mutations).toBe(0);
+    track.dispatchEvent(pointer("pointerup", 20));
+  });
+
+  it("normalises an out-of-range initial value", () => {
+    const single = make({ min: 0, max: 10, value: 42, label: "x" });
+    expect(sliderOf(single.host)!.value).toBe(10);
+
+    const range = make({ min: 0, max: 10, value: [20, 30], label: "x" });
+    expect(sliderOf(range.host)!.value).toEqual([10, 10]);
+
+    const inverted = make({ min: 0, max: 10, value: [8, 3], label: "x" });
+    expect(sliderOf(inverted.host)!.value).toEqual([3, 8]);
+
+    const nonFinite = make({ min: 5, max: 10, value: Number.NaN, label: "x" });
+    expect(sliderOf(nonFinite.host)!.value).toBe(5);
   });
 });
