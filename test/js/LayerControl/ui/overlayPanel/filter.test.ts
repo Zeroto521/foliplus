@@ -92,6 +92,19 @@ describe("LayerUI filter panel (stage-2 pilot)", () => {
       expect(li.hasAttribute("disabled")).toBe(false);
       expect(li.getAttribute("title")).toBe("LayerControl.filter_layer_tooltip");
     });
+
+    it("clicking the enabled filter entry opens the panel", () => {
+      registerPoints();
+      const item = findItem(ui, "pnt");
+      ui.openMoreMenu(item);
+
+      const li = item.querySelector(
+        `[data-action="${CONST.ACTION.FILTER_LAYER}"]`,
+      ) as HTMLElement;
+      li.click();
+
+      expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).not.toBeNull();
+    });
   });
 
   describe("openFilterPanel()", () => {
@@ -284,6 +297,20 @@ describe("LayerUI filter panel (stage-2 pilot)", () => {
       );
       expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).toBeNull();
       expect(ui.listPanel.pressInPanel).toBe(false);
+    });
+
+    it("a document-level mousedown (target = document) dismisses the panel", () => {
+      registerPoints();
+      const item = findItem(ui, "pnt");
+      ui.openFilterPanel(item);
+      expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).not.toBeNull();
+
+      // `document` has no `closest` — the outside handler's guard branch.
+      document.dispatchEvent(
+        new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
+      );
+
+      expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).toBeNull();
     });
   });
 

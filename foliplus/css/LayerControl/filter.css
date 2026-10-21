@@ -57,6 +57,22 @@
     color: var(--foliplus-text-secondary);
     padding: var(--foliplus-space-sm) 0;
   }
+  /* The two thumbs are real <input type=range>s parked invisibly over the
+     rail — the dots below are the visual thumbs. The shared slider.css
+     geometry (rail/fill/dot/values) is div-based after #721; these rules
+     keep the inputs from rendering their UA control. */
+  .foliplus-layer-filter-panel input.foliplus-filter-min,
+  .foliplus-layer-filter-panel input.foliplus-filter-max {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    opacity: 0;
+    cursor: pointer;
+    -webkit-appearance: none;
+    appearance: none;
+  }
   /* Header icon (funnel glyph) sized inside the shared .foliplus-header-icon
      box; the LayerControl SVGs are viewBox-only. */
   .foliplus-layer-filter-icon svg {

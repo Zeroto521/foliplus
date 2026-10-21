@@ -792,9 +792,11 @@ class HeatmapManager {
     const extended = marker as HeatmapPointMarker;
     const isNumeric = (v: unknown): v is number =>
       typeof v === "number" && Number.isFinite(v);
-    if (isNumeric(extended.value)) fields["value"] = extended.value;
-    else if (isNumeric(extended.options?.value))
+    if (isNumeric(extended.value)) {
+      fields["value"] = extended.value;
+    } else if (isNumeric(extended.options?.value)) {
       fields["value"] = extended.options!.value;
+    }
     const props = marker.feature?.properties;
     if (!props) return fields;
     for (const [key, val] of Object.entries(props)) {

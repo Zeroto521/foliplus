@@ -31,6 +31,7 @@ import * as CONST from "#foliplus/LayerControl/const.js";
 import * as SVGs from "#foliplus/LayerControl/icon.js";
 import { dom } from "#common/dom.js";
 import { formatNumber } from "#common/format.js";
+import { SLIDER } from "#common/sliderVocabulary.js";
 import { displayName } from "../listPanel/rowView.js";
 import type { LayerUI } from "../surface.js";
 import { closeOverlays } from "../teardown.js";
@@ -113,18 +114,18 @@ const openFilterPanel = (ui: LayerUI, item: HTMLElement): void => {
     const [lo0, hi0] = initialRange;
 
     const fill = dom.el("div", {
-      class: `${CONST.CLASSES.SLIDER_FILL} ${CONST.CLASSES.FILTER_FILL}`,
+      class: `${SLIDER.FILL} ${CONST.CLASSES.FILTER_FILL}`,
       style: "left:0;right:0",
     });
     const dot = (suffix: string): HTMLElement =>
       dom.el("span", {
         class:
-          `${CONST.CLASSES.SLIDER_DOT} ${CONST.CLASSES.SLIDER_DOT}${suffix}` +
+          `${SLIDER.DOT} ${SLIDER.DOT}${suffix}` +
           ` ${CONST.CLASSES.FILTER_DOT} ${CONST.CLASSES.FILTER_DOT}${suffix}`,
       });
     const minInput = dom.el("input", {
       type: "range",
-      class: `${CONST.CLASSES.SLIDER_HANDLE} ${CONST.CLASSES.FILTER_MIN}`,
+      class: CONST.CLASSES.FILTER_MIN,
       min: String(range[0]),
       max: String(range[1]),
       step: "any",
@@ -133,7 +134,7 @@ const openFilterPanel = (ui: LayerUI, item: HTMLElement): void => {
     }) as HTMLInputElement;
     const maxInput = dom.el("input", {
       type: "range",
-      class: `${CONST.CLASSES.SLIDER_HANDLE} ${CONST.CLASSES.FILTER_MAX}`,
+      class: CONST.CLASSES.FILTER_MAX,
       min: String(range[0]),
       max: String(range[1]),
       step: "any",
@@ -142,7 +143,7 @@ const openFilterPanel = (ui: LayerUI, item: HTMLElement): void => {
     }) as HTMLInputElement;
     const track = dom.el(
       "div",
-      { class: `${CONST.CLASSES.SLIDER_RAIL} ${CONST.CLASSES.FILTER_TRACK}` },
+      { class: `${SLIDER.RAIL} ${CONST.CLASSES.FILTER_TRACK}` },
       fill,
       dot("-min"),
       dot("-max"),
@@ -151,13 +152,13 @@ const openFilterPanel = (ui: LayerUI, item: HTMLElement): void => {
     );
     const values = dom.el(
       "div",
-      { class: `${CONST.CLASSES.SLIDER_VALUES} ${CONST.CLASSES.FILTER_VALUES}` },
+      { class: `${SLIDER.VALUES} ${CONST.CLASSES.FILTER_VALUES}` },
       dom.el("span", {}, fmtCount(range[0])),
       dom.el("span", {}, fmtCount(range[1])),
     );
     const control = dom.el(
       "div",
-      { class: `${CONST.CLASSES.SLIDER} ${CONST.CLASSES.FILTER_ROW}` },
+      { class: `${SLIDER.ROOT} ${CONST.CLASSES.FILTER_ROW}` },
       track,
       values,
     );
