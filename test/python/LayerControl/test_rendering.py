@@ -771,18 +771,18 @@ class TestLayerControlRendering:
             assert "--foliplus-slider-rail-height" not in raw, rel
 
     def test_zoom_range_row_css(self):
-        """The row adds no styling of its own.
+        """The row adds only its own coverage cue.
 
-        Coverage is a readout, not a recoloring: the dots' rings carry it (gray
-        where the range does not reach), so the rail stays accent and the text
-        stays ink whatever the map's zoom is. The row keeps its hook class and
-        the tooltip, nothing else.
+        Out of range dims the selected span (the fill) and nothing else: the
+        thumbs, rail and numbers stay crisp so the control still reads as
+        operable, and the current-level number keeps the primitive's class. The
+        row keeps its hook class and the tooltip, nothing else.
         """
         css = read_css("foliplus/css/LayerControl/style.css")
         assert ".foliplus-style-zoom-range-row" in css
         assert "--foliplus-slider-thumb-ring" not in css
         assert "foliplus-zoom-range-out-of-range .foliplus-slider-fill" not in css
-        assert ".foliplus-style-zoom-range-current-value" in css
+        assert ".foliplus-slider-value-current" in css
 
     def test_style_panel_locale_keys_present(self):
         """Opacity key is injected into the LayerControl bundle."""

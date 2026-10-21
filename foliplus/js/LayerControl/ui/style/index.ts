@@ -15,6 +15,7 @@ import { resolveSelectedField } from "#core/label/index.js";
 import { createRowPanel } from "#core/leaflet/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import * as SVGs from "#foliplus/LayerControl/icon.js";
+import { finishSlidersIn } from "#foliplus/LayerControl/slider.js";
 import type { NumberStyle } from "#foliplus/config-schema.js";
 import {
   LABEL_SIZE,
@@ -22,7 +23,6 @@ import {
   bindLiveNumber,
   normalizeHexColor,
 } from "#common/form.js";
-import { finishSlidersIn } from "#foliplus/LayerControl/slider.js";
 import type { LayerUI } from "../surface.js";
 import { closeOverlays } from "../teardown.js";
 import { bindBorderRow, resetLayerBorder } from "./border.js";
