@@ -1,0 +1,127 @@
+// Unit tests for core/ramp — the shared value → colour ramp
+// (breaks + scheme colours + the value → class bisection).
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { METHOD } from "#core/classify.js";
+import { SCHEME_FALLBACK_COLOR } from "#core/palette.js";
+import { buildRamp, colorFor } from "#core/ramp.js";
+
+afterEach(() => {
+  delete globalThis.chroma;
+});
+
+/** Install a chroma stub that hands back at most the requested number of the
+ *  fixed colour list — counting the request is what `buildRamp` must get
+ *  right, so the stub honours it rather than ignoring it. Passing one colour
+ *  for a multi-class ramp forces the out-of-bounds fallback. */
+const installChroma = (colors: string[]): void => {
+  globalThis.chroma = {
+    scale: () => ({
+      mode: () => ({
+        colors: (count: number) => colors.slice(0, Math.max(0, count)),
+      }),
+    }),
+  } as never;
+};
+
+const EQUAL: { method: string; classes: number; scheme: string } = {
+  method: METHOD.EQUAL,
+  classes: 3,
+  scheme: "Reds",
+};
+
+describe("buildRamp", () => {
+  it("requests colours for the break span, not the raw class count", () => {
+    const colorsSpy = vi.fn(() => ["#1", "#2", "#3"]);
+    const scaleSpy = vi.fn(() => ({ mode: () => ({ colors: colorsSpy }) }));
+    globalThis.chroma = { scale: scaleSpy } as never;
+
+    const ramp = buildRamp([1, 5, 9], EQUAL);
+
+    // 3 classes is 4 breaks, so the scale is asked for 3 colours.
+    expect(ramp.colors).toEqual(["#1", "#2", "#3"]);
+    expect(scaleSpy).toHaveBeenCalledWith("Reds");
+    expect(colorsSpy).toHaveBeenCalledWith(3);
+  });
+
+  it("returns monotone non-decreasing breaks covering the input range", () => {
+    const ramp = buildRamp([9, 1, 5], EQUAL);
+
+    expect(ramp.breaks[0]).toBe(1);
+    expect(ramp.breaks[ramp.breaks.length - 1]).toBe(9);
+    for (let i = 1; i < ramp.breaks.length; i++) {
+      expect(ramp.breaks[i]).toBeGreaterThanOrEqual(ramp.breaks[i - 1]);
+    }
+  });
+
+  it("caps the class count at the number of values", () => {
+    installChroma(["#1", "#2"]);
+
+    // 9 requested classes over 2 values degrades to 2 breaks, 1 colour.
+    const ramp = buildRamp([1, 9], { ...EQUAL, classes: 9 });
+
+    expect(ramp.breaks).toHaveLength(2);
+    expect(ramp.colors).toHaveLength(1);
+    expect(ramp.classOf(1)).toBe(0);
+    expect(ramp.classOf(9)).toBe(0);
+  });
+
+  it("yields an empty ramp for empty input rather than throwing", () => {
+    const ramp = buildRamp([], EQUAL);
+
+    expect(ramp.breaks).toEqual([]);
+    expect(ramp.colors).toEqual([]);
+    expect(ramp.classOf(1)).toBe(0);
+  });
+
+  it("bisects on the first break at or above the value", () => {
+    installChroma(["#1", "#2", "#3"]);
+    const ramp = buildRamp([1, 5, 9], EQUAL);
+
+    expect(ramp.classOf(1)).toBe(0);
+    expect(ramp.classOf(4)).toBe(1);
+    expect(ramp.classOf(9)).toBe(2);
+  });
+
+  it("clamps values beyond the final break to the last class", () => {
+    installChroma(["#1", "#2", "#3"]);
+    const ramp = buildRamp([1, 5, 9], EQUAL);
+
+    expect(ramp.classOf(100)).toBe(2);
+    expect(ramp.classOf(-5)).toBe(0);
+  });
+
+  it("keeps a single value in one class", () => {
+    installChroma(["#1"]);
+    const ramp = buildRamp([42], { ...EQUAL, classes: 6 });
+
+    expect(ramp.breaks).toEqual([42, 42]);
+    expect(ramp.colors).toHaveLength(1);
+    expect(ramp.classOf(42)).toBe(0);
+  });
+});
+
+describe("colorFor", () => {
+  it("returns the colour for the value's class", () => {
+    installChroma(["#1", "#2", "#3"]);
+    const ramp = buildRamp([1, 5, 9], EQUAL);
+
+    expect(colorFor(ramp, 1)).toBe("#1");
+    expect(colorFor(ramp, 4)).toBe("#2");
+    expect(colorFor(ramp, 9)).toBe("#3");
+  });
+
+  it("falls back to the last available colour when chroma returns fewer", () => {
+    // One colour requested for three classes: classes 1 and 2 are
+    // out of bounds and take the last available colour.
+    installChroma(["#only"]);
+    const ramp = buildRamp([1, 5, 9], EQUAL);
+
+    expect(colorFor(ramp, 1)).toBe("#only");
+    expect(colorFor(ramp, 4)).toBe("#only");
+    expect(colorFor(ramp, 9)).toBe("#only");
+  });
+
+  it("falls back to the shared grey for an empty ramp", () => {
+    expect(colorFor(buildRamp([], EQUAL), 1)).toBe(SCHEME_FALLBACK_COLOR);
+  });
+});

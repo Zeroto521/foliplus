@@ -6,7 +6,6 @@ import {
   aggregateData,
   binPoints,
   buildFeatures,
-  getColorScale,
   getH3Res,
   pickAutoField,
   readMarkerField,
@@ -87,24 +86,6 @@ describe("readMarkerField", () => {
         "properties.bar",
       ),
     ).toBeUndefined();
-  });
-});
-
-describe("getColorScale", () => {
-  it("builds a chroma scale with n colors when available", () => {
-    globalThis.chroma = {
-      scale: vi.fn(() => ({
-        mode: vi.fn(() => ({
-          colors: vi.fn(() => ["#a", "#b"]),
-        })),
-      })),
-    } as never;
-    expect(getColorScale("Reds", 2)).toEqual(["#a", "#b"]);
-    expect(globalThis.chroma.scale).toHaveBeenCalledWith("Reds");
-  });
-
-  it("falls back to GRAY when chroma is absent", () => {
-    expect(getColorScale("Reds", 3)).toEqual([CONST.GRAY, CONST.GRAY, CONST.GRAY]);
   });
 });
 

@@ -57,6 +57,9 @@ const makeFillableLayer = () => {
   return parent as unknown as L.Layer & { leaves: typeof leaves };
 };
 
+/** The style write a leaf spy records. */
+type StyleWrite = { fillColor?: string; fillOpacity?: number; fill?: boolean };
+
 /** Build a LayerController/UI fixture with a real fillable overlay layer
  *  registered under `overlay1`, replacing the fixture's bare polygon duck. */
 const initWithFillLayer = () => {
@@ -84,6 +87,74 @@ const initWithFillLayer = () => {
   });
   ui.runtimeStore.setFields("overlay1", [{ name: "count", numeric: true }]);
   return { manager, ui, map, fillLayer };
+};
+
+/** A fillable layer whose leaves carry a numeric
+ *  `feature.properties.count`, so the ramp arm has values to classify. */
+const makeRampedLayer = (values: number[]) => {
+  const makeLeaf = (value: number) => {
+    const leaf = new L.Polygon() as {
+      options: { fillColor?: string; fillOpacity?: number; fill?: boolean };
+      feature: { properties: { count: number } };
+      setStyle: ReturnType<typeof vi.fn<(style: StyleWrite) => void>>;
+      on: ReturnType<typeof vi.fn>;
+    };
+    leaf.options = { fillColor: "#aabbcc", fillOpacity: 0.5, fill: true };
+    leaf.feature = { properties: { count: value } };
+    leaf.setStyle = vi.fn();
+    leaf.on = vi.fn();
+    return leaf;
+  };
+  const leaves = values.map(makeLeaf);
+  const parent = {
+    options: {},
+    eachLayer: vi.fn((fn: (child: unknown) => void) =>
+      leaves.forEach(child => fn(child)),
+    ),
+    getBounds: vi.fn(() => ({
+      isValid: vi.fn(() => true),
+      getSouthWest: vi.fn(() => ({ lat: 0, lng: 0 })),
+      getNorthEast: vi.fn(() => ({ lat: 1, lng: 1 })),
+    })),
+    leaves,
+  };
+  // Deliberately not intersected with L.Layer: the test suite declares L as
+  // any, so an L.Layer & {...} intersection collapses to any and the callback
+  // parameter in a .map over leaves loses its type.
+  return parent as { leaves: typeof leaves };
+};
+
+/** Fixture with a rampable overlay layer — leaves carry `count` so
+ *  `applyRampToLayer` has values to classify. */
+const initWithRampedLayer = (values: number[] = [1, 5, 9]) => {
+  installLeafletGlobals();
+  const rampLayer = makeRampedLayer(values);
+  const { manager, ui } = initFixture({
+    data: [
+      { id: "overlay1", name: "Polygons", group: "overlay", layer: rampLayer },
+      {
+        id: "base1",
+        name: "OSM",
+        group: "base",
+        layer: { options: {}, setZIndex: vi.fn() } as never,
+        paneName: "tilePane",
+      },
+    ],
+  });
+  ui.runtimeStore.setFields("overlay1", [{ name: "count", numeric: true }]);
+  return { manager, ui, rampLayer };
+};
+
+/** Install a chroma stub that hands back a fixed colour list, whatever count
+ *  was requested. */
+const installChroma = (colors: string[]): void => {
+  globalThis.chroma = {
+    scale: () => ({
+      mode: () => ({
+        colors: () => colors,
+      }),
+    }),
+  } as never;
 };
 
 /** Commit then force the deferred apply to land — the commit channel is
@@ -652,12 +723,14 @@ describe("LayerUI style panel — fill color", () => {
     expect(FILL_DIMENSION.value!(ui, "overlay1")).toEqual({
       color: "#aabbcc",
       opacity: 0.5,
+      mode: "solid",
     });
     commitNow(ui, "overlay1", "color", "#445566");
     commitNow(ui, "overlay1", "opacity", 80);
     expect(FILL_DIMENSION.value!(ui, "overlay1")).toEqual({
       color: "#445566",
       opacity: 0.8,
+      mode: "solid",
     });
     expect(FILL_DIMENSION.value!(ui, "ghost")).toBeUndefined();
   });
@@ -1566,5 +1639,182 @@ describe("replayFillState", () => {
       fillColor: "#123456",
       fill: true,
     });
+  });
+
+  it("attachUI replays a persisted ramp — a reload keeps the value colours", () => {
+    // Regression: a persisted ramp with no solid colour used to fall through
+    // the empty-intent guard and paint nothing after a reload.
+    const rampLayer = makeRampedLayer([1, 5, 9]);
+    installChroma(["#111111", "#222222", "#333333"]);
+    window.localStorage.setItem(
+      CONST.STORAGE.KEY,
+      JSON.stringify({
+        layers: {
+          overlay1: {
+            fillMode: "ramp",
+            fillRamp: { field: "count", method: "equal", classes: 3, scheme: "Reds" },
+            overrides: ["fillMode", "fillRamp"],
+          },
+        },
+      }),
+    );
+    const fixture = initFixture({
+      data: [
+        { id: "overlay1", name: "Polygons", group: "overlay", layer: rampLayer },
+        {
+          id: "base1",
+          name: "OSM",
+          group: "base",
+          layer: { options: {}, setZIndex: vi.fn() } as never,
+          paneName: "tilePane",
+        },
+      ],
+    });
+    fixture.manager.ui!.runtimeStore.setFields("overlay1", [
+      { name: "count", numeric: true },
+    ]);
+
+    expect(getIntent(fixture.manager.ui!, "overlay1", "fillMode")).toBe("ramp");
+    // Each leaf got the colour of its own value class, not the author's.
+    const colors = rampLayer.leaves.map(
+      leaf => leaf.setStyle.mock.calls.at(-1)![0].fillColor as string,
+    );
+    expect(colors).toEqual(["#111111", "#222222", "#333333"]);
+  });
+
+  it("replays a persisted fillOpacity alongside the ramp colour", () => {
+    const fixture = initWithRampedLayer([1, 5, 9]);
+    installChroma(["#111111", "#222222", "#333333"]);
+    setIntent(fixture.ui, "overlay1", "fillMode", "ramp");
+    setIntent(fixture.ui, "overlay1", "fillRamp", {
+      field: "count",
+      method: "equal",
+      classes: 3,
+      scheme: "Reds",
+    });
+    // The solid arm's opacity survives the mode switch — the ramp replaces
+    // only the colour.
+    setIntent(fixture.ui, "overlay1", "fillOpacity", 0.25);
+
+    replayFillState(fixture.ui, "overlay1");
+
+    expect(fixture.rampLayer.leaves[0].setStyle).toHaveBeenCalledWith({
+      fillColor: "#111111",
+      fillOpacity: 0.25,
+      fill: true,
+    });
+  });
+});
+
+describe("applyFillToLayer — fillMode dispatch", () => {
+  const RAMP = { field: "count", method: "equal", classes: 3, scheme: "Reds" };
+  const COLORS = ["#111111", "#222222", "#333333"];
+
+  let manager: LayerController;
+  let ui: LayerUI;
+  let rampLayer: ReturnType<typeof makeRampedLayer>;
+
+  beforeEach(() => {
+    installChroma(COLORS);
+    const fixture = initWithRampedLayer([1, 5, 9]);
+    manager = fixture.manager;
+    ui = fixture.ui;
+    rampLayer = fixture.rampLayer;
+  });
+
+  afterEach(() => {
+    delete globalThis.chroma;
+    manager?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+  });
+
+  const paintedColors = (): string[] =>
+    rampLayer.leaves.map(
+      leaf => leaf.setStyle.mock.calls.at(-1)![0].fillColor as string,
+    );
+
+  it("fillMode=ramp paints by value and ignores the stored solid colour", () => {
+    setIntent(ui, "overlay1", "fillColor", "#ff0000");
+    setIntent(ui, "overlay1", "fillMode", "ramp");
+    setIntent(ui, "overlay1", "fillRamp", RAMP);
+
+    applyFillToLayer(ui, "overlay1");
+
+    expect(paintedColors()).toEqual(COLORS);
+  });
+
+  it("a ramp config with no explicit mode paints the ramp", () => {
+    // The pre-fillMode record shape: the config's presence alone selects the
+    // arm, so a persisted record written before fillMode existed still paints.
+    setIntent(ui, "overlay1", "fillColor", "#ff0000");
+    setIntent(ui, "overlay1", "fillRamp", RAMP);
+
+    applyFillToLayer(ui, "overlay1");
+
+    expect(paintedColors()).toEqual(COLORS);
+  });
+
+  it("fillMode=solid never reads the ramp config", () => {
+    setIntent(ui, "overlay1", "fillColor", "#ff0000");
+    setIntent(ui, "overlay1", "fillMode", "solid");
+    setIntent(ui, "overlay1", "fillRamp", RAMP);
+
+    applyFillToLayer(ui, "overlay1");
+
+    expect(rampLayer.leaves[0].setStyle).toHaveBeenCalledWith({
+      fillColor: "#ff0000",
+      fill: true,
+    });
+  });
+
+  it("a mode=ramp record with no config falls back to the authored face", () => {
+    setIntent(ui, "overlay1", "fillMode", "ramp");
+
+    applyFillToLayer(ui, "overlay1");
+
+    // Neither arm has a value, so nothing is written — the author's fill stays.
+    expect(rampLayer.leaves[0].setStyle).not.toHaveBeenCalled();
+  });
+
+  it("the ramp arm carries the user's solid-mode opacity", () => {
+    setIntent(ui, "overlay1", "fillMode", "ramp");
+    setIntent(ui, "overlay1", "fillRamp", RAMP);
+    setIntent(ui, "overlay1", "fillOpacity", 0.25);
+
+    applyFillToLayer(ui, "overlay1");
+
+    expect(rampLayer.leaves[0].setStyle).toHaveBeenCalledWith({
+      fillColor: "#111111",
+      fillOpacity: 0.25,
+      fill: true,
+    });
+  });
+
+  it("the ramp arm omits the opacity when the user never set one", () => {
+    setIntent(ui, "overlay1", "fillMode", "ramp");
+    setIntent(ui, "overlay1", "fillRamp", RAMP);
+
+    applyFillToLayer(ui, "overlay1");
+
+    // The author's declared opacity stays in force instead of being zeroed.
+    expect(rampLayer.leaves[0].setStyle).toHaveBeenCalledWith({
+      fillColor: "#111111",
+      fill: true,
+    });
+  });
+
+  it("reset clears both the ramp config and the mode", () => {
+    setIntent(ui, "overlay1", "fillMode", "ramp");
+    setIntent(ui, "overlay1", "fillRamp", RAMP);
+    setIntent(ui, "overlay1", "fillOpacity", 0.25);
+
+    resetLayerFill(ui, "overlay1");
+
+    expect(getIntent(ui, "overlay1", "fillMode")).toBeUndefined();
+    expect(getIntent(ui, "overlay1", "fillRamp")).toBeUndefined();
+    expect(getIntent(ui, "overlay1", "fillOpacity")).toBeUndefined();
+    expect(ui.intentStore.isUserSet("overlay1", "fillMode")).toBe(false);
+    expect(ui.intentStore.isUserSet("overlay1", "fillRamp")).toBe(false);
   });
 });

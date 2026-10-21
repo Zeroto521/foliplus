@@ -1,3 +1,4 @@
+import type { FillRampConfig } from "#core/layer/index.js";
 import { type Debounced, debounce } from "#common/debounce.js";
 import { BORDER_WEIGHT, normalizeHexColor } from "#common/form.js";
 import * as Storage from "#common/storage.js";
@@ -72,6 +73,36 @@ const parseZoomRange = (raw: unknown): [number, number] | null => {
     : null;
 };
 
+/** A stored value-based-fill config: non-empty field / method / scheme
+ *  strings and a whole class count inside the picker's 2-9 bounds. The
+ *  defaults live on the UI side, so the record carries only an explicit
+ *  choice — a record missing one is dropped rather than guessed at.
+ *  field is trimmed because it is a property key, and a stray space would
+ *  silently miss every feature on the next apply. */
+const parseFillRamp = (raw: unknown): FillRampConfig | null => {
+  const data = asObject(raw);
+  if (!data) return null;
+  const isName = (value: unknown): value is string =>
+    typeof value === "string" && value.trim().length > 0;
+  if (
+    !isName(data.field) ||
+    !isName(data.method) ||
+    !isName(data.scheme) ||
+    typeof data.classes !== "number" ||
+    !Number.isInteger(data.classes) ||
+    data.classes < 2 ||
+    data.classes > 9
+  ) {
+    return null;
+  }
+  return {
+    field: data.field.trim(),
+    method: data.method,
+    scheme: data.scheme,
+    classes: data.classes,
+  };
+};
+
 /** A border width inside the shared bounds — the same constants the number
  *  field is confined to, so a stored value can never ask for a width the UI
  *  cannot display. */
@@ -101,6 +132,9 @@ const PARSE_OVERRIDE: Record<
   fillColor: data =>
     isHexColor(data.fillColor) ? normalizeHexColor(data.fillColor) : null,
   fillOpacity: data => (isUnitInterval(data.fillOpacity) ? data.fillOpacity : null),
+  fillRamp: data => parseFillRamp(data.fillRamp),
+  fillMode: data =>
+    data.fillMode === "solid" || data.fillMode === "ramp" ? data.fillMode : null,
   borderColor: data =>
     isHexColor(data.borderColor) ? normalizeHexColor(data.borderColor) : null,
   borderWeight: data => (isBorderWeight(data.borderWeight) ? data.borderWeight : null),

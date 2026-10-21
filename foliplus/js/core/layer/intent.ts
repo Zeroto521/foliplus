@@ -8,6 +8,17 @@
 // (INTENT / LIVE / STYLE_KEYS / IntentKey) — semantics unchanged.
 import type { NumberStyle } from "#foliplus/config-schema.js";
 
+/** One arm of the value-based fill: which property drives the colour, how
+ *  the values are split, into how many classes, and which scheme paints
+ *  them. `field` is the caller's key selection, the other three are the
+ *  classifier + palette inputs (core/ramp.ts). */
+type FillRampConfig = {
+  field: string;
+  method: string;
+  classes: number;
+  scheme: string;
+};
+
 /** Per-layer annotation config (matches what persistence stores). */
 interface AnnotationConfig {
   show: boolean;
@@ -30,6 +41,8 @@ type LayerOverride =
   | "visible"
   | "fillColor"
   | "fillOpacity"
+  | "fillRamp"
+  | "fillMode"
   | "borderColor"
   | "borderWeight"
   | "opacity"
@@ -78,6 +91,12 @@ type LayerIntent = {
   visible?: boolean;
   fillColor?: string;
   fillOpacity?: number;
+  /** The value-based fill config when the layer is painted by a field.
+   *  Kept when the active arm is solid — the mode switch back restores it. */
+  fillRamp?: FillRampConfig;
+  /** Which fill arm the user chose: a single colour or a value ramp.
+   *  Absent means solid — the arm that predates the ramp. */
+  fillMode?: "solid" | "ramp";
   borderColor?: string;
   borderWeight?: number;
   opacity?: number;
@@ -99,6 +118,13 @@ type PersistedLayerState = {
   fillColor?: string;
   /** Fill opacity (0-1) the user set in the style panel. */
   fillOpacity?: number;
+  /** The value-based fill config the user set (field / method / classes /
+   *  scheme). The ramp arm owns the colour; solid-mode opacity still rides
+   *  along, so the two arms share one fillOpacity override. */
+  fillRamp?: FillRampConfig;
+  /** Which fill arm is active ("solid" | "ramp"); the inactive config is
+   *  kept rather than cleared so a switch back restores it. */
+  fillMode?: "solid" | "ramp";
   /** The hex stroke color the user picked in the style panel. LayerControl
    *  owns the write (a self-managed dimension — see ui/style/border.ts), so
    *  it lives in this record rather than on the annotation config. */
@@ -149,6 +175,8 @@ const INTENT = {
   VISIBLE: "visible",
   FILL_COLOR: "fillColor",
   FILL_OPACITY: "fillOpacity",
+  FILL_RAMP: "fillRamp",
+  FILL_MODE: "fillMode",
   BORDER_COLOR: "borderColor",
   BORDER_WEIGHT: "borderWeight",
   OPACITY: "opacity",
@@ -166,6 +194,9 @@ const LIVE: Record<IntentKey, (value: unknown) => boolean> = {
   [INTENT.VISIBLE]: value => typeof value === "boolean",
   [INTENT.FILL_COLOR]: value => typeof value === "string",
   [INTENT.FILL_OPACITY]: value => typeof value === "number",
+  [INTENT.FILL_RAMP]: value =>
+    value != null && typeof value === "object" && !Array.isArray(value),
+  [INTENT.FILL_MODE]: value => value === "solid" || value === "ramp",
   [INTENT.BORDER_COLOR]: value => typeof value === "string",
   [INTENT.BORDER_WEIGHT]: value => typeof value === "number",
   [INTENT.OPACITY]: value => typeof value === "number",
@@ -183,6 +214,8 @@ const STYLE_KEYS = {
   visible: INTENT.VISIBLE,
   fillColor: INTENT.FILL_COLOR,
   fillOpacity: INTENT.FILL_OPACITY,
+  fillRamp: INTENT.FILL_RAMP,
+  fillMode: INTENT.FILL_MODE,
   borderColor: INTENT.BORDER_COLOR,
   borderWeight: INTENT.BORDER_WEIGHT,
   opacity: INTENT.OPACITY,
@@ -192,6 +225,7 @@ const STYLE_KEYS = {
 export { INTENT, LIVE, STYLE_KEYS };
 export type {
   AnnotationConfig,
+  FillRampConfig,
   IntentKey,
   IntentRow,
   LayerIntent,

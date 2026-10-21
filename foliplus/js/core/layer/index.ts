@@ -52,6 +52,7 @@ export type { AppliedProjection } from "./LayerRuntimeStore.js";
 export type { Projection } from "./type.js";
 export type {
   AnnotationConfig,
+  FillRampConfig,
   IntentKey,
   IntentRow,
   LayerIntent,

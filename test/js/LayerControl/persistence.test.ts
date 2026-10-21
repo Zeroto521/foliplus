@@ -328,6 +328,140 @@ describe("LayerPersistence", () => {
     });
   });
 
+  describe("fillRamp / fillMode", () => {
+    it("round-trips a legal ramp config and mode", () => {
+      seedStorage({
+        version: RECORD_VERSION,
+        layers: {
+          a: {
+            fillMode: "ramp",
+            fillRamp: {
+              field: "price",
+              method: "quantile",
+              classes: 5,
+              scheme: "Reds",
+            },
+            overrides: ["fillRamp", "fillMode"],
+          },
+        },
+      });
+      expect(makePersistence().load().layers.a).toEqual({
+        fillMode: "ramp",
+        fillRamp: { field: "price", method: "quantile", classes: 5, scheme: "Reds" },
+        overrides: ["fillRamp", "fillMode"],
+      });
+    });
+
+    it("accepts both mode literals", () => {
+      for (const mode of ["solid", "ramp"] as const) {
+        seedStorage({
+          version: RECORD_VERSION,
+          layers: { a: { fillMode: mode, overrides: ["fillMode"] } },
+        });
+        expect(makePersistence().load().layers.a).toEqual({
+          fillMode: mode,
+          overrides: ["fillMode"],
+        });
+      }
+    });
+
+    it("trims a whitespace-padded field name — it is a property key", () => {
+      seedStorage({
+        version: RECORD_VERSION,
+        layers: {
+          a: {
+            fillRamp: {
+              field: "  price  ",
+              method: "equal",
+              classes: 3,
+              scheme: "Reds",
+            },
+            overrides: ["fillRamp"],
+          },
+        },
+      });
+      expect(makePersistence().load().layers.a).toEqual({
+        fillRamp: { field: "price", method: "equal", classes: 3, scheme: "Reds" },
+        overrides: ["fillRamp"],
+      });
+    });
+
+    it("drops a ramp config that misses a string field", () => {
+      const bads = [
+        { field: "", method: "equal", classes: 3, scheme: "Reds" },
+        { field: "   ", method: "equal", classes: 3, scheme: "Reds" },
+        { field: "price", method: "", classes: 3, scheme: "Reds" },
+        { field: "price", method: "equal", classes: 3, scheme: "" },
+        { method: "equal", classes: 3, scheme: "Reds" },
+      ];
+      for (const bad of bads) {
+        seedStorage({
+          version: RECORD_VERSION,
+          layers: { a: { fillRamp: bad, overrides: ["fillRamp"] } },
+        });
+        // The marker has no surviving value, so the layer entry is dropped
+        // rather than kept as an empty object.
+        expect(makePersistence().load().layers.a, JSON.stringify(bad)).toBeUndefined();
+      }
+    });
+
+    it("drops a class count outside the 2-9 bounds or that is not whole", () => {
+      for (const classes of [1, 10, 0, -2, 3.5, Number.NaN]) {
+        seedStorage({
+          version: RECORD_VERSION,
+          layers: {
+            a: {
+              fillRamp: { field: "price", method: "equal", classes, scheme: "Reds" },
+              overrides: ["fillRamp"],
+            },
+          },
+        });
+        expect(makePersistence().load().layers.a, `classes=${classes}`).toBeUndefined();
+      }
+    });
+
+    it("drops a ramp config that is not a plain object", () => {
+      for (const bad of [null, undefined, "Reds", 7, [], [1, 2, 3]]) {
+        seedStorage({
+          version: RECORD_VERSION,
+          layers: { a: { fillRamp: bad, overrides: ["fillRamp"] } },
+        });
+        expect(makePersistence().load().layers.a, JSON.stringify(bad)).toBeUndefined();
+      }
+    });
+
+    it("drops a fillMode that is not one of the two literals", () => {
+      for (const bad of ["RAMP", "linear", "", 1, null, undefined, {}]) {
+        seedStorage({
+          version: RECORD_VERSION,
+          layers: { a: { fillMode: bad, overrides: ["fillMode"] } },
+        });
+        expect(makePersistence().load().layers.a, JSON.stringify(bad)).toBeUndefined();
+      }
+    });
+
+    it("parses each override independently — a bad ramp keeps the mode", () => {
+      seedStorage({
+        version: RECORD_VERSION,
+        layers: {
+          a: {
+            fillMode: "ramp",
+            fillRamp: { field: "", method: "equal", classes: 3, scheme: "Reds" },
+            fillOpacity: 0.5,
+            overrides: ["fillMode", "fillRamp", "fillOpacity"],
+          },
+        },
+      });
+      // Only the provenance markers whose value survives are kept, in the
+      // declaration order of PARSE_OVERRIDE.
+      expect(makePersistence().load().layers.a).toEqual({
+        fillMode: "ramp",
+        fillOpacity: 0.5,
+        overrides: ["fillOpacity", "fillMode"],
+      });
+    });
+  });
+
   // ── Version ─────────────────────────────────────────────────────
 
   describe("version", () => {

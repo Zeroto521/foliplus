@@ -4,6 +4,7 @@
 import { computeBreaks } from "#core/classify.js";
 import { vertexMean } from "#core/geo/index.js";
 import { autoLabelField, bareFieldName } from "#core/label/index.js";
+import { getColorScale } from "#core/palette.js";
 import type { Logger } from "#common/type.js";
 import * as CONST from "./const.js";
 import type {
@@ -44,15 +45,6 @@ const readMarkerField = (
   if (field === "options.value") return extended.options?.value;
   const key = bareFieldName(field);
   return marker.feature?.properties?.[key];
-};
-
-/** Build a chroma color scale with `count` colors. Falls back to GRAY array
- *  when chroma is unavailable. */
-const getColorScale = (name: string, count: number): string[] => {
-  if (typeof chroma !== "undefined") {
-    return chroma.scale(name).mode("lab").colors(count) as string[];
-  }
-  return Array(count).fill(CONST.GRAY);
 };
 
 /** Bin points by H3 resolution. Geometry only — the h3 call lives here and
