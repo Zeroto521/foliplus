@@ -96,7 +96,9 @@ def _make_page(browser, tmp_path, n_layers: int = 5, slug: str = "lcp"):
     html = m.get_root().render()
     page, errors = make_browser_page(browser, tmp_path, html, slug)
     page.wait_for_selector(".foliplus-layer-ctrl", state="attached", timeout=10000)
-    page.evaluate("() => { const c = document.querySelector('.foliplus-layer-ctrl'); if (!c.classList.contains('foliplus-is-expanded')) c.querySelector('.foliplus-toggle-btn').click(); return true; }")
+    page.evaluate(
+        "() => { const c = document.querySelector('.foliplus-layer-ctrl'); if (!c.classList.contains('foliplus-is-expanded')) c.querySelector('.foliplus-toggle-btn').click(); return true; }"
+    )
     page.wait_for_selector(
         ".foliplus-layer-ctrl.foliplus-is-expanded",
         state="attached",
@@ -189,9 +191,7 @@ class TestRowPanelLayoutBrowser:
         Uses 10 layers so the last row lands near the map's bottom edge,
         where the space below is tighter than the panel's natural height.
         """
-        with use_page(
-            _make_page, browser, tmp_path, 10
-        ) as (page, errors):
+        with use_page(_make_page, browser, tmp_path, 10) as (page, errors):
             page.set_viewport_size({"width": 1280, "height": 720})
             page.wait_for_timeout(300)
 
