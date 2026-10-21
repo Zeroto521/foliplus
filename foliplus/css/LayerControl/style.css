@@ -32,7 +32,7 @@
     /* The rail, the fill, the readout dots, the numbers and the handles are the
        shared slider component (common/slider.css). This row states only what its
        own coverage state looks like. */
-    .foliplus-style-zoom-range-current-value {
+    .foliplus-slider-value-current {
       color: var(--foliplus-text-primary);
       font-weight: var(--foliplus-font-weight-medium);
     }

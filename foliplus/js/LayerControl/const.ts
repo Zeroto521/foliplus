@@ -190,29 +190,6 @@ const ACTION = {
   DELETE_LAYER: "delete-layer",
 };
 
-/** Class names the slider primitive owns (common/slider.css). Kept here so
- *  the primitive, the row builders and the tests spell them once; browser
- *  probes keep literals because they run without module imports. */
-const SLIDER = {
-  ROOT: CLASSES.SLIDER,
-  TRACK: "foliplus-slider-track",
-  RAIL: "foliplus-slider-rail",
-  FILL: "foliplus-slider-fill",
-  MARKS: "foliplus-slider-marks",
-  DOT: "foliplus-slider-dot",
-  DOT_CURRENT: "foliplus-slider-dot-current",
-  DOT_COVERED: "foliplus-slider-dot-covered",
-  THUMB: "foliplus-slider-thumb",
-  VALUES: "foliplus-slider-values",
-  VALUE_MIN: "foliplus-slider-value-min",
-  VALUE_MAX: "foliplus-slider-value-max",
-  VALUE_CURRENT: "foliplus-slider-value-current",
-  BUBBLE: "foliplus-slider-bubble",
-  LABEL_HIDDEN: "foliplus-slider-label-hidden",
-  DRAGGING: "is-dragging",
-  DISABLED: "is-disabled",
-} as const;
-
 /** DOM selectors. */
 const SEL = {
   LAYER_ITEM: ".foliplus-layer-item",
@@ -255,7 +232,6 @@ export {
   FOCUS_PANE,
   SAVE_DEBOUNCE_MS,
   SEL,
-  SLIDER,
   SOLID_BASEMAP_ID,
   STORAGE,
 };

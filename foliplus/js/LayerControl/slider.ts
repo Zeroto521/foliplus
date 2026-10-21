@@ -14,7 +14,7 @@
 // callbacks; the exported sliderOf() gives a later pass (a reset, an external
 // commit) access to the instance without re-rendering the row.
 import { dom } from "#common/dom.js";
-import { SLIDER } from "./const.js";
+import { SLIDER } from "#common/sliderClass.js";
 
 /** One thumb (number) or a range (min/max pair). */
 type SliderValue = number | [number, number];
@@ -70,6 +70,15 @@ const INSTANCES = new WeakMap<HTMLElement, Slider>();
 /** The slider rendered inside *host*, if any. */
 const sliderOf = (host: Element | null): Slider | undefined =>
   host instanceof HTMLElement ? INSTANCES.get(host) : undefined;
+
+/** Finish every live slider inside *root* (a panel about to be removed).
+ *  Ending a session commits only when the pointer actually moved, so an
+ *  untouched control does not gain a user override. */
+const finishSlidersIn = (root: ParentNode): void => {
+  root.querySelectorAll(`.${SLIDER.ROOT}`).forEach(host => {
+    if (host instanceof HTMLElement) INSTANCES.get(host)?.finish();
+  });
+};
 
 const clamp = (value: number, lo: number, hi: number): number =>
   Math.min(hi, Math.max(lo, value));
@@ -201,9 +210,15 @@ class Slider {
     const initial = options.value;
     const pair = Array.isArray(initial) ? initial : null;
     this.range = pair !== null;
-    this.values = pair
-      ? [Math.min(pair[0], pair[1]), Math.max(pair[0], pair[1])]
-      : [initial as number];
+    // The constructor is a write path too: normalise like setValue so an
+    // out-of-range or fractional initial value cannot paint past the rail or
+    // invert the ARIA bounds.
+    const normalise = (value: number): number =>
+      Number.isFinite(value)
+        ? this.round(clamp(value, options.min, options.max))
+        : options.min;
+    this.values = (pair ?? [initial as number]).map(normalise);
+    if (this.range) this.values.sort((a, b) => a - b);
 
     this.root = host;
     host.classList.add(SLIDER.ROOT);
@@ -341,6 +356,12 @@ class Slider {
     this.emit("change");
   }
 
+  /** Finish a live drag as a commit. Safe when nothing is in flight: the
+   *  session only emits when the pointer actually moved. */
+  finish(): void {
+    this.endSession(true);
+  }
+
   /** Drop the bubble if this slider owns it (teardown path). */
   dismissBubble(): void {
     this.hideBubble();
@@ -363,7 +384,7 @@ class Slider {
   }
 
   destroy(): void {
-    this.endSession(false);
+    this.endSession(true);
     if (bubbleOwner === this.root) this.hideBubble();
     INSTANCES.delete(this.root);
     this.root.replaceChildren();
@@ -657,7 +678,8 @@ class Slider {
     this.active = index;
     const next = this.round(this.valueAt(clientX));
     if (next === this.values[index]) {
-      this.sync();
+      // The row already renders this value; a sync would only rewrite the
+      // same ARIA, styles and bubble text on every repeated pointer frame.
       return;
     }
     this.applyValue(index, next);
@@ -674,11 +696,19 @@ class Slider {
     const page = Math.max(step, (max - min) / 10);
     let delta: number;
     switch (event.key) {
+      // Horizontal keys follow the visual direction (native range behaviour):
+      // in RTL the left arrow raises the value. Vertical keys and Home/End
+      // keep the value semantics: up adds, down subtracts, Home is the
+      // minimum and End the maximum.
       case "ArrowLeft":
+        delta = this.rtl ? step : -step;
+        break;
+      case "ArrowRight":
+        delta = this.rtl ? -step : step;
+        break;
       case "ArrowDown":
         delta = -step;
         break;
-      case "ArrowRight":
       case "ArrowUp":
         delta = step;
         break;
@@ -765,5 +795,5 @@ class Slider {
   };
 }
 
-export { Slider, sliderOf };
+export { Slider, finishSlidersIn, sliderOf };
 export type { SliderOptions };

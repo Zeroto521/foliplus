@@ -7,7 +7,7 @@
   shares the track's box):
 
       .foliplus-slider                 control cell (full field width)
-        .foliplus-slider-track         the coordinate space, full field width
+        .foliplus-slider-track         inset by half a thumb; the coordinate space
           .foliplus-slider-rail        the rail itself (checkerboard = uncovered)
             .foliplus-slider-fill      the covered span
           .foliplus-slider-marks       zero-height layer on the rail's centre line
@@ -15,10 +15,10 @@
           .foliplus-slider-thumb       one per value (role="slider")
         .foliplus-slider-values        the scale's numbers
 
-  The track spans the form-control cell exactly, so the rail and the numbers
-  line up with the fields below (select, switch, input). 0% and 100% are the
-  rail's ends; a thumb parked at either end overhangs the rail by half a
-  thumb, which the row's own padding absorbs.
+  The track is inset by half a thumb, so a thumb parked at 0/100 keeps its
+  outer edge on the control's edge: the widget reads exactly as wide as the
+  fields below (select, switch, input). The rail is half a thumb narrower on
+  each side, and the numbers sit at its ends — under the thumb that owns them.
 
   The value bubble is NOT here. It is portaled to <body> by the JS so no
   panel's overflow or stacking context can clip it; see the last block.

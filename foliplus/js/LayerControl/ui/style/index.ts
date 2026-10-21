@@ -22,6 +22,7 @@ import {
   bindLiveNumber,
   normalizeHexColor,
 } from "#common/form.js";
+import { finishSlidersIn } from "#foliplus/LayerControl/slider.js";
 import type { LayerUI } from "../surface.js";
 import { closeOverlays } from "../teardown.js";
 import { bindBorderRow, resetLayerBorder } from "./border.js";
@@ -355,6 +356,10 @@ const closeStylePanel = (ui: LayerUI, setFocus: boolean): void => {
   // The field cache survives close/reopen: it is invalidated by
   // onLayerItemCountChange when a layer's features actually change, not on
   // every close (re-collecting on each open would defeat the cache).
+  // A live drag is a commit boundary too: the pointer already produced the
+  // value, and removing the panel (and with it the pointer capture) would drop
+  // the change event. Only a session that actually moved emits.
+  finishSlidersIn(panel);
   ui.overlayPanel.stylePanelLayerId = null;
   panel.remove();
   if (setFocus) item?.focus();
