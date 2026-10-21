@@ -744,6 +744,10 @@ class TestLayerControlRendering:
         assert "z-index: var(--foliplus-z-index-hint)" in bubble
         # Disabled is a primitive state, not a component special case.
         assert ".foliplus-slider.is-disabled" in css
+        # The end numbers anchor to the logical start/end, so an RTL page puts
+        # the minimum on the right without a second rule.
+        assert "inset-inline-start: 0" in css
+        assert "inset-inline-end: 0" in css
         # States: parked is small, held and focused grow.
         assert "scale(1.1)" in css
         assert "scale(1.15)" in css
@@ -1064,3 +1068,32 @@ class TestLayerControlRendering:
         # The rule spans multiple lines in source; check the two :not()
         # exclusions appear together on the same rule (matched by the
         # `visibility: hidden` body).
+        marker = ".foliplus-focus-pane):not(.foliplus-focus-basemap)"
+        assert marker in css, (
+            "the focus-mode hide rule must exclude both the focused layer's "
+            f"pane and the active basemap pane: {marker}"
+        )
+        # The body of the rule must still apply visibility:hidden — the
+        # exclusion is an :not(), not a property flip.
+        rule_body = _rule(css, marker)
+        assert "visibility: hidden" in rule_body, (
+            "the focus-mode hide rule must still set visibility: hidden on "
+            f"the panes it matches: {rule_body}"
+        )
+        # The active basemap must be dimmed via `opacity` — the pane blends toward
+        # the map container's background color, so the basemap reads as a faint
+        # backdrop. Assert on the property name and the token reference rather
+        # than the exact value: the specific strength is a tuning dial.
+        dim_marker = ".foliplus-is-focus-mode .foliplus-focus-basemap"
+        assert dim_marker in css, (
+            f"the focus-mode dim rule must target the active basemap via {dim_marker}"
+        )
+        dim_body = _rule(css, dim_marker)
+        assert "opacity" in dim_body, (
+            f"the active basemap must be dimmed with `opacity`: {dim_body}"
+        )
+        assert "var(--foliplus-alpha-30)" in dim_body, (
+            "the active basemap dim rule must reference the shared alpha scale "
+            f"--foliplus-alpha-30: {dim_body}"
+        )
+

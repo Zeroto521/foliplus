@@ -424,11 +424,11 @@ describe("Slider primitive", () => {
     track.dispatchEvent(pointer("pointerup", 70));
   });
 
-  it("slides a collapsed pair with a pointer and separates on the open side", () => {
+  it("slides a collapsed pair from a press on the stack and separates on the open side", () => {
     const { host } = make({ min: 0, max: 100, value: [50, 50], label: "x" });
     const track = stubTrack(host);
-    // Left half of the stack takes the lower thumb; moving right slides both.
-    track.dispatchEvent(pointer("pointerdown", 48));
+    // A press on the stack waits for the movement; moving right slides both.
+    thumb(host, 0).dispatchEvent(pointer("pointerdown", 48));
     track.dispatchEvent(pointer("pointermove", 70));
     expect(sliderOf(host)!.value).toEqual([70, 70]);
     track.dispatchEvent(pointer("pointerup", 70));
@@ -780,5 +780,136 @@ describe("Slider primitive", () => {
     press(thumbEl, "ArrowRight");
     const bubble = document.querySelector(".foliplus-slider-bubble") as HTMLElement;
     expect(bubble.textContent).toBe("41");
+  });
+
+  it("moves a stacked pair from a click on the rail", () => {
+    const { host } = make({ min: 0, max: 100, value: [50, 50], label: "x" });
+    const track = stubTrack(host);
+    // The rail press is not ambiguous: the far side takes the upper thumb, so
+    // a click to the right opens the pair instead of doing nothing.
+    track.dispatchEvent(pointer("pointerdown", 90));
+    expect(sliderOf(host)!.value).toEqual([50, 90]);
+    track.dispatchEvent(pointer("pointerup", 90));
+  });
+
+  it("ignores a second pointer while a drag is active", () => {
+    const change = vi.fn();
+    const { host } = make({
+      min: 0,
+      max: 100,
+      value: [20, 80],
+      label: "x",
+      change,
+    });
+    const track = stubTrack(host);
+    const first = pointer("pointerdown", 25);
+    Object.defineProperty(first, "pointerId", { value: 1 });
+    track.dispatchEvent(first);
+    // A second finger on the other thumb must not take over the session.
+    const second = pointer("pointerdown", 75);
+    Object.defineProperty(second, "pointerId", { value: 2 });
+    thumb(host, 1).dispatchEvent(second);
+    const move = pointer("pointermove", 30);
+    Object.defineProperty(move, "pointerId", { value: 1 });
+    track.dispatchEvent(move);
+    const up = pointer("pointerup", 30);
+    Object.defineProperty(up, "pointerId", { value: 1 });
+    track.dispatchEvent(up);
+    expect(sliderOf(host)!.value).toEqual([30, 80]);
+    expect(change).toHaveBeenCalledTimes(1);
+    expect(change).toHaveBeenCalledWith([30, 80]);
+  });
+
+  it("ignores a capture loss from another pointer", () => {
+    const change = vi.fn();
+    const { host } = make({ min: 0, max: 100, value: 0, label: "x", change });
+    const track = stubTrack(host);
+    const down = pointer("pointerdown", 40);
+    Object.defineProperty(down, "pointerId", { value: 1 });
+    track.dispatchEvent(down);
+    const lost = new Event("lostpointercapture");
+    Object.defineProperty(lost, "pointerId", { value: 2 });
+    track.dispatchEvent(lost);
+    expect(change).not.toHaveBeenCalled();
+    const up = pointer("pointerup", 40);
+    Object.defineProperty(up, "pointerId", { value: 1 });
+    track.dispatchEvent(up);
+    expect(change).toHaveBeenCalledWith(40);
+  });
+
+  it("ends a live drag when it is disabled", () => {
+    const change = vi.fn();
+    const { host } = make({ min: 0, max: 100, value: 10, label: "x", change });
+    const track = stubTrack(host);
+    track.dispatchEvent(pointer("pointerdown", 20));
+    sliderOf(host)!.setDisabled(true);
+    track.dispatchEvent(pointer("pointermove", 80));
+    expect(sliderOf(host)!.value).toBe(20);
+    expect(change).toHaveBeenCalledWith(20);
+    expect(
+      host.querySelector(".foliplus-slider-thumb")?.classList.contains("is-dragging"),
+    ).toBe(false);
+  });
+
+  it("mounts the bubble on the fullscreen element", () => {
+    const { host } = make({ min: 0, max: 100, value: 42, label: "x" });
+    thumb(host).dispatchEvent(new Event("focus"));
+    const bubble = document.querySelector(".foliplus-slider-bubble") as HTMLElement;
+    const stage = document.createElement("div");
+    document.body.appendChild(stage);
+    Object.defineProperty(document, "fullscreenElement", {
+      configurable: true,
+      get: () => stage,
+    });
+    document.dispatchEvent(new Event("fullscreenchange"));
+    expect(bubble.parentElement).toBe(stage);
+    // A second change with no move (already on the stage) is a no-op.
+    document.dispatchEvent(new Event("fullscreenchange"));
+    expect(bubble.parentElement).toBe(stage);
+    // Leaving fullscreen moves it back to the document body.
+    delete (document as unknown as { fullscreenElement?: Element }).fullscreenElement;
+    document.dispatchEvent(new Event("fullscreenchange"));
+    expect(bubble.parentElement).toBe(document.body);
+    stage.remove();
+  });
+
+  it("takes the start-side half of a stacked pair in RTL", () => {
+    const host = document.createElement("div");
+    host.style.direction = "rtl";
+    document.body.appendChild(host);
+    hosts.push(host);
+    new Slider(host, { min: 0, max: 100, value: [50, 50], label: "x" });
+    const track = stubTrack(host);
+    // RTL: the lower thumb sits on the right, so a press right of centre takes
+    // it and the first movement slides the pair.
+    thumb(host, 1).dispatchEvent(pointer("pointerdown", 55));
+    track.dispatchEvent(pointer("pointermove", 45));
+    expect(sliderOf(host)!.value).toEqual([55, 55]);
+    track.dispatchEvent(pointer("pointerup", 45));
+  });
+
+  it("skips the deferred direction read when the host never mounts", async () => {
+    const host = document.createElement("div");
+    hosts.push(host);
+    new Slider(host, { min: 0, max: 100, value: 25, label: "x" });
+    await new Promise(resolve => window.setTimeout(resolve, 40));
+    expect(host.querySelector<HTMLElement>(".foliplus-slider-thumb")!.style.left).toBe(
+      "25%",
+    );
+  });
+
+  it("picks up an RTL ancestor after mounting", async () => {
+    const host = document.createElement("div");
+    const wrap = document.createElement("div");
+    wrap.style.direction = "rtl";
+    // Built detached: the constructor cannot see the RTL ancestor yet.
+    new Slider(host, { min: 0, max: 100, value: 25, label: "x" });
+    wrap.appendChild(host);
+    document.body.appendChild(wrap);
+    hosts.push(wrap);
+    const thumbEl = () => host.querySelector<HTMLElement>(".foliplus-slider-thumb")!;
+    expect(thumbEl().style.left).toBe("25%");
+    await new Promise(resolve => window.setTimeout(resolve, 40));
+    expect(thumbEl().style.left).toBe("75%");
   });
 });
