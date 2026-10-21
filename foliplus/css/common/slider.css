@@ -175,17 +175,22 @@
 .foliplus-slider-values > span {
   position: absolute;
   top: 0;
-  transform: translateX(-50%);
   white-space: nowrap;
 }
+/* The end numbers sit flush against the rail's edges instead of centred on
+   them: a label centred on the edge overflows the box by half its width,
+   which made the slider read a few pixels wider than the fields below.
+   Their outer edges now line up with the field edges instead. */
 .foliplus-slider-value-min {
   left: 0;
 }
 .foliplus-slider-value-max {
-  left: 100%;
+  left: auto;
+  right: 0;
 }
 .foliplus-slider-value-current {
   left: 50%;
+  transform: translateX(-50%);
 }
 /* Dropped when its mark is too close to another to sit under it. */
 .foliplus-slider-label-hidden {

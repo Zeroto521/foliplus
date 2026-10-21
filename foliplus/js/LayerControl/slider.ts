@@ -525,13 +525,19 @@ class Slider {
   }
 
   private readonly onPointerMove = (event: PointerEvent): void => {
-    if (event.pointerId !== this.drag?.id) return;
-    this.setFromClientX(event.clientX, this.drag.index);
+    // Explicit null check, not `!== this.drag?.id`: both sides are undefined
+    // for a synthetic mouse event and a missing drag would pass that compare.
+    const drag = this.drag;
+    if (!drag) return;
+    if (event.pointerId !== drag.id) return;
+    this.setFromClientX(event.clientX, drag.index);
   };
 
   private readonly onPointerUp = (event: PointerEvent): void => {
-    if (event.pointerId !== this.drag?.id) return;
-    const { index, dirty } = this.drag;
+    const drag = this.drag;
+    if (!drag) return;
+    if (event.pointerId !== drag.id) return;
+    const { index, dirty } = drag;
     this.drag = null;
     if (index >= 0) this.thumbs[index]?.classList.remove("is-dragging");
     try {
@@ -578,8 +584,8 @@ class Slider {
     return this.nearestThumb(clientX);
   }
 
+  /** Only reachable for a range: pickThumb answers a single thumb itself. */
   private nearestThumb(clientX: number): number {
-    if (!this.range) return 0;
     const value = this.valueAt(clientX);
     return Math.abs(value - this.values[0]) <= Math.abs(value - this.values[1]) ? 0 : 1;
   }

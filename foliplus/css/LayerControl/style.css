@@ -37,9 +37,14 @@
       font-weight: var(--foliplus-font-weight-medium);
     }
 
-    /* Out of range is a readout, not a disabled state: the selected span is
-       still the selection, and the control must still look operable. The
-       current-level dot turns grey (coverage) and the row title says why;
-       nothing on the slider is dimmed. */
+    /* Out of range, only the selected span dims — the layer is not active at
+       the current level. The thumbs, rail and numbers stay crisp so the
+       control still reads as operable; the grey current-level dot and the
+       row title carry the "why". */
+    &.foliplus-zoom-range-out-of-range {
+      .foliplus-slider-fill {
+        opacity: var(--foliplus-alpha-50);
+      }
+    }
   }
 }
