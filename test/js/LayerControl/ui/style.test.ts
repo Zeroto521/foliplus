@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AUTO_FIELD } from "#core/label/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerController } from "#foliplus/LayerControl/controller.js";
+import { sliderOf } from "#foliplus/LayerControl/slider.js";
 import { applyProjection } from "#foliplus/LayerControl/ui/apply.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import {
@@ -26,7 +27,6 @@ import { resetLayerZoomRange } from "#foliplus/LayerControl/ui/style/zoomRange.j
 import { ensureModes } from "#foliplus/core/mode.js";
 import { getLayerAlpha } from "#common/canvasAlpha.js";
 import { NUMBER_FORMAT } from "#common/format.js";
-import { sliderOf } from "#common/slider.js";
 import { GridLayer, findItem, initFixture, installLeafletGlobals } from "./fixture.js";
 
 /** Percentage the slider fill is drawn at, read off the primitive's inline

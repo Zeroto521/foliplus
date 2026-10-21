@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { Slider, type SliderOptions, sliderOf } from "#common/slider.js";
+import { Slider, type SliderOptions, sliderOf } from "#foliplus/LayerControl/slider.js";
 
 const hosts: HTMLElement[] = [];
 

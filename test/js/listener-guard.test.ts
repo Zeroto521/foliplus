@@ -143,11 +143,10 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
     f: "LayerControl/ui/style/index.ts",
     n: 4,
     pairedOff: 0,
-    reason:
-      "style-panel input / dropdown bindings — pending migration to `this.on`",
+    reason: "style-panel input / dropdown bindings — pending migration to `this.on`",
   },
   {
-    f: "common/slider.ts",
+    f: "LayerControl/slider.ts",
     n: 10,
     pairedOff: 0,
     reason:

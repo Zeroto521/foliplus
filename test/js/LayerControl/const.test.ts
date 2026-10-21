@@ -162,7 +162,7 @@ describe("CLASSES.FOCUSING", () => {
 describe("CLASSES opacity controls", () => {
   it("defines the opacity row and shared slider classes", () => {
     // The shared component both range controls are built from. Its inner
-    // parts (rail, thumb, dot, bubble) are owned by common/slider.ts and
+    // parts (rail, thumb, dot, bubble) are owned by LayerControl/slider.ts and
     // named there; only the root class is part of this component surface.
     expect(CONST.CLASSES.SLIDER).toBe("foliplus-slider");
     // The opacity row's own hooks (behavior and tests query these).

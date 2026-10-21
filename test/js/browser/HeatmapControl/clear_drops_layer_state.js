@@ -73,24 +73,13 @@ async () => {
     await wait(120);
     const host = document.querySelector(".foliplus-style-opacity-track");
     if (!host) return "no-slider";
-    // Pointerdown on the thumb + pointerup on the track: the primitive's real
-    // drag path. The release commits the value.
-    const track = host.querySelector(".foliplus-slider-track");
-    const thumb = host.querySelector(".foliplus-slider-thumb");
-    const rect = track.getBoundingClientRect();
-    const x = rect.left + rect.width * 0.35;
-    const y = rect.top + rect.height / 2;
-    const base = {
-      bubbles: true,
-      cancelable: true,
-      clientX: x,
-      clientY: y,
-      pointerId: 13,
-      pointerType: "mouse",
-      button: 0,
-    };
-    thumb.dispatchEvent(new PointerEvent("pointerdown", { ...base, buttons: 1 }));
-    track.dispatchEvent(new PointerEvent("pointerup", { ...base, buttons: 0 }));
+    // Drive the primitive directly: this probe checks the persistence/clear
+    // contract, not pointer mechanics (the slider's own browser probes cover
+    // the drag path). setValue is the live pass, commit the settle pass.
+    const slider = window.foliplus.common.slider.sliderOf(host);
+    if (!slider) return "no-slider";
+    slider.setValue(35);
+    slider.commit();
     await wait(250);
 
     const cb = rowOf().querySelector('input[type="checkbox"]');
