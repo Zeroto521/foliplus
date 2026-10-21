@@ -94,6 +94,7 @@ const binPoints = (
 const aggregateBins = (
   bins: Map<string, number[]>,
   pts: SelectedPoint[],
+  include?: Set<number>,
 ): Map<string, HexCell> => {
   const cells = new Map<string, HexCell>();
   for (const [h3Idx, idxs] of bins) {
@@ -103,12 +104,14 @@ const aggregateBins = (
     let min = Infinity;
     let max = -Infinity;
     for (const i of idxs) {
+      if (include && !include.has(i)) continue;
       const v = pts[i].value;
       sum += v;
       count += 1;
       if (v < min) min = v;
       if (v > max) max = v;
     }
+    if (count === 0) continue;
     cells.set(h3Idx, { sum, count, min, max });
   }
   return cells;
@@ -127,9 +130,11 @@ const aggregateData = (
   scheme: string,
   onEmpty: () => void,
   log: Logger,
+  include?: Set<number>,
+  precomputedBins?: Map<string, number[]>,
 ): AggregatedData | null => {
-  const bins = binPoints(pts, res, log);
-  const hexCells = aggregateBins(bins, pts);
+  const bins = precomputedBins ?? binPoints(pts, res, log);
+  const hexCells = aggregateBins(bins, pts, include);
   if (hexCells.size === 0) {
     onEmpty();
     return null;

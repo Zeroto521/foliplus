@@ -6,7 +6,13 @@ import {
 import { generateId } from "#core/component.js";
 import { EVENTS, type EventBus, ensureEvents } from "#core/event/index.js";
 import { bareFieldName } from "#core/label/index.js";
-import { NO_FEATURE_TREE_KINDS } from "#core/layer/index.js";
+import {
+  type LayerFilter,
+  type LayerSnapshot,
+  NO_FEATURE_TREE_KINDS,
+  type SnapshotPoint,
+  matches,
+} from "#core/layer/index.js";
 import { bindMapSync } from "#core/leaflet/index.js";
 import type { NumberStyle } from "#foliplus/config-schema.js";
 import { getLayerAlpha, setLayerAlpha } from "#common/canvasAlpha.js";
@@ -19,6 +25,7 @@ import type { CanvasLabelStyle, Logger } from "#common/type.js";
 import * as CONST from "./const.js";
 import {
   aggregateData as aggregateDataFn,
+  binPoints as binPointsFn,
   buildFeatures as buildFeaturesFn,
   getColorScale as getColorScaleFn,
   getH3Res as getH3ResFn,
@@ -118,8 +125,25 @@ class HeatmapManager {
   declare ui: HeatmapControlUI | null;
   declare cachedPoints: { key: string; pts: SelectedPoint[] } | null;
   declare cachedFeatures: HexFeature[] | null;
+  /** Cache of the bin map (h3 cell → point-index list) keyed by the source
+   *  layer + resolution. Independent of the filter: `binPoints` is the only
+   *  h3 call, so a filter change reuses the bins and only reruns the pure
+   *  `aggregateBins` arithmetic. Invalidation: `onLayerChange` /
+   *  `clearHeatmapCanvas`. */
+  declare cachedBins: { key: string; bins: Map<string, number[]> } | null;
   declare cachedAgg: { key: string; data: AggregatedData } | null;
   declare cachedLabelStyle: CanvasLabelStyle | null;
+  /** Snapshot cache — built once per source layer, reused across filter
+   *  changes. `buildLayerSnapshot` walks the layer tree and normalises
+   *  fields; the filter evaluator (`matches`) reads `fields` directly.
+   *  Invalidation: `onLayerChange` / `clearHeatmapCanvas`. */
+  declare cachedSnapshot: LayerSnapshot | null;
+  declare cachedSnapshotLayerId: string | null;
+  /** Per-layer filters received via LAYER_FILTER_CHANGE. Keyed by source
+   *  layer id; the value is the filter AST. Absent or `undefined` = no
+   *  filtering. The panel writes to `LayerRuntimeStore.setFilter` and
+   *  emits the event; this map is the local cache. */
+  declare layerFilters: Map<string, LayerFilter>;
   declare renderAll: boolean;
   /**
    * One-shot guard for the single-layer auto-select in buildLayerListItems.
@@ -357,8 +381,12 @@ class HeatmapManager {
     this.ui = null;
     this.cachedPoints = null;
     this.cachedFeatures = null;
+    this.cachedBins = null;
     this.cachedAgg = null;
     this.cachedLabelStyle = null;
+    this.cachedSnapshot = null;
+    this.cachedSnapshotLayerId = null;
+    this.layerFilters = new Map();
     this.renderAll = false;
     this.hasScanned = false;
 
@@ -407,6 +435,9 @@ class HeatmapManager {
     this.onLayerChange = debounce(() => {
       this.cachedPoints = null;
       this.cachedAgg = null;
+      this.cachedBins = null;
+      this.cachedSnapshot = null;
+      this.cachedSnapshotLayerId = null;
       this.scanMapLayers();
       // A deleted source has to take its derived view with it. The heatmap
       // draws another layer's points, so unregistering that layer must drop
@@ -467,6 +498,20 @@ class HeatmapManager {
         this.syncSourceMeta();
       }
       this.saveConfig();
+    });
+    // Stage-2 pilot: the filter panel writes a new filter for a source layer
+    // through `LayerRuntimeStore.setFilter` and emits LAYER_FILTER_CHANGE.
+    // This handler stores the filter locally and re-renders if the filter
+    // applies to the currently selected source. The bins cache is reused
+    // (zero h3 calls); only `aggregateBins` reruns on the filtered subset.
+    this.events.on(EVENTS.LAYER_FILTER_CHANGE, ({ id, filter }) => {
+      this.layerFilters.set(id, filter);
+      if (id !== this.selectedLayerId) return;
+      // Invalidate the agg cache — the filter key changed. The bins cache
+      // is untouched: geometry is independent of the filter.
+      this.cachedAgg = null;
+      this.cachedPoints = null;
+      this.renderHexagons();
     });
   }
 
@@ -682,7 +727,8 @@ class HeatmapManager {
     const info = this.pointLayers.find(i => i.id === this.selectedLayerId);
     if (!info) return pts;
 
-    map.foliplus!.LayerAPI!.extractPoints(info.id).forEach(p => {
+    const rawPts = map.foliplus!.LayerAPI!.extractPoints(info.id);
+    rawPts.forEach(p => {
       pts.push({
         lat: p.lat,
         lng: p.lng,
@@ -691,7 +737,72 @@ class HeatmapManager {
       });
     });
     this.cachedPoints = { key, pts };
+    // Build/cache the snapshot from the already-extracted points — same
+    // order as `pts`, so filter indices align. We do NOT walk the layer
+    // tree (buildLayerSnapshot uses `instanceof L.Marker`, which fails
+    // under vitest's plain-object mocks). Instead we extract fields
+    // directly from each marker's folium contract.
+    if (this.cachedSnapshotLayerId !== this.selectedLayerId) {
+      this.cachedSnapshot = this.buildSnapshotFromPoints(rawPts);
+      this.cachedSnapshotLayerId = this.selectedLayerId;
+    }
     return pts;
+  }
+
+  /** Build a LayerSnapshot from already-extracted points. Extracts
+   *  numeric fields from each marker using the folium data contract
+   *  (value → options.value → feature.properties). This avoids the
+   *  `instanceof` check in `buildLayerSnapshot`, which fails under
+   *  vitest's mock environment. */
+  private buildSnapshotFromPoints(
+    rawPts: Array<{ lat: number; lng: number; marker: L.Marker | L.CircleMarker }>,
+  ): LayerSnapshot {
+    const points: SnapshotPoint[] = rawPts.map(p => ({
+      lat: p.lat,
+      lng: p.lng,
+      marker: p.marker,
+      fields: this.extractMarkerFields(p.marker),
+    }));
+    const numericFields: string[] = [];
+    const seen = new Set<string>();
+    const ranges: Record<string, readonly [number, number]> = {};
+    for (const pt of points) {
+      for (const [key, val] of Object.entries(pt.fields)) {
+        if (!seen.has(key)) {
+          seen.add(key);
+          numericFields.push(key);
+          ranges[key] = [val, val];
+        } else {
+          const [lo, hi] = ranges[key];
+          if (val < lo) ranges[key] = [val, hi];
+          else if (val > hi) ranges[key] = [lo, val];
+        }
+      }
+    }
+    return { points, numericFields, ranges };
+  }
+
+  /** Extract all numeric fields from a marker's folium data contract.
+   *  Priority: value → options.value → feature.properties. The same
+   *  explicit-contract-over-properties rule as `buildLayerSnapshot`. */
+  private extractMarkerFields(
+    marker: L.Marker | L.CircleMarker,
+  ): Record<string, number> {
+    const fields: Record<string, number> = {};
+    const extended = marker as HeatmapPointMarker;
+    const isNumeric = (v: unknown): v is number =>
+      typeof v === "number" && Number.isFinite(v);
+    if (isNumeric(extended.value)) fields["value"] = extended.value;
+    else if (isNumeric(extended.options?.value))
+      fields["value"] = extended.options!.value;
+    const props = marker.feature?.properties;
+    if (!props) return fields;
+    for (const [key, val] of Object.entries(props)) {
+      if (!isNumeric(val)) continue;
+      if (key in fields) continue;
+      fields[key] = val;
+    }
+    return fields;
   }
 
   getH3Res(zoom: number): number {
@@ -706,21 +817,64 @@ class HeatmapManager {
     return computeBreaksFn(data, numClasses, method);
   }
 
+  /** Stable string key for a LayerFilter AST — same filter shape produces
+   *  the same key, so a slider drag that keeps `[15, 18]` does not
+   *  invalidate the agg cache. JSON.stringify is deterministic for the
+   *  flat `atom` objects the panel emits; nested `and`/`or` trees would
+   *  also serialise in insertion order. */
+  private filterKey(filter: LayerFilter | undefined): string {
+    return filter ? JSON.stringify(filter) : "";
+  }
+
+  /** Build the set of point indices that pass the current filter. Reads
+   *  the cached snapshot (same layer walk as `getSelectedPoints`, so
+   *  indices align). No filter → all indices included. */
+  private buildIncludeSet(allPts: SelectedPoint[]): Set<number> {
+    const filter = this.selectedLayerId
+      ? this.layerFilters.get(this.selectedLayerId)
+      : undefined;
+    const include = new Set<number>();
+    if (!filter || !this.cachedSnapshot) {
+      for (let i = 0; i < allPts.length; i++) include.add(i);
+      return include;
+    }
+    this.cachedSnapshot.points.forEach((pt, i) => {
+      if (matches(pt, filter)) include.add(i);
+    });
+    return include;
+  }
+
   renderHexagons() {
     if (!this.map || !this.overlay) return;
     if (!this.selectedLayerId) {
       this.clearHeatmapCanvas();
       return;
     }
-    const pts = this.getSelectedPoints();
+    const allPts = this.getSelectedPoints();
     const zoom = this.map.getZoom();
     const res = this.getH3Res(zoom);
-    const aggKey = `${this.selectedLayerId}|${this.agg}|${this.field}|${res}|${this.method}|${this.scheme}|${this.numClasses}`;
+    const fKey = this.filterKey(
+      this.selectedLayerId ? this.layerFilters.get(this.selectedLayerId) : undefined,
+    );
+    const includeSet = this.buildIncludeSet(allPts);
+    // Bins cache: geometry only, independent of the filter. A filter
+    // change reuses the bins and only reruns aggregateBins.
+    const binsKey = `${this.selectedLayerId}|${res}`;
+    let bins: Map<string, number[]> | undefined;
+    if (this.cachedBins?.key === binsKey) {
+      bins = this.cachedBins.bins;
+    } else {
+      bins = binPointsFn(allPts, res, this.log);
+      this.cachedBins = { key: binsKey, bins };
+    }
+    // Agg cache: includes the filter key. A filter change invalidates
+    // this, but the bins cache above still hits — zero h3 calls.
+    const aggKey = `${binsKey}|${this.agg}|${this.field}|${this.method}|${this.scheme}|${this.numClasses}|${fKey}`;
     let aggregated: AggregatedData | undefined;
     if (this.cachedAgg?.key === aggKey) {
       aggregated = this.cachedAgg.data;
     } else {
-      aggregated = this.aggregateData(pts, res) ?? undefined;
+      aggregated = this.aggregateData(allPts, res, includeSet, bins) ?? undefined;
       if (aggregated) this.cachedAgg = { key: aggKey, data: aggregated };
     }
     if (!aggregated) return;
@@ -728,7 +882,12 @@ class HeatmapManager {
     this.renderFeatures(features);
   }
 
-  aggregateData(pts: SelectedPoint[], res: number): AggregatedData | null {
+  aggregateData(
+    pts: SelectedPoint[],
+    res: number,
+    include?: Set<number>,
+    precomputedBins?: Map<string, number[]>,
+  ): AggregatedData | null {
     return aggregateDataFn(
       pts,
       res,
@@ -738,6 +897,8 @@ class HeatmapManager {
       this.scheme,
       () => this.clearHeatmapCanvas(),
       this.log,
+      include,
+      precomputedBins,
     );
   }
 
@@ -760,6 +921,10 @@ class HeatmapManager {
   clearHeatmapCanvas() {
     this.cachedFeatures = null;
     this.cachedAgg = null;
+    this.cachedBins = null;
+    this.cachedSnapshot = null;
+    this.cachedSnapshotLayerId = null;
+    this.layerFilters.clear();
     if (this.overlay) this.overlay.unregister();
     // The panel row is gone and the next draw is new content: drop this id
     // from the stored order so the next registration lands at the top of the
