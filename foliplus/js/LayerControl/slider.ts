@@ -539,7 +539,7 @@ class Slider {
     if (event.pointerId !== drag.id) return;
     const { index, dirty } = drag;
     this.drag = null;
-    if (index >= 0) this.thumbs[index]?.classList.remove("is-dragging");
+    this.thumbs[index]?.classList.remove("is-dragging");
     try {
       this.track.releasePointerCapture(event.pointerId);
     } catch {
@@ -553,7 +553,7 @@ class Slider {
     if (!this.drag) return;
     const { index, dirty } = this.drag;
     this.drag = null;
-    if (index >= 0) this.thumbs[index]?.classList.remove("is-dragging");
+    this.thumbs[index]?.classList.remove("is-dragging");
     this.hideBubble();
     // A lost capture (alt-tab, context menu, a browser gesture) ends the drag
     // without a pointerup; the value already moved, so it still has to be
@@ -606,7 +606,8 @@ class Slider {
       return;
     }
     this.applyValue(index, next);
-    if (this.drag) this.drag.dirty = true;
+    // Only reachable from the two drag paths, both of which set `this.drag`.
+    this.drag!.dirty = true;
     this.sync();
     this.emit("input");
   }
