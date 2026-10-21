@@ -7,6 +7,7 @@
 // on unregister. Derived state only: nothing here is user input, and every
 // entry is invalidatable (explicit invalidation, never a full re-scan).
 import type { LabelField } from "#core/label/index.js";
+import type { LayerFilter } from "./filter.js";
 import type { LayerSnapshot, Projection } from "./type.js";
 
 /** The executor's projection snapshot: the pure projection plus the carrier
@@ -32,6 +33,11 @@ interface LayerRuntime {
   /** Per-layer point snapshot — geometry + normalised numeric fields, built
    *  once on first read, invalidated at the same points as `fields`. */
   snapshot?: LayerSnapshot;
+  /** Per-layer filter (stage-2 runtime axis). Absent = no filtering. The
+   *  four-step persistence protocol (LayerOverride / INTENT / LIVE /
+   *  PARSE_OVERRIDE) is deferred to stage 3; until then this axis is the
+   *  single in-memory home of the panel's choice. */
+  filter?: LayerFilter;
   /** The author's declared default per layer id, seeded from CONFIG
    *  `data[].show` at attach time for initial layers, or to `true` for
    *  late-registered layers (folium's convention). Python carries the fact
@@ -113,6 +119,25 @@ class LayerRuntimeStore {
     const row = this.rows.get(id);
     if (!row) return;
     delete row.snapshot;
+    this.prune(id);
+  }
+
+  // ── filter (stage-2 runtime filter, persistence in stage 3) ────────
+
+  getFilter(id: string): LayerFilter | undefined {
+    return this.rows.get(id)?.filter;
+  }
+
+  setFilter(id: string, filter: LayerFilter): void {
+    const row = this.ensure(id);
+    if (filter === undefined) delete row.filter;
+    else row.filter = filter;
+  }
+
+  deleteFilter(id: string): void {
+    const row = this.rows.get(id);
+    if (!row) return;
+    delete row.filter;
     this.prune(id);
   }
 

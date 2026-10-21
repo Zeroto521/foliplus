@@ -69,5 +69,14 @@
   "LayerControl.style_border_weight": "边框宽度",
   "LayerControl.style_fill": "填充颜色",
   "LayerControl.style_fill_opacity": "填充透明度",
-  "LayerControl.border": "边框"
+  "LayerControl.border": "边框",
+  "LayerControl.filter_layer": "筛选",
+  "LayerControl.filter_layer_tooltip": "筛选该图层的记录",
+  "LayerControl.filter_not_supported": "该图层不支持筛选",
+  "LayerControl.filter_field": "字段",
+  "LayerControl.filter_range_min": "最小值",
+  "LayerControl.filter_range_max": "最大值",
+  "LayerControl.filter_keep": "命中",
+  "LayerControl.filter_total": "总数",
+  "LayerControl.filter_empty": "该图层没有数值字段"
 }

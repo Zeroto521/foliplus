@@ -69,5 +69,14 @@
   "LayerControl.style_border_weight": "Border width",
   "LayerControl.style_fill": "Fill Color",
   "LayerControl.style_fill_opacity": "Fill Opacity",
-  "LayerControl.border": "Border"
+  "LayerControl.border": "Border",
+  "LayerControl.filter_layer": "Filter",
+  "LayerControl.filter_layer_tooltip": "Filter this layer's records",
+  "LayerControl.filter_not_supported": "This layer does not support filtering",
+  "LayerControl.filter_field": "Field",
+  "LayerControl.filter_range_min": "Minimum value",
+  "LayerControl.filter_range_max": "Maximum value",
+  "LayerControl.filter_keep": "Kept",
+  "LayerControl.filter_total": "Total",
+  "LayerControl.filter_empty": "No numeric fields on this layer"
 }

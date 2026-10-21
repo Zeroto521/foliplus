@@ -46,6 +46,7 @@ import {
   toggleAll,
 } from "./listPanel/visibility.js";
 import { closeAttrsPanel } from "./overlayPanel/attr.js";
+import { closeFilterPanel } from "./overlayPanel/filter.js";
 import { closeMoreMenu } from "./overlayPanel/menu.js";
 import { finishRename } from "./overlayPanel/rename.js";
 import { loadPersistedState } from "./state.js";
@@ -321,6 +322,7 @@ const bindLayerEvents = (ui: LayerUI): void => {
     // there is actually a focus to tear down.
     bus.on(EVENTS.OVERLAY_CLEAR, () => closeMoreMenu(ui, true)),
     bus.on(EVENTS.OVERLAY_CLEAR, () => closeAttrsPanel(ui, false)),
+    bus.on(EVENTS.OVERLAY_CLEAR, () => closeFilterPanel(ui, false)),
     bus.on(EVENTS.OVERLAY_CLEAR, () => closeStylePanel(ui, false)),
     bus.on(EVENTS.OVERLAY_CLEAR, () => finishRename(ui)),
     bus.on(EVENTS.OVERLAY_CLEAR, () => {

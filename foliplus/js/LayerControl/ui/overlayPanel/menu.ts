@@ -116,6 +116,31 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   );
   if (styleDisabled) menu.lastElementChild!.setAttribute("disabled", "disabled");
 
+  // Filter is the stage-2 pilot: enabled only for point layers that
+  // carry a component's `styleSetters` — the Heatmap's data source is
+  // the point layer itself, and that is where the filter applies.
+  // Every other layer is disabled with a "not supported" tooltip so
+  // stage 3 can flip the gate when it lands.
+  const filterSupported = layerSupportsFilter(ui, layerId);
+
+  menu.appendChild(
+    dom.el(
+      "li",
+      {
+        "data-action": CONST.ACTION.FILTER_LAYER,
+        role: "menuitem",
+        tabindex: "0",
+        title: filterSupported
+          ? ui.T("filter_layer_tooltip")
+          : ui.T("filter_not_supported"),
+        "aria-disabled": filterSupported ? "false" : "true",
+      },
+      { html: SVGs.ICON_FILTER },
+      ui.T("filter_layer"),
+    ),
+  );
+  if (!filterSupported) menu.lastElementChild!.setAttribute("disabled", "disabled");
+
   // Rename writes to the layer itself, so it sits above the display-only
   // entry rather than at the tail of the working actions.
   menu.appendChild(
@@ -237,6 +262,17 @@ const deleteModeFor = (ui: LayerUI, layerId: string): DeleteMode => {
  *  `deleteModeFor` and returns "delete" instead of "clear". */
 const isComponentLayer = (ui: LayerUI, layerId: string): boolean => {
   return Boolean(ui.c.layerRegistry.get(layerId)?.styleSetters);
+};
+
+/** Stage-2 pilot gate for the ⋮ filter entry. Only a Heatmap row can
+ *  enable the filter panel today: the filter's data source is the
+ *  Heatmap's canvas row (`styleSetters`), and stage 4 will widen this
+ *  to point data layers whose snapshot carries numeric fields. Every
+ *  other layer stays disabled so the entry is never silently missing. */
+const layerSupportsFilter = (ui: LayerUI, layerId: string): boolean => {
+  const info = ui.c.layerRegistry.get(layerId);
+  if (!info) return false;
+  return Boolean(info.styleSetters);
 };
 
 const buildDeleteItem = (

@@ -2,7 +2,7 @@
 // Pure types: the shapes `EVENTS` names, keyed by the event constants so a
 // payload and its event name cannot drift apart. Lives beside `const.ts`
 // because the map is keyed by that dictionary's values.
-import type { LayerKind } from "#core/layer/index.js";
+import type { LayerFilter, LayerKind } from "#core/layer/index.js";
 import type { EVENTS } from "./const.js";
 
 /** One layer's registry/membership change: who (`id`) and what it is (`kind`).
@@ -25,6 +25,14 @@ interface LayerIntentChangePayload {
   intent: { visible: boolean };
 }
 
+/** A layer's filter moved (stage 2, component-internal). Absent `filter`
+ *  means no filtering — distinct from an empty `and`, per the evaluator.
+ *  See LAYER_FILTER_CHANGE in ./const.ts for the stage-3 caveat. */
+interface LayerFilterChangePayload {
+  id: string;
+  filter: LayerFilter;
+}
+
 interface EventPayloadMap {
   [EVENTS.LAYER_CHANGE]: LayerChangePayload;
   [EVENTS.LAYER_INTENT_CHANGE]: LayerIntentChangePayload;
@@ -44,6 +52,7 @@ interface EventPayloadMap {
   [EVENTS.LAYER_LIST_REBUILD]: void;
   [EVENTS.LAYER_NO_BASEMAP_CHANGED]: void;
   [EVENTS.OVERLAY_CLEAR]: void;
+  [EVENTS.LAYER_FILTER_CHANGE]: LayerFilterChangePayload;
 }
 
 export type { EventPayloadMap };

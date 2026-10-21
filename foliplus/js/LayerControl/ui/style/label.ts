@@ -38,6 +38,11 @@ const layerHasLabelFields = (ui: LayerUI, layerId: string): boolean =>
  *  it the map and the panel disagree until the user touches a control. */
 const invalidateFields = (ui: LayerUI, layerId: string): void => {
   ui.runtimeStore.deleteFields(layerId);
+  // The point snapshot invalidates at the same points as `fields` (design
+  // §4.1): both are caches over the layer's feature set. A layer whose
+  // features can change (runtime createLayers) or whose row was just
+  // dropped must lose both caches in one move.
+  ui.runtimeStore.deleteSnapshot(layerId);
   ui.c.annotation.invalidateAutoField(layerId);
   if (ui.c.annotation.getConfig(layerId).show) {
     ui.c.annotation.renderLabels(layerId);

@@ -78,6 +78,9 @@ const handleMoreMenuClick = (ui: LayerUI, event: Event): void => {
   if (action === CONST.ACTION.STYLE_LAYER) {
     ui.openStylePanel(ui.overlayPanel.activeMenu?.layerId ?? "");
   }
+  if (action === CONST.ACTION.FILTER_LAYER) {
+    ui.openFilterPanel(ui.overlayPanel.activeMenu?.item ?? menuItem);
+  }
   // Attributes anchors to the menu's own row — the menu is the source of
   // truth for which row owns it, and falling back to `menuItem` would anchor
   // the panel to the menu's own <li> if the menu state were lost.

@@ -199,6 +199,26 @@ const CLASSES = {
   TOGGLE_SLIDER: "foliplus-toggle-slider",
   ATTRS_PANEL: "foliplus-layer-attrs-panel",
   ATTRS_ICON: "foliplus-layer-attrs-icon",
+  /** Floating filter panel opened from the layer overflow menu. Stage 2. */
+  FILTER_PANEL: "foliplus-layer-filter-panel",
+  /** Empty-state message inside the filter panel (no numeric fields). */
+  FILTER_EMPTY: "foliplus-filter-empty",
+  /** Header icon of the filter panel (a funnel glyph). */
+  FILTER_ICON: "foliplus-layer-filter-icon",
+  /** The single-field dual-thumb slider row inside the filter panel. */
+  FILTER_ROW: "foliplus-filter-row",
+  /** Rail track of the filter slider — reuses the shared slider geometry. */
+  FILTER_TRACK: "foliplus-filter-track",
+  /** Filled span of the filter slider (min..max). */
+  FILTER_FILL: "foliplus-filter-fill",
+  /** Min thumb of the filter slider (the left <input type=range>). */
+  FILTER_MIN: "foliplus-filter-min",
+  /** Max thumb of the filter slider (the right <input type=range>). */
+  FILTER_MAX: "foliplus-filter-max",
+  /** Readout dots on the filter rail. */
+  FILTER_DOT: "foliplus-filter-dot",
+  /** Value labels under the filter rail (numeric min / max). */
+  FILTER_VALUES: "foliplus-filter-values",
 };
 
 /** Data attribute names. */
@@ -214,6 +234,10 @@ const ACTION = {
   FOCUS_LAYER: "focus-layer",
   RENAME_LAYER: "rename-layer",
   STYLE_LAYER: "style-layer",
+  /** Opens the layer's filter panel (stage 2). Disabled on rows whose surface
+   *  cannot filter yet; enabled today only for point layers that expose a
+   *  component's `styleSetters` (Heatmap pilot). */
+  FILTER_LAYER: "filter-layer",
   ATTRS_LAYER: "layer-attributes",
   DELETE_LAYER: "delete-layer",
 };

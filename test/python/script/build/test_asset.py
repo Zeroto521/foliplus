@@ -320,6 +320,7 @@ LAYER_IMPORT_ORDER = [
     "row.css",
     "menu.css",
     "attr.css",
+    "filter.css",
     "control.css",
     "map-state.css",
     "rename.css",

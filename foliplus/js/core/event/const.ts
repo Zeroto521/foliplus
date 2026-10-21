@@ -100,7 +100,16 @@ const EVENTS = {
    *  their own teardown shape; map teardown does not route through this
    *  channel (unbindEvents calls the close functions directly so a
    *  third-party `off` cannot leave a panel open). */
-  OVERLAY_CLEAR: "foliplus:layer:overlay-clear",
+  OVERLAY_CLEAR: "foliplus:overlay:clear",
+  /** Component-internal filter signal (stage 2): the filter panel wrote a
+   *  new filter for a layer through `LayerRuntimeStore.setFilter`, and
+   *  any consumer that reads that filter (today HeatmapControl) should
+   *  re-run its own pipeline. This is *not* a public intent event — the
+   *  public intent channel (LAYER_INTENT_CHANGE) carries `{visible}` and
+   *  stays untouched until stage 3 wires the full four-step protocol
+   *  (LayerOverride / INTENT / LIVE / PARSE_OVERRIDE) for `filter` as
+   *  its own dimension. Payload is `{id, filter}`: subscribers that
+   *  don't apply to this layer filter on `id` first. */
+  LAYER_FILTER_CHANGE: "foliplus:layer:filter-change",
 } as const;
-
 export { EVENTS };

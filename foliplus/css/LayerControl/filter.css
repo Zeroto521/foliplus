@@ -1,0 +1,66 @@
+.foliplus-layer-ctrl {
+  /* ── Filter panel ──
+     Stage-2 pilot: a single-field dual-thumb slider for one layer. The
+     shell (anchoring, width, height cap, chrome) comes from the shared
+     row-panel recipe; this block carries what the filter row needs on
+     top of it. Geometry of the slider itself (rail, handles, dots,
+     fill) is declared once in common/slider.css; the classes below are
+     just hooks the JS reads/writes, plus the panel's own inset for
+     the numeric readout. */
+  .foliplus-layer-filter-panel {
+    padding: 0;
+  }
+  .foliplus-layer-filter-panel .foliplus-panel-content {
+    padding: var(--foliplus-space-md) var(--foliplus-space-lg);
+    display: flex;
+    flex-direction: column;
+    gap: var(--foliplus-space-md);
+  }
+  .foliplus-layer-filter-panel .foliplus-filter-row {
+    display: flex;
+    flex-direction: column;
+    gap: var(--foliplus-space-xs);
+  }
+  .foliplus-layer-filter-panel .foliplus-form-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--foliplus-space-md);
+  }
+  .foliplus-layer-filter-panel .foliplus-form-label {
+    font-size: var(--foliplus-font-size-sm);
+    color: var(--foliplus-text-primary);
+  }
+  .foliplus-layer-filter-panel .foliplus-form-control {
+    font-size: var(--foliplus-font-size-sm);
+    color: var(--foliplus-text-secondary);
+    font-variant-numeric: tabular-nums;
+  }
+  /* Count readout: `kept / total`. Right-aligned, tabular figures so the
+     numbers do not jump width as they change. */
+  .foliplus-layer-filter-panel .foliplus-filter-count {
+    font-size: var(--foliplus-font-size-sm);
+    color: var(--foliplus-text-secondary);
+    font-variant-numeric: tabular-nums;
+    display: flex;
+    justify-content: space-between;
+    gap: var(--foliplus-space-sm);
+  }
+  .foliplus-layer-filter-panel .foliplus-filter-count strong {
+    color: var(--foliplus-text-primary);
+    font-weight: 500;
+  }
+  /* Fallback message when the layer carries no numeric field: same font as
+     the panel's body, muted color. */
+  .foliplus-layer-filter-panel .foliplus-filter-empty {
+    font-size: var(--foliplus-font-size-sm);
+    color: var(--foliplus-text-secondary);
+    padding: var(--foliplus-space-sm) 0;
+  }
+  /* Header icon (funnel glyph) sized inside the shared .foliplus-header-icon
+     box; the LayerControl SVGs are viewBox-only. */
+  .foliplus-layer-filter-icon svg {
+    width: 100%;
+    height: 100%;
+  }
+}

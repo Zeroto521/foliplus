@@ -47,8 +47,11 @@ export { ensureLayerAPI, requireLayerAPI } from "./api.js";
 export { CLUSTER_CAPABILITIES, deriveLayerKind } from "./util.js";
 export { LayerRuntimeStore } from "./LayerRuntimeStore.js";
 export { LayerOrder } from "./LayerOrder.js";
+export { buildLayerSnapshot } from "./snapshot.js";
+export { matches, select } from "./filter.js";
 export { INTENT, LIVE, STYLE_KEYS } from "./intent.js";
 export type { AppliedProjection } from "./LayerRuntimeStore.js";
+export type { LayerFilter } from "./filter.js";
 export type { Projection } from "./type.js";
 export type {
   AnnotationConfig,
