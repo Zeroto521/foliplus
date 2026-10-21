@@ -50,6 +50,15 @@ const polygonLayerWith = (
   } as L.Layer;
 };
 
+/** A polygon-shaped layer stub that reports no usable bounds — the focus
+ *  entry has to bail instead of drawing a rectangle. */
+const polygonLayerWithoutBounds = (): L.Layer =>
+  ({
+    options: {},
+    eachLayer: vi.fn(),
+    getBounds: vi.fn(() => ({ isValid: vi.fn(() => false) })),
+  }) as L.Layer;
+
 /** Track real map membership, keyed by the layer the projection diffs against.
  *  A `hasLayer` that always answers the same way turns every add and every
  *  remove into a diff miss. */
@@ -377,6 +386,25 @@ describe("layer notification contract", () => {
     expect(() => ui.focusLayer("overlay1")).not.toThrow();
     expect(map.flyTo).toHaveBeenCalled();
     expect(deliveries).toBeGreaterThan(0);
+    expect(ui.isFocusing()).toBe(false);
+  });
+
+  it("a rejected focus leaves no membership change behind", () => {
+    // A layer the policy had pulled off rejoins the map so its bounds can be
+    // read. When those bounds turn out unusable the re-add goes back, so the
+    // call announces nothing and leaves the map as it found it.
+    const { ui, layer, onMap } = oneOverlay(polygonLayerWithoutBounds);
+    onMap.set(layer, false);
+
+    const seen: string[] = [];
+    ui.events.on(EVENTS.LAYER_CHANGE, payload => {
+      seen.push(payload.id);
+    });
+
+    expect(() => ui.focusLayer("overlay1")).not.toThrow();
+
+    expect(onMap.get(layer)).toBe(false);
+    expect(seen).toEqual([]);
     expect(ui.isFocusing()).toBe(false);
   });
 
