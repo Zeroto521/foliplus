@@ -121,54 +121,29 @@
   --foliplus-icon-size-md: 18px;
   --foliplus-stroke-icon: 1.8;
 
-  /* ── Slider (range input) ──
-     One geometry for every range control: LayerControl's opacity row
-     (common/form.css) and its zoom-range row (LayerControl/style.css) both
-     read these, so the two rails cannot drift into different heights or
-     handles.
-     The handle is a dot, only slightly larger than the rail, with a white core
-     and a ring — `--foliplus-slider-thumb-ring` is the one thing a state changes (see
-     the zoom-range row: a gray ring is "the current level is outside this
-     range").
-     `--foliplus-slider-thumb-hit` is the interactive box, not the painted size: the
-     thumb paints only its content box (background-clip: content-box), so the
-     ring of transparent padding widens the grab target to the WCAG 2.5.8
-     minimum of 24px without inflating the visible handle.
+  /* ── Slider primitive (common/slider.css) ──
+     One geometry for every range control. The rail, the marks layer and the
+     thumbs all anchor to one track box's centre line, so the dots and the
+     thumbs line up by construction — there is no native <input type=range>
+     left to compensate for.
+     The thumb is a dot slightly larger than the rail, with a white core and a
+     ring — `--foliplus-slider-thumb-ring` is the one thing a state changes.
      `--foliplus-slider-thumb-core` is the white middle: the 2px out to
      `--foliplus-slider-thumb-size` is the ring that carries the state.
-     Deliberately absent: a thumb `margin-top` and a drop shadow. Chromium
-     centers the slider thumb on its own track, and the classic webkit
-     compensation `(rail - thumb) / 2` then lifts the handle off center
-     (measured 4px high on an 8px rail). A drop shadow is drawn at the 24px hit
-     box, which is 5px clear of a 14px handle — it reads as a gray halo, not a
-     lift. */
+     Deliberately absent: a drop shadow — at the painted 14px handle it reads
+     as a gray halo rather than a lift. */
   --foliplus-slider-rail-height: var(--foliplus-size-6);
-  /* Deliberate: not --foliplus-dot-size. The thumb is a grab control (WCAG hit
-     box + core/ring recipe), not a map/crop anchor dot. */
+  /* Deliberate: not --foliplus-dot-size. The thumb is a grab control, not a
+     map/crop anchor dot. */
   --foliplus-slider-thumb-size: 14px;
   /* Deliberate: not --foliplus-dot-size. Non-interactive readout dots
-     (pointer-events: none) under the rail — smaller than the thumb so the
-     thumb reads as the control. */
+     (pointer-events: none) on the rail — smaller than the thumb so the thumb
+     reads as the control. */
   --foliplus-slider-dot-size: 10px;
-  /* The thumb's box IS its visible size: the travel is inset by half of it, so a
-     box larger than the handle leaves the handle short of the rail's ends. The
-     24px grab target is not achievable that way — the input is inert and a
-     thumb's transparent padding is not hit-testable — so the handle is the
-     target, and it is flush. */
-  --foliplus-slider-thumb-hit: var(--foliplus-slider-thumb-size);
-  --foliplus-slider-thumb-pad: calc(
-    (var(--foliplus-slider-thumb-hit) - var(--foliplus-slider-thumb-size)) / 2
-  );
   --foliplus-slider-thumb-core: calc(
     var(--foliplus-slider-thumb-size) / 2 - var(--foliplus-size-2)
   );
   --foliplus-slider-thumb-ring: var(--foliplus-accent-primary);
-  /* Both engines anchor a thumb's TOP edge to the track's top edge rather than
-     centring it, so the taller handle hangs below the rail by half the
-     difference. This is that compensation. */
-  --foliplus-slider-thumb-offset: calc(
-    (var(--foliplus-slider-rail-height) - var(--foliplus-slider-thumb-size)) / 2
-  );
   /* Held state of a handle: a soft accent halo, drawn at the hit box's edge. */
   --foliplus-slider-thumb-glow: 0 0 0 var(--foliplus-size-2)
     var(--foliplus-accent-soft-shadow);

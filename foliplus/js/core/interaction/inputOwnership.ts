@@ -32,6 +32,11 @@ const NATIVE_KEYS: Record<Exclude<NativeClass, "none">, ReadonlySet<string> | "*
   editable: "*",
 };
 
+/** Role-based controls: a `role="slider"` thumb is the ARIA equivalent of a
+ *  range input and owns the step keys, so the shared dispatcher stands aside
+ *  exactly as it does for a native <input type=range>. */
+const ROLE_CLASSES: Readonly<Record<string, NativeClass>> = { slider: "step" };
+
 const STEP_TYPES = new Set([
   "range",
   "color",
@@ -76,6 +81,8 @@ const nativeClass = (el: Element | null): NativeClass => {
     if (STEP_TYPES.has(type)) return "step";
     return "edit";
   }
+  const role = el.getAttribute("role");
+  if (role && ROLE_CLASSES[role]) return ROLE_CLASSES[role];
   if (isEditableEl(el)) return "editable";
   return "none";
 };
@@ -106,6 +113,7 @@ const nativeConsumesKey = (el: Element | null, key: string): boolean => {
 const isNativeControl = (el: Element | null): boolean => {
   if (!el) return false;
   if (POINTER_CONTROL_TAGS.has(el.tagName.toLowerCase())) return true;
+  if (el.getAttribute("role") === "slider") return true;
   return isEditableEl(el);
 };
 

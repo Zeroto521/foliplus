@@ -57,7 +57,7 @@
       ? "zoomRange"
       : n.querySelector(".foliplus-style-zoom-range-row")
         ? "zoomRange"
-        : n.querySelector(".foliplus-style-opacity-range")
+        : n.querySelector(".foliplus-style-opacity-track")
           ? "opacity"
           : n.querySelector('input[type="color"]')
             ? "border"
@@ -83,18 +83,42 @@
       `:${(n.textContent || "").replace(/\s+/g, " ").trim().slice(0, 16)}`,
   );
 
-  const minInput = zoomRow.querySelector(".foliplus-style-zoom-range-min");
+  const host = zoomRow.querySelector(".foliplus-style-zoom-range-control");
+  if (!host) return { error: "zoom range slider not found", id: li.id };
+  const thumbs = host.querySelectorAll(".foliplus-slider-thumb");
   const mapMin = Number(map.getMinZoom());
   const mapMax = Number(map.getMaxZoom());
   const current = Number(map.getZoom());
   // Push the lower bound past the current zoom: the canvas is now out of range.
   const outMin = Math.min(mapMax, current + 1);
 
+  // Drag one range thumb to `target` through the primitive's real pointer
+  // path. The pointerup release is the commit.
+  const driveThumb = target => {
+    const track = host.querySelector(".foliplus-slider-track");
+    const lo = Number(thumbs[0].getAttribute("aria-valuemin"));
+    const hi = Number(thumbs[thumbs.length - 1].getAttribute("aria-valuemax"));
+    const fraction = hi === lo ? 0 : (target - lo) / (hi - lo);
+    const rect = track.getBoundingClientRect();
+    const x = rect.left + rect.width * Math.max(0, Math.min(1, fraction));
+    const y = rect.top + rect.height / 2;
+    const base = {
+      bubbles: true,
+      cancelable: true,
+      clientX: x,
+      clientY: y,
+      pointerId: 19,
+      pointerType: "mouse",
+      button: 0,
+    };
+    thumbs[0].dispatchEvent(new PointerEvent("pointerdown", { ...base, buttons: 1 }));
+    return track.dispatchEvent(new PointerEvent("pointerup", { ...base, buttons: 0 }));
+  };
+
   // Live pass — the HIDDEN class is what hides the canvas, not a map
   // write, since a canvas has no Leaflet layer to add or remove.
   const visibleBefore = !canvas.classList.contains("hidden");
-  minInput.value = String(outMin);
-  const dispatched = minInput.dispatchEvent(new Event("input", { bubbles: true }));
+  const dispatched = driveThumb(outMin);
   const hiddenOut = canvas.classList.contains("hidden");
   const rowOutOfRange = zoomRow.classList.contains("foliplus-zoom-range-out-of-range");
   const rangeMap = JSON.parse(
@@ -106,14 +130,12 @@
     rangeMap.layers && rangeMap.layers[li.id] ? rangeMap.layers[li.id].zoomRange : null;
 
   // Dragging the bound back is reversible.
-  minInput.value = String(mapMin);
-  minInput.dispatchEvent(new Event("input", { bubbles: true }));
+  driveThumb(mapMin);
   const visibleBack = !canvas.classList.contains("hidden");
 
   // Commit pass — the out-of-range range is persisted on the real path too
   // (markOverride + saveState), behind the write debounce.
-  minInput.value = String(outMin);
-  minInput.dispatchEvent(new Event("change", { bubbles: true }));
+  driveThumb(outMin);
 
   return {
     id: li.id,

@@ -15,33 +15,25 @@ import { resolveSelectedField } from "#core/label/index.js";
 import { createRowPanel } from "#core/leaflet/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import * as SVGs from "#foliplus/LayerControl/icon.js";
+import { finishSlidersIn } from "#foliplus/LayerControl/slider.js";
 import type { NumberStyle } from "#foliplus/config-schema.js";
-import { dom } from "#common/dom.js";
 import {
   LABEL_SIZE,
   bindLiveColor,
   bindLiveNumber,
   normalizeHexColor,
 } from "#common/form.js";
-import { authorZoomBoundsForLayer } from "../apply.js";
 import type { LayerUI } from "../surface.js";
 import { closeOverlays } from "../teardown.js";
 import { bindBorderRow, resetLayerBorder } from "./border.js";
 import { layerHasStyleDelegation, renderDelegatedStylePanel } from "./delegated.js";
 import { bindFillRow, resetLayerFill } from "./fill.js";
-import { appendResetFooter, railPos } from "./frame.js";
+import { appendResetFooter } from "./frame.js";
 import { applyPatch, layerFields, resetStyleLabel, syncFormatRow } from "./label.js";
-import { clampPct, commitOpacityPct, resetLayerOpacity } from "./opacity.js";
+import { resetLayerOpacity } from "./opacity.js";
 import { DIM_ORDER, LABEL_DIM_ORDER, gatedRows } from "./registry.js";
 import { flushStyleDimApplies } from "./styleBag.js";
-import {
-  applyZoomRangeLive,
-  clampZoom,
-  commitZoomRange,
-  resetLayerZoomRange,
-  syncZoomRangeRow,
-  zoomToPct,
-} from "./zoomRange.js";
+import { resetLayerZoomRange, syncZoomRangeRow } from "./zoomRange.js";
 
 /** Build the style panel DOM for a layer. Returns null when the layer owns
  *  neither a capable Label dimension nor a capable Layer dimension. */
@@ -162,131 +154,12 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
     if (fillRow) bindFillRow(ui, layerId, fillRow);
   }
 
-  // Control changes are handled on the panel itself; stopPropagation keeps
-  // them out of the container-level change delegation, which would otherwise
-  // re-read them as visibility toggles.
-
-  /** Shared opacity handler for both panel flavours (LayerControl-owned).
-   *  `commit` separates the live pass from the settle pass a drag ends with. */
-  const handleOpacityTarget = (t: EventTarget | null, commit: boolean): boolean => {
-    if (!(t instanceof HTMLInputElement)) return false;
-    if (!t.classList.contains(CONST.CLASSES.STYLE_OPACITY_RANGE)) return false;
-    const raw = parseFloat(t.value);
-    if (!commit && !(raw >= 0 && raw <= 100)) return true;
-
-    // Live value above the handle, the same affordance the zoom range uses.
-    const rail = panel.querySelector(
-      `.${CONST.CLASSES.STYLE_OPACITY_RAIL}`,
-    ) as HTMLElement | null;
-    let bubble = rail?.querySelector(
-      `.${CONST.CLASSES.SLIDER_BUBBLE}`,
-    ) as HTMLElement | null;
-    if (commit) {
-      bubble?.remove();
-    } else if (rail) {
-      if (!bubble) {
-        bubble = dom.el("div", { class: CONST.CLASSES.SLIDER_BUBBLE });
-        rail.appendChild(bubble);
-      }
-      const pct = clampPct(raw);
-      bubble.style.left = railPos(pct);
-      bubble.textContent = String(pct);
-    }
-
-    commitOpacityPct(ui, layerId, panel, raw);
-    return true;
-  };
-
-  /** Shared zoom-range handler for both panel flavours. The live pass
-   *  (`input` event) updates the map and visual state in real-time so the
-   *  layer responds as the user drags a thumb. The commit pass (`change`
-   *  event) persists the value to localStorage. */
-  const handleZoomRangeTarget = (t: EventTarget | null, commit: boolean): boolean => {
-    if (!(t instanceof HTMLInputElement)) return false;
-    if (
-      !t.classList.contains(CONST.CLASSES.STYLE_ZOOM_RANGE_MIN) &&
-      !t.classList.contains(CONST.CLASSES.STYLE_ZOOM_RANGE_MAX)
-    ) {
-      return false;
-    }
-    const row = panel.querySelector(
-      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_ROW}`,
-    ) as HTMLElement | null;
-    if (!row) return true;
-
-    const minInput = row.querySelector(
-      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_MIN}`,
-    ) as HTMLInputElement;
-    const maxInput = row.querySelector(
-      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_MAX}`,
-    ) as HTMLInputElement;
-    const [mapMin, mapMax] = authorZoomBoundsForLayer(ui, layerId);
-    let min = clampZoom(parseFloat(minInput.value), mapMin, mapMax);
-    let max = clampZoom(parseFloat(maxInput.value), mapMin, mapMax);
-
-    // Two thumbs never cross: dragging min at max clamps min to max,
-    // and vice versa. This is the 31.5 "two thumbs never cross" rule.
-    if (min > max) {
-      if (t === minInput) {
-        min = max;
-        minInput.value = String(min);
-      } else {
-        max = min;
-        maxInput.value = String(max);
-      }
-    }
-
-    // The values row already tracks the drag live, so the end being held is
-    // marked there rather than by a bubble: a bubble has to clear the rail,
-    // which puts it over the row above (measured: it covered the opacity row's
-    // number field), and it duplicates a readout that is already on screen.
-    // Live readout: a bubble above the handle being held. The numbers below the
-    // rail belong to the fixed limits and the current level, so the range's own
-    // value has to come from the drag.
-    const track = row.querySelector(
-      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_TRACK}`,
-    ) as HTMLElement | null;
-    let bubble = track?.querySelector(
-      `.${CONST.CLASSES.SLIDER_BUBBLE}`,
-    ) as HTMLElement | null;
-    if (commit) {
-      bubble?.remove();
-    } else if (track) {
-      if (!bubble) {
-        bubble = dom.el("div", { class: CONST.CLASSES.SLIDER_BUBBLE });
-        track.appendChild(bubble);
-      }
-      bubble.style.left = railPos(
-        zoomToPct(t === minInput ? min : max, mapMin, mapMax),
-      );
-      bubble.textContent = String(t === minInput ? min : max);
-    }
-
-    applyZoomRangeLive(ui, layerId, row, min, max);
-
-    if (commit) {
-      commitZoomRange(ui, layerId);
-    }
-    return true;
-  };
-
-  panel.addEventListener("input", (event: Event) => {
-    // Live slider updates while dragging; stop so the container's color
-    // input handler never sees the range.
-    if (handleOpacityTarget(event.target, false)) event.stopPropagation();
-    if (handleZoomRangeTarget(event.target, false)) event.stopPropagation();
-  });
+  // The slider rows wire their own live/commit callbacks when the primitive is
+  // built, so the panel no longer translates input/change events into values.
+  // What remains here is the annotation toggle and the delegated rows.
 
   panel.addEventListener("change", (event: Event) => {
     const t = event.target as HTMLElement;
-    if (handleOpacityTarget(t, true)) {
-      event.stopPropagation();
-      return;
-    }
-    if (handleZoomRangeTarget(t, true)) {
-      event.stopPropagation();
-      return;
-    }
     // Delegated label controls handle their own changes (stopPropagation on
     // the shared root). Only the annotation panel's changes reach here.
     if (delegated) return;
@@ -483,6 +356,10 @@ const closeStylePanel = (ui: LayerUI, setFocus: boolean): void => {
   // The field cache survives close/reopen: it is invalidated by
   // onLayerItemCountChange when a layer's features actually change, not on
   // every close (re-collecting on each open would defeat the cache).
+  // A live drag is a commit boundary too: the pointer already produced the
+  // value, and removing the panel (and with it the pointer capture) would drop
+  // the change event. Only a session that actually moved emits.
+  finishSlidersIn(panel);
   ui.overlayPanel.stylePanelLayerId = null;
   panel.remove();
   if (setFocus) item?.focus();

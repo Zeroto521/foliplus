@@ -148,10 +148,16 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
   },
   {
     f: "LayerControl/ui/style/index.ts",
-    n: 5,
+    n: 4,
+    pairedOff: 0,
+    reason: "style-panel input / dropdown bindings — pending migration to `this.on`",
+  },
+  {
+    f: "LayerControl/slider.ts",
+    n: 11,
     pairedOff: 0,
     reason:
-      "style-panel input / dropdown / opacity bindings — pending migration to `this.on`",
+      "slider primitive binds pointer / keyboard / focus on the track and the thumbs it owns; every node is created by the instance and dropped with destroy(), and the module is a free-standing primitive with no mounting signal to route through `this.on`. The page-wide listeners are bound once each: scroll-to-dismiss and the fullscreen re-parent of the value bubble",
   },
   {
     f: "MeasureControl/mode/circle.ts",

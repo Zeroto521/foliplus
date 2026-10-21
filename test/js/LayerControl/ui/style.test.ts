@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AUTO_FIELD } from "#core/label/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerController } from "#foliplus/LayerControl/controller.js";
+import { sliderOf } from "#foliplus/LayerControl/slider.js";
 import { applyProjection } from "#foliplus/LayerControl/ui/apply.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import {
@@ -9,11 +10,13 @@ import {
   seedIntentMap,
   setIntent,
 } from "#foliplus/LayerControl/ui/intent.js";
+import { renderInitialList } from "#foliplus/LayerControl/ui/listPanel/list.js";
 import {
   buildDelegatedBorderRow,
   renderDelegatedStylePanel,
 } from "#foliplus/LayerControl/ui/style/delegated.js";
 import {
+  closeStylePanel,
   layerHasLabelFields,
   layerHasStyleDelegation,
 } from "#foliplus/LayerControl/ui/style/index.js";
@@ -28,11 +31,25 @@ import { getLayerAlpha } from "#common/canvasAlpha.js";
 import { NUMBER_FORMAT } from "#common/format.js";
 import { GridLayer, findItem, initFixture, installLeafletGlobals } from "./fixture.js";
 
-/** Percentage the opacity fill is drawn at, read off its width expression.
- *  The fill's width is `calc((100% - var(--foliplus-slider-thumb-hit)) * <fraction>)` —
- *  measured against the handle's travel range, not the rail's own width. */
+/** Percentage the slider fill is drawn at, read off the primitive's inline
+ *  width. The fill spans the rail's travel range, so 0.35 means 35%. */
 const fillPct = (el: HTMLElement): number =>
   Number(el.style.width.match(/^([\d.]+)%$/)?.[1] ?? NaN) / 100;
+
+/** The value bubble is a module-level singleton portaled to <body>. Clearing
+ *  the body between tests would leave the primitive holding a detached node,
+ *  so the node is moved aside and re-attached rather than discarded. */
+let portalBubble: HTMLElement | null = null;
+const keepBubble = (): void => {
+  const bubble = document.querySelector<HTMLElement>(".foliplus-slider-bubble");
+  if (bubble) portalBubble = bubble;
+  portalBubble?.classList.remove("is-on");
+  if (portalBubble) portalBubble.hidden = true;
+  portalBubble?.remove();
+};
+const restoreBubble = (): void => {
+  if (portalBubble) document.body.appendChild(portalBubble);
+};
 
 describe("LayerUI style panel", () => {
   let manager: LayerController;
@@ -40,6 +57,7 @@ describe("LayerUI style panel", () => {
   let map: any;
 
   beforeEach(() => {
+    restoreBubble();
     ({ manager, ui, map } = initFixture());
     ui.listPanel.foldedGroups = new Set();
     seedIntentMap(ui, "visible", {});
@@ -62,6 +80,7 @@ describe("LayerUI style panel", () => {
 
   afterEach(() => {
     manager?.debouncedEnforce?.cancel?.();
+    keepBubble();
     document.body.innerHTML = "";
     vi.clearAllMocks();
     vi.useRealTimers();
@@ -166,7 +185,7 @@ describe("LayerUI style panel", () => {
     // carrier. Border and fill need a setStyle leaf (the fill / border gate),
     // and the
     // fixture's bare group has none, so those rows are absent here.
-    expect(panel!.querySelector(".foliplus-style-opacity-range")).not.toBeNull();
+    expect(panel!.querySelector(".foliplus-style-opacity-track")).not.toBeNull();
     expect(panel!.querySelector(".foliplus-style-zoom-range-row")).not.toBeNull();
     expect(panel!.querySelector(".foliplus-style-border-row")).toBeNull();
     expect(panel!.querySelector(".foliplus-style-fill-row")).toBeNull();
@@ -926,7 +945,7 @@ describe("LayerUI style panel", () => {
     // Headings are gone; the two groups are told apart by document order.
     expect(panel.querySelectorAll(".foliplus-section-heading")).toHaveLength(0);
     const order = [...panel.querySelectorAll("*")];
-    const layer = panel.querySelector(".foliplus-style-opacity-range");
+    const layer = panel.querySelector(".foliplus-style-opacity-track");
     const label = panel.querySelector(".foliplus-style-toggle-input");
     expect(layer).not.toBeNull();
     expect(label).not.toBeNull();
@@ -938,6 +957,46 @@ describe("LayerUI style panel", () => {
     expect(
       labelSection!.querySelector(`.${CONST.CLASSES.STYLE_TOGGLE_INPUT}`),
     ).not.toBeNull();
+  });
+
+  it("finishes sliders before a list rebuild", () => {
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const panel = panelOf(item)!;
+    const host = panel.querySelector(
+      "." + CONST.CLASSES.STYLE_OPACITY_TRACK,
+    ) as HTMLElement;
+    const finish = vi.spyOn(sliderOf(host)!, "finish");
+    // A reorder / fold rebuild clears the container without closing the panel.
+    renderInitialList(ui);
+    expect(finish).toHaveBeenCalled();
+  });
+
+  it("finishes sliders when their layer is unregistered", () => {
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const panel = panelOf(item)!;
+    const host = panel.querySelector(
+      "." + CONST.CLASSES.STYLE_OPACITY_TRACK,
+    ) as HTMLElement;
+    const finish = vi.spyOn(sliderOf(host)!, "finish");
+    manager.unregisterLayer("overlay1");
+    expect(finish).toHaveBeenCalled();
+  });
+
+  it("finishes every slider before the panel is removed", () => {
+    // closing mid-drag is a commit boundary: the pointer already set the
+    // value, so the session must end (and emit change) before remove().
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const panel = panelOf(item)!;
+    const host = panel.querySelector(
+      "." + CONST.CLASSES.STYLE_OPACITY_TRACK,
+    ) as HTMLElement;
+    const slider = sliderOf(host)!;
+    const finish = vi.spyOn(slider, "finish");
+    closeStylePanel(ui, false);
+    expect(finish).toHaveBeenCalledTimes(1);
   });
 
   it("suppresses the row's hover tooltip on the panel body", () => {
@@ -954,17 +1013,57 @@ describe("LayerUI style panel", () => {
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
-    const range = panel.querySelector(
-      ".foliplus-style-opacity-range",
-    ) as HTMLInputElement;
-    const fill = panel.querySelector(".foliplus-style-opacity-fill") as HTMLElement;
+    const host = panel.querySelector(
+      `.${CONST.CLASSES.STYLE_OPACITY_TRACK}`,
+    ) as HTMLElement;
+    const fill = panel.querySelector(".foliplus-slider-fill") as HTMLElement;
     // Freshly opened → full width.
     expect(fillPct(fill)).toBeCloseTo(1);
 
-    range.value = "35";
-    range.dispatchEvent(new Event("input", { bubbles: true }));
+    sliderOf(host)!.setValue(35);
 
     expect(fillPct(fill)).toBeCloseTo(0.35);
+  });
+
+  it("does not rewrite the layer when the committed opacity is unchanged", () => {
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const panel = panelOf(item)!;
+    const host = panel.querySelector(
+      "." + CONST.CLASSES.STYLE_OPACITY_TRACK,
+    ) as HTMLElement;
+    const li = manager.layerRegistry.get("overlay1")!;
+    // The layer changes outside the panel while it is open; moving the thumb
+    // to that same value must sync the control without a second write.
+    li.opacity = 0.5;
+    sliderOf(host)!.setValue(50);
+    expect(li.opacity).toBe(0.5);
+    expect(sliderOf(host)!.value).toBe(50);
+  });
+
+  it("covers the opacity end dots only as far as the thumb reaches", () => {
+    // Single thumb: the covered span is [min, value]. The 0 dot is accent
+    // from the start (the layer is painted from 0); the 100 dot is accent
+    // only at full opacity.
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const panel = panelOf(item)!;
+    const host = panel.querySelector(
+      `.${CONST.CLASSES.STYLE_OPACITY_TRACK}`,
+    ) as HTMLElement;
+    const dotAt = (at: string): HTMLElement =>
+      host.querySelector(`.foliplus-slider-dot[data-at="${at}"]`) as HTMLElement;
+
+    expect(dotAt("0").classList.contains("foliplus-slider-dot-covered")).toBe(true);
+    expect(dotAt("100").classList.contains("foliplus-slider-dot-covered")).toBe(true);
+
+    sliderOf(host)!.setValue(35);
+    expect(dotAt("0").classList.contains("foliplus-slider-dot-covered")).toBe(true);
+    expect(dotAt("100").classList.contains("foliplus-slider-dot-covered")).toBe(false);
+
+    sliderOf(host)!.setValue(0);
+    expect(dotAt("0").classList.contains("foliplus-slider-dot-covered")).toBe(true);
+    expect(dotAt("100").classList.contains("foliplus-slider-dot-covered")).toBe(false);
   });
 
   it("canvas layers with opacityBake 'redraw' keep CSS on the slider commit", () => {
@@ -979,12 +1078,11 @@ describe("LayerUI style panel", () => {
     const item = findItem(ui, "heat1");
     ui.openStylePanel("heat1");
     const panel = panelOf(item)!;
-    const range = panel.querySelector(
-      ".foliplus-style-opacity-range",
-    ) as HTMLInputElement;
+    const host = panel.querySelector(
+      `.${CONST.CLASSES.STYLE_OPACITY_TRACK}`,
+    ) as HTMLElement;
 
-    range.value = "40";
-    range.dispatchEvent(new Event("input", { bubbles: true }));
+    sliderOf(host)!.setValue(40);
 
     // CSS arm for live feedback; layerAlpha is stored for the next redraw.
     expect(li.canvas!.style.opacity).toBe("0.4");
@@ -1004,12 +1102,11 @@ describe("LayerUI style panel", () => {
     const item = findItem(ui, "color1");
     ui.openStylePanel("color1");
     const panel = panelOf(item)!;
-    const range = panel.querySelector(
-      ".foliplus-style-opacity-range",
-    ) as HTMLInputElement;
+    const host = panel.querySelector(
+      `.${CONST.CLASSES.STYLE_OPACITY_TRACK}`,
+    ) as HTMLElement;
 
-    range.value = "40";
-    range.dispatchEvent(new Event("input", { bubbles: true }));
+    sliderOf(host)!.setValue(40);
 
     expect(getLayerAlpha(li.canvas)).toBeCloseTo(0.4);
     expect(li.canvas!.style.opacity).toBe("");
@@ -1028,12 +1125,11 @@ describe("LayerUI style panel", () => {
     const item = findItem(ui, "color2");
     ui.openStylePanel("color2");
     const panel = panelOf(item)!;
-    const range = panel.querySelector(
-      ".foliplus-style-opacity-range",
-    ) as HTMLInputElement;
+    const host = panel.querySelector(
+      `.${CONST.CLASSES.STYLE_OPACITY_TRACK}`,
+    ) as HTMLElement;
 
-    range.value = "50";
-    range.dispatchEvent(new Event("input", { bubbles: true }));
+    sliderOf(host)!.setValue(50);
 
     expect(onOpacity).toHaveBeenCalledWith(0.5);
   });
@@ -1043,11 +1139,10 @@ describe("LayerUI style panel", () => {
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
-    const range = panel.querySelector(
-      ".foliplus-style-opacity-range",
-    ) as HTMLInputElement;
-    range.value = "30";
-    range.dispatchEvent(new Event("input", { bubbles: true }));
+    const host = panel.querySelector(
+      `.${CONST.CLASSES.STYLE_OPACITY_TRACK}`,
+    ) as HTMLElement;
+    sliderOf(host)!.setValue(30);
 
     const btn = panel.querySelector(".foliplus-style-reset-btn") as HTMLButtonElement;
     btn.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
@@ -1063,16 +1158,15 @@ describe("LayerUI style panel", () => {
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
-    const range = panel.querySelector(
-      ".foliplus-style-opacity-range",
-    ) as HTMLInputElement;
+    const host = panel.querySelector(
+      `.${CONST.CLASSES.STYLE_OPACITY_TRACK}`,
+    ) as HTMLElement;
+    const slider = sliderOf(host)!;
 
-    range.value = "30";
-    range.dispatchEvent(new Event("input", { bubbles: true }));
+    slider.setValue(30);
     expect(ui.intentStore.isUserSet("overlay1", "opacity")).toBe(true);
 
-    range.value = "100";
-    range.dispatchEvent(new Event("input", { bubbles: true }));
+    slider.setValue(100);
 
     expect(getIntent(ui, "overlay1", "opacity")).toBeUndefined();
     expect(ui.intentStore.isUserSet("overlay1", "opacity")).toBe(false);
@@ -1082,12 +1176,11 @@ describe("LayerUI style panel", () => {
     const li = manager.layerRegistry.get("overlay1")!;
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
-    const range = panelOf(item)!.querySelector(
-      ".foliplus-style-opacity-range",
-    ) as HTMLInputElement;
+    const host = panelOf(item)!.querySelector(
+      `.${CONST.CLASSES.STYLE_OPACITY_TRACK}`,
+    ) as HTMLElement;
 
-    range.value = "0";
-    range.dispatchEvent(new Event("input", { bubbles: true }));
+    sliderOf(host)!.setValue(0);
 
     expect(getIntent(ui, "overlay1", "opacity")).toBe(0);
     expect(li.opacity).toBe(0);
@@ -1107,11 +1200,10 @@ describe("LayerUI style panel", () => {
     const item = findItem(ui, "heat1");
     ui.openStylePanel("heat1");
     const panel = panelOf(item)!;
-    const range = panel.querySelector(
-      ".foliplus-style-opacity-range",
-    ) as HTMLInputElement;
-    range.value = "15";
-    range.dispatchEvent(new Event("input", { bubbles: true }));
+    const host = panel.querySelector(
+      `.${CONST.CLASSES.STYLE_OPACITY_TRACK}`,
+    ) as HTMLElement;
+    sliderOf(host)!.setValue(15);
     expect(li.opacity).toBe(0.15);
 
     const btn = panel.querySelector(".foliplus-style-reset-btn") as HTMLButtonElement;
@@ -1128,15 +1220,14 @@ describe("LayerUI style panel", () => {
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
-    const range = panel.querySelector(
-      ".foliplus-style-opacity-range",
-    ) as HTMLInputElement;
+    const host = panel.querySelector(
+      `.${CONST.CLASSES.STYLE_OPACITY_TRACK}`,
+    ) as HTMLElement;
 
     // The row outlives its registry entry (a provider unregistered the layer).
     vi.spyOn(manager.layerRegistry, "get").mockReturnValue(undefined);
     expect(() => {
-      range.value = "20";
-      range.dispatchEvent(new Event("input", { bubbles: true }));
+      sliderOf(host)!.setValue(20);
     }).not.toThrow();
 
     expect(getIntent(ui, "overlay1", "opacity")).toBeUndefined();
@@ -1221,7 +1312,7 @@ describe("LayerUI style panel", () => {
     const panel = panelOf(item)!;
     expect(panel, "the style panel rendered").toBeTruthy();
 
-    expect(panel!.querySelector(".foliplus-style-opacity-range")).toBeNull();
+    expect(panel!.querySelector(".foliplus-style-opacity-track")).toBeNull();
     expect(panel!.querySelector(".foliplus-style-zoom-range-row")).toBeNull();
   });
 
@@ -1277,9 +1368,9 @@ describe("LayerUI style panel", () => {
     const index = (sel: string) =>
       rows.findIndex(row => row.matches(sel) || row.querySelector(sel) !== null);
     expect(index(".foliplus-style-border-row")).toBeLessThan(
-      index(".foliplus-style-opacity-range"),
+      index(".foliplus-style-opacity-track"),
     );
-    expect(index(".foliplus-style-opacity-range")).toBeLessThan(
+    expect(index(".foliplus-style-opacity-track")).toBeLessThan(
       index(".foliplus-style-zoom-range-row"),
     );
   });
@@ -1326,7 +1417,7 @@ describe("LayerUI style panel", () => {
     const positions = [
       index(".foliplus-style-fill-row"),
       index(".foliplus-style-border-row"),
-      index(".foliplus-style-opacity-range"),
+      index(".foliplus-style-opacity-track"),
       index(".foliplus-style-zoom-range-row"),
     ];
     expect(positions.every(pos => pos >= 0)).toBe(true);
@@ -1381,7 +1472,7 @@ describe("LayerUI style panel", () => {
     const rowSel = [
       ".foliplus-style-fill-row",
       ".foliplus-style-border-row",
-      ".foliplus-style-opacity-range",
+      ".foliplus-style-opacity-track",
       ".foliplus-style-zoom-range-row",
     ];
 
@@ -1445,7 +1536,7 @@ describe("LayerUI style panel", () => {
     const panelD = panelOf(itemD)!;
     const delegatedRows = rowSel.filter(sel => panelD.querySelector(sel));
     expect(delegatedRows).toEqual([
-      ".foliplus-style-opacity-range",
+      ".foliplus-style-opacity-track",
       ".foliplus-style-zoom-range-row",
     ]);
   });
@@ -1547,7 +1638,7 @@ describe("LayerUI style panel", () => {
 
     // Panel is rendered (fields are cached) but without the opacity row.
     if (panel) {
-      expect(panel.querySelector(".foliplus-style-opacity-range")).toBeNull();
+      expect(panel.querySelector(".foliplus-style-opacity-track")).toBeNull();
     }
 
     // Restore for cleanup
@@ -2454,7 +2545,7 @@ describe("LayerUI style panel", () => {
     expect(panel.querySelectorAll(".foliplus-section-heading")).toHaveLength(0);
     const order = [...panel.querySelectorAll("*")];
     expect(
-      order.indexOf(panel.querySelector(".foliplus-style-opacity-range")!),
+      order.indexOf(panel.querySelector(".foliplus-style-opacity-track")!),
     ).toBeLessThan(order.indexOf(showToggle as unknown as Element));
   });
 
@@ -2483,7 +2574,7 @@ describe("LayerUI style panel", () => {
     ui.openStylePanel("borderOnly");
     const panel = panelOf(item)!;
 
-    expect(panel.querySelector(`.${CONST.CLASSES.STYLE_OPACITY_RANGE}`)).toBeNull();
+    expect(panel.querySelector(`.${CONST.CLASSES.STYLE_OPACITY_TRACK}`)).toBeNull();
     expect(panel.querySelector(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_ROW}`)).toBeNull();
     // No group headings — the Layer rows still render on their own.
     expect(panel.querySelectorAll(".foliplus-section-heading")).toHaveLength(0);
@@ -2529,7 +2620,7 @@ describe("LayerUI style panel", () => {
     expect(panel.querySelector(`.${CONST.CLASSES.STYLE_BORDER_ROW}`)).toBeNull();
 
     // Opacity and zoomRange are LayerControl-owned — they survive.
-    expect(panel.querySelector(`.${CONST.CLASSES.STYLE_OPACITY_RANGE}`)).not.toBeNull();
+    expect(panel.querySelector(`.${CONST.CLASSES.STYLE_OPACITY_TRACK}`)).not.toBeNull();
     expect(
       panel.querySelector(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_ROW}`),
     ).not.toBeNull();
@@ -3394,15 +3485,21 @@ describe("LayerUI style panel", () => {
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
-    const range = panel.querySelector(
-      ".foliplus-style-opacity-range",
-    ) as HTMLInputElement;
-    expect(range).not.toBeNull();
-    expect(range.type).toBe("range");
-    expect(range.min).toBe("0");
-    expect(range.max).toBe("100");
-    expect(range.step).toBe("1");
-    expect(range.value).toBe("100");
+    const host = panel.querySelector(
+      `.${CONST.CLASSES.STYLE_OPACITY_TRACK}`,
+    ) as HTMLElement;
+    expect(host).not.toBeNull();
+    // The primitive owns the class, mode and aria; the row only names its
+    // host so a later pass can reach the instance through sliderOf().
+    expect(host.classList.contains(CONST.CLASSES.SLIDER)).toBe(true);
+    expect(host.dataset.mode).toBe("single");
+    const thumb = host.querySelector(".foliplus-slider-thumb") as HTMLElement;
+    expect(thumb.getAttribute("role")).toBe("slider");
+    expect(thumb.getAttribute("aria-orientation")).toBe("horizontal");
+    expect(thumb.getAttribute("aria-valuemin")).toBe("0");
+    expect(thumb.getAttribute("aria-valuemax")).toBe("100");
+    expect(thumb.getAttribute("aria-valuenow")).toBe("100");
+    expect(sliderOf(host)!.value).toBe(100);
   });
 
   it("an opacity change applies to the layer and persists", () => {
@@ -3410,12 +3507,11 @@ describe("LayerUI style panel", () => {
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
-    const range = panel.querySelector(
-      ".foliplus-style-opacity-range",
-    ) as HTMLInputElement;
+    const host = panel.querySelector(
+      `.${CONST.CLASSES.STYLE_OPACITY_TRACK}`,
+    ) as HTMLElement;
 
-    range.value = "60";
-    range.dispatchEvent(new Event("input", { bubbles: true }));
+    sliderOf(host)!.setValue(60);
 
     expect(li.opacity).toBe(0.6);
     expect(getIntent(ui, "overlay1", "opacity")).toBe(0.6);
@@ -3436,11 +3532,10 @@ describe("LayerUI style panel", () => {
     try {
       const item = findItem(ui, "base1");
       ui.openStylePanel("base1");
-      const range = panelOf(item)!.querySelector(
-        ".foliplus-style-opacity-range",
-      ) as HTMLInputElement;
-      range.value = "0";
-      range.dispatchEvent(new Event("input", { bubbles: true }));
+      const host = panelOf(item)!.querySelector(
+        `.${CONST.CLASSES.STYLE_OPACITY_TRACK}`,
+      ) as HTMLElement;
+      sliderOf(host)!.setValue(0);
       const baseCalls = toggleSpy.mock.calls.filter(
         c => c[0] === CONST.CLASSES.NO_BASE_MAP,
       );
@@ -3461,11 +3556,10 @@ describe("LayerUI style panel", () => {
     try {
       const item = findItem(ui, "overlay1");
       ui.openStylePanel("overlay1");
-      const range = panelOf(item)!.querySelector(
-        ".foliplus-style-opacity-range",
-      ) as HTMLInputElement;
-      range.value = "0";
-      range.dispatchEvent(new Event("input", { bubbles: true }));
+      const host = panelOf(item)!.querySelector(
+        `.${CONST.CLASSES.STYLE_OPACITY_TRACK}`,
+      ) as HTMLElement;
+      sliderOf(host)!.setValue(0);
       const calls = toggleSpy.mock.calls.filter(
         c => c[0] === CONST.CLASSES.NO_BASE_MAP,
       );
@@ -3524,21 +3618,20 @@ describe("LayerUI style panel", () => {
   it("reopening the panel seeds the opacity slider from intents.opacity", () => {
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
-    const range = panelOf(item)!.querySelector(
-      ".foliplus-style-opacity-range",
-    ) as HTMLInputElement;
-    range.value = "25";
-    range.dispatchEvent(new Event("input", { bubbles: true }));
+    const host = panelOf(item)!.querySelector(
+      `.${CONST.CLASSES.STYLE_OPACITY_TRACK}`,
+    ) as HTMLElement;
+    sliderOf(host)!.setValue(25);
     ui.closeStylePanel(false);
 
     ui.openStylePanel("overlay1");
     const reopened = panelOf(item)!;
+    const reopenedHost = reopened.querySelector(
+      `.${CONST.CLASSES.STYLE_OPACITY_TRACK}`,
+    ) as HTMLElement;
+    expect(sliderOf(reopenedHost)!.value).toBe(25);
     expect(
-      (reopened.querySelector(".foliplus-style-opacity-range") as HTMLInputElement)
-        .value,
-    ).toBe("25");
-    expect(
-      fillPct(reopened.querySelector(".foliplus-style-opacity-fill") as HTMLElement),
+      fillPct(reopened.querySelector(".foliplus-slider-fill") as HTMLElement),
     ).toBeCloseTo(0.25);
   });
 
@@ -3551,10 +3644,10 @@ describe("LayerUI style panel", () => {
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
 
-    const range = panel.querySelector(
-      ".foliplus-style-opacity-range",
-    ) as HTMLInputElement;
-    expect(range.value).toBe("100");
+    const host = panel.querySelector(
+      `.${CONST.CLASSES.STYLE_OPACITY_TRACK}`,
+    ) as HTMLElement;
+    expect(sliderOf(host)!.value).toBe(100);
   });
 
   it("omits the opacity row for a surface that cannot carry it (delegated)", () => {
@@ -3573,7 +3666,7 @@ describe("LayerUI style panel", () => {
     const panel = panelOf(item)!;
 
     // No opacity row at all.
-    expect(panel.querySelector(".foliplus-style-opacity-range")).toBeNull();
+    expect(panel.querySelector(".foliplus-style-opacity-track")).toBeNull();
     expect(panel.querySelector(".foliplus-style-opacity-number")).toBeNull();
     // The delegated label controls are still there.
     expect(panel.querySelector(".foliplus-style-label-size-input")).not.toBeNull();
@@ -3604,7 +3697,7 @@ describe("LayerUI style panel", () => {
     ui.openStylePanel("cluster2");
     const panel = panelOf(item)!;
 
-    expect(panel.querySelector(".foliplus-style-opacity-range")).toBeNull();
+    expect(panel.querySelector(".foliplus-style-opacity-track")).toBeNull();
     expect(panel.querySelector(".foliplus-style-opacity-number")).toBeNull();
     // Annotation rows are still there.
     expect(panel.querySelector(".foliplus-style-field-select")).not.toBeNull();
@@ -3618,6 +3711,7 @@ describe("LayerUI style panel — zoom range", () => {
   let map: any;
 
   beforeEach(() => {
+    restoreBubble();
     ({ manager, ui, map } = initFixture());
     ui.listPanel.foldedGroups = new Set();
     seedIntentMap(ui, "visible", {});
@@ -3627,6 +3721,7 @@ describe("LayerUI style panel — zoom range", () => {
 
   afterEach(() => {
     manager?.debouncedEnforce?.cancel?.();
+    keepBubble();
     document.body.innerHTML = "";
     vi.clearAllMocks();
     vi.useRealTimers();
@@ -3638,6 +3733,26 @@ describe("LayerUI style panel — zoom range", () => {
 
   const zoomRowOf = (panel: HTMLElement): HTMLElement | null =>
     panel.querySelector(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_ROW}`);
+
+  /** The primitive's host inside a zoom-range row. */
+  const zoomHostOf = (row: HTMLElement): HTMLElement =>
+    row.querySelector(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_CONTROL}`) as HTMLElement;
+
+  const zoomSliderOf = (row: HTMLElement) => sliderOf(zoomHostOf(row))!;
+
+  const thumbOf = (row: HTMLElement, index: number): HTMLElement =>
+    zoomHostOf(row).querySelectorAll<HTMLElement>(".foliplus-slider-thumb")[index];
+
+  /** A real keyboard press on a thumb — the path the primitive listens on. */
+  const press = (el: HTMLElement, key: string): void => {
+    el.dispatchEvent(
+      new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }),
+    );
+  };
+
+  /** The singleton value bubble, portaled to <body>. */
+  const bubbleOf = (): HTMLElement | null =>
+    document.querySelector(".foliplus-slider-bubble");
 
   it("renders the zoom-range row for a pane-capable layer", () => {
     const item = findItem(ui, "overlay1");
@@ -3651,17 +3766,27 @@ describe("LayerUI style panel — zoom range", () => {
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
     const row = zoomRowOf(panelOf(item)!)!;
-    expect(row.querySelector(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_FILL}`)).not.toBeNull();
-    expect(row.querySelectorAll(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_DOT}`).length).toBe(
-      3,
+    const host = zoomHostOf(row);
+
+    expect(host.classList.contains(CONST.CLASSES.SLIDER)).toBe(true);
+    expect(host.dataset.mode).toBe("range");
+    expect(host.querySelector(".foliplus-slider-fill")).not.toBeNull();
+    expect(host.querySelectorAll(".foliplus-slider-dot")).toHaveLength(3);
+    expect(host.querySelectorAll(".foliplus-slider-thumb")).toHaveLength(2);
+
+    const values = host.querySelector(".foliplus-slider-values") as HTMLElement;
+    expect(values.querySelector(".foliplus-slider-value-min")?.textContent).toBe("0");
+    expect(values.querySelector(".foliplus-slider-value-max")?.textContent).toBe("18");
+    const current = values.querySelector(
+      ".foliplus-slider-value-current",
+    ) as HTMLElement;
+    expect(current.textContent).toBe("5");
+    expect(thumbOf(row, 0).getAttribute("aria-label")).toBe(
+      ui.T("style_zoom_range_min"),
     );
-    expect(row.querySelector(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_MIN}`)).not.toBeNull();
-    expect(row.querySelector(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_MAX}`)).not.toBeNull();
-    const spans = row.querySelectorAll(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_VAL} span`);
-    expect(spans.length).toBe(3);
-    expect(
-      spans[1].classList.contains(CONST.CLASSES.STYLE_ZOOM_RANGE_CURRENT_VALUE),
-    ).toBe(true);
+    expect(thumbOf(row, 1).getAttribute("aria-label")).toBe(
+      ui.T("style_zoom_range_max"),
+    );
   });
 
   it("shows out-of-range class when current zoom is outside the range", () => {
@@ -3684,34 +3809,28 @@ describe("LayerUI style panel — zoom range", () => {
     );
   });
 
-  it("input event updates map state and visual row (live pass)", () => {
+  it("moving a thumb updates map state and the visual row (live pass)", () => {
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
     const row = zoomRowOf(panel)!;
-    const minInput = row.querySelector(
-      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_MIN}`,
-    ) as HTMLInputElement;
 
-    minInput.value = "5";
-    minInput.dispatchEvent(new Event("input", { bubbles: true }));
+    zoomSliderOf(row).setValue([5, 18]);
 
     expect(getIntent(ui, "overlay1", "zoomRange")).toEqual([5, 18]);
+    expect(thumbOf(row, 0).getAttribute("aria-valuenow")).toBe("5");
+    expect(thumbOf(row, 0).getAttribute("aria-valuemax")).toBe("18");
   });
 
-  it("change event persists the range to localStorage", () => {
+  it("commit persists the range to localStorage", () => {
     vi.useFakeTimers();
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
     const row = zoomRowOf(panel)!;
-    const minInput = row.querySelector(
-      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_MIN}`,
-    ) as HTMLInputElement;
 
-    minInput.value = "5";
-    minInput.dispatchEvent(new Event("input", { bubbles: true }));
-    minInput.dispatchEvent(new Event("change", { bubbles: true }));
+    zoomSliderOf(row).setValue([5, 18]);
+    zoomSliderOf(row).commit();
 
     vi.advanceTimersByTime(400);
     const stored = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY) ?? "{}");
@@ -3720,41 +3839,36 @@ describe("LayerUI style panel — zoom range", () => {
     vi.useRealTimers();
   });
 
-  it("clamps min to max when min exceeds max", () => {
+  it("slides a collapsed pair as one instead of dead-locking", () => {
+    // Both thumbs start on 10. Moving one toward the other must carry the
+    // pair — clamping here would leave the value unable to move one way.
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
-    const panel = panelOf(item)!;
-    const row = zoomRowOf(panel)!;
-    const minInput = row.querySelector(
-      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_MIN}`,
-    ) as HTMLInputElement;
-    const maxInput = row.querySelector(
-      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_MAX}`,
-    ) as HTMLInputElement;
+    const row = zoomRowOf(panelOf(item)!)!;
+    zoomSliderOf(row).setValue([10, 10], { silent: true });
 
-    minInput.value = "18";
-    maxInput.value = "10";
-    minInput.dispatchEvent(new Event("input", { bubbles: true }));
+    press(thumbOf(row, 0), "ArrowRight");
+    expect(getIntent(ui, "overlay1", "zoomRange")).toEqual([11, 11]);
+    expect(zoomSliderOf(row).value).toEqual([11, 11]);
 
+    press(thumbOf(row, 1), "ArrowLeft");
     expect(getIntent(ui, "overlay1", "zoomRange")).toEqual([10, 10]);
   });
 
-  it("clamps max to min when max falls below min", () => {
+  it("clamps a normal range at its neighbour instead of crossing", () => {
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
-    const panel = panelOf(item)!;
-    const row = zoomRowOf(panel)!;
-    const minInput = row.querySelector(
-      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_MIN}`,
-    ) as HTMLInputElement;
-    const maxInput = row.querySelector(
-      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_MAX}`,
-    ) as HTMLInputElement;
+    const row = zoomRowOf(panelOf(item)!)!;
+    zoomSliderOf(row).setValue([5, 9], { silent: true });
 
-    minInput.value = "10";
-    maxInput.value = "5";
-    maxInput.dispatchEvent(new Event("input", { bubbles: true }));
+    for (let index = 0; index < 4; index += 1) {
+      press(thumbOf(row, 0), "ArrowRight");
+    }
+    // Four steps land the lower thumb on the upper one.
+    expect(getIntent(ui, "overlay1", "zoomRange")).toEqual([9, 9]);
 
+    // Once collapsed, the next step carries both thumbs.
+    press(thumbOf(row, 0), "ArrowRight");
     expect(getIntent(ui, "overlay1", "zoomRange")).toEqual([10, 10]);
   });
 
@@ -3763,15 +3877,12 @@ describe("LayerUI style panel — zoom range", () => {
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
     const row = zoomRowOf(panel)!;
-    const minInput = row.querySelector(
-      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_MIN}`,
-    ) as HTMLInputElement;
 
-    minInput.value = "-5";
-    minInput.dispatchEvent(new Event("input", { bubbles: true }));
+    zoomSliderOf(row).setValue([-5, 10]);
 
     const range = getIntent(ui, "overlay1", "zoomRange");
     expect(range![0]).toBeGreaterThanOrEqual(0);
+    expect(zoomSliderOf(row).value).toEqual([0, 10]);
   });
 
   it("moves the current dot on zoomend", () => {
@@ -3785,16 +3896,16 @@ describe("LayerUI style panel — zoom range", () => {
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
     const row = zoomRowOf(panel)!;
-    const dot = row.querySelector(
-      ".foliplus-style-zoom-range-dot-current",
-    ) as HTMLElement;
+    const dot = row.querySelector(".foliplus-slider-dot-current") as HTMLElement;
     const before = dot.style.left;
 
     map.getZoom.mockReturnValue(12);
     (zoomEndHandler as any)?.();
 
-    const after = dot.style.left;
-    expect(before).not.toBe(after);
+    // setMarks rebuilds the dots when the current level moves, so the live
+    // node is the new one, not the reference captured before the event.
+    const after = row.querySelector(".foliplus-slider-dot-current") as HTMLElement;
+    expect(after.style.left).not.toBe(before);
     map.on = origOn;
   });
 
@@ -3810,16 +3921,48 @@ describe("LayerUI style panel — zoom range", () => {
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
     const row = zoomRowOf(panel)!;
-    const spans = row.querySelectorAll(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_VAL} span`);
-    const beforeCurrent = spans[1].textContent;
+    const current = row.querySelector(".foliplus-slider-value-current") as HTMLElement;
+    const beforeCurrent = current.textContent;
 
     map.getZoom.mockReturnValue(12);
     (zoomEndHandler as any)?.();
 
-    const afterCurrent = spans[1].textContent;
-    expect(afterCurrent).toBe("12");
-    expect(beforeCurrent).not.toBe(afterCurrent);
+    const afterCurrent = row.querySelector(
+      ".foliplus-slider-value-current",
+    ) as HTMLElement;
+    expect(afterCurrent.textContent).toBe("12");
+    expect(beforeCurrent).not.toBe(afterCurrent.textContent);
     map.on = origOn;
+  });
+
+  it("covers only the dots the selected range reaches", () => {
+    // A range covers [min, max]: the 0 and 18 limit dots sit outside
+    // [4, 9] and stay grey, while the current-zoom dot at 5 is inside.
+    const item = findItem(ui, "overlay1");
+    setIntent(ui, "overlay1", "zoomRange", [4, 9]);
+    ui.openStylePanel("overlay1");
+    const row = zoomRowOf(panelOf(item)!)!;
+    const dotAt = (at: number): HTMLElement =>
+      row.querySelector(`.foliplus-slider-dot[data-at="${at}"]`) as HTMLElement;
+
+    expect(dotAt(0).classList.contains("foliplus-slider-dot-covered")).toBe(false);
+    expect(dotAt(5).classList.contains("foliplus-slider-dot-covered")).toBe(true);
+    expect(dotAt(18).classList.contains("foliplus-slider-dot-covered")).toBe(false);
+  });
+
+  it("leaves the current dot grey when it sits outside the range", () => {
+    const item = findItem(ui, "overlay1");
+    // Current zoom is 5; the range starts above it.
+    setIntent(ui, "overlay1", "zoomRange", [7, 10]);
+    ui.openStylePanel("overlay1");
+    const row = zoomRowOf(panelOf(item)!)!;
+    const currentDot = (): HTMLElement =>
+      row.querySelector(".foliplus-slider-dot-current") as HTMLElement;
+    expect(currentDot().classList.contains("foliplus-slider-dot-covered")).toBe(false);
+
+    // A range that covers the current level lights the same dot.
+    zoomSliderOf(row).setValue([0, 10]);
+    expect(currentDot().classList.contains("foliplus-slider-dot-covered")).toBe(true);
   });
 
   it("renders the zoom-range row for a canvas layer", () => {
@@ -3850,20 +3993,15 @@ describe("LayerUI style panel — zoom range", () => {
     const item = findItem(ui, "canvas1");
     ui.openStylePanel("canvas1");
     const row = zoomRowOf(panelOf(item)!)!;
-    const minInput = row.querySelector(
-      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_MIN}`,
-    ) as HTMLInputElement;
 
     // The current zoom is 5. Pushing the lower bound past it takes the canvas
     // out of range, and its HIDDEN class is what hides it.
-    minInput.value = "6";
-    minInput.dispatchEvent(new Event("input", { bubbles: true }));
+    zoomSliderOf(row).setValue([6, 18]);
     expect(getIntent(ui, "canvas1", "zoomRange")).toEqual([6, 18]);
     expect(canvas.classList.contains("hidden")).toBe(true);
 
     // Dragging the bound back drops it again — the write is reversible.
-    minInput.value = "0";
-    minInput.dispatchEvent(new Event("input", { bubbles: true }));
+    zoomSliderOf(row).setValue([0, 18]);
     expect(getIntent(ui, "canvas1", "zoomRange")).toEqual([0, 18]);
     expect(canvas.classList.contains("hidden")).toBe(false);
   });
@@ -3882,12 +4020,8 @@ describe("LayerUI style panel — zoom range", () => {
     const item = findItem(ui, "measure1");
     ui.openStylePanel("measure1");
     const row = zoomRowOf(panelOf(item)!)!;
-    const minInput = row.querySelector(
-      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_MIN}`,
-    ) as HTMLInputElement;
 
-    minInput.value = "6";
-    minInput.dispatchEvent(new Event("input", { bubbles: true }));
+    zoomSliderOf(row).setValue([6, 18]);
 
     expect(getIntent(ui, "measure1", "zoomRange")).toEqual([6, 18]);
     expect(map.removeLayer).toHaveBeenCalledWith(measureLayer);
@@ -3936,14 +4070,9 @@ describe("LayerUI style panel — zoom range", () => {
     ui.openStylePanel("overlay1");
     const row = zoomRowOf(panelOf(item)!)!;
     expect(row).not.toBeNull();
-    const minInput = row.querySelector(
-      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_MIN}`,
-    ) as HTMLInputElement;
-    const maxInput = row.querySelector(
-      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_MAX}`,
-    ) as HTMLInputElement;
-    expect(minInput.value).toBe("3");
-    expect(maxInput.value).toBe("3");
+    expect(zoomSliderOf(row).value).toEqual([3, 3]);
+    expect(thumbOf(row, 0).getAttribute("aria-valuenow")).toBe("3");
+    expect(thumbOf(row, 1).getAttribute("aria-valuenow")).toBe("3");
   });
 
   it("delegated panel includes zoom-range row when capability is present", () => {
@@ -3954,65 +4083,39 @@ describe("LayerUI style panel — zoom range", () => {
     expect(hasRow).not.toBeNull();
   });
 
-  it("the live pass (input) drives the opacity row and floats the value", () => {
+  it("the live pass paints the opacity fill and floats the value", () => {
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
-    const range = panel.querySelector(
-      `.${CONST.CLASSES.STYLE_OPACITY_RANGE}`,
-    ) as HTMLInputElement;
-    const fill = panel.querySelector(
-      `.${CONST.CLASSES.STYLE_OPACITY_FILL}`,
+    const host = panel.querySelector(
+      `.${CONST.CLASSES.STYLE_OPACITY_TRACK}`,
     ) as HTMLElement;
-    const rail = panel.querySelector(
-      `.${CONST.CLASSES.STYLE_OPACITY_RAIL}`,
-    ) as HTMLElement;
+    const slider = sliderOf(host)!;
 
-    range.value = "40";
-    range.dispatchEvent(new Event("input", { bubbles: true }));
+    slider.setValue(40);
 
-    // The live pass moves the fill and shows the value above the handle.
-    expect(fill.style.width).toBe("40%");
-    const bubble = rail.querySelector(
-      `.${CONST.CLASSES.SLIDER_BUBBLE}`,
-    ) as HTMLElement | null;
+    // The live pass moves the fill ...
+    const fill = host.querySelector(".foliplus-slider-fill") as HTMLElement;
+    expect(fillPct(fill)).toBeCloseTo(0.4);
+
+    // ... and the bubble is the singleton portaled to <body>, shown once the
+    // thumb has focus (the same path a keyboard user takes).
+    const thumb = host.querySelector(".foliplus-slider-thumb") as HTMLElement;
+    thumb.focus();
+    let bubble = bubbleOf();
     expect(bubble).not.toBeNull();
+    expect(bubble!.hidden).toBe(false);
     expect(bubble!.textContent).toBe("40");
 
-    // A second live pass reuses that bubble instead of stacking another.
-    range.value = "60";
-    range.dispatchEvent(new Event("input", { bubbles: true }));
-    expect(rail.querySelectorAll(`.${CONST.CLASSES.SLIDER_BUBBLE}`).length).toBe(1);
+    // A second live pass updates that one bubble instead of stacking another.
+    slider.setValue(60);
+    expect(document.querySelectorAll(".foliplus-slider-bubble")).toHaveLength(1);
+    bubble = bubbleOf();
     expect(bubble!.textContent).toBe("60");
 
-    // The settle pass takes it away again.
-    range.dispatchEvent(new Event("change", { bubbles: true }));
-    expect(rail.querySelector(`.${CONST.CLASSES.SLIDER_BUBBLE}`)).toBeNull();
-  });
-
-  it("ignores a live value that does not parse", () => {
-    const li = manager.layerRegistry.get("overlay1")!;
-    const item = findItem(ui, "overlay1");
-    ui.openStylePanel("overlay1");
-    const panel = panelOf(item)!;
-    const range = panel.querySelector(
-      `.${CONST.CLASSES.STYLE_OPACITY_RANGE}`,
-    ) as HTMLInputElement;
-    const rail = panel.querySelector(
-      `.${CONST.CLASSES.STYLE_OPACITY_RAIL}`,
-    ) as HTMLElement;
-    const before = li.opacity;
-
-    // A range input refuses to hold a non-numeric value — it falls back to the
-    // mid-point — so the guard is reached through a field that kept the
-    // slider's class but no longer constrains its value, the shape a
-    // consumer's hand-edited markup has. It must not write through.
-    range.type = "text";
-    range.value = "abc";
-    range.dispatchEvent(new Event("input", { bubbles: true }));
-
-    expect(li.opacity).toBe(before);
-    expect(rail.querySelector(`.${CONST.CLASSES.SLIDER_BUBBLE}`)).toBeNull();
+    // Blur is the release path.
+    thumb.blur();
+    expect(bubble!.classList.contains("is-on")).toBe(false);
   });
 
   it("a single-level map yields a zero percentage rather than NaN", () => {
@@ -4021,34 +4124,28 @@ describe("LayerUI style panel — zoom range", () => {
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
     const row = zoomRowOf(panelOf(item)!)!;
-    const minInput = row.querySelector(
-      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_MIN}`,
-    ) as HTMLInputElement;
 
-    minInput.value = "7";
-    minInput.dispatchEvent(new Event("change", { bubbles: true }));
+    zoomSliderOf(row).setValue([7, 7]);
 
-    const labels = row.querySelector(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_VAL}`)!;
-    expect(labels.textContent).not.toMatch(/NaN/);
+    const values = row.querySelector(".foliplus-slider-values")!;
+    expect(values.textContent).not.toMatch(/NaN/);
+    expect(thumbOf(row, 0).style.left).toBe("0%");
   });
 
-  it("keeps working when the row has lost its painted parts", () => {
+  it("keeps working when the row has lost its marks and current label", () => {
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
     const row = zoomRowOf(panelOf(item)!)!;
 
-    // Every sync guards these lookups, so removing them must not throw — a row
-    // that a consumer emptied (or a stale panel) still answers a change.
-    row.querySelector(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_FILL}`)?.remove();
-    row.querySelector(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_DOT}-current`)?.remove();
-    row.querySelector(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_VAL}`)?.replaceChildren();
-    const minInput = row.querySelector(
-      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_MIN}`,
-    ) as HTMLInputElement;
+    // The primitive caches the nodes it paints while syncing, so removing
+    // them must not throw — a row a consumer emptied (or a stale panel) still
+    // answers a value change.
+    row.querySelector(".foliplus-slider-marks")?.remove();
+    row.querySelector(".foliplus-slider-value-current")?.remove();
 
     expect(() => {
-      minInput.value = "4";
-      minInput.dispatchEvent(new Event("change", { bubbles: true }));
+      zoomSliderOf(row).setValue([4, map.getMaxZoom()]);
+      zoomSliderOf(row).commit();
     }).not.toThrow();
     expect(getIntent(ui, "overlay1", "zoomRange")).toEqual([4, map.getMaxZoom()]);
   });
@@ -4057,25 +4154,19 @@ describe("LayerUI style panel — zoom range", () => {
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
     const row = zoomRowOf(panelOf(item)!)!;
-    const rail = row.querySelector(
-      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_TRACK}`,
-    ) as HTMLElement;
-    const maxInput = row.querySelector(
-      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_MAX}`,
-    ) as HTMLInputElement;
 
-    maxInput.value = "10";
-    maxInput.dispatchEvent(new Event("input", { bubbles: true }));
+    zoomSliderOf(row).setValue([0, 10]);
 
     expect(getIntent(ui, "overlay1", "zoomRange")).toEqual([0, 10]);
-    const bubble = rail.querySelector(
-      `.${CONST.CLASSES.SLIDER_BUBBLE}`,
-    ) as HTMLElement | null;
+    const thumb = thumbOf(row, 1);
+    thumb.focus();
+    const bubble = bubbleOf()!;
     expect(bubble).not.toBeNull();
-    expect(bubble!.textContent).toBe("10");
+    expect(bubble.textContent).toBe("10");
+    expect(bubble.classList.contains("is-on")).toBe(true);
 
-    maxInput.dispatchEvent(new Event("change", { bubbles: true }));
-    expect(rail.querySelector(`.${CONST.CLASSES.SLIDER_BUBBLE}`)).toBeNull();
+    thumb.blur();
+    expect(bubble.classList.contains("is-on")).toBe(false);
   });
 
   it("OOR state marks the row when current zoom is outside range", () => {
@@ -4101,11 +4192,7 @@ describe("LayerUI style panel — zoom range", () => {
     );
 
     // Move the range to cover current zoom (5) — OOR clears.
-    const minInput = row.querySelector(
-      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_MIN}`,
-    ) as HTMLInputElement;
-    minInput.value = "0";
-    minInput.dispatchEvent(new Event("input", { bubbles: true }));
+    zoomSliderOf(row).setValue([0, 10]);
 
     expect(row.classList.contains(CONST.CLASSES.STYLE_ZOOM_RANGE_OUT_OF_RANGE)).toBe(
       false,
@@ -4128,7 +4215,7 @@ describe("LayerUI style panel — zoom range", () => {
     ui.openStylePanel("cluster3");
     const panel = panelOf(item)!;
 
-    expect(panel.querySelector(`.${CONST.CLASSES.STYLE_OPACITY_RANGE}`)).toBeNull();
+    expect(panel.querySelector(`.${CONST.CLASSES.STYLE_OPACITY_TRACK}`)).toBeNull();
     expect(zoomRowOf(panel)).toBeNull();
     expect(
       panel.querySelector(`.${CONST.CLASSES.STYLE_LABEL_SIZE_INPUT}`),
@@ -4140,34 +4227,32 @@ describe("LayerUI style panel — zoom range", () => {
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
-    const range = panel.querySelector(
-      `.${CONST.CLASSES.STYLE_OPACITY_RANGE}`,
-    ) as HTMLInputElement;
+    const host = panel.querySelector(
+      `.${CONST.CLASSES.STYLE_OPACITY_TRACK}`,
+    ) as HTMLElement;
+    const slider = sliderOf(host)!;
 
-    // The handle outlives the rail it was drawn in, and the rail took the fill
-    // and the dots with it. Neither ornament carries the value — the input does,
+    // The thumb outlives the rail it was drawn in, and the rail took the fill
+    // with it. Neither ornament carries the value — the slider instance does,
     // so the write still has to land.
-    panel.appendChild(range);
-    panel.querySelector(`.${CONST.CLASSES.STYLE_OPACITY_RAIL}`)?.remove();
-    range.value = "30";
-    range.dispatchEvent(new Event("input", { bubbles: true }));
+    host.querySelector(".foliplus-slider-rail")?.remove();
+    slider.setValue(30);
 
-    expect(panel.querySelector(`.${CONST.CLASSES.STYLE_OPACITY_FILL}`)).toBeNull();
+    expect(host.querySelector(".foliplus-slider-fill")).toBeNull();
     expect(li.opacity).toBe(0.3);
-    expect(panel.querySelector(`.${CONST.CLASSES.SLIDER_BUBBLE}`)).toBeNull();
   });
 
-  it("resets the range when the row has lost a handle", () => {
+  it("resets the range when the row has lost a thumb", () => {
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
     const row = zoomRowOf(panel)!;
     setIntent(ui, "overlay1", "zoomRange", [4, 9]);
-    row.querySelector(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_MAX}`)?.remove();
+    row.querySelector('.foliplus-slider-thumb[data-index="1"]')?.remove();
 
-    // The reset pass syncs the row's remaining marks, so a missing handle has to
-    // be skipped rather than dereferenced — and the click still has to reach the
-    // panel close at the end of the handler.
+    // The reset pass syncs the row's remaining marks, so a missing thumb has
+    // to be skipped rather than dereferenced — and the click still has to
+    // reach the panel close at the end of the handler.
     const reset = panel.querySelector(".foliplus-style-reset-btn")!;
     reset.dispatchEvent(new MouseEvent("click", { bubbles: true }));
 
@@ -4180,19 +4265,16 @@ describe("LayerUI style panel — zoom range", () => {
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
     const row = zoomRowOf(panel)!;
-    const minInput = row.querySelector(
-      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_MIN}`,
-    ) as HTMLInputElement;
+    const thumb = thumbOf(row, 0);
 
-    minInput.value = "4";
-    minInput.dispatchEvent(new Event("change", { bubbles: true }));
+    zoomSliderOf(row).setValue([4, 18]);
     expect(getIntent(ui, "overlay1", "zoomRange")).toEqual([4, 18]);
 
     // The row outlives its layer: nothing is left to write the range into, so
     // the live pass has to bail instead of writing a range for a ghost.
     manager.unregisterLayer("overlay1");
-    minInput.value = "6";
-    minInput.dispatchEvent(new Event("change", { bubbles: true }));
+    press(thumb, "ArrowRight");
+    press(thumb, "ArrowRight");
 
     expect(getIntent(ui, "overlay1", "zoomRange")).toEqual([4, 18]);
   });
@@ -4215,7 +4297,7 @@ describe("LayerUI style panel — zoom range", () => {
     ui.openStylePanel("rangeOnly");
     const panel = panelOf(item)!;
 
-    expect(panel.querySelector(`.${CONST.CLASSES.STYLE_OPACITY_RANGE}`)).toBeNull();
+    expect(panel.querySelector(`.${CONST.CLASSES.STYLE_OPACITY_TRACK}`)).toBeNull();
     expect(zoomRowOf(panel)).not.toBeNull();
   });
 
@@ -4234,67 +4316,8 @@ describe("LayerUI style panel — zoom range", () => {
     ui.openStylePanel("annotOnly");
     const panel = panelOf(item)!;
 
-    expect(panel.querySelector(`.${CONST.CLASSES.STYLE_OPACITY_RANGE}`)).toBeNull();
+    expect(panel.querySelector(`.${CONST.CLASSES.STYLE_OPACITY_TRACK}`)).toBeNull();
     expect(zoomRowOf(panel)).not.toBeNull();
-  });
-
-  it("ignores a range change once the row is out of the panel", () => {
-    const item = findItem(ui, "overlay1");
-    ui.openStylePanel("overlay1");
-    const panel = panelOf(item)!;
-    const row = zoomRowOf(panel)!;
-    const minInput = row.querySelector(
-      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_MIN}`,
-    ) as HTMLInputElement;
-
-    minInput.value = "4";
-    minInput.dispatchEvent(new Event("change", { bubbles: true }));
-    expect(getIntent(ui, "overlay1", "zoomRange")).toEqual([4, 18]);
-
-    // A handle whose row is gone still bubbles to the panel it was built in;
-    // with no row to read there is nothing to write.
-    panel.appendChild(minInput);
-    row.remove();
-    minInput.value = "6";
-    minInput.dispatchEvent(new Event("change", { bubbles: true }));
-
-    expect(getIntent(ui, "overlay1", "zoomRange")).toEqual([4, 18]);
-  });
-
-  it("reuses the range bubble and keeps the range when the rail is gone", () => {
-    const item = findItem(ui, "overlay1");
-    ui.openStylePanel("overlay1");
-    const panel = panelOf(item)!;
-    const row = zoomRowOf(panel)!;
-    const track = row.querySelector(
-      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_TRACK}`,
-    ) as HTMLElement;
-    const minInput = row.querySelector(
-      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_MIN}`,
-    ) as HTMLInputElement;
-    const maxInput = row.querySelector(
-      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_MAX}`,
-    ) as HTMLInputElement;
-
-    minInput.value = "4";
-    minInput.dispatchEvent(new Event("input", { bubbles: true }));
-    maxInput.value = "9";
-    maxInput.dispatchEvent(new Event("input", { bubbles: true }));
-
-    // One bubble, moved to the handle being held — not one per live pass.
-    const bubbles = track.querySelectorAll(`.${CONST.CLASSES.SLIDER_BUBBLE}`);
-    expect(bubbles.length).toBe(1);
-    expect(bubbles[0].textContent).toBe("9");
-
-    // The rail is only the readout's host: losing it costs the bubble, not the
-    // range.
-    row.appendChild(minInput);
-    row.appendChild(maxInput);
-    track.remove();
-    minInput.value = "3";
-    minInput.dispatchEvent(new Event("input", { bubbles: true }));
-
-    expect(getIntent(ui, "overlay1", "zoomRange")).toEqual([3, 9]);
   });
 
   // The two slider ends read the layer's author-declared bounds from the
@@ -4311,10 +4334,7 @@ describe("LayerUI style panel — zoom range", () => {
     const item = findItem(ui, "base1");
     ui.openStylePanel("base1");
     const row = zoomRowOf(panelOf(item)!)!;
-    const maxInput = row.querySelector(
-      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_MAX}`,
-    ) as HTMLInputElement;
-    expect(maxInput.max).toBe("15");
+    expect(thumbOf(row, 1).getAttribute("aria-valuemax")).toBe("15");
   });
 
   it("does not ratchet the slider's max when the map derives from the write", () => {
@@ -4328,13 +4348,9 @@ describe("LayerUI style panel — zoom range", () => {
     const item = findItem(ui, "base1");
     ui.openStylePanel("base1");
     const row = zoomRowOf(panelOf(item)!)!;
-    const maxInput = row.querySelector(
-      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_MAX}`,
-    ) as HTMLInputElement;
-    expect(maxInput.max).toBe("15");
+    expect(thumbOf(row, 1).getAttribute("aria-valuemax")).toBe("15");
 
-    maxInput.value = "10";
-    maxInput.dispatchEvent(new Event("input", { bubbles: true }));
+    zoomSliderOf(row).setValue([0, 10]);
     // Polluted map max after the drag — the ratchet case.
     map.getMaxZoom.mockReturnValue(10);
     (ui.c as any).onZoomend?.();
@@ -4342,10 +4358,7 @@ describe("LayerUI style panel — zoom range", () => {
     ui.closeStylePanel?.(false);
     ui.openStylePanel("base1");
     const newRow = zoomRowOf(panelOf(item)!)!;
-    const newMaxInput = newRow.querySelector(
-      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_MAX}`,
-    ) as HTMLInputElement;
-    expect(newMaxInput.max).toBe("15");
+    expect(thumbOf(newRow, 1).getAttribute("aria-valuemax")).toBe("15");
   });
 
   it("falls back to a finite max when the layer and the map both declare none", () => {
@@ -4359,13 +4372,11 @@ describe("LayerUI style panel — zoom range", () => {
     const item = findItem(ui, "base1");
     ui.openStylePanel("base1");
     const row = zoomRowOf(panelOf(item)!)!;
-    const maxInput = row.querySelector(
-      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_MAX}`,
-    ) as HTMLInputElement;
-    expect(maxInput.max).not.toBe("Infinity");
-    expect(Number(maxInput.max)).toBe(20);
-    const spans = row.querySelectorAll(`.${CONST.CLASSES.STYLE_ZOOM_RANGE_VAL} span`);
-    expect(spans[2]!.textContent).not.toBe("Infinity");
+    const max = thumbOf(row, 1).getAttribute("aria-valuemax");
+    expect(max).not.toBe("Infinity");
+    expect(Number(max)).toBe(20);
+    const maxLabel = row.querySelector(".foliplus-slider-value-max") as HTMLElement;
+    expect(maxLabel.textContent).not.toBe("Infinity");
   });
 
   it("the slider's min bound is the layer's declared minZoom, not the map's", () => {
@@ -4375,10 +4386,7 @@ describe("LayerUI style panel — zoom range", () => {
     const item = findItem(ui, "base1");
     ui.openStylePanel("base1");
     const row = zoomRowOf(panelOf(item)!)!;
-    const minInput = row.querySelector(
-      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_MIN}`,
-    ) as HTMLInputElement;
-    expect(minInput.min).toBe("2");
+    expect(thumbOf(row, 0).getAttribute("aria-valuemin")).toBe("2");
   });
 
   it("does not ratchet the slider's min when the map derives from the write", () => {
@@ -4388,21 +4396,14 @@ describe("LayerUI style panel — zoom range", () => {
     const item = findItem(ui, "base1");
     ui.openStylePanel("base1");
     const row = zoomRowOf(panelOf(item)!)!;
-    const minInput = row.querySelector(
-      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_MIN}`,
-    ) as HTMLInputElement;
-    expect(minInput.min).toBe("3");
+    expect(thumbOf(row, 0).getAttribute("aria-valuemin")).toBe("3");
 
-    minInput.value = "7";
-    minInput.dispatchEvent(new Event("input", { bubbles: true }));
+    zoomSliderOf(row).setValue([7, 18]);
     map.getMinZoom.mockReturnValue(7);
     ui.closeStylePanel?.(false);
     ui.openStylePanel("base1");
     const newRow = zoomRowOf(panelOf(item)!)!;
-    const newMinInput = newRow.querySelector(
-      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_MIN}`,
-    ) as HTMLInputElement;
-    expect(newMinInput.min).toBe("3");
+    expect(thumbOf(newRow, 0).getAttribute("aria-valuemin")).toBe("3");
   });
 
   it("persistence replay: slider bounds are the author's declared range, not the persisted zoomRange", () => {
@@ -4426,12 +4427,9 @@ describe("LayerUI style panel — zoom range", () => {
     const item = findItem(ui, "grid1");
     ui.openStylePanel("grid1");
     const row = zoomRowOf(panelOf(item)!)!;
-    const maxInput = row.querySelector(
-      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_MAX}`,
-    ) as HTMLInputElement;
     // The author declared no max, so it fell back to the map's 18 —
     // not the persisted zoomRange value of 10.
-    expect(Number(maxInput.max)).toBe(18);
+    expect(Number(thumbOf(row, 1).getAttribute("aria-valuemax"))).toBe(18);
   });
 });
 

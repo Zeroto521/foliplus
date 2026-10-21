@@ -32,15 +32,17 @@
     /* The rail, the fill, the readout dots, the numbers and the handles are the
        shared slider component (common/slider.css). This row states only what its
        own coverage state looks like. */
-    .foliplus-style-zoom-range-current-value {
+    .foliplus-slider-value-current {
       color: var(--foliplus-text-primary);
       font-weight: var(--foliplus-font-weight-medium);
     }
 
-    /* Out of range: the rail dims to signal the current zoom is outside the
-       selected range. */
+    /* Out of range, only the selected span dims — the layer is not active at
+       the current level. The thumbs, rail and numbers stay crisp so the
+       control still reads as operable; the grey current-level dot and the
+       row title carry the "why". */
     &.foliplus-zoom-range-out-of-range {
-      .foliplus-slider-rail {
+      .foliplus-slider-fill {
         opacity: var(--foliplus-alpha-50);
       }
     }

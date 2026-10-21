@@ -3811,14 +3811,14 @@ class TestLayerControlBrowser:
             )
 
     def test_native_gate_range_slider_arrowdown(self, browser, tmp_path):
-        """ArrowDown on a focused zoom-range slider moves the thumb, never the row cursor.
+        """ArrowDown on a focused zoom-range thumb moves the thumb, never the row cursor.
 
         Row 1 of the input-ownership table, exercised through Chromium's real
         keyboard pipeline: the key is pressed with ``page.keyboard`` after a
         real focus, and a capture listener reports the browser's final
-        ``defaultPrevented``. Both halves of the gate are measured — the native
-        behavior actually happened, and foliplus did not cancel the key to
-        take it over. Synthetic ``dispatchEvent`` cannot prove either.
+        ``defaultPrevented``. Both halves of the gate are measured — the thumb
+        actually stepped, and the row cursor did not follow the keypress.
+        Synthetic ``dispatchEvent`` cannot prove either.
         """
         overlay = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)
         with use_page(self._make_page, browser, tmp_path, overlay) as (page, errors):
@@ -3835,7 +3835,7 @@ class TestLayerControlBrowser:
                 "the thumb rests on its floor, so ArrowDown has nowhere to go: "
                 + str(arm)
             )
-            assert arm["focusedType"] == "range", f"slider not focused: {arm}"
+            assert arm["focusedType"] == "slider", f"slider thumb not focused: {arm}"
 
             page.keyboard.press("ArrowDown")
 
@@ -3851,11 +3851,13 @@ class TestLayerControlBrowser:
             assert len(recs) == 1, (
                 f"ArrowDown observed {len(recs)} times: {read['records']}"
             )
-            assert recs[0]["prevented"] is False, (
-                "foliplus cancelled ArrowDown meant for the slider: "
+            # The custom slider owns ArrowDown: cancel page scrolling, but let
+            # the key bubble (the shared dispatcher stands aside by ownership).
+            assert recs[0]["prevented"] is True, (
+                "the slider must cancel the page default for ArrowDown: "
                 + str(read["records"])
             )
-            assert recs[0]["type"] == "range", str(read["records"])
+            assert recs[0]["type"] == "slider", str(read["records"])
             # The cursor is compared against its pre-press baseline, not against
             # "absent": opening the style panel and focusing the checkbox both
             # legitimately light the row cursor, so only a change is in scope.
@@ -4946,25 +4948,87 @@ class TestLayerControlBrowser:
     # a real Leaflet tile container.
 
     def test_zoom_range_dual_thumb_clamp(self, browser, tmp_path):
-        """Two thumbs never cross: dragging min past max clamps min to max."""
+        """Two thumbs never cross: each drag really moves, then clamps.
+
+        The probe presses a thumb at its current value and moves to the target
+        (a press at the target would pick a thumb by side instead of grabbing
+        the one asked for), and uses one layer per direction so the second drag
+        does not start on an already-merged pair.
+        """
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
             panel_ready(page)
             result = page.evaluate(_js("LayerControl/zoom_range_dual_thumb_clamp"))
             assert result is not None, result
             assert result.get("error") is None, f"setup failed: {result}"
+            assert result["forwardMoved"], (
+                f"the forward drag never changed a value: {result}"
+            )
             assert result["clampForward"], (
                 f"min did not clamp to max when dragged past: {result}"
+            )
+            assert result["minAfterCross"] == result["maxAfterCross"], result
+            assert result["reverseMoved"], (
+                f"the reverse drag never changed a value: {result}"
             )
             assert result["clampReverse"], (
                 f"max did not clamp to min when dragged below: {result}"
             )
-            assert result["stored"] is not None, (
-                "zoomRange was not persisted after commit"
+            assert result["storedForward"] == [
+                result["minAfterCross"],
+                result["maxAfterCross"],
+            ], f"forward range was not persisted: {result}"
+            assert result["storedReverse"] == [
+                result["minAfterReverse"],
+                result["maxAfterReverse"],
+            ], f"reverse range was not persisted: {result}"
+            assert not errors, f"JS errors: {errors}"
+
+    def test_zoom_range_close_mid_drag_commits(self, browser, tmp_path):
+        """Closing the panel while a drag is live commits what the pointer set.
+
+        The pointer is never released, so only the close can emit the change.
+        The assertions distinguish the in-memory preview (written by input,
+        unmarked) from the committed state (user override, debounced record).
+        """
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            panel_ready(page)
+            result = page.evaluate(_js("LayerControl/close_mid_drag"))
+            assert result is not None, result
+            assert result.get("error") is None, f"setup failed: {result}"
+            assert result["afterMove"] == result["target"], (
+                f"the drag did not reach the target: {result}"
             )
+            assert result["markedBefore"] is False, (
+                f"an uncommitted preview must not be a user override: {result}"
+            )
+            assert result["draggingBefore"] is True, (
+                f"the probe did not start a drag: {result}"
+            )
+            assert result["panelGone"] is True, result
+            assert result["markedAfter"] is True, (
+                f"closing mid-drag did not mark the user override: {result}"
+            )
+            assert result["draggingAfter"] is False, (
+                f"the retained host kept its dragging state: {result}"
+            )
+            assert result["storedAfterClose"] == [
+                result["minAfterClose"],
+                result["afterMove"],
+            ], f"the committed range is wrong: {result}"
+            disk = result.get("disk")
+            assert disk is not None, (
+                f"closing mid-drag did not write the record: {result}"
+            )
+            assert "zoomRange" in (disk["overrides"] or []), disk
+            assert disk["zoomRange"] == [
+                result["minAfterClose"],
+                result["afterMove"],
+            ], f"the stored range is wrong: {disk}"
             assert not errors, f"JS errors: {errors}"
 
     def test_zoom_range_oor_dim(self, browser, tmp_path):
-        """Out-of-range: track dims, tooltip appears, current label shows."""
+        """Out-of-range: only the selected span dims; the thumbs, rail and
+        numbers stay crisp, the current dot greys, and the title explains."""
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
             panel_ready(page)
             result = page.evaluate(_js("LayerControl/zoom_range_oor_dim"))
@@ -4973,10 +5037,12 @@ class TestLayerControlBrowser:
             assert result["rowOor"] is True, f"row not marked out-of-range: {result}"
             assert result["rowTitle"], "row tooltip missing when out of range"
             assert result["markerLabelText"], "current-zoom label missing from marker"
-            # Out of range is a readout on the dots' rings, not a recoloring:
-            # the rail keeps its accent fill and the text stays ink, so nothing
-            # about "the layer is hidden at this zoom" is carried by color on
-            # the numbers the user reads.
+            # Only the selected span dims (opacity), and its color is untouched:
+            # the fill still reads as accent, just at half strength. The thumbs
+            # and the numbers are not recolored.
+            assert result["fillOpacity"] == "0.5", (
+                "out of range, the selected span must dim to alpha-50"
+            )
             assert result["fillComputedBg"] != self._sample_token(
                 page, "--foliplus-neutral-500"
             ), "out of range must not gray the selection"
