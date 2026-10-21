@@ -15,6 +15,7 @@ import {
   renderDelegatedStylePanel,
 } from "#foliplus/LayerControl/ui/style/delegated.js";
 import {
+  closeStylePanel,
   layerHasLabelFields,
   layerHasStyleDelegation,
 } from "#foliplus/LayerControl/ui/style/index.js";
@@ -955,6 +956,21 @@ describe("LayerUI style panel", () => {
     expect(
       labelSection!.querySelector(`.${CONST.CLASSES.STYLE_TOGGLE_INPUT}`),
     ).not.toBeNull();
+  });
+
+  it("finishes every slider before the panel is removed", () => {
+    // closing mid-drag is a commit boundary: the pointer already set the
+    // value, so the session must end (and emit change) before remove().
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const panel = panelOf(item)!;
+    const host = panel.querySelector(
+      "." + CONST.CLASSES.STYLE_OPACITY_TRACK,
+    ) as HTMLElement;
+    const slider = sliderOf(host)!;
+    const finish = vi.spyOn(slider, "finish");
+    closeStylePanel(ui, false);
+    expect(finish).toHaveBeenCalledTimes(1);
   });
 
   it("suppresses the row's hover tooltip on the panel body", () => {
