@@ -682,73 +682,75 @@ class TestLayerControlRendering:
         assert "padding-right: var(--foliplus-space-xs)" in label
 
     def test_slider_component_css(self):
-        """One shared slider component carries all the geometry.
+        """One shared slider primitive carries the whole geometry.
 
-        Both range controls are built from `foliplus-slider*` (common/slider.css):
-        the rail, the accent fill, the readout dots, the handles and the values
-        row. Keeping the geometry here is what makes the two rails impossible to
-        drift — they had already grown different rail heights, different handle
-        sizes, a handle sitting four px off center, and an out-of-range state
-        whose rules could not match.
+        The rail, fill, marks, thumbs, numbers and the value bubble live in
+        common/slider.css; a row adds only its own hook class. The geometry is
+        expressed against one track box — the rail, the marks layer and the
+        thumbs all anchor to its centre line — so dots and thumbs line up by
+        construction instead of by a pixel compensation token.
         """
         css = read_css("foliplus/css/common/slider.css")
         tokens = read_css("foliplus/css/common/token.css")
         for name in (
-            ".foliplus-slider ",
+            ".foliplus-slider {",
+            ".foliplus-slider-track",
             ".foliplus-slider-rail",
             ".foliplus-slider-fill",
+            ".foliplus-slider-marks",
             ".foliplus-slider-dot",
-            ".foliplus-slider-handle",
+            ".foliplus-slider-thumb",
             ".foliplus-slider-values",
             ".foliplus-slider-bubble",
         ):
             assert name in css, name
-        # Geometry comes from the shared tokens, never from literal sizes.
         for token in (
             "--foliplus-slider-rail-height",
             "--foliplus-slider-thumb-size",
             "--foliplus-slider-dot-size",
-            "--foliplus-slider-thumb-hit",
             "--foliplus-slider-thumb-ring",
         ):
             assert token in tokens, token
-        assert "height: var(--foliplus-slider-rail-height)" in css
+        # Geometry comes from the shared tokens, never from literal sizes.
+        assert (
+            "var(--foliplus-slider-rail-height) + 2 * var(--foliplus-border-thin)"
+            in css
+        )
         assert "width: var(--foliplus-slider-thumb-size)" in css
         assert "width: var(--foliplus-slider-dot-size)" in css
-        assert "--foliplus-slider-rail-pattern" in css
+        assert "var(--foliplus-slider-rail-pattern)" in css
         # The uncovered span is a checkerboard, not a flat tint.
         assert "repeating-conic-gradient" in tokens
-        # Thumb: the wider hit box is transparent padding, and background-clip
-        # keeps the painted handle at the token size rather than the box size.
-        thumb = _rule(css, ".foliplus-slider-handle::-webkit-slider-thumb {")
-        assert "padding: var(--foliplus-slider-thumb-pad)" in thumb
-        assert "box-sizing: content-box" in thumb
+        # Alignment is structural: one track box, three layers on its centre
+        # line. The retired implementation needed a pixel offset token; its
+        # absence is the invariant.
+        assert "--foliplus-slider-thumb-offset" not in css
+        for selector in (
+            ".foliplus-slider-rail {",
+            ".foliplus-slider-marks {",
+            ".foliplus-slider-thumb {",
+        ):
+            block = _rule(css, selector)
+            assert "top: 50%" in block, selector
+        # The painted thumb is still a white core + ring clipped to its content
+        # box, but it is a real element now, not a native pseudo-element.
+        thumb = _rule(css, ".foliplus-slider-thumb {")
         assert "background-clip: content-box" in thumb
-        # The centring compensation is required: both engines anchor the thumb's
-        # top edge to the track's top edge, so a taller handle hangs below the
-        # rail without it (a 14px handle on a 6px rail sat 4px low).
-        assert "margin-top: var(--foliplus-slider-thumb-offset)" in thumb
-        assert (
-            "--foliplus-slider-thumb-offset: calc("
-            "(var(--foliplus-slider-rail-height) - var(--foliplus-slider-thumb-size)) / 2"
-            in tokens.replace("\n", "").replace("  ", "")
-            or "--foliplus-slider-thumb-offset" in tokens
-        )
-        # Both engines are styled — and the two rules must stay SEPARATE: a
-        # selector list is invalid as a whole when it names a pseudo-element the
-        # engine does not know, so merging the pair into
-        # `::-webkit-slider-thumb, ::-moz-range-thumb` drops the webkit styling
-        # entirely (which is exactly what the minifier does to identical bodies,
-        # so only the minified build showed the handle as a native blue thumb
-        # that could not be dragged). The duplicated bodies are load-bearing.
-        assert ".foliplus-slider-handle::-moz-range-thumb {" in css
-        assert "::-webkit-slider-thumb,\n" not in css
-        assert "::-moz-range-thumb," not in css
+        assert "translate(-50%, -50%)" in thumb
+        # The bubble is portaled to <body>: fixed positioning and the floating
+        # z-index are what keep a panel's overflow from clipping it.
+        bubble = _rule(css, ".foliplus-slider-bubble {")
+        assert "position: fixed" in bubble
+        assert "z-index: var(--foliplus-z-index-hint)" in bubble
+        # Disabled is a primitive state, not a component special case.
+        assert ".foliplus-slider.is-disabled" in css
+        # The end numbers anchor to the logical start/end, so an RTL page puts
+        # the minimum on the right without a second rule.
+        assert "inset-inline-start: 0" in css
+        assert "inset-inline-end: 0" in css
         # States: parked is small, held and focused grow.
         assert "scale(1.1)" in css
         assert "scale(1.15)" in css
-        assert ":hover::-webkit-slider-thumb" in css
-        assert ":focus-visible::-webkit-slider-thumb" in css
 
     def test_rows_declare_no_slider_geometry(self):
         """The rows may only state their own coverage, never geometry.
@@ -769,18 +771,18 @@ class TestLayerControlRendering:
             assert "--foliplus-slider-rail-height" not in raw, rel
 
     def test_zoom_range_row_css(self):
-        """The row adds no styling of its own.
+        """The row adds only its own coverage cue.
 
-        Coverage is a readout, not a recoloring: the dots' rings carry it (gray
-        where the range does not reach), so the rail stays accent and the text
-        stays ink whatever the map's zoom is. The row keeps its hook class and
-        the tooltip, nothing else.
+        Out of range dims the selected span (the fill) and nothing else: the
+        thumbs, rail and numbers stay crisp so the control still reads as
+        operable, and the current-level number keeps the primitive's class. The
+        row keeps its hook class and the tooltip, nothing else.
         """
         css = read_css("foliplus/css/LayerControl/style.css")
         assert ".foliplus-style-zoom-range-row" in css
         assert "--foliplus-slider-thumb-ring" not in css
         assert "foliplus-zoom-range-out-of-range .foliplus-slider-fill" not in css
-        assert ".foliplus-style-zoom-range-current-value" in css
+        assert ".foliplus-slider-value-current" in css
 
     def test_style_panel_locale_keys_present(self):
         """Opacity key is injected into the LayerControl bundle."""

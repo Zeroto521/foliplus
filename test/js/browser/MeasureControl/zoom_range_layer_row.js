@@ -25,20 +25,45 @@
 
   const zoomRow = panel.querySelector(".foliplus-style-zoom-range-row");
   if (!zoomRow) return { error: "zoom range row not rendered", id: li.id };
-  const minInput = zoomRow.querySelector(".foliplus-style-zoom-range-min");
+  const host = zoomRow.querySelector(".foliplus-style-zoom-range-control");
+  if (!host) return { error: "zoom range slider not rendered", id: li.id };
 
   const mapMin = Number(map.getMinZoom());
   const mapMax = Number(map.getMaxZoom());
   const current = Number(map.getZoom());
   const outMin = Math.min(mapMax, current + 1);
 
+  // Drag one range thumb to `target` through the primitive's real pointer
+  // path (pointerdown on the thumb, pointerup on the track to commit).
+  const driveThumb = (index, target) => {
+    const track = host.querySelector(".foliplus-slider-track");
+    const thumbs = host.querySelectorAll(".foliplus-slider-thumb");
+    const lo = Number(thumbs[0].getAttribute("aria-valuemin"));
+    const hi = Number(thumbs[thumbs.length - 1].getAttribute("aria-valuemax"));
+    const fraction = hi === lo ? 0 : (target - lo) / (hi - lo);
+    const rect = track.getBoundingClientRect();
+    const x = rect.left + rect.width * Math.max(0, Math.min(1, fraction));
+    const y = rect.top + rect.height / 2;
+    const base = {
+      bubbles: true,
+      cancelable: true,
+      clientX: x,
+      clientY: y,
+      pointerId: 15,
+      pointerType: "mouse",
+      button: 0,
+    };
+    thumbs[index].dispatchEvent(
+      new PointerEvent("pointerdown", { ...base, buttons: 1 }),
+    );
+    track.dispatchEvent(new PointerEvent("pointerup", { ...base, buttons: 0 }));
+  };
+
   const onMapBefore = map.hasLayer(li.layer);
-  minInput.value = String(outMin);
-  minInput.dispatchEvent(new Event("input", { bubbles: true }));
+  driveThumb(0, outMin);
   const onMapOut = map.hasLayer(li.layer);
 
-  minInput.value = String(mapMin);
-  minInput.dispatchEvent(new Event("input", { bubbles: true }));
+  driveThumb(0, mapMin);
   const onMapBack = map.hasLayer(li.layer);
 
   return {

@@ -1,6 +1,8 @@
 () => {
-  const slider = document.querySelector(".foliplus-style-zoom-range-max");
-  if (!slider) return { error: "zoom range max slider not rendered" };
+  const host = document.querySelector(".foliplus-style-zoom-range-control");
+  if (!host) return { error: "zoom range slider not rendered" };
+  const thumb = host.querySelectorAll(".foliplus-slider-thumb")[1];
+  if (!thumb) return { error: "zoom range max thumb not rendered" };
 
   const row = document.querySelector('.foliplus-layer-item[data-layer-id="ng_gate"]');
   if (!row) return { error: "gate layer row not found" };
@@ -13,12 +15,13 @@
   const rowFocused = !!document.querySelector(".foliplus-is-focused-row");
   cb.focus();
   return {
-    sliderAfter: Number(slider.value),
+    sliderAfter: Number(thumb.getAttribute("aria-valuenow")),
     cbBefore: cb.checked,
     cbTag: cb.tagName.toLowerCase(),
     cbType: cb.type,
     focusedTag: document.activeElement.tagName.toLowerCase(),
-    focusedType: document.activeElement.type,
+    focusedType:
+      document.activeElement.type || document.activeElement.getAttribute("role") || "",
     rowFocused,
     // The cursor state the checkbox focus alone left behind — the baseline the
     // keypress under test is measured against.

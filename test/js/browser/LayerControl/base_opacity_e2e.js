@@ -18,6 +18,27 @@
   const container = map.getContainer();
   const COLOR_ID = "foliplus_color_map";
 
+  // Drag the single opacity thumb to `pct` through the primitive's real
+  // pointer path: pointerdown on the thumb, pointerup on the track.
+  const dragOpacity = (host, pct) => {
+    const track = host.querySelector(".foliplus-slider-track");
+    const thumb = host.querySelector(".foliplus-slider-thumb");
+    const rect = track.getBoundingClientRect();
+    const x = rect.left + rect.width * (pct / 100);
+    const y = rect.top + rect.height / 2;
+    const base = {
+      bubbles: true,
+      cancelable: true,
+      clientX: x,
+      clientY: y,
+      pointerId: 11,
+      pointerType: "mouse",
+      button: 0,
+    };
+    thumb.dispatchEvent(new PointerEvent("pointerdown", { ...base, buttons: 1 }));
+    track.dispatchEvent(new PointerEvent("pointerup", { ...base, buttons: 0 }));
+  };
+
   // LayerControl auto-registers a color basemap alongside any real tile
   // basemap; the color starts hidden (authorVisible=false) so hiding it is
   // the same visual state as not having it. Real tile basemaps are the
@@ -30,12 +51,12 @@
 
   const setSlider = id => {
     ui.openStylePanel(id);
-    const range = document.querySelector(".foliplus-style-opacity-range");
-    if (!range) {
+    const host = document.querySelector(".foliplus-style-opacity-track");
+    if (!host) {
       ui.closeStylePanel(false);
       return null;
     }
-    return range;
+    return host;
   };
 
   const classAt = () => container.classList.contains("foliplus-no-base-map");
@@ -45,8 +66,7 @@
   // 100% → 0%: sole visible basemap now visually empty, hatch should turn on.
   let r = setSlider(baseId);
   if (!r) return { error: "no opacity slider for base", before };
-  r.value = "0";
-  r.dispatchEvent(new Event("input", { bubbles: true }));
+  dragOpacity(r, 0);
   const atZero = {
     noBaseMap: classAt(),
     liOpacity: api.layers.find(l => l.id === baseId)?.opacity,
@@ -64,10 +84,7 @@
     layer: L.marker([26.08, 119.3]),
   });
   r = setSlider("__e2e_ov__");
-  if (r) {
-    r.value = "0";
-    r.dispatchEvent(new Event("input", { bubbles: true }));
-  }
+  if (r) dragOpacity(r, 0);
   const overlayZero = {
     noBaseMap: classAt(),
     sliderFound: !!r,
@@ -78,10 +95,7 @@
 
   // Reset to 100%: hatch must turn off.
   r = setSlider(baseId);
-  if (r) {
-    r.value = "100";
-    r.dispatchEvent(new Event("input", { bubbles: true }));
-  }
+  if (r) dragOpacity(r, 100);
   const atHundred = {
     noBaseMap: classAt(),
     liOpacity: api.layers.find(l => l.id === baseId)?.opacity,

@@ -71,11 +71,20 @@ async () => {
     if (!li || li.getAttribute("disabled")) return "style-disabled";
     li.click();
     await wait(120);
-    const range = document.querySelector(".foliplus-style-opacity-range");
-    if (!range) return "no-slider";
-    range.value = "35";
-    range.dispatchEvent(new Event("input", { bubbles: true }));
-    range.dispatchEvent(new Event("change", { bubbles: true }));
+    const host = document.querySelector(".foliplus-style-opacity-track");
+    if (!host) return "no-slider";
+    // Drive the control with the keyboard: Home then 35 steps. Deterministic,
+    // independent of layout, and it runs the same commit path a key press
+    // does (the slider's own probes cover the pointer path).
+    const thumb = host.querySelector(".foliplus-slider-thumb");
+    if (!thumb) return "no-slider";
+    thumb.focus();
+    const key = k =>
+      thumb.dispatchEvent(
+        new KeyboardEvent("keydown", { key: k, bubbles: true, cancelable: true }),
+      );
+    key("Home");
+    for (let i = 0; i < 35; i += 1) key("ArrowRight");
     await wait(250);
 
     const cb = rowOf().querySelector('input[type="checkbox"]');
