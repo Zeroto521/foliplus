@@ -182,11 +182,12 @@
    which made the slider read a few pixels wider than the fields below.
    Their outer edges now line up with the field edges instead. */
 .foliplus-slider-value-min {
-  left: 0;
+  inset-inline-start: 0;
+  inset-inline-end: auto;
 }
 .foliplus-slider-value-max {
-  left: auto;
-  right: 0;
+  inset-inline-start: auto;
+  inset-inline-end: 0;
 }
 .foliplus-slider-value-current {
   left: 50%;

@@ -87,6 +87,31 @@ let bubbleDismiss: (() => void) | null = null;
 // per-instance listener would leak one handler per slider the panels ever
 // built. Registered when the bubble is created.
 let scrollBound = false;
+let fullscreenBound = false;
+
+/** Where the bubble lives: the fullscreen element when one is active (a
+ *  native fullscreen renders only that subtree, so a node on <body> would be
+ *  invisible), otherwise <body>. */
+const bubbleHost = (): HTMLElement => {
+  const fs = document.fullscreenElement as HTMLElement | null;
+  // The root element is already the body's parent: appending there is the same
+  // as appending to body, so only a sub-element (e.g. the map container) needs
+  // the move.
+  return fs && fs !== document.documentElement ? fs : document.body;
+};
+
+const bindFullscreen = (): void => {
+  if (fullscreenBound) return;
+  fullscreenBound = true;
+  document.addEventListener("fullscreenchange", () => {
+    // A tooltip does not survive the transition; the next focus re-shows it.
+    bubbleDismiss?.();
+    // Bound from ensureBubble, so the singleton exists by the time this runs.
+    const el = bubbleEl!;
+    const host = bubbleHost();
+    if (el.parentElement !== host) host.appendChild(el);
+  });
+};
 
 const ensureBubble = (): HTMLElement => {
   let el = bubbleEl;
@@ -96,9 +121,11 @@ const ensureBubble = (): HTMLElement => {
       "aria-hidden": "true",
     });
     el.hidden = true;
-    document.body.appendChild(el);
     bubbleEl = el;
   }
+  bindFullscreen();
+  const host = bubbleHost();
+  if (el.parentElement !== host) host.appendChild(el);
   if (!scrollBound) {
     scrollBound = true;
     window.addEventListener("scroll", () => bubbleDismiss?.(), true);
@@ -161,6 +188,15 @@ class Slider {
     };
     this.disabled = options.disabled ?? false;
     this.rtl = getComputedStyle(host).direction === "rtl";
+    // Rows are built detached and mounted by the panel right after, so the
+    // read above only sees an ancestor direction once the host is connected.
+    // Re-read on the first frame after mounting; refreshDirection() covers
+    // later changes.
+    if (!host.isConnected) {
+      requestAnimationFrame(() => {
+        if (this.root.isConnected) this.refreshDirection();
+      });
+    }
     const initial = options.value;
     const pair = Array.isArray(initial) ? initial : null;
     this.range = pair !== null;
@@ -276,7 +312,12 @@ class Slider {
   setDisabled(disabled: boolean): void {
     if (this.disabled === disabled) return;
     this.disabled = disabled;
-    if (disabled) this.hideBubble();
+    if (disabled) {
+      // A disabled control must not keep applying a live drag: commit what the
+      // pointer already produced, then drop the session so no move lands.
+      this.endSession(true);
+      this.hideBubble();
+    }
     this.applyAria();
   }
 
@@ -321,6 +362,7 @@ class Slider {
   }
 
   destroy(): void {
+    this.endSession(false);
     if (bubbleOwner === this.root) this.hideBubble();
     INSTANCES.delete(this.root);
     this.root.replaceChildren();
@@ -492,7 +534,7 @@ class Slider {
   private readonly onTrackDown = (event: PointerEvent): void => {
     if (this.disabled) return;
     if (event.button !== undefined && event.button !== 0) return;
-    this.begin(event, this.pickThumb(event.clientX));
+    this.begin(event, this.pickThumb(event.clientX), false);
   };
 
   private readonly onThumbDown = (event: PointerEvent, index: number): void => {
@@ -500,13 +542,20 @@ class Slider {
     if (event.button !== undefined && event.button !== 0) return;
     // The track's own listener would run too; one begin per press.
     event.stopPropagation();
-    // A stacked pair is grabbable on either half: the left half takes the
-    // lower thumb, the right half the upper one. Pressing the top thumb
+    // A stacked pair is grabbable on either half: the start-side half takes
+    // the lower thumb, the other the upper one. Pressing the top thumb
     // unconditionally would make the lower one unreachable.
-    this.begin(event, this.isOverlapping() ? this.pickThumb(event.clientX) : index);
+    this.begin(
+      event,
+      this.isOverlapping() ? this.pickThumb(event.clientX) : index,
+      true,
+    );
   };
 
-  private begin(event: PointerEvent, index: number): void {
+  private begin(event: PointerEvent, index: number, fromThumb: boolean): void {
+    // One session at a time: a second finger must not overwrite the first
+    // one's drag, or the first release would find nothing to commit.
+    if (this.drag) return;
     event.preventDefault();
     this.active = index;
     this.drag = { id: event.pointerId, index, dirty: false };
@@ -517,11 +566,25 @@ class Slider {
     }
     this.thumbs[index].classList.add("is-dragging");
     this.thumbs[index].focus({ preventScroll: true });
-    // A stacked pair must not be split by the press itself: the first
-    // movement decides. Applying the press position would move one thumb off
-    // the stack and turn the intended pair-slide into a clamp.
-    if (!this.isOverlapping()) this.setFromClientX(event.clientX, index);
+    // A press on a stacked pair is ambiguous and waits for the first movement:
+    // applying the press position would move one thumb off the stack and turn
+    // the intended pair-slide into a clamp. A press on the rail is not
+    // ambiguous — it moves the nearest thumb at once.
+    if (!fromThumb || !this.isOverlapping()) {
+      this.setFromClientX(event.clientX, index);
+    }
     this.showBubble(index);
+  }
+
+  /** Close the live pointer session: release the drag flag and the thumb's
+   *  visual state, and commit the last value when the drag actually moved. */
+  private endSession(commit: boolean): void {
+    const drag = this.drag;
+    if (!drag) return;
+    this.drag = null;
+    this.thumbs[drag.index]?.classList.remove("is-dragging");
+    this.hideBubble();
+    if (commit && drag.dirty) this.emit("change");
   }
 
   private readonly onPointerMove = (event: PointerEvent): void => {
@@ -537,28 +600,23 @@ class Slider {
     const drag = this.drag;
     if (!drag) return;
     if (event.pointerId !== drag.id) return;
-    const { index, dirty } = drag;
-    this.drag = null;
-    this.thumbs[index]?.classList.remove("is-dragging");
     try {
       this.track.releasePointerCapture(event.pointerId);
     } catch {
       // Already released.
     }
-    this.hideBubble();
-    if (dirty) this.emit("change");
+    this.endSession(true);
   };
 
-  private readonly onLostCapture = (): void => {
-    if (!this.drag) return;
-    const { index, dirty } = this.drag;
-    this.drag = null;
-    this.thumbs[index]?.classList.remove("is-dragging");
-    this.hideBubble();
+  private readonly onLostCapture = (event: PointerEvent): void => {
+    const drag = this.drag;
+    if (!drag) return;
+    // A stray capture loss from another pointer must not end this session.
+    if (event.pointerId !== drag.id) return;
     // A lost capture (alt-tab, context menu, a browser gesture) ends the drag
     // without a pointerup; the value already moved, so it still has to be
     // committed or the map would keep a preview the store never recorded.
-    if (dirty) this.emit("change");
+    this.endSession(true);
   };
 
   /** Whether the two thumbs sit close enough that a press cannot say which
@@ -579,7 +637,9 @@ class Slider {
     if (this.isOverlapping()) {
       const rect = this.track.getBoundingClientRect();
       const centre = rect.left + (rect.width * this.visualPct(this.values[0])) / 100;
-      return clientX < centre ? 0 : 1;
+      // The lower thumb sits on the start side: left in LTR, right in RTL.
+      const before = clientX < centre;
+      return (this.rtl ? !before : before) ? 0 : 1;
     }
     return this.nearestThumb(clientX);
   }
