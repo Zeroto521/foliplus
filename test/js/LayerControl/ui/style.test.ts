@@ -983,6 +983,22 @@ describe("LayerUI style panel", () => {
     expect(fillPct(fill)).toBeCloseTo(0.35);
   });
 
+  it("does not rewrite the layer when the committed opacity is unchanged", () => {
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const panel = panelOf(item)!;
+    const host = panel.querySelector(
+      "." + CONST.CLASSES.STYLE_OPACITY_TRACK,
+    ) as HTMLElement;
+    const li = manager.layerRegistry.get("overlay1")!;
+    // The layer changes outside the panel while it is open; moving the thumb
+    // to that same value must sync the control without a second write.
+    li.opacity = 0.5;
+    sliderOf(host)!.setValue(50);
+    expect(li.opacity).toBe(0.5);
+    expect(sliderOf(host)!.value).toBe(50);
+  });
+
   it("covers the opacity end dots only as far as the thumb reaches", () => {
     // Single thumb: the covered span is [min, value]. The 0 dot is accent
     // from the start (the layer is painted from 0); the 100 dot is accent
