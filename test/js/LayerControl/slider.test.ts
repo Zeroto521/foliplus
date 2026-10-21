@@ -20,6 +20,45 @@ const press = (el: HTMLElement, key: string): void => {
   );
 };
 
+type RectInit = { left?: number; top?: number; width?: number; height?: number };
+
+const fakeRect = ({
+  left = 0,
+  top = 0,
+  width = 100,
+  height = 14,
+}: RectInit = {}): DOMRect =>
+  ({
+    left,
+    top,
+    width,
+    height,
+    right: left + width,
+    bottom: top + height,
+    x: left,
+    y: top,
+    toJSON: () => ({}),
+  }) as DOMRect;
+
+const trackOf = (host: HTMLElement): HTMLElement =>
+  host.querySelector(".foliplus-slider-track") as HTMLElement;
+
+/** jsdom reports a 0×0 rect for everything; the pointer paths need a rail. */
+const stubTrack = (host: HTMLElement, init: RectInit = {}): HTMLElement => {
+  const track = trackOf(host);
+  track.getBoundingClientRect = () => fakeRect(init);
+  return track;
+};
+
+const pointer = (type: string, clientX: number): MouseEvent =>
+  new MouseEvent(type, {
+    bubbles: true,
+    cancelable: true,
+    clientX,
+    clientY: 7,
+    button: 0,
+  });
+
 afterEach(() => {
   for (const host of hosts.splice(0)) {
     sliderOf(host)?.destroy();
@@ -151,5 +190,191 @@ describe("Slider primitive", () => {
     expect(range.host.getAttribute("aria-describedby")).toBe("hint-2");
     expect(thumb(range.host, 0).getAttribute("aria-describedby")).toBe("hint-2");
     expect(thumb(range.host, 1).getAttribute("aria-describedby")).toBe("hint-2");
+  });
+
+  it("moves the thumb by pointer and commits on release", () => {
+    const input = vi.fn();
+    const change = vi.fn();
+    const { host } = make({
+      min: 0,
+      max: 100,
+      value: 0,
+      label: "x",
+      input,
+      change,
+    });
+    const track = stubTrack(host);
+    track.dispatchEvent(pointer("pointerdown", 40));
+    expect(sliderOf(host)!.value).toBe(40);
+    track.dispatchEvent(pointer("pointermove", 70));
+    expect(sliderOf(host)!.value).toBe(70);
+    track.dispatchEvent(pointer("pointerup", 70));
+    expect(input).toHaveBeenLastCalledWith(70);
+    expect(change).toHaveBeenLastCalledWith(70);
+  });
+
+  it("treats a press on a thumb as click-to-position", () => {
+    const { host } = make({ min: 0, max: 100, value: 90, label: "x" });
+    const track = stubTrack(host);
+    thumb(host).dispatchEvent(pointer("pointerdown", 30));
+    expect(sliderOf(host)!.value).toBe(30);
+    track.dispatchEvent(pointer("pointerup", 30));
+  });
+
+  it("picks the nearer thumb for a press on the rail", () => {
+    const { host } = make({ min: 0, max: 100, value: [20, 80], label: "x" });
+    const track = stubTrack(host);
+    track.dispatchEvent(pointer("pointerdown", 70));
+    expect(sliderOf(host)!.value).toEqual([20, 70]);
+    track.dispatchEvent(pointer("pointerup", 70));
+  });
+
+  it("slides a collapsed pair with a pointer and separates on the open side", () => {
+    const { host } = make({ min: 0, max: 100, value: [50, 50], label: "x" });
+    const track = stubTrack(host);
+    // Left half of the stack takes the lower thumb; moving right slides both.
+    track.dispatchEvent(pointer("pointerdown", 48));
+    track.dispatchEvent(pointer("pointermove", 70));
+    expect(sliderOf(host)!.value).toEqual([70, 70]);
+    track.dispatchEvent(pointer("pointerup", 70));
+    // Right half takes the upper thumb; moving right separates it.
+    track.dispatchEvent(pointer("pointerdown", 72));
+    track.dispatchEvent(pointer("pointermove", 90));
+    expect(sliderOf(host)!.value).toEqual([70, 90]);
+    track.dispatchEvent(pointer("pointerup", 90));
+  });
+
+  it("commits a drag interrupted by pointercancel", () => {
+    const change = vi.fn();
+    const { host } = make({ min: 0, max: 100, value: 0, label: "x", change });
+    const track = stubTrack(host);
+    track.dispatchEvent(pointer("pointerdown", 40));
+    track.dispatchEvent(new Event("pointercancel", { bubbles: true }));
+    expect(change).toHaveBeenCalledWith(40);
+  });
+
+  it("commits when the pointer capture is lost", () => {
+    const change = vi.fn();
+    const { host } = make({ min: 0, max: 100, value: 0, label: "x", change });
+    const track = stubTrack(host);
+    track.dispatchEvent(pointer("pointerdown", 40));
+    track.dispatchEvent(new Event("lostpointercapture"));
+    expect(change).toHaveBeenCalledWith(40);
+  });
+
+  it("ignores a press on a zero-width track", () => {
+    const { host } = make({ min: 0, max: 100, value: 30, label: "x" });
+    const track = stubTrack(host, { width: 0 });
+    track.dispatchEvent(pointer("pointerdown", 60));
+    expect(sliderOf(host)!.value).toBe(30);
+  });
+
+  it("ignores pointer presses when disabled", () => {
+    const { host } = make({
+      min: 0,
+      max: 100,
+      value: 40,
+      label: "x",
+      disabled: true,
+    });
+    const track = stubTrack(host);
+    track.dispatchEvent(pointer("pointerdown", 80));
+    expect(sliderOf(host)!.value).toBe(40);
+  });
+
+  it("shows the value bubble on focus and hides it on blur", () => {
+    const { host } = make({ min: 0, max: 100, value: 42, label: "x" });
+    const thumbEl = thumb(host);
+    thumbEl.dispatchEvent(new Event("focus"));
+    const bubble = document.querySelector(".foliplus-slider-bubble") as HTMLElement;
+    expect(bubble).not.toBeNull();
+    expect(bubble.textContent).toBe("42");
+    expect(bubble.classList.contains("is-on")).toBe(true);
+    thumbEl.dispatchEvent(new Event("blur"));
+    expect(bubble.classList.contains("is-on")).toBe(false);
+  });
+
+  it("keeps the bubble text in step with keyboard steps", () => {
+    const { host } = make({ min: 0, max: 100, value: 40, label: "x" });
+    const thumbEl = thumb(host);
+    thumbEl.dispatchEvent(new Event("focus"));
+    press(thumbEl, "ArrowRight");
+    const bubble = document.querySelector(".foliplus-slider-bubble") as HTMLElement;
+    expect(bubble.textContent).toBe("41");
+  });
+
+  it("flips the bubble below when there is no room above", () => {
+    const { host } = make({ min: 0, max: 100, value: 42, label: "x" });
+    const thumbEl = thumb(host);
+    thumbEl.getBoundingClientRect = () =>
+      fakeRect({ left: 100, top: 2, width: 14, height: 14 });
+    const bubble = document.querySelector(".foliplus-slider-bubble") as HTMLElement;
+    bubble.getBoundingClientRect = () =>
+      fakeRect({ left: 0, top: 0, width: 40, height: 30 });
+    thumbEl.dispatchEvent(new Event("focus"));
+    expect(bubble.dataset.side).toBe("below");
+  });
+
+  it("does not emit on a silent write but commits on demand", () => {
+    const input = vi.fn();
+    const change = vi.fn();
+    const { host } = make({
+      min: 0,
+      max: 100,
+      value: 10,
+      label: "x",
+      input,
+      change,
+    });
+    const slider = sliderOf(host)!;
+    slider.setValue(30, { silent: true });
+    expect(input).not.toHaveBeenCalled();
+    slider.commit();
+    expect(change).toHaveBeenCalledWith(30);
+  });
+
+  it("keeps the mark and current nodes when re-synced with the same data", () => {
+    const { host } = make({
+      min: 0,
+      max: 19,
+      value: [4, 8],
+      label: "x",
+      marks: [
+        { at: 0, tone: "limit" },
+        { at: 19, tone: "limit" },
+      ],
+      values: { min: "0", max: "19" },
+      current: { at: 12, text: "12" },
+    });
+    const slider = sliderOf(host)!;
+    const dot = host.querySelector(".foliplus-slider-dot");
+    const label = host.querySelector(".foliplus-slider-value-current");
+    slider.setMarks([
+      { at: 0, tone: "limit" },
+      { at: 19, tone: "limit" },
+    ]);
+    slider.setCurrent({ at: 12, text: "12" });
+    expect(host.querySelector(".foliplus-slider-dot")).toBe(dot);
+    expect(host.querySelector(".foliplus-slider-value-current")).toBe(label);
+  });
+
+  it("tears down the instance and its DOM", () => {
+    const { host, slider } = make({ min: 0, max: 10, value: 2, label: "x" });
+    slider.destroy();
+    expect(sliderOf(host)).toBeUndefined();
+    expect(host.children).toHaveLength(0);
+    expect(host.classList.contains("foliplus-slider")).toBe(false);
+  });
+
+  it("inverts the pointer mapping in RTL", () => {
+    const host = document.createElement("div");
+    host.style.direction = "rtl";
+    document.body.appendChild(host);
+    hosts.push(host);
+    new Slider(host, { min: 0, max: 100, value: 0, label: "x" });
+    const track = stubTrack(host);
+    track.dispatchEvent(pointer("pointerdown", 25));
+    expect(sliderOf(host)!.value).toBe(75);
+    track.dispatchEvent(pointer("pointerup", 25));
   });
 });

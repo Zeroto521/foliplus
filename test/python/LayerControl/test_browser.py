@@ -4964,7 +4964,8 @@ class TestLayerControlBrowser:
             assert not errors, f"JS errors: {errors}"
 
     def test_zoom_range_oor_dim(self, browser, tmp_path):
-        """Out-of-range: track dims, tooltip appears, current label shows."""
+        """Out-of-range: the title explains it, the current dot greys, and the
+        control itself stays crisp (no dimming: it is still operable)."""
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
             panel_ready(page)
             result = page.evaluate(_js("LayerControl/zoom_range_oor_dim"))

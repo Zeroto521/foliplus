@@ -37,12 +37,9 @@
       font-weight: var(--foliplus-font-weight-medium);
     }
 
-    /* Out of range: the rail dims to signal the current zoom is outside the
-       selected range. */
-    &.foliplus-zoom-range-out-of-range {
-      .foliplus-slider-rail {
-        opacity: var(--foliplus-alpha-50);
-      }
-    }
+    /* Out of range is a readout, not a disabled state: the selected span is
+       still the selection, and the control must still look operable. The
+       current-level dot turns grey (coverage) and the row title says why;
+       nothing on the slider is dimmed. */
   }
 }

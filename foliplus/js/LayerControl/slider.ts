@@ -517,7 +517,10 @@ class Slider {
     }
     this.thumbs[index].classList.add("is-dragging");
     this.thumbs[index].focus({ preventScroll: true });
-    this.setFromClientX(event.clientX, index);
+    // A stacked pair must not be split by the press itself: the first
+    // movement decides. Applying the press position would move one thumb off
+    // the stack and turn the intended pair-slide into a clamp.
+    if (!this.isOverlapping()) this.setFromClientX(event.clientX, index);
     this.showBubble(index);
   }
 
