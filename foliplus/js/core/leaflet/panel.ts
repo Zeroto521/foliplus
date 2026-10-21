@@ -304,6 +304,107 @@ const createPanelHeader = (opts: {
   return header;
 };
 
+/** Smallest height the row panel is allowed to compress to when the anchor has
+ *  too little room on either side — below this the panel would hide more
+ *  content than it shows, so the fallback is "fit the visible strip" with an
+ *  internal scroll on the content. */
+const ROW_PANEL_MIN_HEIGHT = 120;
+
+/** Measure the anchor row against its map and place the row panel.
+ *
+ * The panel is a `position: absolute; top: 100%` child of its row, so a
+ * fixed `max-height` cap can clip the panel's own content once the row sits
+ * low in the map (or the map is short): the reported 1280x720 case was a
+ * 400px cap on a 243px panel whose bottom-row variant still pushed the last
+ * dimension below the map's `overflow: hidden` edge.
+ *
+ * Two moves here, both driven by the same measurement:
+ *   B — the visible cap. The panel writes its own `--foliplus-row-panel-max-height`
+ *       to the larger of the two available strips (below or above the anchor),
+ *       so the content scrolls inside the panel instead of falling off the map.
+ *   C — the flip. When the strip below is smaller than the panel needs AND the
+ *       strip above is larger, the panel re-anchors upward via the
+ *       `--up` modifier class and the same cap is applied to the space above.
+ *
+ * When both strips are tighter than the content, the panel lands in the wider
+ * one clamped to `ROW_PANEL_MIN_HEIGHT` — the content's own `overflow-y: auto`
+ * then scrolls the excess inside the card.
+ */
+const measureRowPanelPlacement = (panel: HTMLElement): void => {
+  const mapEl = panel.closest(".leaflet-container") as HTMLElement | null;
+  const anchor = panel.parentElement;
+  if (!mapEl || !anchor) return;
+
+  const mapRect = mapEl.getBoundingClientRect();
+  const anchorRect = anchor.getBoundingClientRect();
+  if (mapRect.width === 0 || anchorRect.height === 0) return;
+
+  const below = mapRect.bottom - anchorRect.bottom;
+  const above = anchorRect.top - mapRect.top;
+  // `scrollHeight` on a max-height-capped element is the *natural* content
+  // height, not the clipped one — reading it here is what lets us compare
+  // against the available strip on both sides.
+  const natural = panel.scrollHeight;
+
+  const flipUp = below < natural && above > below;
+  const room = flipUp ? above : below;
+  const cap = Math.max(ROW_PANEL_MIN_HEIGHT, Math.min(natural, room));
+
+  panel.style.setProperty("--foliplus-row-panel-max-height", `${cap}px`);
+  panel.classList.toggle("foliplus-row-panel--up", flipUp);
+};
+
+/** Bind row-panel placement to a panel the caller will mount on a layer row.
+ *
+ * `createRowPanel` returns the panel before it has a parent, so the placement
+ * runs from a MutationObserver that waits for the panel to enter `document` —
+ * the caller's `item.appendChild(panel)`. Resize of the map itself and of the
+ * viewport both trigger a remeasure; the observer releases everything on the
+ * panel's next removal (which is how the style / attributes panels are closed).
+ *
+ * Returns the cleanup so a caller that keeps its own destroy hook (e.g. the
+ * row-rebuild path that drops the whole list) can call it directly. The
+ * MutationObserver disconnect is idempotent, so double-invocation is safe.
+ */
+const observeRowPanelPlacement = (panel: HTMLElement): (() => void) => {
+  const measure = throttleRaf(() => measureRowPanelPlacement(panel));
+  let active = false;
+  let ro: ResizeObserver | null = null;
+
+  const activate = (): void => {
+    if (active) return;
+    active = true;
+    measure();
+    const mapEl = panel.closest(".leaflet-container") as HTMLElement | null;
+    if (mapEl && typeof ResizeObserver === "function") {
+      ro = new ResizeObserver(() => measure());
+      ro.observe(mapEl);
+    }
+    window.addEventListener("resize", measure);
+  };
+  const deactivate = (): void => {
+    if (!active) return;
+    active = false;
+    measure.cancel();
+    if (ro) {
+      ro.disconnect();
+      ro = null;
+    }
+    window.removeEventListener("resize", measure);
+  };
+
+  const obs = new MutationObserver(() => {
+    if (panel.isConnected) activate();
+    else deactivate();
+  });
+  obs.observe(document.body, { childList: true, subtree: true });
+
+  return (): void => {
+    deactivate();
+    obs.disconnect();
+  };
+};
+
 /**
  * Create the floating surface a layer row opens from its ⋮ menu: the
  * attributes panel and the per-layer style panel.
@@ -314,6 +415,13 @@ const createPanelHeader = (opts: {
  * chrome and the `stretch` axis all come from the shared `.foliplus-row-panel`
  * recipe, and the header from {@link createPanelHeader}, so a new row panel
  * cannot drift into a lookalike of the ones already here.
+ *
+ * Placement runs against the map the panel is mounted in: the panel measures
+ * the space above and below its anchor row, writes the visible cap to a
+ * per-panel CSS variable, and flips upward when the space below is the tight
+ * side — see {@link measureRowPanelPlacement}. The MutationObserver that drives
+ * the placement detaches with the panel, so a caller that unmounts the panel
+ * never leaks a resize listener.
  *
  * `iconClass` stays a parameter because each component's SVGs are viewBox-only
  * and need their own sizing hook inside the shared icon box.
@@ -352,6 +460,7 @@ const createRowPanel = (opts: {
   const content = dom.el("div", { class: "foliplus-panel-content" });
   panel.appendChild(header);
   panel.appendChild(content);
+  observeRowPanelPlacement(panel);
   return { panel, header, content };
 };
 
@@ -457,5 +566,6 @@ export {
   createFoldControl,
   createPanelControl,
   createPanelHeader,
+  measureRowPanelPlacement,
   createRowPanel,
 };

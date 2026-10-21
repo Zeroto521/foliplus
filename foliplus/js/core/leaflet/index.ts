@@ -25,4 +25,5 @@ export {
   createPanelControl,
   createPanelHeader,
   createRowPanel,
+  measureRowPanelPlacement,
 } from "./panel.js";

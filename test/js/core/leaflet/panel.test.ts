@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   adjustPanelZIndex,
   bindFoldToggle,
@@ -9,6 +9,7 @@ import {
   createPanelControl,
   createPanelHeader,
   createRowPanel,
+  measureRowPanelPlacement,
 } from "#core/leaflet/index.js";
 
 // setup.js provides L.DomEvent mocks (disableClickPropagation, etc.),
@@ -764,5 +765,155 @@ describe("createRowPanel", () => {
     const icon = header.querySelector(".foliplus-header-icon");
     expect(icon?.className).toContain("foliplus-layer-style-icon");
     expect(header.querySelector(".foliplus-close-btn")).not.toBeNull();
+  });
+});
+
+describe("measureRowPanelPlacement", () => {
+  // Build a panel inside a fake `.leaflet-container` and give each element a
+  // mocked `getBoundingClientRect`. jsdom returns zeroed rects by default, so
+  // without this the arithmetic collapses and the tests would prove nothing.
+  const makePlacement = (opts: {
+    mapTop: number;
+    mapBottom: number;
+    anchorTop: number;
+    anchorBottom: number;
+    naturalHeight: number;
+  }) => {
+    const map = document.createElement("div");
+    map.className = "leaflet-container";
+    document.body.appendChild(map);
+
+    const row = document.createElement("div");
+    row.className = "foliplus-layer-item";
+    map.appendChild(row);
+
+    const panel = document.createElement("div");
+    panel.className = "foliplus-panel foliplus-row-panel";
+    row.appendChild(panel);
+
+    const rect = (top: number, bottom: number, left = 12, width = 280): DOMRect =>
+      ({
+        top,
+        bottom,
+        left,
+        right: left + width,
+        width,
+        height: bottom - top,
+        x: left,
+        y: top,
+        toJSON() {
+          return this;
+        },
+      }) as DOMRect;
+
+    vi.spyOn(map, "getBoundingClientRect").mockReturnValue(
+      rect(opts.mapTop, opts.mapBottom, 0, 1280),
+    );
+    vi.spyOn(row, "getBoundingClientRect").mockReturnValue(
+      rect(opts.anchorTop, opts.anchorBottom),
+    );
+    vi.spyOn(panel, "getBoundingClientRect").mockReturnValue(
+      rect(opts.anchorBottom, opts.anchorBottom + opts.naturalHeight),
+    );
+    Object.defineProperty(panel, "scrollHeight", {
+      value: opts.naturalHeight,
+      configurable: true,
+    });
+
+    return { map, row, panel };
+  };
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    document.body.innerHTML = "";
+  });
+
+  it("keeps the panel below the anchor when there is room for the content", () => {
+    const { panel } = makePlacement({
+      mapTop: 0,
+      mapBottom: 720,
+      anchorTop: 100,
+      anchorBottom: 137,
+      naturalHeight: 243,
+    });
+    measureRowPanelPlacement(panel);
+
+    expect(panel.classList.contains("foliplus-row-panel--up")).toBe(false);
+    expect(panel.style.getPropertyValue("--foliplus-row-panel-max-height")).toBe(
+      "243px",
+    );
+  });
+
+  it("caps the panel at the visible strip below when the content is taller", () => {
+    // Anchor sits 213px above the map's bottom edge with 300px of content:
+    // the panel would run 87px past the map's `overflow: hidden` edge, so
+    // the visible cap trims it and the content scrolls inside. Above (150)
+    // is not wider than below, so the panel stays put.
+    const { panel } = makePlacement({
+      mapTop: 0,
+      mapBottom: 400,
+      anchorTop: 150,
+      anchorBottom: 187,
+      naturalHeight: 300,
+    });
+    measureRowPanelPlacement(panel);
+
+    expect(panel.classList.contains("foliplus-row-panel--up")).toBe(false);
+    expect(panel.style.getPropertyValue("--foliplus-row-panel-max-height")).toBe(
+      "213px",
+    );
+  });
+
+  it("flips the panel upward when the space below is the tight side", () => {
+    // Bottom row: 70px below, 613px above, content 300px. The strip below is
+    // the tight side, so the panel re-anchors above the row and takes the full
+    // natural height inside the space above.
+    const { panel } = makePlacement({
+      mapTop: 0,
+      mapBottom: 720,
+      anchorTop: 613,
+      anchorBottom: 650,
+      naturalHeight: 300,
+    });
+    measureRowPanelPlacement(panel);
+
+    expect(panel.classList.contains("foliplus-row-panel--up")).toBe(true);
+    expect(panel.style.getPropertyValue("--foliplus-row-panel-max-height")).toBe(
+      "300px",
+    );
+  });
+
+  it("holds the floor when neither strip is tall enough for the content", () => {
+    // 60px above, 40px below, content 300px. Both strips are tighter than the
+    // content and the flip condition prefers the wider strip (above), so the
+    // panel lands in the 120px floor and lets the content scroll inside.
+    const { panel } = makePlacement({
+      mapTop: 0,
+      mapBottom: 100,
+      anchorTop: 60,
+      anchorBottom: 100,
+      naturalHeight: 300,
+    });
+    measureRowPanelPlacement(panel);
+
+    expect(panel.classList.contains("foliplus-row-panel--up")).toBe(true);
+    expect(panel.style.getPropertyValue("--foliplus-row-panel-max-height")).toBe(
+      "120px",
+    );
+  });
+
+  it("does not touch a panel that is not inside a map container", () => {
+    // Called before the panel has been mounted on its row: no ancestor to
+    // measure against, so the token fallback in the CSS takes over.
+    const row = document.createElement("div");
+    document.body.appendChild(row);
+    const panel = document.createElement("div");
+    panel.className = "foliplus-panel foliplus-row-panel";
+    row.appendChild(panel);
+
+    measureRowPanelPlacement(panel);
+
+    expect(panel.style.getPropertyValue("--foliplus-row-panel-max-height")).toBe("");
+    expect(panel.classList.contains("foliplus-row-panel--up")).toBe(false);
   });
 });
