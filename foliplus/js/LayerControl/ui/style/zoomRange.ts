@@ -11,7 +11,12 @@ import { CAP_TIER, DIM } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { Slider, sliderOf } from "#foliplus/LayerControl/slider.js";
 import { dom } from "#common/dom.js";
-import { applyProjection, authorZoomBoundsForLayer, emitDelta } from "../apply.js";
+import {
+  NO_DELTA,
+  applyProjection,
+  authorZoomBoundsForLayer,
+  emitDelta,
+} from "../apply.js";
 import { INTENT, getIntent } from "../intent.js";
 import type { LayerUI } from "../surface.js";
 import {
@@ -174,18 +179,26 @@ const commitZoomRange = (ui: LayerUI, layerId: string): void => {
 };
 
 /** Reset one layer's zoom range to the full map range and drop its override.
- *  Thin delegate over the zoom-range descriptor's reset plus row chrome. */
+ *  Owns the full operation boundary: intent + projection land inside the
+ *  descriptor, the row chrome (fill, values, out-of-range state) is refreshed
+ *  here, and only then does the notify go out — a subscriber that re-enters
+ *  reads the settled row, not a stale "out of range" face. */
 const resetLayerZoomRange = (ui: LayerUI, layerId: string): void => {
-  if (!ui.c.layerRegistry.has(layerId)) return;
-  getDimension(DIM.ZOOM_RANGE)!.reset!(ui, layerId);
-  // Refresh the row's visual state (thumbs, marks, out-of-range).
-  const panel = ui.uiContainer.querySelector(
-    "." + CONST.CLASSES.STYLE_PANEL,
+  const layerInfo = ui.c.layerRegistry.get(layerId);
+  if (!layerInfo) return;
+  const delta = getDimension(DIM.ZOOM_RANGE)!.reset!(ui, layerId) ?? NO_DELTA;
+  // Refresh the row's visual state (fill, values, out-of-range) before the
+  // notify below. A reset can still land after a competing teardown took the
+  // panel — a scheduled reset, or a panel whose control was destroyed — so the
+  // lookup tolerates a missing container instead of dereferencing null.
+  const panel = ui.uiContainer?.querySelector(
+    `.${CONST.CLASSES.STYLE_PANEL}`,
   ) as HTMLElement | null;
   const row = panel?.querySelector(
-    "." + CONST.CLASSES.STYLE_ZOOM_RANGE_ROW,
+    `.${CONST.CLASSES.STYLE_ZOOM_RANGE_ROW}`,
   ) as HTMLElement | null;
   if (row) syncZoomRangeRow(ui, layerId, row);
+  emitDelta(ui, layerInfo, delta);
 };
 
 /** Register zoom range as a per-layer dimension. The descriptor owns the
@@ -222,12 +235,14 @@ const ZOOM_RANGE_DIMENSION = registerDimension<{ min: number; max: number }>({
     // side effect, so the delta goes out on the projection it just ran.
     emitDelta(ui, layerInfo, applyProjection(ui, layerId));
   },
-  /** Cohesive reset: clear the override, save, re-project. */
+  /** Cohesive reset: clear the override, save, re-project. Returns the delta
+   *  without announcing — the complete reset entry (`resetLayerZoomRange`)
+   *  owns the notify so it can refresh row chrome first. */
   reset: (ui, layerId) => {
     resetIntentKeys(ui, layerId, [INTENT.ZOOM_RANGE]);
     const layerInfo = ui.c.layerRegistry.get(layerId);
     if (!layerInfo) return;
-    emitDelta(ui, layerInfo, applyProjection(ui, layerId));
+    return applyProjection(ui, layerId);
   },
   valueSource: (ui, layerId) => {
     if (!canShowZoomRange(ui, layerId)) return "none";

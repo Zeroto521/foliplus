@@ -650,4 +650,5 @@ export {
   emitDelta,
   emitDeltas,
   authorZoomBoundsForLayer,
+  NO_DELTA,
 };

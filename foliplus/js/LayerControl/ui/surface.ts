@@ -23,6 +23,7 @@ import { type CreateColorAPI, type LayerRuntimeStore } from "#core/layer/index.j
 import type { Logger } from "#common/type.js";
 import type { LayerController } from "../controller.js";
 import type { LayerIntentStore } from "../domain/index.js";
+import type { ProjectionDelta } from "./apply.js";
 import type { FocusController } from "./focus/focusController.js";
 import type { ListPanel } from "./listPanel/index.js";
 import type { OverlayPanel } from "./overlayPanel/index.js";
@@ -75,7 +76,7 @@ interface LayerUI {
   activeLayerItem(): HTMLElement | null;
   refreshAllCounts(): void;
   saveState(): void;
-  applyUserState(id?: string): void;
+  applyUserState(id?: string): ProjectionDelta | void;
   initTypesAndVisibility(): void;
   handleOutsideMousedown(event: MouseEvent): void;
   handleKeyDown(event: KeyboardEvent): void;

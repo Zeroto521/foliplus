@@ -32,6 +32,7 @@ import * as CONST from "./const.js";
 import { LayerIntentStore, LayerOrchestration } from "./domain/index.js";
 import { LayerPersistence } from "./persistence.js";
 import { finishSlidersIn } from "./slider.js";
+import { NO_DELTA, emitDelta } from "./ui/apply.js";
 import { type LayerUI } from "./ui/index.js";
 
 type LayerControllerEnv = {
@@ -608,10 +609,10 @@ class LayerController implements LayerAPI {
 
     if (this.ui) {
       if (existingIdx === -1) {
-        // New row: the UI inserts the DOM row. insertLayerItem internally
-        // runs applyUserState for this id, so the controller-level applyUserState
-        // below is a no-op on the new-row path (idempotent) and only carries
-        // meaning on the re-registration branch.
+        // New row: the row is inserted by the LAYER_ITEM_ADDED listener; the
+        // stored-state projection is left to the single applyUserState below,
+        // so the registration entry holds the delta and can announce it after
+        // the row, the count and the order are all settled.
         this.events.emit(EVENTS.LAYER_ITEM_ADDED, { id: opts.id });
       } else {
         // Re-registration is how the API says "this layer's content changed",
@@ -623,7 +624,7 @@ class LayerController implements LayerAPI {
       // pass that reaches a late-arriving layer's own visibility, opacity, name
       // and order. On a re-registration it also re-applies opacity onto the fresh
       // layer/canvas object (no-op when the user never changed it).
-      this.ui.applyUserState(opts.id);
+      const moved = this.ui.applyUserState(opts.id);
       // Incremental: refresh only the new/updated row's cells instead of
       // re-scanning every row (initTypesAndVisibility is a full pass used on
       // attach/fold). Fires after applyUserState so the row reflects the fresh
@@ -634,6 +635,10 @@ class LayerController implements LayerAPI {
       });
       // Defer z-order enforcement so batch registration coalesces into one pass.
       this.debouncedEnforce();
+      // The projection delta goes out last — after the row insert, the count
+      // sync and the order replay — so a subscriber that re-enters reads the
+      // settled panel: full group count, correct row state.
+      emitDelta(this.ui, layerInfo, moved ?? NO_DELTA);
     }
     // Registration never writes the saved order: the slot this layer just took
     // is where attach timing put it, not a user arrangement. Only an explicit

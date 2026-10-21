@@ -3,11 +3,10 @@
 // `pane.ts`, the disabled-state hints in `hint.ts`; this file re-exports
 // all three so the existing external import surface (`./focus/index.js`)
 // stays unchanged.
-import { EVENTS } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { ensureModes, guardBlocked } from "#core/mode.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
-import { applyProjectionAll, emitDeltas } from "../apply.js";
+import { type ProjectionDelta, applyProjectionAll, emitDeltas } from "../apply.js";
 import type { LayerUI } from "../surface.js";
 import { closeOverlays } from "../teardown.js";
 import { showFocusDisabledHint } from "./hint.js";
@@ -78,16 +77,20 @@ const focusLayer = (ui: LayerUI, layerId: string) => {
   // Bounds come from the Leaflet layer (with a walkLeaf fallback), or
   // from a canvas layer's getBounds provider (heatmap has no Leaflet layer).
   let bounds: L.LatLngBounds | null = null;
+  // A layer the policy pulled off (a zoom sweep, an unchecked-by-policy row)
+  // rejoins the map so the rectangle highlight is visible. That add is a real
+  // membership change; its delta is collected here and announced with the rest
+  // of the focus round, once the focus state is fully established.
+  const rejoined: Array<{ id: string; delta: ProjectionDelta }> = [];
+  let rejoinedLayer: L.Layer | null = null;
   if (layer) {
-    // Ensure the layer is on the map so the rectangle highlight is visible. A
-    // layer the policy pulled off (a zoom sweep, an unchecked row) rejoins
-    // here for the bounds read — that add is a real membership change, so it
-    // rides LAYER_CHANGE the way the executor's own writes do.
+    // Ensure the layer is on the map so the rectangle highlight is visible.
     if (!ui.c.map.hasLayer(layer)) {
       ui.c.map.addLayer(layer);
-      ui.events.emit(EVENTS.LAYER_CHANGE, {
+      rejoinedLayer = layer;
+      rejoined.push({
         id: layerInfo.id,
-        kind: layerInfo.kind,
+        delta: { wroteVisible: true, intentMoved: false },
       });
     }
     bounds = computeLayerBounds(layer);
@@ -97,8 +100,11 @@ const focusLayer = (ui: LayerUI, layerId: string) => {
   // No bounds carrier — the surface said so up front via
   // `capabilities.bounds`. Keyboard / dblclick paths reach this guard
   // without going through `focusDisabledReason`, so the hint is the honest
-  // feedback rather than a silent no-op.
+  // feedback rather than a silent no-op. Whatever we re-added above goes back
+  // the way we found it, so a rejected focus leaves no membership change (and
+  // no announce) behind.
   if (!bounds?.isValid()) {
+    if (rejoinedLayer) ui.c.map.removeLayer(rejoinedLayer);
     showFocusDisabledHint(ui, "no_bounds");
     return;
   }
@@ -137,10 +143,13 @@ const focusLayer = (ui: LayerUI, layerId: string) => {
   // policy is driven by the same flag, so this one sweep is a no-op for the
   // layers it already covers.
   ui.focusController.focusingLayerId = layerId;
-  // One settled round: the sweep lands the focused layer's opacity override
-  // and the policy changes, then each moved layer announces once in registry
-  // order — never a mid-sweep spray.
-  emitDeltas(ui, applyProjectionAll(ui));
+  // Collect the settled round: the sweep lands the focused layer's opacity
+  // override and the policy changes, but nothing announces yet — the notify
+  // waits for the branch below to finish the focus visuals (rect/mask/highlight
+  // + auto-cancel), so a subscriber that re-enters and cancels is not undone
+  // by the frames the outer call has not drawn yet.
+  const swept = applyProjectionAll(ui);
+  const announceFocus = (): void => emitDeltas(ui, [...rejoined, ...swept]);
 
   // Single-point / tiny bounds → flyTo the center.
   const southWest = bounds.getSouthWest();
@@ -158,6 +167,7 @@ const focusLayer = (ui: LayerUI, layerId: string) => {
     });
     highlightFocusedRow(ui, itemEl, layerId);
     registerAutoCancel(ui, layerId);
+    announceFocus();
     return;
   }
 
@@ -186,6 +196,7 @@ const focusLayer = (ui: LayerUI, layerId: string) => {
   // One-shot map move/zoom handler that auto-cancels focus when the user
   // starts navigating elsewhere — prevents the rect from lingering.
   registerAutoCancel(ui, layerId);
+  announceFocus();
 };
 
 /** Return true if a focus animation is currently active. */

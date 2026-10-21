@@ -164,7 +164,11 @@ const insertLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
   // The setter is idempotent (overwrites the same value), so re-registration
   // is harmless.
   seedAuthorVisible(ui, layerInfo);
-  ui.applyUserState(layerInfo.id);
+  // The stored-state projection is NOT run here: the registration entry
+  // (registerLayer) owns that pass and its notify, so a subscriber sees the
+  // finished row, count and order before any CHANGE — and this insertion is
+  // also one half of the attach-time pending drain, whose other half (the
+  // full `applyUserState` sweep) covers the same ids.
   // New row must join the roving tabindex / ARIA set.
   syncListCursor(ui);
 };

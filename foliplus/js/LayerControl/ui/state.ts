@@ -11,7 +11,12 @@
 // unchanged.
 import * as CONST from "../const.js";
 import type { LayerOverride } from "../type.js";
-import { applyProjection, applyProjectionAll, emitDelta, emitDeltas } from "./apply.js";
+import {
+  type ProjectionDelta,
+  applyProjection,
+  applyProjectionAll,
+  emitDeltas,
+} from "./apply.js";
 import { applyNameProjection } from "./context.js";
 import { INTENT, LIVE, getIntent } from "./intent.js";
 import type { LayerUI } from "./surface.js";
@@ -134,7 +139,7 @@ const unmarkOverride = (ui: LayerUI, id: string, override: LayerOverride) => {
  *   hidden and a missing rename must not write undefined.
  */
 
-const applyUserState = (ui: LayerUI, id?: string) => {
+const applyUserState = (ui: LayerUI, id?: string): ProjectionDelta | void => {
   const registry = ui.c.layerRegistry;
   const container = ui.uiContainer;
 
@@ -161,12 +166,11 @@ const applyUserState = (ui: LayerUI, id?: string) => {
     // late registration, so without it the layer would keep the slot it was
     // inserted into rather than the position the user already arranged.
     ui.c.replaySavedOrder(id);
-    // Announce last: a late registration can join the map on this replay,
-    // which is a real membership change no other path notifies — a bus-only
-    // consumer (annotation repaints its labels) would otherwise never learn
-    // about the layer.
-    emitDelta(ui, layerInfo, moved);
-    return;
+    // The delta is returned, not announced here: a late registration can join
+    // the map on this replay, and the caller owns the complete operation (the
+    // registration entry refreshes the row and the group count first, then
+    // publishes so a subscriber reads the settled panel).
+    return moved;
   }
 
   // The registry is the sweep, not the intent store: a layer the user left

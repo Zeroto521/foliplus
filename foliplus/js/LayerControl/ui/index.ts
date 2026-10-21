@@ -260,7 +260,7 @@ class LayerUI implements LayerUISurface {
     return saveState(this);
   }
   applyUserState(id?: string) {
-    applyUserState(this, id);
+    const moved = applyUserState(this, id);
     // The executor carries visible / opacity / zoomRange only. Border and
     // fill are direct setStyle writes, so without their own replay a reload
     // would restore the drawer's swatch while the map kept the author's
@@ -280,6 +280,7 @@ class LayerUI implements LayerUISurface {
       applyBorderToLayer(this, layerId);
       replayFillState(this, layerId);
     }
+    return moved;
   }
   dropPersistedLayerState(layerId: string) {
     return dropPersistedLayerState(this, layerId);

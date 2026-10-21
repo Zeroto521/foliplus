@@ -10,8 +10,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
 import { GROUP } from "#core/layer/index.js";
+import * as CONST from "#foliplus/LayerControl/const.js";
 import { setIntent } from "#foliplus/LayerControl/ui/intent.js";
 import { intentVisibleOf } from "#foliplus/LayerControl/ui/projection.js";
+import { resetLayerZoomRange } from "#foliplus/LayerControl/ui/style/zoomRange.js";
 import { findItem, initFixture } from "./fixture.js";
 
 /** A polygon-shaped layer stub — enough for the surface to resolve. */
@@ -25,6 +27,56 @@ const polygonLayer = () =>
       getNorthEast: () => ({ lat: 40, lng: 110 }),
     })),
   }) as L.Layer;
+
+/** A polygon-shaped layer whose bounds the test supplies — the flyTo branch
+ *  needs a single-point area, the rectangle branch a real extent. */
+const polygonLayerWith = (
+  southWest: [number, number],
+  northEast: [number, number],
+): L.Layer => {
+  const center = {
+    lat: (southWest[0] + northEast[0]) / 2,
+    lng: (southWest[1] + northEast[1]) / 2,
+  };
+  return {
+    options: {},
+    eachLayer: vi.fn(),
+    getBounds: vi.fn(() => ({
+      isValid: vi.fn(() => true),
+      getSouthWest: () => ({ lat: southWest[0], lng: southWest[1] }),
+      getNorthEast: () => ({ lat: northEast[0], lng: northEast[1] }),
+      getCenter: () => center,
+    })),
+  } as L.Layer;
+};
+
+/** Track real map membership, keyed by the layer the projection diffs against.
+ *  A `hasLayer` that always answers the same way turns every add and every
+ *  remove into a diff miss. */
+const trackMembership = (map: any): Map<L.Layer, boolean> => {
+  const onMap = new Map<L.Layer, boolean>();
+  map.hasLayer = vi.fn((l: L.Layer) => onMap.get(l) ?? false);
+  map.addLayer = vi.fn((l: L.Layer) => {
+    onMap.set(l, true);
+  });
+  map.removeLayer = vi.fn((l: L.Layer) => {
+    onMap.set(l, false);
+  });
+  return onMap;
+};
+
+/** One overlay in a fixture whose map membership is tracked, so the
+ *  projection's diff against the map is real instead of a constant. The layer
+ *  starts on the map, the way attach leaves it. */
+const oneOverlay = (makeLayer: () => L.Layer = polygonLayer) => {
+  const layer = makeLayer();
+  const fixture = initFixture({
+    data: [{ id: "overlay1", name: "Polygons", group: "overlay", layer }],
+  });
+  const onMap = trackMembership(fixture.map);
+  onMap.set(layer, true);
+  return { ...fixture, layer, onMap };
+};
 
 describe("layer notification contract", () => {
   afterEach(() => {
@@ -236,5 +288,141 @@ describe("layer notification contract", () => {
     expect(seen).toEqual(["alpha", "gamma"]);
     expect(ui.c.layerRegistry.has("beta")).toBe(false);
     expect(intentVisibleOf(ui, "gamma")).toBe(false);
+  });
+
+  it("a reset settles the row before it announces", () => {
+    // The reset entry clears the override, re-projects and repaints the row
+    // before it publishes, so a subscriber that re-enters reads the range the
+    // reset just drew — not the "out of range" face the override was showing
+    // when the operation started.
+    const { ui, layer, onMap } = oneOverlay();
+
+    setIntent(ui, "overlay1", "zoomRange", [0, 3]);
+    ui.intentStore.seedProvenance("overlay1", ["zoomRange"]);
+    ui.onZoomEnd?.();
+    expect(onMap.get(layer)).toBe(false);
+
+    ui.openStylePanel("overlay1");
+    const row = findItem(ui, "overlay1").querySelector(
+      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_ROW}`,
+    ) as HTMLElement;
+    expect(row.classList.contains(CONST.CLASSES.STYLE_ZOOM_RANGE_OUT_OF_RANGE)).toBe(
+      true,
+    );
+
+    const outOfRangeAtDelivery: boolean[] = [];
+    ui.events.on(EVENTS.LAYER_CHANGE, () => {
+      outOfRangeAtDelivery.push(
+        row.classList.contains(CONST.CLASSES.STYLE_ZOOM_RANGE_OUT_OF_RANGE),
+      );
+    });
+
+    resetLayerZoomRange(ui, "overlay1");
+
+    expect(outOfRangeAtDelivery).toEqual([false]);
+    expect(onMap.get(layer)).toBe(true);
+  });
+
+  it("a reset that lands after a teardown does not deref the container", () => {
+    // The panel lookup runs before the notify, but a reset can still be queued
+    // past a teardown — a scheduled reset, or a panel whose control was
+    // destroyed first. The lookup tolerates the missing container, and the
+    // projection it already ran still lands on the map.
+    const { ui, layer, onMap } = oneOverlay();
+
+    setIntent(ui, "overlay1", "zoomRange", [0, 3]);
+    ui.intentStore.seedProvenance("overlay1", ["zoomRange"]);
+    ui.onZoomEnd?.();
+    ui.openStylePanel("overlay1");
+
+    ui.c.uiContainer = null;
+    expect(() => resetLayerZoomRange(ui, "overlay1")).not.toThrow();
+    expect(onMap.get(layer)).toBe(true);
+  });
+
+  it("a focus cancel inside the rectangle announce is not undone", () => {
+    // The rectangle branch draws the mask, the rect, the row highlight and the
+    // auto-cancel, and only then announces. A subscriber that cancels inside
+    // that notify wins: nothing after the announce re-arms the focus, so a
+    // focus kicked off by focusLayer cannot still be live when it returns.
+    const { ui, map, layer, onMap } = oneOverlay();
+    onMap.set(layer, false);
+
+    let deliveries = 0;
+    ui.events.on(EVENTS.LAYER_CHANGE, () => {
+      deliveries += 1;
+      ui.cancelFocus();
+    });
+
+    expect(() => ui.focusLayer("overlay1")).not.toThrow();
+    expect(map.fitBounds).toHaveBeenCalled();
+    expect(deliveries).toBeGreaterThan(0);
+    expect(ui.isFocusing()).toBe(false);
+  });
+
+  it("a focus cancel inside the flyTo announce is not undone", () => {
+    // The flyTo branch takes the same ordering: fly to the center, highlight
+    // the row, register the auto-cancel, and only then announce.
+    const { ui, map, layer, onMap } = oneOverlay(() =>
+      polygonLayerWith([30, 100], [30.0001, 100.0001]),
+    );
+    onMap.set(layer, false);
+
+    let deliveries = 0;
+    ui.events.on(EVENTS.LAYER_CHANGE, () => {
+      deliveries += 1;
+      ui.cancelFocus();
+    });
+
+    expect(() => ui.focusLayer("overlay1")).not.toThrow();
+    expect(map.flyTo).toHaveBeenCalled();
+    expect(deliveries).toBeGreaterThan(0);
+    expect(ui.isFocusing()).toBe(false);
+  });
+
+  it("a registration announces after the group count has settled", () => {
+    // The registration entry inserts the row, replays the stored state,
+    // refreshes the row cells and syncs the group count before it publishes —
+    // so the first CHANGE the new layer gets out already names the full
+    // group. Announcing from the row insertion itself would have handed a
+    // subscriber the count taken before that row existed.
+    const { ui, manager } = initFixture({
+      data: [
+        { id: "one", name: "One", group: "overlay", layer: polygonLayer() },
+        { id: "two", name: "Two", group: "overlay", layer: polygonLayer() },
+        {
+          id: "three",
+          name: "Three",
+          group: "overlay",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    expect(ui.listPanel.checkedCount[GROUP.OVERLAY]).toEqual({
+      total: 3,
+      on: 3,
+    });
+
+    // The late layer arrives already hidden: a stored dimension is the only
+    // state a late registration can carry, and it is the delta the entry
+    // holds until the row and the count have settled.
+    setIntent(ui, "fourth", "visible", false);
+    ui.intentStore.seedProvenance("fourth", ["visible"]);
+
+    const countsAtDelivery: { total: number; on: number }[] = [];
+    ui.events.on(EVENTS.LAYER_CHANGE, payload => {
+      if (payload.id !== "fourth") return;
+      countsAtDelivery.push({ ...ui.listPanel.checkedCount[GROUP.OVERLAY] });
+    });
+
+    manager.registerLayer({
+      id: "fourth",
+      name: "Fourth",
+      group: "overlay",
+      layer: polygonLayer(),
+    });
+
+    expect(countsAtDelivery.length).toBeGreaterThan(0);
+    expect(countsAtDelivery[0]).toEqual({ total: 4, on: 3 });
   });
 });
