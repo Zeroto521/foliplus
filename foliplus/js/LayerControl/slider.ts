@@ -14,7 +14,7 @@
 // callbacks; the exported sliderOf() gives a later pass (a reset, an external
 // commit) access to the instance without re-rendering the row.
 import { dom } from "#common/dom.js";
-import { SLIDER } from "#common/sliderClass.js";
+import { SLIDER } from "#common/sliderVocabulary.js";
 
 /** One thumb (number) or a range (min/max pair). */
 type SliderValue = number | [number, number];
@@ -210,14 +210,14 @@ class Slider {
     const initial = options.value;
     const pair = Array.isArray(initial) ? initial : null;
     this.range = pair !== null;
-    // The constructor is a write path too: normalise like setValue so an
+    // The constructor is a write path too: normalize like setValue so an
     // out-of-range or fractional initial value cannot paint past the rail or
     // invert the ARIA bounds.
-    const normalise = (value: number): number =>
+    const normalize = (value: number): number =>
       Number.isFinite(value)
         ? this.round(clamp(value, options.min, options.max))
         : options.min;
-    this.values = (pair ?? [initial as number]).map(normalise);
+    this.values = (pair ?? [initial as number]).map(normalize);
     if (this.range) this.values.sort((a, b) => a - b);
 
     this.root = host;
