@@ -6,8 +6,8 @@
   Structure (all percentages are rail percentages, because every layer below
   shares the track's box):
 
-      .foliplus-slider                 control cell
-        .foliplus-slider-track         inset by half a thumb; the coordinate space
+      .foliplus-slider                 control cell (full field width)
+        .foliplus-slider-track         the coordinate space, full field width
           .foliplus-slider-rail        the rail itself (checkerboard = uncovered)
             .foliplus-slider-fill      the covered span
           .foliplus-slider-marks       zero-height layer on the rail's centre line
@@ -15,9 +15,10 @@
           .foliplus-slider-thumb       one per value (role="slider")
         .foliplus-slider-values        the scale's numbers
 
-  The thumb's travel is the rail: the track is inset by half a thumb and the
-  rail spans the track, so 0% and 100% are the rail's ends and a thumb at
-  either end overhangs by exactly the inset.
+  The track spans the form-control cell exactly, so the rail and the numbers
+  line up with the fields below (select, switch, input). 0% and 100% are the
+  rail's ends; a thumb parked at either end overhangs the rail by half a
+  thumb, which the row's own padding absorbs.
 
   The value bubble is NOT here. It is portaled to <body> by the JS so no
   panel's overflow or stacking context can clip it; see the last block.
@@ -37,8 +38,10 @@
 
 .foliplus-slider-track {
   position: relative;
+  /* The track is the full form-control width: the rail and the numbers line
+     up with the fields below, and a thumb at either end overhangs by half a
+     thumb into the row's own padding. */
   height: var(--foliplus-slider-thumb-size);
-  margin: 0 calc(var(--foliplus-slider-thumb-size) / 2);
   touch-action: none;
   cursor: pointer;
 }
@@ -163,7 +166,6 @@
    inset, so 0% and 100% are the rail's ends. */
 .foliplus-slider-values {
   position: relative;
-  margin: 0 calc(var(--foliplus-slider-thumb-size) / 2);
   height: var(--foliplus-font-size-md);
   line-height: var(--foliplus-font-size-md);
   font-size: var(--foliplus-font-size-sm);

@@ -13,7 +13,7 @@
 // Consumers place the root in a form row and drive map/style state from the
 // callbacks; the exported sliderOf() gives a later pass (a reset, an external
 // commit) access to the instance without re-rendering the row.
-import { dom } from "./dom.js";
+import { dom } from "#common/dom.js";
 
 /** One thumb (number) or a range (min/max pair). */
 type SliderValue = number | [number, number];
@@ -89,19 +89,21 @@ let bubbleDismiss: (() => void) | null = null;
 let scrollBound = false;
 
 const ensureBubble = (): HTMLElement => {
-  if (!bubbleEl) {
-    bubbleEl = dom.el("div", {
+  let el = bubbleEl;
+  if (!el) {
+    el = dom.el("div", {
       class: "foliplus-slider-bubble",
       "aria-hidden": "true",
     });
-    bubbleEl.hidden = true;
-    document.body.appendChild(bubbleEl);
+    el.hidden = true;
+    document.body.appendChild(el);
+    bubbleEl = el;
   }
   if (!scrollBound) {
     scrollBound = true;
     window.addEventListener("scroll", () => bubbleDismiss?.(), true);
   }
-  return bubbleEl;
+  return el;
 };
 
 /** Keep the bubble inside the viewport and pointing at *anchor*: above it
@@ -401,12 +403,13 @@ class Slider {
     this.currentEl = null;
     const current = this.opts.current;
     if (!current || !this.opts.values) return;
-    this.currentEl = dom.el(
+    const label = dom.el(
       "span",
       { class: "foliplus-slider-value-current" },
       current.text,
     );
-    this.valuesRow.appendChild(this.currentEl);
+    this.currentEl = label;
+    this.valuesRow.appendChild(label);
   }
 
   private renderMarks(): void {

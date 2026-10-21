@@ -10,8 +10,8 @@
 // also syncs the panel rail (UI chrome outside the descriptor).
 import { CAP_TIER, DIM, GROUP } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
+import { Slider, sliderOf } from "#foliplus/LayerControl/slider.js";
 import { dom } from "#common/dom.js";
-import { Slider, sliderOf } from "#common/slider.js";
 import { applyProjection } from "../apply.js";
 import { INTENT } from "../intent.js";
 import { syncNoBasemap } from "../listPanel/visibility.js";
