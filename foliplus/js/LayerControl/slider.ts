@@ -635,8 +635,11 @@ class Slider {
       default:
         return;
     }
+    // The key is the control's: prevent the page default, but let it bubble.
+    // foliplus' shared dispatcher already stands aside for `role="slider"`
+    // (inputOwnership), so stopping propagation here would only hide the
+    // event from hosts that do not use that dispatcher.
     event.preventDefault();
-    event.stopPropagation();
     this.active = index;
     const next = this.round(this.values[index] + delta);
     if (next === this.values[index]) {

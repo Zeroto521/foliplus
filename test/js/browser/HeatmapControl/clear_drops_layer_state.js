@@ -73,13 +73,18 @@ async () => {
     await wait(120);
     const host = document.querySelector(".foliplus-style-opacity-track");
     if (!host) return "no-slider";
-    // Drive the primitive directly: this probe checks the persistence/clear
-    // contract, not pointer mechanics (the slider's own browser probes cover
-    // the drag path). setValue is the live pass, commit the settle pass.
-    const slider = window.foliplus.common.slider.sliderOf(host);
-    if (!slider) return "no-slider";
-    slider.setValue(35);
-    slider.commit();
+    // Drive the control with the keyboard: Home then 35 steps. Deterministic,
+    // independent of layout, and it runs the same commit path a key press
+    // does (the slider's own probes cover the pointer path).
+    const thumb = host.querySelector(".foliplus-slider-thumb");
+    if (!thumb) return "no-slider";
+    thumb.focus();
+    const key = k =>
+      thumb.dispatchEvent(
+        new KeyboardEvent("keydown", { key: k, bubbles: true, cancelable: true }),
+      );
+    key("Home");
+    for (let i = 0; i < 35; i += 1) key("ArrowRight");
     await wait(250);
 
     const cb = rowOf().querySelector('input[type="checkbox"]');

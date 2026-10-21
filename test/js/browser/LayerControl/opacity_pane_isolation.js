@@ -58,10 +58,21 @@
     const thumb = host.querySelector(".foliplus-slider-thumb");
     const rect = track.getBoundingClientRect();
     if (!rect.width) {
-      // The panel was opened in this same tick; if layout has not produced a
-      // track yet, fall back to the primitive's public setter rather than
-      // reading a zero-width rail as "value 0".
-      window.foliplus?.common?.slider?.sliderOf?.(host)?.setValue(pct);
+      // The panel was opened in this same tick and layout has not produced a
+      // track yet. Drive it with the keyboard instead: one Home + N steps is
+      // deterministic, uses the primitive's own commit path, and needs no
+      // layout.
+      const setOpacityByKeyboard = (host, pct) => {
+        const thumb = host.querySelector(".foliplus-slider-thumb");
+        thumb.focus();
+        const key = k =>
+          thumb.dispatchEvent(
+            new KeyboardEvent("keydown", { key: k, bubbles: true, cancelable: true }),
+          );
+        key("Home");
+        for (let i = 0; i < pct; i += 1) key("ArrowRight");
+      };
+      setOpacityByKeyboard(host, pct);
       return;
     }
     const x = rect.left + rect.width * (pct / 100);
