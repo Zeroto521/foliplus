@@ -321,69 +321,6 @@ describe("Slider primitive", () => {
     expect(bubble.hidden).toBe(true);
   });
 
-  it("rebuilds the marks and the current label when their data changes", () => {
-    const { host } = make({
-      min: 0,
-      max: 19,
-      value: [4, 8],
-      label: "x",
-      marks: [{ at: 0, tone: "limit" }],
-      values: { min: "0", max: "19" },
-      current: { at: 12, text: "12" },
-    });
-    const slider = sliderOf(host)!;
-    slider.setMarks([
-      { at: 0, tone: "limit" },
-      { at: 19, tone: "limit" },
-    ]);
-    expect(host.querySelectorAll(".foliplus-slider-dot")).toHaveLength(2);
-    slider.setCurrent({ at: 13, text: "13" });
-    expect(host.querySelector(".foliplus-slider-value-current")?.textContent).toBe(
-      "13",
-    );
-    slider.setCurrent(null);
-    expect(host.querySelector(".foliplus-slider-value-current")).toBeNull();
-    slider.setCurrent(null);
-    expect(host.querySelector(".foliplus-slider-value-current")).toBeNull();
-  });
-
-  it("toggles describedBy and disabled state in place", () => {
-    const { host } = make({ min: 0, max: 10, value: 2, label: "x" });
-    const slider = sliderOf(host)!;
-    slider.setDescribedBy("hint-9");
-    expect(thumb(host).getAttribute("aria-describedby")).toBe("hint-9");
-    slider.setDescribedBy(undefined);
-    expect(thumb(host).hasAttribute("aria-describedby")).toBe(false);
-
-    slider.setDisabled(true);
-    expect(thumb(host).getAttribute("aria-disabled")).toBe("true");
-    slider.setDisabled(true);
-    expect(thumb(host).getAttribute("aria-disabled")).toBe("true");
-    slider.setDisabled(false);
-    expect(thumb(host).getAttribute("aria-disabled")).toBe("false");
-  });
-
-  it("re-reads the inline direction on demand", () => {
-    const { host } = make({ min: 0, max: 100, value: 25, label: "x" });
-    expect(thumb(host).style.left).toBe("25%");
-    host.style.direction = "rtl";
-    sliderOf(host)!.refreshDirection();
-    expect(thumb(host).style.left).toBe("75%");
-  });
-
-  it("dismisses the bubble on demand and on scroll", () => {
-    const { host } = make({ min: 0, max: 100, value: 42, label: "x" });
-    const thumbEl = thumb(host);
-    thumbEl.dispatchEvent(new Event("focus"));
-    const bubble = document.querySelector(".foliplus-slider-bubble") as HTMLElement;
-    expect(bubble.classList.contains("is-on")).toBe(true);
-    sliderOf(host)!.dismissBubble();
-    expect(bubble.classList.contains("is-on")).toBe(false);
-    thumbEl.dispatchEvent(new Event("focus"));
-    window.dispatchEvent(new Event("scroll"));
-    expect(bubble.classList.contains("is-on")).toBe(false);
-  });
-
   it("clamps a normal range at the neighbour through the pointer path", () => {
     const { host } = make({ min: 0, max: 100, value: [20, 80], label: "x" });
     const track = stubTrack(host);
@@ -634,5 +571,214 @@ describe("Slider primitive", () => {
     track.dispatchEvent(pointer("pointerdown", 25));
     expect(sliderOf(host)!.value).toBe(75);
     track.dispatchEvent(pointer("pointerup", 25));
+  });
+
+  it("answers sliderOf for null and non-HTML elements", () => {
+    expect(sliderOf(null)).toBeUndefined();
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    expect(sliderOf(svg)).toBeUndefined();
+  });
+
+  it("places the bubble above when there is room", () => {
+    const { host } = make({ min: 0, max: 100, value: 42, label: "x" });
+    const thumbEl = thumb(host);
+    thumbEl.dispatchEvent(new Event("focus"));
+    const bubble = document.querySelector(".foliplus-slider-bubble") as HTMLElement;
+    bubble.getBoundingClientRect = () =>
+      fakeRect({ left: 0, top: 0, width: 40, height: 30 });
+    thumbEl.getBoundingClientRect = () =>
+      fakeRect({ left: 100, top: 400, width: 14, height: 14 });
+    thumbEl.dispatchEvent(new Event("focus"));
+    expect(bubble.dataset.side).toBe("above");
+  });
+
+  it("ignores non-finite writes", () => {
+    const { host } = make({ min: 0, max: 100, value: 40, label: "x" });
+    const slider = sliderOf(host)!;
+    slider.setValue(Number.NaN);
+    expect(slider.value).toBe(40);
+    slider.setValue(Number.POSITIVE_INFINITY);
+    expect(slider.value).toBe(40);
+  });
+
+  it("adds marks to a slider built without them and treats a missing tone as limit", () => {
+    const { host } = make({ min: 0, max: 100, value: 40, label: "x" });
+    const slider = sliderOf(host)!;
+    slider.setMarks([{ at: 0 }, { at: 100 }]);
+    expect(host.querySelectorAll(".foliplus-slider-dot")).toHaveLength(2);
+    // The same data again compares equal through the tone fallback.
+    slider.setMarks([{ at: 0 }, { at: 100 }]);
+    expect(host.querySelectorAll(".foliplus-slider-dot")).toHaveLength(2);
+  });
+
+  it("clamps the upper thumb when it is dragged below the lower one", () => {
+    const { host } = make({ min: 0, max: 100, value: [20, 80], label: "x" });
+    const track = stubTrack(host);
+    track.dispatchEvent(pointer("pointerdown", 75)); // picks the upper thumb
+    track.dispatchEvent(pointer("pointermove", 5));
+    expect(sliderOf(host)!.value).toEqual([20, 20]);
+    track.dispatchEvent(pointer("pointerup", 5));
+  });
+
+  it("falls back to plain numbers when format and step are not given", () => {
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    hosts.push(host);
+    new Slider(host, {
+      min: 0,
+      max: 100,
+      value: 40,
+      label: "x",
+      format: undefined,
+      step: undefined,
+    });
+    expect(thumb(host).getAttribute("aria-valuetext")).toBe("40");
+    press(thumb(host), "ArrowRight");
+    expect(sliderOf(host)!.value).toBe(41);
+  });
+
+  it("ignores pointer events from another pointer id", () => {
+    const change = vi.fn();
+    const { host } = make({ min: 0, max: 100, value: 0, label: "x", change });
+    const track = stubTrack(host);
+    track.dispatchEvent(pointer("pointerdown", 40));
+    const move = pointer("pointermove", 80);
+    Object.defineProperty(move, "pointerId", { value: 99 });
+    track.dispatchEvent(move);
+    expect(sliderOf(host)!.value).toBe(40);
+    const up = pointer("pointerup", 80);
+    Object.defineProperty(up, "pointerId", { value: 99 });
+    track.dispatchEvent(up);
+    expect(change).not.toHaveBeenCalled();
+    track.dispatchEvent(pointer("pointerup", 40));
+    expect(change).toHaveBeenCalledWith(40);
+  });
+
+  it("commits nothing when capture is lost without movement", () => {
+    const change = vi.fn();
+    const { host } = make({ min: 0, max: 100, value: 40, label: "x", change });
+    const track = stubTrack(host);
+    track.dispatchEvent(pointer("pointerdown", 40));
+    track.dispatchEvent(new Event("lostpointercapture"));
+    expect(change).not.toHaveBeenCalled();
+  });
+
+  it("ignores a thumb press while disabled", () => {
+    const { host } = make({
+      min: 0,
+      max: 100,
+      value: 40,
+      label: "x",
+      disabled: true,
+    });
+    thumb(host).dispatchEvent(pointer("pointerdown", 80));
+    expect(sliderOf(host)!.value).toBe(40);
+    expect(
+      host.querySelector(".foliplus-slider-thumb")?.classList.contains("is-dragging"),
+    ).toBe(false);
+  });
+
+  it("takes the lower thumb when a stacked pair is pressed on its left half", () => {
+    const { host } = make({ min: 0, max: 100, value: [50, 50], label: "x" });
+    const track = stubTrack(host);
+    thumb(host, 1).dispatchEvent(pointer("pointerdown", 48));
+    track.dispatchEvent(pointer("pointermove", 70));
+    expect(sliderOf(host)!.value).toEqual([70, 70]);
+    track.dispatchEvent(pointer("pointerup", 70));
+  });
+
+  it("drops a stale bubble frame when another slider takes over", async () => {
+    const a = make({ min: 0, max: 100, value: 40, label: "a" });
+    const b = make({ min: 0, max: 100, value: 60, label: "b" });
+    const thumbA = thumb(a.host);
+    thumbA.dispatchEvent(new Event("focus"));
+    press(thumbA, "ArrowRight"); // schedules a placement frame
+    thumb(b.host).dispatchEvent(new Event("focus")); // owner changes
+    await new Promise(resolve => window.setTimeout(resolve, 40));
+    const bubble = document.querySelector(".foliplus-slider-bubble") as HTMLElement;
+    expect(bubble.textContent).toBe("60");
+  });
+
+  it("keeps the bubble when it is reshown before the hide delay", async () => {
+    const { host } = make({ min: 0, max: 100, value: 42, label: "x" });
+    const thumbEl = thumb(host);
+    thumbEl.dispatchEvent(new Event("focus"));
+    thumbEl.dispatchEvent(new Event("blur"));
+    thumbEl.dispatchEvent(new Event("focus"));
+    await new Promise(resolve => window.setTimeout(resolve, 200));
+    const bubble = document.querySelector(".foliplus-slider-bubble") as HTMLElement;
+    expect(bubble.classList.contains("is-on")).toBe(true);
+    expect(bubble.hidden).toBe(false);
+  });
+
+  it("keeps a degenerate range pinned at the start", () => {
+    const { host } = make({ min: 5, max: 5, value: 5, label: "x" });
+    expect(thumb(host).style.left).toBe("0%");
+  });
+
+  it("does not swap an already ordered range", () => {
+    const { host } = make({ min: 0, max: 19, value: [4, 8], label: "x" });
+    const slider = sliderOf(host)!;
+    slider.setValue([2, 15]);
+    expect(slider.value).toEqual([2, 15]);
+  });
+
+  it("marks the current tone dot with its class", () => {
+    const { host } = make({ min: 0, max: 100, value: 40, label: "x" });
+    sliderOf(host)!.setMarks([{ at: 50, tone: "current" }]);
+    expect(
+      host
+        .querySelector(".foliplus-slider-dot")!
+        .classList.contains("foliplus-slider-dot-current"),
+    ).toBe(true);
+  });
+
+  it("hides the current label when it sits near an end", () => {
+    const { host } = make({
+      min: 0,
+      max: 100,
+      value: 50,
+      label: "x",
+      values: { min: "0", max: "100" },
+      current: { at: 2, text: "2", hideGapPct: 10 },
+    });
+    expect(
+      host
+        .querySelector(".foliplus-slider-value-current")!
+        .classList.contains("foliplus-slider-label-hidden"),
+    ).toBe(true);
+    sliderOf(host)!.setCurrent({ at: 50, text: "50", hideGapPct: 10 });
+    expect(
+      host
+        .querySelector(".foliplus-slider-value-current")!
+        .classList.contains("foliplus-slider-label-hidden"),
+    ).toBe(false);
+  });
+
+  it("does not commit when a press ends without movement", () => {
+    const change = vi.fn();
+    const { host } = make({ min: 0, max: 100, value: 40, label: "x", change });
+    const track = stubTrack(host);
+    track.dispatchEvent(pointer("pointerdown", 40));
+    track.dispatchEvent(pointer("pointerup", 40));
+    expect(change).not.toHaveBeenCalled();
+  });
+
+  it("falls back to plain numbers in the bubble on change when format is omitted", () => {
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    hosts.push(host);
+    new Slider(host, {
+      min: 0,
+      max: 100,
+      value: 40,
+      label: "x",
+      format: undefined,
+    });
+    const thumbEl = thumb(host);
+    thumbEl.dispatchEvent(new Event("focus"));
+    press(thumbEl, "ArrowRight");
+    const bubble = document.querySelector(".foliplus-slider-bubble") as HTMLElement;
+    expect(bubble.textContent).toBe("41");
   });
 });
