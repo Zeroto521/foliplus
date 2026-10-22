@@ -27,10 +27,12 @@ const SIZE = {
   MIN: 1,
   MAX: 64,
   STEP: 1,
-  /** Leaflet's own `CircleMarker` default — the field's value when the
-   *  author declared nothing and the entry loses to `bindLiveNumber`'s
-   *  invalid-input branch. */
-  DEFAULT: 5,
+  /** The value an empty entry lands on. Matches the `CircleMarker` radius an
+   *  author gets without specifying one (folium 0.20.0 and Leaflet both
+   *  default to 10), so a cleared field returns to where a freshly drawn,
+   *  un-declared marker sits. Only reachable through the invalid-input branch
+   *  and the no-leaf fallback — never a bound. */
+  DEFAULT: 10,
 } as const;
 
 /** Focus-on-layer behavior. */

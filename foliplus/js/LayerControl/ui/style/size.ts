@@ -13,13 +13,13 @@
 // rides the fill row's panel position instead — `renderStylePanel` appends it
 // right after the fill row it belongs to, and `openStylePanel` binds it.
 //
-// Only `L.CircleMarker` qualifies. The carrier test is `getRadius` plus a
-// numeric `_radius` and no `_mRadius` — the same test the `size` capability
-// probe runs
-// (`hasRadiusLeaf`), so a row that renders always has a leaf to write and
-// never has a leaf it cannot write. `L.Circle` keeps its radius in metres
-// (`_mRadius`) and never gets a row: one px field could not write both
-// without inventing a unit for one of them.
+// Only `L.CircleMarker` qualifies. The carrier test is `isPixelRadiusLeaf` —
+// `getRadius` plus a numeric `_radius`, no `_mRadius`, and a real
+// `setRadius` — which `hasRadiusLeaf` runs across the whole tree, so a row
+// that renders always has a leaf to write and never has a leaf it cannot
+// write. `L.Circle` keeps its radius in metres (`_mRadius`) and never gets a
+// row: one px field could not write both without inventing a unit for one of
+// them.
 //
 // The authored radius is frozen, not read. `setRadius` writes the leaf's own
 // `_radius`, so reading it back after a write would feed the leaf its own last
@@ -29,6 +29,7 @@
 // Keyed by leaf so a tree that replaces its children (a re-rendering
 // GeoJSON) recaptures honestly instead of restoring a freed radius.
 import { CAP_TIER, findLeaf, walkLeaf } from "#core/layer/index.js";
+import { type PixelRadiusLeaf, isPixelRadiusLeaf } from "#core/leafletAdapter.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { dom } from "#common/dom.js";
 import { bindLiveNumber, formRow, inlineControls, numberInput } from "#common/form.js";
@@ -36,35 +37,11 @@ import { INTENT, getIntent } from "../intent.js";
 import type { LayerUI } from "../surface.js";
 import { resetIntentKeys, writeIntentKeys } from "./registry.js";
 
-/** A leaf that carries a pixel radius — the only write target of this row. */
-type RadiusLeaf = {
-  getRadius(): number;
-  setRadius(radius: number): unknown;
-  _radius?: unknown;
-};
-
-/** The carrier test, inlined so the writer does not depend on the capability
- *  probe module. `getRadius` is shared by CircleMarker and Circle, and
- *  `L.Circle` ends up with a numeric `_radius` too (its `_project` derives a
- *  pixel value from the metre radius once it is attached), so `_mRadius` is
- *  what keeps the metre-radius circle out — the same three-feature test
- *  `hasRadiusLeaf` runs. */
-const isRadiusLeaf = (node: unknown): node is RadiusLeaf => {
-  const n = node as {
-    getRadius?: unknown;
-    _radius?: unknown;
-    _mRadius?: unknown;
-  };
-  return (
-    typeof n.getRadius === "function" &&
-    typeof n._radius === "number" &&
-    n._mRadius === undefined
-  );
-};
-
 /** The author's radius per leaf — captured on the layer's first write, and by
- *  reset time the only copy of it (`setRadius` mutates `_radius` in place). */
-const authorRadius = new WeakMap<RadiusLeaf, number>();
+ *  reset time the only copy of it (`setRadius` mutates `_radius` in place).
+ *  Keyed by leaf so a tree that replaces its children (a re-rendering GeoJSON)
+ *  recaptures honestly instead of restoring a freed radius. */
+const authorRadius = new WeakMap<PixelRadiusLeaf, number>();
 
 /** Whether the layer's surface can honestly carry a radius write. The same
  *  two-layer gate every other dimension uses: the layer must be in the
@@ -88,7 +65,7 @@ const applySizeToLayer = (ui: LayerUI, layerId: string): void => {
   const layer = ui.c.findLayer(layerId);
   if (!layer) return;
   walkLeaf(layer, leaf => {
-    if (!isRadiusLeaf(leaf)) return;
+    if (!isPixelRadiusLeaf(leaf)) return;
     if (!authorRadius.has(leaf)) authorRadius.set(leaf, leaf.getRadius());
     leaf.setRadius(size);
   });
@@ -96,10 +73,15 @@ const applySizeToLayer = (ui: LayerUI, layerId: string): void => {
 
 /** Commit the size field. Called from `bindLiveNumber`, which already clamps
  *  into the shared bounds. Only writes when the value moved — a color-picker
- *  style drag revisits every step, and each pass is a sweep over the tree. */
+ *  style drag revisits every step, and each pass is a sweep over the tree.
+ *
+ *  The value is rounded here as well as in the field's `normalize`: intent is
+ *  never a fraction, so the stored value and the map agree before and after a
+ *  reload. `parseSize` rounds on the read side for the same reason. */
 const commitSize = (ui: LayerUI, layerId: string, px: number): void => {
-  if (getIntent(ui, layerId, INTENT.SIZE) === px) return;
-  writeIntentKeys(ui, layerId, [[INTENT.SIZE, px]]);
+  const size = Math.round(px);
+  if (getIntent(ui, layerId, INTENT.SIZE) === size) return;
+  writeIntentKeys(ui, layerId, [[INTENT.SIZE, size]]);
   applySizeToLayer(ui, layerId);
 };
 
@@ -117,7 +99,7 @@ const resetLayerSize = (ui: LayerUI, layerId: string): void => {
   const layer = ui.c.findLayer(layerId);
   if (!layer) return;
   walkLeaf(layer, leaf => {
-    if (!isRadiusLeaf(leaf)) return;
+    if (!isPixelRadiusLeaf(leaf)) return;
     const authored = authorRadius.get(leaf);
     if (authored !== undefined) leaf.setRadius(authored);
     authorRadius.delete(leaf);
@@ -130,8 +112,8 @@ const resetLayerSize = (ui: LayerUI, layerId: string): void => {
 const firstAuthorRadius = (ui: LayerUI, layerId: string): number => {
   const layer = ui.c.findLayer(layerId);
   if (!layer) return CONST.SIZE.DEFAULT;
-  const leaf = findLeaf<RadiusLeaf>(layer, candidate =>
-    isRadiusLeaf(candidate) ? candidate : undefined,
+  const leaf = findLeaf<PixelRadiusLeaf>(layer, candidate =>
+    isPixelRadiusLeaf(candidate) ? candidate : undefined,
   );
   return leaf ? (authorRadius.get(leaf) ?? leaf.getRadius()) : CONST.SIZE.DEFAULT;
 };
@@ -175,6 +157,10 @@ const bindSizeRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => {
     min: CONST.SIZE.MIN,
     max: CONST.SIZE.MAX,
     fallback: CONST.SIZE.DEFAULT,
+    // The size field accepts whole pixels only, and intent / storage round to
+    // whole pixels too — normalize before the commit so a fraction typed
+    // mid-way cannot reach the map or the save as anything but an integer.
+    normalize: Math.round,
     onCommit: px => commitSize(ui, layerId, px),
   });
 };

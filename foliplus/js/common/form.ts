@@ -91,7 +91,13 @@ const formRow = (
 
 /** Live number input: apply in-range values on every keystroke; on commit
  *  (change) clamp into [min, max] and rewrite the field. Shared by border
- *  weight and label size so both behave identically. */
+ *  weight and label size so both behave identically.
+ *
+ *  `normalize` reshapes a parsed value before the bounds check, before the
+ *  commit and before the field is rewritten. A field whose stored value is
+ *  always an integer passes it so the map, the field and what survives a
+ *  reload all show the same number — without it a fraction typed mid-way is
+ *  committed as-is and only rounds later, on the next read. */
 const bindLiveNumber = (
   input: HTMLInputElement,
   opts: {
@@ -99,16 +105,19 @@ const bindLiveNumber = (
     max: number;
     fallback: number;
     onCommit: (value: number) => void;
+    normalize?: (value: number) => number;
   },
 ): void => {
+  const shape = (value: number): number =>
+    opts.normalize ? opts.normalize(value) : value;
   input.oninput = () => {
-    const v = parseFloat(input.value);
+    const v = shape(parseFloat(input.value));
     if (!Number.isNaN(v) && v >= opts.min && v <= opts.max) opts.onCommit(v);
   };
   input.onchange = () => {
-    const v = parseFloat(input.value);
+    const v = shape(parseFloat(input.value));
     const clamped = Number.isNaN(v)
-      ? opts.fallback
+      ? shape(opts.fallback)
       : Math.min(opts.max, Math.max(opts.min, v));
     input.value = String(clamped);
     opts.onCommit(clamped);

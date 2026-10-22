@@ -487,6 +487,26 @@ describe("bindSizeRow", () => {
     expect(layer.setRadius).toHaveBeenCalledWith(CONST.SIZE.MAX);
   });
 
+  it("rounds a fraction on the way in, so the map never sees a decimal", () => {
+    const { layer, input } = bind();
+    input.value = "30.5";
+    input.dispatchEvent(new Event("input"));
+    expect(layer.setRadius).toHaveBeenCalledWith(31);
+    expect(getIntent(ui, "overlay1", "size")).toBe(31);
+  });
+
+  it("rewrites the field to the rounded value on change", () => {
+    // Without this, a fraction committed mid-typing is stored as-is and only
+    // rounds on the next read — the map changes size while the saved value does
+    // not. The whole-value rule has to hold on the write side as well.
+    const { layer, input } = bind();
+    input.value = "30.5";
+    input.dispatchEvent(new Event("change"));
+    expect(input.value).toBe("31");
+    expect(layer.setRadius).toHaveBeenCalledWith(31);
+    expect(getIntent(ui, "overlay1", "size")).toBe(31);
+  });
+
   it("falls back for an empty field", () => {
     const { layer, input } = bind();
     input.value = "";

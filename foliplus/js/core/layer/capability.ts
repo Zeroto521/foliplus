@@ -14,36 +14,15 @@
 // to fan the style out to, so it returns false like an empty LayerGroup or
 // a Marker with no children — the `setStyle` of its own is not a real
 // carrier when the walk finds nothing to write to.
+import { isPixelRadiusLeaf } from "../leafletAdapter.js";
 import { someLeaf } from "./walkLeaf.js";
 
 /** Whether any leaf in the tree owns a *pixel* radius — the honest carrier
- *  check for the size axis.
- *
- *  Three carrier features, no class check:
- *
- *  - `getRadius` is the reader, and it is shared by `L.CircleMarker` and
- *    `L.Circle`, so it cannot tell them apart;
- *  - `_radius` is the field `CircleMarker.setRadius` writes — the pixel
- *    radius;
- *  - `_mRadius === undefined` is the discriminator. `L.Circle` *does* end up
- *    with a numeric `_radius`: its `_project` derives a pixel value from the
- *    metre radius as soon as the layer is attached, which is exactly the
- *    moment it shows up in the layer list. Reading `_mRadius` is the only
- *    field that excludes it whether or not the circle is on the map — the
- *    same carrier-feature rule `isArealStyleLeaf` follows. */
-const hasRadiusLeaf = (node: unknown): boolean =>
-  someLeaf(node, leaf => {
-    const n = leaf as {
-      getRadius?: unknown;
-      _radius?: unknown;
-      _mRadius?: unknown;
-    };
-    return (
-      typeof n.getRadius === "function" &&
-      typeof n._radius === "number" &&
-      n._mRadius === undefined
-    );
-  });
+ *  check for the size axis. The single-leaf test is `isPixelRadiusLeaf`; this
+ *  is only the tree aggregation on top of it, and the size write path
+ *  (`size.ts`) uses the same recognizer, so a row that renders always has a
+ *  leaf it can write. */
+const hasRadiusLeaf = (node: unknown): boolean => someLeaf(node, isPixelRadiusLeaf);
 
 /** Whether any leaf in the tree exposes a runtime `setStyle` — the honest
  *  carrier check for the vector stroke axis (border). */

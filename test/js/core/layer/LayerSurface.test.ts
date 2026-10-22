@@ -26,6 +26,24 @@ class Polyline {
   options: Record<string, unknown> = {};
 }
 
+/** A pixel-radius leaf — the only carrier of the size axis. `_radius` is the
+ *  pixel value `setRadius` writes; the absence of `_mRadius` is what keeps a
+ *  metre-radius circle out of the match. */
+class CircleMarker {
+  options: Record<string, unknown> = {};
+  _radius: number;
+  constructor(radius = 10) {
+    this._radius = radius;
+  }
+  setRadius(radius: number) {
+    this._radius = radius;
+    return this;
+  }
+  getRadius() {
+    return this._radius;
+  }
+}
+
 class Marker {
   options: Record<string, unknown> = {};
   _map: unknown = null;
@@ -663,6 +681,34 @@ describe("LayerSurface.matches", () => {
         ],
       }),
     ).toBe(false);
+  });
+
+  it("rebuilds when the tree's radius carrier changes", () => {
+    // The size capability is baked into the declaration, so a group that later
+    // gained a pixel-radius leaf describes a different face — the surface must
+    // not keep answering "none" from its first walk.
+    const { host } = makeMap();
+    const layer = new Group();
+    const base = {
+      id: "grow",
+      layer: layer as unknown as L.Layer,
+      paneName: "graph",
+      paneSpecs: specs("graph", "label"),
+    };
+    const surface = new LayerSurface(host, base);
+    expect(surface.capabilities.size).toBe(CONST.CAP_TIER.NONE);
+    expect(surface.matches(base)).toBe(true);
+
+    layer.addLayer(new CircleMarker());
+    expect(surface.matches(base)).toBe(false);
+
+    // And the reverse: a tree that lost its radius leaf stops claiming a
+    // capability it no longer has.
+    const sized = new LayerSurface(host, base);
+    expect(sized.capabilities.size).toBe(CONST.CAP_TIER.NATIVE);
+    expect(sized.matches(base)).toBe(true);
+    layer.children = [];
+    expect(sized.matches(base)).toBe(false);
   });
 
   it("treats a changed fill as the same face — a repaint, not a rebuild", () => {
