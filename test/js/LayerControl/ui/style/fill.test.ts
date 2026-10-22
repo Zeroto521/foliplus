@@ -1916,6 +1916,66 @@ describe("applyFillToLayer — fillMode dispatch", () => {
     expect(getIntent(ui, "overlay1", "fillRamp")).toEqual(RAMP);
   });
 
+  it("a ramp arm on a color basemap paints nothing rather than the stored solid", () => {
+    // A basemap has no leaves to classify, so the ramp must degrade to the
+    // pane's existing paint - and it must not fall through to the solid arm,
+    // which would paint the stored solid colour while the panel claims ramp.
+    // The ramp config stays stored, so a later switch back has something to
+    // restore against.
+    manager.registerLayer({
+      id: CONST.SOLID_BASEMAP_ID,
+      name: "Color",
+      group: "base",
+      color: CONST.COLOR.DEFAULT,
+    });
+    setIntent(ui, CONST.SOLID_BASEMAP_ID, "fillColor", "#ff0000");
+    setIntent(ui, CONST.SOLID_BASEMAP_ID, "fillMode", "ramp");
+    setIntent(ui, CONST.SOLID_BASEMAP_ID, "fillRamp", RAMP);
+
+    applyFillToLayer(ui, CONST.SOLID_BASEMAP_ID);
+
+    expect(ui.currentColor).not.toBe("#ff0000");
+    expect(getIntent(ui, CONST.SOLID_BASEMAP_ID, "fillColor")).toBe("#ff0000");
+    expect(getIntent(ui, CONST.SOLID_BASEMAP_ID, "fillRamp")).toEqual(RAMP);
+  });
+
+  it("FILL_DIMENSION.write selects the ramp arm and paints on the next frame", () => {
+    const schedule = vi.fn();
+    ui.c.persistence = { schedule } as never;
+
+    FILL_DIMENSION.write!(ui, "overlay1", {
+      mode: "ramp",
+      ramp: RAMP,
+      opacity: 0.4,
+    });
+
+    expect(getIntent(ui, "overlay1", "fillMode")).toBe("ramp");
+    expect(getIntent(ui, "overlay1", "fillRamp")).toEqual(RAMP);
+    expect(ui.intentStore.isUserSet("overlay1", "fillMode")).toBe(true);
+    expect(ui.intentStore.isUserSet("overlay1", "fillRamp")).toBe(true);
+    expect(schedule).toHaveBeenCalled();
+
+    flushStyleDimApply(FACE.FILL, "overlay1");
+    const last = rampLayer.leaves[0].setStyle.mock.calls.at(-1)![0];
+    expect(last.fillColor).toBe(COLORS[0]);
+    expect(last.fillOpacity).toBe(0.4);
+  });
+
+  it("FILL_DIMENSION.write with a solid patch leaves the ramp arm stored", () => {
+    // The writer writes the keys it is given and no more: a colour pick while
+    // the ramp arm is active must not delete the stored ramp, which is what a
+    // mode switch back restores.
+    setIntent(ui, "overlay1", "fillMode", "ramp");
+    setIntent(ui, "overlay1", "fillRamp", RAMP);
+
+    FILL_DIMENSION.write!(ui, "overlay1", { color: "#ff0000", opacity: 0.5 });
+
+    expect(getIntent(ui, "overlay1", "fillColor")).toBe("#ff0000");
+    expect(getIntent(ui, "overlay1", "fillOpacity")).toBe(0.5);
+    expect(getIntent(ui, "overlay1", "fillMode")).toBe("ramp");
+    expect(getIntent(ui, "overlay1", "fillRamp")).toEqual(RAMP);
+  });
+
   it("a solid switch leaves the author's face in force on mouseout", () => {
     // The ramp config stays stored across the switch (it is the arm's
     // next-time state, not evidence the arm is active), so the getter a ramp

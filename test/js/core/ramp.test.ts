@@ -1,11 +1,22 @@
 // Unit tests for core/ramp — the shared value → colour ramp
 // (breaks + scheme colours + the value → class bisection).
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { METHOD } from "#core/classify.js";
+import { METHOD, computeBreaks } from "#core/classify.js";
 import { SCHEME_FALLBACK_COLOR } from "#core/palette.js";
 import { buildRamp, colorFor } from "#core/ramp.js";
 
+// `computeBreaks` is spied rather than called through so one test can feed
+// buildRamp the single-boundary answer the real classifier never gives: a
+// non-empty input yields two breaks or more, and the empty case short-
+// circuits before `classOf` is reachable. The default is the real
+// implementation, so the other tests are untouched.
+vi.mock("#core/classify.js", async importOriginal => {
+  const actual = await importOriginal<typeof import("#core/classify.js")>();
+  return { ...actual, computeBreaks: vi.fn(actual.computeBreaks) };
+});
+
 afterEach(() => {
+  vi.clearAllMocks();
   delete globalThis.chroma;
 });
 
@@ -115,6 +126,22 @@ describe("buildRamp", () => {
     expect(ramp.breaks).toEqual([42, 42]);
     expect(ramp.colors).toHaveLength(1);
     expect(ramp.classOf(42)).toBe(0);
+  });
+
+  it("clamps a single-boundary answer to class zero", () => {
+    // A defensive floor rather than a reachable state: the classifier never
+    // answers a non-empty input with fewer than two breaks. classOf still
+    // owns the "non-negative index" contract, and a -1 would make colorFor
+    // read `colors[-1]` and degrade a whole ramp to the shared grey.
+    vi.mocked(computeBreaks).mockReturnValueOnce([5]);
+    installChroma(["#only"]);
+
+    const ramp = buildRamp([1, 9], EQUAL);
+
+    expect(ramp.colors).toEqual([]);
+    expect(ramp.classOf(5)).toBe(0);
+    expect(ramp.classOf(99)).toBe(0);
+    expect(colorFor(ramp, 5)).toBe(SCHEME_FALLBACK_COLOR);
   });
 });
 
