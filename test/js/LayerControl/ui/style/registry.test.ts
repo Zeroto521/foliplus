@@ -31,7 +31,10 @@ import {
   resetIntentKeys,
   writeIntentKeys,
 } from "#foliplus/LayerControl/ui/style/registry.js";
-import { ZOOM_RANGE_DIMENSION } from "#foliplus/LayerControl/ui/style/zoomRange.js";
+import {
+  ZOOM_RANGE_DIMENSION,
+  resetLayerZoomRange,
+} from "#foliplus/LayerControl/ui/style/zoomRange.js";
 import { initFixture, installLeafletGlobals } from "../fixture.js";
 
 const TEST_DIM_KEY = "test.dim.registry";
@@ -69,6 +72,18 @@ describe("LayerControl style-panel dimension registry", () => {
     // Unknown dimensions degrade honestly — the panel treats them as
     // "this layer does not support this dimension" rather than erroring.
     expect(getDimension("not.a.dimension")).toBeUndefined();
+  });
+
+  it("a dimension reset for an unregistered layer is null-safe", () => {
+    // A teardown can retire a layer between the panel opening and a scheduled
+    // reset. The zoom-range descriptor and the entry point above it both
+    // re-resolve the entry, and both bail with nothing rather than throwing —
+    // the entry point's NO_DELTA fallback keeps the publish contract intact
+    // for a reset that has nothing to publish.
+    const { ui } = initFixture();
+
+    expect(ZOOM_RANGE_DIMENSION.reset!(ui, "ghost")).toBeUndefined();
+    expect(resetLayerZoomRange(ui, "ghost")).toBeUndefined();
   });
 
   it("listDimensions lists built-in and test dims in insertion order", () => {

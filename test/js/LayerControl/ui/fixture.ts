@@ -175,6 +175,12 @@ const initFixture = (
     data?: ConstructorParameters<typeof LayerController>[1];
     /** The persisted record, written before the manager is constructed. */
     seed?: Record<string, unknown>;
+    /** Runs once the UI shell exists but before attachUI — the point where a
+     *  subscriber can catch the attach sweep's notify. */
+    beforeAttach?: (manager: LayerController, ui: LayerUI) => void;
+    /** Runs after attachUI but before the attach timer fires — the point
+     *  where a test can rewire the map so the init pass announces. */
+    afterAttach?: (manager: LayerController, ui: LayerUI) => void;
   } = {},
 ): { manager: LayerController; ui: LayerUI; map: any } => {
   window.CONFIG.name = "LayerControl";
@@ -263,10 +269,12 @@ const initFixture = (
   );
   manager.enforceOrder();
   manager.ui = new LayerUI(manager, TEST_ENV);
+  const ui = manager.ui!;
+  options.beforeAttach?.(manager, ui);
 
   vi.useFakeTimers();
   manager.attachUI(container);
-  const ui = manager.ui!;
+  options.afterAttach?.(manager, ui);
   vi.advanceTimersByTime(350);
   vi.useRealTimers();
 

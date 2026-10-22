@@ -1006,4 +1006,155 @@ describe("layer notification contract", () => {
     expect(ui.c.layerRegistry.get("beta")?.layer).toBe(replacement);
     expect(onMap.get(replacement) ?? false).toBe(false);
   });
+
+  // ── the parent entries that keep working after a replay ──
+  // A full replay is not always the last step of the entry that ran it:
+  // attach, the init pass and the control-attached pass each repaint rows,
+  // counts or labels afterwards. A subscriber that tears the control down
+  // inside that replay's notify leaves those continuations with no panel, so
+  // each one re-checks before it reaches into the container.
+
+  it("an attach whose replay destroys the control leaves no panel behind", () => {
+    // The stored hide disagrees with the map (folium put the layer back before
+    // this script ran), so the attach sweep has a membership flip to announce.
+    // Tearing the control down there must end the attach entry before it
+    // schedules the init timer. The tail behind that notify happens to tolerate
+    // a missing panel today, so the lock is the end state plus the timer: a
+    // future continuation that does not tolerate it would surface here.
+    let initSpy: ReturnType<typeof vi.spyOn> | null = null;
+    const { manager, ui } = initFixture({
+      seed: { layers: { overlay1: { overrides: ["visible"], visible: false } } },
+      beforeAttach: (m, u) => {
+        initSpy = vi.spyOn(u, "initTypesAndVisibility");
+        u.events.on(EVENTS.LAYER_CHANGE, () => {
+          if (!m.isDestroyed) m.destroy();
+        });
+      },
+    });
+
+    expect(manager.isDestroyed).toBe(true);
+    expect(ui.uiContainer).toBeNull();
+    expect(initSpy).not.toHaveBeenCalled();
+  });
+
+  it("an init pass whose replay destroys the control skips the label replay", () => {
+    // The attach sweep is silent for this layer — the map and the stored
+    // intent agree — so the flip is introduced between attach and the init
+    // timer. The timer's replay then has a membership flip to announce, and
+    // the teardown lands mid-pass rather than after it.
+    const layer = polygonLayer();
+    const changes: string[] = [];
+    let labelSpy: ReturnType<typeof vi.spyOn> | null = null;
+    const { manager } = initFixture({
+      data: [{ id: "overlay1", name: "Polygons", group: "overlay", layer }],
+      afterAttach: (m, u) => {
+        const onMap = trackMembership(m.map);
+        onMap.set(layer, true);
+        m.map.removeLayer(layer);
+        labelSpy = vi.spyOn(u, "applyStyleLabelState");
+        u.events.on(EVENTS.LAYER_CHANGE, payload => {
+          changes.push(payload.id);
+          if (payload.id === "overlay1" && !m.isDestroyed) m.destroy();
+        });
+      },
+    });
+
+    expect(changes).toContain("overlay1");
+    expect(manager.isDestroyed).toBe(true);
+    expect(labelSpy).not.toHaveBeenCalled();
+  });
+
+  it("a control-attached replay whose notify destroys the control skips the label replay", () => {
+    // The same boundary on the re-run path: a later component attaching
+    // re-triggers the init pass, whose replay can announce. The round stops at
+    // the teardown — the layers behind it in the same sweep deliver nothing
+    // once the registry is gone — and the label replay never runs.
+    const { ui, manager } = oneOverlay();
+    setIntent(ui, "overlay1", "visible", false);
+    ui.intentStore.seedProvenance("overlay1", ["visible"]);
+    const labelSpy = vi.spyOn(ui, "applyStyleLabelState");
+
+    let announced = 0;
+    ui.events.on(EVENTS.LAYER_CHANGE, () => {
+      announced += 1;
+      if (!manager.isDestroyed) manager.destroy();
+    });
+
+    ui.events.emit(EVENTS.CONTROL_ATTACHED, { component: "HeatmapControl" });
+
+    expect(announced).toBe(1);
+    expect(manager.isDestroyed).toBe(true);
+    expect(ui.uiContainer).toBeNull();
+    expect(labelSpy).not.toHaveBeenCalled();
+  });
+
+  it("a bringLayerToFront whose rebuild replay destroys the control announces nothing", () => {
+    // Same retirement window as the move entries: the rebuild's replay is what
+    // announces, and a subscriber that destroys the control there leaves no
+    // registry to announce the reorder against.
+    const layerAlpha = polygonLayer();
+    const layerBeta = polygonLayer();
+    const { ui, manager } = initFixture({
+      data: [
+        { id: "alpha", name: "Alpha", group: "overlay", layer: layerAlpha },
+        { id: "beta", name: "Beta", group: "overlay", layer: layerBeta },
+      ],
+    });
+    const onMap = trackMembership(ui.c.map);
+    onMap.set(layerAlpha, true);
+    onMap.set(layerBeta, true);
+    manager.map.removeLayer(layerBeta);
+
+    const changes: string[] = [];
+    ui.events.on(EVENTS.LAYER_CHANGE, payload => {
+      changes.push(payload.id);
+      if (payload.id === "beta" && !manager.isDestroyed) manager.destroy();
+    });
+
+    expect(() => manager.bringLayerToFront("beta")).not.toThrow();
+    expect(changes).toEqual(["beta"]);
+    expect(manager.isDestroyed).toBe(true);
+  });
+
+  it("a moveLayerUp whose rebuild replay destroys the control announces nothing", () => {
+    const layerAlpha = polygonLayer();
+    const layerBeta = polygonLayer();
+    const { ui, manager } = initFixture({
+      data: [
+        { id: "alpha", name: "Alpha", group: "overlay", layer: layerAlpha },
+        { id: "beta", name: "Beta", group: "overlay", layer: layerBeta },
+      ],
+    });
+    const onMap = trackMembership(ui.c.map);
+    onMap.set(layerAlpha, true);
+    onMap.set(layerBeta, true);
+    manager.map.removeLayer(layerBeta);
+
+    const changes: string[] = [];
+    ui.events.on(EVENTS.LAYER_CHANGE, payload => {
+      changes.push(payload.id);
+      if (payload.id === "beta" && !manager.isDestroyed) manager.destroy();
+    });
+
+    expect(manager.moveLayerUp("beta")).toBe(true);
+    expect(changes).toEqual(["beta"]);
+    expect(manager.isDestroyed).toBe(true);
+  });
+
+  it("a zoomend skips the row sync once the zoom-range row is detached", () => {
+    // The panel's zoom-end hook is registered while the drawer is open, but a
+    // list rebuild or a teardown can take the row out from under it before the
+    // map fires. Reading the detached node would repaint a row nobody sees, so
+    // the hook checks first.
+    const { ui } = oneOverlay();
+    ui.openStylePanel("overlay1");
+    const row = findItem(ui, "overlay1").querySelector(
+      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_ROW}`,
+    ) as HTMLElement;
+    expect(row).not.toBeNull();
+
+    row.remove();
+
+    expect(() => ui.onZoomEnd?.()).not.toThrow();
+  });
 });
