@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AUTO_FIELD } from "#core/label/index.js";
+import { DIM } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerController } from "#foliplus/LayerControl/controller.js";
 import { sliderOf } from "#foliplus/LayerControl/slider.js";
@@ -25,6 +26,7 @@ import {
   clampPct,
   resetLayerOpacity,
 } from "#foliplus/LayerControl/ui/style/opacity.js";
+import { getDimension } from "#foliplus/LayerControl/ui/style/registry.js";
 import { resetLayerZoomRange } from "#foliplus/LayerControl/ui/style/zoomRange.js";
 import { ensureModes } from "#foliplus/core/mode.js";
 import { getLayerAlpha } from "#common/canvasAlpha.js";
@@ -4553,5 +4555,39 @@ describe("reset on an id the registry does not know", () => {
     expect(() => resetLayerZoomRange(ui, "ghost")).not.toThrow();
     expect(getIntent(ui, "ghost", "zoomRange")).toEqual([3, 12]);
     expect(ui.intentStore.dumpProvenance().ghost).toEqual(["zoomRange"]);
+  });
+});
+
+describe("reset whose dimension reports no delta", () => {
+  // `reset?` is typed `ProjectionDelta | void`: a dimension runs its own side
+  // effects and is free to report nothing back. Both entry points fall back to
+  // the empty delta for that case, so the publish contract still holds — a
+  // reset that cannot say what moved announces nothing.
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("resetLayerOpacity returns the empty delta", () => {
+    const { ui } = initFixture({});
+    const descriptor = getDimension(DIM.OPACITY)!;
+    const resetSpy = vi.spyOn(descriptor, "reset").mockReturnValue(undefined);
+
+    expect(resetLayerOpacity(ui, "overlay1")).toEqual({
+      wroteVisible: false,
+      intentMoved: false,
+    });
+    expect(resetSpy).toHaveBeenCalledWith(ui, "overlay1");
+  });
+
+  it("resetLayerZoomRange returns the empty delta", () => {
+    const { ui } = initFixture({});
+    const descriptor = getDimension(DIM.ZOOM_RANGE)!;
+    const resetSpy = vi.spyOn(descriptor, "reset").mockReturnValue(undefined);
+
+    expect(resetLayerZoomRange(ui, "overlay1")).toEqual({
+      wroteVisible: false,
+      intentMoved: false,
+    });
+    expect(resetSpy).toHaveBeenCalledWith(ui, "overlay1");
   });
 });
