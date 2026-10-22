@@ -638,6 +638,7 @@ describe("panel integration", () => {
 describe("SIZE_DIMENSION", () => {
   let manager: LayerController;
   let ui: LayerUI;
+  let layer: any;
 
   beforeEach(() => {
     ({ manager, ui } = fixtureWithRadiusLayer(10));
@@ -655,6 +656,8 @@ describe("SIZE_DIMENSION", () => {
     expect(getDimension(DIM.SIZE)).toBe(SIZE_DIMENSION);
     expect(SIZE_DIMENSION.key).toBe(DIM.SIZE);
     expect(SIZE_DIMENSION.gate(ui, "overlay1")).toBe(true);
+    // The gate rejects it → "none", never the authored value.
+    expect(SIZE_DIMENSION.valueSource!(ui, "not-registered")).toBe("none");
     // No user choice yet: the value is the authored radius, source "author".
     expect(SIZE_DIMENSION.value(ui, "overlay1")).toBe(10);
     expect(SIZE_DIMENSION.valueSource!(ui, "overlay1")).toBe("author");
@@ -667,6 +670,86 @@ describe("SIZE_DIMENSION", () => {
         `input.${CONST.CLASSES.STYLE_SIZE_INPUT}`,
       ),
     ).not.toBeNull();
+  });
+
+  it("write is the field's own commit, and drops a patch it cannot read", () => {
+    // The descriptor's write is the single cohesive entry point the panel and
+    // the registry tests reach; the direct helper stays only for callers that
+    // already own a commit (the row's live-number binder).
+    ({ manager, ui, layer } = fixtureWithRadiusLayer(10));
+    SIZE_DIMENSION.write!(ui, "overlay1", 30);
+    expect(getIntent(ui, "overlay1", "size")).toBe(30);
+    expect(ui.intentStore.isUserSet("overlay1", "size")).toBe(true);
+    flushSize("overlay1");
+    expect(layer.getRadius()).toBe(30);
+    // A patch the descriptor cannot interpret is dropped rather than coerced
+    // to a number, so a bad call cannot write a radius it was never given.
+    SIZE_DIMENSION.write!(ui, "overlay1", undefined as never);
+    expect(getIntent(ui, "overlay1", "size")).toBe(30);
+    flushSize("overlay1");
+    expect(layer.getRadius()).toBe(30);
+  });
+
+  it("reset drops the override and restores the authored radius", () => {
+    ({ manager, ui, layer } = fixtureWithRadiusLayer(10));
+    SIZE_DIMENSION.write!(ui, "overlay1", 30);
+    flushSize("overlay1");
+    expect(layer.getRadius()).toBe(30);
+    SIZE_DIMENSION.reset!(ui, "overlay1");
+    expect(getIntent(ui, "overlay1", "size")).toBeUndefined();
+    expect(ui.intentStore.isUserSet("overlay1", "size")).toBe(false);
+    expect(layer.getRadius()).toBe(10);
+  });
+
+  it("bails when the registry still holds an id whose layer object is gone", () => {
+    // A registry entry can outlive its Leaflet layer, once the layer is
+    // removed from the map. Both writers must stop without writing a radius or
+    // throwing, and reset must still drop the override so a reload cannot
+    // re-apply a radius the layer no longer shows.
+    ({ manager, ui, layer } = fixtureWithRadiusLayer(10));
+    SIZE_DIMENSION.write!(ui, "overlay1", 30);
+    ui.c.findLayer = vi.fn(() => null) as typeof ui.c.findLayer;
+    flushSize("overlay1");
+    expect(layer.setRadius).not.toHaveBeenCalled();
+    expect(getIntent(ui, "overlay1", "size")).toBe(30);
+    SIZE_DIMENSION.reset!(ui, "overlay1");
+    expect(getIntent(ui, "overlay1", "size")).toBeUndefined();
+    expect(layer.getRadius()).toBe(10);
+  });
+
+  it("restores only the leaves that carry a radius, and leaves the others alone", () => {
+    // A group can mix a radius leaf with a shape that has none. The reset walk
+    // must skip the shape — never writing a style it cannot size — and still
+    // hand the radius leaf back its own authored value.
+    const shape = makePoly(true);
+    const leaf = makeRadiusLeaf(10);
+    ({ manager, ui } = fixtureWithRadiusLayer());
+    manager.registerLayer({
+      id: "mix1",
+      name: "M",
+      group: "overlay",
+      layer: makeGroup(shape, leaf),
+    });
+    commitSize(ui, "mix1", 30);
+    flushSize("mix1");
+    expect(leaf.getRadius()).toBe(30);
+    resetLayerSize(ui, "mix1");
+    expect(leaf.getRadius()).toBe(10);
+    expect(shape.setStyle).not.toHaveBeenCalled();
+  });
+
+  it("value falls back to the default when no leaf can carry a radius", () => {
+    // A layer that exists but has no pixel-radius leaf, and a layer that does
+    // not exist at all, both resolve to the shared default instead of
+    // throwing — value is not gated, so both fallbacks have to hold.
+    ({ manager, ui } = initFixture({
+      data: [
+        { id: "poly1", name: "P", group: "overlay", layer: makePoly(true) },
+        BASE_LAYER,
+      ],
+    }));
+    expect(SIZE_DIMENSION.value(ui, "poly1")).toBe(CONST.SIZE.DEFAULT);
+    expect(SIZE_DIMENSION.value(ui, "not-registered")).toBe(CONST.SIZE.DEFAULT);
   });
 
   it("is absent from the delegated drawer's row order", () => {
