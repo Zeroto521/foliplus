@@ -52,7 +52,7 @@
   /* Flip upward when the row is near the owner control's visible bottom.
      `bottom: 100%` anchors the panel above the row and the same
      `--foliplus-row-panel-max-height` still caps it inside the space above. */
-  &.foliplus-row-panel--up {
+  &.foliplus-row-panel-up {
     top: auto;
     bottom: 100%;
   }

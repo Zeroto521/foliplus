@@ -70,7 +70,7 @@ MEASURE = r"""
     },
     row: { top: rr.top, bottom: rr.bottom },
     map: { top: mr.top, bottom: mr.bottom, height: mr.height },
-    flipUp: panel.classList.contains('foliplus-row-panel--up'),
+    flipUp: panel.classList.contains('foliplus-row-panel-up'),
   };
 }
 """
@@ -185,7 +185,7 @@ class TestRowPanelLayoutBrowser:
         """Bottom row, 1280x720: the panel must open upward.
 
         A row near the map's bottom edge has little space below, so the
-        panel flips above the row via the `--up` modifier. The panel's
+        panel flips above the row via the upward modifier. The panel's
         top edge must stay inside the map.
 
         Uses 10 layers so the last row lands near the map's bottom edge,
@@ -203,11 +203,8 @@ class TestRowPanelLayoutBrowser:
             assert r["ok"] is True, f"measure failed: {r}"
 
             assert r["flipUp"] is True, (
-                f"the bottom-row panel did not flip upward; panel rect "
-                f"top={r['panel']['top']:.1f} bottom={r['panel']['bottom']:.1f}, "
-                f"row top={r['row']['top']:.1f} bottom={r['row']['bottom']:.1f}, "
-                f"map bottom={r['map']['bottom']:.1f}; the space below "
-                f"is the tight side and the panel should re-anchor above"
+                "the bottom-row panel did not flip upward; the space below "
+                "is the tight side and the panel should re-anchor above"
             )
             assert r["panel"]["top"] >= r["map"]["top"], (
                 f"flipped panel top ({r['panel']['top']:.1f}) is above the "

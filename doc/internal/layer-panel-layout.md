@@ -39,7 +39,7 @@ content area scrolls internally when the cap is tighter than the content.
 
 **C — Upward flip.** When the space below is smaller than the panel's natural
 height and the space above is larger, the panel re-anchors upward via the
-`.foliplus-row-panel--up` modifier class (`bottom: 100%; top: auto`).
+`.foliplus-row-panel-up` modifier class (`bottom: 100%; top: auto`).
 
 **Floor.** When both strips are tighter than the content, the cap holds a 120px
 floor. Below that, the panel would hide more content than it shows, so the
@@ -65,7 +65,7 @@ below is the tight side.
 ## Files Changed
 
 - `foliplus/css/common/panel.css` — add `--foliplus-row-panel-max-height`
-  token with fallback, add `.foliplus-row-panel--up` modifier.
+  token with fallback, add `.foliplus-row-panel-up` modifier.
 - `foliplus/js/core/leaflet/panel.ts` — add `measureRowPanelPlacement` and
   `observeRowPanelPlacement`, called from `createRowPanel`.
 - `foliplus/js/core/leaflet/index.ts` — re-export `measureRowPanelPlacement`.

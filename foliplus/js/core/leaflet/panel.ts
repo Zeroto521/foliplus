@@ -324,7 +324,7 @@ const ROW_PANEL_MIN_HEIGHT = 120;
  *       so the content scrolls inside the panel instead of falling off the map.
  *   C — the flip. When the strip below is smaller than the panel needs AND the
  *       strip above is larger, the panel re-anchors upward via the
- *       `--up` modifier class and the same cap is applied to the space above.
+ *       upward-modifier class and the same cap is applied to the space above.
  *
  * When both strips are tighter than the content, the panel lands in the wider
  * one clamped to `ROW_PANEL_MIN_HEIGHT` — the content's own `overflow-y: auto`
@@ -351,7 +351,7 @@ const measureRowPanelPlacement = (panel: HTMLElement): void => {
   const cap = Math.max(ROW_PANEL_MIN_HEIGHT, Math.min(natural, room));
 
   panel.style.setProperty("--foliplus-row-panel-max-height", `${cap}px`);
-  panel.classList.toggle("foliplus-row-panel--up", flipUp);
+  panel.classList.toggle("foliplus-row-panel-up", flipUp);
 };
 
 /** Bind row-panel placement to a panel the caller will mount on a layer row.
@@ -567,5 +567,6 @@ export {
   createPanelControl,
   createPanelHeader,
   measureRowPanelPlacement,
+  observeRowPanelPlacement,
   createRowPanel,
 };
