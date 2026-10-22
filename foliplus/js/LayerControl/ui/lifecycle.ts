@@ -50,6 +50,7 @@ import { closeMoreMenu } from "./overlayPanel/menu.js";
 import { finishRename } from "./overlayPanel/rename.js";
 import { loadPersistedState } from "./state.js";
 import { closeStylePanel, invalidateFields } from "./style/index.js";
+import { replaySizeIntent } from "./style/size.js";
 import { dropStyleDimApplies } from "./style/styleBag.js";
 import type { LayerUI } from "./surface.js";
 
@@ -359,6 +360,15 @@ const onLayerItemCountChange = (ui: LayerUI, id: string): void => {
     ui.runtimeStore.deleteApplied(id);
     applyProjection(ui, id);
   }
+
+  // Size re-applies through the same hook: a pixel-radius leaf that lands
+  // after the user chose a size would otherwise keep the author's radius
+  // forever, because the radius walk only ran while the user was typing. The
+  // stored size is per layer, so the replay reaches every leaf the layer has
+  // now, and a new leaf keeps its own authored radius as the reset target.
+  // Nothing happens when the user never chose a size — the replay reads the
+  // intent and bails, so an untouched layer keeps exactly what was drawn.
+  replaySizeIntent(ui, id);
 };
 
 /** Repaint every layer row from its cell — count, type, tooltip and box. */

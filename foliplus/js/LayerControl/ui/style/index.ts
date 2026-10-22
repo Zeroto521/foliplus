@@ -12,7 +12,6 @@
 // frame-level helpers (reset footer, rail positioning) live in ./frame.ts.
 import { EVENTS } from "#core/event/index.js";
 import { resolveSelectedField } from "#core/label/index.js";
-import { DIM } from "#core/layer/index.js";
 import { createRowPanel } from "#core/leaflet/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import * as SVGs from "#foliplus/LayerControl/icon.js";
@@ -33,7 +32,7 @@ import { appendResetFooter } from "./frame.js";
 import { applyPatch, layerFields, resetStyleLabel, syncFormatRow } from "./label.js";
 import { resetLayerOpacity } from "./opacity.js";
 import { DIM_ORDER, LABEL_DIM_ORDER, gatedRows } from "./registry.js";
-import { bindSizeRow, buildSizeRow, resetLayerSize } from "./size.js";
+import { bindSizeRow, resetLayerSize } from "./size.js";
 import { flushStyleDimApplies } from "./styleBag.js";
 import { resetLayerZoomRange, syncZoomRangeRow } from "./zoomRange.js";
 
@@ -80,14 +79,6 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
   // Label is what document order alone conveys.
   for (const dim of layerRows) {
     content.append(dim.row(ui, layerId));
-    // The size row is not a registry dimension (see ./size.js) — it rides the
-    // fill row's position, because a CircleMarker's fill and its radius are
-    // one idea. The row returns `null` for a Polygon or a metre-radius Circle,
-    // both of which own a fill row but no pixel-radius leaf, so those stay alone.
-    if (dim.key === DIM.FILL) {
-      const sizeRow = buildSizeRow(ui, layerId);
-      if (sizeRow) content.append(sizeRow);
-    }
   }
   // The Label section's gate is a pure capability bit (layer exists +
   // `capabilities.annotation !== "none"`) — the labelable-fields probe that

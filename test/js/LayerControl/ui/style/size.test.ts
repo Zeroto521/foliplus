@@ -1,9 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { EVENTS, ensureEvents } from "#core/event/index.js";
+import { DIM } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerController } from "#foliplus/LayerControl/controller.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { getIntent } from "#foliplus/LayerControl/ui/intent.js";
+import { DELEGATED_DIM_ORDER } from "#foliplus/LayerControl/ui/style/delegated.js";
 import { closeStylePanel } from "#foliplus/LayerControl/ui/style/index.js";
+import { getDimension } from "#foliplus/LayerControl/ui/style/registry.js";
 import {
   applySizeToLayer,
   bindSizeRow,
@@ -12,6 +16,7 @@ import {
   layerCanSize,
   resetLayerSize,
 } from "#foliplus/LayerControl/ui/style/size.js";
+import { FACE, flushStyleDimApply } from "#foliplus/LayerControl/ui/style/styleBag.js";
 import { findItem, initFixture } from "../fixture.js";
 
 // A pixel-radius leaf: Leaflet's CircleMarker, which keeps its radius in
@@ -94,6 +99,10 @@ const fixtureWithRadiusLayer = (radius = 10) => {
 
 const sizeInput = (row: HTMLElement): HTMLInputElement =>
   row.querySelector(`input.${CONST.CLASSES.STYLE_SIZE_INPUT}`) as HTMLInputElement;
+
+/** Flush the size face's coalesced walk so a commit reaches the leaves before
+ *  an assertion — the same discipline the fill and border tests use. */
+const flushSize = (id: string) => flushStyleDimApply(FACE.SIZE, id);
 
 describe("layerCanSize", () => {
   let manager: LayerController;
@@ -249,6 +258,7 @@ describe("buildSizeRow", () => {
     // show the frozen authored value even though the leaf now holds 30.
     ({ manager, ui, layer } = fixtureWithRadiusLayer(10));
     commitSize(ui, "overlay1", 30);
+    flushSize("overlay1");
     ui.intentStore.clear("overlay1", "size");
     expect(layer.getRadius()).toBe(30);
     expect(sizeInput(buildSizeRow(ui, "overlay1")!).value).toBe("10");
@@ -276,14 +286,19 @@ describe("commitSize", () => {
     commitSize(ui, "overlay1", 30);
     expect(getIntent(ui, "overlay1", "size")).toBe(30);
     expect(ui.intentStore.isUserSet("overlay1", "size")).toBe(true);
+    flushSize("overlay1");
     expect(layer.setRadius).toHaveBeenCalledWith(30);
   });
 
   it("is a no-op when the value has not moved", () => {
     ({ manager, ui, layer } = fixtureWithRadiusLayer());
     commitSize(ui, "overlay1", 30);
+    flushSize("overlay1");
     vi.clearAllMocks();
     commitSize(ui, "overlay1", 30);
+    // No second walk is queued, and even a replay would not rewrite a leaf
+    // that already shows the value.
+    flushSize("overlay1");
     expect(layer.setRadius).not.toHaveBeenCalled();
   });
 
@@ -297,6 +312,7 @@ describe("commitSize", () => {
       layer: makeGroup(a, b),
     });
     commitSize(ui, "grp1", 25);
+    flushSize("grp1");
     expect(a.setRadius).toHaveBeenCalledWith(25);
     expect(b.setRadius).toHaveBeenCalledWith(25);
   });
@@ -311,6 +327,7 @@ describe("commitSize", () => {
       layer: makeGroup(cm, metre),
     });
     commitSize(ui, "mix1", 30);
+    flushSize("mix1");
     expect(cm.setRadius).toHaveBeenCalledWith(30);
     expect(metre.setRadius).not.toHaveBeenCalled();
   });
@@ -357,7 +374,9 @@ describe("applySizeToLayer", () => {
   it("freezes the authored radius on the first write, never on a later one", () => {
     ({ manager, ui, layer } = fixtureWithRadiusLayer(10));
     commitSize(ui, "overlay1", 30);
+    flushSize("overlay1");
     commitSize(ui, "overlay1", 45);
+    flushSize("overlay1");
     resetLayerSize(ui, "overlay1");
     expect(layer.getRadius()).toBe(10);
   });
@@ -365,7 +384,9 @@ describe("applySizeToLayer", () => {
   it("restores the author's value, not the user's last choice", () => {
     ({ manager, ui, layer } = fixtureWithRadiusLayer(10));
     commitSize(ui, "overlay1", 30);
+    flushSize("overlay1");
     commitSize(ui, "overlay1", 45);
+    flushSize("overlay1");
     resetLayerSize(ui, "overlay1");
     resetLayerSize(ui, "overlay1");
     expect(layer.getRadius()).toBe(10);
@@ -396,6 +417,7 @@ describe("resetLayerSize", () => {
   it("restores the authored radius and drops value, provenance and disk entry", () => {
     ({ manager, ui, layer } = fixtureWithRadiusLayer(12));
     commitSize(ui, "overlay1", 40);
+    flushSize("overlay1");
     resetLayerSize(ui, "overlay1");
     ui.c.persistence.flushAll();
     expect(layer.getRadius()).toBe(12);
@@ -424,6 +446,7 @@ describe("resetLayerSize", () => {
       layer: makeGroup(a, b),
     });
     commitSize(ui, "grp1", 30);
+    flushSize("grp1");
     resetLayerSize(ui, "grp1");
     expect(a.getRadius()).toBe(8);
     expect(b.getRadius()).toBe(20);
@@ -432,6 +455,7 @@ describe("resetLayerSize", () => {
   it("is safe to call twice", () => {
     ({ manager, ui, layer } = fixtureWithRadiusLayer(10));
     commitSize(ui, "overlay1", 30);
+    flushSize("overlay1");
     resetLayerSize(ui, "overlay1");
     expect(() => resetLayerSize(ui, "overlay1")).not.toThrow();
     expect(layer.getRadius()).toBe(10);
@@ -454,8 +478,8 @@ describe("bindSizeRow", () => {
     vi.useRealTimers();
   });
 
-  const bind = () => {
-    ({ manager, ui, layer } = fixtureWithRadiusLayer());
+  const bind = (radius = 10) => {
+    ({ manager, ui, layer } = fixtureWithRadiusLayer(radius));
     const row = buildSizeRow(ui, "overlay1")!;
     bindSizeRow(ui, "overlay1", row);
     return { layer, input: sizeInput(row) };
@@ -465,6 +489,7 @@ describe("bindSizeRow", () => {
     const { layer, input } = bind();
     input.value = "30";
     input.dispatchEvent(new Event("input"));
+    flushSize("overlay1");
     expect(layer.setRadius).toHaveBeenCalledWith(30);
     expect(getIntent(ui, "overlay1", "size")).toBe(30);
   });
@@ -473,6 +498,7 @@ describe("bindSizeRow", () => {
     const { layer, input } = bind();
     input.value = "999";
     input.dispatchEvent(new Event("input"));
+    flushSize("overlay1");
     expect(layer.setRadius).not.toHaveBeenCalled();
   });
 
@@ -480,11 +506,13 @@ describe("bindSizeRow", () => {
     const { layer, input } = bind();
     input.value = "0";
     input.dispatchEvent(new Event("change"));
+    flushSize("overlay1");
     expect(input.value).toBe(String(CONST.SIZE.MIN));
     expect(layer.setRadius).toHaveBeenCalledWith(CONST.SIZE.MIN);
 
     input.value = "999";
     input.dispatchEvent(new Event("change"));
+    flushSize("overlay1");
     expect(input.value).toBe(String(CONST.SIZE.MAX));
     expect(layer.setRadius).toHaveBeenCalledWith(CONST.SIZE.MAX);
   });
@@ -493,6 +521,7 @@ describe("bindSizeRow", () => {
     const { layer, input } = bind();
     input.value = "30.5";
     input.dispatchEvent(new Event("input"));
+    flushSize("overlay1");
     expect(layer.setRadius).toHaveBeenCalledWith(31);
     expect(getIntent(ui, "overlay1", "size")).toBe(31);
   });
@@ -504,15 +533,19 @@ describe("bindSizeRow", () => {
     const { layer, input } = bind();
     input.value = "30.5";
     input.dispatchEvent(new Event("change"));
+    flushSize("overlay1");
     expect(input.value).toBe("31");
     expect(layer.setRadius).toHaveBeenCalledWith(31);
     expect(getIntent(ui, "overlay1", "size")).toBe(31);
   });
 
   it("falls back for an empty field", () => {
-    const { layer, input } = bind();
+    // The authored radius is not the fallback, so the commit is a real write
+    // and the map can be checked as well as the field.
+    const { layer, input } = bind(12);
     input.value = "";
     input.dispatchEvent(new Event("change"));
+    flushSize("overlay1");
     expect(input.value).toBe(String(CONST.SIZE.DEFAULT));
     expect(layer.setRadius).toHaveBeenCalledWith(CONST.SIZE.DEFAULT);
   });
@@ -599,5 +632,186 @@ describe("panel integration", () => {
     }));
     expect(getIntent(ui, "overlay1", "size")).toBe(30);
     expect(layer.getRadius()).toBe(30);
+  });
+});
+describe("SIZE_DIMENSION", () => {
+  let manager: LayerController;
+  let ui: LayerUI;
+
+  beforeEach(() => {
+    ({ manager, ui } = fixtureWithRadiusLayer(10));
+    window.localStorage.removeItem(CONST.STORAGE.KEY);
+  });
+
+  afterEach(() => {
+    manager?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.useRealTimers();
+  });
+
+  it("registers under DIM.SIZE with a gate, a value and a valueSource", () => {
+    const dim = getDimension(DIM.SIZE)!;
+    expect(dim.key).toBe(DIM.SIZE);
+    expect(dim.gate(ui, "overlay1")).toBe(true);
+    // No user choice yet: the value is the authored radius, source "author".
+    expect(dim.value(ui, "overlay1")).toBe(10);
+    expect(dim.valueSource!(ui, "overlay1")).toBe("author");
+    commitSize(ui, "overlay1", 30);
+    expect(dim.value(ui, "overlay1")).toBe(30);
+    expect(dim.valueSource!(ui, "overlay1")).toBe("user");
+    // The descriptor builds the same row the direct helper builds.
+    expect(
+      dim.row(ui, "overlay1").querySelector(`input.${CONST.CLASSES.STYLE_SIZE_INPUT}`),
+    ).not.toBeNull();
+  });
+
+  it("is absent from the delegated drawer's row order", () => {
+    // A radius is a direct setRadius write, not a setStyle slice, so a
+    // delegated canvas layer never owns one.
+    expect(DELEGATED_DIM_ORDER).not.toContain(DIM.SIZE);
+    expect([...DELEGATED_DIM_ORDER]).toEqual(["opacity", "zoomRange"]);
+  });
+});
+describe("size walk coalescing", () => {
+  let manager: LayerController;
+  let ui: LayerUI;
+  let layer: any;
+
+  beforeEach(() => {
+    ({ manager, ui } = fixtureWithRadiusLayer());
+    window.localStorage.removeItem(CONST.STORAGE.KEY);
+  });
+
+  afterEach(() => {
+    manager?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.useRealTimers();
+  });
+
+  it("coalesces a typing burst into one walk per leaf", () => {
+    const a = makeRadiusLeaf(8);
+    const b = makeRadiusLeaf(20);
+    manager.registerLayer({
+      id: "grp1",
+      name: "G",
+      group: "overlay",
+      layer: makeGroup(a, b),
+    });
+    for (const px of [10, 20, 30, 40]) commitSize(ui, "grp1", px);
+    // One pending frame holds the latest value; nothing has walked yet.
+    expect(a.setRadius).not.toHaveBeenCalled();
+    flushSize("grp1");
+    expect(a.setRadius).toHaveBeenCalledTimes(1);
+    expect(a.setRadius).toHaveBeenLastCalledWith(40);
+    expect(b.setRadius).toHaveBeenCalledTimes(1);
+    expect(b.setRadius).toHaveBeenLastCalledWith(40);
+  });
+
+  it("does not rewrite a leaf that already shows the value", () => {
+    ({ manager, ui, layer } = fixtureWithRadiusLayer(10));
+    commitSize(ui, "overlay1", 10);
+    flushSize("overlay1");
+    expect(layer.setRadius).not.toHaveBeenCalled();
+    expect(layer.getRadius()).toBe(10);
+  });
+
+  it("cancels a pending walk on reset so it cannot land after the restore", () => {
+    ({ manager, ui, layer } = fixtureWithRadiusLayer(10));
+    commitSize(ui, "overlay1", 30);
+    commitSize(ui, "overlay1", 45);
+    resetLayerSize(ui, "overlay1");
+    expect(layer.getRadius()).toBe(10);
+    // The cancelled walk must not resurrect the user's value afterwards.
+    flushSize("overlay1");
+    expect(layer.getRadius()).toBe(10);
+  });
+});
+describe("content-change replay", () => {
+  let manager: LayerController;
+  let ui: LayerUI;
+
+  const groupWith = (children: any[]) => ({
+    options: {},
+    eachLayer: vi.fn((fn: (child: unknown) => void) => {
+      for (const child of children) fn(child);
+    }),
+  });
+
+  afterEach(() => {
+    manager?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.useRealTimers();
+  });
+
+  it("replays the stored size to a leaf that lands after the user chose one", () => {
+    const early = makeRadiusLeaf(8);
+    const late = makeRadiusLeaf(20);
+    const children = [early];
+    ({ manager, ui } = initFixture({
+      data: [
+        { id: "grp1", name: "G", group: "overlay", layer: groupWith(children) },
+        BASE_LAYER,
+      ],
+    }));
+    commitSize(ui, "grp1", 30);
+    flushSize("grp1");
+    expect(early.getRadius()).toBe(30);
+
+    // A leaf lands while the user already has a size chosen.
+    children.push(late);
+    ensureEvents(ui.c.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "grp1" });
+    flushSize("grp1");
+
+    expect(late.getRadius()).toBe(30);
+    expect(early.getRadius()).toBe(30);
+    // Each leaf restores its own authored radius, including the late one.
+    resetLayerSize(ui, "grp1");
+    expect(early.getRadius()).toBe(8);
+    expect(late.getRadius()).toBe(20);
+  });
+
+  it("coalesces a bulk add of leaves into one walk", () => {
+    const early = makeRadiusLeaf(8);
+    const children = [early];
+    ({ manager, ui } = initFixture({
+      data: [
+        { id: "grp1", name: "G", group: "overlay", layer: groupWith(children) },
+        BASE_LAYER,
+      ],
+    }));
+    commitSize(ui, "grp1", 30);
+    flushSize("grp1");
+    expect(early.setRadius).toHaveBeenCalledTimes(1);
+
+    for (let i = 0; i < 5; i++) {
+      children.push(makeRadiusLeaf(4 + i));
+      ensureEvents(ui.c.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "grp1" });
+    }
+    // Five content changes, one pending frame: nothing walked yet.
+    expect(early.setRadius).toHaveBeenCalledTimes(1);
+    expect(children.slice(1).some(l => l.getRadius() === 30)).toBe(false);
+
+    flushSize("grp1");
+    expect(children.slice(1).every(l => l.getRadius() === 30)).toBe(true);
+    // Each new leaf was written once, by that single walk.
+    expect(children.slice(1).every(l => l.setRadius.mock.calls.length === 1)).toBe(
+      true,
+    );
+    // The early leaf was already at the target, so the skip held.
+    expect(early.setRadius).toHaveBeenCalledTimes(1);
+  });
+
+  it("does nothing when the user never chose a size", () => {
+    const leaf = makeRadiusLeaf(9);
+    ({ manager, ui } = initFixture({
+      data: [{ id: "o1", name: "O", group: "overlay", layer: leaf }, BASE_LAYER],
+    }));
+    ensureEvents(ui.c.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "o1" });
+    flushSize("o1");
+    expect(leaf.setRadius).not.toHaveBeenCalled();
+    expect(leaf.getRadius()).toBe(9);
   });
 });

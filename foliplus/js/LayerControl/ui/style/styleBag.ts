@@ -53,13 +53,29 @@ type StyleSetter = StyleCarrier & {
  *  is `"border"`): keep the two apart, one definition per vocabulary. */
 type StyleFace = "fill" | "stroke";
 
-/** The two Leaflet Path write faces, as a named vocabulary. Same convention
- *  as `INTENT` / `DIM`: callers pass `FACE.FILL` / `FACE.STROKE`, never a
- *  bare literal, so the string cannot drift from the type. */
+/** The write faces, as a named vocabulary. Same convention as `INTENT` /
+ *  `DIM`: callers pass `FACE.FILL` / `FACE.STROKE` / `FACE.SIZE`, never a
+ *  bare literal, so the string cannot drift from the type.
+ *
+ *  `FILL` and `STROKE` are `setStyle` faces and so are members of
+ *  `StyleFace`; `SIZE` is not — it is a direct `setRadius` walk. It lives in
+ *  this table because it rides the same frame coalescer (see
+ *  `SchedulerFace`), and one vocabulary for "what the coalescer keys on"
+ *  keeps callers off bare literals. */
 const FACE = {
   FILL: "fill",
   STROKE: "stroke",
+  SIZE: "size",
 } as const;
+
+/** A frame-coalescing key face. Wider than `StyleFace` on purpose: the
+ *  scheduler below is a plain "at most one trailing frame per
+ *  (face, layerId)" queue that knows nothing about `setStyle`, so a walk
+ *  that is not a styleBag slice can share it. `FACE.SIZE` is a direct
+ *  `setRadius` walk rather than a `setStyle` face — without sharing the
+ *  queue, a typing burst across the size field would write one radius per
+ *  leaf per keystroke, and a bulk content change would walk per leaf. */
+type SchedulerFace = StyleFace | "size";
 
 /** Leaflet Path defaults — folium's path_options fills most of these in,
  *  so the fallbacks only fire for a bare Leaflet layer. */
@@ -229,13 +245,13 @@ const restoreStyleDim = (node: StyleSetter, face: StyleFace): void => {
 type ApplyBox = { run: () => void; raf: ReturnType<typeof throttleRaf> };
 const applySchedulers = new Map<string, ApplyBox>();
 
-const applyKey = (face: StyleFace, layerId: string): string => `${face}:${layerId}`;
+const applyKey = (face: SchedulerFace, layerId: string): string => `${face}:${layerId}`;
 
 /** Queue the apply walk for one face. Later calls in the same frame replace
  *  `run` and coalesce into the one pending frame — the walk always reads
  *  the latest intent. */
 const scheduleStyleDimApply = (
-  face: StyleFace,
+  face: SchedulerFace,
   layerId: string,
   run: () => void,
 ): void => {
@@ -254,23 +270,22 @@ const scheduleStyleDimApply = (
 };
 
 /** Force a pending walk to run now. No-op when nothing is queued. */
-const flushStyleDimApply = (face: StyleFace, layerId: string): void => {
+const flushStyleDimApply = (face: SchedulerFace, layerId: string): void => {
   applySchedulers.get(applyKey(face, layerId))?.raf.flush();
 };
 
 /** Drop a pending walk without running it. Reset must not paint the user's
  *  value over the authored restore. */
-const cancelStyleDimApply = (face: StyleFace, layerId: string): void => {
+const cancelStyleDimApply = (face: SchedulerFace, layerId: string): void => {
   applySchedulers.get(applyKey(face, layerId))?.raf.cancel();
 };
 
 /** Retire every face's scheduler entry for one layer id — the single
- *  unregister drop hook. Covers fill and border in one pass so the caller
- *  never holds two scattered teardowns. */
+ *  unregister drop hook. Covers all three faces in one pass so the caller
+ *  never holds scattered teardowns. */
 const dropStyleDimApplies = (layerId: string): void => {
-  const keyFill = applyKey(FACE.FILL, layerId);
-  const keyStroke = applyKey(FACE.STROKE, layerId);
-  for (const key of [keyFill, keyStroke]) {
+  for (const face of [FACE.FILL, FACE.STROKE, FACE.SIZE]) {
+    const key = applyKey(face, layerId);
     const box = applySchedulers.get(key);
     if (!box) continue;
     box.raf.cancel();
@@ -279,15 +294,16 @@ const dropStyleDimApplies = (layerId: string): void => {
 };
 
 /** Flush every face's pending walk for one layer id — the panel-close
- *  commit boundary. Both faces must land: a dragged border left on a
- *  trailing frame would vanish when the panel disappears. */
+ *  commit boundary. Every face must land: a drag or a typing burst left on
+ *  a trailing frame would vanish when the panel disappears. */
 const flushStyleDimApplies = (layerId: string): void => {
-  flushStyleDimApply(FACE.FILL, layerId);
-  flushStyleDimApply(FACE.STROKE, layerId);
+  for (const face of [FACE.FILL, FACE.STROKE, FACE.SIZE]) {
+    flushStyleDimApply(face, layerId);
+  }
 };
 
 /** Whether a scheduler entry is still held (tests pin the unregister drop). */
-const hasStyleDimApply = (face: StyleFace, layerId: string): boolean =>
+const hasStyleDimApply = (face: SchedulerFace, layerId: string): boolean =>
   applySchedulers.has(applyKey(face, layerId));
 
 export {
