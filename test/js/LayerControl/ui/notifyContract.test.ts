@@ -453,4 +453,156 @@ describe("layer notification contract", () => {
     expect(countsAtDelivery.length).toBeGreaterThan(0);
     expect(countsAtDelivery[0]).toEqual({ total: 4, on: 3 });
   });
+
+  it("a register whose notify destroys the control returns null", () => {
+    // The projection delta goes out last, but before the entry returns it still
+    // publishes the separate registration CHANGE and reads the row back out of
+    // the container. A subscriber that tears the control down inside that
+    // notify takes the container and the registry with it: a second emission
+    // would announce for an entry that no longer exists, and the row lookup
+    // would deref a null container.
+    const { ui, manager } = initFixture();
+    const layer = polygonLayer();
+    // Tracked membership keeps the projection's diff real instead of a
+    // constant, and leaves the teardown sweep with nothing new to say: the
+    // one delivery below is the projection's, so a registration CHANGE would
+    // show up as a second.
+    const onMap = trackMembership(ui.c.map);
+    onMap.set(layer, true);
+    // A stored dimension is what gives the projection something to write — a
+    // late registration arrives hidden, and that flip is the delta the
+    // subscriber tears down on.
+    setIntent(ui, "fourth", "visible", false);
+    ui.intentStore.seedProvenance("fourth", ["visible"]);
+
+    let deliveries = 0;
+    ui.events.on(EVENTS.LAYER_CHANGE, payload => {
+      if (payload.id !== "fourth") return;
+      deliveries += 1;
+      if (deliveries === 1) ui.c.destroy();
+    });
+
+    expect(
+      manager.registerLayer({
+        id: "fourth",
+        name: "Fourth",
+        group: "overlay",
+        layer,
+      }),
+    ).toBeNull();
+    expect(deliveries).toBe(1);
+    expect(onMap.get(layer)).toBe(false);
+    expect(ui.c.isDestroyed).toBe(true);
+  });
+
+  it("a register whose notify unregisters the entry returns null", () => {
+    // The same boundary with the entry retired instead of the control: the id
+    // is mapped to nothing, so the registration CHANGE would announce for a
+    // layer that is already gone. Two CHANGEs are expected — the projection's,
+    // then the unregister's own — not a third for the registration.
+    const { ui, manager } = initFixture();
+
+    setIntent(ui, "second", "visible", false);
+    ui.intentStore.seedProvenance("second", ["visible"]);
+
+    const changes: string[] = [];
+    ui.events.on(EVENTS.LAYER_CHANGE, payload => {
+      changes.push(payload.id);
+      if (payload.id === "second" && changes.length === 1) {
+        manager.unregisterLayer("second");
+      }
+    });
+
+    expect(
+      manager.registerLayer({
+        id: "second",
+        name: "Second",
+        group: "overlay",
+        layer: polygonLayer(),
+      }),
+    ).toBeNull();
+    expect(changes).toEqual(["second", "second"]);
+    expect(ui.c.layerRegistry.has("second")).toBe(false);
+  });
+
+  it("a reset button announces once, after the panel is closed", () => {
+    // The panel Reset restores every dimension, then the delegated defaults
+    // (or the label config), then closes the panel — and only then announces,
+    // once, for the whole operation. A notify fired by one dimension mid-way
+    // would hand a subscriber a panel that is still open, and a subscriber
+    // that tears the control down there would take the handler's own
+    // closeStylePanel lookup with it.
+    const { ui, layer, onMap } = oneOverlay();
+
+    setIntent(ui, "overlay1", "zoomRange", [0, 3]);
+    ui.intentStore.seedProvenance("overlay1", ["zoomRange"]);
+    ui.onZoomEnd?.();
+    expect(onMap.get(layer)).toBe(false);
+
+    ui.openStylePanel("overlay1");
+    const resetBtn = findItem(ui, "overlay1").querySelector(
+      ".foliplus-style-reset-btn",
+    ) as HTMLElement;
+    expect(resetBtn).not.toBeNull();
+
+    const atDelivery: Array<{ onMap: boolean; panelOpen: boolean }> = [];
+    ui.events.on(EVENTS.LAYER_CHANGE, payload => {
+      if (payload.id !== "overlay1") return;
+      const item = ui.uiContainer?.querySelector(
+        `[${CONST.DATA.LAYER_ID}="${payload.id}"]`,
+      );
+      atDelivery.push({
+        onMap: onMap.get(layer) ?? false,
+        panelOpen: !!item?.querySelector(`.${CONST.CLASSES.STYLE_PANEL}`),
+      });
+      if (atDelivery.length === 1) ui.c.destroy();
+    });
+
+    expect(() =>
+      resetBtn.dispatchEvent(new MouseEvent("click", { bubbles: true })),
+    ).not.toThrow();
+    expect(atDelivery).toEqual([{ onMap: true, panelOpen: false }]);
+    expect(ui.c.isDestroyed).toBe(true);
+  });
+
+  it("a zoomend announces after the open row's out-of-range chrome has settled", () => {
+    // The map-level zoomend handler used to be one of two independent zoomend
+    // listeners: the controller's sweep ran first and announced, and the
+    // panel's row chrome caught up only after that notify had already fired.
+    // A subscriber reading the row during the announce therefore saw the
+    // pre-zoom "in range" face even though the current level was outside.
+    // The sweep now syncs the open row before it publishes.
+    const { ui, layer, onMap } = oneOverlay();
+
+    setIntent(ui, "overlay1", "zoomRange", [0, 6]);
+    ui.intentStore.seedProvenance("overlay1", ["zoomRange"]);
+    expect(ui.c.map.getZoom()).toBe(5);
+
+    ui.openStylePanel("overlay1");
+    const row = findItem(ui, "overlay1").querySelector(
+      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_ROW}`,
+    ) as HTMLElement;
+    expect(row.classList.contains(CONST.CLASSES.STYLE_ZOOM_RANGE_OUT_OF_RANGE)).toBe(
+      false,
+    );
+
+    // Move past the range: the sweep removes the layer, and the row's
+    // out-of-range state has to be true by the time the notify fires.
+    ui.c.map.getZoom = vi.fn(() => 8);
+
+    const outOfRangeAtDelivery: boolean[] = [];
+    ui.events.on(EVENTS.LAYER_CHANGE, () => {
+      outOfRangeAtDelivery.push(
+        row.classList.contains(CONST.CLASSES.STYLE_ZOOM_RANGE_OUT_OF_RANGE),
+      );
+    });
+
+    ui.onZoomEnd?.();
+
+    expect(onMap.get(layer)).toBe(false);
+    expect(outOfRangeAtDelivery).toEqual([true]);
+    expect(row.classList.contains(CONST.CLASSES.STYLE_ZOOM_RANGE_OUT_OF_RANGE)).toBe(
+      true,
+    );
+  });
 });

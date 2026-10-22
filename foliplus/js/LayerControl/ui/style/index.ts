@@ -23,6 +23,7 @@ import {
   bindLiveNumber,
   normalizeHexColor,
 } from "#common/form.js";
+import { NO_DELTA, type ProjectionDelta, emitDelta } from "../apply.js";
 import type { LayerUI } from "../surface.js";
 import { closeOverlays } from "../teardown.js";
 import { bindBorderRow, resetLayerBorder } from "./border.js";
@@ -230,16 +231,27 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
   panel.addEventListener("click", (event: Event) => {
     const t = event.target as HTMLElement;
     if (t.closest(".foliplus-style-reset-btn")) {
+      // The whole Reset is one operation: every dimension restores first, then
+      // the delegated defaults (or the label config drop), then the panel
+      // closes, and only then does the single notify go out. A notify fired by
+      // one dimension mid-operation would hand a subscriber a panel that is
+      // still open, and a subscriber that tears the control down would take
+      // this handler's own closeStylePanel lookup with it.
       // Fill is LayerControl-owned on the annotation flavour only (the gate
       // excludes delegated layers).
       resetLayerFill(ui, layerId);
       // Border is LayerControl-owned too: restore the author's stroke and drop
       // the persisted color / width, so a reload does not re-apply them.
       resetLayerBorder(ui, layerId);
-      // Opacity is LayerControl-owned in both flavours: always restore 1.
-      resetLayerOpacity(ui, layerId);
-      // Zoom range is LayerControl-owned: reset to the full map range.
-      resetLayerZoomRange(ui, layerId);
+      // Opacity and zoom range are LayerControl-owned in both flavours.
+      // publish = false keeps their notify here, at the operation boundary.
+      const moved: ProjectionDelta[] = [];
+      for (const delta of [
+        resetLayerOpacity(ui, layerId, false),
+        resetLayerZoomRange(ui, layerId, false),
+      ]) {
+        if (delta) moved.push(delta);
+      }
       if (delegated) {
         // Call each setter with its Python CONFIG default. The components own
         // the values — never write localStorage or annotation config here.
@@ -259,6 +271,17 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
         resetStyleLabel(ui, layerId);
       }
       closeStylePanel(ui, true);
+      // One notify for the whole operation, merged across its dimensions and
+      // resolved against the registry at publish time: if the entry is gone
+      // by then, the lookup returns nothing and nothing goes out.
+      const settled = moved.reduce<ProjectionDelta>(
+        (acc, d) => ({
+          wroteVisible: acc.wroteVisible || d.wroteVisible,
+          intentMoved: acc.intentMoved || d.intentMoved,
+        }),
+        NO_DELTA,
+      );
+      emitDelta(ui, ui.c.layerRegistry.get(layerId), settled);
       return;
     }
     if (t.closest(".foliplus-panel-header")) closeStylePanel(ui, true);
@@ -305,16 +328,17 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
 
   // While the panel is open, a zoom change must move the current-zoom marker
   // on the zoom-range row and refresh its out-of-range state. The map-level
-  // zoomend handler (ui.onZoomEnd) updates the effective-shown for every
-  // layer; this one only updates the row's visual state.
+  // zoomend handler (ui.onZoomEnd) drives the sweep; it calls this hook after
+  // the sweep settles so the notify below reads the new chrome. The same
+  // hook also serves basemap switches, which re-price every layer's range
+  // without firing zoomend — see listPanel/visibility.js.
   const zoomRangeRow = panel.querySelector(
     `.${CONST.CLASSES.STYLE_ZOOM_RANGE_ROW}`,
   ) as HTMLElement | null;
   if (zoomRangeRow) {
     ui.overlayPanel.styleZoomEndHandler = () => {
-      syncZoomRangeRow(ui, layerId, zoomRangeRow);
+      if (zoomRangeRow.isConnected) syncZoomRangeRow(ui, layerId, zoomRangeRow);
     };
-    ui.c.map.on("zoomend", ui.overlayPanel.styleZoomEndHandler);
   }
 
   ui.overlayPanel.stylePanelLayerId = layerId;
@@ -339,13 +363,14 @@ const closeStylePanel = (ui: LayerUI, setFocus: boolean): void => {
   ui.overlayPanel.styleUnsubscribe?.();
   ui.overlayPanel.styleUnsubscribe = null;
   ui.overlayPanel.styleRefresh = null;
-  if (ui.overlayPanel.styleZoomEndHandler) {
-    ui.c.map.off("zoomend", ui.overlayPanel.styleZoomEndHandler);
-    ui.overlayPanel.styleZoomEndHandler = null;
-  }
+  ui.overlayPanel.styleZoomEndHandler = null;
   // No panel, no panel press: a stale verdict would block the next real drag.
   ui.listPanel.pressInPanel = false;
-  const panel = ui.uiContainer.querySelector(
+  // Flushing the panel's live slider sessions can announce, and a subscriber
+  // that destroys the manager mid-notify has already nulled the container.
+  // Skip the lookup rather than deref null; the DOM is gone either way.
+  const container = ui.uiContainer;
+  const panel = container?.querySelector(
     `.${CONST.CLASSES.STYLE_PANEL}`,
   ) as HTMLElement | null;
   if (!panel) {

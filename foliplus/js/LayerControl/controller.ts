@@ -639,6 +639,15 @@ class LayerController implements LayerAPI {
       // sync and the order replay — so a subscriber that re-enters reads the
       // settled panel: full group count, correct row state.
       emitDelta(this.ui, layerInfo, moved ?? NO_DELTA);
+
+      // A subscriber can retire the entry inside that notify: a destroy takes
+      // the container and the registry with it, and an unregister leaves the id
+      // mapped to a different instance. Either way this registration is over —
+      // the registration CHANGE would announce for an entry that no longer
+      // exists, and the row lookup below would deref a null container.
+      if (this.isDestroyed || this.layerRegistry.get(opts.id) !== layerInfo) {
+        return null;
+      }
     }
     // Registration never writes the saved order: the slot this layer just took
     // is where attach timing put it, not a user arrangement. Only an explicit

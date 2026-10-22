@@ -13,6 +13,7 @@ import { Slider, sliderOf } from "#foliplus/LayerControl/slider.js";
 import { dom } from "#common/dom.js";
 import {
   NO_DELTA,
+  type ProjectionDelta,
   applyProjection,
   authorZoomBoundsForLayer,
   emitDelta,
@@ -182,8 +183,14 @@ const commitZoomRange = (ui: LayerUI, layerId: string): void => {
  *  Owns the full operation boundary: intent + projection land inside the
  *  descriptor, the row chrome (fill, values, out-of-range state) is refreshed
  *  here, and only then does the notify go out — a subscriber that re-enters
- *  reads the settled row, not a stale "out of range" face. */
-const resetLayerZoomRange = (ui: LayerUI, layerId: string): void => {
+ *  reads the settled row, not a stale "out of range" face. Pass
+ *  `publish = false` from the panel's whole-operation Reset, which owns the
+ *  single notify after the panel is closed. */
+const resetLayerZoomRange = (
+  ui: LayerUI,
+  layerId: string,
+  publish = true,
+): ProjectionDelta | void => {
   const layerInfo = ui.c.layerRegistry.get(layerId);
   if (!layerInfo) return;
   const delta = getDimension(DIM.ZOOM_RANGE)!.reset!(ui, layerId) ?? NO_DELTA;
@@ -198,7 +205,8 @@ const resetLayerZoomRange = (ui: LayerUI, layerId: string): void => {
     `.${CONST.CLASSES.STYLE_ZOOM_RANGE_ROW}`,
   ) as HTMLElement | null;
   if (row) syncZoomRangeRow(ui, layerId, row);
-  emitDelta(ui, layerInfo, delta);
+  if (publish) emitDelta(ui, layerInfo, delta);
+  return delta;
 };
 
 /** Register zoom range as a per-layer dimension. The descriptor owns the

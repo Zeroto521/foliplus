@@ -12,7 +12,12 @@ import { CAP_TIER, DIM, GROUP } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { Slider, sliderOf } from "#foliplus/LayerControl/slider.js";
 import { dom } from "#common/dom.js";
-import { applyProjection, emitDelta } from "../apply.js";
+import {
+  NO_DELTA,
+  type ProjectionDelta,
+  applyProjection,
+  emitDelta,
+} from "../apply.js";
 import { INTENT } from "../intent.js";
 import { syncNoBasemap } from "../listPanel/visibility.js";
 import { currentOpacity } from "../projection.js";
@@ -103,11 +108,20 @@ const buildOpacityRow = (ui: LayerUI, layerId: string): HTMLElement => {
 };
 
 /** Reset one layer's opacity to fully opaque and drop its persisted entry.
- *  Thin delegate over the opacity descriptor's reset. */
-const resetLayerOpacity = (ui: LayerUI, layerId: string): void => {
+ *  Thin delegate over the opacity descriptor's reset; `publish` keeps the
+ *  notify here, where the hatch is already settled. Pass `false` from the
+ *  panel's whole-operation Reset — that entry owns the single notify, and it
+ *  goes out only after the panel itself is closed. */
+const resetLayerOpacity = (
+  ui: LayerUI,
+  layerId: string,
+  publish = true,
+): ProjectionDelta | void => {
   const layerInfo = ui.c.layerRegistry.get(layerId);
   if (!layerInfo) return;
-  getDimension(DIM.OPACITY)!.reset!(ui, layerId);
+  const delta = getDimension(DIM.OPACITY)!.reset!(ui, layerId) ?? NO_DELTA;
+  if (publish) emitDelta(ui, layerInfo, delta);
+  return delta;
 };
 
 /** Register opacity as a per-layer dimension. The descriptor owns the
@@ -144,16 +158,15 @@ const OPACITY_DIMENSION = registerDimension<number>({
     // change worth notifying.
     emitDelta(ui, layerInfo, moved);
   },
-  /** Cohesive reset: clear the override, save, re-project, hatch sync. */
+  /** Cohesive reset: clear the override, save, re-project, hatch sync. Returns
+   *  the delta without announcing — the complete reset entry
+   *  (`resetLayerOpacity`) owns the notify so the hatch is settled first. */
   reset: (ui, layerId) => {
     resetIntentKeys(ui, layerId, [INTENT.OPACITY]);
     const moved = applyProjection(ui, layerId, "debounce");
     const layerInfo = ui.c.layerRegistry.get(layerId);
     if (layerInfo?.group === GROUP.BASE) syncNoBasemap(ui);
-    // Announce last, after the hatch: on a layer's first projection the pass
-    // can still converge a stale map membership, and that flip is a real
-    // change worth notifying.
-    emitDelta(ui, layerInfo, moved);
+    return moved;
   },
   valueSource: (ui, layerId) => {
     if (!layerCanOpacity(ui, layerId)) return "none";

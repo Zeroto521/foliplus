@@ -3887,37 +3887,24 @@ describe("LayerUI style panel — zoom range", () => {
 
   it("moves the current dot on zoomend", () => {
     const item = findItem(ui, "overlay1");
-    let zoomEndHandler: (() => void) | null = null;
-    const origOn = map.on;
-    map.on = (evt: string, fn: () => void) => {
-      if (evt === "zoomend") zoomEndHandler = fn;
-      return origOn(evt, fn);
-    };
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
     const row = zoomRowOf(panel)!;
-    const dot = row.querySelector(".foliplus-slider-dot-current") as HTMLElement;
-    const before = dot.style.left;
+    const before = row.querySelector<HTMLElement>(".foliplus-slider-dot-current")!.style
+      .left;
 
     map.getZoom.mockReturnValue(12);
-    (zoomEndHandler as any)?.();
+    ui.onZoomEnd?.();
 
     // setMarks rebuilds the dots when the current level moves, so the live
     // node is the new one, not the reference captured before the event.
     const after = row.querySelector(".foliplus-slider-dot-current") as HTMLElement;
     expect(after.style.left).not.toBe(before);
-    map.on = origOn;
   });
 
   it("updates values row on zoomend", () => {
     const item = findItem(ui, "overlay1");
     setIntent(ui, "overlay1", "zoomRange", [0, 18]);
-    let zoomEndHandler: (() => void) | null = null;
-    const origOn = map.on;
-    map.on = (evt: string, fn: () => void) => {
-      if (evt === "zoomend") zoomEndHandler = fn;
-      return origOn(evt, fn);
-    };
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
     const row = zoomRowOf(panel)!;
@@ -3925,14 +3912,13 @@ describe("LayerUI style panel — zoom range", () => {
     const beforeCurrent = current.textContent;
 
     map.getZoom.mockReturnValue(12);
-    (zoomEndHandler as any)?.();
+    ui.onZoomEnd?.();
 
     const afterCurrent = row.querySelector(
       ".foliplus-slider-value-current",
     ) as HTMLElement;
     expect(afterCurrent.textContent).toBe("12");
     expect(beforeCurrent).not.toBe(afterCurrent.textContent);
-    map.on = origOn;
   });
 
   it("covers only the dots the selected range reaches", () => {

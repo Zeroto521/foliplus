@@ -262,9 +262,14 @@ const bindLayerEvents = (ui: LayerUI): void => {
   // effectiveShown = intent && inRange, and it writes through the single
   // pipeline so the checkbox / intents.visible / overrides stay untouched (#329).
   // One settled round, not a mid-sweep spray: every layer is diffed first,
-  // then each moved layer announces once, in registry order.
+  // then each moved layer announces once, in registry order. The open style
+  // panel's row sync runs in the same coordinator — projection, basemap
+  // hatch, then row chrome, then the notify — so a subscriber that reads the
+  // row sees the settled face rather than the pre-zoom out-of-range state.
   ui.onZoomEnd = () => {
-    emitDeltas(ui, applyProjectionAll(ui));
+    const swept = applyProjectionAll(ui);
+    ui.overlayPanel.styleZoomEndHandler?.();
+    emitDeltas(ui, swept);
   };
   ui.c.map.on("zoomend", ui.onZoomEnd);
   // Keyboard dispatch for the "more" button (Enter/Space/Escape) is handled
