@@ -655,6 +655,20 @@ class LayerController implements LayerAPI {
     // live order. A layer the user *did* arrange still replays here through
     // insertOverlayAt / applyUserState above.
     this.emitLayerChange(opts.id, layerInfo.kind);
+    // The registration CHANGE can retire this registration the same way the
+    // projection notify above can: a destroy takes the container and the
+    // registry with it, an unregister or a re-registration with the same id
+    // leaves the id mapped to a different instance. The retirement is re-checked
+    // after that notify rather than cached before it — a cached node would be
+    // handed back after the entry that produced it is gone, and a re-lookup
+    // would return another instance's row for the same id.
+    if (
+      this.isDestroyed ||
+      !this.uiContainer ||
+      this.layerRegistry.get(opts.id) !== layerInfo
+    ) {
+      return null;
+    }
     return this.uiContainer.querySelector(
       `[${CONST.DATA.LAYER_ID}="${CSS.escape(opts.id)}"]`,
     );
@@ -673,10 +687,14 @@ class LayerController implements LayerAPI {
     this.layerRegistry.moveToFront(id);
     this.enforceOrder();
     this.saveOrder();
-    this.emitLayerChange(id, item.kind);
     if (this.uiContainer && this.ui) {
       this.events.emit(EVENTS.LAYER_LIST_REBUILD);
     }
+    // The list rebuild is this operation's own side effect, so it lands before
+    // the notify: a subscriber reading the row order out of the panel during
+    // the CHANGE sees the arrangement that was just made, not the one that is
+    // about to be rendered.
+    this.emitLayerChange(id, item.kind);
   }
 
   /** Stamp `updatedAt` to now — call after a runtime mutation that does not
@@ -1041,10 +1059,12 @@ class LayerController implements LayerAPI {
     this.layerRegistry.reorder(idx, idx - 1);
     this.enforceOrder();
     this.saveOrder();
-    this.emitLayerChange(id, item.kind);
     if (this.uiContainer && this.ui) {
       this.events.emit(EVENTS.LAYER_LIST_REBUILD);
     }
+    // Same ordering as bringLayerToFront: the row list this operation rebuilt
+    // is what the notify announces against.
+    this.emitLayerChange(id, item.kind);
     return true;
   }
 
@@ -1065,10 +1085,12 @@ class LayerController implements LayerAPI {
     this.layerRegistry.reorder(idx, idx + 1);
     this.enforceOrder();
     this.saveOrder();
-    this.emitLayerChange(id, item.kind);
     if (this.uiContainer && this.ui) {
       this.events.emit(EVENTS.LAYER_LIST_REBUILD);
     }
+    // Same ordering as bringLayerToFront: the row list this operation rebuilt
+    // is what the notify announces against.
+    this.emitLayerChange(id, item.kind);
     return true;
   }
 

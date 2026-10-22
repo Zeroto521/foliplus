@@ -562,8 +562,8 @@ describe("executor: idempotent writes", () => {
 
   it("row lookup is by id, not by registry position", () => {
     // Structural lock: the executor keys the runtime `applied` row by id
-    // (`projectAll` walks the same union), so DOM order or registration
-    // order shifting never misroutes a write. Two canvas layers — one with
+    // (the sweep walks registry ids for the same reason), so DOM order or
+    // registration order shifting never misroutes a write. Two canvas layers — one with
     // an opacity intent and one without; each gets its own write regardless
     // of registration order. Canvas is chosen because its carrier is a
     // single element per layer, so the id-keyed diff is directly observable
@@ -1412,7 +1412,7 @@ describe("executor: carrier dispatch", () => {
   });
 });
 
-describe("projectAll: the id set is a union, not just the registry", () => {
+describe("applyProjectionAll: the sweep walks the registry, not the intent store", () => {
   beforeEach(() => {
     installLeafletGlobals();
   });

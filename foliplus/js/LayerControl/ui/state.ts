@@ -12,10 +12,10 @@
 import * as CONST from "../const.js";
 import type { LayerOverride } from "../type.js";
 import {
+  type ProjectionBatch,
   type ProjectionDelta,
   applyProjection,
   applyProjectionAll,
-  emitDeltas,
 } from "./apply.js";
 import { applyNameProjection } from "./context.js";
 import { INTENT, LIVE, getIntent } from "./intent.js";
@@ -139,7 +139,10 @@ const unmarkOverride = (ui: LayerUI, id: string, override: LayerOverride) => {
  *   hidden and a missing rename must not write undefined.
  */
 
-const applyUserState = (ui: LayerUI, id?: string): ProjectionDelta | void => {
+const applyUserState = (
+  ui: LayerUI,
+  id?: string,
+): ProjectionDelta | ProjectionBatch | void => {
   const registry = ui.c.layerRegistry;
   const container = ui.uiContainer;
 
@@ -218,11 +221,15 @@ const applyUserState = (ui: LayerUI, id?: string): ProjectionDelta | void => {
   // exists now, and each later registration refines its own slot.
   ui.c.replaySavedOrder();
 
-  // Announce last, one round for the whole replay: a late registration can join
-  // the map here, which is a real membership change no other path notifies —
-  // a bus-only consumer (annotation repaints its labels) would otherwise
-  // never learn about the layer.
-  emitDeltas(ui, swept);
+  // The batch goes back, not out: the full replay is not finished here — the
+  // shell still has to replay border and fill, which are direct setStyle
+  // writes outside this executor. Publishing first would hand a subscriber the
+  // author's colors, which the shell is about to overwrite. One round for the
+  // whole replay is still the point: a late registration can join the map
+  // here, which is a real membership change no other path notifies — a
+  // bus-only consumer (annotation repaints its labels) would otherwise never
+  // learn about the layer.
+  return swept;
 };
 
 /**

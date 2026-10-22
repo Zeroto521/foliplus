@@ -10,7 +10,12 @@ import type { Logger } from "#common/type.js";
 import * as CONST from "../const.js";
 import type { LayerController } from "../controller.js";
 import type { LayerIntentStore } from "../domain/index.js";
-import { applyProjection, applyProjectionAll } from "./apply.js";
+import {
+  type ProjectionDelta,
+  applyProjection,
+  applyProjectionAll,
+  emitDeltas,
+} from "./apply.js";
 import { hideSolidBasemap, resetSolidBasemap, showSolidBasemap } from "./color.js";
 import { FocusController, cancelFocus, focusLayer, isFocusing } from "./focus/index.js";
 import { seedAuthorVisible } from "./intent.js";
@@ -259,7 +264,7 @@ class LayerUI implements LayerUISurface {
   saveState() {
     return saveState(this);
   }
-  applyUserState(id?: string) {
+  applyUserState(id?: string): ProjectionDelta | void {
     const moved = applyUserState(this, id);
     // The executor carries visible / opacity / zoomRange only. Border and
     // fill are direct setStyle writes, so without their own replay a reload
@@ -280,7 +285,13 @@ class LayerUI implements LayerUISurface {
       applyBorderToLayer(this, layerId);
       replayFillState(this, layerId);
     }
-    return moved;
+    if (!Array.isArray(moved)) return moved;
+    // The full replay is announced here, after the direct style writes above:
+    // the sweep settled visible / opacity / zoomRange, this shell settles
+    // border and fill, and only then does the round go out — so a subscriber
+    // reads the colors the user stored, not the author's that were still on
+    // the map when the sweep fired.
+    emitDeltas(this, moved);
   }
   dropPersistedLayerState(layerId: string) {
     return dropPersistedLayerState(this, layerId);

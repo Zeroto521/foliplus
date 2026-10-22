@@ -31,7 +31,7 @@ import { CAP_TIER, HIDDEN, PANE_ROLE } from "#core/layer/index.js";
 import { getLayerAlpha, setLayerAlpha } from "#common/canvasAlpha.js";
 import * as CONST from "../const.js";
 import { INTENT, getIntent } from "./intent.js";
-import { intentVisibleOf, projectAll, projectLayer } from "./projection.js";
+import { intentVisibleOf, projectLayer } from "./projection.js";
 import type { LayerUI } from "./surface.js";
 
 /** One write the carrier dispatcher accepts. `opacity` being
@@ -376,6 +376,13 @@ type ProjectionDelta = {
 
 const NO_DELTA: ProjectionDelta = { wroteVisible: false, intentMoved: false };
 
+/** The ids a sweep moved, paired with what each one moved — the work a caller
+ *  queues until its own side effects have settled, then publishes as one round
+ *  through `emitDeltas`. Ids rather than entries on purpose: an entry a
+ *  subscriber retires during an earlier delivery of the same round is skipped
+ *  at delivery time instead of being announced for or throwing against. */
+type ProjectionBatch = Array<{ id: string; delta: ProjectionDelta }>;
+
 /** Diff the current projection against the last one we wrote, and call
  *  `dispatchStateOp` only for the dimensions that moved.
  *
@@ -602,10 +609,7 @@ const emitDelta = (
  *  interleaving. Ids the registry no longer knows — a subscriber that
  *  unregistered a layer during an earlier delivery of this same round —
  *  deliver nothing rather than throwing. */
-const emitDeltas = (
-  ui: LayerUI,
-  deltas: ReadonlyArray<{ id: string; delta: ProjectionDelta }>,
-): void => {
+const emitDeltas = (ui: LayerUI, deltas: ProjectionBatch): void => {
   for (const { id, delta } of deltas) {
     emitDelta(ui, ui.c.layerRegistry.get(id), delta);
   }
@@ -624,8 +628,10 @@ const emitDeltas = (
  *  `apply.js` — a direct import here would close the cycle).
  *
  *  Returns only the layers that actually moved, in sweep order — the sweep
- *  is registry order, with intent-only ids that never registered pruned by
- *  `projectAll`. The caller emits through `emitDeltas` after its own
+ *  is registry order, and an id that has stored dimensions but never
+ *  registered is skipped rather than dropped: its record stays in the intent
+ *  store and is projected when the component that owns the id registers.
+ *  The caller emits through `emitDeltas` after its own
  *  reconcile steps, so a batch announces as one settled round instead of a
  *  mid-sweep spray. */
 const applyProjectionAll = (
@@ -633,7 +639,12 @@ const applyProjectionAll = (
   repaintMode: "debounce" | "none" = "none",
 ): Array<{ id: string; delta: ProjectionDelta }> => {
   const deltas: Array<{ id: string; delta: ProjectionDelta }> = [];
-  for (const [id] of projectAll(ui)) {
+  // The registry, snapshotted as ids before the first write: a projection that
+  // brings a layer onto the map mid-sweep must not widen the set this pass
+  // walks. Each id resolves its own entry and projection inside
+  // `applyProjection`, so nothing computed here is reused — a basemap that
+  // moves the zoom bounds mid-sweep is re-read per layer.
+  for (const id of ui.c.layers.map(layerInfo => layerInfo.id)) {
     const delta = applyProjection(ui, id, repaintMode);
     if (delta.wroteVisible || delta.intentMoved) deltas.push({ id, delta });
   }
@@ -641,7 +652,7 @@ const applyProjectionAll = (
   return deltas;
 };
 
-export type { ProjectionDelta };
+export type { ProjectionDelta, ProjectionBatch };
 
 export {
   applyProjection,

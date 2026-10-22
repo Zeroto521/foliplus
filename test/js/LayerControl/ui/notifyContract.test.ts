@@ -14,7 +14,7 @@ import * as CONST from "#foliplus/LayerControl/const.js";
 import { setIntent } from "#foliplus/LayerControl/ui/intent.js";
 import { intentVisibleOf } from "#foliplus/LayerControl/ui/projection.js";
 import { resetLayerZoomRange } from "#foliplus/LayerControl/ui/style/zoomRange.js";
-import { findItem, initFixture } from "./fixture.js";
+import { attachWithGroup, findItem, initFixture } from "./fixture.js";
 
 /** A polygon-shaped layer stub — enough for the surface to resolve. */
 const polygonLayer = () =>
@@ -57,6 +57,24 @@ const polygonLayerWithoutBounds = (): L.Layer =>
     options: {},
     eachLayer: vi.fn(),
     getBounds: vi.fn(() => ({ isValid: vi.fn(() => false) })),
+  }) as L.Layer;
+
+/** A polygon-shaped layer whose options and `setStyle` the test supplies — the
+ *  style-row tests need to read back what a replay wrote. */
+const polygonLayerWithStyle = (
+  options: Record<string, unknown>,
+  setStyle: ReturnType<typeof vi.fn>,
+): L.Layer =>
+  ({
+    options,
+    setStyle,
+    getLatLngs: () => [
+      [
+        { lat: 30, lng: 100 },
+        { lat: 40, lng: 100 },
+        { lat: 40, lng: 110 },
+      ],
+    ],
   }) as L.Layer;
 
 /** Track real map membership, keyed by the layer the projection diffs against.
@@ -525,6 +543,138 @@ describe("layer notification contract", () => {
     expect(ui.c.layerRegistry.has("second")).toBe(false);
   });
 
+  it("a register whose final notify destroys the control returns null", () => {
+    // A layer that is already on the map and has no stored dimension carries no
+    // projection delta, so the registration CHANGE is its only notify. It is
+    // the last statement before the row is read back out of the container: a
+    // subscriber that tears the control down there leaves a null container, and
+    // the row lookup is reached by nothing else.
+    const { ui, manager } = initFixture();
+    const layer = polygonLayer();
+    // Tracked membership keeps the teardown sweep from gaining a second opinion
+    // about this layer, so the one delivery below is the registration's and a
+    // spurious emit would show up as another.
+    const onMap = trackMembership(ui.c.map);
+    onMap.set(layer, true);
+
+    let deliveries = 0;
+    ui.events.on(EVENTS.LAYER_CHANGE, payload => {
+      if (payload.id !== "fourth") return;
+      deliveries += 1;
+      if (deliveries === 1) ui.c.destroy();
+    });
+
+    expect(
+      manager.registerLayer({
+        id: "fourth",
+        name: "Fourth",
+        group: "overlay",
+        layer,
+      }),
+    ).toBeNull();
+    expect(deliveries).toBe(1);
+    expect(ui.c.isDestroyed).toBe(true);
+    expect(ui.uiContainer).toBeNull();
+  });
+
+  it("a register whose final notify destroys the control after a projection delta returns null", () => {
+    // The saved range hides the layer, so the registration carries a real
+    // projection delta and gets two notifies: the projection's first, then its
+    // own registration CHANGE. Tearing the control down in the second one
+    // exercises the same boundary on the path that already had one notify.
+    const { ui, manager } = initFixture();
+    const layer = polygonLayer();
+    const onMap = trackMembership(ui.c.map);
+    onMap.set(layer, true);
+    setIntent(ui, "fourth", "zoomRange", [0, 1]);
+    ui.intentStore.seedProvenance("fourth", ["zoomRange"]);
+
+    let deliveries = 0;
+    ui.events.on(EVENTS.LAYER_CHANGE, payload => {
+      if (payload.id !== "fourth") return;
+      deliveries += 1;
+      if (deliveries === 2) ui.c.destroy();
+    });
+
+    expect(
+      manager.registerLayer({
+        id: "fourth",
+        name: "Fourth",
+        group: "overlay",
+        layer,
+      }),
+    ).toBeNull();
+    expect(deliveries).toBe(2);
+    expect(onMap.get(layer)).toBe(false);
+    expect(ui.c.isDestroyed).toBe(true);
+  });
+
+  it("a register whose final notify unregisters the entry returns null", () => {
+    // The entry retired instead of the control, and by the registration's own
+    // notify rather than the projection's: two CHANGEs are expected — the
+    // registration's, then the unregister's own — not a third.
+    const { ui, manager } = initFixture();
+    const layer = polygonLayer();
+    const onMap = trackMembership(ui.c.map);
+    onMap.set(layer, true);
+
+    const changes: string[] = [];
+    ui.events.on(EVENTS.LAYER_CHANGE, payload => {
+      if (payload.id !== "second") return;
+      changes.push(payload.id);
+      if (changes.length === 1) manager.unregisterLayer("second");
+    });
+
+    expect(
+      manager.registerLayer({
+        id: "second",
+        name: "Second",
+        group: "overlay",
+        layer,
+      }),
+    ).toBeNull();
+    expect(changes).toEqual(["second", "second"]);
+    expect(ui.c.layerRegistry.has("second")).toBe(false);
+  });
+
+  it("a register replaced under the same id inside the final notify returns null", () => {
+    // A re-registration with the same id replaces the entry this call created,
+    // so handing back its row would hand back another instance's row. The inner
+    // call carries no projection delta of its own, so it announces only once
+    // and the outer call is left to notice the swap.
+    const { ui, manager } = initFixture();
+    const onMap = trackMembership(ui.c.map);
+    const layer = polygonLayer();
+    onMap.set(layer, true);
+    const replacement = polygonLayer();
+
+    const changes: string[] = [];
+    ui.events.on(EVENTS.LAYER_CHANGE, payload => {
+      if (payload.id !== "second") return;
+      changes.push(payload.id);
+      if (changes.length === 1) {
+        manager.registerLayer({
+          id: "second",
+          name: "Second",
+          group: "overlay",
+          layer: replacement,
+        });
+      }
+    });
+
+    expect(
+      manager.registerLayer({
+        id: "second",
+        name: "Second",
+        group: "overlay",
+        layer,
+      }),
+    ).toBeNull();
+    expect(changes).toEqual(["second", "second"]);
+    expect(onMap.get(replacement)).toBe(true);
+    expect(ui.c.layerRegistry.get("second")?.layer).toBe(replacement);
+  });
+
   it("a reset button announces once, after the panel is closed", () => {
     // The panel Reset restores every dimension, then the delegated defaults
     // (or the label config), then closes the panel — and only then announces,
@@ -604,5 +754,70 @@ describe("layer notification contract", () => {
     expect(row.classList.contains(CONST.CLASSES.STYLE_ZOOM_RANGE_OUT_OF_RANGE)).toBe(
       true,
     );
+  });
+
+  it("a full replay announces after the direct style writes have landed", () => {
+    // The full sweep projects visible / opacity / zoomRange and only reports
+    // what moved; border and fill are direct `setStyle` writes that the shell
+    // replays afterwards. The sweep used to announce before them, so a
+    // subscriber read the color the author had declared while the shell was
+    // about to overwrite it.
+    const setStyle = vi.fn();
+    const layer = polygonLayerWithStyle(
+      { color: "#111111", fillColor: "#222222" },
+      setStyle,
+    );
+    const { ui } = initFixture({
+      data: [{ id: "overlay1", name: "Polygons", group: "overlay", layer }],
+    });
+
+    setIntent(ui, "overlay1", "borderColor", "#abcdef");
+    ui.intentStore.seedProvenance("overlay1", ["borderColor"]);
+    // The hide is what gives the sweep a delta to report at all.
+    setIntent(ui, "overlay1", "visible", false);
+    ui.intentStore.seedProvenance("overlay1", ["borderColor", "visible"]);
+
+    const borderAtDelivery: unknown[] = [];
+    ui.events.on(EVENTS.LAYER_CHANGE, payload => {
+      if (payload.id !== "overlay1") return;
+      const writes = setStyle.mock.calls.map(
+        call => call[0] as Record<string, unknown>,
+      );
+      borderAtDelivery.push(writes.find(write => write.color !== undefined)?.color);
+    });
+
+    ui.applyUserState();
+
+    expect(borderAtDelivery).toEqual(["#abcdef"]);
+  });
+
+  it("a reorder announces after the row list has been rebuilt", () => {
+    // The list rebuild is the reorder's own side effect, so it lands before the
+    // notify: a subscriber reading the row order out of the panel during the
+    // CHANGE sees the arrangement that was just made, not the one that is
+    // about to be rendered.
+    const { ui, manager } = initFixture({
+      data: [
+        { id: "alpha", name: "Alpha", group: "overlay", layer: polygonLayer() },
+        { id: "beta", name: "Beta", group: "overlay", layer: polygonLayer() },
+        { id: "gamma", name: "Gamma", group: "overlay", layer: polygonLayer() },
+      ],
+    });
+    const { children } = attachWithGroup(ui);
+    const order = () =>
+      children()
+        .map(row => row.dataset.layerId)
+        .join(",");
+    expect(order()).toBe("alpha,beta,gamma");
+
+    const orderAtDelivery: string[] = [];
+    ui.events.on(EVENTS.LAYER_CHANGE, payload => {
+      if (payload.id !== "alpha") return;
+      orderAtDelivery.push(order());
+    });
+
+    expect(manager.moveLayerDown("alpha")).toBe(true);
+    expect(orderAtDelivery).toEqual(["beta,alpha,gamma"]);
+    expect(order()).toBe("beta,alpha,gamma");
   });
 });
