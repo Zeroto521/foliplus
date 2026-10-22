@@ -9,6 +9,7 @@ import { DELEGATED_DIM_ORDER } from "#foliplus/LayerControl/ui/style/delegated.j
 import { closeStylePanel } from "#foliplus/LayerControl/ui/style/index.js";
 import { getDimension } from "#foliplus/LayerControl/ui/style/registry.js";
 import {
+  SIZE_DIMENSION,
   applySizeToLayer,
   bindSizeRow,
   buildSizeRow,
@@ -651,18 +652,20 @@ describe("SIZE_DIMENSION", () => {
   });
 
   it("registers under DIM.SIZE with a gate, a value and a valueSource", () => {
-    const dim = getDimension(DIM.SIZE)!;
-    expect(dim.key).toBe(DIM.SIZE);
-    expect(dim.gate(ui, "overlay1")).toBe(true);
+    expect(getDimension(DIM.SIZE)).toBe(SIZE_DIMENSION);
+    expect(SIZE_DIMENSION.key).toBe(DIM.SIZE);
+    expect(SIZE_DIMENSION.gate(ui, "overlay1")).toBe(true);
     // No user choice yet: the value is the authored radius, source "author".
-    expect(dim.value(ui, "overlay1")).toBe(10);
-    expect(dim.valueSource!(ui, "overlay1")).toBe("author");
+    expect(SIZE_DIMENSION.value(ui, "overlay1")).toBe(10);
+    expect(SIZE_DIMENSION.valueSource!(ui, "overlay1")).toBe("author");
     commitSize(ui, "overlay1", 30);
-    expect(dim.value(ui, "overlay1")).toBe(30);
-    expect(dim.valueSource!(ui, "overlay1")).toBe("user");
+    expect(SIZE_DIMENSION.value(ui, "overlay1")).toBe(30);
+    expect(SIZE_DIMENSION.valueSource!(ui, "overlay1")).toBe("user");
     // The descriptor builds the same row the direct helper builds.
     expect(
-      dim.row(ui, "overlay1").querySelector(`input.${CONST.CLASSES.STYLE_SIZE_INPUT}`),
+      SIZE_DIMENSION.row(ui, "overlay1").querySelector(
+        `input.${CONST.CLASSES.STYLE_SIZE_INPUT}`,
+      ),
     ).not.toBeNull();
   });
 
