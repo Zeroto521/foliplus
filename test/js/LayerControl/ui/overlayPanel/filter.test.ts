@@ -3,6 +3,7 @@
 // and the snapshot cache the panel seeds.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
+import { META_SOURCE_LAYER_ID } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerController } from "#foliplus/LayerControl/controller.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
@@ -49,6 +50,20 @@ describe("LayerUI filter panel (stage-2 pilot)", () => {
         { lat: 26.1, lng: 119.32, v: 30 },
       ]) as L.Layer,
       styleSetters: {},
+    });
+    return id;
+  };
+
+  /** A component row (Heatmap canvas) — registered without a Leaflet layer,
+   *  its points living on the source the meta names. */
+  const registerHeatmapRow = (id = "hm", sourceId?: string) => {
+    manager.registerLayer({
+      id,
+      name: "Heatmap",
+      group: "overlay",
+      layer: undefined as unknown as L.Layer,
+      styleSetters: {},
+      ...(sourceId ? { meta: { [META_SOURCE_LAYER_ID]: sourceId } } : {}),
     });
     return id;
   };
@@ -159,6 +174,40 @@ describe("LayerUI filter panel (stage-2 pilot)", () => {
       expect(empty).not.toBeNull();
       expect(empty!.textContent).toBe("LayerControl.filter_empty");
       expect(panel.querySelector(`.${CONST.CLASSES.FILTER_ROW}`)).toBeNull();
+    });
+
+    it("resolves the source layer from meta for a layerless component row", () => {
+      // Heatmap canvas rows register without a Leaflet layer; their points
+      // live on the source layer the row's meta names.
+      registerPoints("srcPoint");
+      registerHeatmapRow("hm", "srcPoint");
+      const item = findItem(ui, "hm");
+
+      ui.openFilterPanel(item);
+
+      const panel = item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`) as HTMLElement;
+      expect(panel).not.toBeNull();
+      expect(panel.querySelector(".foliplus-form-control")!.textContent).toBe(
+        "magnitude",
+      );
+      const minInput = panel.querySelector(
+        `.${CONST.CLASSES.FILTER_MIN}`,
+      ) as HTMLInputElement;
+      expect(minInput.min).toBe("10");
+      expect(minInput.max).toBe("30");
+    });
+
+    it("renders the empty state when a layerless row cannot resolve a source", () => {
+      registerHeatmapRow("hm"); // no meta source id
+      const item = findItem(ui, "hm");
+
+      // A click is never silent: the panel opens with the empty message.
+      ui.openFilterPanel(item);
+
+      const panel = item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`) as HTMLElement;
+      const empty = panel.querySelector(`.${CONST.CLASSES.FILTER_EMPTY}`);
+      expect(empty).not.toBeNull();
+      expect(empty!.textContent).toBe("LayerControl.filter_empty");
     });
 
     it("seeds the runtime store's snapshot cache so a reopen reuses it", () => {

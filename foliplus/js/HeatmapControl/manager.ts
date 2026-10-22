@@ -9,6 +9,7 @@ import { bareFieldName } from "#core/label/index.js";
 import {
   type LayerFilter,
   type LayerSnapshot,
+  META_SOURCE_LAYER_ID,
   NO_FEATURE_TREE_KINDS,
   type SnapshotPoint,
   matches,
@@ -505,8 +506,13 @@ class HeatmapManager {
     // applies to the currently selected source. The bins cache is reused
     // (zero h3 calls); only `aggregateBins` reruns on the filtered subset.
     this.events.on(EVENTS.LAYER_FILTER_CHANGE, ({ id, filter }) => {
-      this.layerFilters.set(id, filter);
-      if (id !== this.selectedLayerId) return;
+      // The panel lives on this heatmap's own row; its filter governs this
+      // heatmap's source. Stored under the source id so the pipeline read
+      // (`layerFilters.get(selectedLayerId)`) lines up with the render path.
+      if (id !== this.layerId) return;
+      const sourceId = this.selectedLayerId;
+      this.layerFilters.set(sourceId ?? id, filter);
+      if (!sourceId) return;
       // Invalidate the agg cache — the filter key changed. The bins cache
       // is untouched: geometry is independent of the filter.
       this.cachedAgg = null;
@@ -1009,11 +1015,16 @@ class HeatmapManager {
 
     const sourceKey = this.T("meta_source_layer");
     const fieldKey = this.T("meta_agg_field");
+    const sourceId = this.selectedLayerId ?? "";
     const changed =
       this.sourceMeta[sourceKey] !== layerName ||
-      this.sourceMeta[fieldKey] !== fieldLabel;
+      this.sourceMeta[fieldKey] !== fieldLabel ||
+      this.sourceMeta[META_SOURCE_LAYER_ID] !== sourceId;
     this.sourceMeta[sourceKey] = layerName;
     this.sourceMeta[fieldKey] = fieldLabel;
+    // The source layer id — consumed by the LayerControl filter panel to
+    // resolve this row's point snapshot (a canvas row has no Leaflet layer).
+    this.sourceMeta[META_SOURCE_LAYER_ID] = sourceId;
 
     if (!changed) return;
     // Stamp updatedAt so the panel's "Updated" row tracks the latest binding.

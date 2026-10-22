@@ -128,14 +128,15 @@ describe("HeatmapControl filter (stage-2 pilot)", () => {
     const aggKey1 = (m as any).cachedAgg?.key;
     expect(aggKey1).toBeDefined();
 
-    // Emit a filter change for the selected layer.
+    // Emit a filter change for this heatmap's own row (the panel lives on
+    // the heatmap row; its filter governs this heatmap's source).
     const filter: LayerFilter = {
       kind: "atom",
       field: "value",
       op: "between",
       range: [15, 25],
     };
-    events.emit(EVENTS.LAYER_FILTER_CHANGE, { id: "layer1", filter });
+    events.emit(EVENTS.LAYER_FILTER_CHANGE, { id: m.layerId, filter });
 
     // The agg cache was invalidated and rebuilt with a new key
     // that includes the filter JSON.
@@ -143,6 +144,24 @@ describe("HeatmapControl filter (stage-2 pilot)", () => {
     expect(aggKey2).toBeDefined();
     expect(aggKey2).not.toBe(aggKey1);
     expect(aggKey2).toContain(filter.kind);
+  });
+
+  it("ignores a LAYER_FILTER_CHANGE for another heatmap's row", () => {
+    setupWithPoints(m, [
+      { lat: 26.08, lng: 119.3, value: 10 },
+      { lat: 26.09, lng: 119.31, value: 20 },
+    ]);
+
+    m.renderHexagons();
+    const aggKey1 = (m as any).cachedAgg?.key;
+
+    events.emit(EVENTS.LAYER_FILTER_CHANGE, {
+      id: "some-other-heatmap",
+      filter: { kind: "atom", field: "value", op: "between", range: [10, 20] },
+    });
+
+    // Not this heatmap's row: the agg cache is untouched.
+    expect((m as any).cachedAgg?.key).toBe(aggKey1);
   });
 
   it("filter application reduces the point set via aggregateBins", () => {

@@ -23,6 +23,7 @@ import { EVENTS } from "#core/event/index.js";
 import {
   type LayerFilter,
   type LayerSnapshot,
+  META_SOURCE_LAYER_ID,
   buildLayerSnapshot,
   select as selectSnapshot,
 } from "#core/layer/index.js";
@@ -45,11 +46,11 @@ const fmtCount = (n: number): string => formatNumber(n, "comma", "en", 0);
  *  matches the design's "N of M kept" phrasing. */
 const updateCount = (
   count: HTMLElement,
-  snapshot: LayerSnapshot,
+  snapshot: LayerSnapshot | undefined,
   filter: LayerFilter,
 ): void => {
-  const kept = selectSnapshot(snapshot, filter).length;
-  const total = snapshot.points.length;
+  const kept = snapshot ? selectSnapshot(snapshot, filter).length : 0;
+  const total = snapshot?.points.length ?? 0;
   count.textContent = `${fmtCount(kept)} / ${fmtCount(total)}`;
 };
 
@@ -63,21 +64,29 @@ const openFilterPanel = (ui: LayerUI, item: HTMLElement): void => {
   const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
   const layerInfo = ui.c.layerRegistry.get(layerId);
   if (!layerInfo) return;
-  const layer = layerInfo.layer;
-  if (!layer) return;
+  // Component rows (Heatmap canvas) register without a Leaflet layer — the
+  // canvas is a DOM element. Their filterable points live on the component's
+  // source layer, published as `meta_source_layer_id` in the row's meta.
+  // A plain point layer registers with its own layer and needs no lookup.
+  const sourceLayer =
+    layerInfo.layer ??
+    (layerInfo.meta?.[META_SOURCE_LAYER_ID]
+      ? ui.c.findLayer(layerInfo.meta[META_SOURCE_LAYER_ID] as string)
+      : null);
 
   // Snapshot is built lazily and cached on the runtime row; the fields
   // cache is invalidated at the same points (label.ts `invalidateFields`
-  // also drops the snapshot).
+  // also drops the snapshot). A row with no resolvable layer still renders
+  // the empty-state panel — the click is never silent.
   let snapshot = ui.runtimeStore.getSnapshot(layerId);
-  if (!snapshot) {
-    snapshot = buildLayerSnapshot(layer, ui.log);
+  if (!snapshot && sourceLayer) {
+    snapshot = buildLayerSnapshot(sourceLayer, ui.log);
     ui.runtimeStore.setSnapshot(layerId, snapshot);
   }
 
-  const numericField = snapshot.numericFields[0];
+  const numericField = snapshot?.numericFields[0];
   const range: readonly [number, number] = numericField
-    ? (snapshot.ranges[numericField] ?? [0, 0])
+    ? (snapshot!.ranges[numericField] ?? [0, 0])
     : [0, 0];
 
   const initialFilter: LayerFilter = numericField

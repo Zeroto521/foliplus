@@ -149,6 +149,12 @@ const CONTENT_KIND = {
   CUSTOM: "custom",
 } as const;
 
+/** Meta key a component publishes on its own row naming the source layer
+ *  whose points back it (Heatmap → its selected source). The filter panel
+ *  reads this to resolve a snapshot for component rows that register
+ *  without a Leaflet layer (a canvas row carries only a DOM canvas). */
+const META_SOURCE_LAYER_ID = "meta_source_layer_id";
+
 export {
   ANNOTATION_PANE_PREFIX,
   CACHE,
@@ -162,6 +168,7 @@ export {
   GROUP,
   HIDDEN,
   KIND,
+  META_SOURCE_LAYER_ID,
   NO_FEATURE_TREE_KINDS,
   PANE_NAME_PATTERN,
   PANE_ROLE,
