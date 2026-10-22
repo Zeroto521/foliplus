@@ -735,6 +735,29 @@ describe("LayerUI style panel — fill color", () => {
     expect(FILL_DIMENSION.value!(ui, "ghost")).toBeUndefined();
   });
 
+  it("FILL_DIMENSION.value reports the ramp arm when the map is painted by value", () => {
+    // A ramp config without an explicit mode is the pre-fillMode record shape
+    // and still paints the ramp, so the descriptor must say "ramp" rather than
+    // the stored mode's solid fallback — or the panel would claim solid while
+    // the map is painted by value.
+    setIntent(ui, "overlay1", "fillRamp", {
+      field: "count",
+      method: "equal",
+      classes: 3,
+      scheme: "Reds",
+    });
+
+    expect(FILL_DIMENSION.value!(ui, "overlay1")).toMatchObject({
+      mode: "ramp",
+      ramp: { field: "count", method: "equal", classes: 3, scheme: "Reds" },
+    });
+
+    // An explicit solid mode wins over a stored ramp config — the config is
+    // kept for the next switch but the arm is solid.
+    setIntent(ui, "overlay1", "fillMode", "solid");
+    expect(FILL_DIMENSION.value!(ui, "overlay1")).toMatchObject({ mode: "solid" });
+  });
+
   it("unregister drops the fill scheduler entry — no Map residue for dead ids", () => {
     // The scheduler Map is keyed by layer id and would otherwise outlive
     // the layer: a churning map (Heatmap empty/reload, user delete) would
@@ -1812,6 +1835,126 @@ describe("applyFillToLayer — fillMode dispatch", () => {
       fillColor: "#111111",
       fill: true,
     });
+  });
+
+  it("switching back to solid with no solid override restores the author's face", () => {
+    // A solid apply with nothing to own must clear the ramp's output, not
+    // skip the walk: a skipped walk leaves the previous arm's colour on the
+    // map. The ramp config stays stored for the next switch.
+    setIntent(ui, "overlay1", "fillMode", "ramp");
+    setIntent(ui, "overlay1", "fillRamp", RAMP);
+    applyFillToLayer(ui, "overlay1");
+    expect(paintedColors()).toEqual(COLORS);
+
+    setIntent(ui, "overlay1", "fillMode", "solid");
+    applyFillToLayer(ui, "overlay1");
+
+    for (const leaf of rampLayer.leaves) {
+      expect(leaf.setStyle.mock.calls.at(-1)![0]).toEqual({
+        fillColor: "#aabbcc",
+        fillOpacity: 0.5,
+        fill: true,
+      });
+    }
+    expect(getIntent(ui, "overlay1", "fillRamp")).toEqual(RAMP);
+  });
+
+  it("an opacity-only solid apply after a ramp restores the author's colour", () => {
+    // Solid owns the whole fill face, so the colour has to come back to the
+    // author's too — otherwise the ramp's colour would sit under the user's
+    // opacity.
+    setIntent(ui, "overlay1", "fillMode", "ramp");
+    setIntent(ui, "overlay1", "fillRamp", RAMP);
+    applyFillToLayer(ui, "overlay1");
+
+    setIntent(ui, "overlay1", "fillMode", "solid");
+    setIntent(ui, "overlay1", "fillOpacity", 0.4);
+    applyFillToLayer(ui, "overlay1");
+
+    // The last two calls: the restore, then the user's opacity on top of it.
+    const calls = rampLayer.leaves[0].setStyle.mock.calls.map(c => c[0]);
+    expect(calls.at(-2)).toEqual({
+      fillColor: "#aabbcc",
+      fillOpacity: 0.5,
+      fill: true,
+    });
+    expect(calls.at(-1)).toEqual({ fillOpacity: 0.4, fill: true });
+  });
+
+  it("a colour-only solid apply after a ramp restores the author's opacity", () => {
+    setIntent(ui, "overlay1", "fillMode", "ramp");
+    setIntent(ui, "overlay1", "fillRamp", RAMP);
+    applyFillToLayer(ui, "overlay1");
+
+    setIntent(ui, "overlay1", "fillMode", "solid");
+    setIntent(ui, "overlay1", "fillColor", "#777777");
+    applyFillToLayer(ui, "overlay1");
+
+    const calls = rampLayer.leaves[0].setStyle.mock.calls.map(c => c[0]);
+    expect(calls.at(-2)).toEqual({
+      fillColor: "#aabbcc",
+      fillOpacity: 0.5,
+      fill: true,
+    });
+    expect(calls.at(-1)).toEqual({ fillColor: "#777777", fill: true });
+  });
+
+  it("a switch back to the ramp repaints it, with the stored config kept", () => {
+    // Both directions: the inactive config is never deleted, only ignored, so
+    // the ramp comes back exactly where it left off.
+    setIntent(ui, "overlay1", "fillMode", "ramp");
+    setIntent(ui, "overlay1", "fillRamp", RAMP);
+    applyFillToLayer(ui, "overlay1");
+    expect(paintedColors()).toEqual(COLORS);
+
+    setIntent(ui, "overlay1", "fillMode", "solid");
+    applyFillToLayer(ui, "overlay1");
+
+    setIntent(ui, "overlay1", "fillMode", "ramp");
+    applyFillToLayer(ui, "overlay1");
+    expect(paintedColors()).toEqual(COLORS);
+    expect(getIntent(ui, "overlay1", "fillRamp")).toEqual(RAMP);
+  });
+
+  it("a solid switch leaves the author's face in force on mouseout", () => {
+    // The ramp config stays stored across the switch (it is the arm's
+    // next-time state, not evidence the arm is active), so the getter a ramp
+    // apply registered is still reachable. The solid arm has to take the leaf
+    // back, or the next mouseout would repaint the ramp over the author's
+    // face. The getter's own mode check is asserted in fillRamp.test.ts.
+    const handlers: Array<() => void> = [];
+    const leaf = {
+      options: { fillColor: "#112233", fillOpacity: 0.6, fill: false },
+      feature: { properties: { count: 1 } },
+      setStyle: vi.fn(),
+      on: vi.fn((_type: string, fn: () => void) => {
+        handlers.push(fn);
+      }),
+    };
+    rampLayer.leaves[0] = leaf as never;
+    setIntent(ui, "overlay1", "fillMode", "ramp");
+    setIntent(ui, "overlay1", "fillRamp", RAMP);
+    applyFillToLayer(ui, "overlay1");
+
+    // folium's mouseout restores the author's face; the ramp's getter repays
+    // the ramp colour on top of it.
+    leaf.setStyle({ fillColor: "#112233", fillOpacity: 0.6, fill: false });
+    handlers[0]();
+    expect(leaf.setStyle.mock.calls.at(-1)![0].fillColor).toBe(COLORS[0]);
+
+    setIntent(ui, "overlay1", "fillMode", "solid");
+    applyFillToLayer(ui, "overlay1");
+    leaf.setStyle.mockClear();
+
+    // Re-registering the key replaces the ramp's getter instead of stacking a
+    // second closure, so the leaf still holds one mouseout handler.
+    expect(handlers).toHaveLength(1);
+
+    // folium's mouseout restores the author's face...
+    leaf.setStyle({ fillColor: "#112233", fillOpacity: 0.6, fill: false });
+    // ...and the (now solid) getter leaves it alone.
+    handlers[0]();
+    expect(leaf.setStyle).toHaveBeenCalledTimes(1);
   });
 
   it("reset clears both the ramp config and the mode", () => {

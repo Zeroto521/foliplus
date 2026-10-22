@@ -365,7 +365,12 @@ describe("LayerPersistence", () => {
       }
     });
 
-    it("trims a whitespace-padded field name — it is a property key", () => {
+    it("keeps a whitespace-padded field name verbatim", () => {
+      // "  price  " is a different GeoJSON property from "price" (RFC 7946
+      // section 3.2 with RFC 8259 section 4), so trimming it on read would
+      // miss every feature after a reload — or read the other column when both
+      // spellings exist. The reader checks for non-whitespace and stores the
+      // key as it came.
       seedStorage({
         version: RECORD_VERSION,
         layers: {
@@ -381,9 +386,40 @@ describe("LayerPersistence", () => {
         },
       });
       expect(makePersistence().load().layers.a).toEqual({
-        fillRamp: { field: "price", method: "equal", classes: 3, scheme: "Reds" },
+        fillRamp: { field: "  price  ", method: "equal", classes: 3, scheme: "Reds" },
         overrides: ["fillRamp"],
       });
+    });
+
+    it("carries a whitespace-padded field through the next write", () => {
+      // The reader's verbatim key must reach storage untouched, or the next
+      // reload would ask for a column that does not exist. The write rebuilds
+      // the whole record from what storage holds, so the read-time key is what
+      // the record is judged on.
+      seedStorage({
+        version: RECORD_VERSION,
+        layers: {
+          a: {
+            fillRamp: {
+              field: "  price  ",
+              method: "equal",
+              classes: 3,
+              scheme: "Reds",
+            },
+            overrides: ["fillRamp"],
+          },
+        },
+      });
+      vi.useFakeTimers();
+      const save = spySave();
+      const p = makePersistence();
+      p.schedule({ order: () => ["a"] });
+
+      vi.advanceTimersByTime(CONST.SAVE_DEBOUNCE_MS + 50);
+
+      expect(lastRecord(save).layers.a?.fillRamp?.field).toBe("  price  ");
+      save.mockRestore();
+      vi.useRealTimers();
     });
 
     it("strips an explicit numeric kind — absence is the same config", () => {

@@ -21,6 +21,7 @@ vi.mock("#foliplus/LayerControl/ui/intent.js", () => ({
   INTENT: {
     FILL_RAMP: "fillRamp",
     FILL_OPACITY: "fillOpacity",
+    FILL_MODE: "fillMode",
   },
   getIntent: (ui: unknown, id: unknown, key: string) => mockGetIntent(ui, id, key),
 }));
@@ -134,7 +135,7 @@ describe("applyRampToLayer", () => {
     }
   });
 
-  it("skips leaves with non-finite values", () => {
+  it("leaves a never-written leaf alone when its value is non-finite", () => {
     installChroma(["#ff0000", "#00ff00", "#0000ff"]);
     const layer = makeFeatureLayer([
       { properties: { value: 1 } },
@@ -151,13 +152,54 @@ describe("applyRampToLayer", () => {
     expect(layer.leaves[3].setStyle).not.toHaveBeenCalled();
   });
 
-  it("returns early for a layer with no finite values", () => {
+  it("restores the author's face for a layer with no finite values", () => {
+    // Nothing to classify is not "leave everything as it is": if a previous
+    // ramp already painted the leaves, that output must be undone, or the map
+    // would keep a colour the current config cannot justify.
     installChroma(["#ff0000", "#00ff00", "#0000ff"]);
-    const layer = makeFeatureLayer([{ properties: { value: NaN } }]);
+    const layer = makeFeatureLayer([
+      { properties: { value: 1 } },
+      { properties: { value: 9 } },
+    ]);
 
     applyRampToLayer(makeUI(layer), "overlay1", makeRamp());
+    applyRampToLayer(makeUI(layer), "overlay1", makeRamp({ field: "missing" }));
 
-    expect(layer.leaves[0].setStyle).not.toHaveBeenCalled();
+    // Every painted leaf is back at what the author drew.
+    for (const leaf of layer.leaves) {
+      expect((leaf.setStyle as any).mock.calls.at(-1)![0]).toEqual({
+        fillColor: "#3388ff",
+        fillOpacity: 0.2,
+        fill: true,
+      });
+    }
+  });
+
+  it("restores a leaf the new field leaves behind", () => {
+    // Switching the drive property can orphan leaves: the ones that still have
+    // a value get the new colour, the ones that do not go back to the
+    // author's face instead of keeping the previous ramp's output.
+    installChroma(["#111111", "#222222", "#333333"]);
+    const layer = makeFeatureLayer([
+      { properties: { value: 1, alt: 1 } },
+      { properties: { value: 5, alt: null } },
+      { properties: { value: 9, alt: 9 } },
+      { properties: { value: 17, alt: 17 } },
+    ]);
+
+    applyRampToLayer(makeUI(layer), "overlay1", makeRamp());
+    applyRampToLayer(makeUI(layer), "overlay1", makeRamp({ field: "alt" }));
+
+    const last = (leaf: (typeof layer.leaves)[number]) =>
+      (leaf.setStyle as any).mock.calls.at(-1)![0];
+    expect(last(layer.leaves[0]).fillColor).toBe("#111111");
+    expect(last(layer.leaves[2]).fillColor).toBe("#222222");
+    expect(last(layer.leaves[3]).fillColor).toBe("#333333");
+    expect(last(layer.leaves[1])).toEqual({
+      fillColor: "#3388ff",
+      fillOpacity: 0.2,
+      fill: true,
+    });
   });
 
   it("returns early for a layer not in the registry", () => {
@@ -177,6 +219,55 @@ describe("applyRampToLayer", () => {
 
     expect(layer.leaves[0].setStyle).toHaveBeenCalled();
     expect(layer.leaves[1].setStyle).toHaveBeenCalled();
+  });
+
+  it("does not throw on a scheme chroma cannot parse", () => {
+    // chroma throws on an unknown scheme name instead of returning the shared
+    // grey. That throw must not escape the apply walk, which also runs from
+    // the replay that fires while the control attaches: one bad record in
+    // storage would otherwise leave the whole panel unmounted. The layer gets
+    // the author's face back, and no pin is attached for a ramp that could
+    // not be built.
+    installChroma(["#111111"]);
+    const layer = makeFeatureLayer([{ properties: { value: 5 } }]);
+    applyRampToLayer(makeUI(layer), "overlay1", makeRamp());
+
+    globalThis.chroma = {
+      scale: () => {
+        throw new Error("unknown format");
+      },
+    } as never;
+
+    expect(() =>
+      applyRampToLayer(makeUI(layer), "overlay1", makeRamp({ scheme: "bogus-scheme" })),
+    ).not.toThrow();
+    expect((layer.leaves[0].setStyle as any).mock.calls.at(-1)![0]).toEqual({
+      fillColor: "#3388ff",
+      fillOpacity: 0.2,
+      fill: true,
+    });
+    // The failed ramp attaches an invalidating pin rather than a repainting
+    // one — the previous getter would replay a colour this ramp cannot
+    // justify.
+    const pinCalls = (pinStyleOnHighlight as ReturnType<typeof vi.fn>).mock.calls;
+    expect(pinGetterOf(pinCalls.length - 1)()).toBeNull();
+  });
+
+  it("pin stops replaying the ramp once the mode is solid", () => {
+    // A mode switch back to solid keeps the ramp config stored — the config is
+    // the arm's next-time state, not evidence that the arm is active. The pin
+    // must not repaint the ramp on the next mouseout, and it must still
+    // replay while the ramp arm is active.
+    installChroma(["#ff0000", "#00ff00", "#0000ff"]);
+    const ramp = makeRamp();
+    const layer = makeFeatureLayer([{ properties: { value: 5 } }]);
+    applyRampToLayer(makeUI(layer), "overlay1", ramp);
+
+    intentValues = { fillRamp: ramp, fillMode: "solid" };
+    expect(pinGetterOf()()).toBeNull();
+
+    intentValues = { fillRamp: ramp };
+    expect(pinGetterOf()()!.fillColor).toBe("#ff0000");
   });
 
   it("pin getter returns null when the ramp intent is cleared", () => {

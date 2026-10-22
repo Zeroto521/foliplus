@@ -45,6 +45,14 @@ type ValueRamp = {
  *  and clamps to the last class for values beyond the final boundary — the
  *  two ends are the only places a value can fall outside. */
 const buildRamp = (values: number[], config: RampConfig): ValueRamp => {
+  // Empty input short-circuits before the palette call: chroma answers a
+  // zero-colour request with the scheme's two endpoints, so an empty ramp
+  // would come back carrying real colours and colorFor would paint one of
+  // them instead of the fallback grey. The contract holds only if the array
+  // is actually empty.
+  if (values.length === 0) {
+    return { breaks: [], colors: [], classOf: () => 0 };
+  }
   const nClasses = Math.min(config.classes, values.length);
   const breaks = computeBreaks(values, nClasses, config.method);
   const colors = getColorScale(config.scheme, Math.max(0, breaks.length - 1));

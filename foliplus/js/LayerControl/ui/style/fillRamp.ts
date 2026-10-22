@@ -32,6 +32,7 @@ import {
   type StyleCarrier,
   type StyleSetter,
   commitStyleDim,
+  restoreStyleDim,
   styleDimPayload,
   walkStyleLeaves,
 } from "./styleBag.js";
@@ -49,6 +50,17 @@ const leafPropertyValue = (leaf: StyleSetter, key: string): unknown =>
 const isFiniteNumber = (value: unknown): value is number =>
   typeof value === "number" && Number.isFinite(value);
 
+/** Invalidate a leaf's previous ramp pin.
+ *
+ *  A leaf this ramp cannot classify must not keep replaying the colour the
+ *  previous ramp committed: folium's mouseout would re-apply it on every
+ *  leave. Returning null leaves the author's face in force, and the next
+ *  apply re-registers the key with a live getter, so the null is not a
+ *  permanent block. */
+const clearRampPin = (leaf: StyleSetter): void => {
+  pinStyleOnHighlight(leaf, DIM.FILL, () => null);
+};
+
 /** Whether two ramp configs differ in a way that invalidates a cached
  *  breaks/scale pair. Every field counts: `field` because the collected
  *  values come from it, so a field change is a full rebuild, not a repaint;
@@ -62,6 +74,19 @@ const sameRampConfig = (a: FillRampConfig, b: FillRampConfig): boolean =>
   a.method === b.method &&
   a.classes === b.classes &&
   a.scheme === b.scheme;
+
+/** The active fill arm. An absent mode defers to whether a ramp config
+ *  exists — the pre-fillMode record shape, where a config alone meant "paint
+ *  by value". Every reader of the fill state goes through this so apply, the
+ *  dimension's value, the replay guard and the highlight pins all agree on
+ *  what the map should show; reading the stored mode with a solid fallback on
+ *  its own reports solid while the map is painted by value. */
+const resolveFillMode = (
+  ui: LayerUI,
+  layerId: string,
+  ramp: FillRampConfig | undefined,
+): "solid" | "ramp" =>
+  getIntent(ui, layerId, INTENT.FILL_MODE) ?? (ramp !== undefined ? "ramp" : "solid");
 
 /** Apply a value-based fill to one layer.
  *
@@ -103,16 +128,43 @@ const applyRampToLayer = (ui: LayerUI, layerId: string, ramp: FillRampConfig): v
     }
   });
 
-  if (values.length === 0) return;
-
   // ── Build the ramp once, before the write pass ──
-  const scale = buildRamp(values, ramp);
-  if (scale.colors.length === 0) return;
+  // chroma throws on a scheme name it cannot parse instead of returning the
+  // fallback grey, and that throw would otherwise escape the replay walk that
+  // runs while the control attaches: one bad record in storage would leave
+  // the whole panel unmounted. A layer whose ramp cannot be built gets the
+  // author's fill face back — the same answer an all-invalid field gives.
+  let scale: ReturnType<typeof buildRamp> | null = null;
+  if (values.length > 0) {
+    try {
+      scale = buildRamp(values, ramp);
+    } catch {
+      scale = null;
+    }
+  }
+  if (!scale || scale.colors.length === 0) {
+    // Nothing to classify — clean up rather than leave the map as it was:
+    // every leaf goes back to the author's fill face and its old pin is
+    // dropped, so a previously painted ramp cannot resurface on mouseout.
+    walkStyleLeaves(layer, leaf => {
+      restoreStyleDim(leaf, FACE.FILL);
+      clearRampPin(leaf);
+    });
+    return;
+  }
 
   // ── Pass 2: apply per-leaf + pin ──
   walkStyleLeaves(layer, leaf => {
     const val = leafValues.get(leaf);
-    if (val === undefined) return;
+    if (val === undefined) {
+      // No value to classify, so this leaf is outside the ramp's reach and
+      // goes back to the author's fill face. Leaving the previous commit here
+      // would keep a colour the current config cannot justify, and the stale
+      // pin would stay inert until folium's next mouseout fixed it by luck.
+      restoreStyleDim(leaf, FACE.FILL);
+      clearRampPin(leaf);
+      return;
+    }
     // fillOpacity is undefined when the user never set one; styleDimPayload
     // drops it, so the author's declared opacity stays in force.
     commitStyleDim(
@@ -124,6 +176,11 @@ const applyRampToLayer = (ui: LayerUI, layerId: string, ramp: FillRampConfig): v
     pinStyleOnHighlight(leaf, DIM.FILL, () => {
       const currentRamp = getIntent(ui, layerId, INTENT.FILL_RAMP);
       if (!currentRamp) return null;
+      // The arm changed since the cache was built: the solid commit owns the
+      // leaf now, and this getter must not replay a colour the active mode
+      // does not own (a mode switch back to solid that leaves the ramp config
+      // stored would otherwise re-apply the ramp on every mouseout).
+      if (resolveFillMode(ui, layerId, currentRamp) !== "ramp") return null;
       // Config changed since the cache was built — return null so the
       // author's face stays in force until the next scheduler tick.
       if (!sameRampConfig(currentRamp, ramp)) return null;
@@ -141,4 +198,4 @@ const applyRampToLayer = (ui: LayerUI, layerId: string, ramp: FillRampConfig): v
   });
 };
 
-export { applyRampToLayer };
+export { applyRampToLayer, resolveFillMode };

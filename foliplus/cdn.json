@@ -9,6 +9,7 @@
     "chroma-js": "https://cdn.jsdelivr.net/npm/chroma-js@2/chroma.min.js"
   },
   "LayerControl": {
+    "simple-statistics": "https://cdn.jsdelivr.net/npm/simple-statistics@7/dist/simple-statistics.min.js",
     "chroma-js": "https://cdn.jsdelivr.net/npm/chroma-js@2/chroma.min.js"
   },
   "LocateControl": {

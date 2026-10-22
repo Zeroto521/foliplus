@@ -43,6 +43,10 @@
     "chroma.min.js",
     "application/javascript"
   ],
+  "cdn.jsdelivr.net/npm/simple-statistics@7/dist/simple-statistics.min.js": [
+    "simple-statistics.min.js",
+    "application/javascript"
+  ],
   "cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.1.0/MarkerCluster.Default.css": [
     "MarkerCluster.Default.css",
     "text/css"

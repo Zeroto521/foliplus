@@ -73,6 +73,24 @@ describe("buildRamp", () => {
     expect(ramp.classOf(1)).toBe(0);
   });
 
+  it("does not ask the palette when there is nothing to classify", () => {
+    // Real chroma answers a zero-colour request with the scheme's two
+    // endpoints, so an empty ramp must not pass through the palette at all —
+    // otherwise the caller would paint an endpoint colour instead of the
+    // fallback grey, and the empty contract would be unobservable.
+    const scaleSpy = vi.fn(() => ({
+      mode: () => ({ colors: () => ["#1", "#9"] }),
+    }));
+    globalThis.chroma = { scale: scaleSpy } as never;
+
+    const ramp = buildRamp([], EQUAL);
+
+    expect(ramp.breaks).toEqual([]);
+    expect(ramp.colors).toEqual([]);
+    expect(colorFor(ramp, 1)).toBe(SCHEME_FALLBACK_COLOR);
+    expect(scaleSpy).not.toHaveBeenCalled();
+  });
+
   it("bisects on the first break at or above the value", () => {
     installChroma(["#1", "#2", "#3"]);
     const ramp = buildRamp([1, 5, 9], EQUAL);

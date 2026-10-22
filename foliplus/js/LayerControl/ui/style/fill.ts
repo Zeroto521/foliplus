@@ -35,7 +35,7 @@ import {
 import { showSolidBasemap } from "../color.js";
 import { INTENT, type IntentKey, getIntent } from "../intent.js";
 import type { LayerUI } from "../surface.js";
-import { applyRampToLayer } from "./fillRamp.js";
+import { applyRampToLayer, resolveFillMode } from "./fillRamp.js";
 import { pinStyleOnHighlight } from "./pin.js";
 import {
   getDimension,
@@ -51,6 +51,7 @@ import {
   flushStyleDimApply,
   restoreStyleDim,
   scheduleStyleDimApply,
+  styleBagOf,
   styleBaseOf,
   styleDimPayload,
   walkStyleLeaves,
@@ -143,14 +144,13 @@ const VISIBLE_FILL_OPACITY = 0.2;
 const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
   const layerInfo = ui.c.layerRegistry.get(layerId);
 
-  // Arm selection. An absent mode is solid; a ramp config with no explicit
-  // mode is the pre-fillMode record shape, so the config's presence alone
-  // means "paint by value". The solid arm never reads fillRamp — the two
-  // arms are mutually exclusive on apply, even though both configs stay
-  // stored (a mode switch back must restore the other arm).
+  // Arm selection goes through the shared resolver: an absent mode is solid,
+  // and a ramp config with no explicit mode is the pre-fillMode record shape,
+  // so the config's presence alone means "paint by value". The solid arm never
+  // reads fillRamp — the two arms are mutually exclusive on apply, even though
+  // both configs stay stored (a mode switch back must restore the other arm).
   const ramp = getIntent(ui, layerId, INTENT.FILL_RAMP);
-  const mode =
-    getIntent(ui, layerId, INTENT.FILL_MODE) ?? (ramp !== undefined ? "ramp" : "solid");
+  const mode = resolveFillMode(ui, layerId, ramp);
 
   if (mode === "ramp" && ramp !== undefined) {
     // A solid-color basemap has no leaves to classify, so a ramp degrades to
@@ -163,7 +163,6 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
 
   const color = getIntent(ui, layerId, INTENT.FILL_COLOR);
   const opacity = getIntent(ui, layerId, INTENT.FILL_OPACITY);
-  if (color === undefined && opacity === undefined) return;
 
   // Solid-color basemap: the fill is the pane's paint, not a vector style.
   // Route to showSolidBasemap instead of walking leaves (the basemap has none).
@@ -187,9 +186,25 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
   const values: Record<string, unknown> = {};
   if (color !== undefined) values.fillColor = color;
   if (opacity !== undefined) values.fillOpacity = opacity;
+  const hasOverride = color !== undefined || opacity !== undefined;
   walkStyleLeaves(layer, node => {
-    // Shared write contract: value keys + visibility bit (`fill: true`).
-    commitStyleDim(node, values, FACE.FILL);
+    const written = styleBagOf(node) !== undefined;
+    // A leaf that was never written and has nothing to own is left alone: no
+    // restore, no listener. An uncommitted layer keeps folium's own hover
+    // handling and gains no per-leaf cost.
+    if (!hasOverride && !written) return;
+    // Solid owns the whole fill face, so the leaf starts from the author's
+    // paint. Without the restore a solid commit would be merged onto the
+    // ramp's output: an opacity-only solid apply would keep the ramp's colour
+    // under the user's opacity, and a no-override apply would hold the
+    // previous arm's colour on the map until folium's next mouseout happened
+    // to overwrite it. The pin below then replaces the ramp's getter, which
+    // would otherwise still be holding this leaf.
+    restoreStyleDim(node, FACE.FILL);
+    if (hasOverride) {
+      // Shared write contract: value keys + visibility bit (`fill: true`).
+      commitStyleDim(node, values, FACE.FILL);
+    }
 
     // Folium's highlight_on_hover restores the original style on mouseout;
     // pinStyleOnHighlight reapplies the user's fill after folium's handler
@@ -416,8 +431,10 @@ const FILL_DIMENSION = registerDimension<{
       color: getIntent(ui, layerId, INTENT.FILL_COLOR) ?? base.fillColor,
       opacity: getIntent(ui, layerId, INTENT.FILL_OPACITY) ?? base.fillOpacity,
       // "solid" is derived, not authored: no authored default exists for the
-      // arm, so the fallback is the ramp-less arm.
-      mode: getIntent(ui, layerId, INTENT.FILL_MODE) ?? "solid",
+      // arm, so the fallback defers to whether a ramp config exists — the same
+      // rule apply uses. Reading the stored mode with a solid fallback alone
+      // would report solid while the map is painted by value.
+      mode: resolveFillMode(ui, layerId, getIntent(ui, layerId, INTENT.FILL_RAMP)),
       ramp: getIntent(ui, layerId, INTENT.FILL_RAMP),
     };
   },

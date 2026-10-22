@@ -30,7 +30,12 @@ const computeBreaks = (
   const sorted = data.slice().sort((a, b) => a - b);
   const n = sorted.length;
   if (n <= 2) return [sorted[0], sorted[n - 1]];
-  numClasses = Math.max(3, Math.min(numClasses, n));
+  // Two is the floor, not three: the picker's own contract is 2-9 on both
+  // sides (HeatmapControl.py's num_classes and the fill ramp's classes), so
+  // asking for two classes must build two. Forcing three made the request a
+  // different request, and one the caller's colour scale did not match,
+  // since the scale asks for exactly the class count it was handed.
+  numClasses = Math.max(2, Math.min(numClasses, n));
 
   const lo = sorted[0];
   const hi = sorted[n - 1];

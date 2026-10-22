@@ -179,7 +179,7 @@ describe("fillRamp.perf @6k", { timeout: 180_000 }, () => {
         `${setStyleCalls} setStyle calls (2 walks / tick: collect + apply)` +
         `\n[T202 bench] ramp/solid ratio: ${(avgMs / solid).toFixed(2)}x ` +
         `  (solid ${solid.toFixed(3)}ms/tick, measured in this run)` +
-        `\n[T202 bench] ramp per-leaf: ${((avgMs * 1e6) / N_LEAVES).toFixed(0)} μs/leaf`,
+        `\n[T202 bench] ramp per-leaf: ${((avgMs * 1e3) / N_LEAVES).toFixed(3)} μs/leaf`,
     );
     expect(avgMs).toBeLessThan(150);
   });

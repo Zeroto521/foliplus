@@ -24,17 +24,31 @@ type LiveState = {
 
 // CONFIG is a free variable from the IIFE template wrapper (see BaseControl._template).
 
-/** Shape version of the persisted record: a positive integer, incremented only
- *  when the record's shape changes. `parseRecord` is per-segment tolerant, so a
- *  stored value that does not match is left alone (the segment is treated as
- *  absent); every write stamps `RECORD_VERSION`, which is what brings the
- *  record up to date. Presence, not value, is the compatibility marker — a
- *  record without a `version` is read as-is and re-stamped on the next write.
+/** Compatibility version of the persisted record: bumped only when the stored
+ *  shape needs migrating, or when an old record would otherwise read with a
+ *  different meaning. Adding an optional field whose absence keeps the old
+ *  behavior does not bump it — `fillRamp` / `fillMode` keep this at 3, an old
+ *  record still reads as solid, and a ramp record without a mode reads as ramp
+ *  through the compatibility branch. So does a rename-free internal refactor
+ *  or a UI-only change.
+ *
+ *  `parseRecord` is per-segment tolerant, so a stored value that does not
+ *  match is left alone (the segment is treated as absent); every write stamps
+ *  `RECORD_VERSION`, which is what brings the record up to date. Presence,
+ *  not value, is the compatibility marker — a record without a `version` is
+ *  read as-is and re-stamped on the next write.
+ *
+ *  No reader dispatches on the number: nothing migrates on load, so a bump is
+ *  not a migration by itself. When a bump is genuinely needed — a field an old
+ *  record cannot be safely derived for, a rename or move, a changed default
+ *  meaning — ship the old-version read path, an unknown-future-version policy,
+ *  and round-trip tests with it.
  *
  *  2 → 3: the label config moved into `layers[id].annotation` (a style
- *  dimension of the layer, not a parallel segment). v2 records still read —
- *  their `annotations[id]` entries are the fallback when the new key is
- *  absent, and the segment is passed through on every write untouched. */
+ *  dimension of the layer, not a parallel segment), which needs a
+ *  compatibility read, so it did bump. v2 records still read — their
+ *  `annotations[id]` entries are the fallback when the new key is absent, and
+ *  the segment is passed through on every write untouched. */
 const RECORD_VERSION = 3;
 
 const emptyRecord = (): PersistedRecord => ({
@@ -77,8 +91,15 @@ const parseZoomRange = (raw: unknown): [number, number] | null => {
  *  strings, a whole class count inside the picker's 2-9 bounds, and a `kind`
  *  this client can build. The defaults live on the UI side, so the record
  *  carries only an explicit choice — a record missing one is dropped rather
- *  than guessed at. `field` is trimmed because it is a property key, and a
- *  stray space would silently miss every feature on the next apply.
+ *  than guessed at. All three names are tested for non-whitespace and all
+ *  three are stored verbatim. `field` is a data key, and a GeoJSON property
+ *  called " score " is a different key from "score" (RFC 7946 section 3.2 with
+ *  RFC 8259 section 4: a member name is a string and its whitespace is part
+ *  of it), so rewriting the key on read would silently miss every feature
+ *  after a reload, or read the other column when both spellings exist.
+ *  `method` and `scheme` are protocol names that no caller writes with
+ *  padding; keeping them as stored leaves any stray space visible in the
+ *  record instead of normalising it away.
  *
  *  `kind` accepts only absence or "numeric": the categorical arm is not
  *  implemented, so a record that asks for it is dropped whole rather than
@@ -103,7 +124,7 @@ const parseFillRamp = (raw: unknown): FillRampConfig | null => {
     return null;
   }
   return {
-    field: data.field.trim(),
+    field: data.field,
     method: data.method,
     scheme: data.scheme,
     classes: data.classes,
