@@ -69,6 +69,6 @@
   "LayerControl.style_border_weight": "Border width",
   "LayerControl.style_fill": "Fill Color",
   "LayerControl.style_fill_opacity": "Fill Opacity",
-  "LayerControl.style_size": "Size (px)",
+  "LayerControl.style_size": "Size",
   "LayerControl.border": "Border"
 }

@@ -211,8 +211,7 @@ describe("buildSizeRow", () => {
 
   it("builds the row with bounds, step and its own row class", () => {
     // One number field on the shared form-number-input chrome, exactly like
-    // the border-weight and fill-opacity inputs — no suffix span, so the
-    // pixel unit lives in the localized label instead.
+    // the border-weight and fill-opacity inputs — no trailing unit span.
     const row = buildSizeRow(ui, "overlay1")!;
     expect(row.classList.contains(CONST.CLASSES.STYLE_SIZE_ROW)).toBe(true);
     expect(row.querySelector(".foliplus-form-unit")).toBeNull();
