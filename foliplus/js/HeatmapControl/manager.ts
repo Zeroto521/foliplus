@@ -836,11 +836,11 @@ class HeatmapManager {
 
   /** Build the set of point indices that pass the current filter. Reads
    *  the cached snapshot (same layer walk as `getSelectedPoints`, so
-   *  indices align). No filter → all indices included. */
+   *  indices align). No filter → all indices included. Called from
+   *  renderHexagons after its `!selectedLayerId` early return, so the id
+   *  is non-null here. */
   private buildIncludeSet(allPts: SelectedPoint[]): Set<number> {
-    const filter = this.selectedLayerId
-      ? this.layerFilters.get(this.selectedLayerId)
-      : undefined;
+    const filter = this.layerFilters.get(this.selectedLayerId!);
     const include = new Set<number>();
     if (!filter || !this.cachedSnapshot) {
       for (let i = 0; i < allPts.length; i++) include.add(i);
@@ -861,9 +861,7 @@ class HeatmapManager {
     const allPts = this.getSelectedPoints();
     const zoom = this.map.getZoom();
     const res = this.getH3Res(zoom);
-    const fKey = this.filterKey(
-      this.selectedLayerId ? this.layerFilters.get(this.selectedLayerId) : undefined,
-    );
+    const fKey = this.filterKey(this.layerFilters.get(this.selectedLayerId!));
     const includeSet = this.buildIncludeSet(allPts);
     // Bins cache: geometry only, independent of the filter. A filter
     // change reuses the bins and only reruns aggregateBins.

@@ -120,6 +120,23 @@ describe("LayerUI filter panel (stage-2 pilot)", () => {
 
       expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).not.toBeNull();
     });
+
+    it("falls back to the menu item when the active menu state is lost", () => {
+      registerPoints();
+      const item = findItem(ui, "pnt");
+      ui.openMoreMenu(item);
+      const spy = vi.spyOn(ui, "openFilterPanel");
+
+      // Menu state dropped (e.g. a peer overlay cleared it) — the handler
+      // must still dispatch, anchoring on the clicked <li>.
+      ui.overlayPanel.activeMenu = null;
+      const li = item.querySelector(
+        `[data-action="${CONST.ACTION.FILTER_LAYER}"]`,
+      ) as HTMLElement;
+      expect(() => li.click()).not.toThrow();
+      expect(spy).toHaveBeenCalled();
+      spy.mockRestore();
+    });
   });
 
   describe("openFilterPanel()", () => {
@@ -174,6 +191,57 @@ describe("LayerUI filter panel (stage-2 pilot)", () => {
       expect(empty).not.toBeNull();
       expect(empty!.textContent).toBe("LayerControl.filter_empty");
       expect(panel.querySelector(`.${CONST.CLASSES.FILTER_ROW}`)).toBeNull();
+      // The empty state still reports the readout — `0 / 0` with no snapshot.
+      expect(panel.querySelector(".foliplus-filter-count")!.textContent).toBe("0 / 0");
+    });
+
+    it("is a no-op for a row that lost its data-layer-id", () => {
+      const item = findItem(ui, "overlay1");
+      item.removeAttribute(CONST.DATA.LAYER_ID);
+
+      expect(() => ui.openFilterPanel(item)).not.toThrow();
+      expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).toBeNull();
+    });
+
+    it("falls back to [0, 0] when a numeric field has no range entry", () => {
+      // A hand-seeded snapshot whose ranges omit the numeric field it names
+      // (only the store can produce this shape; the builder never does).
+      registerPoints();
+      const item = findItem(ui, "pnt");
+      ui.runtimeStore.setSnapshot("pnt", {
+        points: [],
+        numericFields: ["magnitude"],
+        ranges: {},
+      } as any);
+
+      ui.openFilterPanel(item);
+
+      const panel = item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`) as HTMLElement;
+      const minInput = panel.querySelector(
+        `.${CONST.CLASSES.FILTER_MIN}`,
+      ) as HTMLInputElement;
+      const maxInput = panel.querySelector(
+        `.${CONST.CLASSES.FILTER_MAX}`,
+      ) as HTMLInputElement;
+      expect(minInput.min).toBe("0");
+      expect(minInput.max).toBe("0");
+      expect(minInput.value).toBe("0");
+      expect(maxInput.value).toBe("0");
+    });
+
+    it("falls back to the layer id when the display name is empty", async () => {
+      registerPoints();
+      const item = findItem(ui, "pnt");
+      const rowView = await import("#foliplus/LayerControl/ui/listPanel/rowView.js");
+      const spy = vi.spyOn(rowView, "displayName").mockReturnValue("");
+
+      ui.openFilterPanel(item);
+
+      const panel = item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`) as HTMLElement;
+      expect(panel.querySelector(".foliplus-header-title")!.textContent).toContain(
+        "pnt",
+      );
+      spy.mockRestore();
     });
 
     it("resolves the source layer from meta for a layerless component row", () => {
@@ -285,6 +353,61 @@ describe("LayerUI filter panel (stage-2 pilot)", () => {
         op: "between",
         range: [10, 30],
       });
+    });
+
+    it("swaps the band when a thumb crosses the other", () => {
+      registerPoints();
+      const item = findItem(ui, "pnt");
+      ui.openFilterPanel(item);
+
+      // min dragged past max: [25, 15] inverts to [15, 25].
+      const minInput = item.querySelector(
+        `.${CONST.CLASSES.FILTER_MIN}`,
+      ) as HTMLInputElement;
+      const maxInput = item.querySelector(
+        `.${CONST.CLASSES.FILTER_MAX}`,
+      ) as HTMLInputElement;
+      minInput.value = "25";
+      maxInput.value = "15";
+      minInput.dispatchEvent(new Event("input", { bubbles: true }));
+
+      expect(ui.runtimeStore.getFilter("pnt")).toEqual({
+        kind: "atom",
+        field: "magnitude",
+        op: "between",
+        range: [15, 25],
+      });
+      expect(minInput.value).toBe("15");
+      expect(maxInput.value).toBe("25");
+    });
+
+    it("handles a zero-width range (single-valued field) without dividing by zero", () => {
+      // All markers share one value → snapshot range is [10, 10], total = 0.
+      const layerId = "flat";
+      manager.registerLayer({
+        id: layerId,
+        name: "Flat",
+        group: "overlay",
+        layer: mkPointLayer([
+          { lat: 26.08, lng: 119.3, v: 10 },
+          { lat: 26.09, lng: 119.31, v: 10 },
+        ]) as L.Layer,
+        styleSetters: {},
+      });
+      const item = findItem(ui, layerId);
+      ui.openFilterPanel(item);
+
+      const minInput = item.querySelector(
+        `.${CONST.CLASSES.FILTER_MIN}`,
+      ) as HTMLInputElement;
+      minInput.dispatchEvent(new Event("input", { bubbles: true }));
+
+      const fill = item.querySelector(`.${CONST.CLASSES.FILTER_FILL}`) as HTMLElement;
+      expect(fill.style.left).toBe("0%");
+      // jsdom normalises `calc(100% - 100%)` to `calc(0%)`; the point is the
+      // zero-width branch ran without dividing by zero.
+      expect(fill.style.right).toMatch(/^calc\(/);
+      expect(item.querySelector(".foliplus-filter-count")!.textContent).toBe("2 / 2");
     });
   });
 

@@ -295,4 +295,64 @@ describe("HeatmapControl filter (stage-2 pilot)", () => {
     const fields3 = (m as any).extractMarkerFields(marker3);
     expect(fields3).toEqual({ temperature: 36.5 });
   });
+
+  it("extractMarkerFields skips a properties key the contract already holds", () => {
+    const marker = {
+      value: 42,
+      options: {},
+      feature: { properties: { value: 7, other: 3 } },
+    } as any;
+    const fields = (m as any).extractMarkerFields(marker);
+    expect(fields).toEqual({ value: 42, other: 3 });
+  });
+
+  it("stores under the row id and skips render when no source is selected", () => {
+    // No selected source: the heatmap row's filter is parked on the row id
+    // and nothing re-renders (there is no source to filter yet).
+    setupWithPoints(m, [{ lat: 26.08, lng: 119.3, value: 10 }]);
+    m.selectedLayerId = null;
+    events.emit(EVENTS.LAYER_FILTER_CHANGE, {
+      id: m.layerId,
+      filter: { kind: "atom", field: "value", op: "between", range: [10, 20] },
+    });
+    expect(m.layerFilters.get(m.layerId)).toEqual({
+      kind: "atom",
+      field: "value",
+      op: "between",
+      range: [10, 20],
+    });
+    expect((m as any).cachedAgg).toBeNull();
+  });
+
+  it("extends the range downward when a later point is smaller", () => {
+    // First point sets the [30, 30] seed; the second, smaller point must
+    // widen the lower bound (the upper-bound widen path is covered by the
+    // ascending fixtures elsewhere).
+    setupWithPoints(m, [
+      { lat: 26.08, lng: 119.3, value: 30 },
+      { lat: 26.09, lng: 119.31, value: 10 },
+      { lat: 26.1, lng: 119.32, value: 20 },
+    ]);
+    m.renderHexagons();
+    expect((m as any).cachedSnapshot.ranges.value).toEqual([10, 30]);
+  });
+
+  it("drops a cell whose points are all filtered out", () => {
+    // Two co-located points share the fixture's single h3 cell; a filter
+    // excluding both empties the cell, and the aggregate falls through to
+    // the canvas clear instead of emitting an empty cell.
+    setupWithPoints(m, [
+      { lat: 26.08, lng: 119.3, value: 10 },
+      { lat: 26.08, lng: 119.3, value: 20 },
+    ]);
+    m.layerFilters.set("layer1", {
+      kind: "atom",
+      field: "value",
+      op: "between",
+      range: [0, 5],
+    });
+    m.renderHexagons();
+    expect((m as any).cachedFeatures).toBeNull();
+    expect((m as any).cachedAgg).toBeNull();
+  });
 });

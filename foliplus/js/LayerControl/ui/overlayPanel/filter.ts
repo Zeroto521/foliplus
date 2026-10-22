@@ -118,7 +118,16 @@ const openFilterPanel = (ui: LayerUI, item: HTMLElement): void => {
   // Build the row (empty state, or the slider row) inside content.
   const buildRow = (): HTMLElement => {
     if (!numericField) {
-      return dom.el("div", { class: CONST.CLASSES.FILTER_EMPTY }, ui.T("filter_empty"));
+      // The empty state still reports the readout — `0 / 0` with no
+      // snapshot — so the panel never renders a bare message.
+      const empty = dom.el(
+        "div",
+        { class: CONST.CLASSES.FILTER_EMPTY },
+        ui.T("filter_empty"),
+      );
+      const count = dom.el("div", { class: "foliplus-filter-count" });
+      updateCount(count, snapshot, undefined);
+      return dom.el("div", {}, empty, count);
     }
     const [lo0, hi0] = initialRange;
 
