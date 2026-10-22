@@ -386,6 +386,57 @@ describe("LayerPersistence", () => {
       });
     });
 
+    it("strips an explicit numeric kind — absence is the same config", () => {
+      // "numeric" is the default, so persisting it would add no information.
+      // The reader drops it on the way in and the stored record keeps reading
+      // "kindless = numeric", which is what an older writer produced.
+      seedStorage({
+        version: RECORD_VERSION,
+        layers: {
+          a: {
+            fillRamp: {
+              kind: "numeric",
+              field: "price",
+              method: "equal",
+              classes: 3,
+              scheme: "Reds",
+            },
+            overrides: ["fillRamp"],
+          },
+        },
+      });
+      const loaded = makePersistence().load().layers.a;
+      expect(loaded).toEqual({
+        fillRamp: { field: "price", method: "equal", classes: 3, scheme: "Reds" },
+        overrides: ["fillRamp"],
+      });
+      expect(loaded!.fillRamp!.kind).toBeUndefined();
+    });
+
+    it("drops a ramp whose kind this client cannot build", () => {
+      // The categorical arm is a later batch. A record that asks for it (or
+      // for any non-numeric spelling) must be dropped whole rather than
+      // painted as a numeric ramp over category values.
+      for (const kind of ["categorical", "linear", "", "NUMERIC", 5, null]) {
+        seedStorage({
+          version: RECORD_VERSION,
+          layers: {
+            a: {
+              fillRamp: {
+                kind,
+                field: "price",
+                method: "equal",
+                classes: 3,
+                scheme: "Reds",
+              },
+              overrides: ["fillRamp"],
+            },
+          },
+        });
+        expect(makePersistence().load().layers.a, JSON.stringify(kind)).toBeUndefined();
+      }
+    });
+
     it("drops a ramp config that misses a string field", () => {
       const bads = [
         { field: "", method: "equal", classes: 3, scheme: "Reds" },

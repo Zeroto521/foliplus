@@ -1,5 +1,6 @@
 // Unit tests for HeatmapControl/data — the pure aggregation helpers.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { SCHEME_FALLBACK_COLOR, getColorScale } from "#core/palette.js";
 import * as CONST from "#foliplus/HeatmapControl/const.js";
 import {
   aggregateBins,
@@ -27,6 +28,35 @@ afterEach(() => {
   delete globalThis.h3;
   delete globalThis.chroma;
   delete globalThis.ss;
+});
+
+// The heatmap used to keep a private chroma wrapper; it now shares
+// core/palette with the value-based fill. These pin the promise that the
+// migration cannot move a colour: the chroma call chain is the one the
+// retired function used, and the no-chroma fallback is the grey the heatmap
+// border fallback already had.
+describe("shared colour scale — migration parity", () => {
+  it("the no-chroma fallback is the grey the heatmap already used", () => {
+    expect(SCHEME_FALLBACK_COLOR).toBe(CONST.GRAY);
+    expect(getColorScale("Reds", 4)).toEqual([
+      CONST.GRAY,
+      CONST.GRAY,
+      CONST.GRAY,
+      CONST.GRAY,
+    ]);
+  });
+
+  it("asks chroma the same questions the private wrapper did", () => {
+    const colorsSpy = vi.fn(() => ["#a", "#b", "#c"]);
+    const modeSpy = vi.fn(() => ({ colors: colorsSpy }));
+    const scaleSpy = vi.fn(() => ({ mode: modeSpy }));
+    globalThis.chroma = { scale: scaleSpy } as never;
+
+    expect(getColorScale("Viridis", 3)).toEqual(["#a", "#b", "#c"]);
+    expect(scaleSpy).toHaveBeenCalledWith("Viridis");
+    expect(modeSpy).toHaveBeenCalledWith("lab");
+    expect(colorsSpy).toHaveBeenCalledWith(3);
+  });
 });
 
 describe("getH3Res", () => {

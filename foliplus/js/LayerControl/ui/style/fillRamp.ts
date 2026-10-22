@@ -50,9 +50,14 @@ const isFiniteNumber = (value: unknown): value is number =>
   typeof value === "number" && Number.isFinite(value);
 
 /** Whether two ramp configs differ in a way that invalidates a cached
- *  breaks/scale pair. `field` counts: the collected values come from it, so
- *  a field change is a full rebuild, not a repaint. */
+ *  breaks/scale pair. Every field counts: `field` because the collected
+ *  values come from it, so a field change is a full rebuild, not a repaint;
+ *  `kind` because another typing would build its breaks differently, so a
+ *  same-named config for a different kind must not repaint off a numeric
+ *  cache. An explicit "numeric" is read as the same typing as absence — the
+ *  persistence reader strips it, so the two spellings are one config. */
 const sameRampConfig = (a: FillRampConfig, b: FillRampConfig): boolean =>
+  (a.kind ?? "numeric") === (b.kind ?? "numeric") &&
   a.field === b.field &&
   a.method === b.method &&
   a.classes === b.classes &&

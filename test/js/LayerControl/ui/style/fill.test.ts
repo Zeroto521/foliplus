@@ -1652,7 +1652,13 @@ describe("replayFillState", () => {
         layers: {
           overlay1: {
             fillMode: "ramp",
-            fillRamp: { field: "count", method: "equal", classes: 3, scheme: "Reds" },
+            fillRamp: {
+              kind: "numeric",
+              field: "count",
+              method: "equal",
+              classes: 3,
+              scheme: "Reds",
+            },
             overrides: ["fillMode", "fillRamp"],
           },
         },
@@ -1675,6 +1681,10 @@ describe("replayFillState", () => {
     ]);
 
     expect(getIntent(fixture.manager.ui!, "overlay1", "fillMode")).toBe("ramp");
+    // The redundant default never reaches the apply path.
+    expect(
+      getIntent(fixture.manager.ui!, "overlay1", "fillRamp")?.kind,
+    ).toBeUndefined();
     // Each leaf got the colour of its own value class, not the author's.
     const colors = rampLayer.leaves.map(
       leaf => leaf.setStyle.mock.calls.at(-1)![0].fillColor as string,

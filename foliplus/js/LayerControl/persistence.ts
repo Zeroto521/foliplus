@@ -74,11 +74,17 @@ const parseZoomRange = (raw: unknown): [number, number] | null => {
 };
 
 /** A stored value-based-fill config: non-empty field / method / scheme
- *  strings and a whole class count inside the picker's 2-9 bounds. The
- *  defaults live on the UI side, so the record carries only an explicit
- *  choice — a record missing one is dropped rather than guessed at.
- *  field is trimmed because it is a property key, and a stray space would
- *  silently miss every feature on the next apply. */
+ *  strings, a whole class count inside the picker's 2-9 bounds, and a `kind`
+ *  this client can build. The defaults live on the UI side, so the record
+ *  carries only an explicit choice — a record missing one is dropped rather
+ *  than guessed at. `field` is trimmed because it is a property key, and a
+ *  stray space would silently miss every feature on the next apply.
+ *
+ *  `kind` accepts only absence or "numeric": the categorical arm is not
+ *  implemented, so a record that asks for it is dropped whole rather than
+ *  painted as a numeric ramp. An explicit "numeric" is stripped on the way
+ *  in — it is the default, so persisting it would add no information, and the
+ *  stored record keeps reading "kindless = numeric". */
 const parseFillRamp = (raw: unknown): FillRampConfig | null => {
   const data = asObject(raw);
   if (!data) return null;
@@ -91,7 +97,8 @@ const parseFillRamp = (raw: unknown): FillRampConfig | null => {
     typeof data.classes !== "number" ||
     !Number.isInteger(data.classes) ||
     data.classes < 2 ||
-    data.classes > 9
+    data.classes > 9 ||
+    (data.kind !== undefined && data.kind !== "numeric")
   ) {
     return null;
   }

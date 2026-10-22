@@ -11,8 +11,15 @@ import type { NumberStyle } from "#foliplus/config-schema.js";
 /** One arm of the value-based fill: which property drives the colour, how
  *  the values are split, into how many classes, and which scheme paints
  *  them. `field` is the caller's key selection, the other three are the
- *  classifier + palette inputs (core/ramp.ts). */
+ *  classifier + palette inputs (core/ramp.ts).
+ *
+ *  `kind` types the drive property. Absent means "numeric" — the only arm
+ *  that exists yet — and "categorical" is reserved for the colour-by-category
+ *  batch. A record that asks for a `kind` this client cannot build is dropped
+ *  whole by the persistence reader rather than misapplied as a numeric ramp. */
 type FillRampConfig = {
+  /** How the drive property is typed. Absent = "numeric". */
+  kind?: "numeric";
   field: string;
   method: string;
   classes: number;

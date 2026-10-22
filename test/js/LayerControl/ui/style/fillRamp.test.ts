@@ -219,6 +219,44 @@ describe("applyRampToLayer", () => {
     expect(result!.fill).toBe(true);
   });
 
+  it("applies an explicit numeric kind and reads it back as the same config", () => {
+    // `kind` is the field's typing; "numeric" is the default, so spelling it
+    // out must not change the paint, and the cached breaks must still be
+    // valid when the live config omits it.
+    installChroma(["#ff0000", "#00ff00", "#0000ff"]);
+    const ramp = makeRamp({ kind: "numeric" });
+    const layer = makeFeatureLayer([
+      { properties: { value: 1 } },
+      { properties: { value: 5 } },
+      { properties: { value: 9 } },
+    ]);
+    applyRampToLayer(makeUI(layer), "overlay1", ramp);
+
+    const colorOf = (n: number) =>
+      (layer.leaves[n].setStyle as any).mock.calls[0][0].fillColor as string;
+    expect(colorOf(0)).toBe("#ff0000");
+    expect(colorOf(1)).toBe("#00ff00");
+    expect(colorOf(2)).toBe("#0000ff");
+    intentValues = { fillRamp: makeRamp() };
+    expect(pinGetterOf()()).not.toBeNull();
+  });
+
+  it("invalidates the pin when the kind points at the categorical arm", () => {
+    // The categorical arm is a later batch and builds its breaks differently,
+    // so a same-named config typed for it must not repaint off a numeric
+    // cache — the pin-side twin of the persistence reader dropping such a
+    // record whole. The type cannot spell the value yet, hence the cast.
+    installChroma(["#ff0000", "#00ff00", "#0000ff"]);
+    const ramp = makeRamp();
+    const layer = makeFeatureLayer([{ properties: { value: 5 } }]);
+    applyRampToLayer(makeUI(layer), "overlay1", ramp);
+
+    intentValues = {
+      fillRamp: { ...ramp, kind: "categorical" } as unknown as FillRampConfig,
+    };
+    expect(pinGetterOf()()).toBeNull();
+  });
+
   it("pin replays the live fillOpacity, not the value frozen at build time", () => {
     installChroma(["#ff0000", "#00ff00", "#0000ff"]);
     const ramp = makeRamp();
