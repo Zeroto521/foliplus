@@ -99,7 +99,10 @@ beforeEach(() => {
   window.L.stamp = vi.fn((obj: { __id?: number }) => (obj.__id ??= ++stampId));
 });
 
-const makeSurface = (layer: unknown) => {
+const makeSurface = (
+  layer: unknown,
+  extra: Partial<ConstructorParameters<typeof LayerSurface>[1]> = {},
+) => {
   const map = {
     getPane: () => null,
     createPane: () => {
@@ -116,6 +119,7 @@ const makeSurface = (layer: unknown) => {
   return new LayerSurface(host, {
     id: "size",
     layer: layer as L.Layer | null,
+    ...extra,
   });
 };
 
@@ -213,6 +217,18 @@ describe("LayerSurface capabilities.size", () => {
       makeSurface(new GroupShape([new CircleShape(400).attachToMap()])).capabilities
         .size,
     ).toBe("none");
+  });
+
+  it("reads the carrier through the declared-pane branch too", () => {
+    // A surface that paints into a declared pane returns from the
+    // hasContentPanes site, not the declaration branch, so that return value
+    // is asserted independently of the one above.
+    expect(
+      makeSurface(new CircleMarkerShape(9), { paneName: "sub" }).capabilities.size,
+    ).toBe("native");
+    expect(makeSurface(new PolyShape(), { paneName: "sub" }).capabilities.size).toBe(
+      "none",
+    );
   });
 
   it("is none with no layer at all", () => {
