@@ -209,15 +209,18 @@ describe("buildSizeRow", () => {
     expect(buildSizeRow(ui, "c1")).toBeNull();
   });
 
-  it("builds the row with bounds, step, unit and its own row class", () => {
+  it("builds the row with bounds, step and its own row class", () => {
+    // One number field on the shared form-number-input chrome, exactly like
+    // the border-weight and fill-opacity inputs — no suffix span, so the
+    // pixel unit lives in the localized label instead.
     const row = buildSizeRow(ui, "overlay1")!;
     expect(row.classList.contains(CONST.CLASSES.STYLE_SIZE_ROW)).toBe(true);
+    expect(row.querySelector(".foliplus-form-unit")).toBeNull();
     const input = sizeInput(row);
+    expect(input.classList.contains("foliplus-form-number-input")).toBe(true);
     expect(input.min).toBe(String(CONST.SIZE.MIN));
     expect(input.max).toBe(String(CONST.SIZE.MAX));
     expect(input.step).toBe(String(CONST.SIZE.STEP));
-    const unit = row.querySelector(".foliplus-form-unit");
-    expect(unit?.textContent).toBe("px");
   });
 
   it("labels the row through the scoped translator", () => {

@@ -45,18 +45,6 @@
   gap: var(--foliplus-space-sm);
 }
 
-/* Fixed unit suffix beside a number field (the layer size row's "px"). It is
-   control content, not a form label: `flex: 0 0 auto` keeps the field's own box
-   from being squeezed, and the muted token reads it as a unit rather than a
-   value. Line-height tracks the field's height so the two baseline-align. */
-.foliplus-form-unit {
-  flex: 0 0 auto;
-  font-size: var(--foliplus-font-size-sm);
-  color: var(--foliplus-text-muted);
-  line-height: var(--foliplus-ctrl-size);
-  box-sizing: border-box;
-}
-
 /* Color swatch — the polished heatmap control, promoted so the layer style
    drawer matches the heatmap panel pixel-for-pixel. */
 .foliplus-form-color-input {

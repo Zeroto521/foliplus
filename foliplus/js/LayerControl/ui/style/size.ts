@@ -31,7 +31,6 @@
 import { CAP_TIER, findLeaf, walkLeaf } from "#core/layer/index.js";
 import { type PixelRadiusLeaf, isPixelRadiusLeaf } from "#core/leafletAdapter.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
-import { dom } from "#common/dom.js";
 import { bindLiveNumber, formRow, inlineControls, numberInput } from "#common/form.js";
 import { INTENT, getIntent } from "../intent.js";
 import type { LayerUI } from "../surface.js";
@@ -141,7 +140,6 @@ const buildSizeRow = (ui: LayerUI, layerId: string): HTMLElement | null => {
         className: CONST.CLASSES.STYLE_SIZE_INPUT,
         ariaLabel: label,
       }),
-      dom.el("span", { class: "foliplus-form-unit" }, "px"),
     ),
     CONST.CLASSES.STYLE_SIZE_ROW,
   );
