@@ -35,6 +35,14 @@ const initTypesAndVisibility = (ui: LayerUI) => {
   // state is erased only by an explicit delete.
   ui.applyUserState();
 
+  // The sweep above announces a membership flip whenever the map disagreed
+  // with a stored intent. A subscriber that destroys the control in that
+  // notify takes the container with it, and the row paint, the tri-state
+  // counts and the cursor below all read it — so the tail stops here rather
+  // than continuing against a dead panel. The caller checks the same thing
+  // before its own continuation.
+  if (!ui.uiContainer) return;
+
   // First-load visibility is the author's `show=`: no code fallback for
   // "no basemap visible" — the A′ hatch (see paintNoBasemapHatch) is the
   // honest empty state. Adding a color layer here would violate the

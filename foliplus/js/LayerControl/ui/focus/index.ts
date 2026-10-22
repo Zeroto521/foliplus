@@ -81,7 +81,11 @@ const focusLayer = (ui: LayerUI, layerId: string) => {
   // rejoins the map so the rectangle highlight is visible. That add is a real
   // membership change; its delta is collected here and announced with the rest
   // of the focus round, once the focus state is fully established.
-  const rejoined: Array<{ id: string; delta: ProjectionDelta }> = [];
+  const rejoined: Array<{
+    id: string;
+    delta: ProjectionDelta;
+    entry: LayerInfo;
+  }> = [];
   let rejoinedLayer: L.Layer | null = null;
   if (layer) {
     // Ensure the layer is on the map so the rectangle highlight is visible.
@@ -91,6 +95,7 @@ const focusLayer = (ui: LayerUI, layerId: string) => {
       rejoined.push({
         id: layerInfo.id,
         delta: { wroteVisible: true, intentMoved: false },
+        entry: layerInfo,
       });
     }
     bounds = computeLayerBounds(layer);

@@ -376,12 +376,26 @@ type ProjectionDelta = {
 
 const NO_DELTA: ProjectionDelta = { wroteVisible: false, intentMoved: false };
 
-/** The ids a sweep moved, paired with what each one moved — the work a caller
- *  queues until its own side effects have settled, then publishes as one round
- *  through `emitDeltas`. Ids rather than entries on purpose: an entry a
- *  subscriber retires during an earlier delivery of the same round is skipped
- *  at delivery time instead of being announced for or throwing against. */
-type ProjectionBatch = Array<{ id: string; delta: ProjectionDelta }>;
+/** The layers a sweep moved, paired with what each one moved — the work a
+ *  caller queues until its own side effects have settled, then publishes as one
+ *  round through `emitDeltas`. Each item stamps the registry entry the delta
+ *  was computed against, because a delta belongs to the instance that produced
+ *  it: a subscriber that retires the entry during an earlier delivery of the
+ *  same round skips it at delivery time, and a lookup by id alone would
+ *  happily deliver the retired layer's delta to the replacement now holding
+ *  that id. Read-only — a caller hands the round off, it does not trim it. */
+type ProjectionBatch = ReadonlyArray<{
+  id: string;
+  delta: ProjectionDelta;
+  entry: LayerInfo;
+}>;
+
+/** The caller cannot tell the two return shapes apart by shape, so the split
+ *  has an explicit guard instead of an `Array.isArray` cast — that does not
+ *  narrow a `ReadonlyArray` member out of a union, because a readonly array
+ *  is not assignable to the mutable `any[]` the cast narrows to. */
+const isProjectionBatch = (value: unknown): value is ProjectionBatch =>
+  Array.isArray(value);
 
 /** Diff the current projection against the last one we wrote, and call
  *  `dispatchStateOp` only for the dimensions that moved.
@@ -580,16 +594,33 @@ const applyProjection = (
  *  at delivery time — a caller that re-enters through this same helper sees
  *  its own correction, not the value the outer pass started from.
  *
- *  `layerInfo` may be undefined: the entry can be gone by the time a caller
- *  looks it up, if a subscriber unregistered the layer during an earlier
- *  delivery of the same batch. That is a no-delivery, not a throw — the delta
- *  was real, the recipient is simply gone. */
+ *  Delivery is identity-checked against the live registry twice — before the
+ *  first half goes out, and again before the second. A delta is the record of
+ *  one entry's operation, so it can only be delivered for the entry that ran
+ *  the pass: a subscriber that retires that entry — destroying the control,
+ *  unregistering the layer, or re-registering the same id to a new instance —
+ *  has already announced the retirement, and a lookup by id alone would hand
+ *  the flip to whoever holds the id now, which never produced it. The first
+ *  check catches the retire that lands between rounds of a batch; the second
+ *  the one that lands inside this round's own CHANGE.
+ *
+ *  `layerInfo` may be undefined on a batch path that looked the entry up
+ *  before its own pass ran. No-delivery, not a throw: the delta was real,
+ *  the recipient is simply gone. */
+
+/** Whether the entry that ran a pass is still the one registered under its id.
+ *  A view without a controller has no registry to retire anything against, so
+ *  it cannot retire the entry either — that is the "still registered" answer,
+ *  not a suppression. */
+const entryStillRegistered = (ui: LayerUI, entry: LayerInfo): boolean =>
+  !ui.c || ui.c.layerRegistry.get(entry.id) === entry;
+
 const emitDelta = (
   ui: LayerUI,
   layerInfo: LayerInfo | undefined,
   delta: ProjectionDelta,
 ): void => {
-  if (!layerInfo) return;
+  if (!layerInfo || !entryStillRegistered(ui, layerInfo)) return;
   if (delta.wroteVisible) {
     ui.events.emit(EVENTS.LAYER_CHANGE, {
       id: layerInfo.id,
@@ -597,6 +628,7 @@ const emitDelta = (
     });
   }
   if (delta.intentMoved) {
+    if (!entryStillRegistered(ui, layerInfo)) return;
     ui.events.emit(EVENTS.LAYER_INTENT_CHANGE, {
       id: layerInfo.id,
       kind: layerInfo.kind,
@@ -606,12 +638,16 @@ const emitDelta = (
 };
 
 /** Notify a batch of passes in the order they were swept, without
- *  interleaving. Ids the registry no longer knows — a subscriber that
- *  unregistered a layer during an earlier delivery of this same round —
- *  deliver nothing rather than throwing. */
+ *  interleaving. Each item's entry travels with its delta and `emitDelta`
+ *  re-checks it against the live registry, so an entry a subscriber retired
+ *  during an earlier delivery of this same round — the control destroyed, the
+ *  layer unregistered, or the id re-registered to a different instance —
+ *  delivers nothing rather than announcing on behalf of the entry that now
+ *  holds the id. The test is identity, not presence: a live entry under the
+ *  same id is still the wrong recipient. */
 const emitDeltas = (ui: LayerUI, deltas: ProjectionBatch): void => {
-  for (const { id, delta } of deltas) {
-    emitDelta(ui, ui.c.layerRegistry.get(id), delta);
+  for (const { entry, delta } of deltas) {
+    emitDelta(ui, entry, delta);
   }
 };
 
@@ -637,16 +673,24 @@ const emitDeltas = (ui: LayerUI, deltas: ProjectionBatch): void => {
 const applyProjectionAll = (
   ui: LayerUI,
   repaintMode: "debounce" | "none" = "none",
-): Array<{ id: string; delta: ProjectionDelta }> => {
-  const deltas: Array<{ id: string; delta: ProjectionDelta }> = [];
-  // The registry, snapshotted as ids before the first write: a projection that
-  // brings a layer onto the map mid-sweep must not widen the set this pass
-  // walks. Each id resolves its own entry and projection inside
-  // `applyProjection`, so nothing computed here is reused — a basemap that
-  // moves the zoom bounds mid-sweep is re-read per layer.
-  for (const id of ui.c.layers.map(layerInfo => layerInfo.id)) {
-    const delta = applyProjection(ui, id, repaintMode);
-    if (delta.wroteVisible || delta.intentMoved) deltas.push({ id, delta });
+): Array<{ id: string; delta: ProjectionDelta; entry: LayerInfo }> => {
+  const deltas: Array<{
+    id: string;
+    delta: ProjectionDelta;
+    entry: LayerInfo;
+  }> = [];
+  // The registry, snapshotted as entries before the first write: a projection
+  // that brings a layer onto the map mid-sweep must not widen the set this
+  // pass walks, and a mid-sweep replacement stays out of the round this sweep
+  // started so the caller can still tell the two apart at delivery. Each
+  // entry resolves its own projection inside `applyProjection`, so nothing
+  // computed here is reused — a basemap that moves the zoom bounds mid-sweep
+  // is re-read per layer.
+  for (const entry of [...ui.c.layers]) {
+    const delta = applyProjection(ui, entry.id, repaintMode);
+    if (delta.wroteVisible || delta.intentMoved) {
+      deltas.push({ id: entry.id, delta, entry });
+    }
   }
   ui.syncNoBasemap();
   return deltas;
@@ -660,6 +704,7 @@ export {
   dispatchStateOp,
   emitDelta,
   emitDeltas,
+  isProjectionBatch,
   authorZoomBoundsForLayer,
   NO_DELTA,
 };

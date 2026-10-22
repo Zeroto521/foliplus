@@ -15,6 +15,7 @@ import {
   applyProjection,
   applyProjectionAll,
   emitDeltas,
+  isProjectionBatch,
 } from "./apply.js";
 import { hideSolidBasemap, resetSolidBasemap, showSolidBasemap } from "./color.js";
 import { FocusController, cancelFocus, focusLayer, isFocusing } from "./focus/index.js";
@@ -285,7 +286,7 @@ class LayerUI implements LayerUISurface {
       applyBorderToLayer(this, layerId);
       replayFillState(this, layerId);
     }
-    if (!Array.isArray(moved)) return moved;
+    if (!isProjectionBatch(moved)) return moved;
     // The full replay is announced here, after the direct style writes above:
     // the sweep settled visible / opacity / zoomRange, this shell settles
     // border and fill, and only then does the round go out — so a subscriber

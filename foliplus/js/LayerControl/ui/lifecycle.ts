@@ -76,6 +76,11 @@ const attachUI = (ui: LayerUI, containerDiv: HTMLElement): void => {
   // initial layers never go through registerLayer, which is where the
   // id-specified path replays them for late registrations.
   ui.applyUserState();
+  // Same boundary as the rebuild handler: the sweep announces, and a
+  // subscriber that destroys the control in that notify takes the container
+  // the cursor and the counts below read. Nothing is subscribed after this
+  // point on a dead panel.
+  if (!ui.uiContainer) return;
   // Re-apply ARIA/roving after insertLayerItem / applyUserState may have
   // rebuilt rows.
   syncListCursor(ui);
@@ -98,6 +103,10 @@ const attachUI = (ui: LayerUI, containerDiv: HTMLElement): void => {
   setTimeout(() => {
     if (!ui.uiContainer?.isConnected) return;
     ui.initTypesAndVisibility();
+    // The init pass replays stored state and announces any membership flip; a
+    // subscriber that destroys the control in that notify leaves nothing for
+    // the label replay to paint into.
+    if (!ui.uiContainer) return;
     // Same replay here as the CONTROL_ATTACHED handler below: folium's layers
     // are added after the control's own script, so that event has already
     // fired by the time their registry entries exist, and a page with only a
@@ -116,6 +125,9 @@ const subscribeControlAttached = (ui: LayerUI): void => {
   ui.unsubscribeControlAttached = ui.events.on(EVENTS.CONTROL_ATTACHED, () => {
     if (!ui.uiContainer?.isConnected) return;
     ui.initTypesAndVisibility();
+    // Same tail guard: the init pass announces, and a subscriber that destroys
+    // the control in that notify leaves no rows for the label replay.
+    if (!ui.uiContainer) return;
     // Re-apply is idempotent: a late-registered layer may just now have
     // a resolvable feature set (and thus labelable fields).
     ui.applyStyleLabelState();
@@ -318,6 +330,11 @@ const bindLayerEvents = (ui: LayerUI): void => {
     bus.on(EVENTS.LAYER_LIST_REBUILD, () => {
       renderInitialList(ui);
       initTypesAndVisibility(ui);
+      // The rebuild's replay announces a membership flip for any layer whose
+      // map state disagreed with its stored intent. A subscriber that destroys
+      // the control in that notify leaves no panel for the counts to paint
+      // into — the row list is already the finished arrangement, so stop.
+      if (!ui.uiContainer) return;
       refreshAllCounts(ui);
     }),
     bus.on(EVENTS.LAYER_NO_BASEMAP_CHANGED, () => {

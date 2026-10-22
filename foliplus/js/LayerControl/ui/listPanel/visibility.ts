@@ -2,6 +2,7 @@
 import { GROUP, paintsAtZoom } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import {
+  type ProjectionBatch,
   type ProjectionDelta,
   applyProjection,
   applyProjectionAll,
@@ -99,14 +100,19 @@ const toggleAll = (ui: LayerUI, group: string, newState: boolean) => {
   //
   // Order by walking the registry against the Map, not by sorting — a
   // comparator needs an `indexOf` per call and that is a linear identity scan
-  // of the registry, so sorting pays a full scan for every comparison. Carrying
-  // ids rather than `LayerInfo` snapshots is what lets `emitDeltas` re-read the
-  // registry at delivery: a layer a subscriber unregistered inside an earlier
-  // delivery here would otherwise be announced on a snapshot it no longer owns.
-  const announced: Array<{ id: string; delta: ProjectionDelta }> = [];
+  // of the registry, so sorting pays a full scan for every comparison. The
+  // entry travels with the delta: `emitDeltas` re-checks the live registry at
+  // delivery, so a layer a subscriber unregistered — or re-registered under the
+  // same id — inside an earlier delivery here is not announced on behalf of
+  // the entry that now holds that id.
+  const announced: Array<{
+    id: string;
+    delta: ProjectionDelta;
+    entry: LayerInfo;
+  }> = [];
   for (const layerInfo of ui.c.layers) {
     const delta = moved.get(layerInfo.id);
-    if (delta) announced.push({ id: layerInfo.id, delta });
+    if (delta) announced.push({ id: layerInfo.id, delta, entry: layerInfo });
   }
   emitDeltas(ui, announced);
 };
@@ -265,7 +271,7 @@ const applyVisibility = (ui: LayerUI, id: string, visible: boolean): boolean => 
   // A basemap switch changes the map's min/max zoom without firing zoomend,
   // so re-evaluate effective shown across every layer and refresh the open
   // panel's row.
-  let swept: Array<{ id: string; delta: ProjectionDelta }> = [];
+  let swept: ProjectionBatch = [];
   if (layerInfo.group === GROUP.BASE) {
     swept = applyProjectionAll(ui);
     ui.overlayPanel.styleZoomEndHandler?.();

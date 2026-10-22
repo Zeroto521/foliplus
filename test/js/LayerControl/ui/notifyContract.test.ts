@@ -820,4 +820,190 @@ describe("layer notification contract", () => {
     expect(orderAtDelivery).toEqual(["beta,alpha,gamma"]);
     expect(order()).toBe("beta,alpha,gamma");
   });
+
+  it("a reorder whose rebuild replay destroys the control announces nothing more", () => {
+    // The rebuild is the reorder's own side effect, and the persisted-state
+    // replay inside it announces a membership flip for any layer the map had
+    // moved away from. A subscriber that tears the control down in that notify
+    // takes the panel with it: the row paint, the tri-state counts and the
+    // cursor behind the replay all read it, so the rebuild stops there instead
+    // of continuing against a null container. The reorder's own CHANGE is
+    // suppressed too — the registry went with the control, so there is nothing
+    // left to announce the arrangement against. The move itself already landed,
+    // so the arrangement stands regardless.
+    const layerAlpha = polygonLayer();
+    const layerBeta = polygonLayer();
+    const { ui, manager } = initFixture({
+      data: [
+        { id: "alpha", name: "Alpha", group: "overlay", layer: layerAlpha },
+        { id: "beta", name: "Beta", group: "overlay", layer: layerBeta },
+      ],
+    });
+    // The layer the map dropped: its stored intent still says visible, so the
+    // rebuild's replay has a flip to announce.
+    const onMap = trackMembership(ui.c.map);
+    onMap.set(layerAlpha, true);
+    onMap.set(layerBeta, true);
+    manager.map.removeLayer(layerBeta);
+
+    const changes: string[] = [];
+    let orderAtNotify: string[] | null = null;
+    ui.events.on(EVENTS.LAYER_CHANGE, payload => {
+      changes.push(payload.id);
+      if (payload.id !== "beta") return;
+      orderAtNotify = manager.layers
+        .filter(layerInfo => layerInfo.group === GROUP.OVERLAY)
+        .map(layerInfo => layerInfo.id);
+      ui.c.destroy();
+    });
+
+    expect(() => manager.moveLayerDown("alpha")).not.toThrow();
+    expect(changes).toEqual(["beta"]);
+    expect(ui.c.isDestroyed).toBe(true);
+    expect(ui.uiContainer).toBeNull();
+    // The reorder had already happened when the rebuild's replay fired: the
+    // arrangement the subscriber saw was the finished one. Overlay entries
+    // only — the color basemap is a base-group layer outside this arrangement.
+    expect(orderAtNotify).toEqual(["beta", "alpha"]);
+  });
+
+  it("a reorder whose rebuild replay retires its layer announces no reorder", () => {
+    // The entry moved instead of the control going away: the rebuild's replay
+    // still announces a membership flip, and a subscriber that retires the
+    // moved layer there has removed the thing the reorder would announce for.
+    const layerAlpha = polygonLayer();
+    const layerBeta = polygonLayer();
+    const { ui, manager } = initFixture({
+      data: [
+        { id: "alpha", name: "Alpha", group: "overlay", layer: layerAlpha },
+        { id: "beta", name: "Beta", group: "overlay", layer: layerBeta },
+      ],
+    });
+    const onMap = trackMembership(ui.c.map);
+    onMap.set(layerAlpha, true);
+    onMap.set(layerBeta, true);
+    manager.map.removeLayer(layerBeta);
+
+    const changes: string[] = [];
+    let retired = false;
+    ui.events.on(EVENTS.LAYER_CHANGE, payload => {
+      changes.push(payload.id);
+      if (payload.id === "beta" && !retired) {
+        retired = true;
+        manager.unregisterLayer("alpha");
+      }
+    });
+
+    expect(() => manager.moveLayerDown("alpha")).not.toThrow();
+    // beta's flip, then the unregister's own CHANGE for alpha — and no third:
+    // the reorder would announce an entry nobody holds any more.
+    expect(changes).toEqual(["beta", "alpha"]);
+    expect(ui.c.layerRegistry.has("alpha")).toBe(false);
+  });
+
+  it("an init pass whose replay destroys the control stops before the row paint", () => {
+    // The same boundary at the other end of the chain: the init pass owns the
+    // row paint, the tri-state counts and the cursor behind the persisted-state
+    // replay, so it checks the panel is still here before continuing.
+    const layerAlpha = polygonLayer();
+    const layerBeta = polygonLayer();
+    const { ui } = initFixture({
+      data: [
+        { id: "alpha", name: "Alpha", group: "overlay", layer: layerAlpha },
+        { id: "beta", name: "Beta", group: "overlay", layer: layerBeta },
+      ],
+    });
+    const onMap = trackMembership(ui.c.map);
+    onMap.set(layerAlpha, true);
+    onMap.set(layerBeta, true);
+    ui.c.map.removeLayer(layerBeta);
+
+    const changes: string[] = [];
+    ui.events.on(EVENTS.LAYER_CHANGE, payload => {
+      changes.push(payload.id);
+      if (payload.id === "beta") ui.c.destroy();
+    });
+
+    expect(() => ui.initTypesAndVisibility()).not.toThrow();
+    expect(changes).toEqual(["beta"]);
+    expect(ui.c.isDestroyed).toBe(true);
+  });
+
+  it("a CHANGE that retires its layer suppresses the intent half", () => {
+    // The two halves of one round belong to the entry that ran the pass. A
+    // subscriber that retires that entry inside the CHANGE has answered for it
+    // already, so the intent half is not delivered for an id nobody holds —
+    // and in particular not for a replacement registered under the same id.
+    const { ui, manager } = initFixture();
+
+    const changes: string[] = [];
+    const intents: string[] = [];
+    let retired = false;
+    ui.events.on(EVENTS.LAYER_CHANGE, payload => {
+      changes.push(payload.id);
+      if (payload.id === "overlay1" && !retired) {
+        retired = true;
+        manager.unregisterLayer("overlay1");
+      }
+    });
+    ui.events.on(EVENTS.LAYER_INTENT_CHANGE, payload => {
+      intents.push(payload.id);
+    });
+
+    ui.applyVisibility("overlay1", false);
+
+    expect(changes).toEqual(["overlay1", "overlay1"]);
+    expect(intents).toEqual([]);
+    expect(ui.c.layerRegistry.has("overlay1")).toBe(false);
+  });
+
+  it("a batch delta for a layer replaced under the same id delivers nothing", () => {
+    // The sweep stamps each delta with the entry it ran against, so a
+    // replacement registered under the same id by an earlier delivery of the
+    // same round is not handed the delta it never produced. Delivery is
+    // identity, not presence: the id is live, the entry is not.
+    const layerAlpha = polygonLayer();
+    const layerBeta = polygonLayer();
+    const replacement = polygonLayer();
+    const { ui, manager } = initFixture({
+      data: [
+        { id: "alpha", name: "Alpha", group: "overlay", layer: layerAlpha },
+        { id: "beta", name: "Beta", group: "overlay", layer: layerBeta },
+      ],
+    });
+    // Both layers sit on the map while their stored intent says hidden, so the
+    // sweep has a flip for each. `visible` rather than `zoomRange`: with
+    // `visible` false the re-registration below stays off the map, so its own
+    // projection is a no-op and the only beta announce in the round is its
+    // registration CHANGE.
+    const onMap = trackMembership(ui.c.map);
+    onMap.set(layerAlpha, true);
+    onMap.set(layerBeta, true);
+    setIntent(ui, "alpha", "visible", false);
+    setIntent(ui, "beta", "visible", false);
+    ui.intentStore.seedProvenance("alpha", ["visible"]);
+    ui.intentStore.seedProvenance("beta", ["visible"]);
+
+    const changes: string[] = [];
+    ui.events.on(EVENTS.LAYER_CHANGE, payload => {
+      changes.push(payload.id);
+      if (payload.id === "alpha") {
+        manager.registerLayer({
+          id: "beta",
+          name: "Beta",
+          group: "overlay",
+          layer: replacement,
+        });
+      }
+    });
+
+    ui.onZoomEnd?.();
+
+    // alpha's flip, then the re-registration's own CHANGE — and nothing else.
+    // The sweep's delta for the beta it replaced is the third one on a
+    // build without the identity check.
+    expect(changes).toEqual(["alpha", "beta"]);
+    expect(ui.c.layerRegistry.get("beta")?.layer).toBe(replacement);
+    expect(onMap.get(replacement) ?? false).toBe(false);
+  });
 });

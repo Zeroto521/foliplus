@@ -690,10 +690,16 @@ class LayerController implements LayerAPI {
     if (this.uiContainer && this.ui) {
       this.events.emit(EVENTS.LAYER_LIST_REBUILD);
     }
-    // The list rebuild is this operation's own side effect, so it lands before
-    // the notify: a subscriber reading the row order out of the panel during
-    // the CHANGE sees the arrangement that was just made, not the one that is
-    // about to be rendered.
+    // The rebuild above is this operation's own side effect, so it lands
+    // before the notify: a subscriber reading the row order out of the panel
+    // during the CHANGE sees the arrangement that was just made, not the one
+    // about to be rendered. That same replay is where a subscriber can retire
+    // what the move announces for — destroying the control or unregistering
+    // the layer — so the entry is re-read rather than reused: a swap under the
+    // same id would otherwise be announced on top of the arrangement it just
+    // rendered. A controller with no panel never rebuilt anything and
+    // announces as usual.
+    if (this.isDestroyed || this.layerRegistry.get(id) !== item) return;
     this.emitLayerChange(id, item.kind);
   }
 
@@ -1062,8 +1068,10 @@ class LayerController implements LayerAPI {
     if (this.uiContainer && this.ui) {
       this.events.emit(EVENTS.LAYER_LIST_REBUILD);
     }
-    // Same ordering as bringLayerToFront: the row list this operation rebuilt
-    // is what the notify announces against.
+    if (this.isDestroyed || this.layerRegistry.get(id) !== item) return true;
+    // Same retirement check as bringLayerToFront: the rebuild above can retire
+    // what this move announces for, and the row list it just rebuilt is what
+    // the notify announces against.
     this.emitLayerChange(id, item.kind);
     return true;
   }
@@ -1088,8 +1096,10 @@ class LayerController implements LayerAPI {
     if (this.uiContainer && this.ui) {
       this.events.emit(EVENTS.LAYER_LIST_REBUILD);
     }
-    // Same ordering as bringLayerToFront: the row list this operation rebuilt
-    // is what the notify announces against.
+    if (this.isDestroyed || this.layerRegistry.get(id) !== item) return true;
+    // Same retirement check as bringLayerToFront: the rebuild above can retire
+    // what this move announces for, and the row list it just rebuilt is what
+    // the notify announces against.
     this.emitLayerChange(id, item.kind);
     return true;
   }
