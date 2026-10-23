@@ -129,6 +129,55 @@ describe("EventBus", () => {
     expect(seen).toEqual([]);
   });
 
+  it("a throwing handler does not strand the supersede token", () => {
+    // Exceptions propagate to the emitter by contract; the token the delivery
+    // held must still be released, or every (event, id) that ever threw would
+    // grow the map forever.
+    const bus = new EventBus();
+    bus.on("evt", () => {
+      throw new Error("consumer boom");
+    });
+    expect(() => bus.emitSuperseding("evt", "layer-a", { value: "v" })).toThrow(
+      "consumer boom",
+    );
+    expect(
+      (bus as unknown as { superseding: Map<string, object> }).superseding.size,
+    ).toBe(0);
+  });
+
+  it("the outer finally leaves the inner supersede token to its owner", () => {
+    // The first handler rewrites the value mid-delivery. The outer delivery
+    // stops at the reentry point and its finally must NOT delete the inner's
+    // token — the inner owns it and clears it when it finishes.
+    const bus = new EventBus();
+    const key = "layer-a";
+    bus.on("evt", payload => {
+      if ((payload as { value: string }).value === "old") {
+        bus.emitSuperseding("evt", key, { value: "new" });
+      }
+    });
+    bus.emitSuperseding("evt", key, { value: "old" });
+    expect(
+      (bus as unknown as { superseding: Map<string, object> }).superseding.size,
+    ).toBe(0);
+  });
+
+  it("clear releases listeners and any supersede tokens", () => {
+    const bus = new EventBus();
+    // Simulate a delivery interrupted mid-flight (a handler that threw would
+    // now release its own token, so park one directly for the clear test).
+    (bus as unknown as { superseding: Map<string, object> }).superseding.set(
+      "evt\u0000layer-a",
+      {},
+    );
+    bus.on("evt", vi.fn());
+    bus.clear();
+    expect(bus.eventCount).toBe(0);
+    expect(
+      (bus as unknown as { superseding: Map<string, object> }).superseding.size,
+    ).toBe(0);
+  });
+
   it("eventCount tracks the number of events with listeners", () => {
     const bus = new EventBus();
     bus.on("a", vi.fn());

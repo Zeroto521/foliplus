@@ -1833,6 +1833,34 @@ it("a reentrant correction never hands a later subscriber a stale intent", () =>
   expect(intentVisibleOf(ui, id)).toBe(true);
 });
 
+it("a reentrant flip inside the CHANGE callback announces the intent once", () => {
+  // The outer hide delivers its CHANGE first. A subscriber that reverses the
+  // flip inside that delivery emits the correction's own CHANGE+INTENT while
+  // the outer round is still between its two halves — and a CHANGE token
+  // cannot stop an INTENT. The outer INTENT must still not follow: it would
+  // duplicate the final state, and LAYER_INTENT_CHANGE is only supposed to
+  // fire when the stored intent actually moves.
+  const { ui, manager } = initFixture();
+  const id = "overlay1";
+
+  let corrected = false;
+  ui.events.on(EVENTS.LAYER_CHANGE, payload => {
+    if (payload.id !== id || corrected) return;
+    corrected = true;
+    manager.setVisible(id, true);
+  });
+  const intents: boolean[] = [];
+  ui.events.on(EVENTS.LAYER_INTENT_CHANGE, payload => {
+    if (payload.id !== id) return;
+    intents.push(payload.intent.visible);
+  });
+
+  manager.setVisible(id, false);
+
+  expect(intents).toEqual([true]);
+  expect(intentVisibleOf(ui, id)).toBe(true);
+});
+
 it("the group count reflects the intent a reentrant correction left", () => {
   const { ui } = initFixture({
     data: [

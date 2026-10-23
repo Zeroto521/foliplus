@@ -611,10 +611,13 @@ const applyProjection = (
  *  manufacturing a change event nobody can observe. The intent payload carries
  *  the committed value through `intentVisibleOf`, read at emit time — a frozen
  *  snapshot, so a handler that stores the payload can rely on it later.
- *  Reentrant correction is handled by the superseding delivery the two halves
- *  go out through: a newer write for the same layer stops the older delivery
- *  at the reentry point, so no subscriber sees a value the correction already
- *  replaced.
+ *  Reentrant correction is handled at two levels. The same-event half is the
+ *  superseding delivery the two halves go out through: a newer write for the
+ *  same layer stops the older delivery at the reentry point, so no subscriber
+ *  sees a value the correction already replaced. The cross-event half is the
+ *  intent revision claimed before the CHANGE: a rewrite that happens inside
+ *  the CHANGE delivery emits its own INTENT, and this round's INTENT is
+ *  dropped when it would duplicate that newer write's final state.
  *
  *  Delivery is identity-checked against the live registry twice — before the
  *  first half goes out, and again before the second. A delta is the record of
@@ -643,6 +646,15 @@ const emitDelta = (
   delta: ProjectionDelta,
 ): void => {
   if (!layerInfo || !entryStillRegistered(ui, layerInfo)) return;
+  // Claim the intent revision before the CHANGE goes out. A subscriber that
+  // rewrites this layer's intent inside the CHANGE delivery emits its own
+  // round — CHANGE and INTENT — while this round is still between its two
+  // halves; the superseding delivery handles same-event reentry, but the
+  // INTENT of a *different* event cannot be stopped by a CHANGE token. The
+  // revision is the cross-event gate: if a newer INTENT for this id went out
+  // while the CHANGE was delivered, this round's INTENT would duplicate the
+  // final state, so it is dropped.
+  const intentRevision = delta.intentMoved ? nextIntentRevision(ui, layerInfo.id) : 0;
   if (delta.wroteVisible) {
     ui.events.emitSuperseding(EVENTS.LAYER_CHANGE, layerInfo.id, {
       id: layerInfo.id,
@@ -651,6 +663,7 @@ const emitDelta = (
   }
   if (delta.intentMoved) {
     if (!entryStillRegistered(ui, layerInfo)) return;
+    if (!isCurrentIntentRevision(ui, layerInfo.id, intentRevision)) return;
     // Superseding, not plain emit: a subscriber that corrects the intent
     // inside this notify fires a reentrant round for the same id, and the
     // outer delivery would otherwise continue handing the subscribers behind
@@ -664,6 +677,28 @@ const emitDelta = (
     });
   }
 };
+
+/** One monotonically increasing counter per (UI shell, layer id), bumped each
+ *  time an INTENT for that layer is emitted. It answers "did a newer intent
+ *  write happen while this round was between its CHANGE and its INTENT?" —
+ *  the cross-event half of the reentrancy contract that same-event
+ *  superseding cannot cover. Keyed by the shell so the state dies with the
+ *  map, like the superseding map on the bus. */
+const intentRevisions = new WeakMap<LayerUI, Map<string, number>>();
+
+const nextIntentRevision = (ui: LayerUI, id: string): number => {
+  let byId = intentRevisions.get(ui);
+  if (!byId) {
+    byId = new Map();
+    intentRevisions.set(ui, byId);
+  }
+  const next = (byId.get(id) ?? 0) + 1;
+  byId.set(id, next);
+  return next;
+};
+
+const isCurrentIntentRevision = (ui: LayerUI, id: string, revision: number): boolean =>
+  intentRevisions.get(ui)?.get(id) === revision;
 
 /** Notify a batch of passes in the order they were swept, without
  *  interleaving. Each item's entry travels with its delta and `emitDelta`

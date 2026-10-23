@@ -108,22 +108,32 @@ class EventBus {
     if (!set) return;
     // Replace the in-flight token first: the loop of whichever delivery is
     // currently walking this (event, id) sees the swap and stops. This emit
-    // then delivers fresh to everyone from the start.
+    // then delivers fresh to everyone from the start. The token is cleaned up
+    // in a finally so a handler that throws cannot strand it — exceptions
+    // propagate to the emitter by contract, and a stranded token would grow
+    // the map with every (event, id) that ever threw.
     const token = {};
     const key = `${event}\u0000${supersedeKey}`;
     this.superseding.set(key, token);
-    for (const handler of [...set]) {
-      if (this.superseding.get(key) !== token) return;
-      handler(...payload);
+    try {
+      for (const handler of [...set]) {
+        if (this.superseding.get(key) !== token) return;
+        handler(...payload);
+      }
+    } finally {
+      // Only delete our own token. A newer emit replaced it mid-delivery —
+      // that delivery owns the cleanup, and deleting its token here would let
+      // a third, even newer round run unsuperseded against the same key.
+      if (this.superseding.get(key) === token) this.superseding.delete(key);
     }
-    if (this.superseding.get(key) === token) this.superseding.delete(key);
   }
 
   private superseding = new Map<string, object>();
 
-  /** Remove all listeners for every event. */
+  /** Remove all listeners and any in-flight supersede tokens. */
   clear(): void {
     this.listeners.clear();
+    this.superseding.clear();
   }
 }
 
