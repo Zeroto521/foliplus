@@ -1480,13 +1480,26 @@ describe("MeasureManager — registerLabel lifecycle", () => {
 
   it("emits LAYER_STYLE_CHANGE when a setter fires", () => {
     const { manager } = makeLabelManager();
-    const emitSpy = vi.spyOn(manager.events, "emit");
+    const emitSpy = vi.spyOn(manager.events, "emitSettled");
 
     manager.setLabelsVisible(false);
 
     expect(emitSpy).toHaveBeenCalledWith("foliplus:layer:style-change", {
       id: manager.layerId,
     });
+  });
+
+  it("style broadcast is settled — a thrower does not starve later consumers", () => {
+    const { manager } = makeLabelManager();
+    const seen: string[] = [];
+    manager.events.on(EVENTS.LAYER_STYLE_CHANGE, () => {
+      throw new Error("style boom");
+    });
+    manager.events.on(EVENTS.LAYER_STYLE_CHANGE, payload => seen.push(payload.id));
+
+    expect(() => manager.setLabelsVisible(false)).toThrow("style boom");
+
+    expect(seen).toEqual([manager.layerId]);
   });
 
   it("re-plans a smaller set when a label is removed mid-measurement", () => {

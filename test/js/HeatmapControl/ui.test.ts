@@ -193,7 +193,7 @@ describe("bindControls — change handlers", () => {
 
   it("field change emits LAYER_STYLE_CHANGE so the drawer refreshes", () => {
     const { ctrl, m } = setup();
-    const emitSpy = vi.spyOn(m.events, "emit");
+    const emitSpy = vi.spyOn(m.events, "emitSettled");
     ctrl.fieldSelect.value = "sales";
     fire(ctrl.fieldSelect, "change");
     expect(emitSpy).toHaveBeenCalledWith("foliplus:layer:style-change", {

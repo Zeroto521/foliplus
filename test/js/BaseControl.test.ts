@@ -70,6 +70,42 @@ describe("BaseControl", () => {
     expect(seen[0]).toMatchObject({ component: "TestCtrl" });
   });
 
+  it("propagates the first CONTROL_ATTACHED consumer failure after the fan-out", () => {
+    const seen: unknown[] = [];
+
+    class TestCtrl extends BaseControl {
+      buildDOM() {
+        return document.createElement("div");
+      }
+    }
+    const ctrl = new TestCtrl();
+    ctrl._map = map;
+    const bus = ensureEvents(map);
+    bus.on(EVENTS.CONTROL_ATTACHED, () => {
+      throw new Error("attach boom");
+    });
+    bus.on(EVENTS.CONTROL_ATTACHED, p => seen.push(p));
+
+    expect(() => ctrl.onAdd()).toThrow("attach boom");
+    expect(seen).toHaveLength(1);
+  });
+
+  it("treats a missing map namespace as best-effort, not a consumer failure", () => {
+    const container = document.createElement("div");
+
+    class TestCtrl extends BaseControl {
+      buildDOM() {
+        return container;
+      }
+    }
+    const ctrl = new TestCtrl();
+    ctrl._map = null as never;
+
+    // `ensureEvents(null)` throws while seeding the namespace; that is the one
+    // failure onAdd tolerates, and it still returns the built container.
+    expect(ctrl.onAdd()).toBe(container);
+  });
+
   it("onAdd still works without an event bus (stub map)", () => {
     // map without foliplus: ensureEvents installs a bus, emit is a no-op —
     // onAdd must not throw.

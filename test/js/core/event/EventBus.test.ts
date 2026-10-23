@@ -7,9 +7,8 @@ import {
 } from "#foliplus/core/event/index.js";
 
 /** The private in-flight token map, read the way the token-leak tests do. */
-function supersedingSize(bus: EventBus): number {
-  return (bus as unknown as { superseding: Map<string, object> }).superseding.size;
-}
+const supersedingSize = (bus: EventBus): number =>
+  (bus as unknown as { superseding: Map<string, object> }).superseding.size;
 
 describe("EventBus", () => {
   it("subscribes and receives emitted events", () => {

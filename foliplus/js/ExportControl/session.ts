@@ -57,8 +57,37 @@ const doExport = function (this: ExportManager) {
   }
   this.isExporting = true;
   this.lastTileFailures = null;
-  this.modes.setMode(CONFIG.name, "exporting");
-  this.events.emit(EVENTS.BEFORE_EXPORT, { component: CONFIG.name });
+  // Start as one operation: mode (with its interaction lock), then BEFORE_EXPORT
+  // settled. If either fails, roll the start back before surfacing — nothing
+  // has been drawn yet, so isExporting=false and mode=null are the whole
+  // rollback and the user can retry.
+  let startError: unknown;
+  let startFailed = false;
+  try {
+    this.modes.setMode(CONFIG.name, "exporting");
+  } catch (err) {
+    startFailed = true;
+    startError = err;
+  }
+  if (!startFailed) {
+    const failure = this.events.emitSettled(EVENTS.BEFORE_EXPORT, {
+      component: CONFIG.name,
+    });
+    if (failure) {
+      startFailed = true;
+      startError = failure.error;
+    }
+  }
+  if (startFailed) {
+    this.isExporting = false;
+    try {
+      this.modes.setMode(CONFIG.name, null);
+    } catch {
+      // Keep the first failure: the lock release above has already run and
+      // the operation's original error is the one the caller needs.
+    }
+    throw startError;
+  }
   const r = Object.assign({}, this.cropState.rect);
   const geoBounds = this.cropState.geoBounds;
   if (geoBounds) {
@@ -281,7 +310,13 @@ const finishExport = async function (this: ExportManager, canvas: HTMLCanvasElem
     this.showGlobalHint(T("status_fail") + T("err_gen_fail"), HINT_DURATION.LONG);
     log.warn("export failed:", err);
   } finally {
-    this.endExport();
+    try {
+      this.endExport();
+    } catch (err) {
+      // Async pipe: cleanup already happened; surface the consumer bug without
+      // turning it into an unhandled rejection.
+      log.warn("export cleanup consumer failed:", err);
+    }
   }
 };
 
@@ -314,15 +349,34 @@ const showPreview = function (this: ExportManager, blob: Blob) {
   setTimeout(dismissPreview, HINT_DURATION.SHORT);
 };
 
-/** Release the export state: unlock interaction, emit AFTER_EXPORT, remove
- *  the blocker overlay. Runs on both the success and failure paths —
- *  forgetting it strands `isExporting === true` with map interaction
- *  disabled and the overlay still on screen. */
+/** Release the export state: clear mode/isExporting, remove the blocker
+ *  overlay, then emit AFTER_EXPORT settled. Runs on both the success and
+ *  failure paths — forgetting it strands `isExporting === true` with map
+ *  interaction disabled and the overlay still on screen.
+ *
+ *  Local cleanup runs before the broadcast on purpose: a subscriber throwing
+ *  must not skip the blocker removal. The first failure is raised afterwards
+ *  for sync callers; the async pipeline catches and logs it (an unhandled
+ *  rejection would be worse than a logged consumer bug). */
 const endExport = function (this: ExportManager) {
+  let failure: unknown;
+  let failed = false;
   this.isExporting = false;
-  this.modes.setMode(CONFIG.name, null);
-  this.events.emit(EVENTS.AFTER_EXPORT, { component: CONFIG.name });
+  try {
+    this.modes.setMode(CONFIG.name, null);
+  } catch (err) {
+    failed = true;
+    failure = err;
+  }
   this.removeExportOverlay();
+  const after = this.events.emitSettled(EVENTS.AFTER_EXPORT, {
+    component: CONFIG.name,
+  });
+  if (!failed && after) {
+    failed = true;
+    failure = after.error;
+  }
+  if (failed) throw failure;
 };
 
 /**
@@ -411,13 +465,18 @@ const onRenderError = function (
   hideEls: NodeListOf<Element>,
 ) {
   hideEls.forEach(el => el.classList.remove(CONST.CLASSES.HIDDEN));
-  this.modes.setMode(CONFIG.name, null);
-  this.events.emit(EVENTS.AFTER_EXPORT, { component: CONFIG.name });
-  this.removeExportOverlay();
+  // Local cleanup cannot depend on a subscriber: unlock, drop the blocker,
+  // clear mode/isExporting even when AFTER_EXPORT throws. endExport owns the
+  // settled broadcast and the state reset; this path only adds the map unlock
+  // and the failure hint.
   this.unlockMap();
+  try {
+    this.endExport();
+  } catch (consumerError) {
+    log.warn("export cleanup consumer failed:", consumerError);
+  }
   log.error(`${T("err_render")}:`, err);
   this.showGlobalHint(T("status_fail") + (err.message || ""), HINT_DURATION.LONG);
-  this.isExporting = false;
 };
 
 /** Remove the physical export overlay to restore mouse interaction. */

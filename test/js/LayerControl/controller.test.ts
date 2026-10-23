@@ -3283,6 +3283,62 @@ describe("LayerController", () => {
         window.L.stamp = realStamp;
       }
     });
+
+    it("a replacement registered inside the retirement CHANGE gets no stale LAYER_REMOVED", () => {
+      manager.map.hasLayer.mockReturnValue(false);
+      const removed: string[] = [];
+      manager.events.on(EVENTS.LAYER_CHANGE, payload => {
+        if (payload.id !== "overlay1") return;
+        if (manager.layerRegistry.has("overlay1")) return;
+        manager.registerLayer({
+          id: "overlay1",
+          name: "Replacement",
+          group: "overlay",
+          layer: { options: {} },
+        });
+      });
+      manager.events.on(EVENTS.LAYER_REMOVED, payload => removed.push(payload.id));
+
+      expect(manager.unregisterLayer("overlay1")).toBe(true);
+
+      // The id is live again, so the rest of the old retirement would assert
+      // a false "gone" state; the replacement announced its own CHANGE.
+      expect(removed).toEqual([]);
+      expect(manager.layerRegistry.get("overlay1")?.name).toBe("Replacement");
+    });
+
+    it("a replacement registered inside LAYER_ITEM_REMOVED stops the rest of the retirement", () => {
+      manager.map.hasLayer.mockReturnValue(false);
+      // A panel is required for the replacement to announce its registration
+      // CHANGE (a pre-attach register only queues the entry).
+      manager.uiContainer = document.createElement("div");
+      manager.ui = {
+        intentStore: makeStore(),
+        applyUserState: vi.fn(() => []),
+      } as any;
+      const changes: string[] = [];
+      const removed: string[] = [];
+      manager.events.on(EVENTS.LAYER_ITEM_REMOVED, payload => {
+        if (payload.id !== "overlay1") return;
+        if (manager.layerRegistry.has("overlay1")) return;
+        manager.registerLayer({
+          id: "overlay1",
+          name: "Replacement2",
+          group: "overlay",
+          layer: { options: {} },
+        });
+      });
+      manager.events.on(EVENTS.LAYER_CHANGE, payload => changes.push(payload.id));
+      manager.events.on(EVENTS.LAYER_REMOVED, payload => removed.push(payload.id));
+
+      expect(manager.unregisterLayer("overlay1")).toBe(true);
+
+      // Only the replacement registration CHANGE is announced; the old
+      // retirement contributes no count/change/removed after its first event.
+      expect(changes).toEqual(["overlay1"]);
+      expect(removed).toEqual([]);
+      expect(manager.layerRegistry.get("overlay1")?.name).toBe("Replacement2");
+    });
   });
 });
 

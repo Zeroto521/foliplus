@@ -44,7 +44,7 @@
 //     what this class exists for.
 //   - `this.signal` throws when the control is detached; a detached read
 //     is a programming error, and a silent fallback would hide it.
-import { EVENTS, ensureEvents } from "#core/event/index.js";
+import { EVENTS, ensureEvents, publishSettled } from "#core/event/index.js";
 import { createLogger } from "#common/log.js";
 
 const log = createLogger("BaseControl");
@@ -100,18 +100,20 @@ class BaseControl extends L.Control {
     L.DomEvent.disableScrollPropagation(container);
     // Ready signal: other controls (LayerControl's init pass) can run on
     // attach completion instead of a fixed delay.
+    // Only the bus acquisition is best-effort: a map without a bus is a
+    // lightweight stub, where init falls back to its synchronous pass. A
+    // CONTROL_ATTACHED consumer failure is not swallowed — it is a settled
+    // broadcast, so every listener has run and the first failure propagates
+    // to the control that just attached.
+    let events: ReturnType<typeof ensureEvents>;
     try {
-      const events = ensureEvents(this._map);
-      // Settled: every later control gets its ready signal even if one
-      // consumer throws; the failure still reaches the emitter below.
-      const failure = events.emitSettled(EVENTS.CONTROL_ATTACHED, {
-        component: this.constructor.name,
-      });
-      if (failure) throw failure.error;
+      events = ensureEvents(this._map);
     } catch {
-      // No event bus on this map (lightweight stub) — init falls back to
-      // its synchronous pass, which is sufficient without other controls.
+      return container;
     }
+    publishSettled(events, EVENTS.CONTROL_ATTACHED, {
+      component: this.constructor.name,
+    });
     return container;
   }
 

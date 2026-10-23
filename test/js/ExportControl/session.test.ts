@@ -1,5 +1,5 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { ensureEvents } from "#core/event/index.js";
+import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { ExportManager, canvasToBlob } from "#foliplus/ExportControl/manager.js";
 import * as downloadMod from "#common/download.js";
 
@@ -94,11 +94,87 @@ describe("sessionMethods — export events", () => {
 
   it("doExport emits before:export event", () => {
     const events = ensureEvents(manager.map);
-    vi.spyOn(events, "emit");
+    vi.spyOn(events, "emitSettled");
     manager.doExport();
-    expect(events.emit).toHaveBeenCalledWith("foliplus:export:before", {
+    expect(events.emitSettled).toHaveBeenCalledWith("foliplus:export:before", {
       component: "ExportControl",
     });
+  });
+
+  it("rolls back the export start when BEFORE_EXPORT throws", () => {
+    const events = ensureEvents(manager.map);
+    const seen: string[] = [];
+    events.on(EVENTS.BEFORE_EXPORT, () => {
+      throw new Error("before boom");
+    });
+    events.on(EVENTS.BEFORE_EXPORT, () => seen.push("later"));
+
+    expect(() => manager.doExport()).toThrow("before boom");
+
+    // Every consumer saw the signal; the start rolled back, so a retry is
+    // possible and no mode/lock/overlay is left behind.
+    expect(seen).toEqual(["later"]);
+    expect(manager.isExporting).toBe(false);
+    expect(manager.modes.getMode("ExportControl")).toBeNull();
+    expect(manager.exportOverlay).toBeNull();
+  });
+
+  it("rolls back when the start MODE_CHANGE consumer throws", () => {
+    const events = ensureEvents(manager.map);
+    const seen: (string | null)[] = [];
+    events.on(EVENTS.MODE_CHANGE, payload => {
+      if (payload.mode === "exporting") throw new Error("mode boom");
+      seen.push(payload.mode);
+    });
+
+    expect(() => manager.doExport()).toThrow("mode boom");
+
+    // The mode was committed before its broadcast threw; the rollback releases
+    // it (emitting mode=null) and leaves the export start retryable.
+    expect(manager.isExporting).toBe(false);
+    expect(manager.modes.getMode("ExportControl")).toBeNull();
+    expect(seen).toContain(null);
+  });
+
+  it("AFTER_EXPORT failure still clears the blocker and export state", () => {
+    const events = ensureEvents(manager.map);
+    manager.isExporting = true;
+    manager.modes.setMode("ExportControl", "exporting");
+    manager.exportOverlay = document.createElement("div");
+    document.body.appendChild(manager.exportOverlay);
+    const seen: string[] = [];
+    events.on(EVENTS.AFTER_EXPORT, () => {
+      throw new Error("after boom");
+    });
+    events.on(EVENTS.AFTER_EXPORT, () => seen.push("later"));
+
+    expect(() => manager.endExport()).toThrow("after boom");
+
+    expect(seen).toEqual(["later"]);
+    expect(manager.isExporting).toBe(false);
+    expect(manager.modes.getMode("ExportControl")).toBeNull();
+    expect(manager.exportOverlay).toBeNull();
+  });
+
+  it("onRenderError still unlocks and removes the blocker when AFTER_EXPORT throws", () => {
+    const events = ensureEvents(manager.map);
+    manager.isExporting = true;
+    manager.modes.setMode("ExportControl", "exporting");
+    manager.exportOverlay = document.createElement("div");
+    document.body.appendChild(manager.exportOverlay);
+    const unlock = vi.spyOn(manager, "unlockMap");
+    events.on(EVENTS.AFTER_EXPORT, () => {
+      throw new Error("after boom");
+    });
+
+    expect(() =>
+      manager.onRenderError(new Error("render fail"), document.querySelectorAll("div")),
+    ).not.toThrow();
+
+    expect(unlock).toHaveBeenCalled();
+    expect(manager.exportOverlay).toBeNull();
+    expect(manager.isExporting).toBe(false);
+    expect(manager.modes.getMode("ExportControl")).toBeNull();
   });
 
   it("doExport returns early when another component holds the map (blocked)", () => {
@@ -120,7 +196,7 @@ describe("sessionMethods — export events", () => {
 
   it("onRenderSuccess emits after:export event", async () => {
     const events = ensureEvents(manager.map);
-    vi.spyOn(events, "emit");
+    vi.spyOn(events, "emitSettled");
     const origToBlob = HTMLCanvasElement.prototype.toBlob;
     HTMLCanvasElement.prototype.toBlob = function (cb: (b: Blob | null) => void) {
       cb(new Blob(["fake"]));
@@ -129,17 +205,17 @@ describe("sessionMethods — export events", () => {
     manager.onRenderSuccess(document.createElement("canvas"), hideEls);
     await new Promise(r => setTimeout(r, 0));
     HTMLCanvasElement.prototype.toBlob = origToBlob;
-    expect(events.emit).toHaveBeenCalledWith("foliplus:export:after", {
+    expect(events.emitSettled).toHaveBeenCalledWith("foliplus:export:after", {
       component: "ExportControl",
     });
   });
 
   it("onRenderError emits after:export event", () => {
     const events = ensureEvents(manager.map);
-    vi.spyOn(events, "emit");
+    vi.spyOn(events, "emitSettled");
     const hideEls = document.querySelectorAll("div");
     manager.onRenderError(new Error("render fail"), hideEls);
-    expect(events.emit).toHaveBeenCalledWith("foliplus:export:after", {
+    expect(events.emitSettled).toHaveBeenCalledWith("foliplus:export:after", {
       component: "ExportControl",
     });
   });

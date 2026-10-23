@@ -5,7 +5,7 @@
 // through this store instead of poking mgr.measurements + saveMeasurements
 // directly, mirroring LayerControl's persistence.ts convention: one store
 // class, keys in const.ts STORAGE, no direct Storage access outside.
-import { EVENTS, ensureEvents } from "#core/event/index.js";
+import { EVENTS, ensureEvents, publishSettled } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import type { ControlEnv } from "#core/type.js";
 import {
@@ -127,7 +127,7 @@ class MeasureStore {
    *  without a write (e.g. after restore). */
   emitCount(): void {
     const events = ensureEvents(this.map);
-    events.emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, {
+    publishSettled(events, EVENTS.LAYER_ITEM_COUNT_CHANGE, {
       id: this.layerId,
     });
   }

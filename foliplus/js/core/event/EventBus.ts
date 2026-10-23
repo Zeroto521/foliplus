@@ -71,8 +71,10 @@ class EventBus {
    *  state the operation wrote is committed either way, and a retry after
    *  catching the error converges. A handler that hands its failure off
    *  instead of throwing is unaffected. State broadcasts to independent
-   *  consumers use {@link emitSupersedingSettled} instead: there, one
-   *  subscriber must not be able to truncate what the others observe. */
+   *  consumers use {@link publishSettled} (one event) or
+   *  {@link SettledOperation} (a lifecycle operation); the projection channel
+   *  uses {@link emitSupersedingSettled}. Plain `emit` stays for commands with
+   *  a single interested party, where stopping on the first error is useful. */
   emit<K extends string>(
     event: K,
     ...args: K extends keyof EventPayloadMap
@@ -324,5 +326,23 @@ type EventBusSupersedingEmit = (
   ...payload: unknown[]
 ) => DispatchFailure | undefined;
 
-export { EventBus, SettledOperation };
+/** Publish one settled broadcast and raise the first consumer failure once the
+ *  fan-out is done. The one-event counterpart of {@link SettledOperation}: a
+ *  producer with no wider operation to finish uses this instead of plain
+ *  `emit()`, so the same event has one exception contract at every entry
+ *  point. */
+const publishSettled = <K extends string>(
+  bus: EventBus,
+  event: K,
+  ...payload: K extends keyof EventPayloadMap
+    ? EventPayloadMap[K] extends void
+      ? []
+      : [NonNullable<EventPayloadMap[K]>]
+    : unknown[]
+): void => {
+  const failure = (bus.emitSettled as EventBusEmit)(event, ...payload);
+  if (failure) throw failure.error;
+};
+
+export { EventBus, SettledOperation, publishSettled };
 export type { DispatchFailure, EventHandler };

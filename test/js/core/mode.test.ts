@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { EVENTS, EventBus } from "#foliplus/core/event/index.js";
 import { ModeManager, ensureModes, guardBlocked } from "#foliplus/core/mode.js";
 
 // Shared mocks for the ModeManager constructor (bus + map).
@@ -6,6 +7,7 @@ const makeBus = (): any => ({
   on: vi.fn(),
   off: vi.fn(),
   emit: vi.fn(),
+  emitSettled: vi.fn(),
   clear: vi.fn(),
   eventCount: 0,
 });
@@ -52,19 +54,38 @@ describe("ModeManager", () => {
     const bus = makeBus();
     const mm = new ModeManager(bus, makeMap());
     mm.setMode("SearchControl", "addr");
-    expect(bus.emit).toHaveBeenCalledWith("foliplus:mode:change", {
+    expect(bus.emitSettled).toHaveBeenCalledWith("foliplus:mode:change", {
       component: "SearchControl",
       mode: "addr",
     });
+  });
+
+  it("applies the interaction lock before a throwing MODE_CHANGE consumer", () => {
+    // A consumer exception must not leave the registry saying "Measure owns
+    // the map" while the layers still take pointer events.
+    const { map, leaf } = makeMapWithLeaf();
+    const bus = new EventBus();
+    const seen: (string | null)[] = [];
+    bus.on(EVENTS.MODE_CHANGE, () => {
+      throw new Error("mode boom");
+    });
+    bus.on(EVENTS.MODE_CHANGE, payload => seen.push(payload.mode));
+    const mm = new ModeManager(bus, map as never);
+
+    expect(() => mm.setMode("MeasureControl", "distance")).toThrow("mode boom");
+
+    expect(mm.getMode("MeasureControl")).toBe("distance");
+    expect(leaf.options.interactive).toBe(false);
+    expect(seen).toEqual(["distance"]);
   });
 
   it("setMode does NOT emit when mode is unchanged (idempotent)", () => {
     const bus = makeBus();
     const mm = new ModeManager(bus, makeMap());
     mm.setMode("X", "a");
-    bus.emit.mockClear();
+    bus.emitSettled.mockClear();
     mm.setMode("X", "a");
-    expect(bus.emit).not.toHaveBeenCalled();
+    expect(bus.emitSettled).not.toHaveBeenCalled();
   });
 
   it("keys returns all registered components", () => {
