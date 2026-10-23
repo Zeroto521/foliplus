@@ -33,16 +33,15 @@ afterEach(() => {
 // The heatmap used to keep a private chroma wrapper; it now shares
 // core/palette with the value-based fill. These pin the promise that the
 // migration cannot move a colour: the chroma call chain is the one the
-// retired function used, and the no-chroma fallback is the grey the heatmap
-// border fallback already had.
+// retired function used, and the no-chroma fallback is the single grey the
+// heatmap border already degraded to.
 describe("shared colour scale — migration parity", () => {
   it("the no-chroma fallback is the grey the heatmap already used", () => {
-    expect(SCHEME_FALLBACK_COLOR).toBe(CONST.GRAY);
     expect(getColorScale("Reds", 4)).toEqual([
-      CONST.GRAY,
-      CONST.GRAY,
-      CONST.GRAY,
-      CONST.GRAY,
+      SCHEME_FALLBACK_COLOR,
+      SCHEME_FALLBACK_COLOR,
+      SCHEME_FALLBACK_COLOR,
+      SCHEME_FALLBACK_COLOR,
     ]);
   });
 
@@ -213,6 +212,44 @@ describe("aggregateData", () => {
     // to class 0, a value beyond all breaks lands in the last class.
     expect(result!.valueToClassIdx(1)).toBe(0);
     expect(result!.valueToClassIdx(99)).toBe(2);
+  });
+
+  it("degrades to the equal method when the chosen one needs a missing script", () => {
+    // quantile needs the simple-statistics CDN global. On a page that never
+    // loaded it the classifier throws the dependency error, and the layer
+    // must still render as an equal split instead of throwing out of the
+    // method selector's handler.
+    delete globalThis.ss;
+    globalThis.h3.latLngToCell = vi.fn(lat => `cell_${lat}`);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const pts = [makePt({ lat: 26.08 }), makePt({ lat: 26.09 })];
+    const result = aggregateData(pts, 4, "count", 3, "quantile", "Reds", vi.fn(), LOG);
+    expect(result).not.toBeNull();
+    // Two count-1 cells split equally into [1,1,1] - three breaks, so two
+    // colours, and a value inside the split stays in class 0 rather than
+    // being bisected against an undefined break.
+    expect(result!.classColors).toHaveLength(2);
+    expect(result!.valueToClassIdx(1)).toBe(0);
+    expect(warn).toHaveBeenCalledWith(
+      "[HeatmapControl] simple-statistics unavailable, classified with the equal method",
+      expect.any(String),
+    );
+    warn.mockRestore();
+  });
+
+  it("rethrows a classifier failure that is not a missing dependency", () => {
+    // The script loaded but is broken: a runtime failure, not a page-wide
+    // absence, so it must surface instead of silently degrading.
+    globalThis.ss = {
+      quantileSorted: () => {
+        throw new Error("boom");
+      },
+    } as never;
+    globalThis.h3.latLngToCell = vi.fn(lat => `cell_${lat}`);
+    const pts = [makePt({ lat: 26.08 }), makePt({ lat: 26.09 })];
+    expect(() =>
+      aggregateData(pts, 4, "count", 3, "quantile", "Reds", vi.fn(), LOG),
+    ).toThrow("boom");
   });
 });
 

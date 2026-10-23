@@ -1,5 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { FILL_OPT_IN, hasFillLeaf, hasSetStyleLeaf } from "#core/layer/capability.js";
+import {
+  FILL_OPT_IN,
+  hasFillLeaf,
+  hasSetStyleLeaf,
+  isArealStyleLeaf,
+} from "#core/layer/capability.js";
 import {
   isStyleSetter,
   pinStyleOnHighlight,
@@ -223,6 +228,15 @@ describe("hasFillLeaf", () => {
 
   it("returns false for a null node", () => {
     expect(hasFillLeaf(null)).toBe(false);
+  });
+
+  it("the predicate itself rejects null and primitive nodes", () => {
+    // hasFillLeaf short-circuits a null root before the walk starts, so the
+    // guard is only reachable through the predicate - its defence for a
+    // child an adapter reports as null.
+    expect(isArealStyleLeaf(null)).toBe(false);
+    expect(isArealStyleLeaf(undefined)).toBe(false);
+    expect(isArealStyleLeaf("Polygon")).toBe(false);
   });
 
   it("returns false for a node with neither a setter nor children", () => {

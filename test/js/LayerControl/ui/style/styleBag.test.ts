@@ -8,6 +8,7 @@ import {
   restoreStyleDim,
   styleBagOf,
   styleBaseOf,
+  styleDimOverAuthor,
   styleDimPayload,
 } from "#foliplus/LayerControl/ui/style/styleBag.js";
 
@@ -236,6 +237,20 @@ describe("styleBaseOf", () => {
     expect(base.fillColor).not.toBe("#00ff00");
     // The border face still reads the first leaf's declared color.
     expect(base.color).toBe("#111111");
+  });
+
+  it("keeps the author's value when the override is undefined", () => {
+    // The ramp's out-of-reach replay hands over { fillOpacity } and the
+    // user's opacity may be undefined - an undefined entry must not blank
+    // the author's value, it must leave it in force.
+    const leaf = makeLeaf({ fillColor: "#112233", fillOpacity: 0.2, fill: true });
+    expect(
+      styleDimOverAuthor(leaf, { fillOpacity: undefined }, FACE.FILL, false),
+    ).toEqual({
+      fillColor: "#112233",
+      fillOpacity: 0.2,
+      fill: true,
+    });
   });
 
   it("fill and border consumers share one reader — same output shape", () => {

@@ -23,14 +23,14 @@ const DEFAULT_SCHEMES = [
   "Viridis",
 ] as const;
 
-/** The one unreadable-colour fallback the product degrades to. Heatmap's
- *  `GRAY` is an alias of this constant, so a colour chroma cannot read
- *  degrades to one value across the product instead of two definitions
- *  drifting apart. */
+/** The one unreadable-colour fallback the product degrades to: a colour
+ *  chroma cannot read, or a feature that declared no fill. Heatmap's hex
+ *  fill and border, and the value-based fill's scale, all degrade to this
+ *  one value instead of each component keeping its own. */
 const SCHEME_FALLBACK_COLOR = "#999";
 
 /** Build a discrete `n`-color scale from a ColorBrewer / chroma scheme
- *  name. Falls back to a flat GRAY array when chroma is unavailable
+ *  name. Falls back to a flat fallback-grey array when chroma is unavailable
  *  (jsdom unit tests, headless contexts). */
 const getColorScale = (name: string, n: number): string[] => {
   if (typeof chroma !== "undefined") {

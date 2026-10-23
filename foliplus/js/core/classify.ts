@@ -11,9 +11,6 @@ const METHOD = {
   HEADS: "heads",
 } as const;
 
-/** A method name accepted by {@link computeBreaks}. */
-type ClassifyMethod = (typeof METHOD)[keyof typeof METHOD];
-
 /** The two methods that read the `simple-statistics` CDN global. `equal` and
  *  `heads` are pure arithmetic, so a page that never loaded the script can
  *  still classify. */
@@ -100,4 +97,3 @@ const computeBreaks = (
 };
 
 export { METHOD, ClassifierDependencyError, computeBreaks };
-export type { ClassifyMethod };

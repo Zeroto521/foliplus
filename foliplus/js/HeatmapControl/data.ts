@@ -222,7 +222,6 @@ export {
   aggregateData,
   binPoints,
   buildFeatures,
-  getColorScale,
   getH3Res,
   pickAutoField,
   readMarkerField,

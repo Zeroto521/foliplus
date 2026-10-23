@@ -3,8 +3,10 @@
 import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { adjustPanelZIndex } from "#core/leaflet/index.js";
+import { getColorScale } from "#core/palette.js";
 import { dom } from "#common/dom.js";
 import * as CONST from "./const.js";
+import { pickAutoField } from "./data.js";
 import { registerDropdownEvents, registerSchemeBarEvents } from "./interaction.js";
 import { type HeatmapManager } from "./manager.js";
 import { panelContentHTML } from "./template.js";
@@ -300,7 +302,7 @@ const updateFieldSelector = (ctrl: HeatmapControlUI) => {
     info => info.id === ctrl.mgr.selectedLayerId,
   );
   const fields = ctrl.mgr.collectFields(selected);
-  ctrl.mgr.autoFieldKey = ctrl.mgr.pickAutoField(fields);
+  ctrl.mgr.autoFieldKey = pickAutoField(fields);
 
   ctrl.fieldSelect.innerHTML = "";
   dom.el(
@@ -332,7 +334,7 @@ const renderColorBar = (
   name: string,
   numClasses: number,
 ) => {
-  const colors = ctrl.mgr.getColorScale(name, numClasses);
+  const colors = getColorScale(name, numClasses);
   container.innerHTML = "";
   for (const color of colors) {
     dom.el("div", {

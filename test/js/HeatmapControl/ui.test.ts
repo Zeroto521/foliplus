@@ -811,15 +811,17 @@ describe("refreshSchemeDropdownItems — malformed items", () => {
     fakeItem.setAttribute("data-scheme-name", "Reds");
     // No bar child — renderColorBar would throw on null.innerHTML.
     ctrl.schemeDropdown!.appendChild(fakeItem);
-    const getColorScaleSpy = vi.spyOn(ctrl.mgr, "getColorScale");
     ctrl.classSelect.value = "4";
     fire(ctrl.classSelect, "change");
     expect(ctrl.schemeDropdown).not.toBeNull();
-    // getColorScale was called for the real items but not for the malformed one.
-    const fakeCall = getColorScaleSpy.mock.calls.find(
-      ([name]) => name === "Reds" && !ctrl.schemeDropdown!.querySelector("div[style]"),
-    );
-    expect(fakeCall).toBeUndefined();
-    getColorScaleSpy.mockRestore();
+    // The malformed entry was skipped: it still has no bar child, while the
+    // real "Reds" entry from the scheme list got its bar rendered.
+    expect(fakeItem.querySelector(CONST.SEL.SCHEME_DROPDOWN_BAR)).toBeNull();
+    const realItem = [
+      ...ctrl.schemeDropdown!.querySelectorAll(CONST.SEL.SCHEME_DROPDOWN_ITEM),
+    ].find(el => el.getAttribute("data-scheme-name") === "Reds" && el !== fakeItem);
+    expect(
+      realItem!.querySelector(CONST.SEL.SCHEME_DROPDOWN_BAR)!.children.length,
+    ).toBeGreaterThan(0);
   });
 });

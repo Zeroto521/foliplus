@@ -1,13 +1,11 @@
 // HeatmapControl data aggregation & rendering logic (HeatmapManager).
-import {
-  METHOD as CLASSIFY_METHOD,
-  computeBreaks as computeBreaksFn,
-} from "#core/classify.js";
+import { METHOD as CLASSIFY_METHOD } from "#core/classify.js";
 import { generateId } from "#core/component.js";
 import { EVENTS, type EventBus, ensureEvents } from "#core/event/index.js";
 import { bareFieldName } from "#core/label/index.js";
 import { NO_FEATURE_TREE_KINDS } from "#core/layer/index.js";
 import { bindMapSync } from "#core/leaflet/index.js";
+import { SCHEME_FALLBACK_COLOR } from "#core/palette.js";
 import type { NumberStyle } from "#foliplus/config-schema.js";
 import { getLayerAlpha, setLayerAlpha } from "#common/canvasAlpha.js";
 import { type Debounced, debounce } from "#common/debounce.js";
@@ -20,10 +18,8 @@ import * as CONST from "./const.js";
 import {
   aggregateData as aggregateDataFn,
   buildFeatures as buildFeaturesFn,
-  getColorScale as getColorScaleFn,
-  getH3Res as getH3ResFn,
-  pickAutoField as pickAutoFieldFn,
-  readMarkerField as readMarkerFieldFn,
+  getH3Res,
+  readMarkerField,
 } from "./data.js";
 import * as SVGs from "./icon.js";
 import {
@@ -177,7 +173,7 @@ class HeatmapManager {
     this.autoFieldKey = null;
     this.numClasses = CONFIG.num_classes ?? CONST.CLASS_COUNT.DEFAULT;
     this.borderWeight = CONFIG.border_weight ?? BORDER_WEIGHT.DEFAULT;
-    this.borderColor = CONFIG.border_color ?? CONST.GRAY;
+    this.borderColor = CONFIG.border_color ?? SCHEME_FALLBACK_COLOR;
     // Python default is True; only an explicit false turns labels off — same
     // `!== false` rule MeasureControl uses for label_show / label_collide.
     this.labelShow = CONFIG.label_show !== false;
@@ -638,28 +634,10 @@ class HeatmapManager {
     return fields;
   }
 
-  /** The field to use when the user has not picked one. */
-  pickAutoField(fields: string[] | null): string | null {
-    return pickAutoFieldFn(fields);
-  }
-
-  /**
-   * Read a numeric field off a point marker (foliplus data contract).
-   * Supported field syntax: "value", "options.value", and a bare
-   * `feature.properties` key. A legacy `"properties.<key>"` id is accepted
-   * and stripped so older saved configs keep working.
-   */
-  readMarkerField(
-    marker: L.Marker | L.CircleMarker,
-    field: string | null,
-  ): number | undefined {
-    return readMarkerFieldFn(marker, field);
-  }
-
   getPointValue(marker: L.Marker | L.CircleMarker): number {
     if (this.agg === CONST.AGG.COUNT) return 1;
     const key = this.field || this.autoFieldKey;
-    const val = this.readMarkerField(marker, key);
+    const val = readMarkerField(marker, key);
     if (val === undefined || isNaN(val)) {
       if (!this.valueFallbackWarned) {
         this.valueFallbackWarned = true;
@@ -694,18 +672,6 @@ class HeatmapManager {
     return pts;
   }
 
-  getH3Res(zoom: number): number {
-    return getH3ResFn(zoom);
-  }
-
-  getColorScale(name: string, n: number): string[] {
-    return getColorScaleFn(name, n);
-  }
-
-  computeBreaks(data: number[], numClasses: number, method: string): number[] {
-    return computeBreaksFn(data, numClasses, method);
-  }
-
   renderHexagons() {
     if (!this.map || !this.overlay) return;
     if (!this.selectedLayerId) {
@@ -714,7 +680,7 @@ class HeatmapManager {
     }
     const pts = this.getSelectedPoints();
     const zoom = this.map.getZoom();
-    const res = this.getH3Res(zoom);
+    const res = getH3Res(zoom);
     const aggKey = `${this.selectedLayerId}|${this.agg}|${this.field}|${res}|${this.method}|${this.scheme}|${this.numClasses}`;
     let aggregated: AggregatedData | undefined;
     if (this.cachedAgg?.key === aggKey) {

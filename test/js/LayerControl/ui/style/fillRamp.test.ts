@@ -560,6 +560,26 @@ describe("applyRampToLayer", () => {
     expect(pinGetterOf()()).toBeNull();
   });
 
+  it("replays the live opacity over the author's face for a leaf the ramp cannot classify", () => {
+    // The out-of-reach twin of the ramp's own opacity replay: the author's
+    // colour and fill flag ride folium's restore untouched, and only the
+    // user's opacity is added on top. With none chosen the getter above
+    // returns null and the restore stands.
+    installChroma(["#ff0000", "#00ff00", "#0000ff"]);
+    const ramp = makeRamp();
+    const features = [{ properties: { value: 5 } }];
+    const layer = makeFeatureLayer(features);
+    applyRampToLayer(makeUI(layer), "overlay1", ramp);
+
+    features[0].properties.value = NaN;
+    intentValues = { fillRamp: ramp, fillOpacity: 0.3 };
+    const out = pinGetterOf()();
+    expect(out).not.toBeNull();
+    expect(out!.fillColor).toBe("#3388ff");
+    expect(out!.fill).toBe(true);
+    expect(out!.fillOpacity).toBe(0.3);
+  });
+
   it("falls back to the last colour when the class index is out of bounds", () => {
     // Chroma returns one colour for three classes, so classes 1 and 2 take
     // the last available colour.

@@ -2,7 +2,6 @@
 // ``import * as CONST`` so callers keep the ``CONST.X`` access pattern.
 // Only pure static constants live here; CONFIG-derived values are accessed
 // via ``CONFIG.*`` directly in the consuming code.
-import { SCHEME_FALLBACK_COLOR } from "#core/palette.js";
 import { DEFAULT_LABEL_COLOR, LABEL_SIZE } from "#common/form.js";
 
 const TIMING = {
@@ -10,10 +9,6 @@ const TIMING = {
   LAYER_SCAN_DEBOUNCE: 200,
   SCHEME_DROPDOWN_BLUR_DELAY: 150,
 };
-
-/** The border fallback grey — an alias of the shared palette fallback, so
- *  the product has one source for an unreadable colour. */
-const GRAY = SCHEME_FALLBACK_COLOR;
 
 const H3 = {
   RES_MAP: [
@@ -122,7 +117,6 @@ export {
   CLASS_COUNT,
   CLASSES,
   DATA_ATTR,
-  GRAY,
   H3,
   ID,
   LABEL,
