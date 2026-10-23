@@ -4,7 +4,7 @@
 import { type ClassifyMethod, isClassifyMethod } from "#core/classify.js";
 import { bareFieldName } from "#core/label/index.js";
 import type { NumberStyle } from "#foliplus/config-schema.js";
-import { clampLabelSize } from "#common/form.js";
+import { clampBorderWeight, clampLabelSize } from "#common/form.js";
 import * as Storage from "#common/storage.js";
 import { AGG, CLASS_COUNT } from "./const.js";
 import * as CONST from "./const.js";
@@ -69,7 +69,11 @@ const parseSavedConfig = (raw: unknown): SavedConfig | null => {
     out.numClasses = Math.min(CLASS_COUNT.MAX, Math.max(CLASS_COUNT.MIN, numClasses));
   }
   const borderWeight = finite(data.borderWeight);
-  if (borderWeight !== undefined) out.borderWeight = borderWeight;
+  // The live setter clamps to BORDER_WEIGHT; a record must not enter the
+  // manager through a wider gate than the panel itself offers.
+  if (borderWeight !== undefined) {
+    out.borderWeight = clampBorderWeight(borderWeight);
+  }
   const borderColor = str(data.borderColor);
   if (borderColor !== undefined) out.borderColor = borderColor;
   if (typeof data.labelShow === "boolean") out.labelShow = data.labelShow;

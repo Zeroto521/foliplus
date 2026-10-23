@@ -154,7 +154,9 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
       ),
     );
     updateSchemeBar(ctrl);
-    if (ctrl.schemeDropdown) refreshSchemeDropdownItems(ctrl);
+    // refreshSchemeDropdownItems owns the null check - a control whose
+    // dropdown has not been opened yet has nothing to refresh.
+    refreshSchemeDropdownItems(ctrl);
     ctrl.mgr.renderHexagons();
     persist(ctrl);
   };

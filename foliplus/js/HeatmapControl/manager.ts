@@ -13,7 +13,12 @@ import { SCHEME_FALLBACK_COLOR } from "#core/palette.js";
 import type { NumberStyle } from "#foliplus/config-schema.js";
 import { getLayerAlpha, setLayerAlpha } from "#common/canvasAlpha.js";
 import { type Debounced, debounce } from "#common/debounce.js";
-import { BORDER_WEIGHT, clampLabelSize, normalizeHexColor } from "#common/form.js";
+import {
+  BORDER_WEIGHT,
+  clampBorderWeight,
+  clampLabelSize,
+  normalizeHexColor,
+} from "#common/form.js";
 import { NUMBER_FORMAT } from "#common/format.js";
 import { createLogger } from "#common/log.js";
 import { type Persisted, createPersisted, saveRecord } from "#common/storage.js";
@@ -297,10 +302,7 @@ class HeatmapManager {
       borderWeight: v => {
         const nextWeight =
           typeof v === "number" && !Number.isNaN(v) ? v : this.borderWeight;
-        this.borderWeight = Math.min(
-          BORDER_WEIGHT.MAX,
-          Math.max(BORDER_WEIGHT.MIN, nextWeight),
-        );
+        this.borderWeight = clampBorderWeight(nextWeight);
         this.redrawHeatmap();
         this.saveConfig();
         this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);

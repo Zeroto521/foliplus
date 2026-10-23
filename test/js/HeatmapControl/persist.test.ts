@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { METHOD } from "#core/classify.js";
 import * as CONST from "#foliplus/HeatmapControl/const.js";
+import { BORDER_WEIGHT } from "#common/form.js";
 import { makeManager } from "./fixture.js";
 
 describe("HeatmapManager — versioned persisted config", () => {
@@ -171,6 +172,29 @@ describe("HeatmapManager — versioned persisted config", () => {
       // null means "the user cleared the selection", so it is preserved
       // rather than treated as an absent field.
       expect(loaded.layerId).toBeNull();
+    });
+
+    it("drops a version stamp that is not a positive integer", () => {
+      // Absent means "legacy record - the fields are the source of truth";
+      // present-but-invalid is not a version at all.
+      const m = makeManager();
+      store({ version: 0, agg: "sum" });
+      expect(m.loadSavedConfig()!.version).toBeUndefined();
+      expect(m.loadSavedConfig()!.agg).toBe("sum");
+      store({ version: 1.5 });
+      expect(m.loadSavedConfig()!.version).toBeUndefined();
+      store({ version: "3" });
+      expect(m.loadSavedConfig()!.version).toBeUndefined();
+    });
+
+    it("clamps a border weight the way the live setter does", () => {
+      // The panel offers BORDER_WEIGHT, so a record must not enter the
+      // manager through a wider gate than the UI itself provides.
+      const m = makeManager();
+      store({ borderWeight: -4 });
+      expect(m.loadSavedConfig()!.borderWeight).toBe(BORDER_WEIGHT.MIN);
+      store({ borderWeight: 99 });
+      expect(m.loadSavedConfig()!.borderWeight).toBe(BORDER_WEIGHT.MAX);
     });
 
     it("drops a label format outside the NumberStyle union", () => {

@@ -62,6 +62,23 @@ describe("getColorScale", () => {
     expect(() => getColorScale("NotAScheme", 2)).toThrow(/^\[foliplus\] /);
   });
 
+  it("wraps a non-Error throw without failing a second time", () => {
+    // A dependency or a test double can throw a non-Error. Reading `.message`
+    // off that used to turn this wrapper into a TypeError of its own, which
+    // then escaped the very total form that exists to stop it.
+    globalThis.chroma = {
+      scale: () => {
+        const thrown: unknown = null;
+        throw thrown;
+      },
+    } as never;
+    expect(() => getColorScale("Reds", 2)).toThrow(PaletteConfigError);
+    expect(safeColorScale("Reds", 2)).toEqual([
+      SCHEME_FALLBACK_COLOR,
+      SCHEME_FALLBACK_COLOR,
+    ]);
+  });
+
   it("safeColorScale paints the fallback instead of failing", () => {
     // The total form: a caller that must not abort the control it is
     // painting uses this instead of catching the error itself.

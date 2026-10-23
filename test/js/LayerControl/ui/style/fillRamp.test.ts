@@ -442,6 +442,160 @@ describe("applyRampToLayer", () => {
     expect(pinGetterOf(pinCalls.length - 1)()).toBeNull();
   });
 
+  it("reports an unknown method and restores the author's face", () => {
+    // isFillRampConfig rejects an unknown method on read, so this is the
+    // defence-in-depth path: a caller that wrote the record directly still
+    // gets a report and the author's fill rather than an equal-split guess.
+    installChroma(["#ff0000", "#00ff00"]);
+    const layer = makeFeatureLayer([
+      { properties: { value: 5 } },
+      { properties: { value: 10 } },
+    ]);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    expect(() =>
+      applyRampToLayer(
+        makeUI(layer),
+        "overlay1",
+        makeRamp({ method: "bogus" as never }),
+      ),
+    ).not.toThrow();
+
+    expect(warn.mock.calls[0][0]).toBe("[foliplus] value-based fill:");
+    expect((warn.mock.calls[0][1] as Error).message).toContain(
+      "unknown classification method",
+    );
+    // Nothing was classified, so the author's face comes back.
+    expect((layer.leaves[0].setStyle as any).mock.calls.at(-1)![0]).toEqual({
+      fillColor: "#3388ff",
+      fillOpacity: 0.2,
+      fill: true,
+    });
+    warn.mockRestore();
+  });
+
+  describe("the drive property is read through its own boundary", () => {
+    // The capability probe admits the leaf; reading its data is the ramp's
+    // own job, so a hostile property bag must read as "no value" instead of
+    // aborting the layer - and the same read runs again on every highlight
+    // replay, where a throw would escape into Leaflet's event dispatch.
+    const makeRampLeaf = (areal: "feature" | "radius" = "feature") => {
+      const leaf: any = {
+        feature: { properties: { value: 5 }, geometry: { type: "Polygon" } },
+        options: { fillColor: "#3388ff", fillOpacity: 0.2, fill: true },
+        getLatLngs: () => [
+          [
+            { lat: 0, lng: 0 },
+            { lat: 1, lng: 0 },
+            { lat: 0, lng: 1 },
+          ],
+        ],
+        setStyle: vi.fn(),
+        on: vi.fn(),
+      };
+      if (areal === "radius") leaf.getRadius = () => 5;
+      return leaf;
+    };
+
+    const makeLayer = (...leaves: any[]) => ({
+      options: {},
+      eachLayer: (fn: (l: unknown) => void) => leaves.forEach(l => fn(l)),
+      leaves,
+    });
+
+    const authorFace = { fillColor: "#3388ff", fillOpacity: 0.2, fill: true };
+
+    it("treats a throwing feature getter as no value", () => {
+      installChroma(["#ff0000", "#00ff00"]);
+      const leaf = makeRampLeaf("radius");
+      Object.defineProperty(leaf, "feature", {
+        get() {
+          throw new Error("feature boom");
+        },
+      });
+
+      expect(() =>
+        applyRampToLayer(makeUI(makeLayer(leaf)), "overlay1", makeRamp()),
+      ).not.toThrow();
+      expect((leaf.setStyle as any).mock.calls.at(-1)![0]).toEqual(authorFace);
+    });
+
+    it("treats a throwing properties getter as no value", () => {
+      installChroma(["#ff0000", "#00ff00"]);
+      const leaf = makeRampLeaf();
+      leaf.feature = Object.defineProperty({}, "properties", {
+        get() {
+          throw new Error("properties boom");
+        },
+      });
+      leaf.feature.geometry = { type: "Polygon" };
+
+      expect(() =>
+        applyRampToLayer(makeUI(makeLayer(leaf)), "overlay1", makeRamp()),
+      ).not.toThrow();
+      expect((leaf.setStyle as any).mock.calls.at(-1)![0]).toEqual(authorFace);
+    });
+
+    it("treats a throwing field getter as no value", () => {
+      installChroma(["#ff0000", "#00ff00"]);
+      const leaf = makeRampLeaf();
+      const properties = Object.defineProperty({}, "value", {
+        get() {
+          throw new Error("value boom");
+        },
+      });
+      leaf.feature = { properties, geometry: { type: "Polygon" } };
+
+      expect(() =>
+        applyRampToLayer(makeUI(makeLayer(leaf)), "overlay1", makeRamp()),
+      ).not.toThrow();
+      expect((leaf.setStyle as any).mock.calls.at(-1)![0]).toEqual(authorFace);
+    });
+
+    it("keeps classifying the healthy siblings of a hostile leaf", () => {
+      // The whole point of the narrow boundary: one unreadable leaf must not
+      // strand the rest of the layer uncoloured.
+      installChroma(["#ff0000", "#00ff00"]);
+      const hostile = makeRampLeaf();
+      hostile.feature = Object.defineProperty({}, "properties", {
+        get() {
+          throw new Error("properties boom");
+        },
+      });
+      hostile.feature.geometry = { type: "Polygon" };
+      const healthy = makeRampLeaf();
+      healthy.feature = { properties: { value: 9 }, geometry: { type: "Polygon" } };
+
+      expect(() =>
+        applyRampToLayer(makeUI(makeLayer(hostile, healthy)), "overlay1", makeRamp()),
+      ).not.toThrow();
+
+      expect(healthy.setStyle).toHaveBeenCalled();
+      expect((healthy.setStyle as any).mock.calls[0][0].fillColor).toBeDefined();
+      expect((hostile.setStyle as any).mock.calls.at(-1)![0]).toEqual(authorFace);
+    });
+
+    it("does not throw from a highlight replay once the field turns hostile", () => {
+      installChroma(["#ff0000", "#00ff00"]);
+      let explode = false;
+      const properties = Object.defineProperty({}, "value", {
+        get() {
+          if (explode) throw new Error("value boom");
+          return 5;
+        },
+      });
+      const leaf = makeRampLeaf();
+      leaf.feature = { properties, geometry: { type: "Polygon" } };
+      applyRampToLayer(makeUI(makeLayer(leaf)), "overlay1", makeRamp());
+      const replay = pinGetterOf();
+
+      explode = true;
+      expect(() => replay()).not.toThrow();
+      // No user opacity was chosen, so the author's restored face stands.
+      expect(replay()).toBeNull();
+    });
+  });
+
   it("pin stops replaying the ramp once the mode is solid", () => {
     // A mode switch back to solid keeps the ramp config stored — the config is
     // the arm's next-time state, not evidence that the arm is active. The pin

@@ -98,6 +98,10 @@ const computeBreaks = (
   const lo = sorted[0];
   const hi = sorted[n - 1];
 
+  // No `default` arm: the guard above already turned away everything outside
+  // the four names. Leaving it out is what makes a method added to METHOD
+  // without an arm here a *typecheck* error - computeBreaks would have no
+  // return on that path - instead of a runtime backstop nothing can reach.
   switch (method) {
     case METHOD.JENKS: {
       try {
@@ -129,14 +133,6 @@ const computeBreaks = (
       const b: number[] = [];
       for (let i = 0; i <= numClasses; i++) b.push(lo + step * i);
       return b;
-    }
-    default: {
-      // Unreachable behind the guard above unless a method is added to METHOD
-      // without an arm here - which is exactly when this should fail loudly
-      // instead of being classified as equal.
-      throw new ClassifyMethodError(
-        log.msg("unimplemented classification method: " + String(method)),
-      );
     }
   }
 };

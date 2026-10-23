@@ -32,6 +32,14 @@ const DEFAULT_SCHEMES = [
  *  one value instead of each component keeping its own. */
 const SCHEME_FALLBACK_COLOR = "#999";
 
+/** A throw's text, whatever was thrown. `instanceof Error` rather than a
+ *  type assertion: a dependency or a test double can `throw null`, and
+ *  reading `.message` off that turns this wrapper into a TypeError of its own
+ *  - which would then escape the very `safeColorScale` that exists to stop
+ *  it. */
+const thrownText = (err: unknown): string =>
+  err instanceof Error ? err.message : String(err);
+
 /** Thrown when chroma cannot build a scale from the requested name. A
  *  project-owned type rather than chroma's own: callers switch on it to
  *  degrade, and chroma's error shape is not ours to depend on. */
@@ -58,9 +66,7 @@ const getColorScale = (name: string, n: number): string[] => {
     return chroma.scale(name).mode("lab").colors(n) as string[];
   } catch (err) {
     throw new PaletteConfigError(
-      log.msg(
-        `chroma cannot build a scale from "${name}" (${String((err as Error).message)})`,
-      ),
+      log.msg(`chroma cannot build a scale from "${name}" (${thrownText(err)})`),
     );
   }
 };
@@ -74,11 +80,11 @@ const getColorScale = (name: string, n: number): string[] => {
 const safeColorScale = (name: string, n: number): string[] => {
   try {
     return getColorScale(name, n);
-  } catch (err) {
-    if (err instanceof PaletteConfigError) {
-      return Array(n).fill(SCHEME_FALLBACK_COLOR);
-    }
-    throw err;
+  } catch {
+    // Total by contract: `getColorScale` has exactly one throw (the palette
+    // error above), and re-raising it here would just move the decision back
+    // to a caller that has already said it cannot fail.
+    return Array(n).fill(SCHEME_FALLBACK_COLOR);
   }
 };
 

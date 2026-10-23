@@ -24,10 +24,8 @@
 // changed since the cache was built (field / method / classes / scheme
 // differ), the getter returns null so the author's fill face stays in force
 // — the next scheduler tick rebuilds the cache.
-import { ClassifierDependencyError, ClassifyMethodError } from "#core/classify.js";
 import { DIM } from "#core/layer/index.js";
 import type { FillRampConfig } from "#core/layer/intent.js";
-import { PaletteConfigError } from "#core/palette.js";
 import { buildRamp, colorFor } from "#core/ramp.js";
 import { createLogger } from "#common/log.js";
 import { INTENT, getIntent } from "../intent.js";
@@ -51,9 +49,26 @@ type FeatureLeaf = StyleSetter & {
   feature?: { properties?: Record<string, unknown> };
 };
 
-/** Read a leaf's `feature.properties[key]` value, if any. */
-const leafPropertyValue = (leaf: StyleSetter, key: string): unknown =>
-  (leaf as FeatureLeaf).feature?.properties?.[key];
+/** Read a leaf's `feature.properties[key]` value, if any.
+ *
+ *  The three reads walk into a third-party object, so each hop is its own
+ *  boundary: a leaf whose `feature`, whose `properties`, or the field itself
+ *  is a throwing getter simply has no value. Letting it propagate aborts the
+ *  whole layer's collection - no healthy sibling gets coloured - and re-throws
+ *  later out of a Leaflet mouseout handler that is replaying the highlight.
+ *
+ *  Only the read is inside the boundary. `buildRamp`, `colorFor` and
+ *  `setStyle` stay outside it: a classifier or write failure is a different
+ *  class of problem and must not be swallowed here. */
+const leafPropertyValue = (leaf: StyleSetter, key: string): unknown => {
+  try {
+    const feature = (leaf as FeatureLeaf).feature;
+    const properties = feature?.properties;
+    return properties?.[key];
+  } catch {
+    return undefined;
+  }
+};
 
 /** Whether a property value can drive a numeric classification. */
 const isFiniteNumber = (value: unknown): value is number =>
@@ -139,24 +154,17 @@ const applyRampToLayer = (ui: LayerUI, layerId: string, ramp: FillRampConfig): v
   // unmounted. A layer whose ramp cannot be built gets the author's fill face
   // back — the same answer an all-invalid field gives.
   //
-  // Two failures land here and both are reported: a method this client does
-  // not implement (only reachable by bypassing the record validator) and a
-  // missing simple-statistics global, where the chosen method cannot run at
-  // all for the whole page. Reporting the second matters because otherwise
-  // the map silently keeps its author colour while the panel still says
-  // "quantile". A palette name chroma cannot parse does not land here —
-  // `getColorScale` degrades it to the fallback colour itself.
+  // Every build failure lands here and every one is reported - a missing
+  // simple-statistics global (the whole page cannot run that method), a
+  // method or palette name this client does not implement (only reachable by
+  // bypassing the record validator), and anything unexpected. Reporting
+  // matters because the alternative is the map silently keeping its author
+  // colour while the panel still claims the chosen method.
   let built: ReturnType<typeof buildRamp> | null = null;
   try {
     built = buildRamp(values, ramp);
   } catch (err) {
-    if (
-      err instanceof ClassifierDependencyError ||
-      err instanceof ClassifyMethodError ||
-      err instanceof PaletteConfigError
-    ) {
-      log.warn("value-based fill:", err);
-    }
+    log.warn("value-based fill:", err);
   }
 
   // `buildRamp` returns no colours when the sample cannot be split at all —

@@ -143,6 +143,21 @@ describe("bindControls — change handlers", () => {
     expect(save).toHaveBeenCalled();
   });
 
+  it("ignores a method the select carries but the classifier does not know", () => {
+    // The select only ever holds option values, so a hand-edited DOM is the
+    // only way here - and writing it through would leave the manager in a
+    // state computeBreaks refuses.
+    const { ctrl, m } = setup();
+    const save = vi.spyOn(m, "saveConfig");
+    const render = vi.spyOn(m, "renderHexagons");
+    const before = m.method;
+    ctrl.methodSelect.value = "bogus";
+    fire(ctrl.methodSelect, "change");
+    expect(m.method).toBe(before);
+    expect(render).not.toHaveBeenCalled();
+    expect(save).not.toHaveBeenCalled();
+  });
+
   it("class-count change clamps to the valid range and persists", () => {
     const { ctrl, m } = setup();
     const save = vi.spyOn(m, "saveConfig");
