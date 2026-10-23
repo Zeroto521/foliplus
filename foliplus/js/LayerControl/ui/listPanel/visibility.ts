@@ -7,8 +7,7 @@ import {
   type ProjectionDeltaItem,
   applyProjection,
   applyProjectionAll,
-  emitDelta,
-  emitDeltas,
+  notifyDeltas,
 } from "../apply.js";
 import { currentOpacity, intentVisibleOf } from "../projection.js";
 import { saveState, setVisibleIntent } from "../state.js";
@@ -109,7 +108,7 @@ const toggleAll = (ui: LayerUI, group: string, newState: boolean) => {
   // Order by walking the registry against the Map, not by sorting — a
   // comparator needs an `indexOf` per call and that is a linear identity scan
   // of the registry, so sorting pays a full scan for every comparison. The
-  // entry travels with the delta: `emitDeltas` re-checks the live registry at
+  // entry travels with the delta: `notifyDeltas` re-checks the live registry at
   // delivery, so a layer a subscriber unregistered — or re-registered under the
   // same id — inside an earlier delivery here is not announced on behalf of
   // the entry that now holds that id.
@@ -118,7 +117,7 @@ const toggleAll = (ui: LayerUI, group: string, newState: boolean) => {
     const delta = moved.get(layerInfo.id);
     if (delta) announced.push({ id: layerInfo.id, delta, entry: layerInfo });
   }
-  emitDeltas(ui, announced);
+  notifyDeltas(ui, announced);
 };
 
 /** Full rescan that populates `ui.listPanel.checkedCount[group]` from the DOM + intent,
@@ -285,9 +284,11 @@ const applyVisibility = (ui: LayerUI, id: string, visible: boolean): boolean => 
   // the attribution table are all settled, so a subscriber that re-enters here
   // sees the finished panel. The own-layer delta goes out before the sweep's:
   // it is the layer the user acted on, and the sweep's own entry for it is
-  // empty (the first pass above already wrote its baseline).
-  emitDelta(ui, layerInfo, ownDelta);
-  emitDeltas(ui, swept);
+  // empty (the first pass above already wrote its baseline). One operation, not
+  // two calls: a consumer that throws on the own layer must not strand the
+  // sweep's layers, whose baselines are already committed and would never
+  // announce again on a retry.
+  notifyDeltas(ui, [{ id: layerInfo.id, delta: ownDelta, entry: layerInfo }, ...swept]);
 
   return true;
 };

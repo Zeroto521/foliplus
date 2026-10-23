@@ -4,7 +4,7 @@ import * as CONST from "#foliplus/LayerControl/const.js";
 import * as SVGs from "#foliplus/LayerControl/icon.js";
 import { finishSlidersIn } from "#foliplus/LayerControl/slider.js";
 import { dom, updateItemLabel } from "#common/dom.js";
-import { type ProjectionBatch, emitDeltas } from "../apply.js";
+import { type ProjectionBatch, notifyDeltas } from "../apply.js";
 import { getColorSurface } from "../color.js";
 import { seedAuthorVisible } from "../intent.js";
 import type { LayerUI } from "../surface.js";
@@ -82,7 +82,7 @@ const rebuildList = (ui: LayerUI): void => {
   // Last: the rows are painted, the counts and the tri-state agree with them,
   // and the readiness flag is up — a subscriber that re-enters reads a
   // finished panel rather than the bare list this pass started from.
-  emitDeltas(ui, moved);
+  notifyDeltas(ui, moved);
 };
 
 const renderInitialList = (ui: LayerUI) => {

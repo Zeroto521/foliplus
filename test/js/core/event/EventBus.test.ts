@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import { EVENTS, EventBus, ensureEvents } from "#foliplus/core/event/index.js";
 
+/** The private in-flight token map, read the way the token-leak tests do. */
+function supersedingSize(bus: EventBus): number {
+  return (bus as unknown as { superseding: Map<string, object> }).superseding.size;
+}
+
 describe("EventBus", () => {
   it("subscribes and receives emitted events", () => {
     const bus = new EventBus();
@@ -160,6 +165,137 @@ describe("EventBus", () => {
     expect(
       (bus as unknown as { superseding: Map<string, object> }).superseding.size,
     ).toBe(0);
+  });
+
+  it("emitSupersedingSettled keeps delivering after a throwing handler", () => {
+    // A state broadcast has independent consumers and none of them owns the
+    // others. The first one throws; the rest still see the round, and the
+    // first failure comes back to the emitter for it to raise after its own
+    // fan-out. A plain emit would have stopped at the throw and taken the
+    // notification from every consumer behind it.
+    const bus = new EventBus();
+    const first = new Error("first boom");
+    const second = new Error("second boom");
+    const delivered: string[] = [];
+    bus.on("evt", () => {
+      throw first;
+    });
+    bus.on("evt", () => {
+      throw second;
+    });
+    bus.on("evt", () => {
+      delivered.push("last");
+    });
+
+    const failure = bus.emitSupersedingSettled("evt", "layer-a", { value: "v" });
+
+    expect(failure?.error).toBe(first); // first failure, not an aggregate
+    expect(delivered).toEqual(["last"]);
+  });
+
+  it("emitSupersedingSettled returns undefined when every handler succeeds", () => {
+    const bus = new EventBus();
+    const seen: string[] = [];
+    bus.on("evt", payload => {
+      seen.push((payload as { value: string }).value);
+    });
+    expect(
+      bus.emitSupersedingSettled("evt", "layer-a", { value: "v" }),
+    ).toBeUndefined();
+    expect(seen).toEqual(["v"]);
+  });
+
+  it("emitSupersedingSettled distinguishes a thrown undefined from success", () => {
+    // `throw undefined` is legal JS. A bare `unknown` return would read it as
+    // "nothing failed"; the failure wrapper keeps the two cases apart.
+    const bus = new EventBus();
+    // Through an `unknown` binding: the throw itself is the point, and the
+    // lint rule against literal throws would otherwise hide the case.
+    const thrown: unknown = undefined;
+    bus.on("evt", () => {
+      throw thrown;
+    });
+    const failure = bus.emitSupersedingSettled("evt", "layer-a", { value: "v" });
+    expect(failure).toBeDefined();
+    expect(failure?.error).toBeUndefined();
+  });
+
+  it("emitSupersedingSettled is a no-op when nobody listens", () => {
+    const bus = new EventBus();
+    expect(
+      bus.emitSupersedingSettled("silent", "layer-a", { value: "v" }),
+    ).toBeUndefined();
+    expect(supersedingSize(bus)).toBe(0);
+  });
+
+  it("a newer round stops an older settled delivery", () => {
+    const bus = new EventBus();
+    const key = "layer-a";
+    const seen: string[] = [];
+    const value = (payload: unknown): string => (payload as { value: string }).value;
+    bus.on("evt", payload => {
+      if (value(payload) === "old") {
+        bus.emitSupersedingSettled("evt", key, { value: "new" });
+      }
+    });
+    bus.on("evt", payload => {
+      seen.push(value(payload));
+    });
+
+    bus.emitSupersedingSettled("evt", key, { value: "old" });
+
+    // The stale "old" never reaches the second handler; the correction own
+    // round is the only one it sees.
+    expect(seen).toEqual(["new"]);
+  });
+
+  it("a settled round returns a failure it observed before being superseded", () => {
+    // Superseding stops delivery; it does not un-throw what already threw.
+    // The handler that raised did raise, and its round is the only one that
+    // saw it — dropping the failure because a later handler corrected the
+    // value would hide the consumer bug behind an unrelated write.
+    const bus = new EventBus();
+    const key = "layer-a";
+    const boom = new Error("boom");
+    const seen: string[] = [];
+    const value = (payload: unknown): string => (payload as { value: string }).value;
+    bus.on("evt", payload => {
+      if (value(payload) !== "old") return;
+      bus.emitSupersedingSettled("evt", key, { value: "new" });
+      throw boom;
+    });
+    bus.on("evt", payload => {
+      seen.push(value(payload));
+    });
+
+    const failure = bus.emitSupersedingSettled("evt", key, { value: "old" });
+
+    expect(failure?.error).toBe(boom);
+    expect(seen).toEqual(["new"]);
+  });
+
+  it("a throwing settled handler does not strand the supersede token", () => {
+    const bus = new EventBus();
+    bus.on("evt", () => {
+      throw new Error("consumer boom");
+    });
+    bus.emitSupersedingSettled("evt", "layer-a", { value: "v" });
+    expect(supersedingSize(bus)).toBe(0);
+  });
+
+  it("clear during a settled delivery stops the handlers behind it", () => {
+    // clear() takes the in-flight token with it, so the snapshot still in the
+    // loop cannot deliver the rest of the round on a bus that was torn down.
+    const bus = new EventBus();
+    const later = vi.fn();
+    bus.on("evt", () => bus.clear());
+    bus.on("evt", later);
+
+    expect(
+      bus.emitSupersedingSettled("evt", "layer-a", { value: "v" }),
+    ).toBeUndefined();
+    expect(later).not.toHaveBeenCalled();
+    expect(supersedingSize(bus)).toBe(0);
   });
 
   it("clear releases listeners and any supersede tokens", () => {

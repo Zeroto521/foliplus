@@ -10,7 +10,12 @@ import {
   handleMoreMenuClick,
   registerInteractions,
 } from "../interaction.js";
-import { applyProjection, applyProjectionAll, emitDelta, emitDeltas } from "./apply.js";
+import {
+  applyProjection,
+  applyProjectionAll,
+  notifyDelta,
+  notifyDeltas,
+} from "./apply.js";
 import { inFloatingPanel, isKeyboardVisibleFocus, owningRow } from "./context.js";
 import { bindGeometryFocusMarquee } from "./focus/focusMarquee.js";
 import { dismissFocus } from "./focus/index.js";
@@ -110,14 +115,14 @@ const attachUI = (ui: LayerUI, containerDiv: HTMLElement): void => {
     // the registry-as-seen; keep the two rounds separate, because this one can
     // carry extra flips the outer one could not have known about.
     markSettled(ui);
-    emitDeltas(ui, replayed);
+    notifyDeltas(ui, replayed);
   }, 0);
 
   markSettled(ui);
   // The round goes out last: every row is painted, the counts agree with them
   // and the readiness flag is up, so a subscriber that re-enters reads a
   // finished panel.
-  emitDeltas(ui, moved);
+  notifyDeltas(ui, moved);
 };
 
 /** Re-run the init pass when another control finishes attaching. Unsubscribes
@@ -134,7 +139,7 @@ const subscribeControlAttached = (ui: LayerUI): void => {
     // a resolvable feature set (and thus labelable fields).
     ui.applyStyleLabelState();
     markSettled(ui);
-    emitDeltas(ui, replayed);
+    notifyDeltas(ui, replayed);
   });
 };
 
@@ -285,7 +290,7 @@ const bindLayerEvents = (ui: LayerUI): void => {
   ui.onZoomEnd = () => {
     const swept = applyProjectionAll(ui);
     ui.overlayPanel.styleZoomEndHandler?.();
-    emitDeltas(ui, swept);
+    notifyDeltas(ui, swept);
   };
   ui.c.map.on("zoomend", ui.onZoomEnd);
   // Keyboard dispatch for the "more" button (Enter/Space/Escape) is handled
@@ -385,7 +390,7 @@ const onLayerItemCountChange = (ui: LayerUI, id: string): void => {
     ui.runtimeStore.deleteApplied(id);
     // The row above has already been repainted, so the projection is the last
     // side effect — its notify goes out on that delta, not inside the pass.
-    emitDelta(ui, layerInfo, applyProjection(ui, id));
+    notifyDelta(ui, layerInfo, applyProjection(ui, id));
   }
 };
 

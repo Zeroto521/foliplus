@@ -271,7 +271,7 @@ class LayerUI implements LayerUISurface {
   }
   /** Replay stored state for one layer (or every layer) and return the round.
    *  This method does NOT publish: it collects what moved so the caller can
-   *  settle its own rows, counts and chrome first, then `emitDeltas` itself.
+   *  settle its own rows, counts and chrome first, then `notifyDeltas` itself.
    *  Calling it and ignoring the result silently drops the notifications. */
   applyUserState(id?: string): ProjectionBatch {
     const moved = applyUserState(this, id);

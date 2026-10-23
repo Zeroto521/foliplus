@@ -6,7 +6,11 @@
 import { HINT_DURATION } from "#core/hint.js";
 import { ensureModes, guardBlocked } from "#core/mode.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
-import { type ProjectionDeltaItem, applyProjectionAll, emitDeltas } from "../apply.js";
+import {
+  type ProjectionDeltaItem,
+  applyProjectionAll,
+  notifyDeltas,
+} from "../apply.js";
 import type { LayerUI } from "../surface.js";
 import { closeOverlays } from "../teardown.js";
 import { showFocusDisabledHint } from "./hint.js";
@@ -150,7 +154,7 @@ const focusLayer = (ui: LayerUI, layerId: string) => {
   // + auto-cancel), so a subscriber that re-enters and cancels is not undone
   // by the frames the outer call has not drawn yet.
   const swept = applyProjectionAll(ui);
-  const announceFocus = (): void => emitDeltas(ui, [...rejoined, ...swept]);
+  const announceFocus = (): void => notifyDeltas(ui, [...rejoined, ...swept]);
 
   // Single-point / tiny bounds → flyTo the center.
   const southWest = bounds.getSouthWest();
@@ -263,7 +267,7 @@ const dismissFocus = (ui: LayerUI): void => {
   // still excludes the current zoom, the executor removes it from the map —
   // the "unfocus returns it to hidden" half of the focus gate. Last step of
   // the teardown: the sweep, then one announcement per moved layer.
-  emitDeltas(ui, applyProjectionAll(ui));
+  notifyDeltas(ui, applyProjectionAll(ui));
 };
 
 /** Register a one-shot moveend/zoomend handler that auto-cancels focus. */

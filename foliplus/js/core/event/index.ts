@@ -21,4 +21,4 @@ export { ensureEvents };
 export { EVENTS } from "./const.js";
 export type { EventPayloadMap } from "./type.js";
 export { EventBus } from "./EventBus.js";
-export type { EventHandler } from "./EventBus.js";
+export type { DispatchFailure, EventHandler } from "./EventBus.js";

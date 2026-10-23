@@ -32,7 +32,7 @@ import * as CONST from "./const.js";
 import { LayerIntentStore, LayerOrchestration } from "./domain/index.js";
 import { LayerPersistence } from "./persistence.js";
 import { finishSlidersIn } from "./slider.js";
-import { emitDeltas } from "./ui/apply.js";
+import { notifyDeltas } from "./ui/apply.js";
 import { type LayerUI } from "./ui/index.js";
 
 type LayerControllerEnv = {
@@ -641,7 +641,7 @@ class LayerController implements LayerAPI {
       // full group count, correct row state. The batch carries the entry it ran
       // against, so a retire inside that notify cannot announce for a
       // replacement holding the same id.
-      emitDeltas(this.ui, moved);
+      notifyDeltas(this.ui, moved);
 
       // A subscriber can retire the entry inside that notify: a destroy takes
       // the container and the registry with it, and an unregister leaves the id

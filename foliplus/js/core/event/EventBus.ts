@@ -6,6 +6,11 @@ import type { EventPayloadMap } from "./type.js";
 
 type EventHandler = (...args: unknown[]) => void;
 
+/** What a settled delivery observed: the value a handler threw. The wrapper
+ *  exists because `undefined` is a legal thrown value — `undefined` from the
+ *  dispatch means "nothing was thrown", not "a handler threw undefined". */
+type DispatchFailure = { readonly error: unknown };
+
 class EventBus {
   private listeners = new Map<string, Set<EventHandler>>();
 
@@ -65,7 +70,9 @@ class EventBus {
    *  *last* step of an operation precisely so this is observable but safe: the
    *  state the operation wrote is committed either way, and a retry after
    *  catching the error converges. A handler that hands its failure off
-   *  instead of throwing is unaffected. */
+   *  instead of throwing is unaffected. State broadcasts to independent
+   *  consumers use {@link emitSupersedingSettled} instead: there, one
+   *  subscriber must not be able to truncate what the others observe. */
   emit<K extends string>(
     event: K,
     ...args: K extends keyof EventPayloadMap
@@ -128,9 +135,72 @@ class EventBus {
     }
   }
 
+  /** Emit without letting a throwing handler cut the delivery short.
+   *
+   *  This is the settled-dispatch variant for *state broadcasts*: one layer's
+   *  visibility is announced to any number of independent consumers (a map-kit
+   *  panel, an export tool, a plugin), and none of them owns the others. A
+   *  single consumer that throws must not steal the notification from the
+   *  consumers behind it, nor from the INTENT half this round still owes, nor
+   *  from the layers after it in the same batch — and since the state was
+   *  committed before the notify, a retry produces no delta and can never
+   *  replay what was dropped.
+   *
+   *  Behavior: every still-current handler is attempted, in subscription order;
+   *  the first failure is kept and returned, and the call never throws. The
+   *  caller owning the wider operation finishes its own fan-out and raises
+   *  `failure.error` itself. Superseding works exactly as in
+   *  {@link emitSuperseding}: once a newer round takes the key, the rest of
+   *  this round stops at the reentry point — but a failure this round already
+   *  observed is still returned. The handler that threw did throw; a later
+   *  correction cannot un-report it on its behalf. `clear()` during delivery
+   *  takes the token with it, so the remaining handlers are not attempted
+   *  either.
+   *
+   *  The failure is a wrapper, not the thrown value: `throw undefined` is
+   *  legal and must not read as "nothing failed". Plain `emit` keeps its
+   *  fail-fast contract — it is used for commands with a single interested
+   *  party, where stopping on the first error is the useful behavior. */
+  emitSupersedingSettled<K extends string>(
+    event: K,
+    supersedeKey: string,
+    ...payload: K extends keyof EventPayloadMap
+      ? EventPayloadMap[K] extends void
+        ? []
+        : [NonNullable<EventPayloadMap[K]>]
+      : unknown[]
+  ): DispatchFailure | undefined;
+  emitSupersedingSettled(
+    event: string,
+    supersedeKey: string,
+    ...payload: unknown[]
+  ): DispatchFailure | undefined {
+    const set = this.listeners.get(event);
+    if (!set) return undefined;
+    const token = {};
+    const key = `${event}\u0000${supersedeKey}`;
+    this.superseding.set(key, token);
+    let failure: DispatchFailure | undefined;
+    try {
+      for (const handler of [...set]) {
+        if (this.superseding.get(key) !== token) break;
+        try {
+          handler(...payload);
+        } catch (error) {
+          failure ??= { error };
+        }
+      }
+    } finally {
+      if (this.superseding.get(key) === token) this.superseding.delete(key);
+    }
+    return failure;
+  }
+
   private superseding = new Map<string, object>();
 
-  /** Remove all listeners and any in-flight supersede tokens. */
+  /** Remove all listeners and any in-flight supersede tokens. Called during a
+   *  settled delivery, it also stops that delivery: the token the round checks
+   *  against is gone, so the handlers behind the caller are not attempted. */
   clear(): void {
     this.listeners.clear();
     this.superseding.clear();
@@ -138,4 +208,4 @@ class EventBus {
 }
 
 export { EventBus };
-export type { EventHandler };
+export type { DispatchFailure, EventHandler };

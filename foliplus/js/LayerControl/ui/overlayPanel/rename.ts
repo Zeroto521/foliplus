@@ -6,7 +6,7 @@ import {
   removeInlineEditInput,
   updateItemLabel,
 } from "#common/dom.js";
-import { emitDeltas } from "../apply.js";
+import { notifyDeltas } from "../apply.js";
 import { INTENT, setIntent } from "../intent.js";
 import { displayName } from "../listPanel/rowView.js";
 import { saveNamesState } from "../state.js";
@@ -69,7 +69,7 @@ const renameLayer = (ui: LayerUI, layerId: string): void => {
       // Settle the visible rename first — the input comes down and the label
       // goes back up from the registry — and only then does the round go out.
       finishRename(ui, true);
-      emitDeltas(ui, moved);
+      notifyDeltas(ui, moved);
     },
     onCancel: reason => {
       // Only an empty-name commit is a user mistake worth flagging;

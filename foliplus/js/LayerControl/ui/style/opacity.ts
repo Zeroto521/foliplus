@@ -16,7 +16,7 @@ import {
   NO_DELTA,
   type ProjectionDelta,
   applyProjection,
-  emitDelta,
+  notifyDelta,
 } from "../apply.js";
 import { INTENT } from "../intent.js";
 import { syncNoBasemap } from "../listPanel/visibility.js";
@@ -120,7 +120,7 @@ const resetLayerOpacity = (
   const layerInfo = ui.c.layerRegistry.get(layerId);
   if (!layerInfo) return;
   const delta = getDimension(DIM.OPACITY)!.reset!(ui, layerId) ?? NO_DELTA;
-  if (publish) emitDelta(ui, layerInfo, delta);
+  if (publish) notifyDelta(ui, layerInfo, delta);
   return delta;
 };
 
@@ -156,7 +156,7 @@ const OPACITY_DIMENSION = registerDimension<number>({
     // Announce last, after the hatch: on a layer's first projection the pass
     // can still converge a stale map membership, and that flip is a real
     // change worth notifying.
-    emitDelta(ui, layerInfo, moved);
+    notifyDelta(ui, layerInfo, moved);
   },
   /** Cohesive reset: clear the override, save, re-project, hatch sync. Returns
    *  the delta without announcing — the complete reset entry

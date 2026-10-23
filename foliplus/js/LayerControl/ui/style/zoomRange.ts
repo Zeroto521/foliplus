@@ -16,7 +16,7 @@ import {
   type ProjectionDelta,
   applyProjection,
   authorZoomBoundsForLayer,
-  emitDelta,
+  notifyDelta,
 } from "../apply.js";
 import { INTENT, getIntent } from "../intent.js";
 import type { LayerUI } from "../surface.js";
@@ -169,7 +169,7 @@ const applyZoomRangeLive = (
   syncZoomRangeRow(ui, layerId, row, [min, max]);
   // Announce last: the row chrome above is already settled, so a subscriber
   // that re-enters sees the dragged value, not a mid-drag row.
-  emitDelta(ui, layerInfo, applyProjection(ui, layerId));
+  notifyDelta(ui, layerInfo, applyProjection(ui, layerId));
 };
 
 /** Commit pass: persist the zoom range to localStorage. The value and the
@@ -205,7 +205,7 @@ const resetLayerZoomRange = (
     `.${CONST.CLASSES.STYLE_ZOOM_RANGE_ROW}`,
   ) as HTMLElement | null;
   if (row) syncZoomRangeRow(ui, layerId, row);
-  if (publish) emitDelta(ui, layerInfo, delta);
+  if (publish) notifyDelta(ui, layerInfo, delta);
   return delta;
 };
 
@@ -241,7 +241,7 @@ const ZOOM_RANGE_DIMENSION = registerDimension<{ min: number; max: number }>({
     if (!layerInfo) return;
     // The commit pass owns its own notify: the intent write above is the only
     // side effect, so the delta goes out on the projection it just ran.
-    emitDelta(ui, layerInfo, applyProjection(ui, layerId));
+    notifyDelta(ui, layerInfo, applyProjection(ui, layerId));
   },
   /** Cohesive reset: clear the override, save, re-project. Returns the delta
    *  without announcing — the complete reset entry (`resetLayerZoomRange`)

@@ -23,7 +23,7 @@ import {
   bindLiveNumber,
   normalizeHexColor,
 } from "#common/form.js";
-import { NO_DELTA, type ProjectionDelta, emitDelta } from "../apply.js";
+import { NO_DELTA, type ProjectionDelta, notifyDelta } from "../apply.js";
 import type { LayerUI } from "../surface.js";
 import { closeOverlays } from "../teardown.js";
 import { bindBorderRow, resetLayerBorder } from "./border.js";
@@ -281,7 +281,7 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
         }),
         NO_DELTA,
       );
-      emitDelta(ui, ui.c.layerRegistry.get(layerId), settled);
+      notifyDelta(ui, ui.c.layerRegistry.get(layerId), settled);
       return;
     }
     if (t.closest(".foliplus-panel-header")) closeStylePanel(ui, true);

@@ -2073,3 +2073,168 @@ it("a batch delta for a layer replaced under the same id delivers nothing", () =
   expect(ui.c.layerRegistry.get("beta")?.layer).toBe(replacement);
   expect(onMap.get(replacement) ?? false).toBe(false);
 });
+
+// ── Consumer-failure contract: a throwing subscriber must not truncate the
+// ── rest of the operation. The state and the projection baselines are already
+// ── committed before the notify, so a retry produces no delta and can never
+// ── replay what a fail-fast delivery skipped.
+
+it("a throwing CHANGE subscriber does not steal later subscribers or the intent half", () => {
+  // Three independent consumers of one operation: a thrower first, then a
+  // CHANGE consumer, then the INTENT half. The thrower must not starve the
+  // subscriber behind it, and a CHANGE failure must not suppress the INTENT
+  // that carries the user's choice — the two are separate public semantics.
+  const { ui } = initFixture();
+  const id = "overlay1";
+  const changes: string[] = [];
+  const intents: boolean[] = [];
+  ui.events.on(EVENTS.LAYER_CHANGE, () => {
+    throw new Error("change boom");
+  });
+  ui.events.on(EVENTS.LAYER_CHANGE, payload => {
+    changes.push(payload.id);
+  });
+  ui.events.on(EVENTS.LAYER_INTENT_CHANGE, payload => {
+    intents.push(payload.intent.visible);
+  });
+
+  expect(() => ui.applyVisibility(id, false)).toThrow("change boom");
+
+  expect(changes).toEqual([id]);
+  expect(intents).toEqual([false]);
+  expect(intentVisibleOf(ui, id)).toBe(false);
+});
+
+it("a throwing INTENT subscriber does not starve the subscribers behind it", () => {
+  const { ui } = initFixture();
+  const id = "overlay1";
+  const seen: boolean[] = [];
+  ui.events.on(EVENTS.LAYER_INTENT_CHANGE, () => {
+    throw new Error("intent boom");
+  });
+  ui.events.on(EVENTS.LAYER_INTENT_CHANGE, payload => {
+    seen.push(payload.intent.visible);
+  });
+
+  expect(() => ui.applyVisibility(id, false)).toThrow("intent boom");
+
+  expect(seen).toEqual([false]);
+});
+
+it("both halves throwing completes both fan-outs and reports the CHANGE failure first", () => {
+  const { ui } = initFixture();
+  const id = "overlay1";
+  const intents: boolean[] = [];
+  ui.events.on(EVENTS.LAYER_CHANGE, () => {
+    throw new Error("change boom");
+  });
+  ui.events.on(EVENTS.LAYER_INTENT_CHANGE, () => {
+    throw new Error("intent boom");
+  });
+  ui.events.on(EVENTS.LAYER_INTENT_CHANGE, payload => {
+    intents.push(payload.intent.visible);
+  });
+
+  expect(() => ui.applyVisibility(id, false)).toThrow("change boom");
+
+  // The INTENT half still ran to the end; its failure was the second one and
+  // is not the error the operation reports.
+  expect(intents).toEqual([false]);
+});
+
+it("a throwing subscriber on the first swept layer does not strand the layers behind it", () => {
+  // A zoom sweep announces several layers as one batch. Stopping at the first
+  // throw would leave beta's membership change permanently unannounced.
+  const layerA = polygonLayer();
+  const layerB = polygonLayer();
+  const { ui, map } = initFixture({
+    data: [
+      { id: "alpha", name: "Alpha", group: "overlay", layer: layerA },
+      { id: "beta", name: "Beta", group: "overlay", layer: layerB },
+    ],
+  });
+  for (const id of ["alpha", "beta"]) {
+    setIntent(ui, id, "zoomRange", [0, 1]);
+    ui.intentStore.seedProvenance(id, ["zoomRange"]);
+  }
+  map.removeLayer = vi.fn();
+
+  const seen: string[] = [];
+  ui.events.on(EVENTS.LAYER_CHANGE, payload => {
+    if (payload.id === "alpha") throw new Error("alpha boom");
+  });
+  ui.events.on(EVENTS.LAYER_CHANGE, payload => {
+    seen.push(payload.id);
+    if (payload.id === "beta") throw new Error("beta boom");
+  });
+
+  expect(() => ui.onZoomEnd?.()).toThrow("alpha boom");
+
+  expect(seen).toEqual(["alpha", "beta"]);
+  expect(map.removeLayer).toHaveBeenCalledWith(layerA);
+  expect(map.removeLayer).toHaveBeenCalledWith(layerB);
+});
+
+it("a basemap switch still announces the sweep when the own layer throws", () => {
+  // applyVisibility announces the acted-on layer and the basemap sweep as one
+  // operation. The own layer's consumer failing must not strand the sweep —
+  // the sweep layers were already re-projected and their baselines written.
+  const { ui, map } = initFixture();
+  const overlay = ui.c.layerRegistry.get("overlay1")!.layer!;
+  const base = ui.c.layerRegistry.get("base1")!.layer!;
+  // Real membership: the projection reads the carrier back before it writes,
+  // and a hasLayer that always answers true turns every re-projection into a
+  // fresh flip (the sweep would announce the base a second time).
+  const onMap = trackMembership(map);
+  onMap.set(overlay, true);
+  onMap.set(base, true);
+  setIntent(ui, "overlay1", "zoomRange", [0, 1]);
+  ui.intentStore.seedProvenance("overlay1", ["zoomRange"]);
+
+  const seen: string[] = [];
+  ui.events.on(EVENTS.LAYER_CHANGE, payload => {
+    if (payload.id === "base1") throw new Error("base boom");
+  });
+  ui.events.on(EVENTS.LAYER_CHANGE, payload => {
+    seen.push(payload.id);
+  });
+
+  expect(() => ui.applyVisibility("base1", false)).toThrow("base boom");
+
+  expect(seen).toEqual(["base1", "overlay1"]);
+  expect(map.removeLayer).toHaveBeenCalledWith(overlay);
+  expect(onMap.get(base)).toBe(false);
+});
+
+it("a subscriber that destroys the control stops the remaining batch without throwing", () => {
+  // Retirement is checked at each item, so the layers after the destroy have
+  // no registered entry left to announce for — a no-delivery, not a throw.
+  const layerA = polygonLayer();
+  const layerB = polygonLayer();
+  const { ui, manager, map } = initFixture({
+    data: [
+      { id: "alpha", name: "Alpha", group: "overlay", layer: layerA },
+      { id: "beta", name: "Beta", group: "overlay", layer: layerB },
+    ],
+  });
+  // Real membership: destroy() runs dismissFocus, which sweeps and would see a
+  // phantom flip on a hasLayer that never notices the removal — a reentrant
+  // notify into the handler that is already destroying the control.
+  const onMap = trackMembership(map);
+  onMap.set(layerA, true);
+  onMap.set(layerB, true);
+  for (const id of ["alpha", "beta"]) {
+    setIntent(ui, id, "zoomRange", [0, 1]);
+    ui.intentStore.seedProvenance(id, ["zoomRange"]);
+  }
+
+  const seen: string[] = [];
+  ui.events.on(EVENTS.LAYER_CHANGE, payload => {
+    seen.push(payload.id);
+    if (payload.id === "alpha") manager.destroy();
+  });
+
+  expect(() => ui.onZoomEnd?.()).not.toThrow();
+  expect(seen).toEqual(["alpha"]);
+  expect(manager.layerRegistry.has("beta")).toBe(false);
+});
