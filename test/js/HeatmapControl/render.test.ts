@@ -1,6 +1,6 @@
 // Unit tests for HeatmapControl/render — the pure canvas draw helpers.
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import * as CONST from "#foliplus/HeatmapControl/const.js";
+import { SCHEME_FALLBACK_COLOR } from "#core/palette.js";
 import {
   drawHexLabel,
   drawHexagon,
@@ -128,7 +128,7 @@ describe("drawHexagon", () => {
     expect(ctx2.stroke).not.toHaveBeenCalled();
   });
 
-  it("falls back to GRAY fill when the feature has no fillColor", () => {
+  it("falls back to the shared grey fill when the feature has no fillColor", () => {
     const ctx = makeCtx();
     drawHexagon(
       ctx as unknown as CanvasRenderingContext2D,
@@ -137,7 +137,7 @@ describe("drawHexagon", () => {
       0,
       "#000000",
     );
-    expect(ctx.fillStyle).toBe(CONST.GRAY);
+    expect(ctx.fillStyle).toBe(SCHEME_FALLBACK_COLOR);
   });
 
   it("stacks declared fill/border opacity with layerAlpha (R11 multiply)", () => {

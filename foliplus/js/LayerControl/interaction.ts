@@ -6,7 +6,12 @@ import type { LayerUI } from "./ui/surface.js";
 
 /** Keyboard shortcuts registered via InteractionManager. */
 const registerInteractions = (ui: LayerUI): (() => void) => {
+  // A torn-down panel has no scope to bind the shortcuts to. The manager reads
+  // a missing container as "no scope" and would register them at the document
+  // level — the panel's arrows, space, Enter and Escape escaping into the map,
+  // which keeps them alive after the control is gone. No panel, no shortcuts.
   const container = ui.uiContainer;
+  if (!container) return () => undefined;
   const interaction = ensureInteraction(ui.c.map);
   return interaction.register(CONFIG.name, [
     { key: "ArrowUp", container, handler: e => ui.handleKeyDown(e as KeyboardEvent) },

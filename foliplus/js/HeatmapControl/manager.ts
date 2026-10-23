@@ -1,17 +1,24 @@
 // HeatmapControl data aggregation & rendering logic (HeatmapManager).
 import {
   METHOD as CLASSIFY_METHOD,
-  computeBreaks as computeBreaksFn,
+  type ClassifyMethod,
+  isClassifyMethod,
 } from "#core/classify.js";
 import { generateId } from "#core/component.js";
-import { EVENTS, type EventBus, ensureEvents } from "#core/event/index.js";
+import { EVENTS, type EventBus, ensureEvents, publish } from "#core/event/index.js";
 import { bareFieldName } from "#core/label/index.js";
 import { NO_FEATURE_TREE_KINDS } from "#core/layer/index.js";
 import { bindMapSync } from "#core/leaflet/index.js";
+import { SCHEME_FALLBACK_COLOR } from "#core/palette.js";
 import type { NumberStyle } from "#foliplus/config-schema.js";
 import { getLayerAlpha, setLayerAlpha } from "#common/canvasAlpha.js";
 import { type Debounced, debounce } from "#common/debounce.js";
-import { BORDER_WEIGHT, clampLabelSize, normalizeHexColor } from "#common/form.js";
+import {
+  BORDER_WEIGHT,
+  clampBorderWeight,
+  clampLabelSize,
+  normalizeHexColor,
+} from "#common/form.js";
 import { NUMBER_FORMAT } from "#common/format.js";
 import { createLogger } from "#common/log.js";
 import { type Persisted, createPersisted, saveRecord } from "#common/storage.js";
@@ -20,10 +27,8 @@ import * as CONST from "./const.js";
 import {
   aggregateData as aggregateDataFn,
   buildFeatures as buildFeaturesFn,
-  getColorScale as getColorScaleFn,
-  getH3Res as getH3ResFn,
-  pickAutoField as pickAutoFieldFn,
-  readMarkerField as readMarkerFieldFn,
+  getH3Res,
+  readMarkerField,
 } from "./data.js";
 import * as SVGs from "./icon.js";
 import {
@@ -44,6 +49,15 @@ import type {
   SelectedPoint,
 } from "./type.js";
 import { type HeatmapControlUI, rebuildLayerDropdown, resetPanel } from "./ui.js";
+
+/** Adopt a method name only when it is one of the four the classifier
+ *  implements; anything else falls back to the documented default. The Python
+ *  declaration is typed, so this only fires for a hand-edited config - and
+ *  keeping it here makes the manager's `method` a closed value, which is what
+ *  lets `computeBreaks` reject an unknown name instead of silently running
+ *  the equal split. */
+const resolveClassifyMethod = (value: unknown): ClassifyMethod =>
+  isClassifyMethod(value) ? value : CLASSIFY_METHOD.JENKS;
 
 /** A point layer collected from LayerControl. */
 interface PointLayerInfo {
@@ -81,7 +95,7 @@ class HeatmapManager {
    *  user picked from the field dropdown. */
   field: string;
   scheme: string;
-  method: string;
+  method: ClassifyMethod;
   autoFieldKey: string | null;
   numClasses: number;
   borderWeight: number;
@@ -173,11 +187,11 @@ class HeatmapManager {
     this.agg = CONFIG.agg ?? CONST.AGG.COUNT;
     this.field = "";
     this.scheme = CONFIG.color_scheme ?? "Reds";
-    this.method = CONFIG.method ?? CLASSIFY_METHOD.JENKS;
+    this.method = resolveClassifyMethod(CONFIG.method);
     this.autoFieldKey = null;
     this.numClasses = CONFIG.num_classes ?? CONST.CLASS_COUNT.DEFAULT;
     this.borderWeight = CONFIG.border_weight ?? BORDER_WEIGHT.DEFAULT;
-    this.borderColor = CONFIG.border_color ?? CONST.GRAY;
+    this.borderColor = CONFIG.border_color ?? SCHEME_FALLBACK_COLOR;
     // Python default is True; only an explicit false turns labels off — same
     // `!== false` rule MeasureControl uses for label_show / label_collide.
     this.labelShow = CONFIG.label_show !== false;
@@ -250,7 +264,7 @@ class HeatmapManager {
         this.renderHexagons();
         this.saveConfig();
         this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
-        this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
+        publish(this.events, EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
       },
       // Size/color only rewrite label paint — drop the cached style and
       // redraw from the feature cache.
@@ -261,7 +275,7 @@ class HeatmapManager {
         this.redrawHeatmap();
         this.saveConfig();
         this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
-        this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
+        publish(this.events, EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
       },
       labelSize: v => {
         const nextSize = typeof v === "number" && !Number.isNaN(v) ? v : this.labelSize;
@@ -270,7 +284,7 @@ class HeatmapManager {
         this.redrawHeatmap();
         this.saveConfig();
         this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
-        this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
+        publish(this.events, EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
       },
       // Format only rewrites the label text — redraw from cache, skip the
       // H3 re-aggregation that labelShow triggers.
@@ -281,21 +295,18 @@ class HeatmapManager {
         this.redrawHeatmap();
         this.saveConfig();
         this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
-        this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
+        publish(this.events, EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
       },
       // Border weight only redraws the hexagon strokes — the H3 aggregation
       // result is unaffected.
       borderWeight: v => {
         const nextWeight =
           typeof v === "number" && !Number.isNaN(v) ? v : this.borderWeight;
-        this.borderWeight = Math.min(
-          BORDER_WEIGHT.MAX,
-          Math.max(BORDER_WEIGHT.MIN, nextWeight),
-        );
+        this.borderWeight = clampBorderWeight(nextWeight);
         this.redrawHeatmap();
         this.saveConfig();
         this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
-        this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
+        publish(this.events, EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
       },
       borderColor: v => {
         this.borderColor =
@@ -303,7 +314,7 @@ class HeatmapManager {
         this.redrawHeatmap();
         this.saveConfig();
         this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
-        this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
+        publish(this.events, EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
       },
     };
     this.overlay = map.foliplus!.LayerAPI!.createCanvas({
@@ -638,28 +649,10 @@ class HeatmapManager {
     return fields;
   }
 
-  /** The field to use when the user has not picked one. */
-  pickAutoField(fields: string[] | null): string | null {
-    return pickAutoFieldFn(fields);
-  }
-
-  /**
-   * Read a numeric field off a point marker (foliplus data contract).
-   * Supported field syntax: "value", "options.value", and a bare
-   * `feature.properties` key. A legacy `"properties.<key>"` id is accepted
-   * and stripped so older saved configs keep working.
-   */
-  readMarkerField(
-    marker: L.Marker | L.CircleMarker,
-    field: string | null,
-  ): number | undefined {
-    return readMarkerFieldFn(marker, field);
-  }
-
   getPointValue(marker: L.Marker | L.CircleMarker): number {
     if (this.agg === CONST.AGG.COUNT) return 1;
     const key = this.field || this.autoFieldKey;
-    const val = this.readMarkerField(marker, key);
+    const val = readMarkerField(marker, key);
     if (val === undefined || isNaN(val)) {
       if (!this.valueFallbackWarned) {
         this.valueFallbackWarned = true;
@@ -694,18 +687,6 @@ class HeatmapManager {
     return pts;
   }
 
-  getH3Res(zoom: number): number {
-    return getH3ResFn(zoom);
-  }
-
-  getColorScale(name: string, n: number): string[] {
-    return getColorScaleFn(name, n);
-  }
-
-  computeBreaks(data: number[], numClasses: number, method: string): number[] {
-    return computeBreaksFn(data, numClasses, method);
-  }
-
   renderHexagons() {
     if (!this.map || !this.overlay) return;
     if (!this.selectedLayerId) {
@@ -714,7 +695,7 @@ class HeatmapManager {
     }
     const pts = this.getSelectedPoints();
     const zoom = this.map.getZoom();
-    const res = this.getH3Res(zoom);
+    const res = getH3Res(zoom);
     const aggKey = `${this.selectedLayerId}|${this.agg}|${this.field}|${res}|${this.method}|${this.scheme}|${this.numClasses}`;
     let aggregated: AggregatedData | undefined;
     if (this.cachedAgg?.key === aggKey) {
@@ -754,7 +735,7 @@ class HeatmapManager {
     this.overlay.register();
     this.redrawHeatmap();
     // Notify LayerControl to refresh the count column for this layer.
-    this.events.emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: this.layerId });
+    publish(this.events, EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: this.layerId });
   }
 
   clearHeatmapCanvas() {
@@ -770,7 +751,7 @@ class HeatmapManager {
     this.ui?.schemeBarCleanup?.();
     this.ui?.dropdownCleanup?.();
     // Notify LayerControl to refresh the count column (now 0).
-    this.events.emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: this.layerId });
+    publish(this.events, EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: this.layerId });
   }
 
   /** Reset selection + style state to the defaults declared in `config`. Both
@@ -782,7 +763,7 @@ class HeatmapManager {
     this.agg = config.agg ?? CONST.AGG.COUNT;
     this.field = "";
     this.numClasses = config.num_classes ?? CONST.CLASS_COUNT.DEFAULT;
-    this.method = config.method ?? CLASSIFY_METHOD.JENKS;
+    this.method = resolveClassifyMethod(config.method);
     this.scheme = config.color_scheme ?? "Reds";
   }
 

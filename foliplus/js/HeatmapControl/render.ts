@@ -1,6 +1,7 @@
 // HeatmapControl canvas rendering — pure draw helpers for hexagon fill/stroke
 // and value labels. No `this` dependency: map and style values are passed
 // in explicitly.
+import { SCHEME_FALLBACK_COLOR } from "#core/palette.js";
 import type { NumberStyle } from "#foliplus/config-schema.js";
 import { drawAlpha, getLayerAlpha, withCanvasLayerAlpha } from "#common/canvasAlpha.js";
 import {
@@ -10,7 +11,6 @@ import {
 } from "#common/canvasLabel.js";
 import { formatLabelNumber } from "#common/format.js";
 import type { CanvasLabelStyle } from "#common/type.js";
-import * as CONST from "./const.js";
 import type { HexFeature } from "./type.js";
 
 /** Draw a single hexagon polygon (fill + stroke).
@@ -36,7 +36,7 @@ const drawHexagon = (
   ctx.moveTo(pts[0].x, pts[0].y);
   for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
   ctx.closePath();
-  ctx.fillStyle = feat.properties.fillColor || CONST.GRAY; // eslint-disable-line @typescript-eslint/prefer-nullish-coalescing -- empty string should fall back
+  ctx.fillStyle = feat.properties.fillColor || SCHEME_FALLBACK_COLOR; // eslint-disable-line @typescript-eslint/prefer-nullish-coalescing -- empty string should fall back
   ctx.globalAlpha = drawAlpha(fillAlpha, layerAlpha);
   ctx.fill();
   ctx.globalAlpha = 1;

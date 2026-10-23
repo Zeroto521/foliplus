@@ -10,7 +10,7 @@ import type { Logger } from "#common/type.js";
 import * as CONST from "../const.js";
 import type { LayerController } from "../controller.js";
 import type { LayerIntentStore } from "../domain/index.js";
-import { applyProjection, applyProjectionAll } from "./apply.js";
+import { type ProjectionBatch, applyProjection, applyProjectionAll } from "./apply.js";
 import { hideSolidBasemap, resetSolidBasemap, showSolidBasemap } from "./color.js";
 import { FocusController, cancelFocus, focusLayer, isFocusing } from "./focus/index.js";
 import { seedAuthorVisible } from "./intent.js";
@@ -39,7 +39,7 @@ import {
   initLayerItem,
   initTypesAndVisibility,
   insertLayerItem,
-  reindexAfterMove,
+  rebuildList,
   renderInitialList,
   updateLayerItemLabel,
 } from "./listPanel/list.js";
@@ -212,9 +212,19 @@ class LayerUI implements LayerUISurface {
     return this.controller;
   }
 
-  /** The attached panel container. Only valid after attachUI(). */
-  get uiContainer(): HTMLElement {
-    return this.c.uiContainer!;
+  /** The attached panel container. Null before attachUI() and after a
+   *  teardown — the type says so, because a subscriber can retire the control
+   *  inside any notify and every continuation then has to decide for itself
+   *  whether it still has a panel to paint into. */
+  get uiContainer(): HTMLElement | null {
+    return this.c.uiContainer;
+  }
+
+  /** Whether the panel is still attached. A subscriber can retire the control
+   *  inside any notify, so a continuation that reached into the panel without
+   *  asking first would deref a null container. */
+  get isLive(): boolean {
+    return !!this.uiContainer;
   }
 
   /**
@@ -260,8 +270,12 @@ class LayerUI implements LayerUISurface {
   saveState() {
     return saveState(this);
   }
-  applyUserState(id?: string) {
-    applyUserState(this, id);
+  /** Replay stored state for one layer (or every layer) and return the round.
+   *  This method does NOT publish: it collects what moved so the caller can
+   *  settle its own rows, counts and chrome first, then `notifyDeltas` itself.
+   *  Calling it and ignoring the result silently drops the notifications. */
+  applyUserState(id?: string): ProjectionBatch {
+    const moved = applyUserState(this, id);
     // The executor carries visible / opacity / zoomRange only. Border, fill
     // and size are direct Leaflet writes (setStyle / setRadius), so without
     // their own replay a reload would restore the drawer's swatch while the
@@ -276,12 +290,17 @@ class LayerUI implements LayerUISurface {
     // for border but not for fill, and vice versa, so a reload could restore
     // the drawer's swatch for one dimension while leaving the map with the
     // author's for the other.
+    //
+    // The round goes back to the caller rather than out of here: the entry that
+    // owns the replay also owns the rows, counts and chrome it has to settle
+    // before announcing, and only it knows when that is done.
     const layerIds = id !== undefined ? [id] : this.intentStore.userSetIds();
     for (const layerId of layerIds) {
       applyBorderToLayer(this, layerId);
       replayFillState(this, layerId);
       applySizeToLayer(this, layerId);
     }
+    return moved;
   }
   dropPersistedLayerState(layerId: string) {
     return dropPersistedLayerState(this, layerId);
@@ -312,7 +331,9 @@ class LayerUI implements LayerUISurface {
     return initLayerItem(this, layerInfo);
   }
   reindexAfterMove() {
-    return reindexAfterMove(this);
+    // The rebuild entry owns rows, counts, readiness and the round; a caller
+    // that just moved a layer only has to ask for it.
+    return rebuildList(this);
   }
 
   // ── delegates: visibility ──
@@ -346,6 +367,9 @@ class LayerUI implements LayerUISurface {
   applyProjection(layerId: string) {
     return applyProjection(this, layerId);
   }
+  /** Sweep every layer's projection and return the round. Same contract as
+   *  `applyUserState`: the sweep's side effects land here, the notifications
+   *  are the caller's — ignore the result and the round is dropped. */
   applyProjectionAll() {
     return applyProjectionAll(this);
   }

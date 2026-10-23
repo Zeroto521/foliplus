@@ -9,10 +9,11 @@ import {
   initLayerItem,
   initTypesAndVisibility,
   insertLayerItem,
+  rebuildList,
   renderInitialList,
   updateLayerItemLabel,
 } from "#foliplus/LayerControl/ui/listPanel/index.js";
-import { TileLayer, initFixture } from "../fixture.js";
+import { TileLayer, attachedPanel, initFixture } from "../fixture.js";
 
 const makeUi = () =>
   ({
@@ -69,7 +70,7 @@ describe("ui/list row placement", () => {
 
     const registryIds = manager.layers.map(l => l.id);
     const rowIds = Array.from(
-      ui.uiContainer.querySelectorAll<HTMLElement>(CONST.SEL.LAYER_ITEM),
+      attachedPanel(ui).querySelectorAll<HTMLElement>(CONST.SEL.LAYER_ITEM),
     ).map(el => el.dataset.layerId ?? "");
 
     expect(rowIds).toEqual(registryIds);
@@ -103,7 +104,7 @@ describe("ui/list row placement", () => {
 
     // Scramble the DOM to C-A-B.
     const rows = Array.from(
-      ui.uiContainer.querySelectorAll<HTMLElement>(
+      attachedPanel(ui).querySelectorAll<HTMLElement>(
         `${CONST.SEL.LAYER_ITEM}[data-layer-type="${GROUP.OVERLAY}"]`,
       ),
     );
@@ -145,7 +146,7 @@ describe("ui/list row placement", () => {
     const { manager, ui } = initFixture({
       data: [{ id: "A", name: "A", group: "overlay" }],
     });
-    const row = ui.uiContainer.querySelector<HTMLElement>(
+    const row = attachedPanel(ui).querySelector<HTMLElement>(
       `[${CONST.DATA.LAYER_ID}="A"]`,
     );
     expect(row).not.toBeNull();
@@ -158,6 +159,23 @@ describe("ui/list row placement", () => {
     expect(manager.layerRegistry.get("A")).toBe(layer);
   });
 
+  it("paints nothing once the panel is gone", () => {
+    // A teardown that nulls the container without clearing the registry — the
+    // mid-notify destroy, though any subset of the panel removal works — must
+    // no-op for every paint helper instead of dereferencing a dead panel. This
+    // is the shape of the R5-1 crash, now typed and guarded.
+    const { manager, ui } = initFixture({
+      data: [{ id: "A", name: "A", group: "overlay" }],
+    });
+    const layer = manager.layerRegistry.get("A")!;
+    ui.c.uiContainer = null;
+
+    expect(() => renderInitialList(ui)).not.toThrow();
+    expect(() => rebuildList(ui)).not.toThrow();
+    expect(insertLayerItem(ui, layer)).toBeUndefined();
+    expect(initLayerItem(ui, layer)).toBe(false);
+  });
+
   it("brings its own header when the first row of an empty group arrives", () => {
     // Only a base is seeded, so the overlay group owns no row yet. The late
     // overlay must create the group header itself and land above the base
@@ -167,14 +185,14 @@ describe("ui/list row placement", () => {
       data: [{ id: "B1", name: "B1", group: "base" }],
     });
     expect(
-      ui.uiContainer.querySelectorAll(
+      attachedPanel(ui).querySelectorAll(
         `${CONST.SEL.LAYER_ITEM}[data-layer-type="${GROUP.OVERLAY}"]`,
       ).length,
     ).toBe(0);
 
     manager.registerLayer({ id: "O1", name: "O1", group: "overlay" });
 
-    const children = Array.from(ui.uiContainer.children);
+    const children = Array.from(attachedPanel(ui).children);
     const overlayHeader = children.findIndex(
       el => el.getAttribute("data-group") === GROUP.OVERLAY,
     );
@@ -187,7 +205,7 @@ describe("ui/list row placement", () => {
     expect(overlayHeader).toBeLessThan(firstBaseRow);
     expect(
       Array.from(
-        ui.uiContainer.querySelectorAll<HTMLElement>(
+        attachedPanel(ui).querySelectorAll<HTMLElement>(
           `${CONST.SEL.LAYER_ITEM}[data-layer-type="${GROUP.OVERLAY}"]`,
         ),
       ).map(el => el.getAttribute(CONST.DATA.LAYER_ID)),
@@ -202,7 +220,7 @@ describe("ui/list row placement", () => {
     manager.registerLayer({ id: "O1", name: "O1", group: "overlay" });
 
     const ids = Array.from(
-      ui.uiContainer.querySelectorAll<HTMLElement>(CONST.SEL.LAYER_ITEM),
+      attachedPanel(ui).querySelectorAll<HTMLElement>(CONST.SEL.LAYER_ITEM),
     ).map(el => el.getAttribute(CONST.DATA.LAYER_ID));
     expect(ids).toContain("O1");
     expect(ids).toContain(CONST.SOLID_BASEMAP_ID);
@@ -215,10 +233,10 @@ describe("ui/list row placement", () => {
     const { ui } = initFixture({
       data: [{ id: "A", name: "A", group: "overlay" }],
     });
-    const rowsBefore = ui.uiContainer.querySelectorAll(CONST.SEL.LAYER_ITEM);
+    const rowsBefore = attachedPanel(ui).querySelectorAll(CONST.SEL.LAYER_ITEM);
 
     expect(() => insertLayerItem(ui, { id: "ghost" } as LayerInfo)).not.toThrow();
-    expect(ui.uiContainer.querySelectorAll(CONST.SEL.LAYER_ITEM)).toHaveLength(
+    expect(attachedPanel(ui).querySelectorAll(CONST.SEL.LAYER_ITEM)).toHaveLength(
       rowsBefore.length,
     );
   });
@@ -240,7 +258,7 @@ describe("ui/list row placement", () => {
       layer: new TileLayer(),
     });
 
-    const children = Array.from(ui.uiContainer.children);
+    const children = Array.from(attachedPanel(ui).children);
     const baseHeader = children.findIndex(
       el => el.getAttribute("data-group") === GROUP.BASE,
     );
@@ -252,7 +270,7 @@ describe("ui/list row placement", () => {
     expect(children[baseHeader].textContent).toContain("base_map_label");
     // The group was folded when the row arrived, so the late row inherits the
     // fold instead of showing up above the collapsed group's divider.
-    const baseRow = ui.uiContainer.querySelector<HTMLElement>(
+    const baseRow = attachedPanel(ui).querySelector<HTMLElement>(
       `[${CONST.DATA.LAYER_ID}="B1"]`,
     );
     expect(baseRow).not.toBeNull();
@@ -265,10 +283,12 @@ describe("ui/list row placement", () => {
     const { ui } = initFixture({
       data: [{ id: "A", name: "A", group: "overlay" }],
     });
-    ui.uiContainer.querySelector<HTMLElement>(`[${CONST.DATA.LAYER_ID}="A"]`)!.remove();
+    attachedPanel(ui)
+      .querySelector<HTMLElement>(`[${CONST.DATA.LAYER_ID}="A"]`)!
+      .remove();
 
     expect(() => updateLayerItemLabel(ui, { id: "A" } as LayerInfo)).not.toThrow();
-    expect(ui.uiContainer.querySelector(`[${CONST.DATA.LAYER_ID}="A"]`)).toBeNull();
+    expect(attachedPanel(ui).querySelector(`[${CONST.DATA.LAYER_ID}="A"]`)).toBeNull();
   });
 
   it("renders the color row folded when the base group is folded", () => {
@@ -279,7 +299,7 @@ describe("ui/list row placement", () => {
 
     renderInitialList(ui);
 
-    const color = ui.uiContainer.querySelector<HTMLElement>(
+    const color = attachedPanel(ui).querySelector<HTMLElement>(
       `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
     );
     expect(color).not.toBeNull();
@@ -314,7 +334,7 @@ describe("ui/list row placement", () => {
     initTypesAndVisibility(ui);
 
     const baseRows = Array.from(
-      ui.uiContainer.querySelectorAll<HTMLElement>(
+      attachedPanel(ui).querySelectorAll<HTMLElement>(
         `${CONST.SEL.LAYER_ITEM}[data-layer-type="${GROUP.BASE}"]`,
       ),
     ).map(el => el.getAttribute(CONST.DATA.LAYER_ID));

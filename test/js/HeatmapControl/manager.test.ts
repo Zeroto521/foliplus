@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
+import { SCHEME_FALLBACK_COLOR } from "#core/palette.js";
 import * as CONST from "#foliplus/HeatmapControl/const.js";
 import { HeatmapManager } from "#foliplus/HeatmapControl/manager.js";
 import { rebuildLayerDropdown } from "#foliplus/HeatmapControl/ui.js";
@@ -506,6 +507,23 @@ describe("renderFeatures", () => {
     m.renderFeatures([{ type: "Feature" }] as any);
     expect(handler).toHaveBeenCalledWith({ id: m.layerId });
   });
+
+  it("count broadcast is settled — a thrower does not starve later consumers", () => {
+    const m = makeManager();
+    m.overlay.register = vi.fn();
+    m.redrawHeatmap = vi.fn();
+    const bus = ensureEvents(m.map);
+    const seen: string[] = [];
+    bus.on(EVENTS.LAYER_ITEM_COUNT_CHANGE, () => {
+      throw new Error("count boom");
+    });
+    bus.on(EVENTS.LAYER_ITEM_COUNT_CHANGE, payload => seen.push(payload.id));
+
+    expect(() => m.renderFeatures([{ type: "Feature" }] as any)).toThrow("count boom");
+
+    expect(seen).toEqual([m.layerId]);
+    expect(m.cachedFeatures).toEqual([{ type: "Feature" }]);
+  });
 });
 
 describe("renderHexagons", () => {
@@ -535,20 +553,6 @@ describe("renderHexagons", () => {
     const spy = vi.spyOn(m, "aggregateData");
     m.renderHexagons();
     expect(spy).not.toHaveBeenCalled();
-  });
-});
-
-describe("wrapper delegation & the registration snapshot", () => {
-  it("computeBreaks forwards the caller's args to the shared classifier", async () => {
-    const m = makeManager();
-    const mod = await import("#core/classify.js");
-    const spy = vi.spyOn(mod, "computeBreaks").mockImplementation(() => [1, 5]);
-    try {
-      m.computeBreaks([3, 1, 4], 4, "fisher-jenks");
-      expect(spy).toHaveBeenCalledWith([3, 1, 4], 4, "fisher-jenks");
-    } finally {
-      spy.mockRestore();
-    }
   });
 });
 
@@ -1268,7 +1272,7 @@ describe("HeatmapManager — style delegation", () => {
     // this.map.foliplus (makeCtrl wires the same object).
     (m.map as unknown as { foliplus: unknown }).foliplus = window.map.foliplus;
     const touchLayer = window.map.foliplus.LayerAPI.touchLayer;
-    const emitSpy = vi.spyOn(m.events, "emit");
+    const emitSpy = vi.spyOn(m.events, "emitSettled");
     const opts = getCanvasOpts();
 
     opts.styleSetters!.labelShow!(true);
@@ -1283,7 +1287,7 @@ describe("HeatmapManager — style delegation", () => {
     const m = makeManager();
     (m.map as unknown as { foliplus: unknown }).foliplus = window.map.foliplus;
     const touchLayer = window.map.foliplus.LayerAPI.touchLayer;
-    const emitSpy = vi.spyOn(m.events, "emit");
+    const emitSpy = vi.spyOn(m.events, "emitSettled");
     const opts = getCanvasOpts();
 
     opts.styleSetters!.labelFormat!("comma");
@@ -1473,7 +1477,7 @@ describe("HeatmapManager — style delegation", () => {
     const m = makeManager();
     (m.map as unknown as { foliplus: unknown }).foliplus = window.map.foliplus;
     const touchLayer = window.map.foliplus.LayerAPI.touchLayer;
-    const emitSpy = vi.spyOn(m.events, "emit");
+    const emitSpy = vi.spyOn(m.events, "emitSettled");
     const opts = getCanvasOpts();
 
     opts.styleSetters!.borderWeight!(2.5);
@@ -1512,7 +1516,7 @@ describe("HeatmapManager — style delegation", () => {
     const m = makeManager();
     (m.map as unknown as { foliplus: unknown }).foliplus = window.map.foliplus;
     const touchLayer = window.map.foliplus.LayerAPI.touchLayer;
-    const emitSpy = vi.spyOn(m.events, "emit");
+    const emitSpy = vi.spyOn(m.events, "emitSettled");
     const opts = getCanvasOpts();
 
     opts.styleSetters!.borderColor!("#00ff00");
@@ -1758,7 +1762,7 @@ describe("constructor — CONFIG fallbacks", () => {
     expect(m.scheme).toBe("Reds");
     expect(m.method).toBe("jenks");
     expect(m.numClasses).toBe(CONST.CLASS_COUNT.DEFAULT);
-    expect(m.borderColor).toBe(CONST.GRAY);
+    expect(m.borderColor).toBe(SCHEME_FALLBACK_COLOR);
   });
 });
 
@@ -2091,15 +2095,6 @@ describe("resetState — CONFIG fallbacks", () => {
     expect(m.numClasses).toBe(CONST.CLASS_COUNT.DEFAULT);
     expect(m.method).toBe("jenks");
     expect(m.scheme).toBe("Reds");
-  });
-});
-
-describe("computeBreaks", () => {
-  it("delegates to computeBreaksFn", () => {
-    const m = makeManager();
-    const result = m.computeBreaks([1, 2, 3, 4, 5], 3, "jenks");
-    expect(Array.isArray(result)).toBe(true);
-    expect(result.length).toBeGreaterThanOrEqual(2);
   });
 });
 

@@ -109,7 +109,7 @@ function makeManager(confOverrides: Partial<ComponentConfig> = {}) {
   };
   const manager = new HeatmapManager(map, {
     T: createScopedTranslator(window.CONFIG),
-    log: { warn: () => {}, error: () => {}, msg: (m: string) => m },
+    log: { warn: () => {}, error: () => {}, debug: () => {}, msg: (m: string) => m },
   });
   manager.init();
   manager.overlay = {

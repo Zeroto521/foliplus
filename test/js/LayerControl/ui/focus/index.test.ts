@@ -4,6 +4,7 @@ import type { LayerController } from "#foliplus/LayerControl/controller.js";
 import {
   bringFocusedLayerToFront,
   computeLayerBounds,
+  dismissFocus,
   drawFocusMask,
   drawFocusRect,
   focusDisabledLocaleKey,
@@ -21,14 +22,19 @@ import {
 } from "#foliplus/LayerControl/ui/intent.js";
 import { getActiveLayerItem } from "#foliplus/LayerControl/ui/listPanel/index.js";
 import { projectLayer } from "#foliplus/LayerControl/ui/projection.js";
+import { EVENTS } from "#foliplus/core/event/index.js";
 import { GROUP, type LayerInfo, focusLayerZ } from "#foliplus/core/layer/index.js";
 import { ensureModes } from "#foliplus/core/mode.js";
 import {
   GridLayer,
   attachWithGroup,
+  attachedPanel,
   findItem,
   initFixture,
   makePane,
+  oneOverlay,
+  polygonLayerWith,
+  polygonLayerWithoutBounds,
 } from "../fixture.js";
 
 // ── Mocked core/mode — LayerControl.focusing ownership ──────
@@ -1655,7 +1661,7 @@ describe("LayerUI focus", () => {
     it("does NOT focus the layer on a dblclick of the rename input", () => {
       const focusSpy = vi.spyOn(ui, "focusLayer");
       ui.renameLayer("overlay1");
-      const input = ui.uiContainer.querySelector(
+      const input = attachedPanel(ui).querySelector(
         `.${CONST.CLASSES.RENAME_INPUT}`,
       ) as HTMLElement;
       expect(input).not.toBeNull();
@@ -2024,7 +2030,7 @@ describe("LayerUI focus", () => {
   // filter, or the indices below drift and the cursor lands on the wrong row.
   const navigableItems = () =>
     Array.from(
-      ui.uiContainer.querySelectorAll<HTMLElement>(
+      attachedPanel(ui).querySelectorAll<HTMLElement>(
         `${CONST.SEL.LAYER_ITEM},${CONST.SEL.TOGGLE_ALL}`,
       ),
     );
@@ -2154,7 +2160,7 @@ describe("LayerUI focus", () => {
       const bare = document.createElement("div");
       bare.className = CONST.CLASSES.LAYER_ITEM;
       bare.setAttribute(CONST.DATA.LAYER_ID, "bare");
-      ui.uiContainer.appendChild(bare);
+      attachedPanel(ui).appendChild(bare);
       ui.listPanel.activeIdx = navigableItems().indexOf(bare);
       expect(getActiveLayerItem(ui)).toBe(bare);
       const changes = vi.fn();
@@ -2415,4 +2421,86 @@ describe("LayerUI focus", () => {
       expect(getPaneSpy).toHaveBeenCalledWith("phantom_pane");
     });
   });
+});
+
+// ── Notification-contract cases, moved from the former
+// ── notifyContract.test.ts so they live with the script they drive. ──
+it("a focus cancel inside the rectangle announce is not undone", () => {
+  // The rectangle branch draws the mask, the rect, the row highlight and the
+  // auto-cancel, and only then announces. A subscriber that cancels inside
+  // that notify wins: nothing after the announce re-arms the focus, so a
+  // focus kicked off by focusLayer cannot still be live when it returns.
+  const { ui, map, layer, onMap } = oneOverlay();
+  onMap.set(layer, false);
+
+  let deliveries = 0;
+  ui.events.on(EVENTS.LAYER_CHANGE, () => {
+    deliveries += 1;
+    ui.cancelFocus();
+  });
+
+  expect(() => ui.focusLayer("overlay1")).not.toThrow();
+  expect(map.fitBounds).toHaveBeenCalled();
+  expect(deliveries).toBeGreaterThan(0);
+  expect(ui.isFocusing()).toBe(false);
+});
+
+it("a focus cancel inside the flyTo announce is not undone", () => {
+  // The flyTo branch takes the same ordering: fly to the center, highlight
+  // the row, register the auto-cancel, and only then announce.
+  const { ui, map, layer, onMap } = oneOverlay(() =>
+    polygonLayerWith([30, 100], [30.0001, 100.0001]),
+  );
+  onMap.set(layer, false);
+
+  let deliveries = 0;
+  ui.events.on(EVENTS.LAYER_CHANGE, () => {
+    deliveries += 1;
+    ui.cancelFocus();
+  });
+
+  expect(() => ui.focusLayer("overlay1")).not.toThrow();
+  expect(map.flyTo).toHaveBeenCalled();
+  expect(deliveries).toBeGreaterThan(0);
+  expect(ui.isFocusing()).toBe(false);
+});
+
+it("a rejected focus leaves no membership change behind", () => {
+  // A layer the policy had pulled off rejoins the map so its bounds can be
+  // read. When those bounds turn out unusable the re-add goes back, so the
+  // call announces nothing and leaves the map as it found it.
+  const { ui, layer, onMap } = oneOverlay(polygonLayerWithoutBounds);
+  onMap.set(layer, false);
+
+  const seen: string[] = [];
+  ui.events.on(EVENTS.LAYER_CHANGE, payload => {
+    seen.push(payload.id);
+  });
+
+  expect(() => ui.focusLayer("overlay1")).not.toThrow();
+
+  expect(onMap.get(layer)).toBe(false);
+  expect(seen).toEqual([]);
+  expect(ui.isFocusing()).toBe(false);
+});
+
+it("dismissFocus releases a stuck focusing mode when the focus UI state is gone", () => {
+  const { ui, map } = initFixture();
+  // This suite mocks core/mode, whose fake ensureModes does not wire
+  // map.foliplus.modes the way the real one does; emulate that wiring so the
+  // production recovery path can read the live mode without installing.
+  const modes = ensureModes(map) as {
+    setMode: (component: string, mode: string | null) => void;
+    getMode: (component: string) => string | null;
+  };
+  (map as any).foliplus = { ...(map as any).foliplus, modes };
+  // Simulate a past half-commit: mode registered, focus UI state never landed
+  // (isFocusing is driven by the focus state, not by the mode).
+  modes.setMode(ui.config.name, "focusing");
+  expect(ui.isFocusing()).toBe(false);
+
+  dismissFocus(ui);
+
+  expect(modes.getMode(ui.config.name)).toBeNull();
+  expect(ui.isFocusing()).toBe(false);
 });

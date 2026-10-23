@@ -12,6 +12,9 @@ type LogFn = (message: string, ...args: unknown[]) => void;
 interface Logger {
   warn: LogFn;
   error: LogFn;
+  /** Diagnostics below the user's attention — a normal-path no-op worth
+   *  knowing about when tracing why a panel did not update. */
+  debug: LogFn;
   msg: (message: string) => string;
 }
 

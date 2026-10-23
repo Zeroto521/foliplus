@@ -1,4 +1,10 @@
-import { EVENTS, type EventBus, ensureEvents } from "#core/event/index.js";
+import {
+  EVENTS,
+  type EventBus,
+  SettledOperation,
+  ensureEvents,
+  publish,
+} from "#core/event/index.js";
 import {
   type CreateCanvasAPI,
   type CreateCanvasOpts,
@@ -32,6 +38,7 @@ import * as CONST from "./const.js";
 import { LayerIntentStore, LayerOrchestration } from "./domain/index.js";
 import { LayerPersistence } from "./persistence.js";
 import { finishSlidersIn } from "./slider.js";
+import { collectDeltas } from "./ui/apply.js";
 import { type LayerUI } from "./ui/index.js";
 
 type LayerControllerEnv = {
@@ -334,7 +341,9 @@ class LayerController implements LayerAPI {
             layerInfo,
           );
           this.layerRegistry.upsert(rebuilt);
-          this.emitLayerChange(layerInfo.id, rebuilt.kind);
+          const operation = this.beginOperation();
+          this.emitLayerChange(layerInfo.id, rebuilt.kind, operation);
+          operation.throwIfFailed();
           break;
         }
       }
@@ -353,7 +362,6 @@ class LayerController implements LayerAPI {
     });
     this.domain = new LayerOrchestration({
       map: this.map,
-      events: this.events,
       layerRegistry: this.layerRegistry,
       panes: this.panes,
       factory: this.factory,
@@ -524,7 +532,9 @@ class LayerController implements LayerAPI {
    *  @param {string} id - Layer id. */
   refreshCount(id: string) {
     if (this.layerRegistry.get(id)?.group === GROUP.BASE) return;
-    this.events.emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id });
+    // Settled: one consumer throwing must not keep the other count listeners
+    // (the row repaint, the fill ramp) from seeing the final geometry.
+    publish(this.events, EVENTS.LAYER_ITEM_COUNT_CHANGE, { id });
   }
 
   findLayer(idOrInfo: string | LayerInfo): L.Layer | null {
@@ -564,9 +574,24 @@ class LayerController implements LayerAPI {
    *  every subscriber can filter on the payload instead of re-walking the
    *  registry. Covers register / unregister / reorder / visibility toggle /
    *  late re-attachment: those are all "the map now shows a different set of
-   *  layers", which is what the annotation manager repaints on. */
-  private emitLayerChange(id: string, kind: LayerKind): void {
-    this.domain.emitLayerChange(id, kind);
+   *  layers", which is what the annotation manager repaints on.
+   *
+   *  Always routed through the caller's operation: this event has the same
+   *  settled fan-out whichever lifecycle entry produced it, so a consumer
+   *  cannot truncate the rest of a register/unregister/reorder by throwing. */
+  private emitLayerChange(
+    id: string,
+    kind: LayerKind,
+    operation: SettledOperation,
+  ): void {
+    operation.emitSuperseding(EVENTS.LAYER_CHANGE, id, { id, kind });
+  }
+
+  /** Start one settled fan-out for a lifecycle operation. Queue every event the
+   *  operation owes, keep local mutations outside the queue, and raise the
+   *  first consumer failure once the whole operation has been attempted. */
+  private beginOperation(): SettledOperation {
+    return new SettledOperation(this.events);
   }
 
   registerLayer(opts: RegisterLayerOpts): HTMLElement | null {
@@ -600,50 +625,90 @@ class LayerController implements LayerAPI {
       this.map.addLayer(opts.layer);
     }
 
-    if (!this.uiContainer) {
+    const container = this.uiContainer;
+    if (!container) {
       this.pendingRegistrations.push(layerInfo);
       this.debouncedEnforce();
       return null;
     }
 
+    const operation = this.beginOperation();
     if (this.ui) {
       if (existingIdx === -1) {
-        // New row: the UI inserts the DOM row. insertLayerItem internally
-        // runs applyUserState for this id, so the controller-level applyUserState
-        // below is a no-op on the new-row path (idempotent) and only carries
-        // meaning on the re-registration branch.
-        this.events.emit(EVENTS.LAYER_ITEM_ADDED, { id: opts.id });
+        // New row: the row is inserted by the LAYER_ITEM_ADDED listener; the
+        // stored-state projection is left to the single applyUserState below,
+        // so the registration entry holds the delta and can announce it after
+        // the row, the count and the order are all settled.
+        operation.emit(EVENTS.LAYER_ITEM_ADDED, { id: opts.id });
       } else {
         // Re-registration is how the API says "this layer's content changed",
         // so the row's cached field list and resolved auto field are both stale.
-        this.events.emit(EVENTS.LAYER_ITEM_UPDATED, { id: opts.id });
+        operation.emit(EVENTS.LAYER_ITEM_UPDATED, { id: opts.id });
       }
       // A stored dimension must be replayed on first registration too. Heatmap
       // and Measure register after LayerControl has attached, so this is the only
       // pass that reaches a late-arriving layer's own visibility, opacity, name
       // and order. On a re-registration it also re-applies opacity onto the fresh
       // layer/canvas object (no-op when the user never changed it).
-      this.ui.applyUserState(opts.id);
+      const moved = this.ui.applyUserState(opts.id);
       // Incremental: refresh only the new/updated row's cells instead of
       // re-scanning every row (initTypesAndVisibility is a full pass used on
       // attach/fold). Fires after applyUserState so the row reflects the fresh
       // map state.
-      this.events.emit(EVENTS.LAYER_ITEM_REFRESHED, { id: opts.id });
-      this.events.emit(EVENTS.LAYER_GROUP_COUNT_CHANGED, {
+      operation.emit(EVENTS.LAYER_ITEM_REFRESHED, { id: opts.id });
+      operation.emit(EVENTS.LAYER_GROUP_COUNT_CHANGED, {
         group: layerInfo.group,
       });
       // Defer z-order enforcement so batch registration coalesces into one pass.
       this.debouncedEnforce();
+      // The round goes out last — after the row insert, the count sync and the
+      // order replay — so a subscriber that re-enters reads the settled panel:
+      // full group count, correct row state. The batch carries the entry it ran
+      // against, so a retire inside that notify cannot announce for a
+      // replacement holding the same id.
+      collectDeltas(this.ui, moved, operation);
+
+      // A subscriber can retire the entry inside that notify: a destroy takes
+      // the container and the registry with it, and an unregister leaves the id
+      // mapped to a different instance. Either way this registration is over —
+      // the registration CHANGE would announce for an entry that no longer
+      // exists, and the row lookup below would deref a null container.
+      if (this.isRetired(opts.id, layerInfo)) {
+        operation.throwIfFailed();
+        return null;
+      }
     }
     // Registration never writes the saved order: the slot this layer just took
     // is where attach timing put it, not a user arrangement. Only an explicit
     // user reorder (drag, moveLayerUp/Down, bringLayerToFront) snapshots the
     // live order. A layer the user *did* arrange still replays here through
     // insertOverlayAt / applyUserState above.
-    this.emitLayerChange(opts.id, layerInfo.kind);
-    return this.uiContainer.querySelector(
-      `[${CONST.DATA.LAYER_ID}="${CSS.escape(opts.id)}"]`,
-    );
+    this.emitLayerChange(opts.id, layerInfo.kind, operation);
+    // The registration CHANGE can retire this registration the same way the
+    // projection notify above can: a destroy takes the container and the
+    // registry with it, an unregister or a re-registration with the same id
+    // leaves the id mapped to a different instance. The retirement is re-checked
+    // after that notify rather than cached before it — a cached node would be
+    // handed back after the entry that produced it is gone, and a re-lookup
+    // would return another instance's row for the same id.
+    if (this.isRetired(opts.id, layerInfo)) {
+      operation.throwIfFailed();
+      return null;
+    }
+    // The row lookup uses the container captured before any notify. A teardown
+    // in the notify above empties that node's content (`destroy` clears
+    // innerHTML), so the lookup returns null the same way a re-read would —
+    // without needing a branch that can never be taken.
+    operation.throwIfFailed();
+    return container.querySelector(`[${CONST.DATA.LAYER_ID}="${CSS.escape(opts.id)}"]`);
+  }
+
+  /** Whether the entry a notify was announcing for is gone: the control was
+   *  destroyed, the layer was unregistered, or the id now maps to a
+   *  replacement. Every entry that keeps working after its own notify asks
+   *  this one question, in one place. */
+  private isRetired(id: string, entry: LayerInfo): boolean {
+    return this.isDestroyed || this.layerRegistry.get(id) !== entry;
   }
 
   /**
@@ -659,10 +724,25 @@ class LayerController implements LayerAPI {
     this.layerRegistry.moveToFront(id);
     this.enforceOrder();
     this.saveOrder();
-    this.emitLayerChange(id, item.kind);
+    const operation = this.beginOperation();
     if (this.uiContainer && this.ui) {
-      this.events.emit(EVENTS.LAYER_LIST_REBUILD);
+      operation.emit(EVENTS.LAYER_LIST_REBUILD);
     }
+    // The rebuild above is this operation's own side effect, so it lands
+    // before the notify: a subscriber reading the row order out of the panel
+    // during the CHANGE sees the arrangement that was just made, not the one
+    // about to be rendered. That same replay is where a subscriber can retire
+    // what the move announces for — destroying the control or unregistering
+    // the layer — so the entry is re-read rather than reused: a swap under the
+    // same id would otherwise be announced on top of the arrangement it just
+    // rendered. A controller with no panel never rebuilt anything and
+    // announces as usual.
+    if (this.isRetired(id, item)) {
+      operation.throwIfFailed();
+      return;
+    }
+    this.emitLayerChange(id, item.kind, operation);
+    operation.throwIfFailed();
   }
 
   /** Stamp `updatedAt` to now — call after a runtime mutation that does not
@@ -736,8 +816,25 @@ class LayerController implements LayerAPI {
    * @returns {boolean} true if layer was found and removed, false otherwise.
    */
   unregisterLayer(id: string): boolean {
+    const retired = this.retireEntry(id);
+    if (!retired) return false;
+
+    const operation = this.beginOperation();
+    // Flush before any fan-out: the registry is already updated, and a
+    // throwing consumer must not leave the persisted order listing the id.
+    this.persistence.flushAll();
+    this.announceRetirement(retired.layerInfo, operation);
+    operation.throwIfFailed();
+    return true;
+  }
+
+  /** Local teardown of one registry entry: registry, map, panel row, and
+   *  annotation rendering. No bus event — the caller (generic unregister, user
+   *  delete, component clear) owns the operation that announces the removal,
+   *  so its local commits can finish before any consumer can throw. */
+  private retireEntry(id: string): { layerInfo: LayerInfo } | null {
     const { layerInfo, layer } = this.domain.unregisterEntry(id);
-    if (!layerInfo) return false;
+    if (!layerInfo) return null;
 
     if (layer) {
       if (this.map.hasLayer(layer)) this.map.removeLayer(layer);
@@ -774,30 +871,62 @@ class LayerController implements LayerAPI {
     // it is part of that surviving intent (a flush after this point must
     // not erase `layers[id].annotation` from storage).
     this.annotation.unloadLayer(id);
-    // Emitting unconditionally: bindLayerEvents has not run when there is no UI, so
-    // the subscribers simply do not fire — same effect as the previous
-    // `this.ui?.` guards, without a null-check chain on the manager side.
-    this.events.emit(EVENTS.LAYER_ITEM_REMOVED, { id });
-    // The row was just removed: rescan the group's count so the toggle-all
-    // checkbox reflects the removal in the same frame.
-    this.events.emit(EVENTS.LAYER_GROUP_COUNT_CHANGED, {
-      group: layerInfo.group,
-    });
-    // Unregister is rare, so flush rather than riding out the 100ms window.
-    // Any pending write carries the registry's current order, which no longer
-    // lists this id — that dimension reads the registry live, so the removal is
-    // recorded without the teardown touching a persisted map.
-    this.persistence.flushAll();
-    this.emitLayerChange(id, layerInfo.kind);
-    // The registry change lands first, so a subscriber that drops the layer off
-    // its own list and then clears state observes the removal on the same
-    // channel it saw the registration. LAYER_REMOVED is the teardown
-    // notification itself — "the id left the registry" (Measure drops its
-    // active mode), not "the user deleted this". A user delete routes through
-    // deleteLayer, which emits LAYER_REMOVED for user-owned layers and
-    // LAYER_DELETED for component-owned ones.
-    this.events.emit(EVENTS.LAYER_REMOVED, { id });
-    return true;
+    return { layerInfo };
+  }
+
+  /** Queue the signals one retirement owes, in their established order.
+   *  LAYER_CHANGE lands first for consumers that drop the layer off their own
+   *  list; LAYER_REMOVED is the teardown signal itself. A user delete routes
+   *  through deleteLayer, which owns the same retirement plus the permanent
+   *  prune; component-owned clears emit LAYER_DELETED instead.
+   *
+   *  Every remaining event is gated on the operation's entry identity. A
+   *  subscriber can re-register the same id inside an earlier event (most
+   *  naturally inside this CHANGE), and can even unregister that replacement
+   *  again before the fan-out ends — existence alone cannot tell the old
+   *  operation that its retirement was consumed. So `replaced` is marked by
+   *  any ITEM_ADDED / ITEM_UPDATED for this id *and* by a live different
+   *  entry between events; once marked, no remaining retirement event fires —
+   *  `LAYER_REMOVED` in particular promises "this entry left the registry"
+   *  and must not be repeated for an id that was re-registered in between.
+   *  Returns whether the full retirement was announced (used to gate the
+   *  caller's post-announcement housekeeping). */
+  private announceRetirement(
+    layerInfo: LayerInfo,
+    operation: SettledOperation,
+  ): boolean {
+    const id = layerInfo.id;
+    let replaced = false;
+    const mark = (payload: { id: string }): void => {
+      if (payload.id === id) replaced = true;
+    };
+    const offAdded = this.events.on(EVENTS.LAYER_ITEM_ADDED, mark);
+    const offUpdated = this.events.on(EVENTS.LAYER_ITEM_UPDATED, mark);
+    try {
+      const gate = (): boolean => {
+        const current = this.layerRegistry.get(id);
+        if (current !== undefined && current !== layerInfo) replaced = true;
+        return !replaced && this.layerRegistry.get(id) === undefined;
+      };
+      // No gate before the first event: retireEntry just removed the entry and
+      // nothing has had a chance to re-register it yet. Every subsequent event
+      // is gated.
+      operation.emit(EVENTS.LAYER_ITEM_REMOVED, { id });
+      if (!gate()) return false;
+      // The row was just removed: rescan the group's count so the toggle-all
+      // checkbox reflects the removal in the same frame.
+      operation.emit(EVENTS.LAYER_GROUP_COUNT_CHANGED, {
+        group: layerInfo.group,
+      });
+      if (!gate()) return false;
+      this.emitLayerChange(id, layerInfo.kind, operation);
+      if (!gate()) return false;
+      operation.emit(EVENTS.LAYER_REMOVED, { id });
+      return true;
+    } finally {
+      offAdded();
+      offUpdated();
+    }
   }
 
   /**
@@ -830,14 +959,17 @@ class LayerController implements LayerAPI {
     // MeasureControl and HeatmapControl still own a live handle and need the
     // id to stay registerable for the next draw.
     if (layerInfo.styleSetters) {
-      // Emit first: the component's LAYER_DELETED handler wipes its own canvas
-      // and its own saved config, and only then does LayerControl prune what it
-      // owns. Both halves of a clear must erase, or the next draw inherits the
-      // half nobody pruned.
-      this.events.emit(EVENTS.LAYER_DELETED, { id });
+      const operation = this.beginOperation();
+      // The component's LAYER_DELETED handler wipes its own canvas and its own
+      // saved config, and LayerControl prunes what it owns below. Both halves
+      // of a clear must erase, or the next draw inherits the half nobody
+      // pruned. The operation collects the handler failures, so the cleanup
+      // still runs even when an earlier consumer throws.
+      operation.emit(EVENTS.LAYER_DELETED, { id });
       const { orderDropped, intentDropped } = this.domain.deleteEntry(id);
       if (this.ui && (orderDropped || intentDropped)) this.ui.saveState();
       this.persistence.flushAll();
+      operation.throwIfFailed();
       return true;
     }
 
@@ -845,27 +977,35 @@ class LayerController implements LayerAPI {
     // surface and resets the fill state so the map returns to the grid empty
     // state. The id stays registerable so the color can be re-picked.
     if (id === CONST.SOLID_BASEMAP_ID) {
-      const removed = this.unregisterLayer(id);
-      if (!removed) return false;
-      if (this.ui) {
+      const retired = this.retireEntry(id);
+      if (!retired) return false;
+      const operation = this.beginOperation();
+      this.persistence.flushAll();
+      const announced = this.announceRetirement(retired.layerInfo, operation);
+      if (this.ui && announced) {
         this.ui.resetSolidBasemap();
-        this.events.emit(EVENTS.LAYER_GROUP_COUNT_CHANGED, {
+        operation.emit(EVENTS.LAYER_GROUP_COUNT_CHANGED, {
           group: GROUP.BASE,
         });
-        this.events.emit(EVENTS.LAYER_NO_BASEMAP_CHANGED);
+        operation.emit(EVENTS.LAYER_NO_BASEMAP_CHANGED);
       }
       this.persistence.flushAll();
+      operation.throwIfFailed();
       return true;
     }
 
-    const removed = this.unregisterLayer(id);
-    if (!removed) return false;
+    const retired = this.retireEntry(id);
+    if (!retired) return false;
 
+    // User delete commits every persistent effect before the public fan-out:
+    // once the registry entry is gone a retry cannot re-run the prune, so a
+    // throwing consumer must never leave the delete half-applied. The events
+    // are queued afterwards and all of them are attempted.
     this.order.removedIds.add(id);
     this.persistence.schedule({ removed: () => [...this.order.removedIds] });
-    // unregisterLayer keeps the label config (a teardown is not a delete);
-    // this is the delete, so forget it here — `configEntries` must stop
-    // answering for a removed id.
+    // retireEntry keeps the label config (a teardown is not a delete); this is
+    // the delete, so forget it here — `configEntries` must stop answering for
+    // a removed id.
     this.annotation.destroyLayer(id);
 
     // Drop every persisted value for this id (stored order + per-layer intent
@@ -882,17 +1022,21 @@ class LayerController implements LayerAPI {
       clearName: true,
     });
 
-    if (!this.ui) {
-      this.persistence.flushAll();
-      return true;
+    if (this.ui) {
+      if (orderDropped || intentDropped) this.ui.saveState();
+      if (nameCleared) this.ui.saveNamesState();
     }
-    if (orderDropped || intentDropped) this.ui.saveState();
-    if (nameCleared) this.ui.saveNamesState();
-    this.events.emit(EVENTS.LAYER_GROUP_COUNT_CHANGED, {
-      group: layerInfo.group,
-    });
-    this.events.emit(EVENTS.LAYER_NO_BASEMAP_CHANGED);
     this.persistence.flushAll();
+
+    const operation = this.beginOperation();
+    const announced = this.announceRetirement(retired.layerInfo, operation);
+    if (this.ui && announced) {
+      operation.emit(EVENTS.LAYER_GROUP_COUNT_CHANGED, {
+        group: retired.layerInfo.group,
+      });
+      operation.emit(EVENTS.LAYER_NO_BASEMAP_CHANGED);
+    }
+    operation.throwIfFailed();
     return true;
   }
 
@@ -1027,10 +1171,19 @@ class LayerController implements LayerAPI {
     this.layerRegistry.reorder(idx, idx - 1);
     this.enforceOrder();
     this.saveOrder();
-    this.emitLayerChange(id, item.kind);
+    const operation = this.beginOperation();
     if (this.uiContainer && this.ui) {
-      this.events.emit(EVENTS.LAYER_LIST_REBUILD);
+      operation.emit(EVENTS.LAYER_LIST_REBUILD);
     }
+    if (this.isRetired(id, item)) {
+      operation.throwIfFailed();
+      return true;
+    }
+    // Same retirement check as bringLayerToFront: the rebuild above can retire
+    // what this move announces for, and the row list it just rebuilt is what
+    // the notify announces against.
+    this.emitLayerChange(id, item.kind, operation);
+    operation.throwIfFailed();
     return true;
   }
 
@@ -1051,10 +1204,19 @@ class LayerController implements LayerAPI {
     this.layerRegistry.reorder(idx, idx + 1);
     this.enforceOrder();
     this.saveOrder();
-    this.emitLayerChange(id, item.kind);
+    const operation = this.beginOperation();
     if (this.uiContainer && this.ui) {
-      this.events.emit(EVENTS.LAYER_LIST_REBUILD);
+      operation.emit(EVENTS.LAYER_LIST_REBUILD);
     }
+    if (this.isRetired(id, item)) {
+      operation.throwIfFailed();
+      return true;
+    }
+    // Same retirement check as bringLayerToFront: the rebuild above can retire
+    // what this move announces for, and the row list it just rebuilt is what
+    // the notify announces against.
+    this.emitLayerChange(id, item.kind, operation);
+    operation.throwIfFailed();
     return true;
   }
 

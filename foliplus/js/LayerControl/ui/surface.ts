@@ -23,6 +23,7 @@ import { type CreateColorAPI, type LayerRuntimeStore } from "#core/layer/index.j
 import type { Logger } from "#common/type.js";
 import type { LayerController } from "../controller.js";
 import type { LayerIntentStore } from "../domain/index.js";
+import type { ProjectionBatch } from "./apply.js";
 import type { FocusController } from "./focus/focusController.js";
 import type { ListPanel } from "./listPanel/index.js";
 import type { OverlayPanel } from "./overlayPanel/index.js";
@@ -69,14 +70,14 @@ interface LayerUI {
 
   // ── controller / DOM views ──
   readonly c: LayerController;
-  readonly uiContainer: HTMLElement;
+  readonly uiContainer: HTMLElement | null;
 
   // ── delegates the modules call on the shell ──
   activeLayerItem(): HTMLElement | null;
   refreshAllCounts(): void;
   saveState(): void;
-  applyUserState(id?: string): void;
-  initTypesAndVisibility(): void;
+  applyUserState(id?: string): ProjectionBatch;
+  initTypesAndVisibility(): ProjectionBatch;
   handleOutsideMousedown(event: MouseEvent): void;
   handleKeyDown(event: KeyboardEvent): void;
   openMoreMenu(item: HTMLElement): void;

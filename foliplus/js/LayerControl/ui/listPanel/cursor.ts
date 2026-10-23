@@ -71,8 +71,10 @@ const restoreCursor = (ui: LayerUI, ref: string | null): void => {
  *  Rows are selected by class rather than `[tabindex]` because the inline
  *  rename input is also `tabindex=0` and is not a navigable row. */
 const getNavigableItems = (ui: LayerUI): HTMLElement[] => {
+  const container = ui.uiContainer;
+  if (!container) return [];
   return Array.from(
-    ui.uiContainer.querySelectorAll<HTMLElement>(
+    container.querySelectorAll<HTMLElement>(
       `${CONST.SEL.LAYER_ITEM},${CONST.SEL.TOGGLE_ALL}`,
     ),
   );
@@ -143,7 +145,7 @@ const moveActiveMarker = (
 
 const blurActiveItem = (ui: LayerUI): void => {
   ui.uiContainer
-    .querySelector(`.${CONST.CLASSES.FOCUSED}`)
+    ?.querySelector(`.${CONST.CLASSES.FOCUSED}`)
     ?.classList.remove(CONST.CLASSES.FOCUSED);
 };
 

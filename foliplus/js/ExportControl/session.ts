@@ -2,7 +2,7 @@
 // Function expressions are installed on ExportManager.prototype so `this` is
 // the manager and instance spies stay interceptable.
 import { COMPONENTS } from "#core/component.js";
-import { EVENTS } from "#core/event/index.js";
+import { EVENTS, SettledOperation, publish } from "#core/event/index.js";
 import { type GeoBounds, boundsToRect } from "#core/geo/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { guardBlocked } from "#core/mode.js";
@@ -57,8 +57,12 @@ const doExport = function (this: ExportManager) {
   }
   this.isExporting = true;
   this.lastTileFailures = null;
+  // Start as one operation. MODE_CHANGE and BEFORE_EXPORT are *notifications*
+  // (see EVENT_POLICY): listeners all run, consumer failures are recorded to
+  // the diagnostic log, and an observer cannot derail the start — the export
+  // is committed from here on.
   this.modes.setMode(CONFIG.name, "exporting");
-  this.events.emit(EVENTS.BEFORE_EXPORT, { component: CONFIG.name });
+  publish(this.events, EVENTS.BEFORE_EXPORT, { component: CONFIG.name });
   const r = Object.assign({}, this.cropState.rect);
   const geoBounds = this.cropState.geoBounds;
   if (geoBounds) {
@@ -281,7 +285,13 @@ const finishExport = async function (this: ExportManager, canvas: HTMLCanvasElem
     this.showGlobalHint(T("status_fail") + T("err_gen_fail"), HINT_DURATION.LONG);
     log.warn("export failed:", err);
   } finally {
-    this.endExport();
+    try {
+      this.endExport();
+    } catch (err) {
+      // Async pipe: cleanup already happened; surface the consumer bug without
+      // turning it into an unhandled rejection.
+      log.warn("export cleanup consumer failed:", err);
+    }
   }
 };
 
@@ -314,15 +324,26 @@ const showPreview = function (this: ExportManager, blob: Blob) {
   setTimeout(dismissPreview, HINT_DURATION.SHORT);
 };
 
-/** Release the export state: unlock interaction, emit AFTER_EXPORT, remove
- *  the blocker overlay. Runs on both the success and failure paths —
- *  forgetting it strands `isExporting === true` with map interaction
- *  disabled and the overlay still on screen. */
+/** Release the export state: clear mode/isExporting, remove the blocker
+ *  overlay, then emit AFTER_EXPORT settled. Runs on both the success and
+ *  failure paths — forgetting it strands `isExporting === true` with map
+ *  interaction disabled and the overlay still on screen.
+ *
+ *  Local cleanup runs before the broadcast on purpose: a subscriber throwing
+ *  must not skip the blocker removal. The first failure is raised afterwards
+ *  for sync callers; the async pipeline catches and logs it (an unhandled
+ *  rejection would be worse than a logged consumer bug). */
 const endExport = function (this: ExportManager) {
+  // Local cleanup first: isExporting/mode/blocker must not depend on whether
+  // a subscriber throws. AFTER_EXPORT is terminal — every listener runs, then
+  // the first failure is raised (MODE_CHANGE here is a notification and
+  // cannot derail the cleanup).
+  const operation = new SettledOperation(this.events);
   this.isExporting = false;
   this.modes.setMode(CONFIG.name, null);
-  this.events.emit(EVENTS.AFTER_EXPORT, { component: CONFIG.name });
   this.removeExportOverlay();
+  operation.emit(EVENTS.AFTER_EXPORT, { component: CONFIG.name });
+  operation.throwIfFailed();
 };
 
 /**
@@ -411,13 +432,18 @@ const onRenderError = function (
   hideEls: NodeListOf<Element>,
 ) {
   hideEls.forEach(el => el.classList.remove(CONST.CLASSES.HIDDEN));
-  this.modes.setMode(CONFIG.name, null);
-  this.events.emit(EVENTS.AFTER_EXPORT, { component: CONFIG.name });
-  this.removeExportOverlay();
+  // Local cleanup cannot depend on a subscriber: unlock, drop the blocker,
+  // clear mode/isExporting even when AFTER_EXPORT throws. endExport owns the
+  // settled broadcast and the state reset; this path only adds the map unlock
+  // and the failure hint.
   this.unlockMap();
+  try {
+    this.endExport();
+  } catch (consumerError) {
+    log.warn("export cleanup consumer failed:", consumerError);
+  }
   log.error(`${T("err_render")}:`, err);
   this.showGlobalHint(T("status_fail") + (err.message || ""), HINT_DURATION.LONG);
-  this.isExporting = false;
 };
 
 /** Remove the physical export overlay to restore mouse interaction. */
