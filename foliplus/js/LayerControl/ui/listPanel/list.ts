@@ -144,7 +144,13 @@ const insertLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
   const idx = ui.c.layerRegistry.indexOf(layerInfo);
   if (idx === -1) return;
   const container = ui.uiContainer;
-  if (!container) return;
+  if (!container) {
+    // Only reachable when a teardown retired the control between the signal
+    // and this pass — the row simply has nowhere to go. Debug level: a normal
+    // teardown no-ops here, and the trace is for "why did my row not appear".
+    ui.log.debug(`insertLayerItem: panel is gone, dropping row "${layerInfo.id}"`);
+    return;
+  }
   const group = layerInfo.group;
 
   const anchorSel =
@@ -331,12 +337,19 @@ const colorLayerName = (ui: LayerUI): string => {
  *  @returns {boolean} true when the row is a visible base layer. */
 const initLayerItem = (ui: LayerUI, layerInfo: LayerInfo): boolean => {
   if (!ui.c.layerRegistry.has(layerInfo.id)) return false;
+  const container = ui.uiContainer;
+  if (!container) {
+    // Normal-teardown no-op (the panel is gone); debug trace for the case
+    // that is not normal.
+    ui.log.debug(`initLayerItem: panel is gone, row "${layerInfo.id}" unpainted`);
+    return false;
+  }
   const cell = buildRowCell(ui, layerInfo);
   // Resolve the row by data-layer-id: a late registration lands where its
   // stored slot puts it, so the DOM order can diverge from the registry — an
   // index-based lookup would write the checkbox and type column into a
   // neighbor's row.
-  const item = ui.uiContainer?.querySelector(
+  const item = container.querySelector(
     `[${CONST.DATA.LAYER_ID}="${CSS.escape(layerInfo.id)}"]`,
   ) as HTMLElement | null;
   if (!item) return false;

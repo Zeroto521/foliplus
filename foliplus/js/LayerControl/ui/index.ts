@@ -219,6 +219,13 @@ class LayerUI implements LayerUISurface {
     return this.c.uiContainer;
   }
 
+  /** Whether the panel is still attached. A subscriber can retire the control
+   *  inside any notify, so a continuation that reached into the panel without
+   *  asking first would deref a null container. */
+  get isLive(): boolean {
+    return !!this.uiContainer;
+  }
+
   /**
    * Attach UI to the given container div.
    * @param {HTMLElement} containerDiv - The panel-content div.
@@ -262,6 +269,10 @@ class LayerUI implements LayerUISurface {
   saveState() {
     return saveState(this);
   }
+  /** Replay stored state for one layer (or every layer) and return the round.
+   *  This method does NOT publish: it collects what moved so the caller can
+   *  settle its own rows, counts and chrome first, then `emitDeltas` itself.
+   *  Calling it and ignoring the result silently drops the notifications. */
   applyUserState(id?: string): ProjectionBatch {
     const moved = applyUserState(this, id);
     // The executor carries visible / opacity / zoomRange only. Border and
@@ -354,6 +365,9 @@ class LayerUI implements LayerUISurface {
   applyProjection(layerId: string) {
     return applyProjection(this, layerId);
   }
+  /** Sweep every layer's projection and return the round. Same contract as
+   *  `applyUserState`: the sweep's side effects land here, the notifications
+   *  are the caller's — ignore the result and the round is dropped. */
   applyProjectionAll() {
     return applyProjectionAll(this);
   }

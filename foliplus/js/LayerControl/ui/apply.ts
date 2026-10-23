@@ -608,11 +608,13 @@ const applyProjection = (
  *  `LAYER_CHANGE` is gated on `wroteVisible` — not on the pre-notify
  *  `currentShown !== next.effectiveShown` diff — which is what keeps a
  *  missing layer reference or a value that did not actually flip from
- *  manufacturing a change event nobody can observe. The intent payload reads
- *  the committed value through `intentVisibleOf` rather than a snapshot
- *  taken inside the pass, so it reports the choice the store actually holds
- *  at delivery time — a caller that re-enters through this same helper sees
- *  its own correction, not the value the outer pass started from.
+ *  manufacturing a change event nobody can observe. The intent payload carries
+ *  the committed value through `intentVisibleOf`, read at emit time — a frozen
+ *  snapshot, so a handler that stores the payload can rely on it later.
+ *  Reentrant correction is handled by the superseding delivery the two halves
+ *  go out through: a newer write for the same layer stops the older delivery
+ *  at the reentry point, so no subscriber sees a value the correction already
+ *  replaced.
  *
  *  Delivery is identity-checked against the live registry twice — before the
  *  first half goes out, and again before the second. A delta is the record of
@@ -642,14 +644,20 @@ const emitDelta = (
 ): void => {
   if (!layerInfo || !entryStillRegistered(ui, layerInfo)) return;
   if (delta.wroteVisible) {
-    ui.events.emit(EVENTS.LAYER_CHANGE, {
+    ui.events.emitSuperseding(EVENTS.LAYER_CHANGE, layerInfo.id, {
       id: layerInfo.id,
       kind: layerInfo.kind,
     });
   }
   if (delta.intentMoved) {
     if (!entryStillRegistered(ui, layerInfo)) return;
-    ui.events.emit(EVENTS.LAYER_INTENT_CHANGE, {
+    // Superseding, not plain emit: a subscriber that corrects the intent
+    // inside this notify fires a reentrant round for the same id, and the
+    // outer delivery would otherwise continue handing the subscribers behind
+    // it a value the correction has already replaced — final state correct,
+    // last payload stale. The round emitted after the reentry wins, and this
+    // delivery stops where it was superseded.
+    ui.events.emitSuperseding(EVENTS.LAYER_INTENT_CHANGE, layerInfo.id, {
       id: layerInfo.id,
       kind: layerInfo.kind,
       intent: { visible: intentVisibleOf(ui, layerInfo.id) },

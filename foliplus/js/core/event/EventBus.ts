@@ -57,7 +57,15 @@ class EventBus {
    *  contract: every in-tree emit of a data-bearing event passes its payload
    *  so subscribers can rely on a defined value. A void-payload event takes
    *  no argument. Unknown events (a third-party string not in the map) match
-   *  the `unknown[]` branch and take any arguments. */
+   *  the `unknown[]` branch and take any arguments.
+   *
+   *  Delivery is a bare loop over the handlers, in subscription order. A
+   *  handler that throws propagates to the emitter immediately and the
+   *  handlers behind it in this round do not run. Components publish as the
+   *  *last* step of an operation precisely so this is observable but safe: the
+   *  state the operation wrote is committed either way, and a retry after
+   *  catching the error converges. A handler that hands its failure off
+   *  instead of throwing is unaffected. */
   emit<K extends string>(
     event: K,
     ...args: K extends keyof EventPayloadMap
@@ -72,6 +80,46 @@ class EventBus {
     // Copy before iterating so handlers may subscribe/unsubscribe during emit.
     for (const handler of [...set]) handler(...payload);
   }
+
+  /** Emit an event whose payload is one layer's current state, superseding any
+   *  in-flight delivery of the same (event, id). A synchronous rewrite inside a
+   *  handler — a subscriber correcting its own table, another control bouncing
+   *  the value back — emits a newer payload for the same id while the older
+   *  delivery is still walking its handlers. Without this, the handlers behind
+   *  the reentry point would receive the superseded value *after* the fresh
+   *  one: final state correct, last payload stale. With it, the older delivery
+   *  stops at the reentry point and only the newest write reaches the rest.
+   *
+   *  The payload itself stays a plain snapshot — a handler that stores it and
+   *  reads later sees the value as of this emit, not whatever came after.
+   *  `supersedeKey` is the layer id; the map is keyed by event + id so a
+   *  CHANGE can never abort an INTENT for the same layer. */
+  emitSuperseding<K extends string>(
+    event: K,
+    supersedeKey: string,
+    ...payload: K extends keyof EventPayloadMap
+      ? EventPayloadMap[K] extends void
+        ? []
+        : [NonNullable<EventPayloadMap[K]>]
+      : unknown[]
+  ): void;
+  emitSuperseding(event: string, supersedeKey: string, ...payload: unknown[]): void {
+    const set = this.listeners.get(event);
+    if (!set) return;
+    // Replace the in-flight token first: the loop of whichever delivery is
+    // currently walking this (event, id) sees the swap and stops. This emit
+    // then delivers fresh to everyone from the start.
+    const token = {};
+    const key = `${event}\u0000${supersedeKey}`;
+    this.superseding.set(key, token);
+    for (const handler of [...set]) {
+      if (this.superseding.get(key) !== token) return;
+      handler(...payload);
+    }
+    if (this.superseding.get(key) === token) this.superseding.delete(key);
+  }
+
+  private superseding = new Map<string, object>();
 
   /** Remove all listeners for every event. */
   clear(): void {

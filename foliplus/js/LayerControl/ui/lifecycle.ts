@@ -104,6 +104,11 @@ const attachUI = (ui: LayerUI, containerDiv: HTMLElement): void => {
     // fired by the time their registry entries exist, and a page with only a
     // LayerControl would never have its label config applied. Idempotent.
     ui.applyStyleLabelState();
+    // Second, deliberate settle+notify: this is the compensation round for
+    // late-bound layers (their IDs only resolve once the page's layer globals
+    // exist). The synchronous attach round above already settled and announced
+    // the registry-as-seen; keep the two rounds separate, because this one can
+    // carry extra flips the outer one could not have known about.
     markSettled(ui);
     emitDeltas(ui, replayed);
   }, 0);

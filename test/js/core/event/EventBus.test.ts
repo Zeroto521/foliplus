@@ -77,6 +77,44 @@ describe("EventBus", () => {
     expect(bus.eventCount).toBe(0);
   });
 
+  it("emitSuperseding stops an in-flight delivery a newer write supersedes", () => {
+    // The first handler rewrites the value synchronously inside its own
+    // delivery. The fresh round delivers to everyone, and the *older* round —
+    // still walking its handlers when the rewrite happened — stops at the
+    // reentry point: the handler behind it never receives a value the rewrite
+    // has already replaced.
+    const bus = new EventBus();
+    const key = "layer-a";
+    const seen: string[] = [];
+    const value = (payload: unknown): string => (payload as { value: string }).value;
+    bus.on("evt", payload => {
+      if (value(payload) === "old") bus.emitSuperseding("evt", key, { value: "new" });
+    });
+    bus.on("evt", payload => {
+      seen.push(value(payload));
+    });
+
+    bus.emitSuperseding("evt", key, { value: "old" });
+
+    // The fresh round delivers to everyone; the stale "old" never reaches the
+    // second handler — a plain emit would have delivered ["old", "new"].
+    expect(seen).toEqual(["new"]);
+  });
+
+  it("emitSuperseding delivers normally without a superseding rewrite", () => {
+    const bus = new EventBus();
+    const seen: string[] = [];
+    const value = (payload: unknown): string => (payload as { value: string }).value;
+    bus.on("evt", payload => {
+      seen.push(value(payload));
+    });
+    bus.on("evt", payload => {
+      seen.push(value(payload));
+    });
+    bus.emitSuperseding("evt", "layer-a", { value: "v" });
+    expect(seen).toEqual(["v", "v"]);
+  });
+
   it("eventCount tracks the number of events with listeners", () => {
     const bus = new EventBus();
     bus.on("a", vi.fn());

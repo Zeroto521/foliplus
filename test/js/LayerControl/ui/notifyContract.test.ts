@@ -124,6 +124,9 @@ describe("layer notification contract", () => {
     // carrying. Only a last-step notify gives that: a notify fired mid-
     // operation would hand the second subscriber a panel the first had
     // already moved on from, and it would record [true, false] instead.
+    // The reentrant rewrite supersedes the in-flight delivery, so the outer
+    // round never reaches the second subscriber at all — the correction's
+    // own round is the only one, and it already carries the rewritten state.
     const { ui, map } = initFixture();
     const id = "overlay1";
 
@@ -149,13 +152,41 @@ describe("layer notification contract", () => {
 
     ui.applyVisibility(id, false);
 
-    expect(secondSaw).toEqual([true, true]);
+    expect(secondSaw).toEqual([true]);
     expect(intentVisibleOf(ui, id)).toBe(true);
     expect(onMap.current).toBe(true);
     expect(ui.listPanel.checkedCount[GROUP.OVERLAY]).toEqual({
       total: 1,
       on: 1,
     });
+  });
+
+  it("a reentrant correction never hands a later subscriber a stale intent", () => {
+    // Subscriber 1 reverses the hide synchronously inside the notify, which
+    // fires a reentrant round for the same id; the outer delivery then
+    // continues to subscriber 2. Subscriber 2 must never receive the outer
+    // "hidden" value after the correction's own "visible" — the delivery is
+    // superseded at the reentry point, so subscriber 2 reads only the
+    // correction, and it is the final choice.
+    const { ui, manager } = initFixture();
+    const id = "overlay1";
+
+    let corrected = false;
+    ui.events.on(EVENTS.LAYER_INTENT_CHANGE, payload => {
+      if (payload.id !== id || corrected) return;
+      corrected = true;
+      manager.setVisible(id, true);
+    });
+    const received: boolean[] = [];
+    ui.events.on(EVENTS.LAYER_INTENT_CHANGE, payload => {
+      if (payload.id !== id) return;
+      received.push(payload.intent.visible);
+    });
+
+    manager.setVisible(id, false);
+
+    expect(received).toEqual([true]);
+    expect(intentVisibleOf(ui, id)).toBe(true);
   });
 
   it("the group count reflects the intent a reentrant correction left", () => {
