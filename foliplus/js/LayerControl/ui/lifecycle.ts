@@ -32,8 +32,9 @@ import {
 import { handleDblClick } from "./listPanel/keyboard.js";
 import {
   initLayerItem,
-  initTypesAndVisibility,
   insertLayerItem,
+  markSettled,
+  rebuildList,
   renderInitialList,
   updateLayerItemLabel,
 } from "./listPanel/list.js";
@@ -75,12 +76,7 @@ const attachUI = (ui: LayerUI, containerDiv: HTMLElement): void => {
   // function) so the border and fill dimensions are replayed too — the
   // initial layers never go through registerLayer, which is where the
   // id-specified path replays them for late registrations.
-  ui.applyUserState();
-  // Same boundary as the rebuild handler: the sweep announces, and a
-  // subscriber that destroys the control in that notify takes the container
-  // the cursor and the counts below read. Nothing is subscribed after this
-  // point on a dead panel.
-  if (!ui.uiContainer) return;
+  const moved = ui.applyUserState();
   // Re-apply ARIA/roving after insertLayerItem / applyUserState may have
   // rebuilt rows.
   syncListCursor(ui);
@@ -102,17 +98,21 @@ const attachUI = (ui: LayerUI, containerDiv: HTMLElement): void => {
   subscribeControlAttached(ui);
   setTimeout(() => {
     if (!ui.uiContainer?.isConnected) return;
-    ui.initTypesAndVisibility();
-    // The init pass replays stored state and announces any membership flip; a
-    // subscriber that destroys the control in that notify leaves nothing for
-    // the label replay to paint into.
-    if (!ui.uiContainer) return;
+    const replayed = ui.initTypesAndVisibility();
     // Same replay here as the CONTROL_ATTACHED handler below: folium's layers
     // are added after the control's own script, so that event has already
     // fired by the time their registry entries exist, and a page with only a
     // LayerControl would never have its label config applied. Idempotent.
     ui.applyStyleLabelState();
+    markSettled(ui);
+    emitDeltas(ui, replayed);
   }, 0);
+
+  markSettled(ui);
+  // The round goes out last: every row is painted, the counts agree with them
+  // and the readiness flag is up, so a subscriber that re-enters reads a
+  // finished panel.
+  emitDeltas(ui, moved);
 };
 
 /** Re-run the init pass when another control finishes attaching. Unsubscribes
@@ -124,13 +124,12 @@ const attachUI = (ui: LayerUI, containerDiv: HTMLElement): void => {
 const subscribeControlAttached = (ui: LayerUI): void => {
   ui.unsubscribeControlAttached = ui.events.on(EVENTS.CONTROL_ATTACHED, () => {
     if (!ui.uiContainer?.isConnected) return;
-    ui.initTypesAndVisibility();
-    // Same tail guard: the init pass announces, and a subscriber that destroys
-    // the control in that notify leaves no rows for the label replay.
-    if (!ui.uiContainer) return;
+    const replayed = ui.initTypesAndVisibility();
     // Re-apply is idempotent: a late-registered layer may just now have
     // a resolvable feature set (and thus labelable fields).
     ui.applyStyleLabelState();
+    markSettled(ui);
+    emitDeltas(ui, replayed);
   });
 };
 
@@ -328,14 +327,10 @@ const bindLayerEvents = (ui: LayerUI): void => {
       syncToggleAll(ui, payload.group);
     }),
     bus.on(EVENTS.LAYER_LIST_REBUILD, () => {
-      renderInitialList(ui);
-      initTypesAndVisibility(ui);
-      // The rebuild's replay announces a membership flip for any layer whose
-      // map state disagreed with its stored intent. A subscriber that destroys
-      // the control in that notify leaves no panel for the counts to paint
-      // into — the row list is already the finished arrangement, so stop.
-      if (!ui.uiContainer) return;
-      refreshAllCounts(ui);
+      // The list layer owns this whole operation now — rows, counts,
+      // readiness and the round that goes out afterwards — so the signal
+      // handler is just the wiring from the bus to it.
+      rebuildList(ui);
     }),
     bus.on(EVENTS.LAYER_NO_BASEMAP_CHANGED, () => {
       syncNoBasemap(ui);

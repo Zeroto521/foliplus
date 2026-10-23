@@ -9,7 +9,7 @@ import * as CONST from "#foliplus/LayerControl/const.js";
 import { type LayerController } from "#foliplus/LayerControl/controller.js";
 import { type LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { toggleAll, toggleFold } from "#foliplus/LayerControl/ui/listPanel/index.js";
-import { findItem, initFixture } from "./fixture.js";
+import { attachedPanel, findItem, initFixture } from "./fixture.js";
 
 vi.mock("#foliplus/LayerControl/ui/listPanel/drag.js", async importOriginal => ({
   ...(await importOriginal<
@@ -61,7 +61,7 @@ describe("LayerUI lifecycle — defensive rails", () => {
       // called with the empty string, not undefined, when the row is misconfigured.
       const toggleAllSpy = vi.mocked(toggleAll);
 
-      const row = ui.uiContainer.querySelector(
+      const row = attachedPanel(ui).querySelector(
         `${CONST.SEL.TOGGLE_ALL}[data-group="${GROUP.OVERLAY}"]`,
       ) as HTMLElement;
       row.removeAttribute("data-group");
@@ -82,7 +82,7 @@ describe("LayerUI lifecycle — defensive rails", () => {
       vi.spyOn(ui.listPanel.listCursor!, "setIndex").mockImplementation(setIndexSpy);
 
       const orphan = document.createElement("div");
-      ui.uiContainer.appendChild(orphan);
+      attachedPanel(ui).appendChild(orphan);
       orphan.dispatchEvent(new MouseEvent("click", { bubbles: true }));
 
       expect(ui.listPanel.activeIdx).toBeNull();
@@ -92,7 +92,7 @@ describe("LayerUI lifecycle — defensive rails", () => {
     it("onClick: a toggle-all row without data-group toggles the empty group", () => {
       const toggleFoldSpy = vi.mocked(toggleFold);
 
-      const row = ui.uiContainer.querySelector(
+      const row = attachedPanel(ui).querySelector(
         `${CONST.SEL.TOGGLE_ALL}[data-group="${GROUP.OVERLAY}"]`,
       ) as HTMLElement;
       row.removeAttribute("data-group");
@@ -117,7 +117,7 @@ describe("LayerUI lifecycle — defensive rails", () => {
       const showSolidBasemapSpy = vi
         .spyOn(ui, "showSolidBasemap")
         .mockImplementation(() => {});
-      const colorRow = ui.uiContainer.querySelector<HTMLElement>(
+      const colorRow = attachedPanel(ui).querySelector<HTMLElement>(
         `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
       );
       expect(colorRow).toBeTruthy();
@@ -220,7 +220,7 @@ describe("LayerUI lifecycle — defensive rails", () => {
       // loop must continue past it rather than calling getFeatureCount(undefined).
       const orphan = document.createElement("div");
       orphan.className = CONST.CLASSES.LAYER_ITEM;
-      ui.uiContainer.appendChild(orphan);
+      attachedPanel(ui).appendChild(orphan);
       const getFeatureCount = vi.spyOn(manager, "getFeatureCount");
 
       ui.refreshAllCounts();
@@ -332,13 +332,15 @@ describe("LayerUI lifecycle — defensive rails", () => {
       // after the event was emitted, or a third-party bundle emitting an
       // id the panel does not track) must be a silent no-op, not a null
       // deref on updateLayerItemLabel / invalidateFields.
-      const rowsBefore = ui.uiContainer.querySelectorAll(CONST.SEL.LAYER_ITEM).length;
+      const rowsBefore = attachedPanel(ui).querySelectorAll(
+        CONST.SEL.LAYER_ITEM,
+      ).length;
       expect(() =>
         ensureEvents(map).emit(EVENTS.LAYER_ITEM_UPDATED, {
           id: "never-registered",
         }),
       ).not.toThrow();
-      expect(ui.uiContainer.querySelectorAll(CONST.SEL.LAYER_ITEM).length).toBe(
+      expect(attachedPanel(ui).querySelectorAll(CONST.SEL.LAYER_ITEM).length).toBe(
         rowsBefore,
       );
     });
@@ -357,7 +359,7 @@ describe("LayerUI lifecycle — defensive rails", () => {
 
       ensureEvents(map).emit(EVENTS.LAYER_LIST_REBUILD);
 
-      const rebuilt = ui.uiContainer.querySelector(
+      const rebuilt = attachedPanel(ui).querySelector(
         `[${CONST.DATA.LAYER_ID}="overlay1"]`,
       ) as HTMLElement;
       expect(rebuilt).not.toBeNull();
@@ -370,23 +372,25 @@ describe("LayerUI lifecycle — defensive rails", () => {
         ensureEvents(map).emit(EVENTS.LAYER_NO_BASEMAP_CHANGED),
       ).not.toThrow();
       expect(
-        ui.uiContainer.querySelectorAll(CONST.SEL.LAYER_ITEM).length,
+        attachedPanel(ui).querySelectorAll(CONST.SEL.LAYER_ITEM).length,
       ).toBeGreaterThanOrEqual(1);
     });
 
     it("unbindEvents tears down every layer-signal subscription", () => {
       // After unbindEvents, another LAYER_LIST_REBUILD must be a no-op:
       // renderInitialList would otherwise rebuild the whole panel.
-      const before = ui.uiContainer.querySelectorAll(CONST.SEL.LAYER_ITEM).length;
+      const before = attachedPanel(ui).querySelectorAll(CONST.SEL.LAYER_ITEM).length;
       ui.unbindEvents();
       ensureEvents(map).emit(EVENTS.LAYER_LIST_REBUILD);
-      expect(ui.uiContainer.querySelectorAll(CONST.SEL.LAYER_ITEM).length).toBe(before);
+      expect(attachedPanel(ui).querySelectorAll(CONST.SEL.LAYER_ITEM).length).toBe(
+        before,
+      );
     });
 
     it("drag handlers are wired and dispatch to the drag module", () => {
       // The bindLayerEvents assignments (onDragOver/onDragLeave/onDrop/onDragEnd)
       // must route DOM events to the ui/* module functions without throwing.
-      const row = ui.uiContainer.querySelector(
+      const row = attachedPanel(ui).querySelector(
         `${CONST.SEL.LAYER_ITEM}[${CONST.DATA.LAYER_ID}="overlay1"]`,
       ) as HTMLElement;
       const evt = (type: string): Event =>

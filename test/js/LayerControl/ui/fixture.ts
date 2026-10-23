@@ -281,18 +281,28 @@ const initFixture = (
   return { manager, ui, map };
 };
 
+/** The panel the fixture attached. `uiContainer` is nullable in the product —
+ *  a subscriber can retire the control inside any notify — so a test that
+ *  reaches into the panel says so explicitly and fails loudly when the control
+ *  is gone, rather than silently reading a null. */
+const attachedPanel = (ui: LayerUI): HTMLElement => {
+  const container = ui.uiContainer;
+  if (!container) throw new Error("fixture: the panel is not attached");
+  return container;
+};
+
 const findItem = (ui: LayerUI, id: string): HTMLElement =>
-  ui.uiContainer.querySelector(`[${CONST.DATA.LAYER_ID}="${id}"]`) as HTMLElement;
+  attachedPanel(ui).querySelector(`[${CONST.DATA.LAYER_ID}="${id}"]`) as HTMLElement;
 
 /** Resolve the overlay group's toggle-all row and its chevron, plus a live
  *  read of its child rows. */
 const attachWithGroup = (ui: LayerUI) => {
-  const row = ui.uiContainer.querySelector(
+  const row = attachedPanel(ui).querySelector(
     `.${CONST.CLASSES.TOGGLE_ALL}[data-group="${GROUP.OVERLAY}"]`,
   ) as HTMLElement;
   const children = () =>
     Array.from(
-      ui.uiContainer.querySelectorAll<HTMLElement>(
+      attachedPanel(ui).querySelectorAll<HTMLElement>(
         `${CONST.SEL.LAYER_ITEM}[data-layer-type="${GROUP.OVERLAY}"]`,
       ),
     );
@@ -324,6 +334,7 @@ const overlayFoldBtn = (root: ParentNode) =>
 export {
   allFolded,
   attachWithGroup,
+  attachedPanel,
   findItem,
   initFixture,
   installLeafletGlobals,

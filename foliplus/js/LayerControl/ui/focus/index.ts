@@ -6,7 +6,7 @@
 import { HINT_DURATION } from "#core/hint.js";
 import { ensureModes, guardBlocked } from "#core/mode.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
-import { type ProjectionDelta, applyProjectionAll, emitDeltas } from "../apply.js";
+import { type ProjectionDeltaItem, applyProjectionAll, emitDeltas } from "../apply.js";
 import type { LayerUI } from "../surface.js";
 import { closeOverlays } from "../teardown.js";
 import { showFocusDisabledHint } from "./hint.js";
@@ -63,7 +63,7 @@ const focusLayer = (ui: LayerUI, layerId: string) => {
   const layer = ui.c.findLayer(layerInfo);
 
   // Hidden layer: nothing to focus on — show a hint instead.
-  const itemEl = ui.uiContainer.querySelector(
+  const itemEl = ui.uiContainer?.querySelector(
     `[${CONST.DATA.LAYER_ID}="${CSS.escape(layerId)}"]`,
   ) as HTMLElement | null;
   const checkbox = itemEl?.querySelector(
@@ -81,11 +81,7 @@ const focusLayer = (ui: LayerUI, layerId: string) => {
   // rejoins the map so the rectangle highlight is visible. That add is a real
   // membership change; its delta is collected here and announced with the rest
   // of the focus round, once the focus state is fully established.
-  const rejoined: Array<{
-    id: string;
-    delta: ProjectionDelta;
-    entry: LayerInfo;
-  }> = [];
+  const rejoined: ProjectionDeltaItem[] = [];
   let rejoinedLayer: L.Layer | null = null;
   if (layer) {
     // Ensure the layer is on the map so the rectangle highlight is visible.
@@ -312,7 +308,7 @@ const highlightFocusedRow = (
 
 /** Remove the `foliplus-is-focusing` class from the active row. */
 const clearFocusedRowHighlight = (ui: LayerUI): void => {
-  const prev = ui.uiContainer.querySelector(`.${CONST.CLASSES.FOCUSING}`);
+  const prev = ui.uiContainer?.querySelector(`.${CONST.CLASSES.FOCUSING}`);
   prev?.classList.remove(CONST.CLASSES.FOCUSING);
 };
 

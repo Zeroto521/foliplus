@@ -10,13 +10,7 @@ import type { Logger } from "#common/type.js";
 import * as CONST from "../const.js";
 import type { LayerController } from "../controller.js";
 import type { LayerIntentStore } from "../domain/index.js";
-import {
-  type ProjectionDelta,
-  applyProjection,
-  applyProjectionAll,
-  emitDeltas,
-  isProjectionBatch,
-} from "./apply.js";
+import { type ProjectionBatch, applyProjection, applyProjectionAll } from "./apply.js";
 import { hideSolidBasemap, resetSolidBasemap, showSolidBasemap } from "./color.js";
 import { FocusController, cancelFocus, focusLayer, isFocusing } from "./focus/index.js";
 import { seedAuthorVisible } from "./intent.js";
@@ -45,7 +39,7 @@ import {
   initLayerItem,
   initTypesAndVisibility,
   insertLayerItem,
-  reindexAfterMove,
+  rebuildList,
   renderInitialList,
   updateLayerItemLabel,
 } from "./listPanel/list.js";
@@ -217,9 +211,12 @@ class LayerUI implements LayerUISurface {
     return this.controller;
   }
 
-  /** The attached panel container. Only valid after attachUI(). */
-  get uiContainer(): HTMLElement {
-    return this.c.uiContainer!;
+  /** The attached panel container. Null before attachUI() and after a
+   *  teardown — the type says so, because a subscriber can retire the control
+   *  inside any notify and every continuation then has to decide for itself
+   *  whether it still has a panel to paint into. */
+  get uiContainer(): HTMLElement | null {
+    return this.c.uiContainer;
   }
 
   /**
@@ -265,7 +262,7 @@ class LayerUI implements LayerUISurface {
   saveState() {
     return saveState(this);
   }
-  applyUserState(id?: string): ProjectionDelta | void {
+  applyUserState(id?: string): ProjectionBatch {
     const moved = applyUserState(this, id);
     // The executor carries visible / opacity / zoomRange only. Border and
     // fill are direct setStyle writes, so without their own replay a reload
@@ -281,18 +278,16 @@ class LayerUI implements LayerUISurface {
     // for border but not for fill, and vice versa, so a reload could restore
     // the drawer's swatch for one dimension while leaving the map with the
     // author's for the other.
+    //
+    // The round goes back to the caller rather than out of here: the entry that
+    // owns the replay also owns the rows, counts and chrome it has to settle
+    // before announcing, and only it knows when that is done.
     const layerIds = id !== undefined ? [id] : this.intentStore.userSetIds();
     for (const layerId of layerIds) {
       applyBorderToLayer(this, layerId);
       replayFillState(this, layerId);
     }
-    if (!isProjectionBatch(moved)) return moved;
-    // The full replay is announced here, after the direct style writes above:
-    // the sweep settled visible / opacity / zoomRange, this shell settles
-    // border and fill, and only then does the round go out — so a subscriber
-    // reads the colors the user stored, not the author's that were still on
-    // the map when the sweep fired.
-    emitDeltas(this, moved);
+    return moved;
   }
   dropPersistedLayerState(layerId: string) {
     return dropPersistedLayerState(this, layerId);
@@ -323,7 +318,9 @@ class LayerUI implements LayerUISurface {
     return initLayerItem(this, layerInfo);
   }
   reindexAfterMove() {
-    return reindexAfterMove(this);
+    // The rebuild entry owns rows, counts, readiness and the round; a caller
+    // that just moved a layer only has to ask for it.
+    return rebuildList(this);
   }
 
   // ── delegates: visibility ──

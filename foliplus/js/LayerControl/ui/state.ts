@@ -11,12 +11,7 @@
 // unchanged.
 import * as CONST from "../const.js";
 import type { LayerOverride } from "../type.js";
-import {
-  type ProjectionBatch,
-  type ProjectionDelta,
-  applyProjection,
-  applyProjectionAll,
-} from "./apply.js";
+import { type ProjectionBatch, applyProjection, applyProjectionAll } from "./apply.js";
 import { applyNameProjection } from "./context.js";
 import { INTENT, LIVE, getIntent } from "./intent.js";
 import type { LayerUI } from "./surface.js";
@@ -139,10 +134,7 @@ const unmarkOverride = (ui: LayerUI, id: string, override: LayerOverride) => {
  *   hidden and a missing rename must not write undefined.
  */
 
-const applyUserState = (
-  ui: LayerUI,
-  id?: string,
-): ProjectionDelta | ProjectionBatch | void => {
+const applyUserState = (ui: LayerUI, id?: string): ProjectionBatch => {
   const registry = ui.c.layerRegistry;
   const container = ui.uiContainer;
 
@@ -156,7 +148,9 @@ const applyUserState = (
   // taken once its JS global exists.
   if (id) {
     const layerInfo = registry.get(id);
-    if (!layerInfo) return; // not registered yet — its stored state is kept
+    // Not registered yet — its stored state is kept for the component that
+    // eventually claims the id.
+    if (!layerInfo) return [];
     // One id, one projection: a late registration replays every stored
     // dimension on the same pass — visibility, opacity and zoom range — so
     // nothing needs a per-caller replay path: a late arrival replays itself.
@@ -169,11 +163,11 @@ const applyUserState = (
     // late registration, so without it the layer would keep the slot it was
     // inserted into rather than the position the user already arranged.
     ui.c.replaySavedOrder(id);
-    // The delta is returned, not announced here: a late registration can join
+    // The round is returned, not announced here: a late registration can join
     // the map on this replay, and the caller owns the complete operation (the
     // registration entry refreshes the row and the group count first, then
     // publishes so a subscriber reads the settled panel).
-    return moved;
+    return [{ id, delta: moved, entry: layerInfo }];
   }
 
   // The registry is the sweep, not the intent store: a layer the user left

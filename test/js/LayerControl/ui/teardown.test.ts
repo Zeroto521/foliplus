@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerController } from "#foliplus/LayerControl/controller.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
-import { findItem, initFixture } from "./fixture.js";
+import { attachedPanel, findItem, initFixture } from "./fixture.js";
 
 // focusLayer() reaches guardBlocked() through a free import rather than a
 // `map.foliplus` reference, so it has to be mocked to flip the block on.
@@ -61,7 +61,7 @@ const OPEN: Record<Surface, (ui: LayerUI, item: HTMLElement) => void> = {
 /** The DOM / state trace each surface leaves behind when it is up. */
 const IS_UP: Record<Surface, (ui: LayerUI) => boolean> = {
   attrs: ui =>
-    ui.uiContainer.querySelectorAll(`.${CONST.CLASSES.ATTRS_PANEL}`).length > 0,
+    attachedPanel(ui).querySelectorAll(`.${CONST.CLASSES.ATTRS_PANEL}`).length > 0,
   style: ui => ui.overlayPanel.stylePanelLayerId !== null,
   menu: ui => ui.overlayPanel.activeMenu !== null,
   rename: ui => ui.overlayPanel.activeRenameId !== null,

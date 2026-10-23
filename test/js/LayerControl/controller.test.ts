@@ -736,7 +736,8 @@ describe("LayerController", () => {
     manager.uiContainer = document.createElement("div");
     manager.ui = {
       intentStore: makeStore(),
-      applyUserState: vi.fn(),
+      // The replay entry point always returns a round; the stub has to honour it.
+      applyUserState: vi.fn(() => []),
     } as any;
     const emitSpy = vi.spyOn(manager.events, "emit");
     manager.registerLayer({
@@ -1952,7 +1953,8 @@ describe("LayerController", () => {
     manager.uiContainer = document.createElement("div");
     manager.ui = {
       intentStore: makeStore(),
-      applyUserState: vi.fn(),
+      // The replay entry point always returns a round; the stub has to honour it.
+      applyUserState: vi.fn(() => []),
     } as any;
     const emitSpy = vi.spyOn(manager.events, "emit");
     manager.registerLayer({ id: "overlay1", name: "Renamed" });
@@ -3675,7 +3677,7 @@ describe("LayerController user-assigned names", () => {
     // `opts.name` over the existing value, reverting the panel to the
     // original on the next render or reload.
     manager.ui!.renameLayer("ext");
-    const item = manager.ui!.uiContainer.querySelector(
+    const item = manager.ui!.uiContainer!.querySelector(
       `[${CONST.DATA.LAYER_ID}="ext"]`,
     )!;
     const label = item.querySelector("label") as HTMLLabelElement;

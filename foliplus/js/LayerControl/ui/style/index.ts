@@ -97,7 +97,7 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
   // whatever the user had open and then fail to open anything. The panel
   // render stays after closeOverlays — `renderDelegatedStylePanel` sets
   // `ui.overlayPanel.styleRefresh` on this call, which `closeStylePanel` would wipe.
-  const item = ui.uiContainer.querySelector(
+  const item = ui.uiContainer?.querySelector(
     `${CONST.SEL.LAYER_ITEM}[${CONST.DATA.LAYER_ID}="${CSS.escape(layerId)}"]`,
   ) as HTMLElement | null;
   if (!item) return;

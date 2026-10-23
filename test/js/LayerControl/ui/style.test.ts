@@ -31,7 +31,13 @@ import { resetLayerZoomRange } from "#foliplus/LayerControl/ui/style/zoomRange.j
 import { ensureModes } from "#foliplus/core/mode.js";
 import { getLayerAlpha } from "#common/canvasAlpha.js";
 import { NUMBER_FORMAT } from "#common/format.js";
-import { GridLayer, findItem, initFixture, installLeafletGlobals } from "./fixture.js";
+import {
+  GridLayer,
+  attachedPanel,
+  findItem,
+  initFixture,
+  installLeafletGlobals,
+} from "./fixture.js";
 
 /** Percentage the slider fill is drawn at, read off the primitive's inline
  *  width. The fill spans the rail's travel range, so 0.35 means 35%. */
@@ -1683,7 +1689,7 @@ describe("LayerUI style panel", () => {
     // "no extent" verdict, an off row is simply hidden and has nothing to
     // style. The color basemap starts unchecked, so its Style entry starts
     // disabled and turns on with the box.
-    const item = ui.uiContainer.querySelector(
+    const item = attachedPanel(ui).querySelector(
       `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
     ) as HTMLElement;
     const box = item.querySelector('input[type="checkbox"]') as HTMLInputElement;

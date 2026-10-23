@@ -4,9 +4,15 @@
 // before the bus delivers. Subscribers therefore always observe a settled
 // panel, no matter what they do synchronously inside the handler.
 //
+// The entry that owns the panel decides when that is: the full replay returns
+// its round instead of announcing (the sweep only reports what moved), and the
+// attach, init, control-attached and list-rebuild entries publish after their
+// own rows, counts, readiness flag and label replay — so the "settled panel"
+// claim holds on the rebuild path too, not just on the single-entry
+// operations.
+//
 // These drive the real operation endpoints (`applyVisibility`, the zoomend
-// sweep) rather than the executor: the executor no longer emits at all, it
-// only reports what moved.
+// sweep) rather than the executor.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
 import { GROUP } from "#core/layer/index.js";
@@ -14,7 +20,7 @@ import * as CONST from "#foliplus/LayerControl/const.js";
 import { setIntent } from "#foliplus/LayerControl/ui/intent.js";
 import { intentVisibleOf } from "#foliplus/LayerControl/ui/projection.js";
 import { resetLayerZoomRange } from "#foliplus/LayerControl/ui/style/zoomRange.js";
-import { attachWithGroup, findItem, initFixture } from "./fixture.js";
+import { attachWithGroup, attachedPanel, findItem, initFixture } from "./fixture.js";
 
 /** A polygon-shaped layer stub — enough for the surface to resolve. */
 const polygonLayer = () =>
@@ -759,9 +765,10 @@ describe("layer notification contract", () => {
   it("a full replay announces after the direct style writes have landed", () => {
     // The full sweep projects visible / opacity / zoomRange and only reports
     // what moved; border and fill are direct `setStyle` writes that the shell
-    // replays afterwards. The sweep used to announce before them, so a
-    // subscriber read the color the author had declared while the shell was
-    // about to overwrite it.
+    // replays after it. Both land before the owning entry publishes, so a
+    // subscriber reads the color the user stored rather than the author's that
+    // the shell was about to overwrite. Driven through the control-attached
+    // re-run, which is a real full replay from a real entry.
     const setStyle = vi.fn();
     const layer = polygonLayerWithStyle(
       { color: "#111111", fillColor: "#222222" },
@@ -772,7 +779,6 @@ describe("layer notification contract", () => {
     });
 
     setIntent(ui, "overlay1", "borderColor", "#abcdef");
-    ui.intentStore.seedProvenance("overlay1", ["borderColor"]);
     // The hide is what gives the sweep a delta to report at all.
     setIntent(ui, "overlay1", "visible", false);
     ui.intentStore.seedProvenance("overlay1", ["borderColor", "visible"]);
@@ -786,7 +792,7 @@ describe("layer notification contract", () => {
       borderAtDelivery.push(writes.find(write => write.color !== undefined)?.color);
     });
 
-    ui.applyUserState();
+    ui.events.emit(EVENTS.CONTROL_ATTACHED, { component: "HeatmapControl" });
 
     expect(borderAtDelivery).toEqual(["#abcdef"]);
   });
@@ -901,32 +907,70 @@ describe("layer notification contract", () => {
     expect(ui.c.layerRegistry.has("alpha")).toBe(false);
   });
 
-  it("an init pass whose replay destroys the control stops before the row paint", () => {
-    // The same boundary at the other end of the chain: the init pass owns the
-    // row paint, the tri-state counts and the cursor behind the persisted-state
-    // replay, so it checks the panel is still here before continuing.
+  it("a rebuild announces only once the panel is settled", () => {
+    // The reorder path repaints the whole list from bare rows: `renderLayerItem`
+    // writes every checkbox checked, leaves the count column empty and drops the
+    // active class, and only the per-row pass after the replay puts the real
+    // face on them. The replay's own notify used to fire from inside that pass,
+    // so a subscriber read a half-painted panel — the same input that used to
+    // crash it. Now the round goes out after the rows, the counts and the
+    // readiness flag, and this test pins exactly that: what a subscriber sees
+    // at delivery is what the panel looks like when the operation returns.
     const layerAlpha = polygonLayer();
     const layerBeta = polygonLayer();
-    const { ui } = initFixture({
+    const layerGamma = polygonLayer();
+    const { ui, manager } = initFixture({
       data: [
         { id: "alpha", name: "Alpha", group: "overlay", layer: layerAlpha },
         { id: "beta", name: "Beta", group: "overlay", layer: layerBeta },
+        { id: "gamma", name: "Gamma", group: "overlay", layer: layerGamma },
       ],
     });
     const onMap = trackMembership(ui.c.map);
     onMap.set(layerAlpha, true);
     onMap.set(layerBeta, true);
-    ui.c.map.removeLayer(layerBeta);
+    onMap.set(layerGamma, true);
+    // A row the user hid: once settled it must read unchecked.
+    setIntent(ui, "gamma", "visible", false);
+    ui.intentStore.seedProvenance("gamma", ["visible"]);
+    // beta is off the map while its intent still says visible, so the rebuild's
+    // replay has a membership flip to announce.
+    manager.map.removeLayer(layerBeta);
 
-    const changes: string[] = [];
+    const snapshot = () => {
+      const rows = Array.from(
+        attachedPanel(ui).querySelectorAll<HTMLElement>(
+          `${CONST.SEL.LAYER_ITEM}[data-layer-type="${GROUP.OVERLAY}"]`,
+        ),
+      );
+      return {
+        order: rows.map(row => row.dataset.layerId).join(","),
+        checked: rows.map(
+          row =>
+            (row.querySelector('input[type="checkbox"]') as HTMLInputElement).checked,
+        ),
+        active: rows.map(row => row.classList.contains(CONST.CLASSES.ACTIVE)),
+        counts: rows.map(
+          row => row.querySelector(`.${CONST.CLASSES.COUNT_COL}`)?.textContent,
+        ),
+        ready: attachedPanel(ui).getAttribute("data-ready"),
+      };
+    };
+
+    let atDelivery: ReturnType<typeof snapshot> | null = null;
     ui.events.on(EVENTS.LAYER_CHANGE, payload => {
-      changes.push(payload.id);
-      if (payload.id === "beta") ui.c.destroy();
+      if (payload.id === "beta" && !atDelivery) atDelivery = snapshot();
     });
 
-    expect(() => ui.initTypesAndVisibility()).not.toThrow();
-    expect(changes).toEqual(["beta"]);
-    expect(ui.c.isDestroyed).toBe(true);
+    expect(manager.moveLayerDown("alpha")).toBe(true);
+
+    expect(atDelivery).toEqual(snapshot());
+    expect(atDelivery).toMatchObject({
+      order: "beta,alpha,gamma",
+      checked: [true, true, false],
+      active: [true, true, false],
+      ready: "true",
+    });
   });
 
   it("a CHANGE that retires its layer suppresses the intent half", () => {
@@ -1037,55 +1081,52 @@ describe("layer notification contract", () => {
     expect(initSpy).not.toHaveBeenCalled();
   });
 
-  it("an init pass whose replay destroys the control skips the label replay", () => {
-    // The attach sweep is silent for this layer — the map and the stored
-    // intent agree — so the flip is introduced between attach and the init
-    // timer. The timer's replay then has a membership flip to announce, and
-    // the teardown lands mid-pass rather than after it.
+  it("an init pass announces after the label replay has landed", () => {
+    // The init timer replays the persisted state and then repaints label
+    // configs. Both land before the pass's own round goes out, so a subscriber
+    // reading the panel during the CHANGE sees the finished pass rather than a
+    // list whose labels are still the previous generation's. The first init
+    // also registers the color basemap, whose own registration round precedes
+    // the label replay — that round belongs to the registration entry, so the
+    // contract locked here is the pass's: by the time its notifications start,
+    // the replay has landed.
     const layer = polygonLayer();
-    const changes: string[] = [];
-    let labelSpy: ReturnType<typeof vi.spyOn> | null = null;
+    let labelsAtDelivery: number | null = null;
     const { manager } = initFixture({
       data: [{ id: "overlay1", name: "Polygons", group: "overlay", layer }],
       afterAttach: (m, u) => {
         const onMap = trackMembership(m.map);
         onMap.set(layer, true);
         m.map.removeLayer(layer);
-        labelSpy = vi.spyOn(u, "applyStyleLabelState");
-        u.events.on(EVENTS.LAYER_CHANGE, payload => {
-          changes.push(payload.id);
-          if (payload.id === "overlay1" && !m.isDestroyed) m.destroy();
+        // Installed after attach, so the count belongs to this entry's run.
+        const labelSpy = vi.spyOn(u, "applyStyleLabelState");
+        u.events.on(EVENTS.LAYER_CHANGE, () => {
+          labelsAtDelivery = labelSpy.mock.calls.length;
         });
       },
     });
 
-    expect(changes).toContain("overlay1");
-    expect(manager.isDestroyed).toBe(true);
-    expect(labelSpy).not.toHaveBeenCalled();
+    expect(labelsAtDelivery).toBe(1);
+    expect(manager.isDestroyed).toBe(false);
   });
 
-  it("a control-attached replay whose notify destroys the control skips the label replay", () => {
-    // The same boundary on the re-run path: a later component attaching
-    // re-triggers the init pass, whose replay can announce. The round stops at
-    // the teardown — the layers behind it in the same sweep deliver nothing
-    // once the registry is gone — and the label replay never runs.
+  it("a control-attached re-run announces after the label replay has landed", () => {
+    // Same boundary on the re-run path: a later component attaching re-triggers
+    // the init pass, and the label replay is part of that pass.
     const { ui, manager } = oneOverlay();
     setIntent(ui, "overlay1", "visible", false);
     ui.intentStore.seedProvenance("overlay1", ["visible"]);
     const labelSpy = vi.spyOn(ui, "applyStyleLabelState");
 
-    let announced = 0;
+    let labelsAtDelivery: number | null = null;
     ui.events.on(EVENTS.LAYER_CHANGE, () => {
-      announced += 1;
-      if (!manager.isDestroyed) manager.destroy();
+      labelsAtDelivery = labelSpy.mock.calls.length;
     });
 
     ui.events.emit(EVENTS.CONTROL_ATTACHED, { component: "HeatmapControl" });
 
-    expect(announced).toBe(1);
-    expect(manager.isDestroyed).toBe(true);
-    expect(ui.uiContainer).toBeNull();
-    expect(labelSpy).not.toHaveBeenCalled();
+    expect(labelsAtDelivery).toBe(1);
+    expect(manager.isDestroyed).toBe(false);
   });
 
   it("a bringLayerToFront whose rebuild replay destroys the control announces nothing", () => {

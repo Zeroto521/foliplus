@@ -134,7 +134,7 @@ describe("ui/color", () => {
       { id: "overlay_1", group: "overlay" },
     ]);
     const rows = [
-      ...ui.uiContainer.querySelectorAll<HTMLElement>(CONST.SEL.LAYER_ITEM),
+      ...ui.uiContainer!.querySelectorAll<HTMLElement>(CONST.SEL.LAYER_ITEM),
     ];
     const before = rows.map(row => ({
       checked: row.querySelector<HTMLInputElement>("input[type=checkbox]")?.checked,
@@ -156,7 +156,7 @@ describe("ui/color", () => {
 
   it("showSolidBasemap tolerates a row without a checkbox (partially rendered)", () => {
     const { ui } = makeUi([{ id: "base_nochk", group: "base" }]);
-    const row = ui.uiContainer.querySelector<HTMLElement>(
+    const row = ui.uiContainer!.querySelector<HTMLElement>(
       `[${CONST.DATA.LAYER_ID}="base_nochk"]`,
     );
     row!.innerHTML = "";

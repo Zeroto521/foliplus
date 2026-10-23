@@ -26,6 +26,7 @@ import { ensureModes } from "#foliplus/core/mode.js";
 import {
   GridLayer,
   attachWithGroup,
+  attachedPanel,
   findItem,
   initFixture,
   makePane,
@@ -1655,7 +1656,7 @@ describe("LayerUI focus", () => {
     it("does NOT focus the layer on a dblclick of the rename input", () => {
       const focusSpy = vi.spyOn(ui, "focusLayer");
       ui.renameLayer("overlay1");
-      const input = ui.uiContainer.querySelector(
+      const input = attachedPanel(ui).querySelector(
         `.${CONST.CLASSES.RENAME_INPUT}`,
       ) as HTMLElement;
       expect(input).not.toBeNull();
@@ -2024,7 +2025,7 @@ describe("LayerUI focus", () => {
   // filter, or the indices below drift and the cursor lands on the wrong row.
   const navigableItems = () =>
     Array.from(
-      ui.uiContainer.querySelectorAll<HTMLElement>(
+      attachedPanel(ui).querySelectorAll<HTMLElement>(
         `${CONST.SEL.LAYER_ITEM},${CONST.SEL.TOGGLE_ALL}`,
       ),
     );
@@ -2154,7 +2155,7 @@ describe("LayerUI focus", () => {
       const bare = document.createElement("div");
       bare.className = CONST.CLASSES.LAYER_ITEM;
       bare.setAttribute(CONST.DATA.LAYER_ID, "bare");
-      ui.uiContainer.appendChild(bare);
+      attachedPanel(ui).appendChild(bare);
       ui.listPanel.activeIdx = navigableItems().indexOf(bare);
       expect(getActiveLayerItem(ui)).toBe(bare);
       const changes = vi.fn();

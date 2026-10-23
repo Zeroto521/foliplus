@@ -29,6 +29,7 @@ import {
   GridLayer,
   TEST_ENV,
   TileLayer,
+  attachedPanel,
   findItem,
   initFixture,
   installLeafletGlobals,
@@ -693,7 +694,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
       expect(map.removeLayer).toHaveBeenCalledWith(base1);
       expect(map.removeLayer).toHaveBeenCalledWith(base2);
       // Color-layer fallback must NOT activate when the user intentionally hid every base.
-      const colorItem = ui.uiContainer.querySelector(
+      const colorItem = attachedPanel(ui).querySelector(
         `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
       ) as HTMLElement | null;
       expect(colorItem?.classList.contains(CONST.CLASSES.ACTIVE)).toBe(false);
@@ -718,7 +719,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
         { id: "overlay1", name: "O", group: "overlay", layer: poly },
       ]);
 
-      const colorItem = ui.uiContainer.querySelector(
+      const colorItem = attachedPanel(ui).querySelector(
         `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
       ) as HTMLElement | null;
       expect(colorItem?.classList.contains(CONST.CLASSES.ACTIVE)).toBe(false);
@@ -754,7 +755,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
       // However, only base1 is hidden (not "all bases"), so the color fallback
       // must NOT activate — the user might re-show base1 at any time.
       expect(map.removeLayer).toHaveBeenCalledWith(base1);
-      const colorItem = ui.uiContainer.querySelector(
+      const colorItem = attachedPanel(ui).querySelector(
         `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
       ) as HTMLElement | null;
       expect(colorItem?.classList.contains(CONST.CLASSES.ACTIVE)).toBe(false);
@@ -1168,7 +1169,7 @@ describe("event-driven row refresh", () => {
     events.emit(EVENTS.CONTROL_ATTACHED, { component: "ScaleControl" });
     // The callback keeps the rendered rows intact (init re-syncs, no error).
     expect(
-      ui.uiContainer.querySelectorAll(`.${CONST.CLASSES.LAYER_ITEM}`).length,
+      attachedPanel(ui).querySelectorAll(`.${CONST.CLASSES.LAYER_ITEM}`).length,
     ).toBeGreaterThan(0);
   });
 });
@@ -1737,7 +1738,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
 
     ui.applyUserState();
 
-    const colorItem = ui.uiContainer.querySelector(
+    const colorItem = attachedPanel(ui).querySelector(
       `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
     ) as HTMLElement | null;
     expect(colorItem).not.toBeNull();
@@ -1753,7 +1754,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
 
     ui.applyUserState();
 
-    const item = ui.uiContainer.querySelector(
+    const item = attachedPanel(ui).querySelector(
       `[${CONST.DATA.LAYER_ID}="overlay1"]`,
     ) as HTMLElement | null;
     expect(item).not.toBeNull();

@@ -6,6 +6,7 @@ import {
   removeInlineEditInput,
   updateItemLabel,
 } from "#common/dom.js";
+import { emitDeltas } from "../apply.js";
 import { INTENT, setIntent } from "../intent.js";
 import { displayName } from "../listPanel/rowView.js";
 import { saveNamesState } from "../state.js";
@@ -63,9 +64,12 @@ const renameLayer = (ui: LayerUI, layerId: string): void => {
         // layer's own metadata cannot resurrect the author's original name.
         setIntent(ui, layerId, INTENT.NAME, trimmed);
         saveNamesState(ui);
-        ui.applyUserState();
       }
+      const moved = changed ? ui.applyUserState() : [];
+      // Settle the visible rename first — the input comes down and the label
+      // goes back up from the registry — and only then does the round go out.
       finishRename(ui, true);
+      emitDeltas(ui, moved);
     },
     onCancel: reason => {
       // Only an empty-name commit is a user mistake worth flagging;

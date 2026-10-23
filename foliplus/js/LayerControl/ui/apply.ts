@@ -376,29 +376,38 @@ type ProjectionDelta = {
 
 const NO_DELTA: ProjectionDelta = { wroteVisible: false, intentMoved: false };
 
-/** The layers a sweep moved, paired with what each one moved — the work a
- *  caller queues until its own side effects have settled, then publishes as one
- *  round through `emitDeltas`. Each item stamps the registry entry the delta
- *  was computed against, because a delta belongs to the instance that produced
- *  it: a subscriber that retires the entry during an earlier delivery of the
- *  same round skips it at delivery time, and a lookup by id alone would
- *  happily deliver the retired layer's delta to the replacement now holding
- *  that id. Read-only — a caller hands the round off, it does not trim it. */
-type ProjectionBatch = ReadonlyArray<{
+/** One layer's share of a round. Callers that build a round incrementally
+ *  (focus, bulk toggle) collect these; `ProjectionBatch` is the read-only view
+ *  they hand to `emitDeltas`. */
+type ProjectionDeltaItem = {
   id: string;
   delta: ProjectionDelta;
   entry: LayerInfo;
-}>;
+};
 
-/** The caller cannot tell the two return shapes apart by shape, so the split
- *  has an explicit guard instead of an `Array.isArray` cast — that does not
- *  narrow a `ReadonlyArray` member out of a union, because a readonly array
- *  is not assignable to the mutable `any[]` the cast narrows to. */
-const isProjectionBatch = (value: unknown): value is ProjectionBatch =>
-  Array.isArray(value);
+/** The layers a pass moved, paired with what each one moved — the work a caller
+ *  queues until its own side effects have settled, then publishes as one round
+ *  through `emitDeltas`. Every projection entry point returns one of these,
+ *  including the single-id one: an id that did not move contributes an empty
+ *  delta, an id with no entry contributes nothing at all. One shape means one
+ *  handling path, and no caller has to ask which of three return values it
+ *  got.
+ *
+ *  Each item stamps the registry entry the delta was computed against, because
+ *  a delta belongs to the instance that produced it: a subscriber that retires
+ *  the entry during an earlier delivery of the same round skips it at delivery
+ *  time, and a lookup by id alone would happily deliver the retired layer's
+ *  delta to the replacement now holding that id. Read-only — a caller hands the
+ *  round off, it does not trim it. */
+type ProjectionBatch = ReadonlyArray<ProjectionDeltaItem>;
 
-/** Diff the current projection against the last one we wrote, and call
+/** Diff one entry's current projection against the last one we wrote, and call
  *  `dispatchStateOp` only for the dimensions that moved.
+ *
+ *  Takes the entry rather than its id so a delta and the entry it was computed
+ *  against can never disagree: a sweep stamps its round with the entries it
+ *  snapshotted, and a lookup by id inside this pass could resolve a different
+ *  instance by the time the round is delivered.
  *
  *  Ordering: `visible (effective)` and `opacity` are independent of each
  *  other, so they apply in either order. The zoomRange dimension itself is
@@ -430,13 +439,12 @@ const isProjectionBatch = (value: unknown): value is ProjectionBatch =>
  *  delta is computed from pre-update state, and a subscriber that throws
  *  or tears the map down leaves the operation's own paint behind.
  */
-const applyProjection = (
+const projectEntry = (
   ui: LayerUI,
-  id: string,
+  layerInfo: LayerInfo,
   repaintMode: "debounce" | "none" = "none",
 ): ProjectionDelta => {
-  const layerInfo = ui.c.layerRegistry.get(id);
-  if (!layerInfo) return NO_DELTA;
+  const id = layerInfo.id;
   // A surface is mandatory for a write target (see `carrierOf` / `dispatchStateOp`
   // below) — the same defensive gate `hideOtherLayers` carries against a
   // missing surface. A layer whose surface could not be built (a late-
@@ -579,6 +587,18 @@ const applyProjection = (
   return { wroteVisible, intentMoved };
 };
 
+/** Project one registered layer. The id-resolving entry point for callers that
+ *  hold an id rather than an entry; a sweep goes straight to `projectEntry` so
+ *  its stamp and its work stay on the same instance. */
+const applyProjection = (
+  ui: LayerUI,
+  id: string,
+  repaintMode: "debounce" | "none" = "none",
+): ProjectionDelta => {
+  const layerInfo = ui.c.layerRegistry.get(id);
+  return layerInfo ? projectEntry(ui, layerInfo, repaintMode) : NO_DELTA;
+};
+
 /** The single bus notification point for a projection pass: `LAYER_CHANGE`
  *  (the map-facing flip subscribers most often react to) first, then
  *  `LAYER_INTENT_CHANGE` (the user-only channel for policy-gated intent
@@ -673,21 +693,16 @@ const emitDeltas = (ui: LayerUI, deltas: ProjectionBatch): void => {
 const applyProjectionAll = (
   ui: LayerUI,
   repaintMode: "debounce" | "none" = "none",
-): Array<{ id: string; delta: ProjectionDelta; entry: LayerInfo }> => {
-  const deltas: Array<{
-    id: string;
-    delta: ProjectionDelta;
-    entry: LayerInfo;
-  }> = [];
+): ProjectionBatch => {
+  const deltas: ProjectionDeltaItem[] = [];
   // The registry, snapshotted as entries before the first write: a projection
   // that brings a layer onto the map mid-sweep must not widen the set this
   // pass walks, and a mid-sweep replacement stays out of the round this sweep
-  // started so the caller can still tell the two apart at delivery. Each
-  // entry resolves its own projection inside `applyProjection`, so nothing
-  // computed here is reused — a basemap that moves the zoom bounds mid-sweep
-  // is re-read per layer.
+  // started so the caller can still tell the two apart at delivery. Each entry
+  // is projected *as itself* — the delta and the stamp it travels with are the
+  // same instance by construction, not by a lookup that happened to agree.
   for (const entry of [...ui.c.layers]) {
-    const delta = applyProjection(ui, entry.id, repaintMode);
+    const delta = projectEntry(ui, entry, repaintMode);
     if (delta.wroteVisible || delta.intentMoved) {
       deltas.push({ id: entry.id, delta, entry });
     }
@@ -696,7 +711,7 @@ const applyProjectionAll = (
   return deltas;
 };
 
-export type { ProjectionDelta, ProjectionBatch };
+export type { ProjectionDelta, ProjectionBatch, ProjectionDeltaItem };
 
 export {
   applyProjection,
@@ -704,7 +719,6 @@ export {
   dispatchStateOp,
   emitDelta,
   emitDeltas,
-  isProjectionBatch,
   authorZoomBoundsForLayer,
   NO_DELTA,
 };

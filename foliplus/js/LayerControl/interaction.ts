@@ -6,7 +6,7 @@ import type { LayerUI } from "./ui/surface.js";
 
 /** Keyboard shortcuts registered via InteractionManager. */
 const registerInteractions = (ui: LayerUI): (() => void) => {
-  const container = ui.uiContainer;
+  const container = ui.uiContainer ?? undefined;
   const interaction = ensureInteraction(ui.c.map);
   return interaction.register(CONFIG.name, [
     { key: "ArrowUp", container, handler: e => ui.handleKeyDown(e as KeyboardEvent) },

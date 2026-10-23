@@ -4,6 +4,7 @@ import * as CONST from "#foliplus/LayerControl/const.js";
 import {
   type ProjectionBatch,
   type ProjectionDelta,
+  type ProjectionDeltaItem,
   applyProjection,
   applyProjectionAll,
   emitDelta,
@@ -14,10 +15,17 @@ import { saveState, setVisibleIntent } from "../state.js";
 import type { LayerUI } from "../surface.js";
 import { applyRowView, buildRowCell } from "./rowView.js";
 
-const getLayerItems = (ui: LayerUI, group: string): NodeListOf<Element> => {
-  return ui.uiContainer.querySelectorAll(
-    `${CONST.SEL.LAYER_ITEM}${group === GROUP.BASE ? `[data-layer-type="${GROUP.BASE}"]` : `:not([data-layer-type="${GROUP.BASE}"])`}`,
-  );
+/** The rows of one group, in DOM order. A panel that is gone has none — the
+ *  callers are all reconcile paths that run at least once against a torn-down
+ *  control (a timer, a queued bulk toggle). */
+const getLayerItems = (ui: LayerUI, group: string): Element[] => {
+  const container = ui.uiContainer;
+  if (!container) return [];
+  const inGroup =
+    group === GROUP.BASE
+      ? `[data-layer-type="${GROUP.BASE}"]`
+      : `:not([data-layer-type="${GROUP.BASE}"])`;
+  return Array.from(container.querySelectorAll(`${CONST.SEL.LAYER_ITEM}${inGroup}`));
 };
 
 /** Whether a base layer actually paints right now: on the map, inside its own
@@ -105,11 +113,7 @@ const toggleAll = (ui: LayerUI, group: string, newState: boolean) => {
   // delivery, so a layer a subscriber unregistered — or re-registered under the
   // same id — inside an earlier delivery here is not announced on behalf of
   // the entry that now holds that id.
-  const announced: Array<{
-    id: string;
-    delta: ProjectionDelta;
-    entry: LayerInfo;
-  }> = [];
+  const announced: ProjectionDeltaItem[] = [];
   for (const layerInfo of ui.c.layers) {
     const delta = moved.get(layerInfo.id);
     if (delta) announced.push({ id: layerInfo.id, delta, entry: layerInfo });
@@ -123,7 +127,7 @@ const toggleAll = (ui: LayerUI, group: string, newState: boolean) => {
  *  single-row click path uses `bumpCheckedCount` + `syncToggleAllFromCount`
  *  to keep the update O(1). */
 const syncToggleAll = (ui: LayerUI, group: string) => {
-  const row = ui.uiContainer.querySelector(
+  const row = ui.uiContainer?.querySelector(
     `${CONST.SEL.TOGGLE_ALL}[data-group="${group}"]`,
   );
   if (!row) return;
@@ -155,7 +159,7 @@ const syncToggleAll = (ui: LayerUI, group: string) => {
  *  O(1) — no querySelectorAll scan. Called by `bumpCheckedCount` on the
  *  single-row click path so the tri-state is fresh in the same frame. */
 const syncToggleAllFromCount = (ui: LayerUI, group: string): void => {
-  const row = ui.uiContainer.querySelector(
+  const row = ui.uiContainer?.querySelector(
     `${CONST.SEL.TOGGLE_ALL}[data-group="${group}"]`,
   );
   if (!row) return;

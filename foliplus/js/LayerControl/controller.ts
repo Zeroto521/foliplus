@@ -32,7 +32,7 @@ import * as CONST from "./const.js";
 import { LayerIntentStore, LayerOrchestration } from "./domain/index.js";
 import { LayerPersistence } from "./persistence.js";
 import { finishSlidersIn } from "./slider.js";
-import { NO_DELTA, emitDelta } from "./ui/apply.js";
+import { emitDeltas } from "./ui/apply.js";
 import { type LayerUI } from "./ui/index.js";
 
 type LayerControllerEnv = {
@@ -635,17 +635,19 @@ class LayerController implements LayerAPI {
       });
       // Defer z-order enforcement so batch registration coalesces into one pass.
       this.debouncedEnforce();
-      // The projection delta goes out last — after the row insert, the count
-      // sync and the order replay — so a subscriber that re-enters reads the
-      // settled panel: full group count, correct row state.
-      emitDelta(this.ui, layerInfo, moved ?? NO_DELTA);
+      // The round goes out last — after the row insert, the count sync and the
+      // order replay — so a subscriber that re-enters reads the settled panel:
+      // full group count, correct row state. The batch carries the entry it ran
+      // against, so a retire inside that notify cannot announce for a
+      // replacement holding the same id.
+      emitDeltas(this.ui, moved);
 
       // A subscriber can retire the entry inside that notify: a destroy takes
       // the container and the registry with it, and an unregister leaves the id
       // mapped to a different instance. Either way this registration is over —
       // the registration CHANGE would announce for an entry that no longer
       // exists, and the row lookup below would deref a null container.
-      if (this.isDestroyed || this.layerRegistry.get(opts.id) !== layerInfo) {
+      if (this.isRetired(opts.id, layerInfo)) {
         return null;
       }
     }
@@ -662,16 +664,20 @@ class LayerController implements LayerAPI {
     // after that notify rather than cached before it — a cached node would be
     // handed back after the entry that produced it is gone, and a re-lookup
     // would return another instance's row for the same id.
-    if (
-      this.isDestroyed ||
-      !this.uiContainer ||
-      this.layerRegistry.get(opts.id) !== layerInfo
-    ) {
+    if (this.isRetired(opts.id, layerInfo)) {
       return null;
     }
-    return this.uiContainer.querySelector(
-      `[${CONST.DATA.LAYER_ID}="${CSS.escape(opts.id)}"]`,
-    );
+    const container = this.uiContainer;
+    if (!container) return null;
+    return container.querySelector(`[${CONST.DATA.LAYER_ID}="${CSS.escape(opts.id)}"]`);
+  }
+
+  /** Whether the entry a notify was announcing for is gone: the control was
+   *  destroyed, the layer was unregistered, or the id now maps to a
+   *  replacement. Every entry that keeps working after its own notify asks
+   *  this one question, in one place. */
+  private isRetired(id: string, entry: LayerInfo): boolean {
+    return this.isDestroyed || this.layerRegistry.get(id) !== entry;
   }
 
   /**
@@ -699,7 +705,7 @@ class LayerController implements LayerAPI {
     // same id would otherwise be announced on top of the arrangement it just
     // rendered. A controller with no panel never rebuilt anything and
     // announces as usual.
-    if (this.isDestroyed || this.layerRegistry.get(id) !== item) return;
+    if (this.isRetired(id, item)) return;
     this.emitLayerChange(id, item.kind);
   }
 
@@ -1068,7 +1074,7 @@ class LayerController implements LayerAPI {
     if (this.uiContainer && this.ui) {
       this.events.emit(EVENTS.LAYER_LIST_REBUILD);
     }
-    if (this.isDestroyed || this.layerRegistry.get(id) !== item) return true;
+    if (this.isRetired(id, item)) return true;
     // Same retirement check as bringLayerToFront: the rebuild above can retire
     // what this move announces for, and the row list it just rebuilt is what
     // the notify announces against.
@@ -1096,7 +1102,7 @@ class LayerController implements LayerAPI {
     if (this.uiContainer && this.ui) {
       this.events.emit(EVENTS.LAYER_LIST_REBUILD);
     }
-    if (this.isDestroyed || this.layerRegistry.get(id) !== item) return true;
+    if (this.isRetired(id, item)) return true;
     // Same retirement check as bringLayerToFront: the rebuild above can retire
     // what this move announces for, and the row list it just rebuilt is what
     // the notify announces against.

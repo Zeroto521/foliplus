@@ -14,7 +14,12 @@ import {
   syncToggleAllFromCount,
   toggleAll,
 } from "#foliplus/LayerControl/ui/listPanel/index.js";
-import { TEST_ENV, initFixture, installLeafletGlobals } from "../fixture.js";
+import {
+  TEST_ENV,
+  attachedPanel,
+  initFixture,
+  installLeafletGlobals,
+} from "../fixture.js";
 
 // ===========================================================================
 // ui/visibility.ts ?checkbox, group toggle, and the shared visibility
@@ -98,7 +103,7 @@ const fixture = () => {
 };
 
 const allToggle = (ui: LayerUI, group = GROUP.OVERLAY) =>
-  ui.uiContainer.querySelector(
+  attachedPanel(ui).querySelector(
     `${CONST.SEL.TOGGLE_ALL}[data-group="${group}"] [data-role="toggle-all"]`,
   ) as HTMLInputElement;
 
@@ -150,7 +155,7 @@ describe("applyVisibility", () => {
 
     // The panel row must not disagree with the map: a programmatic hide that
     // leaves the checkbox checked is a UI that lies about state.
-    const item = ui.uiContainer.querySelector(
+    const item = attachedPanel(ui).querySelector(
       `[${CONST.DATA.LAYER_ID}="ov"]`,
     ) as HTMLElement;
     const checkbox = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
@@ -195,7 +200,7 @@ describe("applyVisibility", () => {
     expect(seeded.ui!.intentVisible("overlay1")).toBe(true);
     expect(
       (
-        seeded.ui!.uiContainer.querySelector(
+        attachedPanel(seeded.ui!).querySelector(
           `[${CONST.DATA.LAYER_ID}="overlay1"] input[type="checkbox"]`,
         ) as HTMLInputElement
       )?.checked,
@@ -231,7 +236,7 @@ describe("applyVisibility", () => {
     expect(getIntent(ui, "overlay1", "visible")).not.toBe(false);
     expect(
       (
-        ui.uiContainer.querySelector(
+        attachedPanel(ui).querySelector(
           `[${CONST.DATA.LAYER_ID}="overlay1"] input[type="checkbox"]`,
         ) as HTMLInputElement
       )?.checked,
@@ -276,7 +281,7 @@ describe("applyVisibility", () => {
     // persisted choice must not depend on the row being there.
     const layer = layerFixture();
     manager.registerLayer({ id: "ov", name: "Overlay", group: "overlay", layer });
-    const row = ui.uiContainer.querySelector<HTMLElement>(
+    const row = attachedPanel(ui).querySelector<HTMLElement>(
       `[${CONST.DATA.LAYER_ID}="ov"]`,
     );
     expect(row).not.toBeNull();
@@ -354,7 +359,7 @@ describe("applyVisibility", () => {
     expect(map.hasLayer(layer)).toBe(false);
     expect(
       (
-        fresh.ui!.uiContainer.querySelector(
+        attachedPanel(fresh.ui!).querySelector(
           `[${CONST.DATA.LAYER_ID}="base1"] input[type="checkbox"]`,
         ) as HTMLInputElement
       )?.checked,
@@ -578,7 +583,7 @@ describe("LayerController.setVisible", () => {
     expect(map.hasLayer(layer)).toBe(false);
     expect(
       (
-        ui.uiContainer.querySelector(
+        attachedPanel(ui).querySelector(
           `[${CONST.DATA.LAYER_ID}="ov"] input[type="checkbox"]`,
         ) as HTMLInputElement
       )?.checked,
@@ -621,7 +626,7 @@ describe("LayerController.setVisible", () => {
 
 describe("LayerUI.handleChange", () => {
   const change = (ui: LayerUI, id: string, checked: boolean) => {
-    const cb = ui.uiContainer.querySelector(
+    const cb = attachedPanel(ui).querySelector(
       `[${CONST.DATA.LAYER_ID}="${id}"] input[type="checkbox"]`,
     ) as HTMLInputElement | null;
     if (!cb) throw new Error(`no checkbox for ${id}`);
@@ -762,7 +767,7 @@ describe("DOM order diverges from registry order", () => {
    *  positional lookup would have read. */
   const scrambleDomOrder = (ui: LayerUI) => {
     const rows = Array.from(
-      ui.uiContainer.querySelectorAll<HTMLElement>(
+      attachedPanel(ui).querySelectorAll<HTMLElement>(
         `${CONST.SEL.LAYER_ITEM}[data-layer-type="${GROUP.OVERLAY}"]`,
       ),
     );
@@ -775,7 +780,7 @@ describe("DOM order diverges from registry order", () => {
     // (now wrong) position". Re-query after the move so the loop sees DOM
     // order, not the pre-scramble array order.
     const reordered = Array.from(
-      ui.uiContainer.querySelectorAll<HTMLElement>(
+      attachedPanel(ui).querySelectorAll<HTMLElement>(
         `${CONST.SEL.LAYER_ITEM}[data-layer-type="${GROUP.OVERLAY}"]`,
       ),
     );
@@ -811,7 +816,7 @@ describe("DOM order diverges from registry order", () => {
     // but its dataset.index is "1" (DOM position). The old handler would read
     // that index and toggle B instead of A.
     const rows = Array.from(
-      ui.uiContainer.querySelectorAll<HTMLElement>(
+      attachedPanel(ui).querySelectorAll<HTMLElement>(
         `${CONST.SEL.LAYER_ITEM}[data-layer-type="${GROUP.OVERLAY}"]`,
       ),
     );
@@ -851,7 +856,7 @@ describe("DOM order diverges from registry order", () => {
     box.type = "checkbox";
     box.checked = true;
     orphan.appendChild(box);
-    ui.uiContainer.appendChild(orphan);
+    attachedPanel(ui).appendChild(orphan);
 
     ui.toggleAll(GROUP.OVERLAY, false);
 
@@ -873,7 +878,7 @@ describe("DOM order diverges from registry order", () => {
     box.type = "checkbox";
     box.checked = true;
     stale.appendChild(box);
-    ui.uiContainer.appendChild(stale);
+    attachedPanel(ui).appendChild(stale);
 
     ui.toggleAll(GROUP.OVERLAY, false);
 
@@ -965,7 +970,7 @@ describe("toggleAll base group", () => {
     const bare = document.createElement("div");
     bare.className = CONST.CLASSES.LAYER_ITEM;
     bare.setAttribute("data-layer-type", GROUP.BASE);
-    ui.uiContainer.appendChild(bare);
+    attachedPanel(ui).appendChild(bare);
 
     expect(() => toggleAll(ui, GROUP.BASE, true)).not.toThrow();
     expect(bare.querySelector("input")).toBeNull();
@@ -1048,7 +1053,7 @@ describe("unit helpers", () => {
     // toggled by overlay group operations.
     const boxes = () =>
       Array.from(
-        ui.uiContainer.querySelectorAll<HTMLInputElement>(
+        attachedPanel(ui).querySelectorAll<HTMLInputElement>(
           `.${CONST.CLASSES.LAYER_ITEM}[data-layer-type="${GROUP.OVERLAY}"] input[type="checkbox"]`,
         ),
       );
