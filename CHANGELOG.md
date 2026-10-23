@@ -7,7 +7,6 @@
 - `core/layer`: snapshot axis on `LayerRuntimeStore` — a layer's points, numeric fields, and value ranges are built once and cached alongside the fields cache ([#715](https://github.com/Zeroto521/foliplus/pull/715))
 - `core/layer`: filter AST (`and` / `or` / `atom`) and pure evaluator over `SnapshotPoint`, so filtering is a tree walk rather than a string parse ([#715](https://github.com/Zeroto521/foliplus/pull/715))
 - `HeatmapControl`: `aggregateData` is now a wrapper over `binPoints` (H3 geometry only) and `aggregateBins` (pure arithmetic), so a filter change can skip the geometry step ([#715](https://github.com/Zeroto521/foliplus/pull/715))
-- `LayerControl`: value-based fill — a numeric field, a classification method and a palette paint the layer by value ([#727](https://github.com/Zeroto521/foliplus/pull/727))
 
 ### Changed
 
@@ -17,9 +16,8 @@
 ### Fixed
 
 - `LayerControl`: layer visibility events are consistent and reentrancy-safe — `LAYER_CHANGE` tracks the actual flip, `LAYER_INTENT_CHANGE` the user's choice, and a subscriber's write-back never loops ([#716](https://github.com/Zeroto521/foliplus/pull/716), [#719](https://github.com/Zeroto521/foliplus/pull/719), [#720](https://github.com/Zeroto521/foliplus/pull/720))
-- `LayerControl`: the fill row and a stored fill follow the layer's real geometry — a mixed layer's row shows its polygon's colour, and features added after a fill was set are repainted instead of keeping the author's colour ([#727](https://github.com/Zeroto521/foliplus/pull/727))
+- `LayerControl`: value-based fill follows the layer's real geometry — a mixed layer's fill row shows its polygon's colour, and features added after a fill was set are repainted instead of keeping the author's colour ([#727](https://github.com/Zeroto521/foliplus/pull/727))
 - `HeatmapControl`: a saved record is validated field by field, so a stale or hand-edited method, aggregation, class count or label format keeps its default ([#727](https://github.com/Zeroto521/foliplus/pull/727))
-- `core`: an unknown classification method or an unparsable palette name is rejected at the boundary instead of silently running `equal` or aborting the panel ([#727](https://github.com/Zeroto521/foliplus/pull/727))
 
 ## [v0.4.1] (2026-10-18)
 
