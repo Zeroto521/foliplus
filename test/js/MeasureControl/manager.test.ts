@@ -1497,7 +1497,7 @@ describe("MeasureManager — registerLabel lifecycle", () => {
 
   it("emits LAYER_STYLE_CHANGE when a setter fires", () => {
     const { manager } = makeLabelManager();
-    const emitSpy = vi.spyOn(manager.events, "emitSettled");
+    const emitSpy = vi.spyOn(manager.events, "publish");
 
     manager.setLabelsVisible(false);
 

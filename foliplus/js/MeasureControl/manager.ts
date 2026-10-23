@@ -781,9 +781,13 @@ class MeasureManager {
    * entry and clobber the persisted order.
    */
   bindLayerDeleted() {
-    this.offLayerDeleted = this.events.on(EVENTS.LAYER_DELETED, ({ id }) => {
-      if (id === this.layerId) this.clearAll();
-    });
+    this.offLayerDeleted = this.events.on(
+      EVENTS.LAYER_DELETED,
+      ({ id }) => {
+        if (id === this.layerId) this.clearAll();
+      },
+      "internal",
+    );
   }
 
   /** Clean up current mode instance and hide hints. */

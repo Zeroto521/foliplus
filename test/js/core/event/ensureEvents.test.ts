@@ -47,6 +47,21 @@ describe("ensureEvents", () => {
     expect(map.foliplus?.events).toBeDefined();
   });
 
+  it("clears the bus when the map unloads", () => {
+    const map = makeMap();
+    const bus = ensureEvents(map);
+    const handler = vi.fn();
+    bus.on("evt", handler);
+    const unload = (map.on as ReturnType<typeof vi.fn>).mock.calls.find(
+      c => c[0] === "unload",
+    );
+    expect(unload).toBeDefined();
+    (unload![1] as () => void)();
+
+    bus.emit("evt");
+    expect(handler).not.toHaveBeenCalled();
+  });
+
   it("emits through the namespace handle components actually read", () => {
     const map = makeMap();
     // Subscribe on the locally held bus, emit through the namespace. The

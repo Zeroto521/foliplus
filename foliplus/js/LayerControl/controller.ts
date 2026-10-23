@@ -383,7 +383,7 @@ class LayerController implements LayerAPI {
     this.enforceOrder();
     // Before any export, flush pending debounced enforceOrder so the exported
     // image matches the panel's layer order.
-    this.events.on(EVENTS.BEFORE_EXPORT, () => this.enforceOrder());
+    this.events.on(EVENTS.BEFORE_EXPORT, () => this.enforceOrder(), "internal");
     // Ensure the lightweight LayerAPI exists (consumers always have a valid
     // LayerAPI even without LayerControl), then upgrade to the full version.
     // LayerController itself implements LayerAPI, so it becomes the map's API.
@@ -900,8 +900,8 @@ class LayerController implements LayerAPI {
     const mark = (payload: { id: string }): void => {
       if (payload.id === id) replaced = true;
     };
-    const offAdded = this.events.on(EVENTS.LAYER_ITEM_ADDED, mark);
-    const offUpdated = this.events.on(EVENTS.LAYER_ITEM_UPDATED, mark);
+    const offAdded = this.events.on(EVENTS.LAYER_ITEM_ADDED, mark, "internal");
+    const offUpdated = this.events.on(EVENTS.LAYER_ITEM_UPDATED, mark, "internal");
     try {
       const gate = (): boolean => {
         const current = this.layerRegistry.get(id);
