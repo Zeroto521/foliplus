@@ -5,7 +5,7 @@ import {
   isClassifyMethod,
 } from "#core/classify.js";
 import { generateId } from "#core/component.js";
-import { EVENTS, type EventBus, ensureEvents } from "#core/event/index.js";
+import { EVENTS, type EventBus, ensureEvents, publish } from "#core/event/index.js";
 import { bareFieldName } from "#core/label/index.js";
 import { NO_FEATURE_TREE_KINDS } from "#core/layer/index.js";
 import { bindMapSync } from "#core/leaflet/index.js";
@@ -264,7 +264,7 @@ class HeatmapManager {
         this.renderHexagons();
         this.saveConfig();
         this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
-        this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
+        publish(this.events, EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
       },
       // Size/color only rewrite label paint — drop the cached style and
       // redraw from the feature cache.
@@ -275,7 +275,7 @@ class HeatmapManager {
         this.redrawHeatmap();
         this.saveConfig();
         this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
-        this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
+        publish(this.events, EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
       },
       labelSize: v => {
         const nextSize = typeof v === "number" && !Number.isNaN(v) ? v : this.labelSize;
@@ -284,7 +284,7 @@ class HeatmapManager {
         this.redrawHeatmap();
         this.saveConfig();
         this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
-        this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
+        publish(this.events, EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
       },
       // Format only rewrites the label text — redraw from cache, skip the
       // H3 re-aggregation that labelShow triggers.
@@ -295,7 +295,7 @@ class HeatmapManager {
         this.redrawHeatmap();
         this.saveConfig();
         this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
-        this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
+        publish(this.events, EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
       },
       // Border weight only redraws the hexagon strokes — the H3 aggregation
       // result is unaffected.
@@ -306,7 +306,7 @@ class HeatmapManager {
         this.redrawHeatmap();
         this.saveConfig();
         this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
-        this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
+        publish(this.events, EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
       },
       borderColor: v => {
         this.borderColor =
@@ -314,7 +314,7 @@ class HeatmapManager {
         this.redrawHeatmap();
         this.saveConfig();
         this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
-        this.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
+        publish(this.events, EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
       },
     };
     this.overlay = map.foliplus!.LayerAPI!.createCanvas({
@@ -735,7 +735,7 @@ class HeatmapManager {
     this.overlay.register();
     this.redrawHeatmap();
     // Notify LayerControl to refresh the count column for this layer.
-    this.events.emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: this.layerId });
+    publish(this.events, EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: this.layerId });
   }
 
   clearHeatmapCanvas() {
@@ -751,7 +751,7 @@ class HeatmapManager {
     this.ui?.schemeBarCleanup?.();
     this.ui?.dropdownCleanup?.();
     // Notify LayerControl to refresh the count column (now 0).
-    this.events.emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: this.layerId });
+    publish(this.events, EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: this.layerId });
   }
 
   /** Reset selection + style state to the defaults declared in `config`. Both

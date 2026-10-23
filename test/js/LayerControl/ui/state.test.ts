@@ -32,9 +32,11 @@ import {
   GridLayer,
   TEST_ENV,
   TileLayer,
+  attachedPanel,
   findItem,
   initFixture,
   installLeafletGlobals,
+  polygonLayerWithStyle,
 } from "./fixture.js";
 
 /** The pane spec list `createLayers` derives from an ordered name list: the
@@ -696,7 +698,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
       expect(map.removeLayer).toHaveBeenCalledWith(base1);
       expect(map.removeLayer).toHaveBeenCalledWith(base2);
       // Color-layer fallback must NOT activate when the user intentionally hid every base.
-      const colorItem = ui.uiContainer.querySelector(
+      const colorItem = attachedPanel(ui).querySelector(
         `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
       ) as HTMLElement | null;
       expect(colorItem?.classList.contains(CONST.CLASSES.ACTIVE)).toBe(false);
@@ -721,7 +723,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
         { id: "overlay1", name: "O", group: "overlay", layer: poly },
       ]);
 
-      const colorItem = ui.uiContainer.querySelector(
+      const colorItem = attachedPanel(ui).querySelector(
         `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
       ) as HTMLElement | null;
       expect(colorItem?.classList.contains(CONST.CLASSES.ACTIVE)).toBe(false);
@@ -757,7 +759,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
       // However, only base1 is hidden (not "all bases"), so the color fallback
       // must NOT activate — the user might re-show base1 at any time.
       expect(map.removeLayer).toHaveBeenCalledWith(base1);
-      const colorItem = ui.uiContainer.querySelector(
+      const colorItem = attachedPanel(ui).querySelector(
         `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
       ) as HTMLElement | null;
       expect(colorItem?.classList.contains(CONST.CLASSES.ACTIVE)).toBe(false);
@@ -1228,6 +1230,42 @@ describe("event-driven row refresh", () => {
       expect(colors[0]).not.toBe(colors[colors.length - 1]);
     });
 
+    it("a throwing CHANGE consumer does not skip the scheduled replay", () => {
+      // Ramp replay is queued before the projection notify: a consumer that
+      // throws on the CHANGE must not stop the new features from being
+      // repainted, and a reentrant unregister must find the task to clear.
+      globalThis.chroma = {
+        scale: () => ({
+          mode: () => ({
+            colors: (n: number) =>
+              Array.from({ length: n }, (_, i) => ["#a00000", "#ff7f00"][i % 2]),
+          }),
+        }),
+      } as never;
+      const leaves = attachFeatures([1, 5, 9]);
+      seedIntentMap(ui, "fillRamp", {
+        overlay1: {
+          field: "value",
+          method: METHOD.EQUAL,
+          classes: 2,
+          scheme: DEFAULT_SCHEMES[0],
+        },
+      });
+      // The opacity gate is what makes the count change run a projection; a
+      // visible flip gives that projection a CHANGE to deliver.
+      seedIntentMap(ui, "opacity", { overlay1: 0.4 });
+      seedIntentMap(ui, "visible", { overlay1: false });
+      ui.intentStore.seedProvenance("overlay1", ["opacity", "fillRamp", "visible"]);
+      ensureEvents(ui.c.map).on(EVENTS.LAYER_CHANGE, () => {
+        throw new Error("change boom");
+      });
+
+      expect(() => ui.onLayerItemCountChange("overlay1")).toThrow("change boom");
+
+      flushStyleDimApplies("overlay1");
+      for (const leaf of leaves) expect(leaf.setStyle).toHaveBeenCalled();
+    });
+
     it("coalesces a batch of count changes into one walk", () => {
       // A batched createLayers fires one count change per feature. N walks in
       // one frame would make the streaming cost linear in the batch.
@@ -1273,7 +1311,7 @@ describe("event-driven row refresh", () => {
     events.emit(EVENTS.CONTROL_ATTACHED, { component: "ScaleControl" });
     // The callback keeps the rendered rows intact (init re-syncs, no error).
     expect(
-      ui.uiContainer.querySelectorAll(`.${CONST.CLASSES.LAYER_ITEM}`).length,
+      attachedPanel(ui).querySelectorAll(`.${CONST.CLASSES.LAYER_ITEM}`).length,
     ).toBeGreaterThan(0);
   });
 });
@@ -1842,7 +1880,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
 
     ui.applyUserState();
 
-    const colorItem = ui.uiContainer.querySelector(
+    const colorItem = attachedPanel(ui).querySelector(
       `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
     ) as HTMLElement | null;
     expect(colorItem).not.toBeNull();
@@ -1858,7 +1896,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
 
     ui.applyUserState();
 
-    const item = ui.uiContainer.querySelector(
+    const item = attachedPanel(ui).querySelector(
       `[${CONST.DATA.LAYER_ID}="overlay1"]`,
     ) as HTMLElement | null;
     expect(item).not.toBeNull();
@@ -1988,4 +2026,39 @@ describe("ui/state intentStore and per-layer state persistence", () => {
 
     expect(u.intentVisible("overlay1")).toBe(false);
   });
+});
+
+// ── Notification-contract cases, moved from the former
+// ── notifyContract.test.ts so they live with the script they drive. ──
+it("a full replay announces after the direct style writes have landed", () => {
+  // The full sweep projects visible / opacity / zoomRange and only reports
+  // what moved; border and fill are direct `setStyle` writes that the shell
+  // replays after it. Both land before the owning entry publishes, so a
+  // subscriber reads the color the user stored rather than the author's that
+  // the shell was about to overwrite. Driven through the control-attached
+  // re-run, which is a real full replay from a real entry.
+  const setStyle = vi.fn();
+  const layer = polygonLayerWithStyle(
+    { color: "#111111", fillColor: "#222222" },
+    setStyle,
+  );
+  const { ui } = initFixture({
+    data: [{ id: "overlay1", name: "Polygons", group: "overlay", layer }],
+  });
+
+  setIntent(ui, "overlay1", "borderColor", "#abcdef");
+  // The hide is what gives the sweep a delta to report at all.
+  setIntent(ui, "overlay1", "visible", false);
+  ui.intentStore.seedProvenance("overlay1", ["borderColor", "visible"]);
+
+  const borderAtDelivery: unknown[] = [];
+  ui.events.on(EVENTS.LAYER_CHANGE, payload => {
+    if (payload.id !== "overlay1") return;
+    const writes = setStyle.mock.calls.map(call => call[0] as Record<string, unknown>);
+    borderAtDelivery.push(writes.find(write => write.color !== undefined)?.color);
+  });
+
+  ui.events.emit(EVENTS.CONTROL_ATTACHED, { component: "HeatmapControl" });
+
+  expect(borderAtDelivery).toEqual(["#abcdef"]);
 });

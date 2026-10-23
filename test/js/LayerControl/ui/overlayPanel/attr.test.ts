@@ -5,7 +5,7 @@ import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { seedIntentMap } from "#foliplus/LayerControl/ui/intent.js";
 import { ensureModes } from "#foliplus/core/mode.js";
 import { createScopedTranslator } from "#common/locale.js";
-import { findItem, initFixture } from "../fixture.js";
+import { attachedPanel, findItem, initFixture } from "../fixture.js";
 
 describe("LayerUI attrs", () => {
   let manager: LayerController;
@@ -186,7 +186,7 @@ describe("LayerUI attrs", () => {
       const ghost = document.createElement("div");
       ghost.className = CONST.CLASSES.LAYER_ITEM;
       ghost.setAttribute(CONST.DATA.LAYER_ID, "ghost");
-      ui.uiContainer.appendChild(ghost);
+      attachedPanel(ui).appendChild(ghost);
 
       ui.openAttrsPanel(ghost);
 
@@ -359,7 +359,7 @@ describe("LayerUI attrs", () => {
     });
 
     it("color basemap shows type and no provenance rows", () => {
-      const item = ui.uiContainer.querySelector(
+      const item = attachedPanel(ui).querySelector(
         `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
       ) as HTMLElement;
 
@@ -388,7 +388,7 @@ describe("LayerUI attrs", () => {
       ).toContainEqual(["LayerControl.attr_type", "LayerControl.type_base"]);
 
       ui.closeAttrsPanel(false);
-      const colorItem = ui.uiContainer.querySelector(
+      const colorItem = attachedPanel(ui).querySelector(
         `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
       ) as HTMLElement;
       ui.openAttrsPanel(colorItem);

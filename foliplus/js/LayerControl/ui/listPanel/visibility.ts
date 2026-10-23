@@ -1,16 +1,30 @@
 // LayerControl UI — Checkbox / group-toggle visibility.
 import { GROUP, paintsAtZoom } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
-import { applyProjection, applyProjectionAll } from "../apply.js";
+import {
+  type ProjectionBatch,
+  type ProjectionDelta,
+  type ProjectionDeltaItem,
+  applyProjection,
+  applyProjectionAll,
+  notifyDeltas,
+} from "../apply.js";
 import { currentOpacity, intentVisibleOf } from "../projection.js";
 import { saveState, setVisibleIntent } from "../state.js";
 import type { LayerUI } from "../surface.js";
 import { applyRowView, buildRowCell } from "./rowView.js";
 
-const getLayerItems = (ui: LayerUI, group: string): NodeListOf<Element> => {
-  return ui.uiContainer.querySelectorAll(
-    `${CONST.SEL.LAYER_ITEM}${group === GROUP.BASE ? `[data-layer-type="${GROUP.BASE}"]` : `:not([data-layer-type="${GROUP.BASE}"])`}`,
-  );
+/** The rows of one group, in DOM order. A panel that is gone has none — the
+ *  callers are all reconcile paths that run at least once against a torn-down
+ *  control (a timer, a queued bulk toggle). */
+const getLayerItems = (ui: LayerUI, group: string): Element[] => {
+  const container = ui.uiContainer;
+  if (!container) return [];
+  const inGroup =
+    group === GROUP.BASE
+      ? `[data-layer-type="${GROUP.BASE}"]`
+      : `:not([data-layer-type="${GROUP.BASE}"])`;
+  return Array.from(container.querySelectorAll(`${CONST.SEL.LAYER_ITEM}${inGroup}`));
 };
 
 /** Whether a base layer actually paints right now: on the map, inside its own
@@ -51,6 +65,7 @@ const syncNoBasemap = (ui: LayerUI): void => {
 
 const toggleAll = (ui: LayerUI, group: string, newState: boolean) => {
   const items = getLayerItems(ui, group);
+  const moved = new Map<string, ProjectionDelta>();
   items.forEach((item: Element) => {
     const checkbox = item.querySelector(
       'input[type="checkbox"]',
@@ -71,7 +86,8 @@ const toggleAll = (ui: LayerUI, group: string, newState: boolean) => {
     // setVisibleIntent recorded the intent, so the projection's `visible` field
     // now matches the intended state and the diff fires whatever op is
     // needed.
-    applyProjection(ui, id);
+    const delta = applyProjection(ui, id);
+    if (delta.wroteVisible || delta.intentMoved) moved.set(id, delta);
     applyRowView(ui, item as HTMLElement, buildRowCell(ui, layerInfo));
   });
 
@@ -84,6 +100,24 @@ const toggleAll = (ui: LayerUI, group: string, newState: boolean) => {
   syncToggleAll(ui, group);
   syncNoBasemap(ui);
   ui.c.debouncedEnforce();
+
+  // Announce last, in registry order: the loop above walked the DOM, which can
+  // diverge from the registry on a late registration, and a subscriber that
+  // re-enters during this notify must see the finished count and hatch.
+  //
+  // Order by walking the registry against the Map, not by sorting — a
+  // comparator needs an `indexOf` per call and that is a linear identity scan
+  // of the registry, so sorting pays a full scan for every comparison. The
+  // entry travels with the delta: `notifyDeltas` re-checks the live registry at
+  // delivery, so a layer a subscriber unregistered — or re-registered under the
+  // same id — inside an earlier delivery here is not announced on behalf of
+  // the entry that now holds that id.
+  const announced: ProjectionDeltaItem[] = [];
+  for (const layerInfo of ui.c.layers) {
+    const delta = moved.get(layerInfo.id);
+    if (delta) announced.push({ id: layerInfo.id, delta, entry: layerInfo });
+  }
+  notifyDeltas(ui, announced);
 };
 
 /** Full rescan that populates `ui.listPanel.checkedCount[group]` from the DOM + intent,
@@ -92,7 +126,7 @@ const toggleAll = (ui: LayerUI, group: string, newState: boolean) => {
  *  single-row click path uses `bumpCheckedCount` + `syncToggleAllFromCount`
  *  to keep the update O(1). */
 const syncToggleAll = (ui: LayerUI, group: string) => {
-  const row = ui.uiContainer.querySelector(
+  const row = ui.uiContainer?.querySelector(
     `${CONST.SEL.TOGGLE_ALL}[data-group="${group}"]`,
   );
   if (!row) return;
@@ -124,7 +158,7 @@ const syncToggleAll = (ui: LayerUI, group: string) => {
  *  O(1) — no querySelectorAll scan. Called by `bumpCheckedCount` on the
  *  single-row click path so the tri-state is fresh in the same frame. */
 const syncToggleAllFromCount = (ui: LayerUI, group: string): void => {
-  const row = ui.uiContainer.querySelector(
+  const row = ui.uiContainer?.querySelector(
     `${CONST.SEL.TOGGLE_ALL}[data-group="${group}"]`,
   );
   if (!row) return;
@@ -209,9 +243,10 @@ const applyVisibility = (ui: LayerUI, id: string, visible: boolean): boolean => 
 
   const oldChecked = intentVisibleOf(ui, id);
   setVisibleIntent(ui, id, visible);
-  applyProjection(ui, id);
+  const ownDelta = applyProjection(ui, id);
 
-  // Paint last: the cell reads the intent this transition just recorded.
+  // Paint after the projection lands: the cell reads the intent this
+  // transition just recorded.
   if (item) applyRowView(ui, item, buildRowCell(ui, layerInfo));
 
   // Incremental tri-state: O(1) count update rather than a full rescan.
@@ -239,10 +274,21 @@ const applyVisibility = (ui: LayerUI, id: string, visible: boolean): boolean => 
   // A basemap switch changes the map's min/max zoom without firing zoomend,
   // so re-evaluate effective shown across every layer and refresh the open
   // panel's row.
+  let swept: ProjectionBatch = [];
   if (layerInfo.group === GROUP.BASE) {
-    applyProjectionAll(ui);
+    swept = applyProjectionAll(ui);
     ui.overlayPanel.styleZoomEndHandler?.();
   }
+
+  // Announce last — the row paint, the tri-state count, the basemap hatch and
+  // the attribution table are all settled, so a subscriber that re-enters here
+  // sees the finished panel. The own-layer delta goes out before the sweep's:
+  // it is the layer the user acted on, and the sweep's own entry for it is
+  // empty (the first pass above already wrote its baseline). One operation, not
+  // two calls: a consumer that throws on the own layer must not strand the
+  // sweep's layers, whose baselines are already committed and would never
+  // announce again on a retry.
+  notifyDeltas(ui, [{ id: layerInfo.id, delta: ownDelta, entry: layerInfo }, ...swept]);
 
   return true;
 };

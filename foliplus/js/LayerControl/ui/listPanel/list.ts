@@ -4,6 +4,7 @@ import * as CONST from "#foliplus/LayerControl/const.js";
 import * as SVGs from "#foliplus/LayerControl/icon.js";
 import { finishSlidersIn } from "#foliplus/LayerControl/slider.js";
 import { dom, updateItemLabel } from "#common/dom.js";
+import { type ProjectionBatch, notifyDeltas } from "../apply.js";
 import { getColorSurface } from "../color.js";
 import { seedAuthorVisible } from "../intent.js";
 import type { LayerUI } from "../surface.js";
@@ -13,13 +14,17 @@ import { syncNoBasemap, syncToggleAll } from "./visibility.js";
 
 /** Full re-scan of every row (used on attach/fold-toggle). Idempotent —
  *  re-run on each CONTROL_ATTACHED so late-registering components are
- *  folded in. Marks the panel ready for tests/consumers. */
-const initTypesAndVisibility = (ui: LayerUI) => {
+ *  folded in.
+ *
+ *  Returns the round its replay produced instead of announcing it: the callers
+ *  that own the panel — attach, the init timer, the control-attached re-run and
+ *  `rebuildList` — finish their own rows, counts and readiness first, and only
+ *  they know when that is done. */
+const initTypesAndVisibility = (ui: LayerUI): ProjectionBatch => {
   // The color basemap is a first-class base-group layer: `getColorSurface`
-  // runs `surface.register()`, which inserts its LayerInfo through the
-  // standard registerLayer path. All visibility / zoom / order machinery
-  // then treats it identically to a tile basemap. `surface.register()` is
-  // idempotent, so a re-run of this pass is a no-op on the registry side.
+  // registers it and returns the surface; a re-run is a no-op. Only after the
+  // registry entry exists is its author default marked hidden — the entry is
+  // what `setAuthorVisible` keys on.
   getColorSurface(ui);
   const colorLi = ui.c.layerRegistry.get(CONST.SOLID_BASEMAP_ID);
   if (colorLi) {
@@ -33,7 +38,7 @@ const initTypesAndVisibility = (ui: LayerUI) => {
   // registry is skipped by the sweep, not dropped from the record —
   // stored
   // state is erased only by an explicit delete.
-  ui.applyUserState();
+  const moved = ui.applyUserState();
 
   // First-load visibility is the author's `show=`: no code fallback for
   // "no basemap visible" — the A′ hatch (see paintNoBasemapHatch) is the
@@ -49,13 +54,42 @@ const initTypesAndVisibility = (ui: LayerUI) => {
   syncNoBasemap(ui);
   // enforceOrder may have moved rows; keep roving tabindex aligned.
   syncListCursor(ui);
-  // Ready signal for tests: checkbox titles / .foliplus-active / counts are final
-  // for the current layer set (late components re-trigger this pass and
-  // re-set the attribute, so "ready" always reflects the latest pass).
+  return moved;
+};
+
+/** Ready signal for tests and integrations: the entry that owns the panel has
+ *  finished painting it. Set last, once, by that entry — a flag that also went
+ *  up mid-pass would describe a bare list as settled. */
+const markSettled = (ui: LayerUI): void => {
   ui.uiContainer?.setAttribute("data-ready", "true");
 };
 
+/** The one entry that rebuilds the row list — fold toggles, the reorder APIs
+ *  and the post-move reindex all come through here, so "rows, counts,
+ *  readiness, then the round" is written once.
+ *
+ *  `data-ready` comes down first: the rows are about to be replaced with bare
+ *  ones, and leaving the previous pass's value up would report an arrangement
+ *  that no longer exists as settled. */
+const rebuildList = (ui: LayerUI): void => {
+  const container = ui.uiContainer;
+  if (!container) return;
+  container.removeAttribute("data-ready");
+  renderInitialList(ui);
+  const moved = initTypesAndVisibility(ui);
+  ui.refreshAllCounts();
+  container.setAttribute("data-ready", "true");
+  // Last: the rows are painted, the counts and the tri-state agree with them,
+  // and the readiness flag is up — a subscriber that re-enters reads a
+  // finished panel rather than the bare list this pass started from.
+  notifyDeltas(ui, moved);
+};
+
 const renderInitialList = (ui: LayerUI) => {
+  // Take the container once: nothing below notifies, so this local stays the
+  // live panel for the whole pass.
+  const container = ui.uiContainer;
+  if (!container) return;
   // Remember the cursor by identity — the item elements are rebuilt below,
   // so an element reference would dangle. Layer rows key on data-layer-id,
   // toggle-all rows on data-group (they have no layer id). The identity also
@@ -86,9 +120,9 @@ const renderInitialList = (ui: LayerUI) => {
   // The rebuild drops every row (and any style panel anchored in one). A drag
   // that is still live has already produced a value; finish it before the DOM
   // goes, or its change event is lost with the node.
-  finishSlidersIn(ui.uiContainer);
-  ui.uiContainer.innerHTML = "";
-  ui.uiContainer.appendChild(frag);
+  finishSlidersIn(container);
+  container.innerHTML = "";
+  container.appendChild(frag);
 
   // ARIA + roving tabindex on the rebuilt rows. setIndex follows activeIdx
   // without painting the cursor class — restoreCursor() owns that visual.
@@ -110,6 +144,13 @@ const insertLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
   const idx = ui.c.layerRegistry.indexOf(layerInfo);
   if (idx === -1) return;
   const container = ui.uiContainer;
+  if (!container) {
+    // Only reachable when a teardown retired the control between the signal
+    // and this pass — the row simply has nowhere to go. Debug level: a normal
+    // teardown no-ops here, and the trace is for "why did my row not appear".
+    ui.log.debug(`insertLayerItem: panel is gone, dropping row "${layerInfo.id}"`);
+    return;
+  }
   const group = layerInfo.group;
 
   const anchorSel =
@@ -164,13 +205,17 @@ const insertLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
   // The setter is idempotent (overwrites the same value), so re-registration
   // is harmless.
   seedAuthorVisible(ui, layerInfo);
-  ui.applyUserState(layerInfo.id);
+  // The stored-state projection is NOT run here: the registration entry
+  // (registerLayer) owns that pass and its notify, so a subscriber sees the
+  // finished row, count and order before any CHANGE — and this insertion is
+  // also one half of the attach-time pending drain, whose other half (the
+  // full `applyUserState` sweep) covers the same ids.
   // New row must join the roving tabindex / ARIA set.
   syncListCursor(ui);
 };
 
 const updateLayerItemLabel = (ui: LayerUI, layerInfo: LayerInfo) => {
-  const item = ui.uiContainer.querySelector(
+  const item = ui.uiContainer?.querySelector(
     `[${CONST.DATA.LAYER_ID}="${CSS.escape(layerInfo.id)}"]`,
   ) as HTMLElement | null;
   if (!item) return;
@@ -292,12 +337,19 @@ const colorLayerName = (ui: LayerUI): string => {
  *  @returns {boolean} true when the row is a visible base layer. */
 const initLayerItem = (ui: LayerUI, layerInfo: LayerInfo): boolean => {
   if (!ui.c.layerRegistry.has(layerInfo.id)) return false;
+  const container = ui.uiContainer;
+  if (!container) {
+    // Normal-teardown no-op (the panel is gone); debug trace for the case
+    // that is not normal.
+    ui.log.debug(`initLayerItem: panel is gone, row "${layerInfo.id}" unpainted`);
+    return false;
+  }
   const cell = buildRowCell(ui, layerInfo);
   // Resolve the row by data-layer-id: a late registration lands where its
   // stored slot puts it, so the DOM order can diverge from the registry — an
   // index-based lookup would write the checkbox and type column into a
   // neighbor's row.
-  const item = ui.uiContainer.querySelector(
+  const item = container.querySelector(
     `[${CONST.DATA.LAYER_ID}="${CSS.escape(layerInfo.id)}"]`,
   ) as HTMLElement | null;
   if (!item) return false;
@@ -308,15 +360,6 @@ const initLayerItem = (ui: LayerUI, layerInfo: LayerInfo): boolean => {
   // what the map actually shows.
 
   return cell.shown && layerInfo.group === GROUP.BASE;
-};
-
-/** Reindex all layer items after a move, preserving the active focus position.
- *  renderInitialList already re-homes the cursor and restores DOM focus, so
- *  no additional focus work is needed here. */
-const reindexAfterMove = (ui: LayerUI): void => {
-  renderInitialList(ui);
-  initTypesAndVisibility(ui);
-  ui.refreshAllCounts();
 };
 
 /**
@@ -333,6 +376,8 @@ const reindexAfterMove = (ui: LayerUI): void => {
 
 export {
   initTypesAndVisibility,
+  markSettled,
+  rebuildList,
   renderInitialList,
   insertLayerItem,
   updateLayerItemLabel,
@@ -340,5 +385,4 @@ export {
   renderLayerItem,
   colorLayerName,
   initLayerItem,
-  reindexAfterMove,
 };

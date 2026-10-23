@@ -70,6 +70,18 @@ describe("LayerControl registerInteractions", () => {
     cleanup();
   });
 
+  it("is a no-op when the panel is gone — no document-level shortcuts", () => {
+    // InteractionManager reads a missing container as "no scope" and would
+    // bind the panel keys at the document level. A torn-down panel has no
+    // shortcuts at all, so the registration never reaches the manager.
+    const ui = makeUI();
+    ui.uiContainer = null;
+    const cleanup = registerInteractions(ui);
+    expect(typeof cleanup).toBe("function");
+    expect(ensureInteraction).not.toHaveBeenCalled();
+    cleanup();
+  });
+
   it("registers all 7 keyboard shortcuts via InteractionManager", () => {
     const ui = makeUI();
     registerInteractions(ui);

@@ -3,16 +3,16 @@ import { HINT_DURATION } from "#core/hint.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { saveFoldState } from "../state.js";
 import type { LayerUI } from "../surface.js";
-import { initTypesAndVisibility, renderInitialList } from "./list.js";
+import { rebuildList } from "./list.js";
 
 /** Fold or unfold one group. Shared by the pointer (row click) and the
  *  keyboard (Enter / Space over the chevron) so both paths stay in sync. */
 const toggleFold = (ui: LayerUI, group: string): void => {
   if (ui.listPanel.foldedGroups.has(group)) ui.listPanel.foldedGroups.delete(group);
   else ui.listPanel.foldedGroups.add(group);
-  renderInitialList(ui);
-  initTypesAndVisibility(ui);
-  ui.refreshAllCounts();
+  // Same rebuild the reorder APIs use: repaint, settle the counts and the
+  // readiness flag, then announce the round the replay produced.
+  rebuildList(ui);
   saveFoldState(ui);
 };
 
@@ -128,7 +128,7 @@ const handleDrop = (ui: LayerUI, event: DragEvent) => {
 
   ui.c.layerRegistry.reorder(ui.listPanel.dragIdx, targetIdx);
 
-  const movedItem = ui.uiContainer.querySelector(
+  const movedItem = ui.uiContainer?.querySelector(
     `[${CONST.DATA.LAYER_ID}="${CSS.escape(dragId)}"]`,
   );
   if (!movedItem) {
@@ -150,8 +150,8 @@ const handleDrop = (ui: LayerUI, event: DragEvent) => {
 const handleDragEnd = (ui: LayerUI) => {
   ui.listPanel.dragIdx = null;
   ui.listPanel.lastDragOverItem = null;
-  const allItems = ui.uiContainer.querySelectorAll(CONST.SEL.LAYER_ITEM);
-  allItems.forEach((i: Element) =>
+  const allItems = ui.uiContainer?.querySelectorAll(CONST.SEL.LAYER_ITEM);
+  allItems?.forEach((i: Element) =>
     i.classList.remove(
       CONST.CLASSES.DRAGGING,
       CONST.CLASSES.DRAG_OVER_TOP,

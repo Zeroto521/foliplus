@@ -2,9 +2,18 @@
 // Per-map (attached via ensureEvents underneath map.foliplus). Components
 // subscribe to semantic events (LAYER_CHANGE, MODE_CHANGE, ...) instead of
 // wiring to raw Leaflet map events — decoupled, auto-unbindable, and testable.
+import { createLogger } from "#common/log.js";
+import { EVENT_POLICY } from "./const.js";
 import type { EventPayloadMap } from "./type.js";
 
+const log = createLogger("EventBus");
+
 type EventHandler = (...args: unknown[]) => void;
+
+/** What a settled delivery observed: the value a handler threw. The wrapper
+ *  exists because `undefined` is a legal thrown value — `undefined` from the
+ *  dispatch means "nothing was thrown", not "a handler threw undefined". */
+type DispatchFailure = { readonly error: unknown };
 
 class EventBus {
   private listeners = new Map<string, Set<EventHandler>>();
@@ -57,7 +66,19 @@ class EventBus {
    *  contract: every in-tree emit of a data-bearing event passes its payload
    *  so subscribers can rely on a defined value. A void-payload event takes
    *  no argument. Unknown events (a third-party string not in the map) match
-   *  the `unknown[]` branch and take any arguments. */
+   *  the `unknown[]` branch and take any arguments.
+   *
+   *  Delivery is a bare loop over the handlers, in subscription order. A
+   *  handler that throws propagates to the emitter immediately and the
+   *  handlers behind it in this round do not run. Components publish as the
+   *  *last* step of an operation precisely so this is observable but safe: the
+   *  state the operation wrote is committed either way, and a retry after
+   *  catching the error converges. A handler that hands its failure off
+   *  instead of throwing is unaffected. State broadcasts to independent
+   *  consumers use {@link publish} (one event) or
+   *  {@link SettledOperation} (a lifecycle operation); the projection channel
+   *  uses {@link emitSupersedingSettled}. Plain `emit` stays for commands with
+   *  a single interested party, where stopping on the first error is useful. */
   emit<K extends string>(
     event: K,
     ...args: K extends keyof EventPayloadMap
@@ -73,11 +94,275 @@ class EventBus {
     for (const handler of [...set]) handler(...payload);
   }
 
-  /** Remove all listeners for every event. */
+  /** Emit an event whose payload is one layer's current state, superseding any
+   *  in-flight delivery of the same (event, id). A synchronous rewrite inside a
+   *  handler — a subscriber correcting its own table, another control bouncing
+   *  the value back — emits a newer payload for the same id while the older
+   *  delivery is still walking its handlers. Without this, the handlers behind
+   *  the reentry point would receive the superseded value *after* the fresh
+   *  one: final state correct, last payload stale. With it, the older delivery
+   *  stops at the reentry point and only the newest write reaches the rest.
+   *
+   *  The payload itself stays a plain snapshot — a handler that stores it and
+   *  reads later sees the value as of this emit, not whatever came after.
+   *  `supersedeKey` is the layer id; the map is keyed by event + id so a
+   *  CHANGE can never abort an INTENT for the same layer. */
+  emitSuperseding<K extends string>(
+    event: K,
+    supersedeKey: string,
+    ...payload: K extends keyof EventPayloadMap
+      ? EventPayloadMap[K] extends void
+        ? []
+        : [NonNullable<EventPayloadMap[K]>]
+      : unknown[]
+  ): void;
+  emitSuperseding(event: string, supersedeKey: string, ...payload: unknown[]): void {
+    const set = this.listeners.get(event);
+    if (!set) return;
+    // Replace the in-flight token first: the loop of whichever delivery is
+    // currently walking this (event, id) sees the swap and stops. This emit
+    // then delivers fresh to everyone from the start. The token is cleaned up
+    // in a finally so a handler that throws cannot strand it — exceptions
+    // propagate to the emitter by contract, and a stranded token would grow
+    // the map with every (event, id) that ever threw.
+    const token = {};
+    const key = `${event}\u0000${supersedeKey}`;
+    this.superseding.set(key, token);
+    try {
+      for (const handler of [...set]) {
+        if (this.superseding.get(key) !== token) return;
+        handler(...payload);
+      }
+    } finally {
+      // Only delete our own token. A newer emit replaced it mid-delivery —
+      // that delivery owns the cleanup, and deleting its token here would let
+      // a third, even newer round run unsuperseded against the same key.
+      if (this.superseding.get(key) === token) this.superseding.delete(key);
+    }
+  }
+
+  /** Emit without letting a throwing handler cut the delivery short.
+   *
+   *  The settled-dispatch variant for a *lifecycle or command signal*: every
+   *  still-current handler is attempted in subscription order, the first
+   *  failure is returned, and the call never throws. Callers that own a wider
+   *  operation (a register that also changes LAYER_CHANGE, a delete that also
+   *  emits LAYER_REMOVED) collect these through {@link SettledOperation} and
+   *  raise once after the whole fan-out. A `clear()` during delivery stops the
+   *  remaining handlers.
+   *
+   *  The failure is a wrapper, not the thrown value, for the same reason as
+   *  {@link emitSupersedingSettled}: `throw undefined` is legal and must not
+   *  read as "nothing failed". */
+  emitSettled<K extends string>(
+    event: K,
+    ...payload: K extends keyof EventPayloadMap
+      ? EventPayloadMap[K] extends void
+        ? []
+        : [NonNullable<EventPayloadMap[K]>]
+      : unknown[]
+  ): DispatchFailure | undefined;
+  emitSettled(event: string, ...payload: unknown[]): DispatchFailure | undefined {
+    const set = this.listeners.get(event);
+    if (!set) return undefined;
+    const generation = this.generation;
+    let failure: DispatchFailure | undefined;
+    for (const handler of [...set]) {
+      if (this.generation !== generation) break;
+      try {
+        handler(...payload);
+      } catch (error) {
+        failure ??= { error };
+      }
+    }
+    return failure;
+  }
+
+  /** Emit without letting a throwing handler cut the delivery short.
+   *
+   *  This is the settled-dispatch variant for *state broadcasts*: one layer's
+   *  visibility is announced to any number of independent consumers (a map-kit
+   *  panel, an export tool, a plugin), and none of them owns the others. A
+   *  single consumer that throws must not steal the notification from the
+   *  consumers behind it, nor from the INTENT half this round still owes, nor
+   *  from the layers after it in the same batch — and since the state was
+   *  committed before the notify, a retry produces no delta and can never
+   *  replay what was dropped.
+   *
+   *  Behavior: every still-current handler is attempted, in subscription order;
+   *  the first failure is kept and returned, and the call never throws. The
+   *  caller owning the wider operation finishes its own fan-out and raises
+   *  `failure.error` itself. Superseding works exactly as in
+   *  {@link emitSuperseding}: once a newer round takes the key, the rest of
+   *  this round stops at the reentry point — but a failure this round already
+   *  observed is still returned. The handler that threw did throw; a later
+   *  correction cannot un-report it on its behalf. `clear()` during delivery
+   *  takes the token with it, so the remaining handlers are not attempted
+   *  either.
+   *
+   *  The failure is a wrapper, not the thrown value: `throw undefined` is
+   *  legal and must not read as "nothing failed". Plain `emit` keeps its
+   *  fail-fast contract — it is used for commands with a single interested
+   *  party, where stopping on the first error is the useful behavior. */
+  emitSupersedingSettled<K extends string>(
+    event: K,
+    supersedeKey: string,
+    ...payload: K extends keyof EventPayloadMap
+      ? EventPayloadMap[K] extends void
+        ? []
+        : [NonNullable<EventPayloadMap[K]>]
+      : unknown[]
+  ): DispatchFailure | undefined;
+  emitSupersedingSettled(
+    event: string,
+    supersedeKey: string,
+    ...payload: unknown[]
+  ): DispatchFailure | undefined {
+    const set = this.listeners.get(event);
+    if (!set) return undefined;
+    const token = {};
+    const key = `${event}\u0000${supersedeKey}`;
+    const generation = this.generation;
+    this.superseding.set(key, token);
+    let failure: DispatchFailure | undefined;
+    try {
+      for (const handler of [...set]) {
+        if (this.generation !== generation) break;
+        if (this.superseding.get(key) !== token) break;
+        try {
+          handler(...payload);
+        } catch (error) {
+          failure ??= { error };
+        }
+      }
+    } finally {
+      if (this.superseding.get(key) === token) this.superseding.delete(key);
+    }
+    return failure;
+  }
+
+  private superseding = new Map<string, object>();
+
+  /** Bumped by `clear()`: settled deliveries snapshot it and stop when it
+   *  changes, so a torn-down bus cannot keep feeding a delivery that was
+   *  already in flight. */
+  private generation = 0;
+
+  /** Remove all listeners and any in-flight supersede tokens. Called during a
+   *  settled delivery, it also stops that delivery: the token/generation the
+   *  round checks against is gone, so the handlers behind the caller are not
+   *  attempted. */
   clear(): void {
     this.listeners.clear();
+    this.superseding.clear();
+    this.generation++;
   }
 }
 
-export { EventBus };
-export type { EventHandler };
+/** One operation's settled fan-out. Queue every event the operation owes, do
+ *  the local mutation in between, then `throwIfFailed()` once at the end — so
+ *  a throwing consumer cannot cut off the later events or the local commit.
+ *
+ *  The first failure is kept, matching the projection dispatcher: callers get
+ *  a stable first-error contract instead of an aggregate whose order depends
+ *  on subscription timing. */
+class SettledOperation {
+  private failure: DispatchFailure | undefined;
+
+  constructor(private readonly bus: EventBus) {}
+
+  emit<K extends string>(
+    event: K,
+    ...payload: K extends keyof EventPayloadMap
+      ? EventPayloadMap[K] extends void
+        ? []
+        : [NonNullable<EventPayloadMap[K]>]
+      : unknown[]
+  ): this;
+  emit(event: string, ...payload: unknown[]): this {
+    // Dispatch first, then keep the first failure: `??=` on the call would
+    // skip every event queued after the first failure, which is the very
+    // truncation this operation exists to prevent.
+    const observed = (this.bus.emitSettled as EventBusEmit)(event, ...payload);
+    this.failure ??= observed;
+    return this;
+  }
+
+  emitSuperseding<K extends string>(
+    event: K,
+    supersedeKey: string,
+    ...payload: K extends keyof EventPayloadMap
+      ? EventPayloadMap[K] extends void
+        ? []
+        : [NonNullable<EventPayloadMap[K]>]
+      : unknown[]
+  ): this;
+  emitSuperseding(event: string, supersedeKey: string, ...payload: unknown[]): this {
+    const observed = (this.bus.emitSupersedingSettled as EventBusSupersedingEmit)(
+      event,
+      supersedeKey,
+      ...payload,
+    );
+    this.failure ??= observed;
+    return this;
+  }
+
+  /** Fold in a failure a different dispatcher already observed (a projection
+   *  batch, for example) so the operation owns the whole error boundary. */
+  absorb(failure: DispatchFailure | undefined): this {
+    this.failure ??= failure;
+    return this;
+  }
+
+  /** Raise the first failure the operation observed, if any. */
+  throwIfFailed(): void {
+    if (this.failure) throw this.failure.error;
+  }
+}
+
+type EventBusEmit = (
+  event: string,
+  ...payload: unknown[]
+) => DispatchFailure | undefined;
+type EventBusSupersedingEmit = (
+  event: string,
+  supersedeKey: string,
+  ...payload: unknown[]
+) => DispatchFailure | undefined;
+
+/** Publish one settled broadcast, then resolve the first consumer failure by
+ *  the event's declared policy (see EVENT_POLICY in ./const.js):
+ *
+ *  - `notification` (MODE_CHANGE, OVERLAY_CLEAR, CONTROL_ATTACHED,
+ *    BEFORE_EXPORT): every listener runs, then the first failure is recorded
+ *    to the diagnostic log — an observer must not interrupt the producer's
+ *    remaining local work.
+ *  - `terminal` (the default): every listener runs, then the first failure is
+ *    raised once the fan-out is done.
+ *
+ *  This is the one-event counterpart of {@link SettledOperation}. Unknown
+ *  events default to terminal, so a producer that forgot to declare a policy
+ *  is loud rather than silently best-effort. */
+const publish = <K extends string>(
+  bus: EventBus,
+  event: K,
+  ...payload: K extends keyof EventPayloadMap
+    ? EventPayloadMap[K] extends void
+      ? []
+      : [NonNullable<EventPayloadMap[K]>]
+    : unknown[]
+): void => {
+  const failure = (bus.emitSettled as EventBusEmit)(event, ...payload);
+  if (!failure) return;
+  const policy = (
+    EVENT_POLICY as Record<string, { kind: "terminal" | "notification" }>
+  )[event];
+  if (policy?.kind === "notification") {
+    log.warn(`consumer failure on ${event} — recorded, not raised:`, failure.error);
+    return;
+  }
+  throw failure.error;
+};
+
+export { EventBus, SettledOperation, publish };
+export type { DispatchFailure, EventHandler };

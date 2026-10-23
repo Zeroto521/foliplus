@@ -10,6 +10,7 @@ import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { getIntent, seedIntentMap } from "#foliplus/LayerControl/ui/intent.js";
 import {
   TEST_ENV,
+  attachedPanel,
   findItem,
   initFixture,
   installLeafletGlobals,
@@ -227,7 +228,7 @@ describe("LayerUI shell — delegates", () => {
     // through the same visibility carrier + debounced z-order write-through
     // as any other layer.
     const enforce = vi.spyOn(manager, "debouncedEnforce");
-    const colorItem = ui.uiContainer.querySelector(
+    const colorItem = attachedPanel(ui).querySelector(
       `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
     ) as HTMLElement;
     const checkbox = colorItem.querySelector(

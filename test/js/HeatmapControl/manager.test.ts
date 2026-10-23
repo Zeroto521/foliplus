@@ -507,6 +507,23 @@ describe("renderFeatures", () => {
     m.renderFeatures([{ type: "Feature" }] as any);
     expect(handler).toHaveBeenCalledWith({ id: m.layerId });
   });
+
+  it("count broadcast is settled — a thrower does not starve later consumers", () => {
+    const m = makeManager();
+    m.overlay.register = vi.fn();
+    m.redrawHeatmap = vi.fn();
+    const bus = ensureEvents(m.map);
+    const seen: string[] = [];
+    bus.on(EVENTS.LAYER_ITEM_COUNT_CHANGE, () => {
+      throw new Error("count boom");
+    });
+    bus.on(EVENTS.LAYER_ITEM_COUNT_CHANGE, payload => seen.push(payload.id));
+
+    expect(() => m.renderFeatures([{ type: "Feature" }] as any)).toThrow("count boom");
+
+    expect(seen).toEqual([m.layerId]);
+    expect(m.cachedFeatures).toEqual([{ type: "Feature" }]);
+  });
 });
 
 describe("renderHexagons", () => {
@@ -1255,7 +1272,7 @@ describe("HeatmapManager — style delegation", () => {
     // this.map.foliplus (makeCtrl wires the same object).
     (m.map as unknown as { foliplus: unknown }).foliplus = window.map.foliplus;
     const touchLayer = window.map.foliplus.LayerAPI.touchLayer;
-    const emitSpy = vi.spyOn(m.events, "emit");
+    const emitSpy = vi.spyOn(m.events, "emitSettled");
     const opts = getCanvasOpts();
 
     opts.styleSetters!.labelShow!(true);
@@ -1270,7 +1287,7 @@ describe("HeatmapManager — style delegation", () => {
     const m = makeManager();
     (m.map as unknown as { foliplus: unknown }).foliplus = window.map.foliplus;
     const touchLayer = window.map.foliplus.LayerAPI.touchLayer;
-    const emitSpy = vi.spyOn(m.events, "emit");
+    const emitSpy = vi.spyOn(m.events, "emitSettled");
     const opts = getCanvasOpts();
 
     opts.styleSetters!.labelFormat!("comma");
@@ -1460,7 +1477,7 @@ describe("HeatmapManager — style delegation", () => {
     const m = makeManager();
     (m.map as unknown as { foliplus: unknown }).foliplus = window.map.foliplus;
     const touchLayer = window.map.foliplus.LayerAPI.touchLayer;
-    const emitSpy = vi.spyOn(m.events, "emit");
+    const emitSpy = vi.spyOn(m.events, "emitSettled");
     const opts = getCanvasOpts();
 
     opts.styleSetters!.borderWeight!(2.5);
@@ -1499,7 +1516,7 @@ describe("HeatmapManager — style delegation", () => {
     const m = makeManager();
     (m.map as unknown as { foliplus: unknown }).foliplus = window.map.foliplus;
     const touchLayer = window.map.foliplus.LayerAPI.touchLayer;
-    const emitSpy = vi.spyOn(m.events, "emit");
+    const emitSpy = vi.spyOn(m.events, "emitSettled");
     const opts = getCanvasOpts();
 
     opts.styleSetters!.borderColor!("#00ff00");
