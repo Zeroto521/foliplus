@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { METHOD } from "#core/classify.js";
 import * as CONST from "#foliplus/HeatmapControl/const.js";
+import { BORDER_WEIGHT } from "#common/form.js";
 import { makeManager } from "./fixture.js";
 
 describe("HeatmapManager — versioned persisted config", () => {
@@ -118,6 +119,96 @@ describe("HeatmapManager — versioned persisted config", () => {
       const m = makeManager();
       window.localStorage.setItem(KEY, "not-json");
       expect(m.loadSavedConfig()).toBeNull();
+    });
+  });
+
+  describe("saved records are validated at the boundary", () => {
+    // loadRecord is a static assertion, not a check: a record from an older
+    // build, a hand-edited one, or one from a future version holds whatever
+    // it likes. A bad field must keep the default instead of reaching the
+    // classifier (which used to re-mean an unknown method as equal) or chroma
+    // (whose throw used to abort the panel on load).
+    const store = (record: unknown) =>
+      window.localStorage.setItem(KEY, JSON.stringify(record));
+
+    it("drops a method the classifier does not implement", () => {
+      const m = makeManager();
+      const before = m.method;
+      store({ method: "bogus", agg: "sum", scheme: "Reds" });
+      const loaded = m.loadSavedConfig()!;
+      expect(loaded.method).toBeUndefined();
+      // The neighbouring fields are unaffected by one bad one.
+      expect(loaded.agg).toBe("sum");
+      expect(loaded.scheme).toBe("Reds");
+      m.applySavedConfig(loaded);
+      expect(m.method).toBe(before);
+    });
+
+    it("rejects a padded or differently-cased method", () => {
+      // A method is a protocol token, so padding and case are meaningful.
+      const m = makeManager();
+      store({ method: " equal " });
+      expect(m.loadSavedConfig()!.method).toBeUndefined();
+      store({ method: "EQUAL" });
+      expect(m.loadSavedConfig()!.method).toBeUndefined();
+      store({ method: "equal" });
+      expect(m.loadSavedConfig()!.method).toBe("equal");
+    });
+
+    it("drops an unknown aggregation and a non-integer class count", () => {
+      const m = makeManager();
+      store({ agg: "median", numClasses: 3.5, scheme: "Reds" });
+      const loaded = m.loadSavedConfig()!;
+      expect(loaded.agg).toBeUndefined();
+      expect(loaded.numClasses).toBeUndefined();
+      expect(loaded.scheme).toBe("Reds");
+    });
+
+    it("clamps an out-of-range class count and keeps a null layerId", () => {
+      const m = makeManager();
+      store({ numClasses: 99, layerId: null });
+      const loaded = m.loadSavedConfig()!;
+      expect(loaded.numClasses).toBe(CONST.CLASS_COUNT.MAX);
+      // null means "the user cleared the selection", so it is preserved
+      // rather than treated as an absent field.
+      expect(loaded.layerId).toBeNull();
+    });
+
+    it("drops a version stamp that is not a positive integer", () => {
+      // Absent means "legacy record - the fields are the source of truth";
+      // present-but-invalid is not a version at all.
+      const m = makeManager();
+      store({ version: 0, agg: "sum" });
+      expect(m.loadSavedConfig()!.version).toBeUndefined();
+      expect(m.loadSavedConfig()!.agg).toBe("sum");
+      store({ version: 1.5 });
+      expect(m.loadSavedConfig()!.version).toBeUndefined();
+      store({ version: "3" });
+      expect(m.loadSavedConfig()!.version).toBeUndefined();
+    });
+
+    it("clamps a border weight the way the live setter does", () => {
+      // The panel offers BORDER_WEIGHT, so a record must not enter the
+      // manager through a wider gate than the UI itself provides.
+      const m = makeManager();
+      store({ borderWeight: -4 });
+      expect(m.loadSavedConfig()!.borderWeight).toBe(BORDER_WEIGHT.MIN);
+      store({ borderWeight: 99 });
+      expect(m.loadSavedConfig()!.borderWeight).toBe(BORDER_WEIGHT.MAX);
+    });
+
+    it("drops a label format outside the NumberStyle union", () => {
+      const m = makeManager();
+      store({ labelFormat: "currency" });
+      expect(m.loadSavedConfig()!.labelFormat).toBeUndefined();
+    });
+
+    it("ignores a non-object record and leaves the one-shot guard alone", () => {
+      const m = makeManager();
+      store([1, 2, 3]);
+      expect(m.loadSavedConfig()).toBeNull();
+      m.applySavedConfig([1, 2, 3] as never);
+      expect(m.hasScanned).toBe(false);
     });
   });
 

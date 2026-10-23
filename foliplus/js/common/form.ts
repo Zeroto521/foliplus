@@ -28,6 +28,12 @@ const BORDER_WEIGHT = {
 const clampLabelSize = (value: number): number =>
   Math.min(LABEL_SIZE.SIZE_MAX, Math.max(LABEL_SIZE.SIZE_MIN, value));
 
+/** Clamp a raw border weight into the shared bounds. The live setter and the
+ *  saved-record reader both go through this, so a hand-edited record cannot
+ *  reach the manager with a value the panel itself refuses to produce. */
+const clampBorderWeight = (value: number): number =>
+  Math.min(BORDER_WEIGHT.MAX, Math.max(BORDER_WEIGHT.MIN, value));
+
 /** Expand #rgb to #rrggbb so `<input type=color>` accepts Python's "#fff". */
 const normalizeHexColor = (value: string): string => {
   if (/^#[0-9a-fA-F]{3}$/.test(value)) {
@@ -127,6 +133,7 @@ export {
   bindLiveColor,
   bindLiveNumber,
   BORDER_WEIGHT,
+  clampBorderWeight,
   clampLabelSize,
   colorInput,
   formRow,

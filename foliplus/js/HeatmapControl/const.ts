@@ -10,8 +10,6 @@ const TIMING = {
   SCHEME_DROPDOWN_BLUR_DELAY: 150,
 };
 
-const GRAY = "#999";
-
 const H3 = {
   RES_MAP: [
     [2, 0],
@@ -119,7 +117,6 @@ export {
   CLASS_COUNT,
   CLASSES,
   DATA_ATTR,
-  GRAY,
   H3,
   ID,
   LABEL,

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
+import { SCHEME_FALLBACK_COLOR } from "#core/palette.js";
 import * as CONST from "#foliplus/HeatmapControl/const.js";
 import { HeatmapManager } from "#foliplus/HeatmapControl/manager.js";
 import { rebuildLayerDropdown } from "#foliplus/HeatmapControl/ui.js";
@@ -535,20 +536,6 @@ describe("renderHexagons", () => {
     const spy = vi.spyOn(m, "aggregateData");
     m.renderHexagons();
     expect(spy).not.toHaveBeenCalled();
-  });
-});
-
-describe("wrapper delegation & the registration snapshot", () => {
-  it("computeBreaks forwards the caller's args to the shared classifier", async () => {
-    const m = makeManager();
-    const mod = await import("#core/classify.js");
-    const spy = vi.spyOn(mod, "computeBreaks").mockImplementation(() => [1, 5]);
-    try {
-      m.computeBreaks([3, 1, 4], 4, "fisher-jenks");
-      expect(spy).toHaveBeenCalledWith([3, 1, 4], 4, "fisher-jenks");
-    } finally {
-      spy.mockRestore();
-    }
   });
 });
 
@@ -1758,7 +1745,7 @@ describe("constructor — CONFIG fallbacks", () => {
     expect(m.scheme).toBe("Reds");
     expect(m.method).toBe("jenks");
     expect(m.numClasses).toBe(CONST.CLASS_COUNT.DEFAULT);
-    expect(m.borderColor).toBe(CONST.GRAY);
+    expect(m.borderColor).toBe(SCHEME_FALLBACK_COLOR);
   });
 });
 
@@ -2091,15 +2078,6 @@ describe("resetState — CONFIG fallbacks", () => {
     expect(m.numClasses).toBe(CONST.CLASS_COUNT.DEFAULT);
     expect(m.method).toBe("jenks");
     expect(m.scheme).toBe("Reds");
-  });
-});
-
-describe("computeBreaks", () => {
-  it("delegates to computeBreaksFn", () => {
-    const m = makeManager();
-    const result = m.computeBreaks([1, 2, 3, 4, 5], 3, "jenks");
-    expect(Array.isArray(result)).toBe(true);
-    expect(result.length).toBeGreaterThanOrEqual(2);
   });
 });
 

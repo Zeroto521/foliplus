@@ -1,10 +1,13 @@
 // HeatmapControl UI building — standalone functions.
 // All internal refs use direct function calls instead of `this.`.
+import { isClassifyMethod } from "#core/classify.js";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { adjustPanelZIndex } from "#core/leaflet/index.js";
+import { safeColorScale } from "#core/palette.js";
 import { dom } from "#common/dom.js";
 import * as CONST from "./const.js";
+import { pickAutoField } from "./data.js";
 import { registerDropdownEvents, registerSchemeBarEvents } from "./interaction.js";
 import { type HeatmapManager } from "./manager.js";
 import { panelContentHTML } from "./template.js";
@@ -132,7 +135,12 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
   };
 
   ctrl.methodSelect.onchange = () => {
-    ctrl.mgr.method = ctrl.methodSelect.value;
+    // The select only ever carries an option value, but the field is typed
+    // closed: writing an unrecognised name would leave the manager in a state
+    // computeBreaks refuses. A hand-edited DOM is the only way to get here.
+    const method = ctrl.methodSelect.value;
+    if (!isClassifyMethod(method)) return;
+    ctrl.mgr.method = method;
     ctrl.mgr.renderHexagons();
     persist(ctrl);
   };
@@ -146,7 +154,9 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
       ),
     );
     updateSchemeBar(ctrl);
-    if (ctrl.schemeDropdown) refreshSchemeDropdownItems(ctrl);
+    // refreshSchemeDropdownItems owns the null check - a control whose
+    // dropdown has not been opened yet has nothing to refresh.
+    refreshSchemeDropdownItems(ctrl);
     ctrl.mgr.renderHexagons();
     persist(ctrl);
   };
@@ -300,7 +310,7 @@ const updateFieldSelector = (ctrl: HeatmapControlUI) => {
     info => info.id === ctrl.mgr.selectedLayerId,
   );
   const fields = ctrl.mgr.collectFields(selected);
-  ctrl.mgr.autoFieldKey = ctrl.mgr.pickAutoField(fields);
+  ctrl.mgr.autoFieldKey = pickAutoField(fields);
 
   ctrl.fieldSelect.innerHTML = "";
   dom.el(
@@ -332,7 +342,7 @@ const renderColorBar = (
   name: string,
   numClasses: number,
 ) => {
-  const colors = ctrl.mgr.getColorScale(name, numClasses);
+  const colors = safeColorScale(name, numClasses);
   container.innerHTML = "";
   for (const color of colors) {
     dom.el("div", {

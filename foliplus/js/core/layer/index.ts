@@ -43,15 +43,22 @@ export {
   findLeaf,
   findNode,
 } from "./walkLeaf.js";
+// `isArealStyleLeaf` is the fill walker's leaf predicate. The build's registry
+// scan folds any `#core/layer/<file>.js` import into this barrel, so a name
+// the barrel does not re-export fails the build loudly rather than shimming to
+// `undefined` on `window.foliplus.core.layer`. `FILL_OPT_IN` rides along as
+// the public spelling of the cross-realm / third-party fill declaration.
+export { FILL_OPT_IN, isArealStyleLeaf } from "./capability.js";
 export { ensureLayerAPI, requireLayerAPI } from "./api.js";
 export { CLUSTER_CAPABILITIES, deriveLayerKind } from "./util.js";
 export { LayerRuntimeStore } from "./LayerRuntimeStore.js";
 export { LayerOrder } from "./LayerOrder.js";
-export { INTENT, LIVE, STYLE_KEYS } from "./intent.js";
+export { INTENT, isFillRampConfig, LIVE, STYLE_KEYS } from "./intent.js";
 export type { AppliedProjection } from "./LayerRuntimeStore.js";
 export type { Projection } from "./type.js";
 export type {
   AnnotationConfig,
+  FillRampConfig,
   IntentKey,
   IntentRow,
   LayerIntent,
