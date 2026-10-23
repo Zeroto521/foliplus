@@ -61,7 +61,7 @@ type StyleWrite = { fillColor?: string; fillOpacity?: number; fill?: boolean };
  *  is given an explicit call signature - a bare vi.fn() infers
  *  Mock<Procedure | Constructable>, which TypeScript refuses to call. */
 type Leaf = {
-  feature: { properties: { value: number } };
+  feature: { properties: { value: number }; geometry: { type: string } };
   options: Record<string, unknown>;
   getLatLngs: () => unknown[];
   setStyle: ReturnType<typeof vi.fn<(style: StyleWrite) => void>>;
@@ -69,7 +69,7 @@ type Leaf = {
 };
 
 const makeLeaf = (i: number): Leaf => ({
-  feature: { properties: { value: i * 3.7 } },
+  feature: { properties: { value: i * 3.7 }, geometry: { type: "Polygon" } },
   options: { fillColor: "#3388ff", fillOpacity: 0.2, fill: true },
   getLatLngs: () => RING,
   setStyle: vi.fn<(style: StyleWrite) => void>(),

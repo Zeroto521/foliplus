@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { hasFillLeaf, hasSetStyleLeaf } from "#core/layer/capability.js";
+import { FILL_OPT_IN, hasFillLeaf, hasSetStyleLeaf } from "#core/layer/capability.js";
 import {
   isStyleSetter,
   pinStyleOnHighlight,
@@ -309,5 +309,123 @@ describe("hasFillLeaf", () => {
     } finally {
       (window.L as any).Circle = saved;
     }
+  });
+
+  it("rejects a MultiPolyline duck - nested coords are not evidence of an area", () => {
+    // The shape that motivated the declaration-based probe: a MultiPolyline's
+    // getLatLngs() returns rings exactly like a Polygon's, so nesting cannot
+    // separate the two. Admitting it would put a line value in the ramp's
+    // breaks and hand a line a fill it cannot render.
+    const multi: any = {
+      setStyle: vi.fn(),
+      getLatLngs: () => [
+        [
+          { lat: 0, lng: 0 },
+          { lat: 1, lng: 1 },
+        ],
+        [
+          { lat: 2, lng: 2 },
+          { lat: 3, lng: 3 },
+        ],
+      ],
+    };
+    expect(hasFillLeaf(multi)).toBe(false);
+  });
+
+  it("admits a MultiPolygon by declaration and rejects a MultiLineString", () => {
+    expect(
+      hasFillLeaf({
+        setStyle: vi.fn(),
+        feature: { geometry: { type: "MultiPolygon" } },
+      }),
+    ).toBe(true);
+    expect(
+      hasFillLeaf({
+        setStyle: vi.fn(),
+        feature: { geometry: { type: "MultiLineString" } },
+        getLatLngs: () => [
+          [
+            { lat: 0, lng: 0 },
+            { lat: 1, lng: 1 },
+          ],
+        ],
+      }),
+    ).toBe(false);
+  });
+
+  it("admits a Polygon with holes - the extra ring changes nothing", () => {
+    expect(
+      hasFillLeaf({
+        setStyle: vi.fn(),
+        feature: {
+          geometry: {
+            type: "Polygon",
+            coordinates: [
+              [
+                [0, 0],
+                [1, 0],
+                [0, 1],
+                [0, 0],
+              ],
+              [
+                [0.3, 0.3],
+                [0.7, 0.3],
+                [0.3, 0.7],
+                [0.3, 0.3],
+              ],
+            ],
+          },
+        },
+      }),
+    ).toBe(true);
+  });
+
+  it("accepts an explicit opt-in from a cross-realm or third-party path", () => {
+    const optIn: any = { setStyle: vi.fn() };
+    optIn[FILL_OPT_IN] = true;
+    expect(hasFillLeaf(optIn)).toBe(true);
+    // The same shape without the declaration is not fillable, whatever
+    // coordinates it advertises.
+    expect(hasFillLeaf({ setStyle: vi.fn(), getLatLngs: () => [] })).toBe(false);
+  });
+
+  it("finds an opted-in leaf nested in a group", () => {
+    const optIn: any = { setStyle: vi.fn() };
+    optIn[FILL_OPT_IN] = true;
+    const group: any = {
+      options: {},
+      eachLayer: (fn: (child: unknown) => void) => fn(optIn),
+    };
+    expect(hasFillLeaf(group)).toBe(true);
+  });
+
+  it("reads the declaration from toGeoJSON when there is no feature envelope", () => {
+    expect(
+      hasFillLeaf({
+        setStyle: vi.fn(),
+        toGeoJSON: () => ({ type: "Feature", geometry: { type: "Polygon" } }),
+      }),
+    ).toBe(true);
+    expect(
+      hasFillLeaf({
+        setStyle: vi.fn(),
+        toGeoJSON: () => ({ type: "Feature", geometry: { type: "MultiLineString" } }),
+      }),
+    ).toBe(false);
+  });
+
+  it("treats a throwing toGeoJSON and an empty envelope as no declaration", () => {
+    expect(
+      hasFillLeaf({
+        setStyle: vi.fn(),
+        toGeoJSON: () => {
+          throw new Error("no geometry");
+        },
+      }),
+    ).toBe(false);
+    expect(hasFillLeaf({ setStyle: vi.fn(), feature: {} })).toBe(false);
+    expect(hasFillLeaf({ setStyle: vi.fn(), feature: { properties: { a: 1 } } })).toBe(
+      false,
+    );
   });
 });

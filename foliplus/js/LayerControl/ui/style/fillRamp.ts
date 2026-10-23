@@ -55,11 +55,8 @@ const leafPropertyValue = (leaf: StyleSetter, key: string): unknown =>
 const isFiniteNumber = (value: unknown): value is number =>
   typeof value === "number" && Number.isFinite(value);
 
-/** Drive values per leaf: collected by pass 1, read by pass 2. One shared
- *  map cleared per apply rather than a fresh allocation per tick - a drag
- *  issues one apply per frame, so the entries are reused instead of handed
- *  to GC N at a time, N x frames. */
-const rampLeafValues = new Map<StyleSetter, number>();
+/** One collected leaf: the node plus its finite drive value, if any. */
+type CollectedLeaf = { leaf: StyleSetter; value: number | undefined };
 
 /** Whether two ramp configs differ in a way that invalidates a cached
  *  breaks/scale pair. Every field counts: `field` because the collected
@@ -118,14 +115,18 @@ const applyRampToLayer = (ui: LayerUI, layerId: string, ramp: FillRampConfig): v
     getIntent(ui, layerId, INTENT.FILL_OPACITY);
 
   // ── Pass 1: collect values ──
+  // The collection is local to this call on purpose. A module-level scratch
+  // would be shared with a re-entrant apply - a setStyle that triggers
+  // another layer's ramp would clear this walk's entries mid-pass and the
+  // surviving leaves would be repainted with the author's colour - and it
+  // would keep every leaf of the last painted layer alive between applies.
   const values: number[] = [];
-  rampLeafValues.clear();
+  const collected: CollectedLeaf[] = [];
   walkFillLeaves(layer, leaf => {
-    const val = leafPropertyValue(leaf, ramp.field);
-    if (isFiniteNumber(val)) {
-      values.push(val);
-      rampLeafValues.set(leaf, val);
-    }
+    const read = leafPropertyValue(leaf, ramp.field);
+    const value = isFiniteNumber(read) ? read : undefined;
+    if (value !== undefined) values.push(value);
+    collected.push({ leaf, value });
   });
 
   // ── Build the ramp once, before the write pass ──
@@ -158,17 +159,18 @@ const applyRampToLayer = (ui: LayerUI, layerId: string, ramp: FillRampConfig): v
     built !== null && built.colors.length > 0 ? built : null;
 
   // ── Pass 2: write per-leaf + pin ──
-  walkFillLeaves(layer, leaf => {
+  // Iterating the collection instead of re-walking the tree: the two passes
+  // then share one leaf order and no shared state.
+  for (const { leaf, value } of collected) {
     const opacity = readOpacity();
     const write: Record<string, unknown> = {};
     if (opacity !== undefined) write.fillOpacity = opacity;
-    const val = rampLeafValues.get(leaf);
-    if (scale !== null && isFiniteNumber(val)) {
+    if (scale !== null && value !== undefined) {
       // The ramp owns this leaf's colour, so `fill` is lit and the author's
       // colour is replaced. The payload stays minimal: a named colour replaces
       // whatever the previous arm left in that slot, and the opacity is named
       // only when the user chose one, so the author's stays in force.
-      write.fillColor = colorFor(scale, val);
+      write.fillColor = colorFor(scale, value);
       commitStyleDim(leaf, write, FACE.FILL);
     } else {
       // Outside the ramp's reach: the author's colour and `fill` flag —
@@ -209,7 +211,7 @@ const applyRampToLayer = (ui: LayerUI, layerId: string, ramp: FillRampConfig): v
       if (op === undefined) return null;
       return styleDimOverAuthor(leaf, { fillOpacity: op }, FACE.FILL, false);
     });
-  });
+  }
 };
 
 export { applyRampToLayer, resolveFillMode };

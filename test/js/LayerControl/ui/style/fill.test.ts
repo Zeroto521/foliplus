@@ -869,6 +869,7 @@ describe("LayerUI style panel — fill color", () => {
     let handler: (() => void) | null = null;
     const leaf = {
       options: { fillColor: "#aabbcc", fillOpacity: 0.5, fill: true },
+      feature: { geometry: { type: "Polygon" } },
       getLatLngs: RING,
       setStyle: vi.fn(),
       on: vi.fn((_type: string, fn: () => void) => {
@@ -902,6 +903,7 @@ describe("LayerUI style panel — fill color", () => {
     const fixture = initWithFillLayer();
     const leaf = {
       options: { fillColor: "#aabbcc", fillOpacity: 0.5, fill: true },
+      feature: { geometry: { type: "Polygon" } },
       getLatLngs: RING,
       setStyle: vi.fn(),
       on: vi.fn(),
@@ -919,6 +921,7 @@ describe("LayerUI style panel — fill color", () => {
     let handler: (() => void) | null = null;
     const leaf = {
       options: { fillColor: "#aabbcc", fillOpacity: 0.5, fill: true },
+      feature: { geometry: { type: "Polygon" } },
       getLatLngs: RING,
       setStyle: vi.fn(),
       on: vi.fn((_type: string, fn: () => void) => {
@@ -944,6 +947,7 @@ describe("LayerUI style panel — fill color", () => {
     let handler: (() => void) | null = null;
     const leaf = {
       options: { fillColor: "#aabbcc", fillOpacity: 0.5, fill: true },
+      feature: { geometry: { type: "Polygon" } },
       getLatLngs: RING,
       setStyle: vi.fn(),
       on: vi.fn((_type: string, fn: () => void) => {
@@ -964,6 +968,7 @@ describe("LayerUI style panel — fill color", () => {
     let handler: (() => void) | null = null;
     const leaf = {
       options: { fillColor: "#aabbcc", fillOpacity: 0.5, fill: true },
+      feature: { geometry: { type: "Polygon" } },
       getLatLngs: RING,
       setStyle: vi.fn(),
       on: vi.fn((_type: string, fn: () => void) => {
@@ -992,12 +997,14 @@ describe("LayerUI style panel — fill color", () => {
     const leaves = [
       {
         options: { fillColor: "#aabbcc", fillOpacity: 0.5, fill: true },
+        feature: { geometry: { type: "Polygon" } },
         getLatLngs: RING,
         setStyle: vi.fn(),
         on: vi.fn(),
       },
       {
         options: { fillColor: "#ddeeff", fillOpacity: 0.7, fill: true },
+        feature: { geometry: { type: "Polygon" } },
         getLatLngs: RING,
         setStyle: vi.fn(),
         on: vi.fn(),
@@ -1046,6 +1053,7 @@ describe("LayerUI style panel — fill color", () => {
     let handler: (() => void) | null = null;
     const leaf = {
       options: { fillColor: "#aabbcc", fillOpacity: 0.5, fill: true },
+      feature: { geometry: { type: "Polygon" } },
       getLatLngs: RING,
       setStyle: vi.fn(function (
         this: { options: Record<string, unknown> },
@@ -1470,6 +1478,7 @@ describe("buildFillRow", () => {
     const svgFill = vi.fn();
     const path = {
       options: { fillColor: "#aabbcc", fillOpacity: 0.5, fill: true },
+      feature: { geometry: { type: "Polygon" } },
       getLatLngs: RING,
       _path: { setAttribute: svgFill },
       _renderer: true as any,
@@ -1498,6 +1507,7 @@ describe("buildFillRow", () => {
     const fixture = initWithFillLayer();
     const leaf = {
       options: { fillColor: "#aabbcc", fillOpacity: 0, fill: true },
+      feature: { geometry: { type: "Polygon" } },
       getLatLngs: RING,
       setStyle: vi.fn(),
     };
@@ -1517,6 +1527,7 @@ describe("buildFillRow", () => {
     const fixture = initWithFillLayer();
     const leaf = {
       options: { fillColor: "#aabbcc", fillOpacity: 0, fill: true },
+      feature: { geometry: { type: "Polygon" } },
       getLatLngs: RING,
       setStyle: vi.fn(),
     };
@@ -1537,6 +1548,7 @@ describe("buildFillRow", () => {
     const fixture = initWithFillLayer();
     const leaf = {
       options: { fillColor: "#aabbcc", fillOpacity: 0, fill: true },
+      feature: { geometry: { type: "Polygon" } },
       getLatLngs: RING,
       setStyle: vi.fn(),
     };
@@ -1587,6 +1599,7 @@ describe("buildFillRow", () => {
     const fixture = initWithFillLayer();
     const leaf = {
       options: { fillColor: "#aabbcc", fillOpacity: 0, fill: true },
+      feature: { geometry: { type: "Polygon" } },
       getLatLngs: RING,
       setStyle: vi.fn(),
     };
@@ -2015,8 +2028,8 @@ describe("applyFillToLayer — fillMode dispatch", () => {
     const handlers: Array<() => void> = [];
     const leaf = {
       options: { fillColor: "#112233", fillOpacity: 0.6, fill: false },
+      feature: { properties: { count: 1 }, geometry: { type: "Polygon" } },
       getLatLngs: RING,
-      feature: { properties: { count: 1 } },
       setStyle: vi.fn(),
       on: vi.fn((_type: string, fn: () => void) => {
         handlers.push(fn);

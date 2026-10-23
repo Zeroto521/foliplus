@@ -54,7 +54,7 @@ afterEach(() => {
 /** Create a mock Leaflet layer with features for value-based fill testing. */
 const makeFeatureLayer = (features: Array<{ properties: Record<string, unknown> }>) => {
   const leaves = features.map(f => ({
-    feature: { properties: f.properties },
+    feature: { properties: f.properties, geometry: { type: "Polygon" } },
     options: { fillColor: "#3388ff", fillOpacity: 0.2, fill: true },
     getLatLngs: () => [
       [
@@ -223,7 +223,7 @@ describe("applyRampToLayer", () => {
     // and it must receive neither a fill nor a replay pin.
     installChroma(["#ff0000", "#00ff00", "#0000ff"]);
     const line = {
-      feature: { properties: { value: 1 } },
+      feature: { properties: { value: 1 }, geometry: { type: "LineString" } },
       options: {},
       setStyle: vi.fn(),
       on: vi.fn(),
@@ -233,7 +233,7 @@ describe("applyRampToLayer", () => {
       ],
     } as any;
     const area = {
-      feature: { properties: { value: 1000 } },
+      feature: { properties: { value: 1000 }, geometry: { type: "Polygon" } },
       options: { fillColor: "#3388ff", fillOpacity: 0.2, fill: true },
       setStyle: vi.fn(),
       on: vi.fn(),
@@ -259,6 +259,85 @@ describe("applyRampToLayer", () => {
     // the first, so it classified alone.
     expect((area.setStyle as any).mock.calls[0][0].fillColor).toBe("#ff0000");
   });
+
+  it("survives a re-entrant apply from another layer", () => {
+    // A layer's setStyle can synchronously trigger another layer's ramp
+    // apply - a custom Path, a third-party plugin, or an observer hook.
+    // Both applies must paint their own values: a shared collection
+    // would be cleared by the inner call and the outer one would repaint
+    // its surviving leaves with the author's colour.
+    installChroma(["#ff0000", "#00ff00", "#0000ff"]);
+    const outer = makeFeatureLayer([
+      { properties: { value: 1 } },
+      { properties: { value: 5 } },
+    ]);
+    const inner = makeFeatureLayer([
+      { properties: { value: 1 } },
+      { properties: { value: 9 } },
+    ]);
+    const ramp = makeRamp({ classes: 2 });
+    (outer.leaves[0].setStyle as any).mockImplementation(() => {
+      applyRampToLayer(makeUI(inner), "overlay1", ramp);
+    });
+    applyRampToLayer(makeUI(outer), "overlay1", ramp);
+    for (const layer of [outer, inner]) {
+      for (const leaf of layer.leaves) {
+        expect((leaf.setStyle as any).mock.calls[0][0].fillColor).toBeDefined();
+      }
+      // Two distinct values, two distinct classes - a cleared collection
+      // would have restored the author's colour to the second leaf.
+      expect(
+        new Set(layer.leaves.map(l => (l.setStyle as any).mock.calls[0][0].fillColor)),
+      ).toHaveLength(2);
+    }
+  });
+
+  it("survives a one-level same-layer recursive apply", () => {
+    installChroma(["#ff0000", "#00ff00", "#0000ff"]);
+    const layer = makeFeatureLayer([
+      { properties: { value: 1 } },
+      { properties: { value: 9 } },
+    ]);
+    const ui = makeUI(layer);
+    const ramp = makeRamp({ classes: 2 });
+    // One level only - an unbounded same-layer trigger would never return,
+    // which is a property of the trigger, not of the apply.
+    let depth = 0;
+    (layer.leaves[0].setStyle as any).mockImplementation(() => {
+      if (depth++ === 0) applyRampToLayer(ui, "overlay1", ramp);
+    });
+    applyRampToLayer(ui, "overlay1", ramp);
+    for (const leaf of layer.leaves) {
+      expect(leaf.setStyle).toHaveBeenCalledTimes(2);
+      // Both the outer write and the re-entrant one painted a ramp colour
+      // for this leaf; a collection cleared by the inner pass would have
+      // restored the author's face instead.
+      expect((leaf.setStyle as any).mock.calls.at(-1)![0].fillColor).toBeDefined();
+    }
+  });
+
+  it("leaves no state behind when a write throws", () => {
+    // A throw mid-pass must not leave the next apply reading entries from
+    // the failed one.
+    installChroma(["#ff0000", "#00ff00", "#0000ff"]);
+    const layer = makeFeatureLayer([
+      { properties: { value: 1 } },
+      { properties: { value: 9 } },
+    ]);
+    const ui = makeUI(layer);
+    const ramp = makeRamp({ classes: 2 });
+    let throws = true;
+    (layer.leaves[1].setStyle as any).mockImplementation(() => {
+      if (throws) throw new Error("boom");
+    });
+    expect(() => applyRampToLayer(ui, "overlay1", ramp)).toThrow("boom");
+    throws = false;
+    applyRampToLayer(ui, "overlay1", ramp);
+    for (const leaf of layer.leaves) {
+      expect((leaf.setStyle as any).mock.calls.at(-1)![0].fillColor).toBeDefined();
+    }
+  });
+
   it("restores the author's face for a layer with no finite values", () => {
     // Nothing to classify is not "leave everything as it is": if a previous
     // ramp already painted the leaves, that output must be undone, or the map

@@ -47,7 +47,7 @@ export {
 // scan folds any `#core/layer/<file>.js` import into this barrel, so a name
 // the barrel does not re-export fails the build loudly rather than shimming to
 // `undefined` on `window.foliplus.core.layer`.
-export { isArealStyleLeaf } from "./capability.js";
+export { AREAL_GEOMETRY_TYPES, FILL_OPT_IN, isArealStyleLeaf } from "./capability.js";
 export { ensureLayerAPI, requireLayerAPI } from "./api.js";
 export { CLUSTER_CAPABILITIES, deriveLayerKind } from "./util.js";
 export { LayerRuntimeStore } from "./LayerRuntimeStore.js";

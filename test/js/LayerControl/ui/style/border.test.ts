@@ -96,6 +96,9 @@ const makeHighlightLeaf = (color = "#ff0000", weight = 2): any => {
   });
   return {
     options,
+    // A declared polygon: the border tests are about the stroke axis, but the leaf
+    // keeps its fill capability so no other row's visibility shifts.
+    feature: { geometry: { type: "Polygon" } },
     setStyle,
     authored,
     on,
