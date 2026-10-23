@@ -21,6 +21,7 @@ import {
 } from "#foliplus/LayerControl/ui/intent.js";
 import { getActiveLayerItem } from "#foliplus/LayerControl/ui/listPanel/index.js";
 import { projectLayer } from "#foliplus/LayerControl/ui/projection.js";
+import { EVENTS } from "#foliplus/core/event/index.js";
 import { GROUP, type LayerInfo, focusLayerZ } from "#foliplus/core/layer/index.js";
 import { ensureModes } from "#foliplus/core/mode.js";
 import {
@@ -30,6 +31,9 @@ import {
   findItem,
   initFixture,
   makePane,
+  oneOverlay,
+  polygonLayerWith,
+  polygonLayerWithoutBounds,
 } from "../fixture.js";
 
 // ── Mocked core/mode — LayerControl.focusing ownership ──────
@@ -2416,4 +2420,65 @@ describe("LayerUI focus", () => {
       expect(getPaneSpy).toHaveBeenCalledWith("phantom_pane");
     });
   });
+});
+
+// ── Notification-contract cases, moved from the former
+// ── notifyContract.test.ts so they live with the script they drive. ──
+it("a focus cancel inside the rectangle announce is not undone", () => {
+  // The rectangle branch draws the mask, the rect, the row highlight and the
+  // auto-cancel, and only then announces. A subscriber that cancels inside
+  // that notify wins: nothing after the announce re-arms the focus, so a
+  // focus kicked off by focusLayer cannot still be live when it returns.
+  const { ui, map, layer, onMap } = oneOverlay();
+  onMap.set(layer, false);
+
+  let deliveries = 0;
+  ui.events.on(EVENTS.LAYER_CHANGE, () => {
+    deliveries += 1;
+    ui.cancelFocus();
+  });
+
+  expect(() => ui.focusLayer("overlay1")).not.toThrow();
+  expect(map.fitBounds).toHaveBeenCalled();
+  expect(deliveries).toBeGreaterThan(0);
+  expect(ui.isFocusing()).toBe(false);
+});
+
+it("a focus cancel inside the flyTo announce is not undone", () => {
+  // The flyTo branch takes the same ordering: fly to the center, highlight
+  // the row, register the auto-cancel, and only then announce.
+  const { ui, map, layer, onMap } = oneOverlay(() =>
+    polygonLayerWith([30, 100], [30.0001, 100.0001]),
+  );
+  onMap.set(layer, false);
+
+  let deliveries = 0;
+  ui.events.on(EVENTS.LAYER_CHANGE, () => {
+    deliveries += 1;
+    ui.cancelFocus();
+  });
+
+  expect(() => ui.focusLayer("overlay1")).not.toThrow();
+  expect(map.flyTo).toHaveBeenCalled();
+  expect(deliveries).toBeGreaterThan(0);
+  expect(ui.isFocusing()).toBe(false);
+});
+
+it("a rejected focus leaves no membership change behind", () => {
+  // A layer the policy had pulled off rejoins the map so its bounds can be
+  // read. When those bounds turn out unusable the re-add goes back, so the
+  // call announces nothing and leaves the map as it found it.
+  const { ui, layer, onMap } = oneOverlay(polygonLayerWithoutBounds);
+  onMap.set(layer, false);
+
+  const seen: string[] = [];
+  ui.events.on(EVENTS.LAYER_CHANGE, payload => {
+    seen.push(payload.id);
+  });
+
+  expect(() => ui.focusLayer("overlay1")).not.toThrow();
+
+  expect(onMap.get(layer)).toBe(false);
+  expect(seen).toEqual([]);
+  expect(ui.isFocusing()).toBe(false);
 });

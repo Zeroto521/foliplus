@@ -26,7 +26,14 @@ import {
 import { ANNOTATION_Z_OFFSET } from "#foliplus/core/layer/index.js";
 import { getLayerAlpha } from "#common/canvasAlpha.js";
 import * as Storage from "#common/storage.js";
-import { TEST_ENV } from "./ui/fixture.js";
+import {
+  TEST_ENV,
+  attachWithGroup,
+  attachedPanel,
+  initFixture,
+  polygonLayer,
+  trackMembership,
+} from "./ui/fixture.js";
 
 const ENFORCE_ORDER_DEBOUNCE_MS = 50;
 
@@ -3944,4 +3951,484 @@ describe("LayerController user-assigned names", () => {
       }).toThrow();
     });
   });
+});
+
+// ── Notification-contract cases, moved from the former
+// ── notifyContract.test.ts so they live with the script they drive. ──
+it("a registration announces after the group count has settled", () => {
+  // The registration entry inserts the row, replays the stored state,
+  // refreshes the row cells and syncs the group count before it publishes —
+  // so the first CHANGE the new layer gets out already names the full
+  // group. Announcing from the row insertion itself would have handed a
+  // subscriber the count taken before that row existed.
+  const { ui, manager } = initFixture({
+    data: [
+      { id: "one", name: "One", group: "overlay", layer: polygonLayer() },
+      { id: "two", name: "Two", group: "overlay", layer: polygonLayer() },
+      {
+        id: "three",
+        name: "Three",
+        group: "overlay",
+        layer: polygonLayer(),
+      },
+    ],
+  });
+  expect(ui.listPanel.checkedCount[GROUP.OVERLAY]).toEqual({
+    total: 3,
+    on: 3,
+  });
+
+  // The late layer arrives already hidden: a stored dimension is the only
+  // state a late registration can carry, and it is the delta the entry
+  // holds until the row and the count have settled.
+  setIntent(ui, "fourth", "visible", false);
+  ui.intentStore.seedProvenance("fourth", ["visible"]);
+
+  const countsAtDelivery: { total: number; on: number }[] = [];
+  ui.events.on(EVENTS.LAYER_CHANGE, payload => {
+    if (payload.id !== "fourth") return;
+    countsAtDelivery.push({ ...ui.listPanel.checkedCount[GROUP.OVERLAY] });
+  });
+
+  manager.registerLayer({
+    id: "fourth",
+    name: "Fourth",
+    group: "overlay",
+    layer: polygonLayer(),
+  });
+
+  expect(countsAtDelivery.length).toBeGreaterThan(0);
+  expect(countsAtDelivery[0]).toEqual({ total: 4, on: 3 });
+});
+
+it("a register whose notify destroys the control returns null", () => {
+  // The projection delta goes out last, but before the entry returns it still
+  // publishes the separate registration CHANGE and reads the row back out of
+  // the container. A subscriber that tears the control down inside that
+  // notify takes the container and the registry with it: a second emission
+  // would announce for an entry that no longer exists, and the row lookup
+  // would deref a null container.
+  const { ui, manager } = initFixture();
+  const layer = polygonLayer();
+  // Tracked membership keeps the projection's diff real instead of a
+  // constant, and leaves the teardown sweep with nothing new to say: the
+  // one delivery below is the projection's, so a registration CHANGE would
+  // show up as a second.
+  const onMap = trackMembership(ui.c.map);
+  onMap.set(layer, true);
+  // A stored dimension is what gives the projection something to write — a
+  // late registration arrives hidden, and that flip is the delta the
+  // subscriber tears down on.
+  setIntent(ui, "fourth", "visible", false);
+  ui.intentStore.seedProvenance("fourth", ["visible"]);
+
+  let deliveries = 0;
+  ui.events.on(EVENTS.LAYER_CHANGE, payload => {
+    if (payload.id !== "fourth") return;
+    deliveries += 1;
+    if (deliveries === 1) ui.c.destroy();
+  });
+
+  expect(
+    manager.registerLayer({
+      id: "fourth",
+      name: "Fourth",
+      group: "overlay",
+      layer,
+    }),
+  ).toBeNull();
+  expect(deliveries).toBe(1);
+  expect(onMap.get(layer)).toBe(false);
+  expect(ui.c.isDestroyed).toBe(true);
+});
+
+it("a register whose notify unregisters the entry returns null", () => {
+  // The same boundary with the entry retired instead of the control: the id
+  // is mapped to nothing, so the registration CHANGE would announce for a
+  // layer that is already gone. Two CHANGEs are expected — the projection's,
+  // then the unregister's own — not a third for the registration.
+  const { ui, manager } = initFixture();
+
+  setIntent(ui, "second", "visible", false);
+  ui.intentStore.seedProvenance("second", ["visible"]);
+
+  const changes: string[] = [];
+  ui.events.on(EVENTS.LAYER_CHANGE, payload => {
+    changes.push(payload.id);
+    if (payload.id === "second" && changes.length === 1) {
+      manager.unregisterLayer("second");
+    }
+  });
+
+  expect(
+    manager.registerLayer({
+      id: "second",
+      name: "Second",
+      group: "overlay",
+      layer: polygonLayer(),
+    }),
+  ).toBeNull();
+  expect(changes).toEqual(["second", "second"]);
+  expect(ui.c.layerRegistry.has("second")).toBe(false);
+});
+
+it("a register whose final notify destroys the control returns null", () => {
+  // A layer that is already on the map and has no stored dimension carries no
+  // projection delta, so the registration CHANGE is its only notify. It is
+  // the last statement before the row is read back out of the container: a
+  // subscriber that tears the control down there leaves a null container, and
+  // the row lookup is reached by nothing else.
+  const { ui, manager } = initFixture();
+  const layer = polygonLayer();
+  // Tracked membership keeps the teardown sweep from gaining a second opinion
+  // about this layer, so the one delivery below is the registration's and a
+  // spurious emit would show up as another.
+  const onMap = trackMembership(ui.c.map);
+  onMap.set(layer, true);
+
+  let deliveries = 0;
+  ui.events.on(EVENTS.LAYER_CHANGE, payload => {
+    if (payload.id !== "fourth") return;
+    deliveries += 1;
+    if (deliveries === 1) ui.c.destroy();
+  });
+
+  expect(
+    manager.registerLayer({
+      id: "fourth",
+      name: "Fourth",
+      group: "overlay",
+      layer,
+    }),
+  ).toBeNull();
+  expect(deliveries).toBe(1);
+  expect(ui.c.isDestroyed).toBe(true);
+  expect(ui.uiContainer).toBeNull();
+});
+
+it("a register whose final notify destroys the control after a projection delta returns null", () => {
+  // The saved range hides the layer, so the registration carries a real
+  // projection delta and gets two notifies: the projection's first, then its
+  // own registration CHANGE. Tearing the control down in the second one
+  // exercises the same boundary on the path that already had one notify.
+  const { ui, manager } = initFixture();
+  const layer = polygonLayer();
+  const onMap = trackMembership(ui.c.map);
+  onMap.set(layer, true);
+  setIntent(ui, "fourth", "zoomRange", [0, 1]);
+  ui.intentStore.seedProvenance("fourth", ["zoomRange"]);
+
+  let deliveries = 0;
+  ui.events.on(EVENTS.LAYER_CHANGE, payload => {
+    if (payload.id !== "fourth") return;
+    deliveries += 1;
+    if (deliveries === 2) ui.c.destroy();
+  });
+
+  expect(
+    manager.registerLayer({
+      id: "fourth",
+      name: "Fourth",
+      group: "overlay",
+      layer,
+    }),
+  ).toBeNull();
+  expect(deliveries).toBe(2);
+  expect(onMap.get(layer)).toBe(false);
+  expect(ui.c.isDestroyed).toBe(true);
+});
+
+it("a register whose final notify unregisters the entry returns null", () => {
+  // The entry retired instead of the control, and by the registration's own
+  // notify rather than the projection's: two CHANGEs are expected — the
+  // registration's, then the unregister's own — not a third.
+  const { ui, manager } = initFixture();
+  const layer = polygonLayer();
+  const onMap = trackMembership(ui.c.map);
+  onMap.set(layer, true);
+
+  const changes: string[] = [];
+  ui.events.on(EVENTS.LAYER_CHANGE, payload => {
+    if (payload.id !== "second") return;
+    changes.push(payload.id);
+    if (changes.length === 1) manager.unregisterLayer("second");
+  });
+
+  expect(
+    manager.registerLayer({
+      id: "second",
+      name: "Second",
+      group: "overlay",
+      layer,
+    }),
+  ).toBeNull();
+  expect(changes).toEqual(["second", "second"]);
+  expect(ui.c.layerRegistry.has("second")).toBe(false);
+});
+
+it("a register replaced under the same id inside the final notify returns null", () => {
+  // A re-registration with the same id replaces the entry this call created,
+  // so handing back its row would hand back another instance's row. The inner
+  // call carries no projection delta of its own, so it announces only once
+  // and the outer call is left to notice the swap.
+  const { ui, manager } = initFixture();
+  const onMap = trackMembership(ui.c.map);
+  const layer = polygonLayer();
+  onMap.set(layer, true);
+  const replacement = polygonLayer();
+
+  const changes: string[] = [];
+  ui.events.on(EVENTS.LAYER_CHANGE, payload => {
+    if (payload.id !== "second") return;
+    changes.push(payload.id);
+    if (changes.length === 1) {
+      manager.registerLayer({
+        id: "second",
+        name: "Second",
+        group: "overlay",
+        layer: replacement,
+      });
+    }
+  });
+
+  expect(
+    manager.registerLayer({
+      id: "second",
+      name: "Second",
+      group: "overlay",
+      layer,
+    }),
+  ).toBeNull();
+  expect(changes).toEqual(["second", "second"]);
+  expect(onMap.get(replacement)).toBe(true);
+  expect(ui.c.layerRegistry.get("second")?.layer).toBe(replacement);
+});
+
+it("a reorder announces after the row list has been rebuilt", () => {
+  // The list rebuild is the reorder's own side effect, so it lands before the
+  // notify: a subscriber reading the row order out of the panel during the
+  // CHANGE sees the arrangement that was just made, not the one that is
+  // about to be rendered.
+  const { ui, manager } = initFixture({
+    data: [
+      { id: "alpha", name: "Alpha", group: "overlay", layer: polygonLayer() },
+      { id: "beta", name: "Beta", group: "overlay", layer: polygonLayer() },
+      { id: "gamma", name: "Gamma", group: "overlay", layer: polygonLayer() },
+    ],
+  });
+  const { children } = attachWithGroup(ui);
+  const order = () =>
+    children()
+      .map(row => row.dataset.layerId)
+      .join(",");
+  expect(order()).toBe("alpha,beta,gamma");
+
+  const orderAtDelivery: string[] = [];
+  ui.events.on(EVENTS.LAYER_CHANGE, payload => {
+    if (payload.id !== "alpha") return;
+    orderAtDelivery.push(order());
+  });
+
+  expect(manager.moveLayerDown("alpha")).toBe(true);
+  expect(orderAtDelivery).toEqual(["beta,alpha,gamma"]);
+  expect(order()).toBe("beta,alpha,gamma");
+});
+
+it("a reorder whose rebuild replay destroys the control announces nothing more", () => {
+  // The rebuild is the reorder's own side effect, and the persisted-state
+  // replay inside it announces a membership flip for any layer the map had
+  // moved away from. A subscriber that tears the control down in that notify
+  // takes the panel with it: the row paint, the tri-state counts and the
+  // cursor behind the replay all read it, so the rebuild stops there instead
+  // of continuing against a null container. The reorder's own CHANGE is
+  // suppressed too — the registry went with the control, so there is nothing
+  // left to announce the arrangement against. The move itself already landed,
+  // so the arrangement stands regardless.
+  const layerAlpha = polygonLayer();
+  const layerBeta = polygonLayer();
+  const { ui, manager } = initFixture({
+    data: [
+      { id: "alpha", name: "Alpha", group: "overlay", layer: layerAlpha },
+      { id: "beta", name: "Beta", group: "overlay", layer: layerBeta },
+    ],
+  });
+  // The layer the map dropped: its stored intent still says visible, so the
+  // rebuild's replay has a flip to announce.
+  const onMap = trackMembership(ui.c.map);
+  onMap.set(layerAlpha, true);
+  onMap.set(layerBeta, true);
+  manager.map.removeLayer(layerBeta);
+
+  const changes: string[] = [];
+  let orderAtNotify: string[] | null = null;
+  ui.events.on(EVENTS.LAYER_CHANGE, payload => {
+    changes.push(payload.id);
+    if (payload.id !== "beta") return;
+    orderAtNotify = manager.layers
+      .filter(layerInfo => layerInfo.group === GROUP.OVERLAY)
+      .map(layerInfo => layerInfo.id);
+    ui.c.destroy();
+  });
+
+  expect(() => manager.moveLayerDown("alpha")).not.toThrow();
+  expect(changes).toEqual(["beta"]);
+  expect(ui.c.isDestroyed).toBe(true);
+  expect(ui.uiContainer).toBeNull();
+  // The reorder had already happened when the rebuild's replay fired: the
+  // arrangement the subscriber saw was the finished one. Overlay entries
+  // only — the color basemap is a base-group layer outside this arrangement.
+  expect(orderAtNotify).toEqual(["beta", "alpha"]);
+});
+
+it("a reorder whose rebuild replay retires its layer announces no reorder", () => {
+  // The entry moved instead of the control going away: the rebuild's replay
+  // still announces a membership flip, and a subscriber that retires the
+  // moved layer there has removed the thing the reorder would announce for.
+  const layerAlpha = polygonLayer();
+  const layerBeta = polygonLayer();
+  const { ui, manager } = initFixture({
+    data: [
+      { id: "alpha", name: "Alpha", group: "overlay", layer: layerAlpha },
+      { id: "beta", name: "Beta", group: "overlay", layer: layerBeta },
+    ],
+  });
+  const onMap = trackMembership(ui.c.map);
+  onMap.set(layerAlpha, true);
+  onMap.set(layerBeta, true);
+  manager.map.removeLayer(layerBeta);
+
+  const changes: string[] = [];
+  let retired = false;
+  ui.events.on(EVENTS.LAYER_CHANGE, payload => {
+    changes.push(payload.id);
+    if (payload.id === "beta" && !retired) {
+      retired = true;
+      manager.unregisterLayer("alpha");
+    }
+  });
+
+  expect(() => manager.moveLayerDown("alpha")).not.toThrow();
+  // beta's flip, then the unregister's own CHANGE for alpha — and no third:
+  // the reorder would announce an entry nobody holds any more.
+  expect(changes).toEqual(["beta", "alpha"]);
+  expect(ui.c.layerRegistry.has("alpha")).toBe(false);
+});
+
+it("a rebuild announces only once the panel is settled", () => {
+  // The reorder path repaints the whole list from bare rows: `renderLayerItem`
+  // writes every checkbox checked, leaves the count column empty and drops the
+  // active class, and only the per-row pass after the replay puts the real
+  // face on them. The replay's own notify used to fire from inside that pass,
+  // so a subscriber read a half-painted panel — the same input that used to
+  // crash it. Now the round goes out after the rows, the counts and the
+  // readiness flag, and this test pins exactly that: what a subscriber sees
+  // at delivery is what the panel looks like when the operation returns.
+  const layerAlpha = polygonLayer();
+  const layerBeta = polygonLayer();
+  const layerGamma = polygonLayer();
+  const { ui, manager } = initFixture({
+    data: [
+      { id: "alpha", name: "Alpha", group: "overlay", layer: layerAlpha },
+      { id: "beta", name: "Beta", group: "overlay", layer: layerBeta },
+      { id: "gamma", name: "Gamma", group: "overlay", layer: layerGamma },
+    ],
+  });
+  const onMap = trackMembership(ui.c.map);
+  onMap.set(layerAlpha, true);
+  onMap.set(layerBeta, true);
+  onMap.set(layerGamma, true);
+  // A row the user hid: once settled it must read unchecked.
+  setIntent(ui, "gamma", "visible", false);
+  ui.intentStore.seedProvenance("gamma", ["visible"]);
+  // beta is off the map while its intent still says visible, so the rebuild's
+  // replay has a membership flip to announce.
+  manager.map.removeLayer(layerBeta);
+
+  const snapshot = () => {
+    const rows = Array.from(
+      attachedPanel(ui).querySelectorAll<HTMLElement>(
+        `${CONST.SEL.LAYER_ITEM}[data-layer-type="${GROUP.OVERLAY}"]`,
+      ),
+    );
+    return {
+      order: rows.map(row => row.dataset.layerId).join(","),
+      checked: rows.map(
+        row =>
+          (row.querySelector('input[type="checkbox"]') as HTMLInputElement).checked,
+      ),
+      active: rows.map(row => row.classList.contains(CONST.CLASSES.ACTIVE)),
+      counts: rows.map(
+        row => row.querySelector(`.${CONST.CLASSES.COUNT_COL}`)?.textContent,
+      ),
+      ready: attachedPanel(ui).getAttribute("data-ready"),
+    };
+  };
+
+  let atDelivery: ReturnType<typeof snapshot> | null = null;
+  ui.events.on(EVENTS.LAYER_CHANGE, payload => {
+    if (payload.id === "beta" && !atDelivery) atDelivery = snapshot();
+  });
+
+  expect(manager.moveLayerDown("alpha")).toBe(true);
+
+  expect(atDelivery).toEqual(snapshot());
+  expect(atDelivery).toMatchObject({
+    order: "beta,alpha,gamma",
+    checked: [true, true, false],
+    active: [true, true, false],
+    ready: "true",
+  });
+});
+
+it("a bringLayerToFront whose rebuild replay destroys the control announces nothing", () => {
+  // Same retirement window as the move entries: the rebuild's replay is what
+  // announces, and a subscriber that destroys the control there leaves no
+  // registry to announce the reorder against.
+  const layerAlpha = polygonLayer();
+  const layerBeta = polygonLayer();
+  const { ui, manager } = initFixture({
+    data: [
+      { id: "alpha", name: "Alpha", group: "overlay", layer: layerAlpha },
+      { id: "beta", name: "Beta", group: "overlay", layer: layerBeta },
+    ],
+  });
+  const onMap = trackMembership(ui.c.map);
+  onMap.set(layerAlpha, true);
+  onMap.set(layerBeta, true);
+  manager.map.removeLayer(layerBeta);
+
+  const changes: string[] = [];
+  ui.events.on(EVENTS.LAYER_CHANGE, payload => {
+    changes.push(payload.id);
+    if (payload.id === "beta" && !manager.isDestroyed) manager.destroy();
+  });
+
+  expect(() => manager.bringLayerToFront("beta")).not.toThrow();
+  expect(changes).toEqual(["beta"]);
+  expect(manager.isDestroyed).toBe(true);
+});
+
+it("a moveLayerUp whose rebuild replay destroys the control announces nothing", () => {
+  const layerAlpha = polygonLayer();
+  const layerBeta = polygonLayer();
+  const { ui, manager } = initFixture({
+    data: [
+      { id: "alpha", name: "Alpha", group: "overlay", layer: layerAlpha },
+      { id: "beta", name: "Beta", group: "overlay", layer: layerBeta },
+    ],
+  });
+  const onMap = trackMembership(ui.c.map);
+  onMap.set(layerAlpha, true);
+  onMap.set(layerBeta, true);
+  manager.map.removeLayer(layerBeta);
+
+  const changes: string[] = [];
+  ui.events.on(EVENTS.LAYER_CHANGE, payload => {
+    changes.push(payload.id);
+    if (payload.id === "beta" && !manager.isDestroyed) manager.destroy();
+  });
+
+  expect(manager.moveLayerUp("beta")).toBe(true);
+  expect(changes).toEqual(["beta"]);
+  expect(manager.isDestroyed).toBe(true);
 });

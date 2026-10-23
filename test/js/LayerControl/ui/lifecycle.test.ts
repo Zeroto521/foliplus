@@ -8,8 +8,16 @@ import { GROUP } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { type LayerController } from "#foliplus/LayerControl/controller.js";
 import { type LayerUI } from "#foliplus/LayerControl/ui/index.js";
+import { setIntent } from "#foliplus/LayerControl/ui/intent.js";
 import { toggleAll, toggleFold } from "#foliplus/LayerControl/ui/listPanel/index.js";
-import { attachedPanel, findItem, initFixture } from "./fixture.js";
+import {
+  attachedPanel,
+  findItem,
+  initFixture,
+  oneOverlay,
+  polygonLayer,
+  trackMembership,
+} from "./fixture.js";
 
 vi.mock("#foliplus/LayerControl/ui/listPanel/drag.js", async importOriginal => ({
   ...(await importOriginal<
@@ -410,4 +418,118 @@ describe("LayerUI lifecycle — defensive rails", () => {
       }).not.toThrow();
     });
   });
+});
+
+// ── Notification-contract cases, moved from the former
+// ── notifyContract.test.ts so they live with the script they drive. ──
+it("a zoomend announces after the open row's out-of-range chrome has settled", () => {
+  // The map-level zoomend handler used to be one of two independent zoomend
+  // listeners: the controller's sweep ran first and announced, and the
+  // panel's row chrome caught up only after that notify had already fired.
+  // A subscriber reading the row during the announce therefore saw the
+  // pre-zoom "in range" face even though the current level was outside.
+  // The sweep now syncs the open row before it publishes.
+  const { ui, layer, onMap } = oneOverlay();
+
+  setIntent(ui, "overlay1", "zoomRange", [0, 6]);
+  ui.intentStore.seedProvenance("overlay1", ["zoomRange"]);
+  expect(ui.c.map.getZoom()).toBe(5);
+
+  ui.openStylePanel("overlay1");
+  const row = findItem(ui, "overlay1").querySelector(
+    `.${CONST.CLASSES.STYLE_ZOOM_RANGE_ROW}`,
+  ) as HTMLElement;
+  expect(row.classList.contains(CONST.CLASSES.STYLE_ZOOM_RANGE_OUT_OF_RANGE)).toBe(
+    false,
+  );
+
+  // Move past the range: the sweep removes the layer, and the row's
+  // out-of-range state has to be true by the time the notify fires.
+  ui.c.map.getZoom = vi.fn(() => 8);
+
+  const outOfRangeAtDelivery: boolean[] = [];
+  ui.events.on(EVENTS.LAYER_CHANGE, () => {
+    outOfRangeAtDelivery.push(
+      row.classList.contains(CONST.CLASSES.STYLE_ZOOM_RANGE_OUT_OF_RANGE),
+    );
+  });
+
+  ui.onZoomEnd?.();
+
+  expect(onMap.get(layer)).toBe(false);
+  expect(outOfRangeAtDelivery).toEqual([true]);
+  expect(row.classList.contains(CONST.CLASSES.STYLE_ZOOM_RANGE_OUT_OF_RANGE)).toBe(
+    true,
+  );
+});
+
+it("an attach whose replay destroys the control leaves no panel behind", () => {
+  // The stored hide disagrees with the map (folium put the layer back before
+  // this script ran), so the attach sweep has a membership flip to announce.
+  // Tearing the control down there must end the attach entry before it
+  // schedules the init timer. The tail behind that notify happens to tolerate
+  // a missing panel today, so the lock is the end state plus the timer: a
+  // future continuation that does not tolerate it would surface here.
+  let initSpy: ReturnType<typeof vi.spyOn> | null = null;
+  const { manager, ui } = initFixture({
+    seed: { layers: { overlay1: { overrides: ["visible"], visible: false } } },
+    beforeAttach: (m, u) => {
+      initSpy = vi.spyOn(u, "initTypesAndVisibility");
+      u.events.on(EVENTS.LAYER_CHANGE, () => {
+        if (!m.isDestroyed) m.destroy();
+      });
+    },
+  });
+
+  expect(manager.isDestroyed).toBe(true);
+  expect(ui.uiContainer).toBeNull();
+  expect(initSpy).not.toHaveBeenCalled();
+});
+
+it("an init pass announces after the label replay has landed", () => {
+  // The init timer replays the persisted state and then repaints label
+  // configs. Both land before the pass's own round goes out, so a subscriber
+  // reading the panel during the CHANGE sees the finished pass rather than a
+  // list whose labels are still the previous generation's. The first init
+  // also registers the color basemap, whose own registration round precedes
+  // the label replay — that round belongs to the registration entry, so the
+  // contract locked here is the pass's: by the time its notifications start,
+  // the replay has landed.
+  const layer = polygonLayer();
+  let labelsAtDelivery: number | null = null;
+  const { manager } = initFixture({
+    data: [{ id: "overlay1", name: "Polygons", group: "overlay", layer }],
+    afterAttach: (m, u) => {
+      const onMap = trackMembership(m.map);
+      onMap.set(layer, true);
+      m.map.removeLayer(layer);
+      // Installed after attach, so the count belongs to this entry's run.
+      const labelSpy = vi.spyOn(u, "applyStyleLabelState");
+      u.events.on(EVENTS.LAYER_CHANGE, () => {
+        labelsAtDelivery = labelSpy.mock.calls.length;
+      });
+    },
+  });
+
+  expect(labelsAtDelivery).toBe(1);
+  expect(manager.isDestroyed).toBe(false);
+});
+
+it("a control-attached re-run announces after the label replay has landed", () => {
+  // Same boundary on the re-run path: a later component attaching re-triggers
+  // the init pass, and the label replay is part of that pass.
+  const { ui, manager } = oneOverlay();
+  setIntent(ui, "overlay1", "visible", false);
+  ui.intentStore.seedProvenance("overlay1", ["visible"]);
+  const labelSpy = vi.spyOn(ui, "applyStyleLabelState");
+
+  let labelsAtDelivery: number | null = null;
+  ui.events.on(EVENTS.LAYER_CHANGE, () => {
+    labelsAtDelivery = labelSpy.mock.calls.length;
+  });
+
+  ui.events.emit(EVENTS.CONTROL_ATTACHED, { component: "HeatmapControl" });
+
+  expect(labelsAtDelivery).toBe(1);
+  expect(manager.isDestroyed).toBe(false);
 });

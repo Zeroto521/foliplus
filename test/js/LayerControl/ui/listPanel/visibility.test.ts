@@ -14,11 +14,14 @@ import {
   syncToggleAllFromCount,
   toggleAll,
 } from "#foliplus/LayerControl/ui/listPanel/index.js";
+import { intentVisibleOf } from "#foliplus/LayerControl/ui/projection.js";
+import { EVENTS } from "#foliplus/core/event/index.js";
 import {
   TEST_ENV,
   attachedPanel,
   initFixture,
   installLeafletGlobals,
+  polygonLayer,
 } from "../fixture.js";
 
 // ===========================================================================
@@ -1274,4 +1277,36 @@ describe("unit helpers", () => {
     expect(all.checked).toBe(false);
     expect(all.indeterminate).toBe(false);
   });
+});
+
+// ── Notification-contract cases, moved from the former
+// ── notifyContract.test.ts so they live with the script they drive. ──
+it("a bulk toggle-all does not announce a layer a subscriber unregistered", () => {
+  // The bulk path sweeps the DOM first, then announces. A delta can still
+  // name a layer a subscriber unregistered inside an earlier delivery of the
+  // same batch. That layer is gone — a no-delivery, not a delivery on a
+  // snapshot the recipient no longer owns. Walking ids (not LayerInfo
+  // snapshots) is what lets the delivery re-query the registry and drop it.
+  const { ui } = initFixture({
+    data: [
+      { id: "alpha", name: "Alpha", group: "overlay", layer: polygonLayer() },
+      { id: "beta", name: "Beta", group: "overlay", layer: polygonLayer() },
+      { id: "gamma", name: "Gamma", group: "overlay", layer: polygonLayer() },
+    ],
+  });
+
+  const seen: string[] = [];
+  ui.events.on(EVENTS.LAYER_CHANGE, payload => {
+    seen.push(payload.id);
+    if (payload.id === "alpha") ui.c.layerRegistry.remove("beta");
+  });
+
+  expect(() => ui.toggleAll(GROUP.OVERLAY, false)).not.toThrow();
+
+  // Alpha delivers before beta's unregister runs; beta is gone by the time
+  // its slot comes around; gamma still delivers — the sweep does not stop
+  // at the first subscriber action.
+  expect(seen).toEqual(["alpha", "gamma"]);
+  expect(ui.c.layerRegistry.has("beta")).toBe(false);
+  expect(intentVisibleOf(ui, "gamma")).toBe(false);
 });

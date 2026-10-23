@@ -28,6 +28,7 @@ import {
 } from "#foliplus/LayerControl/ui/style/opacity.js";
 import { getDimension } from "#foliplus/LayerControl/ui/style/registry.js";
 import { resetLayerZoomRange } from "#foliplus/LayerControl/ui/style/zoomRange.js";
+import { EVENTS } from "#foliplus/core/event/index.js";
 import { ensureModes } from "#foliplus/core/mode.js";
 import { getLayerAlpha } from "#common/canvasAlpha.js";
 import { NUMBER_FORMAT } from "#common/format.js";
@@ -37,6 +38,7 @@ import {
   findItem,
   initFixture,
   installLeafletGlobals,
+  oneOverlay,
 } from "./fixture.js";
 
 /** Percentage the slider fill is drawn at, read off the primitive's inline
@@ -4596,4 +4598,63 @@ describe("reset whose dimension reports no delta", () => {
     });
     expect(resetSpy).toHaveBeenCalledWith(ui, "overlay1");
   });
+});
+
+// ── Notification-contract cases, moved from the former
+// ── notifyContract.test.ts so they live with the script they drive. ──
+it("a reset button announces once, after the panel is closed", () => {
+  // The panel Reset restores every dimension, then the delegated defaults
+  // (or the label config), then closes the panel — and only then announces,
+  // once, for the whole operation. A notify fired by one dimension mid-way
+  // would hand a subscriber a panel that is still open, and a subscriber
+  // that tears the control down there would take the handler's own
+  // closeStylePanel lookup with it.
+  const { ui, layer, onMap } = oneOverlay();
+
+  setIntent(ui, "overlay1", "zoomRange", [0, 3]);
+  ui.intentStore.seedProvenance("overlay1", ["zoomRange"]);
+  ui.onZoomEnd?.();
+  expect(onMap.get(layer)).toBe(false);
+
+  ui.openStylePanel("overlay1");
+  const resetBtn = findItem(ui, "overlay1").querySelector(
+    ".foliplus-style-reset-btn",
+  ) as HTMLElement;
+  expect(resetBtn).not.toBeNull();
+
+  const atDelivery: Array<{ onMap: boolean; panelOpen: boolean }> = [];
+  ui.events.on(EVENTS.LAYER_CHANGE, payload => {
+    if (payload.id !== "overlay1") return;
+    const item = ui.uiContainer?.querySelector(
+      `[${CONST.DATA.LAYER_ID}="${payload.id}"]`,
+    );
+    atDelivery.push({
+      onMap: onMap.get(layer) ?? false,
+      panelOpen: !!item?.querySelector(`.${CONST.CLASSES.STYLE_PANEL}`),
+    });
+    if (atDelivery.length === 1) ui.c.destroy();
+  });
+
+  expect(() =>
+    resetBtn.dispatchEvent(new MouseEvent("click", { bubbles: true })),
+  ).not.toThrow();
+  expect(atDelivery).toEqual([{ onMap: true, panelOpen: false }]);
+  expect(ui.c.isDestroyed).toBe(true);
+});
+
+it("a zoomend skips the row sync once the zoom-range row is detached", () => {
+  // The panel's zoom-end hook is registered while the drawer is open, but a
+  // list rebuild or a teardown can take the row out from under it before the
+  // map fires. Reading the detached node would repaint a row nobody sees, so
+  // the hook checks first.
+  const { ui } = oneOverlay();
+  ui.openStylePanel("overlay1");
+  const row = findItem(ui, "overlay1").querySelector(
+    `.${CONST.CLASSES.STYLE_ZOOM_RANGE_ROW}`,
+  ) as HTMLElement;
+  expect(row).not.toBeNull();
+
+  row.remove();
+
+  expect(() => ui.onZoomEnd?.()).not.toThrow();
 });

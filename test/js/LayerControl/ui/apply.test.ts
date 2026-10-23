@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
-import { HIDDEN, LayerRuntimeStore } from "#core/layer/index.js";
+import { GROUP, HIDDEN, LayerRuntimeStore } from "#core/layer/index.js";
 import { LayerController } from "#foliplus/LayerControl/controller.js";
 import { LayerIntentStore } from "#foliplus/LayerControl/domain/index.js";
 import {
@@ -13,7 +13,14 @@ import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { clearIntent, getIntent, setIntent } from "#foliplus/LayerControl/ui/intent.js";
 import { intentVisibleOf, projectLayer } from "#foliplus/LayerControl/ui/projection.js";
 import { getLayerAlpha } from "#common/canvasAlpha.js";
-import { TEST_ENV, installLeafletGlobals } from "./fixture.js";
+import {
+  TEST_ENV,
+  findItem,
+  initFixture,
+  installLeafletGlobals,
+  polygonLayer,
+  trackMembership,
+} from "./fixture.js";
 
 // ────────────────────────────────────────────────────────────────────────
 // Gate: the executor must not let a derived dimension authorize
@@ -1751,4 +1758,290 @@ describe("membership invariants: only intent + author snapshot authorise members
     expect(map.addLayer).not.toHaveBeenCalled();
     expect(getIntent(ui, "p", "visible")).toBe(false);
   });
+});
+
+// ── Notification-contract cases, moved from the former
+// ── notifyContract.test.ts so they live with the script they drive. ──
+it("a later subscriber observes the state the earlier subscriber left", () => {
+  // Two subscribers share one emit. The first rewrites the intent; the
+  // second must read the rewritten state, not the value the emit was
+  // carrying. Only a last-step notify gives that: a notify fired mid-
+  // operation would hand the second subscriber a panel the first had
+  // already moved on from, and it would record [true, false] instead.
+  // The reentrant rewrite supersedes the in-flight delivery, so the outer
+  // round never reaches the second subscriber at all — the correction's
+  // own round is the only one, and it already carries the rewritten state.
+  const { ui, map } = initFixture();
+  const id = "overlay1";
+
+  // Track real membership: the executor reads the carrier back before it
+  // writes, so a `hasLayer` that always answers true would make the
+  // re-add a diff miss.
+  const onMap = { current: true };
+  map.hasLayer = vi.fn(() => onMap.current);
+  map.addLayer = vi.fn(() => {
+    onMap.current = true;
+  });
+  map.removeLayer = vi.fn(() => {
+    onMap.current = false;
+  });
+
+  const secondSaw: boolean[] = [];
+  ui.events.on(EVENTS.LAYER_INTENT_CHANGE, () => {
+    ui.applyVisibility(id, true);
+  });
+  ui.events.on(EVENTS.LAYER_INTENT_CHANGE, () => {
+    secondSaw.push(intentVisibleOf(ui, id));
+  });
+
+  ui.applyVisibility(id, false);
+
+  expect(secondSaw).toEqual([true]);
+  expect(intentVisibleOf(ui, id)).toBe(true);
+  expect(onMap.current).toBe(true);
+  expect(ui.listPanel.checkedCount[GROUP.OVERLAY]).toEqual({
+    total: 1,
+    on: 1,
+  });
+});
+
+it("a reentrant correction never hands a later subscriber a stale intent", () => {
+  // Subscriber 1 reverses the hide synchronously inside the notify, which
+  // fires a reentrant round for the same id; the outer delivery then
+  // continues to subscriber 2. Subscriber 2 must never receive the outer
+  // "hidden" value after the correction's own "visible" — the delivery is
+  // superseded at the reentry point, so subscriber 2 reads only the
+  // correction, and it is the final choice.
+  const { ui, manager } = initFixture();
+  const id = "overlay1";
+
+  let corrected = false;
+  ui.events.on(EVENTS.LAYER_INTENT_CHANGE, payload => {
+    if (payload.id !== id || corrected) return;
+    corrected = true;
+    manager.setVisible(id, true);
+  });
+  const received: boolean[] = [];
+  ui.events.on(EVENTS.LAYER_INTENT_CHANGE, payload => {
+    if (payload.id !== id) return;
+    received.push(payload.intent.visible);
+  });
+
+  manager.setVisible(id, false);
+
+  expect(received).toEqual([true]);
+  expect(intentVisibleOf(ui, id)).toBe(true);
+});
+
+it("the group count reflects the intent a reentrant correction left", () => {
+  const { ui } = initFixture({
+    data: [
+      { id: "one", name: "One", group: "overlay", layer: polygonLayer() },
+      { id: "two", name: "Two", group: "overlay", layer: polygonLayer() },
+    ],
+  });
+  const count = () => ui.listPanel.checkedCount[GROUP.OVERLAY];
+  expect(count()).toEqual({ total: 2, on: 2 });
+
+  // A subscriber that disagrees with the uncheck and pushes the layer back
+  // on, synchronously, inside the notify.
+  ui.events.on(EVENTS.LAYER_INTENT_CHANGE, () => {
+    ui.applyVisibility("one", true);
+  });
+
+  ui.applyVisibility("one", false);
+
+  // The count is the final intent, not the delta the outer operation
+  // computed against the state it started from.
+  expect(count()).toEqual({ total: 2, on: 2 });
+  expect(intentVisibleOf(ui, "one")).toBe(true);
+});
+
+it("a subscriber that throws leaves every side effect applied", () => {
+  // The notify is last, so a throwing handler can only interrupt delivery —
+  // the carrier write, the row paint and the group count are already done.
+  // A mid-operation notify would have left the checkbox and the count
+  // behind while the map had already moved.
+  const { ui } = initFixture();
+  const id = "overlay1";
+  const row = findItem(ui, id);
+  ui.events.on(EVENTS.LAYER_CHANGE, () => {
+    throw new Error("subscriber boom");
+  });
+
+  expect(() => ui.applyVisibility(id, false)).toThrow("subscriber boom");
+
+  expect(ui.c.map.removeLayer).toHaveBeenCalled();
+  expect(intentVisibleOf(ui, id)).toBe(false);
+  expect(
+    (row.querySelector('input[type="checkbox"]') as HTMLInputElement).checked,
+  ).toBe(false);
+  expect(ui.listPanel.checkedCount[GROUP.OVERLAY]).toEqual({
+    total: 1,
+    on: 0,
+  });
+});
+
+it("a subscriber that destroys the control leaves no null deref", () => {
+  // A subscriber that tears the control down takes its panel container with
+  // it. Every panel read of the operation happens *before* the notify, so
+  // nothing after the callback dereferences the missing container — a
+  // mid-operation notify would have left a row paint and a tri-state rescan
+  // queued behind the teardown, and that rescan reads the container with a
+  // non-null assertion.
+  const { ui } = initFixture();
+  const id = "overlay1";
+  ui.events.on(EVENTS.LAYER_CHANGE, () => {
+    // The container half of `LayerController.destroy()`.
+    ui.c.uiContainer = null;
+  });
+
+  expect(() => ui.applyVisibility(id, false)).not.toThrow();
+  expect(ui.c.map.removeLayer).toHaveBeenCalled();
+  expect(intentVisibleOf(ui, id)).toBe(false);
+  expect(ui.listPanel.checkedCount[GROUP.OVERLAY]).toEqual({
+    total: 1,
+    on: 0,
+  });
+});
+
+it("a zoom sweep notifies each moved layer once, in registry order", () => {
+  const layerA = polygonLayer();
+  const layerB = polygonLayer();
+  const { ui, map } = initFixture({
+    data: [
+      { id: "alpha", name: "Alpha", group: "overlay", layer: layerA },
+      { id: "beta", name: "Beta", group: "overlay", layer: layerB },
+    ],
+  });
+  for (const id of ["alpha", "beta"]) {
+    setIntent(ui, id, "zoomRange", [0, 1]);
+    ui.intentStore.seedProvenance(id, ["zoomRange"]);
+  }
+  const removed: string[] = [];
+  map.removeLayer = vi.fn((l: L.Layer) =>
+    removed.push(l === layerA ? "alpha" : "beta"),
+  );
+
+  const seen: string[] = [];
+  const removedAtDelivery: string[][] = [];
+  ui.events.on(EVENTS.LAYER_CHANGE, payload => {
+    seen.push(payload.id);
+    removedAtDelivery.push(removed.slice());
+  });
+
+  ui.onZoomEnd?.();
+
+  expect(removed).toEqual(["alpha", "beta"]);
+  expect(seen).toEqual(["alpha", "beta"]);
+  // The whole sweep landed before the first notify: a mid-sweep notify
+  // would have shown only ["alpha"] at the first delivery.
+  expect(removedAtDelivery[0]).toEqual(["alpha", "beta"]);
+});
+
+it("a subscriber that unregisters a later layer does not strand the sweep", () => {
+  // The sweep decides what moves before it announces anything, so a delta
+  // can still name a layer that has left the registry by the time its own
+  // delivery comes around. That is a no-delivery, not a throw: the sweep
+  // skips the gone layer instead of dropping whatever came after it.
+  const layerA = polygonLayer();
+  const layerB = polygonLayer();
+  const { ui } = initFixture({
+    data: [
+      { id: "alpha", name: "Alpha", group: "overlay", layer: layerA },
+      { id: "beta", name: "Beta", group: "overlay", layer: layerB },
+    ],
+  });
+  for (const id of ["alpha", "beta"]) {
+    setIntent(ui, id, "zoomRange", [0, 1]);
+    ui.intentStore.seedProvenance(id, ["zoomRange"]);
+  }
+
+  const seen: string[] = [];
+  ui.events.on(EVENTS.LAYER_CHANGE, payload => {
+    seen.push(payload.id);
+    if (payload.id === "alpha") ui.c.layerRegistry.remove("beta");
+  });
+
+  expect(() => ui.onZoomEnd?.()).not.toThrow();
+  expect(seen).toEqual(["alpha"]);
+  expect(ui.c.layerRegistry.has("beta")).toBe(false);
+});
+
+it("a CHANGE that retires its layer suppresses the intent half", () => {
+  // The two halves of one round belong to the entry that ran the pass. A
+  // subscriber that retires that entry inside the CHANGE has answered for it
+  // already, so the intent half is not delivered for an id nobody holds —
+  // and in particular not for a replacement registered under the same id.
+  const { ui, manager } = initFixture();
+
+  const changes: string[] = [];
+  const intents: string[] = [];
+  let retired = false;
+  ui.events.on(EVENTS.LAYER_CHANGE, payload => {
+    changes.push(payload.id);
+    if (payload.id === "overlay1" && !retired) {
+      retired = true;
+      manager.unregisterLayer("overlay1");
+    }
+  });
+  ui.events.on(EVENTS.LAYER_INTENT_CHANGE, payload => {
+    intents.push(payload.id);
+  });
+
+  ui.applyVisibility("overlay1", false);
+
+  expect(changes).toEqual(["overlay1", "overlay1"]);
+  expect(intents).toEqual([]);
+  expect(ui.c.layerRegistry.has("overlay1")).toBe(false);
+});
+
+it("a batch delta for a layer replaced under the same id delivers nothing", () => {
+  // The sweep stamps each delta with the entry it ran against, so a
+  // replacement registered under the same id by an earlier delivery of the
+  // same round is not handed the delta it never produced. Delivery is
+  // identity, not presence: the id is live, the entry is not.
+  const layerAlpha = polygonLayer();
+  const layerBeta = polygonLayer();
+  const replacement = polygonLayer();
+  const { ui, manager } = initFixture({
+    data: [
+      { id: "alpha", name: "Alpha", group: "overlay", layer: layerAlpha },
+      { id: "beta", name: "Beta", group: "overlay", layer: layerBeta },
+    ],
+  });
+  // Both layers sit on the map while their stored intent says hidden, so the
+  // sweep has a flip for each. `visible` rather than `zoomRange`: with
+  // `visible` false the re-registration below stays off the map, so its own
+  // projection is a no-op and the only beta announce in the round is its
+  // registration CHANGE.
+  const onMap = trackMembership(ui.c.map);
+  onMap.set(layerAlpha, true);
+  onMap.set(layerBeta, true);
+  setIntent(ui, "alpha", "visible", false);
+  setIntent(ui, "beta", "visible", false);
+  ui.intentStore.seedProvenance("alpha", ["visible"]);
+  ui.intentStore.seedProvenance("beta", ["visible"]);
+
+  const changes: string[] = [];
+  ui.events.on(EVENTS.LAYER_CHANGE, payload => {
+    changes.push(payload.id);
+    if (payload.id === "alpha") {
+      manager.registerLayer({
+        id: "beta",
+        name: "Beta",
+        group: "overlay",
+        layer: replacement,
+      });
+    }
+  });
+
+  ui.onZoomEnd?.();
+
+  // alpha's flip, then the re-registration's own CHANGE — and nothing else.
+  // The sweep's delta for the beta it replaced is the third one on a
+  // build without the identity check.
+  expect(changes).toEqual(["alpha", "beta"]);
+  expect(ui.c.layerRegistry.get("beta")?.layer).toBe(replacement);
+  expect(onMap.get(replacement) ?? false).toBe(false);
 });

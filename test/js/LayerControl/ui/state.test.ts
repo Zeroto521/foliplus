@@ -33,6 +33,7 @@ import {
   findItem,
   initFixture,
   installLeafletGlobals,
+  polygonLayerWithStyle,
 } from "./fixture.js";
 
 /** The pane spec list `createLayers` derives from an ordered name list: the
@@ -1884,4 +1885,39 @@ describe("ui/state intentStore and per-layer state persistence", () => {
 
     expect(u.intentVisible("overlay1")).toBe(false);
   });
+});
+
+// ── Notification-contract cases, moved from the former
+// ── notifyContract.test.ts so they live with the script they drive. ──
+it("a full replay announces after the direct style writes have landed", () => {
+  // The full sweep projects visible / opacity / zoomRange and only reports
+  // what moved; border and fill are direct `setStyle` writes that the shell
+  // replays after it. Both land before the owning entry publishes, so a
+  // subscriber reads the color the user stored rather than the author's that
+  // the shell was about to overwrite. Driven through the control-attached
+  // re-run, which is a real full replay from a real entry.
+  const setStyle = vi.fn();
+  const layer = polygonLayerWithStyle(
+    { color: "#111111", fillColor: "#222222" },
+    setStyle,
+  );
+  const { ui } = initFixture({
+    data: [{ id: "overlay1", name: "Polygons", group: "overlay", layer }],
+  });
+
+  setIntent(ui, "overlay1", "borderColor", "#abcdef");
+  // The hide is what gives the sweep a delta to report at all.
+  setIntent(ui, "overlay1", "visible", false);
+  ui.intentStore.seedProvenance("overlay1", ["borderColor", "visible"]);
+
+  const borderAtDelivery: unknown[] = [];
+  ui.events.on(EVENTS.LAYER_CHANGE, payload => {
+    if (payload.id !== "overlay1") return;
+    const writes = setStyle.mock.calls.map(call => call[0] as Record<string, unknown>);
+    borderAtDelivery.push(writes.find(write => write.color !== undefined)?.color);
+  });
+
+  ui.events.emit(EVENTS.CONTROL_ATTACHED, { component: "HeatmapControl" });
+
+  expect(borderAtDelivery).toEqual(["#abcdef"]);
 });

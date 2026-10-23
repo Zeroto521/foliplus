@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LayerRuntimeStore } from "#core/layer/index.js";
+import * as CONST from "#foliplus/LayerControl/const.js";
 import { LayerIntentStore } from "#foliplus/LayerControl/domain/index.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { clearIntent, setIntent } from "#foliplus/LayerControl/ui/intent.js";
@@ -10,7 +11,13 @@ import {
   commitZoomRange,
   resetLayerZoomRange,
 } from "#foliplus/LayerControl/ui/style/zoomRange.js";
-import { initFixture, installLeafletGlobals } from "./ui/fixture.js";
+import { EVENTS } from "#foliplus/core/event/index.js";
+import {
+  findItem,
+  initFixture,
+  installLeafletGlobals,
+  oneOverlay,
+} from "./ui/fixture.js";
 
 const mockMap = {
   getMinZoom: () => 0,
@@ -228,4 +235,56 @@ describe("zoomRange descriptor write/live/commit/reset", () => {
   it("reset on a missing layer returns before touching state", () => {
     expect(() => resetLayerZoomRange(ui, "ghost")).not.toThrow();
   });
+});
+
+// ── Notification-contract cases, moved from the former
+// ── notifyContract.test.ts so they live with the script they drive. ──
+it("a reset settles the row before it announces", () => {
+  // The reset entry clears the override, re-projects and repaints the row
+  // before it publishes, so a subscriber that re-enters reads the range the
+  // reset just drew — not the "out of range" face the override was showing
+  // when the operation started.
+  const { ui, layer, onMap } = oneOverlay();
+
+  setIntent(ui, "overlay1", "zoomRange", [0, 3]);
+  ui.intentStore.seedProvenance("overlay1", ["zoomRange"]);
+  ui.onZoomEnd?.();
+  expect(onMap.get(layer)).toBe(false);
+
+  ui.openStylePanel("overlay1");
+  const row = findItem(ui, "overlay1").querySelector(
+    `.${CONST.CLASSES.STYLE_ZOOM_RANGE_ROW}`,
+  ) as HTMLElement;
+  expect(row.classList.contains(CONST.CLASSES.STYLE_ZOOM_RANGE_OUT_OF_RANGE)).toBe(
+    true,
+  );
+
+  const outOfRangeAtDelivery: boolean[] = [];
+  ui.events.on(EVENTS.LAYER_CHANGE, () => {
+    outOfRangeAtDelivery.push(
+      row.classList.contains(CONST.CLASSES.STYLE_ZOOM_RANGE_OUT_OF_RANGE),
+    );
+  });
+
+  resetLayerZoomRange(ui, "overlay1");
+
+  expect(outOfRangeAtDelivery).toEqual([false]);
+  expect(onMap.get(layer)).toBe(true);
+});
+
+it("a reset that lands after a teardown does not deref the container", () => {
+  // The panel lookup runs before the notify, but a reset can still be queued
+  // past a teardown — a scheduled reset, or a panel whose control was
+  // destroyed first. The lookup tolerates the missing container, and the
+  // projection it already ran still lands on the map.
+  const { ui, layer, onMap } = oneOverlay();
+
+  setIntent(ui, "overlay1", "zoomRange", [0, 3]);
+  ui.intentStore.seedProvenance("overlay1", ["zoomRange"]);
+  ui.onZoomEnd?.();
+  ui.openStylePanel("overlay1");
+
+  ui.c.uiContainer = null;
+  expect(() => resetLayerZoomRange(ui, "overlay1")).not.toThrow();
+  expect(onMap.get(layer)).toBe(true);
 });

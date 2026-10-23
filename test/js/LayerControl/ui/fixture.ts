@@ -331,6 +331,99 @@ const overlayFoldBtn = (root: ParentNode) =>
     .querySelector(`.${CONST.CLASSES.TOGGLE_ALL}[data-group="${GROUP.OVERLAY}"]`)!
     .querySelector(`.${CONST.CLASSES.FOLD_BTN}`) as HTMLElement;
 
+// ── layer stubs and membership tracking shared across the event-contract
+// tests (they moved here from the old notifyContract file so each per-script
+// test suite can reach the same fixtures without copying). ──
+
+/** A polygon-shaped layer stub — enough for the surface to resolve. */
+const polygonLayer = () =>
+  ({
+    options: {},
+    eachLayer: vi.fn(),
+    getBounds: vi.fn(() => ({
+      isValid: vi.fn(() => true),
+      getSouthWest: () => ({ lat: 30, lng: 100 }),
+      getNorthEast: () => ({ lat: 40, lng: 110 }),
+    })),
+  }) as L.Layer;
+
+/** A polygon-shaped layer whose bounds the test supplies — the flyTo branch
+ *  needs a single-point area, the rectangle branch a real extent. */
+const polygonLayerWith = (
+  southWest: [number, number],
+  northEast: [number, number],
+): L.Layer => {
+  const center = {
+    lat: (southWest[0] + northEast[0]) / 2,
+    lng: (southWest[1] + northEast[1]) / 2,
+  };
+  return {
+    options: {},
+    eachLayer: vi.fn(),
+    getBounds: vi.fn(() => ({
+      isValid: vi.fn(() => true),
+      getSouthWest: () => ({ lat: southWest[0], lng: southWest[1] }),
+      getNorthEast: () => ({ lat: northEast[0], lng: northEast[1] }),
+      getCenter: () => center,
+    })),
+  } as L.Layer;
+};
+
+/** A polygon-shaped layer stub that reports no usable bounds — the focus
+ *  entry has to bail instead of drawing a rectangle. */
+const polygonLayerWithoutBounds = (): L.Layer =>
+  ({
+    options: {},
+    eachLayer: vi.fn(),
+    getBounds: vi.fn(() => ({ isValid: vi.fn(() => false) })),
+  }) as L.Layer;
+
+/** A polygon-shaped layer whose options and `setStyle` the test supplies — the
+ *  style-row tests need to read back what a replay wrote. */
+const polygonLayerWithStyle = (
+  options: Record<string, unknown>,
+  setStyle: ReturnType<typeof vi.fn>,
+): L.Layer =>
+  ({
+    options,
+    setStyle,
+    getLatLngs: () => [
+      [
+        { lat: 30, lng: 100 },
+        { lat: 40, lng: 100 },
+        { lat: 40, lng: 110 },
+      ],
+    ],
+  }) as L.Layer;
+
+/** Track real map membership, keyed by the layer the projection diffs against.
+ *  A `hasLayer` that always answers the same way turns every add and every
+ *  remove into a diff miss. */
+const trackMembership = (map: any): Map<L.Layer, boolean> => {
+  const onMap = new Map<L.Layer, boolean>();
+  map.hasLayer = vi.fn((l: L.Layer) => onMap.get(l) ?? false);
+  map.addLayer = vi.fn((l: L.Layer) => {
+    onMap.set(l, true);
+  });
+  map.removeLayer = vi.fn((l: L.Layer) => {
+    onMap.set(l, false);
+  });
+  return onMap;
+};
+
+/** One overlay in a fixture whose map membership is tracked, so the
+ *  projection's diff against the map is real instead of a constant. The layer
+ *  starts on the map, the way attach leaves it. */
+const oneOverlay = (makeLayer: () => L.Layer = polygonLayer) => {
+  const layer = makeLayer();
+  const fixture = initFixture({
+    data: [{ id: "overlay1", name: "Polygons", group: "overlay", layer }],
+  });
+  const onMap = trackMembership(fixture.map);
+  onMap.set(layer, true);
+  return { ...fixture, layer, onMap };
+};
+
 export {
   allFolded,
   attachWithGroup,
@@ -339,8 +432,14 @@ export {
   initFixture,
   installLeafletGlobals,
   makePane,
+  oneOverlay,
   overlayFoldBtn,
+  polygonLayer,
+  polygonLayerWith,
+  polygonLayerWithoutBounds,
+  polygonLayerWithStyle,
   pressKey,
+  trackMembership,
   GridLayer,
   TileLayer,
 };
