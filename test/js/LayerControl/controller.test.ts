@@ -3372,6 +3372,105 @@ describe("LayerController", () => {
       expect(removed).toEqual(["overlay1"]);
       expect(manager.layerRegistry.has("overlay1")).toBe(false);
     });
+
+    it("a replacement registered inside LAYER_GROUP_COUNT_CHANGED stops before the old change and removal", () => {
+      manager.map.hasLayer.mockReturnValue(false);
+      manager.uiContainer = document.createElement("div");
+      manager.ui = {
+        intentStore: makeStore(),
+        applyUserState: vi.fn(() => []),
+      } as any;
+      const changes: string[] = [];
+      const removed: string[] = [];
+      let swapped = false;
+      manager.events.on(EVENTS.LAYER_GROUP_COUNT_CHANGED, payload => {
+        if (payload.group !== "overlay" || swapped) return;
+        swapped = true;
+        manager.registerLayer({
+          id: "overlay1",
+          name: "Repl",
+          group: "overlay",
+          layer: { options: {} },
+        });
+      });
+      manager.events.on(EVENTS.LAYER_CHANGE, payload => changes.push(payload.id));
+      manager.events.on(EVENTS.LAYER_REMOVED, payload => removed.push(payload.id));
+
+      expect(manager.unregisterLayer("overlay1")).toBe(true);
+
+      // Only the replacement's registration CHANGE is announced; the old
+      // retirement stops right after its first group-count sync.
+      expect(changes).toEqual(["overlay1"]);
+      expect(removed).toEqual([]);
+      expect(manager.layerRegistry.get("overlay1")?.name).toBe("Repl");
+    });
+
+    it("a different id registering during a retirement does not stop the retirement", () => {
+      manager.map.hasLayer.mockReturnValue(false);
+      manager.uiContainer = document.createElement("div");
+      manager.ui = {
+        intentStore: makeStore(),
+        applyUserState: vi.fn(() => []),
+      } as any;
+      const removed: string[] = [];
+      let otherDone = false;
+      manager.events.on(EVENTS.LAYER_CHANGE, payload => {
+        if (payload.id !== "overlay1" || otherDone) return;
+        otherDone = true;
+        manager.registerLayer({
+          id: "other",
+          name: "Other",
+          group: "overlay",
+          layer: { options: {} },
+        });
+      });
+      manager.events.on(EVENTS.LAYER_REMOVED, payload => removed.push(payload.id));
+
+      expect(manager.unregisterLayer("overlay1")).toBe(true);
+
+      // The identity listener only reacts to the retired id, so a different
+      // id registering in between is irrelevant — the retirement completes.
+      expect(removed).toEqual(["overlay1"]);
+      expect(manager.layerRegistry.has("other")).toBe(true);
+    });
+
+    it("a replacement registered inside a solid-basemap delete skips the old reset and extra events", () => {
+      manager.map.hasLayer.mockReturnValue(false);
+      manager.registerLayer({
+        id: CONST.SOLID_BASEMAP_ID,
+        name: "Colour",
+        group: "base",
+        layer: { options: {} },
+      } as any);
+      const reset = vi.fn();
+      manager.ui = {
+        intentStore: makeStore(),
+        resetSolidBasemap: reset,
+        invalidateFields: vi.fn(),
+      } as any;
+      const noBase = vi.fn();
+      let swapped = false;
+      manager.events.on(EVENTS.LAYER_CHANGE, payload => {
+        if (payload.id !== CONST.SOLID_BASEMAP_ID || swapped) return;
+        swapped = true;
+        manager.registerLayer({
+          id: CONST.SOLID_BASEMAP_ID,
+          name: "NewColour",
+          group: "base",
+          layer: { options: {} },
+        });
+      });
+      manager.events.on(EVENTS.LAYER_NO_BASEMAP_CHANGED, noBase);
+
+      expect(manager.deleteLayer(CONST.SOLID_BASEMAP_ID)).toBe(true);
+
+      // The old delete's post-announcement housekeeping is gated on the full
+      // retirement having been announced: a replacement consumed it, so the
+      // reset and the extra signals are skipped.
+      expect(reset).not.toHaveBeenCalled();
+      expect(noBase).not.toHaveBeenCalled();
+      expect(manager.layerRegistry.get(CONST.SOLID_BASEMAP_ID)?.name).toBe("NewColour");
+    });
   });
 });
 

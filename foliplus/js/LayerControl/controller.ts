@@ -908,7 +908,9 @@ class LayerController implements LayerAPI {
         if (current !== undefined && current !== layerInfo) replaced = true;
         return !replaced && this.layerRegistry.get(id) === undefined;
       };
-      if (!gate()) return false;
+      // No gate before the first event: retireEntry just removed the entry and
+      // nothing has had a chance to re-register it yet. Every subsequent event
+      // is gated.
       operation.emit(EVENTS.LAYER_ITEM_REMOVED, { id });
       if (!gate()) return false;
       // The row was just removed: rescan the group's count so the toggle-all
