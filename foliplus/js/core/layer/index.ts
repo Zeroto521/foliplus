@@ -43,6 +43,11 @@ export {
   findLeaf,
   findNode,
 } from "./walkLeaf.js";
+// `isArealStyleLeaf` is the fill walker's leaf predicate. The build's registry
+// scan folds any `#core/layer/<file>.js` import into this barrel, so a name
+// the barrel does not re-export fails the build loudly rather than shimming to
+// `undefined` on `window.foliplus.core.layer`.
+export { isArealStyleLeaf } from "./capability.js";
 export { ensureLayerAPI, requireLayerAPI } from "./api.js";
 export { CLUSTER_CAPABILITIES, deriveLayerKind } from "./util.js";
 export { LayerRuntimeStore } from "./LayerRuntimeStore.js";
