@@ -16,9 +16,10 @@
 ### Fixed
 
 - `LayerControl`: layer visibility events are consistent and reentrancy-safe — `LAYER_CHANGE` tracks the actual flip, `LAYER_INTENT_CHANGE` the user's choice, and a subscriber's write-back never loops ([#716](https://github.com/Zeroto521/foliplus/pull/716), [#719](https://github.com/Zeroto521/foliplus/pull/719), [#720](https://github.com/Zeroto521/foliplus/pull/720))
-- `LayerControl`: a stored fill repaints the features a layer gains at runtime — a streamed `addData` left them at the author's colour, and a running ramp on breaks classified before those values arrived ([#727](https://github.com/Zeroto521/foliplus/pull/727))
-- `LayerControl`: the fill row opens on the colour the layer's polygon paints, not the first line the walk meets, so a mixed layer shows the fill it actually owns ([#727](https://github.com/Zeroto521/foliplus/pull/727))
+- `LayerControl`: the fill row and the stored fill both track the layer's real geometry — a mixed layer's row reads its polygon's own colour instead of the first line's, and a stored fill or ramp repaints the features a streamed `addData` adds (they kept the author's colour, on breaks classified before their values arrived) ([#727](https://github.com/Zeroto521/foliplus/pull/727))
 - `core/layer`: the fill-capability probe and every layer walk survive a third-party or cross-realm path whose property getters throw, instead of aborting the sweep ([#727](https://github.com/Zeroto521/foliplus/pull/727))
+- `core` / `HeatmapControl`: classification method names are a closed set and a saved heatmap record is validated field by field, so a stale or hand-edited `method`, aggregation, class count or label format keeps its default — an unknown method is no longer silently classified as `equal` ([#727](https://github.com/Zeroto521/foliplus/pull/727))
+- `core/palette`: an unparsable scheme name raises `PaletteConfigError`, which each consumer degrades on its own axis — the ramp restores the author's fill face, the heatmap paints the fallback colour — instead of aborting the control that was mounting ([#727](https://github.com/Zeroto521/foliplus/pull/727))
 
 ## [v0.4.1] (2026-10-18)
 

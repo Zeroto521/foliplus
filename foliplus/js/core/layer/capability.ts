@@ -40,25 +40,35 @@ const safeRead = <T>(read: () => T | undefined): T | undefined => {
   }
 };
 
+/** Read a geometry type out of one GeoJSON envelope.
+ *
+ *  Every level is its own boundary, not just the envelope's owner: a
+ *  third-party layer can hand back a real `feature` object whose *own*
+ *  `geometry` (or `geometry.type`) is a getter that throws, and a shallow
+ *  guard stops one read short of that. `undefined` at any level means that
+ *  level said nothing, so the caller moves on to its next signal. */
+const envelopeGeometryType = (envelope: unknown): string | undefined => {
+  if (envelope === null || typeof envelope !== "object") return undefined;
+  const geometry = safeRead(() => (envelope as { geometry?: unknown }).geometry);
+  if (geometry === null || typeof geometry !== "object") return undefined;
+  const declared = safeRead(() => (geometry as { type?: unknown }).type);
+  return typeof declared === "string" ? declared : undefined;
+};
+
 /** Read the geometry type a node declares, if it declares one — the GeoJSON
  *  envelope on `feature` first (cheapest), then a `toGeoJSON()` call. A
- *  throwing getter or call is not evidence of any geometry, so it is ignored.
- */
+ *  throwing getter or call is not evidence of any geometry, so it is
+ *  ignored. Both sources funnel through the one envelope parser, so the
+ *  shallow-read hole cannot reopen on one of them only. */
 const declaredGeometryType = (node: {
   feature?: unknown;
   toGeoJSON?: unknown;
 }): string | undefined => {
-  const feature = safeRead(() => node.feature) as
-    { geometry?: { type?: unknown } } | undefined;
-  if (feature && typeof feature === "object") {
-    const declared = feature.geometry?.type;
-    if (typeof declared === "string") return declared;
-  }
+  const fromFeature = envelopeGeometryType(safeRead(() => node.feature));
+  if (fromFeature !== undefined) return fromFeature;
   if (safeRead(() => typeof node.toGeoJSON === "function")) {
-    const out = safeRead(() => (node.toGeoJSON as () => unknown)()) as
-      { geometry?: { type?: unknown } } | undefined;
-    const declared = out?.geometry?.type;
-    if (typeof declared === "string") return declared;
+    const out = safeRead(() => (node.toGeoJSON as () => unknown)());
+    return envelopeGeometryType(out);
   }
   return undefined;
 };

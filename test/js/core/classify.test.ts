@@ -2,7 +2,12 @@
 // The `ss` global is injected by the build; tests stub it here the same way
 // the old HeatmapControl/data.test.ts did.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { METHOD, computeBreaks } from "#core/classify.js";
+import {
+  ClassifyMethodError,
+  METHOD,
+  computeBreaks,
+  isClassifyMethod,
+} from "#core/classify.js";
 
 afterEach(() => {
   delete globalThis.ss;
@@ -14,6 +19,68 @@ describe("METHOD", () => {
     expect(METHOD.QUANTILE).toBe("quantile");
     expect(METHOD.EQUAL).toBe("equal");
     expect(METHOD.HEADS).toBe("heads");
+  });
+});
+
+describe("isClassifyMethod", () => {
+  it("accepts exactly the four implemented methods", () => {
+    expect(isClassifyMethod("jenks")).toBe(true);
+    expect(isClassifyMethod("quantile")).toBe(true);
+    expect(isClassifyMethod("equal")).toBe(true);
+    expect(isClassifyMethod("heads")).toBe(true);
+  });
+
+  it("rejects an unknown name, padding and the wrong case", () => {
+    // A method is a protocol token, not a property key: the classifier used to
+    // send every unmatched string down the equal arm, so a record could claim
+    // one algorithm while the map ran another.
+    expect(isClassifyMethod("bogus")).toBe(false);
+    expect(isClassifyMethod(" equal ")).toBe(false);
+    expect(isClassifyMethod("EQUAL")).toBe(false);
+    expect(isClassifyMethod("heads ")).toBe(false);
+    expect(isClassifyMethod("")).toBe(false);
+  });
+
+  it("rejects non-strings", () => {
+    expect(isClassifyMethod(undefined)).toBe(false);
+    expect(isClassifyMethod(null)).toBe(false);
+    expect(isClassifyMethod(1)).toBe(false);
+    expect(isClassifyMethod({})).toBe(false);
+    expect(isClassifyMethod(["equal"])).toBe(false);
+  });
+});
+
+describe("computeBreaks — the closed method protocol", () => {
+  beforeEach(() => {
+    globalThis.ss = {
+      ckmeans: vi.fn(() => [[1, 2], [3]]),
+      quantileSorted: vi.fn(
+        (sorted: number[], q: number) => sorted[Math.floor(q * (sorted.length - 1))],
+      ),
+    } as never;
+  });
+
+  it("throws a ClassifyMethodError instead of running the equal split", () => {
+    // The old trailing arm made every unmatched string an equal split, which
+    // silently changed what a stale record meant.
+    expect(() => computeBreaks([1, 2, 3], 2, "bogus" as never)).toThrow(
+      ClassifyMethodError,
+    );
+    expect(() => computeBreaks([1, 2, 3], 2, " equal " as never)).toThrow(
+      ClassifyMethodError,
+    );
+  });
+
+  it("validates the method even when there is nothing to classify", () => {
+    // The contract is about the config, not the sample: a caller must not
+    // learn the method is unrecognised only once the layer has values.
+    expect(() => computeBreaks([], 2, "bogus" as never)).toThrow(ClassifyMethodError);
+  });
+
+  it("still computes all four implemented methods", () => {
+    for (const method of [METHOD.EQUAL, METHOD.HEADS, METHOD.QUANTILE, METHOD.JENKS]) {
+      expect(computeBreaks([1, 2, 3], 2, method)).toHaveLength(3);
+    }
   });
 });
 

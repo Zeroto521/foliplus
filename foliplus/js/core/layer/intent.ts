@@ -6,6 +6,7 @@
 // `LayerControl/type.ts` (LayerOverride / LayerIntent / PersistedLayerState /
 // IntentRow / LoadSource / AnnotationConfig) and `LayerControl/ui/intent.ts`
 // (INTENT / LIVE / STYLE_KEYS / IntentKey) — semantics unchanged.
+import { type ClassifyMethod, isClassifyMethod } from "#core/classify.js";
 import type { NumberStyle } from "#foliplus/config-schema.js";
 
 /** One arm of the value-based fill: which property drives the colour, how
@@ -21,7 +22,7 @@ type FillRampConfig = {
   /** How the drive property is typed. Absent = "numeric". */
   kind?: "numeric";
   field: string;
-  method: string;
+  method: ClassifyMethod;
   classes: number;
   scheme: string;
 };
@@ -32,12 +33,14 @@ type FillRampConfig = {
  *  so a live rule that accepted a partial config cannot let a caller set a
  *  record `buildRamp` cannot classify.
  *
- *  Each name is tested for non-whitespace only, never rewritten: a GeoJSON
- *  property called " score " is a different key from "score", so trimming on
- *  read would silently miss every feature after a reload. `kind` accepts
- *  only absence or "numeric" - the categorical arm is not implemented, so a
- *  record that asks for it is dropped whole rather than misapplied as a
- *  numeric ramp. */
+ *  `field` and `scheme` are tested for non-whitespace only, never rewritten:
+ *  a GeoJSON property called " score " is a different key from "score", so
+ *  trimming on read would silently miss every feature after a reload. `method`
+ *  is different - it is a closed protocol token, so it goes through
+ *  `isClassifyMethod` and a name outside the four (including one with padding
+ *  or the wrong case) drops the record whole. `kind` accepts only absence or
+ *  "numeric" - the categorical arm is not implemented, so a record that asks
+ *  for it is dropped rather than misapplied as a numeric ramp. */
 const isFillRampConfig = (value: unknown): value is FillRampConfig => {
   if (value == null || typeof value !== "object" || Array.isArray(value)) return false;
   const data = value as Record<string, unknown>;
@@ -45,7 +48,7 @@ const isFillRampConfig = (value: unknown): value is FillRampConfig => {
     typeof v === "string" && v.trim().length > 0;
   return (
     isName(data.field) &&
-    isName(data.method) &&
+    isClassifyMethod(data.method) &&
     isName(data.scheme) &&
     typeof data.classes === "number" &&
     Number.isInteger(data.classes) &&

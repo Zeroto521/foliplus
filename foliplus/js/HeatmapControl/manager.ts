@@ -1,5 +1,9 @@
 // HeatmapControl data aggregation & rendering logic (HeatmapManager).
-import { METHOD as CLASSIFY_METHOD } from "#core/classify.js";
+import {
+  METHOD as CLASSIFY_METHOD,
+  type ClassifyMethod,
+  isClassifyMethod,
+} from "#core/classify.js";
 import { generateId } from "#core/component.js";
 import { EVENTS, type EventBus, ensureEvents } from "#core/event/index.js";
 import { bareFieldName } from "#core/label/index.js";
@@ -41,6 +45,15 @@ import type {
 } from "./type.js";
 import { type HeatmapControlUI, rebuildLayerDropdown, resetPanel } from "./ui.js";
 
+/** Adopt a method name only when it is one of the four the classifier
+ *  implements; anything else falls back to the documented default. The Python
+ *  declaration is typed, so this only fires for a hand-edited config - and
+ *  keeping it here makes the manager's `method` a closed value, which is what
+ *  lets `computeBreaks` reject an unknown name instead of silently running
+ *  the equal split. */
+const resolveClassifyMethod = (value: unknown): ClassifyMethod =>
+  isClassifyMethod(value) ? value : CLASSIFY_METHOD.JENKS;
+
 /** A point layer collected from LayerControl. */
 interface PointLayerInfo {
   id: string;
@@ -77,7 +90,7 @@ class HeatmapManager {
    *  user picked from the field dropdown. */
   field: string;
   scheme: string;
-  method: string;
+  method: ClassifyMethod;
   autoFieldKey: string | null;
   numClasses: number;
   borderWeight: number;
@@ -169,7 +182,7 @@ class HeatmapManager {
     this.agg = CONFIG.agg ?? CONST.AGG.COUNT;
     this.field = "";
     this.scheme = CONFIG.color_scheme ?? "Reds";
-    this.method = CONFIG.method ?? CLASSIFY_METHOD.JENKS;
+    this.method = resolveClassifyMethod(CONFIG.method);
     this.autoFieldKey = null;
     this.numClasses = CONFIG.num_classes ?? CONST.CLASS_COUNT.DEFAULT;
     this.borderWeight = CONFIG.border_weight ?? BORDER_WEIGHT.DEFAULT;
@@ -748,7 +761,7 @@ class HeatmapManager {
     this.agg = config.agg ?? CONST.AGG.COUNT;
     this.field = "";
     this.numClasses = config.num_classes ?? CONST.CLASS_COUNT.DEFAULT;
-    this.method = config.method ?? CLASSIFY_METHOD.JENKS;
+    this.method = resolveClassifyMethod(config.method);
     this.scheme = config.color_scheme ?? "Reds";
   }
 

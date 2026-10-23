@@ -121,6 +121,73 @@ describe("HeatmapManager — versioned persisted config", () => {
     });
   });
 
+  describe("saved records are validated at the boundary", () => {
+    // loadRecord is a static assertion, not a check: a record from an older
+    // build, a hand-edited one, or one from a future version holds whatever
+    // it likes. A bad field must keep the default instead of reaching the
+    // classifier (which used to re-mean an unknown method as equal) or chroma
+    // (whose throw used to abort the panel on load).
+    const store = (record: unknown) =>
+      window.localStorage.setItem(KEY, JSON.stringify(record));
+
+    it("drops a method the classifier does not implement", () => {
+      const m = makeManager();
+      const before = m.method;
+      store({ method: "bogus", agg: "sum", scheme: "Reds" });
+      const loaded = m.loadSavedConfig()!;
+      expect(loaded.method).toBeUndefined();
+      // The neighbouring fields are unaffected by one bad one.
+      expect(loaded.agg).toBe("sum");
+      expect(loaded.scheme).toBe("Reds");
+      m.applySavedConfig(loaded);
+      expect(m.method).toBe(before);
+    });
+
+    it("rejects a padded or differently-cased method", () => {
+      // A method is a protocol token, so padding and case are meaningful.
+      const m = makeManager();
+      store({ method: " equal " });
+      expect(m.loadSavedConfig()!.method).toBeUndefined();
+      store({ method: "EQUAL" });
+      expect(m.loadSavedConfig()!.method).toBeUndefined();
+      store({ method: "equal" });
+      expect(m.loadSavedConfig()!.method).toBe("equal");
+    });
+
+    it("drops an unknown aggregation and a non-integer class count", () => {
+      const m = makeManager();
+      store({ agg: "median", numClasses: 3.5, scheme: "Reds" });
+      const loaded = m.loadSavedConfig()!;
+      expect(loaded.agg).toBeUndefined();
+      expect(loaded.numClasses).toBeUndefined();
+      expect(loaded.scheme).toBe("Reds");
+    });
+
+    it("clamps an out-of-range class count and keeps a null layerId", () => {
+      const m = makeManager();
+      store({ numClasses: 99, layerId: null });
+      const loaded = m.loadSavedConfig()!;
+      expect(loaded.numClasses).toBe(CONST.CLASS_COUNT.MAX);
+      // null means "the user cleared the selection", so it is preserved
+      // rather than treated as an absent field.
+      expect(loaded.layerId).toBeNull();
+    });
+
+    it("drops a label format outside the NumberStyle union", () => {
+      const m = makeManager();
+      store({ labelFormat: "currency" });
+      expect(m.loadSavedConfig()!.labelFormat).toBeUndefined();
+    });
+
+    it("ignores a non-object record and leaves the one-shot guard alone", () => {
+      const m = makeManager();
+      store([1, 2, 3]);
+      expect(m.loadSavedConfig()).toBeNull();
+      m.applySavedConfig([1, 2, 3] as never);
+      expect(m.hasScanned).toBe(false);
+    });
+  });
+
   describe("applySavedConfig on a legacy record", () => {
     it("applies every field when version is missing, and keeps manager defaults otherwise", () => {
       const m = makeManager();

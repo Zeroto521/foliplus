@@ -34,7 +34,7 @@ const installChroma = (colors: string[]): void => {
   } as never;
 };
 
-const EQUAL: { method: string; classes: number; scheme: string } = {
+const EQUAL: { method: typeof METHOD.EQUAL; classes: number; scheme: string } = {
   method: METHOD.EQUAL,
   classes: 3,
   scheme: "Reds",

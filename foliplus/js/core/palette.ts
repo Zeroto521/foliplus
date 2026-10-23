@@ -9,6 +9,9 @@
 // default and must mirror this list — the Python docstring names the same
 // seven palettes, so a drift on either side is a bug that surfaces the
 // moment a user's saved state asks for a scheme neither side lists.
+import { createLogger } from "#common/log.js";
+
+const log = createLogger("foliplus");
 
 /** Scheme names available by default. Chroma.js supports any ColorBrewer
  *  palette name, but this list is the shared vocabulary — every picker
@@ -29,14 +32,60 @@ const DEFAULT_SCHEMES = [
  *  one value instead of each component keeping its own. */
 const SCHEME_FALLBACK_COLOR = "#999";
 
+/** Thrown when chroma cannot build a scale from the requested name. A
+ *  project-owned type rather than chroma's own: callers switch on it to
+ *  degrade, and chroma's error shape is not ours to depend on. */
+class PaletteConfigError extends Error {}
+
 /** Build a discrete `n`-color scale from a ColorBrewer / chroma scheme
- *  name. Falls back to a flat fallback-grey array when chroma is unavailable
- *  (jsdom unit tests, headless contexts). */
+ *  name.
+ *
+ *  Two failure classes, deliberately handled differently rather than both
+ *  collapsing into the fallback:
+ *    - chroma is absent (jsdom unit tests, headless contexts). That is the
+ *      environment, not the config, so it returns the fallback colours.
+ *    - chroma is present and rejects the name. That is a config error, and
+ *      it throws `PaletteConfigError` so each consumer can degrade the way
+ *      its own axis allows: LayerControl restores the author's fill face,
+ *      Heatmap paints the fallback through `safeColorScale`.
+ *  The one thing the product does not do is let chroma's own exception
+ *  escape and abort whichever control happened to be mounting. */
 const getColorScale = (name: string, n: number): string[] => {
-  if (typeof chroma !== "undefined") {
-    return chroma.scale(name).mode("lab").colors(n) as string[];
+  if (typeof chroma === "undefined") {
+    return Array(n).fill(SCHEME_FALLBACK_COLOR);
   }
-  return Array(n).fill(SCHEME_FALLBACK_COLOR);
+  try {
+    return chroma.scale(name).mode("lab").colors(n) as string[];
+  } catch (err) {
+    throw new PaletteConfigError(
+      log.msg(
+        `chroma cannot build a scale from "${name}" (${String((err as Error).message)})`,
+      ),
+    );
+  }
 };
 
-export { DEFAULT_SCHEMES, SCHEME_FALLBACK_COLOR, getColorScale };
+/** `getColorScale` for a caller that must not fail: an unreadable name
+ *  paints the fallback colour instead of aborting the control that asked.
+ *  Both of Heatmap's call sites use this - a stale record must not stop the
+ *  panel from mounting. LayerControl's ramp deliberately keeps the throwing
+ *  form, because it can restore the author's fill face instead of painting
+ *  a colour the user never chose. */
+const safeColorScale = (name: string, n: number): string[] => {
+  try {
+    return getColorScale(name, n);
+  } catch (err) {
+    if (err instanceof PaletteConfigError) {
+      return Array(n).fill(SCHEME_FALLBACK_COLOR);
+    }
+    throw err;
+  }
+};
+
+export {
+  DEFAULT_SCHEMES,
+  PaletteConfigError,
+  SCHEME_FALLBACK_COLOR,
+  getColorScale,
+  safeColorScale,
+};

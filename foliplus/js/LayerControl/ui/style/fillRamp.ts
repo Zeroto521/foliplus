@@ -24,10 +24,12 @@
 // changed since the cache was built (field / method / classes / scheme
 // differ), the getter returns null so the author's fill face stays in force
 // — the next scheduler tick rebuilds the cache.
-import { ClassifierDependencyError } from "#core/classify.js";
+import { ClassifierDependencyError, ClassifyMethodError } from "#core/classify.js";
 import { DIM } from "#core/layer/index.js";
 import type { FillRampConfig } from "#core/layer/intent.js";
+import { PaletteConfigError } from "#core/palette.js";
 import { buildRamp, colorFor } from "#core/ramp.js";
+import { createLogger } from "#common/log.js";
 import { INTENT, getIntent } from "../intent.js";
 import type { LayerUI } from "../surface.js";
 import { pinStyleOnHighlight } from "./pin.js";
@@ -41,6 +43,8 @@ import {
   styleDimPayload,
   walkFillLeaves,
 } from "./styleBag.js";
+
+const log = createLogger("foliplus");
 
 /** A leaf that may carry a `feature` envelope (GeoJSON data). */
 type FeatureLeaf = StyleSetter & {
@@ -130,24 +134,28 @@ const applyRampToLayer = (ui: LayerUI, layerId: string, ramp: FillRampConfig): v
   });
 
   // ── Build the ramp once, before the write pass ──
-  // chroma throws on a scheme name it cannot parse instead of returning the
-  // fallback grey, and that throw would otherwise escape the replay walk that
-  // runs while the control attaches: one bad record in storage would leave
-  // the whole panel unmounted. A layer whose ramp cannot be built gets the
-  // author's fill face back — the same answer an all-invalid field gives.
+  // A build failure must not escape the replay walk that runs while the
+  // control attaches: one bad record in storage would leave the whole panel
+  // unmounted. A layer whose ramp cannot be built gets the author's fill face
+  // back — the same answer an all-invalid field gives.
   //
-  // Two failures land here, and only one is one the user can fix by changing
-  // the record. A scheme chroma cannot parse degrades to the author's face;
-  // a missing simple-statistics global means the chosen method cannot run at
-  // all, for the whole page, and it must be reported rather than only
-  // degraded — otherwise the map silently keeps its author colour while the
-  // panel still says "quantile".
+  // Two failures land here and both are reported: a method this client does
+  // not implement (only reachable by bypassing the record validator) and a
+  // missing simple-statistics global, where the chosen method cannot run at
+  // all for the whole page. Reporting the second matters because otherwise
+  // the map silently keeps its author colour while the panel still says
+  // "quantile". A palette name chroma cannot parse does not land here —
+  // `getColorScale` degrades it to the fallback colour itself.
   let built: ReturnType<typeof buildRamp> | null = null;
   try {
     built = buildRamp(values, ramp);
   } catch (err) {
-    if (err instanceof ClassifierDependencyError) {
-      console.warn("[foliplus] value-based fill: " + err.message);
+    if (
+      err instanceof ClassifierDependencyError ||
+      err instanceof ClassifyMethodError ||
+      err instanceof PaletteConfigError
+    ) {
+      log.warn("value-based fill:", err);
     }
   }
 

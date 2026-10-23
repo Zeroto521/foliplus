@@ -1784,7 +1784,12 @@ describe("replayFillState", () => {
 });
 
 describe("applyFillToLayer — fillMode dispatch", () => {
-  const RAMP = { field: "count", method: "equal", classes: 3, scheme: "Reds" };
+  const RAMP = {
+    field: "count",
+    method: "equal" as const,
+    classes: 3,
+    scheme: "Reds",
+  };
   const COLORS = ["#111111", "#222222", "#333333"];
 
   let manager: LayerController;

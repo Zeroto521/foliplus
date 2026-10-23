@@ -11,14 +11,14 @@
 // breaks.length - 1 is the class count: computeBreaks returns one boundary
 // per class plus the final bound, so colors is requested for the span, not
 // for the raw classes config (a 6-class quantile is 7 breaks, 6 colours).
-import { computeBreaks } from "#core/classify.js";
+import { type ClassifyMethod, computeBreaks } from "#core/classify.js";
 import { SCHEME_FALLBACK_COLOR, getColorScale } from "#core/palette.js";
 
 /** The three inputs a ramp is built from — the persisted FillRampConfig's
  *  values minus field, which selects the property key and is the caller's
  *  business, not the classifier's. */
 type RampConfig = {
-  method: string;
+  method: ClassifyMethod;
   classes: number;
   scheme: string;
 };

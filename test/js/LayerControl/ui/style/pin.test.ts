@@ -504,6 +504,62 @@ describe("capability probe - hostile third-party leaves", () => {
     expect(hasSetStyleLeaf(hostile)).toBe(false);
   });
 
+  it("a throwing feature.geometry getter is not a declaration", () => {
+    // The envelope's owner reading cleanly is not enough: a real feature
+    // object can carry its own throwing getter one level down.
+    const feature = Object.defineProperty({}, "geometry", {
+      get() {
+        throw new Error("geometry boom");
+      },
+    });
+    const leaf = { setStyle: vi.fn(), feature };
+    expect(() => isArealStyleLeaf(leaf)).not.toThrow();
+    expect(isArealStyleLeaf(leaf)).toBe(false);
+  });
+
+  it("a throwing feature.geometry.type getter is not a declaration", () => {
+    const geometry = Object.defineProperty({}, "type", {
+      get() {
+        throw new Error("type boom");
+      },
+    });
+    const leaf = { setStyle: vi.fn(), feature: { geometry } };
+    expect(() => isArealStyleLeaf(leaf)).not.toThrow();
+    expect(isArealStyleLeaf(leaf)).toBe(false);
+  });
+
+  it("falls through to toGeoJSON when only the feature envelope is hostile", () => {
+    // Skip the broken branch and keep looking: one unreadable source must
+    // not hide a declaration the other still carries.
+    const leaf = {
+      setStyle: vi.fn(),
+      feature: Object.defineProperty({}, "geometry", {
+        get() {
+          throw new Error("geometry boom");
+        },
+      }),
+      toGeoJSON: () => ({ type: "Feature", geometry: { type: "Polygon" } }),
+    };
+    expect(isArealStyleLeaf(leaf)).toBe(true);
+  });
+
+  it("a toGeoJSON envelope with a throwing type getter is not a declaration", () => {
+    // The toGeoJSON source funnels through the same parser as feature, so
+    // the shallow-read hole cannot reopen on one of them only.
+    const leaf = {
+      setStyle: vi.fn(),
+      toGeoJSON: () => ({
+        geometry: Object.defineProperty({}, "type", {
+          get() {
+            throw new Error("type boom");
+          },
+        }),
+      }),
+    };
+    expect(() => isArealStyleLeaf(leaf)).not.toThrow();
+    expect(isArealStyleLeaf(leaf)).toBe(false);
+  });
+
   it("a hostile leaf does not abort the walk of its container", () => {
     // The point of per-read isolation: one hostile child must not strand the
     // healthy siblings in the same group.

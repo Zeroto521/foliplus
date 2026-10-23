@@ -191,7 +191,10 @@ describe("applyRampToLayer", () => {
       ),
     ).not.toThrow();
 
-    expect(warn.mock.calls[0][0]).toContain("simple-statistics");
+    // The project logger namespaces the message and takes the error as its
+    // detail - the same shape every other foliplus warning uses.
+    expect(warn.mock.calls[0][0]).toBe("[foliplus] value-based fill:");
+    expect((warn.mock.calls[0][1] as Error).message).toContain("simple-statistics");
     // Nothing was classified, so the author's face comes back.
     expect((layer.leaves[0].setStyle as any).mock.calls.at(-1)![0]).toEqual({
       fillColor: "#3388ff",

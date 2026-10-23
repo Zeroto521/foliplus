@@ -1,10 +1,15 @@
 // HeatmapControl data aggregation — pure functions for H3 binning, class
 // breaks, color scales, and field extraction. No `this` dependency: every
 // stateful value is passed in explicitly.
-import { ClassifierDependencyError, METHOD, computeBreaks } from "#core/classify.js";
+import {
+  ClassifierDependencyError,
+  type ClassifyMethod,
+  METHOD,
+  computeBreaks,
+} from "#core/classify.js";
 import { vertexMean } from "#core/geo/index.js";
 import { autoLabelField, bareFieldName } from "#core/label/index.js";
-import { getColorScale } from "#core/palette.js";
+import { safeColorScale } from "#core/palette.js";
 import type { Logger } from "#common/type.js";
 import * as CONST from "./const.js";
 import type {
@@ -115,7 +120,7 @@ const aggregateData = (
   res: number,
   agg: string,
   numClasses: number,
-  method: string,
+  method: ClassifyMethod,
   scheme: string,
   onEmpty: () => void,
   log: Logger,
@@ -166,7 +171,7 @@ const aggregateData = (
   // requested: a method that cannot split the sample returns fewer breaks, and
   // the surplus colours would sit unused next to a class index that can never
   // reach them.
-  const classColors = getColorScale(scheme, Math.max(0, breaks.length - 1));
+  const classColors = safeColorScale(scheme, Math.max(0, breaks.length - 1));
   const valueToClassIdx = (val: number): number => {
     if (breaks.length < 2) return 0;
     for (let i = 1; i < breaks.length; i++) if (val <= breaks[i]) return i - 1;
