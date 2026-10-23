@@ -100,10 +100,4 @@ const isArealStyleLeaf = (node: unknown): boolean => {
   return AREAL_GEOMETRY_TYPES.has(declaredGeometryType(n) ?? "");
 };
 
-export {
-  AREAL_GEOMETRY_TYPES,
-  FILL_OPT_IN,
-  hasFillLeaf,
-  hasSetStyleLeaf,
-  isArealStyleLeaf,
-};
+export { FILL_OPT_IN, hasFillLeaf, hasSetStyleLeaf, isArealStyleLeaf };

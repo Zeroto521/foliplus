@@ -381,20 +381,20 @@ describe("hasFillLeaf", () => {
   });
 
   it("accepts an explicit opt-in from a cross-realm or third-party path", () => {
-    const optIn: any = { setStyle: vi.fn() };
-    optIn[FILL_OPT_IN] = true;
-    expect(hasFillLeaf(optIn)).toBe(true);
+    const vendorLeaf: any = { setStyle: vi.fn() };
+    vendorLeaf[FILL_OPT_IN] = true;
+    expect(hasFillLeaf(vendorLeaf)).toBe(true);
     // The same shape without the declaration is not fillable, whatever
     // coordinates it advertises.
     expect(hasFillLeaf({ setStyle: vi.fn(), getLatLngs: () => [] })).toBe(false);
   });
 
   it("finds an opted-in leaf nested in a group", () => {
-    const optIn: any = { setStyle: vi.fn() };
-    optIn[FILL_OPT_IN] = true;
+    const vendorLeaf: any = { setStyle: vi.fn() };
+    vendorLeaf[FILL_OPT_IN] = true;
     const group: any = {
       options: {},
-      eachLayer: (fn: (child: unknown) => void) => fn(optIn),
+      eachLayer: (fn: (child: unknown) => void) => fn(vendorLeaf),
     };
     expect(hasFillLeaf(group)).toBe(true);
   });
