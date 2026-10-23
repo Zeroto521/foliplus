@@ -20,6 +20,7 @@
 // <input type=color> inside a FORM_ROW, no reset button on the row itself
 // (the panel-wide Reset handles it, the way label color has it).
 import { CAP_TIER, DIM, GROUP, type LayerInfo } from "#core/layer/index.js";
+import type { FillRampConfig, LayerOverride } from "#core/layer/intent.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { dom } from "#common/dom.js";
 import {
@@ -34,6 +35,7 @@ import {
 import { showSolidBasemap } from "../color.js";
 import { INTENT, type IntentKey, getIntent } from "../intent.js";
 import type { LayerUI } from "../surface.js";
+import { applyRampToLayer, resolveFillMode } from "./fillRamp.js";
 import { pinStyleOnHighlight } from "./pin.js";
 import {
   getDimension,
@@ -46,12 +48,14 @@ import {
   type StyleCarrier,
   cancelStyleDimApply,
   commitStyleDim,
+  commitStyleDimMerged,
   flushStyleDimApply,
   restoreStyleDim,
   scheduleStyleDimApply,
+  styleBagOf,
   styleBaseOf,
   styleDimPayload,
-  walkStyleLeaves,
+  walkFillLeaves,
 } from "./styleBag.js";
 
 /** The swatch's last resort when even the browser probe cannot resolve the
@@ -109,6 +113,18 @@ const toHexColor = (value: string): string => {
   return /^#[0-9a-fA-F]{6}$/.test(hex) ? hex : DEFAULT_FILL_COLOR;
 };
 
+/** Every fill-dimension intent key the user can own. The reset list, the
+ *  valueSource check and the replay guard must agree on this set, so they
+ *  name one array instead of each spelling the four keys — adding a key and
+ *  updating only one of the three is the bug a reload with a persisted ramp
+ *  would otherwise hide. */
+const FILL_INTENT_KEYS: readonly LayerOverride[] = [
+  INTENT.FILL_COLOR,
+  INTENT.FILL_OPACITY,
+  INTENT.FILL_RAMP,
+  INTENT.FILL_MODE,
+];
+
 /** A visible `fillOpacity` used to *display* the row's opacity input when
  *  neither a stored override nor an authored value exists. 0.2 matches
  *  Leaflet's own default, so a row for a layer that never declared a fill
@@ -128,9 +144,26 @@ const VISIBLE_FILL_OPACITY = 0.2;
  *  `commitFillOpacity`) so the walk is unit-testable without a storage timer. */
 const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
   const layerInfo = ui.c.layerRegistry.get(layerId);
+
+  // Arm selection goes through the shared resolver: an absent mode is solid,
+  // and a ramp config with no explicit mode is the pre-fillMode record shape,
+  // so the config's presence alone means "paint by value". The solid arm never
+  // reads fillRamp — the two arms are mutually exclusive on apply, even though
+  // both configs stay stored (a mode switch back must restore the other arm).
+  const ramp = getIntent(ui, layerId, INTENT.FILL_RAMP);
+  const mode = resolveFillMode(ui, layerId, ramp);
+
+  if (mode === "ramp" && ramp !== undefined) {
+    // A solid-color basemap has no leaves to classify, so a ramp degrades to
+    // the authored pane paint instead of painting nothing.
+    if (!isColorBasemap(layerInfo)) {
+      applyRampToLayer(ui, layerId, ramp);
+    }
+    return;
+  }
+
   const color = getIntent(ui, layerId, INTENT.FILL_COLOR);
   const opacity = getIntent(ui, layerId, INTENT.FILL_OPACITY);
-  if (color === undefined && opacity === undefined) return;
 
   // Solid-color basemap: the fill is the pane's paint, not a vector style.
   // Route to showSolidBasemap instead of walking leaves (the basemap has none).
@@ -154,13 +187,39 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
   const values: Record<string, unknown> = {};
   if (color !== undefined) values.fillColor = color;
   if (opacity !== undefined) values.fillOpacity = opacity;
-  walkStyleLeaves(layer, node => {
-    // Shared write contract: value keys + visibility bit (`fill: true`).
-    commitStyleDim(node, values, FACE.FILL);
+  const hasOverride = color !== undefined || opacity !== undefined;
+  walkFillLeaves(layer, node => {
+    const written = styleBagOf(node) !== undefined;
+    // A leaf that was never written and has nothing to own is left alone: no
+    // restore, no listener. An uncommitted layer keeps folium's own hover
+    // handling and gains no per-leaf cost.
+    if (!hasOverride && !written) return;
+    // One `setStyle` per leaf, never a restore followed by a commit - the
+    // two-call form wrote the same face twice per leaf, which doubled the DOM
+    // and SVG attribute work on top of the walk.
+    if (hasOverride && values.fillColor !== undefined) {
+      // A colour commit is minimal: it replaces every key the previous arm
+      // could have left stale, and the user's opacity never arrives here
+      // unset - `fillOpacity` is set on this same payload whenever the user
+      // has chosen one. Leaving the opacity unnamed keeps the author's value,
+      // which is the only value on the leaf while no opacity is chosen.
+      commitStyleDim(node, values, FACE.FILL);
+    } else if (hasOverride) {
+      // An opacity-only commit replaces nothing but the opacity, so the
+      // previous arm's colour would ride under it: pull the author's keys
+      // back in the same payload. The pin below replaces any ramp getter
+      // still holding this leaf.
+      commitStyleDimMerged(node, values, FACE.FILL, true);
+    } else {
+      // No override left: restore the author's face rather than skipping the
+      // walk, or the previous arm's colour stays on the map until folium's
+      // next mouseout happens to overwrite it.
+      restoreStyleDim(node, FACE.FILL);
+    }
 
     // Folium's highlight_on_hover restores the original style on mouseout;
     // pinStyleOnHighlight reapplies the user's fill after folium's handler
-    // fires so the color survives the hover. `walkStyleLeaves` already
+    // fires so the color survives the hover. `walkFillLeaves` already
     // guarantees a setStyle, so no isStyleSetter guard is needed here.
     // The "fill" key makes each commit replace this dimension's getter
     // instead of stacking a fresh closure.
@@ -227,7 +286,7 @@ const resetLayerFill = (ui: LayerUI, layerId: string): void => {
   // face to replay — the pane's fill IS the basemap color.
   if (isColorBasemap(ui.c.layerRegistry.get(layerId))) {
     cancelStyleDimApply(FACE.FILL, layerId);
-    resetIntentKeys(ui, layerId, [INTENT.FILL_COLOR, INTENT.FILL_OPACITY]);
+    resetIntentKeys(ui, layerId, FILL_INTENT_KEYS);
     ui.currentColor = CONST.COLOR.DEFAULT;
     showSolidBasemap(ui, CONST.COLOR.DEFAULT);
     return;
@@ -344,13 +403,12 @@ const bindFillRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => {
  *  Called from `applyUserState` on attach and late registration so a
  *  persisted value survives a reload. */
 const replayFillState = (ui: LayerUI, id: string): void => {
-  if (
-    getIntent(ui, id, INTENT.FILL_COLOR) === undefined &&
-    getIntent(ui, id, INTENT.FILL_OPACITY) === undefined
-  ) {
-    return;
+  for (const key of FILL_INTENT_KEYS) {
+    if (getIntent(ui, id, key) !== undefined) {
+      applyFillToLayer(ui, id);
+      return;
+    }
   }
-  applyFillToLayer(ui, id);
 };
 
 /** Register fill as a per-layer dimension. The descriptor wires the existing
@@ -365,6 +423,12 @@ const replayFillState = (ui: LayerUI, id: string): void => {
 const FILL_DIMENSION = registerDimension<{
   color: string;
   opacity: number | null;
+  /** The active arm. "solid" is the derived default — it doubles as the
+   *  shape of a pre-ramp record, so an absent mode reads back as solid. */
+  mode: "solid" | "ramp";
+  /** The value-based fill config. Kept while the active arm is solid, so a
+   *  mode switch back restores it; undefined when never set. */
+  ramp?: FillRampConfig;
 }>({
   key: DIM.FILL,
   gate: layerCanFill,
@@ -377,16 +441,24 @@ const FILL_DIMENSION = registerDimension<{
     return {
       color: getIntent(ui, layerId, INTENT.FILL_COLOR) ?? base.fillColor,
       opacity: getIntent(ui, layerId, INTENT.FILL_OPACITY) ?? base.fillOpacity,
+      // "solid" is derived, not authored: no authored default exists for the
+      // arm, so the fallback defers to whether a ramp config exists — the same
+      // rule apply uses. Reading the stored mode with a solid fallback alone
+      // would report solid while the map is painted by value.
+      mode: resolveFillMode(ui, layerId, getIntent(ui, layerId, INTENT.FILL_RAMP)),
+      ramp: getIntent(ui, layerId, INTENT.FILL_RAMP),
     };
   },
   row: buildFillRow,
   /** Intent+persist + schedule the fill face landing. `patch` is already
    *  normalized (hex / 0-1). Omitted keys leave that sub-dimension alone. */
   write: (ui, layerId, patch) => {
-    const { color, opacity } = patch;
+    const { color, opacity, mode, ramp } = patch;
     const writes: Array<readonly [IntentKey, unknown]> = [];
     if (color !== undefined) writes.push([INTENT.FILL_COLOR, color]);
     if (typeof opacity === "number") writes.push([INTENT.FILL_OPACITY, opacity]);
+    if (mode !== undefined) writes.push([INTENT.FILL_MODE, mode]);
+    if (ramp !== undefined) writes.push([INTENT.FILL_RAMP, ramp]);
     if (!writeIntentKeys(ui, layerId, writes)) return;
     scheduleFillApply(ui, layerId);
   },
@@ -394,18 +466,15 @@ const FILL_DIMENSION = registerDimension<{
    *  save, restore the author's fill face from the style bag. */
   reset: (ui, layerId) => {
     cancelStyleDimApply(FACE.FILL, layerId);
-    resetIntentKeys(ui, layerId, [INTENT.FILL_COLOR, INTENT.FILL_OPACITY]);
+    resetIntentKeys(ui, layerId, FILL_INTENT_KEYS);
     const layer = ui.c.findLayer(layerId) as StyleCarrier | null;
     if (!layer) return;
-    walkStyleLeaves(layer, node => restoreStyleDim(node, FACE.FILL));
+    walkFillLeaves(layer, node => restoreStyleDim(node, FACE.FILL));
   },
   valueSource: (ui, layerId) => {
     if (!layerCanFill(ui, layerId)) return "none";
-    if (
-      ui.intentStore.isUserSet(layerId, INTENT.FILL_COLOR) ||
-      ui.intentStore.isUserSet(layerId, INTENT.FILL_OPACITY)
-    ) {
-      return "user";
+    for (const key of FILL_INTENT_KEYS) {
+      if (ui.intentStore.isUserSet(layerId, key)) return "user";
     }
     return "author";
   },

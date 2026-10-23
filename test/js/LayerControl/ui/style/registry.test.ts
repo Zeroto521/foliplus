@@ -558,6 +558,7 @@ describe("LayerControl style-panel dimension registry — fill descriptor", () =
     expect(FILL_DIMENSION.value(ui, "overlay1")).toEqual({
       color: "#ff0000",
       opacity: 0.5,
+      mode: "solid",
     });
   });
 
@@ -565,6 +566,7 @@ describe("LayerControl style-panel dimension registry — fill descriptor", () =
     expect(FILL_DIMENSION.value(ui, "overlay1")).toEqual({
       color: "#3388ff",
       opacity: null,
+      mode: "solid",
     });
   });
 

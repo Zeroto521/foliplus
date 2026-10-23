@@ -55,8 +55,8 @@ import { closeAttrsPanel } from "./overlayPanel/attr.js";
 import { closeMoreMenu } from "./overlayPanel/menu.js";
 import { finishRename } from "./overlayPanel/rename.js";
 import { loadPersistedState } from "./state.js";
-import { closeStylePanel, invalidateFields } from "./style/index.js";
-import { dropStyleDimApplies } from "./style/styleBag.js";
+import { closeStylePanel, invalidateFields, replayFillState } from "./style/index.js";
+import { FACE, dropStyleDimApplies, scheduleStyleDimApply } from "./style/styleBag.js";
 import type { LayerUI } from "./surface.js";
 
 /**
@@ -392,6 +392,14 @@ const onLayerItemCountChange = (ui: LayerUI, id: string): void => {
     // side effect — its notify goes out on that delta, not inside the pass.
     notifyDelta(ui, layerInfo, applyProjection(ui, id));
   }
+
+  // A stored fill repaints the leaves this change just landed. Without it a
+  // streamed addData leaves the new features at the author's colour and a
+  // running ramp on breaks classified before the new values arrived - the UI
+  // would be showing one count while the map painted another. Coalesced per
+  // face like every panel write: ten additions in one frame cost one
+  // collect/classify/apply, and the walk always reads the layer's latest state.
+  scheduleStyleDimApply(FACE.FILL, id, () => replayFillState(ui, id));
 };
 
 /** Repaint every layer row from its cell — count, type, tooltip and box. */

@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { METHOD } from "#core/classify.js";
+import { DEFAULT_SCHEMES } from "#core/palette.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { LayerController } from "#foliplus/LayerControl/controller.js";
 import { LayerIntentStore } from "#foliplus/LayerControl/domain/index.js";
@@ -20,6 +22,7 @@ import {
   setVisibleIntent,
   unmarkOverride,
 } from "#foliplus/LayerControl/ui/state.js";
+import { flushStyleDimApplies } from "#foliplus/LayerControl/ui/style/styleBag.js";
 import { EVENTS, ensureEvents } from "#foliplus/core/event/index.js";
 import { GEOM_TYPE } from "#foliplus/core/layer/const.js";
 import type { PaneSpec } from "#foliplus/core/layer/index.js";
@@ -1163,6 +1166,108 @@ describe("event-driven row refresh", () => {
 
     expect(paneEl.style.opacity).toBe("0.4");
     expect(li.opacity).toBe(0.4);
+  });
+
+  describe("onLayerItemCountChange — the stored fill replays", () => {
+    // A streamed createLayers fires the count change as each feature lands,
+    // so this is where a stored fill re-paints the new geometry. It is
+    // coalesced per frame like every panel write, so a batch costs one walk
+    // and the walk always reads the latest layer state.
+
+    afterEach(() => {
+      delete globalThis.chroma;
+      vi.clearAllMocks();
+    });
+
+    // Polygon features with distinct drive values on the layer the registry
+    // points at — the reference the fill walk resolves.
+    const attachFeatures = (values: number[]) => {
+      const leaves = values.map(value => {
+        const leaf: any = {
+          feature: { properties: { value }, geometry: { type: "Polygon" } },
+          options: { fillColor: "#3388ff", fillOpacity: 0.2, fill: true },
+          setStyle: vi.fn(),
+          on: vi.fn(),
+        };
+        return leaf;
+      });
+      const info = manager.layerRegistry.get("overlay1")!;
+      info.layer = {
+        options: {},
+        eachLayer: (fn: (leaf: unknown) => void) => leaves.forEach(l => fn(l)),
+      };
+      return leaves;
+    };
+
+    it("repaints a stored ramp onto the features a count change lands", () => {
+      // The defect this rail guards: without the replay the new features keep
+      // the author fill, and the existing ones keep breaks classified before
+      // those values arrived.
+      globalThis.chroma = {
+        scale: () => ({
+          mode: () => ({
+            colors: (n: number) =>
+              Array.from({ length: n }, (_, i) => ["#a00000", "#ff7f00"][i % 2]),
+          }),
+        }),
+      } as never;
+      const leaves = attachFeatures([1, 5, 9]);
+      seedIntentMap(ui, "fillRamp", {
+        overlay1: {
+          field: "value",
+          method: METHOD.EQUAL,
+          classes: 2,
+          scheme: DEFAULT_SCHEMES[0],
+        },
+      });
+
+      ui.onLayerItemCountChange("overlay1");
+      flushStyleDimApplies("overlay1");
+
+      for (const leaf of leaves) expect(leaf.setStyle).toHaveBeenCalled();
+      const colors = leaves.map(leaf => leaf.setStyle.mock.calls[0][0].fillColor);
+      // The ramp owns the colour: the extremes land in different classes.
+      expect(colors[0]).not.toBe(colors[colors.length - 1]);
+    });
+
+    it("coalesces a batch of count changes into one walk", () => {
+      // A batched createLayers fires one count change per feature. N walks in
+      // one frame would make the streaming cost linear in the batch.
+      globalThis.chroma = {
+        scale: () => ({ mode: () => ({ colors: () => ["#a00000", "#ff7f00"] }) }),
+      } as never;
+      const leaves = attachFeatures([1, 5, 9]);
+      seedIntentMap(ui, "fillRamp", {
+        overlay1: {
+          field: "value",
+          method: METHOD.EQUAL,
+          classes: 2,
+          scheme: DEFAULT_SCHEMES[0],
+        },
+      });
+
+      ui.onLayerItemCountChange("overlay1");
+      ui.onLayerItemCountChange("overlay1");
+      ui.onLayerItemCountChange("overlay1");
+      flushStyleDimApplies("overlay1");
+
+      for (const leaf of leaves) expect(leaf.setStyle).toHaveBeenCalledTimes(1);
+    });
+
+    it("rides the solid arm onto the same new features", () => {
+      const leaves = attachFeatures([1, 2, 3]);
+      seedIntentMap(ui, "fillColor", { overlay1: "#abcdef" });
+      seedIntentMap(ui, "fillMode", { overlay1: "solid" });
+
+      ui.onLayerItemCountChange("overlay1");
+      flushStyleDimApplies("overlay1");
+
+      // Solid paints every fill leaf once, with no classify in between.
+      for (const leaf of leaves) {
+        expect(leaf.setStyle).toHaveBeenCalledTimes(1);
+        expect(leaf.setStyle.mock.calls[0][0].fillColor).toBe("#abcdef");
+      }
+    });
   });
 
   it("subscribeControlAttached reruns init when another control attaches", () => {

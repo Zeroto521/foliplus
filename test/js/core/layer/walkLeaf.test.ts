@@ -53,6 +53,35 @@ describe("walkLeaf", () => {
     expect(visited).toEqual(["a", "b"]);
   });
 
+  it("a node whose eachLayer read throws is walked as a leaf, not an abort", () => {
+    // The container decision reads `eachLayer` before enumeration does. A
+    // getter that throws there has to answer "not a container" so the walk
+    // reaches the node as a leaf and the caller keeps its result.
+    const hostile = Object.defineProperty({}, "eachLayer", {
+      get() {
+        throw new Error("getter boom");
+      },
+    });
+    const visited: unknown[] = [];
+    expect(() => walkLeaf(hostile, l => visited.push(l))).not.toThrow();
+    expect(visited).toEqual([hostile]);
+  });
+
+  it("childrenOf: a container whose eachLayer throws contributes no children", () => {
+    // A walk is a query, so one hostile node must not abort the caller. The
+    // node still has to read as a container here - safeGroupLike answers from
+    // the same `eachLayer` that later throws when it is called - so the
+    // enumeration itself is the thing that has to survive it.
+    const hostile = {
+      eachLayer: () => {
+        throw new Error("eachLayer boom");
+      },
+    };
+    const visited: unknown[] = [];
+    expect(() => walkLeaf(hostile, l => visited.push(l))).not.toThrow();
+    expect(visited).toEqual([]);
+  });
+
   it("childrenOf: returns [] when internalLayers is falsy (defensive fallback)", async () => {
     // The adapter is mocked via `vi.doMock` + `vi.resetModules` + a fresh
     // dynamic import so walkLeaf's own `import … from "#core/leafletAdapter.js"`
@@ -228,5 +257,17 @@ describe("isContainerNode", () => {
     expect(isContainerNode({})).toBe(false);
     expect(isContainerNode(null)).toBe(false);
     expect(isContainerNode(undefined)).toBe(false);
+  });
+
+  it("false, not throwing, when the eachLayer read itself throws", () => {
+    // A third-party or cross-realm node can be a class whose getter throws.
+    // "No child registry" is the only honest reading of a read that failed.
+    const hostile = Object.defineProperty({}, "eachLayer", {
+      get() {
+        throw new Error("getter boom");
+      },
+    });
+    expect(() => isContainerNode(hostile)).not.toThrow();
+    expect(isContainerNode(hostile)).toBe(false);
   });
 });
