@@ -533,3 +533,12 @@ it("a control-attached re-run announces after the label replay has landed", () =
   expect(labelsAtDelivery).toBe(1);
   expect(manager.isDestroyed).toBe(false);
 });
+
+it("isLive tracks the attached panel", () => {
+  // isLive is the one-question teardown check: true while the panel is
+  // attached, false once a subscriber has retired the control.
+  const { manager, ui } = initFixture({});
+  expect(ui.isLive).toBe(true);
+  manager.destroy();
+  expect(ui.isLive).toBe(false);
+});

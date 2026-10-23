@@ -601,7 +601,8 @@ class LayerController implements LayerAPI {
       this.map.addLayer(opts.layer);
     }
 
-    if (!this.uiContainer) {
+    const container = this.uiContainer;
+    if (!container) {
       this.pendingRegistrations.push(layerInfo);
       this.debouncedEnforce();
       return null;
@@ -667,8 +668,10 @@ class LayerController implements LayerAPI {
     if (this.isRetired(opts.id, layerInfo)) {
       return null;
     }
-    const container = this.uiContainer;
-    if (!container) return null;
+    // The row lookup uses the container captured before any notify. A teardown
+    // in the notify above empties that node's content (`destroy` clears
+    // innerHTML), so the lookup returns null the same way a re-read would —
+    // without needing a branch that can never be taken.
     return container.querySelector(`[${CONST.DATA.LAYER_ID}="${CSS.escape(opts.id)}"]`);
   }
 
