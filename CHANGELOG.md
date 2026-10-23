@@ -17,7 +17,7 @@
 
 ### Fixed
 
-- `EventBus`: state broadcasts are settled across LayerControl lifecycle, mode transitions, export start/end, and Heatmap/Measure count/style, and one failing subscriber no longer truncates the rest ([#716](https://github.com/Zeroto521/foliplus/pull/716), [#719](https://github.com/Zeroto521/foliplus/pull/719), [#720](https://github.com/Zeroto521/foliplus/pull/720), [#723](https://github.com/Zeroto521/foliplus/pull/723))
+- `EventBus`: broadcasts are settled and policy-declared — terminal events raise the first consumer failure after the fan-out, mid-transaction notifications record it, and LayerControl retirements are gated on entry identity so a same-ID replacement never receives a stale removal ([#716](https://github.com/Zeroto521/foliplus/pull/716), [#719](https://github.com/Zeroto521/foliplus/pull/719), [#720](https://github.com/Zeroto521/foliplus/pull/720), [#723](https://github.com/Zeroto521/foliplus/pull/723))
 - `LayerControl`: value-based fill follows the layer's real geometry — a mixed layer's fill row shows its polygon's colour, and features added after a fill was set are repainted instead of keeping the author's colour ([#727](https://github.com/Zeroto521/foliplus/pull/727))
 
 ## [v0.4.1] (2026-10-18)

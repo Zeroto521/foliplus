@@ -1,5 +1,5 @@
 // LayerControl UI — Mutual-exclusion overlay teardown.
-import { EVENTS, publishSettled } from "#core/event/index.js";
+import { EVENTS, publish } from "#core/event/index.js";
 import type { LayerUI } from "./surface.js";
 
 /**
@@ -63,7 +63,7 @@ const closeOverlays = (ui: LayerUI): void => {
   // sees "I'm not open yet" and is a no-op.
   // Settled: every overlay owner gets the close signal, then the first
   // consumer failure surfaces — one broken panel must not leave another open.
-  publishSettled(ui.events, EVENTS.OVERLAY_CLEAR);
+  publish(ui.events, EVENTS.OVERLAY_CLEAR);
 };
 
 export { closeOverlays };

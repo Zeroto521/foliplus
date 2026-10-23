@@ -4,6 +4,7 @@ import type { LayerController } from "#foliplus/LayerControl/controller.js";
 import {
   bringFocusedLayerToFront,
   computeLayerBounds,
+  dismissFocus,
   drawFocusMask,
   drawFocusRect,
   focusDisabledLocaleKey,
@@ -2480,5 +2481,26 @@ it("a rejected focus leaves no membership change behind", () => {
 
   expect(onMap.get(layer)).toBe(false);
   expect(seen).toEqual([]);
+  expect(ui.isFocusing()).toBe(false);
+});
+
+it("dismissFocus releases a stuck focusing mode when the focus UI state is gone", () => {
+  const { ui, map } = initFixture();
+  // This suite mocks core/mode, whose fake ensureModes does not wire
+  // map.foliplus.modes the way the real one does; emulate that wiring so the
+  // production recovery path can read the live mode without installing.
+  const modes = ensureModes(map) as {
+    setMode: (component: string, mode: string | null) => void;
+    getMode: (component: string) => string | null;
+  };
+  (map as any).foliplus = { ...(map as any).foliplus, modes };
+  // Simulate a past half-commit: mode registered, focus UI state never landed
+  // (isFocusing is driven by the focus state, not by the mode).
+  modes.setMode(ui.config.name, "focusing");
+  expect(ui.isFocusing()).toBe(false);
+
+  dismissFocus(ui);
+
+  expect(modes.getMode(ui.config.name)).toBeNull();
   expect(ui.isFocusing()).toBe(false);
 });

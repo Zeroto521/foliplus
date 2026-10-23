@@ -2,7 +2,7 @@
 // Function expressions are installed on ExportManager.prototype so `this` is
 // the manager and instance spies stay interceptable.
 import { COMPONENTS } from "#core/component.js";
-import { EVENTS } from "#core/event/index.js";
+import { EVENTS, SettledOperation, publish } from "#core/event/index.js";
 import { type GeoBounds, boundsToRect } from "#core/geo/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { guardBlocked } from "#core/mode.js";
@@ -57,37 +57,12 @@ const doExport = function (this: ExportManager) {
   }
   this.isExporting = true;
   this.lastTileFailures = null;
-  // Start as one operation: mode (with its interaction lock), then BEFORE_EXPORT
-  // settled. If either fails, roll the start back before surfacing — nothing
-  // has been drawn yet, so isExporting=false and mode=null are the whole
-  // rollback and the user can retry.
-  let startError: unknown;
-  let startFailed = false;
-  try {
-    this.modes.setMode(CONFIG.name, "exporting");
-  } catch (err) {
-    startFailed = true;
-    startError = err;
-  }
-  if (!startFailed) {
-    const failure = this.events.emitSettled(EVENTS.BEFORE_EXPORT, {
-      component: CONFIG.name,
-    });
-    if (failure) {
-      startFailed = true;
-      startError = failure.error;
-    }
-  }
-  if (startFailed) {
-    this.isExporting = false;
-    try {
-      this.modes.setMode(CONFIG.name, null);
-    } catch {
-      // Keep the first failure: the lock release above has already run and
-      // the operation's original error is the one the caller needs.
-    }
-    throw startError;
-  }
+  // Start as one operation. MODE_CHANGE and BEFORE_EXPORT are *notifications*
+  // (see EVENT_POLICY): listeners all run, consumer failures are recorded to
+  // the diagnostic log, and an observer cannot derail the start — the export
+  // is committed from here on.
+  this.modes.setMode(CONFIG.name, "exporting");
+  publish(this.events, EVENTS.BEFORE_EXPORT, { component: CONFIG.name });
   const r = Object.assign({}, this.cropState.rect);
   const geoBounds = this.cropState.geoBounds;
   if (geoBounds) {
@@ -359,24 +334,16 @@ const showPreview = function (this: ExportManager, blob: Blob) {
  *  for sync callers; the async pipeline catches and logs it (an unhandled
  *  rejection would be worse than a logged consumer bug). */
 const endExport = function (this: ExportManager) {
-  let failure: unknown;
-  let failed = false;
+  // Local cleanup first: isExporting/mode/blocker must not depend on whether
+  // a subscriber throws. AFTER_EXPORT is terminal — every listener runs, then
+  // the first failure is raised (MODE_CHANGE here is a notification and
+  // cannot derail the cleanup).
+  const operation = new SettledOperation(this.events);
   this.isExporting = false;
-  try {
-    this.modes.setMode(CONFIG.name, null);
-  } catch (err) {
-    failed = true;
-    failure = err;
-  }
+  this.modes.setMode(CONFIG.name, null);
   this.removeExportOverlay();
-  const after = this.events.emitSettled(EVENTS.AFTER_EXPORT, {
-    component: CONFIG.name,
-  });
-  if (!failed && after) {
-    failed = true;
-    failure = after.error;
-  }
-  if (failed) throw failure;
+  operation.emit(EVENTS.AFTER_EXPORT, { component: CONFIG.name });
+  operation.throwIfFailed();
 };
 
 /**

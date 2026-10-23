@@ -229,9 +229,24 @@ const dismissFocus = (ui: LayerUI): void => {
   // (`map.on('unload', manager.clear)`). A no-op teardown (unbindEvents →
   // dismissFocus on a never-focused control) must not trigger that install,
   // otherwise the first removeControl would leave a residual `unload` handler
-  // on the map. Guard with `isFocusing` so setMode(null) is only invoked
-  // when `focusLayer` actually registered the mode.
-  if (isFocusing(ui)) {
+  // on the map.
+  //
+  // Release whenever the mode is registered — not only when the focus UI
+  // state exists. If a MODE_CHANGE consumer ever threw before the focus
+  // state landed (a failure mode this notification policy prevents going
+  // forward), the map would otherwise stay permanently dimmed with no
+  // recovery entry: mode says "focusing" but isFocusing() is false, so the
+  // old guard made this teardown a no-op. Reading the live mode without
+  // calling ensureModes keeps the no-install guarantee for never-focused
+  // controls.
+  const stuckFocusing =
+    !isFocusing(ui) &&
+    (
+      ui.c.map as {
+        foliplus?: { modes?: { getMode: (name: string) => string | null } };
+      }
+    ).foliplus?.modes?.getMode(ui.config.name) === "focusing";
+  if (isFocusing(ui) || stuckFocusing) {
     const modes = ensureModes(ui.c.map);
     modes.setMode(ui.config.name, null);
   }

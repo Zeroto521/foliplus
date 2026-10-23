@@ -3,12 +3,7 @@
 // EVENTS.MODE_CHANGE on the per-map EventBus whenever a mode changes.
 // No DOM / CONFIG dependency.
 import { COMPONENTS, assertComponentName } from "#core/component.js";
-import {
-  EVENTS,
-  type EventBus,
-  ensureEvents,
-  publishSettled,
-} from "#core/event/index.js";
+import { EVENTS, type EventBus, ensureEvents, publish } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { suspendMapInteractions } from "#core/layer/util.js";
 import { ensureMapFoliplus } from "#core/mapApi.js";
@@ -86,7 +81,7 @@ class ModeManager {
     // the registry saying "Measure owns the map" while the layers still take
     // pointer events. The settled broadcast then finishes every listener.
     this.syncInteractionLock();
-    publishSettled(this.bus, EVENTS.MODE_CHANGE, {
+    publish(this.bus, EVENTS.MODE_CHANGE, {
       component,
       mode,
     } satisfies ModeChangePayload);

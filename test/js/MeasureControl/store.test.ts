@@ -30,7 +30,7 @@ vi.mock("#core/event/index.js", () => ({
   ensureEvents: () => ({}),
   // The store publishes through the settled facade; the test still observes
   // the same event/payload on the hoisted spy.
-  publishSettled: (_bus: unknown, event: string, payload: unknown) =>
+  publish: (_bus: unknown, event: string, payload: unknown) =>
     events.emit(event, payload),
 }));
 

@@ -101,7 +101,7 @@ describe("sessionMethods — export events", () => {
     });
   });
 
-  it("rolls back the export start when BEFORE_EXPORT throws", () => {
+  it("records a BEFORE_EXPORT consumer failure and the export start continues", () => {
     const events = ensureEvents(manager.map);
     const seen: string[] = [];
     events.on(EVENTS.BEFORE_EXPORT, () => {
@@ -109,31 +109,27 @@ describe("sessionMethods — export events", () => {
     });
     events.on(EVENTS.BEFORE_EXPORT, () => seen.push("later"));
 
-    expect(() => manager.doExport()).toThrow("before boom");
+    expect(() => manager.doExport()).not.toThrow();
 
-    // Every consumer saw the signal; the start rolled back, so a retry is
-    // possible and no mode/lock/overlay is left behind.
+    // Every consumer saw the signal; BEFORE_EXPORT is a notification, so the
+    // start stays committed — an observer cannot derail the export.
     expect(seen).toEqual(["later"]);
-    expect(manager.isExporting).toBe(false);
-    expect(manager.modes.getMode("ExportControl")).toBeNull();
-    expect(manager.exportOverlay).toBeNull();
+    expect(manager.isExporting).toBe(true);
+    expect(manager.modes.getMode("ExportControl")).toBe("exporting");
   });
 
-  it("rolls back when the start MODE_CHANGE consumer throws", () => {
+  it("a MODE_CHANGE consumer throwing during start is recorded, not fatal", () => {
     const events = ensureEvents(manager.map);
-    const seen: (string | null)[] = [];
     events.on(EVENTS.MODE_CHANGE, payload => {
       if (payload.mode === "exporting") throw new Error("mode boom");
-      seen.push(payload.mode);
     });
 
-    expect(() => manager.doExport()).toThrow("mode boom");
+    expect(() => manager.doExport()).not.toThrow();
 
-    // The mode was committed before its broadcast threw; the rollback releases
-    // it (emitting mode=null) and leaves the export start retryable.
-    expect(manager.isExporting).toBe(false);
-    expect(manager.modes.getMode("ExportControl")).toBeNull();
-    expect(seen).toContain(null);
+    // MODE_CHANGE is a notification: the mode stays committed and the export
+    // continues past the start.
+    expect(manager.isExporting).toBe(true);
+    expect(manager.modes.getMode("ExportControl")).toBe("exporting");
   });
 
   it("AFTER_EXPORT failure still clears the blocker and export state", () => {

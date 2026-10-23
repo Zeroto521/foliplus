@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { EVENTS } from "#core/event/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerController } from "#foliplus/LayerControl/controller.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
@@ -281,5 +282,15 @@ describe("LayerUI overlay mutual exclusion", () => {
     ) as HTMLInputElement | null;
     expect(input).not.toBeNull();
     expect(document.activeElement).toBe(input);
+  });
+
+  it("a throwing OVERLAY_CLEAR consumer does not block the opener (notification)", () => {
+    ui.events.on(EVENTS.OVERLAY_CLEAR, () => {
+      throw new Error("overlay boom");
+    });
+
+    expect(() => ui.openStylePanel("overlay1")).not.toThrow();
+
+    expect(ui.overlayPanel.stylePanelLayerId).toBe("overlay1");
   });
 });

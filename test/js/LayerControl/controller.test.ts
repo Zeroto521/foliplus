@@ -3339,6 +3339,39 @@ describe("LayerController", () => {
       expect(removed).toEqual([]);
       expect(manager.layerRegistry.get("overlay1")?.name).toBe("Replacement2");
     });
+
+    it("a replacement registered and unregistered inside the fan-out still stops the old REMOVED", () => {
+      manager.map.hasLayer.mockReturnValue(false);
+      manager.uiContainer = document.createElement("div");
+      manager.ui = {
+        intentStore: makeStore(),
+        applyUserState: vi.fn(() => []),
+      } as any;
+      const removed: string[] = [];
+      let swapped = false;
+      manager.events.on(EVENTS.LAYER_CHANGE, payload => {
+        if (payload.id !== "overlay1" || swapped) return;
+        swapped = true;
+        // Swap a replacement in, then immediately swap it out again inside the
+        // same fan-out. Existence alone would let the old retirement re-pass
+        // its gate and repeat LAYER_REMOVED.
+        manager.registerLayer({
+          id: "overlay1",
+          name: "Swap",
+          group: "overlay",
+          layer: { options: {} },
+        });
+        manager.unregisterLayer("overlay1");
+      });
+      manager.events.on(EVENTS.LAYER_REMOVED, payload => removed.push(payload.id));
+
+      expect(manager.unregisterLayer("overlay1")).toBe(true);
+
+      // The inner unregister announced the removal once; the outer retirement
+      // noticed the replacement and stayed silent — no identity-less repeat.
+      expect(removed).toEqual(["overlay1"]);
+      expect(manager.layerRegistry.has("overlay1")).toBe(false);
+    });
   });
 });
 

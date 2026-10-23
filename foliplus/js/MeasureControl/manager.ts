@@ -5,7 +5,7 @@ import {
   type EventBus,
   type EventHandler,
   ensureEvents,
-  publishSettled,
+  publish,
 } from "#core/event/index.js";
 import { requireFoliplus } from "#core/guard.js";
 import { HINT_DURATION } from "#core/hint.js";
@@ -559,14 +559,14 @@ class MeasureManager {
       if (chip) chip.style.visibility = visible ? "" : "hidden";
     }
     if (visible) this.scheduleLabelPlan();
-    publishSettled(this.events, EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
+    publish(this.events, EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
   };
 
   /** Runtime toggle for collision (the drawer's avoid-overlap switch). */
   setLabelCollide = (on: boolean): void => {
     this.labelCollide = on;
     this.scheduleLabelPlan();
-    publishSettled(this.events, EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
+    publish(this.events, EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
   };
 
   /**

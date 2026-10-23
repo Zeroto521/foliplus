@@ -3,7 +3,7 @@ import {
   type EventBus,
   SettledOperation,
   ensureEvents,
-  publishSettled,
+  publish,
 } from "#core/event/index.js";
 import {
   type CreateCanvasAPI,
@@ -534,7 +534,7 @@ class LayerController implements LayerAPI {
     if (this.layerRegistry.get(id)?.group === GROUP.BASE) return;
     // Settled: one consumer throwing must not keep the other count listeners
     // (the row repaint, the fill ramp) from seeing the final geometry.
-    publishSettled(this.events, EVENTS.LAYER_ITEM_COUNT_CHANGE, { id });
+    publish(this.events, EVENTS.LAYER_ITEM_COUNT_CHANGE, { id });
   }
 
   findLayer(idOrInfo: string | LayerInfo): L.Layer | null {
@@ -880,27 +880,51 @@ class LayerController implements LayerAPI {
    *  through deleteLayer, which owns the same retirement plus the permanent
    *  prune; component-owned clears emit LAYER_DELETED instead.
    *
-   *  Every remaining event is gated on the id still being absent from the
-   *  registry. A subscriber can re-register the same id inside an earlier
-   *  event (most naturally inside this CHANGE); once that happens the id is no
-   *  longer gone, so the rest of this retirement would assert a state that no
-   *  longer holds — `LAYER_REMOVED` in particular promises "the id left the
-   *  registry", and the replacement's own register operation already announced
-   *  its CHANGE. */
-  private announceRetirement(layerInfo: LayerInfo, operation: SettledOperation): void {
-    const stillGone = () => !this.layerRegistry.has(layerInfo.id);
-    if (!stillGone()) return;
-    operation.emit(EVENTS.LAYER_ITEM_REMOVED, { id: layerInfo.id });
-    if (!stillGone()) return;
-    // The row was just removed: rescan the group's count so the toggle-all
-    // checkbox reflects the removal in the same frame.
-    operation.emit(EVENTS.LAYER_GROUP_COUNT_CHANGED, {
-      group: layerInfo.group,
-    });
-    if (!stillGone()) return;
-    this.emitLayerChange(layerInfo.id, layerInfo.kind, operation);
-    if (!stillGone()) return;
-    operation.emit(EVENTS.LAYER_REMOVED, { id: layerInfo.id });
+   *  Every remaining event is gated on the operation's entry identity. A
+   *  subscriber can re-register the same id inside an earlier event (most
+   *  naturally inside this CHANGE), and can even unregister that replacement
+   *  again before the fan-out ends — existence alone cannot tell the old
+   *  operation that its retirement was consumed. So `replaced` is marked by
+   *  any ITEM_ADDED / ITEM_UPDATED for this id *and* by a live different
+   *  entry between events; once marked, no remaining retirement event fires —
+   *  `LAYER_REMOVED` in particular promises "this entry left the registry"
+   *  and must not be repeated for an id that was re-registered in between.
+   *  Returns whether the full retirement was announced (used to gate the
+   *  caller's post-announcement housekeeping). */
+  private announceRetirement(
+    layerInfo: LayerInfo,
+    operation: SettledOperation,
+  ): boolean {
+    const id = layerInfo.id;
+    let replaced = false;
+    const mark = (payload: { id: string }): void => {
+      if (payload.id === id) replaced = true;
+    };
+    const offAdded = this.events.on(EVENTS.LAYER_ITEM_ADDED, mark);
+    const offUpdated = this.events.on(EVENTS.LAYER_ITEM_UPDATED, mark);
+    try {
+      const gate = (): boolean => {
+        const current = this.layerRegistry.get(id);
+        if (current !== undefined && current !== layerInfo) replaced = true;
+        return !replaced && this.layerRegistry.get(id) === undefined;
+      };
+      if (!gate()) return false;
+      operation.emit(EVENTS.LAYER_ITEM_REMOVED, { id });
+      if (!gate()) return false;
+      // The row was just removed: rescan the group's count so the toggle-all
+      // checkbox reflects the removal in the same frame.
+      operation.emit(EVENTS.LAYER_GROUP_COUNT_CHANGED, {
+        group: layerInfo.group,
+      });
+      if (!gate()) return false;
+      this.emitLayerChange(id, layerInfo.kind, operation);
+      if (!gate()) return false;
+      operation.emit(EVENTS.LAYER_REMOVED, { id });
+      return true;
+    } finally {
+      offAdded();
+      offUpdated();
+    }
   }
 
   /**
@@ -955,8 +979,8 @@ class LayerController implements LayerAPI {
       if (!retired) return false;
       const operation = this.beginOperation();
       this.persistence.flushAll();
-      this.announceRetirement(retired.layerInfo, operation);
-      if (this.ui && !this.layerRegistry.has(id)) {
+      const announced = this.announceRetirement(retired.layerInfo, operation);
+      if (this.ui && announced) {
         this.ui.resetSolidBasemap();
         operation.emit(EVENTS.LAYER_GROUP_COUNT_CHANGED, {
           group: GROUP.BASE,
@@ -1003,8 +1027,8 @@ class LayerController implements LayerAPI {
     this.persistence.flushAll();
 
     const operation = this.beginOperation();
-    this.announceRetirement(retired.layerInfo, operation);
-    if (this.ui && !this.layerRegistry.has(id)) {
+    const announced = this.announceRetirement(retired.layerInfo, operation);
+    if (this.ui && announced) {
       operation.emit(EVENTS.LAYER_GROUP_COUNT_CHANGED, {
         group: retired.layerInfo.group,
       });

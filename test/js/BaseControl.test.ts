@@ -70,7 +70,7 @@ describe("BaseControl", () => {
     expect(seen[0]).toMatchObject({ component: "TestCtrl" });
   });
 
-  it("propagates the first CONTROL_ATTACHED consumer failure after the fan-out", () => {
+  it("records a CONTROL_ATTACHED consumer failure without blocking the mount", () => {
     const seen: unknown[] = [];
 
     class TestCtrl extends BaseControl {
@@ -86,7 +86,9 @@ describe("BaseControl", () => {
     });
     bus.on(EVENTS.CONTROL_ATTACHED, p => seen.push(p));
 
-    expect(() => ctrl.onAdd()).toThrow("attach boom");
+    // CONTROL_ATTACHED is a notification: listeners all run, the failure is
+    // recorded, and the control still mounts.
+    expect(() => ctrl.onAdd()).not.toThrow();
     expect(seen).toHaveLength(1);
   });
 

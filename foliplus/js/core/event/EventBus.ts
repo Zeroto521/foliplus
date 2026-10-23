@@ -2,7 +2,11 @@
 // Per-map (attached via ensureEvents underneath map.foliplus). Components
 // subscribe to semantic events (LAYER_CHANGE, MODE_CHANGE, ...) instead of
 // wiring to raw Leaflet map events — decoupled, auto-unbindable, and testable.
+import { createLogger } from "#common/log.js";
+import { EVENT_POLICY } from "./const.js";
 import type { EventPayloadMap } from "./type.js";
+
+const log = createLogger("EventBus");
 
 type EventHandler = (...args: unknown[]) => void;
 
@@ -71,7 +75,7 @@ class EventBus {
    *  state the operation wrote is committed either way, and a retry after
    *  catching the error converges. A handler that hands its failure off
    *  instead of throwing is unaffected. State broadcasts to independent
-   *  consumers use {@link publishSettled} (one event) or
+   *  consumers use {@link publish} (one event) or
    *  {@link SettledOperation} (a lifecycle operation); the projection channel
    *  uses {@link emitSupersedingSettled}. Plain `emit` stays for commands with
    *  a single interested party, where stopping on the first error is useful. */
@@ -326,12 +330,20 @@ type EventBusSupersedingEmit = (
   ...payload: unknown[]
 ) => DispatchFailure | undefined;
 
-/** Publish one settled broadcast and raise the first consumer failure once the
- *  fan-out is done. The one-event counterpart of {@link SettledOperation}: a
- *  producer with no wider operation to finish uses this instead of plain
- *  `emit()`, so the same event has one exception contract at every entry
- *  point. */
-const publishSettled = <K extends string>(
+/** Publish one settled broadcast, then resolve the first consumer failure by
+ *  the event's declared policy (see EVENT_POLICY in ./const.js):
+ *
+ *  - `notification` (MODE_CHANGE, OVERLAY_CLEAR, CONTROL_ATTACHED,
+ *    BEFORE_EXPORT): every listener runs, then the first failure is recorded
+ *    to the diagnostic log — an observer must not interrupt the producer's
+ *    remaining local work.
+ *  - `terminal` (the default): every listener runs, then the first failure is
+ *    raised once the fan-out is done.
+ *
+ *  This is the one-event counterpart of {@link SettledOperation}. Unknown
+ *  events default to terminal, so a producer that forgot to declare a policy
+ *  is loud rather than silently best-effort. */
+const publish = <K extends string>(
   bus: EventBus,
   event: K,
   ...payload: K extends keyof EventPayloadMap
@@ -341,8 +353,16 @@ const publishSettled = <K extends string>(
     : unknown[]
 ): void => {
   const failure = (bus.emitSettled as EventBusEmit)(event, ...payload);
-  if (failure) throw failure.error;
+  if (!failure) return;
+  const policy = (
+    EVENT_POLICY as Record<string, { kind: "terminal" | "notification" }>
+  )[event];
+  if (policy?.kind === "notification") {
+    log.warn(`consumer failure on ${event} — recorded, not raised:`, failure.error);
+    return;
+  }
+  throw failure.error;
 };
 
-export { EventBus, SettledOperation, publishSettled };
+export { EventBus, SettledOperation, publish };
 export type { DispatchFailure, EventHandler };

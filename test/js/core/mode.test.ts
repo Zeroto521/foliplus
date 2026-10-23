@@ -60,9 +60,11 @@ describe("ModeManager", () => {
     });
   });
 
-  it("applies the interaction lock before a throwing MODE_CHANGE consumer", () => {
-    // A consumer exception must not leave the registry saying "Measure owns
-    // the map" while the layers still take pointer events.
+  it("a throwing MODE_CHANGE consumer is recorded, not raised, and the lock stays applied", () => {
+    // MODE_CHANGE is a notification (see EVENT_POLICY): listeners all run,
+    // consumer failures are recorded to the diagnostic log, and the
+    // producer's local sync is never interrupted — setMode must not throw
+    // and must leave mode + interaction lock consistent.
     const { map, leaf } = makeMapWithLeaf();
     const bus = new EventBus();
     const seen: (string | null)[] = [];
@@ -72,7 +74,7 @@ describe("ModeManager", () => {
     bus.on(EVENTS.MODE_CHANGE, payload => seen.push(payload.mode));
     const mm = new ModeManager(bus, map as never);
 
-    expect(() => mm.setMode("MeasureControl", "distance")).toThrow("mode boom");
+    expect(() => mm.setMode("MeasureControl", "distance")).not.toThrow();
 
     expect(mm.getMode("MeasureControl")).toBe("distance");
     expect(leaf.options.interactive).toBe(false);

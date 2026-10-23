@@ -350,6 +350,23 @@ describe("MeasureManager — mode switching", () => {
     expect(btn.classList.contains(CONST.CLASSES.ACTIVE)).toBe(true);
   });
 
+  it("setMode completes its UI sync when a MODE_CHANGE consumer throws", () => {
+    // MODE_CHANGE is a notification: the observer cannot interrupt the
+    // producer's remaining local work (button highlight, MEASURING class).
+    const { manager } = makeManager();
+    const btn = document.createElement("button");
+    btn.dataset.mode = CONST.MEASURE_MODE.MARKER;
+    manager.toolBtns = [btn];
+    manager.events.on(EVENTS.MODE_CHANGE, () => {
+      throw new Error("mode boom");
+    });
+
+    expect(() => manager.setMode(CONST.MEASURE_MODE.MARKER)).not.toThrow();
+
+    expect(btn.classList.contains(CONST.CLASSES.ACTIVE)).toBe(true);
+    expect(manager.currentMode).toBe(CONST.MEASURE_MODE.MARKER);
+  });
+
   it("keeps the mode hint visible after entering a drawing mode (regression)", () => {
     const { manager } = makeManager();
     manager.setMode(CONST.MEASURE_MODE.DISTANCE);

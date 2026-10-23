@@ -1,7 +1,7 @@
 // HeatmapControl UI building — standalone functions.
 // All internal refs use direct function calls instead of `this.`.
 import { isClassifyMethod } from "#core/classify.js";
-import { EVENTS, ensureEvents, publishSettled } from "#core/event/index.js";
+import { EVENTS, ensureEvents, publish } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { adjustPanelZIndex } from "#core/leaflet/index.js";
 import { safeColorScale } from "#core/palette.js";
@@ -131,7 +131,7 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     syncSelect(ctrl, ctrl.fieldSelect, ctrl.fieldSelect.value);
     ctrl.mgr.renderHexagons();
     persist(ctrl);
-    publishSettled(ctrl.mgr.events, EVENTS.LAYER_STYLE_CHANGE, {
+    publish(ctrl.mgr.events, EVENTS.LAYER_STYLE_CHANGE, {
       id: ctrl.mgr.layerId,
     });
   };

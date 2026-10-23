@@ -44,7 +44,7 @@
 //     what this class exists for.
 //   - `this.signal` throws when the control is detached; a detached read
 //     is a programming error, and a silent fallback would hide it.
-import { EVENTS, ensureEvents, publishSettled } from "#core/event/index.js";
+import { EVENTS, ensureEvents, publish } from "#core/event/index.js";
 import { createLogger } from "#common/log.js";
 
 const log = createLogger("BaseControl");
@@ -111,7 +111,7 @@ class BaseControl extends L.Control {
     } catch {
       return container;
     }
-    publishSettled(events, EVENTS.CONTROL_ATTACHED, {
+    publish(events, EVENTS.CONTROL_ATTACHED, {
       component: this.constructor.name,
     });
     return container;
