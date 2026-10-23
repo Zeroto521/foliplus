@@ -16,6 +16,9 @@
 ### Fixed
 
 - `LayerControl`: layer visibility events are consistent and reentrancy-safe — `LAYER_CHANGE` tracks the actual flip, `LAYER_INTENT_CHANGE` the user's choice, and a subscriber's write-back never loops ([#716](https://github.com/Zeroto521/foliplus/pull/716), [#719](https://github.com/Zeroto521/foliplus/pull/719), [#720](https://github.com/Zeroto521/foliplus/pull/720))
+- `LayerControl`: a stored fill repaints the features a layer gains at runtime — a streamed `addData` left them at the author's colour, and a running ramp on breaks classified before those values arrived ([#727](https://github.com/Zeroto521/foliplus/pull/727))
+- `LayerControl`: the fill row opens on the colour the layer's polygon paints, not the first line the walk meets, so a mixed layer shows the fill it actually owns ([#727](https://github.com/Zeroto521/foliplus/pull/727))
+- `core/layer`: the fill-capability probe and every layer walk survive a third-party or cross-realm path whose property getters throw, instead of aborting the sweep ([#727](https://github.com/Zeroto521/foliplus/pull/727))
 
 ## [v0.4.1] (2026-10-18)
 

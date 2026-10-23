@@ -443,3 +443,80 @@ describe("hasFillLeaf", () => {
     );
   });
 });
+
+describe("capability probe - hostile third-party leaves", () => {
+  // A third-party or cross-realm Path can be a class whose property
+  // getters throw. Each read must be its own boundary: a hostile leaf
+  // answers nothing, and the probe keeps looking at the next signal.
+  const throwingLeaf = (keys: string[]) =>
+    new Proxy({ setStyle: vi.fn() } as Record<PropertyKey, unknown>, {
+      get(target, key) {
+        if (keys.includes(String(key))) throw new Error("getter boom");
+        return target[key];
+      },
+    });
+
+  it("a throwing setStyle getter is no evidence of either capability", () => {
+    expect(isArealStyleLeaf(throwingLeaf(["setStyle"]))).toBe(false);
+    expect(hasSetStyleLeaf(throwingLeaf(["setStyle"]))).toBe(false);
+  });
+
+  it.each([
+    ["getRadius", "getter boom"],
+    ["feature", "getter boom"],
+    ["toGeoJSON", "getter boom"],
+    [FILL_OPT_IN, "getter boom"],
+  ])("a throwing %s getter is treated as undeclared, not fatal", key => {
+    expect(() => isArealStyleLeaf(throwingLeaf([key]))).not.toThrow();
+    expect(isArealStyleLeaf(throwingLeaf([key]))).toBe(false);
+  });
+
+  it("falls through to the next signal when one getter throws", () => {
+    // The feature envelope is hostile but the toGeoJSON declaration is not:
+    // the probe must skip the broken read and keep looking, not give up.
+    const leaf = new Proxy(
+      {
+        setStyle: vi.fn(),
+        toGeoJSON: () => ({ type: "Feature", geometry: { type: "Polygon" } }),
+      } as Record<PropertyKey, unknown>,
+      {
+        get(target, key) {
+          if (key === "feature") throw new Error("getter boom");
+          return target[key];
+        },
+      },
+    );
+    expect(isArealStyleLeaf(leaf)).toBe(true);
+  });
+
+  it("a Proxy whose every get throws is not fillable and does not throw", () => {
+    const hostile = new Proxy(
+      {},
+      {
+        get: () => {
+          throw new Error("boom");
+        },
+      },
+    );
+    expect(() => isArealStyleLeaf(hostile)).not.toThrow();
+    expect(isArealStyleLeaf(hostile)).toBe(false);
+    expect(() => hasSetStyleLeaf(hostile)).not.toThrow();
+    expect(hasSetStyleLeaf(hostile)).toBe(false);
+  });
+
+  it("a hostile leaf does not abort the walk of its container", () => {
+    // The point of per-read isolation: one hostile child must not strand the
+    // healthy siblings in the same group.
+    const healthy: any = { setStyle: vi.fn() };
+    healthy[FILL_OPT_IN] = true;
+    const group: any = {
+      options: {},
+      eachLayer: (fn: (child: unknown) => void) => {
+        fn(throwingLeaf(["getRadius", "feature", "toGeoJSON", FILL_OPT_IN]));
+        fn(healthy);
+      },
+    };
+    expect(hasFillLeaf(group)).toBe(true);
+    expect(hasSetStyleLeaf(group)).toBe(true);
+  });
+});

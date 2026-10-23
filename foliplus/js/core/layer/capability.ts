@@ -28,30 +28,37 @@ const AREAL_GEOMETRY_TYPES: ReadonlySet<string> = new Set(["Polygon", "MultiPoly
  *  hatch is declared rather than inferred from coordinate nesting. */
 const FILL_OPT_IN = "_foliplusAreal";
 
+/** A third-party or cross-realm Path can be a class whose property getters
+ *  throw, so a single read is its own boundary: a failing read is evidence of
+ *  nothing, and the caller falls through to the signal that still answers.
+ *  `undefined` is exactly what every caller needs - "nothing said". */
+const safeRead = <T>(read: () => T | undefined): T | undefined => {
+  try {
+    return read();
+  } catch {
+    return undefined;
+  }
+};
+
 /** Read the geometry type a node declares, if it declares one — the GeoJSON
  *  envelope on `feature` first (cheapest), then a `toGeoJSON()` call. A
- *  throwing `toGeoJSON` is not evidence of any geometry, so it is ignored. */
+ *  throwing getter or call is not evidence of any geometry, so it is ignored.
+ */
 const declaredGeometryType = (node: {
   feature?: unknown;
   toGeoJSON?: unknown;
 }): string | undefined => {
-  const feature = node.feature as { geometry?: { type?: unknown } } | undefined;
+  const feature = safeRead(() => node.feature) as
+    { geometry?: { type?: unknown } } | undefined;
   if (feature && typeof feature === "object") {
     const declared = feature.geometry?.type;
     if (typeof declared === "string") return declared;
   }
-  if (typeof node.toGeoJSON === "function") {
-    try {
-      const out = (node.toGeoJSON as () => unknown)() as
-        | {
-            geometry?: { type?: unknown };
-          }
-        | undefined;
-      const declared = out?.geometry?.type;
-      if (typeof declared === "string") return declared;
-    } catch {
-      // A throw says nothing about the geometry.
-    }
+  if (safeRead(() => typeof node.toGeoJSON === "function")) {
+    const out = safeRead(() => (node.toGeoJSON as () => unknown)()) as
+      { geometry?: { type?: unknown } } | undefined;
+    const declared = out?.geometry?.type;
+    if (typeof declared === "string") return declared;
   }
   return undefined;
 };
@@ -61,7 +68,8 @@ const declaredGeometryType = (node: {
 const hasSetStyleLeaf = (node: unknown): boolean =>
   someLeaf(
     node,
-    leaf => typeof (leaf as { setStyle?: unknown }).setStyle === "function",
+    leaf =>
+      safeRead(() => typeof (leaf as { setStyle?: unknown }).setStyle) === "function",
   );
 
 /** Whether any leaf is an areal fill carrier — see `isArealStyleLeaf`. */
@@ -88,14 +96,18 @@ const isArealStyleLeaf = (node: unknown): boolean => {
     toGeoJSON?: unknown;
     [key: string]: unknown;
   };
-  if (typeof n.setStyle !== "function") return false;
+  // Each read is its own boundary: a getter that throws answers nothing, so
+  // the probe falls through to the next signal instead of aborting the walk.
+  if (safeRead(() => typeof n.setStyle) !== "function") return false;
   // 1. Circle / CircleMarker: the radius is the geometry.
-  if (typeof n.getRadius === "function") return true;
+  if (safeRead(() => typeof n.getRadius) === "function") return true;
   // 2. Declared fillable — the cross-realm / custom-path escape hatch.
-  if (n[FILL_OPT_IN] === true) return true;
+  if (safeRead(() => n[FILL_OPT_IN]) === true) return true;
   // 3. Leaflet-native Polygon (Rectangle extends it). `instanceof` sees only
   //    this realm's identity, which is why step 2 exists.
-  if (typeof L.Polygon !== "undefined" && n instanceof L.Polygon) return true;
+  if (safeRead(() => typeof L.Polygon !== "undefined" && n instanceof L.Polygon)) {
+    return true;
+  }
   // 4. GeoJSON-declared geometry type.
   return AREAL_GEOMETRY_TYPES.has(declaredGeometryType(n) ?? "");
 };
