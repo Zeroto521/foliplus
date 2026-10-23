@@ -1,4 +1,4 @@
-import type { FillRampConfig } from "#core/layer/index.js";
+import { type FillRampConfig, isFillRampConfig } from "#core/layer/index.js";
 import { type Debounced, debounce } from "#common/debounce.js";
 import { BORDER_WEIGHT, normalizeHexColor } from "#common/form.js";
 import * as Storage from "#common/storage.js";
@@ -101,33 +101,19 @@ const parseZoomRange = (raw: unknown): [number, number] | null => {
  *  padding; keeping them as stored leaves any stray space visible in the
  *  record instead of normalising it away.
  *
- *  `kind` accepts only absence or "numeric": the categorical arm is not
- *  implemented, so a record that asks for it is dropped whole rather than
- *  painted as a numeric ramp. An explicit "numeric" is stripped on the way
- *  in — it is the default, so persisting it would add no information, and the
- *  stored record keeps reading "kindless = numeric". */
+ *  The bounds themselves live in `isFillRampConfig`, shared with the LIVE
+ *  presence rule. `kind` accepts only absence or "numeric" - the categorical
+ *  arm is not implemented, so a record that asks for it is dropped whole
+ *  rather than painted as a numeric ramp - and the returned object strips an
+ *  explicit "numeric", which is the default, so persisting it would add no
+ *  information and the stored record keeps reading "kindless = numeric". */
 const parseFillRamp = (raw: unknown): FillRampConfig | null => {
-  const data = asObject(raw);
-  if (!data) return null;
-  const isName = (value: unknown): value is string =>
-    typeof value === "string" && value.trim().length > 0;
-  if (
-    !isName(data.field) ||
-    !isName(data.method) ||
-    !isName(data.scheme) ||
-    typeof data.classes !== "number" ||
-    !Number.isInteger(data.classes) ||
-    data.classes < 2 ||
-    data.classes > 9 ||
-    (data.kind !== undefined && data.kind !== "numeric")
-  ) {
-    return null;
-  }
+  if (!isFillRampConfig(raw)) return null;
   return {
-    field: data.field,
-    method: data.method,
-    scheme: data.scheme,
-    classes: data.classes,
+    field: raw.field,
+    method: raw.method,
+    scheme: raw.scheme,
+    classes: raw.classes,
   };
 };
 

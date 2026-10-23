@@ -26,6 +26,35 @@ type FillRampConfig = {
   scheme: string;
 };
 
+/** Whether a value is a ramp config this client can build: the four fields
+ *  the classifier needs, each inside the bounds the picker offers. The
+ *  persistence reader and the LIVE presence rule share this one predicate,
+ *  so a live rule that accepted a partial config cannot let a caller set a
+ *  record `buildRamp` cannot classify.
+ *
+ *  Each name is tested for non-whitespace only, never rewritten: a GeoJSON
+ *  property called " score " is a different key from "score", so trimming on
+ *  read would silently miss every feature after a reload. `kind` accepts
+ *  only absence or "numeric" - the categorical arm is not implemented, so a
+ *  record that asks for it is dropped whole rather than misapplied as a
+ *  numeric ramp. */
+const isFillRampConfig = (value: unknown): value is FillRampConfig => {
+  if (value == null || typeof value !== "object" || Array.isArray(value)) return false;
+  const data = value as Record<string, unknown>;
+  const isName = (v: unknown): v is string =>
+    typeof v === "string" && v.trim().length > 0;
+  return (
+    isName(data.field) &&
+    isName(data.method) &&
+    isName(data.scheme) &&
+    typeof data.classes === "number" &&
+    Number.isInteger(data.classes) &&
+    data.classes >= 2 &&
+    data.classes <= 9 &&
+    (data.kind === undefined || data.kind === "numeric")
+  );
+};
+
 /** Per-layer annotation config (matches what persistence stores). */
 interface AnnotationConfig {
   show: boolean;
@@ -201,8 +230,7 @@ const LIVE: Record<IntentKey, (value: unknown) => boolean> = {
   [INTENT.VISIBLE]: value => typeof value === "boolean",
   [INTENT.FILL_COLOR]: value => typeof value === "string",
   [INTENT.FILL_OPACITY]: value => typeof value === "number",
-  [INTENT.FILL_RAMP]: value =>
-    value != null && typeof value === "object" && !Array.isArray(value),
+  [INTENT.FILL_RAMP]: isFillRampConfig,
   [INTENT.FILL_MODE]: value => value === "solid" || value === "ramp",
   [INTENT.BORDER_COLOR]: value => typeof value === "string",
   [INTENT.BORDER_WEIGHT]: value => typeof value === "number",
@@ -229,7 +257,7 @@ const STYLE_KEYS = {
   zoomRange: INTENT.ZOOM_RANGE,
 } as const satisfies Record<LayerOverride, IntentKey>;
 
-export { INTENT, LIVE, STYLE_KEYS };
+export { INTENT, isFillRampConfig, LIVE, STYLE_KEYS };
 export type {
   AnnotationConfig,
   FillRampConfig,

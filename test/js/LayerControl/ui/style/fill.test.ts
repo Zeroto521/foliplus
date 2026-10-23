@@ -57,6 +57,18 @@ const makeFillableLayer = () => {
   return parent as unknown as L.Layer & { leaves: typeof leaves };
 };
 
+/** One coordinate ring. A fillable stub has to advertise the areal
+ *  duck-type `walkFillLeaves` matches through `isArealStyleLeaf` - a bare
+ *  setter-only object would otherwise fall out of the walk entirely.
+ */
+const RING = () => [
+  [
+    { lat: 0, lng: 0 },
+    { lat: 1, lng: 0 },
+    { lat: 0, lng: 1 },
+  ],
+];
+
 /** The style write a leaf spy records. */
 type StyleWrite = { fillColor?: string; fillOpacity?: number; fill?: boolean };
 
@@ -631,7 +643,10 @@ describe("LayerUI style panel — fill color", () => {
     opacity.value = "40";
     opacity.dispatchEvent(new Event("change", { bubbles: true }));
 
+    // An opacity-only commit pulls the author's colour back in the same
+    // payload, so nothing an earlier arm left can sit under the opacity.
     expect(fillLayer.leaves[0].setStyle).toHaveBeenCalledWith({
+      fillColor: "#aabbcc",
       fillOpacity: 0.4,
       fill: true,
     });
@@ -807,7 +822,10 @@ describe("LayerUI style panel — fill color", () => {
     setIntent(ui, "overlay1", "fillOpacity", 0.8);
     applyFillToLayer(ui, "overlay1");
 
+    // The author's colour rides the same payload: the opacity does not hide
+    // a colour the leaf never claimed.
     expect(fillLayer.leaves[0].setStyle).toHaveBeenCalledWith({
+      fillColor: "#aabbcc",
       fillOpacity: 0.8,
       fill: true,
     });
@@ -851,6 +869,7 @@ describe("LayerUI style panel — fill color", () => {
     let handler: (() => void) | null = null;
     const leaf = {
       options: { fillColor: "#aabbcc", fillOpacity: 0.5, fill: true },
+      getLatLngs: RING,
       setStyle: vi.fn(),
       on: vi.fn((_type: string, fn: () => void) => {
         handler = fn;
@@ -883,6 +902,7 @@ describe("LayerUI style panel — fill color", () => {
     const fixture = initWithFillLayer();
     const leaf = {
       options: { fillColor: "#aabbcc", fillOpacity: 0.5, fill: true },
+      getLatLngs: RING,
       setStyle: vi.fn(),
       on: vi.fn(),
     };
@@ -899,6 +919,7 @@ describe("LayerUI style panel — fill color", () => {
     let handler: (() => void) | null = null;
     const leaf = {
       options: { fillColor: "#aabbcc", fillOpacity: 0.5, fill: true },
+      getLatLngs: RING,
       setStyle: vi.fn(),
       on: vi.fn((_type: string, fn: () => void) => {
         handler = fn;
@@ -923,6 +944,7 @@ describe("LayerUI style panel — fill color", () => {
     let handler: (() => void) | null = null;
     const leaf = {
       options: { fillColor: "#aabbcc", fillOpacity: 0.5, fill: true },
+      getLatLngs: RING,
       setStyle: vi.fn(),
       on: vi.fn((_type: string, fn: () => void) => {
         handler = fn;
@@ -942,6 +964,7 @@ describe("LayerUI style panel — fill color", () => {
     let handler: (() => void) | null = null;
     const leaf = {
       options: { fillColor: "#aabbcc", fillOpacity: 0.5, fill: true },
+      getLatLngs: RING,
       setStyle: vi.fn(),
       on: vi.fn((_type: string, fn: () => void) => {
         handler = fn;
@@ -969,11 +992,13 @@ describe("LayerUI style panel — fill color", () => {
     const leaves = [
       {
         options: { fillColor: "#aabbcc", fillOpacity: 0.5, fill: true },
+        getLatLngs: RING,
         setStyle: vi.fn(),
         on: vi.fn(),
       },
       {
         options: { fillColor: "#ddeeff", fillOpacity: 0.7, fill: true },
+        getLatLngs: RING,
         setStyle: vi.fn(),
         on: vi.fn(),
       },
@@ -1021,6 +1046,7 @@ describe("LayerUI style panel — fill color", () => {
     let handler: (() => void) | null = null;
     const leaf = {
       options: { fillColor: "#aabbcc", fillOpacity: 0.5, fill: true },
+      getLatLngs: RING,
       setStyle: vi.fn(function (
         this: { options: Record<string, unknown> },
         s: Record<string, unknown>,
@@ -1444,6 +1470,7 @@ describe("buildFillRow", () => {
     const svgFill = vi.fn();
     const path = {
       options: { fillColor: "#aabbcc", fillOpacity: 0.5, fill: true },
+      getLatLngs: RING,
       _path: { setAttribute: svgFill },
       _renderer: true as any,
       setStyle: vi.fn(function (this: any, style: Record<string, unknown>) {
@@ -1471,6 +1498,7 @@ describe("buildFillRow", () => {
     const fixture = initWithFillLayer();
     const leaf = {
       options: { fillColor: "#aabbcc", fillOpacity: 0, fill: true },
+      getLatLngs: RING,
       setStyle: vi.fn(),
     };
     fixture.fillLayer.leaves[0] = leaf;
@@ -1489,6 +1517,7 @@ describe("buildFillRow", () => {
     const fixture = initWithFillLayer();
     const leaf = {
       options: { fillColor: "#aabbcc", fillOpacity: 0, fill: true },
+      getLatLngs: RING,
       setStyle: vi.fn(),
     };
     fixture.fillLayer.leaves[0] = leaf;
@@ -1508,6 +1537,7 @@ describe("buildFillRow", () => {
     const fixture = initWithFillLayer();
     const leaf = {
       options: { fillColor: "#aabbcc", fillOpacity: 0, fill: true },
+      getLatLngs: RING,
       setStyle: vi.fn(),
     };
     fixture.fillLayer.leaves[0] = leaf;
@@ -1557,6 +1587,7 @@ describe("buildFillRow", () => {
     const fixture = initWithFillLayer();
     const leaf = {
       options: { fillColor: "#aabbcc", fillOpacity: 0, fill: true },
+      getLatLngs: RING,
       setStyle: vi.fn(),
     };
     fixture.fillLayer.leaves[0] = leaf;
@@ -1871,17 +1902,18 @@ describe("applyFillToLayer — fillMode dispatch", () => {
     setIntent(ui, "overlay1", "fillOpacity", 0.4);
     applyFillToLayer(ui, "overlay1");
 
-    // The last two calls: the restore, then the user's opacity on top of it.
+    // One call, not a restore then a commit: the author's colour and `fill`
+    // flag ride the same payload as the user's opacity, so the ramp's colour
+    // is replaced rather than left sitting under it.
     const calls = rampLayer.leaves[0].setStyle.mock.calls.map(c => c[0]);
-    expect(calls.at(-2)).toEqual({
+    expect(calls.at(-1)).toEqual({
       fillColor: "#aabbcc",
-      fillOpacity: 0.5,
+      fillOpacity: 0.4,
       fill: true,
     });
-    expect(calls.at(-1)).toEqual({ fillOpacity: 0.4, fill: true });
   });
 
-  it("a colour-only solid apply after a ramp restores the author's opacity", () => {
+  it("a colour-only solid apply after a ramp preserves the author's opacity", () => {
     setIntent(ui, "overlay1", "fillMode", "ramp");
     setIntent(ui, "overlay1", "fillRamp", RAMP);
     applyFillToLayer(ui, "overlay1");
@@ -1890,12 +1922,10 @@ describe("applyFillToLayer — fillMode dispatch", () => {
     setIntent(ui, "overlay1", "fillColor", "#777777");
     applyFillToLayer(ui, "overlay1");
 
+    // One call, colour only. The author's opacity is left in place rather
+    // than rewritten, so the ramp's colour is replaced without touching it -
+    // `toEqual` above rejects a payload that carried a fillOpacity at all.
     const calls = rampLayer.leaves[0].setStyle.mock.calls.map(c => c[0]);
-    expect(calls.at(-2)).toEqual({
-      fillColor: "#aabbcc",
-      fillOpacity: 0.5,
-      fill: true,
-    });
     expect(calls.at(-1)).toEqual({ fillColor: "#777777", fill: true });
   });
 
@@ -1985,6 +2015,7 @@ describe("applyFillToLayer — fillMode dispatch", () => {
     const handlers: Array<() => void> = [];
     const leaf = {
       options: { fillColor: "#112233", fillOpacity: 0.6, fill: false },
+      getLatLngs: RING,
       feature: { properties: { count: 1 } },
       setStyle: vi.fn(),
       on: vi.fn((_type: string, fn: () => void) => {

@@ -67,13 +67,31 @@ describe("buildRamp", () => {
   it("caps the class count at the number of values", () => {
     installChroma(["#1", "#2"]);
 
-    // 9 requested classes over 2 values degrades to 2 breaks, 1 colour.
+    // 9 requested classes over 2 values degrades to 2 classes: breaks is
+    // `classes + 1`, so 3 breaks and 2 colours. Only a single value would
+    // collapse the ramp to one class.
     const ramp = buildRamp([1, 9], { ...EQUAL, classes: 9 });
 
-    expect(ramp.breaks).toHaveLength(2);
-    expect(ramp.colors).toHaveLength(1);
+    expect(ramp.breaks).toHaveLength(3);
+    expect(ramp.colors).toHaveLength(2);
     expect(ramp.classOf(1)).toBe(0);
-    expect(ramp.classOf(9)).toBe(0);
+    expect(ramp.classOf(9)).toBe(1);
+  });
+
+  it("classOf bisects: a value on a break takes the lower class", () => {
+    // Bisection rather than a linear scan, so a value exactly on a break
+    // lands in the class below it and one past the final break keeps the
+    // last class instead of running off the colour table.
+    installChroma(["#1", "#2"]);
+    const ramp = buildRamp([0, 10], { ...EQUAL, classes: 2 });
+    expect(ramp.breaks).toEqual([0, 5, 10]);
+    expect(ramp.classOf(-99)).toBe(0);
+    expect(ramp.classOf(0)).toBe(0);
+    expect(ramp.classOf(4.999)).toBe(0);
+    expect(ramp.classOf(5)).toBe(0);
+    expect(ramp.classOf(5.001)).toBe(1);
+    expect(ramp.classOf(10)).toBe(1);
+    expect(ramp.classOf(1e9)).toBe(1);
   });
 
   it("yields an empty ramp for empty input rather than throwing", () => {

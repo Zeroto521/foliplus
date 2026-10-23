@@ -1,7 +1,7 @@
 // HeatmapControl data aggregation — pure functions for H3 binning, class
 // breaks, color scales, and field extraction. No `this` dependency: every
 // stateful value is passed in explicitly.
-import { computeBreaks } from "#core/classify.js";
+import { ClassifierDependencyError, METHOD, computeBreaks } from "#core/classify.js";
 import { vertexMean } from "#core/geo/index.js";
 import { autoLabelField, bareFieldName } from "#core/label/index.js";
 import { getColorScale } from "#core/palette.js";
@@ -146,8 +146,27 @@ const aggregateData = (
 
   const allVals = [...hexCells.values()].map(getAggValue);
   const numClassesCapped = Math.min(numClasses, allVals.length);
-  const breaks = computeBreaks(allVals, numClassesCapped, method);
-  const classColors = getColorScale(scheme, numClassesCapped);
+  // jenks and quantile read the simple-statistics CDN global. A page that
+  // never loaded it has no source for the breaks, so the render would throw
+  // out of the method selector's handler and the user's choice would not be
+  // persisted. Degrade to the one method that needs no dependency and say so,
+  // instead of a flat single colour.
+  let breaks: number[];
+  try {
+    breaks = computeBreaks(allVals, numClassesCapped, method);
+  } catch (err) {
+    if (!(err instanceof ClassifierDependencyError)) throw err;
+    log.warn(
+      "simple-statistics unavailable, classified with the equal method",
+      err.message,
+    );
+    breaks = computeBreaks(allVals, numClassesCapped, METHOD.EQUAL);
+  }
+  // Ask chroma for the classes breaks actually produced, not the classes
+  // requested: a method that cannot split the sample returns fewer breaks, and
+  // the surplus colours would sit unused next to a class index that can never
+  // reach them.
+  const classColors = getColorScale(scheme, Math.max(0, breaks.length - 1));
   const valueToClassIdx = (val: number): number => {
     if (breaks.length < 2) return 0;
     for (let i = 1; i < breaks.length; i++) if (val <= breaks[i]) return i - 1;

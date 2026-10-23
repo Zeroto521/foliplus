@@ -14,6 +14,25 @@ const METHOD = {
 /** A method name accepted by {@link computeBreaks}. */
 type ClassifyMethod = (typeof METHOD)[keyof typeof METHOD];
 
+/** The two methods that read the `simple-statistics` CDN global. `equal` and
+ *  `heads` are pure arithmetic, so a page that never loaded the script can
+ *  still classify. */
+const needsSimpleStatistics = (method: string): boolean =>
+  method === METHOD.JENKS || method === METHOD.QUANTILE;
+
+/** Thrown when one of those methods runs on a page that never loaded
+ *  `simple-statistics`. Callers can tell this apart from a recoverable
+ *  failure (chroma refusing a scheme name): the dependency is missing for
+ *  the whole page, so re-rendering cannot fix it and the absence must be
+ *  reported, not only degraded. */
+class ClassifierDependencyError extends Error {}
+
+/** Whether the `simple-statistics` global the classifier reads is present.
+ *  `typeof` rather than a bare read: an unloaded CDN script leaves no
+ *  binding at all, and reading one throws `ReferenceError` at the call site
+ *  instead of returning false. */
+const hasSimpleStatistics = (): boolean => typeof ss !== "undefined";
+
 /**
  * Compute ordered class breaks for a set of values using the given method.
  *
@@ -29,7 +48,18 @@ const computeBreaks = (
   if (data.length === 0) return [];
   const sorted = data.slice().sort((a, b) => a - b);
   const n = sorted.length;
-  if (n <= 2) return [sorted[0], sorted[n - 1]];
+  // One value is the only case the methods cannot split. Two already reach
+  // the picker's own 2-9 floor, so a two-feature layer asking for two
+  // classes must get two rather than one.
+  if (n === 1) return [sorted[0], sorted[0]];
+  // The dependency check comes after the one-value shortcut: a single value
+  // needs no classifier at all, so an unloaded CDN script must not throw for
+  // it.
+  if (needsSimpleStatistics(method) && !hasSimpleStatistics()) {
+    throw new ClassifierDependencyError(
+      "simple-statistics is not loaded; the " + method + " method needs it",
+    );
+  }
   // Two is the floor, not three: the picker's own contract is 2-9 on both
   // sides (HeatmapControl.py's num_classes and the fill ramp's classes), so
   // asking for two classes must build two. Forcing three made the request a
@@ -69,5 +99,5 @@ const computeBreaks = (
   return b;
 };
 
-export { METHOD, computeBreaks };
+export { METHOD, ClassifierDependencyError, computeBreaks };
 export type { ClassifyMethod };

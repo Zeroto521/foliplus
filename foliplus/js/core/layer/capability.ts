@@ -55,4 +55,4 @@ const isArealStyleLeaf = (node: unknown): boolean => {
   return false;
 };
 
-export { hasFillLeaf, hasSetStyleLeaf };
+export { hasFillLeaf, hasSetStyleLeaf, isArealStyleLeaf };

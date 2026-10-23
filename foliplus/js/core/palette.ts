@@ -23,9 +23,10 @@ const DEFAULT_SCHEMES = [
   "Viridis",
 ] as const;
 
-/** Placeholder color when chroma is unavailable — the same value the
- *  HeatmapControl border fallback uses, so an unreadable color degrades
- *  to one color across the product. */
+/** The one unreadable-colour fallback the product degrades to. Heatmap's
+ *  `GRAY` is an alias of this constant, so a colour chroma cannot read
+ *  degrades to one value across the product instead of two definitions
+ *  drifting apart. */
 const SCHEME_FALLBACK_COLOR = "#999";
 
 /** Build a discrete `n`-color scale from a ColorBrewer / chroma scheme

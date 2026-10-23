@@ -11,16 +11,20 @@
 // (`scheduleStyleDimApply`) coalesces the whole apply to at most one per
 // frame, so a scheme drag does not trigger a walk per input step.
 //
-// The user's solid-mode `fillOpacity` rides along on every ramp leaf: a ramp
-// replaces only the colour, so dropping the opacity here would make a mode
-// switch back to solid silently lose it. The same live value is replayed by
-// the highlight pin.
+// The user's solid-mode `fillOpacity` rides along on every fill leaf,
+// including ones the ramp cannot classify: a ramp replaces only the colour,
+// so dropping the opacity here would make a mode switch back to solid silently
+// lose it, and a valueless leaf would keep the author's opacity next to the
+// user's on a classifiable neighbour of the same layer. `fillOpacity` is
+// shared across the two arms, so it is a layer-level value. The same live
+// value is replayed by the highlight pin.
 //
 // Highlight pin: each written leaf gets a `pinStyleOnHighlight` getter that
 // reads the live fillRamp intent and the cached breaks. If the config
 // changed since the cache was built (field / method / classes / scheme
 // differ), the getter returns null so the author's fill face stays in force
 // — the next scheduler tick rebuilds the cache.
+import { ClassifierDependencyError } from "#core/classify.js";
 import { DIM } from "#core/layer/index.js";
 import type { FillRampConfig } from "#core/layer/intent.js";
 import { buildRamp, colorFor } from "#core/ramp.js";
@@ -32,9 +36,10 @@ import {
   type StyleCarrier,
   type StyleSetter,
   commitStyleDim,
-  restoreStyleDim,
+  commitStyleDimMerged,
+  styleDimOverAuthor,
   styleDimPayload,
-  walkStyleLeaves,
+  walkFillLeaves,
 } from "./styleBag.js";
 
 /** A leaf that may carry a `feature` envelope (GeoJSON data). */
@@ -50,16 +55,11 @@ const leafPropertyValue = (leaf: StyleSetter, key: string): unknown =>
 const isFiniteNumber = (value: unknown): value is number =>
   typeof value === "number" && Number.isFinite(value);
 
-/** Invalidate a leaf's previous ramp pin.
- *
- *  A leaf this ramp cannot classify must not keep replaying the colour the
- *  previous ramp committed: folium's mouseout would re-apply it on every
- *  leave. Returning null leaves the author's face in force, and the next
- *  apply re-registers the key with a live getter, so the null is not a
- *  permanent block. */
-const clearRampPin = (leaf: StyleSetter): void => {
-  pinStyleOnHighlight(leaf, DIM.FILL, () => null);
-};
+/** Drive values per leaf: collected by pass 1, read by pass 2. One shared
+ *  map cleared per apply rather than a fresh allocation per tick - a drag
+ *  issues one apply per frame, so the entries are reused instead of handed
+ *  to GC N at a time, N x frames. */
+const rampLeafValues = new Map<StyleSetter, number>();
 
 /** Whether two ramp configs differ in a way that invalidates a cached
  *  breaks/scale pair. Every field counts: `field` because the collected
@@ -90,10 +90,10 @@ const resolveFillMode = (
 
 /** Apply a value-based fill to one layer.
  *
- *  Two-pass walk: collect `feature.properties[field]` values, then apply
- *  per-leaf fillColor via styleBag. A layer with no finite values is a
- *  no-op. Leaves whose value is non-finite keep the author's fill face
- *  (the previous commit, or the author's bag on first touch).
+ *  Two-pass walk: collect `feature.properties[field]` values, then write
+ *  per-leaf fillColor via styleBag. Every fill leaf is written on every apply:
+ *  one the ramp can classify gets the ramp's colour, one it cannot gets the
+ *  author's own colour and `fill` flag back, and both get the user's opacity.
  *
  *  Highlight pin: each written leaf gets a `pinStyleOnHighlight` getter
  *  that reads the live fillRamp intent and uses the cached breaks to
@@ -119,12 +119,12 @@ const applyRampToLayer = (ui: LayerUI, layerId: string, ramp: FillRampConfig): v
 
   // ── Pass 1: collect values ──
   const values: number[] = [];
-  const leafValues = new Map<StyleSetter, number>();
-  walkStyleLeaves(layer, leaf => {
+  rampLeafValues.clear();
+  walkFillLeaves(layer, leaf => {
     const val = leafPropertyValue(leaf, ramp.field);
     if (isFiniteNumber(val)) {
       values.push(val);
-      leafValues.set(leaf, val);
+      rampLeafValues.set(leaf, val);
     }
   });
 
@@ -134,44 +134,50 @@ const applyRampToLayer = (ui: LayerUI, layerId: string, ramp: FillRampConfig): v
   // runs while the control attaches: one bad record in storage would leave
   // the whole panel unmounted. A layer whose ramp cannot be built gets the
   // author's fill face back — the same answer an all-invalid field gives.
-  let scale: ReturnType<typeof buildRamp> | null = null;
-  if (values.length > 0) {
-    try {
-      scale = buildRamp(values, ramp);
-    } catch {
-      scale = null;
+  //
+  // Two failures land here, and only one is one the user can fix by changing
+  // the record. A scheme chroma cannot parse degrades to the author's face;
+  // a missing simple-statistics global means the chosen method cannot run at
+  // all, for the whole page, and it must be reported rather than only
+  // degraded — otherwise the map silently keeps its author colour while the
+  // panel still says "quantile".
+  let built: ReturnType<typeof buildRamp> | null = null;
+  try {
+    built = buildRamp(values, ramp);
+  } catch (err) {
+    if (err instanceof ClassifierDependencyError) {
+      console.warn("[foliplus] value-based fill: " + err.message);
     }
-  }
-  if (!scale || scale.colors.length === 0) {
-    // Nothing to classify — clean up rather than leave the map as it was:
-    // every leaf goes back to the author's fill face and its old pin is
-    // dropped, so a previously painted ramp cannot resurface on mouseout.
-    walkStyleLeaves(layer, leaf => {
-      restoreStyleDim(leaf, FACE.FILL);
-      clearRampPin(leaf);
-    });
-    return;
   }
 
-  // ── Pass 2: apply per-leaf + pin ──
-  walkStyleLeaves(layer, leaf => {
-    const val = leafValues.get(leaf);
-    if (val === undefined) {
-      // No value to classify, so this leaf is outside the ramp's reach and
-      // goes back to the author's fill face. Leaving the previous commit here
-      // would keep a colour the current config cannot justify, and the stale
-      // pin would stay inert until folium's next mouseout fixed it by luck.
-      restoreStyleDim(leaf, FACE.FILL);
-      clearRampPin(leaf);
-      return;
+  // `buildRamp` returns no colours when the sample cannot be split at all —
+  // an empty ramp, or breaks with no span — which is the honest "nothing to
+  // classify" answer. Read once, so the write pass and the pins share one
+  // answer instead of each re-testing it.
+  const scale: ReturnType<typeof buildRamp> | null =
+    built !== null && built.colors.length > 0 ? built : null;
+
+  // ── Pass 2: write per-leaf + pin ──
+  walkFillLeaves(layer, leaf => {
+    const opacity = readOpacity();
+    const write: Record<string, unknown> = {};
+    if (opacity !== undefined) write.fillOpacity = opacity;
+    const val = rampLeafValues.get(leaf);
+    if (scale !== null && isFiniteNumber(val)) {
+      // The ramp owns this leaf's colour, so `fill` is lit and the author's
+      // colour is replaced. The payload stays minimal: a named colour replaces
+      // whatever the previous arm left in that slot, and the opacity is named
+      // only when the user chose one, so the author's stays in force.
+      write.fillColor = colorFor(scale, val);
+      commitStyleDim(leaf, write, FACE.FILL);
+    } else {
+      // Outside the ramp's reach: the author's colour and `fill` flag —
+      // `fill: false` on a hollow layer — ride the merge untouched, but the
+      // user's opacity still does. Restoring the whole face would leave the
+      // author's opacity next to the user's on a classifiable neighbour of
+      // the same layer.
+      commitStyleDimMerged(leaf, write, FACE.FILL, false);
     }
-    // fillOpacity is undefined when the user never set one; styleDimPayload
-    // drops it, so the author's declared opacity stays in force.
-    commitStyleDim(
-      leaf,
-      { fillColor: colorFor(scale, val), fillOpacity: readOpacity() },
-      FACE.FILL,
-    );
 
     pinStyleOnHighlight(leaf, DIM.FILL, () => {
       const currentRamp = getIntent(ui, layerId, INTENT.FILL_RAMP);
@@ -184,16 +190,24 @@ const applyRampToLayer = (ui: LayerUI, layerId: string, ramp: FillRampConfig): v
       // Config changed since the cache was built — return null so the
       // author's face stays in force until the next scheduler tick.
       if (!sameRampConfig(currentRamp, ramp)) return null;
+      const op = readOpacity();
       const curVal = leafPropertyValue(leaf, ramp.field);
-      if (!isFiniteNumber(curVal)) return null;
-      // fill:true rides the replay too — folium's resetStyle would otherwise
-      // re-apply the author's fill:false on mouseout and hide the fill.
-      // fillOpacity replays alongside it so the hover restore does not drop
-      // the user's transparency.
-      return styleDimPayload(
-        { fillColor: colorFor(scale, curVal), fillOpacity: readOpacity() },
-        FACE.FILL,
-      );
+      if (scale !== null && isFiniteNumber(curVal)) {
+        // fill:true rides the replay too — folium's resetStyle would otherwise
+        // re-apply the author's fill:false on mouseout and hide the fill.
+        // fillOpacity replays alongside it so the hover restore does not drop
+        // the user's transparency.
+        return styleDimPayload(
+          { fillColor: colorFor(scale, curVal), fillOpacity: op },
+          FACE.FILL,
+        );
+      }
+      // Out of the ramp's reach: folium's restore already gave the author's
+      // colour and `fill` flag back, so the only thing worth re-applying on
+      // top of it is the user's opacity. With none chosen there is nothing
+      // to add, and null lets the restore stand instead of rewriting it.
+      if (op === undefined) return null;
+      return styleDimOverAuthor(leaf, { fillOpacity: op }, FACE.FILL, false);
     });
   });
 };

@@ -56,6 +56,13 @@ const makeFeatureLayer = (features: Array<{ properties: Record<string, unknown> 
   const leaves = features.map(f => ({
     feature: { properties: f.properties },
     options: { fillColor: "#3388ff", fillOpacity: 0.2, fill: true },
+    getLatLngs: () => [
+      [
+        { lat: 0, lng: 0 },
+        { lat: 1, lng: 0 },
+        { lat: 0, lng: 1 },
+      ],
+    ],
     setStyle: vi.fn(),
     on: vi.fn(),
   }));
@@ -135,7 +142,10 @@ describe("applyRampToLayer", () => {
     }
   });
 
-  it("leaves a never-written leaf alone when its value is non-finite", () => {
+  it("restores the author's face for a leaf whose value is non-finite", () => {
+    // A leaf outside the ramp's reach is not left holding a colour the current
+    // config cannot justify: it gets the author's face back, which is also how
+    // the next apply undoes this one's output.
     installChroma(["#ff0000", "#00ff00", "#0000ff"]);
     const layer = makeFeatureLayer([
       { properties: { value: 1 } },
@@ -146,12 +156,109 @@ describe("applyRampToLayer", () => {
 
     applyRampToLayer(makeUI(layer), "overlay1", makeRamp());
 
-    expect(layer.leaves[0].setStyle).toHaveBeenCalled();
-    expect(layer.leaves[1].setStyle).not.toHaveBeenCalled();
-    expect(layer.leaves[2].setStyle).not.toHaveBeenCalled();
-    expect(layer.leaves[3].setStyle).not.toHaveBeenCalled();
+    const last = (leaf: (typeof layer.leaves)[number]) =>
+      (leaf.setStyle as any).mock.calls.at(-1)![0];
+    expect(last(layer.leaves[0]).fillColor).toBe("#ff0000");
+    for (const leaf of layer.leaves.slice(1)) {
+      expect(last(leaf)).toEqual({
+        fillColor: "#3388ff",
+        fillOpacity: 0.2,
+        fill: true,
+      });
+    }
   });
 
+  it("warns instead of degrading silently when simple-statistics is absent", () => {
+    // The classifier reads one global the whole page shares, so a missing
+    // `ss` cannot be fixed by editing the config. A quiet fallback would
+    // leave the map at the author's colour while the panel still says
+    // "quantile".
+    installChroma(["#ff0000", "#00ff00"]);
+    delete globalThis.ss;
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    // Two values: a single one short-circuits the classifier before the
+    // dependency check runs, so no warning would be raised at all.
+    const layer = makeFeatureLayer([
+      { properties: { value: 5 } },
+      { properties: { value: 10 } },
+    ]);
+
+    expect(() =>
+      applyRampToLayer(
+        makeUI(layer),
+        "overlay1",
+        makeRamp({ method: METHOD.QUANTILE }),
+      ),
+    ).not.toThrow();
+
+    expect(warn.mock.calls[0][0]).toContain("simple-statistics");
+    // Nothing was classified, so the author's face comes back.
+    expect((layer.leaves[0].setStyle as any).mock.calls.at(-1)![0]).toEqual({
+      fillColor: "#3388ff",
+      fillOpacity: 0.2,
+      fill: true,
+    });
+    warn.mockRestore();
+  });
+
+  it("carries the layer-level opacity onto a leaf the ramp cannot classify", () => {
+    // fillOpacity is chosen once for the layer, not per class, so a leaf
+    // outside the ramp's reach gets it too: the author's colour and
+    // visibility come back and the whole layer shares one transparency.
+    installChroma(["#ff0000"]);
+    intentValues = { fillOpacity: 0.4 };
+    const layer = makeFeatureLayer([{ properties: { value: NaN } }]);
+
+    applyRampToLayer(makeUI(layer), "overlay1", makeRamp());
+
+    expect((layer.leaves[0].setStyle as any).mock.calls.at(-1)![0]).toEqual({
+      fillColor: "#3388ff",
+      fillOpacity: 0.4,
+      fill: true,
+    });
+  });
+
+  it("keeps a line leaf out of the breaks and out of the write walk", () => {
+    // A line leaf is not fillable, so its value must not widen the classes
+    // and it must receive neither a fill nor a replay pin.
+    installChroma(["#ff0000", "#00ff00", "#0000ff"]);
+    const line = {
+      feature: { properties: { value: 1 } },
+      options: {},
+      setStyle: vi.fn(),
+      on: vi.fn(),
+      getLatLngs: () => [
+        { lat: 0, lng: 0 },
+        { lat: 1, lng: 1 },
+      ],
+    } as any;
+    const area = {
+      feature: { properties: { value: 1000 } },
+      options: { fillColor: "#3388ff", fillOpacity: 0.2, fill: true },
+      setStyle: vi.fn(),
+      on: vi.fn(),
+      getLatLngs: () => [
+        [
+          { lat: 0, lng: 0 },
+          { lat: 1, lng: 0 },
+          { lat: 0, lng: 1 },
+        ],
+      ],
+    } as any;
+    const layer = {
+      eachLayer: (fn: (leaf: unknown) => void) => [line, area].forEach(fn),
+      leaves: [line, area],
+    } as any;
+
+    applyRampToLayer(makeUI(layer), "overlay1", makeRamp({ classes: 3 }));
+
+    expect(line.setStyle).not.toHaveBeenCalled();
+    expect(pinStyleOnHighlight).toHaveBeenCalledTimes(1);
+    // Had 1 reached the classifier the two values would have split into two
+    // classes and the top value would have drawn the second colour; it drew
+    // the first, so it classified alone.
+    expect((area.setStyle as any).mock.calls[0][0].fillColor).toBe("#ff0000");
+  });
   it("restores the author's face for a layer with no finite values", () => {
     // Nothing to classify is not "leave everything as it is": if a previous
     // ramp already painted the leaves, that output must be undone, or the map

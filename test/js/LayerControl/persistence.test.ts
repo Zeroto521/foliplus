@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { isFillRampConfig } from "#core/layer/intent.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import {
   LayerPersistence,
@@ -514,6 +515,52 @@ describe("LayerPersistence", () => {
           layers: { a: { fillRamp: bad, overrides: ["fillRamp"] } },
         });
         expect(makePersistence().load().layers.a, JSON.stringify(bad)).toBeUndefined();
+      }
+    });
+
+    it("accepts exactly the records the live validator accepts", () => {
+      // The panel and the storage path must agree on what a ramp record is:
+      // a record one accepts and the other drops would vanish on the next
+      // reload, and one the panel rejects would never be offered in the
+      // first place. `parseFillRamp` delegates to the same predicate the
+      // live intent write runs through, so the table is the contract.
+      const cases: Array<[boolean, unknown]> = [
+        [true, { field: "price", method: "equal", classes: 3, scheme: "Reds" }],
+        [
+          true,
+          {
+            field: "price",
+            method: "quantile",
+            classes: 9,
+            scheme: "Reds",
+            kind: "numeric",
+          },
+        ],
+        [false, { field: "", method: "equal", classes: 3, scheme: "Reds" }],
+        [false, { field: "   ", method: "equal", classes: 3, scheme: "Reds" }],
+        [false, { field: "price", method: "", classes: 3, scheme: "Reds" }],
+        [false, { field: "price", method: "equal", classes: 3, scheme: "" }],
+        [false, { field: "price", method: "equal", classes: 1, scheme: "Reds" }],
+        [false, { field: "price", method: "equal", classes: 10, scheme: "Reds" }],
+        [false, { field: "price", method: "equal", classes: 3.5, scheme: "Reds" }],
+        [false, { field: "price", method: "equal", scheme: "Reds" }],
+        [false, { field: "price", method: "equal", classes: 3 }],
+        [false, { field: "price", method: "equal", classes: 3, kind: "other" }],
+        [false, "Reds"],
+        [false, [1, 2, 3]],
+        [false, null],
+      ];
+      for (const [ok, config] of cases) {
+        expect(isFillRampConfig(config), JSON.stringify(config)).toBe(ok);
+        seedStorage({
+          version: RECORD_VERSION,
+          layers: { a: { fillRamp: config, overrides: ["fillRamp"] } },
+        });
+        const loaded = makePersistence().load();
+        expect(
+          loaded !== null && loaded.layers.a !== undefined,
+          JSON.stringify(config),
+        ).toBe(ok);
       }
     });
 

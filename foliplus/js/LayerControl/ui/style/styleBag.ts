@@ -15,6 +15,7 @@
 //
 // A node with `setStyle` alone is not a carrier (L.GeoJSON owns one too),
 // so walks below descend `eachLayer` first and treat a setter as a leaf.
+import { isArealStyleLeaf } from "#core/layer/capability.js";
 import { findLeaf, walkLeaf } from "#core/layer/walkLeaf.js";
 import { throttleRaf } from "#common/throttle.js";
 import type { LayerUI } from "../surface.js";
@@ -86,10 +87,28 @@ const isStyleSetter = (node: unknown): node is StyleSetter =>
 /** Visit every leaf that exposes a runtime `setStyle`. Groups (LayerGroup,
  *  folium GeoJson) expose `setStyle` too, but they are walked down instead:
  *  mouseout fires on the leaf paths, and the authored bag is per leaf.
- *  Recursion lives in `walkLeaf`; this helper is just the setStyle filter. */
+ *  Recursion lives in `walkLeaf`; this helper is just the setStyle filter.
+ *  It carries no geometry predicate, so it reaches line leaves too: callers
+ *  that write a fill must use {@link walkFillLeaves} instead, or the carrier
+ *  the capability probe answers for is not the carrier the write reaches. */
 const walkStyleLeaves = (node: StyleCarrier, fn: (leaf: StyleSetter) => void): void => {
   walkLeaf(node, leaf => {
     if (isStyleSetter(leaf)) fn(leaf);
+  });
+};
+
+/** Visit only the leaves that can carry a fill: a real `setStyle` plus an
+ *  areal geometry. `isArealStyleLeaf` is the same predicate the capability
+ *  probe walks, so a layer that answers "native" for fill reaches exactly the
+ *  leaves this walk reaches.
+ *
+ *  Filtering on `setStyle` alone would admit line leaves. A fill commit to a
+ *  Polyline is inert, its `fill` flag would drift from the author's, and its
+ *  `feature` value would still enter a ramp's breaks and repaint every
+ *  polygon in the group. */
+const walkFillLeaves = (node: StyleCarrier, fn: (leaf: StyleSetter) => void): void => {
+  walkLeaf(node, leaf => {
+    if (isArealStyleLeaf(leaf)) fn(leaf as StyleSetter);
   });
 };
 
@@ -215,6 +234,45 @@ const restoreStyleDim = (node: StyleSetter, face: StyleFace): void => {
   node.setStyle(faceSlice(bag, face));
 };
 
+/** The author's keys for one face with the caller's value keys on top, the
+ *  visibility bit set to `lightFace` - the record the restore-then-commit
+ *  pair would have written in two `setStyle` calls, in one.
+ *
+ *  A key the caller does not name keeps the author's own value, so an
+ *  opacity-only commit keeps the author's colour and a colour-only commit
+ *  keeps the author's opacity. `undefined` values never override. The
+ *  visibility bit always lands explicitly: `true` when the caller claims the
+ *  face, the author's own flag when it does not. Re-reads the captured bag
+ *  rather than taking it, so a highlight pin can re-derive the same answer
+ *  folium's `resetStyle` just undid. */
+const styleDimOverAuthor = (
+  node: StyleSetter,
+  values: Record<string, unknown>,
+  face: StyleFace,
+  lightFace: boolean,
+): Record<string, unknown> => {
+  const style: Record<string, unknown> = {
+    ...faceSlice(captureStyleBag(node), face),
+  };
+  for (const [key, value] of Object.entries(values)) {
+    if (value !== undefined) style[key] = value;
+  }
+  if (lightFace) style[face] = true;
+  return style;
+};
+
+/** Write the merged record: one `setStyle` per leaf instead of a restore
+ *  followed by a commit. The walk is one either way; doubling the writes
+ *  doubles the DOM and SVG attribute work on top of it. */
+const commitStyleDimMerged = (
+  node: StyleSetter,
+  values: Record<string, unknown>,
+  face: StyleFace,
+  lightFace: boolean,
+): void => {
+  node.setStyle(styleDimOverAuthor(node, values, face, lightFace));
+};
+
 // ── Shared apply scheduler (drag coalescing) ─────────────────────────────
 //
 // A style-panel drag fires an input event per step and each apply walk is a
@@ -298,6 +356,7 @@ export {
   cancelStyleDimApply,
   captureStyleBag,
   commitStyleDim,
+  commitStyleDimMerged,
   dropStyleDimApplies,
   faceSlice,
   flushStyleDimApply,
@@ -308,6 +367,8 @@ export {
   scheduleStyleDimApply,
   styleBagOf,
   styleBaseOf,
+  styleDimOverAuthor,
   styleDimPayload,
+  walkFillLeaves,
   walkStyleLeaves,
 };

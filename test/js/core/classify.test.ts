@@ -59,7 +59,16 @@ describe("computeBreaks", () => {
   });
 
   it("limits numClasses to min(numClasses, data length)", () => {
-    expect(computeBreaks([1, 2], 2, "equal")).toEqual([1, 2]);
+    expect(computeBreaks([1, 2], 2, "equal")).toEqual([1, 1.5, 2]);
+  });
+
+  it("builds two classes for two values: only a single value collapses", () => {
+    // `n === 1` is the only degenerate sample. Two values still split into two
+    // classes, and a request for more classes than values is capped at n - the
+    // old `n <= 2` shortcut forced one class and left a colour scale that was
+    // told to expect two with no second colour to draw.
+    expect(computeBreaks([1, 2], 3, "equal")).toEqual([1, 1.5, 2]);
+    expect(computeBreaks([1, 2], 9, "equal")).toEqual([1, 1.5, 2]);
   });
 
   it("builds exactly two classes when two are requested", () => {

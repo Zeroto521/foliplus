@@ -58,10 +58,18 @@ const buildRamp = (values: number[], config: RampConfig): ValueRamp => {
   const colors = getColorScale(config.scheme, Math.max(0, breaks.length - 1));
   const classOf = (value: number): number => {
     if (breaks.length < 2) return 0;
-    for (let i = 1; i < breaks.length; i++) {
-      if (value <= breaks[i]) return i - 1;
+    // Bisection over the non-decreasing breaks: the smallest break index at
+    // or above the value opens the class, and the class is that index minus
+    // one. `breaks.length < 2` means there is no class to index into, and a
+    // value past the final break takes the last class.
+    let lo = 1;
+    let hi = breaks.length - 1;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (value <= breaks[mid]) hi = mid;
+      else lo = mid + 1;
     }
-    return breaks.length - 2;
+    return value <= breaks[lo] ? lo - 1 : breaks.length - 2;
   };
   return { breaks, colors, classOf };
 };

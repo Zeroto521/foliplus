@@ -48,13 +48,14 @@ import {
   type StyleCarrier,
   cancelStyleDimApply,
   commitStyleDim,
+  commitStyleDimMerged,
   flushStyleDimApply,
   restoreStyleDim,
   scheduleStyleDimApply,
   styleBagOf,
   styleBaseOf,
   styleDimPayload,
-  walkStyleLeaves,
+  walkFillLeaves,
 } from "./styleBag.js";
 
 /** The swatch's last resort when even the browser probe cannot resolve the
@@ -187,28 +188,38 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
   if (color !== undefined) values.fillColor = color;
   if (opacity !== undefined) values.fillOpacity = opacity;
   const hasOverride = color !== undefined || opacity !== undefined;
-  walkStyleLeaves(layer, node => {
+  walkFillLeaves(layer, node => {
     const written = styleBagOf(node) !== undefined;
     // A leaf that was never written and has nothing to own is left alone: no
     // restore, no listener. An uncommitted layer keeps folium's own hover
     // handling and gains no per-leaf cost.
     if (!hasOverride && !written) return;
-    // Solid owns the whole fill face, so the leaf starts from the author's
-    // paint. Without the restore a solid commit would be merged onto the
-    // ramp's output: an opacity-only solid apply would keep the ramp's colour
-    // under the user's opacity, and a no-override apply would hold the
-    // previous arm's colour on the map until folium's next mouseout happened
-    // to overwrite it. The pin below then replaces the ramp's getter, which
-    // would otherwise still be holding this leaf.
-    restoreStyleDim(node, FACE.FILL);
-    if (hasOverride) {
-      // Shared write contract: value keys + visibility bit (`fill: true`).
+    // One `setStyle` per leaf, never a restore followed by a commit - the
+    // two-call form wrote the same face twice per leaf, which doubled the DOM
+    // and SVG attribute work on top of the walk.
+    if (hasOverride && values.fillColor !== undefined) {
+      // A colour commit is minimal: it replaces every key the previous arm
+      // could have left stale, and the user's opacity never arrives here
+      // unset - `fillOpacity` is set on this same payload whenever the user
+      // has chosen one. Leaving the opacity unnamed keeps the author's value,
+      // which is the only value on the leaf while no opacity is chosen.
       commitStyleDim(node, values, FACE.FILL);
+    } else if (hasOverride) {
+      // An opacity-only commit replaces nothing but the opacity, so the
+      // previous arm's colour would ride under it: pull the author's keys
+      // back in the same payload. The pin below replaces any ramp getter
+      // still holding this leaf.
+      commitStyleDimMerged(node, values, FACE.FILL, true);
+    } else {
+      // No override left: restore the author's face rather than skipping the
+      // walk, or the previous arm's colour stays on the map until folium's
+      // next mouseout happens to overwrite it.
+      restoreStyleDim(node, FACE.FILL);
     }
 
     // Folium's highlight_on_hover restores the original style on mouseout;
     // pinStyleOnHighlight reapplies the user's fill after folium's handler
-    // fires so the color survives the hover. `walkStyleLeaves` already
+    // fires so the color survives the hover. `walkFillLeaves` already
     // guarantees a setStyle, so no isStyleSetter guard is needed here.
     // The "fill" key makes each commit replace this dimension's getter
     // instead of stacking a fresh closure.
@@ -458,7 +469,7 @@ const FILL_DIMENSION = registerDimension<{
     resetIntentKeys(ui, layerId, FILL_INTENT_KEYS);
     const layer = ui.c.findLayer(layerId) as StyleCarrier | null;
     if (!layer) return;
-    walkStyleLeaves(layer, node => restoreStyleDim(node, FACE.FILL));
+    walkFillLeaves(layer, node => restoreStyleDim(node, FACE.FILL));
   },
   valueSource: (ui, layerId) => {
     if (!layerCanFill(ui, layerId)) return "none";
