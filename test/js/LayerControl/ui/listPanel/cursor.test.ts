@@ -174,6 +174,14 @@ describe("LayerUI cursor (pure cursor primitives)", () => {
 
       expect(getNavigableItems(ui)).toContain(bareRow);
     });
+
+    it("returns nothing once the panel is gone", () => {
+      // The roving-cursor reads that follow a teardown must come back empty
+      // rather than dereference the dead panel.
+      const { ui: fresh } = initFixture({});
+      fresh.c.uiContainer = null;
+      expect(getNavigableItems(fresh)).toEqual([]);
+    });
   });
 
   // ─────────────────── findVisibleNeighbor ───────────────────

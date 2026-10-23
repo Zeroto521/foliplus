@@ -115,6 +115,20 @@ describe("EventBus", () => {
     expect(seen).toEqual(["v", "v"]);
   });
 
+  it("emitSuperseding is a no-op when nobody listens", () => {
+    const bus = new EventBus();
+    expect(() =>
+      bus.emitSuperseding("silent", "layer-a", { value: "v" }),
+    ).not.toThrow();
+    // And an event with listeners stays untouched by the silent key.
+    const seen: string[] = [];
+    bus.on("evt", payload => {
+      seen.push((payload as { value: string }).value);
+    });
+    bus.emitSuperseding("silent", "layer-a", { value: "v" });
+    expect(seen).toEqual([]);
+  });
+
   it("eventCount tracks the number of events with listeners", () => {
     const bus = new EventBus();
     bus.on("a", vi.fn());

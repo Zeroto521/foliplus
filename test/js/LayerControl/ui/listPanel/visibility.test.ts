@@ -1044,6 +1044,12 @@ describe("unit helpers", () => {
     expect(items[0].getAttribute("data-layer-type")).toBe("overlay");
   });
 
+  it("getLayerItems returns nothing once the panel is gone", () => {
+    const { ui } = initFixture({});
+    ui.c.uiContainer = null;
+    expect(getLayerItems(ui, GROUP.OVERLAY)).toEqual([]);
+  });
+
   // syncVisibility is gone: the executor is the only writer of map
   // membership, and there is no mirror helper to test.
 

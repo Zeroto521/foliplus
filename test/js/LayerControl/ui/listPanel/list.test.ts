@@ -9,6 +9,7 @@ import {
   initLayerItem,
   initTypesAndVisibility,
   insertLayerItem,
+  rebuildList,
   renderInitialList,
   updateLayerItemLabel,
 } from "#foliplus/LayerControl/ui/listPanel/index.js";
@@ -156,6 +157,23 @@ describe("ui/list row placement", () => {
     // No row means no buildRowCell: nothing is derived from the (now missing)
     // row, and the registry entry itself is untouched.
     expect(manager.layerRegistry.get("A")).toBe(layer);
+  });
+
+  it("paints nothing once the panel is gone", () => {
+    // A teardown that nulls the container without clearing the registry — the
+    // mid-notify destroy, though any subset of the panel removal works — must
+    // no-op for every paint helper instead of dereferencing a dead panel. This
+    // is the shape of the R5-1 crash, now typed and guarded.
+    const { manager, ui } = initFixture({
+      data: [{ id: "A", name: "A", group: "overlay" }],
+    });
+    const layer = manager.layerRegistry.get("A")!;
+    ui.c.uiContainer = null;
+
+    expect(() => renderInitialList(ui)).not.toThrow();
+    expect(() => rebuildList(ui)).not.toThrow();
+    expect(insertLayerItem(ui, layer)).toBeUndefined();
+    expect(initLayerItem(ui, layer)).toBe(false);
   });
 
   it("brings its own header when the first row of an empty group arrives", () => {
