@@ -26,7 +26,11 @@
 // Naming: "state op" is the shape the carrier dispatcher accepts.
 // "Projection" is what the diff compares — intent + policy together, so
 // a change on either side produces an op.
-import { type DispatchFailure, EVENTS } from "#core/event/index.js";
+import {
+  type DispatchFailure,
+  EVENTS,
+  type SettledOperation,
+} from "#core/event/index.js";
 import { CAP_TIER, HIDDEN, PANE_ROLE } from "#core/layer/index.js";
 import { getLayerAlpha, setLayerAlpha } from "#common/canvasAlpha.js";
 import * as CONST from "../const.js";
@@ -761,6 +765,20 @@ const notifyDeltas = (ui: LayerUI, deltas: ProjectionBatch): void => {
   if (failure) throw failure.error;
 };
 
+/** Announce a batch into a wider operation instead of raising here. The
+ *  caller's `SettledOperation` owns the error boundary, so the registration
+ *  change (or removal event) behind the projection round is still attempted
+ *  when a projection consumer throws. */
+const collectDeltas = (
+  ui: LayerUI,
+  deltas: ProjectionBatch,
+  operation: SettledOperation,
+): void => {
+  for (const { entry, delta } of deltas) {
+    operation.absorb(emitDelta(ui, entry, delta));
+  }
+};
+
 /** Diff every layer's projection. Called on attach, on late
  *  registration (`applyUserState`), and on zoom-end / focus dismiss.
  *  Idempotent — a changeless call is a no-op because every diff misses.
@@ -809,6 +827,7 @@ export {
   dispatchStateOp,
   notifyDeltas,
   notifyDelta,
+  collectDeltas,
   authorZoomBoundsForLayer,
   NO_DELTA,
 };

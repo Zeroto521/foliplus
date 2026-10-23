@@ -746,7 +746,7 @@ describe("LayerController", () => {
       // The replay entry point always returns a round; the stub has to honour it.
       applyUserState: vi.fn(() => []),
     } as any;
-    const emitSpy = vi.spyOn(manager.events, "emit");
+    const emitSpy = vi.spyOn(manager.events, "emitSettled");
     manager.registerLayer({
       id: "new1",
       name: "New",
@@ -1963,7 +1963,7 @@ describe("LayerController", () => {
       // The replay entry point always returns a round; the stub has to honour it.
       applyUserState: vi.fn(() => []),
     } as any;
-    const emitSpy = vi.spyOn(manager.events, "emit");
+    const emitSpy = vi.spyOn(manager.events, "emitSettled");
     manager.registerLayer({ id: "overlay1", name: "Renamed" });
     expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_ITEM_UPDATED, {
       id: "overlay1",
@@ -2058,7 +2058,7 @@ describe("LayerController", () => {
       intentStore: makeStore(),
       saveState: vi.fn(),
     } as any;
-    const emitSpy = vi.spyOn(manager.events, "emit");
+    const emitSpy = vi.spyOn(manager.events, "emitSettled");
     expect(manager.unregisterLayer("base1")).toBe(true);
     expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_GROUP_COUNT_CHANGED, {
       group: GROUP.BASE,
@@ -2667,7 +2667,7 @@ describe("LayerController", () => {
     manager.registerLayer({ id: "top", name: "Top", layer: { options: {} } });
     manager.uiContainer = document.createElement("div");
     manager.ui = {} as any;
-    const emitSpy = vi.spyOn(manager.events, "emit");
+    const emitSpy = vi.spyOn(manager.events, "emitSettled");
     manager.bringLayerToFront("bottom");
     expect(manager.layers[0].id).toBe("bottom");
     expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_LIST_REBUILD);
@@ -2975,19 +2975,18 @@ describe("LayerController", () => {
       expect(save).toHaveBeenCalledTimes(1);
     });
 
-    it("still retires a user layer through unregisterLayer and removedIds", () => {
+    it("retires a user layer and records the removed id", () => {
       manager.map.hasLayer.mockReturnValue(false);
-      const unregisterSpy = vi.spyOn(manager, "unregisterLayer");
 
       expect(manager.deleteLayer("overlay1")).toBe(true);
 
-      expect(unregisterSpy).toHaveBeenCalledWith("overlay1");
+      expect(manager.layerRegistry.has("overlay1")).toBe(false);
       expect((manager as any).order.removedIds.has("overlay1")).toBe(true);
     });
 
-    it("returns false when unregisterLayer fails for a user layer", () => {
+    it("returns false when the entry is already gone", () => {
       manager.map.hasLayer.mockReturnValue(false);
-      vi.spyOn(manager, "unregisterLayer").mockReturnValue(false);
+      manager.unregisterLayer("overlay1");
 
       expect(manager.deleteLayer("overlay1")).toBe(false);
       expect((manager as any).order.removedIds.has("overlay1")).toBe(false);
@@ -3003,7 +3002,7 @@ describe("LayerController", () => {
         saveNamesState: vi.fn(),
         invalidateFields: vi.fn(),
       } as any;
-      const emitSpy = vi.spyOn(manager.events, "emit");
+      const emitSpy = vi.spyOn(manager.events, "emitSettled");
 
       expect(manager.deleteLayer("base1")).toBe(true);
 
@@ -3028,12 +3027,11 @@ describe("LayerController", () => {
         resetSolidBasemap: resetSpy,
         invalidateFields: vi.fn(),
       } as any;
-      const unregisterSpy = vi.spyOn(manager, "unregisterLayer");
-      const emitSpy = vi.spyOn(manager.events, "emit");
+      const emitSpy = vi.spyOn(manager.events, "emitSettled");
 
       expect(manager.deleteLayer(CONST.SOLID_BASEMAP_ID)).toBe(true);
 
-      expect(unregisterSpy).toHaveBeenCalledWith(CONST.SOLID_BASEMAP_ID);
+      expect(manager.layerRegistry.has(CONST.SOLID_BASEMAP_ID)).toBe(false);
       expect(resetSpy).toHaveBeenCalled();
       expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_GROUP_COUNT_CHANGED, {
         group: GROUP.BASE,
@@ -3051,11 +3049,10 @@ describe("LayerController", () => {
         layer: { options: {} },
       } as any);
       manager.ui = null;
-      const unregisterSpy = vi.spyOn(manager, "unregisterLayer");
 
       expect(manager.deleteLayer(CONST.SOLID_BASEMAP_ID)).toBe(true);
 
-      expect(unregisterSpy).toHaveBeenCalledWith(CONST.SOLID_BASEMAP_ID);
+      expect(manager.layerRegistry.has(CONST.SOLID_BASEMAP_ID)).toBe(false);
       expect((manager as any).order.removedIds.has(CONST.SOLID_BASEMAP_ID)).toBe(false);
     });
 
@@ -3067,7 +3064,7 @@ describe("LayerController", () => {
         group: "base",
         layer: { options: {} },
       } as any);
-      vi.spyOn(manager, "unregisterLayer").mockReturnValue(false);
+      manager.layerRegistry.remove(CONST.SOLID_BASEMAP_ID);
 
       expect(manager.deleteLayer(CONST.SOLID_BASEMAP_ID)).toBe(false);
       expect((manager as any).order.removedIds.has(CONST.SOLID_BASEMAP_ID)).toBe(false);
@@ -3158,6 +3155,133 @@ describe("LayerController", () => {
           `[data-layer-id="${CONST.SOLID_BASEMAP_ID}"]`,
         ),
       ).not.toBeNull();
+    });
+  });
+
+  describe("lifecycle operations settle their whole fan-out", () => {
+    it("a throwing row signal does not cut off the registration CHANGE", () => {
+      manager.map.hasLayer.mockReturnValue(false);
+      manager.uiContainer = document.createElement("div");
+      manager.ui = {
+        intentStore: makeStore(),
+        applyUserState: vi.fn(() => []),
+      } as any;
+      const changes: string[] = [];
+      manager.events.on(EVENTS.LAYER_ITEM_ADDED, () => {
+        throw new Error("item boom");
+      });
+      manager.events.on(EVENTS.LAYER_CHANGE, payload => changes.push(payload.id));
+
+      expect(() =>
+        manager.registerLayer({
+          id: "new1",
+          name: "New",
+          layer: { options: {} },
+        } as any),
+      ).toThrow("item boom");
+
+      // The internal signal failed but the registration change and the state
+      // it announces still landed.
+      expect(changes).toEqual(["new1"]);
+      expect(manager.layerRegistry.has("new1")).toBe(true);
+    });
+
+    it("a throwing CHANGE consumer does not cut off LAYER_REMOVED", () => {
+      manager.map.hasLayer.mockReturnValue(false);
+      const removed: string[] = [];
+      manager.events.on(EVENTS.LAYER_CHANGE, () => {
+        throw new Error("change boom");
+      });
+      manager.events.on(EVENTS.LAYER_REMOVED, payload => removed.push(payload.id));
+
+      expect(() => manager.unregisterLayer("overlay1")).toThrow("change boom");
+
+      expect(removed).toEqual(["overlay1"]);
+      expect(manager.layerRegistry.has("overlay1")).toBe(false);
+    });
+
+    it("a throwing consumer cannot leave a user delete half-applied", () => {
+      manager.map.hasLayer.mockReturnValue(false);
+      const removed: string[] = [];
+      manager.events.on(EVENTS.LAYER_CHANGE, () => {
+        throw new Error("change boom");
+      });
+      manager.events.on(EVENTS.LAYER_REMOVED, payload => removed.push(payload.id));
+
+      expect(() => manager.deleteLayer("overlay1")).toThrow("change boom");
+
+      // The retirement and every persisted prune committed before the fan-out;
+      // a retry no longer finds an entry, so the delete cannot silently
+      // degrade into a re-registerable unregister.
+      expect(manager.layerRegistry.has("overlay1")).toBe(false);
+      expect((manager as any).order.removedIds.has("overlay1")).toBe(true);
+      expect(removed).toEqual(["overlay1"]);
+      expect(manager.deleteLayer("overlay1")).toBe(false);
+    });
+
+    it("a throwing DELETED consumer does not starve the component owner or the prune", () => {
+      manager.map.hasLayer.mockReturnValue(false);
+      manager.registerLayer({
+        id: "measure1",
+        name: "Measure",
+        layer: { options: {} },
+        styleSetters: { color: vi.fn() },
+      } as any);
+      const owner = vi.fn();
+      const deleteEntrySpy = vi.spyOn((manager as any).domain, "deleteEntry");
+      manager.events.on(EVENTS.LAYER_DELETED, () => {
+        throw new Error("deleted boom");
+      });
+      manager.events.on(EVENTS.LAYER_DELETED, owner);
+
+      expect(() => manager.deleteLayer("measure1")).toThrow("deleted boom");
+
+      // The owner handler and LayerControl cleanup both ran even though a
+      // consumer ahead of them threw.
+      expect(owner).toHaveBeenCalledWith({ id: "measure1" });
+      expect(deleteEntrySpy).toHaveBeenCalledWith("measure1");
+      // Component clear keeps the id registerable for the next draw.
+      expect(manager.layerRegistry.has("measure1")).toBe(true);
+    });
+
+    it("a throwing rebuild signal does not cut off the reorder CHANGE", () => {
+      const m = new LayerController(map, [
+        { id: "a", name: "A", group: "overlay" },
+        { id: "b", name: "B", group: "overlay" },
+      ]);
+      m.uiContainer = document.createElement("div");
+      m.ui = {} as any;
+      const changes: string[] = [];
+      m.events.on(EVENTS.LAYER_LIST_REBUILD, () => {
+        throw new Error("list boom");
+      });
+      m.events.on(EVENTS.LAYER_CHANGE, payload => changes.push(payload.id));
+
+      expect(() => m.moveLayerUp("b")).toThrow("list boom");
+
+      expect(changes).toEqual(["b"]);
+      expect(m.layers[0].id).toBe("b");
+    });
+
+    it("a throwing consumer does not cut off a late-attach CHANGE", () => {
+      const realStamp = window.L.stamp;
+      window.L.stamp = stableStamp;
+      try {
+        manager.registerLayer({ id: "late2", name: "Late2", group: "overlay" });
+        const arrived = new window.L.Path();
+        map._layers["late2"] = arrived;
+        const seen: string[] = [];
+        manager.events.on(EVENTS.LAYER_CHANGE, () => {
+          throw new Error("late boom");
+        });
+        manager.events.on(EVENTS.LAYER_CHANGE, payload => seen.push(payload.id));
+
+        expect(() => manager.onLayerAdd({ layer: arrived })).toThrow("late boom");
+
+        expect(seen).toEqual(["late2"]);
+      } finally {
+        window.L.stamp = realStamp;
+      }
     });
   });
 });
@@ -3489,7 +3613,7 @@ describe("LayerController moveLayerUp / moveLayerDown", () => {
     ]);
     manager.uiContainer = document.createElement("div");
     manager.ui = {} as any;
-    const emitSpy = vi.spyOn(manager.events, "emit");
+    const emitSpy = vi.spyOn(manager.events, "emitSettled");
     manager.moveLayerUp("b");
     expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_LIST_REBUILD);
   });
@@ -3501,7 +3625,7 @@ describe("LayerController moveLayerUp / moveLayerDown", () => {
     ]);
     manager.uiContainer = document.createElement("div");
     manager.ui = {} as any;
-    const emitSpy = vi.spyOn(manager.events, "emit");
+    const emitSpy = vi.spyOn(manager.events, "emitSettled");
     manager.moveLayerDown("a");
     expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_LIST_REBUILD);
   });

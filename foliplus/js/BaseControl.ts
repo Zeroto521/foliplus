@@ -102,9 +102,12 @@ class BaseControl extends L.Control {
     // attach completion instead of a fixed delay.
     try {
       const events = ensureEvents(this._map);
-      events.emit(EVENTS.CONTROL_ATTACHED, {
+      // Settled: every later control gets its ready signal even if one
+      // consumer throws; the failure still reaches the emitter below.
+      const failure = events.emitSettled(EVENTS.CONTROL_ATTACHED, {
         component: this.constructor.name,
       });
+      if (failure) throw failure.error;
     } catch {
       // No event bus on this map (lightweight stub) — init falls back to
       // its synchronous pass, which is sufficient without other controls.

@@ -1230,6 +1230,42 @@ describe("event-driven row refresh", () => {
       expect(colors[0]).not.toBe(colors[colors.length - 1]);
     });
 
+    it("a throwing CHANGE consumer does not skip the scheduled replay", () => {
+      // Ramp replay is queued before the projection notify: a consumer that
+      // throws on the CHANGE must not stop the new features from being
+      // repainted, and a reentrant unregister must find the task to clear.
+      globalThis.chroma = {
+        scale: () => ({
+          mode: () => ({
+            colors: (n: number) =>
+              Array.from({ length: n }, (_, i) => ["#a00000", "#ff7f00"][i % 2]),
+          }),
+        }),
+      } as never;
+      const leaves = attachFeatures([1, 5, 9]);
+      seedIntentMap(ui, "fillRamp", {
+        overlay1: {
+          field: "value",
+          method: METHOD.EQUAL,
+          classes: 2,
+          scheme: DEFAULT_SCHEMES[0],
+        },
+      });
+      // The opacity gate is what makes the count change run a projection; a
+      // visible flip gives that projection a CHANGE to deliver.
+      seedIntentMap(ui, "opacity", { overlay1: 0.4 });
+      seedIntentMap(ui, "visible", { overlay1: false });
+      ui.intentStore.seedProvenance("overlay1", ["opacity", "fillRamp", "visible"]);
+      ensureEvents(ui.c.map).on(EVENTS.LAYER_CHANGE, () => {
+        throw new Error("change boom");
+      });
+
+      expect(() => ui.onLayerItemCountChange("overlay1")).toThrow("change boom");
+
+      flushStyleDimApplies("overlay1");
+      for (const leaf of leaves) expect(leaf.setStyle).toHaveBeenCalled();
+    });
+
     it("coalesces a batch of count changes into one walk", () => {
       // A batched createLayers fires one count change per feature. N walks in
       // one frame would make the streaming cost linear in the batch.

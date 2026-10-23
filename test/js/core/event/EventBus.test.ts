@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { EVENTS, EventBus, ensureEvents } from "#foliplus/core/event/index.js";
+import {
+  EVENTS,
+  EventBus,
+  SettledOperation,
+  ensureEvents,
+} from "#foliplus/core/event/index.js";
 
 /** The private in-flight token map, read the way the token-leak tests do. */
 function supersedingSize(bus: EventBus): number {
@@ -296,6 +301,60 @@ describe("EventBus", () => {
     ).toBeUndefined();
     expect(later).not.toHaveBeenCalled();
     expect(supersedingSize(bus)).toBe(0);
+  });
+
+  it("emitSettled keeps delivering after a throwing handler and returns the first failure", () => {
+    const bus = new EventBus();
+    const first = new Error("first boom");
+    const delivered: string[] = [];
+    bus.on("evt", () => {
+      throw first;
+    });
+    bus.on("evt", () => {
+      delivered.push("last");
+    });
+
+    const failure = bus.emitSettled("evt", { value: "v" });
+
+    expect(failure?.error).toBe(first);
+    expect(delivered).toEqual(["last"]);
+  });
+
+  it("emitSettled stops after clear()", () => {
+    const bus = new EventBus();
+    const later = vi.fn();
+    bus.on("evt", () => bus.clear());
+    bus.on("evt", later);
+
+    expect(bus.emitSettled("evt", { value: "v" })).toBeUndefined();
+    expect(later).not.toHaveBeenCalled();
+  });
+
+  it("SettledOperation finishes every queued event before raising the first failure", () => {
+    const bus = new EventBus();
+    const seen: string[] = [];
+    bus.on("first", () => {
+      throw new Error("first boom");
+    });
+    bus.on("second", payload => {
+      seen.push((payload as { id: string }).id);
+    });
+
+    const operation = new SettledOperation(bus);
+    operation.emit("first", { id: "a" });
+    operation.emit("second", { id: "b" });
+
+    // Both events were attempted; the failure surfaces only at the boundary.
+    expect(seen).toEqual(["b"]);
+    expect(() => operation.throwIfFailed()).toThrow("first boom");
+  });
+
+  it("SettledOperation absorbs a batch failure into the same boundary", () => {
+    const operation = new SettledOperation(new EventBus());
+    const boom = new Error("batch boom");
+    operation.absorb({ error: boom });
+    operation.absorb({ error: new Error("second boom") });
+    expect(() => operation.throwIfFailed()).toThrow("batch boom");
   });
 
   it("clear releases listeners and any supersede tokens", () => {

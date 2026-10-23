@@ -11,6 +11,7 @@ import {
   registerInteractions,
 } from "../interaction.js";
 import {
+  NO_DELTA,
   applyProjection,
   applyProjectionAll,
   notifyDelta,
@@ -386,11 +387,10 @@ const onLayerItemCountChange = (ui: LayerUI, id: string): void => {
   // carry the value), so the executor's runtime `applied` row is invalidated for
   // this id before the re-projection: the diff sees the stored opacity as
   // new and re-applies it through the carrier dispatcher.
+  let opacityDelta = NO_DELTA;
   if (getIntent(ui, id, INTENT.OPACITY) !== undefined) {
     ui.runtimeStore.deleteApplied(id);
-    // The row above has already been repainted, so the projection is the last
-    // side effect — its notify goes out on that delta, not inside the pass.
-    notifyDelta(ui, layerInfo, applyProjection(ui, id));
+    opacityDelta = applyProjection(ui, id);
   }
 
   // A stored fill repaints the leaves this change just landed. Without it a
@@ -399,7 +399,15 @@ const onLayerItemCountChange = (ui: LayerUI, id: string): void => {
   // would be showing one count while the map painted another. Coalesced per
   // face like every panel write: ten additions in one frame cost one
   // collect/classify/apply, and the walk always reads the layer's latest state.
+  //
+  // Queued before the notify, not after: a projection consumer can throw or
+  // unregister the layer, and the scheduled replay must already exist for the
+  // teardown's LAYER_ITEM_REMOVED to drop it — scheduling after a throw would
+  // skip the replay entirely, and scheduling after a reentrant unregister
+  // would create a task for an id that is already gone. The notify stays the
+  // last step of the operation.
   scheduleStyleDimApply(FACE.FILL, id, () => replayFillState(ui, id));
+  notifyDelta(ui, layerInfo, opacityDelta);
 };
 
 /** Repaint every layer row from its cell — count, type, tooltip and box. */

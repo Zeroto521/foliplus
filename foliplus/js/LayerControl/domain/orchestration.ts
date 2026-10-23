@@ -7,7 +7,6 @@
 //
 // Lives beside LayerController (not in core/layer/) because it depends on
 // LayerPersistence and AnnotationManager — both LayerControl-local.
-import { EVENTS, type EventBus } from "#core/event/index.js";
 import { hasLabelField } from "#core/label/index.js";
 import {
   GROUP,
@@ -16,7 +15,6 @@ import {
   type LayerFactory,
   type LayerInfo,
   type LayerInfoRegistry,
-  type LayerKind,
   type LayerOrder,
   LayerSurface,
   PANE_ROLE,
@@ -66,7 +64,6 @@ const withAnnotationSpec = (
 
 class LayerOrchestration {
   private map: L.Map;
-  private events: EventBus;
   private layerRegistry: LayerInfoRegistry;
   private panes: PaneManager;
   private factory: LayerFactory;
@@ -95,7 +92,6 @@ class LayerOrchestration {
   };
   constructor(deps: {
     map: L.Map;
-    events: EventBus;
     layerRegistry: LayerInfoRegistry;
     panes: PaneManager;
     factory: LayerFactory;
@@ -110,7 +106,6 @@ class LayerOrchestration {
       getIntentStore: deps.getIntentStore,
     };
     this.map = deps.map;
-    this.events = deps.events;
     this.layerRegistry = deps.layerRegistry;
     this.panes = deps.panes;
     this.factory = deps.factory;
@@ -134,10 +129,6 @@ class LayerOrchestration {
       this.map,
       typeof idOrInfo === "string" ? idOrInfo : (layerInfo?.id ?? ""),
     );
-  }
-
-  emitLayerChange(id: string, kind: LayerKind): void {
-    this.events.emit(EVENTS.LAYER_CHANGE, { id, kind });
   }
 
   hasUnresolvedLayers(): boolean {

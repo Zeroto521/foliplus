@@ -61,7 +61,10 @@ const closeOverlays = (ui: LayerUI): void => {
   // subscribe to this event in bindLayerEvents and close themselves. The caller
   // of closeOverlays is about to open one of them — the matching subscriber
   // sees "I'm not open yet" and is a no-op.
-  ui.events.emit(EVENTS.OVERLAY_CLEAR);
+  // Settled: every overlay owner gets the close signal, then the first
+  // consumer failure surfaces — one broken panel must not leave another open.
+  const failure = ui.events.emitSettled(EVENTS.OVERLAY_CLEAR);
+  if (failure) throw failure.error;
 };
 
 export { closeOverlays };
