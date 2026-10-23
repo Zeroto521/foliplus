@@ -69,14 +69,23 @@ const FACE = {
   SIZE: "size",
 } as const;
 
+/** Every face the coalescer keys on, derived from `FACE` so a new member
+ *  there cannot be missed by the per-id sweeps further down — a face the
+ *  queue accepts but they cannot drop or flush would leak a task after
+ *  unregister and drop a trailing write on panel close. */
+const FACE_FACES: readonly SchedulerFace[] = Object.values(FACE);
+
 /** A frame-coalescing key face. Wider than `StyleFace` on purpose: the
  *  scheduler below is a plain "at most one trailing frame per
  *  (face, layerId)" queue that knows nothing about `setStyle`, so a walk
  *  that is not a styleBag slice can share it. `FACE.SIZE` is a direct
  *  `setRadius` walk rather than a `setStyle` face — without sharing the
  *  queue, a typing burst across the size field would write one radius per
- *  leaf per keystroke, and a bulk content change would walk per leaf. */
-type SchedulerFace = StyleFace | "size";
+ *  leaf per keystroke, and a bulk content change would walk per leaf.
+ *
+ *  Derived from `FACE` rather than spelled out: adding a member to `FACE`
+ *  is enough to add a face, and the type cannot drift from it. */
+type SchedulerFace = (typeof FACE)[keyof typeof FACE];
 
 /** Leaflet Path defaults — folium's path_options fills most of these in,
  *  so the fallbacks only fire for a bare Leaflet layer. */
@@ -369,7 +378,7 @@ const cancelStyleDimApply = (face: SchedulerFace, layerId: string): void => {
  *  unregister drop hook. Covers all three faces in one pass so the caller
  *  never holds scattered teardowns. */
 const dropStyleDimApplies = (layerId: string): void => {
-  for (const face of [FACE.FILL, FACE.STROKE, FACE.SIZE]) {
+  for (const face of FACE_FACES) {
     const key = applyKey(face, layerId);
     const box = applySchedulers.get(key);
     if (!box) continue;
@@ -382,7 +391,7 @@ const dropStyleDimApplies = (layerId: string): void => {
  *  commit boundary. Every face must land: a drag or a typing burst left on
  *  a trailing frame would vanish when the panel disappears. */
 const flushStyleDimApplies = (layerId: string): void => {
-  for (const face of [FACE.FILL, FACE.STROKE, FACE.SIZE]) {
+  for (const face of FACE_FACES) {
     flushStyleDimApply(face, layerId);
   }
 };

@@ -4,8 +4,12 @@ import {
   STYLE_BAG_DEFAULTS,
   captureStyleBag,
   commitStyleDim,
+  dropStyleDimApplies,
   faceSlice,
+  flushStyleDimApplies,
+  hasStyleDimApply,
   restoreStyleDim,
+  scheduleStyleDimApply,
   styleBagOf,
   styleBaseOf,
   styleDimOverAuthor,
@@ -379,5 +383,37 @@ describe("styleBaseOf", () => {
       fillColor: "#ddeeff",
       fillOpacity: 0.3,
     });
+  });
+});
+
+describe("per-id face sweeps", () => {
+  // The queue is keyed on (face, layerId), and two per-id sweeps retire it:
+  // `flushStyleDimApplies` at the panel-close boundary, `dropStyleDimApplies`
+  // on unregister. Both enumerate `FACE` rather than a hand-written list, so
+  // adding a face member reaches both. These two tests are the guard: the
+  // expectation is derived from `FACE` on the same side as the code, so a
+  // face the queue accepts but a sweep cannot reach fails here — the
+  // hand-written list would have leaked a task after unregister and dropped
+  // a trailing write when the panel closed.
+  it("flush lands a trailing write on every face the queue accepts", () => {
+    for (const face of Object.values(FACE)) {
+      const runs = vi.fn();
+      const id = `flush-${face}`;
+      scheduleStyleDimApply(face, id, runs);
+      expect(hasStyleDimApply(face, id)).toBe(true);
+      flushStyleDimApplies(id);
+      expect(runs, `${face} never flushed`).toHaveBeenCalledTimes(1);
+    }
+  });
+
+  it("drop retires every face the queue accepts without running it", () => {
+    for (const face of Object.values(FACE)) {
+      const runs = vi.fn();
+      const id = `drop-${face}`;
+      scheduleStyleDimApply(face, id, runs);
+      dropStyleDimApplies(id);
+      expect(runs, `${face} ran after drop`).not.toHaveBeenCalled();
+      expect(hasStyleDimApply(face, id), `${face} still held`).toBe(false);
+    }
   });
 });

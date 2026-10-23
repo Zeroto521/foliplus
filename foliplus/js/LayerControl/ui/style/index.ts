@@ -78,9 +78,7 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
   // `LABEL_DIM_ORDER` comments in `./registry.js`). Neither group carries a
   // heading any more: the panel reads as one flat row list, and Layer before
   // Label is what document order alone conveys.
-  for (const dim of layerRows) {
-    content.append(dim.row(ui, layerId));
-  }
+  for (const dim of layerRows) content.append(dim.row(ui, layerId));
   // The Label section's gate is a pure capability bit (layer exists +
   // `capabilities.annotation !== "none"`) — the labelable-fields probe that
   // keeps the row honest lives at the surface declaration edge, so the panel
