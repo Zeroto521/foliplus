@@ -8,6 +8,7 @@ import {
   applyProjectionAll,
   authorZoomBoundsForLayer,
   dispatchStateOp,
+  notifyDelta,
 } from "#foliplus/LayerControl/ui/apply.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { clearIntent, getIntent, setIntent } from "#foliplus/LayerControl/ui/intent.js";
@@ -2237,4 +2238,25 @@ it("a subscriber that destroys the control stops the remaining batch without thr
   expect(() => ui.onZoomEnd?.()).not.toThrow();
   expect(seen).toEqual(["alpha"]);
   expect(manager.layerRegistry.has("beta")).toBe(false);
+});
+
+it("notifyDelta raises a single layer's consumer failure after its fan-out", () => {
+  // The single-entry notify (opacity / zoom-range / count paths) has no wider
+  // batch left to finish, so it raises the first consumer failure itself —
+  // after every subscriber of the CHANGE has seen the round.
+  const { ui } = initFixture();
+  const entry = ui.c.layerRegistry.get("overlay1")!;
+  const seen: string[] = [];
+  ui.events.on(EVENTS.LAYER_CHANGE, () => {
+    throw new Error("single boom");
+  });
+  ui.events.on(EVENTS.LAYER_CHANGE, payload => {
+    seen.push(payload.id);
+  });
+
+  expect(() =>
+    notifyDelta(ui, entry, { wroteVisible: true, intentMoved: false }),
+  ).toThrow("single boom");
+
+  expect(seen).toEqual([entry.id]);
 });
