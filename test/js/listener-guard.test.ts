@@ -73,10 +73,10 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
   },
   {
     f: "core/leaflet/panel.ts",
-    n: 2,
+    n: 3,
     pairedOff: 0,
     reason:
-      "both calls are in bindOutsideCollapse, which binds a capture + bubble click pair on document and returns its own unbind closure — that is exactly the `effect` case, but the factory takes a container, not a BaseControl instance, so the control must register the closure itself",
+      "two calls in bindOutsideCollapse bind a capture + bubble click pair on document and return their own unbind closure — that is exactly the `effect` case, but the factory takes a container, not a BaseControl instance, so the control must register the closure itself. The third is observeRowPanelPlacement's window resize listener, paired with a window.removeEventListener in its own cleanup; like bindOutsideCollapse it is a free-standing helper whose signature cannot reach a BaseControl instance",
   },
   {
     f: "core/hint.ts",

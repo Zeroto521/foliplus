@@ -99,3 +99,4 @@ TASK.md
 foliplus/dist/
 foliplus/_version.py
 foliplus/.build/
+debug.log
