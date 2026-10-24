@@ -103,7 +103,7 @@ const rebuildList = (ui: LayerUI): void => {
  *  `querySelector` per row: the panel's row set is exactly the registry's
  *  (rows are added/removed only by insertLayerItem / retireEntry), so the
  *  ids found in this scan are the ids the registry walk below will ask
- *  for. A persistent id→row index was considered and rejected: it would
+ *  for. A persistent id → row index was considered and rejected: it would
  *  have to be maintained at every write site across two modules, and a
  *  missed rebuild would hand out detached nodes — for no gain over this
  *  single scan. */
