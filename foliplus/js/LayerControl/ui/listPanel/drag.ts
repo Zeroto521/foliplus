@@ -3,7 +3,7 @@ import { HINT_DURATION } from "#core/hint.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { saveFoldState } from "../state.js";
 import type { LayerUI } from "../surface.js";
-import { rebuildList } from "./list.js";
+import { rebuildList, syncRowOrder } from "./list.js";
 
 /** Fold or unfold one group. Shared by the pointer (row click) and the
  *  keyboard (Enter / Space over the chevron) so both paths stay in sync. */
@@ -117,33 +117,23 @@ const handleDrop = (ui: LayerUI, event: DragEvent) => {
     return;
   }
 
-  // Capture the dragged id before reorder: after the move the registry index
-  // of the dragged layer equals targetIdx, but the id is the stable key for
-  // locating its DOM row to physically relocate.
-  const dragId = ui.c.layers[ui.listPanel.dragIdx]?.id;
-  if (!dragId) {
+  // The armed index must still name a layer: an entry torn down between
+  // dragstart and drop has nothing to relocate, and reordering the registry
+  // around a hole would corrupt the arrangement saveOrder persists.
+  if (!ui.c.layers[ui.listPanel.dragIdx]?.id) {
     ui.listPanel.dragIdx = null;
     return;
   }
 
   ui.c.layerRegistry.reorder(ui.listPanel.dragIdx, targetIdx);
-
-  const movedItem = ui.uiContainer?.querySelector(
-    `[${CONST.DATA.LAYER_ID}="${CSS.escape(dragId)}"]`,
-  );
-  if (!movedItem) {
-    ui.listPanel.dragIdx = null;
-    return;
-  }
-
-  if (targetIdx < ui.listPanel.dragIdx) {
-    if (target.parentNode) target.parentNode.insertBefore(movedItem, target);
-  } else if (target.parentNode) {
-    target.parentNode.insertBefore(movedItem, target.nextSibling);
-  }
-
+  // Same incremental relocation the reorder APIs take through the
+  // LAYER_LIST_REBUILD signal: registry first, then move the displaced rows.
+  // The hand-rolled insertBefore around the drop target encoded the same
+  // outcome for the one-row case; the shared reconcile also re-homes the
+  // roving tabindex, which the hand-rolled move never did.
   ui.c.enforceOrder();
   ui.c.saveOrder();
+  syncRowOrder(ui);
   ui.listPanel.dragIdx = null;
 };
 
