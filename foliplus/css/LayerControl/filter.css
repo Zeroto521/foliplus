@@ -1,0 +1,63 @@
+.foliplus-layer-ctrl {
+  /* ── Filter panel ──
+     Stage-2 pilot: field / range / result form rows plus a Clear footer,
+     same left-label / right-control vocabulary as the style panel. The
+     shell (anchoring, width, height cap, chrome) comes from the shared
+     row-panel recipe; the slider's geometry (rail, thumbs, fill, values,
+     bubble) is declared once in common/slider.css and needs nothing here. */
+  .foliplus-layer-filter-panel {
+    padding: 0;
+  }
+  .foliplus-layer-filter-panel .foliplus-panel-content {
+    padding: var(--foliplus-space-md) var(--foliplus-space-lg);
+    display: flex;
+    flex-direction: column;
+    gap: var(--foliplus-space-md);
+  }
+  .foliplus-layer-filter-panel .foliplus-form-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--foliplus-space-md);
+  }
+  /* Narrow rows: the right-hand control wraps inside its cell instead of
+     pushing the label or collapsing the panel. */
+  .foliplus-layer-filter-panel .foliplus-form-control {
+    font-size: var(--foliplus-font-size-sm);
+    color: var(--foliplus-text-secondary);
+    font-variant-numeric: tabular-nums;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  /* The slider cell takes the row's remaining width — the rail needs a
+     measurable box, and the label column stays fixed like in the style
+     panel. */
+  .foliplus-layer-filter-panel .foliplus-form-row:has(.foliplus-filter-slider) {
+    align-items: center;
+  }
+  .foliplus-layer-filter-panel .foliplus-filter-slider {
+    flex: 1;
+  }
+  .foliplus-layer-filter-panel .foliplus-filter-field {
+    color: var(--foliplus-text-primary);
+  }
+  /* Result readout: `kept / total`. Tabular figures so the numbers do not
+     jump width as they change; the element carries aria-live=polite. */
+  .foliplus-layer-filter-panel .foliplus-filter-result {
+    color: var(--foliplus-text-secondary);
+    font-variant-numeric: tabular-nums;
+  }
+  /* Fallback message when the row declares no filterable data: same font
+     as the panel's body, muted color. */
+  .foliplus-layer-filter-panel .foliplus-filter-empty {
+    font-size: var(--foliplus-font-size-sm);
+    color: var(--foliplus-text-secondary);
+    padding: var(--foliplus-space-sm) 0;
+  }
+  /* Header icon (funnel glyph) sized inside the shared .foliplus-header-icon
+     box; the LayerControl SVGs are viewBox-only. */
+  .foliplus-layer-filter-icon svg {
+    width: 100%;
+    height: 100%;
+  }
+}

@@ -53,6 +53,7 @@ import {
   toggleAll,
 } from "./listPanel/visibility.js";
 import { closeAttrsPanel } from "./overlayPanel/attr.js";
+import { closeFilterPanel } from "./overlayPanel/filter.js";
 import { closeMoreMenu } from "./overlayPanel/menu.js";
 import { finishRename } from "./overlayPanel/rename.js";
 import { loadPersistedState } from "./state.js";
@@ -364,6 +365,7 @@ const bindLayerEvents = (ui: LayerUI): void => {
     // there is actually a focus to tear down.
     subscribe(EVENTS.OVERLAY_CLEAR, () => closeMoreMenu(ui, true)),
     subscribe(EVENTS.OVERLAY_CLEAR, () => closeAttrsPanel(ui, false)),
+    subscribe(EVENTS.OVERLAY_CLEAR, () => closeFilterPanel(ui, false)),
     subscribe(EVENTS.OVERLAY_CLEAR, () => closeStylePanel(ui, false)),
     subscribe(EVENTS.OVERLAY_CLEAR, () => finishRename(ui)),
     subscribe(EVENTS.OVERLAY_CLEAR, () => {
@@ -459,6 +461,8 @@ const unbindEvents = (ui: LayerUI): void => {
   // "open A, close B" user-driven mutual exclusion.
   closeMoreMenu(ui, false);
   closeStylePanel(ui, false);
+  closeAttrsPanel(ui, false);
+  closeFilterPanel(ui, false);
   finishRename(ui, true);
   // Remove any focus animation still in flight (rect + row highlight).
   dismissFocus(ui);

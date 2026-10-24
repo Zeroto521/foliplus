@@ -161,6 +161,8 @@ class LayerInfoRegistry {
         opts.featureCountProvider ?? existingLi?.featureCountProvider ?? null,
       styleProvider: opts.styleProvider ?? existingLi?.styleProvider ?? null,
       styleSetters: opts.styleSetters ?? existingLi?.styleSetters ?? null,
+      filterProvider: opts.filterProvider ?? existingLi?.filterProvider ?? null,
+      filterSetter: opts.filterSetter ?? existingLi?.filterSetter ?? null,
       styleDefaultsProvider:
         opts.styleDefaultsProvider ?? existingLi?.styleDefaultsProvider ?? null,
       getBounds: opts.getBounds ?? existingLi?.getBounds ?? null,

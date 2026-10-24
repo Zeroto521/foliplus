@@ -72,6 +72,7 @@ describe("LayerUI menu", () => {
       expect(actions).toEqual([
         CONST.ACTION.FOCUS_LAYER,
         CONST.ACTION.STYLE_LAYER,
+        CONST.ACTION.FILTER_LAYER,
         CONST.ACTION.RENAME_LAYER,
         CONST.ACTION.ATTRS_LAYER,
         undefined, // the divider above the destructive entry

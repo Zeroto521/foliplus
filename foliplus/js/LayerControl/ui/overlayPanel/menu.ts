@@ -8,6 +8,7 @@ import { focusDisabledLocaleKey, focusDisabledReason } from "../focus/index.js";
 import { layerCanLabel, layerHasStyleDelegation } from "../style/index.js";
 import type { LayerUI } from "../surface.js";
 import { closeOverlays } from "../teardown.js";
+import { isFilterCapable } from "./filter.js";
 
 /**
  * Open the "more" overflow dropdown for a given layer row.
@@ -115,6 +116,31 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
     ),
   );
   if (styleDisabled) menu.lastElementChild!.setAttribute("disabled", "disabled");
+
+  // Filter is the stage-2 pilot: enabled only for point layers that
+  // carry a component's `styleSetters` — the Heatmap's data source is
+  // the point layer itself, and that is where the filter applies.
+  // Every other layer is disabled with a "not supported" tooltip so
+  // stage 3 can flip the gate when it lands.
+  const filterSupported = layerSupportsFilter(ui, layerId);
+
+  menu.appendChild(
+    dom.el(
+      "li",
+      {
+        "data-action": CONST.ACTION.FILTER_LAYER,
+        role: "menuitem",
+        tabindex: "0",
+        title: filterSupported
+          ? ui.T("filter_layer_tooltip")
+          : ui.T("filter_not_supported"),
+        "aria-disabled": filterSupported ? "false" : "true",
+      },
+      { html: SVGs.ICON_FILTER },
+      ui.T("filter_layer"),
+    ),
+  );
+  if (!filterSupported) menu.lastElementChild!.setAttribute("disabled", "disabled");
 
   // Rename writes to the layer itself, so it sits above the display-only
   // entry rather than at the tail of the working actions.
@@ -238,6 +264,16 @@ const deleteModeFor = (ui: LayerUI, layerId: string): DeleteMode => {
 const isComponentLayer = (ui: LayerUI, layerId: string): boolean => {
   return Boolean(ui.c.layerRegistry.get(layerId)?.styleSetters);
 };
+
+/** Stage-2 pilot gate for the ⋮ filter entry. A row is filterable only
+ *  when it declares the explicit filter capability (`filterProvider` +
+ *  `filterSetter` — the component that owns the row's data, HeatmapControl
+ *  today). Never inferred from `styleSetters`: MeasureControl declares
+ *  style delegation too and its rows are not filterable. The panel's
+ *  reads and writes derive from the same declaration, so the gate, the
+ *  panel and the owner cannot drift apart. */
+const layerSupportsFilter = (ui: LayerUI, layerId: string): boolean =>
+  isFilterCapable(ui.c.layerRegistry.get(layerId));
 
 const buildDeleteItem = (
   ui: LayerUI,

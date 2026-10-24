@@ -86,6 +86,8 @@ interface LayerUI {
   closeAttrsPanel(setFocus: boolean): void;
   openStylePanel(layerId: string): void;
   closeStylePanel(setFocus: boolean): void;
+  openFilterPanel(item: HTMLElement): void;
+  closeFilterPanel(setFocus: boolean): void;
   applyStyleLabelState(): void;
   renameLayer(layerId: string): void;
   finishRename(cancel?: boolean): void;

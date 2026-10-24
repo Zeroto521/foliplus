@@ -107,6 +107,8 @@ class HeatmapControl extends defineControl({
       mgr.onLayerChange.cancel();
       mgr.removeLayerChangeListener();
     }
+    if (mgr.onSourceContentChange) mgr.onSourceContentChange.cancel();
+    mgr.removeContentChangeListener();
     mgr.removeLayerDeletedListener();
     mgr.removeExportListener();
 

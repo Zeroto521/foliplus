@@ -101,6 +101,8 @@ class LayerFactory {
       styleProvider: opts.styleProvider,
       styleSetters: opts.styleSetters,
       styleDefaultsProvider: opts.styleDefaultsProvider,
+      filterProvider: opts.filterProvider,
+      filterSetter: opts.filterSetter,
       metaProvider: opts.metaProvider,
       content: { kind: CONTENT_KIND.LAYERS, panes: opts.panes },
     });
@@ -125,6 +127,8 @@ class LayerFactory {
       styleProvider: opts.styleProvider,
       styleSetters: opts.styleSetters,
       styleDefaultsProvider: opts.styleDefaultsProvider,
+      filterProvider: opts.filterProvider,
+      filterSetter: opts.filterSetter,
       onOpacity: opts.onOpacity,
       opacityBake: opts.opacityBake,
       content: {
@@ -205,6 +209,8 @@ class LayerFactory {
       styleProvider: opts.styleProvider ?? null,
       styleSetters: opts.styleSetters ?? null,
       styleDefaultsProvider: opts.styleDefaultsProvider ?? null,
+      filterProvider: opts.filterProvider ?? null,
+      filterSetter: opts.filterSetter ?? null,
       metaProvider: opts.metaProvider ?? null,
       onOpacity: opts.onOpacity ?? null,
       opacityBake: opts.opacityBake,

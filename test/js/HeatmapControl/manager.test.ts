@@ -542,7 +542,7 @@ describe("renderHexagons", () => {
     m.map = { _container: {}, getZoom: () => 5 };
     m.pointLayers = [{ id: "layer1", name: "P", layer: {}, count: 1 }];
     m.cachedAgg = {
-      key: "layer1|count||2|jenks|Reds|6",
+      key: "layer1|2|count||jenks|Reds|6|",
       data: {
         hexCells: {},
         getAggValue: () => 0,

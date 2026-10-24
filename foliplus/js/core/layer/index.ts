@@ -12,6 +12,7 @@ export {
   GROUP,
   HIDDEN,
   KIND,
+  META_SOURCE_LAYER_ID,
   NO_FEATURE_TREE_KINDS,
   PANE_ROLE,
   RECURSION,
@@ -53,8 +54,11 @@ export { ensureLayerAPI, requireLayerAPI } from "./api.js";
 export { CLUSTER_CAPABILITIES, deriveLayerKind } from "./util.js";
 export { LayerRuntimeStore } from "./LayerRuntimeStore.js";
 export { LayerOrder } from "./LayerOrder.js";
+export { buildLayerSnapshot } from "./snapshot.js";
+export { matches, select } from "./filter.js";
 export { INTENT, isFillRampConfig, LIVE, STYLE_KEYS } from "./intent.js";
 export type { AppliedProjection } from "./LayerRuntimeStore.js";
+export type { LayerFilter, LayerFilterModel } from "./filter.js";
 export type { Projection } from "./type.js";
 export type {
   AnnotationConfig,

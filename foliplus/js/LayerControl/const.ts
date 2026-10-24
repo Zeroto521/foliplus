@@ -191,6 +191,20 @@ const CLASSES = {
   TOGGLE_SLIDER: "foliplus-toggle-slider",
   ATTRS_PANEL: "foliplus-layer-attrs-panel",
   ATTRS_ICON: "foliplus-layer-attrs-icon",
+  /** Floating filter panel opened from the layer overflow menu. Stage 2. */
+  FILTER_PANEL: "foliplus-layer-filter-panel",
+  /** Empty-state message inside the filter panel (no numeric fields). */
+  FILTER_EMPTY: "foliplus-filter-empty",
+  /** Header icon of the filter panel (a funnel glyph). */
+  FILTER_ICON: "foliplus-layer-filter-icon",
+  /** Read-only filter field name in the panel's field row. */
+  FILTER_FIELD: "foliplus-filter-field",
+  /** Host element of the shared dual-thumb Slider in the range row. */
+  FILTER_SLIDER: "foliplus-filter-slider",
+  /** Live "kept / total" readout (aria-live=polite). */
+  FILTER_RESULT: "foliplus-filter-result",
+  /** Clear-filter footer button. */
+  FILTER_CLEAR: "foliplus-filter-clear",
 };
 
 /** Data attribute names. */
@@ -206,6 +220,10 @@ const ACTION = {
   FOCUS_LAYER: "focus-layer",
   RENAME_LAYER: "rename-layer",
   STYLE_LAYER: "style-layer",
+  /** Opens the layer's filter panel (stage 2). Disabled on rows that do not
+   *  declare the filter capability (`filterProvider` + `filterSetter` —
+   *  HeatmapControl today). */
+  FILTER_LAYER: "filter-layer",
   ATTRS_LAYER: "layer-attributes",
   DELETE_LAYER: "delete-layer",
 };

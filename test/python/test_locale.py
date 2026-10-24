@@ -58,6 +58,10 @@ _DYNAMIC_SUPPLEMENT: set[str] = {
     "foliplus.label_format_comma",
     "foliplus.label_format_int",
     "foliplus.label_format_percent",
+    # Filter panel dynamic labels (filter.ts) — the result readout composes
+    # its sentence from the {kept} / {total} template literals.
+    "LayerControl.filter_result",
+    "LayerControl.filter_result_label",
 }
 
 

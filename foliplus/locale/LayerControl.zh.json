@@ -70,5 +70,18 @@
   "LayerControl.style_fill": "填充颜色",
   "LayerControl.style_fill_opacity": "填充透明度",
   "LayerControl.style_size": "大小",
+  "LayerControl.border": "边框",
+  "LayerControl.filter_layer": "筛选",
+  "LayerControl.filter_layer_tooltip": "筛选该图层的记录",
+  "LayerControl.filter_not_supported": "该图层不支持筛选",
+  "LayerControl.filter_field": "字段",
+  "LayerControl.filter_range_min": "最小值",
+  "LayerControl.filter_range_max": "最大值",
+  "LayerControl.filter_range": "数值范围",
+  "LayerControl.filter_result_label": "结果",
+  "LayerControl.filter_result": "命中 {kept} / 共 {total}",
+  "LayerControl.filter_clear": "清除筛选",
+  "LayerControl.filter_empty": "该图层没有数值字段",
+  "LayerControl.style_size": "大小",
   "LayerControl.border": "边框"
 }

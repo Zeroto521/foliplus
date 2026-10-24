@@ -54,6 +54,7 @@ import {
   toggleAll,
 } from "./listPanel/visibility.js";
 import { closeAttrsPanel, openAttrsPanel } from "./overlayPanel/attr.js";
+import { closeFilterPanel, openFilterPanel } from "./overlayPanel/filter.js";
 import { OverlayPanel } from "./overlayPanel/index.js";
 import { closeMoreMenu, openMoreMenu } from "./overlayPanel/menu.js";
 import { finishRename, renameLayer } from "./overlayPanel/rename.js";
@@ -437,6 +438,12 @@ class LayerUI implements LayerUISurface {
   }
   closeStylePanel(setFocus: boolean) {
     return closeStylePanel(this, setFocus);
+  }
+  openFilterPanel(item: HTMLElement) {
+    return openFilterPanel(this, item);
+  }
+  closeFilterPanel(setFocus: boolean) {
+    return closeFilterPanel(this, setFocus);
   }
   /** Part of the surface `controller` drives (`unregisterLayer` drops a layer's
    *  cached field list). Peer ui/ modules call the module function directly
