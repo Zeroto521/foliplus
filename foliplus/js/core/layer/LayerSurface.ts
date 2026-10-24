@@ -577,7 +577,13 @@ class LayerSurface implements LayerSurfaceContract {
     // caller-declared pane outlives the surface, which is what lets the same
     // id be registered again without rebuilding panes — but its lease is
     // retired either way, so a retired surface never keeps a name blocked.
+    // A canvas face's own pane is retired by that face's `destroy` — the only
+    // path that deletes its DOM. Releasing the lease here would leave that call
+    // with nothing to check against, and the element would stay on the map with
+    // nobody left to take it off.
+    const canvasPane = this.surfaceDecl.canvas ? this.surfaceDecl.paneName : null;
     for (const name of this.acquiredPanes) {
+      if (name === canvasPane) continue;
       this.host.releasePane(
         name,
         this.id,

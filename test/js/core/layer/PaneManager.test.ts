@@ -633,6 +633,28 @@ describe("PaneManager", () => {
     expect(pm.childPaneSpecs.has("foliplus-canvas-heat")).toBe(false);
   });
 
+  it("ensurePane keeps created provenance across a same-owner re-book", () => {
+    // The shape the canvas teardown hit: a face books its pane before its
+    // surface does, and the surface's own `ensurePane` then finds the element
+    // already on the map. Reading `created` as `false` there turned a pane
+    // foliplus built into an adopted one, so the face's destroy retired the
+    // lease and left the element on the map with nobody left to take it off.
+    const pane = document.createElement("div");
+    document.body.appendChild(pane);
+    const panes: Record<string, HTMLElement> = {};
+    const map = makeMap(panes, {});
+    map.createPane = vi.fn((name: string) => {
+      panes[name] = pane;
+      return pane;
+    });
+    const pm = new PaneManager(map);
+    pm.ensurePane("foliplus-canvas-heat", false, "face");
+    pm.ensurePane("foliplus-canvas-heat", false, "face");
+    pm.releasePane("foliplus-canvas-heat", "face", true);
+    expect(pane.parentNode).toBeNull();
+    expect(map._panes["foliplus-canvas-heat"]).toBeUndefined();
+  });
+
   it("removePane refuses a pane the caller does not lease", () => {
     // The canvas teardown the lease model exists for: a face whose own pane
     // booking was refused still names a pane, and an unchecked destroy deleted

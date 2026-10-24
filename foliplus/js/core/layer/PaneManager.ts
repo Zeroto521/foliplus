@@ -241,6 +241,12 @@ class PaneManager {
       }
       this.paneLeases.set(paneName, { owner: self, created: true });
     } else {
+      // Provenance is the lease's, not the element's: `held` is only present
+      // for this same owner, and its `created` flag was set by the call that
+      // built the element. Re-reading it as `false` on every re-book turned a
+      // pane foliplus created into an adopted one, so the owner's destroy then
+      // retired the lease and left the element on the map.
+      const created = held ? held.created : false;
       if (!pane.classList.contains("foliplus-layer-pane")) {
         // An adopted pre-built pane must satisfy the same CSS contract as a
         // created one: the focus hide rule and the pointer-events rules key on
@@ -248,7 +254,7 @@ class PaneManager {
         // clickable) in focus mode.
         pane.classList.add("foliplus-layer-pane");
       }
-      this.paneLeases.set(paneName, { owner: self, created: false });
+      this.paneLeases.set(paneName, { owner: self, created });
     }
     return {
       pane,
@@ -311,7 +317,7 @@ class PaneManager {
    *  never has to know whether its booking was created or adopted. */
   releasePane(paneName: string, owner: string, removeDom: boolean): void {
     const held = this.paneLeases.get(paneName);
-    if (!held || held.owner !== owner) return;
+    if (held?.owner !== owner) return;
     this.paneLeases.delete(paneName);
     if (removeDom && held.created) this.destroyOwnPane(paneName);
   }
@@ -336,7 +342,7 @@ class PaneManager {
    *  over-invalidated structure-wide for a single pane. */
   removePane(paneName: string, owner: string): void {
     const held = this.paneLeases.get(paneName);
-    if (!held || held.owner !== owner) {
+    if (held?.owner !== owner) {
       log.warn(
         `refusing to destroy pane "${paneName}": not leased by ${owner} — ` +
           `removing it would delete another surface's carrier and leave its ` +

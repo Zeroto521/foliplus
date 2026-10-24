@@ -2530,3 +2530,17 @@ it("dismissFocus releases a stuck focusing mode when the focus UI state is gone"
   expect(modes.getMode(ui.config.name)).toBeNull();
   expect(ui.isFocusing()).toBe(false);
 });
+
+it("dismissFocus keeps the teardown total when a pane restore throws", () => {
+  const { ui } = initFixture();
+  // A surface that retired mid-focus leaves a restore that throws. Without
+  // the try/catch it aborted the teardown before the focusRect / focusMask /
+  // focusRenderer cleanup, leaving the map dimmed with no way back.
+  ui.focusController.focusedPaneRestores.push(() => {
+    throw new Error("surface gone");
+  });
+
+  expect(() => dismissFocus(ui)).not.toThrow();
+
+  expect(ui.focusController.focusedPaneRestores).toEqual([]);
+});

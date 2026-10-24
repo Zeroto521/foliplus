@@ -19,7 +19,6 @@
 // (`layerShadow`), per that module's charter.
 import { createLogger } from "#common/log.js";
 import { layerShadow } from "../leafletAdapter.js";
-import { walkLeaf } from "./walkLeaf.js";
 
 const log = createLogger("carrier");
 
@@ -56,25 +55,6 @@ const safeRead = <T>(read: () => T | undefined): T | undefined => {
   } catch {
     return undefined;
   }
-};
-
-/** The full-tree carrier audit behind `opacity: "pane"`: EVERY visible leaf
- *  must belong to a family the migrator relocates. A container qualifies
- *  while empty (provisional — its leaves arrive later and are relocated one
- *  by one, and the surface re-audits on re-registration), but the first
- *  unknown leaf flips the answer to "mixed" so the surface degrades instead
- *  of promising a pane write that will never cover the plugin's pixels.
- *  Fail closed: capability comes from what the carrier can actually cover. */
-const auditMigratableTree = (node: unknown): "ok" | "mixed" | "empty" => {
-  let known = 0;
-  let unknown = 0;
-  walkLeaf(node, leaf => {
-    if (isMigratableLeaf(leaf)) known++;
-    else unknown++;
-  });
-  if (unknown > 0) return "mixed";
-  if (known > 0) return "ok";
-  return "empty";
 };
 
 /** Every DOM element the layer can paint through, from the fields real
@@ -121,4 +101,4 @@ const assertInsideOwnedPanes = (
   }
 };
 
-export { assertInsideOwnedPanes, auditMigratableTree, isMigratableLeaf, visibleDomOf };
+export { assertInsideOwnedPanes, isMigratableLeaf, visibleDomOf };

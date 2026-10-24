@@ -348,6 +348,28 @@ describe("LayerSurface pane resolution", () => {
     expect(panes.overlayPane).toBeUndefined();
   });
 
+  it("reports a spec addMissingSpecs could not book", () => {
+    // A spec the constructor route never discovered, naming a pane another
+    // surface holds: it must be refused and reported, not declared in
+    // capabilities with no pane behind it.
+    const { panes, host } = makeMap();
+    new LayerSurface(host, {
+      id: "owner",
+      layer: new Path() as unknown as L.Layer,
+      paneName: "held-sub",
+    });
+    const surface = new LayerSurface(host, {
+      id: "target",
+      layer: new Path() as unknown as L.Layer,
+      paneSpecs: [{ role: "annotation", order: 1, name: "held-sub" }],
+    });
+    surface.materialize();
+
+    expect(surface.paneNames).toEqual([surface.synthesizedPaneName]);
+    expect(surface.panes.map(pane => pane.role)).toEqual(["base"]);
+    expect(panes["held-sub"]).toBeDefined();
+  });
+
   it("falls back to a synthesized pane when every discovered pane is refused", () => {
     // A tree whose only child pane is held by another surface would
     // otherwise report pane coverage while holding no base carrier at all.
