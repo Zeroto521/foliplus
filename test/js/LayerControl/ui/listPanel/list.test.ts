@@ -13,6 +13,7 @@ import {
   initTypesAndVisibility,
   insertLayerItem,
   rebuildList,
+  reconcileCursorByIdentity,
   renderInitialList,
   syncRowOrder,
   updateLayerItemLabel,
@@ -746,6 +747,37 @@ describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, ()
     registry.layers = [];
     expect(() => syncRowOrder(ui)).not.toThrow();
     expect(container.children.length).toBe(9);
+  });
+
+  it("reorderLayer refuses unknown ids, self-drops and cross-group pairs", () => {
+    // The drag commit entry's own guards — the drop path pre-checks for the
+    // hint, but the entry must hold on its own.
+    const { manager, ui } = initFixture({ data: benchData(3, 2) });
+    const changes: string[] = [];
+    ui.events.on(EVENTS.LAYER_CHANGE, payload => changes.push(payload.id));
+    const before = manager.layers.map(l => l.id);
+
+    expect(manager.reorderLayer("nope", "overlay_0")).toBe(false);
+    expect(manager.reorderLayer("overlay_0", "nope")).toBe(false);
+    expect(manager.reorderLayer("overlay_1", "overlay_1")).toBe(false);
+    expect(manager.reorderLayer("overlay_0", "base_0")).toBe(false);
+
+    expect(changes).toEqual([]);
+    expect(manager.layers.map(l => l.id)).toEqual(before);
+  });
+
+  it("reconcileCursorByIdentity clears the cursor when its row left the panel", () => {
+    const { ui } = initFixture({ data: benchData(3, 1) });
+    const row = rowOf(ui, "overlay_1");
+    row.focus();
+    ui.listPanel.activeIdx = getNavigableItems(ui).indexOf(row);
+
+    // A row removed mid-flow (a subscriber retired it inside the signal)
+    // leaves the cursor nothing to re-home onto.
+    row.remove();
+    reconcileCursorByIdentity(ui, "overlay_1");
+
+    expect(ui.listPanel.activeIdx).toBeNull();
   });
 
   it("every reorder entrance publishes the same event pair and settles the same way", () => {

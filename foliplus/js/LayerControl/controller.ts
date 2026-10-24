@@ -781,7 +781,9 @@ class LayerController implements LayerAPI {
     if (!item || !target) return false;
     const from = this.layerRegistry.indexOf(item);
     const to = this.layerRegistry.indexOf(target);
-    if (from === -1 || to === -1 || from === to) return false;
+    // Same slot is a self-drop; any other pairing crosses the group gate,
+    // which also owns the bounds check, below.
+    if (from === to) return false;
     if (!this.canReorderBetween(from, to)) return false;
     return this.commitReorder(id, item, () => this.layerRegistry.reorder(from, to));
   }

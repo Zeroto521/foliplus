@@ -381,7 +381,7 @@ describe("ui/drag", () => {
     });
 
     it("handleDragLeave ignores targets that are not layer rows", () => {
-      const { ui } = initFixture({ data: overlays(2) });
+      initFixture({ data: overlays(2) });
       const shell = document.createElement("div");
 
       expect(() => handleDragLeave(dragEvent(shell))).not.toThrow();
