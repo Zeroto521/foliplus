@@ -140,6 +140,26 @@ describe("config/eslint/base.mjs rule scoping", () => {
   });
 });
 
+// The lint config is the one file whose job is to check everything else, and it
+// silently escaped every gate until this was written: a file outside the lint
+// globs is a file no rule can reach, and nothing in the output says so.
+describe("lint config is itself linted", () => {
+  it("npm scripts cover config/ and the root entry", () => {
+    expect(pkg.scripts.lint).toContain("config/**/*.mjs");
+    expect(pkg.scripts.lint).toContain("eslint.config.js");
+    expect(pkg.scripts["format:check"]).toContain("config/**/*.mjs");
+  });
+
+  it("a linted config file is claimed by a rule block, not just the recommended set", () => {
+    // Without a `files:` block the file only inherits
+    // `tseslint.configs.recommended` (23 rules); a block is what makes the
+    // project's own rules apply (60+).
+    const blocks = fileGlobs();
+    const reachesConfig = blocks.some(globs => globs.includes("config/**/*.mjs"));
+    expect(reachesConfig).toBe(true);
+  });
+});
+
 // The root entry must re-export the implementation, not redefine it. Without
 // this, a future edit could put rules back in the root file and the guard
 // above would keep passing against a stale implementation file.
