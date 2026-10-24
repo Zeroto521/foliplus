@@ -4,7 +4,7 @@ import type { LayerController } from "#foliplus/LayerControl/controller.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { getIntent, seedIntentMap } from "#foliplus/LayerControl/ui/intent.js";
 import { ensureModes } from "#foliplus/core/mode.js";
-import { findItem, initFixture } from "../fixture.js";
+import { attachedPanel, findItem, initFixture } from "../fixture.js";
 
 describe("LayerUI rename", () => {
   let manager: LayerController;
@@ -385,7 +385,7 @@ describe("LayerUI rename", () => {
     // ─────────── color basemap (outside layerRegistry) ───────────
 
     it("color layer more menu shows a disabled focus-layer item", () => {
-      const colorItem = ui.uiContainer.querySelector(
+      const colorItem = attachedPanel(ui).querySelector(
         `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
       )!;
       ui.openMoreMenu(colorItem as HTMLElement);
@@ -402,7 +402,7 @@ describe("LayerUI rename", () => {
     });
 
     it("renameLayer(SOLID_BASEMAP_ID) opens an inline input seeded with the displayed name", () => {
-      const colorItem = ui.uiContainer.querySelector(
+      const colorItem = attachedPanel(ui).querySelector(
         `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
       )!;
       // Capture the label the UI already shows (locale "Solid Color") BEFORE
@@ -421,7 +421,7 @@ describe("LayerUI rename", () => {
     });
 
     it("committing a color-layer rename persists to renamedNames (not the registry)", () => {
-      const colorItem = ui.uiContainer.querySelector(
+      const colorItem = attachedPanel(ui).querySelector(
         `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
       )!;
       ui.renameLayer(CONST.SOLID_BASEMAP_ID);
@@ -449,7 +449,7 @@ describe("LayerUI rename", () => {
       ui.loadPersistedState();
       ui.applyUserState();
 
-      const colorItem = ui.uiContainer.querySelector(
+      const colorItem = attachedPanel(ui).querySelector(
         `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
       )!;
       expect(colorItem.querySelector("label")!.textContent).toBe("Custom Color");
@@ -464,7 +464,7 @@ describe("LayerUI rename", () => {
 
     it("keeps a renamed color basemap through a re-render (fold/reorder)", () => {
       ui.renameLayer(CONST.SOLID_BASEMAP_ID);
-      const firstLabel = ui.uiContainer.querySelector(
+      const firstLabel = attachedPanel(ui).querySelector(
         `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"] label`,
       )!;
       // The rename input lives inside the label; the first bare `input` in the
@@ -478,7 +478,7 @@ describe("LayerUI rename", () => {
       ui.renderInitialList();
       ui.initTypesAndVisibility();
 
-      const colorItem = ui.uiContainer.querySelector(
+      const colorItem = attachedPanel(ui).querySelector(
         `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
       )!;
       expect(colorItem.querySelector("label")!.textContent).toBe("My Base");

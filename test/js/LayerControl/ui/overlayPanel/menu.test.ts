@@ -6,7 +6,7 @@ import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { seedIntentMap } from "#foliplus/LayerControl/ui/intent.js";
 import { activateDeleteItem } from "#foliplus/LayerControl/ui/overlayPanel/index.js";
 import { ensureModes } from "#foliplus/core/mode.js";
-import { findItem, initFixture } from "../fixture.js";
+import { attachedPanel, findItem, initFixture } from "../fixture.js";
 
 describe("LayerUI menu", () => {
   let manager: LayerController;
@@ -209,7 +209,7 @@ describe("LayerUI menu", () => {
     it("opens without crashing when the item has no data-layer-id", () => {
       const item = document.createElement("div");
       item.className = "foliplus-layer-item";
-      ui.uiContainer.appendChild(item);
+      attachedPanel(ui).appendChild(item);
       ui.openMoreMenu(item);
       expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(1);
     });
@@ -251,7 +251,7 @@ describe("LayerUI menu", () => {
     });
 
     it("color layer has more button (rename entry point)", () => {
-      const colorItem = ui.uiContainer.querySelector(
+      const colorItem = attachedPanel(ui).querySelector(
         `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
       )!;
       const btn = colorItem.querySelector(`.${CONST.CLASSES.MORE_BTN}`);
@@ -457,7 +457,7 @@ describe("LayerUI menu", () => {
     });
 
     it("renders a delete entry for the colour basemap, not disabled", () => {
-      const colorItem = ui.uiContainer.querySelector(
+      const colorItem = attachedPanel(ui).querySelector(
         `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
       ) as HTMLElement;
       ui.openMoreMenu(colorItem);
@@ -484,7 +484,7 @@ describe("LayerUI menu", () => {
         config: {},
       } as never);
 
-      const item = ui.uiContainer.querySelector(
+      const item = attachedPanel(ui).querySelector(
         `[data-layer-id="folium_fg"]`,
       ) as HTMLElement;
       expect(item).not.toBeNull();
@@ -505,7 +505,7 @@ describe("LayerUI menu", () => {
 
       // The row carries its identity in data-layer-id, and a component layer
       // row gets a more-menu too — the menu just must not offer a delete.
-      const item = ui.uiContainer.querySelector(
+      const item = attachedPanel(ui).querySelector(
         `[data-layer-id="search1"]`,
       ) as HTMLElement;
       expect(item).not.toBeNull();
@@ -527,7 +527,7 @@ describe("LayerUI menu", () => {
         config: {},
       } as never);
 
-      const item = ui.uiContainer.querySelector(
+      const item = attachedPanel(ui).querySelector(
         `[${CONST.DATA.LAYER_ID}="orphan1"]`,
       ) as HTMLElement;
       expect(item).not.toBeNull();
@@ -551,7 +551,7 @@ describe("LayerUI menu", () => {
         styleSetters: { labelShow: vi.fn() },
       } as never);
 
-      const item = ui.uiContainer.querySelector(
+      const item = attachedPanel(ui).querySelector(
         `[data-layer-id="measure1"]`,
       ) as HTMLElement;
       expect(item).not.toBeNull();
@@ -585,7 +585,7 @@ describe("LayerUI menu", () => {
     });
 
     it("arms on the first click and deletes on the second for the colour basemap", () => {
-      const item = ui.uiContainer.querySelector(
+      const item = attachedPanel(ui).querySelector(
         `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
       ) as HTMLElement;
       ui.openMoreMenu(item);
@@ -635,7 +635,7 @@ describe("LayerUI menu", () => {
         layer: { options: {}, eachLayer: vi.fn() },
         styleSetters: {},
       } as never);
-      const item = ui.uiContainer.querySelector(
+      const item = attachedPanel(ui).querySelector(
         `[${CONST.DATA.LAYER_ID}="measure1"]`,
       ) as HTMLElement;
       ui.openMoreMenu(item);

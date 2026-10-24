@@ -6,7 +6,57 @@
 // `LayerControl/type.ts` (LayerOverride / LayerIntent / PersistedLayerState /
 // IntentRow / LoadSource / AnnotationConfig) and `LayerControl/ui/intent.ts`
 // (INTENT / LIVE / STYLE_KEYS / IntentKey) — semantics unchanged.
+import { type ClassifyMethod, isClassifyMethod } from "#core/classify.js";
 import type { NumberStyle } from "#foliplus/config-schema.js";
+
+/** One arm of the value-based fill: which property drives the colour, how
+ *  the values are split, into how many classes, and which scheme paints
+ *  them. `field` is the caller's key selection, the other three are the
+ *  classifier + palette inputs (core/ramp.ts).
+ *
+ *  `kind` types the drive property. Absent means "numeric" — the only arm
+ *  that exists yet — and "categorical" is reserved for the colour-by-category
+ *  batch. A record that asks for a `kind` this client cannot build is dropped
+ *  whole by the persistence reader rather than misapplied as a numeric ramp. */
+type FillRampConfig = {
+  /** How the drive property is typed. Absent = "numeric". */
+  kind?: "numeric";
+  field: string;
+  method: ClassifyMethod;
+  classes: number;
+  scheme: string;
+};
+
+/** Whether a value is a ramp config this client can build: the four fields
+ *  the classifier needs, each inside the bounds the picker offers. The
+ *  persistence reader and the LIVE presence rule share this one predicate,
+ *  so a live rule that accepted a partial config cannot let a caller set a
+ *  record `buildRamp` cannot classify.
+ *
+ *  `field` and `scheme` are tested for non-whitespace only, never rewritten:
+ *  a GeoJSON property called " score " is a different key from "score", so
+ *  trimming on read would silently miss every feature after a reload. `method`
+ *  is different - it is a closed protocol token, so it goes through
+ *  `isClassifyMethod` and a name outside the four (including one with padding
+ *  or the wrong case) drops the record whole. `kind` accepts only absence or
+ *  "numeric" - the categorical arm is not implemented, so a record that asks
+ *  for it is dropped rather than misapplied as a numeric ramp. */
+const isFillRampConfig = (value: unknown): value is FillRampConfig => {
+  if (value == null || typeof value !== "object" || Array.isArray(value)) return false;
+  const data = value as Record<string, unknown>;
+  const isName = (v: unknown): v is string =>
+    typeof v === "string" && v.trim().length > 0;
+  return (
+    isName(data.field) &&
+    isClassifyMethod(data.method) &&
+    isName(data.scheme) &&
+    typeof data.classes === "number" &&
+    Number.isInteger(data.classes) &&
+    data.classes >= 2 &&
+    data.classes <= 9 &&
+    (data.kind === undefined || data.kind === "numeric")
+  );
+};
 
 /** Per-layer annotation config (matches what persistence stores). */
 interface AnnotationConfig {
@@ -30,10 +80,13 @@ type LayerOverride =
   | "visible"
   | "fillColor"
   | "fillOpacity"
+  | "fillRamp"
+  | "fillMode"
   | "borderColor"
   | "borderWeight"
   | "opacity"
-  | "zoomRange";
+  | "zoomRange"
+  | "size";
 
 /** One layer's live intent values — the in-memory twin of
  *  {@link PersistedLayerState} (same value shapes) plus `name`.
@@ -78,10 +131,20 @@ type LayerIntent = {
   visible?: boolean;
   fillColor?: string;
   fillOpacity?: number;
+  /** The value-based fill config when the layer is painted by a field.
+   *  Kept when the active arm is solid — the mode switch back restores it. */
+  fillRamp?: FillRampConfig;
+  /** Which fill arm the user chose: a single colour or a value ramp.
+   *  Absent means solid — the arm that predates the ramp. */
+  fillMode?: "solid" | "ramp";
   borderColor?: string;
   borderWeight?: number;
   opacity?: number;
   zoomRange?: [number, number];
+  /** The fixed pixel radius the user set (CircleMarker only). Frozen on
+   *  first write like `authorOpacityBase` — a re-read would feed the leaf its
+   *  own last write, compounding every keystroke. */
+  size?: number;
   /** User-assigned display name (replaces the layer's authored name). */
   name?: string;
   /** Label (annotation) config seed for this layer. Live label state after
@@ -99,6 +162,13 @@ type PersistedLayerState = {
   fillColor?: string;
   /** Fill opacity (0-1) the user set in the style panel. */
   fillOpacity?: number;
+  /** The value-based fill config the user set (field / method / classes /
+   *  scheme). The ramp arm owns the colour; solid-mode opacity still rides
+   *  along, so the two arms share one fillOpacity override. */
+  fillRamp?: FillRampConfig;
+  /** Which fill arm is active ("solid" | "ramp"); the inactive config is
+   *  kept rather than cleared so a switch back restores it. */
+  fillMode?: "solid" | "ramp";
   /** The hex stroke color the user picked in the style panel. LayerControl
    *  owns the write (a self-managed dimension — see ui/style/border.ts), so
    *  it lives in this record rather than on the annotation config. */
@@ -110,6 +180,10 @@ type PersistedLayerState = {
    *  min_zoom / max_zoom is only the starting value, so it reaches this field
    *  only once the user has dragged the handles. */
   zoomRange?: [number, number];
+  /** The fixed pixel radius the user set in the style panel (CircleMarker
+   *  only). LayerControl owns the write — a self-managed dimension, see
+   *  ui/style/size.ts. */
+  size?: number;
   /** The layer's label (annotation) config — a style dimension of this layer,
    *  not an override: it carries no provenance marker and survives alongside
    *  an empty `overrides` array (a layer the user configured *only* labels
@@ -149,10 +223,13 @@ const INTENT = {
   VISIBLE: "visible",
   FILL_COLOR: "fillColor",
   FILL_OPACITY: "fillOpacity",
+  FILL_RAMP: "fillRamp",
+  FILL_MODE: "fillMode",
   BORDER_COLOR: "borderColor",
   BORDER_WEIGHT: "borderWeight",
   OPACITY: "opacity",
   ZOOM_RANGE: "zoomRange",
+  SIZE: "size",
   NAME: "name",
   ANNOTATION: "annotation",
 } as const satisfies Record<string, keyof LayerIntent>;
@@ -166,10 +243,16 @@ const LIVE: Record<IntentKey, (value: unknown) => boolean> = {
   [INTENT.VISIBLE]: value => typeof value === "boolean",
   [INTENT.FILL_COLOR]: value => typeof value === "string",
   [INTENT.FILL_OPACITY]: value => typeof value === "number",
+  [INTENT.FILL_RAMP]: isFillRampConfig,
+  [INTENT.FILL_MODE]: value => value === "solid" || value === "ramp",
   [INTENT.BORDER_COLOR]: value => typeof value === "string",
   [INTENT.BORDER_WEIGHT]: value => typeof value === "number",
   [INTENT.OPACITY]: value => typeof value === "number",
   [INTENT.ZOOM_RANGE]: value => Array.isArray(value),
+  // A finite number only: Infinity cannot reach the leaf, and a non-finite
+  // stored value would make the row fall back to the author's radius while
+  // still advertising provenance.
+  [INTENT.SIZE]: value => typeof value === "number" && Number.isFinite(value),
   [INTENT.NAME]: value => typeof value === "string",
   [INTENT.ANNOTATION]: value => value != null,
 };
@@ -183,15 +266,19 @@ const STYLE_KEYS = {
   visible: INTENT.VISIBLE,
   fillColor: INTENT.FILL_COLOR,
   fillOpacity: INTENT.FILL_OPACITY,
+  fillRamp: INTENT.FILL_RAMP,
+  fillMode: INTENT.FILL_MODE,
   borderColor: INTENT.BORDER_COLOR,
   borderWeight: INTENT.BORDER_WEIGHT,
   opacity: INTENT.OPACITY,
   zoomRange: INTENT.ZOOM_RANGE,
+  size: INTENT.SIZE,
 } as const satisfies Record<LayerOverride, IntentKey>;
 
-export { INTENT, LIVE, STYLE_KEYS };
+export { INTENT, isFillRampConfig, LIVE, STYLE_KEYS };
 export type {
   AnnotationConfig,
+  FillRampConfig,
   IntentKey,
   IntentRow,
   LayerIntent,

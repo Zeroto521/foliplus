@@ -39,7 +39,8 @@ import {
   initLayerItem,
   initTypesAndVisibility,
   insertLayerItem,
-  reindexAfterMove,
+  markSettled,
+  rebuildList,
   renderInitialList,
   renderLayerItem,
   renderToggleAllRow,
@@ -103,6 +104,8 @@ class ListPanel {
 
 export {
   initTypesAndVisibility,
+  markSettled,
+  rebuildList,
   renderInitialList,
   insertLayerItem,
   updateLayerItemLabel,
@@ -110,7 +113,6 @@ export {
   renderLayerItem,
   colorLayerName,
   initLayerItem,
-  reindexAfterMove,
 };
 export { ListPanel };
 export {

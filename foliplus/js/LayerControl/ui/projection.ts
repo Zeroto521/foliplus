@@ -111,25 +111,4 @@ const projectLayer = (ui: LayerUI, layerInfo: LayerInfo): Projection => {
   return { id, intent: { visible: intent }, effectiveShown, opacity };
 };
 
-/** Project every id the panel or the executor cares about. The set is the
- *  union `applyUserState` used to walk — the registry plus every id with a
- *  persisted dimension, so an id with stored state but no registry entry
- *  keeps flowing through instead of being pruned. Unresolvable ids are
- *  skipped: they may be a component that registers later, and the id space
- *  is bounded by the layers an author ever declares, so the record cannot
- *  grow away ("not in the registry" never means "gone"). */
-const projectAll = (ui: LayerUI): Map<string, Projection> => {
-  const ids = new Set([
-    ...ui.c.layers.map(layerInfo => layerInfo.id),
-    ...ui.intentStore.ids(),
-  ]);
-  const result = new Map<string, Projection>();
-  for (const id of ids) {
-    const layerInfo = ui.c.layerRegistry.get(id);
-    if (!layerInfo) continue;
-    result.set(id, projectLayer(ui, layerInfo));
-  }
-  return result;
-};
-
-export { projectAll, projectLayer, intentVisibleOf, inZoomRange, currentOpacity };
+export { projectLayer, intentVisibleOf, inZoomRange, currentOpacity };

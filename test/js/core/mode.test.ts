@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { EVENTS, EventBus } from "#foliplus/core/event/index.js";
 import { ModeManager, ensureModes, guardBlocked } from "#foliplus/core/mode.js";
 
 // Shared mocks for the ModeManager constructor (bus + map).
@@ -6,6 +7,8 @@ const makeBus = (): any => ({
   on: vi.fn(),
   off: vi.fn(),
   emit: vi.fn(),
+  emitSettled: vi.fn(),
+  publish: vi.fn(),
   clear: vi.fn(),
   eventCount: 0,
 });
@@ -52,19 +55,40 @@ describe("ModeManager", () => {
     const bus = makeBus();
     const mm = new ModeManager(bus, makeMap());
     mm.setMode("SearchControl", "addr");
-    expect(bus.emit).toHaveBeenCalledWith("foliplus:mode:change", {
+    expect(bus.publish).toHaveBeenCalledWith("foliplus:mode:change", {
       component: "SearchControl",
       mode: "addr",
     });
+  });
+
+  it("a throwing MODE_CHANGE consumer is recorded, not raised, and the lock stays applied", () => {
+    // MODE_CHANGE is a notification (see EVENT_POLICY): listeners all run,
+    // consumer failures are recorded to the diagnostic log, and the
+    // producer's local sync is never interrupted — setMode must not throw
+    // and must leave mode + interaction lock consistent.
+    const { map, leaf } = makeMapWithLeaf();
+    const bus = new EventBus();
+    const seen: (string | null)[] = [];
+    bus.on(EVENTS.MODE_CHANGE, () => {
+      throw new Error("mode boom");
+    });
+    bus.on(EVENTS.MODE_CHANGE, payload => seen.push(payload.mode));
+    const mm = new ModeManager(bus, map as never);
+
+    expect(() => mm.setMode("MeasureControl", "distance")).not.toThrow();
+
+    expect(mm.getMode("MeasureControl")).toBe("distance");
+    expect(leaf.options.interactive).toBe(false);
+    expect(seen).toEqual(["distance"]);
   });
 
   it("setMode does NOT emit when mode is unchanged (idempotent)", () => {
     const bus = makeBus();
     const mm = new ModeManager(bus, makeMap());
     mm.setMode("X", "a");
-    bus.emit.mockClear();
+    bus.publish.mockClear();
     mm.setMode("X", "a");
-    expect(bus.emit).not.toHaveBeenCalled();
+    expect(bus.publish).not.toHaveBeenCalled();
   });
 
   it("keys returns all registered components", () => {
@@ -240,9 +264,12 @@ describe("ensureModes", () => {
     mm.setMode("MeasureControl", "distance");
     expect(leaf.options.interactive).toBe(false);
 
-    const unloadHandler = (map.on as any).mock.calls.find(
+    // Both the bus and the mode manager register unload teardown; the mode
+    // manager's is registered last, so it owns the final cleanup.
+    const unloads = (map.on as any).mock.calls.filter(
       ([event]: [string]) => event === "unload",
-    )?.[1];
+    );
+    const unloadHandler = unloads[unloads.length - 1]?.[1];
     expect(unloadHandler).toBeDefined();
     unloadHandler();
 

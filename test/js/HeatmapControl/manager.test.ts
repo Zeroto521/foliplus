@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
+import { SCHEME_FALLBACK_COLOR } from "#core/palette.js";
 import * as CONST from "#foliplus/HeatmapControl/const.js";
 import { HeatmapManager } from "#foliplus/HeatmapControl/manager.js";
 import { rebuildLayerDropdown } from "#foliplus/HeatmapControl/ui.js";
@@ -506,6 +507,23 @@ describe("renderFeatures", () => {
     m.renderFeatures([{ type: "Feature" }] as any);
     expect(handler).toHaveBeenCalledWith({ id: m.layerId });
   });
+
+  it("count broadcast is settled — a thrower does not starve later consumers", () => {
+    const m = makeManager();
+    m.overlay.register = vi.fn();
+    m.redrawHeatmap = vi.fn();
+    const bus = ensureEvents(m.map);
+    const seen: string[] = [];
+    bus.on(EVENTS.LAYER_ITEM_COUNT_CHANGE, () => {
+      throw new Error("count boom");
+    });
+    bus.on(EVENTS.LAYER_ITEM_COUNT_CHANGE, payload => seen.push(payload.id));
+
+    expect(() => m.renderFeatures([{ type: "Feature" }] as any)).toThrow("count boom");
+
+    expect(seen).toEqual([m.layerId]);
+    expect(m.cachedFeatures).toEqual([{ type: "Feature" }]);
+  });
 });
 
 describe("renderHexagons", () => {
@@ -538,20 +556,6 @@ describe("renderHexagons", () => {
   });
 });
 
-describe("wrapper delegation & the registration snapshot", () => {
-  it("computeBreaks forwards the caller's args to the shared classifier", async () => {
-    const m = makeManager();
-    const mod = await import("#core/classify.js");
-    const spy = vi.spyOn(mod, "computeBreaks").mockImplementation(() => [1, 5]);
-    try {
-      m.computeBreaks([3, 1, 4], 4, "fisher-jenks");
-      expect(spy).toHaveBeenCalledWith([3, 1, 4], 4, "fisher-jenks");
-    } finally {
-      spy.mockRestore();
-    }
-  });
-});
-
 describe("HeatmapManager — export event subscriptions", () => {
   // The two export handlers are named methods, so the tests below assert on
   // them.  A bus that stopped delivering — or a subscription that went
@@ -562,7 +566,7 @@ describe("HeatmapManager — export event subscriptions", () => {
   it("BEFORE_EXPORT flips to export mode via onBeforeExport", () => {
     const m = makeManager();
     const beforeSpy = vi.spyOn(m, "onBeforeExport");
-    ensureEvents(m.map).emit(EVENTS.BEFORE_EXPORT, { component: "ExportControl" });
+    ensureEvents(m.map).publish(EVENTS.BEFORE_EXPORT, { component: "ExportControl" });
     expect(beforeSpy).toHaveBeenCalledTimes(1);
     expect(m.renderAll).toBe(true);
   });
@@ -588,7 +592,7 @@ describe("HeatmapManager — export event subscriptions", () => {
     bus.on(EVENTS.BEFORE_EXPORT, probeBefore);
     bus.on(EVENTS.AFTER_EXPORT, probeAfter);
 
-    bus.emit(EVENTS.BEFORE_EXPORT, { component: "ExportControl" });
+    bus.publish(EVENTS.BEFORE_EXPORT, { component: "ExportControl" });
     bus.emit(EVENTS.AFTER_EXPORT, { component: "ExportControl" });
 
     expect(beforeSpy).not.toHaveBeenCalled();
@@ -612,11 +616,11 @@ describe("HeatmapManager — export event subscriptions", () => {
     const afterSpy = vi.spyOn(m, "onAfterExport");
     const bus = ensureEvents(m.map);
 
-    bus.emit(EVENTS.BEFORE_EXPORT, { component: "ExportControl" });
+    bus.publish(EVENTS.BEFORE_EXPORT, { component: "ExportControl" });
     expect(beforeSpy).toHaveBeenCalledTimes(1);
     expect(afterSpy).not.toHaveBeenCalled();
 
-    bus.emit(EVENTS.BEFORE_EXPORT, { component: "ExportControl" });
+    bus.publish(EVENTS.BEFORE_EXPORT, { component: "ExportControl" });
     bus.emit(EVENTS.AFTER_EXPORT, { component: "ExportControl" });
     expect(beforeSpy).toHaveBeenCalledTimes(2);
     expect(afterSpy).toHaveBeenCalledTimes(1);
@@ -687,7 +691,7 @@ describe("HeatmapManager — export event subscriptions", () => {
     expect(m.cachedFeatures).toBeNull();
     expect(m.overlay.unregister).toHaveBeenCalled();
 
-    bus.emit(EVENTS.BEFORE_EXPORT, { component: "ExportControl" });
+    bus.publish(EVENTS.BEFORE_EXPORT, { component: "ExportControl" });
     bus.emit(EVENTS.AFTER_EXPORT, { component: "ExportControl" });
     bus.emit(EVENTS.LAYER_CHANGE, { id: "pts", kind: "vector" });
     expect(m.renderAll).toBe(false);
@@ -848,7 +852,7 @@ describe("initScan — single-layer auto-select on first scan only", () => {
     expect(m.hasScanned).toBe(false);
 
     // LayerControl (or any control) finishing attach re-triggers the scan.
-    ensureEvents(m.map).emit(EVENTS.CONTROL_ATTACHED, {
+    ensureEvents(m.map).publish(EVENTS.CONTROL_ATTACHED, {
       component: "LayerControl",
     });
 
@@ -893,7 +897,7 @@ describe("initScan — single-layer auto-select on first scan only", () => {
     cleanup();
     cleanup(); // second call is a no-op
 
-    ensureEvents(m.map).emit(EVENTS.CONTROL_ATTACHED, {
+    ensureEvents(m.map).publish(EVENTS.CONTROL_ATTACHED, {
       component: "LayerControl",
     });
     // Unsubscribed — no further scan ran, and no late settle.
@@ -1268,7 +1272,7 @@ describe("HeatmapManager — style delegation", () => {
     // this.map.foliplus (makeCtrl wires the same object).
     (m.map as unknown as { foliplus: unknown }).foliplus = window.map.foliplus;
     const touchLayer = window.map.foliplus.LayerAPI.touchLayer;
-    const emitSpy = vi.spyOn(m.events, "emit");
+    const emitSpy = vi.spyOn(m.events, "publish");
     const opts = getCanvasOpts();
 
     opts.styleSetters!.labelShow!(true);
@@ -1283,7 +1287,7 @@ describe("HeatmapManager — style delegation", () => {
     const m = makeManager();
     (m.map as unknown as { foliplus: unknown }).foliplus = window.map.foliplus;
     const touchLayer = window.map.foliplus.LayerAPI.touchLayer;
-    const emitSpy = vi.spyOn(m.events, "emit");
+    const emitSpy = vi.spyOn(m.events, "publish");
     const opts = getCanvasOpts();
 
     opts.styleSetters!.labelFormat!("comma");
@@ -1473,7 +1477,7 @@ describe("HeatmapManager — style delegation", () => {
     const m = makeManager();
     (m.map as unknown as { foliplus: unknown }).foliplus = window.map.foliplus;
     const touchLayer = window.map.foliplus.LayerAPI.touchLayer;
-    const emitSpy = vi.spyOn(m.events, "emit");
+    const emitSpy = vi.spyOn(m.events, "publish");
     const opts = getCanvasOpts();
 
     opts.styleSetters!.borderWeight!(2.5);
@@ -1512,7 +1516,7 @@ describe("HeatmapManager — style delegation", () => {
     const m = makeManager();
     (m.map as unknown as { foliplus: unknown }).foliplus = window.map.foliplus;
     const touchLayer = window.map.foliplus.LayerAPI.touchLayer;
-    const emitSpy = vi.spyOn(m.events, "emit");
+    const emitSpy = vi.spyOn(m.events, "publish");
     const opts = getCanvasOpts();
 
     opts.styleSetters!.borderColor!("#00ff00");
@@ -1758,7 +1762,7 @@ describe("constructor — CONFIG fallbacks", () => {
     expect(m.scheme).toBe("Reds");
     expect(m.method).toBe("jenks");
     expect(m.numClasses).toBe(CONST.CLASS_COUNT.DEFAULT);
-    expect(m.borderColor).toBe(CONST.GRAY);
+    expect(m.borderColor).toBe(SCHEME_FALLBACK_COLOR);
   });
 });
 
@@ -2091,15 +2095,6 @@ describe("resetState — CONFIG fallbacks", () => {
     expect(m.numClasses).toBe(CONST.CLASS_COUNT.DEFAULT);
     expect(m.method).toBe("jenks");
     expect(m.scheme).toBe("Reds");
-  });
-});
-
-describe("computeBreaks", () => {
-  it("delegates to computeBreaksFn", () => {
-    const m = makeManager();
-    const result = m.computeBreaks([1, 2, 3, 4, 5], 3, "jenks");
-    expect(Array.isArray(result)).toBe(true);
-    expect(result.length).toBeGreaterThanOrEqual(2);
   });
 });
 

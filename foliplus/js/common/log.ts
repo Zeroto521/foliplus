@@ -1,4 +1,5 @@
 // common/log — namespaced foliplus diagnostics.
+/* eslint-disable no-console -- this module IS the console wrapper */
 // Every foliplus console message and thrown error message carries a `[<name>]`
 // prefix so output is greppable and attributable at a glance. Components pass
 // CONFIG.name; shared modules that take a caller name (e.g. storage) keep their
@@ -22,6 +23,7 @@ const createLogger = (name: string): Logger => {
   return {
     warn: (message, ...args) => console.warn(namespaced(message), ...args),
     error: (message, ...args) => console.error(namespaced(message), ...args),
+    debug: (message, ...args) => console.debug(namespaced(message), ...args),
     msg: namespaced,
   };
 };

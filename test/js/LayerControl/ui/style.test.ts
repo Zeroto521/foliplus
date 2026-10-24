@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AUTO_FIELD } from "#core/label/index.js";
+import { DIM } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerController } from "#foliplus/LayerControl/controller.js";
 import { sliderOf } from "#foliplus/LayerControl/slider.js";
@@ -25,11 +26,20 @@ import {
   clampPct,
   resetLayerOpacity,
 } from "#foliplus/LayerControl/ui/style/opacity.js";
+import { getDimension } from "#foliplus/LayerControl/ui/style/registry.js";
 import { resetLayerZoomRange } from "#foliplus/LayerControl/ui/style/zoomRange.js";
+import { EVENTS } from "#foliplus/core/event/index.js";
 import { ensureModes } from "#foliplus/core/mode.js";
 import { getLayerAlpha } from "#common/canvasAlpha.js";
 import { NUMBER_FORMAT } from "#common/format.js";
-import { GridLayer, findItem, initFixture, installLeafletGlobals } from "./fixture.js";
+import {
+  GridLayer,
+  attachedPanel,
+  findItem,
+  initFixture,
+  installLeafletGlobals,
+  oneOverlay,
+} from "./fixture.js";
 
 /** Percentage the slider fill is drawn at, read off the primitive's inline
  *  width. The fill spans the rail's travel range, so 0.35 means 35%. */
@@ -1681,7 +1691,7 @@ describe("LayerUI style panel", () => {
     // "no extent" verdict, an off row is simply hidden and has nothing to
     // style. The color basemap starts unchecked, so its Style entry starts
     // disabled and turns on with the box.
-    const item = ui.uiContainer.querySelector(
+    const item = attachedPanel(ui).querySelector(
       `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
     ) as HTMLElement;
     const box = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
@@ -3887,37 +3897,24 @@ describe("LayerUI style panel — zoom range", () => {
 
   it("moves the current dot on zoomend", () => {
     const item = findItem(ui, "overlay1");
-    let zoomEndHandler: (() => void) | null = null;
-    const origOn = map.on;
-    map.on = (evt: string, fn: () => void) => {
-      if (evt === "zoomend") zoomEndHandler = fn;
-      return origOn(evt, fn);
-    };
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
     const row = zoomRowOf(panel)!;
-    const dot = row.querySelector(".foliplus-slider-dot-current") as HTMLElement;
-    const before = dot.style.left;
+    const before = row.querySelector<HTMLElement>(".foliplus-slider-dot-current")!.style
+      .left;
 
     map.getZoom.mockReturnValue(12);
-    (zoomEndHandler as any)?.();
+    ui.onZoomEnd?.();
 
     // setMarks rebuilds the dots when the current level moves, so the live
     // node is the new one, not the reference captured before the event.
     const after = row.querySelector(".foliplus-slider-dot-current") as HTMLElement;
     expect(after.style.left).not.toBe(before);
-    map.on = origOn;
   });
 
   it("updates values row on zoomend", () => {
     const item = findItem(ui, "overlay1");
     setIntent(ui, "overlay1", "zoomRange", [0, 18]);
-    let zoomEndHandler: (() => void) | null = null;
-    const origOn = map.on;
-    map.on = (evt: string, fn: () => void) => {
-      if (evt === "zoomend") zoomEndHandler = fn;
-      return origOn(evt, fn);
-    };
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
     const row = zoomRowOf(panel)!;
@@ -3925,14 +3922,13 @@ describe("LayerUI style panel — zoom range", () => {
     const beforeCurrent = current.textContent;
 
     map.getZoom.mockReturnValue(12);
-    (zoomEndHandler as any)?.();
+    ui.onZoomEnd?.();
 
     const afterCurrent = row.querySelector(
       ".foliplus-slider-value-current",
     ) as HTMLElement;
     expect(afterCurrent.textContent).toBe("12");
     expect(beforeCurrent).not.toBe(afterCurrent.textContent);
-    map.on = origOn;
   });
 
   it("covers only the dots the selected range reaches", () => {
@@ -4568,4 +4564,97 @@ describe("reset on an id the registry does not know", () => {
     expect(getIntent(ui, "ghost", "zoomRange")).toEqual([3, 12]);
     expect(ui.intentStore.dumpProvenance().ghost).toEqual(["zoomRange"]);
   });
+});
+
+describe("reset whose dimension reports no delta", () => {
+  // `reset?` is typed `ProjectionDelta | void`: a dimension runs its own side
+  // effects and is free to report nothing back. Both entry points fall back to
+  // the empty delta for that case, so the publish contract still holds — a
+  // reset that cannot say what moved announces nothing.
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("resetLayerOpacity returns the empty delta", () => {
+    const { ui } = initFixture({});
+    const descriptor = getDimension(DIM.OPACITY)!;
+    const resetSpy = vi.spyOn(descriptor, "reset").mockReturnValue(undefined);
+
+    expect(resetLayerOpacity(ui, "overlay1")).toEqual({
+      wroteVisible: false,
+      intentMoved: false,
+    });
+    expect(resetSpy).toHaveBeenCalledWith(ui, "overlay1");
+  });
+
+  it("resetLayerZoomRange returns the empty delta", () => {
+    const { ui } = initFixture({});
+    const descriptor = getDimension(DIM.ZOOM_RANGE)!;
+    const resetSpy = vi.spyOn(descriptor, "reset").mockReturnValue(undefined);
+
+    expect(resetLayerZoomRange(ui, "overlay1")).toEqual({
+      wroteVisible: false,
+      intentMoved: false,
+    });
+    expect(resetSpy).toHaveBeenCalledWith(ui, "overlay1");
+  });
+});
+
+// ── Notification-contract cases, moved from the former
+// ── notifyContract.test.ts so they live with the script they drive. ──
+it("a reset button announces once, after the panel is closed", () => {
+  // The panel Reset restores every dimension, then the delegated defaults
+  // (or the label config), then closes the panel — and only then announces,
+  // once, for the whole operation. A notify fired by one dimension mid-way
+  // would hand a subscriber a panel that is still open, and a subscriber
+  // that tears the control down there would take the handler's own
+  // closeStylePanel lookup with it.
+  const { ui, layer, onMap } = oneOverlay();
+
+  setIntent(ui, "overlay1", "zoomRange", [0, 3]);
+  ui.intentStore.seedProvenance("overlay1", ["zoomRange"]);
+  ui.onZoomEnd?.();
+  expect(onMap.get(layer)).toBe(false);
+
+  ui.openStylePanel("overlay1");
+  const resetBtn = findItem(ui, "overlay1").querySelector(
+    ".foliplus-style-reset-btn",
+  ) as HTMLElement;
+  expect(resetBtn).not.toBeNull();
+
+  const atDelivery: Array<{ onMap: boolean; panelOpen: boolean }> = [];
+  ui.events.on(EVENTS.LAYER_CHANGE, payload => {
+    if (payload.id !== "overlay1") return;
+    const item = ui.uiContainer?.querySelector(
+      `[${CONST.DATA.LAYER_ID}="${payload.id}"]`,
+    );
+    atDelivery.push({
+      onMap: onMap.get(layer) ?? false,
+      panelOpen: !!item?.querySelector(`.${CONST.CLASSES.STYLE_PANEL}`),
+    });
+    if (atDelivery.length === 1) ui.c.destroy();
+  });
+
+  expect(() =>
+    resetBtn.dispatchEvent(new MouseEvent("click", { bubbles: true })),
+  ).not.toThrow();
+  expect(atDelivery).toEqual([{ onMap: true, panelOpen: false }]);
+  expect(ui.c.isDestroyed).toBe(true);
+});
+
+it("a zoomend skips the row sync once the zoom-range row is detached", () => {
+  // The panel's zoom-end hook is registered while the drawer is open, but a
+  // list rebuild or a teardown can take the row out from under it before the
+  // map fires. Reading the detached node would repaint a row nobody sees, so
+  // the hook checks first.
+  const { ui } = oneOverlay();
+  ui.openStylePanel("overlay1");
+  const row = findItem(ui, "overlay1").querySelector(
+    `.${CONST.CLASSES.STYLE_ZOOM_RANGE_ROW}`,
+  ) as HTMLElement;
+  expect(row).not.toBeNull();
+
+  row.remove();
+
+  expect(() => ui.onZoomEnd?.()).not.toThrow();
 });

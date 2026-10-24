@@ -112,4 +112,48 @@ const EVENTS = {
    *  don't apply to this layer filter on `id` first. */
   LAYER_FILTER_CHANGE: "foliplus:layer:filter-change",
 } as const;
-export { EVENTS };
+
+/** One event's publish policy — the exception contract is declared on the
+ *  event, not chosen at each call site.
+ *
+ *  - `terminal`: the event is the operation's last step (a registration or
+ *    retirement close, AFTER_EXPORT). Every listener runs; the first failure
+ *    is raised to the producer once the fan-out is done.
+ *  - `notification`: the event sits *inside* a producer's transaction (a
+ *    mode switch, an overlay teardown, a control attach). Every listener
+ *    still runs, but a consumer failure is recorded to the diagnostic log
+ *    instead of being thrown — an observer must not be able to interrupt the
+ *    producer's remaining local work. */
+/** One event's declared exception contract, resolved once and stored with the
+ *  event's listeners (see EventEntry in EventBus.ts) — so a dispatcher cannot
+ *  choose a different contract at a call site. */
+type EventPolicy = { kind: "terminal" | "notification" };
+
+type EventName = (typeof EVENTS)[keyof typeof EVENTS];
+
+/** Every event declares its policy; a missing key is a compile error, so a
+ *  new event cannot silently inherit a default it did not choose. */
+const EVENT_POLICY: Record<EventName, EventPolicy> = {
+  [EVENTS.MODE_CHANGE]: { kind: "notification" },
+  [EVENTS.BEFORE_EXPORT]: { kind: "notification" },
+  [EVENTS.OVERLAY_CLEAR]: { kind: "notification" },
+  [EVENTS.CONTROL_ATTACHED]: { kind: "notification" },
+  [EVENTS.LAYER_CHANGE]: { kind: "terminal" },
+  [EVENTS.LAYER_INTENT_CHANGE]: { kind: "terminal" },
+  [EVENTS.LAYER_REMOVED]: { kind: "terminal" },
+  [EVENTS.LAYER_DELETED]: { kind: "terminal" },
+  [EVENTS.AFTER_EXPORT]: { kind: "terminal" },
+  [EVENTS.LAYER_ITEM_COUNT_CHANGE]: { kind: "terminal" },
+  [EVENTS.LAYER_STYLE_CHANGE]: { kind: "terminal" },
+  [EVENTS.LAYER_ITEM_ADDED]: { kind: "terminal" },
+  [EVENTS.LAYER_ITEM_UPDATED]: { kind: "terminal" },
+  [EVENTS.LAYER_ITEM_REFRESHED]: { kind: "terminal" },
+  [EVENTS.LAYER_ITEM_REMOVED]: { kind: "terminal" },
+  [EVENTS.LAYER_GROUP_COUNT_CHANGED]: { kind: "terminal" },
+  [EVENTS.LAYER_LIST_REBUILD]: { kind: "terminal" },
+  [EVENTS.LAYER_NO_BASEMAP_CHANGED]: { kind: "terminal" },
+  [EVENTS.LAYER_FILTER_CHANGE]: { kind: "notification" },
+};
+
+export { EVENTS, EVENT_POLICY };
+export type { EventPolicy };

@@ -11,6 +11,7 @@
 // because `PersistedRecord.layers` names it directly.
 import type { PersistedLayerState } from "#core/layer/index.js";
 import type { LayerDimKey } from "#core/layer/type.js";
+import type { ProjectionDelta } from "./ui/apply.js";
 import type { LayerUI } from "./ui/surface.js";
 
 export type {
@@ -106,8 +107,12 @@ type LayerDimension<D = unknown> = {
    *  omitted keys leave that sub-dimension untouched. */
   write?: (ui: LayerUI, layerId: string, patch: Partial<D> | D) => void;
   /** Cohesive reset: drop the dimension's LayerIntentStore rows (values +
-   *  provenance) and restore the author's styleBag face. */
-  reset?: (ui: LayerUI, layerId: string) => void;
+   *  provenance) and restore the author's styleBag face. May return the
+   *  projection delta the reset produced, so the complete reset entry can
+   *  refresh its own row chrome before announcing — a notify fired mid-
+   *  operation hands a subscriber a stale row. Dimensions without a projection
+   *  (fill/border) return nothing. */
+  reset?: (ui: LayerUI, layerId: string) => ProjectionDelta | void;
   /** Three-state source of the effective value. Gate rejects → `"none"`;
    *  store provenance → `"user"`; otherwise `"author"`. */
   valueSource?: (ui: LayerUI, layerId: string) => DimensionValueSource;

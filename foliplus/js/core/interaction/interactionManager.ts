@@ -33,7 +33,7 @@ interface InteractionDef {
    *  focus **and that focus is not held by a control that natively consumes
    *  the key** — the ownership half is decided once by the manager before
    *  dispatch, not re-checked by the handler. */
-  container?: HTMLElement;
+  container?: HTMLElement | null;
   /** If set, binds keydown directly to this element instead of the document.
    *  Only fires when this element has focus (native behavior). */
   element?: HTMLElement;
@@ -138,7 +138,7 @@ class InteractionManager {
   register(
     component: string,
     defs: InteractionDef[],
-    container?: HTMLElement,
+    container?: HTMLElement | null,
   ): () => void {
     for (const d of defs) {
       const entry: InteractionEntry = { ...d, component, order: this.order++ };

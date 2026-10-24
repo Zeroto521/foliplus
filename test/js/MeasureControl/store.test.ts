@@ -27,7 +27,11 @@ vi.mock("#common/storage.js", () => ({
 
 vi.mock("#core/event/index.js", () => ({
   EVENTS: { LAYER_ITEM_COUNT_CHANGE: "foliplus:layer:item-count:change" },
-  ensureEvents: () => ({ emit: events.emit }),
+  ensureEvents: () => ({}),
+  // The store publishes through the settled facade; the test still observes
+  // the same event/payload on the hoisted spy.
+  publish: (_bus: unknown, event: string, payload: unknown) =>
+    events.emit(event, payload),
 }));
 
 vi.mock("#core/hint.js", () => ({

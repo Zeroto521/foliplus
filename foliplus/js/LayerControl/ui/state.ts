@@ -11,7 +11,7 @@
 // unchanged.
 import * as CONST from "../const.js";
 import type { LayerOverride } from "../type.js";
-import { applyProjection, applyProjectionAll } from "./apply.js";
+import { type ProjectionBatch, applyProjection, applyProjectionAll } from "./apply.js";
 import { applyNameProjection } from "./context.js";
 import { INTENT, LIVE, getIntent } from "./intent.js";
 import type { LayerUI } from "./surface.js";
@@ -134,7 +134,7 @@ const unmarkOverride = (ui: LayerUI, id: string, override: LayerOverride) => {
  *   hidden and a missing rename must not write undefined.
  */
 
-const applyUserState = (ui: LayerUI, id?: string) => {
+const applyUserState = (ui: LayerUI, id?: string): ProjectionBatch => {
   const registry = ui.c.layerRegistry;
   const container = ui.uiContainer;
 
@@ -148,11 +148,13 @@ const applyUserState = (ui: LayerUI, id?: string) => {
   // taken once its JS global exists.
   if (id) {
     const layerInfo = registry.get(id);
-    if (!layerInfo) return; // not registered yet — its stored state is kept
+    // Not registered yet — its stored state is kept for the component that
+    // eventually claims the id.
+    if (!layerInfo) return [];
     // One id, one projection: a late registration replays every stored
     // dimension on the same pass — visibility, opacity and zoom range — so
     // nothing needs a per-caller replay path: a late arrival replays itself.
-    applyProjection(ui, id, "none");
+    const moved = applyProjection(ui, id, "none");
     const rename = getIntent(ui, id, INTENT.NAME);
     if (rename != null) {
       applyNameProjection(layerInfo, null, rename);
@@ -161,7 +163,11 @@ const applyUserState = (ui: LayerUI, id?: string) => {
     // late registration, so without it the layer would keep the slot it was
     // inserted into rather than the position the user already arranged.
     ui.c.replaySavedOrder(id);
-    return;
+    // The round is returned, not announced here: a late registration can join
+    // the map on this replay, and the caller owns the complete operation (the
+    // registration entry refreshes the row and the group count first, then
+    // publishes so a subscriber reads the settled panel).
+    return [{ id, delta: moved, entry: layerInfo }];
   }
 
   // The registry is the sweep, not the intent store: a layer the user left
@@ -170,7 +176,7 @@ const applyUserState = (ui: LayerUI, id?: string) => {
   // inverse. Walking the registry asserts every layer's map membership
   // against the persisted intent; the color basemap has no registry entry,
   // so its rename still comes from the store's name dimension.
-  applyProjectionAll(ui, "none");
+  const swept = applyProjectionAll(ui, "none");
   for (const layerId of ui.intentStore.ids()) {
     const rename = getIntent(ui, layerId, INTENT.NAME);
     if (rename == null) continue;
@@ -208,6 +214,16 @@ const applyUserState = (ui: LayerUI, id?: string) => {
   // before late registrations -- so it is replayed across the registry that
   // exists now, and each later registration refines its own slot.
   ui.c.replaySavedOrder();
+
+  // The batch goes back, not out: the full replay is not finished here — the
+  // shell still has to replay border and fill, which are direct setStyle
+  // writes outside this executor. Publishing first would hand a subscriber the
+  // author's colors, which the shell is about to overwrite. One round for the
+  // whole replay is still the point: a late registration can join the map
+  // here, which is a real membership change no other path notifies — a
+  // bus-only consumer (annotation repaints its labels) would otherwise never
+  // learn about the layer.
+  return swept;
 };
 
 /**

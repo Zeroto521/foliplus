@@ -26,12 +26,16 @@
 // Naming: "state op" is the shape the carrier dispatcher accepts.
 // "Projection" is what the diff compares — intent + policy together, so
 // a change on either side produces an op.
-import { EVENTS } from "#core/event/index.js";
+import {
+  type DispatchFailure,
+  EVENTS,
+  type SettledOperation,
+} from "#core/event/index.js";
 import { CAP_TIER, HIDDEN, PANE_ROLE } from "#core/layer/index.js";
 import { getLayerAlpha, setLayerAlpha } from "#common/canvasAlpha.js";
 import * as CONST from "../const.js";
 import { INTENT, getIntent } from "./intent.js";
-import { intentVisibleOf, projectAll, projectLayer } from "./projection.js";
+import { intentVisibleOf, projectLayer } from "./projection.js";
 import type { LayerUI } from "./surface.js";
 
 /** One write the carrier dispatcher accepts. `opacity` being
@@ -224,8 +228,8 @@ const sameCarrier = (prev: unknown, curr: unknown): boolean =>
  *  the write instead of faking one on a shared carrier.
  *
  *  Return value: whether a real state write landed on the carrier. The
- *  caller (`applyProjection`) emits `LAYER_CHANGE` only when this is
- *  `true`, so a write that could not land (no layer object, no canvas
+ *  caller (`applyProjection`) gates `LAYER_CHANGE` on this through the
+ *  projection delta, so a write that could not land (no layer object, no canvas
  *  element, value already matching the carrier) never manufactures a
  *  change notification. `LAYER_CHANGE` is the semantic replacement for
  *  Leaflet's native `layeradd`/`layerremove` — canvas-only surfaces
@@ -366,8 +370,48 @@ const dispatchStateOp = (
   throw ui.log.msg(`unreachable dispatchStateOp type: ${JSON.stringify(exhaustive)}`);
 };
 
-/** Diff the current projection against the last one we wrote, and call
+/** What one projection pass actually moved. The operation that ran the
+ *  pass owns the bus notification and emits on this — not on the pass
+ *  itself (see the contract note on `applyProjection` below). */
+type ProjectionDelta = {
+  wroteVisible: boolean;
+  intentMoved: boolean;
+};
+
+const NO_DELTA: ProjectionDelta = { wroteVisible: false, intentMoved: false };
+
+/** One layer's share of a round. Callers that build a round incrementally
+ *  (focus, bulk toggle) collect these; `ProjectionBatch` is the read-only view
+ *  they hand to `notifyDeltas`. */
+type ProjectionDeltaItem = {
+  id: string;
+  delta: ProjectionDelta;
+  entry: LayerInfo;
+};
+
+/** The layers a pass moved, paired with what each one moved — the work a caller
+ *  queues until its own side effects have settled, then publishes as one round
+ *  through `notifyDeltas`. Every projection entry point returns one of these,
+ *  including the single-id one: an id that did not move contributes an empty
+ *  delta, an id with no entry contributes nothing at all. One shape means one
+ *  handling path, and no caller has to ask which of three return values it
+ *  got.
+ *
+ *  Each item stamps the registry entry the delta was computed against, because
+ *  a delta belongs to the instance that produced it: a subscriber that retires
+ *  the entry during an earlier delivery of the same round skips it at delivery
+ *  time, and a lookup by id alone would happily deliver the retired layer's
+ *  delta to the replacement now holding that id. Read-only — a caller hands the
+ *  round off, it does not trim it. */
+type ProjectionBatch = ReadonlyArray<ProjectionDeltaItem>;
+
+/** Diff one entry's current projection against the last one we wrote, and call
  *  `dispatchStateOp` only for the dimensions that moved.
+ *
+ *  Takes the entry rather than its id so a delta and the entry it was computed
+ *  against can never disagree: a sweep stamps its round with the entries it
+ *  snapshotted, and a lookup by id inside this pass could resolve a different
+ *  instance by the time the round is delivered.
  *
  *  Ordering: `visible (effective)` and `opacity` are independent of each
  *  other, so they apply in either order. The zoomRange dimension itself is
@@ -389,20 +433,28 @@ const dispatchStateOp = (
  *  longer diffed separately: any change that would authorize an add goes
  *  through `intent`, so the effective value already reflects the user's
  *  authorization. The one-way gate is now the shape of this diff.
+ *
+ *  This pass never emits. It returns a `ProjectionDelta` and its caller —
+ *  the operation layer that owns the user action — announces through
+ *  `notifyDelta` / `notifyDeltas` once every side effect of that operation has
+ *  landed (row paint, tri-state count, basemap hatch, attribution). A notify fired
+ *  mid-operation would hand a subscriber a partially-updated UI: a
+ *  re-entrant subscriber re-projects against a stale row, a group count
+ *  delta is computed from pre-update state, and a subscriber that throws
+ *  or tears the map down leaves the operation's own paint behind.
  */
-const applyProjection = (
+const projectEntry = (
   ui: LayerUI,
-  id: string,
+  layerInfo: LayerInfo,
   repaintMode: "debounce" | "none" = "none",
-): void => {
-  const layerInfo = ui.c.layerRegistry.get(id);
-  if (!layerInfo) return;
+): ProjectionDelta => {
+  const id = layerInfo.id;
   // A surface is mandatory for a write target (see `carrierOf` / `dispatchStateOp`
   // below) — the same defensive gate `hideOtherLayers` carries against a
   // missing surface. A layer whose surface could not be built (a late-
   // registered entry the ordering pass hasn't stamped yet, or a test
   // fixture that returns `null`) has nothing to write to, so skip it.
-  if (!ui.c.surfaceFor(layerInfo)) return;
+  if (!ui.c.surfaceFor(layerInfo)) return NO_DELTA;
   const next = projectLayer(ui, layerInfo);
   let prev = ui.runtimeStore.getApplied(id);
 
@@ -483,8 +535,8 @@ const applyProjection = (
   //    when the value actually differs from what is on the carrier.
   //    `dispatchStateOp` returns whether a real write landed; we keep
   //    that answer on `wroteVisible` because it is what gates the
-  //    `LAYER_CHANGE` bus notification further down (see below) — a
-  //    late-bound layer reference whose `findLayer` still returns null
+  //    `LAYER_CHANGE` bus notification the caller emits on this delta —
+  //    a late-bound layer reference whose `findLayer` still returns null
   //    must not manufacture a change event nobody can observe.
   let wroteVisible = false;
   if (authorised && currentShown !== next.effectiveShown) {
@@ -522,9 +574,9 @@ const applyProjection = (
   //    call with the same intent is a no-op.
   const intentMoved = !isFirstPass && prev.intent?.visible !== next.intent.visible;
 
-  // 4. Submit the new baseline *before* notifying. Reentrant callers — a
-  //    subscriber that calls `applyProjection` synchronously during one of
-  //    the emits below — diff against the value they read from
+  // 4. Submit the new baseline *before* returning. Reentrant callers — an
+  //    operation layer that re-projects inside its own notify, or the next
+  //    call after this one — diff against the value they read from
   //    `runtimeStore.getApplied`, and that value is already fresh by the
   //    time they look, so a same-value write-back cannot re-trigger the
   //    same notification, and a reverse correction lands its own baseline
@@ -536,26 +588,194 @@ const applyProjection = (
     carrier: carrierToken,
   });
 
-  // 5. Bus notifications. Order: `LAYER_CHANGE` first (the map-facing
-  //    flip subscribers most often react to), then `LAYER_INTENT_CHANGE`
-  //    (the user-only channel for policy-gated intent movements).
-  //    Gating `LAYER_CHANGE` on `wroteVisible` — not on the pre-emit
-  //    `currentShown !== next.effectiveShown` diff — is what keeps a
-  //    missing layer reference or a value that did not actually flip
-  //    from manufacturing a change event nobody can observe.
-  if (wroteVisible) {
-    ui.events.emit(EVENTS.LAYER_CHANGE, {
+  return { wroteVisible, intentMoved };
+};
+
+/** Project one registered layer. The id-resolving entry point for callers that
+ *  hold an id rather than an entry; a sweep goes straight to `projectEntry` so
+ *  its stamp and its work stay on the same instance. */
+const applyProjection = (
+  ui: LayerUI,
+  id: string,
+  repaintMode: "debounce" | "none" = "none",
+): ProjectionDelta => {
+  const layerInfo = ui.c.layerRegistry.get(id);
+  return layerInfo ? projectEntry(ui, layerInfo, repaintMode) : NO_DELTA;
+};
+
+/** The single bus notification point for a projection pass: `LAYER_CHANGE`
+ *  (the map-facing flip subscribers most often react to) first, then
+ *  `LAYER_INTENT_CHANGE` (the user-only channel for policy-gated intent
+ *  movements). Every operation layer routes its notify through here, so the
+ *  two-order rule has one home and a new caller cannot drift from it.
+ *
+ *  `LAYER_CHANGE` is gated on `wroteVisible` — not on the pre-notify
+ *  `currentShown !== next.effectiveShown` diff — which is what keeps a
+ *  missing layer reference or a value that did not actually flip from
+ *  manufacturing a change event nobody can observe. The intent payload carries
+ *  the committed value through `intentVisibleOf`, read at emit time — a frozen
+ *  snapshot, so a handler that stores the payload can rely on it later.
+ *  Reentrant correction is handled at two levels. The same-event half is the
+ *  superseding delivery the two halves go out through: a newer write for the
+ *  same layer stops the older delivery at the reentry point, so no subscriber
+ *  sees a value the correction already replaced. The cross-event half is the
+ *  intent revision claimed before the CHANGE: a rewrite that happens inside
+ *  the CHANGE delivery emits its own INTENT, and this round's INTENT is
+ *  dropped when it would duplicate that newer write's final state.
+ *
+ *  Delivery is identity-checked against the live registry twice — before the
+ *  first half goes out, and again before the second. A delta is the record of
+ *  one entry's operation, so it can only be delivered for the entry that ran
+ *  the pass: a subscriber that retires that entry — destroying the control,
+ *  unregistering the layer, or re-registering the same id to a new instance —
+ *  has already announced the retirement, and a lookup by id alone would hand
+ *  the flip to whoever holds the id now, which never produced it. The first
+ *  check catches the retire that lands between rounds of a batch; the second
+ *  the one that lands inside this round's own CHANGE.
+ *
+ *  `layerInfo` may be undefined on a batch path that looked the entry up
+ *  before its own pass ran. No-delivery, not a throw: the delta was real,
+ *  the recipient is simply gone. */
+
+/** Whether the entry that ran a pass is still the one registered under its id.
+ *  A view without a controller has no registry to retire anything against, so
+ *  it cannot retire the entry either — that is the "still registered" answer,
+ *  not a suppression. */
+const entryStillRegistered = (ui: LayerUI, entry: LayerInfo): boolean =>
+  !ui.c || ui.c.layerRegistry.get(entry.id) === entry;
+
+const emitDelta = (
+  ui: LayerUI,
+  layerInfo: LayerInfo | undefined,
+  delta: ProjectionDelta,
+): DispatchFailure | undefined => {
+  if (!layerInfo || !entryStillRegistered(ui, layerInfo)) return undefined;
+  // Claim the intent revision before the CHANGE goes out. A subscriber that
+  // rewrites this layer's intent inside the CHANGE delivery emits its own
+  // round — CHANGE and INTENT — while this round is still between its two
+  // halves; the superseding delivery handles same-event reentry, but the
+  // INTENT of a *different* event cannot be stopped by a CHANGE token. The
+  // revision is the cross-event gate: if a newer INTENT for this id went out
+  // while the CHANGE was delivered, this round's INTENT would duplicate the
+  // final state, so it is dropped.
+  const intentRevision = delta.intentMoved ? nextIntentRevision(layerInfo) : null;
+  // Both halves deliver settled: a consumer that throws is recorded and the
+  // round continues to the consumers behind it, so one broken subscriber
+  // cannot steal the flip from the others — nor, below, the intent half from
+  // the layer it belongs to. The failure travels back to the caller, which
+  // raises it once the whole operation has been announced.
+  let failure: DispatchFailure | undefined;
+  if (delta.wroteVisible) {
+    failure = ui.events.emitSupersedingSettled(EVENTS.LAYER_CHANGE, layerInfo.id, {
       id: layerInfo.id,
       kind: layerInfo.kind,
     });
   }
+  if (delta.intentMoved) {
+    if (!entryStillRegistered(ui, layerInfo)) return failure;
+    if (!isCurrentIntentRevision(layerInfo, intentRevision)) return failure;
+    // Superseding, not plain emit: a subscriber that corrects the intent
+    // inside this notify fires a reentrant round for the same id, and the
+    // outer delivery would otherwise continue handing the subscribers behind
+    // it a value the correction has already replaced — final state correct,
+    // last payload stale. The round emitted after the reentry wins, and this
+    // delivery stops where it was superseded.
+    const intentFailure = ui.events.emitSupersedingSettled(
+      EVENTS.LAYER_INTENT_CHANGE,
+      layerInfo.id,
+      {
+        id: layerInfo.id,
+        kind: layerInfo.kind,
+        intent: { visible: intentVisibleOf(ui, layerInfo.id) },
+      },
+    );
+    // The CHANGE half's failure is the one to surface: it happened first, and
+    // an INTENT that never ran because the CHANGE consumer threw is exactly
+    // what this ordering is meant to report once.
+    failure ??= intentFailure;
+  }
+  return failure;
+};
 
-  if (intentMoved) {
-    ui.events.emit(EVENTS.LAYER_INTENT_CHANGE, {
-      id: layerInfo.id,
-      kind: layerInfo.kind,
-      intent: { visible: next.intent.visible },
-    });
+/** Announce one layer's delta, raising a consumer failure once the layer's own
+ *  fan-out is finished. The single-entry counterpart of `notifyDeltas`: a caller
+ *  announcing one layer has no wider operation left to finish, so the failure
+ *  goes out here. Callers that own a batch (a sweep, or an own layer plus its
+ *  sweep) collect through `notifyDeltas` instead, which raises only after the
+ *  last item. */
+const notifyDelta = (
+  ui: LayerUI,
+  layerInfo: LayerInfo | undefined,
+  delta: ProjectionDelta,
+): void => {
+  const failure = emitDelta(ui, layerInfo, delta);
+  if (failure) throw failure.error;
+};
+
+/** One monotonically increasing counter per registry entry, bumped each time an
+ *  INTENT for that entry is emitted. It answers "did a newer intent write
+ *  happen while this round was between its CHANGE and its INTENT?" — the
+ *  cross-event half of the reentrancy contract that same-event superseding
+ *  cannot cover.
+ *
+ *  Stored on the entry itself: the counter shares the entry's lifetime, so a
+ *  long-lived map cannot accumulate a row per dynamic id. Unregister, delete,
+ *  and same-id replacement need no cleanup — the retired entry loses its
+ *  business reachability and the WeakMap lets it go, and a replacement under
+ *  the same id starts at its own revision instead of inheriting the old one. */
+const intentRevisions = new WeakMap<LayerInfo, number>();
+
+const nextIntentRevision = (entry: LayerInfo): number => {
+  const next = (intentRevisions.get(entry) ?? 0) + 1;
+  intentRevisions.set(entry, next);
+  return next;
+};
+
+const isCurrentIntentRevision = (entry: LayerInfo, revision: number | null): boolean =>
+  revision !== null && intentRevisions.get(entry) === revision;
+
+/** Notify a batch of passes in the order they were swept, without
+ *  interleaving. Each item's entry travels with its delta and `emitDelta`
+ *  re-checks it against the live registry, so an entry a subscriber retired
+ *  during an earlier delivery of this same round — the control destroyed, the
+ *  layer unregistered, or the id re-registered to a different instance —
+ *  delivers nothing rather than announcing on behalf of the entry that now
+ *  holds the id. The test is identity, not presence: a live entry under the
+ *  same id is still the wrong recipient.
+ *
+ *  A layer whose consumers include a throwing one does not end the round: the
+ *  sweep announced every layer before it raised, and each layer's own half is
+ *  settled too, so the failure is collected and re-raised once here. The
+ *  alternative — stopping at the first throw — silently drops the notifications
+ *  for every layer behind it, and those are unrecoverable: the state was
+ *  committed before the notify, so a retry finds nothing left to move.
+ *
+ *  A sequence of passes is one operation too: pass the whole sequence (an
+ *  operation's own layer followed by its sweep, for example) in one call, so
+ *  every item is attempted before the first failure is raised. */
+const notifyDeltas = (ui: LayerUI, deltas: ProjectionBatch): void => {
+  let failure: DispatchFailure | undefined;
+  for (const { entry, delta } of deltas) {
+    // Every item must be attempted even after one failed: `??=` on the call
+    // would skip the rest of the batch, which is the truncation this loop
+    // exists to prevent.
+    const observed = emitDelta(ui, entry, delta);
+    failure ??= observed;
+  }
+  if (failure) throw failure.error;
+};
+
+/** Announce a batch into a wider operation instead of raising here. The
+ *  caller's `SettledOperation` owns the error boundary, so the registration
+ *  change (or removal event) behind the projection round is still attempted
+ *  when a projection consumer throws. */
+const collectDeltas = (
+  ui: LayerUI,
+  deltas: ProjectionBatch,
+  operation: SettledOperation,
+): void => {
+  for (const { entry, delta } of deltas) {
+    operation.absorb(emitDelta(ui, entry, delta));
   }
 };
 
@@ -569,18 +789,45 @@ const applyProjection = (
  *  label from the fresh projection, so the sweep must call it at the end.
  *  Goes through the `ui.syncNoBasemap` delegate to avoid a cross-module
  *  import back into `listPanel/visibility.js` (which already imports
- *  `apply.js` — a direct import here would close the cycle). */
+ *  `apply.js` — a direct import here would close the cycle).
+ *
+ *  Returns only the layers that actually moved, in sweep order — the sweep
+ *  is registry order, and an id that has stored dimensions but never
+ *  registered is skipped rather than dropped: its record stays in the intent
+ *  store and is projected when the component that owns the id registers.
+ *  The caller announces through `notifyDeltas` after its own
+ *  reconcile steps, so a batch goes out as one settled round instead of a
+ *  mid-sweep spray. */
 const applyProjectionAll = (
   ui: LayerUI,
   repaintMode: "debounce" | "none" = "none",
-): void => {
-  for (const [id] of projectAll(ui)) applyProjection(ui, id, repaintMode);
+): ProjectionBatch => {
+  const deltas: ProjectionDeltaItem[] = [];
+  // The registry, snapshotted as entries before the first write: a projection
+  // that brings a layer onto the map mid-sweep must not widen the set this
+  // pass walks, and a mid-sweep replacement stays out of the round this sweep
+  // started so the caller can still tell the two apart at delivery. Each entry
+  // is projected *as itself* — the delta and the stamp it travels with are the
+  // same instance by construction, not by a lookup that happened to agree.
+  for (const entry of [...ui.c.layers]) {
+    const delta = projectEntry(ui, entry, repaintMode);
+    if (delta.wroteVisible || delta.intentMoved) {
+      deltas.push({ id: entry.id, delta, entry });
+    }
+  }
   ui.syncNoBasemap();
+  return deltas;
 };
+
+export type { ProjectionDelta, ProjectionBatch, ProjectionDeltaItem };
 
 export {
   applyProjection,
   applyProjectionAll,
   dispatchStateOp,
+  notifyDeltas,
+  notifyDelta,
+  collectDeltas,
   authorZoomBoundsForLayer,
+  NO_DELTA,
 };

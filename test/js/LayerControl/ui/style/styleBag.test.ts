@@ -4,10 +4,15 @@ import {
   STYLE_BAG_DEFAULTS,
   captureStyleBag,
   commitStyleDim,
+  dropStyleDimApplies,
   faceSlice,
+  flushStyleDimApplies,
+  hasStyleDimApply,
   restoreStyleDim,
+  scheduleStyleDimApply,
   styleBagOf,
   styleBaseOf,
+  styleDimOverAuthor,
   styleDimPayload,
 } from "#foliplus/LayerControl/ui/style/styleBag.js";
 
@@ -156,8 +161,16 @@ describe("styleBaseOf", () => {
   // Minimal LayerUI mock: styleBaseOf only touches ui.c.findLayer.
   const mockUi = (layer: unknown) => ({ c: { findLayer: () => layer } }) as any;
 
-  it("reads the first style leaf's options before any capture", () => {
-    const leaf = makeLeaf({
+  // A Path-like leaf that also declares areal geometry, so the fill walk
+  // reaches it the way `isArealStyleLeaf` reaches a real Polygon.
+  const makeArealLeaf = (options: Record<string, unknown> = {}) => {
+    const leaf = makeLeaf(options);
+    leaf.feature = { geometry: { type: "Polygon" } };
+    return leaf;
+  };
+
+  it("reads the first areal leaf's options before any capture", () => {
+    const leaf = makeArealLeaf({
       color: "#111111",
       weight: 3,
       fillColor: "#222222",
@@ -172,7 +185,7 @@ describe("styleBaseOf", () => {
   });
 
   it("prefers the captured bag over live options after a user write", () => {
-    const leaf = makeLeaf({ color: "#111111", fillColor: "#222222" });
+    const leaf = makeArealLeaf({ color: "#111111", fillColor: "#222222" });
     // A user write captures the authored bag first, then mutates options.
     commitStyleDim(leaf, { color: "#ff0000" }, FACE.STROKE);
     expect(leaf.options.color).toBe("#ff0000"); // live options are polluted
@@ -238,12 +251,126 @@ describe("styleBaseOf", () => {
     expect(base.color).toBe("#111111");
   });
 
+  it("reads the fill face from the first areal leaf, past a leading line", () => {
+    // A mixed layer whose first leaf is a line: the fill row must show the
+    // polygon the fill actually writes to, not the line the walk meets first.
+    // The old single-carrier reader handed the line's options to the fill
+    // face, so the panel opened with a colour the layer never painted.
+    const line = makeLeaf({ color: "#111111", fillColor: "#222222" });
+    const polygon = makeArealLeaf({
+      color: "#333333",
+      weight: 2,
+      fillColor: "#abcdef",
+      fillOpacity: 0.5,
+    });
+    const group: any = {
+      options: {},
+      eachLayer: vi.fn((fn: (child: unknown) => void) => {
+        fn(line);
+        fn(polygon);
+      }),
+    };
+    const base = styleBaseOf(mockUi(group), "grp1");
+    expect(base.fillColor).toBe("#abcdef");
+    expect(base.fillOpacity).toBe(0.5);
+    expect(base.fillColor).not.toBe("#222222");
+    // The border face still reads the first setter - the stroke the first
+    // feature paints - so one mixed layer feeds both rows from its own side.
+    expect(base.color).toBe("#111111");
+    expect(base.weight).toBe(STYLE_BAG_DEFAULTS.weight);
+  });
+
+  it("keeps a polygon-first mixed layer on its polygon for both faces", () => {
+    const polygon = makeArealLeaf({
+      color: "#aabbcc",
+      weight: 3,
+      fillColor: "#ddeeff",
+      fillOpacity: 0.25,
+    });
+    const line = makeLeaf({ color: "#000000", fillColor: "#ffffff" });
+    const group: any = {
+      options: {},
+      eachLayer: vi.fn((fn: (child: unknown) => void) => {
+        fn(polygon);
+        fn(line);
+      }),
+    };
+    expect(styleBaseOf(mockUi(group), "grp1")).toEqual({
+      color: "#aabbcc",
+      weight: 3,
+      fillColor: "#ddeeff",
+      fillOpacity: 0.25,
+    });
+  });
+
+  it("falls back to defaults on the fill face when no leaf can carry a fill", () => {
+    // A line-only layer: the fill row is never shown, but the reader must not
+    // invent a fill either - it returns the face's default, as before.
+    const line = makeLeaf({ color: "#555555", weight: 4, fillColor: "#666666" });
+    const base = styleBaseOf(mockUi(line), "line1");
+    expect(base.fillColor).toBe(STYLE_BAG_DEFAULTS.fillColor);
+    expect(base.fillOpacity).toBeNull();
+    expect(base.color).toBe("#555555");
+    expect(base.weight).toBe(4);
+  });
+
+  it("resolves the fill carrier through a nested mixed group", () => {
+    const inner = {
+      options: {},
+      eachLayer: vi.fn((fn: (child: unknown) => void) => {
+        fn(makeLeaf({ color: "#123456", fillColor: "#654321" }));
+        fn(makeArealLeaf({ fillColor: "#fedcba", fillOpacity: 0.7 }));
+      }),
+    };
+    const group: any = {
+      options: {},
+      eachLayer: vi.fn((fn: (child: unknown) => void) => {
+        fn(makeLeaf({ color: "#000000" }));
+        fn(inner);
+      }),
+    };
+    expect(styleBaseOf(mockUi(group), "grp1").fillColor).toBe("#fedcba");
+    expect(styleBaseOf(mockUi(group), "grp1").color).toBe("#000000");
+  });
+
+  it("prefers the captured bag of the areal leaf after a user fill write", () => {
+    const line = makeLeaf({ color: "#111111" });
+    const polygon = makeArealLeaf({ color: "#333333", fillColor: "#abcdef" });
+    // The user's write captures the polygon's authored bag first, then mutates
+    // its live options. The fill face must still report the author's colour.
+    commitStyleDim(polygon, { fillColor: "#ff0000" }, FACE.FILL);
+    const group: any = {
+      options: {},
+      eachLayer: vi.fn((fn: (child: unknown) => void) => {
+        fn(line);
+        fn(polygon);
+      }),
+    };
+    const base = styleBaseOf(mockUi(group), "grp1");
+    expect(base.fillColor).toBe("#abcdef");
+    expect(base.color).toBe("#111111");
+  });
+
+  it("keeps the author's value when the override is undefined", () => {
+    // The ramp's out-of-reach replay hands over { fillOpacity } and the
+    // user's opacity may be undefined - an undefined entry must not blank
+    // the author's value, it must leave it in force.
+    const leaf = makeLeaf({ fillColor: "#112233", fillOpacity: 0.2, fill: true });
+    expect(
+      styleDimOverAuthor(leaf, { fillOpacity: undefined }, FACE.FILL, false),
+    ).toEqual({
+      fillColor: "#112233",
+      fillOpacity: 0.2,
+      fill: true,
+    });
+  });
+
   it("fill and border consumers share one reader — same output shape", () => {
     // The whole point of this helper is that fill and border rows read
     // from the same call site (`styleBaseOf`), so neither row can drift
     // from the other. Assert a single styleBaseOf call gives both faces
     // consistent values.
-    const leaf = makeLeaf({
+    const leaf = makeArealLeaf({
       color: "#aabbcc",
       weight: 2,
       fillColor: "#ddeeff",
@@ -256,5 +383,37 @@ describe("styleBaseOf", () => {
       fillColor: "#ddeeff",
       fillOpacity: 0.3,
     });
+  });
+});
+
+describe("per-id face sweeps", () => {
+  // The queue is keyed on (face, layerId), and two per-id sweeps retire it:
+  // `flushStyleDimApplies` at the panel-close boundary, `dropStyleDimApplies`
+  // on unregister. Both enumerate `FACE` rather than a hand-written list, so
+  // adding a face member reaches both. These two tests are the guard: the
+  // expectation is derived from `FACE` on the same side as the code, so a
+  // face the queue accepts but a sweep cannot reach fails here — the
+  // hand-written list would have leaked a task after unregister and dropped
+  // a trailing write when the panel closed.
+  it("flush lands a trailing write on every face the queue accepts", () => {
+    for (const face of Object.values(FACE)) {
+      const runs = vi.fn();
+      const id = `flush-${face}`;
+      scheduleStyleDimApply(face, id, runs);
+      expect(hasStyleDimApply(face, id)).toBe(true);
+      flushStyleDimApplies(id);
+      expect(runs, `${face} never flushed`).toHaveBeenCalledTimes(1);
+    }
+  });
+
+  it("drop retires every face the queue accepts without running it", () => {
+    for (const face of Object.values(FACE)) {
+      const runs = vi.fn();
+      const id = `drop-${face}`;
+      scheduleStyleDimApply(face, id, runs);
+      dropStyleDimApplies(id);
+      expect(runs, `${face} ran after drop`).not.toHaveBeenCalled();
+      expect(hasStyleDimApply(face, id), `${face} still held`).toBe(false);
+    }
   });
 });

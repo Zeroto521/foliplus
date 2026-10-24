@@ -28,6 +28,12 @@ const BORDER_WEIGHT = {
 const clampLabelSize = (value: number): number =>
   Math.min(LABEL_SIZE.SIZE_MAX, Math.max(LABEL_SIZE.SIZE_MIN, value));
 
+/** Clamp a raw border weight into the shared bounds. The live setter and the
+ *  saved-record reader both go through this, so a hand-edited record cannot
+ *  reach the manager with a value the panel itself refuses to produce. */
+const clampBorderWeight = (value: number): number =>
+  Math.min(BORDER_WEIGHT.MAX, Math.max(BORDER_WEIGHT.MIN, value));
+
 /** Expand #rgb to #rrggbb so `<input type=color>` accepts Python's "#fff". */
 const normalizeHexColor = (value: string): string => {
   if (/^#[0-9a-fA-F]{3}$/.test(value)) {
@@ -91,7 +97,13 @@ const formRow = (
 
 /** Live number input: apply in-range values on every keystroke; on commit
  *  (change) clamp into [min, max] and rewrite the field. Shared by border
- *  weight and label size so both behave identically. */
+ *  weight and label size so both behave identically.
+ *
+ *  `normalize` reshapes a parsed value before the bounds check, before the
+ *  commit and before the field is rewritten. A field whose stored value is
+ *  always an integer passes it so the map, the field and what survives a
+ *  reload all show the same number — without it a fraction typed mid-way is
+ *  committed as-is and only rounds later, on the next read. */
 const bindLiveNumber = (
   input: HTMLInputElement,
   opts: {
@@ -99,16 +111,19 @@ const bindLiveNumber = (
     max: number;
     fallback: number;
     onCommit: (value: number) => void;
+    normalize?: (value: number) => number;
   },
 ): void => {
+  const shape = (value: number): number =>
+    opts.normalize ? opts.normalize(value) : value;
   input.oninput = () => {
-    const v = parseFloat(input.value);
+    const v = shape(parseFloat(input.value));
     if (!Number.isNaN(v) && v >= opts.min && v <= opts.max) opts.onCommit(v);
   };
   input.onchange = () => {
-    const v = parseFloat(input.value);
+    const v = shape(parseFloat(input.value));
     const clamped = Number.isNaN(v)
-      ? opts.fallback
+      ? shape(opts.fallback)
       : Math.min(opts.max, Math.max(opts.min, v));
     input.value = String(clamped);
     opts.onCommit(clamped);
@@ -127,6 +142,7 @@ export {
   bindLiveColor,
   bindLiveNumber,
   BORDER_WEIGHT,
+  clampBorderWeight,
   clampLabelSize,
   colorInput,
   formRow,

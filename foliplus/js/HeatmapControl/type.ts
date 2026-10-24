@@ -1,5 +1,6 @@
 // HeatmapControl type definitions — shared data shapes consumed by manager,
 // data aggregation, canvas rendering, and persistence modules.
+import type { ClassifyMethod } from "#core/classify.js";
 import type { NumberStyle } from "#foliplus/config-schema.js";
 
 /** A point marker carrying an optional numeric value (foliplus data contract). */
@@ -55,7 +56,7 @@ interface SavedConfig {
   version?: number;
   layerId?: string | null;
   agg?: string;
-  method?: string;
+  method?: ClassifyMethod;
   scheme?: string;
   numClasses?: number;
   borderWeight?: number;

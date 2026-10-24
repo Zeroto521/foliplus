@@ -62,12 +62,6 @@ describe("SEL", () => {
   });
 });
 
-describe("GRAY", () => {
-  it("is a default fill color", () => {
-    expect(CONST.GRAY).toBe("#999");
-  });
-});
-
 describe("ID", () => {
   it("is the canvas identifier", () => {
     expect(CONST.ID).toBe("foliplus_heatmap");

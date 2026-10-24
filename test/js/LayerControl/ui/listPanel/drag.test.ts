@@ -12,7 +12,7 @@ import {
   toggleFold,
 } from "#foliplus/LayerControl/ui/listPanel/index.js";
 import { GROUP, type LayerInfo } from "#foliplus/core/layer/index.js";
-import { initFixture } from "../fixture.js";
+import { attachedPanel, initFixture } from "../fixture.js";
 
 const makeUi = (
   opts: {
@@ -85,7 +85,7 @@ describe("ui/drag", () => {
   it("handleDrop is a no-op when no dragIdx is armed", () => {
     const ui = makeUi({ containers: ["a", "b"] });
     (ui.listPanel as any).dragIdx = null;
-    const row = ui.uiContainer.querySelector<HTMLElement>(
+    const row = attachedPanel(ui).querySelector<HTMLElement>(
       `[${CONST.DATA.LAYER_ID}="b"]`,
     )!;
     expect(() => handleDrop(ui, dragEvent(row))).not.toThrow();
@@ -167,7 +167,7 @@ describe("ui/drag", () => {
       const { ui, reorder } = makeScrambledUi();
       // DOM: C(0), A(1), B(2). Registry: [A(0), B(1), C(2)].
       // Drag A (registry 0) onto B (DOM position 2, dataset.index="2").
-      const target = ui.uiContainer.querySelector<HTMLElement>(
+      const target = attachedPanel(ui).querySelector<HTMLElement>(
         `[${CONST.DATA.LAYER_ID}="B"]`,
       )!;
       expect(target.dataset.index).toBe("2");
@@ -185,7 +185,7 @@ describe("ui/drag", () => {
       // order — every layer present, color basemap included.
       const { ui, reorder } = makeScrambledUi();
       (ui.listPanel as any).dragIdx = 0;
-      const target = ui.uiContainer.querySelector<HTMLElement>(
+      const target = attachedPanel(ui).querySelector<HTMLElement>(
         `[${CONST.DATA.LAYER_ID}="B"]`,
       )!;
 
@@ -201,7 +201,7 @@ describe("ui/drag", () => {
       // positional read would see targetIdx === dragIdx and paint nothing.
       // By id, C is registry 2, which is below the dragged row.
       (ui.listPanel as any).dragIdx = 0;
-      const rowC = ui.uiContainer.querySelector<HTMLElement>(
+      const rowC = attachedPanel(ui).querySelector<HTMLElement>(
         `[${CONST.DATA.LAYER_ID}="C"]`,
       )!;
       expect(rowC.dataset.index).toBe("0");
@@ -219,7 +219,7 @@ describe("ui/drag", () => {
       // dragged: a positional read would see an equal index and paint nothing.
       // By id, A is registry 0, which is above.
       (ui.listPanel as any).dragIdx = 1;
-      const rowA = ui.uiContainer.querySelector<HTMLElement>(
+      const rowA = attachedPanel(ui).querySelector<HTMLElement>(
         `[${CONST.DATA.LAYER_ID}="A"]`,
       )!;
       expect(rowA.dataset.index).toBe("1");
@@ -234,7 +234,7 @@ describe("ui/drag", () => {
       const { ui, canReorderBetween } = makeScrambledUi();
       canReorderBetween.mockReturnValue(false);
       const rows = Array.from(
-        ui.uiContainer.querySelectorAll<HTMLElement>(CONST.SEL.LAYER_ITEM),
+        attachedPanel(ui).querySelectorAll<HTMLElement>(CONST.SEL.LAYER_ITEM),
       );
       ui.listPanel.lastDragOverItem = rows[0];
       rows[0].classList.add(CONST.CLASSES.DRAG_OVER_BOTTOM);
@@ -255,7 +255,7 @@ describe("ui/drag", () => {
       const { ui, canReorderBetween } = makeScrambledUi();
       canReorderBetween.mockReturnValue(false);
       const rows = Array.from(
-        ui.uiContainer.querySelectorAll<HTMLElement>(CONST.SEL.LAYER_ITEM),
+        attachedPanel(ui).querySelectorAll<HTMLElement>(CONST.SEL.LAYER_ITEM),
       );
       const event = {
         target: rows[1],
@@ -341,7 +341,7 @@ describe("ui/drag", () => {
     it("handleDragOver does nothing until a drag is armed", () => {
       const { ui } = makeScrambledUi();
       (ui.listPanel as any).dragIdx = null;
-      const target = ui.uiContainer.querySelector<HTMLElement>(
+      const target = attachedPanel(ui).querySelector<HTMLElement>(
         `[${CONST.DATA.LAYER_ID}="B"]`,
       )!;
 
@@ -358,7 +358,7 @@ describe("ui/drag", () => {
       const { ui } = makeScrambledUi();
       (ui.listPanel as any).dragIdx = 0;
       const shell = document.createElement("div");
-      ui.uiContainer.appendChild(shell);
+      attachedPanel(ui).appendChild(shell);
 
       const event = dragEvent(shell);
       handleDragOver(ui, event);
@@ -372,7 +372,7 @@ describe("ui/drag", () => {
     it("handleDrop refuses a blocked reorder and keeps the drag armed", () => {
       const { ui, reorder, canReorderBetween } = makeScrambledUi();
       canReorderBetween.mockReturnValue(false);
-      const target = ui.uiContainer.querySelector<HTMLElement>(
+      const target = attachedPanel(ui).querySelector<HTMLElement>(
         `[${CONST.DATA.LAYER_ID}="B"]`,
       )!;
       (ui.listPanel as any).dragIdx = 0;
@@ -390,7 +390,7 @@ describe("ui/drag", () => {
       // positional read would see targetIdx === dragIdx and bail without moving.
       // By id, A is registry 0: a real backward move, inserting before the target.
       (ui.listPanel as any).dragIdx = 1;
-      const target = ui.uiContainer.querySelector<HTMLElement>(
+      const target = attachedPanel(ui).querySelector<HTMLElement>(
         `[${CONST.DATA.LAYER_ID}="A"]`,
       )!;
 
@@ -400,7 +400,7 @@ describe("ui/drag", () => {
       expect((ui.listPanel as any).dragIdx).toBe(null);
       expect(
         Array.from(
-          ui.uiContainer.querySelectorAll<HTMLElement>(CONST.SEL.LAYER_ITEM),
+          attachedPanel(ui).querySelectorAll<HTMLElement>(CONST.SEL.LAYER_ITEM),
         ).map(row => row.getAttribute(CONST.DATA.LAYER_ID)),
       ).toEqual(["C", "B", "A"]);
     });
@@ -442,7 +442,7 @@ describe("ui/drag", () => {
       // A drop that arrives after the registry shrank leaves a stale armed
       // index behind; it must be cleared, not indexed into.
       (ui.listPanel as any).dragIdx = 99;
-      const target = ui.uiContainer.querySelector<HTMLElement>(
+      const target = attachedPanel(ui).querySelector<HTMLElement>(
         `[${CONST.DATA.LAYER_ID}="B"]`,
       )!;
 
@@ -489,7 +489,7 @@ describe("ui/drag", () => {
       const { ui, reorder } = makeScrambledUi();
       (ui.listPanel as any).dragIdx = 0;
       // The container itself is not a layer row: closest() finds nothing.
-      const event = dragEvent(ui.uiContainer);
+      const event = dragEvent(attachedPanel(ui));
 
       handleDrop(ui, event);
 
@@ -501,7 +501,7 @@ describe("ui/drag", () => {
     it("handleDrop ignores a drop onto the dragged row itself", () => {
       const { ui, reorder } = makeScrambledUi();
       (ui.listPanel as any).dragIdx = 0;
-      const self = ui.uiContainer.querySelector<HTMLElement>(
+      const self = attachedPanel(ui).querySelector<HTMLElement>(
         `[${CONST.DATA.LAYER_ID}="A"]`,
       )!;
 
@@ -516,7 +516,7 @@ describe("ui/drag", () => {
     it("handleDrop survives a target row that is detached from the DOM", () => {
       const { ui, reorder } = makeScrambledUi();
       (ui.listPanel as any).dragIdx = 0;
-      const target = ui.uiContainer.querySelector<HTMLElement>(
+      const target = attachedPanel(ui).querySelector<HTMLElement>(
         `[${CONST.DATA.LAYER_ID}="B"]`,
       )!;
       // Registry reorders (order is registry state), but the DOM insert is
@@ -533,7 +533,7 @@ describe("ui/drag", () => {
       const { ui } = makeScrambledUi();
       const orphan = document.createElement("div");
       orphan.className = CONST.CLASSES.LAYER_ITEM;
-      ui.uiContainer.appendChild(orphan);
+      attachedPanel(ui).appendChild(orphan);
       (ui.listPanel as any).dragIdx = null;
 
       handleDragStart(ui, dragEvent(orphan));
@@ -549,7 +549,7 @@ describe("ui/drag", () => {
       const { ui } = makeScrambledUi();
       (ui.listPanel as any).dragIdx = null;
       const shell = document.createElement("div");
-      ui.uiContainer.appendChild(shell);
+      attachedPanel(ui).appendChild(shell);
 
       handleDragStart(ui, dragEvent(shell));
 
@@ -560,7 +560,7 @@ describe("ui/drag", () => {
       const { ui, reorder } = makeScrambledUi();
       const orphan = document.createElement("div");
       orphan.className = CONST.CLASSES.LAYER_ITEM;
-      ui.uiContainer.appendChild(orphan);
+      attachedPanel(ui).appendChild(orphan);
       (ui.listPanel as any).dragIdx = 0;
 
       handleDragOver(ui, dragEvent(orphan));
@@ -577,7 +577,7 @@ describe("ui/drag", () => {
 
     it("handleDragLeave clears the marker on the row being left", () => {
       const { ui } = makeScrambledUi();
-      const row = ui.uiContainer.querySelector<HTMLElement>(
+      const row = attachedPanel(ui).querySelector<HTMLElement>(
         `[${CONST.DATA.LAYER_ID}="A"]`,
       )!;
       row.classList.add(CONST.CLASSES.DRAG_OVER_TOP);
@@ -591,7 +591,7 @@ describe("ui/drag", () => {
       const { ui } = makeScrambledUi();
       (ui.listPanel as any).dragIdx = 0;
       const rows = Array.from(
-        ui.uiContainer.querySelectorAll<HTMLElement>(CONST.SEL.LAYER_ITEM),
+        attachedPanel(ui).querySelectorAll<HTMLElement>(CONST.SEL.LAYER_ITEM),
       );
       rows[0].classList.add(CONST.CLASSES.DRAGGING, CONST.CLASSES.DRAG_OVER_TOP);
       rows[1].classList.add(CONST.CLASSES.DRAG_OVER_BOTTOM);
@@ -610,7 +610,7 @@ describe("ui/drag", () => {
 
     it("handleDragStart is a no-op when the press began on a floating panel", () => {
       const ui = makeUi({ containers: ["a", "b"] });
-      const row = ui.uiContainer.querySelector<HTMLElement>(
+      const row = attachedPanel(ui).querySelector<HTMLElement>(
         `[${CONST.DATA.LAYER_ID}="a"]`,
       )!;
       // Simulate a press that began on a floating row panel (e.g. the style panel).
@@ -639,7 +639,7 @@ describe("ui/drag", () => {
         ],
         containers: ["a", "b"],
       });
-      const row = ui.uiContainer.querySelector<HTMLElement>(
+      const row = attachedPanel(ui).querySelector<HTMLElement>(
         `[${CONST.DATA.LAYER_ID}="a"]`,
       )!;
       (ui.listPanel as any).dragIdx = null;
@@ -671,7 +671,7 @@ describe("ui/drag", () => {
         ],
         containers: ["a", "b"],
       });
-      const row = ui.uiContainer.querySelector<HTMLElement>(
+      const row = attachedPanel(ui).querySelector<HTMLElement>(
         `[${CONST.DATA.LAYER_ID}="a"]`,
       )!;
       const dataTransfer = { effectAllowed: "" };

@@ -90,7 +90,7 @@ function makeManager(opts?: { id?: string }) {
       showHint: vi.fn(),
       hideHint: vi.fn(),
       interaction: { shortcuts: [] as Array<Record<string, unknown>> },
-      events: { emit: vi.fn() },
+      events: { emit: vi.fn(), publish: vi.fn() },
       LayerAPI: {
         createLayers: vi.fn(() => layers),
       },
@@ -348,6 +348,23 @@ describe("MeasureManager — mode switching", () => {
     manager.toolBtns = [btn];
     manager.setMode(CONST.MEASURE_MODE.MARKER);
     expect(btn.classList.contains(CONST.CLASSES.ACTIVE)).toBe(true);
+  });
+
+  it("setMode completes its UI sync when a MODE_CHANGE consumer throws", () => {
+    // MODE_CHANGE is a notification: the observer cannot interrupt the
+    // producer's remaining local work (button highlight, MEASURING class).
+    const { manager } = makeManager();
+    const btn = document.createElement("button");
+    btn.dataset.mode = CONST.MEASURE_MODE.MARKER;
+    manager.toolBtns = [btn];
+    manager.events.on(EVENTS.MODE_CHANGE, () => {
+      throw new Error("mode boom");
+    });
+
+    expect(() => manager.setMode(CONST.MEASURE_MODE.MARKER)).not.toThrow();
+
+    expect(btn.classList.contains(CONST.CLASSES.ACTIVE)).toBe(true);
+    expect(manager.currentMode).toBe(CONST.MEASURE_MODE.MARKER);
   });
 
   it("keeps the mode hint visible after entering a drawing mode (regression)", () => {
@@ -861,7 +878,7 @@ describe("MeasureManager — export auto-clear", () => {
     expect(manager.currentMode).toBe("distance");
     const events = ensureEvents(manager.map);
     manager.map.foliplus!.showHint.mockClear();
-    events.emit("foliplus:mode:change", {
+    events.publish("foliplus:mode:change", {
       component: "ExportControl",
       mode: "selecting",
     });
@@ -878,7 +895,7 @@ describe("MeasureManager — export auto-clear", () => {
     expect(manager.currentMode).toBeNull();
     const events = ensureEvents(manager.map);
     expect(() =>
-      events.emit("foliplus:mode:change", {
+      events.publish("foliplus:mode:change", {
         component: "ExportControl",
         mode: "selecting",
       }),
@@ -890,7 +907,7 @@ describe("MeasureManager — export auto-clear", () => {
     const { manager } = makeManager();
     manager.setMode("distance");
     const events = ensureEvents(manager.map);
-    events.emit("foliplus:mode:change", {
+    events.publish("foliplus:mode:change", {
       component: "FullscreenControl",
       mode: "fullscreen",
     });
@@ -973,7 +990,7 @@ describe("MeasureManager — EVENTS.LAYER_REMOVED auto-cleanup", () => {
     clearSpy.mockClear();
 
     const bus = map.foliplus!.events;
-    bus.emit(EVENTS.MODE_CHANGE, {
+    bus.publish(EVENTS.MODE_CHANGE, {
       component: "ExportControl",
       mode: "crop",
     });
@@ -1480,13 +1497,26 @@ describe("MeasureManager — registerLabel lifecycle", () => {
 
   it("emits LAYER_STYLE_CHANGE when a setter fires", () => {
     const { manager } = makeLabelManager();
-    const emitSpy = vi.spyOn(manager.events, "emit");
+    const emitSpy = vi.spyOn(manager.events, "publish");
 
     manager.setLabelsVisible(false);
 
     expect(emitSpy).toHaveBeenCalledWith("foliplus:layer:style-change", {
       id: manager.layerId,
     });
+  });
+
+  it("style broadcast is settled — a thrower does not starve later consumers", () => {
+    const { manager } = makeLabelManager();
+    const seen: string[] = [];
+    manager.events.on(EVENTS.LAYER_STYLE_CHANGE, () => {
+      throw new Error("style boom");
+    });
+    manager.events.on(EVENTS.LAYER_STYLE_CHANGE, payload => seen.push(payload.id));
+
+    expect(() => manager.setLabelsVisible(false)).toThrow("style boom");
+
+    expect(seen).toEqual([manager.layerId]);
   });
 
   it("re-plans a smaller set when a label is removed mid-measurement", () => {

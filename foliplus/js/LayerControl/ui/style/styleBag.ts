@@ -15,6 +15,7 @@
 //
 // A node with `setStyle` alone is not a carrier (L.GeoJSON owns one too),
 // so walks below descend `eachLayer` first and treat a setter as a leaf.
+import { isArealStyleLeaf } from "#core/layer/capability.js";
 import { findLeaf, walkLeaf } from "#core/layer/walkLeaf.js";
 import { throttleRaf } from "#common/throttle.js";
 import type { LayerUI } from "../surface.js";
@@ -53,13 +54,38 @@ type StyleSetter = StyleCarrier & {
  *  is `"border"`): keep the two apart, one definition per vocabulary. */
 type StyleFace = "fill" | "stroke";
 
-/** The two Leaflet Path write faces, as a named vocabulary. Same convention
- *  as `INTENT` / `DIM`: callers pass `FACE.FILL` / `FACE.STROKE`, never a
- *  bare literal, so the string cannot drift from the type. */
+/** The write faces, as a named vocabulary. Same convention as `INTENT` /
+ *  `DIM`: callers pass `FACE.FILL` / `FACE.STROKE` / `FACE.SIZE`, never a
+ *  bare literal, so the string cannot drift from the type.
+ *
+ *  `FILL` and `STROKE` are `setStyle` faces and so are members of
+ *  `StyleFace`; `SIZE` is not — it is a direct `setRadius` walk. It lives in
+ *  this table because it rides the same frame coalescer (see
+ *  `SchedulerFace`), and one vocabulary for "what the coalescer keys on"
+ *  keeps callers off bare literals. */
 const FACE = {
   FILL: "fill",
   STROKE: "stroke",
+  SIZE: "size",
 } as const;
+
+/** Every face the coalescer keys on, derived from `FACE` so a new member
+ *  there cannot be missed by the per-id sweeps further down — a face the
+ *  queue accepts but they cannot drop or flush would leak a task after
+ *  unregister and drop a trailing write on panel close. */
+const FACE_FACES: readonly SchedulerFace[] = Object.values(FACE);
+
+/** A frame-coalescing key face. Wider than `StyleFace` on purpose: the
+ *  scheduler below is a plain "at most one trailing frame per
+ *  (face, layerId)" queue that knows nothing about `setStyle`, so a walk
+ *  that is not a styleBag slice can share it. `FACE.SIZE` is a direct
+ *  `setRadius` walk rather than a `setStyle` face — without sharing the
+ *  queue, a typing burst across the size field would write one radius per
+ *  leaf per keystroke, and a bulk content change would walk per leaf.
+ *
+ *  Derived from `FACE` rather than spelled out: adding a member to `FACE`
+ *  is enough to add a face, and the type cannot drift from it. */
+type SchedulerFace = (typeof FACE)[keyof typeof FACE];
 
 /** Leaflet Path defaults — folium's path_options fills most of these in,
  *  so the fallbacks only fire for a bare Leaflet layer. */
@@ -86,10 +112,28 @@ const isStyleSetter = (node: unknown): node is StyleSetter =>
 /** Visit every leaf that exposes a runtime `setStyle`. Groups (LayerGroup,
  *  folium GeoJson) expose `setStyle` too, but they are walked down instead:
  *  mouseout fires on the leaf paths, and the authored bag is per leaf.
- *  Recursion lives in `walkLeaf`; this helper is just the setStyle filter. */
+ *  Recursion lives in `walkLeaf`; this helper is just the setStyle filter.
+ *  It carries no geometry predicate, so it reaches line leaves too: callers
+ *  that write a fill must use {@link walkFillLeaves} instead, or the carrier
+ *  the capability probe answers for is not the carrier the write reaches. */
 const walkStyleLeaves = (node: StyleCarrier, fn: (leaf: StyleSetter) => void): void => {
   walkLeaf(node, leaf => {
     if (isStyleSetter(leaf)) fn(leaf);
+  });
+};
+
+/** Visit only the leaves that can carry a fill: a real `setStyle` plus an
+ *  areal geometry. `isArealStyleLeaf` is the same predicate the capability
+ *  probe walks, so a layer that answers "native" for fill reaches exactly the
+ *  leaves this walk reaches.
+ *
+ *  Filtering on `setStyle` alone would admit line leaves. A fill commit to a
+ *  Polyline is inert, its `fill` flag would drift from the author's, and its
+ *  `feature` value would still enter a ramp's breaks and repaint every
+ *  polygon in the group. */
+const walkFillLeaves = (node: StyleCarrier, fn: (leaf: StyleSetter) => void): void => {
+  walkLeaf(node, leaf => {
+    if (isArealStyleLeaf(leaf)) fn(leaf as StyleSetter);
   });
 };
 
@@ -116,26 +160,47 @@ const captureStyleBag = (node: StyleCarrier): StyleBag => {
 const styleBagOf = (node: StyleCarrier): StyleBag | undefined =>
   authorStyleBase.get(node);
 
-/** The first leaf that carries a real `setStyle` — the row's initial value
- *  is read from it, so a swatch or a number field never shows a value the
- *  layer is not actually painting.
+/** The first leaf that matches `isMatch` — the row's initial value is read
+ *  from it, so a swatch or a number field never shows a value the layer is not
+ *  actually painting.
  *
  *  Groups are always descended, never returned. L.GeoJSON defines `setStyle`
  *  itself — it fans the style out to its features — so a setter-only check
  *  stops at the group and reads its own options, which hold only the style
  *  function: the panel then shows Leaflet's defaults instead of the author's
- *  stroke, which is the stroke the layer is actually painting. */
+ *  paint, which is the paint the layer is actually rendering. */
+const firstLeafWhere = (
+  node: StyleCarrier,
+  isMatch: (leaf: unknown) => boolean,
+): StyleSetter | null =>
+  findLeaf<StyleSetter>(node, leaf =>
+    isStyleSetter(leaf) && isMatch(leaf) ? leaf : undefined,
+  ) ?? null;
+
+/** The first leaf that carries a real `setStyle` — the stroke row's carrier.
+ *  Its predicate is the whole check: any `setStyle` is a stroke writer. */
 const firstStyleLeaf = (node: StyleCarrier): StyleSetter | null =>
-  findLeaf<StyleSetter>(node, leaf => (isStyleSetter(leaf) ? leaf : undefined)) ?? null;
+  firstLeafWhere(node, isStyleSetter);
+
+/** The first leaf that can actually carry a fill — the same predicate the
+ *  fill walk reaches, so the fill row reads the colour the layer paints.
+ *  Reading the first `setStyle` leaf instead would hand a line-first mixed
+ *  layer's line colour to the fill row: a line declares no fill, so its
+ *  options are not the answer the polygon is answering for. */
+const firstFillLeaf = (node: StyleCarrier): StyleSetter | null =>
+  firstLeafWhere(node, isArealStyleLeaf);
 
 /**
  * Coverage-write family reader — the single shared source for the "author's
  * declared style" of a vector layer, before any user write has mutated it.
- * All three existing readers (fill color, fill opacity, border color/weight)
- * walk the same path: `findLayer` → first style leaf → captured bag if any,
- * else live options, else the dimension's own default. `bag ?? options ??
- * default` is the priority everywhere so the panel shows the author's paint,
- * not the last user drag that mutates `options` in place.
+ * Both faces walk the same shape - `findLayer` → that face's carrier → its
+ * captured bag if any, else its live options, else the face's own default.
+ * `bag ?? options ?? default` is the priority everywhere so the panel shows
+ * the author's paint, not the last user drag that mutates `options` in place.
+ *
+ * The carriers deliberately differ: fill resolves the first areal leaf, stroke
+ * the first setter, so a dimension never reads a value from a leaf its write
+ * cannot reach - see `firstFillLeaf`.
  *
  * `fillOpacity` stays nullable: a layer that declares no fill opacity means
  * "the row shows what the layer is actually painting," which is
@@ -159,14 +224,20 @@ const styleBaseOf = (
   weight: number;
 } => {
   const layer = ui.c.findLayer(layerId) as StyleCarrier | null;
-  const carrier = layer ? firstStyleLeaf(layer) : null;
-  const bag = carrier ? styleBagOf(carrier) : undefined;
-  const opts = (carrier?.options ?? {}) as Partial<StyleBag>;
+  // Each face reads from the carrier its own write reaches - fill from the
+  // first areal leaf, stroke from the first setter. One shared carrier made a
+  // line-first mixed layer show the line's colour as its fill.
+  const fillCarrier = layer ? firstFillLeaf(layer) : null;
+  const strokeCarrier = layer ? firstStyleLeaf(layer) : null;
+  const fillBag = fillCarrier ? styleBagOf(fillCarrier) : undefined;
+  const strokeBag = strokeCarrier ? styleBagOf(strokeCarrier) : undefined;
+  const fillOpts = (fillCarrier?.options ?? {}) as Partial<StyleBag>;
+  const strokeOpts = (strokeCarrier?.options ?? {}) as Partial<StyleBag>;
   return {
-    fillColor: bag?.fillColor ?? opts.fillColor ?? STYLE_BAG_DEFAULTS.fillColor,
-    fillOpacity: bag?.fillOpacity ?? opts.fillOpacity ?? null,
-    color: bag?.color ?? opts.color ?? STYLE_BAG_DEFAULTS.color,
-    weight: bag?.weight ?? opts.weight ?? STYLE_BAG_DEFAULTS.weight,
+    fillColor: fillBag?.fillColor ?? fillOpts.fillColor ?? STYLE_BAG_DEFAULTS.fillColor,
+    fillOpacity: fillBag?.fillOpacity ?? fillOpts.fillOpacity ?? null,
+    color: strokeBag?.color ?? strokeOpts.color ?? STYLE_BAG_DEFAULTS.color,
+    weight: strokeBag?.weight ?? strokeOpts.weight ?? STYLE_BAG_DEFAULTS.weight,
   };
 };
 
@@ -215,6 +286,45 @@ const restoreStyleDim = (node: StyleSetter, face: StyleFace): void => {
   node.setStyle(faceSlice(bag, face));
 };
 
+/** The author's keys for one face with the caller's value keys on top, the
+ *  visibility bit set to `lightFace` - the record the restore-then-commit
+ *  pair would have written in two `setStyle` calls, in one.
+ *
+ *  A key the caller does not name keeps the author's own value, so an
+ *  opacity-only commit keeps the author's colour and a colour-only commit
+ *  keeps the author's opacity. `undefined` values never override. The
+ *  visibility bit always lands explicitly: `true` when the caller claims the
+ *  face, the author's own flag when it does not. Re-reads the captured bag
+ *  rather than taking it, so a highlight pin can re-derive the same answer
+ *  folium's `resetStyle` just undid. */
+const styleDimOverAuthor = (
+  node: StyleSetter,
+  values: Record<string, unknown>,
+  face: StyleFace,
+  lightFace: boolean,
+): Record<string, unknown> => {
+  const style: Record<string, unknown> = {
+    ...faceSlice(captureStyleBag(node), face),
+  };
+  for (const [key, value] of Object.entries(values)) {
+    if (value !== undefined) style[key] = value;
+  }
+  if (lightFace) style[face] = true;
+  return style;
+};
+
+/** Write the merged record: one `setStyle` per leaf instead of a restore
+ *  followed by a commit. The walk is one either way; doubling the writes
+ *  doubles the DOM and SVG attribute work on top of it. */
+const commitStyleDimMerged = (
+  node: StyleSetter,
+  values: Record<string, unknown>,
+  face: StyleFace,
+  lightFace: boolean,
+): void => {
+  node.setStyle(styleDimOverAuthor(node, values, face, lightFace));
+};
+
 // ── Shared apply scheduler (drag coalescing) ─────────────────────────────
 //
 // A style-panel drag fires an input event per step and each apply walk is a
@@ -229,13 +339,13 @@ const restoreStyleDim = (node: StyleSetter, face: StyleFace): void => {
 type ApplyBox = { run: () => void; raf: ReturnType<typeof throttleRaf> };
 const applySchedulers = new Map<string, ApplyBox>();
 
-const applyKey = (face: StyleFace, layerId: string): string => `${face}:${layerId}`;
+const applyKey = (face: SchedulerFace, layerId: string): string => `${face}:${layerId}`;
 
 /** Queue the apply walk for one face. Later calls in the same frame replace
  *  `run` and coalesce into the one pending frame — the walk always reads
  *  the latest intent. */
 const scheduleStyleDimApply = (
-  face: StyleFace,
+  face: SchedulerFace,
   layerId: string,
   run: () => void,
 ): void => {
@@ -254,23 +364,22 @@ const scheduleStyleDimApply = (
 };
 
 /** Force a pending walk to run now. No-op when nothing is queued. */
-const flushStyleDimApply = (face: StyleFace, layerId: string): void => {
+const flushStyleDimApply = (face: SchedulerFace, layerId: string): void => {
   applySchedulers.get(applyKey(face, layerId))?.raf.flush();
 };
 
 /** Drop a pending walk without running it. Reset must not paint the user's
  *  value over the authored restore. */
-const cancelStyleDimApply = (face: StyleFace, layerId: string): void => {
+const cancelStyleDimApply = (face: SchedulerFace, layerId: string): void => {
   applySchedulers.get(applyKey(face, layerId))?.raf.cancel();
 };
 
 /** Retire every face's scheduler entry for one layer id — the single
- *  unregister drop hook. Covers fill and border in one pass so the caller
- *  never holds two scattered teardowns. */
+ *  unregister drop hook. Covers all three faces in one pass so the caller
+ *  never holds scattered teardowns. */
 const dropStyleDimApplies = (layerId: string): void => {
-  const keyFill = applyKey(FACE.FILL, layerId);
-  const keyStroke = applyKey(FACE.STROKE, layerId);
-  for (const key of [keyFill, keyStroke]) {
+  for (const face of FACE_FACES) {
+    const key = applyKey(face, layerId);
     const box = applySchedulers.get(key);
     if (!box) continue;
     box.raf.cancel();
@@ -279,15 +388,16 @@ const dropStyleDimApplies = (layerId: string): void => {
 };
 
 /** Flush every face's pending walk for one layer id — the panel-close
- *  commit boundary. Both faces must land: a dragged border left on a
- *  trailing frame would vanish when the panel disappears. */
+ *  commit boundary. Every face must land: a drag or a typing burst left on
+ *  a trailing frame would vanish when the panel disappears. */
 const flushStyleDimApplies = (layerId: string): void => {
-  flushStyleDimApply(FACE.FILL, layerId);
-  flushStyleDimApply(FACE.STROKE, layerId);
+  for (const face of FACE_FACES) {
+    flushStyleDimApply(face, layerId);
+  }
 };
 
 /** Whether a scheduler entry is still held (tests pin the unregister drop). */
-const hasStyleDimApply = (face: StyleFace, layerId: string): boolean =>
+const hasStyleDimApply = (face: SchedulerFace, layerId: string): boolean =>
   applySchedulers.has(applyKey(face, layerId));
 
 export {
@@ -298,6 +408,7 @@ export {
   cancelStyleDimApply,
   captureStyleBag,
   commitStyleDim,
+  commitStyleDimMerged,
   dropStyleDimApplies,
   faceSlice,
   flushStyleDimApply,
@@ -308,6 +419,8 @@ export {
   scheduleStyleDimApply,
   styleBagOf,
   styleBaseOf,
+  styleDimOverAuthor,
   styleDimPayload,
+  walkFillLeaves,
   walkStyleLeaves,
 };

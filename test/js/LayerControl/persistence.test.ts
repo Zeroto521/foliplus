@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { isFillRampConfig } from "#core/layer/intent.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import {
   LayerPersistence,
@@ -325,6 +326,273 @@ describe("LayerPersistence", () => {
       const rec = makePersistence().load();
       expect(rec.annotations.a).toMatchObject({ position: "below", anchor: 42 });
       expect(rec.layers.b?.annotation).toMatchObject({ position: "center" });
+    });
+  });
+
+  describe("fillRamp / fillMode", () => {
+    it("round-trips a legal ramp config and mode", () => {
+      seedStorage({
+        version: RECORD_VERSION,
+        layers: {
+          a: {
+            fillMode: "ramp",
+            fillRamp: {
+              field: "price",
+              method: "quantile",
+              classes: 5,
+              scheme: "Reds",
+            },
+            overrides: ["fillRamp", "fillMode"],
+          },
+        },
+      });
+      expect(makePersistence().load().layers.a).toEqual({
+        fillMode: "ramp",
+        fillRamp: { field: "price", method: "quantile", classes: 5, scheme: "Reds" },
+        overrides: ["fillRamp", "fillMode"],
+      });
+    });
+
+    it("accepts both mode literals", () => {
+      for (const mode of ["solid", "ramp"] as const) {
+        seedStorage({
+          version: RECORD_VERSION,
+          layers: { a: { fillMode: mode, overrides: ["fillMode"] } },
+        });
+        expect(makePersistence().load().layers.a).toEqual({
+          fillMode: mode,
+          overrides: ["fillMode"],
+        });
+      }
+    });
+
+    it("keeps a whitespace-padded field name verbatim", () => {
+      // "  price  " is a different GeoJSON property from "price" (RFC 7946
+      // section 3.2 with RFC 8259 section 4), so trimming it on read would
+      // miss every feature after a reload — or read the other column when both
+      // spellings exist. The reader checks for non-whitespace and stores the
+      // key as it came.
+      seedStorage({
+        version: RECORD_VERSION,
+        layers: {
+          a: {
+            fillRamp: {
+              field: "  price  ",
+              method: "equal",
+              classes: 3,
+              scheme: "Reds",
+            },
+            overrides: ["fillRamp"],
+          },
+        },
+      });
+      expect(makePersistence().load().layers.a).toEqual({
+        fillRamp: { field: "  price  ", method: "equal", classes: 3, scheme: "Reds" },
+        overrides: ["fillRamp"],
+      });
+    });
+
+    it("carries a whitespace-padded field through the next write", () => {
+      // The reader's verbatim key must reach storage untouched, or the next
+      // reload would ask for a column that does not exist. The write rebuilds
+      // the whole record from what storage holds, so the read-time key is what
+      // the record is judged on.
+      seedStorage({
+        version: RECORD_VERSION,
+        layers: {
+          a: {
+            fillRamp: {
+              field: "  price  ",
+              method: "equal",
+              classes: 3,
+              scheme: "Reds",
+            },
+            overrides: ["fillRamp"],
+          },
+        },
+      });
+      vi.useFakeTimers();
+      const save = spySave();
+      const p = makePersistence();
+      p.schedule({ order: () => ["a"] });
+
+      vi.advanceTimersByTime(CONST.SAVE_DEBOUNCE_MS + 50);
+
+      expect(lastRecord(save).layers.a?.fillRamp?.field).toBe("  price  ");
+      save.mockRestore();
+      vi.useRealTimers();
+    });
+
+    it("strips an explicit numeric kind — absence is the same config", () => {
+      // "numeric" is the default, so persisting it would add no information.
+      // The reader drops it on the way in and the stored record keeps reading
+      // "kindless = numeric", which is what an older writer produced.
+      seedStorage({
+        version: RECORD_VERSION,
+        layers: {
+          a: {
+            fillRamp: {
+              kind: "numeric",
+              field: "price",
+              method: "equal",
+              classes: 3,
+              scheme: "Reds",
+            },
+            overrides: ["fillRamp"],
+          },
+        },
+      });
+      const loaded = makePersistence().load().layers.a;
+      expect(loaded).toEqual({
+        fillRamp: { field: "price", method: "equal", classes: 3, scheme: "Reds" },
+        overrides: ["fillRamp"],
+      });
+      expect(loaded!.fillRamp!.kind).toBeUndefined();
+    });
+
+    it("drops a ramp whose kind this client cannot build", () => {
+      // The categorical arm is a later batch. A record that asks for it (or
+      // for any non-numeric spelling) must be dropped whole rather than
+      // painted as a numeric ramp over category values.
+      for (const kind of ["categorical", "linear", "", "NUMERIC", 5, null]) {
+        seedStorage({
+          version: RECORD_VERSION,
+          layers: {
+            a: {
+              fillRamp: {
+                kind,
+                field: "price",
+                method: "equal",
+                classes: 3,
+                scheme: "Reds",
+              },
+              overrides: ["fillRamp"],
+            },
+          },
+        });
+        expect(makePersistence().load().layers.a, JSON.stringify(kind)).toBeUndefined();
+      }
+    });
+
+    it("drops a ramp config that misses a string field", () => {
+      const bads = [
+        { field: "", method: "equal", classes: 3, scheme: "Reds" },
+        { field: "   ", method: "equal", classes: 3, scheme: "Reds" },
+        { field: "price", method: "", classes: 3, scheme: "Reds" },
+        { field: "price", method: "equal", classes: 3, scheme: "" },
+        { method: "equal", classes: 3, scheme: "Reds" },
+      ];
+      for (const bad of bads) {
+        seedStorage({
+          version: RECORD_VERSION,
+          layers: { a: { fillRamp: bad, overrides: ["fillRamp"] } },
+        });
+        // The marker has no surviving value, so the layer entry is dropped
+        // rather than kept as an empty object.
+        expect(makePersistence().load().layers.a, JSON.stringify(bad)).toBeUndefined();
+      }
+    });
+
+    it("drops a class count outside the 2-9 bounds or that is not whole", () => {
+      for (const classes of [1, 10, 0, -2, 3.5, Number.NaN]) {
+        seedStorage({
+          version: RECORD_VERSION,
+          layers: {
+            a: {
+              fillRamp: { field: "price", method: "equal", classes, scheme: "Reds" },
+              overrides: ["fillRamp"],
+            },
+          },
+        });
+        expect(makePersistence().load().layers.a, `classes=${classes}`).toBeUndefined();
+      }
+    });
+
+    it("drops a ramp config that is not a plain object", () => {
+      for (const bad of [null, undefined, "Reds", 7, [], [1, 2, 3]]) {
+        seedStorage({
+          version: RECORD_VERSION,
+          layers: { a: { fillRamp: bad, overrides: ["fillRamp"] } },
+        });
+        expect(makePersistence().load().layers.a, JSON.stringify(bad)).toBeUndefined();
+      }
+    });
+
+    it("accepts exactly the records the live validator accepts", () => {
+      // The panel and the storage path must agree on what a ramp record is:
+      // a record one accepts and the other drops would vanish on the next
+      // reload, and one the panel rejects would never be offered in the
+      // first place. `parseFillRamp` delegates to the same predicate the
+      // live intent write runs through, so the table is the contract.
+      const cases: Array<[boolean, unknown]> = [
+        [true, { field: "price", method: "equal", classes: 3, scheme: "Reds" }],
+        [
+          true,
+          {
+            field: "price",
+            method: "quantile",
+            classes: 9,
+            scheme: "Reds",
+            kind: "numeric",
+          },
+        ],
+        [false, { field: "", method: "equal", classes: 3, scheme: "Reds" }],
+        [false, { field: "   ", method: "equal", classes: 3, scheme: "Reds" }],
+        [false, { field: "price", method: "", classes: 3, scheme: "Reds" }],
+        [false, { field: "price", method: "equal", classes: 3, scheme: "" }],
+        [false, { field: "price", method: "equal", classes: 1, scheme: "Reds" }],
+        [false, { field: "price", method: "equal", classes: 10, scheme: "Reds" }],
+        [false, { field: "price", method: "equal", classes: 3.5, scheme: "Reds" }],
+        [false, { field: "price", method: "equal", scheme: "Reds" }],
+        [false, { field: "price", method: "equal", classes: 3 }],
+        [false, { field: "price", method: "equal", classes: 3, kind: "other" }],
+        [false, "Reds"],
+        [false, [1, 2, 3]],
+        [false, null],
+      ];
+      for (const [ok, config] of cases) {
+        expect(isFillRampConfig(config), JSON.stringify(config)).toBe(ok);
+        seedStorage({
+          version: RECORD_VERSION,
+          layers: { a: { fillRamp: config, overrides: ["fillRamp"] } },
+        });
+        const loaded = makePersistence().load();
+        expect(
+          loaded !== null && loaded.layers.a !== undefined,
+          JSON.stringify(config),
+        ).toBe(ok);
+      }
+    });
+
+    it("drops a fillMode that is not one of the two literals", () => {
+      for (const bad of ["RAMP", "linear", "", 1, null, undefined, {}]) {
+        seedStorage({
+          version: RECORD_VERSION,
+          layers: { a: { fillMode: bad, overrides: ["fillMode"] } },
+        });
+        expect(makePersistence().load().layers.a, JSON.stringify(bad)).toBeUndefined();
+      }
+    });
+
+    it("parses each override independently — a bad ramp keeps the mode", () => {
+      seedStorage({
+        version: RECORD_VERSION,
+        layers: {
+          a: {
+            fillMode: "ramp",
+            fillRamp: { field: "", method: "equal", classes: 3, scheme: "Reds" },
+            fillOpacity: 0.5,
+            overrides: ["fillMode", "fillRamp", "fillOpacity"],
+          },
+        },
+      });
+      // Only the provenance markers whose value survives are kept, in the
+      // declaration order of PARSE_OVERRIDE.
+      expect(makePersistence().load().layers.a).toEqual({
+        fillMode: "ramp",
+        fillOpacity: 0.5,
+        overrides: ["fillOpacity", "fillMode"],
+      });
     });
   });
 
@@ -676,6 +944,38 @@ describe("LayerPersistence", () => {
       });
     });
 
+    it("keeps sizes inside the shared bounds, rounding, and drops the rest", () => {
+      // A corrupt entry must not silently resize the layer: out of bounds and
+      // non-numeric values are dropped with their provenance marker, and a
+      // fractional value is rounded because the field steps by one.
+      seedStorage({
+        layers: {
+          a: { size: 30, overrides: ["size"] },
+          b: { size: 30.6, overrides: ["size"] },
+          c: { size: 1, overrides: ["size"] },
+          d: { size: 64, overrides: ["size"] },
+          e: { size: 0, overrides: ["size"] },
+          f: { size: -5, overrides: ["size"] },
+          g: { size: 65, overrides: ["size"] },
+          h: { size: "30", overrides: ["size"] },
+          // JSON.stringify turns a non-finite value into null on disk, so these
+          // two exercise the non-number branch: either way they cannot resize.
+          i: { size: NaN, overrides: ["size"] },
+          j: { size: Infinity, overrides: ["size"] },
+          k: { size: { px: 30 }, overrides: ["size"] },
+          l: { size: 30, borderColor: "#abcdef", overrides: ["size", "borderColor"] },
+        },
+      });
+      expect(makePersistence().load().layers).toEqual({
+        a: { size: 30, overrides: ["size"] },
+        b: { size: 31, overrides: ["size"] },
+        c: { size: 1, overrides: ["size"] },
+        d: { size: 64, overrides: ["size"] },
+        // Provenance is recorded in the dimension registry's own order, not the
+        // seeded one.
+        l: { size: 30, borderColor: "#abcdef", overrides: ["borderColor", "size"] },
+      });
+    });
     it("drops a fill override whose value fails validation", () => {
       seedStorage({
         layers: {

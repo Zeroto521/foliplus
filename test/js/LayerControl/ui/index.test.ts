@@ -10,6 +10,7 @@ import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { getIntent, seedIntentMap } from "#foliplus/LayerControl/ui/intent.js";
 import {
   TEST_ENV,
+  attachedPanel,
   findItem,
   initFixture,
   installLeafletGlobals,
@@ -36,7 +37,7 @@ describe("LayerUI shell — event subscriptions", () => {
     const initSpy = vi.spyOn(ui, "initTypesAndVisibility");
     const applySpy = vi.spyOn(ui, "applyStyleLabelState");
 
-    ensureEvents(map).emit(EVENTS.CONTROL_ATTACHED, { component: "HeatmapControl" });
+    ensureEvents(map).publish(EVENTS.CONTROL_ATTACHED, { component: "HeatmapControl" });
 
     expect(initSpy).toHaveBeenCalledTimes(1);
     expect(applySpy).toHaveBeenCalledTimes(1);
@@ -46,7 +47,7 @@ describe("LayerUI shell — event subscriptions", () => {
     (ui.uiContainer as HTMLElement).remove();
     const initSpy = vi.spyOn(ui, "initTypesAndVisibility");
 
-    ensureEvents(map).emit(EVENTS.CONTROL_ATTACHED, { component: "HeatmapControl" });
+    ensureEvents(map).publish(EVENTS.CONTROL_ATTACHED, { component: "HeatmapControl" });
 
     expect(initSpy).not.toHaveBeenCalled();
   });
@@ -227,7 +228,7 @@ describe("LayerUI shell — delegates", () => {
     // through the same visibility carrier + debounced z-order write-through
     // as any other layer.
     const enforce = vi.spyOn(manager, "debouncedEnforce");
-    const colorItem = ui.uiContainer.querySelector(
+    const colorItem = attachedPanel(ui).querySelector(
       `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
     ) as HTMLElement;
     const checkbox = colorItem.querySelector(
