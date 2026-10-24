@@ -23,6 +23,11 @@
 // State convention: put work that can throw in the list, and leave plain field
 // resets after the call. A reset whose execution depends on step success
 // strands a destroyed owner with half-cleared state.
+//
+// Resolution: a handle or collection resolved *before* the list can throw and
+// skip the entire teardown — the shape that left a half-mounted HeatmapControl
+// alive. Resolve it inside a step (or from a snapshot that cannot throw), and
+// make the later steps tolerate an unresolvable value.
 
 /** One named teardown step. The name is what a failure is reported against. */
 type FinalizeStep = readonly [name: string, run: () => void];
