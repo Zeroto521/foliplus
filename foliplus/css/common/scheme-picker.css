@@ -109,7 +109,7 @@
 /* ── Colour bar inside a dropdown item ── */
 .foliplus-scheme-picker-bar {
   flex: 1;
-  height: var(--foliplus-scheme-picker-row-height, var(--foliplus-ctrl-size));
+  height: var(--foliplus-ctrl-size);
   border-radius: var(--foliplus-radius-sm);
   border: var(--foliplus-border-thin) solid var(--foliplus-btn-secondary-border);
   flex-shrink: 0;

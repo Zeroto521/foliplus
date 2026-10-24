@@ -92,7 +92,7 @@ class HeatmapControl extends defineControl({
     this.initScanCleanup = null;
     // schemePickerCleanup destroys the picker permanently (called on control
     // teardown). schemeBarCleanup only closes the dropdown (called on data
-    // clear) — that one stays alive for re-use.
+    // clear) — that one stays alive for reuse.
     this.schemePickerCleanup?.();
     this.schemePickerCleanup = null;
     this.schemeBarCleanup = null;
