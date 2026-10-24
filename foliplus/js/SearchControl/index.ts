@@ -6,6 +6,7 @@ import { ensureMapFoliplus } from "#core/mapApi.js";
 import { Cache } from "#common/cache.js";
 import type { Debounced } from "#common/debounce.js";
 import { createIconButton, dom } from "#common/dom.js";
+import { finalize } from "#common/finalize.js";
 import * as Icons from "#common/icon.js";
 import { AUTOCOMPLETE, CLASSES, MODE } from "./const.js";
 import * as SVGs from "./icon.js";
@@ -63,18 +64,31 @@ class SearchControl extends defineControl({
   }
 
   destroy() {
-    removePanel(this);
-    if (this.debouncedFetch) this.debouncedFetch.cancel();
-    if (this.addrAbortController) this.addrAbortController.abort();
-    if (this.suggestAbortController) this.suggestAbortController.abort();
+    finalize(
+      [
+        ["remove-panel", () => removePanel(this)],
+        ["cancel-fetch", () => this.debouncedFetch?.cancel()],
+        ["abort-address", () => this.addrAbortController?.abort()],
+        ["abort-suggest", () => this.suggestAbortController?.abort()],
+        // Flush any pending history write before the in-memory array is dropped,
+        // so a last search that raced teardown is durable. A throwing write must
+        // not leave the timer and the buttons live on a removed control.
+        ["flush-history", () => flushHistory(this)],
+        [
+          "cancel-throttle",
+          () => {
+            if (this.throttleTimer) clearTimeout(this.throttleTimer);
+          },
+        ],
+        ["detach-mode-btn", () => (this.modeBtn.onclick = null)],
+        ["detach-clear-btn", () => (this.clearBtn.onclick = null)],
+      ],
+      failure => this.log.warn(`destroy step "${failure.name}" threw`, failure.error),
+    );
+    // Resets, not steps: the caches must be dropped even when one of the detach
+    // steps above threw.
     this.cachedSuggestions.clear();
-    // Flush any pending history write before the in-memory array is dropped,
-    // so a last search that raced teardown is durable.
-    flushHistory(this);
     this.searchHistory = [];
-    if (this.throttleTimer) clearTimeout(this.throttleTimer);
-    this.modeBtn.onclick = null;
-    this.clearBtn.onclick = null;
   }
 
   createDOM() {
