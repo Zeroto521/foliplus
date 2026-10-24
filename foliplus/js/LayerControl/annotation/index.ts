@@ -35,7 +35,11 @@ import {
   planLabelLayout,
 } from "./layout.js";
 
-const log = createLogger("Annotation");
+// The component's prefix, not the folder's: `Annotation` is an internal
+// subsystem name a user never sees, and every diagnostic from a mounted
+// LayerControl should grep as `[LayerControl]` — the same rule the UI modules
+// follow through `ui.log`.
+const log = createLogger("LayerControl");
 
 /** A label a layer asked for, described by its feature rather than by pixels —
  *  the plan converts the latlng on every frame, so a pan leaves no stale
