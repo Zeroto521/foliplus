@@ -15,6 +15,7 @@
 
 - `CSS`: design tokens split surface from on-accent and expose a focus color, so a theme can invert one without the other ([#714](https://github.com/Zeroto521/foliplus/pull/714))
 - `LayerControl`: opacity and zoom-range rows now use one dependency-free slider primitive — single/dual thumb, keyboard, ARIA, disabled/RTL, a bubble that panels cannot clip, and a collapsed range that slides instead of dead-locking ([#721](https://github.com/Zeroto521/foliplus/pull/721))
+- `LayerControl`: labels rebuild once per frame instead of once per streamed feature — the label replay joins the shared frame coalescer, and the content-change replay set moves from a hand-kept list in the hook to a per-dimension declaration on the style registry, so a new dimension claims it in its own descriptor
 
 ### Fixed
 

@@ -116,6 +116,20 @@ describe("LayerControl style-panel dimension registry", () => {
     expect(ordered.length).toBe(new Set(ordered).size);
   });
 
+  it("onContentChange is declared by exactly the replaying dimensions", () => {
+    // The hub runs every descriptor's onContentChange on a content change,
+    // so this set IS the replay coverage. opacity / zoomRange stay out —
+    // their replay is the projection sweep itself, and opacity's delta is
+    // the notify's payload, which cannot ride the loop. Dropping a
+    // declaration here silently loses that dimension's content-change
+    // replay; adding a replaying dimension must land here with it.
+    const replaying = listDimensions()
+      .filter(d => d.onContentChange)
+      .map(d => d.key)
+      .sort();
+    expect(replaying).toEqual(["annotation", "border", "fill", "size"]);
+  });
+
   it("registerDimension throws on a duplicate key — the built-in opacity", () => {
     // A third-party component colliding with our built-in key, or a
     // duplicated import, must fail loudly rather than silently overwrite.
