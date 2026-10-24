@@ -4732,7 +4732,13 @@ describe("retireEntry finalization", () => {
       return original(sel);
     }) as typeof container.querySelector;
 
-    expect(() => manager.unregisterLayer("overlay1")).toThrow("panel read failed");
+    try {
+      expect(() => manager.unregisterLayer("overlay1")).toThrow("panel read failed");
+    } finally {
+      // The fixture owns this element; drop the own-property patch so the
+      // prototype's querySelector is back for whatever runs next.
+      Reflect.deleteProperty(container, "querySelector");
+    }
     expect(unload.mock.calls.some(c => c[0] === "overlay1")).toBe(true);
     expect(manager.layerRegistry.has("overlay1")).toBe(false);
   });
@@ -4741,7 +4747,7 @@ describe("retireEntry finalization", () => {
 describe("enforceOrder isolation", () => {
   it("prices the rest of the stack and reports the layer that failed", () => {
     window.localStorage.clear();
-    const { manager } = initFixture({
+    const { manager, map } = initFixture({
       data: [
         { id: "a", name: "A", group: "overlay" },
         { id: "bad", name: "Bad", group: "overlay" },
@@ -4754,10 +4760,17 @@ describe("enforceOrder isolation", () => {
       throw new Error("no z");
     });
     const cSetZ = vi.spyOn(c, "setZ");
+    map.getPane.mockClear();
 
     const failed = manager.enforceOrder();
 
     expect(failed).toEqual(["bad"]);
     expect(cSetZ).toHaveBeenCalled();
+    // The shared panes are priced after the registry pass, so a failed layer
+    // must not leave markers/tooltips/popups at their default z.
+    const priced = map.getPane.mock.calls.map(([name]: [string]) => name);
+    expect(priced).toEqual(
+      expect.arrayContaining(["popupPane", "tooltipPane", "markerPane"]),
+    );
   });
 });
