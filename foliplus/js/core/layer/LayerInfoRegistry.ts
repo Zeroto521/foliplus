@@ -250,17 +250,29 @@ class LayerInfoRegistry {
     return this.items[Symbol.iterator]();
   }
 
-  /** Insert or update in place — never reorders an existing layer. */
+  /** Insert or update in place — never reorders an existing layer, and
+   *  refuses to change one's group: an in-place swap keeps the slot, so a
+   *  role change would strand the entry in the wrong block with a stale
+   *  boundary. The registry enforces this itself, not through its callers —
+   *  the controller's friendly gate is the first line, this is the backstop. */
   upsert(layerInfo: LayerInfo): LayerInfo {
     const existing = this.byId.get(layerInfo.id);
     if (existing) {
+      if (existing.group !== layerInfo.group) {
+        throw new Error(
+          log.msg(
+            `upsert: cannot change "${layerInfo.id}" from ${existing.group} to ` +
+              `${layerInfo.group} in place — its group is its role for the id's lifetime`,
+          ),
+        );
+      }
       const idx = this.items.indexOf(existing);
       this.items[idx] = layerInfo;
     } else {
       this.items.push(layerInfo);
-      this.refreshFirstBaseIdx();
     }
     this.byId.set(layerInfo.id, layerInfo);
+    this.refreshFirstBaseIdx();
     return layerInfo;
   }
 
@@ -290,21 +302,42 @@ class LayerInfoRegistry {
     return layerInfo;
   }
 
-  /** Move an existing layer to index 0 (bring to front). */
+  /** Move an existing layer to index 0 (bring to front). Refuses a base
+   *  layer: index 0 lives inside the overlay block, and the partition is
+   *  the registry's own invariant, not its callers' responsibility. */
   moveToFront(id: string): LayerInfo | null {
     const layerInfo = this.byId.get(id);
     if (!layerInfo) return null;
     const idx = this.items.indexOf(layerInfo);
     if (idx <= 0) return layerInfo;
+    if (layerInfo.group === GROUP.BASE) {
+      throw new Error(
+        log.msg(`moveToFront: "${id}" is a base layer — it cannot cross the overlay/base boundary`),
+      );
+    }
     this.items.splice(idx, 1);
     this.items.unshift(layerInfo);
     return layerInfo;
   }
 
-  /** Swap order of two positions (drag-and-drop). */
+  /** Swap order of two positions (drag-and-drop). Both positions must sit
+   *  on the same side of the overlay/base boundary — the public reorder
+   *  entries gate with `canReorderBetween`, and this is the backstop that
+   *  keeps the partition invariant when a caller forgets. */
   reorder(fromIdx: number, toIdx: number) {
+    const firstBase = this._firstBaseIdx;
+    const side = (i: number): number => (firstBase !== -1 && i >= firstBase ? 1 : 0);
+    if (side(fromIdx) !== side(toIdx)) {
+      throw new Error(
+        log.msg(
+          `reorder(${fromIdx} → ${toIdx}): cannot cross the overlay/base boundary ` +
+            `(firstBaseIdx=${firstBase})`,
+        ),
+      );
+    }
     const [moved] = this.items.splice(fromIdx, 1);
     this.items.splice(toIdx, 0, moved);
+    this.refreshFirstBaseIdx();
   }
 
   /** Rebuild both list and index from a new ordered array. */

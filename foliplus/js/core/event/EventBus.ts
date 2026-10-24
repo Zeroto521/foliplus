@@ -90,7 +90,9 @@ class EventBus {
   private assertPublishable(event: string): void {
     if (this.entryPolicy(event).kind === "notification") {
       throw new Error(
-        `notification event "${event}" must be published (publish / SettledOperation), not fail-fast emit`,
+        log.msg(
+          `notification event "${event}" must be published (publish / SettledOperation), not fail-fast emit`,
+        ),
       );
     }
   }

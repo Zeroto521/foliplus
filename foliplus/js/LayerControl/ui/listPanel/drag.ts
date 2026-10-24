@@ -3,7 +3,7 @@ import { HINT_DURATION } from "#core/hint.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { saveFoldState } from "../state.js";
 import type { LayerUI } from "../surface.js";
-import { rebuildList, syncRowOrder } from "./list.js";
+import { rebuildList } from "./list.js";
 
 /** Fold or unfold one group. Shared by the pointer (row click) and the
  *  keyboard (Enter / Space over the chevron) so both paths stay in sync. */
@@ -25,6 +25,17 @@ const registryIdx = (ui: LayerUI, id: string | null): number => {
   return id ? ui.c.layers.findIndex(l => l.id === id) : -1;
 };
 
+/** Current registry index of the armed drag, or -1 when the session went
+ *  stale. The gesture is armed with the entry itself, not its position: an
+ *  HTML5 drag spans events and timers, and any reorder in between would
+ *  silently re-point a saved index at a neighbor. Resolving through the
+ *  entry also retires the session on identity loss — an unregister or a
+ *  same-id replacement makes `indexOf` miss, because the registry now holds
+ *  a different object under the same id. Callers gate on `dragEntry` first;
+ *  this helper answers for an armed session only. */
+const dragIdx = (ui: LayerUI): number =>
+  ui.c.layerRegistry.indexOf(ui.listPanel.dragEntry!);
+
 const handleDragStart = (ui: LayerUI, event: DragEvent) => {
   // A press that began on a floating row panel is not a reorder gesture: the
   // panel is a detail surface, not a drag handle, and it is a *descendant* of
@@ -39,9 +50,10 @@ const handleDragStart = (ui: LayerUI, event: DragEvent) => {
     CONST.SEL.LAYER_ITEM,
   ) as HTMLElement | null;
   if (!item) return;
-  const idx = registryIdx(ui, item.getAttribute(CONST.DATA.LAYER_ID));
-  if (idx < 0) return;
-  ui.listPanel.dragIdx = idx;
+  const id = item.getAttribute(CONST.DATA.LAYER_ID);
+  const entry = id ? ui.c.layerRegistry.get(id) : undefined;
+  if (!entry) return;
+  ui.listPanel.dragEntry = entry;
   item.classList.add(CONST.CLASSES.DRAGGING);
   if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
 };
@@ -58,7 +70,16 @@ const showReorderBlockedHint = (ui: LayerUI) => {
 };
 
 const handleDragOver = (ui: LayerUI, event: DragEvent) => {
-  if (ui.listPanel.dragIdx === null) return;
+  if (!ui.listPanel.dragEntry) return;
+  const armed = dragIdx(ui);
+  if (armed < 0) {
+    // The armed entry retired mid-gesture (an unregister or a same-id
+    // replacement): the session is over now. The source row may already be
+    // gone, so a later native dragend cannot be counted on to reach this
+    // container — the hover chrome comes down here.
+    clearDragState(ui);
+    return;
+  }
   event.preventDefault();
   const item = (event.target as HTMLElement).closest(
     CONST.SEL.LAYER_ITEM,
@@ -74,17 +95,15 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
   item.classList.remove(CONST.CLASSES.DRAG_OVER_TOP, CONST.CLASSES.DRAG_OVER_BOTTOM);
   ui.listPanel.lastDragOverItem = item;
 
-  if (!ui.c.canReorderBetween(ui.listPanel.dragIdx, targetIdx)) {
+  if (!ui.c.canReorderBetween(armed, targetIdx)) {
     if (event.dataTransfer) event.dataTransfer.dropEffect = "none";
     showReorderBlockedHint(ui);
     return;
   }
   if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
 
-  if (targetIdx < ui.listPanel.dragIdx) item.classList.add(CONST.CLASSES.DRAG_OVER_TOP);
-  else if (targetIdx > ui.listPanel.dragIdx) {
-    item.classList.add(CONST.CLASSES.DRAG_OVER_BOTTOM);
-  }
+  if (targetIdx < armed) item.classList.add(CONST.CLASSES.DRAG_OVER_TOP);
+  else if (targetIdx > armed) item.classList.add(CONST.CLASSES.DRAG_OVER_BOTTOM);
 };
 
 const handleDragLeave = (event: DragEvent) => {
@@ -101,44 +120,50 @@ const handleDrop = (ui: LayerUI, event: DragEvent) => {
   const target = (event.target as HTMLElement).closest(
     CONST.SEL.LAYER_ITEM,
   ) as HTMLElement | null;
-  if (ui.listPanel.dragIdx === null) return;
+  if (!ui.listPanel.dragEntry) return;
   if (!target) return;
 
-  if (ui.listPanel.dragIdx < 0 || ui.listPanel.dragIdx >= ui.c.layers.length) {
-    ui.listPanel.dragIdx = null;
+  // The session is validated at every use, not just at the end: the entry
+  // the gesture armed with must still be the one the registry holds. An
+  // unregister, or a replacement under the same id, retires the whole
+  // session here — entry, hover chrome and all — instead of moving
+  // whatever now sits at the old position.
+  const armed = dragIdx(ui);
+  if (armed < 0) {
+    clearDragState(ui);
     return;
   }
 
-  const targetIdx = registryIdx(ui, target.getAttribute(CONST.DATA.LAYER_ID));
+  const targetId = target.getAttribute(CONST.DATA.LAYER_ID);
+  const targetIdx = targetId ? registryIdx(ui, targetId) : -1;
   if (targetIdx < 0) return;
-  if (ui.listPanel.dragIdx === targetIdx) return;
-  if (!ui.c.canReorderBetween(ui.listPanel.dragIdx, targetIdx)) {
+  if (armed === targetIdx) return;
+  if (!ui.c.canReorderBetween(armed, targetIdx)) {
     showReorderBlockedHint(ui);
     return;
   }
 
-  // The armed index must still name a layer: an entry torn down between
-  // dragstart and drop has nothing to relocate, and reordering the registry
-  // around a hole would corrupt the arrangement saveOrder persists.
-  if (!ui.c.layers[ui.listPanel.dragIdx]?.id) {
-    ui.listPanel.dragIdx = null;
-    return;
+  // Everything else is the controller's commit funnel — registry move, z
+  // repricing, saved order, the panel-order signal that relocates the rows,
+  // and the layer CHANGE — the same sequence a keyboard or API move runs, so
+  // a drag is no longer invisible to event consumers. A terminal consumer
+  // can throw out of it after the commit landed; the gesture state comes
+  // down regardless, or the panel would keep claiming a drag in flight.
+  const entry = ui.listPanel.dragEntry;
+  try {
+    ui.c.reorderLayer(entry.id, targetId!);
+  } finally {
+    clearDragState(ui);
   }
-
-  ui.c.layerRegistry.reorder(ui.listPanel.dragIdx, targetIdx);
-  // Same incremental relocation the reorder APIs take through the
-  // LAYER_LIST_REBUILD signal: registry first, then move the displaced rows.
-  // The hand-rolled insertBefore around the drop target encoded the same
-  // outcome for the one-row case; the shared reconcile also re-homes the
-  // roving tabindex, which the hand-rolled move never did.
-  ui.c.enforceOrder();
-  ui.c.saveOrder();
-  syncRowOrder(ui);
-  ui.listPanel.dragIdx = null;
 };
 
-const handleDragEnd = (ui: LayerUI) => {
-  ui.listPanel.dragIdx = null;
+/** Idempotent gesture teardown: the armed session, the hover marker and the
+ *  drag chrome all go — whether the drop committed, was refused, threw, or
+ *  the control unmounted mid-gesture. The drop's commit boundary, the
+ *  native dragend and the unbind boundary share it; it clears the pure
+ *  session state even when the panel itself is already gone. */
+const clearDragState = (ui: LayerUI): void => {
+  ui.listPanel.dragEntry = null;
   ui.listPanel.lastDragOverItem = null;
   const allItems = ui.uiContainer?.querySelectorAll(CONST.SEL.LAYER_ITEM);
   allItems?.forEach((i: Element) =>
@@ -150,6 +175,10 @@ const handleDragEnd = (ui: LayerUI) => {
   );
 };
 
+const handleDragEnd = (ui: LayerUI) => {
+  clearDragState(ui);
+};
+
 export {
   toggleFold,
   handleDragStart,
@@ -158,4 +187,5 @@ export {
   handleDragLeave,
   handleDrop,
   handleDragEnd,
+  clearDragState,
 };

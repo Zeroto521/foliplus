@@ -40,6 +40,8 @@ import { LayerPersistence } from "./persistence.js";
 import { finishSlidersIn } from "./slider.js";
 import { collectDeltas } from "./ui/apply.js";
 import { type LayerUI } from "./ui/index.js";
+import { cursorRef, reconcileCursorByIdentity } from "./ui/listPanel/cursor.js";
+import { clearDragState } from "./ui/listPanel/drag.js";
 
 type LayerControllerEnv = {
   readonly T: (key: string) => string;
@@ -262,6 +264,7 @@ class LayerController implements LayerAPI {
       registerLayer: this.registerLayer,
       unregisterLayer: this.unregisterLayer,
       bringLayerToFront: this.bringLayerToFront,
+      registry: () => this.layerRegistry,
       invalidateType: id => this.invalidateType(id),
       // A canvas or color surface mounts its pane inside register() and needs
       // its slot's z at birth — no provisional bottom step the ordering pass
@@ -611,7 +614,25 @@ class LayerController implements LayerAPI {
       return null;
     }
 
-    const { layerInfo, existingIdx, hidden } = this.domain.registerEntry(
+    // A layer's group is its role for the id's whole lifetime — it picks the
+    // z ladder, the attribution and basemap semantics, and which panel
+    // section owns the row. Re-registering with a different group would be a
+    // role change, which no code path models: the in-place upsert would
+    // strand the row in the old section with a stale section boundary
+    // (firstBaseIdx) and a partition invariant broken. Refuse before any
+    // mutation — unregister first if the role really must change.
+    const existingRole = this.layerRegistry.get(opts.id);
+    if (existingRole && opts.group !== undefined && opts.group !== existingRole.group) {
+      throw new Error(
+        this.log.msg(
+          `registerLayer: "${opts.id}" is registered as ${existingRole.group}; ` +
+            `re-registering with group "${opts.group}" is a role change. ` +
+            `Unregister the layer first, or register it under a new id.`,
+        ),
+      );
+    }
+
+    const { layerInfo, hidden, mutation } = this.domain.registerEntry(
       opts,
       Boolean(this.ui),
     );
@@ -634,7 +655,7 @@ class LayerController implements LayerAPI {
 
     const operation = this.beginOperation();
     if (this.ui) {
-      if (existingIdx === -1) {
+      if (mutation.kind === "insert") {
         // New row: the row is inserted by the LAYER_ITEM_ADDED listener; the
         // stored-state projection is left to the single applyUserState below,
         // so the registration entry holds the delta and can announce it after
@@ -711,6 +732,43 @@ class LayerController implements LayerAPI {
     return this.isDestroyed || this.layerRegistry.get(id) !== entry;
   }
 
+  /** The one reorder commit path — registry move, z repricing, persistence,
+   *  the panel-order signal and the announcement, in that order, inside one
+   *  settled operation. moveLayerUp / moveLayerDown / bringLayerToFront and
+   *  the drag drop all funnel through here: each entry resolves the user's
+   *  intent into a registry mutation and a no-op verdict, and this method
+   *  owns every contract the entrances must share — the event pair, the
+   *  identity retirement gate and the exception policy.
+   *
+   *  `mutate` runs before the operation opens, exactly as the entrances did
+   *  on their own: the registry move is a local commit, not a side effect a
+   *  subscriber can veto, and a throwing consumer must not find the saved
+   *  order disagreeing with the live one. */
+  private commitReorder(id: string, item: LayerInfo, mutate: () => void): boolean {
+    mutate();
+    this.enforceOrder();
+    this.saveOrder();
+    const operation = this.beginOperation();
+    if (this.uiContainer && this.ui) {
+      operation.emit(EVENTS.LAYER_LIST_REBUILD);
+    }
+    // The panel sync above is this operation's own side effect, so it lands
+    // before the notify: a subscriber reading the row order out of the panel
+    // during the CHANGE sees the arrangement that was just made. That same
+    // fan-out is where a subscriber can retire what the move announces for —
+    // destroying the control or unregistering the layer — so the entry is
+    // re-read rather than reused: a swap under the same id would otherwise
+    // be announced on top of the arrangement it just rendered. A controller
+    // with no panel never synced anything and announces as usual.
+    if (this.isRetired(id, item)) {
+      operation.throwIfFailed();
+      return true;
+    }
+    this.emitLayerChange(id, item.kind, operation);
+    operation.throwIfFailed();
+    return true;
+  }
+
   /**
    * Bring a registered layer to the front (top of z-order).
    * @param {string} id - Layer ID previously passed to registerLayer().
@@ -721,28 +779,34 @@ class LayerController implements LayerAPI {
     const idx = this.layerRegistry.indexOf(item);
     if (idx <= 0) return;
     if (item?.group === GROUP.BASE) return;
-    this.layerRegistry.moveToFront(id);
-    this.enforceOrder();
-    this.saveOrder();
-    const operation = this.beginOperation();
-    if (this.uiContainer && this.ui) {
-      operation.emit(EVENTS.LAYER_LIST_REBUILD);
-    }
-    // The rebuild above is this operation's own side effect, so it lands
-    // before the notify: a subscriber reading the row order out of the panel
-    // during the CHANGE sees the arrangement that was just made, not the one
-    // about to be rendered. That same replay is where a subscriber can retire
-    // what the move announces for — destroying the control or unregistering
-    // the layer — so the entry is re-read rather than reused: a swap under the
-    // same id would otherwise be announced on top of the arrangement it just
-    // rendered. A controller with no panel never rebuilt anything and
-    // announces as usual.
-    if (this.isRetired(id, item)) {
-      operation.throwIfFailed();
-      return;
-    }
-    this.emitLayerChange(id, item.kind, operation);
-    operation.throwIfFailed();
+    this.commitReorder(id, item, () => this.layerRegistry.moveToFront(id));
+  }
+
+  /**
+   * Land a dragged layer at another layer's slot — the drag-drop counterpart
+   * of the move APIs, funneled through the same commit path so a drag
+   * publishes the same panel-order signal and layer CHANGE a keyboard or API
+   * move does. Both ids are resolved at commit time, not when the gesture
+   * started: the armed drag keeps the layer's identity, and the registry is
+   * re-read here so an intervening reorder moves what the user actually
+   * grabbed.
+   * @param {string} id - The dragged layer's ID.
+   * @param {string} targetId - The layer whose slot the drop names.
+   * @returns {boolean} true if the layer moved, false when either id is
+   *   gone, the slots coincide, or the group boundary refuses the move —
+   *   always without side effects on false.
+   */
+  reorderLayer(id: string, targetId: string): boolean {
+    const item = this.layerRegistry.get(id);
+    const target = this.layerRegistry.get(targetId);
+    if (!item || !target) return false;
+    const from = this.layerRegistry.indexOf(item);
+    const to = this.layerRegistry.indexOf(target);
+    // Same slot is a self-drop; any other pairing crosses the group gate,
+    // which also owns the bounds check, below.
+    if (from === to) return false;
+    if (!this.canReorderBetween(from, to)) return false;
+    return this.commitReorder(id, item, () => this.layerRegistry.reorder(from, to));
   }
 
   /** Stamp `updatedAt` to now — call after a runtime mutation that does not
@@ -824,21 +888,38 @@ class LayerController implements LayerAPI {
     // throwing consumer must not leave the persisted order listing the id.
     this.persistence.flushAll();
     this.announceRetirement(retired.layerInfo, operation);
+    // A map-teardown error captured by retireEntry surfaces only after the
+    // local ledger (persistence, events) has converged.
+    if (retired.error) throw retired.error;
     operation.throwIfFailed();
     return true;
   }
 
-  /** Local teardown of one registry entry: registry, map, panel row, and
-   *  annotation rendering. No bus event — the caller (generic unregister, user
-   *  delete, component clear) owns the operation that announces the removal,
-   *  so its local commits can finish before any consumer can throw. */
-  private retireEntry(id: string): { layerInfo: LayerInfo } | null {
+  /** Local retirement as one guaranteed-finalization pass: the gesture is
+   *  terminated FIRST (before anything that can throw), every throwable step
+   *  is attempted with the first error captured, all local ledgers converge
+   *  — drag, map membership, DOM row, cursor, annotation — and only then is
+   *  the error handed back for the caller to rethrow after ITS finalization
+   *  (persistence, owed events). A throw mid-way must not be able to skip
+   *  the rest of the teardown. */
+  private retireEntry(id: string): { layerInfo: LayerInfo; error?: unknown } | null {
     const { layerInfo, layer } = this.domain.unregisterEntry(id);
     if (!layerInfo) return null;
 
-    if (layer) {
-      if (this.map.hasLayer(layer)) this.map.removeLayer(layer);
-      this.clearAllLayers(layer);
+    // A drag armed with the retiring entry has no future: the source row is
+    // about to leave the panel, and a native dragend off a detached source
+    // cannot be relied on to bubble back. Cancel the gesture before the
+    // throwable map teardown below, so an exception there cannot skip it.
+    if (this.ui?.listPanel?.dragEntry === layerInfo) clearDragState(this.ui);
+
+    let error: unknown = null;
+    try {
+      if (layer) {
+        if (this.map.hasLayer(layer)) this.map.removeLayer(layer);
+        this.clearAllLayers(layer);
+      }
+    } catch (err) {
+      error ??= err;
     }
 
     if (this.uiContainer) {
@@ -849,6 +930,12 @@ class LayerController implements LayerAPI {
         // Finalise an in-flight user edit before its panel leaves the DOM: the
         // drag value is the user's, not teardown state.
         finishSlidersIn(target);
+        // Capture the cursor by identity before the row leaves the list: the
+        // removal shifts every later row's index, and the ledger must follow
+        // the row it described, not the position. Removing the active row
+        // itself clears the cursor and hands the tab stop to the first
+        // visible row — the roving contract never lapses.
+        const ref = this.ui?.listPanel ? cursorRef(this.ui) : null;
         target.remove();
         // Check if the group is now empty and remove the toggle-all row if so.
         const group = layerInfo.group;
@@ -861,6 +948,7 @@ class LayerController implements LayerAPI {
             .querySelector(`.${CONST.CLASSES.TOGGLE_ALL}[data-group="${group}"]`)
             ?.remove();
         }
+        if (this.ui?.listPanel) reconcileCursorByIdentity(this.ui, ref);
       }
     }
     // Nothing below writes persisted state — see the method's doc. The rename
@@ -870,8 +958,12 @@ class LayerController implements LayerAPI {
     // Tear down the annotation RENDERING state; the label config stays —
     // it is part of that surviving intent (a flush after this point must
     // not erase `layers[id].annotation` from storage).
-    this.annotation.unloadLayer(id);
-    return { layerInfo };
+    try {
+      this.annotation.unloadLayer(id);
+    } catch (err) {
+      error ??= err;
+    }
+    return { layerInfo, error };
   }
 
   /** Queue the signals one retirement owes, in their established order.
@@ -990,6 +1082,7 @@ class LayerController implements LayerAPI {
         operation.emit(EVENTS.LAYER_NO_BASEMAP_CHANGED);
       }
       this.persistence.flushAll();
+      if (retired.error) throw retired.error;
       operation.throwIfFailed();
       return true;
     }
@@ -1036,6 +1129,7 @@ class LayerController implements LayerAPI {
       });
       operation.emit(EVENTS.LAYER_NO_BASEMAP_CHANGED);
     }
+    if (retired.error) throw retired.error;
     operation.throwIfFailed();
     return true;
   }
@@ -1168,23 +1262,7 @@ class LayerController implements LayerAPI {
     if (idx <= 0) return false;
     if (!this.canReorderBetween(idx, idx - 1)) return false;
 
-    this.layerRegistry.reorder(idx, idx - 1);
-    this.enforceOrder();
-    this.saveOrder();
-    const operation = this.beginOperation();
-    if (this.uiContainer && this.ui) {
-      operation.emit(EVENTS.LAYER_LIST_REBUILD);
-    }
-    if (this.isRetired(id, item)) {
-      operation.throwIfFailed();
-      return true;
-    }
-    // Same retirement check as bringLayerToFront: the rebuild above can retire
-    // what this move announces for, and the row list it just rebuilt is what
-    // the notify announces against.
-    this.emitLayerChange(id, item.kind, operation);
-    operation.throwIfFailed();
-    return true;
+    return this.commitReorder(id, item, () => this.layerRegistry.reorder(idx, idx - 1));
   }
 
   /**
@@ -1201,23 +1279,7 @@ class LayerController implements LayerAPI {
     if (idx < 0 || idx >= this.layers.length - 1) return false;
     if (!this.canReorderBetween(idx, idx + 1)) return false;
 
-    this.layerRegistry.reorder(idx, idx + 1);
-    this.enforceOrder();
-    this.saveOrder();
-    const operation = this.beginOperation();
-    if (this.uiContainer && this.ui) {
-      operation.emit(EVENTS.LAYER_LIST_REBUILD);
-    }
-    if (this.isRetired(id, item)) {
-      operation.throwIfFailed();
-      return true;
-    }
-    // Same retirement check as bringLayerToFront: the rebuild above can retire
-    // what this move announces for, and the row list it just rebuilt is what
-    // the notify announces against.
-    this.emitLayerChange(id, item.kind, operation);
-    operation.throwIfFailed();
-    return true;
+    return this.commitReorder(id, item, () => this.layerRegistry.reorder(idx, idx + 1));
   }
 
   destroy() {
