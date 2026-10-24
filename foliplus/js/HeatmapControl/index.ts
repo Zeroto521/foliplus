@@ -15,6 +15,7 @@ class HeatmapControl extends defineControl({
    *  re-add rebuilds a fresh manager. */
   private manager: HeatmapManager | null = null;
   schemeDropdown: HTMLElement | null;
+  schemePicker: import("#common/schemePicker.js").SchemePicker | null;
   expandHookDone: boolean;
   declare ctrl: HTMLElement;
   declare observer: MutationObserver | null;
@@ -33,16 +34,17 @@ class HeatmapControl extends defineControl({
   declare toggleSchemeDropdown: () => void;
   initScanCleanup: (() => void) | null = null;
   schemeBarCleanup: (() => void) | null = null;
-  dropdownCleanup: (() => void) | null = null;
+  schemePickerCleanup: (() => void) | null = null;
   toggleDropdown: (() => void) | null = null;
   selectScheme: ((idx: number) => void) | null = null;
 
   constructor(options?: L.ControlOptions) {
     super(options);
     this.schemeDropdown = null;
+    this.schemePicker = null;
     this.expandHookDone = false;
     this.schemeBarCleanup = null;
-    this.dropdownCleanup = null;
+    this.schemePickerCleanup = null;
     this.toggleDropdown = null;
     this.selectScheme = null;
   }
@@ -77,8 +79,8 @@ class HeatmapControl extends defineControl({
 
   /** (Re)start the initial layer scan. Runs on every add, so the control
    *  recovers after removeControl + addControl (destroy cancels the old scan).
-   *  The scheme-bar handler is only ever (re)bound by bindControls, which
-   *  itself guards the double-registration case. */
+   *  The scheme picker is created by bindControls and destroyed by
+   *  destroy() (via schemeBarCleanup). */
   startScan() {
     this.initScanCleanup?.();
     this.initScanCleanup = initScan(this);
@@ -88,13 +90,13 @@ class HeatmapControl extends defineControl({
     // Clean up map event listeners
     this.initScanCleanup?.();
     this.initScanCleanup = null;
-    this.schemeBarCleanup?.();
+    // schemePickerCleanup destroys the picker permanently (called on control
+    // teardown). schemeBarCleanup only closes the dropdown (called on data
+    // clear) — that one stays alive for reuse.
+    this.schemePickerCleanup?.();
+    this.schemePickerCleanup = null;
     this.schemeBarCleanup = null;
-    // dropdownCleanup is optional: only the dropdown open/close cycle writes
-    // it, and clearHeatmapCanvas already runs it. Null it here so a handler
-    // can't survive the control — it re-registers on the next dropdown open.
-    this.dropdownCleanup?.();
-    this.dropdownCleanup = null;
+    this.schemePicker = null;
 
     const mgr = this.mgr;
     this.manager = null;
@@ -123,6 +125,7 @@ class HeatmapControl extends defineControl({
     mgr.ui = null;
     // Drop UI references to the removed DOM so a re-add starts clean.
     this.schemeDropdown = null;
+    this.schemePicker = null;
     this.expandHookDone = false;
   }
 }

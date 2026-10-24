@@ -44,15 +44,11 @@ describe("bindControls — lifecycle hooks", () => {
     // control class in index.ts makes a missing assignment a compile error;
     // this covers the runtime half.
     expect(ctrl.schemeBarCleanup).toBeTypeOf("function");
+    expect(ctrl.schemePickerCleanup).toBeTypeOf("function");
     expect(ctrl.toggleDropdown).toBeTypeOf("function");
     expect(ctrl.selectScheme).toBeTypeOf("function");
-    expect(ctrl.dropdownCleanup).toBeNull();
-
-    ctrl.schemeBar.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    expect(ctrl.dropdownCleanup).toBeTypeOf("function");
-    // Two distinct unbind closures — the scheme bar and the dropdown have
-    // independent document-level listeners that must not collapse into one.
-    expect(ctrl.schemeBarCleanup).not.toBe(ctrl.dropdownCleanup);
+    // Two distinct cleanup closures — close (transient) vs destroy (permanent).
+    expect(ctrl.schemeBarCleanup).not.toBe(ctrl.schemePickerCleanup);
   });
 });
 
@@ -171,7 +167,7 @@ describe("bindControls — change handlers", () => {
     const { ctrl } = setup();
     ctrl.schemeBar.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     const bars = () =>
-      Array.from(ctrl.schemeDropdown!.querySelectorAll(CONST.SEL.SCHEME_DROPDOWN_BAR));
+      Array.from(ctrl.schemeDropdown!.querySelectorAll(".foliplus-scheme-picker-bar"));
     expect(bars().length).toBe(3);
     ctrl.classSelect.value = "4";
     fire(ctrl.classSelect, "change");
@@ -373,7 +369,7 @@ describe("bindControls — scheme dropdown", () => {
     const save = vi.spyOn(m, "saveConfig");
     const render = vi.spyOn(m, "renderHexagons");
     ctrl.schemeBar.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    const items = ctrl.schemeDropdown!.querySelectorAll(CONST.SEL.SCHEME_DROPDOWN_ITEM);
+    const items = ctrl.schemeDropdown!.querySelectorAll(".foliplus-scheme-picker-item");
     (items[1] as HTMLElement).click();
     expect(m.scheme).toBe("Blues");
     expect(ctrl.schemeSelectHidden.value).toBe("Blues");
@@ -419,7 +415,7 @@ describe("bindControls — scheme dropdown", () => {
     m.scheme = "NoSuchScheme";
     ctrl.schemeBar.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     expect(ctrl.schemeDropdown).not.toBeNull();
-    const items = ctrl.schemeDropdown!.querySelectorAll(CONST.SEL.SCHEME_DROPDOWN_ITEM);
+    const items = ctrl.schemeDropdown!.querySelectorAll(".foliplus-scheme-picker-item");
     expect(items.length).toBe(3);
   });
 
@@ -708,34 +704,9 @@ describe("selectScheme — CONFIG.schemes edge cases", () => {
   });
 });
 
-describe("closeSchemeDropdown — inside-dropdown click", () => {
-  it("does not close when the click target is inside the open dropdown", () => {
-    const { ctrl } = setup();
-    ctrl.toggleSchemeDropdown();
-    const dropdown = ctrl.schemeDropdown!;
-    // Construct an event whose target is the dropdown itself. Because
-    // dropdown.contains(dropdown) is true, the third clause of the outer
-    // condition is false and the dropdown stays open.
-    const event = new MouseEvent("click", { bubbles: true });
-    Object.defineProperty(event, "target", { value: dropdown });
-    ctrl.closeSchemeDropdown(event);
-    expect(ctrl.schemeDropdown).toBe(dropdown);
-    expect(ctrl.schemeDropdown).not.toBeNull();
-  });
-});
+// closeSchemeDropdown — covered by schemePicker.test.ts (outside-click tests)
 
-describe("toggleSchemeDropdown — close path", () => {
-  it("does not re-bind a document click listener when it closes an open dropdown", () => {
-    const { ctrl } = setup();
-    ctrl.toggleSchemeDropdown();
-    expect(ctrl.schemeDropdown).not.toBeNull();
-    const onSpy = vi.fn();
-    ctrl.on = onSpy;
-    ctrl.toggleSchemeDropdown();
-    expect(ctrl.schemeDropdown).toBeNull();
-    expect(onSpy).not.toHaveBeenCalled();
-  });
-});
+// toggleSchemeDropdown — covered by schemePicker.test.ts (trigger click tests)
 
 describe("buildLayerListItems — null extraBody tolerance", () => {
   beforeEach(() => {
@@ -802,41 +773,4 @@ describe("updateFieldSelector — null field controls", () => {
   });
 });
 
-describe("refreshSchemeDropdownItems — malformed items", () => {
-  it("skips an item without a scheme name", () => {
-    const { ctrl } = setup();
-    ctrl.schemeBar.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    const fakeItem = document.createElement("div");
-    fakeItem.classList.add(CONST.CLASSES.SCHEME_DROPDOWN_ITEM);
-    // No data-scheme-name attribute — the refresh loop must skip it.
-    ctrl.schemeDropdown!.appendChild(fakeItem);
-    ctrl.classSelect.value = "4";
-    fire(ctrl.classSelect, "change");
-    expect(ctrl.schemeDropdown).not.toBeNull();
-    expect(
-      ctrl.schemeDropdown!.querySelectorAll(CONST.SEL.SCHEME_DROPDOWN_ITEM).length,
-    ).toBe(4);
-  });
-
-  it("skips an item with a scheme name but no bar child", () => {
-    const { ctrl } = setup();
-    ctrl.schemeBar.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    const fakeItem = document.createElement("div");
-    fakeItem.classList.add(CONST.CLASSES.SCHEME_DROPDOWN_ITEM);
-    fakeItem.setAttribute("data-scheme-name", "Reds");
-    // No bar child — renderColorBar would throw on null.innerHTML.
-    ctrl.schemeDropdown!.appendChild(fakeItem);
-    ctrl.classSelect.value = "4";
-    fire(ctrl.classSelect, "change");
-    expect(ctrl.schemeDropdown).not.toBeNull();
-    // The malformed entry was skipped: it still has no bar child, while the
-    // real "Reds" entry from the scheme list got its bar rendered.
-    expect(fakeItem.querySelector(CONST.SEL.SCHEME_DROPDOWN_BAR)).toBeNull();
-    const realItem = [
-      ...ctrl.schemeDropdown!.querySelectorAll(CONST.SEL.SCHEME_DROPDOWN_ITEM),
-    ].find(el => el.getAttribute("data-scheme-name") === "Reds" && el !== fakeItem);
-    expect(
-      realItem!.querySelector(CONST.SEL.SCHEME_DROPDOWN_BAR)!.children.length,
-    ).toBeGreaterThan(0);
-  });
-});
+// refreshSchemeDropdownItems — covered by schemePicker.test.ts (setNumClasses tests)
