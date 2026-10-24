@@ -903,7 +903,12 @@ describe("AnnotationManager — render & plan", () => {
 
     (
       map as unknown as {
-        foliplus: { events: { emit: (e: string, p: unknown) => void } };
+        foliplus: {
+          events: {
+            emit: (e: string, p: unknown) => void;
+            publish: (e: string, p: unknown) => void;
+          };
+        };
       }
     ).foliplus.events.emit(EVENTS.LAYER_CHANGE, { id: "a", kind: "vector" });
 
@@ -1138,10 +1143,15 @@ describe("AnnotationManager — render & plan", () => {
     c.paint.mockClear();
     const events = (
       map as unknown as {
-        foliplus?: { events?: { emit: (e: string, p: unknown) => void } };
+        foliplus?: {
+          events?: {
+            emit: (e: string, p: unknown) => void;
+            publish: (e: string, p: unknown) => void;
+          };
+        };
       }
     ).foliplus?.events;
-    events?.emit(EVENTS.BEFORE_EXPORT, { component: "test" });
+    events?.publish(EVENTS.BEFORE_EXPORT, { component: "test" });
     events?.emit(EVENTS.AFTER_EXPORT, { component: "test" });
     // Both sides of the export refresh in the same frame the capture reads.
     expect(c.paint).toHaveBeenCalledTimes(2);

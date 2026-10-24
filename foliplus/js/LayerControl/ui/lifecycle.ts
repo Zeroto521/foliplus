@@ -2,7 +2,7 @@
 // ready-signal re-entry. Split out of ui/index.ts (34.2). The LayerUI class
 // in index.ts keeps one-line delegates; this module owns the actual wiring
 // so index.ts stays a state + delegates shell.
-import { EVENTS, ensureEvents } from "#core/event/index.js";
+import { EVENTS, type EventPayloadMap, ensureEvents } from "#core/event/index.js";
 import { GROUP } from "#core/layer/index.js";
 import * as CONST from "../const.js";
 import {
@@ -56,7 +56,9 @@ import { closeAttrsPanel } from "./overlayPanel/attr.js";
 import { closeMoreMenu } from "./overlayPanel/menu.js";
 import { finishRename } from "./overlayPanel/rename.js";
 import { loadPersistedState } from "./state.js";
+import { applyBorderToLayer } from "./style/border.js";
 import { closeStylePanel, invalidateFields, replayFillState } from "./style/index.js";
+import { replaySizeIntent } from "./style/size.js";
 import { FACE, dropStyleDimApplies, scheduleStyleDimApply } from "./style/styleBag.js";
 import type { LayerUI } from "./surface.js";
 
@@ -314,36 +316,42 @@ const bindLayerEvents = (ui: LayerUI): void => {
   // before; the id-only payload keeps the bus a signal channel, and the
   // registry lookup here is the single source of the row's current shape.
   const registry = ui.c.layerRegistry;
+  // LayerControl owns these signals; its own handlers must run before any
+  // external observer, regardless of who subscribed first (phase "internal").
+  const subscribe = <E extends keyof EventPayloadMap>(
+    event: E,
+    handler: (payload: EventPayloadMap[E]) => void,
+  ): (() => void) => bus.on(event, handler, "internal");
   const signalHandlers: Array<() => void> = [];
   signalHandlers.push(
-    bus.on(EVENTS.LAYER_ITEM_ADDED, (payload: { id: string }) => {
+    subscribe(EVENTS.LAYER_ITEM_ADDED, (payload: { id: string }) => {
       const layerInfo = registry.get(payload.id);
       if (layerInfo) insertLayerItem(ui, layerInfo);
     }),
-    bus.on(EVENTS.LAYER_ITEM_UPDATED, (payload: { id: string }) => {
+    subscribe(EVENTS.LAYER_ITEM_UPDATED, (payload: { id: string }) => {
       const layerInfo = registry.get(payload.id);
       if (!layerInfo) return;
       updateLayerItemLabel(ui, layerInfo);
       invalidateFields(ui, payload.id);
     }),
-    bus.on(EVENTS.LAYER_ITEM_REFRESHED, (payload: { id: string }) => {
+    subscribe(EVENTS.LAYER_ITEM_REFRESHED, (payload: { id: string }) => {
       const layerInfo = registry.get(payload.id);
       if (layerInfo) initLayerItem(ui, layerInfo);
     }),
-    bus.on(EVENTS.LAYER_ITEM_REMOVED, (payload: { id: string }) => {
+    subscribe(EVENTS.LAYER_ITEM_REMOVED, (payload: { id: string }) => {
       invalidateFields(ui, payload.id);
       dropStyleDimApplies(payload.id);
     }),
-    bus.on(EVENTS.LAYER_GROUP_COUNT_CHANGED, (payload: { group: string }) => {
+    subscribe(EVENTS.LAYER_GROUP_COUNT_CHANGED, (payload: { group: string }) => {
       syncToggleAll(ui, payload.group);
     }),
-    bus.on(EVENTS.LAYER_LIST_REBUILD, () => {
+    subscribe(EVENTS.LAYER_LIST_REBUILD, () => {
       // The list layer owns this whole operation now — rows, counts,
       // readiness and the round that goes out afterwards — so the signal
       // handler is just the wiring from the bus to it.
       rebuildList(ui);
     }),
-    bus.on(EVENTS.LAYER_NO_BASEMAP_CHANGED, () => {
+    subscribe(EVENTS.LAYER_NO_BASEMAP_CHANGED, () => {
       syncNoBasemap(ui);
     }),
     // Overlay mutual exclusion — each subsystem closes itself when it hears
@@ -351,11 +359,11 @@ const bindLayerEvents = (ui: LayerUI): void => {
     // is about to open sees "I'm not open" and no-ops. Focus is guarded by
     // isFocusing so the O(layers) applyProjectionAll sweep only runs when
     // there is actually a focus to tear down.
-    bus.on(EVENTS.OVERLAY_CLEAR, () => closeMoreMenu(ui, true)),
-    bus.on(EVENTS.OVERLAY_CLEAR, () => closeAttrsPanel(ui, false)),
-    bus.on(EVENTS.OVERLAY_CLEAR, () => closeStylePanel(ui, false)),
-    bus.on(EVENTS.OVERLAY_CLEAR, () => finishRename(ui)),
-    bus.on(EVENTS.OVERLAY_CLEAR, () => {
+    subscribe(EVENTS.OVERLAY_CLEAR, () => closeMoreMenu(ui, true)),
+    subscribe(EVENTS.OVERLAY_CLEAR, () => closeAttrsPanel(ui, false)),
+    subscribe(EVENTS.OVERLAY_CLEAR, () => closeStylePanel(ui, false)),
+    subscribe(EVENTS.OVERLAY_CLEAR, () => finishRename(ui)),
+    subscribe(EVENTS.OVERLAY_CLEAR, () => {
       if (ui.isFocusing()) dismissFocus(ui);
     }),
   );
@@ -393,6 +401,15 @@ const onLayerItemCountChange = (ui: LayerUI, id: string): void => {
     opacityDelta = applyProjection(ui, id);
   }
 
+  // Size re-applies through the same hook: a pixel-radius leaf that lands
+  // after the user chose a size would otherwise keep the author's radius
+  // forever, because the radius walk only ran while the user was typing. The
+  // stored size is per layer, so the replay reaches every leaf the layer has
+  // now, and a new leaf keeps its own authored radius as the reset target.
+  // Nothing happens when the user never chose a size — the replay reads the
+  // intent and bails, so an untouched layer keeps exactly what was drawn.
+  replaySizeIntent(ui, id);
+
   // A stored fill repaints the leaves this change just landed. Without it a
   // streamed addData leaves the new features at the author's colour and a
   // running ramp on breaks classified before the new values arrived - the UI
@@ -400,13 +417,18 @@ const onLayerItemCountChange = (ui: LayerUI, id: string): void => {
   // face like every panel write: ten additions in one frame cost one
   // collect/classify/apply, and the walk always reads the layer's latest state.
   //
-  // Queued before the notify, not after: a projection consumer can throw or
-  // unregister the layer, and the scheduled replay must already exist for the
-  // teardown's LAYER_ITEM_REMOVED to drop it — scheduling after a throw would
-  // skip the replay entirely, and scheduling after a reentrant unregister
-  // would create a task for an id that is already gone. The notify stays the
-  // last step of the operation.
+  // Every replay is queued before the notify, not after: a projection
+  // consumer can throw or unregister the layer, and the scheduled replay must
+  // already exist for the teardown's LAYER_ITEM_REMOVED to drop it —
+  // scheduling after a throw would skip the replay entirely, and scheduling
+  // after a reentrant unregister would create a task for an id that is
+  // already gone. The notify stays the last step of the operation.
   scheduleStyleDimApply(FACE.FILL, id, () => replayFillState(ui, id));
+  // Border claims the same replay with its own face: a stroke chosen before
+  // the leaf landed would otherwise never reach it — the border walk only ran
+  // while the user was editing. applyBorderToLayer bails without a stored
+  // intent, so a layer the user never touched keeps its authored stroke.
+  scheduleStyleDimApply(FACE.STROKE, id, () => applyBorderToLayer(ui, id));
   notifyDelta(ui, layerInfo, opacityDelta);
 };
 

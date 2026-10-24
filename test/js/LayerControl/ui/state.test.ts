@@ -1308,7 +1308,7 @@ describe("event-driven row refresh", () => {
 
   it("subscribeControlAttached reruns init when another control attaches", () => {
     const events = ensureEvents(ui.c.map);
-    events.emit(EVENTS.CONTROL_ATTACHED, { component: "ScaleControl" });
+    events.publish(EVENTS.CONTROL_ATTACHED, { component: "ScaleControl" });
     // The callback keeps the rendered rows intact (init re-syncs, no error).
     expect(
       attachedPanel(ui).querySelectorAll(`.${CONST.CLASSES.LAYER_ITEM}`).length,
@@ -2058,7 +2058,7 @@ it("a full replay announces after the direct style writes have landed", () => {
     borderAtDelivery.push(writes.find(write => write.color !== undefined)?.color);
   });
 
-  ui.events.emit(EVENTS.CONTROL_ATTACHED, { component: "HeatmapControl" });
+  ui.events.publish(EVENTS.CONTROL_ATTACHED, { component: "HeatmapControl" });
 
   expect(borderAtDelivery).toEqual(["#abcdef"]);
 });

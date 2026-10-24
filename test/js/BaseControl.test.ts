@@ -574,9 +574,10 @@ describe("BaseControl", () => {
       c._map = m as unknown as L.Map;
       c.onAdd();
 
-      // Mid-cycle sanity: the map has exactly one listener, and no
+      // Mid-cycle sanity: the control's zoomend listener plus the event
+      // bus's per-map unload teardown (ensureEvents wires it), and no
       // cleanup has fired this cycle yet.
-      expect(m.listenerCount()).toBe(1);
+      expect(m.listenerCount()).toBe(2);
       expect(document.querySelector("#cycle-" + i)).not.toBeNull();
       const beforeThisCycle = i;
 
@@ -588,7 +589,9 @@ describe("BaseControl", () => {
       // addTo — so the container staying in the DOM is not a leak here.
       // What matters is that the *listener table* is empty and every
       // effect cleanup has run exactly once per cycle.
-      expect(m.listenerCount(), `cycle ${i}: leftover map listener`).toBe(0);
+      // The control released its zoomend listener; the bus's unload teardown
+      // intentionally lives for the map's lifetime, not the control's.
+      expect(m.listenerCount(), `cycle ${i}: leftover map listener`).toBe(1);
       expect(
         cleanupSpy,
         `cycle ${i}: effect cleanup did not run`,

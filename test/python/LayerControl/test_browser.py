@@ -2089,6 +2089,125 @@ class TestLayerControlBrowser:
                     f"reset must restore the author's stroke:false\n{reset}"
                 )
 
+    def test_circlemarker_size_row_writes_radius_and_reset_restores_authored(
+        self, browser, tmp_path
+    ):
+        """The Size row writes every pixel-radius leaf; Reset restores the author's.
+
+        Two CircleMarker radii (5 and 9) share one FeatureGroup. Typing 30
+        must reach both leaves -- getRadius() and what the SVG is painting --
+        and persist as layers[id].size == 30. Reset must bring back 5 and 9, not
+        the user's last choice of 30: the authored radius is captured on the
+        layer's first write, so a re-read would restore the user's own number
+        and every keystroke would compound.
+        A Polygon on the same map has no pixel-radius leaf, so its style
+        panel must not render the row at all.
+        """
+        m = folium.Map(location=[30.0, 120.0], zoom_start=6, tiles=None)
+        fg = folium.FeatureGroup(name="Facility Points", overlay=True, show=True)
+        folium.CircleMarker(
+            [30.0, 120.0],
+            radius=5,
+            color="#3388ff",
+            weight=2,
+            fill=True,
+            fill_opacity=0.8,
+        ).add_to(fg)
+        folium.CircleMarker(
+            [30.02, 120.02],
+            radius=9,
+            color="#e74c3c",
+            weight=2,
+            fill=True,
+            fill_opacity=0.8,
+        ).add_to(fg)
+        fg.add_to(m)
+        region = folium.FeatureGroup(name="Test Region", overlay=True, show=True)
+        folium.Polygon(
+            [[30.0, 120.1], [30.1, 120.1], [30.1, 120.2], [30.0, 120.2]],
+            color="#3388ff",
+            weight=2,
+            fill=True,
+            fill_opacity=0.2,
+        ).add_to(region)
+        region.add_to(m)
+        LayerControl().add_to(m)
+        _expand_panel(m)
+
+        html_path = tmp_path / "test_circlemarker_size_row.html"
+        _write_html(m, html_path)
+
+        with use_raw_page(browser.new_page) as page:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=10000,
+            )
+            panel_ready(page)
+
+            before = page.evaluate(_js("LayerControl/size_row"), ["Facility Points"])
+            assert before.get("panel"), f"the style panel did not open: {before}"
+            assert before.get("sizeRow"), f"the Size row did not render: {before}"
+            assert before["sizeRows"] == 1, f"expected exactly one Size row: {before}"
+            assert len(before["leaves"]) == 2, (
+                f"expected both authored markers: {before}"
+            )
+            assert {leaf["radius"] for leaf in before["leaves"]} == {5, 9}, (
+                f"the authored radii were already wrong before any write: {before}"
+            )
+            assert before["storage"] is None, (
+                f"an untouched visit stored a size: {before}"
+            )
+
+            after = page.evaluate(_js("LayerControl/size_row"), ["Facility Points", 30])
+            assert after.get("panel"), f"the style panel did not reopen: {after}"
+            assert after["sizeRows"] == 1, f"the Size row disappeared: {after}"
+            assert after["sizeInput"] == "30", (
+                f"the field did not keep the typed value: {after}"
+            )
+            assert len(after["leaves"]) == 2, f"no leaves to write to: {after}"
+            for leaf in after["leaves"]:
+                assert leaf["radius"] == 30, (
+                    f"the radius did not reach the leaf: {after}"
+                )
+                assert leaf["svgRadius"] == 30, (
+                    f"the SVG did not repaint the radius: {leaf}"
+                )
+            assert after["storage"] is not None, f"no persisted entry: {after}"
+            assert after["storage"].get("size") == 30, (
+                f"the persisted entry did not carry the size: {after}"
+            )
+            assert "size" in (after["storage"].get("overrides") or []), (
+                f"the persisted size carried no provenance marker: {after}"
+            )
+
+            reset = page.evaluate(
+                _js("LayerControl/size_row"), ["Facility Points", None, True]
+            )
+            assert reset.get("panel"), f"the style panel did not reopen: {reset}"
+            assert len(reset["leaves"]) == 2, f"no leaves after reset: {reset}"
+            assert {leaf["radius"] for leaf in reset["leaves"]} == {5, 9}, (
+                f"reset must restore the author's radii, not the last choice: {reset}"
+            )
+            assert {leaf["svgRadius"] for leaf in reset["leaves"]} == {5, 9}, (
+                f"the SVG did not repaint the authored radii: {reset}"
+            )
+            assert reset["storage"] is None or "size" not in reset["storage"], (
+                f"reset did not drop the persisted size: {reset}"
+            )
+
+            polygon = page.evaluate(_js("LayerControl/size_row"), ["Test Region"])
+            assert polygon.get("panel"), (
+                f"the polygon's style panel did not open: {polygon}"
+            )
+            assert polygon["sizeRows"] == 0, (
+                f"the Size row must not render for a polygon: {polygon}"
+            )
+            assert polygon["storage"] is None or "size" not in polygon["storage"], (
+                f"reading the polygon stored a size: {polygon}"
+            )
+
     def test_unregister_keeps_stored_opacity_delete_drops_it(self, browser, tmp_path):
         """unregisterLayer never erases a value; only an explicit delete does.
 

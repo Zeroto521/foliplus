@@ -103,7 +103,13 @@ const listDimensions = (): readonly LayerDimension<any>[] => [...registry.values
  *  adding a dimension without adding it to its section's order is the bug
  *  that same test catches.
  */
-const DIM_ORDER = [DIM.FILL, DIM.BORDER, DIM.OPACITY, DIM.ZOOM_RANGE] as const;
+const DIM_ORDER = [
+  DIM.FILL,
+  DIM.SIZE,
+  DIM.BORDER,
+  DIM.OPACITY,
+  DIM.ZOOM_RANGE,
+] as const;
 
 /** The Label section's authoritative display order — the second section of
  *  the same panel, iterated exactly like `DIM_ORDER` (heading + gated rows).

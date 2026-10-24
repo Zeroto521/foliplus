@@ -264,6 +264,10 @@ declare global {
     registerHintIcon: (key: string, iconSvg: string) => void;
     /** Per-map cross-component event bus. */
     events: CoreEventBus;
+    /** Optional per-map diagnostic hook: called with the event name and the
+     *  first consumer failure whenever a notification broadcast records one —
+     *  lets a host observe a broken subscriber instead of grepping console. */
+    onError?: (event: string, error: unknown) => void;
     /** Per-map cross-component active-mode registry. */
     modes: CoreModeManager;
     /** Per-map interaction shortcut manager. */

@@ -96,6 +96,19 @@ interface LayerCapabilities {
    *  `SurfaceDeclaration`, so a change in the tree's shape triggers a
    *  rebuild through `matches`. */
   stroke: "native" | "none";
+  /** Whether the layer's tree has a write carrier for size — a fixed pixel
+   *  radius:
+   *    - "native" — a `getRadius` leaf with a numeric `_radius` exists
+   *      (`L.CircleMarker`). The write walks `eachLayer` and calls `setRadius`
+   *      per leaf.
+   *    - "none"   — no pixel-radius leaf. `L.Circle` is excluded on purpose:
+   *      its radius is in metres (`_mRadius`), so one shared px row could not
+   *      write both without inventing a unit for one of them. Polyline,
+   *      Marker, canvas, MarkerCluster, the color basemap and the native
+   *      setter surfaces (ImageOverlay / GridLayer) also fall out.
+   *
+   *  Probe-derived, cached per surface — same contract as `stroke` / `fill`. */
+  size: "native" | "none";
   /** How the layer's opacity is written:
    *    - "native" — the layer owns its own setter (`ImageOverlay.setOpacity`,
    *      `TileLayer.options.opacity`). Immediate and correct; the UI reads/writes

@@ -13,6 +13,10 @@
 //     `layer._initInteraction`;
 //   - a tile layer's URL template: `layer._url`, which CRS detection and the
 //     export renderer both need and Leaflet exposes nowhere;
+//   - a pixel-radius leaf's own state: `layer._radius` / `_mRadius`, which
+//     the size row and its capability probe both read and Leaflet exposes
+//     nowhere — `_mRadius` is the metre-radius field that keeps `L.Circle`
+//     out of a pixel-radius match;
 //   - the attribution control's entry table and its redraw hook:
 //     `attrCtrl._attributions` / `_update`, read only when Leaflet's public
 //     `addAttribution` / `removeAttribution` are missing.
@@ -177,6 +181,56 @@ const layerElements = (layer: LeafInternals): HTMLElement[] =>
  *  mousemove can still reach. */
 const hasAttachedPath = (layer: LeafInternals): boolean => !!layer._path?.parentNode;
 
+/** A node that reports a *pixel* radius through Leaflet's public
+ *  `getRadius` / `setRadius` pair. The capability probe and the size write
+ *  path share this one type, so a leaf the probe accepts is always a leaf the
+ *  writer can write. */
+type PixelRadiusLeaf = {
+  getRadius: () => number;
+  setRadius: (radius: number) => unknown;
+};
+
+/** The private state a radius probe reads, described structurally — `_radius`
+ *  is the field `setRadius` writes, `_mRadius` is the metre-radius field that
+ *  keeps `L.Circle` out. */
+type RadiusInternals = {
+  getRadius?: unknown;
+  setRadius?: unknown;
+  _radius?: unknown;
+  _mRadius?: unknown;
+};
+
+/** Whether a node is a leaf that carries a *pixel* radius — the single
+ *  recognition of a radius carrier, shared by the capability probe
+ *  (`hasRadiusLeaf`) and the size write path.
+ *
+ *  Three carrier features, no class check:
+ *    - `getRadius` is the reader, and it is shared by `L.CircleMarker` and
+ *      `L.Circle`, so it cannot tell them apart;
+ *    - `_radius` is the field `setRadius` writes — the pixel radius;
+ *    - `_mRadius === undefined` is the discriminator. `L.Circle` *does* end up
+ *      with a numeric `_radius`: its `_project` derives a pixel value from the
+ *      metre radius as soon as the layer is attached, which is exactly the
+ *      moment it shows up in the layer list. Reading `_mRadius` is the only
+ *      field that excludes it whether or not the circle is on the map.
+ *
+ *  `setRadius` is required as well, because the caller writes through it: a
+ *  node that could be read but not written would claim a capability it cannot
+ *  honour, and a row would render with nothing to write to. */
+const isPixelRadiusLeaf = (node: unknown): node is PixelRadiusLeaf => {
+  const n = node as RadiusInternals;
+  return (
+    typeof n.getRadius === "function" &&
+    typeof n.setRadius === "function" &&
+    typeof n._radius === "number" &&
+    n._mRadius === undefined
+  );
+};
+
+/** Exported so the size write path (`size.ts`) narrows through the same carrier
+ *  contract this module defines, instead of restating it. */
+export type { PixelRadiusLeaf };
+
 /** Re-run a marker's own interaction setup: `Marker._initInteraction` re-adds
  *  the icon class, the hit target and the dragging hooks, and early-returns when
  *  the layer is being turned non-interactive.
@@ -243,6 +297,7 @@ export {
   hasAttachedPath,
   internalLayers,
   isGroupLike,
+  isPixelRadiusLeaf,
   layerElements,
   layerIcon,
   layerShadow,

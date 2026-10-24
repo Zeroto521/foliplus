@@ -90,7 +90,7 @@ function makeManager(opts?: { id?: string }) {
       showHint: vi.fn(),
       hideHint: vi.fn(),
       interaction: { shortcuts: [] as Array<Record<string, unknown>> },
-      events: { emit: vi.fn() },
+      events: { emit: vi.fn(), publish: vi.fn() },
       LayerAPI: {
         createLayers: vi.fn(() => layers),
       },
@@ -878,7 +878,7 @@ describe("MeasureManager — export auto-clear", () => {
     expect(manager.currentMode).toBe("distance");
     const events = ensureEvents(manager.map);
     manager.map.foliplus!.showHint.mockClear();
-    events.emit("foliplus:mode:change", {
+    events.publish("foliplus:mode:change", {
       component: "ExportControl",
       mode: "selecting",
     });
@@ -895,7 +895,7 @@ describe("MeasureManager — export auto-clear", () => {
     expect(manager.currentMode).toBeNull();
     const events = ensureEvents(manager.map);
     expect(() =>
-      events.emit("foliplus:mode:change", {
+      events.publish("foliplus:mode:change", {
         component: "ExportControl",
         mode: "selecting",
       }),
@@ -907,7 +907,7 @@ describe("MeasureManager — export auto-clear", () => {
     const { manager } = makeManager();
     manager.setMode("distance");
     const events = ensureEvents(manager.map);
-    events.emit("foliplus:mode:change", {
+    events.publish("foliplus:mode:change", {
       component: "FullscreenControl",
       mode: "fullscreen",
     });
@@ -990,7 +990,7 @@ describe("MeasureManager — EVENTS.LAYER_REMOVED auto-cleanup", () => {
     clearSpy.mockClear();
 
     const bus = map.foliplus!.events;
-    bus.emit(EVENTS.MODE_CHANGE, {
+    bus.publish(EVENTS.MODE_CHANGE, {
       component: "ExportControl",
       mode: "crop",
     });
@@ -1497,7 +1497,7 @@ describe("MeasureManager — registerLabel lifecycle", () => {
 
   it("emits LAYER_STYLE_CHANGE when a setter fires", () => {
     const { manager } = makeLabelManager();
-    const emitSpy = vi.spyOn(manager.events, "emitSettled");
+    const emitSpy = vi.spyOn(manager.events, "publish");
 
     manager.setLabelsVisible(false);
 
