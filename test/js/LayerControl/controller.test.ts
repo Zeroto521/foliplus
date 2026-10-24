@@ -4546,16 +4546,13 @@ it("a reorder announces after the row list has been rebuilt", () => {
   expect(order()).toBe("beta,alpha,gamma");
 });
 
-it("a reorder whose rebuild replay destroys the control announces nothing more", () => {
-  // The rebuild is the reorder's own side effect, and the persisted-state
-  // replay inside it announces a membership flip for any layer the map had
-  // moved away from. A subscriber that tears the control down in that notify
-  // takes the panel with it: the row paint, the tri-state counts and the
-  // cursor behind the replay all read it, so the rebuild stops there instead
-  // of continuing against a null container. The reorder's own CHANGE is
-  // suppressed too — the registry went with the control, so there is nothing
-  // left to announce the arrangement against. The move itself already landed,
-  // so the arrangement stands regardless.
+it("a reorder whose rebuild signal destroys the control announces nothing more", () => {
+  // The rebuild signal's fan-out is the reorder's own side-effect window: the
+  // in-tree subscriber relocates the rows, and a third-party subscriber (the
+  // panel is a public event surface) can tear the control down in the same
+  // emit. The reorder's own CHANGE is suppressed — the registry went with the
+  // control, so there is nothing left to announce the arrangement against.
+  // The move itself already landed, so the arrangement stands regardless.
   const layerAlpha = polygonLayer();
   const layerBeta = polygonLayer();
   const { ui, manager } = initFixture({
@@ -4564,38 +4561,31 @@ it("a reorder whose rebuild replay destroys the control announces nothing more",
       { id: "beta", name: "Beta", group: "overlay", layer: layerBeta },
     ],
   });
-  // The layer the map dropped: its stored intent still says visible, so the
-  // rebuild's replay has a flip to announce.
-  const onMap = trackMembership(ui.c.map);
-  onMap.set(layerAlpha, true);
-  onMap.set(layerBeta, true);
-  manager.map.removeLayer(layerBeta);
 
   const changes: string[] = [];
-  let orderAtNotify: string[] | null = null;
-  ui.events.on(EVENTS.LAYER_CHANGE, payload => {
-    changes.push(payload.id);
-    if (payload.id !== "beta") return;
-    orderAtNotify = manager.layers
+  let orderAtSignal: string[] | null = null;
+  ui.events.on(EVENTS.LAYER_LIST_REBUILD, () => {
+    orderAtSignal = manager.layers
       .filter(layerInfo => layerInfo.group === GROUP.OVERLAY)
       .map(layerInfo => layerInfo.id);
     ui.c.destroy();
   });
+  ui.events.on(EVENTS.LAYER_CHANGE, payload => changes.push(payload.id));
 
   expect(() => manager.moveLayerDown("alpha")).not.toThrow();
-  expect(changes).toEqual(["beta"]);
+  expect(changes).toEqual([]);
   expect(ui.c.isDestroyed).toBe(true);
   expect(ui.uiContainer).toBeNull();
-  // The reorder had already happened when the rebuild's replay fired: the
-  // arrangement the subscriber saw was the finished one. Overlay entries
-  // only — the color basemap is a base-group layer outside this arrangement.
-  expect(orderAtNotify).toEqual(["beta", "alpha"]);
+  // The reorder had already happened when the signal fired: the arrangement
+  // the subscriber saw was the finished one. Overlay entries only — the
+  // color basemap is a base-group layer outside this arrangement.
+  expect(orderAtSignal).toEqual(["beta", "alpha"]);
 });
 
-it("a reorder whose rebuild replay retires its layer announces no reorder", () => {
-  // The entry moved instead of the control going away: the rebuild's replay
-  // still announces a membership flip, and a subscriber that retires the
-  // moved layer there has removed the thing the reorder would announce for.
+it("a reorder whose rebuild signal retires its layer announces no reorder", () => {
+  // The entry moved instead of the control going away: a subscriber that
+  // retires the moved layer inside the signal has removed the thing the
+  // reorder would announce for.
   const layerAlpha = polygonLayer();
   const layerBeta = polygonLayer();
   const { ui, manager } = initFixture({
@@ -4604,37 +4594,27 @@ it("a reorder whose rebuild replay retires its layer announces no reorder", () =
       { id: "beta", name: "Beta", group: "overlay", layer: layerBeta },
     ],
   });
-  const onMap = trackMembership(ui.c.map);
-  onMap.set(layerAlpha, true);
-  onMap.set(layerBeta, true);
-  manager.map.removeLayer(layerBeta);
 
   const changes: string[] = [];
-  let retired = false;
-  ui.events.on(EVENTS.LAYER_CHANGE, payload => {
-    changes.push(payload.id);
-    if (payload.id === "beta" && !retired) {
-      retired = true;
-      manager.unregisterLayer("alpha");
-    }
+  ui.events.on(EVENTS.LAYER_LIST_REBUILD, () => {
+    manager.unregisterLayer("alpha");
   });
+  ui.events.on(EVENTS.LAYER_CHANGE, payload => changes.push(payload.id));
 
   expect(() => manager.moveLayerDown("alpha")).not.toThrow();
-  // beta's flip, then the unregister's own CHANGE for alpha — and no third:
-  // the reorder would announce an entry nobody holds any more.
-  expect(changes).toEqual(["beta", "alpha"]);
+  // The unregister's own CHANGE for alpha — and no second one: the reorder
+  // would announce an entry nobody holds any more.
+  expect(changes).toEqual(["alpha"]);
   expect(ui.c.layerRegistry.has("alpha")).toBe(false);
 });
 
-it("a rebuild announces only once the panel is settled", () => {
-  // The reorder path repaints the whole list from bare rows: `renderLayerItem`
-  // writes every checkbox checked, leaves the count column empty and drops the
-  // active class, and only the per-row pass after the replay puts the real
-  // face on them. The replay's own notify used to fire from inside that pass,
-  // so a subscriber read a half-painted panel — the same input that used to
-  // crash it. Now the round goes out after the rows, the counts and the
-  // readiness flag, and this test pins exactly that: what a subscriber sees
-  // at delivery is what the panel looks like when the operation returns.
+it("a rebuild signal delivers an already-settled panel", () => {
+  // A reorder relocates rows in place, so unlike the bare-rows rebuild the
+  // panel never stops being settled: every subscriber in the signal's
+  // fan-out — in-tree first, third parties after — reads the finished
+  // arrangement, the preserved row faces and the readiness flag. What a
+  // subscriber sees at delivery is what the panel looks like when the
+  // operation returns.
   const layerAlpha = polygonLayer();
   const layerBeta = polygonLayer();
   const layerGamma = polygonLayer();
@@ -4645,16 +4625,9 @@ it("a rebuild announces only once the panel is settled", () => {
       { id: "gamma", name: "Gamma", group: "overlay", layer: layerGamma },
     ],
   });
-  const onMap = trackMembership(ui.c.map);
-  onMap.set(layerAlpha, true);
-  onMap.set(layerBeta, true);
-  onMap.set(layerGamma, true);
-  // A row the user hid: once settled it must read unchecked.
-  setIntent(ui, "gamma", "visible", false);
-  ui.intentStore.seedProvenance("gamma", ["visible"]);
-  // beta is off the map while its intent still says visible, so the rebuild's
-  // replay has a membership flip to announce.
-  manager.map.removeLayer(layerBeta);
+  // A row the user hid through the real visibility path: a reorder must not
+  // repaint it, so it still reads unchecked at signal delivery.
+  manager.setVisible("gamma", false);
 
   const snapshot = () => {
     const rows = Array.from(
@@ -4677,8 +4650,8 @@ it("a rebuild announces only once the panel is settled", () => {
   };
 
   let atDelivery: ReturnType<typeof snapshot> | null = null;
-  ui.events.on(EVENTS.LAYER_CHANGE, payload => {
-    if (payload.id === "beta" && !atDelivery) atDelivery = snapshot();
+  ui.events.on(EVENTS.LAYER_LIST_REBUILD, () => {
+    if (!atDelivery) atDelivery = snapshot();
   });
 
   expect(manager.moveLayerDown("alpha")).toBe(true);
@@ -4692,10 +4665,10 @@ it("a rebuild announces only once the panel is settled", () => {
   });
 });
 
-it("a bringLayerToFront whose rebuild replay destroys the control announces nothing", () => {
-  // Same retirement window as the move entries: the rebuild's replay is what
-  // announces, and a subscriber that destroys the control there leaves no
-  // registry to announce the reorder against.
+it("a bringLayerToFront whose rebuild signal destroys the control announces nothing", () => {
+  // Same retirement window as the move entries: a subscriber that destroys
+  // the control inside the signal leaves no registry to announce the
+  // reorder against.
   const layerAlpha = polygonLayer();
   const layerBeta = polygonLayer();
   const { ui, manager } = initFixture({
@@ -4704,23 +4677,19 @@ it("a bringLayerToFront whose rebuild replay destroys the control announces noth
       { id: "beta", name: "Beta", group: "overlay", layer: layerBeta },
     ],
   });
-  const onMap = trackMembership(ui.c.map);
-  onMap.set(layerAlpha, true);
-  onMap.set(layerBeta, true);
-  manager.map.removeLayer(layerBeta);
 
   const changes: string[] = [];
-  ui.events.on(EVENTS.LAYER_CHANGE, payload => {
-    changes.push(payload.id);
-    if (payload.id === "beta" && !manager.isDestroyed) manager.destroy();
+  ui.events.on(EVENTS.LAYER_LIST_REBUILD, () => {
+    if (!manager.isDestroyed) manager.destroy();
   });
+  ui.events.on(EVENTS.LAYER_CHANGE, payload => changes.push(payload.id));
 
   expect(() => manager.bringLayerToFront("beta")).not.toThrow();
-  expect(changes).toEqual(["beta"]);
+  expect(changes).toEqual([]);
   expect(manager.isDestroyed).toBe(true);
 });
 
-it("a moveLayerUp whose rebuild replay destroys the control announces nothing", () => {
+it("a moveLayerUp whose rebuild signal destroys the control announces nothing", () => {
   const layerAlpha = polygonLayer();
   const layerBeta = polygonLayer();
   const { ui, manager } = initFixture({
@@ -4729,18 +4698,14 @@ it("a moveLayerUp whose rebuild replay destroys the control announces nothing", 
       { id: "beta", name: "Beta", group: "overlay", layer: layerBeta },
     ],
   });
-  const onMap = trackMembership(ui.c.map);
-  onMap.set(layerAlpha, true);
-  onMap.set(layerBeta, true);
-  manager.map.removeLayer(layerBeta);
 
   const changes: string[] = [];
-  ui.events.on(EVENTS.LAYER_CHANGE, payload => {
-    changes.push(payload.id);
-    if (payload.id === "beta" && !manager.isDestroyed) manager.destroy();
+  ui.events.on(EVENTS.LAYER_LIST_REBUILD, () => {
+    if (!manager.isDestroyed) manager.destroy();
   });
+  ui.events.on(EVENTS.LAYER_CHANGE, payload => changes.push(payload.id));
 
   expect(manager.moveLayerUp("beta")).toBe(true);
-  expect(changes).toEqual(["beta"]);
+  expect(changes).toEqual([]);
   expect(manager.isDestroyed).toBe(true);
 });
