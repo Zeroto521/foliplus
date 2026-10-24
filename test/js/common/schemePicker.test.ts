@@ -343,6 +343,22 @@ describe("restoreFocus option", () => {
     expect(document.activeElement).toBe(otherInput);
     picker.destroy();
   });
+
+  it("close() with default options restores focus to trigger when open", () => {
+    const { picker, trigger } = makePicker();
+    trigger.focus();
+    trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    // Focus is on an item after open
+    const items = picker
+      .getDropdown()!
+      .querySelectorAll("[role=option]") as NodeListOf<HTMLElement>;
+    items[0].focus();
+    // Close with default options — should restore focus to trigger
+    picker.close();
+    expect(document.activeElement).toBe(trigger);
+    expect(picker.getDropdown()).toBeNull();
+    picker.destroy();
+  });
 });
 
 // ── ARIA attributes ────────────────────────────────────────────────────
