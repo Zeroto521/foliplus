@@ -497,22 +497,16 @@ const createSchemePicker = (options: SchemePickerOptions): SchemePicker => {
     );
   }
   // Validate that value is in schemes (or schemes is empty, meaning any value is allowed).
-  if (
-    options.schemes.length > 0 &&
-    !options.schemes.includes(options.value)
-  ) {
+  if (options.schemes.length > 0 && !options.schemes.includes(options.value)) {
     throw new RangeError(
-      "schemePicker: value \"" +
+      'schemePicker: value "' +
         options.value +
-        "\" is not in schemes — add it to schemes or use a value from the list",
+        '" is not in schemes — add it to schemes or use a value from the list',
     );
   }
 
   // Clamp numClasses to a valid positive integer (1–100).
-  const numClasses = Math.max(
-    1,
-    Math.min(100, Math.round(options.numClasses) || 1),
-  );
+  const numClasses = Math.max(1, Math.min(100, Math.round(options.numClasses) || 1));
 
   const classes: SchemePickerClasses = { ...DEFAULT_CLASSES, ...options.classes };
   const state: InternalState = {
@@ -574,14 +568,11 @@ const createSchemePicker = (options: SchemePickerOptions): SchemePicker => {
     setValue(name: string) {
       if (state.destroyed) return;
       // Validate that the new value is in schemes.
-      if (
-        state.schemes.length > 0 &&
-        !state.schemes.includes(name)
-      ) {
+      if (state.schemes.length > 0 && !state.schemes.includes(name)) {
         throw new RangeError(
-          "schemePicker: value \"" +
+          'schemePicker: value "' +
             name +
-            "\" is not in schemes — add it to schemes or use a value from the list",
+            '" is not in schemes — add it to schemes or use a value from the list',
         );
       }
       state.value = name;
@@ -624,13 +615,7 @@ const createSchemePicker = (options: SchemePickerOptions): SchemePicker => {
       // Redraw trigger bar
       const barInner = getInner(state.trigger);
       if (barInner) {
-        renderColorBar(
-          barInner,
-          state.value,
-          clamped,
-          classes.block,
-          state.colorScale,
-        );
+        renderColorBar(barInner, state.value, clamped, classes.block, state.colorScale);
       }
       // Redraw dropdown items
       refreshDropdown(state);
