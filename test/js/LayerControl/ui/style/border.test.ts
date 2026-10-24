@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { EVENTS, ensureEvents } from "#core/event/index.js";
 import type { LayerController } from "#foliplus/LayerControl/controller.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import {
@@ -1546,5 +1547,110 @@ describe("border apply scheduler (drag coalesce)", () => {
       color: "#445544",
       stroke: true,
     });
+  });
+});
+
+// The base layer every content-change fixture carries — the hook's early
+// return for GROUP.BASE must not be what keeps a replay from running.
+const BASE_LAYER = {
+  id: "base1",
+  name: "OSM",
+  group: "base",
+  layer: { options: {}, setZIndex: vi.fn() } as never,
+  paneName: "tilePane",
+};
+
+describe("content-change replay", () => {
+  let manager: LayerController;
+  let ui: LayerUI;
+
+  // The group closes over the array, so a leaf pushed after the fixture was
+  // built is still walked — that late leaf is the replay's whole subject.
+  const groupWith = (children: any[]): any => ({
+    options: {},
+    eachLayer: vi.fn((fn: (child: unknown) => void) => {
+      for (const child of children) fn(child);
+    }),
+  });
+
+  afterEach(() => {
+    manager?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.useRealTimers();
+  });
+
+  it("replays the stored border to a leaf that lands after the user chose one", () => {
+    const early = makeLeaf("#00ff00", 1);
+    const late = makeLeaf("#445566", 4);
+    const children = [early];
+    ({ manager, ui } = initFixture({
+      data: [
+        { id: "grp1", name: "G", group: "overlay", layer: groupWith(children) },
+        BASE_LAYER,
+      ],
+    }));
+    commitBorderColor(ui, "grp1", "#ff0000");
+    flushStyleDimApply(FACE.STROKE, "grp1");
+    expect(early.setStyle).toHaveBeenCalledWith(
+      expect.objectContaining({ color: "#ff0000", stroke: true }),
+    );
+
+    // A leaf lands while the user already has a border chosen.
+    children.push(late);
+    ensureEvents(ui.c.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "grp1" });
+    flushStyleDimApply(FACE.STROKE, "grp1");
+
+    expect(late.setStyle).toHaveBeenCalledWith(
+      expect.objectContaining({ color: "#ff0000", stroke: true }),
+    );
+    // Each leaf restores its own authored stroke, including the late one —
+    // the replay captured its base on its first write, not the replayed value.
+    resetLayerBorder(ui, "grp1");
+    expect(early.setStyle).toHaveBeenLastCalledWith(
+      expect.objectContaining({ color: "#00ff00", weight: 1, stroke: true }),
+    );
+    expect(late.setStyle).toHaveBeenLastCalledWith(
+      expect.objectContaining({ color: "#445566", weight: 4, stroke: true }),
+    );
+  });
+
+  it("coalesces a bulk add of leaves into one walk", () => {
+    const early = makeLeaf("#00ff00", 1);
+    const children = [early];
+    ({ manager, ui } = initFixture({
+      data: [
+        { id: "grp1", name: "G", group: "overlay", layer: groupWith(children) },
+        BASE_LAYER,
+      ],
+    }));
+    commitBorderColor(ui, "grp1", "#ff0000");
+    flushStyleDimApply(FACE.STROKE, "grp1");
+    expect(early.setStyle).toHaveBeenCalledTimes(1);
+
+    for (let i = 0; i < 5; i++) {
+      children.push(makeLeaf("#101010", 2));
+      ensureEvents(ui.c.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "grp1" });
+    }
+    // Five content changes, one pending frame: no new leaf walked yet.
+    expect(children.slice(1).some(l => l.setStyle.mock.calls.length > 0)).toBe(false);
+
+    flushStyleDimApply(FACE.STROKE, "grp1");
+    // Each new leaf was written exactly once, by that single walk.
+    expect(children.slice(1).every(l => l.setStyle.mock.calls.length === 1)).toBe(true);
+  });
+
+  it("does nothing when the user never chose a border", () => {
+    const leaf = makeLeaf("#112233", 3);
+    ({ manager, ui } = initFixture({
+      data: [{ id: "o1", name: "O", group: "overlay", layer: leaf }, BASE_LAYER],
+    }));
+    ensureEvents(ui.c.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "o1" });
+    flushStyleDimApply(FACE.STROKE, "o1");
+    expect(leaf.setStyle).not.toHaveBeenCalled();
+    // No base was captured for an untouched leaf, so a reset cannot invent a
+    // style for it either.
+    resetLayerBorder(ui, "o1");
+    expect(leaf.setStyle).not.toHaveBeenCalled();
   });
 });
