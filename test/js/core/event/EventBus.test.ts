@@ -363,13 +363,15 @@ describe("EventBus", () => {
     expect(() => operation.throwIfFailed()).toThrow("batch boom");
   });
 
-    it("clear releases listeners and any supersede tokens", () => {
+  it("clear releases listeners and any supersede tokens", () => {
     const bus = new EventBus();
     // Simulate a delivery interrupted mid-flight (a handler that threw would
     // now release its own token, so park one directly for the clear test).
-    const entries = (bus as unknown as {
-      entries: Map<string, { inFlight: Map<string, object> }>;
-    }).entries;
+    const entries = (
+      bus as unknown as {
+        entries: Map<string, { inFlight: Map<string, object> }>;
+      }
+    ).entries;
     bus.on("evt", vi.fn());
     entries.get("evt")!.inFlight.set("layer-a", {});
     bus.clear();
@@ -439,6 +441,25 @@ describe("EventBus", () => {
     } as never;
     const bus = new EventBus(map);
     bus.on(EVENTS.MODE_CHANGE, () => {
+      throw new Error("mode boom");
+    });
+
+    expect(() =>
+      bus.publish(EVENTS.MODE_CHANGE, {
+        component: "MeasureControl",
+        mode: "distance",
+      }),
+    ).not.toThrow();
+  });
+
+  it("resolves a notification policy after the entry is removed mid-delivery", () => {
+    // A subscriber that unsubscribes itself (the only listener, so the entry
+    // is dropped) and then throws must still be resolved by the *declared*
+    // policy — consumeByPolicy falls back to the table, not to a stale entry.
+    const bus = new EventBus();
+    let unsubscribe: () => void = () => {};
+    unsubscribe = bus.on(EVENTS.MODE_CHANGE, () => {
+      unsubscribe();
       throw new Error("mode boom");
     });
 

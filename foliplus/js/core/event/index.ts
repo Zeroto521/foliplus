@@ -26,7 +26,6 @@ const ensureEvents = (map: L.Map): EventBus => {
 
 export { ensureEvents };
 export { EVENTS, EVENT_POLICY } from "./const.js";
-export type { EventName, EventPolicy } from "./const.js";
 export type { EventPayloadMap } from "./type.js";
 export { EventBus, SettledOperation, publish } from "./EventBus.js";
 export type { DispatchFailure, EventHandler } from "./EventBus.js";

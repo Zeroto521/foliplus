@@ -145,4 +145,4 @@ const EVENT_POLICY: Record<EventName, EventPolicy> = {
 };
 
 export { EVENTS, EVENT_POLICY };
-export type { EventName, EventPolicy };
+export type { EventPolicy };

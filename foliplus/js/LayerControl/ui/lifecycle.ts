@@ -2,11 +2,7 @@
 // ready-signal re-entry. Split out of ui/index.ts (34.2). The LayerUI class
 // in index.ts keeps one-line delegates; this module owns the actual wiring
 // so index.ts stays a state + delegates shell.
-import {
-  type EventPayloadMap,
-  EVENTS,
-  ensureEvents,
-} from "#core/event/index.js";
+import { EVENTS, type EventPayloadMap, ensureEvents } from "#core/event/index.js";
 import { GROUP } from "#core/layer/index.js";
 import * as CONST from "../const.js";
 import {
