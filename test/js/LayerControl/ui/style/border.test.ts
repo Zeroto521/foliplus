@@ -1633,15 +1633,11 @@ describe("content-change replay", () => {
       ensureEvents(ui.c.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "grp1" });
     }
     // Five content changes, one pending frame: no new leaf walked yet.
-    expect(children.slice(1).some(l => l.setStyle.mock.calls.length > 0)).toBe(
-      false,
-    );
+    expect(children.slice(1).some(l => l.setStyle.mock.calls.length > 0)).toBe(false);
 
     flushStyleDimApply(FACE.STROKE, "grp1");
     // Each new leaf was written exactly once, by that single walk.
-    expect(children.slice(1).every(l => l.setStyle.mock.calls.length === 1)).toBe(
-      true,
-    );
+    expect(children.slice(1).every(l => l.setStyle.mock.calls.length === 1)).toBe(true);
   });
 
   it("does nothing when the user never chose a border", () => {
