@@ -29,7 +29,7 @@ interface HeatmapControlUI {
   /** Translator bound to `config`, created once by the control / test fixture. */
   T: (key: string) => string;
   ctrl: HTMLElement;
-  /** Shared scheme picker instance (B2 migration). */
+  /** Shared scheme picker instance. */
   schemePicker: SchemePicker | null;
   /** Kept for backward compat — mirrors the picker's dropdown element. */
   schemeDropdown: HTMLElement | null;
@@ -124,7 +124,7 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
   });
   ctrl.schemeSelectHidden.value = ctrl.mgr.scheme;
 
-  // ── Create the shared scheme picker (B2 migration) ──
+  // ── Create the shared scheme picker ──
   ctrl.schemePicker = createSchemePicker({
     trigger: ctrl.schemeBar,
     hiddenSelect: ctrl.schemeSelectHidden,
