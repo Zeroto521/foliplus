@@ -819,6 +819,27 @@ describe("LayerFactory", () => {
       expect(opts.onOpacity).toBe(onOpacity);
     });
 
+    it("refuses to mount the canvas face into a foreign-content pane", () => {
+      // The canvas pane name is derived from the id; a pane of that name that
+      // already paints foreign content is somebody else's carrier — mountFace
+      // must abort (no class stamp, no canvas appended, face not registered
+      // as mounted) instead of adopting the foreign pane.
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const foreignPane = document.createElement("div");
+      foreignPane.appendChild(document.createElement("canvas"));
+      map.createPane.mockImplementation(() => foreignPane);
+      map.getPane.mockImplementation(() => foreignPane);
+
+      const api = factory.createCanvas({ id: "canvas_test", name: "Canvas" });
+      api.register();
+
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining("not acquireable; face not mounted"),
+      );
+      expect(foreignPane.classList.contains("foliplus-layer-pane")).toBe(false);
+      warn.mockRestore();
+    });
+
     it("normalizes a pane name that would not be a valid element id", () => {
       // The pane name reaches Leaflet's createPane as both an element id and a
       // CSS class, so disallowed runs collapse to '-' rather than being

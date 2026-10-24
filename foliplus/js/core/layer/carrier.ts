@@ -19,8 +19,63 @@
 // (`layerShadow`), per that module's charter.
 import { createLogger } from "#common/log.js";
 import { layerShadow } from "../leafletAdapter.js";
+import { walkLeaf } from "./walkLeaf.js";
 
 const log = createLogger("carrier");
+
+/** The Leaflet constructor families the migrator relocates — ONE table for
+ *  the whole set, so the audit, the pin and this module's enumeration cannot
+ *  drift into disagreeing about what "migratable" means. Read at probe time:
+ *  the global family set is replaced by test fixtures and stripped mocks, and
+ *  a module-load snapshot would freeze the wrong one. */
+const MIGRATABLE_FAMILIES = [
+  "Path",
+  "Marker",
+  "GridLayer",
+  "LayerGroup",
+  "ImageOverlay",
+] as const;
+
+/** Whether a leaf belongs to a migratable family. A bare `L.featureGroup()`
+ *  qualifies through the container family — its visible DOM is its subtree. */
+const isMigratableLeaf = (leaf: unknown): boolean =>
+  MIGRATABLE_FAMILIES.some(family => {
+    const ctor = Reflect.get(L as object, family);
+    return (
+      typeof ctor === "function" &&
+      safeRead(
+        () => leaf instanceof (ctor as abstract new (...args: never[]) => object),
+      ) === true
+    );
+  });
+
+/** Read one fact about a value; a throwing getter answers nothing. */
+const safeRead = <T>(read: () => T | undefined): T | undefined => {
+  try {
+    return read();
+  } catch {
+    return undefined;
+  }
+};
+
+/** The full-tree carrier audit behind `opacity: "pane"`: EVERY visible leaf
+ *  must belong to a family the migrator relocates. A container qualifies
+ *  while empty (provisional — its leaves arrive later and are relocated one
+ *  by one, and the surface re-audits on re-registration), but the first
+ *  unknown leaf flips the answer to "mixed" so the surface degrades instead
+ *  of promising a pane write that will never cover the plugin's pixels.
+ *  Fail closed: capability comes from what the carrier can actually cover. */
+const auditMigratableTree = (node: unknown): "ok" | "mixed" | "empty" => {
+  let known = 0;
+  let unknown = 0;
+  walkLeaf(node, leaf => {
+    if (isMigratableLeaf(leaf)) known++;
+    else unknown++;
+  });
+  if (unknown > 0) return "mixed";
+  if (known > 0) return "ok";
+  return "empty";
+};
 
 /** Every DOM element the layer can paint through, from the fields real
  *  Leaflet fills: `getElement()` (marker `_icon`, ImageOverlay `_image`,
@@ -66,4 +121,4 @@ const assertInsideOwnedPanes = (
   }
 };
 
-export { assertInsideOwnedPanes, visibleDomOf };
+export { assertInsideOwnedPanes, auditMigratableTree, isMigratableLeaf, visibleDomOf };

@@ -2238,6 +2238,22 @@ describe("LayerUI focus", () => {
       expect(ui.focusController.focusRenderer).toBe(renderer);
     });
 
+    it("aborts the mask when the focus pane is not acquireable", () => {
+      // Defensive: a focus pane held by someone else (or repainted with
+      // foreign content) means the mask has nowhere to draw — the abort must
+      // leave no renderer behind and not throw.
+      const ensureSpy = vi
+        .spyOn(ui.c.panes, "ensurePane")
+        .mockReturnValue({ pane: null, renderer: null });
+      try {
+        expect(() => drawFocusMask(ui, layerBounds())).not.toThrow();
+        expect(ui.focusController.focusRenderer).toBeNull();
+        expect(ensureSpy).toHaveBeenCalled();
+      } finally {
+        ensureSpy.mockRestore();
+      }
+    });
+
     it("omits the renderer from the rect options when none is active", () => {
       expect(ui.focusController.focusRenderer).toBeNull();
 

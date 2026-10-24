@@ -1061,6 +1061,21 @@ describe("PaneManager", () => {
     expect(pm.canAcquirePane("foliplus-pane-7")).toBe(false);
   });
 
+  it("ensurePane refuses acquire from a second surface and returns null", () => {
+    // The lease is identity-checked: surface-b's ensurePane on surface-a's
+    // pane answers null (and books nothing) instead of handing back the same
+    // element to co-write.
+    const map = {
+      getPane: vi.fn(),
+      createPane: vi.fn(() => document.createElement("div")),
+    };
+    const pm = new PaneManager(map);
+    const first = pm.ensurePane("foliplus-pane-9", false, "surface-a");
+    expect(first.pane).not.toBeNull();
+    const second = pm.ensurePane("foliplus-pane-9", false, "surface-b");
+    expect(second.pane).toBeNull();
+  });
+
   it("canAcquirePane refuses a pre-built pane that already paints content", () => {
     // Being the first foliplus caller is NOT ownership: a pane carrying
     // foreign DOM is somebody else's carrier, and adopting it would restyle
@@ -1293,6 +1308,38 @@ describe("PaneManager", () => {
     expect(shadow.parentNode).toBeNull();
     // The image stays where Leaflet put it — there is nowhere to move it to.
     expect(image.parentNode).toBe(overlayPane);
+  });
+
+  it("pinLateContent moves an ImageOverlay after markers of the same pane", () => {
+    // The second family against one pane hits the existing markerGroups
+    // entry: the image appends after the icons instead of replacing them.
+    const paneEl = document.createElement("div");
+    document.body.appendChild(paneEl);
+    const map = { getPane: vi.fn(() => paneEl), createPane: vi.fn() };
+    const pm = new PaneManager(map);
+    const renderer = { _container: document.createElement("div") };
+
+    const icon = document.createElement("img");
+    const marker = {
+      getElement: () => icon,
+      options: {} as Record<string, unknown>,
+      eachLayer: undefined,
+    };
+    Object.setPrototypeOf(marker, new window.L.Marker());
+    const image = document.createElement("img");
+    const overlay = {
+      _image: image,
+      options: {} as Record<string, unknown>,
+      eachLayer: undefined,
+    };
+    Object.setPrototypeOf(overlay, new window.L.ImageOverlay());
+
+    pm.pinLateContent([
+      { layer: marker, paneName: "foliplus-pane-1", renderer },
+      { layer: overlay, paneName: "foliplus-pane-1", renderer },
+    ]);
+
+    expect(Array.from(paneEl.children)).toEqual([icon, image]);
   });
 
   it("pinLateContent batches two GridLayers of one pane into a single append", () => {

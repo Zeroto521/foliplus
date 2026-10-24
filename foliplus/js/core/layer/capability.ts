@@ -15,7 +15,7 @@
 // a Marker with no children — the `setStyle` of its own is not a real
 // carrier when the walk finds nothing to write to.
 import { isPixelRadiusLeaf } from "../leafletAdapter.js";
-import { someLeaf, walkLeaf } from "./walkLeaf.js";
+import { someLeaf } from "./walkLeaf.js";
 
 /** Whether any leaf in the tree owns a *pixel* radius — the honest carrier
  *  check for the size axis. The single-leaf test is `isPixelRadiusLeaf`; this
@@ -102,74 +102,6 @@ const hasMarkerLeaf = (node: unknown): boolean =>
       safeRead(() => leaf instanceof L.Marker) === true,
   );
 
-/** Whether the tree belongs to a family `PaneManager.pinLateContent` can
- *  actually relocate into the layer's panes: Path, Marker, GridLayer,
- *  ImageOverlay — and the container family (LayerGroup, FeatureGroup, GeoJSON),
- *  whose visible DOM IS its subtree, so a container qualifies even while empty
- *  (its leaves arrive later and are relocated leaf by leaf). Anything else (a
- *  third-party plugin with its own `getElement()`, a canvas painter that never
- *  joins a pane) keeps its DOM wherever Leaflet put it — so promising
- *  `opacity: "pane"` for it would advertise a write the carrier never
- *  delivers. Capability comes from the carrier, not from "a layer exists".
- *
- *  Node-level on purpose: a container whose leaves are all built-ins
- *  qualifies through them, and a bare `L.featureGroup()` qualifies through
- *  itself — the heatmap-style unregister/re-draw cycle must not flash the
- *  opacity row off while its group is momentarily empty.
- *
- *  Note the deliberate asymmetry with `hasMarkerLeaf`: an *unknown* leaf that
- *  merely carries `getElement()` does not count — that is exactly the shape
- *  the migrator cannot see. */
-const isMigratableLeaf = (leaf: unknown): boolean => {
-  if (
-    typeof L.Path !== "undefined" &&
-    safeRead(() => leaf instanceof L.Path) === true
-  ) {
-    return true;
-  }
-  if (
-    typeof L.Marker !== "undefined" &&
-    safeRead(() => leaf instanceof L.Marker) === true
-  ) {
-    return true;
-  }
-  if (
-    typeof L.GridLayer !== "undefined" &&
-    safeRead(() => leaf instanceof L.GridLayer) === true
-  ) {
-    return true;
-  }
-  if (
-    typeof L.LayerGroup !== "undefined" &&
-    safeRead(() => leaf instanceof L.LayerGroup) === true
-  ) {
-    return true;
-  }
-  return (
-    typeof L.ImageOverlay !== "undefined" &&
-    safeRead(() => leaf instanceof L.ImageOverlay) === true
-  );
-};
-
-/** The full-tree carrier audit behind `opacity: "pane"`: EVERY visible leaf
- *  must belong to a family the migrator relocates. A container qualifies
- *  while empty (provisional — its leaves arrive later and are relocated one
- *  by one, and the surface re-audits on re-registration), but the first
- *  unknown leaf flips the answer to "mixed" so the surface degrades instead
- *  of promising a pane write that will never cover the plugin's pixels.
- *  Fail closed: capability comes from what the carrier can actually cover. */
-const auditMigratableTree = (node: unknown): "ok" | "mixed" | "empty" => {
-  let known = 0;
-  let unknown = 0;
-  walkLeaf(node, leaf => {
-    if (isMigratableLeaf(leaf)) known++;
-    else unknown++;
-  });
-  if (unknown > 0) return "mixed";
-  if (known > 0) return "ok";
-  return "empty";
-};
-
 /** Whether any leaf is an areal fill carrier — see `isArealStyleLeaf`. */
 const hasFillLeaf = (node: unknown): boolean => someLeaf(node, isArealStyleLeaf);
 
@@ -212,7 +144,6 @@ const isArealStyleLeaf = (node: unknown): boolean => {
 
 export {
   FILL_OPT_IN,
-  auditMigratableTree,
   hasFillLeaf,
   hasMarkerLeaf,
   hasRadiusLeaf,

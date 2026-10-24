@@ -27,13 +27,12 @@
 import { createLogger } from "#common/log.js";
 import type { PaneManager } from "./PaneManager.js";
 import {
-  auditMigratableTree,
   hasFillLeaf,
   hasMarkerLeaf,
   hasRadiusLeaf,
   hasSetStyleLeaf,
 } from "./capability.js";
-import { assertInsideOwnedPanes } from "./carrier.js";
+import { assertInsideOwnedPanes, auditMigratableTree } from "./carrier.js";
 import {
   CAP_TIER,
   FALLBACK_PANE_PREFIX,
@@ -256,25 +255,32 @@ class LayerSurface implements LayerSurfaceContract {
       // stamp that spec's role onto the base pane while never booking the
       // pane the extra spec names.
       //
-      // Admission is validate-BEFORE-mutate: every pane this surface is
-      // about to book goes through `canAcquirePane` first, so a refused
-      // spec (shared name, held elsewhere, foreign content) never leaves a
-      // half-stamped class or lease behind. A raw `paneSpecs` naming a
-      // Leaflet shared pane hits the same gate here.
+      // Admission is TRANSACTIONAL: every pane this surface is about to
+      // book goes through `canAcquirePane` first and the booking loop runs
+      // only over the admitted set — a refused spec (shared name, held
+      // elsewhere, foreign content) can never leave a half-stamped class
+      // or lease behind. A raw `paneSpecs` naming a Leaflet shared pane
+      // hits the same gate here.
       const base = this.paneSpecs.find(spec => spec.name === declared);
+      const bookable = this.paneSpecs.filter(
+        spec => spec.name === declared || this.host.canAcquirePane(spec.name, this.id),
+      );
+      // The base pane books first (panes[0] is the content pane), then the
+      // admitted sub-panes in declaration order.
       this.addPane(declared, !opts.canvas, base?.role, base?.order);
-      for (const spec of this.paneSpecs) {
-        if (spec.name !== declared) {
-          if (!this.host.canAcquirePane(spec.name, this.id)) {
-            log.warn(
-              `LayerSurface skipped pane spec "${spec.name}": not ` +
-                `acquireable (shared, held by another surface, or ` +
-                `carrying foreign content)`,
-            );
-            continue;
-          }
-          this.addPane(spec.name, false, spec.role, spec.order);
-        }
+      for (const spec of bookable) {
+        if (spec.name === declared) continue;
+        this.addPane(spec.name, false, spec.role, spec.order);
+      }
+      if (bookable.length < this.paneSpecs.length) {
+        const refused = this.paneSpecs
+          .filter(spec => !bookable.includes(spec))
+          .map(spec => spec.name);
+        log.warn(
+          `LayerSurface skipped pane specs ${refused.join(", ")}: not ` +
+            `acquireable (shared, held by another surface, or carrying ` +
+            `foreign content)`,
+        );
       }
       this.pinTarget = null;
       return;
