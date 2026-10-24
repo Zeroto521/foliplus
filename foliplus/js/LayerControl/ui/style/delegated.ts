@@ -14,14 +14,15 @@ import { bindBorderRowShell, buildBorderRowShell } from "./border.js";
 import { appendResetFooter } from "./frame.js";
 import { DIM_ORDER, gatedRows } from "./registry.js";
 
-/** The delegated drawer's Layer-row order: `DIM_ORDER` minus the two
- *  vector-only rows. `fill` and `border` are never delegated — the vector
- *  write path (`setStyle`) is unreliable for layers whose component redraws
- *  its own geometry (e.g. Measure), and fill has no delegated rendering path
- *  at all. Only LayerControl-owned rows (opacity, zoomRange) ride the
- *  delegated sweep; they survive a component's redraw. */
+/** The delegated drawer's Layer-row order: `DIM_ORDER` minus the three
+ *  vector-write rows. `fill` and `border` write through `setStyle` and
+ *  `size` through `setRadius`; none of the three survives a component
+ *  redraw, because a delegated layer's component replaces the leaves it
+ *  owns. `fill` also has no delegated rendering path at all. Only
+ *  LayerControl-owned rows (opacity, zoomRange) ride the delegated sweep;
+ *  they survive a component's redraw. */
 const DELEGATED_DIM_ORDER = DIM_ORDER.filter(
-  key => key !== DIM.FILL && key !== DIM.BORDER,
+  key => key !== DIM.FILL && key !== DIM.BORDER && key !== DIM.SIZE,
 );
 
 /** Whether the layer delegates its style to the drawer via styleSetters

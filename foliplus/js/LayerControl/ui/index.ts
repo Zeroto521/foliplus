@@ -75,6 +75,7 @@ import {
   openStylePanel,
   replayFillState,
 } from "./style/index.js";
+import { applySizeToLayer } from "./style/size.js";
 import { dropStyleDimApplies } from "./style/styleBag.js";
 import type { LayerUI as LayerUISurface } from "./surface.js";
 
@@ -275,10 +276,10 @@ class LayerUI implements LayerUISurface {
    *  Calling it and ignoring the result silently drops the notifications. */
   applyUserState(id?: string): ProjectionBatch {
     const moved = applyUserState(this, id);
-    // The executor carries visible / opacity / zoomRange only. Border and
-    // fill are direct setStyle writes, so without their own replay a reload
-    // would restore the drawer's swatch while the map kept the author's
-    // values. Hooked here rather than in state.ts to keep state.ts free of
+    // The executor carries visible / opacity / zoomRange only. Border, fill
+    // and size are direct Leaflet writes (setStyle / setRadius), so without
+    // their own replay a reload would restore the drawer's swatch while the
+    // map kept the author's values. Hooked here rather than in state.ts to keep state.ts free of
     // style-row imports (border.js and fill.js import state.js for
     // markOverride/saveState).
     //
@@ -297,6 +298,7 @@ class LayerUI implements LayerUISurface {
     for (const layerId of layerIds) {
       applyBorderToLayer(this, layerId);
       replayFillState(this, layerId);
+      applySizeToLayer(this, layerId);
     }
     return moved;
   }

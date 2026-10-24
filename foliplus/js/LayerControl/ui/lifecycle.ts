@@ -57,6 +57,7 @@ import { closeMoreMenu } from "./overlayPanel/menu.js";
 import { finishRename } from "./overlayPanel/rename.js";
 import { loadPersistedState } from "./state.js";
 import { closeStylePanel, invalidateFields, replayFillState } from "./style/index.js";
+import { replaySizeIntent } from "./style/size.js";
 import { FACE, dropStyleDimApplies, scheduleStyleDimApply } from "./style/styleBag.js";
 import type { LayerUI } from "./surface.js";
 
@@ -393,6 +394,15 @@ const onLayerItemCountChange = (ui: LayerUI, id: string): void => {
     opacityDelta = applyProjection(ui, id);
   }
 
+  // Size re-applies through the same hook: a pixel-radius leaf that lands
+  // after the user chose a size would otherwise keep the author's radius
+  // forever, because the radius walk only ran while the user was typing. The
+  // stored size is per layer, so the replay reaches every leaf the layer has
+  // now, and a new leaf keeps its own authored radius as the reset target.
+  // Nothing happens when the user never chose a size — the replay reads the
+  // intent and bails, so an untouched layer keeps exactly what was drawn.
+  replaySizeIntent(ui, id);
+
   // A stored fill repaints the leaves this change just landed. Without it a
   // streamed addData leaves the new features at the author's colour and a
   // running ramp on breaks classified before the new values arrived - the UI
@@ -400,12 +410,12 @@ const onLayerItemCountChange = (ui: LayerUI, id: string): void => {
   // face like every panel write: ten additions in one frame cost one
   // collect/classify/apply, and the walk always reads the layer's latest state.
   //
-  // Queued before the notify, not after: a projection consumer can throw or
-  // unregister the layer, and the scheduled replay must already exist for the
-  // teardown's LAYER_ITEM_REMOVED to drop it — scheduling after a throw would
-  // skip the replay entirely, and scheduling after a reentrant unregister
-  // would create a task for an id that is already gone. The notify stays the
-  // last step of the operation.
+  // Every replay above is queued before the notify, not after: a projection
+  // consumer can throw or unregister the layer, and the scheduled replay must
+  // already exist for the teardown's LAYER_ITEM_REMOVED to drop it —
+  // scheduling after a throw would skip the replay entirely, and scheduling
+  // after a reentrant unregister would create a task for an id that is
+  // already gone. The notify stays the last step of the operation.
   scheduleStyleDimApply(FACE.FILL, id, () => replayFillState(ui, id));
   notifyDelta(ui, layerInfo, opacityDelta);
 };

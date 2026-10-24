@@ -102,13 +102,14 @@ const KIND = {
 const NO_FEATURE_TREE_KINDS = new Set<LayerKind>([KIND.TILE, KIND.SOLID, KIND.CANVAS]);
 
 /** Dimension-key names — the shared word face of `LayerDimension.key`,
- *  `DIM_ORDER`, and the capability slots ("opacity" | "fill" | "border" |
- *  "zoomRange" | "annotation"). Owned by core so the style registry and the
- *  capability contract read one definition; `LayerDimKey` in type.ts derives
- *  from it, so the vocabulary cannot drift. */
+ *  `DIM_ORDER`, and the capability slots ("opacity" | "fill" | "size" |
+ *  "border" | "zoomRange" | "annotation"). Owned by core so the style
+ *  registry and the capability contract read one definition; `LayerDimKey`
+ *  in type.ts derives from it, so the vocabulary cannot drift. */
 const DIM = {
   OPACITY: "opacity",
   FILL: "fill",
+  SIZE: "size",
   BORDER: "border",
   ZOOM_RANGE: "zoomRange",
   ANNOTATION: "annotation",

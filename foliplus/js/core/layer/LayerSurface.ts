@@ -22,7 +22,7 @@
 // No CONFIG / translator dependency: core/layer, not a component dir.
 import { createLogger } from "#common/log.js";
 import type { PaneManager } from "./PaneManager.js";
-import { hasFillLeaf, hasSetStyleLeaf } from "./capability.js";
+import { hasFillLeaf, hasRadiusLeaf, hasSetStyleLeaf } from "./capability.js";
 import {
   CAP_TIER,
   FALLBACK_PANE_PREFIX,
@@ -142,6 +142,11 @@ interface SurfaceDeclaration {
    *  rebuild — otherwise the surface would keep answering with the
    *  previous tree's probe result. */
   stroke: "native" | "none";
+  /** Whether the layer's tree has a pixel-radius leaf (size axis). Same
+   *  probe-and-cache contract: a re-registration that swapped the tree's
+   *  radius carrier for a vector with none must trigger a rebuild, or the
+   *  surface keeps answering "native" from the previous tree's walk. */
+  size: "native" | "none";
 }
 
 class LayerSurface implements LayerSurfaceContract {
@@ -198,6 +203,7 @@ class LayerSurface implements LayerSurfaceContract {
       getBounds: opts.getBounds ?? null,
       fill: probeVectorCarrier(layer, "fill"),
       stroke: probeVectorCarrier(layer, "stroke"),
+      size: hasRadiusLeaf(layer) ? CAP_TIER.NATIVE : CAP_TIER.NONE,
     };
     // Capabilities are resolved here, before any early return below, so every
     // branch — declared, synthesized, native — reports the same way. A GridLayer
@@ -440,11 +446,13 @@ class LayerSurface implements LayerSurfaceContract {
           spec.name === paneSpecs[i].name,
       );
     // Probe results are part of the declaration: a tree that gained or lost a
-    // `setStyle` leaf describes a different face, and the surface has to be
-    // rebuilt so the next read of `capabilities.stroke` / `.fill` sees the
-    // fresh answer. Recomputed on every `matches` call — the walk is bounded
-    // by the layer's own tree and the surface is resolved once per register,
-    // so the cost is one tree walk per re-registration, not per frame.
+    // `setStyle` leaf, or one that swapped a pixel-radius leaf for a vector
+    // that has none, describes a different face, and the surface has to be
+    // rebuilt so the next read of `capabilities.stroke` / `.fill` / `.size`
+    // sees the fresh answer. Recomputed on every `matches` call — the walks
+    // are bounded by the layer's own tree and the surface is resolved once per
+    // register, so the cost is a few tree walks per re-registration, not per
+    // frame.
     return (
       this.surfaceDecl.layer === opts.layer &&
       this.surfaceDecl.kind === kindOf(opts) &&
@@ -455,6 +463,8 @@ class LayerSurface implements LayerSurfaceContract {
       Boolean(this.surfaceDecl.getBounds) === Boolean(opts.getBounds ?? null) &&
       this.surfaceDecl.fill === probeVectorCarrier(opts.layer, "fill") &&
       this.surfaceDecl.stroke === probeVectorCarrier(opts.layer, "stroke") &&
+      this.surfaceDecl.size ===
+        (hasRadiusLeaf(opts.layer) ? CAP_TIER.NATIVE : CAP_TIER.NONE) &&
       samePanes
     );
   }
@@ -605,6 +615,7 @@ const detectCapabilities = (opts: SurfaceFaceOpts): LayerCapabilities => {
     return {
       fill: CAP_TIER.NATIVE,
       stroke: CAP_TIER.NONE,
+      size: CAP_TIER.NONE,
       opacity: CAP_TIER.PANE,
       zoomRange: CAP_TIER.PANE,
       annotation,
@@ -633,6 +644,7 @@ const detectCapabilities = (opts: SurfaceFaceOpts): LayerCapabilities => {
     return {
       fill: CAP_TIER.NONE,
       stroke: CAP_TIER.NONE,
+      size: CAP_TIER.NONE,
       opacity: CAP_TIER.NATIVE,
       zoomRange,
       annotation,
@@ -669,6 +681,7 @@ const detectCapabilities = (opts: SurfaceFaceOpts): LayerCapabilities => {
     return {
       fill: probeVectorCarrier(layer, "fill"),
       stroke: probeVectorCarrier(layer, "stroke"),
+      size: hasRadiusLeaf(layer) ? CAP_TIER.NATIVE : CAP_TIER.NONE,
       opacity: CAP_TIER.PANE,
       zoomRange: CAP_TIER.PANE,
       annotation,
@@ -685,6 +698,7 @@ const detectCapabilities = (opts: SurfaceFaceOpts): LayerCapabilities => {
     return {
       fill: probeVectorCarrier(layer, "fill"),
       stroke: probeVectorCarrier(layer, "stroke"),
+      size: hasRadiusLeaf(layer) ? CAP_TIER.NATIVE : CAP_TIER.NONE,
       opacity: CAP_TIER.PANE,
       zoomRange: CAP_TIER.PANE,
       annotation,
@@ -698,6 +712,7 @@ const detectCapabilities = (opts: SurfaceFaceOpts): LayerCapabilities => {
   return {
     fill: CAP_TIER.NONE,
     stroke: CAP_TIER.NONE,
+    size: CAP_TIER.NONE,
     opacity: CAP_TIER.NONE,
     zoomRange: CAP_TIER.NONE,
     annotation,

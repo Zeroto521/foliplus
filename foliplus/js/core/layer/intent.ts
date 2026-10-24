@@ -85,7 +85,8 @@ type LayerOverride =
   | "borderColor"
   | "borderWeight"
   | "opacity"
-  | "zoomRange";
+  | "zoomRange"
+  | "size";
 
 /** One layer's live intent values — the in-memory twin of
  *  {@link PersistedLayerState} (same value shapes) plus `name`.
@@ -140,6 +141,10 @@ type LayerIntent = {
   borderWeight?: number;
   opacity?: number;
   zoomRange?: [number, number];
+  /** The fixed pixel radius the user set (CircleMarker only). Frozen on
+   *  first write like `authorOpacityBase` — a re-read would feed the leaf its
+   *  own last write, compounding every keystroke. */
+  size?: number;
   /** User-assigned display name (replaces the layer's authored name). */
   name?: string;
   /** Label (annotation) config seed for this layer. Live label state after
@@ -175,6 +180,10 @@ type PersistedLayerState = {
    *  min_zoom / max_zoom is only the starting value, so it reaches this field
    *  only once the user has dragged the handles. */
   zoomRange?: [number, number];
+  /** The fixed pixel radius the user set in the style panel (CircleMarker
+   *  only). LayerControl owns the write — a self-managed dimension, see
+   *  ui/style/size.ts. */
+  size?: number;
   /** The layer's label (annotation) config — a style dimension of this layer,
    *  not an override: it carries no provenance marker and survives alongside
    *  an empty `overrides` array (a layer the user configured *only* labels
@@ -220,6 +229,7 @@ const INTENT = {
   BORDER_WEIGHT: "borderWeight",
   OPACITY: "opacity",
   ZOOM_RANGE: "zoomRange",
+  SIZE: "size",
   NAME: "name",
   ANNOTATION: "annotation",
 } as const satisfies Record<string, keyof LayerIntent>;
@@ -239,6 +249,10 @@ const LIVE: Record<IntentKey, (value: unknown) => boolean> = {
   [INTENT.BORDER_WEIGHT]: value => typeof value === "number",
   [INTENT.OPACITY]: value => typeof value === "number",
   [INTENT.ZOOM_RANGE]: value => Array.isArray(value),
+  // A finite number only: Infinity cannot reach the leaf, and a non-finite
+  // stored value would make the row fall back to the author's radius while
+  // still advertising provenance.
+  [INTENT.SIZE]: value => typeof value === "number" && Number.isFinite(value),
   [INTENT.NAME]: value => typeof value === "string",
   [INTENT.ANNOTATION]: value => value != null,
 };
@@ -258,6 +272,7 @@ const STYLE_KEYS = {
   borderWeight: INTENT.BORDER_WEIGHT,
   opacity: INTENT.OPACITY,
   zoomRange: INTENT.ZOOM_RANGE,
+  size: INTENT.SIZE,
 } as const satisfies Record<LayerOverride, IntentKey>;
 
 export { INTENT, isFillRampConfig, LIVE, STYLE_KEYS };
