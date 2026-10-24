@@ -8,6 +8,7 @@ const makeBus = (): any => ({
   off: vi.fn(),
   emit: vi.fn(),
   emitSettled: vi.fn(),
+  publish: vi.fn(),
   clear: vi.fn(),
   eventCount: 0,
 });
@@ -54,7 +55,7 @@ describe("ModeManager", () => {
     const bus = makeBus();
     const mm = new ModeManager(bus, makeMap());
     mm.setMode("SearchControl", "addr");
-    expect(bus.emitSettled).toHaveBeenCalledWith("foliplus:mode:change", {
+    expect(bus.publish).toHaveBeenCalledWith("foliplus:mode:change", {
       component: "SearchControl",
       mode: "addr",
     });
@@ -85,9 +86,9 @@ describe("ModeManager", () => {
     const bus = makeBus();
     const mm = new ModeManager(bus, makeMap());
     mm.setMode("X", "a");
-    bus.emitSettled.mockClear();
+    bus.publish.mockClear();
     mm.setMode("X", "a");
-    expect(bus.emitSettled).not.toHaveBeenCalled();
+    expect(bus.publish).not.toHaveBeenCalled();
   });
 
   it("keys returns all registered components", () => {
@@ -263,9 +264,12 @@ describe("ensureModes", () => {
     mm.setMode("MeasureControl", "distance");
     expect(leaf.options.interactive).toBe(false);
 
-    const unloadHandler = (map.on as any).mock.calls.find(
+    // Both the bus and the mode manager register unload teardown; the mode
+    // manager's is registered last, so it owns the final cleanup.
+    const unloads = (map.on as any).mock.calls.filter(
       ([event]: [string]) => event === "unload",
-    )?.[1];
+    );
+    const unloadHandler = unloads[unloads.length - 1]?.[1];
     expect(unloadHandler).toBeDefined();
     unloadHandler();
 

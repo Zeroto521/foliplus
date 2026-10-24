@@ -1888,7 +1888,7 @@ describe("LayerController", () => {
     // A debounced reorder would otherwise land after the capture, exporting the
     // stale z-order the panel already showed.
     const spy = vi.spyOn(manager, "enforceOrder").mockImplementation(() => {});
-    manager.events.emit(EVENTS.BEFORE_EXPORT as string);
+    manager.events.publish(EVENTS.BEFORE_EXPORT as string);
     expect(spy).toHaveBeenCalledTimes(1);
   });
 
