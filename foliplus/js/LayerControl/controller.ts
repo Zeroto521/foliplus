@@ -40,6 +40,7 @@ import { LayerPersistence } from "./persistence.js";
 import { finishSlidersIn } from "./slider.js";
 import { collectDeltas } from "./ui/apply.js";
 import { type LayerUI } from "./ui/index.js";
+import { dropAllStyleDimApplies } from "./ui/style/styleBag.js";
 
 type LayerControllerEnv = {
   readonly T: (key: string) => string;
@@ -1222,6 +1223,10 @@ class LayerController implements LayerAPI {
 
   destroy() {
     this.isDestroyed = true;
+    // Drop every pending style-apply task before the pieces it might touch
+    // go away — a trailing frame must not outlive the control, and a box
+    // reclaimed here can never report a failure for a dead UI.
+    dropAllStyleDimApplies();
     if (this.map && this.onLayerAdd) this.map.off("layeradd", this.onLayerAdd);
     if (this.debouncedEnforce) this.debouncedEnforce.cancel();
     // Flush before destroy: the writes are debounced at 100ms, wide enough for

@@ -1320,3 +1320,89 @@ describe("a layer that gains labelable content gets the stored intent on its new
     expect(() => mgr.applyLayerAlpha("ghost", 0.5)).not.toThrow();
   });
 });
+
+describe("AnnotationManager — renderLabels on a departing layer", () => {
+  // The unregister path (controller → annotation.unloadLayer) tears the
+  // labels and the canvas down BEFORE LAYER_ITEM_REMOVED is emitted, and a
+  // scheduled replay can also fire after the layer left the map. What
+  // renderLabels does then is the contract this pins: clear whatever is
+  // left, never (re)build a canvas for a layer that is already gone.
+  it("returns [] and builds no canvas when the layer is already gone", () => {
+    let layer: L.Layer | null = mkGroup([
+      mkLeaf({ props: { v: "1" }, latlng: { lat: 40, lng: -74 } }),
+    ]);
+    const { map } = makeMap();
+    const mgr = new AnnotationManager({ map, layerFind: () => layer });
+    mgr.setConfig("gone", { ...CONFIG });
+    expect(mgr.renderLabels("gone")).toHaveLength(1);
+    const canvasesBefore = mocks.instances.length;
+
+    layer = null;
+    expect(mgr.renderLabels("gone")).toEqual([]);
+    expect(mocks.instances.length).toBe(canvasesBefore);
+  });
+});
+
+describe("AnnotationManager — per-layer repaint", () => {
+  // Collision is per layer by design, so one layer's rebuild must not
+  // repaint the others: the content-change path paints exactly the changed
+  // layer's canvas, once. Before this contract, renderLabels ran
+  // clear → paint([]) → full refresh, then rebuild → full refresh again —
+  // M layers changing in one frame repainted ~M² times (12 layers measured
+  // 300 paints).
+  const multiLayer = (count: number) => {
+    const { map } = makeMap();
+    const groups: Record<string, L.Layer> = {};
+    for (let i = 0; i < count; i++) {
+      groups[`L${i}`] = mkGroup([
+        mkLeaf({ props: { v: `${i}` }, latlng: { lat: 40, lng: -74 } }),
+      ]);
+    }
+    const mgr = new AnnotationManager({
+      map,
+      layerFind: id => groups[id] ?? null,
+    });
+    for (let i = 0; i < count; i++) mgr.setConfig(`L${i}`, { ...CONFIG });
+    for (let i = 0; i < count; i++) mgr.renderLabels(`L${i}`); // warm
+    return mgr;
+  };
+
+  const totalPaints = () =>
+    mocks.instances.reduce((sum, c) => sum + c.paint.mock.calls.length, 0);
+
+  const clearPaints = () => {
+    for (const c of mocks.instances) c.paint.mockClear();
+  };
+
+  it("one layer's rebuild repaints only its own canvas, once", () => {
+    const mgr = multiLayer(3);
+    clearPaints();
+
+    mgr.renderLabels("L1");
+
+    // The whose-canvas question, not just the count: exactly one canvas
+    // painted, and the painted labels belong to the changed layer.
+    const painted = mocks.instances.filter(c => c.paint.mock.calls.length > 0);
+    expect(painted).toHaveLength(1);
+    expect(totalPaints()).toBe(1);
+  });
+
+  it("M layers replaying in one frame cost M repaints, not M²", () => {
+    const mgr = multiLayer(12);
+    clearPaints();
+
+    for (let i = 0; i < 12; i++) mgr.renderLabels(`L${i}`);
+
+    expect(totalPaints()).toBe(12);
+  });
+
+  it("turning labels off clears one canvas, not the map", () => {
+    const mgr = multiLayer(3);
+    clearPaints();
+
+    mgr.setConfig("L2", { ...CONFIG, show: false });
+    mgr.renderLabels("L2");
+
+    expect(totalPaints()).toBe(1);
+  });
+});

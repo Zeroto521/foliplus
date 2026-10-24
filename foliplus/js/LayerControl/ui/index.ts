@@ -76,7 +76,7 @@ import {
   replayFillState,
 } from "./style/index.js";
 import { applySizeToLayer } from "./style/size.js";
-import { dropStyleDimApplies } from "./style/styleBag.js";
+import { dropStyleDimApplies, setStyleApplyFailureReporter } from "./style/styleBag.js";
 import type { LayerUI as LayerUISurface } from "./surface.js";
 
 /** UI Controller for LayerControl.
@@ -185,6 +185,14 @@ class LayerUI implements LayerUISurface {
     this.T = env.T;
     this._ = env._;
     this.log = env.log;
+    // The style scheduler's trailing frames need an async failure channel:
+    // the operation that scheduled them has long returned, so a throw can
+    // no longer ride its error contract. Route it to the map's diagnostic
+    // hook — the same channel notification consumer failures use — so a
+    // host observes it instead of catching a stray rAF error.
+    setStyleApplyFailureReporter(failure => {
+      this.c.map.foliplus?.onError?.(failure.source, failure.error);
+    });
     this.listPanel = new ListPanel();
     this.overlayPanel = new OverlayPanel();
     this.focusController = new FocusController();

@@ -17,6 +17,7 @@
 // so walks below descend `eachLayer` first and treat a setter as a leaf.
 import { isArealStyleLeaf } from "#core/layer/capability.js";
 import { findLeaf, walkLeaf } from "#core/layer/walkLeaf.js";
+import { createLogger } from "#common/log.js";
 import { throttleRaf } from "#common/throttle.js";
 import type { LayerUI } from "../surface.js";
 
@@ -55,18 +56,20 @@ type StyleSetter = StyleCarrier & {
 type StyleFace = "fill" | "stroke";
 
 /** The write faces, as a named vocabulary. Same convention as `INTENT` /
- *  `DIM`: callers pass `FACE.FILL` / `FACE.STROKE` / `FACE.SIZE`, never a
- *  bare literal, so the string cannot drift from the type.
+ *  `DIM`: callers pass `FACE.FILL` / `FACE.STROKE` / `FACE.SIZE` /
+ *  `FACE.LABEL`, never a bare literal, so the string cannot drift from the
+ *  type.
  *
  *  `FILL` and `STROKE` are `setStyle` faces and so are members of
- *  `StyleFace`; `SIZE` is not — it is a direct `setRadius` walk. It lives in
- *  this table because it rides the same frame coalescer (see
- *  `SchedulerFace`), and one vocabulary for "what the coalescer keys on"
- *  keeps callers off bare literals. */
+ *  `StyleFace`; `SIZE` (a direct `setRadius` walk) and `LABEL` (a full label
+ *  rebuild) are not. They live in this table because they ride the same
+ *  frame coalescer (see `SchedulerFace`), and one vocabulary for "what the
+ *  coalescer keys on" keeps callers off bare literals. */
 const FACE = {
   FILL: "fill",
   STROKE: "stroke",
   SIZE: "size",
+  LABEL: "label",
 } as const;
 
 /** Every face the coalescer keys on, derived from `FACE` so a new member
@@ -82,6 +85,9 @@ const FACE_FACES: readonly SchedulerFace[] = Object.values(FACE);
  *  `setRadius` walk rather than a `setStyle` face — without sharing the
  *  queue, a typing burst across the size field would write one radius per
  *  leaf per keystroke, and a bulk content change would walk per leaf.
+ *  `FACE.LABEL` is the same shape at a larger scale: a label rebuild walks
+ *  the whole tree and repaints every label canvas, so a streamed addData
+ *  must pay it once per frame, not once per feature.
  *
  *  Derived from `FACE` rather than spelled out: adding a member to `FACE`
  *  is enough to add a face, and the type cannot drift from it. */
@@ -334,44 +340,124 @@ const commitStyleDimMerged = (
 // so the terminal value is never lost (throttleRaf is trailing). `cancel`
 // on reset (a scheduled walk must not paint the user's value over the
 // authored restore). `drop` on unregister so a churning map cannot
-// accumulate boxes keyed by dead ids.
+// accumulate boxes keyed by dead ids, and `dropAll` on control destroy.
+//
+// A box lives exactly as long as its frame is pending: the wrapper reclaims
+// the entry before the run, and `cancel` reclaims it immediately, so a held
+// entry always means "a frame is still owed" — never an executed callback's
+// closure parked in the Map. Reclamation-before-run is also what makes a
+// re-entrant schedule safe: a run() that schedules the same key again gets
+// a fresh box for the NEXT frame instead of mutating the one executing.
+//
+// The wrapper is the scheduler's async error boundary. The operation that
+// scheduled a walk (a panel write, or the terminal LAYER_ITEM_COUNT_CHANGE
+// whose replay this carries) has already returned by the time a trailing
+// frame runs, so a throw can no longer ride that operation's error
+// contract — it is recorded (diagnostic log + the map's onError hook, the
+// same channel notification failures use) instead of escaping the frame.
 
-type ApplyBox = { run: () => void; raf: ReturnType<typeof throttleRaf> };
+const log = createLogger("LayerControl");
+
+/** Diagnostic pseudo-event for applies scheduled by a panel write — the
+ *  failure reporter's event key when no real event sourced the schedule. */
+const STYLE_APPLY_SOURCE = "foliplus:style:apply";
+
+/** One scheduled-apply failure, as the reporter receives it. */
+type StyleApplyFailure = {
+  face: SchedulerFace;
+  layerId: string;
+  source: string;
+  error: unknown;
+};
+
+type ApplyBox = {
+  run: () => void;
+  face: SchedulerFace;
+  layerId: string;
+  source: string;
+  raf: ReturnType<typeof throttleRaf>;
+};
 const applySchedulers = new Map<string, ApplyBox>();
+
+/** Optional observer for scheduled-apply failures — installed once per
+ *  LayerUI (its constructor wires it to `map.foliplus.onError`); absent in
+ *  unit tests that never build a UI. */
+let applyFailureReporter: ((failure: StyleApplyFailure) => void) | null = null;
+
+/** Install (or clear) the scheduled-apply failure observer. */
+const setStyleApplyFailureReporter = (
+  reporter: ((failure: StyleApplyFailure) => void) | null,
+): void => {
+  applyFailureReporter = reporter;
+};
 
 const applyKey = (face: SchedulerFace, layerId: string): string => `${face}:${layerId}`;
 
+/** Execute one box: reclaim the entry first, run inside the boundary
+ *  second. The ordering is the whole contract — see the region header. */
+const runBox = (key: string, box: ApplyBox): void => {
+  applySchedulers.delete(key);
+  try {
+    box.run();
+  } catch (error) {
+    log.warn(
+      `scheduled ${box.face} apply for "${box.layerId}" (${box.source}) failed — recorded, not raised:`,
+      error,
+    );
+    try {
+      applyFailureReporter?.({
+        face: box.face,
+        layerId: box.layerId,
+        source: box.source,
+        error,
+      });
+    } catch {
+      // A broken diagnostic hook is worse than none.
+    }
+  }
+};
+
 /** Queue the apply walk for one face. Later calls in the same frame replace
- *  `run` and coalesce into the one pending frame — the walk always reads
- *  the latest intent. */
+ *  `run` and coalesce into the one pending frame — the walk always reads the
+ *  latest intent. `source` names the operation that scheduled the walk and
+ *  rides the box, so a failure on a late frame can still be attributed. */
 const scheduleStyleDimApply = (
   face: SchedulerFace,
   layerId: string,
   run: () => void,
+  source: string = STYLE_APPLY_SOURCE,
 ): void => {
   const key = applyKey(face, layerId);
   let box = applySchedulers.get(key);
   if (!box) {
-    // Two-step init so the raf callback can read `created.run` (the box
-    // entry) without a double assertion: the box exists before throttleRaf
-    // closes over it.
-    const created = { run, raf: throttleRaf(() => created.run()) };
+    // Two-step init so the raf callback can close over the finished box:
+    // `created.raf` is populated before throttleRaf's callback can run. The
+    // single widening cast starts the object one field short; a double
+    // assertion here would trip the narrow-cast guard (test/tsconfig).
+    const created = { run, face, layerId, source } as ApplyBox;
+    created.raf = throttleRaf(() => runBox(key, created));
     box = created;
     applySchedulers.set(key, box);
   }
   box.run = run;
+  box.source = source;
   box.raf();
 };
 
-/** Force a pending walk to run now. No-op when nothing is queued. */
+/** Force a pending walk to run now — which also reclaims its entry. No-op
+ *  when nothing is queued. */
 const flushStyleDimApply = (face: SchedulerFace, layerId: string): void => {
   applySchedulers.get(applyKey(face, layerId))?.raf.flush();
 };
 
-/** Drop a pending walk without running it. Reset must not paint the user's
- *  value over the authored restore. */
+/** Drop a pending walk without running it, and reclaim its entry. Reset
+ *  must not paint the user's value over the authored restore. */
 const cancelStyleDimApply = (face: SchedulerFace, layerId: string): void => {
-  applySchedulers.get(applyKey(face, layerId))?.raf.cancel();
+  const key = applyKey(face, layerId);
+  const box = applySchedulers.get(key);
+  if (!box) return;
+  box.raf.cancel();
+  applySchedulers.delete(key);
 };
 
 /** Retire every face's scheduler entry for one layer id — the single
@@ -396,6 +482,13 @@ const flushStyleDimApplies = (layerId: string): void => {
   }
 };
 
+/** Cancel and reclaim every pending box — the control-destroy hook. A
+ *  trailing frame must not outlive the control whose UI scheduled it. */
+const dropAllStyleDimApplies = (): void => {
+  for (const box of applySchedulers.values()) box.raf.cancel();
+  applySchedulers.clear();
+};
+
 /** Whether a scheduler entry is still held (tests pin the unregister drop). */
 const hasStyleDimApply = (face: SchedulerFace, layerId: string): boolean =>
   applySchedulers.has(applyKey(face, layerId));
@@ -403,12 +496,16 @@ const hasStyleDimApply = (face: SchedulerFace, layerId: string): boolean =>
 export {
   type StyleCarrier,
   FACE,
+  type SchedulerFace,
+  type StyleApplyFailure,
   type StyleSetter,
+  STYLE_APPLY_SOURCE,
   STYLE_BAG_DEFAULTS,
   cancelStyleDimApply,
   captureStyleBag,
   commitStyleDim,
   commitStyleDimMerged,
+  dropAllStyleDimApplies,
   dropStyleDimApplies,
   faceSlice,
   flushStyleDimApply,
@@ -417,6 +514,7 @@ export {
   isStyleSetter,
   restoreStyleDim,
   scheduleStyleDimApply,
+  setStyleApplyFailureReporter,
   styleBagOf,
   styleBaseOf,
   styleDimOverAuthor,

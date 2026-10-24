@@ -407,6 +407,7 @@ export { closeStylePanel, openStylePanel };
 // dimension rides along too: importing this barrel registers it.
 export {
   applyStyleLabelState,
+  invalidateFieldCache,
   invalidateFields,
   layerHasLabelFields,
 } from "./label.js";

@@ -14,6 +14,14 @@ import {
   toggleAll,
   toggleFold,
 } from "#foliplus/LayerControl/ui/listPanel/index.js";
+import { commitBorderColor } from "#foliplus/LayerControl/ui/style/border.js";
+import { commitFillColor } from "#foliplus/LayerControl/ui/style/fill.js";
+import { commitSize } from "#foliplus/LayerControl/ui/style/size.js";
+import {
+  FACE,
+  flushStyleDimApplies,
+  hasStyleDimApply,
+} from "#foliplus/LayerControl/ui/style/styleBag.js";
 import {
   attachedPanel,
   findItem,
@@ -561,4 +569,188 @@ it("isLive tracks the attached panel", () => {
   expect(ui.isLive).toBe(true);
   manager.destroy();
   expect(ui.isLive).toBe(false);
+});
+
+describe("onLayerItemCountChange — the registry replays", () => {
+  let manager: LayerController;
+  let ui: LayerUI;
+  let map: any;
+
+  // One layer that qualifies for every replaying face: an areal setStyle
+  // leaf (fill + stroke — a getRadius leaf is areal too, so the dot joins
+  // the fill walk) and a pixel-radius leaf (size). Labels ride along for
+  // free: the hub queues the face for any overlay row, and the gate inside
+  // replayLabelState decides at run time whether anything renders.
+  const arealLeaf = (): any => ({
+    options: { color: "#00ff00", weight: 1, fillColor: "#0000ff" },
+    setStyle: vi.fn(),
+    feature: { geometry: { type: "Polygon" } },
+    getLatLngs: () => [
+      [
+        { lat: 0, lng: 0 },
+        { lat: 1, lng: 0 },
+        { lat: 0, lng: 1 },
+      ],
+    ],
+  });
+
+  const radiusLeaf = (radius = 10): any => {
+    const leaf: any = {
+      options: { radius, color: "#000000", weight: 2 },
+      _radius: radius,
+      setStyle: vi.fn(),
+    };
+    leaf.getRadius = () => leaf._radius;
+    leaf.setRadius = vi.fn((px: number) => {
+      leaf._radius = px;
+      leaf.options.radius = px;
+      return leaf;
+    });
+    return leaf;
+  };
+
+  const groupWith = (children: any[]): any => ({
+    options: {},
+    eachLayer: vi.fn((fn: (child: unknown) => void) => {
+      for (const child of children) fn(child);
+    }),
+  });
+
+  const withGroup = (children: any[]) =>
+    initFixture({
+      data: [
+        { id: "grp1", name: "G", group: "overlay", layer: groupWith(children) },
+        {
+          id: "base1",
+          name: "OSM",
+          group: "base",
+          layer: { options: {}, setZIndex: vi.fn() } as never,
+          paneName: "tilePane",
+        },
+      ],
+    });
+
+  afterEach(() => {
+    manager?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.useRealTimers();
+  });
+
+  it("queues every replaying face and lands all of them", () => {
+    const areal = arealLeaf();
+    const dot = radiusLeaf(10);
+    const children = [areal, dot];
+    ({ manager, ui, map } = withGroup(children));
+    // Labels on: the annotation policy's when-gate must pass for its face
+    // to be queued at all.
+    ui.c.annotation.setConfig("grp1", {
+      ...ui.c.annotation.defaultConfig(),
+      show: true,
+      field: "name",
+    });
+    commitFillColor(ui, "grp1", "#ff0000");
+    commitBorderColor(ui, "grp1", "#0000dd");
+    commitSize(ui, "grp1", 30);
+    // Land the commit walks first, so the assertions below count only the
+    // content-change replay.
+    flushStyleDimApplies("grp1");
+    areal.setStyle.mockClear();
+    dot.setRadius.mockClear();
+
+    // A leaf lands while the user already has every dimension chosen.
+    const late = radiusLeaf(4);
+    children.push(late);
+    ensureEvents(map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "grp1" });
+    for (const face of [FACE.FILL, FACE.STROKE, FACE.SIZE, FACE.LABEL]) {
+      expect(hasStyleDimApply(face, "grp1"), `${face} must be queued`).toBe(true);
+    }
+
+    flushStyleDimApplies("grp1");
+    expect(areal.setStyle).toHaveBeenCalledWith(
+      expect.objectContaining({ fillColor: "#ff0000" }),
+    );
+    expect(areal.setStyle).toHaveBeenCalledWith(
+      expect.objectContaining({ color: "#0000dd" }),
+    );
+    // The late radius leaf receives the stored size; the early one already
+    // shows it, and the size replay's skip held.
+    expect(late.setRadius).toHaveBeenCalledWith(30);
+    expect(dot.setRadius).not.toHaveBeenCalled();
+  });
+
+  it("writes nothing for a layer the user never touched", () => {
+    const areal = arealLeaf();
+    const dot = radiusLeaf(10);
+    ({ manager, ui, map } = withGroup([areal, dot]));
+    const renderLabels = vi.spyOn(ui.c.annotation, "renderLabels");
+
+    ensureEvents(map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "grp1" });
+    flushStyleDimApplies("grp1");
+
+    expect(areal.setStyle).not.toHaveBeenCalled();
+    expect(dot.setStyle).not.toHaveBeenCalled();
+    expect(dot.setRadius).not.toHaveBeenCalled();
+    expect(renderLabels).not.toHaveBeenCalled();
+  });
+
+  it("control destroy reclaims every pending replay", () => {
+    const children: any[] = [arealLeaf()];
+    ({ manager, ui, map } = withGroup(children));
+    // Give the policies something to replay: an intent for the fill face,
+    // labels on for the label face — without them the when-gates allocate
+    // no boxes at all, and there would be nothing to reclaim.
+    commitFillColor(ui, "grp1", "#ff0000");
+    ui.c.annotation.setConfig("grp1", {
+      ...ui.c.annotation.defaultConfig(),
+      show: true,
+      field: "name",
+    });
+    ensureEvents(map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "grp1" });
+    expect(hasStyleDimApply(FACE.FILL, "grp1")).toBe(true);
+    expect(hasStyleDimApply(FACE.LABEL, "grp1")).toBe(true);
+
+    manager.destroy();
+    for (const face of [FACE.FILL, FACE.STROKE, FACE.SIZE, FACE.LABEL]) {
+      expect(hasStyleDimApply(face, "grp1"), `${face} must be dropped`).toBe(false);
+    }
+  });
+
+  it("a label field arriving late upgrades the annotation capability before the label frame", () => {
+    const children: any[] = [];
+    ({ manager, ui, map } = withGroup(children));
+    const renderLabels = vi.spyOn(ui.c.annotation, "renderLabels").mockReturnValue([]);
+    ui.c.annotation.setConfig("grp1", {
+      ...ui.c.annotation.defaultConfig(),
+      show: true,
+      field: "name",
+    });
+    // An empty group has no labelable field: the surface declares the
+    // annotation capability "none" and there is no annotation pane.
+    const surfaceOf = () => ui.c.surfaceFor(manager.layerRegistry.get("grp1")!);
+    expect(surfaceOf().capabilities.annotation).toBe("none");
+
+    // The first labelable leaf lands. The row refresh inside the SAME
+    // count-change re-probes the surface synchronously — the capability
+    // upgrades and the pane exists before the scheduled label frame runs.
+    children.push({
+      options: {},
+      feature: { properties: { name: "late" } },
+      getLatLng: () => ({ lat: 40, lng: -74 }),
+    });
+    ensureEvents(map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "grp1" });
+    expect(surfaceOf().capabilities.annotation).not.toBe("none");
+
+    flushStyleDimApplies("grp1");
+    expect(renderLabels).toHaveBeenCalledTimes(1);
+
+    // The last field disappears: the re-probe downgrades the capability,
+    // and a later content change still schedules the label face (the gate
+    // is the config, not the capability) — the run itself is the no-op.
+    children.length = 0;
+    ensureEvents(map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "grp1" });
+    expect(surfaceOf().capabilities.annotation).toBe("none");
+    flushStyleDimApplies("grp1");
+    expect(renderLabels).toHaveBeenCalledTimes(2);
+  });
 });
