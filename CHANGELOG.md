@@ -20,7 +20,7 @@
 
 - `EventBus`: settled, policy-declared broadcasts — terminal events raise the first failure, notifications record it, and LayerControl retirements are identity-gated ([#716](https://github.com/Zeroto521/foliplus/pull/716), [#719](https://github.com/Zeroto521/foliplus/pull/719), [#720](https://github.com/Zeroto521/foliplus/pull/720), [#723](https://github.com/Zeroto521/foliplus/pull/723))
 - `LayerControl`: value-based fill follows the layer's real geometry — a mixed layer's fill row shows its polygon's colour, and features added after a fill was set are repainted instead of keeping the author's colour ([#727](https://github.com/Zeroto521/foliplus/pull/727))
-- `LayerControl`: a border chosen before features land still reaches them — the content-change replay now covers the stroke face alongside fill, size and opacity
+- `LayerControl`: a border chosen before features land still reaches them — the content-change replay now covers the stroke face alongside fill, size and opacity ([#730](https://github.com/Zeroto521/foliplus/pull/730))
 
 ## [v0.4.1] (2026-10-18)
 
