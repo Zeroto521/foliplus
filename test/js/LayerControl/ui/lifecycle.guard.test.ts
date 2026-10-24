@@ -46,9 +46,16 @@ const at = (body: string[], needle: string) =>
   body.map((line, i) => (line.includes(needle) ? i : -1)).filter(i => i >= 0);
 
 // The steps that must finish before the notify publishes. applyProjection
-// first because its return value is the delta the notify carries; the two
-// replays because they are what a newly-landed leaf still needs.
-const BEFORE_NOTIFY = ["applyProjection", "replaySizeIntent", "scheduleStyleDimApply"];
+// first because its return value is the delta the notify carries; the style
+// replays because they are what a newly-landed leaf still needs. The two
+// scheduler needles are face-scoped: each replayed face is pinned on its
+// own, not just the presence of some scheduler call.
+const BEFORE_NOTIFY = [
+  "applyProjection(",
+  "replaySizeIntent(",
+  "scheduleStyleDimApply(FACE.FILL",
+  "scheduleStyleDimApply(FACE.STROKE",
+];
 
 describe("onLayerItemCountChange — replay ordering", () => {
   const body = bodyLines("onLayerItemCountChange");
@@ -57,7 +64,7 @@ describe("onLayerItemCountChange — replay ordering", () => {
     const notify = at(body, "notifyDelta(");
     expect(notify, "the operation must publish").toHaveLength(1);
     for (const step of BEFORE_NOTIFY) {
-      const steps = at(body, `${step}(`);
+      const steps = at(body, step);
       expect(steps, `${step} must be reached`).toHaveLength(1);
       expect(steps[0], `${step} must precede the notify`).toBeLessThan(notify[0]);
     }

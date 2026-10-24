@@ -548,7 +548,7 @@ it("a control-attached re-run announces after the label replay has landed", () =
     labelsAtDelivery = labelSpy.mock.calls.length;
   });
 
-  ui.events.emit(EVENTS.CONTROL_ATTACHED, { component: "HeatmapControl" });
+  ui.events.publish(EVENTS.CONTROL_ATTACHED, { component: "HeatmapControl" });
 
   expect(labelsAtDelivery).toBe(1);
   expect(manager.isDestroyed).toBe(false);
