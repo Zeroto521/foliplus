@@ -4,7 +4,6 @@
 import { ensureHint } from "#core/hint.js";
 import { createLogger } from "#common/log.js";
 import { LayerFactory } from "./LayerFactory.js";
-import type { LayerInfoRegistry } from "./LayerInfoRegistry.js";
 import { PaneManager } from "./PaneManager.js";
 import type { LayerAPI } from "./type.js";
 
