@@ -125,6 +125,14 @@ const uninstallBringToFrontPatch = () => {
 //             clearAllLayers
 //   Private   installBringToFrontPatch, uninstallBringToFrontPatch
 
+/** What one ordering pass observed. `skipped` is the re-entrant case: another
+ *  pass was already in flight, so this call priced nothing and `failed` is
+ *  empty by construction — not the same answer as "everything priced". */
+interface EnforceOrderResult {
+  readonly failed: readonly string[];
+  readonly skipped: boolean;
+}
+
 class LayerController implements LayerAPI {
   /** Diagnostic marker: set by LayerController (true).  The lightweight stub
    * sets this to false.  For the actual LayerControl check, prefer
@@ -389,8 +397,8 @@ class LayerController implements LayerAPI {
     this.events.on(
       EVENTS.BEFORE_EXPORT,
       () => {
-        const failed = this.enforceOrder();
-        if (failed?.length) {
+        const { failed } = this.enforceOrder();
+        if (failed.length) {
           this.log.warn(
             `enforceOrder failed for ${failed.length} layer(s) before export: ${failed.join(", ")}`,
           );
@@ -1159,19 +1167,21 @@ class LayerController implements LayerAPI {
    *  Re-ordering only. The pass lives on the domain; the controller keeps the
    *  re-entry guard and the debounce cancellation around it.
    *
-   *  @returns the ids that could not be priced — empty on a clean pass. A
-   *    throwing layer no longer aborts the rest of the stack; the ids let the
-   *    caller tell "ordered" from "attempted". Empty also when a pass is already
-   *    in flight: the running pass owns the result and the caller must not read
-   *    a second, partial one. */
-  enforceOrder(): string[] {
-    if (this.isEnforcing) return [];
+   *  @returns `failed`: the ids that could not be priced, in registry order —
+   *    empty on a clean pass. A throwing layer no longer aborts the rest of the
+   *    stack; the ids let the caller tell "ordered" from "attempted".
+   *    `skipped`: true when a pass was already in flight. The running pass owns
+   *    the result, so this call priced nothing and the caller must not read a
+   *    second, partial one.
+   */
+  enforceOrder(): EnforceOrderResult {
+    if (this.isEnforcing) return { failed: [], skipped: true };
     this.debouncedEnforce?.cancel();
     this.isEnforcing = true;
     try {
       const failed = this.domain.enforceOrder();
       this.syncAttribution();
-      return failed;
+      return { failed, skipped: false };
     } finally {
       this.isEnforcing = false;
     }

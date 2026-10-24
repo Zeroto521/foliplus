@@ -1887,7 +1887,9 @@ describe("LayerController", () => {
   it("BEFORE_EXPORT flushes the pending order before the exporter captures", () => {
     // A debounced reorder would otherwise land after the capture, exporting the
     // stale z-order the panel already showed.
-    const spy = vi.spyOn(manager, "enforceOrder").mockImplementation(() => []);
+    const spy = vi
+      .spyOn(manager, "enforceOrder")
+      .mockImplementation(() => ({ failed: [], skipped: false }));
     manager.events.publish(EVENTS.BEFORE_EXPORT as string);
     expect(spy).toHaveBeenCalledTimes(1);
   });
@@ -1899,7 +1901,9 @@ describe("LayerController", () => {
     // the no-op env, so the spy is restored rather than left in place.
     const log = (manager as any).log as { warn: (...args: unknown[]) => void };
     const warn = vi.spyOn(log, "warn").mockImplementation(() => {});
-    const order = vi.spyOn(manager, "enforceOrder").mockReturnValue(["bad", "worse"]);
+    const order = vi
+      .spyOn(manager, "enforceOrder")
+      .mockReturnValue({ failed: ["bad", "worse"], skipped: false });
     const captured: string[] = [];
     const off = manager.events.on(EVENTS.BEFORE_EXPORT as string, () =>
       captured.push("capture"),
@@ -4789,9 +4793,10 @@ describe("enforceOrder isolation", () => {
     const cSetZ = vi.spyOn(c, "setZ");
     map.getPane.mockClear();
 
-    const failed = manager.enforceOrder();
+    const { failed, skipped } = manager.enforceOrder();
 
     expect(failed).toEqual(["bad"]);
+    expect(skipped).toBe(false);
     expect(cSetZ).toHaveBeenCalled();
     // The shared panes are priced after the registry pass, so a failed layer
     // must not leave markers/tooltips/popups at their default z.
@@ -4801,7 +4806,7 @@ describe("enforceOrder isolation", () => {
     );
   });
 
-  it("a re-entrant pass returns nothing and leaves the result to the running pass", () => {
+  it("a re-entrant pass reports `skipped` and leaves the result to the running pass", () => {
     // A layer that reorders while being priced (a listener reacting to setZ)
     // reaches `enforceOrder` from inside a pass. The inner call must not report
     // a half-priced stack — the outer pass owns the answer.
@@ -4811,15 +4816,15 @@ describe("enforceOrder isolation", () => {
     });
     const domain = (manager as any).domain as { enforceOrder: () => string[] };
     const real = domain.enforceOrder.bind(domain);
-    const inner: string[][] = [];
+    const inner: Array<{ failed: readonly string[]; skipped: boolean }> = [];
     const outer = vi.spyOn(domain, "enforceOrder").mockImplementation(() => {
       inner.push(manager.enforceOrder());
       return real();
     });
 
     try {
-      expect(manager.enforceOrder()).toEqual([]);
-      expect(inner).toEqual([[]]);
+      expect(manager.enforceOrder()).toEqual({ failed: [], skipped: false });
+      expect(inner).toEqual([{ failed: [], skipped: true }]);
       expect(outer).toHaveBeenCalledTimes(1);
     } finally {
       outer.mockRestore();
