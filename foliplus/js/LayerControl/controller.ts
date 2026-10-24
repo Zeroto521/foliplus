@@ -31,6 +31,7 @@ import {
 } from "#core/layer/index.js";
 import { hasAttachedPath, isGroupLike } from "#core/leafletAdapter.js";
 import { type Debounced, debounce } from "#common/debounce.js";
+import { finalize } from "#common/finalize.js";
 import { createLogger } from "#common/log.js";
 import type { Logger } from "#common/type.js";
 import { AnnotationManager } from "./annotation/index.js";
@@ -828,49 +829,66 @@ class LayerController implements LayerAPI {
     return true;
   }
 
+  /** Remove one retired layer's panel row: finalise an in-flight slider edit,
+   *  drop the row, and take the group header with it when the group empties.
+   *  Split out of `retireEntry` so the teardown lists it as one named step —
+   *  inline, this segment was the one a try/catch could silently skip. */
+  private retireRow(id: string, layerInfo: LayerInfo): void {
+    const container = this.uiContainer;
+    if (!container) return;
+    const target = container.querySelector(
+      `[${CONST.DATA.LAYER_ID}="${CSS.escape(id)}"]`,
+    );
+    if (!target) return;
+    // Finalise an in-flight user edit before its panel leaves the DOM: the
+    // drag value is the user's, not teardown state.
+    finishSlidersIn(target);
+    target.remove();
+    // Check if the group is now empty and remove the toggle-all row if so.
+    const group = layerInfo.group;
+    const anchorSel =
+      group === GROUP.BASE
+        ? `${CONST.SEL.LAYER_ITEM}[data-layer-type="${GROUP.BASE}"]:not([${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"])`
+        : `${CONST.SEL.LAYER_ITEM}:not([data-layer-type="${GROUP.BASE}"])`;
+    if (!container.querySelector(anchorSel)) {
+      container
+        .querySelector(`.${CONST.CLASSES.TOGGLE_ALL}[data-group="${group}"]`)
+        ?.remove();
+    }
+  }
+
   /** Local teardown of one registry entry: registry, map, panel row, and
-   *  annotation rendering. No bus event — the caller (generic unregister, user
-   *  delete, component clear) owns the operation that announces the removal,
-   *  so its local commits can finish before any consumer can throw. */
+   *  annotation rendering. No bus event — the caller owns the operation that
+   *  announces the removal, so its local commits can finish before any
+   *  consumer can throw.
+   *
+   *  The steps run through `finalize`: a map-removal listener or a panel read
+   *  that throws must not skip the rows and annotation behind it. The first
+   *  error is rethrown after every step has been attempted, so the caller
+   *  still learns about it. */
   private retireEntry(id: string): { layerInfo: LayerInfo } | null {
     const { layerInfo, layer } = this.domain.unregisterEntry(id);
     if (!layerInfo) return null;
 
-    if (layer) {
-      if (this.map.hasLayer(layer)) this.map.removeLayer(layer);
-      this.clearAllLayers(layer);
-    }
-
-    if (this.uiContainer) {
-      const target = this.uiContainer.querySelector(
-        `[${CONST.DATA.LAYER_ID}="${CSS.escape(id)}"]`,
-      );
-      if (target) {
-        // Finalise an in-flight user edit before its panel leaves the DOM: the
-        // drag value is the user's, not teardown state.
-        finishSlidersIn(target);
-        target.remove();
-        // Check if the group is now empty and remove the toggle-all row if so.
-        const group = layerInfo.group;
-        const anchorSel =
-          group === GROUP.BASE
-            ? `${CONST.SEL.LAYER_ITEM}[data-layer-type="${GROUP.BASE}"]:not([${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"])`
-            : `${CONST.SEL.LAYER_ITEM}:not([data-layer-type="${GROUP.BASE}"])`;
-        if (!this.uiContainer.querySelector(anchorSel)) {
-          this.uiContainer
-            .querySelector(`.${CONST.CLASSES.TOGGLE_ALL}[data-group="${group}"]`)
-            ?.remove();
-        }
-      }
-    }
-    // Nothing below writes persisted state — see the method's doc. The rename
-    // and the per-layer intent both survive this teardown, so a component that
-    // unregisters an empty layer and registers it again comes back with the
-    // name and the settings the user chose.
-    // Tear down the annotation RENDERING state; the label config stays —
-    // it is part of that surviving intent (a flush after this point must
-    // not erase `layers[id].annotation` from storage).
-    this.annotation.unloadLayer(id);
+    const { firstError } = finalize(
+      [
+        "detach-from-map",
+        () => {
+          if (!layer) return;
+          if (this.map.hasLayer(layer)) this.map.removeLayer(layer);
+          this.clearAllLayers(layer);
+        },
+      ],
+      ["retire-row", () => this.retireRow(id, layerInfo)],
+      // Nothing here writes persisted state. The rename and the per-layer
+      // intent both survive this teardown, so a component that unregisters an
+      // empty layer and registers it again comes back with the name and the
+      // settings the user chose. Tear down the annotation RENDERING state; the
+      // label config stays — it is part of that surviving intent (a flush after
+      // this point must not erase `layers[id].annotation` from storage).
+      ["unload-annotation", () => this.annotation.unloadLayer(id)],
+    );
+    if (firstError) throw firstError;
     return { layerInfo };
   }
 
