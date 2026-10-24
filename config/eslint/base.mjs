@@ -361,12 +361,31 @@ export default [
       // Catch `fn( arg )` — prettier usually fixes this, but keep an explicit gate.
       "space-in-parens": ["error", "never"],
       // One `export { … }` block at the bottom of the file — no inline export.
+      //
+      // Plus the failure-discard guard: `finalize` / `finalizeEach` return the
+      // failures for callers that need the items and accept a `report` for
+      // callers that only want diagnostics. A bare call with neither loses the
+      // failure — the shape that once hid a handle whose `dispose()` threw. An
+      // assigned result or a chained `.throwIfFailed()` is consumption and does
+      // not match the selector.
       "no-restricted-syntax": [
         "error",
         {
           selector: "ExportNamedDeclaration[declaration]",
           message:
             "Use a single export { … } block at the bottom of the file instead of inline export.",
+        },
+        {
+          selector:
+            "ExpressionStatement > CallExpression[callee.name='finalize'][arguments.length=1]",
+          message:
+            "finalize without a report would discard its failures: pass the report argument or consume the result (throwIfFailed / failures).",
+        },
+        {
+          selector:
+            "ExpressionStatement > CallExpression[callee.name='finalizeEach'][arguments.length=3]",
+          message:
+            "finalizeEach without a report would discard its failures: pass the report argument or use the returned failures.",
         },
       ],
 
