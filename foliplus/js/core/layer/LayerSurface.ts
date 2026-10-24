@@ -26,7 +26,12 @@
 // No CONFIG / translator dependency: core/layer, not a component dir.
 import { createLogger } from "#common/log.js";
 import type { PaneManager } from "./PaneManager.js";
-import { hasFillLeaf, hasMarkerLeaf, hasRadiusLeaf, hasSetStyleLeaf } from "./capability.js";
+import {
+  hasFillLeaf,
+  hasMarkerLeaf,
+  hasRadiusLeaf,
+  hasSetStyleLeaf,
+} from "./capability.js";
 import {
   CAP_TIER,
   FALLBACK_PANE_PREFIX,
