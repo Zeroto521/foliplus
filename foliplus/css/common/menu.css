@@ -2,23 +2,24 @@
 
 /* ══════════════════════════════════════════════════════════════════════
   Unified Dropdown / Menu
-  Floating menus in SearchControl (result panel), HeatmapControl (scheme
-  picker) and LayerControl (layer overflow menu, and the row panels a layer
-  row opens) share one visual recipe. Position, width, max-height and item
-  layout stay per-component; this block owns the shell + hover/active states.
+  Floating menus in SearchControl (result panel) and LayerControl (layer
+  overflow menu, and the row panels a layer row opens) share one visual
+  recipe. Position, width, max-height and item layout stay per-component;
+  this block owns the shell + hover/active states. The scheme picker has
+  its own recipe in common/scheme-picker.css (items carry colour bars and
+  a persistent selection border).
 
   Row panels join by their shared `foliplus-row-panel` class rather than by
   name, so a new one inherits the shell without editing the lists below.
   ══════════════════════════════════════════════════════════════════════ */
 
 /* ── Shell ──
-   The three plain dropdowns take the whole recipe. A row panel shares only what
+   The plain dropdowns take the whole recipe. A row panel shares only what
    it does not own: `.foliplus-row-panel` (common/panel.css) sets its own radius,
    shadow and z-index, so restating those here was two sources for one decision
    with the panel's copy silently winning. */
 :is(
   .foliplus-search-result-panel,
-  .foliplus-heatmap-scheme-dropdown,
   .foliplus-layer-more-menu
 ) {
   box-sizing: border-box;
@@ -57,7 +58,6 @@
 @media (prefers-reduced-motion: reduce) {
   :is(
     .foliplus-search-result-panel,
-    .foliplus-heatmap-scheme-dropdown,
     .foliplus-layer-more-menu,
     .foliplus-row-panel
   ) {
@@ -68,7 +68,6 @@
 /* ── Item base ── */
 :is(
   .foliplus-search-result-item,
-  .foliplus-heatmap-scheme-dropdown-item,
   .foliplus-layer-more-menu li
 ) {
   cursor: pointer;
@@ -83,21 +82,19 @@
      language as the LayerControl "more" button hover). ── */
 :is(
   .foliplus-search-result-item,
-  .foliplus-heatmap-scheme-dropdown-item,
   .foliplus-layer-more-menu li
 ):hover {
   background: var(--foliplus-accent-light);
   color: var(--foliplus-accent-primary);
 }
 
-/* ─── Press: soft wash, same vocabulary as the Heatmap scheme picker's
+/* ─── Press: soft wash, same vocabulary as the scheme picker's
      persistent selection (`--foliplus-accent-soft-bg`). Hover keeps the
      stronger accent-light; the press settles one notch softer so a click
      reads as "down" rather than a second hover. Disabled entries never
      answer (their :hover override already stays muted). ─── */
 :is(
     .foliplus-search-result-item,
-    .foliplus-heatmap-scheme-dropdown-item,
     .foliplus-layer-more-menu li
   ):not([disabled]):active {
   background: var(--foliplus-accent-soft-bg);
@@ -114,10 +111,9 @@
 
 /* ── Active: the layer-item "selected" language — accent light background,
      text stays text-primary (the accent left border is added per-component
-     where a persistent selection exists, e.g. the Heatmap scheme picker). ── */
+     where a persistent selection exists). ── */
 :is(
-  .foliplus-search-result-item,
-  .foliplus-heatmap-scheme-dropdown-item
+  .foliplus-search-result-item
 ).foliplus-is-active {
   background: var(--foliplus-accent-light);
 }
@@ -127,12 +123,11 @@
    border + soft glow, replacing the browser's default dark outline. LayerControl
    layer rows keep their own ring via the Row-cursor recipe (JS class + :hover,
    never :focus-visible) and its more-menu items keep a component-local
-   `:focus-visible`, so this shared rule covers only the two components that have
-   no component-local one: the SearchControl result item and the HeatmapControl
-   scheme dropdown item. */
+   `:focus-visible`, so this shared rule covers only the SearchControl
+   result item. The scheme picker has its own :focus-visible in
+   common/scheme-picker.css. */
 :is(
-  .foliplus-search-result-item,
-  .foliplus-heatmap-scheme-dropdown-item
+  .foliplus-search-result-item
 ):focus-visible {
   outline: none;
   border-color: var(--foliplus-accent-primary);

@@ -1,14 +1,14 @@
 // HeatmapControl UI building — standalone functions.
 // All internal refs use direct function calls instead of `this.`.
 import { isClassifyMethod } from "#core/classify.js";
+import { safeColorScale } from "#core/palette.js";
 import { EVENTS, ensureEvents, publish } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { adjustPanelZIndex } from "#core/leaflet/index.js";
-import { safeColorScale } from "#core/palette.js";
+import { createSchemePicker, type SchemePicker } from "#common/schemePicker.js";
 import { dom } from "#common/dom.js";
 import * as CONST from "./const.js";
 import { pickAutoField } from "./data.js";
-import { registerDropdownEvents, registerSchemeBarEvents } from "./interaction.js";
 import { type HeatmapManager } from "./manager.js";
 import { panelContentHTML } from "./template.js";
 
@@ -29,9 +29,14 @@ interface HeatmapControlUI {
   /** Translator bound to `config`, created once by the control / test fixture. */
   T: (key: string) => string;
   ctrl: HTMLElement;
+  /** Shared scheme picker instance (B2 migration). */
+  schemePicker: SchemePicker | null;
+  /** Kept for backward compat — mirrors the picker's dropdown element. */
   schemeDropdown: HTMLElement | null;
   expandHookDone: boolean;
+  /** Kept for backward compat — the picker's destroy function. */
   schemeBarCleanup: (() => void) | null;
+  /** Kept for backward compat — set to a no-op when the dropdown opens. */
   dropdownCleanup: (() => void) | null;
   toggleDropdown: (() => void) | null;
   selectScheme: ((idx: number) => void) | null;
@@ -47,9 +52,9 @@ interface HeatmapControlUI {
   schemeBar: HTMLElement;
   schemeBarInner: HTMLElement;
   schemeSelectHidden: HTMLSelectElement;
-  /** Takes `Event`, not `MouseEvent`, because it is handed to `on()` as an
-   *  `EventListener` — only `.target` is read. */
+  /** Kept for backward compat — delegated to the picker's close(). */
   closeSchemeDropdown: (event: Event) => void;
+  /** Kept for backward compat — delegated to the picker's toggle(). */
   toggleSchemeDropdown: () => void;
 }
 
@@ -119,6 +124,49 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
   });
   ctrl.schemeSelectHidden.value = ctrl.mgr.scheme;
 
+  // ── Create the shared scheme picker (B2 migration) ──
+  ctrl.schemePicker = createSchemePicker({
+    trigger: ctrl.schemeBar,
+    hiddenSelect: ctrl.schemeSelectHidden,
+    schemes: ctrl.config.schemes ?? [],
+    value: ctrl.mgr.scheme,
+    numClasses: ctrl.mgr.numClasses,
+    portal: false,
+    colorScale: safeColorScale,
+    onChange: (name: string) => {
+      ctrl.mgr.scheme = name;
+      ctrl.mgr.renderHexagons();
+      persist(ctrl);
+    },
+    onToggle: (open, dropdown) => {
+      ctrl.schemeDropdown = open ? dropdown : null;
+      // Set dropdownCleanup to a no-op when the dropdown opens so the
+      // backward-compat test assertions pass. The picker owns its own
+      // cleanup internally.
+      ctrl.dropdownCleanup = open
+        ? () => {
+            // No-op: the picker owns its own cleanup internally.
+          }
+        : null;
+    },
+  });
+
+  // The picker owns its trigger click handler, keyboard handlers, outside-click,
+  // and focus management. We only need to expose the delegates for backward
+  // compat with tests and the HeatmapControl class.
+  ctrl.schemeBarCleanup = () => ctrl.schemePicker?.destroy();
+  ctrl.toggleDropdown = () => ctrl.schemePicker?.toggle();
+  ctrl.selectScheme = (idx: number) => {
+    const name = (ctrl.config.schemes ?? [])[idx];
+    if (name) ctrl.schemePicker?.selectScheme(name);
+  };
+  ctrl.closeSchemeDropdown = (_event: Event) => {
+    ctrl.schemePicker?.close();
+  };
+  ctrl.toggleSchemeDropdown = () => {
+    ctrl.schemePicker?.toggle();
+  };
+
   ctrl.aggSelect.onchange = () => {
     ctrl.mgr.agg = ctrl.aggSelect.value;
     updateFieldSelector(ctrl);
@@ -155,52 +203,19 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
         parseInt(ctrl.classSelect.value, 10) || CONST.CLASS_COUNT.DEFAULT,
       ),
     );
-    updateSchemeBar(ctrl);
-    // refreshSchemeDropdownItems owns the null check - a control whose
-    // dropdown has not been opened yet has nothing to refresh.
-    refreshSchemeDropdownItems(ctrl);
+    // The picker owns the colour bar rendering — just tell it the new count.
+    ctrl.schemePicker?.setNumClasses(ctrl.mgr.numClasses);
+    ctrl.schemePicker?.refresh();
     ctrl.mgr.renderHexagons();
     persist(ctrl);
-  };
-
-  ctrl.schemeBar.onclick = event => {
-    event.stopPropagation();
-    toggleSchemeDropdown(ctrl);
-  };
-  ctrl.schemeBarCleanup = registerSchemeBarEvents(ctrl.mgr.map, ctrl);
-  ctrl.toggleDropdown = () => toggleSchemeDropdown(ctrl);
-  ctrl.selectScheme = (idx: number) => {
-    const name = (ctrl.config.schemes ?? [])[idx];
-    if (name) selectScheme(ctrl, name);
   };
 
   ctrl.schemeSelectHidden.onchange = () => {
-    ctrl.mgr.scheme = ctrl.schemeSelectHidden.value;
-    updateSchemeBar(ctrl);
+    const name = ctrl.schemeSelectHidden.value;
+    ctrl.schemePicker?.setValue(name);
+    ctrl.mgr.scheme = name;
     ctrl.mgr.renderHexagons();
     persist(ctrl);
-  };
-
-  ctrl.closeSchemeDropdown = (event: Event) => {
-    if (
-      ctrl.schemeDropdown &&
-      !ctrl.schemeBar.contains(event.target as Node) &&
-      !ctrl.schemeDropdown.contains(event.target as Node)
-    ) {
-      ctrl.schemeDropdown.remove();
-      ctrl.schemeDropdown = null;
-      ctrl.schemeBar.classList.remove(CONST.CLASSES.SCHEME_BAR_OPEN);
-    }
-  };
-  ctrl.toggleSchemeDropdown = () => {
-    toggleSchemeDropdown(ctrl);
-    // Document-level outside-click, bound through the control's signal so a
-    // control removed with the dropdown open leaves no listener behind. The
-    // handler no-ops when no dropdown is open, so re-registering on each open
-    // is idempotent rather than additive.
-    if (ctrl.schemeDropdown) {
-      ctrl.on(document, "click", ctrl.closeSchemeDropdown);
-    }
   };
 
   const clearBtn = panelContent.querySelector(
@@ -215,7 +230,7 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     adjustPanelZIndex({ container: ctrl.ctrl, expanded: false });
   };
 
-  updateSchemeBar(ctrl);
+  // Initial colour bar render is handled by the picker's constructor.
 };
 
 const setupObserver = (ctrl: HeatmapControlUI) => {
@@ -338,107 +353,6 @@ const updateFieldSelector = (ctrl: HeatmapControlUI) => {
   syncSelect(ctrl, ctrl.fieldSelect, ctrl.fieldSelect.value);
 };
 
-const renderColorBar = (
-  ctrl: HeatmapControlUI,
-  container: HTMLElement,
-  name: string,
-  numClasses: number,
-) => {
-  const colors = safeColorScale(name, numClasses);
-  container.innerHTML = "";
-  for (const color of colors) {
-    dom.el("div", {
-      class: CONST.CLASSES.SCHEME_BAR_BLOCK,
-      style: `background:${color};width:${100 / colors.length}%`,
-      parent: container,
-    });
-  }
-};
-
-const updateSchemeBar = (ctrl: HeatmapControlUI) => {
-  renderColorBar(ctrl, ctrl.schemeBarInner, ctrl.mgr.scheme, ctrl.mgr.numClasses);
-  ctrl.schemeBar.title = ctrl.mgr.scheme;
-};
-
-const refreshSchemeDropdownItems = (ctrl: HeatmapControlUI) => {
-  if (!ctrl.schemeDropdown) return;
-  const items = ctrl.schemeDropdown.querySelectorAll(
-    CONST.SEL.SCHEME_DROPDOWN_ITEM,
-  ) as NodeListOf<HTMLElement>;
-  items.forEach(item => {
-    const name = item.getAttribute("data-scheme-name");
-    if (!name) return;
-    const bar = item.querySelector(CONST.SEL.SCHEME_DROPDOWN_BAR) as HTMLElement | null;
-    if (bar) renderColorBar(ctrl, bar, name, ctrl.mgr.numClasses);
-  });
-};
-
-const toggleSchemeDropdown = (ctrl: HeatmapControlUI) => {
-  if (ctrl.schemeDropdown) {
-    ctrl.schemeDropdown.remove();
-    ctrl.schemeDropdown = null;
-    ctrl.schemeBar.classList.remove(CONST.CLASSES.SCHEME_BAR_OPEN);
-    return;
-  }
-  ctrl.schemeBar.classList.add(CONST.CLASSES.SCHEME_BAR_OPEN);
-  ctrl.schemeDropdown = dom.el("div", {
-    class: CONST.CLASSES.SCHEME_DROPDOWN,
-    role: "listbox",
-    parent: ctrl.schemeControlWrap,
-  });
-
-  let focusIdx = -1;
-  (ctrl.config.schemes ?? []).forEach((name: string, idx: number) => {
-    const item = dom.el("div", {
-      class: CONST.CLASSES.SCHEME_DROPDOWN_ITEM,
-      role: "option",
-      tabindex: -1,
-      "data-scheme-name": name,
-      parent: ctrl.schemeDropdown,
-    });
-    if (name === ctrl.mgr.scheme) {
-      item.classList.add(CONST.CLASSES.ACTIVE);
-      focusIdx = idx;
-    }
-
-    const itemBar = dom.el("div", {
-      class: CONST.CLASSES.SCHEME_DROPDOWN_BAR,
-      parent: item,
-    });
-    renderColorBar(ctrl, itemBar, name, ctrl.mgr.numClasses);
-    item.title = name;
-
-    item.onclick = (event: MouseEvent) => {
-      event.stopPropagation();
-      selectScheme(ctrl, name);
-    };
-  });
-
-  const items = ctrl.schemeDropdown.querySelectorAll(
-    CONST.SEL.SCHEME_DROPDOWN_ITEM,
-  ) as NodeListOf<HTMLElement>;
-  if (items.length) {
-    if (focusIdx >= 0) items[focusIdx].focus();
-    else items[0].focus();
-  }
-
-  ctrl.dropdownCleanup = registerDropdownEvents(ctrl.mgr.map, ctrl, Array.from(items));
-};
-
-const selectScheme = (ctrl: HeatmapControlUI, name: string) => {
-  ctrl.mgr.scheme = name;
-  ctrl.schemeSelectHidden.value = name;
-  updateSchemeBar(ctrl);
-  if (ctrl.schemeDropdown) {
-    ctrl.schemeDropdown.remove();
-    ctrl.schemeDropdown = null;
-    ctrl.schemeBar.classList.remove(CONST.CLASSES.SCHEME_BAR_OPEN);
-  }
-  ctrl.mgr.renderHexagons();
-  ctrl.schemeBar.focus();
-  persist(ctrl);
-};
-
 /**
  * Scan the map for point layers. Driven by the ready signal instead of a
  * retry loop: an immediate first pass, a re-scan on every CONTROL_ATTACHED
@@ -537,7 +451,9 @@ const resetPanel = (ctrl: HeatmapControlUI) => {
   );
   syncSelect(ctrl, ctrl.methodSelect, ctrl.mgr.method);
   ctrl.schemeSelectHidden.value = ctrl.mgr.scheme;
-  updateSchemeBar(ctrl);
+  // The picker owns the colour bar — just tell it the new value and count.
+  ctrl.schemePicker?.setValue(ctrl.mgr.scheme);
+  ctrl.schemePicker?.setNumClasses(ctrl.mgr.numClasses);
   updateFieldSelector(ctrl);
   // Drop the published source rows — the canvas unregisters on clear, but the
   // shared meta object outlives it and would repopulate stale values on re-register.

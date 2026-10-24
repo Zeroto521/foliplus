@@ -146,6 +146,7 @@ function makeCtrl(
     T: createScopedTranslator(config),
     ctrl: document.createElement("div"),
     schemeDropdown: null,
+    schemePicker: null,
     expandHookDone: false,
     schemeBarCleanup: null,
     dropdownCleanup: null,
