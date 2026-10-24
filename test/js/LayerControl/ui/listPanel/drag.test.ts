@@ -119,7 +119,14 @@ describe("ui/drag", () => {
         row.dataset.index = String(i);
       });
 
-      const reorder = vi.fn();
+      const reorder = vi.fn((fromIdx: number, toIdx: number) => {
+        // A real splice, not a bare vi.fn(): the drop path now relocates the
+        // DOM rows by reconciling them against the registry, so a mock that
+        // leaves the registry untouched would revert the row move the drop
+        // is supposed to make.
+        const [moved] = layers.splice(fromIdx, 1);
+        layers.splice(toIdx, 0, moved);
+      });
       const canReorderBetween = vi.fn(() => true);
       const ui = {
         uiContainer,
@@ -279,7 +286,8 @@ describe("ui/drag", () => {
     it("handleDrop skips the DOM move when the drop target is detached", () => {
       const { ui, reorder } = makeScrambledUi();
       // Dragging B (index 1) onto A (index 0): the registry move still runs,
-      // but a target with no parentNode cannot host an insertBefore.
+      // and the row relocate never touches the detached target — it reads the
+      // rows out of the container itself.
       ui.listPanel.dragIdx = 1;
       const detached = document.createElement("div");
       detached.className = CONST.CLASSES.LAYER_ITEM;
@@ -388,7 +396,7 @@ describe("ui/drag", () => {
       const { ui, reorder } = makeScrambledUi();
       // Drag B (registry 1) onto A (registry 0). A sits at DOM position 1, so a
       // positional read would see targetIdx === dragIdx and bail without moving.
-      // By id, A is registry 0: a real backward move, inserting before the target.
+      // By id, A is registry 0: a real backward move.
       (ui.listPanel as any).dragIdx = 1;
       const target = attachedPanel(ui).querySelector<HTMLElement>(
         `[${CONST.DATA.LAYER_ID}="A"]`,
@@ -398,11 +406,13 @@ describe("ui/drag", () => {
 
       expect(reorder).toHaveBeenCalledWith(1, 0);
       expect((ui.listPanel as any).dragIdx).toBe(null);
+      // The DOM rows follow the registry (B, A, C) — the reconcile also
+      // repairs the scrambled start order instead of preserving it.
       expect(
         Array.from(
           attachedPanel(ui).querySelectorAll<HTMLElement>(CONST.SEL.LAYER_ITEM),
         ).map(row => row.getAttribute(CONST.DATA.LAYER_ID)),
-      ).toEqual(["C", "B", "A"]);
+      ).toEqual(["B", "A", "C"]);
     });
 
     it("handleDrop aborts when the dragged row is missing from the panel", () => {
@@ -519,8 +529,9 @@ describe("ui/drag", () => {
       const target = attachedPanel(ui).querySelector<HTMLElement>(
         `[${CONST.DATA.LAYER_ID}="B"]`,
       )!;
-      // Registry reorders (order is registry state), but the DOM insert is
-      // skipped because the target has no parentNode to insert into.
+      // Registry reorders (order is registry state), and the row reconcile
+      // finds its rows in the container — a detached drop target changes
+      // nothing about where the surviving rows land.
       target.remove();
 
       handleDrop(ui, dragEvent(target));
