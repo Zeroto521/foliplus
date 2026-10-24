@@ -82,6 +82,7 @@ export default [
       "script/**/*.mjs",
       "script/**/*.cjs",
       "script/**/*.js",
+      "config/**/*.mjs",
     ],
     plugins: { import: importPlugin },
     settings: {
@@ -354,7 +355,7 @@ export default [
   // script/ joins here too: its own inline exports were the reason this rule
   // had a source-only scope that the build tooling was exempted from.
   {
-    files: ["foliplus/js/**/*.ts", "script/**/*.{js,cjs,mjs}"],
+    files: ["foliplus/js/**/*.ts", "script/**/*.{js,cjs,mjs}", "config/**/*.mjs"],
     rules: {
       // `const fn = () => {}` only — no `export function` / `function foo()`.
       "func-style": ["error", "expression", { allowArrowFunctions: true }],
