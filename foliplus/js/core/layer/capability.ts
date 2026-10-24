@@ -1,4 +1,4 @@
-// core/layer/capability — vector-style probe for stroke / fill carriers.
+// core/layer/capability — carrier probe for the stroke / fill / size axes.
 //
 // Both `LayerCapabilities.stroke` and `LayerCapabilities.fill` are derived
 // from a tree walk of the layer's live node graph. The probes live here so
@@ -14,7 +14,15 @@
 // to fan the style out to, so it returns false like an empty LayerGroup or
 // a Marker with no children — the `setStyle` of its own is not a real
 // carrier when the walk finds nothing to write to.
+import { isPixelRadiusLeaf } from "../leafletAdapter.js";
 import { someLeaf } from "./walkLeaf.js";
+
+/** Whether any leaf in the tree owns a *pixel* radius — the honest carrier
+ *  check for the size axis. The single-leaf test is `isPixelRadiusLeaf`; this
+ *  is only the tree aggregation on top of it, and the size write path
+ *  (`size.ts`) uses the same recognizer, so a row that renders always has a
+ *  leaf it can write. */
+const hasRadiusLeaf = (node: unknown): boolean => someLeaf(node, isPixelRadiusLeaf);
 
 /** The GeoJSON geometry types that own a fill. `MultiLineString` and
  *  `MultiPoint` are deliberately absent: their `getLatLngs()` is nested
@@ -122,4 +130,4 @@ const isArealStyleLeaf = (node: unknown): boolean => {
   return AREAL_GEOMETRY_TYPES.has(declaredGeometryType(n) ?? "");
 };
 
-export { FILL_OPT_IN, hasFillLeaf, hasSetStyleLeaf, isArealStyleLeaf };
+export { FILL_OPT_IN, hasFillLeaf, hasRadiusLeaf, hasSetStyleLeaf, isArealStyleLeaf };

@@ -9,6 +9,7 @@
 - `HeatmapControl`: `aggregateData` is now a wrapper over `binPoints` (H3 geometry only) and `aggregateBins` (pure arithmetic), so a filter change can skip the geometry step ([#715](https://github.com/Zeroto521/foliplus/pull/715))
 - `LayerControl`: value-based fill — a numeric field, a classification method
   and a palette paint the layer by value ([#727](https://github.com/Zeroto521/foliplus/pull/727))
+- `LayerControl`: a size row sets a CircleMarker layer's pixel radius — every marker at once, persisted across reloads, and resettable to each marker's drawn radius ([#726](https://github.com/Zeroto521/foliplus/pull/726))
 
 ### Changed
 
