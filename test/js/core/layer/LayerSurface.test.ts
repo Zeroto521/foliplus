@@ -1108,6 +1108,40 @@ describe("LayerSurface.destroy", () => {
     expect(panes.graph).toBeDefined();
   });
 
+  it("leaves the canvas face's pane to the face that retires it", () => {
+    // A canvas face books its own pane before the surface does. If
+    // `destroy` retired that lease too, the face's own destroy would find
+    // nothing to check against and the element would stay on the map with
+    // nobody left to take it off — every later `writeZ`, focus and export
+    // write aimed at DOM that is already gone. The surface therefore
+    // skips the face's pane, and only the face's destroy deletes it.
+    const { panes, host } = makeMap();
+    const facePane = host.ensurePane("foliplus-canvas-heat", false, "heat").pane;
+    expect(facePane).toBe(panes["foliplus-canvas-heat"]);
+
+    const surface = new LayerSurface(host, {
+      id: "heat",
+      layer: null,
+      canvas: true,
+      paneName: "foliplus-canvas-heat",
+    });
+    surface.materialize();
+    expect(surface.paneNames).toContain("foliplus-canvas-heat");
+
+    surface.destroy();
+
+    // Element and lease both survived the surface's teardown — the face
+    // still holds it, and nobody else may take it.
+    expect(panes["foliplus-canvas-heat"]).toBe(facePane);
+    expect(host.canAcquirePane("foliplus-canvas-heat", "heat")).toBe(true);
+    expect(host.canAcquirePane("foliplus-canvas-heat", "other")).toBe(false);
+
+    // The face's own destroy is the call that takes the element off.
+    host.releasePane("foliplus-canvas-heat", "heat", true);
+    expect(panes["foliplus-canvas-heat"]).toBeUndefined();
+    expect(host.canAcquirePane("foliplus-canvas-heat", "heat")).toBe(true);
+  });
+
   it("neutralises its own state so a retired surface cannot write", () => {
     // Destroy used to retire only the leases. A surface destroyed mid-focus
     // kept `panes` / `baseZ` / `overrideZ` alive, so a restore closure still

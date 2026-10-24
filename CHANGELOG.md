@@ -16,6 +16,7 @@
 - `CSS`: design tokens split surface from on-accent and expose a focus color, so a theme can invert one without the other ([#714](https://github.com/Zeroto521/foliplus/pull/714))
 - `LayerControl`: opacity and zoom-range rows now use one dependency-free slider primitive — single/dual thumb, keyboard, ARIA, disabled/RTL, a bubble that panels cannot clip, and a collapsed range that slides instead of dead-locking ([#721](https://github.com/Zeroto521/foliplus/pull/721))
 - `core/layer`: the vector probes and the carrier audit share one tree walk, and late content is pinned through a `DocumentFragment`, so a reorder pays one bounded visit per layer instead of four [#733](https://github.com/Zeroto521/foliplus/pull/733)
+- `core/layer`: a declared pane spec may name only the public roles, so `shadow` stays internal to the per-layer marker-shadow pane instead of being claimable by a declaration, and the focus spotlight pane books itself under a fixed owner rather than under the pane name it happens to be called [#733](https://github.com/Zeroto521/foliplus/pull/733)
 
 ### Fixed
 

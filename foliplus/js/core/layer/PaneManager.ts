@@ -7,7 +7,7 @@
 //   ── Pure computation (JS unit tests, no Leaflet) ──
 //     isDefaultPane / discoverChildPanes / getLayerPanes
 //   ── Leaflet DOM integration (browser tests) ──
-//     ensurePane / ensureVector / pinTree / pinLateContent / removePane /
+//     ensurePane / ensureVector / pinTree / pinLateContent / releasePane /
 //     invalidateDiscoveryCache / destroy
 import { createLogger } from "#common/log.js";
 import {
@@ -39,7 +39,7 @@ type PathWithPane = L.Path & { options: L.PathOptions & { pane?: string } };
  *    safe here — a stale entry costs one extra `walkTree` walk, never a
  *    wrong answer.
  *
- *  `removePane` deliberately touches neither: destroying a pane div does not
+ *  `releasePane` deliberately touches neither: destroying a pane div does not
  *  change what any layer's `options.pane` names, which is the only thing the
  *  cache memoises.
  *
@@ -52,8 +52,8 @@ type PathWithPane = L.Path & { options: L.PathOptions & { pane?: string } };
  *                     `destroyOwnPane` (a pane foliplus created),
  *                     `sweepChildPanes` (a spec no registered layer uses) and
  *                     `destroy`. Bounded by the panes this map declared.
- *    `paneLeases`     written by `ensurePane`; deleted by `releasePane`,
- *                     `removePane` and `destroy`. Bounded by live surfaces'
+ *    `paneLeases`     written by `ensurePane`; deleted by `releasePane` and
+ *                     `destroy`. Bounded by live surfaces'
  *                     bookings — a surface that never retires its panes leaves
  *                     a row here until `destroy`.
  *    `discoveryCache` written by `discoverChildPanes`; generation-gated on
@@ -117,7 +117,7 @@ class PaneManager {
   }
 
   /** The specs above, read-only. Specs are registered by `registerPaneSpecs`
-   *  and dropped by `sweepChildPanes` / `removePane`; a caller has no way to
+   *  and dropped by `sweepChildPanes` / `destroyOwnPane`; a caller has no way to
    *  put one in or take one out, which is what keeps this map the single
    *  source of truth for "is this pane ours". */
   get childPaneSpecs(): ReadonlyMap<string, PaneSpec> {
@@ -312,9 +312,18 @@ class PaneManager {
    *  adopted or caller-declared pane outlives its surface so the same id can
    *  be registered again without rebuilding panes.
    *
-   *  This is the retirement entry the surface teardowns go through: it owns
-   *  the lease check and decides whether the DOM goes at all, so a caller
-   *  never has to know whether its booking was created or adopted. */
+   *  This is the one retirement entry: `releasePane(name, owner, true)` is
+   *  what deletes the DOM, and it holds the lease check first — a canvas
+   *  face whose booking was refused still names a pane, and an unchecked
+   *  teardown deleted that pane, which was the other surface's carrier,
+   *  while its lease kept pointing at the detached element. Every later
+   *  `writeZ`, focus and export then wrote into DOM that is no longer on
+   *  the map. Refused here instead.
+   *
+   *  No cache invalidation: the cache memoises what each layer's
+   *  `options.pane` names, and destroying a pane div changes no layer's
+   *  options. Clearing on every teardown used to be the one place this
+   *  policy over-invalidated structure-wide for a single pane. */
   releasePane(paneName: string, owner: string, removeDom: boolean): void {
     const held = this.paneLeases.get(paneName);
     if (held?.owner !== owner) return;
@@ -322,41 +331,9 @@ class PaneManager {
     if (removeDom && held.created) this.destroyOwnPane(paneName);
   }
 
-  /** Remove a pane this tree owns from the DOM and Leaflet's registries.
-   *  Used by LayerSurface.destroy (the layer's synthesized pane) and by
-   *  createCanvas.destroy (its dedicated pane).
-   *
-   *  Owner-checked. A canvas face whose booking was refused still names a
-   *  pane, and an unchecked teardown deleted that pane — which was the other
-   *  surface's carrier — while its lease kept pointing at the detached
-   *  element. Every later `writeZ`, focus and export then wrote into DOM that
-   *  is no longer on the map. Refused here, loudly, instead.
-   *
-   *  An adopted pane is retired without its DOM too: deleting an element
-   *  foliplus never created would drop another component's carrier off the
-   *  map.
-   *
-   *  No cache invalidation here: the cache memoises what each layer's
-   *  `options.pane` names, and destroying a pane div changes no layer's
-   *  options. Clearing on every teardown used to be the one place this policy
-   *  over-invalidated structure-wide for a single pane. */
-  removePane(paneName: string, owner: string): void {
-    const held = this.paneLeases.get(paneName);
-    if (held?.owner !== owner) {
-      log.warn(
-        `refusing to destroy pane "${paneName}": not leased by ${owner} — ` +
-          `removing it would delete another surface's carrier and leave its ` +
-          `lease dangling`,
-      );
-      return;
-    }
-    this.paneLeases.delete(paneName);
-    if (held.created) this.destroyOwnPane(paneName);
-  }
-
   /** Delete a pane element this tree created, and drop its spec record. Not
-   *  owner-checked: `releasePane` and `removePane` both hold the lease check
-   *  first, so "how a pane goes away" has one answer. */
+   *  owner-checked: `releasePane` holds the lease check first, so "how a
+   *  pane goes away" has one answer. */
   private destroyOwnPane(paneName: string): void {
     destroyPane(this.map, paneName);
     this.paneSpecs.delete(paneName);
@@ -582,7 +559,15 @@ class PaneManager {
       }
     }
     for (const name of this.paneSpecs.keys()) {
-      if (!used.has(name)) this.paneSpecs.delete(name);
+      if (used.has(name)) continue;
+      // The spec record and the lease go out together: `destroy` already
+      // retires every lease a surface acquired, but this sweep is the only
+      // point that deletes a record by name. Leaving a live lease behind
+      // would keep the name unacquirable for a later surface that adopts
+      // the same name the author still intends.
+      const held = this.paneLeases.get(name);
+      if (held) this.releasePane(name, held.owner, false);
+      this.paneSpecs.delete(name);
     }
   }
 
@@ -619,10 +604,10 @@ class PaneManager {
         );
         continue;
       }
-      if (!Object.values(CONST.PANE_ROLE).includes(spec.role)) {
+      if (!CONST.DECLARED_PANE_ROLES.includes(spec.role)) {
         log.warn(
-          `PaneSpec.role rejected (unknown value "${String(spec.role)}"); ` +
-            `keeping the spec but falling back to "base"`,
+          `PaneSpec.role rejected ("${String(spec.role)}" is not a declared ` +
+            `role); keeping the spec but falling back to "base"`,
         );
         this.paneSpecs.set(spec.name, {
           ...spec,

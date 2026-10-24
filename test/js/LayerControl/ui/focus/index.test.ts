@@ -1463,7 +1463,7 @@ describe("LayerUI focus", () => {
         // are foliplus layer panes now (PaneRole.SHADOW), covered by the
         // layer-pane rule above.
         const css = readFileSync(
-          resolve(".", "foliplus/css/LayControl/focus.css"),
+          resolve(".", "foliplus/css/LayerControl/focus.css"),
           "utf8",
         );
         expect(css).not.toContain("leaflet-shadow-pane");

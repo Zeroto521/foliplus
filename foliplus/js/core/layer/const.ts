@@ -144,6 +144,27 @@ const PANE_ROLE = {
   PREVIEW: "preview",
 } as const;
 
+/** The roles a caller may put in a declared `PaneSpec`: `PANE_ROLE` minus
+ *  `shadow`. The shadow pane is internal — the per-layer marker-shadow pane a
+ *  `LayerSurface` synthesizes — so accepting it in a declaration would price
+ *  and move shadows the declaring layer does not own. */
+const DECLARED_PANE_ROLES: readonly string[] = [
+  PANE_ROLE.BASE,
+  PANE_ROLE.SUB,
+  PANE_ROLE.ANNOTATION,
+  PANE_ROLE.PREVIEW,
+];
+
+/** Fixed owners for the panes that belong to no surface. Every `ensurePane`
+ *  booking must name an owner, so a pane owned by nobody still names somebody
+ *  — and the name has to be stable, or the re-book that follows reads it as a
+ *  collision. The `@` prefix is outside the id space a layer id can take. */
+const PANE_OWNER = {
+  /** LayerControl's focus spotlight pane (the inverse mask and the rectangle).
+   *  Created once, outlives every focus, and is never a layer's carrier. */
+  FOCUS: "@focus",
+} as const;
+
 /** Surface-content kind names — the discriminator vocabulary of
  *  `SurfaceContentOpts` and `SurfaceContentHandle`
  *  ("layers" | "canvas" | "color" | "custom"). Owned by core so
@@ -164,6 +185,7 @@ export {
   CAP_TIER,
   COLOR_PANE_PREFIX,
   CONTENT_KIND,
+  DECLARED_PANE_ROLES,
   DIM,
   FALLBACK_PANE_PREFIX,
   GEOM_TYPE,
@@ -172,6 +194,7 @@ export {
   KIND,
   NO_FEATURE_TREE_KINDS,
   PANE_NAME_PATTERN,
+  PANE_OWNER,
   PANE_ROLE,
   RECURSION,
   Z_INDEX,
