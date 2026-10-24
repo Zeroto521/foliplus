@@ -19,7 +19,8 @@ exclude .prettierrc.cjs
 exclude .readthedocs.yaml
 exclude codecov.yaml
 exclude eslint.config.js
-exclude eslint.config.type.js
+exclude config/eslint/base.mjs
+exclude config/eslint/typed.mjs
 exclude Makefile
 exclude package.json
 exclude tsconfig.json
