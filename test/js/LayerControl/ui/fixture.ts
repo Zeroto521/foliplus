@@ -87,13 +87,19 @@ class CircleMarker {
   }
 }
 
+/** One id per stamped object, never reused. Real `L.stamp` is a process-wide
+ *  counter, so the counter lives at module scope here too: a counter that
+ *  restarts on every `installLeafletGlobals` call reissues ids an earlier
+ *  install already gave out, two layers end up with the same `L.stamp`, and
+ *  the fallback pane name `foliplus-pane-<stamp>` collides across surfaces.
+ */
+const stamp = (() => {
+  let id = 0;
+  return vi.fn(() => ++id);
+})();
+
 /** Populate window.L with the stubs LayerController / PaneManager expect. */
 const installLeafletGlobals = () => {
-  const stamp = (() => {
-    let id = 0;
-    return vi.fn(() => ++id);
-  })();
-
   window.L.TileLayer = TileLayer;
   window.L.GridLayer = GridLayer;
   window.L.Renderer = Renderer;

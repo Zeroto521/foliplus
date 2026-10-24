@@ -862,6 +862,9 @@ describe("PaneManager", () => {
       createPane: vi.fn(),
     };
     const pm = new PaneManager(map);
+    // The surface books its shadow pane before pinning into it — the pin only
+    // writes `options.shadowPane` for a lease it still holds.
+    pm.ensurePane("foliplus-measure-graph-shadow", false, "measure");
     const renderer = { _container: document.createElement("div") };
 
     const layer = {
@@ -878,6 +881,7 @@ describe("PaneManager", () => {
         paneName: "foliplus-measure-graph",
         renderer,
         shadowPaneName: "foliplus-measure-graph-shadow",
+        owner: "measure",
       },
     ]);
 
@@ -896,6 +900,7 @@ describe("PaneManager", () => {
         paneName: "foliplus-measure-graph",
         renderer,
         shadowPaneName: "foliplus-measure-graph-shadow",
+        owner: "measure",
       },
     ]);
     expect(icon.parentNode).toBe(paneEl);
@@ -1222,6 +1227,8 @@ describe("PaneManager", () => {
       createPane: vi.fn(),
     };
     const pm = new PaneManager(map);
+    // The sweep runs for the surface that booked the shadow pane.
+    pm.ensurePane("foliplus-graph-shadow", false, "graph");
 
     const marker = {
       getElement: () => icon,
@@ -1231,13 +1238,13 @@ describe("PaneManager", () => {
     };
     Object.setPrototypeOf(marker, new window.L.Marker());
 
-    pm.pinLateShadows(marker as never, "foliplus-graph-shadow");
+    pm.pinLateShadows(marker as never, "foliplus-graph-shadow", "graph");
 
     expect(shadow.parentNode).toBe(shadowPaneEl);
     expect(sharedShadowPane.children).toHaveLength(0);
     expect(marker.options.shadowPane).toBe("foliplus-graph-shadow");
     // Idempotent: a reconcile re-run must not re-append the shadow.
-    pm.pinLateShadows(marker as never, "foliplus-graph-shadow");
+    pm.pinLateShadows(marker as never, "foliplus-graph-shadow", "graph");
     expect(Array.from(shadowPaneEl.children)).toEqual([shadow]);
   });
 
@@ -1249,6 +1256,7 @@ describe("PaneManager", () => {
       createPane: vi.fn(),
     };
     const pm = new PaneManager(map);
+    pm.ensurePane("foliplus-graph-shadow", false, "graph");
     const icon = document.createElement("img");
     const shadow = document.createElement("img");
     const marker = {
@@ -1271,7 +1279,7 @@ describe("PaneManager", () => {
       },
     };
 
-    pm.pinLateShadows(group as never, "foliplus-graph-shadow");
+    pm.pinLateShadows(group as never, "foliplus-graph-shadow", "graph");
 
     // The path leaf answers the walk but takes no shadow write; the marker's
     // shadow moved.
@@ -1283,10 +1291,96 @@ describe("PaneManager", () => {
   it("pinLateShadows skips a null shadow pane name or a missing pane", () => {
     const map = { getPane: vi.fn(() => null), createPane: vi.fn() };
     const pm = new PaneManager(map);
-    expect(() => pm.pinLateShadows({ options: {} } as never, null)).not.toThrow();
     expect(() =>
-      pm.pinLateShadows({ options: {} } as never, "gone-shadow"),
+      pm.pinLateShadows({ options: {} } as never, null, "graph"),
     ).not.toThrow();
+    expect(() =>
+      pm.pinLateShadows({ options: {} } as never, "gone-shadow", "graph"),
+    ).not.toThrow();
+  });
+
+  it("pinLateShadows refuses a shadow pane another surface holds the lease on", () => {
+    // A name is not ownership. If surface-a holds the shadow pane's lease,
+    // surface-b's sweep must neither write `options.shadowPane` nor move a
+    // shadow in: that write would migrate every one of b's marker shadows
+    // into a's pane, which no pane write of b's could then reach back.
+    const foreignPaneEl = document.createElement("div");
+    document.body.appendChild(foreignPaneEl);
+    const map = {
+      getPane: vi.fn(() => foreignPaneEl),
+      createPane: vi.fn(),
+    };
+    const pm = new PaneManager(map);
+    pm.ensurePane("foliplus-graph-shadow", false, "surface-a");
+
+    const shadow = document.createElement("img");
+    const marker = {
+      getElement: () => document.createElement("img"),
+      _shadow: shadow,
+      options: {} as Record<string, unknown>,
+      eachLayer: undefined,
+    };
+    Object.setPrototypeOf(marker, new window.L.Marker());
+
+    pm.pinLateShadows(marker as never, "foliplus-graph-shadow", "surface-b");
+
+    expect(marker.options.shadowPane).toBeUndefined();
+    expect(foreignPaneEl.children).toHaveLength(0);
+    // The holder still writes.
+    pm.pinLateShadows(marker as never, "foliplus-graph-shadow", "surface-a");
+    expect(marker.options.shadowPane).toBe("foliplus-graph-shadow");
+    expect(foreignPaneEl.children).toHaveLength(1);
+  });
+
+  it("pinLateContent skips the shadow pin when the shadow pane is not ours", () => {
+    const paneEl = document.createElement("div");
+    const foreignShadowPaneEl = document.createElement("div");
+    const sharedShadowPane = document.createElement("div");
+    document.body.appendChild(paneEl);
+    document.body.appendChild(foreignShadowPaneEl);
+    document.body.appendChild(sharedShadowPane);
+    const icon = document.createElement("img");
+    const shadow = document.createElement("img");
+    sharedShadowPane.appendChild(shadow);
+    const map = {
+      getPane: vi.fn((name: string) =>
+        name === "foliplus-pane-1"
+          ? paneEl
+          : name === "foliplus-pane-1-shadow"
+            ? foreignShadowPaneEl
+            : null,
+      ),
+      createPane: vi.fn(),
+    };
+    const pm = new PaneManager(map);
+    // Held by another surface: no adoption, no lease for surface-b.
+    pm.ensurePane("foliplus-pane-1-shadow", false, "surface-a");
+    const renderer = { _container: document.createElement("div") };
+    const marker = {
+      getElement: () => icon,
+      _shadow: shadow,
+      options: {} as Record<string, unknown>,
+      eachLayer: undefined,
+    };
+    Object.setPrototypeOf(marker, new window.L.Marker());
+
+    pm.pinLateContent([
+      {
+        layer: marker,
+        paneName: "foliplus-pane-1",
+        renderer,
+        shadowPaneName: "foliplus-pane-1-shadow",
+        owner: "surface-b",
+      },
+    ]);
+
+    // The icon still lands in the pane we do own ...
+    expect(icon.parentNode).toBe(paneEl);
+    // ... but the shadow write is refused, so the shadow stays where Leaflet
+    // put it and no option points at a foreign pane.
+    expect(marker.options.shadowPane).toBeUndefined();
+    expect(shadow.parentNode).toBe(sharedShadowPane);
+    expect(foreignShadowPaneEl.children).toHaveLength(0);
   });
 
   it("pinLateContent skips the DOM moves when the pane element is missing", () => {
@@ -1325,7 +1419,13 @@ describe("PaneManager", () => {
 
     expect(() =>
       pm.pinLateContent([
-        { layer: marker, paneName: "foliplus-pane-1", renderer, shadowPaneName: "x" },
+        {
+          layer: marker,
+          paneName: "foliplus-pane-1",
+          renderer,
+          shadowPaneName: "x",
+          owner: "surface-1",
+        },
         { layer: overlay, paneName: "foliplus-pane-1", renderer },
       ]),
     ).not.toThrow();

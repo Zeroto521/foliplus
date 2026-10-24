@@ -23,6 +23,8 @@
 - `LayerControl`: a border chosen before features land still reaches them — the content-change replay now covers the stroke face alongside fill, size and opacity ([#730](https://github.com/Zeroto521/foliplus/pull/730))
 - `LayerControl`: reordering (`moveLayerUp`/`moveLayerDown`, `bringLayerToFront`, drag) moves rows in place instead of rebuilding the panel — a 200-layer move drops from seconds to milliseconds ([#731](https://github.com/Zeroto521/foliplus/pull/731))
 - `LayerControl`: marker shadows and ImageOverlay images join the layer's own panes — opacity, z-ordering and focus now cover the whole layer ([#733](https://github.com/Zeroto521/foliplus/pull/733))
+- `LayerControl`: dismissing focus runs every pane restore in its own try/catch, so a surface that retired mid-focus can no longer throw past the mask, rectangle and renderer teardown and leave the map dimmed with no way back ([#733](https://github.com/Zeroto521/foliplus/pull/733))
+- `core/layer`: a destroyed surface neutralises its own handles and z state, so a late write is a no-op instead of re-acquiring a pane it already released; a pane name is recorded only when the booking succeeded, so a refused shadow pane is never written into another surface's content ([#733](https://github.com/Zeroto521/foliplus/pull/733))
 
 ## [v0.4.1] (2026-10-18)
 

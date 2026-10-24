@@ -168,6 +168,9 @@ interface SurfaceDeclaration {
 class LayerSurface implements LayerSurfaceContract {
   readonly id: string;
   readonly layer: L.Layer | null;
+  /** Base pane first. `destroy` empties it in place — never replaces the
+   *  array — so a closure that captured `surface.panes` at focus time also
+   *  sees the empty set when the surface retires under it. */
   readonly panes: PaneHandle[] = [];
   materialized = false;
   /** What this surface can actually be asked to do — resolved once in the
@@ -187,8 +190,10 @@ class LayerSurface implements LayerSurfaceContract {
   private readonly surfaceDecl: SurfaceDeclaration;
   /** The pane this surface synthesized because the layer declared none. Its
    *  content is pinned here; a declared pane's content is routed by whoever
-   *  declared it (createLayers), so there is nothing for us to pin. */
-  private readonly pinTarget: string | null;
+   *  declared it (createLayers), so there is nothing for us to pin. Not
+   *  readonly: destroy() resets it, so a retired surface stops reporting a
+   *  carrier it no longer holds. */
+  private pinTarget: string | null;
   /** The marker-shadow pane synthesized alongside `pinTarget` (see
    *  `addShadowPane`), or null when the layer has no marker leaves — or is
    *  not a synthesized surface at all. This is the one pane whose content the
@@ -340,9 +345,23 @@ class LayerSurface implements LayerSurfaceContract {
     // third-party-facing gates are the declared `paneName` check and
     // `registerPaneSpecs` above.)
     const name = `${FALLBACK_PANE_PREFIX}${L.stamp(layer)}`;
-    this.addPane(name, true);
-    this.pinTarget = name;
-    this.addMissingSpecs();
+    if (this.addPane(name, true)) {
+      this.pinTarget = name;
+      this.addMissingSpecs();
+    } else {
+      // The fallback could not be booked either. Its name is stamped from
+      // L.stamp, so refusal means a pre-built pane of that exact name already
+      // exists and is not provably ours. With no base carrier at all the
+      // surface must stop promising pane coverage rather than advertise a z
+      // / opacity write that lands nowhere.
+      this.pinTarget = null;
+      this.capabilities.opacity = CAP_TIER.NONE;
+      this.capabilities.relocatable = false;
+      log.warn(
+        `LayerSurface could not create fallback pane "${name}": no pane ` +
+          `carrier at all, so the layer cannot be faded or z-reordered by pane`,
+      );
+    }
   }
 
   /** Materialize every declared spec the constructor's branch did not already
@@ -354,10 +373,21 @@ class LayerSurface implements LayerSurfaceContract {
    *  booked are skipped, so the base pane stays `panes[0]` and `reconcile`
    *  still pins content into it. */
   private addMissingSpecs(): void {
+    const refused: string[] = [];
     for (const spec of this.paneSpecs) {
-      if (!this.panes.some(pane => pane.name === spec.name)) {
-        this.addPane(spec.name, false, spec.role, spec.order);
+      if (this.panes.some(pane => pane.name === spec.name)) continue;
+      // A refused spec leaves a gap between what `capabilities` declares and
+      // what `panes` covers — reported here, not left silent.
+      if (!this.addPane(spec.name, false, spec.role, spec.order)) {
+        refused.push(spec.name);
       }
+    }
+    if (refused.length) {
+      const names = refused.join(", ");
+      log.warn(
+        `LayerSurface skipped pane specs ${names}: not acquireable (shared, ` +
+          `held by another surface, or carrying foreign content)`,
+      );
     }
   }
 
@@ -386,8 +416,10 @@ class LayerSurface implements LayerSurfaceContract {
    *  declared: the declared-pane routes do not repin their content's pane
    *  assignment, but the shadow pane is this surface's own carrier (the
    *  icons' pane assignment belongs to the declarer; shadows have none).
-   *  A name that a declared spec already claims is left alone (warn + skip)
-   *  — an honest gap for that caller, not a collision. */
+   *  A name that a declared spec already claims, or that another surface
+   *  holds, is left alone (warn + skip) — an honest gap for that caller, not
+   *  a collision. Either way the shadow pane name stays unset, so nothing
+   *  points a marker's shadow at a pane this surface does not own. */
   private ensureShadowPane(): void {
     if (this.shadowPaneName || !this.layer || !this.panes.length) return;
     if (!hasMarkerLeaf(this.layer)) return;
@@ -402,7 +434,16 @@ class LayerSurface implements LayerSurfaceContract {
       );
       return;
     }
-    this.addPane(name, false, PANE_ROLE.SHADOW);
+    // Record the name only when the lease is really ours: a refused shadow
+    // booking would still land in `options.shadowPane`, redirecting every
+    // marker shadow into another surface's pane (cross-owner DOM migration).
+    if (!this.addPane(name, false, PANE_ROLE.SHADOW)) {
+      log.warn(
+        `marker-shadow pane "${name}" could not be acquired; marker shadows ` +
+          `stay on Leaflet's shared shadowPane`,
+      );
+      return;
+    }
     this.shadowPaneName = name;
   }
 
@@ -450,10 +491,11 @@ class LayerSurface implements LayerSurfaceContract {
    *    already lifted — the caller lifts the element itself in that case. */
   setZOverride(z: number): boolean {
     if (!this.panes.length || this.overrideZ !== undefined) return false;
-    this.zBefore = this.panes.flatMap(pane => {
-      const el = this.host.ensurePane(pane.name, false, this.id).pane;
-      return el ? ([[el, el.style.zIndex]] as Array<[HTMLElement, string]>) : [];
-    });
+    // Snapshot the handles we already hold — the write path never acquires
+    // (see writeZ), so there is no lease to win back here either.
+    this.zBefore = this.panes.flatMap(pane => [
+      [pane.element, pane.element.style.zIndex] as [HTMLElement, string],
+    ]);
     this.overrideZ = z;
     this.writeZ();
     return true;
@@ -475,6 +517,13 @@ class LayerSurface implements LayerSurfaceContract {
 
   /** Write the z of every pane: the override base while a lift is active,
    *  otherwise the ordering pass's. Writes nothing before either has been.
+   *
+   *  Write path, so it acquires nothing: every pane was booked at construction
+   *  and its element is already on the handle. Calling `ensurePane` here would
+   *  re-open the admission door on a write — a retired surface whose lease
+   *  `destroy` had just handed back could quietly win the pane again on the
+   *  next late write instead of being refused.
+   *
    *  Each name is gated through `assertOwnedPane` — a shared pane name can
    *  only get here through a surface that adopted one, and lifting that would
    *  reorder the whole map. */
@@ -483,9 +532,9 @@ class LayerSurface implements LayerSurfaceContract {
     if (base === undefined) return;
     for (const pane of this.panes) {
       this.host.assertOwnedPane(pane.name);
-      const el = this.host.ensurePane(pane.name, false, this.id).pane;
-      if (!el) continue;
-      el.style.zIndex = String(zFor({ base, role: pane.role, order: pane.order }));
+      pane.element.style.zIndex = String(
+        zFor({ base, role: pane.role, order: pane.order }),
+      );
     }
   }
 
@@ -509,10 +558,21 @@ class LayerSurface implements LayerSurfaceContract {
     this.geometryTypeCached = false;
   }
 
-  /** Release the panes this surface synthesized. The layer is off the map by
-   *  the time this runs (LayerController.unregisterLayer), so nothing renders into
+  /** Release every pane this surface holds, then neutralise its own state so a
+   *  retired surface is genuinely unusable. The layer is off the map by the
+   *  time this runs (LayerController.unregisterLayer), so nothing renders into
    *  them; a *declared* pane survives, which is what lets the same id be
-   *  registered again without rebuilding its panes. */
+   *  registered again without rebuilding its panes.
+   *
+   *  Retiring only the leases was not enough: a surface destroyed mid-focus
+   *  (unregister, same-id replacement) left `panes` / `baseZ` / `overrideZ`
+   *  intact, so a focus-restore closure still holding it would walk those
+   *  names through `assertOwnedPane` and throw — after the lease was already
+   *  gone — and that throw escaped past the focus mask/rect teardown, leaving
+   *  the map dimmed permanently. Every write method below guards on an empty
+   *  `panes` or a cleared `overrideZ`, so the neutralisation turns every such
+   *  late call into a no-op instead of an error.
+   */
   destroy(): void {
     // Release every lease this surface holds; the element is deleted only
     // for the panes foliplus created as this surface's own carrier (the
@@ -528,6 +588,17 @@ class LayerSurface implements LayerSurfaceContract {
       );
     }
     this.acquiredPanes = [];
+    // Then drop every handle and every z value. A retired surface must not be
+    // able to write — let alone re-acquire — anything: a focus restore or an
+    // in-flight ordering pass may still hold a reference to it. `panes` is
+    // emptied in place so a closure that captured the array sees empty too,
+    // which is what makes the restore a no-op rather than a throw.
+    this.panes.length = 0;
+    this.baseZ = undefined;
+    this.overrideZ = undefined;
+    this.zBefore = undefined;
+    this.shadowPaneName = null;
+    this.pinTarget = null;
   }
 
   /** The pane names this surface paints into, base first. */
@@ -642,20 +713,29 @@ class LayerSurface implements LayerSurfaceContract {
    *  Every pane is created `pointer-events: none` by CSS, and nothing here
    *  re-opens it: whether a pane's content takes a hit is the content's own
    *  call (`AnnotationCanvas` writes `none` on itself, a data canvas is
-   *  re-enabled by the rule in `LayerControl/focus.css`). */
+   *  re-enabled by the rule in `LayerControl/focus.css`).
+   *
+   *  The boolean is the admission answer, and callers must branch on it:
+   *  a refused pane earns no handle and no name in the surface's state. A
+   *  caller that assigned `shadowPaneName` or `pinTarget` after the call
+   *  regardless would advertise a carrier that does not exist — the shape
+   *  that pointed markers' shadows at another surface's pane.
+   *
+   *  @returns true when the lease was taken and the handle recorded.
+   */
   private addPane(
     name: string,
     needRenderer: boolean,
     role: PaneRole = PANE_ROLE.BASE,
     order = 0,
-  ): void {
+  ): boolean {
     const { pane, renderer } = this.host.ensurePane(name, needRenderer, this.id);
     if (!pane) {
       // Admission refused the pane (held elsewhere, or foreign content): the
       // handle stays out of the surface's set, so nothing writes it. The
       // capability contract is answered after all booking is done.
       log.warn(`LayerSurface skipped pane "${name}": not acquireable by this surface`);
-      return;
+      return false;
     }
     this.acquiredPanes.push(name);
     this.panes.push({
@@ -665,6 +745,7 @@ class LayerSurface implements LayerSurfaceContract {
       element: pane,
       renderer,
     });
+    return true;
   }
 
   /** Pin the layer's content into its panes: its options always (so a not-yet-
@@ -684,6 +765,7 @@ class LayerSurface implements LayerSurfaceContract {
           paneName: this.pinTarget,
           renderer: base.renderer,
           shadowPaneName: this.shadowPaneName,
+          owner: this.id,
         },
       ]);
       this.validateCarrier();
@@ -702,6 +784,7 @@ class LayerSurface implements LayerSurfaceContract {
           paneName: base.name,
           renderer: base.renderer,
           shadowPaneName: this.shadowPaneName,
+          owner: this.id,
         },
       ]);
       this.validateCarrier();
@@ -716,7 +799,7 @@ class LayerSurface implements LayerSurfaceContract {
     this.ensureShadowPane();
     const node = this.layer as PinnableNode;
     node.options.pane = base.name;
-    this.host.pinLateShadows(this.layer, this.shadowPaneName);
+    this.host.pinLateShadows(this.layer, this.shadowPaneName, this.id);
     this.validateCarrier();
   }
 

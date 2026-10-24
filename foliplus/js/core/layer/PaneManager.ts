@@ -228,6 +228,17 @@ class PaneManager {
     return existing.childElementCount === 0;
   }
 
+  /** Whether `owner` holds the live lease on `paneName` — the write-side twin
+   *  of `canAcquirePane`. The shadow-pane pinning calls consult this before
+   *  writing `options.shadowPane`: a name on `layer.options` is not ownership,
+   *  and a shadow name another surface holds would move every marker shadow
+   *  of ours into its pane. The caller only ever passes a name it booked
+   *  (`LayerSurface` sets `shadowPaneName` on acquisition success and clears it
+   *  in `destroy`), so this is a second line, not the first gate. */
+  private leasedBy(paneName: string, owner: string): boolean {
+    return this.paneLeases.get(paneName)?.owner === owner;
+  }
+
   /** Whether a pane element paints content foliplus never created: no
    *  foliplus class stamp AND children on it. The class is what makes the
    *  unregister/re-register cycle of a declared pane re-adoptable. */
@@ -298,12 +309,15 @@ class PaneManager {
        *  promises pane coverage must always pass one now (see
        *  `LayerSurface.ensureShadowPane`). */
       shadowPaneName?: string | null;
+      /** The surface that booked `shadowPaneName` — `options.shadowPane` is
+       *  only written when `leasedBy` confirms the lease is still its. */
+      owner: string;
     }>,
   ): void {
     if (!layersToMove.length) return;
     const groups = new Map<HTMLElement, HTMLElement[]>();
     const markerGroups = new Map<HTMLElement, HTMLElement[]>();
-    for (const { layer, paneName, renderer, shadowPaneName } of layersToMove) {
+    for (const { layer, paneName, renderer, shadowPaneName, owner } of layersToMove) {
       if (!paneName) continue;
       const container = getRendererContainer(renderer);
       if (!container) {
@@ -342,7 +356,10 @@ class PaneManager {
           // visibility / focus cover the marker's full visible DOM. Leaflet
           // re-reads `options.shadowPane` at every `_initIcon`, so the write
           // also keeps a later `setIcon` re-creation inside the layer's pane.
-          if (paneEl && shadowPaneName) {
+          // The lease check stays on the write itself: a name alone is not
+          // ownership, so a refused or already-leased shadow pane can never be
+          // pointed at here.
+          if (paneEl && shadowPaneName && this.leasedBy(shadowPaneName, owner)) {
             l.options.shadowPane = shadowPaneName;
             // Back to the L.Layer view: the instanceof above narrows to
             // Marker, whose @types declaration holds `_shadow` protected —
@@ -426,10 +443,14 @@ class PaneManager {
    *  every pin), and `options.shadowPane` keeps a later `setIcon` inside.
    *
    *  @param shadowPaneName - The surface's shadow pane; must exist (the
-   *    surface materialized it) — a null/missing pane is a caller bug and
-   *    skips the move rather than guessing a destination. */
-  pinLateShadows(layer: L.Layer, shadowPaneName: string | null): void {
-    if (!shadowPaneName) return;
+   *    surface materialized it) and still be leased by `owner` — a null,
+   *    missing, or no-longer-ours pane skips the move rather than guessing a
+   *    destination.
+   *  @param owner - The surface that booked `shadowPaneName`. `options.shadowPane`
+   *    is a write, so it is gated on the lease the same way `pinLateContent`'s
+   *    marker branch gates it. */
+  pinLateShadows(layer: L.Layer, shadowPaneName: string | null, owner: string): void {
+    if (!shadowPaneName || !this.leasedBy(shadowPaneName, owner)) return;
     const shadowPaneEl = this.map.getPane(shadowPaneName);
     if (!shadowPaneEl) return;
     walkLeaf(layer, leaf => {

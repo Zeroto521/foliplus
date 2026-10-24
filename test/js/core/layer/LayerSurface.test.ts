@@ -453,6 +453,77 @@ describe("LayerSurface pane resolution", () => {
     expect(surface.paneNames).toEqual(["graph"]);
     expect(Object.keys(panes).filter(k => k === "graph")).toHaveLength(1);
   });
+
+  it("leaves the shadow pane unset when another surface holds its lease", () => {
+    // A shadow name is not ownership. surface-a owns `baseA-shadow` as its own
+    // base pane, so surface-b must not synthesize a shadow there: recording
+    // the refused name would land in the marker's `options.shadowPane` and the
+    // next `setIcon` would migrate its shadow into a foreign pane (cross-owner
+    // DOM move). The booking must stay out of `shadowPaneName`.
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { panes, host } = makeMap();
+    new LayerSurface(host, {
+      id: "a",
+      layer: new Path() as unknown as L.Layer,
+      paneName: "baseA-shadow",
+    }).materialize();
+
+    const marker = new Marker();
+    const layer = new Group([marker]);
+    const surface = new LayerSurface(host, {
+      id: "b",
+      layer: layer as unknown as L.Layer,
+      paneName: "baseA",
+    });
+    surface.materialize();
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("could not be acquired"),
+    );
+    expect(
+      (surface as unknown as { shadowPaneName: string | null }).shadowPaneName,
+    ).toBeNull();
+    expect(surface.paneNames).toEqual(["baseA"]);
+    // The owner keeps its pane and its lease ...
+    expect(panes["baseA-shadow"]).toBeDefined();
+    expect(host.canAcquirePane("baseA-shadow", "a")).toBe(true);
+    expect(host.canAcquirePane("baseA-shadow", "b")).toBe(false);
+    // ... and no marker option points at it.
+    expect(marker.options.shadowPane).toBeUndefined();
+    warnSpy.mockRestore();
+  });
+
+  it("stops promising pane coverage when the fallback pane is refused", () => {
+    // The fallback name is stamped from L.stamp, so a refusal means a pane of
+    // that exact name already exists and is not provably ours. With no base
+    // carrier at all the surface must stop advertising a z / opacity write
+    // that would land nowhere: recording the refused name as its carrier used
+    // to claim coverage over a pane the surface never held.
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { host } = makeMap();
+    window.L.stamp = vi.fn(() => 1);
+    host.ensurePane("foliplus-pane-1", false, "other");
+
+    const surface = new LayerSurface(host, {
+      id: "nobody",
+      layer: new Group([new Marker()]) as unknown as L.Layer,
+    });
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("could not create fallback pane"),
+    );
+    expect(surface.panes).toHaveLength(0);
+    expect(surface.synthesizedPaneName).toBeNull();
+    expect(surface.capabilities.opacity).toBe("none");
+    expect(surface.capabilities.relocatable).toBe(false);
+    // The other surface keeps its lease, and the write path answers "no pane
+    // here" instead of writing to a name nobody holds.
+    expect(host.canAcquirePane("foliplus-pane-1", "other")).toBe(true);
+    expect(host.canAcquirePane("foliplus-pane-1", "nobody")).toBe(false);
+    expect(surface.setZ(640)).toBe(false);
+    expect(surface.setZOverride(8990)).toBe(false);
+    warnSpy.mockRestore();
+  });
 });
 
 describe("LayerSurface.materialize", () => {
@@ -1013,6 +1084,91 @@ describe("LayerSurface.destroy", () => {
     // A declared pane survives: the same id must be registrable again without
     // rebuilding its panes.
     expect(panes.graph).toBeDefined();
+  });
+
+  it("neutralises its own state so a retired surface cannot write", () => {
+    // Destroy used to retire only the leases. A surface destroyed mid-focus
+    // kept `panes` / `baseZ` / `overrideZ` alive, so a restore closure still
+    // holding it walked names through `assertOwnedPane` after the lease was
+    // already gone and threw — escaping past the focus mask/rect teardown and
+    // leaving the map dimmed with no way back. Every write method now guards
+    // on the emptied state, so a late call is a no-op instead of an error.
+    const { panes, host } = makeMap();
+    const surface = new LayerSurface(host, {
+      id: "late",
+      layer: new Group([new Marker()]) as unknown as L.Layer,
+    });
+    surface.materialize();
+    const base = surface.synthesizedPaneName!;
+    surface.setZ(640);
+    surface.setZOverride(8990);
+    expect(panes[base].style.zIndex).toBe("8990");
+
+    const captured = surface.panes;
+    surface.destroy();
+
+    // The handle set is emptied in place, so a closure that captured it at
+    // focus time sees the same (now empty) array when the surface retires
+    // under it.
+    expect(captured).toBe(surface.panes);
+    expect(captured.length).toBe(0);
+    expect(surface.paneNames).toEqual([]);
+    expect(surface.synthesizedPaneName).toBeNull();
+    // Late writes are no-ops, and none of them throws.
+    expect(surface.setZ(640)).toBe(false);
+    expect(surface.setZOverride(8990)).toBe(false);
+    expect(surface.restoreZ()).toBe(false);
+  });
+
+  it("lets a focus-style restore closure finish after destroy without throwing", () => {
+    // The shape that actually escaped: `focus/pane.ts` captures `surface.panes`
+    // and a `restoreZ` callback when entering focus, and `dismissFocus` runs
+    // them after the layer may already be gone.
+    const { panes, host } = makeMap();
+    const surface = new LayerSurface(host, {
+      id: "focus",
+      layer: new Group([new Marker()]) as unknown as L.Layer,
+    });
+    surface.materialize();
+    const base = surface.synthesizedPaneName!;
+    surface.setZ(640);
+    surface.setZOverride(8990);
+
+    const captured = surface.panes;
+    const restore = () => {
+      for (const pane of captured) {
+        pane.element.classList.remove("foliplus-focus-glow");
+      }
+      surface.restoreZ();
+    };
+
+    surface.destroy();
+    expect(() => restore()).not.toThrow();
+    expect(panes[base]).toBeUndefined();
+  });
+
+  it("never re-acquires a pane from a write path", () => {
+    // The write path holds a handle booked at construction. Calling
+    // `ensurePane` here would re-open the admission door on a write, so a
+    // retired surface could quietly win its pane back on the next late write
+    // instead of being refused.
+    const { panes, host } = makeMap();
+    const surface = new LayerSurface(host, {
+      id: "write",
+      layer: new Group([new Marker()]) as unknown as L.Layer,
+    });
+    surface.materialize();
+    const base = surface.synthesizedPaneName!;
+
+    const acquires = vi.spyOn(host, "ensurePane");
+    expect(surface.setZ(640)).toBe(true);
+    expect(surface.setZOverride(8990)).toBe(true);
+    expect(surface.restoreZ()).toBe(true);
+    acquires.mockRestore();
+
+    expect(acquires).not.toHaveBeenCalled();
+    expect(panes[base].style.zIndex).toBe("640");
+    expect(panes[`${base}-shadow`].style.zIndex).toBe("639");
   });
 });
 
