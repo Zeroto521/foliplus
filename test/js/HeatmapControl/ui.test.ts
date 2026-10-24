@@ -44,15 +44,11 @@ describe("bindControls — lifecycle hooks", () => {
     // control class in index.ts makes a missing assignment a compile error;
     // this covers the runtime half.
     expect(ctrl.schemeBarCleanup).toBeTypeOf("function");
+    expect(ctrl.schemePickerCleanup).toBeTypeOf("function");
     expect(ctrl.toggleDropdown).toBeTypeOf("function");
     expect(ctrl.selectScheme).toBeTypeOf("function");
-    expect(ctrl.dropdownCleanup).toBeNull();
-
-    ctrl.schemeBar.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    expect(ctrl.dropdownCleanup).toBeTypeOf("function");
-    // Two distinct unbind closures — the scheme bar and the dropdown have
-    // independent document-level listeners that must not collapse into one.
-    expect(ctrl.schemeBarCleanup).not.toBe(ctrl.dropdownCleanup);
+    // Two distinct cleanup closures — close (transient) vs destroy (permanent).
+    expect(ctrl.schemeBarCleanup).not.toBe(ctrl.schemePickerCleanup);
   });
 });
 

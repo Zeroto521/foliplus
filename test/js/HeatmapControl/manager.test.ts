@@ -98,15 +98,12 @@ describe("HeatmapManager — caching & lifecycle", () => {
   it("clearHeatmapCanvas runs the UI listener cleanups so detached handlers die with the canvas", () => {
     const m = makeManager();
     const schemeBarCleanup = vi.fn();
-    const dropdownCleanup = vi.fn();
     m.ui = {
       ...makeCtrl(m, makeConfig()),
       schemeBarCleanup,
-      dropdownCleanup,
     };
     m.clearHeatmapCanvas();
     expect(schemeBarCleanup).toHaveBeenCalledTimes(1);
-    expect(dropdownCleanup).toHaveBeenCalledTimes(1);
   });
 
   it("clearHeatmapCanvas survives a null ui (control removed before teardown)", () => {

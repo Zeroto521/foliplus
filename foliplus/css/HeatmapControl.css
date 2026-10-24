@@ -89,6 +89,11 @@
     border-top: var(--foliplus-size-6) solid var(--foliplus-text-muted);
     pointer-events: none;
   }
+  /* Override the shared picker's row-height token so the dropdown bar
+     matches the trigger's inline colour-bar height. */
+  .foliplus-heatmap-scheme-bar {
+    --foliplus-scheme-picker-row-height: var(--foliplus-heatmap-inline-height);
+  }
   /* Scheme row: the control cell needs relative positioning so the dropdown
      hangs off it (not the page flow). */
   .foliplus-form-row:has(.foliplus-heatmap-scheme-bar) .foliplus-form-control {

@@ -1,12 +1,12 @@
 // HeatmapControl UI building — standalone functions.
 // All internal refs use direct function calls instead of `this.`.
 import { isClassifyMethod } from "#core/classify.js";
-import { safeColorScale } from "#core/palette.js";
 import { EVENTS, ensureEvents, publish } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { adjustPanelZIndex } from "#core/leaflet/index.js";
-import { createSchemePicker, type SchemePicker } from "#common/schemePicker.js";
+import { safeColorScale } from "#core/palette.js";
 import { dom } from "#common/dom.js";
+import { type SchemePicker, createSchemePicker } from "#common/schemePicker.js";
 import * as CONST from "./const.js";
 import { pickAutoField } from "./data.js";
 import { type HeatmapManager } from "./manager.js";
@@ -36,8 +36,8 @@ interface HeatmapControlUI {
   expandHookDone: boolean;
   /** Kept for backward compat — the picker's destroy function. */
   schemeBarCleanup: (() => void) | null;
-  /** Kept for backward compat — set to a no-op when the dropdown opens. */
-  dropdownCleanup: (() => void) | null;
+  /** Destroy the scheme picker (called by HeatmapControl.destroy()). */
+  schemePickerCleanup: (() => void) | null;
   toggleDropdown: (() => void) | null;
   selectScheme: ((idx: number) => void) | null;
   observer: MutationObserver | null;
@@ -133,6 +133,13 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     numClasses: ctrl.mgr.numClasses,
     portal: false,
     colorScale: safeColorScale,
+    classes: {
+      open: CONST.CLASSES.SCHEME_BAR_OPEN,
+      dropdown: CONST.CLASSES.SCHEME_DROPDOWN,
+      item: CONST.CLASSES.SCHEME_DROPDOWN_ITEM,
+      bar: CONST.CLASSES.SCHEME_DROPDOWN_BAR,
+      block: CONST.CLASSES.SCHEME_BAR_BLOCK,
+    },
     onChange: (name: string) => {
       ctrl.mgr.scheme = name;
       ctrl.mgr.renderHexagons();
@@ -140,21 +147,20 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     },
     onToggle: (open, dropdown) => {
       ctrl.schemeDropdown = open ? dropdown : null;
-      // Set dropdownCleanup to a no-op when the dropdown opens so the
-      // backward-compat test assertions pass. The picker owns its own
-      // cleanup internally.
-      ctrl.dropdownCleanup = open
-        ? () => {
-            // No-op: the picker owns its own cleanup internally.
-          }
-        : null;
     },
   });
 
   // The picker owns its trigger click handler, keyboard handlers, outside-click,
   // and focus management. We only need to expose the delegates for backward
   // compat with tests and the HeatmapControl class.
-  ctrl.schemeBarCleanup = () => ctrl.schemePicker?.destroy();
+  // schemeBarCleanup: transient reset (close dropdown) — called by
+  // clearHeatmapCanvas when data is cleared. The picker stays alive.
+  ctrl.schemeBarCleanup = () => ctrl.schemePicker?.close();
+  // schemePickerCleanup: permanent destroy — called by HeatmapControl.destroy().
+  ctrl.schemePickerCleanup = () => {
+    ctrl.schemePicker?.destroy();
+    ctrl.schemePicker = null;
+  };
   ctrl.toggleDropdown = () => ctrl.schemePicker?.toggle();
   ctrl.selectScheme = (idx: number) => {
     const name = (ctrl.config.schemes ?? [])[idx];

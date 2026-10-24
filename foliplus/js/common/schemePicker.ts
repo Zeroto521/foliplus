@@ -7,17 +7,16 @@
 // focus return, hidden-select sync, and colour-bar drawing.
 //
 // Does NOT import any Heatmap or LayerControl module.
-
 import { dom } from "#common/dom.js";
 
 // ── Class-name defaults ────────────────────────────────────────────────
 
 const DEFAULT_CLASSES = {
-  open: "foliplus-heatmap-scheme-bar-open",
-  dropdown: "foliplus-heatmap-scheme-dropdown",
-  item: "foliplus-heatmap-scheme-dropdown-item",
-  bar: "foliplus-heatmap-scheme-dropdown-bar",
-  block: "foliplus-heatmap-scheme-bar-block",
+  open: "foliplus-scheme-picker-open",
+  dropdown: "foliplus-scheme-picker-dropdown",
+  item: "foliplus-scheme-picker-item",
+  bar: "foliplus-scheme-picker-bar",
+  block: "foliplus-scheme-picker-block",
   active: "foliplus-is-active",
 } as const;
 
@@ -69,6 +68,11 @@ interface SchemePicker {
   destroy(): void;
 }
 
+// Module-level counter for stable dropdown/item ids (avoids Math.random()
+// churn that makes aria-activedescendant values jump between snapshots).
+let idCounter = 0;
+const nextId = (prefix: string): string => prefix + "-" + ++idCounter;
+
 // ── Internal state ─────────────────────────────────────────────────────
 
 interface InternalState {
@@ -85,14 +89,18 @@ interface InternalState {
   items: HTMLElement[];
   isOpen: boolean;
   colorScale: (name: string, n: number) => string[];
+  /** Lifecycle-scope listeners (trigger click/keydown) — drained on destroy(). */
   cleanupFns: (() => void)[];
+  /** Mount-scope listeners (outside-click, scroll, fullscreen, item focus) —
+   *  drained on every closeDropdown() so repeated open/close cycles don't leak. */
+  mountCleanupFns: (() => void)[];
 }
 
 // ── Inner-element lookup ──────────────────────────────────────────────
 
 const getInner = (trigger: HTMLElement): HTMLElement | null => {
-  const el = trigger.querySelector("[data-scheme-bar-inner]") ??
-    trigger.firstElementChild;
+  const el =
+    trigger.querySelector("[data-scheme-bar-inner]") ?? trigger.firstElementChild;
   return el instanceof HTMLElement ? el : null;
 };
 
@@ -109,6 +117,8 @@ const renderColorBar = (
   try {
     colors = colorScale(name, numClasses);
   } catch {
+    // Same value as core/palette's SCHEME_FALLBACK_COLOR but injected by
+    // the consumer; the shared component must not import core/.
     colors = Array(numClasses).fill("#999");
   }
   container.innerHTML = "";
@@ -178,20 +188,28 @@ const buildDropdown = (state: InternalState): HTMLElement => {
 
     if (key === "ArrowDown" || key === "Down") {
       event.preventDefault();
+      event.stopPropagation();
       const next = state.items.length > 0 ? (idx + 1) % state.items.length : 0;
       state.items[next]?.focus();
     } else if (key === "ArrowUp" || key === "Up") {
       event.preventDefault();
-      const prev = state.items.length > 0 ? (idx - 1 + state.items.length) % state.items.length : 0;
+      event.stopPropagation();
+      const prev =
+        state.items.length > 0
+          ? (idx - 1 + state.items.length) % state.items.length
+          : 0;
       state.items[prev]?.focus();
     } else if (key === "Home") {
       event.preventDefault();
+      event.stopPropagation();
       state.items[0]?.focus();
     } else if (key === "End") {
       event.preventDefault();
+      event.stopPropagation();
       state.items[state.items.length - 1]?.focus();
     } else if (key === "Enter" || key === " ") {
       event.preventDefault();
+      event.stopPropagation();
       const active = document.activeElement as HTMLElement;
       const activeIdx = state.items.indexOf(active);
       if (activeIdx >= 0) {
@@ -200,12 +218,13 @@ const buildDropdown = (state: InternalState): HTMLElement => {
       }
     } else if (key === "Escape") {
       event.preventDefault();
+      event.stopPropagation();
       closeDropdown(state);
     }
   };
 
   dropdown.addEventListener("keydown", onKeydown);
-  state.cleanupFns.push(() => dropdown.removeEventListener("keydown", onKeydown));
+  state.mountCleanupFns.push(() => dropdown.removeEventListener("keydown", onKeydown));
 
   return dropdown;
 };
@@ -237,12 +256,13 @@ const mountDropdown = (state: InternalState) => {
       if (state.isOpen) positionDropdown(state);
     };
     document.addEventListener("fullscreenchange", onFullscreen);
-    state.cleanupFns.push(() =>
+    state.mountCleanupFns.push(() =>
       document.removeEventListener("fullscreenchange", onFullscreen),
     );
   } else {
     // Inline mode: mount into the trigger's parent (schemeControlWrap)
-    const parent = state.trigger.closest(".foliplus-form-control") ??
+    const parent =
+      state.trigger.closest(".foliplus-form-control") ??
       state.trigger.parentElement ??
       state.trigger;
     parent.appendChild(dropdown);
@@ -252,8 +272,8 @@ const mountDropdown = (state: InternalState) => {
   state.trigger.classList.add(state.classes.open);
   state.trigger.setAttribute("aria-expanded", "true");
 
-  // Generate a stable id for aria-controls
-  const id = "foliplus-scheme-dropdown-" + Math.random().toString(36).slice(2, 9);
+  // Stable id for aria-controls (counter, not Math.random).
+  const id = nextId("foliplus-scheme-dropdown");
   dropdown.id = id;
   state.trigger.setAttribute("aria-controls", id);
 
@@ -265,30 +285,32 @@ const mountDropdown = (state: InternalState) => {
     }
   };
   state.items.forEach(item => {
-    item.id = id + "-" + Math.random().toString(36).slice(2, 7);
+    item.id = nextId("foliplus-scheme-item");
     item.addEventListener("focus", updateActiveDescendant);
-    state.cleanupFns.push(() => item.removeEventListener("focus", updateActiveDescendant));
+    state.mountCleanupFns.push(() =>
+      item.removeEventListener("focus", updateActiveDescendant),
+    );
   });
 
-  // Outside-click handler
+  // Outside-click handler — does NOT restore focus (user clicked elsewhere).
   const onDocClick = (event: MouseEvent) => {
-    if (state.dropdown &&
-        !state.trigger.contains(event.target as Node) &&
-        !state.dropdown.contains(event.target as Node)) {
-      closeDropdown(state);
+    if (
+      state.dropdown &&
+      !state.trigger.contains(event.target as Node) &&
+      !state.dropdown.contains(event.target as Node)
+    ) {
+      closeDropdown(state, { restoreFocus: false });
     }
   };
   document.addEventListener("click", onDocClick);
-  state.cleanupFns.push(() =>
-    document.removeEventListener("click", onDocClick),
-  );
+  state.mountCleanupFns.push(() => document.removeEventListener("click", onDocClick));
 
-  // Re-position if the trigger scrolls or resizes
+  // Re-position if the trigger scrolls or resizes (portal mode only).
   const onScroll = () => {
     if (state.isOpen && state.portal) positionDropdown(state);
   };
   window.addEventListener("scroll", onScroll, true);
-  state.cleanupFns.push(() =>
+  state.mountCleanupFns.push(() =>
     window.removeEventListener("scroll", onScroll, true),
   );
 
@@ -319,7 +341,7 @@ const positionDropdown = (state: InternalState) => {
   state.dropdown.style.left = left + "px";
 };
 
-const closeDropdown = (state: InternalState) => {
+const closeDropdown = (state: InternalState, opts?: { restoreFocus?: boolean }) => {
   const wasOpen = state.isOpen;
   if (state.dropdown) {
     state.dropdown.remove();
@@ -330,7 +352,16 @@ const closeDropdown = (state: InternalState) => {
   state.trigger.classList.remove(state.classes.open);
   state.trigger.setAttribute("aria-expanded", "false");
   state.trigger.removeAttribute("aria-activedescendant");
-  state.trigger.focus();
+  // Only steal focus back for keyboard-initiated closes (Escape, Enter,
+  // select). Outside-click passes restoreFocus: false so the user's new
+  // focus target isn't yanked away.
+  if (opts?.restoreFocus !== false) {
+    state.trigger.focus();
+  }
+  // Drain mount-scope listeners (outside-click, scroll, fullscreen, item focus).
+  // Lifecycle listeners (trigger click/keydown) stay until destroy().
+  state.mountCleanupFns.forEach(fn => fn());
+  state.mountCleanupFns = [];
   if (wasOpen) {
     state.onToggle?.(false, null);
   }
@@ -352,7 +383,13 @@ const selectScheme = (state: InternalState, name: string) => {
   // Redraw the trigger's colour bar (the trigger's inner element)
   const barInner = getInner(state.trigger);
   if (barInner) {
-    renderColorBar(barInner, name, state.numClasses, state.classes.block, state.colorScale);
+    renderColorBar(
+      barInner,
+      name,
+      state.numClasses,
+      state.classes.block,
+      state.colorScale,
+    );
   }
 
   // Update dropdown items: move active class
@@ -378,6 +415,7 @@ const setupTriggerKeydown = (state: InternalState) => {
 
     if (key === "ArrowUp" || key === "ArrowDown") {
       event.preventDefault();
+      event.stopPropagation();
       const schemes = state.schemes;
       const idx = schemes.indexOf(state.value);
       if (key === "ArrowUp" && idx > 0) {
@@ -387,14 +425,13 @@ const setupTriggerKeydown = (state: InternalState) => {
       }
     } else if (key === "Enter" || key === " ") {
       event.preventDefault();
+      event.stopPropagation();
       openDropdown(state);
     }
   };
 
   state.trigger.addEventListener("keydown", onKeydown);
-  state.cleanupFns.push(() =>
-    state.trigger.removeEventListener("keydown", onKeydown),
-  );
+  state.cleanupFns.push(() => state.trigger.removeEventListener("keydown", onKeydown));
 };
 
 // ── Open / toggle ──────────────────────────────────────────────────────
@@ -421,16 +458,20 @@ const refreshDropdown = (state: InternalState) => {
     if (!name) return;
     const bar = item.querySelector("." + state.classes.bar) as HTMLElement | null;
     if (bar) {
-      renderColorBar(bar, name, state.numClasses, state.classes.block, state.colorScale);
+      renderColorBar(
+        bar,
+        name,
+        state.numClasses,
+        state.classes.block,
+        state.colorScale,
+      );
     }
   });
 };
 
 // ── Factory ────────────────────────────────────────────────────────────
 
-const createSchemePicker = (
-  options: SchemePickerOptions,
-): SchemePicker => {
+const createSchemePicker = (options: SchemePickerOptions): SchemePicker => {
   const classes: SchemePickerClasses = { ...DEFAULT_CLASSES, ...options.classes };
   const state: InternalState = {
     classes,
@@ -447,6 +488,7 @@ const createSchemePicker = (
     items: [],
     isOpen: false,
     cleanupFns: [],
+    mountCleanupFns: [],
   };
 
   // Populate hidden select
@@ -462,7 +504,13 @@ const createSchemePicker = (
   state.trigger.title = options.value;
   const initialBarInner = getInner(state.trigger);
   if (initialBarInner) {
-    renderColorBar(initialBarInner, options.value, options.numClasses, classes.block, options.colorScale);
+    renderColorBar(
+      initialBarInner,
+      options.value,
+      options.numClasses,
+      classes.block,
+      options.colorScale,
+    );
   }
 
   // Trigger click handler
@@ -471,9 +519,7 @@ const createSchemePicker = (
     toggleDropdown(state);
   };
   state.trigger.addEventListener("click", onClick);
-  state.cleanupFns.push(() =>
-    state.trigger.removeEventListener("click", onClick),
-  );
+  state.cleanupFns.push(() => state.trigger.removeEventListener("click", onClick));
 
   // Trigger keyboard
   setupTriggerKeydown(state);
@@ -486,7 +532,13 @@ const createSchemePicker = (
       // Redraw trigger colour bar
       const barInner = getInner(state.trigger);
       if (barInner) {
-        renderColorBar(barInner, name, state.numClasses, classes.block, state.colorScale);
+        renderColorBar(
+          barInner,
+          name,
+          state.numClasses,
+          classes.block,
+          state.colorScale,
+        );
       }
       // Update dropdown items if open
       state.items.forEach(item => {

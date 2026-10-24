@@ -1,7 +1,9 @@
 /* ── Shared scheme picker ──
    Common dropdown / colour-bar styles used by HeatmapControl (B2) and
    LayerControl fill row (B3).  Auto-merged into foliplus-common.min.css.
-   Trigger-bar and panel-layout rules stay in the consumer CSS.            */
+   Trigger-bar and panel-layout rules stay in the consumer CSS.
+   Class names use the neutral `foliplus-scheme-picker-` prefix so
+   consumers can override with their own names via the `classes` option.   */
 
 @keyframes foliplus-scheme-picker-in {
   from {
@@ -16,7 +18,7 @@
 
 /* Hidden select: visually collapsed but stays in layout (Bootstrap also
    defines a global .hidden, so this uses a component-scoped name).        */
-.foliplus-heatmap-scheme-hidden {
+.foliplus-scheme-picker-hidden {
   position: absolute;
   width: 0;
   height: 0;
@@ -29,7 +31,7 @@
    Position, width, max-height, padding, background, border, shadow,
    entrance animation.  The :focus-visible / :hover / :active / :is-active
    states for items live below (one block, no split across files).        */
-.foliplus-heatmap-scheme-dropdown {
+.foliplus-scheme-picker-dropdown {
   position: absolute;
   top: 100%;
   left: 0;
@@ -53,7 +55,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .foliplus-heatmap-scheme-dropdown {
+  .foliplus-scheme-picker-dropdown {
     animation: none;
   }
 }
@@ -61,7 +63,7 @@
 /* ── Dropdown item ──
    Layout + all interactive states (hover / press / active / focus) in one
    place so the scheme dropdown never drifts from the menu.css recipe.     */
-.foliplus-heatmap-scheme-dropdown-item {
+.foliplus-scheme-picker-item {
   display: flex;
   align-items: center;
   gap: var(--foliplus-space-md);
@@ -80,23 +82,23 @@
     border-color var(--foliplus-transition-fast);
 }
 
-.foliplus-heatmap-scheme-dropdown-item:hover {
+.foliplus-scheme-picker-item:hover {
   background: var(--foliplus-accent-light);
   color: var(--foliplus-accent-primary);
 }
 
-.foliplus-heatmap-scheme-dropdown-item:not([disabled]):active {
+.foliplus-scheme-picker-item:not([disabled]):active {
   background: var(--foliplus-accent-soft-bg);
 }
 
-.foliplus-heatmap-scheme-dropdown-item.foliplus-is-active {
+.foliplus-scheme-picker-item.foliplus-is-active {
   border-left-color: var(--foliplus-accent-primary);
   /* Persistent "selected scheme" state: soft 5% wash, same language as
      the keyboard cursor. --foliplus-accent-light was too saturated. */
   background: var(--foliplus-accent-soft-bg);
 }
 
-.foliplus-heatmap-scheme-dropdown-item:focus-visible {
+.foliplus-scheme-picker-item:focus-visible {
   outline: none;
   border-color: var(--foliplus-accent-primary);
   box-shadow: var(--foliplus-focus-ring);
@@ -105,9 +107,9 @@
 }
 
 /* ── Colour bar inside a dropdown item ── */
-.foliplus-heatmap-scheme-dropdown-bar {
+.foliplus-scheme-picker-bar {
   flex: 1;
-  height: var(--foliplus-heatmap-inline-height);
+  height: var(--foliplus-scheme-picker-row-height, var(--foliplus-ctrl-size));
   border-radius: var(--foliplus-radius-sm);
   border: var(--foliplus-border-thin) solid var(--foliplus-btn-secondary-border);
   flex-shrink: 0;
@@ -116,7 +118,7 @@
 }
 
 /* ── Colour block (shared by the trigger bar and the dropdown bar) ── */
-.foliplus-heatmap-scheme-bar-block {
+.foliplus-scheme-picker-block {
   flex: 1;
   height: 100%;
   transition:

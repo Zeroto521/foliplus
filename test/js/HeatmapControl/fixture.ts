@@ -149,7 +149,7 @@ function makeCtrl(
     schemePicker: null,
     expandHookDone: false,
     schemeBarCleanup: null,
-    dropdownCleanup: null,
+    schemePickerCleanup: null,
     toggleDropdown: null,
     selectScheme: null,
     observer: null,

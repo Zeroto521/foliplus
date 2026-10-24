@@ -1,7 +1,6 @@
 // Tests for the shared scheme picker (common/schemePicker.ts).
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createSchemePicker, type SchemePicker } from "#common/schemePicker.js";
-
+import { type SchemePicker, createSchemePicker } from "#common/schemePicker.js";
 
 // ── Colour-scale helper ────────────────────────────────────────────────
 
@@ -44,6 +43,13 @@ function makePicker(overrides: Record<string, unknown> = {}): {
     portal: false,
     onChange: vi.fn(),
     colorScale,
+    classes: {
+      open: "foliplus-heatmap-scheme-bar-open",
+      dropdown: "foliplus-heatmap-scheme-dropdown",
+      item: "foliplus-heatmap-scheme-dropdown-item",
+      bar: "foliplus-heatmap-scheme-dropdown-bar",
+      block: "foliplus-heatmap-scheme-bar-block",
+    },
     ...overrides,
   });
 
@@ -92,13 +98,15 @@ describe("listbox keyboard navigation", () => {
   it("ArrowDown in dropdown focuses next item", () => {
     const { picker, trigger } = makePicker();
     trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    const items = picker.getDropdown()!.querySelectorAll("[role=option]") as NodeListOf<HTMLElement>;
+    const items = picker
+      .getDropdown()!
+      .querySelectorAll("[role=option]") as NodeListOf<HTMLElement>;
     expect(items.length).toBe(3);
 
     items[0].focus();
-    picker.getDropdown()!.dispatchEvent(
-      new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
-    );
+    picker
+      .getDropdown()!
+      .dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
     expect(document.activeElement).toBe(items[1]);
     picker.destroy();
   });
@@ -106,11 +114,13 @@ describe("listbox keyboard navigation", () => {
   it("ArrowUp in dropdown focuses prev item", () => {
     const { picker, trigger } = makePicker();
     trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    const items = picker.getDropdown()!.querySelectorAll("[role=option]") as NodeListOf<HTMLElement>;
+    const items = picker
+      .getDropdown()!
+      .querySelectorAll("[role=option]") as NodeListOf<HTMLElement>;
     items[2].focus();
-    picker.getDropdown()!.dispatchEvent(
-      new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true }),
-    );
+    picker
+      .getDropdown()!
+      .dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true }));
     expect(document.activeElement).toBe(items[1]);
     picker.destroy();
   });
@@ -118,11 +128,13 @@ describe("listbox keyboard navigation", () => {
   it("Home focuses first item", () => {
     const { picker, trigger } = makePicker();
     trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    const items = picker.getDropdown()!.querySelectorAll("[role=option]") as NodeListOf<HTMLElement>;
+    const items = picker
+      .getDropdown()!
+      .querySelectorAll("[role=option]") as NodeListOf<HTMLElement>;
     items[2].focus();
-    picker.getDropdown()!.dispatchEvent(
-      new KeyboardEvent("keydown", { key: "Home", bubbles: true }),
-    );
+    picker
+      .getDropdown()!
+      .dispatchEvent(new KeyboardEvent("keydown", { key: "Home", bubbles: true }));
     expect(document.activeElement).toBe(items[0]);
     picker.destroy();
   });
@@ -130,11 +142,13 @@ describe("listbox keyboard navigation", () => {
   it("End focuses last item", () => {
     const { picker, trigger } = makePicker();
     trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    const items = picker.getDropdown()!.querySelectorAll("[role=option]") as NodeListOf<HTMLElement>;
+    const items = picker
+      .getDropdown()!
+      .querySelectorAll("[role=option]") as NodeListOf<HTMLElement>;
     items[0].focus();
-    picker.getDropdown()!.dispatchEvent(
-      new KeyboardEvent("keydown", { key: "End", bubbles: true }),
-    );
+    picker
+      .getDropdown()!
+      .dispatchEvent(new KeyboardEvent("keydown", { key: "End", bubbles: true }));
     expect(document.activeElement).toBe(items[2]);
     picker.destroy();
   });
@@ -143,11 +157,13 @@ describe("listbox keyboard navigation", () => {
     const onChange = vi.fn();
     const { picker, trigger } = makePicker({ onChange });
     trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    const items = picker.getDropdown()!.querySelectorAll("[role=option]") as NodeListOf<HTMLElement>;
+    const items = picker
+      .getDropdown()!
+      .querySelectorAll("[role=option]") as NodeListOf<HTMLElement>;
     items[1].focus();
-    picker.getDropdown()!.dispatchEvent(
-      new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
-    );
+    picker
+      .getDropdown()!
+      .dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
     expect(onChange).toHaveBeenCalledWith("Blues");
     expect(picker.getDropdown()).toBeNull();
     picker.destroy();
@@ -156,9 +172,9 @@ describe("listbox keyboard navigation", () => {
   it("Escape closes dropdown and returns focus to trigger", () => {
     const { picker, trigger } = makePicker();
     trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    picker.getDropdown()!.dispatchEvent(
-      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
-    );
+    picker
+      .getDropdown()!
+      .dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
     expect(picker.getDropdown()).toBeNull();
     expect(trigger.classList.contains("foliplus-heatmap-scheme-bar-open")).toBe(false);
     expect(document.activeElement).toBe(trigger);
@@ -168,11 +184,13 @@ describe("listbox keyboard navigation", () => {
   it("wraps around on ArrowDown at last item", () => {
     const { picker, trigger } = makePicker();
     trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    const items = picker.getDropdown()!.querySelectorAll("[role=option]") as NodeListOf<HTMLElement>;
+    const items = picker
+      .getDropdown()!
+      .querySelectorAll("[role=option]") as NodeListOf<HTMLElement>;
     items[2].focus();
-    picker.getDropdown()!.dispatchEvent(
-      new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
-    );
+    picker
+      .getDropdown()!
+      .dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
     expect(document.activeElement).toBe(items[0]);
     picker.destroy();
   });
@@ -180,11 +198,13 @@ describe("listbox keyboard navigation", () => {
   it("wraps around on ArrowUp at first item", () => {
     const { picker, trigger } = makePicker();
     trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    const items = picker.getDropdown()!.querySelectorAll("[role=option]") as NodeListOf<HTMLElement>;
+    const items = picker
+      .getDropdown()!
+      .querySelectorAll("[role=option]") as NodeListOf<HTMLElement>;
     items[0].focus();
-    picker.getDropdown()!.dispatchEvent(
-      new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true }),
-    );
+    picker
+      .getDropdown()!
+      .dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true }));
     expect(document.activeElement).toBe(items[2]);
     picker.destroy();
   });
@@ -226,9 +246,7 @@ describe("trigger keyboard (no dropdown open)", () => {
 
   it("Space opens the dropdown", () => {
     const { picker, trigger } = makePicker();
-    trigger.dispatchEvent(
-      new KeyboardEvent("keydown", { key: " ", bubbles: true }),
-    );
+    trigger.dispatchEvent(new KeyboardEvent("keydown", { key: " ", bubbles: true }));
     expect(picker.getDropdown()).not.toBeNull();
     picker.destroy();
   });
@@ -273,9 +291,9 @@ describe("focus return", () => {
     const { picker, trigger } = makePicker();
     trigger.focus();
     trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    picker.getDropdown()!.dispatchEvent(
-      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
-    );
+    picker
+      .getDropdown()!
+      .dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
     expect(document.activeElement).toBe(trigger);
     picker.destroy();
   });
@@ -284,7 +302,9 @@ describe("focus return", () => {
     const { picker, trigger } = makePicker();
     trigger.focus();
     trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    const items = picker.getDropdown()!.querySelectorAll("[role=option]") as NodeListOf<HTMLElement>;
+    const items = picker
+      .getDropdown()!
+      .querySelectorAll("[role=option]") as NodeListOf<HTMLElement>;
     items[0].focus();
     items[0].dispatchEvent(new MouseEvent("click", { bubbles: true }));
     expect(document.activeElement).toBe(trigger);
@@ -306,9 +326,9 @@ describe("ARIA attributes", () => {
   it("sets aria-expanded=false when closed", () => {
     const { picker, trigger } = makePicker();
     trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    picker.getDropdown()!.dispatchEvent(
-      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
-    );
+    picker
+      .getDropdown()!
+      .dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
     expect(trigger.getAttribute("aria-expanded")).toBe("false");
     picker.destroy();
   });
@@ -326,7 +346,9 @@ describe("ARIA attributes", () => {
   it("sets aria-activedescendant to focused item", () => {
     const { picker, trigger } = makePicker();
     trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    const items = picker.getDropdown()!.querySelectorAll("[role=option]") as NodeListOf<HTMLElement>;
+    const items = picker
+      .getDropdown()!
+      .querySelectorAll("[role=option]") as NodeListOf<HTMLElement>;
     items[1].focus();
     const descId = trigger.getAttribute("aria-activedescendant");
     expect(descId).toBe(items[1].id);
@@ -336,9 +358,9 @@ describe("ARIA attributes", () => {
   it("removes aria-activedescendant when closed", () => {
     const { picker, trigger } = makePicker();
     trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    picker.getDropdown()!.dispatchEvent(
-      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
-    );
+    picker
+      .getDropdown()!
+      .dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
     expect(trigger.hasAttribute("aria-activedescendant")).toBe(false);
     picker.destroy();
   });
@@ -364,7 +386,9 @@ describe("hidden select sync", () => {
     const onChange = vi.fn();
     const { picker, trigger, hiddenSelect } = makePicker({ onChange });
     trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    const items = picker.getDropdown()!.querySelectorAll("[role=option]") as NodeListOf<HTMLElement>;
+    const items = picker
+      .getDropdown()!
+      .querySelectorAll("[role=option]") as NodeListOf<HTMLElement>;
     items[1].focus();
     items[1].dispatchEvent(new MouseEvent("click", { bubbles: true }));
     expect(hiddenSelect.value).toBe("Blues");
@@ -392,7 +416,9 @@ describe("colour blocks", () => {
   it("renders colour blocks in each dropdown item", () => {
     const { picker, trigger } = makePicker({ numClasses: 3 });
     trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    const items = picker.getDropdown()!.querySelectorAll("[role=option]") as NodeListOf<HTMLElement>;
+    const items = picker
+      .getDropdown()!
+      .querySelectorAll("[role=option]") as NodeListOf<HTMLElement>;
     items.forEach(item => {
       const bar = item.querySelector(".foliplus-heatmap-scheme-dropdown-bar")!;
       expect(bar.children.length).toBe(3);
@@ -468,7 +494,9 @@ describe("setNumClasses", () => {
     const { picker, trigger } = makePicker({ numClasses: 6 });
     trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     picker.setNumClasses(3);
-    const items = picker.getDropdown()!.querySelectorAll("[role=option]") as NodeListOf<HTMLElement>;
+    const items = picker
+      .getDropdown()!
+      .querySelectorAll("[role=option]") as NodeListOf<HTMLElement>;
     items.forEach(item => {
       const bar = item.querySelector(".foliplus-heatmap-scheme-dropdown-bar")!;
       expect(bar.children.length).toBe(3);
@@ -566,9 +594,9 @@ describe("onToggle callback", () => {
     const onToggle = vi.fn();
     const { picker, trigger } = makePicker({ onToggle });
     trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    picker.getDropdown()!.dispatchEvent(
-      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
-    );
+    picker
+      .getDropdown()!
+      .dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
     expect(onToggle).toHaveBeenCalledWith(false, null);
     picker.destroy();
   });
