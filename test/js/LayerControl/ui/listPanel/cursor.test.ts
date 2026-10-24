@@ -332,6 +332,18 @@ describe("LayerUI cursor (pure cursor primitives)", () => {
       expect(ui.listPanel.activeIdx).toBe(indexFor("overlay1"));
       expect(ui.getNavigableItems()[ui.listPanel.activeIdx ?? -1]).not.toBe(header);
     });
+
+    it("reads a row with neither key as null", () => {
+      // refOf's defensive tail: a navigable-classed element that carries
+      // neither a layer id nor a group carries no identity at all. Stripping
+      // the keys off the focused row drives cursorRef through that branch.
+      const row = findItem(ui, "overlay1");
+      setActiveItem(ui, indexFor("overlay1"));
+      row.removeAttribute(CONST.DATA.LAYER_ID);
+      row.removeAttribute("data-group");
+
+      expect(cursorRef(ui)).toBeNull();
+    });
   });
 
   // ─────────────────── resolveActiveIdx ───────────────────

@@ -25,18 +25,16 @@ const registryIdx = (ui: LayerUI, id: string | null): number => {
   return id ? ui.c.layers.findIndex(l => l.id === id) : -1;
 };
 
-/** Current registry index of the armed drag, or -1 when nothing is armed or
- *  the session went stale. The gesture is armed with the entry itself, not
- *  its position: an HTML5 drag spans events and timers, and any reorder in
- *  between would silently re-point a saved index at a neighbor. Resolving
- *  through the entry also retires the session on identity loss — an
- *  unregister or a same-id replacement makes `indexOf` miss, because the
- *  registry now holds a different object under the same id. */
-const dragIdx = (ui: LayerUI): number => {
-  return ui.listPanel.dragEntry
-    ? ui.c.layerRegistry.indexOf(ui.listPanel.dragEntry)
-    : -1;
-};
+/** Current registry index of the armed drag, or -1 when the session went
+ *  stale. The gesture is armed with the entry itself, not its position: an
+ *  HTML5 drag spans events and timers, and any reorder in between would
+ *  silently re-point a saved index at a neighbor. Resolving through the
+ *  entry also retires the session on identity loss — an unregister or a
+ *  same-id replacement makes `indexOf` miss, because the registry now holds
+ *  a different object under the same id. Callers gate on `dragEntry` first;
+ *  this helper answers for an armed session only. */
+const dragIdx = (ui: LayerUI): number =>
+  ui.c.layerRegistry.indexOf(ui.listPanel.dragEntry!);
 
 const handleDragStart = (ui: LayerUI, event: DragEvent) => {
   // A press that began on a floating row panel is not a reorder gesture: the

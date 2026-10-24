@@ -623,9 +623,11 @@ class LayerController implements LayerAPI {
     const existingRole = this.layerRegistry.get(opts.id);
     if (existingRole && opts.group !== undefined && opts.group !== existingRole.group) {
       throw new Error(
-        `registerLayer: "${opts.id}" is registered as ${existingRole.group}; ` +
-          `re-registering with group "${opts.group}" is a role change. ` +
-          `Unregister the layer first, or register it under a new id.`,
+        this.log.msg(
+          `registerLayer: "${opts.id}" is registered as ${existingRole.group}; ` +
+            `re-registering with group "${opts.group}" is a role change. ` +
+            `Unregister the layer first, or register it under a new id.`,
+        ),
       );
     }
 
