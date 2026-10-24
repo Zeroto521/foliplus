@@ -18,7 +18,7 @@ import {
 } from "../leafletAdapter.js";
 import * as CONST from "./const.js";
 import type { PaneSpec, PinnableNode } from "./type.js";
-import { isContainerNode, walkTree } from "./walkLeaf.js";
+import { isContainerNode, walkLeaf, walkTree } from "./walkLeaf.js";
 import { zFor } from "./z.js";
 
 const log = createLogger("PaneManager");
@@ -89,6 +89,8 @@ class PaneManager {
       "tilePane",
       "shadowPane",
       "mapPane",
+      "tooltipPane",
+      "popupPane",
     ]);
   }
 
@@ -102,6 +104,20 @@ class PaneManager {
 
   // ── Leaflet DOM integration ────────────────────────────────────
 
+  /** The pane names some surface of this map currently claims as its
+   *  exclusive carrier — created here, or adopted from a pre-built pane on
+   *  first use — keyed by pane name, valued by the claiming surface's id.
+   *  The claim is the ownership proof: "the name is not one of Leaflet's
+   *  shared panes" is NOT ownership (any caller can pre-create a
+   *  custom-named pane and two surfaces would then silently share one
+   *  element), but a claim on file is. A second surface claiming the same
+   *  name is refused (`isPaneClaimed`), and the refusing surface degrades to
+   *  its own synthesized pane instead of co-writing someone else's carrier.
+   *  The id keying is what makes a re-registration of the SAME surface a
+   *  no-op rather than a self-collision: re-checking a face against its own
+   *  claim is the matches() flow, not a second writer. */
+  private readonly claimedPanes = new Map<string, string>();
+
   /** Ensure a custom pane exists on the map.
    *  @param {string} paneName - Pane name.
    *  @param {boolean} [needRenderer=true] - Whether to build an SVG renderer
@@ -110,6 +126,9 @@ class PaneManager {
   ensurePane(
     paneName: string,
     needRenderer = true,
+    /** The claiming surface's id. Recorded so `isPaneClaimed` can let a
+     *  surface re-check its own pane without reading it as a collision. */
+    owner?: string,
   ): { pane: HTMLElement; renderer: L.SVG | null } {
     let pane = this.map.getPane(paneName);
     if (!pane) {
@@ -122,11 +141,31 @@ class PaneManager {
       if (spec) {
         pane.style.zIndex = String(zFor({ role: spec.role, order: spec.order }));
       }
+    } else if (!pane.classList.contains("foliplus-layer-pane")) {
+      // An adopted pre-built pane must satisfy the same CSS contract as a
+      // created one: the focus hide rule and the pointer-events rules key on
+      // this class, and an adopted pane without it would stay visible (and
+      // clickable) in focus mode.
+      pane.classList.add("foliplus-layer-pane");
     }
+    this.claimedPanes.set(paneName, owner ?? paneName);
     return {
       pane,
       renderer: needRenderer ? getRendererFor(this.map, paneName) : null,
     };
+  }
+
+  /** Whether a pane name is already some OTHER surface's exclusive carrier.
+   *  A name claimed here must not be adopted by a second surface — the
+   *  elements the first one writes (opacity / z / focus classes) would land
+   *  on the second one's content too. Callers use this at the declaration
+   *  edge, where the honest degradation (synthesize a stamped pane instead)
+   *  is still a constructor-time decision. `selfId` passes through a
+   *  surface's own claim: re-checking your own pane is the matches() flow,
+   *  not a second writer. */
+  isPaneClaimed(paneName: string, selfId?: string): boolean {
+    const owner = this.claimedPanes.get(paneName);
+    return owner !== undefined && owner !== selfId;
   }
 
   /** Remove a pane this tree owns from the DOM and Leaflet's registries.
@@ -140,6 +179,7 @@ class PaneManager {
   removePane(paneName: string) {
     destroyPane(this.map, paneName);
     this.paneSpecs.delete(paneName);
+    this.claimedPanes.delete(paneName);
   }
 
   /** Clear all pane state. Called by LayerController.destroy().
@@ -149,6 +189,7 @@ class PaneManager {
   destroy() {
     this.discoveryCache.clear();
     this.paneSpecs.clear();
+    this.claimedPanes.clear();
     this.generation++;
   }
 
@@ -170,8 +211,9 @@ class PaneManager {
       paneName: string | null;
       renderer: L.SVG | null;
       /** The layer's own marker-shadow pane, when the surface synthesized one.
-       *  Absent (the declared-pane branches) leaves shadows wherever Leaflet
-       *  put them — those surfaces do not own a shadow carrier. */
+       *  Absent leaves shadows wherever Leaflet put them — but a surface that
+       *  promises pane coverage must always pass one now (see
+       *  `LayerSurface.ensureShadowPane`). */
       shadowPaneName?: string | null;
     }>,
   ): void {
@@ -285,6 +327,36 @@ class PaneManager {
       for (const m of markers) frag.appendChild(m);
       paneEl.appendChild(frag);
     }
+  }
+
+  /** Relocate only the marker shadows of a tree into the layer's shadow pane
+   *  and write `options.shadowPane` — the declared-container counterpart of
+   *  `pinLateContent`'s marker branch.
+   *
+   *  A declared-pane surface does NOT repin its container's children: the
+   *  leaves' pane assignment belongs to whoever declared them (`createLayers`),
+   *  and a full re-pin would collapse every leaf onto the base pane. Shadows
+   *  are the one exception — they carry no pane assignment of their own and
+   *  must ride the layer's shadow carrier for the pane-write invariant to
+   *  hold, so this walk moves them without touching icon / path placement.
+   *  A leaf already inside the shadow pane is left alone (idempotent, like
+   *  every pin), and `options.shadowPane` keeps a later `setIcon` inside.
+   *
+   *  @param shadowPaneName - The surface's shadow pane; must exist (the
+   *    surface materialized it) — a null/missing pane is a caller bug and
+   *    skips the move rather than guessing a destination. */
+  pinLateShadows(layer: L.Layer, shadowPaneName: string | null): void {
+    if (!shadowPaneName) return;
+    const shadowPaneEl = this.map.getPane(shadowPaneName);
+    if (!shadowPaneEl) return;
+    walkLeaf(layer, leaf => {
+      if (!(leaf instanceof L.Marker)) return;
+      leaf.options.shadowPane = shadowPaneName;
+      const shadowEl = layerShadow(leaf as L.Layer);
+      if (shadowEl && shadowEl.parentNode !== shadowPaneEl) {
+        shadowPaneEl.appendChild(shadowEl);
+      }
+    });
   }
 
   /** Invalidate the child-pane discovery cache — structure-wide, either way.
@@ -498,12 +570,30 @@ class PaneManager {
    *  the same three panes. Those are native-pane *ladder* writes, not
    *  layer-carrier writes — they intentionally bypass this gate. */
   assertOwnedPane(paneName: string): void {
-    if (!this.defaultPanes.has(paneName)) return;
-    throw new Error(
-      `[foliplus] refusing a layer-style write on shared pane "${paneName}": ` +
-        `the pane does not belong to one layer. Resolve the layer's own pane ` +
-        `(LayerSurface.panes) instead — a write here would style every layer ` +
-        `on the map.`,
+    if (this.defaultPanes.has(paneName)) {
+      throw new Error(this.sharedPaneRejection(paneName));
+    }
+    if (!this.claimedPanes.has(paneName)) {
+      // A name outside the shared list but with no claim on file is exactly
+      // the co-writing case: two surfaces adopting the same custom-named pane
+      // would both pass a name-only check and style each other's content.
+      throw new Error(
+        log.msg(
+          `refusing a layer-style write on unclaimed pane "${paneName}": no ` +
+            `surface on this map claimed it as its exclusive carrier`,
+        ),
+      );
+    }
+  }
+
+  /** The shared-pane rejection message, shared by the write gate and the
+   *  declaration gate so both sides warn identically. */
+  private sharedPaneRejection(paneName: string): string {
+    return log.msg(
+      `refusing a layer-style write on shared pane "${paneName}": the pane ` +
+        `does not belong to one layer. Resolve the layer's own pane ` +
+        `(LayerSurface.panes) instead — a write here would style every ` +
+        `layer on the map.`,
     );
   }
 

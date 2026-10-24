@@ -15,7 +15,7 @@
 // a Marker with no children — the `setStyle` of its own is not a real
 // carrier when the walk finds nothing to write to.
 import { isPixelRadiusLeaf } from "../leafletAdapter.js";
-import { someLeaf } from "./walkLeaf.js";
+import { findNode, someLeaf } from "./walkLeaf.js";
 
 /** Whether any leaf in the tree owns a *pixel* radius — the honest carrier
  *  check for the size axis. The single-leaf test is `isPixelRadiusLeaf`; this
@@ -102,6 +102,48 @@ const hasMarkerLeaf = (node: unknown): boolean =>
       safeRead(() => leaf instanceof L.Marker) === true,
   );
 
+/** Whether every paintable leaf in the tree belongs to a family
+ *  `PaneManager.pinLateContent` can actually relocate into the layer's panes:
+ *  Path, Marker, GridLayer and ImageOverlay. Anything else (a third-party
+ *  plugin with its own `getElement()`, a canvas painter that never joins a
+ *  pane) keeps its DOM wherever Leaflet put it — so promising
+ *  `opacity: "pane"` for it would advertise a write the carrier never
+ *  delivers. Capability comes from the carrier, not from "a layer exists".
+ *
+ *  Note the deliberate asymmetry with `hasMarkerLeaf`: an *unknown* leaf that
+ *  merely carries `getElement()` does not count — that is exactly the shape
+ *  the migrator cannot see. */
+const isMigratableLeaf = (leaf: unknown): boolean => {
+  if (
+    typeof L.Path !== "undefined" &&
+    safeRead(() => leaf instanceof L.Path) === true
+  ) {
+    return true;
+  }
+  if (
+    typeof L.Marker !== "undefined" &&
+    safeRead(() => leaf instanceof L.Marker) === true
+  ) {
+    return true;
+  }
+  if (
+    typeof L.GridLayer !== "undefined" &&
+    safeRead(() => leaf instanceof L.GridLayer) === true
+  ) {
+    return true;
+  }
+  return (
+    typeof L.ImageOverlay !== "undefined" &&
+    safeRead(() => leaf instanceof L.ImageOverlay) === true
+  );
+};
+
+const hasMigratableLeaf = (node: unknown): boolean =>
+  // Node-level, not leaf-level: a layer GROUP whose own identity is a
+  // built-in family (a stand-in, or a specialized group subclass) carries
+  // its pane eligibility on itself; a plain group degrades to its leaves.
+  findNode(node, n => (isMigratableLeaf(n) ? true : undefined)) !== undefined;
+
 /** Whether any leaf is an areal fill carrier — see `isArealStyleLeaf`. */
 const hasFillLeaf = (node: unknown): boolean => someLeaf(node, isArealStyleLeaf);
 
@@ -146,6 +188,7 @@ export {
   FILL_OPT_IN,
   hasFillLeaf,
   hasMarkerLeaf,
+  hasMigratableLeaf,
   hasRadiusLeaf,
   hasSetStyleLeaf,
   isArealStyleLeaf,

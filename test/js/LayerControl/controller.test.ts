@@ -2485,6 +2485,52 @@ describe("LayerController", () => {
     expect(window.L.svg).not.toHaveBeenCalled();
   });
 
+  it("re-registering an id under a new layer releases the old surface's panes", () => {
+    // Same id, new layer object: the old surface's synthesized base pane and
+    // marker-shadow pane are the OLD layer's carrier — a replacement that
+    // leaves them claimed would grow one orphan pane per re-register.
+    manager.map.hasLayer.mockReturnValue(true);
+    const first = Object.assign(new window.L.Marker(), { options: {} });
+    manager.registerLayer({ id: "replace-me", name: "R", layer: first });
+    const oldSurface = manager.surfaceFor(manager.layerRegistry.get("replace-me")!);
+    expect(oldSurface.paneNames.length).toBeGreaterThan(0);
+    const destroySpy = vi.spyOn(oldSurface, "destroy");
+
+    const second = Object.assign(new window.L.Marker(), { options: {} });
+    manager.registerLayer({ id: "replace-me", name: "R", layer: second });
+    const newSurface = manager.surfaceFor(manager.layerRegistry.get("replace-me")!);
+    // The replacement released the old face (its synthesized base pane and
+    // marker-shadow pane) before claiming the id for the new one.
+    expect(newSurface).not.toBe(oldSurface);
+    expect(destroySpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("a layeradd marks only the owning surface dirty", () => {
+    // One group gaining a leaf must not rescan every registered tree: the
+    // handler attributes the arrival by stamp, then by group membership.
+    manager.map.hasLayer.mockReturnValue(true);
+    const groupA = { options: {}, eachLayer: vi.fn() };
+    const groupB = { options: {}, eachLayer: vi.fn() };
+    manager.registerLayer({ id: "ga", name: "A", layer: groupA as never });
+    manager.registerLayer({ id: "gb", name: "B", layer: groupB as never });
+    const surfaceA = manager.surfaces.get("ga")!;
+    const surfaceB = manager.surfaces.get("gb")!;
+    const spyA = vi.spyOn(surfaceA, "markContentDirty");
+    const spyB = vi.spyOn(surfaceB, "markContentDirty");
+
+    // A leaf joining group A: attributed to A (membership scan), not to B,
+    // and not to the global sweep.
+    const leaf = { options: {} } as never;
+    groupA.eachLayer = vi.fn();
+    (groupA as unknown as { hasLayer: (l: unknown) => boolean }).hasLayer = vi.fn(
+      () => true,
+    );
+    manager.onLayerAdd({ layer: leaf } as never);
+
+    expect(spyA).toHaveBeenCalledTimes(1);
+    expect(spyB).not.toHaveBeenCalled();
+  });
+
   it("registerLayer pins the pane on a layer with a container of its own", () => {
     // A non-Path/Marker layer with children (L.GeoJSON-style) must get its
     // pane written so enforceOrder does not fall back to a generated pane.

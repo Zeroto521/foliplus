@@ -358,3 +358,156 @@ describe("visibleDomOf (the audit table, executable)", () => {
     map.remove();
   });
 });
+
+describe("declared panes (real Leaflet)", () => {
+  it("gives a declared-pane marker its own shadow carrier", () => {
+    // The declared route changes who assigns the icon's pane, not whether
+    // the layer's full visible DOM is covered: the shadow pane is the
+    // surface's own carrier regardless of who declared the base pane.
+    // (A declared pane on a flat layer is the direct-registration shape;
+    // createLayers groups route their children through pinTree.)
+    const { map, host } = makeMap();
+    const preBuilt = map.createPane("custom-marker-pane");
+    const marker = markerIn([26.08, 119.3]);
+    map.addLayer(marker);
+    const surface = new LayerSurface(host, {
+      id: "declared",
+      layer: marker,
+      paneName: "custom-marker-pane",
+    });
+    surface.materialize();
+
+    const base = surface.panes[0];
+    const shadowPane = surface.panes.find(pane => pane.role === PANE_ROLE.SHADOW)!;
+    expect(base.name).toBe("custom-marker-pane");
+    expect(shadowPane.name).toBe("custom-marker-pane-shadow");
+    // An adopted pre-built pane satisfies the same CSS contract as a created
+    // one — the focus hide rule keys on the class.
+    expect(base.element).toBe(preBuilt);
+    expect(base.element.classList.contains("foliplus-layer-pane")).toBe(true);
+    expect(marker.getElement()!.parentNode).toBe(base.element);
+    expect(shadowOf(marker)!.parentNode).toBe(shadowPane.element);
+    expect(marker.options.shadowPane).toBe(shadowPane.name);
+    expectInsideOwnedPanes(surface, marker);
+    map.remove();
+  });
+
+  it("keeps the declared shadow carrier across setIcon", () => {
+    const { map, host } = makeMap();
+    map.createPane("declared-icon-pane");
+    const marker = markerIn([26.08, 119.3]);
+    map.addLayer(marker);
+    const surface = new LayerSurface(host, {
+      id: "declared",
+      layer: marker,
+      paneName: "declared-icon-pane",
+    });
+    surface.materialize();
+
+    marker.setIcon(L.icon({ iconUrl: ICON_URL, shadowUrl: SHADOW_URL }));
+    expectInsideOwnedPanes(surface, marker);
+    map.remove();
+  });
+
+  it("gives a declared-pane createLayers group a shadow carrier", () => {
+    // createLayers routes each leaf's pane itself (pinTree writes
+    // options.pane before the leaves join the map) — the surface must still
+    // own the shadows: a leaf joining later lands its shadow in the shared
+    // shadowPane, and the reconcile's shadow-only sweep reclaims it.
+    const { map, host } = makeMap();
+    map.createPane("measure-graph");
+    const group = L.layerGroup([]);
+    const surface = new LayerSurface(host, {
+      id: "measured",
+      layer: group,
+      paneName: "measure-graph",
+    });
+    surface.materialize();
+    // The group registered empty: no shadow pane yet (the probe saw no
+    // markers), which is the honest state until content arrives.
+    expect(surface.panes.find(pane => pane.role === PANE_ROLE.SHADOW)).toBeUndefined();
+
+    // A marker joins after materialization, the way MeasureControl's
+    // addLayer does: pinned at the source (options.pane pre-written).
+    const late = markerIn([26.08, 119.3]);
+    late.options.pane = "measure-graph";
+    group.addLayer(late);
+    map.addLayer(late);
+    // The shared shadowPane still holds the shadow — until the dirty surface
+    // reconciles, which synthesizes the shadow pane and sweeps shadows into it.
+    expect(shadowOf(late)!.parentNode).not.toBe(map.getPane("measure-graph-shadow"));
+    surface.markContentDirty();
+    surface.materialize();
+    const shadowPane = surface.panes.find(pane => pane.role === PANE_ROLE.SHADOW)!;
+    expect(shadowPane.name).toBe("measure-graph-shadow");
+    expect(late.getElement()!.parentNode).toBe(surface.panes[0].element);
+    expect(shadowOf(late)!.parentNode).toBe(shadowPane.element);
+    expect(late.options.shadowPane).toBe(shadowPane.name);
+    expectInsideOwnedPanes(surface, group);
+    map.remove();
+  });
+
+  it("refuses a second claim on the same declared pane and degrades", () => {
+    // Two surfaces declaring one custom pane would co-write it (opacity, z,
+    // focus, export) — the second claim is refused at the declaration edge
+    // and degrades to its own synthesized pane.
+    const { map, host } = makeMap();
+    map.createPane("shared-business-pane");
+    const groupA = L.layerGroup([markerIn([26.08, 119.3])]);
+    const groupB = L.layerGroup([markerIn([26.09, 119.31])]);
+    map.addLayer(groupA);
+    map.addLayer(groupB);
+    const surfaceA = new LayerSurface(host, {
+      id: "a",
+      layer: groupA,
+      paneName: "shared-business-pane",
+    });
+    const surfaceB = new LayerSurface(host, {
+      id: "b",
+      layer: groupB,
+      paneName: "shared-business-pane",
+    });
+    surfaceA.materialize();
+    surfaceB.materialize();
+
+    expect(surfaceA.paneNames[0]).toBe("shared-business-pane");
+    expect(surfaceB.paneNames).not.toContain("shared-business-pane");
+    expect(surfaceB.paneNames[0]).toMatch(/^foliplus-pane-/);
+    // The isolation, end to end: fading A leaves B's pixels alone.
+    for (const pane of surfaceA.panes) pane.element.style.opacity = "0";
+    const markerB = groupB.getLayers()[0] as L.Marker;
+    expect(inlineOpacityProduct(markerB.getElement()!)).toBe(1);
+    expect(inlineOpacityProduct(shadowOf(markerB)!)).toBe(1);
+    map.remove();
+  });
+});
+
+describe("unknown third-party layers (real Leaflet)", () => {
+  it("degrades an unrecognizable layer to the none carrier", () => {
+    // A plugin layer with its own getElement(): the migrator cannot relocate
+    // its DOM, so promising "pane" would advertise a write the carrier never
+    // delivers. Honest degradation: opacity none, not relocatable.
+    const { map, host } = makeMap();
+    // A minimal third-party Layer subclass: a real L.Layer (so the map takes
+    // it) that paints through its own element but belongs to none of the
+    // migratable families — exactly the shape the migrator cannot relocate.
+    const foreignEl = document.createElement("div");
+    foreignEl.className = "foreign-face";
+    const ForeignLayer = L.Layer.extend({
+      onAdd(m: L.Map) {
+        m.getPane("overlayPane")?.appendChild(foreignEl);
+      },
+      onRemove() {},
+      getElement: () => foreignEl,
+    });
+    const foreign = new ForeignLayer() as unknown as L.Layer;
+    map.addLayer(foreign);
+    const surface = new LayerSurface(host, { id: "foreign", layer: foreign });
+    surface.materialize();
+
+    expect(surface.capabilities.opacity).toBe("none");
+    expect(surface.capabilities.relocatable).toBe(false);
+    expect(surface.setZ(700)).toBe(true); // panes still price the slot
+    map.remove();
+  });
+});

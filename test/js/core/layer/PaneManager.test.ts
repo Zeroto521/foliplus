@@ -1025,16 +1025,40 @@ describe("PaneManager", () => {
     expect(pm.childPaneSpecs.has("foliplus-graph")).toBe(true);
   });
 
-  it("assertOwnedPane allows foliplus-owned panes, including the fallback family", () => {
-    // `foliplus-pane-*` is the surface's own synthesized carrier — one pane
-    // per layer — so it must stay writable. `isDefaultPane` deliberately
-    // answers true for the family (discovery excludes it); the gate must not
-    // inherit that answer, or every fallback-pane layer would lose its
-    // opacity/z writes.
-    const pm = new PaneManager({ getPane: vi.fn(), createPane: vi.fn() });
+  it("assertOwnedPane allows panes a surface claimed, not bare custom names", () => {
+    // A claim on file is the ownership proof: a name outside the shared list
+    // but never claimed could be another surface's (or a caller's) pane, and
+    // writing it would co-write their content. `foliplus-pane-*` is the
+    // surface's own synthesized carrier — one pane per layer — so it stays
+    // writable once claimed; `isDefaultPane` answering true for the family
+    // (discovery excludes it) must not leak into this gate either way.
+    const pm = new PaneManager({
+      getPane: vi.fn(),
+      createPane: vi.fn(() => document.createElement("div")),
+    });
+    expect(() => pm.assertOwnedPane(`${CONST.FALLBACK_PANE_PREFIX}24`)).toThrow(
+      /unclaimed pane/,
+    );
+    pm.ensurePane(`${CONST.FALLBACK_PANE_PREFIX}24`, false, "surface-a");
     expect(() => pm.assertOwnedPane(`${CONST.FALLBACK_PANE_PREFIX}24`)).not.toThrow();
-    expect(() => pm.assertOwnedPane("foliplus-measure-graph-shadow")).not.toThrow();
+    expect(() => pm.assertOwnedPane("foliplus-canvas-heatmap")).toThrow(
+      /unclaimed pane/,
+    );
+    pm.ensurePane("foliplus-canvas-heatmap", false, "surface-b");
     expect(() => pm.assertOwnedPane("foliplus-canvas-heatmap")).not.toThrow();
+  });
+
+  it("isPaneClaimed lets a surface re-check its own claim (the matches flow)", () => {
+    // Re-registering the same surface constructs a second face that re-checks
+    // the same declaration — that must read as "mine", not as a collision.
+    const pm = new PaneManager({
+      getPane: vi.fn(),
+      createPane: vi.fn(() => document.createElement("div")),
+    });
+    pm.ensurePane("foliplus-pane-7", false, "surface-a");
+    expect(pm.isPaneClaimed("foliplus-pane-7", "surface-a")).toBe(false);
+    expect(pm.isPaneClaimed("foliplus-pane-7", "surface-b")).toBe(true);
+    expect(pm.isPaneClaimed("foliplus-pane-7")).toBe(true);
   });
 
   it("pinLateContent is idempotent for a GridLayer already in the target pane", () => {
@@ -1076,6 +1100,53 @@ describe("PaneManager", () => {
       pm.pinLateContent([{ layer, paneName: "foliplus-pane-1", renderer }]),
     ).not.toThrow();
     expect(layer.options.pane).toBe("foliplus-pane-1");
+  });
+
+  it("pinLateShadows moves only marker shadows and writes options.shadowPane", () => {
+    // The declared-container sweep: icons and paths keep their declarer's
+    // pane assignment — only the shadows are reclaimed for the layer's own
+    // shadow pane, and `options.shadowPane` keeps a later setIcon inside.
+    const shadowPaneEl = document.createElement("div");
+    document.body.appendChild(shadowPaneEl);
+    const iconPaneEl = document.createElement("div");
+    document.body.appendChild(iconPaneEl);
+    const icon = document.createElement("img");
+    const shadow = document.createElement("img");
+    const sharedShadowPane = document.createElement("div");
+    sharedShadowPane.appendChild(shadow);
+    const map = {
+      getPane: vi.fn((name: string) =>
+        name === "foliplus-graph-shadow" ? shadowPaneEl : iconPaneEl,
+      ),
+      createPane: vi.fn(),
+    };
+    const pm = new PaneManager(map);
+
+    const marker = {
+      getElement: () => icon,
+      _shadow: shadow,
+      options: {} as Record<string, unknown>,
+      eachLayer: undefined,
+    };
+    Object.setPrototypeOf(marker, new window.L.Marker());
+
+    pm.pinLateShadows(marker as never, "foliplus-graph-shadow");
+
+    expect(shadow.parentNode).toBe(shadowPaneEl);
+    expect(sharedShadowPane.children).toHaveLength(0);
+    expect(marker.options.shadowPane).toBe("foliplus-graph-shadow");
+    // Idempotent: a reconcile re-run must not re-append the shadow.
+    pm.pinLateShadows(marker as never, "foliplus-graph-shadow");
+    expect(Array.from(shadowPaneEl.children)).toEqual([shadow]);
+  });
+
+  it("pinLateShadows skips a null shadow pane name or a missing pane", () => {
+    const map = { getPane: vi.fn(() => null), createPane: vi.fn() };
+    const pm = new PaneManager(map);
+    expect(() => pm.pinLateShadows({ options: {} } as never, null)).not.toThrow();
+    expect(() =>
+      pm.pinLateShadows({ options: {} } as never, "gone-shadow"),
+    ).not.toThrow();
   });
 
   it("pinLateContent skips the DOM moves when the pane element is missing", () => {

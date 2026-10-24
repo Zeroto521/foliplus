@@ -29,9 +29,11 @@ import type { PaneManager } from "./PaneManager.js";
 import {
   hasFillLeaf,
   hasMarkerLeaf,
+  hasMigratableLeaf,
   hasRadiusLeaf,
   hasSetStyleLeaf,
 } from "./capability.js";
+import { assertInsideOwnedPanes } from "./carrier.js";
 import {
   CAP_TIER,
   FALLBACK_PANE_PREFIX,
@@ -268,6 +270,16 @@ class LayerSurface implements LayerSurfaceContract {
     // The map is the only scope both writers and readers agree on.
     const childPanes = host.discoverChildPanes(layer);
     for (const name of childPanes) {
+      // A pane another surface already claims stays out of this surface's
+      // handle set — co-owning it would co-write it. The name's elements keep
+      // painting for their real owner; this surface degrades for that share.
+      if (host.isPaneClaimed(name, this.id)) {
+        log.warn(
+          `LayerSurface skipped discovered pane "${name}": another surface of ` +
+            `this map already claims it`,
+        );
+        continue;
+      }
       // A pane registered through `createLayers({ panes })` already has a
       // renderer from `ensureVector`; only a foreign pane needs one built.
       const spec = host.childPaneSpecs.get(name);
@@ -327,15 +339,16 @@ class LayerSurface implements LayerSurfaceContract {
    *  an inline `z-index = pos.y + zIndexOffset` that goes negative near the
    *  viewport top, where DOM order alone would put the shadow above the icon.
    *
-   *  Synthesized next to `pinTarget` only: those are the surfaces that place
-   *  content themselves (the path every folium-registered layer takes). A
-   *  declared-pane surface routes its content by whoever declared it, and a
-   *  name that a declared spec already claims is left alone (warn + skip) —
-   *  an honest gap for that caller, not a collision. */
+   *  Serves every surface whose tree carries markers — synthesized or
+   *  declared: the declared-pane routes do not repin their content's pane
+   *  assignment, but the shadow pane is this surface's own carrier (the
+   *  icons' pane assignment belongs to the declarer; shadows have none).
+   *  A name that a declared spec already claims is left alone (warn + skip)
+   *  — an honest gap for that caller, not a collision. */
   private ensureShadowPane(): void {
-    if (this.shadowPaneName || !this.pinTarget || !this.layer) return;
+    if (this.shadowPaneName || !this.layer || !this.panes.length) return;
     if (!hasMarkerLeaf(this.layer)) return;
-    const name = `${this.pinTarget}-shadow`;
+    const name = `${this.panes[0].name}-shadow`;
     if (
       this.paneSpecs.some(spec => spec.name === name) ||
       this.panes.some(pane => pane.name === name)
@@ -396,7 +409,7 @@ class LayerSurface implements LayerSurfaceContract {
     if (!this.panes.length || this.overrideZ !== undefined) return false;
     this.zBefore = this.panes.map(pane => {
       this.host.assertOwnedPane(pane.name);
-      const el = this.host.ensurePane(pane.name, false).pane;
+      const el = this.host.ensurePane(pane.name, false, this.id).pane;
       return [el, el.style.zIndex];
     });
     this.overrideZ = z;
@@ -428,7 +441,7 @@ class LayerSurface implements LayerSurfaceContract {
     if (base === undefined) return;
     for (const pane of this.panes) {
       this.host.assertOwnedPane(pane.name);
-      this.host.ensurePane(pane.name, false).pane.style.zIndex = String(
+      this.host.ensurePane(pane.name, false, this.id).pane.style.zIndex = String(
         zFor({ base, role: pane.role, order: pane.order }),
       );
     }
@@ -550,6 +563,18 @@ class LayerSurface implements LayerSurfaceContract {
   private normalizeDeclared(raw: string | null | undefined): string | null {
     const declared = declaredPaneName(raw);
     if (declared && this.host.defaultPanes.has(declared)) return null;
+    if (declared && this.host.isPaneClaimed(declared, this.id)) {
+      // Another surface of this map already holds the name as its exclusive
+      // carrier. Adopting it would co-write that surface's pane (opacity, z,
+      // focus classes, export collection) — refuse here, where the honest
+      // degradation (synthesize a stamped pane) is still a constructor-time
+      // decision, rather than at the write gate, where it is not.
+      log.warn(
+        `LayerSurface rejected paneName "${declared}": another surface of ` +
+          `this map already claims it; synthesising a fallback pane instead`,
+      );
+      return null;
+    }
     return declared;
   }
 
@@ -569,7 +594,7 @@ class LayerSurface implements LayerSurfaceContract {
     role: PaneRole = PANE_ROLE.BASE,
     order = 0,
   ): void {
-    const { pane, renderer } = this.host.ensurePane(name, needRenderer);
+    const { pane, renderer } = this.host.ensurePane(name, needRenderer, this.id);
     this.panes.push({
       role,
       order,
@@ -598,23 +623,54 @@ class LayerSurface implements LayerSurfaceContract {
           shadowPaneName: this.shadowPaneName,
         },
       ]);
+      this.validateCarrier();
       return;
     }
     if (!isContainer(this.layer as PinnableNode)) {
       // A declared pane on a flat layer is still ours to place: the layer
       // itself carries the pane, and its element needs moving when it is
-      // already attached.
+      // already attached. The shadow rides our shadow pane exactly as on the
+      // synthesized route — a declared pane changes who assigns the icon's
+      // pane, not whether the layer's full visible DOM is covered.
+      this.ensureShadowPane();
       this.host.pinLateContent([
-        { layer: this.layer, paneName: base.name, renderer: base.renderer },
+        {
+          layer: this.layer,
+          paneName: base.name,
+          renderer: base.renderer,
+          shadowPaneName: this.shadowPaneName,
+        },
       ]);
+      this.validateCarrier();
       return;
     }
     // A declared pane on a container is for the record: Leaflet ignores a
     // group's pane for its children (they are routed by whoever declared them,
     // e.g. createLayers), so the surface must not recurse — that would collapse
-    // every leaf onto the base pane.
+    // every leaf onto the base pane. The one exception is shadows: they carry
+    // no pane assignment of their own and must ride this surface's shadow
+    // carrier for the pane-write invariant to hold.
+    this.ensureShadowPane();
     const node = this.layer as PinnableNode;
     node.options.pane = base.name;
+    this.host.pinLateShadows(this.layer, this.shadowPaneName);
+    this.validateCarrier();
+  }
+
+  /** The carrier invariant, checked where it is supposed to hold: after a
+   *  reconcile pinned the content. Runs only for surfaces that promise pane
+   *  coverage (`capabilities.opacity === "pane"`) — an honestly degraded
+   *  surface (an unknown third-party layer) would fail the enumeration by
+   *  construction. Diagnostic, not a throw: a violation means a pane write
+   *  will miss part of the layer, which is a bug to log loudly, not a reason
+   *  to take the ordering pass down mid-reconcile. */
+  private validateCarrier(): void {
+    if (this.capabilities.opacity !== CAP_TIER.PANE) return;
+    try {
+      assertInsideOwnedPanes(this.panes, this.layer!);
+    } catch (error) {
+      log.error(error instanceof Error ? error.message : String(error));
+    }
   }
 }
 
@@ -754,6 +810,13 @@ const detectCapabilities = (opts: SurfaceFaceOpts): LayerCapabilities => {
     Boolean(opts.paneName) ||
     (opts.paneSpecs && opts.paneSpecs.length > 0) || // eslint-disable-line @typescript-eslint/prefer-nullish-coalescing -- left side can be false
     opts.canvas;
+  // Whether the pane carrier is real for this surface: a canvas face always
+  // is (the write lands on the canvas element), a layer-based one only when
+  // the migrator can actually relocate its leaves. An unknown third-party
+  // layer keeps its DOM wherever Leaflet put it — promising "pane" there
+  // would advertise an opacity write the carrier never delivers.
+  const paneCarrier =
+    Boolean(opts.canvas) || (layer != null && hasMigratableLeaf(layer));
 
   // Visibility carrier: "native" for any surface backed by a real L.Layer
   // (map membership), "pane" for canvas-only surfaces (heatmap / color face),
@@ -770,10 +833,10 @@ const detectCapabilities = (opts: SurfaceFaceOpts): LayerCapabilities => {
       fill: probeVectorCarrier(layer, "fill"),
       stroke: probeVectorCarrier(layer, "stroke"),
       size: hasRadiusLeaf(layer) ? CAP_TIER.NATIVE : CAP_TIER.NONE,
-      opacity: CAP_TIER.PANE,
+      opacity: paneCarrier ? CAP_TIER.PANE : CAP_TIER.NONE,
       zoomRange: CAP_TIER.PANE,
       annotation,
-      relocatable: true,
+      relocatable: paneCarrier,
       bounds: Boolean(opts.getBounds) || hasBoundsProvider(layer),
       visibility,
     };
@@ -787,10 +850,10 @@ const detectCapabilities = (opts: SurfaceFaceOpts): LayerCapabilities => {
       fill: probeVectorCarrier(layer, "fill"),
       stroke: probeVectorCarrier(layer, "stroke"),
       size: hasRadiusLeaf(layer) ? CAP_TIER.NATIVE : CAP_TIER.NONE,
-      opacity: CAP_TIER.PANE,
+      opacity: paneCarrier ? CAP_TIER.PANE : CAP_TIER.NONE,
       zoomRange: CAP_TIER.PANE,
       annotation,
-      relocatable: true,
+      relocatable: paneCarrier,
       bounds: hasBoundsProvider(layer),
       visibility,
     };

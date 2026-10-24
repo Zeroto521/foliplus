@@ -17,7 +17,10 @@
 //
 // Leaflet privates are reached only through `#core/leafletAdapter`
 // (`layerShadow`), per that module's charter.
+import { createLogger } from "#common/log.js";
 import { layerShadow } from "../leafletAdapter.js";
+
+const log = createLogger("carrier");
 
 /** Every DOM element the layer can paint through, from the fields real
  *  Leaflet fills: `getElement()` (marker `_icon`, ImageOverlay `_image`,
@@ -55,9 +58,10 @@ const assertInsideOwnedPanes = (
   );
   if (escaped.length) {
     throw new Error(
-      `[foliplus] carrier violation: ${escaped.map(el => el.tagName).join(", ")} ` +
-        `paint outside the layer's own panes — a pane write (opacity / z / ` +
-        `focus) will not reach them`,
+      log.msg(
+        `${escaped.map(el => el.tagName).join(", ")} paint outside the layer's ` +
+          `own panes — a pane write (opacity / z / focus) will not reach them`,
+      ),
     );
   }
 };
