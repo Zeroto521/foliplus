@@ -8,8 +8,9 @@ import { describe, expect, it } from "vitest";
 // This file used to live inside toolchain-guard.test.ts. The split keeps
 // the listener rules here (they constrain the production tree, not the
 // build toolchain) and leaves the rest in toolchain-guard.test.ts: script/
-// module surface, the #script/* import alias, eslint.config.js scoping,
-// test/js/script naming, and script-module coverage.
+// module surface, the #script/* import alias, eslint rule scoping
+// (config/eslint/base.mjs), test/js/script naming, and script-module
+// coverage.
 //
 // Resolved against cwd, the same repo root every build script assumes.
 const ROOT = resolve(".");
