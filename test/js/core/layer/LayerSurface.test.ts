@@ -305,6 +305,30 @@ describe("LayerSurface pane resolution", () => {
     expect(panes["foliplus-annotation-x"]).toBeDefined();
   });
 
+  it("skips a discovered child pane that another surface claims", () => {
+    // Two trees naming the same child pane: the second surface must leave
+    // the name to its first owner instead of co-writing it — the warn names
+    // the skip, and the claimed pane stays out of the second pane set.
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { host } = makeMap();
+    const first = new LayerSurface(host, {
+      id: "owner",
+      layer: { options: { pane: "foliplus-shared" } } as unknown as L.Layer,
+      paneName: "foliplus-shared",
+    });
+    expect(first.paneNames).toContain("foliplus-shared");
+
+    const sharer = {
+      options: { pane: "foliplus-shared" },
+    } as unknown as L.Layer;
+    const second = new LayerSurface(host, { id: "sharer", layer: sharer });
+    expect(second.paneNames).not.toContain("foliplus-shared");
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("skipped discovered pane"),
+    );
+    warnSpy.mockRestore();
+  });
+
   it("warns and skips the shadow pane when a declared spec claims its name", () => {
     // A declared pane named `<base>-shadow` (the collision only a caller can
     // manufacture, but a real one): the surface must not double-book the name

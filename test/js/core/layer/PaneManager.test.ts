@@ -1140,6 +1140,42 @@ describe("PaneManager", () => {
     expect(Array.from(shadowPaneEl.children)).toEqual([shadow]);
   });
 
+  it("pinLateShadows walks a mixed tree and touches only markers", () => {
+    const shadowPaneEl = document.createElement("div");
+    document.body.appendChild(shadowPaneEl);
+    const map = {
+      getPane: vi.fn(() => shadowPaneEl),
+      createPane: vi.fn(),
+    };
+    const pm = new PaneManager(map);
+    const icon = document.createElement("img");
+    const shadow = document.createElement("img");
+    const marker = {
+      getElement: () => icon,
+      _shadow: shadow,
+      options: {} as Record<string, unknown>,
+      eachLayer: undefined,
+    };
+    Object.setPrototypeOf(marker, new window.L.Marker());
+    const path = { options: {}, eachLayer: undefined };
+    Object.setPrototypeOf(path, new window.L.Path());
+    const group = {
+      options: {},
+      eachLayer: (cb: (l: unknown) => void) => {
+        cb(path);
+        cb(marker);
+      },
+    };
+
+    pm.pinLateShadows(group as never, "foliplus-graph-shadow");
+
+    // The path leaf answers the walk but takes no shadow write; the marker's
+    // shadow moved.
+    expect(path.options.shadowPane).toBeUndefined();
+    expect(marker.options.shadowPane).toBe("foliplus-graph-shadow");
+    expect(shadow.parentNode).toBe(shadowPaneEl);
+  });
+
   it("pinLateShadows skips a null shadow pane name or a missing pane", () => {
     const map = { getPane: vi.fn(() => null), createPane: vi.fn() };
     const pm = new PaneManager(map);
