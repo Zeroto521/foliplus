@@ -1031,6 +1031,35 @@ describe("AnnotationManager — render & plan", () => {
     expect(mgr.configEntries()).toHaveLength(0);
   });
 
+  it("destroy reports a failing canvas and still tears the rest down", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { map } = makeMap();
+    const mgr = new AnnotationManager({
+      map,
+      layerFind: () => oneLabel(),
+    });
+    mgr.setConfig("a", CONFIG);
+    mgr.renderLabels("a");
+    mgr.setConfig("b", CONFIG);
+    mgr.renderLabels("b");
+    const first = mocks.instances.at(-2)!;
+    const second = mocks.instances.at(-1)!;
+    first.destroy.mockImplementation(() => {
+      throw new Error("canvas gone");
+    });
+
+    expect(() => mgr.destroy()).not.toThrow();
+
+    // "canvas:b" runs after "canvas:a" threw.
+    expect(second.destroy).toHaveBeenCalled();
+    expect(
+      warn.mock.calls.some(call => String(call[0]).includes('canvas:a" threw')),
+    ).toBe(true);
+    // The config map is a plain reset after the steps: it must not be skipped
+    // because one canvas failed.
+    expect(mgr.configEntries()).toHaveLength(0);
+  });
+
   it("re-plans a layer whose stored plan is missing during a pan", async () => {
     const { map } = makeMap();
     let panePos = { x: 0, y: 0 };

@@ -1742,6 +1742,57 @@ describe("MeasureManager — label cleanup", () => {
   });
 });
 
+describe("MeasureManager — destroy finalization", () => {
+  it("reports the step that threw and still detaches the map click", () => {
+    const { manager, map } = makeLabelManager();
+    const warn = vi.spyOn(manager.log, "warn").mockImplementation(() => {});
+    const off = map.off as ReturnType<typeof vi.fn>;
+    off.mockImplementation((event: string) => {
+      if (event === "unload") throw new Error("unload bound elsewhere");
+    });
+
+    expect(() => manager.destroy()).not.toThrow();
+
+    // `detach-unload` is the fourth step; the click detach is the last one.
+    expect(off).toHaveBeenCalledWith("click", expect.any(Function));
+    expect(warn).toHaveBeenCalledWith(
+      'destroy step "detach-unload" threw',
+      expect.any(Error),
+    );
+  });
+
+  it("a failing clear still drains the handles and names the one that failed", () => {
+    const { manager } = makeLabelManager();
+    const warn = vi.spyOn(manager.log, "warn").mockImplementation(() => {});
+    const disposed = vi.fn();
+    const handles = (manager as any).editHandles as Map<string, unknown>;
+    handles.set("bad", {
+      dispose: () => {
+        throw new Error("handle stuck");
+      },
+      toggleDrag: vi.fn(),
+      closeOverlay: vi.fn(),
+    });
+    handles.set("good", {
+      dispose: disposed,
+      toggleDrag: vi.fn(),
+      closeOverlay: vi.fn(),
+    });
+    vi.spyOn(manager.layers, "clearLayers").mockImplementation(() => {
+      throw new Error("clear failed");
+    });
+
+    expect(() => manager.destroy()).not.toThrow();
+
+    expect(disposed).toHaveBeenCalledTimes(1);
+    expect(handles.size).toBe(0);
+    expect(warn).toHaveBeenCalledWith(
+      'clearTransientState step "clear-layers" threw',
+      expect.any(Error),
+    );
+  });
+});
+
 describe("MeasureManager — persistence guarantees", () => {
   const KEY = CONST.STORAGE.KEY;
   const marker: MeasureData = {

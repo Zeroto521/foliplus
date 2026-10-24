@@ -1892,6 +1892,33 @@ describe("LayerController", () => {
     expect(spy).toHaveBeenCalledTimes(1);
   });
 
+  it("BEFORE_EXPORT warns when a layer cannot be priced, and the capture still runs", () => {
+    // The pass isolates layers, so the export continues either way — but a
+    // stale z in the capture is invisible in the image, so it must be logged.
+    // `env.log` defaults to one shared logger for every controller built with
+    // the no-op env, so the spy is restored rather than left in place.
+    const log = (manager as any).log as { warn: (...args: unknown[]) => void };
+    const warn = vi.spyOn(log, "warn").mockImplementation(() => {});
+    const order = vi.spyOn(manager, "enforceOrder").mockReturnValue(["bad", "worse"]);
+    const captured: string[] = [];
+    const off = manager.events.on(EVENTS.BEFORE_EXPORT as string, () =>
+      captured.push("capture"),
+    );
+
+    try {
+      manager.events.publish(EVENTS.BEFORE_EXPORT as string);
+
+      expect(warn).toHaveBeenCalledWith(
+        "enforceOrder failed for 2 layer(s) before export: bad, worse",
+      );
+      expect(captured).toEqual(["capture"]);
+    } finally {
+      off();
+      warn.mockRestore();
+      order.mockRestore();
+    }
+  });
+
   it("a runtime content change routes through invalidateType and the live count", () => {
     // clearLayers is how a group empties itself; the factory must invalidate the
     // cached type and refresh the count column, not just drop the layers.
@@ -4772,5 +4799,33 @@ describe("enforceOrder isolation", () => {
     expect(priced).toEqual(
       expect.arrayContaining(["popupPane", "tooltipPane", "markerPane"]),
     );
+  });
+});
+
+describe("destroy finalization", () => {
+  it("reports the failing step, keeps tearing down, and still installs the stub API", () => {
+    window.localStorage.clear();
+    const { manager, map } = initFixture({
+      data: [{ id: "overlay1", name: "Polygons", group: "overlay" }],
+    });
+    const warn = vi.spyOn((manager as any).log, "warn").mockImplementation(() => {});
+    const unbind = vi.spyOn(manager.ui!, "unbindEvents");
+    vi.spyOn(manager.annotation, "destroy").mockImplementation(() => {
+      throw new Error("labels stuck");
+    });
+
+    expect(() => manager.destroy()).not.toThrow();
+
+    // The steps behind the failure still ran.
+    expect(unbind).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledWith(
+      'destroy step "destroy-annotation" threw',
+      expect.any(Error),
+    );
+    // Last step, and the one consumers depend on: a half-destroyed manager
+    // must not stay mounted as the map's LayerAPI.
+    expect(map.foliplus.LayerAPI.registerLayer({ id: "x" } as never)).toBeNull();
+    expect(manager.isDestroyed).toBe(true);
+    warn.mockRestore();
   });
 });
