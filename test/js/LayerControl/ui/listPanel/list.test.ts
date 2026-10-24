@@ -414,6 +414,27 @@ const registryKeys = (manager: LayerController): string[] => {
   return keys;
 };
 
+/** The five cursor ledgers a membership change must keep on one row: the
+ *  numeric index, the FOCUSED marker, the one roving tab stop, and where
+ *  DOM focus actually is. All read as row identities, not positions. */
+const cursorLedger = (ui: LayerUI) => {
+  const idOf = (el: Element | null | undefined) =>
+    el
+      ? (el.getAttribute(CONST.DATA.LAYER_ID) ??
+        `group:${el.getAttribute("data-group")}`)
+      : null;
+  const items = getNavigableItems(ui);
+  return {
+    active: idOf(items[ui.listPanel.activeIdx ?? -1]),
+    marked: idOf(attachedPanel(ui).querySelector(`.${CONST.CLASSES.FOCUSED}`)),
+    tabStops: items.filter(el => el.tabIndex === 0).map(el => idOf(el)),
+    domFocus: idOf(
+      (document.activeElement as HTMLElement | null)?.closest?.(CONST.SEL.LAYER_ITEM) ??
+        null,
+    ),
+  };
+};
+
 // Suite-level timeout: every case here builds a panel fixture, and jsdom
 // attach sweeps stretch past the default 5s when the whole suite's workers
 // compete for the machine.
@@ -970,5 +991,105 @@ describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, ()
       `.${CONST.CLASSES.TOGGLE_ALL}[data-group="${GROUP.OVERLAY}"]`,
     ) as HTMLElement;
     expect(items[ui.listPanel.activeIdx ?? -1]).toBe(header);
+  });
+
+  it("a late registration ahead of the active row keeps every ledger on it", () => {
+    // The persisted order slots H before A, so the newcomer lands ahead of
+    // the focused row: a positional ledger would hand the cursor, the
+    // marker and the tab stop to H while DOM focus stayed on A.
+    const { manager, ui } = initFixture({
+      seed: { order: ["H", "A", "B"] },
+      data: [
+        { id: "A", name: "A", group: "overlay" as const },
+        { id: "B", name: "B", group: "overlay" as const },
+      ],
+    });
+    const row = rowOf(ui, "A");
+    row.focus();
+    ui.listPanel.activeIdx = getNavigableItems(ui).indexOf(row);
+    row.classList.add(CONST.CLASSES.FOCUSED);
+
+    manager.registerLayer({ id: "H", name: "H", group: "overlay" });
+
+    // The color basemap joins the registry at attach as the base-group tail.
+    expect(manager.layers.map(l => l.id)).toEqual([
+      "H",
+      "A",
+      "B",
+      CONST.SOLID_BASEMAP_ID,
+    ]);
+    const ledger = cursorLedger(ui);
+    expect(ledger.active).toBe("A");
+    expect(ledger.marked).toBe("A");
+    expect(ledger.tabStops).toEqual(["A"]);
+    expect(ledger.domFocus).toBe("A");
+  });
+
+  it("a late registration behind the active row changes nothing", () => {
+    const { manager, ui } = initFixture({
+      data: [
+        { id: "A", name: "A", group: "overlay" as const },
+        { id: "B", name: "B", group: "overlay" as const },
+      ],
+    });
+    const row = rowOf(ui, "A");
+    row.focus();
+    ui.listPanel.activeIdx = getNavigableItems(ui).indexOf(row);
+
+    // A base registration lands in the trailing base section, below every
+    // overlay row — the active row keeps its index and its ledgers.
+    manager.registerLayer({ id: "tile", name: "tile", group: "base" });
+
+    const ledger = cursorLedger(ui);
+    expect(ledger.active).toBe("A");
+    expect(ledger.marked).toBe("A");
+    expect(ledger.tabStops).toEqual(["A"]);
+    expect(ledger.domFocus).toBe("A");
+  });
+
+  it("removing a row above the active row keeps every ledger on it", () => {
+    const { manager, ui } = initFixture({
+      data: [
+        { id: "A", name: "A", group: "overlay" as const },
+        { id: "B", name: "B", group: "overlay" as const },
+        { id: "C", name: "C", group: "overlay" as const },
+      ],
+    });
+    const row = rowOf(ui, "B");
+    row.focus();
+    ui.listPanel.activeIdx = getNavigableItems(ui).indexOf(row);
+
+    // A sat above B; the removal shifts B into its index, so a positional
+    // ledger would hand every state to C. Identity keeps them on B.
+    manager.unregisterLayer("A");
+
+    const ledger = cursorLedger(ui);
+    expect(ledger.active).toBe("B");
+    expect(ledger.marked).toBe("B");
+    expect(ledger.tabStops).toEqual(["B"]);
+    expect(ledger.domFocus).toBe("B");
+  });
+
+  it("removing the active row clears the cursor and keeps one tab stop", () => {
+    const { manager, ui } = initFixture({
+      data: [
+        { id: "A", name: "A", group: "overlay" as const },
+        { id: "B", name: "B", group: "overlay" as const },
+      ],
+    });
+    const row = rowOf(ui, "A");
+    row.focus();
+    ui.listPanel.activeIdx = getNavigableItems(ui).indexOf(row);
+
+    manager.unregisterLayer("A");
+
+    // The focused row is gone; the cursor clears and the roving contract
+    // holds — exactly one visible stop, the first row, so Tab can re-enter
+    // the list.
+    expect(ui.listPanel.activeIdx).toBeNull();
+    const ledger = cursorLedger(ui);
+    expect(ledger.marked).toBeNull();
+    expect(ledger.tabStops).toEqual(["group:overlay"]);
+    expect(document.activeElement).toBe(document.body);
   });
 });

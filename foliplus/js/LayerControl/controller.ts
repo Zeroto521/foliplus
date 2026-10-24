@@ -40,6 +40,7 @@ import { LayerPersistence } from "./persistence.js";
 import { finishSlidersIn } from "./slider.js";
 import { collectDeltas } from "./ui/apply.js";
 import { type LayerUI } from "./ui/index.js";
+import { cursorRef, reconcileCursorByIdentity } from "./ui/listPanel/cursor.js";
 
 type LayerControllerEnv = {
   readonly T: (key: string) => string;
@@ -892,6 +893,12 @@ class LayerController implements LayerAPI {
         // Finalise an in-flight user edit before its panel leaves the DOM: the
         // drag value is the user's, not teardown state.
         finishSlidersIn(target);
+        // Capture the cursor by identity before the row leaves the list: the
+        // removal shifts every later row's index, and the ledger must follow
+        // the row it described, not the position. Removing the active row
+        // itself clears the cursor and hands the tab stop to the first
+        // visible row — the roving contract never lapses.
+        const ref = this.ui?.listPanel ? cursorRef(this.ui) : null;
         target.remove();
         // Check if the group is now empty and remove the toggle-all row if so.
         const group = layerInfo.group;
@@ -904,6 +911,7 @@ class LayerController implements LayerAPI {
             .querySelector(`.${CONST.CLASSES.TOGGLE_ALL}[data-group="${group}"]`)
             ?.remove();
         }
+        if (this.ui?.listPanel) reconcileCursorByIdentity(this.ui, ref);
       }
     }
     // Nothing below writes persisted state — see the method's doc. The rename

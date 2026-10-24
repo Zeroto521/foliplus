@@ -84,13 +84,15 @@ const restoreCursor = (ui: LayerUI, ref: CursorRef): void => {
   else clearActiveItem(ui);
 };
 
-/** Re-home the cursor metadata after rows moved in place. The elements — and
- *  any focused descendant (checkbox, ⋮ button, rename input, a panel
- *  control) — survive an incremental move, so DOM focus is NOT taken or
- *  re-aimed: only `activeIdx` and the roving tab stop follow the row. The
- *  FOCUSED marker needs no work either — it lives on the element, which
- *  moved with its row. A row that left the panel mid-move clears the
- *  cursor; that is the only fallback, there is nothing left to re-home. */
+/** Re-home the cursor onto the row a captured identity names, after any
+ *  mutation that can change the navigable sequence — a reorder, a late
+ *  registration, a row removal. The elements — and any focused descendant
+ *  (checkbox, ⋮ button, rename input, a panel control) — survive those
+ *  mutations, so DOM focus is NOT taken or re-aimed; the ledger (`activeIdx`,
+ *  the FOCUSED marker, `aria-selected`, the one roving tab stop) is repainted
+ *  onto the row the identity resolves to. A row that left the panel clears
+ *  the cursor and hands the tab stop to the first visible row — the roving
+ *  contract ("exactly one row stop") never lapses. */
 const reconcileCursorByIdentity = (ui: LayerUI, ref: CursorRef): void => {
   if (!ui.uiContainer?.isConnected) return;
   if (ref === null) {
@@ -104,8 +106,12 @@ const reconcileCursorByIdentity = (ui: LayerUI, ref: CursorRef): void => {
     clearActiveItem(ui);
     return;
   }
-  ui.listPanel.activeIdx = idx;
-  ui.listPanel.listCursor?.setIndex(idx);
+  // Marker and ledger first, then a refresh: a membership change between
+  // capture and here may have repainted the marker onto whichever row now
+  // sits at the old index, and the refresh is what repaints `aria-selected`
+  // from the corrected index.
+  moveActiveMarker(ui, items[idx], items);
+  ui.listPanel.listCursor?.refresh();
 };
 
 /** Get all keyboard-navigable rows: layer items and toggle-all rows, in DOM

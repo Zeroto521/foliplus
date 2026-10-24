@@ -151,8 +151,10 @@ const handleDrop = (ui: LayerUI, event: DragEvent) => {
 };
 
 /** Idempotent gesture teardown: the armed session, the hover marker and the
- *  drag chrome all go — whether the drop committed, was refused or threw.
- *  The drop's commit boundary and the native dragend share it. */
+ *  drag chrome all go — whether the drop committed, was refused, threw, or
+ *  the control unmounted mid-gesture. The drop's commit boundary, the
+ *  native dragend and the unbind boundary share it; it clears the pure
+ *  session state even when the panel itself is already gone. */
 const clearDragState = (ui: LayerUI): void => {
   ui.listPanel.dragEntry = null;
   ui.listPanel.lastDragOverItem = null;
@@ -178,4 +180,5 @@ export {
   handleDragLeave,
   handleDrop,
   handleDragEnd,
+  clearDragState,
 };

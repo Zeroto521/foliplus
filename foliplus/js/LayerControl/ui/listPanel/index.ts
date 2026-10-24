@@ -27,6 +27,7 @@ import {
   syncListCursor,
 } from "./cursor.js";
 import {
+  clearDragState,
   handleDragEnd,
   handleDragLeave,
   handleDragOver,
@@ -141,6 +142,7 @@ export {
   handleDragLeave,
   handleDrop,
   handleDragEnd,
+  clearDragState,
 };
 export {
   syncListCursor,

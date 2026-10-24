@@ -287,6 +287,11 @@ const insertLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
     ui.log.debug(`insertLayerItem: panel is gone, dropping row "${layerInfo.id}"`);
     return;
   }
+  // Capture the cursor by identity before the row lands: a late
+  // registration can slot in ahead of the active row, and a positional
+  // ledger would hand the cursor, marker and tab stop to the newcomer while
+  // DOM focus stayed on the row the user is actually in.
+  const ref = cursorRef(ui);
   const group = layerInfo.group;
 
   const anchorSel =
@@ -346,8 +351,11 @@ const insertLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
   // finished row, count and order before any CHANGE — and this insertion is
   // also one half of the attach-time pending drain, whose other half (the
   // full `applyUserState` sweep) covers the same ids.
-  // New row must join the roving tabindex / ARIA set.
+  // The new row joins the roving tabindex / ARIA set, and the cursor ledger
+  // re-homes by identity: syncListCursor alone would repaint from the stale
+  // numeric index, which now names a different row.
   syncListCursor(ui);
+  reconcileCursorByIdentity(ui, ref);
 };
 
 const updateLayerItemLabel = (ui: LayerUI, layerInfo: LayerInfo) => {

@@ -28,6 +28,7 @@ import {
   syncListCursor,
 } from "./listPanel/cursor.js";
 import {
+  clearDragState,
   handleDragEnd,
   handleDragLeave,
   handleDragOver,
@@ -451,6 +452,11 @@ const refreshAllCounts = (ui: LayerUI): void => {
 };
 
 const unbindEvents = (ui: LayerUI): void => {
+  // The unmount boundary owns in-flight gesture state: once the drag
+  // listeners below come off, no later native dragend can arrive to finish
+  // the cleanup. Pure session state clears even when the panel is already
+  // gone, which is why this runs before the container guard.
+  clearDragState(ui);
   const container = ui.uiContainer;
   if (!container) return;
   // Unmount must clean up unconditionally — a subscription may already have

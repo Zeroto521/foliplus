@@ -194,6 +194,33 @@ describe("ui/drag", () => {
       });
     });
 
+    it("an armed drag tears down when the control unbinds", () => {
+      // The unbind boundary removes the dragend listener: without the
+      // teardown running here, no later native event can finish it, and the
+      // session would outlive the panel it pointed at.
+      const { ui } = initFixture({ data: overlays(2) });
+      handleDragStart(ui, dragEvent(rowOf(ui, "L0")));
+
+      ui.unbindEvents();
+
+      expect(ui.listPanel.dragEntry).toBeNull();
+      expect(ui.listPanel.lastDragOverItem).toBeNull();
+      expect(rowOf(ui, "L0").classList.contains(CONST.CLASSES.DRAGGING)).toBe(false);
+    });
+
+    it("an armed drag tears down even when the panel is already gone", () => {
+      // The pure session state (the entry reference, the hover marker) must
+      // clear on unbind even with no container left to strip classes from.
+      const { manager, ui } = initFixture({ data: overlays(2) });
+      handleDragStart(ui, dragEvent(rowOf(ui, "L0")));
+      manager.uiContainer = null;
+
+      ui.unbindEvents();
+
+      expect(ui.listPanel.dragEntry).toBeNull();
+      expect(ui.listPanel.lastDragOverItem).toBeNull();
+    });
+
     it("handleDragLeave clears the marker on the row being left", () => {
       const ui = makeUi({ containers: ["a"] });
       const row = rowOf(ui, "a");
