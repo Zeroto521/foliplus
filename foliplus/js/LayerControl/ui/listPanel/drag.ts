@@ -72,8 +72,16 @@ const showReorderBlockedHint = (ui: LayerUI) => {
 };
 
 const handleDragOver = (ui: LayerUI, event: DragEvent) => {
+  if (!ui.listPanel.dragEntry) return;
   const armed = dragIdx(ui);
-  if (armed < 0) return;
+  if (armed < 0) {
+    // The armed entry retired mid-gesture (an unregister or a same-id
+    // replacement): the session is over now. The source row may already be
+    // gone, so a later native dragend cannot be counted on to reach this
+    // container — the hover chrome comes down here.
+    clearDragState(ui);
+    return;
+  }
   event.preventDefault();
   const item = (event.target as HTMLElement).closest(
     CONST.SEL.LAYER_ITEM,
@@ -119,11 +127,12 @@ const handleDrop = (ui: LayerUI, event: DragEvent) => {
 
   // The session is validated at every use, not just at the end: the entry
   // the gesture armed with must still be the one the registry holds. An
-  // unregister, or a replacement under the same id, disarms here instead of
-  // moving whatever now sits at the old position.
+  // unregister, or a replacement under the same id, retires the whole
+  // session here — entry, hover chrome and all — instead of moving
+  // whatever now sits at the old position.
   const armed = dragIdx(ui);
   if (armed < 0) {
-    ui.listPanel.dragEntry = null;
+    clearDragState(ui);
     return;
   }
 

@@ -1983,6 +1983,57 @@ describe("LayerController", () => {
     expect(manager.ui!.applyUserState).toHaveBeenCalledWith("overlay1");
   });
 
+  it("re-registering with a different group is refused before any mutation", () => {
+    // A layer's group is its role for the id's lifetime — z ladder,
+    // attribution, basemap semantics, panel section. Changing it in place
+    // would strand the row in the old section with a stale section boundary
+    // and a broken overlay-before-base partition, so the gate refuses
+    // before a single mutation lands.
+    const { manager, ui } = initFixture({
+      data: [
+        { id: "A", name: "A", group: "overlay" },
+        { id: "T", name: "T", group: "base" },
+      ],
+    });
+    const rowA = attachedPanel(ui).querySelector(
+      `[${CONST.DATA.LAYER_ID}="A"]`,
+    ) as HTMLElement;
+    const seen: string[] = [];
+    ui.events.on(EVENTS.LAYER_CHANGE, p => seen.push(`change:${p.id}`));
+    ui.events.on(EVENTS.LAYER_ITEM_ADDED, p => seen.push(`added:${p.id}`));
+    ui.events.on(EVENTS.LAYER_ITEM_UPDATED, p => seen.push(`updated:${p.id}`));
+
+    // Same group or no group is an ordinary content refresh.
+    expect(() =>
+      manager.registerLayer({ id: "A", name: "A2", group: "overlay" }),
+    ).not.toThrow();
+    expect(() => manager.registerLayer({ id: "A", name: "A3" })).not.toThrow();
+
+    // A different group is a role change, in both directions.
+    expect(() => manager.registerLayer({ id: "A", name: "A", group: "base" })).toThrow(
+      /role change/,
+    );
+    expect(() =>
+      manager.registerLayer({ id: "T", name: "T", group: "overlay" }),
+    ).toThrow(/role change/);
+
+    // Nothing moved: partition, cached boundary, the row's section. The only
+    // announcements are the two ordinary refreshes above — nothing for T,
+    // no added rows.
+    expect(manager.layers.map(l => `${l.id}:${l.group}`)).toEqual([
+      "A:overlay",
+      "T:base",
+      `${CONST.SOLID_BASEMAP_ID}:base`,
+    ]);
+    expect(manager.layerRegistry.firstBaseIdx).toBe(
+      manager.layers.findIndex(l => l.group === GROUP.BASE),
+    );
+    expect(rowA.getAttribute("data-layer-type")).toBe("overlay");
+    expect(seen.filter(e => e.startsWith("updated"))).toHaveLength(2);
+    expect(seen.filter(e => e.startsWith("change"))).toHaveLength(2);
+    expect(seen.every(e => e.endsWith(":A"))).toBe(true);
+  });
+
   it("re-registration re-applies stored opacity onto a replaced canvas", () => {
     manager.map.hasLayer.mockReturnValue(false);
     manager.uiContainer = document.createElement("div");

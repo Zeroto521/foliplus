@@ -202,6 +202,20 @@ describe("LayerInfoRegistry", () => {
       expect(registry.get("overlay1")!.name).toBe("Updated");
       expect(registry.size).toBe(3);
     });
+
+    it("re-derives the first-base boundary on every swap", () => {
+      // The registry does not lean on its callers to keep the cached
+      // boundary honest: an in-place upsert re-derives it. createLayerInfo
+      // without an existing entry defaults the group to overlay, so this
+      // swap really does turn the sole base into an overlay — exactly the
+      // kind of change that used to strand a stale boundary.
+      const updated = registry.createLayerInfo({ id: "base1", name: "Satellite" });
+      registry.upsert(updated);
+      expect(registry.indexOf(updated)).toBe(2);
+      expect(registry.get("base1")!.group).toBe("overlay");
+      expect(registry.firstBaseIdx).toBe(-1);
+      expect(registry.canReorderBetween(0, 1)).toBe(true);
+    });
   });
 
   describe("prepend", () => {

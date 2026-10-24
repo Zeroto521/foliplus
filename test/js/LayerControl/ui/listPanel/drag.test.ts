@@ -568,6 +568,56 @@ describe("ui/drag", () => {
       expect(rowOf(ui, "L1").classList.contains(CONST.CLASSES.DRAGGING)).toBe(false);
     });
 
+    it("a stale session clears with its hover chrome on dragover", () => {
+      const { ui } = initFixture({ data: overlays(3) });
+      // A session whose entry left the registry without the retire path —
+      // the over handler owns its own teardown, not just the drop's.
+      ui.listPanel.dragEntry = { id: "ghost" } as never;
+      const rowL0 = rowOf(ui, "L0");
+      rowL0.classList.add(CONST.CLASSES.DRAG_OVER_TOP);
+      ui.listPanel.lastDragOverItem = rowL0;
+
+      handleDragOver(ui, dragEvent(rowL0));
+
+      expect(ui.listPanel.dragEntry).toBeNull();
+      expect(ui.listPanel.lastDragOverItem).toBeNull();
+      expect(rowL0.classList.contains(CONST.CLASSES.DRAG_OVER_TOP)).toBe(false);
+    });
+
+    it("a stale session clears with its hover chrome on drop", () => {
+      const { ui } = initFixture({ data: overlays(3) });
+      ui.listPanel.dragEntry = { id: "ghost" } as never;
+      const rowL0 = rowOf(ui, "L0");
+      rowL0.classList.add(CONST.CLASSES.DRAG_OVER_BOTTOM);
+      ui.listPanel.lastDragOverItem = rowL0;
+
+      handleDrop(ui, dragEvent(rowL0));
+
+      expect(ui.listPanel.dragEntry).toBeNull();
+      expect(ui.listPanel.lastDragOverItem).toBeNull();
+      expect(rowL0.classList.contains(CONST.CLASSES.DRAG_OVER_BOTTOM)).toBe(false);
+    });
+
+    it("unregistering the dragged layer cancels the gesture on the spot", () => {
+      // The retire path does not wait for the next dragover/drop to notice:
+      // the source row is leaving the panel, and a native dragend off a
+      // detached source cannot be relied on to bubble back.
+      const { manager, ui } = initFixture({ data: overlays(3) });
+      handleDragStart(ui, dragEvent(rowOf(ui, "L1")));
+      expect(rowOf(ui, "L1").classList.contains(CONST.CLASSES.DRAGGING)).toBe(true);
+      const rowL0 = rowOf(ui, "L0");
+      rowL0.classList.add(CONST.CLASSES.DRAG_OVER_TOP);
+
+      manager.unregisterLayer("L1");
+
+      expect(ui.listPanel.dragEntry).toBeNull();
+      expect(ui.listPanel.lastDragOverItem).toBeNull();
+      const chrome = attachedPanel(ui).querySelectorAll(
+        `.${CONST.CLASSES.DRAGGING}, .${CONST.CLASSES.DRAG_OVER_TOP}, .${CONST.CLASSES.DRAG_OVER_BOTTOM}`,
+      );
+      expect(chrome.length).toBe(0);
+    });
+
     it("toggleFold still routes through the full rebuild", () => {
       // The fold path is the rebuild counterweight to the incremental
       // reorder path; the drag module owns it and must keep it.

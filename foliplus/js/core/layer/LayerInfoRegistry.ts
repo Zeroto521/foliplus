@@ -250,7 +250,10 @@ class LayerInfoRegistry {
     return this.items[Symbol.iterator]();
   }
 
-  /** Insert or update in place — never reorders an existing layer. */
+  /** Insert or update in place — never reorders an existing layer, and
+   *  never changes one's group: an in-place swap keeps the slot, so the
+   *  cached first-base boundary is re-derived rather than trusted — the
+   *  registry does not lean on its callers to keep its own cache honest. */
   upsert(layerInfo: LayerInfo): LayerInfo {
     const existing = this.byId.get(layerInfo.id);
     if (existing) {
@@ -258,9 +261,9 @@ class LayerInfoRegistry {
       this.items[idx] = layerInfo;
     } else {
       this.items.push(layerInfo);
-      this.refreshFirstBaseIdx();
     }
     this.byId.set(layerInfo.id, layerInfo);
+    this.refreshFirstBaseIdx();
     return layerInfo;
   }
 

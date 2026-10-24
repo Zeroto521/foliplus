@@ -41,6 +41,7 @@ import { finishSlidersIn } from "./slider.js";
 import { collectDeltas } from "./ui/apply.js";
 import { type LayerUI } from "./ui/index.js";
 import { cursorRef, reconcileCursorByIdentity } from "./ui/listPanel/cursor.js";
+import { clearDragState } from "./ui/listPanel/drag.js";
 
 type LayerControllerEnv = {
   readonly T: (key: string) => string;
@@ -612,6 +613,22 @@ class LayerController implements LayerAPI {
       return null;
     }
 
+    // A layer's group is its role for the id's whole lifetime — it picks the
+    // z ladder, the attribution and basemap semantics, and which panel
+    // section owns the row. Re-registering with a different group would be a
+    // role change, which no code path models: the in-place upsert would
+    // strand the row in the old section with a stale section boundary
+    // (firstBaseIdx) and a partition invariant broken. Refuse before any
+    // mutation — unregister first if the role really must change.
+    const existingRole = this.layerRegistry.get(opts.id);
+    if (existingRole && opts.group !== undefined && opts.group !== existingRole.group) {
+      throw new Error(
+        `registerLayer: "${opts.id}" is registered as ${existingRole.group}; ` +
+          `re-registering with group "${opts.group}" is a role change. ` +
+          `Unregister the layer first, or register it under a new id.`,
+      );
+    }
+
     const { layerInfo, existingIdx, hidden } = this.domain.registerEntry(
       opts,
       Boolean(this.ui),
@@ -884,6 +901,12 @@ class LayerController implements LayerAPI {
       if (this.map.hasLayer(layer)) this.map.removeLayer(layer);
       this.clearAllLayers(layer);
     }
+
+    // A drag armed with the retiring entry has no future: the source row is
+    // about to leave the panel, and a native dragend off a detached source
+    // cannot be relied on to bubble back. Cancel the gesture now instead of
+    // leaving the session and its chrome for the next dragover to find.
+    if (this.ui?.listPanel?.dragEntry === layerInfo) clearDragState(this.ui);
 
     if (this.uiContainer) {
       const target = this.uiContainer.querySelector(
