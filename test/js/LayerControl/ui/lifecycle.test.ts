@@ -715,4 +715,42 @@ describe("onLayerItemCountChange — the registry replays", () => {
       expect(hasStyleDimApply(face, "grp1"), `${face} must be dropped`).toBe(false);
     }
   });
+
+  it("a label field arriving late upgrades the annotation capability before the label frame", () => {
+    const children: any[] = [];
+    ({ manager, ui, map } = withGroup(children));
+    const renderLabels = vi.spyOn(ui.c.annotation, "renderLabels").mockReturnValue([]);
+    ui.c.annotation.setConfig("grp1", {
+      ...ui.c.annotation.defaultConfig(),
+      show: true,
+      field: "name",
+    });
+    // An empty group has no labelable field: the surface declares the
+    // annotation capability "none" and there is no annotation pane.
+    const surfaceOf = () => ui.c.surfaceFor(manager.layerRegistry.get("grp1")!);
+    expect(surfaceOf().capabilities.annotation).toBe("none");
+
+    // The first labelable leaf lands. The row refresh inside the SAME
+    // count-change re-probes the surface synchronously — the capability
+    // upgrades and the pane exists before the scheduled label frame runs.
+    children.push({
+      options: {},
+      feature: { properties: { name: "late" } },
+      getLatLng: () => ({ lat: 40, lng: -74 }),
+    });
+    ensureEvents(map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "grp1" });
+    expect(surfaceOf().capabilities.annotation).not.toBe("none");
+
+    flushStyleDimApplies("grp1");
+    expect(renderLabels).toHaveBeenCalledTimes(1);
+
+    // The last field disappears: the re-probe downgrades the capability,
+    // and a later content change still schedules the label face (the gate
+    // is the config, not the capability) — the run itself is the no-op.
+    children.length = 0;
+    ensureEvents(map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "grp1" });
+    expect(surfaceOf().capabilities.annotation).toBe("none");
+    flushStyleDimApplies("grp1");
+    expect(renderLabels).toHaveBeenCalledTimes(2);
+  });
 });
