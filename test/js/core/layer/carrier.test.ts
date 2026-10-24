@@ -349,7 +349,6 @@ describe("visibleDomOf (the audit table, executable)", () => {
     map.addLayer(group);
     const surface = new LayerSurface(host, { id: "pts", layer: group });
     surface.materialize();
-    const marker = group.getLayers()[0] as L.Marker;
 
     // The guard names what escaped so the failure reads like the audit.
     expect(() => assertInsideOwnedPanes([], group)).toThrow(/IMG.*panes/);
