@@ -410,7 +410,6 @@ export {
   invalidateFieldCache,
   invalidateFields,
   layerHasLabelFields,
-  replayLabelState,
 } from "./label.js";
 export { ANNOTATION_DIMENSION, layerCanLabel } from "./annotation.js";
 export { layerHasStyleDelegation } from "./delegated.js";

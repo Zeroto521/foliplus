@@ -478,6 +478,11 @@ const FILL_DIMENSION = registerDimension<{
     }
     return "author";
   },
+  /** Content-change replay: a stored fill repaints the leaves that just
+   *  landed — without it a streamed addData keeps the new features at the
+   *  author's colour and a running ramp classifies on stale breaks. */
+  onContentChange: (ui, layerId) =>
+    scheduleStyleDimApply(FACE.FILL, layerId, () => replayFillState(ui, layerId)),
 });
 
 export {

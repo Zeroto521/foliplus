@@ -430,6 +430,9 @@ const BORDER_DIMENSION = registerDimension<{ color: string; weight: number }>({
     }
     return "author";
   },
+  /** Content-change replay: a stroke chosen before a leaf landed reaches it
+   *  through the same coalesced walk an edit takes. */
+  onContentChange: (ui, layerId) => scheduleBorderApply(ui, layerId),
 });
 
 export {

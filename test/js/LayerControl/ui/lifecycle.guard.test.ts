@@ -46,17 +46,14 @@ const at = (body: string[], needle: string) =>
   body.map((line, i) => (line.includes(needle) ? i : -1)).filter(i => i >= 0);
 
 // The steps that must finish before the notify publishes. applyProjection
-// first because its return value is the delta the notify carries; the style
-// replays because they are what a newly-landed leaf still needs. The
-// scheduler needles are face-scoped: each replayed face is pinned on its
-// own, not just the presence of some scheduler call.
-const BEFORE_NOTIFY = [
-  "applyProjection(",
-  "replaySizeIntent(",
-  "scheduleStyleDimApply(FACE.FILL",
-  "scheduleStyleDimApply(FACE.STROKE",
-  "scheduleStyleDimApply(FACE.LABEL",
-];
+// because its return value is the delta the notify carries — opacity replays
+// explicitly, its delta IS the notify's payload, so it cannot ride the
+// registry loop. listDimensions because it IS the replay: every other
+// dimension claims the content-change hook through its descriptor's
+// onContentChange, and the loop is what runs them. The needle pins the
+// loop's presence and position, not each dimension — per-face coverage
+// lives in the behavioral tests (ui/style/*.test.ts, ui/style/registry).
+const BEFORE_NOTIFY = ["applyProjection(", "listDimensions(", "dim.onContentChange"];
 
 describe("onLayerItemCountChange — replay ordering", () => {
   const body = bodyLines("onLayerItemCountChange");

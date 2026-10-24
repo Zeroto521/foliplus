@@ -56,16 +56,13 @@ import { closeAttrsPanel } from "./overlayPanel/attr.js";
 import { closeMoreMenu } from "./overlayPanel/menu.js";
 import { finishRename } from "./overlayPanel/rename.js";
 import { loadPersistedState } from "./state.js";
-import { applyBorderToLayer } from "./style/border.js";
 import {
   closeStylePanel,
   invalidateFieldCache,
   invalidateFields,
-  replayFillState,
-  replayLabelState,
 } from "./style/index.js";
-import { replaySizeIntent } from "./style/size.js";
-import { FACE, dropStyleDimApplies, scheduleStyleDimApply } from "./style/styleBag.js";
+import { listDimensions } from "./style/registry.js";
+import { dropStyleDimApplies } from "./style/styleBag.js";
 import type { LayerUI } from "./surface.js";
 
 /**
@@ -415,21 +412,15 @@ const onLayerItemCountChange = (ui: LayerUI, id: string): void => {
     opacityDelta = applyProjection(ui, id);
   }
 
-  // Size re-applies through the same hook: a pixel-radius leaf that lands
-  // after the user chose a size would otherwise keep the author's radius
-  // forever, because the radius walk only ran while the user was typing. The
-  // stored size is per layer, so the replay reaches every leaf the layer has
-  // now, and a new leaf keeps its own authored radius as the reset target.
-  // Nothing happens when the user never chose a size — the replay reads the
-  // intent and bails, so an untouched layer keeps exactly what was drawn.
-  replaySizeIntent(ui, id);
-
-  // A stored fill repaints the leaves this change just landed. Without it a
-  // streamed addData leaves the new features at the author's colour and a
-  // running ramp on breaks classified before the new values arrived - the UI
-  // would be showing one count while the map painted another. Coalesced per
-  // face like every panel write: ten additions in one frame cost one
-  // collect/classify/apply, and the walk always reads the layer's latest state.
+  // Opacity replays explicitly above: its return value IS the delta the
+  // notify carries below, so it cannot ride the registry loop. Every other
+  // dimension replays through its descriptor's `onContentChange` — the
+  // single place a dimension declares what a content change owes it, so a
+  // new dimension never edits this hub again. Registry order is
+  // module-import order, not a semantic order: the replaying faces are
+  // independent (each schedules its own coalesced walk), and a future
+  // ordering dependency must be sorted explicitly, not inferred from the
+  // loop.
   //
   // Every replay is queued before the notify, not after: a projection
   // consumer can throw or unregister the layer, and the scheduled replay must
@@ -437,18 +428,9 @@ const onLayerItemCountChange = (ui: LayerUI, id: string): void => {
   // scheduling after a throw would skip the replay entirely, and scheduling
   // after a reentrant unregister would create a task for an id that is
   // already gone. The notify stays the last step of the operation.
-  scheduleStyleDimApply(FACE.FILL, id, () => replayFillState(ui, id));
-  // Border claims the same replay with its own face: a stroke chosen before
-  // the leaf landed would otherwise never reach it — the border walk only ran
-  // while the user was editing. applyBorderToLayer bails without a stored
-  // intent, so a layer the user never touched keeps its authored stroke.
-  scheduleStyleDimApply(FACE.STROKE, id, () => applyBorderToLayer(ui, id));
-  // Labels claim the replay too, with their own face: the rebuild walks the
-  // whole tree and repaints every label canvas, so a streamed addData firing
-  // one event per feature would otherwise pay a full rebuild per feature —
-  // O(N²) across the stream. One frame, one rebuild, and the gate inside
-  // replayLabelState keeps a layer that never turned labels on unwritten.
-  scheduleStyleDimApply(FACE.LABEL, id, () => replayLabelState(ui, id));
+  for (const dim of listDimensions()) {
+    dim.onContentChange?.(ui, id);
+  }
   notifyDelta(ui, layerInfo, opacityDelta);
 };
 

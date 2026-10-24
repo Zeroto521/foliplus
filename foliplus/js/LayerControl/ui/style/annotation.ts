@@ -35,8 +35,9 @@ import {
 } from "#common/form.js";
 import { NUMBER_FORMAT } from "#common/format.js";
 import type { LayerUI } from "../surface.js";
-import { layerFields, syncFormatRow } from "./label.js";
+import { layerFields, replayLabelState, syncFormatRow } from "./label.js";
 import { registerDimension } from "./registry.js";
+import { FACE, scheduleStyleDimApply } from "./styleBag.js";
 
 /** Whether the layer's surface can honestly carry label content: the layer
  *  is registered (precondition guard) and its surface declared a label
@@ -236,6 +237,13 @@ const ANNOTATION_DIMENSION = registerDimension<AnnotationConfig>({
   gate: layerCanLabel,
   value: (ui, layerId) => ui.c.annotation.getConfig(layerId),
   row: buildLabelSection,
+  /** Content-change replay: labels rebuild from the tree the change just
+   *  landed. The most expensive of the replays (full walk + canvas
+   *  repaint), so it rides the frame coalescer — a streamed addData pays
+   *  one rebuild per frame, not one per feature. Bails when labels are
+   *  off, so a never-labeled layer is never written. */
+  onContentChange: (ui, layerId) =>
+    scheduleStyleDimApply(FACE.LABEL, layerId, () => replayLabelState(ui, layerId)),
 });
 
 export { ANNOTATION_DIMENSION, layerCanLabel };

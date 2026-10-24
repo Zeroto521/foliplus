@@ -116,6 +116,15 @@ type LayerDimension<D = unknown> = {
   /** Three-state source of the effective value. Gate rejects → `"none"`;
    *  store provenance → `"user"`; otherwise `"author"`. */
   valueSource?: (ui: LayerUI, layerId: string) => DimensionValueSource;
+  /** The descriptor's claim on the content-change replay. The hub
+   *  (`onLayerItemCountChange` in ui/lifecycle.ts) runs every registered
+   *  dimension's hook when the layer's content changed (leaves landed or
+   *  left), before the operation's notify; the descriptor decides whether
+   *  and how to replay. Expensive replays must schedule through the frame
+   *  coalescer (styleBag) so a streamed burst coalesces into one walk, and
+   *  must bail when the user never chose anything for this dimension —
+   *  an untouched layer is never written. */
+  onContentChange?: (ui: LayerUI, layerId: string) => void;
 };
 
 export type { LayerDimension, PersistedRecord };

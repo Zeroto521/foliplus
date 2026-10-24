@@ -226,6 +226,10 @@ const SIZE_DIMENSION = registerDimension<number>({
     if (!layerCanSize(ui, layerId)) return "none";
     return ui.intentStore.isUserSet(layerId, INTENT.SIZE) ? "user" : "author";
   },
+  /** Content-change replay: a pixel radius chosen before a leaf landed
+   *  reaches it — bails when the user never chose a size, so an untouched
+   *  layer keeps its authored radii. */
+  onContentChange: (ui, layerId) => replaySizeIntent(ui, layerId),
 });
 
 export {
@@ -235,6 +239,5 @@ export {
   buildSizeRow,
   commitSize,
   layerCanSize,
-  replaySizeIntent,
   resetLayerSize,
 };
