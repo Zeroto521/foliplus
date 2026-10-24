@@ -15,12 +15,18 @@
 // both thumbs back to the ends means). The Clear button does the same write
 // explicitly.
 //
+// The panel's identity is the registry entry it was opened against, never a
+// captured capability function: a same-id re-registration swaps the entry
+// (and both functions), so the panel re-resolves by id on every read/write
+// and closes itself when the entry it shows is no longer current.
+//
 // Panel shell follows `attr.ts` verbatim: `createRowPanel` for the surface,
 // capture-phase document mousedown for dismiss (the control disables click
 // propagation, so bubble-phase never reaches `document`), and a per-panel
 // outside-handler field on `OverlayPanel` so a peer panel can tell the two
 // apart.
-import type { LayerFilterModel } from "#core/layer/index.js";
+import { EVENTS } from "#core/event/index.js";
+import type { LayerFilter, LayerFilterModel, LayerInfo } from "#core/layer/index.js";
 import { createRowPanel } from "#core/leaflet/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import * as SVGs from "#foliplus/LayerControl/icon.js";
@@ -39,23 +45,27 @@ const fmtCount = (n: number): string => formatNumber(n, "comma", "en", 0);
  *  with float noise (0.30000000000000004) trimmed. */
 const fmtValue = (v: number): string => String(Number(v.toFixed(6)));
 
-/** The row registry entry viewed as a filter-capable component. Null when
- *  the row does not declare the capability (the menu gate already filters
- *  these, but a stale row can reach the panel after a re-registration). */
+/** The row registry entry viewed as a filter-capable component. */
 type FilterCapability = {
   filterProvider: () => LayerFilterModel | null;
-  filterSetter: (filter: LayerFilterModel["filter"]) => void;
+  filterSetter: (filter: LayerFilter) => void;
 };
 
-const capabilityOf = (ui: LayerUI, layerId: string): FilterCapability | null => {
+type FilterCapableInfo = LayerInfo & FilterCapability;
+
+/** The one capability gate: the ⋮ menu and the panel both ask this, so an
+ *  entry that renders an enabled menu item can never open to an empty
+ *  panel (and a non-function truthy value cannot pass either). */
+const isFilterCapable = (
+  info: LayerInfo | null | undefined,
+): info is FilterCapableInfo =>
+  !!info &&
+  typeof info.filterProvider === "function" &&
+  typeof info.filterSetter === "function";
+
+const capabilityOf = (ui: LayerUI, layerId: string): FilterCapableInfo | null => {
   const info = ui.c.layerRegistry.get(layerId);
-  if (!info) return null;
-  if (typeof info.filterProvider !== "function") return null;
-  if (typeof info.filterSetter !== "function") return null;
-  return {
-    filterProvider: info.filterProvider,
-    filterSetter: info.filterSetter,
-  };
+  return isFilterCapable(info) ? info : null;
 };
 
 /** The panel's filter atom — the only shape the stage-2 renderer emits. */
@@ -69,34 +79,75 @@ const atom = (
   range,
 });
 
-/** Refresh the result readout from the owner's current model, and pull the
- *  slider back to the committed range when the owner changed it (clamped,
- *  collapsed to the full extent, or cleared). Called after every write. */
-const refreshResult = (
-  ui: LayerUI,
-  cap: FilterCapability,
-  slider: Slider,
-  result: HTMLElement,
-  fallbackTotal: number,
-): void => {
-  const model = cap.filterProvider();
-  const kept = model ? model.kept : 0;
-  const total = model ? model.total : fallbackTotal;
-  result.textContent = ui
+/** One rendered panel body. `empty` means the owner reported no filterable
+ *  data (no source selected, or no numeric field on the snapshot). */
+type FilterView =
+  | { kind: "empty"; root: HTMLElement }
+  | {
+      kind: "rows";
+      root: HTMLElement;
+      model: LayerFilterModel;
+      slider: Slider;
+      result: HTMLElement;
+    };
+
+/** Everything the panel needs to keep its view and its owner identity in
+ *  sync while it is open. Exported for `OverlayPanel`'s state declaration. */
+interface FilterPanelState {
+  item: HTMLElement;
+  panel: HTMLElement;
+  layerId: string;
+  /** The registry entry the panel was opened against. Re-registration under
+   *  the same id replaces the entry object; every read/write compares this
+   *  identity so the panel can never write a retired owner. */
+  entry: LayerInfo;
+  content: HTMLElement;
+  view: FilterView;
+  /** True while a panel-originated write is in flight — the owner publishes
+   *  LAYER_FILTER_CHANGE synchronously from the setter, and that self-signal
+   *  must not rebuild the view under the user's pointer. */
+  writing: boolean;
+}
+
+interface FilterViewHooks {
+  write: (filter: LayerFilter) => void;
+}
+
+/** The model shape the rows were built from. A change here needs a rebuild
+ *  (new rail bounds / field / step), not just a readout refresh. */
+const sameShape = (a: LayerFilterModel, b: LayerFilterModel): boolean =>
+  a.field === b.field &&
+  a.range[0] === b.range[0] &&
+  a.range[1] === b.range[1] &&
+  a.step === b.step;
+
+/** The committed range clamped into the model's extent, or the full extent
+ *  when no filter is committed. */
+const sliderValueOf = (model: LayerFilterModel): [number, number] => {
+  if (model.filter?.kind !== "atom" || !model.filter.range) {
+    return [model.range[0], model.range[1]];
+  }
+  return [
+    Math.max(model.range[0], Math.min(model.range[1], model.filter.range[0])),
+    Math.max(model.range[0], Math.min(model.range[1], model.filter.range[1])),
+  ];
+};
+
+/** Pull the view to the owner's current model: live kept/total text and the
+ *  committed band (the owner may have clamped it, collapsed it to the full
+ *  extent, or cleared it). Called after every write and on every external
+ *  LAYER_FILTER_CHANGE. */
+const syncView = (ui: LayerUI, view: FilterView, model: LayerFilterModel): void => {
+  if (view.kind !== "rows") return;
+  view.model = model;
+  view.result.textContent = ui
     .T("filter_result")
-    .replace("{kept}", fmtCount(kept))
-    .replace("{total}", fmtCount(total));
-  if (!model) return;
-  const stored: [number, number] =
-    model.filter?.kind === "atom" && model.filter.range
-      ? [model.filter.range[0], model.filter.range[1]]
-      : [model.range[0], model.range[1]];
-  const current = slider.value;
-  if (
-    Array.isArray(current) &&
-    (current[0] !== stored[0] || current[1] !== stored[1])
-  ) {
-    slider.setValue(stored, { silent: true });
+    .replace("{kept}", fmtCount(model.kept))
+    .replace("{total}", fmtCount(model.total));
+  const stored = sliderValueOf(model);
+  const current = view.slider.value;
+  if (!Array.isArray(current) || current[0] !== stored[0] || current[1] !== stored[1]) {
+    view.slider.setValue(stored, { silent: true });
   }
 };
 
@@ -104,9 +155,9 @@ const refreshResult = (
  *  left-label / right-control vocabulary as the style panel. */
 const buildFilterRows = (
   ui: LayerUI,
-  cap: FilterCapability,
+  hooks: FilterViewHooks,
   model: LayerFilterModel,
-): HTMLElement => {
+): FilterView => {
   // Field row — read-only: the owner picks the field (first numeric key of
   // the snapshot); a field picker is a later stage.
   const fieldRow = dom.el(
@@ -125,18 +176,11 @@ const buildFilterRows = (
   // (no filter). A degenerate extent (constant field) renders disabled —
   // two movable thumbs over one value would be a lie.
   const host = dom.el("div", { class: CONST.CLASSES.FILTER_SLIDER });
-  const initial: [number, number] =
-    model.filter?.kind === "atom" && model.filter.range
-      ? [
-          Math.max(model.range[0], Math.min(model.range[1], model.filter.range[0])),
-          Math.max(model.range[0], Math.min(model.range[1], model.filter.range[1])),
-        ]
-      : [model.range[0], model.range[1]];
   const slider = new Slider(host, {
     min: model.range[0],
     max: model.range[1],
     step: model.step,
-    value: initial,
+    value: sliderValueOf(model),
     label: ui.T("filter_range"),
     labels: [ui.T("filter_range_min"), ui.T("filter_range_max")],
     values: { min: fmtValue(model.range[0]), max: fmtValue(model.range[1]) },
@@ -144,11 +188,13 @@ const buildFilterRows = (
     disabled: model.range[0] === model.range[1],
     // Live preview and commit go through the same owner write — the owner
     // is idempotent on an unchanged filter, so the second call is a no-op.
+    // `write` also refreshes the readout, so the live region never lags the
+    // map behind a drag or a keyboard step.
     input: value => {
-      if (Array.isArray(value)) cap.filterSetter(atom(model.field, value));
+      if (Array.isArray(value)) hooks.write(atom(model.field, value));
     },
     change: value => {
-      if (Array.isArray(value)) cap.filterSetter(atom(model.field, value));
+      if (Array.isArray(value)) hooks.write(atom(model.field, value));
     },
   });
 
@@ -182,10 +228,7 @@ const buildFilterRows = (
     },
     ui.T("filter_clear"),
   );
-  clearBtn.addEventListener("click", () => {
-    cap.filterSetter(undefined);
-    refreshResult(ui, cap, slider, result, model.total);
-  });
+  clearBtn.addEventListener("click", () => hooks.write(undefined));
   const footer = dom.el(
     "div",
     {},
@@ -193,9 +236,115 @@ const buildFilterRows = (
     dom.el("div", { class: "foliplus-btn-row" }, clearBtn),
   );
 
-  refreshResult(ui, cap, slider, result, model.total);
+  const view: FilterView = {
+    kind: "rows",
+    root: dom.el("div", {}, fieldRow, rangeRow, resultRow, footer),
+    model,
+    slider,
+    result,
+  };
+  syncView(ui, view, model);
+  return view;
+};
 
-  return dom.el("div", {}, fieldRow, rangeRow, resultRow, footer);
+/** Empty state: the row declares no filterable data (no source selected,
+ *  or no numeric field on the snapshot). The message is the panel's body;
+ *  the entry is never silently dead. */
+const buildEmptyState = (ui: LayerUI): FilterView => ({
+  kind: "empty",
+  root: dom.el("div", { class: CONST.CLASSES.FILTER_EMPTY }, ui.T("filter_empty")),
+});
+
+/** Swap the panel body, releasing the old slider session first so a drag
+ *  that is in flight cannot keep a detached thumb's pointer capture. */
+const mountView = (
+  ui: LayerUI,
+  state: FilterPanelState,
+  hooks: FilterViewHooks,
+  model: LayerFilterModel | null,
+): void => {
+  finishSlidersIn(state.content);
+  const view = model ? buildFilterRows(ui, hooks, model) : buildEmptyState(ui);
+  state.view = view;
+  state.content.replaceChildren(view.root);
+};
+
+/** Re-read the panel's model from the owner and reconcile the view. The
+ *  caller has already verified the registry entry identity. */
+const reconcile = (
+  ui: LayerUI,
+  state: FilterPanelState,
+  hooks: FilterViewHooks,
+  cap: FilterCapability,
+): void => {
+  const model = cap.filterProvider();
+  if (!model) {
+    if (state.view.kind !== "empty") mountView(ui, state, hooks, null);
+    return;
+  }
+  if (state.view.kind === "rows" && sameShape(state.view.model, model)) {
+    syncView(ui, state.view, model);
+    return;
+  }
+  mountView(ui, state, hooks, model);
+};
+
+/** Resolve the capability for a live read/write — by id, against the entry
+ *  the panel was opened for. Null means the row was re-registered or lost the
+ *  capability while the panel was open; the caller closes the surface. */
+const resolveCapability = (
+  ui: LayerUI,
+  state: FilterPanelState,
+): FilterCapableInfo | null => {
+  const info = ui.c.layerRegistry.get(state.layerId);
+  if (!info || info !== state.entry) return null;
+  return isFilterCapable(info) ? info : null;
+};
+
+/** Subscribe the open panel to owner changes:
+ *  - LAYER_FILTER_CHANGE → re-read the model (external clear, revalidation on
+ *    content change, another capability caller);
+ *  - LAYER_ITEM_UPDATED / REFRESHED → close when the same id now resolves to
+ *    a different registry entry, so a stale panel cannot keep showing (or
+ *    writing) the retired owner.
+ *  Returns the combined unsubscribe, stored on `OverlayPanel`. */
+const subscribeFilterSignals = (
+  ui: LayerUI,
+  state: FilterPanelState,
+  hooks: FilterViewHooks,
+): (() => void) => {
+  const refresh = (): void => {
+    // Our own write already reconciled; rebuilding here would drop the
+    // slider session mid-drag.
+    if (state.writing) return;
+    const cap = resolveCapability(ui, state);
+    if (!cap) {
+      closeFilterPanel(ui, false);
+      return;
+    }
+    reconcile(ui, state, hooks, cap);
+  };
+  const onEntrySignal = ({ id }: { id: string }): void => {
+    if (id !== state.layerId) return;
+    const current = ui.c.layerRegistry.get(id);
+    if (current !== state.entry) closeFilterPanel(ui, false);
+  };
+  // Component-owned rows (Heatmap today) clear via LAYER_DELETED instead of
+  // unregistering, and the event lands *before* the entry is pruned — so the
+  // identity check cannot answer it, the id match must.
+  const onDeleted = ({ id }: { id: string }): void => {
+    if (id === state.layerId) closeFilterPanel(ui, false);
+  };
+  const unsubs = [
+    ui.events.on(EVENTS.LAYER_FILTER_CHANGE, ({ id }) => {
+      if (id === state.layerId) refresh();
+    }),
+    ui.events.on(EVENTS.LAYER_ITEM_UPDATED, onEntrySignal),
+    ui.events.on(EVENTS.LAYER_ITEM_REFRESHED, onEntrySignal),
+    ui.events.on(EVENTS.LAYER_ITEM_REMOVED, onEntrySignal),
+    ui.events.on(EVENTS.LAYER_DELETED, onDeleted),
+  ];
+  return () => unsubs.forEach(off => off());
 };
 
 /** Open the filter panel for a given layer row. */
@@ -219,12 +368,46 @@ const openFilterPanel = (ui: LayerUI, item: HTMLElement): void => {
     iconClass: `${CONST.CLASSES.FILTER_ICON} foliplus-header-icon`,
   });
 
-  // With the capability the panel is a live view; without it the empty
-  // state explains why the entry was clickable anyway (a stale row).
-  const model = cap?.filterProvider() ?? null;
-  content.appendChild(
-    cap && model ? buildFilterRows(ui, cap, model) : buildEmptyState(ui),
-  );
+  const state: FilterPanelState = {
+    item,
+    panel,
+    layerId,
+    entry: layerInfo,
+    content,
+    view: buildEmptyState(ui),
+    writing: false,
+  };
+  content.appendChild(state.view.root);
+
+  const hooks: FilterViewHooks = {
+    write: filter => {
+      const live = resolveCapability(ui, state);
+      if (!live) {
+        closeFilterPanel(ui, false);
+        return;
+      }
+      state.writing = true;
+      try {
+        live.filterSetter(filter);
+      } finally {
+        state.writing = false;
+      }
+      // The owner may have retired itself synchronously (a reset inside the
+      // setter closes this panel through LAYER_FILTER_CHANGE → no, the
+      // signal is suppressed while writing, so re-check here).
+      if (ui.overlayPanel.activeFilterPanel !== state) return;
+      const after = resolveCapability(ui, state);
+      if (!after) {
+        closeFilterPanel(ui, false);
+        return;
+      }
+      reconcile(ui, state, hooks, after);
+    },
+  };
+
+  // Render the owner's current model (empty state when the owner reports no
+  // filterable data — a stale row that still reached the panel).
+  if (cap) reconcile(ui, state, hooks, cap);
 
   // Header click dismisses, matching `attr.ts` — the × sits inside the
   // header, so one listener covers both.
@@ -260,14 +443,9 @@ const openFilterPanel = (ui: LayerUI, item: HTMLElement): void => {
   };
   document.addEventListener("mousedown", ui.overlayPanel.filterOutsideHandler, true);
 
-  ui.overlayPanel.activeFilterPanel = { item, panel, layerId };
+  ui.overlayPanel.activeFilterPanel = state;
+  ui.overlayPanel.filterUnsubscribe = subscribeFilterSignals(ui, state, hooks);
 };
-
-/** Empty state: the row declares no filterable data (no source selected,
- *  or no numeric field on the snapshot). The message is the panel's body;
- *  the entry is never silently dead. */
-const buildEmptyState = (ui: LayerUI): HTMLElement =>
-  dom.el("div", { class: CONST.CLASSES.FILTER_EMPTY }, ui.T("filter_empty"));
 
 /** Close the filter panel. `setFocus = true` returns focus to the row. */
 const closeFilterPanel = (ui: LayerUI, setFocus: boolean): void => {
@@ -278,6 +456,10 @@ const closeFilterPanel = (ui: LayerUI, setFocus: boolean): void => {
       true,
     );
     ui.overlayPanel.filterOutsideHandler = null;
+  }
+  if (ui.overlayPanel.filterUnsubscribe) {
+    ui.overlayPanel.filterUnsubscribe();
+    ui.overlayPanel.filterUnsubscribe = null;
   }
   ui.listPanel.pressInPanel = false;
   if (!ui.overlayPanel.activeFilterPanel) return;
@@ -291,4 +473,5 @@ const closeFilterPanel = (ui: LayerUI, setFocus: boolean): void => {
   if (setFocus) item.focus();
 };
 
-export { openFilterPanel, closeFilterPanel };
+export { closeFilterPanel, isFilterCapable, openFilterPanel };
+export type { FilterPanelState };

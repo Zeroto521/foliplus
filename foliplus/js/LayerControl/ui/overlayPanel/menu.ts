@@ -8,6 +8,7 @@ import { focusDisabledLocaleKey, focusDisabledReason } from "../focus/index.js";
 import { layerCanLabel, layerHasStyleDelegation } from "../style/index.js";
 import type { LayerUI } from "../surface.js";
 import { closeOverlays } from "../teardown.js";
+import { isFilterCapable } from "./filter.js";
 
 /**
  * Open the "more" overflow dropdown for a given layer row.
@@ -271,11 +272,8 @@ const isComponentLayer = (ui: LayerUI, layerId: string): boolean => {
  *  style delegation too and its rows are not filterable. The panel's
  *  reads and writes derive from the same declaration, so the gate, the
  *  panel and the owner cannot drift apart. */
-const layerSupportsFilter = (ui: LayerUI, layerId: string): boolean => {
-  const info = ui.c.layerRegistry.get(layerId);
-  if (!info) return false;
-  return Boolean(info.filterProvider && info.filterSetter);
-};
+const layerSupportsFilter = (ui: LayerUI, layerId: string): boolean =>
+  isFilterCapable(ui.c.layerRegistry.get(layerId));
 
 const buildDeleteItem = (
   ui: LayerUI,

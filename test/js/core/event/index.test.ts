@@ -64,6 +64,26 @@ describe("ensureEvents", () => {
     expect(handler).not.toHaveBeenCalled();
   });
 
+  it("pins the published layer event literals", () => {
+    // EventBus accepts a raw string, so these values are part of the public
+    // contract: an external consumer that subscribed before a rename would go
+    // silently deaf. Pin the two an outside/older code path is most likely to
+    // hard-code, and keep a rename an explicit, migrated change.
+    expect(EVENTS.OVERLAY_CLEAR).toBe("foliplus:layer:overlay-clear");
+    expect(EVENTS.LAYER_FILTER_CHANGE).toBe("foliplus:layer:filter-change");
+  });
+
+  it("delivers overlay-clear to a subscriber that hard-codes the old literal", () => {
+    const map = makeMap();
+    const bus = ensureEvents(map);
+    const spy = vi.fn<() => void>();
+    bus.on("foliplus:layer:overlay-clear", spy);
+
+    bus.publish(EVENTS.OVERLAY_CLEAR);
+
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
   it("emits through the namespace handle components actually read", () => {
     const map = makeMap();
     // Subscribe on the locally held bus, emit through the namespace. The

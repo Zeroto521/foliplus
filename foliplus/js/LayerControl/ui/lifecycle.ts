@@ -461,6 +461,8 @@ const unbindEvents = (ui: LayerUI): void => {
   // "open A, close B" user-driven mutual exclusion.
   closeMoreMenu(ui, false);
   closeStylePanel(ui, false);
+  closeAttrsPanel(ui, false);
+  closeFilterPanel(ui, false);
   finishRename(ui, true);
   // Remove any focus animation still in flight (rect + row highlight).
   dismissFocus(ui);

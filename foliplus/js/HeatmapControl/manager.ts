@@ -5,7 +5,13 @@ import {
   isClassifyMethod,
 } from "#core/classify.js";
 import { generateId } from "#core/component.js";
-import { EVENTS, type EventBus, ensureEvents, publish } from "#core/event/index.js";
+import {
+  EVENTS,
+  type EventBus,
+  SettledOperation,
+  ensureEvents,
+  publish,
+} from "#core/event/index.js";
 import { bareFieldName } from "#core/label/index.js";
 import {
   type LayerFilter,
@@ -180,8 +186,14 @@ class HeatmapManager {
   declare mapCleanup: () => void;
   declare onZoomEnd: Debounced;
   declare onLayerChange: Debounced;
+  /** Coalesces the per-feature content signals (`createLayers` add/remove)
+   *  into one re-render. The cache drop happens synchronously on the signal
+   *  itself, so a panel read between the signal and the repaint already sees
+   *  the fresh snapshot. */
+  declare onSourceContentChange: Debounced;
   declare removeLayerChangeListener: () => void;
   declare removeLayerDeletedListener: () => void;
+  declare removeContentChangeListener: () => void;
   declare removeExportListener: () => void;
 
   /** The layer id used to register this manager's heatmap canvas. */
@@ -470,14 +482,20 @@ class HeatmapManager {
         !this.pointLayers.some(p => p.id === this.selectedLayerId)
       ) {
         const departed = this.selectedLayerId;
+        // Record the filter before deleting the entry: `Map.delete` is what
+        // answers "was this source filtered", and the notification below must
+        // still fire after the local cleanup has run.
+        const hadFilter = this.layerFilters.delete(departed);
         this.selectedLayerId = null;
-        // The source is gone — its filter goes with it, so a later
-        // re-registration of the same id starts unfiltered.
-        this.layerFilters.delete(departed);
-        this.clearHeatmapCanvas();
-        if (this.hadFilterFor(departed)) {
-          publish(this.events, EVENTS.LAYER_FILTER_CHANGE, { id: this.layerId });
+        // Local state and canvas converge first; the notification is
+        // published through one operation so a throwing terminal count
+        // consumer cannot cut the filter signal off.
+        const operation = new SettledOperation(this.events);
+        this.clearHeatmapCanvas(operation);
+        if (hadFilter) {
+          operation.emit(EVENTS.LAYER_FILTER_CHANGE, { id: this.layerId });
         }
+        operation.throwIfFailed();
       }
       if (this.ui) rebuildLayerDropdown(this.ui);
     }, CONST.TIMING.LAYER_SCAN_DEBOUNCE);
@@ -503,6 +521,39 @@ class HeatmapManager {
       if (NO_FEATURE_TREE_KINDS.has(kind)) return;
       this.onLayerChange();
     });
+    // Runtime content changes on a registered source (`createLayers`
+    // addLayer/removeLayer/clearLayers) publish LAYER_ITEM_COUNT_CHANGE, not
+    // LAYER_CHANGE: membership is unchanged, only the data moved. The heatmap
+    // draws that data, so the selected source's signal has to invalidate the
+    // extraction/snapshot/bins pipeline — without it the next render keeps
+    // painting the old snapshot. Filter `this.layerId` out: this manager
+    // publishes the same event for its own output row after every render, and
+    // consuming it would make the render self-trigger.
+    this.onSourceContentChange = debounce(() => {
+      if (!this.selectedLayerId) return;
+      const operation = new SettledOperation(this.events);
+      this.renderHexagons(operation, true);
+      operation.throwIfFailed();
+    }, CONST.TIMING.LAYER_SCAN_DEBOUNCE);
+    this.removeContentChangeListener = this.events.on(
+      EVENTS.LAYER_ITEM_COUNT_CHANGE,
+      payload => {
+        if (!payload) return;
+        const { id } = payload;
+        if (!id || id === this.layerId) return;
+        if (id !== this.selectedLayerId) return;
+        // Drop the caches synchronously: the panel's provider read between
+        // this signal and the debounced repaint must not answer from the old
+        // snapshot. `getSelectedPoints` rebuilds from the live layer walk.
+        this.cachedPoints = null;
+        this.cachedAgg = null;
+        this.cachedBins = null;
+        this.cachedSnapshot = null;
+        this.cachedSnapshotLayerId = null;
+        this.onSourceContentChange();
+      },
+      "internal",
+    );
     // LayerControl's deleteLayer emits LAYER_DELETED for component-owned layers
     // instead of retiring the id in removedIds, so the heatmap can clear its
     // data and stay registerable for the next source pick. The clear resets
@@ -842,12 +893,6 @@ class HeatmapManager {
   // gone). LAYER_FILTER_CHANGE is a notification published after the
   // local state and render have settled.
 
-  /** Whether a committed filter ever existed for *id* — used to decide
-   *  whether clearing it is worth a LAYER_FILTER_CHANGE publish. */
-  private hadFilterFor(id: string): boolean {
-    return this.layerFilters.has(id);
-  }
-
   /** Slider step derived from the data's own precision — the number of
    *  decimals actually present in the field's bounds, capped at 6. A
    *  degenerate (zero-span) range gets 1: the slider renders disabled
@@ -892,7 +937,12 @@ class HeatmapManager {
    *  missing the field, which is not what dragging back to the ends
    *  means). No-op when the validated filter equals the stored one.
    *  Re-renders from the bins cache (zero h3 calls) and publishes
-   *  LAYER_FILTER_CHANGE once the render has settled. */
+   *  LAYER_FILTER_CHANGE once the render has settled.
+   *
+   *  The render's terminal count signal and the filter notification are
+   *  fan out through one SettledOperation: a throwing count consumer is
+   *  raised only after the filter notification has reached its observers,
+   *  so a broken subscriber cannot leave the UI reading an old model. */
   setFilter(filter: LayerFilter | undefined) {
     const sourceId = this.selectedLayerId;
     if (!sourceId) return;
@@ -909,8 +959,10 @@ class HeatmapManager {
     // and cachedBins survive: filtering changes neither geometry nor point
     // identity, so the bins are reused and no h3 call runs.
     this.cachedAgg = null;
-    this.renderHexagons();
-    publish(this.events, EVENTS.LAYER_FILTER_CHANGE, { id: this.layerId });
+    const operation = new SettledOperation(this.events);
+    this.renderHexagons(operation);
+    operation.emit(EVENTS.LAYER_FILTER_CHANGE, { id: this.layerId });
+    operation.throwIfFailed();
   }
 
   /** Validate + clamp a filter AST from the panel against the current
@@ -951,10 +1003,27 @@ class HeatmapManager {
     return true;
   }
 
-  renderHexagons() {
+  /** Render the selected source into hexagons.
+   *
+   *  `operation` is supplied by a wider write (the filter setter, a content
+   *  invalidation) that owes a LAYER_FILTER_CHANGE *after* this render. When
+   *  given, this method only queues the terminal count signal on it and lets
+   *  the caller raise failures once the whole fan-out is done — so a throwing
+   *  count consumer cannot interrupt before the filter notification. Without
+   *  one, a local operation is created and settled here, preserving the
+   *  existing raise-at-the-end-of-render contract.
+   *
+   *  `contentChanged` marks a render driven by a source content signal rather
+   *  than a filter write. The model (extent, kept/total) is derived from that
+   *  content, so the notification must go out even when the stored filter
+   *  itself survived revalidation unchanged — otherwise an open panel keeps
+   *  showing counts that no longer match the map. */
+  renderHexagons(operation?: SettledOperation, contentChanged = false) {
     if (!this.map || !this.overlay) return;
+    const op = operation ?? new SettledOperation(this.events);
     if (!this.selectedLayerId) {
-      this.clearHeatmapCanvas();
+      this.clearHeatmapCanvas(op);
+      if (!operation) op.throwIfFailed();
       return;
     }
     const allPts = this.getSelectedPoints();
@@ -983,20 +1052,25 @@ class HeatmapManager {
     if (this.cachedAgg?.key === aggKey) {
       aggregated = this.cachedAgg.data;
     } else {
-      aggregated = this.aggregateData(allPts, res, includeSet, bins) ?? undefined;
+      aggregated =
+        this.aggregateData(allPts, res, includeSet, bins, () =>
+          this.clearHeatmapCanvas(op),
+        ) ?? undefined;
       if (aggregated) this.cachedAgg = { key: aggKey, data: aggregated };
     }
     if (!aggregated) {
-      if (filterRevalidated) {
-        publish(this.events, EVENTS.LAYER_FILTER_CHANGE, { id: this.layerId });
+      if (filterRevalidated || contentChanged) {
+        op.emit(EVENTS.LAYER_FILTER_CHANGE, { id: this.layerId });
       }
+      if (!operation) op.throwIfFailed();
       return;
     }
     const features = this.buildFeatures(aggregated);
-    this.renderFeatures(features);
-    if (filterRevalidated) {
-      publish(this.events, EVENTS.LAYER_FILTER_CHANGE, { id: this.layerId });
+    this.renderFeatures(features, op);
+    if (filterRevalidated || contentChanged) {
+      op.emit(EVENTS.LAYER_FILTER_CHANGE, { id: this.layerId });
     }
+    if (!operation) op.throwIfFailed();
   }
 
   aggregateData(
@@ -1004,6 +1078,7 @@ class HeatmapManager {
     res: number,
     include?: Set<number>,
     precomputedBins?: Map<string, number[]>,
+    onEmpty?: () => void,
   ): AggregatedData | null {
     return aggregateDataFn(
       pts,
@@ -1012,7 +1087,7 @@ class HeatmapManager {
       this.numClasses,
       this.method,
       this.scheme,
-      () => this.clearHeatmapCanvas(),
+      onEmpty ?? (() => this.clearHeatmapCanvas()),
       this.log,
       include,
       precomputedBins,
@@ -1023,19 +1098,21 @@ class HeatmapManager {
     return buildFeaturesFn(agg, this.log);
   }
 
-  renderFeatures(features: HexFeature[]) {
+  renderFeatures(features: HexFeature[], operation?: SettledOperation) {
     if (!features.length) {
-      this.clearHeatmapCanvas();
+      this.clearHeatmapCanvas(operation);
       return;
     }
     this.cachedFeatures = features;
     this.overlay.register();
     this.redrawHeatmap();
-    // Notify LayerControl to refresh the count column for this layer.
-    publish(this.events, EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: this.layerId });
+    // Notify LayerControl to refresh the count column for this layer. Queued
+    // on the caller's operation when there is one, so a throwing terminal
+    // consumer cannot cut off the filter notification that follows.
+    this.publishCount(operation);
   }
 
-  clearHeatmapCanvas() {
+  clearHeatmapCanvas(operation?: SettledOperation) {
     this.cachedFeatures = null;
     this.cachedAgg = null;
     this.cachedBins = null;
@@ -1055,7 +1132,15 @@ class HeatmapManager {
     this.ui?.schemeBarCleanup?.();
     this.ui?.dropdownCleanup?.();
     // Notify LayerControl to refresh the count column (now 0).
-    publish(this.events, EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: this.layerId });
+    this.publishCount(operation);
+  }
+
+  /** Publish this row's count signal. Routed through the caller's operation
+   *  when one exists so a later notification on the same operation still
+   *  fans out before the terminal count failure is raised. */
+  private publishCount(operation?: SettledOperation): void {
+    if (operation) operation.emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: this.layerId });
+    else publish(this.events, EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: this.layerId });
   }
 
   /** Reset selection + style state to the defaults declared in `config`. Both

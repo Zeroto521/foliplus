@@ -5,6 +5,7 @@
 // (validation, clamping, per-source attribution) are pinned in
 // test/js/HeatmapControl/filter.test.ts.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { EVENTS } from "#core/event/index.js";
 import { type LayerFilter, type LayerFilterModel, select } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerController } from "#foliplus/LayerControl/controller.js";
@@ -145,6 +146,27 @@ describe("LayerUI filter panel (stage-2 pilot)", () => {
         `[data-action="${CONST.ACTION.FILTER_LAYER}"]`,
       ) as HTMLElement;
       expect(li.getAttribute("aria-disabled")).toBe("true");
+    });
+
+    it("rejects a truthy non-function capability (untyped caller)", () => {
+      // A JS caller can pass any truthy value. The menu and the panel share
+      // one predicate, so a value the panel cannot call never renders an
+      // enabled entry that opens to an empty panel.
+      manager.registerLayer({
+        id: "bogus",
+        name: "Bogus",
+        group: "overlay",
+        layer: undefined as unknown as L.Layer,
+        filterProvider: "yes" as unknown as () => LayerFilterModel,
+        filterSetter: {} as unknown as (filter: LayerFilter) => void,
+      });
+      const item = findItem(ui, "bogus");
+      ui.openMoreMenu(item);
+      const li = item.querySelector(
+        `[data-action="${CONST.ACTION.FILTER_LAYER}"]`,
+      ) as HTMLElement;
+      expect(li.getAttribute("aria-disabled")).toBe("true");
+      expect(li.hasAttribute("disabled")).toBe(true);
     });
 
     it("clicking the enabled filter entry opens the panel", () => {
@@ -384,6 +406,38 @@ describe("LayerUI filter panel (stage-2 pilot)", () => {
       // tests' assertion; this stub stores silently.)
     });
 
+    it("a pointer write refreshes the live kept/total readout", () => {
+      const { owner } = registerPoints();
+      const item = findItem(ui, "pnt");
+      const spy = vi
+        .spyOn(ui, "T")
+        .mockImplementation(
+          key =>
+            (key === "filter_result"
+              ? "{kept} of {total}"
+              : `LayerControl.${key}`) as any,
+        );
+      ui.openFilterPanel(item);
+
+      const panel = item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`) as HTMLElement;
+      const result = panel.querySelector(`.${CONST.CLASSES.FILTER_RESULT}`)!;
+      expect(result.textContent).toBe("3 of 3");
+
+      const host = panel.querySelector(
+        `.${CONST.CLASSES.FILTER_SLIDER}`,
+      ) as HTMLElement;
+      const track = stubTrack(host);
+      track.dispatchEvent(pointer("pointerdown", 25));
+      track.dispatchEvent(pointer("pointermove", 25));
+      track.dispatchEvent(pointer("pointerup", 25));
+
+      // The map already shows 2 points; the live region must not keep
+      // announcing the pre-drag count.
+      expect(owner.filter).toBeDefined();
+      expect(result.textContent).toBe("2 of 3");
+      spy.mockRestore();
+    });
+
     it("the keyboard moves a thumb and writes through the same setter", () => {
       const { owner } = registerPoints();
       const item = findItem(ui, "pnt");
@@ -405,6 +459,37 @@ describe("LayerUI filter panel (stage-2 pilot)", () => {
         op: "between",
         range: [10, 29],
       });
+    });
+
+    it("a keyboard write refreshes the live kept/total readout", () => {
+      registerPoints();
+      const item = findItem(ui, "pnt");
+      const spy = vi
+        .spyOn(ui, "T")
+        .mockImplementation(
+          key =>
+            (key === "filter_result"
+              ? "{kept} of {total}"
+              : `LayerControl.${key}`) as any,
+        );
+      ui.openFilterPanel(item);
+
+      const panel = item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`) as HTMLElement;
+      const host = panel.querySelector(
+        `.${CONST.CLASSES.FILTER_SLIDER}`,
+      ) as HTMLElement;
+      host.querySelectorAll(`.${SLIDER.THUMB}`)[1].dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "ArrowLeft",
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+
+      expect(panel.querySelector(`.${CONST.CLASSES.FILTER_RESULT}`)!.textContent).toBe(
+        "2 of 3",
+      );
+      spy.mockRestore();
     });
 
     it("the Clear footer writes undefined and pulls the slider back to the extent", () => {
@@ -532,6 +617,153 @@ describe("LayerUI filter panel (stage-2 pilot)", () => {
 
       expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).toBeNull();
       expect(item.querySelector(`.${CONST.CLASSES.ATTRS_PANEL}`)).not.toBeNull();
+    });
+  });
+
+  describe("owner signals while the panel is open", () => {
+    it("an external filter change refreshes the band and the live readout", () => {
+      const { owner } = registerPoints();
+      const item = findItem(ui, "pnt");
+      const spy = vi
+        .spyOn(ui, "T")
+        .mockImplementation(
+          key =>
+            (key === "filter_result"
+              ? "{kept} of {total}"
+              : `LayerControl.${key}`) as any,
+        );
+      ui.openFilterPanel(item);
+
+      // Another capability caller (or the owner's own content revalidation)
+      // commits a band; the panel did not write it, so it must pull the model.
+      owner.filterSetter({
+        kind: "atom",
+        field: "magnitude",
+        op: "between",
+        range: [15, 25],
+      });
+      ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, { id: "pnt" });
+
+      const panel = item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`) as HTMLElement;
+      const thumbs = panel.querySelectorAll(`.${SLIDER.THUMB}`);
+      expect(thumbs[0].getAttribute("aria-valuenow")).toBe("15");
+      expect(thumbs[1].getAttribute("aria-valuenow")).toBe("25");
+      expect(panel.querySelector(`.${CONST.CLASSES.FILTER_RESULT}`)!.textContent).toBe(
+        "1 of 3",
+      );
+      spy.mockRestore();
+    });
+
+    it("an external clear pulls the slider back to the full extent", () => {
+      const { owner } = registerPoints();
+      const item = findItem(ui, "pnt");
+      owner.filterSetter({
+        kind: "atom",
+        field: "magnitude",
+        op: "between",
+        range: [15, 25],
+      });
+      ui.openFilterPanel(item);
+      expect(
+        (item.querySelectorAll(`.${SLIDER.THUMB}`)[0] as HTMLElement).getAttribute(
+          "aria-valuenow",
+        ),
+      ).toBe("15");
+
+      // The owner retired the filter on its own (source reset, content
+      // revalidation, the more-menu clear).
+      owner.filterSetter(undefined);
+      ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, { id: "pnt" });
+
+      const thumbs = item.querySelectorAll(`.${SLIDER.THUMB}`);
+      expect(thumbs[0].getAttribute("aria-valuenow")).toBe("10");
+      expect(thumbs[1].getAttribute("aria-valuenow")).toBe("30");
+    });
+
+    it("a same-id replacement closes the panel and retires the old setter", () => {
+      const oldOwner = makeOwner([10, 20, 30]);
+      const oldSetter = vi.spyOn(oldOwner, "filterSetter");
+      registerPoints("pnt", oldOwner);
+      const item = findItem(ui, "pnt");
+      ui.openFilterPanel(item);
+      const staleThumb = item.querySelectorAll(`.${SLIDER.THUMB}`)[0];
+
+      // The entry under the same id is swapped (re-registration): the panel's
+      // identity is the entry it opened against, so this must close rather
+      // than keep writing the retired owner.
+      const newOwner = makeOwner([100, 200, 300]);
+      const newSetter = vi.spyOn(newOwner, "filterSetter");
+      manager.registerLayer({
+        id: "pnt",
+        name: "Points",
+        group: "overlay",
+        layer: mkPointLayer([
+          { lat: 26.08, lng: 119.3, v: 100 },
+          { lat: 26.09, lng: 119.31, v: 200 },
+          { lat: 26.1, lng: 119.32, v: 300 },
+        ]) as L.Layer,
+        filterProvider: newOwner.filterProvider,
+        filterSetter: newOwner.filterSetter,
+      });
+
+      expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).toBeNull();
+      expect(ui.overlayPanel.activeFilterPanel).toBeNull();
+      expect(ui.overlayPanel.filterUnsubscribe).toBeNull();
+
+      // A keyboard event on the detached thumb must not resurrect the write:
+      // the capability is re-resolved by id, and the entry no longer matches.
+      staleThumb.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "ArrowRight",
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+      expect(oldSetter).not.toHaveBeenCalled();
+      expect(newSetter).not.toHaveBeenCalled();
+      oldSetter.mockRestore();
+      newSetter.mockRestore();
+    });
+    it("closes when the row is unregistered (capability gone)", () => {
+      registerPoints();
+      const item = findItem(ui, "pnt");
+      ui.openFilterPanel(item);
+
+      manager.unregisterLayer("pnt");
+
+      expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).toBeNull();
+      expect(ui.overlayPanel.activeFilterPanel).toBeNull();
+      expect(ui.overlayPanel.filterOutsideHandler).toBeNull();
+      expect(ui.overlayPanel.filterUnsubscribe).toBeNull();
+    });
+  });
+
+  describe("teardown", () => {
+    it("unbindEvents closes the filter panel and releases its document listener", () => {
+      registerPoints();
+      const item = findItem(ui, "pnt");
+      ui.openFilterPanel(item);
+      expect(ui.overlayPanel.activeFilterPanel).not.toBeNull();
+      expect(ui.overlayPanel.filterOutsideHandler).not.toBeNull();
+
+      ui.unbindEvents();
+
+      expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).toBeNull();
+      expect(ui.overlayPanel.activeFilterPanel).toBeNull();
+      expect(ui.overlayPanel.filterOutsideHandler).toBeNull();
+      expect(ui.overlayPanel.filterUnsubscribe).toBeNull();
+    });
+
+    it("unbindEvents closes an open attributes panel too", () => {
+      const item = findItem(ui, "overlay1");
+      ui.openAttrsPanel(item);
+      expect(ui.overlayPanel.activeAttrsPanel).not.toBeNull();
+
+      ui.unbindEvents();
+
+      expect(item.querySelector(`.${CONST.CLASSES.ATTRS_PANEL}`)).toBeNull();
+      expect(ui.overlayPanel.activeAttrsPanel).toBeNull();
+      expect(ui.overlayPanel.attrsOutsideHandler).toBeNull();
     });
   });
 });

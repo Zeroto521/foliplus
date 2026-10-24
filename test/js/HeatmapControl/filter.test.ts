@@ -465,6 +465,71 @@ describe("HeatmapControl filter owner (stage-2 pilot)", () => {
     expect(spy).not.toHaveBeenCalled();
   });
 
+  it("a departing filtered source is cleared and notified exactly once", () => {
+    // The review's matrix: selection null, canvas clear, filter deleted, and
+    // one LAYER_FILTER_CHANGE after the local state settled. This drives the
+    // real onLayerChange pass instead of calling resetState directly.
+    setupWithPoints(m, [
+      { lat: 26.08, lng: 119.3, value: 10 },
+      { lat: 26.09, lng: 119.31, value: 30 },
+    ]);
+    m.renderHexagons();
+    m.setFilter({ kind: "atom", field: "value", op: "between", range: [10, 20] });
+    const spy = watchFilterEvents(m, events);
+
+    // The source left the panel's layer list: onLayerChange rescans, finds
+    // the selected id missing, and converges the selection/canvas/filter.
+    m.pointLayers = [];
+    m.onLayerChange();
+    m.onLayerChange.flush();
+
+    expect(m.selectedLayerId).toBeNull();
+    expect(m.layerFilters.size).toBe(0);
+    expect((m as any).cachedFeatures).toBeNull();
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy).toHaveBeenCalledWith({ id: m.layerId });
+  });
+
+  it("a departing source without a filter does not publish", () => {
+    setupWithPoints(m, [{ lat: 26.08, lng: 119.3, value: 10 }]);
+    m.renderHexagons();
+    const spy = watchFilterEvents(m, events);
+
+    m.pointLayers = [];
+    m.onLayerChange();
+    m.onLayerChange.flush();
+
+    expect(m.selectedLayerId).toBeNull();
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("a throwing terminal count consumer cannot truncate the filter notification", () => {
+    setupWithPoints(m, [
+      { lat: 26.08, lng: 119.3, value: 10 },
+      { lat: 26.09, lng: 119.31, value: 30 },
+    ]);
+    m.renderHexagons();
+    const boom = vi.fn(() => {
+      throw new Error("count boom");
+    });
+    const after = vi.fn();
+    events.on(EVENTS.LAYER_ITEM_COUNT_CHANGE, boom);
+    events.on(EVENTS.LAYER_ITEM_COUNT_CHANGE, after);
+    const spy = watchFilterEvents(m, events);
+
+    expect(() =>
+      m.setFilter({ kind: "atom", field: "value", op: "between", range: [10, 20] }),
+    ).toThrow("count boom");
+
+    // The count fan-out ran in full, the notification still reached its
+    // observers, and the terminal failure surfaced only at the operation's
+    // end — not mid-fan-out.
+    expect(boom).toHaveBeenCalled();
+    expect(after).toHaveBeenCalled();
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(m.getFilterModel()!.filter).toBeDefined();
+  });
+
   it("clearHeatmapCanvas keeps per-source filters (a repaint is not a clear)", () => {
     setupWithPoints(m, [
       { lat: 26.08, lng: 119.3, value: 10 },

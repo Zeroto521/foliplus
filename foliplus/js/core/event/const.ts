@@ -103,7 +103,7 @@ const EVENTS = {
    *  their own teardown shape; map teardown does not route through this
    *  channel (unbindEvents calls the close functions directly so a
    *  third-party `off` cannot leave a panel open). */
-  OVERLAY_CLEAR: "foliplus:overlay:clear",
+  OVERLAY_CLEAR: "foliplus:layer:overlay-clear",
   /** Component-internal filter signal (stage 2): the filter's owner (the
    *  component that declared `filterProvider` / `filterSetter` — Heatmap
    *  today) applied a filter write from the LayerControl panel and has
