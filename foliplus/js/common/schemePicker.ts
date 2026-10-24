@@ -311,7 +311,8 @@ const mountDropdown = (state: InternalState) => {
   document.addEventListener("click", onDocClick);
   state.mountCleanupFns.push(() => document.removeEventListener("click", onDocClick));
 
-  // Re-position if the trigger scrolls or resizes (portal mode only).
+  // Re-position if the trigger scrolls, resizes, or the window resizes
+  // (portal mode only).
   const onScroll = () => {
     if (state.isOpen && state.portal) positionDropdown(state);
   };
@@ -319,6 +320,13 @@ const mountDropdown = (state: InternalState) => {
   state.mountCleanupFns.push(() =>
     window.removeEventListener("scroll", onScroll, true),
   );
+  if (state.portal) {
+    const onResize = () => {
+      if (state.isOpen) positionDropdown(state);
+    };
+    window.addEventListener("resize", onResize);
+    state.mountCleanupFns.push(() => window.removeEventListener("resize", onResize));
+  }
 
   // Focus the selected item (or first item) now that the dropdown is in
   // the DOM and all listeners are installed.  Doing this before append
@@ -336,9 +344,15 @@ const mountDropdown = (state: InternalState) => {
 const positionDropdown = (state: InternalState) => {
   if (!state.dropdown) return;
   const rect = state.trigger.getBoundingClientRect();
-  const dropdownRect = state.dropdown.getBoundingClientRect();
   const vw = window.innerWidth;
   const vh = window.innerHeight;
+
+  // In portal mode, set explicit width (trigger width) so the dropdown
+  // doesn't inherit the portal host's width (e.g. document.body = 100%).
+  if (state.portal) {
+    state.dropdown.style.width = rect.width + "px";
+  }
+  const dropdownRect = state.dropdown.getBoundingClientRect();
 
   let top = rect.bottom;
   let left = rect.left;
@@ -473,7 +487,10 @@ const refreshDropdown = (state: InternalState) => {
   state.items.forEach(item => {
     const name = item.getAttribute("data-scheme-name");
     if (!name) return;
-    const bar = item.querySelector("." + state.classes.bar) as HTMLElement | null;
+    // The bar class may be a concatenation of default + consumer classes,
+    // so use [class~='default'] to match any element with the default class.
+    const barClass = DEFAULT_CLASSES.bar;
+    const bar = item.querySelector("[class~='" + barClass + "']") as HTMLElement | null;
     if (bar) {
       renderColorBar(
         bar,
@@ -508,7 +525,25 @@ const createSchemePicker = (options: SchemePickerOptions): SchemePicker => {
   // Clamp numClasses to a valid positive integer (1–100).
   const numClasses = Math.max(1, Math.min(100, Math.round(options.numClasses) || 1));
 
-  const classes: SchemePickerClasses = { ...DEFAULT_CLASSES, ...options.classes };
+  // Base structure classes are never replaced — consumer classes are additive
+  // modifiers only. This prevents the CSS/DOM contract break that caused the
+  // "custom colour bar + native select both visible" screenshot bug.
+  const consumerClasses = options.classes ?? {};
+  const classes: SchemePickerClasses = {
+    dropdown:
+      DEFAULT_CLASSES.dropdown +
+      (consumerClasses.dropdown ? " " + consumerClasses.dropdown : ""),
+    item:
+      DEFAULT_CLASSES.item + (consumerClasses.item ? " " + consumerClasses.item : ""),
+    bar: DEFAULT_CLASSES.bar + (consumerClasses.bar ? " " + consumerClasses.bar : ""),
+    block:
+      DEFAULT_CLASSES.block +
+      (consumerClasses.block ? " " + consumerClasses.block : ""),
+    active:
+      DEFAULT_CLASSES.active +
+      (consumerClasses.active ? " " + consumerClasses.active : ""),
+    open: consumerClasses.open ?? DEFAULT_CLASSES.open,
+  };
   const state: InternalState = {
     classes,
     trigger: options.trigger,
@@ -538,6 +573,18 @@ const createSchemePicker = (options: SchemePickerOptions): SchemePicker => {
     state.hiddenSelect.value = options.value;
     state.hiddenSelect.setAttribute("tabindex", "-1");
     state.hiddenSelect.setAttribute("aria-hidden", "true");
+  }
+
+  // Set combobox a11y attributes on the trigger.
+  // aria-label is required because the adjacent <label> cannot name a
+  // <div role="combobox"> automatically (no `for` attribute).
+  state.trigger.setAttribute("aria-haspopup", "listbox");
+  state.trigger.setAttribute("aria-expanded", "false");
+  if (
+    !state.trigger.hasAttribute("aria-label") &&
+    !state.trigger.hasAttribute("aria-labelledby")
+  ) {
+    state.trigger.setAttribute("aria-label", "Colour scheme");
   }
 
   // Set initial trigger title and draw the colour bar

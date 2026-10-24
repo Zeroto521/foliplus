@@ -366,7 +366,7 @@ describe("restoreFocus option", () => {
 describe("ARIA attributes", () => {
   it("sets aria-expanded=true when open", () => {
     const { picker, trigger } = makePicker();
-    expect(trigger.getAttribute("aria-expanded")).toBeNull();
+    expect(trigger.getAttribute("aria-expanded")).toBe("false");
     trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     expect(trigger.getAttribute("aria-expanded")).toBe("true");
     picker.destroy();
@@ -469,7 +469,7 @@ describe("colour blocks", () => {
       .getDropdown()!
       .querySelectorAll("[role=option]") as NodeListOf<HTMLElement>;
     items.forEach(item => {
-      const bar = item.querySelector(".foliplus-heatmap-scheme-dropdown-bar")!;
+      const bar = item.querySelector(".foliplus-scheme-picker-bar")!;
       expect(bar.children.length).toBe(3);
     });
     picker.destroy();
@@ -477,7 +477,7 @@ describe("colour blocks", () => {
 
   it("throws for an invalid scheme name not in schemes", () => {
     expect(() => makePicker({ value: "NoSuchScheme" })).toThrow(
-      "value \"NoSuchScheme\" is not in schemes",
+      'value "NoSuchScheme" is not in schemes',
     );
   });
 });
@@ -547,7 +547,7 @@ describe("setNumClasses", () => {
       .getDropdown()!
       .querySelectorAll("[role=option]") as NodeListOf<HTMLElement>;
     items.forEach(item => {
-      const bar = item.querySelector(".foliplus-heatmap-scheme-dropdown-bar")!;
+      const bar = item.querySelector(".foliplus-scheme-picker-bar")!;
       expect(bar.children.length).toBe(3);
     });
     picker.destroy();
