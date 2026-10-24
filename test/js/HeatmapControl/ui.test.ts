@@ -167,7 +167,7 @@ describe("bindControls — change handlers", () => {
     const { ctrl } = setup();
     ctrl.schemeBar.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     const bars = () =>
-      Array.from(ctrl.schemeDropdown!.querySelectorAll(CONST.SEL.SCHEME_DROPDOWN_BAR));
+      Array.from(ctrl.schemeDropdown!.querySelectorAll(".foliplus-scheme-picker-bar"));
     expect(bars().length).toBe(3);
     ctrl.classSelect.value = "4";
     fire(ctrl.classSelect, "change");
@@ -369,7 +369,7 @@ describe("bindControls — scheme dropdown", () => {
     const save = vi.spyOn(m, "saveConfig");
     const render = vi.spyOn(m, "renderHexagons");
     ctrl.schemeBar.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    const items = ctrl.schemeDropdown!.querySelectorAll(CONST.SEL.SCHEME_DROPDOWN_ITEM);
+    const items = ctrl.schemeDropdown!.querySelectorAll(".foliplus-scheme-picker-item");
     (items[1] as HTMLElement).click();
     expect(m.scheme).toBe("Blues");
     expect(ctrl.schemeSelectHidden.value).toBe("Blues");
@@ -415,7 +415,7 @@ describe("bindControls — scheme dropdown", () => {
     m.scheme = "NoSuchScheme";
     ctrl.schemeBar.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     expect(ctrl.schemeDropdown).not.toBeNull();
-    const items = ctrl.schemeDropdown!.querySelectorAll(CONST.SEL.SCHEME_DROPDOWN_ITEM);
+    const items = ctrl.schemeDropdown!.querySelectorAll(".foliplus-scheme-picker-item");
     expect(items.length).toBe(3);
   });
 

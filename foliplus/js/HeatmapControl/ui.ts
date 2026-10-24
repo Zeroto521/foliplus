@@ -135,10 +135,6 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     colorScale: safeColorScale,
     classes: {
       open: CONST.CLASSES.SCHEME_BAR_OPEN,
-      dropdown: CONST.CLASSES.SCHEME_DROPDOWN,
-      item: CONST.CLASSES.SCHEME_DROPDOWN_ITEM,
-      bar: CONST.CLASSES.SCHEME_DROPDOWN_BAR,
-      block: CONST.CLASSES.SCHEME_BAR_BLOCK,
     },
     onChange: (name: string) => {
       ctrl.mgr.scheme = name;
@@ -155,7 +151,7 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
   // compat with tests and the HeatmapControl class.
   // schemeBarCleanup: transient reset (close dropdown) — called by
   // clearHeatmapCanvas when data is cleared. The picker stays alive.
-  ctrl.schemeBarCleanup = () => ctrl.schemePicker?.close();
+  ctrl.schemeBarCleanup = () => ctrl.schemePicker?.close({ restoreFocus: false });
   // schemePickerCleanup: permanent destroy — called by HeatmapControl.destroy().
   ctrl.schemePickerCleanup = () => {
     ctrl.schemePicker?.destroy();
@@ -209,9 +205,9 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
         parseInt(ctrl.classSelect.value, 10) || CONST.CLASS_COUNT.DEFAULT,
       ),
     );
-    // The picker owns the colour bar rendering — just tell it the new count.
+    // The picker owns the colour bar rendering — setNumClasses already
+    // refreshes the dropdown items.
     ctrl.schemePicker?.setNumClasses(ctrl.mgr.numClasses);
-    ctrl.schemePicker?.refresh();
     ctrl.mgr.renderHexagons();
     persist(ctrl);
   };

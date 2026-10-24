@@ -642,7 +642,7 @@ describe("destroy", () => {
 // ── Multiple pickers on the same trigger ───────────────────────────────
 
 describe("multiple pickers", () => {
-  it("second picker replaces the first", () => {
+  it("throws when a second picker is created on an already-bound trigger", () => {
     const trigger = document.createElement("div");
     trigger.className = "foliplus-heatmap-scheme-bar";
     trigger.setAttribute("tabindex", "0");
@@ -661,6 +661,43 @@ describe("multiple pickers", () => {
       colorScale,
     });
 
+    // Second picker on the same trigger must throw
+    expect(() =>
+      createSchemePicker({
+        trigger,
+        schemes: ["Blues"],
+        value: "Blues",
+        numClasses: 4,
+        portal: false,
+        onChange: vi.fn(),
+        colorScale,
+      }),
+    ).toThrow("already has an active picker");
+
+    p1.destroy();
+  });
+
+  it("allows a new picker after the old one is destroyed", () => {
+    const trigger = document.createElement("div");
+    trigger.className = "foliplus-heatmap-scheme-bar";
+    trigger.setAttribute("tabindex", "0");
+    const inner = document.createElement("div");
+    inner.setAttribute("data-scheme-bar-inner", "");
+    trigger.appendChild(inner);
+    document.body.appendChild(trigger);
+
+    const p1 = createSchemePicker({
+      trigger,
+      schemes: ["Reds"],
+      value: "Reds",
+      numClasses: 4,
+      portal: false,
+      onChange: vi.fn(),
+      colorScale,
+    });
+    p1.destroy();
+
+    // New picker on the same trigger should succeed
     const p2 = createSchemePicker({
       trigger,
       schemes: ["Blues"],
@@ -670,9 +707,7 @@ describe("multiple pickers", () => {
       onChange: vi.fn(),
       colorScale,
     });
-
-    // p1 should be destroyed (double-registration guarded)
-    p1.destroy();
+    expect(p2).toBeDefined();
     p2.destroy();
   });
 });

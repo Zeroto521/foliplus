@@ -60,8 +60,10 @@ interface SchemePicker {
   refresh(): void;
   /** Toggle the dropdown open/close. */
   toggle(): void;
-  /** Close the dropdown and return focus to the trigger. */
-  close(): void;
+  /** Close the dropdown.  Set restoreFocus to false when the close was
+   *  triggered by outside-click, data-clear, or destroy — those should
+   *  not yank the user's focus back to the trigger. */
+  close(opts?: { restoreFocus?: boolean }): void;
   /** Get the current dropdown element (null when closed). */
   getDropdown(): HTMLElement | null;
   /** Destroy all listeners, timers, and DOM elements. */
@@ -72,6 +74,11 @@ interface SchemePicker {
 // churn that makes aria-activedescendant values jump between snapshots).
 let idCounter = 0;
 const nextId = (prefix: string): string => prefix + "-" + ++idCounter;
+
+// Owner map: prevents two pickers from binding the same trigger (which
+// would cause double-dropdowns on a single click).  A consumer that
+// needs to re-create the picker must destroy the old one first.
+const ownerMap = new WeakMap<HTMLElement, SchemePicker>();
 
 // ── Internal state ─────────────────────────────────────────────────────
 
@@ -175,10 +182,6 @@ const buildDropdown = (state: InternalState): HTMLElement => {
   });
 
   state.items = items;
-  if (items.length > 0) {
-    const focusItem = focusIdx >= 0 ? items[focusIdx] : items[0];
-    focusItem.focus();
-  }
 
   // ── Dropdown keyboard handler ──
 
@@ -240,9 +243,12 @@ const mountDropdown = (state: InternalState) => {
 
   if (state.portal) {
     dropdown.style.position = "fixed";
-    positionDropdown(state);
+    dropdown.style.visibility = "hidden";
     const host = getPortalHost();
     host.appendChild(dropdown);
+    // Measure after append — detached elements report 0×0.
+    positionDropdown(state);
+    dropdown.style.visibility = "";
     // Keep the dropdown pinned when the host element changes (fullscreen
     // enter/exit). We use a MutationObserver on the document for the
     // fullscreenchange event instead of a direct listener, so destroy
@@ -314,6 +320,16 @@ const mountDropdown = (state: InternalState) => {
     window.removeEventListener("scroll", onScroll, true),
   );
 
+  // Focus the selected item (or first item) now that the dropdown is in
+  // the DOM and all listeners are installed.  Doing this before append
+  // leaves the focus on the trigger, which breaks keyboard navigation.
+  if (state.items.length > 0) {
+    const focusItem =
+      state.items.find(item => item.classList.contains(state.classes.active)) ??
+      state.items[0];
+    focusItem.focus();
+  }
+
   state.onToggle?.(true, dropdown);
 };
 
@@ -352,10 +368,11 @@ const closeDropdown = (state: InternalState, opts?: { restoreFocus?: boolean }) 
   state.trigger.classList.remove(state.classes.open);
   state.trigger.setAttribute("aria-expanded", "false");
   state.trigger.removeAttribute("aria-activedescendant");
-  // Only steal focus back for keyboard-initiated closes (Escape, Enter,
-  // select). Outside-click passes restoreFocus: false so the user's new
-  // focus target isn't yanked away.
-  if (opts?.restoreFocus !== false) {
+  // Only restore focus if the dropdown was actually open (close() on an
+  // already-closed picker must not steal focus from the user's current
+  // target).  Keyboard-initiated closes (Escape, Enter, select) pass
+  // restoreFocus: true; outside-click and data-clear pass false.
+  if (wasOpen && opts?.restoreFocus !== false) {
     state.trigger.focus();
   }
   // Drain mount-scope listeners (outside-click, scroll, fullscreen, item focus).
@@ -472,6 +489,13 @@ const refreshDropdown = (state: InternalState) => {
 // ── Factory ────────────────────────────────────────────────────────────
 
 const createSchemePicker = (options: SchemePickerOptions): SchemePicker => {
+  // Guard against double-binding: one trigger = one picker.
+  const existing = ownerMap.get(options.trigger);
+  if (existing) {
+    throw new Error(
+      "schemePicker: this trigger already has an active picker — call destroy() first",
+    );
+  }
   const classes: SchemePickerClasses = { ...DEFAULT_CLASSES, ...options.classes };
   const state: InternalState = {
     classes,
@@ -523,8 +547,8 @@ const createSchemePicker = (options: SchemePickerOptions): SchemePicker => {
 
   // Trigger keyboard
   setupTriggerKeydown(state);
-
-  return {
+  // Register as the owner of this trigger
+  const picker: SchemePicker = {
     setValue(name: string) {
       state.value = name;
       if (state.hiddenSelect) state.hiddenSelect.value = name;
@@ -571,8 +595,8 @@ const createSchemePicker = (options: SchemePickerOptions): SchemePicker => {
       toggleDropdown(state);
     },
 
-    close() {
-      closeDropdown(state);
+    close(opts?: { restoreFocus?: boolean }) {
+      closeDropdown(state, opts);
     },
 
     getDropdown() {
@@ -580,17 +604,23 @@ const createSchemePicker = (options: SchemePickerOptions): SchemePicker => {
     },
 
     destroy() {
-      closeDropdown(state);
+      closeDropdown(state, { restoreFocus: false });
       state.cleanupFns.forEach(fn => fn());
       state.cleanupFns = [];
       state.items = [];
       state.dropdown = null;
+      // Remove from owner map so a new picker can be created on this trigger.
+      if (ownerMap.get(state.trigger) === picker) {
+        ownerMap.delete(state.trigger);
+      }
       // Fully clean up ARIA attributes so the trigger is indistinguishable
       // from its initial state (destroy, not just close).
       state.trigger.removeAttribute("aria-expanded");
       state.trigger.removeAttribute("aria-controls");
     },
   };
+  ownerMap.set(options.trigger, picker);
+  return picker;
 };
 
 export {
