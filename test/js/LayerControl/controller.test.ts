@@ -584,7 +584,10 @@ describe("LayerController", () => {
       format: "default" as any,
       collide: false,
     });
-    vi.spyOn(m.annotation as any, "refresh").mockImplementation(() => {});
+    // renderLabels ends in refreshLayer (the per-layer repaint) — stubbed
+    // here because this fixture's map has no projection; the pane wiring
+    // under test happens before it.
+    vi.spyOn(m.annotation as any, "refreshLayer").mockImplementation(() => {});
     m.annotation.renderLabels("lbl");
 
     const paneName = CONST.ANNOTATION_PANE_PREFIX + "lbl";
