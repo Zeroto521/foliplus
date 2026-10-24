@@ -44,6 +44,7 @@ import {
   renderInitialList,
   renderLayerItem,
   renderToggleAllRow,
+  syncRowOrder,
   updateLayerItemLabel,
 } from "./list.js";
 import {
@@ -106,6 +107,7 @@ export {
   initTypesAndVisibility,
   markSettled,
   rebuildList,
+  syncRowOrder,
   renderInitialList,
   insertLayerItem,
   updateLayerItemLabel,

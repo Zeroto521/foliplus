@@ -85,6 +85,85 @@ const rebuildList = (ui: LayerUI): void => {
   notifyDeltas(ui, moved);
 };
 
+/** Align the panel's rows with the registry order by moving the fewest DOM
+ *  nodes — the incremental counterpart of {@link rebuildList} for reorder
+ *  signals, where membership is unchanged and only positions shift.
+ *
+ *  The target sequence is exactly what `renderInitialList` would emit: each
+ *  group's toggle-all anchor ahead of that group's first row, rows in
+ *  registry order. A row already sitting behind its predecessor is left
+ *  alone (`previousElementSibling` check — no write, no reflow), so a
+ *  typical moveLayerUp/Down relocates one node and an in-order list costs
+ *  nothing. Row content is untouched: a pure reorder changes no count,
+ *  checkbox or tri-state, so the rows already agree with the registry by
+ *  construction. `data-ready` never comes down — the list stays complete
+ *  and readable throughout.
+ *
+ *  The reconcile is one pass over `container.children`, not a
+ *  `querySelector` per row: the panel's row set is exactly the registry's
+ *  (rows are added/removed only by insertLayerItem / retireEntry), so the
+ *  ids found in this scan are the ids the registry walk below will ask
+ *  for. A persistent id → row index was considered and rejected: it would
+ *  have to be maintained at every write site across two modules, and a
+ *  missed rebuild would hand out detached nodes — for no gain over this
+ *  single scan. */
+const syncRowOrder = (ui: LayerUI): void => {
+  const container = ui.uiContainer;
+  if (!container) return;
+  const rows = new Map<string, HTMLElement>();
+  const anchors = new Map<string, HTMLElement>();
+  for (const child of Array.from(container.children)) {
+    const el = child as HTMLElement;
+    const id = el.getAttribute(CONST.DATA.LAYER_ID);
+    if (id) rows.set(id, el);
+    else if (el.classList.contains(CONST.CLASSES.TOGGLE_ALL)) {
+      const group = el.getAttribute("data-group");
+      if (group) anchors.set(group, el);
+    }
+  }
+
+  const targets: HTMLElement[] = [];
+  let hasBaseMaps = false;
+  let hasOverlays = false;
+  for (const layerInfo of ui.c.layers) {
+    // Anchor names follow renderInitialList's grouping: every non-base
+    // group rides the OVERLAY anchor, so base maps stay a trailing section.
+    if (layerInfo.group !== GROUP.BASE && !hasOverlays) {
+      hasOverlays = true;
+      const anchor = anchors.get(GROUP.OVERLAY);
+      if (anchor) targets.push(anchor);
+    }
+    if (layerInfo.group === GROUP.BASE && !hasBaseMaps) {
+      hasBaseMaps = true;
+      const anchor = anchors.get(GROUP.BASE);
+      if (anchor) targets.push(anchor);
+    }
+    const row = rows.get(layerInfo.id);
+    if (row) targets.push(row);
+  }
+  if (targets.length === 0) return;
+
+  // The cursor is captured by identity before any move: activeIdx is a
+  // position, and positions are exactly what is about to change.
+  const ref = cursorRef(ui);
+  let settled: HTMLElement | null = null;
+  for (const node of targets) {
+    if (settled) {
+      if (node.previousElementSibling !== settled) {
+        container.insertBefore(node, settled.nextSibling);
+      }
+    } else if (container.firstElementChild !== node) {
+      container.insertBefore(node, container.firstElementChild);
+    }
+    settled = node;
+  }
+
+  // Rows moved: re-home the roving tabindex by identity, the same pair
+  // renderInitialList runs after its rebuild.
+  syncListCursor(ui);
+  restoreCursor(ui, ref);
+};
+
 const renderInitialList = (ui: LayerUI) => {
   // Take the container once: nothing below notifies, so this local stays the
   // live panel for the whole pass.
@@ -378,6 +457,7 @@ export {
   initTypesAndVisibility,
   markSettled,
   rebuildList,
+  syncRowOrder,
   renderInitialList,
   insertLayerItem,
   updateLayerItemLabel,
