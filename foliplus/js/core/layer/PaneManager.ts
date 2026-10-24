@@ -104,19 +104,18 @@ class PaneManager {
 
   // ── Leaflet DOM integration ────────────────────────────────────
 
-  /** The pane names some surface of this map currently claims as its
-   *  exclusive carrier — created here, or adopted from a pre-built pane on
-   *  first use — keyed by pane name, valued by the claiming surface's id.
-   *  The claim is the ownership proof: "the name is not one of Leaflet's
-   *  shared panes" is NOT ownership (any caller can pre-create a
-   *  custom-named pane and two surfaces would then silently share one
-   *  element), but a claim on file is. A second surface claiming the same
-   *  name is refused (`isPaneClaimed`), and the refusing surface degrades to
-   *  its own synthesized pane instead of co-writing someone else's carrier.
-   *  The id keying is what makes a re-registration of the SAME surface a
-   *  no-op rather than a self-collision: re-checking a face against its own
-   *  claim is the matches() flow, not a second writer. */
-  private readonly claimedPanes = new Map<string, string>();
+  /** The pane leases some surface of this map currently holds — keyed by
+   *  pane name, valued by the owning surface's id plus how the pane was
+   *  acquired (`created` = foliplus made the element; adopted = a pre-built
+   *  element this surface proved exclusive). The lease is the ownership
+   *  proof: "the name is not one of Leaflet's shared panes" is NOT ownership,
+   *  and neither is being the first caller of `ensurePane` on a pane that
+   *  already carries foreign DOM. Admission therefore runs through
+   *  `canAcquirePane` before any DOM or bookkeeping changes, a second
+   *  claimant on a held name is refused, and `releasePane` retires the lease
+   *  (deleting the element only when foliplus created it as the owner's own
+   *  carrier). */
+  private readonly paneLeases = new Map<string, { owner: string; created: boolean }>();
 
   /** Ensure a custom pane exists on the map.
    *  @param {string} paneName - Pane name.
@@ -129,7 +128,35 @@ class PaneManager {
     /** The claiming surface's id. Recorded so `isPaneClaimed` can let a
      *  surface re-check its own pane without reading it as a collision. */
     owner?: string,
-  ): { pane: HTMLElement; renderer: L.SVG | null } {
+  ): { pane: HTMLElement | null; renderer: L.SVG | null } {
+    const self = owner ?? paneName;
+    const held = this.paneLeases.get(paneName);
+    // Admission happens here, before any DOM or bookkeeping change: a pane
+    // another surface holds, or a pre-built pane that already paints foreign
+    // content, is not acquireable — the caller degrades instead of
+    // co-writing (or restyling) someone else's carrier.
+    if (held && held.owner !== self) {
+      log.warn(
+        `pane "${paneName}" is held by surface ${held.owner}; refusing ` +
+          `acquire from ${self}`,
+      );
+      return { pane: null, renderer: null };
+    }
+    if (!held) {
+      const existing = this.map.getPane(paneName);
+      if (existing && this.isForeignPane(existing)) {
+        // A pre-built pane that already paints content nobody here created:
+        // adopting it would restyle (class/z/focus) and export foreign DOM.
+        // (A pane foliplus stamped in an earlier cycle carries the class —
+        // that is the unregister/re-register cycle re-adopting its OWN
+        // declared pane, children included, not a foreign takeover.)
+        log.warn(
+          `pane "${paneName}" already carries foreign content; refusing ` +
+            `adoption from ${self}`,
+        );
+        return { pane: null, renderer: null };
+      }
+    }
     let pane = this.map.getPane(paneName);
     if (!pane) {
       pane = this.map.createPane(paneName);
@@ -141,31 +168,66 @@ class PaneManager {
       if (spec) {
         pane.style.zIndex = String(zFor({ role: spec.role, order: spec.order }));
       }
-    } else if (!pane.classList.contains("foliplus-layer-pane")) {
-      // An adopted pre-built pane must satisfy the same CSS contract as a
-      // created one: the focus hide rule and the pointer-events rules key on
-      // this class, and an adopted pane without it would stay visible (and
-      // clickable) in focus mode.
-      pane.classList.add("foliplus-layer-pane");
+      this.paneLeases.set(paneName, { owner: self, created: true });
+    } else {
+      if (!pane.classList.contains("foliplus-layer-pane")) {
+        // An adopted pre-built pane must satisfy the same CSS contract as a
+        // created one: the focus hide rule and the pointer-events rules key on
+        // this class, and an adopted pane without it would stay visible (and
+        // clickable) in focus mode.
+        pane.classList.add("foliplus-layer-pane");
+      }
+      this.paneLeases.set(paneName, { owner: self, created: false });
     }
-    this.claimedPanes.set(paneName, owner ?? paneName);
     return {
       pane,
       renderer: needRenderer ? getRendererFor(this.map, paneName) : null,
     };
   }
 
-  /** Whether a pane name is already some OTHER surface's exclusive carrier.
-   *  A name claimed here must not be adopted by a second surface — the
-   *  elements the first one writes (opacity / z / focus classes) would land
-   *  on the second one's content too. Callers use this at the declaration
-   *  edge, where the honest degradation (synthesize a stamped pane instead)
-   *  is still a constructor-time decision. `selfId` passes through a
-   *  surface's own claim: re-checking your own pane is the matches() flow,
-   *  not a second writer. */
-  isPaneClaimed(paneName: string, selfId?: string): boolean {
-    const owner = this.claimedPanes.get(paneName);
-    return owner !== undefined && owner !== selfId;
+  /** Whether a pane name is acquireable by surface `selfId`: free (never
+   *  created, never leased), leased by `selfId` itself (the matches()
+   *  re-check flow), or an EMPTY pre-built pane (a caller preparing a pane
+   *  for its layer — adoption is provably exclusive while nothing paints in
+   *  it yet). A pane held by another surface, or a pre-built pane already
+   *  painting foreign content, is refused — the caller degrades to its own
+   *  synthesized pane instead of co-writing (or restyling) someone else's
+   *  carrier. Callers use this at the declaration edge, where the degrade is
+   *  still a constructor-time decision. */
+  canAcquirePane(paneName: string, selfId?: string): boolean {
+    if (this.defaultPanes.has(paneName)) return false;
+    const self = selfId ?? paneName;
+    const held = this.paneLeases.get(paneName);
+    if (held) return held.owner === self;
+    const existing = this.map.getPane(paneName);
+    if (!existing) return true;
+    // A pane foliplus already stamped is its own — the unregister/re-register
+    // cycle re-adopts it, children included. A plain pane with content is
+    // somebody else's; an empty one is a caller preparing for its layer.
+    if (existing.classList.contains("foliplus-layer-pane")) return true;
+    return existing.childElementCount === 0;
+  }
+
+  /** Whether a pane element paints content foliplus never created: no
+   *  foliplus class stamp AND children on it. The class is what makes the
+   *  unregister/re-register cycle of a declared pane re-adoptable. */
+  private isForeignPane(existing: HTMLElement): boolean {
+    return (
+      !existing.classList.contains("foliplus-layer-pane") &&
+      existing.childElementCount > 0
+    );
+  }
+
+  /** Retire a surface's lease on one pane. The lease always goes; the
+   *  element goes only when foliplus created it as the owner's own carrier
+   *  (a synthesized base pane, a marker-shadow pane) — an adopted or
+   *  caller-declared pane outlives its surface so the same id can be
+   *  registered again without rebuilding panes. */
+  releasePane(paneName: string, owner: string, removeDom: boolean): void {
+    const held = this.paneLeases.get(paneName);
+    if (held?.owner !== owner) return;
+    this.paneLeases.delete(paneName);
+    if (removeDom && held.created) this.removePane(paneName);
   }
 
   /** Remove a pane this tree owns from the DOM and Leaflet's registries.
@@ -179,7 +241,7 @@ class PaneManager {
   removePane(paneName: string) {
     destroyPane(this.map, paneName);
     this.paneSpecs.delete(paneName);
-    this.claimedPanes.delete(paneName);
+    this.paneLeases.delete(paneName);
   }
 
   /** Clear all pane state. Called by LayerController.destroy().
@@ -189,7 +251,7 @@ class PaneManager {
   destroy() {
     this.discoveryCache.clear();
     this.paneSpecs.clear();
-    this.claimedPanes.clear();
+    this.paneLeases.clear();
     this.generation++;
   }
 
@@ -573,7 +635,7 @@ class PaneManager {
     if (this.defaultPanes.has(paneName)) {
       throw new Error(this.sharedPaneRejection(paneName));
     }
-    if (!this.claimedPanes.has(paneName)) {
+    if (!this.paneLeases.has(paneName)) {
       // A name outside the shared list but with no claim on file is exactly
       // the co-writing case: two surfaces adopting the same custom-named pane
       // would both pass a name-only check and style each other's content.

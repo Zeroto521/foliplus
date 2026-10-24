@@ -329,7 +329,11 @@ class LayerController implements LayerAPI {
             claimed = true;
           }
         }
-        if (!claimed) {
+        // Unattributed: sweep only while the registry still holds unresolved
+        // layers (folium's late globals landing after this script) — that is
+        // the one case the sweep exists for. Every unrelated control/plugin
+        // layeradd afterwards must not rescan every registered tree.
+        if (!claimed && this.hasUnresolvedLayers()) {
           for (const surface of this.surfaces.values()) surface.markContentDirty();
         }
       }

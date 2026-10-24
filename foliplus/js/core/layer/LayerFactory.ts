@@ -254,7 +254,12 @@ class LayerFactory {
     // 400 — above every basemap — until the ordering pass caught up.
     let facePane: HTMLElement | null = null;
     const mountFace = (paneName: string, face: HTMLCanvasElement) => {
-      facePane = panes.ensurePane(paneName, false, opts.id).pane;
+      const { pane } = panes.ensurePane(paneName, false, opts.id);
+      if (!pane) {
+        log.warn(`canvas pane "${paneName}" is not acquireable; face not mounted`);
+        return;
+      }
+      facePane = pane;
       facePane.appendChild(face);
     };
     const stampBirthZ = (id: string) => {

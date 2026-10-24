@@ -1048,7 +1048,7 @@ describe("PaneManager", () => {
     expect(() => pm.assertOwnedPane("foliplus-canvas-heatmap")).not.toThrow();
   });
 
-  it("isPaneClaimed lets a surface re-check its own claim (the matches flow)", () => {
+  it("canAcquirePane lets a surface re-check its own lease (the matches flow)", () => {
     // Re-registering the same surface constructs a second face that re-checks
     // the same declaration — that must read as "mine", not as a collision.
     const pm = new PaneManager({
@@ -1056,9 +1056,68 @@ describe("PaneManager", () => {
       createPane: vi.fn(() => document.createElement("div")),
     });
     pm.ensurePane("foliplus-pane-7", false, "surface-a");
-    expect(pm.isPaneClaimed("foliplus-pane-7", "surface-a")).toBe(false);
-    expect(pm.isPaneClaimed("foliplus-pane-7", "surface-b")).toBe(true);
-    expect(pm.isPaneClaimed("foliplus-pane-7")).toBe(true);
+    expect(pm.canAcquirePane("foliplus-pane-7", "surface-a")).toBe(true);
+    expect(pm.canAcquirePane("foliplus-pane-7", "surface-b")).toBe(false);
+    expect(pm.canAcquirePane("foliplus-pane-7")).toBe(false);
+  });
+
+  it("canAcquirePane refuses a pre-built pane that already paints content", () => {
+    // Being the first foliplus caller is NOT ownership: a pane carrying
+    // foreign DOM is somebody else's carrier, and adopting it would restyle
+    // (class/z/focus) and export their pixels. An EMPTY pre-built pane is
+    // the caller preparing for its layer — provably exclusive while empty.
+    const foreignPane = document.createElement("div");
+    foreignPane.appendChild(document.createElement("img"));
+    const emptyPane = document.createElement("div");
+    const map = {
+      getPane: vi.fn((name: string) =>
+        name === "foreign" ? foreignPane : name === "empty" ? emptyPane : null,
+      ),
+      createPane: vi.fn(() => document.createElement("div")),
+    };
+    const pm = new PaneManager(map);
+    expect(pm.canAcquirePane("foreign", "surface-a")).toBe(false);
+    expect(pm.canAcquirePane("empty", "surface-a")).toBe(true);
+    const refused = pm.ensurePane("foreign", false, "surface-a");
+    expect(refused.pane).toBeNull();
+    // Nothing was restyled or leased: no class, no claim.
+    expect(foreignPane.classList.contains("foliplus-layer-pane")).toBe(false);
+  });
+
+  it("releasePane retires the lease and deletes only foliplus-created DOM", () => {
+    const adopted = document.createElement("div");
+    document.body.append(adopted);
+    const createdEls: HTMLElement[] = [];
+    const map = {
+      getPane: vi.fn((name: string) =>
+        name === "declared"
+          ? adopted
+          : (createdEls.find(el => el.dataset.pane === name) ?? null),
+      ),
+      createPane: vi.fn((name: string) => {
+        const el = document.createElement("div");
+        el.dataset.pane = name;
+        document.body.append(el);
+        createdEls.push(el);
+        return el;
+      }),
+      hasLayer: vi.fn(() => false),
+    };
+    const pm = new PaneManager(map);
+    // "synth" does not exist yet — foliplus creates it (created: true).
+    // "declared" is pre-built and adopted (created: false).
+    pm.ensurePane("synth", false, "surface-a");
+    pm.ensurePane("declared", false, "surface-a");
+    expect(pm.canAcquirePane("synth", "surface-b")).toBe(false);
+
+    pm.releasePane("declared", "surface-a", false);
+    pm.releasePane("synth", "surface-a", true);
+
+    // Both leases retired; only the foliplus-created element was removed.
+    expect(pm.canAcquirePane("declared", "surface-b")).toBe(true);
+    expect(pm.canAcquirePane("synth", "surface-b")).toBe(true);
+    for (const el of createdEls) expect(el.isConnected).toBe(false);
+    expect(adopted.isConnected).toBe(true);
   });
 
   it("pinLateContent is idempotent for a GridLayer already in the target pane", () => {

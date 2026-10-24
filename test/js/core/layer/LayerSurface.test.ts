@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { LayerSurface } from "#foliplus/core/layer/LayerSurface.js";
 import { PaneManager } from "#foliplus/core/layer/PaneManager.js";
+import * as carrierModule from "#foliplus/core/layer/carrier.js";
 import * as CONST from "#foliplus/core/layer/const.js";
 import type { PaneSpec } from "#foliplus/core/layer/type.js";
 import { CLUSTER_CAPABILITIES, deriveLayerKind } from "#foliplus/core/layer/util.js";
@@ -274,6 +275,33 @@ describe("LayerSurface pane resolution", () => {
     expect(surface.panes[1].renderer).toBeNull();
   });
 
+  it("degrades to the none carrier when the carrier audit finds an escape", () => {
+    // Fail closed: a surface that promised pane coverage and then fails the
+    // completeness audit must stop promising it (the UI hides the write that
+    // would have lied) instead of logging and carrying on.
+    const { map, host } = makeMap();
+    const layer = new Group([new Marker()]);
+    const surface = new LayerSurface(host, {
+      id: "escape",
+      layer: layer as unknown as L.Layer,
+    });
+    surface.materialize();
+    expect(surface.capabilities.opacity).toBe("pane");
+
+    const escapeError = new Error("[carrier] IMG paint outside the layer's own panes");
+    const assertSpy = vi
+      .spyOn(carrierModule, "assertInsideOwnedPanes")
+      .mockImplementation(() => {
+        throw escapeError;
+      });
+    surface.markContentDirty();
+    surface.materialize();
+    assertSpy.mockRestore();
+
+    expect(surface.capabilities.opacity).toBe("none");
+    expect(surface.capabilities.relocatable).toBe(false);
+  });
+
   it("synthesizes no shadow pane for a layer without markers", () => {
     const { host } = makeMap();
     const surface = new LayerSurface(host, {
@@ -303,6 +331,38 @@ describe("LayerSurface pane resolution", () => {
     ]);
     expect(surface.panes.map(pane => pane.role)).toEqual(["base", "annotation"]);
     expect(panes["foliplus-annotation-x"]).toBeDefined();
+  });
+
+  it("skips a raw paneSpec naming a Leaflet shared pane", () => {
+    // A raw registerLayer({ paneSpecs }) can name `overlayPane` as a
+    // sub-pane; the admission gate refuses it BEFORE any DOM change — the
+    // shared pane never gets the foliplus class or a lease.
+    const { panes, host } = makeMap();
+    const surface = new LayerSurface(host, {
+      id: "raw",
+      layer: new Path() as unknown as L.Layer,
+      paneName: "owned-base",
+      paneSpecs: specs("owned-base", "overlayPane"),
+    });
+    expect(surface.paneNames).toEqual(["owned-base"]);
+    expect(panes.overlayPane).toBeUndefined();
+  });
+
+  it("falls back to a synthesized pane when every discovered pane is refused", () => {
+    // A tree whose only child pane is held by another surface would
+    // otherwise report pane coverage while holding no base carrier at all.
+    const { host } = makeMap();
+    new LayerSurface(host, {
+      id: "owner",
+      layer: { options: { pane: "foliplus-shared" } } as unknown as L.Layer,
+      paneName: "foliplus-shared",
+    });
+    const sharer = { options: { pane: "foliplus-shared" } } as unknown as L.Layer;
+    const second = new LayerSurface(host, { id: "sharer", layer: sharer });
+    second.materialize();
+    // The degraded surface ends up with its own provably exclusive pane.
+    expect(second.paneNames).toEqual([second.synthesizedPaneName]);
+    expect(second.synthesizedPaneName).toMatch(/^foliplus-pane-/);
   });
 
   it("skips a discovered child pane that another surface claims", () => {

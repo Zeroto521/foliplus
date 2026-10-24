@@ -2500,9 +2500,12 @@ describe("LayerController", () => {
     manager.registerLayer({ id: "replace-me", name: "R", layer: second });
     const newSurface = manager.surfaceFor(manager.layerRegistry.get("replace-me")!);
     // The replacement released the old face (its synthesized base pane and
-    // marker-shadow pane) before claiming the id for the new one.
+    // marker-shadow pane) before claiming the id for the new one, AND the old
+    // layer left the map — otherwise it would keep painting as an
+    // unmanageable ghost next to the new layer.
     expect(newSurface).not.toBe(oldSurface);
     expect(destroySpy).toHaveBeenCalledTimes(1);
+    expect(manager.map.removeLayer).toHaveBeenCalledWith(first);
   });
 
   it("a layeradd marks only the owning surface dirty", () => {

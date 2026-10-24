@@ -352,6 +352,21 @@ class LayerOrchestration {
     const existingIdx = existingLi ? this.layerRegistry.indexOf(existingLi) : -1;
     const layerInfo = this.layerRegistry.createLayerInfo(opts, existingLi, this.map);
 
+    // Same id, new layer object: the old layer is being replaced, not
+    // joined. Retire it from the map BEFORE the registry forgets it —
+    // otherwise it keeps painting as an unmanageable ghost (no row, no
+    // opacity, no focus, no sort can reach it) for as long as the session
+    // lives. Same-object re-registration (the "this layer changed" signal)
+    // is untouched.
+    if (
+      existingLi?.layer &&
+      opts.layer &&
+      existingLi.layer !== opts.layer &&
+      this.map.hasLayer(existingLi.layer)
+    ) {
+      this.map.removeLayer(existingLi.layer);
+    }
+
     if (existingIdx !== -1) this.layerRegistry.upsert(layerInfo);
     else if (layerInfo.group === GROUP.BASE) {
       const firstBaseIdx = this.layerRegistry.firstBaseIdx;

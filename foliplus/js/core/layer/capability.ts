@@ -15,7 +15,7 @@
 // a Marker with no children — the `setStyle` of its own is not a real
 // carrier when the walk finds nothing to write to.
 import { isPixelRadiusLeaf } from "../leafletAdapter.js";
-import { findNode, someLeaf } from "./walkLeaf.js";
+import { someLeaf, walkLeaf } from "./walkLeaf.js";
 
 /** Whether any leaf in the tree owns a *pixel* radius — the honest carrier
  *  check for the size axis. The single-leaf test is `isPixelRadiusLeaf`; this
@@ -151,11 +151,24 @@ const isMigratableLeaf = (leaf: unknown): boolean => {
   );
 };
 
-const hasMigratableLeaf = (node: unknown): boolean =>
-  // Node-level, not leaf-level: a layer GROUP whose own identity is a
-  // built-in family (a stand-in, or a specialized group subclass) carries
-  // its pane eligibility on itself; a plain group degrades to its leaves.
-  findNode(node, n => (isMigratableLeaf(n) ? true : undefined)) !== undefined;
+/** The full-tree carrier audit behind `opacity: "pane"`: EVERY visible leaf
+ *  must belong to a family the migrator relocates. A container qualifies
+ *  while empty (provisional — its leaves arrive later and are relocated one
+ *  by one, and the surface re-audits on re-registration), but the first
+ *  unknown leaf flips the answer to "mixed" so the surface degrades instead
+ *  of promising a pane write that will never cover the plugin's pixels.
+ *  Fail closed: capability comes from what the carrier can actually cover. */
+const auditMigratableTree = (node: unknown): "ok" | "mixed" | "empty" => {
+  let known = 0;
+  let unknown = 0;
+  walkLeaf(node, leaf => {
+    if (isMigratableLeaf(leaf)) known++;
+    else unknown++;
+  });
+  if (unknown > 0) return "mixed";
+  if (known > 0) return "ok";
+  return "empty";
+};
 
 /** Whether any leaf is an areal fill carrier — see `isArealStyleLeaf`. */
 const hasFillLeaf = (node: unknown): boolean => someLeaf(node, isArealStyleLeaf);
@@ -199,9 +212,9 @@ const isArealStyleLeaf = (node: unknown): boolean => {
 
 export {
   FILL_OPT_IN,
+  auditMigratableTree,
   hasFillLeaf,
   hasMarkerLeaf,
-  hasMigratableLeaf,
   hasRadiusLeaf,
   hasSetStyleLeaf,
   isArealStyleLeaf,
