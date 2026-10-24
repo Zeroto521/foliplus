@@ -56,6 +56,7 @@ import { closeAttrsPanel } from "./overlayPanel/attr.js";
 import { closeMoreMenu } from "./overlayPanel/menu.js";
 import { finishRename } from "./overlayPanel/rename.js";
 import { loadPersistedState } from "./state.js";
+import { applyBorderToLayer } from "./style/border.js";
 import { closeStylePanel, invalidateFields, replayFillState } from "./style/index.js";
 import { replaySizeIntent } from "./style/size.js";
 import { FACE, dropStyleDimApplies, scheduleStyleDimApply } from "./style/styleBag.js";
@@ -410,13 +411,18 @@ const onLayerItemCountChange = (ui: LayerUI, id: string): void => {
   // face like every panel write: ten additions in one frame cost one
   // collect/classify/apply, and the walk always reads the layer's latest state.
   //
-  // Every replay above is queued before the notify, not after: a projection
+  // Every replay is queued before the notify, not after: a projection
   // consumer can throw or unregister the layer, and the scheduled replay must
   // already exist for the teardown's LAYER_ITEM_REMOVED to drop it —
   // scheduling after a throw would skip the replay entirely, and scheduling
   // after a reentrant unregister would create a task for an id that is
   // already gone. The notify stays the last step of the operation.
   scheduleStyleDimApply(FACE.FILL, id, () => replayFillState(ui, id));
+  // Border claims the same replay with its own face: a stroke chosen before
+  // the leaf landed would otherwise never reach it — the border walk only ran
+  // while the user was editing. applyBorderToLayer bails without a stored
+  // intent, so a layer the user never touched keeps its authored stroke.
+  scheduleStyleDimApply(FACE.STROKE, id, () => applyBorderToLayer(ui, id));
   notifyDelta(ui, layerInfo, opacityDelta);
 };
 
