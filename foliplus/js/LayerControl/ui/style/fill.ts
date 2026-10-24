@@ -480,9 +480,16 @@ const FILL_DIMENSION = registerDimension<{
   },
   /** Content-change replay: a stored fill repaints the leaves that just
    *  landed — without it a streamed addData keeps the new features at the
-   *  author's colour and a running ramp classifies on stale breaks. */
-  onContentChange: (ui, layerId) =>
-    scheduleStyleDimApply(FACE.FILL, layerId, () => replayFillState(ui, layerId)),
+   *  author's colour and a running ramp classifies on stale breaks. The
+   *  when-gate mirrors replayFillState's own bail, but answers before any
+   *  scheduler box is allocated. */
+  contentChange: {
+    kind: "frame",
+    face: FACE.FILL,
+    when: (ui, layerId) =>
+      FILL_INTENT_KEYS.some(key => getIntent(ui, layerId, key) !== undefined),
+    run: (ui, layerId) => applyFillToLayer(ui, layerId),
+  },
 });
 
 export {

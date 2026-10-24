@@ -642,6 +642,13 @@ describe("onLayerItemCountChange — the registry replays", () => {
     const dot = radiusLeaf(10);
     const children = [areal, dot];
     ({ manager, ui, map } = withGroup(children));
+    // Labels on: the annotation policy's when-gate must pass for its face
+    // to be queued at all.
+    ui.c.annotation.setConfig("grp1", {
+      ...ui.c.annotation.defaultConfig(),
+      show: true,
+      field: "name",
+    });
     commitFillColor(ui, "grp1", "#ff0000");
     commitBorderColor(ui, "grp1", "#0000dd");
     commitSize(ui, "grp1", 30);
@@ -690,7 +697,17 @@ describe("onLayerItemCountChange — the registry replays", () => {
   it("control destroy reclaims every pending replay", () => {
     const children: any[] = [arealLeaf()];
     ({ manager, ui, map } = withGroup(children));
+    // Give the policies something to replay: an intent for the fill face,
+    // labels on for the label face — without them the when-gates allocate
+    // no boxes at all, and there would be nothing to reclaim.
+    commitFillColor(ui, "grp1", "#ff0000");
+    ui.c.annotation.setConfig("grp1", {
+      ...ui.c.annotation.defaultConfig(),
+      show: true,
+      field: "name",
+    });
     ensureEvents(map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "grp1" });
+    expect(hasStyleDimApply(FACE.FILL, "grp1")).toBe(true);
     expect(hasStyleDimApply(FACE.LABEL, "grp1")).toBe(true);
 
     manager.destroy();

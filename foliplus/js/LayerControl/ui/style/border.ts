@@ -431,8 +431,16 @@ const BORDER_DIMENSION = registerDimension<{ color: string; weight: number }>({
     return "author";
   },
   /** Content-change replay: a stroke chosen before a leaf landed reaches it
-   *  through the same coalesced walk an edit takes. */
-  onContentChange: (ui, layerId) => scheduleBorderApply(ui, layerId),
+   *  through the same coalesced walk an edit takes. The when-gate mirrors
+   *  applyBorderToLayer's own bail, before any scheduler box is allocated. */
+  contentChange: {
+    kind: "frame",
+    face: FACE.STROKE,
+    when: (ui, layerId) =>
+      getIntent(ui, layerId, INTENT.BORDER_COLOR) !== undefined ||
+      getIntent(ui, layerId, INTENT.BORDER_WEIGHT) !== undefined,
+    run: (ui, layerId) => applyBorderToLayer(ui, layerId),
+  },
 });
 
 export {

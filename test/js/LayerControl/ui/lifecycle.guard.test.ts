@@ -49,11 +49,17 @@ const at = (body: string[], needle: string) =>
 // because its return value is the delta the notify carries — opacity replays
 // explicitly, its delta IS the notify's payload, so it cannot ride the
 // registry loop. listDimensions because it IS the replay: every other
-// dimension claims the content-change hook through its descriptor's
-// onContentChange, and the loop is what runs them. The needle pins the
-// loop's presence and position, not each dimension — per-face coverage
-// lives in the behavioral tests (ui/style/*.test.ts, ui/style/registry).
-const BEFORE_NOTIFY = ["applyProjection(", "listDimensions(", "dim.onContentChange"];
+// dimension declares its mandatory contentChange policy there, and the loop
+// is what executes them — the scheduler call inside it must also precede the
+// notify. The needles pin presence and position, not each dimension —
+// per-face coverage lives in the behavioral tests (ui/style/*.test.ts,
+// ui/style/registry).
+const BEFORE_NOTIFY = [
+  "applyProjection(",
+  "listDimensions(",
+  "dim.contentChange",
+  "scheduleStyleDimApply(",
+];
 
 describe("onLayerItemCountChange — replay ordering", () => {
   const body = bodyLines("onLayerItemCountChange");

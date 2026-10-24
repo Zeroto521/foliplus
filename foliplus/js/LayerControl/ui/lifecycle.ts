@@ -62,7 +62,7 @@ import {
   invalidateFields,
 } from "./style/index.js";
 import { listDimensions } from "./style/registry.js";
-import { dropStyleDimApplies } from "./style/styleBag.js";
+import { dropStyleDimApplies, scheduleStyleDimApply } from "./style/styleBag.js";
 import type { LayerUI } from "./surface.js";
 
 /**
@@ -417,13 +417,17 @@ const onLayerItemCountChange = (ui: LayerUI, id: string): void => {
 
   // Opacity replays explicitly above: its return value IS the delta the
   // notify carries below, so it cannot ride the registry loop. Every other
-  // dimension replays through its descriptor's `onContentChange` — the
-  // single place a dimension declares what a content change owes it, so a
-  // new dimension never edits this hub again. Registry order is
-  // module-import order, not a semantic order: the replaying faces are
-  // independent (each schedules its own coalesced walk), and a future
-  // ordering dependency must be sorted explicitly, not inferred from the
-  // loop.
+  // dimension declares its `contentChange` policy on the descriptor — the
+  // single place a dimension states what a content change owes it, and the
+  // type makes the field mandatory, so a new dimension cannot silently skip
+  // the decision. The hub owns the mechanics every policy shares: sync
+  // policies run inline (inside the terminal event's error contract), frame
+  // policies schedule through the coalescer with the sourcing event
+  // attached, and the `when` gate answers before any box is allocated.
+  // Registry order is module-import order, not a semantic order: the
+  // replaying faces are independent (each schedules its own coalesced
+  // walk), and a future ordering dependency must be sorted explicitly, not
+  // inferred from the loop.
   //
   // Every replay is queued before the notify, not after: a projection
   // consumer can throw or unregister the layer, and the scheduled replay must
@@ -432,7 +436,19 @@ const onLayerItemCountChange = (ui: LayerUI, id: string): void => {
   // after a reentrant unregister would create a task for an id that is
   // already gone. The notify stays the last step of the operation.
   for (const dim of listDimensions()) {
-    dim.onContentChange?.(ui, id);
+    const policy = dim.contentChange;
+    if (policy.kind === "none") continue;
+    if (policy.kind === "sync") {
+      policy.run(ui, id);
+      continue;
+    }
+    if (policy.when?.(ui, id) === false) continue;
+    scheduleStyleDimApply(
+      policy.face,
+      id,
+      () => policy.run(ui, id),
+      EVENTS.LAYER_ITEM_COUNT_CHANGE,
+    );
   }
   notifyDelta(ui, layerInfo, opacityDelta);
 };

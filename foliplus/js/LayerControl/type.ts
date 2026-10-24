@@ -12,6 +12,7 @@
 import type { PersistedLayerState } from "#core/layer/index.js";
 import type { LayerDimKey } from "#core/layer/type.js";
 import type { ProjectionDelta } from "./ui/apply.js";
+import type { SchedulerFace } from "./ui/style/styleBag.js";
 import type { LayerUI } from "./ui/surface.js";
 
 export type {
@@ -79,6 +80,31 @@ type DimensionValueSource = "user" | "author" | "none";
  *  styleBag still owns the setStyle landing (commitStyleDim /
  *  restoreStyleDim / scheduleStyleDimApply) and is called from write/reset.
  *  Unmigrated dimensions keep their named helpers until a later PR. */
+/** How a dimension answers a content change (leaves landed or left on one
+ *  layer). Mandatory on every descriptor — the type forces each dimension
+ *  to state its policy, so a new dimension cannot silently skip the
+ *  decision the way an optional callback allowed.
+ *
+ *  - `none` — nothing to replay. opacity and zoomRange declare this: their
+ *    replay IS the projection sweep, and opacity's delta is the notify's
+ *    payload, so neither can ride the registry loop in the hub.
+ *  - `sync` — replay inline, inside the operation and before the notify.
+ *    A throw stays part of the terminal event's error contract.
+ *  - `frame` — replay on the next animation frame through the shared
+ *    coalescer (one walk per face+layer per frame). `when` is the cheap
+ *    precondition: when it answers false, no scheduler box is allocated at
+ *    all. The scheduler's async boundary records late failures instead of
+ *    raising them — the originating event has long returned by then. */
+type ContentChangePolicy =
+  | { kind: "none" }
+  | { kind: "sync"; run: (ui: LayerUI, layerId: string) => void }
+  | {
+      kind: "frame";
+      face: SchedulerFace;
+      when?: (ui: LayerUI, layerId: string) => boolean;
+      run: (ui: LayerUI, layerId: string) => void;
+    };
+
 type LayerDimension<D = unknown> = {
   key: LayerDimKey;
   /** Row-honest gate, two layers in order:
@@ -116,15 +142,11 @@ type LayerDimension<D = unknown> = {
   /** Three-state source of the effective value. Gate rejects → `"none"`;
    *  store provenance → `"user"`; otherwise `"author"`. */
   valueSource?: (ui: LayerUI, layerId: string) => DimensionValueSource;
-  /** The descriptor's claim on the content-change replay. The hub
-   *  (`onLayerItemCountChange` in ui/lifecycle.ts) runs every registered
-   *  dimension's hook when the layer's content changed (leaves landed or
-   *  left), before the operation's notify; the descriptor decides whether
-   *  and how to replay. Expensive replays must schedule through the frame
-   *  coalescer (styleBag) so a streamed burst coalesces into one walk, and
-   *  must bail when the user never chose anything for this dimension —
-   *  an untouched layer is never written. */
-  onContentChange?: (ui: LayerUI, layerId: string) => void;
+  /** The descriptor's content-change policy — see
+   *  {@link ContentChangePolicy}. The hub (`onLayerItemCountChange` in
+   *  ui/lifecycle.ts) executes it when the layer's content changed (leaves
+   *  landed or left), before the operation's notify. */
+  contentChange: ContentChangePolicy;
 };
 
-export type { LayerDimension, PersistedRecord };
+export type { ContentChangePolicy, LayerDimension, PersistedRecord };

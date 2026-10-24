@@ -500,6 +500,7 @@ const hasStyleDimApply = (face: SchedulerFace, layerId: string): boolean =>
 export {
   type StyleCarrier,
   FACE,
+  type SchedulerFace,
   type StyleApplyFailure,
   type StyleSetter,
   STYLE_APPLY_SOURCE,
