@@ -235,7 +235,7 @@ export default [
       // Zero-cost guards: every one of these flagged nothing across the tree,
       // so they are pure future-proofing rather than churn. The one exception
       // is no-irregular-whitespace, whose skipRegExps is load-bearing —
-      // bundle-size-check.mjs legitimately matches the BOM (﻿) that
+      // bundle-size-check.mjs legitimately matches the BOM (U+FEFF) that
       // esbuild prepends to every bundle, and that is a real character, not
       // stray whitespace.
       "no-var": "error",
