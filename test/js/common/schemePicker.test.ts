@@ -312,6 +312,39 @@ describe("focus return", () => {
   });
 });
 
+// ── restoreFocus option ────────────────────────────────────────────────
+
+describe("restoreFocus option", () => {
+  it("close() with restoreFocus: false does not steal focus when open", () => {
+    const { picker, trigger } = makePicker();
+    trigger.focus();
+    trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    // Focus is on an item after open
+    const items = picker
+      .getDropdown()!
+      .querySelectorAll("[role=option]") as NodeListOf<HTMLElement>;
+    const otherInput = document.createElement("input");
+    document.body.appendChild(otherInput);
+    otherInput.focus();
+    // Close with restoreFocus: false — should NOT steal focus back to trigger
+    picker.close({ restoreFocus: false });
+    expect(document.activeElement).toBe(otherInput);
+    expect(picker.getDropdown()).toBeNull();
+    picker.destroy();
+  });
+
+  it("close() on an already-closed picker does not steal focus", () => {
+    const { picker, trigger } = makePicker();
+    const otherInput = document.createElement("input");
+    document.body.appendChild(otherInput);
+    otherInput.focus();
+    // Picker is closed — close() should be a no-op for focus
+    picker.close({ restoreFocus: true });
+    expect(document.activeElement).toBe(otherInput);
+    picker.destroy();
+  });
+});
+
 // ── ARIA attributes ────────────────────────────────────────────────────
 
 describe("ARIA attributes", () => {
