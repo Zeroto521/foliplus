@@ -55,18 +55,20 @@ type StyleSetter = StyleCarrier & {
 type StyleFace = "fill" | "stroke";
 
 /** The write faces, as a named vocabulary. Same convention as `INTENT` /
- *  `DIM`: callers pass `FACE.FILL` / `FACE.STROKE` / `FACE.SIZE`, never a
- *  bare literal, so the string cannot drift from the type.
+ *  `DIM`: callers pass `FACE.FILL` / `FACE.STROKE` / `FACE.SIZE` /
+ *  `FACE.LABEL`, never a bare literal, so the string cannot drift from the
+ *  type.
  *
  *  `FILL` and `STROKE` are `setStyle` faces and so are members of
- *  `StyleFace`; `SIZE` is not — it is a direct `setRadius` walk. It lives in
- *  this table because it rides the same frame coalescer (see
- *  `SchedulerFace`), and one vocabulary for "what the coalescer keys on"
- *  keeps callers off bare literals. */
+ *  `StyleFace`; `SIZE` (a direct `setRadius` walk) and `LABEL` (a full label
+ *  rebuild) are not. They live in this table because they ride the same
+ *  frame coalescer (see `SchedulerFace`), and one vocabulary for "what the
+ *  coalescer keys on" keeps callers off bare literals. */
 const FACE = {
   FILL: "fill",
   STROKE: "stroke",
   SIZE: "size",
+  LABEL: "label",
 } as const;
 
 /** Every face the coalescer keys on, derived from `FACE` so a new member
@@ -82,6 +84,9 @@ const FACE_FACES: readonly SchedulerFace[] = Object.values(FACE);
  *  `setRadius` walk rather than a `setStyle` face — without sharing the
  *  queue, a typing burst across the size field would write one radius per
  *  leaf per keystroke, and a bulk content change would walk per leaf.
+ *  `FACE.LABEL` is the same shape at a larger scale: a label rebuild walks
+ *  the whole tree and repaints every label canvas, so a streamed addData
+ *  must pay it once per frame, not once per feature.
  *
  *  Derived from `FACE` rather than spelled out: adding a member to `FACE`
  *  is enough to add a face, and the type cannot drift from it. */

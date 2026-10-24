@@ -57,7 +57,13 @@ import { closeMoreMenu } from "./overlayPanel/menu.js";
 import { finishRename } from "./overlayPanel/rename.js";
 import { loadPersistedState } from "./state.js";
 import { applyBorderToLayer } from "./style/border.js";
-import { closeStylePanel, invalidateFields, replayFillState } from "./style/index.js";
+import {
+  closeStylePanel,
+  invalidateFieldCache,
+  invalidateFields,
+  replayFillState,
+  replayLabelState,
+} from "./style/index.js";
 import { replaySizeIntent } from "./style/size.js";
 import { FACE, dropStyleDimApplies, scheduleStyleDimApply } from "./style/styleBag.js";
 import type { LayerUI } from "./surface.js";
@@ -339,7 +345,11 @@ const bindLayerEvents = (ui: LayerUI): void => {
       if (layerInfo) initLayerItem(ui, layerInfo);
     }),
     subscribe(EVENTS.LAYER_ITEM_REMOVED, (payload: { id: string }) => {
-      invalidateFields(ui, payload.id);
+      // Cache drop only: unregister already tore the labels and their canvas
+      // down (annotation.unloadLayer runs before this event is emitted), and
+      // renderLabels for a gone layer rebuilds nothing — a replay here would
+      // be a walk for its own sake.
+      invalidateFieldCache(ui, payload.id);
       dropStyleDimApplies(payload.id);
     }),
     subscribe(EVENTS.LAYER_GROUP_COUNT_CHANGED, (payload: { group: string }) => {
@@ -382,7 +392,11 @@ const onLayerItemCountChange = (ui: LayerUI, id: string): void => {
   if (!item) return;
   const layerInfo = ui.c.layerRegistry.get(id);
   if (!layerInfo || layerInfo.group === GROUP.BASE) return;
-  invalidateFields(ui, id);
+  // Cheap sync cache drop — the row rebuild below re-reads the field lists,
+  // so they must not survive the content that just landed. The label rebuild
+  // itself is the most expensive of the replays (full tree walk + canvas
+  // repaint), so it is coalesced with the other faces further down.
+  invalidateFieldCache(ui, id);
 
   applyRowView(ui, item, buildRowCell(ui, layerInfo));
 
@@ -429,6 +443,12 @@ const onLayerItemCountChange = (ui: LayerUI, id: string): void => {
   // while the user was editing. applyBorderToLayer bails without a stored
   // intent, so a layer the user never touched keeps its authored stroke.
   scheduleStyleDimApply(FACE.STROKE, id, () => applyBorderToLayer(ui, id));
+  // Labels claim the replay too, with their own face: the rebuild walks the
+  // whole tree and repaints every label canvas, so a streamed addData firing
+  // one event per feature would otherwise pay a full rebuild per feature —
+  // O(N²) across the stream. One frame, one rebuild, and the gate inside
+  // replayLabelState keeps a layer that never turned labels on unwritten.
+  scheduleStyleDimApply(FACE.LABEL, id, () => replayLabelState(ui, id));
   notifyDelta(ui, layerInfo, opacityDelta);
 };
 

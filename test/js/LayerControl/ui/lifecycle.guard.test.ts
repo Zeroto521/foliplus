@@ -47,7 +47,7 @@ const at = (body: string[], needle: string) =>
 
 // The steps that must finish before the notify publishes. applyProjection
 // first because its return value is the delta the notify carries; the style
-// replays because they are what a newly-landed leaf still needs. The two
+// replays because they are what a newly-landed leaf still needs. The
 // scheduler needles are face-scoped: each replayed face is pinned on its
 // own, not just the presence of some scheduler call.
 const BEFORE_NOTIFY = [
@@ -55,6 +55,7 @@ const BEFORE_NOTIFY = [
   "replaySizeIntent(",
   "scheduleStyleDimApply(FACE.FILL",
   "scheduleStyleDimApply(FACE.STROKE",
+  "scheduleStyleDimApply(FACE.LABEL",
 ];
 
 describe("onLayerItemCountChange — replay ordering", () => {
