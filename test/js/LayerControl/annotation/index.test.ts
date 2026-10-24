@@ -1320,3 +1320,25 @@ describe("a layer that gains labelable content gets the stored intent on its new
     expect(() => mgr.applyLayerAlpha("ghost", 0.5)).not.toThrow();
   });
 });
+
+describe("AnnotationManager — renderLabels on a departing layer", () => {
+  // The unregister path (controller → annotation.unloadLayer) tears the
+  // labels and the canvas down BEFORE LAYER_ITEM_REMOVED is emitted, and a
+  // scheduled replay can also fire after the layer left the map. What
+  // renderLabels does then is the contract this pins: clear whatever is
+  // left, never (re)build a canvas for a layer that is already gone.
+  it("returns [] and builds no canvas when the layer is already gone", () => {
+    let layer: L.Layer | null = mkGroup([
+      mkLeaf({ props: { v: "1" }, latlng: { lat: 40, lng: -74 } }),
+    ]);
+    const { map } = makeMap();
+    const mgr = new AnnotationManager({ map, layerFind: () => layer });
+    mgr.setConfig("gone", { ...CONFIG });
+    expect(mgr.renderLabels("gone")).toHaveLength(1);
+    const canvasesBefore = mocks.instances.length;
+
+    layer = null;
+    expect(mgr.renderLabels("gone")).toEqual([]);
+    expect(mocks.instances.length).toBe(canvasesBefore);
+  });
+});

@@ -407,8 +407,10 @@ export { closeStylePanel, openStylePanel };
 // dimension rides along too: importing this barrel registers it.
 export {
   applyStyleLabelState,
+  invalidateFieldCache,
   invalidateFields,
   layerHasLabelFields,
+  replayLabelState,
 } from "./label.js";
 export { ANNOTATION_DIMENSION, layerCanLabel } from "./annotation.js";
 export { layerHasStyleDelegation } from "./delegated.js";
