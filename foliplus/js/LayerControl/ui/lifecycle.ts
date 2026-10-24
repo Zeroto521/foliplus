@@ -58,11 +58,7 @@ import { finishRename } from "./overlayPanel/rename.js";
 import { loadPersistedState } from "./state.js";
 import { closeStylePanel, invalidateFields, replayFillState } from "./style/index.js";
 import { replaySizeIntent } from "./style/size.js";
-import {
-  FACE,
-  dropStyleDimApplies,
-  scheduleStyleDimApply,
-} from "./style/styleBag.js";
+import { FACE, dropStyleDimApplies, scheduleStyleDimApply } from "./style/styleBag.js";
 import type { LayerUI } from "./surface.js";
 
 /**
