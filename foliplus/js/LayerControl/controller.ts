@@ -711,6 +711,43 @@ class LayerController implements LayerAPI {
     return this.isDestroyed || this.layerRegistry.get(id) !== entry;
   }
 
+  /** The one reorder commit path — registry move, z repricing, persistence,
+   *  the panel-order signal and the announcement, in that order, inside one
+   *  settled operation. moveLayerUp / moveLayerDown / bringLayerToFront and
+   *  the drag drop all funnel through here: each entry resolves the user's
+   *  intent into a registry mutation and a no-op verdict, and this method
+   *  owns every contract the entrances must share — the event pair, the
+   *  identity retirement gate and the exception policy.
+   *
+   *  `mutate` runs before the operation opens, exactly as the entrances did
+   *  on their own: the registry move is a local commit, not a side effect a
+   *  subscriber can veto, and a throwing consumer must not find the saved
+   *  order disagreeing with the live one. */
+  private commitReorder(id: string, item: LayerInfo, mutate: () => void): boolean {
+    mutate();
+    this.enforceOrder();
+    this.saveOrder();
+    const operation = this.beginOperation();
+    if (this.uiContainer && this.ui) {
+      operation.emit(EVENTS.LAYER_LIST_REBUILD);
+    }
+    // The panel sync above is this operation's own side effect, so it lands
+    // before the notify: a subscriber reading the row order out of the panel
+    // during the CHANGE sees the arrangement that was just made. That same
+    // fan-out is where a subscriber can retire what the move announces for —
+    // destroying the control or unregistering the layer — so the entry is
+    // re-read rather than reused: a swap under the same id would otherwise
+    // be announced on top of the arrangement it just rendered. A controller
+    // with no panel never synced anything and announces as usual.
+    if (this.isRetired(id, item)) {
+      operation.throwIfFailed();
+      return true;
+    }
+    this.emitLayerChange(id, item.kind, operation);
+    operation.throwIfFailed();
+    return true;
+  }
+
   /**
    * Bring a registered layer to the front (top of z-order).
    * @param {string} id - Layer ID previously passed to registerLayer().
@@ -721,28 +758,32 @@ class LayerController implements LayerAPI {
     const idx = this.layerRegistry.indexOf(item);
     if (idx <= 0) return;
     if (item?.group === GROUP.BASE) return;
-    this.layerRegistry.moveToFront(id);
-    this.enforceOrder();
-    this.saveOrder();
-    const operation = this.beginOperation();
-    if (this.uiContainer && this.ui) {
-      operation.emit(EVENTS.LAYER_LIST_REBUILD);
-    }
-    // The rebuild above is this operation's own side effect, so it lands
-    // before the notify: a subscriber reading the row order out of the panel
-    // during the CHANGE sees the arrangement that was just made, not the one
-    // about to be rendered. That same replay is where a subscriber can retire
-    // what the move announces for — destroying the control or unregistering
-    // the layer — so the entry is re-read rather than reused: a swap under the
-    // same id would otherwise be announced on top of the arrangement it just
-    // rendered. A controller with no panel never rebuilt anything and
-    // announces as usual.
-    if (this.isRetired(id, item)) {
-      operation.throwIfFailed();
-      return;
-    }
-    this.emitLayerChange(id, item.kind, operation);
-    operation.throwIfFailed();
+    this.commitReorder(id, item, () => this.layerRegistry.moveToFront(id));
+  }
+
+  /**
+   * Land a dragged layer at another layer's slot — the drag-drop counterpart
+   * of the move APIs, funneled through the same commit path so a drag
+   * publishes the same panel-order signal and layer CHANGE a keyboard or API
+   * move does. Both ids are resolved at commit time, not when the gesture
+   * started: the armed drag keeps the layer's identity, and the registry is
+   * re-read here so an intervening reorder moves what the user actually
+   * grabbed.
+   * @param {string} id - The dragged layer's ID.
+   * @param {string} targetId - The layer whose slot the drop names.
+   * @returns {boolean} true if the layer moved, false when either id is
+   *   gone, the slots coincide, or the group boundary refuses the move —
+   *   always without side effects on false.
+   */
+  reorderLayer(id: string, targetId: string): boolean {
+    const item = this.layerRegistry.get(id);
+    const target = this.layerRegistry.get(targetId);
+    if (!item || !target) return false;
+    const from = this.layerRegistry.indexOf(item);
+    const to = this.layerRegistry.indexOf(target);
+    if (from === -1 || to === -1 || from === to) return false;
+    if (!this.canReorderBetween(from, to)) return false;
+    return this.commitReorder(id, item, () => this.layerRegistry.reorder(from, to));
   }
 
   /** Stamp `updatedAt` to now — call after a runtime mutation that does not
@@ -1168,23 +1209,7 @@ class LayerController implements LayerAPI {
     if (idx <= 0) return false;
     if (!this.canReorderBetween(idx, idx - 1)) return false;
 
-    this.layerRegistry.reorder(idx, idx - 1);
-    this.enforceOrder();
-    this.saveOrder();
-    const operation = this.beginOperation();
-    if (this.uiContainer && this.ui) {
-      operation.emit(EVENTS.LAYER_LIST_REBUILD);
-    }
-    if (this.isRetired(id, item)) {
-      operation.throwIfFailed();
-      return true;
-    }
-    // Same retirement check as bringLayerToFront: the rebuild above can retire
-    // what this move announces for, and the row list it just rebuilt is what
-    // the notify announces against.
-    this.emitLayerChange(id, item.kind, operation);
-    operation.throwIfFailed();
-    return true;
+    return this.commitReorder(id, item, () => this.layerRegistry.reorder(idx, idx - 1));
   }
 
   /**
@@ -1201,23 +1226,7 @@ class LayerController implements LayerAPI {
     if (idx < 0 || idx >= this.layers.length - 1) return false;
     if (!this.canReorderBetween(idx, idx + 1)) return false;
 
-    this.layerRegistry.reorder(idx, idx + 1);
-    this.enforceOrder();
-    this.saveOrder();
-    const operation = this.beginOperation();
-    if (this.uiContainer && this.ui) {
-      operation.emit(EVENTS.LAYER_LIST_REBUILD);
-    }
-    if (this.isRetired(id, item)) {
-      operation.throwIfFailed();
-      return true;
-    }
-    // Same retirement check as bringLayerToFront: the rebuild above can retire
-    // what this move announces for, and the row list it just rebuilt is what
-    // the notify announces against.
-    this.emitLayerChange(id, item.kind, operation);
-    operation.throwIfFailed();
-    return true;
+    return this.commitReorder(id, item, () => this.layerRegistry.reorder(idx, idx + 1));
   }
 
   destroy() {

@@ -37,7 +37,11 @@ const cursorRef = (ui: LayerUI): string | null => {
 
 /** Re-attach the cursor (marker + DOM focus) to the rebuilt row. A row hidden
  *  by folding is not focusable, so the cursor falls back to that group's
- *  toggle-all row. If the row is gone entirely, the cursor is cleared. */
+ *  toggle-all row. If the row is gone entirely, the cursor is cleared.
+ *
+ *  Rebuild-grade only: the rows were destroyed, so the cursor and DOM focus
+ *  have nowhere to go but back onto a fresh element. The incremental
+ *  counterpart is {@link reconcileCursorByIdentity}. */
 
 const restoreCursor = (ui: LayerUI, ref: string | null): void => {
   if (ref === null) {
@@ -60,6 +64,34 @@ const restoreCursor = (ui: LayerUI, ref: string | null): void => {
   }
   if (idx !== -1) setActiveItem(ui, idx);
   else clearActiveItem(ui);
+};
+
+/** Re-home the cursor metadata after rows moved in place. The elements — and
+ *  any focused descendant (checkbox, ⋮ button, rename input, a panel
+ *  control) — survive an incremental move, so DOM focus is NOT taken or
+ *  re-aimed: only `activeIdx` and the roving tab stop follow the row. The
+ *  FOCUSED marker needs no work either — it lives on the element, which
+ *  moved with its row. A row that left the panel mid-move clears the
+ *  cursor; that is the only fallback, there is nothing left to re-home. */
+const reconcileCursorByIdentity = (ui: LayerUI, ref: string | null): void => {
+  if (!ui.uiContainer?.isConnected) return;
+  if (ref === null) {
+    // No cursor to re-home; the tab stop still follows the new first row.
+    ui.listPanel.listCursor?.setIndex(ui.listPanel.activeIdx ?? -1);
+    return;
+  }
+  const items = getNavigableItems(ui);
+  const idx = items.findIndex(
+    el =>
+      el.getAttribute(CONST.DATA.LAYER_ID) === ref ||
+      el.getAttribute("data-group") === ref,
+  );
+  if (idx === -1) {
+    clearActiveItem(ui);
+    return;
+  }
+  ui.listPanel.activeIdx = idx;
+  ui.listPanel.listCursor?.setIndex(idx);
 };
 
 /** Get all keyboard-navigable rows: layer items and toggle-all rows, in DOM
@@ -187,6 +219,7 @@ export {
   syncListCursor,
   cursorRef,
   restoreCursor,
+  reconcileCursorByIdentity,
   getNavigableItems,
   findVisibleNeighbor,
   getActiveLayerItem,

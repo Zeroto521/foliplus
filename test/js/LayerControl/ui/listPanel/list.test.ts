@@ -382,6 +382,9 @@ const benchData = (overlays: number, bases: number) => [
   })),
 ];
 
+const rowOf = (ui: LayerUI, id: string): HTMLElement =>
+  attachedPanel(ui).querySelector(`[${CONST.DATA.LAYER_ID}="${id}"]`) as HTMLElement;
+
 /** Child sequence signature: layer rows by id, anchors by group. */
 const childKeys = (ui: LayerUI) =>
   Array.from(attachedPanel(ui).children).map(
@@ -409,7 +412,10 @@ const registryKeys = (manager: LayerController): string[] => {
   return keys;
 };
 
-describe("ui/list syncRowOrder — incremental reorder", () => {
+// Suite-level timeout: every case here builds a panel fixture, and jsdom
+// attach sweeps stretch past the default 5s when the whole suite's workers
+// compete for the machine.
+describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, () => {
   beforeEach(() => {
     window.localStorage.clear();
   });
@@ -653,8 +659,10 @@ describe("ui/list syncRowOrder — incremental reorder", () => {
   it("tolerates a missing panel, anchor-less rows, stray children and no layers", () => {
     // The reconcile's defensive branches, driven through a bare mock: a
     // torn-down panel no-ops; rows order without their toggle-all anchors; a
-    // child that is neither a row nor an anchor is ignored; an empty
-    // registry writes nothing.
+    // child that is neither a row nor an anchor is ignored — including a
+    // toggle-all shell that lost its data-group; a registry entry without a
+    // row is skipped, and the write-path drift that produced any of this is
+    // named, not silently absorbed; an empty registry writes nothing.
     // A torn-down control must no-op.
     const bare = {
       uiContainer: null,
@@ -668,34 +676,190 @@ describe("ui/list syncRowOrder — incremental reorder", () => {
       el.setAttribute(CONST.DATA.LAYER_ID, id);
       return el;
     };
-    // Deliberately detached: syncListCursor must skip a disconnected root.
+    // Deliberately detached: the cursor reconcile must skip a disconnected
+    // root.
     const container = document.createElement("div");
     const stray = document.createElement("div");
-    container.append(stray, rowEl("B"), rowEl("A"), rowEl("base1"));
+    // Carries the toggle-all class but no data-group: an anchor that cannot
+    // be keyed, ignored like any other non-row child.
+    const headlessAnchor = document.createElement("div");
+    headlessAnchor.classList.add(CONST.CLASSES.TOGGLE_ALL);
+    // Two anchors for a group no layer references — the duplicate is named,
+    // and neither becomes a target.
+    const anchorEl = () => {
+      const el = document.createElement("div");
+      el.classList.add(CONST.CLASSES.TOGGLE_ALL);
+      el.setAttribute("data-group", "phantom");
+      return el;
+    };
+    container.append(
+      stray,
+      rowEl("B"),
+      rowEl("A"),
+      rowEl("base1"),
+      headlessAnchor,
+      // A second row for the same id and a row the registry never heard of:
+      // both are write-path bugs the diagnostics exist to name.
+      rowEl("A"),
+      rowEl("orphan"),
+      anchorEl(),
+      anchorEl(),
+    );
     const registry = { layers: [] as LayerInfo[] };
+    const warn = vi.fn();
     const ui = {
       uiContainer: container,
       c: registry,
       listPanel: { activeIdx: null },
+      log: { warn },
     } as unknown as LayerUI;
     registry.layers = [
       { id: "A", group: GROUP.OVERLAY } as LayerInfo,
       { id: "B", group: GROUP.OVERLAY } as LayerInfo,
+      { id: "ghost", group: GROUP.OVERLAY } as LayerInfo,
       { id: "base1", group: GROUP.BASE } as LayerInfo,
     ];
 
     syncRowOrder(ui);
 
-    // Rows follow the registry with no anchors to carry; the stray child is
-    // not a target and lands behind them.
+    // Rows follow the registry with no anchors to carry (both anchor-missing
+    // diagnostics fire); the ghost has no row to place; the duplicate, the
+    // orphan and the stray children land behind the targets.
     expect(
       Array.from(container.children).map(
         el => el.getAttribute(CONST.DATA.LAYER_ID) ?? "stray",
       ),
-    ).toEqual(["A", "B", "base1", "stray"]);
+    ).toEqual(["A", "B", "base1", "stray", "A", "stray", "orphan", "stray", "stray"]);
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('duplicate row for layer "A"'),
+    );
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('duplicate toggle-all anchor for "phantom"'),
+    );
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining(
+        "panel/registry drift — rows without entries [orphan], " +
+          "entries without rows [ghost]",
+      ),
+    );
 
     registry.layers = [];
     expect(() => syncRowOrder(ui)).not.toThrow();
-    expect(container.children.length).toBe(4);
+    expect(container.children.length).toBe(9);
+  });
+
+  it("every reorder entrance publishes the same event pair and settles the same way", () => {
+    // The four entrances — moveLayerUp, moveLayerDown, bringLayerToFront and
+    // the drag drop's reorderLayer — all commit through one funnel, so an
+    // outside observer cannot tell which one moved the layer: one
+    // panel-order signal after the registry move, one CHANGE for the moved
+    // layer, DOM and persisted order agreeing with the registry.
+    const cases = [
+      {
+        via: "moveLayerUp",
+        act: (m: LayerController) => m.moveLayerUp("L2"),
+        moved: "L2",
+        order: ["L0", "L2", "L1", "L3"],
+      },
+      {
+        via: "moveLayerDown",
+        act: (m: LayerController) => m.moveLayerDown("L0"),
+        moved: "L0",
+        order: ["L1", "L0", "L2", "L3"],
+      },
+      {
+        via: "bringLayerToFront",
+        act: (m: LayerController) => m.bringLayerToFront("L2"),
+        moved: "L2",
+        order: ["L2", "L0", "L1", "L3"],
+      },
+      {
+        via: "reorderLayer (drag)",
+        act: (m: LayerController) => m.reorderLayer("L3", "L0"),
+        moved: "L3",
+        order: ["L3", "L0", "L1", "L2"],
+      },
+    ];
+
+    for (const { via, act, moved, order } of cases) {
+      window.localStorage.clear();
+      const { manager, ui } = initFixture({
+        data: Array.from({ length: 4 }, (_, i) => ({
+          id: `L${i}`,
+          name: `L${i}`,
+          group: "overlay" as const,
+        })),
+      });
+      const rebuilds: string[] = [];
+      const changes: string[] = [];
+      // The color basemap joins the registry at attach as a base-group tail;
+      // the arrangement under test is the overlay block.
+      const overlayOrder = (m: LayerController) =>
+        m.layers.filter(l => l.group === GROUP.OVERLAY).map(l => l.id);
+      ui.events.on(EVENTS.LAYER_LIST_REBUILD, () =>
+        rebuilds.push(overlayOrder(manager).join(",")),
+      );
+      ui.events.on(EVENTS.LAYER_CHANGE, payload => changes.push(payload.id));
+
+      act(manager);
+
+      // The signal fires once, already carrying the finished arrangement;
+      // the move announces through the same CHANGE every entrance uses.
+      expect(rebuilds, via).toEqual([order.join(",")]);
+      expect(changes, via).toEqual([moved]);
+      expect(overlayOrder(manager), via).toEqual(order);
+      const domOrder = Array.from(
+        attachedPanel(ui).querySelectorAll(
+          `${CONST.SEL.LAYER_ITEM}[data-layer-type="${GROUP.OVERLAY}"]`,
+        ),
+      ).map(el => el.getAttribute(CONST.DATA.LAYER_ID));
+      expect(domOrder, via).toEqual(order);
+      (
+        manager as unknown as { persistence: { flushAll(): void } }
+      ).persistence.flushAll();
+      const record = JSON.parse(
+        window.localStorage.getItem(CONST.STORAGE.KEY) ?? "{}",
+      ) as { order?: string[] };
+      // The persisted snapshot is the full registry, color basemap included.
+      expect(record.order, via).toEqual(manager.layers.map(l => l.id));
+    }
+  });
+
+  it("a reorder never steals focus from the control the user is operating", () => {
+    // The incremental move carries DOM focus with the node; the reconcile
+    // re-homes only cursor metadata. A focused ⋮ button (or checkbox, or
+    // panel control) keeps focus whether its own row moved or another one
+    // did — the rebuild path had to re-aim focus because it destroyed the
+    // nodes; this path must not.
+    const { manager, ui } = initFixture({ data: benchData(4, 2) });
+    const moreBtn = rowOf(ui, "overlay_2").querySelector(
+      `.${CONST.CLASSES.MORE_BTN}`,
+    ) as HTMLElement;
+    moreBtn.focus();
+
+    manager.moveLayerUp("overlay_3");
+    expect(document.activeElement).toBe(moreBtn);
+
+    // Moving the focus host's own row travels with it.
+    manager.moveLayerUp("overlay_2");
+    expect(document.activeElement).toBe(moreBtn);
+    expect(moreBtn.closest(CONST.SEL.LAYER_ITEM)).toBe(rowOf(ui, "overlay_2"));
+
+    // One roving tab stop survives the moves.
+    const stops = getNavigableItems(ui).filter(el => el.tabIndex === 0);
+    expect(stops.length).toBe(1);
+  });
+
+  it("keeps checkbox focus while its hosting row moves", () => {
+    const { manager, ui } = initFixture({ data: benchData(4, 2) });
+    const box = rowOf(ui, "overlay_1").querySelector(
+      'input[type="checkbox"]',
+    ) as HTMLInputElement;
+    box.focus();
+
+    manager.moveLayerUp("overlay_1");
+
+    expect(document.activeElement).toBe(box);
+    expect(box.closest(CONST.SEL.LAYER_ITEM)).toBe(rowOf(ui, "overlay_1"));
   });
 });

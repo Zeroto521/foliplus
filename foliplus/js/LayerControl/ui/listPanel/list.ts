@@ -8,7 +8,12 @@ import { type ProjectionBatch, notifyDeltas } from "../apply.js";
 import { getColorSurface } from "../color.js";
 import { seedAuthorVisible } from "../intent.js";
 import type { LayerUI } from "../surface.js";
-import { cursorRef, restoreCursor, syncListCursor } from "./cursor.js";
+import {
+  cursorRef,
+  reconcileCursorByIdentity,
+  restoreCursor,
+  syncListCursor,
+} from "./cursor.js";
 import { applyRowView, buildRowCell, displayName } from "./rowView.js";
 import { syncNoBasemap, syncToggleAll } from "./visibility.js";
 
@@ -106,7 +111,15 @@ const rebuildList = (ui: LayerUI): void => {
  *  for. A persistent id → row index was considered and rejected: it would
  *  have to be maintained at every write site across two modules, and a
  *  missed rebuild would hand out detached nodes — for no gain over this
- *  single scan. */
+ *  single scan.
+ *
+ *  Focus travels with the nodes: an in-place `insertBefore` keeps DOM focus
+ *  on the moved row's focused descendant (checkbox, ⋮ button, a panel
+ *  control) in every engine implementing the spec's focus-fixing steps, so
+ *  the reconcile never re-aims focus itself. The one exception is honored
+ *  exactly: if something did drop it, it goes back to the *exact*
+ *  descendant — a native <select> popup or a menu's keyboard chain depends
+ *  on that precision — never to the row. */
 const syncRowOrder = (ui: LayerUI): void => {
   const container = ui.uiContainer;
   if (!container) return;
@@ -115,10 +128,21 @@ const syncRowOrder = (ui: LayerUI): void => {
   for (const child of Array.from(container.children)) {
     const el = child as HTMLElement;
     const id = el.getAttribute(CONST.DATA.LAYER_ID);
-    if (id) rows.set(id, el);
-    else if (el.classList.contains(CONST.CLASSES.TOGGLE_ALL)) {
+    if (id) {
+      // A duplicate id means two write paths raced or one leaked: the Map
+      // would silently keep the last one, so name it while it is free.
+      if (rows.has(id)) {
+        ui.log?.warn(`syncRowOrder: duplicate row for layer "${id}"`);
+      }
+      rows.set(id, el);
+    } else if (el.classList.contains(CONST.CLASSES.TOGGLE_ALL)) {
       const group = el.getAttribute("data-group");
-      if (group) anchors.set(group, el);
+      if (group) {
+        if (anchors.has(group)) {
+          ui.log?.warn(`syncRowOrder: duplicate toggle-all anchor for "${group}"`);
+        }
+        anchors.set(group, el);
+      }
     }
   }
 
@@ -132,20 +156,39 @@ const syncRowOrder = (ui: LayerUI): void => {
       hasOverlays = true;
       const anchor = anchors.get(GROUP.OVERLAY);
       if (anchor) targets.push(anchor);
+      else ui.log?.warn("syncRowOrder: overlay rows present, anchor missing");
     }
     if (layerInfo.group === GROUP.BASE && !hasBaseMaps) {
       hasBaseMaps = true;
       const anchor = anchors.get(GROUP.BASE);
       if (anchor) targets.push(anchor);
+      else ui.log?.warn("syncRowOrder: base rows present, anchor missing");
     }
     const row = rows.get(layerInfo.id);
     if (row) targets.push(row);
+  }
+  // The length check is the cheap side of the panel-matches-registry
+  // invariant; only when it breaks is the diff computed and named, so the
+  // hot path never pays for the diagnostics. One warn names both sides of
+  // the drift — an empty list reads as "[ ]", which is itself the answer.
+  if (
+    rows.size !==
+    targets.filter(t => !t.classList.contains(CONST.CLASSES.TOGGLE_ALL)).length
+  ) {
+    const missing = ui.c.layers.filter(l => !rows.has(l.id)).map(l => l.id);
+    const known = new Set(ui.c.layers.map(l => l.id));
+    const unknown = [...rows.keys()].filter(id => !known.has(id));
+    ui.log?.warn(
+      `syncRowOrder: panel/registry drift — rows without entries ` +
+        `[${unknown.join(", ")}], entries without rows [${missing.join(", ")}]`,
+    );
   }
   if (targets.length === 0) return;
 
   // The cursor is captured by identity before any move: activeIdx is a
   // position, and positions are exactly what is about to change.
   const ref = cursorRef(ui);
+  const active = document.activeElement as HTMLElement | null;
   let settled: HTMLElement | null = null;
   for (const node of targets) {
     if (settled) {
@@ -158,10 +201,19 @@ const syncRowOrder = (ui: LayerUI): void => {
     settled = node;
   }
 
-  // Rows moved: re-home the roving tabindex by identity, the same pair
-  // renderInitialList runs after its rebuild.
-  syncListCursor(ui);
-  restoreCursor(ui, ref);
+  // Rows moved: the cursor metadata follows by identity — the roving tab
+  // stop repaints, activeIdx re-homes, and DOM focus is left where the
+  // move carried it (see the function header for the exact-descendant
+  // guarantee).
+  reconcileCursorByIdentity(ui, ref);
+  if (
+    active &&
+    active !== document.body &&
+    active.isConnected &&
+    document.activeElement !== active
+  ) {
+    active.focus();
+  }
 };
 
 const renderInitialList = (ui: LayerUI) => {

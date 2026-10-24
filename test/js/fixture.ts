@@ -348,7 +348,7 @@ export function makeLayerUIMock(extra: Overrides = {}): LayerUI {
       checkedCount: {},
       activeIdx: null,
       listCursor: null,
-      dragIdx: null,
+      dragEntry: null,
       lastDragHintAt: 0,
       lastDragOverItem: null,
       pressInPanel: false,
@@ -382,7 +382,7 @@ export function makeLayerUIMock(extra: Overrides = {}): LayerUI {
     ["checkedCount", () => lp.checkedCount, v => void (lp.checkedCount = v as any)],
     ["activeIdx", () => lp.activeIdx, v => void (lp.activeIdx = v as any)],
     ["listCursor", () => lp.listCursor, v => void (lp.listCursor = v as any)],
-    ["dragIdx", () => lp.dragIdx, v => void (lp.dragIdx = v as any)],
+    ["dragEntry", () => lp.dragEntry, v => void (lp.dragEntry = v as any)],
     [
       "lastDragHintAt",
       () => lp.lastDragHintAt,

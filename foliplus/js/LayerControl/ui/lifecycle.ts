@@ -347,8 +347,9 @@ const bindLayerEvents = (ui: LayerUI): void => {
     }),
     subscribe(EVENTS.LAYER_LIST_REBUILD, () => {
       // The reorder signal only moves rows: the emitters (moveLayerUp/Down,
-      // bringLayerToFront, drag) have already updated the registry, repriced
-      // z and saved the order, and a position change alters no count,
+      // bringLayerToFront, the drag drop's reorderLayer) have already
+      // updated the registry, repriced z and saved the order through the
+      // controller's commit funnel, and a position change alters no count,
       // checkbox or readiness. So this handler relocates displaced rows
       // instead of rebuilding the panel — the full rebuildList stays on the
       // paths that change membership or row structure (fold, attach).

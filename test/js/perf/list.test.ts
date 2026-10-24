@@ -8,8 +8,8 @@
 // The gate sits at 500ms — multiples of the standalone number, to absorb a
 // loaded CI — so a regression that reintroduces the per-move rebuild trips
 // an order of magnitude below the old cost.
-import { describe, expect, it } from "vitest";
-import { initFixture } from "../LayerControl/ui/fixture.js";
+import { describe, expect, it, vi } from "vitest";
+import { attachedPanel, initFixture } from "../LayerControl/ui/fixture.js";
 
 const benchData = (overlays: number, bases: number) => [
   ...Array.from({ length: overlays }, (_, i) => ({
@@ -39,5 +39,27 @@ describe("perf/list syncRowOrder", () => {
     // The timeout covers the fixture's own attach sweep (the content-path
     // scan, not the reorder), which costs seconds at n=200 and more under a
     // loaded CI.
+  }, 120_000);
+
+  it("moves two nodes for a round and runs no rebuild pass", () => {
+    // The structural guard behind the wall-clock gate: absolute times vary
+    // with CI load, but the operation counts are exact. A regression to the
+    // full-rebuild path breaks these loudly and for the right reason.
+    window.localStorage.clear();
+    const { manager, ui } = initFixture({ data: benchData(198, 2) });
+    const insertBefore = vi.spyOn(attachedPanel(ui), "insertBefore");
+    const applyUserState = vi.spyOn(ui, "applyUserState");
+    const refreshAllCounts = vi.spyOn(ui, "refreshAllCounts");
+    const target = "overlay_99";
+
+    manager.moveLayerUp(target);
+    // One single-step move relocates exactly one row.
+    expect(insertBefore).toHaveBeenCalledTimes(1);
+    manager.moveLayerDown(target);
+    expect(insertBefore).toHaveBeenCalledTimes(2);
+    // No projection sweep, no count repaint: a position change touches
+    // neither row state nor membership.
+    expect(applyUserState).not.toHaveBeenCalled();
+    expect(refreshAllCounts).not.toHaveBeenCalled();
   }, 120_000);
 });
