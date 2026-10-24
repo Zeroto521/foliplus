@@ -6,6 +6,7 @@
 import { HINT_DURATION } from "#core/hint.js";
 import { ensureModes, guardBlocked } from "#core/mode.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
+import { finalize } from "#common/finalize.js";
 import {
   type ProjectionDeltaItem,
   applyProjectionAll,
@@ -254,7 +255,17 @@ const dismissFocus = (ui: LayerUI): void => {
   clearFocusedRowHighlight(ui);
   restoreHiddenLayers(ui);
   ui.c.annotation.setFocusFilter(null);
-  for (const restore of ui.focusController.focusedPaneRestores) restore();
+  // Each restore is its own named step: a pane that already left the map must
+  // not stop the mask/rect/renderer teardown below, which is what left the
+  // map dimmed with no way back.
+  const restored = finalize(
+    ...ui.focusController.focusedPaneRestores.map(
+      (restore, i) => [`pane-restore:${i}`, restore] as const,
+    ),
+  );
+  for (const failure of restored.failures) {
+    ui.log.warn(`focus restore step "${failure.name}" threw`, failure.error);
+  }
   ui.focusController.focusedPaneRestores = [];
 
   if (ui.focusController.focusRect) {
