@@ -7,9 +7,9 @@
 - `core/layer`: snapshot axis on `LayerRuntimeStore` — a layer's points, numeric fields, and value ranges are built once and cached alongside the fields cache ([#715](https://github.com/Zeroto521/foliplus/pull/715))
 - `core/layer`: filter AST (`and` / `or` / `atom`) and pure evaluator over `SnapshotPoint`, so filtering is a tree walk rather than a string parse ([#715](https://github.com/Zeroto521/foliplus/pull/715))
 - `HeatmapControl`: `aggregateData` is now a wrapper over `binPoints` (H3 geometry only) and `aggregateBins` (pure arithmetic), so a filter change can skip the geometry step ([#715](https://github.com/Zeroto521/foliplus/pull/715))
+- `LayerControl`: a size row sets a CircleMarker layer's pixel radius — every marker at once, persisted across reloads, and resettable to each marker's drawn radius ([#726](https://github.com/Zeroto521/foliplus/pull/726))
 - `LayerControl`: value-based fill — a numeric field, a classification method
   and a palette paint the layer by value ([#727](https://github.com/Zeroto521/foliplus/pull/727))
-- `LayerControl`: a size row sets a CircleMarker layer's pixel radius — every marker at once, persisted across reloads, and resettable to each marker's drawn radius ([#726](https://github.com/Zeroto521/foliplus/pull/726))
 
 ### Changed
 
@@ -18,10 +18,10 @@
 
 ### Fixed
 
-- `LayerControl`: reordering layers (`moveLayerUp`/`moveLayerDown`, `bringLayerToFront`, drag) relocates the displaced rows in place instead of rebuilding the panel — a 200-layer move drops from ~1.6s to milliseconds, the row elements and their state survive the move, and the panel never leaves its settled state ([#731](https://github.com/Zeroto521/foliplus/pull/731))
 - `EventBus`: policy-declared per-event entries — terminal events raise the first failure, notifications record it, owner listeners run first, and unload clears the bus ([#716](https://github.com/Zeroto521/foliplus/pull/716), [#719](https://github.com/Zeroto521/foliplus/pull/719), [#720](https://github.com/Zeroto521/foliplus/pull/720), [#723](https://github.com/Zeroto521/foliplus/pull/723), [#728](https://github.com/Zeroto521/foliplus/pull/728))
 - `LayerControl`: value-based fill follows the layer's real geometry — a mixed layer's fill row shows its polygon's colour, and features added after a fill was set are repainted instead of keeping the author's colour ([#727](https://github.com/Zeroto521/foliplus/pull/727))
 - `LayerControl`: a border chosen before features land still reaches them — the content-change replay now covers the stroke face alongside fill, size and opacity ([#730](https://github.com/Zeroto521/foliplus/pull/730))
+- `LayerControl`: reordering (`moveLayerUp`/`moveLayerDown`, `bringLayerToFront`, drag) moves rows in place instead of rebuilding the panel — a 200-layer move drops from seconds to milliseconds ([#731](https://github.com/Zeroto521/foliplus/pull/731))
 
 ## [v0.4.1] (2026-10-18)
 
