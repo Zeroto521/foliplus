@@ -508,13 +508,17 @@ class AnnotationManager {
   }
 
   destroy(): void {
-    const canvasIds = [...this.canvases.keys()];
+    // Snapshot the canvases themselves, not their ids: a step that removes the
+    // last reference can let a re-entrant `ensureCanvas` mount a replacement
+    // under the same id, and an id lookup at step time would destroy that new
+    // canvas instead of the one this teardown owns.
+    const canvases = [...this.canvases];
     finalize(
       [
         ["map-cleanup", () => this.mapCleanup()],
         ...this.unsubscribe.map((off, i) => [`unsubscribe:${i}`, off] as const),
-        ...canvasIds.map(
-          id => [`canvas:${id}`, () => this.canvases.get(id)?.destroy()] as const,
+        ...canvases.map(
+          ([id, canvas]) => [`canvas:${id}`, () => canvas.destroy()] as const,
         ),
       ],
       failure => log.warn(`destroy step "${failure.name}" threw`, failure.error),

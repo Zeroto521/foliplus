@@ -1060,6 +1060,35 @@ describe("AnnotationManager — render & plan", () => {
     expect(mgr.configEntries()).toHaveLength(0);
   });
 
+  it("destroy tears down the canvases it captured, not same-id replacements", () => {
+    // A canvas destroy can fire user handlers — an earlier step may re-render
+    // another layer, mounting a fresh canvas under an id the step list already
+    // holds. Looking the id up when its step runs would destroy the
+    // replacement and leak the canvas this teardown owns.
+    const { map } = makeMap();
+    const mgr = new AnnotationManager({
+      map,
+      layerFind: () => oneLabel(),
+    });
+    mgr.setConfig("a", CONFIG);
+    mgr.renderLabels("a");
+    mgr.setConfig("b", CONFIG);
+    mgr.renderLabels("b");
+    const first = mocks.instances.at(-2)!;
+    const originalB = mocks.instances.at(-1)!;
+    first.destroy.mockImplementation(() => {
+      (mgr as unknown as { canvases: Map<string, unknown> }).canvases.delete("b");
+      mgr.renderLabels("b");
+    });
+
+    mgr.destroy();
+
+    const replacementB = mocks.instances.at(-1)!;
+    expect(replacementB).not.toBe(originalB);
+    expect(originalB.destroy).toHaveBeenCalled();
+    expect(replacementB.destroy).not.toHaveBeenCalled();
+  });
+
   it("re-plans a layer whose stored plan is missing during a pan", async () => {
     const { map } = makeMap();
     let panePos = { x: 0, y: 0 };
