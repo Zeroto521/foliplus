@@ -78,6 +78,7 @@ export type {
   LayerCapabilities,
   LayerDimKey,
   LayerInfo,
+  LayerMutation,
   LayerSnapshot,
   LayerKind,
   PaneHandle,

@@ -22,6 +22,7 @@ import {
   type PaneSpec,
   type RegisterLayerOpts,
   findLayer as findLayerUtil,
+  type LayerMutation,
   paintsAtZoom,
   topSlotZ,
   zFor,
@@ -342,7 +343,12 @@ class LayerOrchestration {
   registerEntry(
     opts: RegisterLayerOpts,
     hasUi: boolean,
-  ): { layerInfo: LayerInfo; existingIdx: number; hidden: boolean } {
+  ): {
+    layerInfo: LayerInfo;
+    existingIdx: number;
+    hidden: boolean;
+    mutation: Extract<LayerMutation, { kind: "insert" | "replace-content" }>;
+  } {
     const existingLi = this.layerRegistry.get(opts.id);
     const existingIdx = existingLi ? this.layerRegistry.indexOf(existingLi) : -1;
     const layerInfo = this.layerRegistry.createLayerInfo(opts, existingLi, this.map);
@@ -375,7 +381,20 @@ class LayerOrchestration {
     // registration takes the map path (a runtime re-registration with a
     // panel still respects the user's hide).
     const hidden = hasUi && this.intentStore.get(opts.id, INTENT.VISIBLE) === false;
-    return { layerInfo, existingIdx, hidden };
+    const mutation: Extract<LayerMutation, { kind: "insert" | "replace-content" }> =
+      existingIdx !== -1
+        ? {
+            kind: "replace-content",
+            previous: existingLi!,
+            entry: layerInfo,
+            index: existingIdx,
+          }
+        : {
+            kind: "insert",
+            entry: layerInfo,
+            index: this.layerRegistry.indexOf(layerInfo),
+          };
+    return { layerInfo, existingIdx, hidden, mutation };
   }
 
   /** The domain half of {@link LayerController.unregisterLayer}: remove the
@@ -396,12 +415,22 @@ class LayerOrchestration {
     layerInfo: LayerInfo | null;
     layer: L.Layer | null;
     layerStamp: number | null;
+    mutation: Extract<LayerMutation, { kind: "remove" }> | null;
   } {
+    const existing = this.layerRegistry.get(id);
+    const index = existing ? this.layerRegistry.indexOf(existing) : -1;
     const layerInfo = this.layerRegistry.remove(id);
-    if (!layerInfo) return { layerInfo: null, layer: null, layerStamp: null };
+    if (!layerInfo) {
+      return { layerInfo: null, layer: null, layerStamp: null, mutation: null };
+    }
 
     const layer = this.findLayer(layerInfo);
     const layerStamp = layer ? L.stamp(layer) : null;
+    const mutation: Extract<LayerMutation, { kind: "remove" }> = {
+      kind: "remove",
+      entry: layerInfo,
+      index,
+    };
     if (layerStamp !== null) this.panes.invalidateDiscoveryCache(layerStamp);
     // The layer is off the map first (controller side), so the pane teardown
     // never touches a live layer's renderer or path nodes. Only the pane the
@@ -412,7 +441,7 @@ class LayerOrchestration {
     if (layerStamp !== null) this.surfacesByLayer.delete(layerStamp);
     // Drop child-pane bookkeeping for layers that no longer use them.
     this.panes.sweepChildPanes(this.layers);
-    return { layerInfo, layer, layerStamp };
+    return { layerInfo, layer, layerStamp, mutation };
   }
 
   /** Drop one id's persisted user state (order slot + intent row) without

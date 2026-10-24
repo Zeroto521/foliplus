@@ -264,6 +264,7 @@ class LayerController implements LayerAPI {
       registerLayer: this.registerLayer,
       unregisterLayer: this.unregisterLayer,
       bringLayerToFront: this.bringLayerToFront,
+      registry: () => this.layerRegistry,
       invalidateType: id => this.invalidateType(id),
       // A canvas or color surface mounts its pane inside register() and needs
       // its slot's z at birth — no provisional bottom step the ordering pass
@@ -631,7 +632,7 @@ class LayerController implements LayerAPI {
       );
     }
 
-    const { layerInfo, existingIdx, hidden } = this.domain.registerEntry(
+    const { layerInfo, hidden, mutation } = this.domain.registerEntry(
       opts,
       Boolean(this.ui),
     );
@@ -654,7 +655,7 @@ class LayerController implements LayerAPI {
 
     const operation = this.beginOperation();
     if (this.ui) {
-      if (existingIdx === -1) {
+      if (mutation.kind === "insert") {
         // New row: the row is inserted by the LAYER_ITEM_ADDED listener; the
         // stored-state projection is left to the single applyUserState below,
         // so the registration entry holds the delta and can announce it after
@@ -887,28 +888,39 @@ class LayerController implements LayerAPI {
     // throwing consumer must not leave the persisted order listing the id.
     this.persistence.flushAll();
     this.announceRetirement(retired.layerInfo, operation);
+    // A map-teardown error captured by retireEntry surfaces only after the
+    // local ledger (persistence, events) has converged.
+    if (retired.error) throw retired.error;
     operation.throwIfFailed();
     return true;
   }
 
-  /** Local teardown of one registry entry: registry, map, panel row, and
-   *  annotation rendering. No bus event — the caller (generic unregister, user
-   *  delete, component clear) owns the operation that announces the removal,
-   *  so its local commits can finish before any consumer can throw. */
-  private retireEntry(id: string): { layerInfo: LayerInfo } | null {
+  /** Local retirement as one guaranteed-finalization pass: the gesture is
+   *  terminated FIRST (before anything that can throw), every throwable step
+   *  is attempted with the first error captured, all local ledgers converge
+   *  — drag, map membership, DOM row, cursor, annotation — and only then is
+   *  the error handed back for the caller to rethrow after ITS finalization
+   *  (persistence, owed events). A throw mid-way must not be able to skip
+   *  the rest of the teardown. */
+  private retireEntry(id: string): { layerInfo: LayerInfo; error?: unknown } | null {
     const { layerInfo, layer } = this.domain.unregisterEntry(id);
     if (!layerInfo) return null;
 
-    if (layer) {
-      if (this.map.hasLayer(layer)) this.map.removeLayer(layer);
-      this.clearAllLayers(layer);
-    }
-
     // A drag armed with the retiring entry has no future: the source row is
     // about to leave the panel, and a native dragend off a detached source
-    // cannot be relied on to bubble back. Cancel the gesture now instead of
-    // leaving the session and its chrome for the next dragover to find.
+    // cannot be relied on to bubble back. Cancel the gesture before the
+    // throwable map teardown below, so an exception there cannot skip it.
     if (this.ui?.listPanel?.dragEntry === layerInfo) clearDragState(this.ui);
+
+    let error: unknown = null;
+    try {
+      if (layer) {
+        if (this.map.hasLayer(layer)) this.map.removeLayer(layer);
+        this.clearAllLayers(layer);
+      }
+    } catch (err) {
+      error ??= err;
+    }
 
     if (this.uiContainer) {
       const target = this.uiContainer.querySelector(
@@ -946,8 +958,12 @@ class LayerController implements LayerAPI {
     // Tear down the annotation RENDERING state; the label config stays —
     // it is part of that surviving intent (a flush after this point must
     // not erase `layers[id].annotation` from storage).
-    this.annotation.unloadLayer(id);
-    return { layerInfo };
+    try {
+      this.annotation.unloadLayer(id);
+    } catch (err) {
+      error ??= err;
+    }
+    return { layerInfo, error };
   }
 
   /** Queue the signals one retirement owes, in their established order.
@@ -1066,6 +1082,7 @@ class LayerController implements LayerAPI {
         operation.emit(EVENTS.LAYER_NO_BASEMAP_CHANGED);
       }
       this.persistence.flushAll();
+      if (retired.error) throw retired.error;
       operation.throwIfFailed();
       return true;
     }
@@ -1112,6 +1129,7 @@ class LayerController implements LayerAPI {
       });
       operation.emit(EVENTS.LAYER_NO_BASEMAP_CHANGED);
     }
+    if (retired.error) throw retired.error;
     operation.throwIfFailed();
     return true;
   }

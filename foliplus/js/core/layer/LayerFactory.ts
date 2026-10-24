@@ -25,11 +25,13 @@ import type {
   CreateLayersOpts,
   CreateSurfaceOpts,
   LabelAwareLayer,
+  LayerInfo,
   PaneSpec,
   RegisterLayerOpts,
   SurfaceContentHandle,
   SurfaceHandle,
 } from "./type.js";
+import type { LayerInfoRegistry } from "./LayerInfoRegistry.js";
 import { zFor } from "./z.js";
 
 /** Dependency injection contract for LayerFactory. */
@@ -39,6 +41,12 @@ interface LayerFactoryDeps {
   registerLayer: (opts: RegisterLayerOpts) => HTMLElement | null;
   unregisterLayer: (id: string) => boolean;
   bringLayerToFront: (id: string) => void;
+  /** Live registry, for the registration lease: a surface only ever
+   *  unregisters the entry IT registered, and only while that entry is
+   *  still the registry's owner. Optional for callers that never see a
+   *  registry (tests, the lightweight stub): without it the lease answers
+   *  "not owned", which keeps a failed surface from unregistering anything. */
+  registry?: () => LayerInfoRegistry;
   /** Drop a registered layer's cached geometry type when its content changes
    *  (add/remove/clear). */
   invalidateType: (id: string) => void;
@@ -211,11 +219,17 @@ class LayerFactory {
     };
 
     let registered = false;
+    // The entry THIS surface registered, read back after success. It is the
+    // lease: unregister only ever removes that exact entry, so a failed
+    // sibling, or an old owner after a same-id replacement, cannot delete
+    // the registry's current owner by bare id.
+    let registeredEntry: LayerInfo | null = null;
     let layerOpts: RegisterLayerOpts;
     let registerIdempotent = false;
     // Hook slots, overwritten per surface kind (layers vs canvas) below.
     /* eslint-disable @typescript-eslint/no-empty-function -- hook slots, overwritten per surface kind */
     let preRegister: () => void = () => {};
+    let rollbackPreRegister: () => void = () => {};
     let postRegister: () => void = () => {};
     let preUnregister: () => void = () => {};
     /* eslint-enable @typescript-eslint/no-empty-function */
@@ -228,10 +242,20 @@ class LayerFactory {
       // a let across the if (content.kind) split, so the check is kept for
       // canvas; layers never takes the return path.
       if (registerIdempotent && registered) return;
-      registered = true;
+      // The registration is not owned until every step succeeded: a throw
+      // (the controller's role gate, pane wiring) leaves `registered` false
+      // and the prepared face unmounted, so the next register() retries for
+      // real, and unregister() holds no authority to touch the id.
       preRegister();
-      registerLayer(layerOpts);
-      postRegister();
+      try {
+        registerLayer(layerOpts);
+        postRegister();
+      } catch (error) {
+        rollbackPreRegister();
+        throw error;
+      }
+      registered = true;
+      registeredEntry = this.deps.registry?.().get?.(opts.id) ?? null;
     };
 
     const unregister = () => {
@@ -240,7 +264,13 @@ class LayerFactory {
       // unregister), the layers branch evaluates remaining content. The check
       // is kept for layers; canvas never takes the return path.
       if (!shouldUnregister()) return;
+      // Stale-owner guard: a same-id replacement now owns the registry entry;
+      // this surface's lease has lapsed, and removing by bare id would delete
+      // the replacement.
+      const current = this.deps.registry?.().get?.(opts.id);
+      if (current && registeredEntry && current !== registeredEntry) return;
       registered = false;
+      registeredEntry = null;
       preUnregister();
       unregisterLayer(opts.id);
     };
@@ -480,6 +510,11 @@ class LayerFactory {
         updatePosition();
         setVisible(true);
       };
+      rollbackPreRegister = () => {
+        // mountFace set facePane and appended the face just above; the
+        // rollback only ever runs after it, so the face is always there.
+        facePane!.removeChild(face);
+      };
       postRegister = () => stampBirthZ(opts.id);
       preUnregister = () => setVisible(false);
       shouldUnregister = () => true;
@@ -607,6 +642,10 @@ class LayerFactory {
       resize();
       updatePosition();
       canvas.classList.remove(HIDDEN);
+    };
+    rollbackPreRegister = () => {
+      facePane!.removeChild(canvas);
+      canvas.classList.add(HIDDEN);
     };
     postRegister = () => stampBirthZ(opts.id);
     preUnregister = () => {

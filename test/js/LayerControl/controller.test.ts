@@ -2034,6 +2034,165 @@ describe("LayerController", () => {
     expect(seen.every(e => e.endsWith(":A"))).toBe(true);
   });
 
+  it("a cross-role re-registration after unregister replays its order role-locally", () => {
+    // The gate says "unregister first"; that path must stay safe. A's old
+    // saved rank sits above B, but A is now a base and B an overlay — an
+    // unconditional replay would push A into the overlay block and strand
+    // the boundary.
+    const { manager } = initFixture({
+      seed: { order: ["A", "B"] },
+      data: [
+        { id: "A", name: "A", group: "overlay" },
+        { id: "B", name: "B", group: "overlay" },
+        { id: "T", name: "T", group: "base" },
+      ],
+    });
+
+    manager.unregisterLayer("A");
+    manager.registerLayer({ id: "A", name: "A", group: "base" });
+
+    const firstBase = manager.layers.findIndex(l => l.group === GROUP.BASE);
+    expect(firstBase).not.toBe(-1);
+    expect(manager.layers.slice(0, firstBase).every(l => l.group !== GROUP.BASE)).toBe(
+      true,
+    );
+    expect(manager.layerRegistry.firstBaseIdx).toBe(firstBase);
+  });
+
+  it("a stored record that interleaves roles still replays partitioned", () => {
+    // A corrupted or legacy record ranks T(base) above B(overlay) above
+    // A(base). The full replay sorts per role and concatenates, so the
+    // overlay block never inherits a base.
+    const { manager } = initFixture({
+      seed: { order: ["T", "B", "A"] },
+      data: [
+        { id: "A", name: "A", group: "base" },
+        { id: "B", name: "B", group: "overlay" },
+        { id: "T", name: "T", group: "base" },
+      ],
+    });
+
+    const firstBase = manager.layers.findIndex(l => l.group === GROUP.BASE);
+    expect(manager.layers.slice(0, firstBase).every(l => l.group !== GROUP.BASE)).toBe(
+      true,
+    );
+    expect(manager.layerRegistry.firstBaseIdx).toBe(firstBase);
+    expect(manager.layers[0].id).toBe("B");
+  });
+
+  it("a failed canvas registration leaves no authority and a clean face", () => {
+    // A second owner tries an id the registry already holds as base; the
+    // controller refuses its implicit overlay role. The factory must not
+    // report success, must not keep the face mounted, and its unregister
+    // must not touch the legal owner.
+    const { manager } = initFixture({
+      data: [{ id: "A", name: "A", group: "base" }],
+    });
+    const canvas = manager.createCanvas({ id: "A", name: "A" });
+
+    expect(() => canvas.register()).toThrow(/role change/);
+    expect(canvas.registered()).toBe(false);
+    // The face was prepared for mount and rolled back: no pane parent. (The
+    // fixture's panes are detached divs, so "connected" is read through the
+    // parent link, not isConnected.)
+    expect(canvas.canvas.parentElement).toBeNull();
+    canvas.unregister();
+    expect(manager.layerRegistry.get("A")?.group).toBe("base");
+
+    // A second failure while the conflict persists: the rollback is
+    // idempotent — the face was already detached, nothing to undo.
+    expect(() => canvas.register()).toThrow(/role change/);
+    expect(canvas.canvas.parentElement).toBeNull();
+
+    // Once the conflict is gone, the same surface retries for real.
+    manager.unregisterLayer("A");
+    canvas.register();
+    expect(canvas.registered()).toBe(true);
+    expect(canvas.canvas.parentElement).not.toBeNull();
+    canvas.unregister();
+    expect(canvas.registered()).toBe(false);
+  });
+
+  it("an old owner cannot unregister a same-id replacement", () => {
+    const { manager } = initFixture({
+      data: [{ id: "A", name: "A", group: "overlay" }],
+    });
+    const first = manager.createCanvas({ id: "A", name: "A" });
+    first.register();
+    expect(first.registered()).toBe(true);
+
+    // A second surface replaces the entry under the same id; the first
+    // owner's lease has lapsed.
+    const second = manager.createCanvas({ id: "A", name: "A2" });
+    second.register();
+    first.unregister();
+    expect(manager.layerRegistry.has("A")).toBe(true);
+
+    second.unregister();
+    expect(manager.layerRegistry.has("A")).toBe(false);
+  });
+
+  it("a throwing map teardown still converges the retirement", () => {
+    const { manager, ui } = initFixture({
+      data: [{ id: "A", name: "A", group: "overlay", layer: polygonLayer() }],
+    });
+    ui.listPanel.dragEntry = manager.layerRegistry.get("A")!;
+    const changes: string[] = [];
+    ui.events.on(EVENTS.LAYER_CHANGE, p => changes.push(p.id));
+    manager.map.removeLayer.mockImplementation(() => {
+      throw new Error("map boom");
+    });
+
+    expect(() => manager.unregisterLayer("A")).toThrow("map boom");
+
+    // The local ledger converged despite the throw: registry, gesture,
+    // DOM row, and the owed CHANGE all landed.
+    expect(manager.layerRegistry.has("A")).toBe(false);
+    expect(ui.listPanel.dragEntry).toBeNull();
+    expect(
+      attachedPanel(ui).querySelector(`[${CONST.DATA.LAYER_ID}="A"]`),
+    ).toBeNull();
+    expect(changes).toContain("A");
+  });
+
+  it("a throwing map teardown still converges a user delete", () => {
+    const { manager, ui } = initFixture({
+      data: [{ id: "A", name: "A", group: "overlay", layer: polygonLayer() }],
+    });
+    const changes: string[] = [];
+    ui.events.on(EVENTS.LAYER_CHANGE, p => changes.push(p.id));
+    manager.map.removeLayer.mockImplementation(() => {
+      throw new Error("map boom");
+    });
+
+    expect(() => manager.deleteLayer("A")).toThrow("map boom");
+
+    // The delete's persistent effects and its fan-out all landed before the
+    // map error surfaced: entry gone, id pruned as deleted, CHANGE owed.
+    expect(manager.layerRegistry.has("A")).toBe(false);
+    expect((manager as any).order.removedIds.has("A")).toBe(true);
+    expect(changes).toContain("A");
+  });
+
+  it("a throwing map teardown still converges a color-basemap delete", () => {
+    const { manager, ui } = initFixture({
+      data: [{ id: "A", name: "A", group: "overlay", layer: polygonLayer() }],
+    });
+    // The color entry registers with a canvas, no Leaflet layer; give it one
+    // so the map teardown path (and its throw) is real.
+    manager.layerRegistry.get(CONST.SOLID_BASEMAP_ID)!.layer = polygonLayer();
+    const changes: string[] = [];
+    ui.events.on(EVENTS.LAYER_CHANGE, p => changes.push(p.id));
+    manager.map.removeLayer.mockImplementation(() => {
+      throw new Error("map boom");
+    });
+
+    expect(() => manager.deleteLayer(CONST.SOLID_BASEMAP_ID)).toThrow("map boom");
+
+    expect(manager.layerRegistry.has(CONST.SOLID_BASEMAP_ID)).toBe(false);
+    expect(changes).toContain(CONST.SOLID_BASEMAP_ID);
+  });
+
   it("re-registration re-applies stored opacity onto a replaced canvas", () => {
     manager.map.hasLayer.mockReturnValue(false);
     manager.uiContainer = document.createElement("div");

@@ -896,6 +896,15 @@ interface LayerSnapshot {
   readonly ranges: Readonly<Record<string, readonly [number, number]>>;
 }
 
+/** What a registration or retirement actually did to the registry — the
+ *  content-vs-placement split consumers (controller events, UI rows, the
+ *  future folder tree) key on. Without folders, placement is the registry
+ *  index and the two entry kinds are insert / content-replace. */
+type LayerMutation =
+  | { kind: "insert"; entry: LayerInfo; index: number }
+  | { kind: "replace-content"; previous: LayerInfo; entry: LayerInfo; index: number }
+  | { kind: "remove"; entry: LayerInfo; index: number };
+
 export type {
   CreateCanvasAPI,
   CreateCanvasOpts,
@@ -910,6 +919,7 @@ export type {
   LayerKind,
   LayerCapabilities,
   LayerInfo,
+  LayerMutation,
   LayerSnapshot,
   LayerSurface,
   PaneHandle,

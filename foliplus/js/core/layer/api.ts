@@ -4,6 +4,7 @@
 import { ensureHint } from "#core/hint.js";
 import { createLogger } from "#common/log.js";
 import { LayerFactory } from "./LayerFactory.js";
+import type { LayerInfoRegistry } from "./LayerInfoRegistry.js";
 import { PaneManager } from "./PaneManager.js";
 import type { LayerAPI } from "./type.js";
 
@@ -46,6 +47,8 @@ const ensureLayerAPI = (map: L.Map, force = false): LayerAPI => {
     /* eslint-disable @typescript-eslint/no-empty-function -- lightweight API: no registry to reorder or invalidate */
     bringLayerToFront: () => {},
     invalidateType: () => {}, // no registry in the lightweight API
+    // No registry dep: the lease lookup answers "not owned", which keeps
+    // failed and stale surfaces from ever unregistering anything.
     /* eslint-enable @typescript-eslint/no-empty-function */
   });
 

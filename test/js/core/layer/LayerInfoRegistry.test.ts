@@ -203,18 +203,35 @@ describe("LayerInfoRegistry", () => {
       expect(registry.size).toBe(3);
     });
 
-    it("re-derives the first-base boundary on every swap", () => {
-      // The registry does not lean on its callers to keep the cached
-      // boundary honest: an in-place upsert re-derives it. createLayerInfo
-      // without an existing entry defaults the group to overlay, so this
-      // swap really does turn the sole base into an overlay — exactly the
-      // kind of change that used to strand a stale boundary.
+    it("refuses a role change in place and re-derives the boundary on swaps", () => {
+      // The registry enforces the role-for-life rule itself, not through its
+      // callers: createLayerInfo without an existing entry defaults to
+      // overlay, so this swap would turn the sole base into an overlay and
+      // strand the boundary — the backstop refuses it.
       const updated = registry.createLayerInfo({ id: "base1", name: "Satellite" });
-      registry.upsert(updated);
-      expect(registry.indexOf(updated)).toBe(2);
-      expect(registry.get("base1")!.group).toBe("overlay");
-      expect(registry.firstBaseIdx).toBe(-1);
-      expect(registry.canReorderBetween(0, 1)).toBe(true);
+      expect(() => registry.upsert(updated)).toThrow(/role/);
+      // Nothing moved: the entry and the boundary are untouched.
+      expect(registry.get("base1")!.name).toBe("OpenStreetMap");
+      expect(registry.firstBaseIdx).toBe(2);
+
+      // Same-role swaps still land and the boundary survives churn.
+      registry.upsert(registry.createLayerInfo({ id: "overlay2", name: "v2" }));
+      expect(registry.firstBaseIdx).toBe(2);
+    });
+
+    it("refuses a reorder across the overlay/base boundary", () => {
+      expect(() => registry.reorder(0, 2)).toThrow(/boundary/);
+      // Same-side moves stay legal.
+      expect(() => registry.reorder(0, 1)).not.toThrow();
+      expect(registry.layers[0].id).toBe("overlay2");
+      expect(registry.layers[1].id).toBe("overlay1");
+    });
+
+    it("refuses to bring a base layer to the front", () => {
+      expect(() => registry.moveToFront("base1")).toThrow(/base/);
+      // The overlay block is still movable.
+      registry.moveToFront("overlay2");
+      expect(registry.at(0).id).toBe("overlay2");
     });
   });
 
@@ -247,9 +264,9 @@ describe("LayerInfoRegistry", () => {
   });
 
   describe("moveToFront (bringLayerToFront)", () => {
-    it("moves the layer to index 0", () => {
-      registry.moveToFront("base1");
-      expect(registry.at(0).id).toBe("base1");
+    it("moves an overlay to index 0", () => {
+      registry.moveToFront("overlay2");
+      expect(registry.at(0).id).toBe("overlay2");
     });
 
     it("does nothing when layer is already at front", () => {
@@ -263,11 +280,11 @@ describe("LayerInfoRegistry", () => {
   });
 
   describe("reorder", () => {
-    it("moves an element from fromIdx to toIdx", () => {
-      registry.reorder(0, 2);
+    it("moves an element within its role block", () => {
+      registry.reorder(0, 1);
       expect(registry.at(0).id).toBe("overlay2");
-      expect(registry.at(1).id).toBe("base1");
-      expect(registry.at(2).id).toBe("overlay1");
+      expect(registry.at(1).id).toBe("overlay1");
+      expect(registry.at(2).id).toBe("base1");
     });
   });
 
