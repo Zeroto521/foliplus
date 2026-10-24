@@ -31,6 +31,7 @@ import {
 } from "#core/layer/index.js";
 import { hasAttachedPath, isGroupLike } from "#core/leafletAdapter.js";
 import { type Debounced, debounce } from "#common/debounce.js";
+import { finalize } from "#common/finalize.js";
 import { createLogger } from "#common/log.js";
 import type { Logger } from "#common/type.js";
 import { AnnotationManager } from "./annotation/index.js";
@@ -123,6 +124,14 @@ const uninstallBringToFrontPatch = () => {
 //             findLayer, refreshCount, forEachLeaf,
 //             clearAllLayers
 //   Private   installBringToFrontPatch, uninstallBringToFrontPatch
+
+/** What one ordering pass observed. `skipped` is the re-entrant case: another
+ *  pass was already in flight, so this call priced nothing and `failed` is
+ *  empty by construction — not the same answer as "everything priced". */
+interface EnforceOrderResult {
+  readonly failed: readonly string[];
+  readonly skipped: boolean;
+}
 
 class LayerController implements LayerAPI {
   /** Diagnostic marker: set by LayerController (true).  The lightweight stub
@@ -423,8 +432,21 @@ class LayerController implements LayerAPI {
     this.layerRegistry.normalizeGroups();
     this.enforceOrder();
     // Before any export, flush pending debounced enforceOrder so the exported
-    // image matches the panel's layer order.
-    this.events.on(EVENTS.BEFORE_EXPORT, () => this.enforceOrder(), "internal");
+    // image matches the panel's layer order. A layer the pass could not price
+    // means the capture may have an incomplete stack — warn, but let the
+    // export continue.
+    this.events.on(
+      EVENTS.BEFORE_EXPORT,
+      () => {
+        const { failed } = this.enforceOrder();
+        if (failed.length) {
+          this.log.warn(
+            `enforceOrder failed for ${failed.length} layer(s) before export: ${failed.join(", ")}`,
+          );
+        }
+      },
+      "internal",
+    );
     // Ensure the lightweight LayerAPI exists (consumers always have a valid
     // LayerAPI even without LayerControl), then upgrade to the full version.
     // LayerController itself implements LayerAPI, so it becomes the map's API.
@@ -869,49 +891,85 @@ class LayerController implements LayerAPI {
     return true;
   }
 
+  /** The panel row currently carrying this id, or null. */
+  private findRow(id: string): Element | null {
+    return (
+      this.uiContainer?.querySelector(`[${CONST.DATA.LAYER_ID}="${CSS.escape(id)}"]`) ??
+      null
+    );
+  }
+
+  /** Remove one retired layer's panel row: finalise an in-flight slider edit,
+   *  drop the row, and take the group header with it when the group empties.
+   *  Split out of `retireEntry` so the teardown lists it as one named step —
+   *  inline, this segment was the one a try/catch could silently skip.
+   *
+   *  Takes the row element, not the id: the registry entry is already gone when
+   *  the steps run, so a listener inside `clear-layer-tree` can register the
+   *  same id again and mount a second row. Re-querying by id here would delete
+   *  the replacement's row; the element captured before the steps is the one
+   *  this retirement owns. */
+  private retireRow(target: Element | null, layerInfo: LayerInfo): void {
+    if (!target) return;
+    // Finalise an in-flight user edit before its panel leaves the DOM: the
+    // drag value is the user's, not teardown state.
+    finishSlidersIn(target);
+    target.remove();
+    const container = this.uiContainer;
+    if (!container) return;
+    // Check if the group is now empty and remove the toggle-all row if so.
+    const group = layerInfo.group;
+    const anchorSel =
+      group === GROUP.BASE
+        ? `${CONST.SEL.LAYER_ITEM}[data-layer-type="${GROUP.BASE}"]:not([${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"])`
+        : `${CONST.SEL.LAYER_ITEM}:not([data-layer-type="${GROUP.BASE}"])`;
+    if (!container.querySelector(anchorSel)) {
+      container
+        .querySelector(`.${CONST.CLASSES.TOGGLE_ALL}[data-group="${group}"]`)
+        ?.remove();
+    }
+  }
+
   /** Local teardown of one registry entry: registry, map, panel row, and
-   *  annotation rendering. No bus event — the caller (generic unregister, user
-   *  delete, component clear) owns the operation that announces the removal,
-   *  so its local commits can finish before any consumer can throw. */
+   *  annotation rendering. No bus event — the caller owns the operation that
+   *  announces the removal, so its local commits can finish before any
+   *  consumer can throw.
+   *
+   *  The steps run through `finalize`: a map-removal listener, a `clearLayers`
+   *  `remove` event, or a panel read that throws must not skip the rows and
+   *  annotation behind it. The first error is rethrown after every step has
+   *  been attempted, so the caller still learns about it. */
   private retireEntry(id: string): { layerInfo: LayerInfo } | null {
     const { layerInfo, layer } = this.domain.unregisterEntry(id);
     if (!layerInfo) return null;
 
-    if (layer) {
-      if (this.map.hasLayer(layer)) this.map.removeLayer(layer);
-      this.clearAllLayers(layer);
-    }
-
-    if (this.uiContainer) {
-      const target = this.uiContainer.querySelector(
-        `[${CONST.DATA.LAYER_ID}="${CSS.escape(id)}"]`,
-      );
-      if (target) {
-        // Finalise an in-flight user edit before its panel leaves the DOM: the
-        // drag value is the user's, not teardown state.
-        finishSlidersIn(target);
-        target.remove();
-        // Check if the group is now empty and remove the toggle-all row if so.
-        const group = layerInfo.group;
-        const anchorSel =
-          group === GROUP.BASE
-            ? `${CONST.SEL.LAYER_ITEM}[data-layer-type="${GROUP.BASE}"]:not([${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"])`
-            : `${CONST.SEL.LAYER_ITEM}:not([data-layer-type="${GROUP.BASE}"])`;
-        if (!this.uiContainer.querySelector(anchorSel)) {
-          this.uiContainer
-            .querySelector(`.${CONST.CLASSES.TOGGLE_ALL}[data-group="${group}"]`)
-            ?.remove();
-        }
-      }
-    }
-    // Nothing below writes persisted state — see the method's doc. The rename
-    // and the per-layer intent both survive this teardown, so a component that
-    // unregisters an empty layer and registers it again comes back with the
-    // name and the settings the user chose.
-    // Tear down the annotation RENDERING state; the label config stays —
-    // it is part of that surviving intent (a flush after this point must
-    // not erase `layers[id].annotation` from storage).
-    this.annotation.unloadLayer(id);
+    // The row is resolved first and by element: the registry entry is already
+    // gone, so a `remove` handler inside `clear-layer-tree` can register this
+    // id again and mount a fresh row — a later id lookup would delete the
+    // replacement's row and leave the dead one behind. A step, not a read
+    // before the list: a panel query that throws must not skip the teardown.
+    let row: Element | null = null;
+    finalize([
+      ["snapshot-row", () => (row = this.findRow(id))],
+      [
+        "detach-from-map",
+        () => {
+          if (layer && this.map.hasLayer(layer)) this.map.removeLayer(layer);
+        },
+      ],
+      // A separate step, not part of the detach: `clearLayers()` fires Leaflet
+      // `remove` events synchronously, so user code can throw here. Bundled,
+      // it would be the one segment inside a step that still short-circuits.
+      ["clear-layer-tree", () => layer && this.clearAllLayers(layer)],
+      ["retire-row", () => this.retireRow(row, layerInfo)],
+      // Nothing here writes persisted state. The rename and the per-layer
+      // intent both survive this teardown, so a component that unregisters an
+      // empty layer and registers it again comes back with the name and the
+      // settings the user chose. Tear down the annotation RENDERING state; the
+      // label config stays — it is part of that surviving intent (a flush after
+      // this point must not erase `layers[id].annotation` from storage).
+      ["unload-annotation", () => this.annotation.unloadLayer(id)],
+    ]).throwIfFailed();
     return { layerInfo };
   }
 
@@ -1166,14 +1224,23 @@ class LayerController implements LayerAPI {
   /** Give every layer a surface and reprice its z.
    *
    *  Re-ordering only. The pass lives on the domain; the controller keeps the
-   *  re-entry guard and the debounce cancellation around it. */
-  enforceOrder() {
-    if (this.isEnforcing) return;
+   *  re-entry guard and the debounce cancellation around it.
+   *
+   *  @returns `failed`: the ids that could not be priced, in registry order —
+   *    empty on a clean pass. A throwing layer no longer aborts the rest of the
+   *    stack; the ids let the caller tell "ordered" from "attempted".
+   *    `skipped`: true when a pass was already in flight. The running pass owns
+   *    the result, so this call priced nothing and the caller must not read a
+   *    second, partial one.
+   */
+  enforceOrder(): EnforceOrderResult {
+    if (this.isEnforcing) return { failed: [], skipped: true };
     this.debouncedEnforce?.cancel();
     this.isEnforcing = true;
     try {
-      this.domain.enforceOrder();
+      const failed = this.domain.enforceOrder();
       this.syncAttribution();
+      return { failed, skipped: false };
     } finally {
       this.isEnforcing = false;
     }
@@ -1263,33 +1330,49 @@ class LayerController implements LayerAPI {
 
   destroy() {
     this.isDestroyed = true;
-    if (this.map && this.onLayerAdd) this.map.off("layeradd", this.onLayerAdd);
-    if (this.debouncedEnforce) this.debouncedEnforce.cancel();
-    // Flush before destroy: the writes are debounced at 100ms, wide enough for
-    // the control to be removed before the timer fires. unbindEvents also
-    // flushes, but it only runs when a panel is attached.
-    this.persistence.flushAll();
-    this.annotation.destroy();
-    if (this.ui) {
-      this.ui.unbindEvents();
-      this.ui = null;
-    }
-    this.persistence.destroy();
-    if (this.uiContainer) {
-      this.uiContainer.innerHTML = "";
-      this.uiContainer = null;
-    }
+    finalize(
+      [
+        [
+          "detach-layeradd",
+          // No guards: `onLayerAdd` is assigned unconditionally in `init`, and
+          // the map is a constructor argument — a `this.map && this.onLayerAdd`
+          // test could never be false.
+          () => this.map.off("layeradd", this.onLayerAdd),
+        ],
+        ["cancel-enforce", () => this.debouncedEnforce?.cancel()],
+        // Flush before destroy: the writes are debounced at 100ms, wide enough
+        // for the control to be removed before the timer fires. unbindEvents
+        // also flushes, but it only runs when a panel is attached.
+        ["flush-persistence", () => this.persistence.flushAll()],
+        ["destroy-annotation", () => this.annotation.destroy()],
+        ["unbind-ui", () => this.ui?.unbindEvents()],
+        ["destroy-persistence", () => this.persistence.destroy()],
+        [
+          "clear-container",
+          () => {
+            if (this.uiContainer) this.uiContainer.innerHTML = "";
+          },
+        ],
+        ["destroy-panes", () => this.panes.destroy()],
+        // Last: the map must end with a valid LayerAPI even when every step
+        // above failed, or consumers keep holding this destroyed manager.
+        // `force` is required: without it the existing (destroyed) manager
+        // would short-circuit the stub replacement and stay live on the map.
+        ["install-stub-api", () => ensureLayerAPI(this.map, true)],
+      ],
+      failure => this.log.warn(`destroy step "${failure.name}" threw`, failure.error),
+    );
+    // Plain field resets — they cannot throw, and deciding them by step success
+    // would leave a destroyed manager holding a dead UI or a stale registry.
+    // The DOM is left alone: LayerController.destroy() drops the registry
+    // without removing the registered layers from the map, so they are still
+    // live — deleting their panes would drop them off the map.
+    this.ui = null;
+    this.uiContainer = null;
     this.layerRegistry.clear();
     this.pendingRegistrations = [];
     this.surfaces.clear();
     this.surfacesByLayer.clear();
-    this.panes.destroy();
-    // Revert to the lightweight LayerAPI (no registry, no panel).
-    // ensureLayerAPI guarantees a valid object, so consumers can always
-    // call `map.foliplus.LayerAPI.xxx` without null checks.
-    // `force` is required: without it the existing (destroyed) manager would
-    // short-circuit the stub replacement and stay live on the map.
-    ensureLayerAPI(this.map, true);
   }
 }
 

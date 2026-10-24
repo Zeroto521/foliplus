@@ -560,6 +560,35 @@ describe("Slider primitive", () => {
     expect(host.classList.contains(SLIDER.ROOT)).toBe(false);
   });
 
+  it("destroy commits a live drag, and still clears the host when the commit throws", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const onChange = vi.fn(() => {
+      throw new Error("consumer broke");
+    });
+    const { host, slider } = make({
+      min: 0,
+      max: 10,
+      value: 2,
+      label: "x",
+      change: onChange,
+    });
+    stubTrack(host).dispatchEvent(pointer("pointerdown", 75));
+
+    expect(() => slider.destroy()).not.toThrow();
+
+    // Destroy commits the value the user's drag already produced, and the
+    // cleanup behind the throwing consumer still runs.
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(sliderOf(host)).toBeUndefined();
+    expect(host.children).toHaveLength(0);
+    expect(host.classList.contains(SLIDER.ROOT)).toBe(false);
+    expect(warn).toHaveBeenCalledWith(
+      '[LayerControl] slider destroy step "commit-drag" threw',
+      expect.any(Error),
+    );
+    warn.mockRestore();
+  });
+
   it("inverts the pointer mapping in RTL", () => {
     const host = document.createElement("div");
     host.style.direction = "rtl";

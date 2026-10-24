@@ -6,6 +6,7 @@
 import { HINT_DURATION } from "#core/hint.js";
 import { ensureModes, guardBlocked } from "#core/mode.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
+import { type FinalizeStep, finalize } from "#common/finalize.js";
 import {
   type ProjectionDeltaItem,
   applyProjectionAll,
@@ -246,55 +247,75 @@ const dismissFocus = (ui: LayerUI): void => {
         foliplus?: { modes?: { getMode: (name: string) => string | null } };
       }
     ).foliplus?.modes?.getMode(ui.config.name) === "focusing";
-  if (isFocusing(ui) || stuckFocusing) {
-    const modes = ensureModes(ui.c.map);
-    modes.setMode(ui.config.name, null);
-  }
-  clearAutoCancel(ui);
-  clearFocusedRowHighlight(ui);
-  restoreHiddenLayers(ui);
-  ui.c.annotation.setFocusFilter(null);
-  // Each restore runs in its own try/catch: a surface can retire mid-focus
-  // (unregister, or a same-id replacement), and a restore that still points at
-  // it would otherwise throw here — before the focusRect / focusMask /
-  // focusRenderer teardown below — leaving the map dimmed with no way back.
-  // Logging instead of throwing keeps the teardown total.
-  for (const restore of ui.focusController.focusedPaneRestores) {
-    try {
-      restore();
-    } catch (error) {
-      const detail = error instanceof Error ? error.message : String(error);
-      ui.log.warn(`focus pane restore threw; continuing teardown: ${detail}`);
-    }
-  }
+  // The whole teardown is one list: every entry runs even when an earlier one
+  // throws. Isolating only the pane restores left the same bug one line up —
+  // `restoreHiddenLayers` throwing still skipped the mask removal and the map
+  // stayed dimmed with no way back.
+  const steps: FinalizeStep[] = [
+    [
+      "release-mode",
+      () => {
+        if (isFocusing(ui) || stuckFocusing) {
+          ensureModes(ui.c.map).setMode(ui.config.name, null);
+        }
+      },
+    ],
+    ["clear-auto-cancel", () => clearAutoCancel(ui)],
+    ["clear-row-highlight", () => clearFocusedRowHighlight(ui)],
+    ["restore-hidden-layers", () => restoreHiddenLayers(ui)],
+    ["clear-focus-filter", () => ui.c.annotation.setFocusFilter(null)],
+    // Each restore is named where the lift happened (`lift:*`, `restore-z:*`,
+    // `surface:<id>`, `base-pane:<id>`), so a failure reports the pane, not a
+    // position that shifts when a lift is added.
+    ...ui.focusController.focusedPaneRestores,
+    [
+      "remove-focus-rect",
+      () => {
+        if (ui.focusController.focusRect) {
+          ui.c.map.removeLayer(ui.focusController.focusRect);
+          ui.focusController.focusRect = null;
+        }
+      },
+    ],
+    [
+      "remove-focus-mask",
+      () => {
+        if (ui.focusController.focusMask) {
+          ui.c.map.removeLayer(ui.focusController.focusMask);
+          ui.focusController.focusMask = null;
+        }
+      },
+    ],
+    // Tear down the SVG renderer too. Reusing it across focuses left the
+    // previous focus's mask/rect paths in the SVG even after removeLayer,
+    // so focusing layer A then B showed two boxes (stale A mask + new B
+    // mask) with inverted dimming. A fresh renderer per focus is cheap and
+    // guarantees a clean slate.
+    [
+      "remove-focus-renderer",
+      () => {
+        if (ui.focusController.focusRenderer) {
+          ui.c.map.removeLayer(ui.focusController.focusRenderer);
+          ui.focusController.focusRenderer = null;
+        }
+      },
+    ],
+    // Ordered, not cosmetic: the sweep reads the focus state, and `isFocusing`
+    // is driven by this field.
+    ["clear-focusing-layer", () => (ui.focusController.focusingLayerId = null)],
+    // Focus suspends inRange for its duration: with focus gone, the focused
+    // layer's effective-shown falls back to intent && inRange. If its range
+    // still excludes the current zoom, the executor removes it from the map —
+    // the "unfocus returns it to hidden" half of the focus gate. Last step of
+    // the teardown: the sweep, then one announcement per moved layer.
+    ["sweep", () => notifyDeltas(ui, applyProjectionAll(ui))],
+  ];
+  finalize(steps, failure =>
+    ui.log.warn(`dismissFocus step "${failure.name}" threw`, failure.error),
+  );
+  // Plain reset: it cannot throw, and a failed step must not leave the collected
+  // restores behind for the next focus to run twice.
   ui.focusController.focusedPaneRestores = [];
-
-  if (ui.focusController.focusRect) {
-    ui.c.map.removeLayer(ui.focusController.focusRect);
-    ui.focusController.focusRect = null;
-  }
-
-  if (ui.focusController.focusMask) {
-    ui.c.map.removeLayer(ui.focusController.focusMask);
-    ui.focusController.focusMask = null;
-  }
-  // Tear down the SVG renderer too. Reusing it across focuses left the
-  // previous focus's mask/rect paths in the SVG even after removeLayer,
-  // so focusing layer A then B showed two boxes (stale A mask + new B
-  // mask) with inverted dimming. A fresh renderer per focus is cheap and
-  // guarantees a clean slate.
-  if (ui.focusController.focusRenderer) {
-    ui.c.map.removeLayer(ui.focusController.focusRenderer);
-    ui.focusController.focusRenderer = null;
-  }
-
-  ui.focusController.focusingLayerId = null;
-  // Focus suspends inRange for its duration: with focus gone, the focused
-  // layer's effective-shown falls back to intent && inRange. If its range
-  // still excludes the current zoom, the executor removes it from the map —
-  // the "unfocus returns it to hidden" half of the focus gate. Last step of
-  // the teardown: the sweep, then one announcement per moved layer.
-  notifyDeltas(ui, applyProjectionAll(ui));
 };
 
 /** Register a one-shot moveend/zoomend handler that auto-cancels focus. */

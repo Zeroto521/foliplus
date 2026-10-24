@@ -93,7 +93,7 @@ repos:
       #   (4) bare CSS custom properties rejected — must carry --foliplus-*
       #   (5) file/sibling-dir name collision (B-type stutter guard)
       # Function declarations and inline exports are covered by eslint's
-      # `func-style` and `no-restricted-syntax` — see eslint.config.js.
+      # `func-style` and `no-restricted-syntax` — see config/eslint/base.mjs.
       # Check-only — refactor in the editor. Barrels (index.ts) and
       # type-collection files (type.ts / types.ts) are exempt from rule 1.
       - id: style-check

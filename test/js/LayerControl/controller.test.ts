@@ -1887,9 +1887,40 @@ describe("LayerController", () => {
   it("BEFORE_EXPORT flushes the pending order before the exporter captures", () => {
     // A debounced reorder would otherwise land after the capture, exporting the
     // stale z-order the panel already showed.
-    const spy = vi.spyOn(manager, "enforceOrder").mockImplementation(() => {});
+    const spy = vi
+      .spyOn(manager, "enforceOrder")
+      .mockImplementation(() => ({ failed: [], skipped: false }));
     manager.events.publish(EVENTS.BEFORE_EXPORT as string);
     expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  it("BEFORE_EXPORT warns when a layer cannot be priced, and the capture still runs", () => {
+    // The pass isolates layers, so the export continues either way — but a
+    // stale z in the capture is invisible in the image, so it must be logged.
+    // `env.log` defaults to one shared logger for every controller built with
+    // the no-op env, so the spy is restored rather than left in place.
+    const log = (manager as any).log as { warn: (...args: unknown[]) => void };
+    const warn = vi.spyOn(log, "warn").mockImplementation(() => {});
+    const order = vi
+      .spyOn(manager, "enforceOrder")
+      .mockReturnValue({ failed: ["bad", "worse"], skipped: false });
+    const captured: string[] = [];
+    const off = manager.events.on(EVENTS.BEFORE_EXPORT as string, () =>
+      captured.push("capture"),
+    );
+
+    try {
+      manager.events.publish(EVENTS.BEFORE_EXPORT as string);
+
+      expect(warn).toHaveBeenCalledWith(
+        "enforceOrder failed for 2 layer(s) before export: bad, worse",
+      );
+      expect(captured).toEqual(["capture"]);
+    } finally {
+      off();
+      warn.mockRestore();
+      order.mockRestore();
+    }
   });
 
   it("a runtime content change routes through invalidateType and the live count", () => {
@@ -2047,6 +2078,65 @@ describe("LayerController", () => {
       invalidateFields: vi.fn(),
     } as any;
     expect(manager.unregisterLayer("overlay1")).toBe(true);
+  });
+
+  it("retires the row it started with when the id is re-registered mid-teardown", () => {
+    // The registry entry is gone before the steps run, so a `remove` listener
+    // inside `clear-layer-tree` can register the same id again and mount a
+    // second row. The retirement owns the element it captured when it started,
+    // not whatever currently answers to the id — otherwise the teardown deletes
+    // the replacement's row and leaves the dead one behind.
+    manager.map.hasLayer.mockReturnValue(false);
+    const layer = { options: {} } as any;
+    manager.registerLayer({ id: "overlay1", name: "Points", group: "overlay", layer });
+    const original = document.createElement("div");
+    original.setAttribute("data-layer-id", "overlay1");
+    manager.uiContainer = document.createElement("div");
+    manager.uiContainer.appendChild(original);
+    manager.ui = {
+      intentStore: makeStore(),
+      saveState: vi.fn(),
+      invalidateFields: vi.fn(),
+    } as any;
+
+    const decoy = document.createElement("div");
+    decoy.setAttribute("data-layer-id", "overlay1");
+    vi.spyOn(manager, "clearAllLayers").mockImplementation(() => {
+      // A row for the freshly registered replacement, in front of the original.
+      manager.uiContainer!.prepend(decoy);
+    });
+
+    expect(manager.unregisterLayer("overlay1")).toBe(true);
+
+    expect(manager.uiContainer.contains(original)).toBe(false);
+    expect(manager.uiContainer.contains(decoy)).toBe(true);
+  });
+
+  it("still retires the captured row when the panel goes away mid-teardown", () => {
+    // The row is captured before the steps, so a remove handler that tears the
+    // whole control down (nulling `uiContainer`) must not strand it: the row is
+    // removed anyway, and only the group/toggle-all rescan is skipped because
+    // there is no panel left to rescan.
+    manager.map.hasLayer.mockReturnValue(false);
+    const layer = { options: {} } as any;
+    manager.registerLayer({ id: "overlay1", name: "Points", group: "overlay", layer });
+    const row = document.createElement("div");
+    row.setAttribute("data-layer-id", "overlay1");
+    manager.uiContainer = document.createElement("div");
+    manager.uiContainer.appendChild(row);
+    const container = manager.uiContainer;
+    manager.ui = {
+      intentStore: makeStore(),
+      saveState: vi.fn(),
+      invalidateFields: vi.fn(),
+    } as any;
+    vi.spyOn(manager, "clearAllLayers").mockImplementation(() => {
+      manager.uiContainer = null;
+    });
+
+    expect(manager.unregisterLayer("overlay1")).toBe(true);
+
+    expect(container.contains(row)).toBe(false);
   });
 
   it("unregisterLayer reconciles the base group when a base layer is dropped", () => {
@@ -4778,4 +4868,123 @@ it("a moveLayerUp whose rebuild signal destroys the control announces nothing", 
   expect(manager.moveLayerUp("beta")).toBe(true);
   expect(changes).toEqual([]);
   expect(manager.isDestroyed).toBe(true);
+});
+
+describe("retireEntry finalization", () => {
+  it("unloads the annotation even when the row step throws", () => {
+    document.body.innerHTML = "";
+    window.localStorage.clear();
+    const { manager, ui } = initFixture({
+      data: [
+        { id: "overlay1", name: "Polygons", group: "overlay" },
+        { id: "base1", name: "OSM", group: "base" },
+      ],
+    });
+    const unload = vi.spyOn(manager.annotation, "unloadLayer");
+    const container = (ui as unknown as { uiContainer: HTMLElement }).uiContainer;
+    const original = container.querySelector.bind(container);
+    let armed = true;
+    container.querySelector = ((sel: string) => {
+      if (armed && String(sel).includes("data-layer-id")) {
+        armed = false;
+        throw new Error("panel read failed");
+      }
+      return original(sel);
+    }) as typeof container.querySelector;
+
+    try {
+      expect(() => manager.unregisterLayer("overlay1")).toThrow("panel read failed");
+    } finally {
+      // The fixture owns this element; drop the own-property patch so the
+      // prototype's querySelector is back for whatever runs next.
+      Reflect.deleteProperty(container, "querySelector");
+    }
+    expect(unload.mock.calls.some(c => c[0] === "overlay1")).toBe(true);
+    expect(manager.layerRegistry.has("overlay1")).toBe(false);
+  });
+});
+
+describe("enforceOrder isolation", () => {
+  it("prices the rest of the stack and reports the layer that failed", () => {
+    window.localStorage.clear();
+    const { manager, map } = initFixture({
+      data: [
+        { id: "a", name: "A", group: "overlay" },
+        { id: "bad", name: "Bad", group: "overlay" },
+        { id: "c", name: "C", group: "overlay" },
+      ],
+    });
+    const bad = manager.surfaceFor(manager.layerRegistry.get("bad")!);
+    const c = manager.surfaceFor(manager.layerRegistry.get("c")!);
+    vi.spyOn(bad, "setZ").mockImplementation(() => {
+      throw new Error("no z");
+    });
+    const cSetZ = vi.spyOn(c, "setZ");
+    map.getPane.mockClear();
+
+    const { failed, skipped } = manager.enforceOrder();
+
+    expect(failed).toEqual(["bad"]);
+    expect(skipped).toBe(false);
+    expect(cSetZ).toHaveBeenCalled();
+    // The shared panes are priced after the registry pass, so a failed layer
+    // must not leave markers/tooltips/popups at their default z.
+    const priced = map.getPane.mock.calls.map(([name]: [string]) => name);
+    expect(priced).toEqual(
+      expect.arrayContaining(["popupPane", "tooltipPane", "markerPane"]),
+    );
+  });
+
+  it("a re-entrant pass reports `skipped` and leaves the result to the running pass", () => {
+    // A layer that reorders while being priced (a listener reacting to setZ)
+    // reaches `enforceOrder` from inside a pass. The inner call must not report
+    // a half-priced stack — the outer pass owns the answer.
+    window.localStorage.clear();
+    const { manager } = initFixture({
+      data: [{ id: "a", name: "A", group: "overlay" }],
+    });
+    const domain = (manager as any).domain as { enforceOrder: () => string[] };
+    const real = domain.enforceOrder.bind(domain);
+    const inner: Array<{ failed: readonly string[]; skipped: boolean }> = [];
+    const outer = vi.spyOn(domain, "enforceOrder").mockImplementation(() => {
+      inner.push(manager.enforceOrder());
+      return real();
+    });
+
+    try {
+      expect(manager.enforceOrder()).toEqual({ failed: [], skipped: false });
+      expect(inner).toEqual([{ failed: [], skipped: true }]);
+      expect(outer).toHaveBeenCalledTimes(1);
+    } finally {
+      outer.mockRestore();
+    }
+  });
+});
+
+describe("destroy finalization", () => {
+  it("reports the failing step, keeps tearing down, and still installs the stub API", () => {
+    window.localStorage.clear();
+    const { manager, map } = initFixture({
+      data: [{ id: "overlay1", name: "Polygons", group: "overlay" }],
+    });
+    const warn = vi.spyOn((manager as any).log, "warn").mockImplementation(() => {});
+    const unbind = vi.spyOn(manager.ui!, "unbindEvents");
+    vi.spyOn(manager.annotation, "destroy").mockImplementation(() => {
+      throw new Error("labels stuck");
+    });
+
+    expect(() => manager.destroy()).not.toThrow();
+
+    // The steps behind the failure still ran.
+    expect(unbind).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledWith(
+      'destroy step "destroy-annotation" threw',
+      expect.any(Error),
+    );
+    // Last step, and the one consumers depend on: a half-destroyed manager
+    // must not stay mounted as the map's LayerAPI.
+    expect(map.foliplus.LayerAPI.registerLayer({ id: "x" } as never)).toBeNull();
+    expect(manager.isDestroyed).toBe(true);
+    warn.mockRestore();
+  });
 });

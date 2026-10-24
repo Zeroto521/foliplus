@@ -8,6 +8,7 @@ import {
   zFor,
 } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
+import type { FinalizeStep } from "#common/finalize.js";
 import { basePaints } from "../listPanel/visibility.js";
 import { projectLayer } from "../projection.js";
 import type { LayerUI } from "../surface.js";
@@ -52,11 +53,14 @@ const hideOtherLayers = (ui: LayerUI): void => {
       ui.c.panes.assertOwnedPane(pane.name);
       pane.element.classList.add(CONST.CLASSES.FOCUS_BASEMAP);
     }
-    ui.focusController.focusedPaneRestores.push(() => {
-      for (const pane of surface.panes) {
-        pane.element.classList.remove(CONST.CLASSES.FOCUS_BASEMAP);
-      }
-    });
+    ui.focusController.focusedPaneRestores.push([
+      `base-pane:${li.id}`,
+      () => {
+        for (const pane of surface.panes) {
+          pane.element.classList.remove(CONST.CLASSES.FOCUS_BASEMAP);
+        }
+      },
+    ]);
     break; // only the topmost base layer
   }
 };
@@ -76,9 +80,9 @@ const hideOtherLayers = (ui: LayerUI): void => {
  * cancel via focusedPaneRestores.
  */
 const bringFocusedLayerToFront = (ui: LayerUI, layerInfo: LayerInfo): void => {
-  const restores: Array<() => void> = [];
+  const restores: FinalizeStep[] = [];
   const focusedZ = focusLayerZ();
-  const lift = (el: HTMLElement, z = focusedZ): void => {
+  const lift = (name: string, el: HTMLElement, z = focusedZ): void => {
     const orig = el.style.zIndex;
     el.style.zIndex = String(z);
     // Mark the focused pane/canvas so the `.foliplus-is-focus-mode` CSS rule
@@ -86,11 +90,14 @@ const bringFocusedLayerToFront = (ui: LayerUI, layerInfo: LayerInfo): void => {
     el.classList.add(CONST.CLASSES.FOCUS_PANE);
     // Glow: applied at pane level (one element), fading in via CSS animation.
     el.classList.add(CONST.CLASSES.FOCUS_GLOW);
-    restores.push(() => {
-      el.style.zIndex = orig;
-      el.classList.remove(CONST.CLASSES.FOCUS_PANE);
-      el.classList.remove(CONST.CLASSES.FOCUS_GLOW);
-    });
+    restores.push([
+      `lift:${name}`,
+      () => {
+        el.style.zIndex = orig;
+        el.classList.remove(CONST.CLASSES.FOCUS_PANE);
+        el.classList.remove(CONST.CLASSES.FOCUS_GLOW);
+      },
+    ]);
   };
 
   // Ladder above the raised layer, preserving Leaflet's normal order and staying
@@ -105,9 +112,12 @@ const bringFocusedLayerToFront = (ui: LayerUI, layerInfo: LayerInfo): void => {
     if (!el) return;
     const orig = el.style.zIndex;
     el.style.zIndex = String(zFor({ base: focusedZ, order }));
-    restores.push(() => {
-      el.style.zIndex = orig;
-    });
+    restores.push([
+      `restore-z:${name}`,
+      () => {
+        el.style.zIndex = orig;
+      },
+    ]);
   };
   liftZ("markerPane", 2);
   liftZ("tooltipPane", 3);
@@ -135,13 +145,16 @@ const bringFocusedLayerToFront = (ui: LayerUI, layerInfo: LayerInfo): void => {
           pane.element.classList.add(CONST.CLASSES.FOCUS_GLOW);
         }
       }
-      restores.push(() => {
-        for (const pane of panes) {
-          pane.element.classList.remove(CONST.CLASSES.FOCUS_PANE);
-          pane.element.classList.remove(CONST.CLASSES.FOCUS_GLOW);
-        }
-        surface.restoreZ();
-      });
+      restores.push([
+        `surface:${layerInfo.id}`,
+        () => {
+          for (const pane of panes) {
+            pane.element.classList.remove(CONST.CLASSES.FOCUS_PANE);
+            pane.element.classList.remove(CONST.CLASSES.FOCUS_GLOW);
+          }
+          surface.restoreZ();
+        },
+      ]);
     } else {
       // A surface with no pane of its own: fall back to pane discovery.
       // Best-effort — some third-party layers expose children without a pane,
@@ -159,7 +172,7 @@ const bringFocusedLayerToFront = (ui: LayerUI, layerInfo: LayerInfo): void => {
         // already hides them, so the two must stay symmetric.
         if (ui.c.panes.defaultPanes.has(name)) continue;
         const pane = ui.c.map.getPane(name);
-        if (pane) lift(pane);
+        if (pane) lift(`pane:${name}`, pane);
       }
     }
   } else if (layerInfo.paneName) {
@@ -167,10 +180,10 @@ const bringFocusedLayerToFront = (ui: LayerUI, layerInfo: LayerInfo): void => {
     // the raw canvas element, so focus-hide CSS and glow attach to the pane
     // like every other layer. Fall back to the canvas if the pane is missing.
     const canvasPane = ui.c.map.getPane(layerInfo.paneName);
-    if (canvasPane) lift(canvasPane);
-    else if (layerInfo.canvas) lift(layerInfo.canvas);
+    if (canvasPane) lift(`pane:${layerInfo.paneName}`, canvasPane);
+    else if (layerInfo.canvas) lift(`canvas:${layerInfo.id}`, layerInfo.canvas);
   } else if (layerInfo.canvas) {
-    lift(layerInfo.canvas);
+    lift(`canvas:${layerInfo.id}`, layerInfo.canvas);
   }
   ui.focusController.focusedPaneRestores.push(...restores);
 };

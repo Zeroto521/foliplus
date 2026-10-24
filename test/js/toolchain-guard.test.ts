@@ -15,7 +15,11 @@ import { describe, expect, it } from "vitest";
 const ROOT = resolve(".");
 
 const pkg = JSON.parse(readFileSync(resolve(ROOT, "package.json"), "utf8"));
-const lintConfig = readFileSync(resolve(ROOT, "eslint.config.js"), "utf8");
+// The rules moved to config/eslint/base.mjs; the root file is now a
+// re-export. Reading the root file would parse zero `files: [...]` blocks and
+// the scoping assertions below would go decorative — a thinner entry file
+// would silently pass a guard that exists to catch glob typos.
+const lintConfig = readFileSync(resolve(ROOT, "config/eslint/base.mjs"), "utf8");
 const vitestConfig = readFileSync(resolve(ROOT, "vitest.config.mjs"), "utf8");
 const testTsconfig = readFileSync(resolve(ROOT, "test/js/tsconfig.json"), "utf8");
 
@@ -95,9 +99,10 @@ describe("#script/* import alias", () => {
   });
 });
 
-// eslint.config.js is its own dead-config risk: a typo in one of its globs
-// silently un-exempts half the tree, and nothing in the output mentions it.
-describe("eslint.config.js rule scoping", () => {
+// config/eslint/base.mjs is its own dead-config risk: a typo in one of its
+// globs silently un-exempts half the tree, and nothing in the output mentions
+// it.
+describe("config/eslint/base.mjs rule scoping", () => {
   it("the module-surface block reaches both foliplus/js and script", () => {
     const blocks = fileGlobs();
     const last = at(blocks.length - 1);
@@ -132,6 +137,23 @@ describe("eslint.config.js rule scoping", () => {
     expect(scopes).toContain("test/js/**/*.{js,ts}");
     const n = scopes.indexOf("test/js/**/*.{js,ts}");
     expect(at(n)).toEqual(["test/js/**/*.{js,ts}"]);
+  });
+});
+
+// The root entry must re-export the implementation, not redefine it. Without
+// this, a future edit could put rules back in the root file and the guard
+// above would keep passing against a stale implementation file.
+describe("eslint root entry", () => {
+  it("re-exports the implementation config", () => {
+    const entry = readFileSync(resolve(ROOT, "eslint.config.js"), "utf8");
+    expect(entry).toMatch(
+      /export\s*\{\s*default\s*\}\s*from\s*"\.\/config\/eslint\/base\.mjs"/,
+    );
+  });
+
+  it("holds no rule definitions of its own", () => {
+    const entry = readFileSync(resolve(ROOT, "eslint.config.js"), "utf8");
+    expect(entry).not.toMatch(/files:\s*\[/);
   });
 });
 
