@@ -155,6 +155,13 @@ window.L = {
 // LayerControl.controller.js — set it up before test imports.
 window.L.Path.prototype.bringToFront = vi.fn();
 
+// Leaflet's real class hierarchy has Polygon/Polyline/Circle extending Path.
+// The mock family above declares them flat, which breaks instanceof-based
+// carrier probes (hasMigratableLeaf) for every test using the shared stub.
+Object.setPrototypeOf(window.L.Polygon.prototype, window.L.Path.prototype);
+Object.setPrototypeOf(window.L.Polyline.prototype, window.L.Path.prototype);
+Object.setPrototypeOf(window.L.Circle.prototype, window.L.Path.prototype);
+
 // Extend the base L stub with every constructor/factory production code
 // touches. Uses Object.assign so window.L identity stays stable (setup and
 // production code both see the same reference). See fixture.ts.

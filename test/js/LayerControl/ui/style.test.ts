@@ -41,6 +41,15 @@ import {
   oneOverlay,
 } from "./fixture.js";
 
+// The carrier contract promises pane coverage only to migratable families
+// (Path / Marker / GridLayer / ImageOverlay). Style-row stubs for vector
+// layers declare the Path identity so the executor treats them as
+// pane-capable, matching the real layers they stand in for.
+const pathify = <T extends object>(stub: T): T => {
+  Object.setPrototypeOf(stub, new window.L.Path());
+  return stub;
+};
+
 /** Percentage the slider fill is drawn at, read off the primitive's inline
  *  width. The fill spans the rail's travel range, so 0.35 means 35%. */
 const fillPct = (el: HTMLElement): number =>
@@ -1337,11 +1346,11 @@ describe("LayerUI style panel", () => {
     // The fixture's default overlay1 layer is a bare group with no setStyle
     // leaves — border needs at least one such leaf (the border gate), so register a
     // real vector for this test.
-    const leaf = {
+    const leaf = pathify({
       options: { color: "#3388ff", weight: 2 },
       setStyle: vi.fn(),
       on: vi.fn(),
-    };
+    });
     manager.registerLayer({
       id: "border1",
       name: "Border",
@@ -1415,6 +1424,20 @@ describe("LayerUI style panel", () => {
         })),
       },
     });
+    const p1 = new window.L.Polygon();
+    console.log(
+      "POLY_PROBE",
+      p1 instanceof window.L.Polygon,
+      p1 instanceof window.L.Path,
+      typeof window.L.Path,
+      Object.getPrototypeOf(window.L.Polygon.prototype) === window.L.Path.prototype,
+    );
+    console.log(
+      "POLY1_CAPS",
+      JSON.stringify(
+        manager.surfaceFor(manager.layerRegistry.get("poly1")!).capabilities,
+      ),
+    );
     ui.runtimeStore.setFields("poly1", [{ name: "count", numeric: true }]);
 
     const item = findItem(ui, "poly1");
@@ -1430,6 +1453,7 @@ describe("LayerUI style panel", () => {
       index(".foliplus-style-opacity-track"),
       index(".foliplus-style-zoom-range-row"),
     ];
+    console.log("POSITIONS", JSON.stringify(positions));
     expect(positions.every(pos => pos >= 0)).toBe(true);
     expect(positions[0]).toBeLessThan(positions[1]);
     expect(positions[1]).toBeLessThan(positions[2]);
@@ -1488,7 +1512,7 @@ describe("LayerUI style panel", () => {
 
     // Path A — annotation panel (no styleSetters): a vector layer whose
     // surface admits all four Layer dims.
-    const leaf = {
+    const leaf = pathify({
       options: {
         color: "#000000",
         weight: 2,
@@ -1497,7 +1521,7 @@ describe("LayerUI style panel", () => {
       },
       setStyle: vi.fn(),
       on: vi.fn(),
-    };
+    });
     manager.registerLayer({
       id: "sweepVector",
       name: "Vector",
@@ -1620,8 +1644,10 @@ describe("LayerUI style panel", () => {
       id: "norange1",
       name: "N",
       group: "base",
-      layer: { options: {} } as never,
-      paneName: "tilePane",
+      layer: pathify({ options: {} }) as never,
+      // An owned pane name: a shared-pane declaration is refused now (the
+      // layer gets its own synthesized pane instead of adopting tilePane).
+      paneName: "norange-pane",
     });
     const li = manager.layerRegistry.get("norange1")!;
     manager.surfaceFor(li).capabilities.zoomRange = "none";
@@ -2598,11 +2624,11 @@ describe("LayerUI style panel", () => {
     // fill and border (the vector setStyle write is unreliable against a
     // component that redraws its own geometry), keeping only opacity and
     // zoomRange (LayerControl-owned).
-    const leaf = {
+    const leaf = pathify({
       options: { color: "#3388ff", weight: 2, fillColor: "#3388ff", fillOpacity: 0.2 },
       setStyle: vi.fn(),
       on: vi.fn(),
-    };
+    });
     manager.registerLayer({
       id: "measure1",
       name: "Measure",
@@ -3542,6 +3568,12 @@ describe("LayerUI style panel", () => {
     try {
       const item = findItem(ui, "base1");
       ui.openStylePanel("base1");
+      console.log(
+        "BASE1_DEBUG",
+        JSON.stringify(
+          manager.surfaceFor(manager.layerRegistry.get("base1")!).capabilities,
+        ),
+      );
       const host = panelOf(item)!.querySelector(
         `.${CONST.CLASSES.STYLE_OPACITY_TRACK}`,
       ) as HTMLElement;

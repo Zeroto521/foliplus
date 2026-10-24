@@ -55,6 +55,7 @@ const drawFocusMask = (ui: LayerUI, bounds: L.LatLngBounds): void => {
   // provisional-z branch; we pin FOCUS_Z.overlay here (idempotent).
   if (!ui.focusController.focusRenderer) {
     const { pane } = ui.c.panes.ensurePane(CONST.FOCUS_PANE, false);
+    if (!pane) return;
     pane.classList.add(CONST.CLASSES.FOCUS_PANE);
     pane.style.zIndex = String(FOCUS_Z.overlay);
     ui.focusController.focusRenderer = L.svg({ pane: CONST.FOCUS_PANE });

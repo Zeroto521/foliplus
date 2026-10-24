@@ -1,3 +1,5 @@
+import { readFileSync } from "fs";
+import { resolve } from "path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerController } from "#foliplus/LayerControl/controller.js";
@@ -1412,30 +1414,21 @@ describe("LayerUI focus", () => {
       });
 
       // ── Leaflet's native UI panes get their own hide rules ──
-      // HIDE_RULE only touches `foliplus-layer-pane`. Marker shadows, hover
-      // tooltips, and popups live in Leaflet's `leaflet-*-pane` divs (the
-      // shadow stays in `shadowPane` per the pane-ownership rule from the
-      // marker-shadow fix), so they escape the foliplus rule entirely. Three
-      // dedicated selectors hide them during focus — one per native pane.
-      // These matchers must be kept in sync with `focus.css`: delete one of
-      // the three selectors and the matching case below goes red.
+      // HIDE_RULE only touches `foliplus-layer-pane`. Hover tooltips and
+      // popups live in Leaflet's `leaflet-*-pane` divs and escape the foliplus
+      // rule entirely, so two dedicated selectors hide them during focus —
+      // one per native pane. Marker shadows do NOT need one anymore: each
+      // marker layer carries its own shadow pane (`PaneRole.SHADOW`,
+      // moved in by `PaneManager.pinLateContent`), so HIDE_RULE hides a
+      // non-focused layer's shadows and the focused layer keeps its own —
+      // the global `.leaflet-shadow-pane { visibility: hidden }` rule this
+      // used to pair with is gone. These matchers must be kept in sync with
+      // `focus.css`: delete one of the two selectors and the matching case
+      // below goes red.
       const NATIVE_PANE_RULES: Record<string, string> = {
-        "shadow-pane": ".foliplus-is-focus-mode .leaflet-shadow-pane",
         "tooltip-pane": ".foliplus-is-focus-mode .leaflet-tooltip-pane",
         "popup-pane": ".foliplus-is-focus-mode .leaflet-popup-pane",
       };
-
-      it("hides Leaflet's shadow pane during focus (marker shadows escape the foliplus rule)", () => {
-        const container = makeContainer(true);
-        const shadowPane = document.createElement("div");
-        shadowPane.classList.add("leaflet-shadow-pane");
-        container.appendChild(shadowPane);
-        document.body.appendChild(container);
-
-        expect(document.querySelectorAll(NATIVE_PANE_RULES["shadow-pane"])).toContain(
-          shadowPane,
-        );
-      });
 
       it("hides Leaflet's tooltip pane during focus (hover tooltips escape the foliplus rule)", () => {
         const container = makeContainer(true);
@@ -1459,6 +1452,23 @@ describe("LayerUI focus", () => {
         expect(document.querySelectorAll(NATIVE_PANE_RULES["popup-pane"])).toContain(
           popupPane,
         );
+      });
+
+      it("focus.css carries no shadow-pane rule anymore (shadows are layer-owned panes)", () => {
+        // Selector-shape checks (like the two above) only prove what a
+        // selector WOULD match — querySelectorAll reads DOM structure, not
+        // CSS. The removed blanket hide needs a file-level assertion: the
+        // old `.leaflet-shadow-pane { visibility: hidden }` took the focused
+        // marker layer's own shadows down with everyone else's, and shadows
+        // are foliplus layer panes now (PaneRole.SHADOW), covered by the
+        // layer-pane rule above.
+        const css = readFileSync(
+          resolve(".", "foliplus/css/LayerControl/focus.css"),
+          "utf8",
+        );
+        expect(css).not.toContain("leaflet-shadow-pane");
+        expect(css).toContain(".foliplus-is-focus-mode .leaflet-tooltip-pane");
+        expect(css).toContain(".foliplus-is-focus-mode .leaflet-popup-pane");
       });
 
       it("the native pane rules do not match when focus is not active", () => {
@@ -2228,6 +2238,22 @@ describe("LayerUI focus", () => {
       expect(ui.focusController.focusRenderer).toBe(renderer);
     });
 
+    it("aborts the mask when the focus pane is not acquireable", () => {
+      // Defensive: a focus pane held by someone else (or repainted with
+      // foreign content) means the mask has nowhere to draw — the abort must
+      // leave no renderer behind and not throw.
+      const ensureSpy = vi
+        .spyOn(ui.c.panes, "ensurePane")
+        .mockReturnValue({ pane: null, renderer: null });
+      try {
+        expect(() => drawFocusMask(ui, layerBounds())).not.toThrow();
+        expect(ui.focusController.focusRenderer).toBeNull();
+        expect(ensureSpy).toHaveBeenCalled();
+      } finally {
+        ensureSpy.mockRestore();
+      }
+    });
+
     it("omits the renderer from the rect options when none is active", () => {
       expect(ui.focusController.focusRenderer).toBeNull();
 
@@ -2503,4 +2529,18 @@ it("dismissFocus releases a stuck focusing mode when the focus UI state is gone"
 
   expect(modes.getMode(ui.config.name)).toBeNull();
   expect(ui.isFocusing()).toBe(false);
+});
+
+it("dismissFocus keeps the teardown total when a pane restore throws", () => {
+  const { ui } = initFixture();
+  // A surface that retired mid-focus leaves a restore that throws. Without
+  // the try/catch it aborted the teardown before the focusRect / focusMask /
+  // focusRenderer cleanup, leaving the map dimmed with no way back.
+  ui.focusController.focusedPaneRestores.push(() => {
+    throw new Error("surface gone");
+  });
+
+  expect(() => dismissFocus(ui)).not.toThrow();
+
+  expect(ui.focusController.focusedPaneRestores).toEqual([]);
 });

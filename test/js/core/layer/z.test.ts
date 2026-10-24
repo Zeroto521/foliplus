@@ -45,6 +45,18 @@ describe("zFor slots", () => {
     expect(zFor({ index: 1, count: 3, role: "annotation", order: 4 })).toBe(slot + 1);
   });
 
+  it("prices a shadow pane one step below its layer, ignoring its order", () => {
+    // The marker-shadow pane must paint under its icon by pane ladder, not
+    // DOM order: Leaflet writes `pos.y + zIndexOffset` onto icons, which goes
+    // negative near the viewport top — where a negative-z positioned element
+    // paints BELOW a z:auto sibling. One step down keeps it under its own
+    // icons and above the next layer's slot (STEP = 10). Like annotation,
+    // the role decides; `order` is ignored.
+    const slot = zFor({ index: 1, count: 3 });
+    expect(zFor({ index: 1, count: 3, role: "shadow" })).toBe(slot - 1);
+    expect(zFor({ index: 1, count: 3, role: "shadow", order: 4 })).toBe(slot - 1);
+  });
+
   it("prices a pane at the stack base while no slot has been claimed", () => {
     expect(zFor({})).toBe(Z_INDEX.BASE);
     expect(zFor({ order: 2 })).toBe(Z_INDEX.BASE + 2);

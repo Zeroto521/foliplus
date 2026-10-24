@@ -254,7 +254,19 @@ const dismissFocus = (ui: LayerUI): void => {
   clearFocusedRowHighlight(ui);
   restoreHiddenLayers(ui);
   ui.c.annotation.setFocusFilter(null);
-  for (const restore of ui.focusController.focusedPaneRestores) restore();
+  // Each restore runs in its own try/catch: a surface can retire mid-focus
+  // (unregister, or a same-id replacement), and a restore that still points at
+  // it would otherwise throw here — before the focusRect / focusMask /
+  // focusRenderer teardown below — leaving the map dimmed with no way back.
+  // Logging instead of throwing keeps the teardown total.
+  for (const restore of ui.focusController.focusedPaneRestores) {
+    try {
+      restore();
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      ui.log.warn(`focus pane restore threw; continuing teardown: ${detail}`);
+    }
+  }
   ui.focusController.focusedPaneRestores = [];
 
   if (ui.focusController.focusRect) {

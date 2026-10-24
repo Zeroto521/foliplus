@@ -238,11 +238,16 @@ class LayerOrchestration {
     };
     const existing = this.surfaces.get(layerInfo.id);
     if (existing?.matches(surfaceFace)) return existing;
-    if (existing?.layer) {
-      // The layer object (or its declaration) was replaced. Drop the stamp
-      // index entry for the superseded layer, or a lookup by it would keep
-      // answering with a surface nobody paints into anymore.
-      this.surfacesByLayer.delete(L.stamp(existing.layer));
+    if (existing) {
+      // The layer object (or its declaration) was replaced. Release the old
+      // surface's resources before the new face takes the id: its
+      // synthesized base pane and marker-shadow pane would otherwise linger
+      // as unowned DOM, and the replacement's claim on its own pane names
+      // would collide with a stale claim. The stamp index entry goes first so
+      // a lookup by the superseded layer cannot answer with a surface nobody
+      // paints into anymore.
+      if (existing.layer) this.surfacesByLayer.delete(L.stamp(existing.layer));
+      existing.destroy();
     }
     const surface = new LayerSurface(this.panes, surfaceFace);
     this.surfaces.set(layerInfo.id, surface);
@@ -346,6 +351,21 @@ class LayerOrchestration {
     const existingLi = this.layerRegistry.get(opts.id);
     const existingIdx = existingLi ? this.layerRegistry.indexOf(existingLi) : -1;
     const layerInfo = this.layerRegistry.createLayerInfo(opts, existingLi, this.map);
+
+    // Same id, new layer object: the old layer is being replaced, not
+    // joined. Retire it from the map BEFORE the registry forgets it —
+    // otherwise it keeps painting as an unmanageable ghost (no row, no
+    // opacity, no focus, no sort can reach it) for as long as the session
+    // lives. Same-object re-registration (the "this layer changed" signal)
+    // is untouched.
+    if (
+      existingLi?.layer &&
+      opts.layer &&
+      existingLi.layer !== opts.layer &&
+      this.map.hasLayer(existingLi.layer)
+    ) {
+      this.map.removeLayer(existingLi.layer);
+    }
 
     if (existingIdx !== -1) this.layerRegistry.upsert(layerInfo);
     else if (layerInfo.group === GROUP.BASE) {
