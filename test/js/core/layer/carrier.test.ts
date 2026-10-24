@@ -9,7 +9,8 @@
 // ordering and focus for so long. These tests run the real stack (PaneManager
 // + LayerSurface over a real L.Map in jsdom) and assert the invariant
 // directly: every element the layer paints through is a descendant of one of
-// the surface's own panes.
+// the surface's own panes. The enumeration and the assertion live in
+// `core/layer/carrier.ts` (this file is its test).
 //
 // What is NOT asserted here: pixel-level painting order (jsdom has no layout
 // engine). The stacking claim rests on the pane ladder — the shadow pane's z
@@ -18,6 +19,7 @@
 import L from "leaflet";
 import { LayerSurface } from "#foliplus/core/layer/LayerSurface.js";
 import { PaneManager } from "#foliplus/core/layer/PaneManager.js";
+import { assertInsideOwnedPanes, visibleDomOf } from "#foliplus/core/layer/carrier.js";
 import { PANE_ROLE } from "#foliplus/core/layer/const.js";
 
 // The mock `window.L` is swapped for the real library for this file only.
@@ -46,45 +48,15 @@ afterEach(() => {
   document.body.innerHTML = "";
 });
 
-/** Every DOM element the layer can paint through, from the private fields
- *  real Leaflet actually fills: `_icon` + `_shadow` (Marker), `_path`
- *  (Path, via `getElement`), `_image` (ImageOverlay, via `getElement`), and
- *  the GridLayer container. This enumeration is the carrier contract's
- *  definition of "visible DOM" — a new layer type that paints through an
- *  element nobody lists here passes the guard vacuously, which is the
- *  intended failure mode: teaching `visibleDomOf` about the field is the
- *  moment the audit table and the guard meet. */
-const visibleDomOf = (layer: L.Layer): HTMLElement[] => {
-  const out: HTMLElement[] = [];
-  const visit = (node: L.Layer): void => {
-    if (typeof (node as L.LayerGroup).eachLayer === "function") {
-      (node as L.LayerGroup).eachLayer(visit);
-      return;
-    }
-    const el = (node as { getElement?: () => HTMLElement | null }).getElement?.();
-    if (el) out.push(el);
-    // `_shadow` is protected on @types/leaflet's Marker — the structural
-    // probe reads it like the adapter does.
-    const shadow = (node as unknown as { _shadow?: HTMLElement })._shadow;
-    if (shadow) out.push(shadow);
-    const tileContainer = (node as L.GridLayer).getContainer?.();
-    if (tileContainer) out.push(tileContainer);
-  };
-  visit(layer);
-  return out;
-};
-
 /** A marker's shadow element, outside the class's protected surface. */
 const shadowOf = (marker: L.Marker): HTMLElement | null =>
   (marker as unknown as { _shadow?: HTMLElement })._shadow ?? null;
 
-/** The invariant itself: every visible element is a descendant of one of the
- *  surface's own panes. This is the guard the mock tests cannot express. */
+/** The invariant itself, through the production guard: every visible element
+ *  of the layer must sit inside one of the surface's own panes. This is the
+ *  check the mock-based tests structurally cannot express. */
 const expectInsideOwnedPanes = (surface: LayerSurface, layer: L.Layer): void => {
-  for (const el of visibleDomOf(layer)) {
-    const owner = surface.panes.find(pane => pane.element.contains(el));
-    expect(owner, `${el.tagName} escaped the surface's panes`).toBeDefined();
-  }
+  expect(() => assertInsideOwnedPanes(surface.panes, layer)).not.toThrow();
 };
 
 /** The effective opacity a pixel of `el` paints at: the product of every
@@ -326,6 +298,64 @@ describe("carrier coverage (real Leaflet)", () => {
     surface.materialize();
     (surface.panes as { name: string }[])[0].name = "tilePane";
     expect(() => surface.setZ(700)).toThrow(/shared pane/);
+    map.remove();
+  });
+});
+
+describe("visibleDomOf (the audit table, executable)", () => {
+  it("enumerates a marker's icon and shadow", () => {
+    const { map, host } = makeMap();
+    const group = L.layerGroup([markerIn([26.08, 119.3])]);
+    map.addLayer(group);
+    const surface = new LayerSurface(host, { id: "pts", layer: group });
+    surface.materialize();
+    const marker = group.getLayers()[0] as L.Marker;
+
+    const dom = visibleDomOf(group);
+    expect(dom).toHaveLength(2);
+    expect(dom).toContain(marker.getElement()!);
+    expect(dom).toContain(shadowOf(marker)!);
+    map.remove();
+  });
+
+  it("enumerates an ImageOverlay's image", () => {
+    const { map, host } = makeMap();
+    const image = L.imageOverlay(
+      IMAGE_URL,
+      L.latLngBounds([26.0, 119.2], [26.2, 119.5]),
+    );
+    map.addLayer(image);
+    const surface = new LayerSurface(host, { id: "img", layer: image });
+    surface.materialize();
+
+    expect(visibleDomOf(image)).toEqual([image.getElement()!]);
+    map.remove();
+  });
+
+  it("enumerates a TileLayer's container, and descends groups skipping the container", () => {
+    const { map, host } = makeMap();
+    const tiles = L.tileLayer("data:image/png;base64,AAA/{z}/{x}/{y}.png");
+    map.addLayer(tiles);
+    const surface = new LayerSurface(host, { id: "basemap", layer: tiles });
+    surface.materialize();
+
+    expect(visibleDomOf(tiles)).toEqual([tiles.getContainer()!]);
+    map.remove();
+  });
+
+  it("assertInsideOwnedPanes throws naming the escaped elements", () => {
+    const { map, host } = makeMap();
+    const group = L.layerGroup([markerIn([26.08, 119.3])]);
+    map.addLayer(group);
+    const surface = new LayerSurface(host, { id: "pts", layer: group });
+    surface.materialize();
+    const marker = group.getLayers()[0] as L.Marker;
+
+    // The guard names what escaped so the failure reads like the audit.
+    expect(() => assertInsideOwnedPanes([], group)).toThrow(/IMG.*panes/);
+    // And it is silent on the compliant state — the guard must never
+    // manufacture a failure for a layer the carrier covers.
+    expect(() => assertInsideOwnedPanes(surface.panes, group)).not.toThrow();
     map.remove();
   });
 });

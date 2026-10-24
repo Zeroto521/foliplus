@@ -1078,6 +1078,54 @@ describe("PaneManager", () => {
     expect(layer.options.pane).toBe("foliplus-pane-1");
   });
 
+  it("pinLateContent skips the DOM moves when the pane element is missing", () => {
+    // A pane name that resolves to nothing (a destroyed pane, a mock): the
+    // options write still marks the layer handled — the pane contract is
+    // decided before the layer joins the map, so the DOM move is a no-op —
+    // and every element branch (icon, shadow, image) must fall through
+    // without a null parent landing in the batch.
+    const icon = document.createElement("img");
+    const shadow = document.createElement("img");
+    const image = document.createElement("img");
+    const overlayPane = document.createElement("div");
+    overlayPane.appendChild(image);
+    const map = {
+      getPane: vi.fn((name: string) =>
+        name === "foliplus-pane-1" ? null : overlayPane,
+      ),
+      createPane: vi.fn(),
+    };
+    const pm = new PaneManager(map);
+    const renderer = { _container: document.createElement("div") };
+
+    const marker = {
+      getElement: () => icon,
+      _shadow: shadow,
+      options: {} as Record<string, unknown>,
+      eachLayer: undefined,
+    };
+    Object.setPrototypeOf(marker, new window.L.Marker());
+    const overlay = {
+      _image: image,
+      options: {} as Record<string, unknown>,
+      eachLayer: undefined,
+    };
+    Object.setPrototypeOf(overlay, new window.L.ImageOverlay());
+
+    expect(() =>
+      pm.pinLateContent([
+        { layer: marker, paneName: "foliplus-pane-1", renderer, shadowPaneName: "x" },
+        { layer: overlay, paneName: "foliplus-pane-1", renderer },
+      ]),
+    ).not.toThrow();
+    expect(marker.options.pane).toBe("foliplus-pane-1");
+    expect(overlay.options.pane).toBe("foliplus-pane-1");
+    expect(icon.parentNode).toBeNull();
+    expect(shadow.parentNode).toBeNull();
+    // The image stays where Leaflet put it — there is nowhere to move it to.
+    expect(image.parentNode).toBe(overlayPane);
+  });
+
   it("pinLateContent batches two GridLayers of one pane into a single append", () => {
     // The second GridLayer against the same target pane hits the already-
     // existing group (`markerGroups.has` true) and appends after the first.

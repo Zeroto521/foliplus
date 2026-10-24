@@ -22,7 +22,7 @@
 - `LayerControl`: value-based fill follows the layer's real geometry — a mixed layer's fill row shows its polygon's colour, and features added after a fill was set are repainted instead of keeping the author's colour ([#727](https://github.com/Zeroto521/foliplus/pull/727))
 - `LayerControl`: a border chosen before features land still reaches them — the content-change replay now covers the stroke face alongside fill, size and opacity ([#730](https://github.com/Zeroto521/foliplus/pull/730))
 - `LayerControl`: reordering (`moveLayerUp`/`moveLayerDown`, `bringLayerToFront`, drag) moves rows in place instead of rebuilding the panel — a 200-layer move drops from seconds to milliseconds ([#731](https://github.com/Zeroto521/foliplus/pull/731))
-- `LayerControl`: pane writes now reach a layer's whole visible DOM — marker shadows and ImageOverlay images move into the layer's own panes, the focus spotlight keeps the focused layer's shadows, and shared-pane style writes are refused ([#733](https://github.com/Zeroto521/foliplus/pull/733))
+- `LayerControl`: marker shadows and ImageOverlay images join the layer's own panes — opacity, z-ordering and focus now cover the whole layer ([#733](https://github.com/Zeroto521/foliplus/pull/733))
 
 ## [v0.4.1] (2026-10-18)
 

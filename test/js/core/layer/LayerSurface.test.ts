@@ -284,6 +284,59 @@ describe("LayerSurface pane resolution", () => {
     expect(surface.paneNames).toEqual([surface.synthesizedPaneName]);
   });
 
+  it("materializes a declared spec the tree did not discover (annotation pane)", () => {
+    // The registration edge appends a `role: "annotation"` spec for layers
+    // whose features carry labelable properties; the synthesized branch
+    // discovers no such pane from the tree, so `addMissingSpecs` must build
+    // it — otherwise the capability is declared and the pane never exists.
+    const { panes, host } = makeMap();
+    const surface = new LayerSurface(host, {
+      id: "labelable",
+      layer: new Group([new Path()]) as unknown as L.Layer,
+      paneSpecs: [{ role: "annotation", order: 1, name: "foliplus-annotation-x" }],
+    });
+    surface.materialize();
+
+    expect(surface.paneNames).toEqual([
+      surface.synthesizedPaneName,
+      "foliplus-annotation-x",
+    ]);
+    expect(surface.panes.map(pane => pane.role)).toEqual(["base", "annotation"]);
+    expect(panes["foliplus-annotation-x"]).toBeDefined();
+  });
+
+  it("warns and skips the shadow pane when a declared spec claims its name", () => {
+    // A declared pane named `<base>-shadow` (the collision only a caller can
+    // manufacture, but a real one): the surface must not double-book the name
+    // — the declared pane stands, the marker-shadow synthesis degrades to a
+    // warn, and shadows stay on Leaflet's shared shadowPane.
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { panes, host } = makeMap();
+    const layer = new Group([new Marker()]);
+    // Stamp first so the test can predict the synthesized base pane's name.
+    const baseName = `foliplus-pane-${window.L.stamp(layer)}`;
+    const surface = new LayerSurface(host, {
+      id: "claimed",
+      layer: layer as unknown as L.Layer,
+      paneSpecs: [{ role: "sub", order: 1, name: `${baseName}-shadow` }],
+    });
+    surface.materialize();
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("already claimed by a declared"),
+    );
+    // The claimed name keeps the declared spec's identity — it is not a
+    // shadow pane, so nothing treats it as one.
+    expect(
+      (surface as unknown as { shadowPaneName: string | null }).shadowPaneName,
+    ).toBeNull();
+    expect(surface.panes.find(pane => pane.name === `${baseName}-shadow`)?.role).toBe(
+      "sub",
+    );
+    expect(panes[`${baseName}-shadow`]).toBeDefined();
+    warnSpy.mockRestore();
+  });
+
   it("never writes pointer-events onto a pane", () => {
     // Whether a pane's content takes a hit is that content's own call:
     // AnnotationCanvas writes `none` on itself, a data canvas is re-enabled by
