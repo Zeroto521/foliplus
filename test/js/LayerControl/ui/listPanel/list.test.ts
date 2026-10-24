@@ -655,12 +655,13 @@ describe("ui/list syncRowOrder — incremental reorder", () => {
     // torn-down panel no-ops; rows order without their toggle-all anchors; a
     // child that is neither a row nor an anchor is ignored; an empty
     // registry writes nothing.
-    const ui = {
+    // A torn-down control must no-op.
+    const bare = {
       uiContainer: null,
-      c: { layers: [] as LayerInfo[] },
+      c: { layers: [] },
       listPanel: { activeIdx: null },
     } as unknown as LayerUI;
-    expect(() => syncRowOrder(ui)).not.toThrow();
+    expect(() => syncRowOrder(bare)).not.toThrow();
 
     const rowEl = (id: string) => {
       const el = document.createElement("div");
@@ -671,8 +672,13 @@ describe("ui/list syncRowOrder — incremental reorder", () => {
     const container = document.createElement("div");
     const stray = document.createElement("div");
     container.append(stray, rowEl("B"), rowEl("A"), rowEl("base1"));
-    ui.uiContainer = container;
-    ui.c.layers = [
+    const registry = { layers: [] as LayerInfo[] };
+    const ui = {
+      uiContainer: container,
+      c: registry,
+      listPanel: { activeIdx: null },
+    } as unknown as LayerUI;
+    registry.layers = [
       { id: "A", group: GROUP.OVERLAY } as LayerInfo,
       { id: "B", group: GROUP.OVERLAY } as LayerInfo,
       { id: "base1", group: GROUP.BASE } as LayerInfo,
@@ -688,7 +694,7 @@ describe("ui/list syncRowOrder — incremental reorder", () => {
       ),
     ).toEqual(["A", "B", "base1", "stray"]);
 
-    ui.c.layers = [];
+    registry.layers = [];
     expect(() => syncRowOrder(ui)).not.toThrow();
     expect(container.children.length).toBe(4);
   });
