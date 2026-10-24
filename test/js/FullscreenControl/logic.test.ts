@@ -134,6 +134,16 @@ describe("updateUI", () => {
       expect(btn.classList.contains(CLASSES.HIDDEN)).toBe(true);
     }
   });
+
+  it("hintText override replaces the default enter/exit wording", () => {
+    mapMock.isFullscreen = true;
+    updateUI(mapMock, fsBtn, container, makeEnv(), "fallback");
+    expect(mapMock.foliplus.showHint).toHaveBeenCalledWith(
+      expect.any(String),
+      "fallback",
+      expect.any(Number),
+    );
+  });
 });
 
 describe("toggleFullscreen — pseudo path", () => {
@@ -156,6 +166,13 @@ describe("toggleFullscreen — pseudo path", () => {
     );
     expect(mapMock.isFullscreen).toBe(true);
     expect(mapMock.invalidateSize).toHaveBeenCalled();
+    // The enter hint is the fallback wording: in an embed without the
+    // fullscreen permission the native claim "已进入全屏" would be a lie.
+    expect(mapMock.foliplus.showHint).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.stringContaining("fallback"),
+      expect.any(Number),
+    );
   });
 
   it("exits pseudo-fullscreen on second call", () => {
@@ -243,27 +260,31 @@ describe("toggleFullscreen — native API path", () => {
     expect(fsBtn.innerHTML).toBe("");
   });
 
-  it("recovers state and reports the unsupported hint on reject", async () => {
+  it("falls back to pseudo-fullscreen with the fallback hint on reject", async () => {
     mapMock.getContainer().requestFullscreen = vi.fn(() =>
       Promise.reject(new Error("denied")),
     );
     toggleFullscreen(mapMock, fsBtn, container, makeEnv());
     await Promise.resolve();
     await Promise.resolve();
-    expect(mapMock.isFullscreen).toBe(false);
-    // Reject does not re-run updateUI — that would announce "entered
-    // fullscreen" for a click that failed. It only reports the hint.
-    expect(fsBtn.innerHTML).toBe("");
+    // The rejection must not dead-end: the container lands in pseudo mode so
+    // the click still maximizes the map within the page.
+    expect(mapMock.getContainer().classList.contains(CLASSES.PSEUDO_FULLSCREEN)).toBe(
+      true,
+    );
+    expect(mapMock.isFullscreen).toBe(true);
+    expect(mapMock.invalidateSize).toHaveBeenCalled();
+    // The hint explains the fallback instead of announcing "entered fullscreen".
     expect(mapMock.foliplus.showHint).toHaveBeenCalledWith(
       expect.any(String),
-      expect.stringContaining("unsupported"),
+      expect.stringContaining("fallback"),
       expect.any(Number),
     );
   });
 
   describe("toggle — exit", () => {
-    it("calls exitFullscreen when already fullscreen", async () => {
-      mapMock.isFullscreen = true;
+    it("calls exitFullscreen when a native fullscreen element exists", async () => {
+      mocks.getFullscreenEl.mockReturnValue(document.createElement("div"));
       document.exitFullscreen = vi.fn(() => Promise.resolve());
       toggleFullscreen(mapMock, fsBtn, container, makeEnv());
       expect(document.exitFullscreen).toHaveBeenCalled();
@@ -272,32 +293,35 @@ describe("toggleFullscreen — native API path", () => {
       expect(mapMock.isFullscreen).toBe(false);
     });
 
-    it("recovers state and reports the exit-fail hint on exit reject", async () => {
+    it("exits pseudo mode when only map.isFullscreen is set (stale permission flip)", async () => {
+      // A pseudo session started while the API was disabled must exit as
+      // pseudo even if isEnabled() flips true afterwards — exitFullscreen on
+      // a null element would reject and strand the pseudo class.
       mapMock.isFullscreen = true;
+      document.exitFullscreen = vi.fn(() => Promise.resolve());
+      toggleFullscreen(mapMock, fsBtn, container, makeEnv());
+      expect(document.exitFullscreen).not.toHaveBeenCalled();
+      expect(mapMock.getContainer().classList.contains(CLASSES.PSEUDO_FULLSCREEN)).toBe(
+        false,
+      );
+      expect(mapMock.isFullscreen).toBe(false);
+    });
+
+    it("recovers state and reports the exit-fail hint on exit reject", async () => {
+      mocks.getFullscreenEl.mockReturnValue(document.createElement("div"));
       document.exitFullscreen = vi.fn(() => Promise.reject(new Error("failed")));
       toggleFullscreen(mapMock, fsBtn, container, makeEnv());
       await Promise.resolve();
       await Promise.resolve();
-      expect(mapMock.isFullscreen).toBe(false);
+      // Recovered to the real state — the exit failed, fullscreen is still on.
+      expect(mapMock.isFullscreen).toBe(true);
+      // No updateUI on the failed exit — the icon must not claim "exited".
       expect(fsBtn.innerHTML).toBe("");
       expect(mapMock.foliplus.showHint).toHaveBeenCalledWith(
         expect.any(String),
         expect.stringContaining("exit_fail"),
         expect.any(Number),
       );
-      // Still in fullscreen — "unsupported" would say the opposite of what happened.
-      expect(mapMock.foliplus.showHint).not.toHaveBeenCalledWith(
-        expect.any(String),
-        expect.stringContaining("unsupported"),
-        expect.any(Number),
-      );
-    });
-
-    it("exits when getFullscreenEl returns an element", async () => {
-      mocks.getFullscreenEl.mockReturnValue(document.createElement("div"));
-      document.exitFullscreen = vi.fn(() => Promise.resolve());
-      toggleFullscreen(mapMock, fsBtn, container, makeEnv());
-      expect(document.exitFullscreen).toHaveBeenCalled();
     });
   });
 });

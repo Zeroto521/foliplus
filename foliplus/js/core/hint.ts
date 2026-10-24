@@ -1,6 +1,7 @@
 // core/hint — per-map toast system.
 // Each map gets its own HintManager instance (via ensureHint), attached to
 // `map.foliplus.showHint/hideHint`.  No global state leaks to `window.foliplus`.
+import { fullscreenSurface } from "#core/fullscreen.js";
 import { ensureMapFoliplus } from "#core/mapApi.js";
 import { cssVar } from "#common/cssvar.js";
 import { dom } from "#common/dom.js";
@@ -75,9 +76,10 @@ class HintManager {
   constructor() {
     this.hintIcons = { ...hintIconRegistry };
     this.hintMap = new Map();
-    // When the map goes fullscreen, only the fullscreen element is visible —
-    // hints appended to document.body would disappear. Move them onto the
-    // fullscreen element (and back again on exit). Standard API only — the
+    // When a covering surface activates (native fullscreen or pseudo-fullscreen,
+    // see core/fullscreen.ts), only that surface's subtree is visible — hints
+    // appended to document.body would be buried under the opaque map. Move
+    // them onto the surface (and back again on exit). Standard API only — the
     // webkit prefix is dropped (see FullscreenControl/api.ts).
     this.onFullscreenChange = () => this.reattachHints();
     document.addEventListener("fullscreenchange", this.onFullscreenChange);
@@ -85,11 +87,12 @@ class HintManager {
   }
 
   private reattachHints() {
-    const target: HTMLElement =
-      (document.fullscreenElement as HTMLElement | null) ?? document.body;
-    if (target === document.documentElement) return;
+    const target = fullscreenSurface();
     let moved = false;
     for (const entry of this.hintMap.values()) {
+      // Disconnected elements are stale (removed externally), not stranded on
+      // an exited surface — re-attaching those would resurrect dead hints.
+      if (!entry.element?.isConnected) continue;
       if (entry.element.parentElement !== target) {
         target.appendChild(entry.element);
         moved = true;
@@ -114,8 +117,12 @@ class HintManager {
     if (subkey) this.hideHint(key, subkey);
     else if (!append) this.hideHint(key);
 
-    const hintTarget: HTMLElement =
-      (document.fullscreenElement as HTMLElement | null) ?? document.body;
+    // Re-seat live hints first: a PERSIST hint shown inside a surface that
+    // has since exited (pseudo-fullscreen toggled off) would otherwise stay
+    // stranded in the map container. The new hint then appends to the same
+    // target reattachHints resolved.
+    this.reattachHints();
+    const hintTarget = fullscreenSurface();
 
     const cls = subkey
       ? `${CLASS} ${CLASS}-${key}-${subkey}`

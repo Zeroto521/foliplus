@@ -248,6 +248,33 @@ describe("HintManager", () => {
     });
   });
 
+  it("shows a hint inside the pseudo-fullscreen container (embed burial fix)", () => {
+    // Pseudo-fullscreen covers the viewport with the opaque map at the
+    // fullscreen z-index — a body-appended toast would be painted under it
+    // (the Feishu-embed report). The hint must live inside the container.
+    const mgr = new HintManager();
+    const container = document.createElement("div");
+    container.className = "leaflet-container leaflet-pseudo-fullscreen";
+    document.body.appendChild(container);
+
+    mgr.showHint("key", "hello", 0);
+
+    const el = document.querySelector(".foliplus-hint")!;
+    expect(el.parentElement).toBe(container);
+    // Non-body targets become positioned ancestors so the absolute hint
+    // anchors to them (same contract as the native fullscreen element).
+    expect(container.style.position).toBe("relative");
+
+    // Stranded re-seat: a PERSIST hint shown during pseudo mode must land
+    // back on body once the surface is gone and the next hint fires.
+    container.classList.remove("leaflet-pseudo-fullscreen");
+    mgr.showHint("key2", "second", 0);
+    expect(el.parentElement).toBe(document.body);
+    expect(document.querySelector(".foliplus-hint")!.parentElement).toBe(document.body);
+
+    mgr.destroy();
+  });
+
   it("hideHint with a subkey removes only that sub-hint", () => {
     const mgr = new HintManager();
     mgr.showHint("key", "one", 0, false, "sub");
@@ -441,10 +468,12 @@ describe("map unload teardown", () => {
     vi.useFakeTimers();
     const map = makeMap();
     const mgr = ensureHint(map);
+    mgr.showHint("persist", "still open", HINT_DURATION.PERSIST);
     // reattachHints is called through a bound arrow, so spying the class
     // method is the only way to observe the document listener afterwards.
+    // The spy is created AFTER the seeding showHint — showHint itself calls
+    // reattachHints to re-seat stranded entries, which must not count here.
     const reattachSpy = vi.spyOn(mgr, "reattachHints" as any);
-    mgr.showHint("persist", "still open", HINT_DURATION.PERSIST);
     // Grab the element this manager just created. A global selector would
     // also match stray nodes left behind by sibling tests.
     const el = mgr.hintMap.values().next().value!.element;

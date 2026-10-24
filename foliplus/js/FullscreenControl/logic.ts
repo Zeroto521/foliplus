@@ -14,7 +14,15 @@ type Env = { config: ComponentConfig; T: (key: string) => string };
 // ══════════════════════════════════════════════════════════════════════════════
 // updateUI (internal)  —  refresh icon, title, sibling/self visibility, hint
 // ══════════════════════════════════════════════════════════════════════════════
-const updateUI = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement, env: Env) => {
+// `hintText` overrides the enter/exit wording — pseudo entries announce the
+// fallback instead of claiming a native fullscreen the user may not see.
+const updateUI = (
+  map: L.Map,
+  fsBtn: HTMLElement,
+  container: HTMLElement,
+  env: Env,
+  hintText?: string,
+) => {
   const { config, T } = env;
   const isFull = Boolean(getFullscreenEl()) || map.isFullscreen;
   fsBtn.innerHTML = isFull ? SVGs.ICON_MINIMIZE : SVGs.ICON_MAXIMIZE;
@@ -40,67 +48,90 @@ const updateUI = (map: L.Map, fsBtn: HTMLElement, container: HTMLElement, env: E
 
   map.foliplus!.showHint?.(
     config.name,
-    isFull ? T("enter") : T("exit"),
+    hintText ?? (isFull ? T("enter") : T("exit")),
     HINT_DURATION.MEDIUM,
   );
-};
-
-// A rejected request must not report the transition that just failed — each
-// branch announces what actually happened to the user instead.
-const showUnsupportedHint = (map: L.Map, env: Env) => {
-  map.foliplus!.showHint?.(env.config.name, env.T("unsupported"), HINT_DURATION.MEDIUM);
 };
 
 const showExitFailHint = (map: L.Map, env: Env) => {
   map.foliplus!.showHint?.(env.config.name, env.T("exit_fail"), HINT_DURATION.MEDIUM);
 };
 
+// Native fullscreen is unavailable here — embedder policy (Feishu/Notion-style
+// cross-origin iframes without the fullscreen permission) or an API-less
+// browser. Pseudo mode maximizes within the page, and the hint says so rather
+// than announcing a fullscreen the user cannot see.
+const enterPseudo = (
+  map: L.Map,
+  fsBtn: HTMLElement,
+  container: HTMLElement,
+  env: Env,
+) => {
+  map.getContainer().classList.add(CLASSES.PSEUDO_FULLSCREEN);
+  map.invalidateSize();
+
+  map.isFullscreen = true;
+  updateUI(map, fsBtn, container, env, env.T("fallback"));
+};
+
+const exitPseudo = (
+  map: L.Map,
+  fsBtn: HTMLElement,
+  container: HTMLElement,
+  env: Env,
+) => {
+  map.getContainer().classList.remove(CLASSES.PSEUDO_FULLSCREEN);
+  map.invalidateSize();
+
+  map.isFullscreen = false;
+  updateUI(map, fsBtn, container, env);
+};
+
 // ══════════════════════════════════════════════════════════════════════════════
 // toggleFullscreen  —  enter/exit fullscreen via native API or pseudo mode
 // ══════════════════════════════════════════════════════════════════════════════
+// Exit branches key on the real fullscreen state, not isEnabled(): a pseudo
+// session must exit as pseudo even if permission arrived since it started.
 const toggleFullscreen = (
   map: L.Map,
   fsBtn: HTMLElement,
   container: HTMLElement,
   env: Env,
 ) => {
-  if (getFullscreenEl() || map.isFullscreen) {
-    if (isEnabled()) {
-      document
-        .exitFullscreen()
-        .then(() => {
-          map.isFullscreen = false;
-        })
-        .catch(() => {
-          map.isFullscreen = Boolean(getFullscreenEl());
-          showExitFailHint(map, env);
-        });
-      return;
-    }
-    map.getContainer().classList.remove(CLASSES.PSEUDO_FULLSCREEN);
-    map.invalidateSize();
-
-    map.isFullscreen = false;
-  } else {
-    if (isEnabled()) {
-      map
-        .getContainer()
-        .requestFullscreen()
-        .then(() => {
-          map.isFullscreen = true;
-        })
-        .catch(() => {
-          map.isFullscreen = Boolean(getFullscreenEl());
-          showUnsupportedHint(map, env);
-        });
-      return;
-    }
-    map.getContainer().classList.add(CLASSES.PSEUDO_FULLSCREEN);
-    map.invalidateSize();
-
-    map.isFullscreen = true;
+  if (getFullscreenEl()) {
+    document
+      .exitFullscreen()
+      .then(() => {
+        map.isFullscreen = false;
+      })
+      .catch(() => {
+        map.isFullscreen = Boolean(getFullscreenEl());
+        showExitFailHint(map, env);
+      });
+    return;
   }
-  updateUI(map, fsBtn, container, env);
+
+  if (map.isFullscreen) {
+    exitPseudo(map, fsBtn, container, env);
+    return;
+  }
+
+  if (isEnabled()) {
+    map
+      .getContainer()
+      .requestFullscreen()
+      .then(() => {
+        map.isFullscreen = true;
+      })
+      .catch(() => {
+        // A policy rejection (permission lost mid-flight) must not dead-end:
+        // recover state, then fall back to pseudo mode like an API-less browser.
+        map.isFullscreen = Boolean(getFullscreenEl());
+        enterPseudo(map, fsBtn, container, env);
+      });
+    return;
+  }
+  enterPseudo(map, fsBtn, container, env);
 };
 
 // ══════════════════════════════════════════════════════════════════════════════

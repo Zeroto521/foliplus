@@ -13,6 +13,7 @@
 // Consumers place the root in a form row and drive map/style state from the
 // callbacks; the exported sliderOf() gives a later pass (a reset, an external
 // commit) access to the instance without re-rendering the row.
+import { fullscreenSurface } from "#core/fullscreen.js";
 import { dom } from "#common/dom.js";
 import { SLIDER } from "#common/sliderVocabulary.js";
 
@@ -99,16 +100,9 @@ let bubbleDismiss: (() => void) | null = null;
 let scrollBound = false;
 let fullscreenBound = false;
 
-/** Where the bubble lives: the fullscreen element when one is active (a
- *  native fullscreen renders only that subtree, so a node on <body> would be
- *  invisible), otherwise <body>. */
-const bubbleHost = (): HTMLElement => {
-  const fs = document.fullscreenElement as HTMLElement | null;
-  // The root element is already the body's parent: appending there is the same
-  // as appending to body, so only a sub-element (e.g. the map container) needs
-  // the move.
-  return fs && fs !== document.documentElement ? fs : document.body;
-};
+/** Where the bubble lives: the covering surface (native fullscreen element or
+ *  pseudo-fullscreen container — only that subtree paints), otherwise <body>. */
+const bubbleHost = (): HTMLElement => fullscreenSurface();
 
 const bindFullscreen = (): void => {
   if (fullscreenBound) return;

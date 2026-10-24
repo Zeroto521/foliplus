@@ -1,8 +1,9 @@
 // FullscreenControl constants — CSS class names.
 import { generateId } from "#core/component.js";
+import { PSEUDO_FULLSCREEN_CLASS } from "#core/fullscreen.js";
 
 const CLASSES = {
-  PSEUDO_FULLSCREEN: "leaflet-pseudo-fullscreen",
+  PSEUDO_FULLSCREEN: PSEUDO_FULLSCREEN_CLASS,
   TOOL_BTN: "foliplus-tool-btn",
   ZOOM_IN: "foliplus-zoom-in",
   ZOOM_OUT: "foliplus-zoom-out",
