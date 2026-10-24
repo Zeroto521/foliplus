@@ -319,10 +319,13 @@ interface LayerInfo {
 /** Leaflet layer with a custom `isLabel` flag (foliplus adds it).
  *
  *  Write contract for a third-party layer's `options` — the exact write set
- *  is `pane` and `renderer`; nothing else:
- *    - Both are Leaflet's own, and the two a correct draw position actually
- *      needs (Leaflet reads `pane` only at attach time and ignores a group's
- *      for its children, so both must be written to survive a re-attach).
+ *  is `pane`, `renderer` (a Path only), and `shadowPane` (a Marker only) —
+ *  nothing else:
+ *    - All three are Leaflet's own, and the ones a correct draw position
+ *      actually needs (Leaflet reads `pane` only at attach time and ignores a
+ *      group's for its children, so both must be written to survive a
+ *      re-attach; `shadowPane` is re-read at every `_initIcon`, so writing it
+ *      keeps a later `setIcon` inside the layer's own shadow pane).
  */
 interface LabelAwareLayer extends L.Layer {
   isLabel?: boolean;

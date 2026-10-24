@@ -167,7 +167,10 @@ describe("leafletAdapter is the only module touching the named Leaflet privates"
       m.replace(/^\W+|\W+$/g, ""),
     );
     // Sorted by code unit, which is why _paneRenderers precedes _panes and
-    // _update precedes _url (the deciding character is p, then r).
+    // _update precedes _url (the deciding character is p, then r). `_shadow`
+    // is the marker-shadow reach the carrier fix added (layerShadow) — it
+    // used to be comment-only here, which is exactly how the shadow escaped
+    // every pane write for so long.
     expect([...new Set(found)].sort()).toEqual([
       "_attributions",
       "_closeButton",
@@ -179,6 +182,7 @@ describe("leafletAdapter is the only module touching the named Leaflet privates"
       "_paneRenderers",
       "_panes",
       "_path",
+      "_shadow",
       "_update",
       "_url",
     ]);
@@ -290,6 +294,7 @@ describe("source pins", () => {
       "layerElements",
       "layerIcon",
       "layerMap",
+      "layerShadow",
       "layerUrl",
       "primeControlMap",
       "refreshAttributions",

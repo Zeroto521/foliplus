@@ -17,12 +17,16 @@
 //   I2  the pane *set* is fixed once materialized. Content may still arrive — a
 //       third party can mutate a registered group's tree — and the surface
 //       re-pins it on the next reconcile (see `contentDirty`), but no consumer
-//       has to handle a "not yet sorted" window.
+//       has to handle a "not yet sorted" window. One pane joins the set
+//       lazily: the marker-shadow pane (`ensureShadowPane`) is synthesized
+//       during the same reconcile that first pins a marker leaf, so a group
+//       that registered empty still gains a shadow carrier — before anything
+//       is pinned into it, never after.
 //
 // No CONFIG / translator dependency: core/layer, not a component dir.
 import { createLogger } from "#common/log.js";
 import type { PaneManager } from "./PaneManager.js";
-import { hasFillLeaf, hasSetStyleLeaf } from "./capability.js";
+import { hasFillLeaf, hasMarkerLeaf, hasSetStyleLeaf } from "./capability.js";
 import {
   CAP_TIER,
   FALLBACK_PANE_PREFIX,
@@ -44,13 +48,12 @@ import { zFor } from "./z.js";
 
 const log = createLogger("LayerSurface");
 
-/** Normalize a caller-declared pane name to the value this surface will
- *  actually build with. A name outside `PANE_NAME_PATTERN` is not a pane we
- *  can create — it lands in the DOM as a Leaflet pane id and class — so it
- *  counts as "not declared" and the constructor's fallback synthesis takes
- *  over. The constructor and `matches` both go through here, so a
- *  re-registration is always compared against the value the surface was
- *  really built with, not the raw string that was handed in. */
+/** Validate a caller-declared pane name against the DOM-bound shape — a name
+ *  outside `PANE_NAME_PATTERN` is not a pane we can create, it lands in the
+ *  DOM as a Leaflet pane id and class. The shared-pane refusal is layered on
+ *  top in `LayerSurface.normalizeDeclared` (it needs the host's
+ *  `defaultPanes`); both rejections degrade the same way: "not declared",
+ *  and the constructor's fallback synthesis takes over. */
 const declaredPaneName = (raw: string | null | undefined): string | null =>
   raw != null && PANE_NAME_PATTERN.test(raw) ? raw : null;
 
@@ -168,6 +171,12 @@ class LayerSurface implements LayerSurfaceContract {
    *  content is pinned here; a declared pane's content is routed by whoever
    *  declared it (createLayers), so there is nothing for us to pin. */
   private readonly pinTarget: string | null;
+  /** The marker-shadow pane synthesized alongside `pinTarget` (see
+   *  `addShadowPane`), or null when the layer has no marker leaves — or is
+   *  not a synthesized surface at all. This is the one pane whose content the
+   *  base pane does not host, so every write that "covers the layer's panes"
+   *  must go through `surface.panes`, never through the base pane alone. */
+  private shadowPaneName: string | null = null;
 
   constructor(host: PaneManager, opts: SurfaceFaceOpts) {
     this.host = host;
@@ -176,15 +185,19 @@ class LayerSurface implements LayerSurfaceContract {
     this.paneSpecs = opts.paneSpecs ?? [];
 
     // The declared paneName is a third-party input that reaches the DOM as a
-    // Leaflet pane id / class. If it fails `PANE_NAME_PATTERN`, treat it as
-    // not declared — the fallback synthesis below then gives the layer a
-    // stamped pane that is provably safe (FALLBACK_PANE_PREFIX + a number).
+    // Leaflet pane id / class. If it fails `PANE_NAME_PATTERN`, or names one
+    // of Leaflet's shared panes, treat it as not declared — the fallback
+    // synthesis below then gives the layer a stamped pane that is provably
+    // safe (FALLBACK_PANE_PREFIX + a number). The shared-pane rejection is
+    // the declaration-side half of `PaneManager.assertOwnedPane`: an adopted
+    // shared pane would route this layer's z / opacity / focus writes onto a
+    // pane every other layer draws into.
     const declaredRaw = opts.paneName ?? null;
-    const declared = declaredPaneName(declaredRaw);
+    const declared = this.normalizeDeclared(declaredRaw);
     if (declaredRaw != null && declared === null) {
       log.warn(
-        `LayerSurface rejected paneName for injection safety: ${declaredRaw}; ` +
-          `synthesising a fallback pane instead`,
+        `LayerSurface rejected paneName "${declaredRaw}" (injection-unsafe or ` +
+          `one of Leaflet's shared panes); synthesising a fallback pane instead`,
       );
     }
     const layer = opts.layer;
@@ -282,6 +295,50 @@ class LayerSurface implements LayerSurfaceContract {
     }
   }
 
+  /** Ensure the layer's marker-shadow pane exists, then pin. Synthesizing
+   *  here — not in the constructor — is what keeps the coverage honest for
+   *  content that arrives late: a group that registered empty grows marker
+   *  leaves on `layeradd`, and the next reconcile must pin their shadows
+   *  into a pane that did not exist when the tree was last probed. The pane
+   *  is created in the same synchronous pass that pins into it, so no
+   *  consumer sees a half-sorted window (I2's promise, one pane wider).
+   *
+   *  The invariant every layer capability leans on — "a write on the layer's
+   *  panes reaches its whole visible DOM" — breaks exactly where a marker's
+   *  shadow lives: Leaflet mounts it in the shared `shadowPane` (z=500),
+   *  which no surface owns, so pane opacity left the shadow at full strength
+   *  and focus-mode could only hide shadows globally (the removed
+   *  `.leaflet-shadow-pane` rule in focus.css), taking the focused layer's
+   *  own shadows down with the rest. A per-layer shadow pane closes the gap:
+   *  `pinLateContent` moves `_shadow` in and writes `options.shadowPane`, and
+   *  the pane sits one step BELOW the base (PaneRole.SHADOW → z = slot − 1),
+   *  so the shadow paints under its icon by pane ladder — marker icons carry
+   *  an inline `z-index = pos.y + zIndexOffset` that goes negative near the
+   *  viewport top, where DOM order alone would put the shadow above the icon.
+   *
+   *  Synthesized next to `pinTarget` only: those are the surfaces that place
+   *  content themselves (the path every folium-registered layer takes). A
+   *  declared-pane surface routes its content by whoever declared it, and a
+   *  name that a declared spec already claims is left alone (warn + skip) —
+   *  an honest gap for that caller, not a collision. */
+  private ensureShadowPane(): void {
+    if (this.shadowPaneName || !this.pinTarget || !this.layer) return;
+    if (!hasMarkerLeaf(this.layer)) return;
+    const name = `${this.pinTarget}-shadow`;
+    if (
+      this.paneSpecs.some(spec => spec.name === name) ||
+      this.panes.some(pane => pane.name === name)
+    ) {
+      log.warn(
+        `marker-shadow pane name "${name}" is already claimed by a declared ` +
+          `pane; marker shadows stay on Leaflet's shared shadowPane`,
+      );
+      return;
+    }
+    this.addPane(name, false, PANE_ROLE.SHADOW);
+    this.shadowPaneName = name;
+  }
+
   /** Resolve the pane handles and pin the layer's content to them. Re-entrant:
    *  the first call resolves and pins; later calls re-pin only when the layer's
    *  tree has changed (`contentDirty`). Steady state — every pass after the
@@ -327,6 +384,7 @@ class LayerSurface implements LayerSurfaceContract {
   setZOverride(z: number): boolean {
     if (!this.panes.length || this.overrideZ !== undefined) return false;
     this.zBefore = this.panes.map(pane => {
+      this.host.assertOwnedPane(pane.name);
       const el = this.host.ensurePane(pane.name, false).pane;
       return [el, el.style.zIndex];
     });
@@ -350,11 +408,15 @@ class LayerSurface implements LayerSurfaceContract {
   }
 
   /** Write the z of every pane: the override base while a lift is active,
-   *  otherwise the ordering pass's. Writes nothing before either has been. */
+   *  otherwise the ordering pass's. Writes nothing before either has been.
+   *  Each name is gated through `assertOwnedPane` — a shared pane name can
+   *  only get here through a surface that adopted one, and lifting that would
+   *  reorder the whole map. */
   private writeZ(): void {
     const base = this.overrideZ ?? this.baseZ;
     if (base === undefined) return;
     for (const pane of this.panes) {
+      this.host.assertOwnedPane(pane.name);
       this.host.ensurePane(pane.name, false).pane.style.zIndex = String(
         zFor({ base, role: pane.role, order: pane.order }),
       );
@@ -386,7 +448,10 @@ class LayerSurface implements LayerSurfaceContract {
    *  them; a *declared* pane survives, which is what lets the same id be
    *  registered again without rebuilding its panes. */
   destroy(): void {
-    if (this.pinTarget) this.host.removePane(this.pinTarget);
+    if (this.pinTarget) {
+      this.host.removePane(this.pinTarget);
+      if (this.shadowPaneName) this.host.removePane(this.shadowPaneName);
+    }
   }
 
   /** The pane names this surface paints into, base first. */
@@ -449,7 +514,7 @@ class LayerSurface implements LayerSurfaceContract {
       this.surfaceDecl.layer === opts.layer &&
       this.surfaceDecl.kind === kindOf(opts) &&
       this.surfaceDecl.custom === (opts.custom !== undefined) &&
-      this.surfaceDecl.paneName === declaredPaneName(opts.paneName) &&
+      this.surfaceDecl.paneName === this.normalizeDeclared(opts.paneName) &&
       this.surfaceDecl.canvas === Boolean(opts.canvas) &&
       this.surfaceDecl.color === (opts.color != null) &&
       Boolean(this.surfaceDecl.getBounds) === Boolean(opts.getBounds ?? null) &&
@@ -460,6 +525,18 @@ class LayerSurface implements LayerSurfaceContract {
   }
 
   // ── internals ──────────────────────────────────────────────────
+
+  /** The pane name this surface will actually build with, from a raw
+   *  declaration: pattern-validated by `declaredPaneName`, then refused when
+   *  it names one of Leaflet's shared panes (`host.defaultPanes`). The
+   *  constructor and `matches` both go through here, so a re-registration is
+   *  always compared against the value the surface was really built with,
+   *  not the raw string that was handed in. */
+  private normalizeDeclared(raw: string | null | undefined): string | null {
+    const declared = declaredPaneName(raw);
+    if (declared && this.host.defaultPanes.has(declared)) return null;
+    return declared;
+  }
 
   /** Ensure one pane and record its handle. `needRenderer` is true only where
    *  the surface itself places Path content (the base pane of a declared
@@ -497,8 +574,14 @@ class LayerSurface implements LayerSurfaceContract {
     if (!base) return;
     if (this.pinTarget) {
       // A synthesized pane owns the whole tree — pin everything into it.
+      this.ensureShadowPane();
       this.host.pinLateContent([
-        { layer: this.layer, paneName: this.pinTarget, renderer: base.renderer },
+        {
+          layer: this.layer,
+          paneName: this.pinTarget,
+          renderer: base.renderer,
+          shadowPaneName: this.shadowPaneName,
+        },
       ]);
       return;
     }

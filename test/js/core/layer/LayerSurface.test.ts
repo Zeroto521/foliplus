@@ -242,6 +242,28 @@ describe("LayerSurface pane resolution", () => {
     );
     expect(surface.paneNames).toEqual([surface.synthesizedPaneName]);
     expect(surface.panes[0].renderer).not.toBeNull();
+    // The first reconcile grows the shadow pane for the marker-bearing tree —
+    // before anything is pinned into it. A marker-bearing layer gets its own
+    // shadow pane (role "shadow"), so pane writes reach the marker's full
+    // visible DOM — the base pane alone never carried the shadow.
+    surface.materialize();
+    expect(surface.paneNames).toEqual([
+      surface.synthesizedPaneName,
+      `${surface.synthesizedPaneName}-shadow`,
+    ]);
+    expect(surface.panes.map(pane => pane.role)).toEqual(["base", "shadow"]);
+    // The shadow pane carries no renderer: nothing routes SVG content there.
+    expect(surface.panes[1].renderer).toBeNull();
+  });
+
+  it("synthesizes no shadow pane for a layer without markers", () => {
+    const { host } = makeMap();
+    const surface = new LayerSurface(host, {
+      id: "plain",
+      layer: new Group([new Path()]) as unknown as L.Layer,
+    });
+    surface.materialize();
+    expect(surface.paneNames).toEqual([surface.synthesizedPaneName]);
   });
 
   it("never writes pointer-events onto a pane", () => {
@@ -388,11 +410,13 @@ describe("LayerSurface.materialize", () => {
     });
     surface.materialize();
     const paneEl = surface.panes[0].element;
-    // Icon moves into the foliplus pane; shadow stays where Leaflet put it
-    // (body here) because shadowPane is the correct resting place for
-    // shadows and the pane boundary alone keeps icon above shadow.
+    // Icon into the base pane; shadow into the surface's own shadow pane —
+    // one pane handle per element, so opacity / visibility / focus writes
+    // cover the marker's full visible DOM. (The shadow used to stay wherever
+    // Leaflet put it, which is what left pane opacity writes partial.)
     expect(Array.from(paneEl.children)).toEqual([attached.element]);
-    expect(attached._shadow.parentNode).toBe(document.body);
+    expect(attached._shadow.parentNode).toBe(surface.panes[1].element);
+    expect(surface.panes[1].role).toBe("shadow");
   });
 
   it("moves an attached path into the pane's renderer", () => {
@@ -475,8 +499,13 @@ describe("LayerSurface.setZ", () => {
       id: "plain",
       layer: new Group([new Marker()]) as unknown as L.Layer,
     });
+    surface.materialize();
     expect(surface.setZ(640)).toBe(true);
     expect(panes[surface.synthesizedPaneName!].style.zIndex).toBe("640");
+    // The shadow pane rides one step below its layer: shadows must paint
+    // under their icons by pane ladder, not DOM order (marker icons carry an
+    // inline z-index that goes negative near the viewport top).
+    expect(panes[`${surface.synthesizedPaneName!}-shadow`].style.zIndex).toBe("639");
   });
 });
 
@@ -777,7 +806,7 @@ describe("LayerSurface.matches", () => {
 });
 
 describe("LayerSurface.destroy", () => {
-  it("releases only the pane it synthesized", () => {
+  it("releases only the panes it synthesized", () => {
     const { panes, host } = makeMap();
     const synthesized = new LayerSurface(host, {
       id: "plain",
@@ -787,6 +816,9 @@ describe("LayerSurface.destroy", () => {
     const paneName = synthesized.synthesizedPaneName!;
     synthesized.destroy();
     expect(panes[paneName]).toBeUndefined();
+    // The marker-shadow pane is synthesized too — it must go with the base
+    // pane, or an unregister/register cycle would leak one per draw.
+    expect(panes[`${paneName}-shadow`]).toBeUndefined();
 
     const declared = new LayerSurface(host, {
       id: "a",
@@ -1134,7 +1166,9 @@ describe("LayerSurface capabilities", () => {
   it("warns when paneName fails injection safety (covers log.warn)", () => {
     // PANE_NAME_PATTERN is /^[a-zA-Z0-9_-]+$/ — a paneName with a space or
     // special character is rejected, and the surface synthesizes a fallback
-    // pane instead. The log.warn at line 121 fires only for this path.
+    // pane instead. The same degradation now also covers a paneName naming
+    // one of Leaflet's shared panes: adopting one would route the layer's
+    // z / opacity / focus writes onto a pane every layer draws into.
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     const { host } = makeMap();
     const surface = new LayerSurface(host, {
@@ -1142,11 +1176,20 @@ describe("LayerSurface capabilities", () => {
       layer: new Path() as unknown as L.Layer,
       paneName: "bad name with spaces",
     });
-    expect(warnSpy).toHaveBeenCalledWith(
-      expect.stringContaining("rejected paneName for injection safety"),
-    );
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("rejected paneName"));
     // The surface falls back to a synthesized pane.
     expect(surface.synthesizedPaneName).not.toBeNull();
+
+    // The shared-pane rejection goes through the same warn + fallback path.
+    warnSpy.mockClear();
+    const shared = new LayerSurface(host, {
+      id: "shared",
+      layer: new Path() as unknown as L.Layer,
+      paneName: "overlayPane",
+    });
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("rejected paneName"));
+    expect(shared.synthesizedPaneName).not.toBeNull();
+    expect(shared.paneNames).not.toContain("overlayPane");
     warnSpy.mockRestore();
   });
 });

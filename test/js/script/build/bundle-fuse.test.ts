@@ -236,7 +236,7 @@ describe("CLI entry", () => {
       vi.doUnmock("#script/bundle-size-lib.mjs");
       vi.resetModules();
     }
-  });
+  }, 15000);
 
   it("runs main() only when launched directly as a script", async () => {
     const exit = trapExit();

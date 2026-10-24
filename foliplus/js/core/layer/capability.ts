@@ -82,6 +82,18 @@ const hasSetStyleLeaf = (node: unknown): boolean =>
       safeRead(() => typeof (leaf as { setStyle?: unknown }).setStyle) === "function",
   );
 
+/** Whether any leaf is a Leaflet Marker — the probe that decides whether a
+ *  surface needs a marker-shadow pane. Guarded the same way as the native
+ *  setter checks in `LayerSurface`: a stripped Leaflet mock (no `Marker`)
+ *  must read as "no marker", not throw on `instanceof undefined`. */
+const hasMarkerLeaf = (node: unknown): boolean =>
+  someLeaf(
+    node,
+    leaf =>
+      typeof L.Marker !== "undefined" &&
+      safeRead(() => leaf instanceof L.Marker) === true,
+  );
+
 /** Whether any leaf is an areal fill carrier — see `isArealStyleLeaf`. */
 const hasFillLeaf = (node: unknown): boolean => someLeaf(node, isArealStyleLeaf);
 
@@ -122,4 +134,4 @@ const isArealStyleLeaf = (node: unknown): boolean => {
   return AREAL_GEOMETRY_TYPES.has(declaredGeometryType(n) ?? "");
 };
 
-export { FILL_OPT_IN, hasFillLeaf, hasSetStyleLeaf, isArealStyleLeaf };
+export { FILL_OPT_IN, hasFillLeaf, hasMarkerLeaf, hasSetStyleLeaf, isArealStyleLeaf };

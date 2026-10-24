@@ -10,6 +10,7 @@ beforeEach(() => {
   window.L.stamp = vi.fn(obj => obj.__id ?? (obj.__id = ++count));
   window.L.Path = class {};
   window.L.Marker = class {};
+  window.L.ImageOverlay = class {};
 });
 let count = 0;
 
@@ -837,10 +838,76 @@ describe("PaneManager", () => {
     expect(Array.from(paneEl.children)).toEqual([]);
   });
 
-  it("pinLateContent does not move marker shadow into the target pane", () => {
-    // Shadow stays in Leaflet's shadowPane (z=500); only the icon is moved
-    // into the foliplus pane (z>=600). This keeps shadow below icon by z-index
-    // alone — no DOM-order dependency, no zIndexOffset risk.
+  it("pinLateContent moves the marker shadow into the layer's shadow pane", () => {
+    // The old design kept the shadow in Leaflet's shared shadowPane (z=500)
+    // and leaned on the pane ladder for icon-over-shadow; that left the
+    // shadow outside every pane write (opacity, focus) and forced the
+    // global `.leaflet-shadow-pane { visibility: hidden }` focus patch. The
+    // shadow now moves into the surface's own shadow pane — one step below
+    // the base pane — which restores "write the panes, reach the whole
+    // layer" without a DOM-order dependency (icons carry an inline z-index
+    // that goes negative near the viewport top).
+    const paneEl = document.createElement("div");
+    document.body.appendChild(paneEl);
+    const shadowPaneEl = document.createElement("div");
+    document.body.appendChild(shadowPaneEl);
+    const icon = document.createElement("img");
+    const shadow = document.createElement("img");
+    const sharedShadowPane = document.createElement("div");
+    sharedShadowPane.appendChild(shadow);
+    const map = {
+      getPane: vi.fn((name: string) =>
+        name === "foliplus-measure-graph" ? paneEl : shadowPaneEl,
+      ),
+      createPane: vi.fn(),
+    };
+    const pm = new PaneManager(map);
+    const renderer = { _container: document.createElement("div") };
+
+    const layer = {
+      getElement: () => icon,
+      _shadow: shadow,
+      options: {} as Record<string, unknown>,
+      eachLayer: undefined,
+    };
+    Object.setPrototypeOf(layer, new window.L.Marker());
+
+    pm.pinLateContent([
+      {
+        layer,
+        paneName: "foliplus-measure-graph",
+        renderer,
+        shadowPaneName: "foliplus-measure-graph-shadow",
+      },
+    ]);
+
+    expect(icon.parentNode).toBe(paneEl);
+    expect(shadow.parentNode).toBe(shadowPaneEl);
+    expect(sharedShadowPane.children).toHaveLength(0);
+    // The options write is what keeps a later `setIcon` re-creation inside
+    // the layer's pane: Leaflet re-reads `options.shadowPane` in `_initIcon`.
+    expect(layer.options.shadowPane).toBe("foliplus-measure-graph-shadow");
+
+    // Second call: idempotent — both elements already where they belong, so
+    // a reconcile re-run must not re-append (a re-append re-orders).
+    pm.pinLateContent([
+      {
+        layer,
+        paneName: "foliplus-measure-graph",
+        renderer,
+        shadowPaneName: "foliplus-measure-graph-shadow",
+      },
+    ]);
+    expect(icon.parentNode).toBe(paneEl);
+    expect(shadow.parentNode).toBe(shadowPaneEl);
+    expect(Array.from(shadowPaneEl.children)).toEqual([shadow]);
+  });
+
+  it("pinLateContent leaves the shadow in shadowPane when no shadow pane is declared", () => {
+    // Declared-pane surfaces do not synthesize a shadow pane, so they pass no
+    // `shadowPaneName` — the pin must not invent a destination for the shadow
+    // (dropping it into the base pane would put it above the icons' pane
+    // ladder, and into a pane whose styles the surface only partially owns).
     const paneEl = document.createElement("div");
     document.body.appendChild(paneEl);
     const shadowPane = document.createElement("div");
@@ -854,7 +921,7 @@ describe("PaneManager", () => {
     const layer = {
       getElement: () => icon,
       _shadow: shadow,
-      options: {},
+      options: {} as Record<string, unknown>,
       eachLayer: undefined,
     };
     Object.setPrototypeOf(layer, new window.L.Marker());
@@ -863,13 +930,7 @@ describe("PaneManager", () => {
 
     expect(icon.parentNode).toBe(paneEl);
     expect(shadow.parentNode).toBe(shadowPane);
-
-    // Second call: idempotent — shadow must still be in shadowPane, icon
-    // still in the foliplus pane. This guards against a pin that re-appends
-    // shadow on every pass.
-    pm.pinLateContent([{ layer, paneName: "foliplus-measure-graph", renderer }]);
-    expect(shadow.parentNode).toBe(shadowPane);
-    expect(icon.parentNode).toBe(paneEl);
+    expect(layer.options.shadowPane).toBeUndefined();
   });
 
   it("pinLateContent moves a GridLayer's container into the target pane", () => {
@@ -897,6 +958,83 @@ describe("PaneManager", () => {
 
     expect(container.parentNode).toBe(paneEl);
     expect(layer.options.pane).toBe("foliplus-pane-1");
+  });
+
+  it("pinLateContent moves an ImageOverlay's image into the target pane", () => {
+    // ImageOverlay appends its <img> to `options.pane` once at addLayer; an
+    // image that joined the map before the pin sits in the shared
+    // `overlayPane`, invisible to the surface's z ladder and to every
+    // pane-scoped focus rule (setZ writes panes, not the layer). Symmetric
+    // with the GridLayer container branch: physically relocate the image.
+    const paneEl = document.createElement("div");
+    document.body.appendChild(paneEl);
+    const overlayPane = document.createElement("div");
+    overlayPane.className = "leaflet-overlay-pane";
+    const map = {
+      getPane: vi.fn((name: string) =>
+        name === "foliplus-pane-1" ? paneEl : overlayPane,
+      ),
+      createPane: vi.fn(),
+    };
+    const pm = new PaneManager(map);
+    const renderer = { _container: document.createElement("div") };
+
+    const image = document.createElement("img");
+    overlayPane.appendChild(image);
+    const layer = {
+      _image: image,
+      options: {} as Record<string, unknown>,
+      eachLayer: undefined,
+    };
+    Object.setPrototypeOf(layer, new window.L.ImageOverlay());
+
+    pm.pinLateContent([{ layer, paneName: "foliplus-pane-1", renderer }]);
+
+    expect(image.parentNode).toBe(paneEl);
+    expect(layer.options.pane).toBe("foliplus-pane-1");
+    // Idempotent: a reconcile re-run must not re-append the image.
+    pm.pinLateContent([{ layer, paneName: "foliplus-pane-1", renderer }]);
+    expect(Array.from(paneEl.children)).toEqual([image]);
+  });
+
+  it("assertOwnedPane refuses Leaflet's shared panes", () => {
+    // A layer-style write on a shared pane would fade/lift/class every other
+    // layer on the map — the exact pollution the write gate exists to stop.
+    const pm = new PaneManager({ getPane: vi.fn(), createPane: vi.fn() });
+    for (const shared of [
+      "markerPane",
+      "shadowPane",
+      "overlayPane",
+      "tilePane",
+      "mapPane",
+    ]) {
+      expect(() => pm.assertOwnedPane(shared)).toThrow(/shared pane/);
+    }
+  });
+
+  it("registerPaneSpecs rejects a spec that names a shared pane", () => {
+    // Same degradation as the injection gate: adopting a shared pane would
+    // route carrier writes onto a pane every layer draws into.
+    const map = { getPane: vi.fn(), createPane: vi.fn() };
+    const pm = new PaneManager(map);
+    pm.registerPaneSpecs([
+      { name: "markerPane", role: "base", order: 0 },
+      { name: "foliplus-graph", role: "base", order: 0 },
+    ] as PaneSpec[]);
+    expect(pm.childPaneSpecs.has("markerPane")).toBe(false);
+    expect(pm.childPaneSpecs.has("foliplus-graph")).toBe(true);
+  });
+
+  it("assertOwnedPane allows foliplus-owned panes, including the fallback family", () => {
+    // `foliplus-pane-*` is the surface's own synthesized carrier — one pane
+    // per layer — so it must stay writable. `isDefaultPane` deliberately
+    // answers true for the family (discovery excludes it); the gate must not
+    // inherit that answer, or every fallback-pane layer would lose its
+    // opacity/z writes.
+    const pm = new PaneManager({ getPane: vi.fn(), createPane: vi.fn() });
+    expect(() => pm.assertOwnedPane(`${CONST.FALLBACK_PANE_PREFIX}24`)).not.toThrow();
+    expect(() => pm.assertOwnedPane("foliplus-measure-graph-shadow")).not.toThrow();
+    expect(() => pm.assertOwnedPane("foliplus-canvas-heatmap")).not.toThrow();
   });
 
   it("pinLateContent is idempotent for a GridLayer already in the target pane", () => {

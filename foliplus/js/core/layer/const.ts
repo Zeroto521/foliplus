@@ -125,13 +125,20 @@ const CAP_TIER = {
 } as const;
 
 /** Pane-role names — the `PaneSpec.role` vocabulary
- *  ("base" | "sub" | "annotation" | "preview"). Owned by core so z
+ *  ("base" | "sub" | "shadow" | "annotation" | "preview"). Owned by core so z
  *  arithmetic, `PaneManager`'s spec gate, and `LayerControl`'s annotation /
  *  focus rules read one definition; `PaneRole` in type.ts derives from it,
- *  so the vocabulary cannot drift. */
+ *  so the vocabulary cannot drift.
+ *
+ *  `shadow` never appears in a declared `PaneSpec`: it is the role of the
+ *  per-layer marker-shadow pane a `LayerSurface` synthesizes (see
+ *  `addShadowPane` there). Keeping it in this vocabulary is what lets z
+ *  arithmetic and the focus rules price or exclude it without a name-pattern
+ *  check. */
 const PANE_ROLE = {
   BASE: "base",
   SUB: "sub",
+  SHADOW: "shadow",
   ANNOTATION: "annotation",
   PREVIEW: "preview",
 } as const;

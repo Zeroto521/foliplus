@@ -40,6 +40,7 @@ type LeafInternals = {
   _icon?: HTMLElement;
   _path?: SVGElement;
   _container?: HTMLElement;
+  _shadow?: HTMLElement;
   _initInteraction?: () => void;
 };
 
@@ -150,6 +151,13 @@ const layerUrl = (layer: L.Layer): string | null =>
  *  must skip it in the manual class / hit-target pass. */
 const layerIcon = (layer: LeafInternals): HTMLElement | null => layer._icon ?? null;
 
+/** A marker's drop-shadow element, or null — the pin moves it into the
+ *  layer's own shadow pane (`PaneManager.pinLateContent`), and a marker
+ *  without a shadow (DivIcon) answers null like any non-marker. Kept apart
+ *  from `layerElements` for the same reason as `layerIcon`: shadows are not
+ *  hit targets, so the interactive passes must not see them. */
+const layerShadow = (layer: LeafInternals): HTMLElement | null => layer._shadow ?? null;
+
 /** The DOM nodes a leaf draws itself with — marker icon, SVG path, DivOverlay
  *  container. A given layer populates exactly one of them.
  *
@@ -237,6 +245,7 @@ export {
   isGroupLike,
   layerElements,
   layerIcon,
+  layerShadow,
   layerMap,
   layerUrl,
   primeControlMap,

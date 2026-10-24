@@ -14,6 +14,7 @@ import {
   destroyPane,
   getRendererContainer,
   getRendererFor,
+  layerShadow,
 } from "../leafletAdapter.js";
 import * as CONST from "./const.js";
 import type { PaneSpec, PinnableNode } from "./type.js";
@@ -160,19 +161,24 @@ class PaneManager {
    * the steady-state ordering pass never builds it.
    *
    * The write contract on a third-party node's `options` is the one declared on
-   * `LabelAwareLayer`: `pane` and `renderer` (a Path only) — both Leaflet's own.
+   * `LabelAwareLayer`: `pane`, `renderer` (a Path only), and `shadowPane`
+   * (a Marker only) — all three Leaflet's own.
    */
   pinLateContent(
     layersToMove: Array<{
       layer: L.Layer;
       paneName: string | null;
       renderer: L.SVG | null;
+      /** The layer's own marker-shadow pane, when the surface synthesized one.
+       *  Absent (the declared-pane branches) leaves shadows wherever Leaflet
+       *  put them — those surfaces do not own a shadow carrier. */
+      shadowPaneName?: string | null;
     }>,
   ): void {
     if (!layersToMove.length) return;
     const groups = new Map<HTMLElement, HTMLElement[]>();
     const markerGroups = new Map<HTMLElement, HTMLElement[]>();
-    for (const { layer, paneName, renderer } of layersToMove) {
+    for (const { layer, paneName, renderer, shadowPaneName } of layersToMove) {
       if (!paneName) continue;
       const container = getRendererContainer(renderer);
       if (!container) {
@@ -200,11 +206,29 @@ class PaneManager {
         if (pathEl && pathEl.parentNode !== container) {
           groups.get(container)!.push(pathEl);
         }
-        if (l instanceof L.Marker && paneEl) {
+        if (l instanceof L.Marker) {
           const iconEl = l.getElement();
-          if (iconEl && iconEl.parentNode !== paneEl) {
+          if (paneEl && iconEl && iconEl.parentNode !== paneEl) {
             if (!markerGroups.has(paneEl)) markerGroups.set(paneEl, []);
             markerGroups.get(paneEl)!.push(iconEl);
+          }
+          // The shadow follows the icon off the shared `shadowPane`, into the
+          // surface's own shadow pane — the write that makes pane opacity /
+          // visibility / focus cover the marker's full visible DOM. Leaflet
+          // re-reads `options.shadowPane` at every `_initIcon`, so the write
+          // also keeps a later `setIcon` re-creation inside the layer's pane.
+          if (paneEl && shadowPaneName) {
+            l.options.shadowPane = shadowPaneName;
+            // Back to the L.Layer view: the instanceof above narrows to
+            // Marker, whose @types declaration holds `_shadow` protected —
+            // the probe reads it structurally, like every other internals
+            // reach.
+            const shadowEl = layerShadow(l as L.Layer);
+            const shadowPaneEl = this.map.getPane(shadowPaneName);
+            if (shadowEl && shadowPaneEl && shadowEl.parentNode !== shadowPaneEl) {
+              if (!markerGroups.has(shadowPaneEl)) markerGroups.set(shadowPaneEl, []);
+              markerGroups.get(shadowPaneEl)!.push(shadowEl);
+            }
           }
         }
         // A GridLayer (TileLayer included) paints through its own container
@@ -224,6 +248,26 @@ class PaneManager {
           if (tileContainer && tileContainer.parentNode !== paneEl) {
             if (!markerGroups.has(paneEl)) markerGroups.set(paneEl, []);
             markerGroups.get(paneEl)!.push(tileContainer);
+          }
+        }
+        // ImageOverlay (VideoOverlay included) paints through its own <img>,
+        // which Leaflet appends to `options.pane` once at addLayer — the same
+        // read-once contract as the GridLayer branch, with the same
+        // consequence: an image that joined the map before the pin stays in
+        // the shared `overlayPane`, invisible to the surface's z ladder
+        // (LayerSurface.setZ writes the panes, not the layer) and to every
+        // pane-scoped focus rule. Same fix, symmetric branch. The typeof
+        // guard keeps a stripped Leaflet mock (no ImageOverlay) from throwing
+        // on `instanceof undefined`, like the GridLayer check above.
+        if (
+          typeof L.ImageOverlay !== "undefined" &&
+          l instanceof L.ImageOverlay &&
+          paneEl
+        ) {
+          const image = (l as L.ImageOverlay & { _image?: HTMLElement | null })._image;
+          if (image && image.parentNode !== paneEl) {
+            if (!markerGroups.has(paneEl)) markerGroups.set(paneEl, []);
+            markerGroups.get(paneEl)!.push(image);
           }
         }
       };
@@ -292,6 +336,18 @@ class PaneManager {
     for (const spec of specs) {
       if (typeof spec.name !== "string" || !CONST.PANE_NAME_PATTERN.test(spec.name)) {
         log.warn(`PaneSpec.name rejected for injection safety: ${String(spec.name)}`);
+        continue;
+      }
+      if (this.defaultPanes.has(spec.name)) {
+        // Same degradation as the injection gate: a spec naming one of
+        // Leaflet's shared panes would let `ensurePane` adopt that pane and
+        // every layer-carrier write on it (z, opacity, focus classes) style
+        // the whole map. Skip the spec — the surface's own synthesis gives
+        // the layer a pane that is provably its own.
+        log.warn(
+          `PaneSpec.name rejected ("${spec.name}" is one of Leaflet's shared ` +
+            `panes); the layer gets its own synthesized pane instead`,
+        );
         continue;
       }
       if (!Object.values(CONST.PANE_ROLE).includes(spec.role)) {
@@ -414,6 +470,41 @@ class PaneManager {
 
   isDefaultPane(pane: string): boolean {
     return this.defaultPanes.has(pane) || pane.startsWith(CONST.FALLBACK_PANE_PREFIX);
+  }
+
+  /** Write-side gate for Leaflet's shared panes — every pane-style write
+   *  (opacity, z-index, focus classes) must land on a pane the layer stack
+   *  owns.
+   *
+   *  A write that reaches `shadowPane` / `markerPane` / `overlayPane` /
+   *  `tilePane` styles every other layer on the map at once: fading the
+   *  shared shadowPane drops the shadows of all marker layers together, and
+   *  lifting or classing a shared pane rewrites the whole map's stacking.
+   *  That is the exact failure class the marker-shadow carrier fix exists to
+   *  close, so the resolve-by-name write sites call this before touching
+   *  `style` / `classList`, and a shared name throws rather than corrupting
+   *  the map — a shared-pane write is always a bug in the caller's carrier
+   *  model, never a value to clamp.
+   *
+   *  Deliberately `defaultPanes.has`, NOT `isDefaultPane`: the fallback family
+   *  (`foliplus-pane-*`) is the surface's own synthesized carrier — one pane
+   *  per layer, safe to write — while `isDefaultPane` also answers for it
+   *  (discovery uses that to exclude our own panes). Only Leaflet's shared
+   *  panes are refused here.
+   *
+   *  Leaflet's own UI panes are not wholly off-limits: the focus ladder lifts
+   *  `markerPane` / `tooltipPane` / `popupPane` deliberately (focus/pane.ts
+   *  `liftZ`, a temporary z write with restore), and the ordering pass prices
+   *  the same three panes. Those are native-pane *ladder* writes, not
+   *  layer-carrier writes — they intentionally bypass this gate. */
+  assertOwnedPane(paneName: string): void {
+    if (!this.defaultPanes.has(paneName)) return;
+    throw new Error(
+      `[foliplus] refusing a layer-style write on shared pane "${paneName}": ` +
+        `the pane does not belong to one layer. Resolve the layer's own pane ` +
+        `(LayerSurface.panes) instead — a write here would style every layer ` +
+        `on the map.`,
+    );
   }
 
   /** Find the panes a layer's content names in its own tree — the panes this

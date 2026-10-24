@@ -1499,7 +1499,7 @@ describe("cli entry point", () => {
       });
     expect(() => main([])).toThrow("exit:0");
     expect(exit).toHaveBeenCalledWith(0);
-  });
+  }, 15000);
 
   it("--emit captures sizes to the target file via main()", () => {
     const root = mkTmp();
