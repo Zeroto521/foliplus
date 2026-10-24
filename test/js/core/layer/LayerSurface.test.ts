@@ -279,7 +279,7 @@ describe("LayerSurface pane resolution", () => {
     // Fail closed: a surface that promised pane coverage and then fails the
     // completeness audit must stop promising it (the UI hides the write that
     // would have lied) instead of logging and carrying on.
-    const { map, host } = makeMap();
+    const { host } = makeMap();
     const layer = new Group([new Marker()]);
     const surface = new LayerSurface(host, {
       id: "escape",
