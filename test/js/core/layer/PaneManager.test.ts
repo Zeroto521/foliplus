@@ -705,7 +705,9 @@ describe("PaneManager", () => {
     };
     Object.setPrototypeOf(layer, new window.L.Path());
     const renderer = { _container: container };
-    pm.pinLateContent([{ layer, paneName: "foliplus-measure-graph", renderer }]);
+    pm.pinLateContent([
+      { layer, paneName: "foliplus-measure-graph", renderer, owner: "test" },
+    ]);
     expect(layer.options.pane).toBe("foliplus-measure-graph");
     expect(path.parentNode).toBe(container);
   });
@@ -727,7 +729,7 @@ describe("PaneManager", () => {
     };
     const renderer = { _container: container };
     pm.pinLateContent([
-      { layer: parent, paneName: "foliplus-measure-graph", renderer },
+      { layer: parent, paneName: "foliplus-measure-graph", renderer, owner: "test" },
     ]);
     expect(child.options.pane).toBe("foliplus-measure-graph");
     expect(childPath.parentNode).toBe(container);
@@ -747,7 +749,9 @@ describe("PaneManager", () => {
     };
     Object.setPrototypeOf(layer, new window.L.Marker());
     const renderer = { _container: document.createElement("div") };
-    pm.pinLateContent([{ layer, paneName: "foliplus-measure-graph", renderer }]);
+    pm.pinLateContent([
+      { layer, paneName: "foliplus-measure-graph", renderer, owner: "test" },
+    ]);
     expect(icon.parentNode).toBe(paneEl);
   });
 
@@ -776,6 +780,7 @@ describe("PaneManager", () => {
         layer,
         paneName: "foliplus-measure-graph",
         renderer,
+        owner: "test",
       })),
     );
     expect(Array.from(paneEl.children)).toEqual([markers[0].icon, markers[1].icon]);
@@ -810,8 +815,8 @@ describe("PaneManager", () => {
     Object.setPrototypeOf(newIcon, new window.L.Marker());
 
     pm.pinLateContent([
-      { layer: inPlace, paneName: "foliplus-measure-graph", renderer },
-      { layer: newIcon, paneName: "foliplus-measure-graph", renderer },
+      { layer: inPlace, paneName: "foliplus-measure-graph", renderer, owner: "test" },
+      { layer: newIcon, paneName: "foliplus-measure-graph", renderer, owner: "test" },
     ]);
 
     expect(Array.from(paneEl.children)).toEqual([icon, bareIcon]);
@@ -833,7 +838,9 @@ describe("PaneManager", () => {
     };
     Object.setPrototypeOf(layer, new window.L.Marker());
 
-    pm.pinLateContent([{ layer, paneName: "foliplus-measure-graph", renderer }]);
+    pm.pinLateContent([
+      { layer, paneName: "foliplus-measure-graph", renderer, owner: "test" },
+    ]);
 
     expect(Array.from(paneEl.children)).toEqual([]);
   });
@@ -931,7 +938,9 @@ describe("PaneManager", () => {
     };
     Object.setPrototypeOf(layer, new window.L.Marker());
 
-    pm.pinLateContent([{ layer, paneName: "foliplus-measure-graph", renderer }]);
+    pm.pinLateContent([
+      { layer, paneName: "foliplus-measure-graph", renderer, owner: "test" },
+    ]);
 
     expect(icon.parentNode).toBe(paneEl);
     expect(shadow.parentNode).toBe(shadowPane);
@@ -959,7 +968,9 @@ describe("PaneManager", () => {
     };
     Object.setPrototypeOf(layer, new window.L.GridLayer());
 
-    pm.pinLateContent([{ layer, paneName: "foliplus-pane-1", renderer }]);
+    pm.pinLateContent([
+      { layer, paneName: "foliplus-pane-1", renderer, owner: "test" },
+    ]);
 
     expect(container.parentNode).toBe(paneEl);
     expect(layer.options.pane).toBe("foliplus-pane-1");
@@ -987,7 +998,9 @@ describe("PaneManager", () => {
     };
     Object.setPrototypeOf(overlay, new window.L.ImageOverlay());
 
-    pm.pinLateContent([{ layer: overlay, paneName: "foliplus-pane-1", renderer }]);
+    pm.pinLateContent([
+      { layer: overlay, paneName: "foliplus-pane-1", renderer, owner: "test" },
+    ]);
 
     expect(Array.from(paneEl.children)).toEqual([image]);
   });
@@ -1020,12 +1033,16 @@ describe("PaneManager", () => {
     };
     Object.setPrototypeOf(layer, new window.L.ImageOverlay());
 
-    pm.pinLateContent([{ layer, paneName: "foliplus-pane-1", renderer }]);
+    pm.pinLateContent([
+      { layer, paneName: "foliplus-pane-1", renderer, owner: "test" },
+    ]);
 
     expect(image.parentNode).toBe(paneEl);
     expect(layer.options.pane).toBe("foliplus-pane-1");
     // Idempotent: a reconcile re-run must not re-append the image.
-    pm.pinLateContent([{ layer, paneName: "foliplus-pane-1", renderer }]);
+    pm.pinLateContent([
+      { layer, paneName: "foliplus-pane-1", renderer, owner: "test" },
+    ]);
     expect(Array.from(paneEl.children)).toEqual([image]);
   });
 
@@ -1183,7 +1200,9 @@ describe("PaneManager", () => {
     };
     Object.setPrototypeOf(layer, new window.L.GridLayer());
 
-    pm.pinLateContent([{ layer, paneName: "foliplus-pane-1", renderer }]);
+    pm.pinLateContent([
+      { layer, paneName: "foliplus-pane-1", renderer, owner: "test" },
+    ]);
 
     // Not re-appended: appending an existing child re-orders it.
     expect(Array.from(paneEl.children)).toEqual([container]);
@@ -1203,7 +1222,9 @@ describe("PaneManager", () => {
     Object.setPrototypeOf(layer, new window.L.GridLayer());
 
     expect(() =>
-      pm.pinLateContent([{ layer, paneName: "foliplus-pane-1", renderer }]),
+      pm.pinLateContent([
+        { layer, paneName: "foliplus-pane-1", renderer, owner: "test" },
+      ]),
     ).not.toThrow();
     expect(layer.options.pane).toBe("foliplus-pane-1");
   });
@@ -1426,7 +1447,7 @@ describe("PaneManager", () => {
           shadowPaneName: "x",
           owner: "surface-1",
         },
-        { layer: overlay, paneName: "foliplus-pane-1", renderer },
+        { layer: overlay, paneName: "foliplus-pane-1", renderer, owner: "test" },
       ]),
     ).not.toThrow();
     expect(marker.options.pane).toBe("foliplus-pane-1");
@@ -1476,8 +1497,8 @@ describe("PaneManager", () => {
     Object.setPrototypeOf(overlay, new window.L.ImageOverlay());
 
     pm.pinLateContent([
-      { layer: marker, paneName: "foliplus-pane-1", renderer },
-      { layer: overlay, paneName: "foliplus-pane-1", renderer },
+      { layer: marker, paneName: "foliplus-pane-1", renderer, owner: "test" },
+      { layer: overlay, paneName: "foliplus-pane-1", renderer, owner: "test" },
     ]);
 
     expect(Array.from(paneEl.children)).toEqual([icon, image]);
@@ -1505,8 +1526,8 @@ describe("PaneManager", () => {
     };
 
     pm.pinLateContent([
-      { layer: mk(c1), paneName: "foliplus-pane-1", renderer },
-      { layer: mk(c2), paneName: "foliplus-pane-1", renderer },
+      { layer: mk(c1), paneName: "foliplus-pane-1", renderer, owner: "test" },
+      { layer: mk(c2), paneName: "foliplus-pane-1", renderer, owner: "test" },
     ]);
 
     expect(Array.from(paneEl.children)).toEqual([c1, c2]);
@@ -1529,7 +1550,9 @@ describe("PaneManager", () => {
     Object.setPrototypeOf(layer, new window.L.GridLayer());
 
     expect(() =>
-      pm.pinLateContent([{ layer, paneName: "foliplus-pane-1", renderer }]),
+      pm.pinLateContent([
+        { layer, paneName: "foliplus-pane-1", renderer, owner: "test" },
+      ]),
     ).not.toThrow();
     expect(layer.options.pane).toBe("foliplus-pane-1");
   });
@@ -1551,7 +1574,9 @@ describe("PaneManager", () => {
     Object.setPrototypeOf(layer, new window.L.GridLayer());
 
     expect(() =>
-      pm.pinLateContent([{ layer, paneName: "foliplus-pane-1", renderer }]),
+      pm.pinLateContent([
+        { layer, paneName: "foliplus-pane-1", renderer, owner: "test" },
+      ]),
     ).not.toThrow();
     expect(layer.options.pane).toBe("foliplus-pane-1");
   });
@@ -1561,7 +1586,7 @@ describe("PaneManager", () => {
     const pm = new PaneManager(map);
     const layer = { options: {}, eachLayer: undefined };
     expect(() =>
-      pm.pinLateContent([{ layer, paneName: null, renderer: null }]),
+      pm.pinLateContent([{ layer, paneName: null, renderer: null, owner: "test" }]),
     ).not.toThrow();
   });
 
@@ -1572,7 +1597,9 @@ describe("PaneManager", () => {
     // A null renderer (e.g. tile layers with a paneName) previously skipped the
     // whole layer without setting options.pane, so a dirty surface
     // re-queued it on every reconcile. The options must still be marked handled.
-    pm.pinLateContent([{ layer, paneName: "foliplus-measure-graph", renderer: null }]);
+    pm.pinLateContent([
+      { layer, paneName: "foliplus-measure-graph", renderer: null, owner: "test" },
+    ]);
     expect(layer.options.pane).toBe("foliplus-measure-graph");
   });
 });
