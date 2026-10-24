@@ -431,14 +431,10 @@ const scheduleStyleDimApply = (
   let box = applySchedulers.get(key);
   if (!box) {
     // Two-step init so the raf callback can close over the finished box:
-    // `created.raf` is populated before throttleRaf's callback can run.
-    const created = {
-      run,
-      face,
-      layerId,
-      source,
-      raf: null as unknown as ApplyBox["raf"],
-    } as ApplyBox;
+    // `created.raf` is populated before throttleRaf's callback can run. The
+    // single widening cast starts the object one field short; a double
+    // assertion here would trip the narrow-cast guard (test/tsconfig).
+    const created = { run, face, layerId, source } as ApplyBox;
     created.raf = throttleRaf(() => runBox(key, created));
     box = created;
     applySchedulers.set(key, box);

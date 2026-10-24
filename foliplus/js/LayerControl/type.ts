@@ -149,4 +149,4 @@ type LayerDimension<D = unknown> = {
   contentChange: ContentChangePolicy;
 };
 
-export type { ContentChangePolicy, LayerDimension, PersistedRecord };
+export type { LayerDimension, PersistedRecord };
