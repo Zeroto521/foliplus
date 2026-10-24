@@ -157,7 +157,6 @@ export {
   resolveActiveIdx,
   syncActiveItem,
 };
-export type { CursorRef } from "./cursor.js";
 export { handleOutsideMousedown, handleKeyDown, handleDblClick };
 export {
   getLayerItems,
