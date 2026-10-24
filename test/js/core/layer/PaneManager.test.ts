@@ -42,7 +42,13 @@ const makeMap = (
 ) => {
   const map = {
     getPane: vi.fn(name => panes[name] ?? null),
-    createPane: vi.fn(),
+    // Real Leaflet registers the pane it creates in `_panes`; the stub does
+    // too, so `ensurePane`'s create branch yields a pane this tree owns.
+    createPane: vi.fn((name: string) => {
+      panes[name] = document.createElement("div");
+      document.body.appendChild(panes[name]);
+      return panes[name];
+    }),
     removeLayer: vi.fn(),
     hasLayer: vi.fn(() => true),
     _panes: panes,
@@ -612,15 +618,14 @@ describe("PaneManager", () => {
 
   // ── removePane (createCanvas.destroy / private panes) ──
 
-  it("removePane detaches the pane and clears the renderer registry", () => {
-    const pane = document.createElement("div");
-    document.body.appendChild(pane);
+  it("removePane detaches a pane this tree created and clears the renderer registry", () => {
     const renderer = { id: "r" };
-    const map = makeMap({ "foliplus-canvas-heat": pane });
-    map._paneRenderers = { "foliplus-canvas-heat": renderer };
+    const map = makeMap({}, { "foliplus-canvas-heat": renderer });
     const pm = new PaneManager(map);
     pm.registerPaneSpecs(specs("foliplus-canvas-heat"));
-    pm.removePane("foliplus-canvas-heat");
+    pm.ensurePane("foliplus-canvas-heat", false, "heat");
+    const pane = map._panes["foliplus-canvas-heat"] as HTMLElement;
+    pm.removePane("foliplus-canvas-heat", "heat");
     expect(map.removeLayer).toHaveBeenCalledWith(renderer);
     expect(map._panes["foliplus-canvas-heat"]).toBeUndefined();
     expect(map._paneRenderers["foliplus-canvas-heat"]).toBeUndefined();
@@ -628,10 +633,47 @@ describe("PaneManager", () => {
     expect(pm.childPaneSpecs.has("foliplus-canvas-heat")).toBe(false);
   });
 
+  it("removePane refuses a pane the caller does not lease", () => {
+    // The canvas teardown the lease model exists for: a face whose own pane
+    // booking was refused still names a pane, and an unchecked destroy deleted
+    // the other surface's carrier while its lease kept pointing at the detached
+    // element. Nothing is destroyed here, and the rightful lease survives.
+    const carrier = document.createElement("div");
+    document.body.appendChild(carrier);
+    const map = makeMap({ "foliplus-canvas-heat": carrier });
+    const pm = new PaneManager(map);
+    pm.ensurePane("foliplus-canvas-heat", false, "surface-a");
+    pm.removePane("foliplus-canvas-heat", "surface-b");
+    expect(map.removeLayer).not.toHaveBeenCalled();
+    expect(map._panes["foliplus-canvas-heat"]).toBe(carrier);
+    expect(carrier.parentNode).not.toBeNull();
+    expect(pm.canAcquirePane("foliplus-canvas-heat", "surface-a")).toBe(true);
+    expect(pm.canAcquirePane("foliplus-canvas-heat", "surface-b")).toBe(false);
+  });
+
+  it("removePane retires an adopted pane without deleting its DOM", () => {
+    // The element foliplus never created is somebody else's carrier: the lease
+    // is dropped so the name can be booked again, the DOM is not.
+    const adopted = document.createElement("div");
+    document.body.appendChild(adopted);
+    const map = makeMap({ "foliplus-canvas-heat": adopted });
+    const pm = new PaneManager(map);
+    pm.ensurePane("foliplus-canvas-heat", false, "surface-a");
+    pm.removePane("foliplus-canvas-heat", "surface-a");
+    expect(map.removeLayer).not.toHaveBeenCalled();
+    expect(map._panes["foliplus-canvas-heat"]).toBe(adopted);
+    expect(adopted.parentNode).not.toBeNull();
+    // The lease is gone: a second surface can book the same name, onto the
+    // element that is still on the map.
+    expect(pm.ensurePane("foliplus-canvas-heat", false, "surface-b").pane).toBe(
+      adopted,
+    );
+  });
+
   it("removePane is a no-op for an unknown pane name", () => {
     const map = makeMap({});
     const pm = new PaneManager(map);
-    expect(() => pm.removePane("never-created")).not.toThrow();
+    expect(() => pm.removePane("never-created", "heat")).not.toThrow();
     expect(map.removeLayer).not.toHaveBeenCalled();
   });
 
@@ -640,30 +682,25 @@ describe("PaneManager", () => {
     // tile layer's renderer-less pane, or someone else's removeLayer). Our
     // record still has to be dropped: a pane re-created under the same name
     // would otherwise inherit a renderer the old pane still owns.
-    const pane = document.createElement("div");
-    document.body.appendChild(pane);
     const renderer = { id: "r" };
-    const map = makeMap({ "foliplus-canvas-heat": pane });
-    map._paneRenderers = { "foliplus-canvas-heat": renderer };
+    const map = makeMap({}, { "foliplus-canvas-heat": renderer });
     map.hasLayer = vi.fn(() => false);
     const pm = new PaneManager(map);
-    pm.removePane("foliplus-canvas-heat");
+    pm.ensurePane("foliplus-canvas-heat", false, "heat");
+    const pane = map._panes["foliplus-canvas-heat"] as HTMLElement;
+    pm.removePane("foliplus-canvas-heat", "heat");
     expect(map.removeLayer).not.toHaveBeenCalled();
     expect(map._paneRenderers["foliplus-canvas-heat"]).toBeUndefined();
     expect(pane.parentNode).toBeNull();
   });
 
   it("removePane leaves sibling panes alone", () => {
-    const heat = document.createElement("div");
     const other = document.createElement("div");
-    document.body.appendChild(heat);
     document.body.appendChild(other);
-    const map = makeMap({
-      "foliplus-canvas-heat": heat,
-      "foliplus-canvas-other": other,
-    });
+    const map = makeMap({ "foliplus-canvas-other": other });
     const pm = new PaneManager(map);
-    pm.removePane("foliplus-canvas-heat");
+    pm.ensurePane("foliplus-canvas-heat", false, "heat");
+    pm.removePane("foliplus-canvas-heat", "heat");
     expect(map._panes["foliplus-canvas-heat"]).toBeUndefined();
     expect(map._panes["foliplus-canvas-other"]).toBe(other);
     expect(other.parentNode).not.toBeNull();

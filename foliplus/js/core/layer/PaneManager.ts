@@ -43,6 +43,28 @@ type PathWithPane = L.Path & { options: L.PathOptions & { pane?: string } };
  *  change what any layer's `options.pane` names, which is the only thing the
  *  cache memoises.
  *
+ *  Index lifecycle — every bookkeeping index, with where it is written, where
+ *  it is deleted, and what bounds it. A missing delete point is a defect, not
+ *  a policy: `L.stamp` values are never reused, so an index that only ever
+ *  grows still describes retired layers when `destroy` finally runs.
+ *
+ *    `paneSpecs`      written by `registerPaneSpecs`; deleted by
+ *                     `destroyOwnPane` (a pane foliplus created),
+ *                     `sweepChildPanes` (a spec no registered layer uses) and
+ *                     `destroy`. Bounded by the panes this map declared.
+ *    `paneLeases`     written by `ensurePane`; deleted by `releasePane`,
+ *                     `removePane` and `destroy`. Bounded by live surfaces'
+ *                     bookings — a surface that never retires its panes leaves
+ *                     a row here until `destroy`.
+ *    `discoveryCache` written by `discoverChildPanes`; generation-gated on
+ *                     read, capped at `CACHE.PANE_DISCOVERY_ENTRIES`, cleared
+ *                     by `destroy`. Bounded by the cap, not by layer count.
+ *    `childOwners`    written by `rememberChildOwnership` (the `addLayer`
+ *                     override); deleted by `forgetChildOwnership`
+ *                     (`removeLayer`), `forgetAllChildOwnership`
+ *                     (`clearLayers`) and `destroy`. Bounded by the leaves
+ *                     currently inside a declared-pane group.
+ *
  *  TypeScript `private`, never an ES `#` field. Component bundles are inlined
  *  into a Jinja2 `Template` at render time (`BaseControl`
  *  `_build_component_template`), and minification drops the space in
@@ -107,9 +129,19 @@ class PaneManager {
   /** Child-leaf stamps -> their owning registered group's stamp. Maintained
    *  at the write points (`LayerFactory`'s `mainLayer.addLayer` override):
    *  the next leaf of the same group attributes in O(1) instead of an
-   *  O(registry) membership scan. Stamps are never reused, so a retired
-   *  child's entry is harmless; a retired PARENT's stamp simply misses the
-   *  surface lookup and the membership scan takes over. */
+   *  O(registry) membership scan.
+   *
+   *  Bounded by the leaves currently in a group, not by every leaf it has
+   *  ever held: the delete points are `forgetChildOwnership` (from
+   *  `removeLayer`) and `forgetAllChildOwnership` (from `clearLayers`).
+   *  Without them a 500-add / 500-remove session ended with all 500 entries
+   *  still here, and a leaf re-added later would report the parent it once
+   *  belonged to.
+   *
+   *  A leaf added through the override's fallback branch (a group with no
+   *  declared panes) is never recorded; `childOwnerOf` answers `undefined`
+   *  for it and the caller falls back to the registry scan, which is the
+   *  same answer it already gets for any unrecorded child. */
   private readonly childOwners = new Map<number, number>();
 
   /** Record that `child` belongs to `parent` (both stamps). Callers that own
@@ -117,6 +149,25 @@ class PaneManager {
    *  write point. */
   rememberChildOwnership(child: L.Layer, parent: L.Layer): void {
     this.childOwners.set(L.stamp(child), L.stamp(parent));
+  }
+
+  /** Forget that `child` belongs to its recorded parent — the `removeLayer`
+   *  delete point. Deleting here instead of at teardown is what keeps the
+   *  index bounded: a group that turns over its contents must not accumulate
+   *  one row per leaf it has ever held. */
+  forgetChildOwnership(child: L.Layer): void {
+    this.childOwners.delete(L.stamp(child));
+  }
+
+  /** Forget every child recorded for `parent` — the `clearLayers` delete
+   *  point, where the leaves leave in bulk and none of them passes through
+   *  `removeLayer`. One pass over the index, paid only when a group empties.
+   */
+  forgetAllChildOwnership(parent: L.Layer): void {
+    const parentStamp = L.stamp(parent);
+    for (const [childStamp, owner] of this.childOwners) {
+      if (owner === parentStamp) this.childOwners.delete(childStamp);
+    }
   }
 
   /** The registered group's stamp that owns `child`, when recorded. */
@@ -251,28 +302,58 @@ class PaneManager {
 
   /** Retire a surface's lease on one pane. The lease always goes; the
    *  element goes only when foliplus created it as the owner's own carrier
-   *  (a synthesized base pane, a marker-shadow pane) — an adopted or
-   *  caller-declared pane outlives its surface so the same id can be
-   *  registered again without rebuilding panes. */
+   *  (a synthesized base pane, a marker-shadow pane, a canvas face pane) — an
+   *  adopted or caller-declared pane outlives its surface so the same id can
+   *  be registered again without rebuilding panes.
+   *
+   *  This is the retirement entry the surface teardowns go through: it owns
+   *  the lease check and decides whether the DOM goes at all, so a caller
+   *  never has to know whether its booking was created or adopted. */
   releasePane(paneName: string, owner: string, removeDom: boolean): void {
     const held = this.paneLeases.get(paneName);
-    if (held?.owner !== owner) return;
+    if (!held || held.owner !== owner) return;
     this.paneLeases.delete(paneName);
-    if (removeDom && held.created) this.removePane(paneName);
+    if (removeDom && held.created) this.destroyOwnPane(paneName);
   }
 
   /** Remove a pane this tree owns from the DOM and Leaflet's registries.
    *  Used by LayerSurface.destroy (the layer's synthesized pane) and by
    *  createCanvas.destroy (its dedicated pane).
    *
+   *  Owner-checked. A canvas face whose booking was refused still names a
+   *  pane, and an unchecked teardown deleted that pane — which was the other
+   *  surface's carrier — while its lease kept pointing at the detached
+   *  element. Every later `writeZ`, focus and export then wrote into DOM that
+   *  is no longer on the map. Refused here, loudly, instead.
+   *
+   *  An adopted pane is retired without its DOM too: deleting an element
+   *  foliplus never created would drop another component's carrier off the
+   *  map.
+   *
    *  No cache invalidation here: the cache memoises what each layer's
    *  `options.pane` names, and destroying a pane div changes no layer's
    *  options. Clearing on every teardown used to be the one place this policy
    *  over-invalidated structure-wide for a single pane. */
-  removePane(paneName: string) {
+  removePane(paneName: string, owner: string): void {
+    const held = this.paneLeases.get(paneName);
+    if (!held || held.owner !== owner) {
+      log.warn(
+        `refusing to destroy pane "${paneName}": not leased by ${owner} — ` +
+          `removing it would delete another surface's carrier and leave its ` +
+          `lease dangling`,
+      );
+      return;
+    }
+    this.paneLeases.delete(paneName);
+    if (held.created) this.destroyOwnPane(paneName);
+  }
+
+  /** Delete a pane element this tree created, and drop its spec record. Not
+   *  owner-checked: `releasePane` and `removePane` both hold the lease check
+   *  first, so "how a pane goes away" has one answer. */
+  private destroyOwnPane(paneName: string): void {
     destroyPane(this.map, paneName);
     this.paneSpecs.delete(paneName);
-    this.paneLeases.delete(paneName);
   }
 
   /** Clear all pane state. Called by LayerController.destroy().
@@ -453,14 +534,20 @@ class PaneManager {
     if (!shadowPaneName || !this.leasedBy(shadowPaneName, owner)) return;
     const shadowPaneEl = this.map.getPane(shadowPaneName);
     if (!shadowPaneEl) return;
+    // Collect, then move once: a group with N un-shadowed markers used to
+    // append N times into the pane div, and this runs from `materialize` — on
+    // the register path. One fragment is one append instead of N.
+    const toMove: HTMLElement[] = [];
     walkLeaf(layer, leaf => {
       if (!(leaf instanceof L.Marker)) return;
       leaf.options.shadowPane = shadowPaneName;
       const shadowEl = layerShadow(leaf as L.Layer);
-      if (shadowEl && shadowEl.parentNode !== shadowPaneEl) {
-        shadowPaneEl.appendChild(shadowEl);
-      }
+      if (shadowEl && shadowEl.parentNode !== shadowPaneEl) toMove.push(shadowEl);
     });
+    if (!toMove.length) return;
+    const frag = document.createDocumentFragment();
+    for (const el of toMove) frag.appendChild(el);
+    shadowPaneEl.appendChild(frag);
   }
 
   /** Invalidate the child-pane discovery cache — structure-wide, either way.

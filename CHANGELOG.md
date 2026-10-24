@@ -15,6 +15,7 @@
 
 - `CSS`: design tokens split surface from on-accent and expose a focus color, so a theme can invert one without the other ([#714](https://github.com/Zeroto521/foliplus/pull/714))
 - `LayerControl`: opacity and zoom-range rows now use one dependency-free slider primitive — single/dual thumb, keyboard, ARIA, disabled/RTL, a bubble that panels cannot clip, and a collapsed range that slides instead of dead-locking ([#721](https://github.com/Zeroto521/foliplus/pull/721))
+- `core/layer`: the vector probes and the carrier audit share one tree walk, and late content is pinned through a `DocumentFragment`, so a reorder pays one bounded visit per layer instead of four [#733](https://github.com/Zeroto521/foliplus/pull/733)
 
 ### Fixed
 
@@ -25,6 +26,8 @@
 - `LayerControl`: marker shadows and ImageOverlay images join the layer's own panes — opacity, z-ordering and focus now cover the whole layer ([#733](https://github.com/Zeroto521/foliplus/pull/733))
 - `LayerControl`: dismissing focus runs every pane restore in its own try/catch, so a surface that retired mid-focus can no longer throw past the mask, rectangle and renderer teardown and leave the map dimmed with no way back ([#733](https://github.com/Zeroto521/foliplus/pull/733))
 - `core/layer`: a destroyed surface neutralises its own handles and z state, so a late write is a no-op instead of re-acquiring a pane it already released; a pane name is recorded only when the booking succeeded, so a refused shadow pane is never written into another surface's content ([#733](https://github.com/Zeroto521/foliplus/pull/733))
+- `core/layer`: pane teardown is owner-checked and runs through one retirement path — a canvas face whose own pane booking was refused can no longer delete another surface's carrier, which is what left every later z, focus and export write aimed at DOM that was already off the map ([#733](https://github.com/Zeroto521/foliplus/pull/733))
+- `core/layer`: the child-ownership index is deleted at the `removeLayer` and `clearLayers` points, so a group that turns over its contents stays bounded by its current leaves instead of accumulating one row per leaf it ever held ([#733](https://github.com/Zeroto521/foliplus/pull/733))
 
 ## [v0.4.1] (2026-10-18)
 
