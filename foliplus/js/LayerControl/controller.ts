@@ -1265,9 +1265,10 @@ class LayerController implements LayerAPI {
       [
         [
           "detach-layeradd",
-          () => {
-            if (this.map && this.onLayerAdd) this.map.off("layeradd", this.onLayerAdd);
-          },
+          // No guards: `onLayerAdd` is assigned unconditionally in `init`, and
+          // the map is a constructor argument — a `this.map && this.onLayerAdd`
+          // test could never be false.
+          () => this.map.off("layeradd", this.onLayerAdd),
         ],
         ["cancel-enforce", () => this.debouncedEnforce?.cancel()],
         // Flush before destroy: the writes are debounced at 100ms, wide enough

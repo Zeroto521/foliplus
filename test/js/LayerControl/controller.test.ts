@@ -4800,6 +4800,31 @@ describe("enforceOrder isolation", () => {
       expect.arrayContaining(["popupPane", "tooltipPane", "markerPane"]),
     );
   });
+
+  it("a re-entrant pass returns nothing and leaves the result to the running pass", () => {
+    // A layer that reorders while being priced (a listener reacting to setZ)
+    // reaches `enforceOrder` from inside a pass. The inner call must not report
+    // a half-priced stack — the outer pass owns the answer.
+    window.localStorage.clear();
+    const { manager } = initFixture({
+      data: [{ id: "a", name: "A", group: "overlay" }],
+    });
+    const domain = (manager as any).domain as { enforceOrder: () => string[] };
+    const real = domain.enforceOrder.bind(domain);
+    const inner: string[][] = [];
+    const outer = vi.spyOn(domain, "enforceOrder").mockImplementation(() => {
+      inner.push(manager.enforceOrder());
+      return real();
+    });
+
+    try {
+      expect(manager.enforceOrder()).toEqual([]);
+      expect(inner).toEqual([[]]);
+      expect(outer).toHaveBeenCalledTimes(1);
+    } finally {
+      outer.mockRestore();
+    }
+  });
 });
 
 describe("destroy finalization", () => {
