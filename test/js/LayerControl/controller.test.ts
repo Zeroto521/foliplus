@@ -2112,6 +2112,33 @@ describe("LayerController", () => {
     expect(manager.uiContainer.contains(decoy)).toBe(true);
   });
 
+  it("still retires the captured row when the panel goes away mid-teardown", () => {
+    // The row is captured before the steps, so a remove handler that tears the
+    // whole control down (nulling `uiContainer`) must not strand it: the row is
+    // removed anyway, and only the group/toggle-all rescan is skipped because
+    // there is no panel left to rescan.
+    manager.map.hasLayer.mockReturnValue(false);
+    const layer = { options: {} } as any;
+    manager.registerLayer({ id: "overlay1", name: "Points", group: "overlay", layer });
+    const row = document.createElement("div");
+    row.setAttribute("data-layer-id", "overlay1");
+    manager.uiContainer = document.createElement("div");
+    manager.uiContainer.appendChild(row);
+    const container = manager.uiContainer;
+    manager.ui = {
+      intentStore: makeStore(),
+      saveState: vi.fn(),
+      invalidateFields: vi.fn(),
+    } as any;
+    vi.spyOn(manager, "clearAllLayers").mockImplementation(() => {
+      manager.uiContainer = null;
+    });
+
+    expect(manager.unregisterLayer("overlay1")).toBe(true);
+
+    expect(container.contains(row)).toBe(false);
+  });
+
   it("unregisterLayer reconciles the base group when a base layer is dropped", () => {
     // The unregister sweep's sync call reads `layerInfo.group === "base"` to pick the
     // group to rescan. Existing tests only unregister overlays, so the BASE
