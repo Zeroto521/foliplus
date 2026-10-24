@@ -1,15 +1,21 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   FACE,
+  STYLE_APPLY_SOURCE,
   STYLE_BAG_DEFAULTS,
+  type StyleApplyFailure,
+  cancelStyleDimApply,
   captureStyleBag,
   commitStyleDim,
+  dropAllStyleDimApplies,
   dropStyleDimApplies,
   faceSlice,
   flushStyleDimApplies,
+  flushStyleDimApply,
   hasStyleDimApply,
   restoreStyleDim,
   scheduleStyleDimApply,
+  setStyleApplyFailureReporter,
   styleBagOf,
   styleBaseOf,
   styleDimOverAuthor,
@@ -415,5 +421,113 @@ describe("per-id face sweeps", () => {
       expect(runs, `${face} ran after drop`).not.toHaveBeenCalled();
       expect(hasStyleDimApply(face, id), `${face} still held`).toBe(false);
     }
+  });
+});
+
+describe("apply scheduler lifecycle", () => {
+  // A box lives exactly as long as its frame is pending: the wrapper
+  // reclaims the entry before the run, `cancel` reclaims it immediately,
+  // and a failure inside the boundary is recorded instead of escaping the
+  // frame. These pin the ownership contract the unregister drop and the
+  // control-destroy dropAll rely on.
+  it("execution reclaims the entry — a second flush is a no-op", () => {
+    const runs = vi.fn();
+    scheduleStyleDimApply(FACE.STROKE, "lc1", runs);
+    flushStyleDimApply(FACE.STROKE, "lc1");
+    expect(runs).toHaveBeenCalledTimes(1);
+    expect(hasStyleDimApply(FACE.STROKE, "lc1")).toBe(false);
+    flushStyleDimApply(FACE.STROKE, "lc1");
+    expect(runs).toHaveBeenCalledTimes(1);
+  });
+
+  it("cancel reclaims the entry", () => {
+    const runs = vi.fn();
+    scheduleStyleDimApply(FACE.FILL, "lc2", runs);
+    cancelStyleDimApply(FACE.FILL, "lc2");
+    expect(hasStyleDimApply(FACE.FILL, "lc2")).toBe(false);
+    flushStyleDimApplies("lc2");
+    expect(runs).not.toHaveBeenCalled();
+  });
+
+  it("a run that re-schedules the same key keeps its next frame", () => {
+    // Reclamation happens BEFORE the run, so a re-entrant schedule builds a
+    // fresh box instead of mutating the one currently executing — the next
+    // frame is never lost to the reclaim.
+    let count = 0;
+    const reScheduling = vi.fn(() => {
+      count += 1;
+      if (count < 3) scheduleStyleDimApply(FACE.SIZE, "lc3", reScheduling);
+    });
+    scheduleStyleDimApply(FACE.SIZE, "lc3", reScheduling);
+    flushStyleDimApply(FACE.SIZE, "lc3");
+    expect(reScheduling).toHaveBeenCalledTimes(1);
+    expect(hasStyleDimApply(FACE.SIZE, "lc3")).toBe(true);
+    flushStyleDimApply(FACE.SIZE, "lc3");
+    expect(reScheduling).toHaveBeenCalledTimes(2);
+    expect(hasStyleDimApply(FACE.SIZE, "lc3")).toBe(true);
+    flushStyleDimApply(FACE.SIZE, "lc3");
+    expect(reScheduling).toHaveBeenCalledTimes(3);
+    expect(hasStyleDimApply(FACE.SIZE, "lc3")).toBe(false);
+  });
+
+  it("a throwing run is recorded, not escaped — and later tasks still run", () => {
+    const failures: StyleApplyFailure[] = [];
+    setStyleApplyFailureReporter(failure => failures.push(failure));
+    try {
+      const boom = new Error("label boom");
+      scheduleStyleDimApply(FACE.LABEL, "lc4", () => {
+        throw boom;
+      });
+      expect(() => flushStyleDimApply(FACE.LABEL, "lc4")).not.toThrow();
+      expect(failures).toEqual([
+        {
+          face: FACE.LABEL,
+          layerId: "lc4",
+          source: STYLE_APPLY_SOURCE,
+          error: boom,
+        },
+      ]);
+
+      const after = vi.fn();
+      scheduleStyleDimApply(FACE.LABEL, "lc4", after);
+      flushStyleDimApply(FACE.LABEL, "lc4");
+      expect(after).toHaveBeenCalledTimes(1);
+      expect(failures).toHaveLength(1);
+    } finally {
+      setStyleApplyFailureReporter(null);
+    }
+  });
+
+  it("a custom source rides the box into the failure report", () => {
+    const failures: StyleApplyFailure[] = [];
+    setStyleApplyFailureReporter(failure => failures.push(failure));
+    try {
+      scheduleStyleDimApply(
+        FACE.FILL,
+        "lc5",
+        () => {
+          throw new Error("boom");
+        },
+        "foliplus:layer:item-count-change",
+      );
+      flushStyleDimApply(FACE.FILL, "lc5");
+      expect(failures[0]?.source).toBe("foliplus:layer:item-count-change");
+    } finally {
+      setStyleApplyFailureReporter(null);
+    }
+  });
+
+  it("dropAll reclaims every pending box without running it", () => {
+    const a = vi.fn();
+    const b = vi.fn();
+    scheduleStyleDimApply(FACE.FILL, "lc6", a);
+    scheduleStyleDimApply(FACE.LABEL, "lc7", b);
+    dropAllStyleDimApplies();
+    expect(hasStyleDimApply(FACE.FILL, "lc6")).toBe(false);
+    expect(hasStyleDimApply(FACE.LABEL, "lc7")).toBe(false);
+    flushStyleDimApplies("lc6");
+    flushStyleDimApplies("lc7");
+    expect(a).not.toHaveBeenCalled();
+    expect(b).not.toHaveBeenCalled();
   });
 });

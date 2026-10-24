@@ -686,4 +686,16 @@ describe("onLayerItemCountChange — the registry replays", () => {
     expect(dot.setRadius).not.toHaveBeenCalled();
     expect(renderLabels).not.toHaveBeenCalled();
   });
+
+  it("control destroy reclaims every pending replay", () => {
+    const children: any[] = [arealLeaf()];
+    ({ manager, ui, map } = withGroup(children));
+    ensureEvents(map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "grp1" });
+    expect(hasStyleDimApply(FACE.LABEL, "grp1")).toBe(true);
+
+    manager.destroy();
+    for (const face of [FACE.FILL, FACE.STROKE, FACE.SIZE, FACE.LABEL]) {
+      expect(hasStyleDimApply(face, "grp1"), `${face} must be dropped`).toBe(false);
+    }
+  });
 });
