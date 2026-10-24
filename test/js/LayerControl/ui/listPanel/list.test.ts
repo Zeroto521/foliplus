@@ -14,6 +14,7 @@ import {
   insertLayerItem,
   rebuildList,
   renderInitialList,
+  syncRowOrder,
   updateLayerItemLabel,
 } from "#foliplus/LayerControl/ui/listPanel/index.js";
 import { TileLayer, attachedPanel, initFixture } from "../fixture.js";
@@ -648,4 +649,47 @@ describe("ui/list syncRowOrder — incremental reorder", () => {
     // them — both hold the same arrangement either way.
     expect(new Set(Array.from(attachedPanel(ui).children))).not.toEqual(elements);
   }, 60_000);
+
+  it("tolerates a missing panel, anchor-less rows, stray children and no layers", () => {
+    // The reconcile's defensive branches, driven through a bare mock: a
+    // torn-down panel no-ops; rows order without their toggle-all anchors; a
+    // child that is neither a row nor an anchor is ignored; an empty
+    // registry writes nothing.
+    const ui = {
+      uiContainer: null,
+      c: { layers: [] as LayerInfo[] },
+      listPanel: { activeIdx: null },
+    } as unknown as LayerUI;
+    expect(() => syncRowOrder(ui)).not.toThrow();
+
+    const rowEl = (id: string) => {
+      const el = document.createElement("div");
+      el.setAttribute(CONST.DATA.LAYER_ID, id);
+      return el;
+    };
+    // Deliberately detached: syncListCursor must skip a disconnected root.
+    const container = document.createElement("div");
+    const stray = document.createElement("div");
+    container.append(stray, rowEl("B"), rowEl("A"), rowEl("base1"));
+    ui.uiContainer = container;
+    ui.c.layers = [
+      { id: "A", group: GROUP.OVERLAY } as LayerInfo,
+      { id: "B", group: GROUP.OVERLAY } as LayerInfo,
+      { id: "base1", group: GROUP.BASE } as LayerInfo,
+    ];
+
+    syncRowOrder(ui);
+
+    // Rows follow the registry with no anchors to carry; the stray child is
+    // not a target and lands behind them.
+    expect(
+      Array.from(container.children).map(
+        el => el.getAttribute(CONST.DATA.LAYER_ID) ?? "stray",
+      ),
+    ).toEqual(["A", "B", "base1", "stray"]);
+
+    ui.c.layers = [];
+    expect(() => syncRowOrder(ui)).not.toThrow();
+    expect(container.children.length).toBe(4);
+  });
 });
