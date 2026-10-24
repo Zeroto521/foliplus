@@ -475,10 +475,10 @@ describe("colour blocks", () => {
     picker.destroy();
   });
 
-  it("does not throw for an invalid scheme name", () => {
-    const { trigger } = makePicker({ value: "NoSuchScheme" });
-    // No error thrown
-    expect(trigger).toBeTruthy();
+  it("throws for an invalid scheme name not in schemes", () => {
+    expect(() => makePicker({ value: "NoSuchScheme" })).toThrow(
+      "value \"NoSuchScheme\" is not in schemes",
+    );
   });
 });
 

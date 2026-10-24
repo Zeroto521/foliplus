@@ -95,6 +95,8 @@ interface InternalState {
   dropdown: HTMLElement | null;
   items: HTMLElement[];
   isOpen: boolean;
+  /** True after destroy() — all public methods become no-ops. */
+  destroyed: boolean;
   colorScale: (name: string, n: number) => string[];
   /** Lifecycle-scope listeners (trigger click/keydown) — drained on destroy(). */
   cleanupFns: (() => void)[];
@@ -148,7 +150,6 @@ const buildDropdown = (state: InternalState): HTMLElement => {
     role: "listbox",
   });
 
-  let focusIdx = -1;
   const items: HTMLElement[] = [];
 
   schemes.forEach((name, idx) => {
@@ -163,7 +164,6 @@ const buildDropdown = (state: InternalState): HTMLElement => {
 
     if (name === value) {
       item.classList.add(classes.active);
-      focusIdx = idx;
     }
 
     const bar = dom.el("div", {
@@ -496,13 +496,31 @@ const createSchemePicker = (options: SchemePickerOptions): SchemePicker => {
       "schemePicker: this trigger already has an active picker — call destroy() first",
     );
   }
+  // Validate that value is in schemes (or schemes is empty, meaning any value is allowed).
+  if (
+    options.schemes.length > 0 &&
+    !options.schemes.includes(options.value)
+  ) {
+    throw new RangeError(
+      "schemePicker: value \"" +
+        options.value +
+        "\" is not in schemes — add it to schemes or use a value from the list",
+    );
+  }
+
+  // Clamp numClasses to a valid positive integer (1–100).
+  const numClasses = Math.max(
+    1,
+    Math.min(100, Math.round(options.numClasses) || 1),
+  );
+
   const classes: SchemePickerClasses = { ...DEFAULT_CLASSES, ...options.classes };
   const state: InternalState = {
     classes,
     trigger: options.trigger,
     hiddenSelect: options.hiddenSelect ?? null,
     schemes: options.schemes,
-    numClasses: options.numClasses,
+    numClasses,
     onChange: options.onChange,
     onToggle: options.onToggle ?? null,
     portal: options.portal,
@@ -511,17 +529,21 @@ const createSchemePicker = (options: SchemePickerOptions): SchemePicker => {
     dropdown: null,
     items: [],
     isOpen: false,
+    destroyed: false,
     cleanupFns: [],
     mountCleanupFns: [],
   };
 
-  // Populate hidden select
+  // Populate hidden select — make it non-interactive (tabindex=-1, aria-hidden)
+  // so it does not appear as an invisible Tab stop. It is a state mirror only.
   if (state.hiddenSelect) {
     state.hiddenSelect.innerHTML = "";
     options.schemes.forEach(name => {
       dom.el("option", { value: name, parent: state.hiddenSelect }, name);
     });
     state.hiddenSelect.value = options.value;
+    state.hiddenSelect.setAttribute("tabindex", "-1");
+    state.hiddenSelect.setAttribute("aria-hidden", "true");
   }
 
   // Set initial trigger title and draw the colour bar
@@ -550,6 +572,18 @@ const createSchemePicker = (options: SchemePickerOptions): SchemePicker => {
   // Register as the owner of this trigger
   const picker: SchemePicker = {
     setValue(name: string) {
+      if (state.destroyed) return;
+      // Validate that the new value is in schemes.
+      if (
+        state.schemes.length > 0 &&
+        !state.schemes.includes(name)
+      ) {
+        throw new RangeError(
+          "schemePicker: value \"" +
+            name +
+            "\" is not in schemes — add it to schemes or use a value from the list",
+        );
+      }
       state.value = name;
       if (state.hiddenSelect) state.hiddenSelect.value = name;
       state.trigger.title = name;
@@ -573,37 +607,57 @@ const createSchemePicker = (options: SchemePickerOptions): SchemePicker => {
     },
 
     selectScheme(name: string) {
+      if (state.destroyed) return;
+      // Skip onChange for same-value selection — just close and return focus.
+      if (name === state.value) {
+        closeDropdown(state, { restoreFocus: true });
+        return;
+      }
       selectScheme(state, name);
     },
 
     setNumClasses(n: number) {
-      state.numClasses = n;
+      if (state.destroyed) return;
+      const clamped = Math.max(1, Math.min(100, Math.round(n) || 1));
+      if (clamped === state.numClasses) return;
+      state.numClasses = clamped;
       // Redraw trigger bar
       const barInner = getInner(state.trigger);
       if (barInner) {
-        renderColorBar(barInner, state.value, n, classes.block, state.colorScale);
+        renderColorBar(
+          barInner,
+          state.value,
+          clamped,
+          classes.block,
+          state.colorScale,
+        );
       }
       // Redraw dropdown items
       refreshDropdown(state);
     },
 
     refresh() {
+      if (state.destroyed) return;
       refreshDropdown(state);
     },
 
     toggle() {
+      if (state.destroyed) return;
       toggleDropdown(state);
     },
 
     close(opts?: { restoreFocus?: boolean }) {
+      if (state.destroyed) return;
       closeDropdown(state, opts);
     },
 
     getDropdown() {
-      return state.dropdown;
+      return state.destroyed ? null : state.dropdown;
     },
 
     destroy() {
+      if (state.destroyed) return;
+      state.destroyed = true;
       closeDropdown(state, { restoreFocus: false });
       state.cleanupFns.forEach(fn => fn());
       state.cleanupFns = [];
