@@ -2080,6 +2080,38 @@ describe("LayerController", () => {
     expect(manager.unregisterLayer("overlay1")).toBe(true);
   });
 
+  it("retires the row it started with when the id is re-registered mid-teardown", () => {
+    // The registry entry is gone before the steps run, so a `remove` listener
+    // inside `clear-layer-tree` can register the same id again and mount a
+    // second row. The retirement owns the element it captured when it started,
+    // not whatever currently answers to the id — otherwise the teardown deletes
+    // the replacement's row and leaves the dead one behind.
+    manager.map.hasLayer.mockReturnValue(false);
+    const layer = { options: {} } as any;
+    manager.registerLayer({ id: "overlay1", name: "Points", group: "overlay", layer });
+    const original = document.createElement("div");
+    original.setAttribute("data-layer-id", "overlay1");
+    manager.uiContainer = document.createElement("div");
+    manager.uiContainer.appendChild(original);
+    manager.ui = {
+      intentStore: makeStore(),
+      saveState: vi.fn(),
+      invalidateFields: vi.fn(),
+    } as any;
+
+    const decoy = document.createElement("div");
+    decoy.setAttribute("data-layer-id", "overlay1");
+    vi.spyOn(manager, "clearAllLayers").mockImplementation(() => {
+      // A row for the freshly registered replacement, in front of the original.
+      manager.uiContainer!.prepend(decoy);
+    });
+
+    expect(manager.unregisterLayer("overlay1")).toBe(true);
+
+    expect(manager.uiContainer.contains(original)).toBe(false);
+    expect(manager.uiContainer.contains(decoy)).toBe(true);
+  });
+
   it("unregisterLayer reconciles the base group when a base layer is dropped", () => {
     // The unregister sweep's sync call reads `layerInfo.group === "base"` to pick the
     // group to rescan. Existing tests only unregister overlays, so the BASE

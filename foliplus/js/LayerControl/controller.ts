@@ -850,21 +850,32 @@ class LayerController implements LayerAPI {
     return true;
   }
 
+  /** The panel row currently carrying this id, or null. */
+  private findRow(id: string): Element | null {
+    return (
+      this.uiContainer?.querySelector(`[${CONST.DATA.LAYER_ID}="${CSS.escape(id)}"]`) ??
+      null
+    );
+  }
+
   /** Remove one retired layer's panel row: finalise an in-flight slider edit,
    *  drop the row, and take the group header with it when the group empties.
    *  Split out of `retireEntry` so the teardown lists it as one named step —
-   *  inline, this segment was the one a try/catch could silently skip. */
-  private retireRow(id: string, layerInfo: LayerInfo): void {
-    const container = this.uiContainer;
-    if (!container) return;
-    const target = container.querySelector(
-      `[${CONST.DATA.LAYER_ID}="${CSS.escape(id)}"]`,
-    );
+   *  inline, this segment was the one a try/catch could silently skip.
+   *
+   *  Takes the row element, not the id: the registry entry is already gone when
+   *  the steps run, so a listener inside `clear-layer-tree` can register the
+   *  same id again and mount a second row. Re-querying by id here would delete
+   *  the replacement's row; the element captured before the steps is the one
+   *  this retirement owns. */
+  private retireRow(target: Element | null, layerInfo: LayerInfo): void {
     if (!target) return;
     // Finalise an in-flight user edit before its panel leaves the DOM: the
     // drag value is the user's, not teardown state.
     finishSlidersIn(target);
     target.remove();
+    const container = this.uiContainer;
+    if (!container) return;
     // Check if the group is now empty and remove the toggle-all row if so.
     const group = layerInfo.group;
     const anchorSel =
@@ -891,7 +902,14 @@ class LayerController implements LayerAPI {
     const { layerInfo, layer } = this.domain.unregisterEntry(id);
     if (!layerInfo) return null;
 
+    // The row is resolved first and by element: the registry entry is already
+    // gone, so a `remove` handler inside `clear-layer-tree` can register this
+    // id again and mount a fresh row — a later id lookup would delete the
+    // replacement's row and leave the dead one behind. A step, not a read
+    // before the list: a panel query that throws must not skip the teardown.
+    let row: Element | null = null;
     finalize([
+      ["snapshot-row", () => (row = this.findRow(id))],
       [
         "detach-from-map",
         () => {
@@ -902,7 +920,7 @@ class LayerController implements LayerAPI {
       // `remove` events synchronously, so user code can throw here. Bundled,
       // it would be the one segment inside a step that still short-circuits.
       ["clear-layer-tree", () => layer && this.clearAllLayers(layer)],
-      ["retire-row", () => this.retireRow(id, layerInfo)],
+      ["retire-row", () => this.retireRow(row, layerInfo)],
       // Nothing here writes persisted state. The rename and the per-layer
       // intent both survive this teardown, so a component that unregisters an
       // empty layer and registers it again comes back with the name and the
