@@ -1790,6 +1790,12 @@ describe("MeasureManager — destroy finalization", () => {
       'clearTransientState step "clear-layers" threw',
       expect.any(Error),
     );
+    // The handle-level failure is isolated, so it never reaches the outer
+    // step — disposeAllHandles must report it itself or it evaporates.
+    expect(warn).toHaveBeenCalledWith(
+      'disposeAllHandles step "handle:bad" threw',
+      expect.any(Error),
+    );
   });
 });
 

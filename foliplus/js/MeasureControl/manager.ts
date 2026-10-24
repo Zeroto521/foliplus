@@ -430,13 +430,17 @@ class MeasureManager {
   /** Run every handle's dispose, then clear the map. Iterating a snapshot keeps
    *  handles that dispose() detaches from mid-walk from leaking — and each
    *  dispose is isolated, so one failing handle cannot leave the rest bound to
-   *  the map after the control is gone. */
+   *  the map after the control is gone. A failed dispose leaves a map-click
+   *  listener attached to a removed control, so it must be logged rather than
+   *  dropped on the floor. */
   private disposeAllHandles() {
     const handles = [...this.editHandles.entries()];
     finalizeEach(
       handles,
       ([, handle]) => handle.dispose(),
       ([key]) => `handle:${key}`,
+      failure =>
+        this.log.warn(`disposeAllHandles step "${failure.name}" threw`, failure.error),
     );
     this.editHandles.clear();
   }

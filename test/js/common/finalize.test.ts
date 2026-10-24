@@ -154,4 +154,36 @@ describe("finalizeEach", () => {
     expect(failures).toHaveLength(1);
     expect(failures[0].name).toBe("#0");
   });
+
+  it("reports each failure and still returns them", () => {
+    const reported: string[] = [];
+    const failures = finalizeEach(
+      ["a", "b", "c"],
+      item => {
+        if (item !== "b") throw new Error(item);
+      },
+      item => `item:${item}`,
+      failure => reported.push(failure.name),
+    );
+    expect(reported).toEqual(["item:a", "item:c"]);
+    expect(failures.map(f => f.name)).toEqual(["item:a", "item:c"]);
+    expect(failures.map(f => f.item)).toEqual(["a", "c"]);
+  });
+
+  it("survives a throwing reporter without skipping the remaining items", () => {
+    const done: string[] = [];
+    const failures = finalizeEach(
+      ["a", "b"],
+      item => {
+        if (item === "a") throw new Error("a");
+        done.push(item);
+      },
+      item => `item:${item}`,
+      () => {
+        throw new Error("reporter broke");
+      },
+    );
+    expect(done).toEqual(["b"]);
+    expect(failures).toHaveLength(1);
+  });
 });

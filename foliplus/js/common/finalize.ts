@@ -49,13 +49,27 @@ interface FinalizeEachFailure<T> extends FinalizeFailure {
   readonly item: T;
 }
 
+/** Hand one failure to a reporter without letting a broken reporter stop the
+ *  teardown — worse than silence, the same way a throwing `onError` hook must
+ *  not stop an event bus. */
+const reportSafely = <F>(
+  report: ((failure: F) => void) | undefined,
+  failure: F,
+): void => {
+  if (!report) return;
+  try {
+    report(failure);
+  } catch {
+    // A broken reporter would stop the teardown — worse than silence.
+  }
+};
+
 /**
  * Run every step in the given order, isolating each one: a throwing step never
  * skips the steps behind it. Never throws.
  *
  * `report` observes failures as they happen — the usual caller is one `warn`
- * per failure. A throwing reporter is swallowed: the teardown outranks its own
- * diagnostics, the same way a broken `onError` hook must not stop an event bus.
+ * per failure. A throwing reporter is swallowed (see `reportSafely`).
  */
 const finalize = (
   steps: readonly FinalizeStep[],
@@ -68,13 +82,7 @@ const finalize = (
     } catch (error) {
       const failure: FinalizeFailure = { name, error };
       failures.push(failure);
-      if (report) {
-        try {
-          report(failure);
-        } catch {
-          // A broken reporter would stop the teardown — worse than silence.
-        }
-      }
+      reportSafely(report, failure);
     }
   }
   return {
@@ -104,13 +112,17 @@ const safeName = <T>(
  * `finalize`, for passes that must keep going and report which items failed
  * (an ordering pass that cannot price one layer still has to price the rest).
  *
- * Returns the failures rather than reporting them: the caller needs the items
- * themselves (the ids it could not price), not just a log line.
+ * Two ways to consume the outcome, and one is mandatory: pass `report` when a
+ * log line is enough, or read the returned failures when the caller needs the
+ * items themselves (the ids it could not price). A discarded return with no
+ * reporter is a silently swallowed failure — the missing-report shape that
+ * let one handle's `dispose()` fail unnoticed.
  */
 const finalizeEach = <T>(
   items: readonly T[],
   fn: (item: T, index: number) => void,
   nameOf: (item: T, index: number) => string,
+  report?: (failure: FinalizeEachFailure<T>) => void,
 ): readonly FinalizeEachFailure<T>[] => {
   const failures: FinalizeEachFailure<T>[] = [];
   for (let i = 0; i < items.length; i++) {
@@ -118,7 +130,13 @@ const finalizeEach = <T>(
     try {
       fn(item, i);
     } catch (error) {
-      failures.push({ name: safeName(nameOf, item, i), item, error });
+      const failure: FinalizeEachFailure<T> = {
+        name: safeName(nameOf, item, i),
+        item,
+        error,
+      };
+      failures.push(failure);
+      reportSafely(report, failure);
     }
   }
   return failures;
