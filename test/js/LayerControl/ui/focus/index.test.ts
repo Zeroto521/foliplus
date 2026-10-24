@@ -2513,10 +2513,13 @@ describe("dismissFocus finalization", () => {
     const removeLayer = vi.spyOn(ui.c.map, "removeLayer");
 
     ui.focusController.focusedPaneRestores = [
-      () => undefined,
-      () => {
-        throw new Error("pane gone");
-      },
+      ["restore-z:markerPane", () => undefined],
+      [
+        "surface:overlay1",
+        () => {
+          throw new Error("pane gone");
+        },
+      ],
     ];
     const rect = {} as L.Layer;
     const mask = {} as L.Polygon;
@@ -2535,7 +2538,27 @@ describe("dismissFocus finalization", () => {
     expect(ui.focusController.focusRenderer).toBeNull();
     expect(ui.focusController.focusedPaneRestores).toEqual([]);
     expect(
-      warn.mock.calls.some(call => String(call[0]).includes("pane-restore:1")),
+      warn.mock.calls.some(call => String(call[0]).includes("surface:overlay1")),
     ).toBe(true);
+  });
+
+  it("still tears down the mask when a step before the restores throws", () => {
+    window.localStorage.clear();
+    const { ui } = initFixture();
+    const removeLayer = vi.spyOn(ui.c.map, "removeLayer");
+    // Step 5 of the teardown, before the pane restores: this is the failure that
+    // used to skip every visual removal and leave the map dimmed.
+    vi.spyOn(ui.c.annotation, "setFocusFilter").mockImplementation(() => {
+      throw new Error("annotation teardown failed");
+    });
+    const mask = {} as L.Polygon;
+    ui.focusController.focusMask = mask;
+    ui.focusController.focusingLayerId = "overlay1";
+
+    expect(() => dismissFocus(ui)).not.toThrow();
+
+    expect(removeLayer).toHaveBeenCalledWith(mask);
+    expect(ui.focusController.focusMask).toBeNull();
+    expect(ui.focusController.focusingLayerId).toBeNull();
   });
 });
