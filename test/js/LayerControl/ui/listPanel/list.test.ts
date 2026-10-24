@@ -16,6 +16,7 @@ import {
   reconcileCursorByIdentity,
   renderInitialList,
   syncRowOrder,
+  toggleFold,
   updateLayerItemLabel,
 } from "#foliplus/LayerControl/ui/listPanel/index.js";
 import { TileLayer, attachedPanel, initFixture } from "../fixture.js";
@@ -773,9 +774,10 @@ describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, ()
     ui.listPanel.activeIdx = getNavigableItems(ui).indexOf(row);
 
     // A row removed mid-flow (a subscriber retired it inside the signal)
-    // leaves the cursor nothing to re-home onto.
+    // leaves the cursor nothing to re-home onto — the kind-tagged identity
+    // resolves against nothing, so the ledger clears.
     row.remove();
-    reconcileCursorByIdentity(ui, "overlay_1");
+    reconcileCursorByIdentity(ui, { kind: "layer", id: "overlay_1" });
 
     expect(ui.listPanel.activeIdx).toBeNull();
   });
@@ -893,5 +895,80 @@ describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, ()
 
     expect(document.activeElement).toBe(box);
     expect(box.closest(CONST.SEL.LAYER_ITEM)).toBe(rowOf(ui, "overlay_1"));
+  });
+
+  it.each([
+    { named: "overlay", group: "overlay" as const },
+    { named: "base", group: "base" as const },
+  ])(
+    "keeps the cursor on a layer named $named when its row moves",
+    ({ named, group }) => {
+      // A layer may legally be called "overlay" or "base" — the same
+      // strings the group headers key on. The cursor identity is
+      // kind-tagged, so every ledger (DOM focus, activeIdx, the one roving
+      // tab stop) re-homes onto the layer row, not the same-named header.
+      const { manager, ui } = initFixture({
+        data: [
+          { id: named, name: named, group },
+          {
+            id: group === "base" ? "tile" : "x",
+            name: "other",
+            group,
+          },
+        ],
+      });
+      const row = rowOf(ui, named);
+      row.focus();
+      ui.listPanel.activeIdx = getNavigableItems(ui).indexOf(row);
+
+      expect(manager.moveLayerDown(named)).toBe(true);
+
+      const items = getNavigableItems(ui);
+      expect(items[ui.listPanel.activeIdx ?? -1]).toBe(row);
+      expect(items.findIndex(el => el.tabIndex === 0)).toBe(items.indexOf(row));
+      expect(document.activeElement).toBe(row);
+      const header = attachedPanel(ui).querySelector(
+        `.${CONST.CLASSES.TOGGLE_ALL}[data-group="${group}"]`,
+      );
+      expect(items.indexOf(row)).not.toBe(items.indexOf(header as HTMLElement));
+    },
+  );
+
+  it("re-homes a header cursor back onto the header", () => {
+    const { manager, ui } = initFixture({ data: benchData(3, 0) });
+    const header = attachedPanel(ui).querySelector(
+      `.${CONST.CLASSES.TOGGLE_ALL}[data-group="${GROUP.OVERLAY}"]`,
+    ) as HTMLElement;
+    header.focus();
+    ui.listPanel.activeIdx = getNavigableItems(ui).indexOf(header);
+
+    manager.moveLayerUp("overlay_2");
+
+    const items = getNavigableItems(ui);
+    expect(items[ui.listPanel.activeIdx ?? -1]).toBe(header);
+    expect(items.findIndex(el => el.tabIndex === 0)).toBe(items.indexOf(header));
+  });
+
+  it("a folded cursor row falls back to its group header, same name or not", () => {
+    const { ui } = initFixture({
+      data: [
+        { id: "overlay", name: "overlay", group: "overlay" as const },
+        { id: "x", name: "x", group: "overlay" as const },
+      ],
+    });
+    const row = rowOf(ui, "overlay");
+    row.focus();
+    ui.listPanel.activeIdx = getNavigableItems(ui).indexOf(row);
+
+    // The fold rebuild captures the cursor by identity before the rows go,
+    // then finds its row hidden — the fallback is the row's own group
+    // header, not a same-named one swapped in by string luck.
+    toggleFold(ui, GROUP.OVERLAY);
+
+    const items = getNavigableItems(ui);
+    const header = attachedPanel(ui).querySelector(
+      `.${CONST.CLASSES.TOGGLE_ALL}[data-group="${GROUP.OVERLAY}"]`,
+    ) as HTMLElement;
+    expect(items[ui.listPanel.activeIdx ?? -1]).toBe(header);
   });
 });

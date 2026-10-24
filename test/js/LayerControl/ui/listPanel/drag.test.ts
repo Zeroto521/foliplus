@@ -519,6 +519,28 @@ describe("ui/drag", () => {
       expect(orderOf(manager)).toEqual(["L0", "L1", "L2"]);
     });
 
+    it("a throwing list subscriber still tears the gesture down", () => {
+      const { manager, ui } = initFixture({ data: overlays(3) });
+      handleDragStart(ui, dragEvent(rowOf(ui, "L1")));
+      const changes: string[] = [];
+      ui.events.on(EVENTS.LAYER_CHANGE, payload => changes.push(payload.id));
+      ui.events.on(EVENTS.LAYER_LIST_REBUILD, () => {
+        throw new Error("observer boom");
+      });
+
+      // The terminal failure propagates out of the drop — but the settled
+      // operation has already landed the commit and delivered the CHANGE
+      // past it, and the gesture state comes down with the throw instead of
+      // waiting for a native dragend that a programmatic caller never sent.
+      expect(() => handleDrop(ui, dragEvent(rowOf(ui, "L0")))).toThrow("observer boom");
+
+      expect(orderOf(manager)).toEqual(["L1", "L0", "L2"]);
+      expect(changes).toEqual(["L1"]);
+      expect(ui.listPanel.dragEntry).toBeNull();
+      expect(ui.listPanel.lastDragOverItem).toBeNull();
+      expect(rowOf(ui, "L1").classList.contains(CONST.CLASSES.DRAGGING)).toBe(false);
+    });
+
     it("toggleFold still routes through the full rebuild", () => {
       // The fold path is the rebuild counterweight to the incremental
       // reorder path; the drag module owns it and must keep it.

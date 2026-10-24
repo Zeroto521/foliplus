@@ -250,17 +250,17 @@ describe("LayerUI cursor (pure cursor primitives)", () => {
   // ─────────────────── cursorRef ───────────────────
 
   describe("cursorRef", () => {
-    it("returns the layer row id when the cursor is on a layer row", () => {
+    it("returns a layer-kind ref when the cursor is on a layer row", () => {
       setActiveItem(ui, indexFor("overlay1"));
-      expect(cursorRef(ui)).toBe("overlay1");
+      expect(cursorRef(ui)).toEqual({ kind: "layer", id: "overlay1" });
     });
 
-    it("returns the group id when the cursor is on a toggle-all row", () => {
+    it("returns a group-kind ref when the cursor is on a toggle-all row", () => {
       const toggleRow = attachedPanel(ui).querySelector(
         `[data-group="${GROUP.OVERLAY}"]`,
       ) as HTMLElement;
       setActiveItem(ui, ui.getNavigableItems().indexOf(toggleRow));
-      expect(cursorRef(ui)).toBe(GROUP.OVERLAY);
+      expect(cursorRef(ui)).toEqual({ kind: "group", group: GROUP.OVERLAY });
     });
 
     it("normalizes an out-of-range cursor to null", () => {
@@ -286,7 +286,7 @@ describe("LayerUI cursor (pure cursor primitives)", () => {
         )
         .forEach(el => el.classList.add(CONST.CLASSES.GROUP_FOLDED));
 
-      restoreCursor(ui, "overlay1");
+      restoreCursor(ui, { kind: "layer", id: "overlay1" });
 
       const lit = attachedPanel(ui).querySelector(`.${CONST.CLASSES.FOCUSED}`);
       expect(lit?.classList.contains(CONST.CLASSES.TOGGLE_ALL)).toBe(true);
@@ -297,7 +297,7 @@ describe("LayerUI cursor (pure cursor primitives)", () => {
 
     it("clears the cursor when the ref matches no row", () => {
       setActiveItem(ui, 0);
-      restoreCursor(ui, "ghost-layer");
+      restoreCursor(ui, { kind: "layer", id: "ghost-layer" });
       expect(ui.listPanel.activeIdx).toBeNull();
       expect(attachedPanel(ui).querySelector(`.${CONST.CLASSES.FOCUSED}`)).toBeNull();
     });
@@ -311,11 +311,26 @@ describe("LayerUI cursor (pure cursor primitives)", () => {
     it("restores the cursor to the same layer row after a rebuild", () => {
       const ref = cursorRef(ui);
       setActiveItem(ui, indexFor("overlay1"));
-      expect(cursorRef(ui)).toBe("overlay1");
+      expect(cursorRef(ui)).toEqual({ kind: "layer", id: "overlay1" });
       // Simulate rebuild: cursor was saved from an earlier render.
-      restoreCursor(ui, ref ?? "overlay1");
+      restoreCursor(ui, ref ?? { kind: "layer", id: "overlay1" });
       const lit = attachedPanel(ui).querySelector(`.${CONST.CLASSES.FOCUSED}`);
       expect(lit?.getAttribute(CONST.DATA.LAYER_ID)).toBe("overlay1");
+    });
+
+    it("keys a layer ref by kind, never by bare string", () => {
+      // The kind tag is the collision guard: a layer legitimately named
+      // "overlay" must not resolve to the overlay group header, even though
+      // the header sits ahead of every layer row in the panel.
+      setActiveItem(ui, indexFor("overlay1"));
+      const header = attachedPanel(ui).querySelector(
+        `.${CONST.CLASSES.TOGGLE_ALL}[data-group="overlay"]`,
+      ) as HTMLElement;
+      expect(header).not.toBeNull();
+
+      restoreCursor(ui, { kind: "layer", id: "overlay1" });
+      expect(ui.listPanel.activeIdx).toBe(indexFor("overlay1"));
+      expect(ui.getNavigableItems()[ui.listPanel.activeIdx ?? -1]).not.toBe(header);
     });
   });
 

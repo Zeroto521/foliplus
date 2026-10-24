@@ -90,19 +90,24 @@ const rebuildList = (ui: LayerUI): void => {
   notifyDeltas(ui, moved);
 };
 
-/** Align the panel's rows with the registry order by moving the fewest DOM
- *  nodes — the incremental counterpart of {@link rebuildList} for reorder
- *  signals, where membership is unchanged and only positions shift.
+/** Align the panel's rows with the registry order in one in-place pass —
+ *  the incremental counterpart of {@link rebuildList} for reorder signals,
+ *  where membership is unchanged and only positions shift.
  *
  *  The target sequence is exactly what `renderInitialList` would emit: each
  *  group's toggle-all anchor ahead of that group's first row, rows in
  *  registry order. A row already sitting behind its predecessor is left
  *  alone (`previousElementSibling` check — no write, no reflow), so a
  *  typical moveLayerUp/Down relocates one node and an in-order list costs
- *  nothing. Row content is untouched: a pure reorder changes no count,
- *  checkbox or tri-state, so the rows already agree with the registry by
- *  construction. `data-ready` never comes down — the list stays complete
- *  and readable throughout.
+ *  nothing. The pass is not minimum-write for every permutation: a long
+ *  forward move (first row to last) relocates every displaced sibling on
+ *  the way, up to N−1 writes — still one in-place pass and no rebuild, but
+ *  the minimum-write reconcile (single direct placement of the moved row,
+ *  or an LIS-based pass) is a known follow-up, not what this does. Row
+ *  content is untouched: a pure reorder changes no count, checkbox or
+ *  tri-state, so the rows already agree with the registry by construction.
+ *  `data-ready` never comes down — the list stays complete and readable
+ *  throughout.
  *
  *  The reconcile is one pass over `container.children`, not a
  *  `querySelector` per row: the panel's row set is exactly the registry's

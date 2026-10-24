@@ -24,15 +24,37 @@ const syncListCursor = (ui: LayerUI): void => {
   ui.listPanel.listCursor.setIndex(ui.listPanel.activeIdx ?? -1);
 };
 
-/** Identity of the row the keyboard cursor points at, for re-homing after a
- *  rebuild: a layer row's id, or a toggle-all row's group. */
+/** Identity of the row the keyboard cursor points at, for re-homing after
+ *  rows move or rebuild: a layer row by id, a toggle-all row by group. The
+ *  kind tag is load-bearing — a layer may legally be named "overlay" or
+ *  "base", the same strings the group headers carry, and a bare string
+ *  would let a same-named header steal the re-home (the header sits ahead
+ *  of the rows in every findIndex). */
+type CursorRef =
+  { kind: "layer"; id: string } | { kind: "group"; group: string } | null;
 
-const cursorRef = (ui: LayerUI): string | null => {
+/** Read one row's cursor identity: layer rows key on data-layer-id,
+ *  toggle-all rows on data-group — the two attributes never co-occur on a
+ *  row. */
+const refOf = (el: HTMLElement): CursorRef => {
+  const id = el.getAttribute(CONST.DATA.LAYER_ID);
+  if (id) return { kind: "layer", id };
+  const group = el.getAttribute("data-group");
+  return group ? { kind: "group", group } : null;
+};
+
+/** The one row lookup both re-home paths share (the rebuild-grade restore
+ *  and the incremental reconcile): kind-keyed, so a layer named "overlay"
+ *  never resolves to the overlay group header and back. */
+const rowByRef = (items: HTMLElement[], ref: Exclude<CursorRef, null>): number =>
+  ref.kind === "layer"
+    ? items.findIndex(el => el.getAttribute(CONST.DATA.LAYER_ID) === ref.id)
+    : items.findIndex(el => el.getAttribute("data-group") === ref.group);
+
+const cursorRef = (ui: LayerUI): CursorRef => {
   if (ui.listPanel.activeIdx === null) return null;
   const el = getNavigableItems(ui)[ui.listPanel.activeIdx];
-  return el
-    ? (el.getAttribute(CONST.DATA.LAYER_ID) ?? el.getAttribute("data-group"))
-    : null;
+  return el ? refOf(el) : null;
 };
 
 /** Re-attach the cursor (marker + DOM focus) to the rebuilt row. A row hidden
@@ -43,17 +65,13 @@ const cursorRef = (ui: LayerUI): string | null => {
  *  have nowhere to go but back onto a fresh element. The incremental
  *  counterpart is {@link reconcileCursorByIdentity}. */
 
-const restoreCursor = (ui: LayerUI, ref: string | null): void => {
+const restoreCursor = (ui: LayerUI, ref: CursorRef): void => {
   if (ref === null) {
     ui.listPanel.activeIdx = null;
     return;
   }
   const items = getNavigableItems(ui);
-  let idx = items.findIndex(
-    el =>
-      el.getAttribute(CONST.DATA.LAYER_ID) === ref ||
-      el.getAttribute("data-group") === ref,
-  );
+  let idx = rowByRef(items, ref);
   if (idx !== -1 && items[idx].classList.contains(CONST.CLASSES.GROUP_FOLDED)) {
     const group = items[idx].getAttribute("data-layer-type");
     idx = items.findIndex(
@@ -73,7 +91,7 @@ const restoreCursor = (ui: LayerUI, ref: string | null): void => {
  *  FOCUSED marker needs no work either — it lives on the element, which
  *  moved with its row. A row that left the panel mid-move clears the
  *  cursor; that is the only fallback, there is nothing left to re-home. */
-const reconcileCursorByIdentity = (ui: LayerUI, ref: string | null): void => {
+const reconcileCursorByIdentity = (ui: LayerUI, ref: CursorRef): void => {
   if (!ui.uiContainer?.isConnected) return;
   if (ref === null) {
     // No cursor to re-home; the tab stop still follows the new first row.
@@ -81,11 +99,7 @@ const reconcileCursorByIdentity = (ui: LayerUI, ref: string | null): void => {
     return;
   }
   const items = getNavigableItems(ui);
-  const idx = items.findIndex(
-    el =>
-      el.getAttribute(CONST.DATA.LAYER_ID) === ref ||
-      el.getAttribute("data-group") === ref,
-  );
+  const idx = rowByRef(items, ref);
   if (idx === -1) {
     clearActiveItem(ui);
     return;
@@ -230,3 +244,4 @@ export {
   resolveActiveIdx,
   syncActiveItem,
 };
+export type { CursorRef };

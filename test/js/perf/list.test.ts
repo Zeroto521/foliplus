@@ -62,4 +62,21 @@ describe("perf/list syncRowOrder", () => {
     expect(applyUserState).not.toHaveBeenCalled();
     expect(refreshAllCounts).not.toHaveBeenCalled();
   }, 120_000);
+
+  it("pins the long-forward reconcile ceiling at one write per sibling", () => {
+    // The reconcile is a single in-place pass, not a minimum-write one:
+    // moving the first row to the last slot relocates every displaced
+    // sibling on the way — 197 writes for 198 overlays, still no rebuild.
+    // Pinned so the follow-up minimum-write reconcile changes this number
+    // deliberately, and a regression past it cannot slip in silently.
+    window.localStorage.clear();
+    const { manager, ui } = initFixture({ data: benchData(198, 2) });
+    const insertBefore = vi.spyOn(attachedPanel(ui), "insertBefore");
+
+    manager.reorderLayer("overlay_0", "overlay_197");
+
+    expect(insertBefore).toHaveBeenCalledTimes(197);
+    const order = manager.layers.map(l => l.id);
+    expect(order[order.indexOf("overlay_197") + 1]).toBe("overlay_0");
+  }, 120_000);
 });

@@ -139,12 +139,21 @@ const handleDrop = (ui: LayerUI, event: DragEvent) => {
   // Everything else is the controller's commit funnel — registry move, z
   // repricing, saved order, the panel-order signal that relocates the rows,
   // and the layer CHANGE — the same sequence a keyboard or API move runs, so
-  // a drag is no longer invisible to event consumers.
-  ui.c.reorderLayer(ui.listPanel.dragEntry.id, targetId!);
-  ui.listPanel.dragEntry = null;
+  // a drag is no longer invisible to event consumers. A terminal consumer
+  // can throw out of it after the commit landed; the gesture state comes
+  // down regardless, or the panel would keep claiming a drag in flight.
+  const entry = ui.listPanel.dragEntry;
+  try {
+    ui.c.reorderLayer(entry.id, targetId!);
+  } finally {
+    clearDragState(ui);
+  }
 };
 
-const handleDragEnd = (ui: LayerUI) => {
+/** Idempotent gesture teardown: the armed session, the hover marker and the
+ *  drag chrome all go — whether the drop committed, was refused or threw.
+ *  The drop's commit boundary and the native dragend share it. */
+const clearDragState = (ui: LayerUI): void => {
   ui.listPanel.dragEntry = null;
   ui.listPanel.lastDragOverItem = null;
   const allItems = ui.uiContainer?.querySelectorAll(CONST.SEL.LAYER_ITEM);
@@ -155,6 +164,10 @@ const handleDragEnd = (ui: LayerUI) => {
       CONST.CLASSES.DRAG_OVER_BOTTOM,
     ),
   );
+};
+
+const handleDragEnd = (ui: LayerUI) => {
+  clearDragState(ui);
 };
 
 export {
