@@ -88,12 +88,13 @@ class HeatmapControl extends defineControl({
   destroy() {
     // `this.mgr` is a lazy getter that constructs the manager AND runs init().
     // A throw there is exactly the half-mounted case teardown must survive, so
-    // resolution is a step too — and every step below tolerates a missing
-    // manager instead of being skipped wholesale.
-    const resolved: { current: HeatmapManager | null } = { current: null };
+    // resolution is the first step — and it resolves into the owner field
+    // (`manager`), not a second holder: one manager, one container. The steps
+    // below read `this.manager` and tolerate null instead of being skipped
+    // wholesale when init died halfway.
     finalize(
       [
-        ["resolve-manager", () => (resolved.current = this.mgr)],
+        ["resolve-manager", () => void this.mgr],
         ["detach-scan", () => this.initScanCleanup?.()],
         ["detach-scheme-bar", () => this.schemeBarCleanup?.()],
         // dropdownCleanup is optional: only the dropdown open/close cycle writes
@@ -101,11 +102,11 @@ class HeatmapControl extends defineControl({
         // a no-op safety net so a handler can't survive the control — it
         // re-registers on the next dropdown open.
         ["detach-dropdown", () => this.dropdownCleanup?.()],
-        ["detach-map-sync", () => resolved.current?.mapCleanup?.()],
+        ["detach-map-sync", () => this.manager?.mapCleanup?.()],
         [
           "detach-zoom-end",
           () => {
-            const mgr = resolved.current;
+            const mgr = this.manager;
             // `declare` hides the fields init() assigns, so a manager whose
             // init threw can reach here without them.
             if (!mgr?.onZoomEnd) return;
@@ -116,36 +117,36 @@ class HeatmapControl extends defineControl({
         [
           "detach-layer-change",
           () => {
-            const mgr = resolved.current;
+            const mgr = this.manager;
             if (!mgr?.onLayerChange) return;
             mgr.onLayerChange.cancel();
             mgr.removeLayerChangeListener();
           },
         ],
-        ["detach-layer-deleted", () => resolved.current?.removeLayerDeletedListener()],
-        ["detach-export", () => resolved.current?.removeExportListener()],
+        ["detach-layer-deleted", () => this.manager?.removeLayerDeletedListener()],
+        ["detach-export", () => this.manager?.removeExportListener()],
         ["disconnect-observer", () => this.observer?.disconnect()],
         // Flush any pending write so the last user-initiated change is durable
         // (write-through here, so the flush is a no-op safety net). A storage
         // error is already swallowed inside saveRecord.
-        ["flush", () => resolved.current?.flush()],
+        ["flush", () => this.manager?.flush()],
         // clearHeatmapCanvas retires the overlay entry and can raise; the
         // overlay's own destroy is queued after it so the canvas and pane are
         // released either way.
-        ["clear-canvas", () => resolved.current?.clearHeatmapCanvas()],
-        ["destroy-overlay", () => resolved.current?.overlay.destroy()],
+        ["clear-canvas", () => this.manager?.clearHeatmapCanvas()],
+        ["destroy-overlay", () => this.manager?.overlay.destroy()],
       ],
       failure => this.log.warn(`destroy step "${failure.name}" threw`, failure.error),
     );
     // Resets, not steps: a removed control must end with no manager, cleanup
     // callbacks or observer even when one of the steps above threw.
+    const mgr = this.manager;
+    if (mgr) mgr.ui = null;
     this.manager = null;
     this.initScanCleanup = null;
     this.schemeBarCleanup = null;
     this.dropdownCleanup = null;
     this.observer = null;
-    const mgr = resolved.current;
-    if (mgr) mgr.ui = null;
     // Drop UI references to the removed DOM so a re-add starts clean.
     this.schemeDropdown = null;
     this.expandHookDone = false;

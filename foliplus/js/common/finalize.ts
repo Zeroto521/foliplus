@@ -27,7 +27,9 @@
 // Resolution: a handle or collection resolved *before* the list can throw and
 // skip the entire teardown — the shape that left a half-mounted HeatmapControl
 // alive. Resolve it inside a step (or from a snapshot that cannot throw), and
-// make the later steps tolerate an unresolvable value.
+// make the later steps tolerate an unresolvable value. Resolve into the owner's
+// own field when it has one: teardown must not add a second container for state
+// that already has an owner.
 
 /** One named teardown step. The name is what a failure is reported against. */
 type FinalizeStep = readonly [name: string, run: () => void];
