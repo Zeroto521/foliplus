@@ -510,4 +510,20 @@ describe("unknown third-party layers (real Leaflet)", () => {
     expect(surface.setZ(700)).toBe(true); // panes still price the slot
     map.remove();
   });
+
+  it("promises pane coverage to a bare Leaflet container, even empty", () => {
+    // L.featureGroup() is a built-in family: its visible DOM is its subtree,
+    // and the migrator relocates leaves as they arrive. The heatmap's
+    // unregister/re-draw cycle keeps an empty group registered for a frame —
+    // the opacity row must not flash off in between.
+    const { map, host } = makeMap();
+    const group = L.featureGroup([]);
+    map.addLayer(group);
+    const surface = new LayerSurface(host, { id: "empty", layer: group });
+    surface.materialize();
+
+    expect(surface.capabilities.opacity).toBe("pane");
+    expect(surface.capabilities.relocatable).toBe(true);
+    map.remove();
+  });
 });

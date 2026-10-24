@@ -102,13 +102,20 @@ const hasMarkerLeaf = (node: unknown): boolean =>
       safeRead(() => leaf instanceof L.Marker) === true,
   );
 
-/** Whether every paintable leaf in the tree belongs to a family
- *  `PaneManager.pinLateContent` can actually relocate into the layer's panes:
- *  Path, Marker, GridLayer and ImageOverlay. Anything else (a third-party
- *  plugin with its own `getElement()`, a canvas painter that never joins a
- *  pane) keeps its DOM wherever Leaflet put it — so promising
+/** Whether the tree belongs to a family `PaneManager.pinLateContent` can
+ *  actually relocate into the layer's panes: Path, Marker, GridLayer,
+ *  ImageOverlay — and the container family (LayerGroup, FeatureGroup, GeoJSON),
+ *  whose visible DOM IS its subtree, so a container qualifies even while empty
+ *  (its leaves arrive later and are relocated leaf by leaf). Anything else (a
+ *  third-party plugin with its own `getElement()`, a canvas painter that never
+ *  joins a pane) keeps its DOM wherever Leaflet put it — so promising
  *  `opacity: "pane"` for it would advertise a write the carrier never
  *  delivers. Capability comes from the carrier, not from "a layer exists".
+ *
+ *  Node-level on purpose: a container whose leaves are all built-ins
+ *  qualifies through them, and a bare `L.featureGroup()` qualifies through
+ *  itself — the heatmap-style unregister/re-draw cycle must not flash the
+ *  opacity row off while its group is momentarily empty.
  *
  *  Note the deliberate asymmetry with `hasMarkerLeaf`: an *unknown* leaf that
  *  merely carries `getElement()` does not count — that is exactly the shape
@@ -129,6 +136,12 @@ const isMigratableLeaf = (leaf: unknown): boolean => {
   if (
     typeof L.GridLayer !== "undefined" &&
     safeRead(() => leaf instanceof L.GridLayer) === true
+  ) {
+    return true;
+  }
+  if (
+    typeof L.LayerGroup !== "undefined" &&
+    safeRead(() => leaf instanceof L.LayerGroup) === true
   ) {
     return true;
   }
