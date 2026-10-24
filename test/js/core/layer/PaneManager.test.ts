@@ -1157,7 +1157,10 @@ describe("PaneManager", () => {
       eachLayer: undefined,
     };
     Object.setPrototypeOf(marker, new window.L.Marker());
-    const path = { options: {}, eachLayer: undefined };
+    const path = {
+      options: {} as Record<string, unknown>,
+      eachLayer: undefined,
+    };
     Object.setPrototypeOf(path, new window.L.Path());
     const group = {
       options: {},
