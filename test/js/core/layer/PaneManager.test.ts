@@ -960,6 +960,33 @@ describe("PaneManager", () => {
     expect(layer.options.pane).toBe("foliplus-pane-1");
   });
 
+  it("pinLateContent moves an ImageOverlay as the first child of its pane group", () => {
+    // The first family into a pane creates the group; the image lands alone.
+    const paneEl = document.createElement("div");
+    document.body.appendChild(paneEl);
+    const overlayPane = document.createElement("div");
+    const map = {
+      getPane: vi.fn((name: string) =>
+        name === "foliplus-pane-1" ? paneEl : overlayPane,
+      ),
+      createPane: vi.fn(),
+    };
+    const pm = new PaneManager(map);
+    const renderer = { _container: document.createElement("div") };
+    const image = document.createElement("img");
+    overlayPane.appendChild(image);
+    const overlay = {
+      _image: image,
+      options: {} as Record<string, unknown>,
+      eachLayer: undefined,
+    };
+    Object.setPrototypeOf(overlay, new window.L.ImageOverlay());
+
+    pm.pinLateContent([{ layer: overlay, paneName: "foliplus-pane-1", renderer }]);
+
+    expect(Array.from(paneEl.children)).toEqual([image]);
+  });
+
   it("pinLateContent moves an ImageOverlay's image into the target pane", () => {
     // ImageOverlay appends its <img> to `options.pane` once at addLayer; an
     // image that joined the map before the pin sits in the shared
@@ -1308,6 +1335,20 @@ describe("PaneManager", () => {
     expect(shadow.parentNode).toBeNull();
     // The image stays where Leaflet put it — there is nowhere to move it to.
     expect(image.parentNode).toBe(overlayPane);
+  });
+
+  it("releasePane refuses a release from a surface that does not hold the lease", () => {
+    const map = {
+      getPane: vi.fn(),
+      createPane: vi.fn(() => document.createElement("div")),
+      hasLayer: vi.fn(() => false),
+    };
+    const pm = new PaneManager(map);
+    pm.ensurePane("foliplus-pane-11", false, "surface-a");
+    pm.releasePane("foliplus-pane-11", "intruder", true);
+    // The lease survives: surface-a still holds it, surface-b still refused.
+    expect(pm.canAcquirePane("foliplus-pane-11", "surface-a")).toBe(true);
+    expect(pm.canAcquirePane("foliplus-pane-11", "surface-b")).toBe(false);
   });
 
   it("pinLateContent moves an ImageOverlay after markers of the same pane", () => {

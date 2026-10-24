@@ -2534,6 +2534,27 @@ describe("LayerController", () => {
     expect(spyB).not.toHaveBeenCalled();
   });
 
+  it("a leaf recorded at the write point attributes to its surface in O(1)", () => {
+    // createLayers' addLayer records the child -> group stamp (write-point
+    // index); the handler reads the surface off the group's stamp without
+    // running a membership scan at all.
+    manager.map.hasLayer.mockReturnValue(true);
+    const group = Object.assign({}, { options: {} });
+    manager.registerLayer({ id: "gm", name: "M", layer: group as never });
+    const surface = manager.surfaces.get("gm")!;
+    const spy = vi.spyOn(surface, "markContentDirty");
+    const leaf = { options: {} } as never;
+    manager.panes.rememberChildOwnership(leaf as never, group as never);
+
+    manager.onLayerAdd({ layer: leaf } as never);
+    expect(spy).toHaveBeenCalledTimes(1);
+    // A second leaf of the SAME group, also indexed, is O(1) as well.
+    const leaf2 = { options: {} } as never;
+    manager.panes.rememberChildOwnership(leaf2 as never, group as never);
+    manager.onLayerAdd({ layer: leaf2 } as never);
+    expect(spy).toHaveBeenCalledTimes(2);
+  });
+
   it("registerLayer pins the pane on a layer with a container of its own", () => {
     // A non-Path/Marker layer with children (L.GeoJSON-style) must get its
     // pane written so enforceOrder does not fall back to a generated pane.

@@ -149,10 +149,7 @@ class LayerController implements LayerAPI {
   /** The same surfaces keyed by the live layer's stamp, for the lookups that
    *  start from a layer rather than from a registry entry. */
   declare private surfacesByLayer: Map<number, LayerSurface>;
-  /** Memoised child-leaf stamps -> the surface whose registered group holds
-   *  them: the second leaf of a group costs O(1) attribution instead of an
-   *  O(registry) membership scan. Cleared with the other indexes. */
-  declare private surfacesByChildStamp: Map<number, LayerSurface>;
+
   declare factory: LayerFactory;
   declare ui: LayerUI | null;
   declare debouncedEnforce: Debounced;
@@ -258,7 +255,6 @@ class LayerController implements LayerAPI {
     this.panes = new PaneManager(this.map);
     this.surfaces = new Map();
     this.surfacesByLayer = new Map();
-    this.surfacesByChildStamp = new Map();
     this.intentStore = new LayerIntentStore();
 
     this.factory = new LayerFactory({
@@ -319,13 +315,18 @@ class LayerController implements LayerAPI {
       // landing after this script) still relies on.
       const arrivingStamp = L.stamp(event.layer);
       const directSurface = this.surfacesByLayer.get(arrivingStamp);
-      // Memoised leaf -> owning surface: the first leaf of a group pays the
-      // membership scan, every later leaf of the same group is O(1).
-      const memoSurface = this.surfacesByChildStamp.get(arrivingStamp);
+      // Write-point index first: createLayers' addLayer recorded which group
+      // owns this leaf, so the surface is O(1) without a membership scan.
+      // (The stamp of the group IS its registered surface's key.)
+      const parentStamp = this.panes.childOwnerOf(event.layer);
+      const indexedSurface =
+        parentStamp !== undefined
+          ? (this.surfacesByLayer.get(parentStamp) ?? null)
+          : null;
       if (directSurface) {
         directSurface.markContentDirty();
-      } else if (memoSurface) {
-        memoSurface.markContentDirty();
+      } else if (indexedSurface) {
+        indexedSurface.markContentDirty();
       } else {
         let claimed = false;
         for (const surface of this.surfacesByLayer.values()) {
@@ -336,7 +337,6 @@ class LayerController implements LayerAPI {
             host.hasLayer(event.layer)
           ) {
             surface.markContentDirty();
-            this.surfacesByChildStamp.set(arrivingStamp, surface);
             claimed = true;
           }
         }
@@ -1283,7 +1283,6 @@ class LayerController implements LayerAPI {
     this.pendingRegistrations = [];
     this.surfaces.clear();
     this.surfacesByLayer.clear();
-    this.surfacesByChildStamp.clear();
     this.panes.destroy();
     // Revert to the lightweight LayerAPI (no registry, no panel).
     // ensureLayerAPI guarantees a valid object, so consumers can always

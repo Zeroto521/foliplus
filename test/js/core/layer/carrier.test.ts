@@ -19,7 +19,11 @@
 import L from "leaflet";
 import { LayerSurface } from "#foliplus/core/layer/LayerSurface.js";
 import { PaneManager } from "#foliplus/core/layer/PaneManager.js";
-import { assertInsideOwnedPanes, visibleDomOf } from "#foliplus/core/layer/carrier.js";
+import {
+  assertInsideOwnedPanes,
+  isMigratableLeaf,
+  visibleDomOf,
+} from "#foliplus/core/layer/carrier.js";
 import { PANE_ROLE } from "#foliplus/core/layer/const.js";
 
 // The mock `window.L` is swapped for the real library for this file only.
@@ -73,6 +77,36 @@ const inlineOpacityProduct = (el: Element): number => {
 
 const markerIn = (latlng: [number, number], opts: L.MarkerOptions = {}) =>
   L.marker(latlng, { icon: makeIcon(), ...opts });
+
+describe("the migratable-family probe", () => {
+  it("answers through every family of the table", () => {
+    const { map } = makeMap();
+    const marker = markerIn([26.08, 119.3]);
+    const group = L.layerGroup([marker]);
+    map.addLayer(group);
+    expect(isMigratableLeaf(marker)).toBe(true);
+    expect(isMigratableLeaf(group)).toBe(true);
+    expect(
+      isMigratableLeaf(L.imageOverlay(IMAGE_URL, L.latLngBounds([0, 0], [1, 1]))),
+    ).toBe(true);
+    expect(isMigratableLeaf(L.circleMarker([0, 0]))).toBe(true);
+    map.remove();
+  });
+
+  it("falls back to false when the family probe throws", () => {
+    // A hostile layer object whose prototype chain inspection throws must
+    // answer "not migratable" through safeRead, not propagate.
+    const evil = new Proxy(
+      {},
+      {
+        getPrototypeOf() {
+          throw new Error("boom");
+        },
+      },
+    );
+    expect(isMigratableLeaf(evil)).toBe(false);
+  });
+});
 
 describe("carrier coverage (real Leaflet)", () => {
   it("moves a marker group's icons AND shadows into the surface's panes", () => {

@@ -318,6 +318,9 @@ class LayerFactory {
         if (requested && paneNames.includes(requested)) {
           if (!map.hasLayer(mainLayer)) register();
           panes.pinTree(layer, requested);
+          // Write-point membership index: the next leaf of this group
+          // attributes to the surface in O(1) instead of a registry scan.
+          panes.rememberChildOwnership(layer, mainLayer);
           const target = subLayers.get(requested)!;
           const result = target.addLayer(layer);
           panes.invalidateDiscoveryCache(L.stamp(mainLayer));

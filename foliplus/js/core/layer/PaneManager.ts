@@ -104,6 +104,26 @@ class PaneManager {
 
   // ── Leaflet DOM integration ────────────────────────────────────
 
+  /** Child-leaf stamps -> their owning registered group's stamp. Maintained
+   *  at the write points (`LayerFactory`'s `mainLayer.addLayer` override):
+   *  the next leaf of the same group attributes in O(1) instead of an
+   *  O(registry) membership scan. Stamps are never reused, so a retired
+   *  child's entry is harmless; a retired PARENT's stamp simply misses the
+   *  surface lookup and the membership scan takes over. */
+  private readonly childOwners = new Map<number, number>();
+
+  /** Record that `child` belongs to `parent` (both stamps). Callers that own
+   *  the parent's tree — `createLayers`' `addLayer` — maintain this at the
+   *  write point. */
+  rememberChildOwnership(child: L.Layer, parent: L.Layer): void {
+    this.childOwners.set(L.stamp(child), L.stamp(parent));
+  }
+
+  /** The registered group's stamp that owns `child`, when recorded. */
+  childOwnerOf(child: L.Layer): number | undefined {
+    return this.childOwners.get(L.stamp(child));
+  }
+
   /** The pane leases some surface of this map currently holds — keyed by
    *  pane name, valued by the owning surface's id plus how the pane was
    *  acquired (`created` = foliplus made the element; adopted = a pre-built
@@ -252,6 +272,7 @@ class PaneManager {
     this.discoveryCache.clear();
     this.paneSpecs.clear();
     this.paneLeases.clear();
+    this.childOwners.clear();
     this.generation++;
   }
 
