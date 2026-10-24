@@ -140,6 +140,9 @@ class LayerController implements LayerAPI {
   declare pendingRegistrations: LayerInfo[];
   declare uiContainer: HTMLElement | null;
   declare isEnforcing: boolean;
+  /** Ids the last ordering pass could not price, in registry order. Empty on
+   *  a clean pass; callers that care (export) read it after `enforceOrder`. */
+  declare lastEnforceFailures: string[];
   declare isDestroyed: boolean;
   declare panes: PaneManager;
   /** The rendering face of each registered layer, keyed by layer id. Created on
@@ -250,6 +253,7 @@ class LayerController implements LayerAPI {
       Object.assign(this, { [name]: method.bind(this) });
     }
     this.isEnforcing = false;
+    this.lastEnforceFailures = [];
     this.isDestroyed = false;
 
     this.panes = new PaneManager(this.map);
@@ -383,8 +387,21 @@ class LayerController implements LayerAPI {
     this.layerRegistry.normalizeGroups();
     this.enforceOrder();
     // Before any export, flush pending debounced enforceOrder so the exported
-    // image matches the panel's layer order.
-    this.events.on(EVENTS.BEFORE_EXPORT, () => this.enforceOrder(), "internal");
+    // image matches the panel's layer order. A layer the pass could not price
+    // means the capture may have an incomplete stack — warn, but let the
+    // export continue.
+    this.events.on(
+      EVENTS.BEFORE_EXPORT,
+      () => {
+        const failed = this.enforceOrder();
+        if (failed?.length) {
+          this.log.warn(
+            `enforceOrder failed for ${failed.length} layer(s) before export: ${failed.join(", ")}`,
+          );
+        }
+      },
+      "internal",
+    );
     // Ensure the lightweight LayerAPI exists (consumers always have a valid
     // LayerAPI even without LayerControl), then upgrade to the full version.
     // LayerController itself implements LayerAPI, so it becomes the map's API.
@@ -1143,14 +1160,20 @@ class LayerController implements LayerAPI {
   /** Give every layer a surface and reprice its z.
    *
    *  Re-ordering only. The pass lives on the domain; the controller keeps the
-   *  re-entry guard and the debounce cancellation around it. */
-  enforceOrder() {
-    if (this.isEnforcing) return;
+   *  re-entry guard and the debounce cancellation around it.
+   *
+   *  @returns the ids that could not be priced — empty on a clean pass. A
+   *    throwing layer no longer aborts the rest of the stack; the ids let the
+   *    caller tell "ordered" from "attempted". */
+  enforceOrder(): string[] {
+    if (this.isEnforcing) return [];
     this.debouncedEnforce?.cancel();
     this.isEnforcing = true;
     try {
-      this.domain.enforceOrder();
+      const failed = this.domain.enforceOrder();
+      this.lastEnforceFailures = failed;
       this.syncAttribution();
+      return failed;
     } finally {
       this.isEnforcing = false;
     }
