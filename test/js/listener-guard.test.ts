@@ -121,10 +121,10 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
   },
   {
     f: "LayerControl/ui/overlayPanel/filter.ts",
-    n: 5,
+    n: 4,
     pairedOff: 0,
     reason:
-      "filter panel input/slider/outside-click bindings — pending migration to `this.on`",
+      "filter panel clear/slider-shell/outside-click bindings — pending migration to `this.on`",
   },
   {
     f: "LayerControl/ui/focus/focusMarquee.ts",

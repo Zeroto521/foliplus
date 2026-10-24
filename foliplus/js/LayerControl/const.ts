@@ -197,20 +197,14 @@ const CLASSES = {
   FILTER_EMPTY: "foliplus-filter-empty",
   /** Header icon of the filter panel (a funnel glyph). */
   FILTER_ICON: "foliplus-layer-filter-icon",
-  /** The single-field dual-thumb slider row inside the filter panel. */
-  FILTER_ROW: "foliplus-filter-row",
-  /** Rail track of the filter slider — reuses the shared slider geometry. */
-  FILTER_TRACK: "foliplus-filter-track",
-  /** Filled span of the filter slider (min..max). */
-  FILTER_FILL: "foliplus-filter-fill",
-  /** Min thumb of the filter slider (the left <input type=range>). */
-  FILTER_MIN: "foliplus-filter-min",
-  /** Max thumb of the filter slider (the right <input type=range>). */
-  FILTER_MAX: "foliplus-filter-max",
-  /** Readout dots on the filter rail. */
-  FILTER_DOT: "foliplus-filter-dot",
-  /** Value labels under the filter rail (numeric min / max). */
-  FILTER_VALUES: "foliplus-filter-values",
+  /** Read-only filter field name in the panel's field row. */
+  FILTER_FIELD: "foliplus-filter-field",
+  /** Host element of the shared dual-thumb Slider in the range row. */
+  FILTER_SLIDER: "foliplus-filter-slider",
+  /** Live "kept / total" readout (aria-live=polite). */
+  FILTER_RESULT: "foliplus-filter-result",
+  /** Clear-filter footer button. */
+  FILTER_CLEAR: "foliplus-filter-clear",
 };
 
 /** Data attribute names. */
@@ -226,9 +220,9 @@ const ACTION = {
   FOCUS_LAYER: "focus-layer",
   RENAME_LAYER: "rename-layer",
   STYLE_LAYER: "style-layer",
-  /** Opens the layer's filter panel (stage 2). Disabled on rows whose surface
-   *  cannot filter yet; enabled today only for point layers that expose a
-   *  component's `styleSetters` (Heatmap pilot). */
+  /** Opens the layer's filter panel (stage 2). Disabled on rows that do not
+   *  declare the filter capability (`filterProvider` + `filterSetter` —
+   *  HeatmapControl today). */
   FILTER_LAYER: "filter-layer",
   ATTRS_LAYER: "layer-attributes",
   DELETE_LAYER: "delete-layer",

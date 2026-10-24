@@ -9,11 +9,13 @@ import { EVENTS, type EventBus, ensureEvents, publish } from "#core/event/index.
 import { bareFieldName } from "#core/label/index.js";
 import {
   type LayerFilter,
+  type LayerFilterModel,
   type LayerSnapshot,
   META_SOURCE_LAYER_ID,
   NO_FEATURE_TREE_KINDS,
   type SnapshotPoint,
   matches,
+  select,
 } from "#core/layer/index.js";
 import { bindMapSync } from "#core/leaflet/index.js";
 import { SCHEME_FALLBACK_COLOR } from "#core/palette.js";
@@ -154,10 +156,12 @@ class HeatmapManager {
    *  Invalidation: `onLayerChange` / `clearHeatmapCanvas`. */
   declare cachedSnapshot: LayerSnapshot | null;
   declare cachedSnapshotLayerId: string | null;
-  /** Per-layer filters received via LAYER_FILTER_CHANGE. Keyed by source
-   *  layer id; the value is the filter AST. Absent or `undefined` = no
-   *  filtering. The panel writes to `LayerRuntimeStore.setFilter` and
-   *  emits the event; this map is the local cache. */
+  /** The filter store — this manager is the filter's single owner. Keyed
+   *  by source layer id, so a source switch keeps each source's filter
+   *  attributed correctly (A → B → A restores A's filter) and the render
+   *  path reads `layerFilters.get(selectedLayerId)`. Absent = no filter.
+   *  The LayerControl panel writes through the `filterSetter` capability;
+   *  LAYER_FILTER_CHANGE is published *after* the state here is settled. */
   declare layerFilters: Map<string, LayerFilter>;
   declare renderAll: boolean;
   /**
@@ -353,6 +357,10 @@ class HeatmapManager {
       meta: this.sourceMeta,
       styleProvider: this.styleProvider,
       styleSetters: this.styleSetters,
+      // Filter capability (stage 2 pilot): this manager is the filter's
+      // owner; the LayerControl panel reads and writes through these.
+      filterProvider: () => this.getFilterModel(),
+      filterSetter: filter => this.setFilter(filter),
       // Snapshot taken at construction — Reset restores this, never the
       // live toggle or the localStorage-persisted config.
       styleDefaultsProvider: () => ({
@@ -461,8 +469,15 @@ class HeatmapManager {
         this.selectedLayerId &&
         !this.pointLayers.some(p => p.id === this.selectedLayerId)
       ) {
+        const departed = this.selectedLayerId;
         this.selectedLayerId = null;
+        // The source is gone — its filter goes with it, so a later
+        // re-registration of the same id starts unfiltered.
+        this.layerFilters.delete(departed);
         this.clearHeatmapCanvas();
+        if (this.hadFilterFor(departed)) {
+          publish(this.events, EVENTS.LAYER_FILTER_CHANGE, { id: this.layerId });
+        }
       }
       if (this.ui) rebuildLayerDropdown(this.ui);
     }, CONST.TIMING.LAYER_SCAN_DEBOUNCE);
@@ -818,6 +833,124 @@ class HeatmapManager {
     return include;
   }
 
+  // --- Filter capability (stage 2 pilot) ---
+  //
+  // This manager owns the filter: the LayerControl panel reads
+  // `getFilterModel` and writes `setFilter` through the registry
+  // capabilities; there is no second write path and no second copy of
+  // the state (the old runtime-store + payload + manager-map trio is
+  // gone). LAYER_FILTER_CHANGE is a notification published after the
+  // local state and render have settled.
+
+  /** Whether a committed filter ever existed for *id* — used to decide
+   *  whether clearing it is worth a LAYER_FILTER_CHANGE publish. */
+  private hadFilterFor(id: string): boolean {
+    return this.layerFilters.has(id);
+  }
+
+  /** Slider step derived from the data's own precision — the number of
+   *  decimals actually present in the field's bounds, capped at 6. A
+   *  degenerate (zero-span) range gets 1: the slider renders disabled
+   *  anyway. */
+  private static stepFor(range: readonly [number, number]): number {
+    const decimals = (v: number): number => {
+      const parts = String(v).split(".");
+      return parts.length > 1 ? Math.min(parts[1].length, 6) : 0;
+    };
+    const span = range[1] - range[0];
+    if (!Number.isFinite(span) || span <= 0) return 1;
+    return 10 ** -Math.max(decimals(range[0]), decimals(range[1]));
+  }
+
+  /** The filter panel's view of this row's filter state, computed from
+   *  this manager's own state — the single read path. Returns null when
+   *  the row has no filterable data (no source selected, or no numeric
+   *  field on the snapshot). */
+  getFilterModel(): LayerFilterModel | null {
+    const sourceId = this.selectedLayerId;
+    if (!sourceId) return null;
+    this.getSelectedPoints(); // ensures cachedSnapshot is built for this source
+    const snapshot = this.cachedSnapshot;
+    if (!snapshot || snapshot.numericFields.length === 0) return null;
+    const field = snapshot.numericFields[0];
+    const range = snapshot.ranges[field] ?? [0, 0];
+    const filter = this.layerFilters.get(sourceId);
+    return {
+      field,
+      range,
+      filter,
+      kept: select(snapshot, filter).length,
+      total: snapshot.points.length,
+      step: HeatmapManager.stepFor(range),
+    };
+  }
+
+  /** Write path for the filter panel. Validates the incoming atom against
+   *  the current snapshot (unknown field or non-atom → no filter; range
+   *  clamped into the field's extent; a range equal to the full extent
+   *  means "no filter" — a full-range atom would still exclude points
+   *  missing the field, which is not what dragging back to the ends
+   *  means). No-op when the validated filter equals the stored one.
+   *  Re-renders from the bins cache (zero h3 calls) and publishes
+   *  LAYER_FILTER_CHANGE once the render has settled. */
+  setFilter(filter: LayerFilter | undefined) {
+    const sourceId = this.selectedLayerId;
+    if (!sourceId) return;
+    // The panel may write before any render ran (open → drag). The snapshot
+    // is the validation baseline, so build it here — cached after the first
+    // call, so the steady path is free.
+    this.getSelectedPoints();
+    const next = this.normalizeFilter(filter);
+    const prev = this.layerFilters.get(sourceId);
+    if (JSON.stringify(prev ?? null) === JSON.stringify(next ?? null)) return;
+    if (next === undefined) this.layerFilters.delete(sourceId);
+    else this.layerFilters.set(sourceId, next);
+    // The filter is part of the agg key — drop the agg cache. cachedPoints
+    // and cachedBins survive: filtering changes neither geometry nor point
+    // identity, so the bins are reused and no h3 call runs.
+    this.cachedAgg = null;
+    this.renderHexagons();
+    publish(this.events, EVENTS.LAYER_FILTER_CHANGE, { id: this.layerId });
+  }
+
+  /** Validate + clamp a filter AST from the panel against the current
+   *  snapshot. Returns the filter to store, or undefined for "no filter". */
+  private normalizeFilter(filter: LayerFilter): LayerFilter {
+    if (!filter) return undefined;
+    if (filter.kind !== "atom") return filter;
+    const snapshot = this.cachedSnapshot;
+    const bounds = snapshot?.ranges[filter.field];
+    if (!snapshot || !snapshot.numericFields.includes(filter.field) || !bounds) {
+      return undefined;
+    }
+    if (filter.op !== "between" || !filter.range) return filter;
+    const [lo0, hi0] = bounds;
+    const lo = Math.max(lo0, Math.min(hi0, filter.range[0]));
+    const hi = Math.max(lo0, Math.min(hi0, filter.range[1]));
+    if (lo === lo0 && hi === hi0) return undefined;
+    return { ...filter, range: [lo, hi] as [number, number] };
+  }
+
+  /** Align the stored filter for the selected source with the freshly
+   *  built snapshot — the shared tail of every content/identity change
+   *  (source switch, feature add/remove, data update). Clamps a between
+   *  range into the field's current extent and drops the filter when its
+   *  field disappeared. Returns true when the stored filter changed, so
+   *  the render tail can publish the notification. */
+  private revalidateFilter(): boolean {
+    const sourceId = this.selectedLayerId;
+    const snapshot = this.cachedSnapshot;
+    if (!sourceId || !snapshot) return false;
+    const prev = this.layerFilters.get(sourceId);
+    if (!prev) return false;
+    const next = this.normalizeFilter(prev);
+    if (JSON.stringify(prev) === JSON.stringify(next)) return false;
+    if (next === undefined) this.layerFilters.delete(sourceId);
+    else this.layerFilters.set(sourceId, next);
+    this.cachedAgg = null;
+    return true;
+  }
+
   renderHexagons() {
     if (!this.map || !this.overlay) return;
     if (!this.selectedLayerId) {
@@ -825,6 +958,10 @@ class HeatmapManager {
       return;
     }
     const allPts = this.getSelectedPoints();
+    // Content or identity may have moved under the stored filter (source
+    // switch, data update) — align it with the fresh snapshot before the
+    // include set is computed, and publish once the render has settled.
+    const filterRevalidated = this.revalidateFilter();
     const zoom = this.map.getZoom();
     const res = getH3Res(zoom);
     const fKey = this.filterKey(this.layerFilters.get(this.selectedLayerId!));
@@ -849,9 +986,17 @@ class HeatmapManager {
       aggregated = this.aggregateData(allPts, res, includeSet, bins) ?? undefined;
       if (aggregated) this.cachedAgg = { key: aggKey, data: aggregated };
     }
-    if (!aggregated) return;
+    if (!aggregated) {
+      if (filterRevalidated) {
+        publish(this.events, EVENTS.LAYER_FILTER_CHANGE, { id: this.layerId });
+      }
+      return;
+    }
     const features = this.buildFeatures(aggregated);
     this.renderFeatures(features);
+    if (filterRevalidated) {
+      publish(this.events, EVENTS.LAYER_FILTER_CHANGE, { id: this.layerId });
+    }
   }
 
   aggregateData(
@@ -894,9 +1039,12 @@ class HeatmapManager {
     this.cachedFeatures = null;
     this.cachedAgg = null;
     this.cachedBins = null;
-    this.cachedSnapshot = null;
-    this.cachedSnapshotLayerId = null;
-    this.layerFilters.clear();
+    // cachedSnapshot and layerFilters are keyed by source id and survive a
+    // canvas clear: switching source (or clearing the canvas on an empty
+    // render) must not silently drop another source's committed filter —
+    // A → B → A re-selects the same filter the user set. They are wiped
+    // with the row itself (resetState / the departing-source branch of
+    // onLayerChange), not with every canvas repaint.
     if (this.overlay) this.overlay.unregister();
     // The panel row is gone and the next draw is new content: drop this id
     // from the stored order so the next registration lands at the top of the
@@ -914,6 +1062,7 @@ class HeatmapManager {
    *  clear entries (the panel's Clear button and LayerControl's more-menu
    *  delete) go through here, so the two can never drift apart. */
   resetState(config: ComponentConfig) {
+    const clearedFilter = this.layerFilters.size > 0;
     this.selectedLayerId = null;
     this.autoFieldKey = null;
     this.agg = config.agg ?? CONST.AGG.COUNT;
@@ -921,6 +1070,14 @@ class HeatmapManager {
     this.numClasses = config.num_classes ?? CONST.CLASS_COUNT.DEFAULT;
     this.method = resolveClassifyMethod(config.method);
     this.scheme = config.color_scheme ?? "Reds";
+    // The clear wipes the row's data — every source's filter is a statement
+    // about data that no longer exists.
+    this.layerFilters.clear();
+    this.cachedSnapshot = null;
+    this.cachedSnapshotLayerId = null;
+    if (clearedFilter) {
+      publish(this.events, EVENTS.LAYER_FILTER_CHANGE, { id: this.layerId });
+    }
   }
 
   /** Load saved configuration from localStorage into this manager's state. */

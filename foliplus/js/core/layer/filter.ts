@@ -90,5 +90,28 @@ const select = (
   return snapshot.points.filter(p => matches(p, filter));
 };
 
+/** Everything a filter panel renders, computed by the filter's owner
+ *  (the component that declared `filterProvider`) so exactly one reader
+ *  of the filter state exists. The panel is a view over this model —
+ *  it never touches the owner's internal maps or caches. */
+interface LayerFilterModel {
+  /** The numeric field the filter evaluates. The owner picks the
+   *  default field (first numeric key of the snapshot today); the panel
+   *  renders it read-only. */
+  field: string;
+  /** The field's full data extent — the slider's rail bounds. */
+  range: readonly [number, number];
+  /** The committed filter, or undefined = no filter (every point kept).
+   *  A filter whose range equals the full extent is reported as
+   *  undefined: "no filter" and "full range" are the same state. */
+  filter?: LayerFilter;
+  /** Points passing the committed filter. */
+  kept: number;
+  /** Points total. */
+  total: number;
+  /** Slider step derived from the data's own precision — never a magic 1. */
+  step: number;
+}
+
 export { matches, select };
-export type { LayerFilter };
+export type { LayerFilter, LayerFilterModel };

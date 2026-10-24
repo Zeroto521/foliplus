@@ -1,12 +1,10 @@
 .foliplus-layer-ctrl {
   /* ── Filter panel ──
-     Stage-2 pilot: a single-field dual-thumb slider for one layer. The
+     Stage-2 pilot: field / range / result form rows plus a Clear footer,
+     same left-label / right-control vocabulary as the style panel. The
      shell (anchoring, width, height cap, chrome) comes from the shared
-     row-panel recipe; this block carries what the filter row needs on
-     top of it. Geometry of the slider itself (rail, handles, dots,
-     fill) is declared once in common/slider.css; the classes below are
-     just hooks the JS reads/writes, plus the panel's own inset for
-     the numeric readout. */
+     row-panel recipe; the slider's geometry (rail, thumbs, fill, values,
+     bubble) is declared once in common/slider.css and needs nothing here. */
   .foliplus-layer-filter-panel {
     padding: 0;
   }
@@ -16,62 +14,45 @@
     flex-direction: column;
     gap: var(--foliplus-space-md);
   }
-  .foliplus-layer-filter-panel .foliplus-filter-row {
-    display: flex;
-    flex-direction: column;
-    gap: var(--foliplus-space-xs);
-  }
   .foliplus-layer-filter-panel .foliplus-form-row {
     display: flex;
     align-items: baseline;
     justify-content: space-between;
     gap: var(--foliplus-space-md);
   }
-  .foliplus-layer-filter-panel .foliplus-form-label {
-    font-size: var(--foliplus-font-size-sm);
-    color: var(--foliplus-text-primary);
-  }
+  /* Narrow rows: the right-hand control wraps inside its cell instead of
+     pushing the label or collapsing the panel. */
   .foliplus-layer-filter-panel .foliplus-form-control {
     font-size: var(--foliplus-font-size-sm);
     color: var(--foliplus-text-secondary);
     font-variant-numeric: tabular-nums;
+    min-width: 0;
+    overflow-wrap: anywhere;
   }
-  /* Count readout: `kept / total`. Right-aligned, tabular figures so the
-     numbers do not jump width as they change. */
-  .foliplus-layer-filter-panel .foliplus-filter-count {
-    font-size: var(--foliplus-font-size-sm);
+  /* The slider cell takes the row's remaining width — the rail needs a
+     measurable box, and the label column stays fixed like in the style
+     panel. */
+  .foliplus-layer-filter-panel .foliplus-form-row:has(.foliplus-filter-slider) {
+    align-items: center;
+  }
+  .foliplus-layer-filter-panel .foliplus-filter-slider {
+    flex: 1;
+  }
+  .foliplus-layer-filter-panel .foliplus-filter-field {
+    color: var(--foliplus-text-primary);
+  }
+  /* Result readout: `kept / total`. Tabular figures so the numbers do not
+     jump width as they change; the element carries aria-live=polite. */
+  .foliplus-layer-filter-panel .foliplus-filter-result {
     color: var(--foliplus-text-secondary);
     font-variant-numeric: tabular-nums;
-    display: flex;
-    justify-content: space-between;
-    gap: var(--foliplus-space-sm);
   }
-  .foliplus-layer-filter-panel .foliplus-filter-count strong {
-    color: var(--foliplus-text-primary);
-    font-weight: 500;
-  }
-  /* Fallback message when the layer carries no numeric field: same font as
-     the panel's body, muted color. */
+  /* Fallback message when the row declares no filterable data: same font
+     as the panel's body, muted color. */
   .foliplus-layer-filter-panel .foliplus-filter-empty {
     font-size: var(--foliplus-font-size-sm);
     color: var(--foliplus-text-secondary);
     padding: var(--foliplus-space-sm) 0;
-  }
-  /* The two thumbs are real <input type=range>s parked invisibly over the
-     rail — the dots below are the visual thumbs. The shared slider.css
-     geometry (rail/fill/dot/values) is div-based after #721; these rules
-     keep the inputs from rendering their UA control. */
-  .foliplus-layer-filter-panel input.foliplus-filter-min,
-  .foliplus-layer-filter-panel input.foliplus-filter-max {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    margin: 0;
-    opacity: 0;
-    cursor: pointer;
-    -webkit-appearance: none;
-    appearance: none;
   }
   /* Header icon (funnel glyph) sized inside the shared .foliplus-header-icon
      box; the LayerControl SVGs are viewBox-only. */

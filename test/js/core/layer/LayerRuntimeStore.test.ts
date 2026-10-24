@@ -123,44 +123,6 @@ describe("LayerRuntimeStore — snapshot axis (point snapshot cache)", () => {
   });
 });
 
-describe("LayerRuntimeStore — filter axis (stage-2 runtime filter)", () => {
-  const atom = {
-    kind: "atom",
-    field: "magnitude",
-    op: "between",
-    range: [10, 30],
-  } as const;
-
-  it("setFilter/getFilter round-trip the panel's between atom", () => {
-    const store = new LayerRuntimeStore();
-    store.setFilter("l1", atom);
-    expect(store.getFilter("l1")).toBe(atom);
-  });
-
-  it("setFilter(undefined) clears the filter like an explicit reset", () => {
-    const store = new LayerRuntimeStore();
-    store.setFilter("l1", atom);
-    store.setFilter("l1", undefined);
-    expect(store.getFilter("l1")).toBeUndefined();
-  });
-
-  it("deleteFilter drops the row; an empty row leaves the map", () => {
-    const store = new LayerRuntimeStore();
-    store.setFilter("l1", atom);
-    store.setApplied("l1", applied("l1"));
-    store.deleteFilter("l1");
-    expect(store.getFilter("l1")).toBeUndefined();
-    expect(store.getApplied("l1")).toBeDefined();
-    store.deleteApplied("l1");
-    expect(store.ids()).not.toContain("l1");
-  });
-
-  it("deleteFilter on an absent id is a no-op", () => {
-    const store = new LayerRuntimeStore();
-    expect(() => store.deleteFilter("ghost")).not.toThrow();
-  });
-});
-
 describe("LayerRuntimeStore — authorVisible axis (author-declared default)", () => {
   it("setAuthorVisible/getAuthorVisible round-trip the snapshot", () => {
     const store = new LayerRuntimeStore();

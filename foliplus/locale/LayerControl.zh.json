@@ -77,8 +77,10 @@
   "LayerControl.filter_field": "字段",
   "LayerControl.filter_range_min": "最小值",
   "LayerControl.filter_range_max": "最大值",
-  "LayerControl.filter_keep": "命中",
-  "LayerControl.filter_total": "总数",
+  "LayerControl.filter_range": "数值范围",
+  "LayerControl.filter_result_label": "结果",
+  "LayerControl.filter_result": "命中 {kept} / 共 {total}",
+  "LayerControl.filter_clear": "清除筛选",
   "LayerControl.filter_empty": "该图层没有数值字段",
   "LayerControl.style_size": "大小",
   "LayerControl.border": "边框"

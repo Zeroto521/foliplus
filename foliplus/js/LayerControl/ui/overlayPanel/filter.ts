@@ -1,107 +1,211 @@
 // LayerControl UI — Layer filter panel (stage 2 pilot).
 //
-// Opens from the ⋮ menu on a layer row that carries a filterable point
-// snapshot (Heatmap pilot: point layers with at least one numeric field).
-// Renders a single-field dual-thumb slider on the snapshot's first
-// numeric key. The slider writes a `{kind:"atom", op:"between"}` filter
-// to `LayerRuntimeStore.filter` and emits `LAYER_FILTER_CHANGE`;
-// consumers (today: HeatmapControl) re-run their pipeline off the
-// filtered subset.
+// Opens from the ⋮ menu on a layer row that declares the filter capability
+// (`filterProvider` + `filterSetter` — HeatmapControl today). The panel is
+// a pure view over the owner's `LayerFilterModel`: it renders the field, a
+// dual-thumb range slider and a live "kept / total" readout, and writes
+// through `filterSetter`. The owner (the component that owns the row's
+// data) validates, clamps, re-renders and publishes LAYER_FILTER_CHANGE —
+// the panel holds no filter state of its own, so a close/reopen reads back
+// exactly what is committed.
 //
-// The filter lives on the layer itself (`layers[id].filter` in stage 3
-// via the intent protocol; in stage 2 it stays in the runtime store,
-// same shape as `snapshot` / `fields`). Consumers read the *same* store,
-// so a filter set here lands on every downstream reader with no second
-// write path.
+// "No filter" and "a range equal to the full extent" are the same state:
+// the owner collapses a full-range atom to `undefined` (a full-range atom
+// would still exclude points missing the field, which is not what dragging
+// both thumbs back to the ends means). The Clear button does the same write
+// explicitly.
 //
-// Panel shell follows `attr.ts` verbatim: `createRowPanel` for the
-// surface, capture-phase document mousedown for dismiss (the control
-// disables click propagation, so bubble-phase never reaches `document`),
-// and a per-panel outside-handler field on `OverlayPanel` so a peer
-// panel can tell the two apart.
-import { EVENTS } from "#core/event/index.js";
-import {
-  type LayerFilter,
-  type LayerSnapshot,
-  META_SOURCE_LAYER_ID,
-  buildLayerSnapshot,
-  select as selectSnapshot,
-} from "#core/layer/index.js";
+// Panel shell follows `attr.ts` verbatim: `createRowPanel` for the surface,
+// capture-phase document mousedown for dismiss (the control disables click
+// propagation, so bubble-phase never reaches `document`), and a per-panel
+// outside-handler field on `OverlayPanel` so a peer panel can tell the two
+// apart.
+import type { LayerFilterModel } from "#core/layer/index.js";
 import { createRowPanel } from "#core/leaflet/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import * as SVGs from "#foliplus/LayerControl/icon.js";
+import { Slider, finishSlidersIn } from "#foliplus/LayerControl/slider.js";
 import { dom } from "#common/dom.js";
 import { formatNumber } from "#common/format.js";
-import { SLIDER } from "#common/sliderVocabulary.js";
 import { displayName } from "../listPanel/rowView.js";
 import type { LayerUI } from "../surface.js";
 import { closeOverlays } from "../teardown.js";
 
-/** Format a count for the "kept / total" readout. `int` keeps the number
+/** Format a count for the result readout. `int` keeps the number
  *  locale-agnostic — the readout is a UI fact, not a display value. */
 const fmtCount = (n: number): string => formatNumber(n, "comma", "en", 0);
 
-/** Refresh the "kept / total" row from a live filter against the snapshot.
- *  `kept` counts points that match; `total` is the snapshot's size —
- *  matches the design's "N of M kept" phrasing. */
-const updateCount = (
-  count: HTMLElement,
-  snapshot: LayerSnapshot | undefined,
-  filter: LayerFilter,
-): void => {
-  const kept = snapshot ? selectSnapshot(snapshot, filter).length : 0;
-  const total = snapshot?.points.length ?? 0;
-  count.textContent = `${fmtCount(kept)} / ${fmtCount(total)}`;
+/** Format a slider value: enough decimals for the data's own precision,
+ *  with float noise (0.30000000000000004) trimmed. */
+const fmtValue = (v: number): string => String(Number(v.toFixed(6)));
+
+/** The row registry entry viewed as a filter-capable component. Null when
+ *  the row does not declare the capability (the menu gate already filters
+ *  these, but a stale row can reach the panel after a re-registration). */
+type FilterCapability = {
+  filterProvider: () => LayerFilterModel | null;
+  filterSetter: (filter: LayerFilterModel["filter"]) => void;
 };
 
-/** Open the filter panel for a given layer row. Stage 2 pilot: one field,
- *  one `between` band, driven by a dual-thumb slider. The renderer writes
- *  the same `FilterAtom` shape the AST module owns, so a stage-3 grouped
- *  renderer can consume the same store entry without a data migration. */
+const capabilityOf = (ui: LayerUI, layerId: string): FilterCapability | null => {
+  const info = ui.c.layerRegistry.get(layerId);
+  if (!info) return null;
+  if (typeof info.filterProvider !== "function") return null;
+  if (typeof info.filterSetter !== "function") return null;
+  return {
+    filterProvider: info.filterProvider,
+    filterSetter: info.filterSetter,
+  };
+};
+
+/** The panel's filter atom — the only shape the stage-2 renderer emits. */
+const atom = (
+  field: string,
+  range: [number, number],
+): { kind: "atom"; field: string; op: "between"; range: [number, number] } => ({
+  kind: "atom",
+  field,
+  op: "between",
+  range,
+});
+
+/** Refresh the result readout from the owner's current model, and pull the
+ *  slider back to the committed range when the owner changed it (clamped,
+ *  collapsed to the full extent, or cleared). Called after every write. */
+const refreshResult = (
+  ui: LayerUI,
+  cap: FilterCapability,
+  slider: Slider,
+  result: HTMLElement,
+  fallbackTotal: number,
+): void => {
+  const model = cap.filterProvider();
+  const kept = model ? model.kept : 0;
+  const total = model ? model.total : fallbackTotal;
+  result.textContent = ui
+    .T("filter_result")
+    .replace("{kept}", fmtCount(kept))
+    .replace("{total}", fmtCount(total));
+  if (!model) return;
+  const stored: [number, number] =
+    model.filter?.kind === "atom" && model.filter.range
+      ? [model.filter.range[0], model.filter.range[1]]
+      : [model.range[0], model.range[1]];
+  const current = slider.value;
+  if (
+    Array.isArray(current) &&
+    (current[0] !== stored[0] || current[1] !== stored[1])
+  ) {
+    slider.setValue(stored, { silent: true });
+  }
+};
+
+/** The form rows: field / range / result, plus a Clear footer. Same
+ *  left-label / right-control vocabulary as the style panel. */
+const buildFilterRows = (
+  ui: LayerUI,
+  cap: FilterCapability,
+  model: LayerFilterModel,
+): HTMLElement => {
+  // Field row — read-only: the owner picks the field (first numeric key of
+  // the snapshot); a field picker is a later stage.
+  const fieldRow = dom.el(
+    "div",
+    { class: CONST.CLASSES.FORM_ROW },
+    dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui.T("filter_field")),
+    dom.el(
+      "div",
+      { class: `${CONST.CLASSES.FORM_CONTROL} ${CONST.CLASSES.FILTER_FIELD}` },
+      model.field,
+    ),
+  );
+
+  // Range row — the shared dual-thumb slider primitive. Initial value: the
+  // committed filter clamped into the field's extent, else the full extent
+  // (no filter). A degenerate extent (constant field) renders disabled —
+  // two movable thumbs over one value would be a lie.
+  const host = dom.el("div", { class: CONST.CLASSES.FILTER_SLIDER });
+  const initial: [number, number] =
+    model.filter?.kind === "atom" && model.filter.range
+      ? [
+          Math.max(model.range[0], Math.min(model.range[1], model.filter.range[0])),
+          Math.max(model.range[0], Math.min(model.range[1], model.filter.range[1])),
+        ]
+      : [model.range[0], model.range[1]];
+  const slider = new Slider(host, {
+    min: model.range[0],
+    max: model.range[1],
+    step: model.step,
+    value: initial,
+    label: ui.T("filter_range"),
+    labels: [ui.T("filter_range_min"), ui.T("filter_range_max")],
+    values: { min: fmtValue(model.range[0]), max: fmtValue(model.range[1]) },
+    format: fmtValue,
+    disabled: model.range[0] === model.range[1],
+    // Live preview and commit go through the same owner write — the owner
+    // is idempotent on an unchanged filter, so the second call is a no-op.
+    input: value => {
+      if (Array.isArray(value)) cap.filterSetter(atom(model.field, value));
+    },
+    change: value => {
+      if (Array.isArray(value)) cap.filterSetter(atom(model.field, value));
+    },
+  });
+
+  const rangeRow = dom.el(
+    "div",
+    { class: CONST.CLASSES.FORM_ROW },
+    dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui.T("filter_range")),
+    dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, host),
+  );
+
+  // Result row — announced via aria-live so a drag reads "kept N of M",
+  // not two bare numbers.
+  const result = dom.el("span", {
+    class: CONST.CLASSES.FILTER_RESULT,
+    "aria-live": "polite",
+  });
+  const resultRow = dom.el(
+    "div",
+    { class: CONST.CLASSES.FORM_ROW },
+    dom.el("span", { class: CONST.CLASSES.FORM_LABEL }, ui.T("filter_result_label")),
+    dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, result),
+  );
+
+  // Clear footer — the explicit reset. Same vocabulary as the style
+  // panel's Reset footer.
+  const clearBtn = dom.el(
+    "button",
+    {
+      type: "button",
+      class: `foliplus-panel-btn ${CONST.CLASSES.FILTER_CLEAR}`,
+    },
+    ui.T("filter_clear"),
+  );
+  clearBtn.addEventListener("click", () => {
+    cap.filterSetter(undefined);
+    refreshResult(ui, cap, slider, result, model.total);
+  });
+  const footer = dom.el(
+    "div",
+    {},
+    dom.el("hr", { class: "foliplus-section-divider" }),
+    dom.el("div", { class: "foliplus-btn-row" }, clearBtn),
+  );
+
+  refreshResult(ui, cap, slider, result, model.total);
+
+  return dom.el("div", {}, fieldRow, rangeRow, resultRow, footer);
+};
+
+/** Open the filter panel for a given layer row. */
 const openFilterPanel = (ui: LayerUI, item: HTMLElement): void => {
   closeOverlays(ui);
 
   const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
   const layerInfo = ui.c.layerRegistry.get(layerId);
   if (!layerInfo) return;
-  // Component rows (Heatmap canvas) register without a Leaflet layer — the
-  // canvas is a DOM element. Their filterable points live on the component's
-  // source layer, published as `meta_source_layer_id` in the row's meta.
-  // A plain point layer registers with its own layer and needs no lookup.
-  const sourceLayer =
-    layerInfo.layer ??
-    (layerInfo.meta?.[META_SOURCE_LAYER_ID]
-      ? ui.c.findLayer(layerInfo.meta[META_SOURCE_LAYER_ID] as string)
-      : null);
-
-  // Snapshot is built lazily and cached on the runtime row; the fields
-  // cache is invalidated at the same points (label.ts `invalidateFields`
-  // also drops the snapshot). A row with no resolvable layer still renders
-  // the empty-state panel — the click is never silent.
-  let snapshot = ui.runtimeStore.getSnapshot(layerId);
-  if (!snapshot && sourceLayer) {
-    snapshot = buildLayerSnapshot(sourceLayer, ui.log);
-    ui.runtimeStore.setSnapshot(layerId, snapshot);
-  }
-
-  const numericField = snapshot?.numericFields[0];
-  const range: readonly [number, number] = numericField
-    ? (snapshot!.ranges[numericField] ?? [0, 0])
-    : [0, 0];
-
-  const initialFilter: LayerFilter = numericField
-    ? {
-        kind: "atom",
-        field: numericField,
-        op: "between",
-        range: [range[0], range[1]],
-      }
-    : undefined;
-
-  const initialRange: [number, number] =
-    initialFilter?.kind === "atom" && initialFilter.range
-      ? [initialFilter.range[0], initialFilter.range[1]]
-      : [range[0], range[1]];
+  const cap = capabilityOf(ui, layerId);
 
   // The row's title names the layer; the dialog itself is named by what
   // the surface is, so a screen reader announces the panel, not the layer
@@ -115,119 +219,12 @@ const openFilterPanel = (ui: LayerUI, item: HTMLElement): void => {
     iconClass: `${CONST.CLASSES.FILTER_ICON} foliplus-header-icon`,
   });
 
-  // Build the row (empty state, or the slider row) inside content.
-  const buildRow = (): HTMLElement => {
-    if (!numericField) {
-      // The empty state still reports the readout — `0 / 0` with no
-      // snapshot — so the panel never renders a bare message.
-      const empty = dom.el(
-        "div",
-        { class: CONST.CLASSES.FILTER_EMPTY },
-        ui.T("filter_empty"),
-      );
-      const count = dom.el("div", { class: "foliplus-filter-count" });
-      updateCount(count, snapshot, undefined);
-      return dom.el("div", {}, empty, count);
-    }
-    const [lo0, hi0] = initialRange;
-
-    const fill = dom.el("div", {
-      class: `${SLIDER.FILL} ${CONST.CLASSES.FILTER_FILL}`,
-      style: "left:0;right:0",
-    });
-    const dot = (suffix: string): HTMLElement =>
-      dom.el("span", {
-        class:
-          `${SLIDER.DOT} ${SLIDER.DOT}${suffix}` +
-          ` ${CONST.CLASSES.FILTER_DOT} ${CONST.CLASSES.FILTER_DOT}${suffix}`,
-      });
-    const minInput = dom.el("input", {
-      type: "range",
-      class: CONST.CLASSES.FILTER_MIN,
-      min: String(range[0]),
-      max: String(range[1]),
-      step: "any",
-      value: String(lo0),
-      "aria-label": ui.T("filter_range_min"),
-    }) as HTMLInputElement;
-    const maxInput = dom.el("input", {
-      type: "range",
-      class: CONST.CLASSES.FILTER_MAX,
-      min: String(range[0]),
-      max: String(range[1]),
-      step: "any",
-      value: String(hi0),
-      "aria-label": ui.T("filter_range_max"),
-    }) as HTMLInputElement;
-    const track = dom.el(
-      "div",
-      { class: `${SLIDER.RAIL} ${CONST.CLASSES.FILTER_TRACK}` },
-      fill,
-      dot("-min"),
-      dot("-max"),
-      minInput,
-      maxInput,
-    );
-    const values = dom.el(
-      "div",
-      { class: `${SLIDER.VALUES} ${CONST.CLASSES.FILTER_VALUES}` },
-      dom.el("span", {}, fmtCount(range[0])),
-      dom.el("span", {}, fmtCount(range[1])),
-    );
-    const control = dom.el(
-      "div",
-      { class: `${SLIDER.ROOT} ${CONST.CLASSES.FILTER_ROW}` },
-      track,
-      values,
-    );
-
-    const label = dom.el(
-      "div",
-      { class: CONST.CLASSES.FORM_ROW },
-      dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui.T("filter_field")),
-      dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, numericField),
-    );
-    const count = dom.el("div", { class: "foliplus-filter-count" });
-    updateCount(count, snapshot, initialFilter);
-
-    // Live pass: clamp [lo, hi] into the snapshot's bounds, invert on
-    // inversion, write to runtime store, emit the change, update the
-    // count row. The consumer reads the store, not the payload, so the
-    // payload is a signal, not a data pipe — same contract as
-    // LAYER_INTENT_CHANGE's id-only sibling.
-    const live = (rawLo: number, rawHi: number): void => {
-      let lo = Math.max(range[0], Math.min(range[1], rawLo));
-      let hi = Math.max(range[0], Math.min(range[1], rawHi));
-      if (lo > hi) [lo, hi] = [hi, lo];
-      minInput.value = String(lo);
-      maxInput.value = String(hi);
-      const total = range[1] - range[0];
-      const loPct = total > 0 ? ((lo - range[0]) / total) * 100 : 0;
-      const hiPct = total > 0 ? ((hi - range[0]) / total) * 100 : 100;
-      fill.style.left = `${loPct}%`;
-      fill.style.right = `calc(100% - ${hiPct}%)`;
-      const filter: LayerFilter = {
-        kind: "atom",
-        field: numericField,
-        op: "between",
-        range: [lo, hi],
-      };
-      ui.runtimeStore.setFilter(layerId, filter);
-      ui.events.emit(EVENTS.LAYER_FILTER_CHANGE, { id: layerId, filter });
-      updateCount(count, snapshot, filter);
-    };
-
-    minInput.addEventListener("input", e => {
-      live(Number((e.target as HTMLInputElement).value), Number(maxInput.value));
-    });
-    maxInput.addEventListener("input", e => {
-      live(Number(minInput.value), Number((e.target as HTMLInputElement).value));
-    });
-
-    return dom.el("div", {}, label, control, count);
-  };
-
-  content.appendChild(buildRow());
+  // With the capability the panel is a live view; without it the empty
+  // state explains why the entry was clickable anyway (a stale row).
+  const model = cap?.filterProvider() ?? null;
+  content.appendChild(
+    cap && model ? buildFilterRows(ui, cap, model) : buildEmptyState(ui),
+  );
 
   // Header click dismisses, matching `attr.ts` — the × sits inside the
   // header, so one listener covers both.
@@ -266,6 +263,12 @@ const openFilterPanel = (ui: LayerUI, item: HTMLElement): void => {
   ui.overlayPanel.activeFilterPanel = { item, panel, layerId };
 };
 
+/** Empty state: the row declares no filterable data (no source selected,
+ *  or no numeric field on the snapshot). The message is the panel's body;
+ *  the entry is never silently dead. */
+const buildEmptyState = (ui: LayerUI): HTMLElement =>
+  dom.el("div", { class: CONST.CLASSES.FILTER_EMPTY }, ui.T("filter_empty"));
+
 /** Close the filter panel. `setFocus = true` returns focus to the row. */
 const closeFilterPanel = (ui: LayerUI, setFocus: boolean): void => {
   if (ui.overlayPanel.filterOutsideHandler) {
@@ -279,7 +282,11 @@ const closeFilterPanel = (ui: LayerUI, setFocus: boolean): void => {
   ui.listPanel.pressInPanel = false;
   if (!ui.overlayPanel.activeFilterPanel) return;
   const item = ui.overlayPanel.activeFilterPanel.item;
-  ui.overlayPanel.activeFilterPanel.panel.remove();
+  const panel = ui.overlayPanel.activeFilterPanel.panel;
+  // A live drag has already produced a value; finish it before the DOM
+  // goes, or its change event is lost with the node (style-panel recipe).
+  finishSlidersIn(panel);
+  panel.remove();
   ui.overlayPanel.activeFilterPanel = null;
   if (setFocus) item.focus();
 };

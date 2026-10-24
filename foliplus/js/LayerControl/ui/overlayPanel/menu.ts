@@ -264,15 +264,17 @@ const isComponentLayer = (ui: LayerUI, layerId: string): boolean => {
   return Boolean(ui.c.layerRegistry.get(layerId)?.styleSetters);
 };
 
-/** Stage-2 pilot gate for the ⋮ filter entry. Only a Heatmap row can
- *  enable the filter panel today: the filter's data source is the
- *  Heatmap's canvas row (`styleSetters`), and stage 4 will widen this
- *  to point data layers whose snapshot carries numeric fields. Every
- *  other layer stays disabled so the entry is never silently missing. */
+/** Stage-2 pilot gate for the ⋮ filter entry. A row is filterable only
+ *  when it declares the explicit filter capability (`filterProvider` +
+ *  `filterSetter` — the component that owns the row's data, HeatmapControl
+ *  today). Never inferred from `styleSetters`: MeasureControl declares
+ *  style delegation too and its rows are not filterable. The panel's
+ *  reads and writes derive from the same declaration, so the gate, the
+ *  panel and the owner cannot drift apart. */
 const layerSupportsFilter = (ui: LayerUI, layerId: string): boolean => {
   const info = ui.c.layerRegistry.get(layerId);
   if (!info) return false;
-  return Boolean(info.styleSetters);
+  return Boolean(info.filterProvider && info.filterSetter);
 };
 
 const buildDeleteItem = (

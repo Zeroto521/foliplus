@@ -1,17 +1,19 @@
-// LayerUI filter panel (stage-2 pilot) — open/close/mutual exclusion,
-// the ⋮ menu gate, slider write path (runtime store + LAYER_FILTER_CHANGE),
-// and the snapshot cache the panel seeds.
+// LayerUI filter panel (stage-2 pilot) — open/close/mutual exclusion, the
+// ⋮ menu gate, and the panel's view contract over the owner capability:
+// the panel reads `filterProvider` (reopen echo, result readout) and writes
+// `filterSetter` through the shared Slider. The owner semantics themselves
+// (validation, clamping, per-source attribution) are pinned in
+// test/js/HeatmapControl/filter.test.ts.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { EVENTS, ensureEvents } from "#core/event/index.js";
-import { META_SOURCE_LAYER_ID } from "#core/layer/index.js";
+import { type LayerFilter, type LayerFilterModel, select } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerController } from "#foliplus/LayerControl/controller.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
+import { SLIDER } from "#common/sliderVocabulary.js";
 import { findItem, initFixture } from "../fixture.js";
 
 /** A Marker-stamped point layer whose leaves carry `feature.properties`.
- *  `L.Marker` is the fixture's bare class; `getLatLng` and `feature` are
- *  what `buildLayerSnapshot` reads off each leaf. */
+ *  The values land on the row's `filterProvider` (see makeOwner below). */
 const mkPointLayer = (
   pts: Array<{ lat: number; lng: number; v: number }>,
 ): {
@@ -34,12 +36,43 @@ const mkPointLayer = (
   };
 };
 
+/** A minimal filter owner with the exact same contract the Heatmap manager
+ *  implements: the committed filter is the only state, `filterProvider`
+ *  derives the model from it, `filterSetter` stores it. No clamping — the
+ *  owner's validation rules are the Heatmap tests' job; the panel only
+ *  needs a read/write pair to talk to. */
+const makeOwner = (values: number[]) => {
+  const range: [number, number] = [Math.min(...values), Math.max(...values)];
+  const snapshot = {
+    points: values.map(v => ({ lat: 0, lng: 0, fields: { magnitude: v } })),
+    numericFields: ["magnitude"],
+    ranges: { magnitude: range },
+  };
+  let filter: LayerFilter;
+  return {
+    filterProvider: (): LayerFilterModel => ({
+      field: "magnitude",
+      range,
+      filter,
+      kept: select(snapshot as any, filter).length,
+      total: values.length,
+      step: 1,
+    }),
+    filterSetter: (f: LayerFilter) => {
+      filter = f;
+    },
+    get filter() {
+      return filter;
+    },
+  };
+};
+
 describe("LayerUI filter panel (stage-2 pilot)", () => {
   let manager: LayerController;
   let ui: LayerUI;
-  let map: any;
+  let _map: any;
 
-  const registerPoints = (id = "pnt") => {
+  const registerPoints = (id = "pnt", owner = makeOwner([10, 20, 30])) => {
     manager.registerLayer({
       id,
       name: "Points",
@@ -49,27 +82,14 @@ describe("LayerUI filter panel (stage-2 pilot)", () => {
         { lat: 26.09, lng: 119.31, v: 20 },
         { lat: 26.1, lng: 119.32, v: 30 },
       ]) as L.Layer,
-      styleSetters: {},
+      filterProvider: owner.filterProvider,
+      filterSetter: owner.filterSetter,
     });
-    return id;
-  };
-
-  /** A component row (Heatmap canvas) — registered without a Leaflet layer,
-   *  its points living on the source the meta names. */
-  const registerHeatmapRow = (id = "hm", sourceId?: string) => {
-    manager.registerLayer({
-      id,
-      name: "Heatmap",
-      group: "overlay",
-      layer: undefined as unknown as L.Layer,
-      styleSetters: {},
-      ...(sourceId ? { meta: { [META_SOURCE_LAYER_ID]: sourceId } } : {}),
-    });
-    return id;
+    return { id, owner };
   };
 
   beforeEach(() => {
-    ({ manager, ui, map } = initFixture());
+    ({ manager, ui, map: _map } = initFixture());
     // Folded-group state is persisted to localStorage and would leak across
     // tests — same cleanup attr.test.ts applies.
     ui.listPanel.foldedGroups = new Set();
@@ -84,8 +104,8 @@ describe("LayerUI filter panel (stage-2 pilot)", () => {
   });
 
   describe("the ⋮ menu gate", () => {
-    it("disables the filter entry for layers without styleSetters (Heatmap rows only)", () => {
-      const item = findItem(ui, "overlay1"); // registered without styleSetters
+    it("disables the filter entry for layers without the filter capability", () => {
+      const item = findItem(ui, "overlay1"); // registered without capability
       ui.openMoreMenu(item);
       const li = item.querySelector(
         `[data-action="${CONST.ACTION.FILTER_LAYER}"]`,
@@ -96,7 +116,7 @@ describe("LayerUI filter panel (stage-2 pilot)", () => {
       expect(li.getAttribute("title")).toBe("LayerControl.filter_not_supported");
     });
 
-    it("enables the filter entry for a layer that carries styleSetters", () => {
+    it("enables the filter entry for a row that declares the capability", () => {
       registerPoints();
       const item = findItem(ui, "pnt");
       ui.openMoreMenu(item);
@@ -106,6 +126,25 @@ describe("LayerUI filter panel (stage-2 pilot)", () => {
       expect(li.getAttribute("aria-disabled")).toBe("false");
       expect(li.hasAttribute("disabled")).toBe(false);
       expect(li.getAttribute("title")).toBe("LayerControl.filter_layer_tooltip");
+    });
+
+    it("does not infer the capability from styleSetters (the Measure case)", () => {
+      // MeasureControl rows carry styleProvider/styleSetters for the style
+      // drawer — that is not a filter capability.
+      manager.registerLayer({
+        id: "measureRow",
+        name: "Measure",
+        group: "overlay",
+        layer: undefined as unknown as L.Layer,
+        styleProvider: () => ({}),
+        styleSetters: {},
+      });
+      const item = findItem(ui, "measureRow");
+      ui.openMoreMenu(item);
+      const li = item.querySelector(
+        `[data-action="${CONST.ACTION.FILTER_LAYER}"]`,
+      ) as HTMLElement;
+      expect(li.getAttribute("aria-disabled")).toBe("true");
     });
 
     it("clicking the enabled filter entry opens the panel", () => {
@@ -155,34 +194,80 @@ describe("LayerUI filter panel (stage-2 pilot)", () => {
       );
     });
 
-    it("renders a single-field dual-slider row bound to the first numeric field", () => {
+    it("renders field / range / result form rows with the shared dual-thumb slider", () => {
       registerPoints();
       const item = findItem(ui, "pnt");
 
       ui.openFilterPanel(item);
 
       const panel = item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`) as HTMLElement;
-      // Field label and name row.
-      const label = panel.querySelector(".foliplus-form-control");
-      expect(label!.textContent).toBe("magnitude");
-      // Both thumbs start at the snapshot's [min, max] bounds.
-      const minInput = panel.querySelector(
-        `.${CONST.CLASSES.FILTER_MIN}`,
-      ) as HTMLInputElement;
-      const maxInput = panel.querySelector(
-        `.${CONST.CLASSES.FILTER_MAX}`,
-      ) as HTMLInputElement;
-      expect(minInput.type).toBe("range");
-      expect(minInput.min).toBe("10");
-      expect(minInput.max).toBe("30");
-      expect(minInput.value).toBe("10");
-      expect(maxInput.value).toBe("30");
-      // Initial readout keeps everything.
-      expect(panel.querySelector(".foliplus-filter-count")!.textContent).toBe("3 / 3");
+      // Field row: label + the owner's field name.
+      const field = panel.querySelector(`.${CONST.CLASSES.FILTER_FIELD}`);
+      expect(field!.textContent).toBe("magnitude");
+      // Range row: the shared Slider — two real thumbs, not stacked range
+      // inputs, both parked at the full extent for "no filter".
+      const host = panel.querySelector(
+        `.${CONST.CLASSES.FILTER_SLIDER}`,
+      ) as HTMLElement;
+      const thumbs = host.querySelectorAll(`.${SLIDER.THUMB}`);
+      expect(thumbs).toHaveLength(2);
+      expect(panel.querySelector("input[type=range]")).toBeNull();
+      expect(thumbs[0].getAttribute("aria-valuenow")).toBe("10");
+      expect(thumbs[1].getAttribute("aria-valuenow")).toBe("30");
+      // Result row: a live region fed by the owner model.
+      const result = panel.querySelector(`.${CONST.CLASSES.FILTER_RESULT}`);
+      expect(result!.getAttribute("aria-live")).toBe("polite");
     });
 
-    it("renders the empty state when the layer exposes no numeric fields", () => {
-      const item = findItem(ui, "overlay1"); // eachLayer yields no markers
+    it("the result readout composes the localized kept/total sentence", () => {
+      const { owner } = registerPoints();
+      const item = findItem(ui, "pnt");
+      owner.filterSetter({
+        kind: "atom",
+        field: "magnitude",
+        op: "between",
+        range: [10, 20],
+      });
+      const spy = vi
+        .spyOn(ui, "T")
+        .mockImplementation(
+          key =>
+            (key === "filter_result"
+              ? "{kept} of {total}"
+              : `LayerControl.${key}`) as any,
+        );
+
+      ui.openFilterPanel(item);
+
+      const panel = item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`) as HTMLElement;
+      expect(panel.querySelector(`.${CONST.CLASSES.FILTER_RESULT}`)!.textContent).toBe(
+        "2 of 3",
+      );
+      spy.mockRestore();
+    });
+
+    it("echoes the committed filter on reopen (slider value, not the full extent)", () => {
+      const { owner } = registerPoints();
+      const item = findItem(ui, "pnt");
+      // The user filtered, closed, reopens: the slider must show the
+      // committed band, and the result must match what the map shows.
+      owner.filterSetter({
+        kind: "atom",
+        field: "magnitude",
+        op: "between",
+        range: [15, 25],
+      });
+
+      ui.openFilterPanel(item);
+
+      const host = item.querySelector(`.${CONST.CLASSES.FILTER_SLIDER}`) as HTMLElement;
+      const thumbs = host.querySelectorAll(`.${SLIDER.THUMB}`);
+      expect(thumbs[0].getAttribute("aria-valuenow")).toBe("15");
+      expect(thumbs[1].getAttribute("aria-valuenow")).toBe("25");
+    });
+
+    it("renders the empty state when the row has no filterable model", () => {
+      const item = findItem(ui, "overlay1"); // registered without capability
 
       ui.openFilterPanel(item);
 
@@ -190,9 +275,26 @@ describe("LayerUI filter panel (stage-2 pilot)", () => {
       const empty = panel.querySelector(`.${CONST.CLASSES.FILTER_EMPTY}`);
       expect(empty).not.toBeNull();
       expect(empty!.textContent).toBe("LayerControl.filter_empty");
-      expect(panel.querySelector(`.${CONST.CLASSES.FILTER_ROW}`)).toBeNull();
-      // The empty state still reports the readout — `0 / 0` with no snapshot.
-      expect(panel.querySelector(".foliplus-filter-count")!.textContent).toBe("0 / 0");
+      expect(panel.querySelector(`.${CONST.CLASSES.FILTER_SLIDER}`)).toBeNull();
+    });
+
+    it("renders the empty state when the owner reports no model", () => {
+      // Capability declared, but the owner says "nothing filterable" (no
+      // source selected / no numeric field on the heatmap side).
+      manager.registerLayer({
+        id: "hm",
+        name: "Heatmap",
+        group: "overlay",
+        layer: undefined as unknown as L.Layer,
+        filterProvider: () => null,
+        filterSetter: () => {},
+      });
+      const item = findItem(ui, "hm");
+
+      ui.openFilterPanel(item);
+
+      const panel = item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`) as HTMLElement;
+      expect(panel.querySelector(`.${CONST.CLASSES.FILTER_EMPTY}`)).not.toBeNull();
     });
 
     it("is a no-op for a row that lost its data-layer-id", () => {
@@ -203,30 +305,16 @@ describe("LayerUI filter panel (stage-2 pilot)", () => {
       expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).toBeNull();
     });
 
-    it("falls back to [0, 0] when a numeric field has no range entry", () => {
-      // A hand-seeded snapshot whose ranges omit the numeric field it names
-      // (only the store can produce this shape; the builder never does).
-      registerPoints();
-      const item = findItem(ui, "pnt");
-      ui.runtimeStore.setSnapshot("pnt", {
-        points: [],
-        numericFields: ["magnitude"],
-        ranges: {},
-      } as any);
+    it("disables the slider for a constant field (zero-width extent)", () => {
+      registerPoints("flat", makeOwner([10, 10]));
+      const item = findItem(ui, "flat");
 
       ui.openFilterPanel(item);
 
-      const panel = item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`) as HTMLElement;
-      const minInput = panel.querySelector(
-        `.${CONST.CLASSES.FILTER_MIN}`,
-      ) as HTMLInputElement;
-      const maxInput = panel.querySelector(
-        `.${CONST.CLASSES.FILTER_MAX}`,
-      ) as HTMLInputElement;
-      expect(minInput.min).toBe("0");
-      expect(minInput.max).toBe("0");
-      expect(minInput.value).toBe("0");
-      expect(maxInput.value).toBe("0");
+      const host = item.querySelector(`.${CONST.CLASSES.FILTER_SLIDER}`) as HTMLElement;
+      expect(host.classList.contains(SLIDER.DISABLED)).toBe(true);
+      const thumb = host.querySelector(`.${SLIDER.THUMB}`) as HTMLElement;
+      expect(thumb.getAttribute("aria-disabled")).toBe("true");
     });
 
     it("falls back to the layer id when the display name is empty", async () => {
@@ -243,171 +331,103 @@ describe("LayerUI filter panel (stage-2 pilot)", () => {
       );
       spy.mockRestore();
     });
-
-    it("resolves the source layer from meta for a layerless component row", () => {
-      // Heatmap canvas rows register without a Leaflet layer; their points
-      // live on the source layer the row's meta names.
-      registerPoints("srcPoint");
-      registerHeatmapRow("hm", "srcPoint");
-      const item = findItem(ui, "hm");
-
-      ui.openFilterPanel(item);
-
-      const panel = item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`) as HTMLElement;
-      expect(panel).not.toBeNull();
-      expect(panel.querySelector(".foliplus-form-control")!.textContent).toBe(
-        "magnitude",
-      );
-      const minInput = panel.querySelector(
-        `.${CONST.CLASSES.FILTER_MIN}`,
-      ) as HTMLInputElement;
-      expect(minInput.min).toBe("10");
-      expect(minInput.max).toBe("30");
-    });
-
-    it("renders the empty state when a layerless row cannot resolve a source", () => {
-      registerHeatmapRow("hm"); // no meta source id
-      const item = findItem(ui, "hm");
-
-      // A click is never silent: the panel opens with the empty message.
-      ui.openFilterPanel(item);
-
-      const panel = item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`) as HTMLElement;
-      const empty = panel.querySelector(`.${CONST.CLASSES.FILTER_EMPTY}`);
-      expect(empty).not.toBeNull();
-      expect(empty!.textContent).toBe("LayerControl.filter_empty");
-    });
-
-    it("seeds the runtime store's snapshot cache so a reopen reuses it", () => {
-      registerPoints();
-      const item = findItem(ui, "pnt");
-
-      // First open builds + caches the snapshot; its range is [10, 30].
-      ui.openFilterPanel(item);
-      expect(ui.runtimeStore.getSnapshot("pnt")).toBeDefined();
-      // Tear down, then move a marker to a lower value: a cache miss would
-      // widen the bound — a cache hit keeps the original bound.
-      ui.closeFilterPanel(false);
-      const layer = manager.layerRegistry.get("pnt")!.layer as any;
-      let first: any = null;
-      layer.eachLayer((m: any) => {
-        if (!first) first = m;
-      });
-      first.feature.properties.magnitude = 1;
-
-      ui.openFilterPanel(item);
-      const minInput = item.querySelector(
-        `.${CONST.CLASSES.FILTER_MIN}`,
-      ) as HTMLInputElement;
-      expect(minInput.min).toBe("10");
-      expect(minInput.value).toBe("10");
-    });
   });
 
-  describe("slider write path", () => {
-    it("writes the between filter to the runtime store and emits LAYER_FILTER_CHANGE", () => {
-      registerPoints();
+  describe("slider write path (through the owner capability)", () => {
+    /** The slider.test.ts pointer recipe: jsdom reports 0×0 rects, the
+     *  pointer paths need a rail with a measurable box. */
+    const stubTrack = (host: HTMLElement): HTMLElement => {
+      const track = host.querySelector(`.${SLIDER.TRACK}`) as HTMLElement;
+      track.getBoundingClientRect = () =>
+        ({
+          left: 0,
+          top: 0,
+          width: 100,
+          height: 14,
+          right: 100,
+          bottom: 14,
+          x: 0,
+          y: 0,
+          toJSON: () => ({}),
+        }) as DOMRect;
+      return track;
+    };
+
+    const pointer = (type: string, clientX: number): MouseEvent =>
+      new MouseEvent(type, {
+        bubbles: true,
+        cancelable: true,
+        clientX,
+        clientY: 7,
+        button: 0,
+      } as MouseEventInit);
+
+    it("a pointer drag writes the band through filterSetter and publishes the id-only signal", () => {
+      const { owner } = registerPoints();
       const item = findItem(ui, "pnt");
       ui.openFilterPanel(item);
 
-      const spy = vi.fn();
-      ensureEvents(map).on(EVENTS.LAYER_FILTER_CHANGE, spy);
+      const host = item.querySelector(`.${CONST.CLASSES.FILTER_SLIDER}`) as HTMLElement;
+      const track = stubTrack(host);
+      // Drag the lower thumb to ~15 (rail 0..100 over extent 10..30).
+      track.dispatchEvent(pointer("pointerdown", 25));
+      track.dispatchEvent(pointer("pointermove", 25));
+      track.dispatchEvent(pointer("pointerup", 25));
 
-      const minInput = item.querySelector(
-        `.${CONST.CLASSES.FILTER_MIN}`,
-      ) as HTMLInputElement;
-      minInput.value = "15";
-      minInput.dispatchEvent(new Event("input", { bubbles: true }));
-
-      // Store read: the panel's own write.
-      expect(ui.runtimeStore.getFilter("pnt")).toEqual({
+      expect(owner.filter).toEqual({
         kind: "atom",
         field: "magnitude",
         op: "between",
         range: [15, 30],
       });
-      // Bus signal so consumers (Heatmap) re-run their pipeline.
-      expect(spy).toHaveBeenCalledTimes(1);
-      expect(spy).toHaveBeenCalledWith({
-        id: "pnt",
-        filter: { kind: "atom", field: "magnitude", op: "between", range: [15, 30] },
-      });
-      // Live count readout reflects the narrower band.
-      expect(item.querySelector(".foliplus-filter-count")!.textContent).toBe("2 / 3");
+      // (The owner's LAYER_FILTER_CHANGE publish is the Heatmap owner
+      // tests' assertion; this stub stores silently.)
     });
 
-    it("clamps out-of-range thumbs into the snapshot bounds", () => {
-      registerPoints();
+    it("the keyboard moves a thumb and writes through the same setter", () => {
+      const { owner } = registerPoints();
       const item = findItem(ui, "pnt");
       ui.openFilterPanel(item);
 
-      const maxInput = item.querySelector(
-        `.${CONST.CLASSES.FILTER_MAX}`,
-      ) as HTMLInputElement;
-      maxInput.value = "100";
-      maxInput.dispatchEvent(new Event("input", { bubbles: true }));
+      const host = item.querySelector(`.${CONST.CLASSES.FILTER_SLIDER}`) as HTMLElement;
+      const maxThumb = host.querySelectorAll(`.${SLIDER.THUMB}`)[1];
+      maxThumb.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "ArrowLeft",
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
 
-      expect(ui.runtimeStore.getFilter("pnt")).toEqual({
+      expect(owner.filter).toEqual({
         kind: "atom",
         field: "magnitude",
         op: "between",
-        range: [10, 30],
+        range: [10, 29],
       });
     });
 
-    it("swaps the band when a thumb crosses the other", () => {
-      registerPoints();
+    it("the Clear footer writes undefined and pulls the slider back to the extent", () => {
+      const { owner } = registerPoints();
       const item = findItem(ui, "pnt");
-      ui.openFilterPanel(item);
-
-      // min dragged past max: [25, 15] inverts to [15, 25].
-      const minInput = item.querySelector(
-        `.${CONST.CLASSES.FILTER_MIN}`,
-      ) as HTMLInputElement;
-      const maxInput = item.querySelector(
-        `.${CONST.CLASSES.FILTER_MAX}`,
-      ) as HTMLInputElement;
-      minInput.value = "25";
-      maxInput.value = "15";
-      minInput.dispatchEvent(new Event("input", { bubbles: true }));
-
-      expect(ui.runtimeStore.getFilter("pnt")).toEqual({
+      owner.filterSetter({
         kind: "atom",
         field: "magnitude",
         op: "between",
         range: [15, 25],
       });
-      expect(minInput.value).toBe("15");
-      expect(maxInput.value).toBe("25");
-    });
-
-    it("handles a zero-width range (single-valued field) without dividing by zero", () => {
-      // All markers share one value → snapshot range is [10, 10], total = 0.
-      const layerId = "flat";
-      manager.registerLayer({
-        id: layerId,
-        name: "Flat",
-        group: "overlay",
-        layer: mkPointLayer([
-          { lat: 26.08, lng: 119.3, v: 10 },
-          { lat: 26.09, lng: 119.31, v: 10 },
-        ]) as L.Layer,
-        styleSetters: {},
-      });
-      const item = findItem(ui, layerId);
       ui.openFilterPanel(item);
 
-      const minInput = item.querySelector(
-        `.${CONST.CLASSES.FILTER_MIN}`,
-      ) as HTMLInputElement;
-      minInput.dispatchEvent(new Event("input", { bubbles: true }));
+      const clearBtn = item.querySelector(
+        `.${CONST.CLASSES.FILTER_CLEAR}`,
+      ) as HTMLButtonElement;
+      clearBtn.click();
 
-      const fill = item.querySelector(`.${CONST.CLASSES.FILTER_FILL}`) as HTMLElement;
-      expect(fill.style.left).toBe("0%");
-      // jsdom normalises `calc(100% - 100%)` to `calc(0%)`; the point is the
-      // zero-width branch ran without dividing by zero.
-      expect(fill.style.right).toMatch(/^calc\(/);
-      expect(item.querySelector(".foliplus-filter-count")!.textContent).toBe("2 / 2");
+      expect(owner.filter).toBeUndefined();
+      const host = item.querySelector(`.${CONST.CLASSES.FILTER_SLIDER}`) as HTMLElement;
+      const thumbs = host.querySelectorAll(`.${SLIDER.THUMB}`);
+      expect(thumbs[0].getAttribute("aria-valuenow")).toBe("10");
+      expect(thumbs[1].getAttribute("aria-valuenow")).toBe("30");
     });
   });
 
@@ -489,8 +509,8 @@ describe("LayerUI filter panel (stage-2 pilot)", () => {
   describe("mutual exclusion with peer overlays", () => {
     it("opening the filter panel drops an open attributes panel", () => {
       registerPoints();
-      // overlay1 has no numeric fields; use it for the attrs side, then open
-      // the filter on the numeric layer and assert attrs is gone.
+      // overlay1 has no capability; use it for the attrs side, then open
+      // the filter on the capable layer and assert attrs is gone.
       const attrsItem = findItem(ui, "overlay1");
       ui.openAttrsPanel(attrsItem);
       expect(attrsItem.querySelector(`.${CONST.CLASSES.ATTRS_PANEL}`)).not.toBeNull();

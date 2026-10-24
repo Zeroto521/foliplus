@@ -1,8 +1,13 @@
-// Stage-2 pilot: HeatmapControl single-field dual-slider filter.
-// Verifies the core invariant: a filter change reuses the bin cache
-// (zero h3 calls) and only reruns the pure aggregateBins arithmetic.
+// HeatmapControl filter owner (stage-2 pilot).
+//
+// The manager owns the filter: the LayerControl panel writes through the
+// `filterSetter` capability and reads through `filterProvider`. These tests
+// pin the owner contract — validation/clamping, the "full range = no filter"
+// collapse, per-source attribution across a source switch, revalidation on
+// content change, the clear/reset lifecycle, and the bins-cache reuse (a
+// filter change never re-runs the H3 geometry).
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { EVENTS, ensureEvents } from "#core/event/index.js";
+import { EVENTS, ensureEvents, publish } from "#core/event/index.js";
 import type { LayerFilter } from "#core/layer/index.js";
 import type { HeatmapManager } from "#foliplus/HeatmapControl/manager.js";
 import { makeManager } from "./fixture.js";
@@ -70,98 +75,407 @@ function setupWithPoints(
   );
 }
 
-describe("HeatmapControl filter (stage-2 pilot)", () => {
+/** A spy on the manager's own LAYER_FILTER_CHANGE channel — the payload the
+ *  panel and any other observer receives after the owner has settled. The
+ *  bus is the one `init()` bound (the fixture map's); setupWithPoints swaps
+ *  `m.map` for a zoom stub afterwards, but `this.events` stays put. */
+const watchFilterEvents = (
+  m: HeatmapManager,
+  events: ReturnType<typeof ensureEvents>,
+) => {
+  const spy = vi.fn();
+  events.on(EVENTS.LAYER_FILTER_CHANGE, spy);
+  return spy;
+};
+
+describe("HeatmapControl filter owner (stage-2 pilot)", () => {
   let m: HeatmapManager;
   let events: ReturnType<typeof ensureEvents>;
 
   beforeEach(() => {
     vi.restoreAllMocks();
     m = makeManager();
+    // The bus init() bound to the fixture map — the manager publishes here
+    // even after a test replaces m.map with a zoom stub.
     events = ensureEvents(m.map as any);
   });
 
-  it("filterKey is stable across identical range filters", () => {
-    const f1: LayerFilter = {
-      kind: "atom",
-      field: "value",
-      op: "between",
-      range: [15, 18],
-    };
-    const f2: LayerFilter = {
-      kind: "atom",
-      field: "value",
-      op: "between",
-      range: [15, 18],
-    };
-    // Different array instances, same values → same key.
-    const key1 = JSON.stringify(f1);
-    const key2 = JSON.stringify(f2);
-    expect(key1).toBe(key2);
+  it("the manager never subscribes to LAYER_FILTER_CHANGE (no leak by construction)", () => {
+    // The write path is the capability call; the owner has nothing to
+    // listen for. A listener here would accumulate one consumer per
+    // remove/re-add. Publishing at the owner must not move its state.
+    publish(events, EVENTS.LAYER_FILTER_CHANGE, { id: m.layerId });
+    expect(m.layerFilters.size).toBe(0);
   });
 
-  it("filterKey differs when the range changes", () => {
-    const f1: LayerFilter = {
-      kind: "atom",
-      field: "value",
-      op: "between",
-      range: [15, 18],
-    };
-    const f2: LayerFilter = {
-      kind: "atom",
-      field: "value",
-      op: "between",
-      range: [10, 20],
-    };
-    expect(JSON.stringify(f1)).not.toBe(JSON.stringify(f2));
-  });
-
-  it("LAYER_FILTER_CHANGE invalidates the agg cache and re-renders", () => {
-    const points = [
+  it("setFilter applies, re-renders from the bins cache, and publishes the id-only signal", () => {
+    setupWithPoints(m, [
       { lat: 26.08, lng: 119.3, value: 10 },
       { lat: 26.09, lng: 119.31, value: 20 },
       { lat: 26.1, lng: 119.32, value: 30 },
-    ];
-    setupWithPoints(m, points);
-
-    // First render — builds the agg cache.
+    ]);
     m.renderHexagons();
-    const aggKey1 = (m as any).cachedAgg?.key;
-    expect(aggKey1).toBeDefined();
+    const h3Spy = vi.spyOn(globalThis.h3, "latLngToCell");
+    h3Spy.mockClear();
+    const spy = watchFilterEvents(m, events);
 
-    // Emit a filter change for this heatmap's own row (the panel lives on
-    // the heatmap row; its filter governs this heatmap's source).
-    const filter: LayerFilter = {
-      kind: "atom",
-      field: "value",
-      op: "between",
-      range: [15, 25],
-    };
-    events.emit(EVENTS.LAYER_FILTER_CHANGE, { id: m.layerId, filter });
+    m.setFilter({ kind: "atom", field: "value", op: "between", range: [15, 25] });
 
-    // The agg cache was invalidated and rebuilt with a new key
-    // that includes the filter JSON.
-    const aggKey2 = (m as any).cachedAgg?.key;
-    expect(aggKey2).toBeDefined();
-    expect(aggKey2).not.toBe(aggKey1);
-    expect(aggKey2).toContain(filter.kind);
+    // Zero h3 calls: the bins survived; only aggregateBins reran.
+    expect(h3Spy).not.toHaveBeenCalled();
+    // The notification is id-only — observers pull the model, never read
+    // the filter from the payload.
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy).toHaveBeenCalledWith({ id: m.layerId });
   });
 
-  it("ignores a LAYER_FILTER_CHANGE for another heatmap's row", () => {
+  it("setFilter is a no-op when the validated filter equals the stored one", () => {
     setupWithPoints(m, [
       { lat: 26.08, lng: 119.3, value: 10 },
       { lat: 26.09, lng: 119.31, value: 20 },
     ]);
-
     m.renderHexagons();
-    const aggKey1 = (m as any).cachedAgg?.key;
+    const spy = watchFilterEvents(m, events);
+    const f: LayerFilter = {
+      kind: "atom",
+      field: "value",
+      op: "between",
+      range: [12, 18],
+    };
+    m.setFilter(f);
+    expect(spy).toHaveBeenCalledTimes(1);
+    m.setFilter({ ...f });
+    expect(spy).toHaveBeenCalledTimes(1); // unchanged → no second publish
+  });
 
-    events.emit(EVENTS.LAYER_FILTER_CHANGE, {
-      id: "some-other-heatmap",
-      filter: { kind: "atom", field: "value", op: "between", range: [10, 20] },
+  it("clamps an out-of-range band into the snapshot bounds", () => {
+    setupWithPoints(m, [
+      { lat: 26.08, lng: 119.3, value: 10 },
+      { lat: 26.1, lng: 119.32, value: 30 },
+    ]);
+    m.renderHexagons();
+
+    m.setFilter({ kind: "atom", field: "value", op: "between", range: [0, 100] });
+    expect(m.getFilterModel()!.filter).toBeUndefined(); // full extent → no filter
+
+    m.setFilter({ kind: "atom", field: "value", op: "between", range: [-5, 20] });
+    expect(m.getFilterModel()!.filter).toEqual({
+      kind: "atom",
+      field: "value",
+      op: "between",
+      range: [10, 20],
     });
+  });
 
-    // Not this heatmap's row: the agg cache is untouched.
-    expect((m as any).cachedAgg?.key).toBe(aggKey1);
+  it("collapses a full-range atom to no filter (missing-field points stay in)", () => {
+    // A point without the field: an atom — even over the full extent —
+    // would exclude it. Only `undefined` keeps it, which is what dragging
+    // both thumbs back to the ends means.
+    setupWithPoints(m, [
+      { lat: 26.08, lng: 119.3, value: 10 },
+      { lat: 26.09, lng: 119.31, value: 30 },
+    ]);
+    // Third point carries no numeric data at all (the harness's field
+    // variant leaks value into options.value, so hand-build this one).
+    const extract = window.map.foliplus!.LayerAPI!
+      .extractPoints as unknown as ReturnType<typeof vi.fn>;
+    extract.mockImplementation(() =>
+      [
+        { lat: 26.08, lng: 119.3, value: 10 },
+        { lat: 26.09, lng: 119.31, value: 30 },
+      ]
+        .map(p => ({
+          lat: p.lat,
+          lng: p.lng,
+          marker: {
+            getLatLng: () => ({ lat: p.lat, lng: p.lng }),
+            value: p.value,
+            feature: { properties: {} },
+          },
+        }))
+        .concat([
+          {
+            lat: 26.1,
+            lng: 119.32,
+            marker: {
+              getLatLng: () => ({ lat: 26.1, lng: 119.32 }),
+              feature: { properties: {} },
+            },
+          },
+        ] as any),
+    );
+    (m as any).cachedPoints = null;
+    (m as any).cachedSnapshot = null;
+    (m as any).cachedSnapshotLayerId = null;
+    m.renderHexagons();
+    expect(m.getFilterModel()!.total).toBe(3);
+
+    m.setFilter({ kind: "atom", field: "value", op: "between", range: [10, 30] });
+    const model = m.getFilterModel()!;
+    expect(model.filter).toBeUndefined();
+    expect(model.kept).toBe(model.total); // the field-less point is back in
+  });
+
+  it("drops an atom whose field is unknown to the snapshot", () => {
+    setupWithPoints(m, [{ lat: 26.08, lng: 119.3, value: 10 }]);
+    m.renderHexagons();
+
+    m.setFilter({ kind: "atom", field: "nonexistent", op: "between", range: [0, 1] });
+
+    expect(m.layerFilters.size).toBe(0);
+  });
+
+  it("a write that changes nothing does not publish (idempotent)", () => {
+    // Clearing a filter that was never set, or writing the band already
+    // stored, is a no-op — no render, no notification.
+    setupWithPoints(m, [
+      { lat: 26.08, lng: 119.3, value: 10 },
+      { lat: 26.09, lng: 119.31, value: 30 },
+    ]);
+    m.renderHexagons();
+    const spy = watchFilterEvents(m, events);
+    m.setFilter(undefined);
+    expect(spy).not.toHaveBeenCalled();
+    m.setFilter({ kind: "atom", field: "value", op: "between", range: [10, 20] });
+    m.setFilter({ kind: "atom", field: "value", op: "between", range: [10, 20] });
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  it("setFilter on a manager with no selected source is a no-op", () => {
+    setupWithPoints(m, [{ lat: 26.08, lng: 119.3, value: 10 }]);
+    m.selectedLayerId = null;
+    const spy = watchFilterEvents(m, events);
+
+    m.setFilter({ kind: "atom", field: "value", op: "between", range: [0, 10] });
+
+    expect(m.layerFilters.size).toBe(0);
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("getFilterModel reports field, extent, kept/total and a data-derived step", () => {
+    setupWithPoints(m, [
+      { lat: 26.08, lng: 119.3, value: 10 },
+      { lat: 26.09, lng: 119.31, value: 20 },
+      { lat: 26.1, lng: 119.32, value: 30 },
+    ]);
+    m.renderHexagons();
+
+    const model = m.getFilterModel()!;
+    expect(model.field).toBe("value");
+    expect(model.range).toEqual([10, 30]);
+    expect(model.filter).toBeUndefined();
+    expect(model.kept).toBe(3);
+    expect(model.total).toBe(3);
+    expect(model.step).toBe(1); // integer data
+
+    m.setFilter({ kind: "atom", field: "value", op: "between", range: [12, 20] });
+    expect(m.getFilterModel()!.kept).toBe(1);
+  });
+
+  it("the step honours the data's decimals (no magic 1)", () => {
+    setupWithPoints(m, [
+      { lat: 26.08, lng: 119.3, value: 0.5 },
+      { lat: 26.09, lng: 119.31, value: 2.75 },
+    ]);
+    m.renderHexagons();
+    expect(m.getFilterModel()!.step).toBeCloseTo(0.01, 10);
+  });
+
+  it("getFilterModel is null without a selection or without numeric fields", () => {
+    setupWithPoints(m, [{ lat: 26.08, lng: 119.3, value: 10 }]);
+    m.selectedLayerId = null;
+    expect(m.getFilterModel()).toBeNull();
+
+    m.selectedLayerId = "layer1";
+    // A marker that carries no numeric data at all.
+    vi.spyOn(window.map.foliplus!.LayerAPI!, "extractPoints").mockReturnValue([
+      {
+        lat: 26.08,
+        lng: 119.3,
+        marker: { getLatLng: () => ({ lat: 26.08, lng: 119.3 }) } as any,
+      },
+    ]);
+    expect(m.getFilterModel()).toBeNull();
+  });
+
+  it("filters are attributed per source: A → B → A restores A's filter", () => {
+    const ptsA = [
+      { lat: 26.08, lng: 119.3, value: 10 },
+      { lat: 26.09, lng: 119.31, value: 30 },
+    ];
+    const ptsB = [
+      { lat: 26.08, lng: 119.3, value: 100 },
+      { lat: 26.09, lng: 119.31, value: 200 },
+      { lat: 26.1, lng: 119.32, value: 300 },
+    ];
+    setupWithPoints(m, ptsA);
+    const extract = window.map.foliplus!.LayerAPI!
+      .extractPoints as unknown as ReturnType<typeof vi.fn>;
+
+    // Source A: commit a filter.
+    m.renderHexagons();
+    m.setFilter({ kind: "atom", field: "value", op: "between", range: [10, 20] });
+    expect(m.getFilterModel()!.filter).toBeDefined();
+
+    // Switch to source B (different extent, different count). Both source
+    // infos stay registered — a switch changes the selection, not the list.
+    m.pointLayers.push({ id: "layer2", name: "Q", layer: {}, count: ptsB.length });
+    m.selectedLayerId = "layer2";
+    extract.mockImplementation(() =>
+      ptsB.map(p => ({
+        lat: p.lat,
+        lng: p.lng,
+        marker: {
+          getLatLng: () => ({ lat: p.lat, lng: p.lng }),
+          value: p.value,
+          feature: { properties: {} },
+        },
+      })),
+    );
+    const modelB = m.getFilterModel()!;
+    expect(modelB.range).toEqual([100, 300]);
+    expect(modelB.filter).toBeUndefined(); // B never had a filter
+    expect(modelB.total).toBe(3);
+
+    // …and back to A: A's filter is exactly what the user left there.
+    extract.mockImplementation(() =>
+      ptsA.map(p => ({
+        lat: p.lat,
+        lng: p.lng,
+        marker: {
+          getLatLng: () => ({ lat: p.lat, lng: p.lng }),
+          value: p.value,
+          feature: { properties: {} },
+        },
+      })),
+    );
+    m.selectedLayerId = "layer1";
+    const modelA = m.getFilterModel()!;
+    expect(modelA.range).toEqual([10, 30]);
+    expect(modelA.filter).toEqual({
+      kind: "atom",
+      field: "value",
+      op: "between",
+      range: [10, 20],
+    });
+  });
+
+  it("revalidates the stored filter when the source content shrinks", () => {
+    const original = [
+      { lat: 26.08, lng: 119.3, value: 10 },
+      { lat: 26.09, lng: 119.31, value: 30 },
+    ];
+    setupWithPoints(m, original);
+    m.renderHexagons();
+    m.setFilter({ kind: "atom", field: "value", op: "between", range: [10, 20] });
+    expect(m.getFilterModel()!.filter).toBeDefined();
+
+    // Data update: the same source now only carries values 1..5 — the
+    // stored band [10, 20] no longer intersects the extent.
+    const extract = window.map.foliplus!.LayerAPI!
+      .extractPoints as unknown as ReturnType<typeof vi.fn>;
+    extract.mockImplementation(() =>
+      [
+        { lat: 26.08, lng: 119.3, value: 1 },
+        { lat: 26.09, lng: 119.31, value: 5 },
+      ].map(p => ({
+        lat: p.lat,
+        lng: p.lng,
+        marker: {
+          getLatLng: () => ({ lat: p.lat, lng: p.lng }),
+          value: p.value,
+          feature: { properties: {} },
+        },
+      })),
+    );
+    // Invalidate the extraction caches the way onLayerChange does.
+    (m as any).cachedPoints = null;
+    (m as any).cachedSnapshot = null;
+    (m as any).cachedSnapshotLayerId = null;
+    const spy = watchFilterEvents(m, events);
+    m.renderHexagons();
+
+    // The band clamps into the new extent [1, 5] → [5, 5]; the notification
+    // goes out once, after the render that used the corrected filter.
+    expect(m.getFilterModel()!.filter).toEqual({
+      kind: "atom",
+      field: "value",
+      op: "between",
+      range: [5, 5],
+    });
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  it("drops the filter when its field disappears from the source", () => {
+    setupWithPoints(m, [
+      { lat: 26.08, lng: 119.3, value: 10 },
+      { lat: 26.09, lng: 119.31, value: 30 },
+    ]);
+    m.renderHexagons();
+    m.setFilter({ kind: "atom", field: "value", op: "between", range: [10, 20] });
+
+    // Content update: same layer, but the numeric field is gone.
+    const extract = window.map.foliplus!.LayerAPI!
+      .extractPoints as unknown as ReturnType<typeof vi.fn>;
+    extract.mockImplementation(() =>
+      [
+        { lat: 26.08, lng: 119.3 },
+        { lat: 26.09, lng: 119.31 },
+      ].map(p => ({
+        lat: p.lat,
+        lng: p.lng,
+        marker: {
+          getLatLng: () => ({ lat: p.lat, lng: p.lng }),
+          feature: { properties: { label: "x" } },
+        },
+      })),
+    );
+    (m as any).cachedPoints = null;
+    (m as any).cachedSnapshot = null;
+    (m as any).cachedSnapshotLayerId = null;
+    const spy = watchFilterEvents(m, events);
+    m.renderHexagons();
+
+    expect(m.layerFilters.size).toBe(0);
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  it("resetState clears every source's filter and publishes the change", () => {
+    setupWithPoints(m, [
+      { lat: 26.08, lng: 119.3, value: 10 },
+      { lat: 26.09, lng: 119.31, value: 30 },
+    ]);
+    m.renderHexagons();
+    m.setFilter({ kind: "atom", field: "value", op: "between", range: [10, 20] });
+    const spy = watchFilterEvents(m, events);
+
+    m.resetState({} as any);
+
+    expect(m.layerFilters.size).toBe(0);
+    expect((m as any).cachedSnapshot).toBeNull();
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy).toHaveBeenCalledWith({ id: m.layerId });
+  });
+
+  it("resetState without a filter does not publish", () => {
+    setupWithPoints(m, [{ lat: 26.08, lng: 119.3, value: 10 }]);
+    m.renderHexagons();
+    const spy = watchFilterEvents(m, events);
+    m.resetState({} as any);
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("clearHeatmapCanvas keeps per-source filters (a repaint is not a clear)", () => {
+    setupWithPoints(m, [
+      { lat: 26.08, lng: 119.3, value: 10 },
+      { lat: 26.09, lng: 119.31, value: 30 },
+    ]);
+    m.renderHexagons();
+    m.setFilter({ kind: "atom", field: "value", op: "between", range: [10, 20] });
+
+    m.clearHeatmapCanvas();
+
+    expect(m.layerFilters.size).toBe(1);
   });
 
   it("filter application reduces the point set via aggregateBins", () => {
@@ -173,62 +487,22 @@ describe("HeatmapControl filter (stage-2 pilot)", () => {
     ];
     setupWithPoints(m, points);
 
-    // No filter — all points included.
     m.renderHexagons();
     const unfilteredAgg = (m as any).cachedAgg?.data;
-    expect(unfilteredAgg).toBeDefined();
     const unfilteredCount = Object.values(unfilteredAgg.hexCells).reduce(
       (sum: number, c: any) => sum + c.count,
       0,
     );
     expect(unfilteredCount).toBe(4);
 
-    // Clear caches and apply a filter that includes only 2 of 4 points.
-    (m as any).cachedAgg = null;
-    (m as any).cachedBins = null;
-    m.layerFilters.set("layer1", {
-      kind: "atom",
-      field: "value",
-      op: "between",
-      range: [10, 30],
-    });
-    m.renderHexagons();
+    m.setFilter({ kind: "atom", field: "value", op: "between", range: [10, 30] });
     const filteredAgg = (m as any).cachedAgg?.data;
-    expect(filteredAgg).toBeDefined();
     const filteredCount = Object.values(filteredAgg.hexCells).reduce(
       (sum: number, c: any) => sum + c.count,
       0,
     );
     // Values 5 and 35 are excluded → 2 points remain.
     expect(filteredCount).toBe(2);
-  });
-
-  it("filter change does NOT call h3.latLngToCell (bin cache reuse)", () => {
-    const points = [
-      { lat: 26.08, lng: 119.3, value: 5 },
-      { lat: 26.09, lng: 119.31, value: 15 },
-      { lat: 26.1, lng: 119.32, value: 25 },
-    ];
-    setupWithPoints(m, points);
-
-    // First render — h3.latLngToCell is called for binning.
-    const h3Spy = vi.spyOn(globalThis.h3, "latLngToCell");
-    h3Spy.mockClear();
-    m.renderHexagons();
-    expect(h3Spy).toHaveBeenCalled();
-    const initialCalls = h3Spy.mock.calls.length;
-    expect(initialCalls).toBeGreaterThan(0);
-
-    // Apply a filter — h3.latLngToCell should NOT be called again.
-    h3Spy.mockClear();
-    m.layerFilters.set("layer1", {
-      kind: "atom",
-      field: "value",
-      op: "between",
-      range: [10, 20],
-    });
-    m.renderHexagons();
-    expect(h3Spy).not.toHaveBeenCalled();
   });
 
   it("zoom change invalidates the bin cache (h3 calls again)", () => {
@@ -242,7 +516,6 @@ describe("HeatmapControl filter (stage-2 pilot)", () => {
     m.renderHexagons();
     expect(h3Spy).toHaveBeenCalled();
 
-    // Change zoom — bin cache key changes (res changes), h3 calls again.
     (m as any).map = {
       _container: { clientWidth: 800, clientHeight: 600 },
       getZoom: () => 10,
@@ -251,49 +524,34 @@ describe("HeatmapControl filter (stage-2 pilot)", () => {
     } as any;
     h3Spy.mockClear();
     m.renderHexagons();
-    expect(h3Spy).toHaveBeenCalled();
     expect(h3Spy.mock.calls.length).toBeGreaterThan(0);
   });
 
-  it("clearHeatmapCanvas resets the filter state", () => {
-    setupWithPoints(m, [{ lat: 26.08, lng: 119.3, value: 10 }]);
-    m.layerFilters.set("layer1", {
-      kind: "atom",
-      field: "value",
-      op: "between",
-      range: [5, 15],
-    });
-    expect(m.layerFilters.size).toBe(1);
-
-    m.clearHeatmapCanvas();
-    expect(m.layerFilters.size).toBe(0);
-    expect((m as any).cachedSnapshot).toBeNull();
-    expect((m as any).cachedSnapshotLayerId).toBeNull();
-    expect((m as any).cachedBins).toBeNull();
+  it("drops a cell whose points are all filtered out", () => {
+    setupWithPoints(m, [
+      { lat: 26.08, lng: 119.3, value: 10 },
+      { lat: 26.08, lng: 119.3, value: 20 },
+    ]);
+    m.renderHexagons();
+    // [15, 15] survives clamping (extent [10, 20]) and excludes both
+    // co-located points — the aggregate falls through to the canvas clear
+    // instead of emitting an empty cell.
+    m.setFilter({ kind: "atom", field: "value", op: "between", range: [15, 15] });
+    expect((m as any).cachedFeatures).toBeNull();
   });
 
   it("extractMarkerFields resolves value, options.value, and properties fields", () => {
-    const marker1 = {
-      value: 42,
-      options: {},
-      feature: { properties: {} },
-    } as any;
-    const fields1 = (m as any).extractMarkerFields(marker1);
-    expect(fields1).toEqual({ value: 42 });
+    const marker1 = { value: 42, options: {}, feature: { properties: {} } } as any;
+    expect((m as any).extractMarkerFields(marker1)).toEqual({ value: 42 });
 
-    const marker2 = {
-      options: { value: 99 },
-      feature: { properties: {} },
-    } as any;
-    const fields2 = (m as any).extractMarkerFields(marker2);
-    expect(fields2).toEqual({ value: 99 });
+    const marker2 = { options: { value: 99 }, feature: { properties: {} } } as any;
+    expect((m as any).extractMarkerFields(marker2)).toEqual({ value: 99 });
 
     const marker3 = {
       options: {},
       feature: { properties: { temperature: 36.5, status: "ok" } },
     } as any;
-    const fields3 = (m as any).extractMarkerFields(marker3);
-    expect(fields3).toEqual({ temperature: 36.5 });
+    expect((m as any).extractMarkerFields(marker3)).toEqual({ temperature: 36.5 });
   });
 
   it("extractMarkerFields skips a properties key the contract already holds", () => {
@@ -302,57 +560,6 @@ describe("HeatmapControl filter (stage-2 pilot)", () => {
       options: {},
       feature: { properties: { value: 7, other: 3 } },
     } as any;
-    const fields = (m as any).extractMarkerFields(marker);
-    expect(fields).toEqual({ value: 42, other: 3 });
-  });
-
-  it("stores under the row id and skips render when no source is selected", () => {
-    // No selected source: the heatmap row's filter is parked on the row id
-    // and nothing re-renders (there is no source to filter yet).
-    setupWithPoints(m, [{ lat: 26.08, lng: 119.3, value: 10 }]);
-    m.selectedLayerId = null;
-    events.emit(EVENTS.LAYER_FILTER_CHANGE, {
-      id: m.layerId,
-      filter: { kind: "atom", field: "value", op: "between", range: [10, 20] },
-    });
-    expect(m.layerFilters.get(m.layerId)).toEqual({
-      kind: "atom",
-      field: "value",
-      op: "between",
-      range: [10, 20],
-    });
-    expect((m as any).cachedAgg).toBeNull();
-  });
-
-  it("extends the range downward when a later point is smaller", () => {
-    // First point sets the [30, 30] seed; the second, smaller point must
-    // widen the lower bound (the upper-bound widen path is covered by the
-    // ascending fixtures elsewhere).
-    setupWithPoints(m, [
-      { lat: 26.08, lng: 119.3, value: 30 },
-      { lat: 26.09, lng: 119.31, value: 10 },
-      { lat: 26.1, lng: 119.32, value: 20 },
-    ]);
-    m.renderHexagons();
-    expect((m as any).cachedSnapshot.ranges.value).toEqual([10, 30]);
-  });
-
-  it("drops a cell whose points are all filtered out", () => {
-    // Two co-located points share the fixture's single h3 cell; a filter
-    // excluding both empties the cell, and the aggregate falls through to
-    // the canvas clear instead of emitting an empty cell.
-    setupWithPoints(m, [
-      { lat: 26.08, lng: 119.3, value: 10 },
-      { lat: 26.08, lng: 119.3, value: 20 },
-    ]);
-    m.layerFilters.set("layer1", {
-      kind: "atom",
-      field: "value",
-      op: "between",
-      range: [0, 5],
-    });
-    m.renderHexagons();
-    expect((m as any).cachedFeatures).toBeNull();
-    expect((m as any).cachedAgg).toBeNull();
+    expect((m as any).extractMarkerFields(marker)).toEqual({ value: 42, other: 3 });
   });
 });

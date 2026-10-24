@@ -77,8 +77,10 @@
   "LayerControl.filter_field": "Field",
   "LayerControl.filter_range_min": "Minimum value",
   "LayerControl.filter_range_max": "Maximum value",
-  "LayerControl.filter_keep": "Kept",
-  "LayerControl.filter_total": "Total",
+  "LayerControl.filter_range": "Range",
+  "LayerControl.filter_result_label": "Result",
+  "LayerControl.filter_result": "Kept {kept} of {total}",
+  "LayerControl.filter_clear": "Clear filter",
   "LayerControl.filter_empty": "No numeric fields on this layer",
   "LayerControl.style_size": "Size",
   "LayerControl.border": "Border"

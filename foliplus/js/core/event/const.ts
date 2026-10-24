@@ -101,15 +101,18 @@ const EVENTS = {
    *  channel (unbindEvents calls the close functions directly so a
    *  third-party `off` cannot leave a panel open). */
   OVERLAY_CLEAR: "foliplus:overlay:clear",
-  /** Component-internal filter signal (stage 2): the filter panel wrote a
-   *  new filter for a layer through `LayerRuntimeStore.setFilter`, and
-   *  any consumer that reads that filter (today HeatmapControl) should
-   *  re-run its own pipeline. This is *not* a public intent event — the
-   *  public intent channel (LAYER_INTENT_CHANGE) carries `{visible}` and
-   *  stays untouched until stage 3 wires the full four-step protocol
-   *  (LayerOverride / INTENT / LIVE / PARSE_OVERRIDE) for `filter` as
-   *  its own dimension. Payload is `{id, filter}`: subscribers that
-   *  don't apply to this layer filter on `id` first. */
+  /** Component-internal filter signal (stage 2): the filter's owner (the
+   *  component that declared `filterProvider` / `filterSetter` — Heatmap
+   *  today) applied a filter write from the LayerControl panel and has
+   *  already re-rendered when this publishes. Observers pull the fresh
+   *  model through the same `filterProvider`; the payload is id-only, a
+   *  signal rather than a data pipe. This is *not* a public intent
+   *  event — the public intent channel (LAYER_INTENT_CHANGE) carries
+   *  `{visible}` and stays untouched until stage 3 wires the full
+   *  four-step protocol (LayerOverride / INTENT / LIVE / PARSE_OVERRIDE)
+   *  for `filter` as its own dimension. Notification: the owner's local
+   *  convergence (state + render) must never be interrupted by an
+   *  observer's failure. */
   LAYER_FILTER_CHANGE: "foliplus:layer:filter-change",
 } as const;
 

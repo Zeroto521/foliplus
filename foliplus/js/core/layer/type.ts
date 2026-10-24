@@ -4,6 +4,7 @@
 // components (MeasureControl / HeatmapControl / ExportControl) keep the same
 // global names.
 import { type DIM, type KIND, type PANE_ROLE } from "./const.js";
+import type { LayerFilter, LayerFilterModel } from "./filter.js";
 
 /** One layer's projection: intent (persisted) and the derived policy state
  *  together, so a diff sees both in one comparison.
@@ -251,6 +252,13 @@ interface RegisterLayerOpts {
    *  button calls each styleSetter with the matching default — never the
    *  localStorage-persisted value. Absent means the layer offers no Reset. */
   styleDefaultsProvider?: (() => Record<string, unknown>) | null;
+  /** Filter capability — see {@link LayerFilterModel}. Declared only by the
+   *  component that owns the row's data (HeatmapControl today); the filter
+   *  panel reads through the provider and writes through the setter, so the
+   *  owner's internal state is never touched from outside. Null (the
+   *  default) means the row is not filterable. */
+  filterProvider?: (() => LayerFilterModel | null) | null;
+  filterSetter?: ((filter: LayerFilter | undefined) => void) | null;
   /** Optional geographic-bounds provider. Canvas layers have no Leaflet layer
    *  to derive bounds from, so they supply this for layer focus to work. */
   getBounds?: (() => L.LatLngBounds | null) | null;
@@ -315,6 +323,9 @@ interface LayerInfo {
   styleSetters?: Record<string, (value: unknown) => void> | null;
   /** Python CONFIG defaults for the delegated style fields. See RegisterLayerOpts. */
   styleDefaultsProvider?: (() => Record<string, unknown>) | null;
+  /** See {@link RegisterLayerOpts.filterProvider}. */
+  filterProvider?: (() => LayerFilterModel | null) | null;
+  filterSetter?: ((filter: LayerFilter | undefined) => void) | null;
   /** Optional geographic-bounds provider (Canvas layers). See RegisterLayerOpts. */
   getBounds?: (() => L.LatLngBounds | null) | null;
   /** Static caller-supplied provenance / freshness for the attributes panel.
@@ -483,6 +494,9 @@ interface CreateLayersOpts {
   /** See RegisterLayerOpts. */
   styleDefaultsProvider?: (() => Record<string, unknown>) | null;
   /** See RegisterLayerOpts. */
+  filterProvider?: (() => LayerFilterModel | null) | null;
+  filterSetter?: ((filter: LayerFilter | undefined) => void) | null;
+  /** See RegisterLayerOpts. */
   metaProvider?: (() => Record<string, string | number>) | null;
 }
 
@@ -502,6 +516,9 @@ interface CreateCanvasOpts {
   styleSetters?: Record<string, (value: unknown) => void> | null;
   /** See RegisterLayerOpts. */
   styleDefaultsProvider?: (() => Record<string, unknown>) | null;
+  /** See RegisterLayerOpts. */
+  filterProvider?: (() => LayerFilterModel | null) | null;
+  filterSetter?: ((filter: LayerFilter | undefined) => void) | null;
   /** Optional callback returning the canvas layer's geographic bounds, so
    *  LayerControl can focus it (Canvas layers have no Leaflet layer). */
   getBounds?: (() => L.LatLngBounds | null) | null;
@@ -642,6 +659,8 @@ interface CreateSurfaceOpts {
   styleProvider?: (() => Record<string, unknown>) | null;
   styleSetters?: Record<string, (value: unknown) => void> | null;
   styleDefaultsProvider?: (() => Record<string, unknown>) | null;
+  filterProvider?: (() => LayerFilterModel | null) | null;
+  filterSetter?: ((filter: LayerFilter | undefined) => void) | null;
   metaProvider?: (() => Record<string, string | number>) | null;
   /** See {@link RegisterLayerOpts.onOpacity}. */
   onOpacity?: ((opacity: number) => void) | null;
