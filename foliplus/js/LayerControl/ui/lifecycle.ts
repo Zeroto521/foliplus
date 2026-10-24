@@ -40,8 +40,8 @@ import {
   initLayerItem,
   insertLayerItem,
   markSettled,
-  rebuildList,
   renderInitialList,
+  syncRowOrder,
   updateLayerItemLabel,
 } from "./listPanel/list.js";
 import { applyRowView, buildRowCell } from "./listPanel/rowView.js";
@@ -339,10 +339,13 @@ const bindLayerEvents = (ui: LayerUI): void => {
       syncToggleAll(ui, payload.group);
     }),
     bus.on(EVENTS.LAYER_LIST_REBUILD, () => {
-      // The list layer owns this whole operation now — rows, counts,
-      // readiness and the round that goes out afterwards — so the signal
-      // handler is just the wiring from the bus to it.
-      rebuildList(ui);
+      // The reorder signal only moves rows: the emitters (moveLayerUp/Down,
+      // bringLayerToFront, drag) have already updated the registry, repriced
+      // z and saved the order, and a position change alters no count,
+      // checkbox or readiness. So this handler relocates displaced rows
+      // instead of rebuilding the panel — the full rebuildList stays on the
+      // paths that change membership or row structure (fold, attach).
+      syncRowOrder(ui);
     }),
     bus.on(EVENTS.LAYER_NO_BASEMAP_CHANGED, () => {
       syncNoBasemap(ui);
