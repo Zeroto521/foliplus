@@ -37,7 +37,7 @@ describe("LayerUI shell — event subscriptions", () => {
     const initSpy = vi.spyOn(ui, "initTypesAndVisibility");
     const applySpy = vi.spyOn(ui, "applyStyleLabelState");
 
-    ensureEvents(map).emit(EVENTS.CONTROL_ATTACHED, { component: "HeatmapControl" });
+    ensureEvents(map).publish(EVENTS.CONTROL_ATTACHED, { component: "HeatmapControl" });
 
     expect(initSpy).toHaveBeenCalledTimes(1);
     expect(applySpy).toHaveBeenCalledTimes(1);
@@ -47,7 +47,7 @@ describe("LayerUI shell — event subscriptions", () => {
     (ui.uiContainer as HTMLElement).remove();
     const initSpy = vi.spyOn(ui, "initTypesAndVisibility");
 
-    ensureEvents(map).emit(EVENTS.CONTROL_ATTACHED, { component: "HeatmapControl" });
+    ensureEvents(map).publish(EVENTS.CONTROL_ATTACHED, { component: "HeatmapControl" });
 
     expect(initSpy).not.toHaveBeenCalled();
   });

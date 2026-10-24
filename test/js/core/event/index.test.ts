@@ -7,10 +7,12 @@ import { EVENTS, ensureEvents } from "#foliplus/core/event/index.js";
 // through that handle, not through their own local reference.
 
 type StubMap = {
-  foliplus?: { events?: { emit: (e: string, p: unknown) => void } } & Record<
-    string,
-    unknown
-  >;
+  foliplus?: {
+    events?: {
+      emit: (e: string, p: unknown) => void;
+      publish: (e: string, p: unknown) => void;
+    };
+  } & Record<string, unknown>;
   on: (t: string, f: unknown) => void;
 };
 
@@ -70,7 +72,10 @@ describe("ensureEvents", () => {
     const bus = ensureEvents(map);
     const seen: unknown[] = [];
     bus.on(EVENTS.MODE_CHANGE, (p: unknown) => seen.push(p));
-    map.foliplus!.events!.emit(EVENTS.MODE_CHANGE, { mode: "distance" });
-    expect(seen).toEqual([{ mode: "distance" }]);
+    map.foliplus!.events!.publish(EVENTS.MODE_CHANGE, {
+      component: "MeasureControl",
+      mode: "distance",
+    });
+    expect(seen).toEqual([{ component: "MeasureControl", mode: "distance" }]);
   });
 });

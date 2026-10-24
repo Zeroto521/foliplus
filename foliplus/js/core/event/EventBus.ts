@@ -57,6 +57,15 @@ class EventBus {
     return this.entries.size;
   }
 
+  /** Total listeners across every event (diagnostics/tests; complement to
+   *  eventCount, which counts events with listeners — listenerCount exposes a
+   *  listener leak even when every event keeps at least one). */
+  get listenerCount(): number {
+    let n = 0;
+    for (const e of this.entries.values()) n += e.listeners.length;
+    return n;
+  }
+
   private entry(event: string): EventEntry {
     let e = this.entries.get(event);
     if (!e) {
@@ -73,6 +82,17 @@ class EventBus {
 
   private entryPolicy(event: string): EventPolicy {
     return this.entries.get(event)?.policy ?? policyOf(event);
+  }
+
+  /** Fail-fast emit must never carry a notification event: publishing one
+   *  through `emit` would give the event the opposite contract to its
+   *  declared policy. Producers use `publish` / `SettledOperation`. */
+  private assertPublishable(event: string): void {
+    if (this.entryPolicy(event).kind === "notification") {
+      throw new Error(
+        `notification event "${event}" must be published (publish / SettledOperation), not fail-fast emit`,
+      );
+    }
   }
 
   /** Subscribe to a known event (typed payload).
@@ -98,23 +118,34 @@ class EventBus {
     phase: ListenerPhase = "external",
   ): () => void {
     const e = this.entry(event);
-    // Duplicate registrations collapse to one (the previous Set semantics).
-    if (e.listeners.some(l => l.fn === handler)) {
+    // Duplicate registrations collapse to one (the previous Set semantics). A
+    // repeat `on` with a different phase upgrades the existing registration,
+    // so an owner handler re-registered as "internal" is never left behind an
+    // observer.
+    const existing = e.listeners.findIndex(l => l.fn === handler);
+    if (existing >= 0) {
+      if (e.listeners[existing].phase !== phase) {
+        e.listeners.splice(existing, 1);
+        this.insertListener(e, { fn: handler, phase });
+      }
+      e.snapshot = null;
       return () => this.off(event, handler);
     }
-    const listener: Listener = { fn: handler, phase };
-    if (phase === "internal") {
-      // Keep internal listeners ahead of external ones, stable within phase.
-      // The internal block is always a strict prefix, so the boundary is the
-      // first external listener (or the end when there is none yet).
+    this.insertListener(e, { fn: handler, phase });
+    e.snapshot = null;
+    return () => this.off(event, handler);
+  }
+
+  /** Insert a listener keeping the internal-prefix invariant: internal
+   *  listeners stay ahead of external ones, stable within phase. */
+  private insertListener(e: EventEntry, listener: Listener): void {
+    if (listener.phase === "internal") {
       let idx = 0;
       while (idx < e.listeners.length && e.listeners[idx].phase === "internal") idx++;
       e.listeners.splice(idx, 0, listener);
     } else {
       e.listeners.push(listener);
     }
-    e.snapshot = null;
-    return () => this.off(event, handler);
   }
 
   /** Remove a specific handler for a known event (typed payload). */
@@ -192,7 +223,10 @@ class EventBus {
    *  use {@link publish} (one event) or {@link SettledOperation} (a lifecycle
    *  operation); the projection channel uses {@link emitSupersedingSettled}.
    *  Plain `emit` stays for commands with a single interested party, where
-   *  stopping on the first error is useful. */
+   *  stopping on the first error is useful. Notification events (MODE_CHANGE,
+   *  BEFORE_EXPORT, OVERLAY_CLEAR, CONTROL_ATTACHED) must be published, not
+   *  emitted — `emit` rejects them so a producer cannot give an event the
+   *  opposite contract to its declared policy. */
   emit<K extends string>(
     event: K,
     ...args: K extends keyof EventPayloadMap
@@ -202,6 +236,7 @@ class EventBus {
       : unknown[]
   ): void;
   emit(event: string, ...payload: unknown[]): void {
+    this.assertPublishable(event);
     this.dispatch(event, payload, "failfast");
   }
 
@@ -228,6 +263,7 @@ class EventBus {
       : unknown[]
   ): void;
   emitSuperseding(event: string, supersedeKey: string, ...payload: unknown[]): void {
+    this.assertPublishable(event);
     this.dispatch(event, payload, "failfast", supersedeKey);
   }
 
@@ -395,10 +431,12 @@ class SettledOperation {
 
   /** Fold in a failure a different dispatcher already observed (a projection
    *  batch, for example) so the operation owns the whole error boundary.
-   *  Projection CHANGE/INTENT are terminal events, so the failure is kept
-   *  unconditionally. */
-  absorb(failure: DispatchFailure | undefined): this {
-    this.failure ??= failure;
+   *  Without an event the failure is kept unconditionally — the projection
+   *  CHANGE/INTENT this absorbs are terminal. Pass the event to resolve it by
+   *  the event's declared policy instead (a notification failure is consumed). */
+  absorb(failure: DispatchFailure | undefined, event?: string): this {
+    this.failure ??=
+      event === undefined ? failure : this.bus.consumeByPolicy(event, failure);
     return this;
   }
 
@@ -410,7 +448,9 @@ class SettledOperation {
 
 /** Publish one settled broadcast, then resolve the first consumer failure by
  *  the event's declared policy (see EVENT_POLICY in ./const.js). This is the
- *  one-event counterpart of {@link SettledOperation}. */
+ *  one-event counterpart of {@link SettledOperation}. Equivalent to
+ *  `bus.publish`; the facade exists so callers that only hold the bus import
+ *  one symbol instead of the method. */
 const publish = <K extends string>(
   bus: EventBus,
   event: K,

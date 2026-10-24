@@ -485,6 +485,61 @@ describe("EventBus", () => {
     });
     expect(() => operation.throwIfFailed()).not.toThrow();
   });
+
+  it("emit rejects a notification event (fail-fast is the wrong contract)", () => {
+    const bus = new EventBus();
+    bus.on(EVENTS.MODE_CHANGE, vi.fn());
+    expect(() =>
+      bus.emit(EVENTS.MODE_CHANGE, { component: "MeasureControl", mode: "distance" }),
+    ).toThrow(/notification/);
+  });
+
+  it("emitSuperseding rejects a notification event", () => {
+    const bus = new EventBus();
+    bus.on(EVENTS.MODE_CHANGE, vi.fn());
+    expect(() =>
+      bus.emitSuperseding(EVENTS.MODE_CHANGE, "layer-a", {
+        component: "MeasureControl",
+        mode: "distance",
+      }),
+    ).toThrow(/notification/);
+  });
+
+  it("absorb resolves by policy when the event is given", () => {
+    const bus = new EventBus();
+    // Notification event -> consumed, not raised.
+    const notification = new SettledOperation(bus);
+    notification.absorb({ error: new Error("n") }, EVENTS.MODE_CHANGE);
+    expect(() => notification.throwIfFailed()).not.toThrow();
+    // Terminal event -> kept and raised.
+    const terminal = new SettledOperation(bus);
+    terminal.absorb({ error: new Error("t") }, EVENTS.LAYER_CHANGE);
+    expect(() => terminal.throwIfFailed()).toThrow("t");
+    // No event -> kept unconditionally (the projection contract).
+    const bare = new SettledOperation(bus);
+    bare.absorb({ error: new Error("x") });
+    expect(() => bare.throwIfFailed()).toThrow("x");
+  });
+
+  it("re-on with a different phase upgrades the registration", () => {
+    const bus = new EventBus();
+    const seen: string[] = [];
+    const fn = () => seen.push("fn");
+    bus.on("evt", () => seen.push("ext"));
+    bus.on("evt", fn, "external");
+    bus.on("evt", fn, "internal"); // upgrade — must not stay behind the observer
+    bus.emit("evt");
+    expect(seen).toEqual(["fn", "ext"]);
+  });
+
+  it("listenerCount counts every listener across events", () => {
+    const bus = new EventBus();
+    bus.on("a", vi.fn());
+    bus.on("a", vi.fn());
+    bus.on("b", vi.fn());
+    expect(bus.listenerCount).toBe(3);
+    expect(bus.eventCount).toBe(2);
+  });
 });
 
 describe("event constants", () => {

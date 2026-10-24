@@ -566,7 +566,7 @@ describe("HeatmapManager — export event subscriptions", () => {
   it("BEFORE_EXPORT flips to export mode via onBeforeExport", () => {
     const m = makeManager();
     const beforeSpy = vi.spyOn(m, "onBeforeExport");
-    ensureEvents(m.map).emit(EVENTS.BEFORE_EXPORT, { component: "ExportControl" });
+    ensureEvents(m.map).publish(EVENTS.BEFORE_EXPORT, { component: "ExportControl" });
     expect(beforeSpy).toHaveBeenCalledTimes(1);
     expect(m.renderAll).toBe(true);
   });
@@ -592,7 +592,7 @@ describe("HeatmapManager — export event subscriptions", () => {
     bus.on(EVENTS.BEFORE_EXPORT, probeBefore);
     bus.on(EVENTS.AFTER_EXPORT, probeAfter);
 
-    bus.emit(EVENTS.BEFORE_EXPORT, { component: "ExportControl" });
+    bus.publish(EVENTS.BEFORE_EXPORT, { component: "ExportControl" });
     bus.emit(EVENTS.AFTER_EXPORT, { component: "ExportControl" });
 
     expect(beforeSpy).not.toHaveBeenCalled();
@@ -616,11 +616,11 @@ describe("HeatmapManager — export event subscriptions", () => {
     const afterSpy = vi.spyOn(m, "onAfterExport");
     const bus = ensureEvents(m.map);
 
-    bus.emit(EVENTS.BEFORE_EXPORT, { component: "ExportControl" });
+    bus.publish(EVENTS.BEFORE_EXPORT, { component: "ExportControl" });
     expect(beforeSpy).toHaveBeenCalledTimes(1);
     expect(afterSpy).not.toHaveBeenCalled();
 
-    bus.emit(EVENTS.BEFORE_EXPORT, { component: "ExportControl" });
+    bus.publish(EVENTS.BEFORE_EXPORT, { component: "ExportControl" });
     bus.emit(EVENTS.AFTER_EXPORT, { component: "ExportControl" });
     expect(beforeSpy).toHaveBeenCalledTimes(2);
     expect(afterSpy).toHaveBeenCalledTimes(1);
@@ -691,7 +691,7 @@ describe("HeatmapManager — export event subscriptions", () => {
     expect(m.cachedFeatures).toBeNull();
     expect(m.overlay.unregister).toHaveBeenCalled();
 
-    bus.emit(EVENTS.BEFORE_EXPORT, { component: "ExportControl" });
+    bus.publish(EVENTS.BEFORE_EXPORT, { component: "ExportControl" });
     bus.emit(EVENTS.AFTER_EXPORT, { component: "ExportControl" });
     bus.emit(EVENTS.LAYER_CHANGE, { id: "pts", kind: "vector" });
     expect(m.renderAll).toBe(false);
@@ -852,7 +852,7 @@ describe("initScan — single-layer auto-select on first scan only", () => {
     expect(m.hasScanned).toBe(false);
 
     // LayerControl (or any control) finishing attach re-triggers the scan.
-    ensureEvents(m.map).emit(EVENTS.CONTROL_ATTACHED, {
+    ensureEvents(m.map).publish(EVENTS.CONTROL_ATTACHED, {
       component: "LayerControl",
     });
 
@@ -897,7 +897,7 @@ describe("initScan — single-layer auto-select on first scan only", () => {
     cleanup();
     cleanup(); // second call is a no-op
 
-    ensureEvents(m.map).emit(EVENTS.CONTROL_ATTACHED, {
+    ensureEvents(m.map).publish(EVENTS.CONTROL_ATTACHED, {
       component: "LayerControl",
     });
     // Unsubscribed — no further scan ran, and no late settle.
