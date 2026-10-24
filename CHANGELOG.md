@@ -22,9 +22,7 @@
 - `LayerControl`: value-based fill follows the layer's real geometry — a mixed layer's fill row shows its polygon's colour, and features added after a fill was set are repainted instead of keeping the author's colour ([#727](https://github.com/Zeroto521/foliplus/pull/727))
 - `LayerControl`: a border chosen before features land still reaches them — the content-change replay now covers the stroke face alongside fill, size and opacity ([#730](https://github.com/Zeroto521/foliplus/pull/730))
 - `LayerControl`: reordering (`moveLayerUp`/`moveLayerDown`, `bringLayerToFront`, drag) moves rows in place instead of rebuilding the panel — a 200-layer move drops from seconds to milliseconds ([#731](https://github.com/Zeroto521/foliplus/pull/731))
-- `LayerControl`: teardown keeps going past a failing step — a throwing map listener, panel read, or pane restore no longer skips the row removal, the annotation unload, the z repricing of the layers above it, or the focus mask left over the map ([#736](https://github.com/Zeroto521/foliplus/pull/736))
-- `BaseControl`: `onRemove()` unbinds every tracked listener and aborts the mount signal even when one `off()` or cleanup throws, instead of leaving the remaining `{signal}` DOM listeners with no owner ([#736](https://github.com/Zeroto521/foliplus/pull/736))
-- `MeasureControl`: destruction isolates each step, so a failing clear no longer leaves map-click listeners and edit handles bound after the control is gone ([#736](https://github.com/Zeroto521/foliplus/pull/736))
+- Teardown: a failing cleanup step no longer skips the rest, so a removed control releases every listener, row, mask and handle ([#736](https://github.com/Zeroto521/foliplus/pull/736))
 
 ## [v0.4.1] (2026-10-18)
 
