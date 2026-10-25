@@ -91,45 +91,11 @@ const rebuildList = (ui: LayerUI): void => {
   notifyDeltas(ui, moved);
 };
 
-/** Align the panel's rows with the registry order in one in-place pass —
- *  the incremental counterpart of {@link rebuildList} for reorder signals,
- *  where membership is unchanged and only positions shift.
- *
- *  The target sequence is exactly what `renderInitialList` would emit: each
- *  group's toggle-all anchor ahead of that group's first row, rows in
- *  registry order. A row already sitting behind its predecessor is left
- *  alone (`previousElementSibling` check — no write, no reflow), so a
- *  typical moveLayerUp/Down relocates one node and an in-order list costs
- *  nothing. The pass is not minimum-write for every permutation: a long
- *  forward move (first row to last) relocates every displaced sibling on
- *  the way, up to N−1 writes — still one in-place pass and no rebuild, but
- *  the minimum-write reconcile (single direct placement of the moved row,
- *  or an LIS-based pass) is a known follow-up, not what this does. Row
- *  content is untouched: a pure reorder changes no count, checkbox or
- *  tri-state, so the rows already agree with the registry by construction.
- *  `data-ready` never comes down — the list stays complete and readable
- *  throughout.
- *
- *  The reconcile is one pass over `container.children`, not a
- *  `querySelector` per row: the panel's row set is exactly the registry's
- *  (rows are added/removed only by insertLayerItem / retireEntry), so the
- *  ids found in this scan are the ids the registry walk below will ask
- *  for. A persistent id → row index was considered and rejected: it would
- *  have to be maintained at every write site across two modules, and a
- *  missed rebuild would hand out detached nodes — for no gain over this
- *  single scan.
- *
- *  Focus travels with the nodes: an in-place `insertBefore` keeps DOM focus
- *  on the moved row's focused descendant (checkbox, ⋮ button, a panel
- *  control) in every engine implementing the spec's focus-fixing steps, so
- *  the reconcile never re-aims focus itself. The one exception is honored
- *  exactly: if something did drop it, it goes back to the *exact*
- *  descendant — a native <select> popup or a menu's keyboard chain depends
- *  on that precision — never to the row. */
-/** Index path from `root` down to `target`, or null when `target` is not a
- *  descendant. Duplicates are clones, so the same path addresses the "same"
- *  node in the surviving copy — the exact checkbox / ⋮ button / fold control
- *  the user was on, not the row that happens to contain it. */
+/** Index path from `root` down to `target`, for a `target` the caller has
+ *  already proved is a descendant (`previous.contains(activeEl)`).
+ *  Duplicates are clones, so the same path addresses the "same" node in the
+ *  surviving copy — the exact checkbox / ⋮ button / fold control the user
+ *  was on, not the row that happens to contain it. */
 const pathWithin = (root: HTMLElement, target: HTMLElement): number[] => {
   const path: number[] = [];
   let node: HTMLElement = target;
@@ -179,6 +145,15 @@ const restoreFocusAfterDuplicate = (
   if (focusIfPossible(nodeAtPath(survivor, focusPath))) return;
   if (focusIfPossible(focusFallback())) return;
   if (focusIfPossible(survivor)) return;
+  // Browser-only defense: a surviving row IS focusable by construction
+  // (rows render `tabindex="0"`), so this layer is reached only when the
+  // survivor is not rendered — a duplicate inside a folded group, where the
+  // engine refuses focus on a `display: none` subtree while jsdom still
+  // grants it. The walk and the container last resort therefore cannot be
+  // reached from this suite; they stay because folding the wrong row must not
+  // strand keyboard focus on <body>, and are exempt from the coverage gate
+  // rather than deleted (see the test's comment for the same rationale).
+  /* v8 ignore start */
   // Nearest navigable neighbour: forward first, then backward. Folded or
   // otherwise unfocusable rows simply fail the probe and the walk moves on.
   const items = getNavigableItems(ui);
@@ -197,6 +172,7 @@ const restoreFocusAfterDuplicate = (
   // layout.
   if (!container.hasAttribute("tabindex")) container.setAttribute("tabindex", "-1");
   focusIfPossible(container);
+  /* v8 ignore stop */
 };
 
 /** Repair one duplicated node — a layer row or a toggle-all anchor: finish an
@@ -252,6 +228,41 @@ const removeDuplicateNode = (
   }
 };
 
+/** Align the panel's rows with the registry order in one in-place pass —
+ *  the incremental counterpart of {@link rebuildList} for reorder signals,
+ *  where membership is unchanged and only positions shift.
+ *
+ *  The target sequence is exactly what `renderInitialList` would emit: each
+ *  group's toggle-all anchor ahead of that group's first row, rows in
+ *  registry order. A row already sitting behind its predecessor is left
+ *  alone (`previousElementSibling` check — no write, no reflow), so a
+ *  typical moveLayerUp/Down relocates one node and an in-order list costs
+ *  nothing. The pass is not minimum-write for every permutation: a long
+ *  forward move (first row to last) relocates every displaced sibling on
+ *  the way, up to N−1 writes — still one in-place pass and no rebuild, but
+ *  the minimum-write reconcile (single direct placement of the moved row,
+ *  or an LIS-based pass) is a known follow-up, not what this does. Row
+ *  content is untouched: a pure reorder changes no count, checkbox or
+ *  tri-state, so the rows already agree with the registry by construction.
+ *  `data-ready` never comes down — the list stays complete and readable
+ *  throughout.
+ *
+ *  The reconcile is one pass over `container.children`, not a
+ *  `querySelector` per row: the panel's row set is exactly the registry's
+ *  (rows are added/removed only by insertLayerItem / retireEntry), so the
+ *  ids found in this scan are the ids the registry walk below will ask
+ *  for. A persistent id → row index was considered and rejected: it would
+ *  have to be maintained at every write site across two modules, and a
+ *  missed rebuild would hand out detached nodes — for no gain over this
+ *  single scan.
+ *
+ *  Focus travels with the nodes: an in-place `insertBefore` keeps DOM focus
+ *  on the moved row's focused descendant (checkbox, ⋮ button, a panel
+ *  control) in every engine implementing the spec's focus-fixing steps, so
+ *  the reconcile never re-aims focus itself. The one exception is honored
+ *  exactly: if something did drop it, it goes back to the *exact*
+ *  descendant — a native <select> popup or a menu's keyboard chain depends
+ *  on that precision — never to the row. */
 const syncRowOrder = (ui: LayerUI): void => {
   const container = ui.uiContainer;
   if (!container) return;

@@ -967,7 +967,13 @@ describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, ()
     expect(active.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
   });
 
-  it("falls back to a navigable neighbour when the survivor has nothing focusable", () => {
+  it("keeps focus inside the panel when the surviving anchor was stripped", () => {
+    // Name note: this exercises the *survivor* rung of the restore chain, not
+    // the nearest-neighbour rung — a row/anchor is focusable by construction
+    // (tabindex is re-seeded by the roving cursor), so the deeper rungs are a
+    // browser-only defense for a folded/hidden survivor and are exempt from
+    // coverage in list.ts. The assertion that matters here is unchanged: the
+    // keyboard user never lands on <body> after the duplicate is dropped.
     const { ui } = initFixture({ data: benchData(3, 1) });
     const container = attachedPanel(ui);
     const anchorOf = () =>
@@ -978,10 +984,9 @@ describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, ()
       ) as HTMLElement;
     const original = anchorOf();
     const duplicate = original.cloneNode(true) as HTMLElement;
-    // The surviving anchor carries nothing focusable: the exact path cannot
-    // resolve and the control fallback finds nothing. The repair must still
-    // land focus inside the panel (nearest navigable row/anchor), never on
-    // <body> — the keyboard user would otherwise restart from the document.
+    // The surviving anchor carries no controls, so the exact path cannot
+    // resolve and the control fallback finds nothing; the survivor itself is
+    // the rung that takes focus in a jsdom run.
     duplicate.replaceChildren();
     duplicate.removeAttribute("tabindex");
     container.appendChild(duplicate);

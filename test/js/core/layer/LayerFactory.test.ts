@@ -998,6 +998,60 @@ describe("LayerFactory", () => {
       expect(unreg).not.toHaveBeenCalled();
     });
 
+    it("reports a throwing fail-closed unmount instead of masking it", () => {
+      // The fail-closed branch above returns normally. If the unmount itself
+      // throws, finalize must still run its reporter (the warn is the only
+      // observer of the failed cleanup) and the caller must keep the
+      // fail-closed answer rather than the rollback error.
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const committed = { id: "canvas_test" } as never;
+      const replacementEntry = { id: "canvas_test", name: "Replacement" } as never;
+      const originalEnsure = panes.ensurePane.bind(panes);
+      const ensureSpy = vi
+        .spyOn(panes, "ensurePane")
+        .mockImplementation((...args: unknown[]) => {
+          const result = originalEnsure(...args) as {
+            pane: HTMLElement | null;
+            renderer: unknown;
+          };
+          if (result.pane) {
+            // The face is mounted but cannot be taken out again: `contains`
+            // still claims it, `removeChild` is the failing step.
+            result.pane.contains = () => true;
+            (result.pane as unknown as { removeChild: () => void }).removeChild =
+              () => {
+                throw new Error("unmount boom");
+              };
+          }
+          return result;
+        });
+      const f = new LayerFactory({
+        map,
+        panes,
+        registerLayer: opts => {
+          (opts as { onCommitted?: (entry: unknown) => void }).onCommitted?.(committed);
+          return null;
+        },
+        unregisterLayer: () => true,
+        bringLayerToFront: () => {},
+        invalidateType: () => {},
+        registry: () => ({ get: () => replacementEntry }) as never,
+        slotOf: () => {
+          throw new Error("postRegister must not run after a fail-closed lease");
+        },
+      });
+      const api = f.createCanvas({ id: "canvas_test" });
+
+      expect(() => api.register()).not.toThrow();
+      expect(api.registered()).toBe(false);
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining("register fail-closed step"),
+        expect.any(Error),
+      );
+      ensureSpy.mockRestore();
+      warn.mockRestore();
+    });
+
     it("a token-less lease does not delete a same-id replacement", () => {
       // A caller that wires no commit sink cannot prove it owns the id. The
       // surface may report registered (legacy contract for a bare
