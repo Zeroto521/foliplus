@@ -1,6 +1,6 @@
 // Verifies the entry's lazy manager contract: a throw inside
 // HeatmapManager.init() must leave the half-initialised manager reachable, so
-// destroy() can release the subscriptions init() already made (review R1).
+// destroy() can release the subscriptions init() already made.
 //
 // The IIFE at the bottom of index.ts mounts the control at import time, which
 // is why every other HeatmapControl test stops at the manager. This file

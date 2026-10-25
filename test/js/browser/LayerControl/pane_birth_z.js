@@ -4,14 +4,14 @@
     return { ok: false, why: "LayerAPI.createCanvas unavailable" };
   }
 
-  const id = "t203-birth";
+  const id = "canvas-birth";
   const paneName = `foliplus-canvas-${id}`;
   const readZ = el => (el ? parseInt(getComputedStyle(el).zIndex, 10) : null);
 
   // Everything runs inside this one expression on purpose: register() stamps the
   // pane's z synchronously, so a reader that ran a tick later would already be
   // past the ordering pass and the "first frame" value would be unreadable.
-  const canvas = api.createCanvas({ id, name: "T203 birth" });
+  const canvas = api.createCanvas({ id, name: "canvas birth" });
   const paneBeforeRegister = window.map.getPane(paneName);
   const zBeforeRegister = readZ(canvas.canvas.parentElement);
   canvas.register();

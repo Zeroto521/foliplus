@@ -1,4 +1,4 @@
-// R3 probe: I2 — the pane *set* is fixed once a surface is materialized, and a
+// Probe: the pane *set* is fixed once a surface is materialized, and a
 // re-registration of the same container rebuilds that surface correctly.
 //
 // Re-registration is how the API says "this layer changed", so it must not leave
