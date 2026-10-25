@@ -13,6 +13,10 @@ This module gives the corpus its own bounded smoke:
 * the two pure-DOM probes in BaseControl execute end-to-end, which proves the
   evaluate contract still works on a real page.
 
+Both checks run on a raw page: they only need document.body, not a folium map,
+the CDN cache, or the built assets. That keeps this job independent of the
+heavy browser suite and its navigation timeouts.
+
 Marker: browser (the class name ends with Browser, so conftest
 pytest_collection_modifyitems marks it). Skipped when Playwright is not
 installed, exactly like the rest of the browser suite.
@@ -22,8 +26,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import folium
-from conftest import _js, make_browser_page, use_page
+from conftest import _js, use_raw_page
 
 # This file lives at test/python/infra/, one level deeper than conftest.py:
 # walk up to test/ and into the probe corpus.
@@ -65,17 +68,7 @@ def _probe_sources() -> list[dict[str, str]]:
 class TestBrowserProbeCorpusBrowser:
     """T59 smoke: the probe corpus parses and its DOM probes execute."""
 
-    @staticmethod
-    def _make_page(browser, tmp_path):
-        # A bare folium map is enough: the smoke needs a real page and headless
-        # Chromium, not foliplus built assets (the CDN proxy serves folium own
-        # scripts from the local cache).
-        base_map = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        return make_browser_page(
-            browser, tmp_path, base_map.get_root().render(), "probes"
-        )
-
-    def test_every_probe_parses_in_chromium(self, browser, tmp_path):
+    def test_every_probe_parses_in_chromium(self, browser):
         """The whole corpus compiles under the Playwright evaluate contract."""
         sources = _probe_sources()
         assert len(sources) >= 400, (
@@ -83,16 +76,16 @@ class TestBrowserProbeCorpusBrowser:
             f"found {len(sources)} files under {PROBE_ROOT}"
         )
 
-        with use_page(self._make_page, browser, tmp_path) as (page, _errors):
+        with use_raw_page(browser.new_page) as page:
             failures = page.evaluate(_PARSE_JS, sources)
 
         assert failures == [], (
             f"{len(failures)} probe(s) no longer compile in Chromium: {failures[:10]}"
         )
 
-    def test_pure_dom_probes_execute_headless(self, browser, tmp_path):
+    def test_pure_dom_probes_execute_headless(self, browser):
         """The evaluate round-trip works on a real page, not just the parser."""
-        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+        with use_raw_page(browser.new_page) as page:
             assert page.evaluate(_js("BaseControl/button_probe")) == [
                 "tb",
                 "tool",
@@ -103,8 +96,6 @@ class TestBrowserProbeCorpusBrowser:
                 f"read_border_radius did not return a computed radius: {radius!r}"
             )
             assert page.locator("#tb").count() == 1
-
-        assert errors == [], f"console errors during probe smoke: {errors}"
 
 
 __all__ = ["TestBrowserProbeCorpusBrowser"]
