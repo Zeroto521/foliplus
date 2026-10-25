@@ -817,7 +817,9 @@ class LayerController implements LayerAPI {
     // the pricing pass: `enforceOrder` walks layers and panes and can throw
     // through a third-party listener, and a persisted record lagging the
     // in-memory arrangement is exactly what the local-commit rule above
-    // forbids. Saving is what `finally` is for.
+    // forbids. Saving therefore runs unconditionally, and its own failure is
+    // captured below instead of being let through `finally` — a throwing
+    // `finally` would skip the row sync and mask the pricing error.
     let pricingFailed = false;
     let pricingError: unknown;
     try {
@@ -825,15 +827,25 @@ class LayerController implements LayerAPI {
     } catch (error) {
       pricingFailed = true;
       pricingError = error;
-    } finally {
-      this.saveOrder();
     }
-    // A failed pricing pass used to skip the row-order signal too, leaving
-    // the registry new and the panel old until the next rebuild. The rows are
-    // this commit's user-visible copy, so they are synced before the error
-    // surfaces. The operation still never opens: no CHANGE is announced for
-    // a half-committed move.
-    if (pricingFailed) {
+    // Both commit steps are local: the registry move already landed, and the
+    // persisted snapshot is this method's other owed write. Either failing
+    // still owes the row sync — the panel is the user-visible copy of the
+    // arrangement — but the FIRST failure is what the caller asked about,
+    // and the later one is recorded rather than silently replacing it.
+    let commitFailed = pricingFailed;
+    let commitError: unknown = pricingError;
+    try {
+      this.saveOrder();
+    } catch (saveError) {
+      if (commitFailed) {
+        this.log.warn("reorder save failed after the pricing pass failed", saveError);
+      } else {
+        commitFailed = true;
+        commitError = saveError;
+      }
+    }
+    if (commitFailed) {
       const operation = this.beginOperation();
       if (this.uiContainer && this.ui) {
         operation.emit(EVENTS.LAYER_LIST_REBUILD);
@@ -841,11 +853,11 @@ class LayerController implements LayerAPI {
       try {
         operation.throwIfFailed();
       } catch (syncError) {
-        // The pricing failure is the one the caller asked about; a panel
+        // The commit failure is the one the caller asked about; a panel
         // subscriber failing on top of it is recorded, not substituted.
-        this.log.warn("reorder panel sync failed after a pricing error", syncError);
+        this.log.warn("reorder panel sync failed after a commit error", syncError);
       }
-      throw pricingError;
+      throw commitError;
     }
     const operation = this.beginOperation();
     if (this.uiContainer && this.ui) {
@@ -1043,14 +1055,6 @@ class LayerController implements LayerAPI {
     const { layerInfo, layer } = this.domain.unregisterEntry(id);
     if (!layerInfo) return null;
 
-    // A drag armed with the retiring entry has no future: the source row is
-    // about to leave the panel, and a native dragend off a detached source
-    // cannot be relied on to bubble back. Cancel the gesture before every
-    // throwable step below, so none of them can skip it — the identity check
-    // runs against the entry the registry just returned, so a listener that
-    // re-registered the id mid-teardown cannot confuse the cancel.
-    if (this.ui?.listPanel?.dragEntry === layerInfo) clearDragState(this.ui);
-
     // The row is resolved first and by element: the registry entry is already
     // gone, so a `remove` handler inside `clear-layer-tree` can register this
     // id again and mount a fresh row — a later id lookup would delete the
@@ -1064,6 +1068,20 @@ class LayerController implements LayerAPI {
     let cursor: CursorRef = null;
     const failed = finalize(
       [
+        // A drag armed with the retiring entry has no future: the source row
+        // is about to leave the panel, and a native dragend off a detached
+        // source cannot be relied on to bubble back. It is a throwable DOM
+        // step like every other one, so it runs inside the pass — a failure
+        // here must not skip the row, map or cursor convergence below. The
+        // identity check re-reads the entry the registry just returned, so a
+        // listener that re-registered the id mid-teardown cannot confuse it.
+        [
+          "cancel-drag",
+          () => {
+            const ui = this.ui;
+            if (ui?.listPanel?.dragEntry === layerInfo) clearDragState(ui);
+          },
+        ],
         ["snapshot-row", () => (row = this.findRow(id))],
         [
           "snapshot-cursor",

@@ -748,12 +748,12 @@ describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, ()
 
     // Rows follow the registry with no anchors to carry (both anchor-missing
     // diagnostics fire); the ghost has no row to place; the earlier duplicate
-    // is gone; the orphan and the stray children land behind the targets.
+    // row and anchor are gone; the orphan and stray children trail the targets.
     expect(
       Array.from(container.children).map(
         el => el.getAttribute(CONST.DATA.LAYER_ID) ?? "stray",
       ),
-    ).toEqual(["A", "B", "base1", "stray", "stray", "orphan", "stray", "stray"]);
+    ).toEqual(["A", "B", "base1", "stray", "stray", "orphan", "stray"]);
     expect(warn).toHaveBeenCalledWith(
       expect.stringContaining('duplicate row for layer "A"'),
     );
@@ -769,7 +769,7 @@ describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, ()
 
     registry.layers = [];
     expect(() => syncRowOrder(ui)).not.toThrow();
-    expect(container.children.length).toBe(8);
+    expect(container.children.length).toBe(7);
   });
 
   it("repairs a duplicate row instead of only warning about it", () => {
@@ -790,6 +790,53 @@ describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, ()
     expect(rows).toHaveLength(1);
     expect(rows[0]).toBe(duplicate);
     // The survivor sits in the registry's slot, not at the tail.
+    expect(childKeys(ui)).toEqual(registryKeys(manager));
+  });
+
+  it("moves the cursor and DOM focus onto the surviving duplicate row", () => {
+    const { ui } = initFixture({ data: benchData(3, 1) });
+    const container = attachedPanel(ui);
+    const original = rowOf(ui, "overlay_1");
+    const duplicate = original.cloneNode(true) as HTMLElement;
+    container.appendChild(duplicate);
+    // The earlier node is the active, focused one: repairing the duplicate
+    // must not silently drop the user's cursor or focus onto <body>.
+    original.classList.add(CONST.CLASSES.FOCUSED);
+    ui.listPanel.activeIdx = getNavigableItems(ui).indexOf(original);
+    original.focus();
+
+    syncRowOrder(ui);
+
+    expect(original.isConnected).toBe(false);
+    expect(duplicate.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
+    expect(ui.listPanel.activeIdx).toBe(getNavigableItems(ui).indexOf(duplicate));
+    expect(document.activeElement).toBe(duplicate);
+  });
+
+  it("repairs a duplicate toggle-all anchor instead of only warning", () => {
+    const { manager, ui } = initFixture({ data: benchData(3, 1) });
+    const container = attachedPanel(ui);
+    const anchorOf = () =>
+      Array.from(container.children).find(
+        el =>
+          el.classList.contains(CONST.CLASSES.TOGGLE_ALL) &&
+          el.getAttribute("data-group") === GROUP.OVERLAY,
+      ) as HTMLElement;
+    const original = anchorOf();
+    expect(original).toBeDefined();
+    const duplicate = original.cloneNode(true) as HTMLElement;
+    duplicate.classList.add(CONST.CLASSES.FOCUSED);
+    container.appendChild(duplicate);
+
+    syncRowOrder(ui);
+
+    const anchors = Array.from(container.children).filter(
+      el =>
+        el.classList.contains(CONST.CLASSES.TOGGLE_ALL) &&
+        el.getAttribute("data-group") === GROUP.OVERLAY,
+    );
+    expect(anchors).toHaveLength(1);
+    expect(anchors[0]).toBe(duplicate);
     expect(childKeys(ui)).toEqual(registryKeys(manager));
   });
 

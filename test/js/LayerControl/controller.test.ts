@@ -2230,6 +2230,102 @@ describe("LayerController", () => {
     expect(changes).toEqual([]);
   });
 
+  it("syncs rows when only saveOrder fails, then throws the save error", () => {
+    const { manager, ui } = initFixture({
+      data: [
+        { id: "A", name: "A", group: "overlay" },
+        { id: "B", name: "B", group: "overlay" },
+      ],
+    });
+    const changes: string[] = [];
+    ui.events.on(EVENTS.LAYER_CHANGE, p => changes.push(p.id));
+    vi.spyOn(manager, "saveOrder").mockImplementation(() => {
+      throw new Error("save boom");
+    });
+
+    expect(() => manager.moveLayerUp("B")).toThrow("save boom");
+
+    // The registry move is a local commit: rows follow it even though the
+    // persisted snapshot failed, and no CHANGE is announced for the partial
+    // commit (the operation never opens).
+    expect(manager.layers[0].id).toBe("B");
+    expect(
+      Array.from(
+        attachedPanel(ui).querySelectorAll<HTMLElement>(CONST.SEL.LAYER_ITEM),
+      ).map(el => el.dataset.layerId),
+    ).toEqual(manager.layers.map(l => l.id));
+    expect(changes).toEqual([]);
+  });
+
+  it("reports both commit failures and throws the first one", () => {
+    const { manager, ui } = initFixture({
+      data: [
+        { id: "A", name: "A", group: "overlay" },
+        { id: "B", name: "B", group: "overlay" },
+      ],
+    });
+    const warn = vi.spyOn((manager as any).log, "warn").mockImplementation(() => {});
+    vi.spyOn(manager, "enforceOrder").mockImplementation(() => {
+      throw new Error("order boom");
+    });
+    vi.spyOn(manager, "saveOrder").mockImplementation(() => {
+      throw new Error("save boom");
+    });
+
+    expect(() => manager.moveLayerUp("B")).toThrow("order boom");
+
+    // The second failure is recorded instead of replacing the first.
+    expect(warn).toHaveBeenCalledWith(
+      "reorder save failed after the pricing pass failed",
+      expect.any(Error),
+    );
+    expect(
+      Array.from(
+        attachedPanel(ui).querySelectorAll<HTMLElement>(CONST.SEL.LAYER_ITEM),
+      ).map(el => el.dataset.layerId),
+    ).toEqual(manager.layers.map(l => l.id));
+    warn.mockRestore();
+  });
+
+  it("a pre-attach pricing failure syncs nothing and still rethrows", () => {
+    // No UI yet: the failure path still owes the rethrow but has no panel to
+    // signal. This is the coin's other side of the attached-failure tests.
+    const m = new LayerController(map, [
+      { id: "A", name: "A", group: "overlay" },
+      { id: "B", name: "B", group: "overlay" },
+    ]);
+    vi.spyOn(m, "enforceOrder").mockImplementation(() => {
+      throw new Error("order boom");
+    });
+
+    expect(() => m.moveLayerUp("B")).toThrow("order boom");
+    expect(m.layers[0].id).toBe("B");
+  });
+
+  it("a throwing row-sync subscriber cannot replace the commit error", () => {
+    const { manager, ui } = initFixture({
+      data: [
+        { id: "A", name: "A", group: "overlay" },
+        { id: "B", name: "B", group: "overlay" },
+      ],
+    });
+    const warn = vi.spyOn((manager as any).log, "warn").mockImplementation(() => {});
+    vi.spyOn(manager, "enforceOrder").mockImplementation(() => {
+      throw new Error("order boom");
+    });
+    ui.events.on(EVENTS.LAYER_LIST_REBUILD, () => {
+      throw new Error("sync boom");
+    });
+
+    expect(() => manager.moveLayerUp("B")).toThrow("order boom");
+
+    expect(warn).toHaveBeenCalledWith(
+      "reorder panel sync failed after a commit error",
+      expect.any(Error),
+    );
+    warn.mockRestore();
+  });
+
   it("a throwing map teardown still converges the retirement", () => {
     const { manager, ui } = initFixture({
       data: [{ id: "A", name: "A", group: "overlay", layer: polygonLayer() }],
@@ -5279,6 +5375,52 @@ describe("retireEntry finalization", () => {
     );
     expect(warn).toHaveBeenCalledWith(
       'retire step "unload-annotation" threw',
+      expect.any(Error),
+    );
+    warn.mockRestore();
+  });
+
+  it("runs the drag cancel as an isolated finalize step", () => {
+    document.body.innerHTML = "";
+    window.localStorage.clear();
+    const { manager, ui } = initFixture({
+      data: [
+        {
+          id: "overlay1",
+          name: "Polygons",
+          group: "overlay",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    const entry = manager.layerRegistry.get("overlay1")!;
+    ui.listPanel.dragEntry = entry;
+    const warn = vi.spyOn((manager as any).log, "warn").mockImplementation(() => {});
+    const container = attachedPanel(ui);
+    const original = container.querySelectorAll.bind(container);
+    let armed = true;
+    container.querySelectorAll = ((selector: string) => {
+      if (armed && String(selector).includes(CONST.SEL.LAYER_ITEM)) {
+        armed = false;
+        throw new Error("drag boom");
+      }
+      return original(selector);
+    }) as typeof container.querySelectorAll;
+
+    try {
+      // The drag step fails first, but the row, map and cursor convergence
+      // behind it still runs and its failure is reported.
+      expect(() => manager.unregisterLayer("overlay1")).toThrow("drag boom");
+    } finally {
+      Reflect.deleteProperty(container, "querySelectorAll");
+    }
+
+    expect(manager.layerRegistry.has("overlay1")).toBe(false);
+    expect(
+      attachedPanel(ui).querySelector(`[${CONST.DATA.LAYER_ID}="overlay1"]`),
+    ).toBeNull();
+    expect(warn).toHaveBeenCalledWith(
+      'retire step "cancel-drag" threw',
       expect.any(Error),
     );
     warn.mockRestore();
