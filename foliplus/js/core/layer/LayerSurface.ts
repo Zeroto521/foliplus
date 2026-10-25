@@ -164,24 +164,35 @@ class LayerSurface implements LayerSurfaceContract {
    *  cleared by `materialize()`. */
   contentDirty = false;
 
+  /** Whether `destroy()` has run. Controller attribution skips a retired
+   *  surface instead of walking its layer or marking it dirty. */
+  get retired(): boolean {
+    return this.destroyed;
+  }
+
   /** Whether the style axes and the opacity carrier are projections of the
    *  live tree (the pane-carrier branches) rather than of the declaration.
    *  Only those surfaces re-derive on an audit; a color / cluster /
    *  native-setter / canvas face answers from its declaration. */
   private readonly treeDerived: boolean;
-  /** The tree audit reused within one dirty cycle: the single four-question
-   *  probe (style axes + migratable) plus, once the carrier invariant runs,
-   *  the visible-DOM enumeration. `markContentDirty` clears it; a same-id
-   *  replacement builds a new surface, so `layer` identity is enough.
+  /** The four-question probe for the current tree, reused within one
+   *  dirty cycle. Only the probe is cached: the visible-DOM enumeration is
+   *  a snapshot of DOM that can move without the tree changing (a renderer
+   *  re-creation, `setIcon`, a pin), so it is recomputed at each audit and
+   *  never carried across a content cycle — a stale enumeration would let
+   *  a leaf that has since escaped a pane keep an old "pane" verdict.
    *
-   *  Deliberately per-surface, not a global `L.stamp` map: the audit is a
-   *  projection of one surface's content, and its lifetime is the surface's
-   *  (destroyed with it). */
+   *  `markContentDirty` clears it; a same-id replacement builds a new
+   *  surface, so `layer` identity is enough. Deliberately per-surface, not
+   *  a global `L.stamp` map: the audit's lifetime is the surface's. */
   private carrierAudit: {
     layer: L.Layer;
     probe: LayerCarrierProbe;
-    visibleDom?: HTMLElement[];
   } | null = null;
+  /** Set by `destroy()`. A retired surface must ignore late content marks
+   *  and must never be walked for ownership again — teardown fires map
+   *  events after the lease is gone. */
+  private destroyed = false;
 
   private readonly host: PaneManager;
   private readonly paneSpecs: readonly PaneSpec[];
@@ -458,10 +469,12 @@ class LayerSurface implements LayerSurfaceContract {
   }
 
   /** Mark the layer's tree as having changed since the last reconcile.
-   *  The cached audit describes the tree that just changed, so it is dropped
+   *  The cached probe describes the tree that just changed, so it is dropped
    *  here — the next reconcile walks once, and every read until then reuses
-   *  that fresh answer. */
+   *  that fresh answer. A retired surface ignores the mark: teardown can fire
+   *  late `layeradd`/`layerremove` events after its leases are gone. */
   markContentDirty(): void {
+    if (this.destroyed) return;
     this.contentDirty = true;
     this.carrierAudit = null;
   }
@@ -557,8 +570,13 @@ class LayerSurface implements LayerSurfaceContract {
     return this.cachedGeometryType;
   }
 
+  /** Drop the cached geometry type *and* the carrier probe. This is the
+   *  content-change hook (`createLayers` add/remove/clear); a DOM-only change
+   *  that never reaches it is re-enumerated by the next audit anyway, because
+   *  `auditCarrier` never reuses a previous visible-DOM snapshot. */
   invalidate(): void {
     this.geometryTypeCached = false;
+    this.markContentDirty();
   }
 
   /** Release every pane this surface holds, then neutralise its own state so a
@@ -577,6 +595,9 @@ class LayerSurface implements LayerSurfaceContract {
    *  late call into a no-op instead of an error.
    */
   destroy(): void {
+    // Retire first: a `layerremove` fired by the pane release below must
+    // not re-mark this surface through the controller's attribution.
+    this.destroyed = true;
     // Release every lease this surface holds; the element is deleted only
     // for the panes foliplus created as this surface's own carrier (the
     // synthesized base pane and the marker-shadow pane). An adopted or
@@ -827,7 +848,13 @@ class LayerSurface implements LayerSurfaceContract {
    *  here; a color / cluster / native-setter / canvas surface answers from
    *  its declaration and never re-probes.
    *
-   *  Writes in place so the object a reader holds stays valid. */
+   *  Writes in place so the object a reader holds stays valid.
+   *
+   *  A capability that recovers while the style panel is open is not pushed
+   *  into that panel: the panel renders the capability at open time, so the
+   *  recovered row appears when the panel is reopened. A capability-change bus
+   *  event is a separate UI follow-up; the recovery itself does not depend on
+   *  the panel being open. */
   private refreshCapabilities(): void {
     if (!this.treeDerived) return;
     const probe = this.auditProbe();
@@ -860,25 +887,6 @@ class LayerSurface implements LayerSurfaceContract {
     return probe;
   }
 
-  /** The visible-DOM enumeration for the current tree, reused within one
-   *  dirty cycle. This is the expensive half of the carrier invariant; it
-   *  must not be recomputed by a read, only by a content change. */
-  private auditVisibleDom(): HTMLElement[] {
-    const layer = this.layer;
-    if (!layer) return [];
-    if (
-      this.carrierAudit?.layer === layer &&
-      this.carrierAudit.visibleDom !== undefined
-    ) {
-      return this.carrierAudit.visibleDom;
-    }
-    const probe = this.auditProbe();
-    if (!probe) return [];
-    const visibleDom = visibleDomOf(layer);
-    this.carrierAudit = { layer, probe, visibleDom };
-    return visibleDom;
-  }
-
   /** The carrier invariant, checked where it is supposed to hold: after a
    *  reconcile pinned the content. Re-derives the capabilities first, so a
    *  surface that degraded can recover on a later audit, then runs the
@@ -890,7 +898,7 @@ class LayerSurface implements LayerSurfaceContract {
     this.refreshCapabilities();
     if (this.capabilities.opacity !== CAP_TIER.PANE) return;
     try {
-      assertInsideOwnedPanes(this.panes, this.layer!, this.auditVisibleDom());
+      assertInsideOwnedPanes(this.panes, this.layer!, visibleDomOf(this.layer!));
     } catch (error) {
       // Fail closed: the audit found a leaf whose pixels no pane write can
       // reach, so the surface stops promising pane coverage (the UI hides

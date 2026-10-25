@@ -1351,6 +1351,28 @@ describe("LayerSurface.destroy", () => {
     expect(panes[base].style.zIndex).toBe("640");
     expect(panes[`${base}-shadow`].style.zIndex).toBe("639");
   });
+
+  it("ignores a late content mark after destroy", () => {
+    // Teardown can fire map events after the leases are gone. A retired
+    // surface must not resurrect a dirty cycle (or walk a tree it no longer
+    // owns) just because something still holds its reference.
+    const { host } = makeMap();
+    const surface = new LayerSurface(host, {
+      id: "retired",
+      layer: new Group([new Path()]) as unknown as L.Layer,
+    });
+    surface.materialize();
+    surface.destroy();
+
+    expect(surface.retired).toBe(true);
+    surface.markContentDirty();
+    expect(surface.contentDirty).toBe(false);
+    expect(() => {
+      surface.invalidate();
+      surface.materialize();
+    }).not.toThrow();
+    expect(surface.panes).toHaveLength(0);
+  });
 });
 
 describe("LayerSurface.geometryType / invalidate", () => {

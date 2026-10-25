@@ -26,6 +26,7 @@ import {
   countFeatureGeometry,
   ensureLayerAPI,
   findLayer,
+  findNode,
   walkLeaf,
   zFor,
 } from "#core/layer/index.js";
@@ -175,6 +176,7 @@ class LayerController implements LayerAPI {
    *  (register gate, deleteLayer) and via `ui.intentStore` externally. */
   declare intentStore: LayerIntentStore;
   declare onLayerAdd: (event: L.LeafletEvent) => void;
+  declare onLayerRemove: (event: L.LeafletEvent) => void;
   declare getLayerPanes: (layer: L.Layer) => string[];
   private readonly T: (key: string) => string;
   private readonly log: Logger;
@@ -315,49 +317,20 @@ class LayerController implements LayerAPI {
       // registered tree on every unrelated add. The mark is synchronous
       // because the probe path calls `enforceOrder` directly, and a
       // debounce-only trigger would miss it.
-      //
-      // Attribution order: the arriving layer itself (a registered container
-      // or standalone leaf, O(1) by stamp), then any surface whose registered
-      // group holds it (`LayerGroup.hasLayer` is a stamp lookup, so the scan
-      // is O(registry), not O(leaves)), and — only when nothing claims it —
-      // the conservative global sweep that late binding (folium's own globals
-      // landing after this script) still relies on.
-      const arrivingStamp = L.stamp(event.layer);
-      const directSurface = this.surfacesByLayer.get(arrivingStamp);
-      // Write-point index first: createLayers' addLayer recorded which group
-      // owns this leaf, so the surface is O(1) without a membership scan.
-      // (The stamp of the group IS its registered surface's key.)
-      const parentStamp = this.panes.childOwnerOf(event.layer);
-      const indexedSurface =
-        parentStamp !== undefined
-          ? (this.surfacesByLayer.get(parentStamp) ?? null)
-          : null;
-      if (directSurface) {
-        directSurface.markContentDirty();
-      } else if (indexedSurface) {
-        indexedSurface.markContentDirty();
-      } else {
-        let claimed = false;
-        for (const surface of this.surfacesByLayer.values()) {
-          const host = surface.layer as L.LayerGroup | null;
-          if (
-            host &&
-            typeof host.hasLayer === "function" &&
-            host.hasLayer(event.layer)
-          ) {
-            surface.markContentDirty();
-            claimed = true;
-          }
-        }
+      const claimed = this.markOwningSurfaceDirty(event.layer);
+      if (!claimed && this.hasUnresolvedLayers()) {
         // Unattributed: sweep only while the registry still holds unresolved
         // layers (folium's late globals landing after this script) — that is
         // the one case the sweep exists for. Every unrelated control/plugin
         // layeradd afterwards must not rescan every registered tree.
-        if (!claimed && this.hasUnresolvedLayers()) {
-          for (const surface of this.surfaces.values()) surface.markContentDirty();
+        for (const surface of this.surfaces.values()) {
+          if (!surface.retired) surface.markContentDirty();
         }
       }
-      if ((this.hasUnresolvedLayers() || this.surfaces.size > 0) && !this.isEnforcing) {
+      if (
+        (claimed || this.hasUnresolvedLayers() || this.surfaces.size > 0) &&
+        !this.isEnforcing
+      ) {
         this.debouncedEnforce();
       }
       // Late binding: folium emits a layer's JS global after this control's own
@@ -399,6 +372,24 @@ class LayerController implements LayerAPI {
       }
     };
     this.map.on("layeradd", this.onLayerAdd);
+    // Content removals are the counterpart that makes a capability degrade
+    // recoverable: a foreign leaf leaving a registered tree must re-audit the
+    // surface. `includeSelf: false` keeps a layer's own hide/show (map
+    // membership) out of content attribution — its tree did not change.
+    this.onLayerRemove = event => {
+      if (
+        this.isDestroyed ||
+        event.layer === this.map ||
+        event.layer instanceof L.Renderer
+      ) {
+        return;
+      }
+      const claimed = this.markOwningSurfaceDirty(event.layer, {
+        includeSelf: false,
+      });
+      if (claimed && !this.isEnforcing) this.debouncedEnforce();
+    };
+    this.map.on("layerremove", this.onLayerRemove);
     // The annotation manager plans each layer's labels on that layer's own
     // label pane — which is a declared `role: "annotation"` PaneSpec of the
     // layer's surface (see `withAnnotationSpec`), created and z-priced with
@@ -452,6 +443,55 @@ class LayerController implements LayerAPI {
     // LayerController itself implements LayerAPI, so it becomes the map's API.
     ensureLayerAPI(this.map);
     this.map.foliplus!.LayerAPI = this;
+  }
+
+  /** Mark every live surface whose tree owns `layer`.
+   *
+   *  Direct (the registered layer itself) and `createLayers`' write-point
+   *  parent are O(1). A nested group has no parent pointer in Leaflet and no
+   *  index row (the write point only records the direct child of the
+   *  registered group), so it falls back to a depth-guarded membership walk.
+   *  Retired surfaces are skipped: teardown can still emit the events that
+   *  would otherwise walk a layer whose leases are gone.
+   *
+   *  @param includeSelf - true for `layeradd` (the registered layer itself is a
+   *    content arrival), false for `layerremove` (the layer leaving the map is
+   *    a membership change, not a tree change).
+   *  @returns whether at least one live surface was marked. */
+  private markOwningSurfaceDirty(
+    layer: L.Layer,
+    opts: { includeSelf?: boolean } = {},
+  ): boolean {
+    const includeSelf = opts.includeSelf !== false;
+    let claimed = false;
+    const direct = this.surfacesByLayer.get(L.stamp(layer));
+    if (includeSelf && direct && !direct.retired) {
+      direct.markContentDirty();
+      claimed = true;
+    }
+    const parentStamp = this.panes.childOwnerOf(layer);
+    const indexed =
+      parentStamp !== undefined ? this.surfacesByLayer.get(parentStamp) : undefined;
+    if (indexed && indexed !== direct && !indexed.retired) {
+      indexed.markContentDirty();
+      claimed = true;
+    }
+    if (claimed) return true;
+    for (const surface of this.surfacesByLayer.values()) {
+      if (surface.retired) continue;
+      const host = surface.layer as L.LayerGroup | null;
+      if (!host) continue;
+      if (typeof host.hasLayer === "function" && host.hasLayer(layer)) {
+        surface.markContentDirty();
+        claimed = true;
+        continue;
+      }
+      if (findNode(host, node => (node === layer ? true : undefined)) === true) {
+        surface.markContentDirty();
+        claimed = true;
+      }
+    }
+    return claimed;
   }
 
   /** Ordered layers (read-only view; always reflects the registry). */
@@ -1339,6 +1379,7 @@ class LayerController implements LayerAPI {
           // test could never be false.
           () => this.map.off("layeradd", this.onLayerAdd),
         ],
+        ["detach-layerremove", () => this.map.off("layerremove", this.onLayerRemove)],
         ["cancel-enforce", () => this.debouncedEnforce?.cancel()],
         // Flush before destroy: the writes are debounced at 100ms, wide enough
         // for the control to be removed before the timer fires. unbindEvents

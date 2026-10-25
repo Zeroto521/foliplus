@@ -429,9 +429,11 @@ interface LayerSurface {
    *  consulted for ordinary data layers. `invalidate()` drops the cache; the
    *  next call re-probes. */
   geometryType: () => string | null;
-  /** Drop the cached geometry type. Called by the manager whenever the
-   *  layer's content can change (createLayers add/remove/clear, runtime
-   *  layeradd) so the next read re-probes. */
+  /** Drop the cached geometry type and carrier probe, and mark the surface
+   *  content-dirty. Called by the manager whenever the layer's content can
+   *  change (createLayers add/remove/clear, runtime layeradd) so the next
+   *  read re-probes and the next `materialize()` re-pins and re-derives
+   *  capabilities — the hook that lets a degrade recover. */
   invalidate: () => void;
   /** Write the layer's position-based base z onto every pane it paints into,
    *  adding each pane's own draw offset.

@@ -66,6 +66,34 @@ class TileLayer extends GridLayer {
   setZIndex = vi.fn();
 }
 
+/** A container with Leaflet's `eachLayer`/`hasLayer` surface. The fixture's
+ *  `L.layerGroup` is a stub, so carrier recovery tests build the tree
+ *  explicitly and call `manager.onLayerAdd` / `onLayerRemove` directly. */
+class TestGroup {
+  options: Record<string, unknown> = {};
+  children: unknown[];
+  constructor(children: unknown[] = []) {
+    this.children = children;
+  }
+  eachLayer(fn: (child: unknown) => void): void {
+    this.children.forEach(fn);
+  }
+  addLayer(layer: unknown): this {
+    this.children.push(layer);
+    return this;
+  }
+  removeLayer(layer: unknown): this {
+    this.children = this.children.filter(child => child !== layer);
+    return this;
+  }
+  hasLayer(layer: unknown): boolean {
+    return this.children.includes(layer);
+  }
+  getLayers(): unknown[] {
+    return this.children.slice();
+  }
+}
+
 // ===========================================================================
 // bringToFront patch refcounting (merged from guard.test.ts)
 // Runs before the main describe('LayerController') because that block's beforeEach
@@ -2494,6 +2522,7 @@ describe("LayerController", () => {
     expect(m.uiContainer).toBeNull();
     m.destroy();
     expect(map.off).toHaveBeenCalledWith("layeradd", m.onLayerAdd);
+    expect(map.off).toHaveBeenCalledWith("layerremove", m.onLayerRemove);
     expect(m.isDestroyed).toBe(true);
     expect(m.layerRegistry.size).toBe(0);
   });
@@ -2505,6 +2534,14 @@ describe("LayerController", () => {
     const spy = vi.spyOn(m, "enforceOrder");
     m.destroy();
     m.onLayerAdd({ layer: { options: {} } } as any);
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("onLayerRemove is a no-op once the manager is destroyed", () => {
+    const m = new LayerController(map, [{ id: "a", name: "A", group: "overlay" }]);
+    const spy = vi.spyOn(m, "enforceOrder");
+    m.destroy();
+    expect(() => m.onLayerRemove({ layer: { options: {} } } as any)).not.toThrow();
     expect(spy).not.toHaveBeenCalled();
   });
 
@@ -5056,5 +5093,84 @@ describe("destroy finalization", () => {
     expect(map.foliplus.LayerAPI.registerLayer({ id: "x" } as never)).toBeNull();
     expect(manager.isDestroyed).toBe(true);
     warn.mockRestore();
+  });
+});
+
+describe("carrier recovery (controller wiring)", () => {
+  it("recovers opacity after a content removal attributed by layerremove", () => {
+    const { manager, map } = initFixture({ data: [] });
+    map.hasLayer.mockReturnValue(true);
+    const group = new TestGroup([new window.L.Path()]);
+    manager.registerLayer({
+      id: "recover-direct",
+      name: "Recover",
+      layer: group as unknown as L.Layer,
+    });
+    const surface = manager.surfaceFor(manager.layerRegistry.get("recover-direct")!);
+    expect(surface.capabilities.opacity).toBe("pane");
+
+    const foreignEl = document.createElement("div");
+    const foreign = { options: {}, getElement: () => foreignEl };
+    group.addLayer(foreign);
+    manager.onLayerAdd({ layer: foreign } as never);
+    manager.enforceOrder();
+    expect(surface.capabilities.opacity).toBe("none");
+
+    // Leaflet fires `layerremove` while the group still holds the child;
+    // mark first, then let the group finish the removal — the production
+    // order for `LayerGroup.removeLayer`.
+    manager.onLayerRemove({ layer: foreign } as never);
+    group.removeLayer(foreign);
+    manager.enforceOrder();
+    expect(surface.capabilities.opacity).toBe("pane");
+  });
+
+  it("attributes a nested group's content change by walking the tree", () => {
+    const { manager, map } = initFixture({ data: [] });
+    map.hasLayer.mockReturnValue(true);
+    const inner = new TestGroup([new window.L.Path()]);
+    const outer = new TestGroup([inner]);
+    manager.registerLayer({
+      id: "recover-nested",
+      name: "Nested",
+      layer: outer as unknown as L.Layer,
+    });
+    const surface = manager.surfaceFor(manager.layerRegistry.get("recover-nested")!);
+    expect(surface.capabilities.opacity).toBe("pane");
+
+    const foreign = { options: {}, getElement: () => document.createElement("div") };
+    inner.addLayer(foreign);
+    manager.onLayerAdd({ layer: foreign } as never);
+    manager.enforceOrder();
+    expect(surface.capabilities.opacity).toBe("none");
+
+    manager.onLayerRemove({ layer: foreign } as never);
+    inner.removeLayer(foreign);
+    manager.enforceOrder();
+    expect(surface.capabilities.opacity).toBe("pane");
+  });
+
+  it("re-audits a same-layer re-registration without a layeradd", () => {
+    const { manager, map } = initFixture({ data: [] });
+    map.hasLayer.mockReturnValue(true);
+    const group = new TestGroup([new window.L.Path()]);
+    const opts = {
+      id: "recover-rereg",
+      name: "Rereg",
+      layer: group as unknown as L.Layer,
+    };
+    manager.registerLayer(opts);
+    const surface = manager.surfaceFor(manager.layerRegistry.get("recover-rereg")!);
+    expect(surface.capabilities.opacity).toBe("pane");
+
+    const foreign = { options: {}, getElement: () => document.createElement("div") };
+    group.addLayer(foreign);
+    // No layeradd is fired: same-object re-registration is the change signal.
+    manager.registerLayer(opts);
+    expect(surface.capabilities.opacity).toBe("none");
+
+    group.removeLayer(foreign);
+    manager.registerLayer(opts);
+    expect(surface.capabilities.opacity).toBe("pane");
   });
 });
