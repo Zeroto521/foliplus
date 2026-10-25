@@ -2144,7 +2144,7 @@ describe("LayerController", () => {
     expect(canvas.registered()).toBe(false);
   });
 
-  it("an old owner cannot unregister a same-id replacement", () => {
+  it("an old owner cannot unregister a same-id replacement and still ends in its terminal state", () => {
     const { manager } = initFixture({
       data: [{ id: "A", name: "A", group: "overlay" }],
     });
@@ -2157,10 +2157,40 @@ describe("LayerController", () => {
     const second = manager.createCanvas({ id: "A", name: "A2" });
     second.register();
     first.unregister();
+
+    // The registry stays with the replacement, and the lapsed surface ends
+    // in its terminal state: not registered anymore, face hidden — the old
+    // canvas must not keep drawing under the replacement's.
     expect(manager.layerRegistry.has("A")).toBe(true);
+    expect(first.registered()).toBe(false);
+    expect(first.canvas.classList.contains("hidden")).toBe(true);
 
     second.unregister();
     expect(manager.layerRegistry.has("A")).toBe(false);
+  });
+
+  it("a failing pricing pass still saves the arrangement it committed", () => {
+    // commitReorder's local-commit rule: the persisted order agrees with the
+    // live registry whatever happens to the steps that follow the registry
+    // move — a throwing pricing pass must not leave the record lagging.
+    const { manager, ui } = initFixture({
+      data: [
+        { id: "A", name: "A", group: "overlay" },
+        { id: "B", name: "B", group: "overlay" },
+      ],
+    });
+    const changes: string[] = [];
+    ui.events.on(EVENTS.LAYER_CHANGE, p => changes.push(p.id));
+    vi.spyOn(manager, "enforceOrder").mockImplementation(() => {
+      throw new Error("order boom");
+    });
+
+    expect(() => manager.moveLayerUp("B")).toThrow("order boom");
+
+    expect(manager.layers[0].id).toBe("B");
+    expect((manager as any).order.savedOrder?.[0]).toBe("B");
+    // The operation never opened: no announcement for a half-committed move.
+    expect(changes).toEqual([]);
   });
 
   it("a throwing map teardown still converges the retirement", () => {

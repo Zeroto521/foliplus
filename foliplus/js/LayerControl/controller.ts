@@ -813,8 +813,16 @@ class LayerController implements LayerAPI {
    *  order disagreeing with the live one. */
   private commitReorder(id: string, item: LayerInfo, mutate: () => void): boolean {
     mutate();
-    this.enforceOrder();
-    this.saveOrder();
+    // The saved order must agree with the live registry whatever happens to
+    // the pricing pass: `enforceOrder` walks layers and panes and can throw
+    // through a third-party listener, and a persisted record lagging the
+    // in-memory arrangement is exactly what the local-commit rule above
+    // forbids. Saving is what `finally` is for.
+    try {
+      this.enforceOrder();
+    } finally {
+      this.saveOrder();
+    }
     const operation = this.beginOperation();
     if (this.uiContainer && this.ui) {
       operation.emit(EVENTS.LAYER_LIST_REBUILD);

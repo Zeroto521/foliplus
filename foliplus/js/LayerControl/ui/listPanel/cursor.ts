@@ -250,3 +250,4 @@ export {
   resolveActiveIdx,
   syncActiveItem,
 };
+export type { CursorRef };

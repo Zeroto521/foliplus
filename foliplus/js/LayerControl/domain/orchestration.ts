@@ -449,22 +449,12 @@ class LayerOrchestration {
     layerInfo: LayerInfo | null;
     layer: L.Layer | null;
     layerStamp: number | null;
-    mutation: Extract<LayerMutation, { kind: "remove" }> | null;
   } {
-    const existing = this.layerRegistry.get(id);
-    const index = existing ? this.layerRegistry.indexOf(existing) : -1;
     const layerInfo = this.layerRegistry.remove(id);
-    if (!layerInfo) {
-      return { layerInfo: null, layer: null, layerStamp: null, mutation: null };
-    }
+    if (!layerInfo) return { layerInfo: null, layer: null, layerStamp: null };
 
     const layer = this.findLayer(layerInfo);
     const layerStamp = layer ? L.stamp(layer) : null;
-    const mutation: Extract<LayerMutation, { kind: "remove" }> = {
-      kind: "remove",
-      entry: layerInfo,
-      index,
-    };
     if (layerStamp !== null) this.panes.invalidateDiscoveryCache(layerStamp);
     // The layer is off the map first (controller side), so the pane teardown
     // never touches a live layer's renderer or path nodes. Only the pane the
@@ -475,7 +465,7 @@ class LayerOrchestration {
     if (layerStamp !== null) this.surfacesByLayer.delete(layerStamp);
     // Drop child-pane bookkeeping for layers that no longer use them.
     this.panes.sweepChildPanes(this.layers);
-    return { layerInfo, layer, layerStamp, mutation };
+    return { layerInfo, layer, layerStamp };
   }
 
   /** Drop one id's persisted user state (order slot + intent row) without

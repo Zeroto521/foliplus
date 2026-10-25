@@ -266,9 +266,17 @@ class LayerFactory {
       if (!shouldUnregister()) return;
       // Stale-owner guard: a same-id replacement now owns the registry entry;
       // this surface's lease has lapsed, and removing by bare id would delete
-      // the replacement.
+      // the replacement. The registry stays untouched, but the surface still
+      // ends in its terminal state: its registration is over (it can never
+      // unregister now) and its face is tidied — otherwise the retired
+      // canvas keeps drawing under the replacement's.
       const current = this.deps.registry?.().get?.(opts.id);
-      if (current && registeredEntry && current !== registeredEntry) return;
+      if (current && registeredEntry && current !== registeredEntry) {
+        registered = false;
+        registeredEntry = null;
+        preUnregister();
+        return;
+      }
       registered = false;
       registeredEntry = null;
       preUnregister();

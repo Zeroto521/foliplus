@@ -25,16 +25,16 @@ const registryIdx = (ui: LayerUI, id: string | null): number => {
   return id ? ui.c.layers.findIndex(l => l.id === id) : -1;
 };
 
-/** Current registry index of the armed drag, or -1 when the session went
- *  stale. The gesture is armed with the entry itself, not its position: an
- *  HTML5 drag spans events and timers, and any reorder in between would
+/** Current registry index of the armed drag's entry, or -1 when the session
+ *  went stale. The gesture is armed with the entry itself, not its position:
+ *  an HTML5 drag spans events and timers, and any reorder in between would
  *  silently re-point a saved index at a neighbor. Resolving through the
  *  entry also retires the session on identity loss — an unregister or a
  *  same-id replacement makes `indexOf` miss, because the registry now holds
- *  a different object under the same id. Callers gate on `dragEntry` first;
- *  this helper answers for an armed session only. */
-const dragIdx = (ui: LayerUI): number =>
-  ui.c.layerRegistry.indexOf(ui.listPanel.dragEntry!);
+ *  a different object under the same id. The entry comes in already gated by
+ *  the caller (`dragEntry` checked non-null); no assertion lives here. */
+const dragIdx = (ui: LayerUI, entry: LayerInfo): number =>
+  ui.c.layerRegistry.indexOf(entry);
 
 const handleDragStart = (ui: LayerUI, event: DragEvent) => {
   // A press that began on a floating row panel is not a reorder gesture: the
@@ -70,8 +70,7 @@ const showReorderBlockedHint = (ui: LayerUI) => {
 };
 
 const handleDragOver = (ui: LayerUI, event: DragEvent) => {
-  if (!ui.listPanel.dragEntry) return;
-  const armed = dragIdx(ui);
+  const armed = ui.listPanel.dragEntry ? dragIdx(ui, ui.listPanel.dragEntry) : -1;
   if (armed < 0) {
     // The armed entry retired mid-gesture (an unregister or a same-id
     // replacement): the session is over now. The source row may already be
@@ -120,7 +119,8 @@ const handleDrop = (ui: LayerUI, event: DragEvent) => {
   const target = (event.target as HTMLElement).closest(
     CONST.SEL.LAYER_ITEM,
   ) as HTMLElement | null;
-  if (!ui.listPanel.dragEntry) return;
+  const armedEntry = ui.listPanel.dragEntry;
+  if (!armedEntry) return;
   if (!target) return;
 
   // The session is validated at every use, not just at the end: the entry
@@ -128,7 +128,7 @@ const handleDrop = (ui: LayerUI, event: DragEvent) => {
   // unregister, or a replacement under the same id, retires the whole
   // session here — entry, hover chrome and all — instead of moving
   // whatever now sits at the old position.
-  const armed = dragIdx(ui);
+  const armed = dragIdx(ui, armedEntry);
   if (armed < 0) {
     clearDragState(ui);
     return;
@@ -149,9 +149,8 @@ const handleDrop = (ui: LayerUI, event: DragEvent) => {
   // a drag is no longer invisible to event consumers. A terminal consumer
   // can throw out of it after the commit landed; the gesture state comes
   // down regardless, or the panel would keep claiming a drag in flight.
-  const entry = ui.listPanel.dragEntry;
   try {
-    ui.c.reorderLayer(entry.id, targetId!);
+    ui.c.reorderLayer(armedEntry.id, targetId!);
   } finally {
     clearDragState(ui);
   }
