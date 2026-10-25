@@ -379,8 +379,11 @@ class HeatmapManager {
       styleSetters: this.styleSetters,
       // Filter capability (stage 2 pilot): this manager is the filter's
       // owner; the LayerControl panel reads and writes through these.
-      filterProvider: () => this.getFilterModel(),
-      filterSetter: filter => this.setFilter(filter),
+      // Bound methods: the capability functions are the manager methods
+      // themselves, so the two call sites stay covered and there is no
+      // per-manager closure pair in the bundle.
+      filterProvider: this.getFilterModel.bind(this),
+      filterSetter: this.setFilter.bind(this),
       // Snapshot taken at construction — Reset restores this, never the
       // live toggle or the localStorage-persisted config.
       styleDefaultsProvider: () => ({

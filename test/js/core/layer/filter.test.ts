@@ -12,7 +12,26 @@
 // `{ SnapshotPoint, LayerFilter }`, so this file exercises them directly
 // without a browser.
 import { describe, expect, it } from "vitest";
-import { type LayerFilter, matches, select } from "#core/layer/filter.js";
+import {
+  type LayerFilter,
+  buildFilterModel,
+  dropFilterForField,
+  dropStaleFilter,
+  filterKey,
+  filterStep,
+  filtersEqual,
+  matches,
+  normalizeFilter,
+  parsePersistedFilter,
+  parsePersistedFilters,
+  pickFilterField,
+  restoreFilters,
+  revalidateStoredFilter,
+  select,
+  selectIndices,
+  serializedFilters,
+  storeFilter,
+} from "#core/layer/filter.js";
 import type { LayerSnapshot, SnapshotPoint } from "#core/layer/type.js";
 
 const makePt = (fields: Record<string, number> = {}): SnapshotPoint => ({
@@ -300,5 +319,304 @@ describe("non-finite exclusion", () => {
         }),
       ).toBe(false);
     }
+  });
+});
+
+// ── Owner helpers (persisted schema, model builder, row/cache helpers) ──
+// These are the pure functions the Heatmap component externalises; pinned here
+// so the component bundle stays logic-free and the persisted schema cannot drift.
+describe("filterStep / filterKey", () => {
+  it("derives the slider step from the data precision, capped at 6", () => {
+    expect(filterStep([10, 69])).toBe(1);
+    expect(filterStep([0.5, 2.25])).toBe(0.01);
+    expect(filterStep([0.123456789, 1])).toBe(0.000001);
+  });
+
+  it("a degenerate or non-finite span falls back to 1", () => {
+    expect(filterStep([5, 5])).toBe(1);
+    expect(filterStep([10, 1])).toBe(1);
+    expect(filterStep([Number.NaN, 10])).toBe(1);
+  });
+
+  it("keys an AST by its JSON shape (undefined is the empty key)", () => {
+    const atom = { kind: "atom" as const, field: "c", op: "eq" as const, value: 1 };
+    expect(filterKey(atom)).toBe(JSON.stringify(atom));
+    expect(filterKey(undefined)).toBe("");
+  });
+});
+
+describe("normalizeFilter", () => {
+  const snap: LayerSnapshot = {
+    points: [makePt({ c: 10 }), makePt({ c: 30 })],
+    numericFields: ["c"],
+    ranges: { c: [10, 30] },
+  };
+
+  it("drops an unknown field and a missing snapshot", () => {
+    expect(
+      normalizeFilter({ kind: "atom", field: "zzz", op: "eq", value: 1 }, snap),
+    ).toBeUndefined();
+    expect(
+      normalizeFilter({ kind: "atom", field: "c", op: "eq", value: 1 }, null),
+    ).toBeUndefined();
+    expect(normalizeFilter(undefined, snap)).toBeUndefined();
+  });
+
+  it("passes a logical tree through untouched", () => {
+    const tree = { kind: "and" as const, children: [] };
+    expect(normalizeFilter(tree, snap)).toBe(tree);
+  });
+
+  it("passes a non-between op through untouched", () => {
+    const eq = { kind: "atom" as const, field: "c", op: "eq" as const, value: 20 };
+    expect(normalizeFilter(eq, snap)).toBe(eq);
+  });
+
+  it("clamps a between range into the extent and collapses a full range", () => {
+    expect(
+      normalizeFilter(
+        { kind: "atom", field: "c", op: "between", range: [0, 20] },
+        snap,
+      ),
+    ).toEqual({ kind: "atom", field: "c", op: "between", range: [10, 20] });
+    expect(
+      normalizeFilter(
+        { kind: "atom", field: "c", op: "between", range: [10, 30] },
+        snap,
+      ),
+    ).toBeUndefined();
+  });
+});
+
+describe("selectIndices / filtersEqual / dropStaleFilter", () => {
+  const snap: LayerSnapshot = {
+    points: [makePt({ c: 10 }), makePt({ c: 20 }), makePt({ c: 30 })],
+    numericFields: ["c"],
+    ranges: { c: [10, 30] },
+  };
+
+  it("includes every index without a filter/snapshot and the matching subset otherwise", () => {
+    expect(Array.from(selectIndices(snap, undefined, 3))).toEqual([0, 1, 2]);
+    expect(Array.from(selectIndices(null, undefined, 2))).toEqual([0, 1]);
+    expect(
+      Array.from(
+        selectIndices(
+          snap,
+          { kind: "atom", field: "c", op: "between", range: [10, 20] },
+          3,
+        ),
+      ),
+    ).toEqual([0, 1]);
+  });
+
+  it("filtersEqual compares JSON shapes (undefined = no filter)", () => {
+    expect(filtersEqual(undefined, undefined)).toBe(true);
+    expect(filtersEqual(undefined, { kind: "and", children: [] })).toBe(false);
+    expect(
+      filtersEqual(
+        { kind: "atom", field: "c", op: "eq", value: 1 },
+        { kind: "atom", field: "c", op: "eq", value: 1 },
+      ),
+    ).toBe(true);
+  });
+
+  it("dropStaleFilter keeps a filter bound to the field and drops the rest", () => {
+    const atom = { kind: "atom" as const, field: "c", op: "eq" as const, value: 1 };
+    expect(dropStaleFilter(atom, "c")).toBe(atom);
+    expect(dropStaleFilter(atom, "d")).toBeUndefined();
+    const tree = { kind: "and" as const, children: [] };
+    expect(dropStaleFilter(tree, "d")).toBe(tree);
+    expect(dropStaleFilter(undefined, "c")).toBeUndefined();
+  });
+});
+
+describe("pickFilterField / buildFilterModel", () => {
+  const snap: LayerSnapshot = {
+    points: [makePt({ a: 1, b: 2 })],
+    numericFields: ["a", "b"],
+    ranges: { a: [1, 1], b: [2, 2] },
+  };
+
+  it("prefers the owner field, then the auto key, then the first numeric key", () => {
+    expect(pickFilterField(snap, "b", "a")).toBe("b");
+    expect(pickFilterField(snap, "", "b")).toBe("b");
+    expect(pickFilterField(snap, "", null)).toBe("a");
+    expect(pickFilterField(null, "", null)).toBeUndefined();
+  });
+
+  it("returns null for no filterable data", () => {
+    expect(buildFilterModel(null, undefined, "s", "", null)).toBeNull();
+    expect(
+      buildFilterModel(
+        { points: [], numericFields: [], ranges: {} },
+        undefined,
+        "s",
+        "",
+        null,
+      ),
+    ).toBeNull();
+  });
+
+  it("falls back to [0, 0] when the resolved field has no extent", () => {
+    const noExtent: LayerSnapshot = {
+      points: [makePt({ a: 1 })],
+      numericFields: ["a"],
+      ranges: {},
+    };
+    expect(buildFilterModel(noExtent, undefined, "s", "a", null)!.range).toEqual([
+      0, 0,
+    ]);
+  });
+
+  it("composes the panel model from the snapshot", () => {
+    const filter = {
+      kind: "atom" as const,
+      field: "a",
+      op: "between" as const,
+      range: [1, 1] as [number, number],
+    };
+    expect(buildFilterModel(snap, filter, "src", "a", null)).toEqual({
+      sourceId: "src",
+      field: "a",
+      range: [1, 1],
+      filter,
+      kept: 1,
+      total: 1,
+      step: 1,
+    });
+  });
+});
+
+describe("parsePersistedFilter / parsePersistedFilters", () => {
+  it("accepts every atom op and rejects malformed payloads", () => {
+    expect(
+      parsePersistedFilter({ kind: "atom", field: "c", op: "between", range: [1, 2] }),
+    ).toEqual({
+      kind: "atom",
+      field: "c",
+      op: "between",
+      range: [1, 2],
+    });
+    expect(
+      parsePersistedFilter({ kind: "atom", field: "c", op: "eq", value: 2 }),
+    ).toEqual({
+      kind: "atom",
+      field: "c",
+      op: "eq",
+      value: 2,
+    });
+    expect(
+      parsePersistedFilter({ kind: "atom", field: "c", op: "ne", value: 2 }),
+    ).toEqual({
+      kind: "atom",
+      field: "c",
+      op: "ne",
+      value: 2,
+    });
+    expect(
+      parsePersistedFilter({ kind: "atom", field: "c", op: "in", values: [1, 2] }),
+    ).toEqual({
+      kind: "atom",
+      field: "c",
+      op: "in",
+      values: [1, 2],
+    });
+    for (const bad of [
+      null,
+      5,
+      [],
+      { kind: "atom" },
+      { kind: "atom", field: "", op: "eq", value: 1 },
+      { kind: "atom", field: "c", op: "nope" },
+      { kind: "atom", field: "c", op: "between", range: [1] },
+      { kind: "atom", field: "c", op: "between", range: [2, 1] },
+      { kind: "atom", field: "c", op: "between", range: ["1", 2] },
+      { kind: "atom", field: "c", op: "eq" },
+      { kind: "atom", field: "c", op: "in" },
+      { kind: "atom", field: "c", op: "in", values: [] },
+      { kind: "atom", field: "c", op: "in", values: ["1"] },
+      { kind: "nope" },
+    ]) {
+      expect(parsePersistedFilter(bad)).toBeUndefined();
+    }
+  });
+
+  it("rebuilds and/or trees, collapsing a single surviving child", () => {
+    const child = { kind: "atom", field: "c", op: "eq", value: 1 };
+    expect(
+      parsePersistedFilter({ kind: "and", children: [child, { kind: "bad" }] }),
+    ).toEqual(child);
+    expect(parsePersistedFilter({ kind: "or", children: [child, child] })).toEqual({
+      kind: "or",
+      children: [child, child],
+    });
+    expect(parsePersistedFilter({ kind: "and", children: [] })).toBeUndefined();
+    expect(parsePersistedFilter({ kind: "and", children: [42] })).toBeUndefined();
+    expect(parsePersistedFilter({ kind: "or" })).toBeUndefined();
+  });
+
+  it("drops invalid entries from a persisted map", () => {
+    const ok = { kind: "atom", field: "c", op: "eq", value: 1 };
+    expect(parsePersistedFilters({ a: ok, b: { kind: "bad" } })).toEqual({ a: ok });
+    expect(parsePersistedFilters({ a: { kind: "bad" } })).toBeUndefined();
+    expect(parsePersistedFilters({ "": ok, b: ok })).toEqual({ b: ok });
+    expect(parsePersistedFilters(null)).toBeUndefined();
+    expect(parsePersistedFilters([])).toBeUndefined();
+  });
+});
+
+describe("store / revalidate / serialize / restore", () => {
+  const atom = {
+    kind: "atom" as const,
+    field: "c",
+    op: "between" as const,
+    range: [1, 2] as [number, number],
+  };
+  const snap: LayerSnapshot = {
+    points: [makePt({ c: 1 }), makePt({ c: 2 })],
+    numericFields: ["c"],
+    ranges: { c: [1, 2] },
+  };
+
+  it("storeFilter writes, compares, and deletes undefined", () => {
+    const filters = new Map<string, LayerFilter>();
+    expect(storeFilter(filters, "s", atom)).toBe(true);
+    expect(storeFilter(filters, "s", atom)).toBe(false);
+    expect(storeFilter(filters, "s", undefined)).toBe(true);
+    expect(filters.size).toBe(0);
+  });
+
+  it("dropFilterForField drops only a filter bound to another field", () => {
+    const filters = new Map<string, LayerFilter>([["s", atom]]);
+    expect(dropFilterForField(filters, "s", "c")).toBe(false);
+    expect(dropFilterForField(filters, "s", "d")).toBe(true);
+    expect(filters.size).toBe(0);
+  });
+
+  it("revalidateStoredFilter clamps or drops against the snapshot", () => {
+    const filters = new Map<string, LayerFilter>([["s", atom]]);
+    // The stored full-range atom collapses to "no filter" on revalidation.
+    expect(revalidateStoredFilter(filters, "s", snap)).toBe(true);
+    expect(filters.size).toBe(0);
+    filters.set("s", { kind: "atom", field: "c", op: "between", range: [0, 1.5] });
+    expect(revalidateStoredFilter(filters, "s", snap)).toBe(true);
+    expect(filters.get("s")).toEqual({
+      kind: "atom",
+      field: "c",
+      op: "between",
+      range: [1, 1.5],
+    });
+    expect(revalidateStoredFilter(filters, "missing", snap)).toBe(false);
+  });
+
+  it("serializes only a non-empty map and restores it", () => {
+    expect(serializedFilters(new Map())).toBeUndefined();
+    expect(serializedFilters(new Map([["s", atom]]))).toEqual({ s: atom });
+    const target = new Map<string, LayerFilter>([["old", atom]]);
+    restoreFilters(target, undefined);
+    expect(target.size).toBe(0);
+    restoreFilters(target, { s: atom, bad: undefined });
+    expect(target.size).toBe(1);
+    expect(target.get("s")).toEqual(atom);
   });
 });

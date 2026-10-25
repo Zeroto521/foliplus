@@ -505,6 +505,49 @@ describe("LayerUI filter panel (stage-2 pilot)", () => {
       spy.mockRestore();
     });
 
+    it("stops the write refresh when the setter closed the panel", () => {
+      registerPoints();
+      const item = findItem(ui, "pnt");
+      const info = ui.c.layerRegistry.get("pnt") as any;
+      const setter = info.filterSetter;
+      info.filterSetter = (filter: any) => {
+        setter(filter);
+        ui.closeFilterPanel(false);
+      };
+      ui.openFilterPanel(item);
+
+      const host = item.querySelector(`.${CONST.CLASSES.FILTER_SLIDER}`) as HTMLElement;
+      const track = stubTrack(host);
+      track.dispatchEvent(pointer("pointerdown", 25));
+      track.dispatchEvent(pointer("pointermove", 25));
+      track.dispatchEvent(pointer("pointerup", 25));
+
+      expect(ui.overlayPanel.activeFilterPanel).toBeNull();
+    });
+
+    it("closes instead of writing a retired owner (capability revoked mid-write)", () => {
+      registerPoints();
+      const item = findItem(ui, "pnt");
+      const info = ui.c.layerRegistry.get("pnt") as any;
+      // The owner revokes its own capability while the panel writes: the
+      // write hook must re-resolve and close, not paint over a dead owner.
+      const setter = info.filterSetter;
+      info.filterSetter = (filter: any) => {
+        setter(filter);
+        info.filterProvider = null;
+      };
+      ui.openFilterPanel(item);
+
+      const host = item.querySelector(`.${CONST.CLASSES.FILTER_SLIDER}`) as HTMLElement;
+      const track = stubTrack(host);
+      track.dispatchEvent(pointer("pointerdown", 25));
+      track.dispatchEvent(pointer("pointermove", 25));
+      track.dispatchEvent(pointer("pointerup", 25));
+
+      expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).toBeNull();
+      expect(ui.overlayPanel.activeFilterPanel).toBeNull();
+    });
+
     it("the Clear footer writes undefined and pulls the slider back to the extent", () => {
       const { owner } = registerPoints();
       const item = findItem(ui, "pnt");
@@ -953,6 +996,56 @@ describe("LayerUI filter panel — result, Clear and row state", () => {
     // Unfiltered tooltip also uses the short type word.
     expect(cleared.title).toBe("0 · Point");
     spy.mockRestore();
+  });
+
+  it("closes when the component-owned row is cleared (LAYER_DELETED)", () => {
+    registerPoints();
+    const item = findItem(ui, "pnt");
+    ui.openFilterPanel(item);
+    expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).not.toBeNull();
+
+    // Heatmap-shaped rows clear through LAYER_DELETED (before the registry
+    // prunes the entry); the id match, not identity, must close the panel.
+    ui.events.publish(EVENTS.LAYER_DELETED, { id: "pnt" });
+
+    expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).toBeNull();
+    expect(ui.overlayPanel.activeFilterPanel).toBeNull();
+  });
+
+  it("closes when the row is replaced or removed under the same id", () => {
+    registerPoints();
+    const item = findItem(ui, "pnt");
+    ui.openFilterPanel(item);
+    const panel = () => item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`);
+
+    // Same entry + same id: a non-identity signal keeps the panel open.
+    ui.events.publish(EVENTS.LAYER_ITEM_UPDATED, { id: "pnt" });
+    expect(panel()).not.toBeNull();
+
+    // Re-registration replaces the entry object: the panel must close.
+    manager.registerLayer({
+      id: "pnt",
+      name: "Points",
+      group: "overlay",
+      layer: { options: {}, eachLayer: vi.fn() } as unknown as L.Layer,
+    });
+    ui.events.publish(EVENTS.LAYER_ITEM_REFRESHED, { id: "pnt" });
+    expect(panel()).toBeNull();
+    expect(ui.overlayPanel.activeFilterPanel).toBeNull();
+  });
+
+  it("closes when the row loses its capability while open", () => {
+    registerPoints();
+    const item = findItem(ui, "pnt");
+    ui.openFilterPanel(item);
+
+    // Same registry entry, capability revoked in place (no identity event):
+    // the LAYER_FILTER_CHANGE refresh must re-resolve and close.
+    (ui.c.layerRegistry.get("pnt") as any).filterProvider = null;
+    ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, { id: "pnt" });
+
+    expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).toBeNull();
+    expect(ui.overlayPanel.activeFilterPanel).toBeNull();
   });
 
   it("paints the funnel on the owner's source row, not its capability row", () => {

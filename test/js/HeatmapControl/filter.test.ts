@@ -683,3 +683,14 @@ describe("HeatmapControl filter field follows the aggregation field", () => {
     expect(m.layerFilters.size).toBe(1);
   });
 });
+
+describe("HeatmapManager aggregateData onEmpty default", () => {
+  it("falls back to clearHeatmapCanvas when no onEmpty is passed", () => {
+    const m = makeManager();
+    setupWithPoints(m, []);
+    const clear = vi.spyOn(m, "clearHeatmapCanvas").mockImplementation(() => {});
+    expect(m.aggregateData([], 5)).toBeNull();
+    expect(clear).toHaveBeenCalled();
+    clear.mockRestore();
+  });
+});

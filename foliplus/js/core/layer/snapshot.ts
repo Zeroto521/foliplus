@@ -107,6 +107,9 @@ const summarizePoints = (
   return { numericFields, ranges };
 };
 
+/* v8 ignore next 5 -- a no-op logger for the optional-log callers; the
+   warn path is covered through a real logger, the other levels are
+   interface completeness and never invoked by the snapshot builders. */
 const NO_LOGGER: Logger = {
   warn: () => undefined,
   error: () => undefined,
