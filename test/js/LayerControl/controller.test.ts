@@ -23,7 +23,7 @@ import {
   GROUP,
   Z_INDEX,
 } from "#foliplus/core/layer/const.js";
-import { ANNOTATION_Z_OFFSET } from "#foliplus/core/layer/index.js";
+import * as coreLayer from "#foliplus/core/layer/index.js";
 import { getLayerAlpha } from "#common/canvasAlpha.js";
 import * as Storage from "#common/storage.js";
 import {
@@ -298,7 +298,9 @@ describe("LayerController", () => {
       .paneNames.find(name => name.startsWith(CONST.ANNOTATION_PANE_PREFIX));
     expect(annName).toBeDefined();
     const slotZ = manager.computeZIndex(manager.layers.indexOf(li), li.group);
-    expect(panes.get(annName!)!.style.zIndex).toBe(String(slotZ + ANNOTATION_Z_OFFSET));
+    expect(panes.get(annName!)!.style.zIndex).toBe(
+      String(slotZ + coreLayer.ANNOTATION_Z_OFFSET),
+    );
   });
 
   it("unregisterLayer keeps the label config so a later flush cannot erase it", () => {
@@ -5483,5 +5485,102 @@ describe("carrier recovery (controller wiring)", () => {
     group.removeLayer(foreign);
     manager.registerLayer(opts);
     expect(surface.capabilities.opacity).toBe("pane");
+  });
+
+  it("re-audits after invalidateType without a manual enforce", async () => {
+    const { manager, map } = initFixture({ data: [] });
+    map.hasLayer.mockReturnValue(true);
+    const group = new TestGroup([new window.L.Path()]);
+    manager.registerLayer({
+      id: "invalidate-only",
+      name: "Inv",
+      layer: group as unknown as L.Layer,
+    });
+    const surface = manager.surfaceFor(manager.layerRegistry.get("invalidate-only")!);
+    expect(surface.capabilities.opacity).toBe("pane");
+
+    const foreignEl = document.createElement("div");
+    const foreign = { options: {}, getElement: () => foreignEl };
+    group.addLayer(foreign);
+    manager.invalidateType("invalidate-only");
+    await new Promise(resolve => setTimeout(resolve, ENFORCE_ORDER_DEBOUNCE_MS + 50));
+    expect(surface.capabilities.opacity).toBe("none");
+
+    group.removeLayer(foreign);
+    manager.invalidateType("invalidate-only");
+    await new Promise(resolve => setTimeout(resolve, ENFORCE_ORDER_DEBOUNCE_MS + 50));
+    expect(surface.capabilities.opacity).toBe("pane");
+  });
+
+  it("does not mark a surface for its own hide/show", () => {
+    const { manager, map } = initFixture({ data: [] });
+    map.hasLayer.mockReturnValue(true);
+    const group = new TestGroup([new window.L.Path()]);
+    manager.registerLayer({
+      id: "own-membership",
+      name: "Own",
+      layer: group as unknown as L.Layer,
+    });
+    const surface = manager.surfaceFor(manager.layerRegistry.get("own-membership")!);
+    const mark = vi.spyOn(surface, "markContentDirty");
+    try {
+      manager.onLayerRemove({ layer: group } as never);
+      expect(mark).not.toHaveBeenCalled();
+    } finally {
+      mark.mockRestore();
+    }
+  });
+
+  it("reuses the reverse ownership index for a nested leaf", () => {
+    const { manager, map } = initFixture({ data: [] });
+    map.hasLayer.mockReturnValue(true);
+    const inner = new TestGroup([new window.L.Path()]);
+    const outer = new TestGroup([inner]);
+    manager.registerLayer({
+      id: "reverse-index",
+      name: "Cache",
+      layer: outer as unknown as L.Layer,
+    });
+    const findSpy = vi.spyOn(coreLayer, "findNode");
+    try {
+      const foreign = { options: {}, getElement: () => document.createElement("div") };
+      inner.addLayer(foreign);
+      manager.onLayerAdd({ layer: foreign } as never);
+      const first = findSpy.mock.calls.length;
+      expect(first).toBeGreaterThan(0);
+
+      // A repeated event for the same leaf is served from the reverse index.
+      manager.onLayerAdd({ layer: foreign } as never);
+      expect(findSpy.mock.calls.length).toBe(first);
+
+      manager.onLayerRemove({ layer: foreign } as never);
+      expect(findSpy.mock.calls.length).toBe(first);
+    } finally {
+      findSpy.mockRestore();
+    }
+  });
+
+  it("drops a reverse-index entry whose surface retired", () => {
+    const { manager, map } = initFixture({ data: [] });
+    map.hasLayer.mockReturnValue(true);
+    const inner = new TestGroup([new window.L.Path()]);
+    const outer = new TestGroup([inner]);
+    manager.registerLayer({
+      id: "retired-cache",
+      name: "Retired",
+      layer: outer as unknown as L.Layer,
+    });
+    const foreign = { options: {}, getElement: () => document.createElement("div") };
+    inner.addLayer(foreign);
+    manager.onLayerAdd({ layer: foreign } as never);
+    manager.unregisterLayer("retired-cache");
+
+    expect(() => manager.onLayerRemove({ layer: foreign } as never)).not.toThrow();
+  });
+
+  it("does not schedule an enforce after destroy", () => {
+    const { manager } = initFixture({ data: [] });
+    manager.destroy();
+    expect(() => manager.invalidateType("gone")).not.toThrow();
   });
 });

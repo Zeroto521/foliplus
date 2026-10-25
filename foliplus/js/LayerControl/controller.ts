@@ -165,6 +165,14 @@ class LayerController implements LayerAPI {
   /** The same surfaces keyed by the live layer's stamp, for the lookups that
    *  start from a layer rather than from a registry entry. */
   declare private surfacesByLayer: Map<number, LayerSurface>;
+  /** Reverse ownership for leaves the write-point index cannot answer:
+   *  nested groups and third-party trees. The value is the surface the leaf
+   *  was last attributed to; a positive hit skips the all-surface tree walk
+   *  on repeated add/remove events. The attribution path overwrites it on a
+   *  move and deletes it on removal, so a stale entry cannot outlive its
+   *  membership. WeakMap keys follow the layer object, not an `L.stamp` row.
+   */
+  private readonly attributedOwner = new WeakMap<L.Layer, LayerSurface>();
 
   declare factory: LayerFactory;
   declare ui: LayerUI | null;
@@ -331,7 +339,7 @@ class LayerController implements LayerAPI {
         // the one case the sweep exists for. Every unrelated control/plugin
         // layeradd afterwards must not rescan every registered tree.
         for (const surface of this.surfaces.values()) {
-          if (!surface.retired) surface.markContentDirty();
+          surface.markContentDirty();
         }
       }
       if (
@@ -470,6 +478,7 @@ class LayerController implements LayerAPI {
     opts: { includeSelf?: boolean } = {},
   ): boolean {
     const includeSelf = opts.includeSelf !== false;
+    const removing = !includeSelf;
     let claimed = false;
     const direct = this.surfacesByLayer.get(L.stamp(layer));
     if (includeSelf && direct && !direct.retired) {
@@ -481,23 +490,40 @@ class LayerController implements LayerAPI {
       parentStamp !== undefined ? this.surfacesByLayer.get(parentStamp) : undefined;
     if (indexed && indexed !== direct && !indexed.retired) {
       indexed.markContentDirty();
+      this.attributedOwner.set(layer, indexed);
       claimed = true;
     }
     if (claimed) return true;
+    // Reverse-ownership hit: a leaf already attributed to a surface skips
+    // the all-surface walk. `includeSelf: false` still excludes the
+    // surface's own layer — a hide/show is map membership, not content.
+    const remembered = this.attributedOwner.get(layer);
+    if (remembered) {
+      if (remembered.retired) {
+        this.attributedOwner.delete(layer);
+      } else if (includeSelf || remembered.layer !== layer) {
+        remembered.markContentDirty();
+        if (removing) this.attributedOwner.delete(layer);
+        return true;
+      }
+    }
     for (const surface of this.surfacesByLayer.values()) {
       if (surface.retired) continue;
-      const host = surface.layer as L.LayerGroup | null;
-      if (!host) continue;
+      if (!includeSelf && surface.layer === layer) continue;
+      const host = surface.layer as L.LayerGroup;
       if (typeof host.hasLayer === "function" && host.hasLayer(layer)) {
         surface.markContentDirty();
+        this.attributedOwner.set(layer, surface);
         claimed = true;
         continue;
       }
       if (findNode(host, node => (node === layer ? true : undefined)) === true) {
         surface.markContentDirty();
+        this.attributedOwner.set(layer, surface);
         claimed = true;
       }
     }
+    if (removing) this.attributedOwner.delete(layer);
     return claimed;
   }
 
@@ -580,6 +606,12 @@ class LayerController implements LayerAPI {
     this.surfaces.get(id)?.invalidate();
     const layerInfo = this.layerRegistry.get(id);
     if (layerInfo) layerInfo.type = null;
+    // `invalidate()` marks the surface content-dirty. Coalesce an ordering
+    // pass so a DOM-only change (no layeradd/layerremove) re-pins and
+    // re-audits without requiring the caller to drive `enforceOrder`.
+    // The debounced pass coalesces calls; a destroyed manager must not schedule.
+    if (this.isDestroyed) return;
+    this.debouncedEnforce();
   }
 
   /**
