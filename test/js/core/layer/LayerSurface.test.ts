@@ -201,6 +201,12 @@ describe("LayerSurface pane resolution", () => {
     expect(surface.paneNames).toEqual(["graph", "foliplus-annotation-a"]);
     expect(surface.panes[0].role).toBe("sub");
     expect(surface.panes[1].role).toBe("annotation");
+    // Defensive assertion, not a bug-fix regression: the pane set the
+    // constructor builds always books the declared base first, so no
+    // reachable declaration yields "panes non-empty without a content pane".
+    // The assertion pins the invariant the carrier is *stated* in (a content
+    // pane, never a role), so a future booking order that drops the content
+    // pane fails here instead of advertising an opacity write it cannot make.
     expect(surface.capabilities.opacity).toBe("pane");
   });
 

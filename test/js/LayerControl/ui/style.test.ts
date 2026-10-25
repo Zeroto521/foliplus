@@ -4690,3 +4690,84 @@ it("a zoomend skips the row sync once the zoom-range row is detached", () => {
 
   expect(() => ui.onZoomEnd?.()).not.toThrow();
 });
+
+// ── Capability live refresh ─────────────────────────────────────
+// The style panel gates its rows on the surface capability projection when it
+// is built, so a recovery must reach a panel that is already open. The
+// controller announces projection changes at the tail of every ordering pass
+// (LAYER_CAPABILITY_CHANGED) and the open drawer re-renders from the fresh
+// projection.
+
+describe("style panel live capability refresh", () => {
+  /** A container whose children can change under the surface, with Leaflet's
+   *  membership shape (eachLayer / addLayer / removeLayer / hasLayer). */
+  const mutableGroup = (children: unknown[] = []) => {
+    const group = {
+      options: {} as Record<string, unknown>,
+      children,
+      eachLayer(fn: (child: unknown) => void) {
+        for (const child of group.children) fn(child);
+      },
+      addLayer(layer: unknown) {
+        group.children.push(layer);
+        return group;
+      },
+      removeLayer(layer: unknown) {
+        group.children = group.children.filter(child => child !== layer);
+        return group;
+      },
+      hasLayer(layer: unknown) {
+        return group.children.includes(layer);
+      },
+    };
+    return group as unknown as L.Layer & { children: unknown[] };
+  };
+
+  it("re-renders an open panel when the capability recovers", () => {
+    const { manager, ui } = initFixture({ data: [] });
+    const group = mutableGroup([new window.L.Path()]);
+    manager.registerLayer({
+      id: "recover1",
+      name: "Recover",
+      group: "overlay",
+      layer: group,
+    });
+    // Seed the capability snapshot with the healthy projection (first sight is
+    // recorded silently) before the degrade, so the recovery is a real diff.
+    manager.enforceOrder();
+    const surface = manager.surfaceFor(manager.layerRegistry.get("recover1")!);
+    expect(surface.capabilities.opacity).toBe("pane");
+    const item = findItem(ui, "recover1");
+
+    // A leaf no migrator can relocate: a pane opacity write would fade part of
+    // the layer and miss the rest, so the axis must degrade.
+    const foreign = { options: {}, getElement: () => document.createElement("div") };
+    group.addLayer(foreign);
+    manager.onLayerAdd({ layer: foreign } as never);
+    manager.enforceOrder();
+    expect(surface.capabilities.opacity).toBe("none");
+
+    ui.openStylePanel("recover1");
+    expect(ui.overlayPanel.stylePanelLayerId).toBe("recover1");
+    expect(item.querySelector(`.${CONST.CLASSES.STYLE_OPACITY_TRACK}`)).toBeNull();
+
+    // The foreign leaf leaves. A pass re-derives the projection; the panel that
+    // is open right now must show the recovered row without a close/reopen.
+    manager.onLayerRemove({ layer: foreign } as never);
+    group.removeLayer(foreign);
+    manager.enforceOrder();
+
+    expect(surface.capabilities.opacity).toBe("pane");
+    expect(ui.overlayPanel.stylePanelLayerId).toBe("recover1");
+    expect(item.querySelector(`.${CONST.CLASSES.STYLE_OPACITY_TRACK}`)).not.toBeNull();
+
+    // The other direction too: a degrade while the panel is open drops the
+    // row instead of leaving a control that would write into a foreign tree.
+    group.addLayer(foreign);
+    manager.onLayerAdd({ layer: foreign } as never);
+    manager.enforceOrder();
+    expect(surface.capabilities.opacity).toBe("none");
+    expect(ui.overlayPanel.stylePanelLayerId).toBe("recover1");
+    expect(item.querySelector(`.${CONST.CLASSES.STYLE_OPACITY_TRACK}`)).toBeNull();
+  });
+});

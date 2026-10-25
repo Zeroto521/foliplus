@@ -58,7 +58,12 @@ import { closeMoreMenu } from "./overlayPanel/menu.js";
 import { finishRename } from "./overlayPanel/rename.js";
 import { loadPersistedState } from "./state.js";
 import { applyBorderToLayer } from "./style/border.js";
-import { closeStylePanel, invalidateFields, replayFillState } from "./style/index.js";
+import {
+  closeStylePanel,
+  invalidateFields,
+  openStylePanel,
+  replayFillState,
+} from "./style/index.js";
 import { replaySizeIntent } from "./style/size.js";
 import { FACE, dropStyleDimApplies, scheduleStyleDimApply } from "./style/styleBag.js";
 import type { LayerUI } from "./surface.js";
@@ -338,6 +343,17 @@ const bindLayerEvents = (ui: LayerUI): void => {
     subscribe(EVENTS.LAYER_ITEM_REFRESHED, (payload: { id: string }) => {
       const layerInfo = registry.get(payload.id);
       if (layerInfo) initLayerItem(ui, layerInfo);
+    }),
+    // A capability is a projection of the live tree, and the style panel
+    // gates its rows on it at OPEN time (opacity, fill, border, size). A
+    // recovery — the foreign leaf that forced the degrade leaves — must
+    // reach the panel that is already open, or the user has to close and
+    // reopen it to see the row come back. Re-render that one panel; every
+    // other open overlay is untouched.
+    subscribe(EVENTS.LAYER_CAPABILITY_CHANGED, (payload: { id: string }) => {
+      if (ui.overlayPanel.stylePanelLayerId === payload.id) {
+        openStylePanel(ui, payload.id);
+      }
     }),
     subscribe(EVENTS.LAYER_ITEM_REMOVED, (payload: { id: string }) => {
       invalidateFields(ui, payload.id);

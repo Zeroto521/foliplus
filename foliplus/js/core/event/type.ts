@@ -39,6 +39,7 @@ interface EventPayloadMap {
   [EVENTS.LAYER_ITEM_ADDED]: { id: string };
   [EVENTS.LAYER_ITEM_UPDATED]: { id: string };
   [EVENTS.LAYER_ITEM_REFRESHED]: { id: string };
+  [EVENTS.LAYER_CAPABILITY_CHANGED]: { id: string };
   [EVENTS.LAYER_ITEM_REMOVED]: { id: string };
   [EVENTS.LAYER_GROUP_COUNT_CHANGED]: { group: string };
   [EVENTS.LAYER_LIST_REBUILD]: void;

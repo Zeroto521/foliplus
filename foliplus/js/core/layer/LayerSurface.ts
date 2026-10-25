@@ -850,11 +850,11 @@ class LayerSurface implements LayerSurfaceContract {
    *
    *  Writes in place so the object a reader holds stays valid.
    *
-   *  A capability that recovers while the style panel is open is not pushed
-   *  into that panel: the panel renders the capability at open time, so the
-   *  recovered row appears when the panel is reopened. A capability-change bus
-   *  event is a separate UI follow-up; the recovery itself does not depend on
-   *  the panel being open. */
+   *  Recovery is pushed, not deferred: the controller diffs these slots at the
+   *  end of every ordering pass and announces the ids that moved
+   *  (LAYER_CAPABILITY_CHANGED), so a style panel that is already open
+   *  re-renders the rows the recovered tree now supports. Without that
+   *  announcement the recovery would silently wait for a reopen. */
   private refreshCapabilities(): void {
     if (!this.treeDerived) return;
     // `treeDerived` is only true for a pane-carried layer (detectCapabilities
@@ -871,6 +871,14 @@ class LayerSurface implements LayerSurfaceContract {
     // or the declared base — not "any booked pane": an annotation/shadow-only
     // set has nothing an opacity write can reach. Role alone is not enough:
     // a caller may declare the base pane with a non-base role.
+    //
+    // Defensive invariant, not a reachable false-positive fix: every
+    // constructor branch books its content pane before any other spec, so
+    // "panes non-empty without the content pane" is not constructible from
+    // the current declaration surface. Keep the name check anyway — it states
+    // the carrier contract in the terms the contract is written in (a content
+    // pane, not a role), and a future branch that appends a spec first would
+    // degrade here instead of advertising a write it cannot make.
     const contentPaneName = this.pinTarget ?? this.surfaceDecl.paneName;
     const hasContentPane = this.panes.some(pane => pane.name === contentPaneName);
     const paneCarrier = hasContentPane && probe.migratable !== "mixed";
