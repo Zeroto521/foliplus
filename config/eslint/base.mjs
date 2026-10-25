@@ -83,6 +83,7 @@ export default [
       "script/**/*.cjs",
       "script/**/*.js",
       "config/**/*.mjs",
+      "eslint.config.js",
     ],
     plugins: { import: importPlugin },
     settings: {
@@ -355,7 +356,12 @@ export default [
   // script/ joins here too: its own inline exports were the reason this rule
   // had a source-only scope that the build tooling was exempted from.
   {
-    files: ["foliplus/js/**/*.ts", "script/**/*.{js,cjs,mjs}", "config/**/*.mjs"],
+    files: [
+      "foliplus/js/**/*.ts",
+      "script/**/*.{js,cjs,mjs}",
+      "config/**/*.mjs",
+      "eslint.config.js",
+    ],
     rules: {
       // `const fn = () => {}` only — no `export function` / `function foo()`.
       "func-style": ["error", "expression", { allowArrowFunctions: true }],

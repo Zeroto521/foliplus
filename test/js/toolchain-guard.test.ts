@@ -150,13 +150,19 @@ describe("lint config is itself linted", () => {
     expect(pkg.scripts["format:check"]).toContain("config/**/*.mjs");
   });
 
-  it("a linted config file is claimed by a rule block, not just the recommended set", () => {
-    // Without a `files:` block the file only inherits
+  it("every linted config file is claimed by a rule block", () => {
+    // Without a `files:` block a file only inherits
     // `tseslint.configs.recommended` (23 rules); a block is what makes the
-    // project's own rules apply (60+).
+    // project's own rules apply (60+). The check runs over every config file
+    // the lint script claims, so the next one added cannot fall back to the
+    // recommended set unnoticed.
     const blocks = fileGlobs();
-    const reachesConfig = blocks.some(globs => globs.includes("config/**/*.mjs"));
-    expect(reachesConfig).toBe(true);
+    const claimed = (file: string) => blocks.some(globs => globs.includes(file));
+    for (const file of ["config/**/*.mjs", "eslint.config.js"]) {
+      expect(claimed(file), `${file} is linted but no files: block claims it`).toBe(
+        true,
+      );
+    }
   });
 });
 

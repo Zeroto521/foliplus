@@ -100,7 +100,7 @@ repos:
         name: style-check
         entry: python script/check/style_check.py
         language: python
-        files: (^foliplus/js/.*\.ts$|^foliplus/css/.*\.css$|^script/.*\.(mjs|cjs|js)$|^config/.*\.mjs$)
+        files: (^foliplus/js/.*\.ts$|^foliplus/css/.*\.css$|^script/.*\.(mjs|cjs|js)$|^config/.*\.mjs$|^eslint\.config\.js$)
 
       # Dead barrel/type.ts export gate: detects barrel re-exports and type
       # exports with zero consumers repo-wide. Builds a (file, symbol)
