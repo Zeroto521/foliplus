@@ -126,8 +126,6 @@ interface FixtureOpts {
   /** Declare a CONTENT pane name as the leaf's shadowPane while the shadow
    *  element actually rides in the per-layer shadow pane. */
   misnamedShadowPane?: boolean;
-  /** Leave the shadow <img> without a src (AwesomeMarkers-style icon). */
-  emptyShadowSrc?: boolean;
   /** LayerAPI exists but carries no `panes` host (the lightweight stub). */
   withoutPaneHost?: boolean;
   /** No LayerAPI at all. */
@@ -165,7 +163,6 @@ function makeFixture(opts: FixtureOpts = {}): Fixture {
   }
 
   const shadow = pinBox(img("shadow.png"), 90, 110, 40, 40);
-  if (opts.emptyShadowSrc) shadow.removeAttribute("src");
   if (opts.shadowExcluded) shadow.setAttribute("data-foliplus-export", "exclude");
   if (opts.displayNoneShadow) shadow.style.display = "none";
 
@@ -364,34 +361,11 @@ describe("collectLayerShadows", () => {
     ]);
   });
 
-  it("rejects a shadow image with no src and reports it", () => {
-    // AwesomeMarkers-style folium.Icon: the shadow element exists but never
-    // declares a source.  It cannot be rasterised, so admission rejects it and
-    // the caller gets told instead of a silently shadowless export.
-    const fixture = makeFixture({ emptyShadowSrc: true });
-    install(fixture);
-    const onMissingSource = vi.fn();
-    const paneNames = new Set<string>();
-    expect(
-      fixture.renderer.collectLayerShadows(fixture.layer, paneNames, onMissingSource),
-    ).toEqual([]);
-    expect(onMissingSource).toHaveBeenCalledTimes(1);
-    expect([...paneNames]).toEqual([]);
-  });
-
-  it("tolerates a missing-source shadow without a reporter", () => {
-    // The reporter is optional at the module level; a direct caller must still
-    // get an empty collection rather than a throw.
-    const fixture = makeFixture({ emptyShadowSrc: true });
-    install(fixture);
-    expect(fixture.renderer.collectLayerShadows(fixture.layer, new Set())).toEqual([]);
-  });
-
-  it("records no pane when the map exposes no pane host", () => {
-    // A map without getPanes: the root is still drawn, but there is no pane to
-    // exclude — the answer must be null, not the declared shadowPane name.
+  it("records no pane for a shadow detached from every pane", () => {
+    // Defensive branch: a shadow outside the pane tree is still drawn (its leaf
+    // owns it), but no pane can be excluded for it.
     const fixture = makeFixture();
-    (fixture.map as any).getPanes = undefined;
+    fixture.layer._shadow.remove();
     install(fixture);
     const paneNames = new Set<string>();
     const roots = fixture.renderer.collectLayerShadows(fixture.layer, paneNames);
@@ -631,92 +605,6 @@ describe("render — marker shadows", () => {
     await runRender(fixture);
     expect(fixture.loads.filter(src => src.includes("icon.png"))).toHaveLength(1);
     expect(fixture.loads.filter(src => src.includes("shadow.png"))).toHaveLength(1);
-  });
-
-  it("warns once for a shadow image that declares no src", async () => {
-    const fixture = makeFixture({ emptyShadowSrc: true });
-    install(fixture);
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-
-    await runRender(fixture);
-
-    expect(warn).toHaveBeenCalledWith(
-      expect.stringContaining("marker shadow left out of the export"),
-    );
-    expect(fixture.loads.some(src => src.includes("shadow"))).toBe(false);
-    expect(fixture.loads.some(src => src.includes("icon.png"))).toBe(true);
-  });
-
-  it("warns once when several shadows declare no src", async () => {
-    // Two layers with an empty-src shadow each: the first reports, the second
-    // is deduped — one diagnostic per export, not one per marker.
-    const container = document.createElement("div");
-    container.getBoundingClientRect = containerRect;
-    const contentA = document.createElement("div");
-    const contentB = document.createElement("div");
-    const shadowPane = document.createElement("div");
-    const iconA = pinBox(img("icon-a.png"), 100, 100, 20, 20);
-    const iconB = pinBox(img("icon-b.png"), 300, 300, 20, 20);
-    const shadowA = document.createElement("img");
-    const shadowB = document.createElement("img");
-    contentA.appendChild(iconA);
-    contentB.appendChild(iconB);
-    shadowPane.append(shadowA, shadowB);
-    const layerA = {
-      options: { pane: "a", shadowPane: "shared-shadow" },
-      _shadow: shadowA,
-    };
-    const layerB = {
-      options: { pane: "b", shadowPane: "shared-shadow" },
-      _shadow: shadowB,
-    };
-    const panes: Record<string, HTMLElement> = {
-      a: contentA,
-      b: contentB,
-      "shared-shadow": shadowPane,
-    };
-    const map: any = {
-      options: { crs: {} },
-      getContainer: () => container,
-      getZoom: () => 2,
-      getCenter: () => ({ lat: 0, lng: 0 }),
-      getPane: (name: string) => panes[name] ?? null,
-      getPanes: () => panes,
-      foliplus: {
-        LayerAPI: {
-          layers: [
-            { id: "a", visible: true, layer: layerA },
-            { id: "b", visible: true, layer: layerB },
-          ],
-          intentVisible: () => true,
-          getLayerPanes: (l: any) => (l === layerA ? ["a", "shared-shadow"] : ["b"]),
-        },
-      },
-    };
-    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(
-      makeExportCtx() as any,
-    );
-    vi.spyOn(UTIL, "loadImage").mockImplementation((async (src: string) => {
-      return { src } as unknown as HTMLImageElement;
-    }) as any);
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    Object.defineProperty(globalThis, "map", {
-      configurable: true,
-      writable: true,
-      value: map,
-    });
-
-    await new ExportRenderer(map).render(
-      { left: 0, top: 0, width: 1000, height: 1000 },
-      1,
-      undefined,
-      undefined,
-    );
-
-    expect(warn).toHaveBeenCalledTimes(1);
-    expect(warn).toHaveBeenCalledWith(
-      expect.stringContaining("marker shadow left out of the export"),
-    );
   });
 });
 

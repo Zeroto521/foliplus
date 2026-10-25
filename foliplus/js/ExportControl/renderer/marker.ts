@@ -76,7 +76,7 @@ const collectPaneRoots = (paneNames: readonly string[]): HTMLElement[] => {
  *  whole content pane from every layer's walk.  The element's parent chain is
  *  the same fact this channel already trusts when it reads `layerShadow(leaf)`. */
 const paneNameOf = (el: HTMLElement): string | null => {
-  const panes = (map.getPanes?.() ?? {}) as Record<string, HTMLElement | undefined>;
+  const panes = map.getPanes() as Record<string, HTMLElement | undefined>;
   for (let node = el.parentElement; node; node = node.parentElement) {
     for (const name of Object.keys(panes)) {
       if (panes[name] === node) return name;
@@ -84,13 +84,6 @@ const paneNameOf = (el: HTMLElement): string | null => {
   }
   return null;
 };
-
-/** Whether a shadow image can ever be rasterised: it must declare a source.
- *  AwesomeMarkers-style `folium.Icon` leaves an `<img src="">` node in the
- *  leaf's `_shadow`; the draw pass would skip that silently, so it is rejected
- *  at admission and reported to the caller instead. */
-const hasShadowSource = (el: HTMLElement): boolean =>
-  !(el instanceof HTMLImageElement) || !!el.getAttribute("src");
 
 /** Collect one layer's marker-shadow roots — each leaf's own `_shadow` element
  *  — and record the pane names those shadows *actually* ride in.
@@ -112,20 +105,11 @@ const hasShadowSource = (el: HTMLElement): boolean =>
  *  the shadow's real parent pane, added only for a shadow that was actually
  *  admitted: an excluded or hidden shadow cannot be mistaken for content
  *  anyway, because the content sweep runs the same admission filter. */
-const collectLayerShadows = (
-  layer: L.Layer,
-  paneNames: Set<string>,
-  onMissingSource?: (el: HTMLImageElement) => void,
-): HTMLElement[] => {
+const collectLayerShadows = (layer: L.Layer, paneNames: Set<string>): HTMLElement[] => {
   const roots: HTMLElement[] = [];
   walkLeaf(layer, leaf => {
     const shadowEl = layerShadow(leaf);
     if (!shadowEl) return;
-    if (!hasShadowSource(shadowEl)) {
-      // hasShadowSource only rejects an <img> without a source.
-      onMissingSource?.(shadowEl as HTMLImageElement);
-      return;
-    }
     if (!isAdmittedRoot(shadowEl)) return;
     roots.push(shadowEl);
     const paneName = paneNameOf(shadowEl);

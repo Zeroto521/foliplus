@@ -55,17 +55,6 @@ const warnShadowLoadFailure = (src: string, error: unknown): void => {
   );
 };
 
-/** Report a shadow element that cannot be drawn because it declares no image
- *  source.  An AwesomeMarkers-style `folium.Icon` leaves an `<img src="">`
- *  shadow on the leaf; without this line the export is silently shadowless
- *  with nothing to grep for. */
-const warnShadowWithoutSource = (): void => {
-  log.warn(
-    "marker shadow left out of the export: the shadow <img> has no src " +
-      "(an icon whose shadowUrl is empty cannot be rasterised)",
-  );
-};
-
 /** Wait one animation frame so the browser commits layout the caller just
  *  forced.  `session.doRender` hides the export chrome and reads
  *  `offsetHeight` in the same task that calls `render()`; a rect read before
@@ -308,12 +297,6 @@ class ExportRenderer {
       // transient box and paints the shadow off its icon.
       await nextFrame();
 
-      let warnedMissingShadowSrc = false;
-      const reportMissingShadowSrc = (): void => {
-        if (warnedMissingShadowSrc) return;
-        warnedMissingShadowSrc = true;
-        warnShadowWithoutSource();
-      };
       const shadowPaneNames = new Set<string>();
       const shadowRootsByLayer = new Map<LayerInfo, HTMLElement[]>();
       for (const layerInfo of layers) {
@@ -322,9 +305,7 @@ class ExportRenderer {
         // so the draw loop reads its own key instead of carrying a fallback.
         shadowRootsByLayer.set(
           layerInfo,
-          layer
-            ? this.collectLayerShadows(layer, shadowPaneNames, reportMissingShadowSrc)
-            : [],
+          layer ? this.collectLayerShadows(layer, shadowPaneNames) : [],
         );
       }
       const drawnShadowRoots = new Set<HTMLElement>();
@@ -449,15 +430,9 @@ class ExportRenderer {
   }
 
   /** Collect this layer's marker-shadow roots and record the pane names they
-   *  actually ride in (the export-wide exclusion set).  `onMissingSource`
-   *  reports a shadow element that declares no image source instead of
-   *  collecting a root the draw pass would skip silently. */
-  collectLayerShadows(
-    layer: L.Layer,
-    paneNames: Set<string>,
-    onMissingSource?: (el: HTMLImageElement) => void,
-  ): HTMLElement[] {
-    return collectLayerShadows(layer, paneNames, onMissingSource);
+   *  actually ride in (the export-wide exclusion set). */
+  collectLayerShadows(layer: L.Layer, paneNames: Set<string>): HTMLElement[] {
+    return collectLayerShadows(layer, paneNames);
   }
 
   /** Collect exportable roots from a set of panes — the marker-pass
