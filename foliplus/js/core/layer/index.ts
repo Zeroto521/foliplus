@@ -27,6 +27,7 @@ export { LayerInfoRegistry } from "./LayerInfoRegistry.js";
 // is the `implements` target those members are checked against). Exporting both
 // from this barrel would need one of them renamed for no gain.
 export { LayerSurface } from "./LayerSurface.js";
+export { PaneLedger } from "./PaneLedger.js";
 export { PaneManager } from "./PaneManager.js";
 export { SurfaceIndex } from "./SurfaceIndex.js";
 export {
