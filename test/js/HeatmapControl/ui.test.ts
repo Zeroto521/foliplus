@@ -189,7 +189,7 @@ describe("bindControls — change handlers", () => {
 
   it("field change emits LAYER_STYLE_CHANGE so the drawer refreshes", () => {
     const { ctrl, m } = setup();
-    const emitSpy = vi.spyOn(m.events, "emitSettled");
+    const emitSpy = vi.spyOn(m.events, "publish");
     ctrl.fieldSelect.value = "sales";
     fire(ctrl.fieldSelect, "change");
     expect(emitSpy).toHaveBeenCalledWith("foliplus:layer:style-change", {
@@ -701,6 +701,59 @@ describe("selectScheme — CONFIG.schemes edge cases", () => {
     ctrl.selectScheme?.(0);
     expect(m.scheme).toBe("Reds");
     expect(save).not.toHaveBeenCalled();
+  });
+});
+
+// A scheme restored from storage (persistence accepts any string — it is a
+// chroma palette name) or a CONFIG.color_scheme outside CONFIG.schemes used to
+// reach createSchemePicker's RangeError and abort the whole control build.
+// The panel clamps to the first offered scheme instead.
+describe("scheme validation — restored scheme no longer offered", () => {
+  it("clamps a manager scheme that config.schemes does not offer", () => {
+    const m = makeManager();
+    m.scheme = "Viridis"; // storage written under an older `schemes` kwarg
+    const ctrl = makeCtrl(m, makeConfig({ schemes: ["Reds", "Blues"] }));
+    const panel = document.createElement("div");
+    expect(() => bindControls(ctrl, panel)).not.toThrow();
+    expect(m.scheme).toBe("Reds");
+    expect(ctrl.schemeSelectHidden.value).toBe("Reds");
+    expect(ctrl.schemeBar.title).toBe("Reds");
+    expect(ctrl.schemePicker).not.toBeNull();
+  });
+
+  it("resetPanel clamps config.color_scheme that is not in config.schemes", () => {
+    const { ctrl, m } = setup(
+      makeConfig({ color_scheme: "Viridis", schemes: ["Reds", "Blues"] }),
+    );
+    expect(() => resetPanel(ctrl)).not.toThrow();
+    expect(m.scheme).toBe("Reds");
+    expect(ctrl.schemeSelectHidden.value).toBe("Reds");
+    expect(ctrl.schemeBar.title).toBe("Reds");
+  });
+
+  it("clamps when config.schemes is empty (any value is allowed)", () => {
+    const { ctrl, m } = setup(makeConfig({ schemes: [] }));
+    expect(ctrl.schemePicker).not.toBeNull();
+    expect(m.scheme).toBe("Reds");
+  });
+});
+
+// The picker factory carries no locale table; the panel's translator must name
+// the trigger. Regression for the hardcoded English "Colour scheme" label.
+describe("scheme trigger accessible name", () => {
+  it("uses the panel translator for aria-label", () => {
+    const { ctrl } = setup();
+    expect(ctrl.schemeBar.getAttribute("aria-label")).toBe(ctrl.T("scheme"));
+  });
+
+  it("resolves the localized label from the locale tables", () => {
+    const config = makeConfig({
+      locale_code: "zh",
+      locale_tables: { zh: { "HeatmapControl.scheme": "色带" } },
+    });
+    const { ctrl } = setup(config);
+    expect(ctrl.T("scheme")).toBe("色带");
+    expect(ctrl.schemeBar.getAttribute("aria-label")).toBe("色带");
   });
 });
 

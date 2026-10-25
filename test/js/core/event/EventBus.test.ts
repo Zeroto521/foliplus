@@ -1,14 +1,25 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   EVENTS,
+  EVENT_POLICY,
   EventBus,
   SettledOperation,
   ensureEvents,
 } from "#foliplus/core/event/index.js";
 
-/** The private in-flight token map, read the way the token-leak tests do. */
-const supersedingSize = (bus: EventBus): number =>
-  (bus as unknown as { superseding: Map<string, object> }).superseding.size;
+/** Total in-flight supersede tokens across every event entry (token-leak
+ *  checks). Tokens now live per event, so the leak surface is the union of
+ *  every entry's in-flight map. */
+const supersedingSize = (bus: EventBus): number => {
+  const entries = (
+    bus as unknown as {
+      entries: Map<string, { inFlight: Map<string, object> }>;
+    }
+  ).entries;
+  let n = 0;
+  for (const entry of entries.values()) n += entry.inFlight.size;
+  return n;
+};
 
 describe("EventBus", () => {
   it("subscribes and receives emitted events", () => {
@@ -149,9 +160,7 @@ describe("EventBus", () => {
     expect(() => bus.emitSuperseding("evt", "layer-a", { value: "v" })).toThrow(
       "consumer boom",
     );
-    expect(
-      (bus as unknown as { superseding: Map<string, object> }).superseding.size,
-    ).toBe(0);
+    expect(supersedingSize(bus)).toBe(0);
   });
 
   it("the outer finally leaves the inner supersede token to its owner", () => {
@@ -166,9 +175,7 @@ describe("EventBus", () => {
       }
     });
     bus.emitSuperseding("evt", key, { value: "old" });
-    expect(
-      (bus as unknown as { superseding: Map<string, object> }).superseding.size,
-    ).toBe(0);
+    expect(supersedingSize(bus)).toBe(0);
   });
 
   it("emitSupersedingSettled keeps delivering after a throwing handler", () => {
@@ -360,16 +367,16 @@ describe("EventBus", () => {
     const bus = new EventBus();
     // Simulate a delivery interrupted mid-flight (a handler that threw would
     // now release its own token, so park one directly for the clear test).
-    (bus as unknown as { superseding: Map<string, object> }).superseding.set(
-      "evt\u0000layer-a",
-      {},
-    );
+    const entries = (
+      bus as unknown as {
+        entries: Map<string, { inFlight: Map<string, object> }>;
+      }
+    ).entries;
     bus.on("evt", vi.fn());
+    entries.get("evt")!.inFlight.set("layer-a", {});
     bus.clear();
     expect(bus.eventCount).toBe(0);
-    expect(
-      (bus as unknown as { superseding: Map<string, object> }).superseding.size,
-    ).toBe(0);
+    expect(supersedingSize(bus)).toBe(0);
   });
 
   it("eventCount tracks the number of events with listeners", () => {
@@ -380,9 +387,170 @@ describe("EventBus", () => {
     bus.off("a", vi.fn()); // unknown handler — no change
     expect(bus.eventCount).toBe(2);
   });
+
+  it("internal listeners run before external ones regardless of subscription order", () => {
+    // A third party subscribing early must never read half-cleared state
+    // before the owner handled the event.
+    const bus = new EventBus();
+    const seen: string[] = [];
+    bus.on("evt", () => seen.push("external"));
+    bus.on("evt", () => seen.push("internal-1"), "internal");
+    bus.on("evt", () => seen.push("internal-2"), "internal");
+    bus.emit("evt");
+    expect(seen).toEqual(["internal-1", "internal-2", "external"]);
+  });
+
+  it("duplicate subscriptions collapse to one", () => {
+    const bus = new EventBus();
+    const handler = vi.fn();
+    const u1 = bus.on("evt", handler);
+    const u2 = bus.on("evt", handler);
+    bus.emit("evt");
+    expect(handler).toHaveBeenCalledTimes(1);
+    u1();
+    u2();
+    bus.emit("evt");
+    expect(handler).toHaveBeenCalledTimes(1);
+  });
+
+  it("notification failures are reported to the per-map onError hook", () => {
+    const onError = vi.fn();
+    const map = { foliplus: { onError } } as never;
+    const bus = new EventBus(map);
+    bus.on(EVENTS.MODE_CHANGE, () => {
+      throw new Error("mode boom");
+    });
+
+    expect(() =>
+      bus.publish(EVENTS.MODE_CHANGE, {
+        component: "MeasureControl",
+        mode: "distance",
+      }),
+    ).not.toThrow();
+
+    expect(onError).toHaveBeenCalledWith(EVENTS.MODE_CHANGE, expect.any(Error));
+  });
+
+  it("a throwing onError hook cannot take the bus down", () => {
+    const map = {
+      foliplus: {
+        onError: vi.fn(() => {
+          throw new Error("hook boom");
+        }),
+      },
+    } as never;
+    const bus = new EventBus(map);
+    bus.on(EVENTS.MODE_CHANGE, () => {
+      throw new Error("mode boom");
+    });
+
+    expect(() =>
+      bus.publish(EVENTS.MODE_CHANGE, {
+        component: "MeasureControl",
+        mode: "distance",
+      }),
+    ).not.toThrow();
+  });
+
+  it("resolves a notification policy after the entry is removed mid-delivery", () => {
+    // A subscriber that unsubscribes itself (the only listener, so the entry
+    // is dropped) and then throws must still be resolved by the *declared*
+    // policy — consumeByPolicy falls back to the table, not to a stale entry.
+    const bus = new EventBus();
+    let unsubscribe: () => void = () => {};
+    unsubscribe = bus.on(EVENTS.MODE_CHANGE, () => {
+      unsubscribe();
+      throw new Error("mode boom");
+    });
+
+    expect(() =>
+      bus.publish(EVENTS.MODE_CHANGE, {
+        component: "MeasureControl",
+        mode: "distance",
+      }),
+    ).not.toThrow();
+  });
+
+  it("SettledOperation cannot bypass a notification policy", () => {
+    // The same event must never get two exception contracts: publishing
+    // MODE_CHANGE through an operation logs it, it does not raise it.
+    const bus = new EventBus();
+    bus.on(EVENTS.MODE_CHANGE, () => {
+      throw new Error("mode boom");
+    });
+    const operation = new SettledOperation(bus);
+    operation.emit(EVENTS.MODE_CHANGE, {
+      component: "MeasureControl",
+      mode: "distance",
+    });
+    expect(() => operation.throwIfFailed()).not.toThrow();
+  });
+
+  it("emit rejects a notification event (fail-fast is the wrong contract)", () => {
+    const bus = new EventBus();
+    bus.on(EVENTS.MODE_CHANGE, vi.fn());
+    expect(() =>
+      bus.emit(EVENTS.MODE_CHANGE, { component: "MeasureControl", mode: "distance" }),
+    ).toThrow(/notification/);
+  });
+
+  it("emitSuperseding rejects a notification event", () => {
+    const bus = new EventBus();
+    bus.on(EVENTS.MODE_CHANGE, vi.fn());
+    expect(() =>
+      bus.emitSuperseding(EVENTS.MODE_CHANGE, "layer-a", {
+        component: "MeasureControl",
+        mode: "distance",
+      }),
+    ).toThrow(/notification/);
+  });
+
+  it("absorb resolves by policy when the event is given", () => {
+    const bus = new EventBus();
+    // Notification event -> consumed, not raised.
+    const notification = new SettledOperation(bus);
+    notification.absorb({ error: new Error("n") }, EVENTS.MODE_CHANGE);
+    expect(() => notification.throwIfFailed()).not.toThrow();
+    // Terminal event -> kept and raised.
+    const terminal = new SettledOperation(bus);
+    terminal.absorb({ error: new Error("t") }, EVENTS.LAYER_CHANGE);
+    expect(() => terminal.throwIfFailed()).toThrow("t");
+    // No event -> kept unconditionally (the projection contract).
+    const bare = new SettledOperation(bus);
+    bare.absorb({ error: new Error("x") });
+    expect(() => bare.throwIfFailed()).toThrow("x");
+  });
+
+  it("re-on with a different phase upgrades the registration", () => {
+    const bus = new EventBus();
+    const seen: string[] = [];
+    const fn = () => seen.push("fn");
+    bus.on("evt", () => seen.push("ext"));
+    bus.on("evt", fn, "external");
+    bus.on("evt", fn, "internal"); // upgrade — must not stay behind the observer
+    bus.emit("evt");
+    expect(seen).toEqual(["fn", "ext"]);
+  });
+
+  it("listenerCount counts every listener across events", () => {
+    const bus = new EventBus();
+    bus.on("a", vi.fn());
+    bus.on("a", vi.fn());
+    bus.on("b", vi.fn());
+    expect(bus.listenerCount).toBe(3);
+    expect(bus.eventCount).toBe(2);
+  });
 });
 
 describe("event constants", () => {
+  it("declares a policy for every event", () => {
+    const declared = new Set(Object.keys(EVENT_POLICY));
+    for (const name of Object.values(EVENTS)) {
+      expect(declared.has(name)).toBe(true);
+    }
+    expect(declared.size).toBe(Object.keys(EVENTS).length);
+  });
+
   it("all constants are distinct non-empty strings", () => {
     expect(typeof EVENTS.LAYER_CHANGE).toBe("string");
     expect(typeof EVENTS.LAYER_REMOVED).toBe("string");
@@ -397,6 +565,14 @@ describe("event constants", () => {
     expect(
       new Set([EVENTS.LAYER_CHANGE, EVENTS.LAYER_REMOVED, EVENTS.MODE_CHANGE]),
     ).toHaveLength(3);
+  });
+
+  it("keeps the OVERLAY_CLEAR wire name stable", () => {
+    // Only OVERLAY_CLEAR is a downstream wire contract — external consumers
+    // subscribe by literal. The other EVENTS names are internal semantic
+    // channels with no literal-stability promise. Renaming this one would
+    // break consumers silently; this pin is the only thing that makes it loud.
+    expect(EVENTS.OVERLAY_CLEAR).toBe("foliplus:layer:overlay-clear");
   });
 });
 

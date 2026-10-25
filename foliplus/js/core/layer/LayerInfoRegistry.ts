@@ -9,6 +9,16 @@ import { deriveLayerKind, findLayer } from "./util.js";
 // Mutating methods blocked on the read-only view.
 const log = createLogger("LayerInfoRegistry");
 
+/** Reject a position the array mutators cannot honour. `max` is inclusive:
+ *  `insertAt` may append at `items.length`, `reorder` may not. Without this
+ *  the splice coerces (`"1"`, `2.5`, `NaN`) or writes past the end, and the
+ *  ordering backstop would be the thing corrupting the order. */
+const assertIndex = (method: string, idx: number, max: number): void => {
+  if (!Number.isInteger(idx) || idx < 0 || idx > max) {
+    throw new Error(log.msg(`${method}: index ${String(idx)} is outside 0..${max}`));
+  }
+};
+
 // Mutating methods blocked on the read-only view.
 const MUTATING_METHODS = new Set([
   "push",
@@ -57,7 +67,7 @@ const carrierFor = (
  * Ordered layer info list with O(1) id index.
  *
  * **Public API (read-only, safe for external callers):**
- *   `size` / `at(i)` / `get(id)` / `has(id)` / `firstBaseIdx`
+ *   `size` / `at(i)` / `get(id)` / `has(id)` / `indexOfId(id)` / `firstBaseIdx`
  *
  * **Internal (Manager only, not for external use):**
  *   `createLayerInfo` / `upsert` / `prepend` / `insertAt` / `remove`
@@ -73,12 +83,17 @@ const carrierFor = (
 class LayerInfoRegistry {
   items: LayerInfo[];
   byId: Map<string, LayerInfo>;
+  /** id → live array position. Maintained by every structural mutator so the
+   *  drag hot path resolves a row without an O(N) scan per event. */
+  private indexById: Map<string, number>;
   _firstBaseIdx: number;
   view: LayerInfo[];
 
   constructor(data: LayerInfo[] = [], map?: L.Map) {
     this.items = data.map(l => this.createLayerInfo(l, undefined, map));
     this.byId = new Map(this.items.map(l => [l.id, l]));
+    this.indexById = new Map();
+    this.reindex();
     this._firstBaseIdx = -1;
     this.refreshFirstBaseIdx();
     this.view = this.createReadonlyView();
@@ -245,37 +260,89 @@ class LayerInfoRegistry {
     return this.items.indexOf(layerInfo);
   }
 
+  /** Live array position of an id, or -1. Identity still belongs to `at()`:
+   *  an id that now names a replacement resolves to a position, not to the
+   *  entry a gesture armed with. */
+  indexOfId(id: string): number {
+    return this.indexById.get(id) ?? -1;
+  }
+
+  /** Rebuild the id → position map after a mutation that shifted indices. */
+  private reindex(): void {
+    this.indexById = new Map();
+    for (let i = 0; i < this.items.length; i++) {
+      this.indexById.set(this.items[i].id, i);
+    }
+  }
+
   /** Iterate in order (keeps `for...of` and spread working). */
   [Symbol.iterator]() {
     return this.items[Symbol.iterator]();
   }
 
-  /** Insert or update in place — never reorders an existing layer. */
+  /** Insert or update in place — never reorders an existing layer, and
+   *  refuses to change one's group: an in-place swap keeps the slot, so a
+   *  role change would strand the entry in the wrong block with a stale
+   *  boundary. The registry enforces this itself, not through its callers —
+   *  the controller's friendly gate is the first line, this is the backstop. */
   upsert(layerInfo: LayerInfo): LayerInfo {
     const existing = this.byId.get(layerInfo.id);
     if (existing) {
+      if (existing.group !== layerInfo.group) {
+        throw new Error(
+          log.msg(
+            `upsert: cannot change "${layerInfo.id}" from ${existing.group} to ` +
+              `${layerInfo.group} in place — its group is its role for the id's lifetime`,
+          ),
+        );
+      }
       const idx = this.items.indexOf(existing);
-      this.items[idx] = layerInfo;
+      if (idx === -1) {
+        // The id and the list disagree (a lost delete, a bad replace):
+        // append rather than writing `items[-1]` as a string-keyed property,
+        // and recompute the boundary because a base may have just joined.
+        this.items.push(layerInfo);
+        this.indexById.set(layerInfo.id, this.items.length - 1);
+        this.refreshFirstBaseIdx();
+      } else {
+        // An in-place swap keeps the slot and cannot change the group (the
+        // gate above), so neither the position nor `firstBaseIdx` can move.
+        this.items[idx] = layerInfo;
+      }
     } else {
       this.items.push(layerInfo);
+      this.indexById.set(layerInfo.id, this.items.length - 1);
       this.refreshFirstBaseIdx();
     }
     this.byId.set(layerInfo.id, layerInfo);
     return layerInfo;
   }
 
-  /** Insert at the front (used for new overlay layers). */
+  /** Insert at the front (used for new overlay layers). A base layer is
+   *  refused: index 0 lives inside the overlay block, and letting one land
+   *  there would break the partition this class exists to keep. */
   prepend(layerInfo: LayerInfo): LayerInfo {
+    if (layerInfo.group === GROUP.BASE) {
+      throw new Error(
+        log.msg(
+          `prepend: "${layerInfo.id}" is a base layer — index 0 lives in the overlay block`,
+        ),
+      );
+    }
     this.items.unshift(layerInfo);
     this.byId.set(layerInfo.id, layerInfo);
+    this.reindex();
     this.refreshFirstBaseIdx();
     return layerInfo;
   }
 
-  /** Insert before the given index (used for new base layers). */
+  /** Insert before the given index (used for new base layers). `idx` may be
+   *  `items.length` (append); anything else is refused by `assertIndex`. */
   insertAt(layerInfo: LayerInfo, idx: number): LayerInfo {
+    assertIndex("insertAt", idx, this.items.length);
     this.items.splice(idx, 0, layerInfo);
     this.byId.set(layerInfo.id, layerInfo);
+    this.reindex();
     this.refreshFirstBaseIdx();
     return layerInfo;
   }
@@ -286,37 +353,67 @@ class LayerInfoRegistry {
     const idx = this.items.indexOf(layerInfo);
     if (idx !== -1) this.items.splice(idx, 1);
     this.byId.delete(id);
+    this.reindex();
     this.refreshFirstBaseIdx();
     return layerInfo;
   }
 
-  /** Move an existing layer to index 0 (bring to front). */
+  /** Move an existing layer to index 0 (bring to front). Refuses a base
+   *  layer: index 0 lives inside the overlay block, and the partition is
+   *  the registry's own invariant, not its callers' responsibility. */
   moveToFront(id: string): LayerInfo | null {
     const layerInfo = this.byId.get(id);
     if (!layerInfo) return null;
     const idx = this.items.indexOf(layerInfo);
     if (idx <= 0) return layerInfo;
+    if (layerInfo.group === GROUP.BASE) {
+      throw new Error(
+        log.msg(
+          `moveToFront: "${id}" is a base layer — it cannot cross the overlay/base boundary`,
+        ),
+      );
+    }
     this.items.splice(idx, 1);
     this.items.unshift(layerInfo);
+    this.reindex();
     return layerInfo;
   }
 
-  /** Swap order of two positions (drag-and-drop). */
+  /** Swap order of two positions (drag-and-drop). Both positions must sit
+   *  on the same side of the overlay/base boundary — the public reorder
+   *  entries gate with `canReorderBetween`, and this is the backstop that
+   *  keeps the partition invariant when a caller forgets. */
   reorder(fromIdx: number, toIdx: number) {
+    assertIndex("reorder(fromIdx)", fromIdx, this.items.length - 1);
+    assertIndex("reorder(toIdx)", toIdx, this.items.length - 1);
+    const firstBase = this._firstBaseIdx;
+    const side = (i: number): number => (firstBase !== -1 && i >= firstBase ? 1 : 0);
+    if (side(fromIdx) !== side(toIdx)) {
+      throw new Error(
+        log.msg(
+          `reorder(${fromIdx} → ${toIdx}): cannot cross the overlay/base boundary ` +
+            `(firstBaseIdx=${firstBase})`,
+        ),
+      );
+    }
     const [moved] = this.items.splice(fromIdx, 1);
     this.items.splice(toIdx, 0, moved);
+    this.reindex();
+    this.refreshFirstBaseIdx();
   }
 
   /** Rebuild both list and index from a new ordered array. */
   replace(newList: LayerInfo[]) {
     this.items.splice(0, this.items.length, ...newList);
     this.byId = new Map(this.items.map(l => [l.id, l]));
+    this.reindex();
     this.refreshFirstBaseIdx();
   }
 
   clear() {
     this.items.splice(0, this.items.length);
     this.byId.clear();
+    this.indexById.clear();
     this.refreshFirstBaseIdx();
   }
 
@@ -330,6 +427,7 @@ class LayerInfoRegistry {
     }
     this.items.splice(0, this.items.length, ...overlays.concat(bases));
     this.byId = new Map(this.items.map(l => [l.id, l]));
+    this.reindex();
     this.refreshFirstBaseIdx();
   }
 

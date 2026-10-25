@@ -9,7 +9,11 @@ import * as CONST from "#foliplus/LayerControl/const.js";
 import { type LayerController } from "#foliplus/LayerControl/controller.js";
 import { type LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { setIntent } from "#foliplus/LayerControl/ui/intent.js";
-import { toggleAll, toggleFold } from "#foliplus/LayerControl/ui/listPanel/index.js";
+import {
+  rebuildList,
+  toggleAll,
+  toggleFold,
+} from "#foliplus/LayerControl/ui/listPanel/index.js";
 import {
   attachedPanel,
   findItem,
@@ -355,22 +359,38 @@ describe("LayerUI lifecycle — defensive rails", () => {
   });
 
   describe("LAYER_LIST_REBUILD signal handler", () => {
-    it("re-renders the list and refreshes row counts", () => {
-      // The manager emits LAYER_LIST_REBUILD after a reorder/undo that
-      // touches the DOM wholesale. The handler runs renderInitialList,
-      // initTypesAndVisibility, and refreshAllCounts in sequence, so we
-      // assert on the resulting DOM: rows preserved, counts re-resolved.
-      vi.spyOn(manager, "getFeatureCount").mockReturnValue(3);
+    it("relocates rows in place without repainting them", () => {
+      // The manager emits LAYER_LIST_REBUILD after a reorder (moveLayerUp/
+      // Down, bringLayerToFront). A position change alters no count or
+      // checkbox, so the handler relocates rows instead of rebuilding them:
+      // the row element — and its possibly-stale content — survives the
+      // signal untouched.
       const item = findItem(ui, "overlay1");
       const countCol = item.querySelector(CONST.SEL.COUNT_COL) as HTMLElement;
       countCol.textContent = "stale";
 
       ensureEvents(map).emit(EVENTS.LAYER_LIST_REBUILD);
 
+      const survived = findItem(ui, "overlay1");
+      expect(survived).toBe(item);
+      expect(survived.querySelector(CONST.SEL.COUNT_COL)?.textContent).toBe("stale");
+    });
+
+    it("the full rebuild the fold/attach paths take still refreshes row counts", () => {
+      // rebuildList is off the reorder path but still owns fold and attach:
+      // rows are re-created and counts re-resolved there.
+      vi.spyOn(manager, "getFeatureCount").mockReturnValue(3);
+      const before = findItem(ui, "overlay1");
+      const countCol = before.querySelector(CONST.SEL.COUNT_COL) as HTMLElement;
+      countCol.textContent = "stale";
+
+      rebuildList(ui);
+
       const rebuilt = attachedPanel(ui).querySelector(
         `[${CONST.DATA.LAYER_ID}="overlay1"]`,
       ) as HTMLElement;
       expect(rebuilt).not.toBeNull();
+      expect(rebuilt).not.toBe(before);
       expect(rebuilt.querySelector(CONST.SEL.COUNT_COL)?.textContent).toBe("3");
     });
 
@@ -528,7 +548,7 @@ it("a control-attached re-run announces after the label replay has landed", () =
     labelsAtDelivery = labelSpy.mock.calls.length;
   });
 
-  ui.events.emit(EVENTS.CONTROL_ATTACHED, { component: "HeatmapControl" });
+  ui.events.publish(EVENTS.CONTROL_ATTACHED, { component: "HeatmapControl" });
 
   expect(labelsAtDelivery).toBe(1);
   expect(manager.isDestroyed).toBe(false);

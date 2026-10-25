@@ -96,6 +96,19 @@ interface LayerCapabilities {
    *  `SurfaceDeclaration`, so a change in the tree's shape triggers a
    *  rebuild through `matches`. */
   stroke: "native" | "none";
+  /** Whether the layer's tree has a write carrier for size — a fixed pixel
+   *  radius:
+   *    - "native" — a `getRadius` leaf with a numeric `_radius` exists
+   *      (`L.CircleMarker`). The write walks `eachLayer` and calls `setRadius`
+   *      per leaf.
+   *    - "none"   — no pixel-radius leaf. `L.Circle` is excluded on purpose:
+   *      its radius is in metres (`_mRadius`), so one shared px row could not
+   *      write both without inventing a unit for one of them. Polyline,
+   *      Marker, canvas, MarkerCluster, the color basemap and the native
+   *      setter surfaces (ImageOverlay / GridLayer) also fall out.
+   *
+   *  Probe-derived, cached per surface — same contract as `stroke` / `fill`. */
+  size: "native" | "none";
   /** How the layer's opacity is written:
    *    - "native" — the layer owns its own setter (`ImageOverlay.setOpacity`,
    *      `TileLayer.options.opacity`). Immediate and correct; the UI reads/writes
@@ -319,10 +332,13 @@ interface LayerInfo {
 /** Leaflet layer with a custom `isLabel` flag (foliplus adds it).
  *
  *  Write contract for a third-party layer's `options` — the exact write set
- *  is `pane` and `renderer`; nothing else:
- *    - Both are Leaflet's own, and the two a correct draw position actually
- *      needs (Leaflet reads `pane` only at attach time and ignores a group's
- *      for its children, so both must be written to survive a re-attach).
+ *  is `pane`, `renderer` (a Path only), and `shadowPane` (a Marker only) —
+ *  nothing else:
+ *    - All three are Leaflet's own, and the ones a correct draw position
+ *      actually needs (Leaflet reads `pane` only at attach time and ignores a
+ *      group's for its children, so both must be written to survive a
+ *      re-attach; `shadowPane` is re-read at every `_initIcon`, so writing it
+ *      keeps a later `setIcon` inside the layer's own shadow pane).
  */
 interface LabelAwareLayer extends L.Layer {
   isLabel?: boolean;
@@ -883,6 +899,15 @@ interface LayerSnapshot {
   readonly ranges: Readonly<Record<string, readonly [number, number]>>;
 }
 
+/** What a registration actually did to the registry — the content-vs-placement
+ *  split consumers (controller events, UI rows, the future folder tree) key
+ *  on. Without folders, placement is the registry index and the kinds are
+ *  insert / content-replace; a retirement announces through the settled
+ *  operation instead, so no remove kind exists yet. */
+type LayerMutation =
+  | { kind: "insert"; entry: LayerInfo; index: number }
+  | { kind: "replace-content"; previous: LayerInfo; entry: LayerInfo; index: number };
+
 export type {
   CreateCanvasAPI,
   CreateCanvasOpts,
@@ -897,6 +922,7 @@ export type {
   LayerKind,
   LayerCapabilities,
   LayerInfo,
+  LayerMutation,
   LayerSnapshot,
   LayerSurface,
   PaneHandle,

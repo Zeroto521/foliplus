@@ -8,8 +8,9 @@ import { describe, expect, it } from "vitest";
 // This file used to live inside toolchain-guard.test.ts. The split keeps
 // the listener rules here (they constrain the production tree, not the
 // build toolchain) and leaves the rest in toolchain-guard.test.ts: script/
-// module surface, the #script/* import alias, eslint.config.js scoping,
-// test/js/script naming, and script-module coverage.
+// module surface, the #script/* import alias, eslint rule scoping
+// (config/eslint/base.mjs), test/js/script naming, and script-module
+// coverage.
 //
 // Resolved against cwd, the same repo root every build script assumes.
 const ROOT = resolve(".");
@@ -168,10 +169,10 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
   },
   {
     f: "common/schemePicker.ts",
-    n: 8,
+    n: 9,
     pairedOff: 0,
     reason:
-      "shared picker factory binds trigger click/keydown (lifecycle) and dropdown click/keydown, item focus, document outside-click, window scroll, and fullscreenchange (mount-scope). Every listener has a paired removeEventListener in either cleanupFns (drained on destroy) or mountCleanupFns (drained on every close). The factory is a free-standing primitive with no BaseControl mounting signal to route through this.on; callers inject their own lifecycle management via the returned close/destroy methods",
+      "shared picker factory binds trigger click/keydown (lifecycle) and dropdown click/keydown, item focus, document outside-click, window scroll, window resize (portal mode only), and fullscreenchange (mount-scope). Every listener has a paired removeEventListener in either cleanupFns (drained on destroy) or mountCleanupFns (drained on every close). The factory is a free-standing primitive with no BaseControl mounting signal to route through this.on; callers inject their own lifecycle management via the returned close/destroy methods",
   },
 ];
 

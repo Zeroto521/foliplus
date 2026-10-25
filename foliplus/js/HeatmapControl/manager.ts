@@ -466,19 +466,23 @@ class HeatmapManager {
     // than clearing the record is what makes this stick — dropping it would
     // make the store look like a first open and let the single-layer
     // auto-select fire again.
-    this.removeLayerDeletedListener = this.events.on(EVENTS.LAYER_DELETED, ({ id }) => {
-      if (id !== this.layerId) return;
-      if (this.ui) {
-        resetPanel(this.ui);
-      } else {
-        // No panel (control removed, or never built): reset state and wipe the
-        // canvas directly so a re-add does not render the stale selection.
-        this.resetState(CONFIG);
-        this.clearHeatmapCanvas();
-        this.syncSourceMeta();
-      }
-      this.saveConfig();
-    });
+    this.removeLayerDeletedListener = this.events.on(
+      EVENTS.LAYER_DELETED,
+      ({ id }) => {
+        if (id !== this.layerId) return;
+        if (this.ui) {
+          resetPanel(this.ui);
+        } else {
+          // No panel (control removed, or never built): reset state and wipe the
+          // canvas directly so a re-add does not render the stale selection.
+          this.resetState(CONFIG);
+          this.clearHeatmapCanvas();
+          this.syncSourceMeta();
+        }
+        this.saveConfig();
+      },
+      "internal",
+    );
   }
 
   /** Drop out of export clip mode: redraw with the full feature set. */

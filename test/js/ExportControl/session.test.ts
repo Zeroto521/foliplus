@@ -94,9 +94,9 @@ describe("sessionMethods — export events", () => {
 
   it("doExport emits before:export event", () => {
     const events = ensureEvents(manager.map);
-    vi.spyOn(events, "emitSettled");
+    vi.spyOn(events, "publish");
     manager.doExport();
-    expect(events.emitSettled).toHaveBeenCalledWith("foliplus:export:before", {
+    expect(events.publish).toHaveBeenCalledWith("foliplus:export:before", {
       component: "ExportControl",
     });
   });

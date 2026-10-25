@@ -58,6 +58,16 @@ interface HeatmapControlUI {
   toggleSchemeDropdown: () => void;
 }
 
+/** Clamp a manager scheme to the configured list. A value persisted under an
+ *  older Python `schemes` kwarg (or hand-edited storage) can name a palette
+ *  this render does not offer; the shared picker throws on such a value, so
+ *  resolve it to the list's first entry instead of failing the whole build. */
+const resolveScheme = (ctrl: HeatmapControlUI): string => {
+  const schemes = ctrl.config.schemes ?? [];
+  const current = ctrl.mgr.scheme;
+  return schemes.length === 0 || schemes.includes(current) ? current : schemes[0];
+};
+
 /** Save the current config after any user-initiated change. */
 const persist = (ctrl: HeatmapControlUI) => {
   ctrl.mgr.saveConfig();
@@ -118,7 +128,9 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
   ctrl.methodSelect.value = ctrl.mgr.method;
   ctrl.aggSelect.value = ctrl.mgr.agg;
 
-  // Populate scheme options and set current value
+  // Populate scheme options and set current value. The scheme is clamped
+  // first: a restored value can name a palette this render does not offer.
+  ctrl.mgr.scheme = resolveScheme(ctrl);
   (ctrl.config.schemes ?? []).forEach(name => {
     dom.el("option", { value: name, parent: ctrl.schemeSelectHidden }, name);
   });
@@ -133,6 +145,8 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     numClasses: ctrl.mgr.numClasses,
     portal: false,
     colorScale: safeColorScale,
+    // The picker has no locale table: the panel's translator names the trigger.
+    label: ctrl.T("scheme"),
     classes: {
       open: CONST.CLASSES.SCHEME_BAR_OPEN,
     },
@@ -452,6 +466,8 @@ const resetPanel = (ctrl: HeatmapControlUI) => {
     ),
   );
   syncSelect(ctrl, ctrl.methodSelect, ctrl.mgr.method);
+  // resetState restores the config default, which may not be in `schemes`.
+  ctrl.mgr.scheme = resolveScheme(ctrl);
   ctrl.schemeSelectHidden.value = ctrl.mgr.scheme;
   // The picker owns the colour bar — just tell it the new value and count.
   ctrl.schemePicker?.setValue(ctrl.mgr.scheme);

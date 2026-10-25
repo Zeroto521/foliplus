@@ -1,8 +1,8 @@
 // ESLint config — pass 2, the type-aware rules (Promise discipline + nullish /
 // optional-chain upgrades). Run it with `npm run typecheck`, which runs
-// `tsc --noEmit` first and then `eslint -c eslint.config.type.js`.
+// `tsc --noEmit` first and then `eslint -c config/eslint/typed.mjs`.
 //
-// This file spreads eslint.config.js as its base: `...base` carries the TS
+// This file spreads base.mjs as its base: `...base` carries the TS
 // parser + `@typescript-eslint` plugin registration (from
 // `...tseslint.configs.recommended`) and every quality rule pass 1 owns
 // (no-eval, no-implicit-coercion, no-unused-vars, …) into this config. The
@@ -34,11 +34,16 @@
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import tseslint from "typescript-eslint";
-import base from "./eslint.config.js";
+import base from "./base.mjs";
 
 const importPlugin = (await import("eslint-plugin-import")).default;
 
-const root = dirname(fileURLToPath(import.meta.url));
+// `tsconfigRootDir` must be the repository root, not this file's directory:
+// `project: ["./tsconfig.json"]` is resolved against it, and this config now
+// lives two levels down. `import.meta.url` is the only reliable anchor —
+// `process.cwd()` would change with the caller's working directory.
+const here = dirname(fileURLToPath(import.meta.url));
+const root = dirname(dirname(here)); // config/eslint/ -> config/ -> repo root
 
 export default [
   ...base,

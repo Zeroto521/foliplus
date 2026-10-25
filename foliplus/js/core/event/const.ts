@@ -82,11 +82,15 @@ const EVENTS = {
    *  LAYER_ITEM_REMOVED when the count is affected, and on its own after a
    *  user delete. */
   LAYER_GROUP_COUNT_CHANGED: "foliplus:layer:group-count-changed",
-  /** The panel's row order changed and the whole list needs a full DOM
-   *  rebuild + full type/visibility rescan: bringLayerToFront and the
-   *  moveLayerUp/Down paths all route here (moveLayerUp/Down already called
-   *  a full rebuild internally — the previous "reindexAfterMove" wrapper
-   *  was its alias, kept for symmetry). */
+  /** The panel's row order changed: bringLayerToFront, moveLayerUp/Down and
+   *  the drag drop all route here through the controller's reorder commit
+   *  funnel, so every reorder entrance publishes the same announcement. A
+   *  pure reorder — membership is unchanged, so the in-tree subscriber
+   *  relocates displaced rows in place (syncRowOrder) rather than rebuilding
+   *  the list. The name is historical: the signal means "order changed",
+   *  not "rebuild" (paths that change row structure — fold, attach — still
+   *  do the full rebuild, on their own initiative rather than through this
+   *  event). */
   LAYER_LIST_REBUILD: "foliplus:layer:list-rebuild",
   /** The solid-color basemap row's state changed — the panel's no-basemap
    *  hint / row state needs recomputing. Only deleteLayer of the color id
@@ -114,12 +118,20 @@ const EVENTS = {
  *    still runs, but a consumer failure is recorded to the diagnostic log
  *    instead of being thrown — an observer must not be able to interrupt the
  *    producer's remaining local work. */
-const EVENT_POLICY = {
+/** One event's declared exception contract, resolved once and stored with the
+ *  event's listeners (see EventEntry in EventBus.ts) — so a dispatcher cannot
+ *  choose a different contract at a call site. */
+type EventPolicy = { kind: "terminal" | "notification" };
+
+type EventName = (typeof EVENTS)[keyof typeof EVENTS];
+
+/** Every event declares its policy; a missing key is a compile error, so a
+ *  new event cannot silently inherit a default it did not choose. */
+const EVENT_POLICY: Record<EventName, EventPolicy> = {
   [EVENTS.MODE_CHANGE]: { kind: "notification" },
   [EVENTS.BEFORE_EXPORT]: { kind: "notification" },
   [EVENTS.OVERLAY_CLEAR]: { kind: "notification" },
   [EVENTS.CONTROL_ATTACHED]: { kind: "notification" },
-  // Everything below is terminal when published directly.
   [EVENTS.LAYER_CHANGE]: { kind: "terminal" },
   [EVENTS.LAYER_INTENT_CHANGE]: { kind: "terminal" },
   [EVENTS.LAYER_REMOVED]: { kind: "terminal" },
@@ -127,6 +139,14 @@ const EVENT_POLICY = {
   [EVENTS.AFTER_EXPORT]: { kind: "terminal" },
   [EVENTS.LAYER_ITEM_COUNT_CHANGE]: { kind: "terminal" },
   [EVENTS.LAYER_STYLE_CHANGE]: { kind: "terminal" },
-} as const;
+  [EVENTS.LAYER_ITEM_ADDED]: { kind: "terminal" },
+  [EVENTS.LAYER_ITEM_UPDATED]: { kind: "terminal" },
+  [EVENTS.LAYER_ITEM_REFRESHED]: { kind: "terminal" },
+  [EVENTS.LAYER_ITEM_REMOVED]: { kind: "terminal" },
+  [EVENTS.LAYER_GROUP_COUNT_CHANGED]: { kind: "terminal" },
+  [EVENTS.LAYER_LIST_REBUILD]: { kind: "terminal" },
+  [EVENTS.LAYER_NO_BASEMAP_CHANGED]: { kind: "terminal" },
+};
 
 export { EVENTS, EVENT_POLICY };
+export type { EventPolicy };

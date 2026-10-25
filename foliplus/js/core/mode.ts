@@ -151,6 +151,12 @@ class ModeManager {
     return [...this.modes.keys()];
   }
 
+  /** Drop every active mode and re-derive the map interaction lock.
+   *
+   *  Not a `finalize` list: the two `Map.clear()` calls cannot throw, and
+   *  `syncInteractionLock` is the one invariant that has to hold afterwards —
+   *  there is no failing step to isolate. Use `finalize` only where a step can
+   *  throw and the ones behind it must still run. */
   clear(): void {
     this.modes.clear();
     this.modeSkips.clear();

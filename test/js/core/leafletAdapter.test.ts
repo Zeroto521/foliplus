@@ -17,11 +17,12 @@ beforeEach(() => {
 // confined. Confining them to one module is what makes a Leaflet upgrade a
 // single-file problem, and this scan is what keeps them confined.
 //
-// WHAT THIS COVERS — exactly these thirteen field names, and nothing else:
+// WHAT THIS COVERS — exactly these fifteen field names, and nothing else:
 //   _panes, _paneRenderers              (pane registry: adapter-owned)
 //   _container, _icon, _initInteraction, _layers, _map, _path, _shadow
 //                                       (leaf + renderer internals: adapter-owned)
 //   _url                                (tile URL template: adapter-owned)
+//   _radius, _mRadius                   (pixel-radius carrier: adapter-owned)
 //   _attributions, _update              (attribution control: adapter-owned)
 //   _closeButton                        (popup close button: adapter-owned)
 // It is not a claim about "every private reach". Fields outside this set —
@@ -76,7 +77,7 @@ beforeEach(() => {
 // rather than written as a literal. The quote class is a plain template
 // literal, because a backtick cannot appear inside a raw one.
 const FIELD_NAMES =
-  "attributions|closeButton|container|icon|initInteraction|layers|map|path|resetView|shadow|update|url";
+  "attributions|closeButton|container|icon|initInteraction|layers|map|mRadius|path|radius|resetView|shadow|update|url";
 const QUOTES = `['"\`]`;
 
 const PRIVATE_FIELD_RE = new RegExp(
@@ -167,7 +168,10 @@ describe("leafletAdapter is the only module touching the named Leaflet privates"
       m.replace(/^\W+|\W+$/g, ""),
     );
     // Sorted by code unit, which is why _paneRenderers precedes _panes and
-    // _update precedes _url (the deciding character is p, then r).
+    // _update precedes _url (the deciding character is p, then r). `_shadow`
+    // is the marker-shadow reach the carrier fix added (layerShadow) — it
+    // used to be comment-only here, which is exactly how the shadow escaped
+    // every pane write for so long.
     expect([...new Set(found)].sort()).toEqual([
       "_attributions",
       "_closeButton",
@@ -175,10 +179,13 @@ describe("leafletAdapter is the only module touching the named Leaflet privates"
       "_icon",
       "_initInteraction",
       "_layers",
+      "_mRadius",
       "_map",
       "_paneRenderers",
       "_panes",
       "_path",
+      "_radius",
+      "_shadow",
       "_update",
       "_url",
     ]);
@@ -267,6 +274,7 @@ describe("source pins", () => {
     expect(adapterSource.match(/as [A-Z]\w+/g)).toEqual([
       "as LayerWithMap",
       "as LayerWithUrl",
+      "as RadiusInternals",
     ]);
   });
 
@@ -287,9 +295,11 @@ describe("source pins", () => {
       "hasAttachedPath",
       "internalLayers",
       "isGroupLike",
+      "isPixelRadiusLeaf",
       "layerElements",
       "layerIcon",
       "layerMap",
+      "layerShadow",
       "layerUrl",
       "primeControlMap",
       "refreshAttributions",
@@ -413,6 +423,55 @@ describe("isGroupLike", () => {
   it("rejects a leaf that carries neither", () => {
     expect(adapter.isGroupLike({ options: {} } as any)).toBe(false);
     expect(adapter.isGroupLike({})).toBe(false);
+  });
+});
+
+describe("isPixelRadiusLeaf", () => {
+  const cm = () => ({ _radius: 8, getRadius: () => 8, setRadius: () => {} });
+
+  it("accepts a CircleMarker-shaped leaf", () => {
+    expect(adapter.isPixelRadiusLeaf(cm())).toBe(true);
+  });
+
+  it("rejects a metre-radius circle before it is attached", () => {
+    // `_mRadius` is the discriminator: Circle inherits `getRadius` from
+    // CircleMarker, so the reader alone cannot tell them apart.
+    expect(
+      adapter.isPixelRadiusLeaf({
+        _mRadius: 500,
+        getRadius: () => 500,
+        setRadius: () => {},
+      }),
+    ).toBe(false);
+  });
+
+  it("still rejects a metre-radius circle after `_project` wrote a pixel radius", () => {
+    // `_project` derives `_radius` from the metre radius on attach, which is
+    // exactly when the layer enters the list — the discriminator must hold
+    // either way, not only off the map.
+    expect(
+      adapter.isPixelRadiusLeaf({
+        _mRadius: 500,
+        _radius: 20,
+        getRadius: () => 500,
+        setRadius: () => {},
+      }),
+    ).toBe(false);
+  });
+
+  it("requires a real writer and a numeric `_radius`", () => {
+    expect(adapter.isPixelRadiusLeaf({ _radius: 8, getRadius: () => 8 })).toBe(false);
+    expect(
+      adapter.isPixelRadiusLeaf({
+        _radius: "8",
+        getRadius: () => 8,
+        setRadius: () => {},
+      }),
+    ).toBe(false);
+    expect(adapter.isPixelRadiusLeaf({ getRadius: () => 8, setRadius: () => {} })).toBe(
+      false,
+    );
+    expect(adapter.isPixelRadiusLeaf({})).toBe(false);
   });
 });
 

@@ -2089,6 +2089,125 @@ class TestLayerControlBrowser:
                     f"reset must restore the author's stroke:false\n{reset}"
                 )
 
+    def test_circlemarker_size_row_writes_radius_and_reset_restores_authored(
+        self, browser, tmp_path
+    ):
+        """The Size row writes every pixel-radius leaf; Reset restores the author's.
+
+        Two CircleMarker radii (5 and 9) share one FeatureGroup. Typing 30
+        must reach both leaves -- getRadius() and what the SVG is painting --
+        and persist as layers[id].size == 30. Reset must bring back 5 and 9, not
+        the user's last choice of 30: the authored radius is captured on the
+        layer's first write, so a re-read would restore the user's own number
+        and every keystroke would compound.
+        A Polygon on the same map has no pixel-radius leaf, so its style
+        panel must not render the row at all.
+        """
+        m = folium.Map(location=[30.0, 120.0], zoom_start=6, tiles=None)
+        fg = folium.FeatureGroup(name="Facility Points", overlay=True, show=True)
+        folium.CircleMarker(
+            [30.0, 120.0],
+            radius=5,
+            color="#3388ff",
+            weight=2,
+            fill=True,
+            fill_opacity=0.8,
+        ).add_to(fg)
+        folium.CircleMarker(
+            [30.02, 120.02],
+            radius=9,
+            color="#e74c3c",
+            weight=2,
+            fill=True,
+            fill_opacity=0.8,
+        ).add_to(fg)
+        fg.add_to(m)
+        region = folium.FeatureGroup(name="Test Region", overlay=True, show=True)
+        folium.Polygon(
+            [[30.0, 120.1], [30.1, 120.1], [30.1, 120.2], [30.0, 120.2]],
+            color="#3388ff",
+            weight=2,
+            fill=True,
+            fill_opacity=0.2,
+        ).add_to(region)
+        region.add_to(m)
+        LayerControl().add_to(m)
+        _expand_panel(m)
+
+        html_path = tmp_path / "test_circlemarker_size_row.html"
+        _write_html(m, html_path)
+
+        with use_raw_page(browser.new_page) as page:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=10000,
+            )
+            panel_ready(page)
+
+            before = page.evaluate(_js("LayerControl/size_row"), ["Facility Points"])
+            assert before.get("panel"), f"the style panel did not open: {before}"
+            assert before.get("sizeRow"), f"the Size row did not render: {before}"
+            assert before["sizeRows"] == 1, f"expected exactly one Size row: {before}"
+            assert len(before["leaves"]) == 2, (
+                f"expected both authored markers: {before}"
+            )
+            assert {leaf["radius"] for leaf in before["leaves"]} == {5, 9}, (
+                f"the authored radii were already wrong before any write: {before}"
+            )
+            assert before["storage"] is None, (
+                f"an untouched visit stored a size: {before}"
+            )
+
+            after = page.evaluate(_js("LayerControl/size_row"), ["Facility Points", 30])
+            assert after.get("panel"), f"the style panel did not reopen: {after}"
+            assert after["sizeRows"] == 1, f"the Size row disappeared: {after}"
+            assert after["sizeInput"] == "30", (
+                f"the field did not keep the typed value: {after}"
+            )
+            assert len(after["leaves"]) == 2, f"no leaves to write to: {after}"
+            for leaf in after["leaves"]:
+                assert leaf["radius"] == 30, (
+                    f"the radius did not reach the leaf: {after}"
+                )
+                assert leaf["svgRadius"] == 30, (
+                    f"the SVG did not repaint the radius: {leaf}"
+                )
+            assert after["storage"] is not None, f"no persisted entry: {after}"
+            assert after["storage"].get("size") == 30, (
+                f"the persisted entry did not carry the size: {after}"
+            )
+            assert "size" in (after["storage"].get("overrides") or []), (
+                f"the persisted size carried no provenance marker: {after}"
+            )
+
+            reset = page.evaluate(
+                _js("LayerControl/size_row"), ["Facility Points", None, True]
+            )
+            assert reset.get("panel"), f"the style panel did not reopen: {reset}"
+            assert len(reset["leaves"]) == 2, f"no leaves after reset: {reset}"
+            assert {leaf["radius"] for leaf in reset["leaves"]} == {5, 9}, (
+                f"reset must restore the author's radii, not the last choice: {reset}"
+            )
+            assert {leaf["svgRadius"] for leaf in reset["leaves"]} == {5, 9}, (
+                f"the SVG did not repaint the authored radii: {reset}"
+            )
+            assert reset["storage"] is None or "size" not in reset["storage"], (
+                f"reset did not drop the persisted size: {reset}"
+            )
+
+            polygon = page.evaluate(_js("LayerControl/size_row"), ["Test Region"])
+            assert polygon.get("panel"), (
+                f"the polygon's style panel did not open: {polygon}"
+            )
+            assert polygon["sizeRows"] == 0, (
+                f"the Size row must not render for a polygon: {polygon}"
+            )
+            assert polygon["storage"] is None or "size" not in polygon["storage"], (
+                f"reading the polygon stored a size: {polygon}"
+            )
+
     def test_unregister_keeps_stored_opacity_delete_drops_it(self, browser, tmp_path):
         """unregisterLayer never erases a value; only an explicit delete does.
 
@@ -5469,33 +5588,36 @@ class TestLayerControlBrowser:
             assert not errors, f"JS errors: {errors}"
 
     def test_focus_hides_native_ui_panes(self, browser, tmp_path):
-        """Focus-mode CSS hides Leaflet's own UI panes: marker shadows, hover
-        tooltips, and popups.
+        """Focus-mode CSS hides Leaflet's remaining UI panes: hover tooltips
+        and popups — and, through the layer-pane rule, every non-focused
+        marker layer's shadows.
 
-        The existing hide rule only matches `.foliplus-layer-pane`, so the
-        three Leaflet-native floaters all escape focus — a marker's shadow
-        keeps painting, a hover tooltip gets *lifted* above the mask by
-        `bringFocusedLayerToFront`'s `liftZ("tooltipPane", 3)` call, and a
-        popup can open during the focus animation. The three dedicated
-        selectors in `focus.css` (`leaflet-shadow-pane`, `leaflet-tooltip-pane`,
-        `leaflet-popup-pane`) each `visibility: hidden` under
-        `.foliplus-is-focus-mode`; `dismissFocus`'s class removal restores them.
-        Companion teardown sweeps `.leaflet-tooltip` alongside `.leaflet-popup`
-        so hover residue does not reappear on hover-out after focus ends.
+        Marker shadows are foliplus panes now: each marker layer carries its
+        own shadow pane (`PaneRole.SHADOW`, `PaneManager.pinLateContent`
+        moves `_shadow` in and writes `options.shadowPane`), so the
+        `.foliplus-layer-pane` hide rule reaches them and the focused layer's
+        own shadows stay in its spotlight. The blanket
+        `.leaflet-shadow-pane { visibility: hidden }` rule this test used to
+        pin is gone — it was the workaround for shadows living outside any
+        layer pane, and it took the focused marker layer's shadows down with
+        everyone else's. Hover tooltips and popups still live in Leaflet's
+        own `leaflet-{tooltip,popup}-pane` divs, so their two dedicated
+        selectors in `focus.css` each `visibility: hidden` under
+        `.foliplus-is-focus-mode`; `dismissFocus`'s class removal restores
+        them. Companion teardown sweeps `.leaflet-tooltip` alongside
+        `.leaflet-popup` so hover residue does not reappear on hover-out
+        after focus ends.
 
         The probe drives focus by dblclicking the polygon row and samples
         `getComputedStyle(pane).visibility` before, during, and after. The
         tooltip is opened programmatically via `openTooltip()` (hover timing
-        is unreliable in headless) and the shadow pane is seeded with a
-        synthetic `.leaflet-shadow-image` — folium's default awesome-marker
+        is unreliable in headless) and the marker layer's shadow pane is
+        seeded with a synthetic shadow — folium's default awesome-marker
         icon does not carry a shadow, but the CSS rule is pane-scoped so the
         element inside just has to exist for the assertion to be meaningful.
         """
         # Polygon layer: focus target. Marker layer: produces a tooltip on
-        # hover. folium.Marker's default folium.Icon (AwesomeMarkers) does
-        # not set a shadow_url, so we do not depend on the shadow pane
-        # carrying any element — the CSS rule hides the pane div itself,
-        # which is the contract we pin here.
+        # hover, and its shadow pane hosts the seeded probe element.
         fg_polygon = folium.FeatureGroup(name="Zones", overlay=True, show=True)
         folium.Polygon(
             locations=[[26.0, 119.2], [26.2, 119.2], [26.2, 119.5], [26.0, 119.5]],
@@ -5516,7 +5638,8 @@ class TestLayerControlBrowser:
             panel_ready(page)
 
             # Expose the test marker to the snippet so it can `openTooltip()`
-            # deterministically. The var name is the folium hash suffix.
+            # deterministically, and so the probe can locate the marker
+            # layer's shadow pane. The var name is the folium hash suffix.
             marker_var = page.evaluate(_js("LayerControl/find_marker_var"))
             assert marker_var is not None, "could not find the folium marker var"
             page.evaluate(_js("LayerControl/set_test_marker"), marker_var)
@@ -5525,13 +5648,21 @@ class TestLayerControlBrowser:
             assert result is not None and "error" not in result, (
                 f"focus_hides_native_panes snippet failed: {result}"
             )
+            shadow_pane_id = result.get("shadowPaneId")
+            assert shadow_pane_id, (
+                f"marker layer shadow pane not found: {result['shadowPaneId']}"
+            )
 
-            # Pre-focus: the synthetic shadow image and the opened tooltip are
-            # both in the DOM, so the hide assertions below aren't vacuous.
-            assert result["before"]["shadowImage"] is True, (
-                "shadow pane must carry a .leaflet-shadow-image element before "
-                f"focus (else the shadow-pane assertion is vacuous): "
+            # Pre-focus: the seeded shadow is in the marker layer's shadow
+            # pane and the opened tooltip is in the DOM, so the hide
+            # assertions below aren't vacuous.
+            assert result["before"]["shadowProbe"]["present"] is True, (
+                "the marker layer's shadow pane must carry the seeded probe "
+                f"element before focus (else the assertions are vacuous): "
                 f"{result['before']}"
+            )
+            assert result["before"]["shadowProbe"]["visibility"] == "visible", (
+                f"shadow probe must be visible before focus: {result['before']}"
             )
             assert result["before"]["tooltipEl"] is True, (
                 f"openTooltip() must have produced a .leaflet-tooltip element "
@@ -5541,38 +5672,60 @@ class TestLayerControlBrowser:
                 "focus must not be active before the dblclick"
             )
 
-            # During focus: all three native panes must be `visibility: hidden`.
+            # During focus: the two native UI panes must be `visibility:
+            # hidden` (their dedicated rules), and the non-focused marker
+            # layer's shadow pane must be hidden through the layer-pane rule —
+            # while Leaflet's shared shadow pane stays visible: the blanket
+            # hide is gone, and a focused marker layer keeps its own shadows.
             assert result["during"]["containerFocus"] is True, (
                 f"focus mode did not activate: {result['during']}"
             )
-            for name in ("shadowPane", "tooltipPane", "popupPane"):
+            for name in ("tooltipPane", "popupPane"):
                 pane = result["during"][name]
                 assert pane["present"] is True, f"{name} must exist on the map: {pane}"
                 assert pane["visibility"] == "hidden", (
                     f"{name} must be `visibility: hidden` during focus "
                     f"— focus.css must hide Leaflet's own UI panes: {pane}"
                 )
+            marker_shadow_pane = result["during"]["markerShadowPane"]
+            assert marker_shadow_pane["present"] is True, (
+                f"marker layer shadow pane must exist on the map: {marker_shadow_pane}"
+            )
+            assert marker_shadow_pane["visibility"] == "hidden", (
+                "the non-focused marker layer's shadow pane must be hidden "
+                f"during focus through the layer-pane rule: {marker_shadow_pane}"
+            )
+            assert result["during"]["shadowProbe"]["visibility"] == "hidden", (
+                f"the seeded shadow must be hidden with its pane: {result['during']}"
+            )
+            shared_shadow_pane = result["during"]["shadowPane"]
+            assert shared_shadow_pane["present"] is True, (
+                f"Leaflet's shared shadow pane must exist on the map: {shared_shadow_pane}"
+            )
+            assert shared_shadow_pane["visibility"] == "visible", (
+                "Leaflet's shared shadow pane must NOT be hidden during focus "
+                f"— the blanket hide rule is removed: {shared_shadow_pane}"
+            )
 
             # After cancel: the `.foliplus-is-focus-mode` class must be gone,
             # so the CSS rule releases the panes. The tooltip DOM element may
             # have been removed by `closeOverlays`' `.leaflet-tooltip` sweep
             # during focus (intentional — hover residue must not resurrect on
-            # hover-out after focus ends), so `after.tooltipEl` is expected to
-            # be false; only the container-focus flip is asserted.
+            # hover-out after focus ends), so only the container focus and
+            # the shadow-pane restoration are asserted.
             assert result["after"]["containerFocus"] is False, (
                 f"focus mode must be released after cancelFocus: {result['after']}"
             )
-            # Shadow pane survives (the marker is still on the map; only
-            # visibility changed during focus), so its restored visibility is
-            # checkable. Tooltip and popup elements may have been swept, so we
-            # only assert the visibility value when they survived — either way
-            # the assertion does not depend on the sweep outcome.
-            assert result["after"]["shadowPane"]["present"] is True, (
-                f"shadow pane must survive cancelFocus: {result['after']}"
+            assert result["after"]["markerShadowPane"]["present"] is True, (
+                f"marker layer shadow pane must survive cancelFocus: {result['after']}"
             )
-            assert result["after"]["shadowPane"]["visibility"] == "visible", (
-                f"shadow pane must be restored to `visibility: visible` after "
-                f"focus is cancelled: {result['after']}"
+            assert result["after"]["markerShadowPane"]["visibility"] == "visible", (
+                f"marker layer shadow pane must be restored to `visibility: "
+                f"visible` after focus is cancelled: {result['after']}"
+            )
+            assert result["after"]["shadowProbe"]["visibility"] == "visible", (
+                f"the seeded shadow must be visible again after cancelFocus: "
+                f"{result['after']}"
             )
             assert not errors, f"JS errors: {errors}"
 

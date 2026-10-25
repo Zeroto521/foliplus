@@ -15,6 +15,7 @@ import {
   type LayerFactory,
   type LayerInfo,
   type LayerInfoRegistry,
+  type LayerMutation,
   type LayerOrder,
   LayerSurface,
   PANE_ROLE,
@@ -27,6 +28,7 @@ import {
   zFor,
 } from "#core/layer/index.js";
 import { attributionEntries, refreshAttributions } from "#core/leafletAdapter.js";
+import { finalizeEach } from "#common/finalize.js";
 import type { AnnotationManager } from "../annotation/index.js";
 import * as CONST from "../const.js";
 import type { LayerPersistence } from "../persistence.js";
@@ -238,11 +240,16 @@ class LayerOrchestration {
     };
     const existing = this.surfaces.get(layerInfo.id);
     if (existing?.matches(surfaceFace)) return existing;
-    if (existing?.layer) {
-      // The layer object (or its declaration) was replaced. Drop the stamp
-      // index entry for the superseded layer, or a lookup by it would keep
-      // answering with a surface nobody paints into anymore.
-      this.surfacesByLayer.delete(L.stamp(existing.layer));
+    if (existing) {
+      // The layer object (or its declaration) was replaced. Release the old
+      // surface's resources before the new face takes the id: its
+      // synthesized base pane and marker-shadow pane would otherwise linger
+      // as unowned DOM, and the replacement's claim on its own pane names
+      // would collide with a stale claim. The stamp index entry goes first so
+      // a lookup by the superseded layer cannot answer with a surface nobody
+      // paints into anymore.
+      if (existing.layer) this.surfacesByLayer.delete(L.stamp(existing.layer));
+      existing.destroy();
     }
     const surface = new LayerSurface(this.panes, surfaceFace);
     this.surfaces.set(layerInfo.id, surface);
@@ -277,38 +284,17 @@ class LayerOrchestration {
    *  panes around the ladder.
    *
    *  The controller holds the re-entry guard (`isEnforcing`) and the debounce
-   *  cancellation; this pass assumes it is safe to run. */
-  enforceOrder() {
-    // Give every layer a surface and reprice its z.
-    for (let i = 0; i < this.layers.length; i++) {
-      const layerInfo = this.layers[i];
-      const layer = this.findLayer(layerInfo);
-      // Base-group layers (tile basemaps + the solid-color basemap) share
-      // the 200 ladder, so a color pane interleaves with tile basemaps
-      // row-by-row. Overlay-group layers use the 600 ladder.
-      const slot = { index: i, count: this.layers.length, group: layerInfo.group };
-      const z = zFor(slot);
-
-      // Callback-only layers (createCanvas / heatmap): no Leaflet layer, but
-      // they own a dedicated pane that must still take its place in the stack.
-      if (!layer) {
-        const surface = this.surfaceFor(layerInfo);
-        surface.materialize();
-        surface.setZ(z);
-        continue;
-      }
-
-      if (!this.map.hasLayer(layer)) continue;
-
-      const surface = this.surfaceFor(layerInfo);
-      surface.materialize();
-      // One write covers every pane the face owns — including the
-      // `role: "annotation"` label pane, a PaneHandle since the surface
-      // materialized it. The ordering pass used to spot-write that pane by
-      // name here; `writeZ` prices it through the same `zFor({ role:
-      // "annotation" })` ladder now, so the special case is gone.
-      surface.setZ(z);
-    }
+   *  cancellation; this pass assumes it is safe to run.
+   *
+   *  @returns the ids that could not be priced, in registry order — empty on a
+   *    clean pass. A throwing layer must not strand the layers above it.
+   */
+  enforceOrder(): string[] {
+    const failed = finalizeEach(
+      this.layers,
+      (layerInfo, i) => this.priceLayer(layerInfo, i),
+      layerInfo => layerInfo.id,
+    );
 
     // Data panes start at BASE (== Leaflet's markerPane 600). Popup must sit
     // above the highest data pane (topZ + 1), tooltip exactly at topZ, and
@@ -322,6 +308,40 @@ class LayerOrchestration {
     if (tooltipPaneEl) tooltipPaneEl.style.zIndex = String(topZ);
     const markerPaneEl = this.map.getPane("markerPane");
     if (markerPaneEl) markerPaneEl.style.zIndex = String(topZ - 1);
+
+    return failed.map(f => f.item.id);
+  }
+
+  /** Price one layer: resolve (or build) its surface, materialize the face and
+   *  write its slot's z. Split out so a throw is attributable to exactly one
+   *  layer. */
+  private priceLayer(layerInfo: LayerInfo, index: number): void {
+    const layer = this.findLayer(layerInfo);
+    // Base-group layers (tile basemaps + the solid-color basemap) share
+    // the 200 ladder, so a color pane interleaves with tile basemaps
+    // row-by-row. Overlay-group layers use the 600 ladder.
+    const slot = { index, count: this.layers.length, group: layerInfo.group };
+    const z = zFor(slot);
+
+    // Callback-only layers (createCanvas / heatmap): no Leaflet layer, but
+    // they own a dedicated pane that must still take its place in the stack.
+    if (!layer) {
+      const surface = this.surfaceFor(layerInfo);
+      surface.materialize();
+      surface.setZ(z);
+      return;
+    }
+
+    if (!this.map.hasLayer(layer)) return;
+
+    const surface = this.surfaceFor(layerInfo);
+    surface.materialize();
+    // One write covers every pane the face owns — including the
+    // `role: "annotation"` label pane, a PaneHandle since the surface
+    // materialized it. The ordering pass used to spot-write that pane by
+    // name here; `writeZ` prices it through the same `zFor({ role:
+    // "annotation" })` ladder now, so the special case is gone.
+    surface.setZ(z);
   }
 
   /** The domain half of {@link LayerController.registerLayer}: build or update
@@ -342,12 +362,30 @@ class LayerOrchestration {
   registerEntry(
     opts: RegisterLayerOpts,
     hasUi: boolean,
-  ): { layerInfo: LayerInfo; existingIdx: number; hidden: boolean } {
+  ): {
+    layerInfo: LayerInfo;
+    hidden: boolean;
+    mutation: Extract<LayerMutation, { kind: "insert" | "replace-content" }>;
+  } {
     const existingLi = this.layerRegistry.get(opts.id);
-    const existingIdx = existingLi ? this.layerRegistry.indexOf(existingLi) : -1;
     const layerInfo = this.layerRegistry.createLayerInfo(opts, existingLi, this.map);
 
-    if (existingIdx !== -1) this.layerRegistry.upsert(layerInfo);
+    // Same id, new layer object: the old layer is being replaced, not
+    // joined. Retire it from the map BEFORE the registry forgets it —
+    // otherwise it keeps painting as an unmanageable ghost (no row, no
+    // opacity, no focus, no sort can reach it) for as long as the session
+    // lives. Same-object re-registration (the "this layer changed" signal)
+    // is untouched.
+    if (
+      existingLi?.layer &&
+      opts.layer &&
+      existingLi.layer !== opts.layer &&
+      this.map.hasLayer(existingLi.layer)
+    ) {
+      this.map.removeLayer(existingLi.layer);
+    }
+
+    if (existingLi) this.layerRegistry.upsert(layerInfo);
     else if (layerInfo.group === GROUP.BASE) {
       const firstBaseIdx = this.layerRegistry.firstBaseIdx;
       const atBottom = opts.baseInsert === "bottom";
@@ -375,7 +413,15 @@ class LayerOrchestration {
     // registration takes the map path (a runtime re-registration with a
     // panel still respects the user's hide).
     const hidden = hasUi && this.intentStore.get(opts.id, INTENT.VISIBLE) === false;
-    return { layerInfo, existingIdx, hidden };
+    // The insertion outcome carries the live position after the whole
+    // placement (upsert in place, or insert + saved-slot replay), so no
+    // pre-mutation index has to survive the call.
+    const index = this.layerRegistry.indexOf(layerInfo);
+    const mutation: Extract<LayerMutation, { kind: "insert" | "replace-content" }> =
+      existingLi
+        ? { kind: "replace-content", previous: existingLi, entry: layerInfo, index }
+        : { kind: "insert", entry: layerInfo, index };
+    return { layerInfo, hidden, mutation };
   }
 
   /** The domain half of {@link LayerController.unregisterLayer}: remove the

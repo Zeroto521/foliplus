@@ -9,6 +9,8 @@
 // Signature contract: modules that exclusively touch focus state (focus.ts,
 // focusMarquee.ts) receive a FocusController. Cross-subsystem code takes
 // LayerUI and reaches into `ui.focusController.*`.
+import type { FinalizeStep } from "#common/finalize.js";
+
 class FocusController {
   /** Temporary rectangle overlay drawn while a focus is in progress. */
   focusRect: L.Layer | null = null;
@@ -23,9 +25,10 @@ class FocusController {
   focusMask: L.Polygon | null = null;
   /** SVG renderer hosting the focus overlay (mask + rectangle). */
   focusRenderer: L.SVG | null = null;
-  /** Restore callbacks for pane z-indexes lifted to bring the focused layer
-   *  to the front (cleared on cancel). */
-  focusedPaneRestores: Array<() => void> = [];
+  /** Named restore steps for pane z-indexes lifted to bring the focused layer
+   *  to the front (cleared on cancel). Named at the lift site, where the pane
+   *  identity is known — an index would shift the moment a lift is added. */
+  focusedPaneRestores: FinalizeStep[] = [];
 }
 
 export { FocusController };

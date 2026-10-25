@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { LayerSurface } from "#foliplus/core/layer/LayerSurface.js";
 import { PaneManager } from "#foliplus/core/layer/PaneManager.js";
+import * as carrierModule from "#foliplus/core/layer/carrier.js";
 import * as CONST from "#foliplus/core/layer/const.js";
 import type { PaneSpec } from "#foliplus/core/layer/type.js";
 import { CLUSTER_CAPABILITIES, deriveLayerKind } from "#foliplus/core/layer/util.js";
@@ -24,6 +25,24 @@ class Polygon {
 
 class Polyline {
   options: Record<string, unknown> = {};
+}
+
+/** A pixel-radius leaf — the only carrier of the size axis. `_radius` is the
+ *  pixel value `setRadius` writes; the absence of `_mRadius` is what keeps a
+ *  metre-radius circle out of the match. */
+class CircleMarker {
+  options: Record<string, unknown> = {};
+  _radius: number;
+  constructor(radius = 10) {
+    this._radius = radius;
+  }
+  setRadius(radius: number) {
+    this._radius = radius;
+    return this;
+  }
+  getRadius() {
+    return this._radius;
+  }
 }
 
 class Marker {
@@ -242,6 +261,222 @@ describe("LayerSurface pane resolution", () => {
     );
     expect(surface.paneNames).toEqual([surface.synthesizedPaneName]);
     expect(surface.panes[0].renderer).not.toBeNull();
+    // The first reconcile grows the shadow pane for the marker-bearing tree —
+    // before anything is pinned into it. A marker-bearing layer gets its own
+    // shadow pane (role "shadow"), so pane writes reach the marker's full
+    // visible DOM — the base pane alone never carried the shadow.
+    surface.materialize();
+    expect(surface.paneNames).toEqual([
+      surface.synthesizedPaneName,
+      `${surface.synthesizedPaneName}-shadow`,
+    ]);
+    expect(surface.panes.map(pane => pane.role)).toEqual(["base", "shadow"]);
+    // The shadow pane carries no renderer: nothing routes SVG content there.
+    expect(surface.panes[1].renderer).toBeNull();
+  });
+
+  it("degrades to the none carrier when the carrier audit finds an escape", () => {
+    // Fail closed: a surface that promised pane coverage and then fails the
+    // completeness audit must stop promising it (the UI hides the write that
+    // would have lied) instead of logging and carrying on.
+    const { host } = makeMap();
+    const layer = new Group([new Marker()]);
+    const surface = new LayerSurface(host, {
+      id: "escape",
+      layer: layer as unknown as L.Layer,
+    });
+    surface.materialize();
+    expect(surface.capabilities.opacity).toBe("pane");
+
+    const escapeError = new Error("[carrier] IMG paint outside the layer's own panes");
+    const assertSpy = vi
+      .spyOn(carrierModule, "assertInsideOwnedPanes")
+      .mockImplementation(() => {
+        throw escapeError;
+      });
+    surface.markContentDirty();
+    surface.materialize();
+    assertSpy.mockRestore();
+
+    expect(surface.capabilities.opacity).toBe("none");
+    expect(surface.capabilities.relocatable).toBe(false);
+  });
+
+  it("logs a carrier escape thrown as a non-Error by its string form", () => {
+    // `validateCarrier` catches whatever the audit threw — a third-party
+    // audit, or a `throw "..."` in a leaf predicate — so it cannot assume an
+    // Error instance. A non-Error has no `message`, and reading it blindly
+    // would log `undefined` and lose the one detail that names the escape.
+    const { host } = makeMap();
+    const surface = new LayerSurface(host, {
+      id: "escape-str",
+      layer: new Group([new Marker()]) as unknown as L.Layer,
+    });
+    surface.materialize();
+
+    const escape: unknown = "IMG paint outside the layer's own panes";
+    const assertSpy = vi
+      .spyOn(carrierModule, "assertInsideOwnedPanes")
+      .mockImplementation(() => {
+        throw escape;
+      });
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      surface.markContentDirty();
+      surface.materialize();
+    } finally {
+      assertSpy.mockRestore();
+    }
+
+    try {
+      expect(surface.capabilities.opacity).toBe("none");
+      expect(
+        errorSpy.mock.calls.some(call => String(call[0]).includes("IMG paint outside")),
+      ).toBe(true);
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
+  it("synthesizes no shadow pane for a layer without markers", () => {
+    const { host } = makeMap();
+    const surface = new LayerSurface(host, {
+      id: "plain",
+      layer: new Group([new Path()]) as unknown as L.Layer,
+    });
+    surface.materialize();
+    expect(surface.paneNames).toEqual([surface.synthesizedPaneName]);
+  });
+
+  it("materializes a declared spec the tree did not discover (annotation pane)", () => {
+    // The registration edge appends a `role: "annotation"` spec for layers
+    // whose features carry labelable properties; the synthesized branch
+    // discovers no such pane from the tree, so `addMissingSpecs` must build
+    // it — otherwise the capability is declared and the pane never exists.
+    const { panes, host } = makeMap();
+    const surface = new LayerSurface(host, {
+      id: "labelable",
+      layer: new Group([new Path()]) as unknown as L.Layer,
+      paneSpecs: [{ role: "annotation", order: 1, name: "foliplus-annotation-x" }],
+    });
+    surface.materialize();
+
+    expect(surface.paneNames).toEqual([
+      surface.synthesizedPaneName,
+      "foliplus-annotation-x",
+    ]);
+    expect(surface.panes.map(pane => pane.role)).toEqual(["base", "annotation"]);
+    expect(panes["foliplus-annotation-x"]).toBeDefined();
+  });
+
+  it("skips a raw paneSpec naming a Leaflet shared pane", () => {
+    // A raw registerLayer({ paneSpecs }) can name `overlayPane` as a
+    // sub-pane; the admission gate refuses it BEFORE any DOM change — the
+    // shared pane never gets the foliplus class or a lease.
+    const { panes, host } = makeMap();
+    const surface = new LayerSurface(host, {
+      id: "raw",
+      layer: new Path() as unknown as L.Layer,
+      paneName: "owned-base",
+      paneSpecs: specs("owned-base", "overlayPane"),
+    });
+    expect(surface.paneNames).toEqual(["owned-base"]);
+    expect(panes.overlayPane).toBeUndefined();
+  });
+
+  it("reports a spec addMissingSpecs could not book", () => {
+    // A spec the constructor route never discovered, naming a pane another
+    // surface holds: it must be refused and reported, not declared in
+    // capabilities with no pane behind it.
+    const { panes, host } = makeMap();
+    new LayerSurface(host, {
+      id: "owner",
+      layer: new Path() as unknown as L.Layer,
+      paneName: "held-sub",
+    });
+    const surface = new LayerSurface(host, {
+      id: "target",
+      layer: new Path() as unknown as L.Layer,
+      paneSpecs: [{ role: "annotation", order: 1, name: "held-sub" }],
+    });
+    surface.materialize();
+
+    expect(surface.paneNames).toEqual([surface.synthesizedPaneName]);
+    expect(surface.panes.map(pane => pane.role)).toEqual(["base"]);
+    expect(panes["held-sub"]).toBeDefined();
+  });
+
+  it("falls back to a synthesized pane when every discovered pane is refused", () => {
+    // A tree whose only child pane is held by another surface would
+    // otherwise report pane coverage while holding no base carrier at all.
+    const { host } = makeMap();
+    new LayerSurface(host, {
+      id: "owner",
+      layer: { options: { pane: "foliplus-shared" } } as unknown as L.Layer,
+      paneName: "foliplus-shared",
+    });
+    const sharer = { options: { pane: "foliplus-shared" } } as unknown as L.Layer;
+    const second = new LayerSurface(host, { id: "sharer", layer: sharer });
+    second.materialize();
+    // The degraded surface ends up with its own provably exclusive pane.
+    expect(second.paneNames).toEqual([second.synthesizedPaneName]);
+    expect(second.synthesizedPaneName).toMatch(/^foliplus-pane-/);
+  });
+
+  it("skips a discovered child pane that another surface claims", () => {
+    // Two trees naming the same child pane: the second surface must leave
+    // the name to its first owner instead of co-writing it — the warn names
+    // the skip, and the claimed pane stays out of the second pane set.
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { host } = makeMap();
+    const first = new LayerSurface(host, {
+      id: "owner",
+      layer: { options: { pane: "foliplus-shared" } } as unknown as L.Layer,
+      paneName: "foliplus-shared",
+    });
+    expect(first.paneNames).toContain("foliplus-shared");
+
+    const sharer = {
+      options: { pane: "foliplus-shared" },
+    } as unknown as L.Layer;
+    const second = new LayerSurface(host, { id: "sharer", layer: sharer });
+    expect(second.paneNames).not.toContain("foliplus-shared");
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("skipped discovered pane"),
+    );
+    warnSpy.mockRestore();
+  });
+
+  it("warns and skips the shadow pane when a declared spec claims its name", () => {
+    // A declared pane named `<base>-shadow` (the collision only a caller can
+    // manufacture, but a real one): the surface must not double-book the name
+    // — the declared pane stands, the marker-shadow synthesis degrades to a
+    // warn, and shadows stay on Leaflet's shared shadowPane.
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { panes, host } = makeMap();
+    const layer = new Group([new Marker()]);
+    // Stamp first so the test can predict the synthesized base pane's name.
+    const baseName = `foliplus-pane-${window.L.stamp(layer)}`;
+    const surface = new LayerSurface(host, {
+      id: "claimed",
+      layer: layer as unknown as L.Layer,
+      paneSpecs: [{ role: "sub", order: 1, name: `${baseName}-shadow` }],
+    });
+    surface.materialize();
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("already claimed by a declared"),
+    );
+    // The claimed name keeps the declared spec's identity — it is not a
+    // shadow pane, so nothing treats it as one.
+    expect(
+      (surface as unknown as { shadowPaneName: string | null }).shadowPaneName,
+    ).toBeNull();
+    expect(surface.panes.find(pane => pane.name === `${baseName}-shadow`)?.role).toBe(
+      "sub",
+    );
+    expect(panes[`${baseName}-shadow`]).toBeDefined();
+    warnSpy.mockRestore();
   });
 
   it("never writes pointer-events onto a pane", () => {
@@ -275,6 +510,77 @@ describe("LayerSurface pane resolution", () => {
     });
     expect(surface.paneNames).toEqual(["graph"]);
     expect(Object.keys(panes).filter(k => k === "graph")).toHaveLength(1);
+  });
+
+  it("leaves the shadow pane unset when another surface holds its lease", () => {
+    // A shadow name is not ownership. surface-a owns `baseA-shadow` as its own
+    // base pane, so surface-b must not synthesize a shadow there: recording
+    // the refused name would land in the marker's `options.shadowPane` and the
+    // next `setIcon` would migrate its shadow into a foreign pane (cross-owner
+    // DOM move). The booking must stay out of `shadowPaneName`.
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { panes, host } = makeMap();
+    new LayerSurface(host, {
+      id: "a",
+      layer: new Path() as unknown as L.Layer,
+      paneName: "baseA-shadow",
+    }).materialize();
+
+    const marker = new Marker();
+    const layer = new Group([marker]);
+    const surface = new LayerSurface(host, {
+      id: "b",
+      layer: layer as unknown as L.Layer,
+      paneName: "baseA",
+    });
+    surface.materialize();
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("could not be acquired"),
+    );
+    expect(
+      (surface as unknown as { shadowPaneName: string | null }).shadowPaneName,
+    ).toBeNull();
+    expect(surface.paneNames).toEqual(["baseA"]);
+    // The owner keeps its pane and its lease ...
+    expect(panes["baseA-shadow"]).toBeDefined();
+    expect(host.canAcquirePane("baseA-shadow", "a")).toBe(true);
+    expect(host.canAcquirePane("baseA-shadow", "b")).toBe(false);
+    // ... and no marker option points at it.
+    expect(marker.options.shadowPane).toBeUndefined();
+    warnSpy.mockRestore();
+  });
+
+  it("stops promising pane coverage when the fallback pane is refused", () => {
+    // The fallback name is stamped from L.stamp, so a refusal means a pane of
+    // that exact name already exists and is not provably ours. With no base
+    // carrier at all the surface must stop advertising a z / opacity write
+    // that would land nowhere: recording the refused name as its carrier used
+    // to claim coverage over a pane the surface never held.
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { host } = makeMap();
+    window.L.stamp = vi.fn(() => 1);
+    host.ensurePane("foliplus-pane-1", false, "other");
+
+    const surface = new LayerSurface(host, {
+      id: "nobody",
+      layer: new Group([new Marker()]) as unknown as L.Layer,
+    });
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("could not create fallback pane"),
+    );
+    expect(surface.panes).toHaveLength(0);
+    expect(surface.synthesizedPaneName).toBeNull();
+    expect(surface.capabilities.opacity).toBe("none");
+    expect(surface.capabilities.relocatable).toBe(false);
+    // The other surface keeps its lease, and the write path answers "no pane
+    // here" instead of writing to a name nobody holds.
+    expect(host.canAcquirePane("foliplus-pane-1", "other")).toBe(true);
+    expect(host.canAcquirePane("foliplus-pane-1", "nobody")).toBe(false);
+    expect(surface.setZ(640)).toBe(false);
+    expect(surface.setZOverride(8990)).toBe(false);
+    warnSpy.mockRestore();
   });
 });
 
@@ -388,11 +694,13 @@ describe("LayerSurface.materialize", () => {
     });
     surface.materialize();
     const paneEl = surface.panes[0].element;
-    // Icon moves into the foliplus pane; shadow stays where Leaflet put it
-    // (body here) because shadowPane is the correct resting place for
-    // shadows and the pane boundary alone keeps icon above shadow.
+    // Icon into the base pane; shadow into the surface's own shadow pane —
+    // one pane handle per element, so opacity / visibility / focus writes
+    // cover the marker's full visible DOM. (The shadow used to stay wherever
+    // Leaflet put it, which is what left pane opacity writes partial.)
     expect(Array.from(paneEl.children)).toEqual([attached.element]);
-    expect(attached._shadow.parentNode).toBe(document.body);
+    expect(attached._shadow.parentNode).toBe(surface.panes[1].element);
+    expect(surface.panes[1].role).toBe("shadow");
   });
 
   it("moves an attached path into the pane's renderer", () => {
@@ -475,8 +783,13 @@ describe("LayerSurface.setZ", () => {
       id: "plain",
       layer: new Group([new Marker()]) as unknown as L.Layer,
     });
+    surface.materialize();
     expect(surface.setZ(640)).toBe(true);
     expect(panes[surface.synthesizedPaneName!].style.zIndex).toBe("640");
+    // The shadow pane rides one step below its layer: shadows must paint
+    // under their icons by pane ladder, not DOM order (marker icons carry an
+    // inline z-index that goes negative near the viewport top).
+    expect(panes[`${surface.synthesizedPaneName!}-shadow`].style.zIndex).toBe("639");
   });
 });
 
@@ -665,6 +978,34 @@ describe("LayerSurface.matches", () => {
     ).toBe(false);
   });
 
+  it("rebuilds when the tree's radius carrier changes", () => {
+    // The size capability is baked into the declaration, so a group that later
+    // gained a pixel-radius leaf describes a different face — the surface must
+    // not keep answering "none" from its first walk.
+    const { host } = makeMap();
+    const layer = new Group();
+    const base = {
+      id: "grow",
+      layer: layer as unknown as L.Layer,
+      paneName: "graph",
+      paneSpecs: specs("graph", "label"),
+    };
+    const surface = new LayerSurface(host, base);
+    expect(surface.capabilities.size).toBe(CONST.CAP_TIER.NONE);
+    expect(surface.matches(base)).toBe(true);
+
+    layer.addLayer(new CircleMarker());
+    expect(surface.matches(base)).toBe(false);
+
+    // And the reverse: a tree that lost its radius leaf stops claiming a
+    // capability it no longer has.
+    const sized = new LayerSurface(host, base);
+    expect(sized.capabilities.size).toBe(CONST.CAP_TIER.NATIVE);
+    expect(sized.matches(base)).toBe(true);
+    layer.children = [];
+    expect(sized.matches(base)).toBe(false);
+  });
+
   it("treats a changed fill as the same face — a repaint, not a rebuild", () => {
     const { host } = makeMap();
     const base = {
@@ -777,7 +1118,7 @@ describe("LayerSurface.matches", () => {
 });
 
 describe("LayerSurface.destroy", () => {
-  it("releases only the pane it synthesized", () => {
+  it("releases only the panes it synthesized", () => {
     const { panes, host } = makeMap();
     const synthesized = new LayerSurface(host, {
       id: "plain",
@@ -787,6 +1128,9 @@ describe("LayerSurface.destroy", () => {
     const paneName = synthesized.synthesizedPaneName!;
     synthesized.destroy();
     expect(panes[paneName]).toBeUndefined();
+    // The marker-shadow pane is synthesized too — it must go with the base
+    // pane, or an unregister/register cycle would leak one per draw.
+    expect(panes[`${paneName}-shadow`]).toBeUndefined();
 
     const declared = new LayerSurface(host, {
       id: "a",
@@ -798,6 +1142,125 @@ describe("LayerSurface.destroy", () => {
     // A declared pane survives: the same id must be registrable again without
     // rebuilding its panes.
     expect(panes.graph).toBeDefined();
+  });
+
+  it("leaves the canvas face's pane to the face that retires it", () => {
+    // A canvas face books its own pane before the surface does. If
+    // `destroy` retired that lease too, the face's own destroy would find
+    // nothing to check against and the element would stay on the map with
+    // nobody left to take it off — every later `writeZ`, focus and export
+    // write aimed at DOM that is already gone. The surface therefore
+    // skips the face's pane, and only the face's destroy deletes it.
+    const { panes, host } = makeMap();
+    const facePane = host.ensurePane("foliplus-canvas-heat", false, "heat").pane;
+    expect(facePane).toBe(panes["foliplus-canvas-heat"]);
+
+    const surface = new LayerSurface(host, {
+      id: "heat",
+      layer: null,
+      canvas: true,
+      paneName: "foliplus-canvas-heat",
+    });
+    surface.materialize();
+    expect(surface.paneNames).toContain("foliplus-canvas-heat");
+
+    surface.destroy();
+
+    // Element and lease both survived the surface's teardown — the face
+    // still holds it, and nobody else may take it.
+    expect(panes["foliplus-canvas-heat"]).toBe(facePane);
+    expect(host.canAcquirePane("foliplus-canvas-heat", "heat")).toBe(true);
+    expect(host.canAcquirePane("foliplus-canvas-heat", "other")).toBe(false);
+
+    // The face's own destroy is the call that takes the element off.
+    host.releasePane("foliplus-canvas-heat", "heat", true);
+    expect(panes["foliplus-canvas-heat"]).toBeUndefined();
+    expect(host.canAcquirePane("foliplus-canvas-heat", "heat")).toBe(true);
+  });
+
+  it("neutralises its own state so a retired surface cannot write", () => {
+    // Destroy used to retire only the leases. A surface destroyed mid-focus
+    // kept `panes` / `baseZ` / `overrideZ` alive, so a restore closure still
+    // holding it walked names through `assertOwnedPane` after the lease was
+    // already gone and threw — escaping past the focus mask/rect teardown and
+    // leaving the map dimmed with no way back. Every write method now guards
+    // on the emptied state, so a late call is a no-op instead of an error.
+    const { panes, host } = makeMap();
+    const surface = new LayerSurface(host, {
+      id: "late",
+      layer: new Group([new Marker()]) as unknown as L.Layer,
+    });
+    surface.materialize();
+    const base = surface.synthesizedPaneName!;
+    surface.setZ(640);
+    surface.setZOverride(8990);
+    expect(panes[base].style.zIndex).toBe("8990");
+
+    const captured = surface.panes;
+    surface.destroy();
+
+    // The handle set is emptied in place, so a closure that captured it at
+    // focus time sees the same (now empty) array when the surface retires
+    // under it.
+    expect(captured).toBe(surface.panes);
+    expect(captured.length).toBe(0);
+    expect(surface.paneNames).toEqual([]);
+    expect(surface.synthesizedPaneName).toBeNull();
+    // Late writes are no-ops, and none of them throws.
+    expect(surface.setZ(640)).toBe(false);
+    expect(surface.setZOverride(8990)).toBe(false);
+    expect(surface.restoreZ()).toBe(false);
+  });
+
+  it("lets a focus-style restore closure finish after destroy without throwing", () => {
+    // The shape that actually escaped: `focus/pane.ts` captures `surface.panes`
+    // and a `restoreZ` callback when entering focus, and `dismissFocus` runs
+    // them after the layer may already be gone.
+    const { panes, host } = makeMap();
+    const surface = new LayerSurface(host, {
+      id: "focus",
+      layer: new Group([new Marker()]) as unknown as L.Layer,
+    });
+    surface.materialize();
+    const base = surface.synthesizedPaneName!;
+    surface.setZ(640);
+    surface.setZOverride(8990);
+
+    const captured = surface.panes;
+    const restore = () => {
+      for (const pane of captured) {
+        pane.element.classList.remove("foliplus-focus-glow");
+      }
+      surface.restoreZ();
+    };
+
+    surface.destroy();
+    expect(() => restore()).not.toThrow();
+    expect(panes[base]).toBeUndefined();
+  });
+
+  it("never re-acquires a pane from a write path", () => {
+    // The write path holds a handle booked at construction. Calling
+    // `ensurePane` here would re-open the admission door on a write, so a
+    // retired surface could quietly win its pane back on the next late write
+    // instead of being refused.
+    const { panes, host } = makeMap();
+    const surface = new LayerSurface(host, {
+      id: "write",
+      layer: new Group([new Marker()]) as unknown as L.Layer,
+    });
+    surface.materialize();
+    const base = surface.synthesizedPaneName!;
+
+    const acquires = vi.spyOn(host, "ensurePane");
+    expect(surface.setZ(640)).toBe(true);
+    expect(surface.setZOverride(8990)).toBe(true);
+    expect(surface.restoreZ()).toBe(true);
+    acquires.mockRestore();
+
+    expect(acquires).not.toHaveBeenCalled();
+    expect(panes[base].style.zIndex).toBe("640");
+    expect(panes[`${base}-shadow`].style.zIndex).toBe("639");
   });
 });
 
@@ -949,6 +1412,7 @@ describe("LayerSurface capabilities", () => {
       annotation: "none",
       fill: "native",
       stroke: "none",
+      size: "none",
       relocatable: true,
       bounds: false,
       visibility: "pane",
@@ -1134,7 +1598,9 @@ describe("LayerSurface capabilities", () => {
   it("warns when paneName fails injection safety (covers log.warn)", () => {
     // PANE_NAME_PATTERN is /^[a-zA-Z0-9_-]+$/ — a paneName with a space or
     // special character is rejected, and the surface synthesizes a fallback
-    // pane instead. The log.warn at line 121 fires only for this path.
+    // pane instead. The same degradation now also covers a paneName naming
+    // one of Leaflet's shared panes: adopting one would route the layer's
+    // z / opacity / focus writes onto a pane every layer draws into.
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     const { host } = makeMap();
     const surface = new LayerSurface(host, {
@@ -1142,11 +1608,20 @@ describe("LayerSurface capabilities", () => {
       layer: new Path() as unknown as L.Layer,
       paneName: "bad name with spaces",
     });
-    expect(warnSpy).toHaveBeenCalledWith(
-      expect.stringContaining("rejected paneName for injection safety"),
-    );
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("rejected paneName"));
     // The surface falls back to a synthesized pane.
     expect(surface.synthesizedPaneName).not.toBeNull();
+
+    // The shared-pane rejection goes through the same warn + fallback path.
+    warnSpy.mockClear();
+    const shared = new LayerSurface(host, {
+      id: "shared",
+      layer: new Path() as unknown as L.Layer,
+      paneName: "overlayPane",
+    });
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("rejected paneName"));
+    expect(shared.synthesizedPaneName).not.toBeNull();
+    expect(shared.paneNames).not.toContain("overlayPane");
     warnSpy.mockRestore();
   });
 });
@@ -1183,6 +1658,7 @@ describe("kind declaration (cluster / tile|vector)", () => {
     expect(CLUSTER_CAPABILITIES).toEqual({
       fill: "none",
       stroke: "none",
+      size: "none",
       opacity: "none",
       zoomRange: "none",
       visibility: "native",

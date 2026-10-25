@@ -46,6 +46,9 @@ interface SchemePickerOptions {
    *  scheme name.  Injected by the consumer so the picker stays free of
    *  core/ imports. */
   colorScale: (name: string, n: number) => string[];
+  /** Accessible name for the trigger. Consumers pass their localized text
+   *  (e.g. `T("scheme")`); the factory stays locale-free. */
+  label?: string;
 }
 
 interface SchemePicker {
@@ -152,7 +155,7 @@ const buildDropdown = (state: InternalState): HTMLElement => {
 
   const items: HTMLElement[] = [];
 
-  schemes.forEach((name, idx) => {
+  schemes.forEach(name => {
     const item = dom.el("div", {
       class: classes.item,
       role: "option",
@@ -577,14 +580,15 @@ const createSchemePicker = (options: SchemePickerOptions): SchemePicker => {
 
   // Set combobox a11y attributes on the trigger.
   // aria-label is required because the adjacent <label> cannot name a
-  // <div role="combobox"> automatically (no `for` attribute).
+  // <div role="combobox"> automatically (no `for` attribute). The consumer
+  // injects the localized name; the factory carries no locale table.
   state.trigger.setAttribute("aria-haspopup", "listbox");
   state.trigger.setAttribute("aria-expanded", "false");
   if (
     !state.trigger.hasAttribute("aria-label") &&
     !state.trigger.hasAttribute("aria-labelledby")
   ) {
-    state.trigger.setAttribute("aria-label", "Colour scheme");
+    state.trigger.setAttribute("aria-label", options.label ?? "Colour scheme");
   }
 
   // Set initial trigger title and draw the colour bar

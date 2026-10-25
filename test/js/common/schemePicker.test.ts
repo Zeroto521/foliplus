@@ -319,10 +319,7 @@ describe("restoreFocus option", () => {
     const { picker, trigger } = makePicker();
     trigger.focus();
     trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    // Focus is on an item after open
-    const items = picker
-      .getDropdown()!
-      .querySelectorAll("[role=option]") as NodeListOf<HTMLElement>;
+    // Focus is on an item after open (set by mountDropdown)
     const otherInput = document.createElement("input");
     document.body.appendChild(otherInput);
     otherInput.focus();
@@ -334,7 +331,7 @@ describe("restoreFocus option", () => {
   });
 
   it("close() on an already-closed picker does not steal focus", () => {
-    const { picker, trigger } = makePicker();
+    const { picker } = makePicker();
     const otherInput = document.createElement("input");
     document.body.appendChild(otherInput);
     otherInput.focus();
@@ -401,6 +398,37 @@ describe("ARIA attributes", () => {
     items[1].focus();
     const descId = trigger.getAttribute("aria-activedescendant");
     expect(descId).toBe(items[1].id);
+    picker.destroy();
+  });
+
+  it("uses the injected label as the trigger's accessible name", () => {
+    const { trigger } = makePicker({ label: "色带" });
+    expect(trigger.getAttribute("aria-label")).toBe("色带");
+  });
+
+  it("falls back to the default label when the consumer injects none", () => {
+    const { trigger } = makePicker();
+    expect(trigger.getAttribute("aria-label")).toBe("Colour scheme");
+  });
+
+  it("does not overwrite an aria-label the consumer already set", () => {
+    const trigger = document.createElement("div");
+    trigger.setAttribute("aria-label", "Existing label");
+    const inner = document.createElement("div");
+    inner.setAttribute("data-scheme-bar-inner", "");
+    trigger.appendChild(inner);
+    document.body.append(trigger);
+    const picker = createSchemePicker({
+      trigger,
+      schemes: ["Reds"],
+      value: "Reds",
+      numClasses: 4,
+      portal: false,
+      label: "Injected label",
+      onChange: vi.fn(),
+      colorScale,
+    });
+    expect(trigger.getAttribute("aria-label")).toBe("Existing label");
     picker.destroy();
   });
 
