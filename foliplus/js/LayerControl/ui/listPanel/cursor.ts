@@ -208,6 +208,13 @@ const blurActiveItem = (ui: LayerUI): void => {
 
 const clearActiveItem = (ui: LayerUI): void => {
   blurActiveItem(ui);
+  // Focus can outlive the ledger: a row (or an in-row control) that keeps DOM
+  // focus would be re-read by resolveActiveIdx() and resurrect the cursor the
+  // caller just cleared. Blur only a row this panel owns.
+  const focusedRow = owningRow(document.activeElement);
+  if (focusedRow && ui.uiContainer?.contains(focusedRow)) {
+    (document.activeElement as HTMLElement | null)?.blur();
+  }
   ui.listPanel.activeIdx = null;
   ui.listPanel.listCursor?.setIndex(-1);
 };

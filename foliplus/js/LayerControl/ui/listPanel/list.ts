@@ -10,6 +10,7 @@ import { seedAuthorVisible } from "../intent.js";
 import type { LayerUI } from "../surface.js";
 import {
   cursorRef,
+  getNavigableItems,
   reconcileCursorByIdentity,
   restoreCursor,
   syncListCursor,
@@ -90,6 +91,143 @@ const rebuildList = (ui: LayerUI): void => {
   notifyDeltas(ui, moved);
 };
 
+/** Index path from `root` down to `target`, for a `target` the caller has
+ *  already proved is a descendant (`previous.contains(activeEl)`).
+ *  Duplicates are clones, so the same path addresses the "same" node in the
+ *  surviving copy — the exact checkbox / ⋮ button / fold control the user
+ *  was on, not the row that happens to contain it. */
+const pathWithin = (root: HTMLElement, target: HTMLElement): number[] => {
+  const path: number[] = [];
+  let node: HTMLElement = target;
+  while (node !== root) {
+    // `contains` above guarantees the chain reaches `root`, so a null parent
+    // is unreachable here — the cast keeps the walk branch-free.
+    const parent = node.parentElement as HTMLElement;
+    path.unshift(Array.prototype.indexOf.call(parent.children, node));
+    node = parent;
+  }
+  return path;
+};
+
+/** Resolve a path produced by `pathWithin` against another clone. */
+const nodeAtPath = (root: HTMLElement, path: number[]): HTMLElement | null => {
+  let node: Element = root;
+  for (const index of path) {
+    const next = node.children[index];
+    if (!next) return null;
+    node = next;
+  }
+  // The source was an HTMLElement and a clone preserves node types.
+  return node as HTMLElement;
+};
+
+/** Focus `el` for real. `focus()` on a node the engine refuses to focus is a
+ *  silent no-op, and the restore chain below needs to know whether to move on
+ *  instead of assuming the first candidate took. */
+const focusIfPossible = (el: HTMLElement | null): boolean => {
+  if (!el?.isConnected) return false;
+  el.focus();
+  return document.activeElement === el;
+};
+
+/** Restore focus after a duplicate node is dropped: the exact descendant first
+ *  (a native <select> popup or a menu's keyboard chain depends on that
+ *  precision), then the caller's fallback, then the surviving node itself,
+ *  then the nearest navigable row/anchor, and finally the panel container. A
+ *  stripped clone — the survivor's controls were removed before the duplicate
+ *  was detected — must not leave the keyboard user on <body>. */
+const restoreFocusAfterDuplicate = (
+  ui: LayerUI,
+  survivor: HTMLElement,
+  focusPath: number[],
+  focusFallback: () => HTMLElement | null,
+): void => {
+  if (focusIfPossible(nodeAtPath(survivor, focusPath))) return;
+  if (focusIfPossible(focusFallback())) return;
+  if (focusIfPossible(survivor)) return;
+  // Browser-only defense: a surviving row IS focusable by construction
+  // (rows render `tabindex="0"`), so this layer is reached only when the
+  // survivor is not rendered — a duplicate inside a folded group, where the
+  // engine refuses focus on a `display: none` subtree while jsdom still
+  // grants it. The walk and the container last resort therefore cannot be
+  // reached from this suite; they stay because folding the wrong row must not
+  // strand keyboard focus on <body>, and are exempt from the coverage gate
+  // rather than deleted (see the test's comment for the same rationale).
+  /* v8 ignore start */
+  // Nearest navigable neighbour: forward first, then backward. Folded or
+  // otherwise unfocusable rows simply fail the probe and the walk moves on.
+  const items = getNavigableItems(ui);
+  const survivorIdx = items.indexOf(survivor);
+  for (let i = survivorIdx + 1; i < items.length; i++) {
+    if (focusIfPossible(items[i])) return;
+  }
+  for (let i = survivorIdx - 1; i >= 0; i--) {
+    if (focusIfPossible(items[i])) return;
+  }
+  const container = ui.uiContainer;
+  if (!container) return;
+  // Last resort: make the panel itself programmatically focusable. Removing
+  // the attribute right after would blur the very node just focused, so it
+  // stays for the session — `tabindex="-1"` is not a Tab stop and costs no
+  // layout.
+  if (!container.hasAttribute("tabindex")) container.setAttribute("tabindex", "-1");
+  focusIfPossible(container);
+  /* v8 ignore stop */
+};
+
+/** Repair one duplicated node — a layer row or a toggle-all anchor: finish an
+ *  in-flight slider edit, carry the cursor and DOM focus onto the surviving
+ *  later node, then drop the earlier one. The pair names the same layer (or
+ *  group), so the cursor can move to the survivor without re-resolving an
+ *  identity that is about to change position. Focus returns to the same
+ *  descendant path when the clone still carries it; `focusFallback` covers a
+ *  stripped clone. */
+const removeDuplicateNode = (
+  ui: LayerUI,
+  previous: HTMLElement,
+  survivor: HTMLElement,
+  focusFallback: () => HTMLElement | null,
+): void => {
+  const activeEl = document.activeElement as HTMLElement | null;
+  // null when focus is elsewhere: the path is also the "did the removed node
+  // own focus?" answer, so one lookup carries both facts.
+  const focusPath =
+    activeEl && previous.contains(activeEl) ? pathWithin(previous, activeEl) : null;
+  const items = getNavigableItems(ui);
+  const activeRow =
+    ui.listPanel.activeIdx === null ? null : (items[ui.listPanel.activeIdx] ?? null);
+  // DOM focus is the cursor even when the ledger has not caught up yet: the
+  // row can own focus for a frame after a pointer/Alt+Enter activation. Treat
+  // that as active so the repair does not drop the user's focus on <body>.
+  const wasActive =
+    focusPath !== null ||
+    activeRow === previous ||
+    previous.classList.contains(CONST.CLASSES.FOCUSED);
+  // Removing a node in front of the cursor shifts every later position down;
+  // a stale `activeIdx` would make the reconcile re-home onto its neighbor.
+  // The comparison must happen while both nodes are still connected.
+  const shiftsActive = activeRow
+    ? (previous.compareDocumentPosition(activeRow) &
+        Node.DOCUMENT_POSITION_FOLLOWING) !==
+      0
+    : false;
+
+  finishSlidersIn(previous);
+  previous.remove();
+
+  if (wasActive) {
+    survivor.classList.add(CONST.CLASSES.FOCUSED);
+    ui.listPanel.activeIdx = getNavigableItems(ui).indexOf(survivor);
+    if (focusPath) {
+      restoreFocusAfterDuplicate(ui, survivor, focusPath, focusFallback);
+    }
+  } else if (shiftsActive) {
+    // Re-resolve rather than decrement: same node, one lookup away, and it
+    // cannot drift when the repair itself moves the survivor.
+    ui.listPanel.activeIdx = getNavigableItems(ui).indexOf(activeRow as HTMLElement);
+  }
+};
+
 /** Align the panel's rows with the registry order in one in-place pass —
  *  the incremental counterpart of {@link rebuildList} for reorder signals,
  *  where membership is unchanged and only positions shift.
@@ -142,14 +280,22 @@ const syncRowOrder = (ui: LayerUI): void => {
       const previous = rows.get(id);
       if (previous) {
         ui.log?.warn(`syncRowOrder: duplicate row for layer "${id}"`);
-        previous.remove();
+        removeDuplicateNode(ui, previous, el, () => el);
       }
       rows.set(id, el);
     } else if (el.classList.contains(CONST.CLASSES.TOGGLE_ALL)) {
       const group = el.getAttribute("data-group");
       if (group) {
-        if (anchors.has(group)) {
+        const previous = anchors.get(group);
+        if (previous) {
+          // Same repair rule as rows: the later anchor is the one the newest
+          // pass mounted, so the earlier duplicate must not stay behind to
+          // intercept clicks. The shared helper moves the cursor when the
+          // anchor was active and returns focus to the same fold control.
           ui.log?.warn(`syncRowOrder: duplicate toggle-all anchor for "${group}"`);
+          removeDuplicateNode(ui, previous, el, () =>
+            el.querySelector<HTMLElement>("input, button, [tabindex]"),
+          );
         }
         anchors.set(group, el);
       }
