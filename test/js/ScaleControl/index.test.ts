@@ -14,7 +14,7 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 /** `window.L` as `setup.ts` installed it, restored after this file's stub. */
-const originalL = window.L;
+const savedL = window.L;
 
 type EventEntry = { fn: (...args: unknown[]) => unknown; ctx: unknown };
 type EventRegistry = Record<string, EventEntry[]>;
@@ -167,7 +167,7 @@ beforeAll(() => {
 });
 
 afterAll(() => {
-  (window as any).L = originalL;
+  (window as any).L = savedL;
 });
 
 describe("ScaleControl inner-Leaflet-Scale teardown", () => {

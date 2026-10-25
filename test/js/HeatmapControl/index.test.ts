@@ -13,7 +13,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { makeConfig } from "../config-fixture.js";
 
 /** `window.L` as `setup.ts` installed it, restored after this file's stub. */
-const originalL = window.L;
+const savedL = window.L;
 
 type CapturedControl = {
   log: { warn: (...args: unknown[]) => void };
@@ -128,7 +128,7 @@ describe("HeatmapControl entry — half-initialised manager", () => {
   });
 
   afterAll(() => {
-    (window as any).L = originalL;
+    (window as any).L = savedL;
   });
 
   it("keeps the manager reachable when init() throws, so destroy() releases it", () => {
