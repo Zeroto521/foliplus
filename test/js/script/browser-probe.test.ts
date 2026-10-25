@@ -146,7 +146,7 @@ describe("buildReport — inventory", () => {
     expect(report.totals.probes).toBe(3);
     expect(report.totals.parsed).toBe(3);
     expect(report.totals.parseErrors).toBe(0);
-    expect(report.orphans.map(probe => probe.name)).toEqual([
+    expect(report.orphans.map((probe: { name: string }) => probe.name)).toEqual([
       "Alpha/two",
       "root-level",
     ]);
@@ -182,7 +182,10 @@ describe("buildReport — inventory", () => {
     expect(report.totals.orphanProbes).toBe(0);
     expect(report.totals.danglingReferences).toBe(0);
     expect(
-      Object.values(report.byDir).reduce((sum, count) => sum + (count as number), 0),
+      Object.values(report.byDir).reduce(
+        (sum: number, count) => sum + (count as number),
+        0,
+      ),
     ).toBe(report.totals.probes);
   });
 });
