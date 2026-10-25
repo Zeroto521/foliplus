@@ -283,9 +283,7 @@ class TestFillClassificationVocabulary:
         explaining a disabled option, so the hint key must not come back."""
         for lang in ("en", "zh"):
             table = json.loads(
-                (_LOCALE_DIR / f"LayerControl.{lang}.json").read_text(
-                    encoding="utf-8"
-                )
+                (_LOCALE_DIR / f"LayerControl.{lang}.json").read_text(encoding="utf-8")
             )
             assert "LayerControl.style_fill_no_field" not in table
 
