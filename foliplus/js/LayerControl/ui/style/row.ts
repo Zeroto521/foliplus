@@ -2,18 +2,19 @@
 //
 // `buildModeRow` is the one mode selector shape the style panel uses: a
 // labelled <select> plus a detail slot underneath (the active mode's rows).
-// The fill dimension is its first consumer (solid / by value, T58); the icon
-// and size-by-value batches reuse it so every mode row has the same label
-// column, ARIA and spacing (design plan §4.7).
+// The fill dimension is its first consumer (solid / by value); the icon and
+// size-by-value dimensions reuse it so every mode row has the same label
+// column, ARIA and spacing.
 //
 // The mode select is a native <select>: keyboard and screen-reader behavior
 // come from the platform, and the panel never has to own a popup for it. The
 // detail slot is one element — callers replace its children on a mode switch.
 import { dom } from "#common/dom.js";
+import { selectInput } from "#common/form.js";
 
-/** One mode offered by a mode row. `disabled` + `title` are how a mode that
- *  the layer cannot honestly offer (color-by-value without a numeric field)
- *  stays visible but not selectable, with the reason on the option. */
+/** One mode offered by a mode row. `disabled` + `title` let a later consumer
+ *  (icon / size by value) show a mode it cannot offer yet with the reason on
+ *  the option; the fill row hides the whole mode select when it has one arm. */
 type ModeRowOption = {
   value: string;
   label: string;
@@ -42,24 +43,12 @@ const buildModeRow = (spec: {
   value: string;
   options: readonly ModeRowOption[];
 }): ModeRow => {
-  const select = dom.el("select", {
-    class: `foliplus-form-select ${spec.selectClass}`,
-    "aria-label": spec.label,
-  }) as HTMLSelectElement;
-  for (const option of spec.options) {
-    select.appendChild(
-      dom.el(
-        "option",
-        {
-          value: option.value,
-          ...(option.disabled ? { disabled: "" } : {}),
-          ...(option.title ? { title: option.title } : {}),
-        },
-        option.label,
-      ),
-    );
-  }
-  select.value = spec.value;
+  const select = selectInput({
+    className: spec.selectClass,
+    ariaLabel: spec.label,
+    value: spec.value,
+    options: spec.options,
+  });
 
   const detail = dom.el("div", { class: spec.detailClass });
 

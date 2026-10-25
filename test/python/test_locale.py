@@ -53,6 +53,12 @@ _DYNAMIC_SUPPLEMENT: set[str] = {
     "MeasureControl.geo_fail",
     "foliplus.addr_not_found",
     "foliplus.geo_fail",
+    # HeatmapControl's method labels: the shared rampForm rows resolve
+    # T(method) by lookup (the method token is the locale key suffix).
+    "HeatmapControl.jenks",
+    "HeatmapControl.quantile",
+    "HeatmapControl.equal",
+    "HeatmapControl.heads",
     # Shared label vocabulary (common table) — resolved via dynamic lookup.
     "foliplus.label_format_auto",
     "foliplus.label_format_comma",
@@ -223,6 +229,65 @@ class TestLocaleConfig:
                     f"{component}.{lang} duplicates the shared label vocabulary: "
                     f"{dupes} — it belongs in the common table only"
                 )
+
+
+class TestFillClassificationVocabulary:
+    """The fill / filter i18n contract: Field / Classes / Scheme / Clear and
+    the four classification methods read the same in both controls.
+
+    The keys stay component-scoped (each table is injected per component), but
+    the *text* must match, otherwise the same control reads differently in the
+    heatmap panel and the layer style drawer.
+    """
+
+    SHARED_LABELS = [
+        ("LayerControl.style_fill_field", "HeatmapControl.field", "Field", "字段"),
+        (
+            "LayerControl.style_fill_classes",
+            "HeatmapControl.class_method",
+            "Classes",
+            "分级",
+        ),
+        ("LayerControl.style_fill_scheme", "HeatmapControl.scheme", "Scheme", "配色"),
+    ]
+
+    METHOD_LABELS = [
+        ("style_method_jenks", "jenks", "Natural Breaks", "自然断点"),
+        ("style_method_quantile", "quantile", "Quantile", "分位数法"),
+        ("style_method_equal", "equal", "Equal Interval", "等距分段"),
+        ("style_method_heads", "heads", "Equal Count", "等数分段"),
+    ]
+
+    def test_shared_rows_use_one_vocabulary(self):
+        for layer_key, heatmap_key, en, zh in self.SHARED_LABELS:
+            assert _TABLES["en"][layer_key] == en, layer_key
+            assert _TABLES["en"][heatmap_key] == en, heatmap_key
+            assert _TABLES["zh"][layer_key] == zh, layer_key
+            assert _TABLES["zh"][heatmap_key] == zh, heatmap_key
+
+    def test_method_names_match_across_components(self):
+        for layer_suffix, heatmap_suffix, en, zh in self.METHOD_LABELS:
+            layer_key = f"LayerControl.{layer_suffix}"
+            heatmap_key = f"HeatmapControl.{heatmap_suffix}"
+            assert _TABLES["en"][layer_key] == en, layer_key
+            assert _TABLES["en"][heatmap_key] == en, heatmap_key
+            assert _TABLES["zh"][layer_key] == zh, layer_key
+            assert _TABLES["zh"][heatmap_key] == zh, heatmap_key
+
+    def test_clear_button_label(self):
+        assert _TABLES["en"]["HeatmapControl.clear"] == "Clear"
+        assert _TABLES["zh"]["HeatmapControl.clear"] == "清除"
+
+    def test_no_field_hint_is_gone(self):
+        """A layer without a numeric field hides the mode select instead of
+        explaining a disabled option, so the hint key must not come back."""
+        for lang in ("en", "zh"):
+            table = json.loads(
+                (_LOCALE_DIR / f"LayerControl.{lang}.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            assert "LayerControl.style_fill_no_field" not in table
 
 
 class TestLoadBuiltinTables:

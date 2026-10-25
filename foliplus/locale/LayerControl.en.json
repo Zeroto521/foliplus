@@ -76,7 +76,6 @@
   "LayerControl.style_fill_classes": "Classes",
   "LayerControl.style_method": "Method",
   "LayerControl.style_fill_scheme": "Scheme",
-  "LayerControl.style_fill_no_field": "No numeric field on this layer — color by value needs one",
   "LayerControl.style_method_jenks": "Natural Breaks",
   "LayerControl.style_method_quantile": "Quantile",
   "LayerControl.style_method_equal": "Equal Interval",

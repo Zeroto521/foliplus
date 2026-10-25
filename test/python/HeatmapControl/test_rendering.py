@@ -50,11 +50,15 @@ class TestHeatmapControlRendering:
         html = render_control(HeatmapControl())
         assert "data-scheme-name" in html
 
-    def test_class_count_select_range(self):
-        """Class count select has options 2-9."""
+    def test_class_count_rows_are_mounted_by_the_shared_primitive(self):
+        """Field / Classes / Scheme rows are built in JS by core/rampForm.
+
+        The static render carries their mount point only; the option lists
+        (2-9 counts, method names, the scheme trigger) must not be duplicated
+        into the template again.
+        """
         html = render_control(HeatmapControl())
-        for n in (2, 5, 9):
-            assert str(n) in html
+        assert "data-heatmap-ramp-rows" in html
 
     def test_error_keys_injected(self):
         """Error/warning locale keys appear in rendered HTML."""
@@ -106,11 +110,16 @@ class TestHeatmapControlRendering:
         for agg in ("count", "sum", "avg", "min", "max"):
             assert agg in html
 
-    def test_class_method_select_options(self):
-        """Classification method select has all 4 options."""
+    def test_class_method_options_come_from_the_shared_vocabulary(self):
+        """The method list is built from #core/classify by core/rampForm.
+
+        Its static markup lives in the JS bundle, not in the panel template;
+        the template must not carry a second copy of the four option values.
+        """
         html = render_control(HeatmapControl())
-        for method in ("jenks", "quantile", "equal", "heads"):
-            assert method in html
+        # The rows are mounted client-side from core/rampForm; the static
+        # document carries their host, not a second copy of the option list.
+        assert "data-heatmap-ramp-rows" in html
 
     def test_placeholder_options_disabled(self):
         """Layer placeholder and field auto options use disabled:true (not the string)."""

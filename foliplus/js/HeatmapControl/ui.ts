@@ -1,11 +1,12 @@
 // HeatmapControl UI building — standalone functions.
 // All internal refs use direct function calls instead of `this.`.
-import { isClassifyMethod } from "#core/classify.js";
+import { type ClassifyMethod, isClassifyMethod } from "#core/classify.js";
 import { EVENTS, ensureEvents, publish } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { adjustPanelZIndex } from "#core/leaflet/index.js";
 import { safeColorScale } from "#core/palette.js";
 import { dom } from "#common/dom.js";
+import { buildClassesRow, buildFieldRow, buildSchemeRow } from "#core/rampForm.js";
 import { type SchemePicker, createSchemePicker } from "#common/schemePicker.js";
 import * as CONST from "./const.js";
 import { pickAutoField } from "./data.js";
@@ -93,30 +94,49 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
   ctrl.aggSelect = panelContent.querySelector(
     `[${CONST.DATA_ATTR.AGG}]`,
   ) as HTMLSelectElement;
-  ctrl.fieldWrap = panelContent.querySelector(
-    `[${CONST.DATA_ATTR.FIELD}]`,
+  // Field / Classes / Scheme are shared row primitives (core/rampForm),
+  // mounted into the template's placeholder. The rows keep the heatmap's
+  // data-* seams and classes; only the structure is shared with LayerControl.
+  const rampHost = panelContent.querySelector(
+    `[${CONST.DATA_ATTR.RAMP_ROWS}]`,
   ) as HTMLElement;
-  ctrl.fieldSelect = panelContent.querySelector(
-    `[${CONST.DATA_ATTR.FIELD_SELECT}]`,
-  ) as HTMLSelectElement;
-  ctrl.methodSelect = panelContent.querySelector(
-    `[${CONST.DATA_ATTR.METHOD}]`,
-  ) as HTMLSelectElement;
-  ctrl.classSelect = panelContent.querySelector(
-    `[${CONST.DATA_ATTR.CLASS_COUNT}]`,
-  ) as HTMLSelectElement;
-  ctrl.schemeControlWrap = panelContent.querySelector(
-    `[${CONST.DATA_ATTR.SCHEME_CTRL}]`,
-  ) as HTMLElement;
-  ctrl.schemeBar = ctrl.schemeControlWrap.querySelector(
-    CONST.SEL.SCHEME_BAR,
-  ) as HTMLElement;
-  ctrl.schemeBarInner = ctrl.schemeControlWrap.querySelector(
-    CONST.SEL.SCHEME_BAR_INNER,
-  ) as HTMLElement;
-  ctrl.schemeSelectHidden = panelContent.querySelector(
-    `[${CONST.DATA_ATTR.SCHEME_HIDDEN}]`,
-  ) as HTMLSelectElement;
+  const fieldRow = buildFieldRow({
+    label: ctrl.T("field"),
+    ariaLabel: ctrl.T("field"),
+    fields: [],
+    value: "",
+    rowClass: "foliplus-heatmap-field foliplus-hidden",
+    rowAttributes: { [CONST.DATA_ATTR.FIELD]: "" },
+    selectAttributes: { [CONST.DATA_ATTR.FIELD_SELECT]: "" },
+  });
+  const classesRow = buildClassesRow({
+    label: ctrl.T("class_method"),
+    methodAriaLabel: ctrl.T("class_method"),
+    classesAriaLabel: ctrl.T("class_method"),
+    methodValue: ctrl.mgr.method as ClassifyMethod,
+    classesValue: ctrl.mgr.numClasses,
+    methodLabel: method => ctrl.T(method),
+    methodClass: "",
+    classesClass: "foliplus-heatmap-class-select",
+    methodAttributes: { [CONST.DATA_ATTR.METHOD]: "" },
+    classesAttributes: { [CONST.DATA_ATTR.CLASS_COUNT]: "" },
+  });
+  const schemeRow = buildSchemeRow({
+    label: ctrl.T("scheme"),
+    triggerClass: "foliplus-heatmap-scheme-bar",
+    barClass: "foliplus-heatmap-scheme-bar-inner",
+    rowAttributes: { [CONST.DATA_ATTR.SCHEME_CTRL]: "" },
+    hiddenAttributes: { [CONST.DATA_ATTR.SCHEME_HIDDEN]: "" },
+  });
+  rampHost.append(fieldRow.row, classesRow.row, schemeRow.row);
+  ctrl.fieldWrap = fieldRow.row;
+  ctrl.fieldSelect = fieldRow.select;
+  ctrl.methodSelect = classesRow.methodSelect;
+  ctrl.classSelect = classesRow.classesSelect;
+  ctrl.schemeControlWrap = schemeRow.row;
+  ctrl.schemeBar = schemeRow.trigger;
+  ctrl.schemeBarInner = schemeRow.bar;
+  ctrl.schemeSelectHidden = schemeRow.hiddenSelect;
 
   // Set initial values from manager defaults
   ctrl.classSelect.value = String(

@@ -24,6 +24,7 @@ import { numericPropertiesKeys } from "#core/field.js";
 import { CAP_TIER, DIM, GROUP, type LayerInfo } from "#core/layer/index.js";
 import type { FillRampConfig, LayerOverride } from "#core/layer/intent.js";
 import { DEFAULT_SCHEMES, getColorScale } from "#core/palette.js";
+import { buildClassesRow, buildFieldRow, buildSchemeRow } from "#core/rampForm.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { dom } from "#common/dom.js";
 import {
@@ -348,7 +349,7 @@ const defaultRampConfig = (field: string): FillRampConfig => ({
   kind: "numeric",
   field,
   method: CONST.RAMP.METHOD_DEFAULT,
-  classes: CONST.RAMP.CLASSES_DEFAULT,
+  classes: CONST.RAMP.DEFAULT,
   scheme: CONST.RAMP.SCHEME_DEFAULT,
 });
 
@@ -419,8 +420,10 @@ const writeFillRamp = (
   return next;
 };
 
-/** The solid arm's detail rows: the authored/stored fill color swatch and the
- *  fill-opacity number, unchanged from before the mode row existed. */
+/** The solid arm's detail: one row holding the colour swatch and the
+ *  fill-opacity number side by side (the border-row recipe). Colour and
+ *  opacity are one idea — a fill without either half is rarely what the user
+ *  means — so the arm stays on a single line instead of two stacked rows. */
 const buildSolidDetail = (ui: LayerUI, layerId: string): HTMLElement[] => {
   const base = styleBaseOf(ui, layerId);
   const storedColor = getIntent(ui, layerId, INTENT.FILL_COLOR);
@@ -444,109 +447,54 @@ const buildSolidDetail = (ui: LayerUI, layerId: string): HTMLElement[] => {
   return [
     formRow(
       ui.T("style_fill"),
-      inlineControls(colorInput),
-      CONST.CLASSES.STYLE_FILL_ROW,
-    ),
-    formRow(
-      ui.T("style_fill_opacity"),
-      inlineControls(opacityInput),
+      inlineControls(colorInput, opacityInput),
       CONST.CLASSES.STYLE_FILL_ROW,
     ),
   ];
 };
 
-/** The ramp arm's detail rows: field, method + class count (one row, the
- *  design's "分级 分位数 6" shape), and the shared scheme picker. */
+/** The ramp arm's detail rows, built from the shared `core/rampForm`
+ *  primitives: the heatmap panel and this panel therefore share the row
+ *  structure, the control types (native selects) and the option vocabularies
+ *  (method order + 2..9 class counts from #core/classify). The scheme trigger
+ *  shows the colour strip only, matching the heatmap trigger. */
 const buildRampDetail = (
   ui: LayerUI,
   layerId: string,
   fields: readonly string[],
   ramp: FillRampConfig,
 ): HTMLElement[] => {
-  const fieldSelect = dom.el("select", {
-    class: `foliplus-form-select ${CONST.CLASSES.STYLE_FILL_FIELD_SELECT}`,
-    "aria-label": ui.T("style_fill_field"),
-  }) as HTMLSelectElement;
-  for (const field of fields) {
-    fieldSelect.appendChild(dom.el("option", { value: field }, field));
-  }
-  fieldSelect.value = fields.includes(ramp.field) ? ramp.field : fields[0];
-
-  const methodSelect = dom.el("select", {
-    class: `foliplus-form-select ${CONST.CLASSES.STYLE_FILL_METHOD_SELECT}`,
-    "aria-label": ui.T("style_method"),
-  }) as HTMLSelectElement;
-  for (const method of [METHOD.JENKS, METHOD.QUANTILE, METHOD.EQUAL, METHOD.HEADS]) {
-    methodSelect.appendChild(
-      dom.el("option", { value: method }, methodLabel(ui, method)),
-    );
-  }
-  methodSelect.value = ramp.method;
-
-  const classesInput = numberInput({
-    value: ramp.classes,
-    min: CONST.RAMP.CLASSES_MIN,
-    max: CONST.RAMP.CLASSES_MAX,
-    step: 1,
-    className: CONST.CLASSES.STYLE_FILL_CLASSES_NUMBER,
-    ariaLabel: ui.T("style_fill_classes"),
-  }) as HTMLInputElement;
-
-  // The shared scheme picker's trigger: its first child is the colour strip
-  // (marked with the picker's own inner-bar attribute), the name is a sibling
-  // so the picker can keep drawing the strip without owning text, and the
-  // hidden <select> below is the state mirror the picker fills.
-  const schemeBar = dom.el("div", {
-    // The shared picker styles the strip (height / border / radius / flex);
-    // the component class is the hook the panel CSS sizes inside the trigger.
-    class: `${CONST.CLASSES.STYLE_FILL_SCHEME_BAR} foliplus-scheme-picker-bar`,
-    "data-scheme-bar-inner": "",
+  const field = buildFieldRow({
+    label: ui.T("style_fill_field"),
+    ariaLabel: ui.T("style_fill_field"),
+    fields,
+    value: fields.includes(ramp.field) ? ramp.field : fields[0],
+    rowClass: CONST.CLASSES.STYLE_FILL_ROW,
+    selectClass: CONST.CLASSES.STYLE_FILL_FIELD_SELECT,
   });
-  const schemeName = dom.el(
-    "span",
-    { class: CONST.CLASSES.STYLE_FILL_SCHEME_NAME },
-    ramp.scheme,
-  );
-  const schemeTrigger = dom.el(
-    "div",
-    {
-      class: CONST.CLASSES.STYLE_FILL_SCHEME_TRIGGER,
-      tabindex: "0",
-      role: "combobox",
-      "aria-haspopup": "listbox",
-    },
-    schemeBar,
-    schemeName,
-  );
-  const schemeHidden = dom.el("select", {
-    class: CONST.CLASSES.STYLE_FILL_SCHEME_HIDDEN,
-    tabindex: "-1",
-    "aria-hidden": "true",
-  }) as HTMLSelectElement;
 
-  return [
-    formRow(ui.T("style_fill_field"), fieldSelect, CONST.CLASSES.STYLE_FILL_ROW),
-    formRow(
-      ui.T("style_fill_classes"),
-      inlineControls(methodSelect, classesInput),
-      CONST.CLASSES.STYLE_FILL_ROW,
-    ),
-    formRow(
-      ui.T("style_fill_scheme"),
-      inlineControls(schemeTrigger, schemeHidden),
-      CONST.CLASSES.STYLE_FILL_ROW,
-    ),
-  ];
+  const classes = buildClassesRow({
+    label: ui.T("style_fill_classes"),
+    methodAriaLabel: ui.T("style_method"),
+    classesAriaLabel: ui.T("style_fill_classes"),
+    methodValue: ramp.method,
+    classesValue: ramp.classes,
+    methodLabel: method => methodLabel(ui, method),
+    rowClass: CONST.CLASSES.STYLE_FILL_ROW,
+    methodClass: CONST.CLASSES.STYLE_FILL_METHOD_SELECT,
+    classesClass: CONST.CLASSES.STYLE_FILL_CLASSES_SELECT,
+  });
+
+  const scheme = buildSchemeRow({
+    label: ui.T("style_fill_scheme"),
+    triggerClass: CONST.CLASSES.STYLE_FILL_SCHEME_TRIGGER,
+    barClass: CONST.CLASSES.STYLE_FILL_SCHEME_BAR,
+    hiddenClass: CONST.CLASSES.STYLE_FILL_SCHEME_HIDDEN,
+    rowClass: CONST.CLASSES.STYLE_FILL_ROW,
+  });
+
+  return [field.row, classes.row, scheme.row];
 };
-
-/** Why the by-value arm is unavailable, rendered under the mode row so the
- *  disabled option is not the only explanation. */
-const buildNoFieldHint = (ui: LayerUI): HTMLElement =>
-  dom.el(
-    "div",
-    { class: CONST.CLASSES.STYLE_FILL_NO_FIELD },
-    ui.T("style_fill_no_field"),
-  );
 
 /** Fill one detail slot for the active arm. Always disposes the previous
  *  scheme picker first: rebuilding the ramp detail must not leave a picker
@@ -567,13 +515,14 @@ const renderFillDetail = (
     return;
   }
   detail.append(...buildSolidDetail(ui, layerId));
-  if (fields.length === 0) detail.appendChild(buildNoFieldHint(ui));
 };
 
-/** Build the fill form block: the mode row (solid / color by value) plus the
- *  detail rows for the active arm. A color basemap keeps the pre-T58 single
- *  swatch row — its fill is the pane paint, which has no per-feature values
- *  to classify, so it offers the solid arm only. */
+/** Build the fill form block. A layer with numeric fields gets the mode row
+ *  (solid / color by value) plus the active arm's detail; a layer without one
+ *  gets the solid controls only — there is nothing to classify, so offering a
+ *  disabled "Color by value" option would just be noise. A color basemap keeps
+ *  the pre-existing single swatch row: its fill is the pane paint, which has no
+ *  per-feature values to classify. */
 const buildFillRow = (ui: LayerUI, layerId: string): HTMLElement => {
   const layerInfo = ui.c.layerRegistry.get(layerId);
   if (isColorBasemap(layerInfo!)) {
@@ -592,19 +541,23 @@ const buildFillRow = (ui: LayerUI, layerId: string): HTMLElement => {
   }
 
   const fields = numericFields(ui, layerId);
+  // No numeric field: one arm only, so there is no mode to choose. The
+  // wrapper keeps the same block/detail shape so a later categorical field
+  // type can add a second arm without moving the panel's bind seam.
+  if (fields.length === 0) {
+    const detail = dom.el("div", { class: CONST.CLASSES.STYLE_FILL_DETAIL });
+    detail.append(...buildSolidDetail(ui, layerId));
+    return dom.el("div", { class: CONST.CLASSES.STYLE_FILL_BLOCK }, detail);
+  }
+
   const storedMode = resolveFillMode(
     ui,
     layerId,
     getIntent(ui, layerId, INTENT.FILL_RAMP),
   );
-  const mode: FillMode = storedMode === "ramp" && fields.length > 0 ? "ramp" : "solid";
-  const noFieldHint = fields.length === 0 ? ui.T("style_fill_no_field") : undefined;
+  const mode: FillMode = storedMode === "ramp" ? "ramp" : "solid";
 
-  const {
-    block: modeRow,
-    select,
-    detail,
-  } = buildModeRow({
+  const { block: modeRow, detail } = buildModeRow({
     label: ui.T("style_fill_mode"),
     selectClass: CONST.CLASSES.STYLE_FILL_MODE_SELECT,
     rowClass: CONST.CLASSES.STYLE_FILL_ROW,
@@ -612,16 +565,9 @@ const buildFillRow = (ui: LayerUI, layerId: string): HTMLElement => {
     value: mode,
     options: [
       { value: "solid", label: ui.T("style_fill_single") },
-      {
-        value: "ramp",
-        label: ui.T("style_fill_by_value"),
-        disabled: fields.length === 0,
-        title: noFieldHint,
-      },
+      { value: "ramp", label: ui.T("style_fill_by_value") },
     ],
   });
-  if (noFieldHint) select.title = noFieldHint;
-  select.setAttribute("aria-label", ui.T("style_fill_mode"));
 
   renderFillDetail(ui, layerId, detail, mode);
 
@@ -675,8 +621,8 @@ const bindSolidDetail = (ui: LayerUI, layerId: string, detail: HTMLElement): voi
  *  Every element is built by `buildRampDetail` immediately above, so the
  *  queries cast instead of re-testing for null: a guard here could never take
  *  its false arm (the markup is a private contract) and would just read as an
- *  uncovered branch. The picker is created before the number field so the
- *  class-count commit can update it without a lookup-and-guard. */
+ *  uncovered branch. The picker is created first so the class-count commit can
+ *  update it directly (its strip has one block per class). */
 const bindRampDetail = (ui: LayerUI, layerId: string, detail: HTMLElement): void => {
   const trigger = detail.querySelector(
     `.${CONST.CLASSES.STYLE_FILL_SCHEME_TRIGGER}`,
@@ -684,9 +630,6 @@ const bindRampDetail = (ui: LayerUI, layerId: string, detail: HTMLElement): void
   const hidden = detail.querySelector(
     `.${CONST.CLASSES.STYLE_FILL_SCHEME_HIDDEN}`,
   ) as HTMLSelectElement;
-  const nameEl = detail.querySelector(
-    `.${CONST.CLASSES.STYLE_FILL_SCHEME_NAME}`,
-  ) as HTMLElement;
   const fields = numericFields(ui, layerId);
   const ramp = rampForUi(ui, layerId, fields);
   const picker = createSchemePicker({
@@ -699,8 +642,7 @@ const bindRampDetail = (ui: LayerUI, layerId: string, detail: HTMLElement): void
     label: ui.T("style_fill_scheme"),
     colorScale: getColorScale,
     onChange: name => {
-      const next = writeFillRamp(ui, layerId, { scheme: name });
-      nameEl.textContent = next.scheme;
+      writeFillRamp(ui, layerId, { scheme: name });
     },
   });
   schemePickerByUi.set(ui, picker);
@@ -718,21 +660,17 @@ const bindRampDetail = (ui: LayerUI, layerId: string, detail: HTMLElement): void
       method: methodSelect.value as FillRampConfig["method"],
     });
 
-  const classesInput = detail.querySelector(
-    `.${CONST.CLASSES.STYLE_FILL_CLASSES_NUMBER}`,
-  ) as HTMLInputElement;
-  bindLiveNumber(classesInput, {
-    min: CONST.RAMP.CLASSES_MIN,
-    max: CONST.RAMP.CLASSES_MAX,
-    fallback: CONST.RAMP.CLASSES_DEFAULT,
-    normalize: value => Math.round(value),
-    onCommit: value => {
-      const next = writeFillRamp(ui, layerId, { classes: value });
-      // The strip has one block per class: keep the picker's preview in step
-      // with the count the map is now using.
-      picker.setNumClasses(next.classes);
-    },
-  });
+  const classesSelect = detail.querySelector(
+    `.${CONST.CLASSES.STYLE_FILL_CLASSES_SELECT}`,
+  ) as HTMLSelectElement;
+  classesSelect.onchange = () => {
+    const next = writeFillRamp(ui, layerId, {
+      classes: parseInt(classesSelect.value, 10),
+    });
+    // The strip has one block per class: keep the picker's preview in step
+    // with the count the map is now using.
+    picker.setNumClasses(next.classes);
+  };
 };
 
 /** Bind one detail slot for the active arm (solid color/opacity or the ramp
@@ -752,7 +690,8 @@ const bindFillDetail = (
 
 /** Wire the fill block: the mode select switches arms in place (rebuilding the
  *  detail slot), and the active arm's controls commit through the dimension's
- *  write path. A color basemap row has no mode block and only owns its swatch. */
+ *  write path. A color basemap row or a layer with one arm (no numeric field)
+ *  has no mode select and only owns the solid controls. */
 const bindFillRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => {
   const block = row.closest(`.${CONST.CLASSES.STYLE_FILL_BLOCK}`) as HTMLElement | null;
   if (!block) {
@@ -761,22 +700,23 @@ const bindFillRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => {
     return;
   }
 
-  // Both nodes are part of the block buildModeRow just produced.
   const select = block.querySelector(
     `.${CONST.CLASSES.STYLE_FILL_MODE_SELECT}`,
-  ) as HTMLSelectElement;
+  ) as HTMLSelectElement | null;
+  if (!select) {
+    // One honest arm: no mode row to switch; bind the solid controls only.
+    bindSolidDetail(ui, layerId, block);
+    return;
+  }
   const detail = block.querySelector(
     `.${CONST.CLASSES.STYLE_FILL_DETAIL}`,
   ) as HTMLElement;
 
   select.onchange = () => {
+    // The mode row only renders when a numeric field exists, so both arms are
+    // honest and the write cannot be rejected.
     const next: FillMode = select.value === "ramp" ? "ramp" : "solid";
-    if (!writeFillMode(ui, layerId, next)) {
-      // The layer has no numeric field (the option is disabled, but a
-      // keyboard/programmatic change can still land): snap back to solid.
-      select.value = "solid";
-      return;
-    }
+    writeFillMode(ui, layerId, next);
     renderFillDetail(ui, layerId, detail, next);
     bindFillDetail(ui, layerId, detail, next);
   };

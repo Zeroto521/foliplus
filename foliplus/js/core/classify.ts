@@ -17,7 +17,32 @@ const METHOD = {
 /** The closed set of method names this module implements. */
 type ClassifyMethod = (typeof METHOD)[keyof typeof METHOD];
 
-const CLASSIFY_METHODS: readonly string[] = Object.values(METHOD);
+/** Every method in the order both style panels list it. The heatmap's
+ *  template and LayerControl's fill row derive their option order from this
+ *  one array, so the two panels cannot drift. */
+const METHOD_ORDER: readonly ClassifyMethod[] = [
+  METHOD.JENKS,
+  METHOD.QUANTILE,
+  METHOD.EQUAL,
+  METHOD.HEADS,
+];
+
+/** Class-count vocabulary shared by every consumer of a classified scheme:
+ *  the heatmap panel, the value-based fill row and the persistence validators.
+ *  MIN/MAX bound the picker options; DEFAULT seeds a first configuration. */
+const CLASS_COUNT = {
+  MIN: 2,
+  MAX: 9,
+  DEFAULT: 6,
+} as const;
+
+/** Every legal class count, in display order. */
+const CLASS_COUNT_VALUES: readonly number[] = Array.from(
+  { length: CLASS_COUNT.MAX - CLASS_COUNT.MIN + 1 },
+  (_, index) => CLASS_COUNT.MIN + index,
+);
+
+const CLASSIFY_METHODS: readonly string[] = METHOD_ORDER;
 
 /** Whether `value` is one of the four method names — exact match, no trim
  *  and no case folding. A method is a protocol token, not a property key:
@@ -139,9 +164,12 @@ const computeBreaks = (
 
 export {
   type ClassifyMethod,
+  CLASS_COUNT,
+  CLASS_COUNT_VALUES,
   ClassifierDependencyError,
   ClassifyMethodError,
   METHOD,
+  METHOD_ORDER,
   computeBreaks,
   isClassifyMethod,
 };

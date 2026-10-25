@@ -48,28 +48,18 @@
     }
   }
 }
-/* ── Fill mode block (T58) ──────────────────────────────────────────
+/* ── Fill mode block ──────────────────────────────────────────
    The mode row selects the fill arm; its detail rows sit flush underneath,
-   same label column, grouped by a hairline + gap (no indentation). */
+   same label column. No divider: the rows are one group with the mode row. */
 .foliplus-style-fill-detail {
   display: flex;
   flex-direction: column;
   gap: var(--foliplus-space-xs);
-  margin-top: var(--foliplus-space-xs);
-  padding-top: var(--foliplus-space-xs);
-  border-top: var(--foliplus-border-thin) solid var(--foliplus-input-border);
-}
-
-/* Disabled by-value arm: the mode option carries the reason via title, and
-   this line keeps it readable without hovering. */
-.foliplus-style-fill-no-field {
-  font-size: var(--foliplus-font-size-xs);
-  color: var(--foliplus-text-muted);
-  line-height: 1.4;
 }
 
 /* Scheme trigger (shared schemePicker shell, #729): a form-select-shaped
-   combobox holding the colour strip, the scheme name and a chevron. */
+   combobox holding the colour strip and a chevron. No scheme name — the
+   strip itself shows the palette, in both this panel and the heatmap. */
 .foliplus-style-scheme-trigger {
   position: relative;
   display: flex;
@@ -106,7 +96,8 @@
   min-width: 0;
 }
 
-.foliplus-style-scheme-name {
-  flex-shrink: 0;
-  white-space: nowrap;
+/* The size row's px field aligns with the numeric column on its right edge
+   (same rule the icon-size input will use in B5). */
+.foliplus-style-size-input {
+  text-align: right;
 }

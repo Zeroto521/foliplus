@@ -75,6 +75,47 @@ const numberInput = (opts: {
     "aria-label": opts.ariaLabel,
   });
 
+/** One select option for {@link selectInput}. */
+type SelectOption = {
+  value: string;
+  label: string;
+  disabled?: boolean;
+  /** Reason shown on the option (native tooltip) while disabled. */
+  title?: string;
+};
+
+/** A native `<select>` on the shared form-select chrome. The one factory every
+ *  JS-built panel uses for a plain option list (mode selects, field pickers,
+ *  class-count pickers): keyboard, screen-reader and mobile behaviour come from
+ *  the platform, and the chrome/ARIA cannot drift between controls. Static
+ *  templates keep their own markup; only dynamically built lists use this. */
+const selectInput = (opts: {
+  className?: string;
+  ariaLabel?: string;
+  value?: string;
+  options: readonly SelectOption[];
+}): HTMLSelectElement => {
+  const select = dom.el("select", {
+    class: `foliplus-form-select${opts.className ? ` ${opts.className}` : ""}`,
+    "aria-label": opts.ariaLabel,
+  }) as HTMLSelectElement;
+  for (const option of opts.options) {
+    select.appendChild(
+      dom.el(
+        "option",
+        {
+          value: option.value,
+          ...(option.disabled ? { disabled: "" } : {}),
+          ...(option.title ? { title: option.title } : {}),
+        },
+        option.label,
+      ),
+    );
+  }
+  if (opts.value !== undefined) select.value = opts.value;
+  return select;
+};
+
 /** Two controls sharing one form-control cell (border / label color+size). */
 const inlineControls = (...children: HTMLElement[]): HTMLElement =>
   dom.el("div", { class: "foliplus-form-inline" }, ...children);
@@ -151,4 +192,5 @@ export {
   LABEL_SIZE,
   normalizeHexColor,
   numberInput,
+  selectInput,
 };

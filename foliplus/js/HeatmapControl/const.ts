@@ -2,6 +2,7 @@
 // ``import * as CONST`` so callers keep the ``CONST.X`` access pattern.
 // Only pure static constants live here; CONFIG-derived values are accessed
 // via ``CONFIG.*`` directly in the consuming code.
+import { CLASS_COUNT as CLASS_COUNT_VOCAB } from "#core/classify.js";
 import { DEFAULT_LABEL_COLOR, LABEL_SIZE } from "#common/form.js";
 
 const TIMING = {
@@ -46,11 +47,9 @@ const AGG = {
   MAX: "max",
 };
 
-const CLASS_COUNT = {
-  MIN: 2,
-  MAX: 9,
-  DEFAULT: 6,
-};
+// Re-exported from #core/classify so the heatmap panel and the LayerControl
+// fill row share one class-count vocabulary (see also CLASS_COUNT_VALUES).
+const CLASS_COUNT = CLASS_COUNT_VOCAB;
 
 /** Hex-label typography — shared bounds from common/form.js so the layer
  *  style drawer never redeclares 6/32/11. */
@@ -107,6 +106,7 @@ const DATA_ATTR = {
   FIELD_SELECT: "data-heatmap-field-select",
   METHOD: "data-heatmap-method",
   CLASS_COUNT: "data-heatmap-class-count",
+  RAMP_ROWS: "data-heatmap-ramp-rows",
   SCHEME_CTRL: "data-heatmap-scheme-ctrl",
   SCHEME_HIDDEN: "data-heatmap-scheme-hidden",
   BTN_CLEAR: "data-heatmap-btn-clear",

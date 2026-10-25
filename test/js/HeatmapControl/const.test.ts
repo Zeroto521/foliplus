@@ -85,14 +85,15 @@ describe("DATA_ATTR", () => {
     expect(CONST.DATA_ATTR.FIELD_SELECT).toBe("data-heatmap-field-select");
     expect(CONST.DATA_ATTR.METHOD).toBe("data-heatmap-method");
     expect(CONST.DATA_ATTR.CLASS_COUNT).toBe("data-heatmap-class-count");
+    expect(CONST.DATA_ATTR.RAMP_ROWS).toBe("data-heatmap-ramp-rows");
     expect(CONST.DATA_ATTR.SCHEME_CTRL).toBe("data-heatmap-scheme-ctrl");
     expect(CONST.DATA_ATTR.SCHEME_HIDDEN).toBe("data-heatmap-scheme-hidden");
     expect(CONST.DATA_ATTR.BTN_CLEAR).toBe("data-heatmap-btn-clear");
   });
 
-  it("has 10 data-heatmap attribute keys (no confirm button, no label attrs, no border attrs)", () => {
+  it("has 11 data-heatmap attribute keys (no confirm button, no label attrs, no border attrs)", () => {
     const keys = Object.keys(CONST.DATA_ATTR);
-    expect(keys.length).toBe(10);
+    expect(keys.length).toBe(11);
   });
 });
 

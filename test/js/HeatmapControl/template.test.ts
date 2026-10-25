@@ -46,18 +46,13 @@ describe("panelContentHTML", () => {
     expect(html).toContain("foliplus-form-select");
   });
 
-  it("includes all data-heatmap-* query targets", () => {
+  it("includes the template-owned data-heatmap-* query targets", () => {
     const html = panelContentHTML(T);
     const expectedAttrs = [
       "data-heatmap-layer",
       "data-heatmap-extra-body",
       "data-heatmap-agg",
-      "data-heatmap-field",
-      "data-heatmap-field-select",
-      "data-heatmap-method",
-      "data-heatmap-class-count",
-      "data-heatmap-scheme-ctrl",
-      "data-heatmap-scheme-hidden",
+      "data-heatmap-ramp-rows",
       "data-heatmap-btn-clear",
     ];
     for (const attr of expectedAttrs) {
@@ -65,13 +60,32 @@ describe("panelContentHTML", () => {
     }
   });
 
-  it("includes translated form labels", () => {
+  it("leaves the shared classification rows to the ramp-rows mount", () => {
+    const html = panelContentHTML(T);
+    // Field / Classes / Scheme are core/rampForm primitives mounted by ui.ts.
+    // The template keeps their host only, so the markup cannot be duplicated.
+    for (const attr of [
+      "data-heatmap-field",
+      "data-heatmap-field-select",
+      "data-heatmap-method",
+      "data-heatmap-class-count",
+      "data-heatmap-scheme-ctrl",
+      "data-heatmap-scheme-hidden",
+    ]) {
+      expect(html).not.toContain(attr);
+    }
+    expect(html).toContain("data-heatmap-ramp-rows");
+  });
+
+  it("includes translated form labels for its own rows", () => {
     const html = panelContentHTML(T);
     expect(html).toContain("Layer");
     expect(html).toContain("Method");
-    expect(html).toContain("Field");
-    expect(html).toContain("Classify");
-    expect(html).toContain("Color");
+    expect(html).toContain("Clear");
+    // Field / Classify / Scheme labels now come from ui.ts + rampForm; the
+    // template carries the mount only (the comment may name the rows).
+    expect(html).not.toContain(">Field<");
+    expect(html).not.toContain(">Classify<");
   });
 
   it("includes translated action button text", () => {
@@ -95,31 +109,14 @@ describe("panelContentHTML", () => {
     expect(html).toContain("Max");
   });
 
-  it("includes classification method options", () => {
+  it("does not duplicate the classification controls markup", () => {
     const html = panelContentHTML(T);
-    expect(html).toContain('value="jenks"');
-    expect(html).toContain('value="quantile"');
-    expect(html).toContain('value="equal"');
-    expect(html).toContain('value="heads"');
-    expect(html).toContain("Jenks");
-    expect(html).toContain("Quantile");
-    expect(html).toContain("Equal");
-    expect(html).toContain("Heads");
-  });
-
-  it("includes class count options 2-9", () => {
-    const html = panelContentHTML(T);
-    for (let i = 2; i <= 9; i++) {
-      expect(html).toContain(`<option value="${i}">${i}</option>`);
-    }
-  });
-
-  it("includes scheme bar with combobox role", () => {
-    const html = panelContentHTML(T);
-    expect(html).toContain("foliplus-heatmap-scheme-bar");
-    expect(html).toContain('tabindex="0"');
-    expect(html).toContain('role="combobox"');
-    expect(html).toContain("foliplus-heatmap-scheme-bar-inner");
+    // Option lists (method order, 2-9 class counts) and the scheme trigger are
+    // built once by core/rampForm and mounted by ui.ts.
+    expect(html).not.toContain('value="jenks"');
+    expect(html).not.toContain('value="2"');
+    expect(html).not.toContain("foliplus-heatmap-scheme-bar");
+    expect(html).not.toContain('role="combobox"');
   });
 
   it("includes section divider", () => {
@@ -141,9 +138,8 @@ describe("panelContentHTML", () => {
     expect(html).toMatch(/foliplus-heatmap-extra-body\s+foliplus-hidden/);
   });
 
-  it("field selector uses shared foliplus-hidden class by default", () => {
+  it("mounts the shared rows inside the style-rows block", () => {
     const html = panelContentHTML(T);
-    expect(html).toContain("foliplus-heatmap-field");
-    expect(html).toMatch(/foliplus-heatmap-field\s+foliplus-hidden/);
+    expect(html).toMatch(/foliplus-heatmap-section-block"\s+data-heatmap-ramp-rows/);
   });
 });
