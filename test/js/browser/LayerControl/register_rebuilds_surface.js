@@ -33,6 +33,8 @@
     after: api.getLayerPanes(group),
     firstMarkerPane: first._icon ? paneNameOf(first._icon) : null,
     secondMarkerPane: second._icon ? paneNameOf(second._icon) : null,
+    firstShadowPane: first._shadow ? paneNameOf(first._shadow) : null,
+    secondShadowPane: second._shadow ? paneNameOf(second._shadow) : null,
     rowCount: window.map.foliplus.LayerAPI.layers.filter(l => l.id === "__rebuild__")
       .length,
   };

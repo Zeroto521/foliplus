@@ -71,13 +71,22 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
       string,
       {
         style: Record<string, string>;
-        classList: { add: () => void; remove: () => void };
+        classList: {
+          add: () => void;
+          remove: () => void;
+          contains: (cls: string) => boolean;
+        };
       }
     >();
     const getPane = vi.fn((name: string) => {
       let p = panes.get(name);
       if (!p) {
-        p = { style: {}, classList: { add: vi.fn(), remove: vi.fn() } };
+        // `contains: true` — the stub reads as a pane that already carries the
+        // foliplus-layer-pane class, so the adoption branch is a no-op.
+        p = {
+          style: {},
+          classList: { add: vi.fn(), remove: vi.fn(), contains: vi.fn(() => true) },
+        };
         panes.set(name, p);
       }
       return p;
@@ -575,7 +584,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
       document.body.appendChild(container);
       m.uiContainer = container;
       map.getPane.mockReturnValue({
-        classList: { add: vi.fn(), remove: vi.fn() },
+        classList: { add: vi.fn(), remove: vi.fn(), contains: vi.fn(() => true) },
         appendChild: vi.fn(),
         style: {},
       } as any);
@@ -915,17 +924,27 @@ describe("LayerUI opacity restore / retention", () => {
   const makeMap = () => {
     const setStyle = vi.fn();
     const layer = { options: {}, setStyle } as unknown as L.Layer;
+    // The executor's pane write only promises coverage for migratable
+    // families; this test's stand-in for a Path layer declares the family.
+    Object.setPrototypeOf(layer, new window.L.Path());
     const panes = new Map<
       string,
       {
         style: Record<string, string>;
-        classList: { add: () => void; remove: () => void };
+        classList: {
+          add: () => void;
+          remove: () => void;
+          contains: (cls: string) => boolean;
+        };
       }
     >();
     const getPane = vi.fn((name: string) => {
       let p = panes.get(name);
       if (!p) {
-        p = { style: {}, classList: { add: vi.fn(), remove: vi.fn() } };
+        p = {
+          style: {},
+          classList: { add: vi.fn(), remove: vi.fn(), contains: vi.fn(() => true) },
+        };
         panes.set(name, p);
       }
       return p;
@@ -944,7 +963,7 @@ describe("LayerUI opacity restore / retention", () => {
       getPane,
       createPane: vi.fn(() => ({
         style: {},
-        classList: { add: vi.fn(), remove: vi.fn() },
+        classList: { add: vi.fn(), remove: vi.fn(), contains: vi.fn(() => true) },
       })),
       foliplus: { showHint: vi.fn(), hideHint: vi.fn() },
       getZoom: vi.fn(() => 4),

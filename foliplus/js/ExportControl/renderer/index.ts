@@ -244,8 +244,14 @@ class ExportRenderer {
           await this.renderCanvasElement(rc, layerInfo.canvas);
           done++;
         } else if (layer) {
-          // SVG paths, Canvas elements, and Markers in this layer's panes
-          const panes = api.getLayerPanes(layer);
+          // SVG paths, Canvas elements, and Markers in this layer's panes.
+          // The annotation pane is NOT part of the generic walk — its labels
+          // are drawn by the dedicated pass right below, and the generic
+          // canvas sweep would draw them a second time (double-painted
+          // labels, deepened alpha).
+          const panes = api
+            .getLayerPanes(layer)
+            .filter(paneName => !paneName.startsWith(CONST.ANNOTATION_PANE_PREFIX));
           for (const paneName of panes) {
             const pane = this.map.getPane(paneName);
             if (!pane) continue;

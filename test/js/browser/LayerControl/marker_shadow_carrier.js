@@ -21,30 +21,30 @@ async () => {
     api.registerLayer({ id: `__${name}__`, name, layer });
   };
 
-  // Scenario 1: three markers, one with negative zIndexOffset. Shadow stays
-  // in shadowPane (z=500), icon moves to foliplus pane (z>=600). The pane
-  // boundary alone guarantees the icon is above the shadow.
+  // Scenario 1: three markers, one with negative zIndexOffset (the regime
+  // where the icon's inline z-index goes negative near the viewport top).
+  // The shadow lives in the layer's own shadow pane, one step below the
+  // icon's pane — the pane ladder carries icon-over-shadow regardless of
+  // the icons' inline z, and pane writes (opacity/focus) reach the shadow.
   const m0 = mkPoint(26.08, 119.3, "m0");
   const m1 = mkPoint(26.09, 119.31, "m1");
   const m2 = mkPoint(26.1, 119.32, "m2_neg", -100);
   mkGroup("scen1", [m0, m1, m2]);
   ctrl.mgr.enforceOrder();
 
-  // Scenario 2: after enforceOrder, re-append one icon to the foliplus pane's
-  // tail so its DOM order flips. If the fix depended on DOM order, the
-  // assertion would break — elementFromPoint at pin center would return the
-  // shadow. This proves the pane boundary alone carries the ordering.
+  // Scenario 2: after enforceOrder, re-append one icon to its pane's tail so
+  // its DOM order flips. The pane ladder must carry the ordering — the hit
+  // test at the pin center still returns the icon even though the icon is
+  // now DOM-last.
   const m1Icon = m1.getElement();
   if (m1Icon && m1Icon.parentElement) m1Icon.parentElement.appendChild(m1Icon);
 
-  // Scenario 3 (feed red): move one shadow into the icon's pane WITHOUT
-  // setting z-index on either element. If the fix were correct, the shadow
-  // would still be in shadowPane and this test case would be moot. Because
-  // we force it in, the assertion on this marker must fail — that's the
-  // proof the test is actually checking the pane boundary and not something
-  // coincidental. Leaflet sets the icon's z-index from its pixel position;
-  // we clear it so neither element has a z-index, leaving DOM order as the
-  // only ordering cue. Shadow appended last → paints on top.
+  // Scenario 3 (feed red): move one shadow out of its shadow pane into the
+  // icon's own pane, without z on either element. The carrier assertions in
+  // the Python test read the shadow's pane and its z — co-paned, the pane
+  // boundary no longer separates the two, which is exactly the condition the
+  // main test refuses. This proves the main assertions are sensitive to the
+  // pane split rather than passing by coincidence.
   const m3 = mkPoint(26.11, 119.33, "m3_red");
   mkGroup("scen3", [m3]);
   ctrl.mgr.enforceOrder();
@@ -53,6 +53,11 @@ async () => {
   if (m3Pane && m3._shadow) {
     m3Pane.appendChild(m3._shadow);
   }
+  // NOTE: the feed-red state is captured further down, immediately after the
+  // `stateOf` helper is defined and BEFORE any further registration runs.
+  // A later registration fires layeradd, re-pins surfaces, and the pin
+  // restores the shadow to its own shadow pane — the system healing the
+  // manual pollution — so the capture must precede it.
 
   // Scenario 4: polygon overlay above markers at two fillOpacity levels.
   // Reports the shadow center elementFromPoint (should be the polygon, not
@@ -60,10 +65,9 @@ async () => {
   // can decide whether "shadow is fully hidden" or "shadow bleeds through".
   // NOTE: m4 is at a distinct lat/lng from scen1's markers — overlap would
   // let elementFromPoint at one marker's center return the OTHER marker's
-  // icon, masking the pane-boundary check.
+  // icon, masking the pane-boundary check. Registered after the static
+  // states are sampled (see above).
   const m4 = mkPoint(26.12, 119.34, "m4");
-  mkGroup("scen4", [m4]);
-  ctrl.mgr.enforceOrder();
 
   const mkPolygon = fillOpacity =>
     L.polygon(
@@ -177,7 +181,15 @@ async () => {
 
   out.states.push(stateOf("initial", "scen1", [m0, m1, m2]));
   out.states.push(stateOf("icon-moved-last", "scen2", [m1]));
+  // Synchronously after the helper definitions, still before any further
+  // registration: the co-paned shadow must still be observable here.
   out.states.push(stateOf("feed-red", "scen3", [m3]));
+
+  // scen4 joins the map only now (see the note at its declaration): from
+  // here on, re-pins own scen3's shadow again and the carrier invariant
+  // holds for the zoom and polygon scenarios below.
+  mkGroup("scen4", [m4]);
+  ctrl.mgr.enforceOrder();
 
   // Zoom ladder: user's reported repro is "min → max → min", so cover it.
   map.setZoom(map.getMinZoom());

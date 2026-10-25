@@ -35,6 +35,7 @@
     declared,
     iconPane: marker._icon ? paneNameOf(marker._icon) : null,
     pathPane: poly._path ? paneNameOf(poly._path) : null,
+    shadowPane: marker._shadow ? paneNameOf(marker._shadow) : null,
     // Anything that is not a synthesized pane is a pane shared with other
     // layers, which is exactly what I1 is supposed to rule out here.
     shared: [marker._icon, poly._path].some(el => {
