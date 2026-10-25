@@ -210,14 +210,14 @@ jobs:
           files: test-browser.junit.xml
           flags: ${{ job.name }}
 
-  # T59 informational gate over the browser probe corpus (test/js/browser).
+  # Informational gate over the browser probe corpus (test/js/browser).
   # The `browser` job above runs the probes a Python test references; this job
   # validates the corpus itself (parse + reference inventory) and runs a bounded
   # headless-Chromium smoke. It is NOT a required check: `continue-on-error`
   # keeps a red run from blocking a PR, and the pass/fail summary lands in the
-  # job summary plus the `browser-probes` artifact.
-  browser-probes:
-    name: browser-probes
+  # job summary plus the `browser-probe` artifact.
+  browser-probe:
+    name: browser-probe
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
@@ -230,15 +230,6 @@ jobs:
           python-version: "3.15"
 
       - run: uv sync --group test
-
-      - id: inventory
-        name: Probe inventory + parse gate
-        # --strict makes an unparsable probe or a dangling _js() reference fail.
-        # The step keeps going so the smoke below still reports, and the job
-        # fails at the end instead (see the last step). Informational either
-        # way: the job-level continue-on-error keeps required checks untouched.
-        continue-on-error: true
-        run: node script/browser-probe.mjs --strict --github-summary --json browser-probes.json
 
       - id: pwver
         name: Resolve Playwright version
@@ -253,22 +244,19 @@ jobs:
 
       - run: uv run playwright install chromium
 
-      - name: Headless Chromium smoke
-        if: ${{ !cancelled() }}
-        run: >
+      # Smoke first, inventory last: a corpus gate failure is the job's verdict.
+      - run: >
           uv run pytest -q -r a --color=yes -m browser
-          test/python/infra/test_browser_probes_smoke.py
-          -o junit_family=legacy --junitxml=browser-probes.junit.xml
+          test/python/infra/test_browser_probe_smoke.py
+          -o junit_family=legacy --junitxml=browser-probe.junit.xml
+
+      - run: node script/check/browser-probe.mjs --strict --github-summary --json browser-probe.json
 
       - uses: actions/upload-artifact@v7
         if: ${{ !cancelled() }}
         with:
-          name: browser-probes
+          name: browser-probe
           path: |
-            browser-probes.json
-            browser-probes.junit.xml
+            browser-probe.json
+            browser-probe.junit.xml
           if-no-files-found: ignore
-
-      - name: Fail the (informational) job when the corpus gate failed
-        if: ${{ steps.inventory.outcome == 'failure' }}
-        run: exit 1

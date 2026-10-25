@@ -106,13 +106,11 @@ test-browser: build-js-dev
 	npm run build:verify
 	pytest -v -r a --color=yes -n $(JOBS) -m "browser" --cov=foliplus --cov=script --cov-append --cov-report=term-missing --cov-report=xml --junitxml=test-browser.junit.xml -o junit_family=legacy test/python
 
-# T59: the browser probe corpus (test/js/browser) has its own inventory +
-# headless smoke so a broken probe is visible without the full browser suite.
-# Informational in CI; --strict makes parse errors and dangling _js() references
-# fail locally.
-test-browser-probes:
-	node script/browser-probe.mjs --strict
-	pytest -v -r a --color=yes --tb=short -m "browser" test/python/infra/test_browser_probes_smoke.py
+# The browser probe corpus (test/js/browser) has its own inventory + headless
+# smoke so a broken probe is visible without the full browser suite.
+test-browser-probe:
+	node script/check/browser-probe.mjs --strict
+	pytest -v -r a --color=yes --tb=short -m "browser" test/python/infra/test_browser_probe_smoke.py
 
 test-js: build-js-dev
 	npm test

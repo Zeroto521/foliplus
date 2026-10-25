@@ -10,7 +10,7 @@ import {
   parseProbe,
   renderSummary,
   renderText,
-} from "#script/browser-probe.mjs";
+} from "#script/check/browser-probe.mjs";
 
 // The runner only reads a checkout, so every branch runs against throwaway
 // fixture roots: a literal-only corpus keeps double quotes (and their
@@ -174,6 +174,23 @@ describe("buildReport — inventory", () => {
     expect(report.indirect).toEqual([]);
   });
 
+  it("skips _-prefixed support files and their references", () => {
+    const root = makeFixture({ allReferenced: true });
+    write(join(root, "test/js/browser/_parse_probe.js"), "() => 1;\n");
+    write(
+      join(root, "test/python/test_support.py"),
+      ["from conftest import _js", "S = _js('_parse_probe')"].join("\n") + "\n",
+    );
+
+    const report = buildReport(root);
+    expect(report.totals.probes).toBe(2);
+    expect(report.totals.supportFiles).toBe(1);
+    expect(report.totals.danglingReferences).toBe(0);
+    expect(report.probes.map((probe: { name: string }) => probe.name)).not.toContain(
+      "_parse_probe",
+    );
+  });
+
   it("inventories the real corpus", () => {
     const report = buildReport(ROOT);
     expect(report.totals.probes).toBeGreaterThan(400);
@@ -181,6 +198,7 @@ describe("buildReport — inventory", () => {
     expect(report.totals.parseErrors).toBe(0);
     expect(report.totals.orphanProbes).toBe(0);
     expect(report.totals.danglingReferences).toBe(0);
+    expect(report.totals.supportFiles).toBeGreaterThanOrEqual(1);
     expect(
       Object.values(report.byDir).reduce(
         (sum: number, count) => sum + (count as number),
@@ -255,7 +273,7 @@ describe("main — CLI contract", () => {
   it("runs as a script against this checkout", () => {
     const result = spawnSync(
       process.execPath,
-      ["script/browser-probe.mjs", "--strict"],
+      ["script/check/browser-probe.mjs", "--strict"],
       {
         cwd: ROOT,
         encoding: "utf8",

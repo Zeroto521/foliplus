@@ -1,4 +1,4 @@
-"""T59: headless-Chromium smoke for the test/js/browser probe corpus.
+"""Headless-Chromium smoke for the test/js/browser probe corpus.
 
 The probe files are not a test suite: each one is a JavaScript snippet that a
 Python browser test injects through the conftest JS-snippet helper. Only the
@@ -9,7 +9,8 @@ test to run in the heavy browser suite.
 This module gives the corpus its own bounded smoke:
 
 * every probe is compiled by Chromium V8 with the same two-step rule
-  Playwright applies (expression, then function body), and
+  Playwright applies (expression, then function body), using the shared
+  helper test/js/browser/_parse_probe.js; and
 * the two pure-DOM probes in BaseControl execute end-to-end, which proves the
   evaluate contract still works on a real page.
 
@@ -32,29 +33,9 @@ from conftest import _js, use_raw_page
 # walk up to test/ and into the probe corpus.
 PROBE_ROOT = Path(__file__).resolve().parents[2] / "js" / "browser"
 
-# Mirrors script/browser-probe.mjs: Playwright compiles the source as an
-# expression first and falls back to a function body, so only a source that
-# fails BOTH is unrunnable.
-_PARSE_JS = """
-(probes) =>
-  probes.flatMap(({ name, source }) => {
-    try {
-      new Function("return (" + source + ")");
-      return [];
-    } catch (expressionError) {
-      try {
-        new Function(source);
-        return [];
-      } catch (bodyError) {
-        return [name + ": " + bodyError.message];
-      }
-    }
-  })
-"""
-
 
 def _probe_sources() -> list[dict[str, str]]:
-    """Every probe file, name relative to test/js/browser and its source."""
+    """Probe sources by name, skipping `_`-prefixed support helpers."""
     paths = sorted(PROBE_ROOT.rglob("*.js"), key=lambda path: path.as_posix())
     return [
         {
@@ -62,11 +43,12 @@ def _probe_sources() -> list[dict[str, str]]:
             "source": path.read_text(encoding="utf-8"),
         }
         for path in paths
+        if not path.name.startswith("_")
     ]
 
 
 class TestBrowserProbeCorpusBrowser:
-    """T59 smoke: the probe corpus parses and its DOM probes execute."""
+    """The corpus compiles in Chromium and its pure-DOM probes execute."""
 
     def test_every_probe_parses_in_chromium(self, browser):
         """The whole corpus compiles under the Playwright evaluate contract."""
@@ -77,7 +59,7 @@ class TestBrowserProbeCorpusBrowser:
         )
 
         with use_raw_page(browser.new_page) as page:
-            failures = page.evaluate(_PARSE_JS, sources)
+            failures = page.evaluate(_js("_parse_probe"), sources)
 
         assert failures == [], (
             f"{len(failures)} probe(s) no longer compile in Chromium: {failures[:10]}"
@@ -96,6 +78,3 @@ class TestBrowserProbeCorpusBrowser:
                 f"read_border_radius did not return a computed radius: {radius!r}"
             )
             assert page.locator("#tb").count() == 1
-
-
-__all__ = ["TestBrowserProbeCorpusBrowser"]
