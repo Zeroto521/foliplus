@@ -9,8 +9,11 @@
 // `addTo` records the control without running onAdd — buildDOM needs the full
 // Leaflet runtime and is covered by the browser suite; the lazy getter and
 // destroy() do not.
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { makeConfig } from "../config-fixture.js";
+
+/** `window.L` as `setup.ts` installed it, restored after this file's stub. */
+const originalL = window.L;
 
 type CapturedControl = {
   log: { warn: (...args: unknown[]) => void };
@@ -122,6 +125,10 @@ describe("HeatmapControl entry — half-initialised manager", () => {
     await import("#foliplus/HeatmapControl/index.js");
     expect(captured, "the IIFE should have mounted the control").not.toBeNull();
     ctrl = captured!;
+  });
+
+  afterAll(() => {
+    (window as any).L = originalL;
   });
 
   it("keeps the manager reachable when init() throws, so destroy() releases it", () => {

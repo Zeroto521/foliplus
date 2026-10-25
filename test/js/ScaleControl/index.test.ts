@@ -11,7 +11,10 @@
 // minimal but faithful mock before importing. The mock reproduces both halves
 // of the leaky pattern: L.Control.Scale.onAdd registers `move` on the map keyed
 // to the scale instance, and setZoom fires that listener synchronously.
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+
+/** `window.L` as `setup.ts` installed it, restored after this file's stub. */
+const originalL = window.L;
 
 type EventEntry = { fn: (...args: unknown[]) => unknown; ctx: unknown };
 type EventRegistry = Record<string, EventEntry[]>;
@@ -161,6 +164,10 @@ const mockL = {
 beforeAll(() => {
   (window as any).L = mockL;
   (window as any).map = new MockMap();
+});
+
+afterAll(() => {
+  (window as any).L = originalL;
 });
 
 describe("ScaleControl inner-Leaflet-Scale teardown", () => {
