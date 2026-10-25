@@ -10,6 +10,7 @@
 // Cross-subsystem and intra-subsystem callers all take LayerUI and reach
 // into `ui.listPanel.*` directly; no module receives a bare ListPanel.
 import type { ListCursor } from "#core/interaction/index.js";
+import type { LayerInfo } from "#core/layer/index.js";
 import {
   blurActiveItem,
   clearActiveItem,
@@ -18,6 +19,7 @@ import {
   getActiveLayerItem,
   getNavigableItems,
   moveActiveMarker,
+  reconcileCursorByIdentity,
   resolveActiveIdx,
   restoreCursor,
   setActiveItem,
@@ -25,6 +27,7 @@ import {
   syncListCursor,
 } from "./cursor.js";
 import {
+  clearDragState,
   handleDragEnd,
   handleDragLeave,
   handleDragOver,
@@ -85,8 +88,12 @@ class ListPanel {
   activeIdx: number | null = null;
   /** Shared ARIA roving-tabindex controller on the panel's row set. */
   listCursor: ListCursor | null = null;
-  /** Index of the row currently being dragged, or null. */
-  dragIdx: number | null = null;
+  /** The registry entry the in-flight drag armed with, or null. Identity,
+   *  not position: the gesture spans events and timers, and reordering in
+   *  between would re-point a saved index at a neighbor — the entry is
+   *  re-resolved through the registry at every use, which also retires the
+   *  session when the entry is unregistered or replaced under its id. */
+  dragEntry: LayerInfo | null = null;
   /** Wall-clock timestamp of the last drag hint shown; used to enforce the
    *  hint cooldown so a fast drag does not spam the tooltip. */
   lastDragHintAt: number = 0;
@@ -135,11 +142,13 @@ export {
   handleDragLeave,
   handleDrop,
   handleDragEnd,
+  clearDragState,
 };
 export {
   syncListCursor,
   cursorRef,
   restoreCursor,
+  reconcileCursorByIdentity,
   getNavigableItems,
   findVisibleNeighbor,
   getActiveLayerItem,

@@ -18,7 +18,7 @@ type UiView = {
     foldedGroups: Set<string>;
     lastDragHintAt: number;
     pressInPanel: boolean;
-    dragIdx: unknown;
+    dragEntry: unknown;
     activeIdx: unknown;
     listCursor: unknown;
   };
@@ -64,7 +64,7 @@ describe("makeLayerUIMock — LayerUI field completeness", () => {
     expect(ui.listPanel.pressInPanel).toBe(false);
     // Null pointers
     expect(ui.overlayPanel.activeRenameId).toBeNull();
-    expect(ui.listPanel.dragIdx).toBeNull();
+    expect(ui.listPanel.dragEntry).toBeNull();
     expect(ui.listPanel.activeIdx).toBeNull();
     expect(ui.listPanel.listCursor).toBeNull();
     expect(ui.focusController.focusRect).toBeNull();

@@ -82,14 +82,15 @@ const EVENTS = {
    *  LAYER_ITEM_REMOVED when the count is affected, and on its own after a
    *  user delete. */
   LAYER_GROUP_COUNT_CHANGED: "foliplus:layer:group-count-changed",
-  /** The panel's row order changed: bringLayerToFront and moveLayerUp/Down
-   *  route here. A pure reorder — membership is unchanged, so the in-tree
-   *  subscriber relocates displaced rows in place (syncRowOrder, the same
-   *  reconcile the drag drop calls directly) rather than rebuilding the
-   *  list. The signal stays the panel-order-changed announcement for third
-   *  parties either way; paths that change row structure (fold, attach)
-   *  still do the full rebuild, on their own initiative rather than through
-   *  this event. */
+  /** The panel's row order changed: bringLayerToFront, moveLayerUp/Down and
+   *  the drag drop all route here through the controller's reorder commit
+   *  funnel, so every reorder entrance publishes the same announcement. A
+   *  pure reorder — membership is unchanged, so the in-tree subscriber
+   *  relocates displaced rows in place (syncRowOrder) rather than rebuilding
+   *  the list. The name is historical: the signal means "order changed",
+   *  not "rebuild" (paths that change row structure — fold, attach — still
+   *  do the full rebuild, on their own initiative rather than through this
+   *  event). */
   LAYER_LIST_REBUILD: "foliplus:layer:list-rebuild",
   /** The solid-color basemap row's state changed — the panel's no-basemap
    *  hint / row state needs recomputing. Only deleteLayer of the color id
