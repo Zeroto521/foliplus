@@ -442,4 +442,4 @@ class ExportRenderer {
   }
 }
 
-export { ExportRenderer, isCorsBlocked, pooledEach, resolveExportPanes };
+export { ExportRenderer, isCorsBlocked, pooledEach };
