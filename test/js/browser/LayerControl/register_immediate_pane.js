@@ -1,4 +1,4 @@
-// R3 probe: I1 — `registerLayer` materializes the layer's rendering face
+// Probe: `registerLayer` materializes the layer's rendering face
 // *before* it joins the map, so the content is already in the pane it belongs
 // to when `registerLayer` returns.
 //
@@ -37,7 +37,8 @@
     pathPane: poly._path ? paneNameOf(poly._path) : null,
     shadowPane: marker._shadow ? paneNameOf(marker._shadow) : null,
     // Anything that is not a synthesized pane is a pane shared with other
-    // layers, which is exactly what I1 is supposed to rule out here.
+    // layers, which is exactly what materializing up front is supposed to rule
+    // out here.
     shared: [marker._icon, poly._path].some(el => {
       const name = el ? paneNameOf(el) : null;
       return !name || !name.startsWith("foliplus-pane-");
