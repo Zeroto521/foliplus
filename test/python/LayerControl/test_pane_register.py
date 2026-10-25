@@ -31,7 +31,7 @@ from .helper import _expand_panel, _geo_mixed, _tiny_png, _write_html
 
 # ── pane-surface probe ─────────────────────────────────────────────────
 #
-# Test-only suite: measures the four facts the LayerSurface refactor (R3+)
+# Test-only suite: measures the four facts the LayerSurface refactor
 # relies on, against the real Leaflet/folium DOM. No product code is
 # changed here. Each method locks in a *measured* behavior so a later
 # Leaflet/folium/plugin upgrade that invalidates a design assumption
@@ -77,11 +77,11 @@ class TestLayerPaneRegisterBrowser:
         page.evaluate(_js("LayerControl/set_probe"), spec)
         return page.evaluate(_js("LayerControl/probe_pane_facts"))
 
-    # ── R3: materialize at registration (I1 / I2) ──────────────────
+    # ── Materialize at registration ───────────────────────────────
 
     def test_register_materializes_pane_before_add(self, browser, tmp_path):
-        """I1: after ``registerLayer`` returns — and *before* any ordering pass —
-        the content already sits in the layer's own pane.
+        """The pane exists: after ``registerLayer`` returns — and *before* any
+        ordering pass — the content already sits in the layer's own pane.
 
         The probe deliberately calls no ``enforceOrder``: the claim is that the
         pane is decided before the layer joins the map, not that a later pass
@@ -108,8 +108,8 @@ class TestLayerPaneRegisterBrowser:
         assert not errors, f"JS errors: {errors}"
 
     def test_register_rebuilds_surface_for_same_container(self, browser, tmp_path):
-        """I2: re-registering the same container keeps one pane set, and content
-        added in between lands in it too."""
+        """One pane set: re-registering the same container keeps one pane set,
+        and content added in between lands in it too."""
         with use_page(self._probe, browser, tmp_path, slug="p_rebuild") as (
             page,
             errors,

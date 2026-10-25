@@ -171,7 +171,7 @@ class TestExportRenderBrowser:
     def test_scale_visible_under_deep_layer_stack(self, browser, tmp_path):
         """Deep overlay stack must not cover the export-mode scale control.
 
-        T241 conflict: scale/attr z=850 sat inside the layer band
+        The old scale/attr z=850 sat inside the layer band
         (600 + n*10). ~25 overlay layers climb past 850 and cover the scale
         entirely — the dim layer is supposed to sit above every data layer
         and only under the crop UI. After the fix, scale z = export-base - 10
