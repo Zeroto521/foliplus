@@ -27,7 +27,7 @@ from folium import Element
 
 from foliplus import HeatmapControl, LayerControl
 
-from .helper import _expand_panel, _tiny_png, _write_html
+from .helper import _expand_panel, _geo_mixed, _tiny_png, _write_html
 
 
 class TestLayerControlBrowser:
@@ -828,6 +828,124 @@ class TestLayerControlBrowser:
                 f"close button is {result['deltaPx']:.2f}px off the header "
                 f"icon's vertical center -- threshold 2px, got {result}"
             )
+
+    def test_row_panel_close_x_keeps_native_activation_keys(self, browser, tmp_path):
+        """Space/Enter on a row panel's close × activate it, not the row checkbox.
+
+        Regression: the close × is a real <button>, but the input-ownership
+        table did not classify buttons as consuming Enter/Space. The
+        document-level row-toggle shortcut therefore cancelled the key and
+        flipped the layer checkbox behind the panel. Real keyboard presses go
+        through Chromium — synthetic dispatchEvent cannot prove that the
+        browser's own activation ran — and both row panels that exist today
+        (attributes and style) are covered for both activation keys. The
+        capture log reports whether foliplus cancelled the key; the checkbox
+        state proves the row shortcut did not run.
+        """
+        geo = folium.GeoJson(_geo_mixed, name="Point layer")
+        with use_page(
+            self._make_page, browser, tmp_path, geo, slug="row_panel_close_x"
+        ) as (page, errors):
+            panel_ready(page)
+            page.evaluate(_js("LayerControl/open_panel"))
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-item[data-layer-type=overlay]",
+                state="attached",
+                timeout=5000,
+            )
+
+            for kind in ("attrs", "style"):
+                for key in ("Space", "Enter"):
+                    arm = page.evaluate(_js("LayerControl/row_panel_close_arm"), kind)
+                    assert arm.get("error") is None, f"{kind}: setup failed: {arm}"
+                    assert arm["focusedTag"] == "button", (
+                        f"{kind}: the close × did not take focus: {arm}"
+                    )
+                    assert "foliplus-close-btn" in arm["focusedClass"], (
+                        f"{kind}: focus is not on the close ×: {arm}"
+                    )
+
+                    page.keyboard.press(key)
+
+                    read = page.evaluate(_js("LayerControl/row_panel_close_read"))
+                    presses = [
+                        r for r in (read["records"] or []) if r["tag"] == "button"
+                    ]
+                    assert len(presses) == 1, (
+                        f"{kind}/{key}: expected one button keydown, "
+                        f"got {read['records']}"
+                    )
+                    assert presses[0]["prevented"] is False, (
+                        f"{kind}/{key}: foliplus cancelled the button's native "
+                        f"activation key: {read['records']}"
+                    )
+                    assert not read["attrsOpen"] and not read["styleOpen"], (
+                        f"{kind}/{key}: the close × did not close its panel: {read}"
+                    )
+                    assert read["checkboxAfter"] == arm["checkboxBefore"], (
+                        f"{kind}/{key}: the row shortcut flipped the layer "
+                        f"checkbox: before={arm['checkboxBefore']} "
+                        f"after={read['checkboxAfter']}"
+                    )
+            assert not errors, f"JS errors: {errors}"
+
+    def test_row_more_button_keeps_native_activation_keys(self, browser, tmp_path):
+        """Enter/Space on a row's ⋮ button still open its menu natively.
+
+        The ownership table now lets a focused <button> keep Enter/Space, so
+        the row shortcut no longer runs for these keys: the menu has to open
+        through the button's own click, the same native activation the panel
+        close × relies on. The checkbox must not flip either way.
+        """
+        geo = folium.GeoJson(_geo_mixed, name="Point layer")
+        with use_page(
+            self._make_page, browser, tmp_path, geo, slug="row_more_button_keys"
+        ) as (page, errors):
+            panel_ready(page)
+            page.evaluate(_js("LayerControl/open_panel"))
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-item[data-layer-type=overlay]",
+                state="attached",
+                timeout=5000,
+            )
+
+            for key in ("Space", "Enter"):
+                arm = page.evaluate(_js("LayerControl/row_more_button_arm"))
+                assert arm.get("error") is None, f"{key}: setup failed: {arm}"
+                assert "foliplus-layer-more-btn" in arm["focusedClass"], (
+                    f"{key}: the ⋮ button did not take focus: {arm}"
+                )
+
+                page.keyboard.press(key)
+
+                read = page.evaluate(_js("LayerControl/row_more_button_read"))
+                assert read["menuOpen"] is True, (
+                    f"{key}: the native activation did not open the menu: {read}"
+                )
+                assert read["checkboxAfter"] == arm["checkboxBefore"], (
+                    f"{key}: the row shortcut flipped the layer checkbox: "
+                    f"before={arm['checkboxBefore']} after={read['checkboxAfter']}"
+                )
+
+                # Close the menu and hand focus back to the row before the
+                # next activation key.
+                page.keyboard.press("Escape")
+                page.wait_for_selector(
+                    ".foliplus-layer-more-menu.open",
+                    state="detached",
+                    timeout=5000,
+                )
+            assert not errors, f"JS errors: {errors}"
 
     def test_toggle_all_checkbox_toggles_layers(self, browser, tmp_path):
         """Toggle-all checkbox toggles all layers in the group."""

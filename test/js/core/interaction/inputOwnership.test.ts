@@ -34,8 +34,13 @@ const EDIT_KEYS = [...ARROWS, "Home", "End", "Enter"] as const;
 const STEP_KEYS = [...ARROWS, "Home", "End", "PageUp", "PageDown"] as const;
 const SELECT_KEYS = [...ARROWS, "Enter", " "] as const;
 const EDITABLE_KEYS = [...ARROWS, "Home", "End", "Enter", "Backspace"] as const;
+// Native activation: the browser fires the control's click from Enter (and,
+// except for links, Space).
+const ACTIVATE_KEYS = ["Enter", " "] as const;
+const LINK_KEYS = ["Enter"] as const;
 
-type RowClass = "edit" | "step" | "toggle" | "select" | "editable";
+type RowClass =
+  "edit" | "step" | "toggle" | "select" | "editable" | "activate" | "link";
 
 const KEYS_OF: Record<RowClass, readonly string[]> = {
   edit: EDIT_KEYS,
@@ -43,11 +48,21 @@ const KEYS_OF: Record<RowClass, readonly string[]> = {
   toggle: [" "],
   select: SELECT_KEYS,
   editable: EDITABLE_KEYS,
+  activate: ACTIVATE_KEYS,
+  link: LINK_KEYS,
 };
 
 const input = (type: string): HTMLInputElement => {
   const el = document.createElement("input");
   el.type = type;
+  return el;
+};
+
+/** An ARIA widget: the role, not the tag, is what gives it a native key. */
+const roleEl = (role: string): HTMLElement => {
+  const el = document.createElement("div");
+  el.setAttribute("role", role);
+  el.tabIndex = 0;
   return el;
 };
 
@@ -88,6 +103,45 @@ const ROWS: { label: string; cls: RowClass; make: () => HTMLElement }[] = [
       return el;
     },
   },
+  // Native activation controls. The browser turns Enter / Space on these into
+  // a click; if foliplus claims the key instead, a panel close button (a real
+  // <button>) toggles the layer row behind it — the regression this family
+  // exists to pin. Enter and Space are separate families on purpose: a link
+  // activates on Enter only, and Space on a focused link still scrolls.
+  { label: "button", cls: "activate", make: () => document.createElement("button") },
+  ...["button", "submit", "reset", "image", "file"].map(type => ({
+    label: `input[type=${type}]`,
+    cls: "activate" as const,
+    make: () => input(type),
+  })),
+  {
+    label: "summary",
+    cls: "activate",
+    // jsdom does not treat <summary> as focusable (browsers do), so give it a
+    // tabindex for the routing half; classification is tag-based either way.
+    make: () => {
+      const el = document.createElement("summary");
+      el.tabIndex = 0;
+      return el;
+    },
+  },
+  {
+    label: "a[href]",
+    cls: "link",
+    make: () => {
+      const el = document.createElement("a");
+      el.href = "#";
+      el.textContent = "link";
+      return el;
+    },
+  },
+  { label: 'div[role="button"]', cls: "activate", make: () => roleEl("button") },
+  { label: 'div[role="link"]', cls: "link", make: () => roleEl("link") },
+  ...["checkbox", "switch", "radio"].map(role => ({
+    label: `div[role=${role}]`,
+    cls: "toggle" as const,
+    make: () => roleEl(role),
+  })),
   {
     label: "[contenteditable]",
     cls: "editable",
@@ -107,6 +161,11 @@ const NOT_OWNED: Record<RowClass, string[]> = {
   toggle: [...ARROWS, "Home", "End", "Enter"],
   select: ["PageUp", "PageDown", "Backspace"],
   editable: [],
+  // Activation controls own no navigation key: the arrows still walk the row
+  // list while the close button has focus, exactly as they do on a checkbox.
+  activate: [...ARROWS, "Home", "End", "Backspace"],
+  // Space is not a link activation key — the page scrolls. foliplus keeps it.
+  link: [" ", ...ARROWS, "Home", "End", "Backspace"],
 };
 
 describe("nativeClass", () => {
@@ -134,6 +193,13 @@ describe("nativeClass", () => {
       "month",
       "checkbox",
       "radio",
+      // Button-like inputs are inert for *typing* but own their activation
+      // keys, so they must never fall into the owning-nothing set.
+      "button",
+      "submit",
+      "reset",
+      "image",
+      "file",
       "hidden",
       "xyz",
     ]) {
@@ -226,6 +292,100 @@ describe("the Escape whitelist lives in one place", () => {
 
   it("Escape is the only owner key", () => {
     expect([...OWNER_KEYS]).toEqual(["Escape"]);
+  });
+});
+
+describe("panel close button — a native activator, not a row shortcut", () => {
+  // The reported regression: Tab to the × in an attributes / style panel's
+  // header, press Space or Enter, and the layer checkbox behind the panel
+  // toggles instead of the button activating. LayerControl registers the
+  // row-toggle shortcut on the panel container for Space and Enter, so this
+  // block reproduces exactly that registration shape.
+  let map: any;
+  let panel: HTMLElement;
+  let toggleRow: ReturnType<typeof vi.fn>;
+  let escapePanel: ReturnType<typeof vi.fn>;
+  let cleanup: () => void;
+
+  beforeEach(() => {
+    map = makeMap();
+    panel = document.createElement("div");
+    panel.className = "foliplus-panel foliplus-layer-ctrl";
+    document.body.appendChild(panel);
+    toggleRow = vi.fn();
+    escapePanel = vi.fn();
+    cleanup = ensureInteraction(map).register("RowToggle", [
+      { key: " ", container: panel, handler: toggleRow as (event: Event) => void },
+      { key: "Enter", container: panel, handler: toggleRow as (event: Event) => void },
+      {
+        key: "Escape",
+        container: panel,
+        handler: escapePanel as (event: Event) => void,
+      },
+    ]);
+  });
+
+  afterEach(() => {
+    cleanup();
+    document.body.innerHTML = "";
+  });
+
+  /** The real <button> the shared panel header renders for the close ×. */
+  const closeButton = (): HTMLButtonElement => {
+    const close = document.createElement("button");
+    close.type = "button";
+    close.className = "foliplus-ctrl-btn foliplus-close-btn";
+    panel.appendChild(close);
+    close.focus();
+    return close;
+  };
+
+  /** Let the browser route the key from document, as the reported bug did. */
+  const press = (el: HTMLElement, key: string): KeyboardEvent => {
+    el.focus();
+    const event = new KeyboardEvent("keydown", {
+      key,
+      bubbles: true,
+      cancelable: true,
+    });
+    document.dispatchEvent(event);
+    return event;
+  };
+
+  it.each([
+    ["Space", " "],
+    ["Enter", "Enter"],
+  ])("%s on the close button keeps its native activation", (_label, key) => {
+    const close = closeButton();
+    const event = press(close, key);
+    // The button needs the key for its own activation: no cancel, no row
+    // toggle. Letting it through is the whole fix.
+    expect(event.defaultPrevented, key).toBe(false);
+    expect(toggleRow, key).not.toHaveBeenCalled();
+  });
+
+  it("Escape on the close button still reaches the panel shortcut", () => {
+    const close = closeButton();
+    const event = press(close, "Escape");
+    expect(event.defaultPrevented).toBe(true);
+    expect(escapePanel).toHaveBeenCalledTimes(1);
+    expect(toggleRow).not.toHaveBeenCalled();
+  });
+
+  it("Space on the row itself still toggles — the guard is not a blanket skip", () => {
+    const row = document.createElement("div");
+    row.className = "foliplus-layer-item";
+    row.tabIndex = 0;
+    panel.appendChild(row);
+    row.focus();
+    const event = new KeyboardEvent("keydown", {
+      key: " ",
+      bubbles: true,
+      cancelable: true,
+    });
+    document.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(true);
+    expect(toggleRow).toHaveBeenCalledTimes(1);
   });
 });
 
