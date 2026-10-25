@@ -290,6 +290,21 @@ class TestLayerControlRendering:
         assert "--foliplus-count-track-width: 48px" in token_css
         assert "minmax(var(--foliplus-count-track-min-width)" in token_css
 
+    def test_filtered_funnel_is_neutral_with_currentcolor_fill(self):
+        """The filtered-row funnel is a state mark, not an action accent.
+
+        It uses --foliplus-text-primary and the SVG's own fill is overridden
+        with currentColor: the icon ships a fill, so `color` alone never
+        reaches it (and the default black would vanish on a dark theme).
+        """
+        css = read_css("foliplus/css/LayerControl/row.css")
+        idx = css.find(".foliplus-layer-count-funnel")
+        assert idx != -1
+        block = css[idx : css.index('&[draggable="true"]', idx)]
+        assert "color: var(--foliplus-text-primary)" in block
+        assert "fill: currentColor" in block
+        assert "var(--foliplus-accent-primary)" not in block
+
     def test_type_icon_col_size_anchored_to_checkbox(self):
         """type-icon-col is 16px (space-xl) to anchor to the checkbox square."""
         css = read_css("foliplus/css/LayerControl/index.css")

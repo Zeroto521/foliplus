@@ -6128,3 +6128,42 @@ class TestLayerControlBrowser:
                 "(expected 10 from the visible 'Low' layer's native max_zoom): "
                 f"{low_only}"
             )
+
+    def test_filtered_funnel_paints_neutral_with_currentcolor_fill(
+        self, browser, tmp_path
+    ):
+        """A filtered row's funnel is neutral text-primary, not accent red.
+
+        The icon ships its own fill, so the stylesheet must override it with
+        fill: currentColor; otherwise `color` never reaches the glyph and the
+        default black would vanish on a dark theme.
+        """
+        layer = folium.FeatureGroup(name="Funnel row")
+        with use_page(self._make_page, browser, tmp_path, layer, slug="funnel") as (
+            page,
+            errors,
+        ):
+            page.evaluate(_js("LayerControl/open_panel"))
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            panel_ready(page)
+            style = page.evaluate(_js("LayerControl/filter_funnel_style"))
+            assert style and style.get("ok"), style
+            assert style["color"] == style["textPrimary"], (
+                "filtered funnel must use --foliplus-text-primary, got "
+                f"{style['color']} vs token {style['textPrimary']}"
+            )
+            assert style["color"] != style["accent"], (
+                "the filtered funnel must not be accent, got "
+                f"{style['color']} (accent {style['accent']})"
+            )
+            assert style["fill"] == style["color"], (
+                "the funnel SVG must fill from currentColor, got "
+                f"fill {style['fill']} vs color {style['color']}"
+            )
+            assert (style["funnelWidth"], style["funnelHeight"]) == (12, 12), style
+            assert style["countText"] == "4", style
+            assert not errors, f"JS errors: {errors}"

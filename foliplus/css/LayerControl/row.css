@@ -423,8 +423,9 @@
     /* ── Feature count column ──
       Right-aligned. The value is ALWAYS the compact form
       (formatNumber("auto"): 137, 6K, 2.5K, 1.2万) so the min/max track
-      never widens for a full number. Filtered adds the funnel glyph; the
-      count stays ordinary annotation text and only the glyph is accent.
+      never widens for a full number. Filtered adds the funnel glyph; both the
+      count and the glyph stay neutral annotation text — the funnel marks the
+      filtered state, it is not an action accent.
       inline-flex + self-center keeps it on the label/icon/more centre line. */
     .foliplus-layer-count {
       display: inline-flex;
@@ -443,7 +444,8 @@
       padding: 0 0 0 var(--foliplus-space-xs);
 
       &.foliplus-layer-count-filtered {
-        /* The count is still annotation text; only the funnel is accent. */
+        /* Count and funnel are both neutral: filtered is a state, not an
+           action, so it must not borrow the accent. */
         color: var(--foliplus-text-muted);
       }
       /* The funnel glyph before a filtered count; the token keeps the
@@ -453,9 +455,14 @@
         flex: 0 0 var(--foliplus-filter-funnel-size);
         width: var(--foliplus-filter-funnel-size);
         height: var(--foliplus-filter-funnel-size);
-        color: var(--foliplus-accent-primary);
+        /* Solid glyph in neutral text-primary: a state mark, not the accent.
+           The icon ships its own fill, so CSS `color` alone never reaches it;
+           fill: currentColor is what makes the token apply (and keeps it
+           visible on a dark theme, where the default black would vanish). */
+        color: var(--foliplus-text-primary);
 
         svg {
+          fill: currentColor;
           display: block;
           width: var(--foliplus-filter-funnel-size);
           height: var(--foliplus-filter-funnel-size);
