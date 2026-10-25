@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import tempfile
 from pathlib import Path
@@ -101,8 +102,39 @@ def _load_merged_tables() -> dict[str, dict[str, str]]:
     return merged
 
 
+def _duplicate_json_keys(path: Path) -> list[str]:
+    """Raw-text scan for duplicate keys: `json.loads` silently keeps the last.
+
+    A duplicated key hides one value from every merged-table assertion, so it
+    has to be caught at the file level, not through the parsed dict.
+    """
+    seen: dict[str, int] = {}
+    duplicates: list[str] = []
+    for line_no, line in enumerate(
+        path.read_text(encoding="utf-8").splitlines(), 1
+    ):
+        match = re.match(r'\s*"([^"]+)"\s*:', line)
+        if not match:
+            continue
+        key = match.group(1)
+        if key in seen:
+            duplicates.append(f"{key} (lines {seen[key]} and {line_no})")
+        else:
+            seen[key] = line_no
+    return duplicates
+
+
 _TABLES = _load_merged_tables()
 _JS_USED_KEYS = _scan_js_keys() | _DYNAMIC_SUPPLEMENT
+
+
+class TestLocaleTableIntegrity:
+    def test_no_duplicate_keys_within_a_file(self):
+        # LayerControl.en/zh.json shipped a duplicated style_size/border pair;
+        # one value silently lost. Guard every table, not just those two.
+        for path in sorted(_LOCALE_DIR.glob("*.json")):
+            duplicates = _duplicate_json_keys(path)
+            assert not duplicates, f"{path.name} repeats keys: {duplicates}"
 
 
 class TestLocaleConfig:

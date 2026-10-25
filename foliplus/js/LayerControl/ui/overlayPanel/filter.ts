@@ -37,10 +37,11 @@ import { displayName } from "../listPanel/rowView.js";
 import type { LayerUI } from "../surface.js";
 import { closeOverlays } from "../teardown.js";
 
-/** Format a count for the result readout with the same compact rule as the
- *  row column ("2.5K", never a widened exact form). The readout is a UI
- *  fact, so it follows the control locale. */
-const fmtCount = (n: number, locale: string): string => formatNumber(n, "auto", locale);
+/** Format a count for the result readout: exact, grouped whole numbers
+ *  ("2,500"), never a compact abbreviation. The readout answers "how many of
+ *  the total survived", so rounding 2,500 to "2.5K" would hide the very
+ *  precision it exists to report. The row column keeps the compact rule. */
+const fmtCount = (n: number): string => formatNumber(n, "comma", "en", 0);
 
 /** Format a slider value: enough decimals for the data's own precision,
  *  with float noise (0.30000000000000004) trimmed. */
@@ -151,8 +152,8 @@ const syncView = (ui: LayerUI, view: FilterRowsView, model: LayerFilterModel): v
   view.result.textContent = ui
     .T("filter_result")
     .replace("{pct}", String(pct))
-    .replace("{kept}", fmtCount(model.kept, ui.config.locale_code ?? "en"))
-    .replace("{total}", fmtCount(model.total, ui.config.locale_code ?? "en"));
+    .replace("{kept}", fmtCount(model.kept))
+    .replace("{total}", fmtCount(model.total));
   // Clear is the only footer action and it is live: disabled exactly when
   // there is nothing to clear (the owner reports no committed filter).
   view.clear.disabled = !model.filter;

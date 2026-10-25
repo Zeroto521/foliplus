@@ -1,4 +1,4 @@
-// LayerUI filter panel (stage-2 pilot) — open/close/mutual exclusion, the
+// LayerUI filter panel — open/close/mutual exclusion, the
 // ⋮ menu gate, and the panel's view contract over the owner capability:
 // the panel reads `filterProvider` (reopen echo, result readout) and writes
 // `filterSetter` through the shared Slider. The owner semantics themselves
@@ -75,7 +75,7 @@ const menuActionNames = (item: HTMLElement): string[] =>
     item.querySelectorAll<HTMLElement>(".foliplus-layer-more-menu [data-action]"),
   ).map(li => li.getAttribute("data-action") ?? "");
 
-describe("LayerUI filter panel (stage-2 pilot)", () => {
+describe("LayerUI filter panel", () => {
   let manager: LayerController;
   let ui: LayerUI;
   let _map: any;
@@ -1080,7 +1080,28 @@ describe("LayerUI filter panel — result, Clear and row state", () => {
     spy.mockRestore();
   });
 
-  it("renders 0% when the owner unit has no records", () => {
+  it("renders 0% but keeps the owner total when the filter keeps nothing", () => {
+    // The heatmap shape with every cell filtered out: kept is 0, but the
+    // owner still knows its unfiltered cell count — 0 of 0 would erase it.
+    const { owner } = registerPoints("pnt", { kept: 0, total: 137 });
+    commit(owner);
+    const spy = vi
+      .spyOn(ui, "T")
+      .mockImplementation(
+        key =>
+          (key === "filter_result"
+            ? "{pct}% ({kept} of {total}) kept"
+            : `LayerControl.${key}`) as any,
+      );
+
+    const item = findItem(ui, "pnt");
+    ui.openFilterPanel(item);
+    const result = item.querySelector(`.${CONST.CLASSES.FILTER_RESULT}`)!;
+    expect(result.textContent).toBe("0% (0 of 137) kept");
+    spy.mockRestore();
+  });
+
+  it("renders 0 of 0 only when the owner itself reports no records", () => {
     const { owner } = registerPoints("pnt", { kept: 0, total: 0 });
     commit(owner);
     const spy = vi
@@ -1096,6 +1117,27 @@ describe("LayerUI filter panel — result, Clear and row state", () => {
     ui.openFilterPanel(item);
     const result = item.querySelector(`.${CONST.CLASSES.FILTER_RESULT}`)!;
     expect(result.textContent).toBe("0% (0 of 0) kept");
+    spy.mockRestore();
+  });
+
+  it("writes the result pair as exact grouped numbers, never compact", () => {
+    // The row column stays compact ("2.5K"); the Result sentence reports the
+    // exact pair the user is filtering — rounding it would hide the fact.
+    const { owner } = registerPoints("pnt", { kept: 2500, total: 6000 });
+    commit(owner);
+    const spy = vi
+      .spyOn(ui, "T")
+      .mockImplementation(
+        key =>
+          (key === "filter_result"
+            ? "{pct}% ({kept} of {total}) kept"
+            : `LayerControl.${key}`) as any,
+      );
+
+    const item = findItem(ui, "pnt");
+    ui.openFilterPanel(item);
+    const result = item.querySelector(`.${CONST.CLASSES.FILTER_RESULT}`)!;
+    expect(result.textContent).toBe("42% (2,500 of 6,000) kept");
     spy.mockRestore();
   });
 

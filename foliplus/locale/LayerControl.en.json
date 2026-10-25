@@ -91,7 +91,5 @@
   "LayerControl.filter_clear_tooltip": "Clear this layer's filter",
   "LayerControl.filter_clear_disabled": "No filter to clear",
   "LayerControl.filter_row_title": "{kept} / {total} filtered · {type}",
-  "LayerControl.filter_empty": "No numeric fields on this layer",
-  "LayerControl.style_size": "Size",
-  "LayerControl.border": "Border"
+  "LayerControl.filter_empty": "No numeric fields on this layer"
 }

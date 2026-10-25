@@ -330,6 +330,9 @@ describe("filterStep / filterKey", () => {
     expect(filterStep([10, 69])).toBe(1);
     expect(filterStep([0.5, 2.25])).toBe(0.01);
     expect(filterStep([0.123456789, 1])).toBe(0.000001);
+    // Tiny magnitudes stringify exponentially ("1e-7"): the exponent is the
+    // precision, so the step stays small instead of snapping to 1.
+    expect(filterStep([1e-7, 5e-7])).toBe(0.000001);
   });
 
   it("a degenerate or non-finite span falls back to 1", () => {

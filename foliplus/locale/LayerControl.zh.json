@@ -91,7 +91,5 @@
   "LayerControl.filter_clear_tooltip": "清除该图层的筛选",
   "LayerControl.filter_clear_disabled": "当前没有筛选",
   "LayerControl.filter_row_title": "{kept} / {total} 已筛选 · {type}",
-  "LayerControl.filter_empty": "该图层没有数值字段",
-  "LayerControl.style_size": "大小",
-  "LayerControl.border": "边框"
+  "LayerControl.filter_empty": "该图层没有数值字段"
 }

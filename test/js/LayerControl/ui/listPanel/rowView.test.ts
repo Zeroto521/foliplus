@@ -349,13 +349,41 @@ describe("applyRowView (the single DOM write point)", () => {
     el.innerHTML += `<span class="${CONST.CLASSES.LAYER_LABEL}">Facility Points</span>`;
     document.body.appendChild(el);
     const label = el.querySelector<HTMLElement>(`.${CONST.CLASSES.LAYER_LABEL}`)!;
-    applyRowView(ui, el, cell({ name: "Facility Points" }));
-    expect(label.title).toBe("");
+    applyRowView(ui, el, cell({ name: "Facility Points", countText: "4" }));
+    // No overflow: the attribute must be ABSENT (an empty one would shadow
+    // the row tooltip for every hover over the label), and the row keeps its
+    // own count · type sentence.
+    expect(label.hasAttribute("title")).toBe(false);
+    expect(el.title).toBe("4 · polygon");
 
     Object.defineProperty(label, "scrollWidth", { value: 120, configurable: true });
     Object.defineProperty(label, "clientWidth", { value: 80, configurable: true });
     applyRowView(ui, el, cell({ name: "Facility Points - North District 2024" }));
     expect(label.title).toBe("Facility Points - North District 2024");
+    expect(el.title).toBe("polygon");
+
+    // Shrinking back removes the attribute again rather than blanking it.
+    Object.defineProperty(label, "scrollWidth", { value: 80, configurable: true });
+    applyRowView(ui, el, cell({ name: "Facility Points" }));
+    expect(label.hasAttribute("title")).toBe(false);
+  });
+
+  it("leaves the count cell titleless when unfiltered so the row tooltip bubbles", () => {
+    const el = item();
+    applyRowView(ui, el, cell({ name: "Alpha", countText: "4" }));
+    const count = el.querySelector<HTMLElement>(CONST.SEL.COUNT_COL)!;
+    expect(count.hasAttribute("title")).toBe(false);
+    expect(count.getAttribute("aria-label")).toBe("4 · polygon");
+    expect(el.title).toBe("4 · polygon");
+
+    // Filtered: the count cell carries its own filtered sentence.
+    applyRowView(
+      ui,
+      el,
+      cell({ name: "Alpha", filtered: true, filterTitle: "2 / 3 filtered · polygon" }),
+    );
+    expect(count.title).toBe("2 / 3 filtered · polygon");
+    expect(el.title).toBe("2 / 3 filtered · polygon");
   });
 
   it("defers the label measurement until a detached row is inserted", async () => {

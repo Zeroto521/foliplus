@@ -73,6 +73,9 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
         : `type_${gtype}`;
   addRow(ui.T("attr_type"), ui.T(typeKey));
   if (!isColor) {
+    // The count is the layer's own unit: a filtered Heatmap reports the
+    // features it currently draws, matching its row count; the unfiltered
+    // cell total only appears in the filter panel's Result.
     const count = layerInfo ? ui.c.getFeatureCount(layerId) : null;
     // The panel is the detail view, so the count is grouped (1,234) rather
     // than compacted — and `comma` defaults to one fraction digit, which

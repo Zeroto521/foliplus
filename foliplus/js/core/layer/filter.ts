@@ -191,6 +191,10 @@ const parsePersistedFilters = (
  *  degenerate (zero-span) range gets 1: the slider renders disabled anyway. */
 const filterStep = (range: readonly [number, number]): number => {
   const decimals = (v: number): number => {
+    // Very small magnitudes stringify exponentially ("1e-7"), which has no
+    // decimal point to count; the exponent carries the same precision.
+    const exp = /e-(\d+)$/.exec(String(v));
+    if (exp) return Math.min(Number(exp[1]), 6);
     const parts = String(v).split(".");
     return parts.length > 1 ? Math.min(parts[1].length, 6) : 0;
   };

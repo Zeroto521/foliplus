@@ -246,8 +246,11 @@ const applyRowView = (ui: LayerUI, item: HTMLElement, cell: RowCell): void => {
       countCol.textContent = view.countText;
     }
     // The count cell is annotation, but its sentence is the filtered fact:
-    // mirror the row title so hover/AT read the same numbers.
-    countCol.title = view.filtered ? view.title : "";
+    // mirror the row title so hover/AT read the same numbers. Set the
+    // attribute only when it carries text: an empty title attribute would
+    // swallow the row title on hover instead of letting it bubble.
+    if (view.filtered) countCol.title = view.title;
+    else countCol.removeAttribute("title");
     countCol.setAttribute("aria-label", view.title);
   }
   if (view.typeSvg) {
@@ -260,7 +263,10 @@ const applyRowView = (ui: LayerUI, item: HTMLElement, cell: RowCell): void => {
   const label = item.querySelector<HTMLElement>(`.${CONST.CLASSES.LAYER_LABEL}`);
   if (label) {
     const syncLabelTitle = () => {
-      label.title = label.scrollWidth > label.clientWidth ? cell.name : "";
+      if (label.scrollWidth > label.clientWidth) label.title = cell.name;
+      // No empty title attribute: a stale one would replace the row
+      // tooltip for every hover over the label instead of bubbling.
+      else label.removeAttribute("title");
     };
     syncLabelTitle();
     // A row is often painted before it is inserted, so the first measurement
