@@ -122,7 +122,8 @@ const collectLayerShadows = (
     const shadowEl = layerShadow(leaf);
     if (!shadowEl) return;
     if (!hasShadowSource(shadowEl)) {
-      if (shadowEl instanceof HTMLImageElement) onMissingSource?.(shadowEl);
+      // hasShadowSource only rejects an <img> without a source.
+      onMissingSource?.(shadowEl as HTMLImageElement);
       return;
     }
     if (!isAdmittedRoot(shadowEl)) return;
@@ -452,8 +453,10 @@ const renderRemaining = async (
   for (const root of markerRoots) {
     // Optimisation only: skip the load for a root that cannot draw.  The draw
     // itself re-measures below, so a stale pre-cull here can never decide the
-    // painted coordinates.
-    if (!drawable(measure(root))) continue;
+    // painted coordinates.  This first box is also the one the background-fill
+    // branch uses — it has no await between here and its fill.
+    const initial = measure(root);
+    if (!drawable(initial)) continue;
 
     const rootAlpha = effectiveOpacity(container, root);
 
@@ -471,13 +474,13 @@ const renderRemaining = async (
       }
       if (img) {
         // The layout settled while the image loaded: this is the box the draw
-        // must use, not the one the pre-cull saw.
+        // must use, not the one the pre-cull saw.  A box that ended up outside
+        // the crop needs no guard — the canvas clips the draw, and that is
+        // exactly what the browser does for the same element.
         const g = measure(root);
-        if (drawable(g)) {
-          withAlpha(ctx, rootAlpha, () => {
-            ctx.drawImage(img!, g.dx, g.dy, g.dw, g.dh);
-          });
-        }
+        withAlpha(ctx, rootAlpha, () => {
+          ctx.drawImage(img!, g.dx, g.dy, g.dw, g.dh);
+        });
         continue;
       }
     }
@@ -507,11 +510,9 @@ const renderRemaining = async (
           // Same draw-time measurement as the <img> branch: the blob load is
           // an await, and the layout may have settled during it.
           const g = measure(root);
-          if (drawable(g)) {
-            withAlpha(ctx, rootAlpha, () => {
-              ctx.drawImage(img, g.dx, g.dy, g.dw, g.dh);
-            });
-          }
+          withAlpha(ctx, rootAlpha, () => {
+            ctx.drawImage(img, g.dx, g.dy, g.dw, g.dh);
+          });
         } finally {
           URL.revokeObjectURL(url);
         }
@@ -523,10 +524,9 @@ const renderRemaining = async (
 
     // 3. Elements with background-color but no background-image url (center dot)
     if (root.matches(CONST.SEL.LABEL)) continue;
-    // No await on this branch: the box measured right before the fill is the
-    // one every earlier root's awaits already settled.
-    const g = measure(root);
-    if (!drawable(g)) continue;
+    // No await on this branch, so the pre-cull's box is still the current one;
+    // reusing it keeps the fill and its border on the same measured geometry.
+    const g = initial;
     const rootCS = window.getComputedStyle(root);
     const bgImg = rootCS.backgroundImage;
     const hasSprite = bgImg && bgImg !== "none" && bgImg.includes("url(");

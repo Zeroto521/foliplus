@@ -318,10 +318,13 @@ class ExportRenderer {
       const shadowRootsByLayer = new Map<LayerInfo, HTMLElement[]>();
       for (const layerInfo of layers) {
         const layer = this.resolveLayer(layerInfo);
-        if (!layer) continue;
+        // Every entry gets an answer — [] when the layer cannot be resolved —
+        // so the draw loop reads its own key instead of carrying a fallback.
         shadowRootsByLayer.set(
           layerInfo,
-          this.collectLayerShadows(layer, shadowPaneNames, reportMissingShadowSrc),
+          layer
+            ? this.collectLayerShadows(layer, shadowPaneNames, reportMissingShadowSrc)
+            : [],
         );
       }
       const drawnShadowRoots = new Set<HTMLElement>();
@@ -341,9 +344,9 @@ class ExportRenderer {
           // it has to be on the canvas before the content and the icons.  Roots
           // are claimed only after the list is built, so a layer whose shadows
           // are all already drawn cannot block anything.
-          const shadowRoots = (shadowRootsByLayer.get(layerInfo) ?? []).filter(
-            root => !drawnShadowRoots.has(root),
-          );
+          const shadowRoots = shadowRootsByLayer
+            .get(layerInfo)!
+            .filter(root => !drawnShadowRoots.has(root));
           for (const root of shadowRoots) drawnShadowRoots.add(root);
           if (shadowRoots.length) {
             await this.renderRemaining(rc, shadowRoots, warnShadowLoadFailure);
