@@ -1464,3 +1464,145 @@ describe("AnnotationManager — per-layer repaint", () => {
     expect(totalPaints()).toBe(1);
   });
 });
+
+describe("AnnotationManager — clearing labels drops their pan plan", () => {
+  // A plan outliving its labels is the resurrection bug: refreshPan
+  // translates lastPlanned by the delta from planOrigins, so a cleared layer
+  // whose plan survived gets its old boxes painted again on the next pan
+  // (show=false was the user-visible reproducer). Clearing the labels must
+  // clear the plan in the same breath, and only that layer's.
+
+  /** Run the bound move handler and let its throttled frame land. */
+  const pan = async (map: L.Map): Promise<void> => {
+    const move = (map.on as unknown as ReturnType<typeof vi.fn>).mock.calls.find(
+      call => call[0] === "move",
+    )![1] as () => void;
+    move();
+    await new Promise(r => requestAnimationFrame(() => r(null)));
+  };
+
+  const paneDom = (get: () => { x: number; y: number }) => {
+    (window.L as unknown as { DomUtil: unknown }).DomUtil = {
+      getPosition: get,
+    };
+  };
+
+  it("a pan after labels are turned off keeps the canvas empty", async () => {
+    const { map } = makeMap();
+    let panePos = { x: 0, y: 0 };
+    paneDom(() => panePos);
+    const mgr = new AnnotationManager({
+      map,
+      layerFind: () => oneLabel(),
+    });
+    mgr.setConfig("a", CONFIG);
+    mgr.renderLabels("a");
+    const c = canvas();
+    expect(painted()).toHaveLength(1);
+
+    // show=false: the canvas is painted empty and the plan must die with it.
+    mgr.setConfig("a", { ...CONFIG, show: false });
+    expect(mgr.renderLabels("a")).toEqual([]);
+    expect(c.paint.mock.calls.at(-1)![0]).toEqual([]);
+    c.paint.mockClear();
+
+    panePos = { x: 35, y: -10 };
+    await pan(map);
+
+    // Any repaint on the pan is the empty plan. A surviving plan would be
+    // translated and painted as a non-empty copy of the old labels.
+    for (const call of c.paint.mock.calls) {
+      expect(call[0]).toEqual([]);
+    }
+  });
+
+  it("clearing one layer leaves another layer's translation intact", async () => {
+    const { map } = makeMap();
+    let panePos = { x: 0, y: 0 };
+    paneDom(() => panePos);
+    const other = mkGroup([
+      mkLeaf({ props: { v: "7" }, latlng: { lat: 41, lng: -75 } }),
+    ]);
+    const mgr = new AnnotationManager({
+      map,
+      layerFind: id => (id === "a" ? oneLabel() : other),
+    });
+    mgr.setConfig("a", CONFIG);
+    mgr.setConfig("b", CONFIG);
+    mgr.renderLabels("a");
+    mgr.renderLabels("b");
+    // The mock registry accumulates across tests: take the two canvases this
+    // test just mounted, not the first two of the whole file.
+    const canvasA = mocks.instances.at(-2)!;
+    const canvasB = mocks.instances.at(-1)!;
+
+    mgr.setConfig("a", { ...CONFIG, show: false });
+    mgr.renderLabels("a");
+    canvasA!.paint.mockClear();
+    canvasB!.paint.mockClear();
+
+    panePos = { x: 20, y: 5 };
+    await pan(map);
+
+    // The cleared layer stays empty; the untouched layer still translates
+    // from its own plan (the per-layer origin was not disturbed).
+    for (const call of canvasA!.paint.mock.calls) {
+      expect(call[0]).toEqual([]);
+    }
+    expect(canvasB!.paint).toHaveBeenCalled();
+    expect((canvasB!.paint.mock.calls.at(-1)![0] as unknown[]).length).toBe(1);
+  });
+
+  it("unloadLayer drops the stored plan with the canvas", () => {
+    const { map } = makeMap();
+    paneDom(() => ({ x: 0, y: 0 }));
+    const mgr = new AnnotationManager({
+      map,
+      layerFind: () => oneLabel(),
+    });
+    mgr.setConfig("a", CONFIG);
+    mgr.renderLabels("a");
+    const internals = mgr as unknown as {
+      lastPlanned: Map<string, unknown>;
+      planOrigins: Map<string, unknown>;
+    };
+    expect(internals.lastPlanned.has("a")).toBe(true);
+    expect(internals.planOrigins.has("a")).toBe(true);
+
+    mgr.unloadLayer("a");
+
+    // A same-id re-registration that draws no labels must not inherit the
+    // old plan and have a fresh canvas translate it on the first pan.
+    expect(internals.lastPlanned.has("a")).toBe(false);
+    expect(internals.planOrigins.has("a")).toBe(false);
+  });
+
+  it("snapshots the fallback pan origin instead of aliasing the pane position", async () => {
+    const { map } = makeMap();
+    let panePos = { x: 0, y: 0 };
+    paneDom(() => panePos);
+    const mgr = new AnnotationManager({
+      map,
+      layerFind: () => oneLabel(),
+    });
+    mgr.setConfig("a", CONFIG);
+    mgr.renderLabels("a");
+    // Force the no-plan fallback: the pan must re-plan and stamp an origin.
+    (mgr as unknown as { lastPlanned: Map<string, unknown> }).lastPlanned.clear();
+
+    panePos = { x: 25, y: 0 };
+    await pan(map);
+
+    const origin = (
+      mgr as unknown as {
+        planOrigins: Map<string, { x: number; y: number }>;
+      }
+    ).planOrigins.get("a")!;
+    expect(origin).toEqual({ x: 25, y: 0 });
+    expect(origin).not.toBe(panePos);
+    // Leaflet may hand back the same Point and mutate it in place — the
+    // stored origin must stay the snapshot or dx would collapse to 0.
+    panePos.x = 90;
+    expect(origin).toEqual({ x: 25, y: 0 });
+  });
+});

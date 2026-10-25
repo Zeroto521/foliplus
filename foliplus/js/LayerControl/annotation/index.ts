@@ -437,9 +437,11 @@ class AnnotationManager {
    *  replaying in the same frame cost M repaints, not M². Zoom / pan /
    *  resize / export still go through the full `refresh()`. */
   renderLabels(id: string): LayerLabel[] {
-    const had = this.labelsByLayer.has(id);
+    // Unconditional and idempotent: a stale plan left behind by an earlier
+    // clear (or a canvas whose labels map already dropped) must not survive
+    // this render just because labelsByLayer no longer has the id.
     const clearAnd = (): [] => {
-      if (had) this.clearLabels(id);
+      this.clearLabels(id);
       return [];
     };
     const cfg = this.getConfig(id);
@@ -475,16 +477,28 @@ class AnnotationManager {
       this.ensureCanvas(id);
       this.refreshLayer(id);
     } else {
-      if (had) this.clearLabels(id);
+      this.clearLabels(id);
     }
     return labels;
   }
 
-  /** Remove every annotation label that belongs to a given layer. One
-   *  repaint — this layer's own canvas, painted empty. Other layers' plans
-   *  are untouched: collision is per layer, so clearing here cannot change
-   *  what any other layer draws. */
+  /** Remove every annotation label that belongs to a given layer, and the
+   *  pan plan built from them. One repaint — this layer's own canvas,
+   *  painted empty.
+   *
+   *  The plan maps are cleared FIRST, and unconditionally: `refreshPan`
+   *  translates a layer from `lastPlanned` + `planOrigins`, so leaving them
+   *  behind lets a pan repaint the labels this call just removed (show=false,
+   *  field gone, layer unloaded). Deleting them before the labelsByLayer
+   *  early return also heals a state where the labels map already dropped but
+   *  a plan survived.
+   *
+   *  Per-layer boundary: only this id's plan and canvas are touched. Collision
+   *  is per layer by design, so no other layer's boxes or origin change —
+   *  clearing one layer can never re-plan or shift another. */
   clearLabels(id: string): void {
+    this.lastPlanned.delete(id);
+    this.planOrigins.delete(id);
     if (!this.labelsByLayer.delete(id)) return;
     this.canvases.get(id)?.paint([]);
   }
@@ -684,7 +698,10 @@ class AnnotationManager {
         // at, so the NEXT pan can translate it like everyone else.
         const fresh = this.plannedFor(id, this.layerSpec(container, id), viewport);
         this.lastPlanned.set(id, fresh);
-        this.planOrigins.set(id, pos);
+        // Snapshot, like every planning path: the pane position object can be
+        // reused/mutated by Leaflet, and a live reference would track the
+        // current pos so dx stays 0 and this layer stops translating.
+        this.planOrigins.set(id, { ...pos });
         canvas.paint(fresh, this.paintStyle(container, id));
         continue;
       }
@@ -788,6 +805,11 @@ class AnnotationManager {
       this.canvases.get(id)?.destroy();
     } finally {
       this.canvases.delete(id);
+      // The plan belonged to the canvas. A same-id re-registration that draws
+      // no labels must not inherit the old plan and have it translated on the
+      // first pan by a fresh canvas.
+      this.lastPlanned.delete(id);
+      this.planOrigins.delete(id);
     }
   }
 }
