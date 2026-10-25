@@ -321,15 +321,21 @@ class LayerInfoRegistry {
   /** Insert or update in place — never reorders an existing layer, and
    *  refuses to change one's group: an in-place swap keeps the slot, so a
    *  role change would strand the entry in the wrong block with a stale
-   *  boundary. The registry enforces this itself, not through its callers —
-   *  the controller's friendly gate is the first line, this is the backstop. */
+   *  boundary. A NEW entry enters through the same placement gate as
+   *  `insertAt` (overlays before the base block, bases appended), so upsert
+   *  cannot be the second structural write that bypasses the partition. The
+   *  registry enforces this itself, not through its callers — the
+   *  controller's friendly gate is the first line, this is the backstop. */
   upsert(layerInfo: LayerInfo): LayerInfo {
     const existing = this.byId.get(layerInfo.id);
     if (!existing) {
-      this.items.push(layerInfo);
-      this.byId.set(layerInfo.id, layerInfo);
-      this.indexById.set(layerInfo.id, this.items.length - 1);
-      this.refreshFirstBaseIdx();
+      // A new entry enters at its block's edge: push() would let an overlay
+      // land after the base block when bases already exist. `insertAt` owns
+      // the placement gate and the derived-map rebuild.
+      this.insertAt(
+        layerInfo,
+        layerInfo.group === GROUP.BASE ? this.items.length : this.baseBlockStart(),
+      );
       return layerInfo;
     }
     if (existing.group !== layerInfo.group) {

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { LayerFactory } from "#foliplus/core/layer/LayerFactory.js";
 import { PaneManager } from "#foliplus/core/layer/PaneManager.js";
+import type { RegisterLayerOpts } from "#foliplus/core/layer/type.js";
 import { zFor } from "#foliplus/core/layer/z.js";
 import { getLayerAlpha, setLayerAlpha } from "#common/canvasAlpha.js";
 
@@ -881,8 +882,12 @@ describe("LayerFactory", () => {
       // postRegister runs after registerLayer succeeded. Its failure must not
       // leave a registry entry whose surface reports "not registered" and
       // paints nothing — the compensation list drops the entry and the face.
+      const committed = { id: "canvas_test" } as never;
       const unreg = vi.fn(() => true);
-      const register = vi.fn(() => null);
+      const register = vi.fn((opts: RegisterLayerOpts) => {
+        opts.onCommitted?.(committed);
+        return null;
+      });
       const f = new LayerFactory({
         map,
         panes,
@@ -890,6 +895,10 @@ describe("LayerFactory", () => {
         unregisterLayer: unreg,
         bringLayerToFront: () => {},
         invalidateType: () => {},
+        registry: () =>
+          ({
+            get: (id: string) => (id === "canvas_test" ? committed : undefined),
+          }) as never,
         slotOf: () => {
           throw new Error("slot boom");
         },
@@ -914,15 +923,23 @@ describe("LayerFactory", () => {
       // the mount rollback still runs and the caller keeps the postRegister
       // error rather than the cleanup's.
       const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const committed = { id: "canvas_test" } as never;
       const f = new LayerFactory({
         map,
         panes,
-        registerLayer: () => null,
+        registerLayer: opts => {
+          (opts as { onCommitted?: (entry: unknown) => void }).onCommitted?.(committed);
+          return null;
+        },
         unregisterLayer: () => {
           throw new Error("unregister boom");
         },
         bringLayerToFront: () => {},
         invalidateType: () => {},
+        registry: () =>
+          ({
+            get: (id: string) => (id === "canvas_test" ? committed : undefined),
+          }) as never,
         slotOf: () => {
           throw new Error("slot boom");
         },
@@ -937,6 +954,36 @@ describe("LayerFactory", () => {
         expect.any(Error),
       );
       warn.mockRestore();
+    });
+
+    it("does not drop a same-id replacement when postRegister fails", () => {
+      // The committed token is the guard: a subscriber may have replaced the
+      // id between registerLayer returning and postRegister throwing, and a
+      // bare-id unregister would delete that replacement.
+      const committed = { id: "canvas_test" } as never;
+      const replacement = { id: "canvas_test", name: "Replacement" } as never;
+      const unreg = vi.fn(() => true);
+      const f = new LayerFactory({
+        map,
+        panes,
+        registerLayer: opts => {
+          (opts as { onCommitted?: (entry: unknown) => void }).onCommitted?.(committed);
+          return null;
+        },
+        unregisterLayer: unreg,
+        bringLayerToFront: () => {},
+        invalidateType: () => {},
+        registry: () => ({ get: () => replacement }) as never,
+        slotOf: () => {
+          throw new Error("slot boom");
+        },
+      });
+      const api = f.createCanvas({ id: "canvas_test" });
+
+      expect(() => api.register()).toThrow("slot boom");
+      expect(unreg).not.toHaveBeenCalled();
+      expect(api.registered()).toBe(false);
+      expect(api.canvas.parentElement).toBeNull();
     });
 
     it("a lease with no read-back entry does not delete a same-id replacement", () => {

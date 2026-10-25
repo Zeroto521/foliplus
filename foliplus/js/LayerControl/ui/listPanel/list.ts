@@ -126,23 +126,62 @@ const rebuildList = (ui: LayerUI): void => {
  *  exactly: if something did drop it, it goes back to the *exact*
  *  descendant — a native <select> popup or a menu's keyboard chain depends
  *  on that precision — never to the row. */
-/** Repair one duplicated row: finish an in-flight slider edit, carry the
- *  cursor and DOM focus onto the surviving later node, then drop the earlier
- *  one. The pair names the same layer, so the cursor can move to the survivor
- *  without re-resolving an identity that is about to change position. */
-const removeDuplicateRow = (
+/** Index path from `root` down to `target`, or null when `target` is not a
+ *  descendant. Duplicates are clones, so the same path addresses the "same"
+ *  node in the surviving copy — the exact checkbox / ⋮ button / fold control
+ *  the user was on, not the row that happens to contain it. */
+const pathWithin = (root: HTMLElement, target: HTMLElement | null): number[] | null => {
+  if (!target || !root.contains(target)) return null;
+  const path: number[] = [];
+  let node: HTMLElement = target;
+  while (node !== root) {
+    const parent = node.parentElement;
+    if (!parent) return null;
+    path.unshift(Array.prototype.indexOf.call(parent.children, node));
+    node = parent;
+  }
+  return path;
+};
+
+/** Resolve a path produced by `pathWithin` against another clone. */
+const nodeAtPath = (root: HTMLElement, path: number[] | null): HTMLElement | null => {
+  if (!path) return null;
+  let node: Element = root;
+  for (const index of path) {
+    const next = node.children[index];
+    if (!next) return null;
+    node = next;
+  }
+  return node instanceof HTMLElement ? node : null;
+};
+
+/** Repair one duplicated node — a layer row or a toggle-all anchor: finish an
+ *  in-flight slider edit, carry the cursor and DOM focus onto the surviving
+ *  later node, then drop the earlier one. The pair names the same layer (or
+ *  group), so the cursor can move to the survivor without re-resolving an
+ *  identity that is about to change position. Focus returns to the same
+ *  descendant path when the clone still carries it; `focusFallback` covers a
+ *  stripped clone. */
+const removeDuplicateNode = (
   ui: LayerUI,
   previous: HTMLElement,
   survivor: HTMLElement,
+  focusFallback: () => HTMLElement | null,
 ): void => {
   const activeEl = document.activeElement as HTMLElement | null;
   const hadFocus = Boolean(activeEl && previous.contains(activeEl));
+  const focusPath = pathWithin(previous, activeEl);
   const items = getNavigableItems(ui);
   const activeRow =
     ui.listPanel.activeIdx === null ? null : (items[ui.listPanel.activeIdx] ?? null);
+  // DOM focus is the cursor even when the ledger has not caught up yet: the
+  // row can own focus for a frame after a pointer/Alt+Enter activation. Treat
+  // that as active so the repair does not drop the user's focus on <body>.
   const wasActive =
-    activeRow === previous || previous.classList.contains(CONST.CLASSES.FOCUSED);
-  // Removing a row in front of the cursor shifts every later position down;
+    hadFocus ||
+    activeRow === previous ||
+    previous.classList.contains(CONST.CLASSES.FOCUSED);
+  // Removing a node in front of the cursor shifts every later position down;
   // a stale `activeIdx` would make the reconcile re-home onto its neighbor.
   const position = activeRow ? previous.compareDocumentPosition(activeRow) : 0;
   const shiftsActive =
@@ -154,7 +193,10 @@ const removeDuplicateRow = (
   if (wasActive) {
     survivor.classList.add(CONST.CLASSES.FOCUSED);
     ui.listPanel.activeIdx = getNavigableItems(ui).indexOf(survivor);
-    if (hadFocus) survivor.focus();
+    if (hadFocus) {
+      const exact = nodeAtPath(survivor, focusPath);
+      (exact ?? focusFallback())?.focus();
+    }
   } else if (shiftsActive && ui.listPanel.activeIdx !== null) {
     ui.listPanel.activeIdx -= 1;
   }
@@ -177,7 +219,7 @@ const syncRowOrder = (ui: LayerUI): void => {
       const previous = rows.get(id);
       if (previous) {
         ui.log?.warn(`syncRowOrder: duplicate row for layer "${id}"`);
-        removeDuplicateRow(ui, previous, el);
+        removeDuplicateNode(ui, previous, el, () => el);
       }
       rows.set(id, el);
     } else if (el.classList.contains(CONST.CLASSES.TOGGLE_ALL)) {
@@ -187,13 +229,12 @@ const syncRowOrder = (ui: LayerUI): void => {
         if (previous) {
           // Same repair rule as rows: the later anchor is the one the newest
           // pass mounted, so the earlier duplicate must not stay behind to
-          // intercept clicks. A focused fold control moves with the survivor.
+          // intercept clicks. The shared helper moves the cursor when the
+          // anchor was active and returns focus to the same fold control.
           ui.log?.warn(`syncRowOrder: duplicate toggle-all anchor for "${group}"`);
-          const hadFocus = previous.contains(document.activeElement);
-          previous.remove();
-          if (hadFocus) {
-            el.querySelector<HTMLElement>("input, button, [tabindex]")?.focus();
-          }
+          removeDuplicateNode(ui, previous, el, () =>
+            el.querySelector<HTMLElement>("input, button, [tabindex]"),
+          );
         }
         anchors.set(group, el);
       }

@@ -813,6 +813,25 @@ describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, ()
     expect(document.activeElement).toBe(duplicate);
   });
 
+  it("returns focus to the same descendant of the surviving row", () => {
+    const { ui } = initFixture({ data: benchData(3, 1) });
+    const original = rowOf(ui, "overlay_1");
+    const duplicate = original.cloneNode(true) as HTMLElement;
+    attachedPanel(ui).appendChild(duplicate);
+    // Focus is on the row's checkbox, not the row, and the ledger has not
+    // caught up (activeIdx null): the repair must treat focus as the cursor,
+    // land on the survivor's checkbox (same path) and sync the ledger.
+    const box = original.querySelector("input")!;
+    box.focus();
+
+    syncRowOrder(ui);
+
+    expect(document.activeElement).toBe(duplicate.querySelector("input"));
+    expect(document.activeElement).not.toBe(duplicate);
+    expect(duplicate.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
+    expect(ui.listPanel.activeIdx).toBe(getNavigableItems(ui).indexOf(duplicate));
+  });
+
   it("repairs a duplicate toggle-all anchor instead of only warning", () => {
     const { manager, ui } = initFixture({ data: benchData(3, 1) });
     const container = attachedPanel(ui);
@@ -895,7 +914,57 @@ describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, ()
     syncRowOrder(ui);
 
     expect(anchorOf()).toBe(duplicate);
-    expect(duplicate.contains(document.activeElement)).toBe(true);
+    // The fold button, not the anchor row: the exact descendant travels.
+    expect(document.activeElement).toBe(duplicate.querySelector("button"));
+    expect(document.activeElement).not.toBe(duplicate);
+  });
+
+  it("moves the cursor onto the surviving anchor when the anchor was active", () => {
+    const { ui } = initFixture({ data: benchData(3, 1) });
+    const container = attachedPanel(ui);
+    const anchorOf = () =>
+      Array.from(container.children).find(
+        el =>
+          el.classList.contains(CONST.CLASSES.TOGGLE_ALL) &&
+          el.getAttribute("data-group") === GROUP.OVERLAY,
+      ) as HTMLElement;
+    const original = anchorOf();
+    const duplicate = original.cloneNode(true) as HTMLElement;
+    container.appendChild(duplicate);
+    original.classList.add(CONST.CLASSES.FOCUSED);
+    ui.listPanel.activeIdx = getNavigableItems(ui).indexOf(original);
+    (original.querySelector("button") as HTMLElement).focus();
+
+    syncRowOrder(ui);
+
+    expect(anchorOf()).toBe(duplicate);
+    expect(duplicate.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
+    expect(ui.listPanel.activeIdx).toBe(getNavigableItems(ui).indexOf(duplicate));
+    expect(document.activeElement).toBe(duplicate.querySelector("button"));
+  });
+
+  it("keeps the cursor index when a duplicate anchor ahead of it is removed", () => {
+    const { ui } = initFixture({ data: benchData(3, 1) });
+    const container = attachedPanel(ui);
+    const anchorOf = () =>
+      Array.from(container.children).find(
+        el =>
+          el.classList.contains(CONST.CLASSES.TOGGLE_ALL) &&
+          el.getAttribute("data-group") === GROUP.OVERLAY,
+      ) as HTMLElement;
+    const duplicate = anchorOf().cloneNode(true) as HTMLElement;
+    container.appendChild(duplicate);
+    // The cursor is on a row after the anchor: removing the anchor shifts its
+    // index, and the reconcile would re-home onto the neighbor without the
+    // shared helper's activeIdx adjustment.
+    const active = rowOf(ui, "overlay_2");
+    ui.listPanel.activeIdx = getNavigableItems(ui).indexOf(active);
+    active.classList.add(CONST.CLASSES.FOCUSED);
+
+    syncRowOrder(ui);
+
+    expect(ui.listPanel.activeIdx).toBe(getNavigableItems(ui).indexOf(active));
+    expect(active.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
   });
 
   it("survives a focused duplicate anchor with nothing left to focus", () => {

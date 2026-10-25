@@ -703,6 +703,10 @@ class LayerController implements LayerAPI {
       opts,
       Boolean(this.ui),
     );
+    // Hand the factory its commit token before any post-commit step can throw
+    // (map membership, notifications): its rollback drops this exact entry,
+    // never a same-id replacement a subscriber may install mid-notify.
+    opts.onCommitted?.(layerInfo);
 
     // If the layer was previously hidden by the user, keep it off the map on
     // re-entry so it isn't silently re-added by runtime re-registration. A
@@ -813,39 +817,29 @@ class LayerController implements LayerAPI {
    *  order disagreeing with the live one. */
   private commitReorder(id: string, item: LayerInfo, mutate: () => void): boolean {
     mutate();
-    // The saved order must agree with the live registry whatever happens to
-    // the pricing pass: `enforceOrder` walks layers and panes and can throw
-    // through a third-party listener, and a persisted record lagging the
-    // in-memory arrangement is exactly what the local-commit rule above
-    // forbids. Saving therefore runs unconditionally, and its own failure is
-    // captured below instead of being let through `finally` — a throwing
-    // `finally` would skip the row sync and mask the pricing error.
-    let pricingFailed = false;
-    let pricingError: unknown;
-    try {
-      this.enforceOrder();
-    } catch (error) {
-      pricingFailed = true;
-      pricingError = error;
-    }
-    // Both commit steps are local: the registry move already landed, and the
-    // persisted snapshot is this method's other owed write. Either failing
-    // still owes the row sync — the panel is the user-visible copy of the
-    // arrangement — but the FIRST failure is what the caller asked about,
-    // and the later one is recorded rather than silently replacing it.
-    let commitFailed = pricingFailed;
-    let commitError: unknown = pricingError;
-    try {
-      this.saveOrder();
-    } catch (saveError) {
-      if (commitFailed) {
-        this.log.warn("reorder save failed after the pricing pass failed", saveError);
-      } else {
-        commitFailed = true;
-        commitError = saveError;
-      }
-    }
-    if (commitFailed) {
+    // Both commit steps are owed writes, not alternatives: the pricing pass
+    // and the saved snapshot must each run even when the other throws — a
+    // persisted record lagging the in-memory arrangement is exactly what the
+    // local-commit rule above forbids. `finalize` is the run-all list; its
+    // reporter records the second failure only, because the first is the one
+    // the caller gets.
+    let failureCount = 0;
+    const commit = finalize(
+      [
+        ["price-order", () => this.enforceOrder()],
+        ["save-order", () => this.saveOrder()],
+      ],
+      failure => {
+        failureCount += 1;
+        if (failureCount > 1) {
+          this.log.warn(
+            `reorder commit step "${failure.name}" failed after an earlier error`,
+            failure.error,
+          );
+        }
+      },
+    );
+    if (commit.failures.length > 0) {
       const operation = this.beginOperation();
       if (this.uiContainer && this.ui) {
         operation.emit(EVENTS.LAYER_LIST_REBUILD);
@@ -857,7 +851,7 @@ class LayerController implements LayerAPI {
         // subscriber failing on top of it is recorded, not substituted.
         this.log.warn("reorder panel sync failed after a commit error", syncError);
       }
-      throw commitError;
+      throw commit.failures[0].error;
     }
     const operation = this.beginOperation();
     if (this.uiContainer && this.ui) {

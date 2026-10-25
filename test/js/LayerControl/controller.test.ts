@@ -2173,6 +2173,49 @@ describe("LayerController", () => {
     expect(() => canvas.register()).toThrow(/role change/);
   });
 
+  it("a registration that throws after commit drops its own entry", () => {
+    // The controller commits the registry entry before the notification
+    // fan-out; a throwing consumer makes registerLayer throw after that
+    // commit. The factory's rollback must still remove the entry it committed,
+    // or the id stays registered with no surface painting it.
+    const { manager, ui } = initFixture({
+      data: [{ id: "base1", name: "OSM", group: "base" }],
+    });
+    const canvas = manager.createCanvas({ id: "heat", name: "Heat" });
+    ui.events.on(EVENTS.LAYER_ITEM_ADDED, payload => {
+      if (payload.id === "heat") throw new Error("notify boom");
+    });
+
+    expect(() => canvas.register()).toThrow("notify boom");
+
+    expect(canvas.registered()).toBe(false);
+    expect(canvas.canvas.parentElement).toBeNull();
+    expect(manager.layerRegistry.has("heat")).toBe(false);
+  });
+
+  it("a failed registration leaves a same-id replacement alone", () => {
+    // A subscriber can retire the committed entry and install a replacement
+    // inside the same fan-out. The rollback must compare the commit token's
+    // identity, not the id, or it deletes the replacement's entry.
+    const { manager, ui } = initFixture({
+      data: [{ id: "base1", name: "OSM", group: "base" }],
+    });
+    const canvas = manager.createCanvas({ id: "heat", name: "Heat" });
+    let swapped = false;
+    ui.events.on(EVENTS.LAYER_ITEM_ADDED, payload => {
+      if (payload.id !== "heat" || swapped) return;
+      swapped = true;
+      manager.unregisterLayer("heat");
+      manager.registerLayer({ id: "heat", name: "Replacement" });
+      throw new Error("notify boom");
+    });
+
+    expect(() => canvas.register()).toThrow("notify boom");
+
+    expect(canvas.registered()).toBe(false);
+    expect(manager.layerRegistry.get("heat")?.name).toBe("Replacement");
+  });
+
   it("an old owner cannot unregister a same-id replacement and still ends in its terminal state", () => {
     const { manager } = initFixture({
       data: [{ id: "A", name: "A", group: "overlay" }],
@@ -2213,9 +2256,13 @@ describe("LayerController", () => {
     vi.spyOn(manager, "enforceOrder").mockImplementation(() => {
       throw new Error("order boom");
     });
+    const save = vi.spyOn(manager, "saveOrder");
 
     expect(() => manager.moveLayerUp("B")).toThrow("order boom");
 
+    // The save is an owed step, not an alternative: finalize runs it even
+    // though the pricing pass threw.
+    expect(save).toHaveBeenCalledTimes(1);
     expect(manager.layers[0].id).toBe("B");
     expect((manager as any).order.savedOrder?.[0]).toBe("B");
     // The rows follow the committed arrangement too: a stale panel was the
@@ -2274,9 +2321,10 @@ describe("LayerController", () => {
 
     expect(() => manager.moveLayerUp("B")).toThrow("order boom");
 
-    // The second failure is recorded instead of replacing the first.
+    // Both owed steps ran, and the second failure is recorded instead of
+    // replacing the first.
     expect(warn).toHaveBeenCalledWith(
-      "reorder save failed after the pricing pass failed",
+      'reorder commit step "save-order" failed after an earlier error',
       expect.any(Error),
     );
     expect(

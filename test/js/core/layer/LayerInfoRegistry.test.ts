@@ -230,7 +230,24 @@ describe("LayerInfoRegistry", () => {
 
       registry.upsert(registry.createLayerInfo({ id: "fresh" }));
       expect(refresh).toHaveBeenCalledTimes(1);
-      expect(registry.firstBaseIdx).toBe(2);
+      // The fresh overlay enters before the base block, so the boundary moves.
+      expect(registry.firstBaseIdx).toBe(3);
+    });
+
+    it("inserts a new overlay before the base block, never after it", () => {
+      registry.upsert(registry.createLayerInfo({ id: "overlay3" }));
+      expect(registry.layers.map(l => l.id)).toEqual([
+        "overlay1",
+        "overlay2",
+        "overlay3",
+        "base1",
+      ]);
+      expect(registry.firstBaseIdx).toBe(3);
+
+      registry.upsert(registry.createLayerInfo({ id: "base2", group: GROUP.BASE }));
+      // A new base appends to the base block; the boundary stays at base1.
+      expect(registry.at(4).id).toBe("base2");
+      expect(registry.firstBaseIdx).toBe(3);
     });
 
     it("repairs every derived map on an index/list disagreement", () => {
@@ -621,7 +638,13 @@ describe("LayerInfoRegistry", () => {
 
     it("reflects later insertions and removals", () => {
       registry.upsert(registry.createLayerInfo({ id: "tail", name: "Tail" }));
-      expect([...registry].at(-1)!.id).toBe("tail");
+      // A new overlay enters before the base block, not at the array end.
+      expect([...registry].map(l => l.id)).toEqual([
+        "overlay1",
+        "overlay2",
+        "tail",
+        "base1",
+      ]);
 
       registry.remove("overlay1");
       expect([...registry].map(l => l.id)).not.toContain("overlay1");

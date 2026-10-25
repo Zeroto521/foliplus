@@ -206,6 +206,11 @@ class LayerFactory {
 
     const { map, panes, registerLayer, unregisterLayer, bringLayerToFront } = this.deps;
 
+    // The exact entry the controller committed, reported through the one-shot
+    // sink installed below. It survives a throw from any post-commit step, so
+    // the rollback can drop only THIS entry — never whatever now owns the id.
+    let committedEntry: LayerInfo | null = null;
+
     const commonLayerOpts = {
       id: opts.id,
       name: opts.name || opts.id, // eslint-disable-line @typescript-eslint/prefer-nullish-coalescing -- empty name should fall back to id
@@ -217,6 +222,9 @@ class LayerFactory {
       metaProvider: opts.metaProvider ?? null,
       onOpacity: opts.onOpacity ?? null,
       opacityBake: opts.opacityBake,
+      onCommitted: (entry: LayerInfo) => {
+        committedEntry = entry;
+      },
     };
 
     let registered = false;
@@ -244,29 +252,32 @@ class LayerFactory {
       // canvas; layers never takes the return path.
       if (registerIdempotent && registered) return;
       // The registration is not owned until every step succeeded: a throw
-      // (the controller's role gate, pane wiring) leaves `registered` false
-      // and the prepared face unmounted, so the next register() retries for
-      // real, and unregister() holds no authority to touch the id.
-      // `preRegister` and `postRegister` are inside the try on purpose: the
-      // whole register is one transaction, and a throw from either end must
-      // return the surface to its pre-register state.
-      let layerRegistered = false;
+      // (the controller's role gate, a notification consumer, pane wiring)
+      // leaves `registered` false and the prepared face unmounted, so the
+      // next register() retries for real, and unregister() holds no authority
+      // to touch the id. `preRegister` and `postRegister` are inside the try
+      // on purpose: the whole register is one transaction, and a throw from
+      // either end must return the surface to its pre-register state.
       try {
         preRegister();
         registerLayer(layerOpts);
-        layerRegistered = true;
         postRegister();
       } catch (error) {
-        // Two compensations are owed: drop the entry registerLayer already
-        // committed (postRegister may throw after it) and unmount the face.
-        // `finalize` runs both even if one throws, and the reporter keeps a
-        // cleanup failure from silently replacing the original error.
+        // Two compensations are owed: drop the entry the controller committed
+        // (it may throw after commit, and postRegister throws after
+        // `registerLayer` returned) and unmount the face. The registry could
+        // already hold a same-id replacement — a subscriber can swap it
+        // mid-notify — so drop only by the commit token's identity.
         finalize(
           [
             [
               "drop-half-registered",
               () => {
-                if (layerRegistered) unregisterLayer(opts.id);
+                const registry = this.deps.registry?.();
+                if (!committedEntry || registry?.get?.(opts.id) !== committedEntry) {
+                  return;
+                }
+                unregisterLayer(opts.id);
               },
             ],
             ["rollback-mount", rollbackPreRegister],
