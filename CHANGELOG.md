@@ -15,14 +15,19 @@
 
 - `CSS`: design tokens split surface from on-accent and expose a focus color, so a theme can invert one without the other ([#714](https://github.com/Zeroto521/foliplus/pull/714))
 - `LayerControl`: opacity and zoom-range rows now use one dependency-free slider primitive — single/dual thumb, keyboard, ARIA, disabled/RTL, a bubble that panels cannot clip, and a collapsed range that slides instead of dead-locking ([#721](https://github.com/Zeroto521/foliplus/pull/721))
-- `LayerControl`: labels rebuild once per frame and repaint only their own canvas — a streamed burst pays one rebuild per frame (was one per feature), and M labelled layers changing together cost M repaints, not M²; the content-change replay set is a mandatory per-dimension policy on the style registry (`none` / `sync` / `frame`) so a new dimension cannot silently skip the decision; the shared scheduler reclaims its tasks on execution, cancel and control destroy, and a late failure surfaces through `map.foliplus.onError` instead of escaping the frame ([#734](https://github.com/Zeroto521/foliplus/pull/734))
+- `core/layer`: a reorder pays one tree walk per layer instead of four, and pins late content in one fragment [#733](https://github.com/Zeroto521/foliplus/pull/733)
+- `core/layer`: a declared pane spec may only name the public roles, so `shadow` stays internal [#733](https://github.com/Zeroto521/foliplus/pull/733)
+- `LayerControl`: labels rebuild once per frame and repaint only their own canvas — a streamed burst pays one rebuild per frame (was one per feature), and M labelled layers changing together cost M repaints, not M²; the content-change replay set is a mandatory per-dimension policy on the style registry (`none` / `sync` / `frame`) so a new dimension cannot silently skip the decision; the shared scheduler is owned per LayerUI (pending frames and the failure reporter are released with the UI, never shared across maps), and clearing labels drops the layer's pan plan with them, so turning labels off cannot be undone by a later pan ([#734](https://github.com/Zeroto521/foliplus/pull/734))
 
 ### Fixed
 
 - `EventBus`: policy-declared per-event entries — terminal events raise the first failure, notifications record it, owner listeners run first, and unload clears the bus ([#716](https://github.com/Zeroto521/foliplus/pull/716), [#719](https://github.com/Zeroto521/foliplus/pull/719), [#720](https://github.com/Zeroto521/foliplus/pull/720), [#723](https://github.com/Zeroto521/foliplus/pull/723), [#728](https://github.com/Zeroto521/foliplus/pull/728))
 - `LayerControl`: value-based fill follows the layer's real geometry — a mixed layer's fill row shows its polygon's colour, and features added after a fill was set are repainted instead of keeping the author's colour ([#727](https://github.com/Zeroto521/foliplus/pull/727))
 - `LayerControl`: a border chosen before features land still reaches them — the content-change replay now covers the stroke face alongside fill, size and opacity ([#730](https://github.com/Zeroto521/foliplus/pull/730))
-- `LayerControl`: reordering (`moveLayerUp`/`moveLayerDown`, `bringLayerToFront`, drag) moves rows in place instead of rebuilding the panel — a 200-layer move drops from seconds to milliseconds ([#731](https://github.com/Zeroto521/foliplus/pull/731))
+- `LayerControl`: reordering moves rows in place instead of rebuilding the panel ([#731](https://github.com/Zeroto521/foliplus/pull/731), [#735](https://github.com/Zeroto521/foliplus/pull/735))
+- `LayerControl`: marker shadows and ImageOverlay images join the layer's own panes, so opacity, z and focus cover the whole layer; a retired surface can no longer corrupt another's ([#733](https://github.com/Zeroto521/foliplus/pull/733))
+- Teardown: a failing cleanup step no longer skips the rest — a removed control and a dismissed focus both finish their releases ([#733](https://github.com/Zeroto521/foliplus/pull/733), [#736](https://github.com/Zeroto521/foliplus/pull/736))
+- `core/layer`: the child-ownership index is dropped at `removeLayer` / `clearLayers`, so a group stays bounded by its live leaves ([#733](https://github.com/Zeroto521/foliplus/pull/733))
 
 ## [v0.4.1] (2026-10-18)
 

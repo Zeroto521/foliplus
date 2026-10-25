@@ -2,7 +2,7 @@
 // third-party layers, the inverse mask that dims everything outside the
 // focused bounds, and the accent marching-ants rectangle hugging the shadow
 // edge. Both overlays ride the same SVG renderer so they share a pane.
-import { FOCUS_Z, walkLeaf } from "#core/layer/index.js";
+import { FOCUS_Z, PANE_OWNER, walkLeaf } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { type RectCorners, roundedRectOutline } from "#common/marqueeShape.js";
 import type { LayerUI } from "../surface.js";
@@ -54,7 +54,8 @@ const drawFocusMask = (ui: LayerUI, bounds: L.LatLngBounds): void => {
   // The overlay pane isn't in childPaneSpecs, so ensurePane skips its
   // provisional-z branch; we pin FOCUS_Z.overlay here (idempotent).
   if (!ui.focusController.focusRenderer) {
-    const { pane } = ui.c.panes.ensurePane(CONST.FOCUS_PANE, false);
+    const { pane } = ui.c.panes.ensurePane(CONST.FOCUS_PANE, false, PANE_OWNER.FOCUS);
+    if (!pane) return;
     pane.classList.add(CONST.CLASSES.FOCUS_PANE);
     pane.style.zIndex = String(FOCUS_Z.overlay);
     ui.focusController.focusRenderer = L.svg({ pane: CONST.FOCUS_PANE });

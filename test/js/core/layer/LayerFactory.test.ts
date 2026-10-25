@@ -819,6 +819,93 @@ describe("LayerFactory", () => {
       expect(opts.onOpacity).toBe(onOpacity);
     });
 
+    it("refuses to mount the canvas face into a foreign-content pane", () => {
+      // The canvas pane name is derived from the id; a pane of that name that
+      // already paints foreign content is somebody else's carrier — mountFace
+      // must abort (no class stamp, no canvas appended, face not registered
+      // as mounted) instead of adopting the foreign pane.
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const foreignPane = document.createElement("div");
+      foreignPane.appendChild(document.createElement("canvas"));
+      map.createPane.mockImplementation(() => foreignPane);
+      map.getPane.mockImplementation(() => foreignPane);
+
+      const api = factory.createCanvas({ id: "canvas_test", name: "Canvas" });
+      api.register();
+
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining("not acquireable; face not mounted"),
+      );
+      expect(foreignPane.classList.contains("foliplus-layer-pane")).toBe(false);
+      warn.mockRestore();
+    });
+
+    it("an unmounted face does not mask the registration error", () => {
+      // P2-1: the pane is refused (facePane stays null), then registerLayer
+      // throws the controller's role gate. The rollback must not dereference
+      // the pane it never acquired: the caller sees the role error, not a
+      // TypeError from the cleanup, and the surface stays retryable.
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const foreignPane = document.createElement("div");
+      foreignPane.appendChild(document.createElement("canvas"));
+      map.createPane.mockImplementation(() => foreignPane);
+      map.getPane.mockImplementation(() => foreignPane);
+
+      const gate = vi.fn(() => {
+        throw new Error("role change");
+      });
+      const f = new LayerFactory({
+        map,
+        panes,
+        registerLayer: gate,
+        unregisterLayer,
+        bringLayerToFront,
+        invalidateType,
+      });
+      const api = f.createCanvas({ id: "canvas_test" });
+
+      expect(() => api.register()).toThrow("role change");
+      expect(api.registered()).toBe(false);
+      expect(api.canvas.parentElement).toBeNull();
+      // The refused pane was never adopted or written to.
+      expect(foreignPane.classList.contains("foliplus-layer-pane")).toBe(false);
+      expect(foreignPane.childElementCount).toBe(1);
+
+      // Not terminal: the next register() runs the whole transaction again.
+      expect(() => api.register()).toThrow("role change");
+      expect(gate).toHaveBeenCalledTimes(2);
+      warn.mockRestore();
+    });
+
+    it("a lease with no read-back entry does not delete a same-id replacement", () => {
+      // P3-2: the read-back can fail even though the entry exists. The
+      // surface then holds no lease, so unregister must fail closed — the
+      // replacement that owns the id now must survive.
+      const replacement = { id: "canvas_test" } as never;
+      const registry = { get: vi.fn() };
+      const unreg = vi.fn(() => true);
+      const f = new LayerFactory({
+        map,
+        panes,
+        registerLayer: () => null,
+        unregisterLayer: unreg,
+        bringLayerToFront: () => {},
+        invalidateType: () => {},
+        registry: () => registry as never,
+      });
+      registry.get.mockReturnValueOnce(null); // the lease read-back fails
+      const api = f.createCanvas({ id: "canvas_test" });
+      api.register();
+      expect(api.registered()).toBe(true);
+
+      registry.get.mockReturnValue(replacement); // a replacement owns the id
+      api.unregister();
+
+      expect(unreg).not.toHaveBeenCalled();
+      expect(api.registered()).toBe(false);
+      expect(api.canvas.classList.contains("hidden")).toBe(true);
+    });
+
     it("normalizes a pane name that would not be a valid element id", () => {
       // The pane name reaches Leaflet's createPane as both an element id and a
       // CSS class, so disallowed runs collapse to '-' rather than being
@@ -1294,6 +1381,36 @@ describe("LayerFactory", () => {
       expect(warn).toHaveBeenCalledWith(
         expect.stringContaining("normalized for injection safety"),
       );
+      warn.mockRestore();
+    });
+
+    it("an unmounted face does not mask the registration error", () => {
+      // The color branch runs the same transaction as canvas: refuse the
+      // pane, fail the role gate, and only remove a face that landed.
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const foreignPane = document.createElement("div");
+      foreignPane.appendChild(document.createElement("canvas"));
+      map.createPane.mockImplementation(() => foreignPane);
+      map.getPane.mockImplementation(() => foreignPane);
+
+      const gate = vi.fn(() => {
+        throw new Error("role change");
+      });
+      const f = new LayerFactory({
+        map,
+        panes,
+        registerLayer: gate,
+        unregisterLayer: () => true,
+        bringLayerToFront: () => {},
+        invalidateType: () => {},
+      });
+      const h = f.createColor({ id: "solid", color: "#3366cc" });
+
+      expect(() => h.register()).toThrow("role change");
+      expect(h.registered()).toBe(false);
+      expect(h.element.parentElement).toBeNull();
+      expect(foreignPane.classList.contains("foliplus-layer-pane")).toBe(false);
+      expect(foreignPane.childElementCount).toBe(1);
       warn.mockRestore();
     });
 

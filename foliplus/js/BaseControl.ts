@@ -45,6 +45,7 @@
 //   - `this.signal` throws when the control is detached; a detached read
 //     is a programming error, and a silent fallback would hide it.
 import { EVENTS, ensureEvents, publish } from "#core/event/index.js";
+import { finalize } from "#common/finalize.js";
 import { createLogger } from "#common/log.js";
 
 const log = createLogger("BaseControl");
@@ -141,11 +142,27 @@ class BaseControl extends L.Control {
       // abort. DOM listeners attached via `{signal}` are dropped by the
       // browser on abort — no callback fires — so there is no window of
       // double-cleanup to worry about.
-      this.mapListeners.forEach(([event, fn]) => this._map.off(event, fn));
+      //
+      // One step per listener/cleanup, not one step per collection: a throwing
+      // `off()` or cleanup used to skip every entry behind it, and — because
+      // `ac.abort()` sat after the loop — could leave every `{signal}` DOM
+      // listener in the page with no owner. That is a permanent leak the
+      // control can never take back.
+      finalize(
+        [
+          ...this.mapListeners.map(
+            ([event, fn]) =>
+              [`map-listener:${event}`, () => this._map.off(event, fn)] as const,
+          ),
+          ...this.cleanups.map((fn, i) => [`cleanup:${i}`, fn] as const),
+          ["abort-signal", () => this.ac?.abort()],
+        ],
+        failure => log.warn(`onRemove step "${failure.name}" threw`, failure.error),
+      );
+      // Plain reset: the arrays are the controller's own tracking state, so it
+      // must not depend on a step having succeeded.
       this.mapListeners = [];
-      this.cleanups.forEach(fn => fn());
       this.cleanups = [];
-      this.ac?.abort();
       this.ac = null;
     }
   }

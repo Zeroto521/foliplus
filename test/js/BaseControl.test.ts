@@ -656,6 +656,37 @@ describe("BaseControl", () => {
     expect((ctrl as any).ac).toBeNull();
   });
 
+  it("reports the step that threw and still unbinds the rest of the mount", () => {
+    // The isolation is only as good as its report: a silently swallowed
+    // cleanup failure would leave a leaked listener with nothing to grep for.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const later = vi.fn();
+
+    class TestCtrl extends BaseControl {
+      buildDOM() {
+        return document.createElement("div");
+      }
+    }
+    const ctrl = new TestCtrl();
+    ctrl._map = map;
+    ctrl.onAdd();
+    const signal = ctrl.signal;
+    ctrl.effect(() => () => {
+      throw new Error("cleanup boom");
+    });
+    ctrl.effect(() => later);
+
+    expect(() => ctrl.onRemove()).not.toThrow();
+
+    expect(later).toHaveBeenCalledTimes(1);
+    expect(signal.aborted).toBe(true);
+    expect(
+      warn.mock.calls.some(call =>
+        String(call[0]).includes('onRemove step "cleanup:0" threw'),
+      ),
+    ).toBe(true);
+  });
+
   it("the tracked surface is on / onMap / effect, with no legacy aliases", () => {
     // listenDOM / listenMap / trackCleanup forwarded to the entries above
     // but each carried a subtly different dedup contract — listenDOM keyed

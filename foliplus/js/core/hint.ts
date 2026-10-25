@@ -4,6 +4,7 @@
 import { ensureMapFoliplus } from "#core/mapApi.js";
 import { cssVar } from "#common/cssvar.js";
 import { dom } from "#common/dom.js";
+import { type FinalizeStep, finalize } from "#common/finalize.js";
 import { ICON_LOADING } from "#common/icon.js";
 import { createLogger } from "#common/log.js";
 import { parseSVG } from "#common/sanitize.js";
@@ -193,13 +194,35 @@ class HintManager {
   }
 
   destroy() {
-    for (const entry of this.hintMap.values()) {
-      if (entry.timer) clearTimeout(entry.timer);
-      if (entry.element) entry.element.remove();
-    }
+    // One named step per hint, so a single unremovable node cannot strand the
+    // listener below or leave this manager in the module-level active set.
+    const steps: FinalizeStep[] = [...this.hintMap].map(
+      ([key, entry]): FinalizeStep => [
+        `hint:${key}`,
+        () => {
+          if (entry.timer) clearTimeout(entry.timer);
+          if (entry.element) entry.element.remove();
+        },
+      ],
+    );
+    finalize(
+      [
+        ...steps,
+        [
+          "detach-fullscreen",
+          () =>
+            document.removeEventListener("fullscreenchange", this.onFullscreenChange),
+        ],
+        [
+          "deregister",
+          () => {
+            activeManagers.delete(this);
+          },
+        ],
+      ],
+      failure => log.warn(`destroy step "${failure.name}" threw`, failure.error),
+    );
     this.hintMap.clear();
-    document.removeEventListener("fullscreenchange", this.onFullscreenChange);
-    activeManagers.delete(this);
   }
 }
 

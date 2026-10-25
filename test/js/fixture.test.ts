@@ -5,10 +5,10 @@
 // constructor on `window.L` that production code touches is exercised here so
 // a new field landing in production code produces a loud test failure instead
 // of a silent crash a dozen tests downstream.
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { LayerRuntimeStore } from "#core/layer/index.js";
 import { LayerIntentStore } from "#foliplus/LayerControl/domain/index.js";
-import { makeLayerUIMock } from "./fixture.js";
+import { makeLayerUIMock, restoreNativeFetch } from "./fixture.js";
 
 // LayerUI keeps its fields private, so the completeness gate reads the mock
 // through this explicit view instead of a `Record<string, unknown>` cast,
@@ -18,7 +18,7 @@ type UiView = {
     foldedGroups: Set<string>;
     lastDragHintAt: number;
     pressInPanel: boolean;
-    dragIdx: unknown;
+    dragEntry: unknown;
     activeIdx: unknown;
     listCursor: unknown;
   };
@@ -64,7 +64,7 @@ describe("makeLayerUIMock — LayerUI field completeness", () => {
     expect(ui.listPanel.pressInPanel).toBe(false);
     // Null pointers
     expect(ui.overlayPanel.activeRenameId).toBeNull();
-    expect(ui.listPanel.dragIdx).toBeNull();
+    expect(ui.listPanel.dragEntry).toBeNull();
     expect(ui.listPanel.activeIdx).toBeNull();
     expect(ui.listPanel.listCursor).toBeNull();
     expect(ui.focusController.focusRect).toBeNull();
@@ -85,5 +85,35 @@ describe("test isolation — localStorage does not leak across tests", () => {
 
   it("test B sees no residue from test A (global beforeEach cleared it)", () => {
     expect(window.localStorage.getItem("isol-test-key")).toBeNull();
+  });
+});
+
+describe("test isolation — fetch does not leak across tests", () => {
+  it("test A replaces fetch with a mock", () => {
+    globalThis.fetch = vi.fn() as unknown as typeof fetch;
+    expect(vi.isMockFunction(globalThis.fetch)).toBe(true);
+  });
+
+  it("test B sees the native fetch restored by setup afterEach", () => {
+    expect(vi.isMockFunction(globalThis.fetch)).toBe(false);
+  });
+});
+
+describe("restoreNativeFetch — canonical fetch survives a mock", () => {
+  it("captures the native fetch once and restores it after a mock", () => {
+    const native = vi.fn();
+    const target = { fetch: native } as unknown as { fetch: typeof fetch };
+    restoreNativeFetch(target);
+    target.fetch = vi.fn() as unknown as typeof fetch;
+    restoreNativeFetch(target);
+    expect(target.fetch).toBe(native);
+  });
+
+  it("keeps an undefined native fetch instead of capturing a later mock", () => {
+    const target = { fetch: undefined } as unknown as { fetch: typeof fetch };
+    restoreNativeFetch(target);
+    target.fetch = vi.fn() as unknown as typeof fetch;
+    restoreNativeFetch(target);
+    expect(target.fetch).toBeUndefined();
   });
 });
