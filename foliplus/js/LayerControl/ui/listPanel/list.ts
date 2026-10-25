@@ -146,13 +146,17 @@ const restoreFocusAfterDuplicate = (
   if (focusIfPossible(focusFallback())) return;
   if (focusIfPossible(survivor)) return;
   // Browser-only defense: a surviving row IS focusable by construction
-  // (rows render `tabindex="0"`), so this layer is reached only when the
+  // (rows render `tabindex="0"`), so this rung is reached only when the
   // survivor is not rendered — a duplicate inside a folded group, where the
-  // engine refuses focus on a `display: none` subtree while jsdom still
-  // grants it. The walk and the container last resort therefore cannot be
-  // reached from this suite; they stay because folding the wrong row must not
-  // strand keyboard focus on <body>, and are exempt from the coverage gate
-  // rather than deleted (see the test's comment for the same rationale).
+  // engine refuses focus on a `display: none` subtree. jsdom applies no
+  // stylesheet, so the suite stages that refusal with an inline style
+  // ("walks to a visible neighbour when the surviving duplicate is folded"),
+  // which exercises the walk end to end. The forward/backward exits depend on
+  // which neighbours refuse focus — a browser-only distribution the suite
+  // cannot faithfully stage — and the container last resort additionally
+  // needs every navigable item to refuse focus, so the tail stays exempt from
+  // the branch gate rather than deleted: folding the wrong row must not
+  // strand keyboard focus on <body>.
   /* v8 ignore start */
   // Nearest navigable neighbour: forward first, then backward. Folded or
   // otherwise unfocusable rows simply fail the probe and the walk moves on.
