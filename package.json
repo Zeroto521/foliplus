@@ -28,8 +28,8 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit && node script/typecheck-test.mjs && eslint -c config/eslint/typed.mjs \"foliplus/js/**/*.ts\"",
     "typecheck:tests": "vitest run --config vitest.config.mjs test/js/tsconfig.test.ts",
-    "lint": "eslint -c config/eslint/typed.mjs \"foliplus/js/**/*.ts\" \"test/js/**/*.ts\" \"script/**/*.mjs\"",
-    "format:check": "prettier --check \"foliplus/js/**/*.{js,ts}\" \"foliplus/css/**/*.css\" \"script/**/*.{js,cjs,mjs,ts}\" \"test/js/**/*.{js,ts}\"",
+    "lint": "eslint -c config/eslint/typed.mjs \"foliplus/js/**/*.ts\" \"test/js/**/*.ts\" \"script/**/*.mjs\" \"config/**/*.mjs\" \"eslint.config.js\"",
+    "format:check": "prettier --check \"foliplus/js/**/*.{js,ts}\" \"foliplus/css/**/*.css\" \"script/**/*.{js,cjs,mjs,ts}\" \"test/js/**/*.{js,ts}\" \"config/**/*.mjs\" \"eslint.config.js\"",
     "bundle-size:check": "node script/build/bundle-size-check.mjs",
     "bundle-size:fuse": "node script/build/bundle-fuse.mjs"
   },

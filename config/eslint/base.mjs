@@ -82,6 +82,8 @@ export default [
       "script/**/*.mjs",
       "script/**/*.cjs",
       "script/**/*.js",
+      "config/**/*.mjs",
+      "eslint.config.js",
     ],
     plugins: { import: importPlugin },
     settings: {
@@ -235,7 +237,7 @@ export default [
       // Zero-cost guards: every one of these flagged nothing across the tree,
       // so they are pure future-proofing rather than churn. The one exception
       // is no-irregular-whitespace, whose skipRegExps is load-bearing —
-      // bundle-size-check.mjs legitimately matches the BOM (﻿) that
+      // bundle-size-check.mjs legitimately matches the BOM (U+FEFF) that
       // esbuild prepends to every bundle, and that is a real character, not
       // stray whitespace.
       "no-var": "error",
@@ -354,7 +356,12 @@ export default [
   // script/ joins here too: its own inline exports were the reason this rule
   // had a source-only scope that the build tooling was exempted from.
   {
-    files: ["foliplus/js/**/*.ts", "script/**/*.{js,cjs,mjs}"],
+    files: [
+      "foliplus/js/**/*.ts",
+      "script/**/*.{js,cjs,mjs}",
+      "config/**/*.mjs",
+      "eslint.config.js",
+    ],
     rules: {
       // `const fn = () => {}` only — no `export function` / `function foo()`.
       "func-style": ["error", "expression", { allowArrowFunctions: true }],
