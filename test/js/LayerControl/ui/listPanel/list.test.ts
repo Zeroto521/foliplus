@@ -312,6 +312,42 @@ describe("ui/list row placement", () => {
     expect(color!.classList.contains(CONST.CLASSES.GROUP_FOLDED)).toBe(true);
   });
 
+  it("closes the row panels it drops with the rows", () => {
+    // A rebuild replaces the whole list (fold, reorder, or the list arriving).
+    // The style panel can dispose its scheme picker and unpin itself, but only
+    // if it is asked BEFORE the row carrying it is detached: these panels are
+    // children of a row, so clearing the list with innerHTML used to leave the
+    // picker and its document listeners answering a trigger that was gone.
+    const { ui } = initFixture({
+      data: [{ id: "A", name: "A", group: "overlay" }],
+    });
+    renderInitialList(ui);
+    const row = rowOf(ui, "A");
+    const stylePanel = document.createElement("div");
+    stylePanel.className = CONST.CLASSES.STYLE_PANEL;
+    row.appendChild(stylePanel);
+    const attrsPanel = document.createElement("div");
+    attrsPanel.className = CONST.CLASSES.ATTRS_PANEL;
+    row.appendChild(attrsPanel);
+    ui.overlayPanel.stylePanelLayerId = "A";
+    ui.overlayPanel.styleOutsideHandler = vi.fn();
+    ui.overlayPanel.activeAttrsPanel = {
+      item: row,
+      panel: attrsPanel,
+      layerId: "A",
+    };
+    ui.overlayPanel.attrsOutsideHandler = vi.fn();
+
+    rebuildList(ui);
+
+    expect(ui.overlayPanel.styleOutsideHandler).toBeNull();
+    expect(ui.overlayPanel.stylePanelLayerId).toBeNull();
+    expect(ui.overlayPanel.attrsOutsideHandler).toBeNull();
+    expect(ui.overlayPanel.activeAttrsPanel).toBeNull();
+    expect(stylePanel.isConnected).toBe(false);
+    expect(attrsPanel.isConnected).toBe(false);
+  });
+
   it("color layer's applyVisibility routes through showSolidBasemap and hideSolidBasemap", () => {
     const { ui } = initFixture({
       data: [{ id: "B1", name: "B1", group: "base" }],

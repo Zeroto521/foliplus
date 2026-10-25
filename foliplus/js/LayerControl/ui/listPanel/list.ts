@@ -7,6 +7,8 @@ import { dom, updateItemLabel } from "#common/dom.js";
 import { type ProjectionBatch, notifyDeltas } from "../apply.js";
 import { getColorSurface } from "../color.js";
 import { seedAuthorVisible } from "../intent.js";
+import { closeAttrsPanel } from "../overlayPanel/attr.js";
+import { closeStylePanel } from "../style/index.js";
 import type { LayerUI } from "../surface.js";
 import {
   cursorRef,
@@ -412,6 +414,14 @@ const renderInitialList = (ui: LayerUI) => {
   // that is still live has already produced a value; finish it before the DOM
   // goes, or its change event is lost with the node.
   finishSlidersIn(container);
+  // Close the row panels the rows carry BEFORE they are detached: the style
+  // panel owns a scheme picker (a portaled dropdown plus its document
+  // listeners), and dropping the card with innerHTML would leave that picker
+  // alive against a trigger that no longer exists. The narrow closes keep the
+  // focus spotlight and the menu untouched — folding a group or reordering the
+  // list is not a reason to clear the map highlight.
+  closeStylePanel(ui, false);
+  closeAttrsPanel(ui, false);
   container.innerHTML = "";
   container.appendChild(frag);
 

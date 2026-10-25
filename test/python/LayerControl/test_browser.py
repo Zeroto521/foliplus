@@ -5145,6 +5145,72 @@ class TestLayerControlBrowser:
             )
             assert not errors, f"JS errors: {errors}"
 
+    def test_row_panels_pin_only_on_request(self, browser, tmp_path):
+        """Pinning is opt-in: this PR's panels pin, a plain row panel does not.
+
+        The shared `.foliplus-row-panel` shell defaults to the plain
+        row-anchored absolute card. Only a caller that knows the card would be
+        clipped by the layer list's scroll box opts into `pinRowPanel`, which
+        adds the pinned marker and places the fixed card from the row's rect.
+        A caller that skips the helper (an unmerged filter panel builds one) must
+        therefore keep its plain behaviour instead of landing at the viewport
+        corner — the regression this test pins.
+        """
+        layer = folium.FeatureGroup(name="Row panel pin")
+        with use_page(
+            self._make_page, browser, tmp_path, layer, slug="row_panel_pin"
+        ) as (page, errors):
+            page.evaluate(_js("LayerControl/open_panel"))
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-item[data-layer-type=overlay]",
+                state="attached",
+                timeout=5000,
+            )
+            page.wait_for_timeout(300)
+
+            opened = page.evaluate(_js("LayerControl/open_style_panel"))
+            assert opened["ok"], f"style panel did not open: {opened}"
+            page.wait_for_selector(
+                ".foliplus-layer-style-panel", state="visible", timeout=5000
+            )
+            style = page.evaluate(_js("LayerControl/row_panel_pin_state"))
+            assert not errors, f"JS errors: {errors}"
+            assert style["style"]["pinned"] is True, style
+            assert style["style"]["position"] == "fixed", style
+            assert style["style"]["inViewport"] is True, (
+                f"the pinned style panel left the viewport: {style['style']}"
+            )
+
+            page.mouse.click(900, 450)
+            page.wait_for_selector(
+                ".foliplus-layer-style-panel", state="detached", timeout=5000
+            )
+            page.evaluate(_js("LayerControl/click_first_overlay_more_btn"))
+            page.wait_for_selector(
+                ".foliplus-layer-more-menu.open", state="attached", timeout=5000
+            )
+            page.evaluate(_js("LayerControl/click_layer_attributes"))
+            page.wait_for_selector(
+                ".foliplus-layer-attrs-panel", state="visible", timeout=5000
+            )
+            attrs = page.evaluate(_js("LayerControl/row_panel_pin_state"))
+            assert attrs["attrs"]["pinned"] is True, attrs
+            assert attrs["attrs"]["position"] == "fixed", attrs
+            assert attrs["attrs"]["inViewport"] is True, attrs
+            assert attrs["fixture"]["pinned"] is False, (
+                "a never-pinned row panel must not carry the pinned marker"
+            )
+            assert attrs["fixture"]["position"] == "absolute", (
+                "a never-pinned row panel must keep its row-anchored absolute "
+                f"box, got {attrs['fixture']}"
+            )
+            assert not errors, f"JS errors: {errors}"
+
     # ── zoom-range browser probes ────────────────────────────────────
     #
     # CSS/interaction verification for the zoom-range row: dual-thumb

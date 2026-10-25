@@ -109,10 +109,12 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     rowAttributes: { [CONST.DATA_ATTR.FIELD]: "" },
     selectAttributes: { [CONST.DATA_ATTR.FIELD_SELECT]: "" },
   });
+  // The row has one visible label but two selects: give each its own
+  // accessible name so a screen reader does not announce "Classes" twice.
   const classesRow = buildClassesRow({
     label: ctrl.T("class_method"),
-    methodAriaLabel: ctrl.T("class_method"),
-    classesAriaLabel: ctrl.T("class_method"),
+    methodAriaLabel: ctrl.T("classify_method"),
+    classesAriaLabel: ctrl.T("class_count"),
     methodValue: ctrl.mgr.method as ClassifyMethod,
     classesValue: ctrl.mgr.numClasses,
     methodLabel: method => ctrl.T(method),

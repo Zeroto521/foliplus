@@ -113,13 +113,26 @@ class TestHeatmapControlRendering:
     def test_class_method_options_come_from_the_shared_vocabulary(self):
         """The method list is built from #core/classify by core/rampForm.
 
-        Its static markup lives in the JS bundle, not in the panel template;
-        the template must not carry a second copy of the four option values.
+        Its option markup is created client-side, so the static document
+        carries the mount host rather than a second copy of the list. The
+        vocabulary the picker reads must still reach the page: the four method
+        values and their labels come from the shared classifier and the
+        component's locale table, and the two data-* seams keep the selects
+        addressable for the shared primitive.
         """
         html = render_control(HeatmapControl())
-        # The rows are mounted client-side from core/rampForm; the static
-        # document carries their host, not a second copy of the option list.
         assert "data-heatmap-ramp-rows" in html
+        for method in ("jenks", "quantile", "equal", "heads"):
+            assert method in html
+        for label in (
+            "Natural Breaks",
+            "Quantile",
+            "Equal Interval",
+            "Equal Count",
+        ):
+            assert label in html
+        assert "data-heatmap-method" in html
+        assert "data-heatmap-class-count" in html
 
     def test_placeholder_options_disabled(self):
         """Layer placeholder and field auto options use disabled:true (not the string)."""

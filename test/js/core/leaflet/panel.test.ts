@@ -912,4 +912,35 @@ describe("pinRowPanel", () => {
     // away answers null, and unpinning must stay a no-op instead of throwing.
     expect(() => unpinRowPanel(null)).not.toThrow();
   });
+
+  it("adds the pinned marker on pin and takes it off on unpin", () => {
+    const { row, panel } = make({ width: 280, height: 200 });
+    stubBox(row, { top: 100, left: 10, width: 300, height: 30 });
+    expect(panel.classList.contains("foliplus-is-pinned")).toBe(false);
+
+    pinRowPanel(panel, row);
+    expect(panel.classList.contains("foliplus-is-pinned")).toBe(true);
+
+    unpinRowPanel(row);
+    expect(panel.classList.contains("foliplus-is-pinned")).toBe(false);
+  });
+
+  it("leaves a createRowPanel card unpinned (plain absolute row card)", () => {
+    // #724's filter panel builds a row panel without knowing about pinning.
+    // The shared shell must keep working for it: no marker, no inline
+    // placement, so it renders as the plain row-anchored absolute card.
+    const { panel } = createRowPanel({
+      cssClass: "foliplus-filter-panel",
+      title: "Filter",
+      iconSvg: "<svg></svg>",
+      closeTitle: "Close",
+      iconClass: "foliplus-header-icon",
+    });
+
+    expect(panel.classList.contains("foliplus-row-panel")).toBe(true);
+    expect(panel.classList.contains("foliplus-is-pinned")).toBe(false);
+    expect(panel.style.position).toBe("");
+    expect(panel.style.top).toBe("");
+    expect(panel.style.left).toBe("");
+  });
 });
