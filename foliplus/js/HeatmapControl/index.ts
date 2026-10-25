@@ -56,6 +56,11 @@ class HeatmapControl extends defineControl({
       // reachable, or the subscriptions it already made are unreleasable.
       // A teardown step whose field init() never reached reports and skips;
       // the rest of the list still runs.
+      //
+      // The cost is that the partial manager is reused, not retried: a retry
+      // inside one mounting would build a second partial manager and strand
+      // the first one's subscriptions. A re-add rebuilds from scratch because
+      // `destroy()` nulls the field.
       this.manager = mgr;
       mgr.init();
     }
