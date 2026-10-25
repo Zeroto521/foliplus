@@ -405,6 +405,16 @@ class LayerOrchestration {
       this.order.placeAtSavedSlot(layerInfo);
     } else this.order.insertOverlayAt(layerInfo);
 
+    // Report the committed entry through the factory's one-shot sink HERE, at
+    // the registry write point and before anything below can throw. A token
+    // that arrives after this point leaves a committed-but-unannounced entry
+    // behind when `materialize()` (pane / DOM work) or a later step fails:
+    // the factory's rollback drops only the entry it was told about, so the
+    // ghost would otherwise stay in the registry with no row and no surface.
+    // The controller no longer forwards this — the write point is the only
+    // place that knows the entry exists before it can fail.
+    opts.onCommitted?.(layerInfo);
+
     // Give the layer its rendering face and materialize it *before* it joins
     // the map. `options.pane` is read by `map.addLayer` and ignored afterwards,
     // so this is the last moment at which the pane can be decided without

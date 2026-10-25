@@ -614,7 +614,10 @@ describe("LayerController", () => {
       format: "default" as any,
       collide: false,
     });
-    vi.spyOn(m.annotation as any, "refresh").mockImplementation(() => {});
+    // renderLabels ends in refreshLayer (the per-layer repaint) — stubbed
+    // here because this fixture's map has no projection; the pane wiring
+    // under test happens before it.
+    vi.spyOn(m.annotation as any, "refreshLayer").mockImplementation(() => {});
     m.annotation.renderLabels("lbl");
 
     const paneName = CONST.ANNOTATION_PANE_PREFIX + "lbl";
@@ -2203,6 +2206,132 @@ describe("LayerController", () => {
     expect(() => canvas.register()).toThrow(/role change/);
   });
 
+  it("a registration that throws after commit drops its own entry", () => {
+    // The controller commits the registry entry before the notification
+    // fan-out; a throwing consumer makes registerLayer throw after that
+    // commit. The factory's rollback must still remove the entry it committed,
+    // or the id stays registered with no surface painting it.
+    const { manager, ui } = initFixture({
+      data: [{ id: "base1", name: "OSM", group: "base" }],
+    });
+    const canvas = manager.createCanvas({ id: "heat", name: "Heat" });
+    ui.events.on(EVENTS.LAYER_ITEM_ADDED, payload => {
+      if (payload.id === "heat") throw new Error("notify boom");
+    });
+
+    expect(() => canvas.register()).toThrow("notify boom");
+
+    expect(canvas.registered()).toBe(false);
+    expect(canvas.canvas.parentElement).toBeNull();
+    expect(manager.layerRegistry.has("heat")).toBe(false);
+  });
+
+  it("a failed registration leaves a same-id replacement alone", () => {
+    // A subscriber can retire the committed entry and install a replacement
+    // inside the same fan-out. The rollback must compare the commit token's
+    // identity, not the id, or it deletes the replacement's entry.
+    const { manager, ui } = initFixture({
+      data: [{ id: "base1", name: "OSM", group: "base" }],
+    });
+    const canvas = manager.createCanvas({ id: "heat", name: "Heat" });
+    let swapped = false;
+    ui.events.on(EVENTS.LAYER_ITEM_ADDED, payload => {
+      if (payload.id !== "heat" || swapped) return;
+      swapped = true;
+      manager.unregisterLayer("heat");
+      manager.registerLayer({ id: "heat", name: "Replacement" });
+      throw new Error("notify boom");
+    });
+
+    expect(() => canvas.register()).toThrow("notify boom");
+
+    expect(canvas.registered()).toBe(false);
+    expect(manager.layerRegistry.get("heat")?.name).toBe("Replacement");
+  });
+
+  it("a registration retired and replaced without a throw fails closed", () => {
+    // P2-1b: the same-id swap does not have to throw. The controller's retired
+    // path returns null after the notify, so the factory's catch never runs —
+    // and the old read-back leased the replacement's entry as this surface's
+    // own. The outer unregister then deleted the replacement by bare id.
+    const { manager, ui } = initFixture({
+      data: [{ id: "base1", name: "OSM", group: "base" }],
+    });
+    const canvas = manager.createCanvas({ id: "heat", name: "Heat" });
+    let swapped = false;
+    ui.events.on(EVENTS.LAYER_ITEM_ADDED, payload => {
+      if (payload.id !== "heat" || swapped) return;
+      swapped = true;
+      manager.unregisterLayer("heat");
+      manager.registerLayer({ id: "heat", name: "Replacement" });
+    });
+
+    expect(() => canvas.register()).not.toThrow();
+
+    expect(canvas.registered()).toBe(false);
+    expect(canvas.canvas.parentElement).toBeNull();
+    expect(manager.layerRegistry.get("heat")?.name).toBe("Replacement");
+
+    // The failed registration holds no authority over the id.
+    canvas.unregister();
+    expect(manager.layerRegistry.get("heat")?.name).toBe("Replacement");
+  });
+
+  it("a registration whose materialize throws drops its committed entry", () => {
+    // P1c: the commit token used to be handed over only after registerEntry
+    // returned, so a throw inside it (pane materialize / DOM work) left a
+    // committed registry entry the factory never learned about — a ghost with
+    // no row and no surface to reclaim it.
+    const { manager } = initFixture({
+      data: [{ id: "base1", name: "OSM", group: "base" }],
+    });
+    const canvas = manager.createCanvas({ id: "heat", name: "Heat" });
+    const surfaceFor = vi.spyOn(manager.domain, "surfaceFor").mockReturnValue({
+      materialize: () => {
+        throw new Error("materialize boom");
+      },
+    } as never);
+
+    expect(() => canvas.register()).toThrow("materialize boom");
+
+    expect(canvas.registered()).toBe(false);
+    expect(canvas.canvas.parentElement).toBeNull();
+    expect(manager.layerRegistry.has("heat")).toBe(false);
+    surfaceFor.mockRestore();
+  });
+
+  it("announces no LAYER_CHANGE for a registration that rolls back", () => {
+    // P2-6: the projection CHANGE (absorbed from applyUserState) and the
+    // registration CHANGE used to go out after the failing notify, so a
+    // consumer that re-reads the registry saw the layer appear and then vanish.
+    // A CHANGE for an id that is still registered at delivery time is exactly
+    // that ghost announcement; only the rollback's retirement retraction (the
+    // id is gone by then) may survive.
+    const { manager, ui } = initFixture({
+      data: [{ id: "base1", name: "OSM", group: "base" }],
+    });
+    const canvas = manager.createCanvas({ id: "heat", name: "Heat" });
+    const announcements: { id: string; registered: boolean }[] = [];
+    ui.events.on(EVENTS.LAYER_CHANGE, payload =>
+      announcements.push({
+        id: payload.id,
+        registered: manager.layerRegistry.has(payload.id),
+      }),
+    );
+    let thrown = false;
+    ui.events.on(EVENTS.LAYER_ITEM_ADDED, payload => {
+      if (payload.id !== "heat" || thrown) return;
+      thrown = true;
+      throw new Error("notify boom");
+    });
+
+    expect(() => canvas.register()).toThrow("notify boom");
+
+    expect(canvas.registered()).toBe(false);
+    expect(manager.layerRegistry.has("heat")).toBe(false);
+    expect(announcements.filter(entry => entry.registered)).toEqual([]);
+  });
+
   it("an old owner cannot unregister a same-id replacement and still ends in its terminal state", () => {
     const { manager } = initFixture({
       data: [{ id: "A", name: "A", group: "overlay" }],
@@ -2243,9 +2372,13 @@ describe("LayerController", () => {
     vi.spyOn(manager, "enforceOrder").mockImplementation(() => {
       throw new Error("order boom");
     });
+    const save = vi.spyOn(manager, "saveOrder");
 
     expect(() => manager.moveLayerUp("B")).toThrow("order boom");
 
+    // The save is an owed step, not an alternative: finalize runs it even
+    // though the pricing pass threw.
+    expect(save).toHaveBeenCalledTimes(1);
     expect(manager.layers[0].id).toBe("B");
     expect((manager as any).order.savedOrder?.[0]).toBe("B");
     // The rows follow the committed arrangement too: a stale panel was the
@@ -2258,6 +2391,103 @@ describe("LayerController", () => {
     ).toEqual(manager.layers.map(l => l.id));
     // The operation still never opened: no announcement for a half-committed move.
     expect(changes).toEqual([]);
+  });
+
+  it("syncs rows when only saveOrder fails, then throws the save error", () => {
+    const { manager, ui } = initFixture({
+      data: [
+        { id: "A", name: "A", group: "overlay" },
+        { id: "B", name: "B", group: "overlay" },
+      ],
+    });
+    const changes: string[] = [];
+    ui.events.on(EVENTS.LAYER_CHANGE, p => changes.push(p.id));
+    vi.spyOn(manager, "saveOrder").mockImplementation(() => {
+      throw new Error("save boom");
+    });
+
+    expect(() => manager.moveLayerUp("B")).toThrow("save boom");
+
+    // The registry move is a local commit: rows follow it even though the
+    // persisted snapshot failed, and no CHANGE is announced for the partial
+    // commit (the operation never opens).
+    expect(manager.layers[0].id).toBe("B");
+    expect(
+      Array.from(
+        attachedPanel(ui).querySelectorAll<HTMLElement>(CONST.SEL.LAYER_ITEM),
+      ).map(el => el.dataset.layerId),
+    ).toEqual(manager.layers.map(l => l.id));
+    expect(changes).toEqual([]);
+  });
+
+  it("reports both commit failures and throws the first one", () => {
+    const { manager, ui } = initFixture({
+      data: [
+        { id: "A", name: "A", group: "overlay" },
+        { id: "B", name: "B", group: "overlay" },
+      ],
+    });
+    const warn = vi.spyOn((manager as any).log, "warn").mockImplementation(() => {});
+    vi.spyOn(manager, "enforceOrder").mockImplementation(() => {
+      throw new Error("order boom");
+    });
+    vi.spyOn(manager, "saveOrder").mockImplementation(() => {
+      throw new Error("save boom");
+    });
+
+    expect(() => manager.moveLayerUp("B")).toThrow("order boom");
+
+    // Both owed steps ran, and the second failure is recorded instead of
+    // replacing the first.
+    expect(warn).toHaveBeenCalledWith(
+      'reorder commit step "save-order" failed after an earlier error',
+      expect.any(Error),
+    );
+    expect(
+      Array.from(
+        attachedPanel(ui).querySelectorAll<HTMLElement>(CONST.SEL.LAYER_ITEM),
+      ).map(el => el.dataset.layerId),
+    ).toEqual(manager.layers.map(l => l.id));
+    warn.mockRestore();
+  });
+
+  it("a pre-attach pricing failure syncs nothing and still rethrows", () => {
+    // No UI yet: the failure path still owes the rethrow but has no panel to
+    // signal. This is the coin's other side of the attached-failure tests.
+    const m = new LayerController(map, [
+      { id: "A", name: "A", group: "overlay" },
+      { id: "B", name: "B", group: "overlay" },
+    ]);
+    vi.spyOn(m, "enforceOrder").mockImplementation(() => {
+      throw new Error("order boom");
+    });
+
+    expect(() => m.moveLayerUp("B")).toThrow("order boom");
+    expect(m.layers[0].id).toBe("B");
+  });
+
+  it("a throwing row-sync subscriber cannot replace the commit error", () => {
+    const { manager, ui } = initFixture({
+      data: [
+        { id: "A", name: "A", group: "overlay" },
+        { id: "B", name: "B", group: "overlay" },
+      ],
+    });
+    const warn = vi.spyOn((manager as any).log, "warn").mockImplementation(() => {});
+    vi.spyOn(manager, "enforceOrder").mockImplementation(() => {
+      throw new Error("order boom");
+    });
+    ui.events.on(EVENTS.LAYER_LIST_REBUILD, () => {
+      throw new Error("sync boom");
+    });
+
+    expect(() => manager.moveLayerUp("B")).toThrow("order boom");
+
+    expect(warn).toHaveBeenCalledWith(
+      "reorder panel sync failed after a commit error",
+      expect.any(Error),
+    );
+    warn.mockRestore();
   });
 
   it("a throwing map teardown still converges the retirement", () => {
@@ -3703,7 +3933,7 @@ describe("LayerController", () => {
   });
 
   describe("lifecycle operations settle their whole fan-out", () => {
-    it("a throwing row signal does not cut off the registration CHANGE", () => {
+    it("a throwing row signal stops the registration before its CHANGE", () => {
       manager.map.hasLayer.mockReturnValue(false);
       manager.uiContainer = document.createElement("div");
       manager.ui = {
@@ -3724,9 +3954,12 @@ describe("LayerController", () => {
         } as any),
       ).toThrow("item boom");
 
-      // The internal signal failed but the registration change and the state
-      // it announces still landed.
-      expect(changes).toEqual(["new1"]);
+      // P2-6: a failure recorded by the row signal dooms this registration. The
+      // factory-backed path rolls the entry back; this direct LayerAPI call has
+      // no surface to roll back, but the registration CHANGE must not announce a
+      // layer whose registration already failed (consumers would see it appear
+      // and, for the factory path, vanish again).
+      expect(changes).toEqual([]);
       expect(manager.layerRegistry.has("new1")).toBe(true);
     });
 
@@ -5322,6 +5555,52 @@ describe("retireEntry finalization", () => {
     );
     warn.mockRestore();
   });
+
+  it("runs the drag cancel as an isolated finalize step", () => {
+    document.body.innerHTML = "";
+    window.localStorage.clear();
+    const { manager, ui } = initFixture({
+      data: [
+        {
+          id: "overlay1",
+          name: "Polygons",
+          group: "overlay",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    const entry = manager.layerRegistry.get("overlay1")!;
+    ui.listPanel.dragEntry = entry;
+    const warn = vi.spyOn((manager as any).log, "warn").mockImplementation(() => {});
+    const container = attachedPanel(ui);
+    const original = container.querySelectorAll.bind(container);
+    let armed = true;
+    container.querySelectorAll = ((selector: string) => {
+      if (armed && String(selector).includes(CONST.SEL.LAYER_ITEM)) {
+        armed = false;
+        throw new Error("drag boom");
+      }
+      return original(selector);
+    }) as typeof container.querySelectorAll;
+
+    try {
+      // The drag step fails first, but the row, map and cursor convergence
+      // behind it still runs and its failure is reported.
+      expect(() => manager.unregisterLayer("overlay1")).toThrow("drag boom");
+    } finally {
+      Reflect.deleteProperty(container, "querySelectorAll");
+    }
+
+    expect(manager.layerRegistry.has("overlay1")).toBe(false);
+    expect(
+      attachedPanel(ui).querySelector(`[${CONST.DATA.LAYER_ID}="overlay1"]`),
+    ).toBeNull();
+    expect(warn).toHaveBeenCalledWith(
+      'retire step "cancel-drag" threw',
+      expect.any(Error),
+    );
+    warn.mockRestore();
+  });
 });
 
 describe("enforceOrder isolation", () => {
@@ -5560,6 +5839,41 @@ describe("carrier recovery (controller wiring)", () => {
     }
   });
 
+  it("short-circuits attribution for a registered layer's own hide/show", () => {
+    // With Leaflet's identity-stable stamp the first O(1) signal answers: the
+    // registered layer resolves from `surfacesByLayer`, so a hide/show returns
+    // before the O(surfaces) scans and cannot mark a neighbouring tree dirty —
+    // the optimization the fallback path in the test above cannot exercise.
+    const { manager, map } = initFixture({ data: [] });
+    map.hasLayer.mockReturnValue(true);
+    vi.useFakeTimers();
+    const realStamp = window.L.stamp;
+    window.L.stamp = stableStamp;
+    try {
+      const group = new TestGroup([new window.L.Path()]);
+      manager.registerLayer({ id: "own-stamp", name: "Own", layer: group as never });
+      manager.registerLayer({
+        id: "other-stamp",
+        name: "Other",
+        layer: new TestGroup([new window.L.Path()]) as never,
+      });
+      const surface = manager.surfaceFor(manager.layerRegistry.get("own-stamp")!);
+      const other = manager.surfaceFor(manager.layerRegistry.get("other-stamp")!);
+      manager.debouncedEnforce.cancel();
+      const mark = vi.spyOn(surface, "markContentDirty");
+      const otherMark = vi.spyOn(other, "markContentDirty");
+      const pass = vi.spyOn(manager, "enforceOrder");
+      manager.onLayerRemove({ layer: group } as never);
+      vi.advanceTimersByTime(ENFORCE_ORDER_DEBOUNCE_MS);
+      expect(mark).not.toHaveBeenCalled();
+      expect(otherMark).not.toHaveBeenCalled();
+      expect(pass).not.toHaveBeenCalled();
+    } finally {
+      window.L.stamp = realStamp;
+      vi.useRealTimers();
+    }
+  });
+
   it("marks surfaces for an unattributed add without scanning any tree", () => {
     // The old fallback ran one `findNode` per live surface for every event it
     // could not attribute — O(sum of tree sizes) per event, and again on every
@@ -5715,6 +6029,38 @@ describe("carrier recovery (controller wiring)", () => {
     expect(surfaceA.capabilities.opacity).toBe("pane");
   });
 
+  it("treats a throwing hasLayer as no ownership evidence", () => {
+    // Third-party groups are hostile inputs: hasLayer can throw. Attribution
+    // must read that as "cannot confirm" (fail closed) instead of letting an
+    // event handler die, and the O(surfaces) fallback still marks the live
+    // trees once.
+    const { manager, map } = initFixture({ data: [] });
+    map.hasLayer.mockReturnValue(true);
+    const hostile = {
+      options: {},
+      eachLayer: vi.fn(),
+      hasLayer: vi.fn(() => {
+        throw new Error("hasLayer boom");
+      }),
+    };
+    manager.registerLayer({
+      id: "hostile-has-layer",
+      name: "Hostile",
+      layer: hostile as unknown as L.Layer,
+    });
+    const surface = manager.surfaceFor(manager.layerRegistry.get("hostile-has-layer")!);
+    const foreign = { options: {}, getElement: () => document.createElement("div") };
+    const mark = vi.spyOn(surface, "markContentDirty");
+    try {
+      expect(() => manager.onLayerAdd({ layer: foreign } as never)).not.toThrow();
+      // Confirmation failed, so the fallback marked the one live tree.
+      expect(mark).toHaveBeenCalledTimes(1);
+      expect(hostile.hasLayer).toHaveBeenCalled();
+    } finally {
+      mark.mockRestore();
+    }
+  });
+
   it("announces a capability change only when the projection actually moved", () => {
     // The style-panel live refresh rides this event. It has to fire on a
     // degrade and on a recovery, and stay silent on a pass that changed
@@ -5766,6 +6112,51 @@ describe("carrier recovery (controller wiring)", () => {
     manager.unregisterLayer("retired-cache");
 
     expect(() => manager.onLayerRemove({ layer: foreign } as never)).not.toThrow();
+  });
+
+  it("re-attributes after a cached owner retired instead of steering its mark", () => {
+    // The reverse cache outlives a surface: a direct child is attributed, then
+    // its owner is unregistered (the surface retires, the WeakMap row is still
+    // there), and a late event for the same leaf arrives. The stale row must be
+    // dropped before anything is trusted — never marked onto the retired face,
+    // and the live scan decides the new owner.
+    const { manager, map } = initFixture({ data: [] });
+    map.hasLayer.mockReturnValue(true);
+    const ownerGroup = new TestGroup([new window.L.Path()]);
+    manager.registerLayer({
+      id: "retired-owner",
+      name: "Owner",
+      layer: ownerGroup as unknown as L.Layer,
+    });
+    const survivorGroup = new TestGroup([new window.L.Path()]);
+    manager.registerLayer({
+      id: "retired-survivor",
+      name: "Survivor",
+      layer: survivorGroup as unknown as L.Layer,
+    });
+    const owner = manager.surfaceFor(manager.layerRegistry.get("retired-owner")!);
+    const survivor = manager.surfaceFor(manager.layerRegistry.get("retired-survivor")!);
+
+    const foreign = { options: {}, getElement: () => document.createElement("div") };
+    ownerGroup.addLayer(foreign);
+    // Direct membership, so this attribution is cached for the leaf.
+    manager.onLayerAdd({ layer: foreign } as never);
+
+    manager.unregisterLayer("retired-owner");
+    expect(owner.retired).toBe(true);
+
+    const ownerMark = vi.spyOn(owner, "markContentDirty");
+    const survivorMark = vi.spyOn(survivor, "markContentDirty");
+    try {
+      expect(() => manager.onLayerAdd({ layer: foreign } as never)).not.toThrow();
+      expect(ownerMark).not.toHaveBeenCalled();
+      // Unattributed now (no live tree holds it): the mark-all fallback marks
+      // the one live tree-bearing surface.
+      expect(survivorMark).toHaveBeenCalledTimes(1);
+    } finally {
+      ownerMark.mockRestore();
+      survivorMark.mockRestore();
+    }
   });
 
   it("does not schedule an enforce after destroy", () => {
