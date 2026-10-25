@@ -2149,9 +2149,7 @@ describe("LayerController", () => {
     // DOM row, and the owed CHANGE all landed.
     expect(manager.layerRegistry.has("A")).toBe(false);
     expect(ui.listPanel.dragEntry).toBeNull();
-    expect(
-      attachedPanel(ui).querySelector(`[${CONST.DATA.LAYER_ID}="A"]`),
-    ).toBeNull();
+    expect(attachedPanel(ui).querySelector(`[${CONST.DATA.LAYER_ID}="A"]`)).toBeNull();
     expect(changes).toContain("A");
   });
 

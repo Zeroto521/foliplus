@@ -312,7 +312,9 @@ class LayerInfoRegistry {
     if (idx <= 0) return layerInfo;
     if (layerInfo.group === GROUP.BASE) {
       throw new Error(
-        log.msg(`moveToFront: "${id}" is a base layer — it cannot cross the overlay/base boundary`),
+        log.msg(
+          `moveToFront: "${id}" is a base layer — it cannot cross the overlay/base boundary`,
+        ),
       );
     }
     this.items.splice(idx, 1);

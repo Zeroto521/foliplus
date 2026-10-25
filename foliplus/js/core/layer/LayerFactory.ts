@@ -6,6 +6,7 @@ import { withCanvasLayerAlpha } from "#common/canvasAlpha.js";
 import { dom } from "#common/dom.js";
 import { createLogger } from "#common/log.js";
 import { throttleRaf } from "#common/throttle.js";
+import type { LayerInfoRegistry } from "./LayerInfoRegistry.js";
 import { type PaneManager } from "./PaneManager.js";
 import {
   CANVAS_PANE_PREFIX,
@@ -31,7 +32,6 @@ import type {
   SurfaceContentHandle,
   SurfaceHandle,
 } from "./type.js";
-import type { LayerInfoRegistry } from "./LayerInfoRegistry.js";
 import { zFor } from "./z.js";
 
 /** Dependency injection contract for LayerFactory. */
