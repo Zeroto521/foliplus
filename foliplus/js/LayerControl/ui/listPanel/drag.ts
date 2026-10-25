@@ -19,11 +19,11 @@ const toggleFold = (ui: LayerUI, group: string): void => {
 /** Translate a row's data-layer-id into its registry index. The row carries
  *  the identity in data-layer-id while reorder takes registry indices — not
  *  DOM positions. A late registration can sit anywhere in the DOM, so reading
- *  a positional index here would drag a neighbor's layer. Returns -1 for a
- *  row with no id (or one the registry does not know). */
-const registryIdx = (ui: LayerUI, id: string | null): number => {
-  return id ? ui.c.layers.findIndex(l => l.id === id) : -1;
-};
+ *  a positional index here would drag a neighbor's layer. The registry owns
+ *  the id → position map, so dragover does not scan the list on every event.
+ *  Returns -1 for a row with no id (or one the registry does not know). */
+const registryIdx = (ui: LayerUI, id: string | null): number =>
+  id ? ui.c.layerRegistry.indexOfId(id) : -1;
 
 /** Current registry index of the armed drag's entry, or -1 when the session
  *  went stale. The gesture is armed with the entry itself, not its position:
@@ -33,8 +33,14 @@ const registryIdx = (ui: LayerUI, id: string | null): number => {
  *  same-id replacement makes `indexOf` miss, because the registry now holds
  *  a different object under the same id. The entry comes in already gated by
  *  the caller (`dragEntry` checked non-null); no assertion lives here. */
-const dragIdx = (ui: LayerUI, entry: LayerInfo): number =>
-  ui.c.layerRegistry.indexOf(entry);
+const dragIdx = (ui: LayerUI, entry: LayerInfo): number => {
+  const registry = ui.c.layerRegistry;
+  const idx = registry.indexOfId(entry.id);
+  // The id alone is not the lease: a same-id replacement makes the id
+  // resolve while the entry the gesture armed with is gone, and moving the
+  // successor would move a layer the user never grabbed.
+  return idx !== -1 && registry.at(idx) === entry ? idx : -1;
+};
 
 const handleDragStart = (ui: LayerUI, event: DragEvent) => {
   // A press that began on a floating row panel is not a reorder gesture: the
@@ -137,7 +143,13 @@ const handleDrop = (ui: LayerUI, event: DragEvent) => {
   const targetId = target.getAttribute(CONST.DATA.LAYER_ID);
   const targetIdx = targetId ? registryIdx(ui, targetId) : -1;
   if (targetIdx < 0) return;
-  if (armed === targetIdx) return;
+  if (armed === targetIdx) {
+    // A drop on the armed row finishes the gesture: a programmatic drop never
+    // sends the native dragend the browser would, so the session comes down
+    // here instead of staying armed with no commit behind it.
+    clearDragState(ui);
+    return;
+  }
   if (!ui.c.canReorderBetween(armed, targetIdx)) {
     showReorderBlockedHint(ui);
     return;

@@ -134,10 +134,15 @@ const syncRowOrder = (ui: LayerUI): void => {
     const el = child as HTMLElement;
     const id = el.getAttribute(CONST.DATA.LAYER_ID);
     if (id) {
-      // A duplicate id means two write paths raced or one leaked: the Map
-      // would silently keep the last one, so name it while it is free.
-      if (rows.has(id)) {
+      // A duplicate id means two write paths raced or one leaked. The later
+      // node wins — it is what the newest insert mounted — so the earlier
+      // duplicate is removed here rather than left to intercept the clicks,
+      // focus and drags aimed at the live row. A warn alone left both nodes
+      // in the DOM and the Map silently answering with the last one.
+      const previous = rows.get(id);
+      if (previous) {
         ui.log?.warn(`syncRowOrder: duplicate row for layer "${id}"`);
+        previous.remove();
       }
       rows.set(id, el);
     } else if (el.classList.contains(CONST.CLASSES.TOGGLE_ALL)) {

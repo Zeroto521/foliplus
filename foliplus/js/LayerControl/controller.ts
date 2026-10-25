@@ -41,12 +41,12 @@ import { LayerPersistence } from "./persistence.js";
 import { finishSlidersIn } from "./slider.js";
 import { collectDeltas } from "./ui/apply.js";
 import { type LayerUI } from "./ui/index.js";
-import { clearDragState } from "./ui/listPanel/drag.js";
 import {
   type CursorRef,
   cursorRef,
   reconcileCursorByIdentity,
 } from "./ui/listPanel/cursor.js";
+import { clearDragState } from "./ui/listPanel/drag.js";
 
 type LayerControllerEnv = {
   readonly T: (key: string) => string;
@@ -818,10 +818,34 @@ class LayerController implements LayerAPI {
     // through a third-party listener, and a persisted record lagging the
     // in-memory arrangement is exactly what the local-commit rule above
     // forbids. Saving is what `finally` is for.
+    let pricingFailed = false;
+    let pricingError: unknown;
     try {
       this.enforceOrder();
+    } catch (error) {
+      pricingFailed = true;
+      pricingError = error;
     } finally {
       this.saveOrder();
+    }
+    // A failed pricing pass used to skip the row-order signal too, leaving
+    // the registry new and the panel old until the next rebuild. The rows are
+    // this commit's user-visible copy, so they are synced before the error
+    // surfaces. The operation still never opens: no CHANGE is announced for
+    // a half-committed move.
+    if (pricingFailed) {
+      const operation = this.beginOperation();
+      if (this.uiContainer && this.ui) {
+        operation.emit(EVENTS.LAYER_LIST_REBUILD);
+      }
+      try {
+        operation.throwIfFailed();
+      } catch (syncError) {
+        // The pricing failure is the one the caller asked about; a panel
+        // subscriber failing on top of it is recorded, not substituted.
+        this.log.warn("reorder panel sync failed after a pricing error", syncError);
+      }
+      throw pricingError;
     }
     const operation = this.beginOperation();
     if (this.uiContainer && this.ui) {
@@ -1038,37 +1062,42 @@ class LayerController implements LayerAPI {
     // clears the cursor and hands the tab stop to the first visible row —
     // the roving contract never lapses.
     let cursor: CursorRef = null;
-    const failed = finalize([
-      ["snapshot-row", () => (row = this.findRow(id))],
+    const failed = finalize(
       [
-        "snapshot-cursor",
-        () => (cursor = this.ui?.listPanel ? cursorRef(this.ui) : null),
+        ["snapshot-row", () => (row = this.findRow(id))],
+        [
+          "snapshot-cursor",
+          () => (cursor = this.ui?.listPanel ? cursorRef(this.ui) : null),
+        ],
+        [
+          "detach-from-map",
+          () => {
+            if (layer && this.map.hasLayer(layer)) this.map.removeLayer(layer);
+          },
+        ],
+        // A separate step, not part of the detach: `clearLayers()` fires Leaflet
+        // `remove` events synchronously, so user code can throw here. Bundled,
+        // it would be the one segment inside a step that still short-circuits.
+        ["clear-layer-tree", () => layer && this.clearAllLayers(layer)],
+        ["retire-row", () => this.retireRow(row, layerInfo)],
+        [
+          "reconcile-cursor",
+          () => {
+            if (this.ui?.listPanel) reconcileCursorByIdentity(this.ui, cursor);
+          },
+        ],
+        // Nothing here writes persisted state. The rename and the per-layer
+        // intent both survive this teardown, so a component that unregisters an
+        // empty layer and registers it again comes back with the name and the
+        // settings the user chose. Tear down the annotation RENDERING state; the
+        // label config stays — it is part of that surviving intent (a flush after
+        // this point must not erase `layers[id].annotation` from storage).
+        ["unload-annotation", () => this.annotation.unloadLayer(id)],
       ],
-      [
-        "detach-from-map",
-        () => {
-          if (layer && this.map.hasLayer(layer)) this.map.removeLayer(layer);
-        },
-      ],
-      // A separate step, not part of the detach: `clearLayers()` fires Leaflet
-      // `remove` events synchronously, so user code can throw here. Bundled,
-      // it would be the one segment inside a step that still short-circuits.
-      ["clear-layer-tree", () => layer && this.clearAllLayers(layer)],
-      ["retire-row", () => this.retireRow(row, layerInfo)],
-      [
-        "reconcile-cursor",
-        () => {
-          if (this.ui?.listPanel) reconcileCursorByIdentity(this.ui, cursor);
-        },
-      ],
-      // Nothing here writes persisted state. The rename and the per-layer
-      // intent both survive this teardown, so a component that unregisters an
-      // empty layer and registers it again comes back with the name and the
-      // settings the user chose. Tear down the annotation RENDERING state; the
-      // label config stays — it is part of that surviving intent (a flush after
-      // this point must not erase `layers[id].annotation` from storage).
-      ["unload-annotation", () => this.annotation.unloadLayer(id)],
-    ]);
+      // Every failure is reported, not just the one handed to the caller: a
+      // second failing step used to be invisible once the first was returned.
+      failure => this.log.warn(`retire step "${failure.name}" threw`, failure.error),
+    );
     return { layerInfo, error: failed.failures[0]?.error };
   }
 

@@ -11,6 +11,7 @@ import {
   getActiveLayerItem,
   getNavigableItems,
   moveActiveMarker,
+  reconcileCursorByIdentity,
   resolveActiveIdx,
   restoreCursor,
   setActiveItem,
@@ -343,6 +344,32 @@ describe("LayerUI cursor (pure cursor primitives)", () => {
       row.removeAttribute("data-group");
 
       expect(cursorRef(ui)).toBeNull();
+    });
+  });
+
+  // ─────────────────── reconcileCursorByIdentity ───────────────────
+
+  describe("reconcileCursorByIdentity", () => {
+    it("clears a stale activeIdx when the captured ref is null", () => {
+      syncListCursor(ui);
+      const items = ui.getNavigableItems();
+      // A cursor that outlived its rows: the stored index is past the end,
+      // so cursorRef() normalizes it to null. Re-homing must clear the
+      // ledger instead of clamping that stale index onto the last row.
+      ui.listPanel.activeIdx = items.length + 3;
+      items[items.length - 1].classList.add(CONST.CLASSES.FOCUSED);
+
+      reconcileCursorByIdentity(ui, null);
+
+      expect(ui.listPanel.activeIdx).toBeNull();
+      expect(ui.listPanel.listCursor?.index).toBe(-1);
+      // The roving tab stop falls back to the first row, not the clamped last.
+      expect(items[0].tabIndex).toBe(0);
+      expect(items.filter(el => el.tabIndex === 0)).toHaveLength(1);
+      expect(items[items.length - 1].tabIndex).toBe(-1);
+      expect(
+        attachedPanel(ui).querySelectorAll(`.${CONST.CLASSES.FOCUSED}`).length,
+      ).toBe(0);
     });
   });
 

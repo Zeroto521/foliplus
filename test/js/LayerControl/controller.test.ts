@@ -2144,6 +2144,35 @@ describe("LayerController", () => {
     expect(canvas.registered()).toBe(false);
   });
 
+  it("a refused canvas pane does not mask the role gate's error", () => {
+    // P2-1: a foreign element already occupies the canvas pane name, so
+    // mountFace leaves facePane null. The registration then fails the role
+    // gate; the rollback must not dereference the pane it never got, or the
+    // caller sees a TypeError instead of the role error.
+    const { manager } = initFixture({
+      data: [{ id: "A", name: "A", group: "base" }],
+    });
+    const foreignPane = document.createElement("div");
+    foreignPane.appendChild(document.createElement("canvas"));
+    const paneName = "foliplus-canvas-A";
+    const realGetPane = manager.map.getPane;
+    manager.map.getPane = vi.fn((name: string) =>
+      name === paneName ? foreignPane : realGetPane(name),
+    );
+
+    const canvas = manager.createCanvas({ id: "A", name: "A" });
+
+    expect(() => canvas.register()).toThrow(/role change/);
+    expect(canvas.registered()).toBe(false);
+    expect(canvas.canvas.parentElement).toBeNull();
+    // The refused pane kept only its own content.
+    expect(foreignPane.childElementCount).toBe(1);
+
+    // A second attempt re-runs the transaction and still reports the role
+    // error: the failed rollback did not poison the surface.
+    expect(() => canvas.register()).toThrow(/role change/);
+  });
+
   it("an old owner cannot unregister a same-id replacement and still ends in its terminal state", () => {
     const { manager } = initFixture({
       data: [{ id: "A", name: "A", group: "overlay" }],
@@ -2189,7 +2218,15 @@ describe("LayerController", () => {
 
     expect(manager.layers[0].id).toBe("B");
     expect((manager as any).order.savedOrder?.[0]).toBe("B");
-    // The operation never opened: no announcement for a half-committed move.
+    // The rows follow the committed arrangement too: a stale panel was the
+    // visible half of the old failure path, and the row-order signal now
+    // lands before the error surfaces.
+    expect(
+      Array.from(
+        attachedPanel(ui).querySelectorAll<HTMLElement>(CONST.SEL.LAYER_ITEM),
+      ).map(el => el.dataset.layerId),
+    ).toEqual(manager.layers.map(l => l.id));
+    // The operation still never opened: no announcement for a half-committed move.
     expect(changes).toEqual([]);
   });
 
@@ -5209,6 +5246,42 @@ describe("retireEntry finalization", () => {
     }
     expect(unload.mock.calls.some(c => c[0] === "overlay1")).toBe(true);
     expect(manager.layerRegistry.has("overlay1")).toBe(false);
+  });
+
+  it("reports every failing step, not only the one it hands back", () => {
+    document.body.innerHTML = "";
+    window.localStorage.clear();
+    const { manager } = initFixture({
+      data: [
+        {
+          id: "overlay1",
+          name: "Polygons",
+          group: "overlay",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    const warn = vi.spyOn((manager as any).log, "warn").mockImplementation(() => {});
+    manager.map.removeLayer.mockImplementation(() => {
+      throw new Error("map boom");
+    });
+    vi.spyOn(manager.annotation, "unloadLayer").mockImplementation(() => {
+      throw new Error("labels stuck");
+    });
+
+    // The first failure remains the caller's contract...
+    expect(() => manager.unregisterLayer("overlay1")).toThrow("map boom");
+
+    // ...but the second failing step is no longer silent.
+    expect(warn).toHaveBeenCalledWith(
+      'retire step "detach-from-map" threw',
+      expect.any(Error),
+    );
+    expect(warn).toHaveBeenCalledWith(
+      'retire step "unload-annotation" threw',
+      expect.any(Error),
+    );
+    warn.mockRestore();
   });
 });
 

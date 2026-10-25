@@ -93,6 +93,8 @@ const makeUi = (
       layerRegistry: {
         get: (id: string) => layers.find(l => l.id === id),
         indexOf: (entry: LayerInfo) => layers.indexOf(entry),
+        indexOfId: (id: string) => layers.findIndex(l => l.id === id),
+        at: (idx: number) => layers[idx],
       },
       persistence: { schedule: vi.fn() } as any,
     },
@@ -413,6 +415,21 @@ describe("ui/drag", () => {
 
       expect(() => handleDragLeave(dragEvent(shell))).not.toThrow();
       expect(shell.classList.contains(CONST.CLASSES.DRAG_OVER_TOP)).toBe(false);
+    });
+
+    it("a drop on the armed row ends the gesture without a commit", () => {
+      const { manager, ui } = initFixture({ data: overlays(3) });
+      const reorder = vi.spyOn(ui.c, "reorderLayer");
+      handleDragStart(ui, dragEvent(rowOf(ui, "L1")));
+      const before = orderOf(manager);
+
+      handleDrop(ui, dragEvent(rowOf(ui, "L1")));
+
+      // Same slot: nothing moves, and the session is over — a programmatic
+      // drop sends no native dragend, so the teardown must happen here.
+      expect(reorder).not.toHaveBeenCalled();
+      expect(ui.listPanel.dragEntry).toBeNull();
+      expect(orderOf(manager)).toEqual(before);
     });
 
     it("handleDrop is a no-op when the drop lands outside every row", () => {

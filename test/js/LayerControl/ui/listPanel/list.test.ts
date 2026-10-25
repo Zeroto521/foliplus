@@ -722,7 +722,8 @@ describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, ()
       rowEl("base1"),
       headlessAnchor,
       // A second row for the same id and a row the registry never heard of:
-      // both are write-path bugs the diagnostics exist to name.
+      // both are write-path bugs the diagnostics exist to name. The earlier
+      // duplicate is dropped, the later node kept.
       rowEl("A"),
       rowEl("orphan"),
       anchorEl(),
@@ -746,13 +747,13 @@ describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, ()
     syncRowOrder(ui);
 
     // Rows follow the registry with no anchors to carry (both anchor-missing
-    // diagnostics fire); the ghost has no row to place; the duplicate, the
-    // orphan and the stray children land behind the targets.
+    // diagnostics fire); the ghost has no row to place; the earlier duplicate
+    // is gone; the orphan and the stray children land behind the targets.
     expect(
       Array.from(container.children).map(
         el => el.getAttribute(CONST.DATA.LAYER_ID) ?? "stray",
       ),
-    ).toEqual(["A", "B", "base1", "stray", "A", "stray", "orphan", "stray", "stray"]);
+    ).toEqual(["A", "B", "base1", "stray", "stray", "orphan", "stray", "stray"]);
     expect(warn).toHaveBeenCalledWith(
       expect.stringContaining('duplicate row for layer "A"'),
     );
@@ -768,7 +769,28 @@ describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, ()
 
     registry.layers = [];
     expect(() => syncRowOrder(ui)).not.toThrow();
-    expect(container.children.length).toBe(9);
+    expect(container.children.length).toBe(8);
+  });
+
+  it("repairs a duplicate row instead of only warning about it", () => {
+    const { manager, ui } = initFixture({ data: benchData(3, 1) });
+    const container = attachedPanel(ui);
+    const original = rowOf(ui, "overlay_1");
+    // A second node for the same id, appended by a racing write path: the
+    // later mount is the one the next reconcile keeps.
+    const duplicate = original.cloneNode(true) as HTMLElement;
+    container.appendChild(duplicate);
+
+    syncRowOrder(ui);
+
+    // Children only: the count cell inside a row carries the same id.
+    const rows = Array.from(container.children).filter(
+      el => el.getAttribute(CONST.DATA.LAYER_ID) === "overlay_1",
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toBe(duplicate);
+    // The survivor sits in the registry's slot, not at the tail.
+    expect(childKeys(ui)).toEqual(registryKeys(manager));
   });
 
   it("reorderLayer refuses unknown ids, self-drops and cross-group pairs", () => {

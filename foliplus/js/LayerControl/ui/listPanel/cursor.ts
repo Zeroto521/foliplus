@@ -96,8 +96,11 @@ const restoreCursor = (ui: LayerUI, ref: CursorRef): void => {
 const reconcileCursorByIdentity = (ui: LayerUI, ref: CursorRef): void => {
   if (!ui.uiContainer?.isConnected) return;
   if (ref === null) {
-    // No cursor to re-home; the tab stop still follows the new first row.
-    ui.listPanel.listCursor?.setIndex(ui.listPanel.activeIdx ?? -1);
+    // No identity to re-home: a stale `activeIdx` must not survive, or the
+    // roving tab stop lands on whatever row now sits at that index (the last
+    // one, after the clamp) instead of the first row. Clearing the cursor is
+    // also what resets the stop to row 0.
+    clearActiveItem(ui);
     return;
   }
   const items = getNavigableItems(ui);
