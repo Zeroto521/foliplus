@@ -1,8 +1,23 @@
-// Marker rendering: collect a pane's exportable roots, then draw sprites,
-// FontAwesome glyphs, text labels, and the remaining icon types (img, inline
-// SVG, bg fill).
-// Moved from renderer.ts — collectPaneRoots, renderMarkers, renderFontAwesome,
-// renderTextLabels, renderRemaining.
+// Marker rendering: collect a layer's exportable roots (pane children and the
+// leaves' own marker shadows), then draw sprites, FontAwesome glyphs, text
+// labels, and the remaining icon types (img, inline SVG, bg fill).
+// Moved from renderer.ts — collectPaneRoots, collectLayerShadows, renderMarkers,
+// renderFontAwesome, renderTextLabels, renderRemaining.
+//
+// Scope of the marker-shadow channel, so nobody expects more from it than a
+// canvas can deliver:
+//   - it draws the leaf's own `_shadow` element, which Leaflet creates as an
+//     <img> from the icon's `shadowUrl`.  Images that are same-origin or
+//     served with CORS headers rasterise; a cross-origin shadow without CORS
+//     cannot be read back into a canvas, so it is left out and reported (see
+//     `renderRemaining`'s `onLoadError`).
+//   - CSS effects on that element (`box-shadow`, `filter`, `mask`) are not
+//     reproduced: the export rasterises the DOM's images, it does not emulate
+//     a browser paint.  A DivIcon whose look is a CSS `box-shadow` with no
+//     `shadowUrl` has no shadow at all — Leaflet creates no `_shadow` node, so
+//     there is nothing to collect.
+import { walkLeaf } from "#core/layer/index.js";
+import { layerShadow } from "#core/leafletAdapter.js";
 import * as CONST from "../const.js";
 import type { RenderCtx } from "../type.js";
 import {
@@ -14,16 +29,29 @@ import {
 } from "../util.js";
 import { effectiveOpacity, pooledEach, withAlpha } from "./util.js";
 
-/** Collect the exportable roots of a set of panes — the single admission
- *  filter the marker channel applies, whatever pane list it is handed.
+/** Whether a root element may be drawn — the export's single admission filter,
+ *  shared by the pane sweep and the per-leaf shadow channel so both admit and
+ *  reject exactly the same DOM.
  *
- *  The export walks two kinds of pane for one layer — its content panes and its
- *  per-layer marker-shadow panes (`options.shadowPane`, collected by
- *  `renderer/index`'s `resolveExportPanes`) — and both channels must admit
- *  and reject exactly the same roots: a shadow carrying SKIP_EXPORT or
- *  `display:none` stays out, an unmarked one is drawn.  The filter lives here
- *  once, and the pane list is the caller's: the marker sweep passes the
- *  resolved content panes so a shadow can never be admitted as a marker root. */
+ *  Canvas and SVG roots belong to dedicated passes.  `isExportExcluded` covers
+ *  the declarative opt-out (self or marked ancestor), the nested check drops a
+ *  root that only *contains* a marked descendant (a root is drawn whole, never
+ *  as a subtree), and the computed display drops what CSS hides.
+ *
+ *  The SVG test is on the namespace, not on `tagName`: an `<svg>` element lives
+ *  in the SVG namespace, so an HTML document reports its tag name lowercase
+ *  (`"svg"`) and `tagName === "SVG"` never matched — renderer roots were swept
+ *  in as marker roots and painted a second time by the remaining-types pass.
+ *  The namespace is realm-independent too (an svg inside an iframe's document
+ *  still answers SVG_NS). */
+const isAdmittedRoot = (el: HTMLElement): boolean =>
+  el.tagName !== "CANVAS" &&
+  el.namespaceURI !== CONST.SVG_NS &&
+  !isExportExcluded(el) &&
+  !el.querySelector(CONST.SEL.SKIP_EXPORT) &&
+  window.getComputedStyle(el).display !== "none";
+
+/** Collect the exportable roots of a set of panes. */
 const collectPaneRoots = (paneNames: readonly string[]): HTMLElement[] => {
   const roots: HTMLElement[] = [];
   const seen = new Set<HTMLElement>();
@@ -32,30 +60,40 @@ const collectPaneRoots = (paneNames: readonly string[]): HTMLElement[] => {
     if (!pane) continue;
     for (let i = 0; i < pane.children.length; i++) {
       const el = pane.children[i] as HTMLElement;
-      // Skip canvas and SVG — handled by dedicated render passes.
-      // isExportExcluded: self or ancestor. Plus a root that *contains* a
-      // marked descendant (marker pass draws whole roots, not subtrees).
-      //
-      // The SVG test is on the namespace, not on `tagName`: an `<svg>` element
-      // lives in the SVG namespace, so an HTML document reports its tag name
-      // lowercase (`"svg"`) and `tagName === "SVG"` never matched — the
-      // renderer roots were swept in as marker roots and painted a second time
-      // by the remaining-types pass. The namespace is realm-independent too
-      // (an svg inside an iframe's document still answers SVG_NS).
-      if (
-        el.tagName === "CANVAS" ||
-        el.namespaceURI === CONST.SVG_NS ||
-        isExportExcluded(el) ||
-        el.querySelector(CONST.SEL.SKIP_EXPORT) ||
-        window.getComputedStyle(el).display === "none"
-      ) {
-        continue;
-      }
+      if (!isAdmittedRoot(el)) continue;
       if (seen.has(el)) continue;
       seen.add(el);
       roots.push(el);
     }
   }
+  return roots;
+};
+
+/** Collect one layer's marker-shadow roots — each leaf's own `_shadow` element
+ *  — and record the pane names those shadows ride in.
+ *
+ *  The leaf is the source, not the pane.  A marker's shadow can be mounted in
+ *  the layer's own shadow pane (#733), left in Leaflet's shared `shadowPane`
+ *  (no per-layer carrier, or a pin that never ran), or sit in a custom pane
+ *  several layers share — and the pane may even be empty while the shadow is
+ *  still attached to its icon.  Reading `options.shadowPane` alone missed the
+ *  first two and emptied the export's shadow channel on real maps; reading
+ *  `layerShadow(leaf)` covers every case, and it keeps the channel per-layer:
+ *  a shared pane is never swept wholesale, so another layer's shadows are not
+ *  redrawn here.
+ *
+ *  `paneNames` is the export-wide accumulator.  A custom shadow pane can be
+ *  shared by several layers, and no layer's content walk may paint that pane as
+ *  content, so the names are collected across the whole export before any
+ *  content pane is resolved (see `renderer/index`'s render()). */
+const collectLayerShadows = (layer: L.Layer, paneNames: Set<string>): HTMLElement[] => {
+  const roots: HTMLElement[] = [];
+  walkLeaf(layer, leaf => {
+    const name = (leaf as { options?: { shadowPane?: unknown } }).options?.shadowPane;
+    if (typeof name === "string" && name !== "") paneNames.add(name);
+    const shadowEl = layerShadow(leaf);
+    if (shadowEl && isAdmittedRoot(shadowEl)) roots.push(shadowEl);
+  });
   return roots;
 };
 
@@ -330,11 +368,18 @@ const renderTextLabels = async (
 };
 
 /** Render remaining icon types not handled by other passes:
- *  <img> → fallback sprite → inline SVG → background-color fill. */
+ *  <img> → fallback sprite → inline SVG → background-color fill.
+ *
+ *  `onLoadError` is optional on purpose: an image that cannot be read back is
+ *  not fatal (the branches below still try inline SVG / a background fill), but
+ *  it must not be silent either.  The marker-shadow channel is where a missing
+ *  image is a user-visible defect (a cross-origin shadow without CORS headers),
+ *  so that caller passes a reporter and the icon channels do not. */
 const renderRemaining = async (
   container: HTMLElement,
   rc: RenderCtx,
   markerRoots: HTMLElement[],
+  onLoadError?: (src: string, error: unknown) => void,
 ): Promise<void> => {
   const { ctx, rect, scale, contRect, cw, ch } = rc;
 
@@ -362,8 +407,10 @@ const renderRemaining = async (
       try {
         img = (await loadImage(imgEl.src, "anonymous")) as HTMLImageElement;
         drawn = true;
-      } catch {
-        /* fall through */
+      } catch (error) {
+        // The branches below still run; the caller decides whether this
+        // failure is worth surfacing.
+        onLoadError?.(imgEl.src, error);
       } finally {
         if (img) {
           withAlpha(ctx, rootAlpha, () => {
@@ -445,6 +492,7 @@ const renderRemaining = async (
 };
 
 export {
+  collectLayerShadows,
   collectPaneRoots,
   renderMarkers,
   renderFontAwesome,
