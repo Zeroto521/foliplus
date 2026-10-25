@@ -560,4 +560,86 @@ describe("unknown third-party layers (real Leaflet)", () => {
     expect(surface.capabilities.relocatable).toBe(true);
     map.remove();
   });
+
+  it("treats a Path+Marker tree as pane-carried, not mixed (TT-3a premise)", () => {
+    // Correcting the task premise: `mixed` is not "vectors + markers". Both
+    // families are migratable, so their shared surface already gets pane
+    // opacity — icons and shadows included. A Path+Marker tree never needed
+    // a leaf-native split.
+    const { map, host } = makeMap();
+    const group = L.featureGroup([
+      L.circleMarker([26.08, 119.3]),
+      markerIn([26.09, 119.31]),
+    ]);
+    map.addLayer(group);
+    const surface = new LayerSurface(host, { id: "mixed-content", layer: group });
+    surface.materialize();
+
+    expect(surface.capabilities.opacity).toBe("pane");
+    expect(surface.capabilities.relocatable).toBe(true);
+    map.remove();
+  });
+
+  it("does not promise leaf-native while an unknown leaf needs a pane carrier", () => {
+    // `mixed` means at least one leaf is outside MIGRATABLE_FAMILIES. That
+    // leaf is not a Marker, so no native setter can fade it, and it is not
+    // relocatable, so no pane write can reach it either. Splitting the
+    // markers off would advertise coverage the unknown leaf never gets —
+    // the honest answer stays "none" for the whole surface.
+    const { map, host } = makeMap();
+    const foreignEl = document.createElement("div");
+    const ForeignLayer = L.Layer.extend({
+      onAdd(m: L.Map) {
+        m.getPane("overlayPane")?.appendChild(foreignEl);
+      },
+      onRemove() {},
+      getElement: () => foreignEl,
+    });
+    const group = L.featureGroup([
+      markerIn([26.08, 119.3]),
+      new ForeignLayer() as unknown as L.Layer,
+    ]);
+    map.addLayer(group);
+    const surface = new LayerSurface(host, { id: "mixed-unknown", layer: group });
+    surface.materialize();
+
+    expect(surface.capabilities.opacity).toBe("none");
+    expect(surface.capabilities.relocatable).toBe(false);
+    map.remove();
+  });
+
+  it("keeps a native-opacity marker out of every opacity-written pane", () => {
+    // The guard that makes double-apply impossible to introduce silently: if
+    // a later change ever reports "leaf-native", the marker it fades with
+    // `setOpacity` must not sit in a pane the executor writes CSS opacity
+    // onto — that product would be worse than no opacity at all.
+    const { map, host } = makeMap();
+    const group = L.featureGroup([
+      L.circleMarker([26.08, 119.3]),
+      markerIn([26.09, 119.31]),
+    ]);
+    map.addLayer(group);
+    const surface = new LayerSurface(host, { id: "double-apply", layer: group });
+    surface.materialize();
+    const marker = group.getLayers()[1] as L.Marker;
+
+    // Widen deliberately: the tier is not in the union yet. This branch
+    // documents the future contract, so a later addition cannot make the
+    // guard silently unreachable (and does not trigger TS2367 today).
+    const opacity: string = surface.capabilities.opacity;
+    if (opacity === "leaf-native") {
+      for (const pane of surface.panes) {
+        if (pane.role === PANE_ROLE.ANNOTATION || pane.role === PANE_ROLE.SHADOW) {
+          continue;
+        }
+        expect(pane.element.contains(marker.getElement()!)).toBe(false);
+      }
+    } else {
+      // Today the tree is pane-carried: the marker is inside the written
+      // pane, so pane opacity covers it and no leaf setter runs.
+      expect(opacity).toBe("pane");
+      expect(surface.panes[0].element.contains(marker.getElement()!)).toBe(true);
+    }
+    map.remove();
+  });
 });

@@ -368,6 +368,14 @@ class LayerOrchestration {
     mutation: Extract<LayerMutation, { kind: "insert" | "replace-content" }>;
   } {
     const existingLi = this.layerRegistry.get(opts.id);
+
+    // Same-layer re-registration is the caller's "this layer changed"
+    // signal. `matches()` no longer probes content, so drop the cached audit
+    // here — the `materialize()` below then re-pins the tree and re-derives
+    // the capability projection (a tree that became migratable again recovers
+    // without waiting for a `layeradd`). A replaced layer object rebuilds the
+    // surface anyway; the mark on the old surface is harmless.
+    if (existingLi) this.surfaces.get(opts.id)?.markContentDirty();
     const layerInfo = this.layerRegistry.createLayerInfo(opts, existingLi, this.map);
 
     // Same id, new layer object: the old layer is being replaced, not

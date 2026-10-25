@@ -16,6 +16,7 @@ import {
   GROUP,
   type LabelAwareLayer,
   type LayerAPI,
+  type LayerCapabilities,
   LayerFactory,
   LayerInfoRegistry,
   type LayerKind,
@@ -139,6 +140,17 @@ interface EnforceOrderResult {
   readonly skipped: boolean;
 }
 
+/** One string that is equal exactly when two capability projections agree.
+ *  This is the snapshot key the ordering pass diffs to find the surfaces whose
+ *  projection moved: every field gates a UI control (the style panel rows, the
+ *  menu's enablement), so a change to any of them is worth announcing. A
+ *  compact concatenation instead of `JSON.stringify` — same equality, no
+ *  intermediate array per surface per pass. */
+const capabilityKey = (caps: LayerCapabilities): string =>
+  `${caps.opacity}|${caps.fill}|${caps.stroke}|${caps.size}|` +
+  `${caps.zoomRange}|${caps.visibility}|${caps.annotation}|` +
+  `${caps.relocatable ? 1 : 0}|${caps.bounds ? 1 : 0}`;
+
 class LayerController implements LayerAPI {
   /** Diagnostic marker: set by LayerController (true).  The lightweight stub
    * sets this to false.  For the actual LayerControl check, prefer
@@ -164,6 +176,21 @@ class LayerController implements LayerAPI {
   /** The same surfaces keyed by the live layer's stamp, for the lookups that
    *  start from a layer rather than from a registry entry. */
   declare private surfacesByLayer: Map<number, LayerSurface>;
+  /** Reverse ownership for leaves the write-point index cannot answer:
+   *  nested groups and third-party trees. The value is the surface the leaf
+   *  was last attributed to; a positive hit skips the all-surface tree walk
+   *  on repeated add/remove events. The attribution path overwrites it on a
+   *  move and deletes it on removal, so a stale entry cannot outlive its
+   *  membership. WeakMap keys follow the layer object, not an `L.stamp` row.
+   */
+  private readonly attributedOwner = new WeakMap<L.Layer, LayerSurface>();
+  /** Capability projection snapshot, keyed by layer id: what each surface
+   *  advertised at the end of the last ordering pass. The next pass diffs
+   *  against it and announces the ids whose projection moved, so a UI that
+   *  rendered a capability at open time (the style panel) can re-render the
+   *  rows the live tree now supports. Seeded on first sight, never persisted.
+   */
+  private capabilitySnapshot = new Map<string, string>();
 
   declare factory: LayerFactory;
   declare ui: LayerUI | null;
@@ -181,6 +208,7 @@ class LayerController implements LayerAPI {
    *  (register gate, deleteLayer) and via `ui.intentStore` externally. */
   declare intentStore: LayerIntentStore;
   declare onLayerAdd: (event: L.LeafletEvent) => void;
+  declare onLayerRemove: (event: L.LeafletEvent) => void;
   declare getLayerPanes: (layer: L.Layer) => string[];
   private readonly T: (key: string) => string;
   private readonly log: Logger;
@@ -317,54 +345,15 @@ class LayerController implements LayerAPI {
 
       // A layer's content can arrive at any time — a third party mutates a
       // registered group's tree, or folium's own script lands the leaves of a
-      // registered container. Attribute the arrival to its owning surface and
-      // mark only that one dirty: a full sweep here would rescan every
-      // registered tree on every unrelated add. The mark is synchronous
-      // because the probe path calls `enforceOrder` directly, and a
+      // registered container. Attribute the arrival to its owning surface when
+      // an O(1) signal can answer; otherwise every live surface is marked dirty
+      // (O(surfaces) marks) and the coalesced pass re-audits each tree once.
+      // Scanning each registered tree for the owner here is what this replaced:
+      // it paid O(total nodes) per event, and again on every re-add. The mark is
+      // synchronous because the probe path calls `enforceOrder` directly, and a
       // debounce-only trigger would miss it.
-      //
-      // Attribution order: the arriving layer itself (a registered container
-      // or standalone leaf, O(1) by stamp), then any surface whose registered
-      // group holds it (`LayerGroup.hasLayer` is a stamp lookup, so the scan
-      // is O(registry), not O(leaves)), and — only when nothing claims it —
-      // the conservative global sweep that late binding (folium's own globals
-      // landing after this script) still relies on.
-      const arrivingStamp = L.stamp(event.layer);
-      const directSurface = this.surfacesByLayer.get(arrivingStamp);
-      // Write-point index first: createLayers' addLayer recorded which group
-      // owns this leaf, so the surface is O(1) without a membership scan.
-      // (The stamp of the group IS its registered surface's key.)
-      const parentStamp = this.panes.childOwnerOf(event.layer);
-      const indexedSurface =
-        parentStamp !== undefined
-          ? (this.surfacesByLayer.get(parentStamp) ?? null)
-          : null;
-      if (directSurface) {
-        directSurface.markContentDirty();
-      } else if (indexedSurface) {
-        indexedSurface.markContentDirty();
-      } else {
-        let claimed = false;
-        for (const surface of this.surfacesByLayer.values()) {
-          const host = surface.layer as L.LayerGroup | null;
-          if (
-            host &&
-            typeof host.hasLayer === "function" &&
-            host.hasLayer(event.layer)
-          ) {
-            surface.markContentDirty();
-            claimed = true;
-          }
-        }
-        // Unattributed: sweep only while the registry still holds unresolved
-        // layers (folium's late globals landing after this script) — that is
-        // the one case the sweep exists for. Every unrelated control/plugin
-        // layeradd afterwards must not rescan every registered tree.
-        if (!claimed && this.hasUnresolvedLayers()) {
-          for (const surface of this.surfaces.values()) surface.markContentDirty();
-        }
-      }
-      if ((this.hasUnresolvedLayers() || this.surfaces.size > 0) && !this.isEnforcing) {
+      const claimed = this.markOwningSurfaceDirty(event.layer);
+      if ((claimed || this.hasUnresolvedLayers()) && !this.isEnforcing) {
         this.debouncedEnforce();
       }
       // Late binding: folium emits a layer's JS global after this control's own
@@ -406,6 +395,24 @@ class LayerController implements LayerAPI {
       }
     };
     this.map.on("layeradd", this.onLayerAdd);
+    // Content removals are the counterpart that makes a capability degrade
+    // recoverable: a foreign leaf leaving a registered tree must re-audit the
+    // surface. `includeSelf: false` keeps a layer's own hide/show (map
+    // membership) out of content attribution — its tree did not change.
+    this.onLayerRemove = event => {
+      if (
+        this.isDestroyed ||
+        event.layer === this.map ||
+        event.layer instanceof L.Renderer
+      ) {
+        return;
+      }
+      const claimed = this.markOwningSurfaceDirty(event.layer, {
+        includeSelf: false,
+      });
+      if (claimed && !this.isEnforcing) this.debouncedEnforce();
+    };
+    this.map.on("layerremove", this.onLayerRemove);
     // The annotation manager plans each layer's labels on that layer's own
     // label pane — which is a declared `role: "annotation"` PaneSpec of the
     // layer's surface (see `withAnnotationSpec`), created and z-priced with
@@ -459,6 +466,138 @@ class LayerController implements LayerAPI {
     // LayerController itself implements LayerAPI, so it becomes the map's API.
     ensureLayerAPI(this.map);
     this.map.foliplus!.LayerAPI = this;
+  }
+
+  /** Mark every live surface whose tree owns `layer`.
+   *
+   *  Three O(1) signals answer first: the registered layer itself (stamp
+   *  index), `createLayers`' write-point index, and a previously attributed
+   *  owner that the *current* ownership still confirms. A direct-membership
+   *  scan (O(surfaces) stamp tests) then catches a leaf that moved into
+   *  another surface root. Only when none of that answers — a third-party
+   *  tree, a nested group, a leaf that changed owner without its `layerremove`
+   *  — is every live surface marked dirty. Never scan every registered tree
+   *  for the owner: O(surfaces) marks per event and one tree walk per dirty
+   *  surface in the pass that follows, instead of O(total nodes) per event and
+   *  again on every re-add. A nested group has no parent pointer in Leaflet
+   *  and no index row (the write point only records the direct child of the
+   *  registered group), so it takes the mark-all fallback.
+   *
+   *  Retired surfaces are skipped: teardown can still emit the events that
+   *  would otherwise walk a layer whose leases are gone.
+   *
+   *  @param includeSelf - true for `layeradd` (the registered layer itself is a
+   *    content arrival), false for `layerremove` (the layer leaving the map is
+   *    a membership change, not a tree change).
+   *  @returns whether at least one live surface was marked. */
+  private markOwningSurfaceDirty(
+    layer: L.Layer,
+    opts: { includeSelf?: boolean } = {},
+  ): boolean {
+    const includeSelf = opts.includeSelf !== false;
+    let claimed = false;
+    // 1. The registered layer itself — one stamp lookup.
+    const direct = this.surfacesByLayer.get(L.stamp(layer));
+    if (includeSelf && direct && !direct.retired) {
+      direct.markContentDirty();
+      claimed = true;
+    }
+    // 2. The `createLayers` write-point index (child -> registered group).
+    //    It is maintained by the factory's add / remove / clear overrides,
+    //    the same way Leaflet maintains its own `_layers`, so it is
+    //    membership data, not a heuristic: the leaves it records live in a
+    //    sub-group the factory owns, which `hasLayer` on the surface root
+    //    cannot confirm.
+    const parentStamp = this.panes.childOwnerOf(layer);
+    const indexed =
+      parentStamp !== undefined ? this.surfacesByLayer.get(parentStamp) : undefined;
+    if (indexed && indexed !== direct && !indexed.retired) {
+      indexed.markContentDirty();
+      this.attributedOwner.set(layer, indexed);
+      claimed = true;
+    }
+    if (claimed) return true;
+    // 3. Remembered attribution, trusted only after re-confirming that the
+    //    surface still owns the layer. A leaf can change owner with no
+    //    `layerremove` to re-attribute it (a group removed from the map does
+    //    not propagate child removals; a third-party group can re-parent
+    //    directly), so a blind hit marked the old owner and left the new one
+    //    reporting a stale capability.
+    const remembered = this.attributedOwner.get(layer);
+    if (remembered) {
+      const isOwnRoot = remembered.layer === layer;
+      if (remembered.retired || (!includeSelf && isOwnRoot)) {
+        this.attributedOwner.delete(layer);
+      } else if (this.confirmsOwnership(remembered, layer)) {
+        remembered.markContentDirty();
+        return true;
+      } else {
+        // Stale: never steer the mark from it, but the old owner is still a
+        // candidate for "the content I held changed" — if the leaf really
+        // moved, the old tree lost a child; if it never was there the extra
+        // mark only costs one re-audit. The direct scan below then finds the
+        // surface that holds the leaf now.
+        remembered.markContentDirty();
+        this.attributedOwner.delete(layer);
+      }
+    }
+    // 4. Direct membership: O(surfaces) `hasLayer` lookups, which Leaflet
+    //    answers with a stamp test — the cheap scan stays, the tree walk it
+    //    used to fall back to does not.
+    for (const surface of this.surfaces.values()) {
+      // Retired surfaces never stay in `surfaces`: `unregisterEntry` destroys
+      // the face and deletes it from the map in the same synchronous step, and
+      // a same-id replacement swaps it before any event can run. This is a
+      // failsafe for a broken invariant, not a state this flow produces —
+      // exempt from the branch-coverage gate for that reason.
+      /* v8 ignore next */
+      if (surface.retired) continue;
+      if (!includeSelf && surface.layer === layer) continue;
+      if (!this.confirmsOwnership(surface, layer)) continue;
+      surface.markContentDirty();
+      this.attributedOwner.set(layer, surface);
+      claimed = true;
+    }
+    if (claimed) return true;
+    // A registered layer's own hide/show is map membership, not content: the
+    // `includeSelf: false` contract exists so a visibility toggle does not
+    // pay a full sweep. Its parent-tree case (a registered layer nested inside
+    // another registered tree) is already answered by the direct scan above;
+    // nothing the tree walk used to find is left here.
+    if (!includeSelf && direct) return false;
+    // 5. No evidence at all (a third-party tree, a nested group): mark every
+    //    live surface that actually carries a tree and let the pass re-audit
+    //    each once. This is the O(surfaces)-marks counterpart of the removed
+    //    per-surface tree scan. Declaration-derived surfaces (canvas / color,
+    //    `layer === null`) have no tree whose change could move a capability.
+    for (const surface of this.surfaces.values()) {
+      if (surface.retired || !surface.layer) continue;
+      if (!includeSelf && surface.layer === layer) continue;
+      surface.markContentDirty();
+      claimed = true;
+    }
+    return claimed;
+  }
+
+  /** Whether `surface` provably still owns `layer`, in O(1).
+   *
+   *  Two facts are cheap enough to re-check on every attributed event: the
+   *  layer IS the surface's own root (identity), and the surface root holds it
+   *  as a DIRECT child (`hasLayer` is a stamp lookup in Leaflet, not a tree
+   *  walk). A nested leaf cannot be confirmed in O(1); the caller falls back
+   *  to the all-surface mark, which is the conservative answer — a stale
+   *  attribution is what leaves the real owner reporting a capability the tree
+   *  no longer supports, the failure this confirmation exists to prevent. */
+  private confirmsOwnership(surface: LayerSurface, layer: L.Layer): boolean {
+    if (surface.layer === layer) return true;
+    const host = surface.layer as L.LayerGroup | null;
+    if (!host || typeof host.hasLayer !== "function") return false;
+    try {
+      return host.hasLayer(layer);
+    } catch {
+      // A hostile third-party group: "cannot confirm" is the answer.
+      return false;
+    }
   }
 
   /** Ordered layers (read-only view; always reflects the registry). */
@@ -537,9 +676,20 @@ class LayerController implements LayerAPI {
    *  internal cache and the controller's snapshot are cleared; the next
    *  `getLayerType` re-probes through the surface. Unknown ids are no-ops. */
   invalidateType(id: string): void {
-    this.surfaces.get(id)?.invalidate();
+    const surface = this.surfaces.get(id);
     const layerInfo = this.layerRegistry.get(id);
+    surface?.invalidate();
     if (layerInfo) layerInfo.type = null;
+    // A destroyed manager must not schedule, whatever the id: check this
+    // before the unknown-id no-op so a late caller in the teardown window is
+    // stopped even for an id that still resolves, and so the guard is the one
+    // reachable short-circuit after `destroy()` has emptied the tables.
+    // The debounced pass coalesces calls.
+    if (this.isDestroyed) return;
+    // Unknown id: nothing was marked and nothing can recover, so there is no
+    // reason to queue an ordering pass that would only reprice.
+    if (!surface && !layerInfo) return;
+    this.debouncedEnforce();
   }
 
   /**
@@ -1394,6 +1544,11 @@ class LayerController implements LayerAPI {
    *  Re-ordering only. The pass lives on the domain; the controller keeps the
    *  re-entry guard and the debounce cancellation around it.
    *
+   *  The pass is also the only place capability projections are re-derived, so
+   *  its tail diffs them and announces the ids that moved (see
+   *  `notifyCapabilityChanges`) — a recovery must reach a panel that is
+   *  already open, not wait for a reopen.
+   *
    *  @returns `failed`: the ids that could not be priced, in registry order —
    *    empty on a clean pass. A throwing layer no longer aborts the rest of the
    *    stack; the ids let the caller tell "ordered" from "attempted".
@@ -1408,9 +1563,45 @@ class LayerController implements LayerAPI {
     try {
       const failed = this.domain.enforceOrder();
       this.syncAttribution();
+      this.notifyCapabilityChanges();
       return { failed, skipped: false };
     } finally {
       this.isEnforcing = false;
+    }
+  }
+
+  /** Diff every surface's capability projection against what the previous
+   *  pass recorded and announce the ids whose projection moved.
+   *
+   *  A capability is a projection of the live tree, but a UI that rendered it
+   *  at open time (the style panel gates its opacity / fill / border / size
+   *  rows on it) has no reason to re-read it. A recovery therefore has to be
+   *  announced: the open panel re-renders itself from the fresh projection
+   *  instead of waiting for the user to close and reopen it.
+   *
+   *  Cost: a handful of field reads per surface per pass; the event goes out
+   *  only for ids whose projection actually moved. The first observation of an
+   *  id seeds the snapshot silently — a new surface is not a change. The
+   *  event is notification-policy (see EVENT_POLICY), so a broken subscriber
+   *  cannot take an ordering pass down.
+   */
+  private notifyCapabilityChanges(): void {
+    const next = new Map<string, string>();
+    const changed: string[] = [];
+    for (const [id, surface] of this.surfaces) {
+      // Same invariant as the direct-membership scan: a retired surface is
+      // destroyed and removed from `surfaces` in one synchronous step, so the
+      // pass never sees one. Failsafe only — exempt from the branch gate.
+      /* v8 ignore next */
+      if (surface.retired) continue;
+      const key = capabilityKey(surface.capabilities);
+      next.set(id, key);
+      const previous = this.capabilitySnapshot.get(id);
+      if (previous !== undefined && previous !== key) changed.push(id);
+    }
+    this.capabilitySnapshot = next;
+    for (const id of changed) {
+      publish(this.events, EVENTS.LAYER_CAPABILITY_CHANGED, { id });
     }
   }
 
@@ -1480,6 +1671,7 @@ class LayerController implements LayerAPI {
           // test could never be false.
           () => this.map.off("layeradd", this.onLayerAdd),
         ],
+        ["detach-layerremove", () => this.map.off("layerremove", this.onLayerRemove)],
         ["cancel-enforce", () => this.debouncedEnforce?.cancel()],
         // Flush before destroy: the writes are debounced at 100ms, wide enough
         // for the control to be removed before the timer fires. unbindEvents
@@ -1514,6 +1706,7 @@ class LayerController implements LayerAPI {
     this.pendingRegistrations = [];
     this.surfaces.clear();
     this.surfacesByLayer.clear();
+    this.capabilitySnapshot.clear();
   }
 }
 
