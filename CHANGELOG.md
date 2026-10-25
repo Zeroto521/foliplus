@@ -30,7 +30,6 @@
 - Teardown: a failing cleanup step no longer skips the rest — a removed control and a dismissed focus both finish their releases ([#733](https://github.com/Zeroto521/foliplus/pull/733), [#736](https://github.com/Zeroto521/foliplus/pull/736))
 - `core/layer`: the child-ownership index is dropped at `removeLayer` / `clearLayers`, so a group stays bounded by its live leaves ([#733](https://github.com/Zeroto521/foliplus/pull/733))
 - `ExportControl`: marker shadows are exported with their icons, measured after layout so they sit under the marker instead of at a stale offset ([#740](https://github.com/Zeroto521/foliplus/pull/740))
-- `LayerControl`: the slider scale's min/max numbers centre on the rail's ends — under the thumb they name — without widening the row, in both text directions ([#754](https://github.com/Zeroto521/foliplus/pull/754))
 
 ## [v0.4.1] (2026-10-18)
 
