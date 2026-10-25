@@ -180,17 +180,29 @@
   top: 0;
   white-space: nowrap;
 }
-/* The end numbers sit flush against the rail's edges instead of centred on
-   them: a label centred on the edge overflows the box by half its width,
-   which made the slider read a few pixels wider than the fields below.
-   Their outer edges now line up with the field edges instead. */
+/* The end numbers centre on the rail's ends, i.e. under the thumb parked
+   there: the box already takes the track's half-thumb inset, so shifting a
+   number by half its own width puts its centre on the edge it names. The
+   overhang past the box costs no width — the slider is measured by its box,
+   and the values row keeps the track's width, not the spans' — so the control
+   still lines up with the fields below. The X offset is physical while the
+   inset is logical, so each end number shifts the other way when the row is
+   mirrored. */
 .foliplus-slider-value-min {
   inset-inline-start: 0;
   inset-inline-end: auto;
+  transform: translateX(-50%);
 }
 .foliplus-slider-value-max {
   inset-inline-start: auto;
   inset-inline-end: 0;
+  transform: translateX(50%);
+}
+:dir(rtl) .foliplus-slider-value-min {
+  transform: translateX(50%);
+}
+:dir(rtl) .foliplus-slider-value-max {
+  transform: translateX(-50%);
 }
 .foliplus-slider-value-current {
   left: 50%;
