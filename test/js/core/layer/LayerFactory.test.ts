@@ -877,6 +877,68 @@ describe("LayerFactory", () => {
       warn.mockRestore();
     });
 
+    it("a failed postRegister unregisters the entry it already committed", () => {
+      // postRegister runs after registerLayer succeeded. Its failure must not
+      // leave a registry entry whose surface reports "not registered" and
+      // paints nothing — the compensation list drops the entry and the face.
+      const unreg = vi.fn(() => true);
+      const register = vi.fn(() => null);
+      const f = new LayerFactory({
+        map,
+        panes,
+        registerLayer: register,
+        unregisterLayer: unreg,
+        bringLayerToFront: () => {},
+        invalidateType: () => {},
+        slotOf: () => {
+          throw new Error("slot boom");
+        },
+      });
+      const api = f.createCanvas({ id: "canvas_test" });
+
+      expect(() => api.register()).toThrow("slot boom");
+      expect(register).toHaveBeenCalledTimes(1);
+      expect(unreg).toHaveBeenCalledWith("canvas_test");
+      expect(api.registered()).toBe(false);
+      expect(api.canvas.parentElement).toBeNull();
+      expect(api.canvas.classList.contains("hidden")).toBe(true);
+
+      // No authority survives the failed attempt: a later unregister cannot
+      // touch whatever now owns the id.
+      api.unregister();
+      expect(unreg).toHaveBeenCalledTimes(1);
+    });
+
+    it("a throwing cleanup cannot mask the original registration error", () => {
+      // finalize isolates the compensations: the entry drop may throw, but
+      // the mount rollback still runs and the caller keeps the postRegister
+      // error rather than the cleanup's.
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const f = new LayerFactory({
+        map,
+        panes,
+        registerLayer: () => null,
+        unregisterLayer: () => {
+          throw new Error("unregister boom");
+        },
+        bringLayerToFront: () => {},
+        invalidateType: () => {},
+        slotOf: () => {
+          throw new Error("slot boom");
+        },
+      });
+      const api = f.createCanvas({ id: "canvas_test" });
+
+      expect(() => api.register()).toThrow("slot boom");
+      expect(api.registered()).toBe(false);
+      expect(api.canvas.parentElement).toBeNull();
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining("register rollback step"),
+        expect.any(Error),
+      );
+      warn.mockRestore();
+    });
+
     it("a lease with no read-back entry does not delete a same-id replacement", () => {
       // P3-2: the read-back can fail even though the entry exists. The
       // surface then holds no lease, so unregister must fail closed — the
@@ -1381,6 +1443,55 @@ describe("LayerFactory", () => {
       expect(warn).toHaveBeenCalledWith(
         expect.stringContaining("normalized for injection safety"),
       );
+      warn.mockRestore();
+    });
+
+    it("rollback hides the color face it turned on", () => {
+      // preRegister calls setVisible(true); a failed registration owes the
+      // inverse, or the face stays visible behind a detached canvas.
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const f = new LayerFactory({
+        map,
+        panes,
+        registerLayer: () => {
+          throw new Error("role change");
+        },
+        unregisterLayer: () => true,
+        bringLayerToFront: () => {},
+        invalidateType: () => {},
+      });
+      const h = f.createColor({ id: "solid", color: "#3366cc" });
+
+      expect(() => h.register()).toThrow("role change");
+      expect(h.registered()).toBe(false);
+      expect(h.element.parentElement).toBeNull();
+      expect(h.element.classList.contains("hidden")).toBe(true);
+      warn.mockRestore();
+    });
+
+    it("does not remove a color face another step already detached", () => {
+      // faceMounted is true but the face is no longer in the pane: the
+      // rollback must skip removeChild (which would throw) and still undo the
+      // visibility it turned on.
+      let face: HTMLCanvasElement | null = null;
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const f = new LayerFactory({
+        map,
+        panes,
+        registerLayer: () => {
+          face?.remove();
+          throw new Error("role change");
+        },
+        unregisterLayer: () => true,
+        bringLayerToFront: () => {},
+        invalidateType: () => {},
+      });
+      const h = f.createColor({ id: "solid", color: "#3366cc" });
+      face = h.element;
+
+      expect(() => h.register()).toThrow("role change");
+      expect(h.element.parentElement).toBeNull();
+      expect(h.element.classList.contains("hidden")).toBe(true);
       warn.mockRestore();
     });
 

@@ -4,6 +4,7 @@
 import { cancelMapPaneTranslate } from "#core/leaflet/index.js";
 import { withCanvasLayerAlpha } from "#common/canvasAlpha.js";
 import { dom } from "#common/dom.js";
+import { finalize } from "#common/finalize.js";
 import { createLogger } from "#common/log.js";
 import { throttleRaf } from "#common/throttle.js";
 import type { LayerInfoRegistry } from "./LayerInfoRegistry.js";
@@ -246,14 +247,33 @@ class LayerFactory {
       // (the controller's role gate, pane wiring) leaves `registered` false
       // and the prepared face unmounted, so the next register() retries for
       // real, and unregister() holds no authority to touch the id.
-      // `preRegister` is inside the try on purpose: mounting the face is part
-      // of the same transaction, and its own throw must roll back too.
+      // `preRegister` and `postRegister` are inside the try on purpose: the
+      // whole register is one transaction, and a throw from either end must
+      // return the surface to its pre-register state.
+      let layerRegistered = false;
       try {
         preRegister();
         registerLayer(layerOpts);
+        layerRegistered = true;
         postRegister();
       } catch (error) {
-        rollbackPreRegister();
+        // Two compensations are owed: drop the entry registerLayer already
+        // committed (postRegister may throw after it) and unmount the face.
+        // `finalize` runs both even if one throws, and the reporter keeps a
+        // cleanup failure from silently replacing the original error.
+        finalize(
+          [
+            [
+              "drop-half-registered",
+              () => {
+                if (layerRegistered) unregisterLayer(opts.id);
+              },
+            ],
+            ["rollback-mount", rollbackPreRegister],
+          ],
+          failure =>
+            log.warn(`register rollback step "${failure.name}" threw`, failure.error),
+        );
         throw error;
       }
       registered = true;
@@ -276,7 +296,11 @@ class LayerFactory {
       // A lease that was never read back (`registeredEntry` null) is still a
       // lease this surface does NOT hold: fail closed, or a same-id
       // replacement is deleted by bare id exactly when the read-back failed.
-      // No registry wired (`current` undefined) keeps the lightweight path.
+      // This also covers the narrow case where `current` is this surface's
+      // own entry: without the read-back the factory cannot prove ownership,
+      // and re-reading the same registry returns the same answer, so the
+      // entry is deliberately left alone. No registry wired (`current`
+      // undefined) keeps the lightweight path.
       if (current && current !== registeredEntry) {
         registered = false;
         registeredEntry = null;
@@ -552,6 +576,10 @@ class LayerFactory {
         // position), so the two cases cannot be told apart by `facePane`.
         if (faceMounted && facePane?.contains(face)) facePane.removeChild(face);
         faceMounted = false;
+        // preRegister turned the face on (and with it the shared pane state
+        // the color surface toggles); a failed registration must not leave it
+        // visible behind a detached canvas.
+        preUnregister();
       };
       postRegister = () => stampBirthZ(opts.id);
       preUnregister = () => setVisible(false);
