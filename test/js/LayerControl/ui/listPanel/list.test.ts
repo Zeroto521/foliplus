@@ -840,6 +840,86 @@ describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, ()
     expect(childKeys(ui)).toEqual(registryKeys(manager));
   });
 
+  it("keeps the cursor on its row when a duplicate ahead of it is removed", () => {
+    const { ui } = initFixture({ data: benchData(3, 1) });
+    const container = attachedPanel(ui);
+    const duplicate = rowOf(ui, "overlay_1").cloneNode(true) as HTMLElement;
+    container.appendChild(duplicate);
+    // The cursor sits on a later row: removing the earlier duplicate shifts
+    // its position, and a stale activeIdx would re-home onto the neighbor.
+    const active = rowOf(ui, "overlay_2");
+    ui.listPanel.activeIdx = getNavigableItems(ui).indexOf(active);
+    active.classList.add(CONST.CLASSES.FOCUSED);
+
+    syncRowOrder(ui);
+
+    expect(ui.listPanel.activeIdx).toBe(getNavigableItems(ui).indexOf(active));
+    expect(active.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
+  });
+
+  it("moves a class-only active duplicate without stealing focus", () => {
+    const { ui } = initFixture({ data: benchData(3, 1) });
+    const container = attachedPanel(ui);
+    const original = rowOf(ui, "overlay_1");
+    const duplicate = original.cloneNode(true) as HTMLElement;
+    container.appendChild(duplicate);
+    // The marker says active, the ledger index is stale (it resolves to no
+    // row), and DOM focus is elsewhere: the repair must still move the cursor
+    // onto the survivor without focusing it.
+    original.classList.add(CONST.CLASSES.FOCUSED);
+    ui.listPanel.activeIdx = 999;
+    (document.activeElement as HTMLElement | null)?.blur?.();
+
+    syncRowOrder(ui);
+
+    expect(duplicate.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
+    expect(document.activeElement).not.toBe(duplicate);
+  });
+
+  it("moves focus onto the surviving duplicate anchor", () => {
+    const { ui } = initFixture({ data: benchData(3, 1) });
+    const container = attachedPanel(ui);
+    const anchorOf = () =>
+      Array.from(container.children).find(
+        el =>
+          el.classList.contains(CONST.CLASSES.TOGGLE_ALL) &&
+          el.getAttribute("data-group") === GROUP.OVERLAY,
+      ) as HTMLElement;
+    const original = anchorOf();
+    const duplicate = original.cloneNode(true) as HTMLElement;
+    container.appendChild(duplicate);
+    const control = original.querySelector<HTMLElement>("button, input, [tabindex]")!;
+    control.focus();
+    expect(document.activeElement).toBe(control);
+
+    syncRowOrder(ui);
+
+    expect(anchorOf()).toBe(duplicate);
+    expect(duplicate.contains(document.activeElement)).toBe(true);
+  });
+
+  it("survives a focused duplicate anchor with nothing left to focus", () => {
+    const { ui } = initFixture({ data: benchData(3, 1) });
+    const container = attachedPanel(ui);
+    const anchorOf = () =>
+      Array.from(container.children).find(
+        el =>
+          el.classList.contains(CONST.CLASSES.TOGGLE_ALL) &&
+          el.getAttribute("data-group") === GROUP.OVERLAY,
+      ) as HTMLElement;
+    const original = anchorOf();
+    const duplicate = original.cloneNode(true) as HTMLElement;
+    // The surviving anchor carries no focusable control: the focus transfer
+    // must be optional, not assumed.
+    duplicate.querySelectorAll("button, input").forEach(node => node.remove());
+    duplicate.removeAttribute("tabindex");
+    container.appendChild(duplicate);
+    (original.querySelector("button") as HTMLElement).focus();
+
+    expect(() => syncRowOrder(ui)).not.toThrow();
+    expect(anchorOf()).toBe(duplicate);
+  });
+
   it("reorderLayer refuses unknown ids, self-drops and cross-group pairs", () => {
     // The drag commit entry's own guards — the drop path pre-checks for the
     // hint, but the entry must hold on its own.
