@@ -17,7 +17,7 @@
 - `LayerControl`: opacity and zoom-range rows now use one dependency-free slider primitive — single/dual thumb, keyboard, ARIA, disabled/RTL, a bubble that panels cannot clip, and a collapsed range that slides instead of dead-locking ([#721](https://github.com/Zeroto521/foliplus/pull/721))
 - `core/layer`: a reorder pays one tree walk per layer instead of four, and pins late content in one fragment [#733](https://github.com/Zeroto521/foliplus/pull/733)
 - `core/layer`: a declared pane spec may only name the public roles, so `shadow` stays internal [#733](https://github.com/Zeroto521/foliplus/pull/733)
-- `LayerControl`: labels rebuild once per frame and repaint only their own canvas — a streamed burst pays one rebuild per frame (was one per feature), and M labelled layers changing together cost M repaints, not M²; the content-change replay set is a mandatory per-dimension policy on the style registry (`none` / `sync` / `frame`) so a new dimension cannot silently skip the decision; the shared scheduler is owned per LayerUI (pending frames and the failure reporter are released with the UI, never shared across maps), and clearing labels drops the layer's pan plan with them, so turning labels off cannot be undone by a later pan ([#734](https://github.com/Zeroto521/foliplus/pull/734))
+- `LayerControl`: labels rebuild once per frame and only repaint their own canvas; the replay set is a mandatory per-dimension registry policy, each UI owns its scheduler, and clearing labels also drops the layer's pan plan ([#734](https://github.com/Zeroto521/foliplus/pull/734))
 
 ### Fixed
 
