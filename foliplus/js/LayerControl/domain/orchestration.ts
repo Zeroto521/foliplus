@@ -364,12 +364,10 @@ class LayerOrchestration {
     hasUi: boolean,
   ): {
     layerInfo: LayerInfo;
-    existingIdx: number;
     hidden: boolean;
     mutation: Extract<LayerMutation, { kind: "insert" | "replace-content" }>;
   } {
     const existingLi = this.layerRegistry.get(opts.id);
-    const existingIdx = existingLi ? this.layerRegistry.indexOf(existingLi) : -1;
     const layerInfo = this.layerRegistry.createLayerInfo(opts, existingLi, this.map);
 
     // Same id, new layer object: the old layer is being replaced, not
@@ -387,7 +385,7 @@ class LayerOrchestration {
       this.map.removeLayer(existingLi.layer);
     }
 
-    if (existingIdx !== -1) this.layerRegistry.upsert(layerInfo);
+    if (existingLi) this.layerRegistry.upsert(layerInfo);
     else if (layerInfo.group === GROUP.BASE) {
       const firstBaseIdx = this.layerRegistry.firstBaseIdx;
       const atBottom = opts.baseInsert === "bottom";
@@ -415,20 +413,15 @@ class LayerOrchestration {
     // registration takes the map path (a runtime re-registration with a
     // panel still respects the user's hide).
     const hidden = hasUi && this.intentStore.get(opts.id, INTENT.VISIBLE) === false;
+    // The insertion outcome carries the live position after the whole
+    // placement (upsert in place, or insert + saved-slot replay), so no
+    // pre-mutation index has to survive the call.
+    const index = this.layerRegistry.indexOf(layerInfo);
     const mutation: Extract<LayerMutation, { kind: "insert" | "replace-content" }> =
-      existingIdx !== -1
-        ? {
-            kind: "replace-content",
-            previous: existingLi!,
-            entry: layerInfo,
-            index: existingIdx,
-          }
-        : {
-            kind: "insert",
-            entry: layerInfo,
-            index: this.layerRegistry.indexOf(layerInfo),
-          };
-    return { layerInfo, existingIdx, hidden, mutation };
+      existingLi
+        ? { kind: "replace-content", previous: existingLi, entry: layerInfo, index }
+        : { kind: "insert", entry: layerInfo, index };
+    return { layerInfo, hidden, mutation };
   }
 
   /** The domain half of {@link LayerController.unregisterLayer}: remove the

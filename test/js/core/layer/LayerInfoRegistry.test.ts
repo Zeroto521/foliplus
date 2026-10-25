@@ -1,5 +1,6 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { LayerInfoRegistry } from "#foliplus/core/layer/LayerInfoRegistry.js";
+import { GROUP } from "#foliplus/core/layer/index.js";
 import type { LayerInfo } from "#foliplus/core/layer/type.js";
 
 describe("LayerInfoRegistry", () => {
@@ -219,6 +220,33 @@ describe("LayerInfoRegistry", () => {
       expect(registry.firstBaseIdx).toBe(2);
     });
 
+    it("refreshes the boundary only when the entry is new", () => {
+      const refresh = vi.spyOn(registry, "refreshFirstBaseIdx");
+      registry.upsert(registry.createLayerInfo({ id: "overlay1", name: "Updated" }));
+      // An in-place swap keeps the slot and cannot change the group (the
+      // gate above), so the O(N) boundary scan would only repeat the same
+      // answer — bulk re-registration must not pay for it.
+      expect(refresh).not.toHaveBeenCalled();
+
+      registry.upsert(registry.createLayerInfo({ id: "fresh" }));
+      expect(refresh).toHaveBeenCalledTimes(1);
+      expect(registry.firstBaseIdx).toBe(2);
+    });
+
+    it("repairs an index/list disagreement by appending, not writing items[-1]", () => {
+      // The defensive branch: id and list disagree (a lost delete or a bad
+      // replace). Writing `items[-1]` would add a string-keyed property and
+      // leave the entry invisible to every walk.
+      registry.items.length = 0;
+      const recovered = registry.createLayerInfo({ id: "overlay1", name: "Recovered" });
+      registry.upsert(recovered);
+
+      expect(registry.size).toBe(1);
+      expect(registry.at(0)).toBe(recovered);
+      expect(registry.indexOfId("overlay1")).toBe(0);
+      expect(registry.firstBaseIdx).toBe(-1);
+    });
+
     it("refuses a reorder across the overlay/base boundary", () => {
       expect(() => registry.reorder(0, 2)).toThrow(/boundary/);
       // Same-side moves stay legal.
@@ -241,12 +269,35 @@ describe("LayerInfoRegistry", () => {
       expect(registry.at(0).id).toBe("new");
       expect(registry.size).toBe(4);
     });
+
+    it("refuses a base layer at index 0", () => {
+      // Index 0 is inside the overlay block; a base there would invert the
+      // partition and strand firstBaseIdx at 0.
+      const base = registry.createLayerInfo({ id: "base2", group: GROUP.BASE });
+      expect(() => registry.prepend(base)).toThrow(/base layer/);
+      expect(registry.size).toBe(3);
+      expect(registry.at(0).id).toBe("overlay1");
+      expect(registry.firstBaseIdx).toBe(2);
+    });
   });
 
   describe("insertAt", () => {
     it("inserts a layer at a specific index", () => {
       registry.insertAt(registry.createLayerInfo({ id: "new", name: "New" }), 1);
       expect(registry.at(1).id).toBe("new");
+      expect(registry.size).toBe(4);
+    });
+
+    it("refuses a non-integer or out-of-range index", () => {
+      const fresh = () => registry.createLayerInfo({ id: "new" });
+      for (const idx of [-1, 4, 1.5, Number.NaN]) {
+        expect(() => registry.insertAt(fresh(), idx)).toThrow(/insertAt: index/);
+      }
+      expect(registry.size).toBe(3);
+
+      // items.length is the inclusive upper bound — appending is legal.
+      registry.insertAt(fresh(), registry.size);
+      expect(registry.at(3).id).toBe("new");
       expect(registry.size).toBe(4);
     });
   });
@@ -285,6 +336,49 @@ describe("LayerInfoRegistry", () => {
       expect(registry.at(0).id).toBe("overlay2");
       expect(registry.at(1).id).toBe("overlay1");
       expect(registry.at(2).id).toBe("base1");
+    });
+
+    it("refuses non-integer and out-of-range positions", () => {
+      const cases: Array<[number, number]> = [
+        [0, 3],
+        [-1, 0],
+        [0.5, 1],
+        [0, Number.NaN],
+      ];
+      for (const [from, to] of cases) {
+        expect(() => registry.reorder(from, to)).toThrow(/reorder/);
+      }
+      // Refused before the splice: the arrangement is untouched.
+      expect(registry.layers.map(l => l.id)).toEqual(["overlay1", "overlay2", "base1"]);
+    });
+  });
+
+  describe("indexOfId", () => {
+    it("tracks every structural mutation and returns -1 for an unknown id", () => {
+      expect(registry.indexOfId("overlay2")).toBe(1);
+      expect(registry.indexOfId("ghost")).toBe(-1);
+
+      registry.prepend(registry.createLayerInfo({ id: "front" }));
+      expect(registry.indexOfId("front")).toBe(0);
+
+      registry.insertAt(registry.createLayerInfo({ id: "middle" }), 2);
+      expect(registry.indexOfId("middle")).toBe(2);
+
+      registry.reorder(0, 1);
+      expect(registry.indexOfId("front")).toBe(1);
+
+      registry.remove("middle");
+      expect(registry.indexOfId("overlay2")).toBe(2);
+
+      registry.moveToFront("overlay2");
+      expect(registry.indexOfId("overlay2")).toBe(0);
+
+      registry.replace([registry.createLayerInfo({ id: "only" })]);
+      expect(registry.indexOfId("only")).toBe(0);
+      expect(registry.indexOfId("front")).toBe(-1);
+
+      registry.clear();
+      expect(registry.indexOfId("only")).toBe(-1);
     });
   });
 

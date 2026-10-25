@@ -67,8 +67,6 @@ class LayerOrder {
     this.registry.replace(this.sortByStored(items, data));
   }
 
-  /** Reorder `items` by `stored` rank; ids the record never ranked keep their
-   *  live relative order at the bottom. */
   /** Reorder `items` by `stored` rank *within each role block*: overlays rank
    *  among overlays, bases among bases, and the blocks stay partitioned. A
    *  saved record that interleaves roles (an old broken session, or a role
