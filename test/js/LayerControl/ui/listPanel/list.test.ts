@@ -169,7 +169,7 @@ describe("ui/list row placement", () => {
     // A teardown that nulls the container without clearing the registry — the
     // mid-notify destroy, though any subset of the panel removal works — must
     // no-op for every paint helper instead of dereferencing a dead panel. This
-    // is the shape of the R5-1 crash, now typed and guarded.
+    // is the shape of the null-panel crash, now typed and guarded.
     const { manager, ui } = initFixture({
       data: [{ id: "A", name: "A", group: "overlay" }],
     });

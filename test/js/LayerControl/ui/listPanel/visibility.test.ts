@@ -1164,8 +1164,8 @@ describe("unit helpers", () => {
     };
 
     it("shows the hatch when a basemap is dragged to opacity 0", () => {
-      // The bug T207: intent says visible, so the pre-fix check kept the
-      // basemap class off — the user's slider at 0 was silently ignored.
+      // The bug: intent says visible, so the pre-fix check kept the basemap
+      // class off — the user's slider at 0 was silently ignored.
       const { ui, container } = makeUiWithBase(0);
       syncNoBasemap(ui);
       expect(container.classList.contains(CONST.CLASSES.NO_BASE_MAP)).toBe(true);
