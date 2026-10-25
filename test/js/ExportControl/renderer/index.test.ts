@@ -1,17 +1,29 @@
-// ExportControl — the per-layer marker-shadow pane in the export walk.
+// ExportControl renderer/index — the per-layer marker-shadow pane in the
+// export walk.
 //
 // A marker's shadow lives in the pane its leaf names in `options.shadowPane`.
 // Since #733 a marker layer gets its own shadow pane, and the option points at
 // it; before that every shadow sat in Leaflet's shared `shadowPane`, which pane
 // discovery excludes (it only enumerates `options.pane`), so the export has
-// never drawn a shadow at all.  This file pins the two properties that make the
+// never drawn a shadow at all.  The file pins the two properties that make the
 // gap closed rather than merely different: the shadow is drawn, and it is drawn
 // BELOW its icon — the layer's shadow pane is one z-step under its content
 // (`zFor({ role: "shadow" })` = slot - 1), and the export must reproduce that
 // with draw order, not with pane iteration.
+//
+// Two levels, one module:
+//   - the fixture-driven cases drive `render()` against hand-built panes, and
+//     answer `getLayerPanes` with the shape a surface reports (shadow pane
+//     included), which is what the real controller does;
+//   - the last block runs the production stack — real Leaflet, a real
+//     `LayerController` as `map.foliplus.LayerAPI` — because a hand-built list
+//     is exactly what hid the P1 defect: the resolver must split the shadow out
+//     of the list the controller really returns.
+import L from "leaflet";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ExportRenderer } from "#foliplus/ExportControl/renderer/index.js";
 import * as UTIL from "#foliplus/ExportControl/util.js";
+import { LayerController } from "#foliplus/LayerControl/controller.js";
 
 // index.ts binds its logger and translator to CONFIG.name at module-import
 // time, so the component name has to be set before the import resolves —
@@ -20,6 +32,11 @@ import * as UTIL from "#foliplus/ExportControl/util.js";
 vi.hoisted(() => {
   (window as any).CONFIG = { ...(window as any).CONFIG, name: "ExportControl" };
 });
+
+// The shared mock window.L is swapped for the real library for this file; the
+// production modules resolve L at call time, so the swap reaches them (same
+// arrangement as test/js/core/layer/carrier.test.ts).
+window.L = L as unknown as typeof window.L;
 
 // renderMarkers loads its sprites through the hoisted factory: the module
 // exports are getters, so a plain vi.spyOn on it throws from inside pooledEach.
@@ -57,6 +74,28 @@ const pinBox = (
     }) as DOMRect;
   return el;
 };
+
+/** The no-op 2D context both levels hand to the draw passes: jsdom has no
+ *  canvas backend, so the shape (not the pixels) is what the passes need. */
+const makeExportCtx = () =>
+  ({
+    drawImage: vi.fn(),
+    fillRect: vi.fn(),
+    save: vi.fn(),
+    restore: vi.fn(),
+    beginPath: vi.fn(),
+    fill: vi.fn(),
+    stroke: vi.fn(),
+    roundRect: vi.fn(),
+    fillText: vi.fn(),
+    globalAlpha: 1,
+    fillStyle: "",
+    strokeStyle: "",
+    font: "",
+    textAlign: "",
+    textBaseline: "",
+    lineWidth: 0,
+  }) as unknown as CanvasRenderingContext2D;
 
 /** Leaflet's shared panes, as the console would list them.  The export reads
  *  this set off the pane host instead of restating it; the fixture hands over
@@ -186,25 +225,7 @@ function makeFixture(opts: FixtureOpts = {}): Fixture {
   // Every image the marker passes load, in draw order: loadImage resolves
   // before the matching drawImage, so the list is the paint order.
   const loads: string[] = [];
-  const ctx = {
-    drawImage: vi.fn(),
-    fillRect: vi.fn(),
-    save: vi.fn(),
-    restore: vi.fn(),
-    beginPath: vi.fn(),
-    fill: vi.fn(),
-    stroke: vi.fn(),
-    roundRect: vi.fn(),
-    fillText: vi.fn(),
-    globalAlpha: 1,
-    fillStyle: "",
-    strokeStyle: "",
-    font: "",
-    textAlign: "",
-    textBaseline: "",
-    lineWidth: 0,
-  } as unknown as CanvasRenderingContext2D;
-  vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(ctx);
+  vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(makeExportCtx());
   vi.spyOn(UTIL, "loadImage").mockImplementation((async (src: string) => {
     loads.push(src);
     return { src } as unknown as HTMLImageElement;
@@ -227,6 +248,9 @@ beforeEach(() => {
 afterEach(() => {
   if (savedMapDesc) Object.defineProperty(globalThis, "map", savedMapDesc);
   vi.restoreAllMocks();
+  // The real-Leaflet block mounts its map in the document; the fixture cases
+  // build detached elements, so clearing here only reaches that block.
+  document.body.innerHTML = "";
 });
 
 /** render() resolves panes through the module-scoped `map` free variable —
@@ -414,5 +438,114 @@ describe("ExportRenderer.render — marker shadows", () => {
 
     expect(fixture.loads.filter(src => src.includes("shadow.png"))).toHaveLength(1);
     expect(fixture.loads.filter(src => /icon\d*\.png$/.test(src))).toHaveLength(2);
+  });
+});
+
+// ── Real Leaflet + real LayerController ──────────────────────────────
+// The fixture cases above decide what the export does with a pane list. This
+// block decides whether the list they model is the list production produces:
+// @@getLayerPanes@@ answers with the surface's whole pane set (shadow carrier
+// included — focus's lift and the browser probe suite read the same list), so
+// the resolver has to split it, and the render walk has to paint the shadow
+// below the icon.
+
+// Distinct 1x1 transparent PNG data URIs: data URLs survive jsdom unchanged,
+// so the paint order can be read straight off the URL the pass loaded.
+const ICON = "data:image/png;base64,AAAA";
+const SHADOW = "data:image/png;base64,BBBB";
+
+interface Stack {
+  map: L.Map;
+  group: L.LayerGroup;
+  controller: LayerController;
+  loads: string[];
+}
+
+/** Mount one marker layer through the production registration path. */
+const mountStack = (): Stack => {
+  const container = document.createElement("div");
+  document.body.appendChild(container);
+  container.getBoundingClientRect = containerRect;
+
+  const map = L.map(container, { center: [26.08, 119.3], zoom: 12 });
+  const marker = L.marker([26.08, 119.3], {
+    icon: L.icon({ iconUrl: ICON, shadowUrl: SHADOW }),
+  });
+  const group = L.layerGroup([marker]);
+  map.addLayer(group);
+  const controller = new LayerController(map, [
+    { id: "markers", name: "Markers", group: "overlay", layer: group },
+  ]);
+
+  const loads: string[] = [];
+  vi.spyOn(UTIL, "loadImage").mockImplementation((async (src: string) => {
+    loads.push(src);
+    return { src } as unknown as HTMLImageElement;
+  }) as any);
+  vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(makeExportCtx());
+  // The export measures elements, so the icon and its shadow need real boxes.
+  pinBox(marker.getElement()!, 100, 100, 20, 20);
+  pinBox((marker as unknown as { _shadow: HTMLElement })._shadow, 90, 110, 40, 40);
+
+  // render() resolves panes through the module-scoped @@map@@ free variable.
+  Object.defineProperty(globalThis, "map", {
+    configurable: true,
+    writable: true,
+    value: map,
+  });
+  return { map, group, controller, loads };
+};
+
+describe("export panes over a real LayerController", () => {
+  it("splits the panes a real controller reports by role", () => {
+    const { map, group, controller } = mountStack();
+    try {
+      // The controller is the map's LayerAPI — the same object the renderer
+      // reads its pane host from.
+      expect(map.foliplus!.LayerAPI).toBe(controller);
+
+      // Pane coverage is unchanged: the controller reports the whole surface,
+      // shadow carrier included — focus's lift (and the browser probe suite)
+      // reads that same list.
+      const raw = controller.getLayerPanes(group);
+      expect(raw).toHaveLength(2);
+      const shadowPane = `${raw[0]}-shadow`;
+      expect(raw[1]).toBe(shadowPane);
+
+      // The export still has to split them: this is the P1 shape — the API
+      // names the shadow next to the content, and the resolver must produce a
+      // shadow group instead of reading that name as "already content".
+      const panes = new ExportRenderer(map as any).resolveExportPanes(group);
+      expect(panes.shadows).toEqual([shadowPane]);
+      expect(panes.content).toEqual([raw[0]]);
+    } finally {
+      map.remove();
+    }
+  });
+
+  it("paints the marker's shadow before its icon", async () => {
+    const { map, group, loads } = mountStack();
+    try {
+      const panes = new ExportRenderer(map as any).resolveExportPanes(group);
+      const shadowPane = panes.shadows[0];
+      expect(shadowPane).toBeTruthy();
+      // The shadow really lives in that pane (the write #733 introduced).
+      expect(map.getPane(shadowPane)!.querySelector("img")).toBeTruthy();
+
+      await new ExportRenderer(map as any).render(
+        { left: 0, top: 0, width: 1000, height: 1000 },
+        1,
+        undefined,
+        undefined,
+      );
+
+      const shadowIdx = loads.indexOf(SHADOW);
+      const iconIdx = loads.indexOf(ICON);
+      expect(shadowIdx).toBeGreaterThanOrEqual(0);
+      expect(iconIdx).toBeGreaterThanOrEqual(0);
+      expect(shadowIdx).toBeLessThan(iconIdx);
+    } finally {
+      map.remove();
+    }
   });
 });
