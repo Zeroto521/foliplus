@@ -664,6 +664,21 @@ class LayerController implements LayerAPI {
     return new SettledOperation(this.events);
   }
 
+  /** Stop a registration that has already recorded a consumer failure.
+   *
+   *  The row insert/update event is the registration's first fan-out; once a
+   *  consumer has thrown there, the transaction is heading for the factory's
+   *  rollback, and no later event may announce it. Without this gate the
+   *  projection CHANGE (absorbed from `applyUserState`) and the registration
+   *  CHANGE still went out after the failing notify, so every consumer that
+   *  re-reads the registry saw the layer appear and then vanish — the ghost
+   *  announcement the rollback exists to prevent. Raising here lets the
+   *  factory's catch drop the committed entry and unmount the face. */
+  private stopOnFailure(operation: SettledOperation): void {
+    // One boolean read on the healthy path; `throwIfFailed` only when doomed.
+    if (operation.hasFailure()) operation.throwIfFailed();
+  }
+
   registerLayer(opts: RegisterLayerOpts): HTMLElement | null {
     if (!opts?.id) throw new Error(this.log.msg(this.T("id_required")));
 
@@ -703,6 +718,9 @@ class LayerController implements LayerAPI {
       opts,
       Boolean(this.ui),
     );
+    // The commit token reaches the factory inside `registerEntry`, at the
+    // registry write point — the only place that knows the entry exists before
+    // `materialize()`/pane work can throw. Nothing to forward from here.
 
     // If the layer was previously hidden by the user, keep it off the map on
     // re-entry so it isn't silently re-added by runtime re-registration. A
@@ -733,6 +751,10 @@ class LayerController implements LayerAPI {
         // so the row's cached field list and resolved auto field are both stale.
         operation.emit(EVENTS.LAYER_ITEM_UPDATED, { id: opts.id });
       }
+      // The row insert/update above is this registration's first fan-out: a
+      // throw there dooms it, so stop before projecting state or announcing a
+      // layer that is about to be rolled back.
+      this.stopOnFailure(operation);
       // A stored dimension must be replayed on first registration too. Heatmap
       // and Measure register after LayerControl has attached, so this is the only
       // pass that reaches a late-arriving layer's own visibility, opacity, name
@@ -749,12 +771,20 @@ class LayerController implements LayerAPI {
       });
       // Defer z-order enforcement so batch registration coalesces into one pass.
       this.debouncedEnforce();
+      // REFRESHED / GROUP_COUNT consumers can also throw: those failures are
+      // recorded in the same operation, and the projection batch below would
+      // broadcast a CHANGE for a registration that is already rolling back.
+      this.stopOnFailure(operation);
       // The round goes out last — after the row insert, the count sync and the
       // order replay — so a subscriber that re-enters reads the settled panel:
       // full group count, correct row state. The batch carries the entry it ran
       // against, so a retire inside that notify cannot announce for a
       // replacement holding the same id.
       collectDeltas(this.ui, moved, operation);
+      // A projection CHANGE consumer can throw too. The registration CHANGE
+      // below is the last broadcast that claims "this layer now exists", so a
+      // known failure must stop it here rather than after the fact.
+      this.stopOnFailure(operation);
 
       // A subscriber can retire the entry inside that notify: a destroy takes
       // the container and the registry with it, and an unregister leaves the id
@@ -813,27 +843,29 @@ class LayerController implements LayerAPI {
    *  order disagreeing with the live one. */
   private commitReorder(id: string, item: LayerInfo, mutate: () => void): boolean {
     mutate();
-    // The saved order must agree with the live registry whatever happens to
-    // the pricing pass: `enforceOrder` walks layers and panes and can throw
-    // through a third-party listener, and a persisted record lagging the
-    // in-memory arrangement is exactly what the local-commit rule above
-    // forbids. Saving is what `finally` is for.
-    let pricingFailed = false;
-    let pricingError: unknown;
-    try {
-      this.enforceOrder();
-    } catch (error) {
-      pricingFailed = true;
-      pricingError = error;
-    } finally {
-      this.saveOrder();
-    }
-    // A failed pricing pass used to skip the row-order signal too, leaving
-    // the registry new and the panel old until the next rebuild. The rows are
-    // this commit's user-visible copy, so they are synced before the error
-    // surfaces. The operation still never opens: no CHANGE is announced for
-    // a half-committed move.
-    if (pricingFailed) {
+    // Both commit steps are owed writes, not alternatives: the pricing pass
+    // and the saved snapshot must each run even when the other throws — a
+    // persisted record lagging the in-memory arrangement is exactly what the
+    // local-commit rule above forbids. `finalize` is the run-all list; its
+    // reporter records the second failure only, because the first is the one
+    // the caller gets.
+    let failureCount = 0;
+    const commit = finalize(
+      [
+        ["price-order", () => this.enforceOrder()],
+        ["save-order", () => this.saveOrder()],
+      ],
+      failure => {
+        failureCount += 1;
+        if (failureCount > 1) {
+          this.log.warn(
+            `reorder commit step "${failure.name}" failed after an earlier error`,
+            failure.error,
+          );
+        }
+      },
+    );
+    if (commit.failures.length > 0) {
       const operation = this.beginOperation();
       if (this.uiContainer && this.ui) {
         operation.emit(EVENTS.LAYER_LIST_REBUILD);
@@ -841,11 +873,11 @@ class LayerController implements LayerAPI {
       try {
         operation.throwIfFailed();
       } catch (syncError) {
-        // The pricing failure is the one the caller asked about; a panel
+        // The commit failure is the one the caller asked about; a panel
         // subscriber failing on top of it is recorded, not substituted.
-        this.log.warn("reorder panel sync failed after a pricing error", syncError);
+        this.log.warn("reorder panel sync failed after a commit error", syncError);
       }
-      throw pricingError;
+      throw commit.failures[0].error;
     }
     const operation = this.beginOperation();
     if (this.uiContainer && this.ui) {
@@ -1043,14 +1075,6 @@ class LayerController implements LayerAPI {
     const { layerInfo, layer } = this.domain.unregisterEntry(id);
     if (!layerInfo) return null;
 
-    // A drag armed with the retiring entry has no future: the source row is
-    // about to leave the panel, and a native dragend off a detached source
-    // cannot be relied on to bubble back. Cancel the gesture before every
-    // throwable step below, so none of them can skip it — the identity check
-    // runs against the entry the registry just returned, so a listener that
-    // re-registered the id mid-teardown cannot confuse the cancel.
-    if (this.ui?.listPanel?.dragEntry === layerInfo) clearDragState(this.ui);
-
     // The row is resolved first and by element: the registry entry is already
     // gone, so a `remove` handler inside `clear-layer-tree` can register this
     // id again and mount a fresh row — a later id lookup would delete the
@@ -1064,6 +1088,20 @@ class LayerController implements LayerAPI {
     let cursor: CursorRef = null;
     const failed = finalize(
       [
+        // A drag armed with the retiring entry has no future: the source row
+        // is about to leave the panel, and a native dragend off a detached
+        // source cannot be relied on to bubble back. It is a throwable DOM
+        // step like every other one, so it runs inside the pass — a failure
+        // here must not skip the row, map or cursor convergence below. The
+        // identity check re-reads the entry the registry just returned, so a
+        // listener that re-registered the id mid-teardown cannot confuse it.
+        [
+          "cancel-drag",
+          () => {
+            const ui = this.ui;
+            if (ui?.listPanel?.dragEntry === layerInfo) clearDragState(ui);
+          },
+        ],
         ["snapshot-row", () => (row = this.findRow(id))],
         [
           "snapshot-cursor",
