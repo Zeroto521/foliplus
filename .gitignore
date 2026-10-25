@@ -81,6 +81,7 @@ package-lock.json
 .DS_Store
 
 # LLM
+.local/
 .task/
 .claude/
 .claude/plans/myagents/

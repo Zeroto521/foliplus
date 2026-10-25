@@ -256,6 +256,9 @@ const ZOOM_RANGE_DIMENSION = registerDimension<{ min: number; max: number }>({
     if (!canShowZoomRange(ui, layerId)) return "none";
     return ui.intentStore.isUserSet(layerId, INTENT.ZOOM_RANGE) ? "user" : "author";
   },
+  /** No content-change replay: zoom range is a visibility gate over zoom
+   *  level, not a per-leaf write — the zoom-end projection sweep owns it. */
+  contentChange: { kind: "none" },
 });
 
 export {
