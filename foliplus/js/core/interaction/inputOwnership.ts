@@ -15,7 +15,15 @@
 // a new native control to a panel is now a table entry, not five guard edits.
 
 type NativeClass =
-  "edit" | "step" | "toggle" | "select" | "editable" | "activate" | "link" | "none";
+  | "edit"
+  | "step"
+  | "picker"
+  | "toggle"
+  | "select"
+  | "editable"
+  | "activate"
+  | "link"
+  | "none";
 
 /** Keys foliplus owns no matter which control holds focus. Declared once so
  *  that no row of the native table can ever swallow them — Escape always
@@ -40,6 +48,11 @@ const NATIVE_KEYS: Record<Exclude<NativeClass, "none">, ReadonlySet<string> | "*
   // A link activates on Enter only. Space on a focused link scrolls the page
   // and is not an activation key, so foliplus keeps it.
   link: new Set(["Enter"]),
+  // A colour picker is the one step-family control that also activates from
+  // the keyboard: Chromium fires its click from Enter and Space (measured on
+  // a bare page), so it owns both plus every key its step family navigates
+  // with. Range/date/time showed no such native click, so they stay `step`.
+  picker: new Set([...ARROWS, "Home", "End", "PageUp", "PageDown", "Enter", " "]),
 };
 
 /** Role-based controls, the ARIA equivalents of the native rows: a
@@ -58,13 +71,17 @@ const ROLE_CLASSES: Readonly<Record<string, NativeClass>> = {
 
 const STEP_TYPES = new Set([
   "range",
-  "color",
   "date",
   "time",
   "datetime-local",
   "week",
   "month",
 ]);
+/** `input` types that combine the step keys with native activation: the
+ *  colour picker is the only member today (Chromium opens it from Enter and
+ *  Space alike). Kept a named set so adding a genuinely keyboard-activatable
+ *  picker is a one-line change rather than a blanket grant to `step`. */
+const PICKER_TYPES = new Set(["color"]);
 const TOGGLE_TYPES = new Set(["checkbox", "radio"]);
 
 /** `input` types the browser activates from Enter/Space instead of typing
@@ -104,6 +121,7 @@ const nativeClass = (el: Element | null): NativeClass => {
     const type = (el as HTMLInputElement).type?.toLowerCase() ?? "text";
     if (NONE_TYPES.has(type)) return "none";
     if (TOGGLE_TYPES.has(type)) return "toggle";
+    if (PICKER_TYPES.has(type)) return "picker";
     if (STEP_TYPES.has(type)) return "step";
     if (ACTIVATE_TYPES.has(type)) return "activate";
     return "edit";

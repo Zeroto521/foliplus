@@ -38,9 +38,13 @@ const EDITABLE_KEYS = [...ARROWS, "Home", "End", "Enter", "Backspace"] as const;
 // except for links, Space).
 const ACTIVATE_KEYS = ["Enter", " "] as const;
 const LINK_KEYS = ["Enter"] as const;
+// A colour picker is the one STEP-family control that also activates from
+// Enter/Space (Chromium fires its click for both, measured on a bare page),
+// so it keeps the step keys AND the activation keys.
+const PICKER_KEYS = [...STEP_KEYS, "Enter", " "] as const;
 
 type RowClass =
-  "edit" | "step" | "toggle" | "select" | "editable" | "activate" | "link";
+  "edit" | "step" | "toggle" | "select" | "editable" | "activate" | "link" | "picker";
 
 const KEYS_OF: Record<RowClass, readonly string[]> = {
   edit: EDIT_KEYS,
@@ -50,6 +54,7 @@ const KEYS_OF: Record<RowClass, readonly string[]> = {
   editable: EDITABLE_KEYS,
   activate: ACTIVATE_KEYS,
   link: LINK_KEYS,
+  picker: PICKER_KEYS,
 };
 
 const input = (type: string): HTMLInputElement => {
@@ -73,11 +78,21 @@ const ROWS: { label: string; cls: RowClass; make: () => HTMLElement }[] = [
     make: () => input(type),
   })),
   { label: "textarea", cls: "edit", make: () => document.createElement("textarea") },
-  ...["range", "color", "date", "time"].map(type => ({
+  ...["range", "date", "time"].map(type => ({
     label: `input[type=${type}]`,
     cls: "step" as const,
     make: () => input(type),
   })),
+  {
+    // A colour picker natively activates from Enter and Space too, so it is a
+    // family of its own rather than a blanket Enter/Space grant to every step
+    // control — range/date/time showed no such native click. Its fill/label
+    // colour inputs live inside a panel row, which is exactly where a stolen
+    // activation key toggles the layer behind the form.
+    label: "input[type=color]",
+    cls: "picker",
+    make: () => input("color"),
+  },
   {
     // The ARIA equivalent of a range input: a slider primitive's thumb.
     label: 'div[role="slider"]',
@@ -142,6 +157,39 @@ const ROWS: { label: string; cls: RowClass; make: () => HTMLElement }[] = [
     cls: "toggle" as const,
     make: () => roleEl(role),
   })),
+  // Tag beats role, both directions. A real <button role=link> keeps its
+  // native Space activation; a real link that claims role=button stays
+  // Enter-only, because a native anchor does not activate on Space — the
+  // author owns the button keyboard contract there. An input's type likewise
+  // wins over the role it is given.
+  {
+    label: 'button[role="link"]',
+    cls: "activate",
+    make: () => {
+      const el = document.createElement("button");
+      el.setAttribute("role", "link");
+      return el;
+    },
+  },
+  {
+    label: 'a[href][role="button"]',
+    cls: "link",
+    make: () => {
+      const el = document.createElement("a");
+      el.href = "#";
+      el.setAttribute("role", "button");
+      return el;
+    },
+  },
+  {
+    label: 'input[type=checkbox][role="switch"]',
+    cls: "toggle",
+    make: () => {
+      const el = input("checkbox");
+      el.setAttribute("role", "switch");
+      return el;
+    },
+  },
   {
     label: "[contenteditable]",
     cls: "editable",
@@ -166,10 +214,13 @@ const NOT_OWNED: Record<RowClass, string[]> = {
   activate: [...ARROWS, "Home", "End", "Backspace"],
   // Space is not a link activation key — the page scrolls. foliplus keeps it.
   link: [" ", ...ARROWS, "Home", "End", "Backspace"],
+  // A picker owns every key its step family owns plus both activation keys;
+  // Backspace is the only one it leaves to foliplus.
+  picker: ["Backspace"],
 };
 
 describe("nativeClass", () => {
-  it.each(ROWS)("$label is the %cls family", row => {
+  it.each(ROWS)("$label is the $cls family", row => {
     expect(nativeClass(row.make())).toBe(row.cls);
   });
 
@@ -295,10 +346,12 @@ describe("the Escape whitelist lives in one place", () => {
   });
 });
 
-describe("panel close button — a native activator, not a row shortcut", () => {
+describe("native activators inside a row — not row shortcuts", () => {
   // The reported regression: Tab to the × in an attributes / style panel's
   // header, press Space or Enter, and the layer checkbox behind the panel
-  // toggles instead of the button activating. LayerControl registers the
+  // toggles instead of the button activating. The style panel's Fill / Label
+  // Color inputs are the other native activator living inside a row: Chromium
+  // fires their click from the same two keys. LayerControl registers the
   // row-toggle shortcut on the panel container for Space and Enter, so this
   // block reproduces exactly that registration shape.
   let map: any;
@@ -360,6 +413,22 @@ describe("panel close button — a native activator, not a row shortcut", () => 
     const event = press(close, key);
     // The button needs the key for its own activation: no cancel, no row
     // toggle. Letting it through is the whole fix.
+    expect(event.defaultPrevented, key).toBe(false);
+    expect(toggleRow, key).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["Space", " "],
+    ["Enter", "Enter"],
+  ])("%s on a colour input keeps its native activation", (_label, key) => {
+    // <input type=color> is what the style panel's Fill / Label Color row and
+    // the colour basemap's fill row render. Classified with the step family it
+    // owned arrows/Home/End only, so the row shortcut stole Enter/Space and
+    // toggled the layer behind the form instead of opening the picker.
+    const picker = document.createElement("input");
+    picker.type = "color";
+    panel.appendChild(picker);
+    const event = press(picker, key);
     expect(event.defaultPrevented, key).toBe(false);
     expect(toggleRow, key).not.toHaveBeenCalled();
   });

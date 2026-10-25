@@ -901,6 +901,11 @@ class TestLayerControlBrowser:
         the row shortcut no longer runs for these keys: the menu has to open
         through the button's own click, the same native activation the panel
         close × relies on. The checkbox must not flip either way.
+
+        This is a regression guard, not a fail-before-fix case: the previous
+        handler carried its own "activeElement is the ⋮ button" branch, so the
+        test also passed on the old head. It pins that the native path replaced
+        that branch without losing the keyboard affordance.
         """
         geo = folium.GeoJson(_geo_mixed, name="Point layer")
         with use_page(
@@ -945,6 +950,74 @@ class TestLayerControlBrowser:
                     state="detached",
                     timeout=5000,
                 )
+            assert not errors, f"JS errors: {errors}"
+
+    def test_style_fill_color_keeps_native_activation_keys(self, browser, tmp_path):
+        """Space/Enter on a style panel's Fill Color picker stay native.
+
+        <input type=color> is the other native activator living inside a row:
+        Chromium fires its click from Space and Enter (measured on a bare
+        page), but the step family it was classified with owned neither, so
+        the row shortcut cancelled the key and toggled the layer checkbox
+        behind the form instead of opening the picker. The native picker's
+        visibility is unreliable headless — defaultPrevented plus the
+        untouched checkbox is the evidence. Both colour inputs are covered: a
+        data layer's Fill Color row and the solid-colour basemap's fill row.
+        """
+        geo = folium.GeoJson(_geo_mixed, name="Point layer")
+        with use_page(
+            self._make_page, browser, tmp_path, geo, slug="fill_color_keys"
+        ) as (page, errors):
+            panel_ready(page)
+            page.evaluate(_js("LayerControl/open_panel"))
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-item[data-layer-type=overlay]",
+                state="attached",
+                timeout=5000,
+            )
+
+            for layer in ("overlay", "color-map"):
+                for key in ("Space", "Enter"):
+                    arm = page.evaluate(_js("LayerControl/color_input_arm"), layer)
+                    assert arm.get("error") is None, f"{layer}/{key}: {arm}"
+                    assert arm["focusedTag"] == "input", (
+                        f"{layer}/{key}: the Fill Color input did not take focus: {arm}"
+                    )
+                    assert arm["focusedType"] == "color", (
+                        f"{layer}/{key}: focus is not a colour picker: {arm}"
+                    )
+                    assert arm["colorInputs"] >= 1, (
+                        f"{layer}/{key}: the style panel has no colour input: {arm}"
+                    )
+
+                    page.keyboard.press(key)
+
+                    read = page.evaluate(_js("LayerControl/color_input_read"))
+                    presses = [
+                        r for r in (read["records"] or []) if r["tag"] == "input"
+                    ]
+                    assert len(presses) == 1, (
+                        f"{layer}/{key}: expected one input keydown, "
+                        f"got {read['records']}"
+                    )
+                    assert presses[0]["prevented"] is False, (
+                        f"{layer}/{key}: foliplus cancelled the colour picker's "
+                        f"native activation key: {read['records']}"
+                    )
+                    assert read["styleOpen"] is True, (
+                        f"{layer}/{key}: the style panel closed on the picker "
+                        f"key: {read}"
+                    )
+                    assert read["checkboxAfter"] == arm["checkboxBefore"], (
+                        f"{layer}/{key}: the row shortcut flipped the layer "
+                        f"checkbox: before={arm['checkboxBefore']} "
+                        f"after={read['checkboxAfter']}"
+                    )
             assert not errors, f"JS errors: {errors}"
 
     def test_toggle_all_checkbox_toggles_layers(self, browser, tmp_path):
