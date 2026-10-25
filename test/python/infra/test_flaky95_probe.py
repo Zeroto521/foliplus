@@ -1,4 +1,4 @@
-"""Tests for the flaky-95 health probe in ``conftest`` (T150 follow-up #3).
+"""Tests for the flaky-95 health probe in ``conftest``.
 
 The probe is a test tool with no tests of its own until now, so the four
 contracts below are pinned here:

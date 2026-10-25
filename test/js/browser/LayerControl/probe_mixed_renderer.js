@@ -10,7 +10,7 @@
 //
 // Note: passing a GeoJSON *group* to addLayer does NOT pin its child paths
 // to the declared pane — LayerFactory.addLayer only sets options.pane on
-// the top-level layer. A Path leaf pins correctly. (Recorded for R3/R6.)
+// the top-level layer. A Path leaf pins correctly. (A known limitation.)
 () => {
   const api = window.map.foliplus.LayerAPI;
   const mg = api.createLayers({

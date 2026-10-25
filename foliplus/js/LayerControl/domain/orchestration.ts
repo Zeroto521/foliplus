@@ -22,6 +22,7 @@ import {
   type PaneManager,
   type PaneSpec,
   type RegisterLayerOpts,
+  type SurfaceIndex,
   findLayer as findLayerUtil,
   paintsAtZoom,
   topSlotZ,
@@ -72,8 +73,7 @@ class LayerOrchestration {
   private order: LayerOrder;
   private persistence: LayerPersistence;
   private annotation: AnnotationManager;
-  private surfaces: Map<string, LayerSurface>;
-  private surfacesByLayer: Map<number, LayerSurface>;
+  private surfaceIndex: SurfaceIndex;
   /** Per-layer intent store — the single source for every user-chosen
    *  dimension (visible / fill / border / opacity / zoomRange / name /
    *  annotation). Absent key = never touched. Provenance rides the same
@@ -100,8 +100,7 @@ class LayerOrchestration {
     order: LayerOrder;
     persistence: LayerPersistence;
     annotation: AnnotationManager;
-    surfaces: Map<string, LayerSurface>;
-    surfacesByLayer: Map<number, LayerSurface>;
+    surfaceIndex: SurfaceIndex;
     getIntentStore: () => LayerIntentStore;
   }) {
     this.deps = {
@@ -114,8 +113,7 @@ class LayerOrchestration {
     this.order = deps.order;
     this.persistence = deps.persistence;
     this.annotation = deps.annotation;
-    this.surfaces = deps.surfaces;
-    this.surfacesByLayer = deps.surfacesByLayer;
+    this.surfaceIndex = deps.surfaceIndex;
   }
 
   /** Ordered layers (read-only view; always reflects the registry). */
@@ -238,30 +236,29 @@ class LayerOrchestration {
       getBounds: layerInfo.getBounds,
       color: layerInfo.color,
     };
-    const existing = this.surfaces.get(layerInfo.id);
+    const existing = this.surfaceIndex.get(layerInfo.id);
     if (existing?.matches(surfaceFace)) return existing;
     if (existing) {
       // The layer object (or its declaration) was replaced. Release the old
       // surface's resources before the new face takes the id: its
       // synthesized base pane and marker-shadow pane would otherwise linger
       // as unowned DOM, and the replacement's claim on its own pane names
-      // would collide with a stale claim. The stamp index entry goes first so
-      // a lookup by the superseded layer cannot answer with a surface nobody
+      // would collide with a stale claim. The reverse edge goes first so a
+      // lookup by the superseded layer cannot answer with a surface nobody
       // paints into anymore.
-      if (existing.layer) this.surfacesByLayer.delete(L.stamp(existing.layer));
+      if (existing.layer) this.surfaceIndex.deleteByLayer(existing.layer);
       existing.destroy();
     }
     const surface = new LayerSurface(this.panes, surfaceFace);
-    this.surfaces.set(layerInfo.id, surface);
-    if (surfaceFace.layer) {
-      this.surfacesByLayer.set(L.stamp(surfaceFace.layer), surface);
-    }
+    // One write books both directions; a same-id replacement drops the old
+    // stamp edge as part of the same call.
+    this.surfaceIndex.register(surface);
     return surface;
   }
 
   /** The surface that currently paints a live layer, or null. */
   surfaceForLayer(layer: L.Layer): LayerSurface | null {
-    return this.surfacesByLayer.get(L.stamp(layer)) ?? null;
+    return this.surfaceIndex.getByLayer(layer) ?? null;
   }
 
   /** Panes a registered layer's content lives in, including the pane its
@@ -375,7 +372,7 @@ class LayerOrchestration {
     // the capability projection (a tree that became migratable again recovers
     // without waiting for a `layeradd`). A replaced layer object rebuilds the
     // surface anyway; the mark on the old surface is harmless.
-    if (existingLi) this.surfaces.get(opts.id)?.markContentDirty();
+    if (existingLi) this.surfaceIndex.get(opts.id)?.markContentDirty();
     const layerInfo = this.layerRegistry.createLayerInfo(opts, existingLi, this.map);
 
     // Same id, new layer object: the old layer is being replaced, not
@@ -471,9 +468,12 @@ class LayerOrchestration {
     // never touches a live layer's renderer or path nodes. Only the pane the
     // surface synthesized goes away: a declared pane survives, because
     // re-registering the same id must not have to rebuild it.
-    this.surfaces.get(id)?.destroy();
-    this.surfaces.delete(id);
-    if (layerStamp !== null) this.surfacesByLayer.delete(layerStamp);
+    this.surfaceIndex.get(id)?.destroy();
+    this.surfaceIndex.delete(id);
+    // The surface's own layer may not be the one `findLayer` resolved (a
+    // corrupted row); dropping the independently-resolved stamp keeps the
+    // teardown complete either way.
+    if (layerStamp !== null) this.surfaceIndex.deleteByStamp(layerStamp);
     // Drop child-pane bookkeeping for layers that no longer use them.
     this.panes.sweepChildPanes(this.layers);
     return { layerInfo, layer, layerStamp };

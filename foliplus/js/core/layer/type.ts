@@ -122,7 +122,8 @@ interface LayerCapabilities {
    *      children take one CSS write on the pane; self-drawn canvases bake
    *      layerAlpha into their draws (R11, `#common/canvasAlpha`) so a large
    *      canvas does not force a GPU composite buffer. The tier still reports
-   *      `"pane"` — a `"baked"`/`"redraw"` mechanism tier is owned by T222.
+   *      `"pane"` — a `"baked"`/`"redraw"` mechanism tier belongs to a separate
+   *      capabilities concern.
    *    - "none"   — no honest carrier exists. MarkerCluster's cluster icons stay
    *      in the shared `markerPane` where `eachLayer` cannot reach them, so a
    *      pane write would fade the individual markers but not the cluster —

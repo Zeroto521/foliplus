@@ -1719,7 +1719,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
   });
 
   it("disk shape is unchanged: PersistedLayerState keys stay the on-wire names", () => {
-    // T242 collapsed the live parallel maps into `ui.intentStore`, but the record
+    // The live parallel maps collapsed into `ui.intentStore`, but the record
     // written to localStorage keeps its historical keys — `buildLayerStates`
     // is the only projection to disk. Pin the contract so a future field rename
     // cannot silently change what older sessions read back.
