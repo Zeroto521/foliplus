@@ -340,7 +340,8 @@ const commitStyleDimMerged = (
 // so the terminal value is never lost (throttleRaf is trailing). `cancel`
 // on reset (a scheduled walk must not paint the user's value over the
 // authored restore). `drop` on unregister so a churning map cannot
-// accumulate boxes keyed by dead ids, and `dropAll` on control destroy.
+// accumulate boxes keyed by dead ids, and `dropAll` on UI teardown (scoped
+// to the UI that owns the boxes — see Ownership below).
 //
 // A box lives exactly as long as its frame is pending: the wrapper reclaims
 // the entry before the run, and `cancel` reclaims it immediately, so a held
