@@ -15,8 +15,8 @@
 
 - `CSS`: design tokens split surface from on-accent and expose a focus color, so a theme can invert one without the other ([#714](https://github.com/Zeroto521/foliplus/pull/714))
 - `LayerControl`: opacity and zoom-range rows now use one dependency-free slider primitive — single/dual thumb, keyboard, ARIA, disabled/RTL, a bubble that panels cannot clip, and a collapsed range that slides instead of dead-locking ([#721](https://github.com/Zeroto521/foliplus/pull/721))
-- `core/layer`: the vector probes and the carrier audit share one tree walk, and late content is pinned through a `DocumentFragment`, so a reorder pays one bounded visit per layer instead of four [#733](https://github.com/Zeroto521/foliplus/pull/733)
-- `core/layer`: a declared pane spec may name only the public roles, so `shadow` stays internal to the per-layer marker-shadow pane instead of being claimable by a declaration, and the focus spotlight pane books itself under a fixed owner rather than under the pane name it happens to be called [#733](https://github.com/Zeroto521/foliplus/pull/733)
+- `core/layer`: the carrier probe answers every question from one tree walk, and late content is pinned through a `DocumentFragment`, so a reorder costs one bounded visit per layer instead of four [#733](https://github.com/Zeroto521/foliplus/pull/733)
+- `core/layer`: a declared pane spec may name only the public roles, so `shadow` stays internal to the per-layer marker-shadow pane instead of being claimable by a declaration [#733](https://github.com/Zeroto521/foliplus/pull/733)
 
 ### Fixed
 
@@ -25,10 +25,9 @@
 - `LayerControl`: a border chosen before features land still reaches them — the content-change replay now covers the stroke face alongside fill, size and opacity ([#730](https://github.com/Zeroto521/foliplus/pull/730))
 - `LayerControl`: reordering (`moveLayerUp`/`moveLayerDown`, `bringLayerToFront`, drag) moves rows in place instead of rebuilding the panel — a 200-layer move drops from seconds to milliseconds ([#731](https://github.com/Zeroto521/foliplus/pull/731))
 - `LayerControl`: marker shadows and ImageOverlay images join the layer's own panes — opacity, z-ordering and focus now cover the whole layer ([#733](https://github.com/Zeroto521/foliplus/pull/733))
-- Teardown: a failing cleanup step no longer skips the rest, so a removed control releases every listener, row, mask and handle, and a focus dismissal finishes its pane restores, mask, rectangle and renderer even when one of them throws — a surface that retired mid-focus can no longer leave the map dimmed with no way back ([#733](https://github.com/Zeroto521/foliplus/pull/733), [#736](https://github.com/Zeroto521/foliplus/pull/736))
-- `core/layer`: a destroyed surface neutralises its own handles and z state, so a late write is a no-op instead of re-acquiring a pane it already released; a pane name is recorded only when the booking succeeded, so a refused shadow pane is never written into another surface's content ([#733](https://github.com/Zeroto521/foliplus/pull/733))
-- `core/layer`: pane teardown is owner-checked and runs through one retirement path — a canvas face whose own pane booking was refused can no longer delete another surface's carrier, and a face's own pane lease is retired by that face's `destroy` rather than by its surface, which is what left the carrier on the map with every later z, focus and export write aimed at DOM that was already gone ([#733](https://github.com/Zeroto521/foliplus/pull/733))
-- `core/layer`: the child-ownership index is deleted at the `removeLayer` and `clearLayers` points, so a group that turns over its contents stays bounded by its current leaves instead of accumulating one row per leaf it ever held ([#733](https://github.com/Zeroto521/foliplus/pull/733))
+- Teardown: a failing cleanup step no longer skips the rest — a removed control releases every listener, row, mask and handle, and a focus dismissed while a layer retires still tears down its mask, rectangle and renderer instead of leaving the map dimmed ([#733](https://github.com/Zeroto521/foliplus/pull/733), [#736](https://github.com/Zeroto521/foliplus/pull/736))
+- `core/layer`: pane ownership holds end to end — every booking names its owner, a refused booking is never recorded, a destroyed surface's late write is a no-op, and teardown is owner-checked through one retirement path, so a canvas face can no longer delete another surface's carrier or leave its own on the map ([#733](https://github.com/Zeroto521/foliplus/pull/733))
+- `core/layer`: the child-ownership index is dropped at the `removeLayer` and `clearLayers` points, so a group that turns over its contents stays bounded by its live leaves instead of one row per leaf it ever held ([#733](https://github.com/Zeroto521/foliplus/pull/733))
 
 ## [v0.4.1] (2026-10-18)
 
