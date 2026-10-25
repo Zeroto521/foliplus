@@ -140,6 +140,37 @@ describe("config/eslint/base.mjs rule scoping", () => {
   });
 });
 
+// The lint config is the one file whose job is to check everything else, and it
+// silently escaped every gate until this was written: a file outside the lint
+// globs is a file no rule can reach, and nothing in the output says so.
+describe("lint config is itself linted", () => {
+  it("npm scripts cover every config file, in every gate", () => {
+    // Symmetric on purpose: a per-script hand list is how `format:check` came to
+    // cover config/ but not the root entry — the same half-covered shape the
+    // rest of this block exists to catch.
+    for (const script of ["lint", "format:check"] as const) {
+      for (const file of ["config/**/*.mjs", "eslint.config.js"]) {
+        expect(pkg.scripts[script], `${script} does not cover ${file}`).toContain(file);
+      }
+    }
+  });
+
+  it("every linted config file is claimed by a rule block", () => {
+    // Without a `files:` block a file only inherits
+    // `tseslint.configs.recommended` (23 rules); a block is what makes the
+    // project's own rules apply (60+). The check runs over every config file
+    // the lint script claims, so the next one added cannot fall back to the
+    // recommended set unnoticed.
+    const blocks = fileGlobs();
+    const claimed = (file: string) => blocks.some(globs => globs.includes(file));
+    for (const file of ["config/**/*.mjs", "eslint.config.js"]) {
+      expect(claimed(file), `${file} is linted but no files: block claims it`).toBe(
+        true,
+      );
+    }
+  });
+});
+
 // The root entry must re-export the implementation, not redefine it. Without
 // this, a future edit could put rules back in the root file and the guard
 // above would keep passing against a stale implementation file.
