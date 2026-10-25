@@ -110,9 +110,7 @@ def _duplicate_json_keys(path: Path) -> list[str]:
     """
     seen: dict[str, int] = {}
     duplicates: list[str] = []
-    for line_no, line in enumerate(
-        path.read_text(encoding="utf-8").splitlines(), 1
-    ):
+    for line_no, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
         match = re.match(r'\s*"([^"]+)"\s*:', line)
         if not match:
             continue
