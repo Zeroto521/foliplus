@@ -148,8 +148,14 @@ class TestRowTooltipVocabulary:
         assert en["LayerControl.type_color_map_short"] == "Color"
         assert zh["LayerControl.type_color_map_short"] == "纯色"
         # Two adjacent kinds must not collapse into one word.
-        assert en["LayerControl.type_tile_short"] != en["LayerControl.type_color_map_short"]
-        assert zh["LayerControl.type_tile_short"] != zh["LayerControl.type_color_map_short"]
+        assert (
+            en["LayerControl.type_tile_short"]
+            != en["LayerControl.type_color_map_short"]
+        )
+        assert (
+            zh["LayerControl.type_tile_short"]
+            != zh["LayerControl.type_color_map_short"]
+        )
         # The long label names the same thing: Tile Map / 基础底图.
         assert en["LayerControl.type_tile"] == "Tile Map"
         assert zh["LayerControl.type_tile"] == "基础底图"
