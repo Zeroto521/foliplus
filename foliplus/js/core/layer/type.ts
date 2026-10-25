@@ -62,9 +62,11 @@ interface LayerCarrier {
   custom?: unknown;
 }
 
-/** What a layer's surface can actually be asked to do, computed once at
- *  materialization by `LayerSurface` (which alone knows the panes it owns and
- *  the shape of its content — runtime probes pin each value).
+/** What a layer's surface can actually be asked to do, resolved by
+ *  `LayerSurface` (which alone knows the panes it owns and the shape of its
+ *  content). The object's identity is stable; its tree-backed slots are
+ *  re-derived on every audit, because a capability is a projection of the
+ *  current tree — not a fact frozen at registration.
  *
  *  Read-only on `LayerInfo` as a projection, never persisted: a caller-supplied
  *  `capabilities` in `RegisterLayerOpts` would let a third party claim support
@@ -82,7 +84,7 @@ interface LayerCapabilities {
    *      without a fill), Marker, canvas, MarkerCluster, and native setter
    *      surfaces (ImageOverlay / GridLayer) all fall out.
    *
-   *  Same probe-and-cache contract as `stroke`. */
+   *  Probe-derived and re-read on each audit — same contract as `stroke`. */
   fill: "native" | "none";
   /** Whether the layer's tree has a write carrier for stroke (border):
    *    - "native" — a `setStyle` leaf exists in the tree (a Path-family
@@ -92,9 +94,10 @@ interface LayerCapabilities {
    *      non-vector surface (canvas, color basemap, MarkerCluster, native
    *      ImageOverlay / GridLayer) have no vector stroke axis.
    *
-   *  Probe-derived, cached per surface. The probe result is part of
-   *  `SurfaceDeclaration`, so a change in the tree's shape triggers a
-   *  rebuild through `matches`. */
+   *  Probe-derived and re-read on each audit (`refreshCapabilities`).
+   *  Deliberately NOT part of the face identity: a tree change updates the
+   *  projection instead of rebuilding the surface, so a degraded capability
+   *  can recover on a later audit. */
   stroke: "native" | "none";
   /** Whether the layer's tree has a write carrier for size — a fixed pixel
    *  radius:
@@ -107,7 +110,8 @@ interface LayerCapabilities {
    *      Marker, canvas, MarkerCluster, the color basemap and the native
    *      setter surfaces (ImageOverlay / GridLayer) also fall out.
    *
-   *  Probe-derived, cached per surface — same contract as `stroke` / `fill`. */
+   *  Probe-derived and re-read on each audit — same contract as `stroke` /
+   *  `fill`. */
   size: "native" | "none";
   /** How the layer's opacity is written:
    *    - "native" — the layer owns its own setter (`ImageOverlay.setOpacity`,
@@ -159,7 +163,7 @@ interface LayerCapabilities {
    *  the pane itself are one fact and can never disagree — and a
    *  re-registration whose tree gained or lost labelable content re-probes
    *  there, changing the declared specs, which rebuilds the surface through
-   *  `matches` (the fill / stroke probe's path). */
+   *  `matches` — the declaration changed, not merely a capability. */
   annotation: "pane" | "none";
   /** Whether the surface can be z-reordered by our own mechanism. Today every
    *  materialized surface can; the field is declared so a later carrier that
