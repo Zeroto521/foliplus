@@ -386,6 +386,12 @@ class EventBus {
  *  the local mutation in between, then `throwIfFailed()` once at the end — so
  *  a throwing consumer cannot cut off the later events or the local commit.
  *
+ *  This is the event-bus counterpart of `#common/finalize`: a teardown runs
+ *  `finalize` (no policy — every step must run), an event fan-out uses this
+ *  class (each failure resolved by the event's declared policy). Both keep the
+ *  first failure and raise it once at the boundary; do not re-derive a third
+ *  variant.
+ *
  *  Every queued event resolves its failure by the event's declared policy:
  *  notification events (MODE_CHANGE, BEFORE_EXPORT, OVERLAY_CLEAR,
  *  CONTROL_ATTACHED) are logged and reported, never raised, even when this

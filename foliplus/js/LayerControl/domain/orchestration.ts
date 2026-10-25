@@ -27,6 +27,7 @@ import {
   zFor,
 } from "#core/layer/index.js";
 import { attributionEntries, refreshAttributions } from "#core/leafletAdapter.js";
+import { finalizeEach } from "#common/finalize.js";
 import type { AnnotationManager } from "../annotation/index.js";
 import * as CONST from "../const.js";
 import type { LayerPersistence } from "../persistence.js";
@@ -277,38 +278,17 @@ class LayerOrchestration {
    *  panes around the ladder.
    *
    *  The controller holds the re-entry guard (`isEnforcing`) and the debounce
-   *  cancellation; this pass assumes it is safe to run. */
-  enforceOrder() {
-    // Give every layer a surface and reprice its z.
-    for (let i = 0; i < this.layers.length; i++) {
-      const layerInfo = this.layers[i];
-      const layer = this.findLayer(layerInfo);
-      // Base-group layers (tile basemaps + the solid-color basemap) share
-      // the 200 ladder, so a color pane interleaves with tile basemaps
-      // row-by-row. Overlay-group layers use the 600 ladder.
-      const slot = { index: i, count: this.layers.length, group: layerInfo.group };
-      const z = zFor(slot);
-
-      // Callback-only layers (createCanvas / heatmap): no Leaflet layer, but
-      // they own a dedicated pane that must still take its place in the stack.
-      if (!layer) {
-        const surface = this.surfaceFor(layerInfo);
-        surface.materialize();
-        surface.setZ(z);
-        continue;
-      }
-
-      if (!this.map.hasLayer(layer)) continue;
-
-      const surface = this.surfaceFor(layerInfo);
-      surface.materialize();
-      // One write covers every pane the face owns — including the
-      // `role: "annotation"` label pane, a PaneHandle since the surface
-      // materialized it. The ordering pass used to spot-write that pane by
-      // name here; `writeZ` prices it through the same `zFor({ role:
-      // "annotation" })` ladder now, so the special case is gone.
-      surface.setZ(z);
-    }
+   *  cancellation; this pass assumes it is safe to run.
+   *
+   *  @returns the ids that could not be priced, in registry order — empty on a
+   *    clean pass. A throwing layer must not strand the layers above it.
+   */
+  enforceOrder(): string[] {
+    const failed = finalizeEach(
+      this.layers,
+      (layerInfo, i) => this.priceLayer(layerInfo, i),
+      layerInfo => layerInfo.id,
+    );
 
     // Data panes start at BASE (== Leaflet's markerPane 600). Popup must sit
     // above the highest data pane (topZ + 1), tooltip exactly at topZ, and
@@ -322,6 +302,40 @@ class LayerOrchestration {
     if (tooltipPaneEl) tooltipPaneEl.style.zIndex = String(topZ);
     const markerPaneEl = this.map.getPane("markerPane");
     if (markerPaneEl) markerPaneEl.style.zIndex = String(topZ - 1);
+
+    return failed.map(f => f.item.id);
+  }
+
+  /** Price one layer: resolve (or build) its surface, materialize the face and
+   *  write its slot's z. Split out so a throw is attributable to exactly one
+   *  layer. */
+  private priceLayer(layerInfo: LayerInfo, index: number): void {
+    const layer = this.findLayer(layerInfo);
+    // Base-group layers (tile basemaps + the solid-color basemap) share
+    // the 200 ladder, so a color pane interleaves with tile basemaps
+    // row-by-row. Overlay-group layers use the 600 ladder.
+    const slot = { index, count: this.layers.length, group: layerInfo.group };
+    const z = zFor(slot);
+
+    // Callback-only layers (createCanvas / heatmap): no Leaflet layer, but
+    // they own a dedicated pane that must still take its place in the stack.
+    if (!layer) {
+      const surface = this.surfaceFor(layerInfo);
+      surface.materialize();
+      surface.setZ(z);
+      return;
+    }
+
+    if (!this.map.hasLayer(layer)) return;
+
+    const surface = this.surfaceFor(layerInfo);
+    surface.materialize();
+    // One write covers every pane the face owns — including the
+    // `role: "annotation"` label pane, a PaneHandle since the surface
+    // materialized it. The ordering pass used to spot-write that pane by
+    // name here; `writeZ` prices it through the same `zFor({ role:
+    // "annotation" })` ladder now, so the special case is gone.
+    surface.setZ(z);
   }
 
   /** The domain half of {@link LayerController.registerLayer}: build or update

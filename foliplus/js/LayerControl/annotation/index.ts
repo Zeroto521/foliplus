@@ -20,7 +20,9 @@ import { NO_FEATURE_TREE_KINDS, findNode, walkLeaf } from "#core/layer/index.js"
 import { bindMapSync } from "#core/leaflet/index.js";
 import type { NumberStyle } from "#foliplus/config-schema.js";
 import { resolveCanvasLabelStyle, withLabelPaint } from "#common/canvasLabel.js";
+import { finalize } from "#common/finalize.js";
 import { NUMBER_FORMAT, formatLabelNumber } from "#common/format.js";
+import { createLogger } from "#common/log.js";
 import type { CanvasLabelStyle } from "#common/type.js";
 import * as CONST from "../const.js";
 import type { AnnotationConfig } from "../type.js";
@@ -32,6 +34,12 @@ import {
   layoutLabel,
   planLabelLayout,
 } from "./layout.js";
+
+// The component's prefix, not the folder's: `Annotation` is an internal
+// subsystem name a user never sees, and every diagnostic from a mounted
+// LayerControl should grep as `[LayerControl]` — the same rule the UI modules
+// follow through `ui.log`.
+const log = createLogger("LayerControl");
 
 /** A label a layer asked for, described by its feature rather than by pixels —
  *  the plan converts the latlng on every frame, so a pan leaves no stale
@@ -500,10 +508,25 @@ class AnnotationManager {
   }
 
   destroy(): void {
-    this.mapCleanup();
-    this.unsubscribe.forEach(off => off());
+    // Snapshot the canvases themselves, not their ids: a step that removes the
+    // last reference can let a re-entrant `ensureCanvas` mount a replacement
+    // under the same id, and an id lookup at step time would destroy that new
+    // canvas instead of the one this teardown owns.
+    const canvases = [...this.canvases];
+    finalize(
+      [
+        ["map-cleanup", () => this.mapCleanup()],
+        ...this.unsubscribe.map((off, i) => [`unsubscribe:${i}`, off] as const),
+        ...canvases.map(
+          ([id, canvas]) => [`canvas:${id}`, () => canvas.destroy()] as const,
+        ),
+      ],
+      failure => log.warn(`destroy step "${failure.name}" threw`, failure.error),
+    );
+    // Plain state resets: they cannot throw, and a failed step must not leave
+    // config for a torn-down manager readable.
     this.unsubscribe.length = 0;
-    for (const id of [...this.canvases.keys()]) this.dropCanvas(id);
+    this.canvases.clear();
     this.lastPlanned.clear();
     this.planOrigin = null;
     this.config.clear();
@@ -723,8 +746,14 @@ class AnnotationManager {
    *  face so the same id can register again without rebuilding its panes
    *  (the core `LayerSurface.destroy` contract); only the canvas is ours. */
   private dropCanvas(id: string): void {
-    this.canvases.get(id)?.destroy();
-    this.canvases.delete(id);
+    // `finally`, not `finalize`: one invariant (the entry must leave the map),
+    // and it must hold on every exit path — including the one where destroy()
+    // throws. A single reset is what finally is for.
+    try {
+      this.canvases.get(id)?.destroy();
+    } finally {
+      this.canvases.delete(id);
+    }
   }
 }
 
