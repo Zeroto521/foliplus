@@ -30,6 +30,7 @@
 - Teardown: a failing cleanup step no longer skips the rest — a removed control and a dismissed focus both finish their releases ([#733](https://github.com/Zeroto521/foliplus/pull/733), [#736](https://github.com/Zeroto521/foliplus/pull/736))
 - `core/layer`: the child-ownership index is dropped at `removeLayer` / `clearLayers`, so a group stays bounded by its live leaves ([#733](https://github.com/Zeroto521/foliplus/pull/733))
 - `ExportControl`: marker shadows are exported with their icons, measured after layout so they sit under the marker instead of at a stale offset ([#740](https://github.com/Zeroto521/foliplus/pull/740))
+- Interaction: Space/Enter keep their native meaning on buttons, links and other activation controls, so a panel's close button no longer toggles the layer checkbox ([#755](https://github.com/Zeroto521/foliplus/pull/755))
 
 ## [v0.4.1] (2026-10-18)
 
