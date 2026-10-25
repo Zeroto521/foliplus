@@ -361,7 +361,7 @@ describe("intentVisibleOf: what counts as the user's choice", () => {
   });
 });
 
-describe("the four readers agree on a half-broken record (T260)", () => {
+describe("the four readers agree on a half-broken record", () => {
   it("a VISIBLE marker without a value reads as show everywhere", () => {
     // `loadPersistedState` restores `overrides` markers wholesale but writes a
     // dimension's value only when it passes the LIVE type check, so "marker,

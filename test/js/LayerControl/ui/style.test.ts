@@ -1575,9 +1575,9 @@ describe("LayerUI style panel", () => {
     ]);
   });
 
-  // Row-rendering matrix for the two basemap faces — T190 pins the zoomRange
-  // cells. Both basemap kinds now render the zoomRange row: a real GridLayer
-  // carries it through native min/maxZoom (the honest carrier), and the
+  // Row-rendering matrix for the two basemap faces — this matrix pins the
+  // zoomRange cells. Both basemap kinds now render the zoomRange row: a real
+  // GridLayer carries it through native min/maxZoom (the honest carrier), and the
   // solid-color basemap through the isColorBasemap fallback (its surface
   // reports zoomRange: "none", but the executor's visible op is still the
   // carrier, so the row is not a lie). fill/border cells are documented for
@@ -1589,7 +1589,7 @@ describe("LayerUI style panel", () => {
   //   Color (base + pane):     fill ✓  / border ✗ / opacity ✓ (pane)   / zoomRange ✓ (isColorBasemap)
 
   it("tile basemap (GridLayer) renders the zoomRange row: native min/maxZoom is the carrier", () => {
-    // The 398 R7 `li.group !== "base"` blanket was dropped in T190: a TileLayer is a
+    // The old `li.group !== "base"` blanket was dropped: a TileLayer is a
     // GridLayer subclass whose options.minZoom/maxZoom are exactly the
     // carrier the row writes through, so refusing it was a false refusal.
     // GridLayer is required — a bare `{ options: {} } as never` also gets a
@@ -1684,7 +1684,7 @@ describe("LayerUI style panel", () => {
   // ─────────────────── ⋮ menu item ───────────────────
 
   it("the ⋮ menu's Style item is enabled for pane-capable layers even without labels", () => {
-    // R5: capability-driven gate. A layer whose surface reports opacity/zoomRange
+    // Capability-driven gate. A layer whose surface reports opacity/zoomRange
     // capability gets the panel enabled — the opacity and zoomRange sliders are
     // useful even without label fields.
     ui.runtimeStore.deleteFields("overlay1");
@@ -4056,7 +4056,7 @@ describe("LayerUI style panel — zoom range", () => {
   });
 
   it("gives the fixture's tile base layer a zoom row: the GridLayer native min/maxZoom is the carrier", () => {
-    // T190 — the old `li.group !== "base"` blanket was dropped; the fixture's base1 is
+    // The old `li.group !== "base"` blanket was dropped; the fixture's base1 is
     // a TileLayer (GridLayer subclass) whose options.minZoom/maxZoom are the
     // honest carrier, so the row now renders for it just like any overlay.
     const item = findItem(ui, "base1");
