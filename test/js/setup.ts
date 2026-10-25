@@ -5,6 +5,14 @@ import { beforeEach, vi } from "vitest";
 import { makeConfig } from "./config-fixture.js";
 import { installWindowLExtensions, resetState } from "./fixture.js";
 
+// Several suites replace `globalThis.fetch` without restoring it. Setup files
+// rerun per test file but modules do not, so under `isolate: false` the next
+// file would inherit the previous file's mock. Capture the native one once per
+// worker and reinstall it on every setup pass — the single reset point for fetch.
+const NATIVE_FETCH = Symbol.for("foliplus.test.nativeFetch");
+(globalThis as any)[NATIVE_FETCH] ??= globalThis.fetch;
+globalThis.fetch = (globalThis as any)[NATIVE_FETCH];
+
 // Spec-compliant in-memory Web Storage fallback.
 // Node.js (24.19+, and newer 24.x used by CI) exposes an experimental global
 // `localStorage` getter. Without `--localstorage-file` it yields undefined (or
