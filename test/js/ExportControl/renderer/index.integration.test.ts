@@ -141,7 +141,7 @@ describe("export panes over a real LayerController", () => {
   });
 
   it("paints the marker's shadow before its icon", async () => {
-    const { map, group, controller, loads } = mountStack();
+    const { map, group, loads } = mountStack();
     try {
       const panes = new ExportRenderer(map as any).resolveExportPanes(group);
       const shadowPane = panes.shadows[0];
@@ -161,8 +161,6 @@ describe("export panes over a real LayerController", () => {
       expect(shadowIdx).toBeGreaterThanOrEqual(0);
       expect(iconIdx).toBeGreaterThanOrEqual(0);
       expect(shadowIdx).toBeLessThan(iconIdx);
-      // The pane is claimed by the controller's PaneManager, not a stray div.
-      expect(controller.panes.childPaneSpecs.size).toBeGreaterThanOrEqual(0);
     } finally {
       map.remove();
     }
