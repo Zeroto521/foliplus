@@ -70,6 +70,14 @@ const EVENTS = {
    *  Fired after every registration path (new row, re-registration) so the
    *  row reflects the state written by the preceding applyUserState pass. */
   LAYER_ITEM_REFRESHED: "foliplus:layer:item-refreshed",
+  /** A surface's capability projection changed during an ordering pass — a
+   *  foreign leaf left a registered tree and an opacity write became honest
+   *  again, or a mixed tree degraded an axis. Id-only, like the row signals:
+   *  a subscriber reads the fresh projection from the surface. Separate from
+   *  LAYER_ITEM_REFRESHED because it is raised *inside* the ordering pass: a
+   *  throwing observer must not fail a reprice, so the policy is
+   *  notification, not terminal. */
+  LAYER_CAPABILITY_CHANGED: "foliplus:layer:capability-changed",
   /** A row left the panel through the generic teardown path (unregisterLayer)
    *  — a wider reach than LAYER_REMOVED for the UI subscribers: the fields
    *  cache, the style-dimension apply schedulers, and the group toggle-all
@@ -142,6 +150,7 @@ const EVENT_POLICY: Record<EventName, EventPolicy> = {
   [EVENTS.LAYER_ITEM_ADDED]: { kind: "terminal" },
   [EVENTS.LAYER_ITEM_UPDATED]: { kind: "terminal" },
   [EVENTS.LAYER_ITEM_REFRESHED]: { kind: "terminal" },
+  [EVENTS.LAYER_CAPABILITY_CHANGED]: { kind: "notification" },
   [EVENTS.LAYER_ITEM_REMOVED]: { kind: "terminal" },
   [EVENTS.LAYER_GROUP_COUNT_CHANGED]: { kind: "terminal" },
   [EVENTS.LAYER_LIST_REBUILD]: { kind: "terminal" },

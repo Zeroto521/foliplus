@@ -35,6 +35,23 @@ const MIGRATABLE_FAMILIES = [
   "ImageOverlay",
 ] as const;
 
+/** Why there is no `"leaf-native"` opacity tier yet.
+ *
+ *  The tempting split — markers fade through `setOpacity`, vectors through
+ *  their pane — only pays off on a `mixed` tree. But `mixed` means at least
+ *  one leaf is outside `MIGRATABLE_FAMILIES`, and that leaf is not an
+ *  `L.Marker`: no native setter can fade it, and it is not relocatable, so
+ *  no pane write reaches it either. Reporting `"leaf-native"` would
+ *  advertise coverage for the markers while silently leaving the leaf that
+ *  caused the degrade unfaded — worse than the honest `"none"`.
+ *
+ *  A Path+Marker tree is not mixed at all: both families are migratable, so
+ *  its pane opacity already covers icons and shadows. If a future carrier
+ *  makes a foreign marker-like leaf native-fadeable, the tier must first
+ *  prove that leaf sits outside every opacity-written pane (otherwise pane
+ *  CSS and `setOpacity` compound); `test/js/core/layer/carrier.test.ts`
+ *  pins that guard. */
+
 /** Whether a leaf belongs to a migratable family. A bare `L.featureGroup()`
  *  qualifies through the container family — its visible DOM is its subtree. */
 const isMigratableLeaf = (leaf: unknown): boolean =>
@@ -87,8 +104,13 @@ const visibleDomOf = (layer: L.Layer): HTMLElement[] => {
 const assertInsideOwnedPanes = (
   panes: ReadonlyArray<{ readonly element: HTMLElement }>,
   layer: L.Layer,
+  /** Pre-computed enumeration, when the caller already holds one for this
+   *  dirty cycle. `LayerSurface` passes its cached audit here so a reconcile
+   *  does not enumerate the same tree twice; the default keeps every direct
+   *  caller (and the test suite) one call. */
+  visibleDom: readonly HTMLElement[] = visibleDomOf(layer),
 ): void => {
-  const escaped = visibleDomOf(layer).filter(
+  const escaped = visibleDom.filter(
     el => !panes.some(pane => pane.element.contains(el)),
   );
   if (escaped.length) {

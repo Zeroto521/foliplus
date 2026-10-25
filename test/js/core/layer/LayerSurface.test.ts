@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { LayerSurface } from "#foliplus/core/layer/LayerSurface.js";
 import { PaneManager } from "#foliplus/core/layer/PaneManager.js";
+import * as capabilityModule from "#foliplus/core/layer/capability.js";
 import * as carrierModule from "#foliplus/core/layer/carrier.js";
 import * as CONST from "#foliplus/core/layer/const.js";
 import type { PaneSpec } from "#foliplus/core/layer/type.js";
@@ -200,6 +201,13 @@ describe("LayerSurface pane resolution", () => {
     expect(surface.paneNames).toEqual(["graph", "foliplus-annotation-a"]);
     expect(surface.panes[0].role).toBe("sub");
     expect(surface.panes[1].role).toBe("annotation");
+    // Defensive assertion, not a bug-fix regression: the pane set the
+    // constructor builds always books the declared base first, so no
+    // reachable declaration yields "panes non-empty without a content pane".
+    // The assertion pins the invariant the carrier is *stated* in (a content
+    // pane, never a role), so a future booking order that drops the content
+    // pane fails here instead of advertising an opacity write it cannot make.
+    expect(surface.capabilities.opacity).toBe("pane");
   });
 
   it("gives a canvas pane no renderer", () => {
@@ -978,10 +986,10 @@ describe("LayerSurface.matches", () => {
     ).toBe(false);
   });
 
-  it("rebuilds when the tree's radius carrier changes", () => {
-    // The size capability is baked into the declaration, so a group that later
-    // gained a pixel-radius leaf describes a different face — the surface must
-    // not keep answering "none" from its first walk.
+  it("re-derives the size capability on the next audit without rebuilding", () => {
+    // TT-2: a probe result is a projection of the current tree, not part of
+    // the face identity. A group that later gained a pixel-radius leaf keeps
+    // the same surface; the next audit answers the fresh capability.
     const { host } = makeMap();
     const layer = new Group();
     const base = {
@@ -991,19 +999,25 @@ describe("LayerSurface.matches", () => {
       paneSpecs: specs("graph", "label"),
     };
     const surface = new LayerSurface(host, base);
+    surface.materialize();
     expect(surface.capabilities.size).toBe(CONST.CAP_TIER.NONE);
     expect(surface.matches(base)).toBe(true);
 
     layer.addLayer(new CircleMarker());
-    expect(surface.matches(base)).toBe(false);
+    // Capability is not face identity: the same surface is reused ...
+    expect(surface.matches(base)).toBe(true);
+    // ... and the next dirty audit reports the fresh answer.
+    surface.markContentDirty();
+    surface.materialize();
+    expect(surface.capabilities.size).toBe(CONST.CAP_TIER.NATIVE);
 
     // And the reverse: a tree that lost its radius leaf stops claiming a
-    // capability it no longer has.
-    const sized = new LayerSurface(host, base);
-    expect(sized.capabilities.size).toBe(CONST.CAP_TIER.NATIVE);
-    expect(sized.matches(base)).toBe(true);
+    // capability it no longer has, again without a rebuild.
     layer.children = [];
-    expect(sized.matches(base)).toBe(false);
+    expect(surface.matches(base)).toBe(true);
+    surface.markContentDirty();
+    surface.materialize();
+    expect(surface.capabilities.size).toBe(CONST.CAP_TIER.NONE);
   });
 
   it("treats a changed fill as the same face — a repaint, not a rebuild", () => {
@@ -1114,6 +1128,88 @@ describe("LayerSurface.matches", () => {
     expect(withProvider.matches(base)).toBe(false);
     // Same provider shape, different ref — not a different face.
     expect(withProvider.matches({ ...base, getBounds: () => null })).toBe(true);
+  });
+});
+
+describe("LayerSurface carrier audit", () => {
+  it("answers every carrier question in one visit at construction", () => {
+    // TT-1: the constructor used to walk the tree twice — once for the
+    // declaration's migratable flag and once inside `detectCapabilities`.
+    // One visit is the floor: every answer comes from the same probe.
+    const { host } = makeMap();
+    const probeSpy = vi.spyOn(capabilityModule, "probeLayerCarrier");
+    try {
+      new LayerSurface(host, {
+        id: "one-visit",
+        layer: new Group([new Path(), new Marker()]) as unknown as L.Layer,
+      });
+      expect(probeSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      probeSpy.mockRestore();
+    }
+  });
+
+  it("reuses the carriage audit across calls with no content change", () => {
+    const { host } = makeMap();
+    const layer = new Group([new Path(), new Marker()]);
+    const surface = new LayerSurface(host, {
+      id: "audit",
+      layer: layer as unknown as L.Layer,
+    });
+    const probeSpy = vi.spyOn(capabilityModule, "probeLayerCarrier");
+    const walkSpy = vi.spyOn(carrierModule, "visibleDomOf");
+    try {
+      surface.materialize();
+      const firstProbe = probeSpy.mock.calls.length;
+      const firstWalk = walkSpy.mock.calls.length;
+      expect(firstWalk).toBeGreaterThan(0);
+
+      surface.materialize(); // same content, second
+      surface.materialize(); // same content, third
+      // Reading the answer does not re-open the walk either ...
+      void surface.capabilities.opacity;
+      void surface.capabilities.fill;
+      // ... and deciding the face is unchanged is a declaration read now,
+      // not a tree walk.
+      surface.matches({ id: "audit", layer: layer as unknown as L.Layer });
+
+      expect(probeSpy.mock.calls.length).toBe(firstProbe);
+      expect(walkSpy.mock.calls.length).toBe(firstWalk);
+    } finally {
+      probeSpy.mockRestore();
+      walkSpy.mockRestore();
+    }
+  });
+});
+
+describe("LayerSurface capability recovery", () => {
+  it("recovers the pane capability once the foreign content is gone", () => {
+    // TT-2: `capabilities` is a projection of the current tree. A foreign
+    // leaf degrades it on the spot (fail closed), and removing that leaf
+    // must let the next audit recover — not freeze the first verdict for
+    // the surface's lifetime.
+    const { host } = makeMap();
+    const layer = new Group([new Path()]);
+    const surface = new LayerSurface(host, {
+      id: "recover",
+      layer: layer as unknown as L.Layer,
+    });
+    surface.materialize();
+    expect(surface.capabilities.opacity).toBe(CONST.CAP_TIER.PANE);
+
+    const foreignEl = document.createElement("div");
+    const foreign = { options: {}, getElement: () => foreignEl };
+    layer.children.push(foreign);
+    surface.markContentDirty();
+    surface.materialize();
+    expect(surface.capabilities.opacity).toBe(CONST.CAP_TIER.NONE);
+    expect(surface.capabilities.relocatable).toBe(false);
+
+    layer.children = layer.children.filter(child => child !== foreign);
+    surface.markContentDirty();
+    surface.materialize();
+    expect(surface.capabilities.opacity).toBe(CONST.CAP_TIER.PANE);
+    expect(surface.capabilities.relocatable).toBe(true);
   });
 });
 
@@ -1261,6 +1357,28 @@ describe("LayerSurface.destroy", () => {
     expect(acquires).not.toHaveBeenCalled();
     expect(panes[base].style.zIndex).toBe("640");
     expect(panes[`${base}-shadow`].style.zIndex).toBe("639");
+  });
+
+  it("ignores a late content mark after destroy", () => {
+    // Teardown can fire map events after the leases are gone. A retired
+    // surface must not resurrect a dirty cycle (or walk a tree it no longer
+    // owns) just because something still holds its reference.
+    const { host } = makeMap();
+    const surface = new LayerSurface(host, {
+      id: "retired",
+      layer: new Group([new Path()]) as unknown as L.Layer,
+    });
+    surface.materialize();
+    surface.destroy();
+
+    expect(surface.retired).toBe(true);
+    surface.markContentDirty();
+    expect(surface.contentDirty).toBe(false);
+    expect(() => {
+      surface.invalidate();
+      surface.materialize();
+    }).not.toThrow();
+    expect(surface.panes).toHaveLength(0);
   });
 });
 
