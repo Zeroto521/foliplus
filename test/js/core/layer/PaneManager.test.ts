@@ -143,7 +143,7 @@ describe("PaneManager", () => {
       createPane: vi.fn(),
     };
     const pm = new PaneManager(map);
-    const result = pm.ensurePane("foliplus-measure-graph", false);
+    const result = pm.ensurePane("foliplus-measure-graph", false, "measure");
     expect(map.createPane).not.toHaveBeenCalled();
     expect(result.pane).toBe(existingPane);
     expect(result.renderer).toBeNull();
@@ -156,7 +156,7 @@ describe("PaneManager", () => {
       createPane: vi.fn(() => newPane),
     };
     const pm = new PaneManager(map);
-    pm.ensurePane("foliplus-measure-graph", false);
+    pm.ensurePane("foliplus-measure-graph", false, "measure");
     expect(map.createPane).toHaveBeenCalledWith("foliplus-measure-graph");
     expect(newPane.classList.contains("foliplus-layer-pane")).toBe(true);
   });
@@ -176,9 +176,9 @@ describe("PaneManager", () => {
     const pm = new PaneManager(map);
     pm.registerPaneSpecs(specs("graph", "node", "label"));
 
-    pm.ensurePane("label", false);
-    pm.ensurePane("node", false);
-    pm.ensurePane("graph", false);
+    pm.ensurePane("label", false, "t");
+    pm.ensurePane("node", false, "t");
+    pm.ensurePane("graph", false, "t");
 
     const base = CONST.Z_INDEX.BASE;
     const declared = specs("graph", "node", "label");
@@ -188,7 +188,7 @@ describe("PaneManager", () => {
 
     // Simulate the ordering pass overwriting with a higher position-based base.
     panes["label"]!.style.zIndex = "622";
-    pm.ensurePane("label", false);
+    pm.ensurePane("label", false, "t");
     expect(panes["label"]!.style.zIndex).toBe("622");
   });
 
@@ -199,7 +199,7 @@ describe("PaneManager", () => {
       createPane: vi.fn(),
     };
     const pm = new PaneManager(map);
-    const result = pm.ensurePane("foliplus-measure-graph", true);
+    const result = pm.ensurePane("foliplus-measure-graph", true, "measure");
     expect(window.L.svg).toHaveBeenCalledWith({ pane: "foliplus-measure-graph" });
     expect(result.renderer).toBeDefined();
   });
@@ -211,7 +211,7 @@ describe("PaneManager", () => {
       createPane: vi.fn(),
     };
     const pm = new PaneManager(map);
-    const result = pm.ensurePane("foliplus-canvas-heat", false);
+    const result = pm.ensurePane("foliplus-canvas-heat", false, "heat");
     expect(window.L.svg).not.toHaveBeenCalled();
     expect(result.renderer).toBeNull();
   });
@@ -225,7 +225,7 @@ describe("PaneManager", () => {
       _paneRenderers: { "foliplus-measure-graph": renderer },
     };
     const pm = new PaneManager(map);
-    const result = pm.ensurePane("foliplus-measure-graph", true);
+    const result = pm.ensurePane("foliplus-measure-graph", true, "measure");
     expect(window.L.svg).not.toHaveBeenCalled();
     expect(result.renderer).toBe(renderer);
   });
@@ -241,7 +241,7 @@ describe("PaneManager", () => {
       _paneRenderers: {} as Record<string, unknown>,
     };
     const pm = new PaneManager(map);
-    const result = pm.ensurePane("foliplus-measure-graph", true);
+    const result = pm.ensurePane("foliplus-measure-graph", true, "measure");
     expect(map._paneRenderers["foliplus-measure-graph"]).toBe(result.renderer);
   });
 
@@ -296,6 +296,25 @@ describe("PaneManager", () => {
     const pm = new PaneManager(map);
     expect(() => pm.sweepChildPanes([{ paneSpecs: specs("phantom") }])).not.toThrow();
     expect(pm.childPaneSpecs.size).toBe(0);
+  });
+
+  it("forgetAllChildOwnership leaves rows recorded against another parent", () => {
+    // The clearLayers delete point walks the index and drops only this
+    // parent's rows: a child of a different group must keep its attribution,
+    // or the next add to that group loses its O(1) claim and pays a
+    // membership scan instead.
+    const pm = new PaneManager(makeMap({}));
+    const parentA = { options: {} };
+    const parentB = { options: {} };
+    const childA = { options: {} };
+    const childB = { options: {} };
+    pm.rememberChildOwnership(childA as never, parentA as never);
+    pm.rememberChildOwnership(childB as never, parentB as never);
+
+    pm.forgetAllChildOwnership(parentA as never);
+
+    expect(pm.childOwnerOf(childA as never)).toBeUndefined();
+    expect(pm.childOwnerOf(childB as never)).toBe(window.L.stamp(parentB as never));
   });
 
   it("registerPaneSpecs is idempotent", () => {
@@ -618,7 +637,7 @@ describe("PaneManager", () => {
     const pm = new PaneManager(map);
     // Ensure the renderer is cached before we call ensureVector, so we
     // exercise the pin path (not the create path).
-    pm.ensurePane("p", true);
+    pm.ensurePane("p", true, "t");
     const layer = { options: {} as Record<string, unknown> } as unknown as L.Path;
     const pinned = pm.ensureVector(layer, "p");
     expect(pinned).toBeDefined();
@@ -732,20 +751,17 @@ describe("PaneManager", () => {
     expect(map.removeLayer).not.toHaveBeenCalled();
   });
 
-  it("books a pane with no explicit owner under the pane name itself", () => {
-    // The default that makes a fixed owner constant necessary: a caller
-    // that omits `owner` books under the name, so the caller has to be
-    // able to repeat that same name. A pane owned by nobody must still
-    // name somebody.
-    const map = makeMap({});
-    const pm = new PaneManager(map);
-    pm.ensurePane("focus-pane", false);
-    expect(pm.canAcquirePane("focus-pane", "focus-pane")).toBe(true);
-    expect(pm.canAcquirePane("focus-pane", "someone-else")).toBe(false);
-    // Releasing under the name the manager recorded works, and frees the
-    // name for whoever books it next.
-    pm.releasePane("focus-pane", "focus-pane", false);
-    expect(pm.canAcquirePane("focus-pane", "focus-pane")).toBe(true);
+  it("types `owner` as required, so a pane is never booked under its own name", () => {
+    // No runtime assertion: this is a compile-time contract. `ensurePane` no
+    // longer takes an optional owner, so omitting it is a type error instead
+    // of a silent fall-back to the pane name — the "name is ownership" shape
+    // B2 closed. `@ts-expect-error` fails `tsc` if the parameter ever loosens
+    // back to `owner?`, which is exactly what this guards.
+    const checkOwnerIsRequired = (pm: PaneManager): void => {
+      // @ts-expect-error — `owner` is required.
+      pm.ensurePane("focus-pane");
+    };
+    expect(typeof checkOwnerIsRequired).toBe("function");
   });
 
   it("releasePane drops the record of a renderer that is already off the map", () => {
@@ -1215,7 +1231,7 @@ describe("PaneManager", () => {
     pm.ensurePane("foliplus-pane-7", false, "surface-a");
     expect(pm.canAcquirePane("foliplus-pane-7", "surface-a")).toBe(true);
     expect(pm.canAcquirePane("foliplus-pane-7", "surface-b")).toBe(false);
-    expect(pm.canAcquirePane("foliplus-pane-7")).toBe(false);
+    expect(pm.canAcquirePane("foliplus-pane-7", "foliplus-pane-7")).toBe(false);
   });
 
   it("ensurePane refuses acquire from a second surface and returns null", () => {
@@ -1426,6 +1442,29 @@ describe("PaneManager", () => {
     expect(() =>
       pm.pinLateShadows({ options: {} } as never, "gone-shadow", "graph"),
     ).not.toThrow();
+  });
+
+  it("pinLateShadows skips a leased shadow pane whose element left the map", () => {
+    // The lease can outlive the element (a pane removed underneath us). The
+    // move must not guess a destination: it returns like the missing-name
+    // case, and leaves `options.shadowPane` unwritten.
+    const panes: Record<string, HTMLElement> = {};
+    const pm = new PaneManager(makeMap(panes));
+    pm.ensurePane("foliplus-graph-shadow", false, "graph");
+    const marker = {
+      getElement: () => null,
+      _shadow: document.createElement("img"),
+      options: {} as Record<string, unknown>,
+    };
+    Object.setPrototypeOf(marker, new window.L.Marker());
+    // Keep the lease, drop the element: `getPane` now answers null while
+    // `leasedBy` still confirms the booking.
+    delete panes["foliplus-graph-shadow"];
+
+    expect(() =>
+      pm.pinLateShadows(marker as never, "foliplus-graph-shadow", "graph"),
+    ).not.toThrow();
+    expect(marker.options.shadowPane).toBeUndefined();
   });
 
   it("pinLateShadows refuses a shadow pane another surface holds the lease on", () => {

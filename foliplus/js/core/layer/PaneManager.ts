@@ -53,9 +53,12 @@ type PathWithPane = L.Path & { options: L.PathOptions & { pane?: string } };
  *                     `sweepChildPanes` (a spec no registered layer uses) and
  *                     `destroy`. Bounded by the panes this map declared.
  *    `paneLeases`     written by `ensurePane`; deleted by `releasePane` and
- *                     `destroy`. Bounded by live surfaces'
- *                     bookings — a surface that never retires its panes leaves
- *                     a row here until `destroy`.
+ *                     `destroy`. Bounded by live surfaces' bookings, plus one
+ *                     constant row per `PANE_OWNER`: a focus pane belongs to
+ *                     no surface, has nothing to outlive it, and is never
+ *                     released — that row lives with the map. A surface that
+ *                     never retires its panes leaves a row here until
+ *                     `destroy`.
  *    `discoveryCache` written by `discoverChildPanes`; generation-gated on
  *                     read, capped at `CACHE.PANE_DISCOVERY_ENTRIES`, cleared
  *                     by `destroy`. Bounded by the cap, not by layer count.
@@ -189,27 +192,36 @@ class PaneManager {
   private readonly paneLeases = new Map<string, { owner: string; created: boolean }>();
 
   /** Ensure a custom pane exists on the map.
+   *
    *  @param {string} paneName - Pane name.
-   *  @param {boolean} [needRenderer=true] - Whether to build an SVG renderer
-   *    for it. False for canvas panes and for sub-panes, whose renderer the
-   *    content that routes into them creates (`ensureVector`). */
+   *  @param {boolean} needRenderer - Whether to build an SVG renderer for it.
+   *    False for canvas panes and for sub-panes, whose renderer the content
+   *    that routes into them creates (`ensureVector`).
+   *  @param {string} owner - The claiming surface's id, or a `PANE_OWNER`
+   *    constant for a pane no surface owns. **Required**, and the point of
+   *    the whole lease model: a pane name is not ownership, so the old
+   *    `owner ?? paneName` fallback let a caller book a pane under a name it
+   *    did not own — the exact "name is ownership" bug B2 closed. The
+   *    compiler is the gate, not a convention, so this stays required.
+   *
+   *    `needRenderer` lost its `= true` default for that: TypeScript forbids a
+   *    required parameter after a defaulted one, and keeping the owner at the
+   *    call site is worth more than the defaulted boolean. Every call site
+   *    already passed it explicitly. */
   ensurePane(
     paneName: string,
-    needRenderer = true,
-    /** The claiming surface's id. Recorded so `isPaneClaimed` can let a
-     *  surface re-check its own pane without reading it as a collision. */
-    owner?: string,
+    needRenderer: boolean,
+    owner: string,
   ): { pane: HTMLElement | null; renderer: L.SVG | null } {
-    const self = owner ?? paneName;
     const held = this.paneLeases.get(paneName);
     // Admission happens here, before any DOM or bookkeeping change: a pane
     // another surface holds, or a pre-built pane that already paints foreign
     // content, is not acquireable — the caller degrades instead of
     // co-writing (or restyling) someone else's carrier.
-    if (held && held.owner !== self) {
+    if (held && held.owner !== owner) {
       log.warn(
         `pane "${paneName}" is held by surface ${held.owner}; refusing ` +
-          `acquire from ${self}`,
+          `acquire from ${owner}`,
       );
       return { pane: null, renderer: null };
     }
@@ -223,7 +235,7 @@ class PaneManager {
         // declared pane, children included, not a foreign takeover.)
         log.warn(
           `pane "${paneName}" already carries foreign content; refusing ` +
-            `adoption from ${self}`,
+            `adoption from ${owner}`,
         );
         return { pane: null, renderer: null };
       }
@@ -239,7 +251,7 @@ class PaneManager {
       if (spec) {
         pane.style.zIndex = String(zFor({ role: spec.role, order: spec.order }));
       }
-      this.paneLeases.set(paneName, { owner: self, created: true });
+      this.paneLeases.set(paneName, { owner, created: true });
     } else {
       // Provenance is the lease's, not the element's: `held` is only present
       // for this same owner, and its `created` flag was set by the call that
@@ -254,7 +266,7 @@ class PaneManager {
         // clickable) in focus mode.
         pane.classList.add("foliplus-layer-pane");
       }
-      this.paneLeases.set(paneName, { owner: self, created });
+      this.paneLeases.set(paneName, { owner, created });
     }
     return {
       pane,
@@ -270,12 +282,16 @@ class PaneManager {
    *  painting foreign content, is refused — the caller degrades to its own
    *  synthesized pane instead of co-writing (or restyling) someone else's
    *  carrier. Callers use this at the declaration edge, where the degrade is
-   *  still a constructor-time decision. */
-  canAcquirePane(paneName: string, selfId?: string): boolean {
+   *  still a constructor-time decision.
+   *
+   *  `selfId` is required for `ensurePane`'s reason: defaulting it to the
+   *  pane name made "the name is mine" the answer for any caller that
+   *  forgot it. A caller that genuinely means "the pane name is my id"
+   *  can say so. */
+  canAcquirePane(paneName: string, selfId: string): boolean {
     if (this.defaultPanes.has(paneName)) return false;
-    const self = selfId ?? paneName;
     const held = this.paneLeases.get(paneName);
-    if (held) return held.owner === self;
+    if (held) return held.owner === selfId;
     const existing = this.map.getPane(paneName);
     if (!existing) return true;
     // A pane foliplus already stamped is its own — the unregister/re-register
@@ -404,7 +420,10 @@ class PaneManager {
           return;
         }
         l.options.pane = paneName;
-        if (l instanceof L.Path) l.options.renderer = renderer ?? undefined;
+        // `container` was read off `renderer._container` (see the guard
+        // above), so the renderer is non-null here — the `renderer ??
+        // undefined` this replaces was a branch no test could reach.
+        if (l instanceof L.Path) l.options.renderer = renderer as L.SVG;
         const pathEl = l instanceof L.Path ? (l.getElement() as HTMLElement) : null;
         if (pathEl && pathEl.parentNode !== container) {
           groups.get(container)!.push(pathEl);
@@ -485,8 +504,10 @@ class PaneManager {
       for (const p of paths) frag.appendChild(p);
       container.appendChild(frag);
     }
+    // No empty-array guard here, unlike the `groups` loop above: every
+    // `markerGroups` entry is created together with its first element, so
+    // the array is never empty. A guard would be a branch no test can reach.
     for (const [paneEl, markers] of markerGroups) {
-      if (!markers.length) continue;
       const frag = document.createDocumentFragment();
       for (const m of markers) frag.appendChild(m);
       paneEl.appendChild(frag);
