@@ -1666,7 +1666,7 @@ describe("AnnotationManager — a map whose mapPane is absent", () => {
 
   it("falls back to a full refresh when a pan runs without a mapPane", async () => {
     const { map } = makeMap();
-    let pos = { x: 0, y: 0 };
+    const pos = { x: 0, y: 0 };
     panePos(() => pos);
     const proj = vi.spyOn(map, "latLngToContainerPoint");
     const mgr = new AnnotationManager({ map, layerFind: () => oneLabel() });
