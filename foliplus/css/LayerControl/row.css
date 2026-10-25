@@ -412,6 +412,7 @@
        cause .foliplus-active rows (checked layers) to flash on each rebuild. */
 
     .foliplus-layer-label {
+      min-width: 0;
       cursor: inherit;
       white-space: nowrap;
       overflow: hidden;
@@ -420,13 +421,17 @@
       font-weight: var(--foliplus-font-weight-normal);
     }
     /* ── Feature count column ──
-      Right-aligned. Unfiltered: formatNumber("auto") compacts values >= 1000
-      (12K, 1.2万). Filtered: the exact kept count (2,500) and a 12px funnel
-      prefix, in accent — the 48px track reserves both and never degrades to
-      an ellipsis dot. Muted gray while unfiltered: the count is annotation,
-      not a control, so it stays out of the hover/active color dance; the
-      accent is earned by the ROW FILTER, which is a live state. */
+      Right-aligned. The value is ALWAYS the compact form
+      (formatNumber("auto"): 137, 6K, 2.5K, 1.2万) so the min/max track
+      never widens for a full number. Filtered adds the funnel glyph; the
+      count stays ordinary annotation text and only the glyph is accent.
+      inline-flex + self-center keeps it on the label/icon/more centre line. */
     .foliplus-layer-count {
+      display: inline-flex;
+      align-items: center;
+      justify-content: flex-end;
+      align-self: center;
+      gap: var(--foliplus-space-xs);
       font-variant-numeric: tabular-nums;
       font-size: var(--foliplus-font-size-xs);
       color: var(--foliplus-text-muted);
@@ -438,28 +443,22 @@
       padding: 0 0 0 var(--foliplus-space-xs);
 
       &.foliplus-layer-count-filtered {
-        display: inline-flex;
-        align-items: center;
-        justify-content: flex-end;
-        gap: var(--foliplus-size-2);
-        color: var(--foliplus-accent-primary);
-        /* Exact counts beat compaction here; the 48px track is sized for it,
-           so the dot guard above must not fire on a filtered count. */
-        text-overflow: clip;
+        /* The count is still annotation text; only the funnel is accent. */
+        color: var(--foliplus-text-muted);
       }
-      /* The funnel glyph: 12px before the number, accent inherited, and
-         never a layout participant (the count stays right-aligned). */
+      /* The funnel glyph before a filtered count; the token keeps the
+         count column and the glyph from drifting apart. */
       .foliplus-layer-count-funnel {
         display: inline-flex;
-        flex: 0 0 12px;
-        width: 12px;
-        height: 12px;
+        flex: 0 0 var(--foliplus-filter-funnel-size);
+        width: var(--foliplus-filter-funnel-size);
+        height: var(--foliplus-filter-funnel-size);
         color: var(--foliplus-accent-primary);
 
         svg {
           display: block;
-          width: 12px;
-          height: 12px;
+          width: var(--foliplus-filter-funnel-size);
+          height: var(--foliplus-filter-funnel-size);
         }
       }
     }

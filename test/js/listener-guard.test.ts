@@ -136,10 +136,10 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
   },
   {
     f: "LayerControl/ui/lifecycle.ts",
-    n: 12,
+    n: 13,
     pairedOff: 0,
     reason:
-      "layer list / drag / reorder / more-menu bindings — pending migration to `this.on`",
+      "layer list / drag / reorder / more-menu bindings plus the delegated pointerover tooltip listener that measures label overflow — pending migration to `this.on`",
   },
   {
     f: "LayerControl/ui/overlayPanel/menu.ts",

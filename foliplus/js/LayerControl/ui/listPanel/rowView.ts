@@ -21,7 +21,6 @@ import * as Icons from "#common/icon.js";
 import { INTENT, getIntent } from "../intent.js";
 import { inZoomRange, intentVisibleOf, projectLayer } from "../projection.js";
 import type { LayerUI } from "../surface.js";
-import { filterRowStateOf } from "./filterRowState.js";
 
 /** One layer's inputs to the row visual. Nothing here is written back. */
 interface RowCell {
@@ -166,33 +165,26 @@ const buildRowCell = (ui: LayerUI, layerInfo: LayerInfo): RowCell => {
   // Layer label. `type.key` is dynamic, so the short keys are listed in the
   // locale guard's dynamic supplement (test/python/test_locale.py).
   const titleTypeLabel = ui.T(`${type.key}_short`);
-  // The filtered fact is projected from the owner through the row cache, so
-  // the funnel can sit on the data row while the capability lives on another
-  // row (the Heatmap canvas). The exact kept count (not the compact form) is
-  // the row's number while a filter is active: the tooltip is a report of the
-  // filter, so "2,500" beats "2.5K". No owner ⇒ no filter decoration.
-  const filterState = filterRowStateOf(layerInfo.id);
-  const filtered = Boolean(filterState);
-  const rawCount = filterState ? filterState.kept : ui.c.getFeatureCount(layerInfo.id);
+  // The filter belongs to the row whose capability declares it: the funnel
+  // and count report that owner's own unit (Heatmap = hex cells, a point
+  // layer = features). The column stays compact ("2.5K"); the hover title is
+  // the full report ("2,500 / 6,000 filtered · 点"), never the layer name.
+  const filterModel =
+    typeof layerInfo.filterProvider === "function" ? layerInfo.filterProvider() : null;
+  const filtered = Boolean(filterModel?.filter);
+  const rawCount = filtered ? filterModel!.kept : ui.c.getFeatureCount(layerInfo.id);
   const countText =
-    rawCount != null
-      ? formatNumber(
-          rawCount,
-          filtered ? "comma" : "auto",
-          ui.config.locale_code,
-          filtered ? 0 : undefined,
-        )
-      : "";
+    rawCount != null ? formatNumber(rawCount, "auto", ui.config.locale_code) : "";
   const filterTitle = filtered
     ? ui
         .T("filter_row_title")
         .replace(
           "{kept}",
-          formatNumber(filterState!.kept, "comma", ui.config.locale_code, 0),
+          formatNumber(filterModel!.kept, "comma", ui.config.locale_code, 0),
         )
         .replace(
           "{total}",
-          formatNumber(filterState!.total, "comma", ui.config.locale_code, 0),
+          formatNumber(filterModel!.total, "comma", ui.config.locale_code, 0),
         )
         .replace("{type}", titleTypeLabel)
     : "";
@@ -244,7 +236,7 @@ const applyRowView = (ui: LayerUI, item: HTMLElement, cell: RowCell): void => {
   if (countCol) {
     countCol.classList.toggle(CONST.CLASSES.COUNT_FILTERED, view.filtered);
     if (view.filtered) {
-      // Funnel first, then the exact kept count. innerHTML is the funnel's
+      // Funnel first, then the compact kept count. innerHTML is the funnel's
       // own module SVG (never a caller string), same as the type column.
       countCol.innerHTML =
         `<span class="${CONST.CLASSES.COUNT_FUNNEL}" aria-hidden="true">` +
@@ -261,6 +253,21 @@ const applyRowView = (ui: LayerUI, item: HTMLElement, cell: RowCell): void => {
   if (view.typeSvg) {
     const typeCol = item.querySelector<HTMLElement>(`.${CONST.CLASSES.TYPE_ICON_COL}`);
     if (typeCol) typeCol.innerHTML = view.typeSvg;
+  }
+  // The label owns its own overflow tooltip: the full name appears only when
+  // the text is actually clipped (a resident title on every row would repeat
+  // the row tooltip and lengthen it for no gain).
+  const label = item.querySelector<HTMLElement>(`.${CONST.CLASSES.LAYER_LABEL}`);
+  if (label) {
+    const syncLabelTitle = () => {
+      label.title = label.scrollWidth > label.clientWidth ? cell.name : "";
+    };
+    syncLabelTitle();
+    // A row is often painted before it is inserted, so the first measurement
+    // cannot see the clip; re-measure once it has a layout box.
+    if (!label.isConnected && typeof requestAnimationFrame === "function") {
+      requestAnimationFrame(syncLabelTitle);
+    }
   }
   // Persist the type label so a count-only refresh can rebuild the tooltip
   // without re-running type detection.

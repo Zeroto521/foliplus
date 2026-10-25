@@ -445,16 +445,30 @@ describe("pickFilterField / buildFilterModel", () => {
   });
 
   it("returns null for no filterable data", () => {
-    expect(buildFilterModel(null, undefined, "s", "", null)).toBeNull();
+    expect(buildFilterModel(null, undefined, "", null)).toBeNull();
     expect(
       buildFilterModel(
         { points: [], numericFields: [], ranges: {} },
         undefined,
-        "s",
         "",
         null,
       ),
     ).toBeNull();
+  });
+
+  it("uses owner-provided counts when the unit is not a snapshot point", () => {
+    const countsFilter = {
+      kind: "atom" as const,
+      field: "a",
+      op: "between" as const,
+      range: [1, 1] as [number, number],
+    };
+    expect(
+      buildFilterModel(snap, countsFilter, "a", null, { kept: 7, total: 137 }),
+    ).toMatchObject({
+      kept: 7,
+      total: 137,
+    });
   });
 
   it("falls back to [0, 0] when the resolved field has no extent", () => {
@@ -463,9 +477,7 @@ describe("pickFilterField / buildFilterModel", () => {
       numericFields: ["a"],
       ranges: {},
     };
-    expect(buildFilterModel(noExtent, undefined, "s", "a", null)!.range).toEqual([
-      0, 0,
-    ]);
+    expect(buildFilterModel(noExtent, undefined, "a", null)!.range).toEqual([0, 0]);
   });
 
   it("composes the panel model from the snapshot", () => {
@@ -475,8 +487,7 @@ describe("pickFilterField / buildFilterModel", () => {
       op: "between" as const,
       range: [1, 1] as [number, number],
     };
-    expect(buildFilterModel(snap, filter, "src", "a", null)).toEqual({
-      sourceId: "src",
+    expect(buildFilterModel(snap, filter, "a", null)).toEqual({
       field: "a",
       range: [1, 1],
       filter,

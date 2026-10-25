@@ -277,18 +277,18 @@ class TestLayerControlRendering:
         css = read_css("foliplus/css/LayerControl/index.css")
         assert "grid-area: drag" in css
 
-    def test_count_column_reserves_funnel_and_5_chars(self):
-        """Count column is 48px: a 12px filter funnel + up to ~5 tabular-nums
-        characters ("2,500"). The old 38px track fit 5 compact characters
-        (12K/1.2万) but could not hold a funnel without ellipsis, so the extra
-        10px is the funnel reservation, not a wider text cap."""
+    def test_count_column_min_max_and_funnel_token(self):
+        """The count column is a min/max track: the funnel token plus the
+        widest compact value ("2.5K", "1.2万") must fit at the max width, and
+        the min keeps a short value from collapsing the column. The value is
+        always compact (formatNumber("auto")), never a full number."""
         css = read_css("foliplus/css/LayerControl/index.css")
-        # The row rules document the wider track (and the funnel reservation).
-        assert "48px" in css
+        assert "var(--foliplus-filter-funnel-size)" in css
         token_css = read_css("foliplus/css/common/token.css")
-        # The 5-character cap semantics are unchanged: filtered counts use the
-        # exact "2,500" form, unfiltered counts stay formatNumber("auto").
+        assert "--foliplus-filter-funnel-size: 12px" in token_css
+        assert "--foliplus-count-track-min-width:" in token_css
         assert "--foliplus-count-track-width: 48px" in token_css
+        assert "minmax(var(--foliplus-count-track-min-width)" in token_css
 
     def test_type_icon_col_size_anchored_to_checkbox(self):
         """type-icon-col is 16px (space-xl) to anchor to the checkbox square."""
@@ -317,6 +317,7 @@ class TestLayerControlRendering:
         track = token_css[idx : token_css.index(";", idx)]
         assert "var(--foliplus-more-btn-width)" in track
         assert "var(--foliplus-count-track-width)" in track
+        assert "minmax(var(--foliplus-count-track-min-width)" in track
         # more-btn width uses the named var, not icon-size-xs
         blks = [
             layer_css[i : layer_css.index("}", i) + 1]
@@ -573,19 +574,35 @@ class TestLayerControlRendering:
         token_css = read_css("foliplus/css/common/token.css")
         layer_css = read_css("foliplus/css/LayerControl/index.css")
         # The shared track defines exactly 6 columns:
-        #   drag(16) check(16) label(1fr) count(38) icon(16) more(7)
+        #   drag(16) check(16) label(1fr) count(min/max) icon(16) more(7)
         idx = token_css.find("--foliplus-grid-layer-cols:")
         assert idx != -1
         track = token_css[idx : token_css.index(";", idx)]
-        # Count the track's space tokens — each column is one term separated
-        # by whitespace; the track is built from 6 named/space tokens.
-        col_terms = [
-            t.rstrip(":;")
-            for t in track.split()
-            if t.rstrip(":;") not in ("", "--foliplus-grid-layer-cols")
-        ]
+        # Count the track's top-level terms only: minmax(min, max) is ONE
+        # column even though it contains a comma and a space.
+        body = track.split(":", 1)[1]
+        col_terms: list[str] = []
+        depth = 0
+        current = ""
+        for ch in body:
+            if ch == "(":
+                depth += 1
+            elif ch == ")":
+                depth -= 1
+            if ch.isspace() and depth == 0:
+                if current:
+                    col_terms.append(current)
+                    current = ""
+                continue
+            current += ch
+        if current:
+            col_terms.append(current)
         assert len(col_terms) == 6, (
             f"expected 6-col track, got {len(col_terms)}: {col_terms}"
+        )
+        # The 4th column is the bounded count track, not a single fixed width.
+        assert "minmax(" in col_terms[3] and "count-track" in col_terms[3], (
+            f"count column must be a bounded minmax track, got {col_terms[3]!r}"
         )
         # Divider rule must sit in the toggle-all container (so 4 / -1 is
         # evaluated against the same 6-col track).

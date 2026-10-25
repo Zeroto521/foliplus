@@ -62,8 +62,8 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
       : ui.T("focus_layer_tooltip");
 
   // Filter leads when the row declares the capability. Unsupported rows get
-  // NO entry: a permanently disabled control is noise, and stage 3 extends the
-  // capability set without changing this rule.
+  // NO entry: a permanently disabled control is noise; a new capability only
+  // adds its own gate without changing this rule.
   const filterSupported = layerSupportsFilter(ui, layerId);
   if (filterSupported) {
     menu.appendChild(
@@ -268,7 +268,7 @@ const isComponentLayer = (ui: LayerUI, layerId: string): boolean => {
   return Boolean(ui.c.layerRegistry.get(layerId)?.styleSetters);
 };
 
-/** Stage-2 pilot gate for the ⋮ filter entry. A row is filterable only
+/** Gate for the ⋮ filter entry. A row is filterable only
  *  when it declares the explicit filter capability (`filterProvider` +
  *  `filterSetter` — the component that owns the row's data, HeatmapControl
  *  today). Never inferred from `styleSetters`: MeasureControl declares

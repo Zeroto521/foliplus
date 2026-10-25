@@ -95,12 +95,6 @@ const select = (
  *  of the filter state exists. The panel is a view over this model —
  *  it never touches the owner's internal maps or caches. */
 interface LayerFilterModel {
-  /** The row whose records the filter narrows — the owner's underlying
-   *  data layer, when it is not the capability row itself (HeatmapControl
-   *  filters its source point layer, not its own canvas row). The row
-   *  projection reads this to paint the funnel on the data row; absent means
-   *  the capability row is the data row. */
-  sourceId?: string;
   /** The numeric field the filter evaluates. The owner picks the
    *  default field (first numeric key of the snapshot today); the panel
    *  renders it read-only. */
@@ -111,9 +105,10 @@ interface LayerFilterModel {
    *  A filter whose range equals the full extent is reported as
    *  undefined: "no filter" and "full range" are the same state. */
   filter?: LayerFilter;
-  /** Points passing the committed filter. */
+  /** Units passing the committed filter, in the OWNER's unit — the
+   *  Heatmap reports hex cells, a point layer its features. */
   kept: number;
-  /** Points total. */
+  /** Units without the filter, in the same owner unit. */
   total: number;
   /** Slider step derived from the data's own precision — never a magic 1. */
   step: number;
@@ -264,24 +259,27 @@ const pickFilterField = (
 
 /** Everything the filter panel renders, derived from the owner's state.
  *  The panel is a view over this model — it never reads the owner's maps.
- *  Null means "no filterable data" (no snapshot, or no numeric field). */
+ *  Null means "no filterable data" (no snapshot, or no numeric field).
+ *
+ *  `counts` lets an owner whose unit is not a snapshot point (the Heatmap
+ *  counts hex cells) report its own kept/total; absent, the snapshot point
+ *  count is used (a plain point layer filters its own features). */
 const buildFilterModel = (
   snapshot: LayerSnapshot | null,
   filter: LayerFilter,
-  sourceId: string | undefined,
   preferredField: string,
   autoFieldKey: string | null,
+  counts?: { kept: number; total: number },
 ): LayerFilterModel | null => {
   if (!snapshot || snapshot.numericFields.length === 0) return null;
   const field = pickFilterField(snapshot, preferredField, autoFieldKey);
   const range = snapshot.ranges[field] ?? [0, 0];
   return {
-    sourceId,
     field,
     range,
     filter,
-    kept: select(snapshot, filter).length,
-    total: snapshot.points.length,
+    kept: counts?.kept ?? select(snapshot, filter).length,
+    total: counts?.total ?? snapshot.points.length,
     step: filterStep(range),
   };
 };

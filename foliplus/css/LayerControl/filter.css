@@ -1,6 +1,6 @@
 .foliplus-layer-ctrl {
   /* ── Filter panel ──
-     Stage-2 pilot: field / range / result form rows plus a Clear footer.
+     Field / range / result form rows plus a Clear footer.
      Geometry is the SHARED form vocabulary, not a local copy: the row grid
      (88px right-aligned label + one flexible control cell) and every row's
      horizontal inset come from common/form.css + common/panel.css, exactly

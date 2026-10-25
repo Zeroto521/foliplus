@@ -1,12 +1,12 @@
-// LayerControl UI — Layer filter panel (stage 2 pilot).
+// LayerControl UI — Layer filter panel.
 //
-// Opens from the ⋮ menu on a layer row that declares the filter capability
-// (`filterProvider` + `filterSetter` — HeatmapControl today). The panel is
-// a pure view over the owner's `LayerFilterModel`: it renders the field, a
-// dual-thumb range slider and a live "kept / total" readout, and writes
-// through `filterSetter`. The owner (the component that owns the row's
-// data) validates, clamps, re-renders and publishes LAYER_FILTER_CHANGE —
-// the panel holds no filter state of its own, so a close/reopen reads back
+// Opens from the ⋮ menu on a row that declares the filter capability
+// (`filterProvider` + `filterSetter`). The panel is a pure view over the
+// owner's `LayerFilterModel`: it renders the field, a dual-thumb range
+// slider and a live "kept / total" readout, and writes through
+// `filterSetter`. The owner (the component that owns the row's unit)
+// validates, clamps, re-renders and publishes LAYER_FILTER_CHANGE — the
+// panel holds no filter state of its own, so a close/reopen reads back
 // exactly what is committed.
 //
 // "No filter" and "a range equal to the full extent" are the same state:
@@ -37,9 +37,10 @@ import { displayName } from "../listPanel/rowView.js";
 import type { LayerUI } from "../surface.js";
 import { closeOverlays } from "../teardown.js";
 
-/** Format a count for the result readout. `int` keeps the number
- *  locale-agnostic — the readout is a UI fact, not a display value. */
-const fmtCount = (n: number): string => formatNumber(n, "comma", "en", 0);
+/** Format a count for the result readout with the same compact rule as the
+ *  row column ("2.5K", never a widened exact form). The readout is a UI
+ *  fact, so it follows the control locale. */
+const fmtCount = (n: number, locale: string): string => formatNumber(n, "auto", locale);
 
 /** Format a slider value: enough decimals for the data's own precision,
  *  with float noise (0.30000000000000004) trimmed. */
@@ -68,7 +69,7 @@ const capabilityOf = (ui: LayerUI, layerId: string): FilterCapableInfo | null =>
   return isFilterCapable(info) ? info : null;
 };
 
-/** The panel's filter atom — the only shape the stage-2 renderer emits. */
+/** The panel's filter atom — the only shape the current renderer emits. */
 const atom = (
   field: string,
   range: [number, number],
@@ -81,6 +82,9 @@ const atom = (
 
 /** One rendered panel body. `empty` means the owner reported no filterable
  *  data (no source selected, or no numeric field on the snapshot). */
+type FilterRowsView = Extract<FilterView, { kind: "rows" }>;
+
+/** The shared model plus the fields a rows view paints. */
 type FilterView =
   | { kind: "empty"; root: HTMLElement }
   | {
@@ -138,18 +142,17 @@ const sliderValueOf = (model: LayerFilterModel): [number, number] => {
  *  committed band (the owner may have clamped it, collapsed it to the full
  *  extent, or cleared it). Called after every write and on every external
  *  LAYER_FILTER_CHANGE. */
-const syncView = (ui: LayerUI, view: FilterView, model: LayerFilterModel): void => {
-  if (view.kind !== "rows") return;
+const syncView = (ui: LayerUI, view: FilterRowsView, model: LayerFilterModel): void => {
   view.model = model;
   const pct = model.total > 0 ? Math.round((model.kept / model.total) * 100) : 0;
-  // Standard result readout: percentage first, then the exact kept / total
-  // pair ("42% (2,500 of 6,000) kept" / "42%（2,500 / 6,000）已保留"). One
-  // sentence carries the whole fact — there is no second ratio track.
+  // Result readout: percentage first, then the kept / total pair in the
+  // owner's unit, compact like the row column ("42% (2.5K of 6K) kept").
+  // One sentence carries the whole fact — there is no second ratio track.
   view.result.textContent = ui
     .T("filter_result")
     .replace("{pct}", String(pct))
-    .replace("{kept}", fmtCount(model.kept))
-    .replace("{total}", fmtCount(model.total));
+    .replace("{kept}", fmtCount(model.kept, ui.config.locale_code ?? "en"))
+    .replace("{total}", fmtCount(model.total, ui.config.locale_code ?? "en"));
   // Clear is the only footer action and it is live: disabled exactly when
   // there is nothing to clear (the owner reports no committed filter).
   view.clear.disabled = !model.filter;
@@ -167,7 +170,7 @@ const syncView = (ui: LayerUI, view: FilterView, model: LayerFilterModel): void 
 /** The form rows: field / range / result, plus a Clear footer. Same
  *  left-label / right-control vocabulary as the style panel.
  *
- *  Structure note (stage-3 extension point): every row is one
+ *  Structure note: every row is one
  *  FORM_ROW (fixed 88px label column + one control cell), and a condition
  *  is a row over that same vocabulary. A future Measure enum / multi-
  *  condition UI adds rows here — an atom renderer keyed by `filter_field`
@@ -178,7 +181,7 @@ const buildFilterRows = (
   model: LayerFilterModel,
 ): FilterView => {
   // Field row — read-only: the owner picks the field (first numeric key of
-  // the snapshot); a field picker is a later stage.
+  // the snapshot); the field is not user-selectable here.
   const fieldRow = dom.el(
     "div",
     { class: CONST.CLASSES.FORM_ROW },
@@ -204,17 +207,21 @@ const buildFilterRows = (
     labels: [ui.T("filter_range_min"), ui.T("filter_range_max")],
     values: { min: fmtValue(model.range[0]), max: fmtValue(model.range[1]) },
     format: fmtValue,
+    // Same appearance as the visible-range slider: a limit dot at each rail
+    // end, no middle "current value" dot (a filter has no current readout).
+    marks: [
+      { at: model.range[0], tone: "limit" },
+      { at: model.range[1], tone: "limit" },
+    ],
     disabled: model.range[0] === model.range[1],
     // Live preview and commit go through the same owner write — the owner
     // is idempotent on an unchanged filter, so the second call is a no-op.
     // `write` also refreshes the readout, so the live region never lags the
     // map behind a drag or a keyboard step.
-    input: value => {
-      if (Array.isArray(value)) hooks.write(atom(model.field, value));
-    },
-    change: value => {
-      if (Array.isArray(value)) hooks.write(atom(model.field, value));
-    },
+    // The dual-thumb slider always reports a pair; typed as a cast because
+    // the shared primitive also serves single-value sliders.
+    input: value => hooks.write(atom(model.field, value as [number, number])),
+    change: value => hooks.write(atom(model.field, value as [number, number])),
   });
 
   const rangeRow = dom.el(

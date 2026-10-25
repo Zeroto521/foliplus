@@ -377,7 +377,7 @@ class HeatmapManager {
       meta: this.sourceMeta,
       styleProvider: this.styleProvider,
       styleSetters: this.styleSetters,
-      // Filter capability (stage 2 pilot): this manager is the filter's
+      // Filter capability: this manager is the filter's
       // owner; the LayerControl panel reads and writes through these.
       // Bound methods: the capability functions are the manager methods
       // themselves, so the two call sites stay covered and there is no
@@ -550,7 +550,6 @@ class HeatmapManager {
     this.removeContentChangeListener = this.events.on(
       EVENTS.LAYER_ITEM_COUNT_CHANGE,
       payload => {
-        if (!payload) return;
         const { id } = payload;
         if (!id || id === this.layerId) return;
         if (id !== this.selectedLayerId) return;
@@ -811,7 +810,7 @@ class HeatmapManager {
     return pts;
   }
 
-  // --- Filter capability (stage 2 pilot) ---
+  // --- Filter capability ---
   //
   // This manager owns the filter: the LayerControl panel reads
   // `getFilterModel` and writes `setFilter` through the registry
@@ -841,14 +840,18 @@ class HeatmapManager {
     const sourceId = this.selectedLayerId;
     if (!sourceId) return null;
     this.getSelectedPoints(); // ensures cachedSnapshot is built for this source
-    // The filter field IS the aggregation field (read-only in the panel); the
-    // model builder resolves it once for the panel and the row projection.
+    // The filtered unit is the heatmap's own output — hex cells, not source
+    // points: a filter that drops points inside a cell keeps the cell. The
+    // bins cache is the unfiltered cell set; the drawn features are what the
+    // committed filter kept.
+    const total = this.cachedBins?.bins.size ?? 0;
+    const kept = this.cachedFeatures?.length ?? 0;
     return buildFilterModel(
       this.cachedSnapshot,
       this.layerFilters.get(sourceId),
-      sourceId,
       this.field,
       this.autoFieldKey,
+      { kept, total },
     );
   }
   /** Write path for the filter panel. Validates the incoming atom against

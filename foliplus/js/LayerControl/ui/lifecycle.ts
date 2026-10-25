@@ -36,10 +36,6 @@ import {
   handleDrop,
   toggleFold,
 } from "./listPanel/drag.js";
-import {
-  clearFilterRowStates,
-  syncFilterRowState,
-} from "./listPanel/filterRowState.js";
 import { handleDblClick } from "./listPanel/keyboard.js";
 import {
   initLayerItem,
@@ -271,6 +267,19 @@ const bindLayerEvents = (ui: LayerUI): void => {
   );
 
   container.addEventListener("change", ui.onChange);
+  // Labels own their overflow tooltip: the full name appears only while a
+  // clipped label is hovered, never as a resident title on every row.
+  ui.onPointerOver = (event: PointerEvent) => {
+    const target = event.target as HTMLElement | null;
+    const label = target?.closest?.(
+      `.${CONST.CLASSES.LAYER_LABEL}`,
+    ) as HTMLElement | null;
+    if (!label) return;
+    label.title =
+      label.scrollWidth > label.clientWidth ? (label.textContent as string).trim() : "";
+  };
+  container.addEventListener("pointerover", ui.onPointerOver);
+
   container.addEventListener("click", ui.onClick);
   container.addEventListener("focusin", ui.onFocusIn);
   container.addEventListener("focusout", ui.onFocusOut);
@@ -363,21 +372,16 @@ const bindLayerEvents = (ui: LayerUI): void => {
         openStylePanel(ui, payload.id);
       }
     }),
-    // A committed filter is a row fact now: funnel + accent + the kept
-    // count. The owner publishes after its render settled, so this repaint
-    // reads the final model (not the mid-drag one).
+    // A committed filter repaints the owner row: funnel + count in that
+    // row's own unit. The owner publishes after its render settled, so this
+    // repaint reads the final model (not the mid-drag one).
     subscribe(EVENTS.LAYER_FILTER_CHANGE, (payload: { id: string }) => {
       const layerInfo = registry.get(payload.id);
       if (!layerInfo || !ui.uiContainer) return;
-      // The owner may filter another row (Heatmap canvas → source point
-      // layer); the cache resolves which data row paints the funnel.
-      syncFilterRowState(layerInfo).forEach(id => {
-        const info = registry.get(id);
-        const item = ui.uiContainer?.querySelector<HTMLElement>(
-          `[${CONST.DATA.LAYER_ID}="${CSS.escape(id)}"]`,
-        );
-        if (info && item) applyRowView(ui, item, buildRowCell(ui, info));
-      });
+      const item = ui.uiContainer.querySelector<HTMLElement>(
+        `[${CONST.DATA.LAYER_ID}="${CSS.escape(payload.id)}"]`,
+      );
+      if (item) applyRowView(ui, item, buildRowCell(ui, layerInfo));
     }),
     subscribe(EVENTS.LAYER_ITEM_REMOVED, (payload: { id: string }) => {
       // Cache drop only: unregister already tore the labels and their canvas
@@ -527,8 +531,6 @@ const unbindEvents = (ui: LayerUI): void => {
   closeStylePanel(ui, false);
   closeAttrsPanel(ui, false);
   closeFilterPanel(ui, false);
-  // The row cache is session state: a re-created UI starts unfiltered.
-  clearFilterRowStates();
   finishRename(ui, true);
   // Remove any focus animation still in flight (rect + row highlight).
   dismissFocus(ui);
@@ -536,6 +538,7 @@ const unbindEvents = (ui: LayerUI): void => {
   if (ui.onClick) container.removeEventListener("click", ui.onClick);
   if (ui.onFocusIn) container.removeEventListener("focusin", ui.onFocusIn);
   if (ui.onFocusOut) container.removeEventListener("focusout", ui.onFocusOut);
+  container.removeEventListener("pointerover", ui.onPointerOver!);
   if (ui.onDragStart) container.removeEventListener("dragstart", ui.onDragStart);
   if (ui.onDragOver) container.removeEventListener("dragover", ui.onDragOver);
   if (ui.onDragLeave) container.removeEventListener("dragleave", ui.onDragLeave);

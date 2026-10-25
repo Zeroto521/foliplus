@@ -55,6 +55,8 @@ interface LayerUI {
   onClick: ((event: Event) => void) | null;
   onFocusIn: ((event: FocusEvent) => void) | null;
   onFocusOut: ((event: FocusEvent) => void) | null;
+  /** Lazy label tooltip: only when a label actually clips (measured on hover). */
+  onPointerOver: ((event: PointerEvent) => void) | null;
   onDragStart: ((event: DragEvent) => void) | null;
   onDragOver: ((event: DragEvent) => void) | null;
   onDragLeave: ((event: DragEvent) => void) | null;

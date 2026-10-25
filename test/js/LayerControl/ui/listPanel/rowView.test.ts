@@ -30,6 +30,33 @@ const cell = (over: Partial<RowCell> = {}): RowCell => ({
 });
 
 describe("rowView (pure projection)", () => {
+  it("falls back through the title chain for filtered and unfiltered cells", () => {
+    expect(rowView(cell({ filtered: true, filterTitle: "2 / 3" }), LABELS).title).toBe(
+      "2 / 3",
+    );
+    expect(
+      rowView(
+        cell({ filtered: true, filterTitle: undefined, titleTypeLabel: "Point" }),
+        LABELS,
+      ).title,
+    ).toBe("Point");
+    expect(
+      rowView(
+        cell({ filtered: true, filterTitle: undefined, titleTypeLabel: undefined }),
+        LABELS,
+      ).title,
+    ).toBe("polygon");
+    expect(
+      rowView(cell({ countText: "4", titleTypeLabel: undefined }), LABELS).title,
+    ).toBe("4 · polygon");
+    expect(
+      rowView(cell({ countText: "4", titleTypeLabel: "Point" }), LABELS).title,
+    ).toBe("4 · Point");
+    expect(
+      rowView(cell({ countText: "", titleTypeLabel: undefined }), LABELS).title,
+    ).toBe("polygon");
+  });
+
   it.each([
     [true, true, true, "Deselect"],
     [true, false, true, "Deselect"],
@@ -314,6 +341,33 @@ describe("applyRowView (the single DOM write point)", () => {
     expect(el.querySelector<HTMLElement>(CONST.SEL.COUNT_COL)!.textContent).toBe("9");
     expect(el.classList.contains(CONST.CLASSES.ACTIVE)).toBe(false);
     expect(el.getAttribute(CONST.DATA.TITLE)).toBe("polygon");
+  });
+
+  it("sets the label tooltip only when the label actually clips", () => {
+    document.body.appendChild(document.createElement("div"));
+    const el = item();
+    el.innerHTML += `<span class="${CONST.CLASSES.LAYER_LABEL}">Facility Points</span>`;
+    document.body.appendChild(el);
+    const label = el.querySelector<HTMLElement>(`.${CONST.CLASSES.LAYER_LABEL}`)!;
+    applyRowView(ui, el, cell({ name: "Facility Points" }));
+    expect(label.title).toBe("");
+
+    Object.defineProperty(label, "scrollWidth", { value: 120, configurable: true });
+    Object.defineProperty(label, "clientWidth", { value: 80, configurable: true });
+    applyRowView(ui, el, cell({ name: "Facility Points - North District 2024" }));
+    expect(label.title).toBe("Facility Points - North District 2024");
+  });
+
+  it("defers the label measurement until a detached row is inserted", async () => {
+    const el = item();
+    el.innerHTML += `<span class="${CONST.CLASSES.LAYER_LABEL}">Facility Points</span>`;
+    const label = el.querySelector<HTMLElement>(`.${CONST.CLASSES.LAYER_LABEL}`)!;
+    Object.defineProperty(label, "scrollWidth", { value: 120, configurable: true });
+    Object.defineProperty(label, "clientWidth", { value: 80, configurable: true });
+    applyRowView(ui, el, cell({ name: "Facility Points" }));
+    document.body.appendChild(el);
+    await new Promise(resolve => requestAnimationFrame(() => resolve(null)));
+    expect(label.title).toBe("Facility Points");
   });
 
   it("buildRowCell handles a thin stub with an empty LayerIntentStore", () => {

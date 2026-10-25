@@ -384,15 +384,18 @@
   --foliplus-layer-item-pad-x: calc(
     var(--foliplus-space-md) - var(--foliplus-size-2) + 1px
   );
-  /* Count track: 48px reserves the filter funnel (12px) + the exact kept
-     count (up to "2,500") without ellipsis; unfiltered compact counts sit
-     right-aligned in the same column. */
+  /* Count track: min/max bound the compact-value column. The filter funnel
+     (its own token) plus the widest compact value ("2.5K", "1.2万") must
+     fit at max; the min keeps a short value from collapsing the column,
+     and the label column yields (ellipsis) before the count truncates. */
+  --foliplus-filter-funnel-size: 12px;
+  --foliplus-count-track-min-width: 40px;
   --foliplus-count-track-width: 48px;
   --foliplus-more-btn-width: 7px;
   --foliplus-grid-layer-gap: 3px;
   --foliplus-grid-layer-cols: var(--foliplus-space-xl) var(--foliplus-space-xl) 1fr
-    var(--foliplus-count-track-width) var(--foliplus-space-xl)
-    var(--foliplus-more-btn-width);
+    minmax(var(--foliplus-count-track-min-width), var(--foliplus-count-track-width))
+    var(--foliplus-space-xl) var(--foliplus-more-btn-width);
   --foliplus-layer-row-min-height: calc(
     var(--foliplus-space-md) * 2 + var(--foliplus-font-size-md) *
       var(--foliplus-line-height-hint)

@@ -824,12 +824,12 @@ describe("LayerUI filter panel (stage-2 pilot)", () => {
   });
 });
 
-// ── Result / Clear / keyboard / row state (first batch of the #724 review) ──
+// ── Result / Clear / keyboard / row state ──
 describe("LayerUI filter panel — result, Clear and row state", () => {
   let manager: LayerController;
   let ui: LayerUI;
 
-  const registerPoints = (id = "pnt", sourceId?: string) => {
+  const registerPoints = (id = "pnt", counts?: { kept: number; total: number }) => {
     const values = [10, 20, 30];
     const range: [number, number] = [10, 30];
     const snapshot = {
@@ -840,12 +840,11 @@ describe("LayerUI filter panel — result, Clear and row state", () => {
     let filter: LayerFilter;
     const owner = {
       filterProvider: (): LayerFilterModel => ({
-        sourceId,
         field: "magnitude",
         range,
         filter,
-        kept: select(snapshot as any, filter).length,
-        total: values.length,
+        kept: counts?.kept ?? select(snapshot as any, filter).length,
+        total: counts?.total ?? values.length,
         step: 1,
       }),
       filterSetter: (f: LayerFilter) => {
@@ -1048,11 +1047,10 @@ describe("LayerUI filter panel — result, Clear and row state", () => {
     expect(ui.overlayPanel.activeFilterPanel).toBeNull();
   });
 
-  it("paints the funnel on the owner's source row, not its capability row", () => {
-    // Heatmap shape: the capability lives on one row ("pnt"), the filtered
-    // records belong to another ("src"). The data row owns the funnel and
-    // the tooltip type; the capability row stays a normal row.
-    const { owner } = registerPoints("pnt", "src");
+  it("paints the funnel and the owner-unit count on the capability row", () => {
+    // Heatmap shape: the capability reports its own unit (7 of 137 hex
+    // cells), so the funnel belongs to THIS row — never a second data row.
+    const { owner } = registerPoints("pnt", { kept: 7, total: 137 });
     manager.registerLayer({
       id: "src",
       name: "Source",
@@ -1068,20 +1066,175 @@ describe("LayerUI filter panel — result, Clear and row state", () => {
 
     ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, { id: "pnt" });
 
-    const dataCount = findItem(ui, "src").querySelector(
+    const count = findItem(ui, "pnt").querySelector(
       `.${CONST.CLASSES.COUNT_COL}`,
     ) as HTMLElement;
-    expect(dataCount.classList.contains(CONST.CLASSES.COUNT_FILTERED)).toBe(true);
-    expect(dataCount.querySelector(".foliplus-layer-count-value")!.textContent).toBe(
-      "2",
+    expect(count.classList.contains(CONST.CLASSES.COUNT_FILTERED)).toBe(true);
+    expect(count.querySelector(".foliplus-layer-count-value")!.textContent).toBe("7");
+    expect(findItem(ui, "pnt").title).toBe("7 / 137 filtered · Point");
+    // A different row is not decorated by this owner's filter.
+    const other = findItem(ui, "src").querySelector(
+      `.${CONST.CLASSES.COUNT_COL}`,
+    ) as HTMLElement;
+    expect(other.classList.contains(CONST.CLASSES.COUNT_FILTERED)).toBe(false);
+    spy.mockRestore();
+  });
+
+  it("renders 0% when the owner unit has no records", () => {
+    const { owner } = registerPoints("pnt", { kept: 0, total: 0 });
+    commit(owner);
+    const spy = vi
+      .spyOn(ui, "T")
+      .mockImplementation(
+        key =>
+          (key === "filter_result"
+            ? "{pct}% ({kept} of {total}) kept"
+            : `LayerControl.${key}`) as any,
+      );
+
+    const item = findItem(ui, "pnt");
+    ui.openFilterPanel(item);
+    const result = item.querySelector(`.${CONST.CLASSES.FILTER_RESULT}`)!;
+    expect(result.textContent).toBe("0% (0 of 0) kept");
+    spy.mockRestore();
+  });
+
+  it("formats the readout with the en fallback when the locale is unset", () => {
+    const { owner } = registerPoints();
+    commit(owner);
+    (ui.config as { locale_code?: string }).locale_code = undefined;
+
+    const item = findItem(ui, "pnt");
+    expect(() => ui.openFilterPanel(item)).not.toThrow();
+    expect(item.querySelector(`.${CONST.CLASSES.FILTER_RESULT}`)).not.toBeNull();
+  });
+
+  it("reconciles back to the empty state when the owner retires its model", () => {
+    registerPoints();
+    const item = findItem(ui, "pnt");
+    ui.openFilterPanel(item);
+    expect(item.querySelector(`.${CONST.CLASSES.FILTER_SLIDER}`)).not.toBeNull();
+
+    (ui.c.layerRegistry.get("pnt") as { filterProvider: unknown }).filterProvider =
+      () => null;
+    ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, { id: "pnt" });
+
+    expect(item.querySelector(`.${CONST.CLASSES.FILTER_EMPTY}`)).not.toBeNull();
+    expect(item.querySelector(`.${CONST.CLASSES.FILTER_SLIDER}`)).toBeNull();
+  });
+
+  it("ignores an owner echo raised while its own write is still in flight", () => {
+    const { owner } = registerPoints();
+    commit(owner);
+    const item = findItem(ui, "pnt");
+    const info = ui.c.layerRegistry.get("pnt") as {
+      filterSetter: (f: LayerFilter) => void;
+    };
+    const setter = info.filterSetter;
+    const echo = vi.fn((f: LayerFilter) => {
+      setter(f);
+      // The owner repaints synchronously inside its setter: the panel's own
+      // write must not rebuild under the drag that triggered it.
+      ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, { id: "pnt" });
+    });
+    info.filterSetter = echo;
+    ui.openFilterPanel(item);
+
+    const host = item.querySelector(`.${CONST.CLASSES.FILTER_SLIDER}`) as HTMLElement;
+    const track = host.querySelector(`.foliplus-slider-track`) as HTMLElement;
+    track.getBoundingClientRect = () =>
+      ({
+        left: 0,
+        top: 0,
+        width: 100,
+        height: 14,
+        right: 100,
+        bottom: 14,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      }) as DOMRect;
+    const pointer = (type: string, clientX: number) =>
+      new MouseEvent(type, {
+        bubbles: true,
+        cancelable: true,
+        clientX,
+        clientY: 7,
+        button: 0,
+      } as MouseEventInit);
+    track.dispatchEvent(pointer("pointerdown", 25));
+    track.dispatchEvent(pointer("pointermove", 25));
+    track.dispatchEvent(pointer("pointerup", 25));
+
+    // Each drag step writes once and echoes synchronously; no rebuild may
+    // happen for those in-flight echoes.
+    expect(echo).toHaveBeenCalled();
+    expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).not.toBeNull();
+    expect(owner.filter).toBeDefined();
+  });
+
+  it("ignores owner signals that name another row", () => {
+    registerPoints();
+    const item = findItem(ui, "pnt");
+    ui.openFilterPanel(item);
+
+    ui.events.publish(EVENTS.LAYER_ITEM_UPDATED, { id: "other" });
+    ui.events.publish(EVENTS.LAYER_DELETED, { id: "other" });
+    ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, { id: "other" });
+
+    expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).not.toBeNull();
+  });
+
+  it("survives a filter repaint for a row element that is already gone", () => {
+    registerPoints();
+    const item = findItem(ui, "pnt");
+    ui.openFilterPanel(item);
+    item.remove();
+
+    expect(() =>
+      ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, { id: "pnt" }),
+    ).not.toThrow();
+  });
+
+  it("sets the row label tooltip only on real overflow", () => {
+    registerPoints();
+    const item = findItem(ui, "pnt");
+    const label = item.querySelector(`.${CONST.CLASSES.LAYER_LABEL}`) as HTMLElement;
+    const hover = () =>
+      label.dispatchEvent(new Event("pointerover", { bubbles: true }));
+
+    // A non-label target is ignored entirely.
+    item.dispatchEvent(new Event("pointerover", { bubbles: true }));
+    expect(label.title).toBe("");
+
+    // No overflow (0/0 in jsdom): the tooltip must stay empty.
+    hover();
+    expect(label.title).toBe("");
+
+    Object.defineProperty(label, "scrollWidth", { value: 240, configurable: true });
+    Object.defineProperty(label, "clientWidth", { value: 120, configurable: true });
+    hover();
+    expect(label.title).toBe(label.textContent!.trim());
+  });
+
+  it("keeps a large filtered count compact instead of mixing formats", () => {
+    const { owner } = registerPoints("pnt", { kept: 2500, total: 6000 });
+    commit(owner);
+    const spy = vi.spyOn(ui, "T").mockImplementation(key => {
+      if (key === "filter_row_title") return "{kept} / {total} filtered · {type}";
+      if (key.startsWith("type_")) return "Point";
+      return `LayerControl.${key}` as any;
+    });
+
+    ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, { id: "pnt" });
+
+    const item = findItem(ui, "pnt");
+    const count = item.querySelector(`.${CONST.CLASSES.COUNT_COL}`) as HTMLElement;
+    // The column value is ALWAYS compact; the hover title keeps the exact pair.
+    expect(count.querySelector(".foliplus-layer-count-value")!.textContent).toBe(
+      "2.5K",
     );
-    expect(findItem(ui, "src").title).toBe("2 / 3 filtered · Point");
-    // The capability row itself shows no filter decoration (it is not the
-    // data row; its own count is the canvas feature count).
-    const capCount = findItem(ui, "pnt").querySelector(
-      `.${CONST.CLASSES.COUNT_COL}`,
-    ) as HTMLElement;
-    expect(capCount.classList.contains(CONST.CLASSES.COUNT_FILTERED)).toBe(false);
+    expect(item.title).toBe("2,500 / 6,000 filtered · Point");
     spy.mockRestore();
   });
 });

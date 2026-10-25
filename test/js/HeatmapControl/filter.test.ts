@@ -73,6 +73,12 @@ function setupWithPoints(
       marker: m,
     })),
   );
+  // One distinct hex cell per marker: the model counts cells, and these
+  // fixtures want the pre-cell semantics (one point ↔ one cell) to stay
+  // readable in assertions such as kept === 2.
+  (globalThis.h3 as any).latLngToCell = vi.fn(
+    (lat: number, lng: number) => `${lat}:${lng}`,
+  );
 }
 
 /** A spy on the manager's own LAYER_FILTER_CHANGE channel — the payload the
@@ -332,6 +338,7 @@ describe("HeatmapControl filter owner (stage-2 pilot)", () => {
         },
       })),
     );
+    m.renderHexagons();
     const modelB = m.getFilterModel()!;
     expect(modelB.range).toEqual([100, 300]);
     expect(modelB.filter).toBeUndefined(); // B never had a filter
@@ -350,6 +357,7 @@ describe("HeatmapControl filter owner (stage-2 pilot)", () => {
       })),
     );
     m.selectedLayerId = "layer1";
+    m.renderHexagons();
     const modelA = m.getFilterModel()!;
     expect(modelA.range).toEqual([10, 30]);
     expect(modelA.filter).toEqual({
@@ -649,6 +657,7 @@ describe("HeatmapControl filter field follows the aggregation field", () => {
     // numericFields order is ["b", "a"]; the aggregation field is "a".
     m.agg = "sum";
     m.field = "a";
+    m.renderHexagons();
     const model = m.getFilterModel();
     expect(model).not.toBeNull();
     expect(model!.field).toBe("a");

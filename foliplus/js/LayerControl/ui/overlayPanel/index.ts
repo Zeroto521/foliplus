@@ -32,7 +32,7 @@ class OverlayPanel {
     panel: HTMLElement;
     layerId: string;
   } | null = null;
-  /** Currently visible filter panel (stage 2), or null. */
+  /** Currently visible filter panel, or null. */
   activeFilterPanel: FilterPanelState | null = null;
   /** Document capture-phase mousedown used to dismiss the attrs panel.
    *  Capture is required because the layer control's
