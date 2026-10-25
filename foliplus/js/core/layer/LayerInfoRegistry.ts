@@ -81,6 +81,10 @@ const carrierFor = (
  *   `api.bringLayerToFront(id)`  — reorder
  */
 class LayerInfoRegistry {
+  /** Ordered entries. Direct mutation is unsupported: it desynchronizes
+   *  `byId` and the id → position map. Go through the methods below; a
+   *  caller that injects corruption must run a structural method (or
+   *  `upsert`) before trusting `indexOfId` again. */
   items: LayerInfo[];
   byId: Map<string, LayerInfo>;
   /** id → live array position. Maintained by every structural mutator so the
@@ -275,6 +279,40 @@ class LayerInfoRegistry {
     }
   }
 
+  /** First position the base block may occupy. With no base yet the block is
+   *  empty and starts at the end, so the only legal base insertion is an
+   *  append — never in front of the overlay block. */
+  private baseBlockStart(): number {
+    return this._firstBaseIdx === -1 ? this.items.length : this._firstBaseIdx;
+  }
+
+  /** Reject an id that is already registered. `prepend` / `insertAt` are
+   *  insertion paths; an update belongs to `upsert`, and a duplicate here
+   *  would put two list entries behind one `byId` slot. */
+  private assertNewId(method: string, id: string): void {
+    if (this.byId.has(id)) {
+      throw new Error(
+        log.msg(`${method}: "${id}" is already registered — update through upsert`),
+      );
+    }
+  }
+
+  /** Enforce the overlay-before-base partition at the write edge. `idx` is
+   *  the insertion position in `0..items.length`; a base may land at or after
+   *  the base block's start, an overlay only before it. */
+  private assertPlacement(method: string, layerInfo: LayerInfo, idx: number): void {
+    const firstBase = this.baseBlockStart();
+    const valid = layerInfo.group === GROUP.BASE ? idx >= firstBase : idx <= firstBase;
+    if (!valid) {
+      throw new Error(
+        log.msg(
+          `${method}: cannot insert ${layerInfo.group} layer "${layerInfo.id}" at ` +
+            `${idx} — the base block starts at ${firstBase}`,
+        ),
+      );
+    }
+  }
+
   /** Iterate in order (keeps `for...of` and spread working). */
   [Symbol.iterator]() {
     return this.items[Symbol.iterator]();
@@ -287,33 +325,35 @@ class LayerInfoRegistry {
    *  the controller's friendly gate is the first line, this is the backstop. */
   upsert(layerInfo: LayerInfo): LayerInfo {
     const existing = this.byId.get(layerInfo.id);
-    if (existing) {
-      if (existing.group !== layerInfo.group) {
-        throw new Error(
-          log.msg(
-            `upsert: cannot change "${layerInfo.id}" from ${existing.group} to ` +
-              `${layerInfo.group} in place — its group is its role for the id's lifetime`,
-          ),
-        );
-      }
-      const idx = this.items.indexOf(existing);
-      if (idx === -1) {
-        // The id and the list disagree (a lost delete, a bad replace):
-        // append rather than writing `items[-1]` as a string-keyed property,
-        // and recompute the boundary because a base may have just joined.
-        this.items.push(layerInfo);
-        this.indexById.set(layerInfo.id, this.items.length - 1);
-        this.refreshFirstBaseIdx();
-      } else {
-        // An in-place swap keeps the slot and cannot change the group (the
-        // gate above), so neither the position nor `firstBaseIdx` can move.
-        this.items[idx] = layerInfo;
-      }
-    } else {
+    if (!existing) {
       this.items.push(layerInfo);
+      this.byId.set(layerInfo.id, layerInfo);
       this.indexById.set(layerInfo.id, this.items.length - 1);
       this.refreshFirstBaseIdx();
+      return layerInfo;
     }
+    if (existing.group !== layerInfo.group) {
+      throw new Error(
+        log.msg(
+          `upsert: cannot change "${layerInfo.id}" from ${existing.group} to ` +
+            `${layerInfo.group} in place — its group is its role for the id's lifetime`,
+        ),
+      );
+    }
+    const idx = this.items.indexOf(existing);
+    if (idx === -1) {
+      // The id and the list disagree (a lost delete, a bad replace). Repair
+      // the whole registry from the list — appending only this entry would
+      // leave a stale `byId` / positions for every other mismatch behind.
+      this.items.push(layerInfo);
+      this.byId = new Map(this.items.map(l => [l.id, l]));
+      this.reindex();
+      this.refreshFirstBaseIdx();
+      return layerInfo;
+    }
+    // An in-place swap keeps the slot and cannot change the group (the gate
+    // above), so neither the position nor `firstBaseIdx` can move.
+    this.items[idx] = layerInfo;
     this.byId.set(layerInfo.id, layerInfo);
     return layerInfo;
   }
@@ -322,6 +362,7 @@ class LayerInfoRegistry {
    *  refused: index 0 lives inside the overlay block, and letting one land
    *  there would break the partition this class exists to keep. */
   prepend(layerInfo: LayerInfo): LayerInfo {
+    this.assertNewId("prepend", layerInfo.id);
     if (layerInfo.group === GROUP.BASE) {
       throw new Error(
         log.msg(
@@ -337,9 +378,13 @@ class LayerInfoRegistry {
   }
 
   /** Insert before the given index (used for new base layers). `idx` may be
-   *  `items.length` (append); anything else is refused by `assertIndex`. */
+   *  `items.length` (append); anything else is refused by `assertIndex`.
+   *  The placement gate keeps the overlay/base partition intact, and an id
+   *  already in the registry is refused — updates belong to `upsert`. */
   insertAt(layerInfo: LayerInfo, idx: number): LayerInfo {
+    this.assertNewId("insertAt", layerInfo.id);
     assertIndex("insertAt", idx, this.items.length);
+    this.assertPlacement("insertAt", layerInfo, idx);
     this.items.splice(idx, 0, layerInfo);
     this.byId.set(layerInfo.id, layerInfo);
     this.reindex();

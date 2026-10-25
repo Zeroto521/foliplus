@@ -233,17 +233,22 @@ describe("LayerInfoRegistry", () => {
       expect(registry.firstBaseIdx).toBe(2);
     });
 
-    it("repairs an index/list disagreement by appending, not writing items[-1]", () => {
+    it("repairs every derived map on an index/list disagreement", () => {
       // The defensive branch: id and list disagree (a lost delete or a bad
-      // replace). Writing `items[-1]` would add a string-keyed property and
-      // leave the entry invisible to every walk.
+      // replace). Appending alone would leave stale `byId` entries and
+      // positions behind, so the whole registry is rebuilt from the list.
       registry.items.length = 0;
+      registry.byId.set("ghost", { id: "ghost" } as unknown as LayerInfo);
       const recovered = registry.createLayerInfo({ id: "overlay1", name: "Recovered" });
       registry.upsert(recovered);
 
       expect(registry.size).toBe(1);
       expect(registry.at(0)).toBe(recovered);
       expect(registry.indexOfId("overlay1")).toBe(0);
+      // Entries that were only in the index are gone with the rebuild.
+      expect(registry.get("ghost")).toBeUndefined();
+      expect(registry.get("base1")).toBeUndefined();
+      expect(registry.indexOfId("base1")).toBe(-1);
       expect(registry.firstBaseIdx).toBe(-1);
     });
 
@@ -279,6 +284,18 @@ describe("LayerInfoRegistry", () => {
       expect(registry.at(0).id).toBe("overlay1");
       expect(registry.firstBaseIdx).toBe(2);
     });
+
+    it("refuses an id that is already registered", () => {
+      expect(() =>
+        registry.prepend(registry.createLayerInfo({ id: "overlay1" })),
+      ).toThrow(/already registered/);
+      expect(() =>
+        registry.insertAt(registry.createLayerInfo({ id: "overlay1" }), 1),
+      ).toThrow(/already registered/);
+      // Refused before any mutation: one entry per id, no duplicate row.
+      expect(registry.size).toBe(3);
+      expect(registry.indexOfId("overlay1")).toBe(0);
+    });
   });
 
   describe("insertAt", () => {
@@ -295,10 +312,66 @@ describe("LayerInfoRegistry", () => {
       }
       expect(registry.size).toBe(3);
 
-      // items.length is the inclusive upper bound — appending is legal.
-      registry.insertAt(fresh(), registry.size);
-      expect(registry.at(3).id).toBe("new");
+      // items.length is the inclusive upper bound — appending is legal for a
+      // base (an overlay may only land before the base block).
+      registry.insertAt(
+        registry.createLayerInfo({ id: "base2", group: GROUP.BASE }),
+        registry.size,
+      );
+      expect(registry.at(3).id).toBe("base2");
       expect(registry.size).toBe(4);
+    });
+
+    it("keeps the overlay/base partition at the insertion edge", () => {
+      const firstBase = registry.firstBaseIdx;
+      expect(firstBase).toBe(2);
+
+      const baseAt = (idx: number) =>
+        registry.insertAt(
+          registry.createLayerInfo({ id: `base-${idx}`, group: GROUP.BASE }),
+          idx,
+        );
+      // A base may start the base block or append; anything before it is in
+      // the overlay block.
+      expect(() => baseAt(0)).toThrow(/base block/);
+      expect(() => baseAt(1)).toThrow(/base block/);
+      expect(registry.size).toBe(3);
+
+      const overlayAt = (idx: number) =>
+        registry.insertAt(registry.createLayerInfo({ id: `overlay-${idx}` }), idx);
+      // An overlay may reach the boundary (it lands just before the first
+      // base) but never cross into the base block.
+      expect(() => overlayAt(registry.size)).toThrow(/base block/);
+      expect(() => overlayAt(registry.firstBaseIdx + 1)).toThrow(/base block/);
+      expect(registry.size).toBe(3);
+
+      registry.insertAt(
+        registry.createLayerInfo({ id: "base2", group: GROUP.BASE }),
+        firstBase,
+      );
+      expect(registry.firstBaseIdx).toBe(firstBase);
+      expect(registry.at(firstBase).id).toBe("base2");
+
+      registry.insertAt(
+        registry.createLayerInfo({ id: "overlay3" }),
+        registry.firstBaseIdx,
+      );
+      // The overlay lands just before the first base; firstBaseIdx moves with
+      // the base block, not with the inserted overlay.
+      expect(registry.at(firstBase).id).toBe("overlay3");
+      expect(registry.firstBaseIdx).toBe(3);
+    });
+
+    it("only appends a base when the base block is empty", () => {
+      const r = new LayerInfoRegistry([
+        { id: "a", group: "overlay" },
+        { id: "b", group: "overlay" },
+      ] as unknown as LayerInfo[]);
+      expect(() =>
+        r.insertAt(r.createLayerInfo({ id: "base1", group: GROUP.BASE }), 0),
+      ).toThrow(/base block/);
+      r.insertAt(r.createLayerInfo({ id: "base1", group: GROUP.BASE }), r.size);
+      expect(r.firstBaseIdx).toBe(2);
     });
   });
 
@@ -379,6 +452,16 @@ describe("LayerInfoRegistry", () => {
 
       registry.clear();
       expect(registry.indexOfId("only")).toBe(-1);
+    });
+
+    it("is repaired by a structural write after an unsupported direct mutation", () => {
+      // `items` is public for tests and internal walks, but direct mutation
+      // is unsupported: the derived maps can only be rebuilt by a structural
+      // method.
+      registry.items.length = 0;
+      registry.replace([registry.createLayerInfo({ id: "only" })]);
+      expect(registry.indexOfId("only")).toBe(0);
+      expect(registry.indexOfId("overlay1")).toBe(-1);
     });
   });
 
