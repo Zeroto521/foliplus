@@ -2655,6 +2655,10 @@ describe("LayerController", () => {
     // The stamp has to be identity-stable for any of this to hold: the shared
     // mock is a per-call counter, so every lookup below would miss and the
     // handler would quietly take the sweep instead.
+    // Fake timers so the debounced enforce this schedules cannot fire after
+    // the test ends — a pending timer on a torn-down fixture is how a
+    // green file turns into a flaky one on a loaded runner.
+    vi.useFakeTimers();
     const realStamp = window.L.stamp;
     window.L.stamp = stableStamp;
     try {
@@ -2679,6 +2683,7 @@ describe("LayerController", () => {
       expect(otherSpy).not.toHaveBeenCalled();
     } finally {
       window.L.stamp = realStamp;
+      vi.useRealTimers();
     }
   });
 
@@ -2688,6 +2693,7 @@ describe("LayerController", () => {
     // and "recorded but gone" must not read as a claim — the handler falls
     // through to the global sweep instead, which is the conservative answer
     // for an arrival nothing provably owns.
+    vi.useFakeTimers();
     const realStamp = window.L.stamp;
     window.L.stamp = stableStamp;
     try {
@@ -2705,6 +2711,7 @@ describe("LayerController", () => {
       expect(spy).toHaveBeenCalledTimes(1);
     } finally {
       window.L.stamp = realStamp;
+      vi.useRealTimers();
     }
   });
 
