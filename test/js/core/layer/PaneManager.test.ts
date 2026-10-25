@@ -57,6 +57,16 @@ const makeMap = (
   return map;
 };
 
+/** Private-index peek for the destroy end state: the teardown contract needs
+ *  the bookkeeping itself empty, and those indexes have no public reader. */
+const internals = (pm: PaneManager) =>
+  pm as unknown as {
+    discoveryCache: Map<number, unknown>;
+    childOwners: Map<number, number>;
+    paneLedger: { size: number };
+    generation: number;
+  };
+
 describe("PaneManager", () => {
   it("isDefaultPane returns true for standard Leaflet panes", () => {
     const map = { getPane: vi.fn(), createPane: vi.fn() };
@@ -808,6 +818,63 @@ describe("PaneManager", () => {
     // must survive them.
     expect(map.removeLayer).not.toHaveBeenCalled();
     expect(map._panes["foliplus-pane-1"]).toBe(pane);
+  });
+
+  it("destroy is idempotent and leaves every index empty", () => {
+    const map = makeMap({ "foliplus-measure-graph": document.createElement("div") });
+    const pm = new PaneManager(map);
+    pm.ensurePane("foliplus-measure-graph", false, "measure");
+    pm.registerPaneSpecs(specs("foliplus-measure-graph"));
+    const child = {
+      options: { pane: "foliplus-measure-graph" },
+    } as unknown as L.Layer;
+    const parent = {} as unknown as L.Layer;
+    pm.rememberChildOwnership(child, parent);
+    pm.discoverChildPanes(child);
+
+    const before = internals(pm);
+    expect(before.paneLedger.size).toBe(1);
+    expect(before.childOwners.size).toBe(1);
+    expect(before.discoveryCache.size).toBe(1);
+    const generationBefore = before.generation;
+
+    pm.destroy();
+
+    // Destroy end state: every index the manager owns is empty, and the discovery
+    // generation moved once so an earlier entry cannot be served.
+    expect(pm.childPaneSpecs.size).toBe(0);
+    expect(internals(pm).paneLedger.size).toBe(0);
+    expect(internals(pm).childOwners.size).toBe(0);
+    expect(internals(pm).discoveryCache.size).toBe(0);
+    expect(internals(pm).generation).toBe(generationBefore + 1);
+    expect(pm.childOwnerOf(child)).toBeUndefined();
+    // No lease survived: the write gate refuses the name and a new claimant
+    // can acquire it.
+    expect(() => pm.assertOwnedPane("foliplus-measure-graph")).toThrow(/unclaimed/);
+    expect(pm.canAcquirePane("foliplus-measure-graph", "other")).toBe(true);
+
+    // Second destroy: no throw, no second generation bump, and the pane DOM is
+    // still the map's (destroy never deletes it).
+    expect(() => pm.destroy()).not.toThrow();
+    expect(internals(pm).generation).toBe(generationBefore + 1);
+    expect(map._panes["foliplus-measure-graph"]).toBeDefined();
+  });
+
+  it("clears a lease booked after destroy on the next destroy", () => {
+    const panes: Record<string, HTMLElement> = {};
+    const map = makeMap(panes);
+    const pm = new PaneManager(map);
+    pm.destroy();
+    // Methods stay usable after destroy (this batch adds idempotency, not a
+    // lifecycle guard) — and the next destroy still clears what that call
+    // booked, so a terminal manager never strands a lease.
+    pm.ensurePane("foliplus-canvas-late", false, "late");
+    expect(internals(pm).paneLedger.size).toBe(1);
+
+    pm.destroy();
+
+    expect(internals(pm).paneLedger.size).toBe(0);
+    expect(pm.canAcquirePane("foliplus-canvas-late", "other")).toBe(true);
   });
 
   // ── pinLateContent (the pin primitive LayerSurface calls for late content) ──
