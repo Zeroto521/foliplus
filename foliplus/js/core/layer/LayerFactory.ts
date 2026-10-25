@@ -246,8 +246,10 @@ class LayerFactory {
       // (the controller's role gate, pane wiring) leaves `registered` false
       // and the prepared face unmounted, so the next register() retries for
       // real, and unregister() holds no authority to touch the id.
-      preRegister();
+      // `preRegister` is inside the try on purpose: mounting the face is part
+      // of the same transaction, and its own throw must roll back too.
       try {
+        preRegister();
         registerLayer(layerOpts);
         postRegister();
       } catch (error) {
@@ -271,7 +273,11 @@ class LayerFactory {
       // unregister now) and its face is tidied — otherwise the retired
       // canvas keeps drawing under the replacement's.
       const current = this.deps.registry?.().get?.(opts.id);
-      if (current && registeredEntry && current !== registeredEntry) {
+      // A lease that was never read back (`registeredEntry` null) is still a
+      // lease this surface does NOT hold: fail closed, or a same-id
+      // replacement is deleted by bare id exactly when the read-back failed.
+      // No registry wired (`current` undefined) keeps the lightweight path.
+      if (current && current !== registeredEntry) {
         registered = false;
         registeredEntry = null;
         preUnregister();
@@ -291,14 +297,22 @@ class LayerFactory {
     // moment it exists. Created earlier it would hold Leaflet's default z of
     // 400 — above every basemap — until the ordering pass caught up.
     let facePane: HTMLElement | null = null;
-    const mountFace = (paneName: string, face: HTMLCanvasElement) => {
+    // Whether the last preRegister() actually appended the face: a refused
+    // pane leaves nothing to remove, and the rollback must not dereference
+    // the pane to discover that.
+    let faceMounted = false;
+    /** Mount the face into its pane. Returns whether it actually landed:
+     *  `ensurePane` can refuse the name (held by another surface, foreign
+     *  content), and the rollback must tell that apart from a mount it owns. */
+    const mountFace = (paneName: string, face: HTMLCanvasElement): boolean => {
       const { pane } = panes.ensurePane(paneName, false, opts.id);
       if (!pane) {
         log.warn(`canvas pane "${paneName}" is not acquireable; face not mounted`);
-        return;
+        return false;
       }
       facePane = pane;
       facePane.appendChild(face);
+      return true;
     };
     const stampBirthZ = (id: string) => {
       const slot = this.deps.slotOf?.(id);
@@ -527,15 +541,17 @@ class LayerFactory {
 
       registerIdempotent = true;
       preRegister = () => {
-        mountFace(paneName, face);
+        faceMounted = mountFace(paneName, face);
         resize();
         updatePosition();
         setVisible(true);
       };
       rollbackPreRegister = () => {
-        // mountFace set facePane and appended the face just above; the
-        // rollback only ever runs after it, so the face is always there.
-        facePane!.removeChild(face);
+        // Undo only a mount that landed: a refused pane leaves `facePane`
+        // null or stale, and preRegister may throw after mounting (resize /
+        // position), so the two cases cannot be told apart by `facePane`.
+        if (faceMounted && facePane?.contains(face)) facePane.removeChild(face);
+        faceMounted = false;
       };
       postRegister = () => stampBirthZ(opts.id);
       preUnregister = () => setVisible(false);
@@ -662,13 +678,14 @@ class LayerFactory {
 
     registerIdempotent = true;
     preRegister = () => {
-      mountFace(paneName, canvas);
+      faceMounted = mountFace(paneName, canvas);
       resize();
       updatePosition();
       canvas.classList.remove(HIDDEN);
     };
     rollbackPreRegister = () => {
-      facePane!.removeChild(canvas);
+      if (faceMounted && facePane?.contains(canvas)) facePane.removeChild(canvas);
+      faceMounted = false;
       canvas.classList.add(HIDDEN);
     };
     postRegister = () => stampBirthZ(opts.id);
