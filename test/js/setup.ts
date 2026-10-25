@@ -1,17 +1,17 @@
-// Vitest setup — runs before all test file imports.
+// Vitest setup — runs before every test file's imports. Test files may rely
+// on this per-file pass (carrier/Measure swap window.L without their own
+// restore hook); do not cache or skip setup.
 // Sets up global mocks needed by module-level code (e.g. `const foliplus = window.foliplus`).
 // Use vi.fn() so tests can spy on calls even when module captures at import time.
-import { beforeEach, vi } from "vitest";
+import { afterEach, beforeEach, vi } from "vitest";
 import { makeConfig } from "./config-fixture.js";
-import { installWindowLExtensions, resetState } from "./fixture.js";
+import { installWindowLExtensions, resetState, restoreNativeFetch } from "./fixture.js";
 
-// Several suites replace `globalThis.fetch` without restoring it. Setup files
-// rerun per test file but modules do not, so under `isolate: false` the next
-// file would inherit the previous file's mock. Capture the native one once per
-// worker and reinstall it on every setup pass — the single reset point for fetch.
-const NATIVE_FETCH = Symbol.for("foliplus.test.nativeFetch");
-(globalThis as any)[NATIVE_FETCH] ??= globalThis.fetch;
-globalThis.fetch = (globalThis as any)[NATIVE_FETCH];
+// Several suites replace `globalThis.fetch` without restoring it. Reinstall the
+// native implementation on every setup pass (per test file) and in `afterEach`
+// (per test) so neither a later file nor a later test inherits a mock. The
+// `Symbol.for` capture is a worker-level singleton — never delete it.
+restoreNativeFetch();
 
 // Spec-compliant in-memory Web Storage fallback.
 // Node.js (24.19+, and newer 24.x used by CI) exposes an experimental global
@@ -245,3 +245,4 @@ document.documentElement.style.setProperty("--foliplus-dot-size", "12.5px");
 document.documentElement.style.setProperty("--foliplus-dot-stroke", "2.5px");
 
 beforeEach(resetState);
+afterEach(() => restoreNativeFetch());
