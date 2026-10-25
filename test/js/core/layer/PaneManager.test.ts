@@ -758,8 +758,10 @@ describe("PaneManager", () => {
     // B2 closed. `@ts-expect-error` fails `tsc` if the parameter ever loosens
     // back to `owner?`, which is exactly what this guards.
     const checkOwnerIsRequired = (pm: PaneManager): void => {
+      // `needRenderer` supplied, `owner` omitted — so TS reports the *owner*
+      // argument, not merely "too few arguments".
       // @ts-expect-error — `owner` is required.
-      pm.ensurePane("focus-pane");
+      pm.ensurePane("focus-pane", false);
     };
     expect(typeof checkOwnerIsRequired).toBe("function");
   });
