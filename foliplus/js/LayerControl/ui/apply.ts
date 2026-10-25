@@ -341,9 +341,13 @@ const dispatchStateOp = (
       }
       layerInfo.opacity = op.value ?? 1;
     } else {
-      // One CSS write per pane the surface owns — declared, sub, or
-      // synthesized. Multiplicative over each feature's own style, so a
-      // hollow polygon keeps its hole.
+      // One CSS write per pane the surface owns — declared, sub, synthesized,
+      // and the marker-shadow pane. Multiplicative over each feature's own
+      // style, so a hollow polygon keeps its hole. Written through the pane
+      // handle's element (the surface's own DOM), not a `map.getPane` name
+      // lookup, and gated through `assertOwnedPane`: a shared pane in
+      // `surface.panes` would fade every other layer on the map, which is the
+      // failure the gate exists to make impossible.
       //
       // The `role: "annotation"` label pane is deliberately excluded: its
       // canvas bakes layerAlpha into the label draws (R11). Writing CSS
@@ -354,8 +358,8 @@ const dispatchStateOp = (
       const surface = ui.c.surfaceFor(layerInfo);
       for (const pane of surface.panes) {
         if (pane.role === PANE_ROLE.ANNOTATION) continue;
-        const el = ui.c.map.getPane(pane.name);
-        if (el) el.style.opacity = String(value);
+        ui.c.panes.assertOwnedPane(pane.name);
+        pane.element.style.opacity = String(value);
       }
       ui.c.annotation.applyLayerAlpha(layerInfo.id, value);
       layerInfo.opacity = value;

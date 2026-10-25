@@ -2575,6 +2575,146 @@ describe("LayerController", () => {
     expect(window.L.svg).not.toHaveBeenCalled();
   });
 
+  it("re-registering an id under a new layer releases the old surface's panes", () => {
+    // Same id, new layer object: the old surface's synthesized base pane and
+    // marker-shadow pane are the OLD layer's carrier — a replacement that
+    // leaves them claimed would grow one orphan pane per re-register.
+    manager.map.hasLayer.mockReturnValue(true);
+    const first = Object.assign(new window.L.Marker(), { options: {} });
+    manager.registerLayer({ id: "replace-me", name: "R", layer: first });
+    const oldSurface = manager.surfaceFor(manager.layerRegistry.get("replace-me")!);
+    expect(oldSurface.paneNames.length).toBeGreaterThan(0);
+    const destroySpy = vi.spyOn(oldSurface, "destroy");
+
+    const second = Object.assign(new window.L.Marker(), { options: {} });
+    manager.registerLayer({ id: "replace-me", name: "R", layer: second });
+    const newSurface = manager.surfaceFor(manager.layerRegistry.get("replace-me")!);
+    // The replacement released the old face (its synthesized base pane and
+    // marker-shadow pane) before claiming the id for the new one, AND the old
+    // layer left the map — otherwise it would keep painting as an
+    // unmanageable ghost next to the new layer.
+    expect(newSurface).not.toBe(oldSurface);
+    expect(destroySpy).toHaveBeenCalledTimes(1);
+    expect(manager.map.removeLayer).toHaveBeenCalledWith(first);
+  });
+
+  it("a layeradd marks only the owning surface dirty", () => {
+    // One group gaining a leaf must not rescan every registered tree: the
+    // handler attributes the arrival by stamp, then by group membership.
+    manager.map.hasLayer.mockReturnValue(true);
+    const groupA = { options: {}, eachLayer: vi.fn() };
+    const groupB = { options: {}, eachLayer: vi.fn() };
+    manager.registerLayer({ id: "ga", name: "A", layer: groupA as never });
+    manager.registerLayer({ id: "gb", name: "B", layer: groupB as never });
+    const surfaceA = manager.surfaces.get("ga")!;
+    const surfaceB = manager.surfaces.get("gb")!;
+    const spyA = vi.spyOn(surfaceA, "markContentDirty");
+    const spyB = vi.spyOn(surfaceB, "markContentDirty");
+
+    // A leaf joining group A: attributed to A (membership scan), not to B,
+    // and not to the global sweep.
+    const leaf = { options: {} } as never;
+    groupA.eachLayer = vi.fn();
+    (groupA as unknown as { hasLayer: (l: unknown) => boolean }).hasLayer = vi.fn(
+      () => true,
+    );
+    manager.onLayerAdd({ layer: leaf } as never);
+
+    expect(spyA).toHaveBeenCalledTimes(1);
+    expect(spyB).not.toHaveBeenCalled();
+  });
+
+  it("a leaf recorded at the write point attributes to its surface in O(1)", () => {
+    // createLayers' addLayer records the child -> group stamp (write-point
+    // index); the handler reads the surface off the group's stamp without
+    // running a membership scan at all.
+    manager.map.hasLayer.mockReturnValue(true);
+    const group = Object.assign({}, { options: {} });
+    manager.registerLayer({ id: "gm", name: "M", layer: group as never });
+    const surface = manager.surfaces.get("gm")!;
+    const spy = vi.spyOn(surface, "markContentDirty");
+    const leaf = { options: {} } as never;
+    manager.panes.rememberChildOwnership(leaf as never, group as never);
+
+    manager.onLayerAdd({ layer: leaf } as never);
+    expect(spy).toHaveBeenCalledTimes(1);
+    // A second leaf of the SAME group, also indexed, is O(1) as well.
+    const leaf2 = { options: {} } as never;
+    manager.panes.rememberChildOwnership(leaf2 as never, group as never);
+    manager.onLayerAdd({ layer: leaf2 } as never);
+    expect(spy).toHaveBeenCalledTimes(2);
+  });
+
+  it("a leaf indexed to a registered surface marks that surface and no other", () => {
+    // The O(1) path this index exists for: the leaf itself is not a
+    // registered layer, so `directSurface` misses, and the child-ownership
+    // record is the only claim. Because it claims, the fallback branch (a
+    // membership scan, then the global sweep) must not run — if it did, one
+    // add would still rescan every registered tree.
+    //
+    // The stamp has to be identity-stable for any of this to hold: the shared
+    // mock is a per-call counter, so every lookup below would miss and the
+    // handler would quietly take the sweep instead.
+    // Fake timers so the debounced enforce this schedules cannot fire after
+    // the test ends — a pending timer on a torn-down fixture is how a
+    // green file turns into a flaky one on a loaded runner.
+    vi.useFakeTimers();
+    const realStamp = window.L.stamp;
+    window.L.stamp = stableStamp;
+    try {
+      manager.map.hasLayer.mockReturnValue(true);
+      const owned = new window.L.TileLayer();
+      manager.registerLayer({ id: "gi", name: "Indexed", layer: owned });
+      manager.registerLayer({
+        id: "gother",
+        name: "Other",
+        layer: new window.L.TileLayer(),
+      });
+      const indexed = manager.surfaces.get("gi")!;
+      const other = manager.surfaces.get("gother")!;
+      const indexedSpy = vi.spyOn(indexed, "markContentDirty");
+      const otherSpy = vi.spyOn(other, "markContentDirty");
+
+      const leaf = { options: {} } as never;
+      manager.panes.rememberChildOwnership(leaf as never, owned as never);
+      manager.onLayerAdd({ layer: leaf } as never);
+
+      expect(indexedSpy).toHaveBeenCalledTimes(1);
+      expect(otherSpy).not.toHaveBeenCalled();
+    } finally {
+      window.L.stamp = realStamp;
+      vi.useRealTimers();
+    }
+  });
+
+  it("treats a recorded owner with no live surface as no claim at all", () => {
+    // The write-point index can outlive the surface that wrote it (an
+    // unregister between the record and the add). The lookup answers null,
+    // and "recorded but gone" must not read as a claim — the handler falls
+    // through to the global sweep instead, which is the conservative answer
+    // for an arrival nothing provably owns.
+    vi.useFakeTimers();
+    const realStamp = window.L.stamp;
+    window.L.stamp = stableStamp;
+    try {
+      manager.map.hasLayer.mockReturnValue(true);
+      manager.registerLayer({ id: "gi", name: "I", layer: new window.L.TileLayer() });
+      const indexed = manager.surfaces.get("gi")!;
+      const spy = vi.spyOn(indexed, "markContentDirty");
+      const leaf = { options: {} } as never;
+      // A parent stamp no registered surface owns.
+      manager.panes.rememberChildOwnership(leaf as never, { options: {} } as never);
+      manager.onLayerAdd({ layer: leaf } as never);
+
+      // The sweep marked it — once, and for the reason above, not because the
+      // index claimed it.
+      expect(spy).toHaveBeenCalledTimes(1);
+    } finally {
+      window.L.stamp = realStamp;
+      vi.useRealTimers();
+    }
+  });
+
   it("registerLayer pins the pane on a layer with a container of its own", () => {
     // A non-Path/Marker layer with children (L.GeoJSON-style) must get its
     // pane written so enforceOrder does not fall back to a generated pane.

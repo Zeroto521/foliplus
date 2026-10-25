@@ -158,6 +158,7 @@ class LayerController implements LayerAPI {
   /** The same surfaces keyed by the live layer's stamp, for the lookups that
    *  start from a layer rather than from a registry entry. */
   declare private surfacesByLayer: Map<number, LayerSurface>;
+
   declare factory: LayerFactory;
   declare ui: LayerUI | null;
   declare debouncedEnforce: Debounced;
@@ -309,13 +310,53 @@ class LayerController implements LayerAPI {
 
       // A layer's content can arrive at any time — a third party mutates a
       // registered group's tree, or folium's own script lands the leaves of a
-      // registered container. Mark every surface dirty so the next ordering pass
-      // reconciles it; there is no need to know which surface the new content
-      // belongs to, which is what the old permanently-true flag used to
-      // approximate (and got wrong: it kept the pass walking every tree on every
-      // pass). The mark is synchronous because the probe path calls
-      // `enforceOrder` directly, and a debounce-only trigger would miss it.
-      for (const surface of this.surfaces.values()) surface.markContentDirty();
+      // registered container. Attribute the arrival to its owning surface and
+      // mark only that one dirty: a full sweep here would rescan every
+      // registered tree on every unrelated add. The mark is synchronous
+      // because the probe path calls `enforceOrder` directly, and a
+      // debounce-only trigger would miss it.
+      //
+      // Attribution order: the arriving layer itself (a registered container
+      // or standalone leaf, O(1) by stamp), then any surface whose registered
+      // group holds it (`LayerGroup.hasLayer` is a stamp lookup, so the scan
+      // is O(registry), not O(leaves)), and — only when nothing claims it —
+      // the conservative global sweep that late binding (folium's own globals
+      // landing after this script) still relies on.
+      const arrivingStamp = L.stamp(event.layer);
+      const directSurface = this.surfacesByLayer.get(arrivingStamp);
+      // Write-point index first: createLayers' addLayer recorded which group
+      // owns this leaf, so the surface is O(1) without a membership scan.
+      // (The stamp of the group IS its registered surface's key.)
+      const parentStamp = this.panes.childOwnerOf(event.layer);
+      const indexedSurface =
+        parentStamp !== undefined
+          ? (this.surfacesByLayer.get(parentStamp) ?? null)
+          : null;
+      if (directSurface) {
+        directSurface.markContentDirty();
+      } else if (indexedSurface) {
+        indexedSurface.markContentDirty();
+      } else {
+        let claimed = false;
+        for (const surface of this.surfacesByLayer.values()) {
+          const host = surface.layer as L.LayerGroup | null;
+          if (
+            host &&
+            typeof host.hasLayer === "function" &&
+            host.hasLayer(event.layer)
+          ) {
+            surface.markContentDirty();
+            claimed = true;
+          }
+        }
+        // Unattributed: sweep only while the registry still holds unresolved
+        // layers (folium's late globals landing after this script) — that is
+        // the one case the sweep exists for. Every unrelated control/plugin
+        // layeradd afterwards must not rescan every registered tree.
+        if (!claimed && this.hasUnresolvedLayers()) {
+          for (const surface of this.surfaces.values()) surface.markContentDirty();
+        }
+      }
       if ((this.hasUnresolvedLayers() || this.surfaces.size > 0) && !this.isEnforcing) {
         this.debouncedEnforce();
       }

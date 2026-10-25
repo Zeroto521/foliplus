@@ -254,7 +254,12 @@ class LayerFactory {
     // 400 — above every basemap — until the ordering pass caught up.
     let facePane: HTMLElement | null = null;
     const mountFace = (paneName: string, face: HTMLCanvasElement) => {
-      facePane = panes.ensurePane(paneName, false).pane;
+      const { pane } = panes.ensurePane(paneName, false, opts.id);
+      if (!pane) {
+        log.warn(`canvas pane "${paneName}" is not acquireable; face not mounted`);
+        return;
+      }
+      facePane = pane;
       facePane.appendChild(face);
     };
     const stampBirthZ = (id: string) => {
@@ -313,6 +318,9 @@ class LayerFactory {
         if (requested && paneNames.includes(requested)) {
           if (!map.hasLayer(mainLayer)) register();
           panes.pinTree(layer, requested);
+          // Write-point membership index: the next leaf of this group
+          // attributes to the surface in O(1) instead of a registry scan.
+          panes.rememberChildOwnership(layer, mainLayer);
           const target = subLayers.get(requested)!;
           const result = target.addLayer(layer);
           panes.invalidateDiscoveryCache(L.stamp(mainLayer));
@@ -324,6 +332,10 @@ class LayerFactory {
       };
 
       mainLayer.removeLayer = (layer: LabelAwareLayer) => {
+        // Delete point for `childOwners`: the leaf stops belonging to this
+        // group, so its ownership entry goes with it. Deletion at teardown
+        // would leave one row per leaf the group has ever held.
+        panes.forgetChildOwnership(layer);
         for (const g of subLayers.values()) {
           if (g.hasLayer(layer)) {
             const result = g.removeLayer(layer);
@@ -342,6 +354,8 @@ class LayerFactory {
           directCount() > 0 ||
           Array.from(subLayers.values()).some(g => g.getLayers().length > 0);
         for (const g of subLayers.values()) g.clearLayers();
+        // The bulk delete point: these leaves never pass through `removeLayer`.
+        panes.forgetAllChildOwnership(mainLayer);
         if (hadContent) {
           invalidateType(opts.id);
           if (!onDataChangeSkip) onDataChange?.(opts.id);
@@ -511,7 +525,9 @@ class LayerFactory {
           setVisible(false);
           unregister();
           face.remove();
-          panes.removePane(paneName);
+          // One retirement path: `releasePane` holds the lease check, so a face
+          // whose pane booking was refused deletes nobody else's carrier.
+          panes.releasePane(paneName, opts.id, true);
         },
       };
     }
@@ -621,7 +637,9 @@ class LayerFactory {
       onMove.cancel();
       unregister();
       canvas.remove();
-      panes.removePane(paneName);
+      // One retirement path: `releasePane` holds the lease check, so a face
+      // whose pane booking was refused deletes nobody else's carrier.
+      panes.releasePane(paneName, opts.id, true);
     };
     content = {
       kind: CONTENT_KIND.CANVAS,

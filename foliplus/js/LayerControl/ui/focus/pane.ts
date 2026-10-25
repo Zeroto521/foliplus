@@ -50,6 +50,7 @@ const hideOtherLayers = (ui: LayerUI): void => {
     const surface = ui.c.surfaceFor(li);
     if (!surface) continue;
     for (const pane of surface.panes) {
+      ui.c.panes.assertOwnedPane(pane.name);
       pane.element.classList.add(CONST.CLASSES.FOCUS_BASEMAP);
     }
     ui.focusController.focusedPaneRestores.push([
@@ -129,14 +130,18 @@ const bringFocusedLayerToFront = (ui: LayerUI, layerInfo: LayerInfo): void => {
     const surface = ui.c.surfaceFor(layerInfo);
     if (surface.setZOverride(focusedZ)) {
       // FOCUS_PANE on every pane — including the label pane, or the
-      // focus-hide CSS would swallow the layer's own labels. The glow stays
-      // off the annotation role: text labels are the layer's typography, not
-      // its geometry, and a drop-shadow halo on them reads as a second outline
-      // over the halo the label paint already carries.
+      // focus-hide CSS would swallow the layer's own labels — and the
+      // marker-shadow pane, whose shadows belong to the focused layer's
+      // spotlight just as much as its icons. The glow stays off the
+      // annotation role (text labels are the layer's typography, not its
+      // geometry, and a drop-shadow halo on them reads as a second outline
+      // over the halo the label paint already carries) and off the shadow
+      // role (a filter halo on the shadows would read as a shadow of the
+      // shadow).
       const panes = surface.panes;
       for (const pane of panes) {
         pane.element.classList.add(CONST.CLASSES.FOCUS_PANE);
-        if (pane.role !== PANE_ROLE.ANNOTATION) {
+        if (pane.role !== PANE_ROLE.ANNOTATION && pane.role !== PANE_ROLE.SHADOW) {
           pane.element.classList.add(CONST.CLASSES.FOCUS_GLOW);
         }
       }
