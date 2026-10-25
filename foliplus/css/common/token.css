@@ -384,7 +384,10 @@
   --foliplus-layer-item-pad-x: calc(
     var(--foliplus-space-md) - var(--foliplus-size-2) + 1px
   );
-  --foliplus-count-track-width: 38px;
+  /* Count track: 48px reserves the filter funnel (12px) + the exact kept
+     count (up to "2,500") without ellipsis; unfiltered compact counts sit
+     right-aligned in the same column. */
+  --foliplus-count-track-width: 48px;
   --foliplus-more-btn-width: 7px;
   --foliplus-grid-layer-gap: 3px;
   --foliplus-grid-layer-cols: var(--foliplus-space-xl) var(--foliplus-space-xl) 1fr

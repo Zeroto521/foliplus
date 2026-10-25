@@ -907,6 +907,35 @@ class HeatmapManager {
     return 10 ** -Math.max(decimals(range[0]), decimals(range[1]));
   }
 
+  /** The field the filter is bound to: the aggregation field the Heatmap
+   *  is currently using. `this.field` empty means "auto" — the first numeric
+   *  key the snapshot exposes. Never a separate field choice: the panel renders
+   *  it read-only. */
+  private filterField(): string {
+    const snapshot = this.cachedSnapshot;
+    const numeric = snapshot?.numericFields ?? [];
+    if (this.field && numeric.includes(this.field)) return this.field;
+    return this.autoFieldKey && numeric.includes(this.autoFieldKey)
+      ? this.autoFieldKey
+      : numeric[0];
+  }
+
+  /** Follow an aggregation-field change: a stored filter belongs to the field
+   *  it was written for, so a different effective field drops it. The caller
+   *  repaints and publishes LAYER_FILTER_CHANGE (the panel re-reads the model,
+   *  which is now a different shape, and rebuilds its rail/extent). */
+  syncFilterField(): void {
+    const sourceId = this.selectedLayerId;
+    if (!sourceId) return;
+    const prev = this.layerFilters.get(sourceId);
+    if (!prev) return;
+    const field = this.filterField();
+    const bound = prev.kind === "atom" ? prev.field : undefined;
+    if (bound === field) return;
+    this.layerFilters.delete(sourceId);
+    this.cachedAgg = null;
+  }
+
   /** The filter panel's view of this row's filter state, computed from
    *  this manager's own state — the single read path. Returns null when
    *  the row has no filterable data (no source selected, or no numeric
@@ -917,10 +946,18 @@ class HeatmapManager {
     this.getSelectedPoints(); // ensures cachedSnapshot is built for this source
     const snapshot = this.cachedSnapshot;
     if (!snapshot || snapshot.numericFields.length === 0) return null;
-    const field = snapshot.numericFields[0];
+    // The filter field IS the aggregation field: the panel shows a read-only
+    // field, so filtering one property while the heatmap aggregates another
+    // would be a silent lie. `this.field` empty means the auto field (the
+    // first numeric key), which is what the old hard-coded read always
+    // returned — use the resolved key instead so a user-picked field wins.
+    const field = this.filterField();
     const range = snapshot.ranges[field] ?? [0, 0];
     const filter = this.layerFilters.get(sourceId);
     return {
+      // The filter narrows the SOURCE point layer; its row is where the
+      // funnel/count belongs (this canvas row is a different row).
+      sourceId,
       field,
       range,
       filter,

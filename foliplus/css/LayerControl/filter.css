@@ -1,58 +1,51 @@
 .foliplus-layer-ctrl {
   /* ── Filter panel ──
-     Stage-2 pilot: field / range / result form rows plus a Clear footer,
-     same left-label / right-control vocabulary as the style panel. The
-     shell (anchoring, width, height cap, chrome) comes from the shared
-     row-panel recipe; the slider's geometry (rail, thumbs, fill, values,
-     bubble) is declared once in common/slider.css and needs nothing here. */
+     Stage-2 pilot: field / range / result form rows plus a Clear footer.
+     Geometry is the SHARED form vocabulary, not a local copy: the row grid
+     (88px right-aligned label + one flexible control cell) and every row's
+     horizontal inset come from common/form.css + common/panel.css, exactly
+     like the Style and Attributes panels. The panel shell (anchoring,
+     width, height cap, chrome) still comes from the shared row-panel
+     recipe, and the slider's rail/thumbs/fill/bubble come from
+     common/slider.css — nothing is re-declared here. */
   .foliplus-layer-filter-panel {
     padding: 0;
   }
+  /* No horizontal padding on the content: the shared row rule already
+     insets each row by --foliplus-space-lg, and adding it here as well
+     double-indented every control away from Style/Attributes. Keep the
+     base top breather and only lay the rows out. */
   .foliplus-layer-filter-panel .foliplus-panel-content {
-    padding: var(--foliplus-space-md) var(--foliplus-space-lg);
-    display: flex;
-    flex-direction: column;
+    padding-left: 0;
+    padding-right: 0;
     gap: var(--foliplus-space-md);
-  }
-  .foliplus-layer-filter-panel .foliplus-form-row {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: var(--foliplus-space-md);
-  }
-  /* Narrow rows: the right-hand control wraps inside its cell instead of
-     pushing the label or collapsing the panel. */
-  .foliplus-layer-filter-panel .foliplus-form-control {
-    font-size: var(--foliplus-font-size-sm);
-    color: var(--foliplus-text-secondary);
-    font-variant-numeric: tabular-nums;
-    min-width: 0;
-    overflow-wrap: anywhere;
   }
   /* The slider cell takes the row's remaining width — the rail needs a
-     measurable box, and the label column stays fixed like in the style
-     panel. */
-  .foliplus-layer-filter-panel .foliplus-form-row:has(.foliplus-filter-slider) {
-    align-items: center;
-  }
+     measurable box, and it starts at the same x as every other panel's
+     control column because the label cell is the shared 88px one. */
   .foliplus-layer-filter-panel .foliplus-filter-slider {
-    flex: 1;
+    width: 100%;
+    min-width: 0;
   }
   .foliplus-layer-filter-panel .foliplus-filter-field {
     color: var(--foliplus-text-primary);
   }
-  /* Result readout: `kept / total`. Tabular figures so the numbers do not
-     jump width as they change; the element carries aria-live=polite. */
+  /* Result readout: percentage + exact kept / total, left-aligned in the
+     control column. Tabular figures so the numbers do not jump width as
+     they change; the element carries aria-live=polite. */
   .foliplus-layer-filter-panel .foliplus-filter-result {
+    display: block;
     color: var(--foliplus-text-secondary);
+    font-size: var(--foliplus-font-size-sm);
     font-variant-numeric: tabular-nums;
+    text-align: left;
   }
   /* Fallback message when the row declares no filterable data: same font
-     as the panel's body, muted color. */
+     as the panel's body, muted color, inset like a row. */
   .foliplus-layer-filter-panel .foliplus-filter-empty {
     font-size: var(--foliplus-font-size-sm);
     color: var(--foliplus-text-secondary);
-    padding: var(--foliplus-space-sm) 0;
+    padding: var(--foliplus-space-sm) var(--foliplus-space-lg);
   }
   /* Header icon (funnel glyph) sized inside the shared .foliplus-header-icon
      box; the LayerControl SVGs are viewBox-only. */

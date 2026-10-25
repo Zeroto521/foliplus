@@ -88,6 +88,10 @@ const CLASSES = {
   FOLDED: "foliplus-layer-folded",
   TYPE_ICON_COL: "foliplus-type-icon-col",
   COUNT_COL: "foliplus-layer-count",
+  /** Count column with a committed filter: accent color + funnel prefix. */
+  COUNT_FILTERED: "foliplus-layer-count-filtered",
+  /** The 12px funnel glyph that precedes a filtered count. */
+  COUNT_FUNNEL: "foliplus-layer-count-funnel",
   MORE_BTN: "foliplus-layer-more-btn",
   TOGGLE_ALL: "foliplus-layer-toggle-all",
   FOLD_BTN_CTR: "foliplus-layer-sep",

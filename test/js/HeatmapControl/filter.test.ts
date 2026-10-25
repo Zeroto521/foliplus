@@ -628,3 +628,58 @@ describe("HeatmapControl filter owner (stage-2 pilot)", () => {
     expect((m as any).extractMarkerFields(marker)).toEqual({ value: 42, other: 3 });
   });
 });
+
+// ── Field linkage (first batch of the #724 review) ──
+describe("HeatmapControl filter field follows the aggregation field", () => {
+  let m: HeatmapManager;
+
+  const points = [
+    { lat: 26.08, lng: 119.3, value: 10, field: "b" },
+    { lat: 26.09, lng: 119.31, value: 20, field: "a" },
+    { lat: 26.1, lng: 119.32, value: 30, field: "a" },
+  ];
+
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    m = makeManager();
+    setupWithPoints(m, points);
+  });
+
+  it("reads this.field, not numericFields[0]", () => {
+    // numericFields order is ["b", "a"]; the aggregation field is "a".
+    m.agg = "sum";
+    m.field = "a";
+    const model = m.getFilterModel();
+    expect(model).not.toBeNull();
+    expect(model!.field).toBe("a");
+    expect(model!.range).toEqual([20, 30]);
+    expect(model!.total).toBe(3);
+  });
+
+  it("falls back to the first numeric field when this.field is empty", () => {
+    // Marker values are exposed as the "value" field, which the snapshot
+    // orders first — the auto field is numericFields[0].
+    m.field = "";
+    const model = m.getFilterModel()!;
+    expect(model.field).toBe("value");
+    expect(model.range).toEqual([10, 30]);
+  });
+
+  it("syncFilterField drops a filter written for the previous field", () => {
+    m.agg = "sum";
+    m.field = "a";
+    m.setFilter({ kind: "atom", field: "a", op: "between", range: [20, 25] });
+    expect(m.layerFilters.size).toBe(1);
+    m.field = "b";
+    m.syncFilterField();
+    expect(m.layerFilters.size).toBe(0);
+  });
+
+  it("syncFilterField keeps a filter bound to the same field", () => {
+    m.agg = "sum";
+    m.field = "a";
+    m.setFilter({ kind: "atom", field: "a", op: "between", range: [20, 25] });
+    m.syncFilterField();
+    expect(m.layerFilters.size).toBe(1);
+  });
+});

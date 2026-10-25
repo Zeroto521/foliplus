@@ -95,6 +95,12 @@ const select = (
  *  of the filter state exists. The panel is a view over this model —
  *  it never touches the owner's internal maps or caches. */
 interface LayerFilterModel {
+  /** The row whose records the filter narrows — the owner's underlying
+   *  data layer, when it is not the capability row itself (HeatmapControl
+   *  filters its source point layer, not its own canvas row). The row
+   *  projection reads this to paint the funnel on the data row; absent means
+   *  the capability row is the data row. */
+  sourceId?: string;
   /** The numeric field the filter evaluates. The owner picks the
    *  default field (first numeric key of the snapshot today); the panel
    *  renders it read-only. */

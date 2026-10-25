@@ -68,6 +68,13 @@ const makeOwner = (values: number[]) => {
   };
 };
 
+/** The action names of an open ⋮ menu, in DOM order (dividers carry no
+ *  data-action and drop out). */
+const menuActionNames = (item: HTMLElement): string[] =>
+  Array.from(
+    item.querySelectorAll<HTMLElement>(".foliplus-layer-more-menu [data-action]"),
+  ).map(li => li.getAttribute("data-action") ?? "");
+
 describe("LayerUI filter panel (stage-2 pilot)", () => {
   let manager: LayerController;
   let ui: LayerUI;
@@ -105,16 +112,16 @@ describe("LayerUI filter panel (stage-2 pilot)", () => {
   });
 
   describe("the ⋮ menu gate", () => {
-    it("disables the filter entry for layers without the filter capability", () => {
+    it("hides the filter entry for layers without the filter capability", () => {
       const item = findItem(ui, "overlay1"); // registered without capability
       ui.openMoreMenu(item);
-      const li = item.querySelector(
-        `[data-action="${CONST.ACTION.FILTER_LAYER}"]`,
-      ) as HTMLElement;
-      expect(li).not.toBeNull();
-      expect(li.getAttribute("aria-disabled")).toBe("true");
-      expect(li.hasAttribute("disabled")).toBe(true);
-      expect(li.getAttribute("title")).toBe("LayerControl.filter_not_supported");
+      // A control that can never run is not rendered at all — no disabled
+      // row, no "not supported" tooltip sitting in every menu.
+      expect(
+        item.querySelector(`[data-action="${CONST.ACTION.FILTER_LAYER}"]`),
+      ).toBeNull();
+      // The head of the menu is then Style, still the first entry.
+      expect(menuActionNames(item)[0]).toBe(CONST.ACTION.STYLE_LAYER);
     });
 
     it("enables the filter entry for a row that declares the capability", () => {
@@ -127,6 +134,15 @@ describe("LayerUI filter panel (stage-2 pilot)", () => {
       expect(li.getAttribute("aria-disabled")).toBe("false");
       expect(li.hasAttribute("disabled")).toBe(false);
       expect(li.getAttribute("title")).toBe("LayerControl.filter_layer_tooltip");
+      // Filter leads the supported menu; the rest keeps the reviewed order
+      // (Style, Focus, Rename, Attributes, then the destructive tail).
+      expect(menuActionNames(item).slice(0, 5)).toEqual([
+        CONST.ACTION.FILTER_LAYER,
+        CONST.ACTION.STYLE_LAYER,
+        "focus-layer",
+        CONST.ACTION.RENAME_LAYER,
+        CONST.ACTION.ATTRS_LAYER,
+      ]);
     });
 
     it("does not infer the capability from styleSetters (the Measure case)", () => {
@@ -142,10 +158,9 @@ describe("LayerUI filter panel (stage-2 pilot)", () => {
       });
       const item = findItem(ui, "measureRow");
       ui.openMoreMenu(item);
-      const li = item.querySelector(
-        `[data-action="${CONST.ACTION.FILTER_LAYER}"]`,
-      ) as HTMLElement;
-      expect(li.getAttribute("aria-disabled")).toBe("true");
+      expect(
+        item.querySelector(`[data-action="${CONST.ACTION.FILTER_LAYER}"]`),
+      ).toBeNull();
     });
 
     it("rejects a truthy non-function capability (untyped caller)", () => {
@@ -162,11 +177,9 @@ describe("LayerUI filter panel (stage-2 pilot)", () => {
       });
       const item = findItem(ui, "bogus");
       ui.openMoreMenu(item);
-      const li = item.querySelector(
-        `[data-action="${CONST.ACTION.FILTER_LAYER}"]`,
-      ) as HTMLElement;
-      expect(li.getAttribute("aria-disabled")).toBe("true");
-      expect(li.hasAttribute("disabled")).toBe(true);
+      expect(
+        item.querySelector(`[data-action="${CONST.ACTION.FILTER_LAYER}"]`),
+      ).toBeNull();
     });
 
     it("clicking the enabled filter entry opens the panel", () => {
@@ -765,5 +778,210 @@ describe("LayerUI filter panel (stage-2 pilot)", () => {
       expect(ui.overlayPanel.activeAttrsPanel).toBeNull();
       expect(ui.overlayPanel.attrsOutsideHandler).toBeNull();
     });
+  });
+});
+
+// ── Result / Clear / keyboard / row state (first batch of the #724 review) ──
+describe("LayerUI filter panel — result, Clear and row state", () => {
+  let manager: LayerController;
+  let ui: LayerUI;
+
+  const registerPoints = (id = "pnt", sourceId?: string) => {
+    const values = [10, 20, 30];
+    const range: [number, number] = [10, 30];
+    const snapshot = {
+      points: values.map(v => ({ lat: 0, lng: 0, fields: { magnitude: v } })),
+      numericFields: ["magnitude"],
+      ranges: { magnitude: range },
+    };
+    let filter: LayerFilter;
+    const owner = {
+      filterProvider: (): LayerFilterModel => ({
+        sourceId,
+        field: "magnitude",
+        range,
+        filter,
+        kept: select(snapshot as any, filter).length,
+        total: values.length,
+        step: 1,
+      }),
+      filterSetter: (f: LayerFilter) => {
+        filter = f;
+      },
+      get filter() {
+        return filter;
+      },
+    };
+    manager.registerLayer({
+      id,
+      name: "Points",
+      group: "overlay",
+      layer: {
+        options: {},
+        eachLayer: vi.fn(),
+      } as unknown as L.Layer,
+      filterProvider: owner.filterProvider,
+      filterSetter: owner.filterSetter,
+    });
+    return { id, owner };
+  };
+
+  const commit = (owner: { filterSetter: (f: LayerFilter) => void }) =>
+    owner.filterSetter({
+      kind: "atom",
+      field: "magnitude",
+      op: "between",
+      range: [10, 20],
+    });
+
+  beforeEach(() => {
+    ({ manager, ui } = initFixture());
+    ui.listPanel.foldedGroups = new Set();
+    window.localStorage.removeItem(CONST.STORAGE.KEY);
+  });
+
+  afterEach(() => {
+    manager?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.useRealTimers();
+  });
+
+  it("the result row is one sentence: percent first, then exact kept / total", () => {
+    const { owner } = registerPoints();
+    commit(owner);
+    const spy = vi
+      .spyOn(ui, "T")
+      .mockImplementation(
+        key =>
+          (key === "filter_result"
+            ? "{pct}% ({kept} of {total}) kept"
+            : `LayerControl.${key}`) as any,
+      );
+
+    const item = findItem(ui, "pnt");
+    ui.openFilterPanel(item);
+    const panel = item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`) as HTMLElement;
+    const result = panel.querySelector(`.${CONST.CLASSES.FILTER_RESULT}`)!;
+    expect(result.textContent).toBe("67% (2 of 3) kept");
+    // A standard FORM_ROW: right-aligned Result label + one control cell.
+    const row = result.closest(`.${CONST.CLASSES.FORM_ROW}`) as HTMLElement;
+    expect(row.querySelector(`.${CONST.CLASSES.FORM_LABEL}`)!.textContent).toBe(
+      "LayerControl.filter_result_label",
+    );
+    // No second ratio / progress track anywhere in the panel.
+    expect(panel.querySelectorAll(`.${CONST.CLASSES.FILTER_RESULT}`)).toHaveLength(1);
+    expect(panel.querySelector('[role="progressbar"]')).toBeNull();
+    expect(panel.querySelector(".foliplus-filter-ratio")).toBeNull();
+    spy.mockRestore();
+  });
+
+  it("Clear is the only footer action and is disabled until a filter exists", () => {
+    const { owner } = registerPoints();
+    const item = findItem(ui, "pnt");
+    ui.openFilterPanel(item);
+    const panel = item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`) as HTMLElement;
+    const buttons = panel.querySelectorAll(".foliplus-btn-row button");
+    expect(buttons).toHaveLength(1);
+    const clear = buttons[0] as HTMLButtonElement;
+    expect(clear.classList.contains(CONST.CLASSES.FILTER_CLEAR)).toBe(true);
+    expect(clear.disabled).toBe(true);
+    expect(clear.getAttribute("aria-disabled")).toBe("true");
+
+    // The owner commits outside the panel (e.g. a source switch): the live
+    // view follows, and Clear becomes the actionable reset.
+    commit(owner);
+    ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, { id: "pnt" });
+    expect(clear.disabled).toBe(false);
+    expect(clear.getAttribute("aria-disabled")).toBe("false");
+    clear.click();
+    expect(owner.filter).toBeUndefined();
+  });
+
+  it("Escape closes the live panel (no Done / Apply step)", () => {
+    registerPoints();
+    const item = findItem(ui, "pnt");
+    ui.openFilterPanel(item);
+    expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).not.toBeNull();
+
+    ui.handleKeyDown(new KeyboardEvent("keydown", { key: "Escape" }));
+
+    expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).toBeNull();
+    expect(ui.overlayPanel.activeFilterPanel).toBeNull();
+  });
+
+  it("the row shows a 12px funnel + exact kept count + filtered title", () => {
+    const { owner } = registerPoints();
+    commit(owner);
+    const spy = vi.spyOn(ui, "T").mockImplementation(key => {
+      if (key === "filter_row_title") return "{kept} / {total} filtered · {type}";
+      if (key.startsWith("type_")) return "Point";
+      return `LayerControl.${key}` as any;
+    });
+
+    ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, { id: "pnt" });
+
+    const item = findItem(ui, "pnt");
+    const count = item.querySelector(`.${CONST.CLASSES.COUNT_COL}`) as HTMLElement;
+    expect(count.classList.contains(CONST.CLASSES.COUNT_FILTERED)).toBe(true);
+    const funnel = count.querySelector(`.${CONST.CLASSES.COUNT_FUNNEL}`) as HTMLElement;
+    expect(funnel).not.toBeNull();
+    expect(funnel.querySelector("svg")).not.toBeNull();
+    // Exact count, not the compact form: 2,500 beats 2.5K on a filtered row.
+    // Read the value span (the funnel SVG source contributes whitespace text).
+    expect(count.querySelector(".foliplus-layer-count-value")!.textContent).toBe("2");
+    // Hover title: kept / total filtered · type — no layer name.
+    expect(item.title).toBe("2 / 3 filtered · Point");
+    expect(count.title).toBe("2 / 3 filtered · Point");
+    expect(count.getAttribute("aria-label")).toBe("2 / 3 filtered · Point");
+    expect(item.getAttribute(CONST.DATA.TITLE)).toBe("Point");
+
+    // Clearing the filter takes the funnel and the accent away; the count
+    // returns to the plain (compact-capable) projection.
+    owner.filterSetter(undefined);
+    ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, { id: "pnt" });
+    const cleared = findItem(ui, "pnt");
+    const plain = cleared.querySelector(`.${CONST.CLASSES.COUNT_COL}`) as HTMLElement;
+    expect(plain.classList.contains(CONST.CLASSES.COUNT_FILTERED)).toBe(false);
+    expect(plain.querySelector(`.${CONST.CLASSES.COUNT_FUNNEL}`)).toBeNull();
+    expect(plain.title).toBe("");
+    spy.mockRestore();
+  });
+
+  it("paints the funnel on the owner's source row, not its capability row", () => {
+    // Heatmap shape: the capability lives on one row ("pnt"), the filtered
+    // records belong to another ("src"). The data row owns the funnel and
+    // the tooltip type; the capability row stays a normal row.
+    const { owner } = registerPoints("pnt", "src");
+    manager.registerLayer({
+      id: "src",
+      name: "Source",
+      group: "overlay",
+      layer: { options: {}, eachLayer: vi.fn() },
+    });
+    commit(owner);
+    const spy = vi.spyOn(ui, "T").mockImplementation(key => {
+      if (key === "filter_row_title") return "{kept} / {total} filtered · {type}";
+      if (key.startsWith("type_")) return "Point";
+      return `LayerControl.${key}` as any;
+    });
+
+    ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, { id: "pnt" });
+
+    const dataCount = findItem(ui, "src").querySelector(
+      `.${CONST.CLASSES.COUNT_COL}`,
+    ) as HTMLElement;
+    expect(dataCount.classList.contains(CONST.CLASSES.COUNT_FILTERED)).toBe(true);
+    expect(dataCount.querySelector(".foliplus-layer-count-value")!.textContent).toBe(
+      "2",
+    );
+    expect(findItem(ui, "src").title).toBe("2 / 3 filtered · Point");
+    // The capability row itself shows no filter decoration (it is not the
+    // data row; its own count is the canvas feature count).
+    const capCount = findItem(ui, "pnt").querySelector(
+      `.${CONST.CLASSES.COUNT_COL}`,
+    ) as HTMLElement;
+    expect(capCount.classList.contains(CONST.CLASSES.COUNT_FILTERED)).toBe(false);
+    spy.mockRestore();
   });
 });

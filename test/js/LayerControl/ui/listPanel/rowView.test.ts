@@ -56,7 +56,7 @@ describe("rowView (pure projection)", () => {
   });
 
   it("titles the row as count + type, or the type alone", () => {
-    expect(rowView(cell({ countText: "12" }), LABELS).title).toBe("12 polygon");
+    expect(rowView(cell({ countText: "12" }), LABELS).title).toBe("12 · polygon");
     expect(rowView(cell({ countText: "" }), LABELS).title).toBe("polygon");
   });
 
@@ -249,7 +249,7 @@ describe("buildRowCell + applyRowView (one writer per row)", () => {
     const cellInfo = buildRowCell(ui, layerInfo);
     expect(cellInfo.countText).toBe("12");
     expect(rowView(cellInfo, LABELS).title).toBe(
-      `${cellInfo.countText} ${cellInfo.typeLabel}`,
+      `${cellInfo.countText} · ${cellInfo.typeLabel}`,
     );
 
     const item = document.createElement("div");
@@ -304,7 +304,7 @@ describe("applyRowView (the single DOM write point)", () => {
       el.querySelector<HTMLElement>(`.${CONST.CLASSES.TYPE_ICON_COL}`)!.innerHTML,
     ).toBe("<b></b>");
     expect(el.getAttribute(CONST.DATA.TITLE)).toBe("polygon");
-    expect(el.title).toBe("4 polygon");
+    expect(el.title).toBe("4 · polygon");
   });
 
   it("updates the other fields when the row is missing one decoration", () => {

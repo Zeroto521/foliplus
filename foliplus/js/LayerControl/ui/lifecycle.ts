@@ -36,6 +36,10 @@ import {
   handleDrop,
   toggleFold,
 } from "./listPanel/drag.js";
+import {
+  clearFilterRowStates,
+  syncFilterRowState,
+} from "./listPanel/filterRowState.js";
 import { handleDblClick } from "./listPanel/keyboard.js";
 import {
   initLayerItem,
@@ -359,6 +363,22 @@ const bindLayerEvents = (ui: LayerUI): void => {
         openStylePanel(ui, payload.id);
       }
     }),
+    // A committed filter is a row fact now: funnel + accent + the kept
+    // count. The owner publishes after its render settled, so this repaint
+    // reads the final model (not the mid-drag one).
+    subscribe(EVENTS.LAYER_FILTER_CHANGE, (payload: { id: string }) => {
+      const layerInfo = registry.get(payload.id);
+      if (!layerInfo || !ui.uiContainer) return;
+      // The owner may filter another row (Heatmap canvas → source point
+      // layer); the cache resolves which data row paints the funnel.
+      syncFilterRowState(layerInfo).forEach(id => {
+        const info = registry.get(id);
+        const item = ui.uiContainer?.querySelector<HTMLElement>(
+          `[${CONST.DATA.LAYER_ID}="${CSS.escape(id)}"]`,
+        );
+        if (info && item) applyRowView(ui, item, buildRowCell(ui, info));
+      });
+    }),
     subscribe(EVENTS.LAYER_ITEM_REMOVED, (payload: { id: string }) => {
       // Cache drop only: unregister already tore the labels and their canvas
       // down (annotation.unloadLayer runs before this event is emitted), and
@@ -507,6 +527,8 @@ const unbindEvents = (ui: LayerUI): void => {
   closeStylePanel(ui, false);
   closeAttrsPanel(ui, false);
   closeFilterPanel(ui, false);
+  // The row cache is session state: a re-created UI starts unfiltered.
+  clearFilterRowStates();
   finishRename(ui, true);
   // Remove any focus animation still in flight (rect + row highlight).
   dismissFocus(ui);

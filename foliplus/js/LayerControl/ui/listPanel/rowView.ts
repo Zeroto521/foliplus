@@ -21,6 +21,7 @@ import * as Icons from "#common/icon.js";
 import { INTENT, getIntent } from "../intent.js";
 import { inZoomRange, intentVisibleOf, projectLayer } from "../projection.js";
 import type { LayerUI } from "../surface.js";
+import { filterRowStateOf } from "./filterRowState.js";
 
 /** One layer's inputs to the row visual. Nothing here is written back. */
 interface RowCell {
@@ -41,6 +42,10 @@ interface RowCell {
   /** The type icon's markup, or "" when nothing should be painted. */
   typeSvg: string;
   typeLabel: string;
+  /** True when the row's owner reports a committed filter (kept < total). */
+  filtered?: boolean;
+  /** Hover title used while filtered: kept / total filtered · type. */
+  filterTitle?: string;
 }
 
 /** What one row element should look like. */
@@ -51,7 +56,11 @@ interface RowView {
   countText: string;
   typeSvg: string;
   typeLabel: string;
-  /** The row's hover tooltip: "count  type". */
+  /** Whether the count is filter-narrowed (funnel + accent + exact count). */
+  filtered: boolean;
+  /** The funnel glyph prefixed to a filtered count, or "". */
+  countIconSvg: string;
+  /** The row's hover tooltip: "count  type" or the filtered sentence. */
   title: string;
 }
 
@@ -83,7 +92,13 @@ const rowView = (cell: RowCell, labels: RowLabels): RowView => ({
   countText: cell.countText,
   typeSvg: cell.typeSvg,
   typeLabel: cell.typeLabel,
-  title: cell.countText ? `${cell.countText} ${cell.typeLabel}` : cell.typeLabel,
+  filtered: Boolean(cell.filtered),
+  countIconSvg: cell.filtered ? SVGs.ICON_FILTER : "",
+  title: cell.filtered
+    ? (cell.filterTitle ?? cell.typeLabel)
+    : cell.countText
+      ? `${cell.countText} · ${cell.typeLabel}`
+      : cell.typeLabel,
 });
 
 /**
@@ -143,20 +158,52 @@ const buildRowCell = (ui: LayerUI, layerInfo: LayerInfo): RowCell => {
   const layer = ui.c.findLayer(layerInfo);
   const checked = intentVisibleOf(ui, layerInfo.id);
   const type = rowType(ui, layerInfo, layer);
-  const count = ui.c.getFeatureCount(layerInfo.id);
+  const typeLabel = ui.T(type.key);
+  // The filtered fact is projected from the owner through the row cache, so
+  // the funnel can sit on the data row while the capability lives on another
+  // row (the Heatmap canvas). The exact kept count (not the compact form) is
+  // the row's number while a filter is active: the tooltip is a report of the
+  // filter, so "2,500" beats "2.5K". No owner ⇒ no filter decoration.
+  const filterState = filterRowStateOf(layerInfo.id);
+  const filtered = Boolean(filterState);
+  const rawCount = filterState ? filterState.kept : ui.c.getFeatureCount(layerInfo.id);
+  const countText =
+    rawCount != null
+      ? formatNumber(
+          rawCount,
+          filtered ? "comma" : "auto",
+          ui.config.locale_code,
+          filtered ? 0 : undefined,
+        )
+      : "";
+  const filterTitle = filtered
+    ? ui
+        .T("filter_row_title")
+        .replace(
+          "{kept}",
+          formatNumber(filterState!.kept, "comma", ui.config.locale_code, 0),
+        )
+        .replace(
+          "{total}",
+          formatNumber(filterState!.total, "comma", ui.config.locale_code, 0),
+        )
+        .replace("{type}", typeLabel)
+    : "";
   return {
     id: layerInfo.id,
     name: displayName(ui, layerInfo.id),
     checked,
+    filtered,
+    filterTitle,
     // Read the projection: focus overrides the range, the range never
     // overrides the intent. Focus dims the other rows visually without
     // removing them from the map, so while it holds every checked layer is
     // on screen regardless of its range. The policy write side reads the
     // same projection, so the formula has one home.
     shown: projectLayer(ui, layerInfo).effectiveShown,
-    countText: count != null ? formatNumber(count, "auto", ui.config.locale_code) : "",
+    countText,
     typeSvg: type.svg,
-    typeLabel: ui.T(type.key),
+    typeLabel,
   };
 };
 
@@ -186,7 +233,23 @@ const applyRowView = (ui: LayerUI, item: HTMLElement, cell: RowCell): void => {
   item.classList.toggle(CONST.CLASSES.ACTIVE, view.active);
 
   const countCol = item.querySelector<HTMLElement>(CONST.SEL.COUNT_COL);
-  if (countCol) countCol.textContent = view.countText;
+  if (countCol) {
+    countCol.classList.toggle(CONST.CLASSES.COUNT_FILTERED, view.filtered);
+    if (view.filtered) {
+      // Funnel first, then the exact kept count. innerHTML is the funnel's
+      // own module SVG (never a caller string), same as the type column.
+      countCol.innerHTML =
+        `<span class="${CONST.CLASSES.COUNT_FUNNEL}" aria-hidden="true">` +
+        `${view.countIconSvg}</span>` +
+        `<span class="foliplus-layer-count-value">${view.countText}</span>`;
+    } else {
+      countCol.textContent = view.countText;
+    }
+    // The count cell is annotation, but its sentence is the filtered fact:
+    // mirror the row title so hover/AT read the same numbers.
+    countCol.title = view.filtered ? view.title : "";
+    countCol.setAttribute("aria-label", view.title);
+  }
   if (view.typeSvg) {
     const typeCol = item.querySelector<HTMLElement>(`.${CONST.CLASSES.TYPE_ICON_COL}`);
     if (typeCol) typeCol.innerHTML = view.typeSvg;

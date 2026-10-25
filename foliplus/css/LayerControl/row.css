@@ -420,11 +420,12 @@
       font-weight: var(--foliplus-font-weight-normal);
     }
     /* ── Feature count column ──
-      Right-aligned. formatNumber("auto") compacts values >= 1000 (12K, 1.2万),
-      so the 38px track fits the value; ellipsis is a last-resort guard for
-      locales whose compact unit is wider (de 10.000).
-      Stays muted gray in every state: the count is annotation, not a control,
-      so it intentionally does not join the hover/active color dance. */
+      Right-aligned. Unfiltered: formatNumber("auto") compacts values >= 1000
+      (12K, 1.2万). Filtered: the exact kept count (2,500) and a 12px funnel
+      prefix, in accent — the 48px track reserves both and never degrades to
+      an ellipsis dot. Muted gray while unfiltered: the count is annotation,
+      not a control, so it stays out of the hover/active color dance; the
+      accent is earned by the ROW FILTER, which is a live state. */
     .foliplus-layer-count {
       font-variant-numeric: tabular-nums;
       font-size: var(--foliplus-font-size-xs);
@@ -435,6 +436,32 @@
       text-overflow: ellipsis;
       line-height: var(--foliplus-line-height-hint);
       padding: 0 0 0 var(--foliplus-space-xs);
+
+      &.foliplus-layer-count-filtered {
+        display: inline-flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: var(--foliplus-size-2);
+        color: var(--foliplus-accent-primary);
+        /* Exact counts beat compaction here; the 48px track is sized for it,
+           so the dot guard above must not fire on a filtered count. */
+        text-overflow: clip;
+      }
+      /* The funnel glyph: 12px before the number, accent inherited, and
+         never a layout participant (the count stays right-aligned). */
+      .foliplus-layer-count-funnel {
+        display: inline-flex;
+        flex: 0 0 12px;
+        width: 12px;
+        height: 12px;
+        color: var(--foliplus-accent-primary);
+
+        svg {
+          display: block;
+          width: 12px;
+          height: 12px;
+        }
+      }
     }
 
     &[draggable="true"] {

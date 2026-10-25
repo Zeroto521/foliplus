@@ -89,6 +89,7 @@ type FilterView =
       model: LayerFilterModel;
       slider: Slider;
       result: HTMLElement;
+      clear: HTMLButtonElement;
     };
 
 /** Everything the panel needs to keep its view and its owner identity in
@@ -140,10 +141,22 @@ const sliderValueOf = (model: LayerFilterModel): [number, number] => {
 const syncView = (ui: LayerUI, view: FilterView, model: LayerFilterModel): void => {
   if (view.kind !== "rows") return;
   view.model = model;
+  const pct = model.total > 0 ? Math.round((model.kept / model.total) * 100) : 0;
+  // Standard result readout: percentage first, then the exact kept / total
+  // pair ("42% (2,500 of 6,000) kept" / "42%（2,500 / 6,000）已保留"). One
+  // sentence carries the whole fact — there is no second ratio track.
   view.result.textContent = ui
     .T("filter_result")
+    .replace("{pct}", String(pct))
     .replace("{kept}", fmtCount(model.kept))
     .replace("{total}", fmtCount(model.total));
+  // Clear is the only footer action and it is live: disabled exactly when
+  // there is nothing to clear (the owner reports no committed filter).
+  view.clear.disabled = !model.filter;
+  view.clear.setAttribute("aria-disabled", model.filter ? "false" : "true");
+  view.clear.title = model.filter
+    ? ui.T("filter_clear_tooltip")
+    : ui.T("filter_clear_disabled");
   const stored = sliderValueOf(model);
   const current = view.slider.value;
   if (!Array.isArray(current) || current[0] !== stored[0] || current[1] !== stored[1]) {
@@ -152,7 +165,13 @@ const syncView = (ui: LayerUI, view: FilterView, model: LayerFilterModel): void 
 };
 
 /** The form rows: field / range / result, plus a Clear footer. Same
- *  left-label / right-control vocabulary as the style panel. */
+ *  left-label / right-control vocabulary as the style panel.
+ *
+ *  Structure note (stage-3 extension point): every row is one
+ *  FORM_ROW (fixed 88px label column + one control cell), and a condition
+ *  is a row over that same vocabulary. A future Measure enum / multi-
+ *  condition UI adds rows here — an atom renderer keyed by `filter_field`
+ *  — without changing the panel shell, the footer or the geometry. */
 const buildFilterRows = (
   ui: LayerUI,
   hooks: FilterViewHooks,
@@ -242,6 +261,7 @@ const buildFilterRows = (
     model,
     slider,
     result,
+    clear: clearBtn as HTMLButtonElement,
   };
   syncView(ui, view, model);
   return view;

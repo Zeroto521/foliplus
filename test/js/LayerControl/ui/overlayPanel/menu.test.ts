@@ -56,12 +56,12 @@ describe("LayerUI menu", () => {
   // ─────────────────── focusLayer() ───────────────────
 
   describe("openMoreMenu() / closeMoreMenu()", () => {
-    it("orders the entries focus, style, rename, attributes, then delete behind a divider", () => {
-      // Deliberate ordering, not append order: the view action leads (the
-      // trigger-adjacent slot is the mis-click zone), then the style panel,
-      // then the one entry that writes to the layer, the display-only
-      // attributes entry, and finally the destructive one behind its own
-      // separator.
+    it("orders style, focus, rename, attributes, then delete behind a divider", () => {
+      // Deliberate ordering, not append order: the primary configure action
+      // leads, then the reversible view action, the one entry that writes to
+      // the layer, the display-only attributes entry, and finally the
+      // destructive one behind its own separator. A row without the filter
+      // capability renders NO filter entry (not a disabled one).
       const item = findItem(ui, "overlay1");
 
       ui.openMoreMenu(item);
@@ -70,13 +70,37 @@ describe("LayerUI menu", () => {
         item.querySelectorAll(".foliplus-layer-more-menu li"),
       ).map(li => (li as HTMLElement).dataset.action);
       expect(actions).toEqual([
-        CONST.ACTION.FOCUS_LAYER,
         CONST.ACTION.STYLE_LAYER,
-        CONST.ACTION.FILTER_LAYER,
+        CONST.ACTION.FOCUS_LAYER,
         CONST.ACTION.RENAME_LAYER,
         CONST.ACTION.ATTRS_LAYER,
         undefined, // the divider above the destructive entry
         CONST.ACTION.DELETE_LAYER,
+      ]);
+    });
+
+    it("leads with Filter on a capability row, then style, focus, rename, attributes", () => {
+      manager.registerLayer({
+        id: "filterable",
+        name: "Filterable",
+        group: "overlay",
+        layer: { options: {}, eachLayer: vi.fn() },
+        filterProvider: () => null,
+        filterSetter: () => {},
+      });
+      const item = findItem(ui, "filterable");
+
+      ui.openMoreMenu(item);
+
+      const actions = Array.from(
+        item.querySelectorAll(".foliplus-layer-more-menu li"),
+      ).map(li => (li as HTMLElement).dataset.action);
+      expect(actions.slice(0, 5)).toEqual([
+        CONST.ACTION.FILTER_LAYER,
+        CONST.ACTION.STYLE_LAYER,
+        CONST.ACTION.FOCUS_LAYER,
+        CONST.ACTION.RENAME_LAYER,
+        CONST.ACTION.ATTRS_LAYER,
       ]);
     });
 
