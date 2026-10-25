@@ -130,13 +130,13 @@ const rebuildList = (ui: LayerUI): void => {
  *  descendant. Duplicates are clones, so the same path addresses the "same"
  *  node in the surviving copy — the exact checkbox / ⋮ button / fold control
  *  the user was on, not the row that happens to contain it. */
-const pathWithin = (root: HTMLElement, target: HTMLElement | null): number[] | null => {
-  if (!target || !root.contains(target)) return null;
+const pathWithin = (root: HTMLElement, target: HTMLElement): number[] => {
   const path: number[] = [];
   let node: HTMLElement = target;
   while (node !== root) {
-    const parent = node.parentElement;
-    if (!parent) return null;
+    // `contains` above guarantees the chain reaches `root`, so a null parent
+    // is unreachable here — the cast keeps the walk branch-free.
+    const parent = node.parentElement as HTMLElement;
     path.unshift(Array.prototype.indexOf.call(parent.children, node));
     node = parent;
   }
@@ -144,15 +144,15 @@ const pathWithin = (root: HTMLElement, target: HTMLElement | null): number[] | n
 };
 
 /** Resolve a path produced by `pathWithin` against another clone. */
-const nodeAtPath = (root: HTMLElement, path: number[] | null): HTMLElement | null => {
-  if (!path) return null;
+const nodeAtPath = (root: HTMLElement, path: number[]): HTMLElement | null => {
   let node: Element = root;
   for (const index of path) {
     const next = node.children[index];
     if (!next) return null;
     node = next;
   }
-  return node instanceof HTMLElement ? node : null;
+  // The source was an HTMLElement and a clone preserves node types.
+  return node as HTMLElement;
 };
 
 /** Repair one duplicated node — a layer row or a toggle-all anchor: finish an
@@ -169,8 +169,10 @@ const removeDuplicateNode = (
   focusFallback: () => HTMLElement | null,
 ): void => {
   const activeEl = document.activeElement as HTMLElement | null;
-  const hadFocus = Boolean(activeEl && previous.contains(activeEl));
-  const focusPath = pathWithin(previous, activeEl);
+  // null when focus is elsewhere: the path is also the "did the removed node
+  // own focus?" answer, so one lookup carries both facts.
+  const focusPath =
+    activeEl && previous.contains(activeEl) ? pathWithin(previous, activeEl) : null;
   const items = getNavigableItems(ui);
   const activeRow =
     ui.listPanel.activeIdx === null ? null : (items[ui.listPanel.activeIdx] ?? null);
@@ -178,14 +180,17 @@ const removeDuplicateNode = (
   // row can own focus for a frame after a pointer/Alt+Enter activation. Treat
   // that as active so the repair does not drop the user's focus on <body>.
   const wasActive =
-    hadFocus ||
+    focusPath !== null ||
     activeRow === previous ||
     previous.classList.contains(CONST.CLASSES.FOCUSED);
   // Removing a node in front of the cursor shifts every later position down;
   // a stale `activeIdx` would make the reconcile re-home onto its neighbor.
-  const position = activeRow ? previous.compareDocumentPosition(activeRow) : 0;
-  const shiftsActive =
-    !wasActive && Boolean(position & Node.DOCUMENT_POSITION_FOLLOWING);
+  // The comparison must happen while both nodes are still connected.
+  const shiftsActive = activeRow
+    ? (previous.compareDocumentPosition(activeRow) &
+        Node.DOCUMENT_POSITION_FOLLOWING) !==
+      0
+    : false;
 
   finishSlidersIn(previous);
   previous.remove();
@@ -193,12 +198,14 @@ const removeDuplicateNode = (
   if (wasActive) {
     survivor.classList.add(CONST.CLASSES.FOCUSED);
     ui.listPanel.activeIdx = getNavigableItems(ui).indexOf(survivor);
-    if (hadFocus) {
+    if (focusPath) {
       const exact = nodeAtPath(survivor, focusPath);
       (exact ?? focusFallback())?.focus();
     }
-  } else if (shiftsActive && ui.listPanel.activeIdx !== null) {
-    ui.listPanel.activeIdx -= 1;
+  } else if (shiftsActive) {
+    // Re-resolve rather than decrement: same node, one lookup away, and it
+    // cannot drift when the repair itself moves the survivor.
+    ui.listPanel.activeIdx = getNavigableItems(ui).indexOf(activeRow as HTMLElement);
   }
 };
 

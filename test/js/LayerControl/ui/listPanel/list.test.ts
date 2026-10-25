@@ -978,9 +978,10 @@ describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, ()
       ) as HTMLElement;
     const original = anchorOf();
     const duplicate = original.cloneNode(true) as HTMLElement;
-    // The surviving anchor carries no focusable control: the focus transfer
-    // must be optional, not assumed.
-    duplicate.querySelectorAll("button, input").forEach(node => node.remove());
+    // The surviving anchor carries nothing at all: the exact path cannot
+    // resolve, the fallback finds no control, and the focus transfer must be
+    // optional, not assumed.
+    duplicate.replaceChildren();
     duplicate.removeAttribute("tabindex");
     container.appendChild(duplicate);
     (original.querySelector("button") as HTMLElement).focus();
