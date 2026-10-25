@@ -17,7 +17,6 @@ import {
   type LayerFilter,
   type LayerFilterModel,
   type LayerSnapshot,
-  META_SOURCE_LAYER_ID,
   NO_FEATURE_TREE_KINDS,
   buildFilterModel,
   dropFilterForField,
@@ -965,7 +964,13 @@ class HeatmapManager {
     } else {
       aggregated =
         this.aggregateData(allPts, res, includeSet, bins, () =>
-          this.clearHeatmapCanvas(op),
+          // An empty aggregate (the committed filter kept no cell) clears the
+          // canvas but must keep the geometry: the model total is the
+          // unfiltered cell count, so the result readout still reads
+          // "0 of N". The bins are keyed to the current points, and any
+          // content/identity change drops them through
+          // onSourceContentChange/onLayerChange.
+          this.clearHeatmapCanvas(op, true),
         ) ?? undefined;
       if (aggregated) this.cachedAgg = { key: aggKey, data: aggregated };
     }
@@ -1023,10 +1028,13 @@ class HeatmapManager {
     this.publishCount(operation);
   }
 
-  clearHeatmapCanvas(operation?: SettledOperation) {
+  clearHeatmapCanvas(operation?: SettledOperation, keepBins = false) {
     this.cachedFeatures = null;
     this.cachedAgg = null;
-    this.cachedBins = null;
+    // keepBins is for the empty-aggregate path only: the drawn features are
+    // gone but the cell set is still the unfiltered total the filter model
+    // reports. A real teardown (departure, reset, empty selection) drops it.
+    if (!keepBins) this.cachedBins = null;
     // cachedSnapshot and layerFilters are keyed by source id and survive a
     // canvas clear: switching source (or clearing the canvas on an empty
     // render) must not silently drop another source's committed filter —
@@ -1131,16 +1139,11 @@ class HeatmapManager {
 
     const sourceKey = this.T("meta_source_layer");
     const fieldKey = this.T("meta_agg_field");
-    const sourceId = this.selectedLayerId ?? "";
     const changed =
       this.sourceMeta[sourceKey] !== layerName ||
-      this.sourceMeta[fieldKey] !== fieldLabel ||
-      this.sourceMeta[META_SOURCE_LAYER_ID] !== sourceId;
+      this.sourceMeta[fieldKey] !== fieldLabel;
     this.sourceMeta[sourceKey] = layerName;
     this.sourceMeta[fieldKey] = fieldLabel;
-    // The source layer id — consumed by the LayerControl filter panel to
-    // resolve this row's point snapshot (a canvas row has no Leaflet layer).
-    this.sourceMeta[META_SOURCE_LAYER_ID] = sourceId;
 
     if (!changed) return;
     // Stamp updatedAt so the panel's "Updated" row tracks the latest binding.

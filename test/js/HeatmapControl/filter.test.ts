@@ -1,4 +1,4 @@
-// HeatmapControl filter owner (stage-2 pilot).
+// HeatmapControl filter owner: capability registration, model and setter.
 //
 // The manager owns the filter: the LayerControl panel writes through the
 // `filterSetter` capability and reads through `filterProvider`. These tests
@@ -94,7 +94,7 @@ const watchFilterEvents = (
   return spy;
 };
 
-describe("HeatmapControl filter owner (stage-2 pilot)", () => {
+describe("HeatmapControl filter owner", () => {
   let m: HeatmapManager;
   let events: ReturnType<typeof ensureEvents>;
 

@@ -1551,6 +1551,12 @@ describe("HeatmapManager — source meta for the attrs panel", () => {
 
     expect(m.sourceMeta["HeatmapControl.meta_source_layer"]).toBe("Stores");
     expect(m.sourceMeta["HeatmapControl.meta_agg_field"]).toBe("sales");
+    // Only the two user-facing rows are published: the internal source id
+    // is not panel content, and a raw meta entry would render as one.
+    expect(Object.keys(m.sourceMeta).sort()).toEqual([
+      "HeatmapControl.meta_agg_field",
+      "HeatmapControl.meta_source_layer",
+    ]);
     expect(window.map.foliplus.LayerAPI.touchLayer).toHaveBeenCalledWith(m.layerId);
   });
 
@@ -1772,8 +1778,11 @@ describe("featureCountProvider", () => {
     expect(opts.featureCountProvider()).toBe(0);
   });
 
-  it("returns the feature count when cachedFeatures is set", () => {
+  it("returns the filtered feature count when cachedFeatures is set", () => {
     const m = makeManager();
+    // cachedFeatures is the drawn (post-filter) set: the Attributes panel and
+    // the row therefore report the kept features, while the unfiltered cell
+    // total lives only in getFilterModel / the filter panel's Result.
     m.cachedFeatures = [{}, {}, {}] as any;
     const opts = window.map.foliplus.LayerAPI.createCanvas.mock.calls[0][0];
     expect(opts.featureCountProvider()).toBe(3);
@@ -2447,6 +2456,37 @@ describe("HeatmapControl source content signal (LayerAPI integration)", () => {
     });
     expect(model.kept).toBe(2);
     expect(filterSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the unfiltered cell total when the filter keeps nothing", () => {
+    selectSource([10, 20, 30]);
+    mgr.renderHexagons();
+    expect(mgr.getFilterModel()!.total).toBe(3);
+
+    // [12, 18] is a valid band inside the extent that no point falls in: the
+    // render paints nothing, but the row still reports its unfiltered cell
+    // count — 0 of 0 would hide what the filter is narrowing.
+    mgr.setFilter({
+      kind: "atom",
+      field: "value",
+      op: "between",
+      range: [12, 18],
+    });
+    const model = mgr.getFilterModel()!;
+    expect(model.kept).toBe(0);
+    expect(model.total).toBe(3);
+    expect((mgr as any).cachedFeatures).toBeNull();
+    // (The Attributes panel and the row share featureCountProvider, which
+    // counts this drawn set — that path is pinned in the featureCountProvider
+    // describe; the unfiltered cell total only feeds the filter Result.)
+
+    // The kept geometry survives the empty render: the next paint reuses the
+    // same cell set (no h3 walk) and the total stays legible.
+    const bins = (mgr as any).cachedBins;
+    expect(bins.bins.size).toBe(3);
+    mgr.renderHexagons();
+    expect((mgr as any).cachedBins).toBe(bins);
+    expect(mgr.getFilterModel()!.total).toBe(3);
   });
 
   it("a real removeLayer shrinks the snapshot and rebuilds the geometry cache", () => {
