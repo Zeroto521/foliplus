@@ -12,9 +12,7 @@ class HeatmapControl extends defineControl({
   icon: SVGs.ICON_HEXAGON,
   setup: () => ensureLayerAPI(map),
 }) {
-  /** Backing store for the lazy `mgr` accessor; `destroy()` nulls it so a
-   *  re-add rebuilds a fresh manager. Written BEFORE the manager's `init()` so
-   *  a throw halfway still leaves the partial manager reachable. */
+  /** Backing store for the lazy `mgr` accessor. */
   private manager: HeatmapManager | null = null;
   schemeDropdown: HTMLElement | null;
   expandHookDone: boolean;
@@ -52,10 +50,8 @@ class HeatmapControl extends defineControl({
   get mgr(): HeatmapManager {
     if (!this.manager) {
       const mgr = new HeatmapManager(map, { T: this.T, log: this.log });
-      // Store before init: a throw inside init() must leave the object
-      // reachable, or the subscriptions it already made are unreleasable.
-      // A teardown step whose field init() never reached reports and skips;
-      // the rest of the list still runs.
+      // Store before init: a throw leaves the partial manager reachable for
+      // destroy(). It is reused, not retried; destroy() nulls it for a re-add.
       this.manager = mgr;
       mgr.init();
     }
