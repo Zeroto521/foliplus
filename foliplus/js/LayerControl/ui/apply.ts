@@ -289,8 +289,8 @@ const dispatchStateOp = (
       //
       // `capabilities.opacity` still reports `"pane"` — the write target is
       // the canvas face. The bake-vs-CSS mechanism tier ("baked"/"redraw")
-      // is owned by T222; `"pane"` stays the honest "we own this face"
-      // answer and this comment is what stops it from lying.
+      // belongs to a separate capabilities concern; `"pane"` stays the honest
+      // "we own this face" answer and this comment is what stops it from lying.
       const value = op.value ?? 1;
       // Registry fills `opacityBake` (default "redraw"); treat unset as
       // "redraw" via the else arm so there is no second default to drift.
