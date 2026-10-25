@@ -1,4 +1,4 @@
-"""T251 guard: foliplus button :hover keeps its radius under Bootstrap.
+"""Guard: foliplus button :hover keeps its radius under Bootstrap.
 
 Bootstrap ships an unlayered `button{border-radius:0}` reset. During the
 @layer era (#568) that outranked the layered foliplus rule at any
@@ -20,7 +20,7 @@ from foliplus import LayerControl
 
 
 class TestButtonRadiusBrowser:
-    """T251 guard: foliplus button :hover keeps its radius under Bootstrap."""
+    """Guard: foliplus button :hover keeps its radius under Bootstrap."""
 
     # --foliplus-radius-sm resolves through --foliplus-size-4 (4px).
     RADIUS_SM = "4px"

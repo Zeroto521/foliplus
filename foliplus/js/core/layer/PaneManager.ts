@@ -16,6 +16,7 @@ import {
   getRendererFor,
   layerShadow,
 } from "../leafletAdapter.js";
+import { PaneLedger } from "./PaneLedger.js";
 import * as CONST from "./const.js";
 import type { PaneSpec, PinnableNode } from "./type.js";
 import { isContainerNode, walkLeaf, walkTree } from "./walkLeaf.js";
@@ -52,13 +53,13 @@ type PathWithPane = L.Path & { options: L.PathOptions & { pane?: string } };
  *                     `destroyOwnPane` (a pane foliplus created),
  *                     `sweepChildPanes` (a spec no registered layer uses) and
  *                     `destroy`. Bounded by the panes this map declared.
- *    `paneLeases`     written by `ensurePane`; deleted by `releasePane` and
- *                     `destroy`. Bounded by live surfaces' bookings, plus one
- *                     constant row per `PANE_OWNER`: a focus pane belongs to
- *                     no surface, has nothing to outlive it, and is never
- *                     released — that row lives with the map. A surface that
- *                     never retires its panes leaves a row here until
- *                     `destroy`.
+ *    `paneLedger`     the PaneLedger book: written by `ensurePane`; deleted by
+ *                     `releasePane` and `destroy`. Bounded by live surfaces'
+ *                     bookings, plus one constant row per `PANE_OWNER`: a focus
+ *                     pane belongs to no surface, has nothing to outlive it,
+ *                     and is never released — that row lives with the map. A
+ *                     surface that never retires its panes leaves a row here
+ *                     until `destroy`.
  *    `discoveryCache` written by `discoverChildPanes`; generation-gated on
  *                     read, capped at `CACHE.PANE_DISCOVERY_ENTRIES`, cleared
  *                     by `destroy`. Bounded by the cap, not by layer count.
@@ -178,18 +179,22 @@ class PaneManager {
     return this.childOwners.get(L.stamp(child));
   }
 
-  /** The pane leases some surface of this map currently holds — keyed by
-   *  pane name, valued by the owning surface's id plus how the pane was
-   *  acquired (`created` = foliplus made the element; adopted = a pre-built
-   *  element this surface proved exclusive). The lease is the ownership
-   *  proof: "the name is not one of Leaflet's shared panes" is NOT ownership,
-   *  and neither is being the first caller of `ensurePane` on a pane that
-   *  already carries foreign DOM. Admission therefore runs through
+  /** The pane leases some surface of this map currently holds — the
+   *  PaneLedger book, keyed by pane name and valued by the owning surface's id
+   *  plus the pane's provenance (`owns` = foliplus made the element; adopted =
+   *  a pre-built element this surface proved exclusive). The lease is the
+   *  ownership proof: "the name is not one of Leaflet's shared panes" is NOT
+   *  ownership, and neither is being the first caller of `ensurePane` on a
+   *  pane that already carries foreign DOM. Admission therefore runs through
    *  `canAcquirePane` before any DOM or bookkeeping changes, a second
    *  claimant on a held name is refused, and `releasePane` retires the lease
    *  (deleting the element only when foliplus created it as the owner's own
    *  carrier). */
-  private readonly paneLeases = new Map<string, { owner: string; created: boolean }>();
+  private readonly paneLedger = new PaneLedger();
+  /** Terminal marker: the first `destroy` retires this manager. Repeated
+   *  calls still clear (methods stay usable — this batch adds idempotency, not
+   *  a lifecycle guard) but bump the discovery generation only once. */
+  private destroyed = false;
 
   /** Ensure a custom pane exists on the map.
    *
@@ -213,7 +218,7 @@ class PaneManager {
     needRenderer: boolean,
     owner: string,
   ): { pane: HTMLElement | null; renderer: L.SVG | null } {
-    const held = this.paneLeases.get(paneName);
+    const held = this.paneLedger.get(paneName);
     // Admission happens here, before any DOM or bookkeeping change: a pane
     // another surface holds, or a pre-built pane that already paints foreign
     // content, is not acquireable — the caller degrades instead of
@@ -251,14 +256,14 @@ class PaneManager {
       if (spec) {
         pane.style.zIndex = String(zFor({ role: spec.role, order: spec.order }));
       }
-      this.paneLeases.set(paneName, { owner, created: true });
+      this.paneLedger.claim(paneName, owner, true);
     } else {
       // Provenance is the lease's, not the element's: `held` is only present
       // for this same owner, and its `created` flag was set by the call that
       // built the element. Re-reading it as `false` on every re-book turned a
       // pane foliplus created into an adopted one, so the owner's destroy then
       // retired the lease and left the element on the map.
-      const created = held ? held.created : false;
+      const created = held ? held.owns : false;
       if (!pane.classList.contains("foliplus-layer-pane")) {
         // An adopted pre-built pane must satisfy the same CSS contract as a
         // created one: the focus hide rule and the pointer-events rules key on
@@ -266,7 +271,7 @@ class PaneManager {
         // clickable) in focus mode.
         pane.classList.add("foliplus-layer-pane");
       }
-      this.paneLeases.set(paneName, { owner, created });
+      this.paneLedger.claim(paneName, owner, created);
     }
     return {
       pane,
@@ -290,7 +295,7 @@ class PaneManager {
    *  can say so. */
   canAcquirePane(paneName: string, selfId: string): boolean {
     if (this.defaultPanes.has(paneName)) return false;
-    const held = this.paneLeases.get(paneName);
+    const held = this.paneLedger.get(paneName);
     if (held) return held.owner === selfId;
     const existing = this.map.getPane(paneName);
     if (!existing) return true;
@@ -309,7 +314,7 @@ class PaneManager {
    *  (`LayerSurface` sets `shadowPaneName` on acquisition success and clears it
    *  in `destroy`), so this is a second line, not the first gate. */
   private leasedBy(paneName: string, owner: string): boolean {
-    return this.paneLeases.get(paneName)?.owner === owner;
+    return this.paneLedger.leasedBy(paneName, owner);
   }
 
   /** Whether a pane element paints content foliplus never created: no
@@ -341,10 +346,12 @@ class PaneManager {
    *  options. Clearing on every teardown used to be the one place this
    *  policy over-invalidated structure-wide for a single pane. */
   releasePane(paneName: string, owner: string, removeDom: boolean): void {
-    const held = this.paneLeases.get(paneName);
-    if (held?.owner !== owner) return;
-    this.paneLeases.delete(paneName);
-    if (removeDom && held.created) this.destroyOwnPane(paneName);
+    const released = this.paneLedger.release(paneName, owner);
+    // The ledger answers all three cases (released / not-owner / absent), so
+    // the DOM decision rides on the same proof the lease check made: only an
+    // element this tree created for this owner is deleted.
+    if (released.status !== "released") return;
+    if (removeDom && released.created) this.destroyOwnPane(paneName);
   }
 
   /** Delete a pane element this tree created, and drop its spec record. Not
@@ -358,13 +365,25 @@ class PaneManager {
   /** Clear all pane state. Called by LayerController.destroy().
    *  The DOM is left alone: LayerController.destroy() clears the registry without
    *  removing the registered layers from the map, so they are still live —
-   *  deleting their panes would drop them off the map. */
-  destroy() {
+   *  deleting their panes would drop them off the map.
+   *
+   *  Idempotent: the first call retires this manager and bumps the discovery
+   *  generation; every later call still performs the clears (each is a no-op on
+   *  an already-empty index, and `ensurePane` stays usable — a lease booked
+   *  between two destroy calls is dropped too) but never bumps the generation
+   *  again. The terminal check at the end is the destroy end-state guard:
+   *  on a correct run it cannot throw, so a non-empty ledger at this point is
+   *  a defect and fails loudly instead of leaking into the next map
+   *  lifecycle. */
+  destroy(): void {
+    const first = !this.destroyed;
+    this.destroyed = true;
     this.discoveryCache.clear();
     this.paneSpecs.clear();
-    this.paneLeases.clear();
+    this.paneLedger.clear();
     this.childOwners.clear();
-    this.generation++;
+    if (first) this.generation++;
+    this.paneLedger.assertEmpty("PaneManager.destroy");
   }
 
   /**
@@ -586,7 +605,7 @@ class PaneManager {
       // point that deletes a record by name. Leaving a live lease behind
       // would keep the name unacquirable for a later surface that adopts
       // the same name the author still intends.
-      const held = this.paneLeases.get(name);
+      const held = this.paneLedger.get(name);
       if (held) this.releasePane(name, held.owner, false);
       this.paneSpecs.delete(name);
     }
@@ -776,7 +795,7 @@ class PaneManager {
     if (this.defaultPanes.has(paneName)) {
       throw new Error(this.sharedPaneRejection(paneName));
     }
-    if (!this.paneLeases.has(paneName)) {
+    if (!this.paneLedger.get(paneName)) {
       // A name outside the shared list but with no claim on file is exactly
       // the co-writing case: two surfaces adopting the same custom-named pane
       // would both pass a name-only check and style each other's content.

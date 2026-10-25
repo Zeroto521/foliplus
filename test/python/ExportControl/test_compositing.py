@@ -425,7 +425,7 @@ class TestExportCompositeBrowser:
     def test_export_marker_opacity_blend(self, browser, tmp_path):
         """Marker layer opacity is captured in the export via ancestor-chain alpha.
 
-        R5 moved opacity writes to the pane element; the four DOM rendering
+        Opacity writes moved to the pane element; the four DOM rendering
         paths (renderMarkers, renderFontAwesome, renderTextLabels, renderRemaining)
         must read the ancestor-chain alpha via effectiveOpacity(). This test
         creates a marker at 0.4 opacity, exports, captures the renderer's

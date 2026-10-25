@@ -58,7 +58,7 @@ class TestBuildArtifacts:
         assert "foliplus@" in css, "CSS artifact missing version banner"
 
     def test_dist_css_has_no_layer_syntax(self):
-        """T266: the shipped stylesheets carry no `@layer`.
+        """The shipped stylesheets carry no `@layer`.
 
         The layer wrap was reverted because in an embedded widget the host
         page's unlayered resets (Bootstrap `ol,ul`, …) outrank a layered rule
