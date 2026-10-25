@@ -277,10 +277,18 @@ class TestLayerControlRendering:
         css = read_css("foliplus/css/LayerControl/index.css")
         assert "grid-area: drag" in css
 
-    def test_count_column_5_char_cap(self):
-        """Count column is 38px wide, sized for up to ~5 tabular-nums characters."""
+    def test_count_column_reserves_funnel_and_5_chars(self):
+        """Count column is 48px: a 12px filter funnel + up to ~5 tabular-nums
+        characters ("2,500"). The old 38px track fit 5 compact characters
+        (12K/1.2万) but could not hold a funnel without ellipsis, so the extra
+        10px is the funnel reservation, not a wider text cap."""
         css = read_css("foliplus/css/LayerControl/index.css")
-        assert "38px" in css
+        # The row rules document the wider track (and the funnel reservation).
+        assert "48px" in css
+        token_css = read_css("foliplus/css/common/token.css")
+        # The 5-character cap semantics are unchanged: filtered counts use the
+        # exact "2,500" form, unfiltered counts stay formatNumber("auto").
+        assert "--foliplus-count-track-width: 48px" in token_css
 
     def test_type_icon_col_size_anchored_to_checkbox(self):
         """type-icon-col is 16px (space-xl) to anchor to the checkbox square."""
@@ -301,7 +309,7 @@ class TestLayerControlRendering:
         token_css = read_css("foliplus/css/common/token.css")
         layer_css = read_css("foliplus/css/LayerControl/index.css")
         # Named dimension vars are defined once in token.css
-        assert "--foliplus-count-track-width: 38px" in token_css
+        assert "--foliplus-count-track-width: 48px" in token_css
         assert "--foliplus-more-btn-width: 7px" in token_css
         # grid track references the named vars (not literals)
         idx = token_css.find("--foliplus-grid-layer-cols:")

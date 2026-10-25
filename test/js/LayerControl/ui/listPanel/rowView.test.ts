@@ -249,7 +249,7 @@ describe("buildRowCell + applyRowView (one writer per row)", () => {
     const cellInfo = buildRowCell(ui, layerInfo);
     expect(cellInfo.countText).toBe("12");
     expect(rowView(cellInfo, LABELS).title).toBe(
-      `${cellInfo.countText} · ${cellInfo.typeLabel}`,
+      `${cellInfo.countText} · ${cellInfo.titleTypeLabel}`,
     );
 
     const item = document.createElement("div");

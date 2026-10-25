@@ -19,9 +19,16 @@ import {
   type LayerSnapshot,
   META_SOURCE_LAYER_ID,
   NO_FEATURE_TREE_KINDS,
-  type SnapshotPoint,
-  matches,
-  select,
+  buildFilterModel,
+  dropFilterForField,
+  filterKey,
+  normalizeFilter,
+  pickFilterField,
+  revalidateStoredFilter,
+  selectIndices,
+  serializedFilters,
+  snapshotFromPoints,
+  storeFilter,
 } from "#core/layer/index.js";
 import { bindMapSync } from "#core/leaflet/index.js";
 import { SCHEME_FALLBACK_COLOR } from "#core/palette.js";
@@ -274,6 +281,7 @@ class HeatmapManager {
             labelSize: this.labelSize,
             labelFormat: this.labelFormat,
             field: this.field,
+            filters: serializedFilters(this.layerFilters),
           } satisfies SavedConfig,
           CONFIG.name,
         ),
@@ -487,6 +495,7 @@ class HeatmapManager {
         // still fire after the local cleanup has run.
         const hadFilter = this.layerFilters.delete(departed);
         this.selectedLayerId = null;
+        if (hadFilter) this.saveConfig();
         // Local state and canvas converge first; the notification is
         // published through one operation so a throwing terminal count
         // consumer cannot cut the filter signal off.
@@ -793,95 +802,10 @@ class HeatmapManager {
     // under vitest's plain-object mocks). Instead we extract fields
     // directly from each marker's folium contract.
     if (this.cachedSnapshotLayerId !== this.selectedLayerId) {
-      this.cachedSnapshot = this.buildSnapshotFromPoints(rawPts);
+      this.cachedSnapshot = snapshotFromPoints(rawPts, this.log);
       this.cachedSnapshotLayerId = this.selectedLayerId;
     }
     return pts;
-  }
-
-  /** Build a LayerSnapshot from already-extracted points. Extracts
-   *  numeric fields from each marker using the folium data contract
-   *  (value → options.value → feature.properties). This avoids the
-   *  `instanceof` check in `buildLayerSnapshot`, which fails under
-   *  vitest's mock environment. */
-  private buildSnapshotFromPoints(
-    rawPts: Array<{ lat: number; lng: number; marker: L.Marker | L.CircleMarker }>,
-  ): LayerSnapshot {
-    const points: SnapshotPoint[] = rawPts.map(p => ({
-      lat: p.lat,
-      lng: p.lng,
-      marker: p.marker,
-      fields: this.extractMarkerFields(p.marker),
-    }));
-    const numericFields: string[] = [];
-    const seen = new Set<string>();
-    const ranges: Record<string, readonly [number, number]> = {};
-    for (const pt of points) {
-      for (const [key, val] of Object.entries(pt.fields)) {
-        if (!seen.has(key)) {
-          seen.add(key);
-          numericFields.push(key);
-          ranges[key] = [val, val];
-        } else {
-          const [lo, hi] = ranges[key];
-          if (val < lo) ranges[key] = [val, hi];
-          else if (val > hi) ranges[key] = [lo, val];
-        }
-      }
-    }
-    return { points, numericFields, ranges };
-  }
-
-  /** Extract all numeric fields from a marker's folium data contract.
-   *  Priority: value → options.value → feature.properties. The same
-   *  explicit-contract-over-properties rule as `buildLayerSnapshot`. */
-  private extractMarkerFields(
-    marker: L.Marker | L.CircleMarker,
-  ): Record<string, number> {
-    const fields: Record<string, number> = {};
-    const extended = marker as HeatmapPointMarker;
-    const isNumeric = (v: unknown): v is number =>
-      typeof v === "number" && Number.isFinite(v);
-    if (isNumeric(extended.value)) {
-      fields["value"] = extended.value;
-    } else if (isNumeric(extended.options?.value)) {
-      fields["value"] = extended.options!.value;
-    }
-    const props = marker.feature?.properties;
-    if (!props) return fields;
-    for (const [key, val] of Object.entries(props)) {
-      if (!isNumeric(val)) continue;
-      if (key in fields) continue;
-      fields[key] = val;
-    }
-    return fields;
-  }
-
-  /** Stable string key for a LayerFilter AST — same filter shape produces
-   *  the same key, so a slider drag that keeps `[15, 18]` does not
-   *  invalidate the agg cache. JSON.stringify is deterministic for the
-   *  flat `atom` objects the panel emits; nested `and`/`or` trees would
-   *  also serialise in insertion order. */
-  private filterKey(filter: LayerFilter | undefined): string {
-    return filter ? JSON.stringify(filter) : "";
-  }
-
-  /** Build the set of point indices that pass the current filter. Reads
-   *  the cached snapshot (same layer walk as `getSelectedPoints`, so
-   *  indices align). No filter → all indices included. Called from
-   *  renderHexagons after its `!selectedLayerId` early return, so the id
-   *  is non-null here. */
-  private buildIncludeSet(allPts: SelectedPoint[]): Set<number> {
-    const filter = this.layerFilters.get(this.selectedLayerId!);
-    const include = new Set<number>();
-    if (!filter || !this.cachedSnapshot) {
-      for (let i = 0; i < allPts.length; i++) include.add(i);
-      return include;
-    }
-    this.cachedSnapshot.points.forEach((pt, i) => {
-      if (matches(pt, filter)) include.add(i);
-    });
-    return include;
   }
 
   // --- Filter capability (stage 2 pilot) ---
@@ -893,33 +817,6 @@ class HeatmapManager {
   // gone). LAYER_FILTER_CHANGE is a notification published after the
   // local state and render have settled.
 
-  /** Slider step derived from the data's own precision — the number of
-   *  decimals actually present in the field's bounds, capped at 6. A
-   *  degenerate (zero-span) range gets 1: the slider renders disabled
-   *  anyway. */
-  private static stepFor(range: readonly [number, number]): number {
-    const decimals = (v: number): number => {
-      const parts = String(v).split(".");
-      return parts.length > 1 ? Math.min(parts[1].length, 6) : 0;
-    };
-    const span = range[1] - range[0];
-    if (!Number.isFinite(span) || span <= 0) return 1;
-    return 10 ** -Math.max(decimals(range[0]), decimals(range[1]));
-  }
-
-  /** The field the filter is bound to: the aggregation field the Heatmap
-   *  is currently using. `this.field` empty means "auto" — the first numeric
-   *  key the snapshot exposes. Never a separate field choice: the panel renders
-   *  it read-only. */
-  private filterField(): string {
-    const snapshot = this.cachedSnapshot;
-    const numeric = snapshot?.numericFields ?? [];
-    if (this.field && numeric.includes(this.field)) return this.field;
-    return this.autoFieldKey && numeric.includes(this.autoFieldKey)
-      ? this.autoFieldKey
-      : numeric[0];
-  }
-
   /** Follow an aggregation-field change: a stored filter belongs to the field
    *  it was written for, so a different effective field drops it. The caller
    *  repaints and publishes LAYER_FILTER_CHANGE (the panel re-reads the model,
@@ -927,13 +824,10 @@ class HeatmapManager {
   syncFilterField(): void {
     const sourceId = this.selectedLayerId;
     if (!sourceId) return;
-    const prev = this.layerFilters.get(sourceId);
-    if (!prev) return;
-    const field = this.filterField();
-    const bound = prev.kind === "atom" ? prev.field : undefined;
-    if (bound === field) return;
-    this.layerFilters.delete(sourceId);
+    const field = pickFilterField(this.cachedSnapshot, this.field, this.autoFieldKey);
+    if (!dropFilterForField(this.layerFilters, sourceId, field)) return;
     this.cachedAgg = null;
+    this.saveConfig();
   }
 
   /** The filter panel's view of this row's filter state, computed from
@@ -944,29 +838,16 @@ class HeatmapManager {
     const sourceId = this.selectedLayerId;
     if (!sourceId) return null;
     this.getSelectedPoints(); // ensures cachedSnapshot is built for this source
-    const snapshot = this.cachedSnapshot;
-    if (!snapshot || snapshot.numericFields.length === 0) return null;
-    // The filter field IS the aggregation field: the panel shows a read-only
-    // field, so filtering one property while the heatmap aggregates another
-    // would be a silent lie. `this.field` empty means the auto field (the
-    // first numeric key), which is what the old hard-coded read always
-    // returned — use the resolved key instead so a user-picked field wins.
-    const field = this.filterField();
-    const range = snapshot.ranges[field] ?? [0, 0];
-    const filter = this.layerFilters.get(sourceId);
-    return {
-      // The filter narrows the SOURCE point layer; its row is where the
-      // funnel/count belongs (this canvas row is a different row).
+    // The filter field IS the aggregation field (read-only in the panel); the
+    // model builder resolves it once for the panel and the row projection.
+    return buildFilterModel(
+      this.cachedSnapshot,
+      this.layerFilters.get(sourceId),
       sourceId,
-      field,
-      range,
-      filter,
-      kept: select(snapshot, filter).length,
-      total: snapshot.points.length,
-      step: HeatmapManager.stepFor(range),
-    };
+      this.field,
+      this.autoFieldKey,
+    );
   }
-
   /** Write path for the filter panel. Validates the incoming atom against
    *  the current snapshot (unknown field or non-atom → no filter; range
    *  clamped into the field's extent; a range equal to the full extent
@@ -987,11 +868,16 @@ class HeatmapManager {
     // is the validation baseline, so build it here — cached after the first
     // call, so the steady path is free.
     this.getSelectedPoints();
-    const next = this.normalizeFilter(filter);
-    const prev = this.layerFilters.get(sourceId);
-    if (JSON.stringify(prev ?? null) === JSON.stringify(next ?? null)) return;
-    if (next === undefined) this.layerFilters.delete(sourceId);
-    else this.layerFilters.set(sourceId, next);
+    if (
+      !storeFilter(
+        this.layerFilters,
+        sourceId,
+        normalizeFilter(filter, this.cachedSnapshot),
+      )
+    ) {
+      return;
+    }
+    this.saveConfig();
     // The filter is part of the agg key — drop the agg cache. cachedPoints
     // and cachedBins survive: filtering changes neither geometry nor point
     // identity, so the bins are reused and no h3 call runs.
@@ -1000,24 +886,6 @@ class HeatmapManager {
     this.renderHexagons(operation);
     operation.emit(EVENTS.LAYER_FILTER_CHANGE, { id: this.layerId });
     operation.throwIfFailed();
-  }
-
-  /** Validate + clamp a filter AST from the panel against the current
-   *  snapshot. Returns the filter to store, or undefined for "no filter". */
-  private normalizeFilter(filter: LayerFilter): LayerFilter {
-    if (!filter) return undefined;
-    if (filter.kind !== "atom") return filter;
-    const snapshot = this.cachedSnapshot;
-    const bounds = snapshot?.ranges[filter.field];
-    if (!snapshot || !snapshot.numericFields.includes(filter.field) || !bounds) {
-      return undefined;
-    }
-    if (filter.op !== "between" || !filter.range) return filter;
-    const [lo0, hi0] = bounds;
-    const lo = Math.max(lo0, Math.min(hi0, filter.range[0]));
-    const hi = Math.max(lo0, Math.min(hi0, filter.range[1]));
-    if (lo === lo0 && hi === hi0) return undefined;
-    return { ...filter, range: [lo, hi] as [number, number] };
   }
 
   /** Align the stored filter for the selected source with the freshly
@@ -1030,13 +898,9 @@ class HeatmapManager {
     const sourceId = this.selectedLayerId;
     const snapshot = this.cachedSnapshot;
     if (!sourceId || !snapshot) return false;
-    const prev = this.layerFilters.get(sourceId);
-    if (!prev) return false;
-    const next = this.normalizeFilter(prev);
-    if (JSON.stringify(prev) === JSON.stringify(next)) return false;
-    if (next === undefined) this.layerFilters.delete(sourceId);
-    else this.layerFilters.set(sourceId, next);
+    if (!revalidateStoredFilter(this.layerFilters, sourceId, snapshot)) return false;
     this.cachedAgg = null;
+    this.saveConfig();
     return true;
   }
 
@@ -1070,8 +934,12 @@ class HeatmapManager {
     const filterRevalidated = this.revalidateFilter();
     const zoom = this.map.getZoom();
     const res = getH3Res(zoom);
-    const fKey = this.filterKey(this.layerFilters.get(this.selectedLayerId!));
-    const includeSet = this.buildIncludeSet(allPts);
+    const fKey = filterKey(this.layerFilters.get(this.selectedLayerId!));
+    const includeSet = selectIndices(
+      this.cachedSnapshot,
+      this.layerFilters.get(this.selectedLayerId!),
+      allPts.length,
+    );
     // Bins cache: geometry only, independent of the filter. A filter
     // change reuses the bins and only reruns aggregateBins.
     const binsKey = `${this.selectedLayerId}|${res}`;

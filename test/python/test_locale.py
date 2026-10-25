@@ -58,6 +58,16 @@ _DYNAMIC_SUPPLEMENT: set[str] = {
     "foliplus.label_format_comma",
     "foliplus.label_format_int",
     "foliplus.label_format_percent",
+    # Row tooltip short type words (rowView.ts) — `type_${gtype}` plus a
+    # "_short" suffix; the attrs panel keeps the long type_* labels.
+    "LayerControl.type_base_short",
+    "LayerControl.type_custom_short",
+    "LayerControl.type_unknown_short",
+    "LayerControl.type_color_map_short",
+    "LayerControl.type_point_short",
+    "LayerControl.type_line_short",
+    "LayerControl.type_polygon_short",
+    "LayerControl.type_empty_short",
     # Filter panel dynamic labels (filter.ts) — the result readout composes
     # its sentence from the {kept} / {total} template literals.
     "LayerControl.filter_result",

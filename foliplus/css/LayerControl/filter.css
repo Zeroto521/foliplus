@@ -7,7 +7,7 @@
      like the Style and Attributes panels. The panel shell (anchoring,
      width, height cap, chrome) still comes from the shared row-panel
      recipe, and the slider's rail/thumbs/fill/bubble come from
-     common/slider.css — nothing is re-declared here. */
+     common/slider.css — nothing is redeclared here. */
   .foliplus-layer-filter-panel {
     padding: 0;
   }

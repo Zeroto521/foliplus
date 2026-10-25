@@ -8,7 +8,7 @@
 // filter change never re-runs the H3 geometry).
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS, ensureEvents, publish } from "#core/event/index.js";
-import type { LayerFilter } from "#core/layer/index.js";
+import { type LayerFilter, extractMarkerFields } from "#core/layer/index.js";
 import type { HeatmapManager } from "#foliplus/HeatmapControl/manager.js";
 import { makeManager } from "./fixture.js";
 
@@ -607,16 +607,16 @@ describe("HeatmapControl filter owner (stage-2 pilot)", () => {
 
   it("extractMarkerFields resolves value, options.value, and properties fields", () => {
     const marker1 = { value: 42, options: {}, feature: { properties: {} } } as any;
-    expect((m as any).extractMarkerFields(marker1)).toEqual({ value: 42 });
+    expect(extractMarkerFields(marker1)).toEqual({ value: 42 });
 
     const marker2 = { options: { value: 99 }, feature: { properties: {} } } as any;
-    expect((m as any).extractMarkerFields(marker2)).toEqual({ value: 99 });
+    expect(extractMarkerFields(marker2)).toEqual({ value: 99 });
 
     const marker3 = {
       options: {},
       feature: { properties: { temperature: 36.5, status: "ok" } },
     } as any;
-    expect((m as any).extractMarkerFields(marker3)).toEqual({ temperature: 36.5 });
+    expect(extractMarkerFields(marker3)).toEqual({ temperature: 36.5 });
   });
 
   it("extractMarkerFields skips a properties key the contract already holds", () => {
@@ -625,7 +625,7 @@ describe("HeatmapControl filter owner (stage-2 pilot)", () => {
       options: {},
       feature: { properties: { value: 7, other: 3 } },
     } as any;
-    expect((m as any).extractMarkerFields(marker)).toEqual({ value: 42, other: 3 });
+    expect(extractMarkerFields(marker)).toEqual({ value: 42, other: 3 });
   });
 });
 

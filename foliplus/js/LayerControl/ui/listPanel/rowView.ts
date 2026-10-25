@@ -42,6 +42,9 @@ interface RowCell {
   /** The type icon's markup, or "" when nothing should be painted. */
   typeSvg: string;
   typeLabel: string;
+  /** Short type word for the row tooltip only (点/Point), never the attrs
+   *  panel's "点图层/Point Layer" wording. */
+  titleTypeLabel?: string;
   /** True when the row's owner reports a committed filter (kept < total). */
   filtered?: boolean;
   /** Hover title used while filtered: kept / total filtered · type. */
@@ -95,10 +98,10 @@ const rowView = (cell: RowCell, labels: RowLabels): RowView => ({
   filtered: Boolean(cell.filtered),
   countIconSvg: cell.filtered ? SVGs.ICON_FILTER : "",
   title: cell.filtered
-    ? (cell.filterTitle ?? cell.typeLabel)
+    ? (cell.filterTitle ?? cell.titleTypeLabel ?? cell.typeLabel)
     : cell.countText
-      ? `${cell.countText} · ${cell.typeLabel}`
-      : cell.typeLabel,
+      ? `${cell.countText} · ${cell.titleTypeLabel ?? cell.typeLabel}`
+      : (cell.titleTypeLabel ?? cell.typeLabel),
 });
 
 /**
@@ -159,6 +162,10 @@ const buildRowCell = (ui: LayerUI, layerInfo: LayerInfo): RowCell => {
   const checked = intentVisibleOf(ui, layerInfo.id);
   const type = rowType(ui, layerInfo, layer);
   const typeLabel = ui.T(type.key);
+  // Row tooltips say 点/Point; the attrs panel keeps the long 点图层/Point
+  // Layer label. `type.key` is dynamic, so the short keys are listed in the
+  // locale guard's dynamic supplement (test/python/test_locale.py).
+  const titleTypeLabel = ui.T(`${type.key}_short`);
   // The filtered fact is projected from the owner through the row cache, so
   // the funnel can sit on the data row while the capability lives on another
   // row (the Heatmap canvas). The exact kept count (not the compact form) is
@@ -187,7 +194,7 @@ const buildRowCell = (ui: LayerUI, layerInfo: LayerInfo): RowCell => {
           "{total}",
           formatNumber(filterState!.total, "comma", ui.config.locale_code, 0),
         )
-        .replace("{type}", typeLabel)
+        .replace("{type}", titleTypeLabel)
     : "";
   return {
     id: layerInfo.id,
@@ -204,6 +211,7 @@ const buildRowCell = (ui: LayerUI, layerInfo: LayerInfo): RowCell => {
     countText,
     typeSvg: type.svg,
     typeLabel,
+    titleTypeLabel,
   };
 };
 

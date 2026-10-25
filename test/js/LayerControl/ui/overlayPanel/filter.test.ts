@@ -915,7 +915,9 @@ describe("LayerUI filter panel — result, Clear and row state", () => {
     commit(owner);
     const spy = vi.spyOn(ui, "T").mockImplementation(key => {
       if (key === "filter_row_title") return "{kept} / {total} filtered · {type}";
-      if (key.startsWith("type_")) return "Point";
+      // Row tooltips use the short word; the attrs/type label stays long.
+      if (key.endsWith("_short")) return "Point";
+      if (key.startsWith("type_")) return "Point Layer";
       return `LayerControl.${key}` as any;
     });
 
@@ -930,11 +932,14 @@ describe("LayerUI filter panel — result, Clear and row state", () => {
     // Exact count, not the compact form: 2,500 beats 2.5K on a filtered row.
     // Read the value span (the funnel SVG source contributes whitespace text).
     expect(count.querySelector(".foliplus-layer-count-value")!.textContent).toBe("2");
-    // Hover title: kept / total filtered · type — no layer name.
+    // Hover title: kept / total filtered · short type — no layer name, and
+    // never the attrs panel's long "Point Layer" wording.
     expect(item.title).toBe("2 / 3 filtered · Point");
+    expect(item.title).not.toContain("Point Layer");
     expect(count.title).toBe("2 / 3 filtered · Point");
     expect(count.getAttribute("aria-label")).toBe("2 / 3 filtered · Point");
-    expect(item.getAttribute(CONST.DATA.TITLE)).toBe("Point");
+    // The persisted type label (DATA.TITLE) keeps the long form.
+    expect(item.getAttribute(CONST.DATA.TITLE)).toBe("Point Layer");
 
     // Clearing the filter takes the funnel and the accent away; the count
     // returns to the plain (compact-capable) projection.
@@ -945,6 +950,8 @@ describe("LayerUI filter panel — result, Clear and row state", () => {
     expect(plain.classList.contains(CONST.CLASSES.COUNT_FILTERED)).toBe(false);
     expect(plain.querySelector(`.${CONST.CLASSES.COUNT_FUNNEL}`)).toBeNull();
     expect(plain.title).toBe("");
+    // Unfiltered tooltip also uses the short type word.
+    expect(cleared.title).toBe("0 · Point");
     spy.mockRestore();
   });
 
