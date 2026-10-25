@@ -26,8 +26,12 @@
 // No CONFIG / translator dependency: core/layer, not a component dir.
 import { createLogger } from "#common/log.js";
 import type { PaneManager } from "./PaneManager.js";
-import { hasMarkerLeaf, probeLayerCarrier } from "./capability.js";
-import { assertInsideOwnedPanes } from "./carrier.js";
+import {
+  type LayerCarrierProbe,
+  hasMarkerLeaf,
+  probeLayerCarrier,
+} from "./capability.js";
+import { assertInsideOwnedPanes, visibleDomOf } from "./carrier.js";
 import {
   CAP_TIER,
   FALLBACK_PANE_PREFIX,
@@ -180,6 +184,20 @@ class LayerSurface implements LayerSurfaceContract {
    *  cleared by `materialize()`. */
   contentDirty = false;
 
+  /** The tree audit reused within one dirty cycle: the single four-question
+   *  probe (style axes + migratable) plus, once the carrier invariant runs,
+   *  the visible-DOM enumeration. `markContentDirty` clears it; a same-id
+   *  replacement builds a new surface, so `layer` identity is enough.
+   *
+   *  Deliberately per-surface, not a global `L.stamp` map: the audit is a
+   *  projection of one surface's content, and its lifetime is the surface's
+   *  (destroyed with it). */
+  private carrierAudit: {
+    layer: L.Layer;
+    probe: LayerCarrierProbe;
+    visibleDom?: HTMLElement[];
+  } | null = null;
+
   private readonly host: PaneManager;
   private readonly paneSpecs: readonly PaneSpec[];
   private readonly surfaceDecl: SurfaceDeclaration;
@@ -227,6 +245,7 @@ class LayerSurface implements LayerSurfaceContract {
     // One visit answers every carrier question for the tree — see
     // `probeLayerCarrier` for why the axes share a walk.
     const carrier = probeLayerCarrier(layer);
+    this.carrierAudit = layer ? { layer, probe: carrier } : null;
     this.surfaceDecl = {
       layer,
       kind: kindOf(opts),
@@ -248,7 +267,7 @@ class LayerSurface implements LayerSurfaceContract {
     // Capabilities are resolved here, before any early return below, so every
     // branch — declared, synthesized, native — reports the same way. A GridLayer
     // or ImageOverlay gets "native" regardless of whether a pane is allocated.
-    this.capabilities = detectCapabilities(opts);
+    this.capabilities = detectCapabilities(opts, carrier);
 
     if (declared) {
       // The declared pane's own spec — matched BY NAME, not position: a
@@ -445,9 +464,10 @@ class LayerSurface implements LayerSurfaceContract {
   }
 
   /** Resolve the pane handles and pin the layer's content to them. Re-entrant:
-   *  the first call resolves and pins; later calls re-pin only when the layer's
-   *  tree has changed (`contentDirty`). Steady state — every pass after the
-   *  content has settled — is a no-op, so the ordering pass writes z only. */
+   *  the first call resolves and pins; later calls re-pin and re-audit only
+   *  when the layer's tree has changed (`contentDirty`). Steady state — every
+   *  pass after the content has settled — is a no-op, so the ordering pass
+   *  writes z only and the carriage audit is read from its dirty-cycle cache. */
   materialize(): void {
     if (this.materialized && !this.contentDirty) return;
     this.reconcile();
@@ -455,9 +475,13 @@ class LayerSurface implements LayerSurfaceContract {
     this.materialized = true;
   }
 
-  /** Mark the layer's tree as having changed since the last reconcile. */
+  /** Mark the layer's tree as having changed since the last reconcile.
+   *  The cached audit describes the tree that just changed, so it is dropped
+   *  here — the next reconcile walks once, and every read until then reuses
+   *  that fresh answer. */
   markContentDirty(): void {
     this.contentDirty = true;
+    this.carrierAudit = null;
   }
 
   /** The position-based base z the ordering pass last wrote for this surface. */
@@ -602,6 +626,9 @@ class LayerSurface implements LayerSurfaceContract {
     this.zBefore = undefined;
     this.shadowPaneName = null;
     this.pinTarget = null;
+    // The audit describes a tree this surface no longer owns; drop it so a
+    // retired surface cannot answer with a stale projection.
+    this.carrierAudit = null;
   }
 
   /** The pane names this surface paints into, base first. */
@@ -830,10 +857,41 @@ class LayerSurface implements LayerSurfaceContract {
    *  construction. Diagnostic, not a throw: a violation means a pane write
    *  will miss part of the layer, which is a bug to log loudly, not a reason
    *  to take the ordering pass down mid-reconcile. */
+  /** The four-question probe for the current tree, reused within one dirty
+   *  cycle. `contentDirty` clears it; `layer` identity guards the same-id
+   *  replacement path (a replacement builds a new surface and a new cache). */
+  private auditProbe(): LayerCarrierProbe | null {
+    const layer = this.layer;
+    if (!layer) return null;
+    if (this.carrierAudit?.layer === layer) return this.carrierAudit.probe;
+    const probe = probeLayerCarrier(layer);
+    this.carrierAudit = { layer, probe };
+    return probe;
+  }
+
+  /** The visible-DOM enumeration for the current tree, reused within one
+   *  dirty cycle. This is the expensive half of the carrier invariant; it
+   *  must not be recomputed by a read, only by a content change. */
+  private auditVisibleDom(): HTMLElement[] {
+    const layer = this.layer;
+    if (!layer) return [];
+    if (
+      this.carrierAudit?.layer === layer &&
+      this.carrierAudit.visibleDom !== undefined
+    ) {
+      return this.carrierAudit.visibleDom;
+    }
+    const probe = this.auditProbe();
+    if (!probe) return [];
+    const visibleDom = visibleDomOf(layer);
+    this.carrierAudit = { layer, probe, visibleDom };
+    return visibleDom;
+  }
+
   private validateCarrier(): void {
     if (this.capabilities.opacity !== CAP_TIER.PANE) return;
     try {
-      assertInsideOwnedPanes(this.panes, this.layer!);
+      assertInsideOwnedPanes(this.panes, this.layer!, this.auditVisibleDom());
     } catch (error) {
       // Fail closed: the audit found a leaf whose pixels no pane write can
       // reach, so the surface stops promising pane coverage (the UI hides
@@ -889,7 +947,10 @@ const usesNativeSetter = (layer: L.Layer): boolean =>
  *      groups with leaves that expose bounds) gets `true`.
  *    - A canvas surface gets `true` only if the caller provided a
  *      `getBounds` provider; a bare canvas has no idea what it covers. */
-const detectCapabilities = (opts: SurfaceFaceOpts): LayerCapabilities => {
+const detectCapabilities = (
+  opts: SurfaceFaceOpts,
+  carrier: LayerCarrierProbe,
+): LayerCapabilities => {
   const layer = opts.layer;
   // The label pane is a declared carrier, read like `bounds` rather than
   // probed: the registration edge (`LayerController.surfaceFor`) appends the
@@ -975,9 +1036,8 @@ const detectCapabilities = (opts: SurfaceFaceOpts): LayerCapabilities => {
   // plugin with its own getElement, a canvas painter that never joins a
   // pane — flips the answer, because promising "pane" there would advertise
   // an opacity write the carrier never delivers.
-  // One visit answers the audit and the two vector axes plus size together, so
-  // this detector walks the tree once instead of four times.
-  const carrier = probeLayerCarrier(layer);
+  // One visit answered the audit and the two vector axes plus size together;
+  // the caller's probe is shared with the constructor's audit seed.
   const paneCarrier =
     Boolean(opts.canvas) || (layer != null && carrier.migratable !== "mixed");
 

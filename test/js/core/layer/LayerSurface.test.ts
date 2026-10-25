@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { LayerSurface } from "#foliplus/core/layer/LayerSurface.js";
 import { PaneManager } from "#foliplus/core/layer/PaneManager.js";
+import * as capabilityModule from "#foliplus/core/layer/capability.js";
 import * as carrierModule from "#foliplus/core/layer/carrier.js";
 import * as CONST from "#foliplus/core/layer/const.js";
 import type { PaneSpec } from "#foliplus/core/layer/type.js";
@@ -1114,6 +1115,50 @@ describe("LayerSurface.matches", () => {
     expect(withProvider.matches(base)).toBe(false);
     // Same provider shape, different ref — not a different face.
     expect(withProvider.matches({ ...base, getBounds: () => null })).toBe(true);
+  });
+});
+
+describe("LayerSurface carrier audit", () => {
+  it("answers every carrier question in one visit at construction", () => {
+    // TT-1: the constructor used to walk the tree twice — once for the
+    // declaration's migratable flag and once inside `detectCapabilities`.
+    // One visit is the floor: every answer comes from the same probe.
+    const { host } = makeMap();
+    const probeSpy = vi.spyOn(capabilityModule, "probeLayerCarrier");
+    try {
+      new LayerSurface(host, {
+        id: "one-visit",
+        layer: new Group([new Path(), new Marker()]) as unknown as L.Layer,
+      });
+      expect(probeSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      probeSpy.mockRestore();
+    }
+  });
+
+  it("reuses the carriage audit across calls with no content change", () => {
+    const { host } = makeMap();
+    const layer = new Group([new Path(), new Marker()]);
+    const surface = new LayerSurface(host, {
+      id: "audit",
+      layer: layer as unknown as L.Layer,
+    });
+    const walkSpy = vi.spyOn(carrierModule, "visibleDomOf");
+    try {
+      surface.materialize();
+      const first = walkSpy.mock.calls.length;
+      expect(first).toBeGreaterThan(0);
+
+      surface.materialize(); // same content, second
+      surface.materialize(); // same content, third
+      // Reading the answer does not re-open the walk either.
+      void surface.capabilities.opacity;
+      void surface.capabilities.fill;
+
+      expect(walkSpy.mock.calls.length).toBe(first);
+    } finally {
+      walkSpy.mockRestore();
+    }
   });
 });
 

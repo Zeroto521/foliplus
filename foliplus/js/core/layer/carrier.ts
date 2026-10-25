@@ -87,8 +87,13 @@ const visibleDomOf = (layer: L.Layer): HTMLElement[] => {
 const assertInsideOwnedPanes = (
   panes: ReadonlyArray<{ readonly element: HTMLElement }>,
   layer: L.Layer,
+  /** Pre-computed enumeration, when the caller already holds one for this
+   *  dirty cycle. `LayerSurface` passes its cached audit here so a reconcile
+   *  does not enumerate the same tree twice; the default keeps every direct
+   *  caller (and the test suite) one call. */
+  visibleDom: readonly HTMLElement[] = visibleDomOf(layer),
 ): void => {
-  const escaped = visibleDomOf(layer).filter(
+  const escaped = visibleDom.filter(
     el => !panes.some(pane => pane.element.contains(el)),
   );
   if (escaped.length) {
