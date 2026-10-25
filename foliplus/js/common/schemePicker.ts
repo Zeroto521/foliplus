@@ -588,7 +588,7 @@ const createSchemePicker = (options: SchemePickerOptions): SchemePicker => {
     !state.trigger.hasAttribute("aria-label") &&
     !state.trigger.hasAttribute("aria-labelledby")
   ) {
-    state.trigger.setAttribute("aria-label", options.label ?? "Colour scheme");
+    state.trigger.setAttribute("aria-label", options.label ?? "Color scheme");
   }
 
   // Set initial trigger title and draw the colour bar

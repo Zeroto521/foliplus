@@ -355,11 +355,12 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
 
 /** Close the style panel. setFocus = true returns focus to the layer row. */
 const closeStylePanel = (ui: LayerUI, setFocus: boolean): void => {
-  // A pending apply frame (fill and/or border) must land before the panel
-  // disappears: closing is a commit boundary, not a cancel (reset cancels
-  // explicitly). One hook covers both faces.
+  // A pending apply frame (any face — fill / stroke / size / label) must land
+  // before the panel disappears: closing is a commit boundary, not a cancel
+  // (reset cancels explicitly). One hook covers every face, scoped to this UI
+  // so another map's same-id frame is never flushed or dropped.
   if (ui.overlayPanel.stylePanelLayerId) {
-    flushStyleDimApplies(ui.overlayPanel.stylePanelLayerId);
+    flushStyleDimApplies(ui.overlayPanel.stylePanelLayerId, ui);
   }
   if (ui.overlayPanel.styleOutsideHandler) {
     document.removeEventListener(
@@ -407,6 +408,7 @@ export { closeStylePanel, openStylePanel };
 // dimension rides along too: importing this barrel registers it.
 export {
   applyStyleLabelState,
+  invalidateFieldCache,
   invalidateFields,
   layerHasLabelFields,
 } from "./label.js";

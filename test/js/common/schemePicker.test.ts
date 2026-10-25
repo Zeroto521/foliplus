@@ -408,7 +408,7 @@ describe("ARIA attributes", () => {
 
   it("falls back to the default label when the consumer injects none", () => {
     const { trigger } = makePicker();
-    expect(trigger.getAttribute("aria-label")).toBe("Colour scheme");
+    expect(trigger.getAttribute("aria-label")).toBe("Color scheme");
   });
 
   it("does not overwrite an aria-label the consumer already set", () => {
@@ -786,5 +786,170 @@ describe("multiple pickers", () => {
     });
     expect(p2).toBeDefined();
     p2.destroy();
+  });
+});
+// ── Failure paths and portal geometry ──────────────────────────────────
+
+describe("colour-scale fallback", () => {
+  it("renders neutral blocks when the injected colour scale throws", () => {
+    const throwingScale = vi.fn(() => {
+      throw new Error("scale boom");
+    });
+    const { trigger } = makePicker({ colorScale: throwingScale });
+
+    const inner = trigger.querySelector("[data-scheme-bar-inner]")!;
+    expect(throwingScale).toHaveBeenCalled();
+    expect(inner.children.length).toBe(6);
+    // The fallback is the shared neutral swatch (#999), not an empty bar.
+    for (const block of Array.from(inner.children)) {
+      expect((block as HTMLElement).style.background).toContain("rgb(153, 153, 153)");
+    }
+  });
+});
+
+describe("trigger keyboard — cycling both directions", () => {
+  it("ArrowUp returns to the previous scheme after ArrowDown moved it", () => {
+    const onChange = vi.fn();
+    const { picker, trigger } = makePicker({ onChange });
+
+    trigger.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
+    );
+    expect(onChange).toHaveBeenLastCalledWith("Blues");
+    trigger.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true }),
+    );
+    expect(onChange).toHaveBeenLastCalledWith("Reds");
+
+    picker.destroy();
+  });
+});
+
+describe("setValue — validation and open-dropdown sync", () => {
+  it("rejects a name that is not in schemes", () => {
+    const { picker } = makePicker();
+    expect(() => picker.setValue("Nope")).toThrow('value "Nope" is not in schemes');
+    picker.destroy();
+  });
+
+  it("updates the selected item of an open dropdown", () => {
+    const { picker, trigger } = makePicker();
+    trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+    picker.setValue("Blues");
+
+    const items = picker
+      .getDropdown()!
+      .querySelectorAll("[role=option]") as NodeListOf<HTMLElement>;
+    expect(items[1].classList.contains("foliplus-is-active")).toBe(true);
+    expect(items[1].getAttribute("aria-selected")).toBe("true");
+    expect(items[0].getAttribute("aria-selected")).toBe("false");
+    picker.destroy();
+  });
+});
+
+describe("selectScheme — current value", () => {
+  it("closes the open dropdown without firing onChange", () => {
+    const onChange = vi.fn();
+    const { picker, trigger } = makePicker({ onChange });
+    trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+    picker.selectScheme("Reds");
+
+    expect(picker.getDropdown()).toBeNull();
+    expect(onChange).not.toHaveBeenCalled();
+    expect(trigger.classList.contains("foliplus-heatmap-scheme-bar-open")).toBe(false);
+    picker.destroy();
+  });
+});
+
+describe("refresh", () => {
+  it("redraws an open dropdown and no-ops after destroy", () => {
+    const { picker, trigger } = makePicker();
+    trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    picker.setNumClasses(3);
+
+    picker.refresh();
+
+    const bars = picker.getDropdown()!.querySelectorAll(".foliplus-scheme-picker-bar");
+    expect(bars.length).toBe(3);
+    picker.destroy();
+    expect(() => picker.refresh()).not.toThrow();
+  });
+});
+
+describe("portal fullscreen host", () => {
+  const setFullscreen = (el: Element | null) => {
+    Object.defineProperty(document, "fullscreenElement", {
+      value: el,
+      writable: true,
+      configurable: true,
+    });
+  };
+  afterEach(() => setFullscreen(null));
+
+  it("re-parents the open dropdown when the fullscreen element changes", () => {
+    const first = document.createElement("div");
+    const second = document.createElement("div");
+    document.body.append(first, second);
+    setFullscreen(first);
+
+    const { picker, trigger } = makePicker({ portal: true });
+    trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    const dropdown = picker.getDropdown()!;
+    expect(first.contains(dropdown)).toBe(true);
+
+    setFullscreen(second);
+    document.dispatchEvent(new Event("fullscreenchange"));
+
+    expect(second.contains(dropdown)).toBe(true);
+    picker.destroy();
+  });
+});
+
+describe("portal position clamps", () => {
+  const rect = (values: Partial<DOMRect>): DOMRect =>
+    ({
+      top: 0,
+      bottom: 0,
+      left: 0,
+      right: 0,
+      width: 0,
+      height: 0,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+      ...values,
+    }) as DOMRect;
+
+  it("keeps the dropdown inside the viewport on scroll and resize", () => {
+    const { picker, trigger } = makePicker({ portal: true });
+    trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    const dropdown = picker.getDropdown()!;
+
+    // Trigger near the bottom-right corner, dropdown taller/wider than the
+    // room left: the pass must clamp right, flip above and floor at 8px.
+    vi.spyOn(trigger, "getBoundingClientRect").mockReturnValue(
+      rect({ top: 10, bottom: 40, left: 700, right: 800, width: 100, height: 30 }),
+    );
+    vi.spyOn(dropdown, "getBoundingClientRect").mockReturnValue(
+      rect({ width: 400, height: 300 }),
+    );
+    const innerWidth = Object.getOwnPropertyDescriptor(window, "innerWidth");
+    const innerHeight = Object.getOwnPropertyDescriptor(window, "innerHeight");
+    Object.defineProperty(window, "innerWidth", { value: 800, configurable: true });
+    Object.defineProperty(window, "innerHeight", { value: 100, configurable: true });
+    try {
+      window.dispatchEvent(new Event("scroll"));
+      expect(dropdown.style.left).toBe("392px");
+      expect(dropdown.style.top).toBe("8px");
+
+      window.dispatchEvent(new Event("resize"));
+      expect(dropdown.style.top).toBe("8px");
+    } finally {
+      if (innerWidth) Object.defineProperty(window, "innerWidth", innerWidth);
+      if (innerHeight) Object.defineProperty(window, "innerHeight", innerHeight);
+    }
+    picker.destroy();
   });
 });

@@ -426,6 +426,33 @@ describe("bindControls — scheme dropdown", () => {
     expect(ctrl.schemeDropdown).not.toBeNull();
     expect(ctrl.schemeDropdown!.children.length).toBe(0);
   });
+
+  it("closeSchemeDropdown delegate closes the open dropdown", () => {
+    const { ctrl } = setup();
+    ctrl.toggleSchemeDropdown();
+    expect(ctrl.schemeDropdown).not.toBeNull();
+
+    ctrl.closeSchemeDropdown(new MouseEvent("click"));
+
+    expect(ctrl.schemeDropdown).toBeNull();
+    expect(ctrl.schemeBar.getAttribute("aria-expanded")).toBe("false");
+  });
+
+  it("schemePickerCleanup destroys the picker and clears the control reference", () => {
+    const { ctrl } = setup();
+    ctrl.toggleSchemeDropdown();
+    expect(ctrl.schemePicker).not.toBeNull();
+
+    ctrl.schemePickerCleanup?.();
+
+    expect(ctrl.schemePicker).toBeNull();
+    expect(ctrl.schemeDropdown).toBeNull();
+    // destroy(), not close(): the trigger no longer carries the combobox state.
+    expect(ctrl.schemeBar.hasAttribute("aria-expanded")).toBe(false);
+    expect(ctrl.schemeBar.hasAttribute("aria-controls")).toBe(false);
+    // The compat delegates stay null-safe after the picker is gone.
+    expect(() => ctrl.toggleDropdown?.()).not.toThrow();
+  });
 });
 
 describe("layer dropdown change handler", () => {
@@ -739,7 +766,7 @@ describe("scheme validation — restored scheme no longer offered", () => {
 });
 
 // The picker factory carries no locale table; the panel's translator must name
-// the trigger. Regression for the hardcoded English "Colour scheme" label.
+// the trigger. Regression for the hardcoded English "Color scheme" label.
 describe("scheme trigger accessible name", () => {
   it("uses the panel translator for aria-label", () => {
     const { ctrl } = setup();

@@ -94,7 +94,9 @@ const applySizeToLayer = (ui: LayerUI, layerId: string): void => {
  *  intent and bails, so a layer the author drew alone keeps its authored
  *  radii. */
 const replaySizeIntent = (ui: LayerUI, layerId: string): void => {
-  scheduleStyleDimApply(FACE.SIZE, layerId, () => applySizeToLayer(ui, layerId));
+  scheduleStyleDimApply(FACE.SIZE, layerId, () => applySizeToLayer(ui, layerId), {
+    owner: ui,
+  });
 };
 
 /** Commit the size field. Called from `bindLiveNumber`, which already clamps
@@ -124,7 +126,7 @@ const commitSize = (ui: LayerUI, layerId: string, px: number): void => {
 const resetLayerSize = (ui: LayerUI, layerId: string): void => {
   if (!ui.c.layerRegistry.has(layerId)) return;
   resetIntentKeys(ui, layerId, [INTENT.SIZE]);
-  cancelStyleDimApply(FACE.SIZE, layerId);
+  cancelStyleDimApply(FACE.SIZE, layerId, ui);
   const layer = ui.c.findLayer(layerId);
   if (!layer) return;
   walkLeaf(layer, leaf => {
@@ -226,6 +228,16 @@ const SIZE_DIMENSION = registerDimension<number>({
     if (!layerCanSize(ui, layerId)) return "none";
     return ui.intentStore.isUserSet(layerId, INTENT.SIZE) ? "user" : "author";
   },
+  /** Content-change replay: a pixel radius chosen before a leaf landed
+   *  reaches it — the when-gate bails when the user never chose a size,
+   *  before any scheduler box is allocated, so an untouched layer keeps its
+   *  authored radii. */
+  contentChange: {
+    kind: "frame",
+    face: FACE.SIZE,
+    when: (ui, layerId) => getIntent(ui, layerId, INTENT.SIZE) !== undefined,
+    run: (ui, layerId) => applySizeToLayer(ui, layerId),
+  },
 });
 
 export {
@@ -235,6 +247,5 @@ export {
   buildSizeRow,
   commitSize,
   layerCanSize,
-  replaySizeIntent,
   resetLayerSize,
 };

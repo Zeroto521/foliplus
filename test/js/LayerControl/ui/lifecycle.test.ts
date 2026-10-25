@@ -7,6 +7,7 @@ import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { GROUP } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { type LayerController } from "#foliplus/LayerControl/controller.js";
+import type { LayerDimension } from "#foliplus/LayerControl/type.js";
 import { type LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { setIntent } from "#foliplus/LayerControl/ui/intent.js";
 import {
@@ -14,6 +15,17 @@ import {
   toggleAll,
   toggleFold,
 } from "#foliplus/LayerControl/ui/listPanel/index.js";
+import { commitBorderColor } from "#foliplus/LayerControl/ui/style/border.js";
+import { commitFillColor } from "#foliplus/LayerControl/ui/style/fill.js";
+import { registerDimension } from "#foliplus/LayerControl/ui/style/registry.js";
+import { commitSize } from "#foliplus/LayerControl/ui/style/size.js";
+import {
+  FACE,
+  flushStyleDimApplies,
+  flushStyleDimApply,
+  hasStyleDimApply,
+  scheduleStyleDimApply,
+} from "#foliplus/LayerControl/ui/style/styleBag.js";
 import {
   attachedPanel,
   findItem,
@@ -561,4 +573,270 @@ it("isLive tracks the attached panel", () => {
   expect(ui.isLive).toBe(true);
   manager.destroy();
   expect(ui.isLive).toBe(false);
+});
+
+describe("onLayerItemCountChange — the registry replays", () => {
+  let manager: LayerController;
+  let ui: LayerUI;
+  let map: any;
+
+  // One layer that qualifies for every replaying face: an areal setStyle
+  // leaf (fill + stroke — a getRadius leaf is areal too, so the dot joins
+  // the fill walk) and a pixel-radius leaf (size). Labels ride along for
+  // free: the hub queues the face for any overlay row, and the gate inside
+  // replayLabelState decides at run time whether anything renders.
+  const arealLeaf = (): any => ({
+    options: { color: "#00ff00", weight: 1, fillColor: "#0000ff" },
+    setStyle: vi.fn(),
+    feature: { geometry: { type: "Polygon" } },
+    getLatLngs: () => [
+      [
+        { lat: 0, lng: 0 },
+        { lat: 1, lng: 0 },
+        { lat: 0, lng: 1 },
+      ],
+    ],
+  });
+
+  const radiusLeaf = (radius = 10): any => {
+    const leaf: any = {
+      options: { radius, color: "#000000", weight: 2 },
+      _radius: radius,
+      setStyle: vi.fn(),
+    };
+    leaf.getRadius = () => leaf._radius;
+    leaf.setRadius = vi.fn((px: number) => {
+      leaf._radius = px;
+      leaf.options.radius = px;
+      return leaf;
+    });
+    return leaf;
+  };
+
+  const groupWith = (children: any[]): any => ({
+    options: {},
+    eachLayer: vi.fn((fn: (child: unknown) => void) => {
+      for (const child of children) fn(child);
+    }),
+  });
+
+  const withGroup = (children: any[]) =>
+    initFixture({
+      data: [
+        { id: "grp1", name: "G", group: "overlay", layer: groupWith(children) },
+        {
+          id: "base1",
+          name: "OSM",
+          group: "base",
+          layer: { options: {}, setZIndex: vi.fn() } as never,
+          paneName: "tilePane",
+        },
+      ],
+    });
+
+  afterEach(() => {
+    manager?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.useRealTimers();
+  });
+
+  it("queues every replaying face and lands all of them", () => {
+    const areal = arealLeaf();
+    const dot = radiusLeaf(10);
+    const children = [areal, dot];
+    ({ manager, ui, map } = withGroup(children));
+    // Labels on: the annotation policy's when-gate must pass for its face
+    // to be queued at all.
+    ui.c.annotation.setConfig("grp1", {
+      ...ui.c.annotation.defaultConfig(),
+      show: true,
+      field: "name",
+    });
+    commitFillColor(ui, "grp1", "#ff0000");
+    commitBorderColor(ui, "grp1", "#0000dd");
+    commitSize(ui, "grp1", 30);
+    // Land the commit walks first, so the assertions below count only the
+    // content-change replay.
+    flushStyleDimApplies("grp1");
+    areal.setStyle.mockClear();
+    dot.setRadius.mockClear();
+
+    // A leaf lands while the user already has every dimension chosen.
+    const late = radiusLeaf(4);
+    children.push(late);
+    ensureEvents(map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "grp1" });
+    for (const face of [FACE.FILL, FACE.STROKE, FACE.SIZE, FACE.LABEL]) {
+      expect(hasStyleDimApply(face, "grp1"), `${face} must be queued`).toBe(true);
+    }
+
+    flushStyleDimApplies("grp1");
+    expect(areal.setStyle).toHaveBeenCalledWith(
+      expect.objectContaining({ fillColor: "#ff0000" }),
+    );
+    expect(areal.setStyle).toHaveBeenCalledWith(
+      expect.objectContaining({ color: "#0000dd" }),
+    );
+    // The late radius leaf receives the stored size; the early one already
+    // shows it, and the size replay's skip held.
+    expect(late.setRadius).toHaveBeenCalledWith(30);
+    expect(dot.setRadius).not.toHaveBeenCalled();
+  });
+
+  it("writes nothing for a layer the user never touched", () => {
+    const areal = arealLeaf();
+    const dot = radiusLeaf(10);
+    ({ manager, ui, map } = withGroup([areal, dot]));
+    const renderLabels = vi.spyOn(ui.c.annotation, "renderLabels");
+
+    ensureEvents(map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "grp1" });
+    flushStyleDimApplies("grp1");
+
+    expect(areal.setStyle).not.toHaveBeenCalled();
+    expect(dot.setStyle).not.toHaveBeenCalled();
+    expect(dot.setRadius).not.toHaveBeenCalled();
+    expect(renderLabels).not.toHaveBeenCalled();
+  });
+
+  it("control destroy reclaims every pending replay", () => {
+    const children: any[] = [arealLeaf()];
+    ({ manager, ui, map } = withGroup(children));
+    // Give the policies something to replay: an intent for the fill face,
+    // labels on for the label face — without them the when-gates allocate
+    // no boxes at all, and there would be nothing to reclaim.
+    commitFillColor(ui, "grp1", "#ff0000");
+    ui.c.annotation.setConfig("grp1", {
+      ...ui.c.annotation.defaultConfig(),
+      show: true,
+      field: "name",
+    });
+    ensureEvents(map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "grp1" });
+    expect(hasStyleDimApply(FACE.FILL, "grp1")).toBe(true);
+    expect(hasStyleDimApply(FACE.LABEL, "grp1")).toBe(true);
+
+    manager.destroy();
+    for (const face of [FACE.FILL, FACE.STROKE, FACE.SIZE, FACE.LABEL]) {
+      expect(hasStyleDimApply(face, "grp1"), `${face} must be dropped`).toBe(false);
+    }
+  });
+
+  it("a label field arriving late upgrades the annotation capability before the label frame", () => {
+    const children: any[] = [];
+    ({ manager, ui, map } = withGroup(children));
+    const renderLabels = vi.spyOn(ui.c.annotation, "renderLabels").mockReturnValue([]);
+    ui.c.annotation.setConfig("grp1", {
+      ...ui.c.annotation.defaultConfig(),
+      show: true,
+      field: "name",
+    });
+    // An empty group has no labelable field: the surface declares the
+    // annotation capability "none" and there is no annotation pane.
+    const surfaceOf = () => ui.c.surfaceFor(manager.layerRegistry.get("grp1")!);
+    expect(surfaceOf().capabilities.annotation).toBe("none");
+
+    // The first labelable leaf lands. The row refresh inside the SAME
+    // count-change re-probes the surface synchronously — the capability
+    // upgrades and the pane exists before the scheduled label frame runs.
+    children.push({
+      options: {},
+      feature: { properties: { name: "late" } },
+      getLatLng: () => ({ lat: 40, lng: -74 }),
+    });
+    ensureEvents(map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "grp1" });
+    expect(surfaceOf().capabilities.annotation).not.toBe("none");
+
+    flushStyleDimApplies("grp1");
+    expect(renderLabels).toHaveBeenCalledTimes(1);
+
+    // The last field disappears: the re-probe downgrades the capability,
+    // and a later content change still schedules the label face (the gate
+    // is the config, not the capability) — the run itself is the no-op.
+    children.length = 0;
+    ensureEvents(map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "grp1" });
+    expect(surfaceOf().capabilities.annotation).toBe("none");
+    flushStyleDimApplies("grp1");
+    expect(renderLabels).toHaveBeenCalledTimes(2);
+  });
+
+  it("destroying one control does not reclaim another control's pending replay", () => {
+    // Two LayerControls on one page: each owns its scheduler scope. Ids can
+    // repeat across maps ("grp1"), so an owner-less teardown would cancel the
+    // other map's trailing write — the exact cross-map leak this pins.
+    const first = withGroup([arealLeaf()]);
+    commitFillColor(first.ui, "grp1", "#ff0000");
+    ensureEvents(first.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "grp1" });
+    expect(hasStyleDimApply(FACE.FILL, "grp1", first.ui)).toBe(true);
+
+    const second = withGroup([arealLeaf()]);
+    commitFillColor(second.ui, "grp1", "#00ff00");
+    ensureEvents(second.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, {
+      id: "grp1",
+    });
+    expect(hasStyleDimApply(FACE.FILL, "grp1", second.ui)).toBe(true);
+
+    first.manager.destroy();
+
+    expect(hasStyleDimApply(FACE.FILL, "grp1", first.ui)).toBe(false);
+    expect(hasStyleDimApply(FACE.FILL, "grp1", second.ui)).toBe(true);
+    // The surviving control still lands its own frame.
+    flushStyleDimApply(FACE.FILL, "grp1", second.ui);
+    expect(hasStyleDimApply(FACE.FILL, "grp1", second.ui)).toBe(false);
+    second.manager.destroy();
+  });
+
+  it("a late failure reports through the map that owns the frame", () => {
+    const first = withGroup([arealLeaf()]);
+    first.map.foliplus.onError = vi.fn();
+    const second = withGroup([arealLeaf()]);
+    second.map.foliplus.onError = vi.fn();
+
+    scheduleStyleDimApply(
+      FACE.LABEL,
+      "grp1",
+      () => {
+        throw new Error("label boom");
+      },
+      { source: EVENTS.LAYER_ITEM_COUNT_CHANGE, owner: first.ui },
+    );
+    flushStyleDimApply(FACE.LABEL, "grp1", first.ui);
+
+    expect(first.map.foliplus.onError).toHaveBeenCalledTimes(1);
+    expect(first.map.foliplus.onError.mock.calls[0][0]).toBe(
+      EVENTS.LAYER_ITEM_COUNT_CHANGE,
+    );
+    expect(second.map.foliplus.onError).not.toHaveBeenCalled();
+    first.manager.destroy();
+    second.manager.destroy();
+  });
+
+  it("runs a sync content-change policy inline and leaves the frame policies queued", () => {
+    const areal = arealLeaf();
+    ({ manager, ui, map } = withGroup([areal]));
+    // A stored fill intent makes the fill policy's when-gate pass, so the same
+    // registry loop holds a sync and a frame policy to tell apart.
+    commitFillColor(ui, "grp1", "#ff0000");
+    flushStyleDimApplies("grp1");
+    areal.setStyle.mockClear();
+
+    const syncRun = vi.fn();
+    // No built-in dimension declares the sync arm; a test dimension takes it.
+    // Registration is per module graph, and this is the file's last test.
+    registerDimension({
+      key: "test.dim.sync-policy",
+      gate: () => true,
+      value: () => undefined,
+      row: () => document.createElement("div"),
+      contentChange: { kind: "sync", run: syncRun },
+    } as unknown as LayerDimension<unknown>);
+
+    ensureEvents(map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "grp1" });
+
+    // The sync half already ran — no frame flush needed.
+    expect(syncRun).toHaveBeenCalledTimes(1);
+    // The frame half of the same loop is still coalesced into its next frame.
+    expect(hasStyleDimApply(FACE.FILL, "grp1")).toBe(true);
+    flushStyleDimApplies("grp1");
+    expect(areal.setStyle).toHaveBeenCalled();
+    manager.destroy();
+  });
 });

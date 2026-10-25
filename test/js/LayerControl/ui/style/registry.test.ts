@@ -43,6 +43,7 @@ const testDim = {
   gate: () => true,
   value: () => 42,
   row: () => document.createElement("div"),
+  contentChange: { kind: "none" },
 } as unknown as LayerDimension<number>;
 
 // Register once per module graph. `opacity.ts` already ran this for the
@@ -116,6 +117,29 @@ describe("LayerControl style-panel dimension registry", () => {
     expect(ordered.length).toBe(new Set(ordered).size);
   });
 
+  it("contentChange is declared by exactly the replaying dimensions", () => {
+    // The hub executes every descriptor's declared policy on a content
+    // change, so this set IS the replay coverage. The field is mandatory on
+    // the type — a new dimension cannot compile without stating a policy —
+    // and this pins the SEMANTIC side: opacity / zoomRange declare "none"
+    // (their replay is the projection sweep; opacity's delta is the notify's
+    // payload), and a dimension that silently switches to "none" goes red
+    // here instead of losing its replay quietly.
+    const replaying = listDimensions()
+      .filter(d => d.contentChange.kind !== "none")
+      .map(d => d.key)
+      .sort();
+    expect(replaying).toEqual(["annotation", "border", "fill", "size"]);
+    // Every face of the coalescer is claimed by exactly one frame policy —
+    // a face nobody schedules would strand late leaves; a face claimed
+    // twice would fight over one queue slot.
+    const faces = listDimensions()
+      .filter(d => d.contentChange.kind === "frame")
+      .map(d => (d.contentChange as { face: string }).face)
+      .sort();
+    expect(faces).toEqual(["fill", "label", "size", "stroke"]);
+  });
+
   it("registerDimension throws on a duplicate key — the built-in opacity", () => {
     // A third-party component colliding with our built-in key, or a
     // duplicated import, must fail loudly rather than silently overwrite.
@@ -125,6 +149,7 @@ describe("LayerControl style-panel dimension registry", () => {
         gate: () => false,
         value: () => undefined,
         row: () => document.createElement("div"),
+        contentChange: { kind: "none" },
       }),
     ).toThrow(/opacity.*already registered/);
   });

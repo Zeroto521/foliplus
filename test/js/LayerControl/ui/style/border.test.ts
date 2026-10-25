@@ -1471,9 +1471,11 @@ describe("border apply scheduler (drag coalesce)", () => {
       stroke: true,
     });
     expect(leaf.setStyle).toHaveBeenCalledTimes(1);
+    // The first flush executed the box, and execution reclaims the entry —
+    // the second flush finds nothing, and the Map holds no parked closure.
     flushStyleDimApply(FACE.STROKE, "vec1");
     expect(leaf.setStyle).toHaveBeenCalledTimes(1);
-    expect(hasStyleDimApply(FACE.STROKE, "vec1")).toBe(true);
+    expect(hasStyleDimApply(FACE.STROKE, "vec1")).toBe(false);
   });
 
   it("reset cancels a pending walk so it cannot paint over the restore", () => {
