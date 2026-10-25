@@ -263,12 +263,29 @@ class LayerOrchestration {
     return this.surfacesByLayer.get(L.stamp(layer)) ?? null;
   }
 
-  /** Panes a registered layer's content lives in, including the pane its
+  /** Panes a registered layer's *content* lives in, including the pane its
    *  surface synthesized. Falls back to the names in the layer's own tree for a
-   *  layer nobody registered. */
+   *  layer nobody registered.
+   *
+   *  The marker-shadow carrier is excluded on purpose. It belongs to the
+   *  layer's *face* — its opacity / z / focus writes go through
+   *  `surface.panes` — but it is not content: a shadow paints BELOW the icon
+   *  it belongs to (the pane sits one z-step under the base pane). Every
+   *  caller reads this list as "the panes whose DOM this layer owns as
+   *  content": the exporter walks each one for vectors, canvases and marker
+   *  roots, and focus's lift treats them as the layer's visible body. Listing
+   *  the shadow pane here made the exporter paint a shadow twice — once
+   *  through the shadow channel below the icon, and once as a marker root
+   *  above it, because a root list carries no z. The discovery fallback below
+   *  never returns it either: `PaneManager.discoverChildPanes` reads
+   *  `options.pane`, and no leaf points its `pane` at a shadow carrier. */
   resolveLayerPanes(layer: L.Layer): string[] {
     const surface = this.surfaceForLayer(layer);
-    if (surface?.panes.length) return surface.paneNames;
+    if (surface?.panes.length) {
+      return surface.panes
+        .filter(pane => pane.role !== PANE_ROLE.SHADOW)
+        .map(pane => pane.name);
+    }
     return this.panes.getLayerPanes(layer);
   }
 
