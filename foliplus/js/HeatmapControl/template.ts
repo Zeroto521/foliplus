@@ -8,6 +8,14 @@
 import { METHOD as CLASSIFY_METHOD } from "#core/classify.js";
 import * as CONST from "./const.js";
 
+// Template placement decision (#729 review): this template stays
+// Heatmap-specific. Only the scheme row's trigger + hidden select are
+// picker-owned markup, and Heatmap is still the picker's only consumer, so a
+// common template helper would add an abstraction with one caller — and it
+// would have to keep this HTML byte-for-byte identical anyway (the Python
+// rendering tests pin the rendered panel). Revisit when a second control adopts
+// common/schemePicker; the picker's contract is the trigger element plus an
+// optional hidden select passed to createSchemePicker.
 /** Build the panel-content HTML string (data rows, then the style rows). */
 const panelContentHTML = (T: (key: string) => string): string => /* html */ `
 <div class="foliplus-heatmap-config-body">

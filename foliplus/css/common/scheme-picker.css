@@ -46,6 +46,9 @@
   box-shadow: var(--foliplus-shadow-md);
   z-index: var(--foliplus-z-index-floating);
   overflow-y: auto;
+  /* Optional, and cheap: a scheme list of seven rows usually fits, but a
+     custom long list should not get a full-width OS scrollbar. */
+  scrollbar-width: thin;
   /* Shell box model: declare the full list + margin so a host framework's
      bare ol,ul defaults (list-style disc, margin-bottom 1rem) cannot
      leak into the dropdown. */
@@ -106,10 +109,27 @@
   transition: box-shadow var(--foliplus-transition-fast);
 }
 
-/* ── Colour bar inside a dropdown item ── */
+/* ── Trigger focus ring ──
+   The trigger is a div[role=combobox], so the shared input
+   :hover/:focus-visible recipe never reaches it. One ring token for the
+   trigger and the items; it replaces the UA outline instead of adding a
+   second border. */
+[role="combobox"][aria-haspopup="listbox"]:focus-visible {
+  outline: none;
+  box-shadow: var(--foliplus-focus-ring);
+}
+
+/* ── Colour bar inside a dropdown item ──
+   One height for the trigger's inner bar and these: the row keeps
+   --foliplus-ctrl-size and centres an 18px swatch. Height is fixed (not
+   stretched to the row) so selecting a scheme cannot change the swatch
+   thickness. --foliplus-scheme-picker-bar-height is the consumer override
+   hook; the icon-size fallback matches the Heatmap trigger's inline height
+   (--foliplus-heatmap-inline-height = --foliplus-icon-size-md). */
 .foliplus-scheme-picker-bar {
   flex: 1;
-  height: var(--foliplus-ctrl-size);
+  height: var(--foliplus-scheme-picker-bar-height, var(--foliplus-icon-size-md));
+  box-sizing: border-box;
   border-radius: var(--foliplus-radius-sm);
   border: var(--foliplus-border-thin) solid var(--foliplus-btn-secondary-border);
   flex-shrink: 0;

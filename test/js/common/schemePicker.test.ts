@@ -503,9 +503,16 @@ describe("colour blocks", () => {
     picker.destroy();
   });
 
-  it("throws for an invalid scheme name not in schemes", () => {
-    expect(() => makePicker({ value: "NoSuchScheme" })).toThrow(
-      'value "NoSuchScheme" is not in schemes',
+  it("throws a namespaced RangeError for an invalid scheme name", () => {
+    let error: unknown;
+    try {
+      makePicker({ value: "NoSuchScheme" });
+    } catch (thrown) {
+      error = thrown;
+    }
+    expect(error).toBeInstanceOf(RangeError);
+    expect((error as RangeError).message).toBe(
+      '[schemePicker] value "NoSuchScheme" is not in schemes — add it to schemes or use a value from the list',
     );
   });
 });
@@ -738,8 +745,9 @@ describe("multiple pickers", () => {
       colorScale,
     });
 
-    // Second picker on the same trigger must throw
-    expect(() =>
+    // Second picker on the same trigger must throw a namespaced Error.
+    let error: unknown;
+    try {
       createSchemePicker({
         trigger,
         schemes: ["Blues"],
@@ -748,8 +756,14 @@ describe("multiple pickers", () => {
         portal: false,
         onChange: vi.fn(),
         colorScale,
-      }),
-    ).toThrow("already has an active picker");
+      });
+    } catch (thrown) {
+      error = thrown;
+    }
+    expect(error).toBeInstanceOf(Error);
+    expect((error as Error).message).toBe(
+      "[schemePicker] this trigger already has an active picker — call destroy() first",
+    );
 
     p1.destroy();
   });
@@ -826,9 +840,18 @@ describe("trigger keyboard — cycling both directions", () => {
 });
 
 describe("setValue — validation and open-dropdown sync", () => {
-  it("rejects a name that is not in schemes", () => {
+  it("rejects a name that is not in schemes with a namespaced RangeError", () => {
     const { picker } = makePicker();
-    expect(() => picker.setValue("Nope")).toThrow('value "Nope" is not in schemes');
+    let error: unknown;
+    try {
+      picker.setValue("Nope");
+    } catch (thrown) {
+      error = thrown;
+    }
+    expect(error).toBeInstanceOf(RangeError);
+    expect((error as RangeError).message).toBe(
+      '[schemePicker] value "Nope" is not in schemes — add it to schemes or use a value from the list',
+    );
     picker.destroy();
   });
 
@@ -946,10 +969,258 @@ describe("portal position clamps", () => {
 
       window.dispatchEvent(new Event("resize"));
       expect(dropdown.style.top).toBe("8px");
+
+      // Flip above with room to spare: the computed top wins over the floor.
+      vi.spyOn(trigger, "getBoundingClientRect").mockReturnValue(
+        rect({ top: 400, bottom: 430, left: 700, right: 800, width: 100, height: 30 }),
+      );
+      Object.defineProperty(window, "innerHeight", { value: 500, configurable: true });
+      window.dispatchEvent(new Event("scroll"));
+      expect(dropdown.style.top).toBe("96px");
     } finally {
       if (innerWidth) Object.defineProperty(window, "innerWidth", innerWidth);
       if (innerHeight) Object.defineProperty(window, "innerHeight", innerHeight);
     }
     picker.destroy();
+  });
+});
+// ── Defensive branches: minimal trigger, listbox guards, teardown ──────
+
+const bareTrigger = (): HTMLElement => {
+  const trigger = document.createElement("div");
+  trigger.setAttribute("tabindex", "0");
+  document.body.appendChild(trigger);
+  return trigger;
+};
+
+describe("bare trigger (no inner bar, no hidden select)", () => {
+  it("creates, selects, sets a value and redraws without an inner element", () => {
+    const trigger = bareTrigger();
+    const picker = createSchemePicker({
+      trigger,
+      schemes: ["Reds", "Blues"],
+      value: "Reds",
+      numClasses: 6,
+      portal: false,
+      onChange: vi.fn(),
+      colorScale,
+    });
+
+    expect(trigger.hasAttribute("aria-haspopup")).toBe(true);
+    // No inner bar to draw into: every redraw path must skip rather than
+    // dereference it (selectScheme / setValue / setNumClasses all go through
+    // getInner). The fractional count also exercises the `|| 1` floor.
+    expect(() => picker.selectScheme("Blues")).not.toThrow();
+    expect(() => picker.setValue("Reds")).not.toThrow();
+    expect(() => picker.setNumClasses(3)).not.toThrow();
+    expect(() => picker.setNumClasses(0.4)).not.toThrow();
+    expect(trigger.title).toBe("Reds");
+    picker.destroy();
+  });
+
+  it("clamps a zero or fractional class count to one block", () => {
+    for (const numClasses of [0, 0.4]) {
+      document.body.innerHTML = "";
+      const { trigger } = makePicker({ numClasses });
+      const inner = trigger.querySelector("[data-scheme-bar-inner]")!;
+      expect(inner.children.length).toBe(1);
+    }
+  });
+});
+
+describe("listbox keyboard guards", () => {
+  it("ignores navigation in an empty dropdown", () => {
+    const { picker, trigger } = makePicker({ schemes: [] });
+    trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    const dropdown = picker.getDropdown()!;
+
+    for (const key of ["ArrowDown", "ArrowUp", "Home", "End", "Enter"]) {
+      expect(() =>
+        dropdown.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true })),
+      ).not.toThrow();
+    }
+    expect(picker.getDropdown()).not.toBeNull();
+    picker.destroy();
+  });
+
+  it("Enter does nothing when focus is not on an option", () => {
+    const onChange = vi.fn();
+    const { picker, trigger } = makePicker({ onChange });
+    trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    (document.activeElement as HTMLElement | null)?.blur?.();
+
+    picker
+      .getDropdown()!
+      .dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+
+    expect(onChange).not.toHaveBeenCalled();
+    expect(picker.getDropdown()).not.toBeNull();
+    picker.destroy();
+  });
+
+  it("Enter skips an option that carries no scheme name", () => {
+    const onChange = vi.fn();
+    const { picker, trigger } = makePicker({ onChange });
+    trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    const items = picker
+      .getDropdown()!
+      .querySelectorAll("[role=option]") as NodeListOf<HTMLElement>;
+    items[0].removeAttribute("data-scheme-name");
+    items[0].focus();
+
+    picker
+      .getDropdown()!
+      .dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+
+    expect(onChange).not.toHaveBeenCalled();
+    picker.destroy();
+  });
+
+  it("ignores a key the listbox does not handle", () => {
+    const { picker, trigger } = makePicker();
+    trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+    expect(() =>
+      picker
+        .getDropdown()!
+        .dispatchEvent(new KeyboardEvent("keydown", { key: "a", bubbles: true })),
+    ).not.toThrow();
+    expect(picker.getDropdown()).not.toBeNull();
+    picker.destroy();
+  });
+});
+
+describe("trigger keyboard guards", () => {
+  it("ignores keys while the dropdown is open", () => {
+    const onChange = vi.fn();
+    const { picker, trigger } = makePicker({ onChange });
+    trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+    trigger.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
+    );
+
+    expect(onChange).not.toHaveBeenCalled();
+    expect(picker.getDropdown()).not.toBeNull();
+    picker.destroy();
+  });
+
+  it("ignores a key the trigger does not handle", () => {
+    const { picker, trigger } = makePicker();
+
+    expect(() =>
+      trigger.dispatchEvent(new KeyboardEvent("keydown", { key: "a", bubbles: true })),
+    ).not.toThrow();
+    expect(picker.getDropdown()).toBeNull();
+    picker.destroy();
+  });
+});
+
+describe("portal same-host fullscreen event", () => {
+  afterEach(() =>
+    Object.defineProperty(document, "fullscreenElement", {
+      value: null,
+      writable: true,
+      configurable: true,
+    }),
+  );
+
+  it("keeps the dropdown where it is when the host did not change", () => {
+    const { picker, trigger } = makePicker({ portal: true });
+    trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    const dropdown = picker.getDropdown()!;
+    expect(dropdown.parentElement).toBe(document.body);
+
+    document.dispatchEvent(new Event("fullscreenchange"));
+
+    expect(dropdown.parentElement).toBe(document.body);
+    expect(picker.getDropdown()).toBe(dropdown);
+    picker.destroy();
+  });
+});
+
+describe("inline mount without a parent", () => {
+  it("falls back to the trigger itself as the dropdown parent", () => {
+    const trigger = bareTrigger();
+    trigger.remove(); // detached: no form-control ancestor, no parentElement
+    const picker = createSchemePicker({
+      trigger,
+      schemes: ["Reds", "Blues"],
+      value: "Reds",
+      numClasses: 6,
+      portal: false,
+      onChange: vi.fn(),
+      colorScale,
+    });
+
+    picker.toggle();
+
+    expect(picker.getDropdown()!.parentElement).toBe(trigger);
+    picker.destroy();
+  });
+});
+
+describe("aria-activedescendant guard", () => {
+  it("does not write the attribute when focus already left the items", () => {
+    const { picker, trigger } = makePicker();
+    trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    const item = picker.getDropdown()!.querySelector("[role=option]") as HTMLElement;
+    const before = trigger.getAttribute("aria-activedescendant");
+
+    // Focus moved away before the queued focus handler ran: the item is no
+    // longer document.activeElement, so the guard must not claim it is.
+    document.body.setAttribute("tabindex", "-1");
+    document.body.focus();
+    item.dispatchEvent(new FocusEvent("focus"));
+
+    expect(trigger.getAttribute("aria-activedescendant")).toBe(before);
+    document.body.removeAttribute("tabindex");
+    picker.destroy();
+  });
+});
+
+describe("refresh skips malformed entries", () => {
+  it("ignores an option without a scheme name or a bar child", () => {
+    const { picker, trigger } = makePicker();
+    trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    const items = picker
+      .getDropdown()!
+      .querySelectorAll("[role=option]") as NodeListOf<HTMLElement>;
+    items[0].removeAttribute("data-scheme-name");
+    items[1].querySelector(".foliplus-scheme-picker-bar")!.remove();
+
+    expect(() => picker.refresh()).not.toThrow();
+    expect(picker.getDropdown()).not.toBeNull();
+    picker.destroy();
+  });
+});
+
+describe("setNumClasses — unchanged count", () => {
+  it("is a no-op when the clamped count equals the current one", () => {
+    const { picker, trigger } = makePicker({ numClasses: 6 });
+    const inner = trigger.querySelector("[data-scheme-bar-inner]")!;
+
+    picker.setNumClasses(6);
+
+    expect(inner.children.length).toBe(6);
+    picker.destroy();
+  });
+});
+
+describe("public methods after destroy", () => {
+  it("are no-ops and getDropdown stays null", () => {
+    const { picker, trigger } = makePicker();
+    trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    picker.destroy();
+
+    expect(() => picker.setValue("Blues")).not.toThrow();
+    expect(() => picker.selectScheme("Blues")).not.toThrow();
+    expect(() => picker.setNumClasses(3)).not.toThrow();
+    expect(() => picker.refresh()).not.toThrow();
+    expect(() => picker.toggle()).not.toThrow();
+    expect(() => picker.close()).not.toThrow();
+    expect(picker.getDropdown()).toBeNull();
+    // A second destroy is idempotent (the guard returns before teardown).
+    expect(() => picker.destroy()).not.toThrow();
   });
 });

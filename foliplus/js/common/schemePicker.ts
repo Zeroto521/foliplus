@@ -8,6 +8,11 @@
 //
 // Does NOT import any Heatmap or LayerControl module.
 import { dom } from "#common/dom.js";
+import { createLogger } from "#common/log.js";
+
+// Thrown messages carry the same `[schemePicker]` prefix as every other
+// foliplus diagnostic (shared modules name themselves, not a CONFIG component).
+const log = createLogger("schemePicker");
 
 // ── Class-name defaults ────────────────────────────────────────────────
 
@@ -76,7 +81,7 @@ interface SchemePicker {
 // Module-level counter for stable dropdown/item ids (avoids Math.random()
 // churn that makes aria-activedescendant values jump between snapshots).
 let idCounter = 0;
-const nextId = (prefix: string): string => prefix + "-" + ++idCounter;
+const nextId = (prefix: string): string => `${prefix}-${++idCounter}`;
 
 // Owner map: prevents two pickers from binding the same trigger (which
 // would cause double-dropdowns on a single click).  A consumer that
@@ -137,7 +142,7 @@ const renderColorBar = (
   for (const color of colors) {
     dom.el("div", {
       class: blockClass,
-      style: "background:" + color + ";width:" + (100 / colors.length).toFixed(4) + "%",
+      style: `background:${color};width:${(100 / colors.length).toFixed(4)}%`,
       parent: container,
     });
   }
@@ -250,24 +255,31 @@ const mountDropdown = (state: InternalState) => {
     const host = getPortalHost();
     host.appendChild(dropdown);
     // Measure after append — detached elements report 0×0.
-    positionDropdown(state);
+    positionDropdown(state, dropdown);
     dropdown.style.visibility = "";
     // Keep the dropdown pinned when the host element changes (fullscreen
-    // enter/exit). We use a MutationObserver on the document for the
-    // fullscreenchange event instead of a direct listener, so destroy
-    // can clean it up.
+    // enter/exit). Every listener below is mount-scoped (drained on close), so
+    // the dropdown is open whenever it runs — no "still open" guard needed.
     const onFullscreen = () => {
-      if (state.dropdown && !state.isOpen) return;
       const target = getPortalHost();
       if (dropdown.parentElement !== target) {
         target.appendChild(dropdown);
       }
-      if (state.isOpen) positionDropdown(state);
+      positionDropdown(state, dropdown);
     };
     document.addEventListener("fullscreenchange", onFullscreen);
     state.mountCleanupFns.push(() =>
       document.removeEventListener("fullscreenchange", onFullscreen),
     );
+    // Re-pin on a trigger scroll or a window resize. Portal-only: inline mode
+    // is anchored by CSS, so it needs neither listener.
+    const reposition = () => positionDropdown(state, dropdown);
+    window.addEventListener("scroll", reposition, true);
+    window.addEventListener("resize", reposition);
+    state.mountCleanupFns.push(() => {
+      window.removeEventListener("scroll", reposition, true);
+      window.removeEventListener("resize", reposition);
+    });
   } else {
     // Inline mode: mount into the trigger's parent (schemeControlWrap)
     const parent =
@@ -290,7 +302,8 @@ const mountDropdown = (state: InternalState) => {
   const updateActiveDescendant = () => {
     const active = document.activeElement as HTMLElement;
     if (state.items.includes(active)) {
-      state.trigger.setAttribute("aria-activedescendant", active.id ?? "");
+      // Items always carry a generated id (assigned below).
+      state.trigger.setAttribute("aria-activedescendant", active.id);
     }
   };
   state.items.forEach(item => {
@@ -314,48 +327,33 @@ const mountDropdown = (state: InternalState) => {
   document.addEventListener("click", onDocClick);
   state.mountCleanupFns.push(() => document.removeEventListener("click", onDocClick));
 
-  // Re-position if the trigger scrolls, resizes, or the window resizes
-  // (portal mode only).
-  const onScroll = () => {
-    if (state.isOpen && state.portal) positionDropdown(state);
-  };
-  window.addEventListener("scroll", onScroll, true);
-  state.mountCleanupFns.push(() =>
-    window.removeEventListener("scroll", onScroll, true),
-  );
-  if (state.portal) {
-    const onResize = () => {
-      if (state.isOpen) positionDropdown(state);
-    };
-    window.addEventListener("resize", onResize);
-    state.mountCleanupFns.push(() => window.removeEventListener("resize", onResize));
-  }
-
-  // Focus the selected item (or first item) now that the dropdown is in
-  // the DOM and all listeners are installed.  Doing this before append
-  // leaves the focus on the trigger, which breaks keyboard navigation.
+  // Focus the selected item now that the dropdown is in the DOM and all
+  // listeners are installed. Doing this before append leaves the focus on the
+  // trigger, which breaks keyboard navigation. `findIndex` is -1 only if a
+  // future consumer supplies items without the active class; `Math.max` folds
+  // that into the first row without a second condition.
   if (state.items.length > 0) {
-    const focusItem =
-      state.items.find(item => item.classList.contains(state.classes.active)) ??
-      state.items[0];
-    focusItem.focus();
+    const activeIdx = Math.max(
+      0,
+      state.items.findIndex(item => item.classList.contains(state.classes.active)),
+    );
+    state.items[activeIdx].focus();
   }
 
   state.onToggle?.(true, dropdown);
 };
 
-const positionDropdown = (state: InternalState) => {
-  if (!state.dropdown) return;
+/** Pin a portal dropdown under its trigger. Portal-only: inline mode is
+ *  anchored by the trigger's own CSS, so it never calls this. */
+const positionDropdown = (state: InternalState, dropdown: HTMLElement) => {
   const rect = state.trigger.getBoundingClientRect();
   const vw = window.innerWidth;
   const vh = window.innerHeight;
 
-  // In portal mode, set explicit width (trigger width) so the dropdown
-  // doesn't inherit the portal host's width (e.g. document.body = 100%).
-  if (state.portal) {
-    state.dropdown.style.width = rect.width + "px";
-  }
-  const dropdownRect = state.dropdown.getBoundingClientRect();
+  // Set an explicit width (trigger width) so the dropdown does not inherit the
+  // portal host's width (e.g. document.body = 100%).
+  dropdown.style.width = `${rect.width}px`;
+  const dropdownRect = dropdown.getBoundingClientRect();
 
   let top = rect.bottom;
   let left = rect.left;
@@ -370,8 +368,8 @@ const positionDropdown = (state: InternalState) => {
     if (top < 8) top = 8;
   }
 
-  state.dropdown.style.top = top + "px";
-  state.dropdown.style.left = left + "px";
+  dropdown.style.top = `${top}px`;
+  dropdown.style.left = `${left}px`;
 };
 
 const closeDropdown = (state: InternalState, opts?: { restoreFocus?: boolean }) => {
@@ -460,7 +458,7 @@ const setupTriggerKeydown = (state: InternalState) => {
     } else if (key === "Enter" || key === " ") {
       event.preventDefault();
       event.stopPropagation();
-      openDropdown(state);
+      mountDropdown(state);
     }
   };
 
@@ -470,16 +468,11 @@ const setupTriggerKeydown = (state: InternalState) => {
 
 // ── Open / toggle ──────────────────────────────────────────────────────
 
-const openDropdown = (state: InternalState) => {
-  if (state.isOpen) return;
-  mountDropdown(state);
-};
-
 const toggleDropdown = (state: InternalState) => {
   if (state.isOpen) {
     closeDropdown(state);
   } else {
-    openDropdown(state);
+    mountDropdown(state);
   }
 };
 
@@ -493,7 +486,7 @@ const refreshDropdown = (state: InternalState) => {
     // The bar class may be a concatenation of default + consumer classes,
     // so use [class~='default'] to match any element with the default class.
     const barClass = DEFAULT_CLASSES.bar;
-    const bar = item.querySelector("[class~='" + barClass + "']") as HTMLElement | null;
+    const bar = item.querySelector(`[class~='${barClass}']`) as HTMLElement | null;
     if (bar) {
       renderColorBar(
         bar,
@@ -513,15 +506,15 @@ const createSchemePicker = (options: SchemePickerOptions): SchemePicker => {
   const existing = ownerMap.get(options.trigger);
   if (existing) {
     throw new Error(
-      "schemePicker: this trigger already has an active picker — call destroy() first",
+      log.msg("this trigger already has an active picker — call destroy() first"),
     );
   }
   // Validate that value is in schemes (or schemes is empty, meaning any value is allowed).
   if (options.schemes.length > 0 && !options.schemes.includes(options.value)) {
     throw new RangeError(
-      'schemePicker: value "' +
-        options.value +
-        '" is not in schemes — add it to schemes or use a value from the list',
+      log.msg(
+        `value "${options.value}" is not in schemes — add it to schemes or use a value from the list`,
+      ),
     );
   }
 
@@ -532,19 +525,15 @@ const createSchemePicker = (options: SchemePickerOptions): SchemePicker => {
   // modifiers only. This prevents the CSS/DOM contract break that caused the
   // "custom colour bar + native select both visible" screenshot bug.
   const consumerClasses = options.classes ?? {};
+  // The base class is never replaced, so a consumer can only add a modifier.
+  const withModifier = (base: string, extra: string | undefined): string =>
+    extra ? `${base} ${extra}` : base;
   const classes: SchemePickerClasses = {
-    dropdown:
-      DEFAULT_CLASSES.dropdown +
-      (consumerClasses.dropdown ? " " + consumerClasses.dropdown : ""),
-    item:
-      DEFAULT_CLASSES.item + (consumerClasses.item ? " " + consumerClasses.item : ""),
-    bar: DEFAULT_CLASSES.bar + (consumerClasses.bar ? " " + consumerClasses.bar : ""),
-    block:
-      DEFAULT_CLASSES.block +
-      (consumerClasses.block ? " " + consumerClasses.block : ""),
-    active:
-      DEFAULT_CLASSES.active +
-      (consumerClasses.active ? " " + consumerClasses.active : ""),
+    dropdown: withModifier(DEFAULT_CLASSES.dropdown, consumerClasses.dropdown),
+    item: withModifier(DEFAULT_CLASSES.item, consumerClasses.item),
+    bar: withModifier(DEFAULT_CLASSES.bar, consumerClasses.bar),
+    block: withModifier(DEFAULT_CLASSES.block, consumerClasses.block),
+    active: withModifier(DEFAULT_CLASSES.active, consumerClasses.active),
     open: consumerClasses.open ?? DEFAULT_CLASSES.open,
   };
   const state: InternalState = {
@@ -595,10 +584,12 @@ const createSchemePicker = (options: SchemePickerOptions): SchemePicker => {
   state.trigger.title = options.value;
   const initialBarInner = getInner(state.trigger);
   if (initialBarInner) {
+    // The clamped count, not the raw option: the first paint must match every
+    // later setNumClasses redraw (and the dropdown rows built with it).
     renderColorBar(
       initialBarInner,
       options.value,
-      options.numClasses,
+      numClasses,
       classes.block,
       options.colorScale,
     );
@@ -621,9 +612,9 @@ const createSchemePicker = (options: SchemePickerOptions): SchemePicker => {
       // Validate that the new value is in schemes.
       if (state.schemes.length > 0 && !state.schemes.includes(name)) {
         throw new RangeError(
-          'schemePicker: value "' +
-            name +
-            '" is not in schemes — add it to schemes or use a value from the list',
+          log.msg(
+            `value "${name}" is not in schemes — add it to schemes or use a value from the list`,
+          ),
         );
       }
       state.value = name;
@@ -700,9 +691,9 @@ const createSchemePicker = (options: SchemePickerOptions): SchemePicker => {
       state.items = [];
       state.dropdown = null;
       // Remove from owner map so a new picker can be created on this trigger.
-      if (ownerMap.get(state.trigger) === picker) {
-        ownerMap.delete(state.trigger);
-      }
+      // This picker is the registered owner by construction (the factory
+      // refuses a second one), so the delete needs no identity re-check.
+      ownerMap.delete(state.trigger);
       // Fully clean up ARIA attributes so the trigger is indistinguishable
       // from its initial state (destroy, not just close).
       state.trigger.removeAttribute("aria-expanded");
@@ -713,11 +704,5 @@ const createSchemePicker = (options: SchemePickerOptions): SchemePicker => {
   return picker;
 };
 
-export {
-  type SchemePicker,
-  // eslint-disable-next-line import/no-unused-modules
-  type SchemePickerClasses,
-  // eslint-disable-next-line import/no-unused-modules
-  type SchemePickerOptions,
-  createSchemePicker,
-};
+export { createSchemePicker };
+export type { SchemePicker };
