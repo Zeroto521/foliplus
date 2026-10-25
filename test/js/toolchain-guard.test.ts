@@ -144,10 +144,15 @@ describe("config/eslint/base.mjs rule scoping", () => {
 // silently escaped every gate until this was written: a file outside the lint
 // globs is a file no rule can reach, and nothing in the output says so.
 describe("lint config is itself linted", () => {
-  it("npm scripts cover config/ and the root entry", () => {
-    expect(pkg.scripts.lint).toContain("config/**/*.mjs");
-    expect(pkg.scripts.lint).toContain("eslint.config.js");
-    expect(pkg.scripts["format:check"]).toContain("config/**/*.mjs");
+  it("npm scripts cover every config file, in every gate", () => {
+    // Symmetric on purpose: a per-script hand list is how `format:check` came to
+    // cover config/ but not the root entry — the same half-covered shape the
+    // rest of this block exists to catch.
+    for (const script of ["lint", "format:check"] as const) {
+      for (const file of ["config/**/*.mjs", "eslint.config.js"]) {
+        expect(pkg.scripts[script], `${script} does not cover ${file}`).toContain(file);
+      }
+    }
   });
 
   it("every linted config file is claimed by a rule block", () => {
