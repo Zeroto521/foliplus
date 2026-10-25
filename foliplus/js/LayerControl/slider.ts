@@ -152,7 +152,7 @@ const ensureBubble = (): HTMLElement => {
  *  does not push it off-screen. */
 const placeBubble = (anchor: DOMRect): void => {
   const bubble = ensureBubble();
-  // Same distance Web Awesome uses between the control and its tooltip: the
+  // Same distance the slider uses between the control and its tooltip: the
   // arrow (4px of it) spans part of the gap, leaving the tip just clear of
   // the thumb instead of touching it.
   const margin = 8;

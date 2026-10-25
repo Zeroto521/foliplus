@@ -209,7 +209,7 @@
 .foliplus-slider-bubble {
   position: fixed;
   z-index: var(--foliplus-z-index-hint);
-  /* Same box as the Web Awesome tooltip: 14px text, 1.6 leading, em-based
+  /* Same box as the slider tooltip: 14px text, 1.6 leading, em-based
      padding and a 1px border. That is 14 × 1.6 + 7 + 2 = 31.4px tall —
      measured from the live component, not guessed. */
   padding: 0.25em 0.5em;
