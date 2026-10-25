@@ -1,14 +1,14 @@
 // ExportControl × LayerController integration — REAL Leaflet, REAL controller.
 //
 // The unit fixture in `index.test.ts` answers `getLayerPanes` with a hand-built
-// list, and that is exactly how the P1 defect stayed invisible: the list the
-// real controller returns names the layer's shadow carrier alongside its
-// content, so subtracting the shadow from that list emptied the shadow group.
+// list, and that is exactly how the P1 defect stayed invisible: the real
+// controller reports the surface's whole pane set, shadow carrier included, so
+// subtracting the shadow from that list emptied the shadow group.
 // This file runs the production stack instead — `L.map` + `L.marker` +
 // `L.layerGroup` over real Leaflet in jsdom, a real `LayerController` owning
-// the panes and mounted as `map.foliplus.LayerAPI` — and asserts what an
-// export actually sees: a non-empty shadow group, a content group that does not
-// contain it, and a shadow painted before its icon.
+// the panes and mounted as `map.foliplus.LayerAPI` — and asserts both halves of
+// the contract: the API keeps reporting the shadow pane (focus's lift reads the
+// same list), and the export splits it out and paints it before the icon.
 import L from "leaflet";
 import { ExportRenderer } from "#foliplus/ExportControl/renderer/index.js";
 import * as UTIL from "#foliplus/ExportControl/util.js";
@@ -120,21 +120,27 @@ afterEach(() => {
 });
 
 describe("export panes over a real LayerController", () => {
-  it("keeps the shadow carrier out of the content panes", () => {
+  it("splits the panes a real controller reports by role", () => {
     const { map, group, controller } = mountStack();
     try {
       // The controller is the map's LayerAPI — the same object the renderer
       // reads its pane host from.
       expect(map.foliplus!.LayerAPI).toBe(controller);
 
+      // Pane coverage is unchanged: the controller reports the whole surface,
+      // shadow carrier included — focus's lift (and the browser probe suite)
+      // reads that same list.
       const raw = controller.getLayerPanes(group);
+      expect(raw).toHaveLength(2);
       const shadowPane = `${raw[0]}-shadow`;
-      expect(raw).not.toContain(shadowPane);
+      expect(raw[1]).toBe(shadowPane);
 
+      // The export still has to split them: this is the P1 shape — the API
+      // names the shadow next to the content, and the resolver must produce a
+      // shadow group instead of reading that name as "already content".
       const panes = new ExportRenderer(map as any).resolveExportPanes(group);
       expect(panes.shadows).toEqual([shadowPane]);
-      expect(panes.content).not.toContain(shadowPane);
-      expect(panes.content.length).toBeGreaterThan(0);
+      expect(panes.content).toEqual([raw[0]]);
     } finally {
       map.remove();
     }
