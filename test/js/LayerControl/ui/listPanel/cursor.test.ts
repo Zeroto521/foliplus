@@ -11,6 +11,7 @@ import {
   getActiveLayerItem,
   getNavigableItems,
   moveActiveMarker,
+  reconcileCursorByIdentity,
   resolveActiveIdx,
   restoreCursor,
   setActiveItem,
@@ -250,17 +251,17 @@ describe("LayerUI cursor (pure cursor primitives)", () => {
   // ─────────────────── cursorRef ───────────────────
 
   describe("cursorRef", () => {
-    it("returns the layer row id when the cursor is on a layer row", () => {
+    it("returns a layer-kind ref when the cursor is on a layer row", () => {
       setActiveItem(ui, indexFor("overlay1"));
-      expect(cursorRef(ui)).toBe("overlay1");
+      expect(cursorRef(ui)).toEqual({ kind: "layer", id: "overlay1" });
     });
 
-    it("returns the group id when the cursor is on a toggle-all row", () => {
+    it("returns a group-kind ref when the cursor is on a toggle-all row", () => {
       const toggleRow = attachedPanel(ui).querySelector(
         `[data-group="${GROUP.OVERLAY}"]`,
       ) as HTMLElement;
       setActiveItem(ui, ui.getNavigableItems().indexOf(toggleRow));
-      expect(cursorRef(ui)).toBe(GROUP.OVERLAY);
+      expect(cursorRef(ui)).toEqual({ kind: "group", group: GROUP.OVERLAY });
     });
 
     it("normalizes an out-of-range cursor to null", () => {
@@ -286,7 +287,7 @@ describe("LayerUI cursor (pure cursor primitives)", () => {
         )
         .forEach(el => el.classList.add(CONST.CLASSES.GROUP_FOLDED));
 
-      restoreCursor(ui, "overlay1");
+      restoreCursor(ui, { kind: "layer", id: "overlay1" });
 
       const lit = attachedPanel(ui).querySelector(`.${CONST.CLASSES.FOCUSED}`);
       expect(lit?.classList.contains(CONST.CLASSES.TOGGLE_ALL)).toBe(true);
@@ -297,7 +298,7 @@ describe("LayerUI cursor (pure cursor primitives)", () => {
 
     it("clears the cursor when the ref matches no row", () => {
       setActiveItem(ui, 0);
-      restoreCursor(ui, "ghost-layer");
+      restoreCursor(ui, { kind: "layer", id: "ghost-layer" });
       expect(ui.listPanel.activeIdx).toBeNull();
       expect(attachedPanel(ui).querySelector(`.${CONST.CLASSES.FOCUSED}`)).toBeNull();
     });
@@ -311,11 +312,64 @@ describe("LayerUI cursor (pure cursor primitives)", () => {
     it("restores the cursor to the same layer row after a rebuild", () => {
       const ref = cursorRef(ui);
       setActiveItem(ui, indexFor("overlay1"));
-      expect(cursorRef(ui)).toBe("overlay1");
+      expect(cursorRef(ui)).toEqual({ kind: "layer", id: "overlay1" });
       // Simulate rebuild: cursor was saved from an earlier render.
-      restoreCursor(ui, ref ?? "overlay1");
+      restoreCursor(ui, ref ?? { kind: "layer", id: "overlay1" });
       const lit = attachedPanel(ui).querySelector(`.${CONST.CLASSES.FOCUSED}`);
       expect(lit?.getAttribute(CONST.DATA.LAYER_ID)).toBe("overlay1");
+    });
+
+    it("keys a layer ref by kind, never by bare string", () => {
+      // The kind tag is the collision guard: a layer legitimately named
+      // "overlay" must not resolve to the overlay group header, even though
+      // the header sits ahead of every layer row in the panel.
+      setActiveItem(ui, indexFor("overlay1"));
+      const header = attachedPanel(ui).querySelector(
+        `.${CONST.CLASSES.TOGGLE_ALL}[data-group="overlay"]`,
+      ) as HTMLElement;
+      expect(header).not.toBeNull();
+
+      restoreCursor(ui, { kind: "layer", id: "overlay1" });
+      expect(ui.listPanel.activeIdx).toBe(indexFor("overlay1"));
+      expect(ui.getNavigableItems()[ui.listPanel.activeIdx ?? -1]).not.toBe(header);
+    });
+
+    it("reads a row with neither key as null", () => {
+      // refOf's defensive tail: a navigable-classed element that carries
+      // neither a layer id nor a group carries no identity at all. Stripping
+      // the keys off the focused row drives cursorRef through that branch.
+      const row = findItem(ui, "overlay1");
+      setActiveItem(ui, indexFor("overlay1"));
+      row.removeAttribute(CONST.DATA.LAYER_ID);
+      row.removeAttribute("data-group");
+
+      expect(cursorRef(ui)).toBeNull();
+    });
+  });
+
+  // ─────────────────── reconcileCursorByIdentity ───────────────────
+
+  describe("reconcileCursorByIdentity", () => {
+    it("clears a stale activeIdx when the captured ref is null", () => {
+      syncListCursor(ui);
+      const items = ui.getNavigableItems();
+      // A cursor that outlived its rows: the stored index is past the end,
+      // so cursorRef() normalizes it to null. Re-homing must clear the
+      // ledger instead of clamping that stale index onto the last row.
+      ui.listPanel.activeIdx = items.length + 3;
+      items[items.length - 1].classList.add(CONST.CLASSES.FOCUSED);
+
+      reconcileCursorByIdentity(ui, null);
+
+      expect(ui.listPanel.activeIdx).toBeNull();
+      expect(ui.listPanel.listCursor?.index).toBe(-1);
+      // The roving tab stop falls back to the first row, not the clamped last.
+      expect(items[0].tabIndex).toBe(0);
+      expect(items.filter(el => el.tabIndex === 0)).toHaveLength(1);
+      expect(items[items.length - 1].tabIndex).toBe(-1);
+      expect(
+        attachedPanel(ui).querySelectorAll(`.${CONST.CLASSES.FOCUSED}`).length,
+      ).toBe(0);
     });
   });
 

@@ -24,32 +24,54 @@ const syncListCursor = (ui: LayerUI): void => {
   ui.listPanel.listCursor.setIndex(ui.listPanel.activeIdx ?? -1);
 };
 
-/** Identity of the row the keyboard cursor points at, for re-homing after a
- *  rebuild: a layer row's id, or a toggle-all row's group. */
+/** Identity of the row the keyboard cursor points at, for re-homing after
+ *  rows move or rebuild: a layer row by id, a toggle-all row by group. The
+ *  kind tag is load-bearing — a layer may legally be named "overlay" or
+ *  "base", the same strings the group headers carry, and a bare string
+ *  would let a same-named header steal the re-home (the header sits ahead
+ *  of the rows in every findIndex). */
+type CursorRef =
+  { kind: "layer"; id: string } | { kind: "group"; group: string } | null;
 
-const cursorRef = (ui: LayerUI): string | null => {
+/** Read one row's cursor identity: layer rows key on data-layer-id,
+ *  toggle-all rows on data-group — the two attributes never co-occur on a
+ *  row. */
+const refOf = (el: HTMLElement): CursorRef => {
+  const id = el.getAttribute(CONST.DATA.LAYER_ID);
+  if (id) return { kind: "layer", id };
+  const group = el.getAttribute("data-group");
+  return group ? { kind: "group", group } : null;
+};
+
+/** The one row lookup both re-home paths share (the rebuild-grade restore
+ *  and the incremental reconcile): kind-keyed, so a layer named "overlay"
+ *  never resolves to the overlay group header and back. */
+const rowByRef = (items: HTMLElement[], ref: Exclude<CursorRef, null>): number =>
+  ref.kind === "layer"
+    ? items.findIndex(el => el.getAttribute(CONST.DATA.LAYER_ID) === ref.id)
+    : items.findIndex(el => el.getAttribute("data-group") === ref.group);
+
+const cursorRef = (ui: LayerUI): CursorRef => {
   if (ui.listPanel.activeIdx === null) return null;
   const el = getNavigableItems(ui)[ui.listPanel.activeIdx];
-  return el
-    ? (el.getAttribute(CONST.DATA.LAYER_ID) ?? el.getAttribute("data-group"))
-    : null;
+  return el ? refOf(el) : null;
 };
 
 /** Re-attach the cursor (marker + DOM focus) to the rebuilt row. A row hidden
  *  by folding is not focusable, so the cursor falls back to that group's
- *  toggle-all row. If the row is gone entirely, the cursor is cleared. */
+ *  toggle-all row. If the row is gone entirely, the cursor is cleared.
+ *
+ *  Rebuild-grade only: the rows were destroyed, so the cursor and DOM focus
+ *  have nowhere to go but back onto a fresh element. The incremental
+ *  counterpart is {@link reconcileCursorByIdentity}. */
 
-const restoreCursor = (ui: LayerUI, ref: string | null): void => {
+const restoreCursor = (ui: LayerUI, ref: CursorRef): void => {
   if (ref === null) {
     ui.listPanel.activeIdx = null;
     return;
   }
   const items = getNavigableItems(ui);
-  let idx = items.findIndex(
-    el =>
-      el.getAttribute(CONST.DATA.LAYER_ID) === ref ||
-      el.getAttribute("data-group") === ref,
-  );
+  let idx = rowByRef(items, ref);
   if (idx !== -1 && items[idx].classList.contains(CONST.CLASSES.GROUP_FOLDED)) {
     const group = items[idx].getAttribute("data-layer-type");
     idx = items.findIndex(
@@ -60,6 +82,39 @@ const restoreCursor = (ui: LayerUI, ref: string | null): void => {
   }
   if (idx !== -1) setActiveItem(ui, idx);
   else clearActiveItem(ui);
+};
+
+/** Re-home the cursor onto the row a captured identity names, after any
+ *  mutation that can change the navigable sequence — a reorder, a late
+ *  registration, a row removal. The elements — and any focused descendant
+ *  (checkbox, ⋮ button, rename input, a panel control) — survive those
+ *  mutations, so DOM focus is NOT taken or re-aimed; the ledger (`activeIdx`,
+ *  the FOCUSED marker, `aria-selected`, the one roving tab stop) is repainted
+ *  onto the row the identity resolves to. A row that left the panel clears
+ *  the cursor and hands the tab stop to the first visible row — the roving
+ *  contract ("exactly one row stop") never lapses. */
+const reconcileCursorByIdentity = (ui: LayerUI, ref: CursorRef): void => {
+  if (!ui.uiContainer?.isConnected) return;
+  if (ref === null) {
+    // No identity to re-home: a stale `activeIdx` must not survive, or the
+    // roving tab stop lands on whatever row now sits at that index (the last
+    // one, after the clamp) instead of the first row. Clearing the cursor is
+    // also what resets the stop to row 0.
+    clearActiveItem(ui);
+    return;
+  }
+  const items = getNavigableItems(ui);
+  const idx = rowByRef(items, ref);
+  if (idx === -1) {
+    clearActiveItem(ui);
+    return;
+  }
+  // Marker and ledger first, then a refresh: a membership change between
+  // capture and here may have repainted the marker onto whichever row now
+  // sits at the old index, and the refresh is what repaints `aria-selected`
+  // from the corrected index.
+  moveActiveMarker(ui, items[idx], items);
+  ui.listPanel.listCursor?.refresh();
 };
 
 /** Get all keyboard-navigable rows: layer items and toggle-all rows, in DOM
@@ -187,6 +242,7 @@ export {
   syncListCursor,
   cursorRef,
   restoreCursor,
+  reconcileCursorByIdentity,
   getNavigableItems,
   findVisibleNeighbor,
   getActiveLayerItem,
@@ -197,3 +253,4 @@ export {
   resolveActiveIdx,
   syncActiveItem,
 };
+export type { CursorRef };

@@ -15,6 +15,7 @@ import {
   type LayerFactory,
   type LayerInfo,
   type LayerInfoRegistry,
+  type LayerMutation,
   type LayerOrder,
   LayerSurface,
   PANE_ROLE,
@@ -361,9 +362,12 @@ class LayerOrchestration {
   registerEntry(
     opts: RegisterLayerOpts,
     hasUi: boolean,
-  ): { layerInfo: LayerInfo; existingIdx: number; hidden: boolean } {
+  ): {
+    layerInfo: LayerInfo;
+    hidden: boolean;
+    mutation: Extract<LayerMutation, { kind: "insert" | "replace-content" }>;
+  } {
     const existingLi = this.layerRegistry.get(opts.id);
-    const existingIdx = existingLi ? this.layerRegistry.indexOf(existingLi) : -1;
 
     // Same-layer re-registration is the caller's "this layer changed"
     // signal. `matches()` no longer probes content, so drop the cached audit
@@ -389,7 +393,7 @@ class LayerOrchestration {
       this.map.removeLayer(existingLi.layer);
     }
 
-    if (existingIdx !== -1) this.layerRegistry.upsert(layerInfo);
+    if (existingLi) this.layerRegistry.upsert(layerInfo);
     else if (layerInfo.group === GROUP.BASE) {
       const firstBaseIdx = this.layerRegistry.firstBaseIdx;
       const atBottom = opts.baseInsert === "bottom";
@@ -417,7 +421,15 @@ class LayerOrchestration {
     // registration takes the map path (a runtime re-registration with a
     // panel still respects the user's hide).
     const hidden = hasUi && this.intentStore.get(opts.id, INTENT.VISIBLE) === false;
-    return { layerInfo, existingIdx, hidden };
+    // The insertion outcome carries the live position after the whole
+    // placement (upsert in place, or insert + saved-slot replay), so no
+    // pre-mutation index has to survive the call.
+    const index = this.layerRegistry.indexOf(layerInfo);
+    const mutation: Extract<LayerMutation, { kind: "insert" | "replace-content" }> =
+      existingLi
+        ? { kind: "replace-content", previous: existingLi, entry: layerInfo, index }
+        : { kind: "insert", entry: layerInfo, index };
+    return { layerInfo, hidden, mutation };
   }
 
   /** The domain half of {@link LayerController.unregisterLayer}: remove the

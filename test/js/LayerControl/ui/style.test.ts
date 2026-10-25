@@ -756,7 +756,7 @@ describe("LayerUI style panel", () => {
 
     expect(dragstart.defaultPrevented).toBe(true);
     expect(item.classList.contains(CONST.CLASSES.DRAGGING)).toBe(false);
-    expect(ui.listPanel.dragIdx).toBeNull();
+    expect(ui.listPanel.dragEntry).toBeNull();
   });
 
   it("a press outside the panel still starts the drag", () => {
