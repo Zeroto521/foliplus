@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { LayerFactory } from "#foliplus/core/layer/LayerFactory.js";
 import { PaneManager } from "#foliplus/core/layer/PaneManager.js";
+import type { RegisterLayerOpts } from "#foliplus/core/layer/type.js";
 import { zFor } from "#foliplus/core/layer/z.js";
 import { getLayerAlpha, setLayerAlpha } from "#common/canvasAlpha.js";
 
@@ -877,12 +878,187 @@ describe("LayerFactory", () => {
       warn.mockRestore();
     });
 
-    it("a lease with no read-back entry does not delete a same-id replacement", () => {
-      // P3-2: the read-back can fail even though the entry exists. The
-      // surface then holds no lease, so unregister must fail closed — the
-      // replacement that owns the id now must survive.
+    it("a failed postRegister unregisters the entry it already committed", () => {
+      // postRegister runs after registerLayer succeeded. Its failure must not
+      // leave a registry entry whose surface reports "not registered" and
+      // paints nothing — the compensation list drops the entry and the face.
+      const committed = { id: "canvas_test" } as never;
+      const unreg = vi.fn(() => true);
+      const register = vi.fn((opts: RegisterLayerOpts) => {
+        opts.onCommitted?.(committed);
+        return null;
+      });
+      const f = new LayerFactory({
+        map,
+        panes,
+        registerLayer: register,
+        unregisterLayer: unreg,
+        bringLayerToFront: () => {},
+        invalidateType: () => {},
+        registry: () =>
+          ({
+            get: (id: string) => (id === "canvas_test" ? committed : undefined),
+          }) as never,
+        slotOf: () => {
+          throw new Error("slot boom");
+        },
+      });
+      const api = f.createCanvas({ id: "canvas_test" });
+
+      expect(() => api.register()).toThrow("slot boom");
+      expect(register).toHaveBeenCalledTimes(1);
+      expect(unreg).toHaveBeenCalledWith("canvas_test");
+      expect(api.registered()).toBe(false);
+      expect(api.canvas.parentElement).toBeNull();
+      expect(api.canvas.classList.contains("hidden")).toBe(true);
+
+      // No authority survives the failed attempt: a later unregister cannot
+      // touch whatever now owns the id.
+      api.unregister();
+      expect(unreg).toHaveBeenCalledTimes(1);
+    });
+
+    it("a throwing cleanup cannot mask the original registration error", () => {
+      // finalize isolates the compensations: the entry drop may throw, but
+      // the mount rollback still runs and the caller keeps the postRegister
+      // error rather than the cleanup's.
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const committed = { id: "canvas_test" } as never;
+      const f = new LayerFactory({
+        map,
+        panes,
+        registerLayer: opts => {
+          (opts as { onCommitted?: (entry: unknown) => void }).onCommitted?.(committed);
+          return null;
+        },
+        unregisterLayer: () => {
+          throw new Error("unregister boom");
+        },
+        bringLayerToFront: () => {},
+        invalidateType: () => {},
+        registry: () =>
+          ({
+            get: (id: string) => (id === "canvas_test" ? committed : undefined),
+          }) as never,
+        slotOf: () => {
+          throw new Error("slot boom");
+        },
+      });
+      const api = f.createCanvas({ id: "canvas_test" });
+
+      expect(() => api.register()).toThrow("slot boom");
+      expect(api.registered()).toBe(false);
+      expect(api.canvas.parentElement).toBeNull();
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining("register rollback step"),
+        expect.any(Error),
+      );
+      warn.mockRestore();
+    });
+
+    it("fails closed when the committed lease no longer owns the id", () => {
+      // P2-1b: the controller can return normally after a subscriber retired
+      // this entry and installed a same-id replacement inside the notify (the
+      // retired path returns null, it does not throw). The token — not a
+      // registry read-back — is the lease, and a mismatched registry means the
+      // surface never owned the id: unmount the face, report "not registered",
+      // and hold no authority, so an outer unregister cannot delete the
+      // replacement by bare id.
+      const committed = { id: "canvas_test" } as never;
+      const replacement = { id: "canvas_test", name: "Replacement" } as never;
+      const unreg = vi.fn(() => true);
+      const f = new LayerFactory({
+        map,
+        panes,
+        registerLayer: opts => {
+          (opts as { onCommitted?: (entry: unknown) => void }).onCommitted?.(committed);
+          return null;
+        },
+        unregisterLayer: unreg,
+        bringLayerToFront: () => {},
+        invalidateType: () => {},
+        registry: () => ({ get: () => replacement }) as never,
+        slotOf: () => {
+          throw new Error("postRegister must not run after a fail-closed lease");
+        },
+      });
+      const api = f.createCanvas({ id: "canvas_test" });
+
+      // No throw: the controller's retired path is a normal return, and the
+      // surface only declines to claim ownership.
+      expect(() => api.register()).not.toThrow();
+      expect(unreg).not.toHaveBeenCalled();
+      expect(api.registered()).toBe(false);
+      expect(api.canvas.parentElement).toBeNull();
+      expect(api.canvas.classList.contains("hidden")).toBe(true);
+
+      // No authority survives: the replacement keeps the id even after the
+      // failed surface is unregistered again.
+      api.unregister();
+      expect(unreg).not.toHaveBeenCalled();
+    });
+
+    it("reports a throwing fail-closed unmount instead of masking it", () => {
+      // The fail-closed branch above returns normally. If the unmount itself
+      // throws, finalize must still run its reporter (the warn is the only
+      // observer of the failed cleanup) and the caller must keep the
+      // fail-closed answer rather than the rollback error.
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const committed = { id: "canvas_test" } as never;
+      const replacementEntry = { id: "canvas_test", name: "Replacement" } as never;
+      const originalEnsure = panes.ensurePane.bind(panes);
+      const ensureSpy = vi
+        .spyOn(panes, "ensurePane")
+        .mockImplementation((...args: unknown[]) => {
+          const result = originalEnsure(...args) as {
+            pane: HTMLElement | null;
+            renderer: unknown;
+          };
+          if (result.pane) {
+            // The face is mounted but cannot be taken out again: `contains`
+            // still claims it, `removeChild` is the failing step.
+            result.pane.contains = () => true;
+            (result.pane as unknown as { removeChild: () => void }).removeChild =
+              () => {
+                throw new Error("unmount boom");
+              };
+          }
+          return result;
+        });
+      const f = new LayerFactory({
+        map,
+        panes,
+        registerLayer: opts => {
+          (opts as { onCommitted?: (entry: unknown) => void }).onCommitted?.(committed);
+          return null;
+        },
+        unregisterLayer: () => true,
+        bringLayerToFront: () => {},
+        invalidateType: () => {},
+        registry: () => ({ get: () => replacementEntry }) as never,
+        slotOf: () => {
+          throw new Error("postRegister must not run after a fail-closed lease");
+        },
+      });
+      const api = f.createCanvas({ id: "canvas_test" });
+
+      expect(() => api.register()).not.toThrow();
+      expect(api.registered()).toBe(false);
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining("register fail-closed step"),
+        expect.any(Error),
+      );
+      ensureSpy.mockRestore();
+      warn.mockRestore();
+    });
+
+    it("a token-less lease does not delete a same-id replacement", () => {
+      // A caller that wires no commit sink cannot prove it owns the id. The
+      // surface may report registered (legacy contract for a bare
+      // `registerLayer`), but unregister must fail closed: a replacement that
+      // owns the id now must survive.
       const replacement = { id: "canvas_test" } as never;
-      const registry = { get: vi.fn() };
+      const registry = { get: vi.fn(() => replacement) };
       const unreg = vi.fn(() => true);
       const f = new LayerFactory({
         map,
@@ -893,12 +1069,10 @@ describe("LayerFactory", () => {
         invalidateType: () => {},
         registry: () => registry as never,
       });
-      registry.get.mockReturnValueOnce(null); // the lease read-back fails
       const api = f.createCanvas({ id: "canvas_test" });
       api.register();
       expect(api.registered()).toBe(true);
 
-      registry.get.mockReturnValue(replacement); // a replacement owns the id
       api.unregister();
 
       expect(unreg).not.toHaveBeenCalled();
@@ -1381,6 +1555,55 @@ describe("LayerFactory", () => {
       expect(warn).toHaveBeenCalledWith(
         expect.stringContaining("normalized for injection safety"),
       );
+      warn.mockRestore();
+    });
+
+    it("rollback hides the color face it turned on", () => {
+      // preRegister calls setVisible(true); a failed registration owes the
+      // inverse, or the face stays visible behind a detached canvas.
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const f = new LayerFactory({
+        map,
+        panes,
+        registerLayer: () => {
+          throw new Error("role change");
+        },
+        unregisterLayer: () => true,
+        bringLayerToFront: () => {},
+        invalidateType: () => {},
+      });
+      const h = f.createColor({ id: "solid", color: "#3366cc" });
+
+      expect(() => h.register()).toThrow("role change");
+      expect(h.registered()).toBe(false);
+      expect(h.element.parentElement).toBeNull();
+      expect(h.element.classList.contains("hidden")).toBe(true);
+      warn.mockRestore();
+    });
+
+    it("does not remove a color face another step already detached", () => {
+      // faceMounted is true but the face is no longer in the pane: the
+      // rollback must skip removeChild (which would throw) and still undo the
+      // visibility it turned on.
+      let face: HTMLCanvasElement | null = null;
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const f = new LayerFactory({
+        map,
+        panes,
+        registerLayer: () => {
+          face?.remove();
+          throw new Error("role change");
+        },
+        unregisterLayer: () => true,
+        bringLayerToFront: () => {},
+        invalidateType: () => {},
+      });
+      const h = f.createColor({ id: "solid", color: "#3366cc" });
+      face = h.element;
+
+      expect(() => h.register()).toThrow("role change");
+      expect(h.element.parentElement).toBeNull();
+      expect(h.element.classList.contains("hidden")).toBe(true);
       warn.mockRestore();
     });
 

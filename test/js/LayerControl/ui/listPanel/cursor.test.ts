@@ -150,6 +150,19 @@ describe("LayerUI cursor (pure cursor primitives)", () => {
       ).toBe(0);
       expect(ui.listPanel.activeIdx).toBeNull();
     });
+
+    it("blurs a row focus that would otherwise resurrect the cursor", () => {
+      const row = findItem(ui, "overlay1");
+      setActiveItem(ui, indexFor("overlay1"));
+      expect(document.activeElement).toBe(row);
+
+      clearActiveItem(ui);
+
+      // resolveActiveIdx() reads DOM focus; leaving it on the row would turn
+      // the next sync into a re-activation of the cursor just cleared.
+      expect(document.activeElement).not.toBe(row);
+      expect(resolveActiveIdx(ui, ui.getNavigableItems())).toBeNull();
+    });
   });
 
   // ─────────────────── getNavigableItems ───────────────────
@@ -358,10 +371,15 @@ describe("LayerUI cursor (pure cursor primitives)", () => {
       // ledger instead of clamping that stale index onto the last row.
       ui.listPanel.activeIdx = items.length + 3;
       items[items.length - 1].classList.add(CONST.CLASSES.FOCUSED);
+      items[items.length - 1].focus();
 
       reconcileCursorByIdentity(ui, null);
 
       expect(ui.listPanel.activeIdx).toBeNull();
+      // The focused row must not keep DOM focus either: resolveActiveIdx()
+      // would read it back on the next navigation and revive the cursor.
+      expect(document.activeElement).not.toBe(items[items.length - 1]);
+      expect(resolveActiveIdx(ui, ui.getNavigableItems())).toBeNull();
       expect(ui.listPanel.listCursor?.index).toBe(-1);
       // The roving tab stop falls back to the first row, not the clamped last.
       expect(items[0].tabIndex).toBe(0);

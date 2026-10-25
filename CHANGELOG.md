@@ -17,6 +17,7 @@
 - `LayerControl`: opacity and zoom-range rows now use one dependency-free slider primitive — single/dual thumb, keyboard, ARIA, disabled/RTL, a bubble that panels cannot clip, and a collapsed range that slides instead of dead-locking ([#721](https://github.com/Zeroto521/foliplus/pull/721))
 - `core/layer`: a reorder pays one tree walk per layer instead of four, and pins late content in one fragment [#733](https://github.com/Zeroto521/foliplus/pull/733)
 - `core/layer`: a declared pane spec may only name the public roles, so `shadow` stays internal [#733](https://github.com/Zeroto521/foliplus/pull/733)
+- `LayerControl`: labels rebuild once per frame and only repaint their own canvas; the replay set is a mandatory per-dimension registry policy, each UI owns its scheduler, and clearing labels also drops the layer's pan plan ([#734](https://github.com/Zeroto521/foliplus/pull/734))
 
 ### Fixed
 
@@ -27,6 +28,7 @@
 - `LayerControl`: marker shadows and ImageOverlay images join the layer's own panes, so opacity, z and focus cover the whole layer; a retired surface can no longer corrupt another's ([#733](https://github.com/Zeroto521/foliplus/pull/733))
 - Teardown: a failing cleanup step no longer skips the rest — a removed control and a dismissed focus both finish their releases ([#733](https://github.com/Zeroto521/foliplus/pull/733), [#736](https://github.com/Zeroto521/foliplus/pull/736))
 - `core/layer`: the child-ownership index is dropped at `removeLayer` / `clearLayers`, so a group stays bounded by its live leaves ([#733](https://github.com/Zeroto521/foliplus/pull/733))
+- `ExportControl`: marker shadows are exported with their icons, measured after layout so they sit under the marker instead of at a stale offset ([#740](https://github.com/Zeroto521/foliplus/pull/740))
 
 ## [v0.4.1] (2026-10-18)
 

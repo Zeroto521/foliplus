@@ -448,6 +448,15 @@ class SettledOperation {
     return this;
   }
 
+  /** Whether a terminal failure is already recorded. A caller that owes a
+   *  commit or an announcement gated on the operation's success asks this
+   *  before it publishes again: once a failure is recorded the operation is
+   *  heading for its rollback, and a further broadcast would announce a state
+   *  that is about to be undone (the ghost-change shape). */
+  hasFailure(): boolean {
+    return this.failure !== undefined;
+  }
+
   /** Raise the first terminal failure the operation observed, if any. */
   throwIfFailed(): void {
     if (this.failure) throw this.failure.error;
