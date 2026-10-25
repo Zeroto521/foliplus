@@ -6,7 +6,7 @@
   );
   const base = document.querySelector('.foliplus-layer-item[data-layer-type="base"]');
   if (!overlay || !base) return false;
-  // Dragstart on the overlay arms the UI drag state (sets its dragIdx)
+  // Dragstart on the overlay arms the UI drag state (keys its registry entry)
   overlay.dispatchEvent(
     new DragEvent("dragstart", { bubbles: true, cancelable: true }),
   );

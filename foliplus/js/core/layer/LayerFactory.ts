@@ -6,6 +6,7 @@ import { withCanvasLayerAlpha } from "#common/canvasAlpha.js";
 import { dom } from "#common/dom.js";
 import { createLogger } from "#common/log.js";
 import { throttleRaf } from "#common/throttle.js";
+import type { LayerInfoRegistry } from "./LayerInfoRegistry.js";
 import { type PaneManager } from "./PaneManager.js";
 import {
   CANVAS_PANE_PREFIX,
@@ -25,6 +26,7 @@ import type {
   CreateLayersOpts,
   CreateSurfaceOpts,
   LabelAwareLayer,
+  LayerInfo,
   PaneSpec,
   RegisterLayerOpts,
   SurfaceContentHandle,
@@ -39,6 +41,12 @@ interface LayerFactoryDeps {
   registerLayer: (opts: RegisterLayerOpts) => HTMLElement | null;
   unregisterLayer: (id: string) => boolean;
   bringLayerToFront: (id: string) => void;
+  /** Live registry, for the registration lease: a surface only ever
+   *  unregisters the entry IT registered, and only while that entry is
+   *  still the registry's owner. Optional for callers that never see a
+   *  registry (tests, the lightweight stub): without it the lease answers
+   *  "not owned", which keeps a failed surface from unregistering anything. */
+  registry?: () => LayerInfoRegistry;
   /** Drop a registered layer's cached geometry type when its content changes
    *  (add/remove/clear). */
   invalidateType: (id: string) => void;
@@ -211,11 +219,17 @@ class LayerFactory {
     };
 
     let registered = false;
+    // The entry THIS surface registered, read back after success. It is the
+    // lease: unregister only ever removes that exact entry, so a failed
+    // sibling, or an old owner after a same-id replacement, cannot delete
+    // the registry's current owner by bare id.
+    let registeredEntry: LayerInfo | null = null;
     let layerOpts: RegisterLayerOpts;
     let registerIdempotent = false;
     // Hook slots, overwritten per surface kind (layers vs canvas) below.
     /* eslint-disable @typescript-eslint/no-empty-function -- hook slots, overwritten per surface kind */
     let preRegister: () => void = () => {};
+    let rollbackPreRegister: () => void = () => {};
     let postRegister: () => void = () => {};
     let preUnregister: () => void = () => {};
     /* eslint-enable @typescript-eslint/no-empty-function */
@@ -228,10 +242,22 @@ class LayerFactory {
       // a let across the if (content.kind) split, so the check is kept for
       // canvas; layers never takes the return path.
       if (registerIdempotent && registered) return;
+      // The registration is not owned until every step succeeded: a throw
+      // (the controller's role gate, pane wiring) leaves `registered` false
+      // and the prepared face unmounted, so the next register() retries for
+      // real, and unregister() holds no authority to touch the id.
+      // `preRegister` is inside the try on purpose: mounting the face is part
+      // of the same transaction, and its own throw must roll back too.
+      try {
+        preRegister();
+        registerLayer(layerOpts);
+        postRegister();
+      } catch (error) {
+        rollbackPreRegister();
+        throw error;
+      }
       registered = true;
-      preRegister();
-      registerLayer(layerOpts);
-      postRegister();
+      registeredEntry = this.deps.registry?.().get?.(opts.id) ?? null;
     };
 
     const unregister = () => {
@@ -240,7 +266,25 @@ class LayerFactory {
       // unregister), the layers branch evaluates remaining content. The check
       // is kept for layers; canvas never takes the return path.
       if (!shouldUnregister()) return;
+      // Stale-owner guard: a same-id replacement now owns the registry entry;
+      // this surface's lease has lapsed, and removing by bare id would delete
+      // the replacement. The registry stays untouched, but the surface still
+      // ends in its terminal state: its registration is over (it can never
+      // unregister now) and its face is tidied — otherwise the retired
+      // canvas keeps drawing under the replacement's.
+      const current = this.deps.registry?.().get?.(opts.id);
+      // A lease that was never read back (`registeredEntry` null) is still a
+      // lease this surface does NOT hold: fail closed, or a same-id
+      // replacement is deleted by bare id exactly when the read-back failed.
+      // No registry wired (`current` undefined) keeps the lightweight path.
+      if (current && current !== registeredEntry) {
+        registered = false;
+        registeredEntry = null;
+        preUnregister();
+        return;
+      }
       registered = false;
+      registeredEntry = null;
       preUnregister();
       unregisterLayer(opts.id);
     };
@@ -253,14 +297,22 @@ class LayerFactory {
     // moment it exists. Created earlier it would hold Leaflet's default z of
     // 400 — above every basemap — until the ordering pass caught up.
     let facePane: HTMLElement | null = null;
-    const mountFace = (paneName: string, face: HTMLCanvasElement) => {
+    // Whether the last preRegister() actually appended the face: a refused
+    // pane leaves nothing to remove, and the rollback must not dereference
+    // the pane to discover that.
+    let faceMounted = false;
+    /** Mount the face into its pane. Returns whether it actually landed:
+     *  `ensurePane` can refuse the name (held by another surface, foreign
+     *  content), and the rollback must tell that apart from a mount it owns. */
+    const mountFace = (paneName: string, face: HTMLCanvasElement): boolean => {
       const { pane } = panes.ensurePane(paneName, false, opts.id);
       if (!pane) {
         log.warn(`canvas pane "${paneName}" is not acquireable; face not mounted`);
-        return;
+        return false;
       }
       facePane = pane;
       facePane.appendChild(face);
+      return true;
     };
     const stampBirthZ = (id: string) => {
       const slot = this.deps.slotOf?.(id);
@@ -489,10 +541,17 @@ class LayerFactory {
 
       registerIdempotent = true;
       preRegister = () => {
-        mountFace(paneName, face);
+        faceMounted = mountFace(paneName, face);
         resize();
         updatePosition();
         setVisible(true);
+      };
+      rollbackPreRegister = () => {
+        // Undo only a mount that landed: a refused pane leaves `facePane`
+        // null or stale, and preRegister may throw after mounting (resize /
+        // position), so the two cases cannot be told apart by `facePane`.
+        if (faceMounted && facePane?.contains(face)) facePane.removeChild(face);
+        faceMounted = false;
       };
       postRegister = () => stampBirthZ(opts.id);
       preUnregister = () => setVisible(false);
@@ -619,10 +678,15 @@ class LayerFactory {
 
     registerIdempotent = true;
     preRegister = () => {
-      mountFace(paneName, canvas);
+      faceMounted = mountFace(paneName, canvas);
       resize();
       updatePosition();
       canvas.classList.remove(HIDDEN);
+    };
+    rollbackPreRegister = () => {
+      if (faceMounted && facePane?.contains(canvas)) facePane.removeChild(canvas);
+      faceMounted = false;
+      canvas.classList.add(HIDDEN);
     };
     postRegister = () => stampBirthZ(opts.id);
     preUnregister = () => {
