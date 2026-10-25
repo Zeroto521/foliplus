@@ -5,7 +5,7 @@
 // Leaflet, no CONFIG. PaneManager owns the pane elements; this class only owns
 // the claims on them.
 //
-// Invariants (T2 I1/I2):
+// Invariants:
 //   - one pane name has at most one lease; the name alone is not ownership;
 //   - a lease remembers its provenance — `owns` means this tree created the
 //     element (the owner's teardown may delete it), `!owns` means it adopted a

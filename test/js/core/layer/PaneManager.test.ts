@@ -57,8 +57,8 @@ const makeMap = (
   return map;
 };
 
-/** Private-index peek for the destroy end state: T60's acceptance needs the
- *  bookkeeping itself empty, and those indexes have no public reader. */
+/** Private-index peek for the destroy end state: the teardown contract needs
+ *  the bookkeeping itself empty, and those indexes have no public reader. */
 const internals = (pm: PaneManager) =>
   pm as unknown as {
     discoveryCache: Map<number, unknown>;
@@ -840,7 +840,7 @@ describe("PaneManager", () => {
 
     pm.destroy();
 
-    // T60 end state: every index the manager owns is empty, and the discovery
+    // Destroy end state: every index the manager owns is empty, and the discovery
     // generation moved once so an earlier entry cannot be served.
     expect(pm.childPaneSpecs.size).toBe(0);
     expect(internals(pm).paneLedger.size).toBe(0);

@@ -371,9 +371,10 @@ class PaneManager {
    *  generation; every later call still performs the clears (each is a no-op on
    *  an already-empty index, and `ensurePane` stays usable — a lease booked
    *  between two destroy calls is dropped too) but never bumps the generation
-   *  again. The terminal check at the end is the T60 acceptance guard: on a
-   *  correct run it cannot throw, so a non-empty ledger at this point is a
-   *  defect and fails loudly instead of leaking into the next map lifecycle. */
+   *  again. The terminal check at the end is the destroy end-state guard:
+   *  on a correct run it cannot throw, so a non-empty ledger at this point is
+   *  a defect and fails loudly instead of leaking into the next map
+   *  lifecycle. */
   destroy(): void {
     const first = !this.destroyed;
     this.destroyed = true;
