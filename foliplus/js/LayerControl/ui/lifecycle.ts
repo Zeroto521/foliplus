@@ -63,7 +63,11 @@ import {
   invalidateFields,
 } from "./style/index.js";
 import { listDimensions } from "./style/registry.js";
-import { dropStyleDimApplies, scheduleStyleDimApply } from "./style/styleBag.js";
+import {
+  dropStyleDimApplies,
+  releaseStyleApplyOwner,
+  scheduleStyleDimApply,
+} from "./style/styleBag.js";
 import type { LayerUI } from "./surface.js";
 
 /**
@@ -348,7 +352,7 @@ const bindLayerEvents = (ui: LayerUI): void => {
       // renderLabels for a gone layer rebuilds nothing — a replay here would
       // be a walk for its own sake.
       invalidateFieldCache(ui, payload.id);
-      dropStyleDimApplies(payload.id);
+      dropStyleDimApplies(payload.id, ui);
     }),
     subscribe(EVENTS.LAYER_GROUP_COUNT_CHANGED, (payload: { group: string }) => {
       syncToggleAll(ui, payload.group);
@@ -445,12 +449,10 @@ const onLayerItemCountChange = (ui: LayerUI, id: string): void => {
       continue;
     }
     if (policy.when?.(ui, id) === false) continue;
-    scheduleStyleDimApply(
-      policy.face,
-      id,
-      () => policy.run(ui, id),
-      EVENTS.LAYER_ITEM_COUNT_CHANGE,
-    );
+    scheduleStyleDimApply(policy.face, id, () => policy.run(ui, id), {
+      source: EVENTS.LAYER_ITEM_COUNT_CHANGE,
+      owner: ui,
+    });
   }
   notifyDelta(ui, layerInfo, opacityDelta);
 };
@@ -476,7 +478,12 @@ const unbindEvents = (ui: LayerUI): void => {
   // gone, which is why this runs before the container guard.
   clearDragState(ui);
   const container = ui.uiContainer;
-  if (!container) return;
+  if (!container) {
+    // No panel to close, but the UI still owns whatever it scheduled — a
+    // detached UI must not leave a trailing frame (or its reporter) behind.
+    releaseStyleApplyOwner(ui);
+    return;
+  }
   // Unmount must clean up unconditionally — a subscription may already have
   // been `off`'d by a third party, or is about to be. Emitting OVERLAY_CLEAR
   // here would only reach whatever subscribers are still listening, so call
@@ -527,6 +534,10 @@ const unbindEvents = (ui: LayerUI): void => {
   }
   for (const off of ui.unsubscribeLayerSignals) off();
   ui.unsubscribeLayerSignals = [];
+  // Last: closeStylePanel above flushed the panel's trailing writes, so
+  // releasing the scheduler here cancels only frames that no longer have a
+  // UI to land on. Scoped to this UI — another map keeps its own boxes.
+  releaseStyleApplyOwner(ui);
 };
 
 export {

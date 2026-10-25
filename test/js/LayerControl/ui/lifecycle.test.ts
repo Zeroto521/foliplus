@@ -20,7 +20,9 @@ import { commitSize } from "#foliplus/LayerControl/ui/style/size.js";
 import {
   FACE,
   flushStyleDimApplies,
+  flushStyleDimApply,
   hasStyleDimApply,
+  scheduleStyleDimApply,
 } from "#foliplus/LayerControl/ui/style/styleBag.js";
 import {
   attachedPanel,
@@ -752,5 +754,56 @@ describe("onLayerItemCountChange — the registry replays", () => {
     expect(surfaceOf().capabilities.annotation).toBe("none");
     flushStyleDimApplies("grp1");
     expect(renderLabels).toHaveBeenCalledTimes(2);
+  });
+
+  it("destroying one control does not reclaim another control's pending replay", () => {
+    // Two LayerControls on one page: each owns its scheduler scope. Ids can
+    // repeat across maps ("grp1"), so an owner-less teardown would cancel the
+    // other map's trailing write — the exact cross-map leak this pins.
+    const first = withGroup([arealLeaf()]);
+    commitFillColor(first.ui, "grp1", "#ff0000");
+    ensureEvents(first.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "grp1" });
+    expect(hasStyleDimApply(FACE.FILL, "grp1", first.ui)).toBe(true);
+
+    const second = withGroup([arealLeaf()]);
+    commitFillColor(second.ui, "grp1", "#00ff00");
+    ensureEvents(second.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, {
+      id: "grp1",
+    });
+    expect(hasStyleDimApply(FACE.FILL, "grp1", second.ui)).toBe(true);
+
+    first.manager.destroy();
+
+    expect(hasStyleDimApply(FACE.FILL, "grp1", first.ui)).toBe(false);
+    expect(hasStyleDimApply(FACE.FILL, "grp1", second.ui)).toBe(true);
+    // The surviving control still lands its own frame.
+    flushStyleDimApply(FACE.FILL, "grp1", second.ui);
+    expect(hasStyleDimApply(FACE.FILL, "grp1", second.ui)).toBe(false);
+    second.manager.destroy();
+  });
+
+  it("a late failure reports through the map that owns the frame", () => {
+    const first = withGroup([arealLeaf()]);
+    first.map.foliplus.onError = vi.fn();
+    const second = withGroup([arealLeaf()]);
+    second.map.foliplus.onError = vi.fn();
+
+    scheduleStyleDimApply(
+      FACE.LABEL,
+      "grp1",
+      () => {
+        throw new Error("label boom");
+      },
+      { source: EVENTS.LAYER_ITEM_COUNT_CHANGE, owner: first.ui },
+    );
+    flushStyleDimApply(FACE.LABEL, "grp1", first.ui);
+
+    expect(first.map.foliplus.onError).toHaveBeenCalledTimes(1);
+    expect(first.map.foliplus.onError.mock.calls[0][0]).toBe(
+      EVENTS.LAYER_ITEM_COUNT_CHANGE,
+    );
+    expect(second.map.foliplus.onError).not.toHaveBeenCalled();
+    first.manager.destroy();
+    second.manager.destroy();
   });
 });

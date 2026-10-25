@@ -1675,6 +1675,20 @@ describe("replayFillState", () => {
     expect(() => replayFillState(ui, "ghost")).not.toThrow();
   });
 
+  it("its content-change gate reads the same intent-key set the replay does", () => {
+    // One array (FILL_INTENT_KEYS) feeds both the gate and the replay loop.
+    // Pin the agreement at the boundary: no stored key gates the frame off,
+    // a stored key gates it on — so a future intent cannot be replayed
+    // without also passing the gate, or vice versa.
+    const policy = FILL_DIMENSION.contentChange;
+    expect(policy.kind).toBe("frame");
+    const when = (policy as { when?: (u: LayerUI, id: string) => boolean }).when!;
+    expect(when(ui, "overlay1")).toBe(false);
+
+    setIntent(ui, "overlay1", "fillColor", "#123456");
+    expect(when(ui, "overlay1")).toBe(true);
+  });
+
   it("attachUI replays a stored fill onto a registered layer", () => {
     // Regression: the initial layers never go through registerLayer (where
     // the id-specified replay lives), so attach itself must replay fill —

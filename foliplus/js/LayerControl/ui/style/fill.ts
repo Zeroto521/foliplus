@@ -238,7 +238,9 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
  *  The wrapper exists only to bind this face's apply fn — flush / drop /
  *  has go straight to styleBag at the call site. */
 const scheduleFillApply = (ui: LayerUI, layerId: string): void => {
-  scheduleStyleDimApply(FACE.FILL, layerId, () => applyFillToLayer(ui, layerId));
+  scheduleStyleDimApply(FACE.FILL, layerId, () => applyFillToLayer(ui, layerId), {
+    owner: ui,
+  });
 };
 
 /** Write the color into the map, persist it, and mark the dimension as
@@ -285,7 +287,7 @@ const resetLayerFill = (ui: LayerUI, layerId: string): void => {
   // Solid-color basemap: restore the authored default color. No style-bag
   // face to replay — the pane's fill IS the basemap color.
   if (isColorBasemap(ui.c.layerRegistry.get(layerId))) {
-    cancelStyleDimApply(FACE.FILL, layerId);
+    cancelStyleDimApply(FACE.FILL, layerId, ui);
     resetIntentKeys(ui, layerId, FILL_INTENT_KEYS);
     ui.currentColor = CONST.COLOR.DEFAULT;
     showSolidBasemap(ui, CONST.COLOR.DEFAULT);
@@ -368,7 +370,7 @@ const bindFillRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => {
     // overwrite: bindLiveColor only owns oninput today, but a future binder
     // that owns onchange must not be dropped (and the listener-guard
     // allow-list rejects bare addEventListener).
-    const flush = () => flushStyleDimApply(FACE.FILL, layerId);
+    const flush = () => flushStyleDimApply(FACE.FILL, layerId, ui);
     const prevColorChange = colorEl.onchange;
     colorEl.onchange = ev => {
       prevColorChange?.call(colorEl, ev);
@@ -389,7 +391,7 @@ const bindFillRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => {
     });
     // bindLiveNumber already owns onchange (clamp + commit); chain the flush
     // instead of overwriting it. blur is free.
-    const flush = () => flushStyleDimApply(FACE.FILL, layerId);
+    const flush = () => flushStyleDimApply(FACE.FILL, layerId, ui);
     const prevChange = opacityEl.onchange;
     opacityEl.onchange = ev => {
       prevChange?.call(opacityEl, ev);
@@ -465,7 +467,7 @@ const FILL_DIMENSION = registerDimension<{
   /** Cohesive reset: cancel trailing apply, clear both fill overrides,
    *  save, restore the author's fill face from the style bag. */
   reset: (ui, layerId) => {
-    cancelStyleDimApply(FACE.FILL, layerId);
+    cancelStyleDimApply(FACE.FILL, layerId, ui);
     resetIntentKeys(ui, layerId, FILL_INTENT_KEYS);
     const layer = ui.c.findLayer(layerId) as StyleCarrier | null;
     if (!layer) return;
@@ -481,8 +483,10 @@ const FILL_DIMENSION = registerDimension<{
   /** Content-change replay: a stored fill repaints the leaves that just
    *  landed — without it a streamed addData keeps the new features at the
    *  author's colour and a running ramp classifies on stale breaks. The
-   *  when-gate mirrors replayFillState's own bail, but answers before any
-   *  scheduler box is allocated. */
+   *  when-gate reads the SAME FILL_INTENT_KEYS array replayFillState's own
+   *  loop reads, so the gate and the replay cannot drift: a new fill intent
+   *  joins one array and is automatically both gated and replayed. The gate
+   *  answers before any scheduler box is allocated. */
   contentChange: {
     kind: "frame",
     face: FACE.FILL,

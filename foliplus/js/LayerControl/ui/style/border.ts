@@ -189,7 +189,9 @@ const applyBorderToLayer = (ui: LayerUI, layerId: string): void => {
  *  The wrapper exists only to bind this face's apply fn — flush / drop /
  *  has go straight to styleBag at the call site. */
 const scheduleBorderApply = (ui: LayerUI, layerId: string): void => {
-  scheduleStyleDimApply(FACE.STROKE, layerId, () => applyBorderToLayer(ui, layerId));
+  scheduleStyleDimApply(FACE.STROKE, layerId, () => applyBorderToLayer(ui, layerId), {
+    owner: ui,
+  });
 };
 
 /** Write the color into the map, persist it, and mark the dimension as
@@ -374,7 +376,7 @@ const bindBorderRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => 
     weightClassName: CONST.CLASSES.STYLE_BORDER_WEIGHT_INPUT,
     onChangeColor: value => commitBorderColor(ui, layerId, value),
     onChangeWeight: value => commitBorderWeight(ui, layerId, value),
-    onFlush: () => flushStyleDimApply(FACE.STROKE, layerId),
+    onFlush: () => flushStyleDimApply(FACE.STROKE, layerId, ui),
   });
 };
 
@@ -413,7 +415,7 @@ const BORDER_DIMENSION = registerDimension<{ color: string; weight: number }>({
   /** Cohesive reset: cancel trailing apply, clear both border overrides,
    *  save, restore the author's stroke face from the style bag. */
   reset: (ui, layerId) => {
-    cancelStyleDimApply(FACE.STROKE, layerId);
+    cancelStyleDimApply(FACE.STROKE, layerId, ui);
     resetIntentKeys(ui, layerId, [INTENT.BORDER_COLOR, INTENT.BORDER_WEIGHT]);
     const layer = ui.c.findLayer(layerId) as StyleCarrier | null;
     if (!layer) return;
