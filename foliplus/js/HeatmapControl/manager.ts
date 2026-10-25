@@ -1130,7 +1130,6 @@ class HeatmapManager {
     // would put the redrawn heatmap back where it was, not on top.
     this.map.foliplus?.LayerAPI?.forgetSavedOrder?.(this.layerId);
     this.ui?.schemeBarCleanup?.();
-    this.ui?.dropdownCleanup?.();
     // Notify LayerControl to refresh the count column (now 0).
     this.publishCount(operation);
   }

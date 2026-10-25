@@ -1,6 +1,7 @@
 import { defineControl } from "#core/defineControl.js";
 import { ensureLayerAPI } from "#core/layer/index.js";
 import { createPanelControl } from "#core/leaflet/index.js";
+import { finalize } from "#common/finalize.js";
 import * as CONST from "./const.js";
 import * as SVGs from "./icon.js";
 import { HeatmapManager } from "./manager.js";
@@ -11,10 +12,10 @@ class HeatmapControl extends defineControl({
   icon: SVGs.ICON_HEXAGON,
   setup: () => ensureLayerAPI(map),
 }) {
-  /** Backing store for the lazy `mgr` accessor; `destroy()` nulls it so a
-   *  re-add rebuilds a fresh manager. */
+  /** Backing store for the lazy `mgr` accessor. */
   private manager: HeatmapManager | null = null;
   schemeDropdown: HTMLElement | null;
+  schemePicker: import("#common/schemePicker.js").SchemePicker | null;
   expandHookDone: boolean;
   declare ctrl: HTMLElement;
   declare observer: MutationObserver | null;
@@ -33,26 +34,30 @@ class HeatmapControl extends defineControl({
   declare toggleSchemeDropdown: () => void;
   initScanCleanup: (() => void) | null = null;
   schemeBarCleanup: (() => void) | null = null;
-  dropdownCleanup: (() => void) | null = null;
+  schemePickerCleanup: (() => void) | null = null;
   toggleDropdown: (() => void) | null = null;
   selectScheme: ((idx: number) => void) | null = null;
 
   constructor(options?: L.ControlOptions) {
     super(options);
     this.schemeDropdown = null;
+    this.schemePicker = null;
     this.expandHookDone = false;
     this.schemeBarCleanup = null;
-    this.dropdownCleanup = null;
+    this.schemePickerCleanup = null;
     this.toggleDropdown = null;
     this.selectScheme = null;
   }
 
   get mgr(): HeatmapManager {
-    return (this.manager ??= (() => {
-      const m = new HeatmapManager(map, { T: this.T, log: this.log });
-      m.init();
-      return m;
-    })());
+    if (!this.manager) {
+      const mgr = new HeatmapManager(map, { T: this.T, log: this.log });
+      // Store before init: a throw leaves the partial manager reachable for
+      // destroy(). It is reused, not retried; destroy() nulls it for a re-add.
+      this.manager = mgr;
+      mgr.init();
+    }
+    return this.manager;
   }
 
   buildDOM() {
@@ -77,54 +82,83 @@ class HeatmapControl extends defineControl({
 
   /** (Re)start the initial layer scan. Runs on every add, so the control
    *  recovers after removeControl + addControl (destroy cancels the old scan).
-   *  The scheme-bar handler is only ever (re)bound by bindControls, which
-   *  itself guards the double-registration case. */
+   *  The scheme picker is created by bindControls and destroyed by
+   *  destroy() (via schemePickerCleanup). */
   startScan() {
     this.initScanCleanup?.();
     this.initScanCleanup = initScan(this);
   }
 
   destroy() {
-    // Clean up map event listeners
-    this.initScanCleanup?.();
-    this.initScanCleanup = null;
-    this.schemeBarCleanup?.();
-    this.schemeBarCleanup = null;
-    // dropdownCleanup is optional: only the dropdown open/close cycle writes
-    // it, and clearHeatmapCanvas already runs it. Null it here so a handler
-    // can't survive the control — it re-registers on the next dropdown open.
-    this.dropdownCleanup?.();
-    this.dropdownCleanup = null;
-
-    const mgr = this.mgr;
+    // `this.mgr` is a lazy getter that constructs the manager AND runs init().
+    // A throw there is exactly the half-mounted case teardown must survive, so
+    // resolution is the first step — and it resolves into the owner field
+    // (`manager`), not a second holder: one manager, one container. The steps
+    // below read `this.manager` and tolerate null instead of being skipped
+    // wholesale when init died halfway.
+    finalize(
+      [
+        ["resolve-manager", () => void this.mgr],
+        ["detach-scan", () => this.initScanCleanup?.()],
+        // The shared scheme picker is destroyed here (permanent teardown);
+        // schemeBarCleanup only closes the dropdown for data-clear reuse.
+        ["detach-scheme-picker", () => this.schemePickerCleanup?.()],
+        ["detach-map-sync", () => this.manager?.mapCleanup?.()],
+        [
+          "detach-zoom-end",
+          () => {
+            const mgr = this.manager;
+            // `declare` hides the fields init() assigns, so a manager whose
+            // init threw can reach here without them.
+            if (!mgr?.onZoomEnd) return;
+            mgr.onZoomEnd.cancel();
+            mgr.map.off("zoomend", mgr.onZoomEnd);
+          },
+        ],
+        [
+          "detach-layer-change",
+          () => {
+            const mgr = this.manager;
+            if (!mgr?.onLayerChange) return;
+            mgr.onLayerChange.cancel();
+            mgr.removeLayerChangeListener();
+          },
+        ],
+        ["detach-layer-deleted", () => this.manager?.removeLayerDeletedListener()],
+        ["detach-export", () => this.manager?.removeExportListener()],
+        ["disconnect-observer", () => this.observer?.disconnect()],
+        // Flush any pending write so the last user-initiated change is durable
+        // (write-through here, so the flush is a no-op safety net). A storage
+        // error is already swallowed inside saveRecord.
+        ["flush", () => this.manager?.flush()],
+        // clearHeatmapCanvas retires the overlay entry and can raise; the
+        // overlay's own destroy is queued after it so the canvas and pane are
+        // released either way. It also closes the picker's dropdown through
+        // schemeBarCleanup — a no-op once the picker above was destroyed.
+        ["clear-canvas", () => this.manager?.clearHeatmapCanvas()],
+        ["destroy-overlay", () => this.manager?.overlay.destroy()],
+      ],
+      failure => this.log.warn(`destroy step "${failure.name}" threw`, failure.error),
+    );
+    // Resets, not steps: a removed control must end with no manager, cleanup
+    // callbacks or observer even when one of the steps above threw.
+    const mgr = this.manager;
+    if (mgr) mgr.ui = null;
+    // Branch-only listener: the filter panel adds the source-content debounce
+    // and its subscription after main's finalize list was written, so cancel
+    // them here while the manager is still reachable. Everything the finalize
+    // steps already cover (map sync, zoom, layer change / delete, export,
+    // observer) is not repeated.
+    if (mgr?.onSourceContentChange) mgr.onSourceContentChange.cancel();
+    mgr?.removeContentChangeListener?.();
     this.manager = null;
-    if (mgr.mapCleanup) mgr.mapCleanup();
-    if (mgr.onZoomEnd) {
-      mgr.onZoomEnd.cancel();
-      mgr.map.off("zoomend", mgr.onZoomEnd);
-    }
-    if (mgr.onLayerChange) {
-      mgr.onLayerChange.cancel();
-      mgr.removeLayerChangeListener();
-    }
-    if (mgr.onSourceContentChange) mgr.onSourceContentChange.cancel();
-    mgr.removeContentChangeListener();
-    mgr.removeLayerDeletedListener();
-    mgr.removeExportListener();
-
-    // Disconnect MutationObserver
-    if (this.observer) this.observer.disconnect();
+    this.initScanCleanup = null;
+    this.schemeBarCleanup = null;
+    this.schemePickerCleanup = null;
     this.observer = null;
-
-    // Flush any pending write so the last user-initiated change is durable
-    // (write-through here, so the flush is a no-op safety net).
-    mgr.flush();
-
-    mgr.clearHeatmapCanvas();
-    mgr.overlay.destroy();
-    mgr.ui = null;
     // Drop UI references to the removed DOM so a re-add starts clean.
     this.schemeDropdown = null;
+    this.schemePicker = null;
     this.expandHookDone = false;
   }
 }

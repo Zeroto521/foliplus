@@ -15,7 +15,8 @@
 // a Marker with no children — the `setStyle` of its own is not a real
 // carrier when the walk finds nothing to write to.
 import { isPixelRadiusLeaf } from "../leafletAdapter.js";
-import { someLeaf } from "./walkLeaf.js";
+import { isMigratableLeaf } from "./carrier.js";
+import { someLeaf, walkLeaf } from "./walkLeaf.js";
 
 /** Whether any leaf in the tree owns a *pixel* radius — the honest carrier
  *  check for the size axis. The single-leaf test is `isPixelRadiusLeaf`; this
@@ -81,17 +82,75 @@ const declaredGeometryType = (node: {
   return undefined;
 };
 
+/** Whether one node exposes a runtime `setStyle`. The guard is the
+ *  recognizer's, not the walk's: a throwing getter answers nothing, so the axis
+ *  reads "none" instead of the walk dying mid-tree.
+ */
+const hasSetStyle = (node: unknown): boolean =>
+  safeRead(() => typeof (node as { setStyle?: unknown }).setStyle) === "function";
+
 /** Whether any leaf in the tree exposes a runtime `setStyle` — the honest
  *  carrier check for the vector stroke axis (border). */
-const hasSetStyleLeaf = (node: unknown): boolean =>
+const hasSetStyleLeaf = (node: unknown): boolean => someLeaf(node, hasSetStyle);
+
+/** Whether any leaf is a Leaflet Marker — the probe that decides whether a
+ *  surface needs a marker-shadow pane. Guarded the same way as the native
+ *  setter checks in `LayerSurface`: a stripped Leaflet mock (no `Marker`)
+ *  must read as "no marker", not throw on `instanceof undefined`. */
+const hasMarkerLeaf = (node: unknown): boolean =>
   someLeaf(
     node,
     leaf =>
-      safeRead(() => typeof (leaf as { setStyle?: unknown }).setStyle) === "function",
+      typeof L.Marker !== "undefined" &&
+      safeRead(() => leaf instanceof L.Marker) === true,
   );
 
 /** Whether any leaf is an areal fill carrier — see `isArealStyleLeaf`. */
 const hasFillLeaf = (node: unknown): boolean => someLeaf(node, isArealStyleLeaf);
+
+/** Every carrier question one visit to the tree answers, so a caller that wants
+ *  them all pays one walk instead of one per question.
+ *
+ *  `LayerSurface.matches` used to ask for `stroke`, `fill`, `size` and the
+ *  migratable audit as four separate walks, and `enforceOrder` calls `matches`
+ *  once per registered layer — a single row move re-traversed every leaf on the
+ *  map four times. The recognizers are independent, so collecting their answers
+ *  in one visit is the same answer the four walks gave, at the cost of the most
+ *  expensive one alone. Each answer is computed exactly as its one-question
+ *  probe computes it: same recognizer, same guarded read, same throw behaviour.
+ *  The three booleans stop consulting their recognizer once answered; the audit
+ *  needs the full visit either way, which is the floor the four walks shared. */
+interface LayerCarrierProbe {
+  /** Any leaf owns a runtime `setStyle` — the stroke carrier. */
+  stroke: "native" | "none";
+  /** Any leaf is an areal fill carrier — see `isArealStyleLeaf`. */
+  fill: "native" | "none";
+  /** Any leaf owns a pixel radius — the size carrier. */
+  size: "native" | "none";
+  /** The full-tree migratable audit: "mixed" is the degrade signal. */
+  migratable: "ok" | "mixed" | "empty";
+}
+
+const probeLayerCarrier = (node: unknown): LayerCarrierProbe => {
+  let stroke = false;
+  let fill = false;
+  let radius = false;
+  let known = 0;
+  let unknown = 0;
+  walkLeaf(node, leaf => {
+    if (!stroke && hasSetStyle(leaf)) stroke = true;
+    if (!fill && isArealStyleLeaf(leaf)) fill = true;
+    if (!radius && isPixelRadiusLeaf(leaf)) radius = true;
+    if (isMigratableLeaf(leaf)) known += 1;
+    else unknown += 1;
+  });
+  return {
+    stroke: stroke ? "native" : "none",
+    fill: fill ? "native" : "none",
+    size: radius ? "native" : "none",
+    migratable: unknown > 0 ? "mixed" : known > 0 ? "ok" : "empty",
+  };
+};
 
 /** A leaf that owns `setStyle` and an areal geometry.
  *
@@ -130,4 +189,13 @@ const isArealStyleLeaf = (node: unknown): boolean => {
   return AREAL_GEOMETRY_TYPES.has(declaredGeometryType(n) ?? "");
 };
 
-export { FILL_OPT_IN, hasFillLeaf, hasRadiusLeaf, hasSetStyleLeaf, isArealStyleLeaf };
+export {
+  type LayerCarrierProbe,
+  FILL_OPT_IN,
+  hasFillLeaf,
+  hasMarkerLeaf,
+  hasRadiusLeaf,
+  hasSetStyleLeaf,
+  isArealStyleLeaf,
+  probeLayerCarrier,
+};

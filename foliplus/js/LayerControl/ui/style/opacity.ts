@@ -172,6 +172,10 @@ const OPACITY_DIMENSION = registerDimension<number>({
     if (!layerCanOpacity(ui, layerId)) return "none";
     return ui.intentStore.isUserSet(layerId, INTENT.OPACITY) ? "user" : "author";
   },
+  /** No registry replay: the hub's projection block above already re-applies
+   *  a stored opacity to newly-finalized geometry, and its delta is the
+   *  notify's payload — it cannot ride the frame loop. */
+  contentChange: { kind: "none" },
 });
 
 export { OPACITY_DIMENSION, clampPct, resetLayerOpacity };

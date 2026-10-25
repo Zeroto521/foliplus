@@ -90,7 +90,9 @@ class EventBus {
   private assertPublishable(event: string): void {
     if (this.entryPolicy(event).kind === "notification") {
       throw new Error(
-        `notification event "${event}" must be published (publish / SettledOperation), not fail-fast emit`,
+        log.msg(
+          `notification event "${event}" must be published (publish / SettledOperation), not fail-fast emit`,
+        ),
       );
     }
   }
@@ -386,6 +388,12 @@ class EventBus {
  *  the local mutation in between, then `throwIfFailed()` once at the end — so
  *  a throwing consumer cannot cut off the later events or the local commit.
  *
+ *  This is the event-bus counterpart of `#common/finalize`: a teardown runs
+ *  `finalize` (no policy — every step must run), an event fan-out uses this
+ *  class (each failure resolved by the event's declared policy). Both keep the
+ *  first failure and raise it once at the boundary; do not re-derive a third
+ *  variant.
+ *
  *  Every queued event resolves its failure by the event's declared policy:
  *  notification events (MODE_CHANGE, BEFORE_EXPORT, OVERLAY_CLEAR,
  *  CONTROL_ATTACHED) are logged and reported, never raised, even when this
@@ -438,6 +446,15 @@ class SettledOperation {
     this.failure ??=
       event === undefined ? failure : this.bus.consumeByPolicy(event, failure);
     return this;
+  }
+
+  /** Whether a terminal failure is already recorded. A caller that owes a
+   *  commit or an announcement gated on the operation's success asks this
+   *  before it publishes again: once a failure is recorded the operation is
+   *  heading for its rollback, and a further broadcast would announce a state
+   *  that is about to be undone (the ghost-change shape). */
+  hasFailure(): boolean {
+    return this.failure !== undefined;
   }
 
   /** Raise the first terminal failure the operation observed, if any. */

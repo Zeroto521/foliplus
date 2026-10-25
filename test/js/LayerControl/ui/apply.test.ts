@@ -23,6 +23,16 @@ import {
   trackMembership,
 } from "./fixture.js";
 
+// The carrier contract promises pane coverage only for layers whose leaves
+// the migrator can relocate (Path / Marker / GridLayer / ImageOverlay). These
+// executor tests exercise the pane write, so their stand-in layers declare
+// the Path family identity instead of staying anonymous objects.
+const paneCapableLayer = (extra: Record<string, unknown> = {}): L.Layer => {
+  const layer = { options: {}, ...extra } as unknown as L.Layer;
+  Object.setPrototypeOf(layer, new window.L.Path());
+  return layer;
+};
+
 // ────────────────────────────────────────────────────────────────────────
 // Gate: the executor must not let a derived dimension authorize
 // display. Only user intent (or the author's declared default) determines
@@ -44,7 +54,7 @@ const makeOffMapFixture = () => {
   const container = document.createElement("div");
   document.body.appendChild(container);
 
-  const layer = { options: {} } as L.Layer;
+  const layer = paneCapableLayer();
   const map = {
     on: vi.fn(),
     off: vi.fn(),
@@ -318,10 +328,7 @@ describe("executor: late-carrier replay", () => {
     // A layer whose features carry a labelable field — the declaration
     // edge's probe (`hasLabelField`) hits, so the annotation spec rides
     // the surface's pane list.
-    const layer = {
-      options: {},
-      feature: { properties: { name: "Depot" } },
-    } as unknown as L.Layer;
+    const layer = paneCapableLayer({ feature: { properties: { name: "Depot" } } });
 
     const manager = new LayerController(map, [
       { id: "a1", name: "Labels", group: "overlay", layer },
@@ -731,7 +738,7 @@ describe("executor: carrier dispatch", () => {
       // zoom range is a real visibility flip — the layer leaves the map.
       // This is the executor's one notification channel; without the emit
       // subscribers (annotation, controller) would never hear the sweep.
-      const layer = { options: {} } as L.Layer;
+      const layer = paneCapableLayer();
       const onMap = { current: false };
       const { ui, manager, map } = boot([
         { id: "zv", name: "ZV", group: "overlay", layer },
@@ -762,7 +769,7 @@ describe("executor: carrier dispatch", () => {
     });
 
     it("a zoom sweep that brings a layer back into range emits LAYER_CHANGE", () => {
-      const layer = { options: {} } as L.Layer;
+      const layer = paneCapableLayer();
       const onMap = { current: false };
       const { ui, manager, map } = boot([
         { id: "zv2", name: "ZV2", group: "overlay", layer },
@@ -800,7 +807,7 @@ describe("executor: carrier dispatch", () => {
       // projection sweep still runs — the diff disagrees on `effectiveShown`
       // — but the executor cannot write the map, so it must not manufacture
       // a change notification nobody can observe.
-      const layer = { options: {} } as L.Layer;
+      const layer = paneCapableLayer();
       const { ui, manager } = boot([
         { id: "nv2", name: "NV2", group: "overlay", layer },
       ]);
@@ -921,7 +928,7 @@ describe("executor: carrier dispatch", () => {
       // A zoom sweep that pushes a layer out of its range moves
       // effectiveShown without touching the user's stored intent —
       // the executor's one policy-gated path. Only LAYER_CHANGE fires.
-      const layer = { options: {} } as L.Layer;
+      const layer = paneCapableLayer();
       const onMap = { current: false };
       const { ui, manager, map } = boot([
         { id: "ie-oom", name: "IE-OOM", group: "overlay", layer },
@@ -1257,7 +1264,7 @@ describe("executor: carrier dispatch", () => {
     // A slider that writes nothing must not pretend it wrote. MarkerCluster
     // icons live in the shared markerPane, which no per-layer CSS write can
     // reach — the honest answer is "no write exists".
-    const layer = { options: {} } as L.Layer;
+    const layer = paneCapableLayer();
     const { ui, manager } = boot([{ id: "n", name: "None", group: "overlay", layer }]);
     vi.spyOn(manager, "surfaceFor").mockReturnValue({
       capabilities: { opacity: "none", zoomRange: "none" },
@@ -1369,7 +1376,7 @@ describe("executor: carrier dispatch", () => {
     // Writing `options.minZoom/maxZoom` pollutes `map.getMaxZoom()` —
     // Leaflet derives map zoom from layer options, so the +/- controls
     // lock. The zoomRange resolves through the `visible` op instead.
-    const layer = { options: {} } as L.Layer;
+    const layer = paneCapableLayer();
     let onMap = false;
     const { ui, map } = boot([{ id: "z", name: "Z", group: "overlay", layer }]);
     map.hasLayer.mockImplementation(() => onMap);
@@ -1404,7 +1411,7 @@ describe("executor: carrier dispatch", () => {
         id: "d",
         name: "D",
         group: "overlay",
-        layer: { options: {} } as L.Layer,
+        layer: paneCapableLayer(),
         show: false,
       },
     ]);
@@ -1499,7 +1506,7 @@ describe("executor: the branches behind the gates", () => {
     // fixture otherwise reports `hasLayer` as false, so the remove side was
     // never reached.
     const { container, map } = makeOffMapFixture();
-    const layer = { options: {} } as L.Layer;
+    const layer = paneCapableLayer();
     map.hasLayer = vi.fn(() => true);
     map.addLayer = vi.fn();
     map.removeLayer = vi.fn();
@@ -1528,7 +1535,7 @@ describe("executor: the branches behind the gates", () => {
     // seeds it, and an undeclared layer falls back to fully opaque. The
     // slider is then a multiplier over that base, so a repeat apply must
     // not compound on its own output.
-    const layer = { options: {} } as L.Layer;
+    const layer = paneCapableLayer();
     const { ui, manager } = boot([{ id: "b", name: "B", group: "overlay", layer }]);
     vi.spyOn(manager, "surfaceFor").mockReturnValue({
       capabilities: { opacity: "native", zoomRange: "none" },
@@ -1573,11 +1580,12 @@ describe("executor: the branches behind the gates", () => {
     // must be skipped rather than throw.
     const { container, map } = makeOffMapFixture();
     map.getPane = vi.fn(() => null as never);
-    const layer = {
-      options: {},
-      eachLayer: vi.fn(),
+    const layer = paneCapableLayer({
+      // The group holds one migratable leaf, so the carrier probe sees a
+      // family the migrator can relocate (an empty group reads as unknown).
+      eachLayer: (cb: (l: L.Layer) => void) => cb(paneCapableLayer()),
       getBounds: vi.fn(() => ({ isValid: () => true })),
-    } as unknown as L.Layer;
+    });
     const manager = new LayerController(map, [
       { id: "gone", name: "Gone", group: "overlay", layer },
     ]);
@@ -1636,7 +1644,7 @@ describe("executor: the branches behind the gates", () => {
     // back from an *unauthorized* add, so this pins the authorized one.
     // Author snapshot says shown, intent has no override, policy is fine —
     // and the map has never been told.
-    const layer = { options: {} } as L.Layer;
+    const layer = paneCapableLayer();
     const { ui, map } = boot([{ id: "a2", name: "A2", group: "overlay", layer }]);
     ui.runtimeStore.setAuthorVisible("a2", true);
     (map.addLayer as ReturnType<typeof vi.fn>).mockClear();
@@ -1653,7 +1661,7 @@ describe("executor: the branches behind the gates", () => {
     // comparison is unreachable through the executor. Calling the
     // dispatcher directly is how it gets covered — and it is the property
     // the comment promises: a redundant write is a no-op, not a re-add.
-    const layer = { options: {} } as L.Layer;
+    const layer = paneCapableLayer();
     const { ui, map } = boot([{ id: "dup", name: "Dup", group: "overlay", layer }]);
     map.hasLayer = vi.fn(() => true);
     map.addLayer = vi.fn();
@@ -1674,7 +1682,7 @@ describe("executor: the branches behind the gates", () => {
     // neither side fires. Covered here so the `else if` is the only run
     // path exercised by omission.
     const { container, map } = makeOffMapFixture();
-    const layer = { options: {} } as L.Layer;
+    const layer = paneCapableLayer();
     map.hasLayer = vi.fn(() => true);
     map.addLayer = vi.fn();
 
@@ -1717,7 +1725,7 @@ describe("membership invariants: only intent + author snapshot authorise members
    *  hidden (`show: false`) and is not on the map. No user intent. */
   const bootUnobserved = (id = "x") => {
     const { container, map } = makeOffMapFixture();
-    const layer = { options: {} } as L.Layer;
+    const layer = paneCapableLayer();
     const manager = new LayerController(map, [
       { id, name: id, group: "overlay", layer, show: false },
     ]);

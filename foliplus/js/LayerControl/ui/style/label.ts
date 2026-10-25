@@ -29,14 +29,12 @@ const layerFields = (ui: LayerUI, layerId: string): LabelField[] => {
 const layerHasLabelFields = (ui: LayerUI, layerId: string): boolean =>
   layerFields(ui, layerId).length > 0;
 
-/** Drop a layer's cached field list and re-render if it is currently labeling.
- *  Called when a layer's features can change (runtime createLayers) or when the
- *  layer is removed.
- *
- *  The re-render matters: the drawn labels carry text baked from the *old*
- *  fields, and the picker would now resolve a different auto field, so without
- *  it the map and the panel disagree until the user touches a control. */
-const invalidateFields = (ui: LayerUI, layerId: string): void => {
+/** Drop a layer's cached field lists — the runtime store's field cache and
+ *  the manager's resolved auto field. Cheap, synchronous, always safe: both
+ *  are recomputed on the next read, so this is the right call for any path
+ *  that merely *might* have changed the features (a layer being removed, a
+ *  count change whose replay has not run yet). */
+const invalidateFieldCache = (ui: LayerUI, layerId: string): void => {
   ui.runtimeStore.deleteFields(layerId);
   // The point snapshot invalidates at the same points as `fields` (design
   // §4.1): both are caches over the layer's feature set. A layer whose
@@ -44,9 +42,29 @@ const invalidateFields = (ui: LayerUI, layerId: string): void => {
   // dropped must lose both caches in one move.
   ui.runtimeStore.deleteSnapshot(layerId);
   ui.c.annotation.invalidateAutoField(layerId);
-  if (ui.c.annotation.getConfig(layerId).show) {
-    ui.c.annotation.renderLabels(layerId);
-  }
+};
+
+/** Rebuild this layer's label text from the tree it has *now*. Expensive:
+ *  walkLeaf over every feature, re-lay-out every label, repaint every label
+ *  canvas — so streaming callers route it through the frame scheduler
+ *  (`scheduleStyleDimApply(FACE.LABEL, …)`) instead of calling it per event.
+ *  No-op when the layer's labels are off, so a layer the user never labeled
+ *  is never written. */
+const replayLabelState = (ui: LayerUI, layerId: string): void => {
+  if (!ui.c.annotation.getConfig(layerId).show) return;
+  ui.c.annotation.renderLabels(layerId);
+};
+
+/** Cache drop + label replay in one call — the composite the rare one-shot
+ *  paths keep (LAYER_ITEM_UPDATED: a re-registration changes the labelable
+ *  field set AND the drawn text in the same step). The replay matters: the
+ *  drawn labels carry text baked from the *old* fields, and the picker would
+ *  resolve a different auto field, so without it the map and the panel
+ *  disagree until the user touches a control. Streamed content changes use
+ *  the two halves separately — cheap sync drop early, coalesced replay late. */
+const invalidateFields = (ui: LayerUI, layerId: string): void => {
+  invalidateFieldCache(ui, layerId);
+  replayLabelState(ui, layerId);
 };
 
 /** Persist the per-layer label config — it rides the record's `layers`
@@ -163,9 +181,11 @@ export {
   applyPatch,
   applyStyleLabelState,
   coerceAnnotationFields,
+  invalidateFieldCache,
   invalidateFields,
   layerFields,
   layerHasLabelFields,
+  replayLabelState,
   resetStyleLabel,
   syncFormatRow,
 };

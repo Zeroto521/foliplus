@@ -1031,6 +1031,64 @@ describe("AnnotationManager — render & plan", () => {
     expect(mgr.configEntries()).toHaveLength(0);
   });
 
+  it("destroy reports a failing canvas and still tears the rest down", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { map } = makeMap();
+    const mgr = new AnnotationManager({
+      map,
+      layerFind: () => oneLabel(),
+    });
+    mgr.setConfig("a", CONFIG);
+    mgr.renderLabels("a");
+    mgr.setConfig("b", CONFIG);
+    mgr.renderLabels("b");
+    const first = mocks.instances.at(-2)!;
+    const second = mocks.instances.at(-1)!;
+    first.destroy.mockImplementation(() => {
+      throw new Error("canvas gone");
+    });
+
+    expect(() => mgr.destroy()).not.toThrow();
+
+    // "canvas:b" runs after "canvas:a" threw.
+    expect(second.destroy).toHaveBeenCalled();
+    expect(
+      warn.mock.calls.some(call => String(call[0]).includes('canvas:a" threw')),
+    ).toBe(true);
+    // The config map is a plain reset after the steps: it must not be skipped
+    // because one canvas failed.
+    expect(mgr.configEntries()).toHaveLength(0);
+  });
+
+  it("destroy tears down the canvases it captured, not same-id replacements", () => {
+    // A canvas destroy can fire user handlers — an earlier step may re-render
+    // another layer, mounting a fresh canvas under an id the step list already
+    // holds. Looking the id up when its step runs would destroy the
+    // replacement and leak the canvas this teardown owns.
+    const { map } = makeMap();
+    const mgr = new AnnotationManager({
+      map,
+      layerFind: () => oneLabel(),
+    });
+    mgr.setConfig("a", CONFIG);
+    mgr.renderLabels("a");
+    mgr.setConfig("b", CONFIG);
+    mgr.renderLabels("b");
+    const first = mocks.instances.at(-2)!;
+    const originalB = mocks.instances.at(-1)!;
+    first.destroy.mockImplementation(() => {
+      (mgr as unknown as { canvases: Map<string, unknown> }).canvases.delete("b");
+      mgr.renderLabels("b");
+    });
+
+    mgr.destroy();
+
+    const replacementB = mocks.instances.at(-1)!;
+    expect(replacementB).not.toBe(originalB);
+    expect(originalB.destroy).toHaveBeenCalled();
+    expect(replacementB.destroy).not.toHaveBeenCalled();
+  });
+
   it("re-plans a layer whose stored plan is missing during a pan", async () => {
     const { map } = makeMap();
     let panePos = { x: 0, y: 0 };
@@ -1318,5 +1376,347 @@ describe("a layer that gains labelable content gets the stored intent on its new
       onConfigChange: () => {},
     } as never);
     expect(() => mgr.applyLayerAlpha("ghost", 0.5)).not.toThrow();
+  });
+});
+
+describe("AnnotationManager — renderLabels on a departing layer", () => {
+  // The unregister path (controller → annotation.unloadLayer) tears the
+  // labels and the canvas down BEFORE LAYER_ITEM_REMOVED is emitted, and a
+  // scheduled replay can also fire after the layer left the map. What
+  // renderLabels does then is the contract this pins: clear whatever is
+  // left, never (re)build a canvas for a layer that is already gone.
+  it("returns [] and builds no canvas when the layer is already gone", () => {
+    let layer: L.Layer | null = mkGroup([
+      mkLeaf({ props: { v: "1" }, latlng: { lat: 40, lng: -74 } }),
+    ]);
+    const { map } = makeMap();
+    const mgr = new AnnotationManager({ map, layerFind: () => layer });
+    mgr.setConfig("gone", { ...CONFIG });
+    expect(mgr.renderLabels("gone")).toHaveLength(1);
+    const canvasesBefore = mocks.instances.length;
+
+    layer = null;
+    expect(mgr.renderLabels("gone")).toEqual([]);
+    expect(mocks.instances.length).toBe(canvasesBefore);
+  });
+});
+
+describe("AnnotationManager — per-layer repaint", () => {
+  // Collision is per layer by design, so one layer's rebuild must not
+  // repaint the others: the content-change path paints exactly the changed
+  // layer's canvas, once. Before this contract, renderLabels ran
+  // clear → paint([]) → full refresh, then rebuild → full refresh again —
+  // M layers changing in one frame repainted ~M² times (12 layers measured
+  // 300 paints).
+  const multiLayer = (count: number) => {
+    const { map } = makeMap();
+    const groups: Record<string, L.Layer> = {};
+    for (let i = 0; i < count; i++) {
+      groups[`L${i}`] = mkGroup([
+        mkLeaf({ props: { v: `${i}` }, latlng: { lat: 40, lng: -74 } }),
+      ]);
+    }
+    const mgr = new AnnotationManager({
+      map,
+      layerFind: id => groups[id] ?? null,
+    });
+    for (let i = 0; i < count; i++) mgr.setConfig(`L${i}`, { ...CONFIG });
+    for (let i = 0; i < count; i++) mgr.renderLabels(`L${i}`); // warm
+    return mgr;
+  };
+
+  const totalPaints = () =>
+    mocks.instances.reduce((sum, c) => sum + c.paint.mock.calls.length, 0);
+
+  const clearPaints = () => {
+    for (const c of mocks.instances) c.paint.mockClear();
+  };
+
+  it("one layer's rebuild repaints only its own canvas, once", () => {
+    const mgr = multiLayer(3);
+    clearPaints();
+
+    mgr.renderLabels("L1");
+
+    // The whose-canvas question, not just the count: exactly one canvas
+    // painted, and the painted labels belong to the changed layer.
+    const painted = mocks.instances.filter(c => c.paint.mock.calls.length > 0);
+    expect(painted).toHaveLength(1);
+    expect(totalPaints()).toBe(1);
+  });
+
+  it("M layers replaying in one frame cost M repaints, not M²", () => {
+    const mgr = multiLayer(12);
+    clearPaints();
+
+    for (let i = 0; i < 12; i++) mgr.renderLabels(`L${i}`);
+
+    expect(totalPaints()).toBe(12);
+  });
+
+  it("turning labels off clears one canvas, not the map", () => {
+    const mgr = multiLayer(3);
+    clearPaints();
+
+    mgr.setConfig("L2", { ...CONFIG, show: false });
+    mgr.renderLabels("L2");
+
+    expect(totalPaints()).toBe(1);
+  });
+});
+
+describe("AnnotationManager — clearing labels drops their pan plan", () => {
+  // A plan outliving its labels is the resurrection bug: refreshPan
+  // translates lastPlanned by the delta from planOrigins, so a cleared layer
+  // whose plan survived gets its old boxes painted again on the next pan
+  // (show=false was the user-visible reproducer). Clearing the labels must
+  // clear the plan in the same breath, and only that layer's.
+
+  /** Run the bound move handler and let its throttled frame land. */
+  const pan = async (map: L.Map): Promise<void> => {
+    const move = (map.on as unknown as ReturnType<typeof vi.fn>).mock.calls.find(
+      call => call[0] === "move",
+    )![1] as () => void;
+    move();
+    await new Promise(r => requestAnimationFrame(() => r(null)));
+  };
+
+  const paneDom = (get: () => { x: number; y: number }) => {
+    (window.L as unknown as { DomUtil: unknown }).DomUtil = {
+      getPosition: get,
+    };
+  };
+
+  it("a pan after labels are turned off keeps the canvas empty", async () => {
+    const { map } = makeMap();
+    let panePos = { x: 0, y: 0 };
+    paneDom(() => panePos);
+    const mgr = new AnnotationManager({
+      map,
+      layerFind: () => oneLabel(),
+    });
+    mgr.setConfig("a", CONFIG);
+    mgr.renderLabels("a");
+    const c = canvas();
+    expect(painted()).toHaveLength(1);
+
+    // show=false: the canvas is painted empty and the plan must die with it.
+    mgr.setConfig("a", { ...CONFIG, show: false });
+    expect(mgr.renderLabels("a")).toEqual([]);
+    expect(c.paint.mock.calls.at(-1)![0]).toEqual([]);
+    c.paint.mockClear();
+
+    panePos = { x: 35, y: -10 };
+    await pan(map);
+
+    // Any repaint on the pan is the empty plan. A surviving plan would be
+    // translated and painted as a non-empty copy of the old labels.
+    for (const call of c.paint.mock.calls) {
+      expect(call[0]).toEqual([]);
+    }
+  });
+
+  it("clearing one layer leaves another layer's translation intact", async () => {
+    const { map } = makeMap();
+    let panePos = { x: 0, y: 0 };
+    paneDom(() => panePos);
+    const other = mkGroup([
+      mkLeaf({ props: { v: "7" }, latlng: { lat: 41, lng: -75 } }),
+    ]);
+    const mgr = new AnnotationManager({
+      map,
+      layerFind: id => (id === "a" ? oneLabel() : other),
+    });
+    mgr.setConfig("a", CONFIG);
+    mgr.setConfig("b", CONFIG);
+    mgr.renderLabels("a");
+    mgr.renderLabels("b");
+    // The mock registry accumulates across tests: take the two canvases this
+    // test just mounted, not the first two of the whole file.
+    const canvasA = mocks.instances.at(-2)!;
+    const canvasB = mocks.instances.at(-1)!;
+
+    mgr.setConfig("a", { ...CONFIG, show: false });
+    mgr.renderLabels("a");
+    canvasA!.paint.mockClear();
+    canvasB!.paint.mockClear();
+
+    panePos = { x: 20, y: 5 };
+    await pan(map);
+
+    // The cleared layer stays empty; the untouched layer still translates
+    // from its own plan (the per-layer origin was not disturbed).
+    for (const call of canvasA!.paint.mock.calls) {
+      expect(call[0]).toEqual([]);
+    }
+    expect(canvasB!.paint).toHaveBeenCalled();
+    expect((canvasB!.paint.mock.calls.at(-1)![0] as unknown[]).length).toBe(1);
+  });
+
+  it("unloadLayer drops the stored plan with the canvas", () => {
+    const { map } = makeMap();
+    paneDom(() => ({ x: 0, y: 0 }));
+    const mgr = new AnnotationManager({
+      map,
+      layerFind: () => oneLabel(),
+    });
+    mgr.setConfig("a", CONFIG);
+    mgr.renderLabels("a");
+    const internals = mgr as unknown as {
+      lastPlanned: Map<string, unknown>;
+      planOrigins: Map<string, unknown>;
+    };
+    expect(internals.lastPlanned.has("a")).toBe(true);
+    expect(internals.planOrigins.has("a")).toBe(true);
+
+    mgr.unloadLayer("a");
+
+    // A same-id re-registration that draws no labels must not inherit the
+    // old plan and have a fresh canvas translate it on the first pan.
+    expect(internals.lastPlanned.has("a")).toBe(false);
+    expect(internals.planOrigins.has("a")).toBe(false);
+  });
+
+  it("snapshots the fallback pan origin instead of aliasing the pane position", async () => {
+    const { map } = makeMap();
+    let panePos = { x: 0, y: 0 };
+    paneDom(() => panePos);
+    const mgr = new AnnotationManager({
+      map,
+      layerFind: () => oneLabel(),
+    });
+    mgr.setConfig("a", CONFIG);
+    mgr.renderLabels("a");
+    // Force the no-plan fallback: the pan must re-plan and stamp an origin.
+    (mgr as unknown as { lastPlanned: Map<string, unknown> }).lastPlanned.clear();
+
+    panePos = { x: 25, y: 0 };
+    await pan(map);
+
+    const origin = (
+      mgr as unknown as {
+        planOrigins: Map<string, { x: number; y: number }>;
+      }
+    ).planOrigins.get("a")!;
+    expect(origin).toEqual({ x: 25, y: 0 });
+    expect(origin).not.toBe(panePos);
+    // Leaflet may hand back the same Point and mutate it in place — the
+    // stored origin must stay the snapshot or dx would collapse to 0.
+    panePos.x = 90;
+    expect(origin).toEqual({ x: 25, y: 0 });
+  });
+});
+
+describe("AnnotationManager — a map whose mapPane is absent", () => {
+  // The plan records where mapPane sat so a pan can translate instead of
+  // re-planning. Both sides of that contract have an absent branch a normal
+  // map never takes: a full refresh with no mapPane cannot record an origin,
+  // and a pan with no mapPane cannot read a position. Each must fall back
+  // rather than skip state (an origin-less plan is healed by the next pan).
+  const moveHandler = (map: L.Map): (() => void) =>
+    (map.on as unknown as ReturnType<typeof vi.fn>).mock.calls.find(
+      call => call[0] === "move",
+    )![1] as () => void;
+
+  const updateHandler = (map: L.Map): (() => void) =>
+    (map.on as unknown as ReturnType<typeof vi.fn>).mock.calls.find(
+      call => call[0] === "moveend",
+    )![1] as () => void;
+
+  const frame = (): Promise<null> =>
+    new Promise(resolve => requestAnimationFrame(() => resolve(null)));
+
+  const panePos = (get: () => { x: number; y: number }): void => {
+    (window.L as unknown as { DomUtil: unknown }).DomUtil = {
+      getPosition: get,
+    };
+  };
+
+  it("plans without an origin when a full refresh runs before mapPane exists, then heals on the next pan", async () => {
+    const { map, mapPane } = makeMap();
+    let pos = { x: 0, y: 0 };
+    panePos(() => pos);
+    let panes: { mapPane?: HTMLElement } = {};
+    (map as unknown as { getPanes: () => unknown }).getPanes = () => panes;
+    const mgr = new AnnotationManager({ map, layerFind: () => oneLabel() });
+    mgr.setConfig("a", CONFIG);
+    mgr.renderLabels("a");
+    const c = canvas();
+    c.paint.mockClear();
+
+    // Full refresh with no mapPane: the origin ternary and its guard both
+    // take the absent path, so the plan lands without an origin.
+    updateHandler(map)();
+    const internals = mgr as unknown as {
+      planOrigins: Map<string, { x: number; y: number }>;
+    };
+    expect(internals.planOrigins.has("a")).toBe(false);
+    expect(c.paint).toHaveBeenCalledTimes(1);
+
+    // mapPane appears; the pan has a plan but no origin — it must replan and
+    // stamp the origin it planned at, not translate from nowhere.
+    panes = { mapPane };
+    pos = { x: 12, y: -3 };
+    moveHandler(map)();
+    await frame();
+    expect(internals.planOrigins.get("a")).toEqual({ x: 12, y: -3 });
+    expect(c.paint.mock.calls.at(-1)![0]).toHaveLength(1);
+    mgr.destroy();
+  });
+
+  it("falls back to a full refresh when a pan runs without a mapPane", async () => {
+    const { map } = makeMap();
+    const pos = { x: 0, y: 0 };
+    panePos(() => pos);
+    const proj = vi.spyOn(map, "latLngToContainerPoint");
+    const mgr = new AnnotationManager({ map, layerFind: () => oneLabel() });
+    mgr.setConfig("a", CONFIG);
+    mgr.renderLabels("a");
+    const c = canvas();
+    const callsAfterPlan = proj.mock.calls.length;
+    c.paint.mockClear();
+
+    // The pane container is gone mid-pan: the fast path cannot read a
+    // position, so the move falls back to the full plan instead of no-oping.
+    (map as unknown as { getPanes: () => unknown }).getPanes = () => ({});
+    moveHandler(map)();
+    await frame();
+
+    expect(proj.mock.calls.length).toBeGreaterThan(callsAfterPlan);
+    expect(c.paint).toHaveBeenCalledTimes(1);
+    mgr.destroy();
+  });
+
+  it("translates a vertical-only pan and skips a zero-delta pan", async () => {
+    const { map } = makeMap();
+    let pos = { x: 0, y: 0 };
+    panePos(() => pos);
+    const mgr = new AnnotationManager({ map, layerFind: () => oneLabel() });
+    mgr.setConfig("a", CONFIG);
+    mgr.renderLabels("a");
+    const c = canvas();
+    const fullPlan = c.paint.mock.calls.at(-1)![0] as Array<{
+      box: { x: number; y: number };
+    }>;
+    c.paint.mockClear();
+
+    // dx === 0 while dy !== 0: the conjunction must still evaluate its right
+    // operand, and the plan translates vertically.
+    pos = { x: 0, y: 25 };
+    moveHandler(map)();
+    await frame();
+    const panned = c.paint.mock.calls.at(-1)![0] as Array<{
+      box: { x: number; y: number };
+    }>;
+    expect(panned[0]!.box.y - fullPlan[0]!.box.y).toBeCloseTo(25);
+    expect(panned[0]!.box.x - fullPlan[0]!.box.x).toBeCloseTo(0);
+
+    // Back at the origin: nothing moved, so the fast path skips the repaint.
+    c.paint.mockClear();
+    pos = { x: 0, y: 0 };
+    moveHandler(map)();
+    await frame();
+    expect(c.paint).not.toHaveBeenCalled();
+    mgr.destroy();
   });
 });

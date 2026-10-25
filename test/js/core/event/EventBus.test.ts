@@ -566,6 +566,14 @@ describe("event constants", () => {
       new Set([EVENTS.LAYER_CHANGE, EVENTS.LAYER_REMOVED, EVENTS.MODE_CHANGE]),
     ).toHaveLength(3);
   });
+
+  it("keeps the OVERLAY_CLEAR wire name stable", () => {
+    // Only OVERLAY_CLEAR is a downstream wire contract — external consumers
+    // subscribe by literal. The other EVENTS names are internal semantic
+    // channels with no literal-stability promise. Renaming this one would
+    // break consumers silently; this pin is the only thing that makes it loud.
+    expect(EVENTS.OVERLAY_CLEAR).toBe("foliplus:layer:overlay-clear");
+  });
 });
 
 describe("ensureEvents", () => {

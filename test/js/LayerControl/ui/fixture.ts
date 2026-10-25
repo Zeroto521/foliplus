@@ -14,13 +14,15 @@ export const TEST_ENV = {
   log: createLogger("LayerControl"),
 };
 
-class TileLayer {
-  options = { attribution: "© OpenStreetMap" };
-  setZIndex = vi.fn();
-}
-
 class GridLayer {
   options = {};
+}
+
+// Real Leaflet: TileLayer IS a GridLayer — the carrier probes (native setter
+// detection, migratable-family check) key on that inheritance.
+class TileLayer extends GridLayer {
+  options = { attribution: "© OpenStreetMap" };
+  setZIndex = vi.fn();
 }
 
 const makePane = () => {
@@ -85,13 +87,19 @@ class CircleMarker {
   }
 }
 
+/** One id per stamped object, never reused. Real `L.stamp` is a process-wide
+ *  counter, so the counter lives at module scope here too: a counter that
+ *  restarts on every `installLeafletGlobals` call reissues ids an earlier
+ *  install already gave out, two layers end up with the same `L.stamp`, and
+ *  the fallback pane name `foliplus-pane-<stamp>` collides across surfaces.
+ */
+const stamp = (() => {
+  let id = 0;
+  return vi.fn(() => ++id);
+})();
+
 /** Populate window.L with the stubs LayerController / PaneManager expect. */
 const installLeafletGlobals = () => {
-  const stamp = (() => {
-    let id = 0;
-    return vi.fn(() => ++id);
-  })();
-
   window.L.TileLayer = TileLayer;
   window.L.GridLayer = GridLayer;
   window.L.Renderer = Renderer;
@@ -109,6 +117,12 @@ const installLeafletGlobals = () => {
   window.L.Circle = Circle;
   window.L.Marker = Marker;
   window.L.CircleMarker = CircleMarker;
+  // This fixture's vector mocks replace the shared setup.ts family, so the
+  // real Leaflet class hierarchy has to be restated here too — the carrier
+  // probes key on `instanceof L.Path`, which is false for a flat Polygon.
+  Object.setPrototypeOf(Polygon.prototype, Path.prototype);
+  Object.setPrototypeOf(Polyline.prototype, Path.prototype);
+  Object.setPrototypeOf(Circle.prototype, Path.prototype);
   window.L.stamp = stamp;
   window.L.svg = vi.fn(() => ({ addTo: vi.fn() }));
   window.L.polygon = vi.fn(
@@ -207,6 +221,10 @@ const initFixture = (
     eachLayer: vi.fn(),
     getBounds: vi.fn(() => bounds),
   };
+  // The carrier contract promises pane coverage only to migratable families;
+  // this stand-in for a polygon layer declares the Path identity so the
+  // executor treats it as pane-capable.
+  Object.setPrototypeOf(polygonLayer, new window.L.Path());
 
   const map: any = {
     on: vi.fn(),
@@ -253,6 +271,12 @@ const initFixture = (
       hideHint: vi.fn(),
     },
   };
+
+  // One class world for the fixture: installLeafletGlobals swaps in the
+  // richer L mocks (fixture GridLayer/TileLayer/Marker...), and the carrier
+  // probes key on `instanceof` — probing against the bare setup.ts classes
+  // while the layers carry the fixture classes answers "unknown family".
+  installLeafletGlobals();
 
   const manager = new LayerController(
     map,
@@ -335,9 +359,10 @@ const overlayFoldBtn = (root: ParentNode) =>
 // tests (they moved here from the old notifyContract file so each per-script
 // test suite can reach the same fixtures without copying). ──
 
-/** A polygon-shaped layer stub — enough for the surface to resolve. */
-const polygonLayer = () =>
-  ({
+/** A polygon-shaped layer stub — enough for the surface to resolve. The
+ *  Path identity is what makes the carrier probe treat it as pane-capable. */
+const polygonLayer = () => {
+  const layer = {
     options: {},
     eachLayer: vi.fn(),
     getBounds: vi.fn(() => ({
@@ -345,7 +370,10 @@ const polygonLayer = () =>
       getSouthWest: () => ({ lat: 30, lng: 100 }),
       getNorthEast: () => ({ lat: 40, lng: 110 }),
     })),
-  }) as L.Layer;
+  };
+  Object.setPrototypeOf(layer, new window.L.Path());
+  return layer as unknown as L.Layer;
+};
 
 /** A polygon-shaped layer whose bounds the test supplies — the flyTo branch
  *  needs a single-point area, the rectangle branch a real extent. */
@@ -357,7 +385,7 @@ const polygonLayerWith = (
     lat: (southWest[0] + northEast[0]) / 2,
     lng: (southWest[1] + northEast[1]) / 2,
   };
-  return {
+  const layer = {
     options: {},
     eachLayer: vi.fn(),
     getBounds: vi.fn(() => ({
@@ -366,17 +394,22 @@ const polygonLayerWith = (
       getNorthEast: () => ({ lat: northEast[0], lng: northEast[1] }),
       getCenter: () => center,
     })),
-  } as L.Layer;
+  };
+  Object.setPrototypeOf(layer, new window.L.Path());
+  return layer as unknown as L.Layer;
 };
 
 /** A polygon-shaped layer stub that reports no usable bounds — the focus
  *  entry has to bail instead of drawing a rectangle. */
-const polygonLayerWithoutBounds = (): L.Layer =>
-  ({
+const polygonLayerWithoutBounds = (): L.Layer => {
+  const layer = {
     options: {},
     eachLayer: vi.fn(),
     getBounds: vi.fn(() => ({ isValid: vi.fn(() => false) })),
-  }) as L.Layer;
+  };
+  Object.setPrototypeOf(layer, new window.L.Path());
+  return layer as unknown as L.Layer;
+};
 
 /** A polygon-shaped layer whose options and `setStyle` the test supplies — the
  *  style-row tests need to read back what a replay wrote. */

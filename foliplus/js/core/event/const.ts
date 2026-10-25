@@ -70,6 +70,14 @@ const EVENTS = {
    *  Fired after every registration path (new row, re-registration) so the
    *  row reflects the state written by the preceding applyUserState pass. */
   LAYER_ITEM_REFRESHED: "foliplus:layer:item-refreshed",
+  /** A surface's capability projection changed during an ordering pass — a
+   *  foreign leaf left a registered tree and an opacity write became honest
+   *  again, or a mixed tree degraded an axis. Id-only, like the row signals:
+   *  a subscriber reads the fresh projection from the surface. Separate from
+   *  LAYER_ITEM_REFRESHED because it is raised *inside* the ordering pass: a
+   *  throwing observer must not fail a reprice, so the policy is
+   *  notification, not terminal. */
+  LAYER_CAPABILITY_CHANGED: "foliplus:layer:capability-changed",
   /** A row left the panel through the generic teardown path (unregisterLayer)
    *  — a wider reach than LAYER_REMOVED for the UI subscribers: the fields
    *  cache, the style-dimension apply schedulers, and the group toggle-all
@@ -82,14 +90,15 @@ const EVENTS = {
    *  LAYER_ITEM_REMOVED when the count is affected, and on its own after a
    *  user delete. */
   LAYER_GROUP_COUNT_CHANGED: "foliplus:layer:group-count-changed",
-  /** The panel's row order changed: bringLayerToFront and moveLayerUp/Down
-   *  route here. A pure reorder — membership is unchanged, so the in-tree
-   *  subscriber relocates displaced rows in place (syncRowOrder, the same
-   *  reconcile the drag drop calls directly) rather than rebuilding the
-   *  list. The signal stays the panel-order-changed announcement for third
-   *  parties either way; paths that change row structure (fold, attach)
-   *  still do the full rebuild, on their own initiative rather than through
-   *  this event. */
+  /** The panel's row order changed: bringLayerToFront, moveLayerUp/Down and
+   *  the drag drop all route here through the controller's reorder commit
+   *  funnel, so every reorder entrance publishes the same announcement. A
+   *  pure reorder — membership is unchanged, so the in-tree subscriber
+   *  relocates displaced rows in place (syncRowOrder) rather than rebuilding
+   *  the list. The name is historical: the signal means "order changed",
+   *  not "rebuild" (paths that change row structure — fold, attach — still
+   *  do the full rebuild, on their own initiative rather than through this
+   *  event). */
   LAYER_LIST_REBUILD: "foliplus:layer:list-rebuild",
   /** The solid-color basemap row's state changed — the panel's no-basemap
    *  hint / row state needs recomputing. Only deleteLayer of the color id
@@ -154,6 +163,7 @@ const EVENT_POLICY: Record<EventName, EventPolicy> = {
   [EVENTS.LAYER_ITEM_ADDED]: { kind: "terminal" },
   [EVENTS.LAYER_ITEM_UPDATED]: { kind: "terminal" },
   [EVENTS.LAYER_ITEM_REFRESHED]: { kind: "terminal" },
+  [EVENTS.LAYER_CAPABILITY_CHANGED]: { kind: "notification" },
   [EVENTS.LAYER_ITEM_REMOVED]: { kind: "terminal" },
   [EVENTS.LAYER_GROUP_COUNT_CHANGED]: { kind: "terminal" },
   [EVENTS.LAYER_LIST_REBUILD]: { kind: "terminal" },

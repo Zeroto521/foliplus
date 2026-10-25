@@ -10,6 +10,7 @@ beforeEach(() => {
   window.L.stamp = vi.fn(obj => obj.__id ?? (obj.__id = ++count));
   window.L.Path = class {};
   window.L.Marker = class {};
+  window.L.ImageOverlay = class {};
 });
 let count = 0;
 
@@ -41,7 +42,13 @@ const makeMap = (
 ) => {
   const map = {
     getPane: vi.fn(name => panes[name] ?? null),
-    createPane: vi.fn(),
+    // Real Leaflet registers the pane it creates in `_panes`; the stub does
+    // too, so `ensurePane`'s create branch yields a pane this tree owns.
+    createPane: vi.fn((name: string) => {
+      panes[name] = document.createElement("div");
+      document.body.appendChild(panes[name]);
+      return panes[name];
+    }),
     removeLayer: vi.fn(),
     hasLayer: vi.fn(() => true),
     _panes: panes,
@@ -136,7 +143,7 @@ describe("PaneManager", () => {
       createPane: vi.fn(),
     };
     const pm = new PaneManager(map);
-    const result = pm.ensurePane("foliplus-measure-graph", false);
+    const result = pm.ensurePane("foliplus-measure-graph", false, "measure");
     expect(map.createPane).not.toHaveBeenCalled();
     expect(result.pane).toBe(existingPane);
     expect(result.renderer).toBeNull();
@@ -149,7 +156,7 @@ describe("PaneManager", () => {
       createPane: vi.fn(() => newPane),
     };
     const pm = new PaneManager(map);
-    pm.ensurePane("foliplus-measure-graph", false);
+    pm.ensurePane("foliplus-measure-graph", false, "measure");
     expect(map.createPane).toHaveBeenCalledWith("foliplus-measure-graph");
     expect(newPane.classList.contains("foliplus-layer-pane")).toBe(true);
   });
@@ -169,9 +176,9 @@ describe("PaneManager", () => {
     const pm = new PaneManager(map);
     pm.registerPaneSpecs(specs("graph", "node", "label"));
 
-    pm.ensurePane("label", false);
-    pm.ensurePane("node", false);
-    pm.ensurePane("graph", false);
+    pm.ensurePane("label", false, "t");
+    pm.ensurePane("node", false, "t");
+    pm.ensurePane("graph", false, "t");
 
     const base = CONST.Z_INDEX.BASE;
     const declared = specs("graph", "node", "label");
@@ -181,7 +188,7 @@ describe("PaneManager", () => {
 
     // Simulate the ordering pass overwriting with a higher position-based base.
     panes["label"]!.style.zIndex = "622";
-    pm.ensurePane("label", false);
+    pm.ensurePane("label", false, "t");
     expect(panes["label"]!.style.zIndex).toBe("622");
   });
 
@@ -192,7 +199,7 @@ describe("PaneManager", () => {
       createPane: vi.fn(),
     };
     const pm = new PaneManager(map);
-    const result = pm.ensurePane("foliplus-measure-graph", true);
+    const result = pm.ensurePane("foliplus-measure-graph", true, "measure");
     expect(window.L.svg).toHaveBeenCalledWith({ pane: "foliplus-measure-graph" });
     expect(result.renderer).toBeDefined();
   });
@@ -204,7 +211,7 @@ describe("PaneManager", () => {
       createPane: vi.fn(),
     };
     const pm = new PaneManager(map);
-    const result = pm.ensurePane("foliplus-canvas-heat", false);
+    const result = pm.ensurePane("foliplus-canvas-heat", false, "heat");
     expect(window.L.svg).not.toHaveBeenCalled();
     expect(result.renderer).toBeNull();
   });
@@ -218,7 +225,7 @@ describe("PaneManager", () => {
       _paneRenderers: { "foliplus-measure-graph": renderer },
     };
     const pm = new PaneManager(map);
-    const result = pm.ensurePane("foliplus-measure-graph", true);
+    const result = pm.ensurePane("foliplus-measure-graph", true, "measure");
     expect(window.L.svg).not.toHaveBeenCalled();
     expect(result.renderer).toBe(renderer);
   });
@@ -234,7 +241,7 @@ describe("PaneManager", () => {
       _paneRenderers: {} as Record<string, unknown>,
     };
     const pm = new PaneManager(map);
-    const result = pm.ensurePane("foliplus-measure-graph", true);
+    const result = pm.ensurePane("foliplus-measure-graph", true, "measure");
     expect(map._paneRenderers["foliplus-measure-graph"]).toBe(result.renderer);
   });
 
@@ -256,6 +263,21 @@ describe("PaneManager", () => {
     expect(pm.childPaneSpecs.has("drop_label")).toBe(false);
   });
 
+  it("sweepChildPanes retires the lease of a pane no layer references", () => {
+    // The spec record and the lease go out together. A name left leased by a
+    // dead surface would be refused to every later surface that adopts the
+    // same name the author still intends.
+    const panes: Record<string, HTMLElement> = {};
+    const pm = new PaneManager(makeMap(panes));
+    pm.registerPaneSpecs(specs("keep_label", "drop_label"));
+    pm.ensurePane("drop_label", false, "surface-a");
+    pm.sweepChildPanes([{ paneSpecs: specs("keep_label") }]);
+    expect(pm.childPaneSpecs.has("drop_label")).toBe(false);
+    // The lease is gone too — the name is free for a new booking.
+    expect(pm.canAcquirePane("drop_label", "surface-b")).toBe(true);
+    expect(pm.ensurePane("drop_label", false, "surface-b").pane).toBe(panes.drop_label);
+  });
+
   it("sweepChildPanes keeps a pane shared by multiple layers", () => {
     // Two layers both use "shared_label" — after sweeping, the pane must
     // stay because it's still referenced by at least one layer.
@@ -274,6 +296,25 @@ describe("PaneManager", () => {
     const pm = new PaneManager(map);
     expect(() => pm.sweepChildPanes([{ paneSpecs: specs("phantom") }])).not.toThrow();
     expect(pm.childPaneSpecs.size).toBe(0);
+  });
+
+  it("forgetAllChildOwnership leaves rows recorded against another parent", () => {
+    // The clearLayers delete point walks the index and drops only this
+    // parent's rows: a child of a different group must keep its attribution,
+    // or the next add to that group loses its O(1) claim and pays a
+    // membership scan instead.
+    const pm = new PaneManager(makeMap({}));
+    const parentA = { options: {} };
+    const parentB = { options: {} };
+    const childA = { options: {} };
+    const childB = { options: {} };
+    pm.rememberChildOwnership(childA as never, parentA as never);
+    pm.rememberChildOwnership(childB as never, parentB as never);
+
+    pm.forgetAllChildOwnership(parentA as never);
+
+    expect(pm.childOwnerOf(childA as never)).toBeUndefined();
+    expect(pm.childOwnerOf(childB as never)).toBe(window.L.stamp(parentB as never));
   });
 
   it("registerPaneSpecs is idempotent", () => {
@@ -374,6 +415,24 @@ describe("PaneManager", () => {
     expect(pm.childPaneSpecs.get("b")?.role).toBe("sub");
     expect(pm.childPaneSpecs.get("c")?.role).toBe("annotation");
     expect(pm.childPaneSpecs.get("d")?.role).toBe("preview");
+  });
+
+  it("registerPaneSpecs falls back to 'base' role for the internal shadow role", () => {
+    // `shadow` is the role of the per-layer marker-shadow pane a
+    // LayerSurface synthesizes. Letting a declaration name it would price
+    // and move shadows the declaring layer does not own — the role stays out
+    // of the declared vocabulary even though it is a member of PANE_ROLE.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const map = { getPane: vi.fn(), createPane: vi.fn() };
+      const pm = new PaneManager(map);
+      pm.registerPaneSpecs([{ role: "shadow" as const, order: 0, name: "s" }]);
+      expect(pm.childPaneSpecs.size).toBe(1);
+      expect(pm.childPaneSpecs.get("s")?.role).toBe("base");
+      expect(warn).toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   it("invalidateDiscoveryCache invalidates the discovery cache", () => {
@@ -578,7 +637,7 @@ describe("PaneManager", () => {
     const pm = new PaneManager(map);
     // Ensure the renderer is cached before we call ensureVector, so we
     // exercise the pin path (not the create path).
-    pm.ensurePane("p", true);
+    pm.ensurePane("p", true, "t");
     const layer = { options: {} as Record<string, unknown> } as unknown as L.Path;
     const pinned = pm.ensureVector(layer, "p");
     expect(pinned).toBeDefined();
@@ -609,17 +668,16 @@ describe("PaneManager", () => {
     expect(layer.options.renderer).toBeUndefined();
   });
 
-  // ── removePane (createCanvas.destroy / private panes) ──
+  // ── releasePane(..., true): the retirement that deletes the DOM ──
 
-  it("removePane detaches the pane and clears the renderer registry", () => {
-    const pane = document.createElement("div");
-    document.body.appendChild(pane);
+  it("releasePane detaches a pane this tree created and clears the renderer registry", () => {
     const renderer = { id: "r" };
-    const map = makeMap({ "foliplus-canvas-heat": pane });
-    map._paneRenderers = { "foliplus-canvas-heat": renderer };
+    const map = makeMap({}, { "foliplus-canvas-heat": renderer });
     const pm = new PaneManager(map);
     pm.registerPaneSpecs(specs("foliplus-canvas-heat"));
-    pm.removePane("foliplus-canvas-heat");
+    pm.ensurePane("foliplus-canvas-heat", false, "heat");
+    const pane = map._panes["foliplus-canvas-heat"] as HTMLElement;
+    pm.releasePane("foliplus-canvas-heat", "heat", true);
     expect(map.removeLayer).toHaveBeenCalledWith(renderer);
     expect(map._panes["foliplus-canvas-heat"]).toBeUndefined();
     expect(map._paneRenderers["foliplus-canvas-heat"]).toBeUndefined();
@@ -627,42 +685,111 @@ describe("PaneManager", () => {
     expect(pm.childPaneSpecs.has("foliplus-canvas-heat")).toBe(false);
   });
 
-  it("removePane is a no-op for an unknown pane name", () => {
+  it("ensurePane keeps created provenance across a same-owner re-book", () => {
+    // The shape the canvas teardown hit: a face books its pane before its
+    // surface does, and the surface's own `ensurePane` then finds the element
+    // already on the map. Reading `created` as `false` there turned a pane
+    // foliplus built into an adopted one, so the face's destroy retired the
+    // lease and left the element on the map with nobody left to take it off.
+    const pane = document.createElement("div");
+    document.body.appendChild(pane);
+    const panes: Record<string, HTMLElement> = {};
+    const map = makeMap(panes, {});
+    map.createPane = vi.fn((name: string) => {
+      panes[name] = pane;
+      return pane;
+    });
+    const pm = new PaneManager(map);
+    pm.ensurePane("foliplus-canvas-heat", false, "face");
+    pm.ensurePane("foliplus-canvas-heat", false, "face");
+    pm.releasePane("foliplus-canvas-heat", "face", true);
+    expect(pane.parentNode).toBeNull();
+    expect(map._panes["foliplus-canvas-heat"]).toBeUndefined();
+  });
+
+  it("releasePane refuses to retire a pane the caller does not lease", () => {
+    // The canvas teardown the lease model exists for: a face whose own pane
+    // booking was refused still names a pane, and an unchecked destroy deleted
+    // the other surface's carrier while its lease kept pointing at the detached
+    // element. Nothing is destroyed here, and the rightful lease survives.
+    const carrier = document.createElement("div");
+    document.body.appendChild(carrier);
+    const map = makeMap({ "foliplus-canvas-heat": carrier });
+    const pm = new PaneManager(map);
+    pm.ensurePane("foliplus-canvas-heat", false, "surface-a");
+    pm.releasePane("foliplus-canvas-heat", "surface-b", true);
+    expect(map.removeLayer).not.toHaveBeenCalled();
+    expect(map._panes["foliplus-canvas-heat"]).toBe(carrier);
+    expect(carrier.parentNode).not.toBeNull();
+    expect(pm.canAcquirePane("foliplus-canvas-heat", "surface-a")).toBe(true);
+    expect(pm.canAcquirePane("foliplus-canvas-heat", "surface-b")).toBe(false);
+  });
+
+  it("releasePane retires an adopted pane without deleting its DOM", () => {
+    // The element foliplus never created is somebody else's carrier: the lease
+    // is dropped so the name can be booked again, the DOM is not.
+    const adopted = document.createElement("div");
+    document.body.appendChild(adopted);
+    const map = makeMap({ "foliplus-canvas-heat": adopted });
+    const pm = new PaneManager(map);
+    pm.ensurePane("foliplus-canvas-heat", false, "surface-a");
+    pm.releasePane("foliplus-canvas-heat", "surface-a", true);
+    expect(map.removeLayer).not.toHaveBeenCalled();
+    expect(map._panes["foliplus-canvas-heat"]).toBe(adopted);
+    expect(adopted.parentNode).not.toBeNull();
+    // The lease is gone: a second surface can book the same name, onto the
+    // element that is still on the map.
+    expect(pm.ensurePane("foliplus-canvas-heat", false, "surface-b").pane).toBe(
+      adopted,
+    );
+  });
+
+  it("releasePane is a no-op for an unknown pane name", () => {
     const map = makeMap({});
     const pm = new PaneManager(map);
-    expect(() => pm.removePane("never-created")).not.toThrow();
+    expect(() => pm.releasePane("never-created", "heat", true)).not.toThrow();
     expect(map.removeLayer).not.toHaveBeenCalled();
   });
 
-  it("removePane drops the record of a renderer that is already off the map", () => {
+  it("types `owner` as required, so a pane is never booked under its own name", () => {
+    // No runtime assertion: this is a compile-time contract. `ensurePane` no
+    // longer takes an optional owner, so omitting it is a type error instead
+    // of a silent fall-back to the pane name — the "name is ownership" shape
+    // B2 closed. `@ts-expect-error` fails `tsc` if the parameter ever loosens
+    // back to `owner?`, which is exactly what this guards.
+    const checkOwnerIsRequired = (pm: PaneManager): void => {
+      // `needRenderer` supplied, `owner` explicitly `undefined` — so TS reports
+      // the *owner* type (TS2345), not "too few arguments" (TS2554).
+      // @ts-expect-error — `owner` is required.
+      pm.ensurePane("focus-pane", false, undefined);
+    };
+    expect(typeof checkOwnerIsRequired).toBe("function");
+  });
+
+  it("releasePane drops the record of a renderer that is already off the map", () => {
     // The renderer can be gone from the map before teardown reaches here (a
     // tile layer's renderer-less pane, or someone else's removeLayer). Our
     // record still has to be dropped: a pane re-created under the same name
     // would otherwise inherit a renderer the old pane still owns.
-    const pane = document.createElement("div");
-    document.body.appendChild(pane);
     const renderer = { id: "r" };
-    const map = makeMap({ "foliplus-canvas-heat": pane });
-    map._paneRenderers = { "foliplus-canvas-heat": renderer };
+    const map = makeMap({}, { "foliplus-canvas-heat": renderer });
     map.hasLayer = vi.fn(() => false);
     const pm = new PaneManager(map);
-    pm.removePane("foliplus-canvas-heat");
+    pm.ensurePane("foliplus-canvas-heat", false, "heat");
+    const pane = map._panes["foliplus-canvas-heat"] as HTMLElement;
+    pm.releasePane("foliplus-canvas-heat", "heat", true);
     expect(map.removeLayer).not.toHaveBeenCalled();
     expect(map._paneRenderers["foliplus-canvas-heat"]).toBeUndefined();
     expect(pane.parentNode).toBeNull();
   });
 
-  it("removePane leaves sibling panes alone", () => {
-    const heat = document.createElement("div");
+  it("releasePane leaves sibling panes alone", () => {
     const other = document.createElement("div");
-    document.body.appendChild(heat);
     document.body.appendChild(other);
-    const map = makeMap({
-      "foliplus-canvas-heat": heat,
-      "foliplus-canvas-other": other,
-    });
+    const map = makeMap({ "foliplus-canvas-other": other });
     const pm = new PaneManager(map);
-    pm.removePane("foliplus-canvas-heat");
+    pm.ensurePane("foliplus-canvas-heat", false, "heat");
+    pm.releasePane("foliplus-canvas-heat", "heat", true);
     expect(map._panes["foliplus-canvas-heat"]).toBeUndefined();
     expect(map._panes["foliplus-canvas-other"]).toBe(other);
     expect(other.parentNode).not.toBeNull();
@@ -704,7 +831,9 @@ describe("PaneManager", () => {
     };
     Object.setPrototypeOf(layer, new window.L.Path());
     const renderer = { _container: container };
-    pm.pinLateContent([{ layer, paneName: "foliplus-measure-graph", renderer }]);
+    pm.pinLateContent([
+      { layer, paneName: "foliplus-measure-graph", renderer, owner: "test" },
+    ]);
     expect(layer.options.pane).toBe("foliplus-measure-graph");
     expect(path.parentNode).toBe(container);
   });
@@ -726,7 +855,7 @@ describe("PaneManager", () => {
     };
     const renderer = { _container: container };
     pm.pinLateContent([
-      { layer: parent, paneName: "foliplus-measure-graph", renderer },
+      { layer: parent, paneName: "foliplus-measure-graph", renderer, owner: "test" },
     ]);
     expect(child.options.pane).toBe("foliplus-measure-graph");
     expect(childPath.parentNode).toBe(container);
@@ -746,7 +875,9 @@ describe("PaneManager", () => {
     };
     Object.setPrototypeOf(layer, new window.L.Marker());
     const renderer = { _container: document.createElement("div") };
-    pm.pinLateContent([{ layer, paneName: "foliplus-measure-graph", renderer }]);
+    pm.pinLateContent([
+      { layer, paneName: "foliplus-measure-graph", renderer, owner: "test" },
+    ]);
     expect(icon.parentNode).toBe(paneEl);
   });
 
@@ -775,6 +906,7 @@ describe("PaneManager", () => {
         layer,
         paneName: "foliplus-measure-graph",
         renderer,
+        owner: "test",
       })),
     );
     expect(Array.from(paneEl.children)).toEqual([markers[0].icon, markers[1].icon]);
@@ -809,8 +941,8 @@ describe("PaneManager", () => {
     Object.setPrototypeOf(newIcon, new window.L.Marker());
 
     pm.pinLateContent([
-      { layer: inPlace, paneName: "foliplus-measure-graph", renderer },
-      { layer: newIcon, paneName: "foliplus-measure-graph", renderer },
+      { layer: inPlace, paneName: "foliplus-measure-graph", renderer, owner: "test" },
+      { layer: newIcon, paneName: "foliplus-measure-graph", renderer, owner: "test" },
     ]);
 
     expect(Array.from(paneEl.children)).toEqual([icon, bareIcon]);
@@ -832,15 +964,88 @@ describe("PaneManager", () => {
     };
     Object.setPrototypeOf(layer, new window.L.Marker());
 
-    pm.pinLateContent([{ layer, paneName: "foliplus-measure-graph", renderer }]);
+    pm.pinLateContent([
+      { layer, paneName: "foliplus-measure-graph", renderer, owner: "test" },
+    ]);
 
     expect(Array.from(paneEl.children)).toEqual([]);
   });
 
-  it("pinLateContent does not move marker shadow into the target pane", () => {
-    // Shadow stays in Leaflet's shadowPane (z=500); only the icon is moved
-    // into the foliplus pane (z>=600). This keeps shadow below icon by z-index
-    // alone — no DOM-order dependency, no zIndexOffset risk.
+  it("pinLateContent moves the marker shadow into the layer's shadow pane", () => {
+    // The old design kept the shadow in Leaflet's shared shadowPane (z=500)
+    // and leaned on the pane ladder for icon-over-shadow; that left the
+    // shadow outside every pane write (opacity, focus) and forced the
+    // global `.leaflet-shadow-pane { visibility: hidden }` focus patch. The
+    // shadow now moves into the surface's own shadow pane — one step below
+    // the base pane — which restores "write the panes, reach the whole
+    // layer" without a DOM-order dependency (icons carry an inline z-index
+    // that goes negative near the viewport top).
+    const paneEl = document.createElement("div");
+    document.body.appendChild(paneEl);
+    const shadowPaneEl = document.createElement("div");
+    document.body.appendChild(shadowPaneEl);
+    const icon = document.createElement("img");
+    const shadow = document.createElement("img");
+    const sharedShadowPane = document.createElement("div");
+    sharedShadowPane.appendChild(shadow);
+    const map = {
+      getPane: vi.fn((name: string) =>
+        name === "foliplus-measure-graph" ? paneEl : shadowPaneEl,
+      ),
+      createPane: vi.fn(),
+    };
+    const pm = new PaneManager(map);
+    // The surface books its shadow pane before pinning into it — the pin only
+    // writes `options.shadowPane` for a lease it still holds.
+    pm.ensurePane("foliplus-measure-graph-shadow", false, "measure");
+    const renderer = { _container: document.createElement("div") };
+
+    const layer = {
+      getElement: () => icon,
+      _shadow: shadow,
+      options: {} as Record<string, unknown>,
+      eachLayer: undefined,
+    };
+    Object.setPrototypeOf(layer, new window.L.Marker());
+
+    pm.pinLateContent([
+      {
+        layer,
+        paneName: "foliplus-measure-graph",
+        renderer,
+        shadowPaneName: "foliplus-measure-graph-shadow",
+        owner: "measure",
+      },
+    ]);
+
+    expect(icon.parentNode).toBe(paneEl);
+    expect(shadow.parentNode).toBe(shadowPaneEl);
+    expect(sharedShadowPane.children).toHaveLength(0);
+    // The options write is what keeps a later `setIcon` re-creation inside
+    // the layer's pane: Leaflet re-reads `options.shadowPane` in `_initIcon`.
+    expect(layer.options.shadowPane).toBe("foliplus-measure-graph-shadow");
+
+    // Second call: idempotent — both elements already where they belong, so
+    // a reconcile re-run must not re-append (a re-append re-orders).
+    pm.pinLateContent([
+      {
+        layer,
+        paneName: "foliplus-measure-graph",
+        renderer,
+        shadowPaneName: "foliplus-measure-graph-shadow",
+        owner: "measure",
+      },
+    ]);
+    expect(icon.parentNode).toBe(paneEl);
+    expect(shadow.parentNode).toBe(shadowPaneEl);
+    expect(Array.from(shadowPaneEl.children)).toEqual([shadow]);
+  });
+
+  it("pinLateContent leaves the shadow in shadowPane when no shadow pane is declared", () => {
+    // Declared-pane surfaces do not synthesize a shadow pane, so they pass no
+    // `shadowPaneName` — the pin must not invent a destination for the shadow
+    // (dropping it into the base pane would put it above the icons' pane
+    // ladder, and into a pane whose styles the surface only partially owns).
     const paneEl = document.createElement("div");
     document.body.appendChild(paneEl);
     const shadowPane = document.createElement("div");
@@ -854,22 +1059,18 @@ describe("PaneManager", () => {
     const layer = {
       getElement: () => icon,
       _shadow: shadow,
-      options: {},
+      options: {} as Record<string, unknown>,
       eachLayer: undefined,
     };
     Object.setPrototypeOf(layer, new window.L.Marker());
 
-    pm.pinLateContent([{ layer, paneName: "foliplus-measure-graph", renderer }]);
+    pm.pinLateContent([
+      { layer, paneName: "foliplus-measure-graph", renderer, owner: "test" },
+    ]);
 
     expect(icon.parentNode).toBe(paneEl);
     expect(shadow.parentNode).toBe(shadowPane);
-
-    // Second call: idempotent — shadow must still be in shadowPane, icon
-    // still in the foliplus pane. This guards against a pin that re-appends
-    // shadow on every pass.
-    pm.pinLateContent([{ layer, paneName: "foliplus-measure-graph", renderer }]);
-    expect(shadow.parentNode).toBe(shadowPane);
-    expect(icon.parentNode).toBe(paneEl);
+    expect(layer.options.shadowPane).toBeUndefined();
   });
 
   it("pinLateContent moves a GridLayer's container into the target pane", () => {
@@ -893,10 +1094,220 @@ describe("PaneManager", () => {
     };
     Object.setPrototypeOf(layer, new window.L.GridLayer());
 
-    pm.pinLateContent([{ layer, paneName: "foliplus-pane-1", renderer }]);
+    pm.pinLateContent([
+      { layer, paneName: "foliplus-pane-1", renderer, owner: "test" },
+    ]);
 
     expect(container.parentNode).toBe(paneEl);
     expect(layer.options.pane).toBe("foliplus-pane-1");
+  });
+
+  it("pinLateContent moves an ImageOverlay as the first child of its pane group", () => {
+    // The first family into a pane creates the group; the image lands alone.
+    const paneEl = document.createElement("div");
+    document.body.appendChild(paneEl);
+    const overlayPane = document.createElement("div");
+    const map = {
+      getPane: vi.fn((name: string) =>
+        name === "foliplus-pane-1" ? paneEl : overlayPane,
+      ),
+      createPane: vi.fn(),
+    };
+    const pm = new PaneManager(map);
+    const renderer = { _container: document.createElement("div") };
+    const image = document.createElement("img");
+    overlayPane.appendChild(image);
+    const overlay = {
+      _image: image,
+      options: {} as Record<string, unknown>,
+      eachLayer: undefined,
+    };
+    Object.setPrototypeOf(overlay, new window.L.ImageOverlay());
+
+    pm.pinLateContent([
+      { layer: overlay, paneName: "foliplus-pane-1", renderer, owner: "test" },
+    ]);
+
+    expect(Array.from(paneEl.children)).toEqual([image]);
+  });
+
+  it("pinLateContent moves an ImageOverlay's image into the target pane", () => {
+    // ImageOverlay appends its <img> to `options.pane` once at addLayer; an
+    // image that joined the map before the pin sits in the shared
+    // `overlayPane`, invisible to the surface's z ladder and to every
+    // pane-scoped focus rule (setZ writes panes, not the layer). Symmetric
+    // with the GridLayer container branch: physically relocate the image.
+    const paneEl = document.createElement("div");
+    document.body.appendChild(paneEl);
+    const overlayPane = document.createElement("div");
+    overlayPane.className = "leaflet-overlay-pane";
+    const map = {
+      getPane: vi.fn((name: string) =>
+        name === "foliplus-pane-1" ? paneEl : overlayPane,
+      ),
+      createPane: vi.fn(),
+    };
+    const pm = new PaneManager(map);
+    const renderer = { _container: document.createElement("div") };
+
+    const image = document.createElement("img");
+    overlayPane.appendChild(image);
+    const layer = {
+      _image: image,
+      options: {} as Record<string, unknown>,
+      eachLayer: undefined,
+    };
+    Object.setPrototypeOf(layer, new window.L.ImageOverlay());
+
+    pm.pinLateContent([
+      { layer, paneName: "foliplus-pane-1", renderer, owner: "test" },
+    ]);
+
+    expect(image.parentNode).toBe(paneEl);
+    expect(layer.options.pane).toBe("foliplus-pane-1");
+    // Idempotent: a reconcile re-run must not re-append the image.
+    pm.pinLateContent([
+      { layer, paneName: "foliplus-pane-1", renderer, owner: "test" },
+    ]);
+    expect(Array.from(paneEl.children)).toEqual([image]);
+  });
+
+  it("assertOwnedPane refuses Leaflet's shared panes", () => {
+    // A layer-style write on a shared pane would fade/lift/class every other
+    // layer on the map — the exact pollution the write gate exists to stop.
+    const pm = new PaneManager({ getPane: vi.fn(), createPane: vi.fn() });
+    for (const shared of [
+      "markerPane",
+      "shadowPane",
+      "overlayPane",
+      "tilePane",
+      "mapPane",
+    ]) {
+      expect(() => pm.assertOwnedPane(shared)).toThrow(/shared pane/);
+    }
+  });
+
+  it("registerPaneSpecs rejects a spec that names a shared pane", () => {
+    // Same degradation as the injection gate: adopting a shared pane would
+    // route carrier writes onto a pane every layer draws into.
+    const map = { getPane: vi.fn(), createPane: vi.fn() };
+    const pm = new PaneManager(map);
+    pm.registerPaneSpecs([
+      { name: "markerPane", role: "base", order: 0 },
+      { name: "foliplus-graph", role: "base", order: 0 },
+    ] as PaneSpec[]);
+    expect(pm.childPaneSpecs.has("markerPane")).toBe(false);
+    expect(pm.childPaneSpecs.has("foliplus-graph")).toBe(true);
+  });
+
+  it("assertOwnedPane allows panes a surface claimed, not bare custom names", () => {
+    // A claim on file is the ownership proof: a name outside the shared list
+    // but never claimed could be another surface's (or a caller's) pane, and
+    // writing it would co-write their content. `foliplus-pane-*` is the
+    // surface's own synthesized carrier — one pane per layer — so it stays
+    // writable once claimed; `isDefaultPane` answering true for the family
+    // (discovery excludes it) must not leak into this gate either way.
+    const pm = new PaneManager({
+      getPane: vi.fn(),
+      createPane: vi.fn(() => document.createElement("div")),
+    });
+    expect(() => pm.assertOwnedPane(`${CONST.FALLBACK_PANE_PREFIX}24`)).toThrow(
+      /unclaimed pane/,
+    );
+    pm.ensurePane(`${CONST.FALLBACK_PANE_PREFIX}24`, false, "surface-a");
+    expect(() => pm.assertOwnedPane(`${CONST.FALLBACK_PANE_PREFIX}24`)).not.toThrow();
+    expect(() => pm.assertOwnedPane("foliplus-canvas-heatmap")).toThrow(
+      /unclaimed pane/,
+    );
+    pm.ensurePane("foliplus-canvas-heatmap", false, "surface-b");
+    expect(() => pm.assertOwnedPane("foliplus-canvas-heatmap")).not.toThrow();
+  });
+
+  it("canAcquirePane lets a surface re-check its own lease (the matches flow)", () => {
+    // Re-registering the same surface constructs a second face that re-checks
+    // the same declaration — that must read as "mine", not as a collision.
+    const pm = new PaneManager({
+      getPane: vi.fn(),
+      createPane: vi.fn(() => document.createElement("div")),
+    });
+    pm.ensurePane("foliplus-pane-7", false, "surface-a");
+    expect(pm.canAcquirePane("foliplus-pane-7", "surface-a")).toBe(true);
+    expect(pm.canAcquirePane("foliplus-pane-7", "surface-b")).toBe(false);
+    expect(pm.canAcquirePane("foliplus-pane-7", "foliplus-pane-7")).toBe(false);
+  });
+
+  it("ensurePane refuses acquire from a second surface and returns null", () => {
+    // The lease is identity-checked: surface-b's ensurePane on surface-a's
+    // pane answers null (and books nothing) instead of handing back the same
+    // element to co-write.
+    const map = {
+      getPane: vi.fn(),
+      createPane: vi.fn(() => document.createElement("div")),
+    };
+    const pm = new PaneManager(map);
+    const first = pm.ensurePane("foliplus-pane-9", false, "surface-a");
+    expect(first.pane).not.toBeNull();
+    const second = pm.ensurePane("foliplus-pane-9", false, "surface-b");
+    expect(second.pane).toBeNull();
+  });
+
+  it("canAcquirePane refuses a pre-built pane that already paints content", () => {
+    // Being the first foliplus caller is NOT ownership: a pane carrying
+    // foreign DOM is somebody else's carrier, and adopting it would restyle
+    // (class/z/focus) and export their pixels. An EMPTY pre-built pane is
+    // the caller preparing for its layer — provably exclusive while empty.
+    const foreignPane = document.createElement("div");
+    foreignPane.appendChild(document.createElement("img"));
+    const emptyPane = document.createElement("div");
+    const map = {
+      getPane: vi.fn((name: string) =>
+        name === "foreign" ? foreignPane : name === "empty" ? emptyPane : null,
+      ),
+      createPane: vi.fn(() => document.createElement("div")),
+    };
+    const pm = new PaneManager(map);
+    expect(pm.canAcquirePane("foreign", "surface-a")).toBe(false);
+    expect(pm.canAcquirePane("empty", "surface-a")).toBe(true);
+    const refused = pm.ensurePane("foreign", false, "surface-a");
+    expect(refused.pane).toBeNull();
+    // Nothing was restyled or leased: no class, no claim.
+    expect(foreignPane.classList.contains("foliplus-layer-pane")).toBe(false);
+  });
+
+  it("releasePane retires the lease and deletes only foliplus-created DOM", () => {
+    const adopted = document.createElement("div");
+    document.body.append(adopted);
+    const createdEls: HTMLElement[] = [];
+    const map = {
+      getPane: vi.fn((name: string) =>
+        name === "declared"
+          ? adopted
+          : (createdEls.find(el => el.dataset.pane === name) ?? null),
+      ),
+      createPane: vi.fn((name: string) => {
+        const el = document.createElement("div");
+        el.dataset.pane = name;
+        document.body.append(el);
+        createdEls.push(el);
+        return el;
+      }),
+      hasLayer: vi.fn(() => false),
+    };
+    const pm = new PaneManager(map);
+    // "synth" does not exist yet — foliplus creates it (created: true).
+    // "declared" is pre-built and adopted (created: false).
+    pm.ensurePane("synth", false, "surface-a");
+    pm.ensurePane("declared", false, "surface-a");
+    expect(pm.canAcquirePane("synth", "surface-b")).toBe(false);
+
+    pm.releasePane("declared", "surface-a", false);
+    pm.releasePane("synth", "surface-a", true);
+
+    // Both leases retired; only the foliplus-created element was removed.
+    expect(pm.canAcquirePane("declared", "surface-b")).toBe(true);
+    expect(pm.canAcquirePane("synth", "surface-b")).toBe(true);
+    for (const el of createdEls) expect(el.isConnected).toBe(false);
+    expect(adopted.isConnected).toBe(true);
   });
 
   it("pinLateContent is idempotent for a GridLayer already in the target pane", () => {
@@ -915,7 +1326,9 @@ describe("PaneManager", () => {
     };
     Object.setPrototypeOf(layer, new window.L.GridLayer());
 
-    pm.pinLateContent([{ layer, paneName: "foliplus-pane-1", renderer }]);
+    pm.pinLateContent([
+      { layer, paneName: "foliplus-pane-1", renderer, owner: "test" },
+    ]);
 
     // Not re-appended: appending an existing child re-orders it.
     expect(Array.from(paneEl.children)).toEqual([container]);
@@ -935,9 +1348,309 @@ describe("PaneManager", () => {
     Object.setPrototypeOf(layer, new window.L.GridLayer());
 
     expect(() =>
-      pm.pinLateContent([{ layer, paneName: "foliplus-pane-1", renderer }]),
+      pm.pinLateContent([
+        { layer, paneName: "foliplus-pane-1", renderer, owner: "test" },
+      ]),
     ).not.toThrow();
     expect(layer.options.pane).toBe("foliplus-pane-1");
+  });
+
+  it("pinLateShadows moves only marker shadows and writes options.shadowPane", () => {
+    // The declared-container sweep: icons and paths keep their declarer's
+    // pane assignment — only the shadows are reclaimed for the layer's own
+    // shadow pane, and `options.shadowPane` keeps a later setIcon inside.
+    const shadowPaneEl = document.createElement("div");
+    document.body.appendChild(shadowPaneEl);
+    const iconPaneEl = document.createElement("div");
+    document.body.appendChild(iconPaneEl);
+    const icon = document.createElement("img");
+    const shadow = document.createElement("img");
+    const sharedShadowPane = document.createElement("div");
+    sharedShadowPane.appendChild(shadow);
+    const map = {
+      getPane: vi.fn((name: string) =>
+        name === "foliplus-graph-shadow" ? shadowPaneEl : iconPaneEl,
+      ),
+      createPane: vi.fn(),
+    };
+    const pm = new PaneManager(map);
+    // The sweep runs for the surface that booked the shadow pane.
+    pm.ensurePane("foliplus-graph-shadow", false, "graph");
+
+    const marker = {
+      getElement: () => icon,
+      _shadow: shadow,
+      options: {} as Record<string, unknown>,
+      eachLayer: undefined,
+    };
+    Object.setPrototypeOf(marker, new window.L.Marker());
+
+    pm.pinLateShadows(marker as never, "foliplus-graph-shadow", "graph");
+
+    expect(shadow.parentNode).toBe(shadowPaneEl);
+    expect(sharedShadowPane.children).toHaveLength(0);
+    expect(marker.options.shadowPane).toBe("foliplus-graph-shadow");
+    // Idempotent: a reconcile re-run must not re-append the shadow.
+    pm.pinLateShadows(marker as never, "foliplus-graph-shadow", "graph");
+    expect(Array.from(shadowPaneEl.children)).toEqual([shadow]);
+  });
+
+  it("pinLateShadows walks a mixed tree and touches only markers", () => {
+    const shadowPaneEl = document.createElement("div");
+    document.body.appendChild(shadowPaneEl);
+    const map = {
+      getPane: vi.fn(() => shadowPaneEl),
+      createPane: vi.fn(),
+    };
+    const pm = new PaneManager(map);
+    pm.ensurePane("foliplus-graph-shadow", false, "graph");
+    const icon = document.createElement("img");
+    const shadow = document.createElement("img");
+    const marker = {
+      getElement: () => icon,
+      _shadow: shadow,
+      options: {} as Record<string, unknown>,
+      eachLayer: undefined,
+    };
+    Object.setPrototypeOf(marker, new window.L.Marker());
+    const path = {
+      options: {} as Record<string, unknown>,
+      eachLayer: undefined,
+    };
+    Object.setPrototypeOf(path, new window.L.Path());
+    const group = {
+      options: {},
+      eachLayer: (cb: (l: unknown) => void) => {
+        cb(path);
+        cb(marker);
+      },
+    };
+
+    pm.pinLateShadows(group as never, "foliplus-graph-shadow", "graph");
+
+    // The path leaf answers the walk but takes no shadow write; the marker's
+    // shadow moved.
+    expect(path.options.shadowPane).toBeUndefined();
+    expect(marker.options.shadowPane).toBe("foliplus-graph-shadow");
+    expect(shadow.parentNode).toBe(shadowPaneEl);
+  });
+
+  it("pinLateShadows skips a null shadow pane name or a missing pane", () => {
+    const map = { getPane: vi.fn(() => null), createPane: vi.fn() };
+    const pm = new PaneManager(map);
+    expect(() =>
+      pm.pinLateShadows({ options: {} } as never, null, "graph"),
+    ).not.toThrow();
+    expect(() =>
+      pm.pinLateShadows({ options: {} } as never, "gone-shadow", "graph"),
+    ).not.toThrow();
+  });
+
+  it("pinLateShadows skips a leased shadow pane whose element left the map", () => {
+    // The lease can outlive the element (a pane removed underneath us). The
+    // move must not guess a destination: it returns like the missing-name
+    // case, and leaves `options.shadowPane` unwritten.
+    const panes: Record<string, HTMLElement> = {};
+    const pm = new PaneManager(makeMap(panes));
+    pm.ensurePane("foliplus-graph-shadow", false, "graph");
+    const marker = {
+      getElement: () => null,
+      _shadow: document.createElement("img"),
+      options: {} as Record<string, unknown>,
+    };
+    Object.setPrototypeOf(marker, new window.L.Marker());
+    // Keep the lease, drop the element: `getPane` now answers null while
+    // `leasedBy` still confirms the booking.
+    delete panes["foliplus-graph-shadow"];
+
+    expect(() =>
+      pm.pinLateShadows(marker as never, "foliplus-graph-shadow", "graph"),
+    ).not.toThrow();
+    expect(marker.options.shadowPane).toBeUndefined();
+  });
+
+  it("pinLateShadows refuses a shadow pane another surface holds the lease on", () => {
+    // A name is not ownership. If surface-a holds the shadow pane's lease,
+    // surface-b's sweep must neither write `options.shadowPane` nor move a
+    // shadow in: that write would migrate every one of b's marker shadows
+    // into a's pane, which no pane write of b's could then reach back.
+    const foreignPaneEl = document.createElement("div");
+    document.body.appendChild(foreignPaneEl);
+    const map = {
+      getPane: vi.fn(() => foreignPaneEl),
+      createPane: vi.fn(),
+    };
+    const pm = new PaneManager(map);
+    pm.ensurePane("foliplus-graph-shadow", false, "surface-a");
+
+    const shadow = document.createElement("img");
+    const marker = {
+      getElement: () => document.createElement("img"),
+      _shadow: shadow,
+      options: {} as Record<string, unknown>,
+      eachLayer: undefined,
+    };
+    Object.setPrototypeOf(marker, new window.L.Marker());
+
+    pm.pinLateShadows(marker as never, "foliplus-graph-shadow", "surface-b");
+
+    expect(marker.options.shadowPane).toBeUndefined();
+    expect(foreignPaneEl.children).toHaveLength(0);
+    // The holder still writes.
+    pm.pinLateShadows(marker as never, "foliplus-graph-shadow", "surface-a");
+    expect(marker.options.shadowPane).toBe("foliplus-graph-shadow");
+    expect(foreignPaneEl.children).toHaveLength(1);
+  });
+
+  it("pinLateContent skips the shadow pin when the shadow pane is not ours", () => {
+    const paneEl = document.createElement("div");
+    const foreignShadowPaneEl = document.createElement("div");
+    const sharedShadowPane = document.createElement("div");
+    document.body.appendChild(paneEl);
+    document.body.appendChild(foreignShadowPaneEl);
+    document.body.appendChild(sharedShadowPane);
+    const icon = document.createElement("img");
+    const shadow = document.createElement("img");
+    sharedShadowPane.appendChild(shadow);
+    const map = {
+      getPane: vi.fn((name: string) =>
+        name === "foliplus-pane-1"
+          ? paneEl
+          : name === "foliplus-pane-1-shadow"
+            ? foreignShadowPaneEl
+            : null,
+      ),
+      createPane: vi.fn(),
+    };
+    const pm = new PaneManager(map);
+    // Held by another surface: no adoption, no lease for surface-b.
+    pm.ensurePane("foliplus-pane-1-shadow", false, "surface-a");
+    const renderer = { _container: document.createElement("div") };
+    const marker = {
+      getElement: () => icon,
+      _shadow: shadow,
+      options: {} as Record<string, unknown>,
+      eachLayer: undefined,
+    };
+    Object.setPrototypeOf(marker, new window.L.Marker());
+
+    pm.pinLateContent([
+      {
+        layer: marker,
+        paneName: "foliplus-pane-1",
+        renderer,
+        shadowPaneName: "foliplus-pane-1-shadow",
+        owner: "surface-b",
+      },
+    ]);
+
+    // The icon still lands in the pane we do own ...
+    expect(icon.parentNode).toBe(paneEl);
+    // ... but the shadow write is refused, so the shadow stays where Leaflet
+    // put it and no option points at a foreign pane.
+    expect(marker.options.shadowPane).toBeUndefined();
+    expect(shadow.parentNode).toBe(sharedShadowPane);
+    expect(foreignShadowPaneEl.children).toHaveLength(0);
+  });
+
+  it("pinLateContent skips the DOM moves when the pane element is missing", () => {
+    // A pane name that resolves to nothing (a destroyed pane, a mock): the
+    // options write still marks the layer handled — the pane contract is
+    // decided before the layer joins the map, so the DOM move is a no-op —
+    // and every element branch (icon, shadow, image) must fall through
+    // without a null parent landing in the batch.
+    const icon = document.createElement("img");
+    const shadow = document.createElement("img");
+    const image = document.createElement("img");
+    const overlayPane = document.createElement("div");
+    overlayPane.appendChild(image);
+    const map = {
+      getPane: vi.fn((name: string) =>
+        name === "foliplus-pane-1" ? null : overlayPane,
+      ),
+      createPane: vi.fn(),
+    };
+    const pm = new PaneManager(map);
+    const renderer = { _container: document.createElement("div") };
+
+    const marker = {
+      getElement: () => icon,
+      _shadow: shadow,
+      options: {} as Record<string, unknown>,
+      eachLayer: undefined,
+    };
+    Object.setPrototypeOf(marker, new window.L.Marker());
+    const overlay = {
+      _image: image,
+      options: {} as Record<string, unknown>,
+      eachLayer: undefined,
+    };
+    Object.setPrototypeOf(overlay, new window.L.ImageOverlay());
+
+    expect(() =>
+      pm.pinLateContent([
+        {
+          layer: marker,
+          paneName: "foliplus-pane-1",
+          renderer,
+          shadowPaneName: "x",
+          owner: "surface-1",
+        },
+        { layer: overlay, paneName: "foliplus-pane-1", renderer, owner: "test" },
+      ]),
+    ).not.toThrow();
+    expect(marker.options.pane).toBe("foliplus-pane-1");
+    expect(overlay.options.pane).toBe("foliplus-pane-1");
+    expect(icon.parentNode).toBeNull();
+    expect(shadow.parentNode).toBeNull();
+    // The image stays where Leaflet put it — there is nowhere to move it to.
+    expect(image.parentNode).toBe(overlayPane);
+  });
+
+  it("releasePane refuses a release from a surface that does not hold the lease", () => {
+    const map = {
+      getPane: vi.fn(),
+      createPane: vi.fn(() => document.createElement("div")),
+      hasLayer: vi.fn(() => false),
+    };
+    const pm = new PaneManager(map);
+    pm.ensurePane("foliplus-pane-11", false, "surface-a");
+    pm.releasePane("foliplus-pane-11", "intruder", true);
+    // The lease survives: surface-a still holds it, surface-b still refused.
+    expect(pm.canAcquirePane("foliplus-pane-11", "surface-a")).toBe(true);
+    expect(pm.canAcquirePane("foliplus-pane-11", "surface-b")).toBe(false);
+  });
+
+  it("pinLateContent moves an ImageOverlay after markers of the same pane", () => {
+    // The second family against one pane hits the existing markerGroups
+    // entry: the image appends after the icons instead of replacing them.
+    const paneEl = document.createElement("div");
+    document.body.appendChild(paneEl);
+    const map = { getPane: vi.fn(() => paneEl), createPane: vi.fn() };
+    const pm = new PaneManager(map);
+    const renderer = { _container: document.createElement("div") };
+
+    const icon = document.createElement("img");
+    const marker = {
+      getElement: () => icon,
+      options: {} as Record<string, unknown>,
+      eachLayer: undefined,
+    };
+    Object.setPrototypeOf(marker, new window.L.Marker());
+    const image = document.createElement("img");
+    const overlay = {
+      _image: image,
+      options: {} as Record<string, unknown>,
+      eachLayer: undefined,
+    };
+    Object.setPrototypeOf(overlay, new window.L.ImageOverlay());
+
+    pm.pinLateContent([
+      { layer: marker, paneName: "foliplus-pane-1", renderer, owner: "test" },
+      { layer: overlay, paneName: "foliplus-pane-1", renderer, owner: "test" },
+    ]);
+
+    expect(Array.from(paneEl.children)).toEqual([icon, image]);
   });
 
   it("pinLateContent batches two GridLayers of one pane into a single append", () => {
@@ -962,8 +1675,8 @@ describe("PaneManager", () => {
     };
 
     pm.pinLateContent([
-      { layer: mk(c1), paneName: "foliplus-pane-1", renderer },
-      { layer: mk(c2), paneName: "foliplus-pane-1", renderer },
+      { layer: mk(c1), paneName: "foliplus-pane-1", renderer, owner: "test" },
+      { layer: mk(c2), paneName: "foliplus-pane-1", renderer, owner: "test" },
     ]);
 
     expect(Array.from(paneEl.children)).toEqual([c1, c2]);
@@ -986,7 +1699,9 @@ describe("PaneManager", () => {
     Object.setPrototypeOf(layer, new window.L.GridLayer());
 
     expect(() =>
-      pm.pinLateContent([{ layer, paneName: "foliplus-pane-1", renderer }]),
+      pm.pinLateContent([
+        { layer, paneName: "foliplus-pane-1", renderer, owner: "test" },
+      ]),
     ).not.toThrow();
     expect(layer.options.pane).toBe("foliplus-pane-1");
   });
@@ -1008,7 +1723,9 @@ describe("PaneManager", () => {
     Object.setPrototypeOf(layer, new window.L.GridLayer());
 
     expect(() =>
-      pm.pinLateContent([{ layer, paneName: "foliplus-pane-1", renderer }]),
+      pm.pinLateContent([
+        { layer, paneName: "foliplus-pane-1", renderer, owner: "test" },
+      ]),
     ).not.toThrow();
     expect(layer.options.pane).toBe("foliplus-pane-1");
   });
@@ -1018,7 +1735,7 @@ describe("PaneManager", () => {
     const pm = new PaneManager(map);
     const layer = { options: {}, eachLayer: undefined };
     expect(() =>
-      pm.pinLateContent([{ layer, paneName: null, renderer: null }]),
+      pm.pinLateContent([{ layer, paneName: null, renderer: null, owner: "test" }]),
     ).not.toThrow();
   });
 
@@ -1029,7 +1746,9 @@ describe("PaneManager", () => {
     // A null renderer (e.g. tile layers with a paneName) previously skipped the
     // whole layer without setting options.pane, so a dirty surface
     // re-queued it on every reconcile. The options must still be marked handled.
-    pm.pinLateContent([{ layer, paneName: "foliplus-measure-graph", renderer: null }]);
+    pm.pinLateContent([
+      { layer, paneName: "foliplus-measure-graph", renderer: null, owner: "test" },
+    ]);
     expect(layer.options.pane).toBe("foliplus-measure-graph");
   });
 });
