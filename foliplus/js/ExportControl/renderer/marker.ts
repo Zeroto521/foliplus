@@ -13,12 +13,20 @@ import {
 } from "../util.js";
 import { effectiveOpacity, pooledEach, withAlpha } from "./util.js";
 
-/** Collect markers belonging to a specific layer's panes. */
-const collectLayerMarkers = (layer: L.Layer): HTMLElement[] => {
-  const panes = map.foliplus!.LayerAPI!.getLayerPanes(layer);
+/** Collect the exportable roots of a set of panes — the single admission
+ *  filter the marker channel applies, whatever pane list it is handed.
+ *
+ *  Split out of `collectLayerMarkers` because the export walks two kinds of
+ *  pane for one layer: its content panes (`getLayerPanes`) and its per-layer
+ *  marker-shadow panes (`options.shadowPane`, collected by
+ *  `renderer/index`'s `resolveExportPanes`).  Both channels must admit and
+ *  reject exactly the same roots — a shadow carrying SKIP_EXPORT or
+ *  `display:none` stays out, an unmarked one is drawn — so the filter lives
+ *  here once instead of being restated for the shadow walk. */
+const collectPaneRoots = (paneNames: readonly string[]): HTMLElement[] => {
   const roots: HTMLElement[] = [];
   const seen = new Set<HTMLElement>();
-  for (const paneName of panes) {
+  for (const paneName of paneNames) {
     const pane = map.getPane(paneName);
     if (!pane) continue;
     for (let i = 0; i < pane.children.length; i++) {
@@ -42,6 +50,10 @@ const collectLayerMarkers = (layer: L.Layer): HTMLElement[] => {
   }
   return roots;
 };
+
+/** Collect markers belonging to a specific layer's content panes. */
+const collectLayerMarkers = (layer: L.Layer): HTMLElement[] =>
+  collectPaneRoots(map.foliplus!.LayerAPI!.getLayerPanes(layer));
 
 /** Render markers with background-image sprites. */
 const renderMarkers = async (
@@ -430,6 +442,7 @@ const renderRemaining = async (
 
 export {
   collectLayerMarkers,
+  collectPaneRoots,
   renderMarkers,
   renderFontAwesome,
   renderTextLabels,

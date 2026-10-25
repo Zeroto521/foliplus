@@ -2,7 +2,12 @@
 // render() stays here (the class method that calls the other passes via `this`);
 // each pass's implementation lives in its own module and is delegated to by
 // the class method of the same name.
-import { type LayerInfo, findLayer } from "#core/layer/index.js";
+import {
+  type LayerAPI,
+  type LayerInfo,
+  findLayer,
+  walkLeaf,
+} from "#core/layer/index.js";
 import { layerUrl } from "#core/leafletAdapter.js";
 import { createScopedTranslator } from "#common/locale.js";
 import { createLogger } from "#common/log.js";
@@ -11,6 +16,7 @@ import type { RenderCtx, TileDesc, TileLoadStats } from "../type.js";
 import { renderCanvasElement, renderPaneCanvas } from "./canvas.js";
 import {
   collectLayerMarkers,
+  collectPaneRoots,
   renderFontAwesome,
   renderMarkers,
   renderRemaining,
@@ -23,6 +29,60 @@ import { isCorsBlocked, pooledEach } from "./util.js";
 // CONFIG is a free variable from the IIFE template wrapper (see BaseControl._template).
 const T = createScopedTranslator(CONFIG);
 const log = createLogger(CONFIG.name);
+
+/** One layer's panes, split by the role they play in the export walk. */
+interface ExportPanes {
+  /** What `getLayerPanes` reports — the layer's content panes. */
+  content: string[];
+  /** The layer's own marker-shadow panes, in the order its leaves name them.
+   *  A separate group, never merged into `content`: a shadow is not a content
+   *  root, so it paints through the sprite/img passes and must sit below the
+   *  icon however the panes happen to iterate. */
+  shadows: string[];
+}
+
+/** The shared-pane set the layer stack owns — Leaflet's own panes — read from
+ *  the live `PaneManager` its write gates consult, so the export does not
+ *  restate the list.  `undefined` for the lightweight API stub, which carries
+ *  no pane host: the shadow walk then collects nothing, which is the
+ *  behaviour every map without a LayerControl has. */
+const sharedPanesOf = (api: LayerAPI): ReadonlySet<string> | undefined =>
+  (api as LayerAPI & { panes?: { defaultPanes: ReadonlySet<string> } }).panes
+    ?.defaultPanes;
+
+/** Resolve the panes one layer's export walk must visit.
+ *
+ *  `content` is `getLayerPanes` verbatim — the discovery result focus's lift
+ *  also reads, so the export lifts no reinterpretation onto it.
+ *
+ *  `shadows` is the export-only half.  A marker's shadow is mounted in the
+ *  pane its leaf names in `options.shadowPane`, and pane discovery never
+ *  looks at that option — it enumerates `options.pane` only — so the per-layer
+ *  shadow pane #733 gives a layer is invisible to the content walk without
+ *  this second read.  The shared Leaflet panes are dropped: on a map without a
+ *  per-layer shadow carrier every marker still names Leaflet's `shadowPane`,
+ *  and collecting that would redraw every other layer's shadows.
+ *
+ *  The exclusion reads `defaultPanes`, not `isDefaultPane`: the latter also
+ *  answers for the `foliplus-pane-*` fallback family, which is exactly where a
+ *  synthesized layer's shadow pane lives (`<base pane>-shadow`). */
+const resolveExportPanes = (layer: L.Layer): ExportPanes => {
+  const api = map.foliplus?.LayerAPI;
+  const content = api?.getLayerPanes(layer) ?? [];
+  const shadows: string[] = [];
+  const shared = api ? sharedPanesOf(api) : undefined;
+  if (!shared) return { content, shadows };
+  walkLeaf(layer, leaf => {
+    const name = (leaf.options as { shadowPane?: unknown }).shadowPane;
+    if (typeof name !== "string" || name === "") return;
+    if (shared.has(name)) return;
+    // A leaf pointing its shadow at its own content pane is already covered by
+    // the content walk — listing it twice would paint the same DOM twice.
+    if (content.includes(name) || shadows.includes(name)) return;
+    shadows.push(name);
+  });
+  return { content, shadows };
+};
 
 // ==================== ExportRenderer ====================
 // Mixed-mode renderer with independent rendering passes.
@@ -249,10 +309,23 @@ class ExportRenderer {
           // are drawn by the dedicated pass right below, and the generic
           // canvas sweep would draw them a second time (double-painted
           // labels, deepened alpha).
-          const panes = api
-            .getLayerPanes(layer)
-            .filter(paneName => !paneName.startsWith(CONST.ANNOTATION_PANE_PREFIX));
-          for (const paneName of panes) {
+          const panes = this.resolveExportPanes(layer);
+          // Shadows first, and deliberately here rather than in the pane
+          // walk: a layer's shadow pane sits one z-step BELOW its content
+          // (zFor(role: "shadow") = slot - 1), so the shadow has to be on the
+          // canvas before the icons and the vectors.  `shadows` is never part
+          // of `content`, so this call site is the only place that decides the
+          // order — pane iteration order cannot silently move a shadow above
+          // its icon.
+          const shadowRoots = this.collectPaneRoots(panes.shadows);
+          if (shadowRoots.length) {
+            await this.renderMarkers(rc, shadowRoots);
+            await this.renderRemaining(rc, shadowRoots);
+          }
+          const contentPanes = panes.content.filter(
+            paneName => !paneName.startsWith(CONST.ANNOTATION_PANE_PREFIX),
+          );
+          for (const paneName of contentPanes) {
             const pane = this.map.getPane(paneName);
             if (!pane) continue;
             await this.renderPaneSVG(rc, pane);
@@ -331,7 +404,18 @@ class ExportRenderer {
     return renderPaneCanvas(this.container, rc, pane, selector);
   }
 
-  /** Collect markers belonging to a specific layer's panes. */
+  /** Resolve the panes this layer's export walk must visit. */
+  resolveExportPanes(layer: L.Layer): ExportPanes {
+    return resolveExportPanes(layer);
+  }
+
+  /** Collect exportable roots from a set of panes — the marker-pass
+   *  admission filter, shared by the content and shadow walks. */
+  collectPaneRoots(paneNames: readonly string[]): HTMLElement[] {
+    return collectPaneRoots(paneNames);
+  }
+
+  /** Collect markers belonging to a specific layer's content panes. */
   collectLayerMarkers(layer: L.Layer): HTMLElement[] {
     return collectLayerMarkers(layer);
   }
@@ -358,4 +442,4 @@ class ExportRenderer {
   }
 }
 
-export { ExportRenderer, isCorsBlocked, pooledEach };
+export { ExportRenderer, isCorsBlocked, pooledEach, resolveExportPanes };
