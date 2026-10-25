@@ -644,7 +644,7 @@ class TestLayerControlRendering:
         assert "z-index: var(--foliplus-z-index-floating)" in css
         # The ⋮ dropdown anchors flush to its row — the shared shell adds a 2px
         # margin-top that would open a sliver of list under the cursor path;
-        # T266 declares the whole margin (not just margin-top) so a host
+        # The shell declares the whole margin (not just margin-top) so a host
         # framework's bare `ol,ul` margin reset cannot leak a bottom gap.
         assert "margin: 0" in css
 
