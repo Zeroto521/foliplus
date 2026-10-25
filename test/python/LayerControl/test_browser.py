@@ -73,13 +73,13 @@ class TestLayerControlBrowser:
         return page.evaluate(_js("LayerControl/panel_open"), selector)
 
     def test_menu_shell_keeps_design_padding_under_bootstrap(self, browser, tmp_path):
-        """T266: the layer more-menu shell keeps its design padding on a host
+        """The layer more-menu shell keeps its design padding on a host
         Bootstrap page.
 
         Bootstrap ships an unlayered `ol,ul{padding-left:2rem}` reset. After
         #568 wrapped foliplus CSS in @layer, that reset outranked the shell at
-        any specificity and pushed the icon column inward. T266 reverted the
-        @layer wrap, restoring the specificity order: the shell selector
+        any specificity and pushed the icon column inward. The @layer wrap was
+        reverted, restoring the specificity order: the shell selector
         (0,2,0) beats `ul` (0,0,1), so the icon column stays flush with the
         shell's left padding. This pins the computed padding-left in the real
         folium page (Bootstrap included), which the plain unit tests cannot
@@ -679,7 +679,7 @@ class TestLayerControlBrowser:
         # Default folium map carries one OSM TileLayer; LayerControl picks
         # it up on attach as the sole base row. Hiding that one is enough
         # to leave the map with no visible basemap — which is exactly the
-        # T207 scenario.
+        # scenario where intent still says visible.
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
         LayerControl().add_to(m)
         _expand_panel(m)
@@ -5218,7 +5218,7 @@ class TestLayerControlBrowser:
             assert result["before"] > 0, (
                 f"no tiles loaded before range was set: {result}"
             )
-            # R7's native branch: options write + adapter _resetView.
+            # The native branch: options write + adapter _resetView.
             # Leaflet does not self-apply options.minZoom changes — the
             # adapter reset is what makes the range visible.
             assert result["tilesCleared"] is True, (

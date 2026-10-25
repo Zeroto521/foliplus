@@ -593,7 +593,7 @@ describe("LayerSurface pane resolution", () => {
 });
 
 describe("LayerSurface.materialize", () => {
-  it("routes a declared layer before it joins the map (I1)", () => {
+  it("routes a declared layer before it joins the map", () => {
     const { host } = makeMap();
     const layer = new Path();
     const surface = new LayerSurface(host, {

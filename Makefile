@@ -106,6 +106,12 @@ test-browser: build-js-dev
 	npm run build:verify
 	pytest -v -r a --color=yes -n $(JOBS) -m "browser" --cov=foliplus --cov=script --cov-append --cov-report=term-missing --cov-report=xml --junitxml=test-browser.junit.xml -o junit_family=legacy test/python
 
+# The browser probe corpus (test/js/browser) has its own inventory + headless
+# smoke so a broken probe is visible without the full browser suite.
+test-browser-probe:
+	node script/check/browser-probe.mjs --strict
+	pytest -v -r a --color=yes --tb=short -m "browser" test/python/infra/test_browser_probe_smoke.py
+
 test-js: build-js-dev
 	npm test
 
