@@ -44,6 +44,9 @@ const walk = dir =>
 
 const relPosix = (abs, base) => path.relative(base, abs).split(path.sep).join("/");
 
+/** Message text for an unknown thrown value (V8 throws Error for parse errors). */
+const errorMessage = error => (error instanceof Error ? error.message : String(error));
+
 /**
  * Parse one probe the way Playwright's `page.evaluate(string)` does.
  *
@@ -60,7 +63,7 @@ const parseProbe = source => {
       new Function(source);
       return null;
     } catch (error) {
-      return String(error instanceof Error ? error.message : error);
+      return errorMessage(error);
     }
   }
 };
@@ -114,7 +117,7 @@ const buildReport = root => {
   const probeRoot = path.join(root, "test", "js", "browser");
   const files = walk(probeRoot)
     .filter(file => file.endsWith(".js"))
-    .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+    .sort();
   const names = files.map(file => relPosix(file, probeRoot).replace(/\.js$/, ""));
   const supportFiles = names.filter(isSupportName);
   const probes = names
@@ -290,21 +293,25 @@ const main = (argv, env = process.env, root = ROOT) => {
 };
 
 // CLI entry: only when executed directly (`node script/check/browser-probe.mjs`),
-// never when a test imports the helpers.
-const isDirectRun =
-  process.argv[1] !== undefined &&
-  path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
-if (isDirectRun) {
-  process.exitCode = main(process.argv.slice(2));
-}
+// never when a test imports the helpers. Kept as a function so the entry path is
+// covered by calling it with this module's own file URL in the tests.
+const runCli = (argv, entry, target) => {
+  const sink = target ?? process;
+  if (entry !== undefined && path.resolve(entry) === fileURLToPath(import.meta.url)) {
+    sink.exitCode = main(argv);
+  }
+};
+runCli(process.argv.slice(2), process.argv[1]);
 
 export {
   buildReport,
   collectReferences,
+  errorMessage,
   isSupportName,
   main,
   parseArgs,
   parseProbe,
   renderSummary,
   renderText,
+  runCli,
 };

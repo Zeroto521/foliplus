@@ -1,15 +1,17 @@
 import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   buildReport,
+  errorMessage,
   main,
   parseArgs,
   parseProbe,
   renderSummary,
   renderText,
+  runCli,
 } from "#script/check/browser-probe.mjs";
 
 // The runner only reads a checkout, so every branch runs against throwaway
@@ -137,6 +139,29 @@ describe("parseArgs", () => {
       jsonPath: undefined,
     });
     expect(parseArgs(["--json"]).jsonPath).toBeUndefined();
+  });
+});
+
+describe("errorMessage", () => {
+  it("unwraps Error and falls back to String for other values", () => {
+    expect(errorMessage(new Error("boom"))).toBe("boom");
+    expect(errorMessage("boom")).toBe("boom");
+  });
+});
+
+describe("runCli", () => {
+  it("sets the exit code only when the entry is this module", () => {
+    const own: { exitCode?: number } = {};
+    runCli(["--strict"], resolve("script/check/browser-probe.mjs"), own);
+    expect(own.exitCode).toBe(0);
+
+    const other: { exitCode?: number } = {};
+    runCli(["--strict"], "/other/entry.mjs", other);
+    expect(other.exitCode).toBeUndefined();
+
+    const missing: { exitCode?: number } = {};
+    runCli(["--strict"], undefined, missing);
+    expect(missing.exitCode).toBeUndefined();
   });
 });
 

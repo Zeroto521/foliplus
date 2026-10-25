@@ -245,12 +245,16 @@ jobs:
       - run: uv run playwright install chromium
 
       # Smoke first, inventory last: a corpus gate failure is the job's verdict.
-      - run: >
+      - name: Headless Chromium smoke
+        run: >
           uv run pytest -q -r a --color=yes -m browser
           test/python/infra/test_browser_probe_smoke.py
           -o junit_family=legacy --junitxml=browser-probe.junit.xml
 
-      - run: node script/check/browser-probe.mjs --strict --github-summary --json browser-probe.json
+      - name: Probe inventory + parse gate
+        run: >
+          node script/check/browser-probe.mjs --strict --github-summary
+          --json browser-probe.json
 
       - uses: actions/upload-artifact@v7
         if: ${{ !cancelled() }}
