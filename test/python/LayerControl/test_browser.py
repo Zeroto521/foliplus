@@ -5521,6 +5521,107 @@ class TestLayerControlBrowser:
         finally:
             page.close()
 
+    def test_slider_scale_ends_center_on_their_thumbs(self, browser, tmp_path):
+        """The end numbers of a slider scale sit centred on the rail's ends.
+
+        The values row takes the track's half-thumb inset, so the rail's ends
+        are the values row's edges and each end number has to be centred on
+        its own edge -- directly under the thumb parked there. Flush numbers
+        (outer edges on the row's edges) read as a scale whose ends belong to
+        the field rather than to the thumbs. Both rows that carry numbers are
+        measured in the live style panel: the single opacity thumb and the
+        dual zoom-range pair. The same pass pins that the centring did not
+        widen the control (a centred number overhangs the field by half its
+        width, which is why the flush layout existed) and did not clip the
+        numbers against the panel's scroll box.
+        """
+        overlay = folium.FeatureGroup(name="Overlay", overlay=True, show=True)
+        with use_page(
+            self._make_page, browser, tmp_path, overlay, slug="slider_label_center"
+        ) as (page, errors):
+            page.evaluate(_js("LayerControl/open_panel"))
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=10000,
+            )
+            result = page.evaluate(_js("LayerControl/read_slider_label_alignment"))
+            assert result.get("error") is None, f"setup failed: {result}"
+
+            def check_row(name, row, thumbs, mirrored=False):
+                assert row is not None, f"the {name} row did not render: {result}"
+                assert row.get("error") is None, f"{name} row: {row}"
+                assert len(row["thumbs"]) == thumbs, (
+                    f"the {name} row does not have {thumbs} thumb(s): {row}"
+                )
+                labels = row["labels"]
+                # A mirrored row keeps the logical anchors, so the minimum
+                # names the right edge and the maximum the left one.
+                if mirrored:
+                    ends = (
+                        ("min", labels["min"], row["track"]["right"]),
+                        ("max", labels["max"], row["track"]["left"]),
+                    )
+                else:
+                    ends = (
+                        ("min", labels["min"], row["track"]["left"]),
+                        ("max", labels["max"], row["track"]["right"]),
+                    )
+                for side, label, edge in ends:
+                    assert label is not None, f"{name} has no {side} number: {row}"
+                    assert label["visible"], f"{name} {side} number is hidden: {row}"
+                    drift = abs(label["box"]["centerX"] - edge)
+                    assert drift <= 1.0, (
+                        f"{name} {side} number is not centred on the rail's "
+                        f"end: centre {label['box']['centerX']:.2f}px vs edge "
+                        f"{edge:.2f}px, drift {drift:.2f}px"
+                    )
+
+                # The overhang of a centred end number has to land inside the
+                # panel's scroll box; outside it the row's hidden overflow
+                # clips the digits.
+                content = row["content"]
+                assert content is not None, f"no style panel around {name}: {row}"
+                for side, label, _edge in ends:
+                    assert label["box"]["left"] >= content["left"] - 0.5, (
+                        f"{name} {side} number is clipped on the left: "
+                        f"{label['box']} vs {content}"
+                    )
+                    assert label["box"]["right"] <= content["right"] + 0.5, (
+                        f"{name} {side} number is clipped on the right: "
+                        f"{label['box']} vs {content}"
+                    )
+
+                # Not widened: the slider is the track plus the half-thumb
+                # inset on each side, and the values row still spans the track.
+                slider, track = row["slider"], row["track"]
+                thumb_width = row["thumbs"][0]["box"]["width"]
+                assert abs(slider["width"] - (track["width"] + thumb_width)) <= 1.0, (
+                    f"the {name} slider was widened: {slider} vs track {track}"
+                )
+                assert abs(row["values"]["width"] - track["width"]) <= 1.0, (
+                    f"the {name} values row no longer spans the track: {row}"
+                )
+
+            check_row("opacity", result["opacity"], thumbs=1)
+            check_row("zoom range", result["zoomRange"], thumbs=2)
+
+            # The dual row keeps the current-level number the flush layout had.
+            current = result["zoomRange"]["labels"]["current"]
+            assert current is not None, f"zoom range lost its current number: {result}"
+
+            # A mirrored page keeps the same invariant: the logical anchors
+            # swap sides, the physical shift flips with them, so every number
+            # still centres on the edge (and therefore the thumb) it names.
+            page.evaluate("() => { document.documentElement.dir = 'rtl'; }")
+            mirrored = page.evaluate(_js("LayerControl/read_slider_label_alignment"))
+            assert mirrored.get("error") is None, f"RTL setup failed: {mirrored}"
+            check_row("opacity (rtl)", mirrored["opacity"], thumbs=1, mirrored=True)
+            check_row(
+                "zoom range (rtl)", mirrored["zoomRange"], thumbs=2, mirrored=True
+            )
+            assert not errors, f"JS errors: {errors}"
+
     # ── Row lookup by data-layer-id, not by registry / DOM position ──
     #
     # Each of these three scrambles the registry or the panel so the two
