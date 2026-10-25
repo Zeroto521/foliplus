@@ -254,6 +254,49 @@ describe("resolveExportPanes", () => {
     install(fixture);
     expect(fixture.renderer.resolveExportPanes(fixture.layer).shadows).toEqual([]);
   });
+
+  it("collects no shadows when the API carries no pane host", () => {
+    // The lightweight LayerAPI stub has no PaneManager to ask, so it cannot
+    // tell a per-layer shadow pane from Leaflet's shared one. Answering "no
+    // shadows" keeps such a map at the export's pre-#733 shape: the pane walk
+    // is content-only and nothing new is drawn.
+    const fixture = makeFixture();
+    (fixture.map.foliplus.LayerAPI as { panes?: unknown }).panes = undefined;
+    install(fixture);
+    expect(fixture.renderer.resolveExportPanes(fixture.layer)).toEqual({
+      content: ["layer-content"],
+      shadows: [],
+    });
+  });
+
+  it("answers no panes at all when the map has no LayerAPI", () => {
+    // A map outside LayerControl (and outside ensureLayerAPI's stub) has no
+    // pane source whatsoever — the resolver reports empty groups rather than
+    // inventing panes the layer never named.
+    const fixture = makeFixture();
+    fixture.map.foliplus = undefined;
+    install(fixture);
+    expect(fixture.renderer.resolveExportPanes(fixture.layer)).toEqual({
+      content: [],
+      shadows: [],
+    });
+  });
+
+  it("ignores a leaf that names no shadow pane", () => {
+    // Vector layers, and markers that kept Leaflet's own default, carry no
+    // per-layer shadow carrier. The walk must skip them — including the empty
+    // string a caller can leave behind — instead of inventing a pane name.
+    const fixture = makeFixture();
+    const group = {
+      _layers: {
+        none: { options: { pane: "layer-content" } },
+        blank: { options: { pane: "layer-content", shadowPane: "" } },
+      } as Record<string, any>,
+      options: {},
+    };
+    install(fixture);
+    expect(fixture.renderer.resolveExportPanes(group as any).shadows).toEqual([]);
+  });
 });
 
 describe("ExportRenderer.render — marker shadows", () => {
