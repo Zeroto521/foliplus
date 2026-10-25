@@ -28,7 +28,7 @@ import type { LayerUI } from "../surface.js";
 import { closeOverlays } from "../teardown.js";
 import { bindBorderRow, resetLayerBorder } from "./border.js";
 import { layerHasStyleDelegation, renderDelegatedStylePanel } from "./delegated.js";
-import { bindFillRow, resetLayerFill } from "./fill.js";
+import { bindFillRow, disposeFillRow, resetLayerFill } from "./fill.js";
 import { appendResetFooter } from "./frame.js";
 import { applyPatch, layerFields, resetStyleLabel, syncFormatRow } from "./label.js";
 import { resetLayerOpacity } from "./opacity.js";
@@ -388,6 +388,10 @@ const closeStylePanel = (ui: LayerUI, setFocus: boolean): void => {
     return;
   }
   const item = panel.closest(CONST.SEL.LAYER_ITEM) as HTMLElement | null;
+  // The ramp detail's scheme picker owns document-level listeners while its
+  // listbox is open; the panel is being removed, so destroy it first or the
+  // next open would leave a picker answering clicks for a dead trigger.
+  disposeFillRow(ui);
   // The field cache survives close/reopen: it is invalidated by
   // onLayerItemCountChange when a layer's features actually change, not on
   // every close (re-collecting on each open would defeat the cache).

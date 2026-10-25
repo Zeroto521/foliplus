@@ -227,13 +227,19 @@ describe("LayerUI style panel — fill color", () => {
     expect(fillInput(item)!.getAttribute("aria-label")).toBe("LayerControl.style_fill");
   });
 
-  it("the fill row's label matches the row's aria-label key", () => {
-    // Same key twice keeps label text and screen-reader name honest.
+  it("the mode row's label matches the select's aria-label key", () => {
+    // The row that owns the mode select reads "Fill"; the swatch's aria-label
+    // stays the colour key, so neither one lies about what it names.
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
     const row = fillRow(item)!;
     const labelText = row.querySelector(`.${CONST.CLASSES.FORM_LABEL}`)!.textContent;
-    expect(labelText).toBe(fillInput(item)!.getAttribute("aria-label"));
+    const select = row.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_MODE_SELECT}`,
+    ) as HTMLSelectElement;
+    expect(labelText).toBe("LayerControl.style_fill_mode");
+    expect(select.getAttribute("aria-label")).toBe(labelText);
+    expect(fillInput(item)!.getAttribute("aria-label")).toBe("LayerControl.style_fill");
   });
 
   it("the swatch defaults to the authored paint when no fill is committed", () => {
@@ -635,7 +641,7 @@ describe("LayerUI style panel — fill color", () => {
 
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
-    const row = item.querySelector(`.${CONST.CLASSES.STYLE_FILL_ROW}`) as HTMLElement;
+    const row = item.querySelector(`.${CONST.CLASSES.STYLE_FILL_BLOCK}`) as HTMLElement;
     bindFillRow(ui, "overlay1", row);
     const opacity = row.querySelector(
       `.${CONST.CLASSES.STYLE_FILL_OPACITY_NUMBER}`,
@@ -664,7 +670,7 @@ describe("LayerUI style panel — fill color", () => {
 
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
-    const row = item.querySelector(`.${CONST.CLASSES.STYLE_FILL_ROW}`) as HTMLElement;
+    const row = item.querySelector(`.${CONST.CLASSES.STYLE_FILL_BLOCK}`) as HTMLElement;
     const color = row.querySelector(
       `.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`,
     ) as HTMLInputElement;
@@ -692,7 +698,7 @@ describe("LayerUI style panel — fill color", () => {
 
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
-    const row = item.querySelector(`.${CONST.CLASSES.STYLE_FILL_ROW}`) as HTMLElement;
+    const row = item.querySelector(`.${CONST.CLASSES.STYLE_FILL_BLOCK}`) as HTMLElement;
     bindFillRow(ui, "overlay1", row);
     const color = row.querySelector(
       `.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`,
@@ -718,7 +724,7 @@ describe("LayerUI style panel — fill color", () => {
 
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
-    const row = item.querySelector(`.${CONST.CLASSES.STYLE_FILL_ROW}`) as HTMLElement;
+    const row = item.querySelector(`.${CONST.CLASSES.STYLE_FILL_BLOCK}`) as HTMLElement;
     bindFillRow(ui, "overlay1", row);
     const color = row.querySelector(
       `.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`,
@@ -1346,21 +1352,118 @@ describe("buildFillRow", () => {
     vi.clearAllMocks();
   });
 
-  it("emits a FORM_ROW with the row class and the swatch input", () => {
+  it("emits the fill block: mode row + detail slot with the swatch input", () => {
     const row = buildFillRow(ui, "overlay1");
 
-    expect(row.classList.contains(CONST.CLASSES.FORM_ROW)).toBe(true);
-    expect(row.classList.contains(CONST.CLASSES.STYLE_FILL_ROW)).toBe(true);
+    expect(row.classList.contains(CONST.CLASSES.STYLE_FILL_BLOCK)).toBe(true);
+    const modeRow = row.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_ROW}`,
+    ) as HTMLElement;
+    expect(modeRow.classList.contains(CONST.CLASSES.FORM_ROW)).toBe(true);
+    expect(
+      row.querySelector(`.${CONST.CLASSES.STYLE_FILL_MODE_SELECT}`),
+    ).not.toBeNull();
+    expect(row.querySelector(`.${CONST.CLASSES.STYLE_FILL_DETAIL}`)).not.toBeNull();
     expect(
       row.querySelector(`.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`),
     ).not.toBeNull();
   });
 
-  it("the label renders the locale key's translated value", () => {
+  it("the mode row renders the locale key's translated value", () => {
     const row = buildFillRow(ui, "overlay1");
     const label = row.querySelector(`.${CONST.CLASSES.FORM_LABEL}`);
 
-    expect(label?.textContent).toBe("LayerControl.style_fill");
+    expect(label?.textContent).toBe("LayerControl.style_fill_mode");
+  });
+
+  it("defaults to the solid arm with the by-value option available", () => {
+    const row = buildFillRow(ui, "overlay1");
+    const select = row.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_MODE_SELECT}`,
+    ) as HTMLSelectElement;
+    const rampOption = select.querySelector(
+      'option[value="ramp"]',
+    ) as HTMLOptionElement;
+
+    expect(select.value).toBe("solid");
+    expect(rampOption.disabled).toBe(false);
+    expect(row.querySelector(`.${CONST.CLASSES.STYLE_FILL_NO_FIELD}`)).toBeNull();
+  });
+
+  it("disables the by-value arm and shows the reason with no numeric field", () => {
+    const fixture = initWithFillLayer();
+    // Count is the only numeric property; make it a string-only layer.
+    fixture.manager.registerLayer({
+      id: "textonly",
+      name: "Text",
+      group: "overlay",
+      layer: (() => {
+        const leaf = new L.Polygon() as L.Polygon & {
+          options: Record<string, unknown>;
+          feature: { properties: Record<string, unknown> };
+          setStyle: ReturnType<typeof vi.fn>;
+        };
+        leaf.options = { fillColor: "#aabbcc", fill: true };
+        leaf.feature = { properties: { name: "a" } };
+        leaf.setStyle = vi.fn();
+        return {
+          options: {},
+          eachLayer: (fn: (child: unknown) => void) => fn(leaf),
+          getBounds: () => ({
+            isValid: () => true,
+            getSouthWest: () => ({ lat: 0, lng: 0 }),
+            getNorthEast: () => ({ lat: 1, lng: 1 }),
+          }),
+        };
+      })(),
+    });
+    fixture.ui.runtimeStore.setFields("textonly", [{ name: "name", numeric: false }]);
+
+    const row = buildFillRow(fixture.ui, "textonly");
+    const select = row.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_MODE_SELECT}`,
+    ) as HTMLSelectElement;
+    const rampOption = select.querySelector(
+      'option[value="ramp"]',
+    ) as HTMLOptionElement;
+    const hint = row.querySelector(`.${CONST.CLASSES.STYLE_FILL_NO_FIELD}`);
+
+    expect(rampOption.disabled).toBe(true);
+    expect(rampOption.title).toBe("LayerControl.style_fill_no_field");
+    expect(select.value).toBe("solid");
+    expect(hint?.textContent).toBe("LayerControl.style_fill_no_field");
+  });
+
+  it("renders the ramp detail when a stored config says ramp", () => {
+    setIntent(ui, "overlay1", "fillMode", "ramp");
+    setIntent(ui, "overlay1", "fillRamp", {
+      field: "count",
+      method: "equal",
+      classes: 4,
+      scheme: "Reds",
+    } as never);
+
+    const row = buildFillRow(ui, "overlay1");
+    const select = row.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_MODE_SELECT}`,
+    ) as HTMLSelectElement;
+    const fieldSelect = row.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_FIELD_SELECT}`,
+    ) as HTMLSelectElement;
+    const methodSelect = row.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_METHOD_SELECT}`,
+    ) as HTMLSelectElement;
+    const classes = row.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_CLASSES_NUMBER}`,
+    ) as HTMLInputElement;
+    const trigger = row.querySelector(`.${CONST.CLASSES.STYLE_FILL_SCHEME_TRIGGER}`);
+
+    expect(select.value).toBe("ramp");
+    expect(fieldSelect.value).toBe("count");
+    expect(methodSelect.value).toBe("equal");
+    expect(classes.value).toBe("4");
+    expect(trigger).not.toBeNull();
+    expect(row.querySelector(`.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`)).toBeNull();
   });
 
   it("falls back to the Leaflet default for an unregistered layer", () => {

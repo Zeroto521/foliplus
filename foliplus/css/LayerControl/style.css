@@ -48,3 +48,65 @@
     }
   }
 }
+/* ── Fill mode block (T58) ──────────────────────────────────────────
+   The mode row selects the fill arm; its detail rows sit flush underneath,
+   same label column, grouped by a hairline + gap (no indentation). */
+.foliplus-style-fill-detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--foliplus-space-xs);
+  margin-top: var(--foliplus-space-xs);
+  padding-top: var(--foliplus-space-xs);
+  border-top: var(--foliplus-border-thin) solid var(--foliplus-input-border);
+}
+
+/* Disabled by-value arm: the mode option carries the reason via title, and
+   this line keeps it readable without hovering. */
+.foliplus-style-fill-no-field {
+  font-size: var(--foliplus-font-size-xs);
+  color: var(--foliplus-text-muted);
+  line-height: 1.4;
+}
+
+/* Scheme trigger (shared schemePicker shell, #729): a form-select-shaped
+   combobox holding the colour strip, the scheme name and a chevron. */
+.foliplus-style-scheme-trigger {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--foliplus-space-xs);
+  flex: 1;
+  min-width: 0;
+  height: var(--foliplus-ctrl-size);
+  box-sizing: border-box;
+  padding: 0 var(--foliplus-icon-size-md) 0 var(--foliplus-space-sm);
+  border: var(--foliplus-border-thin) solid var(--foliplus-input-border);
+  border-radius: var(--foliplus-radius-sm);
+  background: var(--foliplus-input-bg);
+  cursor: pointer;
+  font-size: var(--foliplus-font-size-sm);
+  color: var(--foliplus-text-primary);
+}
+
+.foliplus-style-scheme-trigger::after {
+  content: "";
+  position: absolute;
+  right: var(--foliplus-space-sm);
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-left: var(--foliplus-size-4) solid transparent;
+  border-right: var(--foliplus-size-4) solid transparent;
+  border-top: var(--foliplus-size-4) solid var(--foliplus-text-muted);
+}
+
+.foliplus-style-scheme-bar {
+  flex: 1;
+  min-width: 0;
+}
+
+.foliplus-style-scheme-name {
+  flex-shrink: 0;
+  white-space: nowrap;
+}

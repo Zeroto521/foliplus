@@ -35,6 +35,19 @@ const SIZE = {
   DEFAULT: 10,
 } as const;
 
+/** Shared bounds and defaults for the value-based fill (T58 fill row).
+ *  One home so the mode row, the ramp detail controls and the fill writer
+ *  cannot drift: classes 2…9 matches `isFillRampConfig`, and the method /
+ *  scheme defaults only seed the first ramp a user switches to (a stored
+ *  `FillRampConfig` always wins). */
+const RAMP = {
+  CLASSES_MIN: 2,
+  CLASSES_MAX: 9,
+  CLASSES_DEFAULT: 6,
+  METHOD_DEFAULT: "jenks",
+  SCHEME_DEFAULT: "Viridis",
+} as const;
+
 /** Focus-on-layer behavior. */
 const FOCUS = {
   /** How long the focus rectangle stays visible. */
@@ -156,6 +169,23 @@ const CLASSES = {
   STYLE_FILL_ROW: "foliplus-style-fill-row",
   STYLE_FILL_COLOR_INPUT: "foliplus-style-fill-color-input",
   STYLE_FILL_OPACITY_NUMBER: "foliplus-style-fill-opacity-number",
+  /** Fill mode block (T58): the mode row plus the active arm's detail rows.
+   *  The block is the row's DOM root; detail rows are separate FORM_ROWs so
+   *  the label column stays aligned without indentation. */
+  STYLE_FILL_BLOCK: "foliplus-style-fill-block",
+  STYLE_FILL_MODE_SELECT: "foliplus-style-fill-mode-select",
+  STYLE_FILL_DETAIL: "foliplus-style-fill-detail",
+  /** Ramp detail controls (color-by-value arm). */
+  STYLE_FILL_FIELD_SELECT: "foliplus-style-fill-field-select",
+  STYLE_FILL_METHOD_SELECT: "foliplus-style-fill-method-select",
+  STYLE_FILL_CLASSES_NUMBER: "foliplus-style-fill-classes-number",
+  STYLE_FILL_SCHEME_TRIGGER: "foliplus-style-scheme-trigger",
+  STYLE_FILL_SCHEME_BAR: "foliplus-style-scheme-bar",
+  STYLE_FILL_SCHEME_NAME: "foliplus-style-scheme-name",
+  STYLE_FILL_SCHEME_HIDDEN: "foliplus-scheme-picker-hidden",
+  /** One-line hint under the mode row when the layer has no numeric field:
+   *  the ramp option is disabled and this text says why. */
+  STYLE_FILL_NO_FIELD: "foliplus-style-fill-no-field",
   /** Size row (CircleMarker only): a number field plus its unit suffix. Its
    *  own class so the change delegation and the tests can tell it from the
    *  label-size and border-weight number fields. */
@@ -250,6 +280,7 @@ export {
   ENFORCE_ORDER_DEBOUNCE_MS,
   FOCUS,
   FOCUS_PANE,
+  RAMP,
   SAVE_DEBOUNCE_MS,
   SEL,
   SIZE,

@@ -69,6 +69,18 @@
   "LayerControl.style_border_weight": "Border width",
   "LayerControl.style_fill": "Fill Color",
   "LayerControl.style_fill_opacity": "Fill Opacity",
+  "LayerControl.style_fill_mode": "Fill",
+  "LayerControl.style_fill_single": "Single color",
+  "LayerControl.style_fill_by_value": "Color by value",
+  "LayerControl.style_fill_field": "Field",
+  "LayerControl.style_fill_classes": "Classes",
+  "LayerControl.style_method": "Method",
+  "LayerControl.style_fill_scheme": "Scheme",
+  "LayerControl.style_fill_no_field": "No numeric field on this layer — color by value needs one",
+  "LayerControl.style_method_jenks": "Natural Breaks",
+  "LayerControl.style_method_quantile": "Quantile",
+  "LayerControl.style_method_equal": "Equal Interval",
+  "LayerControl.style_method_heads": "Equal Count",
   "LayerControl.style_size": "Size",
   "LayerControl.border": "Border"
 }
