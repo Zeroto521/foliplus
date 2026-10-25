@@ -89,7 +89,7 @@ const SEL = {
    * exists for canvas elements a third-party layer mounts directly in its
    * pane. Keep it generic — the pane walk already scopes the search.
    * **A new canvas overlay must be added here or to
-   * {@link SEL.ANNOTATION_CANVAS}** — `collectLayerMarkers` deliberately skips
+   * {@link SEL.ANNOTATION_CANVAS}** — `collectPaneRoots` deliberately skips
    * CANVAS elements (a dedicated pass owns them), so a canvas that is in
    * neither list vanishes from the export without any error.
    */
@@ -125,7 +125,7 @@ const SEL = {
    * semantics extend the attribute value, not the class list).
    *
    * Match rules by pass (not one universal nesting rule):
-   *   - `collectLayerMarkers` / `renderPaneCanvas`: `isExportExcluded` —
+   *   - `collectPaneRoots` / `renderPaneCanvas`: `isExportExcluded` —
    *     self or ancestor; markers also drop roots that contain a marked
    *     descendant (pass draws whole roots).
    *   - `renderPaneSVG`: marked nodes are pruned from the clone only.
