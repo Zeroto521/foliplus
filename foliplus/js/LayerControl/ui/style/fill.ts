@@ -365,7 +365,10 @@ const rampForUi = (
 ): FillRampConfig => {
   const stored = getIntent(ui, layerId, INTENT.FILL_RAMP);
   if (stored) return stored;
-  return defaultRampConfig(fields[0] ?? "");
+  // Every caller reaches this line with a non-empty list: the detail only
+  // renders the ramp arm when a numeric field exists, and the mode write
+  // bails first when it does not.
+  return defaultRampConfig(fields[0]);
 };
 
 /** Write the mode intent, seeding the ramp config when the user switches to
@@ -667,59 +670,28 @@ const bindSolidDetail = (ui: LayerUI, layerId: string, detail: HTMLElement): voi
   }
 };
 
-/** Bind the ramp arm's three controls, including the shared scheme picker. */
+/** Bind the ramp arm's three controls, including the shared scheme picker.
+ *
+ *  Every element is built by `buildRampDetail` immediately above, so the
+ *  queries cast instead of re-testing for null: a guard here could never take
+ *  its false arm (the markup is a private contract) and would just read as an
+ *  uncovered branch. The picker is created before the number field so the
+ *  class-count commit can update it without a lookup-and-guard. */
 const bindRampDetail = (ui: LayerUI, layerId: string, detail: HTMLElement): void => {
-  const fieldSelect = detail.querySelector(
-    `.${CONST.CLASSES.STYLE_FILL_FIELD_SELECT}`,
-  ) as HTMLSelectElement | null;
-  if (fieldSelect) {
-    fieldSelect.onchange = () =>
-      writeFillRamp(ui, layerId, { field: fieldSelect.value });
-  }
-
-  const methodSelect = detail.querySelector(
-    `.${CONST.CLASSES.STYLE_FILL_METHOD_SELECT}`,
-  ) as HTMLSelectElement | null;
-  if (methodSelect) {
-    methodSelect.onchange = () =>
-      writeFillRamp(ui, layerId, {
-        method: methodSelect.value as FillRampConfig["method"],
-      });
-  }
-
-  const classesInput = detail.querySelector(
-    `.${CONST.CLASSES.STYLE_FILL_CLASSES_NUMBER}`,
-  ) as HTMLInputElement | null;
-  if (classesInput) {
-    bindLiveNumber(classesInput, {
-      min: CONST.RAMP.CLASSES_MIN,
-      max: CONST.RAMP.CLASSES_MAX,
-      fallback: CONST.RAMP.CLASSES_DEFAULT,
-      normalize: value => Math.round(value),
-      onCommit: value => {
-        const next = writeFillRamp(ui, layerId, { classes: value });
-        // The strip has one block per class: keep the picker's preview in
-        // step with the count the map is now using.
-        schemePickerByUi.get(ui)?.setNumClasses(next.classes);
-      },
-    });
-  }
-
   const trigger = detail.querySelector(
     `.${CONST.CLASSES.STYLE_FILL_SCHEME_TRIGGER}`,
-  ) as HTMLElement | null;
-  if (!trigger) return;
+  ) as HTMLElement;
   const hidden = detail.querySelector(
     `.${CONST.CLASSES.STYLE_FILL_SCHEME_HIDDEN}`,
-  ) as HTMLSelectElement | null;
+  ) as HTMLSelectElement;
   const nameEl = detail.querySelector(
     `.${CONST.CLASSES.STYLE_FILL_SCHEME_NAME}`,
-  ) as HTMLElement | null;
+  ) as HTMLElement;
   const fields = numericFields(ui, layerId);
   const ramp = rampForUi(ui, layerId, fields);
   const picker = createSchemePicker({
     trigger,
-    hiddenSelect: hidden ?? undefined,
+    hiddenSelect: hidden,
     schemes: DEFAULT_SCHEMES,
     value: ramp.scheme,
     numClasses: ramp.classes,
@@ -728,10 +700,39 @@ const bindRampDetail = (ui: LayerUI, layerId: string, detail: HTMLElement): void
     colorScale: getColorScale,
     onChange: name => {
       const next = writeFillRamp(ui, layerId, { scheme: name });
-      if (nameEl) nameEl.textContent = next.scheme;
+      nameEl.textContent = next.scheme;
     },
   });
   schemePickerByUi.set(ui, picker);
+
+  const fieldSelect = detail.querySelector(
+    `.${CONST.CLASSES.STYLE_FILL_FIELD_SELECT}`,
+  ) as HTMLSelectElement;
+  fieldSelect.onchange = () => writeFillRamp(ui, layerId, { field: fieldSelect.value });
+
+  const methodSelect = detail.querySelector(
+    `.${CONST.CLASSES.STYLE_FILL_METHOD_SELECT}`,
+  ) as HTMLSelectElement;
+  methodSelect.onchange = () =>
+    writeFillRamp(ui, layerId, {
+      method: methodSelect.value as FillRampConfig["method"],
+    });
+
+  const classesInput = detail.querySelector(
+    `.${CONST.CLASSES.STYLE_FILL_CLASSES_NUMBER}`,
+  ) as HTMLInputElement;
+  bindLiveNumber(classesInput, {
+    min: CONST.RAMP.CLASSES_MIN,
+    max: CONST.RAMP.CLASSES_MAX,
+    fallback: CONST.RAMP.CLASSES_DEFAULT,
+    normalize: value => Math.round(value),
+    onCommit: value => {
+      const next = writeFillRamp(ui, layerId, { classes: value });
+      // The strip has one block per class: keep the picker's preview in step
+      // with the count the map is now using.
+      picker.setNumClasses(next.classes);
+    },
+  });
 };
 
 /** Bind one detail slot for the active arm (solid color/opacity or the ramp
@@ -760,13 +761,13 @@ const bindFillRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => {
     return;
   }
 
+  // Both nodes are part of the block buildModeRow just produced.
   const select = block.querySelector(
     `.${CONST.CLASSES.STYLE_FILL_MODE_SELECT}`,
-  ) as HTMLSelectElement | null;
+  ) as HTMLSelectElement;
   const detail = block.querySelector(
     `.${CONST.CLASSES.STYLE_FILL_DETAIL}`,
-  ) as HTMLElement | null;
-  if (!select || !detail) return;
+  ) as HTMLElement;
 
   select.onchange = () => {
     const next: FillMode = select.value === "ramp" ? "ramp" : "solid";

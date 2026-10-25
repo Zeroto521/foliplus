@@ -231,15 +231,38 @@ describe("fill mode row — solid ↔ color by value", () => {
     switchMode(block, "ramp");
     expect(getIntent(ui, "overlay1", "fillRamp")).toMatchObject({ field: "count" });
   });
+
+  it("shows the stored ramp as solid when the layer has no numeric field", () => {
+    // A record can outlive the data it was built for (field removed). The
+    // panel must fall back to the solid arm instead of showing a ramp select
+    // whose detail cannot classify anything.
+    ui.runtimeStore.setFields("overlay1", [{ name: "name", numeric: false }]);
+    for (const leaf of layer.leaves) {
+      leaf.feature.properties = { name: "a" };
+    }
+    setIntent(ui, "overlay1", "fillMode", "ramp");
+    setIntent(ui, "overlay1", "fillRamp", {
+      field: "count",
+      method: "jenks",
+      classes: 3,
+      scheme: "Blues",
+    } as never);
+
+    const block = buildFillRow(ui, "overlay1");
+
+    expect(modeSelect(block).value).toBe("solid");
+    expect(
+      details(block).querySelector(`.${CONST.CLASSES.STYLE_FILL_NO_FIELD}`),
+    ).not.toBeNull();
+  });
 });
 
 describe("fill ramp detail — field / method / classes / scheme", () => {
   let ui: LayerUI;
-  let layer: ReturnType<typeof makeLayer>;
 
   beforeEach(() => {
     installChroma(["#111111", "#222222", "#333333"]);
-    ({ ui, layer } = initWithValues());
+    ({ ui } = initWithValues());
     setIntent(ui, "overlay1", "fillMode", "ramp");
     setIntent(ui, "overlay1", "fillRamp", {
       field: "count",
@@ -275,6 +298,26 @@ describe("fill ramp detail — field / method / classes / scheme", () => {
 
     expect(select.value).toBe("count");
     expect(getIntent(ui, "overlay1", "fillRamp")).toMatchObject({ field: "score" });
+  });
+
+  it("shows the first field when the stored field is no longer offered", () => {
+    // Options come from the current data; a stored field that disappeared
+    // cannot stay selected, or the select would render blank.
+    ui.runtimeStore.setFields("overlay1", [{ name: "score", numeric: true }]);
+    setIntent(ui, "overlay1", "fillRamp", {
+      field: "count",
+      method: "jenks",
+      classes: 3,
+      scheme: "Blues",
+    } as never);
+
+    const block = buildFillRow(ui, "overlay1");
+    const field = details(block).querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_FIELD_SELECT}`,
+    ) as HTMLSelectElement;
+
+    expect(Array.from(field.options).map(o => o.value)).toEqual(["score"]);
+    expect(field.value).toBe("score");
   });
 
   it("method selection writes the ramp method", () => {
