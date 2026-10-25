@@ -69,8 +69,31 @@ const collectPaneRoots = (paneNames: readonly string[]): HTMLElement[] => {
   return roots;
 };
 
+/** The pane a shadow element actually rides in, resolved from its real DOM
+ *  ancestry — never from `options.shadowPane`.  A declared name is boilerplate
+ *  (Leaflet's own default is `"shadowPane"` for every marker) and can collide
+ *  with a content pane's name; excluding by declaration would then drop that
+ *  whole content pane from every layer's walk.  The element's parent chain is
+ *  the same fact this channel already trusts when it reads `layerShadow(leaf)`. */
+const paneNameOf = (el: HTMLElement): string | null => {
+  const panes = (map.getPanes?.() ?? {}) as Record<string, HTMLElement | undefined>;
+  for (let node = el.parentElement; node; node = node.parentElement) {
+    for (const name of Object.keys(panes)) {
+      if (panes[name] === node) return name;
+    }
+  }
+  return null;
+};
+
+/** Whether a shadow image can ever be rasterised: it must declare a source.
+ *  AwesomeMarkers-style `folium.Icon` leaves an `<img src="">` node in the
+ *  leaf's `_shadow`; the draw pass would skip that silently, so it is rejected
+ *  at admission and reported to the caller instead. */
+const hasShadowSource = (el: HTMLElement): boolean =>
+  !(el instanceof HTMLImageElement) || !!el.getAttribute("src");
+
 /** Collect one layer's marker-shadow roots — each leaf's own `_shadow` element
- *  — and record the pane names those shadows ride in.
+ *  — and record the pane names those shadows *actually* ride in.
  *
  *  The leaf is the source, not the pane.  A marker's shadow can be mounted in
  *  the layer's own shadow pane (#733), left in Leaflet's shared `shadowPane`
@@ -85,14 +108,27 @@ const collectPaneRoots = (paneNames: readonly string[]): HTMLElement[] => {
  *  `paneNames` is the export-wide accumulator.  A custom shadow pane can be
  *  shared by several layers, and no layer's content walk may paint that pane as
  *  content, so the names are collected across the whole export before any
- *  content pane is resolved (see `renderer/index`'s render()). */
-const collectLayerShadows = (layer: L.Layer, paneNames: Set<string>): HTMLElement[] => {
+ *  content pane is resolved (see `renderer/index`'s render()).  Each name is
+ *  the shadow's real parent pane, added only for a shadow that was actually
+ *  admitted: an excluded or hidden shadow cannot be mistaken for content
+ *  anyway, because the content sweep runs the same admission filter. */
+const collectLayerShadows = (
+  layer: L.Layer,
+  paneNames: Set<string>,
+  onMissingSource?: (el: HTMLImageElement) => void,
+): HTMLElement[] => {
   const roots: HTMLElement[] = [];
   walkLeaf(layer, leaf => {
-    const name = (leaf as { options?: { shadowPane?: unknown } }).options?.shadowPane;
-    if (typeof name === "string" && name !== "") paneNames.add(name);
     const shadowEl = layerShadow(leaf);
-    if (shadowEl && isAdmittedRoot(shadowEl)) roots.push(shadowEl);
+    if (!shadowEl) return;
+    if (!hasShadowSource(shadowEl)) {
+      if (shadowEl instanceof HTMLImageElement) onMissingSource?.(shadowEl);
+      return;
+    }
+    if (!isAdmittedRoot(shadowEl)) return;
+    roots.push(shadowEl);
+    const paneName = paneNameOf(shadowEl);
+    if (paneName) paneNames.add(paneName);
   });
   return roots;
 };
@@ -370,6 +406,19 @@ const renderTextLabels = async (
 /** Render remaining icon types not handled by other passes:
  *  <img> → fallback sprite → inline SVG → background-color fill.
  *
+ *  Geometry is measured immediately before each draw, never once at the top of
+ *  the loop.  `render()` runs in the same task that hides the export chrome and
+ *  forces a reflow (session.ts), so the browser may still hold a transient box:
+ *  the first shadow pass measured a shadow pane at (-128,-72) and painted its
+ *  shadow 256x144 canvas px away from the icon, which is exactly the "icon
+ *  drawn, shadow missing" export.  Every branch below awaits something (an
+ *  image load, an SVG blob load) and that await is when the layout settles —
+ *  measuring again there makes the draw use the settled box.  The cheap
+ *  pre-cull keeps an off-crop root from paying that load, and `render()` adds a
+ *  frame barrier before the first pass so the pre-cull itself reads a settled
+ *  box.  (SVG/bg-color roots have no load to hide behind: they measure right
+ *  before their own draw.)
+ *
  *  `onLoadError` is optional on purpose: an image that cannot be read back is
  *  not fatal (the branches below still try inline SVG / a background fill), but
  *  it must not be silent either.  The marker-shadow channel is where a missing
@@ -383,18 +432,28 @@ const renderRemaining = async (
 ): Promise<void> => {
   const { ctx, rect, scale, contRect, cw, ch } = rc;
 
+  /** The draw-time box of a root, in canvas px. */
+  const measure = (el: HTMLElement) => {
+    const r = el.getBoundingClientRect();
+    return {
+      dx: (r.left - contRect.left - rect.left) * scale,
+      dy: (r.top - contRect.top - rect.top) * scale,
+      dw: r.width * scale,
+      dh: r.height * scale,
+      w: r.width,
+      h: r.height,
+    };
+  };
+
+  /** A zero-area or off-crop box paints nothing. */
+  const drawable = (g: ReturnType<typeof measure>): boolean =>
+    g.w >= 1 && g.h >= 1 && isVisible(g.dx, g.dy, g.dw, g.dh, cw, ch);
+
   for (const root of markerRoots) {
-    const r = root.getBoundingClientRect();
-    const l = r.left - contRect.left;
-    const t = r.top - contRect.top;
-    const w = r.width;
-    const h = r.height;
-    if (w < 1 || h < 1) continue;
-    const dx = (l - rect.left) * scale;
-    const dy = (t - rect.top) * scale;
-    const dw = w * scale;
-    const dh = h * scale;
-    if (!isVisible(dx, dy, dw, dh, cw, ch)) continue;
+    // Optimisation only: skip the load for a root that cannot draw.  The draw
+    // itself re-measures below, so a stale pre-cull here can never decide the
+    // painted coordinates.
+    if (!drawable(measure(root))) continue;
 
     const rootAlpha = effectiveOpacity(container, root);
 
@@ -403,23 +462,24 @@ const renderRemaining = async (
       root.tagName === "IMG" ? (root as HTMLImageElement) : root.querySelector("img");
     if (imgEl?.src) {
       let img: HTMLImageElement | null = null;
-      let drawn = false;
       try {
         img = (await loadImage(imgEl.src, "anonymous")) as HTMLImageElement;
-        drawn = true;
       } catch (error) {
         // The branches below still run; the caller decides whether this
         // failure is worth surfacing.
         onLoadError?.(imgEl.src, error);
-      } finally {
-        if (img) {
-          withAlpha(ctx, rootAlpha, () => {
-            ctx.drawImage(img!, dx, dy, dw, dh);
-          });
-          drawn = true;
-        }
       }
-      if (drawn) continue;
+      if (img) {
+        // The layout settled while the image loaded: this is the box the draw
+        // must use, not the one the pre-cull saw.
+        const g = measure(root);
+        if (drawable(g)) {
+          withAlpha(ctx, rootAlpha, () => {
+            ctx.drawImage(img!, g.dx, g.dy, g.dw, g.dh);
+          });
+        }
+        continue;
+      }
     }
 
     // 2. Elements with inline SVG (divIcon with html: '<svg>...</svg>')
@@ -444,9 +504,14 @@ const renderRemaining = async (
         const url = URL.createObjectURL(blob);
         try {
           const img = (await loadImage(url)) as HTMLImageElement;
-          withAlpha(ctx, rootAlpha, () => {
-            ctx.drawImage(img, dx, dy, dw, dh);
-          });
+          // Same draw-time measurement as the <img> branch: the blob load is
+          // an await, and the layout may have settled during it.
+          const g = measure(root);
+          if (drawable(g)) {
+            withAlpha(ctx, rootAlpha, () => {
+              ctx.drawImage(img, g.dx, g.dy, g.dw, g.dh);
+            });
+          }
         } finally {
           URL.revokeObjectURL(url);
         }
@@ -458,6 +523,10 @@ const renderRemaining = async (
 
     // 3. Elements with background-color but no background-image url (center dot)
     if (root.matches(CONST.SEL.LABEL)) continue;
+    // No await on this branch: the box measured right before the fill is the
+    // one every earlier root's awaits already settled.
+    const g = measure(root);
+    if (!drawable(g)) continue;
     const rootCS = window.getComputedStyle(root);
     const bgImg = rootCS.backgroundImage;
     const hasSprite = bgImg && bgImg !== "none" && bgImg.includes("url(");
@@ -471,9 +540,9 @@ const renderRemaining = async (
         const br = parseFloat(rootCS.borderRadius) || 0;
         if (br > 0) {
           ctx.beginPath();
-          ctx.roundRect(dx, dy, dw, dh, br * scale);
+          ctx.roundRect(g.dx, g.dy, g.dw, g.dh, br * scale);
           ctx.fill();
-        } else ctx.fillRect(dx, dy, dw, dh);
+        } else ctx.fillRect(g.dx, g.dy, g.dw, g.dh);
 
         const bw = parseFloat(rootCS.borderWidth) || 0;
         if (bw > 0 && rootCS.borderStyle !== "none" && rootCS.borderColor) {
@@ -481,9 +550,9 @@ const renderRemaining = async (
           ctx.lineWidth = bw * scale;
           if (br > 0) {
             ctx.beginPath();
-            ctx.roundRect(dx, dy, dw, dh, br * scale);
+            ctx.roundRect(g.dx, g.dy, g.dw, g.dh, br * scale);
             ctx.stroke();
-          } else ctx.strokeRect(dx, dy, dw, dh);
+          } else ctx.strokeRect(g.dx, g.dy, g.dw, g.dh);
         }
         ctx.restore();
       });

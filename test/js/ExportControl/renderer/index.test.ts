@@ -123,6 +123,11 @@ interface FixtureOpts {
   contentCanvas?: boolean;
   shadowExcluded?: boolean;
   displayNoneShadow?: boolean;
+  /** Declare a CONTENT pane name as the leaf's shadowPane while the shadow
+   *  element actually rides in the per-layer shadow pane. */
+  misnamedShadowPane?: boolean;
+  /** Leave the shadow <img> without a src (AwesomeMarkers-style icon). */
+  emptyShadowSrc?: boolean;
   /** LayerAPI exists but carries no `panes` host (the lightweight stub). */
   withoutPaneHost?: boolean;
   /** No LayerAPI at all. */
@@ -160,6 +165,7 @@ function makeFixture(opts: FixtureOpts = {}): Fixture {
   }
 
   const shadow = pinBox(img("shadow.png"), 90, 110, 40, 40);
+  if (opts.emptyShadowSrc) shadow.removeAttribute("src");
   if (opts.shadowExcluded) shadow.setAttribute("data-foliplus-export", "exclude");
   if (opts.displayNoneShadow) shadow.style.display = "none";
 
@@ -170,7 +176,10 @@ function makeFixture(opts: FixtureOpts = {}): Fixture {
   );
 
   const layer = {
-    options: { pane: "layer-content", shadowPane: shadowPaneName },
+    options: {
+      pane: "layer-content",
+      shadowPane: opts.misnamedShadowPane ? "layer-content" : shadowPaneName,
+    },
     _shadow: shadow,
   };
 
@@ -209,6 +218,7 @@ function makeFixture(opts: FixtureOpts = {}): Fixture {
     getZoom: () => 2,
     getCenter: () => ({ lat: 0, lng: 0 }),
     getPane: (name: string) => panes[name] ?? null,
+    getPanes: () => panes,
     foliplus: opts.withoutLayerApi ? {} : { LayerAPI: api },
   };
 
@@ -306,14 +316,15 @@ describe("collectLayerShadows", () => {
     expect([...paneNames]).toEqual(["shadowPane"]);
   });
 
-  it("records a shadow pane even when the shadow itself is excluded", () => {
-    // The name still has to leave the content walk, or the excluded shadow
-    // would be painted as a marker root instead.
+  it("does not record an excluded shadow's pane", () => {
+    // An excluded shadow cannot be painted as content either — the content
+    // sweep runs the same admission — so naming its pane would only risk
+    // subtracting a pane that carries real content.
     const fixture = makeFixture({ shadowExcluded: true });
     install(fixture);
     const paneNames = new Set<string>();
     expect(fixture.renderer.collectLayerShadows(fixture.layer, paneNames)).toEqual([]);
-    expect([...paneNames]).toEqual(["layer-content-shadow"]);
+    expect([...paneNames]).toEqual([]);
   });
 
   it("skips a hidden shadow", () => {
@@ -334,6 +345,37 @@ describe("collectLayerShadows", () => {
     };
     const paneNames = new Set<string>();
     expect(fixture.renderer.collectLayerShadows(group, paneNames)).toEqual([]);
+    expect([...paneNames]).toEqual([]);
+  });
+
+  it("excludes the pane a shadow actually rides in, not the declared name", () => {
+    // The leaf declares the CONTENT pane as its shadowPane while the element
+    // rides in the per-layer shadow pane.  Naming the declaration would drop
+    // the content pane from every layer and lose the icon; the element's real
+    // parent is the only fact the exclusion set may use.
+    const fixture = makeFixture({ misnamedShadowPane: true });
+    install(fixture);
+    const paneNames = new Set<string>();
+    const roots = fixture.renderer.collectLayerShadows(fixture.layer, paneNames);
+    expect(roots).toEqual([fixture.layer._shadow]);
+    expect([...paneNames]).toEqual(["layer-content-shadow"]);
+    expect(fixture.renderer.resolveExportPanes(fixture.layer, paneNames)).toEqual([
+      "layer-content",
+    ]);
+  });
+
+  it("rejects a shadow image with no src and reports it", () => {
+    // AwesomeMarkers-style folium.Icon: the shadow element exists but never
+    // declares a source.  It cannot be rasterised, so admission rejects it and
+    // the caller gets told instead of a silently shadowless export.
+    const fixture = makeFixture({ emptyShadowSrc: true });
+    install(fixture);
+    const onMissingSource = vi.fn();
+    const paneNames = new Set<string>();
+    expect(
+      fixture.renderer.collectLayerShadows(fixture.layer, paneNames, onMissingSource),
+    ).toEqual([]);
+    expect(onMissingSource).toHaveBeenCalledTimes(1);
     expect([...paneNames]).toEqual([]);
   });
 });
@@ -357,6 +399,11 @@ describe("render — marker shadows", () => {
     expect(call).toBeTruthy();
     expect(call[3]).toBe(40);
     expect(call[4]).toBe(40);
+    // And at its real position (canvas px): the icon's box is (100,100) and
+    // its shadow sits 10px left / 10px down of it.  Asserting only the size is
+    // what let the stale-rect P1 hide in this suite.
+    expect(call[1]).toBe(90);
+    expect(call[2]).toBe(110);
   });
 
   it("draws a shadow that stayed in Leaflet's shared shadowPane", async () => {
@@ -480,6 +527,7 @@ describe("render — marker shadows", () => {
       getZoom: () => 2,
       getCenter: () => ({ lat: 0, lng: 0 }),
       getPane: (name: string) => panes[name] ?? null,
+      getPanes: () => panes,
       foliplus: {
         LayerAPI: {
           layers: [
@@ -515,6 +563,68 @@ describe("render — marker shadows", () => {
     expect(loads.filter(src => src.includes("shadow-b.png"))).toHaveLength(1);
     expect(loads.filter(src => src.includes("icon-a.png"))).toHaveLength(1);
     expect(loads.filter(src => src.includes("icon-b.png"))).toHaveLength(1);
+  });
+
+  it("measures a shadow after its image loads, not before", async () => {
+    // The export hides the chrome and forces a reflow in the same task that
+    // starts the render, so the first rect read can be a transient one; the
+    // old code froze that stale box into dx/dy BEFORE awaiting the image.  The
+    // layout settles while the image is in flight, so the draw must use the
+    // box measured after the await.
+    const fixture = makeFixture();
+    install(fixture);
+    const shadow = fixture.layer._shadow as HTMLElement;
+    let settled = false;
+    const box = (left: number, top: number) => ({
+      left,
+      top,
+      width: 40,
+      height: 40,
+      right: left + 40,
+      bottom: top + 40,
+    });
+    shadow.getBoundingClientRect = () =>
+      (settled ? box(90, 110) : box(500, 247)) as DOMRect;
+    (UTIL.loadImage as any).mockImplementation(async (src: string) => {
+      fixture.loads.push(src);
+      if (src.includes("shadow.png")) settled = true;
+      return { src } as unknown as HTMLImageElement;
+    });
+
+    await runRender(fixture);
+
+    const shadowCall = drawOf(fixture, "shadow.png")!;
+    const iconCall = drawOf(fixture, "icon.png")!;
+    // The stale (500,247) box is what the pre-fix code painted; the settled box
+    // (90,110) is the icon's own shadow, 10px off the icon at (100,100).
+    expect(shadowCall[1]).toBe(90);
+    expect(shadowCall[2]).toBe(110);
+    expect(Math.abs(shadowCall[1] - iconCall[1])).toBeLessThanOrEqual(10);
+    expect(Math.abs(shadowCall[2] - iconCall[2])).toBeLessThanOrEqual(10);
+  });
+
+  it("keeps the icon when the declared shadowPane names the content pane", async () => {
+    // Before the exclusion set followed the DOM, this declaration subtracted
+    // the content pane and exported a map without its icons.
+    const fixture = makeFixture({ misnamedShadowPane: true });
+    install(fixture);
+    await runRender(fixture);
+    expect(fixture.loads.filter(src => src.includes("icon.png"))).toHaveLength(1);
+    expect(fixture.loads.filter(src => src.includes("shadow.png"))).toHaveLength(1);
+  });
+
+  it("warns once for a shadow image that declares no src", async () => {
+    const fixture = makeFixture({ emptyShadowSrc: true });
+    install(fixture);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    await runRender(fixture);
+
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining("marker shadow left out of the export"),
+    );
+    expect(fixture.loads.some(src => src.includes("shadow"))).toBe(false);
+    expect(fixture.loads.some(src => src.includes("icon.png"))).toBe(true);
   });
 });
 
