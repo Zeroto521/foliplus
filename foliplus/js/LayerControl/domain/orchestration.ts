@@ -15,6 +15,7 @@ import {
   type LayerFactory,
   type LayerInfo,
   type LayerInfoRegistry,
+  type LayerMutation,
   type LayerOrder,
   LayerSurface,
   PANE_ROLE,
@@ -263,29 +264,12 @@ class LayerOrchestration {
     return this.surfacesByLayer.get(L.stamp(layer)) ?? null;
   }
 
-  /** Panes a registered layer's *content* lives in, including the pane its
+  /** Panes a registered layer's content lives in, including the pane its
    *  surface synthesized. Falls back to the names in the layer's own tree for a
-   *  layer nobody registered.
-   *
-   *  The marker-shadow carrier is excluded on purpose. It belongs to the
-   *  layer's *face* — its opacity / z / focus writes go through
-   *  `surface.panes` — but it is not content: a shadow paints BELOW the icon
-   *  it belongs to (the pane sits one z-step under the base pane). Every
-   *  caller reads this list as "the panes whose DOM this layer owns as
-   *  content": the exporter walks each one for vectors, canvases and marker
-   *  roots, and focus's lift treats them as the layer's visible body. Listing
-   *  the shadow pane here made the exporter paint a shadow twice — once
-   *  through the shadow channel below the icon, and once as a marker root
-   *  above it, because a root list carries no z. The discovery fallback below
-   *  never returns it either: `PaneManager.discoverChildPanes` reads
-   *  `options.pane`, and no leaf points its `pane` at a shadow carrier. */
+   *  layer nobody registered. */
   resolveLayerPanes(layer: L.Layer): string[] {
     const surface = this.surfaceForLayer(layer);
-    if (surface?.panes.length) {
-      return surface.panes
-        .filter(pane => pane.role !== PANE_ROLE.SHADOW)
-        .map(pane => pane.name);
-    }
+    if (surface?.panes.length) return surface.paneNames;
     return this.panes.getLayerPanes(layer);
   }
 
@@ -378,9 +362,12 @@ class LayerOrchestration {
   registerEntry(
     opts: RegisterLayerOpts,
     hasUi: boolean,
-  ): { layerInfo: LayerInfo; existingIdx: number; hidden: boolean } {
+  ): {
+    layerInfo: LayerInfo;
+    hidden: boolean;
+    mutation: Extract<LayerMutation, { kind: "insert" | "replace-content" }>;
+  } {
     const existingLi = this.layerRegistry.get(opts.id);
-    const existingIdx = existingLi ? this.layerRegistry.indexOf(existingLi) : -1;
     const layerInfo = this.layerRegistry.createLayerInfo(opts, existingLi, this.map);
 
     // Same id, new layer object: the old layer is being replaced, not
@@ -398,7 +385,7 @@ class LayerOrchestration {
       this.map.removeLayer(existingLi.layer);
     }
 
-    if (existingIdx !== -1) this.layerRegistry.upsert(layerInfo);
+    if (existingLi) this.layerRegistry.upsert(layerInfo);
     else if (layerInfo.group === GROUP.BASE) {
       const firstBaseIdx = this.layerRegistry.firstBaseIdx;
       const atBottom = opts.baseInsert === "bottom";
@@ -426,7 +413,15 @@ class LayerOrchestration {
     // registration takes the map path (a runtime re-registration with a
     // panel still respects the user's hide).
     const hidden = hasUi && this.intentStore.get(opts.id, INTENT.VISIBLE) === false;
-    return { layerInfo, existingIdx, hidden };
+    // The insertion outcome carries the live position after the whole
+    // placement (upsert in place, or insert + saved-slot replay), so no
+    // pre-mutation index has to survive the call.
+    const index = this.layerRegistry.indexOf(layerInfo);
+    const mutation: Extract<LayerMutation, { kind: "insert" | "replace-content" }> =
+      existingLi
+        ? { kind: "replace-content", previous: existingLi, entry: layerInfo, index }
+        : { kind: "insert", entry: layerInfo, index };
+    return { layerInfo, hidden, mutation };
   }
 
   /** The domain half of {@link LayerController.unregisterLayer}: remove the
