@@ -10,18 +10,18 @@
 //
 // Two invariants the rest of the tree leans on:
 //
-//   I1  `materialize()` runs before `map.addLayer`, so `options.pane` is already
-//       right at the one moment Leaflet reads it — `Layer.options.pane` is
-//       ignored after `addLayer`, so a pane decided later can only be reached by
-//       moving DOM.
-//   I2  the pane *set* is fixed once materialized. Content may still arrive — a
-//       third party can mutate a registered group's tree — and the surface
-//       re-pins it on the next reconcile (see `contentDirty`), but no consumer
-//       has to handle a "not yet sorted" window. One pane joins the set
-//       lazily: the marker-shadow pane (`ensureShadowPane`) is synthesized
-//       during the same reconcile that first pins a marker leaf, so a group
-//       that registered empty still gains a shadow carrier — before anything
-//       is pinned into it, never after.
+//   - `materialize()` runs before `map.addLayer`, so `options.pane` is already
+//     right at the one moment Leaflet reads it — `Layer.options.pane` is
+//     ignored after `addLayer`, so a pane decided later can only be reached by
+//     moving DOM.
+//   - the pane *set* is fixed once materialized. Content may still arrive — a
+//     third party can mutate a registered group's tree — and the surface
+//     re-pins it on the next reconcile (see `contentDirty`), but no consumer
+//     has to handle a "not yet sorted" window. One pane joins the set
+//     lazily: the marker-shadow pane (`ensureShadowPane`) is synthesized
+//     during the same reconcile that first pins a marker leaf, so a group
+//     that registered empty still gains a shadow carrier — before anything
+//     is pinned into it, never after.
 //
 // No CONFIG / translator dependency: core/layer, not a component dir.
 import { createLogger } from "#common/log.js";
@@ -406,7 +406,8 @@ class LayerSurface implements LayerSurfaceContract {
    *  leaves on `layeradd`, and the next reconcile must pin their shadows
    *  into a pane that did not exist when the tree was last probed. The pane
    *  is created in the same synchronous pass that pins into it, so no
-   *  consumer sees a half-sorted window (I2's promise, one pane wider).
+   *  consumer sees a half-sorted window (the fixed pane-set promise, one pane
+   *  wider).
    *
    *  The invariant every layer capability leans on — "a write on the layer's
    *  panes reaches its whole visible DOM" — breaks exactly where a marker's
@@ -786,8 +787,9 @@ class LayerSurface implements LayerSurfaceContract {
   }
 
   /** Pin the layer's content into its panes: its options always (so a not-yet-
-   *  added leaf lands correctly — that is I1), and its already-rendered DOM when
-   *  Leaflet has placed it somewhere else (the content a caller added to the map
+   *  added leaf lands correctly — the materialize-before-add rule), and its
+   *  already-rendered DOM when Leaflet has placed it somewhere else (the content
+   *  a caller added to the map
    *  before we ever saw the layer, or since the last reconcile). */
   private reconcile(): void {
     if (!this.layer) return;
@@ -1061,8 +1063,8 @@ const detectCapabilities = (
   // pane. Since R11 the canvas face bakes layerAlpha into its draws
   // (`#common/canvasAlpha`); the capability still reports `"pane"` because
   // that is the honest "we own this face" tier — the bake-vs-CSS mechanism
-  // distinction is a T222 capabilities shape (`"baked"`/`"redraw"`), not
-  // something this detector invents.
+  // distinction belongs to a separate capabilities shape (`"baked"`/
+  // `"redraw"`), not something this detector invents.
   const hasContentPanes =
     Boolean(opts.paneName) ||
     (opts.paneSpecs && opts.paneSpecs.length > 0) || // eslint-disable-line @typescript-eslint/prefer-nullish-coalescing -- left side can be false
