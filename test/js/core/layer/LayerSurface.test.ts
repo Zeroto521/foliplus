@@ -302,6 +302,42 @@ describe("LayerSurface pane resolution", () => {
     expect(surface.capabilities.relocatable).toBe(false);
   });
 
+  it("logs a carrier escape thrown as a non-Error by its string form", () => {
+    // `validateCarrier` catches whatever the audit threw — a third-party
+    // audit, or a `throw "..."` in a leaf predicate — so it cannot assume an
+    // Error instance. A non-Error has no `message`, and reading it blindly
+    // would log `undefined` and lose the one detail that names the escape.
+    const { host } = makeMap();
+    const surface = new LayerSurface(host, {
+      id: "escape-str",
+      layer: new Group([new Marker()]) as unknown as L.Layer,
+    });
+    surface.materialize();
+
+    const escape: unknown = "IMG paint outside the layer's own panes";
+    const assertSpy = vi
+      .spyOn(carrierModule, "assertInsideOwnedPanes")
+      .mockImplementation(() => {
+        throw escape;
+      });
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      surface.markContentDirty();
+      surface.materialize();
+    } finally {
+      assertSpy.mockRestore();
+    }
+
+    try {
+      expect(surface.capabilities.opacity).toBe("none");
+      expect(
+        errorSpy.mock.calls.some(call => String(call[0]).includes("IMG paint outside")),
+      ).toBe(true);
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
   it("synthesizes no shadow pane for a layer without markers", () => {
     const { host } = makeMap();
     const surface = new LayerSurface(host, {

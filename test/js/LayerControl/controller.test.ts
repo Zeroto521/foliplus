@@ -2645,6 +2645,69 @@ describe("LayerController", () => {
     expect(spy).toHaveBeenCalledTimes(2);
   });
 
+  it("a leaf indexed to a registered surface marks that surface and no other", () => {
+    // The O(1) path this index exists for: the leaf itself is not a
+    // registered layer, so `directSurface` misses, and the child-ownership
+    // record is the only claim. Because it claims, the fallback branch (a
+    // membership scan, then the global sweep) must not run — if it did, one
+    // add would still rescan every registered tree.
+    //
+    // The stamp has to be identity-stable for any of this to hold: the shared
+    // mock is a per-call counter, so every lookup below would miss and the
+    // handler would quietly take the sweep instead.
+    const realStamp = window.L.stamp;
+    window.L.stamp = stableStamp;
+    try {
+      manager.map.hasLayer.mockReturnValue(true);
+      const owned = new window.L.TileLayer();
+      manager.registerLayer({ id: "gi", name: "Indexed", layer: owned });
+      manager.registerLayer({
+        id: "gother",
+        name: "Other",
+        layer: new window.L.TileLayer(),
+      });
+      const indexed = manager.surfaces.get("gi")!;
+      const other = manager.surfaces.get("gother")!;
+      const indexedSpy = vi.spyOn(indexed, "markContentDirty");
+      const otherSpy = vi.spyOn(other, "markContentDirty");
+
+      const leaf = { options: {} } as never;
+      manager.panes.rememberChildOwnership(leaf as never, owned as never);
+      manager.onLayerAdd({ layer: leaf } as never);
+
+      expect(indexedSpy).toHaveBeenCalledTimes(1);
+      expect(otherSpy).not.toHaveBeenCalled();
+    } finally {
+      window.L.stamp = realStamp;
+    }
+  });
+
+  it("treats a recorded owner with no live surface as no claim at all", () => {
+    // The write-point index can outlive the surface that wrote it (an
+    // unregister between the record and the add). The lookup answers null,
+    // and "recorded but gone" must not read as a claim — the handler falls
+    // through to the global sweep instead, which is the conservative answer
+    // for an arrival nothing provably owns.
+    const realStamp = window.L.stamp;
+    window.L.stamp = stableStamp;
+    try {
+      manager.map.hasLayer.mockReturnValue(true);
+      manager.registerLayer({ id: "gi", name: "I", layer: new window.L.TileLayer() });
+      const indexed = manager.surfaces.get("gi")!;
+      const spy = vi.spyOn(indexed, "markContentDirty");
+      const leaf = { options: {} } as never;
+      // A parent stamp no registered surface owns.
+      manager.panes.rememberChildOwnership(leaf as never, { options: {} } as never);
+      manager.onLayerAdd({ layer: leaf } as never);
+
+      // The sweep marked it — once, and for the reason above, not because the
+      // index claimed it.
+      expect(spy).toHaveBeenCalledTimes(1);
+    } finally {
+      window.L.stamp = realStamp;
+    }
+  });
+
   it("registerLayer pins the pane on a layer with a container of its own", () => {
     // A non-Path/Marker layer with children (L.GeoJSON-style) must get its
     // pane written so enforceOrder does not fall back to a generated pane.
