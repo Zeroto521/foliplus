@@ -57,10 +57,17 @@ import { closeAttrsPanel } from "./overlayPanel/attr.js";
 import { closeMoreMenu } from "./overlayPanel/menu.js";
 import { finishRename } from "./overlayPanel/rename.js";
 import { loadPersistedState } from "./state.js";
-import { applyBorderToLayer } from "./style/border.js";
-import { closeStylePanel, invalidateFields, replayFillState } from "./style/index.js";
-import { replaySizeIntent } from "./style/size.js";
-import { FACE, dropStyleDimApplies, scheduleStyleDimApply } from "./style/styleBag.js";
+import {
+  closeStylePanel,
+  invalidateFieldCache,
+  invalidateFields,
+} from "./style/index.js";
+import { listDimensions } from "./style/registry.js";
+import {
+  dropStyleDimApplies,
+  releaseStyleApplyOwner,
+  scheduleStyleDimApply,
+} from "./style/styleBag.js";
 import type { LayerUI } from "./surface.js";
 
 /**
@@ -340,8 +347,12 @@ const bindLayerEvents = (ui: LayerUI): void => {
       if (layerInfo) initLayerItem(ui, layerInfo);
     }),
     subscribe(EVENTS.LAYER_ITEM_REMOVED, (payload: { id: string }) => {
-      invalidateFields(ui, payload.id);
-      dropStyleDimApplies(payload.id);
+      // Cache drop only: unregister already tore the labels and their canvas
+      // down (annotation.unloadLayer runs before this event is emitted), and
+      // renderLabels for a gone layer rebuilds nothing — a replay here would
+      // be a walk for its own sake.
+      invalidateFieldCache(ui, payload.id);
+      dropStyleDimApplies(payload.id, ui);
     }),
     subscribe(EVENTS.LAYER_GROUP_COUNT_CHANGED, (payload: { group: string }) => {
       syncToggleAll(ui, payload.group);
@@ -387,7 +398,11 @@ const onLayerItemCountChange = (ui: LayerUI, id: string): void => {
   if (!item) return;
   const layerInfo = ui.c.layerRegistry.get(id);
   if (!layerInfo || layerInfo.group === GROUP.BASE) return;
-  invalidateFields(ui, id);
+  // Cheap sync cache drop — the row rebuild below re-reads the field lists,
+  // so they must not survive the content that just landed. The label rebuild
+  // itself is the most expensive of the replays (full tree walk + canvas
+  // repaint), so it is coalesced with the other faces further down.
+  invalidateFieldCache(ui, id);
 
   applyRowView(ui, item, buildRowCell(ui, layerInfo));
 
@@ -406,21 +421,19 @@ const onLayerItemCountChange = (ui: LayerUI, id: string): void => {
     opacityDelta = applyProjection(ui, id);
   }
 
-  // Size re-applies through the same hook: a pixel-radius leaf that lands
-  // after the user chose a size would otherwise keep the author's radius
-  // forever, because the radius walk only ran while the user was typing. The
-  // stored size is per layer, so the replay reaches every leaf the layer has
-  // now, and a new leaf keeps its own authored radius as the reset target.
-  // Nothing happens when the user never chose a size — the replay reads the
-  // intent and bails, so an untouched layer keeps exactly what was drawn.
-  replaySizeIntent(ui, id);
-
-  // A stored fill repaints the leaves this change just landed. Without it a
-  // streamed addData leaves the new features at the author's colour and a
-  // running ramp on breaks classified before the new values arrived - the UI
-  // would be showing one count while the map painted another. Coalesced per
-  // face like every panel write: ten additions in one frame cost one
-  // collect/classify/apply, and the walk always reads the layer's latest state.
+  // Opacity replays explicitly above: its return value IS the delta the
+  // notify carries below, so it cannot ride the registry loop. Every other
+  // dimension declares its `contentChange` policy on the descriptor — the
+  // single place a dimension states what a content change owes it, and the
+  // type makes the field mandatory, so a new dimension cannot silently skip
+  // the decision. The hub owns the mechanics every policy shares: sync
+  // policies run inline (inside the terminal event's error contract), frame
+  // policies schedule through the coalescer with the sourcing event
+  // attached, and the `when` gate answers before any box is allocated.
+  // Registry order is module-import order, not a semantic order: the
+  // replaying faces are independent (each schedules its own coalesced
+  // walk), and a future ordering dependency must be sorted explicitly, not
+  // inferred from the loop.
   //
   // Every replay is queued before the notify, not after: a projection
   // consumer can throw or unregister the layer, and the scheduled replay must
@@ -428,12 +441,19 @@ const onLayerItemCountChange = (ui: LayerUI, id: string): void => {
   // scheduling after a throw would skip the replay entirely, and scheduling
   // after a reentrant unregister would create a task for an id that is
   // already gone. The notify stays the last step of the operation.
-  scheduleStyleDimApply(FACE.FILL, id, () => replayFillState(ui, id));
-  // Border claims the same replay with its own face: a stroke chosen before
-  // the leaf landed would otherwise never reach it — the border walk only ran
-  // while the user was editing. applyBorderToLayer bails without a stored
-  // intent, so a layer the user never touched keeps its authored stroke.
-  scheduleStyleDimApply(FACE.STROKE, id, () => applyBorderToLayer(ui, id));
+  for (const dim of listDimensions()) {
+    const policy = dim.contentChange;
+    if (policy.kind === "none") continue;
+    if (policy.kind === "sync") {
+      policy.run(ui, id);
+      continue;
+    }
+    if (policy.when?.(ui, id) === false) continue;
+    scheduleStyleDimApply(policy.face, id, () => policy.run(ui, id), {
+      source: EVENTS.LAYER_ITEM_COUNT_CHANGE,
+      owner: ui,
+    });
+  }
   notifyDelta(ui, layerInfo, opacityDelta);
 };
 
@@ -458,7 +478,12 @@ const unbindEvents = (ui: LayerUI): void => {
   // gone, which is why this runs before the container guard.
   clearDragState(ui);
   const container = ui.uiContainer;
-  if (!container) return;
+  if (!container) {
+    // No panel to close, but the UI still owns whatever it scheduled — a
+    // detached UI must not leave a trailing frame (or its reporter) behind.
+    releaseStyleApplyOwner(ui);
+    return;
+  }
   // Unmount must clean up unconditionally — a subscription may already have
   // been `off`'d by a third party, or is about to be. Emitting OVERLAY_CLEAR
   // here would only reach whatever subscribers are still listening, so call
@@ -509,6 +534,10 @@ const unbindEvents = (ui: LayerUI): void => {
   }
   for (const off of ui.unsubscribeLayerSignals) off();
   ui.unsubscribeLayerSignals = [];
+  // Last: closeStylePanel above flushed the panel's trailing writes, so
+  // releasing the scheduler here cancels only frames that no longer have a
+  // UI to land on. Scoped to this UI — another map keeps its own boxes.
+  releaseStyleApplyOwner(ui);
 };
 
 export {

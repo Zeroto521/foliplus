@@ -1430,6 +1430,11 @@ class LayerController implements LayerAPI {
     this.isDestroyed = true;
     finalize(
       [
+        // Drop every style-apply frame this UI owns before the pieces it might
+        // touch go away: the UI's ownership scope dies here, so no trailing
+        // frame can outlive the control and no failure can be reported for a
+        // dead UI. Scoped to this UI — another map's pending writes stand.
+        ["release-style-applies", () => this.ui?.releaseStyleApplies()],
         [
           "detach-layeradd",
           // No guards: `onLayerAdd` is assigned unconditionally in `init`, and
