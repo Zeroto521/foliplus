@@ -857,12 +857,9 @@ class LayerSurface implements LayerSurfaceContract {
    *  the panel being open. */
   private refreshCapabilities(): void {
     if (!this.treeDerived) return;
-    const probe = this.auditProbe();
-    if (!probe) {
-      this.capabilities.opacity = CAP_TIER.NONE;
-      this.capabilities.relocatable = false;
-      return;
-    }
+    // `treeDerived` is only true for a pane-carried layer (detectCapabilities
+    // sets it as `!canvas && layer != null`), so the probe cannot be null here.
+    const probe = this.auditProbe(this.layer!);
     this.capabilities.fill = probe.fill;
     this.capabilities.stroke = probe.stroke;
     this.capabilities.size = probe.size;
@@ -878,9 +875,7 @@ class LayerSurface implements LayerSurfaceContract {
   /** The four-question probe for the current tree, reused within one dirty
    *  cycle. `contentDirty` clears it; `layer` identity guards the same-id
    *  replacement path (a replacement builds a new surface and a new cache). */
-  private auditProbe(): LayerCarrierProbe | null {
-    const layer = this.layer;
-    if (!layer) return null;
+  private auditProbe(layer: L.Layer): LayerCarrierProbe {
     if (this.carrierAudit?.layer === layer) return this.carrierAudit.probe;
     const probe = probeLayerCarrier(layer);
     this.carrierAudit = { layer, probe };
