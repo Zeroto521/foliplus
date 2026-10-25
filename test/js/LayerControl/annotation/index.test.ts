@@ -1606,3 +1606,117 @@ describe("AnnotationManager — clearing labels drops their pan plan", () => {
     expect(origin).toEqual({ x: 25, y: 0 });
   });
 });
+
+describe("AnnotationManager — a map whose mapPane is absent", () => {
+  // The plan records where mapPane sat so a pan can translate instead of
+  // re-planning. Both sides of that contract have an absent branch a normal
+  // map never takes: a full refresh with no mapPane cannot record an origin,
+  // and a pan with no mapPane cannot read a position. Each must fall back
+  // rather than skip state (an origin-less plan is healed by the next pan).
+  const moveHandler = (map: L.Map): (() => void) =>
+    (map.on as unknown as ReturnType<typeof vi.fn>).mock.calls.find(
+      call => call[0] === "move",
+    )![1] as () => void;
+
+  const updateHandler = (map: L.Map): (() => void) =>
+    (map.on as unknown as ReturnType<typeof vi.fn>).mock.calls.find(
+      call => call[0] === "moveend",
+    )![1] as () => void;
+
+  const frame = (): Promise<null> =>
+    new Promise(resolve => requestAnimationFrame(() => resolve(null)));
+
+  const panePos = (get: () => { x: number; y: number }): void => {
+    (window.L as unknown as { DomUtil: unknown }).DomUtil = {
+      getPosition: get,
+    };
+  };
+
+  it("plans without an origin when a full refresh runs before mapPane exists, then heals on the next pan", async () => {
+    const { map, mapPane } = makeMap();
+    let pos = { x: 0, y: 0 };
+    panePos(() => pos);
+    let panes: { mapPane?: HTMLElement } = {};
+    (map as unknown as { getPanes: () => unknown }).getPanes = () => panes;
+    const mgr = new AnnotationManager({ map, layerFind: () => oneLabel() });
+    mgr.setConfig("a", CONFIG);
+    mgr.renderLabels("a");
+    const c = canvas();
+    c.paint.mockClear();
+
+    // Full refresh with no mapPane: the origin ternary and its guard both
+    // take the absent path, so the plan lands without an origin.
+    updateHandler(map)();
+    const internals = mgr as unknown as {
+      planOrigins: Map<string, { x: number; y: number }>;
+    };
+    expect(internals.planOrigins.has("a")).toBe(false);
+    expect(c.paint).toHaveBeenCalledTimes(1);
+
+    // mapPane appears; the pan has a plan but no origin — it must replan and
+    // stamp the origin it planned at, not translate from nowhere.
+    panes = { mapPane };
+    pos = { x: 12, y: -3 };
+    moveHandler(map)();
+    await frame();
+    expect(internals.planOrigins.get("a")).toEqual({ x: 12, y: -3 });
+    expect(c.paint.mock.calls.at(-1)![0]).toHaveLength(1);
+    mgr.destroy();
+  });
+
+  it("falls back to a full refresh when a pan runs without a mapPane", async () => {
+    const { map } = makeMap();
+    let pos = { x: 0, y: 0 };
+    panePos(() => pos);
+    const proj = vi.spyOn(map, "latLngToContainerPoint");
+    const mgr = new AnnotationManager({ map, layerFind: () => oneLabel() });
+    mgr.setConfig("a", CONFIG);
+    mgr.renderLabels("a");
+    const c = canvas();
+    const callsAfterPlan = proj.mock.calls.length;
+    c.paint.mockClear();
+
+    // The pane container is gone mid-pan: the fast path cannot read a
+    // position, so the move falls back to the full plan instead of no-oping.
+    (map as unknown as { getPanes: () => unknown }).getPanes = () => ({});
+    moveHandler(map)();
+    await frame();
+
+    expect(proj.mock.calls.length).toBeGreaterThan(callsAfterPlan);
+    expect(c.paint).toHaveBeenCalledTimes(1);
+    mgr.destroy();
+  });
+
+  it("translates a vertical-only pan and skips a zero-delta pan", async () => {
+    const { map } = makeMap();
+    let pos = { x: 0, y: 0 };
+    panePos(() => pos);
+    const mgr = new AnnotationManager({ map, layerFind: () => oneLabel() });
+    mgr.setConfig("a", CONFIG);
+    mgr.renderLabels("a");
+    const c = canvas();
+    const fullPlan = c.paint.mock.calls.at(-1)![0] as Array<{
+      box: { x: number; y: number };
+    }>;
+    c.paint.mockClear();
+
+    // dx === 0 while dy !== 0: the conjunction must still evaluate its right
+    // operand, and the plan translates vertically.
+    pos = { x: 0, y: 25 };
+    moveHandler(map)();
+    await frame();
+    const panned = c.paint.mock.calls.at(-1)![0] as Array<{
+      box: { x: number; y: number };
+    }>;
+    expect(panned[0]!.box.y - fullPlan[0]!.box.y).toBeCloseTo(25);
+    expect(panned[0]!.box.x - fullPlan[0]!.box.x).toBeCloseTo(0);
+
+    // Back at the origin: nothing moved, so the fast path skips the repaint.
+    c.paint.mockClear();
+    pos = { x: 0, y: 0 };
+    moveHandler(map)();
+    await frame();
+    expect(c.paint).not.toHaveBeenCalled();
+    mgr.destroy();
+  });
+});

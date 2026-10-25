@@ -7,6 +7,7 @@ import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { GROUP } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { type LayerController } from "#foliplus/LayerControl/controller.js";
+import type { LayerDimension } from "#foliplus/LayerControl/type.js";
 import { type LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { setIntent } from "#foliplus/LayerControl/ui/intent.js";
 import {
@@ -16,6 +17,7 @@ import {
 } from "#foliplus/LayerControl/ui/listPanel/index.js";
 import { commitBorderColor } from "#foliplus/LayerControl/ui/style/border.js";
 import { commitFillColor } from "#foliplus/LayerControl/ui/style/fill.js";
+import { registerDimension } from "#foliplus/LayerControl/ui/style/registry.js";
 import { commitSize } from "#foliplus/LayerControl/ui/style/size.js";
 import {
   FACE,
@@ -805,5 +807,36 @@ describe("onLayerItemCountChange — the registry replays", () => {
     expect(second.map.foliplus.onError).not.toHaveBeenCalled();
     first.manager.destroy();
     second.manager.destroy();
+  });
+
+  it("runs a sync content-change policy inline and leaves the frame policies queued", () => {
+    const areal = arealLeaf();
+    ({ manager, ui, map } = withGroup([areal]));
+    // A stored fill intent makes the fill policy's when-gate pass, so the same
+    // registry loop holds a sync and a frame policy to tell apart.
+    commitFillColor(ui, "grp1", "#ff0000");
+    flushStyleDimApplies("grp1");
+    areal.setStyle.mockClear();
+
+    const syncRun = vi.fn();
+    // No built-in dimension declares the sync arm; a test dimension takes it.
+    // Registration is per module graph, and this is the file's last test.
+    registerDimension({
+      key: "test.dim.sync-policy",
+      gate: () => true,
+      value: () => undefined,
+      row: () => document.createElement("div"),
+      contentChange: { kind: "sync", run: syncRun },
+    } as unknown as LayerDimension<unknown>);
+
+    ensureEvents(map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "grp1" });
+
+    // The sync half already ran — no frame flush needed.
+    expect(syncRun).toHaveBeenCalledTimes(1);
+    // The frame half of the same loop is still coalesced into its next frame.
+    expect(hasStyleDimApply(FACE.FILL, "grp1")).toBe(true);
+    flushStyleDimApplies("grp1");
+    expect(areal.setStyle).toHaveBeenCalled();
+    manager.destroy();
   });
 });
