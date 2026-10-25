@@ -77,8 +77,7 @@
     var(--foliplus-red-rgb),
     var(--foliplus-alpha-50)
   );
-  /* Focus is not brand emphasis: a themed UI may recolor it independently
-     (Web Awesome exposes a separate focus semantic), and the ring must stay
+  /* Focus is not brand emphasis: a consumer theme may recolor it independently, and the ring must stay
      legible when the accent sits right next to it. The default keeps today's
      accent red. */
   --foliplus-focus-color: var(--foliplus-accent-primary);
