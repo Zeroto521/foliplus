@@ -147,8 +147,9 @@ const syncView = (ui: LayerUI, view: FilterRowsView, model: LayerFilterModel): v
   view.model = model;
   const pct = model.total > 0 ? Math.round((model.kept / model.total) * 100) : 0;
   // Result readout: percentage first, then the kept / total pair in the
-  // owner's unit, compact like the row column ("42% (2.5K of 6K) kept").
-  // One sentence carries the whole fact — there is no second ratio track.
+  // owner's unit as exact grouped integers ("42% (2,500 of 6,000) kept") —
+  // unlike the row column's compact form. One sentence carries the whole
+  // fact — there is no second ratio track.
   view.result.textContent = ui
     .T("filter_result")
     .replace("{pct}", String(pct))

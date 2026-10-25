@@ -971,8 +971,9 @@ describe("LayerUI filter panel — result, Clear and row state", () => {
     const funnel = count.querySelector(`.${CONST.CLASSES.COUNT_FUNNEL}`) as HTMLElement;
     expect(funnel).not.toBeNull();
     expect(funnel.querySelector("svg")).not.toBeNull();
-    // Exact count, not the compact form: 2,500 beats 2.5K on a filtered row.
-    // Read the value span (the funnel SVG source contributes whitespace text).
+    // The row column stays compact (2.5K for a large kept count, pinned
+    // below); only the panel Result reads the exact grouped pair. Read the
+    // value span (the funnel SVG source contributes whitespace text).
     expect(count.querySelector(".foliplus-layer-count-value")!.textContent).toBe("2");
     // Hover title: kept / total filtered · short type — no layer name, and
     // never the attrs panel's long "Point Layer" wording.
