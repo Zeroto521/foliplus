@@ -25,10 +25,13 @@ import {
   visibleDomOf,
 } from "#foliplus/core/layer/carrier.js";
 import { PANE_ROLE } from "#foliplus/core/layer/const.js";
+import { saveWindowGlobals } from "../../fixture.js";
 
-// The mock `window.L` is swapped for the real library for this file only.
-// The modules under test resolve `L` at call time, so the swap reaches them;
-// no production module captures `L` at import time.
+// The mock `window.L` is swapped for the real library for this file only:
+// the modules under test resolve `L` at call time, and `afterAll` restores
+// the canonical mock so the swap cannot leak under `isolate: false`.
+const restoreGlobals = saveWindowGlobals("L");
+afterAll(restoreGlobals);
 window.L = L as unknown as typeof window.L;
 
 // 1×1 transparent PNGs. Data URIs keep jsdom from attempting any fetch.

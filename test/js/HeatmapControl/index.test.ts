@@ -11,9 +11,11 @@
 // destroy() do not.
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { makeConfig } from "../config-fixture.js";
+import { saveWindowGlobals } from "../fixture.js";
 
-/** `window.L` as `setup.ts` installed it, restored after this file's stub. */
-const savedL = window.L;
+/** Restore the setup.ts globals this file swaps; hooks are file-scoped. */
+const restoreGlobals = saveWindowGlobals("L", "map", "CONFIG");
+afterAll(restoreGlobals);
 
 type CapturedControl = {
   log: { warn: (...args: unknown[]) => void };
@@ -125,10 +127,6 @@ describe("HeatmapControl entry — half-initialised manager", () => {
     await import("#foliplus/HeatmapControl/index.js");
     expect(captured, "the IIFE should have mounted the control").not.toBeNull();
     ctrl = captured!;
-  });
-
-  afterAll(() => {
-    (window as any).L = savedL;
   });
 
   it("keeps the manager reachable when init() throws, so destroy() releases it", () => {

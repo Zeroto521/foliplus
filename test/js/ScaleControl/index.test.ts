@@ -12,9 +12,11 @@
 // of the leaky pattern: L.Control.Scale.onAdd registers `move` on the map keyed
 // to the scale instance, and setZoom fires that listener synchronously.
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { saveWindowGlobals } from "../fixture.js";
 
-/** `window.L` as `setup.ts` installed it, restored after this file's stub. */
-const savedL = window.L;
+/** Restore the setup.ts globals this file swaps; hooks are file-scoped. */
+const restoreGlobals = saveWindowGlobals("L", "map");
+afterAll(restoreGlobals);
 
 type EventEntry = { fn: (...args: unknown[]) => unknown; ctx: unknown };
 type EventRegistry = Record<string, EventEntry[]>;
@@ -164,10 +166,6 @@ const mockL = {
 beforeAll(() => {
   (window as any).L = mockL;
   (window as any).map = new MockMap();
-});
-
-afterAll(() => {
-  (window as any).L = savedL;
 });
 
 describe("ScaleControl inner-Leaflet-Scale teardown", () => {
