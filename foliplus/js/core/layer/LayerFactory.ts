@@ -228,10 +228,13 @@ class LayerFactory {
     };
 
     let registered = false;
-    // The entry THIS surface registered, read back after success. It is the
+    // The entry THIS surface registered, taken from the commit token. It is the
     // lease: unregister only ever removes that exact entry, so a failed
     // sibling, or an old owner after a same-id replacement, cannot delete
-    // the registry's current owner by bare id.
+    // the registry's current owner by bare id. Never read back from the
+    // registry — a subscriber can retire this entry and install a same-id
+    // replacement inside the registration fan-out, and a read-back would adopt
+    // the replacement as this surface's lease.
     let registeredEntry: LayerInfo | null = null;
     let layerOpts: RegisterLayerOpts;
     let registerIdempotent = false;
@@ -261,6 +264,28 @@ class LayerFactory {
       try {
         preRegister();
         registerLayer(layerOpts);
+        // Lease first, then prove the entry still owns the id before the
+        // post-register step runs. A registration whose id was retired (or
+        // replaced by a subscriber mid-notify) returned normally from the
+        // controller, so this is the only place that can spot it.
+        registeredEntry = committedEntry;
+        const registry = this.deps.registry?.();
+        if (
+          registeredEntry &&
+          registry &&
+          registry.get?.(opts.id) !== registeredEntry
+        ) {
+          // Fail closed: the surface does not own the id any more. Unmount the
+          // face and report "not registered" (no authority, no id write) so
+          // the replacement that now owns the id survives an outer unregister.
+          finalize([["rollback-mount", rollbackPreRegister]], failure =>
+            log.warn(
+              `register fail-closed step "${failure.name}" threw`,
+              failure.error,
+            ),
+          );
+          return;
+        }
         postRegister();
       } catch (error) {
         // Two compensations are owed: drop the entry the controller committed
@@ -288,7 +313,6 @@ class LayerFactory {
         throw error;
       }
       registered = true;
-      registeredEntry = this.deps.registry?.().get?.(opts.id) ?? null;
     };
 
     const unregister = () => {

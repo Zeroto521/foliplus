@@ -664,6 +664,21 @@ class LayerController implements LayerAPI {
     return new SettledOperation(this.events);
   }
 
+  /** Stop a registration that has already recorded a consumer failure.
+   *
+   *  The row insert/update event is the registration's first fan-out; once a
+   *  consumer has thrown there, the transaction is heading for the factory's
+   *  rollback, and no later event may announce it. Without this gate the
+   *  projection CHANGE (absorbed from `applyUserState`) and the registration
+   *  CHANGE still went out after the failing notify, so every consumer that
+   *  re-reads the registry saw the layer appear and then vanish — the ghost
+   *  announcement the rollback exists to prevent. Raising here lets the
+   *  factory's catch drop the committed entry and unmount the face. */
+  private stopOnFailure(operation: SettledOperation): void {
+    // One boolean read on the healthy path; `throwIfFailed` only when doomed.
+    if (operation.hasFailure()) operation.throwIfFailed();
+  }
+
   registerLayer(opts: RegisterLayerOpts): HTMLElement | null {
     if (!opts?.id) throw new Error(this.log.msg(this.T("id_required")));
 
@@ -703,10 +718,9 @@ class LayerController implements LayerAPI {
       opts,
       Boolean(this.ui),
     );
-    // Hand the factory its commit token before any post-commit step can throw
-    // (map membership, notifications): its rollback drops this exact entry,
-    // never a same-id replacement a subscriber may install mid-notify.
-    opts.onCommitted?.(layerInfo);
+    // The commit token reaches the factory inside `registerEntry`, at the
+    // registry write point — the only place that knows the entry exists before
+    // `materialize()`/pane work can throw. Nothing to forward from here.
 
     // If the layer was previously hidden by the user, keep it off the map on
     // re-entry so it isn't silently re-added by runtime re-registration. A
@@ -737,6 +751,10 @@ class LayerController implements LayerAPI {
         // so the row's cached field list and resolved auto field are both stale.
         operation.emit(EVENTS.LAYER_ITEM_UPDATED, { id: opts.id });
       }
+      // The row insert/update above is this registration's first fan-out: a
+      // throw there dooms it, so stop before projecting state or announcing a
+      // layer that is about to be rolled back.
+      this.stopOnFailure(operation);
       // A stored dimension must be replayed on first registration too. Heatmap
       // and Measure register after LayerControl has attached, so this is the only
       // pass that reaches a late-arriving layer's own visibility, opacity, name
@@ -753,12 +771,20 @@ class LayerController implements LayerAPI {
       });
       // Defer z-order enforcement so batch registration coalesces into one pass.
       this.debouncedEnforce();
+      // REFRESHED / GROUP_COUNT consumers can also throw: those failures are
+      // recorded in the same operation, and the projection batch below would
+      // broadcast a CHANGE for a registration that is already rolling back.
+      this.stopOnFailure(operation);
       // The round goes out last — after the row insert, the count sync and the
       // order replay — so a subscriber that re-enters reads the settled panel:
       // full group count, correct row state. The batch carries the entry it ran
       // against, so a retire inside that notify cannot announce for a
       // replacement holding the same id.
       collectDeltas(this.ui, moved, operation);
+      // A projection CHANGE consumer can throw too. The registration CHANGE
+      // below is the last broadcast that claims "this layer now exists", so a
+      // known failure must stop it here rather than after the fact.
+      this.stopOnFailure(operation);
 
       // A subscriber can retire the entry inside that notify: a destroy takes
       // the container and the registry with it, and an unregister leaves the id

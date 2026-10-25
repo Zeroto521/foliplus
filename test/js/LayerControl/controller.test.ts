@@ -2216,6 +2216,89 @@ describe("LayerController", () => {
     expect(manager.layerRegistry.get("heat")?.name).toBe("Replacement");
   });
 
+  it("a registration retired and replaced without a throw fails closed", () => {
+    // P2-1b: the same-id swap does not have to throw. The controller's retired
+    // path returns null after the notify, so the factory's catch never runs —
+    // and the old read-back leased the replacement's entry as this surface's
+    // own. The outer unregister then deleted the replacement by bare id.
+    const { manager, ui } = initFixture({
+      data: [{ id: "base1", name: "OSM", group: "base" }],
+    });
+    const canvas = manager.createCanvas({ id: "heat", name: "Heat" });
+    let swapped = false;
+    ui.events.on(EVENTS.LAYER_ITEM_ADDED, payload => {
+      if (payload.id !== "heat" || swapped) return;
+      swapped = true;
+      manager.unregisterLayer("heat");
+      manager.registerLayer({ id: "heat", name: "Replacement" });
+    });
+
+    expect(() => canvas.register()).not.toThrow();
+
+    expect(canvas.registered()).toBe(false);
+    expect(canvas.canvas.parentElement).toBeNull();
+    expect(manager.layerRegistry.get("heat")?.name).toBe("Replacement");
+
+    // The failed registration holds no authority over the id.
+    canvas.unregister();
+    expect(manager.layerRegistry.get("heat")?.name).toBe("Replacement");
+  });
+
+  it("a registration whose materialize throws drops its committed entry", () => {
+    // P1c: the commit token used to be handed over only after registerEntry
+    // returned, so a throw inside it (pane materialize / DOM work) left a
+    // committed registry entry the factory never learned about — a ghost with
+    // no row and no surface to reclaim it.
+    const { manager } = initFixture({
+      data: [{ id: "base1", name: "OSM", group: "base" }],
+    });
+    const canvas = manager.createCanvas({ id: "heat", name: "Heat" });
+    const surfaceFor = vi.spyOn(manager.domain, "surfaceFor").mockReturnValue({
+      materialize: () => {
+        throw new Error("materialize boom");
+      },
+    } as never);
+
+    expect(() => canvas.register()).toThrow("materialize boom");
+
+    expect(canvas.registered()).toBe(false);
+    expect(canvas.canvas.parentElement).toBeNull();
+    expect(manager.layerRegistry.has("heat")).toBe(false);
+    surfaceFor.mockRestore();
+  });
+
+  it("announces no LAYER_CHANGE for a registration that rolls back", () => {
+    // P2-6: the projection CHANGE (absorbed from applyUserState) and the
+    // registration CHANGE used to go out after the failing notify, so a
+    // consumer that re-reads the registry saw the layer appear and then vanish.
+    // A CHANGE for an id that is still registered at delivery time is exactly
+    // that ghost announcement; only the rollback's retirement retraction (the
+    // id is gone by then) may survive.
+    const { manager, ui } = initFixture({
+      data: [{ id: "base1", name: "OSM", group: "base" }],
+    });
+    const canvas = manager.createCanvas({ id: "heat", name: "Heat" });
+    const announcements: { id: string; registered: boolean }[] = [];
+    ui.events.on(EVENTS.LAYER_CHANGE, payload =>
+      announcements.push({
+        id: payload.id,
+        registered: manager.layerRegistry.has(payload.id),
+      }),
+    );
+    let thrown = false;
+    ui.events.on(EVENTS.LAYER_ITEM_ADDED, payload => {
+      if (payload.id !== "heat" || thrown) return;
+      thrown = true;
+      throw new Error("notify boom");
+    });
+
+    expect(() => canvas.register()).toThrow("notify boom");
+
+    expect(canvas.registered()).toBe(false);
+    expect(manager.layerRegistry.has("heat")).toBe(false);
+    expect(announcements.filter(entry => entry.registered)).toEqual([]);
+  });
+
   it("an old owner cannot unregister a same-id replacement and still ends in its terminal state", () => {
     const { manager } = initFixture({
       data: [{ id: "A", name: "A", group: "overlay" }],
@@ -3808,7 +3891,7 @@ describe("LayerController", () => {
   });
 
   describe("lifecycle operations settle their whole fan-out", () => {
-    it("a throwing row signal does not cut off the registration CHANGE", () => {
+    it("a throwing row signal stops the registration before its CHANGE", () => {
       manager.map.hasLayer.mockReturnValue(false);
       manager.uiContainer = document.createElement("div");
       manager.ui = {
@@ -3829,9 +3912,12 @@ describe("LayerController", () => {
         } as any),
       ).toThrow("item boom");
 
-      // The internal signal failed but the registration change and the state
-      // it announces still landed.
-      expect(changes).toEqual(["new1"]);
+      // P2-6: a failure recorded by the row signal dooms this registration. The
+      // factory-backed path rolls the entry back; this direct LayerAPI call has
+      // no surface to roll back, but the registration CHANGE must not announce a
+      // layer whose registration already failed (consumers would see it appear
+      // and, for the factory path, vanish again).
+      expect(changes).toEqual([]);
       expect(manager.layerRegistry.has("new1")).toBe(true);
     });
 

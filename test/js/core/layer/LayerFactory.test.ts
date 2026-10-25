@@ -956,10 +956,14 @@ describe("LayerFactory", () => {
       warn.mockRestore();
     });
 
-    it("does not drop a same-id replacement when postRegister fails", () => {
-      // The committed token is the guard: a subscriber may have replaced the
-      // id between registerLayer returning and postRegister throwing, and a
-      // bare-id unregister would delete that replacement.
+    it("fails closed when the committed lease no longer owns the id", () => {
+      // P2-1b: the controller can return normally after a subscriber retired
+      // this entry and installed a same-id replacement inside the notify (the
+      // retired path returns null, it does not throw). The token — not a
+      // registry read-back — is the lease, and a mismatched registry means the
+      // surface never owned the id: unmount the face, report "not registered",
+      // and hold no authority, so an outer unregister cannot delete the
+      // replacement by bare id.
       const committed = { id: "canvas_test" } as never;
       const replacement = { id: "canvas_test", name: "Replacement" } as never;
       const unreg = vi.fn(() => true);
@@ -975,23 +979,32 @@ describe("LayerFactory", () => {
         invalidateType: () => {},
         registry: () => ({ get: () => replacement }) as never,
         slotOf: () => {
-          throw new Error("slot boom");
+          throw new Error("postRegister must not run after a fail-closed lease");
         },
       });
       const api = f.createCanvas({ id: "canvas_test" });
 
-      expect(() => api.register()).toThrow("slot boom");
+      // No throw: the controller's retired path is a normal return, and the
+      // surface only declines to claim ownership.
+      expect(() => api.register()).not.toThrow();
       expect(unreg).not.toHaveBeenCalled();
       expect(api.registered()).toBe(false);
       expect(api.canvas.parentElement).toBeNull();
+      expect(api.canvas.classList.contains("hidden")).toBe(true);
+
+      // No authority survives: the replacement keeps the id even after the
+      // failed surface is unregistered again.
+      api.unregister();
+      expect(unreg).not.toHaveBeenCalled();
     });
 
-    it("a lease with no read-back entry does not delete a same-id replacement", () => {
-      // P3-2: the read-back can fail even though the entry exists. The
-      // surface then holds no lease, so unregister must fail closed — the
-      // replacement that owns the id now must survive.
+    it("a token-less lease does not delete a same-id replacement", () => {
+      // A caller that wires no commit sink cannot prove it owns the id. The
+      // surface may report registered (legacy contract for a bare
+      // `registerLayer`), but unregister must fail closed: a replacement that
+      // owns the id now must survive.
       const replacement = { id: "canvas_test" } as never;
-      const registry = { get: vi.fn() };
+      const registry = { get: vi.fn(() => replacement) };
       const unreg = vi.fn(() => true);
       const f = new LayerFactory({
         map,
@@ -1002,12 +1015,10 @@ describe("LayerFactory", () => {
         invalidateType: () => {},
         registry: () => registry as never,
       });
-      registry.get.mockReturnValueOnce(null); // the lease read-back fails
       const api = f.createCanvas({ id: "canvas_test" });
       api.register();
       expect(api.registered()).toBe(true);
 
-      registry.get.mockReturnValue(replacement); // a replacement owns the id
       api.unregister();
 
       expect(unreg).not.toHaveBeenCalled();

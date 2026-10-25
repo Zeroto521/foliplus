@@ -266,8 +266,9 @@ interface RegisterLayerOpts {
    *  fallback). */
   metaProvider?: (() => Record<string, string | number>) | null;
   /** @internal One-shot commit sink installed by LayerFactory on its own
-   *  registration options. The controller reports the exact `LayerInfo` it
-   *  committed through it, before any post-commit step can fail, so the
+   *  registration options. The registration's registry write point reports the
+   *  exact `LayerInfo` it committed through it, before any post-commit step
+   *  (materialize, pane wiring, notification fan-out) can fail, so the
    *  factory's rollback can drop that entry by identity rather than by bare
    *  id. Not part of the public registration contract. */
   onCommitted?: ((entry: LayerInfo) => void) | null;

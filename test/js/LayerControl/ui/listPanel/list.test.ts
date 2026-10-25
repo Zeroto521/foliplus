@@ -967,7 +967,7 @@ describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, ()
     expect(active.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
   });
 
-  it("survives a focused duplicate anchor with nothing left to focus", () => {
+  it("falls back to a navigable neighbour when the survivor has nothing focusable", () => {
     const { ui } = initFixture({ data: benchData(3, 1) });
     const container = attachedPanel(ui);
     const anchorOf = () =>
@@ -978,9 +978,10 @@ describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, ()
       ) as HTMLElement;
     const original = anchorOf();
     const duplicate = original.cloneNode(true) as HTMLElement;
-    // The surviving anchor carries nothing at all: the exact path cannot
-    // resolve, the fallback finds no control, and the focus transfer must be
-    // optional, not assumed.
+    // The surviving anchor carries nothing focusable: the exact path cannot
+    // resolve and the control fallback finds nothing. The repair must still
+    // land focus inside the panel (nearest navigable row/anchor), never on
+    // <body> — the keyboard user would otherwise restart from the document.
     duplicate.replaceChildren();
     duplicate.removeAttribute("tabindex");
     container.appendChild(duplicate);
@@ -988,6 +989,27 @@ describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, ()
 
     expect(() => syncRowOrder(ui)).not.toThrow();
     expect(anchorOf()).toBe(duplicate);
+    expect(document.activeElement).not.toBe(document.body);
+    expect(container.contains(document.activeElement as Node)).toBe(true);
+  });
+
+  it("falls back to the surviving row itself when its controls were stripped", () => {
+    const { ui } = initFixture({ data: benchData(3, 1) });
+    const container = attachedPanel(ui);
+    const original = rowOf(ui, "overlay_1");
+    const duplicate = original.cloneNode(true) as HTMLElement;
+    // The clone lost every in-row control (checkbox / ⋮), so the exact path
+    // has no target; the row itself is focusable (tabindex=0) and must take
+    // the focus rather than leaving it on the removed original.
+    duplicate.replaceChildren();
+    container.appendChild(duplicate);
+    (original.querySelector("input") as HTMLElement).focus();
+
+    syncRowOrder(ui);
+
+    expect(document.activeElement).toBe(duplicate);
+    expect(container.contains(duplicate)).toBe(true);
+    expect(ui.listPanel.activeIdx).toBe(getNavigableItems(ui).indexOf(duplicate));
   });
 
   it("reorderLayer refuses unknown ids, self-drops and cross-group pairs", () => {

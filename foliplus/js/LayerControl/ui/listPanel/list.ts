@@ -155,6 +155,50 @@ const nodeAtPath = (root: HTMLElement, path: number[]): HTMLElement | null => {
   return node as HTMLElement;
 };
 
+/** Focus `el` for real. `focus()` on a node the engine refuses to focus is a
+ *  silent no-op, and the restore chain below needs to know whether to move on
+ *  instead of assuming the first candidate took. */
+const focusIfPossible = (el: HTMLElement | null): boolean => {
+  if (!el?.isConnected) return false;
+  el.focus();
+  return document.activeElement === el;
+};
+
+/** Restore focus after a duplicate node is dropped: the exact descendant first
+ *  (a native <select> popup or a menu's keyboard chain depends on that
+ *  precision), then the caller's fallback, then the surviving node itself,
+ *  then the nearest navigable row/anchor, and finally the panel container. A
+ *  stripped clone — the survivor's controls were removed before the duplicate
+ *  was detected — must not leave the keyboard user on <body>. */
+const restoreFocusAfterDuplicate = (
+  ui: LayerUI,
+  survivor: HTMLElement,
+  focusPath: number[],
+  focusFallback: () => HTMLElement | null,
+): void => {
+  if (focusIfPossible(nodeAtPath(survivor, focusPath))) return;
+  if (focusIfPossible(focusFallback())) return;
+  if (focusIfPossible(survivor)) return;
+  // Nearest navigable neighbour: forward first, then backward. Folded or
+  // otherwise unfocusable rows simply fail the probe and the walk moves on.
+  const items = getNavigableItems(ui);
+  const survivorIdx = items.indexOf(survivor);
+  for (let i = survivorIdx + 1; i < items.length; i++) {
+    if (focusIfPossible(items[i])) return;
+  }
+  for (let i = survivorIdx - 1; i >= 0; i--) {
+    if (focusIfPossible(items[i])) return;
+  }
+  const container = ui.uiContainer;
+  if (!container) return;
+  // Last resort: make the panel itself programmatically focusable. Removing
+  // the attribute right after would blur the very node just focused, so it
+  // stays for the session — `tabindex="-1"` is not a Tab stop and costs no
+  // layout.
+  if (!container.hasAttribute("tabindex")) container.setAttribute("tabindex", "-1");
+  focusIfPossible(container);
+};
+
 /** Repair one duplicated node — a layer row or a toggle-all anchor: finish an
  *  in-flight slider edit, carry the cursor and DOM focus onto the surviving
  *  later node, then drop the earlier one. The pair names the same layer (or
@@ -199,8 +243,7 @@ const removeDuplicateNode = (
     survivor.classList.add(CONST.CLASSES.FOCUSED);
     ui.listPanel.activeIdx = getNavigableItems(ui).indexOf(survivor);
     if (focusPath) {
-      const exact = nodeAtPath(survivor, focusPath);
-      (exact ?? focusFallback())?.focus();
+      restoreFocusAfterDuplicate(ui, survivor, focusPath, focusFallback);
     }
   } else if (shiftsActive) {
     // Re-resolve rather than decrement: same node, one lookup away, and it
