@@ -28,6 +28,7 @@ export { LayerInfoRegistry } from "./LayerInfoRegistry.js";
 // from this barrel would need one of them renamed for no gain.
 export { LayerSurface } from "./LayerSurface.js";
 export { PaneManager } from "./PaneManager.js";
+export { SurfaceIndex } from "./SurfaceIndex.js";
 export {
   findLayer,
   isLayerInPanes,

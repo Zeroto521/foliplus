@@ -24,6 +24,7 @@ import {
   type LayerSurface,
   PaneManager,
   type RegisterLayerOpts,
+  SurfaceIndex,
   countFeatureGeometry,
   ensureLayerAPI,
   findLayer,
@@ -171,11 +172,10 @@ class LayerController implements LayerAPI {
   /** The rendering face of each registered layer, keyed by layer id. Created on
    *  registration (and materialized before the layer joins the map) and dropped
    *  on unregistration — it is the replacement for the stamp-keyed fallback
-   *  pane map and the per-layer `options.paneSet` "already moved" flag. */
-  declare surfaces: Map<string, LayerSurface>;
-  /** The same surfaces keyed by the live layer's stamp, for the lookups that
-   *  start from a layer rather than from a registry entry. */
-  declare private surfacesByLayer: Map<number, LayerSurface>;
+   *  pane map and the per-layer `options.paneSet` "already moved" flag. The two
+   *  directions (id and layer stamp) are one `SurfaceIndex`; production writes
+   *  go through it so the reverse edge cannot drift. */
+  declare surfaceIndex: SurfaceIndex;
   /** Reverse ownership for leaves the write-point index cannot answer:
    *  nested groups and third-party trees. The value is the surface the leaf
    *  was last attributed to; a positive hit skips the all-surface tree walk
@@ -296,8 +296,7 @@ class LayerController implements LayerAPI {
     this.isDestroyed = false;
 
     this.panes = new PaneManager(this.map);
-    this.surfaces = new Map();
-    this.surfacesByLayer = new Map();
+    this.surfaceIndex = new SurfaceIndex();
     this.intentStore = new LayerIntentStore();
 
     this.factory = new LayerFactory({
@@ -432,8 +431,7 @@ class LayerController implements LayerAPI {
       order: this.order,
       persistence: this.persistence,
       annotation: this.annotation,
-      surfaces: this.surfaces,
-      surfacesByLayer: this.surfacesByLayer,
+      surfaceIndex: this.surfaceIndex,
       getIntentStore: () => this.intentStore,
     });
     this.getLayerPanes = layer => this.domain.resolveLayerPanes(layer);
@@ -497,7 +495,7 @@ class LayerController implements LayerAPI {
     const includeSelf = opts.includeSelf !== false;
     let claimed = false;
     // 1. The registered layer itself — one stamp lookup.
-    const direct = this.surfacesByLayer.get(L.stamp(layer));
+    const direct = this.surfaceIndex.getByStamp(L.stamp(layer));
     if (includeSelf && direct && !direct.retired) {
       direct.markContentDirty();
       claimed = true;
@@ -510,7 +508,7 @@ class LayerController implements LayerAPI {
     //    cannot confirm.
     const parentStamp = this.panes.childOwnerOf(layer);
     const indexed =
-      parentStamp !== undefined ? this.surfacesByLayer.get(parentStamp) : undefined;
+      parentStamp !== undefined ? this.surfaceIndex.getByStamp(parentStamp) : undefined;
     if (indexed && indexed !== direct && !indexed.retired) {
       indexed.markContentDirty();
       this.attributedOwner.set(layer, indexed);
@@ -544,7 +542,7 @@ class LayerController implements LayerAPI {
     // 4. Direct membership: O(surfaces) `hasLayer` lookups, which Leaflet
     //    answers with a stamp test — the cheap scan stays, the tree walk it
     //    used to fall back to does not.
-    for (const surface of this.surfaces.values()) {
+    for (const surface of this.surfaceIndex.values()) {
       // Retired surfaces never stay in `surfaces`: `unregisterEntry` destroys
       // the face and deletes it from the map in the same synchronous step, and
       // a same-id replacement swaps it before any event can run. This is a
@@ -570,7 +568,7 @@ class LayerController implements LayerAPI {
     //    each once. This is the O(surfaces)-marks counterpart of the removed
     //    per-surface tree scan. Declaration-derived surfaces (canvas / color,
     //    `layer === null`) have no tree whose change could move a capability.
-    for (const surface of this.surfaces.values()) {
+    for (const surface of this.surfaceIndex.values()) {
       if (surface.retired || !surface.layer) continue;
       if (!includeSelf && surface.layer === layer) continue;
       surface.markContentDirty();
@@ -598,6 +596,15 @@ class LayerController implements LayerAPI {
       // A hostile third-party group: "cannot confirm" is the answer.
       return false;
     }
+  }
+
+  /** The id → surface direction as a read-only view — the controller's legacy
+   *  `surfaces` field, kept for the tests and the capability reads that walk
+   *  it. Every write goes through `surfaceIndex` (register / delete / clear),
+   *  so the layer-stamp reverse edge is updated in the same step; mutating
+   *  this view directly would desynchronise the pair. */
+  get surfaces(): ReadonlyMap<string, LayerSurface> {
+    return this.surfaceIndex.byId;
   }
 
   /** Ordered layers (read-only view; always reflects the registry). */
@@ -665,7 +672,7 @@ class LayerController implements LayerAPI {
       layerInfo.type = GEOM_TYPE.CUSTOM;
       return GEOM_TYPE.CUSTOM;
     }
-    const surface = this.surfaces.get(id);
+    const surface = this.surfaceIndex.get(id);
     if (!surface) return layerInfo.type;
     const gtype = surface.geometryType();
     layerInfo.type = gtype;
@@ -676,7 +683,7 @@ class LayerController implements LayerAPI {
    *  internal cache and the controller's snapshot are cleared; the next
    *  `getLayerType` re-probes through the surface. Unknown ids are no-ops. */
   invalidateType(id: string): void {
-    const surface = this.surfaces.get(id);
+    const surface = this.surfaceIndex.get(id);
     const layerInfo = this.layerRegistry.get(id);
     surface?.invalidate();
     if (layerInfo) layerInfo.type = null;
@@ -1588,7 +1595,7 @@ class LayerController implements LayerAPI {
   private notifyCapabilityChanges(): void {
     const next = new Map<string, string>();
     const changed: string[] = [];
-    for (const [id, surface] of this.surfaces) {
+    for (const [id, surface] of this.surfaceIndex.entries()) {
       // Same invariant as the direct-membership scan: a retired surface is
       // destroyed and removed from `surfaces` in one synchronous step, so the
       // pass never sees one. Failsafe only — exempt from the branch gate.
@@ -1704,8 +1711,7 @@ class LayerController implements LayerAPI {
     this.uiContainer = null;
     this.layerRegistry.clear();
     this.pendingRegistrations = [];
-    this.surfaces.clear();
-    this.surfacesByLayer.clear();
+    this.surfaceIndex.clear();
     this.capabilitySnapshot.clear();
   }
 }
