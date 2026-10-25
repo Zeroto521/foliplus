@@ -1,6 +1,7 @@
 // HeatmapControl data aggregation & rendering logic (HeatmapManager).
 import {
   METHOD as CLASSIFY_METHOD,
+  CLASS_COUNT,
   type ClassifyMethod,
   isClassifyMethod,
 } from "#core/classify.js";
@@ -189,7 +190,7 @@ class HeatmapManager {
     this.scheme = CONFIG.color_scheme ?? "Reds";
     this.method = resolveClassifyMethod(CONFIG.method);
     this.autoFieldKey = null;
-    this.numClasses = CONFIG.num_classes ?? CONST.CLASS_COUNT.DEFAULT;
+    this.numClasses = CONFIG.num_classes ?? CLASS_COUNT.DEFAULT;
     this.borderWeight = CONFIG.border_weight ?? BORDER_WEIGHT.DEFAULT;
     this.borderColor = CONFIG.border_color ?? SCHEME_FALLBACK_COLOR;
     // Python default is True; only an explicit false turns labels off — same
@@ -765,7 +766,7 @@ class HeatmapManager {
     this.autoFieldKey = null;
     this.agg = config.agg ?? CONST.AGG.COUNT;
     this.field = "";
-    this.numClasses = config.num_classes ?? CONST.CLASS_COUNT.DEFAULT;
+    this.numClasses = config.num_classes ?? CLASS_COUNT.DEFAULT;
     this.method = resolveClassifyMethod(config.method);
     this.scheme = config.color_scheme ?? "Reds";
   }

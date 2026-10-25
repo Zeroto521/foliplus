@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { METHOD } from "#core/classify.js";
+import { CLASS_COUNT, METHOD } from "#core/classify.js";
 import * as CONST from "#foliplus/HeatmapControl/const.js";
 import { BORDER_WEIGHT } from "#common/form.js";
 import { makeManager } from "./fixture.js";
@@ -168,7 +168,7 @@ describe("HeatmapManager — versioned persisted config", () => {
       const m = makeManager();
       store({ numClasses: 99, layerId: null });
       const loaded = m.loadSavedConfig()!;
-      expect(loaded.numClasses).toBe(CONST.CLASS_COUNT.MAX);
+      expect(loaded.numClasses).toBe(CLASS_COUNT.MAX);
       // null means "the user cleared the selection", so it is preserved
       // rather than treated as an absent field.
       expect(loaded.layerId).toBeNull();
@@ -242,10 +242,10 @@ describe("HeatmapManager — versioned persisted config", () => {
     it("clamps numClasses to valid range", () => {
       const m = makeManager();
       m.applySavedConfig({ numClasses: 99 });
-      expect(m.numClasses).toBe(CONST.CLASS_COUNT.MAX);
+      expect(m.numClasses).toBe(CLASS_COUNT.MAX);
 
       m.applySavedConfig({ numClasses: 0 });
-      expect(m.numClasses).toBe(CONST.CLASS_COUNT.MIN);
+      expect(m.numClasses).toBe(CLASS_COUNT.MIN);
     });
 
     it("applies only present fields, keeps defaults for missing", () => {

@@ -69,7 +69,7 @@
   "LayerControl.style_border_weight": "Border width",
   "LayerControl.style_fill": "Fill Color",
   "LayerControl.style_fill_opacity": "Fill Opacity",
-  "LayerControl.style_fill_mode": "Fill",
+  "LayerControl.style_fill_mode": "Fill Mode",
   "LayerControl.style_fill_single": "Single color",
   "LayerControl.style_fill_by_value": "Color by value",
   "LayerControl.style_fill_field": "Field",

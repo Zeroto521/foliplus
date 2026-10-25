@@ -310,10 +310,11 @@ const createPanelHeader = (opts: {
  *
  * It is a `foliplus-panel` with the fold panels' header/content vocabulary, but
  * anchored under its own row instead of folded into the control — so the caller
- * mounts the returned `panel` on the row. Anchoring, width, height cap, card
- * chrome and the `stretch` axis all come from the shared `.foliplus-row-panel`
- * recipe, and the header from {@link createPanelHeader}, so a new row panel
- * cannot drift into a lookalike of the ones already here.
+ * mounts the returned `panel` on the row and pins it with {@link pinRowPanel}.
+ * Anchoring, width, height cap, card chrome and the `stretch` axis all come
+ * from the shared `.foliplus-row-panel` recipe, and the header from
+ * {@link createPanelHeader}, so a new row panel cannot drift into a lookalike of
+ * the ones already here.
  *
  * `iconClass` stays a parameter because each component's SVGs are viewBox-only
  * and need their own sizing hook inside the shared icon box.
@@ -353,6 +354,107 @@ const createRowPanel = (opts: {
   panel.appendChild(header);
   panel.appendChild(content);
   return { panel, header, content };
+};
+
+// ── Row panel anchoring ─────────────────────────────────────────
+//
+// A row panel is mounted INSIDE its layer row, and the rows live in the fold
+// panel's scrolling content. An absolutely positioned card there is clipped by
+// that scroll box: the lower half of the style panel (the scheme row and the
+// reset footer) sat outside the visible list and could not be pressed. The card
+// is therefore `position: fixed` (see .foliplus-row-panel) and placed from the
+// anchor row's client rect. Fixed positioning still works because no ancestor
+// of the rows carries a transform/filter/contain (which would turn one into the
+// containing block), so viewport coordinates stay viewport coordinates while
+// the card follows the row as the list scrolls.
+
+/** Gap between the anchor row and the card. */
+const ROW_PANEL_GAP = 2;
+/** Minimum distance between the card and the viewport edge. */
+const ROW_PANEL_EDGE = 8;
+
+/** Open row panels, keyed by their anchor row: a row opens one card at a time. */
+const rowPanels = new Map<HTMLElement, HTMLElement>();
+let rowPanelEventsBound = false;
+
+/** Place one card under its row, flipping above when the viewport bottom would
+ *  cut it, and capping the height to the roomier side when neither side fits
+ *  (the card's content scrolls, the panel never leaves the viewport). The panel
+ *  must already be in the DOM: its measured size is the placement input. */
+const placeRowPanel = (panel: HTMLElement, anchor: HTMLElement): void => {
+  const row = anchor.getBoundingClientRect();
+  // A row inside a folded group is `display: none` and measures zero; keep the
+  // last placement rather than pinning the card to the viewport corner.
+  if (row.width === 0 && row.height === 0) return;
+  panel.style.maxHeight = "";
+  const card = panel.getBoundingClientRect();
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+  // Right-aligned with the row, like the card's original `right: 0` anchor.
+  const left = Math.max(
+    ROW_PANEL_EDGE,
+    Math.min(row.right - card.width, viewportWidth - card.width - ROW_PANEL_EDGE),
+  );
+  const below = row.bottom + ROW_PANEL_GAP;
+  const above = row.top - ROW_PANEL_GAP - card.height;
+  let top = below;
+  // The height the card will actually paint at; a capped side changes it, and
+  // the final viewport clamp has to use the capped value or the card drifts.
+  let drawn = card.height;
+  if (below + card.height > viewportHeight - ROW_PANEL_EDGE) {
+    if (above >= ROW_PANEL_EDGE) {
+      top = above;
+    } else {
+      const belowRoom = viewportHeight - ROW_PANEL_EDGE - below;
+      const aboveRoom = row.top - ROW_PANEL_GAP - ROW_PANEL_EDGE;
+      if (belowRoom >= aboveRoom) {
+        top = below;
+        drawn = Math.max(belowRoom, 0);
+      } else {
+        drawn = Math.max(aboveRoom, 0);
+        top = row.top - ROW_PANEL_GAP - drawn;
+      }
+      panel.style.maxHeight = `${drawn}px`;
+    }
+  }
+  panel.style.left = `${left}px`;
+  panel.style.top = `${Math.max(
+    ROW_PANEL_EDGE,
+    Math.min(top, viewportHeight - drawn - ROW_PANEL_EDGE),
+  )}px`;
+};
+
+/** Re-place every open card. Document-level capture, so a scroll inside the
+ *  layer list (which does not bubble) still reports. A card whose row was
+ *  rebuilt away is dropped here as well, which keeps the map from holding a
+ *  detached row forever if a close path forgot to unpin. */
+const replaceRowPanels = (): void => {
+  for (const [anchor, panel] of rowPanels) {
+    if (!panel.isConnected || !anchor.isConnected) {
+      rowPanels.delete(anchor);
+      continue;
+    }
+    placeRowPanel(panel, anchor);
+  }
+};
+
+/** Pin a mounted row panel to the viewport, anchored under `anchor`.
+ *  Call right after the card is appended to the row. */
+const pinRowPanel = (panel: HTMLElement, anchor: HTMLElement): void => {
+  rowPanels.set(anchor, panel);
+  if (!rowPanelEventsBound) {
+    rowPanelEventsBound = true;
+    window.addEventListener("scroll", replaceRowPanels, true);
+    window.addEventListener("resize", replaceRowPanels);
+  }
+  placeRowPanel(panel, anchor);
+};
+
+/** Drop a row panel's placement bookkeeping. Call when the card closes or its
+ *  row is rebuilt; a miss only leaves one stale map entry until the next
+ *  scroll/resize pass prunes it. */
+const unpinRowPanel = (anchor: HTMLElement | null): void => {
+  if (anchor) rowPanels.delete(anchor);
 };
 
 /**
@@ -458,4 +560,6 @@ export {
   createPanelControl,
   createPanelHeader,
   createRowPanel,
+  pinRowPanel,
+  unpinRowPanel,
 };

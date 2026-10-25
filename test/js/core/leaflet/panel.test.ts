@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   adjustPanelZIndex,
   bindFoldToggle,
@@ -9,6 +9,8 @@ import {
   createPanelControl,
   createPanelHeader,
   createRowPanel,
+  pinRowPanel,
+  unpinRowPanel,
 } from "#core/leaflet/index.js";
 
 // setup.js provides L.DomEvent mocks (disableClickPropagation, etc.),
@@ -764,5 +766,150 @@ describe("createRowPanel", () => {
     const icon = header.querySelector(".foliplus-header-icon");
     expect(icon?.className).toContain("foliplus-layer-style-icon");
     expect(header.querySelector(".foliplus-close-btn")).not.toBeNull();
+  });
+});
+
+describe("pinRowPanel", () => {
+  type Box = { top: number; left: number; width: number; height: number };
+
+  const stubBox = (el: HTMLElement, box: Box): void => {
+    el.getBoundingClientRect = () =>
+      ({
+        top: box.top,
+        left: box.left,
+        width: box.width,
+        height: box.height,
+        right: box.left + box.width,
+        bottom: box.top + box.height,
+        x: box.left,
+        y: box.top,
+        toJSON: () => ({}),
+      }) as DOMRect;
+  };
+
+  const setViewport = (width: number, height: number): void => {
+    Object.defineProperty(window, "innerWidth", {
+      value: width,
+      configurable: true,
+    });
+    Object.defineProperty(window, "innerHeight", {
+      value: height,
+      configurable: true,
+    });
+  };
+
+  const make = (card: { width: number; height: number }) => {
+    const row = document.createElement("div");
+    const panel = document.createElement("div");
+    document.body.append(row, panel);
+    stubBox(panel, { top: 0, left: 0, ...card });
+    return { row, panel };
+  };
+
+  beforeEach(() => setViewport(1024, 720));
+  afterEach(() => {
+    document.body.innerHTML = "";
+  });
+
+  it("drops the card under its row, right-aligned with it", () => {
+    const { row, panel } = make({ width: 280, height: 200 });
+    stubBox(row, { top: 100, left: 10, width: 300, height: 30 });
+
+    pinRowPanel(panel, row);
+
+    // Right edge == row right (310), clamped inside the viewport.
+    expect(panel.style.left).toBe("30px");
+    expect(panel.style.top).toBe("132px");
+  });
+
+  it("flips above the row when the bottom edge would leave the viewport", () => {
+    const { row, panel } = make({ width: 280, height: 200 });
+    stubBox(row, { top: 600, left: 10, width: 300, height: 30 });
+
+    pinRowPanel(panel, row);
+
+    expect(panel.style.top).toBe("398px");
+  });
+
+  it("caps the card to the roomier side when neither side fits the whole card", () => {
+    const { row, panel } = make({ width: 280, height: 400 });
+    stubBox(row, { top: 300, left: 10, width: 300, height: 30 });
+
+    pinRowPanel(panel, row);
+
+    // 380px below the row beats 290px above it: the card starts below and
+    // scrolls inside its capped height.
+    expect(panel.style.maxHeight).toBe("380px");
+    expect(panel.style.top).toBe("332px");
+  });
+
+  it("prefers the space above when it is the roomier one", () => {
+    const { row, panel } = make({ width: 280, height: 400 });
+    stubBox(row, { top: 350, left: 10, width: 300, height: 30 });
+
+    pinRowPanel(panel, row);
+
+    expect(panel.style.maxHeight).toBe("340px");
+    expect(panel.style.top).toBe("8px");
+  });
+
+  it("keeps the last placement while the row is hidden (folded group)", () => {
+    const { row, panel } = make({ width: 280, height: 200 });
+    stubBox(row, { top: 100, left: 10, width: 300, height: 30 });
+    pinRowPanel(panel, row);
+
+    stubBox(row, { top: 0, left: 0, width: 0, height: 0 });
+    window.dispatchEvent(new Event("resize"));
+
+    expect(panel.style.left).toBe("30px");
+    expect(panel.style.top).toBe("132px");
+  });
+
+  it("follows the row on a scroll and a resize, and clears a stale height cap", () => {
+    const { row, panel } = make({ width: 280, height: 400 });
+    stubBox(row, { top: 300, left: 10, width: 300, height: 30 });
+    pinRowPanel(panel, row);
+    expect(panel.style.maxHeight).toBe("380px");
+
+    stubBox(row, { top: 200, left: 20, width: 300, height: 30 });
+    window.dispatchEvent(new Event("resize"));
+    expect(panel.style.top).toBe("232px");
+
+    stubBox(row, { top: 100, left: 20, width: 300, height: 30 });
+    window.dispatchEvent(new Event("scroll"));
+    expect(panel.style.top).toBe("132px");
+    // Plenty of room now: the inline cap from the earlier frame is dropped.
+    expect(panel.style.maxHeight).toBe("");
+  });
+
+  it("stops following once unpinned", () => {
+    const { row, panel } = make({ width: 280, height: 200 });
+    stubBox(row, { top: 100, left: 10, width: 300, height: 30 });
+    pinRowPanel(panel, row);
+    expect(panel.style.top).toBe("132px");
+
+    unpinRowPanel(row);
+    stubBox(row, { top: 400, left: 10, width: 300, height: 30 });
+    window.dispatchEvent(new Event("resize"));
+
+    expect(panel.style.top).toBe("132px");
+  });
+
+  it("drops a detached card instead of positioning it", () => {
+    const { row, panel } = make({ width: 280, height: 200 });
+    stubBox(row, { top: 100, left: 10, width: 300, height: 30 });
+    pinRowPanel(panel, row);
+    const placed = panel.style.top;
+
+    panel.remove();
+    stubBox(row, { top: 400, left: 10, width: 300, height: 30 });
+    expect(() => window.dispatchEvent(new Event("resize"))).not.toThrow();
+    expect(panel.style.top).toBe(placed);
+  });
+
+  it("accepts a missing row on unpin", () => {
+    // Close paths read the row back off the card; a card whose row was rebuilt
+    // away answers null, and unpinning must stay a no-op instead of throwing.
+    expect(() => unpinRowPanel(null)).not.toThrow();
   });
 });

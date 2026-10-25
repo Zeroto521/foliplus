@@ -1,4 +1,3 @@
-import { CLASS_COUNT } from "#core/classify.js";
 import { ANNOTATION_PANE_PREFIX, FOCUS_Z } from "#core/layer/index.js";
 import { DEFAULT_LABEL_COLOR, LABEL_SIZE } from "#common/form.js";
 import { NUMBER_FORMAT } from "#common/format.js";
@@ -36,13 +35,11 @@ const SIZE = {
   DEFAULT: 10,
 } as const;
 
-/** Shared bounds and defaults for the value-based fill (the fill row).
- *  The class-count range is the #core/classify vocabulary the heatmap panel
- *  and the persistence validator also use, so the two pickers cannot drift;
- *  the method / scheme defaults only seed the first ramp a user switches to
- *  (a stored `FillRampConfig` always wins). */
+/** Defaults for the value-based fill (the fill row). The method / scheme
+ *  values only seed the first ramp a user switches to (a stored
+ *  `FillRampConfig` always wins); the class-count vocabulary lives in
+ *  #core/classify and is imported where it is used. */
 const RAMP = {
-  ...CLASS_COUNT,
   METHOD_DEFAULT: "jenks",
   SCHEME_DEFAULT: "Viridis",
 } as const;

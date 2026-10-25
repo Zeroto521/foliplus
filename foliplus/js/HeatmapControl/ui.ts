@@ -1,6 +1,6 @@
 // HeatmapControl UI building — standalone functions.
 // All internal refs use direct function calls instead of `this.`.
-import { type ClassifyMethod, isClassifyMethod } from "#core/classify.js";
+import { CLASS_COUNT, type ClassifyMethod, isClassifyMethod } from "#core/classify.js";
 import { EVENTS, ensureEvents, publish } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { adjustPanelZIndex } from "#core/leaflet/index.js";
@@ -140,10 +140,7 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
 
   // Set initial values from manager defaults
   ctrl.classSelect.value = String(
-    Math.min(
-      CONST.CLASS_COUNT.MAX,
-      Math.max(CONST.CLASS_COUNT.MIN, ctrl.mgr.numClasses),
-    ),
+    Math.min(CLASS_COUNT.MAX, Math.max(CLASS_COUNT.MIN, ctrl.mgr.numClasses)),
   );
   ctrl.methodSelect.value = ctrl.mgr.method;
   ctrl.aggSelect.value = ctrl.mgr.agg;
@@ -233,10 +230,10 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
 
   ctrl.classSelect.onchange = () => {
     ctrl.mgr.numClasses = Math.min(
-      CONST.CLASS_COUNT.MAX,
+      CLASS_COUNT.MAX,
       Math.max(
-        CONST.CLASS_COUNT.MIN,
-        parseInt(ctrl.classSelect.value, 10) || CONST.CLASS_COUNT.DEFAULT,
+        CLASS_COUNT.MIN,
+        parseInt(ctrl.classSelect.value, 10) || CLASS_COUNT.DEFAULT,
       ),
     );
     // The picker owns the colour bar rendering — setNumClasses already
@@ -478,12 +475,7 @@ const resetPanel = (ctrl: HeatmapControlUI) => {
   syncSelect(
     ctrl,
     ctrl.classSelect,
-    String(
-      Math.min(
-        CONST.CLASS_COUNT.MAX,
-        Math.max(CONST.CLASS_COUNT.MIN, ctrl.mgr.numClasses),
-      ),
-    ),
+    String(Math.min(CLASS_COUNT.MAX, Math.max(CLASS_COUNT.MIN, ctrl.mgr.numClasses))),
   );
   syncSelect(ctrl, ctrl.methodSelect, ctrl.mgr.method);
   // resetState restores the config default, which may not be in `schemes`.

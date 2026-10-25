@@ -10,6 +10,7 @@
 - `LayerControl`: a size row sets a CircleMarker layer's pixel radius — every marker at once, persisted across reloads, and resettable to each marker's drawn radius ([#726](https://github.com/Zeroto521/foliplus/pull/726))
 - `LayerControl`: value-based fill — a numeric field, a classification method
   and a palette paint the layer by value ([#727](https://github.com/Zeroto521/foliplus/pull/727))
+- `LayerControl`: the fill row chooses solid colour or colour-by-value and edits the value arm in place — field, classification method, class count and a scheme picked from the shared picker ([#747](https://github.com/Zeroto521/foliplus/pull/747))
 
 ### Changed
 
@@ -30,6 +31,7 @@
 - Teardown: a failing cleanup step no longer skips the rest — a removed control and a dismissed focus both finish their releases ([#733](https://github.com/Zeroto521/foliplus/pull/733), [#736](https://github.com/Zeroto521/foliplus/pull/736))
 - `core/layer`: the child-ownership index is dropped at `removeLayer` / `clearLayers`, so a group stays bounded by its live leaves ([#733](https://github.com/Zeroto521/foliplus/pull/733))
 - `ExportControl`: marker shadows are exported with their icons, measured after layout so they sit under the marker instead of at a stale offset ([#740](https://github.com/Zeroto521/foliplus/pull/740))
+- `LayerControl`: a row panel (style, attributes) is pinned to the viewport under its row instead of being clipped by the layer list, and a portaled scheme dropdown paints above the panel that opened it ([#747](https://github.com/Zeroto521/foliplus/pull/747))
 
 ## [v0.4.1] (2026-10-18)
 

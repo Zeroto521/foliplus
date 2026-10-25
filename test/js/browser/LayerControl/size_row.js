@@ -67,6 +67,13 @@ async ([layerName, size, reset] = []) => {
 
   const sizeRow = panel.querySelector(".foliplus-style-size-row");
   const setSize = panel.querySelector(".foliplus-style-size-input");
+  // The field is right-aligned inside the form-control cell (the numeric
+  // column the border row's weight field also occupies) while its own text is
+  // centered. Read both so the test can pin the layout, not just the value.
+  const sizeCell = sizeRow ? sizeRow.querySelector(".foliplus-form-control") : null;
+  const sizeStyle = setSize ? getComputedStyle(setSize) : null;
+  const inputRect = setSize ? setSize.getBoundingClientRect() : null;
+  const cellRect = sizeCell ? sizeCell.getBoundingClientRect() : null;
 
   let wrote = false;
   if (reset) {
@@ -156,6 +163,13 @@ async ([layerName, size, reset] = []) => {
     sizeRow: !!sizeRow,
     sizeRows: panel.querySelectorAll(".foliplus-style-size-row").length,
     sizeInput: input,
+    sizeLayout:
+      sizeStyle && inputRect && cellRect
+        ? {
+            textAlign: sizeStyle.textAlign,
+            rightGap: Math.round((cellRect.right - inputRect.right) * 100) / 100,
+          }
+        : null,
     labels: Array.from(panel.querySelectorAll(".foliplus-form-label")).map(
       el => el.textContent,
     ),

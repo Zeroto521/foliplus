@@ -30,6 +30,22 @@ describe("buildFieldRow", () => {
     expect(select.value).toBe("count");
   });
 
+  it("renders an empty select when the field list is gone", () => {
+    // A layer can lose its last numeric property while the panel is open; the
+    // row must still build (the panel replaces it on the next rebuild) instead
+    // of throwing on an undefined first field.
+    const { row, select } = buildFieldRow({
+      label: "Field",
+      ariaLabel: "Field",
+      fields: [],
+      value: "value",
+    });
+
+    expect(select.options.length).toBe(0);
+    expect(select.value).toBe("");
+    expect(row.querySelector(".foliplus-form-label")!.textContent).toBe("Field");
+  });
+
   it("applies consumer classes/attributes and wires onChange", () => {
     const onChange = vi.fn();
     const { row, select } = buildFieldRow({
@@ -131,6 +147,19 @@ describe("buildClassesRow", () => {
     classesSelect.value = "7";
     classesSelect.dispatchEvent(new Event("change"));
     expect(onChange).toHaveBeenLastCalledWith({ classes: 7 });
+  });
+
+  it("ignores a change that carries no class count", () => {
+    // Every option is a number, so this is a guard against a malformed DOM
+    // (a rebuild or a script clearing the select) rather than a user path: a
+    // NaN class count must never reach the ramp config.
+    const onChange = vi.fn();
+    const { classesSelect } = build({ onChange });
+
+    classesSelect.value = "";
+    classesSelect.dispatchEvent(new Event("change"));
+
+    expect(onChange).not.toHaveBeenCalled();
   });
 });
 

@@ -57,6 +57,17 @@
   animation: foliplus-scheme-picker-in 0.15s ease-out;
 }
 
+/* A portaled dropdown is appended to <body> (or the fullscreen element), not to
+   the trigger's row, so it must paint above the panel that opened it. That panel
+   lives in the floating band and its expanded bar/section sit at +1/+9 below it,
+   so the card takes the hint band — the same one the portaled slider bubble
+   uses. Without this, an expanded LayerControl panel covered the open dropdown:
+   measured with elementFromPoint on the style panel's scheme row. Inline
+   dropdowns (HeatmapControl) stay where they are; their panel is their context. */
+.foliplus-scheme-picker-dropdown.foliplus-scheme-picker-portal {
+  z-index: var(--foliplus-z-index-hint);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .foliplus-scheme-picker-dropdown {
     animation: none;

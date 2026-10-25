@@ -68,14 +68,6 @@ describe("ID", () => {
   });
 });
 
-describe("CLASS_COUNT", () => {
-  it("defines valid range and default", () => {
-    expect(CONST.CLASS_COUNT.MIN).toBe(2);
-    expect(CONST.CLASS_COUNT.MAX).toBe(9);
-    expect(CONST.CLASS_COUNT.DEFAULT).toBe(6);
-  });
-});
-
 describe("DATA_ATTR", () => {
   it("defines all data-heatmap-* attribute names", () => {
     expect(CONST.DATA_ATTR.LAYER).toBe("data-heatmap-layer");

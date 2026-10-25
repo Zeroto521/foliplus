@@ -14,6 +14,16 @@
    vocabulary as the fold panels — but anchored under its row rather than
    folded into the control, so the caller mounts it on the row.
 
+   It is `position: fixed`, placed by `pinRowPanel` (`core/leaflet/panel.ts`),
+   because the rows live in the layer list's scrolling content: an absolutely
+   positioned card was clipped at that scroll box's edge, so the lower half of
+   the style panel (the scheme row and the reset footer) was unreachable. Fixed
+   positioning escapes the clip — no ancestor of the rows carries a
+   transform/filter/contain — and the placement code keeps the card under the
+   row as the list scrolls or the window resizes. `top`/`left` stay 0 here; the
+   script writes the measured coordinates, and the shell values below are the
+   pre-measure fallback.
+
    `.foliplus-panel` is a *horizontal* fold container (`align-items:
    flex-start`), which for a column panel leaves the header and the content at
    their own text width inside a full-width card. `stretch` is what makes the
@@ -23,10 +33,10 @@
    Width, height cap, radius and shadow all read the shared tokens, so a row
    panel cannot drift into a lookalike; a component adds only its own hooks. */
 .foliplus-panel.foliplus-row-panel {
-  position: absolute;
-  top: 100%;
-  right: 0;
-  z-index: 10;
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: var(--foliplus-z-index-floating);
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -34,6 +44,10 @@
   max-height: var(--foliplus-panel-max-height);
   padding: 0;
   overflow-x: hidden;
+  /* The card is fixed but still a DOM child of the layer list's scroll box, so
+     a wheel over it would chain to the list and move the row (and the card
+     with it) beneath the pointer. Keep the scroll inside the card. */
+  overscroll-behavior: contain;
   border-radius: var(--foliplus-radius-card);
   box-shadow: var(--foliplus-shadow-md);
   font-size: var(--foliplus-font-size-sm);

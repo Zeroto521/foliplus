@@ -92,7 +92,9 @@ type SelectOption = {
 const selectInput = (opts: {
   className?: string;
   ariaLabel?: string;
-  value?: string;
+  /** Selected option; every caller knows the current value (an empty string
+   *  still means "no option selected"), so the factory never guesses. */
+  value: string;
   options: readonly SelectOption[];
 }): HTMLSelectElement => {
   const select = dom.el("select", {
@@ -112,7 +114,7 @@ const selectInput = (opts: {
       ),
     );
   }
-  if (opts.value !== undefined) select.value = opts.value;
+  select.value = opts.value;
   return select;
 };
 

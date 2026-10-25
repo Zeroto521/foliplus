@@ -1,10 +1,11 @@
 .foliplus-layer-ctrl {
   /* ── Attributes panel ──
      Read-only metadata for one layer row. The surface is the shared row panel
-     (`foliplus-row-panel`, built by createRowPanel): anchoring, width, height
-     cap, card chrome come from there and from common/panel.css — this block
-     carries what is specific to this panel: copyable text, the type logo
-     size, and a two-column grid so every value shares one left edge. */
+     (`foliplus-row-panel`, built by createRowPanel): width, height cap and card
+     chrome come from there and from common/panel.css, the viewport anchoring
+     from pinRowPanel — this block carries what is specific to this panel:
+     copyable text, the type logo size, and a two-column grid so every value
+     shares one left edge. */
   .foliplus-layer-attrs-panel {
     /* Read-only metadata must stay copyable; the parent row is user-select:none
        and the shared row-panel recipe keeps that. */

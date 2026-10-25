@@ -2,9 +2,10 @@
   Annotation style panel
   Floating panel opened from a data layer's ⋮ menu. It IS a foliplus panel —
   the surface carries `foliplus-panel foliplus-row-panel`, the same shell the
-  attributes panel gets from `createRowPanel` (common/panel.ts), so anchoring,
-  width, card chrome and header come from one place. This block only sizes the
-  label glyph and states the two controls form.css does not cover.
+  attributes panel gets from `createRowPanel` (core/leaflet/panel.ts), so width,
+  card chrome and header come from one place; the viewport anchoring comes from
+  `pinRowPanel` (core/leaflet/panel.ts). This block only sizes the label glyph
+  and states the controls form.css does not cover.
   ══════════════════════════════════════════════════════════════════════ */
 .foliplus-layer-ctrl {
   /* LayerControl's SVGs are viewBox-only, so the glyph needs an explicit
@@ -96,8 +97,13 @@
   min-width: 0;
 }
 
-/* The size row's px field aligns with the numeric column on its right edge
-   (same rule the icon-size input will use in B5). */
+/* The size row's px field sits at the right edge of the control column — the
+   numeric column the border row's weight field also occupies — while its value
+   stays horizontally centered inside the box. */
+.foliplus-style-size-row .foliplus-form-inline {
+  justify-content: flex-end;
+}
+
 .foliplus-style-size-input {
-  text-align: right;
+  text-align: center;
 }

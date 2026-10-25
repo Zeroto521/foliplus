@@ -3,7 +3,7 @@
 // (set by the fixture), never from the ambient window.CONFIG — these tests
 // therefore prove both the behavior and the per-instance CONFIG injection.
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { METHOD } from "#core/classify.js";
+import { CLASS_COUNT, METHOD } from "#core/classify.js";
 import { HINT_DURATION } from "#core/hint.js";
 import * as CONST from "#foliplus/HeatmapControl/const.js";
 import { HeatmapManager } from "#foliplus/HeatmapControl/manager.js";
@@ -75,7 +75,7 @@ describe("bindControls — template render and initial values", () => {
     const ctrl = makeCtrl(m, makeConfig());
     const panel = document.createElement("div");
     bindControls(ctrl, panel);
-    expect(ctrl.classSelect.value).toBe(String(CONST.CLASS_COUNT.MAX));
+    expect(ctrl.classSelect.value).toBe(String(CLASS_COUNT.MAX));
   });
 
   it("populates scheme options from config.schemes and renders the bar", () => {
@@ -275,7 +275,7 @@ describe("bindControls — clear (reset) button", () => {
     clearBtn.click();
 
     expect(m.scheme).toBe("Reds");
-    expect(m.numClasses).toBe(CONST.CLASS_COUNT.DEFAULT);
+    expect(m.numClasses).toBe(CLASS_COUNT.DEFAULT);
     expect(m.method).toBe(METHOD.JENKS);
     expect(m.field).toBe("");
     expect(ctrl.aggSelect.value).toBe(CONST.AGG.COUNT);
@@ -710,14 +710,14 @@ describe("bindControls — class count clamping", () => {
     const { ctrl, m } = setup();
     ctrl.classSelect.value = "not-a-number";
     fire(ctrl.classSelect, "change");
-    expect(m.numClasses).toBe(CONST.CLASS_COUNT.DEFAULT);
+    expect(m.numClasses).toBe(CLASS_COUNT.DEFAULT);
   });
 
   it("class-count change falls back to DEFAULT for zero", () => {
     const { ctrl, m } = setup();
     ctrl.classSelect.value = "0";
     fire(ctrl.classSelect, "change");
-    expect(m.numClasses).toBe(CONST.CLASS_COUNT.DEFAULT);
+    expect(m.numClasses).toBe(CLASS_COUNT.DEFAULT);
   });
 });
 

@@ -19,7 +19,7 @@
 // the HeatmapControl border row and the annotation label row — one
 // <input type=color> inside a FORM_ROW, no reset button on the row itself
 // (the panel-wide Reset handles it, the way label color has it).
-import { METHOD } from "#core/classify.js";
+import { CLASS_COUNT, METHOD } from "#core/classify.js";
 import { numericPropertiesKeys } from "#core/field.js";
 import { CAP_TIER, DIM, GROUP, type LayerInfo } from "#core/layer/index.js";
 import type { FillRampConfig, LayerOverride } from "#core/layer/intent.js";
@@ -64,10 +64,6 @@ import {
   styleDimPayload,
   walkFillLeaves,
 } from "./styleBag.js";
-
-/** The swatch's last resort when even the browser probe cannot resolve the
- *  authored color to a hex — black, matching an empty `<input type=color>`. */
-const DEFAULT_FILL_COLOR = "#000000";
 
 /** Whether the layer is a solid-color basemap: a base layer whose fill is the
  *  value on `layerInfo.color` rather than a Leaflet layer's geometry.
@@ -116,8 +112,10 @@ const toHexColor = (value: string): string => {
   const probe = document.createElement("input");
   probe.type = "color";
   probe.value = value;
-  const hex = probe.value;
-  return /^#[0-9a-fA-F]{6}$/.test(hex) ? hex : DEFAULT_FILL_COLOR;
+  // The platform sanitizes every rejected value to `#000000` (and resolves a
+  // name it knows), so the readback is always a valid simple color — no second
+  // guard can ever fire here.
+  return probe.value;
 };
 
 /** Every fill-dimension intent key the user can own. The reset list, the
@@ -349,7 +347,7 @@ const defaultRampConfig = (field: string): FillRampConfig => ({
   kind: "numeric",
   field,
   method: CONST.RAMP.METHOD_DEFAULT,
-  classes: CONST.RAMP.DEFAULT,
+  classes: CLASS_COUNT.DEFAULT,
   scheme: CONST.RAMP.SCHEME_DEFAULT,
 });
 

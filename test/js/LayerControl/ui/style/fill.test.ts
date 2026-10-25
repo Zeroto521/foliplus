@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { CLASS_COUNT } from "#core/classify.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerController } from "#foliplus/LayerControl/controller.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
@@ -2309,7 +2310,7 @@ describe("fill mode row — solid ↔ color by value", () => {
       kind: "numeric",
       field: "count",
       method: CONST.RAMP.METHOD_DEFAULT,
-      classes: CONST.RAMP.DEFAULT,
+      classes: CLASS_COUNT.DEFAULT,
       scheme: CONST.RAMP.SCHEME_DEFAULT,
     });
     // jenks/quantile read the simple-statistics CDN global, which jsdom does
@@ -2517,8 +2518,8 @@ describe("fill ramp detail — field / method / classes / scheme", () => {
     // Same vocabulary as the heatmap: a select over the 2..9 range, never a
     // free number input.
     expect(Array.from(classes.options).map(o => o.value)).toEqual(
-      Array.from({ length: CONST.RAMP.MAX - CONST.RAMP.MIN + 1 }, (_, i) =>
-        String(CONST.RAMP.MIN + i),
+      Array.from({ length: CLASS_COUNT.MAX - CLASS_COUNT.MIN + 1 }, (_, i) =>
+        String(CLASS_COUNT.MIN + i),
       ),
     );
     classes.value = "5";
@@ -2643,5 +2644,51 @@ describe("fill ramp persistence and reset", () => {
     expect(getIntent(ui, "overlay1", "fillColor")).toBe("#123456");
     const block = openPanel(ui);
     expect(modeSelect(block).value).toBe("solid");
+  });
+});
+
+describe("fill mode switch after the layer's fields changed", () => {
+  it("writes nothing when the numeric field disappeared under the open panel", () => {
+    // The data can lose its numeric property while the style panel is open (a
+    // streamed replacement, a filter). Switching to by-value then has no field
+    // to classify, so the write is rejected instead of persisting a ramp with
+    // an empty field.
+    const fixture = initWithFillLayer();
+    fixture.ui.openStylePanel("overlay1");
+    const item = findItem(fixture.ui, "overlay1");
+    const select = item.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_MODE_SELECT}`,
+    ) as HTMLSelectElement;
+    expect(select).not.toBeNull();
+
+    fixture.ui.runtimeStore.setFields("overlay1", []);
+    select.value = "ramp";
+    select.dispatchEvent(new Event("change"));
+
+    expect(getIntent(fixture.ui, "overlay1", "fillMode")).toBeUndefined();
+    expect(getIntent(fixture.ui, "overlay1", "fillRamp")).toBeUndefined();
+  });
+});
+
+describe("content-change replay", () => {
+  it("repaints every leaf from the stored fill", () => {
+    // The frame the content-change scheduler runs owns the repaint: without it
+    // a streamed addData keeps the new features at the author's colour.
+    const fixture = initWithFillLayer();
+    setIntent(fixture.ui, "overlay1", "fillColor", "#123456");
+    setIntent(fixture.ui, "overlay1", "fillOpacity", 0.4);
+
+    const policy = FILL_DIMENSION.contentChange as {
+      run: (ui: LayerUI, layerId: string) => void;
+    };
+    policy.run(fixture.ui, "overlay1");
+
+    for (const leaf of fixture.fillLayer.leaves) {
+      expect(leaf.setStyle).toHaveBeenCalledWith({
+        fillColor: "#123456",
+        fillOpacity: 0.4,
+        fill: true,
+      });
+    }
   });
 });

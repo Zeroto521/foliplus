@@ -2,8 +2,10 @@
 //
 // Opened from a data layer's ⋮ menu. The panel is anchored to the layer's own
 // row and built on the shared `foliplus-panel` vocabulary (header bar, content
-// scroll, close affordance), exactly like the attributes panel — so there is
-// no JS positioning and no scroll/resize bookkeeping to clean up.
+// scroll, close affordance), exactly like the attributes panel. The shared
+// pinRowPanel keeps the fixed-position card under that row while the list
+// scrolls, so the whole card stays inside the viewport instead of being clipped
+// by the list's scroll box.
 //
 // Split from ui/style.ts. Owns the panel assembly (renderStylePanel),
 // the event-binding skeleton (openStylePanel) and the teardown
@@ -12,7 +14,7 @@
 // frame-level helpers (reset footer, rail positioning) live in ./frame.ts.
 import { EVENTS } from "#core/event/index.js";
 import { resolveSelectedField } from "#core/label/index.js";
-import { createRowPanel } from "#core/leaflet/index.js";
+import { createRowPanel, pinRowPanel, unpinRowPanel } from "#core/leaflet/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import * as SVGs from "#foliplus/LayerControl/icon.js";
 import { finishSlidersIn } from "#foliplus/LayerControl/slider.js";
@@ -90,7 +92,8 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
 
 /** Open the annotation style panel for a layer. The panel is anchored to the
  *  layer's own row — the same "drop below the trigger" rule the attributes
- *  panel uses — so it needs no positioning code at all. */
+ *  panel uses — through the shared fixed-position pin, so it is not clipped by
+ *  the row list's scroll box. */
 const openStylePanel = (ui: LayerUI, layerId: string): void => {
   if (!layerId) return;
 
@@ -298,6 +301,7 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
 
   item.style.position = "relative";
   item.appendChild(panel);
+  pinRowPanel(panel, item);
 
   // Document capture dismiss (attrs recipe): disableClickPropagation on the
   // layer control stops bubble-phase mousedown from reaching document, so a
@@ -400,6 +404,7 @@ const closeStylePanel = (ui: LayerUI, setFocus: boolean): void => {
   // the change event. Only a session that actually moved emits.
   finishSlidersIn(panel);
   ui.overlayPanel.stylePanelLayerId = null;
+  unpinRowPanel(item);
   panel.remove();
   if (setFocus) item?.focus();
 };

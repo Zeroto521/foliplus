@@ -2159,6 +2159,14 @@ class TestLayerControlBrowser:
             assert before["storage"] is None, (
                 f"an untouched visit stored a size: {before}"
             )
+            layout = before.get("sizeLayout")
+            assert layout, f"the Size field was not measurable: {before}"
+            assert layout["textAlign"] == "center", (
+                f"the Size value must be horizontally centered: {layout}"
+            )
+            assert layout["rightGap"] <= 1, (
+                f"the Size box must sit at the right edge of its column: {layout}"
+            )
 
             after = page.evaluate(_js("LayerControl/size_row"), ["Facility Points", 30])
             assert after.get("panel"), f"the style panel did not reopen: {after}"
@@ -5058,6 +5066,84 @@ class TestLayerControlBrowser:
             assert overlay_topmost(".foliplus-layer-attrs-panel") is True, (
                 "the open attrs panel must stay above a lit sibling"
             )
+
+    def test_style_panel_scheme_dropdown_clears_the_panel(self, browser, tmp_path):
+        """The style panel's scheme dropdown is fully visible and hit-testable.
+
+        The panel is a row panel — fixed-position, pinned under its layer row —
+        while the picker's dropdown is portaled to <body>. Both float, so the
+        dropdown must outrank the expanded control (its bar/section are lifted
+        to floating +1/+9): without that, the panel painted over the open list
+        and every item was unclickable, which is what the fill row shipped
+        with. The card also has to stay inside the viewport rather than being
+        clipped by the layer list's scroll box — the reason the panel is fixed
+        in the first place.
+
+        Measured from live rects, no magic numbers: the assert is "the point at
+        the widget's center resolves to the widget itself", the same contract
+        the row-overlay probes use.
+        """
+        data = {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "properties": {"value": 10 + i},
+                    "geometry": {
+                        "type": "Polygon",
+                        "coordinates": [
+                            [
+                                [119.28 + i * 0.01, 26.06],
+                                [119.32 + i * 0.01, 26.06],
+                                [119.32 + i * 0.01, 26.10],
+                                [119.28 + i * 0.01, 26.10],
+                                [119.28 + i * 0.01, 26.06],
+                            ]
+                        ],
+                    },
+                }
+                for i in range(3)
+            ],
+        }
+        layer = folium.GeoJson(json.dumps(data), name="Polygon data")
+        with use_page(
+            self._make_page, browser, tmp_path, layer, slug="style_scheme_dd"
+        ) as (page, errors):
+            page.evaluate(_js("LayerControl/open_panel"))
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            panel_ready(page)
+            opened = page.evaluate(_js("LayerControl/open_style_panel"))
+            assert opened["ok"], f"style panel did not open: {opened}"
+            page.wait_for_selector(
+                ".foliplus-layer-style-panel", state="visible", timeout=5000
+            )
+
+            result = page.evaluate(_js("LayerControl/style_scheme_dropdown"))
+            assert result["ok"], f"scheme row did not open: {result}"
+            assert result["panelInViewport"], (
+                "the fixed row panel must stay inside the viewport, not be clipped "
+                f"by the layer list's scroll box: {result['panelRect']}"
+            )
+            assert result["triggerInViewport"], (
+                f"the scheme trigger is not reachable: {result['triggerRect']}"
+            )
+            assert result["triggerHitInsidePanel"], (
+                "the scheme trigger must be the topmost element at its center"
+            )
+            assert result["dropdownRect"], "the scheme dropdown did not mount"
+            assert result["dropdownInViewport"], (
+                f"the dropdown overflows the viewport: {result['dropdownRect']}"
+            )
+            assert result["dropdownHitInsideDropdown"], (
+                "the open dropdown is painted under the style panel: the point at "
+                "its center hit "
+                f"{result['dropdownHitClass']} (z={result['dropdownZ']})"
+            )
+            assert not errors, f"JS errors: {errors}"
 
     # ── zoom-range browser probes ────────────────────────────────────
     #

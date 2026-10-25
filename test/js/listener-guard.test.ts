@@ -74,10 +74,10 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
   },
   {
     f: "core/leaflet/panel.ts",
-    n: 2,
+    n: 4,
     pairedOff: 0,
     reason:
-      "both calls are in bindOutsideCollapse, which binds a capture + bubble click pair on document and returns its own unbind closure — that is exactly the `effect` case, but the factory takes a container, not a BaseControl instance, so the control must register the closure itself",
+      "two calls are in bindOutsideCollapse, which binds a capture + bubble click pair on document and returns its own unbind closure — that is exactly the `effect` case, but the factory takes a container, not a BaseControl instance, so the control must register the closure itself. The other two are the row-panel placement singleton (window scroll capture + resize): one pair for the whole page, bound on the first pinned card and shared by every card since, re-placing the open cards from live rects. The factory is free-standing (no mounting signal), and the singleton has no per-instance teardown to pair the removal with — a per-card pair would re-register the same two document listeners for every open panel",
   },
   {
     f: "core/hint.ts",
