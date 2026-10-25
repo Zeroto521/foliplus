@@ -1,6 +1,7 @@
-// Marker rendering: collect layer marker roots, then draw sprites, FontAwesome
-// glyphs, text labels, and the remaining icon types (img, inline SVG, bg fill).
-// Moved from renderer.ts — collectLayerMarkers, renderMarkers, renderFontAwesome,
+// Marker rendering: collect a pane's exportable roots, then draw sprites,
+// FontAwesome glyphs, text labels, and the remaining icon types (img, inline
+// SVG, bg fill).
+// Moved from renderer.ts — collectPaneRoots, renderMarkers, renderFontAwesome,
 // renderTextLabels, renderRemaining.
 import * as CONST from "../const.js";
 import type { RenderCtx } from "../type.js";
@@ -16,13 +17,13 @@ import { effectiveOpacity, pooledEach, withAlpha } from "./util.js";
 /** Collect the exportable roots of a set of panes — the single admission
  *  filter the marker channel applies, whatever pane list it is handed.
  *
- *  Split out of `collectLayerMarkers` because the export walks two kinds of
- *  pane for one layer: its content panes (`getLayerPanes`) and its per-layer
- *  marker-shadow panes (`options.shadowPane`, collected by
- *  `renderer/index`'s `resolveExportPanes`).  Both channels must admit and
- *  reject exactly the same roots — a shadow carrying SKIP_EXPORT or
- *  `display:none` stays out, an unmarked one is drawn — so the filter lives
- *  here once instead of being restated for the shadow walk. */
+ *  The export walks two kinds of pane for one layer — its content panes and its
+ *  per-layer marker-shadow panes (`options.shadowPane`, collected by
+ *  `renderer/index`'s `resolveExportPanes`) — and both channels must admit
+ *  and reject exactly the same roots: a shadow carrying SKIP_EXPORT or
+ *  `display:none` stays out, an unmarked one is drawn.  The filter lives here
+ *  once, and the pane list is the caller's: the marker sweep passes the
+ *  resolved content panes so a shadow can never be admitted as a marker root. */
 const collectPaneRoots = (paneNames: readonly string[]): HTMLElement[] => {
   const roots: HTMLElement[] = [];
   const seen = new Set<HTMLElement>();
@@ -34,9 +35,16 @@ const collectPaneRoots = (paneNames: readonly string[]): HTMLElement[] => {
       // Skip canvas and SVG — handled by dedicated render passes.
       // isExportExcluded: self or ancestor. Plus a root that *contains* a
       // marked descendant (marker pass draws whole roots, not subtrees).
+      //
+      // The SVG test is on the namespace, not on `tagName`: an `<svg>` element
+      // lives in the SVG namespace, so an HTML document reports its tag name
+      // lowercase (`"svg"`) and `tagName === "SVG"` never matched — the
+      // renderer roots were swept in as marker roots and painted a second time
+      // by the remaining-types pass. The namespace is realm-independent too
+      // (an svg inside an iframe's document still answers SVG_NS).
       if (
         el.tagName === "CANVAS" ||
-        el.tagName === "SVG" ||
+        el.namespaceURI === CONST.SVG_NS ||
         isExportExcluded(el) ||
         el.querySelector(CONST.SEL.SKIP_EXPORT) ||
         window.getComputedStyle(el).display === "none"
@@ -50,10 +58,6 @@ const collectPaneRoots = (paneNames: readonly string[]): HTMLElement[] => {
   }
   return roots;
 };
-
-/** Collect markers belonging to a specific layer's content panes. */
-const collectLayerMarkers = (layer: L.Layer): HTMLElement[] =>
-  collectPaneRoots(map.foliplus!.LayerAPI!.getLayerPanes(layer));
 
 /** Render markers with background-image sprites. */
 const renderMarkers = async (
@@ -441,7 +445,6 @@ const renderRemaining = async (
 };
 
 export {
-  collectLayerMarkers,
   collectPaneRoots,
   renderMarkers,
   renderFontAwesome,

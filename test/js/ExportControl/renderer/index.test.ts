@@ -15,9 +15,11 @@ import * as UTIL from "#foliplus/ExportControl/util.js";
 
 // index.ts binds its logger and translator to CONFIG.name at module-import
 // time, so the component name has to be set before the import resolves —
-// setup.ts leaves it at "SearchControl".  Must run before the import, not in
-// beforeEach (same pattern as renderer.test.ts).
-window.CONFIG = { ...window.CONFIG, name: "ExportControl" };
+// setup.ts leaves it at "SearchControl". vi.hoisted runs above the imports;
+// a plain assignment here would land after they were evaluated.
+vi.hoisted(() => {
+  (window as any).CONFIG = { ...(window as any).CONFIG, name: "ExportControl" };
+});
 
 // renderMarkers loads its sprites through the hoisted factory: the module
 // exports are getters, so a plain vi.spyOn on it throws from inside pooledEach.
@@ -72,7 +74,11 @@ const LEAFLET_SHARED_PANES = [
 
 /** The shape #733 produces for one marker layer: a content pane, a per-layer
  *  shadow pane, and leaves whose `options.pane` / `options.shadowPane` name
- *  them. */
+ *  them. `getLayerPanes` answers with the surface's WHOLE pane set — shadow
+ *  carrier included — because that is what the real `LayerController` reports
+ *  (`resolveLayerPanes` → `surface.panes`); a fixture that pre-filtered the
+ *  shadow is exactly what hid P1, where the export read the shadow back as
+ *  content and emptied its own shadow group. */
 interface FixtureOpts {
   /** `options.shadowPane` of the marker leaf.  Undefined uses the per-layer
    *  pane; pass Leaflet's shared name for the no-per-layer-carrier case. */
@@ -82,6 +88,9 @@ interface FixtureOpts {
   contentCanvas?: boolean;
   /** Mark the shadow with the export opt-out, to pin the admission filter. */
   shadowExcluded?: boolean;
+  /** Add a second marker layer whose leaf names the SAME shadow pane — the
+   *  shared-carrier case one export must paint once. */
+  secondLayerSharingShadow?: boolean;
 }
 
 interface Fixture {
@@ -89,8 +98,6 @@ interface Fixture {
   layer: any;
   renderer: ExportRenderer;
   loads: string[];
-  contentCanvas: HTMLCanvasElement | null;
-  shadowRoot: HTMLElement;
 }
 
 function makeFixture(opts: FixtureOpts = {}): Fixture {
@@ -106,9 +113,8 @@ function makeFixture(opts: FixtureOpts = {}): Fixture {
   pinBox(icon, 100, 100, 20, 20);
   contentPane.appendChild(icon);
 
-  let contentCanvas: HTMLCanvasElement | null = null;
   if (opts.contentCanvas) {
-    contentCanvas = document.createElement("canvas");
+    const contentCanvas = document.createElement("canvas");
     contentCanvas.toDataURL = () => "data:image/png;base64,AAAA";
     pinBox(contentCanvas, 0, 0, 200, 200);
     contentPane.appendChild(contentCanvas);
@@ -129,6 +135,36 @@ function makeFixture(opts: FixtureOpts = {}): Fixture {
     "layer-content": contentPane,
     "layer-content-shadow": shadowPane,
   };
+  const entries: Array<{ id: string; visible: boolean; layer: unknown }> = [
+    { id: "markers", visible: true, layer },
+  ];
+  const panesByLayer = new Map<unknown, string[]>();
+  // A surface only owns a shadow pane when it has a per-layer carrier; a leaf
+  // that kept Leaflet's shared `shadowPane` has none to report.
+  panesByLayer.set(
+    layer,
+    Array.from(
+      new Set(
+        shadowName === "shadowPane" ? ["layer-content"] : ["layer-content", shadowName],
+      ),
+    ),
+  );
+
+  if (opts.secondLayerSharingShadow) {
+    const content2 = document.createElement("div");
+    const icon2 = document.createElement("img");
+    icon2.src = "icon2.png";
+    pinBox(icon2, 300, 300, 20, 20);
+    content2.appendChild(icon2);
+    panes["layer2-content"] = content2;
+    const layer2 = { options: { pane: "layer2-content", shadowPane: shadowName } };
+    panesByLayer.set(layer2, ["layer2-content"]);
+    // The registry is topmost-first and render() paints bottom-up, so the
+    // layer added last is the one painted first — the one that claims the
+    // shared shadow pane.
+    entries.unshift({ id: "markers2", visible: true, layer: layer2 });
+  }
+
   const map = {
     options: { crs: {} },
     getContainer: () => container,
@@ -137,9 +173,9 @@ function makeFixture(opts: FixtureOpts = {}): Fixture {
     getPane: (name: string) => panes[name] ?? null,
     foliplus: {
       LayerAPI: {
-        layers: [{ id: "markers", visible: true, layer }],
+        layers: entries,
         intentVisible: () => true,
-        getLayerPanes: () => ["layer-content"],
+        getLayerPanes: (l: unknown) => panesByLayer.get(l) ?? [],
         // The live `PaneManager` the renderer reads its shared-pane set
         // from.  Only `defaultPanes` is consulted.
         panes: { defaultPanes: new Set(LEAFLET_SHARED_PANES) },
@@ -179,8 +215,6 @@ function makeFixture(opts: FixtureOpts = {}): Fixture {
     layer,
     renderer: new ExportRenderer(map as any),
     loads,
-    contentCanvas,
-    shadowRoot: shadow,
   };
 }
 
@@ -214,7 +248,11 @@ const runRender = (fixture: Fixture) =>
   );
 
 describe("resolveExportPanes", () => {
-  it("reports content panes and the per-layer shadow pane separately", () => {
+  it("splits a surface's pane set into content and shadow groups", () => {
+    // P1 regression gate: getLayerPanes answers with the surface's whole pane
+    // set — [content, content-shadow] — so the shadow has to be taken out of
+    // the content group rather than read as proof that it is already content.
+    // The pre-fix resolver subtracted it from content and lost it entirely.
     const fixture = makeFixture();
     install(fixture);
     expect(fixture.renderer.resolveExportPanes(fixture.layer)).toEqual({
@@ -247,24 +285,28 @@ describe("resolveExportPanes", () => {
     ]);
   });
 
-  it("does not list a shadow pane that is already a content pane", () => {
-    // A leaf can point its shadow at its own content pane; listing it in both
-    // groups would paint the same DOM twice.
+  it("keeps the groups disjoint when a leaf names a content pane as its shadow", () => {
+    // A leaf can point its shadow at a pane the API also reports as content.
+    // The collection order decides who wins — shadows first, content is what
+    // remains — so the pane is painted by one pass, never by both.
     const fixture = makeFixture({ shadowPane: "layer-content" });
     install(fixture);
-    expect(fixture.renderer.resolveExportPanes(fixture.layer).shadows).toEqual([]);
+    const panes = fixture.renderer.resolveExportPanes(fixture.layer);
+    expect(panes.shadows).toEqual(["layer-content"]);
+    expect(panes.content).not.toContain("layer-content");
   });
 
   it("collects no shadows when the API carries no pane host", () => {
     // The lightweight LayerAPI stub has no PaneManager to ask, so it cannot
-    // tell a per-layer shadow pane from Leaflet's shared one. Answering "no
-    // shadows" keeps such a map at the export's pre-#733 shape: the pane walk
-    // is content-only and nothing new is drawn.
+    // tell a per-layer shadow pane from Leaflet's shared one. The walk then
+    // collects nothing and the API's list passes through untouched — the
+    // export keeps its pre-#733 shape (the stub's own list is empty anyway, so
+    // no shadow pane can reach the walk on that path).
     const fixture = makeFixture();
     (fixture.map.foliplus.LayerAPI as { panes?: unknown }).panes = undefined;
     install(fixture);
     expect(fixture.renderer.resolveExportPanes(fixture.layer)).toEqual({
-      content: ["layer-content"],
+      content: ["layer-content", "layer-content-shadow"],
       shadows: [],
     });
   });
@@ -358,5 +400,19 @@ describe("ExportRenderer.render — marker shadows", () => {
 
     expect(fixture.loads.some(src => src.includes("shadow.png"))).toBe(false);
     expect(fixture.loads.some(src => src.includes("icon.png"))).toBe(true);
+  });
+
+  it("paints a shadow pane shared by two layers once", async () => {
+    // Nothing forces a custom shadow pane to be per-layer, and it is one set
+    // of DOM nodes: painting it once per naming layer would composite the same
+    // shadows twice and deepen their alpha. The first layer painted claims it;
+    // every layer's own content still draws.
+    const fixture = makeFixture({ secondLayerSharingShadow: true });
+    install(fixture);
+
+    await runRender(fixture);
+
+    expect(fixture.loads.filter(src => src.includes("shadow.png"))).toHaveLength(1);
+    expect(fixture.loads.filter(src => /icon\d*\.png$/.test(src))).toHaveLength(2);
   });
 });

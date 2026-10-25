@@ -15,7 +15,6 @@ import * as CONST from "../const.js";
 import type { RenderCtx, TileDesc, TileLoadStats } from "../type.js";
 import { renderCanvasElement, renderPaneCanvas } from "./canvas.js";
 import {
-  collectLayerMarkers,
   collectPaneRoots,
   renderFontAwesome,
   renderMarkers,
@@ -52,9 +51,6 @@ const sharedPanesOf = (api: LayerAPI): ReadonlySet<string> | undefined =>
 
 /** Resolve the panes one layer's export walk must visit.
  *
- *  `content` is `getLayerPanes` verbatim — the discovery result focus's lift
- *  also reads, so the export lifts no reinterpretation onto it.
- *
  *  `shadows` is the export-only half.  A marker's shadow is mounted in the
  *  pane its leaf names in `options.shadowPane`, and pane discovery never
  *  looks at that option — it enumerates `options.pane` only — so the per-layer
@@ -65,22 +61,32 @@ const sharedPanesOf = (api: LayerAPI): ReadonlySet<string> | undefined =>
  *
  *  The exclusion reads `defaultPanes`, not `isDefaultPane`: the latter also
  *  answers for the `foliplus-pane-*` fallback family, which is exactly where a
- *  synthesized layer's shadow pane lives (`<base pane>-shadow`). */
+ *  synthesized layer's shadow pane lives (`<base pane>-shadow`).
+ *
+ *  `content` is `getLayerPanes` minus whatever the walk named as a shadow, and
+ *  the order is load-bearing: the shadow group is collected FIRST, the content
+ *  list is what remains.  A surface reports its whole pane set through
+ *  `LayerAPI.getLayerPanes` — shadow carrier included — so subtracting after
+ *  the fact is what keeps the groups disjoint, and it gives the shadow channel
+ *  precedence on a name that is both (a leaf pointing its shadow at its own
+ *  content pane), instead of painting that pane through two passes.  The walk
+ *  reads `options?.shadowPane`: a third-party leaf is not obliged to carry
+ *  `options` at all. */
 const resolveExportPanes = (layer: L.Layer): ExportPanes => {
   const api = map.foliplus?.LayerAPI;
-  const content = api?.getLayerPanes(layer) ?? [];
-  const shadows: string[] = [];
+  const raw = api?.getLayerPanes(layer) ?? [];
   const shared = api ? sharedPanesOf(api) : undefined;
-  if (!shared) return { content, shadows };
-  walkLeaf(layer, leaf => {
-    const name = (leaf.options as { shadowPane?: unknown }).shadowPane;
-    if (typeof name !== "string" || name === "") return;
-    if (shared.has(name)) return;
-    // A leaf pointing its shadow at its own content pane is already covered by
-    // the content walk — listing it twice would paint the same DOM twice.
-    if (content.includes(name) || shadows.includes(name)) return;
-    shadows.push(name);
-  });
+  const shadows: string[] = [];
+  if (shared) {
+    walkLeaf(layer, leaf => {
+      const name = (leaf as { options?: { shadowPane?: unknown } }).options?.shadowPane;
+      if (typeof name !== "string" || name === "") return;
+      if (shared.has(name)) return;
+      if (shadows.includes(name)) return;
+      shadows.push(name);
+    });
+  }
+  const content = raw.filter(name => !shadows.includes(name));
   return { content, shadows };
 };
 
@@ -295,6 +301,13 @@ class ExportRenderer {
         );
       });
       let done = 0;
+      // Shadow panes already painted by this export. A custom shadow pane can
+      // be shared by several layers (nothing in the export path requires it to
+      // be per-layer), and it is one set of DOM nodes: painting it per layer
+      // would composite the same shadows twice, deepening their alpha. First
+      // layer wins, which is also the layer whose content sits lowest — the
+      // pane's z puts the shadows there.
+      const drawnShadowPanes = new Set<string>();
       for (let i = passable.length - 1; i >= 0; i--) {
         const layerInfo = passable[i];
         const layer = this.resolveLayer(layerInfo);
@@ -316,8 +329,16 @@ class ExportRenderer {
           // canvas before the icons and the vectors.  `shadows` is never part
           // of `content`, so this call site is the only place that decides the
           // order — pane iteration order cannot silently move a shadow above
-          // its icon.
-          const shadowRoots = this.collectPaneRoots(panes.shadows);
+          // its icon.  A pane this export already painted is skipped here, not
+          // in the resolver: the resolver answers per layer, the skip is a
+          // property of one export.
+          const shadowPanes: string[] = [];
+          for (const name of panes.shadows) {
+            if (drawnShadowPanes.has(name)) continue;
+            drawnShadowPanes.add(name);
+            shadowPanes.push(name);
+          }
+          const shadowRoots = this.collectPaneRoots(shadowPanes);
           if (shadowRoots.length) {
             await this.renderMarkers(rc, shadowRoots);
             await this.renderRemaining(rc, shadowRoots);
@@ -344,8 +365,11 @@ class ExportRenderer {
             await this.renderPaneCanvas(rc, labelPane, CONST.SEL.ANNOTATION_CANVAS);
           }
 
-          // Markers and divIcons in this layer
-          const markerRoots = this.collectLayerMarkers(layer);
+          // Markers and divIcons in this layer.  The sweep takes the resolved
+          // content panes, not the raw `getLayerPanes` answer: the resolver
+          // has already removed the shadow carrier, and a shadow must never be
+          // admitted as a marker root — it would paint on top of its icon.
+          const markerRoots = this.collectPaneRoots(panes.content);
           if (markerRoots.length) {
             await this.renderMarkers(rc, markerRoots);
             await this.renderFontAwesome(rc, markerRoots);
@@ -413,11 +437,6 @@ class ExportRenderer {
    *  admission filter, shared by the content and shadow walks. */
   collectPaneRoots(paneNames: readonly string[]): HTMLElement[] {
     return collectPaneRoots(paneNames);
-  }
-
-  /** Collect markers belonging to a specific layer's content panes. */
-  collectLayerMarkers(layer: L.Layer): HTMLElement[] {
-    return collectLayerMarkers(layer);
   }
 
   /** Render markers with background-image sprites. */
