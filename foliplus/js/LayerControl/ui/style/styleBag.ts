@@ -611,8 +611,6 @@ export {
   FACE,
   type SchedulerFace,
   type StyleApplyFailure,
-  type StyleApplyOwner,
-  type StyleApplySchedule,
   type StyleSetter,
   STYLE_APPLY_SOURCE,
   STYLE_BAG_DEFAULTS,
