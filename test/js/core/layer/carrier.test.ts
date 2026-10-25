@@ -623,7 +623,11 @@ describe("unknown third-party layers (real Leaflet)", () => {
     surface.materialize();
     const marker = group.getLayers()[1] as L.Marker;
 
-    if (surface.capabilities.opacity === "leaf-native") {
+    // Widen deliberately: the tier is not in the union yet. This branch
+    // documents the future contract, so a later addition cannot make the
+    // guard silently unreachable (and does not trigger TS2367 today).
+    const opacity: string = surface.capabilities.opacity;
+    if (opacity === "leaf-native") {
       for (const pane of surface.panes) {
         if (pane.role === PANE_ROLE.ANNOTATION || pane.role === PANE_ROLE.SHADOW) {
           continue;
@@ -633,7 +637,7 @@ describe("unknown third-party layers (real Leaflet)", () => {
     } else {
       // Today the tree is pane-carried: the marker is inside the written
       // pane, so pane opacity covers it and no leaf setter runs.
-      expect(surface.capabilities.opacity).toBe("pane");
+      expect(opacity).toBe("pane");
       expect(surface.panes[0].element.contains(marker.getElement()!)).toBe(true);
     }
     map.remove();
