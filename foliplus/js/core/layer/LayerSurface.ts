@@ -867,12 +867,13 @@ class LayerSurface implements LayerSurfaceContract {
     // family the migrator relocates AND we actually hold a base pane. An
     // empty container stays provisional-true: its leaves arrive later and
     // are re-audited on the next dirty cycle.
-    // A content/base pane is the carrier, not "any pane": a surface that
-    // only booked an annotation or shadow handle has nothing an opacity write
-    // can reach. Base panes are the role the constructor books first; the
-    // pane set is fixed after materialization (I2).
-    const hasBasePane = this.panes.some(pane => pane.role === PANE_ROLE.BASE);
-    const paneCarrier = hasBasePane && probe.migratable !== "mixed";
+    // The carrier is the surface's own content pane — the synthesized target
+    // or the declared base — not "any booked pane": an annotation/shadow-only
+    // set has nothing an opacity write can reach. Role alone is not enough:
+    // a caller may declare the base pane with a non-base role.
+    const contentPaneName = this.pinTarget ?? this.surfaceDecl.paneName;
+    const hasContentPane = this.panes.some(pane => pane.name === contentPaneName);
+    const paneCarrier = hasContentPane && probe.migratable !== "mixed";
     this.capabilities.opacity = paneCarrier ? CAP_TIER.PANE : CAP_TIER.NONE;
     this.capabilities.relocatable = paneCarrier;
   }

@@ -201,6 +201,7 @@ describe("LayerSurface pane resolution", () => {
     expect(surface.paneNames).toEqual(["graph", "foliplus-annotation-a"]);
     expect(surface.panes[0].role).toBe("sub");
     expect(surface.panes[1].role).toBe("annotation");
+    expect(surface.capabilities.opacity).toBe("pane");
   });
 
   it("gives a canvas pane no renderer", () => {
