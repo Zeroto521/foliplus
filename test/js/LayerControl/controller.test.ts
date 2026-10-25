@@ -728,7 +728,7 @@ describe("LayerController", () => {
       layer: { options: {} },
     });
     manager.layerRegistry.get("no-surface")!.type = GEOM_TYPE.POINT;
-    manager.surfaces.delete("no-surface");
+    manager.surfaceIndex.delete("no-surface");
     expect(manager.getLayerType("no-surface")).toBe(GEOM_TYPE.POINT);
   });
 
@@ -736,6 +736,62 @@ describe("LayerController", () => {
     const spy = vi.spyOn(manager.surfaces, "get");
     manager.invalidateType("never-registered");
     expect(spy).toHaveBeenCalledWith("never-registered");
+  });
+
+  // ── SurfaceIndex: the two directions are one write ──
+
+  it("books a surface in both directions and drops them together", () => {
+    window.L.stamp = stableStamp;
+    const layer = new window.L.Polygon();
+    manager.registerLayer({ id: "idx1", name: "Idx", layer });
+    const surface = manager.surfaces.get("idx1")!;
+    expect(manager.surfaceIndex.get("idx1")).toBe(surface);
+    expect(manager.surfaceIndex.getByLayer(layer)).toBe(surface);
+    expect(manager.surfaceIndex.getByStamp(window.L.stamp(layer))).toBe(surface);
+
+    expect(manager.unregisterLayer("idx1")).toBe(true);
+    expect(manager.surfaces.has("idx1")).toBe(false);
+    expect(manager.surfaceIndex.getByLayer(layer)).toBeUndefined();
+  });
+
+  it("drops the superseded layer's reverse edge on a same-id re-registration", () => {
+    window.L.stamp = stableStamp;
+    const first = new window.L.Polygon();
+    manager.registerLayer({ id: "idx2", name: "Idx", layer: first });
+    const surfaceA = manager.surfaces.get("idx2")!;
+
+    const second = new window.L.Polygon();
+    manager.registerLayer({ id: "idx2", name: "Idx 2", layer: second });
+    const surfaceB = manager.surfaces.get("idx2")!;
+
+    expect(surfaceB).not.toBe(surfaceA);
+    expect(manager.surfaceIndex.getByLayer(first)).toBeUndefined();
+    expect(manager.surfaceIndex.getByLayer(second)).toBe(surfaceB);
+    manager.surfaceIndex.assertConsistent(new Set(manager.layers.map(l => l.id)));
+
+    expect(manager.unregisterLayer("idx2")).toBe(true);
+    expect(manager.surfaces.has("idx2")).toBe(false);
+    manager.surfaceIndex.assertConsistent(new Set(manager.layers.map(l => l.id)));
+  });
+
+  it("keeps both directions consistent across register, delete and unregister", () => {
+    window.L.stamp = stableStamp;
+    const registryIds = () => new Set(manager.layers.map(l => l.id));
+    manager.registerLayer({ id: "no-layer", name: "No layer" });
+    manager.registerLayer({
+      id: "with-layer",
+      name: "With",
+      layer: new window.L.Polygon(),
+    });
+    manager.surfaceIndex.assertConsistent(registryIds());
+
+    manager.deleteLayer("no-layer");
+    manager.surfaceIndex.assertConsistent(registryIds());
+
+    manager.unregisterLayer("with-layer");
+    manager.surfaceIndex.assertConsistent(registryIds());
+    expect(manager.surfaces.has("no-layer")).toBe(false);
+    expect(manager.surfaces.has("with-layer")).toBe(false);
   });
 
   it("getLayerType caches the resolved type on the layer info", () => {
@@ -5841,7 +5897,8 @@ describe("carrier recovery (controller wiring)", () => {
 
   it("short-circuits attribution for a registered layer's own hide/show", () => {
     // With Leaflet's identity-stable stamp the first O(1) signal answers: the
-    // registered layer resolves from `surfacesByLayer`, so a hide/show returns
+    // registered layer resolves from the index's layer-stamp direction, so a
+    // hide/show returns
     // before the O(surfaces) scans and cannot mark a neighbouring tree dirty —
     // the optimization the fallback path in the test above cannot exercise.
     const { manager, map } = initFixture({ data: [] });

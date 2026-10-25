@@ -29,6 +29,7 @@ export { LayerInfoRegistry } from "./LayerInfoRegistry.js";
 export { LayerSurface } from "./LayerSurface.js";
 export { PaneLedger } from "./PaneLedger.js";
 export { PaneManager } from "./PaneManager.js";
+export { SurfaceIndex } from "./SurfaceIndex.js";
 export {
   findLayer,
   isLayerInPanes,
