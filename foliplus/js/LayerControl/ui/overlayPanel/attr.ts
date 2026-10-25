@@ -67,7 +67,7 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
   const typeKey = isColor
     ? "type_color_map"
     : isBaseLayer
-      ? "type_base"
+      ? "type_tile"
       : layerInfo?.iconSvg
         ? "type_custom"
         : `type_${gtype}`;

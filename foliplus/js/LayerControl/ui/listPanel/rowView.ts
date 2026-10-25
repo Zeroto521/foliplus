@@ -138,7 +138,7 @@ const rowType = (
     if (layerInfo.id === CONST.SOLID_BASEMAP_ID) {
       return { svg: SVGs.ICON_COLOR, key: "type_color_map" };
     }
-    return { svg: Icons.ICON_GLOBE, key: "type_base" };
+    return { svg: Icons.ICON_GLOBE, key: "type_tile" };
   }
   if (layerInfo.iconSvg) {
     return { svg: layerInfo.iconSvg, key: "type_custom" };
@@ -161,9 +161,11 @@ const buildRowCell = (ui: LayerUI, layerInfo: LayerInfo): RowCell => {
   const checked = intentVisibleOf(ui, layerInfo.id);
   const type = rowType(ui, layerInfo, layer);
   const typeLabel = ui.T(type.key);
-  // Row tooltips say 点/Point; the attrs panel keeps the long 点图层/Point
-  // Layer label. `type.key` is dynamic, so the short keys are listed in the
-  // locale guard's dynamic supplement (test/python/test_locale.py).
+  // Row tooltips say 点/Point and 地图/Tile for a base row; the attrs panel
+  // keeps the long 点图层/Point Layer and 基础底图/Tile Map labels. The base
+  // row's pair is type_tile + type_tile_short so both words name the row
+  // itself. `type.key` is dynamic, so the short keys are listed in the locale
+  // guard's dynamic supplement.
   const titleTypeLabel = ui.T(`${type.key}_short`);
   // The filter belongs to the row whose capability declares it: the funnel
   // and count report that owner's own unit (Heatmap = hex cells, a point

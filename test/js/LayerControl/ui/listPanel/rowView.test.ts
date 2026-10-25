@@ -253,7 +253,7 @@ describe("buildRowCell + applyRowView (one writer per row)", () => {
     const base = ui.c.layers.find(li => li.id === "base1")!;
     const cellInfo = buildRowCell(ui, base);
     expect(cellInfo.typeSvg).toBe(Icons.ICON_GLOBE);
-    expect(cellInfo.typeLabel).toContain("type_base");
+    expect(cellInfo.typeLabel).toContain("type_tile");
   });
 
   it("uses the custom icon when the layer declares one", () => {
