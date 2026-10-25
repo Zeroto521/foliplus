@@ -3,11 +3,6 @@
 // compile-time directives that cannot be factored out.
 import { vi } from "vitest";
 import { createScopedTranslator } from "#common/locale.js";
-import { saveWindowGlobals } from "../../fixture.js";
-
-/** Restore the `window.L` / `turf` stubs this fixture reinstalls per test. */
-const restoreGlobals = saveWindowGlobals("L", "turf");
-afterAll(restoreGlobals);
 
 /** A CONFIG for the measure UI with the delete-icon locale the UI renders
  *  (ComponentName-prefixed keys, like the Python bridge emits). */

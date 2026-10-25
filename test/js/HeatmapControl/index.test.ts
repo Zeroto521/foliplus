@@ -9,13 +9,8 @@
 // `addTo` records the control without running onAdd — buildDOM needs the full
 // Leaflet runtime and is covered by the browser suite; the lazy getter and
 // destroy() do not.
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { makeConfig } from "../config-fixture.js";
-import { saveWindowGlobals } from "../fixture.js";
-
-/** Restore the setup.ts globals this file swaps; hooks are file-scoped. */
-const restoreGlobals = saveWindowGlobals("L", "map", "CONFIG");
-afterAll(restoreGlobals);
 
 type CapturedControl = {
   log: { warn: (...args: unknown[]) => void };

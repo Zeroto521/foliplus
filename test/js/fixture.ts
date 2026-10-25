@@ -2,7 +2,7 @@
 // mock factory, a ControlEnv builder, and a CLI harness for scripts that
 // keep their argv/help/error handling at module top level.
 //
-// Seven pieces, all exported:
+// Six pieces, all exported:
 //
 // - `installWindowLExtensions()` — called once from `setup.ts`. Extends the
 //   base `window.L` stub with the constructors/factories that individual test
@@ -16,10 +16,6 @@
 //   `document.body`: a test file that mounts DOM in `beforeAll` would have
 //   its container wiped before the first `it` runs. Tests that need a
 //   scoped DOM root call `mountFixtureRoot()` and clean it up themselves.
-// - `saveWindowGlobals(...keys)` — snapshot `window` globals at module top
-//   level and return a restore function; callers register it in `afterAll`.
-//   `resetState()` never restores globals, so without this an
-//   `isolate: false` run would leak a swapped `window.L` into the next file.
 // - `makeLayerUIMock(extra?)` — mirror of the `LayerUI` field set (see
 //   `foliplus/js/LayerControl/ui/index.ts` constructor + declared fields).
 //   Adding a new field to LayerUI means adding it here too; the completeness
@@ -280,31 +276,6 @@ export function installWindowLExtensions(): void {
 export function resetState(): void {
   window.localStorage.clear();
   vi.clearAllMocks();
-}
-
-/** Globals that test files swap; `setup.ts` owns their canonical values. */
-type WindowGlobal = "L" | "map" | "CONFIG" | "turf";
-
-/**
- * Snapshot the named `window` globals and return a restore function. Call this
- * at module top level — before a `beforeAll`/`beforeEach` swaps them — and
- * register the result in `afterAll`:
- *
- * ```ts
- * const restoreGlobals = saveWindowGlobals("L", "map", "CONFIG");
- * afterAll(restoreGlobals);
- * ```
- *
- * `resetState()` only clears storage and mock history, never globals, so a
- * swapped `window.L` would otherwise leak into the next file under
- * `isolate: false`.
- */
-export function saveWindowGlobals(...keys: WindowGlobal[]): () => void {
-  const globals = window as unknown as Record<WindowGlobal, unknown>;
-  const saved = keys.map(key => [key, globals[key]] as const);
-  return () => {
-    for (const [key, value] of saved) globals[key] = value;
-  };
 }
 
 /**

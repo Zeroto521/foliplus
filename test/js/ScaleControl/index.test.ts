@@ -11,12 +11,7 @@
 // minimal but faithful mock before importing. The mock reproduces both halves
 // of the leaky pattern: L.Control.Scale.onAdd registers `move` on the map keyed
 // to the scale instance, and setZoom fires that listener synchronously.
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { saveWindowGlobals } from "../fixture.js";
-
-/** Restore the setup.ts globals this file swaps; hooks are file-scoped. */
-const restoreGlobals = saveWindowGlobals("L", "map");
-afterAll(restoreGlobals);
+import { beforeAll, describe, expect, it, vi } from "vitest";
 
 type EventEntry = { fn: (...args: unknown[]) => unknown; ctx: unknown };
 type EventRegistry = Record<string, EventEntry[]>;
