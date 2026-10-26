@@ -172,9 +172,10 @@ class TestHeatmapAutoFieldBrowser:
                 "geometry": {"type": "Point", "coordinates": [119.30, 26.08]},
             },
         ]
-        with use_page(
-            _make_autofield_page, tmp_path, browser, features, agg="sum"
-        ) as (page, errors):
+        with use_page(_make_autofield_page, tmp_path, browser, features, agg="sum") as (
+            page,
+            errors,
+        ):
             options = page.evaluate(_js("HeatmapControl/read_layer_options_all"))
             real_options = [v for v in options if v]
             assert len(real_options) >= 1, f"No layer options found: {options}"
