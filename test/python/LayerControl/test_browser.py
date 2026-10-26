@@ -72,6 +72,53 @@ class TestLayerControlBrowser:
         """True while the panel at *selector* is expanded, not collapsed."""
         return page.evaluate(_js("LayerControl/panel_open"), selector)
 
+    @staticmethod
+    def _ramp_layer() -> folium.GeoJson:
+        """A polygon layer with a numeric property, for the fill ramp arm."""
+        return folium.GeoJson(
+            json.dumps(
+                {
+                    "type": "FeatureCollection",
+                    "features": [
+                        {
+                            "type": "Feature",
+                            "properties": {"value": 10 + i},
+                            "geometry": {
+                                "type": "Polygon",
+                                "coordinates": [
+                                    [
+                                        [119.28 + i * 0.01, 26.06],
+                                        [119.32 + i * 0.01, 26.06],
+                                        [119.32 + i * 0.01, 26.10],
+                                        [119.28 + i * 0.01, 26.10],
+                                        [119.28 + i * 0.01, 26.06],
+                                    ]
+                                ],
+                            },
+                        }
+                        for i in range(3)
+                    ],
+                }
+            ),
+            name="Polygon data",
+        )
+
+    @staticmethod
+    def _open_style_ramp(page) -> None:
+        """Expand the control, wait for its init pass, then open ⋮ → Style."""
+        page.evaluate(_js("LayerControl/open_panel"))
+        page.wait_for_selector(
+            ".foliplus-layer-ctrl.foliplus-is-expanded",
+            state="attached",
+            timeout=5000,
+        )
+        panel_ready(page)
+        opened = page.evaluate(_js("LayerControl/open_style_panel"))
+        assert opened["ok"], f"style panel did not open: {opened}"
+        page.wait_for_selector(
+            ".foliplus-layer-style-panel", state="visible", timeout=5000
+        )
+
     def test_menu_shell_keeps_design_padding_under_bootstrap(self, browser, tmp_path):
         """The layer more-menu shell keeps its design padding on a host
         Bootstrap page.
@@ -5372,6 +5419,179 @@ class TestLayerControlBrowser:
                 f"{result['dropdownHitClass']} (z={result['dropdownZ']})"
             )
             assert not errors, f"JS errors: {errors}"
+
+    # ── scheme picker portal: the list is part of the drawer ────────────
+    #
+    # The picker portals its colour list to <body> (or the fullscreen element)
+    # so it can paint above the drawer that owns the trigger. A press on that
+    # list therefore reaches the document-level dismiss listeners with a target
+    # outside every panel class, while still being part of the drawer's
+    # interaction: the drawer used to close at mousedown, before the click could
+    # select a colour. element.click() dispatches no mousedown, so these
+    # regressions need Playwright's real mouse press.
+
+    def test_style_scheme_portal_pick_keeps_the_drawer(self, browser, tmp_path):
+        """A real press on the portalled colour list keeps the drawer open.
+
+        The list lives on <body>, so the press has to be classified as part of
+        the drawer's overlay rather than by the drawer's own subtree. The press
+        is what commits the colour: the drawer must survive it, the picker must
+        close behind it, and both the hidden select and the trigger must show
+        the chosen scheme.
+        """
+        with use_page(
+            self._make_page,
+            browser,
+            tmp_path,
+            self._ramp_layer(),
+            slug="style_scheme_portal_pick",
+        ) as (page, errors):
+            self._open_style_ramp(page)
+            opened = page.evaluate(_js("LayerControl/style_scheme_portal_open"))
+            assert opened["ok"], f"scheme list did not open: {opened}"
+            assert opened["dropdownParentTag"] == "BODY", (
+                "the picker must portal its list to <body>, got "
+                f"{opened['dropdownParentTag']}"
+            )
+
+            page.mouse.click(opened["targetX"], opened["targetY"])
+            state = page.evaluate(_js("LayerControl/style_scheme_portal_state"))
+            assert state["drawerVisible"], (
+                f"the colour press dismissed the drawer: {state}"
+            )
+            assert state["hiddenValue"] == opened["targetName"], (
+                f"the pick did not commit {opened['targetName']}: {state}"
+            )
+            assert state["triggerTitle"] == opened["targetName"], (
+                f"the trigger still shows {state['triggerTitle']}, expected "
+                f"{opened['targetName']}"
+            )
+            assert not state["dropdownPresent"], (
+                f"the list must close after a pick: {state}"
+            )
+            assert not errors, f"JS errors: {errors}"
+
+    def test_style_scheme_portal_survives_a_scroll(self, browser, tmp_path):
+        """Scrolling while the list is open re-pins it and keeps the drawer.
+
+        The drawer scrolls its own content (the card is capped and pinned), and
+        the portalled list has to follow the trigger it belongs to. A scroll is
+        not a dismissal: both surfaces stay on screen.
+        """
+        with use_page(
+            self._make_page,
+            browser,
+            tmp_path,
+            self._ramp_layer(),
+            slug="style_scheme_portal_scroll",
+        ) as (page, errors):
+            self._open_style_ramp(page)
+            opened = page.evaluate(_js("LayerControl/style_scheme_portal_open"))
+            assert opened["ok"], f"scheme list did not open: {opened}"
+
+            # The label section makes the card tall enough to scroll inside
+            # itself; the probe reports the live box the wheel must target.
+            before = page.evaluate(
+                _js("LayerControl/read_row_panel_scroll"), {"ramp": True}
+            )
+            assert before["ok"], before
+            content = before["content"]
+            assert content["scrollHeight"] > content["clientHeight"], (
+                f"the drawer has nothing to scroll: {content}"
+            )
+            rect = content["rect"]
+            page.mouse.move(
+                rect["left"] + rect["width"] / 2, rect["top"] + rect["height"] / 2
+            )
+            page.mouse.wheel(0, 240)
+            page.wait_for_timeout(300)
+
+            after = page.evaluate(
+                _js("LayerControl/read_row_panel_scroll"), {"ramp": True}
+            )
+            assert after["content"]["scrollTop"] > 0, (
+                f"the wheel over the card did not scroll it: {content}"
+            )
+            state = page.evaluate(_js("LayerControl/style_scheme_portal_state"))
+            assert state["drawerVisible"], f"scrolling dismissed the drawer: {state}"
+            assert state["dropdownPresent"], (
+                f"scrolling must re-pin the portalled list, not close it: {state}"
+            )
+            assert not errors, f"JS errors: {errors}"
+
+    def test_style_scheme_portal_outside_press_still_dismisses(self, browser, tmp_path):
+        """A press outside the drawer and its portalled list still dismisses it.
+
+        Portal awareness must not turn the dismiss into a no-op: the map is
+        still outside the overlay, and a press there closes the drawer.
+        """
+        with use_page(
+            self._make_page,
+            browser,
+            tmp_path,
+            self._ramp_layer(),
+            slug="style_scheme_portal_outside",
+        ) as (page, errors):
+            self._open_style_ramp(page)
+            opened = page.evaluate(_js("LayerControl/style_scheme_portal_open"))
+            assert opened["ok"], f"scheme list did not open: {opened}"
+            assert opened["dropdownPresent"], opened
+
+            viewport = opened["viewport"]
+            page.mouse.click(60, viewport["height"] - 80)
+
+            state = page.evaluate(_js("LayerControl/style_scheme_portal_state"))
+            assert not state["drawerVisible"], (
+                f"a press on the map must dismiss the drawer: {state}"
+            )
+            assert not state["dropdownPresent"], state
+            assert not errors, f"JS errors: {errors}"
+
+    def test_style_scheme_portal_rehosts_under_fullscreen(self, browser, tmp_path):
+        """Fullscreen re-hosts the portalled list; a pick there keeps the drawer.
+
+        The picker moves its list into document.fullscreenElement when it
+        exists, so the same press has to stay inside the overlay after the
+        re-host. Headless browsers may refuse the Fullscreen API without a user
+        gesture — that leg reports why it is skipped instead of failing, and the
+        re-host itself is pinned by the jsdom suite.
+        """
+        with use_page(
+            self._make_page,
+            browser,
+            tmp_path,
+            self._ramp_layer(),
+            slug="style_scheme_portal_fullscreen",
+        ) as (page, errors):
+            self._open_style_ramp(page)
+            # Set up the ramp arm only; the real press below opens the list and
+            # supplies the user activation requestFullscreen needs.
+            ready = page.evaluate(
+                _js("LayerControl/style_scheme_portal_open"), False
+            )
+            assert ready["ok"], ready
+            page.mouse.click(ready["triggerX"], ready["triggerY"])
+            page.wait_for_selector(
+                ".foliplus-scheme-picker-portal", state="attached", timeout=3000
+            )
+
+            full = page.evaluate(_js("LayerControl/style_scheme_portal_fullscreen"))
+            if not full.get("ok"):
+                pytest.skip(f"headless browser refused fullscreen: {full.get('reason')}")
+            assert full["fullscreen"], full
+            assert full["rehosted"], (
+                f"the portalled list did not move into the fullscreen element: {full}"
+            )
+
+            opened = page.evaluate(_js("LayerControl/style_scheme_portal_open"))
+            assert opened["ok"], opened
+            page.mouse.click(opened["targetX"], opened["targetY"])
+            state = page.evaluate(_js("LayerControl/style_scheme_portal_state"))
+            assert state["drawerVisible"], (
+                f"a colour press under fullscreen dismissed the drawer: {state}"
+            )
+            assert not errors, f"JS errors: {errors}"
+            page.evaluate(_js("LayerControl/exit_fullscreen"))
 
     def test_style_fill_row_label_names_the_method_on_one_line(self, browser, tmp_path):
         """The ramp row reads by its method in both panels, on one line.
