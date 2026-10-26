@@ -1,6 +1,6 @@
 // LayerControl UI — Layer attributes panel.
 import { EVENTS } from "#core/event/index.js";
-import { GROUP } from "#core/layer/index.js";
+import { ROLE } from "#core/layer/index.js";
 import { createRowPanel, pinRowPanel, unpinRowPanel } from "#core/leaflet/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import * as SVGs from "#foliplus/LayerControl/icon.js";
@@ -62,8 +62,8 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
   // a geometry type it never had; a custom layer ships its own logo instead
   // of a geometry glyph — same rowView decision tree, same labels.
   const isBaseLayer = layerInfo
-    ? layerInfo.group === GROUP.BASE
-    : item.dataset.layerType === GROUP.BASE;
+    ? layerInfo.role === ROLE.BASE
+    : item.dataset.layerType === ROLE.BASE;
   const typeKey = isColor
     ? "type_color_map"
     : isBaseLayer

@@ -21,7 +21,7 @@
 // (the panel-wide Reset handles it, the way label color has it).
 import { CLASS_COUNT, METHOD } from "#core/classify.js";
 import { numericPropertiesKeys } from "#core/field.js";
-import { CAP_TIER, DIM, GROUP, type LayerInfo } from "#core/layer/index.js";
+import { CAP_TIER, DIM, type LayerInfo, ROLE } from "#core/layer/index.js";
 import type { FillRampConfig, LayerOverride } from "#core/layer/intent.js";
 import { DEFAULT_SCHEMES, getColorScale } from "#core/palette.js";
 import { buildClassesRow, buildFieldRow, buildSchemeRow } from "#core/rampForm.js";
@@ -79,7 +79,7 @@ import {
  *  leaves. The gate (`layerCanFill`) reads the capability, not this. */
 const isColorBasemap = (layerInfo: LayerInfo | undefined): boolean => {
   if (!layerInfo || layerInfo.styleSetters) return false;
-  return Boolean(layerInfo.color) && layerInfo.group === GROUP.BASE;
+  return Boolean(layerInfo.color) && layerInfo.role === ROLE.BASE;
 };
 
 /** Whether the layer's surface can honestly carry a fill write.

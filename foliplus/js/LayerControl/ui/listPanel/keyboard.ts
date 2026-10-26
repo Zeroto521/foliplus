@@ -3,7 +3,7 @@
 // handler and the mousedown/dblclick listeners that call into it.
 import { HINT_DURATION } from "#core/hint.js";
 import { isNativeControl } from "#core/interaction/index.js";
-import { GROUP } from "#core/layer/index.js";
+import { ROLE } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { inFloatingPanel } from "../context.js";
 import { showFocusDisabledHint, toggleFocusedLayer } from "../focus/index.js";
@@ -194,7 +194,7 @@ const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
         if (menuItem) ui.openMoreMenu(menuItem);
         break;
       }
-      // The chevron button is focused — that key folds the group, not
+      // The chevron button is focused — that key folds the role, not
       // select-all. Left untouched, resolveActiveIdx() walks up from the
       // button to its toggle-all row and the row checkbox flips instead.
       if (document.activeElement?.classList.contains(CONST.CLASSES.FOLD_BTN)) {
@@ -203,7 +203,7 @@ const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
         const row = (document.activeElement as HTMLElement).closest(
           CONST.SEL.TOGGLE_ALL,
         ) as HTMLElement | null;
-        if (row) toggleFold(ui, row.dataset.group ?? "");
+        if (row) toggleFold(ui, row.dataset.role ?? "");
         break;
       }
       // Menu item (li) is focused — trigger the focus-layer action.
@@ -302,7 +302,7 @@ const handleDblClick = (ui: LayerUI, event: MouseEvent): void => {
   // Base basemap has no meaningful extent to zoom to — explain instead of
   // silently ignoring the double-click. Hidden layers ARE passed through:
   // focusLayer shows the "hidden" hint for them.
-  if (item.dataset.layerType === GROUP.BASE) {
+  if (item.dataset.layerType === ROLE.BASE) {
     showFocusDisabledHint(ui, "base");
     return;
   }

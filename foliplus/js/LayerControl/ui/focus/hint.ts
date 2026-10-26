@@ -2,7 +2,7 @@
 // and the shared hint shown when a keyboard / double-click / overflow path
 // tries to focus a row the surface cannot focus.
 import { HINT_DURATION } from "#core/hint.js";
-import { GROUP } from "#core/layer/index.js";
+import { ROLE } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerUI } from "../surface.js";
 
@@ -42,7 +42,7 @@ const focusDisabledLocaleKey = (reason: FocusDisabled): string =>
 const focusDisabledReason = (ui: LayerUI, item: HTMLElement): FocusDisabledReason => {
   const box = item.querySelector('input[type="checkbox"]') as HTMLInputElement | null;
   if (box !== null && !box.checked) return "hidden";
-  if (item.dataset.layerType === GROUP.BASE) return "base";
+  if (item.dataset.layerType === ROLE.BASE) return "base";
   const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
   const layerInfo = ui.c.layerRegistry.get(layerId);
   if (layerInfo && ui.c.surfaceFor(layerInfo).capabilities.bounds === false) {
