@@ -14,7 +14,16 @@
 // owns arrows and page keys, a text field owns arrows/Home/End/Enter). Adding
 // a new native control to a panel is now a table entry, not five guard edits.
 
-type NativeClass = "edit" | "step" | "toggle" | "select" | "editable" | "none";
+type NativeClass =
+  | "edit"
+  | "step"
+  | "picker"
+  | "toggle"
+  | "select"
+  | "editable"
+  | "activate"
+  | "link"
+  | "none";
 
 /** Keys foliplus owns no matter which control holds focus. Declared once so
  *  that no row of the native table can ever swallow them — Escape always
@@ -30,32 +39,66 @@ const NATIVE_KEYS: Record<Exclude<NativeClass, "none">, ReadonlySet<string> | "*
   toggle: new Set([" "]),
   select: new Set([...ARROWS, "Enter", " "]),
   editable: "*",
+  // A control the browser activates from Enter/Space — a <button>, a
+  // <summary>, or a submit/file `input`. The browser turns the key into a
+  // click, so claiming it would leave the control inert: the panel close ×
+  // is a real <button> sitting inside the layer row, and cancelling Space to
+  // toggle the row behind it was exactly that bug.
+  activate: new Set(["Enter", " "]),
+  // A link activates on Enter only. Space on a focused link scrolls the page
+  // and is not an activation key, so foliplus keeps it.
+  link: new Set(["Enter"]),
+  // A colour picker is the one step-family control that also activates from
+  // the keyboard: Chromium fires its click from Enter and Space (measured on
+  // a bare page), so it owns both plus every key its step family navigates
+  // with. Range/date/time showed no such native click, so they stay `step`.
+  picker: new Set([...ARROWS, "Home", "End", "PageUp", "PageDown", "Enter", " "]),
 };
 
-/** Role-based controls: a `role="slider"` thumb is the ARIA equivalent of a
- *  range input and owns the step keys, so the shared dispatcher stands aside
- *  exactly as it does for a native <input type=range>. */
-const ROLE_CLASSES: Readonly<Record<string, NativeClass>> = { slider: "step" };
+/** Role-based controls, the ARIA equivalents of the native rows: a
+ *  `role="slider"` thumb owns the step keys, `role="button"`/`"link"` own their
+ *  activation keys, and the tri-state widget roles own Space (their toggle).
+ *  A real tag wins over its role: a <button role="link"> still activates on
+ *  Space natively, so the tag is classified before this table is consulted. */
+const ROLE_CLASSES: Readonly<Record<string, NativeClass>> = {
+  slider: "step",
+  button: "activate",
+  link: "link",
+  checkbox: "toggle",
+  switch: "toggle",
+  radio: "toggle",
+};
 
 const STEP_TYPES = new Set([
   "range",
-  "color",
   "date",
   "time",
   "datetime-local",
   "week",
   "month",
 ]);
+/** `input` types that combine the step keys with native activation: the
+ *  colour picker is the only member today (Chromium opens it from Enter and
+ *  Space alike). Kept a named set so adding a genuinely keyboard-activatable
+ *  picker is a one-line change rather than a blanket grant to `step`. */
+const PICKER_TYPES = new Set(["color"]);
 const TOGGLE_TYPES = new Set(["checkbox", "radio"]);
 
+/** `input` types the browser activates from Enter/Space instead of typing
+ *  into: buttons and the file picker. They are inert for text input but must
+ *  not fall into the owning-nothing set — that was the same class of bug as
+ *  the unclassified <button>. */
+const ACTIVATE_TYPES = new Set(["button", "submit", "reset", "image", "file"]);
+
 /** Elements a user drives with the pointer — controls plus the editable
- *  surface. Wider than the keyboard table below on purpose: `button` owns no
- *  key for foliplus (the panel opens menus and folds groups from it) but it
- *  still owns the click, which is what a dblclick gate has to let through. */
+ *  surface. Wider than the keyboard table above on purpose: this is the
+ *  pointer-side gate (a dblclick on a control belongs to the control, not the
+ *  row), while the key table decides which *keys* the same element consumes.
+ *  A `button` is here for its click, and owns Enter/Space in the key table. */
 const POINTER_CONTROL_TAGS = new Set(["input", "select", "textarea", "button"]);
 
-/** `input` types that are not keyboard-editable and own nothing here. */
-const NONE_TYPES = new Set(["hidden", "button", "submit", "reset", "file", "image"]);
+/** `input` types that are not rendered and therefore own nothing at all. */
+const NONE_TYPES = new Set(["hidden"]);
 
 /** True when `el` is directly editable. Reads the attribute, not
  *  `isContentEditable`, which jsdom does not implement — the attribute is the
@@ -78,9 +121,16 @@ const nativeClass = (el: Element | null): NativeClass => {
     const type = (el as HTMLInputElement).type?.toLowerCase() ?? "text";
     if (NONE_TYPES.has(type)) return "none";
     if (TOGGLE_TYPES.has(type)) return "toggle";
+    if (PICKER_TYPES.has(type)) return "picker";
     if (STEP_TYPES.has(type)) return "step";
+    if (ACTIVATE_TYPES.has(type)) return "activate";
     return "edit";
   }
+  // Native activation elements: a focused <button>, <summary> or link turns
+  // Enter/Space into a click. Tag first, role second: a real button keeps its
+  // native Space activation even if it carries a different role.
+  if (tag === "button" || tag === "summary") return "activate";
+  if (tag === "a" && el.hasAttribute("href")) return "link";
   const role = el.getAttribute("role");
   if (role && ROLE_CLASSES[role]) return ROLE_CLASSES[role];
   if (isEditableEl(el)) return "editable";

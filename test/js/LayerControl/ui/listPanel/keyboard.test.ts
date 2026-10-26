@@ -676,17 +676,37 @@ describe("LayerUI keyboard", () => {
     // resolves up to that row. Enter/Space over it must fold the group —
     // not flip the row's select-all checkbox.
     //
+    // The chevron is a real <button>, so the input-ownership table now leaves
+    // its activation keys native: the browser fires the button's own click,
+    // and the container's delegated click handler folds the group. jsdom does
+    // not synthesise that click from a KeyboardEvent, so each test spells the
+    // activation step out and pins that foliplus did not claim the key. That
+    // the real browser does the same is covered by the browser suite.
+    //
     // The group needs two overlay layers so overlay1 isn't collapsed into the
     // single-child "no toggle-all" layout of initFixture(), and intents.visible must
     // be empty so a visibility collapse can't read as a fold (the outer
     // beforeEach owns both).
+
+    /** Native activation: the key is left to the button, whose click folds. */
+    const activateButton = (btn: HTMLElement, key: string): void => {
+      const event = new KeyboardEvent("keydown", {
+        key,
+        bubbles: true,
+        cancelable: true,
+      });
+      btn.focus();
+      btn.dispatchEvent(event);
+      expect(event.defaultPrevented, key).toBe(false);
+      btn.click();
+    };
 
     it("Enter on the chevron folds the group and hides its children", () => {
       const { foldBtn, children } = attachWithGroup(ui);
       expect(children()).toHaveLength(2);
       expect(allFolded(children())).toBe(false);
 
-      pressKey(foldBtn, "Enter");
+      activateButton(foldBtn, "Enter");
 
       expect(ui.listPanel.foldedGroups.has(GROUP.OVERLAY)).toBe(true);
       expect(allFolded(children())).toBe(true);
@@ -704,11 +724,11 @@ describe("LayerUI keyboard", () => {
     it("Space folds too, and Enter again unfolds", () => {
       const { children } = attachWithGroup(ui);
       // The chevron is a real focusable button, so dispatch the key there.
-      pressKey(overlayFoldBtn(attachedPanel(ui)), " ");
+      activateButton(overlayFoldBtn(attachedPanel(ui)), " ");
       expect(ui.listPanel.foldedGroups.has(GROUP.OVERLAY)).toBe(true);
       expect(allFolded(children())).toBe(true);
       // Fold rebuilds the panel, so re-fetch the button on the rebuilt row.
-      pressKey(overlayFoldBtn(attachedPanel(ui)), "Enter");
+      activateButton(overlayFoldBtn(attachedPanel(ui)), "Enter");
 
       expect(ui.listPanel.foldedGroups.has(GROUP.OVERLAY)).toBe(false);
       expect(allFolded(children())).toBe(false);
@@ -724,11 +744,11 @@ describe("LayerUI keyboard", () => {
       const allChecked = () => childBoxes().every(cb => cb.checked);
       expect(allChecked()).toBe(true);
 
-      pressKey(foldBtn, "Enter");
+      activateButton(foldBtn, "Enter");
       expect(allFolded(children())).toBe(true);
 
       // Unfold again and confirm nothing was deselected.
-      pressKey(overlayFoldBtn(attachedPanel(ui)), "Enter");
+      activateButton(overlayFoldBtn(attachedPanel(ui)), "Enter");
       expect(children()).toHaveLength(2);
       expect(allChecked()).toBe(true);
     });
