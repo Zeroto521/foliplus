@@ -18,7 +18,7 @@
 - `core/layer`: a reorder pays one tree walk per layer instead of four, and pins late content in one fragment [#733](https://github.com/Zeroto521/foliplus/pull/733)
 - `core/layer`: a declared pane spec may only name the public roles, so `shadow` stays internal [#733](https://github.com/Zeroto521/foliplus/pull/733)
 - `LayerControl`: labels rebuild once per frame and only repaint their own canvas; the replay set is a mandatory per-dimension registry policy, each UI owns its scheduler, and clearing labels also drops the layer's pan plan ([#734](https://github.com/Zeroto521/foliplus/pull/734))
-- `core/layer`, `LayerControl`, `LayerControl.py`: the layer `group` vocabulary is renamed to `role` end to end — CONF `data[].role`, `LayerInfo.role`, `RegisterLayerOpts.role`, `ZArgs.role` (the pane-role input becomes `ZArgs.paneRole`), `ROLE` (the `GROUP` export is gone), the role-count event, the `data-role` DOM attribute and the persisted `foldedRoles` key (record v4). **Breaking**: a CONF that still emits `group` (older Python package) is read as overlay, and pre-v4 saved records keep every other field but lose the folded state (record v4, no compatibility read) ([#763](https://github.com/Zeroto521/foliplus/pull/763))
+- `core/layer`, `LayerControl`, `LayerControl.py`: the layer `group` vocabulary is renamed to `role` end to end — CONF payloads, `LayerInfo`/`RegisterLayerOpts`, pane-role input (`ZArgs.paneRole`), the role-count event, the `data-role` attribute and the persisted record (v4). **Breaking**: a CONF from an older Python package is read as overlay, and a saved record loses its fold state; no compatibility read ([#763](https://github.com/Zeroto521/foliplus/pull/763))
 
 ### Fixed
 
