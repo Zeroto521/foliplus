@@ -199,7 +199,9 @@ interface RegisterLayerOpts {
    *  public registerDimension door stays closed. */
   custom?: unknown;
   /** Declared layer role. Absent registers an overlay — the same default the
-   *  legacy `group` spelling carries. */
+   *  legacy `group` spelling carries. The registry normalizes both spellings
+   *  at its single write point: `role` wins when a caller sends both, and a
+   *  re-registration that names neither keeps the registered role. */
   role?: LayerRole;
   /** @deprecated Use `role`. The pre-rename spelling of the same field, read
    *  for callers that have not migrated yet. */

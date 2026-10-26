@@ -85,7 +85,10 @@ const GEOM_TYPE = {
 const ROLE = { OVERLAY: "overlay", BASE: "base" } as const;
 
 /** @deprecated Use `ROLE`. The pre-rename spelling of the same vocabulary,
- *  kept as an alias until every reader has moved to the role name. */
+ *  kept as the *same object reference* so the two names cannot drift.
+ *  Delete this alias once the domain rename lands: when `LayerInfo.group` has
+ *  been renamed to `role` and every consumer (LayerFactory, LayerOrder, z,
+ *  LayerController, the LayerControl UI, filter) has migrated. */
 const GROUP = ROLE;
 
 /** Layer kind names — the `LayerKind` vocabulary ("tile" | "vector" | "canvas"
