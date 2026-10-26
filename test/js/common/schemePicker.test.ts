@@ -661,6 +661,69 @@ describe("portal mode", () => {
     document.body.removeChild(fsEl);
   });
 
+  it("mounts into the surface its injected resolver names", () => {
+    // A control that owns a covering surface (the pseudo-fullscreen fallback)
+    // injects the resolver; the native fullscreen element never reports that
+    // surface, so without it the list would sit under the overlay.
+    const surface = document.createElement("div");
+    surface.className = "leaflet-pseudo-fullscreen";
+    document.body.appendChild(surface);
+
+    const { picker, trigger } = makePicker({
+      portal: true,
+      resolveHost: () => surface,
+    });
+    trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(picker.getDropdown()!.parentElement).toBe(surface);
+    picker.destroy();
+    surface.remove();
+  });
+
+  it("re-seats the dropdown when the injected surface changes", () => {
+    const first = document.createElement("div");
+    const second = document.createElement("div");
+    document.body.append(first, second);
+    let surface = first;
+    const listeners = new Set<() => void>();
+
+    const { picker, trigger } = makePicker({
+      portal: true,
+      resolveHost: () => surface,
+      onSurfaceChange: cb => {
+        listeners.add(cb);
+        return () => listeners.delete(cb);
+      },
+    });
+    trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    const dropdown = picker.getDropdown()!;
+    expect(dropdown.parentElement).toBe(first);
+
+    // The surface moved (pseudo fullscreen entered/exited): the subscription
+    // fires and the list follows, instead of staying on the stale host.
+    surface = second;
+    listeners.forEach(cb => cb());
+    expect(dropdown.parentElement).toBe(second);
+
+    picker.destroy();
+    first.remove();
+    second.remove();
+  });
+
+  it("unsubscribes from the surface subscription when it closes", () => {
+    const unsubscribe = vi.fn();
+    const { picker, trigger } = makePicker({
+      portal: true,
+      resolveHost: () => document.body,
+      onSurfaceChange: () => unsubscribe,
+    });
+    trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(unsubscribe).not.toHaveBeenCalled();
+
+    picker.close({ restoreFocus: false });
+    expect(unsubscribe).toHaveBeenCalledTimes(1);
+    picker.destroy();
+  });
+
   it("uses fixed positioning in portal mode", () => {
     const { picker, trigger } = makePicker({ portal: true });
     trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
