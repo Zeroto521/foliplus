@@ -1166,6 +1166,47 @@ class TestLayerControlBrowser:
             # …but never replaces the Select/Deselect tooltip (accept the
             # translated wording — a local browser can resolve `zh`).
             assert res["title"] in ("Deselect", "隐藏"), f"title={res['title']!r}"
+            # The label's resident full-name tooltip follows the same write:
+            # a hover must not keep announcing the old name.
+            assert res["labelTitle"] == "RenamedLayer", (
+                f"label title={res['labelTitle']!r}"
+            )
+
+    def test_color_basemap_rename_updates_label_title(self, browser, tmp_path):
+        """A colour-basemap rename repaints text and label title together.
+
+        The basemap row has no registry entry — its rename goes through the
+        intent store and updateItemLabel — so the resident full-name tooltip
+        must follow the text instead of keeping the locale default.
+        """
+        with use_page(
+            self._make_page,
+            browser,
+            tmp_path,
+            folium.FeatureGroup(name="Layers", overlay=True, show=True),
+            slug="rename_color_label_title",
+        ) as (page, errors):
+            page.evaluate(_js("LayerControl/open_panel"))
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            page.wait_for_selector(
+                '.foliplus-layer-item[data-layer-id="foliplus_color_map"]',
+                state="attached",
+                timeout=5000,
+            )
+            page.wait_for_timeout(300)
+            res = page.evaluate(
+                _js("LayerControl/rename_color_basemap_and_read_label")
+            )
+            assert res is not None, "colour basemap rename did not commit"
+            assert res["label"] == "My Color", res
+            assert res["labelTitle"] == "My Color", (
+                f"label title={res['labelTitle']!r}"
+            )
+            assert not errors, f"JS errors: {errors}"
 
     def _assert_toggle_all_deselect_title(self, title: str | None, label: str) -> None:
         """The toggle-all tooltip says "deselect all" in whatever locale it renders.

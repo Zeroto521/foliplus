@@ -358,10 +358,9 @@ describe("applyRowView (the single DOM write point)", () => {
     expect(el.title).toBe("4 · polygon");
     expect(el.title).not.toContain("Facility Points");
 
-    // A clipped long name is the same resident attribute; the clip is a
-    // visual state, not the condition that creates the tooltip.
-    Object.defineProperty(label, "scrollWidth", { value: 240, configurable: true });
-    Object.defineProperty(label, "clientWidth", { value: 120, configurable: true });
+    // A long name is the same resident attribute. No scrollWidth/clientWidth
+    // stub: the implementation no longer measures, so the title does not
+    // depend on jsdom reporting (or not reporting) a clip.
     applyRowView(ui, el, cell({ name: "Facility Points - North District 2024" }));
     expect(label.title).toBe("Facility Points - North District 2024");
     expect(label.title).not.toBe("");

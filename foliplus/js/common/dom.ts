@@ -195,13 +195,18 @@ const buildPopupEl = (
 };
 
 /**
- * Update a layer item's label and its toggle input's aria-label with a new
- * display name.
+ * Update a layer item's label, its resident full-name tooltip, and its toggle
+ * input's aria-label with a new display name.
  *
- * Only the toggle input is touched: it is the one toggle control on a row,
- * so the name must reach assistive tech — but via aria-label, never via
- * `title`, because `title` is the Select/Deselect tooltip slot (Select/Deselect
- * for a data row, the type label for the color basemap row).
+ * The label's `title` carries the full name (applyRowView writes the same
+ * value on a fresh row); a rename repaints only the text through this one
+ * write point, so the title has to follow here or a hover would keep the old
+ * name until the row is rebuilt.
+ *
+ * Only the row's toggle control gets the name for assistive tech — but via
+ * aria-label, never via its `title`, because that slot is the Select/Deselect
+ * tooltip (Select/Deselect for a data row, the type label for the color
+ * basemap row).
  *
  * @param item Parent item element with `data-layer-id` (optional).
  * @param name New display name to apply.
@@ -215,6 +220,11 @@ const updateItemLabel = (
   const label = item.querySelector("label") as HTMLLabelElement | null;
   if (!label) return null;
   label.textContent = name;
+  // Resident tooltip: the label always shows the whole name on hover. An empty
+  // name removes the attribute instead of writing `title=""`, which would
+  // shadow the row tooltip for every hover over the label.
+  if (name) label.title = name;
+  else label.removeAttribute("title");
   // The row's toggle input announces the same name as the label cell. A data
   // row's toggle is its checkbox; the color basemap row's is the color swatch,
   // and it has no checkbox — without this the basemap swatch would keep
