@@ -153,11 +153,9 @@ class LayerInfoRegistry {
       opacity: authorOpacity,
       onOpacity: opts.onOpacity ?? existingLi?.onOpacity ?? null,
       opacityBake: opts.opacityBake ?? existingLi?.opacityBake ?? "redraw",
-      // The one write point for a layer's role: the new spelling wins over the
-      // legacy one, a re-registration keeps the role it already had, and a
-      // fresh layer defaults to overlay. The field stays `group` on `LayerInfo`
-      // until the domain rename moves every reader with it.
-      group: opts.role ?? opts.group ?? existingLi?.group ?? ROLE.OVERLAY,
+      // The one write point for a layer's role: a re-registration keeps the
+      // role it already had, and a fresh layer defaults to overlay.
+      role: opts.role ?? existingLi?.role ?? ROLE.OVERLAY,
       // Carried, never normalised: a caller that declared nothing leaves it
       // absent, and the seed sites apply folium's `true` default. Normalising
       // here would make every reader's `?? true` dead code — and would invent
@@ -205,7 +203,7 @@ class LayerInfoRegistry {
 
   /** Recompute the cached first-base-layer index. */
   refreshFirstBaseIdx() {
-    this._firstBaseIdx = this.items.findIndex(l => Boolean(l.group === ROLE.BASE));
+    this._firstBaseIdx = this.items.findIndex(l => Boolean(l.role === ROLE.BASE));
   }
 
   /** Index of the first base layer, or -1 if none. */
@@ -308,11 +306,11 @@ class LayerInfoRegistry {
    *  the base block's start, an overlay only before it. */
   private assertPlacement(method: string, layerInfo: LayerInfo, idx: number): void {
     const firstBase = this.baseBlockStart();
-    const valid = layerInfo.group === ROLE.BASE ? idx >= firstBase : idx <= firstBase;
+    const valid = layerInfo.role === ROLE.BASE ? idx >= firstBase : idx <= firstBase;
     if (!valid) {
       throw new Error(
         log.msg(
-          `${method}: cannot insert ${layerInfo.group} layer "${layerInfo.id}" at ` +
+          `${method}: cannot insert ${layerInfo.role} layer "${layerInfo.id}" at ` +
             `${idx} — the base block starts at ${firstBase}`,
         ),
       );
@@ -340,15 +338,15 @@ class LayerInfoRegistry {
       // the placement gate and the derived-map rebuild.
       this.insertAt(
         layerInfo,
-        layerInfo.group === ROLE.BASE ? this.items.length : this.baseBlockStart(),
+        layerInfo.role === ROLE.BASE ? this.items.length : this.baseBlockStart(),
       );
       return layerInfo;
     }
-    if (existing.group !== layerInfo.group) {
+    if (existing.role !== layerInfo.role) {
       throw new Error(
         log.msg(
-          `upsert: cannot change "${layerInfo.id}" from ${existing.group} to ` +
-            `${layerInfo.group} in place — its group is its role for the id's lifetime`,
+          `upsert: cannot change "${layerInfo.id}" from ${existing.role} to ` +
+            `${layerInfo.role} in place — a layer's role is fixed for its id's lifetime`,
         ),
       );
     }
@@ -363,7 +361,7 @@ class LayerInfoRegistry {
       this.refreshFirstBaseIdx();
       return layerInfo;
     }
-    // An in-place swap keeps the slot and cannot change the group (the gate
+    // An in-place swap keeps the slot and cannot change the role (the gate
     // above), so neither the position nor `firstBaseIdx` can move.
     this.items[idx] = layerInfo;
     this.byId.set(layerInfo.id, layerInfo);
@@ -375,7 +373,7 @@ class LayerInfoRegistry {
    *  there would break the partition this class exists to keep. */
   prepend(layerInfo: LayerInfo): LayerInfo {
     this.assertNewId("prepend", layerInfo.id);
-    if (layerInfo.group === ROLE.BASE) {
+    if (layerInfo.role === ROLE.BASE) {
       throw new Error(
         log.msg(
           `prepend: "${layerInfo.id}" is a base layer — index 0 lives in the overlay block`,
@@ -423,7 +421,7 @@ class LayerInfoRegistry {
     if (!layerInfo) return null;
     const idx = this.items.indexOf(layerInfo);
     if (idx <= 0) return layerInfo;
-    if (layerInfo.group === ROLE.BASE) {
+    if (layerInfo.role === ROLE.BASE) {
       throw new Error(
         log.msg(
           `moveToFront: "${id}" is a base layer — it cannot cross the overlay/base boundary`,
@@ -479,7 +477,7 @@ class LayerInfoRegistry {
     const overlays = [];
     const bases = [];
     for (const layerInfo of this.items) {
-      if (layerInfo?.group === ROLE.BASE) bases.push(layerInfo);
+      if (layerInfo?.role === ROLE.BASE) bases.push(layerInfo);
       else overlays.push(layerInfo);
     }
     this.items.splice(0, this.items.length, ...overlays.concat(bases));
@@ -498,12 +496,12 @@ class LayerInfoRegistry {
     const from = this.items[fromIdx];
     const to = this.items[toIdx];
     if (!from || !to) return false;
-    if (from.group !== to.group) return false;
+    if (from.role !== to.role) return false;
 
     const firstBaseIdx = this._firstBaseIdx;
     const hasBase = firstBaseIdx !== -1;
 
-    if (from.group !== ROLE.BASE) {
+    if (from.role !== ROLE.BASE) {
       const overlayEnd = hasBase ? firstBaseIdx - 1 : this.items.length - 1;
       return fromIdx <= overlayEnd && toIdx <= overlayEnd;
     }

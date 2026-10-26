@@ -198,14 +198,8 @@ interface RegisterLayerOpts {
   /** Third-party carrier payload for `kind: "custom"`. Shape only — the
    *  public registerDimension door stays closed. */
   custom?: unknown;
-  /** Declared layer role. Absent registers an overlay — the same default the
-   *  legacy `group` spelling carries. The registry normalizes both spellings
-   *  at its single write point: `role` wins when a caller sends both, and a
-   *  re-registration that names neither keeps the registered role. */
+  /** Declared layer role. Absent registers an overlay. */
   role?: LayerRole;
-  /** @deprecated Use `role`. The pre-rename spelling of the same field, read
-   *  for callers that have not migrated yet. */
-  group?: LayerRole;
   /** Author's declared initial visibility — mirrors CONFIG `data[].show`.
    *  Absent means the author did not specify; readers default it to `true`
    *  (folium's own default), so the registry does not have to invent a
@@ -316,7 +310,7 @@ interface LayerInfo {
   onOpacity?: ((opacity: number) => void) | null;
   /** See {@link RegisterLayerOpts.opacityBake}. */
   opacityBake?: "commit" | "redraw";
-  group: LayerRole;
+  role: LayerRole;
   /** Author's declared initial visibility — carried from CONFIG `data[].show`
    *  (Python's `item.show` on the folium Layer). Absent means the author did
    *  not declare one; the UI reads it through `?? true` (folium's own
@@ -602,7 +596,7 @@ interface CreateColorOpts {
 
 /** Return type of the color-surface factory — the solid-color basemap's
  *  rendering face, owned by a dedicated pane so it participates in the
- *  layer z ladder like any other base-group member. */
+ *  layer z ladder like any other base-role member. */
 interface CreateColorAPI {
   /** The canvas element that carries the fill (inside the color pane). Built
    *  at `createColor` time and mounted into its pane when `register()` runs;
@@ -870,12 +864,12 @@ interface LayerAPI {
   getFeatureCount?: (id: string) => number | null;
   /** Stamp `updatedAt` to now for a runtime mutation that does not re-register. */
   touchLayer?: (id: string) => boolean;
-  /** Move a layer one position toward index 0, respecting group boundaries.
-   *  False if already at the top, at a group boundary, or unknown.
+  /** Move a layer one position toward index 0, respecting role boundaries.
+   *  False if already at the top, at a role boundary, or unknown.
    *  Only LayerController implements this — the lightweight stub has no registry. */
   moveLayerUp?: (id: string) => boolean;
-  /** Move a layer one position away from index 0, respecting group boundaries.
-   *  False if already at the bottom of its group or unknown.
+  /** Move a layer one position away from index 0, respecting role boundaries.
+   *  False if already at the bottom of its role or unknown.
    *  Only LayerController implements this — the lightweight stub has no registry. */
   moveLayerDown?: (id: string) => boolean;
 }
@@ -886,13 +880,13 @@ interface ZArgs {
   index?: number;
   /** How many layers the registry holds — the step multiplier. */
   count?: number;
-  /** Base-group layers (tile basemaps and the solid-color basemap) share the
-   *  lower `TILE_BASE` ladder; overlay-group layers use `BASE`. Row order
-   *  within a group = visual stack order, since both share one `STEP`. */
-  group?: LayerRole;
+  /** Base-role layers (tile basemaps and the solid-color basemap) share the
+   *  lower `TILE_BASE` ladder; overlay-role layers use `BASE`. Row order
+   *  within a role = visual stack order, since both share one `STEP`. */
+  role?: LayerRole;
   /** The pane's role in its layer's draw stack. Only `annotation` prices a
    *  relation of its own (one step above its layer); the rest use `order`. */
-  role?: PaneRole;
+  paneRole?: PaneRole;
   /** The pane's draw offset within its layer (`PaneSpec.order`). */
   order?: number;
   /** An absolute base z instead of a slot — the focus lift. */

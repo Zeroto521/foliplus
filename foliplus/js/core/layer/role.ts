@@ -8,9 +8,8 @@
 // one section — so the projection gets a name and a table now instead of being
 // re-derived from the role string at each UI site.
 //
-// The role field itself is still spelled `group` on `LayerInfo` in this change:
-// renaming that field is the domain rename that follows, and every reader of it
-// has to move in the same step.
+// `LayerInfo.role` is the single source of truth: no UI site derives a role
+// from a DOM attribute or a display string.
 import { ROLE } from "./const.js";
 
 /** A layer's role — derived from `ROLE` (const.ts) so the runtime vocabulary

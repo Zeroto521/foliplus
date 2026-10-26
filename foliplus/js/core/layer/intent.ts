@@ -207,7 +207,7 @@ type IntentRow = {
 
 /** The intent half of a parsed persistence record — what
  *  `LayerIntentStore.loadFromPersisted` accepts. A subset of
- *  `PersistedRecord` (order / removed / foldedGroups stay outside the
+ *  `PersistedRecord` (order / removed / foldedRoles stay outside the
  *  store); annotation config rides both the legacy top-level segment and
  *  `layers[id].annotation`. */
 type LoadSource = {
