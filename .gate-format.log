@@ -1,6 +1,0 @@
-
-> format:check
-> prettier --check "foliplus/js/**/*.{js,ts}" "foliplus/css/**/*.css" "script/**/*.{js,cjs,mjs,ts}" "test/js/**/*.{js,ts}" "config/**/*.mjs" "eslint.config.js"
-
-Checking formatting...
-All matched files use Prettier code style!
