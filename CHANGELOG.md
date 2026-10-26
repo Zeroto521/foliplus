@@ -4,7 +4,7 @@
 
 ### Added
 
-- `core/layer` / `LayerControl` / `HeatmapControl`: filtering supports data layers and third-party components — a component declares its filterable dimensions and reuses the same condition model, panel and kept-of-total result ([#715](https://github.com/Zeroto521/foliplus/pull/715), [#724](https://github.com/Zeroto521/foliplus/pull/724), [#760](https://github.com/Zeroto521/foliplus/pull/760))
+- `core/layer` / `LayerControl` / `HeatmapControl`: filtering supports data layers and third-party components — a component declares its filterable dimensions and reuses the same condition model, panel and kept-of-total result, including enum dimensions with a multi-select Type condition ([#715](https://github.com/Zeroto521/foliplus/pull/715), [#724](https://github.com/Zeroto521/foliplus/pull/724), [#760](https://github.com/Zeroto521/foliplus/pull/760), [#766](https://github.com/Zeroto521/foliplus/pull/766))
 - `LayerControl`: a size row sets a CircleMarker layer's pixel radius — every marker at once, persisted across reloads, and resettable to each marker's drawn radius ([#726](https://github.com/Zeroto521/foliplus/pull/726))
 - `LayerControl`: value-based fill — a numeric field, a classification method
   and a palette paint the layer by value ([#727](https://github.com/Zeroto521/foliplus/pull/727))
