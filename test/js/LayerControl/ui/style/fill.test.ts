@@ -86,13 +86,13 @@ const initWithFillLayer = () => {
       {
         id: "overlay1",
         name: "Polygons",
-        group: "overlay",
+        role: "overlay",
         layer: fillLayer,
       },
       {
         id: "base1",
         name: "OSM",
-        group: "base",
+        role: "base",
         layer: { options: {}, setZIndex: vi.fn() } as never,
         paneName: "tilePane",
       },
@@ -144,11 +144,11 @@ const initWithRampedLayer = (values: number[] = [1, 5, 9]) => {
   const rampLayer = makeRampedLayer(values);
   const { manager, ui } = initFixture({
     data: [
-      { id: "overlay1", name: "Polygons", group: "overlay", layer: rampLayer },
+      { id: "overlay1", name: "Polygons", role: "overlay", layer: rampLayer },
       {
         id: "base1",
         name: "OSM",
-        group: "base",
+        role: "base",
         layer: { options: {}, setZIndex: vi.fn() } as never,
         paneName: "tilePane",
       },
@@ -270,7 +270,7 @@ describe("LayerUI style panel — fill color", () => {
     manager.registerLayer({
       id: "colormap",
       name: "Color",
-      group: "base",
+      role: "base",
       color: "#3366cc",
       canvas: document.createElement("canvas"),
     });
@@ -1087,7 +1087,7 @@ describe("LayerUI style panel — fill color", () => {
     manager.registerLayer({
       id: CONST.SOLID_BASEMAP_ID,
       name: "Color",
-      group: "base",
+      role: "base",
       color: CONST.COLOR.DEFAULT,
     });
     const li = manager.layerRegistry.get(CONST.SOLID_BASEMAP_ID)!;
@@ -1396,7 +1396,7 @@ describe("buildFillRow", () => {
     fixture.manager.registerLayer({
       id: "textonly",
       name: "Text",
-      group: "overlay",
+      role: "overlay",
       layer: (() => {
         const leaf = new L.Polygon() as L.Polygon & {
           options: Record<string, unknown>;
@@ -1853,11 +1853,11 @@ describe("replayFillState", () => {
     );
     const fixture = initFixture({
       data: [
-        { id: "overlay1", name: "Polygons", group: "overlay", layer: fillLayer },
+        { id: "overlay1", name: "Polygons", role: "overlay", layer: fillLayer },
         {
           id: "base1",
           name: "OSM",
-          group: "base",
+          role: "base",
           layer: { options: {}, setZIndex: vi.fn() } as never,
           paneName: "tilePane",
         },
@@ -1896,11 +1896,11 @@ describe("replayFillState", () => {
     );
     const fixture = initFixture({
       data: [
-        { id: "overlay1", name: "Polygons", group: "overlay", layer: rampLayer },
+        { id: "overlay1", name: "Polygons", role: "overlay", layer: rampLayer },
         {
           id: "base1",
           name: "OSM",
-          group: "base",
+          role: "base",
           layer: { options: {}, setZIndex: vi.fn() } as never,
           paneName: "tilePane",
         },
@@ -2136,7 +2136,7 @@ describe("applyFillToLayer — fillMode dispatch", () => {
     manager.registerLayer({
       id: CONST.SOLID_BASEMAP_ID,
       name: "Color",
-      group: "base",
+      role: "base",
       color: CONST.COLOR.DEFAULT,
     });
     setIntent(ui, CONST.SOLID_BASEMAP_ID, "fillColor", "#ff0000");
@@ -2278,11 +2278,11 @@ const initWithValues = (values: number[] = [1, 5, 9]) => {
   const layer = makeLayer(values);
   const { manager, ui } = initFixture({
     data: [
-      { id: "overlay1", name: "Polygons", group: "overlay", layer },
+      { id: "overlay1", name: "Polygons", role: "overlay", layer },
       {
         id: "base1",
         name: "OSM",
-        group: "base",
+        role: "base",
         layer: { options: {}, setZIndex: vi.fn() } as never,
         paneName: "tilePane",
       },
@@ -2408,7 +2408,7 @@ describe("fill mode row — solid ↔ color by value", () => {
     manager.registerLayer({
       id: "colormap",
       name: "Color",
-      group: "base",
+      role: "base",
       color: "#3366cc",
       canvas: document.createElement("canvas"),
     });

@@ -14,7 +14,7 @@ const emptyRecord = (): PersistedRecord => ({
   version: RECORD_VERSION,
   order: null,
   removed: [],
-  foldedGroups: [],
+  foldedRoles: [],
   renamedNames: {},
   annotations: {},
   layers: {},
@@ -53,7 +53,7 @@ describe("LayerPersistence", () => {
       seedStorage({
         version: RECORD_VERSION,
         order: ["a", "b"],
-        foldedGroups: ["OVERLAYS"],
+        foldedRoles: ["OVERLAYS"],
         renamedNames: { a: "A2" },
         annotations: { a: { show: true, field: "name", format: "auto" } },
         layers: { a: { visible: false, overrides: ["visible"] } },
@@ -62,7 +62,7 @@ describe("LayerPersistence", () => {
         version: RECORD_VERSION,
         order: ["a", "b"],
         removed: [],
-        foldedGroups: ["OVERLAYS"],
+        foldedRoles: ["OVERLAYS"],
         renamedNames: { a: "A2" },
         annotations: { a: { show: true, field: "name", format: "auto" } },
         layers: { a: { visible: false, overrides: ["visible"] } },
@@ -79,7 +79,7 @@ describe("LayerPersistence", () => {
         version: RECORD_VERSION,
         order: ids,
         removed: [],
-        foldedGroups: ["OVERLAYS"],
+        foldedRoles: ["OVERLAYS"],
         renamedNames: { a: "A2" },
         annotations: { a: { show: true, field: "name", format: "auto" } },
         layers: {
@@ -217,12 +217,12 @@ describe("LayerPersistence", () => {
     it("drops non-string values from names and bad groups from fold state", () => {
       seedStorage({
         renamedNames: { a: "A2", b: 123, c: null },
-        foldedGroups: ["OVERLAYS", 7],
+        foldedRoles: ["OVERLAYS", 7],
       });
       const p = makePersistence();
 
       expect(p.load().renamedNames).toEqual({ a: "A2" });
-      expect(p.load().foldedGroups).toEqual([]);
+      expect(p.load().foldedRoles).toEqual([]);
     });
 
     it("keeps removed ids in the order they were deleted", () => {
@@ -606,7 +606,7 @@ describe("LayerPersistence", () => {
       // without any migration step.
       seedStorage({
         order: ["a", "b"],
-        foldedGroups: ["OVERLAYS"],
+        foldedRoles: ["OVERLAYS"],
         renamedNames: { a: "A2" },
         annotations: { a: { show: true, field: "name", format: "auto" } },
         layers: { a: { visible: false, overrides: ["visible"] } },
@@ -615,7 +615,7 @@ describe("LayerPersistence", () => {
         version: RECORD_VERSION,
         order: ["a", "b"],
         removed: [],
-        foldedGroups: ["OVERLAYS"],
+        foldedRoles: ["OVERLAYS"],
         renamedNames: { a: "A2" },
         annotations: { a: { show: true, field: "name", format: "auto" } },
         layers: { a: { visible: false, overrides: ["visible"] } },
@@ -630,7 +630,7 @@ describe("LayerPersistence", () => {
         seedStorage({
           version,
           order: ["a", "b"],
-          foldedGroups: ["OVERLAYS"],
+          foldedRoles: ["OVERLAYS"],
           renamedNames: { a: "A2" },
           annotations: { a: { show: true, field: "name", format: "auto" } },
           layers: { a: { visible: false, overrides: ["visible"] } },
@@ -639,7 +639,7 @@ describe("LayerPersistence", () => {
       }
       seedStorage({
         order: ["a", "b"],
-        foldedGroups: ["OVERLAYS"],
+        foldedRoles: ["OVERLAYS"],
         renamedNames: { a: "A2" },
         annotations: { a: { show: true, field: "name", format: "auto" } },
         layers: { a: { visible: false, overrides: ["visible"] } },
@@ -672,7 +672,7 @@ describe("LayerPersistence", () => {
       seedStorage({
         version: 0,
         order: ["a", "b"],
-        foldedGroups: ["OVERLAYS"],
+        foldedRoles: ["OVERLAYS"],
         renamedNames: { a: "A2" },
         annotations: { a: { show: true, field: "name", format: "auto" } },
         layers: { a: { visible: false, overrides: ["visible"] } },
@@ -686,7 +686,7 @@ describe("LayerPersistence", () => {
         version: RECORD_VERSION,
         order: ["b", "a"],
         removed: [],
-        foldedGroups: ["OVERLAYS"],
+        foldedRoles: ["OVERLAYS"],
         renamedNames: { a: "A2" },
         annotations: { a: { show: true, field: "name", format: "auto" } },
         layers: { a: { visible: false, overrides: ["visible"] } },
@@ -1083,7 +1083,7 @@ describe("LayerPersistence", () => {
       p.schedule({
         layers: () => ({ a: { visible: false, overrides: ["visible"] } }),
       });
-      p.schedule({ foldedGroups: () => ["OVERLAYS"] });
+      p.schedule({ foldedRoles: () => ["OVERLAYS"] });
       p.schedule({ renamedNames: () => ({ a: "A" }) });
 
       vi.advanceTimersByTime(CONST.SAVE_DEBOUNCE_MS + 50);
@@ -1097,7 +1097,7 @@ describe("LayerPersistence", () => {
         version: RECORD_VERSION,
         order: ["a", "b"],
         removed: [],
-        foldedGroups: ["OVERLAYS"],
+        foldedRoles: ["OVERLAYS"],
         renamedNames: { a: "A" },
         annotations: {},
         layers: { a: { visible: false, overrides: ["visible"] } },
@@ -1112,7 +1112,7 @@ describe("LayerPersistence", () => {
       // is what keeps it that way.
       seedStorage({
         order: ["a", "b"],
-        foldedGroups: ["OVERLAYS"],
+        foldedRoles: ["OVERLAYS"],
         renamedNames: { a: "A" },
         annotations: { a: { show: true, field: "n", format: "auto" } },
         layers: { a: { visible: false, overrides: ["visible"] } },
@@ -1128,7 +1128,7 @@ describe("LayerPersistence", () => {
         version: RECORD_VERSION,
         order: ["b", "a"],
         removed: [],
-        foldedGroups: ["OVERLAYS"],
+        foldedRoles: ["OVERLAYS"],
         renamedNames: { a: "A" },
         annotations: { a: { show: true, field: "n", format: "auto" } },
         layers: { a: { visible: false, overrides: ["visible"] } },
@@ -1244,7 +1244,7 @@ describe("LayerPersistence", () => {
         version: RECORD_VERSION,
         order: ["a", "b"],
         removed: [],
-        foldedGroups: [],
+        foldedRoles: [],
         renamedNames: {},
         annotations: {},
         layers: { a: { visible: false, overrides: ["visible"] } },

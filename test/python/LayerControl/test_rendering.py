@@ -106,8 +106,8 @@ class TestLayerControlRendering:
         assert "OSM" in data
         assert "Carto" in data
         assert "Terrain" in data
-        assert sum(1 for d in ctrl._config["data"] if d["group"] == "base") >= 3
-        assert sum(1 for d in ctrl._config["data"] if d["group"] != "base") == 0
+        assert sum(1 for d in ctrl._config["data"] if d["role"] == "base") >= 3
+        assert sum(1 for d in ctrl._config["data"] if d["role"] != "base") == 0
 
     def test_base_and_overlay_in_template(self):
         """Both base_layers and overlays appear in the JS template."""
@@ -117,9 +117,9 @@ class TestLayerControlRendering:
         folium.FeatureGroup(name="Markers", overlay=True, show=True).add_to(m)
         html = render(m)
 
-        # JS data should contain both with correct group values
-        assert '"group": "base"' in html
-        assert '"group": "overlay"' in html
+        # JS data should contain both with correct role values
+        assert '"role": "base"' in html
+        assert '"role": "overlay"' in html
 
     def test_is_base_class_on_base_items(self):
         """Only base map items get the data-layer-type attribute."""
@@ -129,8 +129,8 @@ class TestLayerControlRendering:
         folium.FeatureGroup(name="Points", overlay=True, show=True).add_to(m)
         html = render(m)
 
-        # The row's data-layer-type is the layer's group field, verbatim.
-        assert '"data-layer-type": layerInfo.group' in html
+        # The row's data-layer-type is the layer's role field, verbatim.
+        assert '"data-layer-type": layerInfo.role' in html
 
     def test_drag_handle_present(self):
         """Drag handle SVG present for all layer items."""
@@ -216,7 +216,7 @@ class TestLayerControlRendering:
         folium.TileLayer("OpenStreetMap", name="OSM", overlay=False).add_to(m)
         html = render(m)
         # Should NOT contain old drag prevention for base maps
-        assert "this.layers[idx].group" not in html
+        assert "this.layers[idx].role" not in html
 
     def test_separator_in_template(self):
         """Separator label 'BASE MAP' appears before base layer items."""
@@ -701,7 +701,7 @@ class TestLayerControlRendering:
         assert "var(--foliplus-accent-primary)" in match.group(1)
 
     def test_section_divider_fades_when_folded(self):
-        """Section divider fades to opacity 0 when the group is folded."""
+        """Section divider fades to opacity 0 when the role is folded."""
         css = read_css("foliplus/css/LayerControl/index.css")
         assert "foliplus-section-divider" in css
         assert "opacity: 0" in css

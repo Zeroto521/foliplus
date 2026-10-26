@@ -51,7 +51,7 @@ describe("RegisterLayerOpts", () => {
     const notArray = make().createLayerInfo({ id: "l1", paneSpecs: "pane" });
 
     // @ts-expect-error group is "base" | "overlay"
-    const notBool = make().createLayerInfo({ id: "l1", group: "true" });
+    const notBool = make().createLayerInfo({ id: "l1", role: "true" });
 
     // @ts-expect-error opacity is number
     const notNumber = make().createLayerInfo({ id: "l1", opacity: "half" });
@@ -60,7 +60,7 @@ describe("RegisterLayerOpts", () => {
     // so garbage at a declared key lands in the registry verbatim. This is
     // what callers are protected from by the type alone.
     expect(notArray.paneSpecs).toBe("pane");
-    expect(notBool.group).toBe("true");
+    expect(notBool.role).toBe("true");
     expect(notNumber.opacity).toBe("half");
   });
 
@@ -102,7 +102,7 @@ describe("RegisterLayerOpts", () => {
       id: "l1",
       name: "L1",
       layer,
-      group: "overlay",
+      role: "overlay",
       paneName: "myPane",
       paneSpecs,
       iconSvg: svg,
@@ -120,7 +120,7 @@ describe("RegisterLayerOpts", () => {
     expect(info).toMatchObject({
       id: "l1",
       name: "L1",
-      group: "overlay",
+      role: "overlay",
       paneName: "myPane",
       paneSpecs,
       opacity: 0.5,

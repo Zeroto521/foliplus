@@ -25,7 +25,7 @@ import {
 import { getActiveLayerItem } from "#foliplus/LayerControl/ui/listPanel/index.js";
 import { projectLayer } from "#foliplus/LayerControl/ui/projection.js";
 import { EVENTS } from "#foliplus/core/event/index.js";
-import { GROUP, type LayerInfo, focusLayerZ } from "#foliplus/core/layer/index.js";
+import { type LayerInfo, ROLE, focusLayerZ } from "#foliplus/core/layer/index.js";
 import { ensureModes } from "#foliplus/core/mode.js";
 import {
   GridLayer,
@@ -255,11 +255,11 @@ describe("LayerUI focus", () => {
       manager.registerLayer({
         id: "overlay2",
         name: "Circles",
-        group: "overlay",
+        role: "overlay",
         layer: { options: {}, eachLayer: vi.fn() },
       });
     }
-    ui.listPanel.foldedGroups = new Set();
+    ui.listPanel.foldedRoles = new Set();
     seedIntentMap(ui, "visible", {});
     // Folded-group state is persisted to localStorage, so a fold from one test
     // would be re-read by the next test's LayerUI constructor and present as
@@ -1501,7 +1501,7 @@ describe("LayerUI focus", () => {
         manager.registerLayer({
           id,
           name: id,
-          group: "base",
+          role: "base",
           layer: { options: {} },
           paneName: `${id}Pane`,
         });
@@ -1568,7 +1568,7 @@ describe("LayerUI focus", () => {
         // cover that defensive branch: no base may be marked, no throw.
         const realSurfaceFor = ui.c.surfaceFor.bind(ui.c);
         vi.spyOn(ui.c, "surfaceFor").mockImplementation(((li: LayerInfo) =>
-          li.group === GROUP.BASE
+          li.role === ROLE.BASE
             ? null
             : realSurfaceFor(li)) as unknown as typeof ui.c.surfaceFor);
 
@@ -2055,7 +2055,7 @@ describe("LayerUI focus", () => {
       } = {},
     ) => {
       const item = document.createElement("div");
-      if (opts.color) item.dataset.layerType = GROUP.BASE;
+      if (opts.color) item.dataset.layerType = ROLE.BASE;
       if (opts.type !== undefined) item.dataset.layerType = opts.type;
       if (opts.checked !== undefined) {
         const box = document.createElement("input");
@@ -2074,7 +2074,7 @@ describe("LayerUI focus", () => {
 
     it("returns 'base' for a color-picker or basemap row", () => {
       expect(focusDisabledReason(ui, row({ color: true }))).toBe("base");
-      expect(focusDisabledReason(ui, row({ type: GROUP.BASE }))).toBe("base");
+      expect(focusDisabledReason(ui, row({ type: ROLE.BASE }))).toBe("base");
     });
 
     it("returns 'hidden' for a hidden row", () => {
@@ -2086,14 +2086,14 @@ describe("LayerUI focus", () => {
       // not the row is on. Consulted first (as they once were) they would let
       // an off basemap keep an enabled Style entry, so the unchecked check has
       // to come ahead of them.
-      expect(focusDisabledReason(ui, row({ type: GROUP.BASE, checked: false }))).toBe(
+      expect(focusDisabledReason(ui, row({ type: ROLE.BASE, checked: false }))).toBe(
         "hidden",
       );
       expect(focusDisabledReason(ui, row({ color: true, checked: false }))).toBe(
         "hidden",
       );
       // A checked basemap keeps the basemap verdict: no extent to focus on.
-      expect(focusDisabledReason(ui, row({ type: GROUP.BASE, checked: true }))).toBe(
+      expect(focusDisabledReason(ui, row({ type: ROLE.BASE, checked: true }))).toBe(
         "base",
       );
       expect(focusDisabledReason(ui, row({ color: true, checked: true }))).toBe("base");
@@ -2323,7 +2323,7 @@ describe("LayerUI focus", () => {
       const info = {
         id: "heat1",
         name: "Heat",
-        group: "overlay",
+        role: "overlay",
         canvas,
         ...(paneName ? { paneName } : {}),
       } as LayerInfo;
@@ -2367,7 +2367,7 @@ describe("LayerUI focus", () => {
       bringFocusedLayerToFront(ui, {
         id: "none",
         name: "N",
-        group: "overlay",
+        role: "overlay",
         paneName: "missing-pane",
       } as LayerInfo);
       expect(ui.focusController.focusedPaneRestores).toHaveLength(LADDER_PANES);
@@ -2377,7 +2377,7 @@ describe("LayerUI focus", () => {
       bringFocusedLayerToFront(ui, {
         id: "none",
         name: "N",
-        group: "overlay",
+        role: "overlay",
       } as LayerInfo);
       expect(ui.focusController.focusedPaneRestores).toHaveLength(LADDER_PANES);
     });
