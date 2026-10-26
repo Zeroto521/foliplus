@@ -764,6 +764,11 @@ describe("normalizeEnumValues", () => {
     });
   });
 
+  it("returns the same filter (same identity) when nothing expired", () => {
+    const clean: LayerFilter = { kind: "enum", field: "type", values: ["a"] };
+    expect(normalizeEnumValues(clean, ["a", "b"])).toBe(clean);
+  });
+
   it("passes numeric atoms and absent filters through unchanged", () => {
     const atom: LayerFilter = { kind: "atom", field: "c", op: "eq", value: 1 };
     expect(normalizeEnumValues(atom, ["x"])).toBe(atom);
