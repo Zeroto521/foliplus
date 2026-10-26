@@ -183,7 +183,34 @@
      this box, never push the control column — one vertical line for all
      panels. */
   --foliplus-form-label-width: 88px;
+  /* The one horizontal inset a panel's rows and footer read. It used to have
+     two owners (the heatmap inset its config body, the style panel its form
+     rows), which is how the two panels drifted apart; the shared form row owns
+     it now. */
+  --foliplus-panel-inset-x: var(--foliplus-space-lg);
+  /* The control column, derived from the panel shell: width minus the row's two
+     insets, the fixed label column and the label-to-control gap. Both panels
+     resolve to this one edge, so every control's right edge is a single
+     vertical line. */
+  --foliplus-form-control-width: calc(
+    var(--foliplus-panel-width) - 2 * var(--foliplus-panel-inset-x) -
+      var(--foliplus-form-label-width) - var(--foliplus-space-md)
+  );
+  /* A row panel (common/menu.css) is a panel with a 1px border, so its content
+     box is 2px narrower than a fold panel's. Subtracting that border keeps the
+     visual inset at the fold panel's value (11px of padding + 1px border = the
+     same 12px) and therefore keeps both panels' label, control and footer
+     edges on one line. */
+  --foliplus-row-panel-inset-x: calc(
+    var(--foliplus-panel-inset-x) - var(--foliplus-border-thin)
+  );
   --foliplus-form-number-width: 52px;
+  /* One inline-secondary width: the compact field that sits beside a flexed
+     control (border colour + weight, method + class count). The class-count
+     select and the number input both read it, so the two are the same width by
+     construction — and the flexed sibling (method select / colour swatch)
+     matches its counterpart in the other row. */
+  --foliplus-form-secondary-width: var(--foliplus-form-number-width);
   /* Toast width cap. Below the 480px viewport the media block in hint.css
      widens the cap to calc(100vw - 16px); the breakpoint 480px there is the
      same value and must stay in sync with this token (media queries do not
@@ -365,8 +392,6 @@
   /* ── HeatmapControl ──
      Inline control geometry. */
   --foliplus-heatmap-inline-height: var(--foliplus-icon-size-md);
-  --foliplus-heatmap-inline-width: 52px;
-  --foliplus-heatmap-accent-arrow-offset: var(--foliplus-size-6);
 
   /* ── LayerControl (row layout) ──
      Drag & drop variables and grid layout metrics. */
