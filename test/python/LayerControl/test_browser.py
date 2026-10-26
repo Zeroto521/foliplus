@@ -1198,14 +1198,10 @@ class TestLayerControlBrowser:
                 timeout=5000,
             )
             page.wait_for_timeout(300)
-            res = page.evaluate(
-                _js("LayerControl/rename_color_basemap_and_read_label")
-            )
+            res = page.evaluate(_js("LayerControl/rename_color_basemap_and_read_label"))
             assert res is not None, "colour basemap rename did not commit"
             assert res["label"] == "My Color", res
-            assert res["labelTitle"] == "My Color", (
-                f"label title={res['labelTitle']!r}"
-            )
+            assert res["labelTitle"] == "My Color", f"label title={res['labelTitle']!r}"
             assert not errors, f"JS errors: {errors}"
 
     def _assert_toggle_all_deselect_title(self, title: str | None, label: str) -> None:
