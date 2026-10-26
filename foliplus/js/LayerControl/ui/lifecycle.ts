@@ -54,6 +54,7 @@ import {
   toggleAll,
 } from "./listPanel/visibility.js";
 import { closeAttrsPanel } from "./overlayPanel/attr.js";
+import { closeFilterPanel } from "./overlayPanel/filter.js";
 import { closeMoreMenu } from "./overlayPanel/menu.js";
 import { finishRename } from "./overlayPanel/rename.js";
 import { loadPersistedState } from "./state.js";
@@ -358,6 +359,17 @@ const bindLayerEvents = (ui: LayerUI): void => {
         openStylePanel(ui, payload.id);
       }
     }),
+    // A committed filter repaints the owner row: funnel + count in that
+    // row's own unit. The owner publishes after its render settled, so this
+    // repaint reads the final model (not the mid-drag one).
+    subscribe(EVENTS.LAYER_FILTER_CHANGE, (payload: { id: string }) => {
+      const layerInfo = registry.get(payload.id);
+      if (!layerInfo || !ui.uiContainer) return;
+      const item = ui.uiContainer.querySelector<HTMLElement>(
+        `[${CONST.DATA.LAYER_ID}="${CSS.escape(payload.id)}"]`,
+      );
+      if (item) applyRowView(ui, item, buildRowCell(ui, layerInfo));
+    }),
     subscribe(EVENTS.LAYER_ITEM_REMOVED, (payload: { id: string }) => {
       // Cache drop only: unregister already tore the labels and their canvas
       // down (annotation.unloadLayer runs before this event is emitted), and
@@ -389,6 +401,7 @@ const bindLayerEvents = (ui: LayerUI): void => {
     // there is actually a focus to tear down.
     subscribe(EVENTS.OVERLAY_CLEAR, () => closeMoreMenu(ui, true)),
     subscribe(EVENTS.OVERLAY_CLEAR, () => closeAttrsPanel(ui, false)),
+    subscribe(EVENTS.OVERLAY_CLEAR, () => closeFilterPanel(ui, false)),
     subscribe(EVENTS.OVERLAY_CLEAR, () => closeStylePanel(ui, false)),
     subscribe(EVENTS.OVERLAY_CLEAR, () => finishRename(ui)),
     subscribe(EVENTS.OVERLAY_CLEAR, () => {
@@ -503,6 +516,8 @@ const unbindEvents = (ui: LayerUI): void => {
   // "open A, close B" user-driven mutual exclusion.
   closeMoreMenu(ui, false);
   closeStylePanel(ui, false);
+  closeAttrsPanel(ui, false);
+  closeFilterPanel(ui, false);
   finishRename(ui, true);
   // Remove any focus animation still in flight (rect + row highlight).
   dismissFocus(ui);

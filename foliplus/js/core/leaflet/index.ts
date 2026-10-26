@@ -25,4 +25,6 @@ export {
   createPanelControl,
   createPanelHeader,
   createRowPanel,
+  pinRowPanel,
+  unpinRowPanel,
 } from "./panel.js";

@@ -1,7 +1,7 @@
 // LayerControl UI — Layer attributes panel.
 import { EVENTS } from "#core/event/index.js";
 import { GROUP } from "#core/layer/index.js";
-import { createRowPanel } from "#core/leaflet/index.js";
+import { createRowPanel, pinRowPanel, unpinRowPanel } from "#core/leaflet/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import * as SVGs from "#foliplus/LayerControl/icon.js";
 import * as Util from "#foliplus/LayerControl/util.js";
@@ -67,22 +67,35 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
   const typeKey = isColor
     ? "type_color_map"
     : isBaseLayer
-      ? "type_base"
+      ? "type_tile_map"
       : layerInfo?.iconSvg
         ? "type_custom"
         : `type_${gtype}`;
   addRow(ui.T("attr_type"), ui.T(typeKey));
   if (!isColor) {
+    // The count is the layer's own unit and agrees with the row: a filtered
+    // owner reports kept / total (2,500 / 6,000), an unfiltered one the single
+    // count. Both numbers come from the same filterProvider model the row
+    // reads — the panel invents no second count source.
+    const model =
+      layerInfo && typeof layerInfo.filterProvider === "function"
+        ? layerInfo.filterProvider()
+        : null;
     const count = layerInfo ? ui.c.getFeatureCount(layerId) : null;
-    // The panel is the detail view, so the count is grouped (1,234) rather
-    // than compacted — and `comma` defaults to one fraction digit, which
-    // would render a whole number as "1,234.0", so pass 0 explicitly.
-    addRow(
-      ui.T("attr_feature_count"),
-      count == null
+    // The panel is the detail view, so counts are grouped (1,234) rather than
+    // compacted — and `comma` defaults to one fraction digit, which would
+    // render a whole number as "1,234.0", so pass 0 explicitly.
+    const grouped = (n: number): string =>
+      formatNumber(n, "comma", ui.config.locale_code, 0);
+    const value = model?.filter
+      ? ui
+          .T("attr_feature_count_pair")
+          .replace("{kept}", grouped(model.kept))
+          .replace("{total}", grouped(model.total))
+      : count == null
         ? ui.T("attr_empty")
-        : formatNumber(count, "comma", ui.config.locale_code, 0),
-    );
+        : grouped(count);
+    addRow(ui.T("attr_feature_count"), value);
   }
   addRow(
     ui.T("attr_source"),
@@ -199,6 +212,7 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
 
   item.style.position = "relative";
   item.appendChild(panel);
+  pinRowPanel(panel, item);
 
   // Document capture dismiss (attrs recipe): disableClickPropagation on the
   // layer control stops bubble-phase mousedown from reaching document, so a
@@ -243,6 +257,7 @@ const closeAttrsPanel = (ui: LayerUI, setFocus: boolean) => {
   ui.listPanel.pressInPanel = false;
   if (!ui.overlayPanel.activeAttrsPanel) return;
   const item = ui.overlayPanel.activeAttrsPanel.item;
+  unpinRowPanel(item);
   ui.overlayPanel.activeAttrsPanel.panel.remove();
   ui.overlayPanel.activeAttrsPanel = null;
   if (setFocus) item.focus();

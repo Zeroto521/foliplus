@@ -30,6 +30,33 @@ const cell = (over: Partial<RowCell> = {}): RowCell => ({
 });
 
 describe("rowView (pure projection)", () => {
+  it("falls back through the title chain for filtered and unfiltered cells", () => {
+    expect(rowView(cell({ filtered: true, filterTitle: "2 / 3" }), LABELS).title).toBe(
+      "2 / 3",
+    );
+    expect(
+      rowView(
+        cell({ filtered: true, filterTitle: undefined, titleTypeLabel: "Point" }),
+        LABELS,
+      ).title,
+    ).toBe("Point");
+    expect(
+      rowView(
+        cell({ filtered: true, filterTitle: undefined, titleTypeLabel: undefined }),
+        LABELS,
+      ).title,
+    ).toBe("polygon");
+    expect(
+      rowView(cell({ countText: "4", titleTypeLabel: undefined }), LABELS).title,
+    ).toBe("4 · polygon");
+    expect(
+      rowView(cell({ countText: "4", titleTypeLabel: "Point" }), LABELS).title,
+    ).toBe("4 · Point");
+    expect(
+      rowView(cell({ countText: "", titleTypeLabel: undefined }), LABELS).title,
+    ).toBe("polygon");
+  });
+
   it.each([
     [true, true, true, "Deselect"],
     [true, false, true, "Deselect"],
@@ -56,7 +83,7 @@ describe("rowView (pure projection)", () => {
   });
 
   it("titles the row as count + type, or the type alone", () => {
-    expect(rowView(cell({ countText: "12" }), LABELS).title).toBe("12 polygon");
+    expect(rowView(cell({ countText: "12" }), LABELS).title).toBe("12 · polygon");
     expect(rowView(cell({ countText: "" }), LABELS).title).toBe("polygon");
   });
 
@@ -226,7 +253,10 @@ describe("buildRowCell + applyRowView (one writer per row)", () => {
     const base = ui.c.layers.find(li => li.id === "base1")!;
     const cellInfo = buildRowCell(ui, base);
     expect(cellInfo.typeSvg).toBe(Icons.ICON_GLOBE);
-    expect(cellInfo.typeLabel).toContain("type_base");
+    expect(cellInfo.typeLabel).toContain("type_tile_map");
+    // The tooltip's short word is the renamed pair (地图 / Map); both keys
+    // carry the _map suffix so the row never borrows the colour row's words.
+    expect(cellInfo.titleTypeLabel).toContain("type_tile_map_short");
   });
 
   it("uses the custom icon when the layer declares one", () => {
@@ -249,7 +279,7 @@ describe("buildRowCell + applyRowView (one writer per row)", () => {
     const cellInfo = buildRowCell(ui, layerInfo);
     expect(cellInfo.countText).toBe("12");
     expect(rowView(cellInfo, LABELS).title).toBe(
-      `${cellInfo.countText} ${cellInfo.typeLabel}`,
+      `${cellInfo.countText} · ${cellInfo.titleTypeLabel}`,
     );
 
     const item = document.createElement("div");
@@ -304,7 +334,7 @@ describe("applyRowView (the single DOM write point)", () => {
       el.querySelector<HTMLElement>(`.${CONST.CLASSES.TYPE_ICON_COL}`)!.innerHTML,
     ).toBe("<b></b>");
     expect(el.getAttribute(CONST.DATA.TITLE)).toBe("polygon");
-    expect(el.title).toBe("4 polygon");
+    expect(el.title).toBe("4 · polygon");
   });
 
   it("updates the other fields when the row is missing one decoration", () => {
@@ -314,6 +344,70 @@ describe("applyRowView (the single DOM write point)", () => {
     expect(el.querySelector<HTMLElement>(CONST.SEL.COUNT_COL)!.textContent).toBe("9");
     expect(el.classList.contains(CONST.CLASSES.ACTIVE)).toBe(false);
     expect(el.getAttribute(CONST.DATA.TITLE)).toBe("polygon");
+  });
+
+  it("always titles the label with the full layer name", () => {
+    const el = item();
+    el.innerHTML += `<span class="${CONST.CLASSES.LAYER_LABEL}">Facility Points</span>`;
+    document.body.appendChild(el);
+    const label = el.querySelector<HTMLElement>(`.${CONST.CLASSES.LAYER_LABEL}`)!;
+
+    // A short, unclipped name still carries the full name: no measurement
+    // gate and no empty attribute. The row keeps its own count · type
+    // sentence and never repeats the name.
+    applyRowView(ui, el, cell({ name: "Facility Points", countText: "4" }));
+    expect(label.title).toBe("Facility Points");
+    expect(label.title).not.toBe("");
+    expect(el.title).toBe("4 · polygon");
+    expect(el.title).not.toContain("Facility Points");
+
+    // A long name is the same resident attribute. No scrollWidth/clientWidth
+    // stub: the implementation no longer measures, so the title does not
+    // depend on jsdom reporting (or not reporting) a clip.
+    applyRowView(ui, el, cell({ name: "Facility Points - North District 2024" }));
+    expect(label.title).toBe("Facility Points - North District 2024");
+    expect(label.title).not.toBe("");
+    expect(el.title).toBe("polygon");
+  });
+
+  it("leaves the count cell titleless when unfiltered so the row tooltip bubbles", () => {
+    const el = item();
+    applyRowView(ui, el, cell({ name: "Alpha", countText: "4" }));
+    const count = el.querySelector<HTMLElement>(CONST.SEL.COUNT_COL)!;
+    expect(count.hasAttribute("title")).toBe(false);
+    expect(count.getAttribute("aria-label")).toBe("4 · polygon");
+    expect(el.title).toBe("4 · polygon");
+
+    // Filtered: the count cell carries its own filtered sentence.
+    applyRowView(
+      ui,
+      el,
+      cell({ name: "Alpha", filtered: true, filterTitle: "2 / 3 filtered · polygon" }),
+    );
+    expect(count.title).toBe("2 / 3 filtered · polygon");
+    expect(el.title).toBe("2 / 3 filtered · polygon");
+  });
+
+  it("clears the label title for an empty name instead of writing an empty one", () => {
+    // Symmetric with updateItemLabel: an empty name removes the attribute so
+    // the row tooltip can still bubble on hover.
+    const el = item();
+    el.innerHTML += `<span class="${CONST.CLASSES.LAYER_LABEL}">Old</span>`;
+    const label = el.querySelector<HTMLElement>(`.${CONST.CLASSES.LAYER_LABEL}`)!;
+    label.title = "Old";
+
+    applyRowView(ui, el, cell({ name: "" }));
+
+    expect(label.hasAttribute("title")).toBe(false);
+  });
+
+  it("titles a detached row's label immediately (no deferred measurement)", () => {
+    const el = item();
+    el.innerHTML += `<span class="${CONST.CLASSES.LAYER_LABEL}">Facility Points</span>`;
+    const label = el.querySelector<HTMLElement>(`.${CONST.CLASSES.LAYER_LABEL}`)!;
+    applyRowView(ui, el, cell({ name: "Facility Points" }));
+    expect(el.isConnected).toBe(false);
+    expect(label.title).toBe("Facility Points");
   });
 
   it("buildRowCell handles a thin stub with an empty LayerIntentStore", () => {

@@ -1,10 +1,11 @@
 // HeatmapControl UI building — standalone functions.
 // All internal refs use direct function calls instead of `this.`.
-import { isClassifyMethod } from "#core/classify.js";
+import { CLASS_COUNT, type ClassifyMethod, isClassifyMethod } from "#core/classify.js";
 import { EVENTS, ensureEvents, publish } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { adjustPanelZIndex } from "#core/leaflet/index.js";
 import { safeColorScale } from "#core/palette.js";
+import { buildClassesRow, buildFieldRow, buildSchemeRow } from "#core/rampForm.js";
 import { dom } from "#common/dom.js";
 import { type SchemePicker, createSchemePicker } from "#common/schemePicker.js";
 import * as CONST from "./const.js";
@@ -93,37 +94,55 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
   ctrl.aggSelect = panelContent.querySelector(
     `[${CONST.DATA_ATTR.AGG}]`,
   ) as HTMLSelectElement;
-  ctrl.fieldWrap = panelContent.querySelector(
-    `[${CONST.DATA_ATTR.FIELD}]`,
+  // Field / Classes / Scheme are shared row primitives (core/rampForm),
+  // mounted into the template's placeholder. The rows keep the heatmap's
+  // data-* seams and classes; only the structure is shared with LayerControl.
+  const rampHost = panelContent.querySelector(
+    `[${CONST.DATA_ATTR.RAMP_ROWS}]`,
   ) as HTMLElement;
-  ctrl.fieldSelect = panelContent.querySelector(
-    `[${CONST.DATA_ATTR.FIELD_SELECT}]`,
-  ) as HTMLSelectElement;
-  ctrl.methodSelect = panelContent.querySelector(
-    `[${CONST.DATA_ATTR.METHOD}]`,
-  ) as HTMLSelectElement;
-  ctrl.classSelect = panelContent.querySelector(
-    `[${CONST.DATA_ATTR.CLASS_COUNT}]`,
-  ) as HTMLSelectElement;
-  ctrl.schemeControlWrap = panelContent.querySelector(
-    `[${CONST.DATA_ATTR.SCHEME_CTRL}]`,
-  ) as HTMLElement;
-  ctrl.schemeBar = ctrl.schemeControlWrap.querySelector(
-    CONST.SEL.SCHEME_BAR,
-  ) as HTMLElement;
-  ctrl.schemeBarInner = ctrl.schemeControlWrap.querySelector(
-    CONST.SEL.SCHEME_BAR_INNER,
-  ) as HTMLElement;
-  ctrl.schemeSelectHidden = panelContent.querySelector(
-    `[${CONST.DATA_ATTR.SCHEME_HIDDEN}]`,
-  ) as HTMLSelectElement;
+  const fieldRow = buildFieldRow({
+    label: ctrl.T("field"),
+    ariaLabel: ctrl.T("field"),
+    fields: [],
+    value: "",
+    rowClass: "foliplus-heatmap-field foliplus-hidden",
+    rowAttributes: { [CONST.DATA_ATTR.FIELD]: "" },
+    selectAttributes: { [CONST.DATA_ATTR.FIELD_SELECT]: "" },
+  });
+  // The row has one visible label but two selects: give each its own
+  // accessible name so a screen reader does not announce "Classes" twice.
+  const classesRow = buildClassesRow({
+    label: ctrl.T("classify_method"),
+    methodAriaLabel: ctrl.T("classify_method"),
+    classesAriaLabel: ctrl.T("class_count"),
+    methodValue: ctrl.mgr.method as ClassifyMethod,
+    classesValue: ctrl.mgr.numClasses,
+    methodLabel: method => ctrl.T(method),
+    methodClass: "",
+    classesClass: "foliplus-heatmap-class-select",
+    methodAttributes: { [CONST.DATA_ATTR.METHOD]: "" },
+    classesAttributes: { [CONST.DATA_ATTR.CLASS_COUNT]: "" },
+  });
+  const schemeRow = buildSchemeRow({
+    label: ctrl.T("scheme"),
+    triggerClass: "foliplus-heatmap-scheme-bar",
+    barClass: "foliplus-heatmap-scheme-bar-inner",
+    rowAttributes: { [CONST.DATA_ATTR.SCHEME_CTRL]: "" },
+    hiddenAttributes: { [CONST.DATA_ATTR.SCHEME_HIDDEN]: "" },
+  });
+  rampHost.append(fieldRow.row, classesRow.row, schemeRow.row);
+  ctrl.fieldWrap = fieldRow.row;
+  ctrl.fieldSelect = fieldRow.select;
+  ctrl.methodSelect = classesRow.methodSelect;
+  ctrl.classSelect = classesRow.classesSelect;
+  ctrl.schemeControlWrap = schemeRow.row;
+  ctrl.schemeBar = schemeRow.trigger;
+  ctrl.schemeBarInner = schemeRow.bar;
+  ctrl.schemeSelectHidden = schemeRow.hiddenSelect;
 
   // Set initial values from manager defaults
   ctrl.classSelect.value = String(
-    Math.min(
-      CONST.CLASS_COUNT.MAX,
-      Math.max(CONST.CLASS_COUNT.MIN, ctrl.mgr.numClasses),
-    ),
+    Math.min(CLASS_COUNT.MAX, Math.max(CLASS_COUNT.MIN, ctrl.mgr.numClasses)),
   );
   ctrl.methodSelect.value = ctrl.mgr.method;
   ctrl.aggSelect.value = ctrl.mgr.agg;
@@ -186,16 +205,31 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
   ctrl.aggSelect.onchange = () => {
     ctrl.mgr.agg = ctrl.aggSelect.value;
     updateFieldSelector(ctrl);
+    // The effective filter field can move with the aggregation (auto field
+    // resolution): drop a filter bound to the previous field, then tell the
+    // open panel to re-read the model even when the field did not move.
+    ctrl.mgr.syncFilterField();
     ctrl.mgr.renderHexagons();
     persist(ctrl);
+    publish(ctrl.mgr.events, EVENTS.LAYER_FILTER_CHANGE, {
+      id: ctrl.mgr.layerId,
+    });
   };
 
   ctrl.fieldSelect.onchange = () => {
     ctrl.mgr.field = ctrl.fieldSelect.value;
     syncSelect(ctrl, ctrl.fieldSelect, ctrl.fieldSelect.value);
+    // The filter field is the aggregation field (read-only in the panel): a
+    // field change drops a filter bound to the old field and repaints the
+    // rail extent. The notification also refreshes an open panel when the
+    // old filter happened to be absent (the extent/field still changed).
+    ctrl.mgr.syncFilterField();
     ctrl.mgr.renderHexagons();
     persist(ctrl);
     publish(ctrl.mgr.events, EVENTS.LAYER_STYLE_CHANGE, {
+      id: ctrl.mgr.layerId,
+    });
+    publish(ctrl.mgr.events, EVENTS.LAYER_FILTER_CHANGE, {
       id: ctrl.mgr.layerId,
     });
   };
@@ -213,10 +247,10 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
 
   ctrl.classSelect.onchange = () => {
     ctrl.mgr.numClasses = Math.min(
-      CONST.CLASS_COUNT.MAX,
+      CLASS_COUNT.MAX,
       Math.max(
-        CONST.CLASS_COUNT.MIN,
-        parseInt(ctrl.classSelect.value, 10) || CONST.CLASS_COUNT.DEFAULT,
+        CLASS_COUNT.MIN,
+        parseInt(ctrl.classSelect.value, 10) || CLASS_COUNT.DEFAULT,
       ),
     );
     // The picker owns the colour bar rendering — setNumClasses already
@@ -318,6 +352,11 @@ const buildLayerListItems = (ctrl: HeatmapControlUI, sel: HTMLSelectElement) => 
     updateFieldSelector(ctrl);
     if (ctrl.mgr.selectedLayerId) ctrl.mgr.renderHexagons();
     else ctrl.mgr.clearHeatmapCanvas();
+    // Source identity changes the whole filter model (field, extent, kept);
+    // an open filter panel re-reads it through this notification.
+    publish(ctrl.mgr.events, EVENTS.LAYER_FILTER_CHANGE, {
+      id: ctrl.mgr.layerId,
+    });
     persist(ctrl);
   };
 
@@ -458,12 +497,7 @@ const resetPanel = (ctrl: HeatmapControlUI) => {
   syncSelect(
     ctrl,
     ctrl.classSelect,
-    String(
-      Math.min(
-        CONST.CLASS_COUNT.MAX,
-        Math.max(CONST.CLASS_COUNT.MIN, ctrl.mgr.numClasses),
-      ),
-    ),
+    String(Math.min(CLASS_COUNT.MAX, Math.max(CLASS_COUNT.MIN, ctrl.mgr.numClasses))),
   );
   syncSelect(ctrl, ctrl.methodSelect, ctrl.mgr.method);
   // resetState restores the config default, which may not be in `schemes`.

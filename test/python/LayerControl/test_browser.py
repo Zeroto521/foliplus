@@ -1166,6 +1166,43 @@ class TestLayerControlBrowser:
             # …but never replaces the Select/Deselect tooltip (accept the
             # translated wording — a local browser can resolve `zh`).
             assert res["title"] in ("Deselect", "隐藏"), f"title={res['title']!r}"
+            # The label's resident full-name tooltip follows the same write:
+            # a hover must not keep announcing the old name.
+            assert res["labelTitle"] == "RenamedLayer", (
+                f"label title={res['labelTitle']!r}"
+            )
+
+    def test_color_basemap_rename_updates_label_title(self, browser, tmp_path):
+        """A colour-basemap rename repaints text and label title together.
+
+        The basemap row has no registry entry — its rename goes through the
+        intent store and updateItemLabel — so the resident full-name tooltip
+        must follow the text instead of keeping the locale default.
+        """
+        with use_page(
+            self._make_page,
+            browser,
+            tmp_path,
+            folium.FeatureGroup(name="Layers", overlay=True, show=True),
+            slug="rename_color_label_title",
+        ) as (page, errors):
+            page.evaluate(_js("LayerControl/open_panel"))
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            page.wait_for_selector(
+                '.foliplus-layer-item[data-layer-id="foliplus_color_map"]',
+                state="attached",
+                timeout=5000,
+            )
+            page.wait_for_timeout(300)
+            res = page.evaluate(_js("LayerControl/rename_color_basemap_and_read_label"))
+            assert res is not None, "colour basemap rename did not commit"
+            assert res["label"] == "My Color", res
+            assert res["labelTitle"] == "My Color", f"label title={res['labelTitle']!r}"
+            assert not errors, f"JS errors: {errors}"
 
     def _assert_toggle_all_deselect_title(self, title: str | None, label: str) -> None:
         """The toggle-all tooltip says "deselect all" in whatever locale it renders.
@@ -2349,6 +2386,14 @@ class TestLayerControlBrowser:
             )
             assert before["storage"] is None, (
                 f"an untouched visit stored a size: {before}"
+            )
+            layout = before.get("sizeLayout")
+            assert layout, f"the Size field was not measurable: {before}"
+            assert layout["textAlign"] == "center", (
+                f"the Size value must be horizontally centered: {layout}"
+            )
+            assert layout["rightGap"] <= 1, (
+                f"the Size box must sit at the right edge of its column: {layout}"
             )
 
             after = page.evaluate(_js("LayerControl/size_row"), ["Facility Points", 30])
@@ -5250,6 +5295,315 @@ class TestLayerControlBrowser:
                 "the open attrs panel must stay above a lit sibling"
             )
 
+    def test_style_panel_scheme_dropdown_clears_the_panel(self, browser, tmp_path):
+        """The style panel's scheme dropdown is fully visible and hit-testable.
+
+        The panel is a row panel — fixed-position, pinned under its layer row —
+        while the picker's dropdown is portaled to <body>. Both float, so the
+        dropdown must outrank the expanded control (its bar/section are lifted
+        to floating +1/+9): without that, the panel painted over the open list
+        and every item was unclickable, which is what the fill row shipped
+        with. The card also has to stay inside the viewport rather than being
+        clipped by the layer list's scroll box — the reason the panel is fixed
+        in the first place.
+
+        Measured from live rects, no magic numbers: the assert is "the point at
+        the widget's center resolves to the widget itself", the same contract
+        the row-overlay probes use.
+        """
+        data = {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "properties": {"value": 10 + i},
+                    "geometry": {
+                        "type": "Polygon",
+                        "coordinates": [
+                            [
+                                [119.28 + i * 0.01, 26.06],
+                                [119.32 + i * 0.01, 26.06],
+                                [119.32 + i * 0.01, 26.10],
+                                [119.28 + i * 0.01, 26.10],
+                                [119.28 + i * 0.01, 26.06],
+                            ]
+                        ],
+                    },
+                }
+                for i in range(3)
+            ],
+        }
+        layer = folium.GeoJson(json.dumps(data), name="Polygon data")
+        with use_page(
+            self._make_page, browser, tmp_path, layer, slug="style_scheme_dd"
+        ) as (page, errors):
+            page.evaluate(_js("LayerControl/open_panel"))
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            panel_ready(page)
+            opened = page.evaluate(_js("LayerControl/open_style_panel"))
+            assert opened["ok"], f"style panel did not open: {opened}"
+            page.wait_for_selector(
+                ".foliplus-layer-style-panel", state="visible", timeout=5000
+            )
+
+            result = page.evaluate(_js("LayerControl/style_scheme_dropdown"))
+            assert result["ok"], f"scheme row did not open: {result}"
+            assert result["panelInViewport"], (
+                "the fixed row panel must stay inside the viewport, not be clipped "
+                f"by the layer list's scroll box: {result['panelRect']}"
+            )
+            assert result["triggerInViewport"], (
+                f"the scheme trigger is not reachable: {result['triggerRect']}"
+            )
+            assert result["triggerHitInsidePanel"], (
+                "the scheme trigger must be the topmost element at its center"
+            )
+            assert result["dropdownRect"], "the scheme dropdown did not mount"
+            assert result["dropdownInViewport"], (
+                f"the dropdown overflows the viewport: {result['dropdownRect']}"
+            )
+            assert result["dropdownHitInsideDropdown"], (
+                "the open dropdown is painted under the style panel: the point at "
+                "its center hit "
+                f"{result['dropdownHitClass']} (z={result['dropdownZ']})"
+            )
+            assert not errors, f"JS errors: {errors}"
+
+    def test_style_fill_row_label_names_the_method_on_one_line(self, browser, tmp_path):
+        """The ramp row reads by its method in both panels, on one line.
+
+        One visible label names two selects, so it takes the primary control's
+        name (Method / 分类方法) — the word the heatmap panel shows too. The
+        class count stays announced by the count select's own aria label, so a
+        screen reader hears "Method" and "Classes" once each. The label column
+        is the shared 88px token inside the 280px panel; Range.getClientRects()
+        counts line boxes (the element rect always reports one row).
+        """
+        data = {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "properties": {"value": 10 + i},
+                    "geometry": {
+                        "type": "Polygon",
+                        "coordinates": [
+                            [
+                                [119.28 + i * 0.01, 26.06],
+                                [119.32 + i * 0.01, 26.06],
+                                [119.32 + i * 0.01, 26.10],
+                                [119.28 + i * 0.01, 26.10],
+                                [119.28 + i * 0.01, 26.06],
+                            ]
+                        ],
+                    },
+                }
+                for i in range(3)
+            ],
+        }
+        layer = folium.GeoJson(json.dumps(data), name="Polygon data")
+        with use_page(
+            self._make_page, browser, tmp_path, layer, slug="fill_row_label"
+        ) as (page, errors):
+            page.evaluate(_js("LayerControl/open_panel"))
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            panel_ready(page)
+            opened = page.evaluate(_js("LayerControl/open_style_panel"))
+            assert opened["ok"], f"style panel did not open: {opened}"
+            page.wait_for_selector(
+                ".foliplus-layer-style-panel", state="visible", timeout=5000
+            )
+
+            result = page.evaluate(
+                _js("LayerControl/read_form_row_labels"),
+                {"root": ".foliplus-layer-style-panel", "ramp": True},
+            )
+            assert result["ok"], result
+            rows = {row["text"]: row for row in result["rows"]}
+            # The visible label is locale-dependent; the panel's language follows
+            # the browser, so pin both vocabularies rather than one page locale.
+            label = next(
+                (text for text in ("Method", "分类方法") if text in rows), None
+            )
+            assert label, f"no method-labelled row among {sorted(rows)}"
+            row = rows[label]
+            expected_aria = {
+                "Method": ["Method", "Classes"],
+                "分类方法": ["分类方法", "分级数"],
+            }[label]
+            assert row["labelLines"] == 1, (
+                f"the Method label wrapped at the panel width: {row}"
+            )
+            assert row["labelWidth"] == pytest.approx(88, abs=0.5), row
+            assert result["labelWidthToken"] == "88px", result
+            assert result["panelWidthToken"] == "280px", result
+            assert row["panelWidth"] == pytest.approx(280, abs=1), row
+            assert row["ariaLabels"] == expected_aria, row
+            assert not errors, f"JS errors: {errors}"
+
+    def test_row_panels_pin_only_on_request(self, browser, tmp_path):
+        """Pinning is opt-in: this PR's panels pin, a plain row panel does not.
+
+        The shared `.foliplus-row-panel` shell defaults to the plain
+        row-anchored absolute card. Only a caller that knows the card would be
+        clipped by the layer list's scroll box opts into `pinRowPanel`, which
+        adds the pinned marker and places the fixed card from the row's rect.
+        A caller that skips the helper (an unmerged filter panel builds one) must
+        therefore keep its plain behaviour instead of landing at the viewport
+        corner — the regression this test pins.
+        """
+        layer = folium.FeatureGroup(name="Row panel pin")
+        with use_page(
+            self._make_page, browser, tmp_path, layer, slug="row_panel_pin"
+        ) as (page, errors):
+            page.evaluate(_js("LayerControl/open_panel"))
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-item[data-layer-type=overlay]",
+                state="attached",
+                timeout=5000,
+            )
+            page.wait_for_timeout(300)
+
+            opened = page.evaluate(_js("LayerControl/open_style_panel"))
+            assert opened["ok"], f"style panel did not open: {opened}"
+            page.wait_for_selector(
+                ".foliplus-layer-style-panel", state="visible", timeout=5000
+            )
+            style = page.evaluate(_js("LayerControl/row_panel_pin_state"))
+            assert not errors, f"JS errors: {errors}"
+            assert style["style"]["pinned"] is True, style
+            assert style["style"]["position"] == "fixed", style
+            assert style["style"]["inViewport"] is True, (
+                f"the pinned style panel left the viewport: {style['style']}"
+            )
+
+            page.mouse.click(900, 450)
+            page.wait_for_selector(
+                ".foliplus-layer-style-panel", state="detached", timeout=5000
+            )
+            page.evaluate(_js("LayerControl/click_first_overlay_more_btn"))
+            page.wait_for_selector(
+                ".foliplus-layer-more-menu.open", state="attached", timeout=5000
+            )
+            page.evaluate(_js("LayerControl/click_layer_attributes"))
+            page.wait_for_selector(
+                ".foliplus-layer-attrs-panel", state="visible", timeout=5000
+            )
+            attrs = page.evaluate(_js("LayerControl/row_panel_pin_state"))
+            assert attrs["attrs"]["pinned"] is True, attrs
+            assert attrs["attrs"]["position"] == "fixed", attrs
+            assert attrs["attrs"]["inViewport"] is True, attrs
+            assert attrs["fixture"]["pinned"] is False, (
+                "a never-pinned row panel must not carry the pinned marker"
+            )
+            assert attrs["fixture"]["position"] == "absolute", (
+                "a never-pinned row panel must keep its row-anchored absolute "
+                f"box, got {attrs['fixture']}"
+            )
+            assert not errors, f"JS errors: {errors}"
+
+    def test_style_panel_opens_downward_and_scrolls_inside(self, browser, tmp_path):
+        """The pinned style card opens downward and scrolls its own content.
+
+        Placement is deliberately simple now: it sits just under its row and
+        never measures the viewport, flips upward or writes an inline height
+        cap. The shared 400px row-panel recipe plus the content's own scrollbar
+        keep a long panel usable, and a wheel over the card must stay inside it
+        instead of chaining to the layer list behind.
+        """
+        data = {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "properties": {"value": 10 + i},
+                    "geometry": {
+                        "type": "Polygon",
+                        "coordinates": [
+                            [
+                                [119.28 + i * 0.01, 26.06],
+                                [119.32 + i * 0.01, 26.06],
+                                [119.32 + i * 0.01, 26.10],
+                                [119.28 + i * 0.01, 26.10],
+                                [119.28 + i * 0.01, 26.06],
+                            ]
+                        ],
+                    },
+                }
+                for i in range(3)
+            ],
+        }
+        layer = folium.GeoJson(json.dumps(data), name="Polygon data")
+        with use_page(
+            self._make_page, browser, tmp_path, layer, slug="row_panel_scroll"
+        ) as (page, errors):
+            page.evaluate(_js("LayerControl/open_panel"))
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            panel_ready(page)
+            opened = page.evaluate(_js("LayerControl/open_style_panel"))
+            assert opened["ok"], f"style panel did not open: {opened}"
+            page.wait_for_selector(
+                ".foliplus-layer-style-panel", state="visible", timeout=5000
+            )
+            page.wait_for_timeout(200)
+
+            before = page.evaluate(
+                _js("LayerControl/read_row_panel_scroll"), {"ramp": True}
+            )
+            assert before["ok"], before
+            assert before["position"] == "fixed", before
+            assert before["pinned"] is True, before
+            assert before["opensDownward"], (
+                f"the pinned card opened above its row: {before}"
+            )
+            gap = before["panel"]["top"] - before["row"]["bottom"]
+            assert 0 < gap <= 8, before
+            assert before["content"]["overflowY"] == "auto", before
+            assert before["content"]["panelMaxHeight"] == "400px", before
+            assert (
+                before["content"]["scrollHeight"] > before["content"]["clientHeight"]
+            ), f"the long style panel does not need its own scrollbar: {before}"
+
+            rect = before["content"]["rect"]
+            page.mouse.move(
+                rect["left"] + rect["width"] / 2, rect["top"] + rect["height"] / 2
+            )
+            page.mouse.wheel(0, 240)
+            page.wait_for_timeout(300)
+
+            after = page.evaluate(
+                _js("LayerControl/read_row_panel_scroll"), {"ramp": True}
+            )
+            assert after["content"]["scrollTop"] > 0, (
+                "the wheel over the card did not scroll its content: "
+                f"{before['content']} -> {after['content']}"
+            )
+            assert after["listScrollTop"] == before["listScrollTop"], (
+                "the wheel chained to the layer list instead of the card: "
+                f"{before['listScrollTop']} -> {after['listScrollTop']}"
+            )
+            assert after["opensDownward"], (
+                f"the card left its downward placement after scrolling: {after}"
+            )
+            assert not errors, f"JS errors: {errors}"
+
     # ── zoom-range browser probes ────────────────────────────────────
     #
     # CSS/interaction verification for the zoom-range row: dual-thumb
@@ -6319,3 +6673,66 @@ class TestLayerControlBrowser:
                 "(expected 10 from the visible 'Low' layer's native max_zoom): "
                 f"{low_only}"
             )
+
+    def test_filtered_funnel_paints_neutral_with_currentcolor_fill(
+        self, browser, tmp_path
+    ):
+        """A filtered row's funnel is neutral text-primary, not accent red.
+
+        The icon ships its own fill, so the stylesheet must override it with
+        fill: currentColor; otherwise `color` never reaches the glyph and the
+        default black would vanish on a dark theme.
+        """
+        layer = folium.FeatureGroup(name="Funnel row")
+        with use_page(self._make_page, browser, tmp_path, layer, slug="funnel") as (
+            page,
+            errors,
+        ):
+            page.evaluate(_js("LayerControl/open_panel"))
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            panel_ready(page)
+            style = page.evaluate(_js("LayerControl/filter_funnel_style"))
+            assert style and style.get("ok"), style
+            assert style["color"] == style["textPrimary"], (
+                "filtered funnel must use --foliplus-text-primary, got "
+                f"{style['color']} vs token {style['textPrimary']}"
+            )
+            assert style["color"] != style["accent"], (
+                "the filtered funnel must not be accent, got "
+                f"{style['color']} (accent {style['accent']})"
+            )
+            assert style["fill"] == style["color"], (
+                "the funnel SVG must fill from currentColor, got "
+                f"fill {style['fill']} vs color {style['color']}"
+            )
+            assert (style["funnelWidth"], style["funnelHeight"]) == (12, 12), style
+            assert style["countText"] == "4", style
+            assert not errors, f"JS errors: {errors}"
+
+    def test_attrs_features_shows_filtered_pair(self, browser, tmp_path):
+        """Attributes → Features renders grouped kept / total for a filtered owner.
+
+        The pair comes from the same filterProvider model the row reads, so it
+        is exact grouped integers (2,500 / 6,000) — the panel is the detail
+        view and never repeats the compact column value.
+        """
+        layer = folium.FeatureGroup(name="Attrs pair")
+        with use_page(self._make_page, browser, tmp_path, layer, slug="attr_pair") as (
+            page,
+            errors,
+        ):
+            page.evaluate(_js("LayerControl/open_panel"))
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            panel_ready(page)
+            res = page.evaluate(_js("LayerControl/attr_filtered_feature_pair"))
+            assert res is not None, "attrs probe could not open its panel"
+            assert res["pair"] == "2,500 / 6,000", res
+            assert not errors, f"JS errors: {errors}"

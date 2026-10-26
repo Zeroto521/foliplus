@@ -11,7 +11,11 @@
 // per layer, not once per point — the Set dedupes across the walk so a
 // hot layer does not spam the console.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { buildLayerSnapshot } from "#core/layer/snapshot.js";
+import {
+  buildLayerSnapshot,
+  extractMarkerFields,
+  snapshotFromPoints,
+} from "#core/layer/snapshot.js";
 import { createLogger } from "#common/log.js";
 
 // Minimal Leaflet classes for `instanceof` checks in the builder. The
@@ -310,5 +314,46 @@ describe("buildLayerSnapshot — numericFields and ranges", () => {
     expect(snap.points).toEqual([]);
     expect(snap.numericFields).toEqual([]);
     expect(snap.ranges).toEqual({});
+  });
+});
+
+describe("snapshotFromPoints (component-owned extraction)", () => {
+  const pt = (fields: Record<string, unknown>, value?: number) => {
+    const marker = makeMarker({
+      lat: 1,
+      lng: 2,
+      feature: { properties: fields },
+      value,
+    });
+    return { lat: 1, lng: 2, marker };
+  };
+
+  it("normalises fields, keeps walk order, and accumulates ranges", () => {
+    const snap = snapshotFromPoints([pt({ b: 10 }, 42), pt({ a: 2 }), pt({ a: 30 })]);
+    expect(snap.numericFields).toEqual(["value", "b", "a"]);
+    expect(snap.ranges).toEqual({ value: [42, 42], b: [10, 10], a: [2, 30] });
+    expect(snap.points.map(p => p.fields)).toEqual([
+      { value: 42, b: 10 },
+      { a: 2 },
+      { a: 30 },
+    ]);
+  });
+
+  it("works without a logger and for an empty point list", () => {
+    expect(snapshotFromPoints([])).toEqual({
+      points: [],
+      numericFields: [],
+      ranges: {},
+    });
+    const snap = snapshotFromPoints([pt({ a: 1 })]);
+    expect(snap.ranges).toEqual({ a: [1, 1] });
+  });
+
+  it("extractMarkerFields is the shared normaliser (value wins over properties)", () => {
+    const marker = makeMarker({
+      value: 42,
+      feature: { properties: { value: 7, other: 3 } },
+    });
+    expect(extractMarkerFields(marker)).toEqual({ value: 42, other: 3 });
   });
 });

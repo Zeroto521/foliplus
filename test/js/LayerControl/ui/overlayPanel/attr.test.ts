@@ -385,7 +385,7 @@ describe("LayerUI attrs", () => {
       ui.openAttrsPanel(baseItem);
       expect(
         rows(baseItem.querySelector(".foliplus-layer-attrs-panel") as HTMLElement),
-      ).toContainEqual(["LayerControl.attr_type", "LayerControl.type_base"]);
+      ).toContainEqual(["LayerControl.attr_type", "LayerControl.type_tile_map"]);
 
       ui.closeAttrsPanel(false);
       const colorItem = attachedPanel(ui).querySelector(
@@ -444,10 +444,91 @@ describe("LayerUI attrs", () => {
 
       const count = rows(
         item.querySelector(".foliplus-layer-attrs-panel") as HTMLElement,
-      ).find(([k]) => k === "LayerControl.attr_feature_count")?.[1];
+      ).find(([k]) => k.endsWith("attr_feature_count"))?.[1];
       // `comma` is language-agnostic (always en grouping) and the panel passes
       // fractionDigits 0, so the value is exactly "1,234" — not "1,234.0".
       expect(count).toBe("1,234");
+    });
+
+    it("shows kept / total for a filtered owner, in the row's own unit", () => {
+      const spy = vi
+        .spyOn(ui, "T")
+        .mockImplementation((key: string) =>
+          key === "attr_feature_count_pair" ? "{kept} / {total}" : key,
+        );
+      manager.registerLayer({
+        id: "pnt_pair",
+        name: "Points",
+        group: "overlay",
+        layer: { options: {}, eachLayer: vi.fn() },
+        filterProvider: () => ({
+          field: "value",
+          range: [0, 10],
+          filter: { kind: "atom", field: "value", op: "between", range: [2, 8] },
+          kept: 2500,
+          total: 6000,
+          step: 1,
+        }),
+        filterSetter: () => {},
+      });
+
+      const item = findItem(ui, "pnt_pair");
+      ui.openAttrsPanel(item);
+      const value = rows(
+        item.querySelector(".foliplus-layer-attrs-panel") as HTMLElement,
+      ).find(([k]) => k.endsWith("attr_feature_count"))?.[1];
+      // Grouped, exact integers from the same filterProvider model the row
+      // reads: the panel invents no second count source.
+      expect(value).toBe("2,500 / 6,000");
+      spy.mockRestore();
+    });
+
+    it("shows the single grouped count while no filter is committed", () => {
+      const spy = vi
+        .spyOn(ui, "T")
+        .mockImplementation((key: string) =>
+          key === "attr_feature_count_pair" ? "{kept} / {total}" : key,
+        );
+      vi.spyOn(ui.c, "getFeatureCount").mockReturnValue(1234);
+      manager.registerLayer({
+        id: "pnt_unfiltered",
+        name: "Points",
+        group: "overlay",
+        layer: { options: {}, eachLayer: vi.fn() },
+        filterProvider: () => ({
+          field: "value",
+          range: [0, 10],
+          filter: undefined,
+          kept: 900,
+          total: 1234,
+          step: 1,
+        }),
+        filterSetter: () => {},
+      });
+
+      const item = findItem(ui, "pnt_unfiltered");
+      ui.openAttrsPanel(item);
+      const value = rows(
+        item.querySelector(".foliplus-layer-attrs-panel") as HTMLElement,
+      ).find(([k]) => k.endsWith("attr_feature_count"))?.[1];
+      expect(value).toBe("1,234");
+      expect(value).not.toContain(" / ");
+      spy.mockRestore();
+    });
+
+    it("keeps the empty slot when the layer publishes no count", () => {
+      const spy = vi
+        .spyOn(ui, "T")
+        .mockImplementation((key: string) => (key === "attr_empty" ? "No data" : key));
+      vi.spyOn(ui.c, "getFeatureCount").mockReturnValue(null);
+
+      const item = findItem(ui, "overlay1");
+      ui.openAttrsPanel(item);
+      const value = rows(
+        item.querySelector(".foliplus-layer-attrs-panel") as HTMLElement,
+      ).find(([k]) => k.endsWith("attr_feature_count"))?.[1];
+      expect(value).toBe("No data");
+      spy.mockRestore();
     });
 
     it("builds on the shared panel vocabulary (header, content, form rows)", () => {

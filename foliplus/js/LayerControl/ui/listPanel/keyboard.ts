@@ -94,6 +94,11 @@ const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
       // The attributes panel and the overflow menu both float from the same
       // ⋮ button, so Escape dismisses whichever is on top.
       ui.closeAttrsPanel(true);
+    } else if (ui.overlayPanel.activeFilterPanel) {
+      // The filter panel floats from the same ⋮ button: Escape dismisses
+      // it (there is no Done/Apply — the panel is live), returning focus to
+      // the row it was opened from.
+      ui.closeFilterPanel(true);
     } else if (ui.overlayPanel.stylePanelLayerId) {
       // The style panel floats from the same ⋮ button; Escape dismisses it
       // and returns focus to its row (the panel's own controls consume the

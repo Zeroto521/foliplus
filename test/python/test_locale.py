@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import tempfile
 from pathlib import Path
@@ -36,7 +37,7 @@ _DYNAMIC_SUPPLEMENT: set[str] = {
     "LayerControl.focus_layer_hidden",
     "LayerControl.focus_layer_no_bounds",
     # typeKey / type.key template literals (attr.ts, rowView.ts).
-    "LayerControl.type_base",
+    "LayerControl.type_tile_map",
     "LayerControl.type_color_map",
     "LayerControl.type_custom",
     "LayerControl.type_unknown",
@@ -53,11 +54,32 @@ _DYNAMIC_SUPPLEMENT: set[str] = {
     "MeasureControl.geo_fail",
     "foliplus.addr_not_found",
     "foliplus.geo_fail",
+    # HeatmapControl's method labels: the shared rampForm rows resolve
+    # T(method) by lookup (the method token is the locale key suffix).
+    "HeatmapControl.jenks",
+    "HeatmapControl.quantile",
+    "HeatmapControl.equal",
+    "HeatmapControl.heads",
     # Shared label vocabulary (common table) — resolved via dynamic lookup.
     "foliplus.label_format_auto",
     "foliplus.label_format_comma",
     "foliplus.label_format_int",
     "foliplus.label_format_percent",
+    # Row tooltip short type words (rowView.ts) — `type_${gtype}` plus a
+    # "_short" suffix; the attrs panel keeps the long type_* labels. A base
+    # row's short word is its own key (type_tile_map_short = 地图/Map).
+    "LayerControl.type_tile_map_short",
+    "LayerControl.type_custom_short",
+    "LayerControl.type_unknown_short",
+    "LayerControl.type_color_map_short",
+    "LayerControl.type_point_short",
+    "LayerControl.type_line_short",
+    "LayerControl.type_polygon_short",
+    "LayerControl.type_empty_short",
+    # Filter panel dynamic labels (filter.ts) — the result readout composes
+    # its sentence from the {kept} / {total} template literals.
+    "LayerControl.filter_result",
+    "LayerControl.filter_result_label",
 }
 
 
@@ -87,8 +109,67 @@ def _load_merged_tables() -> dict[str, dict[str, str]]:
     return merged
 
 
+def _duplicate_json_keys(path: Path) -> list[str]:
+    """Raw-text scan for duplicate keys: `json.loads` silently keeps the last.
+
+    A duplicated key hides one value from every merged-table assertion, so it
+    has to be caught at the file level, not through the parsed dict.
+    """
+    seen: dict[str, int] = {}
+    duplicates: list[str] = []
+    for line_no, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+        match = re.match(r'\s*"([^"]+)"\s*:', line)
+        if not match:
+            continue
+        key = match.group(1)
+        if key in seen:
+            duplicates.append(f"{key} (lines {seen[key]} and {line_no})")
+        else:
+            seen[key] = line_no
+    return duplicates
+
+
 _TABLES = _load_merged_tables()
 _JS_USED_KEYS = _scan_js_keys() | _DYNAMIC_SUPPLEMENT
+
+
+class TestLocaleTableIntegrity:
+    def test_no_duplicate_keys_within_a_file(self):
+        # LayerControl.en/zh.json shipped a duplicated style_size/border pair;
+        # one value silently lost. Guard every table, not just those two.
+        for path in sorted(_LOCALE_DIR.glob("*.json")):
+            duplicates = _duplicate_json_keys(path)
+            assert not duplicates, f"{path.name} repeats keys: {duplicates}"
+
+
+class TestRowTooltipVocabulary:
+    """The row tooltip names the row's own kind, not a neighbouring one."""
+
+    def test_base_short_says_map_and_differs_from_color(self):
+        en, zh = _TABLES["en"], _TABLES["zh"]
+        # The short word is 地图/Map, distinct from the long 瓦片底图/Tile
+        # Map label and from the colour row's 纯色/Color.
+        assert en["LayerControl.type_tile_map_short"] == "Map"
+        assert zh["LayerControl.type_tile_map_short"] == "地图"
+        assert en["LayerControl.type_color_map_short"] == "Color"
+        assert zh["LayerControl.type_color_map_short"] == "纯色"
+        # Two adjacent kinds must not collapse into one word.
+        assert (
+            en["LayerControl.type_tile_map_short"]
+            != en["LayerControl.type_color_map_short"]
+        )
+        assert (
+            zh["LayerControl.type_tile_map_short"]
+            != zh["LayerControl.type_color_map_short"]
+        )
+        # The long label names the same thing: Tile Map / 瓦片底图.
+        assert en["LayerControl.type_tile_map"] == "Tile Map"
+        assert zh["LayerControl.type_tile_map"] == "瓦片底图"
+
+    def test_filter_tooltip_says_data_not_records(self):
+        en, zh = _TABLES["en"], _TABLES["zh"]
+        assert en["LayerControl.filter_layer_tooltip"] == "Filter this layer's data"
+        assert zh["LayerControl.filter_layer_tooltip"] == "筛选该图层的数据"
 
 
 class TestLocaleConfig:
@@ -223,6 +304,72 @@ class TestLocaleConfig:
                     f"{component}.{lang} duplicates the shared label vocabulary: "
                     f"{dupes} — it belongs in the common table only"
                 )
+
+
+class TestFillClassificationVocabulary:
+    """The fill / filter i18n contract: Field / Method / Classes / Scheme /
+    Clear and the four classification methods read the same in both controls.
+
+    The keys stay component-scoped (each table is injected per component), but
+    the *text* must match, otherwise the same control reads differently in the
+    heatmap panel and the layer style drawer. The pairing is one concept, not
+    one visible row: both panels name the method + class-count row by its
+    method (classify_method / style_method), while class_count /
+    style_fill_classes supplies the count select's accessible name.
+    """
+
+    SHARED_LABELS = [
+        ("LayerControl.style_fill_field", "HeatmapControl.field", "Field", "字段"),
+        (
+            "LayerControl.style_fill_classes",
+            "HeatmapControl.class_count",
+            "Classes",
+            "分级数",
+        ),
+        (
+            "LayerControl.style_method",
+            "HeatmapControl.classify_method",
+            "Method",
+            "分类方法",
+        ),
+        ("LayerControl.style_fill_scheme", "HeatmapControl.scheme", "Scheme", "配色"),
+    ]
+
+    METHOD_LABELS = [
+        ("style_method_jenks", "jenks", "Natural Breaks", "自然断点"),
+        ("style_method_quantile", "quantile", "Quantile", "分位数法"),
+        ("style_method_equal", "equal", "Equal Interval", "等距分段"),
+        ("style_method_heads", "heads", "Equal Count", "等数分段"),
+    ]
+
+    def test_shared_rows_use_one_vocabulary(self):
+        for layer_key, heatmap_key, en, zh in self.SHARED_LABELS:
+            assert _TABLES["en"][layer_key] == en, layer_key
+            assert _TABLES["en"][heatmap_key] == en, heatmap_key
+            assert _TABLES["zh"][layer_key] == zh, layer_key
+            assert _TABLES["zh"][heatmap_key] == zh, heatmap_key
+
+    def test_method_names_match_across_components(self):
+        for layer_suffix, heatmap_suffix, en, zh in self.METHOD_LABELS:
+            layer_key = f"LayerControl.{layer_suffix}"
+            heatmap_key = f"HeatmapControl.{heatmap_suffix}"
+            assert _TABLES["en"][layer_key] == en, layer_key
+            assert _TABLES["en"][heatmap_key] == en, heatmap_key
+            assert _TABLES["zh"][layer_key] == zh, layer_key
+            assert _TABLES["zh"][heatmap_key] == zh, heatmap_key
+
+    def test_clear_button_label(self):
+        assert _TABLES["en"]["HeatmapControl.clear"] == "Clear"
+        assert _TABLES["zh"]["HeatmapControl.clear"] == "清除"
+
+    def test_no_field_hint_is_gone(self):
+        """A layer without a numeric field hides the mode select instead of
+        explaining a disabled option, so the hint key must not come back."""
+        for lang in ("en", "zh"):
+            table = json.loads(
+                (_LOCALE_DIR / f"LayerControl.{lang}.json").read_text(encoding="utf-8")
+            )
+            assert "LayerControl.style_fill_no_field" not in table
 
 
 class TestLoadBuiltinTables:

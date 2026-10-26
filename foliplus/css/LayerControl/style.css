@@ -2,9 +2,10 @@
   Annotation style panel
   Floating panel opened from a data layer's ⋮ menu. It IS a foliplus panel —
   the surface carries `foliplus-panel foliplus-row-panel`, the same shell the
-  attributes panel gets from `createRowPanel` (common/panel.ts), so anchoring,
-  width, card chrome and header come from one place. This block only sizes the
-  label glyph and states the two controls form.css does not cover.
+  attributes panel gets from `createRowPanel` (core/leaflet/panel.ts), so width,
+  card chrome and header come from one place; the viewport anchoring comes from
+  `pinRowPanel` (core/leaflet/panel.ts). This block only sizes the label glyph
+  and states the controls form.css does not cover.
   ══════════════════════════════════════════════════════════════════════ */
 .foliplus-layer-ctrl {
   /* LayerControl's SVGs are viewBox-only, so the glyph needs an explicit
@@ -47,4 +48,62 @@
       }
     }
   }
+}
+/* ── Fill mode block ──────────────────────────────────────────
+   The mode row selects the fill arm; its detail rows sit flush underneath,
+   same label column. No divider: the rows are one group with the mode row. */
+.foliplus-style-fill-detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--foliplus-space-xs);
+}
+
+/* Scheme trigger (shared schemePicker shell, #729): a form-select-shaped
+   combobox holding the colour strip and a chevron. No scheme name — the
+   strip itself shows the palette, in both this panel and the heatmap. */
+.foliplus-style-scheme-trigger {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--foliplus-space-xs);
+  flex: 1;
+  min-width: 0;
+  height: var(--foliplus-ctrl-size);
+  box-sizing: border-box;
+  padding: 0 var(--foliplus-icon-size-md) 0 var(--foliplus-space-sm);
+  border: var(--foliplus-border-thin) solid var(--foliplus-input-border);
+  border-radius: var(--foliplus-radius-sm);
+  background: var(--foliplus-input-bg);
+  cursor: pointer;
+  font-size: var(--foliplus-font-size-sm);
+  color: var(--foliplus-text-primary);
+}
+
+.foliplus-style-scheme-trigger::after {
+  content: "";
+  position: absolute;
+  right: var(--foliplus-space-sm);
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-left: var(--foliplus-size-4) solid transparent;
+  border-right: var(--foliplus-size-4) solid transparent;
+  border-top: var(--foliplus-size-4) solid var(--foliplus-text-muted);
+}
+
+.foliplus-style-scheme-bar {
+  flex: 1;
+  min-width: 0;
+}
+
+/* The size row's px field sits at the right edge of the control column — the
+   numeric column the border row's weight field also occupies — while its value
+   stays horizontally centered inside the box. */
+.foliplus-style-size-row .foliplus-form-inline {
+  justify-content: flex-end;
+}
+
+.foliplus-style-size-input {
+  text-align: center;
 }

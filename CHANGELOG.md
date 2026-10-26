@@ -7,9 +7,11 @@
 - `core/layer`: snapshot axis on `LayerRuntimeStore` — a layer's points, numeric fields, and value ranges are built once and cached alongside the fields cache ([#715](https://github.com/Zeroto521/foliplus/pull/715))
 - `core/layer`: filter AST (`and` / `or` / `atom`) and pure evaluator over `SnapshotPoint`, so filtering is a tree walk rather than a string parse ([#715](https://github.com/Zeroto521/foliplus/pull/715))
 - `HeatmapControl`: `aggregateData` is now a wrapper over `binPoints` (H3 geometry only) and `aggregateBins` (pure arithmetic), so a filter change can skip the geometry step ([#715](https://github.com/Zeroto521/foliplus/pull/715))
+- `LayerControl` / `HeatmapControl`: a filter-capable layer gains a live, Clear-only filter panel, a kept/total count in its own unit, and an exact kept-of-total result ([#724](https://github.com/Zeroto521/foliplus/pull/724))
 - `LayerControl`: a size row sets a CircleMarker layer's pixel radius — every marker at once, persisted across reloads, and resettable to each marker's drawn radius ([#726](https://github.com/Zeroto521/foliplus/pull/726))
 - `LayerControl`: value-based fill — a numeric field, a classification method
   and a palette paint the layer by value ([#727](https://github.com/Zeroto521/foliplus/pull/727))
+- `LayerControl`: the fill row chooses solid colour or colour-by-value and edits the value arm in place — field, classification method, class count and a scheme picked from the shared picker ([#747](https://github.com/Zeroto521/foliplus/pull/747))
 
 ### Changed
 

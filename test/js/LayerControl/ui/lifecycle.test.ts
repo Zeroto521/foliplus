@@ -351,6 +351,25 @@ describe("LayerUI lifecycle — defensive rails", () => {
   });
 
   describe("LAYER_ITEM_UPDATED signal handler", () => {
+    it("repaints the row label title from the registry's new name", () => {
+      // A re-registration refreshes the label through updateItemLabel: the
+      // text and its resident tooltip both move to the new name — the hover
+      // must not keep announcing the previous one.
+      const label = () =>
+        findItem(ui, "overlay1").querySelector(
+          `.${CONST.CLASSES.LAYER_LABEL}`,
+        ) as HTMLElement;
+      const before = label().title;
+      expect(before).not.toBe("Renamed By Update");
+
+      manager.layerRegistry.get("overlay1")!.name = "Renamed By Update";
+      ensureEvents(map).emit(EVENTS.LAYER_ITEM_UPDATED, { id: "overlay1" });
+
+      expect(label().textContent).toBe("Renamed By Update");
+      expect(label().title).toBe("Renamed By Update");
+      expect(label().title).not.toBe(before);
+    });
+
     it("no-ops when the id is not in the registry", () => {
       // Covers the `if (!layerInfo) return` guard: a stale id (unregistered
       // after the event was emitted, or a third-party bundle emitting an
