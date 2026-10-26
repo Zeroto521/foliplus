@@ -382,6 +382,31 @@ describe("LayerUI style panel", () => {
     expect(panelOf(item)).toBeUndefined();
   });
 
+  it("a press on the scheme picker's portalled list does not dismiss it", () => {
+    // The picker portals its dropdown to <body> so the list can paint above
+    // this drawer. The portal is outside the panel's subtree while still being
+    // part of the overlay, so a dismiss predicate that only walks the subtree
+    // closes the drawer on the press that selects a colour.
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const panel = panelOf(item)!;
+
+    const portal = document.createElement("div");
+    portal.className = "foliplus-scheme-picker-portal";
+    const row = document.createElement("button");
+    row.className = "foliplus-scheme-picker-item";
+    portal.appendChild(row);
+    document.body.appendChild(portal);
+
+    // Capture-phase listener on document: a bubbling press on the portalled row
+    // is exactly what the browser delivers for a real click on the list.
+    row.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true }));
+
+    expect(panelOf(item)).toBe(panel);
+    expect(ui.overlayPanel.stylePanelLayerId).toBe("overlay1");
+    portal.remove();
+  });
+
   // ─────────────────── control interactions ───────────────────
 
   it("flipping the toggle updates the config, labels and persistence", () => {
