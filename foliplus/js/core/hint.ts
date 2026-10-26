@@ -1,7 +1,7 @@
 // core/hint — per-map toast system.
 // Each map gets its own HintManager instance (via ensureHint), attached to
 // `map.foliplus.showHint/hideHint`.  No global state leaks to `window.foliplus`.
-import { fullscreenSurface } from "#core/fullscreen.js";
+import { fullscreenSurface, onFullscreenSurfaceChange } from "#core/fullscreen.js";
 import { ensureMapFoliplus } from "#core/mapApi.js";
 import { cssVar } from "#common/cssvar.js";
 import { dom } from "#common/dom.js";
@@ -72,23 +72,37 @@ const activeManagers = new Set<HintManager>();
 class HintManager {
   hintIcons: Record<string, string>;
   hintMap: Map<string, HintEntry>;
-  private onFullscreenChange: () => void;
+  /** The map container this manager belongs to — scopes surface resolution so
+   *  hints never land in a sibling map's pseudo container. Null when the
+   *  manager is constructed directly (tests, page-level use). */
+  private readonly surfaceScope: HTMLElement | null;
+  private readonly detachSurface: () => void;
 
-  constructor() {
+  constructor(surfaceScope: HTMLElement | null = null) {
     this.hintIcons = { ...hintIconRegistry };
     this.hintMap = new Map();
+    this.surfaceScope = surfaceScope;
     // When a covering surface activates (native fullscreen or pseudo-fullscreen,
     // see core/fullscreen.ts), only that surface's subtree is visible — hints
     // appended to document.body would be buried under the opaque map. Move
-    // them onto the surface (and back again on exit). Standard API only — the
-    // webkit prefix is dropped (see FullscreenControl/api.ts).
-    this.onFullscreenChange = () => this.reattachHints();
-    document.addEventListener("fullscreenchange", this.onFullscreenChange);
+    // them onto the surface (and back again on exit). Pseudo mode changes a
+    // class and fires no DOM event, so this subscribes to the shared surface
+    // announcement rather than the native event: a hint that already exists
+    // when fullscreen starts must re-seat immediately, not wait for the next
+    // showHint. Standard API only — the webkit prefix is dropped (see
+    // FullscreenControl/api.ts).
+    this.detachSurface = onFullscreenSurfaceChange(() => this.reattachHints());
     activeManagers.add(this);
   }
 
+  /** Resolve the host for this manager's overlays. Scoped to the map
+   *  container when one was supplied. */
+  private surface(): HTMLElement {
+    return fullscreenSurface(this.surfaceScope);
+  }
+
   private reattachHints() {
-    const target = fullscreenSurface();
+    const target = this.surface();
     let moved = false;
     for (const entry of this.hintMap.values()) {
       // Disconnected elements are stale (removed externally), not stranded on
@@ -123,7 +137,7 @@ class HintManager {
     // stranded in the map container. The new hint then appends to the same
     // target reattachHints resolved.
     this.reattachHints();
-    const hintTarget = fullscreenSurface();
+    const hintTarget = this.surface();
 
     const cls = subkey
       ? `${CLASS} ${CLASS}-${key}-${subkey}`
@@ -216,9 +230,10 @@ class HintManager {
       [
         ...steps,
         [
-          "detach-fullscreen",
-          () =>
-            document.removeEventListener("fullscreenchange", this.onFullscreenChange),
+          "detach-surface",
+          () => {
+            this.detachSurface();
+          },
         ],
         [
           "deregister",
@@ -254,7 +269,11 @@ const destroyManager = (map: L.Map, mgr: HintManager): void => {
 const ensureHint = (map: L.Map): HintManager => {
   const existing = instances.get(map);
   if (existing) return existing;
-  const mgr = new HintManager();
+  // Scope surface resolution to this map's container. A manager built without
+  // a map (tests, standalone use) keeps the document-wide resolver.
+  const mgr = new HintManager(
+    typeof map.getContainer === "function" ? map.getContainer() : null,
+  );
   instances.set(map, mgr);
   const api = ensureMapFoliplus(map);
   api.showHint = mgr.showHint.bind(mgr);
@@ -262,11 +281,11 @@ const ensureHint = (map: L.Map): HintManager => {
   api.registerHintIcon = (key: string, svg: string) => {
     registerHintIcon(key, svg); // syncs every active manager
   };
-  // On map unload, tear down hints and unbind the document-level
-  // fullscreenchange listener. Without this the manager outlives its map: the
-  // WeakMap entry frees the instance, but document.body hints, the open
-  // setTimeout timers, and the document listener all leak. Mirrors the per-map
-  // cleanup pattern used by core/mode and core/interaction.
+  // On map unload, tear down hints and drop the surface subscription. Without
+  // this the manager outlives its map: the WeakMap entry frees the instance,
+  // but document.body hints, the open setTimeout timers, and the surface
+  // subscription all leak. Mirrors the per-map cleanup pattern used by
+  // core/mode and core/interaction.
   map.on("unload", () => destroyManager(map, mgr));
   return mgr;
 };

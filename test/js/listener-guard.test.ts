@@ -80,11 +80,11 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
       "both calls are in bindOutsideCollapse, which binds a capture + bubble click pair on document and returns its own unbind closure — that is exactly the `effect` case, but the factory takes a container, not a BaseControl instance, so the control must register the closure itself",
   },
   {
-    f: "core/hint.ts",
+    f: "core/fullscreen.ts",
     n: 1,
     pairedOff: 0,
     reason:
-      "HintManager registers fullscreenchange at document level; the manager owns its own lifecycle, independent of any single control",
+      "one document-level fullscreenchange shared by every overlay, bound lazily on the first subscriber and removed when the last one detaches; the resolver is a free-standing core module with no control instance or mounting signal, and per-overlay copies would multiply the same native listener",
   },
   {
     f: "core/interaction/interactionManager.ts",
@@ -148,10 +148,10 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
   },
   {
     f: "LayerControl/slider.ts",
-    n: 11,
+    n: 10,
     pairedOff: 0,
     reason:
-      "slider primitive binds pointer / keyboard / focus on the track and the thumbs it owns; every node is created by the instance and dropped with destroy(), and the module is a free-standing primitive with no mounting signal to route through `this.on`. The page-wide listeners are bound once each: scroll-to-dismiss and the fullscreen re-parent of the value bubble",
+      "slider primitive binds pointer / keyboard / focus on the track and the thumbs it owns; every node is created by the instance and dropped with destroy(), and the module is a free-standing primitive with no mounting signal to route through `this.on`. The page-wide scroll listener is bound once; surface changes arrive through core/fullscreen's shared subscription",
   },
   {
     f: "MeasureControl/mode/circle.ts",

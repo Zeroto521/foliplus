@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { setPseudoFullscreen } from "#core/fullscreen.js";
 import {
   HINT_DURATION,
   HintManager,
@@ -179,7 +180,7 @@ describe("HintManager", () => {
     mgr.showHint("a", "one", 0);
     mgr.showHint("b", "two", 0);
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const detach = vi.spyOn(document, "removeEventListener");
+    const reattach = vi.spyOn(mgr, "reattachHints" as any);
     const stuck = mgr.hintMap.get("a")!.element;
     const healthy = mgr.hintMap.get("b")!.element;
     stuck.remove = () => {
@@ -188,8 +189,8 @@ describe("HintManager", () => {
 
     expect(() => mgr.destroy()).not.toThrow();
 
-    // The failure is named, the other hint still goes, and the listener and
-    // the module-level registration are released regardless.
+    // The failure is named, the other hint still goes, and the surface
+    // subscription and the module-level registration are released regardless.
     expect(warn).toHaveBeenCalledWith(
       '[Hint] destroy step "hint:a" threw',
       expect.any(Error),
@@ -199,7 +200,8 @@ describe("HintManager", () => {
     expect(stuck.isConnected).toBe(true);
     expect(healthy.isConnected).toBe(false);
     expect(mgr.hintMap.size).toBe(0);
-    expect(detach).toHaveBeenCalledWith("fullscreenchange", expect.any(Function));
+    document.dispatchEvent(new Event("fullscreenchange"));
+    expect(reattach).not.toHaveBeenCalled();
     const sync = vi.spyOn(mgr, "syncIcons");
     registerHintIcon("after_destroy", '<svg viewBox="0 0 8 8"></svg>');
     expect(sync).not.toHaveBeenCalled();
@@ -302,6 +304,54 @@ describe("HintManager", () => {
     mgr.showHint("key2", "second", 0);
     expect(el.parentElement).toBe(document.body);
     expect(document.querySelector(".foliplus-hint")!.parentElement).toBe(document.body);
+
+    mgr.destroy();
+  });
+
+  it("re-seats an existing hint when pseudo-fullscreen activates", () => {
+    // The hint exists BEFORE the surface appears. Pseudo mode fires no DOM
+    // event, so only the surface announcement can rescue it — the original
+    // embed bug ("click fullscreen, the visible toast vanishes under the
+    // map") is exactly this order.
+    const mgr = new HintManager();
+    const container = document.createElement("div");
+    container.className = "leaflet-container";
+    document.body.appendChild(container);
+
+    mgr.showHint("persist", "already open", HINT_DURATION.PERSIST);
+    const el = document.querySelector(".foliplus-hint")!;
+    expect(el.parentElement).toBe(document.body);
+
+    setPseudoFullscreen(container, true);
+    expect(el.parentElement).toBe(container);
+
+    setPseudoFullscreen(container, false);
+    expect(el.parentElement).toBe(document.body);
+
+    mgr.destroy();
+  });
+
+  it("scopes pseudo re-seating to the manager's own map", () => {
+    const mapA = document.createElement("div");
+    mapA.className = "leaflet-container";
+    const mapB = document.createElement("div");
+    mapB.className = "leaflet-container";
+    document.body.append(mapA, mapB);
+
+    const mgr = new HintManager(mapB);
+    mgr.showHint("persist", "map B", HINT_DURATION.PERSIST);
+    const el = document.querySelector(".foliplus-hint")!;
+    expect(el.parentElement).toBe(document.body);
+
+    // A sibling map going fullscreen must not pull map B's toast into it.
+    setPseudoFullscreen(mapA, true);
+    expect(el.parentElement).toBe(document.body);
+
+    setPseudoFullscreen(mapB, true);
+    expect(el.parentElement).toBe(mapB);
+
+    setPseudoFullscreen(mapB, false);
+    expect(el.parentElement).toBe(document.body);
 
     mgr.destroy();
   });
@@ -495,13 +545,13 @@ describe("ensureHint", () => {
 });
 
 describe("map unload teardown", () => {
-  it("destroys the manager on map unload, unbinding the fullscreenchange listener", () => {
+  it("destroys the manager on map unload, dropping the surface subscription", () => {
     vi.useFakeTimers();
     const map = makeMap();
     const mgr = ensureHint(map);
     mgr.showHint("persist", "still open", HINT_DURATION.PERSIST);
     // reattachHints is called through a bound arrow, so spying the class
-    // method is the only way to observe the document listener afterwards.
+    // method is the only way to observe the surface subscription afterwards.
     // The spy is created AFTER the seeding showHint — showHint itself calls
     // reattachHints to re-seat stranded entries, which must not count here.
     const reattachSpy = vi.spyOn(mgr, "reattachHints" as any);

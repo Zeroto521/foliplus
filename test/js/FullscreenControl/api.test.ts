@@ -3,6 +3,7 @@ import {
   FULLSCREEN_CHANGE,
   getFullscreenEl,
   isEnabled,
+  ownsFullscreen,
 } from "#foliplus/FullscreenControl/api.js";
 import { CLASSES, containerId } from "#foliplus/FullscreenControl/const.js";
 
@@ -84,5 +85,42 @@ describe("api.js (jsdom — no native Fullscreen API)", () => {
       configurable: true,
     });
     expect(getFullscreenEl()).toBe(el);
+  });
+
+  it("ownsFullscreen is false when nothing is fullscreen", () => {
+    expect(ownsFullscreen(document.createElement("div"))).toBe(false);
+  });
+
+  it("ownsFullscreen is true for the container itself", () => {
+    const map = document.createElement("div");
+    Object.defineProperty(document, "fullscreenElement", {
+      value: map,
+      configurable: true,
+    });
+    expect(ownsFullscreen(map)).toBe(true);
+  });
+
+  it("ownsFullscreen is true when the native element wraps the map", () => {
+    // Some embedders fullscreen a page-level wrapper around the map.
+    const wrapper = document.createElement("div");
+    const map = document.createElement("div");
+    wrapper.appendChild(map);
+    Object.defineProperty(document, "fullscreenElement", {
+      value: wrapper,
+      configurable: true,
+    });
+    expect(ownsFullscreen(map)).toBe(true);
+  });
+
+  it("ownsFullscreen is false for a sibling map's session", () => {
+    // Native fullscreen is document-global: map B must not think map A's
+    // fullscreen is its own, or its next click would exit A.
+    const mapA = document.createElement("div");
+    const mapB = document.createElement("div");
+    Object.defineProperty(document, "fullscreenElement", {
+      value: mapA,
+      configurable: true,
+    });
+    expect(ownsFullscreen(mapB)).toBe(false);
   });
 });

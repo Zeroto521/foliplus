@@ -1,8 +1,9 @@
 // FullscreenControl core logic — toggleFullscreen, updateUI, event handling.
 // CONFIG / T are no longer module-level: defineControl hands them off to the
 // control instance, and the entry passes an env slice into these functions.
+import { setPseudoFullscreen } from "#core/fullscreen.js";
 import { HINT_DURATION } from "#core/hint.js";
-import { getFullscreenEl, isEnabled } from "./api.js";
+import { isEnabled, ownsFullscreen } from "./api.js";
 import { CLASSES, containerId } from "./const.js";
 import * as SVGs from "./icon.js";
 
@@ -24,7 +25,9 @@ const updateUI = (
   hintText?: string,
 ) => {
   const { config, T } = env;
-  const isFull = Boolean(getFullscreenEl()) || map.isFullscreen;
+  // Native fullscreen is document-global: a sibling map's session must not
+  // paint this control's icon as "exit". map.isFullscreen covers pseudo mode.
+  const isFull = ownsFullscreen(map.getContainer()) || map.isFullscreen;
   fsBtn.innerHTML = isFull ? SVGs.ICON_MINIMIZE : SVGs.ICON_MAXIMIZE;
   fsBtn.title = isFull ? T("title_cancel") : T("title");
 
@@ -67,7 +70,13 @@ const enterPseudo = (
   container: HTMLElement,
   env: Env,
 ) => {
-  map.getContainer().classList.add(CLASSES.PSEUDO_FULLSCREEN);
+  // Also sets map.isFullscreen: from a consumer's point of view the map covers
+  // the visible area either way, and callers (including this control's own exit
+  // branch) key on that flag. The flag intentionally spans native and pseudo
+  // sessions; only the mechanism differs. setPseudoFullscreen() announces the
+  // new surface, so overlays already on screen re-seat before the hint below
+  // is appended.
+  setPseudoFullscreen(map.getContainer(), true);
   map.invalidateSize();
 
   map.isFullscreen = true;
@@ -80,7 +89,7 @@ const exitPseudo = (
   container: HTMLElement,
   env: Env,
 ) => {
-  map.getContainer().classList.remove(CLASSES.PSEUDO_FULLSCREEN);
+  setPseudoFullscreen(map.getContainer(), false);
   map.invalidateSize();
 
   map.isFullscreen = false;
@@ -98,14 +107,21 @@ const toggleFullscreen = (
   container: HTMLElement,
   env: Env,
 ) => {
-  if (getFullscreenEl()) {
+  const mapContainer = map.getContainer();
+  if (ownsFullscreen(mapContainer)) {
     document
       .exitFullscreen()
       .then(() => {
         map.isFullscreen = false;
+        // A native transition always wins over a pseudo class: a request that
+        // rejected but completed natively, or a permission flip mid-session,
+        // can leave both states on the container. Clear pseudo here so
+        // fullscreenSurface() stops treating the container as a surface after
+        // the native session ends.
+        setPseudoFullscreen(mapContainer, false);
       })
       .catch(() => {
-        map.isFullscreen = Boolean(getFullscreenEl());
+        map.isFullscreen = ownsFullscreen(mapContainer);
         showExitFailHint(map, env);
       });
     return;
@@ -117,8 +133,7 @@ const toggleFullscreen = (
   }
 
   if (isEnabled()) {
-    map
-      .getContainer()
+    mapContainer
       .requestFullscreen()
       .then(() => {
         map.isFullscreen = true;
@@ -126,7 +141,16 @@ const toggleFullscreen = (
       .catch(() => {
         // A policy rejection (permission lost mid-flight) must not dead-end:
         // recover state, then fall back to pseudo mode like an API-less browser.
-        map.isFullscreen = Boolean(getFullscreenEl());
+        const active = ownsFullscreen(mapContainer);
+        map.isFullscreen = active;
+        // A rejection can arrive after the browser actually completed the
+        // transition. Entering pseudo then would put both states on the
+        // container at once, and the exit branch (native first) would never
+        // clear the class — it would outlive the session and keep hijacking
+        // every overlay's host. Reconcile the class and let fullscreenchange
+        // own the UI in that case.
+        setPseudoFullscreen(mapContainer, false);
+        if (active) return;
         enterPseudo(map, fsBtn, container, env);
       });
     return;
@@ -142,7 +166,16 @@ const toggleFullscreen = (
 // ══════════════════════════════════════════════════════════════════════════════
 const buildFullscreenChangeHandler =
   (map: L.Map, fsBtn: HTMLElement, container: HTMLElement, env: Env) => () => {
-    map.isFullscreen = Boolean(getFullscreenEl());
+    const mapContainer = map.getContainer();
+    const active = ownsFullscreen(mapContainer);
+    // Native fullscreen outranks pseudo on the same container. A stale class
+    // here would survive the native exit (that path clears native first) and
+    // keep every overlay hosted in a container that is no longer a surface.
+    if (active) setPseudoFullscreen(mapContainer, false);
+    // A sibling map's native transition fires this handler too. It must not
+    // clear a pseudo session that is still on this map's container.
+    map.isFullscreen =
+      active || mapContainer.classList.contains(CLASSES.PSEUDO_FULLSCREEN);
     updateUI(map, fsBtn, container, env);
   };
 
