@@ -28,7 +28,11 @@
     hostClass: host ? String(host.className) : null,
     hostIsPseudo: !!(pseudo && host && (host === pseudo || pseudo.contains(host))),
     fullscreenElementTag: fullscreen ? fullscreen.tagName : null,
-    insideFullscreenElement: !!(fullscreen && dropdown && fullscreen.contains(dropdown)),
+    insideFullscreenElement: !!(
+      fullscreen &&
+      dropdown &&
+      fullscreen.contains(dropdown)
+    ),
     pseudoActive: !!pseudo,
     targetName: item ? item.getAttribute("data-scheme-name") : null,
     targetX: rect ? rect.left + rect.width / 2 : null,

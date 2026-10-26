@@ -689,9 +689,11 @@ describe("portal mode", () => {
     const { picker, trigger } = makePicker({
       portal: true,
       resolveHost: () => surface,
-      onSurfaceChange: cb => {
+      onSurfaceChange: (cb: () => void) => {
         listeners.add(cb);
-        return () => listeners.delete(cb);
+        return () => {
+          listeners.delete(cb);
+        };
       },
     });
     trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
