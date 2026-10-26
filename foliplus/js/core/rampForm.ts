@@ -102,8 +102,13 @@ const buildClassesRow = (opts: ClassesRowOptions): ClassesRow => {
   });
   applyAttributes(methodSelect, opts.methodAttributes);
 
+  // Both consumers get the shared compact-count class: the class select is the
+  // same role as a number field beside a flexed control, so its width contract
+  // lives in one place (form.css) rather than per-component overrides.
   const classesSelect = selectInput({
-    className: opts.classesClass,
+    className: opts.classesClass
+      ? `${opts.classesClass} foliplus-classes-select`
+      : "foliplus-classes-select",
     ariaLabel: opts.classesAriaLabel,
     value: String(opts.classesValue),
     options: CLASS_COUNT_VALUES.map(count => ({
@@ -170,10 +175,12 @@ const buildSchemeRow = (
     "data-scheme-bar-inner": "",
   });
   applyAttributes(bar, opts.barAttributes);
+  // The trigger recipe is shared (common/scheme-picker.css); the consumer's
+  // class stays on the element as its own hook.
   const trigger = dom.el(
     "div",
     {
-      class: opts.triggerClass,
+      class: `${opts.triggerClass} foliplus-scheme-picker-trigger`,
       tabindex: "0",
       role: "combobox",
       "aria-haspopup": "listbox",
