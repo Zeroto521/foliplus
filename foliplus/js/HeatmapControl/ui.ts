@@ -385,16 +385,6 @@ const updateFieldSelector = (ctrl: HeatmapControlUI) => {
   ctrl.mgr.autoFieldKey = pickAutoField(fields);
 
   ctrl.fieldSelect.innerHTML = "";
-  dom.el(
-    "option",
-    {
-      value: "",
-      disabled: true,
-      class: CONST.CLASSES.PLACEHOLDER_OPTION,
-      parent: ctrl.fieldSelect,
-    },
-    ctrl.T("field_auto"),
-  );
 
   fields.forEach(f => {
     dom.el("option", { value: f, parent: ctrl.fieldSelect }, f);
@@ -403,7 +393,13 @@ const updateFieldSelector = (ctrl: HeatmapControlUI) => {
   if (ctrl.mgr.field && !fields.includes(ctrl.mgr.field)) {
     ctrl.mgr.field = "";
   }
-  ctrl.fieldSelect.value = ctrl.mgr.field;
+  // Empty `field` is the stored auto sentinel, not a selectable entry: the
+  // select shows the field the auto rule resolves to (the first numeric
+  // field), the same way LayerControl's fill-by-value row starts on fields[0]
+  // without an "Auto" option. Aggregation already falls back to `autoFieldKey`
+  // under the sentinel; an explicit pick stores the real field name.
+  const resolvedField = ctrl.mgr.field || ctrl.mgr.autoFieldKey;
+  ctrl.fieldSelect.value = resolvedField ?? "";
 
   syncSelect(ctrl, ctrl.fieldSelect, ctrl.fieldSelect.value);
 };

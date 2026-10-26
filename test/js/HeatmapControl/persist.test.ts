@@ -264,6 +264,32 @@ describe("HeatmapManager — versioned persisted config", () => {
       expect(m.selectedLayerId).toBeNull();
     });
 
+    it("keeps an empty field as the auto sentinel on an old record", () => {
+      // Records written before the placeholder removal store "" for "no
+      // explicit pick". The empty string must survive the save/load round
+      // trip and leave the manager in auto mode instead of a real field.
+      const m = makeManager();
+      m.selectedLayerId = "layer_abc";
+      m.field = "";
+      m.saveConfig();
+      const stored = JSON.parse(window.localStorage.getItem(KEY)!);
+      expect(stored.field).toBe("");
+      const m2 = makeManager();
+      m2.applySavedConfig(m.loadSavedConfig()!);
+      expect(m2.field).toBe("");
+    });
+
+    it("stores an explicit field pick as the real name", () => {
+      const m = makeManager();
+      m.field = "price";
+      m.saveConfig();
+      const stored = JSON.parse(window.localStorage.getItem(KEY)!);
+      expect(stored.field).toBe("price");
+      const m2 = makeManager();
+      m2.applySavedConfig(m.loadSavedConfig()!);
+      expect(m2.field).toBe("price");
+    });
+
     it("ignores undefined borderWeight, keeps current value", () => {
       const m = makeManager();
       m.borderWeight = 2.5;

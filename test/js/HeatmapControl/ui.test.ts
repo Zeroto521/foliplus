@@ -155,7 +155,7 @@ describe("bindControls — change handlers", () => {
     expect(ctrl.fieldWrap.classList.contains(CONST.CLASSES.HIDDEN)).toBe(true);
   });
 
-  it("field change sets field, disables auto-field and persists", () => {
+  it("field change sets field, overrides the auto field and persists", () => {
     const { ctrl, m } = setup();
     m.pointLayers = [{ id: "p1", name: "P1", layer: {}, count: 2 }];
     m.selectedLayerId = "p1";
@@ -169,6 +169,10 @@ describe("bindControls — change handlers", () => {
     ctrl.aggSelect.value = CONST.AGG.SUM;
     fire(ctrl.aggSelect, "change");
     expect(m.autoFieldKey).toBe("sales");
+    // No auto sentinel is selectable: the empty stored field surfaces the
+    // field the auto rule resolved to, not a disabled "Auto Detect" entry.
+    expect(m.field).toBe("");
+    expect(ctrl.fieldSelect.value).toBe("sales");
 
     const save = vi.spyOn(m, "saveConfig");
     const render = vi.spyOn(m, "renderHexagons");
@@ -366,7 +370,10 @@ describe("resetPanel — shared reset (Clear button + more-menu clear)", () => {
     expect(ctrl.classSelect.value).toBe(String(config.num_classes));
     expect(ctrl.methodSelect.value).toBe(config.method);
     expect(ctrl.schemeSelectHidden.value).toBe(config.color_scheme);
+    // The field row goes back to the empty auto sentinel with no options to
+    // show — it is hidden under the count aggregation anyway.
     expect(ctrl.fieldSelect.value).toBe("");
+    expect(ctrl.fieldSelect.querySelectorAll("option").length).toBe(0);
     expect(ctrl.extraBody.classList.contains(CONST.CLASSES.HIDDEN)).toBe(true);
   });
 
@@ -890,6 +897,47 @@ describe("rebuildLayerDropdown — null layerSelect", () => {
     const ctrl = makeCtrl(m, makeConfig());
     ctrl.layerSelect = null as any;
     expect(() => rebuildLayerDropdown(ctrl)).not.toThrow();
+  });
+});
+
+describe("updateFieldSelector — resolved field, no auto placeholder", () => {
+  const seed = (fields: Record<string, number>) => {
+    const { ctrl, m } = setup();
+    m.pointLayers = [{ id: "p1", name: "P1", layer: {}, count: 1 }];
+    m.selectedLayerId = "p1";
+    window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
+      { lat: 1, lng: 2, marker: { feature: { properties: { ...fields } } } },
+    ]);
+    ctrl.aggSelect.value = CONST.AGG.SUM;
+    fire(ctrl.aggSelect, "change");
+    return { ctrl, m };
+  };
+
+  it("lists only real fields — no disabled empty option remains", () => {
+    const { ctrl } = seed({ sales: 5, price: 10 });
+    const options = Array.from(ctrl.fieldSelect.options);
+    expect(options.map(o => o.value)).toEqual(["sales", "price"]);
+    expect(options.some(o => o.disabled)).toBe(false);
+    expect(ctrl.fieldSelect.querySelector("option[value='']")).toBeNull();
+  });
+
+  it("shows the auto-resolved field name while the stored field is the empty sentinel", () => {
+    const { ctrl, m } = seed({ sales: 5, price: 10 });
+    // The auto rule picks the first discovered field; the store keeps "".
+    expect(m.field).toBe("");
+    expect(m.autoFieldKey).toBe("sales");
+    expect(ctrl.fieldSelect.value).toBe("sales");
+  });
+
+  it("keeps an explicit choice selected across rebuilds", () => {
+    const { ctrl, m } = seed({ sales: 5, price: 10 });
+    ctrl.fieldSelect.value = "price";
+    fire(ctrl.fieldSelect, "change");
+    expect(m.field).toBe("price");
+    // A later rebuild (layer re-selection) must not snap back to the auto field.
+    fire(ctrl.aggSelect, "change");
+    expect(ctrl.fieldSelect.value).toBe("price");
+    expect(m.field).toBe("price");
   });
 });
 

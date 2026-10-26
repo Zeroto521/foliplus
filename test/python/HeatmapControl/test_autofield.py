@@ -53,7 +53,9 @@ class TestHeatmapAutoFieldBrowser:
             page.evaluate(_js("HeatmapControl/dispatch_select_change"), agg_select)
             page.wait_for_timeout(500)
 
-            # Verify field selector is visible and AUTO is selected.
+            # Verify field selector is visible and shows the resolved field.
+            # There is no "Auto" entry any more: an empty stored field surfaces
+            # the name the auto rule resolved to, not the empty sentinel.
             # The field select is the <select> inside .foliplus-heatmap-field.
             field_select = (
                 ".foliplus-heatmap-ctrl .foliplus-heatmap-field"
@@ -62,14 +64,6 @@ class TestHeatmapAutoFieldBrowser:
             field_val = page.evaluate(
                 _js("HeatmapControl/read_select_value"), field_select
             )
-            assert field_val == "", f"Expected empty string (AUTO), got '{field_val}'"
-
-            # Verify field options include our properties
-            field_opts = page.evaluate(
-                _js("HeatmapControl/read_select_options"), field_select
-            )
-            assert "population" in field_opts, f"Missing 'population': {field_opts}"
-            assert "density" in field_opts, f"Missing 'density': {field_opts}"
 
             # collectFields returns fields in the order they are discovered
             # during marker iteration.  The exact key depends on V8 property
@@ -78,6 +72,17 @@ class TestHeatmapAutoFieldBrowser:
             assert auto_key in ("population", "density"), (
                 f"Unexpected autoFieldKey '{auto_key}'"
             )
+            assert field_val == auto_key, (
+                f"Expected resolved field '{auto_key}', got '{field_val}'"
+            )
+
+            # Verify field options include our properties and no empty entry
+            field_opts = page.evaluate(
+                _js("HeatmapControl/read_select_options"), field_select
+            )
+            assert "population" in field_opts, f"Missing 'population': {field_opts}"
+            assert "density" in field_opts, f"Missing 'density': {field_opts}"
+            assert "" not in field_opts, f"Placeholder option survived: {field_opts}"
 
             assert not errors, f"JS errors: {errors}"
 
@@ -115,7 +120,7 @@ class TestHeatmapAutoFieldBrowser:
             page.evaluate(_js("HeatmapControl/dispatch_select_change"), agg_select)
             page.wait_for_timeout(500)
 
-            # Verify AUTO is selected.
+            # The select shows the resolved field, not the empty sentinel.
             # The field select is the <select> inside .foliplus-heatmap-field.
             field_select = (
                 ".foliplus-heatmap-ctrl .foliplus-heatmap-field"
@@ -124,16 +129,23 @@ class TestHeatmapAutoFieldBrowser:
             field_val = page.evaluate(
                 _js("HeatmapControl/read_select_value"), field_select
             )
-            assert field_val == "", f"Expected empty string (AUTO), got '{field_val}'"
+            assert field_val == "elevation", (
+                f"Expected resolved field 'elevation', got '{field_val}'"
+            )
 
             # Single field → pickAutoField returns it directly
             auto_key = page.evaluate(_js("HeatmapControl/read_auto_field_key"))
             assert auto_key == "elevation", f"Expected 'elevation', got '{auto_key}'"
+            assert field_val == auto_key, (
+                f"Displayed field {field_val} != resolved auto {auto_key}"
+            )
 
-            # The single property option should be visible
+            # The single property option should be visible and the only one
             field_opts = page.evaluate(
                 _js("HeatmapControl/read_select_options"), field_select
             )
-            assert "elevation" in field_opts, f"Missing 'elevation': {field_opts}"
+            assert field_opts == ["elevation"], (
+                f"Expected only the field option, got {field_opts}"
+            )
 
             assert not errors, f"JS errors: {errors}"
