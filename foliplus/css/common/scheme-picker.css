@@ -27,6 +27,47 @@
   overflow: hidden;
 }
 
+/* ── Trigger ──
+   The form-select-shaped combobox that opens the picker. One recipe for the
+   heatmap panel and the layer style drawer: a div[role=combobox] because a
+   native select would paint its own chrome and hide the colour strip. Both
+   consumers keep their own class as a hook (behaviour, tests) and add nothing
+   geometric. Width is not stated — the trigger fills the form control cell,
+   which is the shared control-column width, so it lands on the same right edge
+   as every select and input in both panels. The chevron is the LayerControl
+   glyph (4px border triangle at right 4); the heatmap's taller arrow was the
+   outlier. */
+.foliplus-scheme-picker-trigger {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  height: var(--foliplus-ctrl-size);
+  box-sizing: border-box;
+  padding: 0 var(--foliplus-icon-size-md);
+  border: var(--foliplus-border-thin) solid var(--foliplus-input-border);
+  border-radius: var(--foliplus-radius-sm);
+  background: var(--foliplus-input-bg);
+  cursor: pointer;
+  font-size: var(--foliplus-font-size-sm);
+  color: var(--foliplus-text-primary);
+  transition: var(--foliplus-transition-input);
+}
+
+.foliplus-scheme-picker-trigger::after {
+  content: "";
+  position: absolute;
+  right: var(--foliplus-space-sm);
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-left: var(--foliplus-size-4) solid transparent;
+  border-right: var(--foliplus-size-4) solid transparent;
+  border-top: var(--foliplus-size-4) solid var(--foliplus-text-muted);
+}
+
 /* ── Dropdown shell ──
    Position, width, max-height, padding, background, border, shadow,
    entrance animation.  The :focus-visible / :hover / :active / :is-active

@@ -54,10 +54,20 @@
   color: var(--foliplus-text-primary);
   cursor: default;
 
-  /* Detail rows carry the shared label/control geometry; the panel only adds
-     its own horizontal inset. */
-  .foliplus-form-row {
-    padding: 0 var(--foliplus-space-lg);
+  /* The card carries a 1px border, so its content box is 2px narrower than a
+     fold panel's. These overrides take that border out of the shared inset —
+     long hands only, so the shorthand's vertical values stay — which keeps the
+     label, control and footer edges on the fold panels' lines. The derived
+     value is a token (common/token.css), not a second inset owner. */
+  .foliplus-form-row,
+  .foliplus-btn-row {
+    padding-left: var(--foliplus-row-panel-inset-x);
+    padding-right: var(--foliplus-row-panel-inset-x);
+  }
+
+  .foliplus-section-divider {
+    margin-left: var(--foliplus-row-panel-inset-x);
+    margin-right: var(--foliplus-row-panel-inset-x);
   }
 }
 
@@ -92,7 +102,7 @@
      the footer row keeps under its button — one value, --foliplus-space-md, for all three
      vertical distances (see the button-row recipe in common/button.css). */
   .foliplus-section-divider {
-    margin: var(--foliplus-space-md) var(--foliplus-space-lg);
+    margin: var(--foliplus-space-md) var(--foliplus-panel-inset-x);
   }
 
   /* ── Panel Wrapper (visible when expanded) ── */
