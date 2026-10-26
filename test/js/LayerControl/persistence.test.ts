@@ -114,6 +114,36 @@ describe("LayerPersistence", () => {
       expect(rec.layers).toEqual({});
     });
 
+    it("drops a v3 record's fold state and re-stamps the current version on write", () => {
+      // RECORD_VERSION 3 → 4 renamed `foldedGroups` to `foldedRoles`. There is
+      // deliberately no compatibility read: the old segment is ignored (fold
+      // state lost) while every other field survives, and the next write
+      // stamps the current version.
+      seedStorage({
+        version: 3,
+        order: ["a"],
+        foldedGroups: ["OVERLAYS"],
+        renamedNames: { a: "A2" },
+      });
+
+      const rec = makePersistence().load();
+      expect(rec.version).toBe(RECORD_VERSION);
+      expect(rec.order).toEqual(["a"]);
+      expect(rec.renamedNames).toEqual({ a: "A2" });
+      expect(rec.foldedRoles).toEqual([]);
+
+      vi.useFakeTimers();
+      const save = spySave();
+      const p = makePersistence();
+      p.schedule({ order: () => ["a"] });
+      vi.advanceTimersByTime(CONST.SAVE_DEBOUNCE_MS + 50);
+
+      expect(lastRecord(save).version).toBe(4);
+      expect(lastRecord(save).foldedRoles).toEqual([]);
+      save.mockRestore();
+      vi.useRealTimers();
+    });
+
     it("keeps both label segments intact, new key preferred by the reader", () => {
       // Write-new / read-old: the legacy segment passes through byte-for-
       // byte, `layers[id].annotation` is the current key, and the reader
@@ -214,7 +244,7 @@ describe("LayerPersistence", () => {
       expect(makePersistence().load().order).toEqual(null);
     });
 
-    it("drops non-string values from names and bad groups from fold state", () => {
+    it("drops non-string values from names and bad role ids from fold state", () => {
       seedStorage({
         renamedNames: { a: "A2", b: 123, c: null },
         foldedRoles: ["OVERLAYS", 7],

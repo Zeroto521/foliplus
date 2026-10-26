@@ -80,7 +80,7 @@ describe("LayerUI lifecycle — defensive rails", () => {
       expect(orphan.checked).toBe(false);
     });
 
-    it("onChange: a toggle-all row without data-role falls back to empty group", () => {
+    it("onChange: a toggle-all row without data-role falls back to empty role", () => {
       // Covers the ?? "" fallback on the row's data-role: toggleAll must be
       // called with the empty string, not undefined, when the row is misconfigured.
       const toggleAllSpy = vi.mocked(toggleAll);
