@@ -53,4 +53,82 @@
     width: 100%;
     height: 100%;
   }
+  /* ── Enum body ──
+     The dimension cell stacks its read-only name above the trigger. The
+     listbox is an absolutely positioned child of that cell, so it overlays
+     the rows below instead of reflowing the panel; its border, background,
+     shadow and entrance come from the shared dropdown recipe (common/menu.css)
+     and are not redeclared here. */
+  .foliplus-filter-enum {
+    display: flex;
+    flex-direction: column;
+    gap: var(--foliplus-space-xs);
+    position: relative;
+  }
+  .foliplus-filter-enum-trigger {
+    font: inherit;
+    text-align: left;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--foliplus-text-primary);
+  }
+  .foliplus-filter-enum-trigger:disabled {
+    color: var(--foliplus-text-muted);
+    cursor: default;
+  }
+  .foliplus-filter-enum-list {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    /* Four control heights of options before the list scrolls: the popup
+       never grows past a short menu even when the owner declares many
+       enum values. */
+    max-height: calc(var(--foliplus-ctrl-size) * 4);
+    padding: var(--foliplus-space-xs) 0;
+  }
+  /* Offsets the shell's own top margin: the list starts at the trigger's
+     bottom edge, separated by one shared gap. */
+  .foliplus-filter-enum-list {
+    margin-top: var(--foliplus-space-xs);
+  }
+  .foliplus-filter-enum-option {
+    display: flex;
+    align-items: center;
+    gap: var(--foliplus-space-sm);
+    width: 100%;
+    padding: var(--foliplus-space-xs) var(--foliplus-space-md);
+    border: none;
+    background: transparent;
+    font: inherit;
+    font-size: var(--foliplus-font-size-sm);
+    color: var(--foliplus-text-primary);
+    text-align: left;
+  }
+  .foliplus-filter-enum-option:focus-visible {
+    outline: none;
+    box-shadow: var(--foliplus-focus-ring);
+    color: var(--foliplus-accent-primary);
+  }
+  .foliplus-filter-enum-check {
+    flex-shrink: 0;
+    width: var(--foliplus-icon-size-sm);
+    height: var(--foliplus-icon-size-sm);
+    color: var(--foliplus-accent-primary);
+    opacity: 0;
+    transition: opacity var(--foliplus-transition-fast);
+  }
+  .foliplus-filter-enum-option[aria-selected="true"] .foliplus-filter-enum-check {
+    opacity: 1;
+  }
+  .foliplus-filter-enum-check svg {
+    width: 100%;
+    height: 100%;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: var(--foliplus-stroke-icon);
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
 }

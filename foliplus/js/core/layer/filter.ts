@@ -400,9 +400,13 @@ const filtersEqual = (a: LayerFilter, b: LayerFilter): boolean =>
   JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
 
 /** A filter survives a field change only while it is still bound to that
- *  field; a different effective field drops it. */
+ *  field; a different effective field drops it. A boolean tree has no field
+ *  of its own and survives; every leaf (a range atom or an enum atom) is
+ *  bound to its dimension field and must match it. */
 const dropStaleFilter = (prev: LayerFilter, field: string): LayerFilter =>
-  prev && (prev.kind !== "atom" || prev.field === field) ? prev : undefined;
+  prev && (prev.kind === "and" || prev.kind === "or" || prev.field === field)
+    ? prev
+    : undefined;
 
 /** The persisted filter map for a record: absent when no source is
  *  filtered, so a cleared record keeps no stale key around. */

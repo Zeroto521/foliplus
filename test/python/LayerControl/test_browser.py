@@ -7037,3 +7037,55 @@ class TestLayerControlBrowser:
             assert res is not None, "attrs probe could not open its panel"
             assert res["pair"] == "2,500 / 6,000", res
             assert not errors, f"JS errors: {errors}"
+
+    def test_enum_filter_body_filters_row_and_clears(self, browser, tmp_path):
+        """The filter panel's enum body drives a generic owner end to end.
+
+        A synthetic enum owner opens the panel from the row menu; picking one
+        type writes an enum filter, which repaints the Result row and the row's
+        kept count; Clear returns both to the unfiltered state.
+        """
+        layer = folium.FeatureGroup(name="Enum filter")
+        with use_page(self._make_page, browser, tmp_path, layer) as (page, errors):
+            page.evaluate(_js("LayerControl/open_panel"))
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            panel_ready(page)
+            res = page.evaluate(_js("LayerControl/filter_enum_body"))
+            assert res is not None, "enum probe could not run"
+            assert res.get("ok"), res
+            # The page language follows the host browser locale, so the All
+            # placeholder and the readout sentence are asserted structurally
+            # (percent prefix plus the kept / total digits) rather than by
+            # literal English text.
+            assert res["triggerBefore"] in ("All", "全部"), res
+            assert res["resultBefore"].startswith("100%"), res
+            assert "8" in res["resultBefore"], res
+            assert res["expanded"] == "true", res
+            assert res["listMultiselectable"] == "true", res
+            assert res["optionCount"] == 4, res
+            assert res["triggerAfterPick"] == "Marker", res
+            assert res["resultAfterPick"].startswith("25%"), res
+            assert re.search(r"2\D+8", res["resultAfterPick"]), res
+            assert res["selectedAfterPick"] == [
+                "true",
+                "false",
+                "false",
+                "false",
+            ], res
+            assert res["rowAfterPick"]["count"] == "2", res
+            assert re.search(r"2\s*/\s*8", res["rowAfterPick"]["title"] or ""), res
+            assert res["triggerAfterClear"] in ("All", "全部"), res
+            assert res["resultAfterClear"].startswith("100%"), res
+            assert res["selectedAfterClear"] == [
+                "false",
+                "false",
+                "false",
+                "false",
+            ], res
+            assert res["rowAfterClear"]["count"] == "8", res
+            assert res["clearDisabled"] is True, res
+            assert not errors, f"JS errors: {errors}"
