@@ -15,7 +15,11 @@
 // commit) access to the instance without re-rendering the row.
 import { fullscreenSurface } from "#core/fullscreen.js";
 import { dom } from "#common/dom.js";
+import { finalize } from "#common/finalize.js";
+import { createLogger } from "#common/log.js";
 import { SLIDER } from "#common/sliderVocabulary.js";
+
+const log = createLogger("LayerControl");
 
 /** One thumb (number) or a range (min/max pair). */
 type SliderValue = number | [number, number];
@@ -378,14 +382,33 @@ class Slider {
   }
 
   destroy(): void {
-    this.endSession(true);
-    if (bubbleOwner === this.root) this.hideBubble();
-    INSTANCES.delete(this.root);
-    this.root.replaceChildren();
-    this.root.classList.remove("foliplus-slider");
-    this.root.removeAttribute("role");
-    this.root.removeAttribute("aria-label");
-    this.root.removeAttribute("data-mode");
+    finalize(
+      [
+        // Destroy commits rather than discards: the dragged value is the
+        // user's, and the map, persistence and panel already show it. Dropping
+        // it here would make a removal silently undo their last gesture. Same
+        // rule as `retireRow`.
+        ["commit-drag", () => this.endSession(true)],
+        [
+          "hide-bubble",
+          () => {
+            if (bubbleOwner === this.root) this.hideBubble();
+          },
+        ],
+        [
+          "deregister",
+          () => {
+            INSTANCES.delete(this.root);
+          },
+        ],
+        ["clear-children", () => this.root.replaceChildren()],
+        ["clear-class", () => this.root.classList.remove("foliplus-slider")],
+        ["clear-role", () => this.root.removeAttribute("role")],
+        ["clear-label", () => this.root.removeAttribute("aria-label")],
+        ["clear-mode", () => this.root.removeAttribute("data-mode")],
+      ],
+      failure => log.warn(`slider destroy step "${failure.name}" threw`, failure.error),
+    );
   }
 
   // ── Geometry ────────────────────────────────────────────────

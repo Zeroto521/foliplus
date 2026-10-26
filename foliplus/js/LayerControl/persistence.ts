@@ -126,6 +126,16 @@ const isBorderWeight = (value: unknown): value is number =>
   value >= BORDER_WEIGHT.MIN &&
   value <= BORDER_WEIGHT.MAX;
 
+/** A stored size: a finite pixel radius the panel's number field can display.
+ *  Rounded first because the field steps by one, then confined to the shared
+ *  [SIZE.MIN, SIZE.MAX] bounds — outside them the value is dropped (its
+ *  provenance marker with it) rather than clamped, so a corrupt entry cannot
+ *  silently resize the layer. */
+const parseSize = (raw: unknown): number | null => {
+  if (typeof raw !== "number" || !Number.isFinite(raw)) return null;
+  const rounded = Math.round(raw);
+  return rounded >= CONST.SIZE.MIN && rounded <= CONST.SIZE.MAX ? rounded : null;
+};
 /** A hex color the panel's border and fill rows would accept: `#rgb` or
  *  `#rrggbb`. Longer / shorter strings and non-hex characters are dropped so a
  *  corrupt entry cannot leak a broken value into <input type=color>. */
@@ -154,6 +164,7 @@ const PARSE_OVERRIDE: Record<
   borderWeight: data => (isBorderWeight(data.borderWeight) ? data.borderWeight : null),
   opacity: data => (isUnitInterval(data.opacity) ? data.opacity : null),
   zoomRange: data => parseZoomRange(data.zoomRange),
+  size: data => parseSize(data.size),
 };
 
 const OVERRIDE_VALUES = Object.keys(PARSE_OVERRIDE) as LayerOverride[];

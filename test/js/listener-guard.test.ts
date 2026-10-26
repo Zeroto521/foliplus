@@ -8,8 +8,9 @@ import { describe, expect, it } from "vitest";
 // This file used to live inside toolchain-guard.test.ts. The split keeps
 // the listener rules here (they constrain the production tree, not the
 // build toolchain) and leaves the rest in toolchain-guard.test.ts: script/
-// module surface, the #script/* import alias, eslint.config.js scoping,
-// test/js/script naming, and script-module coverage.
+// module surface, the #script/* import alias, eslint rule scoping
+// (config/eslint/base.mjs), test/js/script naming, and script-module
+// coverage.
 //
 // Resolved against cwd, the same repo root every build script assumes.
 const ROOT = resolve(".");
@@ -166,6 +167,13 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
     reason:
       "dash-sweep animationend on a finalized geometry's own SVG element: one-shot and self-terminating (paired removeEventListener in the handler), and collected with the element when the measurement is deleted. animateDashSweep is a free-standing function whose callers are MeasureMode subclasses — threading a signal would cross MeasureManager → MeasureMode → both call sites, which is not worth a listener that can never outlive its animation",
   },
+  {
+    f: "common/schemePicker.ts",
+    n: 9,
+    pairedOff: 0,
+    reason:
+      "shared picker factory binds trigger click/keydown (lifecycle) and dropdown click/keydown, item focus, document outside-click, window scroll, window resize (portal mode only), and fullscreenchange (mount-scope). Every listener has a paired removeEventListener in either cleanupFns (drained on destroy) or mountCleanupFns (drained on every close). The factory is a free-standing primitive with no BaseControl mounting signal to route through this.on; callers inject their own lifecycle management via the returned close/destroy methods",
+  },
 ];
 
 // `L.DomEvent.on(` is rare in this tree, which is the point of the guard: one
@@ -177,10 +185,9 @@ const L_DOM_EVENT_ON: ReadonlyArray<AllowEntry> = [
     n: 3,
     pairedOff: 0,
     reason:
-      "all three bind to elements inside a panel container subtree: bindPanelToggle (2) resolves button and header via container.querySelector, bindFoldToggle (1) receives the toggle button from createFoldControl. Leaflet stores the listener on the target element's own _leaflet_events, so it is collected with the container — the tree has zero L.DomEvent.off calls, nothing pairs them off. Both factories are free-standing: their signatures take a container/opts object, not a BaseControl instance, so `this.on` is unreachable from inside them",
+      "all three bind to elements inside a panel container subtree: bindPanelToggle (2) resolves button and header via container.querySelector, bindFoldToggle (1) receives the toggle button from createFoldControl. Leaflet stores the listener on the target element's own _leaflet_events, so it is collected with the container — the tree has zero L.DomEvent.off calls, nothing pairs them off. Both factories are free-standing: their signatures take a container/opts object, not a BaseControl instance, so this.on is unreachable from inside them",
   },
 ];
-
 // Module-level `map.on` in a `*Control/index.ts` entry file: the only
 // legitimate shape is a listener that must outlive any single control
 // mounting (e.g. the CORS pre-setup that binds `layeradd` before the

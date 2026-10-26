@@ -33,6 +33,7 @@ import { appendResetFooter } from "./frame.js";
 import { applyPatch, layerFields, resetStyleLabel, syncFormatRow } from "./label.js";
 import { resetLayerOpacity } from "./opacity.js";
 import { DIM_ORDER, LABEL_DIM_ORDER, gatedRows } from "./registry.js";
+import { bindSizeRow, resetLayerSize } from "./size.js";
 import { flushStyleDimApplies } from "./styleBag.js";
 import { resetLayerZoomRange, syncZoomRangeRow } from "./zoomRange.js";
 
@@ -153,6 +154,11 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
       `.${CONST.CLASSES.STYLE_FILL_ROW}`,
     ) as HTMLElement | null;
     if (fillRow) bindFillRow(ui, layerId, fillRow);
+    // Size rides the same flavour as fill: the delegated drawer never renders it.
+    const sizeRow = panel.querySelector(
+      `.${CONST.CLASSES.STYLE_SIZE_ROW}`,
+    ) as HTMLElement | null;
+    if (sizeRow) bindSizeRow(ui, layerId, sizeRow);
   }
 
   // The slider rows wire their own live/commit callbacks when the primitive is
@@ -240,6 +246,9 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
       // Fill is LayerControl-owned on the annotation flavour only (the gate
       // excludes delegated layers).
       resetLayerFill(ui, layerId);
+      // Size is LayerControl-owned too: restore the author's radius and drop
+      // the persisted value, so a reload does not re-apply it.
+      resetLayerSize(ui, layerId);
       // Border is LayerControl-owned too: restore the author's stroke and drop
       // the persisted color / width, so a reload does not re-apply them.
       resetLayerBorder(ui, layerId);
@@ -346,11 +355,12 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
 
 /** Close the style panel. setFocus = true returns focus to the layer row. */
 const closeStylePanel = (ui: LayerUI, setFocus: boolean): void => {
-  // A pending apply frame (fill and/or border) must land before the panel
-  // disappears: closing is a commit boundary, not a cancel (reset cancels
-  // explicitly). One hook covers both faces.
+  // A pending apply frame (any face — fill / stroke / size / label) must land
+  // before the panel disappears: closing is a commit boundary, not a cancel
+  // (reset cancels explicitly). One hook covers every face, scoped to this UI
+  // so another map's same-id frame is never flushed or dropped.
   if (ui.overlayPanel.stylePanelLayerId) {
-    flushStyleDimApplies(ui.overlayPanel.stylePanelLayerId);
+    flushStyleDimApplies(ui.overlayPanel.stylePanelLayerId, ui);
   }
   if (ui.overlayPanel.styleOutsideHandler) {
     document.removeEventListener(
@@ -398,6 +408,7 @@ export { closeStylePanel, openStylePanel };
 // dimension rides along too: importing this barrel registers it.
 export {
   applyStyleLabelState,
+  invalidateFieldCache,
   invalidateFields,
   layerHasLabelFields,
 } from "./label.js";

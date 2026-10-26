@@ -1,3 +1,3 @@
-window.__heatmapCtrl.mgr.map.foliplus.events.emit("foliplus:export:after", {
+window.__heatmapCtrl.mgr.map.foliplus.events.publish("foliplus:export:after", {
   component: "ExportControl",
 });

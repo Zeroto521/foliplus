@@ -644,7 +644,7 @@ class TestLayerControlRendering:
         assert "z-index: var(--foliplus-z-index-floating)" in css
         # The ⋮ dropdown anchors flush to its row — the shared shell adds a 2px
         # margin-top that would open a sliver of list under the cursor path;
-        # T266 declares the whole margin (not just margin-top) so a host
+        # The shell declares the whole margin (not just margin-top) so a host
         # framework's bare `ol,ul` margin reset cannot leak a bottom gap.
         assert "margin: 0" in css
 
@@ -744,10 +744,17 @@ class TestLayerControlRendering:
         assert "z-index: var(--foliplus-z-index-hint)" in bubble
         # Disabled is a primitive state, not a component special case.
         assert ".foliplus-slider.is-disabled" in css
-        # The end numbers anchor to the logical start/end, so an RTL page puts
-        # the minimum on the right without a second rule.
-        assert "inset-inline-start: 0" in css
-        assert "inset-inline-end: 0" in css
+        # The end numbers name their edge with the logical start/end anchor and
+        # centre on it with a physical X shift; the mirrored page flips that
+        # shift so each number still centres on the edge it names.
+        assert "inset-inline-start: 0" in _rule(css, ".foliplus-slider-value-min {")
+        assert "translateX(-50%)" in _rule(css, ".foliplus-slider-value-min {")
+        assert "inset-inline-end: 0" in _rule(css, ".foliplus-slider-value-max {")
+        assert "translateX(50%)" in _rule(css, ".foliplus-slider-value-max {")
+        assert "translateX(50%)" in _rule(css, ":dir(rtl) .foliplus-slider-value-min {")
+        assert "translateX(-50%)" in _rule(
+            css, ":dir(rtl) .foliplus-slider-value-max {"
+        )
         # States: parked is small, held and focused grow.
         assert "scale(1.1)" in css
         assert "scale(1.15)" in css

@@ -1,0 +1,147 @@
+/* ── Shared scheme picker ──
+   Common dropdown / colour-bar styles.  Auto-merged into
+   foliplus-common.min.css.  Trigger-bar and panel-layout rules stay in
+   the consumer CSS.  Class names use the neutral
+   `foliplus-scheme-picker-` prefix so consumers can override with
+   their own names via the `classes` option.                    */
+
+@keyframes foliplus-scheme-picker-in {
+  from {
+    opacity: 0;
+    transform: translateY(calc(-1 * var(--foliplus-space-sm)));
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Hidden select: visually collapsed but stays in layout (Bootstrap also
+   defines a global .hidden, so this uses a component-scoped name).        */
+.foliplus-scheme-picker-hidden {
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+/* ── Dropdown shell ──
+   Position, width, max-height, padding, background, border, shadow,
+   entrance animation.  The :focus-visible / :hover / :active / :is-active
+   states for items live below (one block, no split across files).        */
+.foliplus-scheme-picker-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 100%;
+  max-height: 200px;
+  padding: var(--foliplus-space-sm) 0;
+  box-sizing: border-box;
+  margin-top: var(--foliplus-space-xs);
+  background: var(--foliplus-input-bg);
+  border: var(--foliplus-border-thin) solid var(--foliplus-input-border);
+  border-radius: var(--foliplus-radius-sm);
+  box-shadow: var(--foliplus-shadow-md);
+  z-index: var(--foliplus-z-index-floating);
+  overflow-y: auto;
+  /* Optional, and cheap: a scheme list of seven rows usually fits, but a
+     custom long list should not get a full-width OS scrollbar. */
+  scrollbar-width: thin;
+  /* Shell box model: declare the full list + margin so a host framework's
+     bare ol,ul defaults (list-style disc, margin-bottom 1rem) cannot
+     leak into the dropdown. */
+  list-style: none;
+  margin-bottom: 0;
+  animation: foliplus-scheme-picker-in 0.15s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .foliplus-scheme-picker-dropdown {
+    animation: none;
+  }
+}
+
+/* ── Dropdown item ──
+   Layout + all interactive states (hover / press / active / focus) in one
+   place so the scheme dropdown never drifts from the menu.css recipe.     */
+.foliplus-scheme-picker-item {
+  display: flex;
+  align-items: center;
+  gap: var(--foliplus-space-md);
+  padding: 0 var(--foliplus-space-lg);
+  height: var(--foliplus-ctrl-size);
+  box-sizing: border-box;
+  /* Reserved border: same "selected" language as layer items — a permanent
+     transparent left border, .foliplus-is-active only recolors it.  No
+     layout shift and the border-color can transition. */
+  border-left: var(--foliplus-border-thick) solid transparent;
+  cursor: pointer;
+  font-size: var(--foliplus-font-size-sm);
+  color: var(--foliplus-text-primary);
+  transition:
+    background-color var(--foliplus-transition-fast),
+    border-color var(--foliplus-transition-fast);
+}
+
+.foliplus-scheme-picker-item:hover {
+  background: var(--foliplus-accent-light);
+  color: var(--foliplus-accent-primary);
+}
+
+.foliplus-scheme-picker-item:not([disabled]):active {
+  background: var(--foliplus-accent-soft-bg);
+}
+
+.foliplus-scheme-picker-item.foliplus-is-active {
+  border-left-color: var(--foliplus-accent-primary);
+  /* Persistent "selected scheme" state: soft 5% wash, same language as
+     the keyboard cursor. --foliplus-accent-light was too saturated. */
+  background: var(--foliplus-accent-soft-bg);
+}
+
+.foliplus-scheme-picker-item:focus-visible {
+  outline: none;
+  border-color: var(--foliplus-accent-primary);
+  box-shadow: var(--foliplus-focus-ring);
+  border-radius: var(--foliplus-radius-sm);
+  transition: box-shadow var(--foliplus-transition-fast);
+}
+
+/* ── Trigger focus ring ──
+   The trigger is a div[role=combobox], so the shared input
+   :hover/:focus-visible recipe never reaches it. One ring token for the
+   trigger and the items; it replaces the UA outline instead of adding a
+   second border. */
+[role="combobox"][aria-haspopup="listbox"]:focus-visible {
+  outline: none;
+  box-shadow: var(--foliplus-focus-ring);
+}
+
+/* ── Colour bar inside a dropdown item ──
+   One height for the trigger's inner bar and these: the row keeps
+   --foliplus-ctrl-size and centres an 18px swatch. Height is fixed (not
+   stretched to the row) so selecting a scheme cannot change the swatch
+   thickness. --foliplus-scheme-picker-bar-height is the consumer override
+   hook; the icon-size fallback matches the Heatmap trigger's inline height
+   (--foliplus-heatmap-inline-height = --foliplus-icon-size-md). */
+.foliplus-scheme-picker-bar {
+  flex: 1;
+  height: var(--foliplus-scheme-picker-bar-height, var(--foliplus-icon-size-md));
+  box-sizing: border-box;
+  border-radius: var(--foliplus-radius-sm);
+  border: var(--foliplus-border-thin) solid var(--foliplus-btn-secondary-border);
+  flex-shrink: 0;
+  display: flex;
+  overflow: hidden;
+}
+
+/* ── Colour block (shared by the trigger bar and the dropdown bar) ── */
+.foliplus-scheme-picker-block {
+  flex: 1;
+  height: 100%;
+  transition:
+    filter var(--foliplus-transition-fast),
+    opacity var(--foliplus-transition-fast);
+}

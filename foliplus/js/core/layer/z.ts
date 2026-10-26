@@ -39,6 +39,16 @@ import type { ZArgs } from "./type.js";
  *  stack the panel shows. */
 const ANNOTATION_Z_OFFSET = 1;
 
+/** A layer's marker-shadow pane rides one step BELOW its own panes: a shadow
+ *  must paint under its icon no matter what inline z the icon carries.
+ *  Leaflet writes `pos.y + zIndexOffset` onto marker icons (latitude
+ *  stacking), which goes negative near the viewport top or under a negative
+ *  offset — and CSS paints a negative-z positioned element BELOW a z:auto
+ *  sibling, so DOM order alone cannot keep the shadow down. The pane
+ *  boundary is the one ordering that survives: the icons' inline z competes
+ *  inside the base pane's stacking context, never against the shadow pane. */
+const SHADOW_Z_OFFSET = -1;
+
 /** The z the focus spotlight writes. Layer panes start at `Z_INDEX.BASE` and
  *  step by `Z_INDEX.STEP`, so both values sit clear above any layer stack: the
  *  overlay pane holds the dim mask and the selection rectangle, and a focused
@@ -75,7 +85,9 @@ const zFor = ({
     base ??
     (group === GROUP.BASE ? Z_INDEX.TILE_BASE : Z_INDEX.BASE) +
       (count - index) * Z_INDEX.STEP;
-  return role === PANE_ROLE.ANNOTATION ? slot + ANNOTATION_Z_OFFSET : slot + order;
+  if (role === PANE_ROLE.ANNOTATION) return slot + ANNOTATION_Z_OFFSET;
+  if (role === PANE_ROLE.SHADOW) return slot + SHADOW_Z_OFFSET;
+  return slot + order;
 };
 
 /** The z one step above the topmost layer's slot — the base for the three

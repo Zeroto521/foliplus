@@ -17,6 +17,7 @@
 // so walks below descend `eachLayer` first and treat a setter as a leaf.
 import { isArealStyleLeaf } from "#core/layer/capability.js";
 import { findLeaf, walkLeaf } from "#core/layer/walkLeaf.js";
+import { createLogger } from "#common/log.js";
 import { throttleRaf } from "#common/throttle.js";
 import type { LayerUI } from "../surface.js";
 
@@ -54,13 +55,43 @@ type StyleSetter = StyleCarrier & {
  *  is `"border"`): keep the two apart, one definition per vocabulary. */
 type StyleFace = "fill" | "stroke";
 
-/** The two Leaflet Path write faces, as a named vocabulary. Same convention
- *  as `INTENT` / `DIM`: callers pass `FACE.FILL` / `FACE.STROKE`, never a
- *  bare literal, so the string cannot drift from the type. */
+/** The write faces, as a named vocabulary. Same convention as `INTENT` /
+ *  `DIM`: callers pass `FACE.FILL` / `FACE.STROKE` / `FACE.SIZE` /
+ *  `FACE.LABEL`, never a bare literal, so the string cannot drift from the
+ *  type.
+ *
+ *  `FILL` and `STROKE` are `setStyle` faces and so are members of
+ *  `StyleFace`; `SIZE` (a direct `setRadius` walk) and `LABEL` (a full label
+ *  rebuild) are not. They live in this table because they ride the same
+ *  frame coalescer (see `SchedulerFace`), and one vocabulary for "what the
+ *  coalescer keys on" keeps callers off bare literals. */
 const FACE = {
   FILL: "fill",
   STROKE: "stroke",
+  SIZE: "size",
+  LABEL: "label",
 } as const;
+
+/** Every face the coalescer keys on, derived from `FACE` so a new member
+ *  there cannot be missed by the per-id sweeps further down — a face the
+ *  queue accepts but they cannot drop or flush would leak a task after
+ *  unregister and drop a trailing write on panel close. */
+const FACE_FACES: readonly SchedulerFace[] = Object.values(FACE);
+
+/** A frame-coalescing key face. Wider than `StyleFace` on purpose: the
+ *  scheduler below is a plain "at most one trailing frame per
+ *  (face, layerId)" queue that knows nothing about `setStyle`, so a walk
+ *  that is not a styleBag slice can share it. `FACE.SIZE` is a direct
+ *  `setRadius` walk rather than a `setStyle` face — without sharing the
+ *  queue, a typing burst across the size field would write one radius per
+ *  leaf per keystroke, and a bulk content change would walk per leaf.
+ *  `FACE.LABEL` is the same shape at a larger scale: a label rebuild walks
+ *  the whole tree and repaints every label canvas, so a streamed addData
+ *  must pay it once per frame, not once per feature.
+ *
+ *  Derived from `FACE` rather than spelled out: adding a member to `FACE`
+ *  is enough to add a face, and the type cannot drift from it. */
+type SchedulerFace = (typeof FACE)[keyof typeof FACE];
 
 /** Leaflet Path defaults — folium's path_options fills most of these in,
  *  so the fallbacks only fire for a bare Leaflet layer. */
@@ -309,89 +340,295 @@ const commitStyleDimMerged = (
 // so the terminal value is never lost (throttleRaf is trailing). `cancel`
 // on reset (a scheduled walk must not paint the user's value over the
 // authored restore). `drop` on unregister so a churning map cannot
-// accumulate boxes keyed by dead ids.
+// accumulate boxes keyed by dead ids, and `dropAll` on UI teardown (scoped
+// to the UI that owns the boxes — see Ownership below).
+//
+// A box lives exactly as long as its frame is pending: the wrapper reclaims
+// the entry before the run, and `cancel` reclaims it immediately, so a held
+// entry always means "a frame is still owed" — never an executed callback's
+// closure parked in the Map. Reclamation-before-run is also what makes a
+// re-entrant schedule safe: a run() that schedules the same key again gets
+// a fresh box for the NEXT frame instead of mutating the one executing.
+//
+// The wrapper is the scheduler's async error boundary. The operation that
+// scheduled a walk (a panel write, or the terminal LAYER_ITEM_COUNT_CHANGE
+// whose replay this carries) has already returned by the time a trailing
+// frame runs, so a throw can no longer ride that operation's error
+// contract — it is recorded (diagnostic log + the map's onError hook, the
+// same channel notification failures use) instead of escaping the frame.
+//
+// Ownership: every box — and the failure reporter it reports through —
+// belongs to the LayerUI (the control instance) that scheduled it. The
+// queue is keyed by that owner and every production call site names its
+// ui; a UI's teardown releases only its own boxes, so two LayerControls on
+// one page cannot cancel each other's trailing write or route one map's
+// failure into the other's onError. This is the same per-instance rule the
+// dimension registry documents (BaseControl renders each control as a
+// fresh IIFE today), but ownership does not depend on that bundling
+// detail — a shared module must still partition by owner.
 
-type ApplyBox = { run: () => void; raf: ReturnType<typeof throttleRaf> };
-const applySchedulers = new Map<string, ApplyBox>();
+const log = createLogger("LayerControl");
 
-const applyKey = (face: StyleFace, layerId: string): string => `${face}:${layerId}`;
+/** Diagnostic pseudo-event for applies scheduled by a panel write — the
+ *  failure reporter's event key when no real event sourced the schedule. */
+const STYLE_APPLY_SOURCE = "foliplus:style:apply";
+
+/** One scheduled-apply failure, as the reporter receives it. */
+type StyleApplyFailure = {
+  face: SchedulerFace;
+  layerId: string;
+  source: string;
+  error: unknown;
+};
+
+/** The UI/control scope that owns a scheduled apply. Production passes the
+ *  LayerUI instance; owner-less calls (unit tests) share the module scope
+ *  below. */
+type StyleApplyOwner = object;
+
+/** How a scheduled walk is attributed: which operation scheduled it and
+ *  which UI owns the trailing frame. A bare string keeps the pre-owner call
+ *  shape ("custom source, global owner"). */
+type StyleApplySchedule = {
+  source?: string;
+  owner?: StyleApplyOwner;
+};
+
+type ApplyBox = {
+  run: () => void;
+  face: SchedulerFace;
+  layerId: string;
+  source: string;
+  raf: ReturnType<typeof throttleRaf>;
+  owner: StyleApplyOwner;
+};
+
+/** Pending boxes, partitioned by the UI that scheduled them. Keyed by owner
+ *  rather than one flat (face, id) map so a teardown is scoped: dropping
+ *  this UI's frames must not cancel another map's same-id write. */
+const applySchedulers = new Map<StyleApplyOwner, Map<string, ApplyBox>>();
+
+/** Scope for owner-less calls — the unit-test facade, one UI per process. */
+const GLOBAL_STYLE_OWNER: StyleApplyOwner = Object.freeze({});
+
+/** Optional observer per owner — installed by each LayerUI constructor
+ *  (wired to map.foliplus.onError) and released with that UI. */
+const applyFailureReporters = new Map<
+  StyleApplyOwner,
+  (failure: StyleApplyFailure) => void
+>();
+
+/** The owner's box map, created on first schedule and dropped when empty. */
+const boxesFor = (owner: StyleApplyOwner): Map<string, ApplyBox> => {
+  let boxes = applySchedulers.get(owner);
+  if (!boxes) {
+    boxes = new Map();
+    applySchedulers.set(owner, boxes);
+  }
+  return boxes;
+};
+
+/** The scopes a sweep addresses: one named owner, or every owner when the
+ *  caller is the owner-less facade. */
+const ownersToSweep = (owner?: StyleApplyOwner): StyleApplyOwner[] =>
+  owner ? [owner] : [...applySchedulers.keys()];
+
+/** Drop the owner entry once its last box is gone, so a torn-down UI leaves
+ *  no scope behind. */
+const compactOwner = (owner: StyleApplyOwner, boxes: Map<string, ApplyBox>): void => {
+  if (boxes.size === 0) applySchedulers.delete(owner);
+};
+
+/** Install (or clear) the scheduled-apply failure observer for one owner.
+ *  Owner-less installs target the global scope (tests). */
+const setStyleApplyFailureReporter = (
+  reporter: ((failure: StyleApplyFailure) => void) | null,
+  owner: StyleApplyOwner = GLOBAL_STYLE_OWNER,
+): void => {
+  if (reporter) applyFailureReporters.set(owner, reporter);
+  else applyFailureReporters.delete(owner);
+};
+
+const applyKey = (face: SchedulerFace, layerId: string): string => `${face}:${layerId}`;
+
+/** Execute one box: reclaim the entry first, run inside the boundary
+ *  second. The ordering is the whole contract — see the region header. The
+ *  reporter is the box owner's, so a late failure reaches the map that
+ *  scheduled it, never a neighbouring control's. */
+const runBox = (
+  owner: StyleApplyOwner,
+  boxes: Map<string, ApplyBox>,
+  key: string,
+  box: ApplyBox,
+): void => {
+  boxes.delete(key);
+  compactOwner(owner, boxes);
+  try {
+    box.run();
+  } catch (error) {
+    log.warn(
+      `scheduled ${box.face} apply for "${box.layerId}" (${box.source}) failed — recorded, not raised:`,
+      error,
+    );
+    try {
+      applyFailureReporters.get(owner)?.({
+        face: box.face,
+        layerId: box.layerId,
+        source: box.source,
+        error,
+      });
+    } catch {
+      // A broken diagnostic hook is worse than none.
+    }
+  }
+};
 
 /** Queue the apply walk for one face. Later calls in the same frame replace
- *  `run` and coalesce into the one pending frame — the walk always reads
- *  the latest intent. */
+ *  `run` and coalesce into the one pending frame — the walk always reads the
+ *  latest intent. `source` names the operation that scheduled the walk and
+ *  rides the box, so a failure on a late frame can still be attributed;
+ *  `owner` names the UI whose teardown may reclaim it. */
 const scheduleStyleDimApply = (
-  face: StyleFace,
+  face: SchedulerFace,
   layerId: string,
   run: () => void,
+  schedule: string | StyleApplySchedule = {},
 ): void => {
+  const opts: StyleApplySchedule =
+    typeof schedule === "string" ? { source: schedule } : schedule;
+  const owner = opts.owner ?? GLOBAL_STYLE_OWNER;
+  const source = opts.source ?? STYLE_APPLY_SOURCE;
+  const boxes = boxesFor(owner);
   const key = applyKey(face, layerId);
-  let box = applySchedulers.get(key);
+  let box = boxes.get(key);
   if (!box) {
-    // Two-step init so the raf callback can read `created.run` (the box
-    // entry) without a double assertion: the box exists before throttleRaf
-    // closes over it.
-    const created = { run, raf: throttleRaf(() => created.run()) };
+    // Two-step init so the raf callback can close over the finished box:
+    // `created.raf` is populated before throttleRaf's callback can run. The
+    // single widening cast starts the object one field short; a double
+    // assertion here would trip the narrow-cast guard (test/tsconfig).
+    const created = { run, face, layerId, source, owner } as ApplyBox;
+    created.raf = throttleRaf(() => runBox(owner, boxes, key, created));
     box = created;
-    applySchedulers.set(key, box);
+    boxes.set(key, box);
   }
   box.run = run;
+  box.source = source;
   box.raf();
 };
 
-/** Force a pending walk to run now. No-op when nothing is queued. */
-const flushStyleDimApply = (face: StyleFace, layerId: string): void => {
-  applySchedulers.get(applyKey(face, layerId))?.raf.flush();
+/** Force a pending walk to run now — which also reclaims its entry. No-op
+ *  when nothing is queued. An owner-less flush sweeps every scope (the test
+ *  facade); production always names the UI that owns the frame. */
+const flushStyleDimApply = (
+  face: SchedulerFace,
+  layerId: string,
+  owner?: StyleApplyOwner,
+): void => {
+  const key = applyKey(face, layerId);
+  for (const scope of ownersToSweep(owner)) {
+    applySchedulers.get(scope)?.get(key)?.raf.flush();
+  }
 };
 
-/** Drop a pending walk without running it. Reset must not paint the user's
- *  value over the authored restore. */
-const cancelStyleDimApply = (face: StyleFace, layerId: string): void => {
-  applySchedulers.get(applyKey(face, layerId))?.raf.cancel();
+/** Drop a pending walk without running it, and reclaim its entry. Reset
+ *  must not paint the user's value over the authored restore. */
+const cancelStyleDimApply = (
+  face: SchedulerFace,
+  layerId: string,
+  owner?: StyleApplyOwner,
+): void => {
+  const key = applyKey(face, layerId);
+  for (const scope of ownersToSweep(owner)) {
+    const boxes = applySchedulers.get(scope);
+    const box = boxes?.get(key);
+    if (!boxes || !box) continue;
+    box.raf.cancel();
+    boxes.delete(key);
+    compactOwner(scope, boxes);
+  }
 };
 
 /** Retire every face's scheduler entry for one layer id — the single
- *  unregister drop hook. Covers fill and border in one pass so the caller
- *  never holds two scattered teardowns. */
-const dropStyleDimApplies = (layerId: string): void => {
-  const keyFill = applyKey(FACE.FILL, layerId);
-  const keyStroke = applyKey(FACE.STROKE, layerId);
-  for (const key of [keyFill, keyStroke]) {
-    const box = applySchedulers.get(key);
-    if (!box) continue;
-    box.raf.cancel();
-    applySchedulers.delete(key);
+ *  unregister drop hook. Covers every face (fill / stroke / size / label) in
+ *  one pass so the caller never holds scattered teardowns. */
+const dropStyleDimApplies = (layerId: string, owner?: StyleApplyOwner): void => {
+  for (const scope of ownersToSweep(owner)) {
+    const boxes = applySchedulers.get(scope);
+    if (!boxes) continue;
+    for (const face of FACE_FACES) {
+      const key = applyKey(face, layerId);
+      const box = boxes.get(key);
+      if (!box) continue;
+      box.raf.cancel();
+      boxes.delete(key);
+    }
+    compactOwner(scope, boxes);
   }
 };
 
 /** Flush every face's pending walk for one layer id — the panel-close
- *  commit boundary. Both faces must land: a dragged border left on a
- *  trailing frame would vanish when the panel disappears. */
-const flushStyleDimApplies = (layerId: string): void => {
-  flushStyleDimApply(FACE.FILL, layerId);
-  flushStyleDimApply(FACE.STROKE, layerId);
+ *  commit boundary. Every face must land: a drag or a typing burst left on
+ *  a trailing frame would vanish when the panel disappears. */
+const flushStyleDimApplies = (layerId: string, owner?: StyleApplyOwner): void => {
+  for (const face of FACE_FACES) {
+    flushStyleDimApply(face, layerId, owner);
+  }
 };
 
-/** Whether a scheduler entry is still held (tests pin the unregister drop). */
-const hasStyleDimApply = (face: StyleFace, layerId: string): boolean =>
-  applySchedulers.has(applyKey(face, layerId));
+/** Cancel and reclaim every pending box in one owner's scope — the UI
+ *  teardown hook. A trailing frame must not outlive the UI whose schedule
+ *  created it, and the scope must not take another UI's boxes with it. */
+const dropAllStyleDimApplies = (owner: StyleApplyOwner = GLOBAL_STYLE_OWNER): void => {
+  const boxes = applySchedulers.get(owner);
+  if (!boxes) return;
+  for (const box of boxes.values()) box.raf.cancel();
+  applySchedulers.delete(owner);
+};
+
+/** Release everything one UI owns: pending frames cancelled and its failure
+ *  reporter detached. Idempotent — the LayerUI calls it from its own
+ *  teardown and the controller calls the same method before finalize. */
+const releaseStyleApplyOwner = (owner: StyleApplyOwner): void => {
+  dropAllStyleDimApplies(owner);
+  applyFailureReporters.delete(owner);
+};
+
+/** Whether a scheduler entry is still held (tests pin the unregister drop).
+ *  Owner-less reads answer across every scope — the test facade. */
+const hasStyleDimApply = (
+  face: SchedulerFace,
+  layerId: string,
+  owner?: StyleApplyOwner,
+): boolean => {
+  const key = applyKey(face, layerId);
+  return owner
+    ? (applySchedulers.get(owner)?.has(key) ?? false)
+    : [...applySchedulers.values()].some(boxes => boxes.has(key));
+};
 
 export {
   type StyleCarrier,
   FACE,
+  type SchedulerFace,
+  type StyleApplyFailure,
   type StyleSetter,
+  STYLE_APPLY_SOURCE,
   STYLE_BAG_DEFAULTS,
   cancelStyleDimApply,
   captureStyleBag,
   commitStyleDim,
   commitStyleDimMerged,
+  dropAllStyleDimApplies,
   dropStyleDimApplies,
   faceSlice,
   flushStyleDimApply,
   flushStyleDimApplies,
   hasStyleDimApply,
   isStyleSetter,
+  releaseStyleApplyOwner,
   restoreStyleDim,
   scheduleStyleDimApply,
+  setStyleApplyFailureReporter,
   styleBagOf,
   styleBaseOf,
   styleDimOverAuthor,

@@ -7,6 +7,7 @@
 - `core/layer`: snapshot axis on `LayerRuntimeStore` — a layer's points, numeric fields, and value ranges are built once and cached alongside the fields cache ([#715](https://github.com/Zeroto521/foliplus/pull/715))
 - `core/layer`: filter AST (`and` / `or` / `atom`) and pure evaluator over `SnapshotPoint`, so filtering is a tree walk rather than a string parse ([#715](https://github.com/Zeroto521/foliplus/pull/715))
 - `HeatmapControl`: `aggregateData` is now a wrapper over `binPoints` (H3 geometry only) and `aggregateBins` (pure arithmetic), so a filter change can skip the geometry step ([#715](https://github.com/Zeroto521/foliplus/pull/715))
+- `LayerControl`: a size row sets a CircleMarker layer's pixel radius — every marker at once, persisted across reloads, and resettable to each marker's drawn radius ([#726](https://github.com/Zeroto521/foliplus/pull/726))
 - `LayerControl`: value-based fill — a numeric field, a classification method
   and a palette paint the layer by value ([#727](https://github.com/Zeroto521/foliplus/pull/727))
 
@@ -14,13 +15,24 @@
 
 - `CSS`: design tokens split surface from on-accent and expose a focus color, so a theme can invert one without the other ([#714](https://github.com/Zeroto521/foliplus/pull/714))
 - `LayerControl`: opacity and zoom-range rows now use one dependency-free slider primitive — single/dual thumb, keyboard, ARIA, disabled/RTL, a bubble that panels cannot clip, and a collapsed range that slides instead of dead-locking ([#721](https://github.com/Zeroto521/foliplus/pull/721))
+- `common`: extract the scheme picker (colour bar + dropdown) from HeatmapControl into a shared `common/schemePicker` factory ([#729](https://github.com/Zeroto521/foliplus/pull/729))
+- `core/layer`: a reorder pays one tree walk per layer instead of four, and pins late content in one fragment [#733](https://github.com/Zeroto521/foliplus/pull/733)
+- `core/layer`: a declared pane spec may only name the public roles, so `shadow` stays internal [#733](https://github.com/Zeroto521/foliplus/pull/733)
+- `LayerControl`: labels rebuild once per frame and only repaint their own canvas; the replay set is a mandatory per-dimension registry policy, each UI owns its scheduler, and clearing labels also drops the layer's pan plan ([#734](https://github.com/Zeroto521/foliplus/pull/734))
 
 ### Fixed
 
-- `FullscreenControl`: embed-proof fullscreen — a policy-denied native request (Feishu/Notion-style cross-origin iframes without the fullscreen permission) now falls back to pseudo-fullscreen with an explanatory hint instead of dead-ending on "unsupported", exit branches key on the real fullscreen state (a pseudo session no longer strands when permission flips on later), and the `fullscreenchange` listener binds regardless of mount-time permission ([#732](https://github.com/Zeroto521/foliplus/pull/732))
-- `core/hint`, `LayerControl`: toast hints and the slider bubble attach to the covering surface — the native fullscreen element or the pseudo-fullscreen container (via a shared `core/fullscreen` resolver) — instead of `<body>`, so they are no longer painted under the opaque pseudo-fullscreen map, and hints stranded by an exited surface re-seat on the next toast ([#732](https://github.com/Zeroto521/foliplus/pull/732))
-- `EventBus`: settled, policy-declared broadcasts — terminal events raise the first failure, notifications record it, and LayerControl retirements are identity-gated ([#716](https://github.com/Zeroto521/foliplus/pull/716), [#719](https://github.com/Zeroto521/foliplus/pull/719), [#720](https://github.com/Zeroto521/foliplus/pull/720), [#723](https://github.com/Zeroto521/foliplus/pull/723))
+- `FullscreenControl`: embed-proof fullscreen — a policy-denied native request (Feishu/Notion-style cross-origin iframes without the fullscreen permission) now falls back to pseudo-fullscreen with an explanatory hint instead of dead-ending on "unsupported", a rejection that still produced a native transition no longer leaves a pseudo class behind, exit branches key on the real fullscreen state (a pseudo session no longer strands when permission flips on later), and the `fullscreenchange` listener binds regardless of mount-time permission ([#732](https://github.com/Zeroto521/foliplus/pull/732))
+- `core/hint`, `LayerControl`: toast hints and the slider bubble attach to the covering surface — the native fullscreen element or the pseudo-fullscreen container (via a shared `core/fullscreen` resolver) — instead of `<body>`, so they are no longer painted under the opaque pseudo-fullscreen map; both native and pseudo transitions announce the new surface, so overlays that already existed re-seat instead of waiting for the next toast ([#732](https://github.com/Zeroto521/foliplus/pull/732))
+- `EventBus`: policy-declared per-event entries — terminal events raise the first failure, notifications record it, owner listeners run first, and unload clears the bus ([#716](https://github.com/Zeroto521/foliplus/pull/716), [#719](https://github.com/Zeroto521/foliplus/pull/719), [#720](https://github.com/Zeroto521/foliplus/pull/720), [#723](https://github.com/Zeroto521/foliplus/pull/723), [#728](https://github.com/Zeroto521/foliplus/pull/728))
 - `LayerControl`: value-based fill follows the layer's real geometry — a mixed layer's fill row shows its polygon's colour, and features added after a fill was set are repainted instead of keeping the author's colour ([#727](https://github.com/Zeroto521/foliplus/pull/727))
+- `LayerControl`: a border chosen before features land still reaches them — the content-change replay now covers the stroke face alongside fill, size and opacity ([#730](https://github.com/Zeroto521/foliplus/pull/730))
+- `LayerControl`: reordering moves rows in place instead of rebuilding the panel ([#731](https://github.com/Zeroto521/foliplus/pull/731), [#735](https://github.com/Zeroto521/foliplus/pull/735))
+- `LayerControl`: marker shadows and ImageOverlay images join the layer's own panes, so opacity, z and focus cover the whole layer; a retired surface can no longer corrupt another's ([#733](https://github.com/Zeroto521/foliplus/pull/733))
+- Teardown: a failing cleanup step no longer skips the rest — a removed control and a dismissed focus both finish their releases ([#733](https://github.com/Zeroto521/foliplus/pull/733), [#736](https://github.com/Zeroto521/foliplus/pull/736))
+- `core/layer`: the child-ownership index is dropped at `removeLayer` / `clearLayers`, so a group stays bounded by its live leaves ([#733](https://github.com/Zeroto521/foliplus/pull/733))
+- `ExportControl`: marker shadows are exported with their icons, measured after layout so they sit under the marker instead of at a stale offset ([#740](https://github.com/Zeroto521/foliplus/pull/740))
+- Interaction: Space/Enter keep their native meaning on buttons, links and other activation controls, so a panel's close button no longer toggles the layer checkbox ([#755](https://github.com/Zeroto521/foliplus/pull/755))
 
 ## [v0.4.1] (2026-10-18)
 

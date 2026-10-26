@@ -93,14 +93,14 @@ repos:
       #   (4) bare CSS custom properties rejected — must carry --foliplus-*
       #   (5) file/sibling-dir name collision (B-type stutter guard)
       # Function declarations and inline exports are covered by eslint's
-      # `func-style` and `no-restricted-syntax` — see eslint.config.js.
+      # `func-style` and `no-restricted-syntax` — see config/eslint/base.mjs.
       # Check-only — refactor in the editor. Barrels (index.ts) and
       # type-collection files (type.ts / types.ts) are exempt from rule 1.
       - id: style-check
         name: style-check
         entry: python script/check/style_check.py
         language: python
-        files: (^foliplus/js/.*\.ts$|^foliplus/css/.*\.css$|^script/.*\.(mjs|cjs|js)$)
+        files: (^foliplus/js/.*\.ts$|^foliplus/css/.*\.css$|^script/.*\.(mjs|cjs|js)$|^config/.*\.mjs$|^eslint\.config\.js$)
 
       # Dead barrel/type.ts export gate: detects barrel re-exports and type
       # exports with zero consumers repo-wide. Builds a (file, symbol)

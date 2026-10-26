@@ -75,7 +75,12 @@ import {
   openStylePanel,
   replayFillState,
 } from "./style/index.js";
-import { dropStyleDimApplies } from "./style/styleBag.js";
+import { applySizeToLayer } from "./style/size.js";
+import {
+  dropStyleDimApplies,
+  releaseStyleApplyOwner,
+  setStyleApplyFailureReporter,
+} from "./style/styleBag.js";
 import type { LayerUI as LayerUISurface } from "./surface.js";
 
 /** UI Controller for LayerControl.
@@ -184,6 +189,16 @@ class LayerUI implements LayerUISurface {
     this.T = env.T;
     this._ = env._;
     this.log = env.log;
+    // The style scheduler's trailing frames need an async failure channel:
+    // the operation that scheduled them has long returned, so a throw can
+    // no longer ride its error contract. Route it to the map's diagnostic
+    // hook — the same channel notification consumer failures use — so a
+    // host observes it instead of catching a stray rAF error. The reporter
+    // is scoped to this UI: another LayerControl's late frame reports to
+    // its own map, and this one stops reporting once the UI is released.
+    setStyleApplyFailureReporter(failure => {
+      this.c.map.foliplus?.onError?.(failure.source, failure.error);
+    }, this);
     this.listPanel = new ListPanel();
     this.overlayPanel = new OverlayPanel();
     this.focusController = new FocusController();
@@ -275,10 +290,10 @@ class LayerUI implements LayerUISurface {
    *  Calling it and ignoring the result silently drops the notifications. */
   applyUserState(id?: string): ProjectionBatch {
     const moved = applyUserState(this, id);
-    // The executor carries visible / opacity / zoomRange only. Border and
-    // fill are direct setStyle writes, so without their own replay a reload
-    // would restore the drawer's swatch while the map kept the author's
-    // values. Hooked here rather than in state.ts to keep state.ts free of
+    // The executor carries visible / opacity / zoomRange only. Border, fill
+    // and size are direct Leaflet writes (setStyle / setRadius), so without
+    // their own replay a reload would restore the drawer's swatch while the
+    // map kept the author's values. Hooked here rather than in state.ts to keep state.ts free of
     // style-row imports (border.js and fill.js import state.js for
     // markOverride/saveState).
     //
@@ -297,6 +312,7 @@ class LayerUI implements LayerUISurface {
     for (const layerId of layerIds) {
       applyBorderToLayer(this, layerId);
       replayFillState(this, layerId);
+      applySizeToLayer(this, layerId);
     }
     return moved;
   }
@@ -443,11 +459,20 @@ class LayerUI implements LayerUISurface {
     return invalidateFields(this, layerId);
   }
   /** Unregister teardown for the style-apply schedulers: cancel any pending
-   *  rAF walk and free the Map entries (both faces in one pass) so a
-   *  churning map cannot accumulate boxes keyed by dead ids. Manager drives
-   *  this from `unregisterLayer` — the single drop hook. */
+   *  rAF walk and free the Map entries (every face — fill / stroke / size /
+   *  label — in one pass) so a churning map cannot accumulate boxes keyed by
+   *  dead ids. Manager drives this from `unregisterLayer` — the single drop
+   *  hook — and the drop is scoped to this UI. */
   dropStyleDimApplies(layerId: string) {
-    return dropStyleDimApplies(layerId);
+    return dropStyleDimApplies(layerId, this);
+  }
+  /** Release everything this UI owns in the style-apply scheduler: pending
+   *  frames cancelled and the failure reporter detached. Scoped to this UI —
+   *  another map's in-flight writes are not touched. Idempotent; the
+   *  controller calls it on destroy and `unbindEvents` calls it on a
+   *  standalone teardown. */
+  releaseStyleApplies() {
+    return releaseStyleApplyOwner(this);
   }
   /** Spy-sensitive entry point: the CONTROL_ATTACHED re-entry test asserts this
    *  ran, and `vi.spyOn` needs a method on the instance (an imported function

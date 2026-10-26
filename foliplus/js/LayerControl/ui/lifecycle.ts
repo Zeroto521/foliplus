@@ -2,7 +2,7 @@
 // ready-signal re-entry. Split out of ui/index.ts (34.2). The LayerUI class
 // in index.ts keeps one-line delegates; this module owns the actual wiring
 // so index.ts stays a state + delegates shell.
-import { EVENTS, ensureEvents } from "#core/event/index.js";
+import { EVENTS, type EventPayloadMap, ensureEvents } from "#core/event/index.js";
 import { GROUP } from "#core/layer/index.js";
 import * as CONST from "../const.js";
 import {
@@ -28,6 +28,7 @@ import {
   syncListCursor,
 } from "./listPanel/cursor.js";
 import {
+  clearDragState,
   handleDragEnd,
   handleDragLeave,
   handleDragOver,
@@ -40,8 +41,8 @@ import {
   initLayerItem,
   insertLayerItem,
   markSettled,
-  rebuildList,
   renderInitialList,
+  syncRowOrder,
   updateLayerItemLabel,
 } from "./listPanel/list.js";
 import { applyRowView, buildRowCell } from "./listPanel/rowView.js";
@@ -56,8 +57,18 @@ import { closeAttrsPanel } from "./overlayPanel/attr.js";
 import { closeMoreMenu } from "./overlayPanel/menu.js";
 import { finishRename } from "./overlayPanel/rename.js";
 import { loadPersistedState } from "./state.js";
-import { closeStylePanel, invalidateFields, replayFillState } from "./style/index.js";
-import { FACE, dropStyleDimApplies, scheduleStyleDimApply } from "./style/styleBag.js";
+import {
+  closeStylePanel,
+  invalidateFieldCache,
+  invalidateFields,
+  openStylePanel,
+} from "./style/index.js";
+import { listDimensions } from "./style/registry.js";
+import {
+  dropStyleDimApplies,
+  releaseStyleApplyOwner,
+  scheduleStyleDimApply,
+} from "./style/styleBag.js";
 import type { LayerUI } from "./surface.js";
 
 /**
@@ -314,36 +325,61 @@ const bindLayerEvents = (ui: LayerUI): void => {
   // before; the id-only payload keeps the bus a signal channel, and the
   // registry lookup here is the single source of the row's current shape.
   const registry = ui.c.layerRegistry;
+  // LayerControl owns these signals; its own handlers must run before any
+  // external observer, regardless of who subscribed first (phase "internal").
+  const subscribe = <E extends keyof EventPayloadMap>(
+    event: E,
+    handler: (payload: EventPayloadMap[E]) => void,
+  ): (() => void) => bus.on(event, handler, "internal");
   const signalHandlers: Array<() => void> = [];
   signalHandlers.push(
-    bus.on(EVENTS.LAYER_ITEM_ADDED, (payload: { id: string }) => {
+    subscribe(EVENTS.LAYER_ITEM_ADDED, (payload: { id: string }) => {
       const layerInfo = registry.get(payload.id);
       if (layerInfo) insertLayerItem(ui, layerInfo);
     }),
-    bus.on(EVENTS.LAYER_ITEM_UPDATED, (payload: { id: string }) => {
+    subscribe(EVENTS.LAYER_ITEM_UPDATED, (payload: { id: string }) => {
       const layerInfo = registry.get(payload.id);
       if (!layerInfo) return;
       updateLayerItemLabel(ui, layerInfo);
       invalidateFields(ui, payload.id);
     }),
-    bus.on(EVENTS.LAYER_ITEM_REFRESHED, (payload: { id: string }) => {
+    subscribe(EVENTS.LAYER_ITEM_REFRESHED, (payload: { id: string }) => {
       const layerInfo = registry.get(payload.id);
       if (layerInfo) initLayerItem(ui, layerInfo);
     }),
-    bus.on(EVENTS.LAYER_ITEM_REMOVED, (payload: { id: string }) => {
-      invalidateFields(ui, payload.id);
-      dropStyleDimApplies(payload.id);
+    // A capability is a projection of the live tree, and the style panel
+    // gates its rows on it at OPEN time (opacity, fill, border, size). A
+    // recovery — the foreign leaf that forced the degrade leaves — must
+    // reach the panel that is already open, or the user has to close and
+    // reopen it to see the row come back. Re-render that one panel; every
+    // other open overlay is untouched.
+    subscribe(EVENTS.LAYER_CAPABILITY_CHANGED, (payload: { id: string }) => {
+      if (ui.overlayPanel.stylePanelLayerId === payload.id) {
+        openStylePanel(ui, payload.id);
+      }
     }),
-    bus.on(EVENTS.LAYER_GROUP_COUNT_CHANGED, (payload: { group: string }) => {
+    subscribe(EVENTS.LAYER_ITEM_REMOVED, (payload: { id: string }) => {
+      // Cache drop only: unregister already tore the labels and their canvas
+      // down (annotation.unloadLayer runs before this event is emitted), and
+      // renderLabels for a gone layer rebuilds nothing — a replay here would
+      // be a walk for its own sake.
+      invalidateFieldCache(ui, payload.id);
+      dropStyleDimApplies(payload.id, ui);
+    }),
+    subscribe(EVENTS.LAYER_GROUP_COUNT_CHANGED, (payload: { group: string }) => {
       syncToggleAll(ui, payload.group);
     }),
-    bus.on(EVENTS.LAYER_LIST_REBUILD, () => {
-      // The list layer owns this whole operation now — rows, counts,
-      // readiness and the round that goes out afterwards — so the signal
-      // handler is just the wiring from the bus to it.
-      rebuildList(ui);
+    subscribe(EVENTS.LAYER_LIST_REBUILD, () => {
+      // The reorder signal only moves rows: the emitters (moveLayerUp/Down,
+      // bringLayerToFront, the drag drop's reorderLayer) have already
+      // updated the registry, repriced z and saved the order through the
+      // controller's commit funnel, and a position change alters no count,
+      // checkbox or readiness. So this handler relocates displaced rows
+      // instead of rebuilding the panel — the full rebuildList stays on the
+      // paths that change membership or row structure (fold, attach).
+      syncRowOrder(ui);
     }),
-    bus.on(EVENTS.LAYER_NO_BASEMAP_CHANGED, () => {
+    subscribe(EVENTS.LAYER_NO_BASEMAP_CHANGED, () => {
       syncNoBasemap(ui);
     }),
     // Overlay mutual exclusion — each subsystem closes itself when it hears
@@ -351,11 +387,11 @@ const bindLayerEvents = (ui: LayerUI): void => {
     // is about to open sees "I'm not open" and no-ops. Focus is guarded by
     // isFocusing so the O(layers) applyProjectionAll sweep only runs when
     // there is actually a focus to tear down.
-    bus.on(EVENTS.OVERLAY_CLEAR, () => closeMoreMenu(ui, true)),
-    bus.on(EVENTS.OVERLAY_CLEAR, () => closeAttrsPanel(ui, false)),
-    bus.on(EVENTS.OVERLAY_CLEAR, () => closeStylePanel(ui, false)),
-    bus.on(EVENTS.OVERLAY_CLEAR, () => finishRename(ui)),
-    bus.on(EVENTS.OVERLAY_CLEAR, () => {
+    subscribe(EVENTS.OVERLAY_CLEAR, () => closeMoreMenu(ui, true)),
+    subscribe(EVENTS.OVERLAY_CLEAR, () => closeAttrsPanel(ui, false)),
+    subscribe(EVENTS.OVERLAY_CLEAR, () => closeStylePanel(ui, false)),
+    subscribe(EVENTS.OVERLAY_CLEAR, () => finishRename(ui)),
+    subscribe(EVENTS.OVERLAY_CLEAR, () => {
       if (ui.isFocusing()) dismissFocus(ui);
     }),
   );
@@ -374,7 +410,11 @@ const onLayerItemCountChange = (ui: LayerUI, id: string): void => {
   if (!item) return;
   const layerInfo = ui.c.layerRegistry.get(id);
   if (!layerInfo || layerInfo.group === GROUP.BASE) return;
-  invalidateFields(ui, id);
+  // Cheap sync cache drop — the row rebuild below re-reads the field lists,
+  // so they must not survive the content that just landed. The label rebuild
+  // itself is the most expensive of the replays (full tree walk + canvas
+  // repaint), so it is coalesced with the other faces further down.
+  invalidateFieldCache(ui, id);
 
   applyRowView(ui, item, buildRowCell(ui, layerInfo));
 
@@ -393,20 +433,39 @@ const onLayerItemCountChange = (ui: LayerUI, id: string): void => {
     opacityDelta = applyProjection(ui, id);
   }
 
-  // A stored fill repaints the leaves this change just landed. Without it a
-  // streamed addData leaves the new features at the author's colour and a
-  // running ramp on breaks classified before the new values arrived - the UI
-  // would be showing one count while the map painted another. Coalesced per
-  // face like every panel write: ten additions in one frame cost one
-  // collect/classify/apply, and the walk always reads the layer's latest state.
+  // Opacity replays explicitly above: its return value IS the delta the
+  // notify carries below, so it cannot ride the registry loop. Every other
+  // dimension declares its `contentChange` policy on the descriptor — the
+  // single place a dimension states what a content change owes it, and the
+  // type makes the field mandatory, so a new dimension cannot silently skip
+  // the decision. The hub owns the mechanics every policy shares: sync
+  // policies run inline (inside the terminal event's error contract), frame
+  // policies schedule through the coalescer with the sourcing event
+  // attached, and the `when` gate answers before any box is allocated.
+  // Registry order is module-import order, not a semantic order: the
+  // replaying faces are independent (each schedules its own coalesced
+  // walk), and a future ordering dependency must be sorted explicitly, not
+  // inferred from the loop.
   //
-  // Queued before the notify, not after: a projection consumer can throw or
-  // unregister the layer, and the scheduled replay must already exist for the
-  // teardown's LAYER_ITEM_REMOVED to drop it — scheduling after a throw would
-  // skip the replay entirely, and scheduling after a reentrant unregister
-  // would create a task for an id that is already gone. The notify stays the
-  // last step of the operation.
-  scheduleStyleDimApply(FACE.FILL, id, () => replayFillState(ui, id));
+  // Every replay is queued before the notify, not after: a projection
+  // consumer can throw or unregister the layer, and the scheduled replay must
+  // already exist for the teardown's LAYER_ITEM_REMOVED to drop it —
+  // scheduling after a throw would skip the replay entirely, and scheduling
+  // after a reentrant unregister would create a task for an id that is
+  // already gone. The notify stays the last step of the operation.
+  for (const dim of listDimensions()) {
+    const policy = dim.contentChange;
+    if (policy.kind === "none") continue;
+    if (policy.kind === "sync") {
+      policy.run(ui, id);
+      continue;
+    }
+    if (policy.when?.(ui, id) === false) continue;
+    scheduleStyleDimApply(policy.face, id, () => policy.run(ui, id), {
+      source: EVENTS.LAYER_ITEM_COUNT_CHANGE,
+      owner: ui,
+    });
+  }
   notifyDelta(ui, layerInfo, opacityDelta);
 };
 
@@ -425,8 +484,18 @@ const refreshAllCounts = (ui: LayerUI): void => {
 };
 
 const unbindEvents = (ui: LayerUI): void => {
+  // The unmount boundary owns in-flight gesture state: once the drag
+  // listeners below come off, no later native dragend can arrive to finish
+  // the cleanup. Pure session state clears even when the panel is already
+  // gone, which is why this runs before the container guard.
+  clearDragState(ui);
   const container = ui.uiContainer;
-  if (!container) return;
+  if (!container) {
+    // No panel to close, but the UI still owns whatever it scheduled — a
+    // detached UI must not leave a trailing frame (or its reporter) behind.
+    releaseStyleApplyOwner(ui);
+    return;
+  }
   // Unmount must clean up unconditionally — a subscription may already have
   // been `off`'d by a third party, or is about to be. Emitting OVERLAY_CLEAR
   // here would only reach whatever subscribers are still listening, so call
@@ -477,6 +546,10 @@ const unbindEvents = (ui: LayerUI): void => {
   }
   for (const off of ui.unsubscribeLayerSignals) off();
   ui.unsubscribeLayerSignals = [];
+  // Last: closeStylePanel above flushed the panel's trailing writes, so
+  // releasing the scheduler here cancels only frames that no longer have a
+  // UI to land on. Scoped to this UI — another map keeps its own boxes.
+  releaseStyleApplyOwner(ui);
 };
 
 export {

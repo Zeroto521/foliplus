@@ -6,6 +6,7 @@ export {
   CANVAS_PANE_PREFIX,
   CAP_TIER,
   COLOR_PANE_PREFIX,
+  DECLARED_PANE_ROLES,
   DIM,
   FALLBACK_PANE_PREFIX,
   GEOM_TYPE,
@@ -13,6 +14,7 @@ export {
   HIDDEN,
   KIND,
   NO_FEATURE_TREE_KINDS,
+  PANE_OWNER,
   PANE_ROLE,
   RECURSION,
   Z_INDEX,
@@ -25,7 +27,9 @@ export { LayerInfoRegistry } from "./LayerInfoRegistry.js";
 // is the `implements` target those members are checked against). Exporting both
 // from this barrel would need one of them renamed for no gain.
 export { LayerSurface } from "./LayerSurface.js";
+export { PaneLedger } from "./PaneLedger.js";
 export { PaneManager } from "./PaneManager.js";
+export { SurfaceIndex } from "./SurfaceIndex.js";
 export {
   findLayer,
   isLayerInPanes,
@@ -78,6 +82,7 @@ export type {
   LayerCapabilities,
   LayerDimKey,
   LayerInfo,
+  LayerMutation,
   LayerSnapshot,
   LayerKind,
   PaneHandle,

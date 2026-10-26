@@ -76,7 +76,7 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   // entry will host future style dimensions (color, opacity, …). Disable it
   // exactly like focus-layer when there is nothing to configure.
   //
-  // R5: capability-driven gate. A layer whose surface reports opacity and
+  // Capability-driven gate. A layer whose surface reports opacity and
   // zoomRange as "none" (e.g. MarkerCluster) cannot be styled for those
   // dimensions, so the panel is disabled unless it still has label fields or
   // style delegation to configure.

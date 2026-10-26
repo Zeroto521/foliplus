@@ -7,17 +7,19 @@
 //   ── Pure computation (JS unit tests, no Leaflet) ──
 //     isDefaultPane / discoverChildPanes / getLayerPanes
 //   ── Leaflet DOM integration (browser tests) ──
-//     ensurePane / ensureVector / pinTree / pinLateContent / removePane /
+//     ensurePane / ensureVector / pinTree / pinLateContent / releasePane /
 //     invalidateDiscoveryCache / destroy
 import { createLogger } from "#common/log.js";
 import {
   destroyPane,
   getRendererContainer,
   getRendererFor,
+  layerShadow,
 } from "../leafletAdapter.js";
+import { PaneLedger } from "./PaneLedger.js";
 import * as CONST from "./const.js";
 import type { PaneSpec, PinnableNode } from "./type.js";
-import { isContainerNode, walkTree } from "./walkLeaf.js";
+import { isContainerNode, walkLeaf, walkTree } from "./walkLeaf.js";
 import { zFor } from "./z.js";
 
 const log = createLogger("PaneManager");
@@ -38,9 +40,34 @@ type PathWithPane = L.Path & { options: L.PathOptions & { pane?: string } };
  *    safe here — a stale entry costs one extra `walkTree` walk, never a
  *    wrong answer.
  *
- *  `removePane` deliberately touches neither: destroying a pane div does not
+ *  `releasePane` deliberately touches neither: destroying a pane div does not
  *  change what any layer's `options.pane` names, which is the only thing the
  *  cache memoises.
+ *
+ *  Index lifecycle — every bookkeeping index, with where it is written, where
+ *  it is deleted, and what bounds it. A missing delete point is a defect, not
+ *  a policy: `L.stamp` values are never reused, so an index that only ever
+ *  grows still describes retired layers when `destroy` finally runs.
+ *
+ *    `paneSpecs`      written by `registerPaneSpecs`; deleted by
+ *                     `destroyOwnPane` (a pane foliplus created),
+ *                     `sweepChildPanes` (a spec no registered layer uses) and
+ *                     `destroy`. Bounded by the panes this map declared.
+ *    `paneLedger`     the PaneLedger book: written by `ensurePane`; deleted by
+ *                     `releasePane` and `destroy`. Bounded by live surfaces'
+ *                     bookings, plus one constant row per `PANE_OWNER`: a focus
+ *                     pane belongs to no surface, has nothing to outlive it,
+ *                     and is never released — that row lives with the map. A
+ *                     surface that never retires its panes leaves a row here
+ *                     until `destroy`.
+ *    `discoveryCache` written by `discoverChildPanes`; generation-gated on
+ *                     read, capped at `CACHE.PANE_DISCOVERY_ENTRIES`, cleared
+ *                     by `destroy`. Bounded by the cap, not by layer count.
+ *    `childOwners`    written by `rememberChildOwnership` (the `addLayer`
+ *                     override); deleted by `forgetChildOwnership`
+ *                     (`removeLayer`), `forgetAllChildOwnership`
+ *                     (`clearLayers`) and `destroy`. Bounded by the leaves
+ *                     currently inside a declared-pane group.
  *
  *  TypeScript `private`, never an ES `#` field. Component bundles are inlined
  *  into a Jinja2 `Template` at render time (`BaseControl`
@@ -88,11 +115,13 @@ class PaneManager {
       "tilePane",
       "shadowPane",
       "mapPane",
+      "tooltipPane",
+      "popupPane",
     ]);
   }
 
   /** The specs above, read-only. Specs are registered by `registerPaneSpecs`
-   *  and dropped by `sweepChildPanes` / `removePane`; a caller has no way to
+   *  and dropped by `sweepChildPanes` / `destroyOwnPane`; a caller has no way to
    *  put one in or take one out, which is what keeps this map the single
    *  source of truth for "is this pane ours". */
   get childPaneSpecs(): ReadonlyMap<string, PaneSpec> {
@@ -101,15 +130,121 @@ class PaneManager {
 
   // ── Leaflet DOM integration ────────────────────────────────────
 
+  /** Child-leaf stamps -> their owning registered group's stamp. Maintained
+   *  at the write points (`LayerFactory`'s `mainLayer.addLayer` override):
+   *  the next leaf of the same group attributes in O(1) instead of an
+   *  O(registry) membership scan.
+   *
+   *  Bounded by the leaves currently in a group, not by every leaf it has
+   *  ever held: the delete points are `forgetChildOwnership` (from
+   *  `removeLayer`) and `forgetAllChildOwnership` (from `clearLayers`).
+   *  Without them a 500-add / 500-remove session ended with all 500 entries
+   *  still here, and a leaf re-added later would report the parent it once
+   *  belonged to.
+   *
+   *  A leaf added through the override's fallback branch (a group with no
+   *  declared panes) is never recorded; `childOwnerOf` answers `undefined`
+   *  for it and the caller falls back to the registry scan, which is the
+   *  same answer it already gets for any unrecorded child. */
+  private readonly childOwners = new Map<number, number>();
+
+  /** Record that `child` belongs to `parent` (both stamps). Callers that own
+   *  the parent's tree — `createLayers`' `addLayer` — maintain this at the
+   *  write point. */
+  rememberChildOwnership(child: L.Layer, parent: L.Layer): void {
+    this.childOwners.set(L.stamp(child), L.stamp(parent));
+  }
+
+  /** Forget that `child` belongs to its recorded parent — the `removeLayer`
+   *  delete point. Deleting here instead of at teardown is what keeps the
+   *  index bounded: a group that turns over its contents must not accumulate
+   *  one row per leaf it has ever held. */
+  forgetChildOwnership(child: L.Layer): void {
+    this.childOwners.delete(L.stamp(child));
+  }
+
+  /** Forget every child recorded for `parent` — the `clearLayers` delete
+   *  point, where the leaves leave in bulk and none of them passes through
+   *  `removeLayer`. One pass over the index, paid only when a group empties.
+   */
+  forgetAllChildOwnership(parent: L.Layer): void {
+    const parentStamp = L.stamp(parent);
+    for (const [childStamp, owner] of this.childOwners) {
+      if (owner === parentStamp) this.childOwners.delete(childStamp);
+    }
+  }
+
+  /** The registered group's stamp that owns `child`, when recorded. */
+  childOwnerOf(child: L.Layer): number | undefined {
+    return this.childOwners.get(L.stamp(child));
+  }
+
+  /** The pane leases some surface of this map currently holds — the
+   *  PaneLedger book, keyed by pane name and valued by the owning surface's id
+   *  plus the pane's provenance (`owns` = foliplus made the element; adopted =
+   *  a pre-built element this surface proved exclusive). The lease is the
+   *  ownership proof: "the name is not one of Leaflet's shared panes" is NOT
+   *  ownership, and neither is being the first caller of `ensurePane` on a
+   *  pane that already carries foreign DOM. Admission therefore runs through
+   *  `canAcquirePane` before any DOM or bookkeeping changes, a second
+   *  claimant on a held name is refused, and `releasePane` retires the lease
+   *  (deleting the element only when foliplus created it as the owner's own
+   *  carrier). */
+  private readonly paneLedger = new PaneLedger();
+  /** Terminal marker: the first `destroy` retires this manager. Repeated
+   *  calls still clear (methods stay usable — this batch adds idempotency, not
+   *  a lifecycle guard) but bump the discovery generation only once. */
+  private destroyed = false;
+
   /** Ensure a custom pane exists on the map.
+   *
    *  @param {string} paneName - Pane name.
-   *  @param {boolean} [needRenderer=true] - Whether to build an SVG renderer
-   *    for it. False for canvas panes and for sub-panes, whose renderer the
-   *    content that routes into them creates (`ensureVector`). */
+   *  @param {boolean} needRenderer - Whether to build an SVG renderer for it.
+   *    False for canvas panes and for sub-panes, whose renderer the content
+   *    that routes into them creates (`ensureVector`).
+   *  @param {string} owner - The claiming surface's id, or a `PANE_OWNER`
+   *    constant for a pane no surface owns. **Required**, and the point of
+   *    the whole lease model: a pane name is not ownership, so the old
+   *    `owner ?? paneName` fallback let a caller book a pane under a name it
+   *    did not own — the exact "name is ownership" bug B2 closed. The
+   *    compiler is the gate, not a convention, so this stays required.
+   *
+   *    `needRenderer` lost its `= true` default for that: TypeScript forbids a
+   *    required parameter after a defaulted one, and keeping the owner at the
+   *    call site is worth more than the defaulted boolean. Every call site
+   *    already passed it explicitly. */
   ensurePane(
     paneName: string,
-    needRenderer = true,
-  ): { pane: HTMLElement; renderer: L.SVG | null } {
+    needRenderer: boolean,
+    owner: string,
+  ): { pane: HTMLElement | null; renderer: L.SVG | null } {
+    const held = this.paneLedger.get(paneName);
+    // Admission happens here, before any DOM or bookkeeping change: a pane
+    // another surface holds, or a pre-built pane that already paints foreign
+    // content, is not acquireable — the caller degrades instead of
+    // co-writing (or restyling) someone else's carrier.
+    if (held && held.owner !== owner) {
+      log.warn(
+        `pane "${paneName}" is held by surface ${held.owner}; refusing ` +
+          `acquire from ${owner}`,
+      );
+      return { pane: null, renderer: null };
+    }
+    if (!held) {
+      const existing = this.map.getPane(paneName);
+      if (existing && this.isForeignPane(existing)) {
+        // A pre-built pane that already paints content nobody here created:
+        // adopting it would restyle (class/z/focus) and export foreign DOM.
+        // (A pane foliplus stamped in an earlier cycle carries the class —
+        // that is the unregister/re-register cycle re-adopting its OWN
+        // declared pane, children included, not a foreign takeover.)
+        log.warn(
+          `pane "${paneName}" already carries foreign content; refusing ` +
+            `adoption from ${owner}`,
+        );
+        return { pane: null, renderer: null };
+      }
+    }
     let pane = this.map.getPane(paneName);
     if (!pane) {
       pane = this.map.createPane(paneName);
@@ -121,6 +256,22 @@ class PaneManager {
       if (spec) {
         pane.style.zIndex = String(zFor({ role: spec.role, order: spec.order }));
       }
+      this.paneLedger.claim(paneName, owner, true);
+    } else {
+      // Provenance is the lease's, not the element's: `held` is only present
+      // for this same owner, and its `created` flag was set by the call that
+      // built the element. Re-reading it as `false` on every re-book turned a
+      // pane foliplus created into an adopted one, so the owner's destroy then
+      // retired the lease and left the element on the map.
+      const created = held ? held.owns : false;
+      if (!pane.classList.contains("foliplus-layer-pane")) {
+        // An adopted pre-built pane must satisfy the same CSS contract as a
+        // created one: the focus hide rule and the pointer-events rules key on
+        // this class, and an adopted pane without it would stay visible (and
+        // clickable) in focus mode.
+        pane.classList.add("foliplus-layer-pane");
+      }
+      this.paneLedger.claim(paneName, owner, created);
     }
     return {
       pane,
@@ -128,15 +279,85 @@ class PaneManager {
     };
   }
 
-  /** Remove a pane this tree owns from the DOM and Leaflet's registries.
-   *  Used by LayerSurface.destroy (the layer's synthesized pane) and by
-   *  createCanvas.destroy (its dedicated pane).
+  /** Whether a pane name is acquireable by surface `selfId`: free (never
+   *  created, never leased), leased by `selfId` itself (the matches()
+   *  re-check flow), or an EMPTY pre-built pane (a caller preparing a pane
+   *  for its layer — adoption is provably exclusive while nothing paints in
+   *  it yet). A pane held by another surface, or a pre-built pane already
+   *  painting foreign content, is refused — the caller degrades to its own
+   *  synthesized pane instead of co-writing (or restyling) someone else's
+   *  carrier. Callers use this at the declaration edge, where the degrade is
+   *  still a constructor-time decision.
    *
-   *  No cache invalidation here: the cache memoises what each layer's
+   *  `selfId` is required for `ensurePane`'s reason: defaulting it to the
+   *  pane name made "the name is mine" the answer for any caller that
+   *  forgot it. A caller that genuinely means "the pane name is my id"
+   *  can say so. */
+  canAcquirePane(paneName: string, selfId: string): boolean {
+    if (this.defaultPanes.has(paneName)) return false;
+    const held = this.paneLedger.get(paneName);
+    if (held) return held.owner === selfId;
+    const existing = this.map.getPane(paneName);
+    if (!existing) return true;
+    // A pane foliplus already stamped is its own — the unregister/re-register
+    // cycle re-adopts it, children included. A plain pane with content is
+    // somebody else's; an empty one is a caller preparing for its layer.
+    if (existing.classList.contains("foliplus-layer-pane")) return true;
+    return existing.childElementCount === 0;
+  }
+
+  /** Whether `owner` holds the live lease on `paneName` — the write-side twin
+   *  of `canAcquirePane`. The shadow-pane pinning calls consult this before
+   *  writing `options.shadowPane`: a name on `layer.options` is not ownership,
+   *  and a shadow name another surface holds would move every marker shadow
+   *  of ours into its pane. The caller only ever passes a name it booked
+   *  (`LayerSurface` sets `shadowPaneName` on acquisition success and clears it
+   *  in `destroy`), so this is a second line, not the first gate. */
+  private leasedBy(paneName: string, owner: string): boolean {
+    return this.paneLedger.leasedBy(paneName, owner);
+  }
+
+  /** Whether a pane element paints content foliplus never created: no
+   *  foliplus class stamp AND children on it. The class is what makes the
+   *  unregister/re-register cycle of a declared pane re-adoptable. */
+  private isForeignPane(existing: HTMLElement): boolean {
+    return (
+      !existing.classList.contains("foliplus-layer-pane") &&
+      existing.childElementCount > 0
+    );
+  }
+
+  /** Retire a surface's lease on one pane. The lease always goes; the
+   *  element goes only when foliplus created it as the owner's own carrier
+   *  (a synthesized base pane, a marker-shadow pane, a canvas face pane) — an
+   *  adopted or caller-declared pane outlives its surface so the same id can
+   *  be registered again without rebuilding panes.
+   *
+   *  This is the one retirement entry: `releasePane(name, owner, true)` is
+   *  what deletes the DOM, and it holds the lease check first — a canvas
+   *  face whose booking was refused still names a pane, and an unchecked
+   *  teardown deleted that pane, which was the other surface's carrier,
+   *  while its lease kept pointing at the detached element. Every later
+   *  `writeZ`, focus and export then wrote into DOM that is no longer on
+   *  the map. Refused here instead.
+   *
+   *  No cache invalidation: the cache memoises what each layer's
    *  `options.pane` names, and destroying a pane div changes no layer's
-   *  options. Clearing on every teardown used to be the one place this policy
-   *  over-invalidated structure-wide for a single pane. */
-  removePane(paneName: string) {
+   *  options. Clearing on every teardown used to be the one place this
+   *  policy over-invalidated structure-wide for a single pane. */
+  releasePane(paneName: string, owner: string, removeDom: boolean): void {
+    const released = this.paneLedger.release(paneName, owner);
+    // The ledger answers all three cases (released / not-owner / absent), so
+    // the DOM decision rides on the same proof the lease check made: only an
+    // element this tree created for this owner is deleted.
+    if (released.status !== "released") return;
+    if (removeDom && released.created) this.destroyOwnPane(paneName);
+  }
+
+  /** Delete a pane element this tree created, and drop its spec record. Not
+   *  owner-checked: `releasePane` holds the lease check first, so "how a
+   *  pane goes away" has one answer. */
+  private destroyOwnPane(paneName: string): void {
     destroyPane(this.map, paneName);
     this.paneSpecs.delete(paneName);
   }
@@ -144,11 +365,25 @@ class PaneManager {
   /** Clear all pane state. Called by LayerController.destroy().
    *  The DOM is left alone: LayerController.destroy() clears the registry without
    *  removing the registered layers from the map, so they are still live —
-   *  deleting their panes would drop them off the map. */
-  destroy() {
+   *  deleting their panes would drop them off the map.
+   *
+   *  Idempotent: the first call retires this manager and bumps the discovery
+   *  generation; every later call still performs the clears (each is a no-op on
+   *  an already-empty index, and `ensurePane` stays usable — a lease booked
+   *  between two destroy calls is dropped too) but never bumps the generation
+   *  again. The terminal check at the end is the destroy end-state guard:
+   *  on a correct run it cannot throw, so a non-empty ledger at this point is
+   *  a defect and fails loudly instead of leaking into the next map
+   *  lifecycle. */
+  destroy(): void {
+    const first = !this.destroyed;
+    this.destroyed = true;
     this.discoveryCache.clear();
     this.paneSpecs.clear();
-    this.generation++;
+    this.paneLedger.clear();
+    this.childOwners.clear();
+    if (first) this.generation++;
+    this.paneLedger.assertEmpty("PaneManager.destroy");
   }
 
   /**
@@ -160,19 +395,28 @@ class PaneManager {
    * the steady-state ordering pass never builds it.
    *
    * The write contract on a third-party node's `options` is the one declared on
-   * `LabelAwareLayer`: `pane` and `renderer` (a Path only) — both Leaflet's own.
+   * `LabelAwareLayer`: `pane`, `renderer` (a Path only), and `shadowPane`
+   * (a Marker only) — all three Leaflet's own.
    */
   pinLateContent(
     layersToMove: Array<{
       layer: L.Layer;
       paneName: string | null;
       renderer: L.SVG | null;
+      /** The layer's own marker-shadow pane, when the surface synthesized one.
+       *  Absent leaves shadows wherever Leaflet put them — but a surface that
+       *  promises pane coverage must always pass one now (see
+       *  `LayerSurface.ensureShadowPane`). */
+      shadowPaneName?: string | null;
+      /** The surface that booked `shadowPaneName` — `options.shadowPane` is
+       *  only written when `leasedBy` confirms the lease is still its. */
+      owner: string;
     }>,
   ): void {
     if (!layersToMove.length) return;
     const groups = new Map<HTMLElement, HTMLElement[]>();
     const markerGroups = new Map<HTMLElement, HTMLElement[]>();
-    for (const { layer, paneName, renderer } of layersToMove) {
+    for (const { layer, paneName, renderer, shadowPaneName, owner } of layersToMove) {
       if (!paneName) continue;
       const container = getRendererContainer(renderer);
       if (!container) {
@@ -195,16 +439,40 @@ class PaneManager {
           return;
         }
         l.options.pane = paneName;
-        if (l instanceof L.Path) l.options.renderer = renderer ?? undefined;
+        // `container` was read off `renderer._container` (see the guard
+        // above), so the renderer is non-null here — the `renderer ??
+        // undefined` this replaces was a branch no test could reach.
+        if (l instanceof L.Path) l.options.renderer = renderer as L.SVG;
         const pathEl = l instanceof L.Path ? (l.getElement() as HTMLElement) : null;
         if (pathEl && pathEl.parentNode !== container) {
           groups.get(container)!.push(pathEl);
         }
-        if (l instanceof L.Marker && paneEl) {
+        if (l instanceof L.Marker) {
           const iconEl = l.getElement();
-          if (iconEl && iconEl.parentNode !== paneEl) {
+          if (paneEl && iconEl && iconEl.parentNode !== paneEl) {
             if (!markerGroups.has(paneEl)) markerGroups.set(paneEl, []);
             markerGroups.get(paneEl)!.push(iconEl);
+          }
+          // The shadow follows the icon off the shared `shadowPane`, into the
+          // surface's own shadow pane — the write that makes pane opacity /
+          // visibility / focus cover the marker's full visible DOM. Leaflet
+          // re-reads `options.shadowPane` at every `_initIcon`, so the write
+          // also keeps a later `setIcon` re-creation inside the layer's pane.
+          // The lease check stays on the write itself: a name alone is not
+          // ownership, so a refused or already-leased shadow pane can never be
+          // pointed at here.
+          if (paneEl && shadowPaneName && this.leasedBy(shadowPaneName, owner)) {
+            l.options.shadowPane = shadowPaneName;
+            // Back to the L.Layer view: the instanceof above narrows to
+            // Marker, whose @types declaration holds `_shadow` protected —
+            // the probe reads it structurally, like every other internals
+            // reach.
+            const shadowEl = layerShadow(l as L.Layer);
+            const shadowPaneEl = this.map.getPane(shadowPaneName);
+            if (shadowEl && shadowPaneEl && shadowEl.parentNode !== shadowPaneEl) {
+              if (!markerGroups.has(shadowPaneEl)) markerGroups.set(shadowPaneEl, []);
+              markerGroups.get(shadowPaneEl)!.push(shadowEl);
+            }
           }
         }
         // A GridLayer (TileLayer included) paints through its own container
@@ -226,6 +494,26 @@ class PaneManager {
             markerGroups.get(paneEl)!.push(tileContainer);
           }
         }
+        // ImageOverlay (VideoOverlay included) paints through its own <img>,
+        // which Leaflet appends to `options.pane` once at addLayer — the same
+        // read-once contract as the GridLayer branch, with the same
+        // consequence: an image that joined the map before the pin stays in
+        // the shared `overlayPane`, invisible to the surface's z ladder
+        // (LayerSurface.setZ writes the panes, not the layer) and to every
+        // pane-scoped focus rule. Same fix, symmetric branch. The typeof
+        // guard keeps a stripped Leaflet mock (no ImageOverlay) from throwing
+        // on `instanceof undefined`, like the GridLayer check above.
+        if (
+          typeof L.ImageOverlay !== "undefined" &&
+          l instanceof L.ImageOverlay &&
+          paneEl
+        ) {
+          const image = (l as L.ImageOverlay & { _image?: HTMLElement | null })._image;
+          if (image && image.parentNode !== paneEl) {
+            if (!markerGroups.has(paneEl)) markerGroups.set(paneEl, []);
+            markerGroups.get(paneEl)!.push(image);
+          }
+        }
       };
       collect(layer);
     }
@@ -235,12 +523,54 @@ class PaneManager {
       for (const p of paths) frag.appendChild(p);
       container.appendChild(frag);
     }
+    // No empty-array guard here, unlike the `groups` loop above: every
+    // `markerGroups` entry is created together with its first element, so
+    // the array is never empty. A guard would be a branch no test can reach.
     for (const [paneEl, markers] of markerGroups) {
-      if (!markers.length) continue;
       const frag = document.createDocumentFragment();
       for (const m of markers) frag.appendChild(m);
       paneEl.appendChild(frag);
     }
+  }
+
+  /** Relocate only the marker shadows of a tree into the layer's shadow pane
+   *  and write `options.shadowPane` — the declared-container counterpart of
+   *  `pinLateContent`'s marker branch.
+   *
+   *  A declared-pane surface does NOT repin its container's children: the
+   *  leaves' pane assignment belongs to whoever declared them (`createLayers`),
+   *  and a full re-pin would collapse every leaf onto the base pane. Shadows
+   *  are the one exception — they carry no pane assignment of their own and
+   *  must ride the layer's shadow carrier for the pane-write invariant to
+   *  hold, so this walk moves them without touching icon / path placement.
+   *  A leaf already inside the shadow pane is left alone (idempotent, like
+   *  every pin), and `options.shadowPane` keeps a later `setIcon` inside.
+   *
+   *  @param shadowPaneName - The surface's shadow pane; must exist (the
+   *    surface materialized it) and still be leased by `owner` — a null,
+   *    missing, or no-longer-ours pane skips the move rather than guessing a
+   *    destination.
+   *  @param owner - The surface that booked `shadowPaneName`. `options.shadowPane`
+   *    is a write, so it is gated on the lease the same way `pinLateContent`'s
+   *    marker branch gates it. */
+  pinLateShadows(layer: L.Layer, shadowPaneName: string | null, owner: string): void {
+    if (!shadowPaneName || !this.leasedBy(shadowPaneName, owner)) return;
+    const shadowPaneEl = this.map.getPane(shadowPaneName);
+    if (!shadowPaneEl) return;
+    // Collect, then move once: a group with N un-shadowed markers used to
+    // append N times into the pane div, and this runs from `materialize` — on
+    // the register path. One fragment is one append instead of N.
+    const toMove: HTMLElement[] = [];
+    walkLeaf(layer, leaf => {
+      if (!(leaf instanceof L.Marker)) return;
+      leaf.options.shadowPane = shadowPaneName;
+      const shadowEl = layerShadow(leaf as L.Layer);
+      if (shadowEl && shadowEl.parentNode !== shadowPaneEl) toMove.push(shadowEl);
+    });
+    if (!toMove.length) return;
+    const frag = document.createDocumentFragment();
+    for (const el of toMove) frag.appendChild(el);
+    shadowPaneEl.appendChild(frag);
   }
 
   /** Invalidate the child-pane discovery cache — structure-wide, either way.
@@ -269,7 +599,15 @@ class PaneManager {
       }
     }
     for (const name of this.paneSpecs.keys()) {
-      if (!used.has(name)) this.paneSpecs.delete(name);
+      if (used.has(name)) continue;
+      // The spec record and the lease go out together: `destroy` already
+      // retires every lease a surface acquired, but this sweep is the only
+      // point that deletes a record by name. Leaving a live lease behind
+      // would keep the name unacquirable for a later surface that adopts
+      // the same name the author still intends.
+      const held = this.paneLedger.get(name);
+      if (held) this.releasePane(name, held.owner, false);
+      this.paneSpecs.delete(name);
     }
   }
 
@@ -294,10 +632,22 @@ class PaneManager {
         log.warn(`PaneSpec.name rejected for injection safety: ${String(spec.name)}`);
         continue;
       }
-      if (!Object.values(CONST.PANE_ROLE).includes(spec.role)) {
+      if (this.defaultPanes.has(spec.name)) {
+        // Same degradation as the injection gate: a spec naming one of
+        // Leaflet's shared panes would let `ensurePane` adopt that pane and
+        // every layer-carrier write on it (z, opacity, focus classes) style
+        // the whole map. Skip the spec — the surface's own synthesis gives
+        // the layer a pane that is provably its own.
         log.warn(
-          `PaneSpec.role rejected (unknown value "${String(spec.role)}"); ` +
-            `keeping the spec but falling back to "base"`,
+          `PaneSpec.name rejected ("${spec.name}" is one of Leaflet's shared ` +
+            `panes); the layer gets its own synthesized pane instead`,
+        );
+        continue;
+      }
+      if (!CONST.DECLARED_PANE_ROLES.includes(spec.role)) {
+        log.warn(
+          `PaneSpec.role rejected ("${String(spec.role)}" is not a declared ` +
+            `role); keeping the spec but falling back to "base"`,
         );
         this.paneSpecs.set(spec.name, {
           ...spec,
@@ -414,6 +764,59 @@ class PaneManager {
 
   isDefaultPane(pane: string): boolean {
     return this.defaultPanes.has(pane) || pane.startsWith(CONST.FALLBACK_PANE_PREFIX);
+  }
+
+  /** Write-side gate for Leaflet's shared panes — every pane-style write
+   *  (opacity, z-index, focus classes) must land on a pane the layer stack
+   *  owns.
+   *
+   *  A write that reaches `shadowPane` / `markerPane` / `overlayPane` /
+   *  `tilePane` styles every other layer on the map at once: fading the
+   *  shared shadowPane drops the shadows of all marker layers together, and
+   *  lifting or classing a shared pane rewrites the whole map's stacking.
+   *  That is the exact failure class the marker-shadow carrier fix exists to
+   *  close, so the resolve-by-name write sites call this before touching
+   *  `style` / `classList`, and a shared name throws rather than corrupting
+   *  the map — a shared-pane write is always a bug in the caller's carrier
+   *  model, never a value to clamp.
+   *
+   *  Deliberately `defaultPanes.has`, NOT `isDefaultPane`: the fallback family
+   *  (`foliplus-pane-*`) is the surface's own synthesized carrier — one pane
+   *  per layer, safe to write — while `isDefaultPane` also answers for it
+   *  (discovery uses that to exclude our own panes). Only Leaflet's shared
+   *  panes are refused here.
+   *
+   *  Leaflet's own UI panes are not wholly off-limits: the focus ladder lifts
+   *  `markerPane` / `tooltipPane` / `popupPane` deliberately (focus/pane.ts
+   *  `liftZ`, a temporary z write with restore), and the ordering pass prices
+   *  the same three panes. Those are native-pane *ladder* writes, not
+   *  layer-carrier writes — they intentionally bypass this gate. */
+  assertOwnedPane(paneName: string): void {
+    if (this.defaultPanes.has(paneName)) {
+      throw new Error(this.sharedPaneRejection(paneName));
+    }
+    if (!this.paneLedger.get(paneName)) {
+      // A name outside the shared list but with no claim on file is exactly
+      // the co-writing case: two surfaces adopting the same custom-named pane
+      // would both pass a name-only check and style each other's content.
+      throw new Error(
+        log.msg(
+          `refusing a layer-style write on unclaimed pane "${paneName}": no ` +
+            `surface on this map claimed it as its exclusive carrier`,
+        ),
+      );
+    }
+  }
+
+  /** The shared-pane rejection message, shared by the write gate and the
+   *  declaration gate so both sides warn identically. */
+  private sharedPaneRejection(paneName: string): string {
+    return log.msg(
+      `refusing a layer-style write on shared pane "${paneName}": the pane ` +
+        `does not belong to one layer. Resolve the layer's own pane ` +
+        `(LayerSurface.panes) instead — a write here would style every ` +
+        `layer on the map.`,
+    );
   }
 
   /** Find the panes a layer's content names in its own tree — the panes this

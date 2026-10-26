@@ -914,10 +914,10 @@ describe("ExportRenderer.render — layer pass routing", () => {
         cb(1);
       },
     );
-    const markers = spy("collectLayerMarkers");
-    // render() reads collectLayerMarkers' return value to decide whether the
-    // marker passes run, so an empty stub keeps them out of this test's scope.
-    markers.mockResolvedValue([] as any);
+    const markers = spy("collectPaneRoots");
+    // render() reads the sweep's return value to decide whether the marker
+    // passes run, so an empty stub keeps them out of this test's scope.
+    markers.mockReturnValue([] as any);
     const markerPasses = spy("renderMarkers");
     const iconPasses = spy("renderFontAwesome");
     const textPasses = spy("renderTextLabels");
@@ -930,7 +930,8 @@ describe("ExportRenderer.render — layer pass routing", () => {
     expect(paneSVG).toHaveBeenCalledWith(expect.anything(), roots);
     expect(paneCanvas).toHaveBeenCalledWith(expect.anything(), roots);
     expect(getLayerPanes).toHaveBeenCalledWith(vector);
-    expect(markers).toHaveBeenCalledWith(vector);
+    // The sweep runs over the resolved content panes, not the raw API list.
+    expect(markers).toHaveBeenCalledWith(["vector-pane"]);
     expect(markerPasses).not.toHaveBeenCalled();
     expect(iconPasses).not.toHaveBeenCalled();
     expect(textPasses).not.toHaveBeenCalled();
@@ -977,8 +978,8 @@ describe("ExportRenderer.render — layer pass routing", () => {
   });
 
   it("runs the four marker passes when the layer's panes hold markers", async () => {
-    // The pane passes do not own marker DOM: collectLayerMarkers strips canvas
-    // and svg from the pane and the four marker passes draw whatever is left.
+    // The pane passes do not own marker DOM: the sweep strips canvas and svg
+    // from the pane and the four marker passes draw whatever is left.
     // Leaving it empty would silently skip all four, so the assertion is that
     // the panes are scanned and the markers survive the sweep.
     const paneSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -999,9 +1000,8 @@ describe("ExportRenderer.render — layer pass routing", () => {
     const roots = document.createElement("div");
     roots.appendChild(paneSvg);
     roots.appendChild(markerEl);
-    // The real filter strips svg by tag name, not by selector: jsdom reports
-    // tagName as "svg" in lower case, so the SVG check misses and the pane
-    // element would otherwise be swept in as a marker.
+    // The sweep strips svg by namespace; the opt-out is a second, independent
+    // exclusion carrier, so the root must stay out whichever path runs.
     paneSvg.setAttribute("data-foliplus-export", "exclude");
 
     const vector = { options: {} };
@@ -1018,12 +1018,12 @@ describe("ExportRenderer.render — layer pass routing", () => {
     );
 
     const proto = ExportRenderer.prototype as any;
-    // The real collectLayerMarkers is used on purpose: it is the filter that
-    // decides these passes run at all.  Everything it feeds is stubbed, so the
-    // panes are scanned without fetching or drawing in jsdom.
+    // The real sweep is used on purpose: it is the filter that decides these
+    // passes run at all.  Everything it feeds is stubbed, so the panes are
+    // scanned without fetching or drawing in jsdom.
     vi.spyOn(proto, "renderPaneSVG").mockResolvedValue(undefined);
     vi.spyOn(proto, "renderPaneCanvas").mockResolvedValue(undefined);
-    const markers = vi.spyOn(proto, "collectLayerMarkers");
+    const markers = vi.spyOn(proto, "collectPaneRoots");
     const markerPasses = vi.spyOn(proto, "renderMarkers").mockResolvedValue(undefined);
     const iconPasses = vi
       .spyOn(proto, "renderFontAwesome")
@@ -1048,8 +1048,9 @@ describe("ExportRenderer.render — layer pass routing", () => {
     expect(textPasses.mock.calls[0][1]).toBe(rootsArg);
     expect(remainingPasses.mock.calls[0][1]).toBe(rootsArg);
     // The collected element is the one that is NOT the svg pane: the sweep
-    // skipped the svg even though it sits first in the pane.
-    expect(markers.mock.results[0].value).toHaveLength(1);
+    // skipped the svg even though it sits first in the pane. The shadow sweep
+    // runs first and finds nothing here, so the marker sweep is the last call.
+    expect(markers.mock.results.at(-1)!.value).toHaveLength(1);
     // No tile layer, so the range opens at 71 and the one entry closes it.
     expect(onProgress.mock.calls.map(call => call[0])).toEqual([71, 90]);
   });
@@ -1073,7 +1074,7 @@ describe("ExportRenderer.render — layer pass routing", () => {
     const proto = ExportRenderer.prototype as any;
     const paneSVG = vi.spyOn(proto, "renderPaneSVG");
     const paneCanvas = vi.spyOn(proto, "renderPaneCanvas");
-    const markers = vi.spyOn(proto, "collectLayerMarkers");
+    const markers = vi.spyOn(proto, "collectPaneRoots");
     vi.spyOn(proto, "renderTileLayer").mockResolvedValue(undefined);
 
     const onProgress = vi.fn();
@@ -1081,7 +1082,7 @@ describe("ExportRenderer.render — layer pass routing", () => {
 
     expect(paneSVG).not.toHaveBeenCalled();
     expect(paneCanvas).not.toHaveBeenCalled();
-    expect(markers).toHaveBeenCalledWith(vector);
+    expect(markers).toHaveBeenCalledWith(["gone-pane"]);
     // No visible tile layer: 71 opens the layer range, and the single entry
     // closes it at 90 even though its pane was missing.
     expect(onProgress.mock.calls.map(call => call[0])).toEqual([71, 90]);

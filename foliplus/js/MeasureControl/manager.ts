@@ -18,6 +18,7 @@ import {
 } from "#core/leaflet/index.js";
 import { type ModeManager, ensureModes, guardBlocked } from "#core/mode.js";
 import type { ControlEnv } from "#core/type.js";
+import { finalize, finalizeEach } from "#common/finalize.js";
 import { throttleRaf } from "#common/throttle.js";
 import type { Logger } from "#common/type.js";
 import { mapProjector, placeLabels } from "./collision.js";
@@ -427,9 +428,20 @@ class MeasureManager {
   }
 
   /** Run every handle's dispose, then clear the map. Iterating a snapshot keeps
-   *  handles that dispose() detaches from mid-walk from leaking. */
+   *  handles that dispose() detaches from mid-walk from leaking — and each
+   *  dispose is isolated, so one failing handle cannot leave the rest bound to
+   *  the map after the control is gone. A failed dispose leaves a map-click
+   *  listener attached to a removed control, so it must be logged rather than
+   *  dropped on the floor. */
   private disposeAllHandles() {
-    [...this.editHandles.values()].forEach(h => h.dispose());
+    const handles = [...this.editHandles.entries()];
+    finalizeEach(
+      handles,
+      ([, handle]) => handle.dispose(),
+      ([key]) => `handle:${key}`,
+      failure =>
+        this.log.warn(`disposeAllHandles step "${failure.name}" threw`, failure.error),
+    );
     this.editHandles.clear();
   }
 
@@ -703,23 +715,37 @@ class MeasureManager {
    *  control removal and must not wipe localStorage (only an explicit
    *  user action may drop saved data). */
   private clearTransientState() {
-    this.layers.clearLayers();
-    this.clearActiveMode();
-    // Run each handle's dispose to unbind its map-click listener; clearLayers
-    // above removed the targets, so dangling listeners would otherwise persist.
-    this.disposeAllHandles();
+    finalize(
+      [
+        ["clear-layers", () => this.layers.clearLayers()],
+        ["clear-active-mode", () => this.clearActiveMode()],
+        // Run each handle's dispose to unbind its map-click listener; clearLayers
+        // above removed the targets, so dangling listeners would otherwise persist.
+        ["dispose-handles", () => this.disposeAllHandles()],
+        // Unbinding the map events guarantees no plan fires after the call.
+        ["unbind-label-events", () => this.unbindLabelMapEvents()],
+        // Collapse the panel after clearing all measurements
+        [
+          "collapse-panel",
+          () => {
+            if (!this.ctrl) return;
+            this.ctrl.classList.remove(CONST.CLASSES.EXPANDED);
+            this.ctrl.classList.add(CONST.CLASSES.COLLAPSED);
+            adjustPanelZIndex({ container: this.ctrl, expanded: false });
+          },
+        ],
+      ],
+      failure =>
+        this.log.warn(
+          `clearTransientState step "${failure.name}" threw`,
+          failure.error,
+        ),
+    );
     // Safety net: each measurement's dispose (run above) drains its labels
     // through the unregister, but clearing the array here is O(1) insurance
-    // against a measurement that skips its dispose, and unbinding the map
-    // events guarantees no plan fires after the call.
+    // against a measurement that skips its dispose. It cannot throw, so it is a
+    // reset, not a step.
     this.collidableLabels = [];
-    this.unbindLabelMapEvents();
-    // Collapse the panel after clearing all measurements
-    if (this.ctrl) {
-      this.ctrl.classList.remove(CONST.CLASSES.EXPANDED);
-      this.ctrl.classList.add(CONST.CLASSES.COLLAPSED);
-      adjustPanelZIndex({ container: this.ctrl, expanded: false });
-    }
   }
 
   /** Clear all measurements, layers, and persisted data. Called only by the
@@ -741,18 +767,30 @@ class MeasureManager {
    *  restoreMeasurements). clearAll() would wipe the saved list here, losing
    *  everything the user had — hence the split above. */
   destroy() {
-    if (this.offModeChange) this.offModeChange();
-    if (this.offLayerRemoved) this.offLayerRemoved();
-    if (this.offLayerDeleted) this.offLayerDeleted();
-    this.map.off("unload", this.onUnload);
-    this.scheduleLabelPlan.cancel();
-    this.clearTransientState();
-    this.hideCoordReadout();
-    this.coordReadoutEl?.remove();
+    finalize(
+      [
+        ["off-mode-change", () => this.offModeChange?.()],
+        ["off-layer-removed", () => this.offLayerRemoved?.()],
+        ["off-layer-deleted", () => this.offLayerDeleted?.()],
+        ["detach-unload", () => this.map.off("unload", this.onUnload)],
+        ["cancel-label-plan", () => this.scheduleLabelPlan.cancel()],
+        ["clear-transient", () => this.clearTransientState()],
+        ["hide-coord-readout", () => this.hideCoordReadout()],
+        [
+          "remove-coord-readout",
+          () => {
+            this.coordReadoutEl?.remove();
+          },
+        ],
+        ["interaction-cleanup", () => this.interactionCleanup?.()],
+        ["export-click-cleanup", () => this.exportClickCleanup?.()],
+        ["detach-click", () => this.map.off("click", this.onMapClick)],
+      ],
+      failure => this.log.warn(`destroy step "${failure.name}" threw`, failure.error),
+    );
+    // Plain reset: the element is gone either way, and a failed step must not
+    // leave the manager holding a detached node.
     this.coordReadoutEl = null;
-    this.interactionCleanup?.();
-    this.exportClickCleanup?.();
-    this.map.off("click", this.onMapClick);
   }
 
   /**
@@ -781,9 +819,13 @@ class MeasureManager {
    * entry and clobber the persisted order.
    */
   bindLayerDeleted() {
-    this.offLayerDeleted = this.events.on(EVENTS.LAYER_DELETED, ({ id }) => {
-      if (id === this.layerId) this.clearAll();
-    });
+    this.offLayerDeleted = this.events.on(
+      EVENTS.LAYER_DELETED,
+      ({ id }) => {
+        if (id === this.layerId) this.clearAll();
+      },
+      "internal",
+    );
   }
 
   /** Clean up current mode instance and hide hints. */

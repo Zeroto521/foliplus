@@ -31,7 +31,7 @@ from .helper import _expand_panel, _geo_mixed, _tiny_png, _write_html
 
 # ── pane-surface probe ─────────────────────────────────────────────────
 #
-# Test-only suite: measures the four facts the LayerSurface refactor (R3+)
+# Test-only suite: measures the four facts the LayerSurface refactor
 # relies on, against the real Leaflet/folium DOM. No product code is
 # changed here. Each method locks in a *measured* behavior so a later
 # Leaflet/folium/plugin upgrade that invalidates a design assumption
@@ -77,11 +77,11 @@ class TestLayerPaneRegisterBrowser:
         page.evaluate(_js("LayerControl/set_probe"), spec)
         return page.evaluate(_js("LayerControl/probe_pane_facts"))
 
-    # ── R3: materialize at registration (I1 / I2) ──────────────────
+    # ── Materialize at registration ───────────────────────────────
 
     def test_register_materializes_pane_before_add(self, browser, tmp_path):
-        """I1: after ``registerLayer`` returns — and *before* any ordering pass —
-        the content already sits in the layer's own pane.
+        """The pane exists: after ``registerLayer`` returns — and *before* any
+        ordering pass — the content already sits in the layer's own pane.
 
         The probe deliberately calls no ``enforceOrder``: the claim is that the
         pane is decided before the layer joins the map, not that a later pass
@@ -94,32 +94,41 @@ class TestLayerPaneRegisterBrowser:
         ):
             r = page.evaluate(_js("LayerControl/register_immediate_pane"))
         assert r is not None, "LayerAPI missing"
-        assert len(r["declared"]) == 1, r
+        # A marker-bearing layer synthesizes its own shadow pane alongside the
+        # base pane, so the pane set is two names — base first, shadow below.
+        assert len(r["declared"]) == 2, r
         pane = r["declared"][0]
         assert pane.startswith("foliplus-pane-"), r
+        assert r["declared"][1] == f"{pane}-shadow", r
         assert r["iconPane"] == pane, r
         assert r["pathPane"] == pane, r
+        assert r["shadowPane"] == f"{pane}-shadow", r
         assert r["shared"] is False, r
         assert r["leafPaneSet"] is True, r
         assert not errors, f"JS errors: {errors}"
 
     def test_register_rebuilds_surface_for_same_container(self, browser, tmp_path):
-        """I2: re-registering the same container keeps one pane set, and content
-        added in between lands in it too."""
+        """One pane set: re-registering the same container keeps one pane set,
+        and content added in between lands in it too."""
         with use_page(self._probe, browser, tmp_path, slug="p_rebuild") as (
             page,
             errors,
         ):
             r = page.evaluate(_js("LayerControl/register_rebuilds_surface"))
         assert r is not None, "LayerAPI missing"
-        assert len(r["before"]) == 1, r
+        # The pane set is the base pane plus the marker layer's shadow pane.
+        assert len(r["before"]) == 2, r
         assert r["before"][0].startswith("foliplus-pane-"), r
+        assert r["before"][1] == f"{r['before'][0]}-shadow", r
         # The pane set did not change across the re-registration...
         assert r["after"] == r["before"], r
         # ...and both markers render into it: the one from before, and the one
-        # added just before the re-registration.
+        # added just before the re-registration. Their shadows ride the layer's
+        # shadow pane, not the shared one.
         assert r["firstMarkerPane"] == r["before"][0], r
         assert r["secondMarkerPane"] == r["before"][0], r
+        assert r["firstShadowPane"] == r["before"][1], r
+        assert r["secondShadowPane"] == r["before"][1], r
         assert r["rowCount"] == 1, r
         assert not errors, f"JS errors: {errors}"
 
@@ -222,9 +231,12 @@ class TestLayerPaneRegisterBrowser:
         assert r["reached"] is True  # via the shared overlayPane only
         assert r["setOptions"] == "function"  # minOpacity settable at runtime
 
-    def test_probe_image_overlay_overlay_pane(self, browser, tmp_path):
-        """#5 ImageOverlay: ``<img>`` stays in overlayPane (pinLateContent
-        only moves Path elements + Marker icons); setOpacity is immediate."""
+    def test_probe_image_overlay_layer_pane(self, browser, tmp_path):
+        """#5 ImageOverlay: the ``<img>`` is relocated into the layer's own
+        pane — pinLateContent moves it like a GridLayer's container, so pane
+        z ordering and the pane-scoped focus rules reach it, and a pane
+        opacity write no longer touches the shared ``overlayPane``.
+        ``setOpacity`` stays immediate on the ``<img>``."""
         from folium.raster_layers import ImageOverlay
 
         img = ImageOverlay(_tiny_png, [[26.0, 119.2], [26.2, 119.4]], name="Img")
@@ -233,9 +245,10 @@ class TestLayerPaneRegisterBrowser:
             _,
         ):
             r = self._facts(page, {"id": img.get_name(), "native": "img-setopacity"})
-        assert r["homes"][0]["pane"] == "overlayPane"
-        assert r["homes"][0]["shared"] is True
-        assert r["css"]["shared"] is True  # would fade all overlay content
+        assert r["homes"][0]["pane"].startswith("foliplus-pane-"), r
+        assert r["homes"][0]["shared"] is False
+        assert r["css"]["shared"] is False  # a pane write no longer fades overlayPane
+        assert r["css"]["reached"] is True  # ...and it does reach the image
         assert r["native"]["eff"] == 0.4  # setOpacity immediate on the <img>
 
     def test_probe_third_party_featuregroup_unregistered(self, browser, tmp_path):

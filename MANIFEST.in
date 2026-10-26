@@ -3,6 +3,7 @@
 # in the Makefile). Pruning it would make an sdist install a package that
 # renders maps with no controls.
 prune .github
+prune config
 prune doc
 prune foliplus/css
 prune foliplus/js
@@ -19,7 +20,6 @@ exclude .prettierrc.cjs
 exclude .readthedocs.yaml
 exclude codecov.yaml
 exclude eslint.config.js
-exclude eslint.config.type.js
 exclude Makefile
 exclude package.json
 exclude tsconfig.json

@@ -174,6 +174,37 @@ describe("HintManager", () => {
     expect(mgr.hintMap.size).toBe(0);
   });
 
+  it("destroy keeps detaching after a node that refuses to be removed", () => {
+    const mgr = new HintManager();
+    mgr.showHint("a", "one", 0);
+    mgr.showHint("b", "two", 0);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const detach = vi.spyOn(document, "removeEventListener");
+    const stuck = mgr.hintMap.get("a")!.element;
+    const healthy = mgr.hintMap.get("b")!.element;
+    stuck.remove = () => {
+      throw new Error("node stuck");
+    };
+
+    expect(() => mgr.destroy()).not.toThrow();
+
+    // The failure is named, the other hint still goes, and the listener and
+    // the module-level registration are released regardless.
+    expect(warn).toHaveBeenCalledWith(
+      '[Hint] destroy step "hint:a" threw',
+      expect.any(Error),
+    );
+    // The stuck node is the one failure left standing; everything else in the
+    // teardown still ran.
+    expect(stuck.isConnected).toBe(true);
+    expect(healthy.isConnected).toBe(false);
+    expect(mgr.hintMap.size).toBe(0);
+    expect(detach).toHaveBeenCalledWith("fullscreenchange", expect.any(Function));
+    const sync = vi.spyOn(mgr, "syncIcons");
+    registerHintIcon("after_destroy", '<svg viewBox="0 0 8 8"></svg>');
+    expect(sync).not.toHaveBeenCalled();
+  });
+
   it("migrates hints to the fullscreen element on fullscreenchange", () => {
     const mgr = new HintManager();
     mgr.showHint("key", "hello", 0);

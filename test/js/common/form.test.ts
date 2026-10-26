@@ -190,6 +190,37 @@ describe("bindLiveNumber / bindLiveColor", () => {
     expect(onCommit).toHaveBeenLastCalledWith(11);
   });
 
+  it("normalizes a parsed value before the bounds check and the commit", () => {
+    // The bounds check and the commit both run on the shaped value, so a
+    // whole-number field cannot persist a fraction it will round on the next
+    // read.
+    const input = document.createElement("input");
+    input.type = "number";
+    const onCommit = vi.fn();
+    bindLiveNumber(input, {
+      min: 1,
+      max: 64,
+      fallback: 10,
+      normalize: Math.round,
+      onCommit,
+    });
+
+    input.value = "30.5";
+    input.dispatchEvent(new Event("input"));
+    expect(onCommit).toHaveBeenCalledWith(31);
+
+    input.value = "30.5";
+    input.dispatchEvent(new Event("change"));
+    expect(input.value).toBe("31");
+    expect(onCommit).toHaveBeenLastCalledWith(31);
+
+    // A value that rounds below the floor is clamped, not committed as-is.
+    input.value = "0.4";
+    input.dispatchEvent(new Event("change"));
+    expect(input.value).toBe("1");
+    expect(onCommit).toHaveBeenLastCalledWith(1);
+  });
+
   it("commits color on every input", () => {
     const input = document.createElement("input");
     input.type = "color";

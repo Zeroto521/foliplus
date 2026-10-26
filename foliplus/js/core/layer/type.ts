@@ -62,9 +62,11 @@ interface LayerCarrier {
   custom?: unknown;
 }
 
-/** What a layer's surface can actually be asked to do, computed once at
- *  materialization by `LayerSurface` (which alone knows the panes it owns and
- *  the shape of its content — runtime probes pin each value).
+/** What a layer's surface can actually be asked to do, resolved by
+ *  `LayerSurface` (which alone knows the panes it owns and the shape of its
+ *  content). The object's identity is stable; its tree-backed slots are
+ *  re-derived on every audit, because a capability is a projection of the
+ *  current tree — not a fact frozen at registration.
  *
  *  Read-only on `LayerInfo` as a projection, never persisted: a caller-supplied
  *  `capabilities` in `RegisterLayerOpts` would let a third party claim support
@@ -82,7 +84,7 @@ interface LayerCapabilities {
    *      without a fill), Marker, canvas, MarkerCluster, and native setter
    *      surfaces (ImageOverlay / GridLayer) all fall out.
    *
-   *  Same probe-and-cache contract as `stroke`. */
+   *  Probe-derived and re-read on each audit — same contract as `stroke`. */
   fill: "native" | "none";
   /** Whether the layer's tree has a write carrier for stroke (border):
    *    - "native" — a `setStyle` leaf exists in the tree (a Path-family
@@ -92,10 +94,25 @@ interface LayerCapabilities {
    *      non-vector surface (canvas, color basemap, MarkerCluster, native
    *      ImageOverlay / GridLayer) have no vector stroke axis.
    *
-   *  Probe-derived, cached per surface. The probe result is part of
-   *  `SurfaceDeclaration`, so a change in the tree's shape triggers a
-   *  rebuild through `matches`. */
+   *  Probe-derived and re-read on each audit (`refreshCapabilities`).
+   *  Deliberately NOT part of the face identity: a tree change updates the
+   *  projection instead of rebuilding the surface, so a degraded capability
+   *  can recover on a later audit. */
   stroke: "native" | "none";
+  /** Whether the layer's tree has a write carrier for size — a fixed pixel
+   *  radius:
+   *    - "native" — a `getRadius` leaf with a numeric `_radius` exists
+   *      (`L.CircleMarker`). The write walks `eachLayer` and calls `setRadius`
+   *      per leaf.
+   *    - "none"   — no pixel-radius leaf. `L.Circle` is excluded on purpose:
+   *      its radius is in metres (`_mRadius`), so one shared px row could not
+   *      write both without inventing a unit for one of them. Polyline,
+   *      Marker, canvas, MarkerCluster, the color basemap and the native
+   *      setter surfaces (ImageOverlay / GridLayer) also fall out.
+   *
+   *  Probe-derived and re-read on each audit — same contract as `stroke` /
+   *  `fill`. */
+  size: "native" | "none";
   /** How the layer's opacity is written:
    *    - "native" — the layer owns its own setter (`ImageOverlay.setOpacity`,
    *      `TileLayer.options.opacity`). Immediate and correct; the UI reads/writes
@@ -104,7 +121,8 @@ interface LayerCapabilities {
    *      children take one CSS write on the pane; self-drawn canvases bake
    *      layerAlpha into their draws (R11, `#common/canvasAlpha`) so a large
    *      canvas does not force a GPU composite buffer. The tier still reports
-   *      `"pane"` — a `"baked"`/`"redraw"` mechanism tier is owned by T222.
+   *      `"pane"` — a `"baked"`/`"redraw"` mechanism tier belongs to a separate
+   *      capabilities concern.
    *    - "none"   — no honest carrier exists. MarkerCluster's cluster icons stay
    *      in the shared `markerPane` where `eachLayer` cannot reach them, so a
    *      pane write would fade the individual markers but not the cluster —
@@ -146,7 +164,7 @@ interface LayerCapabilities {
    *  the pane itself are one fact and can never disagree — and a
    *  re-registration whose tree gained or lost labelable content re-probes
    *  there, changing the declared specs, which rebuilds the surface through
-   *  `matches` (the fill / stroke probe's path). */
+   *  `matches` — the declaration changed, not merely a capability. */
   annotation: "pane" | "none";
   /** Whether the surface can be z-reordered by our own mechanism. Today every
    *  materialized surface can; the field is declared so a later carrier that
@@ -252,6 +270,13 @@ interface RegisterLayerOpts {
    *  the returned object override the static `meta` (dynamic wins, static is
    *  fallback). */
   metaProvider?: (() => Record<string, string | number>) | null;
+  /** @internal One-shot commit sink installed by LayerFactory on its own
+   *  registration options. The registration's registry write point reports the
+   *  exact `LayerInfo` it committed through it, before any post-commit step
+   *  (materialize, pane wiring, notification fan-out) can fail, so the
+   *  factory's rollback can drop that entry by identity rather than by bare
+   *  id. Not part of the public registration contract. */
+  onCommitted?: ((entry: LayerInfo) => void) | null;
 }
 
 /** A layer entry in the ordered registry (read-only view). */
@@ -319,10 +344,13 @@ interface LayerInfo {
 /** Leaflet layer with a custom `isLabel` flag (foliplus adds it).
  *
  *  Write contract for a third-party layer's `options` — the exact write set
- *  is `pane` and `renderer`; nothing else:
- *    - Both are Leaflet's own, and the two a correct draw position actually
- *      needs (Leaflet reads `pane` only at attach time and ignores a group's
- *      for its children, so both must be written to survive a re-attach).
+ *  is `pane`, `renderer` (a Path only), and `shadowPane` (a Marker only) —
+ *  nothing else:
+ *    - All three are Leaflet's own, and the ones a correct draw position
+ *      actually needs (Leaflet reads `pane` only at attach time and ignores a
+ *      group's for its children, so both must be written to survive a
+ *      re-attach; `shadowPane` is re-read at every `_initIcon`, so writing it
+ *      keeps a later `setIcon` inside the layer's own shadow pane).
  */
 interface LabelAwareLayer extends L.Layer {
   isLabel?: boolean;
@@ -409,9 +437,11 @@ interface LayerSurface {
    *  consulted for ordinary data layers. `invalidate()` drops the cache; the
    *  next call re-probes. */
   geometryType: () => string | null;
-  /** Drop the cached geometry type. Called by the manager whenever the
-   *  layer's content can change (createLayers add/remove/clear, runtime
-   *  layeradd) so the next read re-probes. */
+  /** Drop the cached geometry type and carrier probe, and mark the surface
+   *  content-dirty. Called by the manager whenever the layer's content can
+   *  change (createLayers add/remove/clear, runtime layeradd) so the next
+   *  read re-probes and the next `materialize()` re-pins and re-derives
+   *  capabilities — the hook that lets a degrade recover. */
   invalidate: () => void;
   /** Write the layer's position-based base z onto every pane it paints into,
    *  adding each pane's own draw offset.
@@ -883,6 +913,15 @@ interface LayerSnapshot {
   readonly ranges: Readonly<Record<string, readonly [number, number]>>;
 }
 
+/** What a registration actually did to the registry — the content-vs-placement
+ *  split consumers (controller events, UI rows, the future folder tree) key
+ *  on. Without folders, placement is the registry index and the kinds are
+ *  insert / content-replace; a retirement announces through the settled
+ *  operation instead, so no remove kind exists yet. */
+type LayerMutation =
+  | { kind: "insert"; entry: LayerInfo; index: number }
+  | { kind: "replace-content"; previous: LayerInfo; entry: LayerInfo; index: number };
+
 export type {
   CreateCanvasAPI,
   CreateCanvasOpts,
@@ -897,6 +936,7 @@ export type {
   LayerKind,
   LayerCapabilities,
   LayerInfo,
+  LayerMutation,
   LayerSnapshot,
   LayerSurface,
   PaneHandle,

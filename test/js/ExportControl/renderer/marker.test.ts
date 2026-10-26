@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#foliplus/ExportControl/const.js";
 import {
-  collectLayerMarkers,
+  collectPaneRoots,
   renderFontAwesome,
   renderMarkers,
   renderRemaining,
@@ -35,7 +35,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("collectLayerMarkers", () => {
+describe("collectPaneRoots", () => {
   it("returns the pane's children, skipping canvas and svg", () => {
     const pane = "vector";
     const keep = document.createElement("div");
@@ -48,7 +48,7 @@ describe("collectLayerMarkers", () => {
     try {
       const map = makeRenderer().map;
       (map as any).getPane = () => roots;
-      expect(collectLayerMarkers({} as L.Layer)).toEqual([keep]);
+      expect(collectPaneRoots([pane])).toEqual([keep]);
     } finally {
       restore();
     }
@@ -75,7 +75,7 @@ describe("collectLayerMarkers", () => {
     try {
       const map = makeRenderer().map;
       (map as any).getPane = () => roots;
-      expect(collectLayerMarkers({} as L.Layer)).toEqual([keep]);
+      expect(collectPaneRoots(["vector"])).toEqual([keep]);
     } finally {
       restore();
     }
@@ -97,7 +97,7 @@ describe("collectLayerMarkers", () => {
     try {
       const map = makeRenderer().map;
       (map as any).getPane = () => roots;
-      expect(collectLayerMarkers({} as L.Layer)).toEqual([keep]);
+      expect(collectPaneRoots(["vector"])).toEqual([keep]);
     } finally {
       restore();
     }
@@ -117,7 +117,7 @@ describe("collectLayerMarkers", () => {
     try {
       const map = makeRenderer().map;
       (map as any).getPane = () => roots;
-      expect(collectLayerMarkers({} as L.Layer)).toEqual([keep]);
+      expect(collectPaneRoots(["vector"])).toEqual([keep]);
     } finally {
       restore();
     }
@@ -128,7 +128,25 @@ describe("collectLayerMarkers", () => {
     try {
       const map = makeRenderer().map;
       (map as any).getPane = () => null;
-      expect(collectLayerMarkers({} as L.Layer)).toEqual([]);
+      expect(collectPaneRoots(["missing"])).toEqual([]);
+    } finally {
+      restore();
+    }
+  });
+
+  it("skips an SVG root by namespace, not by tag name", () => {
+    // An <svg> lives in the SVG namespace, so an HTML document reports its tag
+    // name as the lowercase "svg" — `tagName === "SVG"` never matched, and the
+    // renderer roots were admitted as marker roots and painted a second time by
+    // the remaining-types pass. The namespace is the stable test.
+    const svg = document.createElementNS(CONST.SVG_NS, "svg");
+    svg.appendChild(document.createElementNS(CONST.SVG_NS, "circle"));
+    const keep = document.createElement("div");
+    const pane = document.createElement("div");
+    pane.append(svg, keep);
+    const restore = withLayerPanes("vector", pane as any);
+    try {
+      expect(collectPaneRoots(["vector"])).toEqual([keep]);
     } finally {
       restore();
     }
@@ -770,7 +788,7 @@ describe("marker passes — branch edges", () => {
     return el;
   };
 
-  it("collectLayerMarkers skips a duplicate element already seen", () => {
+  it("collectPaneRoots skips a duplicate element already seen", () => {
     const keep = document.createElement("div");
     const roots = document.createElement("div");
     // Same element twice via two panes that both return it — but collect walks
@@ -786,8 +804,7 @@ describe("marker passes — branch edges", () => {
         return roots;
       };
       // First pane "p1", then a second pane name also hitting the same roots.
-      map.foliplus.LayerAPI.getLayerPanes = () => ["p1", "p2"];
-      const collected = collectLayerMarkers({} as L.Layer);
+      const collected = collectPaneRoots(["p1", "p2"]);
       expect(collected).toEqual([keep]); // deduped
       map.getPane = origGetPane;
     } finally {

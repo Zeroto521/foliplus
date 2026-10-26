@@ -1,6 +1,6 @@
 // Shared value-classification breaks — the algorithms that split a set of
 // numbers into N ordered class boundaries. Consumed today by HeatmapControl's
-// hex-classification, and by LayerControl's value-based fill (T202) once that
+// hex-classification, and by LayerControl's value-based fill once that
 // lands; the string protocol is stable so both sides stay in lockstep.
 import { createLogger } from "#common/log.js";
 

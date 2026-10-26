@@ -90,7 +90,7 @@ function makeManager(opts?: { id?: string }) {
       showHint: vi.fn(),
       hideHint: vi.fn(),
       interaction: { shortcuts: [] as Array<Record<string, unknown>> },
-      events: { emit: vi.fn() },
+      events: { emit: vi.fn(), publish: vi.fn() },
       LayerAPI: {
         createLayers: vi.fn(() => layers),
       },
@@ -878,7 +878,7 @@ describe("MeasureManager — export auto-clear", () => {
     expect(manager.currentMode).toBe("distance");
     const events = ensureEvents(manager.map);
     manager.map.foliplus!.showHint.mockClear();
-    events.emit("foliplus:mode:change", {
+    events.publish("foliplus:mode:change", {
       component: "ExportControl",
       mode: "selecting",
     });
@@ -895,7 +895,7 @@ describe("MeasureManager — export auto-clear", () => {
     expect(manager.currentMode).toBeNull();
     const events = ensureEvents(manager.map);
     expect(() =>
-      events.emit("foliplus:mode:change", {
+      events.publish("foliplus:mode:change", {
         component: "ExportControl",
         mode: "selecting",
       }),
@@ -907,7 +907,7 @@ describe("MeasureManager — export auto-clear", () => {
     const { manager } = makeManager();
     manager.setMode("distance");
     const events = ensureEvents(manager.map);
-    events.emit("foliplus:mode:change", {
+    events.publish("foliplus:mode:change", {
       component: "FullscreenControl",
       mode: "fullscreen",
     });
@@ -990,7 +990,7 @@ describe("MeasureManager — EVENTS.LAYER_REMOVED auto-cleanup", () => {
     clearSpy.mockClear();
 
     const bus = map.foliplus!.events;
-    bus.emit(EVENTS.MODE_CHANGE, {
+    bus.publish(EVENTS.MODE_CHANGE, {
       component: "ExportControl",
       mode: "crop",
     });
@@ -1497,7 +1497,7 @@ describe("MeasureManager — registerLabel lifecycle", () => {
 
   it("emits LAYER_STYLE_CHANGE when a setter fires", () => {
     const { manager } = makeLabelManager();
-    const emitSpy = vi.spyOn(manager.events, "emitSettled");
+    const emitSpy = vi.spyOn(manager.events, "publish");
 
     manager.setLabelsVisible(false);
 
@@ -1739,6 +1739,63 @@ describe("MeasureManager — label cleanup", () => {
     expect(offModeChange).toHaveBeenCalled();
     expect(offLayerRemoved).toHaveBeenCalled();
     expect(map.off).toHaveBeenCalledWith("unload", expect.any(Function));
+  });
+});
+
+describe("MeasureManager — destroy finalization", () => {
+  it("reports the step that threw and still detaches the map click", () => {
+    const { manager, map } = makeLabelManager();
+    const warn = vi.spyOn(manager.log, "warn").mockImplementation(() => {});
+    const off = map.off as ReturnType<typeof vi.fn>;
+    off.mockImplementation((event: string) => {
+      if (event === "unload") throw new Error("unload bound elsewhere");
+    });
+
+    expect(() => manager.destroy()).not.toThrow();
+
+    // `detach-unload` is the fourth step; the click detach is the last one.
+    expect(off).toHaveBeenCalledWith("click", expect.any(Function));
+    expect(warn).toHaveBeenCalledWith(
+      'destroy step "detach-unload" threw',
+      expect.any(Error),
+    );
+  });
+
+  it("a failing clear still drains the handles and names the one that failed", () => {
+    const { manager } = makeLabelManager();
+    const warn = vi.spyOn(manager.log, "warn").mockImplementation(() => {});
+    const disposed = vi.fn();
+    const handles = (manager as any).editHandles as Map<string, unknown>;
+    handles.set("bad", {
+      dispose: () => {
+        throw new Error("handle stuck");
+      },
+      toggleDrag: vi.fn(),
+      closeOverlay: vi.fn(),
+    });
+    handles.set("good", {
+      dispose: disposed,
+      toggleDrag: vi.fn(),
+      closeOverlay: vi.fn(),
+    });
+    vi.spyOn(manager.layers, "clearLayers").mockImplementation(() => {
+      throw new Error("clear failed");
+    });
+
+    expect(() => manager.destroy()).not.toThrow();
+
+    expect(disposed).toHaveBeenCalledTimes(1);
+    expect(handles.size).toBe(0);
+    expect(warn).toHaveBeenCalledWith(
+      'clearTransientState step "clear-layers" threw',
+      expect.any(Error),
+    );
+    // The handle-level failure is isolated, so it never reaches the outer
+    // step — disposeAllHandles must report it itself or it evaporates.
+    expect(warn).toHaveBeenCalledWith(
+      'disposeAllHandles step "handle:bad" threw',
+      expect.any(Error),
+    );
   });
 });
 

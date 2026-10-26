@@ -8,7 +8,13 @@ import { type ProjectionBatch, notifyDeltas } from "../apply.js";
 import { getColorSurface } from "../color.js";
 import { seedAuthorVisible } from "../intent.js";
 import type { LayerUI } from "../surface.js";
-import { cursorRef, restoreCursor, syncListCursor } from "./cursor.js";
+import {
+  cursorRef,
+  getNavigableItems,
+  reconcileCursorByIdentity,
+  restoreCursor,
+  syncListCursor,
+} from "./cursor.js";
 import { applyRowView, buildRowCell, displayName } from "./rowView.js";
 import { syncNoBasemap, syncToggleAll } from "./visibility.js";
 
@@ -85,6 +91,291 @@ const rebuildList = (ui: LayerUI): void => {
   notifyDeltas(ui, moved);
 };
 
+/** Index path from `root` down to `target`, for a `target` the caller has
+ *  already proved is a descendant (`previous.contains(activeEl)`).
+ *  Duplicates are clones, so the same path addresses the "same" node in the
+ *  surviving copy — the exact checkbox / ⋮ button / fold control the user
+ *  was on, not the row that happens to contain it. */
+const pathWithin = (root: HTMLElement, target: HTMLElement): number[] => {
+  const path: number[] = [];
+  let node: HTMLElement = target;
+  while (node !== root) {
+    // `contains` above guarantees the chain reaches `root`, so a null parent
+    // is unreachable here — the cast keeps the walk branch-free.
+    const parent = node.parentElement as HTMLElement;
+    path.unshift(Array.prototype.indexOf.call(parent.children, node));
+    node = parent;
+  }
+  return path;
+};
+
+/** Resolve a path produced by `pathWithin` against another clone. */
+const nodeAtPath = (root: HTMLElement, path: number[]): HTMLElement | null => {
+  let node: Element = root;
+  for (const index of path) {
+    const next = node.children[index];
+    if (!next) return null;
+    node = next;
+  }
+  // The source was an HTMLElement and a clone preserves node types.
+  return node as HTMLElement;
+};
+
+/** Focus `el` for real. `focus()` on a node the engine refuses to focus is a
+ *  silent no-op, and the restore chain below needs to know whether to move on
+ *  instead of assuming the first candidate took. */
+const focusIfPossible = (el: HTMLElement | null): boolean => {
+  if (!el?.isConnected) return false;
+  el.focus();
+  return document.activeElement === el;
+};
+
+/** Restore focus after a duplicate node is dropped: the exact descendant first
+ *  (a native <select> popup or a menu's keyboard chain depends on that
+ *  precision), then the caller's fallback, then the surviving node itself,
+ *  then the nearest navigable row/anchor, and finally the panel container. A
+ *  stripped clone — the survivor's controls were removed before the duplicate
+ *  was detected — must not leave the keyboard user on <body>. */
+const restoreFocusAfterDuplicate = (
+  ui: LayerUI,
+  survivor: HTMLElement,
+  focusPath: number[],
+  focusFallback: () => HTMLElement | null,
+): void => {
+  if (focusIfPossible(nodeAtPath(survivor, focusPath))) return;
+  if (focusIfPossible(focusFallback())) return;
+  if (focusIfPossible(survivor)) return;
+  // Browser-only defense: a surviving row IS focusable by construction
+  // (rows render `tabindex="0"`), so this rung is reached only when the
+  // survivor is not rendered — a duplicate inside a folded group, where the
+  // engine refuses focus on a `display: none` subtree. jsdom applies no
+  // stylesheet, so the suite stages that refusal with an inline style
+  // ("walks to a visible neighbour when the surviving duplicate is folded"),
+  // which exercises the walk end to end. The forward/backward exits depend on
+  // which neighbours refuse focus — a browser-only distribution the suite
+  // cannot faithfully stage — and the container last resort additionally
+  // needs every navigable item to refuse focus, so the tail stays exempt from
+  // the branch gate rather than deleted: folding the wrong row must not
+  // strand keyboard focus on <body>.
+  /* v8 ignore start */
+  // Nearest navigable neighbour: forward first, then backward. Folded or
+  // otherwise unfocusable rows simply fail the probe and the walk moves on.
+  const items = getNavigableItems(ui);
+  const survivorIdx = items.indexOf(survivor);
+  for (let i = survivorIdx + 1; i < items.length; i++) {
+    if (focusIfPossible(items[i])) return;
+  }
+  for (let i = survivorIdx - 1; i >= 0; i--) {
+    if (focusIfPossible(items[i])) return;
+  }
+  const container = ui.uiContainer;
+  if (!container) return;
+  // Last resort: make the panel itself programmatically focusable. Removing
+  // the attribute right after would blur the very node just focused, so it
+  // stays for the session — `tabindex="-1"` is not a Tab stop and costs no
+  // layout.
+  if (!container.hasAttribute("tabindex")) container.setAttribute("tabindex", "-1");
+  focusIfPossible(container);
+  /* v8 ignore stop */
+};
+
+/** Repair one duplicated node — a layer row or a toggle-all anchor: finish an
+ *  in-flight slider edit, carry the cursor and DOM focus onto the surviving
+ *  later node, then drop the earlier one. The pair names the same layer (or
+ *  group), so the cursor can move to the survivor without re-resolving an
+ *  identity that is about to change position. Focus returns to the same
+ *  descendant path when the clone still carries it; `focusFallback` covers a
+ *  stripped clone. */
+const removeDuplicateNode = (
+  ui: LayerUI,
+  previous: HTMLElement,
+  survivor: HTMLElement,
+  focusFallback: () => HTMLElement | null,
+): void => {
+  const activeEl = document.activeElement as HTMLElement | null;
+  // null when focus is elsewhere: the path is also the "did the removed node
+  // own focus?" answer, so one lookup carries both facts.
+  const focusPath =
+    activeEl && previous.contains(activeEl) ? pathWithin(previous, activeEl) : null;
+  const items = getNavigableItems(ui);
+  const activeRow =
+    ui.listPanel.activeIdx === null ? null : (items[ui.listPanel.activeIdx] ?? null);
+  // DOM focus is the cursor even when the ledger has not caught up yet: the
+  // row can own focus for a frame after a pointer/Alt+Enter activation. Treat
+  // that as active so the repair does not drop the user's focus on <body>.
+  const wasActive =
+    focusPath !== null ||
+    activeRow === previous ||
+    previous.classList.contains(CONST.CLASSES.FOCUSED);
+  // Removing a node in front of the cursor shifts every later position down;
+  // a stale `activeIdx` would make the reconcile re-home onto its neighbor.
+  // The comparison must happen while both nodes are still connected.
+  const shiftsActive = activeRow
+    ? (previous.compareDocumentPosition(activeRow) &
+        Node.DOCUMENT_POSITION_FOLLOWING) !==
+      0
+    : false;
+
+  finishSlidersIn(previous);
+  previous.remove();
+
+  if (wasActive) {
+    survivor.classList.add(CONST.CLASSES.FOCUSED);
+    ui.listPanel.activeIdx = getNavigableItems(ui).indexOf(survivor);
+    if (focusPath) {
+      restoreFocusAfterDuplicate(ui, survivor, focusPath, focusFallback);
+    }
+  } else if (shiftsActive) {
+    // Re-resolve rather than decrement: same node, one lookup away, and it
+    // cannot drift when the repair itself moves the survivor.
+    ui.listPanel.activeIdx = getNavigableItems(ui).indexOf(activeRow as HTMLElement);
+  }
+};
+
+/** Align the panel's rows with the registry order in one in-place pass —
+ *  the incremental counterpart of {@link rebuildList} for reorder signals,
+ *  where membership is unchanged and only positions shift.
+ *
+ *  The target sequence is exactly what `renderInitialList` would emit: each
+ *  group's toggle-all anchor ahead of that group's first row, rows in
+ *  registry order. A row already sitting behind its predecessor is left
+ *  alone (`previousElementSibling` check — no write, no reflow), so a
+ *  typical moveLayerUp/Down relocates one node and an in-order list costs
+ *  nothing. The pass is not minimum-write for every permutation: a long
+ *  forward move (first row to last) relocates every displaced sibling on
+ *  the way, up to N−1 writes — still one in-place pass and no rebuild, but
+ *  the minimum-write reconcile (single direct placement of the moved row,
+ *  or an LIS-based pass) is a known follow-up, not what this does. Row
+ *  content is untouched: a pure reorder changes no count, checkbox or
+ *  tri-state, so the rows already agree with the registry by construction.
+ *  `data-ready` never comes down — the list stays complete and readable
+ *  throughout.
+ *
+ *  The reconcile is one pass over `container.children`, not a
+ *  `querySelector` per row: the panel's row set is exactly the registry's
+ *  (rows are added/removed only by insertLayerItem / retireEntry), so the
+ *  ids found in this scan are the ids the registry walk below will ask
+ *  for. A persistent id → row index was considered and rejected: it would
+ *  have to be maintained at every write site across two modules, and a
+ *  missed rebuild would hand out detached nodes — for no gain over this
+ *  single scan.
+ *
+ *  Focus travels with the nodes: an in-place `insertBefore` keeps DOM focus
+ *  on the moved row's focused descendant (checkbox, ⋮ button, a panel
+ *  control) in every engine implementing the spec's focus-fixing steps, so
+ *  the reconcile never re-aims focus itself. The one exception is honored
+ *  exactly: if something did drop it, it goes back to the *exact*
+ *  descendant — a native <select> popup or a menu's keyboard chain depends
+ *  on that precision — never to the row. */
+const syncRowOrder = (ui: LayerUI): void => {
+  const container = ui.uiContainer;
+  if (!container) return;
+  const rows = new Map<string, HTMLElement>();
+  const anchors = new Map<string, HTMLElement>();
+  for (const child of Array.from(container.children)) {
+    const el = child as HTMLElement;
+    const id = el.getAttribute(CONST.DATA.LAYER_ID);
+    if (id) {
+      // A duplicate id means two write paths raced or one leaked. The later
+      // node wins — it is what the newest insert mounted — so the earlier
+      // duplicate is removed here rather than left to intercept the clicks,
+      // focus and drags aimed at the live row. A warn alone left both nodes
+      // in the DOM and the Map silently answering with the last one.
+      const previous = rows.get(id);
+      if (previous) {
+        ui.log?.warn(`syncRowOrder: duplicate row for layer "${id}"`);
+        removeDuplicateNode(ui, previous, el, () => el);
+      }
+      rows.set(id, el);
+    } else if (el.classList.contains(CONST.CLASSES.TOGGLE_ALL)) {
+      const group = el.getAttribute("data-group");
+      if (group) {
+        const previous = anchors.get(group);
+        if (previous) {
+          // Same repair rule as rows: the later anchor is the one the newest
+          // pass mounted, so the earlier duplicate must not stay behind to
+          // intercept clicks. The shared helper moves the cursor when the
+          // anchor was active and returns focus to the same fold control.
+          ui.log?.warn(`syncRowOrder: duplicate toggle-all anchor for "${group}"`);
+          removeDuplicateNode(ui, previous, el, () =>
+            el.querySelector<HTMLElement>("input, button, [tabindex]"),
+          );
+        }
+        anchors.set(group, el);
+      }
+    }
+  }
+
+  const targets: HTMLElement[] = [];
+  let hasBaseMaps = false;
+  let hasOverlays = false;
+  for (const layerInfo of ui.c.layers) {
+    // Anchor names follow renderInitialList's grouping: every non-base
+    // group rides the OVERLAY anchor, so base maps stay a trailing section.
+    if (layerInfo.group !== GROUP.BASE && !hasOverlays) {
+      hasOverlays = true;
+      const anchor = anchors.get(GROUP.OVERLAY);
+      if (anchor) targets.push(anchor);
+      else ui.log?.warn("syncRowOrder: overlay rows present, anchor missing");
+    }
+    if (layerInfo.group === GROUP.BASE && !hasBaseMaps) {
+      hasBaseMaps = true;
+      const anchor = anchors.get(GROUP.BASE);
+      if (anchor) targets.push(anchor);
+      else ui.log?.warn("syncRowOrder: base rows present, anchor missing");
+    }
+    const row = rows.get(layerInfo.id);
+    if (row) targets.push(row);
+  }
+  // The length check is the cheap side of the panel-matches-registry
+  // invariant; only when it breaks is the diff computed and named, so the
+  // hot path never pays for the diagnostics. One warn names both sides of
+  // the drift — an empty list reads as "[ ]", which is itself the answer.
+  if (
+    rows.size !==
+    targets.filter(t => !t.classList.contains(CONST.CLASSES.TOGGLE_ALL)).length
+  ) {
+    const missing = ui.c.layers.filter(l => !rows.has(l.id)).map(l => l.id);
+    const known = new Set(ui.c.layers.map(l => l.id));
+    const unknown = [...rows.keys()].filter(id => !known.has(id));
+    ui.log?.warn(
+      `syncRowOrder: panel/registry drift — rows without entries ` +
+        `[${unknown.join(", ")}], entries without rows [${missing.join(", ")}]`,
+    );
+  }
+  if (targets.length === 0) return;
+
+  // The cursor is captured by identity before any move: activeIdx is a
+  // position, and positions are exactly what is about to change.
+  const ref = cursorRef(ui);
+  const active = document.activeElement as HTMLElement | null;
+  let settled: HTMLElement | null = null;
+  for (const node of targets) {
+    if (settled) {
+      if (node.previousElementSibling !== settled) {
+        container.insertBefore(node, settled.nextSibling);
+      }
+    } else if (container.firstElementChild !== node) {
+      container.insertBefore(node, container.firstElementChild);
+    }
+    settled = node;
+  }
+
+  // Rows moved: the cursor metadata follows by identity — the roving tab
+  // stop repaints, activeIdx re-homes, and DOM focus is left where the
+  // move carried it (see the function header for the exact-descendant
+  // guarantee).
+  reconcileCursorByIdentity(ui, ref);
+  if (
+    active &&
+    active !== document.body &&
+    active.isConnected &&
+    document.activeElement !== active
+  ) {
+    active.focus();
+  }
+};
+
 const renderInitialList = (ui: LayerUI) => {
   // Take the container once: nothing below notifies, so this local stays the
   // live panel for the whole pass.
@@ -151,6 +442,11 @@ const insertLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
     ui.log.debug(`insertLayerItem: panel is gone, dropping row "${layerInfo.id}"`);
     return;
   }
+  // Capture the cursor by identity before the row lands: a late
+  // registration can slot in ahead of the active row, and a positional
+  // ledger would hand the cursor, marker and tab stop to the newcomer while
+  // DOM focus stayed on the row the user is actually in.
+  const ref = cursorRef(ui);
   const group = layerInfo.group;
 
   const anchorSel =
@@ -210,8 +506,11 @@ const insertLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
   // finished row, count and order before any CHANGE — and this insertion is
   // also one half of the attach-time pending drain, whose other half (the
   // full `applyUserState` sweep) covers the same ids.
-  // New row must join the roving tabindex / ARIA set.
+  // The new row joins the roving tabindex / ARIA set, and the cursor ledger
+  // re-homes by identity: syncListCursor alone would repaint from the stale
+  // numeric index, which now names a different row.
   syncListCursor(ui);
+  reconcileCursorByIdentity(ui, ref);
 };
 
 const updateLayerItemLabel = (ui: LayerUI, layerInfo: LayerInfo) => {
@@ -378,6 +677,7 @@ export {
   initTypesAndVisibility,
   markSettled,
   rebuildList,
+  syncRowOrder,
   renderInitialList,
   insertLayerItem,
   updateLayerItemLabel,
