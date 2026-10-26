@@ -2,6 +2,7 @@
 import { EVENTS } from "#core/event/index.js";
 import { GROUP } from "#core/layer/index.js";
 import { createRowPanel, pinRowPanel, unpinRowPanel } from "#core/leaflet/index.js";
+import { isInsideOverlay } from "#core/overlay.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import * as SVGs from "#foliplus/LayerControl/icon.js";
 import * as Util from "#foliplus/LayerControl/util.js";
@@ -220,13 +221,7 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
   // panel otherwise. Capture also gives this handler the first look at every
   // press, which is what makes it the right place to record the drag verdict.
   ui.overlayPanel.attrsOutsideHandler = (event: MouseEvent) => {
-    const t = event.target as HTMLElement | null;
-    // Document-level dispatch can name `document` itself — no closest().
-    if (!t || typeof t.closest !== "function") {
-      closeAttrsPanel(ui, false);
-      return;
-    }
-    if (t.closest(`.${CONST.CLASSES.ATTRS_PANEL}`)) {
+    if (isInsideOverlay(event.target, panel)) {
       ui.listPanel.pressInPanel = true;
       return;
     }
