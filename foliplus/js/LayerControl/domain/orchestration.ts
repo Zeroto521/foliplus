@@ -7,6 +7,7 @@
 //
 // Lives beside LayerController (not in core/layer/) because it depends on
 // LayerPersistence and AnnotationManager — both LayerControl-local.
+import { annotationPaneNameOf } from "#core/carrierTargets.js";
 import { hasLabelField } from "#core/label/index.js";
 import {
   GROUP,
@@ -23,7 +24,6 @@ import {
   type PaneSpec,
   type RegisterLayerOpts,
   type SurfaceIndex,
-  annotationPaneNameOf,
   findLayer as findLayerUtil,
   paintsAtZoom,
   topSlotZ,

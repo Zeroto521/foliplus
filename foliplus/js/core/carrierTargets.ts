@@ -1,4 +1,4 @@
-// core/layer/carrierTargets — where a layer's writes and its export land.
+// core/carrierTargets — where a layer's writes and its export land.
 //
 // One layer resolves to one carrier: a canvas face it owns, a pane set its
 // surface owns, or the layer's own Leaflet options. Two pipelines ask that
@@ -13,7 +13,7 @@
 // Nothing here reads or writes DOM state or Leaflet options. The inputs are
 // reads of the declaration (`LayerInfo`) and of the surface's own pane
 // bookkeeping, so either caller can ask on its own schedule.
-import { ANNOTATION_PANE_PREFIX, CAP_TIER } from "./const.js";
+import { ANNOTATION_PANE_PREFIX, CAP_TIER } from "./layer/const.js";
 
 /** A layer's carrier, as a writer or an exporter describes it.
  *

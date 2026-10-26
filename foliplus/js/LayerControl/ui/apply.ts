@@ -26,12 +26,13 @@
 // Naming: "state op" is the shape the carrier dispatcher accepts.
 // "Projection" is what the diff compares — intent + policy together, so
 // a change on either side produces an op.
+import { carrierToken } from "#core/carrierTargets.js";
 import {
   type DispatchFailure,
   EVENTS,
   type SettledOperation,
 } from "#core/event/index.js";
-import { CAP_TIER, HIDDEN, PANE_ROLE, carrierToken } from "#core/layer/index.js";
+import { CAP_TIER, HIDDEN, PANE_ROLE } from "#core/layer/index.js";
 import { getLayerAlpha, setLayerAlpha } from "#common/canvasAlpha.js";
 import * as CONST from "../const.js";
 import { INTENT, getIntent } from "./intent.js";

@@ -1,13 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { carrierToken, contentPanesOf } from "#core/carrierTargets.js";
 import { EVENTS } from "#core/event/index.js";
-import {
-  GROUP,
-  HIDDEN,
-  LayerRuntimeStore,
-  PANE_ROLE,
-  carrierToken,
-  contentPanesOf,
-} from "#core/layer/index.js";
+import { GROUP, HIDDEN, LayerRuntimeStore, PANE_ROLE } from "#core/layer/index.js";
 import { LayerController } from "#foliplus/LayerControl/controller.js";
 import { LayerIntentStore } from "#foliplus/LayerControl/domain/index.js";
 import {
