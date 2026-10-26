@@ -13,6 +13,7 @@
 // Consumers place the root in a form row and drive map/style state from the
 // callbacks; the exported sliderOf() gives a later pass (a reset, an external
 // commit) access to the instance without re-rendering the row.
+import { fullscreenSurface, onFullscreenSurfaceChange } from "#core/fullscreen.js";
 import { dom } from "#common/dom.js";
 import { finalize } from "#common/finalize.js";
 import { createLogger } from "#common/log.js";
@@ -103,26 +104,40 @@ let bubbleDismiss: (() => void) | null = null;
 let scrollBound = false;
 let fullscreenBound = false;
 
-/** Where the bubble lives: the fullscreen element when one is active (a
- *  native fullscreen renders only that subtree, so a node on <body> would be
- *  invisible), otherwise <body>. */
-const bubbleHost = (): HTMLElement => {
-  const fs = document.fullscreenElement as HTMLElement | null;
-  // The root element is already the body's parent: appending there is the same
-  // as appending to body, so only a sub-element (e.g. the map container) needs
-  // the move.
-  return fs && fs !== document.documentElement ? fs : document.body;
-};
+/** The map container that owns the slider currently showing the bubble.
+ *  Scopes surface resolution to that map, so the singleton bubble cannot land
+ *  in a sibling map's pseudo container. */
+const bubbleScope = (): Element | null =>
+  bubbleOwner?.closest(".leaflet-container") ?? null;
+
+/** Where the bubble lives: the covering surface of the owning map (native
+ *  fullscreen element or pseudo-fullscreen container — only that subtree
+ *  paints), otherwise <body>. A hidden bubble stays on <body>: there is no
+ *  owner to scope it to, and the document-wide fallback could be another
+ *  map's surface. */
+const bubbleHost = (): HTMLElement =>
+  bubbleOwner ? fullscreenSurface(bubbleScope()) : document.body;
 
 const bindFullscreen = (): void => {
   if (fullscreenBound) return;
   fullscreenBound = true;
-  document.addEventListener("fullscreenchange", () => {
-    // A tooltip does not survive the transition; the next focus re-shows it.
+  // Native fullscreen and pseudo enter/exit both announce through
+  // core/fullscreen. Pseudo mode only toggles a class and fires no DOM event,
+  // so a `fullscreenchange` listener alone would leave the bubble on <body>
+  // under the opaque map.
+  // Page-lifetime singleton: the bubble and this subscription are
+  // intentionally never released. If the bubble ever becomes per-map, keep
+  // this off-handle and call it from destroy().
+  onFullscreenSurfaceChange(() => {
+    // Resolve the scope before dismissing: hideBubble clears bubbleOwner, and
+    // the node still has to land on the map it belonged to (or back on <body>
+    // after an exit).
+    const scope = bubbleScope();
+    // A tooltip does not survive the transition; the next focus re-shows it
+    // (and re-positions it against the new layout).
     bubbleDismiss?.();
-    // Bound from ensureBubble, so the singleton exists by the time this runs.
     const el = bubbleEl!;
-    const host = bubbleHost();
+    const host = fullscreenSurface(scope);
     if (el.parentElement !== host) host.appendChild(el);
   });
 };

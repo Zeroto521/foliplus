@@ -3,7 +3,7 @@
   "locale.code": "zh",
   "FullscreenControl.enter": "已进入全屏，按 Esc 退出",
   "FullscreenControl.exit": "已退出全屏",
-  "FullscreenControl.unsupported": "此浏览器不支持全屏",
+  "FullscreenControl.fallback": "当前环境不支持原生全屏，已在页面内最大化",
   "FullscreenControl.exit_fail": "退出全屏失败",
   "FullscreenControl.title": "全屏",
   "FullscreenControl.title_cancel": "退出全屏",

@@ -11,4 +11,16 @@ const isEnabled = (): boolean =>
   "fullscreenEnabled" in document && document.fullscreenEnabled === true;
 const getFullscreenEl = (): Element | null => document.fullscreenElement ?? null;
 
-export { FULLSCREEN_CHANGE, isEnabled, getFullscreenEl };
+/** Whether the document's native fullscreen session belongs to *container*.
+ *  Native fullscreen is document-global, so a sibling map's fullscreen element
+ *  must not flip this control's state (or make its next click exit the other
+ *  map). The element is this map's when it is the container, an ancestor
+ *  wrapper, or a child the map fullscreened. */
+const ownsFullscreen = (container: Element): boolean => {
+  const fs = getFullscreenEl();
+  return Boolean(
+    fs && (fs === container || fs.contains(container) || container.contains(fs)),
+  );
+};
+
+export { FULLSCREEN_CHANGE, getFullscreenEl, isEnabled, ownsFullscreen };

@@ -3,7 +3,7 @@
   "locale.code": "en",
   "FullscreenControl.enter": "Entered fullscreen — press Esc to exit",
   "FullscreenControl.exit": "Exited fullscreen",
-  "FullscreenControl.unsupported": "Fullscreen is not available in this browser",
+  "FullscreenControl.fallback": "Native fullscreen isn't available here — maximized within the page instead",
   "FullscreenControl.exit_fail": "Couldn't exit fullscreen",
   "FullscreenControl.title": "Full Screen",
   "FullscreenControl.title_cancel": "Exit Full Screen",

@@ -1,7 +1,7 @@
 import { defineControl } from "#core/defineControl.js";
 import { ensureHint } from "#core/hint.js";
 import { createIconButton, dom } from "#common/dom.js";
-import { FULLSCREEN_CHANGE, isEnabled } from "./api.js";
+import { FULLSCREEN_CHANGE } from "./api.js";
 import { CLASSES, containerId } from "./const.js";
 import * as SVGs from "./icon.js";
 import { buildFullscreenChangeHandler, toggleFullscreen } from "./logic.js";
@@ -67,17 +67,17 @@ const FullscreenControl = defineControl({
 
     // Document-level fullscreenchange, owned by the mounting's signal: the
     // listener drops with the control, so a map torn down while fullscreen is
-    // on leaves nothing behind.
-    if (isEnabled()) {
-      this.on(
-        document,
-        FULLSCREEN_CHANGE,
-        buildFullscreenChangeHandler(map, fsBtn, container, {
-          config: this.config,
-          T: this.T,
-        }),
-      );
-    }
+    // on leaves nothing behind. Bound unconditionally — permission can appear
+    // after mount (embedder relaxes its iframe policy), and this handler is
+    // the only thing that re-syncs the UI on native transitions.
+    this.on(
+      document,
+      FULLSCREEN_CHANGE,
+      buildFullscreenChangeHandler(map, fsBtn, container, {
+        config: this.config,
+        T: this.T,
+      }),
+    );
 
     return outer;
   },

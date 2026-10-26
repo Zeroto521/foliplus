@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { setPseudoFullscreen } from "#core/fullscreen.js";
 import { Slider, type SliderOptions, sliderOf } from "#foliplus/LayerControl/slider.js";
 import { SLIDER } from "#common/sliderVocabulary.js";
 
@@ -899,6 +900,38 @@ describe("Slider primitive", () => {
     document.dispatchEvent(new Event("fullscreenchange"));
     expect(bubble.parentElement).toBe(document.body);
     stage.remove();
+  });
+
+  it("re-seats an open bubble when pseudo-fullscreen activates", () => {
+    // Pseudo mode toggles a class and fires no fullscreenchange: a bubble that
+    // was opened before the transition must still follow the surface, or it
+    // stays on <body> under the opaque map.
+    const map = document.createElement("div");
+    map.className = "leaflet-container";
+    const host = document.createElement("div");
+    map.appendChild(host);
+    document.body.appendChild(map);
+    hosts.push(host);
+    new Slider(host, { min: 0, max: 100, value: 42, label: "x" });
+
+    thumb(host).dispatchEvent(new Event("focus"));
+    const bubble = document.querySelector(`.${SLIDER.BUBBLE}`) as HTMLElement;
+    expect(bubble.parentElement).toBe(document.body);
+    expect(bubble.classList.contains("is-on")).toBe(true);
+
+    setPseudoFullscreen(map, true);
+    expect(bubble.parentElement).toBe(map);
+    // The readout is dismissed on any transition (its anchor moved); the next
+    // focus re-shows it inside the surface.
+    expect(bubble.classList.contains("is-on")).toBe(false);
+
+    thumb(host).dispatchEvent(new Event("focus"));
+    expect(bubble.parentElement).toBe(map);
+    expect(bubble.classList.contains("is-on")).toBe(true);
+
+    setPseudoFullscreen(map, false);
+    expect(bubble.parentElement).toBe(document.body);
+    map.remove();
   });
 
   it("takes the start-side half of a stacked pair in RTL", () => {
