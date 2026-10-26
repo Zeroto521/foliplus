@@ -175,10 +175,12 @@ const buildSchemeRow = (
     "data-scheme-bar-inner": "",
   });
   applyAttributes(bar, opts.barAttributes);
+  // The trigger recipe is shared (common/scheme-picker.css); the consumer's
+  // class stays on the element as its own hook.
   const trigger = dom.el(
     "div",
     {
-      class: opts.triggerClass,
+      class: `${opts.triggerClass} foliplus-scheme-picker-trigger`,
       tabindex: "0",
       role: "combobox",
       "aria-haspopup": "listbox",

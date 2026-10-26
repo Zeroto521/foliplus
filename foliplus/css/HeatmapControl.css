@@ -52,47 +52,15 @@
     padding: 0;
   }
 
-  /* ── Color Scheme Bar ── */
-  .foliplus-heatmap-scheme-bar {
-    width: 100%;
-    height: var(--foliplus-ctrl-size);
-    border-radius: var(--foliplus-radius-sm);
-    cursor: pointer;
-    border: var(--foliplus-border-thin) solid var(--foliplus-btn-secondary-border);
-    position: relative;
-    padding-right: var(--foliplus-icon-size-md);
-    display: flex;
-    align-items: center;
-    box-sizing: border-box;
-    transition: var(--foliplus-transition-input);
-  }
+  /* ── Color Scheme Bar ──
+     The trigger box and chevron are the shared scheme-picker recipe
+     (common/scheme-picker.css); this block only keeps the colour strip's own
+     inline height token as the fallback. */
   .foliplus-heatmap-scheme-bar-inner {
-    flex: 1;
-    /* Same height/radius/border recipe as the dropdown's colour bar, so the
-       "currently in use" swatch and the list swatches read at one thickness:
-       the picker override wins, the Heatmap inline token is the 18px default. */
     height: var(
       --foliplus-scheme-picker-bar-height,
       var(--foliplus-heatmap-inline-height)
     );
-    box-sizing: border-box;
-    display: flex;
-    overflow: hidden;
-    border-radius: var(--foliplus-radius-sm);
-    border: var(--foliplus-border-thin) solid var(--foliplus-btn-secondary-border);
-  }
-  .foliplus-heatmap-scheme-bar::after {
-    content: "";
-    position: absolute;
-    right: var(--foliplus-heatmap-accent-arrow-offset);
-    top: 50%;
-    transform: translateY(-50%);
-    width: 0;
-    height: 0;
-    border-left: var(--foliplus-size-4) solid transparent;
-    border-right: var(--foliplus-size-4) solid transparent;
-    border-top: var(--foliplus-size-6) solid var(--foliplus-text-muted);
-    pointer-events: none;
   }
   /* Scheme row: the control cell needs relative positioning so the dropdown
      hangs off it (not the page flow). */

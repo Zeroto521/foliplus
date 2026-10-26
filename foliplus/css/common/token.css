@@ -384,7 +384,6 @@
   /* ── HeatmapControl ──
      Inline control geometry. */
   --foliplus-heatmap-inline-height: var(--foliplus-icon-size-md);
-  --foliplus-heatmap-accent-arrow-offset: var(--foliplus-size-6);
 
   /* ── LayerControl (row layout) ──
      Drag & drop variables and grid layout metrics. */
