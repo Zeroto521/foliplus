@@ -52,12 +52,18 @@ const makeOwner = (values: number[]) => {
   let filter: LayerFilter;
   return {
     filterProvider: (): LayerFilterModel => ({
-      field: "magnitude",
-      range,
+      dimensions: [
+        {
+          kind: "range",
+          field: "magnitude",
+          label: "magnitude",
+          range,
+          step: 1,
+        },
+      ],
       filter,
       kept: select(snapshot as any, filter).length,
       total: values.length,
-      step: 1,
     }),
     filterSetter: (f: LayerFilter) => {
       filter = f;
@@ -840,12 +846,18 @@ describe("LayerUI filter panel — result, Clear and row state", () => {
     let filter: LayerFilter;
     const owner = {
       filterProvider: (): LayerFilterModel => ({
-        field: "magnitude",
-        range,
+        dimensions: [
+          {
+            kind: "range",
+            field: "magnitude",
+            label: "magnitude",
+            range,
+            step: 1,
+          },
+        ],
         filter,
         kept: counts?.kept ?? select(snapshot as any, filter).length,
         total: counts?.total ?? values.length,
-        step: 1,
       }),
       filterSetter: (f: LayerFilter) => {
         filter = f;
