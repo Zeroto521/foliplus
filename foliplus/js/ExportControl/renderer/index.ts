@@ -2,7 +2,12 @@
 // render() stays here (the class method that calls the other passes via `this`);
 // each pass's implementation lives in its own module and is delegated to by
 // the class method of the same name.
-import { type LayerInfo, findLayer } from "#core/layer/index.js";
+import {
+  type LayerInfo,
+  annotationPaneNameOf,
+  contentPanesOf,
+  findLayer,
+} from "#core/layer/index.js";
 import { layerUrl } from "#core/leafletAdapter.js";
 import { createScopedTranslator } from "#common/locale.js";
 import { createLogger } from "#common/log.js";
@@ -33,14 +38,16 @@ const log = createLogger(CONFIG.name);
  *  shared by several layers, and layer A's content walk must not paint the pane
  *  that carries layer B's shadows either.  The subtraction also keeps the
  *  channel single-source — a pane named as a shadow is drawn once, by the
- *  shadow pass, from the owning leaves, never as a content root. */
+ *  shadow pass, from the owning leaves, never as a content root.
+ *
+ *  The subtraction itself lives in `core/layer/carrierTargets`, next to the
+ *  writer's carrier token: both sides read one declaration of "the panes this
+ *  layer's paint lives in", so a write and an export cannot wander apart. */
 const resolveExportPanes = (
   layer: L.Layer,
   shadowPanes: ReadonlySet<string>,
-): string[] => {
-  const raw = map.foliplus?.LayerAPI?.getLayerPanes(layer) ?? [];
-  return raw.filter(name => !shadowPanes.has(name));
-};
+): string[] =>
+  contentPanesOf(map.foliplus?.LayerAPI?.getLayerPanes(layer) ?? [], shadowPanes);
 
 /** Report a shadow image the canvas could not read back.  A cross-origin
  *  `shadowUrl` without CORS headers is the usual cause; the shadow is left out
@@ -353,9 +360,7 @@ class ExportRenderer {
           // Drawing them here — right after this layer, before the next layer
           // up — keeps the export's stack order identical to the map's: a layer
           // above covers this layer's labels.
-          const labelPane = this.map.getPane(
-            CONST.ANNOTATION_PANE_PREFIX + layerInfo.id,
-          );
+          const labelPane = this.map.getPane(annotationPaneNameOf(layerInfo.id));
           if (labelPane) {
             await this.renderPaneCanvas(rc, labelPane, CONST.SEL.ANNOTATION_CANVAS);
           }

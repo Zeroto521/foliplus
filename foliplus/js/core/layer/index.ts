@@ -19,6 +19,12 @@ export {
   RECURSION,
   Z_INDEX,
 } from "./const.js";
+export {
+  annotationPaneNameOf,
+  carrierToken,
+  contentPanesOf,
+} from "./carrierTargets.js";
+export type { CarrierDecl } from "./carrierTargets.js";
 export { ANNOTATION_Z_OFFSET, FOCUS_Z, focusLayerZ, topSlotZ, zFor } from "./z.js";
 export { LayerFactory } from "./LayerFactory.js";
 export { LayerInfoRegistry } from "./LayerInfoRegistry.js";

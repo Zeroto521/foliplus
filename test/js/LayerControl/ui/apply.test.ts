@@ -1,6 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
-import { GROUP, HIDDEN, LayerRuntimeStore } from "#core/layer/index.js";
+import {
+  GROUP,
+  HIDDEN,
+  LayerRuntimeStore,
+  PANE_ROLE,
+  carrierToken,
+  contentPanesOf,
+} from "#core/layer/index.js";
 import { LayerController } from "#foliplus/LayerControl/controller.js";
 import { LayerIntentStore } from "#foliplus/LayerControl/domain/index.js";
 import {
@@ -363,6 +370,57 @@ describe("executor: late-carrier replay", () => {
     applyProjection(ui, "a1");
     applyProjection(ui, "a1");
     expect(map.getPane).not.toHaveBeenCalled();
+  });
+
+  it("the write token and the export walk resolve one pane set", () => {
+    // The executor keys its rewrite decision on `carrierToken`; the exporter
+    // walks `contentPanesOf` over the same declaration. Both read one carrier
+    // per layer, so the panes a rewrite targets must be the panes an export
+    // draws — asserted here against a real surface rather than a stub.
+    const { container, map } = makeOffMapFixture();
+    const panes = new Map<string, HTMLDivElement>();
+    const paneFor = (name: string) => {
+      let pane = panes.get(name);
+      if (!pane) {
+        pane = document.createElement("div");
+        panes.set(name, pane);
+      }
+      return pane;
+    };
+    map.getPane = vi.fn((name: string) => paneFor(name));
+    map.createPane = vi.fn((name: string) => paneFor(name));
+
+    const layer = paneCapableLayer();
+    const manager = new LayerController(map, [
+      { id: "t1", name: "Token", group: "overlay", layer },
+    ]);
+    manager.ui = new LayerUI(manager, TEST_ENV);
+
+    vi.useFakeTimers();
+    manager.attachUI(container);
+    vi.advanceTimersByTime(350);
+    vi.useRealTimers();
+
+    const li = manager.layerRegistry.get("t1")!;
+    const surface = manager.surfaceFor(li);
+    expect(surface.capabilities.opacity).toBe("pane");
+    expect(surface.paneNames.length).toBeGreaterThan(0);
+
+    const token = carrierToken({
+      canvas: li.canvas,
+      layer: li.layer,
+      panes: surface.paneNames,
+      opacityTier: surface.capabilities.opacity,
+    });
+    const shadowPanes = new Set(
+      surface.panes
+        .filter(pane => pane.role === PANE_ROLE.SHADOW)
+        .map(pane => pane.name),
+    );
+    const exported = contentPanesOf(surface.paneNames, shadowPanes);
+
+    expect(typeof token).toBe("string");
+    expect((token as string).split("|")).toEqual([...exported].sort());
   });
 });
 

@@ -23,6 +23,7 @@ import {
   type PaneSpec,
   type RegisterLayerOpts,
   type SurfaceIndex,
+  annotationPaneNameOf,
   findLayer as findLayerUtil,
   paintsAtZoom,
   topSlotZ,
@@ -31,7 +32,6 @@ import {
 import { attributionEntries, refreshAttributions } from "#core/leafletAdapter.js";
 import { finalizeEach } from "#common/finalize.js";
 import type { AnnotationManager } from "../annotation/index.js";
-import * as CONST from "../const.js";
 import type { LayerPersistence } from "../persistence.js";
 import type { LayerIntentStore } from "./LayerIntentStore.js";
 
@@ -60,7 +60,7 @@ const withAnnotationSpec = (
     {
       role: PANE_ROLE.ANNOTATION,
       order: paneSpecs.length,
-      name: CONST.ANNOTATION_PANE_PREFIX + layerInfo.id,
+      name: annotationPaneNameOf(layerInfo.id),
     },
   ];
 };
