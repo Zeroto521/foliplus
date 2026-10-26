@@ -195,6 +195,9 @@ describe("buildSchemeRow", () => {
 
     expect(row.querySelector(".foliplus-form-label")!.textContent).toBe("Scheme");
     expect(trigger.classList.contains("scheme-trigger")).toBe(true);
+    // The shared trigger recipe lives in common/scheme-picker.css; both
+    // consumers get it from this builder, so neither can drift from the other.
+    expect(trigger.classList.contains("foliplus-scheme-picker-trigger")).toBe(true);
     expect(trigger.getAttribute("role")).toBe("combobox");
     expect(trigger.getAttribute("aria-haspopup")).toBe("listbox");
     expect(trigger.getAttribute("tabindex")).toBe("0");
