@@ -54,8 +54,15 @@
   color: var(--foliplus-text-primary);
   cursor: default;
 
-  /* Detail rows carry the shared label/control geometry and their own
-     horizontal inset (common/form.css); the panel adds no second one. */
+  /* The card carries a 1px border, so its content box is 2px narrower than a
+     fold panel's. Subtracting the border from the shared row inset keeps the
+     visual inset at --foliplus-panel-inset-x (11px + 1px border = 12px) and
+     therefore keeps the label and control columns on the fold panels' edges.
+     Detail rows carry that inset themselves (common/form.css); the panel adds
+     no second one. */
+  --foliplus-panel-inset-x: calc(
+    var(--foliplus-space-lg) - var(--foliplus-border-thin)
+  );
 }
 
 /* ── Pinned row panel (opt-in) ──
