@@ -3,6 +3,7 @@ default-value initialization."""
 
 from __future__ import annotations
 
+import pytest
 from conftest import _js, heatmap_ready, use_page
 
 from .helper import _make_page, _panel_open
@@ -89,6 +90,61 @@ class TestHeatmapControlPanelBrowser:
             assert vals["method"] == "jenks"
             assert vals["scheme"] == "Reds"
             assert vals["agg"] == "count"
+            assert not errors, f"JS errors: {errors}"
+
+    def test_classes_row_label_names_the_method_on_one_line(self, browser, tmp_path):
+        """The classes row reads by its method, on one line, in both panels.
+
+        The row has one visible label for two selects, so it takes the primary
+        control's name (Method / 分类方法) — the same word the layer style
+        panel shows. Each select keeps its own aria label (Method / Classes),
+        and the shared 88px label column holds the word on one line inside the
+        280px panel. Range.getClientRects() is the line-box count: the element
+        rect always reports one row.
+        """
+        # One layer auto-selects on expand, which is what unhides the style
+        # block (the rows exist in the DOM while it is hidden).
+        with use_page(_make_page, browser, tmp_path, num_layers=1) as (
+            page,
+            errors,
+        ):
+            page.evaluate(_js("HeatmapControl/click_toggle_button"))
+            page.wait_for_selector(
+                ".foliplus-heatmap-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            heatmap_ready(page)
+            page.wait_for_selector(
+                ".foliplus-heatmap-ctrl .foliplus-heatmap-extra-body:not(.foliplus-hidden)",
+                state="visible",
+                timeout=5000,
+            )
+            result = page.evaluate(
+                _js("LayerControl/read_form_row_labels"),
+                {"root": ".foliplus-heatmap-ctrl"},
+            )
+            assert result["ok"], result
+            rows = {row["text"]: row for row in result["rows"]}
+            # The visible label is locale-dependent; the panel's language follows
+            # the browser, so pin both vocabularies rather than one page locale.
+            label = next(
+                (text for text in ("Method", "分类方法") if text in rows), None
+            )
+            assert label, f"no method-labelled row among {sorted(rows)}"
+            row = rows[label]
+            expected_aria = {
+                "Method": ["Method", "Classes"],
+                "分类方法": ["分类方法", "分级数"],
+            }[label]
+            assert row["labelLines"] == 1, (
+                f"the Method label wrapped at the panel width: {row}"
+            )
+            assert row["labelWidth"] == pytest.approx(88, abs=0.5), row
+            assert result["labelWidthToken"] == "88px", result
+            assert result["panelWidthToken"] == "280px", result
+            assert row["panelWidth"] == pytest.approx(280, abs=1), row
+            assert row["ariaLabels"] == expected_aria, row
             assert not errors, f"JS errors: {errors}"
 
     def test_layer_selection_triggers_render(self, browser, tmp_path):

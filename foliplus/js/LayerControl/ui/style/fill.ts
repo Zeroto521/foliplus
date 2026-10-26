@@ -472,7 +472,11 @@ const buildRampDetail = (
   });
 
   const classes = buildClassesRow({
-    label: ui.T("style_fill_classes"),
+    // The row reads by its primary control: the classification method, the same
+    // visible label the heatmap panel uses (classify_method). The class count
+    // keeps its own accessible name (see classesAriaLabel below) so the two
+    // selects stay distinguishable.
+    label: ui.T("style_method"),
     methodAriaLabel: ui.T("style_method"),
     classesAriaLabel: ui.T("style_fill_classes"),
     methodValue: ramp.method,

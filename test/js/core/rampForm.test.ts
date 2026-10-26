@@ -1,5 +1,5 @@
-// core/rampForm — the Field / Classes / Scheme rows shared by LayerControl's
-// value-based fill and HeatmapControl's classification panel.
+// core/rampForm — the Field / Method + Classes / Scheme rows shared by
+// LayerControl's value-based fill and HeatmapControl's classification panel.
 import { describe, expect, it, vi } from "vitest";
 import { buildClassesRow, buildFieldRow, buildSchemeRow } from "#core/rampForm.js";
 
@@ -84,8 +84,8 @@ describe("buildClassesRow", () => {
 
   const build = (overrides: Record<string, unknown> = {}) =>
     buildClassesRow({
-      label: "Classes",
-      methodAriaLabel: "Classes",
+      label: "Method",
+      methodAriaLabel: "Method",
       classesAriaLabel: "Classes",
       methodValue: "quantile",
       classesValue: 5,
@@ -93,10 +93,22 @@ describe("buildClassesRow", () => {
       ...overrides,
     });
 
-  it("renders the shared method order and class counts", () => {
+  it("labels the row by method and names both selects distinctly", () => {
+    // One visible label for two controls: it reads by the primary control, and
+    // each select keeps its own accessible name so a screen reader announces
+    // "Method" and "Classes" once each instead of the row label twice.
     const { row, methodSelect, classesSelect } = build();
 
-    expect(row.querySelector(".foliplus-form-label")!.textContent).toBe("Classes");
+    expect(row.querySelector(".foliplus-form-label")!.textContent).toBe("Method");
+    expect(methodSelect.getAttribute("aria-label")).toBe("Method");
+    expect(classesSelect.getAttribute("aria-label")).toBe("Classes");
+    expect(methodSelect.getAttribute("aria-label")).not.toBe(
+      classesSelect.getAttribute("aria-label"),
+    );
+  });
+
+  it("renders the shared method order and class counts", () => {
+    const { methodSelect, classesSelect } = build();
     expect(Array.from(methodSelect.options).map(o => o.value)).toEqual([
       "jenks",
       "quantile",

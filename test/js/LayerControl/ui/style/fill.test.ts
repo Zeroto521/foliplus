@@ -1480,6 +1480,38 @@ describe("buildFillRow", () => {
     expect(row.querySelector(`.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`)).toBeNull();
   });
 
+  it("labels the ramp row by method and names both selects distinctly", () => {
+    // One visible label for two selects: it reads by the primary control —
+    // the classification method — the same word the heatmap panel shows. The
+    // class count is announced by the count select's own aria label, so the
+    // pair stays distinguishable to a screen reader.
+    setIntent(ui, "overlay1", "fillMode", "ramp");
+    setIntent(ui, "overlay1", "fillRamp", {
+      field: "count",
+      method: "equal",
+      classes: 4,
+      scheme: "Reds",
+    } as never);
+
+    const row = buildFillRow(ui, "overlay1");
+    const method = row.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_METHOD_SELECT}`,
+    ) as HTMLSelectElement;
+    const classes = row.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_CLASSES_SELECT}`,
+    ) as HTMLSelectElement;
+    const label = method
+      .closest(`.${CONST.CLASSES.FORM_ROW}`)!
+      .querySelector(`.${CONST.CLASSES.FORM_LABEL}`);
+
+    expect(label?.textContent).toBe("LayerControl.style_method");
+    expect(method.getAttribute("aria-label")).toBe("LayerControl.style_method");
+    expect(classes.getAttribute("aria-label")).toBe("LayerControl.style_fill_classes");
+    expect(method.getAttribute("aria-label")).not.toBe(
+      classes.getAttribute("aria-label"),
+    );
+  });
+
   it("falls back to the Leaflet default for an unregistered layer", () => {
     // No registry entry, no authored color — the swatch shows Leaflet's own
     // fill default rather than inventing one.

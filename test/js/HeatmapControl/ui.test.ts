@@ -69,6 +69,57 @@ describe("bindControls — template render and initial values", () => {
     expect(ctrl.schemeSelectHidden.value).toBe(m.scheme);
   });
 
+  it("labels the method + classes row by method, with two distinct names", () => {
+    // One visible label, two native selects. The row reads by its primary
+    // control (the method), matching LayerControl's fill ramp row; the class
+    // count keeps its own accessible name so the pair is still announced
+    // separately instead of the row label twice.
+    const { ctrl } = setup(
+      makeConfig({
+        locale_tables: {
+          en: {
+            "HeatmapControl.classify_method": "Method",
+            "HeatmapControl.class_count": "Classes",
+          },
+        },
+      }),
+    );
+    const label = ctrl.methodSelect
+      .closest(".foliplus-form-row")!
+      .querySelector(".foliplus-form-label");
+
+    expect(label?.textContent).toBe("Method");
+    expect(ctrl.methodSelect.getAttribute("aria-label")).toBe("Method");
+    expect(ctrl.classSelect.getAttribute("aria-label")).toBe("Classes");
+    expect(ctrl.methodSelect.getAttribute("aria-label")).not.toBe(
+      ctrl.classSelect.getAttribute("aria-label"),
+    );
+  });
+
+  it("uses the shared zh vocabulary for the same row", () => {
+    const { ctrl } = setup(
+      makeConfig({
+        locale_code: "zh",
+        locale_tables: {
+          zh: {
+            "HeatmapControl.classify_method": "分类方法",
+            "HeatmapControl.class_count": "分级数",
+          },
+        },
+      }),
+    );
+    const label = ctrl.methodSelect
+      .closest(".foliplus-form-row")!
+      .querySelector(".foliplus-form-label");
+
+    expect(label?.textContent).toBe("分类方法");
+    expect(ctrl.methodSelect.getAttribute("aria-label")).toBe("分类方法");
+    expect(ctrl.classSelect.getAttribute("aria-label")).toBe("分级数");
+    expect(ctrl.methodSelect.getAttribute("aria-label")).not.toBe(
+      ctrl.classSelect.getAttribute("aria-label"),
+    );
+  });
+
   it("clamps an out-of-range manager numClasses into the select options", () => {
     const m = makeManager();
     m.numClasses = 99;

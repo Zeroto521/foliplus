@@ -232,12 +232,15 @@ class TestLocaleConfig:
 
 
 class TestFillClassificationVocabulary:
-    """The fill / filter i18n contract: Field / Classes / Scheme / Clear and
-    the four classification methods read the same in both controls.
+    """The fill / filter i18n contract: Field / Method / Classes / Scheme /
+    Clear and the four classification methods read the same in both controls.
 
     The keys stay component-scoped (each table is injected per component), but
     the *text* must match, otherwise the same control reads differently in the
-    heatmap panel and the layer style drawer.
+    heatmap panel and the layer style drawer. The pairing is one concept, not
+    one visible row: both panels name the method + class-count row by its
+    method (classify_method / style_method), while class_count /
+    style_fill_classes supplies the count select's accessible name.
     """
 
     SHARED_LABELS = [

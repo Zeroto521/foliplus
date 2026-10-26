@@ -61,7 +61,9 @@ const buildFieldRow = (opts: FieldRowOptions): FieldRow => {
 };
 
 type ClassesRowOptions = {
-  /** Row label ("Classes" in both panels). */
+  /** Visible row label. Both panels name the method + class-count row by its
+   *  primary control ("Method" / 分类方法); the class count is announced by the
+   *  count select's own aria label. */
   label: string;
   /** Accessible name for the method select. */
   methodAriaLabel: string;

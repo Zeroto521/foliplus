@@ -5336,6 +5336,82 @@ class TestLayerControlBrowser:
             )
             assert not errors, f"JS errors: {errors}"
 
+    def test_style_fill_row_label_names_the_method_on_one_line(self, browser, tmp_path):
+        """The ramp row reads by its method in both panels, on one line.
+
+        One visible label names two selects, so it takes the primary control's
+        name (Method / 分类方法) — the word the heatmap panel shows too. The
+        class count stays announced by the count select's own aria label, so a
+        screen reader hears "Method" and "Classes" once each. The label column
+        is the shared 88px token inside the 280px panel; Range.getClientRects()
+        counts line boxes (the element rect always reports one row).
+        """
+        data = {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "properties": {"value": 10 + i},
+                    "geometry": {
+                        "type": "Polygon",
+                        "coordinates": [
+                            [
+                                [119.28 + i * 0.01, 26.06],
+                                [119.32 + i * 0.01, 26.06],
+                                [119.32 + i * 0.01, 26.10],
+                                [119.28 + i * 0.01, 26.10],
+                                [119.28 + i * 0.01, 26.06],
+                            ]
+                        ],
+                    },
+                }
+                for i in range(3)
+            ],
+        }
+        layer = folium.GeoJson(json.dumps(data), name="Polygon data")
+        with use_page(
+            self._make_page, browser, tmp_path, layer, slug="fill_row_label"
+        ) as (page, errors):
+            page.evaluate(_js("LayerControl/open_panel"))
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            panel_ready(page)
+            opened = page.evaluate(_js("LayerControl/open_style_panel"))
+            assert opened["ok"], f"style panel did not open: {opened}"
+            page.wait_for_selector(
+                ".foliplus-layer-style-panel", state="visible", timeout=5000
+            )
+
+            result = page.evaluate(
+                _js("LayerControl/read_form_row_labels"),
+                {"root": ".foliplus-layer-style-panel", "ramp": True},
+            )
+            assert result["ok"], result
+            rows = {row["text"]: row for row in result["rows"]}
+            # The visible label is locale-dependent; the panel's language follows
+            # the browser, so pin both vocabularies rather than one page locale.
+            label = next(
+                (text for text in ("Method", "分类方法") if text in rows), None
+            )
+            assert label, f"no method-labelled row among {sorted(rows)}"
+            row = rows[label]
+            expected_aria = {
+                "Method": ["Method", "Classes"],
+                "分类方法": ["分类方法", "分级数"],
+            }[label]
+            assert row["labelLines"] == 1, (
+                f"the Method label wrapped at the panel width: {row}"
+            )
+            assert row["labelWidth"] == pytest.approx(88, abs=0.5), row
+            assert result["labelWidthToken"] == "88px", result
+            assert result["panelWidthToken"] == "280px", result
+            assert row["panelWidth"] == pytest.approx(280, abs=1), row
+            assert row["ariaLabels"] == expected_aria, row
+            assert not errors, f"JS errors: {errors}"
+
     def test_row_panels_pin_only_on_request(self, browser, tmp_path):
         """Pinning is opt-in: this PR's panels pin, a plain row panel does not.
 
