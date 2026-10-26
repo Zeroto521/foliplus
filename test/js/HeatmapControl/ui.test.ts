@@ -630,6 +630,9 @@ describe("layer dropdown — source meta publish", () => {
     rebuildLayerDropdown(ctrl);
 
     expect(m.field).toBe("dwell");
+    expect(JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!).field).toBe(
+      "dwell",
+    );
     expect(m.sourceMeta["HeatmapControl.meta_source_layer"]).toBe("Stores");
     expect(m.sourceMeta["HeatmapControl.meta_agg_field"]).toBe("dwell");
   });
@@ -1008,6 +1011,8 @@ describe("updateFieldSelector — concrete field resolution", () => {
     expect(m.field).toBe("sales");
     expect(ctrl.fieldWrap.classList.contains(CONST.CLASSES.HIDDEN)).toBe(false);
     expect(ctrl.fieldSelect.value).toBe("sales");
+    expect([...ctrl.aggSelect.options].some(o => o.disabled)).toBe(false);
+    expect(ctrl.aggSelect.title).toBe("");
   });
 });
 

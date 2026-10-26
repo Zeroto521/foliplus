@@ -204,9 +204,9 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
   ctrl.aggSelect.onchange = () => {
     ctrl.mgr.agg = ctrl.aggSelect.value;
     updateFieldSelector(ctrl);
-    // The effective filter field can move with the aggregation (auto field
-    // resolution): drop a filter bound to the previous field, then tell the
-    // open panel to re-read the model even when the field did not move.
+    // Selecting a value aggregation may resolve a concrete field: drop a
+    // filter bound to the previous field, then tell the open panel to re-read
+    // the model even when the field did not move.
     ctrl.mgr.syncFilterField();
     ctrl.mgr.renderHexagons();
     persist(ctrl);
