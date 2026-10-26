@@ -150,6 +150,9 @@ describe("buildClassesRow", () => {
     expect(methodSelect.classList.contains("extra-method")).toBe(true);
     expect(methodSelect.getAttribute("data-method")).toBe("");
     expect(classesSelect.classList.contains("extra-classes")).toBe(true);
+    // The shared compact-count class rides along with the consumer hook: it is
+    // the width contract both panels read, so no consumer can forget it.
+    expect(classesSelect.classList.contains("foliplus-classes-select")).toBe(true);
     expect(classesSelect.getAttribute("data-count")).toBe("");
 
     methodSelect.value = "equal";
@@ -159,6 +162,13 @@ describe("buildClassesRow", () => {
     classesSelect.value = "7";
     classesSelect.dispatchEvent(new Event("change"));
     expect(onChange).toHaveBeenLastCalledWith({ classes: 7 });
+  });
+
+  it("always carries the shared compact-count width class", () => {
+    const { classesSelect } = build();
+
+    expect(classesSelect.classList.contains("foliplus-form-select")).toBe(true);
+    expect(classesSelect.classList.contains("foliplus-classes-select")).toBe(true);
   });
 
   it("ignores a change that carries no class count", () => {

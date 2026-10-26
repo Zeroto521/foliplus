@@ -184,6 +184,12 @@
      panels. */
   --foliplus-form-label-width: 88px;
   --foliplus-form-number-width: 52px;
+  /* One inline-secondary width: the compact field that sits beside a flexed
+     control (border colour + weight, method + class count). The class-count
+     select and the number input both read it, so the two are the same width by
+     construction — and the flexed sibling (method select / colour swatch)
+     matches its counterpart in the other row. */
+  --foliplus-form-secondary-width: var(--foliplus-form-number-width);
   /* Toast width cap. Below the 480px viewport the media block in hint.css
      widens the cap to calc(100vw - 16px); the breakpoint 480px there is the
      same value and must stay in sync with this token (media queries do not
@@ -365,7 +371,6 @@
   /* ── HeatmapControl ──
      Inline control geometry. */
   --foliplus-heatmap-inline-height: var(--foliplus-icon-size-md);
-  --foliplus-heatmap-inline-width: 52px;
   --foliplus-heatmap-accent-arrow-offset: var(--foliplus-size-6);
 
   /* ── LayerControl (row layout) ──
