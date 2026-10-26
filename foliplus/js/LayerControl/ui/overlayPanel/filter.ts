@@ -33,6 +33,7 @@ import type {
   LayerInfo,
 } from "#core/layer/index.js";
 import { createRowPanel } from "#core/leaflet/index.js";
+import { isInsideOverlay } from "#core/overlay.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import * as SVGs from "#foliplus/LayerControl/icon.js";
 import { Slider, finishSlidersIn } from "#foliplus/LayerControl/slider.js";
@@ -487,12 +488,7 @@ const openFilterPanel = (ui: LayerUI, item: HTMLElement): void => {
   // press on the map or another foliplus control would not close the
   // panel without capture.
   ui.overlayPanel.filterOutsideHandler = (event: MouseEvent) => {
-    const t = event.target as HTMLElement | null;
-    if (!t || typeof t.closest !== "function") {
-      closeFilterPanel(ui, false);
-      return;
-    }
-    if (t.closest(`.${CONST.CLASSES.FILTER_PANEL}`)) {
+    if (isInsideOverlay(event.target, panel)) {
       ui.listPanel.pressInPanel = true;
       return;
     }

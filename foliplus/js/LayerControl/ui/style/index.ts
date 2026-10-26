@@ -15,6 +15,7 @@
 import { EVENTS } from "#core/event/index.js";
 import { resolveSelectedField } from "#core/label/index.js";
 import { createRowPanel, pinRowPanel, unpinRowPanel } from "#core/leaflet/index.js";
+import { isInsideOverlay } from "#core/overlay.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import * as SVGs from "#foliplus/LayerControl/icon.js";
 import { finishSlidersIn } from "#foliplus/LayerControl/slider.js";
@@ -25,6 +26,7 @@ import {
   bindLiveNumber,
   normalizeHexColor,
 } from "#common/form.js";
+import { SCHEME_PICKER_PORTAL_SELECTOR } from "#common/schemePicker.js";
 import { NO_DELTA, type ProjectionDelta, notifyDelta } from "../apply.js";
 import type { LayerUI } from "../surface.js";
 import { closeOverlays } from "../teardown.js";
@@ -308,13 +310,11 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
   // press on the map or another foliplus control would never close the
   // panel otherwise.
   ui.overlayPanel.styleOutsideHandler = (event: MouseEvent) => {
-    const t = event.target as HTMLElement | null;
-    // Document-level dispatch can name `document` itself — no closest().
-    if (!t || typeof t.closest !== "function") {
-      closeStylePanel(ui, false);
-      return;
-    }
-    if (t.closest(`.${CONST.CLASSES.STYLE_PANEL}`)) {
+    // The drawer's overlay includes the scheme picker's portalled list: it is
+    // mounted on <body> to paint above the drawer, so it is outside the panel's
+    // subtree while still being part of the interaction. A press there must not
+    // dismiss the drawer — that press is what selects a colour.
+    if (isInsideOverlay(event.target, panel, SCHEME_PICKER_PORTAL_SELECTOR)) {
       ui.listPanel.pressInPanel = true;
       return;
     }
