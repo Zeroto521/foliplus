@@ -13,15 +13,33 @@ import { describe, expect, it } from "vitest";
 
 const ROOT = resolve(__dirname, "../../..");
 
-const css = (rel: string): string => readFileSync(resolve(ROOT, rel), "utf-8");
+/** Read a stylesheet with normalized line endings.
+ *
+ * The checkout is CRLF on Windows (`core.autocrlf=true`) and LF on the Linux
+ * CI runner, so a multi-line selector literal would match on one platform and
+ * miss on the other. Normalizing here keeps every assertion below
+ * platform-independent. */
+const css = (rel: string): string =>
+  readFileSync(resolve(ROOT, rel), "utf-8").replace(/\r\n/g, "\n");
 
-/** The declaration block that starts at `selector` (first match). */
+/** The declaration block that starts at `selector` (first match), found by
+ *  brace matching so a block that contains nested rules (`&:hover`,
+ *  `&::-webkit-…`) is returned whole instead of stopping at the first
+ *  inner closing brace. */
 const blockOf = (source: string, selector: string): string => {
   const start = source.indexOf(selector);
   expect(start, selector + " is missing").toBeGreaterThanOrEqual(0);
   const open = source.indexOf("{", start);
-  const end = source.indexOf("}", open);
-  return source.slice(open, end + 1);
+  expect(open, selector + " has no opening brace").toBeGreaterThanOrEqual(0);
+  let depth = 0;
+  for (let i = open; i < source.length; i += 1) {
+    if (source[i] === "{") depth += 1;
+    else if (source[i] === "}") {
+      depth -= 1;
+      if (depth === 0) return source.slice(open, i + 1);
+    }
+  }
+  throw new Error(selector + " block never closes");
 };
 
 describe("form width tokens", () => {
