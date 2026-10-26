@@ -253,7 +253,10 @@ describe("buildRowCell + applyRowView (one writer per row)", () => {
     const base = ui.c.layers.find(li => li.id === "base1")!;
     const cellInfo = buildRowCell(ui, base);
     expect(cellInfo.typeSvg).toBe(Icons.ICON_GLOBE);
-    expect(cellInfo.typeLabel).toContain("type_tile");
+    expect(cellInfo.typeLabel).toContain("type_tile_map");
+    // The tooltip's short word is the renamed pair (地图 / Map); both keys
+    // carry the _map suffix so the row never borrows the colour row's words.
+    expect(cellInfo.titleTypeLabel).toContain("type_tile_map_short");
   });
 
   it("uses the custom icon when the layer declares one", () => {
