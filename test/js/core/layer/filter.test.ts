@@ -732,9 +732,7 @@ describe("parsePersistedFilter enum", () => {
 
   it("keeps and/or trees containing enum children", () => {
     const child = { kind: "enum", field: "type", values: ["circle"] };
-    expect(parsePersistedFilter({ kind: "and", children: [child] })).toEqual(
-      child,
-    );
+    expect(parsePersistedFilter({ kind: "and", children: [child] })).toEqual(child);
   });
 });
 

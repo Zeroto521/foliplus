@@ -316,7 +316,8 @@ const mountView = (
 ): void => {
   finishSlidersIn(state.content);
   const dim = model ? rangeDimensionOf(model) : null;
-  const view = model && dim ? buildFilterRows(ui, hooks, model, dim) : buildEmptyState(ui);
+  const view =
+    model && dim ? buildFilterRows(ui, hooks, model, dim) : buildEmptyState(ui);
   state.view = view;
   state.content.replaceChildren(view.root);
 };

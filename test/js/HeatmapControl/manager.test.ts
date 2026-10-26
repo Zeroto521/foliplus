@@ -2379,7 +2379,10 @@ describe("HeatmapControl source content signal (LayerAPI integration)", () => {
   it("re-renders from a real addLayer and updates the panel model range", () => {
     const markers = selectSource([10, 30]);
     mgr.renderHexagons();
-    expect(mgr.getFilterModel()!.dimensions[0]).toMatchObject({ kind: "range", range: [10, 30] });
+    expect(mgr.getFilterModel()!.dimensions[0]).toMatchObject({
+      kind: "range",
+      range: [10, 30],
+    });
 
     // Move the content through the public API: the values now span [1, 5].
     // removeLayer keeps the row registered (only clearLayers retires it), so
@@ -2396,7 +2399,10 @@ describe("HeatmapControl source content signal (LayerAPI integration)", () => {
 
     flushScans();
 
-    expect(mgr.getFilterModel()!.dimensions[0]).toMatchObject({ kind: "range", range: [1, 5] });
+    expect(mgr.getFilterModel()!.dimensions[0]).toMatchObject({
+      kind: "range",
+      range: [1, 5],
+    });
     expect(mgr.getFilterModel()!.total).toBe(2);
   });
 
