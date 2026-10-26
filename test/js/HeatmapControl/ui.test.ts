@@ -141,6 +141,12 @@ describe("bindControls — template render and initial values", () => {
 describe("bindControls — change handlers", () => {
   it("agg change updates the manager, reveals the field selector and persists", () => {
     const { ctrl, m } = setup();
+    // The row only exists while there is a field to pick.
+    m.pointLayers = [{ id: "p1", name: "P1", layer: {}, count: 2 }];
+    m.selectedLayerId = "p1";
+    window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
+      { lat: 1, lng: 2, marker: { feature: { properties: { sales: 5 } } } },
+    ]);
     const save = vi.spyOn(m, "saveConfig");
     const render = vi.spyOn(m, "renderHexagons");
     ctrl.aggSelect.value = CONST.AGG.SUM;
@@ -901,7 +907,7 @@ describe("rebuildLayerDropdown — null layerSelect", () => {
 });
 
 describe("updateFieldSelector — resolved field, no auto placeholder", () => {
-  const seed = (fields: Record<string, number>) => {
+  const seed = (fields: Record<string, string | number>) => {
     const { ctrl, m } = setup();
     m.pointLayers = [{ id: "p1", name: "P1", layer: {}, count: 1 }];
     m.selectedLayerId = "p1";
@@ -929,6 +935,21 @@ describe("updateFieldSelector — resolved field, no auto placeholder", () => {
     expect(ctrl.fieldSelect.value).toBe("sales");
   });
 
+  it("marks the auto-resolved field with a title and aria description", () => {
+    const { ctrl, m } = seed({ sales: 5, price: 10 });
+    expect(m.field).toBe("");
+    expect(ctrl.fieldSelect.title).toBe("Automatic field: sales");
+    expect(ctrl.fieldSelect.getAttribute("aria-description")).toBe(
+      "Automatic field: sales",
+    );
+
+    // An explicit pick is a different state and must not keep the auto hint.
+    ctrl.fieldSelect.value = "price";
+    fire(ctrl.fieldSelect, "change");
+    expect(ctrl.fieldSelect.title).toBe("");
+    expect(ctrl.fieldSelect.hasAttribute("aria-description")).toBe(false);
+  });
+
   it("keeps an explicit choice selected across rebuilds", () => {
     const { ctrl, m } = seed({ sales: 5, price: 10 });
     ctrl.fieldSelect.value = "price";
@@ -938,6 +959,38 @@ describe("updateFieldSelector — resolved field, no auto placeholder", () => {
     fire(ctrl.aggSelect, "change");
     expect(ctrl.fieldSelect.value).toBe("price");
     expect(m.field).toBe("price");
+  });
+
+  it("hides the field row when the source has no numeric field", () => {
+    const { ctrl, m } = seed({ name: "x", label: "y" });
+    expect(m.autoFieldKey).toBeNull();
+    expect(m.field).toBe("");
+    expect(ctrl.fieldSelect.options.length).toBe(0);
+    expect(ctrl.fieldSelect.title).toBe("");
+    expect(ctrl.fieldWrap.classList.contains(CONST.CLASSES.HIDDEN)).toBe(true);
+  });
+
+  it("hides the field row when no source layer is selected", () => {
+    const { ctrl, m } = setup();
+    expect(m.selectedLayerId).toBeNull();
+    ctrl.aggSelect.value = CONST.AGG.SUM;
+    fire(ctrl.aggSelect, "change");
+    expect(ctrl.fieldWrap.classList.contains(CONST.CLASSES.HIDDEN)).toBe(true);
+  });
+
+  it("shows the row again once the source supplies a numeric field", () => {
+    const { ctrl, m } = seed({ name: "x" });
+    expect(ctrl.fieldWrap.classList.contains(CONST.CLASSES.HIDDEN)).toBe(true);
+
+    window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
+      { lat: 1, lng: 2, marker: { feature: { properties: { sales: 5 } } } },
+    ]);
+    fire(ctrl.aggSelect, "change");
+
+    expect(m.autoFieldKey).toBe("sales");
+    expect(ctrl.fieldWrap.classList.contains(CONST.CLASSES.HIDDEN)).toBe(false);
+    expect(ctrl.fieldSelect.value).toBe("sales");
+    expect(ctrl.fieldSelect.title).toBe("Automatic field: sales");
   });
 });
 

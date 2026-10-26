@@ -11,6 +11,7 @@
   "HeatmapControl.agg_min": "Min",
   "HeatmapControl.agg_max": "Max",
   "HeatmapControl.field": "Field",
+  "HeatmapControl.auto_field_title": "Automatic field: {field}",
   "HeatmapControl.classify_method": "Method",
   "HeatmapControl.class_count": "Classes",
   "HeatmapControl.jenks": "Natural Breaks",

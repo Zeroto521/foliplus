@@ -219,6 +219,9 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
   ctrl.fieldSelect.onchange = () => {
     ctrl.mgr.field = ctrl.fieldSelect.value;
     syncSelect(ctrl, ctrl.fieldSelect, ctrl.fieldSelect.value);
+    // An explicit pick is not the auto state any more: drop the "automatic
+    // field" hint the row may still carry from before.
+    syncAutoFieldHint(ctrl, ctrl.mgr.field || ctrl.mgr.autoFieldKey);
     // The filter field is the aggregation field (read-only in the panel): a
     // field change drops a filter bound to the old field and repaints the
     // rail extent. The notification also refreshes an open panel when the
@@ -370,13 +373,28 @@ const rebuildLayerDropdown = (ctrl: HeatmapControlUI) => {
   if (ctrl.layerSelect) buildLayerListItems(ctrl, ctrl.layerSelect);
 };
 
+/** Mark an auto-resolved field as such. The select shows a concrete name, so
+ *  without this the row cannot tell "auto" (the layer's first numeric field)
+ *  from an explicit pick of the same name. The two diverge when the field list
+ *  changes: auto follows the new list, an explicit pick is reset once its
+ *  field is gone. */
+const syncAutoFieldHint = (ctrl: HeatmapControlUI, resolvedField: string | null) => {
+  if (!ctrl.mgr.field && resolvedField) {
+    const hint = ctrl.T("auto_field_title").replace("{field}", resolvedField);
+    ctrl.fieldSelect.title = hint;
+    ctrl.fieldSelect.setAttribute("aria-description", hint);
+    return;
+  }
+  ctrl.fieldSelect.removeAttribute("title");
+  ctrl.fieldSelect.removeAttribute("aria-description");
+};
+
 const updateFieldSelector = (ctrl: HeatmapControlUI) => {
   if (!ctrl.fieldWrap || !ctrl.fieldSelect) return;
   if (ctrl.mgr.agg === CONST.AGG.COUNT) {
     ctrl.fieldWrap.classList.add(CONST.CLASSES.HIDDEN);
     return;
   }
-  ctrl.fieldWrap.classList.remove(CONST.CLASSES.HIDDEN);
 
   const selected = ctrl.mgr.pointLayers.filter(
     info => info.id === ctrl.mgr.selectedLayerId,
@@ -393,13 +411,27 @@ const updateFieldSelector = (ctrl: HeatmapControlUI) => {
   if (ctrl.mgr.field && !fields.includes(ctrl.mgr.field)) {
     ctrl.mgr.field = "";
   }
+
+  if (fields.length === 0) {
+    // Nothing to pick: without the old disabled "Auto Detect" entry this row
+    // would be a blank select, which reads as a broken control. The row only
+    // exists to choose a field, so hide it until one is available.
+    syncAutoFieldHint(ctrl, null);
+    ctrl.fieldWrap.classList.add(CONST.CLASSES.HIDDEN);
+    return;
+  }
+  ctrl.fieldWrap.classList.remove(CONST.CLASSES.HIDDEN);
+
   // Empty `field` is the stored auto sentinel, not a selectable entry: the
-  // select shows the field the auto rule resolves to (the first numeric
-  // field), the same way LayerControl's fill-by-value row starts on fields[0]
-  // without an "Auto" option. Aggregation already falls back to `autoFieldKey`
-  // under the sentinel; an explicit pick stores the real field name.
+  // select shows what the auto rule resolved to (the first numeric field).
+  // The heatmap's auto rule loses no information — "the layer's first numeric
+  // field" is exactly what the name shows — so, unlike LayerControl's label
+  // field (whose auto runs the full inference in core/labelField), this row
+  // does not need an "Auto" entry. Aggregation already falls back to
+  // `autoFieldKey` under the sentinel; an explicit pick stores the real name.
   const resolvedField = ctrl.mgr.field || ctrl.mgr.autoFieldKey;
   ctrl.fieldSelect.value = resolvedField ?? "";
+  syncAutoFieldHint(ctrl, resolvedField);
 
   syncSelect(ctrl, ctrl.fieldSelect, ctrl.fieldSelect.value);
 };
