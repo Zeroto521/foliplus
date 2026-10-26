@@ -385,6 +385,19 @@ describe("applyRowView (the single DOM write point)", () => {
     expect(el.title).toBe("2 / 3 filtered · polygon");
   });
 
+  it("clears the label title for an empty name instead of writing an empty one", () => {
+    // Symmetric with updateItemLabel: an empty name removes the attribute so
+    // the row tooltip can still bubble on hover.
+    const el = item();
+    el.innerHTML += `<span class="${CONST.CLASSES.LAYER_LABEL}">Old</span>`;
+    const label = el.querySelector<HTMLElement>(`.${CONST.CLASSES.LAYER_LABEL}`)!;
+    label.title = "Old";
+
+    applyRowView(ui, el, cell({ name: "" }));
+
+    expect(label.hasAttribute("title")).toBe(false);
+  });
+
   it("titles a detached row's label immediately (no deferred measurement)", () => {
     const el = item();
     el.innerHTML += `<span class="${CONST.CLASSES.LAYER_LABEL}">Facility Points</span>`;

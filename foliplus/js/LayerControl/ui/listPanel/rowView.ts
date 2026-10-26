@@ -16,6 +16,7 @@ import { GROUP } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import * as SVGs from "#foliplus/LayerControl/icon.js";
 import * as Util from "#foliplus/LayerControl/util.js";
+import { setLabelTitle } from "#common/dom.js";
 import { formatNumber } from "#common/format.js";
 import * as Icons from "#common/icon.js";
 import { INTENT, getIntent } from "../intent.js";
@@ -261,9 +262,12 @@ const applyRowView = (ui: LayerUI, item: HTMLElement, cell: RowCell): void => {
   }
   // The label always carries the full layer name: long names are clipped
   // visually and styles can shorten the text, so the title is the one place
-  // the whole name is available — no measurement, no lazy hover state.
-  const label = item.querySelector<HTMLElement>(`.${CONST.CLASSES.LAYER_LABEL}`);
-  if (label) label.title = cell.name;
+  // the whole name is available — no measurement, no lazy hover state. The
+  // write/remove rule is shared with updateItemLabel (a rename's write point).
+  setLabelTitle(
+    item.querySelector<HTMLElement>(`.${CONST.CLASSES.LAYER_LABEL}`),
+    cell.name,
+  );
   // Persist the type label so a count-only refresh can rebuild the tooltip
   // without re-running type detection.
   item.setAttribute(CONST.DATA.TITLE, view.typeLabel);

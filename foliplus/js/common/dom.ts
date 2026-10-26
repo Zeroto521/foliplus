@@ -195,6 +195,23 @@ const buildPopupEl = (
 };
 
 /**
+ * Write or clear a row label's resident full-name tooltip.
+ *
+ * The single rule shared by both name write points (updateItemLabel for a
+ * projection repaint, applyRowView for a fresh row): a non-empty name becomes
+ * the `title`; an empty name removes the attribute instead of writing
+ * `title=""`, which would shadow the row tooltip for every hover.
+ *
+ * @param label The row's label element (null is a no-op).
+ * @param name The full display name, or "" to clear.
+ */
+const setLabelTitle = (label: HTMLElement | null, name: string): void => {
+  if (!label) return;
+  if (name) label.title = name;
+  else label.removeAttribute("title");
+};
+
+/**
  * Update a layer item's label, its resident full-name tooltip, and its toggle
  * input's aria-label with a new display name.
  *
@@ -220,11 +237,8 @@ const updateItemLabel = (
   const label = item.querySelector("label") as HTMLLabelElement | null;
   if (!label) return null;
   label.textContent = name;
-  // Resident tooltip: the label always shows the whole name on hover. An empty
-  // name removes the attribute instead of writing `title=""`, which would
-  // shadow the row tooltip for every hover over the label.
-  if (name) label.title = name;
-  else label.removeAttribute("title");
+  // Resident tooltip: the label always shows the whole name on hover.
+  setLabelTitle(label, name);
   // The row's toggle input announces the same name as the label cell. A data
   // row's toggle is its checkbox; the color basemap row's is the color swatch,
   // and it has no checkbox — without this the basemap swatch would keep
@@ -326,6 +340,7 @@ export {
   createInlineEditInput,
   dom,
   removeInlineEditInput,
+  setLabelTitle,
   stopEvent,
   updateItemLabel,
 };
