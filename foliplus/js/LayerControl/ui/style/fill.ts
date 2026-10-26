@@ -19,8 +19,12 @@
 // the HeatmapControl border row and the annotation label row — one
 // <input type=color> inside a FORM_ROW, no reset button on the row itself
 // (the panel-wide Reset handles it, the way label color has it).
+import { CLASS_COUNT, METHOD } from "#core/classify.js";
+import { numericPropertiesKeys } from "#core/field.js";
 import { CAP_TIER, DIM, GROUP, type LayerInfo } from "#core/layer/index.js";
 import type { FillRampConfig, LayerOverride } from "#core/layer/intent.js";
+import { DEFAULT_SCHEMES, getColorScale } from "#core/palette.js";
+import { buildClassesRow, buildFieldRow, buildSchemeRow } from "#core/rampForm.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { dom } from "#common/dom.js";
 import {
@@ -32,10 +36,12 @@ import {
   normalizeHexColor,
   numberInput,
 } from "#common/form.js";
+import { type SchemePicker, createSchemePicker } from "#common/schemePicker.js";
 import { showSolidBasemap } from "../color.js";
 import { INTENT, type IntentKey, getIntent } from "../intent.js";
 import type { LayerUI } from "../surface.js";
 import { applyRampToLayer, resolveFillMode } from "./fillRamp.js";
+import { layerFields } from "./label.js";
 import { pinStyleOnHighlight } from "./pin.js";
 import {
   getDimension,
@@ -43,6 +49,7 @@ import {
   resetIntentKeys,
   writeIntentKeys,
 } from "./registry.js";
+import { buildModeRow } from "./row.js";
 import {
   FACE,
   type StyleCarrier,
@@ -57,10 +64,6 @@ import {
   styleDimPayload,
   walkFillLeaves,
 } from "./styleBag.js";
-
-/** The swatch's last resort when even the browser probe cannot resolve the
- *  authored color to a hex — black, matching an empty `<input type=color>`. */
-const DEFAULT_FILL_COLOR = "#000000";
 
 /** Whether the layer is a solid-color basemap: a base layer whose fill is the
  *  value on `layerInfo.color` rather than a Leaflet layer's geometry.
@@ -109,8 +112,10 @@ const toHexColor = (value: string): string => {
   const probe = document.createElement("input");
   probe.type = "color";
   probe.value = value;
-  const hex = probe.value;
-  return /^#[0-9a-fA-F]{6}$/.test(hex) ? hex : DEFAULT_FILL_COLOR;
+  // The platform sanitizes every rejected value to `#000000` (and resolves a
+  // name it knows), so the readback is always a valid simple color — no second
+  // guard can ever fire here.
+  return probe.value;
 };
 
 /** Every fill-dimension intent key the user can own. The reset list, the
@@ -298,36 +303,238 @@ const resetLayerFill = (ui: LayerUI, layerId: string): void => {
   getDimension(DIM.FILL)!.reset!(ui, layerId);
 };
 
-/** Build the fill form row: color swatch + fill-opacity number input.
- *  Both controls live inside one FORM_CONTROL via `inlineControls`, so the
- *  row's width matches the border-weight row (color + number).
- *
- *  Both inputs show the stored choice, falling back to the layer's authored
- *  value (the first style leaf's options) — never a constant — so the row
- *  reflects what the layer is actually painting on first open, and named
- *  authored colors are resolved to the hex the picker can display. */
-const buildFillRow = (ui: LayerUI, layerId: string): HTMLElement => {
+/** Fill mode values, one vocabulary for the select, the intent and the
+ *  resolver. */
+type FillMode = "solid" | "ramp";
+
+/** The scheme picker owned by the open style panel. It installs
+ *  document-level listeners while its listbox is open, so the panel must
+ *  destroy it when it closes or rebuilds the ramp detail; one entry per UI
+ *  because a map owns one LayerControl instance. */
+const schemePickerByUi = new WeakMap<LayerUI, SchemePicker>();
+
+/** Destroy the panel's scheme picker, if any. Idempotent; also called when a
+ *  mode switch rebuilds the ramp detail so a stale picker cannot answer the
+ *  next click. */
+const disposeFillRow = (ui: LayerUI): void => {
+  schemePickerByUi.get(ui)?.destroy();
+  schemePickerByUi.delete(ui);
+};
+
+/** Numeric field names offered by the ramp field picker. The annotation
+ *  panel's field cache is the primary source (it is already computed and
+ *  invalidated with the layer's features); a tree walk is the fallback for a
+ *  layer whose cache has not been populated yet. Order is first-seen, so the
+ *  default option is stable across opens. */
+const numericFields = (ui: LayerUI, layerId: string): string[] => {
+  const cached = layerFields(ui, layerId)
+    .filter(field => field.numeric)
+    .map(field => field.name);
+  if (cached.length > 0) return cached;
+  // Snapshot-then-resolve, the same late-binding defense the fill applies
+  // use: the registry's reference is stable once populated, and findLayer
+  // re-resolves a folium layer whose registry reference is still null.
   const layerInfo = ui.c.layerRegistry.get(layerId);
-  const isBasemap = isColorBasemap(layerInfo!);
+  const layer = (layerInfo?.layer ?? ui.c.findLayer(layerId)) as L.Layer | null;
+  return layer ? numericPropertiesKeys(layer) : [];
+};
 
-  // One styleBaseOf call feeds both the color swatch and the fill-opacity
-  // input — the two values used to be read by separate walks, doubling
-  // the findLayer + firstStyleLeaf traversal on every row paint.
-  const base = isBasemap ? null : styleBaseOf(ui, layerId);
+/** The ramp config a first switch to the by-value arm starts from. The field
+ *  is the caller's first numeric field; the method/classes/scheme come from
+ *  the shared bounds, so the first render and the persistence validator agree
+ *  on what a legal record looks like. */
+const defaultRampConfig = (field: string): FillRampConfig => ({
+  kind: "numeric",
+  field,
+  method: CONST.RAMP.METHOD_DEFAULT,
+  classes: CLASS_COUNT.DEFAULT,
+  scheme: CONST.RAMP.SCHEME_DEFAULT,
+});
 
+/** The config the ramp detail should display and write from: the stored one
+ *  when it exists (the inactive arm keeps it while the user is on solid),
+ *  otherwise the defaults seeded from the first numeric field. A stored field
+ *  the current data no longer offers is kept as-is — the apply already
+ *  degrades to the author's face, and silently repainting on the next apply
+ *  would be worse than showing the stored value. */
+const rampForUi = (
+  ui: LayerUI,
+  layerId: string,
+  fields: readonly string[],
+): FillRampConfig => {
+  const stored = getIntent(ui, layerId, INTENT.FILL_RAMP);
+  if (stored) return stored;
+  // Every caller reaches this line with a non-empty list: the detail only
+  // renders the ramp arm when a numeric field exists, and the mode write
+  // bails first when it does not.
+  return defaultRampConfig(fields[0]);
+};
+
+/** Write the mode intent, seeding the ramp config when the user switches to
+ *  the by-value arm and none is stored yet. Solid keeps whatever ramp config
+ *  the other arm holds, so a switch back restores it. */
+const writeFillMode = (ui: LayerUI, layerId: string, mode: FillMode): boolean => {
+  if (mode === "solid") {
+    getDimension(DIM.FILL)!.write!(ui, layerId, { mode });
+    return true;
+  }
+  const fields = numericFields(ui, layerId);
+  if (fields.length === 0) return false;
+  getDimension(DIM.FILL)!.write!(ui, layerId, {
+    mode,
+    ramp: rampForUi(ui, layerId, fields),
+  });
+  return true;
+};
+
+/** Display label for one classification method. Written as literal T()
+ *  calls rather than `T(\`style_method_\${method}\`)`: the locale-usage scanner
+ *  only sees literal keys, and a template-built key would let a renamed locale
+ *  entry pass silently. */
+const methodLabel = (ui: LayerUI, method: FillRampConfig["method"]): string => {
+  switch (method) {
+    case METHOD.JENKS:
+      return ui.T("style_method_jenks");
+    case METHOD.QUANTILE:
+      return ui.T("style_method_quantile");
+    case METHOD.EQUAL:
+      return ui.T("style_method_equal");
+    case METHOD.HEADS:
+      return ui.T("style_method_heads");
+  }
+};
+
+/** Merge one ramp-detail change into the stored config and schedule the
+ *  per-leaf repaint through the dimension write. Returns the config that was
+ *  written so the caller can keep the controls in sync. */
+const writeFillRamp = (
+  ui: LayerUI,
+  layerId: string,
+  patch: Partial<FillRampConfig>,
+): FillRampConfig => {
+  const fields = numericFields(ui, layerId);
+  const next: FillRampConfig = { ...rampForUi(ui, layerId, fields), ...patch };
+  getDimension(DIM.FILL)!.write!(ui, layerId, { mode: "ramp", ramp: next });
+  return next;
+};
+
+/** The solid arm's detail: one row holding the colour swatch and the
+ *  fill-opacity number side by side (the border-row recipe). Colour and
+ *  opacity are one idea — a fill without either half is rarely what the user
+ *  means — so the arm stays on a single line instead of two stacked rows. */
+const buildSolidDetail = (ui: LayerUI, layerId: string): HTMLElement[] => {
+  const base = styleBaseOf(ui, layerId);
   const storedColor = getIntent(ui, layerId, INTENT.FILL_COLOR);
-  const color = toHexColor(
-    storedColor ?? (isBasemap ? CONST.COLOR.DEFAULT : base!.fillColor),
-  );
   const colorInput = formColorInput({
-    value: color,
+    value: toHexColor(storedColor ?? base.fillColor),
     className: CONST.CLASSES.STYLE_FILL_COLOR_INPUT,
     ariaLabel: ui.T("style_fill"),
   }) as HTMLInputElement;
 
-  // Solid-color basemaps have no fill opacity (their transparency is the pane's
-  // CSS opacity, a different axis). Render only the color swatch.
-  if (isBasemap) {
+  const storedOpacity = getIntent(ui, layerId, INTENT.FILL_OPACITY);
+  const opacityPct = (storedOpacity ?? base.fillOpacity ?? VISIBLE_FILL_OPACITY) * 100;
+  const opacityInput = numberInput({
+    value: opacityPct,
+    min: 0,
+    max: 100,
+    step: 1,
+    className: CONST.CLASSES.STYLE_FILL_OPACITY_NUMBER,
+    ariaLabel: ui.T("style_fill_opacity"),
+  }) as HTMLInputElement;
+
+  return [
+    formRow(
+      ui.T("style_fill"),
+      inlineControls(colorInput, opacityInput),
+      CONST.CLASSES.STYLE_FILL_ROW,
+    ),
+  ];
+};
+
+/** The ramp arm's detail rows, built from the shared `core/rampForm`
+ *  primitives: the heatmap panel and this panel therefore share the row
+ *  structure, the control types (native selects) and the option vocabularies
+ *  (method order + 2..9 class counts from #core/classify). The scheme trigger
+ *  shows the colour strip only, matching the heatmap trigger. */
+const buildRampDetail = (
+  ui: LayerUI,
+  layerId: string,
+  fields: readonly string[],
+  ramp: FillRampConfig,
+): HTMLElement[] => {
+  const field = buildFieldRow({
+    label: ui.T("style_fill_field"),
+    ariaLabel: ui.T("style_fill_field"),
+    fields,
+    value: fields.includes(ramp.field) ? ramp.field : fields[0],
+    rowClass: CONST.CLASSES.STYLE_FILL_ROW,
+    selectClass: CONST.CLASSES.STYLE_FILL_FIELD_SELECT,
+  });
+
+  const classes = buildClassesRow({
+    // The row reads by its primary control: the classification method, the same
+    // visible label the heatmap panel uses (classify_method). The class count
+    // keeps its own accessible name (see classesAriaLabel below) so the two
+    // selects stay distinguishable.
+    label: ui.T("style_method"),
+    methodAriaLabel: ui.T("style_method"),
+    classesAriaLabel: ui.T("style_fill_classes"),
+    methodValue: ramp.method,
+    classesValue: ramp.classes,
+    methodLabel: method => methodLabel(ui, method),
+    rowClass: CONST.CLASSES.STYLE_FILL_ROW,
+    methodClass: CONST.CLASSES.STYLE_FILL_METHOD_SELECT,
+    classesClass: CONST.CLASSES.STYLE_FILL_CLASSES_SELECT,
+  });
+
+  const scheme = buildSchemeRow({
+    label: ui.T("style_fill_scheme"),
+    triggerClass: CONST.CLASSES.STYLE_FILL_SCHEME_TRIGGER,
+    barClass: CONST.CLASSES.STYLE_FILL_SCHEME_BAR,
+    hiddenClass: CONST.CLASSES.STYLE_FILL_SCHEME_HIDDEN,
+    rowClass: CONST.CLASSES.STYLE_FILL_ROW,
+  });
+
+  return [field.row, classes.row, scheme.row];
+};
+
+/** Fill one detail slot for the active arm. Always disposes the previous
+ *  scheme picker first: rebuilding the ramp detail must not leave a picker
+ *  answering clicks for a trigger that no longer exists. */
+const renderFillDetail = (
+  ui: LayerUI,
+  layerId: string,
+  detail: HTMLElement,
+  mode: FillMode,
+): void => {
+  disposeFillRow(ui);
+  detail.innerHTML = "";
+  const fields = numericFields(ui, layerId);
+  if (mode === "ramp" && fields.length > 0) {
+    detail.append(
+      ...buildRampDetail(ui, layerId, fields, rampForUi(ui, layerId, fields)),
+    );
+    return;
+  }
+  detail.append(...buildSolidDetail(ui, layerId));
+};
+
+/** Build the fill form block. A layer with numeric fields gets the mode row
+ *  (solid / color by value) plus the active arm's detail; a layer without one
+ *  gets the solid controls only — there is nothing to classify, so offering a
+ *  disabled "Color by value" option would just be noise. A color basemap keeps
+ *  the pre-existing single swatch row: its fill is the pane paint, which has no
+ *  per-feature values to classify. */
+const buildFillRow = (ui: LayerUI, layerId: string): HTMLElement => {
+  const layerInfo = ui.c.layerRegistry.get(layerId);
+  if (isColorBasemap(layerInfo!)) {
+    const colorInput = formColorInput({
+      value: toHexColor(
+        getIntent(ui, layerId, INTENT.FILL_COLOR) ?? CONST.COLOR.DEFAULT,
+      ),
+      className: CONST.CLASSES.STYLE_FILL_COLOR_INPUT,
+      ariaLabel: ui.T("style_fill"),
+    }) as HTMLInputElement;
     return formRow(
       ui.T("style_fill"),
       dom.el("div", { class: "foliplus-form-inline" }, colorInput),
@@ -335,41 +542,51 @@ const buildFillRow = (ui: LayerUI, layerId: string): HTMLElement => {
     );
   }
 
-  const storedOpacity = getIntent(ui, layerId, INTENT.FILL_OPACITY);
-  const opacityPct = (storedOpacity ?? base!.fillOpacity ?? VISIBLE_FILL_OPACITY) * 100;
-  const opacityInput = numberInput({
-    value: opacityPct,
-    min: 0,
-    max: 100,
-    // Any integer 0–100 is a legal opacity; the number field is the precise
-    // companion to the live commit, so the spinner must not restrict the
-    // input to multiples of a coarser step (the opacity row uses step 1 too).
-    step: 1,
-    className: CONST.CLASSES.STYLE_FILL_OPACITY_NUMBER,
-    ariaLabel: ui.T("style_fill_opacity"),
-  }) as HTMLInputElement;
+  const fields = numericFields(ui, layerId);
+  // No numeric field: one arm only, so there is no mode to choose. The
+  // wrapper keeps the same block/detail shape so a later categorical field
+  // type can add a second arm without moving the panel's bind seam.
+  if (fields.length === 0) {
+    const detail = dom.el("div", { class: CONST.CLASSES.STYLE_FILL_DETAIL });
+    detail.append(...buildSolidDetail(ui, layerId));
+    return dom.el("div", { class: CONST.CLASSES.STYLE_FILL_BLOCK }, detail);
+  }
 
-  return formRow(
-    ui.T("style_fill"),
-    inlineControls(colorInput, opacityInput),
-    CONST.CLASSES.STYLE_FILL_ROW,
+  const storedMode = resolveFillMode(
+    ui,
+    layerId,
+    getIntent(ui, layerId, INTENT.FILL_RAMP),
   );
+  const mode: FillMode = storedMode === "ramp" ? "ramp" : "solid";
+
+  const { block: modeRow, detail } = buildModeRow({
+    label: ui.T("style_fill_mode"),
+    selectClass: CONST.CLASSES.STYLE_FILL_MODE_SELECT,
+    rowClass: CONST.CLASSES.STYLE_FILL_ROW,
+    detailClass: CONST.CLASSES.STYLE_FILL_DETAIL,
+    value: mode,
+    options: [
+      { value: "solid", label: ui.T("style_fill_single") },
+      { value: "ramp", label: ui.T("style_fill_by_value") },
+    ],
+  });
+
+  renderFillDetail(ui, layerId, detail, mode);
+
+  return dom.el("div", { class: CONST.CLASSES.STYLE_FILL_BLOCK }, modeRow, detail);
 };
 
-/** Wire the shared live-color and live-number binders to this row's
- *  commit paths. Called from `openStylePanel` in index.ts. */
-const bindFillRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => {
-  const colorEl = row.querySelector(
+/** Bind the solid arm's two live controls. */
+const bindSolidDetail = (ui: LayerUI, layerId: string, detail: HTMLElement): void => {
+  const colorEl = detail.querySelector(
     `.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`,
   ) as HTMLInputElement | null;
   if (colorEl) {
     bindLiveColor(colorEl, value => commitFillColor(ui, layerId, value));
-    // change / blur close the drag: the trailing rAF frame may never fire
-    // if the pointer lifts between frames — flush so the terminal value
-    // lands (same contract as bindLiveNumber's change commit). Chain, never
-    // overwrite: bindLiveColor only owns oninput today, but a future binder
-    // that owns onchange must not be dropped (and the listener-guard
-    // allow-list rejects bare addEventListener).
+    // change / blur close the drag: the trailing rAF frame may never fire if
+    // the pointer lifts between frames — flush so the terminal value lands
+    // (same contract as bindLiveNumber's change commit). Chain, never
+    // overwrite: bindLiveColor only owns oninput today.
     const flush = () => flushStyleDimApply(FACE.FILL, layerId, ui);
     const prevColorChange = colorEl.onchange;
     colorEl.onchange = ev => {
@@ -379,7 +596,7 @@ const bindFillRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => {
     colorEl.onblur = flush;
   }
 
-  const opacityEl = row.querySelector(
+  const opacityEl = detail.querySelector(
     `.${CONST.CLASSES.STYLE_FILL_OPACITY_NUMBER}`,
   ) as HTMLInputElement | null;
   if (opacityEl) {
@@ -399,6 +616,114 @@ const bindFillRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => {
     };
     opacityEl.onblur = flush;
   }
+};
+
+/** Bind the ramp arm's three controls, including the shared scheme picker.
+ *
+ *  Every element is built by `buildRampDetail` immediately above, so the
+ *  queries cast instead of re-testing for null: a guard here could never take
+ *  its false arm (the markup is a private contract) and would just read as an
+ *  uncovered branch. The picker is created first so the class-count commit can
+ *  update it directly (its strip has one block per class). */
+const bindRampDetail = (ui: LayerUI, layerId: string, detail: HTMLElement): void => {
+  const trigger = detail.querySelector(
+    `.${CONST.CLASSES.STYLE_FILL_SCHEME_TRIGGER}`,
+  ) as HTMLElement;
+  const hidden = detail.querySelector(
+    `.${CONST.CLASSES.STYLE_FILL_SCHEME_HIDDEN}`,
+  ) as HTMLSelectElement;
+  const fields = numericFields(ui, layerId);
+  const ramp = rampForUi(ui, layerId, fields);
+  const picker = createSchemePicker({
+    trigger,
+    hiddenSelect: hidden,
+    schemes: DEFAULT_SCHEMES,
+    value: ramp.scheme,
+    numClasses: ramp.classes,
+    portal: true,
+    label: ui.T("style_fill_scheme"),
+    colorScale: getColorScale,
+    onChange: name => {
+      writeFillRamp(ui, layerId, { scheme: name });
+    },
+  });
+  schemePickerByUi.set(ui, picker);
+
+  const fieldSelect = detail.querySelector(
+    `.${CONST.CLASSES.STYLE_FILL_FIELD_SELECT}`,
+  ) as HTMLSelectElement;
+  fieldSelect.onchange = () => writeFillRamp(ui, layerId, { field: fieldSelect.value });
+
+  const methodSelect = detail.querySelector(
+    `.${CONST.CLASSES.STYLE_FILL_METHOD_SELECT}`,
+  ) as HTMLSelectElement;
+  methodSelect.onchange = () =>
+    writeFillRamp(ui, layerId, {
+      method: methodSelect.value as FillRampConfig["method"],
+    });
+
+  const classesSelect = detail.querySelector(
+    `.${CONST.CLASSES.STYLE_FILL_CLASSES_SELECT}`,
+  ) as HTMLSelectElement;
+  classesSelect.onchange = () => {
+    const next = writeFillRamp(ui, layerId, {
+      classes: parseInt(classesSelect.value, 10),
+    });
+    // The strip has one block per class: keep the picker's preview in step
+    // with the count the map is now using.
+    picker.setNumClasses(next.classes);
+  };
+};
+
+/** Bind one detail slot for the active arm (solid color/opacity or the ramp
+ *  controls). Called on open and again after every mode switch. */
+const bindFillDetail = (
+  ui: LayerUI,
+  layerId: string,
+  detail: HTMLElement,
+  mode: FillMode,
+): void => {
+  if (mode === "ramp" && numericFields(ui, layerId).length > 0) {
+    bindRampDetail(ui, layerId, detail);
+  } else {
+    bindSolidDetail(ui, layerId, detail);
+  }
+};
+
+/** Wire the fill block: the mode select switches arms in place (rebuilding the
+ *  detail slot), and the active arm's controls commit through the dimension's
+ *  write path. A color basemap row or a layer with one arm (no numeric field)
+ *  has no mode select and only owns the solid controls. */
+const bindFillRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => {
+  const block = row.closest(`.${CONST.CLASSES.STYLE_FILL_BLOCK}`) as HTMLElement | null;
+  if (!block) {
+    // Color basemap: the single swatch row, no arms.
+    bindSolidDetail(ui, layerId, row);
+    return;
+  }
+
+  const select = block.querySelector(
+    `.${CONST.CLASSES.STYLE_FILL_MODE_SELECT}`,
+  ) as HTMLSelectElement | null;
+  if (!select) {
+    // One honest arm: no mode row to switch; bind the solid controls only.
+    bindSolidDetail(ui, layerId, block);
+    return;
+  }
+  const detail = block.querySelector(
+    `.${CONST.CLASSES.STYLE_FILL_DETAIL}`,
+  ) as HTMLElement;
+
+  select.onchange = () => {
+    // The mode row only renders when a numeric field exists, so both arms are
+    // honest and the write cannot be rejected.
+    const next: FillMode = select.value === "ramp" ? "ramp" : "solid";
+    writeFillMode(ui, layerId, next);
+    renderFillDetail(ui, layerId, detail, next);
+    bindFillDetail(ui, layerId, detail, next);
+  };
+
+  bindFillDetail(ui, layerId, detail, select.value === "ramp" ? "ramp" : "solid");
 };
 
 /** Replay a layer's stored fill state (color + opacity) onto the map.
@@ -502,6 +827,7 @@ export {
   buildFillRow,
   commitFillColor,
   commitFillOpacity,
+  disposeFillRow,
   FILL_DIMENSION,
   layerCanFill,
   replayFillState,

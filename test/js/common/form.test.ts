@@ -1,14 +1,17 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  BORDER_WEIGHT,
   LABEL_SIZE,
   bindLiveColor,
   bindLiveNumber,
+  clampBorderWeight,
   clampLabelSize,
   colorInput,
   formRow,
   inlineControls,
   normalizeHexColor,
   numberInput,
+  selectInput,
 } from "#common/form.js";
 
 describe("LABEL_SIZE / clampLabelSize", () => {
@@ -229,5 +232,46 @@ describe("bindLiveNumber / bindLiveColor", () => {
     input.value = "#00ff00";
     input.dispatchEvent(new Event("input"));
     expect(onCommit).toHaveBeenCalledWith("#00ff00");
+  });
+});
+
+describe("BORDER_WEIGHT / clampBorderWeight", () => {
+  it("clamps a hand-edited weight into the shared bounds", () => {
+    expect(BORDER_WEIGHT.MIN).toBe(0);
+    expect(BORDER_WEIGHT.MAX).toBe(10);
+    expect(clampBorderWeight(-3)).toBe(0);
+    expect(clampBorderWeight(42)).toBe(10);
+    expect(clampBorderWeight(2.5)).toBe(2.5);
+  });
+});
+
+describe("selectInput", () => {
+  it("builds a native select and applies the current value", () => {
+    const select = selectInput({
+      className: "extra",
+      ariaLabel: "pick",
+      value: "b",
+      options: [
+        { value: "a", label: "A" },
+        { value: "b", label: "B", disabled: true, title: "kept for context" },
+      ],
+    });
+
+    expect(select.tagName).toBe("SELECT");
+    expect(select.className).toBe("foliplus-form-select extra");
+    expect(select.getAttribute("aria-label")).toBe("pick");
+    expect(Array.from(select.options).map(o => o.value)).toEqual(["a", "b"]);
+    expect(select.options[1].disabled).toBe(true);
+    expect(select.options[1].title).toBe("kept for context");
+    expect(select.value).toBe("b");
+  });
+
+  it("leaves the select unselected when the value has no option", () => {
+    const select = selectInput({
+      value: "gone",
+      options: [{ value: "a", label: "A" }],
+    });
+
+    expect(select.value).toBe("");
   });
 });

@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { CLASS_COUNT } from "#core/classify.js";
 import { EVENTS, SettledOperation, ensureEvents } from "#core/event/index.js";
 import { SCHEME_FALLBACK_COLOR } from "#core/palette.js";
 import * as CONST from "#foliplus/HeatmapControl/const.js";
@@ -1766,7 +1767,7 @@ describe("constructor — CONFIG fallbacks", () => {
     expect(m.agg).toBe(CONST.AGG.COUNT);
     expect(m.scheme).toBe("Reds");
     expect(m.method).toBe("jenks");
-    expect(m.numClasses).toBe(CONST.CLASS_COUNT.DEFAULT);
+    expect(m.numClasses).toBe(CLASS_COUNT.DEFAULT);
     expect(m.borderColor).toBe(SCHEME_FALLBACK_COLOR);
   });
 });
@@ -2100,7 +2101,7 @@ describe("resetState — CONFIG fallbacks", () => {
       color_scheme: undefined,
     });
     expect(m.agg).toBe(CONST.AGG.COUNT);
-    expect(m.numClasses).toBe(CONST.CLASS_COUNT.DEFAULT);
+    expect(m.numClasses).toBe(CLASS_COUNT.DEFAULT);
     expect(m.method).toBe("jenks");
     expect(m.scheme).toBe("Reds");
   });

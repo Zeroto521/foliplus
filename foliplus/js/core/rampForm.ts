@@ -1,0 +1,196 @@
+// core/rampForm — the shared Field / Classes / Scheme rows used by both
+// classified schemes in the product: LayerControl's value-based fill detail
+// and HeatmapControl's classification panel.
+//
+// Shared here: the row structure (label + control cell), the native control
+// types (field + class count are selects, never number inputs), the method
+// order and class-count options come from #core/classify, the scheme trigger
+// markup the shared schemePicker expects, and the option builders. Consumers
+// keep their own panel shell, their own labels (passed in, translated by the
+// component's translator) and their own change wiring: the heatmap recomputes
+// hexagons, the layer repaints leaves. Only the DOM row + control references
+// are shared, so no cross-component innerHTML template exists.
+import {
+  CLASS_COUNT_VALUES,
+  type ClassifyMethod,
+  METHOD_ORDER,
+} from "#core/classify.js";
+import { dom } from "#common/dom.js";
+import { formRow, inlineControls, selectInput } from "#common/form.js";
+
+/** Extra HTML attributes applied to the row/control, e.g. the heatmap's
+ *  data-* seams that Python rendering tests pin. */
+type Attributes = Record<string, string>;
+
+/** Apply attributes to an element. */
+const applyAttributes = (el: HTMLElement, attrs: Attributes | undefined): void => {
+  if (!attrs) return;
+  for (const [name, value] of Object.entries(attrs)) el.setAttribute(name, value);
+};
+
+type FieldRowOptions = {
+  /** Row label, already translated by the consumer. */
+  label: string;
+  /** Accessible name for the field select. */
+  ariaLabel: string;
+  fields: readonly string[];
+  value: string;
+  rowClass?: string;
+  selectClass?: string;
+  rowAttributes?: Attributes;
+  selectAttributes?: Attributes;
+  onChange?: (field: string) => void;
+};
+
+type FieldRow = { row: HTMLElement; select: HTMLSelectElement };
+
+/** Field row: one native select listing the numeric/aggregation fields. */
+const buildFieldRow = (opts: FieldRowOptions): FieldRow => {
+  const select = selectInput({
+    className: opts.selectClass,
+    ariaLabel: opts.ariaLabel,
+    value: opts.fields.includes(opts.value) ? opts.value : (opts.fields[0] ?? ""),
+    options: opts.fields.map(field => ({ value: field, label: field })),
+  });
+  applyAttributes(select, opts.selectAttributes);
+  if (opts.onChange) select.onchange = () => opts.onChange!(select.value);
+
+  const row = formRow(opts.label, select, opts.rowClass);
+  applyAttributes(row, opts.rowAttributes);
+  return { row, select };
+};
+
+type ClassesRowOptions = {
+  /** Visible row label. Both panels name the method + class-count row by its
+   *  primary control ("Method" / 分类方法); the class count is announced by the
+   *  count select's own aria label. */
+  label: string;
+  /** Accessible name for the method select. */
+  methodAriaLabel: string;
+  /** Accessible name for the class-count select. */
+  classesAriaLabel: string;
+  methodValue: ClassifyMethod;
+  classesValue: number;
+  /** Method display label resolver (each component owns its locale keys). */
+  methodLabel: (method: ClassifyMethod) => string;
+  rowClass?: string;
+  methodClass?: string;
+  classesClass?: string;
+  rowAttributes?: Attributes;
+  methodAttributes?: Attributes;
+  classesAttributes?: Attributes;
+  onChange?: (next: { method?: ClassifyMethod; classes?: number }) => void;
+};
+
+type ClassesRow = {
+  row: HTMLElement;
+  methodSelect: HTMLSelectElement;
+  classesSelect: HTMLSelectElement;
+};
+
+/** Method + class-count row. Both are native selects: the count comes from
+ *  the shared 2..9 vocabulary, the method order from the shared classifier. */
+const buildClassesRow = (opts: ClassesRowOptions): ClassesRow => {
+  const methodSelect = selectInput({
+    className: opts.methodClass,
+    ariaLabel: opts.methodAriaLabel,
+    value: opts.methodValue,
+    options: METHOD_ORDER.map(method => ({
+      value: method,
+      label: opts.methodLabel(method),
+    })),
+  });
+  applyAttributes(methodSelect, opts.methodAttributes);
+
+  const classesSelect = selectInput({
+    className: opts.classesClass,
+    ariaLabel: opts.classesAriaLabel,
+    value: String(opts.classesValue),
+    options: CLASS_COUNT_VALUES.map(count => ({
+      value: String(count),
+      label: String(count),
+    })),
+  });
+  applyAttributes(classesSelect, opts.classesAttributes);
+  if (opts.onChange) {
+    const onChange = opts.onChange;
+    methodSelect.onchange = () => {
+      onChange({ method: methodSelect.value as ClassifyMethod });
+    };
+    classesSelect.onchange = () => {
+      const classes = parseInt(classesSelect.value, 10);
+      if (Number.isFinite(classes)) onChange({ classes });
+    };
+  }
+
+  const row = formRow(
+    opts.label,
+    inlineControls(methodSelect, classesSelect),
+    opts.rowClass,
+  );
+  applyAttributes(row, opts.rowAttributes);
+  return { row, methodSelect, classesSelect };
+};
+
+type SchemeRowOptions = {
+  /** Row label ("Scheme" in both panels). */
+  label: string;
+  /** Class of the picker trigger element. */
+  triggerClass: string;
+  /** Class of the colour-strip element inside the trigger. */
+  barClass: string;
+  /** Extra class on the colour strip (heatmap's inner-bar class). */
+  barInnerClass?: string;
+  /** Class of the hidden select (defaults to the shared picker class). */
+  hiddenClass?: string;
+  rowClass?: string;
+  rowAttributes?: Attributes;
+  triggerAttributes?: Attributes;
+  barAttributes?: Attributes;
+  hiddenAttributes?: Attributes;
+};
+
+/** The scheme picker's trigger + hidden select, wrapped in a labelled row.
+ *  The consumer creates the picker with these references (its onChange owns
+ *  the repaint) — the trigger shows the colour strip only, no scheme name, in
+ *  both panels. */
+const buildSchemeRow = (
+  opts: SchemeRowOptions,
+): {
+  row: HTMLElement;
+  trigger: HTMLElement;
+  bar: HTMLElement;
+  hiddenSelect: HTMLSelectElement;
+} => {
+  const barClass = opts.barInnerClass
+    ? opts.barClass + " foliplus-scheme-picker-bar " + opts.barInnerClass
+    : opts.barClass + " foliplus-scheme-picker-bar";
+  const bar = dom.el("div", {
+    class: barClass,
+    "data-scheme-bar-inner": "",
+  });
+  applyAttributes(bar, opts.barAttributes);
+  const trigger = dom.el(
+    "div",
+    {
+      class: opts.triggerClass,
+      tabindex: "0",
+      role: "combobox",
+      "aria-haspopup": "listbox",
+    },
+    bar,
+  );
+  applyAttributes(trigger, opts.triggerAttributes);
+  const hiddenSelect = dom.el("select", {
+    class: opts.hiddenClass ?? "foliplus-scheme-picker-hidden",
+    tabindex: "-1",
+    "aria-hidden": "true",
+  }) as HTMLSelectElement;
+  applyAttributes(hiddenSelect, opts.hiddenAttributes);
+
+  const row = formRow(opts.label, inlineControls(trigger, hiddenSelect), opts.rowClass);
+  applyAttributes(row, opts.rowAttributes);
+  return { row, trigger, bar, hiddenSelect };
+};
+
+export { buildClassesRow, buildFieldRow, buildSchemeRow };

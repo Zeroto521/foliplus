@@ -309,11 +309,14 @@ const createPanelHeader = (opts: {
  * attributes panel and the per-layer style panel.
  *
  * It is a `foliplus-panel` with the fold panels' header/content vocabulary, but
- * anchored under its own row instead of folded into the control — so the caller
- * mounts the returned `panel` on the row. Anchoring, width, height cap, card
- * chrome and the `stretch` axis all come from the shared `.foliplus-row-panel`
- * recipe, and the header from {@link createPanelHeader}, so a new row panel
- * cannot drift into a lookalike of the ones already here.
+ * anchored under its own row instead of folded into the control — so the
+ * caller mounts the returned `panel` on the row. That plain card is
+ * `position: absolute` and needs no placement code; a caller whose rows live in
+ * a scroll box that would clip it opts into {@link pinRowPanel} for the
+ * fixed-position variant. Width, height cap, card chrome and the `stretch` axis
+ * all come from the shared `.foliplus-row-panel` recipe, and the header from
+ * {@link createPanelHeader}, so a new row panel cannot drift into a lookalike of
+ * the ones already here.
  *
  * `iconClass` stays a parameter because each component's SVGs are viewBox-only
  * and need their own sizing hook inside the shared icon box.
@@ -353,6 +356,102 @@ const createRowPanel = (opts: {
   panel.appendChild(header);
   panel.appendChild(content);
   return { panel, header, content };
+};
+
+// ── Row panel anchoring ─────────────────────────────────────────
+//
+// A row panel is mounted INSIDE its layer row. The plain `.foliplus-row-panel`
+// card is `position: absolute` under that row, which is right for a caller that
+// simply mounts the card in a list — it needs no placement code.
+//
+// Rows in the fold panel live in a scrolling content box, and an absolutely
+// positioned card there is clipped by it: the lower half of the style panel
+// (the scheme row and the reset footer) sat outside the visible list and could
+// not be pressed. A caller in that situation opts in with `pinRowPanel`: the
+// card gets `foliplus-is-pinned` (`position: fixed`, see common/panel.css) and
+// is placed from the anchor row's client rect. Fixed positioning works because
+// no ancestor of the rows carries a transform/filter/contain (which would turn
+// one into the containing block), so viewport coordinates stay viewport
+// coordinates while the card follows the row as the list scrolls.
+//
+// Opt-in, not default: a row panel must never depend on being pinned to look
+// right, because a caller that does not know about the helper (or a branch that
+// adds a new one) would otherwise render fixed at the viewport corner.
+//
+// Placement is deliberately simple: the card opens downward from its row. It
+// never flips above the row, never measures the room below it and never writes
+// an inline height cap — the shared .foliplus-row-panel recipe carries the
+// height cap and its content's scrollbar, so a panel taller than the space
+// under its row scrolls inside the card instead of growing over the viewport.
+
+/** Gap between the anchor row and the card. */
+const ROW_PANEL_GAP = 2;
+/** Minimum distance between the card and the viewport's horizontal edges. */
+const ROW_PANEL_EDGE = 8;
+/** Class that switches a row panel to the pinned (fixed, placed) variant. */
+const PINNED_CLASS = "foliplus-is-pinned";
+
+/** Open row panels, keyed by their anchor row: a row opens one card at a time. */
+const rowPanels = new Map<HTMLElement, HTMLElement>();
+let rowPanelEventsBound = false;
+
+/** Place one card under its row: fixed, right-aligned with the row and always
+ *  opening downward. The card's height cap and its content's scrollbar come
+ *  from the shared .foliplus-row-panel recipe (common/panel.css), so a tall
+ *  panel scrolls inside the card instead of flipping up or shrinking. The panel
+ *  must already be in the DOM: its measured width is the horizontal input. */
+const placeRowPanel = (panel: HTMLElement, anchor: HTMLElement): void => {
+  const row = anchor.getBoundingClientRect();
+  // A row inside a folded group is `display: none` and measures zero; keep the
+  // last placement rather than pinning the card to the viewport corner.
+  if (row.width === 0 && row.height === 0) return;
+  const card = panel.getBoundingClientRect();
+  // Right-aligned with the row, like the card's original `right: 0` anchor,
+  // clamped so a row at the viewport edge cannot push the card offscreen.
+  const left = Math.max(
+    ROW_PANEL_EDGE,
+    Math.min(row.right - card.width, window.innerWidth - card.width - ROW_PANEL_EDGE),
+  );
+  panel.style.left = `${left}px`;
+  panel.style.top = `${row.bottom + ROW_PANEL_GAP}px`;
+};
+
+/** Re-place every open card. Document-level capture, so a scroll inside the
+ *  layer list (which does not bubble) still reports. A card whose row was
+ *  rebuilt away is dropped here as well, which keeps the map from holding a
+ *  detached row forever if a close path forgot to unpin. */
+const replaceRowPanels = (): void => {
+  for (const [anchor, panel] of rowPanels) {
+    if (!panel.isConnected || !anchor.isConnected) {
+      rowPanels.delete(anchor);
+      continue;
+    }
+    placeRowPanel(panel, anchor);
+  }
+};
+
+/** Pin a mounted row panel to the viewport, anchored under `anchor`.
+ *  Call right after the card is appended to the row. Adds the opt-in
+ *  `foliplus-is-pinned` class (the fixed box) before the first placement, so a
+ *  panel that was never pinned keeps its plain row-anchored absolute box. */
+const pinRowPanel = (panel: HTMLElement, anchor: HTMLElement): void => {
+  panel.classList.add(PINNED_CLASS);
+  rowPanels.set(anchor, panel);
+  if (!rowPanelEventsBound) {
+    rowPanelEventsBound = true;
+    window.addEventListener("scroll", replaceRowPanels, true);
+    window.addEventListener("resize", replaceRowPanels);
+  }
+  placeRowPanel(panel, anchor);
+};
+
+/** Drop a row panel's placement bookkeeping and its pinned marker. Call when
+ *  the card closes or its row is rebuilt; a miss only leaves one stale map
+ *  entry until the next scroll/resize pass prunes it. */
+const unpinRowPanel = (anchor: HTMLElement | null): void => {
+  if (!anchor) return;
+  rowPanels.get(anchor)?.classList.remove(PINNED_CLASS);
+  rowPanels.delete(anchor);
 };
 
 /**
@@ -458,4 +557,6 @@ export {
   createPanelControl,
   createPanelHeader,
   createRowPanel,
+  pinRowPanel,
+  unpinRowPanel,
 };

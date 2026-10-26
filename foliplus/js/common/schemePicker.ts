@@ -25,6 +25,13 @@ const DEFAULT_CLASSES = {
   active: "foliplus-is-active",
 } as const;
 
+// Extra class on a portaled dropdown only. A portaled dropdown lives outside
+// the panel that opened it, so it has to paint above that panel — while an
+// inline dropdown stays inside the trigger's own stacking context and needs no
+// lift. The class is what the stylesheet keys the z band off, so the JS keeps
+// its distance from z numbers.
+const PORTAL_CLASS = "foliplus-scheme-picker-portal";
+
 interface SchemePickerClasses {
   open: string;
   dropdown: string;
@@ -252,6 +259,7 @@ const mountDropdown = (state: InternalState) => {
   if (state.portal) {
     dropdown.style.position = "fixed";
     dropdown.style.visibility = "hidden";
+    dropdown.classList.add(PORTAL_CLASS);
     const host = getPortalHost();
     host.appendChild(dropdown);
     // Measure after append — detached elements report 0×0.

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   adjustPanelZIndex,
   bindFoldToggle,
@@ -9,6 +9,8 @@ import {
   createPanelControl,
   createPanelHeader,
   createRowPanel,
+  pinRowPanel,
+  unpinRowPanel,
 } from "#core/leaflet/index.js";
 
 // setup.js provides L.DomEvent mocks (disableClickPropagation, etc.),
@@ -764,5 +766,163 @@ describe("createRowPanel", () => {
     const icon = header.querySelector(".foliplus-header-icon");
     expect(icon?.className).toContain("foliplus-layer-style-icon");
     expect(header.querySelector(".foliplus-close-btn")).not.toBeNull();
+  });
+});
+
+describe("pinRowPanel", () => {
+  type Box = { top: number; left: number; width: number; height: number };
+
+  const stubBox = (el: HTMLElement, box: Box): void => {
+    el.getBoundingClientRect = () =>
+      ({
+        top: box.top,
+        left: box.left,
+        width: box.width,
+        height: box.height,
+        right: box.left + box.width,
+        bottom: box.top + box.height,
+        x: box.left,
+        y: box.top,
+        toJSON: () => ({}),
+      }) as DOMRect;
+  };
+
+  const setViewport = (width: number, height: number): void => {
+    Object.defineProperty(window, "innerWidth", {
+      value: width,
+      configurable: true,
+    });
+    Object.defineProperty(window, "innerHeight", {
+      value: height,
+      configurable: true,
+    });
+  };
+
+  const make = (card: { width: number; height: number }) => {
+    const row = document.createElement("div");
+    const panel = document.createElement("div");
+    document.body.append(row, panel);
+    stubBox(panel, { top: 0, left: 0, ...card });
+    return { row, panel };
+  };
+
+  beforeEach(() => setViewport(1024, 720));
+  afterEach(() => {
+    document.body.innerHTML = "";
+  });
+
+  it("drops the card under its row, right-aligned with it", () => {
+    const { row, panel } = make({ width: 280, height: 200 });
+    stubBox(row, { top: 100, left: 10, width: 300, height: 30 });
+
+    pinRowPanel(panel, row);
+
+    // Right edge == row right (310), clamped inside the viewport.
+    expect(panel.style.left).toBe("30px");
+    expect(panel.style.top).toBe("132px");
+  });
+
+  it("keeps opening downward when the card crosses the viewport bottom", () => {
+    // Placement never flips or caps: the height cap and the content scrollbar
+    // are the shared CSS recipe's job, so a tall card keeps its top below its
+    // row and scrolls inside itself instead of moving up over the viewport.
+    const { row, panel } = make({ width: 280, height: 400 });
+    stubBox(row, { top: 600, left: 10, width: 300, height: 30 });
+
+    pinRowPanel(panel, row);
+
+    expect(panel.style.top).toBe("632px");
+    expect(panel.style.maxHeight).toBe("");
+  });
+
+  it("keeps the last placement while the row is hidden (folded group)", () => {
+    const { row, panel } = make({ width: 280, height: 200 });
+    stubBox(row, { top: 100, left: 10, width: 300, height: 30 });
+    pinRowPanel(panel, row);
+
+    stubBox(row, { top: 0, left: 0, width: 0, height: 0 });
+    window.dispatchEvent(new Event("resize"));
+
+    expect(panel.style.left).toBe("30px");
+    expect(panel.style.top).toBe("132px");
+  });
+
+  it("follows the row on a scroll and a resize", () => {
+    const { row, panel } = make({ width: 280, height: 400 });
+    stubBox(row, { top: 300, left: 10, width: 300, height: 30 });
+    pinRowPanel(panel, row);
+    expect(panel.style.top).toBe("332px");
+
+    stubBox(row, { top: 200, left: 20, width: 300, height: 30 });
+    window.dispatchEvent(new Event("resize"));
+    expect(panel.style.top).toBe("232px");
+
+    stubBox(row, { top: 100, left: 20, width: 300, height: 30 });
+    window.dispatchEvent(new Event("scroll"));
+    expect(panel.style.top).toBe("132px");
+    // Placement never writes an inline height cap.
+    expect(panel.style.maxHeight).toBe("");
+  });
+
+  it("stops following once unpinned", () => {
+    const { row, panel } = make({ width: 280, height: 200 });
+    stubBox(row, { top: 100, left: 10, width: 300, height: 30 });
+    pinRowPanel(panel, row);
+    expect(panel.style.top).toBe("132px");
+
+    unpinRowPanel(row);
+    stubBox(row, { top: 400, left: 10, width: 300, height: 30 });
+    window.dispatchEvent(new Event("resize"));
+
+    expect(panel.style.top).toBe("132px");
+  });
+
+  it("drops a detached card instead of positioning it", () => {
+    const { row, panel } = make({ width: 280, height: 200 });
+    stubBox(row, { top: 100, left: 10, width: 300, height: 30 });
+    pinRowPanel(panel, row);
+    const placed = panel.style.top;
+
+    panel.remove();
+    stubBox(row, { top: 400, left: 10, width: 300, height: 30 });
+    expect(() => window.dispatchEvent(new Event("resize"))).not.toThrow();
+    expect(panel.style.top).toBe(placed);
+  });
+
+  it("accepts a missing row on unpin", () => {
+    // Close paths read the row back off the card; a card whose row was rebuilt
+    // away answers null, and unpinning must stay a no-op instead of throwing.
+    expect(() => unpinRowPanel(null)).not.toThrow();
+  });
+
+  it("adds the pinned marker on pin and takes it off on unpin", () => {
+    const { row, panel } = make({ width: 280, height: 200 });
+    stubBox(row, { top: 100, left: 10, width: 300, height: 30 });
+    expect(panel.classList.contains("foliplus-is-pinned")).toBe(false);
+
+    pinRowPanel(panel, row);
+    expect(panel.classList.contains("foliplus-is-pinned")).toBe(true);
+
+    unpinRowPanel(row);
+    expect(panel.classList.contains("foliplus-is-pinned")).toBe(false);
+  });
+
+  it("leaves a createRowPanel card unpinned (plain absolute row card)", () => {
+    // #724's filter panel builds a row panel without knowing about pinning.
+    // The shared shell must keep working for it: no marker, no inline
+    // placement, so it renders as the plain row-anchored absolute card.
+    const { panel } = createRowPanel({
+      cssClass: "foliplus-filter-panel",
+      title: "Filter",
+      iconSvg: "<svg></svg>",
+      closeTitle: "Close",
+      iconClass: "foliplus-header-icon",
+    });
+
+    expect(panel.classList.contains("foliplus-row-panel")).toBe(true);
+    expect(panel.classList.contains("foliplus-is-pinned")).toBe(false);
+    expect(panel.style.position).toBe("");
+    expect(panel.style.top).toBe("");
+    expect(panel.style.left).toBe("");
   });
 });

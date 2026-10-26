@@ -3,8 +3,11 @@
 // the old HeatmapControl/data.test.ts did.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  CLASS_COUNT,
+  CLASS_COUNT_VALUES,
   ClassifyMethodError,
   METHOD,
+  METHOD_ORDER,
   computeBreaks,
   isClassifyMethod,
 } from "#core/classify.js";
@@ -183,5 +186,19 @@ describe("computeBreaks", () => {
 
   it("returns empty for empty data", () => {
     expect(computeBreaks([], 3, "equal")).toEqual([]);
+  });
+});
+describe("shared picker vocabulary", () => {
+  it("METHOD_ORDER lists every method once, in display order", () => {
+    expect(METHOD_ORDER).toEqual(["jenks", "quantile", "equal", "heads"]);
+    expect(new Set(METHOD_ORDER).size).toBe(METHOD_ORDER.length);
+  });
+
+  it("CLASS_COUNT bounds and values agree", () => {
+    expect(CLASS_COUNT).toEqual({ MIN: 2, MAX: 9, DEFAULT: 6 });
+    expect(CLASS_COUNT_VALUES).toEqual([2, 3, 4, 5, 6, 7, 8, 9]);
+    expect(CLASS_COUNT_VALUES[0]).toBe(CLASS_COUNT.MIN);
+    expect(CLASS_COUNT_VALUES[CLASS_COUNT_VALUES.length - 1]).toBe(CLASS_COUNT.MAX);
+    expect(CLASS_COUNT_VALUES).toContain(CLASS_COUNT.DEFAULT);
   });
 });

@@ -35,6 +35,15 @@ const SIZE = {
   DEFAULT: 10,
 } as const;
 
+/** Defaults for the value-based fill (the fill row). The method / scheme
+ *  values only seed the first ramp a user switches to (a stored
+ *  `FillRampConfig` always wins); the class-count vocabulary lives in
+ *  #core/classify and is imported where it is used. */
+const RAMP = {
+  METHOD_DEFAULT: "jenks",
+  SCHEME_DEFAULT: "Viridis",
+} as const;
+
 /** Focus-on-layer behavior. */
 const FOCUS = {
   /** How long the focus rectangle stays visible. */
@@ -160,6 +169,21 @@ const CLASSES = {
   STYLE_FILL_ROW: "foliplus-style-fill-row",
   STYLE_FILL_COLOR_INPUT: "foliplus-style-fill-color-input",
   STYLE_FILL_OPACITY_NUMBER: "foliplus-style-fill-opacity-number",
+  /** Fill mode block: the mode row plus the active arm's detail rows.
+   *  The block is the row's DOM root; detail rows are separate FORM_ROWs so
+   *  the label column stays aligned without indentation. */
+  STYLE_FILL_BLOCK: "foliplus-style-fill-block",
+  STYLE_FILL_MODE_SELECT: "foliplus-style-fill-mode-select",
+  STYLE_FILL_DETAIL: "foliplus-style-fill-detail",
+  /** Ramp detail controls (color-by-value arm): field, method, class count
+   *  and the shared scheme trigger. All four are native selects / the shared
+   *  picker trigger, the same controls the heatmap panel offers. */
+  STYLE_FILL_FIELD_SELECT: "foliplus-style-fill-field-select",
+  STYLE_FILL_METHOD_SELECT: "foliplus-style-fill-method-select",
+  STYLE_FILL_CLASSES_SELECT: "foliplus-style-fill-classes-select",
+  STYLE_FILL_SCHEME_TRIGGER: "foliplus-style-scheme-trigger",
+  STYLE_FILL_SCHEME_BAR: "foliplus-style-scheme-bar",
+  STYLE_FILL_SCHEME_HIDDEN: "foliplus-scheme-picker-hidden",
   /** Size row (CircleMarker only): a number field plus its unit suffix. Its
    *  own class so the change delegation and the tests can tell it from the
    *  label-size and border-weight number fields. */
@@ -272,6 +296,7 @@ export {
   ENFORCE_ORDER_DEBOUNCE_MS,
   FOCUS,
   FOCUS_PANE,
+  RAMP,
   SAVE_DEBOUNCE_MS,
   SEL,
   SIZE,

@@ -1,7 +1,7 @@
 // LayerControl UI — Layer attributes panel.
 import { EVENTS } from "#core/event/index.js";
 import { GROUP } from "#core/layer/index.js";
-import { createRowPanel } from "#core/leaflet/index.js";
+import { createRowPanel, pinRowPanel, unpinRowPanel } from "#core/leaflet/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import * as SVGs from "#foliplus/LayerControl/icon.js";
 import * as Util from "#foliplus/LayerControl/util.js";
@@ -212,6 +212,7 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
 
   item.style.position = "relative";
   item.appendChild(panel);
+  pinRowPanel(panel, item);
 
   // Document capture dismiss (attrs recipe): disableClickPropagation on the
   // layer control stops bubble-phase mousedown from reaching document, so a
@@ -256,6 +257,7 @@ const closeAttrsPanel = (ui: LayerUI, setFocus: boolean) => {
   ui.listPanel.pressInPanel = false;
   if (!ui.overlayPanel.activeAttrsPanel) return;
   const item = ui.overlayPanel.activeAttrsPanel.item;
+  unpinRowPanel(item);
   ui.overlayPanel.activeAttrsPanel.panel.remove();
   ui.overlayPanel.activeAttrsPanel = null;
   if (setFocus) item.focus();

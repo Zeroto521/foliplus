@@ -3,7 +3,7 @@
 // (set by the fixture), never from the ambient window.CONFIG — these tests
 // therefore prove both the behavior and the per-instance CONFIG injection.
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { METHOD } from "#core/classify.js";
+import { CLASS_COUNT, METHOD } from "#core/classify.js";
 import { HINT_DURATION } from "#core/hint.js";
 import * as CONST from "#foliplus/HeatmapControl/const.js";
 import { HeatmapManager } from "#foliplus/HeatmapControl/manager.js";
@@ -69,13 +69,64 @@ describe("bindControls — template render and initial values", () => {
     expect(ctrl.schemeSelectHidden.value).toBe(m.scheme);
   });
 
+  it("labels the method + classes row by method, with two distinct names", () => {
+    // One visible label, two native selects. The row reads by its primary
+    // control (the method), matching LayerControl's fill ramp row; the class
+    // count keeps its own accessible name so the pair is still announced
+    // separately instead of the row label twice.
+    const { ctrl } = setup(
+      makeConfig({
+        locale_tables: {
+          en: {
+            "HeatmapControl.classify_method": "Method",
+            "HeatmapControl.class_count": "Classes",
+          },
+        },
+      }),
+    );
+    const label = ctrl.methodSelect
+      .closest(".foliplus-form-row")!
+      .querySelector(".foliplus-form-label");
+
+    expect(label?.textContent).toBe("Method");
+    expect(ctrl.methodSelect.getAttribute("aria-label")).toBe("Method");
+    expect(ctrl.classSelect.getAttribute("aria-label")).toBe("Classes");
+    expect(ctrl.methodSelect.getAttribute("aria-label")).not.toBe(
+      ctrl.classSelect.getAttribute("aria-label"),
+    );
+  });
+
+  it("uses the shared zh vocabulary for the same row", () => {
+    const { ctrl } = setup(
+      makeConfig({
+        locale_code: "zh",
+        locale_tables: {
+          zh: {
+            "HeatmapControl.classify_method": "分类方法",
+            "HeatmapControl.class_count": "分级数",
+          },
+        },
+      }),
+    );
+    const label = ctrl.methodSelect
+      .closest(".foliplus-form-row")!
+      .querySelector(".foliplus-form-label");
+
+    expect(label?.textContent).toBe("分类方法");
+    expect(ctrl.methodSelect.getAttribute("aria-label")).toBe("分类方法");
+    expect(ctrl.classSelect.getAttribute("aria-label")).toBe("分级数");
+    expect(ctrl.methodSelect.getAttribute("aria-label")).not.toBe(
+      ctrl.classSelect.getAttribute("aria-label"),
+    );
+  });
+
   it("clamps an out-of-range manager numClasses into the select options", () => {
     const m = makeManager();
     m.numClasses = 99;
     const ctrl = makeCtrl(m, makeConfig());
     const panel = document.createElement("div");
     bindControls(ctrl, panel);
-    expect(ctrl.classSelect.value).toBe(String(CONST.CLASS_COUNT.MAX));
+    expect(ctrl.classSelect.value).toBe(String(CLASS_COUNT.MAX));
   });
 
   it("populates scheme options from config.schemes and renders the bar", () => {
@@ -275,7 +326,7 @@ describe("bindControls — clear (reset) button", () => {
     clearBtn.click();
 
     expect(m.scheme).toBe("Reds");
-    expect(m.numClasses).toBe(CONST.CLASS_COUNT.DEFAULT);
+    expect(m.numClasses).toBe(CLASS_COUNT.DEFAULT);
     expect(m.method).toBe(METHOD.JENKS);
     expect(m.field).toBe("");
     expect(ctrl.aggSelect.value).toBe(CONST.AGG.COUNT);
@@ -717,14 +768,14 @@ describe("bindControls — class count clamping", () => {
     const { ctrl, m } = setup();
     ctrl.classSelect.value = "not-a-number";
     fire(ctrl.classSelect, "change");
-    expect(m.numClasses).toBe(CONST.CLASS_COUNT.DEFAULT);
+    expect(m.numClasses).toBe(CLASS_COUNT.DEFAULT);
   });
 
   it("class-count change falls back to DEFAULT for zero", () => {
     const { ctrl, m } = setup();
     ctrl.classSelect.value = "0";
     fire(ctrl.classSelect, "change");
-    expect(m.numClasses).toBe(CONST.CLASS_COUNT.DEFAULT);
+    expect(m.numClasses).toBe(CLASS_COUNT.DEFAULT);
   });
 });
 

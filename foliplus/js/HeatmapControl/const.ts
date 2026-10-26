@@ -46,12 +46,6 @@ const AGG = {
   MAX: "max",
 };
 
-const CLASS_COUNT = {
-  MIN: 2,
-  MAX: 9,
-  DEFAULT: 6,
-};
-
 /** Hex-label typography — shared bounds from common/form.js so the layer
  *  style drawer never redeclares 6/32/11. */
 const LABEL = {
@@ -107,21 +101,10 @@ const DATA_ATTR = {
   FIELD_SELECT: "data-heatmap-field-select",
   METHOD: "data-heatmap-method",
   CLASS_COUNT: "data-heatmap-class-count",
+  RAMP_ROWS: "data-heatmap-ramp-rows",
   SCHEME_CTRL: "data-heatmap-scheme-ctrl",
   SCHEME_HIDDEN: "data-heatmap-scheme-hidden",
   BTN_CLEAR: "data-heatmap-btn-clear",
 };
 
-export {
-  AGG,
-  CLASS_COUNT,
-  CLASSES,
-  DATA_ATTR,
-  H3,
-  ID,
-  LABEL,
-  SEL,
-  STORAGE,
-  RECORD_VERSION,
-  TIMING,
-};
+export { AGG, CLASSES, DATA_ATTR, H3, ID, LABEL, SEL, STORAGE, RECORD_VERSION, TIMING };

@@ -1,7 +1,7 @@
 // HeatmapControl persistence — loading, applying, and clearing saved heatmap
 // configuration from localStorage. Pure functions over the manager's public
 // state surface.
-import { type ClassifyMethod, isClassifyMethod } from "#core/classify.js";
+import { CLASS_COUNT, type ClassifyMethod, isClassifyMethod } from "#core/classify.js";
 import { bareFieldName } from "#core/label/index.js";
 import {
   type LayerFilter,
@@ -11,7 +11,7 @@ import {
 import type { NumberStyle } from "#foliplus/config-schema.js";
 import { clampBorderWeight, clampLabelSize } from "#common/form.js";
 import * as Storage from "#common/storage.js";
-import { AGG, CLASS_COUNT } from "./const.js";
+import { AGG } from "./const.js";
 import * as CONST from "./const.js";
 import type { SavedConfig } from "./type.js";
 
