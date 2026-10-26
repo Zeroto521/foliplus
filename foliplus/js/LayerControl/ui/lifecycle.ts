@@ -267,19 +267,6 @@ const bindLayerEvents = (ui: LayerUI): void => {
   );
 
   container.addEventListener("change", ui.onChange);
-  // Labels own their overflow tooltip: the full name appears only while a
-  // clipped label is hovered, never as a resident title on every row.
-  ui.onPointerOver = (event: PointerEvent) => {
-    const target = event.target as HTMLElement | null;
-    const label = target?.closest?.(
-      `.${CONST.CLASSES.LAYER_LABEL}`,
-    ) as HTMLElement | null;
-    if (!label) return;
-    label.title =
-      label.scrollWidth > label.clientWidth ? (label.textContent as string).trim() : "";
-  };
-  container.addEventListener("pointerover", ui.onPointerOver);
-
   container.addEventListener("click", ui.onClick);
   container.addEventListener("focusin", ui.onFocusIn);
   container.addEventListener("focusout", ui.onFocusOut);
@@ -538,7 +525,6 @@ const unbindEvents = (ui: LayerUI): void => {
   if (ui.onClick) container.removeEventListener("click", ui.onClick);
   if (ui.onFocusIn) container.removeEventListener("focusin", ui.onFocusIn);
   if (ui.onFocusOut) container.removeEventListener("focusout", ui.onFocusOut);
-  container.removeEventListener("pointerover", ui.onPointerOver!);
   if (ui.onDragStart) container.removeEventListener("dragstart", ui.onDragStart);
   if (ui.onDragOver) container.removeEventListener("dragover", ui.onDragOver);
   if (ui.onDragLeave) container.removeEventListener("dragleave", ui.onDragLeave);

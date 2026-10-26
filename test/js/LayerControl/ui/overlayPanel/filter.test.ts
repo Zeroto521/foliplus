@@ -1239,25 +1239,30 @@ describe("LayerUI filter panel — result, Clear and row state", () => {
     ).not.toThrow();
   });
 
-  it("sets the row label tooltip only on real overflow", () => {
-    registerPoints();
+  it("titles the row label with the full layer name, filtered or not", () => {
+    const { owner } = registerPoints();
     const item = findItem(ui, "pnt");
     const label = item.querySelector(`.${CONST.CLASSES.LAYER_LABEL}`) as HTMLElement;
-    const hover = () =>
-      label.dispatchEvent(new Event("pointerover", { bubbles: true }));
+    const name = label.textContent!.trim();
 
-    // A non-label target is ignored entirely.
-    item.dispatchEvent(new Event("pointerover", { bubbles: true }));
-    expect(label.title).toBe("");
+    // Resident title, not a hover-measured one: present before any pointer
+    // event, so the name is always available even when the label is short.
+    expect(label.title).toBe(name);
+    expect(label.title).not.toBe("");
 
-    // No overflow (0/0 in jsdom): the tooltip must stay empty.
-    hover();
-    expect(label.title).toBe("");
+    // A pointer event no longer rewrites it (the overflow handler is gone).
+    label.dispatchEvent(new Event("pointerover", { bubbles: true }));
+    expect(label.title).toBe(name);
 
-    Object.defineProperty(label, "scrollWidth", { value: 240, configurable: true });
-    Object.defineProperty(label, "clientWidth", { value: 120, configurable: true });
-    hover();
-    expect(label.title).toBe(label.textContent!.trim());
+    // Filtering repaints the row but keeps the label's full name.
+    commit(owner);
+    ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, { id: "pnt" });
+    const repainted = findItem(ui, "pnt");
+    const repaintedLabel = repainted.querySelector(
+      `.${CONST.CLASSES.LAYER_LABEL}`,
+    ) as HTMLElement;
+    expect(repaintedLabel.title).toBe(repaintedLabel.textContent!.trim());
+    expect(repaintedLabel.title).not.toBe("");
   });
 
   it("keeps a large filtered count compact instead of mixing formats", () => {

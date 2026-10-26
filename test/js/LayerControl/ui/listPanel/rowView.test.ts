@@ -343,29 +343,29 @@ describe("applyRowView (the single DOM write point)", () => {
     expect(el.getAttribute(CONST.DATA.TITLE)).toBe("polygon");
   });
 
-  it("sets the label tooltip only when the label actually clips", () => {
-    document.body.appendChild(document.createElement("div"));
+  it("always titles the label with the full layer name", () => {
     const el = item();
     el.innerHTML += `<span class="${CONST.CLASSES.LAYER_LABEL}">Facility Points</span>`;
     document.body.appendChild(el);
     const label = el.querySelector<HTMLElement>(`.${CONST.CLASSES.LAYER_LABEL}`)!;
-    applyRowView(ui, el, cell({ name: "Facility Points", countText: "4" }));
-    // No overflow: the attribute must be ABSENT (an empty one would shadow
-    // the row tooltip for every hover over the label), and the row keeps its
-    // own count · type sentence.
-    expect(label.hasAttribute("title")).toBe(false);
-    expect(el.title).toBe("4 · polygon");
 
-    Object.defineProperty(label, "scrollWidth", { value: 120, configurable: true });
-    Object.defineProperty(label, "clientWidth", { value: 80, configurable: true });
+    // A short, unclipped name still carries the full name: no measurement
+    // gate and no empty attribute. The row keeps its own count · type
+    // sentence and never repeats the name.
+    applyRowView(ui, el, cell({ name: "Facility Points", countText: "4" }));
+    expect(label.title).toBe("Facility Points");
+    expect(label.title).not.toBe("");
+    expect(el.title).toBe("4 · polygon");
+    expect(el.title).not.toContain("Facility Points");
+
+    // A clipped long name is the same resident attribute; the clip is a
+    // visual state, not the condition that creates the tooltip.
+    Object.defineProperty(label, "scrollWidth", { value: 240, configurable: true });
+    Object.defineProperty(label, "clientWidth", { value: 120, configurable: true });
     applyRowView(ui, el, cell({ name: "Facility Points - North District 2024" }));
     expect(label.title).toBe("Facility Points - North District 2024");
+    expect(label.title).not.toBe("");
     expect(el.title).toBe("polygon");
-
-    // Shrinking back removes the attribute again rather than blanking it.
-    Object.defineProperty(label, "scrollWidth", { value: 80, configurable: true });
-    applyRowView(ui, el, cell({ name: "Facility Points" }));
-    expect(label.hasAttribute("title")).toBe(false);
   });
 
   it("leaves the count cell titleless when unfiltered so the row tooltip bubbles", () => {
@@ -386,15 +386,12 @@ describe("applyRowView (the single DOM write point)", () => {
     expect(el.title).toBe("2 / 3 filtered · polygon");
   });
 
-  it("defers the label measurement until a detached row is inserted", async () => {
+  it("titles a detached row's label immediately (no deferred measurement)", () => {
     const el = item();
     el.innerHTML += `<span class="${CONST.CLASSES.LAYER_LABEL}">Facility Points</span>`;
     const label = el.querySelector<HTMLElement>(`.${CONST.CLASSES.LAYER_LABEL}`)!;
-    Object.defineProperty(label, "scrollWidth", { value: 120, configurable: true });
-    Object.defineProperty(label, "clientWidth", { value: 80, configurable: true });
     applyRowView(ui, el, cell({ name: "Facility Points" }));
-    document.body.appendChild(el);
-    await new Promise(resolve => requestAnimationFrame(() => resolve(null)));
+    expect(el.isConnected).toBe(false);
     expect(label.title).toBe("Facility Points");
   });
 

@@ -259,24 +259,11 @@ const applyRowView = (ui: LayerUI, item: HTMLElement, cell: RowCell): void => {
     const typeCol = item.querySelector<HTMLElement>(`.${CONST.CLASSES.TYPE_ICON_COL}`);
     if (typeCol) typeCol.innerHTML = view.typeSvg;
   }
-  // The label owns its own overflow tooltip: the full name appears only when
-  // the text is actually clipped (a resident title on every row would repeat
-  // the row tooltip and lengthen it for no gain).
+  // The label always carries the full layer name: long names are clipped
+  // visually and styles can shorten the text, so the title is the one place
+  // the whole name is available — no measurement, no lazy hover state.
   const label = item.querySelector<HTMLElement>(`.${CONST.CLASSES.LAYER_LABEL}`);
-  if (label) {
-    const syncLabelTitle = () => {
-      if (label.scrollWidth > label.clientWidth) label.title = cell.name;
-      // No empty title attribute: a stale one would replace the row
-      // tooltip for every hover over the label instead of bubbling.
-      else label.removeAttribute("title");
-    };
-    syncLabelTitle();
-    // A row is often painted before it is inserted, so the first measurement
-    // cannot see the clip; re-measure once it has a layout box.
-    if (!label.isConnected && typeof requestAnimationFrame === "function") {
-      requestAnimationFrame(syncLabelTitle);
-    }
-  }
+  if (label) label.title = cell.name;
   // Persist the type label so a count-only refresh can rebuild the tooltip
   // without re-running type detection.
   item.setAttribute(CONST.DATA.TITLE, view.typeLabel);

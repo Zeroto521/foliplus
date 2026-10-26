@@ -149,7 +149,6 @@ class LayerUI implements LayerUISurface {
   declare onClick: ((event: Event) => void) | null;
   declare onFocusIn: ((event: FocusEvent) => void) | null;
   declare onFocusOut: ((event: FocusEvent) => void) | null;
-  declare onPointerOver: ((event: PointerEvent) => void) | null;
   declare onDragStart: ((event: DragEvent) => void) | null;
   declare onDragOver: ((event: DragEvent) => void) | null;
   declare onDragLeave: ((event: DragEvent) => void) | null;
