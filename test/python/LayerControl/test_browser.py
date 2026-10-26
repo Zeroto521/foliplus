@@ -5447,24 +5447,31 @@ class TestLayerControlBrowser:
             slug="style_scheme_portal_pick",
         ) as (page, errors):
             self._open_style_ramp(page)
-            opened = page.evaluate(_js("LayerControl/style_scheme_portal_open"))
-            assert opened["ok"], f"scheme list did not open: {opened}"
-            assert opened["dropdownParentTag"] == "BODY", (
-                "the picker must portal its list to <body>, got "
-                f"{opened['dropdownParentTag']}"
+            ready = page.evaluate(_js("LayerControl/style_scheme_portal_prepare"))
+            assert ready["ok"], f"the ramp arm did not settle: {ready}"
+            page.mouse.click(ready["triggerX"], ready["triggerY"])
+            page.wait_for_selector(
+                ".foliplus-scheme-picker-portal", state="attached", timeout=3000
             )
 
-            page.mouse.click(opened["targetX"], opened["targetY"])
+            rows = page.evaluate(_js("LayerControl/style_scheme_portal_rows"))
+            assert rows["ok"], f"scheme list did not open: {rows}"
+            assert rows["dropdownParentTag"] == "BODY", (
+                "the picker must portal its list to <body>, got "
+                f"{rows['dropdownParentTag']}"
+            )
+
+            page.mouse.click(rows["targetX"], rows["targetY"])
             state = page.evaluate(_js("LayerControl/style_scheme_portal_state"))
             assert state["drawerVisible"], (
                 f"the colour press dismissed the drawer: {state}"
             )
-            assert state["hiddenValue"] == opened["targetName"], (
-                f"the pick did not commit {opened['targetName']}: {state}"
+            assert state["hiddenValue"] == rows["targetName"], (
+                f"the pick did not commit {rows['targetName']}: {state}"
             )
-            assert state["triggerTitle"] == opened["targetName"], (
+            assert state["triggerTitle"] == rows["targetName"], (
                 f"the trigger still shows {state['triggerTitle']}, expected "
-                f"{opened['targetName']}"
+                f"{rows['targetName']}"
             )
             assert not state["dropdownPresent"], (
                 f"the list must close after a pick: {state}"
@@ -5486,23 +5493,58 @@ class TestLayerControlBrowser:
             slug="style_scheme_portal_scroll",
         ) as (page, errors):
             self._open_style_ramp(page)
-            opened = page.evaluate(_js("LayerControl/style_scheme_portal_open"))
-            assert opened["ok"], f"scheme list did not open: {opened}"
-
             # The label section makes the card tall enough to scroll inside
-            # itself; the probe reports the live box the wheel must target.
+            # itself. Expand it before the list opens: the toggle re-renders the
+            # drawer, which would rebuild the ramp arm and drop an already-open
+            # picker.
+            tall = page.evaluate(
+                _js("LayerControl/read_row_panel_scroll"), {"ramp": True}
+            )
+            assert tall["ok"], tall
+            assert tall["content"]["scrollHeight"] > tall["content"]["clientHeight"], (
+                f"the drawer has nothing to scroll: {tall['content']}"
+            )
+
+            ready = page.evaluate(_js("LayerControl/style_scheme_portal_prepare"))
+            assert ready["ok"], ready
+            page.mouse.click(ready["triggerX"], ready["triggerY"])
+            page.wait_for_selector(
+                ".foliplus-scheme-picker-portal", state="attached", timeout=3000
+            )
+            rows = page.evaluate(_js("LayerControl/style_scheme_portal_rows"))
+            assert rows["ok"], f"scheme list did not open: {rows}"
+
+            # The live box the wheel must target, measured with the list open.
             before = page.evaluate(
                 _js("LayerControl/read_row_panel_scroll"), {"ramp": True}
             )
             assert before["ok"], before
             content = before["content"]
-            assert content["scrollHeight"] > content["clientHeight"], (
-                f"the drawer has nothing to scroll: {content}"
-            )
             rect = content["rect"]
-            page.mouse.move(
-                rect["left"] + rect["width"] / 2, rect["top"] + rect["height"] / 2
+            # The open list floats over the card, so the wheel has to land on a
+            # card point the list does not cover — otherwise the list eats it
+            # and the drawer never scrolls.
+            dropdown = rows["dropdownRect"]
+            corners = [
+                (rect["left"] + 24, rect["top"] + 24),
+                (rect["right"] - 24, rect["top"] + 24),
+                (rect["left"] + 24, rect["bottom"] - 24),
+                (rect["right"] - 24, rect["bottom"] - 24),
+            ]
+            free = [
+                (x, y)
+                for x, y in corners
+                if not (
+                    dropdown["left"] <= x <= dropdown["right"]
+                    and dropdown["top"] <= y <= dropdown["bottom"]
+                )
+            ]
+            assert free, (
+                "the open list covers the whole card, no wheel target left: "
+                f"card={rect} list={dropdown}"
             )
+            x, y = free[0]
+            page.mouse.move(x, y)
             page.mouse.wheel(0, 240)
             page.wait_for_timeout(300)
 
@@ -5533,11 +5575,16 @@ class TestLayerControlBrowser:
             slug="style_scheme_portal_outside",
         ) as (page, errors):
             self._open_style_ramp(page)
-            opened = page.evaluate(_js("LayerControl/style_scheme_portal_open"))
-            assert opened["ok"], f"scheme list did not open: {opened}"
-            assert opened["dropdownPresent"], opened
+            ready = page.evaluate(_js("LayerControl/style_scheme_portal_prepare"))
+            assert ready["ok"], ready
+            page.mouse.click(ready["triggerX"], ready["triggerY"])
+            page.wait_for_selector(
+                ".foliplus-scheme-picker-portal", state="attached", timeout=3000
+            )
+            rows = page.evaluate(_js("LayerControl/style_scheme_portal_rows"))
+            assert rows["ok"], f"scheme list did not open: {rows}"
 
-            viewport = opened["viewport"]
+            viewport = ready["viewport"]
             page.mouse.click(60, viewport["height"] - 80)
 
             state = page.evaluate(_js("LayerControl/style_scheme_portal_state"))
@@ -5564,12 +5611,10 @@ class TestLayerControlBrowser:
             slug="style_scheme_portal_fullscreen",
         ) as (page, errors):
             self._open_style_ramp(page)
-            # Set up the ramp arm only; the real press below opens the list and
-            # supplies the user activation requestFullscreen needs.
-            ready = page.evaluate(
-                _js("LayerControl/style_scheme_portal_open"), False
-            )
+            ready = page.evaluate(_js("LayerControl/style_scheme_portal_prepare"))
             assert ready["ok"], ready
+            # A real press opens the list and supplies the user activation
+            # requestFullscreen needs.
             page.mouse.click(ready["triggerX"], ready["triggerY"])
             page.wait_for_selector(
                 ".foliplus-scheme-picker-portal", state="attached", timeout=3000
@@ -5577,15 +5622,17 @@ class TestLayerControlBrowser:
 
             full = page.evaluate(_js("LayerControl/style_scheme_portal_fullscreen"))
             if not full.get("ok"):
-                pytest.skip(f"headless browser refused fullscreen: {full.get('reason')}")
+                pytest.skip(
+                    f"headless browser refused fullscreen: {full.get('reason')}"
+                )
             assert full["fullscreen"], full
             assert full["rehosted"], (
                 f"the portalled list did not move into the fullscreen element: {full}"
             )
 
-            opened = page.evaluate(_js("LayerControl/style_scheme_portal_open"))
-            assert opened["ok"], opened
-            page.mouse.click(opened["targetX"], opened["targetY"])
+            rows = page.evaluate(_js("LayerControl/style_scheme_portal_rows"))
+            assert rows["ok"], rows
+            page.mouse.click(rows["targetX"], rows["targetY"])
             state = page.evaluate(_js("LayerControl/style_scheme_portal_state"))
             assert state["drawerVisible"], (
                 f"a colour press under fullscreen dismissed the drawer: {state}"
