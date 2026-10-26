@@ -650,3 +650,85 @@ describe("unknown third-party layers (real Leaflet)", () => {
     map.remove();
   });
 });
+
+// ── carrier target: one declaration, two readers ─────────────────────
+//
+// The projection executor keys its rewrite decision on the target; the export
+// renderer walks the content panes. Both take one CarrierDecl, so a write and
+// an export cannot resolve different panes for the same layer.
+
+const paneDecl = (panes: string[], extra: Partial<CarrierDecl> = {}): CarrierDecl => ({
+  panes,
+  opacityTier: CAP_TIER.PANE,
+  ...extra,
+});
+
+describe("carrierTargetOf", () => {
+  it("keys a canvas face on the element itself", () => {
+    const canvas = {} as HTMLCanvasElement;
+    expect(carrierTargetOf(paneDecl([], { canvas }))).toBe(canvas);
+  });
+
+  it("keys a pane carrier on its sorted pane set", () => {
+    // Sorted so the order the pane specs happen to arrive in cannot register
+    // as "the carrier moved" and force a rewrite.
+    expect(carrierTargetOf(paneDecl(["zeta", "alpha"]))).toBe("alpha|zeta");
+    expect(carrierTargetOf(paneDecl(["alpha", "zeta"]))).toBe("alpha|zeta");
+  });
+
+  it("keys a native carrier on the layer's own options object", () => {
+    const options = { opacity: 1 };
+    const layer = { options } as unknown as L.Layer;
+    const target = carrierTargetOf(
+      paneDecl(["ignored"], { layer, opacityTier: CAP_TIER.NATIVE }),
+    );
+    expect(target).toBe(options);
+  });
+
+  it("answers null when there is no carrier at all", () => {
+    expect(carrierTargetOf(paneDecl([], { opacityTier: CAP_TIER.NONE }))).toBeNull();
+  });
+});
+
+describe("contentPanesOf", () => {
+  it("drops every pane the shadow channel owns, keeping draw order", () => {
+    const panes = ["base", "shadow-a", "sub", "shadow-b"];
+    expect(contentPanesOf(panes, new Set(["shadow-a", "shadow-b"]))).toEqual([
+      "base",
+      "sub",
+    ]);
+  });
+
+  it("returns an empty list for a surface that owns no pane", () => {
+    expect(contentPanesOf([], new Set(["shadow-a"]))).toEqual([]);
+  });
+});
+
+describe("annotationPaneNameOf", () => {
+  it("composes the one pane name the declaration and the exporter share", () => {
+    expect(annotationPaneNameOf("layer-1")).toBe(ANNOTATION_PANE_PREFIX + "layer-1");
+    expect(annotationPaneNameOf("layer-1")).not.toBe(annotationPaneNameOf("layer-2"));
+  });
+});
+
+describe("carrier target: one declaration, two readers", () => {
+  it("the writer's target names the same pane set the export walk covers", () => {
+    const decl = paneDecl(["p-sub", "p-base"]);
+    const target = carrierTargetOf(decl);
+    const exported = contentPanesOf(decl.panes, new Set());
+
+    expect(typeof target).toBe("string");
+    expect((target as string).split("|")).toEqual([...exported].sort());
+  });
+
+  it("both readers ignore the same shadow panes", () => {
+    const decl = paneDecl(["p-base", "p-shadow", "p-sub"]);
+    const shadowPanes = new Set(["p-shadow"]);
+    const target = carrierTargetOf({
+      ...decl,
+      panes: contentPanesOf(decl.panes, shadowPanes),
+    });
+    expect(target).toBe("p-base|p-sub");
+    expect(contentPanesOf(decl.panes, shadowPanes)).toEqual(["p-base", "p-sub"]);
+  });
+});
