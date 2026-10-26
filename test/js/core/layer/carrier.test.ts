@@ -20,6 +20,7 @@ import L from "leaflet";
 import { LayerSurface } from "#foliplus/core/layer/LayerSurface.js";
 import { PaneManager } from "#foliplus/core/layer/PaneManager.js";
 import {
+  type CarrierDecl,
   annotationPaneNameOf,
   assertInsideOwnedPanes,
   carrierTargetOf,
