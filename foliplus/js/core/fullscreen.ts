@@ -73,9 +73,10 @@ const onFullscreenSurfaceChange = (listener: SurfaceListener): (() => void) => {
   };
 };
 
-/** Tell every overlay to re-resolve its host. Idempotent: a listener must be
- *  safe to run when the surface has not actually changed (native handlers can
- *  fire alongside a pseudo transition). */
+/** Notify every overlay that it should re-resolve its host. The call itself is
+ *  unconditional: it does not deduplicate, because a native event can arrive
+ *  alongside a pseudo transition. Each listener must therefore be safe to run
+ *  when the surface has not actually changed. */
 const announceFullscreenSurface = (): void => {
   for (const listener of surfaceListeners) {
     try {

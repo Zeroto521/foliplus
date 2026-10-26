@@ -125,6 +125,9 @@ const bindFullscreen = (): void => {
   // core/fullscreen. Pseudo mode only toggles a class and fires no DOM event,
   // so a `fullscreenchange` listener alone would leave the bubble on <body>
   // under the opaque map.
+  // Page-lifetime singleton: the bubble and this subscription are
+  // intentionally never released. If the bubble ever becomes per-map, keep
+  // this off-handle and call it from destroy().
   onFullscreenSurfaceChange(() => {
     // Resolve the scope before dismissing: hideBubble clears bubbleOwner, and
     // the node still has to land on the map it belonged to (or back on <body>
