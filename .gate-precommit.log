@@ -1,0 +1,18 @@
+check python ast.....................................(no files to check)Skipped
+check yaml...........................................(no files to check)Skipped
+check toml...........................................(no files to check)Skipped
+check for merge conflicts................................................Passed
+check for case conflicts.................................................Passed
+check for added large files..............................................Passed
+detect private key.......................................................Passed
+check builtin type constructor use...................(no files to check)Skipped
+fix end of files.........................................................Passed
+trim trailing whitespace.................................................Passed
+ruff (legacy alias)..................................(no files to check)Skipped
+ruff format..........................................(no files to check)Skipped
+mypy.................................................(no files to check)Skipped
+codespell................................................................Passed
+changelog-order......................................(no files to check)Skipped
+mojibake-check...........................................................Passed
+style-check..............................................................Passed
+dead-barrel-export...................................(no files to check)Skipped

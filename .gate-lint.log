@@ -1,0 +1,4 @@
+
+> lint
+> eslint -c config/eslint/typed.mjs "foliplus/js/**/*.ts" "test/js/**/*.ts" "script/**/*.mjs" "config/**/*.mjs" "eslint.config.js"
+
