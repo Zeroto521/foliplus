@@ -32,6 +32,7 @@
 - `core/layer`: the child-ownership index is dropped at `removeLayer` / `clearLayers`, so a group stays bounded by its live leaves ([#733](https://github.com/Zeroto521/foliplus/pull/733))
 - `ExportControl`: marker shadows are exported with their icons, measured after layout so they sit under the marker instead of at a stale offset ([#740](https://github.com/Zeroto521/foliplus/pull/740))
 - `LayerControl`: a row panel (style, attributes) is pinned to the viewport under its row instead of being clipped by the layer list, and a portaled scheme dropdown paints above the panel that opened it ([#747](https://github.com/Zeroto521/foliplus/pull/747))
+- Interaction: Space/Enter keep their native meaning on buttons, links and other activation controls, so a panel's close button no longer toggles the layer checkbox ([#755](https://github.com/Zeroto521/foliplus/pull/755))
 
 ## [v0.4.1] (2026-10-18)
 
