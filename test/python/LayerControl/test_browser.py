@@ -1166,6 +1166,43 @@ class TestLayerControlBrowser:
             # …but never replaces the Select/Deselect tooltip (accept the
             # translated wording — a local browser can resolve `zh`).
             assert res["title"] in ("Deselect", "隐藏"), f"title={res['title']!r}"
+            # The label's resident full-name tooltip follows the same write:
+            # a hover must not keep announcing the old name.
+            assert res["labelTitle"] == "RenamedLayer", (
+                f"label title={res['labelTitle']!r}"
+            )
+
+    def test_color_basemap_rename_updates_label_title(self, browser, tmp_path):
+        """A colour-basemap rename repaints text and label title together.
+
+        The basemap row has no registry entry — its rename goes through the
+        intent store and updateItemLabel — so the resident full-name tooltip
+        must follow the text instead of keeping the locale default.
+        """
+        with use_page(
+            self._make_page,
+            browser,
+            tmp_path,
+            folium.FeatureGroup(name="Layers", overlay=True, show=True),
+            slug="rename_color_label_title",
+        ) as (page, errors):
+            page.evaluate(_js("LayerControl/open_panel"))
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            page.wait_for_selector(
+                '.foliplus-layer-item[data-layer-id="foliplus_color_map"]',
+                state="attached",
+                timeout=5000,
+            )
+            page.wait_for_timeout(300)
+            res = page.evaluate(_js("LayerControl/rename_color_basemap_and_read_label"))
+            assert res is not None, "colour basemap rename did not commit"
+            assert res["label"] == "My Color", res
+            assert res["labelTitle"] == "My Color", f"label title={res['labelTitle']!r}"
+            assert not errors, f"JS errors: {errors}"
 
     def _assert_toggle_all_deselect_title(self, title: str | None, label: str) -> None:
         """The toggle-all tooltip says "deselect all" in whatever locale it renders.
@@ -6319,3 +6356,66 @@ class TestLayerControlBrowser:
                 "(expected 10 from the visible 'Low' layer's native max_zoom): "
                 f"{low_only}"
             )
+
+    def test_filtered_funnel_paints_neutral_with_currentcolor_fill(
+        self, browser, tmp_path
+    ):
+        """A filtered row's funnel is neutral text-primary, not accent red.
+
+        The icon ships its own fill, so the stylesheet must override it with
+        fill: currentColor; otherwise `color` never reaches the glyph and the
+        default black would vanish on a dark theme.
+        """
+        layer = folium.FeatureGroup(name="Funnel row")
+        with use_page(self._make_page, browser, tmp_path, layer, slug="funnel") as (
+            page,
+            errors,
+        ):
+            page.evaluate(_js("LayerControl/open_panel"))
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            panel_ready(page)
+            style = page.evaluate(_js("LayerControl/filter_funnel_style"))
+            assert style and style.get("ok"), style
+            assert style["color"] == style["textPrimary"], (
+                "filtered funnel must use --foliplus-text-primary, got "
+                f"{style['color']} vs token {style['textPrimary']}"
+            )
+            assert style["color"] != style["accent"], (
+                "the filtered funnel must not be accent, got "
+                f"{style['color']} (accent {style['accent']})"
+            )
+            assert style["fill"] == style["color"], (
+                "the funnel SVG must fill from currentColor, got "
+                f"fill {style['fill']} vs color {style['color']}"
+            )
+            assert (style["funnelWidth"], style["funnelHeight"]) == (12, 12), style
+            assert style["countText"] == "4", style
+            assert not errors, f"JS errors: {errors}"
+
+    def test_attrs_features_shows_filtered_pair(self, browser, tmp_path):
+        """Attributes → Features renders grouped kept / total for a filtered owner.
+
+        The pair comes from the same filterProvider model the row reads, so it
+        is exact grouped integers (2,500 / 6,000) — the panel is the detail
+        view and never repeats the compact column value.
+        """
+        layer = folium.FeatureGroup(name="Attrs pair")
+        with use_page(self._make_page, browser, tmp_path, layer, slug="attr_pair") as (
+            page,
+            errors,
+        ):
+            page.evaluate(_js("LayerControl/open_panel"))
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            panel_ready(page)
+            res = page.evaluate(_js("LayerControl/attr_filtered_feature_pair"))
+            assert res is not None, "attrs probe could not open its panel"
+            assert res["pair"] == "2,500 / 6,000", res
+            assert not errors, f"JS errors: {errors}"

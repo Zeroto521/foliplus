@@ -144,6 +144,13 @@ class HeatmapControl extends defineControl({
     // callbacks or observer even when one of the steps above threw.
     const mgr = this.manager;
     if (mgr) mgr.ui = null;
+    // Branch-only listener: the filter panel adds the source-content debounce
+    // and its subscription after main's finalize list was written, so cancel
+    // them here while the manager is still reachable. Everything the finalize
+    // steps already cover (map sync, zoom, layer change / delete, export,
+    // observer) is not repeated.
+    if (mgr?.onSourceContentChange) mgr.onSourceContentChange.cancel();
+    mgr?.removeContentChangeListener?.();
     this.manager = null;
     this.initScanCleanup = null;
     this.schemeBarCleanup = null;

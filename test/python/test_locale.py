@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import tempfile
 from pathlib import Path
@@ -36,7 +37,7 @@ _DYNAMIC_SUPPLEMENT: set[str] = {
     "LayerControl.focus_layer_hidden",
     "LayerControl.focus_layer_no_bounds",
     # typeKey / type.key template literals (attr.ts, rowView.ts).
-    "LayerControl.type_base",
+    "LayerControl.type_tile",
     "LayerControl.type_color_map",
     "LayerControl.type_custom",
     "LayerControl.type_unknown",
@@ -58,6 +59,21 @@ _DYNAMIC_SUPPLEMENT: set[str] = {
     "foliplus.label_format_comma",
     "foliplus.label_format_int",
     "foliplus.label_format_percent",
+    # Row tooltip short type words (rowView.ts) — `type_${gtype}` plus a
+    # "_short" suffix; the attrs panel keeps the long type_* labels. A base
+    # row's short word is its own key (type_tile_short = 地图/Map).
+    "LayerControl.type_tile_short",
+    "LayerControl.type_custom_short",
+    "LayerControl.type_unknown_short",
+    "LayerControl.type_color_map_short",
+    "LayerControl.type_point_short",
+    "LayerControl.type_line_short",
+    "LayerControl.type_polygon_short",
+    "LayerControl.type_empty_short",
+    # Filter panel dynamic labels (filter.ts) — the result readout composes
+    # its sentence from the {kept} / {total} template literals.
+    "LayerControl.filter_result",
+    "LayerControl.filter_result_label",
 }
 
 
@@ -87,8 +103,67 @@ def _load_merged_tables() -> dict[str, dict[str, str]]:
     return merged
 
 
+def _duplicate_json_keys(path: Path) -> list[str]:
+    """Raw-text scan for duplicate keys: `json.loads` silently keeps the last.
+
+    A duplicated key hides one value from every merged-table assertion, so it
+    has to be caught at the file level, not through the parsed dict.
+    """
+    seen: dict[str, int] = {}
+    duplicates: list[str] = []
+    for line_no, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+        match = re.match(r'\s*"([^"]+)"\s*:', line)
+        if not match:
+            continue
+        key = match.group(1)
+        if key in seen:
+            duplicates.append(f"{key} (lines {seen[key]} and {line_no})")
+        else:
+            seen[key] = line_no
+    return duplicates
+
+
 _TABLES = _load_merged_tables()
 _JS_USED_KEYS = _scan_js_keys() | _DYNAMIC_SUPPLEMENT
+
+
+class TestLocaleTableIntegrity:
+    def test_no_duplicate_keys_within_a_file(self):
+        # LayerControl.en/zh.json shipped a duplicated style_size/border pair;
+        # one value silently lost. Guard every table, not just those two.
+        for path in sorted(_LOCALE_DIR.glob("*.json")):
+            duplicates = _duplicate_json_keys(path)
+            assert not duplicates, f"{path.name} repeats keys: {duplicates}"
+
+
+class TestRowTooltipVocabulary:
+    """The row tooltip names the row's own kind, not a neighbouring one."""
+
+    def test_base_short_says_map_and_differs_from_color(self):
+        en, zh = _TABLES["en"], _TABLES["zh"]
+        # The short word is 地图/Tile, distinct from the long 基础底图/Tile
+        # Map label and from the colour row's 纯色/Color.
+        assert en["LayerControl.type_tile_short"] == "Tile"
+        assert zh["LayerControl.type_tile_short"] == "地图"
+        assert en["LayerControl.type_color_map_short"] == "Color"
+        assert zh["LayerControl.type_color_map_short"] == "纯色"
+        # Two adjacent kinds must not collapse into one word.
+        assert (
+            en["LayerControl.type_tile_short"]
+            != en["LayerControl.type_color_map_short"]
+        )
+        assert (
+            zh["LayerControl.type_tile_short"]
+            != zh["LayerControl.type_color_map_short"]
+        )
+        # The long label names the same thing: Tile Map / 基础底图.
+        assert en["LayerControl.type_tile"] == "Tile Map"
+        assert zh["LayerControl.type_tile"] == "基础底图"
+
+    def test_filter_tooltip_says_data_not_records(self):
+        en, zh = _TABLES["en"], _TABLES["zh"]
+        assert en["LayerControl.filter_layer_tooltip"] == "Filter this layer's data"
+        assert zh["LayerControl.filter_layer_tooltip"] == "筛选该图层的数据"
 
 
 class TestLocaleConfig:

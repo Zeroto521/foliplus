@@ -412,6 +412,7 @@
        cause .foliplus-active rows (checked layers) to flash on each rebuild. */
 
     .foliplus-layer-label {
+      min-width: 0;
       cursor: inherit;
       white-space: nowrap;
       overflow: hidden;
@@ -420,12 +421,18 @@
       font-weight: var(--foliplus-font-weight-normal);
     }
     /* ── Feature count column ──
-      Right-aligned. formatNumber("auto") compacts values >= 1000 (12K, 1.2万),
-      so the 38px track fits the value; ellipsis is a last-resort guard for
-      locales whose compact unit is wider (de 10.000).
-      Stays muted gray in every state: the count is annotation, not a control,
-      so it intentionally does not join the hover/active color dance. */
+      Right-aligned. The value is ALWAYS the compact form
+      (formatNumber("auto"): 137, 6K, 2.5K, 1.2万) so the min/max track
+      never widens for a full number. Filtered adds the funnel glyph; both the
+      count and the glyph stay neutral annotation text — the funnel marks the
+      filtered state, it is not an action accent.
+      inline-flex + self-center keeps it on the label/icon/more centre line. */
     .foliplus-layer-count {
+      display: inline-flex;
+      align-items: center;
+      justify-content: flex-end;
+      align-self: center;
+      gap: var(--foliplus-space-xs);
       font-variant-numeric: tabular-nums;
       font-size: var(--foliplus-font-size-xs);
       color: var(--foliplus-text-muted);
@@ -435,6 +442,32 @@
       text-overflow: ellipsis;
       line-height: var(--foliplus-line-height-hint);
       padding: 0 0 0 var(--foliplus-space-xs);
+
+      &.foliplus-layer-count-filtered {
+        /* Count and funnel are both neutral: filtered is a state, not an
+           action, so it must not borrow the accent. */
+        color: var(--foliplus-text-muted);
+      }
+      /* The funnel glyph before a filtered count; the token keeps the
+         count column and the glyph from drifting apart. */
+      .foliplus-layer-count-funnel {
+        display: inline-flex;
+        flex: 0 0 var(--foliplus-filter-funnel-size);
+        width: var(--foliplus-filter-funnel-size);
+        height: var(--foliplus-filter-funnel-size);
+        /* Solid glyph in neutral text-primary: a state mark, not the accent.
+           The icon ships its own fill, so CSS `color` alone never reaches it;
+           fill: currentColor is what makes the token apply (and keeps it
+           visible on a dark theme, where the default black would vanish). */
+        color: var(--foliplus-text-primary);
+
+        svg {
+          fill: currentColor;
+          display: block;
+          width: var(--foliplus-filter-funnel-size);
+          height: var(--foliplus-filter-funnel-size);
+        }
+      }
     }
 
     &[draggable="true"] {

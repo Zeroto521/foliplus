@@ -242,6 +242,9 @@ describe("LayerUI rename", () => {
       input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
 
       expect(getIntent(ui, "overlay1", "name")).toBe("Changed");
+      // The label's resident tooltip follows the text write: both are written
+      // by updateItemLabel, so a hover cannot keep announcing the old name.
+      expect(label.title).toBe("Changed");
     });
 
     it("committing a rename updates the checkbox aria-label, not its tooltip", () => {
@@ -262,6 +265,7 @@ describe("LayerUI rename", () => {
 
       expect(checkbox.getAttribute("aria-label")).toBe("Renamed");
       expect(checkbox.title).toBe(tooltip);
+      expect(label.title).toBe("Renamed");
     });
 
     it("renaming the color basemap updates the color input's aria-label too", () => {
@@ -289,12 +293,37 @@ describe("LayerUI rename", () => {
       input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
 
       expect(item.querySelector("label")!.textContent).toBe("My Color");
+      // The basemap row renames through the same write point, so its label
+      // title follows too.
+      expect((item.querySelector("label") as HTMLLabelElement).title).toBe("My Color");
       expect(colorInput.getAttribute("aria-label")).toBe("My Color");
       // The row tooltip is the TYPE label, a different slot from the name —
       // a rename must not move into it.
       const tooltip = item.getAttribute("title");
       expect(tooltip).not.toBe("My Color");
       expect(tooltip).not.toBe("");
+    });
+
+    it("keeps the renamed label title through hover and a state re-projection", () => {
+      const item = findItem(ui, "overlay1");
+      ui.renameLayer("overlay1");
+      const label = item.querySelector("label") as HTMLLabelElement;
+      const input = label.querySelector("input") as HTMLInputElement;
+
+      input.value = "Changed";
+      input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
+      expect(label.title).toBe("Changed");
+
+      // A pointer event no longer re-measures/clears it (the delegated
+      // overflow handler is gone)…
+      label.dispatchEvent(new Event("pointerover", { bubbles: true }));
+      expect(label.title).toBe("Changed");
+
+      // …and a later state projection rewrites the same name, not the old one.
+      ui.applyUserState();
+      expect(label.title).toBe("Changed");
+      // The row tooltip stays the count · type sentence: never the name.
+      expect(item.title).not.toContain("Changed");
     });
 
     it("renameLayer(no-op) for an unknown layer id does nothing", () => {

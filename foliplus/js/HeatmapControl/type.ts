@@ -1,6 +1,7 @@
 // HeatmapControl type definitions — shared data shapes consumed by manager,
 // data aggregation, canvas rendering, and persistence modules.
 import type { ClassifyMethod } from "#core/classify.js";
+import type { LayerFilter } from "#core/layer/index.js";
 import type { NumberStyle } from "#foliplus/config-schema.js";
 
 /** A point marker carrying an optional numeric value (foliplus data contract). */
@@ -66,6 +67,10 @@ interface SavedConfig {
   labelSize?: number;
   labelFormat?: NumberStyle;
   field?: string;
+  /** Per-source-layer committed filters, keyed by source layer id. The AST
+   *  is plain JSON; the panel's record survives a reload and is re-validated
+   *  against the rebuilt snapshot before it can exclude a point. */
+  filters?: Record<string, LayerFilter>;
 }
 
 export type {

@@ -3,6 +3,11 @@
 // state surface.
 import { type ClassifyMethod, isClassifyMethod } from "#core/classify.js";
 import { bareFieldName } from "#core/label/index.js";
+import {
+  type LayerFilter,
+  parsePersistedFilters,
+  restoreFilters,
+} from "#core/layer/index.js";
 import type { NumberStyle } from "#foliplus/config-schema.js";
 import { clampBorderWeight, clampLabelSize } from "#common/form.js";
 import * as Storage from "#common/storage.js";
@@ -87,6 +92,8 @@ const parseSavedConfig = (raw: unknown): SavedConfig | null => {
   }
   const field = str(data.field);
   if (field !== undefined) out.field = field;
+  const filters = parsePersistedFilters(data.filters);
+  if (filters) out.filters = filters;
   return out;
 };
 
@@ -105,6 +112,9 @@ interface ManagerLike {
   labelFormat: NumberStyle;
   field: string;
   hasScanned: boolean;
+  /** Per-source committed filters (restored before the first render, then
+   *  re-validated against the rebuilt snapshot by the manager). */
+  layerFilters: Map<string, LayerFilter>;
 }
 
 /** Load saved configuration from localStorage, through the runtime schema. */
@@ -148,6 +158,10 @@ const applySavedConfig = (mgr: ManagerLike, raw: SavedConfig): void => {
   if (saved.labelFormat) mgr.labelFormat = saved.labelFormat;
   if (saved.field) mgr.field = bareFieldName(saved.field);
   mgr.selectedLayerId = saved.layerId ?? null;
+  // Restore the record's filter map as-is; the first render revalidates each
+  // stored filter against the rebuilt snapshot (clamp to the current extent,
+  // drop a field that disappeared) before it can exclude a point.
+  restoreFilters(mgr.layerFilters, saved.filters);
 };
 
 export { applySavedConfig, clearSavedConfig, loadSavedConfig };

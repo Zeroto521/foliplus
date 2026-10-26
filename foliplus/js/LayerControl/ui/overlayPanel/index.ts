@@ -9,6 +9,7 @@
 // Callers all take LayerUI and reach into `ui.overlayPanel.*` directly; no
 // module receives a bare OverlayPanel.
 import { closeAttrsPanel, openAttrsPanel } from "./attr.js";
+import { type FilterPanelState, closeFilterPanel, openFilterPanel } from "./filter.js";
 import { activateDeleteItem, closeMoreMenu, openMoreMenu } from "./menu.js";
 import { finishRename, renameLayer } from "./rename.js";
 
@@ -31,11 +32,18 @@ class OverlayPanel {
     panel: HTMLElement;
     layerId: string;
   } | null = null;
+  /** Currently visible filter panel, or null. */
+  activeFilterPanel: FilterPanelState | null = null;
   /** Document capture-phase mousedown used to dismiss the attrs panel.
    *  Capture is required because the layer control's
    *  `disableClickPropagation` stops bubble-phase events from ever reaching
    *  document. */
   attrsOutsideHandler: ((event: MouseEvent) => void) | null = null;
+  /** Same capture-phase dismiss, for the filter panel. */
+  filterOutsideHandler: ((event: MouseEvent) => void) | null = null;
+  /** Unsubscribe for LAYER_FILTER_CHANGE / row-identity signals while the
+   *  filter panel is open (external model changes and same-id replacement). */
+  filterUnsubscribe: (() => void) | null = null;
   /** Same capture-phase dismiss, for the style panel. */
   styleOutsideHandler: ((event: MouseEvent) => void) | null = null;
   /** Unsubscribe for LAYER_ITEM_COUNT_CHANGE while attrs panel is open. */
@@ -54,5 +62,6 @@ class OverlayPanel {
 
 export { OverlayPanel };
 export { closeAttrsPanel, openAttrsPanel };
+export { closeFilterPanel, openFilterPanel };
 export { activateDeleteItem, closeMoreMenu, openMoreMenu };
 export { finishRename, renameLayer };

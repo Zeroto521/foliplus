@@ -3,6 +3,7 @@
    row.css        layer rows: fold, drag, cursor, item, open-overlay
    menu.css       more-button + overflow dropdown
    attr.css       attributes panel
+   filter.css     filter panel
    control.css    focusing pulse + checkbox + color picker
    map-state.css  tile hidden, drag-pulse keyframes, container bg
    rename.css     inline rename input
@@ -15,6 +16,7 @@
 @import "./row.css";
 @import "./menu.css";
 @import "./attr.css";
+@import "./filter.css";
 @import "./control.css";
 @import "./map-state.css";
 @import "./rename.css";

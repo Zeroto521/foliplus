@@ -97,7 +97,7 @@ const SEL = {
  * version stamp (positive integer, incremented only when the record shape
  * changes; readers accept older/unknown values and never migrate). */
 const STORAGE = { KEY: `foliplus_heatmap_${map.getContainer().id}` };
-const RECORD_VERSION = 1;
+const RECORD_VERSION = 2;
 
 const DATA_ATTR = {
   LAYER: "data-heatmap-layer",

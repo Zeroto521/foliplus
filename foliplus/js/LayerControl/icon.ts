@@ -82,10 +82,17 @@ const ICON_STYLE = `
     <path d="M5 4 H19 M12 4 V20"/>
   </svg>`;
 
+/** "Layer filter" glyph — a funnel (the classic filter mark). */
+const ICON_FILTER = `
+  <svg viewBox="0 0 24 24">
+    <path d="M3 5 H21 L14 13 V20 L10 18 V13 Z"/>
+  </svg>`;
+
 export {
   ICON_COLOR,
   ICON_DRAG_HANDLE,
   ICON_EMPTY,
+  ICON_FILTER,
   ICON_FOCUS,
   ICON_FOLD,
   ICON_LAYERS,

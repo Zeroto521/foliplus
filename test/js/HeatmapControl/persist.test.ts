@@ -355,3 +355,66 @@ describe("HeatmapManager — versioned persisted config", () => {
     });
   });
 });
+
+describe("HeatmapManager — persisted per-source filters", () => {
+  const KEY = CONST.STORAGE.KEY;
+  const atom = {
+    kind: "atom" as const,
+    field: "magnitude",
+    op: "between" as const,
+    range: [2, 4] as [number, number],
+  };
+
+  it("saves each source filter and restores the map on load/apply", () => {
+    const m1 = makeManager();
+    m1.selectedLayerId = "layer_a";
+    m1.layerFilters.set("layer_a", atom);
+    m1.layerFilters.set("layer_b", { ...atom, field: "weight" });
+    m1.saveConfig();
+
+    const stored = JSON.parse(window.localStorage.getItem(KEY)!);
+    expect(stored.filters).toEqual({
+      layer_a: atom,
+      layer_b: { ...atom, field: "weight" },
+    });
+
+    const m2 = makeManager();
+    m2.applySavedConfig(m2.loadSavedConfig()!);
+    expect(m2.layerFilters.get("layer_a")).toEqual(atom);
+    expect(m2.layerFilters.get("layer_b")).toEqual({
+      ...atom,
+      field: "weight",
+    });
+  });
+
+  it("omits the filters field when no source is filtered", () => {
+    const m = makeManager();
+    m.saveConfig();
+    const stored = JSON.parse(window.localStorage.getItem(KEY)!);
+    expect(stored.filters).toBeUndefined();
+  });
+
+  it("drops malformed persisted filters rather than applying them", () => {
+    const m = makeManager();
+    m.applySavedConfig({
+      filters: {
+        ok: atom,
+        badOp: { kind: "atom", field: "x", op: "nope" },
+        badRange: { kind: "atom", field: "x", op: "between", range: [5, 1] },
+        notObject: 7,
+      },
+    } as never);
+    expect(Array.from(m.layerFilters.keys())).toEqual(["ok"]);
+  });
+
+  it("restores a filter AST that the first render then revalidates", () => {
+    const m = makeManager();
+    m.applySavedConfig({
+      layerId: "layer_a",
+      filters: { layer_a: atom },
+    } as never);
+    // The parser keeps the AST intact; the render-time revalidation clamps
+    // or drops it against the rebuilt snapshot (pinned in filter.test.ts).
+    expect(m.layerFilters.get("layer_a")).toEqual(atom);
+  });
+});
