@@ -11,7 +11,7 @@
 - `LayerControl`: a size row sets a CircleMarker layer's pixel radius — every marker at once, persisted across reloads, and resettable to each marker's drawn radius ([#726](https://github.com/Zeroto521/foliplus/pull/726))
 - `LayerControl`: value-based fill — a numeric field, a classification method
   and a palette paint the layer by value ([#727](https://github.com/Zeroto521/foliplus/pull/727))
-- `LayerControl`: the fill row chooses solid colour or colour-by-value and edits the value arm in place — field, classification method, class count and a scheme picked from the shared picker ([#747](https://github.com/Zeroto521/foliplus/pull/747), [#759](https://github.com/Zeroto521/foliplus/pull/759))
+- `LayerControl`: the fill row chooses solid colour or colour-by-value and edits the value arm in place — field, classification method, class count and a scheme picked from the shared picker ([#747](https://github.com/Zeroto521/foliplus/pull/747), [#759](https://github.com/Zeroto521/foliplus/pull/759), [#761](https://github.com/Zeroto521/foliplus/pull/761))
 
 ### Changed
 
