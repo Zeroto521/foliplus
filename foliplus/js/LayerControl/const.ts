@@ -97,6 +97,10 @@ const CLASSES = {
   FOLDED: "foliplus-layer-folded",
   TYPE_ICON_COL: "foliplus-type-icon-col",
   COUNT_COL: "foliplus-layer-count",
+  /** Count column with a committed filter: a neutral count + funnel prefix. */
+  COUNT_FILTERED: "foliplus-layer-count-filtered",
+  /** The 12px neutral (text-primary) funnel glyph before a filtered count. */
+  COUNT_FUNNEL: "foliplus-layer-count-funnel",
   MORE_BTN: "foliplus-layer-more-btn",
   TOGGLE_ALL: "foliplus-layer-toggle-all",
   FOLD_BTN_CTR: "foliplus-layer-sep",
@@ -215,6 +219,20 @@ const CLASSES = {
   TOGGLE_SLIDER: "foliplus-toggle-slider",
   ATTRS_PANEL: "foliplus-layer-attrs-panel",
   ATTRS_ICON: "foliplus-layer-attrs-icon",
+  /** Floating filter panel opened from the layer overflow menu. */
+  FILTER_PANEL: "foliplus-layer-filter-panel",
+  /** Empty-state message inside the filter panel (no numeric fields). */
+  FILTER_EMPTY: "foliplus-filter-empty",
+  /** Header icon of the filter panel (a funnel glyph). */
+  FILTER_ICON: "foliplus-layer-filter-icon",
+  /** Read-only filter field name in the panel's field row. */
+  FILTER_FIELD: "foliplus-filter-field",
+  /** Host element of the shared dual-thumb Slider in the range row. */
+  FILTER_SLIDER: "foliplus-filter-slider",
+  /** Live "kept / total" readout (aria-live=polite). */
+  FILTER_RESULT: "foliplus-filter-result",
+  /** Clear-filter footer button. */
+  FILTER_CLEAR: "foliplus-filter-clear",
 };
 
 /** Data attribute names. */
@@ -230,6 +248,10 @@ const ACTION = {
   FOCUS_LAYER: "focus-layer",
   RENAME_LAYER: "rename-layer",
   STYLE_LAYER: "style-layer",
+  /** Opens the layer's filter panel. Hidden on rows that do not
+   *  declare the filter capability (`filterProvider` + `filterSetter` —
+   *  HeatmapControl today). */
+  FILTER_LAYER: "filter-layer",
   ATTRS_LAYER: "layer-attributes",
   DELETE_LAYER: "delete-layer",
 };

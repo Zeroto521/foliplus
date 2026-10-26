@@ -577,6 +577,13 @@ describe("layer dropdown — source meta publish", () => {
     expect(m.agg).toBe(CONST.AGG.SUM);
     expect(m.sourceMeta["HeatmapControl.meta_source_layer"]).toBe("Stores");
     expect(m.sourceMeta["HeatmapControl.meta_agg_field"]).toBe("sales");
+    // The attrs panel renders every meta entry as a row, so the record must
+    // carry only these two: an internal source-layer id would leak as
+    // "meta_source_layer_id" on the panel.
+    expect(Object.keys(m.sourceMeta).sort()).toEqual([
+      "HeatmapControl.meta_agg_field",
+      "HeatmapControl.meta_source_layer",
+    ]);
     expect(window.map.foliplus.LayerAPI.touchLayer).toHaveBeenCalledWith(m.layerId);
   });
 

@@ -80,11 +80,45 @@ const normalizeFields = (
  *  because they carry no `feature` and would otherwise contribute
  *  empty rows. `numericFields` is first-seen order; `ranges` is
  *  computed alongside `points`, not in a second walk. */
+/** First-seen field order + extents from one pass over points. Both
+ *  snapshot builders share it so "which fields exist" and "how wide is
+ *  each field" have one implementation. */
+const summarizePoints = (
+  points: SnapshotPoint[],
+): {
+  numericFields: string[];
+  ranges: Record<string, readonly [number, number]>;
+} => {
+  const numericFields: string[] = [];
+  const ranges: Record<string, readonly [number, number]> = {};
+  for (const pt of points) {
+    for (const [key, v] of Object.entries(pt.fields)) {
+      const entry = ranges[key];
+      if (!entry) {
+        numericFields.push(key);
+        ranges[key] = [v, v];
+      } else {
+        const [lo, hi] = entry;
+        if (v < lo) ranges[key] = [v, hi];
+        else if (v > hi) ranges[key] = [lo, v];
+      }
+    }
+  }
+  return { numericFields, ranges };
+};
+
+/* v8 ignore next 5 -- a no-op logger for the optional-log callers; the
+   warn path is covered through a real logger, the other levels are
+   interface completeness and never invoked by the snapshot builders. */
+const NO_LOGGER: Logger = {
+  warn: () => undefined,
+  error: () => undefined,
+  debug: () => undefined,
+  msg: message => message,
+};
+
 const buildLayerSnapshot = (layer: L.Layer, log: Logger): LayerSnapshot => {
   const points: SnapshotPoint[] = [];
-  const numericFields: string[] = [];
-  const seenField = new Set<string>();
-  const ranges: Record<string, readonly [number, number]> = {};
   const collisions = new Set<string>();
   const seenStamps = new Set<unknown>();
 
@@ -106,26 +140,41 @@ const buildLayerSnapshot = (layer: L.Layer, log: Logger): LayerSnapshot => {
       marker: marker as L.Marker | L.CircleMarker,
       fields,
     });
-    for (const key of Object.keys(fields)) {
-      if (seenField.has(key)) continue;
-      seenField.add(key);
-      numericFields.push(key);
-      ranges[key] = [fields[key], fields[key]];
-    }
   });
 
-  for (const pt of points) {
-    const f = pt.fields;
-    for (const key of Object.keys(f)) {
-      const entry = ranges[key];
-      const v = f[key];
-      const [lo, hi] = entry;
-      if (v < lo) ranges[key] = [v, hi];
-      else if (v > hi) ranges[key] = [lo, v];
-    }
-  }
-
-  return { points, numericFields, ranges };
+  return { points, ...summarizePoints(points) };
 };
 
-export { buildLayerSnapshot };
+/** Normalised numeric fields for one marker, without a snapshot. The
+ *  Heatmap's points-based path and the collision tests share this one
+ *  normalisation, so a field cannot be read one way in a snapshot and
+ *  another in a cache key. */
+const extractMarkerFields = (
+  marker: ExtendedMarker,
+  log: Logger = NO_LOGGER,
+): Record<string, number> => normalizeFields(marker, new Set<string>(), log);
+
+/** Build a snapshot from already-extracted points. Components that own
+ *  their own point extraction (HeatmapControl) use this instead of
+ *  {@link buildLayerSnapshot}: it avoids the `instanceof L.Marker` walk
+ *  that a mocked layer tree cannot satisfy, while sharing the field
+ *  normalisation and range accumulation. Walk order is preserved, so a
+ *  filter index lines up with the caller's point array. */
+const snapshotFromPoints = (
+  rawPts: Array<{
+    lat: number;
+    lng: number;
+    marker: L.Marker | L.CircleMarker;
+  }>,
+  log: Logger = NO_LOGGER,
+): LayerSnapshot => {
+  const points: SnapshotPoint[] = rawPts.map(p => ({
+    lat: p.lat,
+    lng: p.lng,
+    marker: p.marker,
+    fields: extractMarkerFields(p.marker as ExtendedMarker, log),
+  }));
+  return { points, ...summarizePoints(points) };
+};
+
+export { buildLayerSnapshot, extractMarkerFields, snapshotFromPoints };

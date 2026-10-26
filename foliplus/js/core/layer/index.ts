@@ -57,8 +57,33 @@ export { ensureLayerAPI, requireLayerAPI } from "./api.js";
 export { CLUSTER_CAPABILITIES, deriveLayerKind } from "./util.js";
 export { LayerRuntimeStore } from "./LayerRuntimeStore.js";
 export { LayerOrder } from "./LayerOrder.js";
+export {
+  buildLayerSnapshot,
+  extractMarkerFields,
+  snapshotFromPoints,
+} from "./snapshot.js";
+export {
+  buildFilterModel,
+  dropFilterForField,
+  dropStaleFilter,
+  filterKey,
+  filterStep,
+  filtersEqual,
+  matches,
+  normalizeFilter,
+  parsePersistedFilter,
+  parsePersistedFilters,
+  pickFilterField,
+  restoreFilters,
+  revalidateStoredFilter,
+  select,
+  selectIndices,
+  serializedFilters,
+  storeFilter,
+} from "./filter.js";
 export { INTENT, isFillRampConfig, LIVE, STYLE_KEYS } from "./intent.js";
 export type { AppliedProjection } from "./LayerRuntimeStore.js";
+export type { LayerFilter, LayerFilterModel } from "./filter.js";
 export type { Projection } from "./type.js";
 export type {
   AnnotationConfig,

@@ -16,6 +16,7 @@ import { GROUP } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import * as SVGs from "#foliplus/LayerControl/icon.js";
 import * as Util from "#foliplus/LayerControl/util.js";
+import { setLabelTitle } from "#common/dom.js";
 import { formatNumber } from "#common/format.js";
 import * as Icons from "#common/icon.js";
 import { INTENT, getIntent } from "../intent.js";
@@ -41,6 +42,13 @@ interface RowCell {
   /** The type icon's markup, or "" when nothing should be painted. */
   typeSvg: string;
   typeLabel: string;
+  /** Short type word for the row tooltip only (点/Point), never the attrs
+   *  panel's "点图层/Point Layer" wording. */
+  titleTypeLabel?: string;
+  /** True when the row's owner reports a committed filter (kept < total). */
+  filtered?: boolean;
+  /** Hover title used while filtered: kept / total filtered · type. */
+  filterTitle?: string;
 }
 
 /** What one row element should look like. */
@@ -51,7 +59,11 @@ interface RowView {
   countText: string;
   typeSvg: string;
   typeLabel: string;
-  /** The row's hover tooltip: "count  type". */
+  /** Whether the count is filter-narrowed (funnel + accent + exact count). */
+  filtered: boolean;
+  /** The funnel glyph prefixed to a filtered count, or "". */
+  countIconSvg: string;
+  /** The row's hover tooltip: "count  type" or the filtered sentence. */
   title: string;
 }
 
@@ -83,7 +95,13 @@ const rowView = (cell: RowCell, labels: RowLabels): RowView => ({
   countText: cell.countText,
   typeSvg: cell.typeSvg,
   typeLabel: cell.typeLabel,
-  title: cell.countText ? `${cell.countText} ${cell.typeLabel}` : cell.typeLabel,
+  filtered: Boolean(cell.filtered),
+  countIconSvg: cell.filtered ? SVGs.ICON_FILTER : "",
+  title: cell.filtered
+    ? (cell.filterTitle ?? cell.titleTypeLabel ?? cell.typeLabel)
+    : cell.countText
+      ? `${cell.countText} · ${cell.titleTypeLabel ?? cell.typeLabel}`
+      : (cell.titleTypeLabel ?? cell.typeLabel),
 });
 
 /**
@@ -121,7 +139,7 @@ const rowType = (
     if (layerInfo.id === CONST.SOLID_BASEMAP_ID) {
       return { svg: SVGs.ICON_COLOR, key: "type_color_map" };
     }
-    return { svg: Icons.ICON_GLOBE, key: "type_base" };
+    return { svg: Icons.ICON_GLOBE, key: "type_tile" };
   }
   if (layerInfo.iconSvg) {
     return { svg: layerInfo.iconSvg, key: "type_custom" };
@@ -143,20 +161,52 @@ const buildRowCell = (ui: LayerUI, layerInfo: LayerInfo): RowCell => {
   const layer = ui.c.findLayer(layerInfo);
   const checked = intentVisibleOf(ui, layerInfo.id);
   const type = rowType(ui, layerInfo, layer);
-  const count = ui.c.getFeatureCount(layerInfo.id);
+  const typeLabel = ui.T(type.key);
+  // Row tooltips say 点/Point and 地图/Tile for a base row; the attrs panel
+  // keeps the long 点图层/Point Layer and 基础底图/Tile Map labels. The base
+  // row's pair is type_tile + type_tile_short so both words name the row
+  // itself. `type.key` is dynamic, so the short keys are listed in the locale
+  // guard's dynamic supplement.
+  const titleTypeLabel = ui.T(`${type.key}_short`);
+  // The filter belongs to the row whose capability declares it: the funnel
+  // and count report that owner's own unit (Heatmap = hex cells, a point
+  // layer = features). The column stays compact ("2.5K"); the hover title is
+  // the full report ("2,500 / 6,000 filtered · 点"), never the layer name.
+  const filterModel =
+    typeof layerInfo.filterProvider === "function" ? layerInfo.filterProvider() : null;
+  const filtered = Boolean(filterModel?.filter);
+  const rawCount = filtered ? filterModel!.kept : ui.c.getFeatureCount(layerInfo.id);
+  const countText =
+    rawCount != null ? formatNumber(rawCount, "auto", ui.config.locale_code) : "";
+  const filterTitle = filtered
+    ? ui
+        .T("filter_row_title")
+        .replace(
+          "{kept}",
+          formatNumber(filterModel!.kept, "comma", ui.config.locale_code, 0),
+        )
+        .replace(
+          "{total}",
+          formatNumber(filterModel!.total, "comma", ui.config.locale_code, 0),
+        )
+        .replace("{type}", titleTypeLabel)
+    : "";
   return {
     id: layerInfo.id,
     name: displayName(ui, layerInfo.id),
     checked,
+    filtered,
+    filterTitle,
     // Read the projection: focus overrides the range, the range never
     // overrides the intent. Focus dims the other rows visually without
     // removing them from the map, so while it holds every checked layer is
     // on screen regardless of its range. The policy write side reads the
     // same projection, so the formula has one home.
     shown: projectLayer(ui, layerInfo).effectiveShown,
-    countText: count != null ? formatNumber(count, "auto", ui.config.locale_code) : "",
+    countText,
     typeSvg: type.svg,
-    typeLabel: ui.T(type.key),
+    typeLabel,
+    titleTypeLabel,
   };
 };
 
@@ -186,11 +236,38 @@ const applyRowView = (ui: LayerUI, item: HTMLElement, cell: RowCell): void => {
   item.classList.toggle(CONST.CLASSES.ACTIVE, view.active);
 
   const countCol = item.querySelector<HTMLElement>(CONST.SEL.COUNT_COL);
-  if (countCol) countCol.textContent = view.countText;
+  if (countCol) {
+    countCol.classList.toggle(CONST.CLASSES.COUNT_FILTERED, view.filtered);
+    if (view.filtered) {
+      // Funnel first, then the compact kept count. innerHTML is the funnel's
+      // own module SVG (never a caller string), same as the type column.
+      countCol.innerHTML =
+        `<span class="${CONST.CLASSES.COUNT_FUNNEL}" aria-hidden="true">` +
+        `${view.countIconSvg}</span>` +
+        `<span class="foliplus-layer-count-value">${view.countText}</span>`;
+    } else {
+      countCol.textContent = view.countText;
+    }
+    // The count cell is annotation, but its sentence is the filtered fact:
+    // mirror the row title so hover/AT read the same numbers. Set the
+    // attribute only when it carries text: an empty title attribute would
+    // swallow the row title on hover instead of letting it bubble.
+    if (view.filtered) countCol.title = view.title;
+    else countCol.removeAttribute("title");
+    countCol.setAttribute("aria-label", view.title);
+  }
   if (view.typeSvg) {
     const typeCol = item.querySelector<HTMLElement>(`.${CONST.CLASSES.TYPE_ICON_COL}`);
     if (typeCol) typeCol.innerHTML = view.typeSvg;
   }
+  // The label always carries the full layer name: long names are clipped
+  // visually and styles can shorten the text, so the title is the one place
+  // the whole name is available — no measurement, no lazy hover state. The
+  // write/remove rule is shared with updateItemLabel (a rename's write point).
+  setLabelTitle(
+    item.querySelector<HTMLElement>(`.${CONST.CLASSES.LAYER_LABEL}`),
+    cell.name,
+  );
   // Persist the type label so a count-only refresh can rebuild the tooltip
   // without re-running type detection.
   item.setAttribute(CONST.DATA.TITLE, view.typeLabel);

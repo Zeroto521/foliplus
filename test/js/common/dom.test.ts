@@ -298,7 +298,7 @@ describe("stopEvent", () => {
 });
 
 describe("updateItemLabel", () => {
-  it("updates the label text and the checkbox aria-label only", () => {
+  it("updates the label text, its resident title, and the checkbox aria-label", () => {
     const item = dom.el("div", { "data-layer-id": "a" });
     item.appendChild(dom.el("label", null, "Old"));
     const checkbox = dom.el("input", { type: "checkbox" }) as HTMLInputElement;
@@ -309,6 +309,9 @@ describe("updateItemLabel", () => {
 
     const label = updateItemLabel(item, "New");
     expect(label?.textContent).toBe("New");
+    // The label keeps the whole name as its resident tooltip: a rename
+    // repaints through this write point, so the title must follow the text.
+    expect(label?.title).toBe("New");
     expect(checkbox.getAttribute("aria-label")).toBe("New");
     // The tooltip slot stays the Select/Deselect label — a layer name in
     // there reads as a tooltip for the wrong control.
@@ -329,8 +332,9 @@ describe("updateItemLabel", () => {
     item.appendChild(colorInput);
     document.body.appendChild(item);
 
-    updateItemLabel(item, "New");
+    const label = updateItemLabel(item, "New");
 
+    expect(label?.title).toBe("New");
     expect(colorInput.getAttribute("aria-label")).toBe("New");
     // `title` is the tooltip slot, not the name — a rename must not move
     // into it.
@@ -342,6 +346,21 @@ describe("updateItemLabel", () => {
     item.appendChild(dom.el("label", null, "OnlyLabel"));
     const label = updateItemLabel(item, "Renamed");
     expect(label?.textContent).toBe("Renamed");
+    expect(label?.title).toBe("Renamed");
+  });
+
+  it("removes the title for an empty name instead of writing an empty one", () => {
+    // An empty title attribute would swallow the row tooltip on hover, so the
+    // empty-name defense steps aside rather than blanking.
+    const item = dom.el("div", null);
+    const label = dom.el("label", null, "Old") as HTMLLabelElement;
+    label.title = "Old";
+    item.appendChild(label);
+
+    updateItemLabel(item, "");
+
+    expect(label.textContent).toBe("");
+    expect(label.hasAttribute("title")).toBe(false);
   });
 
   it("returns null for a null item or a label-less item", () => {

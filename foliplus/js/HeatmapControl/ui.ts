@@ -205,16 +205,31 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
   ctrl.aggSelect.onchange = () => {
     ctrl.mgr.agg = ctrl.aggSelect.value;
     updateFieldSelector(ctrl);
+    // The effective filter field can move with the aggregation (auto field
+    // resolution): drop a filter bound to the previous field, then tell the
+    // open panel to re-read the model even when the field did not move.
+    ctrl.mgr.syncFilterField();
     ctrl.mgr.renderHexagons();
     persist(ctrl);
+    publish(ctrl.mgr.events, EVENTS.LAYER_FILTER_CHANGE, {
+      id: ctrl.mgr.layerId,
+    });
   };
 
   ctrl.fieldSelect.onchange = () => {
     ctrl.mgr.field = ctrl.fieldSelect.value;
     syncSelect(ctrl, ctrl.fieldSelect, ctrl.fieldSelect.value);
+    // The filter field is the aggregation field (read-only in the panel): a
+    // field change drops a filter bound to the old field and repaints the
+    // rail extent. The notification also refreshes an open panel when the
+    // old filter happened to be absent (the extent/field still changed).
+    ctrl.mgr.syncFilterField();
     ctrl.mgr.renderHexagons();
     persist(ctrl);
     publish(ctrl.mgr.events, EVENTS.LAYER_STYLE_CHANGE, {
+      id: ctrl.mgr.layerId,
+    });
+    publish(ctrl.mgr.events, EVENTS.LAYER_FILTER_CHANGE, {
       id: ctrl.mgr.layerId,
     });
   };
@@ -337,6 +352,11 @@ const buildLayerListItems = (ctrl: HeatmapControlUI, sel: HTMLSelectElement) => 
     updateFieldSelector(ctrl);
     if (ctrl.mgr.selectedLayerId) ctrl.mgr.renderHexagons();
     else ctrl.mgr.clearHeatmapCanvas();
+    // Source identity changes the whole filter model (field, extent, kept);
+    // an open filter panel re-reads it through this notification.
+    publish(ctrl.mgr.events, EVENTS.LAYER_FILTER_CHANGE, {
+      id: ctrl.mgr.layerId,
+    });
     persist(ctrl);
   };
 

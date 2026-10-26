@@ -12,11 +12,15 @@
     let tries = 0;
     const tick = () => {
       const r = row();
-      const label = r?.querySelector(".foliplus-layer-label")?.textContent ?? "";
+      const labelEl = r?.querySelector(".foliplus-layer-label");
+      const label = labelEl?.textContent ?? "";
       if (label === "RenamedLayer" || ++tries > 40) {
         const cb = r?.querySelector('input[type="checkbox"]');
         resolve({
           label,
+          // The label's resident tooltip must follow the rename: the text and
+          // the title are written by the same updateItemLabel() pass.
+          labelTitle: labelEl?.getAttribute("title") ?? null,
           title: cb?.title ?? null,
           ariaLabel: cb?.getAttribute("aria-label") ?? null,
         });

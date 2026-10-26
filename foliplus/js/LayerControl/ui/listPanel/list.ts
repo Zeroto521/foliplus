@@ -528,9 +528,9 @@ const updateLayerItemLabel = (ui: LayerUI, layerInfo: LayerInfo) => {
     `[${CONST.DATA.LAYER_ID}="${CSS.escape(layerInfo.id)}"]`,
   ) as HTMLElement | null;
   if (!item) return;
-  // updateItemLabel sets both the row label and the checkbox's aria-label,
-  // so the name reaches assistive tech here without touching `title` — the
-  // row's tooltip slot keeps the feature count + type.
+  // updateItemLabel writes the row label, its resident full-name tooltip and
+  // the checkbox's aria-label, so a re-registration refreshes the hover name
+  // too; the row's own tooltip stays the feature count + type.
   updateItemLabel(item, displayName(ui, layerInfo.id));
 };
 

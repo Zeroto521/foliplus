@@ -30,8 +30,15 @@ const makeConfig = (overrides: Partial<ComponentConfig> = {}): ComponentConfig =
   ...overrides,
 });
 
-/** Build a real HeatmapManager with all external deps stubbed out. */
-function makeManager(confOverrides: Partial<ComponentConfig> = {}) {
+/** Install the process-wide HeatmapControl dependencies (CONFIG, h3, chroma,
+ *  ss). Split from the manager builder so a test that supplies its own map
+ *  (the LayerAPI integration suite) gets the same globals without the stub
+ *  map's LayerAPI overwriting the real one for longer than construction.
+ *
+ *  NOTE: this writes a stub `window.map.foliplus.LayerAPI`. A caller that
+ *  needs the global `map` to resolve a real LayerAPI must restore it after
+ *  construction — the manager's own reads go through `this.map`. */
+function installHeatmapGlobals(confOverrides: Partial<ComponentConfig> = {}) {
   // Mutate in place — module-level `T = createScopedTranslator(CONFIG)` captured
   // the setup-time object; replacing window.CONFIG would strand that reference
   // on SearchControl and meta keys would resolve to the wrong prefix.
@@ -99,7 +106,11 @@ function makeManager(confOverrides: Partial<ComponentConfig> = {}) {
       }),
     },
   };
+}
 
+/** Build a real HeatmapManager with all external deps stubbed out. */
+function makeManager(confOverrides: Partial<ComponentConfig> = {}) {
+  installHeatmapGlobals(confOverrides);
   const map = {
     getContainer: vi.fn(),
     getBounds: vi.fn(),
@@ -120,6 +131,23 @@ function makeManager(confOverrides: Partial<ComponentConfig> = {}) {
     setVisible: vi.fn(),
     hooks: { before: [], after: [] },
   };
+  return manager;
+}
+
+/** Build a HeatmapManager on a caller-supplied map (a real LayerController
+ *  fixture, for the createLayers content-signal integration tests). The map's
+ *  `foliplus.LayerAPI` and `foliplus.events` are used as-is; the overlay comes
+ *  from that map's real `createCanvas`. */
+function makeManagerOn(
+  map: any,
+  confOverrides: Partial<ComponentConfig> = {},
+): HeatmapManager {
+  installHeatmapGlobals(confOverrides);
+  const manager = new HeatmapManager(map, {
+    T: createScopedTranslator(window.CONFIG),
+    log: { warn: () => {}, error: () => {}, debug: () => {}, msg: (m: string) => m },
+  });
+  manager.init();
   return manager;
 }
 
@@ -169,4 +197,4 @@ function makeCtrl(
   };
 }
 
-export { makeConfig, makeCtrl, makeManager };
+export { makeConfig, makeCtrl, makeManager, makeManagerOn, installHeatmapGlobals };

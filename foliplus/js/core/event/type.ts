@@ -25,6 +25,15 @@ interface LayerIntentChangePayload {
   intent: { visible: boolean };
 }
 
+/** A layer's filter moved (stage 2, component-internal). Id-only signal —
+ *  the filter's owner (the component that declared `filterProvider`) has
+ *  already applied and rendered the change when this publishes; observers
+ *  that need the value pull it through the same `filterProvider`, never
+ *  from the payload. Same carrier shape as LAYER_STYLE_CHANGE. */
+interface LayerFilterChangePayload {
+  id: string;
+}
+
 interface EventPayloadMap {
   [EVENTS.LAYER_CHANGE]: LayerChangePayload;
   [EVENTS.LAYER_INTENT_CHANGE]: LayerIntentChangePayload;
@@ -45,6 +54,7 @@ interface EventPayloadMap {
   [EVENTS.LAYER_LIST_REBUILD]: void;
   [EVENTS.LAYER_NO_BASEMAP_CHANGED]: void;
   [EVENTS.OVERLAY_CLEAR]: void;
+  [EVENTS.LAYER_FILTER_CHANGE]: LayerFilterChangePayload;
 }
 
 export type { EventPayloadMap };
