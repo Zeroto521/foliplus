@@ -37,7 +37,7 @@ _DYNAMIC_SUPPLEMENT: set[str] = {
     "LayerControl.focus_layer_hidden",
     "LayerControl.focus_layer_no_bounds",
     # typeKey / type.key template literals (attr.ts, rowView.ts).
-    "LayerControl.type_tile",
+    "LayerControl.type_tile_map",
     "LayerControl.type_color_map",
     "LayerControl.type_custom",
     "LayerControl.type_unknown",
@@ -67,8 +67,8 @@ _DYNAMIC_SUPPLEMENT: set[str] = {
     "foliplus.label_format_percent",
     # Row tooltip short type words (rowView.ts) — `type_${gtype}` plus a
     # "_short" suffix; the attrs panel keeps the long type_* labels. A base
-    # row's short word is its own key (type_tile_short = 地图/Map).
-    "LayerControl.type_tile_short",
+    # row's short word is its own key (type_tile_map_short = 地图/Map).
+    "LayerControl.type_tile_map_short",
     "LayerControl.type_custom_short",
     "LayerControl.type_unknown_short",
     "LayerControl.type_color_map_short",
@@ -147,24 +147,24 @@ class TestRowTooltipVocabulary:
 
     def test_base_short_says_map_and_differs_from_color(self):
         en, zh = _TABLES["en"], _TABLES["zh"]
-        # The short word is 地图/Tile, distinct from the long 基础底图/Tile
+        # The short word is 地图/Map, distinct from the long 瓦片底图/Tile
         # Map label and from the colour row's 纯色/Color.
-        assert en["LayerControl.type_tile_short"] == "Tile"
-        assert zh["LayerControl.type_tile_short"] == "地图"
+        assert en["LayerControl.type_tile_map_short"] == "Map"
+        assert zh["LayerControl.type_tile_map_short"] == "地图"
         assert en["LayerControl.type_color_map_short"] == "Color"
         assert zh["LayerControl.type_color_map_short"] == "纯色"
         # Two adjacent kinds must not collapse into one word.
         assert (
-            en["LayerControl.type_tile_short"]
+            en["LayerControl.type_tile_map_short"]
             != en["LayerControl.type_color_map_short"]
         )
         assert (
-            zh["LayerControl.type_tile_short"]
+            zh["LayerControl.type_tile_map_short"]
             != zh["LayerControl.type_color_map_short"]
         )
-        # The long label names the same thing: Tile Map / 基础底图.
-        assert en["LayerControl.type_tile"] == "Tile Map"
-        assert zh["LayerControl.type_tile"] == "基础底图"
+        # The long label names the same thing: Tile Map / 瓦片底图.
+        assert en["LayerControl.type_tile_map"] == "Tile Map"
+        assert zh["LayerControl.type_tile_map"] == "瓦片底图"
 
     def test_filter_tooltip_says_data_not_records(self):
         en, zh = _TABLES["en"], _TABLES["zh"]
