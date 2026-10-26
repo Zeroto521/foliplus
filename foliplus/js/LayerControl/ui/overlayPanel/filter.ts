@@ -26,7 +26,12 @@
 // outside-handler field on `OverlayPanel` so a peer panel can tell the two
 // apart.
 import { EVENTS } from "#core/event/index.js";
-import type { LayerFilter, LayerFilterModel, LayerInfo } from "#core/layer/index.js";
+import type {
+  FilterRangeDimension,
+  LayerFilter,
+  LayerFilterModel,
+  LayerInfo,
+} from "#core/layer/index.js";
 import { createRowPanel } from "#core/leaflet/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import * as SVGs from "#foliplus/LayerControl/icon.js";
@@ -93,10 +98,19 @@ type FilterView =
       kind: "rows";
       root: HTMLElement;
       model: LayerFilterModel;
+      /** The dimension this body renders (the owner's first range dimension). */
+      dim: FilterRangeDimension;
       slider: Slider;
       result: HTMLElement;
       clear: HTMLButtonElement;
     };
+
+/** The model's first range dimension, or null when this body cannot render
+ *  it. The v2 panel renders one dimension; other kinds get their own body. */
+const rangeDimensionOf = (model: LayerFilterModel): FilterRangeDimension | null => {
+  const dim = model.dimensions[0];
+  return dim?.kind === "range" ? dim : null;
+};
 
 /** Everything the panel needs to keep its view and its owner identity in
  *  sync while it is open. Exported for `OverlayPanel`'s state declaration. */
@@ -120,23 +134,29 @@ interface FilterViewHooks {
   write: (filter: LayerFilter) => void;
 }
 
-/** The model shape the rows were built from. A change here needs a rebuild
- *  (new rail bounds / field / step), not just a readout refresh. */
-const sameShape = (a: LayerFilterModel, b: LayerFilterModel): boolean =>
+/** The dimension shape the rows were built from. A change here needs a
+ *  rebuild (new rail bounds / field / label / step), not just a readout
+ *  refresh. */
+const sameShape = (a: FilterRangeDimension, b: FilterRangeDimension): boolean =>
+  a.kind === b.kind &&
   a.field === b.field &&
+  a.label === b.label &&
   a.range[0] === b.range[0] &&
   a.range[1] === b.range[1] &&
   a.step === b.step;
 
-/** The committed range clamped into the model's extent, or the full extent
- *  when no filter is committed. */
-const sliderValueOf = (model: LayerFilterModel): [number, number] => {
-  if (model.filter?.kind !== "atom" || !model.filter.range) {
-    return [model.range[0], model.range[1]];
+/** The committed range clamped into the dimension's extent, or the full
+ *  extent when no range filter is committed. */
+const sliderValueOf = (
+  dim: FilterRangeDimension,
+  filter: LayerFilter,
+): [number, number] => {
+  if (filter?.kind !== "atom" || !filter.range) {
+    return [dim.range[0], dim.range[1]];
   }
   return [
-    Math.max(model.range[0], Math.min(model.range[1], model.filter.range[0])),
-    Math.max(model.range[0], Math.min(model.range[1], model.filter.range[1])),
+    Math.max(dim.range[0], Math.min(dim.range[1], filter.range[0])),
+    Math.max(dim.range[0], Math.min(dim.range[1], filter.range[1])),
   ];
 };
 
@@ -163,7 +183,7 @@ const syncView = (ui: LayerUI, view: FilterRowsView, model: LayerFilterModel): v
   view.clear.title = model.filter
     ? ui.T("filter_clear_tooltip")
     : ui.T("filter_clear_disabled");
-  const stored = sliderValueOf(model);
+  const stored = sliderValueOf(view.dim, model.filter);
   const current = view.slider.value;
   if (!Array.isArray(current) || current[0] !== stored[0] || current[1] !== stored[1]) {
     view.slider.setValue(stored, { silent: true });
@@ -182,9 +202,10 @@ const buildFilterRows = (
   ui: LayerUI,
   hooks: FilterViewHooks,
   model: LayerFilterModel,
+  dim: FilterRangeDimension,
 ): FilterView => {
-  // Field row — read-only: the owner picks the field (first numeric key of
-  // the snapshot); the field is not user-selectable here.
+  // Field row — read-only: the owner picks the dimension label (the numeric
+  // field's localized name) and the panel renders it verbatim.
   const fieldRow = dom.el(
     "div",
     { class: CONST.CLASSES.FORM_ROW },
@@ -192,7 +213,7 @@ const buildFilterRows = (
     dom.el(
       "div",
       { class: `${CONST.CLASSES.FORM_CONTROL} ${CONST.CLASSES.FILTER_FIELD}` },
-      model.field,
+      dim.label,
     ),
   );
 
@@ -202,29 +223,29 @@ const buildFilterRows = (
   // two movable thumbs over one value would be a lie.
   const host = dom.el("div", { class: CONST.CLASSES.FILTER_SLIDER });
   const slider = new Slider(host, {
-    min: model.range[0],
-    max: model.range[1],
-    step: model.step,
-    value: sliderValueOf(model),
+    min: dim.range[0],
+    max: dim.range[1],
+    step: dim.step,
+    value: sliderValueOf(dim, model.filter),
     label: ui.T("filter_range"),
     labels: [ui.T("filter_range_min"), ui.T("filter_range_max")],
-    values: { min: fmtValue(model.range[0]), max: fmtValue(model.range[1]) },
+    values: { min: fmtValue(dim.range[0]), max: fmtValue(dim.range[1]) },
     format: fmtValue,
     // Same appearance as the visible-range slider: a limit dot at each rail
     // end, no middle "current value" dot (a filter has no current readout).
     marks: [
-      { at: model.range[0], tone: "limit" },
-      { at: model.range[1], tone: "limit" },
+      { at: dim.range[0], tone: "limit" },
+      { at: dim.range[1], tone: "limit" },
     ],
-    disabled: model.range[0] === model.range[1],
+    disabled: dim.range[0] === dim.range[1],
     // Live preview and commit go through the same owner write — the owner
     // is idempotent on an unchanged filter, so the second call is a no-op.
     // `write` also refreshes the readout, so the live region never lags the
     // map behind a drag or a keyboard step.
     // The dual-thumb slider always reports a pair; typed as a cast because
     // the shared primitive also serves single-value sliders.
-    input: value => hooks.write(atom(model.field, value as [number, number])),
-    change: value => hooks.write(atom(model.field, value as [number, number])),
+    input: value => hooks.write(atom(dim.field, value as [number, number])),
+    change: value => hooks.write(atom(dim.field, value as [number, number])),
   });
 
   const rangeRow = dom.el(
@@ -269,6 +290,7 @@ const buildFilterRows = (
     kind: "rows",
     root: dom.el("div", {}, fieldRow, rangeRow, resultRow, footer),
     model,
+    dim,
     slider,
     result,
     clear: clearBtn as HTMLButtonElement,
@@ -294,7 +316,9 @@ const mountView = (
   model: LayerFilterModel | null,
 ): void => {
   finishSlidersIn(state.content);
-  const view = model ? buildFilterRows(ui, hooks, model) : buildEmptyState(ui);
+  const dim = model ? rangeDimensionOf(model) : null;
+  const view =
+    model && dim ? buildFilterRows(ui, hooks, model, dim) : buildEmptyState(ui);
   state.view = view;
   state.content.replaceChildren(view.root);
 };
@@ -312,7 +336,12 @@ const reconcile = (
     if (state.view.kind !== "empty") mountView(ui, state, hooks, null);
     return;
   }
-  if (state.view.kind === "rows" && sameShape(state.view.model, model)) {
+  const dim = rangeDimensionOf(model);
+  if (!dim) {
+    mountView(ui, state, hooks, model);
+    return;
+  }
+  if (state.view.kind === "rows" && sameShape(state.view.dim, dim)) {
     syncView(ui, state.view, model);
     return;
   }

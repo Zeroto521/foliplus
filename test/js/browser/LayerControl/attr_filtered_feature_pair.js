@@ -11,8 +11,9 @@
     name: "Attr Pair Probe",
     layer: L.layerGroup(),
     filterProvider: () => ({
-      field: "value",
-      range: [0, 10],
+      dimensions: [
+        { kind: "range", field: "value", label: "value", range: [0, 10], step: 1 },
+      ],
       filter: { kind: "atom", field: "value", op: "between", range: [2, 8] },
       kept: 2500,
       total: 6000,

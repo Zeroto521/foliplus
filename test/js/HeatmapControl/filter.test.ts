@@ -267,12 +267,12 @@ describe("HeatmapControl filter owner", () => {
     m.renderHexagons();
 
     const model = m.getFilterModel()!;
-    expect(model.field).toBe("value");
-    expect(model.range).toEqual([10, 30]);
+    expect(model.dimensions[0]).toMatchObject({ kind: "range", field: "value" });
+    expect(model.dimensions[0]).toMatchObject({ kind: "range", range: [10, 30] });
     expect(model.filter).toBeUndefined();
     expect(model.kept).toBe(3);
     expect(model.total).toBe(3);
-    expect(model.step).toBe(1); // integer data
+    expect(model.dimensions[0]).toMatchObject({ kind: "range", step: 1 }); // integer data
 
     m.setFilter({ kind: "atom", field: "value", op: "between", range: [12, 20] });
     expect(m.getFilterModel()!.kept).toBe(1);
@@ -284,7 +284,9 @@ describe("HeatmapControl filter owner", () => {
       { lat: 26.09, lng: 119.31, value: 2.75 },
     ]);
     m.renderHexagons();
-    expect(m.getFilterModel()!.step).toBeCloseTo(0.01, 10);
+    const stepDim = m.getFilterModel()!.dimensions[0];
+    expect(stepDim.kind).toBe("range");
+    expect(stepDim).toMatchObject({ step: 0.01 });
   });
 
   it("getFilterModel is null without a selection or without numeric fields", () => {
@@ -340,7 +342,7 @@ describe("HeatmapControl filter owner", () => {
     );
     m.renderHexagons();
     const modelB = m.getFilterModel()!;
-    expect(modelB.range).toEqual([100, 300]);
+    expect(modelB.dimensions[0]).toMatchObject({ kind: "range", range: [100, 300] });
     expect(modelB.filter).toBeUndefined(); // B never had a filter
     expect(modelB.total).toBe(3);
 
@@ -359,7 +361,7 @@ describe("HeatmapControl filter owner", () => {
     m.selectedLayerId = "layer1";
     m.renderHexagons();
     const modelA = m.getFilterModel()!;
-    expect(modelA.range).toEqual([10, 30]);
+    expect(modelA.dimensions[0]).toMatchObject({ kind: "range", range: [10, 30] });
     expect(modelA.filter).toEqual({
       kind: "atom",
       field: "value",
@@ -660,8 +662,8 @@ describe("HeatmapControl filter field follows the aggregation field", () => {
     m.renderHexagons();
     const model = m.getFilterModel();
     expect(model).not.toBeNull();
-    expect(model!.field).toBe("a");
-    expect(model!.range).toEqual([20, 30]);
+    expect(model!.dimensions[0]).toMatchObject({ kind: "range", field: "a" });
+    expect(model!.dimensions[0]).toMatchObject({ kind: "range", range: [20, 30] });
     expect(model!.total).toBe(3);
   });
 
@@ -670,8 +672,8 @@ describe("HeatmapControl filter field follows the aggregation field", () => {
     // orders first — the auto field is numericFields[0].
     m.field = "";
     const model = m.getFilterModel()!;
-    expect(model.field).toBe("value");
-    expect(model.range).toEqual([10, 30]);
+    expect(model.dimensions[0]).toMatchObject({ kind: "range", field: "value" });
+    expect(model.dimensions[0]).toMatchObject({ kind: "range", range: [10, 30] });
   });
 
   it("syncFilterField drops a filter written for the previous field", () => {
