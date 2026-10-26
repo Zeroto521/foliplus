@@ -385,7 +385,7 @@ describe("LayerUI attrs", () => {
       ui.openAttrsPanel(baseItem);
       expect(
         rows(baseItem.querySelector(".foliplus-layer-attrs-panel") as HTMLElement),
-      ).toContainEqual(["LayerControl.attr_type", "LayerControl.type_tile"]);
+      ).toContainEqual(["LayerControl.attr_type", "LayerControl.type_tile_map"]);
 
       ui.closeAttrsPanel(false);
       const colorItem = attachedPanel(ui).querySelector(
