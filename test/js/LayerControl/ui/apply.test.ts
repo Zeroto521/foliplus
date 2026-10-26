@@ -1,7 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { carrierToken, contentPanesOf } from "#core/carrierTarget.js";
 import { EVENTS } from "#core/event/index.js";
-import { GROUP, HIDDEN, LayerRuntimeStore, PANE_ROLE } from "#core/layer/index.js";
+import {
+  GROUP,
+  HIDDEN,
+  LayerRuntimeStore,
+  PANE_ROLE,
+  carrierTargetOf,
+  contentPanesOf,
+} from "#core/layer/index.js";
 import { LayerController } from "#foliplus/LayerControl/controller.js";
 import { LayerIntentStore } from "#foliplus/LayerControl/domain/index.js";
 import {
@@ -367,7 +373,7 @@ describe("executor: late-carrier replay", () => {
   });
 
   it("the write token and the export walk resolve one pane set", () => {
-    // The executor keys its rewrite decision on `carrierToken`; the exporter
+    // The executor keys its rewrite decision on `carrierTargetOf`; the exporter
     // walks `contentPanesOf` over the same declaration. Both read one carrier
     // per layer, so the panes a rewrite targets must be the panes an export
     // draws — asserted here against a real surface rather than a stub.
@@ -400,7 +406,7 @@ describe("executor: late-carrier replay", () => {
     expect(surface.capabilities.opacity).toBe("pane");
     expect(surface.paneNames.length).toBeGreaterThan(0);
 
-    const token = carrierToken({
+    const token = carrierTargetOf({
       canvas: li.canvas,
       layer: li.layer,
       panes: surface.paneNames,

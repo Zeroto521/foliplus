@@ -26,13 +26,12 @@
 // Naming: "state op" is the shape the carrier dispatcher accepts.
 // "Projection" is what the diff compares — intent + policy together, so
 // a change on either side produces an op.
-import { carrierToken } from "#core/carrierTarget.js";
 import {
   type DispatchFailure,
   EVENTS,
   type SettledOperation,
 } from "#core/event/index.js";
-import { CAP_TIER, HIDDEN, PANE_ROLE } from "#core/layer/index.js";
+import { CAP_TIER, HIDDEN, PANE_ROLE, carrierTargetOf } from "#core/layer/index.js";
 import { getLayerAlpha, setLayerAlpha } from "#common/canvasAlpha.js";
 import * as CONST from "../const.js";
 import { INTENT, getIntent } from "./intent.js";
@@ -195,7 +194,7 @@ const scheduleOpacityRedraw = (
  *  the same declaration this writer keys on — one carrier answer, two readers. */
 const carrierOf = (ui: LayerUI, layerInfo: LayerInfo): unknown => {
   const surface = ui.c.surfaceFor(layerInfo);
-  return carrierToken({
+  return carrierTargetOf({
     canvas: layerInfo.canvas,
     layer: layerInfo.layer,
     panes: surface.paneNames,

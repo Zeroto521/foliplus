@@ -2,8 +2,12 @@
 // render() stays here (the class method that calls the other passes via `this`);
 // each pass's implementation lives in its own module and is delegated to by
 // the class method of the same name.
-import { annotationPaneNameOf, contentPanesOf } from "#core/carrierTarget.js";
-import { type LayerInfo, findLayer } from "#core/layer/index.js";
+import {
+  type LayerInfo,
+  annotationPaneNameOf,
+  contentPanesOf,
+  findLayer,
+} from "#core/layer/index.js";
 import { layerUrl } from "#core/leafletAdapter.js";
 import { createScopedTranslator } from "#common/locale.js";
 import { createLogger } from "#common/log.js";
