@@ -26,7 +26,7 @@
 // Naming: "state op" is the shape the carrier dispatcher accepts.
 // "Projection" is what the diff compares — intent + policy together, so
 // a change on either side produces an op.
-import { carrierToken } from "#core/carrierTargets.js";
+import { carrierToken } from "#core/carrierTarget.js";
 import {
   type DispatchFailure,
   EVENTS,
@@ -191,7 +191,7 @@ const scheduleOpacityRedraw = (
  *  layer's own `options` object, which is the actual write target.
  *
  *  The declaration shape and the token itself live in
- *  `core/layer/carrierTargets`, so the export walk derives its pane set from
+ *  `core/layer/carrierTarget`, so the export walk derives its pane set from
  *  the same declaration this writer keys on — one carrier answer, two readers. */
 const carrierOf = (ui: LayerUI, layerInfo: LayerInfo): unknown => {
   const surface = ui.c.surfaceFor(layerInfo);

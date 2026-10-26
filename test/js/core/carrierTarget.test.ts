@@ -4,7 +4,7 @@ import {
   annotationPaneNameOf,
   carrierToken,
   contentPanesOf,
-} from "#foliplus/core/carrierTargets.js";
+} from "#foliplus/core/carrierTarget.js";
 import { ANNOTATION_PANE_PREFIX, CAP_TIER } from "#foliplus/core/layer/const.js";
 
 const paneDecl = (panes: string[], extra: Partial<CarrierDecl> = {}): CarrierDecl => ({

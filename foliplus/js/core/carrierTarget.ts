@@ -1,4 +1,4 @@
-// core/carrierTargets — where a layer's writes and its export land.
+// core/carrierTarget — where a layer's writes and its export land.
 //
 // One layer resolves to one carrier: a canvas face it owns, a pane set its
 // surface owns, or the layer's own Leaflet options. Two pipelines ask that

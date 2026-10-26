@@ -7,7 +7,7 @@
 //
 // Lives beside LayerController (not in core/layer/) because it depends on
 // LayerPersistence and AnnotationManager — both LayerControl-local.
-import { annotationPaneNameOf } from "#core/carrierTargets.js";
+import { annotationPaneNameOf } from "#core/carrierTarget.js";
 import { hasLabelField } from "#core/label/index.js";
 import {
   GROUP,
