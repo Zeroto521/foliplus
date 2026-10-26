@@ -8,7 +8,7 @@ import {
   computeBreaks,
 } from "#core/classify.js";
 import { vertexMean } from "#core/geo/index.js";
-import { autoLabelField, bareFieldName } from "#core/label/index.js";
+import { bareFieldName } from "#core/label/index.js";
 import { safeColorScale } from "#core/palette.js";
 import type { Logger } from "#common/type.js";
 import * as CONST from "./const.js";
@@ -24,16 +24,6 @@ import type {
 const getH3Res = (zoom: number): number => {
   const entry = (CONST.H3.RES_MAP as Array<[number, number]>).find(([z]) => zoom <= z);
   return entry ? entry[1] : CONST.H3.RES_FALLBACK;
-};
-
-/** The field to use when the user has not picked one. The rule itself is
- *  shared with LayerControl's annotation labels (core/labelField): first
- *  numeric, else first. This layer's field contract is numeric-only by
- *  construction, so in practice this stays the first entry — but the
- *  fallback no longer lives in two places. */
-const pickAutoField = (fields: string[] | null): string | null => {
-  if (!fields || fields.length === 0) return null;
-  return autoLabelField(fields.map(name => ({ name, numeric: true })));
 };
 
 /** Read a numeric field off a point marker (foliplus data contract).
@@ -233,6 +223,5 @@ export {
   binPoints,
   buildFeatures,
   getH3Res,
-  pickAutoField,
   readMarkerField,
 };

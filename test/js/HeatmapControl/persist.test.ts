@@ -264,10 +264,11 @@ describe("HeatmapManager — versioned persisted config", () => {
       expect(m.selectedLayerId).toBeNull();
     });
 
-    it("keeps an empty field as the auto sentinel on an old record", () => {
-      // Records written before the placeholder removal store "" for "no
-      // explicit pick". The empty string must survive the save/load round
-      // trip and leave the manager in auto mode instead of a real field.
+    it("leaves a record without a field unresolved until the first scan resolves it", () => {
+      // An old record may carry `field: ""` (the retired auto sentinel). The
+      // parser drops empty strings, so applying it leaves the manager's
+      // default in place; the first updateFieldSelector resolves and persists
+      // the first numeric field (covered in ui.test.ts).
       const m = makeManager();
       m.selectedLayerId = "layer_abc";
       m.field = "";

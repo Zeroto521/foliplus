@@ -1,4 +1,4 @@
-"""Browser tests for HeatmapControl auto-field selection logic."""
+"""Browser tests for HeatmapControl aggregation-field selection."""
 
 from __future__ import annotations
 
@@ -7,12 +7,12 @@ from conftest import _js, use_page
 from .helper import _make_autofield_page
 
 
-class TestHeatmapAutoFieldBrowser:
-    """Verify auto-field selection picks the right property key from a
-    point layer's properties dict."""
+class TestHeatmapFieldSelectionBrowser:
+    """Verify field resolution picks the right property key from a point
+    layer's properties dict."""
 
-    def test_auto_field_priority_order(self, browser, tmp_path):
-        """Auto-field picks the first discovered field.
+    def test_field_priority_order(self, browser, tmp_path):
+        """The first discovered field is resolved and selected.
 
         ``collectFields`` discovers fields in marker-iteration order:
         ``_value`` → ``options.value`` → ``feature.properties`` keys.  Only
@@ -54,8 +54,8 @@ class TestHeatmapAutoFieldBrowser:
             page.wait_for_timeout(500)
 
             # Verify field selector is visible and shows the resolved field.
-            # There is no "Auto" entry any more: an empty stored field surfaces
-            # the name the auto rule resolved to, not the empty sentinel.
+            # There is no separate auto state: the first numeric field is
+            # resolved and stored as the select's concrete value.
             # The field select is the <select> inside .foliplus-heatmap-field.
             field_select = (
                 ".foliplus-heatmap-ctrl .foliplus-heatmap-field"
@@ -68,12 +68,8 @@ class TestHeatmapAutoFieldBrowser:
             # collectFields returns fields in the order they are discovered
             # during marker iteration.  The exact key depends on V8 property
             # enumeration order — the important thing is deterministic choice.
-            auto_key = page.evaluate(_js("HeatmapControl/read_auto_field_key"))
-            assert auto_key in ("population", "density"), (
-                f"Unexpected autoFieldKey '{auto_key}'"
-            )
-            assert field_val == auto_key, (
-                f"Expected resolved field '{auto_key}', got '{field_val}'"
+            assert field_val in ("population", "density"), (
+                f"Unexpected resolved field '{field_val}'"
             )
 
             # Verify field options include our properties and no empty entry
@@ -84,18 +80,10 @@ class TestHeatmapAutoFieldBrowser:
             assert "density" in field_opts, f"Missing 'density': {field_opts}"
             assert "" not in field_opts, f"Placeholder option survived: {field_opts}"
 
-            field_title = page.evaluate(
-                _js("HeatmapControl/read_select_title"), field_select
-            )
-            assert field_title in (
-                f"Automatic field: {auto_key}",
-                f"自动字段：{auto_key}",
-            ), f"Expected the auto-field hint, got '{field_title}'"
-
             assert not errors, f"JS errors: {errors}"
 
-    def test_auto_field_single_field(self, browser, tmp_path):
-        """Single-field layer uses that field directly as autoFieldKey."""
+    def test_single_field(self, browser, tmp_path):
+        """Single-field layer resolves that field directly."""
         features = [
             {
                 "type": "Feature",
@@ -128,7 +116,7 @@ class TestHeatmapAutoFieldBrowser:
             page.evaluate(_js("HeatmapControl/dispatch_select_change"), agg_select)
             page.wait_for_timeout(500)
 
-            # The select shows the resolved field, not the empty sentinel.
+            # The select shows the concrete resolved field.
             # The field select is the <select> inside .foliplus-heatmap-field.
             field_select = (
                 ".foliplus-heatmap-ctrl .foliplus-heatmap-field"
@@ -139,13 +127,6 @@ class TestHeatmapAutoFieldBrowser:
             )
             assert field_val == "elevation", (
                 f"Expected resolved field 'elevation', got '{field_val}'"
-            )
-
-            # Single field → pickAutoField returns it directly
-            auto_key = page.evaluate(_js("HeatmapControl/read_auto_field_key"))
-            assert auto_key == "elevation", f"Expected 'elevation', got '{auto_key}'"
-            assert field_val == auto_key, (
-                f"Displayed field {field_val} != resolved auto {auto_key}"
             )
 
             # The single property option should be visible and the only one

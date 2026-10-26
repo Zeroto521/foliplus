@@ -9,7 +9,6 @@ import { buildClassesRow, buildFieldRow, buildSchemeRow } from "#core/rampForm.j
 import { dom } from "#common/dom.js";
 import { type SchemePicker, createSchemePicker } from "#common/schemePicker.js";
 import * as CONST from "./const.js";
-import { pickAutoField } from "./data.js";
 import { type HeatmapManager } from "./manager.js";
 import { panelContentHTML } from "./template.js";
 
@@ -219,9 +218,6 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
   ctrl.fieldSelect.onchange = () => {
     ctrl.mgr.field = ctrl.fieldSelect.value;
     syncSelect(ctrl, ctrl.fieldSelect, ctrl.fieldSelect.value);
-    // An explicit pick is not the auto state any more: drop the "automatic
-    // field" hint the row may still carry from before.
-    syncAutoFieldHint(ctrl, ctrl.mgr.field || ctrl.mgr.autoFieldKey);
     // The filter field is the aggregation field (read-only in the panel): a
     // field change drops a filter bound to the old field and repaints the
     // rail extent. The notification also refreshes an open panel when the
@@ -333,14 +329,14 @@ const buildLayerListItems = (ctrl: HeatmapControlUI, sel: HTMLSelectElement) => 
     updateFieldSelector(ctrl);
     ctrl.mgr.renderHexagons();
   } else if (ctrl.mgr.selectedLayerId) {
-    // Restored selection (localStorage / rebuild): resolve the field list
-    // first so autoFieldKey is fresh — syncSourceMeta reads it under field.
+    // Restored selection (localStorage / rebuild): resolve and persist the
+    // field first so syncSourceMeta reads a concrete name.
     updateFieldSelector(ctrl);
   }
 
-  // Selection (auto, restored, or user) and field resolution are settled here —
-  // publish source-layer / agg-field so the attrs panel is current without a
-  // further user edit.
+  // Selection (automatic, restored, or user) and field resolution are settled
+  // here — publish source-layer / agg-field so the attrs panel is current
+  // without a further user edit.
   ctrl.mgr.syncSourceMeta();
 
   if (ctrl.mgr.selectedLayerId) sel.value = ctrl.mgr.selectedLayerId;
@@ -373,67 +369,73 @@ const rebuildLayerDropdown = (ctrl: HeatmapControlUI) => {
   if (ctrl.layerSelect) buildLayerListItems(ctrl, ctrl.layerSelect);
 };
 
-/** Mark an auto-resolved field as such. The select shows a concrete name, so
- *  without this the row cannot tell "auto" (the layer's first numeric field)
- *  from an explicit pick of the same name. The two diverge when the field list
- *  changes: auto follows the new list, an explicit pick is reset once its
- *  field is gone. */
-const syncAutoFieldHint = (ctrl: HeatmapControlUI, resolvedField: string | null) => {
-  if (!ctrl.mgr.field && resolvedField) {
-    const hint = ctrl.T("auto_field_title").replace("{field}", resolvedField);
-    ctrl.fieldSelect.title = hint;
-    ctrl.fieldSelect.setAttribute("aria-description", hint);
-    return;
-  }
-  ctrl.fieldSelect.removeAttribute("title");
-  ctrl.fieldSelect.removeAttribute("aria-description");
-};
-
 const updateFieldSelector = (ctrl: HeatmapControlUI) => {
   if (!ctrl.fieldWrap || !ctrl.fieldSelect) return;
-  if (ctrl.mgr.agg === CONST.AGG.COUNT) {
-    ctrl.fieldWrap.classList.add(CONST.CLASSES.HIDDEN);
-    return;
-  }
 
   const selected = ctrl.mgr.pointLayers.filter(
     info => info.id === ctrl.mgr.selectedLayerId,
   );
   const fields = ctrl.mgr.collectFields(selected);
-  ctrl.mgr.autoFieldKey = pickAutoField(fields);
 
-  ctrl.fieldSelect.innerHTML = "";
-
-  fields.forEach(f => {
-    dom.el("option", { value: f, parent: ctrl.fieldSelect }, f);
-  });
-
-  if (ctrl.mgr.field && !fields.includes(ctrl.mgr.field)) {
-    ctrl.mgr.field = "";
+  // No numeric field: SUM/AVG/MIN/MAX have nothing to weigh by — getPointValue
+  // would fall back to 1 per point, so the map would render as COUNT while the
+  // select still read "Sum". Disable them and degrade the stored choice;
+  // hiding only the field row would hide the evidence, not fix the state.
+  if (fields.length === 0) {
+    for (const opt of ctrl.aggSelect.options) {
+      opt.disabled = opt.value !== CONST.AGG.COUNT;
+    }
+    ctrl.aggSelect.title = ctrl.T("needs_numeric_field");
+    if (ctrl.mgr.agg !== CONST.AGG.COUNT) {
+      ctrl.mgr.agg = CONST.AGG.COUNT;
+      syncSelect(ctrl, ctrl.aggSelect, CONST.AGG.COUNT);
+      ctrl.mgr.saveConfig();
+    }
+    rebuildFieldOptions(ctrl, fields, "");
+    ctrl.fieldWrap.classList.add(CONST.CLASSES.HIDDEN);
+    return;
   }
 
-  if (fields.length === 0) {
-    // Nothing to pick: without the old disabled "Auto Detect" entry this row
-    // would be a blank select, which reads as a broken control. The row only
-    // exists to choose a field, so hide it until one is available.
-    syncAutoFieldHint(ctrl, null);
+  for (const opt of ctrl.aggSelect.options) opt.disabled = false;
+  ctrl.aggSelect.removeAttribute("title");
+
+  if (ctrl.mgr.agg === CONST.AGG.COUNT) {
+    // COUNT needs no field; the row appears once a value aggregation is picked.
+    rebuildFieldOptions(ctrl, fields, "");
     ctrl.fieldWrap.classList.add(CONST.CLASSES.HIDDEN);
     return;
   }
   ctrl.fieldWrap.classList.remove(CONST.CLASSES.HIDDEN);
 
-  // Empty `field` is the stored auto sentinel, not a selectable entry: the
-  // select shows what the auto rule resolved to (the first numeric field).
-  // The heatmap's auto rule loses no information — "the layer's first numeric
-  // field" is exactly what the name shows — so, unlike LayerControl's label
-  // field (whose auto runs the full inference in core/labelField), this row
-  // does not need an "Auto" entry. Aggregation already falls back to
-  // `autoFieldKey` under the sentinel; an explicit pick stores the real name.
-  const resolvedField = ctrl.mgr.field || ctrl.mgr.autoFieldKey;
-  ctrl.fieldSelect.value = resolvedField ?? "";
-  syncAutoFieldHint(ctrl, resolvedField);
+  // A stored field that no longer exists remaps to the first numeric field.
+  // "" means "never picked" (fresh config / legacy record / Reset): it is
+  // resolved here and written back, so `field` is a concrete name from then on
+  // — the row no longer needs an "Auto" state to explain itself. Only remap
+  // when a candidate list exists, so a momentarily empty scan does not destroy
+  // the user's choice.
+  const resolved = fields.includes(ctrl.mgr.field) ? ctrl.mgr.field : fields[0];
+  if (resolved !== ctrl.mgr.field) {
+    ctrl.mgr.field = resolved;
+    ctrl.mgr.saveConfig();
+  }
 
-  syncSelect(ctrl, ctrl.fieldSelect, ctrl.fieldSelect.value);
+  rebuildFieldOptions(ctrl, fields, resolved);
+  syncSelect(ctrl, ctrl.fieldSelect, resolved);
+};
+
+/** Rebuild the field <option>s in place: the row element and its bound
+ *  onchange live for the control's lifetime, while the field list changes on
+ *  every scan. */
+const rebuildFieldOptions = (
+  ctrl: HeatmapControlUI,
+  fields: readonly string[],
+  value: string,
+) => {
+  ctrl.fieldSelect.innerHTML = "";
+  fields.forEach(f => {
+    dom.el("option", { value: f, parent: ctrl.fieldSelect }, f);
+  });
+  ctrl.fieldSelect.value = value;
 };
 
 /**

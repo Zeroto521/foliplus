@@ -161,7 +161,7 @@ describe("bindControls — change handlers", () => {
     expect(ctrl.fieldWrap.classList.contains(CONST.CLASSES.HIDDEN)).toBe(true);
   });
 
-  it("field change sets field, overrides the auto field and persists", () => {
+  it("field change stores the resolved field and persists", () => {
     const { ctrl, m } = setup();
     m.pointLayers = [{ id: "p1", name: "P1", layer: {}, count: 2 }];
     m.selectedLayerId = "p1";
@@ -169,22 +169,20 @@ describe("bindControls — change handlers", () => {
       {
         lat: 1,
         lng: 2,
-        marker: { feature: { properties: { sales: 5, name: "x" } } },
+        marker: { feature: { properties: { sales: 5, price: 10 } } },
       },
     ]);
     ctrl.aggSelect.value = CONST.AGG.SUM;
     fire(ctrl.aggSelect, "change");
-    expect(m.autoFieldKey).toBe("sales");
-    // No auto sentinel is selectable: the empty stored field surfaces the
-    // field the auto rule resolved to, not a disabled "Auto Detect" entry.
-    expect(m.field).toBe("");
+    // A fresh layer resolves the first numeric field and writes it back.
+    expect(m.field).toBe("sales");
     expect(ctrl.fieldSelect.value).toBe("sales");
 
     const save = vi.spyOn(m, "saveConfig");
     const render = vi.spyOn(m, "renderHexagons");
-    ctrl.fieldSelect.value = "sales";
+    ctrl.fieldSelect.value = "price";
     fire(ctrl.fieldSelect, "change");
-    expect(m.field).toBe("sales");
+    expect(m.field).toBe("price");
     expect(render).toHaveBeenCalled();
     expect(save).toHaveBeenCalled();
   });
@@ -270,7 +268,6 @@ describe("bindControls — clear (reset) button", () => {
     m.selectedLayerId = "p1";
     m.agg = CONST.AGG.SUM;
     m.field = "x";
-    m.autoFieldKey = "y";
     m.scheme = "Greens";
     m.numClasses = 8;
     m.method = "quantile";
@@ -354,7 +351,6 @@ describe("resetPanel — shared reset (Clear button + more-menu clear)", () => {
     m.selectedLayerId = "p1";
     m.agg = CONST.AGG.SUM;
     m.field = "price";
-    m.autoFieldKey = "price";
     m.scheme = "Greens";
     m.numClasses = 8;
     m.method = "quantile";
@@ -363,7 +359,6 @@ describe("resetPanel — shared reset (Clear button + more-menu clear)", () => {
     resetPanel(ctrl);
 
     expect(m.selectedLayerId).toBeNull();
-    expect(m.autoFieldKey).toBeNull();
     expect(m.agg).toBe(CONST.AGG.COUNT);
     expect(m.field).toBe("");
     expect(m.method).toBe(config.method);
@@ -376,22 +371,22 @@ describe("resetPanel — shared reset (Clear button + more-menu clear)", () => {
     expect(ctrl.classSelect.value).toBe(String(config.num_classes));
     expect(ctrl.methodSelect.value).toBe(config.method);
     expect(ctrl.schemeSelectHidden.value).toBe(config.color_scheme);
-    // The field row goes back to the empty auto sentinel with no options to
-    // show — it is hidden under the count aggregation anyway.
+    // The field row goes back to no selection with no options to show — it is
+    // hidden under the count aggregation anyway.
     expect(ctrl.fieldSelect.value).toBe("");
     expect(ctrl.fieldSelect.querySelectorAll("option").length).toBe(0);
     expect(ctrl.extraBody.classList.contains(CONST.CLASSES.HIDDEN)).toBe(true);
   });
 
-  it("resets the aggregation to the declared default, not count", () => {
-    // The constructor honors config.agg, so a clear has to land back on the
-    // declared value instead of dropping an agg="sum" map to count.
+  it("degrades a declared value aggregation when the reset leaves no numeric field", () => {
+    // A value aggregation has nothing to weigh by until a layer with numeric
+    // properties is picked again, so the reset lands on count.
     const { ctrl, m } = setup(makeConfig({ agg: "sum" }));
 
     resetPanel(ctrl);
 
-    expect(m.agg).toBe(CONST.AGG.SUM);
-    expect(ctrl.aggSelect.value).toBe(CONST.AGG.SUM);
+    expect(m.agg).toBe(CONST.AGG.COUNT);
+    expect(ctrl.aggSelect.value).toBe(CONST.AGG.COUNT);
   });
 
   it("leaves the panel open and the persisted record alone", () => {
@@ -616,14 +611,13 @@ describe("layer dropdown — source meta publish", () => {
     expect(m.sourceMeta["HeatmapControl.meta_agg_field"]).toBe("");
   });
 
-  it("resolves autoFieldKey before publishing on a restored selection", () => {
+  it("resolves and persists the field before publishing on a restored selection", () => {
     const m = makeManager();
-    // Restored from localStorage: layer already selected, field still auto.
+    // Restored from localStorage: layer already selected, field not yet set.
     m.pointLayers = [{ id: "p1", name: "Stores", layer: {}, count: 2 }];
     m.selectedLayerId = "p1";
     m.agg = "avg";
     m.field = "";
-    m.autoFieldKey = null;
     window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
       {
         lat: 1,
@@ -635,12 +629,12 @@ describe("layer dropdown — source meta publish", () => {
     const ctrl = makeCtrl(m, makeConfig());
     rebuildLayerDropdown(ctrl);
 
-    expect(m.autoFieldKey).toBe("dwell");
+    expect(m.field).toBe("dwell");
     expect(m.sourceMeta["HeatmapControl.meta_source_layer"]).toBe("Stores");
     expect(m.sourceMeta["HeatmapControl.meta_agg_field"]).toBe("dwell");
   });
 
-  it("clears a stale field that is no longer in the layer's fields", () => {
+  it("remaps a stale field to the first numeric field", () => {
     const m = makeManager();
     m.pointLayers = [{ id: "p1", name: "Stores", layer: {}, count: 1 }];
     m.selectedLayerId = "p1";
@@ -657,7 +651,7 @@ describe("layer dropdown — source meta publish", () => {
     const ctrl = makeCtrl(m, makeConfig());
     rebuildLayerDropdown(ctrl);
 
-    expect(m.field).toBe("");
+    expect(m.field).toBe("sales");
   });
 
   it("preserves a field that is still in the layer's fields", () => {
@@ -906,7 +900,7 @@ describe("rebuildLayerDropdown — null layerSelect", () => {
   });
 });
 
-describe("updateFieldSelector — resolved field, no auto placeholder", () => {
+describe("updateFieldSelector — concrete field resolution", () => {
   const seed = (fields: Record<string, string | number>) => {
     const { ctrl, m } = setup();
     m.pointLayers = [{ id: "p1", name: "P1", layer: {}, count: 1 }];
@@ -927,27 +921,10 @@ describe("updateFieldSelector — resolved field, no auto placeholder", () => {
     expect(ctrl.fieldSelect.querySelector("option[value='']")).toBeNull();
   });
 
-  it("shows the auto-resolved field name while the stored field is the empty sentinel", () => {
+  it("shows the first numeric field on a fresh layer", () => {
     const { ctrl, m } = seed({ sales: 5, price: 10 });
-    // The auto rule picks the first discovered field; the store keeps "".
-    expect(m.field).toBe("");
-    expect(m.autoFieldKey).toBe("sales");
+    expect(m.field).toBe("sales");
     expect(ctrl.fieldSelect.value).toBe("sales");
-  });
-
-  it("marks the auto-resolved field with a title and aria description", () => {
-    const { ctrl, m } = seed({ sales: 5, price: 10 });
-    expect(m.field).toBe("");
-    expect(ctrl.fieldSelect.title).toBe("Automatic field: sales");
-    expect(ctrl.fieldSelect.getAttribute("aria-description")).toBe(
-      "Automatic field: sales",
-    );
-
-    // An explicit pick is a different state and must not keep the auto hint.
-    ctrl.fieldSelect.value = "price";
-    fire(ctrl.fieldSelect, "change");
-    expect(ctrl.fieldSelect.title).toBe("");
-    expect(ctrl.fieldSelect.hasAttribute("aria-description")).toBe(false);
   });
 
   it("keeps an explicit choice selected across rebuilds", () => {
@@ -955,18 +932,47 @@ describe("updateFieldSelector — resolved field, no auto placeholder", () => {
     ctrl.fieldSelect.value = "price";
     fire(ctrl.fieldSelect, "change");
     expect(m.field).toBe("price");
-    // A later rebuild (layer re-selection) must not snap back to the auto field.
+    // A later rebuild (layer re-selection) must not snap back to the first field.
     fire(ctrl.aggSelect, "change");
     expect(ctrl.fieldSelect.value).toBe("price");
     expect(m.field).toBe("price");
   });
 
+  it("persists the resolved field instead of keeping the empty sentinel", () => {
+    const { m } = seed({ sales: 5, price: 10 });
+    expect(m.field).toBe("sales");
+    const stored = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!);
+    expect(stored.field).toBe("sales");
+  });
+
+  it("keeps the user's pick when a new numeric field is inserted first", () => {
+    const { ctrl, m } = seed({ sales: 5 });
+    expect(m.field).toBe("sales");
+
+    window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
+      { lat: 1, lng: 2, marker: { feature: { properties: { cost: 3, sales: 5 } } } },
+    ]);
+    fire(ctrl.aggSelect, "change");
+
+    expect(m.field).toBe("sales");
+    expect(ctrl.fieldSelect.value).toBe("sales");
+  });
+
   it("hides the field row when the source has no numeric field", () => {
     const { ctrl, m } = seed({ name: "x", label: "y" });
-    expect(m.autoFieldKey).toBeNull();
     expect(m.field).toBe("");
     expect(ctrl.fieldSelect.options.length).toBe(0);
-    expect(ctrl.fieldSelect.title).toBe("");
+    expect(ctrl.fieldWrap.classList.contains(CONST.CLASSES.HIDDEN)).toBe(true);
+  });
+
+  it("disables the value aggregations when no numeric field exists", () => {
+    const { ctrl, m } = seed({ name: "x" });
+    expect(
+      [...ctrl.aggSelect.options].filter(o => o.disabled).map(o => o.value),
+    ).toEqual(["sum", "avg", "min", "max"]);
+    expect(m.agg).toBe(CONST.AGG.COUNT);
+    expect(ctrl.aggSelect.value).toBe(CONST.AGG.COUNT);
+    expect(ctrl.aggSelect.title).toBe("Needs a numeric field to aggregate by value");
     expect(ctrl.fieldWrap.classList.contains(CONST.CLASSES.HIDDEN)).toBe(true);
   });
 
@@ -975,7 +981,18 @@ describe("updateFieldSelector — resolved field, no auto placeholder", () => {
     expect(m.selectedLayerId).toBeNull();
     ctrl.aggSelect.value = CONST.AGG.SUM;
     fire(ctrl.aggSelect, "change");
+    expect(m.agg).toBe(CONST.AGG.COUNT);
     expect(ctrl.fieldWrap.classList.contains(CONST.CLASSES.HIDDEN)).toBe(true);
+  });
+
+  it("does not clear the stored field when the scan is momentarily empty", () => {
+    const { ctrl, m } = seed({ sales: 5 });
+    expect(m.field).toBe("sales");
+
+    window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => []);
+    fire(ctrl.aggSelect, "change");
+
+    expect(m.field).toBe("sales");
   });
 
   it("shows the row again once the source supplies a numeric field", () => {
@@ -985,12 +1002,12 @@ describe("updateFieldSelector — resolved field, no auto placeholder", () => {
     window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
       { lat: 1, lng: 2, marker: { feature: { properties: { sales: 5 } } } },
     ]);
+    ctrl.aggSelect.value = CONST.AGG.SUM;
     fire(ctrl.aggSelect, "change");
 
-    expect(m.autoFieldKey).toBe("sales");
+    expect(m.field).toBe("sales");
     expect(ctrl.fieldWrap.classList.contains(CONST.CLASSES.HIDDEN)).toBe(false);
     expect(ctrl.fieldSelect.value).toBe("sales");
-    expect(ctrl.fieldSelect.title).toBe("Automatic field: sales");
   });
 });
 

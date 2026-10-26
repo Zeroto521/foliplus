@@ -21,6 +21,7 @@
 - `core/layer`: a reorder pays one tree walk per layer instead of four, and pins late content in one fragment [#733](https://github.com/Zeroto521/foliplus/pull/733)
 - `core/layer`: a declared pane spec may only name the public roles, so `shadow` stays internal [#733](https://github.com/Zeroto521/foliplus/pull/733)
 - `LayerControl`: labels rebuild once per frame and only repaint their own canvas; the replay set is a mandatory per-dimension registry policy, each UI owns its scheduler, and clearing labels also drops the layer's pan plan ([#734](https://github.com/Zeroto521/foliplus/pull/734))
+- `HeatmapControl`: the aggregation field is always a concrete name — a fresh layer resolves and persists its first numeric field, so adding a field never silently switches aggregation; value aggregations are disabled when the source has no numeric field ([#758](https://github.com/Zeroto521/foliplus/pull/758))
 
 ### Fixed
 
