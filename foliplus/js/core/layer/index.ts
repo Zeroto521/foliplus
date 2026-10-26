@@ -70,6 +70,8 @@ export {
   filterStep,
   filtersEqual,
   matches,
+  matchesValues,
+  normalizeEnumValues,
   normalizeFilter,
   parsePersistedFilter,
   parsePersistedFilters,
@@ -83,7 +85,14 @@ export {
 } from "./filter.js";
 export { INTENT, isFillRampConfig, LIVE, STYLE_KEYS } from "./intent.js";
 export type { AppliedProjection } from "./LayerRuntimeStore.js";
-export type { LayerFilter, LayerFilterModel } from "./filter.js";
+export type {
+  FilterDimension,
+  FilterEnumDimension,
+  FilterEnumOption,
+  FilterRangeDimension,
+  LayerFilter,
+  LayerFilterModel,
+} from "./filter.js";
 export type { Projection } from "./type.js";
 export type {
   AnnotationConfig,

@@ -28,14 +28,60 @@ type FilterAtom = {
   readonly values?: ReadonlyArray<number>;
 };
 
+/** One textual condition: keep entries whose `field` carries one of
+ *  `values`. It is its own member (not an `op` on the numeric atom) because
+ *  the value domain is a closed set of strings — measurements report a
+ *  measurement type, not a number, and coercing it into the numeric atom
+ *  would require inventing a code table. An empty selection is the same
+ *  state as "no filter"; see `matchesValues`. */
+type FilterEnumAtom = {
+  readonly kind: "enum";
+  readonly field: string;
+  readonly values: ReadonlyArray<string>;
+};
+
 type FilterExpr =
   | FilterAtom
+  | FilterEnumAtom
   | { readonly kind: "and"; readonly children: ReadonlyArray<FilterExpr> }
   | { readonly kind: "or"; readonly children: ReadonlyArray<FilterExpr> };
 
 /** A filter is a tree or absent. Absent = no filtering; empty `and` and
  *  empty `or` are stated below and treated as different things. */
 type LayerFilter = FilterExpr | undefined;
+
+/** One dimension a filter-capable owner exposes to the panel. The owner
+ *  localizes `label` (panel chrome never translates component vocabulary)
+ *  and supplies the value domain: numeric extents for `range`, a closed
+ *  option list for `enum`. The panel renders one dimension today; the array
+ *  keeps a multi-dimension UI a new renderer rather than a model migration. */
+type FilterRangeDimension = {
+  readonly kind: "range";
+  readonly field: string;
+  readonly label: string;
+  readonly range: readonly [number, number];
+  readonly step: number;
+  /** Formats a number for the rail and the readout; raw numbers when absent. */
+  readonly format?: (value: number) => string;
+};
+
+/** One option of an enum dimension — `value` is what the AST stores and
+ *  matches, `label` is the owner-localized display text. */
+type FilterEnumOption = {
+  readonly value: string;
+  readonly label: string;
+};
+
+type FilterEnumDimension = {
+  readonly kind: "enum";
+  readonly field: string;
+  readonly label: string;
+  readonly options: ReadonlyArray<FilterEnumOption>;
+  /** Whether more than one option may be selected. Defaults to true. */
+  readonly multi?: boolean;
+};
+
+type FilterDimension = FilterRangeDimension | FilterEnumDimension;
 
 /** The strict numeric predicate shared across the data layer. The
  *  builder (`core/layer/snapshot`) excludes non-finite values at
@@ -46,20 +92,39 @@ type LayerFilter = FilterExpr | undefined;
 const isNumeric = (v: unknown): v is number =>
   typeof v === "number" && Number.isFinite(v);
 
-/** Decide a single point. Recurses `and` (short-circuit on first false)
- *  and `or` (short-circuit on first true). Empty `and` → true, empty
- *  `or` → false — stated once here and pinned by tests. */
-const matches = (pt: SnapshotPoint, expr: FilterExpr | undefined): boolean => {
+/** Decide one record over its flat field bag. Recurses `and`
+ *  (short-circuit on first false) and `or` (short-circuit on first true).
+ *  Empty `and` → true, empty `or` → false — stated once here and pinned by
+ *  tests.
+ *
+ *  The numeric atom keeps its strict finite-number contract: a missing or
+ *  non-numeric field is false, never "0". The enum atom accepts strings
+ *  only, and an empty selection means "no filter" (true) rather than
+ *  "exclude everything" — clearing the last selected value must restore the
+ *  unfiltered result, not empty the map. */
+const matchesValues = (
+  fields: Readonly<Record<string, unknown>>,
+  expr: FilterExpr | undefined,
+): boolean => {
   if (!expr) return true;
   switch (expr.kind) {
     case "and":
-      for (const child of expr.children) if (!matches(pt, child)) return false;
+      for (const child of expr.children) {
+        if (!matchesValues(fields, child)) return false;
+      }
       return true;
     case "or":
-      for (const child of expr.children) if (matches(pt, child)) return true;
+      for (const child of expr.children) {
+        if (matchesValues(fields, child)) return true;
+      }
       return false;
+    case "enum": {
+      if (expr.values.length === 0) return true;
+      const v = fields[expr.field];
+      return typeof v === "string" && expr.values.includes(v);
+    }
     case "atom": {
-      const v = pt.fields[expr.field];
+      const v = fields[expr.field];
       if (!isNumeric(v)) return false;
       switch (expr.op) {
         case "between": {
@@ -76,6 +141,11 @@ const matches = (pt: SnapshotPoint, expr: FilterExpr | undefined): boolean => {
     }
   }
 };
+
+/** Decide a single snapshot point. Delegates to {@link matchesValues} so the
+ *  numeric snapshot path and any non-snapshot consumer share one evaluator. */
+const matches = (pt: SnapshotPoint, expr: FilterExpr | undefined): boolean =>
+  matchesValues(pt.fields, expr);
 
 /** Apply a filter to a snapshot. `undefined` = no filtering, returns the
  *  snapshot's points array by reference — callers must not mutate it. A
@@ -95,23 +165,21 @@ const select = (
  *  of the filter state exists. The panel is a view over this model —
  *  it never touches the owner's internal maps or caches. */
 interface LayerFilterModel {
-  /** The numeric field the filter evaluates. The owner picks the
-   *  default field (first numeric key of the snapshot today); the panel
-   *  renders it read-only. */
-  field: string;
-  /** The field's full data extent — the slider's rail bounds. */
-  range: readonly [number, number];
-  /** The committed filter, or undefined = no filter (every point kept).
-   *  A filter whose range equals the full extent is reported as
-   *  undefined: "no filter" and "full range" are the same state. */
+  /** The owner's filterable dimensions, in display order. The v2 panel
+   *  renders the first one and ignores the rest; a multi-dimension UI is a
+   *  new renderer, not a new model. An owner declaring more than one
+   *  dimension is a wiring mistake, reported through the shared logger and
+   *  never thrown — a bad declaration must not take the map down. */
+  dimensions: ReadonlyArray<FilterDimension>;
+  /** The committed filter, or undefined = no filter. A v2 owner writes
+   *  either nothing or one top-level atom that matches its dimension; the
+   *  grouped-tree shape stays in the AST for a deferred multi-condition UI. */
   filter?: LayerFilter;
   /** Units passing the committed filter, in the OWNER's unit — the
-   *  Heatmap reports hex cells, a point layer its features. */
+   *  Heatmap reports hex cells; Measure counts measurement rows. */
   kept: number;
   /** Units without the filter, in the same owner unit. */
   total: number;
-  /** Slider step derived from the data's own precision — never a magic 1. */
-  step: number;
 }
 
 /** The only ops a persisted filter may carry. Anything else is a record from
@@ -124,6 +192,18 @@ const FILTER_OPS = new Set(["between", "eq", "ne", "in"]);
 const parsePersistedFilter = (raw: unknown): LayerFilter => {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
   const node = raw as Record<string, unknown>;
+  if (node.kind === "enum") {
+    if (typeof node.field !== "string" || !node.field) return undefined;
+    const values = node.values;
+    if (
+      !Array.isArray(values) ||
+      values.length === 0 ||
+      !values.every(v => typeof v === "string" && v.length > 0)
+    ) {
+      return undefined;
+    }
+    return { kind: "enum", field: node.field, values: [...new Set(values)] };
+  }
   if (node.kind === "atom") {
     if (typeof node.field !== "string" || !node.field) return undefined;
     if (typeof node.op !== "string" || !FILTER_OPS.has(node.op)) return undefined;
@@ -230,6 +310,23 @@ const normalizeFilter = (
   return { ...filter, range: [lo, hi] as [number, number] };
 };
 
+/** Keep only the enum values a dimension still offers — the enum
+ *  counterpart of `normalizeFilter`'s extent clamp, for owners whose value
+ *  domain is not a numeric snapshot. A selection whose every value expired is
+ *  "no filter": an empty enum selection means "keep everything", never "keep
+ *  nothing" (see `matchesValues`). Non-enum filters pass through unchanged. */
+const normalizeEnumValues = (
+  filter: LayerFilter,
+  allowedValues: ReadonlyArray<string>,
+): LayerFilter => {
+  if (filter?.kind !== "enum") return filter;
+  const values = [...new Set(filter.values)].filter(v => allowedValues.includes(v));
+  if (values.length === 0) return undefined;
+  return values.length === filter.values.length
+    ? filter
+    : { kind: "enum", field: filter.field, values };
+};
+
 /** Indices of the snapshot points that pass `filter` — the include list
  *  the aggregation reads. No filter or no snapshot → every index. */
 const selectIndices = (
@@ -274,17 +371,26 @@ const buildFilterModel = (
   preferredField: string,
   autoFieldKey: string | null,
   counts?: { kept: number; total: number },
+  label?: string,
 ): LayerFilterModel | null => {
   if (!snapshot || snapshot.numericFields.length === 0) return null;
   const field = pickFilterField(snapshot, preferredField, autoFieldKey);
   const range = snapshot.ranges[field] ?? [0, 0];
   return {
-    field,
-    range,
+    dimensions: [
+      {
+        kind: "range",
+        field,
+        // The owner supplies a localized label; the raw field name is the
+        // fallback, matching the read-only field text #724 shipped.
+        label: label || field,
+        range,
+        step: filterStep(range),
+      },
+    ],
     filter,
     kept: counts?.kept ?? select(snapshot, filter).length,
     total: counts?.total ?? snapshot.points.length,
-    step: filterStep(range),
   };
 };
 
@@ -365,6 +471,8 @@ export {
   filterStep,
   filtersEqual,
   matches,
+  matchesValues,
+  normalizeEnumValues,
   normalizeFilter,
   parsePersistedFilter,
   parsePersistedFilters,
@@ -376,4 +484,11 @@ export {
   serializedFilters,
   storeFilter,
 };
-export type { LayerFilter, LayerFilterModel };
+export type {
+  FilterDimension,
+  FilterEnumDimension,
+  FilterEnumOption,
+  FilterRangeDimension,
+  LayerFilter,
+  LayerFilterModel,
+};

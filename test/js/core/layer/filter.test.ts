@@ -21,6 +21,8 @@ import {
   filterStep,
   filtersEqual,
   matches,
+  matchesValues,
+  normalizeEnumValues,
   normalizeFilter,
   parsePersistedFilter,
   parsePersistedFilters,
@@ -480,10 +482,12 @@ describe("pickFilterField / buildFilterModel", () => {
       numericFields: ["a"],
       ranges: {},
     };
-    expect(buildFilterModel(noExtent, undefined, "a", null)!.range).toEqual([0, 0]);
+    expect(
+      buildFilterModel(noExtent, undefined, "a", null)!.dimensions[0].range,
+    ).toEqual([0, 0]);
   });
 
-  it("composes the panel model from the snapshot", () => {
+  it("composes the generic model: one range dimension plus counts and filter", () => {
     const filter = {
       kind: "atom" as const,
       field: "a",
@@ -491,12 +495,28 @@ describe("pickFilterField / buildFilterModel", () => {
       range: [1, 1] as [number, number],
     };
     expect(buildFilterModel(snap, filter, "a", null)).toEqual({
-      field: "a",
-      range: [1, 1],
+      dimensions: [
+        {
+          kind: "range",
+          field: "a",
+          label: "a",
+          range: [1, 1],
+          step: 1,
+        },
+      ],
       filter,
       kept: 1,
       total: 1,
-      step: 1,
+    });
+  });
+
+  it("carries an owner-localized dimension label when one is supplied", () => {
+    const model = buildFilterModel(snap, undefined, "a", null, undefined, "Magnitude");
+    expect(model!.dimensions).toHaveLength(1);
+    expect(model!.dimensions[0]).toMatchObject({
+      kind: "range",
+      field: "a",
+      label: "Magnitude",
     });
   });
 });
@@ -632,5 +652,123 @@ describe("store / revalidate / serialize / restore", () => {
     restoreFilters(target, { s: atom, bad: undefined });
     expect(target.size).toBe(1);
     expect(target.get("s")).toEqual(atom);
+  });
+});
+
+describe("enum atom", () => {
+  const enumFilter: LayerFilter = {
+    kind: "enum",
+    field: "type",
+    values: ["distance", "polygon"],
+  };
+
+  it("matches a string field against the selected values", () => {
+    expect(matchesValues({ type: "distance" }, enumFilter)).toBe(true);
+    expect(matchesValues({ type: "marker" }, enumFilter)).toBe(false);
+  });
+
+  it("treats a missing or non-string field as false, never coerced", () => {
+    expect(matchesValues({}, enumFilter)).toBe(false);
+    expect(matchesValues({ type: 1 }, enumFilter)).toBe(false);
+  });
+
+  it("filters nothing when the selection is empty", () => {
+    const empty: LayerFilter = { kind: "enum", field: "type", values: [] };
+    expect(matchesValues({}, empty)).toBe(true);
+    expect(matchesValues({ type: "anything" }, empty)).toBe(true);
+  });
+
+  it("composes with and / or like every other atom", () => {
+    expect(
+      matchesValues({ type: "circle" }, { kind: "and", children: [enumFilter] }),
+    ).toBe(false);
+    const or: LayerFilter = {
+      kind: "or",
+      children: [enumFilter, { kind: "enum", field: "type", values: ["circle"] }],
+    };
+    expect(matchesValues({ type: "circle" }, or)).toBe(true);
+  });
+
+  it("matches(point) delegates the enum path without reading numeric fields", () => {
+    expect(matches(makePt({ count: 5 }), enumFilter)).toBe(false);
+  });
+});
+
+describe("parsePersistedFilter enum", () => {
+  it("accepts an enum node and dedupes its values", () => {
+    expect(
+      parsePersistedFilter({
+        kind: "enum",
+        field: "type",
+        values: ["distance", "distance", "circle"],
+      }),
+    ).toEqual({ kind: "enum", field: "type", values: ["distance", "circle"] });
+  });
+
+  it("rejects malformed enum nodes as no filter", () => {
+    for (const bad of [
+      { kind: "enum", field: "", values: ["a"] },
+      { kind: "enum", field: "type" },
+      { kind: "enum", field: "type", values: [] },
+      { kind: "enum", field: "type", values: [1] },
+      { kind: "enum", field: "type", values: [""] },
+      { kind: "enum", field: "type", values: "a" },
+    ]) {
+      expect(parsePersistedFilter(bad)).toBeUndefined();
+    }
+  });
+
+  it("round-trips an enum node through the shared parser", () => {
+    const node = { kind: "enum", field: "type", values: ["distance", "circle"] };
+    expect(JSON.stringify(parsePersistedFilter(node))).toBe(JSON.stringify(node));
+  });
+
+  it("parses a legacy numeric atom byte-identically to the pre-enum schema", () => {
+    const legacy = { kind: "atom", field: "c", op: "between", range: [1.5, 2] };
+    expect(JSON.stringify(parsePersistedFilter(legacy))).toBe(
+      '{"kind":"atom","field":"c","op":"between","range":[1.5,2]}',
+    );
+  });
+
+  it("keeps and/or trees containing enum children", () => {
+    const child = { kind: "enum", field: "type", values: ["circle"] };
+    expect(parsePersistedFilter({ kind: "and", children: [child] })).toEqual(
+      child,
+    );
+  });
+});
+
+describe("normalizeEnumValues", () => {
+  const filter: LayerFilter = {
+    kind: "enum",
+    field: "type",
+    values: ["distance", "legacy"],
+  };
+
+  it("drops values the dimension no longer offers", () => {
+    expect(normalizeEnumValues(filter, ["distance", "circle"])).toEqual({
+      kind: "enum",
+      field: "type",
+      values: ["distance"],
+    });
+  });
+
+  it("clears the filter when no value survives", () => {
+    expect(normalizeEnumValues(filter, ["marker"])).toBeUndefined();
+  });
+
+  it("dedupes the surviving values", () => {
+    const dup: LayerFilter = { kind: "enum", field: "type", values: ["a", "a"] };
+    expect(normalizeEnumValues(dup, ["a"])).toEqual({
+      kind: "enum",
+      field: "type",
+      values: ["a"],
+    });
+  });
+
+  it("passes numeric atoms and absent filters through unchanged", () => {
+    const atom: LayerFilter = { kind: "atom", field: "c", op: "eq", value: 1 };
+    expect(normalizeEnumValues(atom, ["x"])).toBe(atom);
+    expect(normalizeEnumValues(undefined, ["x"])).toBeUndefined();
   });
 });
