@@ -483,8 +483,8 @@ describe("pickFilterField / buildFilterModel", () => {
       ranges: {},
     };
     expect(
-      buildFilterModel(noExtent, undefined, "a", null)!.dimensions[0].range,
-    ).toEqual([0, 0]);
+      buildFilterModel(noExtent, undefined, "a", null)!.dimensions[0],
+    ).toMatchObject({ kind: "range", range: [0, 0] });
   });
 
   it("composes the generic model: one range dimension plus counts and filter", () => {

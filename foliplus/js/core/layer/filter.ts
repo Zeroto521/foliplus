@@ -383,7 +383,7 @@ const buildFilterModel = (
         field,
         // The owner supplies a localized label; the raw field name is the
         // fallback, matching the read-only field text #724 shipped.
-        label: label || field,
+        label: label ?? field,
         range,
         step: filterStep(range),
       },
