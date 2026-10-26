@@ -43,6 +43,9 @@ html/
 .hypothesis/
 .pytest_cache/
 
+# Ad-hoc command logs from local gate runs
+.gate-*.log
+
 # Sphinx docs
 doc/_build/
 doc/source/_build/
