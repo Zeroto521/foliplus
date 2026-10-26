@@ -822,35 +822,17 @@ describe("pinRowPanel", () => {
     expect(panel.style.top).toBe("132px");
   });
 
-  it("flips above the row when the bottom edge would leave the viewport", () => {
-    const { row, panel } = make({ width: 280, height: 200 });
+  it("keeps opening downward when the card crosses the viewport bottom", () => {
+    // Placement never flips or caps: the height cap and the content scrollbar
+    // are the shared CSS recipe's job, so a tall card keeps its top below its
+    // row and scrolls inside itself instead of moving up over the viewport.
+    const { row, panel } = make({ width: 280, height: 400 });
     stubBox(row, { top: 600, left: 10, width: 300, height: 30 });
 
     pinRowPanel(panel, row);
 
-    expect(panel.style.top).toBe("398px");
-  });
-
-  it("caps the card to the roomier side when neither side fits the whole card", () => {
-    const { row, panel } = make({ width: 280, height: 400 });
-    stubBox(row, { top: 300, left: 10, width: 300, height: 30 });
-
-    pinRowPanel(panel, row);
-
-    // 380px below the row beats 290px above it: the card starts below and
-    // scrolls inside its capped height.
-    expect(panel.style.maxHeight).toBe("380px");
-    expect(panel.style.top).toBe("332px");
-  });
-
-  it("prefers the space above when it is the roomier one", () => {
-    const { row, panel } = make({ width: 280, height: 400 });
-    stubBox(row, { top: 350, left: 10, width: 300, height: 30 });
-
-    pinRowPanel(panel, row);
-
-    expect(panel.style.maxHeight).toBe("340px");
-    expect(panel.style.top).toBe("8px");
+    expect(panel.style.top).toBe("632px");
+    expect(panel.style.maxHeight).toBe("");
   });
 
   it("keeps the last placement while the row is hidden (folded group)", () => {
@@ -865,11 +847,11 @@ describe("pinRowPanel", () => {
     expect(panel.style.top).toBe("132px");
   });
 
-  it("follows the row on a scroll and a resize, and clears a stale height cap", () => {
+  it("follows the row on a scroll and a resize", () => {
     const { row, panel } = make({ width: 280, height: 400 });
     stubBox(row, { top: 300, left: 10, width: 300, height: 30 });
     pinRowPanel(panel, row);
-    expect(panel.style.maxHeight).toBe("380px");
+    expect(panel.style.top).toBe("332px");
 
     stubBox(row, { top: 200, left: 20, width: 300, height: 30 });
     window.dispatchEvent(new Event("resize"));
@@ -878,7 +860,7 @@ describe("pinRowPanel", () => {
     stubBox(row, { top: 100, left: 20, width: 300, height: 30 });
     window.dispatchEvent(new Event("scroll"));
     expect(panel.style.top).toBe("132px");
-    // Plenty of room now: the inline cap from the earlier frame is dropped.
+    // Placement never writes an inline height cap.
     expect(panel.style.maxHeight).toBe("");
   });
 

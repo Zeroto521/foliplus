@@ -377,10 +377,16 @@ const createRowPanel = (opts: {
 // Opt-in, not default: a row panel must never depend on being pinned to look
 // right, because a caller that does not know about the helper (or a branch that
 // adds a new one) would otherwise render fixed at the viewport corner.
+//
+// Placement is deliberately simple: the card opens downward from its row. It
+// never flips above the row, never measures the room below it and never writes
+// an inline height cap — the shared .foliplus-row-panel recipe carries the
+// height cap and its content's scrollbar, so a panel taller than the space
+// under its row scrolls inside the card instead of growing over the viewport.
 
 /** Gap between the anchor row and the card. */
 const ROW_PANEL_GAP = 2;
-/** Minimum distance between the card and the viewport edge. */
+/** Minimum distance between the card and the viewport's horizontal edges. */
 const ROW_PANEL_EDGE = 8;
 /** Class that switches a row panel to the pinned (fixed, placed) variant. */
 const PINNED_CLASS = "foliplus-is-pinned";
@@ -389,51 +395,25 @@ const PINNED_CLASS = "foliplus-is-pinned";
 const rowPanels = new Map<HTMLElement, HTMLElement>();
 let rowPanelEventsBound = false;
 
-/** Place one card under its row, flipping above when the viewport bottom would
- *  cut it, and capping the height to the roomier side when neither side fits
- *  (the card's content scrolls, the panel never leaves the viewport). The panel
- *  must already be in the DOM: its measured size is the placement input. */
+/** Place one card under its row: fixed, right-aligned with the row and always
+ *  opening downward. The card's height cap and its content's scrollbar come
+ *  from the shared .foliplus-row-panel recipe (common/panel.css), so a tall
+ *  panel scrolls inside the card instead of flipping up or shrinking. The panel
+ *  must already be in the DOM: its measured width is the horizontal input. */
 const placeRowPanel = (panel: HTMLElement, anchor: HTMLElement): void => {
   const row = anchor.getBoundingClientRect();
   // A row inside a folded group is `display: none` and measures zero; keep the
   // last placement rather than pinning the card to the viewport corner.
   if (row.width === 0 && row.height === 0) return;
-  panel.style.maxHeight = "";
   const card = panel.getBoundingClientRect();
-  const viewportWidth = window.innerWidth;
-  const viewportHeight = window.innerHeight;
-  // Right-aligned with the row, like the card's original `right: 0` anchor.
+  // Right-aligned with the row, like the card's original `right: 0` anchor,
+  // clamped so a row at the viewport edge cannot push the card offscreen.
   const left = Math.max(
     ROW_PANEL_EDGE,
-    Math.min(row.right - card.width, viewportWidth - card.width - ROW_PANEL_EDGE),
+    Math.min(row.right - card.width, window.innerWidth - card.width - ROW_PANEL_EDGE),
   );
-  const below = row.bottom + ROW_PANEL_GAP;
-  const above = row.top - ROW_PANEL_GAP - card.height;
-  let top = below;
-  // The height the card will actually paint at; a capped side changes it, and
-  // the final viewport clamp has to use the capped value or the card drifts.
-  let drawn = card.height;
-  if (below + card.height > viewportHeight - ROW_PANEL_EDGE) {
-    if (above >= ROW_PANEL_EDGE) {
-      top = above;
-    } else {
-      const belowRoom = viewportHeight - ROW_PANEL_EDGE - below;
-      const aboveRoom = row.top - ROW_PANEL_GAP - ROW_PANEL_EDGE;
-      if (belowRoom >= aboveRoom) {
-        top = below;
-        drawn = Math.max(belowRoom, 0);
-      } else {
-        drawn = Math.max(aboveRoom, 0);
-        top = row.top - ROW_PANEL_GAP - drawn;
-      }
-      panel.style.maxHeight = `${drawn}px`;
-    }
-  }
   panel.style.left = `${left}px`;
-  panel.style.top = `${Math.max(
-    ROW_PANEL_EDGE,
-    Math.min(top, viewportHeight - drawn - ROW_PANEL_EDGE),
-  )}px`;
+  panel.style.top = `${row.bottom + ROW_PANEL_GAP}px`;
 };
 
 /** Re-place every open card. Document-level capture, so a scroll inside the

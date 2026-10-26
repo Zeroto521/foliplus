@@ -5515,6 +5515,95 @@ class TestLayerControlBrowser:
             )
             assert not errors, f"JS errors: {errors}"
 
+    def test_style_panel_opens_downward_and_scrolls_inside(self, browser, tmp_path):
+        """The pinned style card opens downward and scrolls its own content.
+
+        Placement is deliberately simple now: it sits just under its row and
+        never measures the viewport, flips upward or writes an inline height
+        cap. The shared 400px row-panel recipe plus the content's own scrollbar
+        keep a long panel usable, and a wheel over the card must stay inside it
+        instead of chaining to the layer list behind.
+        """
+        data = {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "properties": {"value": 10 + i},
+                    "geometry": {
+                        "type": "Polygon",
+                        "coordinates": [
+                            [
+                                [119.28 + i * 0.01, 26.06],
+                                [119.32 + i * 0.01, 26.06],
+                                [119.32 + i * 0.01, 26.10],
+                                [119.28 + i * 0.01, 26.10],
+                                [119.28 + i * 0.01, 26.06],
+                            ]
+                        ],
+                    },
+                }
+                for i in range(3)
+            ],
+        }
+        layer = folium.GeoJson(json.dumps(data), name="Polygon data")
+        with use_page(
+            self._make_page, browser, tmp_path, layer, slug="row_panel_scroll"
+        ) as (page, errors):
+            page.evaluate(_js("LayerControl/open_panel"))
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            panel_ready(page)
+            opened = page.evaluate(_js("LayerControl/open_style_panel"))
+            assert opened["ok"], f"style panel did not open: {opened}"
+            page.wait_for_selector(
+                ".foliplus-layer-style-panel", state="visible", timeout=5000
+            )
+            page.wait_for_timeout(200)
+
+            before = page.evaluate(
+                _js("LayerControl/read_row_panel_scroll"), {"ramp": True}
+            )
+            assert before["ok"], before
+            assert before["position"] == "fixed", before
+            assert before["pinned"] is True, before
+            assert before["opensDownward"], (
+                f"the pinned card opened above its row: {before}"
+            )
+            gap = before["panel"]["top"] - before["row"]["bottom"]
+            assert 0 < gap <= 8, before
+            assert before["content"]["overflowY"] == "auto", before
+            assert before["content"]["panelMaxHeight"] == "400px", before
+            assert (
+                before["content"]["scrollHeight"] > before["content"]["clientHeight"]
+            ), f"the long style panel does not need its own scrollbar: {before}"
+
+            rect = before["content"]["rect"]
+            page.mouse.move(
+                rect["left"] + rect["width"] / 2, rect["top"] + rect["height"] / 2
+            )
+            page.mouse.wheel(0, 240)
+            page.wait_for_timeout(300)
+
+            after = page.evaluate(
+                _js("LayerControl/read_row_panel_scroll"), {"ramp": True}
+            )
+            assert after["content"]["scrollTop"] > 0, (
+                "the wheel over the card did not scroll its content: "
+                f"{before['content']} -> {after['content']}"
+            )
+            assert after["listScrollTop"] == before["listScrollTop"], (
+                "the wheel chained to the layer list instead of the card: "
+                f"{before['listScrollTop']} -> {after['listScrollTop']}"
+            )
+            assert after["opensDownward"], (
+                f"the card left its downward placement after scrolling: {after}"
+            )
+            assert not errors, f"JS errors: {errors}"
+
     # ── zoom-range browser probes ────────────────────────────────────
     #
     # CSS/interaction verification for the zoom-range row: dual-thumb
