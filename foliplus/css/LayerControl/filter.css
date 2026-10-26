@@ -20,6 +20,17 @@
     padding-right: 0;
     gap: var(--foliplus-space-md);
   }
+  /* The enum listbox paints outside the card: it is an absolutely positioned
+     child of its dimension row, so the shared row-panel scroll box would clip
+     the options that fall below the card's bottom edge. This panel's content
+     is a fixed handful of rows (condition, Result, Clear) and never scrolls,
+     so the card and its content can both paint overflow; the style and
+     attributes panels keep their scroll boxes. */
+  .foliplus-panel.foliplus-row-panel.foliplus-layer-filter-panel,
+  .foliplus-panel.foliplus-row-panel.foliplus-layer-filter-panel
+    .foliplus-panel-content {
+    overflow: visible;
+  }
   /* The slider cell takes the row's remaining width — the rail needs a
      measurable box, and it starts at the same x as every other panel's
      control column because the label cell is the shared 88px one. */

@@ -40,8 +40,9 @@ type FilterBody = {
   destroy: () => void;
   /** Close an open transient popup (the enum list). Returns true when the
    *  popup swallowed the press, so the panel stays open: the first outside
-   *  press dismisses the popup, not the surface. */
-  dismissTransient: (target: Element) => boolean;
+   *  press dismisses the popup, not the surface. `focusTrigger` is for the
+   *  keyboard path, where the trigger is the popup's logical return target. */
+  dismissTransient: (target: Element, focusTrigger?: boolean) => boolean;
 };
 
 /** The read-only dimension row: field label plus the owner-provided dimension
@@ -137,6 +138,10 @@ const renderRangeBody = (
   };
 };
 
+/** Monotonic suffix for the enum listbox ids: each mounted body owns one
+ *  listbox, and the trigger's `aria-controls` needs a stable target. */
+let enumListSeq = 0;
+
 /** The panel's range atom — the only range shape the body emits. */
 const atomOf = (
   field: string,
@@ -168,6 +173,26 @@ const enumFilterOf = (
   return values.length > 0 ? { kind: "enum", field: dim.field, values } : undefined;
 };
 
+/** Every ancestor whose `overflow-y` clips its content. The enum listbox is
+ *  absolutely positioned inside a row that itself lives in the layer list's
+ *  scroll box, and a filter card's own content can be a clip box too: the
+ *  visible bottom is the tightest of ALL of them, not just the nearest one. */
+const clippingAncestorsOf = (node: Element): HTMLElement[] => {
+  const clips: HTMLElement[] = [];
+  let current = node.parentElement;
+  while (current) {
+    if (getComputedStyle(current).overflowY !== "visible") clips.push(current);
+    current = current.parentElement;
+  }
+  return clips;
+};
+
+/** The vertical gap kept between a popup and the clip edge / viewport. */
+const POPUP_EDGE_GAP = 8;
+
+/** A no-op unsubscribe, used before a popup has attached its watchers. */
+const noDetach = (): void => undefined;
+
 /** Enum body: a read-only dimension row with a trigger that opens a checkbox
  *  listbox. Multi-select commits a value set; unselecting the last option
  *  commits `undefined`, so "nothing selected" always reads as "no filter" and
@@ -179,6 +204,7 @@ const renderEnumBody = (
 ): FilterBody => {
   const { row, control } = buildDimensionRow(deps.T, dim.label);
   control.classList.add(CONST.CLASSES.FILTER_ENUM);
+  const listId = `foliplus-filter-enum-${++enumListSeq}`;
 
   const trigger = dom.el(
     "button",
@@ -187,10 +213,12 @@ const renderEnumBody = (
       class: `${CONST.CLASSES.FILTER_ENUM_TRIGGER} foliplus-form-select`,
       "aria-haspopup": "listbox",
       "aria-expanded": "false",
+      "aria-controls": listId,
     },
     "",
   ) as HTMLButtonElement;
   const list = dom.el("div", {
+    id: listId,
     class: CONST.CLASSES.FILTER_ENUM_LIST,
     role: "listbox",
     "aria-multiselectable": "true",
@@ -227,8 +255,7 @@ const renderEnumBody = (
   trigger.disabled = dim.options.length === 0;
 
   let open = false;
-
-  const isOpen = (): boolean => open;
+  let detachGeometry = noDetach;
 
   const selectedValues = (): Set<string> => new Set(enumValuesOf(dim, currentFilter));
 
@@ -236,14 +263,62 @@ const renderEnumBody = (
     if (!open) return;
     open = false;
     list.hidden = true;
+    list.style.maxHeight = "";
     trigger.setAttribute("aria-expanded", "false");
+    detachGeometry();
+    detachGeometry = noDetach;
     if (focusTrigger) trigger.focus();
+  };
+
+  /** The vertical space the popup may occupy: from the trigger's bottom to the
+   *  tightest visible clip edge (or the viewport), minus one gap. */
+  const popupSpace = (): number => {
+    const triggerRect = trigger.getBoundingClientRect();
+    const clips = clippingAncestorsOf(control);
+    const clipBottoms = clips
+      .map(clip => clip.getBoundingClientRect().bottom)
+      .filter(bottom => bottom > 0);
+    const limit = Math.min(window.innerHeight, ...clipBottoms);
+    return limit - triggerRect.bottom - POPUP_EDGE_GAP;
+  };
+
+  /** Clamp the popup to the space measured once on open, so it scrolls
+   *  internally instead of painting into a clipped region. At least one row is
+   *  kept visible; a fully visible popup keeps its natural height. */
+  const clampListHeight = (): void => {
+    list.style.maxHeight = "";
+    const rowHeight = buttons[0]?.offsetHeight ?? 24;
+    const fourRows = rowHeight * Math.min(dim.options.length, 4);
+    const height = Math.max(rowHeight, Math.min(fourRows, popupSpace()));
+    if (height < list.scrollHeight) list.style.maxHeight = `${Math.round(height)}px`;
+  };
+
+  /** A scroll of any clip box or a resize invalidates the measured geometry, so
+   *  the popup closes rather than floats in a stale position. */
+  const watchGeometry = (): void => {
+    const clips = clippingAncestorsOf(control);
+    // Focus the trigger on the way out: the active option is about to be
+    // hidden, and leaving focus on a display:none node parks it on <body>.
+    const onGeometryChange = (): void => closeList(true);
+    detachGeometry = () => {
+      for (const clip of clips) {
+        clip.removeEventListener("scroll", onGeometryChange);
+      }
+      window.removeEventListener("resize", onGeometryChange);
+    };
+    for (const clip of clips) {
+      clip.addEventListener("scroll", onGeometryChange, { passive: true });
+    }
+    window.addEventListener("resize", onGeometryChange, { passive: true });
   };
 
   const focusOption = (index: number): void => {
     const target =
       buttons[((index % buttons.length) + buttons.length) % buttons.length];
     target?.focus();
+    // A clamped list scrolls internally; keep the focused option visible so the
+    // keyboard path never moves focus into a hidden row.
+    target?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
   };
 
   /** Open the listbox. A non-negative index also moves focus into the list
@@ -253,6 +328,8 @@ const renderEnumBody = (
     open = true;
     list.hidden = false;
     trigger.setAttribute("aria-expanded", "true");
+    clampListHeight();
+    watchGeometry();
     if (focusIndex >= 0) focusOption(focusIndex);
   };
 
@@ -285,7 +362,10 @@ const renderEnumBody = (
     const labels = dim.options
       .filter(option => selected.has(option.value))
       .map(option => option.label);
-    const text = labels.length > 0 ? labels.join(", ") : deps.T("filter_enum_any");
+    const text =
+      labels.length > 0
+        ? labels.join(deps.T("filter_enum_separator"))
+        : deps.T("filter_enum_any");
     trigger.textContent = text;
     trigger.title = text;
   };
@@ -333,38 +413,19 @@ const renderEnumBody = (
     }
   });
 
-  // Escape closes the popup first. Stopping the event here keeps the panel's
-  // own Escape handling (which closes the whole surface) from also running:
-  // a popup is a step inside the panel, not a second surface.
   const root = row;
-  rootEscapeGuard(root, () => {
-    if (!isOpen()) return false;
-    closeList(true);
-    return true;
-  });
   return {
     root,
     dimension: dim,
     sync,
     destroy: () => closeList(false),
-    dismissTransient: target => {
+    dismissTransient: (target, focusTrigger = false) => {
       if (!open) return false;
       if (control.contains(target)) return false;
-      closeList(false);
+      closeList(focusTrigger);
       return true;
     },
   };
-};
-
-/** Catch Escape on the body while a popup is open. Returns true when the
- *  guard consumed the key, so the panel's surface handler does not run. */
-const rootEscapeGuard = (root: HTMLElement, consume: () => boolean): void => {
-  root.addEventListener("keydown", event => {
-    if (event.key !== "Escape") return;
-    if (!consume()) return;
-    event.preventDefault();
-    event.stopPropagation();
-  });
 };
 
 /** Dispatch a body for one dimension. */

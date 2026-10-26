@@ -814,6 +814,100 @@ describe("LayerUI filter panel", () => {
       spy.mockRestore();
     });
 
+    it("keeps option focus through the container click delegation", () => {
+      const spy = spyTranslator();
+      const { item, owner } = registerEnum();
+      ui.openFilterPanel(item);
+      triggerOf(item).click();
+      const option = optionsOf(item)[0];
+      option.focus();
+
+      option.click();
+
+      // The row's click handler must treat the filter panel as a floating
+      // panel: stealing focus back to the row would break the keyboard path
+      // (the next Space would toggle the row's visibility instead of the
+      // option) while the list is still open.
+      expect(owner.filter).toBeDefined();
+      expect(document.activeElement).toBe(option);
+      expect(listOf(item).hidden).toBe(false);
+      spy.mockRestore();
+    });
+
+    it("keeps trigger focus after a click-open", () => {
+      const spy = spyTranslator();
+      const { item } = registerEnum();
+      ui.openFilterPanel(item);
+      const trigger = triggerOf(item);
+      trigger.focus();
+
+      trigger.click();
+
+      expect(document.activeElement).toBe(trigger);
+      spy.mockRestore();
+    });
+
+    it("associates the popup with the trigger for assistive tech", () => {
+      const spy = spyTranslator();
+      const { item } = registerEnum();
+      ui.openFilterPanel(item);
+
+      const trigger = triggerOf(item);
+      const list = listOf(item);
+      expect(trigger.getAttribute("aria-controls")).toBe(list.id);
+      expect(list.id).not.toBe("");
+      spy.mockRestore();
+    });
+
+    it("joins selected labels with the localized separator", () => {
+      const spy = vi
+        .spyOn(ui, "T")
+        .mockImplementation(
+          key =>
+            (key === "filter_enum_any"
+              ? "All"
+              : key === "filter_enum_separator"
+                ? "、"
+                : `LayerControl.${key}`) as any,
+        );
+      const { item } = registerEnum();
+      ui.openFilterPanel(item);
+      triggerOf(item).click();
+      optionsOf(item)[0].click();
+      optionsOf(item)[1].click();
+
+      expect(triggerOf(item).textContent).toBe("MARKER、DISTANCE");
+      spy.mockRestore();
+    });
+
+    it("selects every option in one value set", () => {
+      const spy = vi
+        .spyOn(ui, "T")
+        .mockImplementation(
+          key =>
+            (key === "filter_enum_any"
+              ? "All"
+              : key === "filter_enum_separator"
+                ? ", "
+                : `LayerControl.${key}`) as any,
+        );
+      const { item, owner } = registerEnum();
+      ui.openFilterPanel(item);
+      triggerOf(item).click();
+      optionsOf(item).forEach(option => option.click());
+
+      expect(owner.filter).toEqual({
+        kind: "enum",
+        field: "type",
+        values: ["marker", "distance", "polygon", "circle"],
+      });
+      expect(triggerOf(item).textContent).toBe("MARKER, DISTANCE, POLYGON, CIRCLE");
+      expect(
+        optionsOf(item).map(option => option.getAttribute("aria-selected")),
+      ).toEqual(["true", "true", "true", "true"]);
+      spy.mockRestore();
+    });
+
     it("Clear resets an enum filter", () => {
       const spy = spyTranslator();
       const { item, owner } = registerEnum();

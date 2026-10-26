@@ -417,6 +417,19 @@ const openFilterPanel = (ui: LayerUI, item: HTMLElement): void => {
   // draggable row, so it cannot answer that.
   panel.addEventListener("mousedown", e => e.stopPropagation());
 
+  // The enum popup is the topmost layer: Escape while it is open closes the
+  // popup first, wherever focus sits inside the panel (an option, the trigger
+  // or the footer). The container's own Escape handler closes the surface, and
+  // it only runs once no popup is left.
+  panel.addEventListener("keydown", (event: KeyboardEvent) => {
+    if (event.key !== "Escape") return;
+    const current = ui.overlayPanel.activeFilterPanel;
+    if (current?.view.kind !== "rows") return;
+    if (!current.view.body.dismissTransient(panel, true)) return;
+    event.preventDefault();
+    event.stopPropagation();
+  });
+
   item.style.position = "relative";
   item.appendChild(panel);
 
