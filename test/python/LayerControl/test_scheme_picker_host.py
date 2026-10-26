@@ -79,7 +79,10 @@ def _make_page(browser, tmp_path, *, pseudo: bool):
         </script>""",
         )
     return make_browser_page(
-        browser, tmp_path, html, "scheme_host_pseudo" if pseudo else "scheme_host_native"
+        browser,
+        tmp_path,
+        html,
+        "scheme_host_pseudo" if pseudo else "scheme_host_native",
     )
 
 
@@ -92,9 +95,7 @@ def _open_ramp(page) -> None:
     panel_ready(page)
     opened = page.evaluate(_js("LayerControl/open_style_panel"))
     assert opened["ok"], f"style panel did not open: {opened}"
-    page.wait_for_selector(
-        ".foliplus-layer-style-panel", state="visible", timeout=5000
-    )
+    page.wait_for_selector(".foliplus-layer-style-panel", state="visible", timeout=5000)
 
 
 def _open_list(page) -> dict:
@@ -124,9 +125,7 @@ class TestSchemePickerHostBrowser:
         the same stacking context as the panel, where its own z band wins; the
         hit test proves a row is reachable with the pointer.
         """
-        with use_page(
-            _make_page, browser, tmp_path, pseudo=True
-        ) as (page, errors):
+        with use_page(_make_page, browser, tmp_path, pseudo=True) as (page, errors):
             page.wait_for_selector(
                 ".foliplus-fullscreen-toggle", state="attached", timeout=10000
             )
@@ -168,8 +167,7 @@ class TestSchemePickerHostBrowser:
             after = page.evaluate(_js("LayerControl/read_scheme_picker_host"))
             if after["dropdownPresent"]:
                 assert not after["hostIsPseudo"], (
-                    "the list stayed inside the pseudo container after exit: "
-                    f"{after}"
+                    f"the list stayed inside the pseudo container after exit: {after}"
                 )
             assert after["panelVisible"], (
                 f"exiting fullscreen dismissed the drawer: {after}"
@@ -183,9 +181,7 @@ class TestSchemePickerHostBrowser:
         host, which is inside the fullscreen element; the hit test proves the
         row is reachable while the document is fullscreen.
         """
-        with use_page(
-            _make_page, browser, tmp_path, pseudo=False
-        ) as (page, errors):
+        with use_page(_make_page, browser, tmp_path, pseudo=False) as (page, errors):
             page.wait_for_selector(
                 ".foliplus-fullscreen-toggle", state="attached", timeout=10000
             )
