@@ -423,6 +423,30 @@ const benchData = (overlays: number, bases: number) => [
 const rowOf = (ui: LayerUI, id: string): HTMLElement =>
   attachedPanel(ui).querySelector(`[${CONST.DATA.LAYER_ID}="${id}"]`) as HTMLElement;
 
+/** Whether this engine refuses `focus()` on a `display: none` subtree.
+ *
+ *  The folded-survivor case below stages a folded row with an inline
+ *  `display: none` and depends on the engine declining to focus it — the same
+ *  refusal a browser applies to a folded group. jsdom only added that rule (a
+ *  computed `display` check in its focus helper) in 30.1.0; on 30.0.x the
+ *  focus lands, so there the test's *premise* — not its assertions — is false
+ *  and the neighbour walk is unreachable. Probing the engine instead of
+ *  pinning a version keeps the case honest on both: it runs where the refusal
+ *  exists and skips where it does not.
+ */
+const refusesHiddenFocus = (() => {
+  const probe = document.createElement("div");
+  probe.setAttribute("tabindex", "0");
+  probe.style.display = "none";
+  document.body.appendChild(probe);
+  probe.focus();
+  const declined = document.activeElement !== probe;
+  // Leave the document as found: if the probe took focus, give it back.
+  if (!declined) probe.blur();
+  probe.remove();
+  return declined;
+})();
+
 /** Child sequence signature: layer rows by id, anchors by group. */
 const childKeys = (ui: LayerUI) =>
   Array.from(attachedPanel(ui).children).map(
@@ -1054,36 +1078,39 @@ describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, ()
     expect(ui.listPanel.activeIdx).toBe(getNavigableItems(ui).indexOf(duplicate));
   });
 
-  it("walks to a visible neighbour when the surviving duplicate is folded", () => {
-    // The browser-only rung: a folded group renders `display: none`, and
-    // browsers refuse focus on a `display: none` subtree. jsdom applies no
-    // stylesheet, so pin the folded state inline to reproduce that refusal —
-    // exact path, caller fallback and the survivor itself all fail to take
-    // focus, and the walk must land on a visible row rather than leave the
-    // keyboard user on <body>.
-    const { ui } = initFixture({ data: benchData(3, 1) });
-    const container = attachedPanel(ui);
-    const original = rowOf(ui, "overlay_1");
-    const duplicate = original.cloneNode(true) as HTMLElement;
-    duplicate.style.display = "none";
-    container.appendChild(duplicate);
-    (original.querySelector("input") as HTMLElement).focus();
+  it.skipIf(!refusesHiddenFocus)(
+    "walks to a visible neighbour when the surviving duplicate is folded",
+    () => {
+      // The browser-only rung: a folded group renders `display: none`, and
+      // browsers refuse focus on a `display: none` subtree. jsdom applies no
+      // stylesheet, so pin the folded state inline to reproduce that refusal —
+      // exact path, caller fallback and the survivor itself all fail to take
+      // focus, and the walk must land on a visible row rather than leave the
+      // keyboard user on <body>.
+      const { ui } = initFixture({ data: benchData(3, 1) });
+      const container = attachedPanel(ui);
+      const original = rowOf(ui, "overlay_1");
+      const duplicate = original.cloneNode(true) as HTMLElement;
+      duplicate.style.display = "none";
+      container.appendChild(duplicate);
+      (original.querySelector("input") as HTMLElement).focus();
 
-    syncRowOrder(ui);
+      syncRowOrder(ui);
 
-    expect(duplicate.isConnected).toBe(true);
-    expect(document.activeElement).not.toBe(duplicate);
-    expect(document.activeElement).not.toBe(document.body);
-    expect(container.contains(document.activeElement as Node)).toBe(true);
-    // Focus is the cursor: the row that took the focus owns the ledger, so a
-    // later arrow key continues from the visible neighbour instead of from the
-    // folded survivor (which cannot hold focus at all).
-    const items = getNavigableItems(ui);
-    const focusedIdx = items.indexOf(document.activeElement as HTMLElement);
-    expect(focusedIdx).toBeGreaterThanOrEqual(0);
-    expect(ui.listPanel.activeIdx).toBe(focusedIdx);
-    expect(items[focusedIdx]).not.toBe(duplicate);
-  });
+      expect(duplicate.isConnected).toBe(true);
+      expect(document.activeElement).not.toBe(duplicate);
+      expect(document.activeElement).not.toBe(document.body);
+      expect(container.contains(document.activeElement as Node)).toBe(true);
+      // Focus is the cursor: the row that took the focus owns the ledger, so a
+      // later arrow key continues from the visible neighbour instead of from the
+      // folded survivor (which cannot hold focus at all).
+      const items = getNavigableItems(ui);
+      const focusedIdx = items.indexOf(document.activeElement as HTMLElement);
+      expect(focusedIdx).toBeGreaterThanOrEqual(0);
+      expect(ui.listPanel.activeIdx).toBe(focusedIdx);
+      expect(items[focusedIdx]).not.toBe(duplicate);
+    },
+  );
 
   it("reorderLayer refuses unknown ids, self-drops and cross-group pairs", () => {
     // The drag commit entry's own guards — the drop path pre-checks for the
