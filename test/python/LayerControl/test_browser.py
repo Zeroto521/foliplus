@@ -5436,8 +5436,12 @@ class TestLayerControlBrowser:
         The list lives on <body>, so the press has to be classified as part of
         the drawer's overlay rather than by the drawer's own subtree. The press
         is what commits the colour: the drawer must survive it, the picker must
-        close behind it, and both the hidden select and the trigger must show
-        the chosen scheme.
+        close behind it, and the hidden select, the trigger title and the colour
+        bar must all show the chosen scheme — then the value has to survive a
+        close and reopen, which rebuilds the drawer from the layer's own ramp
+        state. A pick that tears the drawer down would drop the click entirely
+        and leave the old scheme behind; "the drawer is still there" alone does
+        not prove the write landed.
         """
         with use_page(
             self._make_page,
@@ -5461,21 +5465,51 @@ class TestLayerControlBrowser:
                 f"{rows['dropdownParentTag']}"
             )
 
+            before = page.evaluate(_js("LayerControl/style_scheme_portal_state"))
+            assert before["drawerVisible"] and before["dropdownPresent"], before
+            target = rows["targetName"]
+            assert target and target != before["triggerTitle"], (
+                f"the probe picked the scheme already shown ({target}): {rows}"
+            )
+
             page.mouse.click(rows["targetX"], rows["targetY"])
             state = page.evaluate(_js("LayerControl/style_scheme_portal_state"))
             assert state["drawerVisible"], (
                 f"the colour press dismissed the drawer: {state}"
             )
-            assert state["hiddenValue"] == rows["targetName"], (
-                f"the pick did not commit {rows['targetName']}: {state}"
+            assert state["hiddenValue"] == target, (
+                f"the pick did not commit {target}: {state}"
             )
-            assert state["triggerTitle"] == rows["targetName"], (
-                f"the trigger still shows {state['triggerTitle']}, expected "
-                f"{rows['targetName']}"
+            assert state["triggerTitle"] == target, (
+                f"the trigger still shows {state['triggerTitle']}, expected {target}"
+            )
+            assert state["barBlockColor"] != before["barBlockColor"], (
+                "the colour bar was not repainted for the new scheme: "
+                f"{before['barBlockColor']} -> {state['barBlockColor']}"
             )
             assert not state["dropdownPresent"], (
                 f"the list must close after a pick: {state}"
             )
+
+            # Close and reopen: the drawer renders from the layer's committed
+            # ramp state, so only a write that really landed comes back.
+            page.click(
+                ".foliplus-layer-style-panel .foliplus-panel-header .foliplus-close-btn"
+            )
+            page.wait_for_selector(
+                ".foliplus-layer-style-panel", state="detached", timeout=3000
+            )
+            reopened = page.evaluate(_js("LayerControl/open_style_panel"))
+            assert reopened["ok"], f"the drawer did not reopen: {reopened}"
+            page.wait_for_selector(
+                ".foliplus-layer-style-panel", state="visible", timeout=5000
+            )
+            settled = page.evaluate(_js("LayerControl/style_scheme_portal_state"))
+            assert settled["triggerTitle"] == target, (
+                f"the reopened drawer shows {settled['triggerTitle']}, expected "
+                f"{target} — the pick did not persist"
+            )
+            assert settled["hiddenValue"] == target, settled
             assert not errors, f"JS errors: {errors}"
 
     def test_style_scheme_portal_survives_a_scroll(self, browser, tmp_path):
