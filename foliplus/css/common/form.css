@@ -7,12 +7,15 @@
   .foliplus-heatmap-form-* classes for now; new panels use these directly.
   ══════════════════════════════════════════════════════════════════════ */
 
-/* Form row: label on the left, control on the right. */
+/* Form row: label on the left, control on the right. The row owns the
+   horizontal inset — one owner for every panel — so the heatmap panel and the
+   layer style panel land on the same label and control columns. */
 .foliplus-form-row {
   display: flex;
   align-items: center;
   min-height: var(--foliplus-toggle-size);
   gap: var(--foliplus-space-md);
+  padding: 0 var(--foliplus-panel-inset-x);
   box-sizing: border-box;
 }
 
@@ -33,8 +36,11 @@
   box-sizing: border-box;
 }
 
+/* The control cell resolves to the shared control-column width: the label is
+   fixed and the row's inset is fixed, so the column is one equation and not a
+   per-panel measurement. */
 .foliplus-form-control {
-  flex: 1;
+  flex: 1 1 var(--foliplus-form-control-width);
   min-width: 0;
 }
 

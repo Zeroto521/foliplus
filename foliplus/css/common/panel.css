@@ -54,11 +54,8 @@
   color: var(--foliplus-text-primary);
   cursor: default;
 
-  /* Detail rows carry the shared label/control geometry; the panel only adds
-     its own horizontal inset. */
-  .foliplus-form-row {
-    padding: 0 var(--foliplus-space-lg);
-  }
+  /* Detail rows carry the shared label/control geometry and their own
+     horizontal inset (common/form.css); the panel adds no second one. */
 }
 
 /* ── Pinned row panel (opt-in) ──

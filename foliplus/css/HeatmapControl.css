@@ -40,9 +40,12 @@
   /* ── Inline control groups use shared form.css (.foliplus-form-inline /
      .foliplus-form-color-input / .foliplus-form-number-input). ── */
 
-  /* Unified container */
+  /* Unified container. Its rows and footer carry their own shared inset
+     (common/form.css, common/button.css), so the body adds none — a second
+     inset here is exactly how the heatmap footer ended up 12px short of the
+     style panel's. */
   .foliplus-heatmap-config-body {
-    padding: 0 var(--foliplus-space-lg);
+    padding: 0;
   }
   /* Dynamic content container */
   .foliplus-heatmap-extra-body {

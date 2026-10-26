@@ -26,7 +26,7 @@
     grid-template-columns: var(--foliplus-form-label-width) 1fr;
     column-gap: var(--foliplus-space-md);
     align-items: center;
-    padding: 0 var(--foliplus-space-lg);
+    padding: 0 var(--foliplus-panel-inset-x);
   }
   .foliplus-layer-attrs-panel .foliplus-form-row {
     display: contents;

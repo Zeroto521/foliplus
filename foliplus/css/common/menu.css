@@ -31,11 +31,17 @@
   animation: foliplus-dropdown-in 0.15s ease-out;
 }
 
+/* Row panels paint their hairline as an inset outline instead of a border: the
+   outline draws the same 1px line but consumes no content width, so the card's
+   content box is the panel width — the same 280px the fold panels have — and
+   every row's columns land on the shared control-column token. A border would
+   make row panels 2px narrower inside and shift the whole form by 1px. */
 .foliplus-row-panel {
   box-sizing: border-box;
   margin-top: var(--foliplus-space-xs);
   background: var(--foliplus-input-bg);
-  border: var(--foliplus-border-thin) solid var(--foliplus-input-border);
+  outline: var(--foliplus-border-thin) solid var(--foliplus-input-border);
+  outline-offset: calc(-1 * var(--foliplus-border-thin));
   overflow-y: auto;
   animation: foliplus-dropdown-in 0.15s ease-out;
 }
