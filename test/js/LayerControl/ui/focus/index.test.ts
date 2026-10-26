@@ -268,6 +268,12 @@ describe("LayerUI focus", () => {
   });
 
   afterEach(() => {
+    // Cancel a focus the test left live. Its auto-dismiss timer stays armed
+    // after the test ends and calls dismissFocus during the file teardown,
+    // where the console output it produces races the worker's closing console
+    // RPC. Cancelling first makes that stale callback a no-op: it only
+    // dismisses while the rect it captured is still the live one.
+    if (ui?.isFocusing()) ui.cancelFocus();
     // Drop the debounced enforceOrder before tearing down the DOM — a real
     // timer would otherwise fire after body.innerHTML = "" and hit a detached
     // container (PaneManager.ensurePane).
