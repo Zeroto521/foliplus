@@ -17,8 +17,11 @@ export {
   PANE_OWNER,
   PANE_ROLE,
   RECURSION,
+  ROLE,
   Z_INDEX,
 } from "./const.js";
+export { sectionOf } from "./role.js";
+export type { LayerRole, LayerSection } from "./role.js";
 export { ANNOTATION_Z_OFFSET, FOCUS_Z, focusLayerZ, topSlotZ, zFor } from "./z.js";
 export { LayerFactory } from "./LayerFactory.js";
 export { LayerInfoRegistry } from "./LayerInfoRegistry.js";

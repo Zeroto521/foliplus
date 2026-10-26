@@ -75,10 +75,18 @@ const GEOM_TYPE = {
   CUSTOM: "custom",
 };
 
-/** Layer group names — the `LayerInfo.group` vocabulary ("base" | "overlay").
- *  Owned by core so z / registry / factory compare against one definition;
- *  consumers import it from the `core/layer` barrel. */
-const GROUP = { OVERLAY: "overlay", BASE: "base" } as const;
+/** Layer role names — the vocabulary behind `LayerInfo.group` ("base" |
+ *  "overlay"). Owned by core so z / registry / factory compare against one
+ *  definition; consumers import it from the `core/layer` barrel.
+ *
+ *  Named ROLE because it says what the layer *is*. "group" used to name both
+ *  this domain role and the UI section projected from it; the section now has
+ *  its own vocabulary in role.ts. */
+const ROLE = { OVERLAY: "overlay", BASE: "base" } as const;
+
+/** @deprecated Use `ROLE`. The pre-rename spelling of the same vocabulary,
+ *  kept as an alias until every reader has moved to the role name. */
+const GROUP = ROLE;
 
 /** Layer kind names — the `LayerKind` vocabulary ("tile" | "vector" | "canvas"
  *  | "solid" | "cluster" | "custom"). Owned by core so the factory, registry,
@@ -197,5 +205,6 @@ export {
   PANE_OWNER,
   PANE_ROLE,
   RECURSION,
+  ROLE,
   Z_INDEX,
 };

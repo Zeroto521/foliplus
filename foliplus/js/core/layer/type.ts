@@ -5,6 +5,7 @@
 // global names.
 import { type DIM, type KIND, type PANE_ROLE } from "./const.js";
 import type { LayerFilter, LayerFilterModel } from "./filter.js";
+import type { LayerRole } from "./role.js";
 
 /** One layer's projection: intent (persisted) and the derived policy state
  *  together, so a diff sees both in one comparison.
@@ -197,7 +198,12 @@ interface RegisterLayerOpts {
   /** Third-party carrier payload for `kind: "custom"`. Shape only — the
    *  public registerDimension door stays closed. */
   custom?: unknown;
-  group?: "base" | "overlay";
+  /** Declared layer role. Absent registers an overlay — the same default the
+   *  legacy `group` spelling carries. */
+  role?: LayerRole;
+  /** @deprecated Use `role`. The pre-rename spelling of the same field, read
+   *  for callers that have not migrated yet. */
+  group?: LayerRole;
   /** Author's declared initial visibility — mirrors CONFIG `data[].show`.
    *  Absent means the author did not specify; readers default it to `true`
    *  (folium's own default), so the registry does not have to invent a
@@ -308,7 +314,7 @@ interface LayerInfo {
   onOpacity?: ((opacity: number) => void) | null;
   /** See {@link RegisterLayerOpts.opacityBake}. */
   opacityBake?: "commit" | "redraw";
-  group: "base" | "overlay";
+  group: LayerRole;
   /** Author's declared initial visibility — carried from CONFIG `data[].show`
    *  (Python's `item.show` on the folium Layer). Absent means the author did
    *  not declare one; the UI reads it through `?? true` (folium's own
@@ -881,7 +887,7 @@ interface ZArgs {
   /** Base-group layers (tile basemaps and the solid-color basemap) share the
    *  lower `TILE_BASE` ladder; overlay-group layers use `BASE`. Row order
    *  within a group = visual stack order, since both share one `STEP`. */
-  group?: "base" | "overlay";
+  group?: LayerRole;
   /** The pane's role in its layer's draw stack. Only `annotation` prices a
    *  relation of its own (one step above its layer); the rest use `order`. */
   role?: PaneRole;

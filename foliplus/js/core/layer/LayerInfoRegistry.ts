@@ -2,7 +2,7 @@
 // Pure data, no DOM / CONFIG dependency. The LayerController orchestrates mutations.
 import { createLogger } from "#common/log.js";
 import { safeSVG } from "#common/sanitize.js";
-import { GROUP } from "./const.js";
+import { ROLE } from "./const.js";
 import type { LayerInfo, LayerKind, RegisterLayerOpts } from "./type.js";
 import { deriveLayerKind, findLayer } from "./util.js";
 
@@ -153,7 +153,11 @@ class LayerInfoRegistry {
       opacity: authorOpacity,
       onOpacity: opts.onOpacity ?? existingLi?.onOpacity ?? null,
       opacityBake: opts.opacityBake ?? existingLi?.opacityBake ?? "redraw",
-      group: opts.group ?? existingLi?.group ?? GROUP.OVERLAY,
+      // The one write point for a layer's role: the new spelling wins over the
+      // legacy one, a re-registration keeps the role it already had, and a
+      // fresh layer defaults to overlay. The field stays `group` on `LayerInfo`
+      // until the domain rename moves every reader with it.
+      group: opts.role ?? opts.group ?? existingLi?.group ?? ROLE.OVERLAY,
       // Carried, never normalised: a caller that declared nothing leaves it
       // absent, and the seed sites apply folium's `true` default. Normalising
       // here would make every reader's `?? true` dead code — and would invent
@@ -201,7 +205,7 @@ class LayerInfoRegistry {
 
   /** Recompute the cached first-base-layer index. */
   refreshFirstBaseIdx() {
-    this._firstBaseIdx = this.items.findIndex(l => Boolean(l.group === GROUP.BASE));
+    this._firstBaseIdx = this.items.findIndex(l => Boolean(l.group === ROLE.BASE));
   }
 
   /** Index of the first base layer, or -1 if none. */
@@ -304,7 +308,7 @@ class LayerInfoRegistry {
    *  the base block's start, an overlay only before it. */
   private assertPlacement(method: string, layerInfo: LayerInfo, idx: number): void {
     const firstBase = this.baseBlockStart();
-    const valid = layerInfo.group === GROUP.BASE ? idx >= firstBase : idx <= firstBase;
+    const valid = layerInfo.group === ROLE.BASE ? idx >= firstBase : idx <= firstBase;
     if (!valid) {
       throw new Error(
         log.msg(
@@ -321,7 +325,7 @@ class LayerInfoRegistry {
   }
 
   /** Insert or update in place — never reorders an existing layer, and
-   *  refuses to change one's group: an in-place swap keeps the slot, so a
+   *  refuses to change one's role: an in-place swap keeps the slot, so a
    *  role change would strand the entry in the wrong block with a stale
    *  boundary. A NEW entry enters through the same placement gate as
    *  `insertAt` (overlays before the base block, bases appended), so upsert
@@ -336,7 +340,7 @@ class LayerInfoRegistry {
       // the placement gate and the derived-map rebuild.
       this.insertAt(
         layerInfo,
-        layerInfo.group === GROUP.BASE ? this.items.length : this.baseBlockStart(),
+        layerInfo.group === ROLE.BASE ? this.items.length : this.baseBlockStart(),
       );
       return layerInfo;
     }
@@ -371,7 +375,7 @@ class LayerInfoRegistry {
    *  there would break the partition this class exists to keep. */
   prepend(layerInfo: LayerInfo): LayerInfo {
     this.assertNewId("prepend", layerInfo.id);
-    if (layerInfo.group === GROUP.BASE) {
+    if (layerInfo.group === ROLE.BASE) {
       throw new Error(
         log.msg(
           `prepend: "${layerInfo.id}" is a base layer — index 0 lives in the overlay block`,
@@ -419,7 +423,7 @@ class LayerInfoRegistry {
     if (!layerInfo) return null;
     const idx = this.items.indexOf(layerInfo);
     if (idx <= 0) return layerInfo;
-    if (layerInfo.group === GROUP.BASE) {
+    if (layerInfo.group === ROLE.BASE) {
       throw new Error(
         log.msg(
           `moveToFront: "${id}" is a base layer — it cannot cross the overlay/base boundary`,
@@ -475,7 +479,7 @@ class LayerInfoRegistry {
     const overlays = [];
     const bases = [];
     for (const layerInfo of this.items) {
-      if (layerInfo?.group === GROUP.BASE) bases.push(layerInfo);
+      if (layerInfo?.group === ROLE.BASE) bases.push(layerInfo);
       else overlays.push(layerInfo);
     }
     this.items.splice(0, this.items.length, ...overlays.concat(bases));
@@ -486,7 +490,7 @@ class LayerInfoRegistry {
 
   /**
    * Check whether a layer at fromIdx can be reordered to toIdx.
-   * Only same-group (base ↔ base or overlay ↔ overlay) reordering is allowed. */
+   * Only same-role (base ↔ base or overlay ↔ overlay) reordering is allowed. */
   canReorderBetween(fromIdx: number, toIdx: number): boolean {
     if (fromIdx == null || toIdx == null) return false;
     if (fromIdx < 0 || toIdx < 0) return false;
@@ -499,7 +503,7 @@ class LayerInfoRegistry {
     const firstBaseIdx = this._firstBaseIdx;
     const hasBase = firstBaseIdx !== -1;
 
-    if (from.group !== GROUP.BASE) {
+    if (from.group !== ROLE.BASE) {
       const overlayEnd = hasBase ? firstBaseIdx - 1 : this.items.length - 1;
       return fromIdx <= overlayEnd && toIdx <= overlayEnd;
     }
