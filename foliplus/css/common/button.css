@@ -213,7 +213,9 @@
 :is(.foliplus-btn-row, .foliplus-heatmap-btn-row) {
   display: flex;
   gap: var(--foliplus-space-md);
-  padding: 0 var(--foliplus-space-lg) var(--foliplus-space-md);
+  /* One inset, the same token the form rows read: the footer action's right
+     edge is the control column's right edge in both panels. */
+  padding: 0 var(--foliplus-panel-inset-x) var(--foliplus-space-md);
 }
 
 /* ── Toggle Button / Tool Button Base ──

@@ -89,7 +89,7 @@
      the footer row keeps under its button — one value, --foliplus-space-md, for all three
      vertical distances (see the button-row recipe in common/button.css). */
   .foliplus-section-divider {
-    margin: var(--foliplus-space-md) var(--foliplus-space-lg);
+    margin: var(--foliplus-space-md) var(--foliplus-panel-inset-x);
   }
 
   /* ── Panel Wrapper (visible when expanded) ── */
