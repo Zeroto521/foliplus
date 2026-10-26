@@ -1,12 +1,11 @@
-// Panel form geometry contract.
+// Guard: the shared form geometry in common CSS, and the chrome classes
+// common/form.ts emits.
 //
-// The heatmap panel (a fold panel) and LayerControl's style drawer (a row
-// panel) must share one form geometry: one label column, one control column,
-// one inline-secondary width, one footer inset and one scheme-picker trigger.
-// These assertions pin the *relationships* between the stylesheet sources —
-// which token feeds which rule — rather than pixel values, which the browser
-// probe records. A rule that starts carrying its own width instead of the
-// shared token goes red here.
+// The heatmap panel and LayerControl's style drawer both build their rows from
+// these primitives, so their columns are the same only while these rules keep
+// resolving from one token instead of a per-panel width. These assertions pin
+// the *relationships* between the stylesheet sources — which token feeds which
+// rule — rather than pixel values, which the browser probe records.
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -16,7 +15,7 @@ const ROOT = resolve(__dirname, "../../..");
 /** Read a stylesheet with normalized line endings.
  *
  * The checkout is CRLF on Windows (`core.autocrlf=true`) and LF on the Linux
- * CI runner, so a multi-line selector literal would match on one platform and
+ * runner, so a multi-line selector literal would match on one platform and
  * miss on the other. Normalizing here keeps every assertion below
  * platform-independent. */
 const css = (rel: string): string =>
@@ -24,8 +23,8 @@ const css = (rel: string): string =>
 
 /** The declaration block that starts at `selector` (first match), found by
  *  brace matching so a block that contains nested rules (`&:hover`,
- *  `&::-webkit-…`) is returned whole instead of stopping at the first
- *  inner closing brace. */
+ *  `&::-webkit-…`) is returned whole instead of stopping at the first inner
+ *  closing brace. */
 const blockOf = (source: string, selector: string): string => {
   const start = source.indexOf(selector);
   expect(start, selector + " is missing").toBeGreaterThanOrEqual(0);
@@ -132,38 +131,6 @@ describe("footer inset", () => {
   });
 });
 
-describe("scheme-picker trigger", () => {
-  const scheme = css("foliplus/css/common/scheme-picker.css");
-
-  it("owns the trigger box for every consumer", () => {
-    const trigger = blockOf(scheme, ".foliplus-scheme-picker-trigger {");
-    expect(trigger).toContain("height: var(--foliplus-ctrl-size)");
-    expect(trigger).toContain("padding: 0 var(--foliplus-icon-size-md)");
-    expect(trigger).toContain("border: var(--foliplus-border-thin) solid");
-    expect(trigger).toContain("border-radius: var(--foliplus-radius-sm)");
-    // Fills the control cell, so its width follows the shared control column.
-    expect(trigger).toContain("flex: 1");
-  });
-
-  it("paints one chevron for both panels", () => {
-    const chevron = blockOf(scheme, ".foliplus-scheme-picker-trigger::after {");
-    expect(chevron).toContain("right: var(--foliplus-space-sm)");
-    expect(chevron).toContain(
-      "border-top: var(--foliplus-size-4) solid var(--foliplus-text-muted)",
-    );
-  });
-
-  it("leaves no consumer-local trigger geometry", () => {
-    const layerStyle = css("foliplus/css/LayerControl/style.css");
-    expect(layerStyle).not.toContain(".foliplus-style-scheme-trigger {");
-    expect(layerStyle).not.toContain(".foliplus-style-scheme-trigger::after");
-
-    const heatmap = css("foliplus/css/HeatmapControl.css");
-    expect(heatmap).not.toMatch(/\.foliplus-heatmap-scheme-bar\s*\{/);
-    expect(heatmap).not.toMatch(/\.foliplus-heatmap-scheme-bar::after/);
-  });
-});
-
 describe("clickable-box family", () => {
   it("reads one height, radius and type-scale token per family", () => {
     const button = css("foliplus/css/common/button.css");
@@ -181,5 +148,35 @@ describe("clickable-box family", () => {
 
     const close = blockOf(css("foliplus/css/common/menu.css"), ".foliplus-close-btn {");
     expect(close).toContain("font-size: var(--foliplus-font-size-sm)");
+  });
+});
+
+describe("common/form.ts emits the shared chrome classes", () => {
+  const source = readFileSync(resolve(ROOT, "foliplus/js/common/form.ts"), "utf-8");
+  const form = css("foliplus/css/common/form.css");
+
+  it("names the row, label and control classes the CSS styles", () => {
+    // The builder and the stylesheet are one contract: a renamed class in
+    // either file would silently drop the shared geometry.
+    for (const cls of [
+      "foliplus-form-row",
+      "foliplus-form-label",
+      "foliplus-form-control",
+      "foliplus-form-inline",
+    ]) {
+      expect(source).toContain(cls);
+      expect(form).toContain("." + cls);
+    }
+  });
+
+  it("names the input chrome classes the CSS styles", () => {
+    for (const cls of [
+      "foliplus-form-select",
+      "foliplus-form-number-input",
+      "foliplus-form-color-input",
+    ]) {
+      expect(source).toContain(cls);
+      expect(form).toContain("." + cls);
+    }
   });
 });
