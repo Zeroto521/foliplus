@@ -147,7 +147,7 @@ class TestRowTooltipVocabulary:
 
     def test_base_short_says_map_and_differs_from_color(self):
         en, zh = _TABLES["en"], _TABLES["zh"]
-        # The short word is 地图/Map, distinct from the long 瓦片地图/Tile
+        # The short word is 地图/Map, distinct from the long 瓦片底图/Tile
         # Map label and from the colour row's 纯色/Color.
         assert en["LayerControl.type_tile_map_short"] == "Map"
         assert zh["LayerControl.type_tile_map_short"] == "地图"
@@ -162,9 +162,9 @@ class TestRowTooltipVocabulary:
             zh["LayerControl.type_tile_map_short"]
             != zh["LayerControl.type_color_map_short"]
         )
-        # The long label names the same thing: Tile Map / 瓦片地图.
+        # The long label names the same thing: Tile Map / 瓦片底图.
         assert en["LayerControl.type_tile_map"] == "Tile Map"
-        assert zh["LayerControl.type_tile_map"] == "瓦片地图"
+        assert zh["LayerControl.type_tile_map"] == "瓦片底图"
 
     def test_filter_tooltip_says_data_not_records(self):
         en, zh = _TABLES["en"], _TABLES["zh"]
