@@ -1,4 +1,4 @@
-// common/overlay — the shared "is this press inside my overlay" predicate.
+// core/overlay — the shared "is this press inside my overlay" predicate.
 //
 // A floating panel dismisses itself on a document-capture mousedown that lands
 // outside it. "Outside" is not the same as "not a descendant of the panel": an

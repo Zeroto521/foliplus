@@ -4,8 +4,8 @@
 import { HINT_DURATION } from "#core/hint.js";
 import { isNativeControl } from "#core/interaction/index.js";
 import { GROUP } from "#core/layer/index.js";
+import { isInsideOverlay } from "#core/overlay.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
-import { isInsideOverlay } from "#common/overlay.js";
 import { SCHEME_PICKER_PORTAL_SELECTOR } from "#common/schemePicker.js";
 import { inFloatingPanel } from "../context.js";
 import { showFocusDisabledHint, toggleFocusedLayer } from "../focus/index.js";

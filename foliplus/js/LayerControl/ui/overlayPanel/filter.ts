@@ -33,12 +33,12 @@ import type {
   LayerInfo,
 } from "#core/layer/index.js";
 import { createRowPanel } from "#core/leaflet/index.js";
+import { isInsideOverlay } from "#core/overlay.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import * as SVGs from "#foliplus/LayerControl/icon.js";
 import { Slider, finishSlidersIn } from "#foliplus/LayerControl/slider.js";
 import { dom } from "#common/dom.js";
 import { formatNumber } from "#common/format.js";
-import { isInsideOverlay } from "#common/overlay.js";
 import { displayName } from "../listPanel/rowView.js";
 import type { LayerUI } from "../surface.js";
 import { closeOverlays } from "../teardown.js";

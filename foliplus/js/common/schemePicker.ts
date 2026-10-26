@@ -33,7 +33,7 @@ const DEFAULT_CLASSES = {
 const PORTAL_CLASS = "foliplus-scheme-picker-portal";
 
 /** Selector for a portaled dropdown, for `closest()`-style ownership checks.
- *  The panel dismiss predicates match it through `common/overlay`'s
+ *  The panel dismiss predicates match it through `core/overlay`'s
  *  `isInsideOverlay`, so a press on the portalled list counts as a press
  *  inside the panel that opened the picker. */
 const SCHEME_PICKER_PORTAL_SELECTOR = `.${PORTAL_CLASS}`;

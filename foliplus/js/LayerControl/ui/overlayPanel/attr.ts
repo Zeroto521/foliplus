@@ -2,12 +2,12 @@
 import { EVENTS } from "#core/event/index.js";
 import { GROUP } from "#core/layer/index.js";
 import { createRowPanel, pinRowPanel, unpinRowPanel } from "#core/leaflet/index.js";
+import { isInsideOverlay } from "#core/overlay.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import * as SVGs from "#foliplus/LayerControl/icon.js";
 import * as Util from "#foliplus/LayerControl/util.js";
 import { dom } from "#common/dom.js";
 import { formatNumber, formatTimestamp } from "#common/format.js";
-import { isInsideOverlay } from "#common/overlay.js";
 import { ATTRS_ROW_WRAP_CHARS } from "../context.js";
 import { displayName } from "../listPanel/rowView.js";
 import type { LayerUI } from "../surface.js";

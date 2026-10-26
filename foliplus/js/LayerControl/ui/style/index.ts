@@ -15,6 +15,7 @@
 import { EVENTS } from "#core/event/index.js";
 import { resolveSelectedField } from "#core/label/index.js";
 import { createRowPanel, pinRowPanel, unpinRowPanel } from "#core/leaflet/index.js";
+import { isInsideOverlay } from "#core/overlay.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import * as SVGs from "#foliplus/LayerControl/icon.js";
 import { finishSlidersIn } from "#foliplus/LayerControl/slider.js";
@@ -25,7 +26,6 @@ import {
   bindLiveNumber,
   normalizeHexColor,
 } from "#common/form.js";
-import { isInsideOverlay } from "#common/overlay.js";
 import { SCHEME_PICKER_PORTAL_SELECTOR } from "#common/schemePicker.js";
 import { NO_DELTA, type ProjectionDelta, notifyDelta } from "../apply.js";
 import type { LayerUI } from "../surface.js";
