@@ -55,6 +55,7 @@
   "LayerControl.attr_source": "Source",
   "LayerControl.attr_type": "Type",
   "LayerControl.attr_feature_count": "Features",
+  "LayerControl.attr_feature_count_pair": "{kept} / {total}",
   "LayerControl.attr_empty": "No data",
   "LayerControl.attr_created_at": "Created",
   "LayerControl.attr_updated_at": "Updated",

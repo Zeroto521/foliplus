@@ -6395,3 +6395,27 @@ class TestLayerControlBrowser:
             assert (style["funnelWidth"], style["funnelHeight"]) == (12, 12), style
             assert style["countText"] == "4", style
             assert not errors, f"JS errors: {errors}"
+
+    def test_attrs_features_shows_filtered_pair(self, browser, tmp_path):
+        """Attributes → Features renders grouped kept / total for a filtered owner.
+
+        The pair comes from the same filterProvider model the row reads, so it
+        is exact grouped integers (2,500 / 6,000) — the panel is the detail
+        view and never repeats the compact column value.
+        """
+        layer = folium.FeatureGroup(name="Attrs pair")
+        with use_page(self._make_page, browser, tmp_path, layer, slug="attr_pair") as (
+            page,
+            errors,
+        ):
+            page.evaluate(_js("LayerControl/open_panel"))
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            panel_ready(page)
+            res = page.evaluate(_js("LayerControl/attr_filtered_feature_pair"))
+            assert res is not None, "attrs probe could not open its panel"
+            assert res["pair"] == "2,500 / 6,000", res
+            assert not errors, f"JS errors: {errors}"

@@ -55,6 +55,7 @@
   "LayerControl.attr_source": "来源",
   "LayerControl.attr_type": "类型",
   "LayerControl.attr_feature_count": "要素数",
+  "LayerControl.attr_feature_count_pair": "{kept} / {total}",
   "LayerControl.attr_empty": "无数据",
   "LayerControl.attr_created_at": "创建",
   "LayerControl.attr_updated_at": "更新",

@@ -73,19 +73,29 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
         : `type_${gtype}`;
   addRow(ui.T("attr_type"), ui.T(typeKey));
   if (!isColor) {
-    // The count is the layer's own unit: a filtered Heatmap reports the
-    // features it currently draws, matching its row count; the unfiltered
-    // cell total only appears in the filter panel's Result.
+    // The count is the layer's own unit and agrees with the row: a filtered
+    // owner reports kept / total (2,500 / 6,000), an unfiltered one the single
+    // count. Both numbers come from the same filterProvider model the row
+    // reads — the panel invents no second count source.
+    const model =
+      layerInfo && typeof layerInfo.filterProvider === "function"
+        ? layerInfo.filterProvider()
+        : null;
     const count = layerInfo ? ui.c.getFeatureCount(layerId) : null;
-    // The panel is the detail view, so the count is grouped (1,234) rather
-    // than compacted — and `comma` defaults to one fraction digit, which
-    // would render a whole number as "1,234.0", so pass 0 explicitly.
-    addRow(
-      ui.T("attr_feature_count"),
-      count == null
+    // The panel is the detail view, so counts are grouped (1,234) rather than
+    // compacted — and `comma` defaults to one fraction digit, which would
+    // render a whole number as "1,234.0", so pass 0 explicitly.
+    const grouped = (n: number): string =>
+      formatNumber(n, "comma", ui.config.locale_code, 0);
+    const value = model?.filter
+      ? ui
+          .T("attr_feature_count_pair")
+          .replace("{kept}", grouped(model.kept))
+          .replace("{total}", grouped(model.total))
+      : count == null
         ? ui.T("attr_empty")
-        : formatNumber(count, "comma", ui.config.locale_code, 0),
-    );
+        : grouped(count);
+    addRow(ui.T("attr_feature_count"), value);
   }
   addRow(
     ui.T("attr_source"),
