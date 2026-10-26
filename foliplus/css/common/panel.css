@@ -55,14 +55,20 @@
   cursor: default;
 
   /* The card carries a 1px border, so its content box is 2px narrower than a
-     fold panel's. Subtracting the border from the shared row inset keeps the
-     visual inset at --foliplus-panel-inset-x (11px + 1px border = 12px) and
-     therefore keeps the label and control columns on the fold panels' edges.
-     Detail rows carry that inset themselves (common/form.css); the panel adds
-     no second one. */
-  --foliplus-panel-inset-x: calc(
-    var(--foliplus-space-lg) - var(--foliplus-border-thin)
-  );
+     fold panel's. These overrides take that border out of the shared inset —
+     long hands only, so the shorthand's vertical values stay — which keeps the
+     label, control and footer edges on the fold panels' lines. The derived
+     value is a token (common/token.css), not a second inset owner. */
+  .foliplus-form-row,
+  .foliplus-btn-row {
+    padding-left: var(--foliplus-row-panel-inset-x);
+    padding-right: var(--foliplus-row-panel-inset-x);
+  }
+
+  .foliplus-section-divider {
+    margin-left: var(--foliplus-row-panel-inset-x);
+    margin-right: var(--foliplus-row-panel-inset-x);
+  }
 }
 
 /* ── Pinned row panel (opt-in) ──

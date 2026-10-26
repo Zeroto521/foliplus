@@ -370,9 +370,12 @@ describe("control column (stylesheet contract)", () => {
   it("lets the shared form row own the horizontal inset", () => {
     const row = blockOf(form, ".foliplus-form-row {");
     expect(row).toContain("padding: 0 var(--foliplus-panel-inset-x)");
-    // The row panel used to add its own inset on top; that second owner is
-    // what shifted the style panel's columns one pixel off the heatmap's.
-    expect(panel).not.toContain(".foliplus-form-row");
+    // The row panel may only replace that inset inside its own border
+    // compensation; a rule that reached every panel would be a second owner,
+    // which is what shifted the style panel's columns off the heatmap's.
+    const card = blockOf(panel, ".foliplus-panel.foliplus-row-panel {");
+    expect(card).toContain(".foliplus-form-row");
+    expect(panel.replace(card, "")).not.toContain(".foliplus-form-row");
   });
 
   it("resolves the control cell through the control-width token", () => {
@@ -394,9 +397,20 @@ describe("control column (stylesheet contract)", () => {
     );
     expect(rowPanel).not.toContain("outline");
 
-    const panelCard = blockOf(panel, ".foliplus-panel.foliplus-row-panel {");
-    expect(panelCard).toContain("--foliplus-panel-inset-x: calc(");
-    expect(panelCard).toContain("var(--foliplus-border-thin)");
+    // The compensation is a token definition, so it lives in token.css with the
+    // token it derives from; the component stylesheet only consumes it.
+    const tokens = css("foliplus/css/common/token.css");
+    expect(tokens).toMatch(
+      /--foliplus-row-panel-inset-x:\s*calc\([\s\S]*?var\(--foliplus-panel-inset-x\)[\s\S]*?var\(--foliplus-border-thin\)/,
+    );
+
+    const panelCss = css("foliplus/css/common/panel.css");
+    expect(panelCss).toMatch(
+      /\.foliplus-form-row,\s*\n\s*\.foliplus-btn-row\s*\{[\s\S]*?padding-left: var\(--foliplus-row-panel-inset-x\)/,
+    );
+    expect(panelCss).toMatch(
+      /\.foliplus-section-divider\s*\{[\s\S]*?margin-left: var\(--foliplus-row-panel-inset-x\)/,
+    );
   });
 });
 
@@ -406,11 +420,12 @@ describe("footer inset (stylesheet contract)", () => {
     const rows = blockOf(button, ":is(.foliplus-btn-row, .foliplus-heatmap-btn-row) {");
     expect(rows).toContain("var(--foliplus-panel-inset-x)");
 
-    const divider = blockOf(
-      css("foliplus/css/common/panel.css"),
-      ".foliplus-section-divider {",
+    const panelCss = css("foliplus/css/common/panel.css");
+    const panelCard = blockOf(panelCss, ".foliplus-panel {");
+    expect(panelCard).toContain(".foliplus-section-divider");
+    expect(panelCard).toContain(
+      "margin: var(--foliplus-space-md) var(--foliplus-panel-inset-x)",
     );
-    expect(divider).toContain("var(--foliplus-panel-inset-x)");
   });
 });
 
