@@ -137,6 +137,9 @@
    header (a light wash + stronger glyph) instead of staying flat, and keep a
    visible ring for keyboard users. */
 .foliplus-close-btn {
+  /* Glyph-only button, same type scale as every other clickable box in a
+     panel (see the button family in common/button.css). */
+  font-size: var(--foliplus-font-size-sm);
   color: var(--foliplus-text-muted);
   transition:
     background-color var(--foliplus-transition-fast),

@@ -228,6 +228,11 @@
   height: var(--foliplus-ctrl-size);
   min-width: var(--foliplus-ctrl-size);
   flex-shrink: 0;
+  /* Type scale is stated even though these buttons carry only a glyph: the
+     clickable-box family (footer action, scheme trigger, close, map toggle)
+     reads one font-size token, so a future text-bearing variant cannot come
+     out at a different scale than its siblings. */
+  font-size: var(--foliplus-font-size-sm);
   color: var(--foliplus-text-primary);
 }
 .foliplus-toggle-btn {
