@@ -244,9 +244,15 @@ class TestFillClassificationVocabulary:
         ("LayerControl.style_fill_field", "HeatmapControl.field", "Field", "字段"),
         (
             "LayerControl.style_fill_classes",
-            "HeatmapControl.class_method",
+            "HeatmapControl.class_count",
             "Classes",
-            "分级",
+            "分级数",
+        ),
+        (
+            "LayerControl.style_method",
+            "HeatmapControl.classify_method",
+            "Method",
+            "分类方法",
         ),
         ("LayerControl.style_fill_scheme", "HeatmapControl.scheme", "Scheme", "配色"),
     ]

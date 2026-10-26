@@ -16,7 +16,6 @@ describe("panelContentHTML", () => {
       agg_min: "Min",
       agg_max: "Max",
       field: "Field",
-      class_method: "Classify",
       jenks: "Jenks",
       quantile: "Quantile",
       equal: "Equal",

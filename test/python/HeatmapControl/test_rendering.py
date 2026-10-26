@@ -110,7 +110,7 @@ class TestHeatmapControlRendering:
         for agg in ("count", "sum", "avg", "min", "max"):
             assert agg in html
 
-    def test_class_method_options_come_from_the_shared_vocabulary(self):
+    def test_classify_method_options_come_from_the_shared_vocabulary(self):
         """The method list is built from #core/classify by core/rampForm.
 
         Its option markup is created client-side, so the static document

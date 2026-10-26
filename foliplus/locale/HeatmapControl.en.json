@@ -12,7 +12,6 @@
   "HeatmapControl.agg_max": "Max",
   "HeatmapControl.field": "Field",
   "HeatmapControl.field_auto": "Auto Detect",
-  "HeatmapControl.class_method": "Classes",
   "HeatmapControl.classify_method": "Method",
   "HeatmapControl.class_count": "Classes",
   "HeatmapControl.jenks": "Natural Breaks",
