@@ -12,7 +12,7 @@
 // Two pieces:
 //   inZoomRange / rowView — the projection (read-only + pure)
 //   buildRowCell / applyRowView        — gather the cell, then paint the row
-import { GROUP } from "#core/layer/index.js";
+import { ROLE } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import * as SVGs from "#foliplus/LayerControl/icon.js";
 import * as Util from "#foliplus/LayerControl/util.js";
@@ -134,7 +134,7 @@ const rowType = (
   layerInfo: LayerInfo,
   layer: L.Layer | null,
 ): { svg: string; key: string } => {
-  if (layerInfo.group === GROUP.BASE) {
+  if (layerInfo.role === ROLE.BASE) {
     // The color basemap uses its own swatch icon, not the globe.
     if (layerInfo.id === CONST.SOLID_BASEMAP_ID) {
       return { svg: SVGs.ICON_COLOR, key: "type_color_map" };

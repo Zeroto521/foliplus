@@ -52,7 +52,7 @@ const mockUI: LayerUI = {
   uiContainer: { querySelector: () => null } as any,
   intentStore: new LayerIntentStore(),
   runtimeStore: new LayerRuntimeStore(),
-  foldedGroups: new Set(),
+  foldedRoles: new Set(),
   stylePanelLayerId: null,
   styleOutsideHandler: null,
   pressInPanel: false,
@@ -69,7 +69,7 @@ describe("computeEffectiveShown", () => {
       id,
       layer: null,
       canvas: null,
-      group: "overlay",
+      role: "overlay",
       visible: true,
       opacity: 1,
       ...overrides,
@@ -148,7 +148,7 @@ describe("zoomRange descriptor write/live/commit/reset", () => {
         {
           id: "overlay1",
           name: "Overlay",
-          group: "overlay",
+          role: "overlay",
           layer: {
             options: {},
             getBounds: () => ({

@@ -12,7 +12,7 @@ async () => {
   const COLOR_ID = "foliplus_color_map";
   const wait = ms => new Promise(r => setTimeout(r, ms));
 
-  const bases = api.layers.filter(l => l.group === "base" && l.id !== COLOR_ID);
+  const bases = api.layers.filter(l => l.role === "base" && l.id !== COLOR_ID);
   if (bases.length !== 2) {
     return { error: `expected 2 real tile bases, got ${bases.length}` };
   }
@@ -40,7 +40,7 @@ async () => {
   const after = {
     delReturn,
     hatch: hasHatch(),
-    basesOnMap: api.layers.filter(l => l.group === "base" && l.id !== COLOR_ID),
+    basesOnMap: api.layers.filter(l => l.role === "base" && l.id !== COLOR_ID),
   };
 
   return { before, after };

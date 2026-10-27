@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
-import { GROUP, HIDDEN, LayerRuntimeStore } from "#core/layer/index.js";
+import { HIDDEN, LayerRuntimeStore, ROLE } from "#core/layer/index.js";
 import { LayerController } from "#foliplus/LayerControl/controller.js";
 import { LayerIntentStore } from "#foliplus/LayerControl/domain/index.js";
 import {
@@ -124,7 +124,7 @@ describe("executor: only intent authorises display", () => {
     const { container, layer, map } = makeOffMapFixture();
 
     const manager = new LayerController(map, [
-      { id: "authorHidden", name: "Hidden", group: "overlay", layer, show: false },
+      { id: "authorHidden", name: "Hidden", role: "overlay", layer, show: false },
     ]);
     manager.ui = new LayerUI(manager, TEST_ENV);
 
@@ -147,7 +147,7 @@ describe("executor: only intent authorises display", () => {
     const { container, layer, map } = makeOffMapFixture();
 
     const manager = new LayerController(map, [
-      { id: "a", name: "A", group: "overlay", layer, show: false },
+      { id: "a", name: "A", role: "overlay", layer, show: false },
     ]);
     manager.ui = new LayerUI(manager, TEST_ENV);
     const ui = manager.ui as LayerUI;
@@ -185,7 +185,7 @@ describe("executor: intent authorises, policy only suppresses", () => {
     const { container, layer, map } = makeOnMapFixture();
 
     const manager = new LayerController(map, [
-      { id: "r", name: "Range", group: "overlay", layer },
+      { id: "r", name: "Range", role: "overlay", layer },
     ]);
     manager.ui = new LayerUI(manager, TEST_ENV);
     const ui = manager.ui as LayerUI;
@@ -226,7 +226,7 @@ describe("executor: intent authorises, policy only suppresses", () => {
     const { container, layer, map } = makeOnMapFixture();
 
     const manager = new LayerController(map, [
-      { id: "s", name: "S", group: "overlay", layer },
+      { id: "s", name: "S", role: "overlay", layer },
     ]);
     manager.ui = new LayerUI(manager, TEST_ENV);
     const ui = manager.ui as LayerUI;
@@ -276,7 +276,7 @@ describe("executor: late-carrier replay", () => {
     const freshCanvas = document.createElement("canvas");
 
     const manager = new LayerController(map, [
-      { id: "h", name: "Heat", group: "overlay", canvas: oldCanvas },
+      { id: "h", name: "Heat", role: "overlay", canvas: oldCanvas },
     ]);
     manager.ui = new LayerUI(manager, TEST_ENV);
     const ui = manager.ui as LayerUI;
@@ -331,7 +331,7 @@ describe("executor: late-carrier replay", () => {
     const layer = paneCapableLayer({ feature: { properties: { name: "Depot" } } });
 
     const manager = new LayerController(map, [
-      { id: "a1", name: "Labels", group: "overlay", layer },
+      { id: "a1", name: "Labels", role: "overlay", layer },
     ]);
     manager.ui = new LayerUI(manager, TEST_ENV);
     const ui = manager.ui as LayerUI;
@@ -385,7 +385,7 @@ describe("executor: coalesced redraw-arm repaint", () => {
     const onOpacity = vi.fn();
 
     const manager = new LayerController(map, [
-      { id: "h", name: "Heat", group: "overlay", canvas, onOpacity },
+      { id: "h", name: "Heat", role: "overlay", canvas, onOpacity },
     ]);
     manager.ui = new LayerUI(manager, TEST_ENV);
     const ui = manager.ui as LayerUI;
@@ -463,7 +463,7 @@ describe("executor: coalesced redraw-arm repaint", () => {
       {
         id: "c",
         name: "Color",
-        group: "overlay",
+        role: "overlay",
         canvas,
         onOpacity,
         opacityBake: "commit" as const,
@@ -499,7 +499,7 @@ describe("executor: coalesced redraw-arm repaint", () => {
     const onOpacity = vi.fn();
 
     const manager = new LayerController(map, [
-      { id: "r", name: "Replay", group: "overlay", canvas, onOpacity },
+      { id: "r", name: "Replay", role: "overlay", canvas, onOpacity },
     ]);
     manager.ui = new LayerUI(manager, TEST_ENV);
     const ui = manager.ui as LayerUI;
@@ -550,7 +550,7 @@ describe("executor: idempotent writes", () => {
     const { container, layer, map } = makeOffMapFixture();
 
     const manager = new LayerController(map, [
-      { id: "p", name: "P", group: "overlay", layer, show: false },
+      { id: "p", name: "P", role: "overlay", layer, show: false },
     ]);
     manager.ui = new LayerUI(manager, TEST_ENV);
     const ui = manager.ui as LayerUI;
@@ -588,8 +588,8 @@ describe("executor: idempotent writes", () => {
     const aCanvas = document.createElement("canvas");
     const bCanvas = document.createElement("canvas");
     const manager = new LayerController(map, [
-      { id: "b", name: "B", group: "overlay", canvas: bCanvas },
-      { id: "a", name: "A", group: "overlay", canvas: aCanvas },
+      { id: "b", name: "B", role: "overlay", canvas: bCanvas },
+      { id: "a", name: "A", role: "overlay", canvas: aCanvas },
     ]);
     manager.ui = new LayerUI(manager, TEST_ENV);
     const ui = manager.ui as LayerUI;
@@ -643,7 +643,7 @@ describe("executor: carrier dispatch", () => {
   };
 
   it("an id with no registry entry is a no-op", () => {
-    const { ui, map } = boot([{ id: "a", name: "A", group: "overlay" }]);
+    const { ui, map } = boot([{ id: "a", name: "A", role: "overlay" }]);
     (map.addLayer as ReturnType<typeof vi.fn>).mockClear();
     expect(() => applyProjection(ui, "ghost")).not.toThrow();
     expect(map.addLayer).not.toHaveBeenCalled();
@@ -653,7 +653,7 @@ describe("executor: carrier dispatch", () => {
     // The canvas-only branch of the visibility dispatch: no Leaflet layer
     // exists to add/remove, so the class on the canvas IS the carrier.
     const canvas = document.createElement("canvas");
-    const { ui } = boot([{ id: "cv", name: "CV", group: "overlay", canvas }]);
+    const { ui } = boot([{ id: "cv", name: "CV", role: "overlay", canvas }]);
     const li = () => ui.c.layerRegistry.get("cv")!;
 
     dispatchStateOp(ui, li(), { type: "visible", value: false });
@@ -674,7 +674,7 @@ describe("executor: carrier dispatch", () => {
     it("a canvas hide emits LAYER_CHANGE and the callback reads the new class", () => {
       const canvas = document.createElement("canvas");
       const { ui, manager } = boot([
-        { id: "cv-e", name: "CV-E", group: "overlay", canvas },
+        { id: "cv-e", name: "CV-E", role: "overlay", canvas },
       ]);
       ui.runtimeStore.setAuthorVisible("cv-e", true);
       const seen: Array<{ id: string; kind: string } | undefined> = [];
@@ -696,7 +696,7 @@ describe("executor: carrier dispatch", () => {
     it("a canvas show emits LAYER_CHANGE and the callback reads the new class", () => {
       const canvas = document.createElement("canvas");
       const { ui, manager } = boot([
-        { id: "cv-f", name: "CV-F", group: "overlay", canvas },
+        { id: "cv-f", name: "CV-F", role: "overlay", canvas },
       ]);
       ui.runtimeStore.setAuthorVisible("cv-f", true);
       ui.applyVisibility("cv-f", false);
@@ -718,7 +718,7 @@ describe("executor: carrier dispatch", () => {
     it("a repeated canvas hide emits only once", () => {
       const canvas = document.createElement("canvas");
       const { ui, manager } = boot([
-        { id: "cv-g", name: "CV-G", group: "overlay", canvas },
+        { id: "cv-g", name: "CV-G", role: "overlay", canvas },
       ]);
       ui.runtimeStore.setAuthorVisible("cv-g", true);
       setIntent(ui, "cv-g", "visible", false);
@@ -741,7 +741,7 @@ describe("executor: carrier dispatch", () => {
       const layer = paneCapableLayer();
       const onMap = { current: false };
       const { ui, manager, map } = boot([
-        { id: "zv", name: "ZV", group: "overlay", layer },
+        { id: "zv", name: "ZV", role: "overlay", layer },
       ]);
       ui.runtimeStore.setAuthorVisible("zv", true);
       map.hasLayer = vi.fn((l: L.Layer) => onMap.current && l === layer);
@@ -772,7 +772,7 @@ describe("executor: carrier dispatch", () => {
       const layer = paneCapableLayer();
       const onMap = { current: false };
       const { ui, manager, map } = boot([
-        { id: "zv2", name: "ZV2", group: "overlay", layer },
+        { id: "zv2", name: "ZV2", role: "overlay", layer },
       ]);
       ui.runtimeStore.setAuthorVisible("zv2", true);
       map.hasLayer = vi.fn((l: L.Layer) => onMap.current && l === layer);
@@ -809,7 +809,7 @@ describe("executor: carrier dispatch", () => {
       // a change notification nobody can observe.
       const layer = paneCapableLayer();
       const { ui, manager } = boot([
-        { id: "nv2", name: "NV2", group: "overlay", layer },
+        { id: "nv2", name: "NV2", role: "overlay", layer },
       ]);
       ui.runtimeStore.setAuthorVisible("nv2", true);
       applyProjection(ui, "nv2");
@@ -850,7 +850,7 @@ describe("executor: carrier dispatch", () => {
     it("intent flip with an effective flip fires INTENT and CHANGE", () => {
       const canvas = document.createElement("canvas");
       const { ui, manager } = boot([
-        { id: "ie-both", name: "IE-Both", group: "overlay", canvas },
+        { id: "ie-both", name: "IE-Both", role: "overlay", canvas },
       ]);
       ui.runtimeStore.setAuthorVisible("ie-both", true);
       applyProjection(ui, "ie-both");
@@ -892,7 +892,7 @@ describe("executor: carrier dispatch", () => {
       // see the checkbox movement even though the layer never appears.
       const canvas = document.createElement("canvas");
       const { ui, manager } = boot([
-        { id: "ie-oor", name: "IE-OOR", group: "overlay", canvas },
+        { id: "ie-oor", name: "IE-OOR", role: "overlay", canvas },
       ]);
       ui.runtimeStore.setAuthorVisible("ie-oor", true);
       // Push the range entirely above the current zoom (mock returns 5):
@@ -931,7 +931,7 @@ describe("executor: carrier dispatch", () => {
       const layer = paneCapableLayer();
       const onMap = { current: false };
       const { ui, manager, map } = boot([
-        { id: "ie-oom", name: "IE-OOM", group: "overlay", layer },
+        { id: "ie-oom", name: "IE-OOM", role: "overlay", layer },
       ]);
       ui.runtimeStore.setAuthorVisible("ie-oom", true);
       map.hasLayer = vi.fn((l: L.Layer) => onMap.current && l === layer);
@@ -965,7 +965,7 @@ describe("executor: carrier dispatch", () => {
     it("a repeated applyProjection with the same intent fires neither event", () => {
       const canvas = document.createElement("canvas");
       const { ui, manager } = boot([
-        { id: "ie-nochange", name: "IE-NoChange", group: "overlay", canvas },
+        { id: "ie-nochange", name: "IE-NoChange", role: "overlay", canvas },
       ]);
       ui.runtimeStore.setAuthorVisible("ie-nochange", true);
       applyProjection(ui, "ie-nochange");
@@ -988,7 +988,7 @@ describe("executor: carrier dispatch", () => {
       // user action.
       const canvas = document.createElement("canvas");
       const { ui, manager } = boot([
-        { id: "ie-first", name: "IE-First", group: "overlay", canvas },
+        { id: "ie-first", name: "IE-First", role: "overlay", canvas },
       ]);
       ui.runtimeStore.setAuthorVisible("ie-first", true);
       ui.runtimeStore.deleteApplied("ie-first");
@@ -1024,7 +1024,7 @@ describe("executor: carrier dispatch", () => {
         // further emit fires.
         const canvas = document.createElement("canvas");
         const { ui, manager } = boot([
-          { id: "re-entry-1", name: "Re-Entry-1", group: "overlay", canvas },
+          { id: "re-entry-1", name: "Re-Entry-1", role: "overlay", canvas },
         ]);
         ui.runtimeStore.setAuthorVisible("re-entry-1", true);
         ui.runtimeStore.deleteApplied("re-entry-1");
@@ -1064,7 +1064,7 @@ describe("executor: carrier dispatch", () => {
         // zoomend sweep — one nobody is waiting for.
         const canvas = document.createElement("canvas");
         const { ui, manager } = boot([
-          { id: "re-entry-2", name: "Re-Entry-2", group: "overlay", canvas },
+          { id: "re-entry-2", name: "Re-Entry-2", role: "overlay", canvas },
         ]);
         ui.runtimeStore.setAuthorVisible("re-entry-2", false);
         ui.runtimeStore.deleteApplied("re-entry-2");
@@ -1116,7 +1116,7 @@ describe("executor: carrier dispatch", () => {
         // matches the intent the last subscriber put in the store.
         const canvas = document.createElement("canvas");
         const { ui, manager } = boot([
-          { id: "re-entry-3", name: "Re-Entry-3", group: "overlay", canvas },
+          { id: "re-entry-3", name: "Re-Entry-3", role: "overlay", canvas },
         ]);
         ui.runtimeStore.setAuthorVisible("re-entry-3", true);
         ui.runtimeStore.deleteApplied("re-entry-3");
@@ -1150,7 +1150,7 @@ describe("executor: carrier dispatch", () => {
     // runtime `applied` row: a canvas somebody hid out-of-band converges back to
     // intent, and an intent hide lands even though the class started clear.
     const canvas = document.createElement("canvas");
-    const { ui } = boot([{ id: "cv2", name: "CV2", group: "overlay", canvas }]);
+    const { ui } = boot([{ id: "cv2", name: "CV2", role: "overlay", canvas }]);
     ui.runtimeStore.setAuthorVisible("cv2", true);
 
     canvas.classList.add("hidden"); // out-of-band hide while intent says shown
@@ -1166,7 +1166,7 @@ describe("executor: carrier dispatch", () => {
     // No Leaflet layer, no canvas — neither branch of the dispatcher has an
     // honest target, and the read side reports `false` for "shown" rather
     // than guessing.
-    const { ui, map } = boot([{ id: "nc", name: "NC", group: "overlay" }]);
+    const { ui, map } = boot([{ id: "nc", name: "NC", role: "overlay" }]);
     (map.addLayer as ReturnType<typeof vi.fn>).mockClear();
 
     dispatchStateOp(ui, ui.c.layerRegistry.get("nc")!, {
@@ -1183,7 +1183,7 @@ describe("executor: carrier dispatch", () => {
     // if the element is gone by write time the dispatcher must not throw —
     // there is simply no element left to stamp.
     const canvas = document.createElement("canvas");
-    const { ui } = boot([{ id: "pc", name: "PC", group: "overlay", canvas }]);
+    const { ui } = boot([{ id: "pc", name: "PC", role: "overlay", canvas }]);
     ui.c.layerRegistry.get("pc")!.canvas = null;
 
     expect(() =>
@@ -1204,7 +1204,7 @@ describe("executor: carrier dispatch", () => {
       {
         id: "pc2",
         name: "PC2",
-        group: "overlay",
+        role: "overlay",
         canvas: document.createElement("canvas"),
       },
     ]);
@@ -1226,7 +1226,7 @@ describe("executor: carrier dispatch", () => {
     // `if (layer)` miss must fall through to no write, and the projection's
     // currentShown read must report `false` rather than throw.
     const { ui, map } = boot([
-      { id: "nv", name: "NV", group: "overlay", layer: { options: {} } as L.Layer },
+      { id: "nv", name: "NV", role: "overlay", layer: { options: {} } as L.Layer },
     ]);
     const li = ui.c.layerRegistry.get("nv")!;
     li.layer = null;
@@ -1250,7 +1250,7 @@ describe("executor: carrier dispatch", () => {
     // `const _exhaustive: never = op; throw ...` is what makes the missing
     // branch loud instead of a silent `return false`. Exercised here by
     // deliberately violating the union — the throw is the honest outcome.
-    const { ui } = boot([{ id: "x", name: "X", group: "overlay" }]);
+    const { ui } = boot([{ id: "x", name: "X", role: "overlay" }]);
 
     expect(() =>
       dispatchStateOp(ui, ui.c.layerRegistry.get("x")!, {
@@ -1265,7 +1265,7 @@ describe("executor: carrier dispatch", () => {
     // icons live in the shared markerPane, which no per-layer CSS write can
     // reach — the honest answer is "no write exists".
     const layer = paneCapableLayer();
-    const { ui, manager } = boot([{ id: "n", name: "None", group: "overlay", layer }]);
+    const { ui, manager } = boot([{ id: "n", name: "None", role: "overlay", layer }]);
     vi.spyOn(manager, "surfaceFor").mockReturnValue({
       capabilities: { opacity: "none", zoomRange: "none" },
       paneNames: [],
@@ -1285,7 +1285,7 @@ describe("executor: carrier dispatch", () => {
     // captured once — repeated drags must not compound on their own output.
     const setOpacity = vi.fn();
     const layer = { options: { opacity: 0.5 }, setOpacity } as unknown as L.Layer;
-    const { ui, manager } = boot([{ id: "img", name: "Img", group: "overlay", layer }]);
+    const { ui, manager } = boot([{ id: "img", name: "Img", role: "overlay", layer }]);
     vi.spyOn(manager, "surfaceFor").mockReturnValue({
       capabilities: { opacity: "native", zoomRange: "none" },
       paneNames: [],
@@ -1305,7 +1305,7 @@ describe("executor: carrier dispatch", () => {
     // rather than through a setter.
     const layer = { options: { opacity: 0.8 } } as L.Layer;
     const { ui, manager } = boot([
-      { id: "tile", name: "Tile", group: "overlay", layer },
+      { id: "tile", name: "Tile", role: "overlay", layer },
     ]);
     vi.spyOn(manager, "surfaceFor").mockReturnValue({
       capabilities: { opacity: "native", zoomRange: "native" },
@@ -1329,7 +1329,7 @@ describe("executor: carrier dispatch", () => {
     // 0.8 * 0.6 = 0.48, not the ratcheted 0.24.
     const layer = { options: { opacity: 0.8 } } as L.Layer;
     const { ui, manager } = boot([
-      { id: "tile", name: "Tile", group: "overlay", layer },
+      { id: "tile", name: "Tile", role: "overlay", layer },
     ]);
     vi.spyOn(manager, "surfaceFor").mockReturnValue({
       capabilities: { opacity: "native", zoomRange: "native" },
@@ -1378,7 +1378,7 @@ describe("executor: carrier dispatch", () => {
     // lock. The zoomRange resolves through the `visible` op instead.
     const layer = paneCapableLayer();
     let onMap = false;
-    const { ui, map } = boot([{ id: "z", name: "Z", group: "overlay", layer }]);
+    const { ui, map } = boot([{ id: "z", name: "Z", role: "overlay", layer }]);
     map.hasLayer.mockImplementation(() => onMap);
     map.addLayer.mockImplementation(() => {
       onMap = true;
@@ -1410,7 +1410,7 @@ describe("executor: carrier dispatch", () => {
       {
         id: "d",
         name: "D",
-        group: "overlay",
+        role: "overlay",
         layer: paneCapableLayer(),
         show: false,
       },
@@ -1444,7 +1444,7 @@ describe("applyProjectionAll: the sweep walks the registry, not the intent store
     // pass and must not be pruned from the projection.
     const { container, map } = makeOffMapFixture();
     const manager = new LayerController(map, [
-      { id: "a", name: "A", group: "overlay", layer: { options: {} } as L.Layer },
+      { id: "a", name: "A", role: "overlay", layer: { options: {} } as L.Layer },
     ]);
     manager.ui = new LayerUI(manager, TEST_ENV);
     const ui = manager.ui as LayerUI;
@@ -1464,7 +1464,7 @@ describe("applyProjectionAll: the sweep walks the registry, not the intent store
   it("projectAll treats an empty LayerIntentStore as empty", () => {
     const { container, map } = makeOffMapFixture();
     const manager = new LayerController(map, [
-      { id: "a", name: "A", group: "overlay", layer: { options: {} } as L.Layer },
+      { id: "a", name: "A", role: "overlay", layer: { options: {} } as L.Layer },
     ]);
     manager.ui = new LayerUI(manager, TEST_ENV);
     const ui = manager.ui as LayerUI;
@@ -1512,7 +1512,7 @@ describe("executor: the branches behind the gates", () => {
     map.removeLayer = vi.fn();
 
     const manager = new LayerController(map, [
-      { id: "on", name: "On", group: "overlay", layer },
+      { id: "on", name: "On", role: "overlay", layer },
     ]);
     manager.ui = new LayerUI(manager, TEST_ENV);
     const ui = manager.ui as LayerUI;
@@ -1536,7 +1536,7 @@ describe("executor: the branches behind the gates", () => {
     // slider is then a multiplier over that base, so a repeat apply must
     // not compound on its own output.
     const layer = paneCapableLayer();
-    const { ui, manager } = boot([{ id: "b", name: "B", group: "overlay", layer }]);
+    const { ui, manager } = boot([{ id: "b", name: "B", role: "overlay", layer }]);
     vi.spyOn(manager, "surfaceFor").mockReturnValue({
       capabilities: { opacity: "native", zoomRange: "none" },
       paneNames: [],
@@ -1561,7 +1561,7 @@ describe("executor: the branches behind the gates", () => {
     // `if (!layer) return` — a stale registry entry whose layer object has
     // already left. Nothing to carry the write, and nothing to throw on.
     const { ui, manager } = boot([
-      { id: "stale", name: "Stale", group: "overlay", layer: null as never },
+      { id: "stale", name: "Stale", role: "overlay", layer: null as never },
     ]);
     vi.spyOn(manager, "surfaceFor").mockReturnValue({
       capabilities: { opacity: "pane", zoomRange: "none" },
@@ -1587,7 +1587,7 @@ describe("executor: the branches behind the gates", () => {
       getBounds: vi.fn(() => ({ isValid: () => true })),
     });
     const manager = new LayerController(map, [
-      { id: "gone", name: "Gone", group: "overlay", layer },
+      { id: "gone", name: "Gone", role: "overlay", layer },
     ]);
     manager.ui = new LayerUI(manager, TEST_ENV);
     const ui = manager.ui as LayerUI;
@@ -1645,7 +1645,7 @@ describe("executor: the branches behind the gates", () => {
     // Author snapshot says shown, intent has no override, policy is fine —
     // and the map has never been told.
     const layer = paneCapableLayer();
-    const { ui, map } = boot([{ id: "a2", name: "A2", group: "overlay", layer }]);
+    const { ui, map } = boot([{ id: "a2", name: "A2", role: "overlay", layer }]);
     ui.runtimeStore.setAuthorVisible("a2", true);
     (map.addLayer as ReturnType<typeof vi.fn>).mockClear();
 
@@ -1662,7 +1662,7 @@ describe("executor: the branches behind the gates", () => {
     // dispatcher directly is how it gets covered — and it is the property
     // the comment promises: a redundant write is a no-op, not a re-add.
     const layer = paneCapableLayer();
-    const { ui, map } = boot([{ id: "dup", name: "Dup", group: "overlay", layer }]);
+    const { ui, map } = boot([{ id: "dup", name: "Dup", role: "overlay", layer }]);
     map.hasLayer = vi.fn(() => true);
     map.addLayer = vi.fn();
     map.removeLayer = vi.fn();
@@ -1687,7 +1687,7 @@ describe("executor: the branches behind the gates", () => {
     map.addLayer = vi.fn();
 
     const manager = new LayerController(map, [
-      { id: "up", name: "Up", group: "overlay", layer },
+      { id: "up", name: "Up", role: "overlay", layer },
     ]);
     manager.ui = new LayerUI(manager, TEST_ENV);
     const ui = manager.ui as LayerUI;
@@ -1727,7 +1727,7 @@ describe("membership invariants: only intent + author snapshot authorise members
     const { container, map } = makeOffMapFixture();
     const layer = paneCapableLayer();
     const manager = new LayerController(map, [
-      { id, name: id, group: "overlay", layer, show: false },
+      { id, name: id, role: "overlay", layer, show: false },
     ]);
     manager.ui = new LayerUI(manager, TEST_ENV);
     const ui = manager.ui as LayerUI;
@@ -1808,7 +1808,7 @@ it("a later subscriber observes the state the earlier subscriber left", () => {
   expect(secondSaw).toEqual([true]);
   expect(intentVisibleOf(ui, id)).toBe(true);
   expect(onMap.current).toBe(true);
-  expect(ui.listPanel.checkedCount[GROUP.OVERLAY]).toEqual({
+  expect(ui.listPanel.checkedCount[ROLE.OVERLAY]).toEqual({
     total: 1,
     on: 1,
   });
@@ -1873,11 +1873,11 @@ it("a reentrant flip inside the CHANGE callback announces the intent once", () =
 it("the group count reflects the intent a reentrant correction left", () => {
   const { ui } = initFixture({
     data: [
-      { id: "one", name: "One", group: "overlay", layer: polygonLayer() },
-      { id: "two", name: "Two", group: "overlay", layer: polygonLayer() },
+      { id: "one", name: "One", role: "overlay", layer: polygonLayer() },
+      { id: "two", name: "Two", role: "overlay", layer: polygonLayer() },
     ],
   });
-  const count = () => ui.listPanel.checkedCount[GROUP.OVERLAY];
+  const count = () => ui.listPanel.checkedCount[ROLE.OVERLAY];
   expect(count()).toEqual({ total: 2, on: 2 });
 
   // A subscriber that disagrees with the uncheck and pushes the layer back
@@ -1913,7 +1913,7 @@ it("a subscriber that throws leaves every side effect applied", () => {
   expect(
     (row.querySelector('input[type="checkbox"]') as HTMLInputElement).checked,
   ).toBe(false);
-  expect(ui.listPanel.checkedCount[GROUP.OVERLAY]).toEqual({
+  expect(ui.listPanel.checkedCount[ROLE.OVERLAY]).toEqual({
     total: 1,
     on: 0,
   });
@@ -1936,7 +1936,7 @@ it("a subscriber that destroys the control leaves no null deref", () => {
   expect(() => ui.applyVisibility(id, false)).not.toThrow();
   expect(ui.c.map.removeLayer).toHaveBeenCalled();
   expect(intentVisibleOf(ui, id)).toBe(false);
-  expect(ui.listPanel.checkedCount[GROUP.OVERLAY]).toEqual({
+  expect(ui.listPanel.checkedCount[ROLE.OVERLAY]).toEqual({
     total: 1,
     on: 0,
   });
@@ -1947,8 +1947,8 @@ it("a zoom sweep notifies each moved layer once, in registry order", () => {
   const layerB = polygonLayer();
   const { ui, map } = initFixture({
     data: [
-      { id: "alpha", name: "Alpha", group: "overlay", layer: layerA },
-      { id: "beta", name: "Beta", group: "overlay", layer: layerB },
+      { id: "alpha", name: "Alpha", role: "overlay", layer: layerA },
+      { id: "beta", name: "Beta", role: "overlay", layer: layerB },
     ],
   });
   for (const id of ["alpha", "beta"]) {
@@ -1985,8 +1985,8 @@ it("a subscriber that unregisters a later layer does not strand the sweep", () =
   const layerB = polygonLayer();
   const { ui } = initFixture({
     data: [
-      { id: "alpha", name: "Alpha", group: "overlay", layer: layerA },
-      { id: "beta", name: "Beta", group: "overlay", layer: layerB },
+      { id: "alpha", name: "Alpha", role: "overlay", layer: layerA },
+      { id: "beta", name: "Beta", role: "overlay", layer: layerB },
     ],
   });
   for (const id of ["alpha", "beta"]) {
@@ -2043,8 +2043,8 @@ it("a batch delta for a layer replaced under the same id delivers nothing", () =
   const replacement = polygonLayer();
   const { ui, manager } = initFixture({
     data: [
-      { id: "alpha", name: "Alpha", group: "overlay", layer: layerAlpha },
-      { id: "beta", name: "Beta", group: "overlay", layer: layerBeta },
+      { id: "alpha", name: "Alpha", role: "overlay", layer: layerAlpha },
+      { id: "beta", name: "Beta", role: "overlay", layer: layerBeta },
     ],
   });
   // Both layers sit on the map while their stored intent says hidden, so the
@@ -2067,7 +2067,7 @@ it("a batch delta for a layer replaced under the same id delivers nothing", () =
       manager.registerLayer({
         id: "beta",
         name: "Beta",
-        group: "overlay",
+        role: "overlay",
         layer: replacement,
       });
     }
@@ -2158,8 +2158,8 @@ it("a throwing subscriber on the first swept layer does not strand the layers be
   const layerB = polygonLayer();
   const { ui, map } = initFixture({
     data: [
-      { id: "alpha", name: "Alpha", group: "overlay", layer: layerA },
-      { id: "beta", name: "Beta", group: "overlay", layer: layerB },
+      { id: "alpha", name: "Alpha", role: "overlay", layer: layerA },
+      { id: "beta", name: "Beta", role: "overlay", layer: layerB },
     ],
   });
   for (const id of ["alpha", "beta"]) {
@@ -2222,8 +2222,8 @@ it("a subscriber that destroys the control stops the remaining batch without thr
   const layerB = polygonLayer();
   const { ui, manager, map } = initFixture({
     data: [
-      { id: "alpha", name: "Alpha", group: "overlay", layer: layerA },
-      { id: "beta", name: "Beta", group: "overlay", layer: layerB },
+      { id: "alpha", name: "Alpha", role: "overlay", layer: layerA },
+      { id: "beta", name: "Beta", role: "overlay", layer: layerB },
     ],
   });
   // Real membership: destroy() runs dismissFocus, which sweeps and would see a

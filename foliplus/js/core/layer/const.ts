@@ -75,10 +75,13 @@ const GEOM_TYPE = {
   CUSTOM: "custom",
 };
 
-/** Layer group names — the `LayerInfo.group` vocabulary ("base" | "overlay").
- *  Owned by core so z / registry / factory compare against one definition;
- *  consumers import it from the `core/layer` barrel. */
-const GROUP = { OVERLAY: "overlay", BASE: "base" } as const;
+/** Layer role names — the vocabulary behind `LayerInfo.role` ("base" |
+ *  "overlay"). Owned by core so z / registry / factory compare against one
+ *  definition; consumers import it from the `core/layer` barrel.
+ *
+ *  Named ROLE because it says what the layer *is*. The UI section is projected
+ *  from it by `sectionOf` (role.ts) rather than being a second string. */
+const ROLE = { OVERLAY: "overlay", BASE: "base" } as const;
 
 /** Layer kind names — the `LayerKind` vocabulary ("tile" | "vector" | "canvas"
  *  | "solid" | "cluster" | "custom"). Owned by core so the factory, registry,
@@ -189,7 +192,6 @@ export {
   DIM,
   FALLBACK_PANE_PREFIX,
   GEOM_TYPE,
-  GROUP,
   HIDDEN,
   KIND,
   NO_FEATURE_TREE_KINDS,
@@ -197,5 +199,6 @@ export {
   PANE_OWNER,
   PANE_ROLE,
   RECURSION,
+  ROLE,
   Z_INDEX,
 };

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
-import { GROUP, type LayerInfo } from "#core/layer/index.js";
+import { type LayerInfo, ROLE } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { type LayerController } from "#foliplus/LayerControl/controller.js";
 import { LayerIntentStore } from "#foliplus/LayerControl/domain/index.js";
@@ -67,12 +67,12 @@ describe("ui/list row placement", () => {
     const { manager, ui } = initFixture({
       seed: { order: ["B", "A", "H"] },
       data: [
-        { id: "A", name: "A", group: "overlay" },
-        { id: "B", name: "B", group: "overlay" },
+        { id: "A", name: "A", role: "overlay" },
+        { id: "B", name: "B", role: "overlay" },
       ],
     });
 
-    manager.registerLayer({ id: "H", name: "H", group: "overlay" });
+    manager.registerLayer({ id: "H", name: "H", role: "overlay" });
 
     const registryIds = manager.layers.map(l => l.id);
     const rowIds = Array.from(
@@ -90,19 +90,19 @@ describe("ui/list row placement", () => {
         {
           id: "A",
           name: "A",
-          group: "overlay",
+          role: "overlay",
           layer: { options: {}, eachLayer: vi.fn() },
         },
         {
           id: "B",
           name: "B",
-          group: "overlay",
+          role: "overlay",
           layer: { options: {}, eachLayer: vi.fn() },
         },
         {
           id: "C",
           name: "C",
-          group: "overlay",
+          role: "overlay",
           layer: { options: {}, eachLayer: vi.fn() },
         },
       ],
@@ -111,7 +111,7 @@ describe("ui/list row placement", () => {
     // Scramble the DOM to C-A-B.
     const rows = Array.from(
       attachedPanel(ui).querySelectorAll<HTMLElement>(
-        `${CONST.SEL.LAYER_ITEM}[data-layer-type="${GROUP.OVERLAY}"]`,
+        `${CONST.SEL.LAYER_ITEM}[data-layer-type="${ROLE.OVERLAY}"]`,
       ),
     );
     expect(rows.length).toBe(3);
@@ -137,7 +137,7 @@ describe("ui/list row placement", () => {
 
   it("initLayerItem declines an id the registry does not know", () => {
     const { ui } = initFixture({
-      data: [{ id: "A", name: "A", group: "overlay" }],
+      data: [{ id: "A", name: "A", role: "overlay" }],
     });
 
     // A late callback for a torn-down layer must not write into a row: the id
@@ -150,7 +150,7 @@ describe("ui/list row placement", () => {
     // leaves the layer behind. The sweep must bail rather than write a stale
     // cell into whatever row now sits there.
     const { manager, ui } = initFixture({
-      data: [{ id: "A", name: "A", group: "overlay" }],
+      data: [{ id: "A", name: "A", role: "overlay" }],
     });
     const row = attachedPanel(ui).querySelector<HTMLElement>(
       `[${CONST.DATA.LAYER_ID}="A"]`,
@@ -171,7 +171,7 @@ describe("ui/list row placement", () => {
     // no-op for every paint helper instead of dereferencing a dead panel. This
     // is the shape of the null-panel crash, now typed and guarded.
     const { manager, ui } = initFixture({
-      data: [{ id: "A", name: "A", group: "overlay" }],
+      data: [{ id: "A", name: "A", role: "overlay" }],
     });
     const layer = manager.layerRegistry.get("A")!;
     ui.c.uiContainer = null;
@@ -188,22 +188,22 @@ describe("ui/list row placement", () => {
     // group — appending it at the panel's end would leave the header stranded
     // below the layers it controls.
     const { manager, ui } = initFixture({
-      data: [{ id: "B1", name: "B1", group: "base" }],
+      data: [{ id: "B1", name: "B1", role: "base" }],
     });
     expect(
       attachedPanel(ui).querySelectorAll(
-        `${CONST.SEL.LAYER_ITEM}[data-layer-type="${GROUP.OVERLAY}"]`,
+        `${CONST.SEL.LAYER_ITEM}[data-layer-type="${ROLE.OVERLAY}"]`,
       ).length,
     ).toBe(0);
 
-    manager.registerLayer({ id: "O1", name: "O1", group: "overlay" });
+    manager.registerLayer({ id: "O1", name: "O1", role: "overlay" });
 
     const children = Array.from(attachedPanel(ui).children);
     const overlayHeader = children.findIndex(
-      el => el.getAttribute("data-group") === GROUP.OVERLAY,
+      el => el.getAttribute("data-role") === ROLE.OVERLAY,
     );
     const firstBaseRow = children.findIndex(
-      el => el.getAttribute("data-layer-type") === GROUP.BASE,
+      el => el.getAttribute("data-layer-type") === ROLE.BASE,
     );
     // Appended to the panel's end instead, the header would land after every
     // base row and control layers it is not adjacent to.
@@ -212,7 +212,7 @@ describe("ui/list row placement", () => {
     expect(
       Array.from(
         attachedPanel(ui).querySelectorAll<HTMLElement>(
-          `${CONST.SEL.LAYER_ITEM}[data-layer-type="${GROUP.OVERLAY}"]`,
+          `${CONST.SEL.LAYER_ITEM}[data-layer-type="${ROLE.OVERLAY}"]`,
         ),
       ).map(el => el.getAttribute(CONST.DATA.LAYER_ID)),
     ).toEqual(["O1"]);
@@ -223,7 +223,7 @@ describe("ui/list row placement", () => {
     // lands at the end of the list, after the color row.
     const { manager, ui } = initFixture({ data: [] });
 
-    manager.registerLayer({ id: "O1", name: "O1", group: "overlay" });
+    manager.registerLayer({ id: "O1", name: "O1", role: "overlay" });
 
     const ids = Array.from(
       attachedPanel(ui).querySelectorAll<HTMLElement>(CONST.SEL.LAYER_ITEM),
@@ -237,7 +237,7 @@ describe("ui/list row placement", () => {
     // carries no row: the guard bails before any DOM write instead of inserting
     // a row the registry cannot find.
     const { ui } = initFixture({
-      data: [{ id: "A", name: "A", group: "overlay" }],
+      data: [{ id: "A", name: "A", role: "overlay" }],
     });
     const rowsBefore = attachedPanel(ui).querySelectorAll(CONST.SEL.LAYER_ITEM);
 
@@ -253,20 +253,20 @@ describe("ui/list row placement", () => {
     // before the color row — anchored at the panel's end instead, the header
     // would sit below the layers it controls.
     const { manager, ui } = initFixture({
-      data: [{ id: "O1", name: "O1", group: "overlay" }],
+      data: [{ id: "O1", name: "O1", role: "overlay" }],
     });
-    ui.listPanel.foldedGroups.add(GROUP.BASE);
+    ui.listPanel.foldedRoles.add(ROLE.BASE);
 
     manager.registerLayer({
       id: "B1",
       name: "B1",
-      group: "base",
+      role: "base",
       layer: new TileLayer(),
     });
 
     const children = Array.from(attachedPanel(ui).children);
     const baseHeader = children.findIndex(
-      el => el.getAttribute("data-group") === GROUP.BASE,
+      el => el.getAttribute("data-role") === ROLE.BASE,
     );
     const colorRow = children.findIndex(
       el => el.getAttribute(CONST.DATA.LAYER_ID) === CONST.SOLID_BASEMAP_ID,
@@ -287,7 +287,7 @@ describe("ui/list row placement", () => {
     // registerLayer's count change can land after the row was removed (a layer
     // deleted mid-sweep). The refresh must not raise and must not rebuild a row.
     const { ui } = initFixture({
-      data: [{ id: "A", name: "A", group: "overlay" }],
+      data: [{ id: "A", name: "A", role: "overlay" }],
     });
     attachedPanel(ui)
       .querySelector<HTMLElement>(`[${CONST.DATA.LAYER_ID}="A"]`)!
@@ -299,9 +299,9 @@ describe("ui/list row placement", () => {
 
   it("renders the color row folded when the base group is folded", () => {
     const { ui } = initFixture({
-      data: [{ id: "B1", name: "B1", group: "base" }],
+      data: [{ id: "B1", name: "B1", role: "base" }],
     });
-    ui.listPanel.foldedGroups.add(GROUP.BASE);
+    ui.listPanel.foldedRoles.add(ROLE.BASE);
 
     renderInitialList(ui);
 
@@ -319,7 +319,7 @@ describe("ui/list row placement", () => {
     // children of a row, so clearing the list with innerHTML used to leave the
     // picker and its document listeners answering a trigger that was gone.
     const { ui } = initFixture({
-      data: [{ id: "A", name: "A", group: "overlay" }],
+      data: [{ id: "A", name: "A", role: "overlay" }],
     });
     renderInitialList(ui);
     const row = rowOf(ui, "A");
@@ -350,7 +350,7 @@ describe("ui/list row placement", () => {
 
   it("color layer's applyVisibility routes through showSolidBasemap and hideSolidBasemap", () => {
     const { ui } = initFixture({
-      data: [{ id: "B1", name: "B1", group: "base" }],
+      data: [{ id: "B1", name: "B1", role: "base" }],
     });
 
     initTypesAndVisibility(ui);
@@ -368,8 +368,8 @@ describe("ui/list row placement", () => {
     // the base group, not at the top — tile basemaps cover it by default.
     const { ui } = initFixture({
       data: [
-        { id: "B1", name: "B1", group: "base" },
-        { id: "B2", name: "B2", group: "base" },
+        { id: "B1", name: "B1", role: "base" },
+        { id: "B2", name: "B2", role: "base" },
       ],
     });
 
@@ -377,7 +377,7 @@ describe("ui/list row placement", () => {
 
     const baseRows = Array.from(
       attachedPanel(ui).querySelectorAll<HTMLElement>(
-        `${CONST.SEL.LAYER_ITEM}[data-layer-type="${GROUP.BASE}"]`,
+        `${CONST.SEL.LAYER_ITEM}[data-layer-type="${ROLE.BASE}"]`,
       ),
     ).map(el => el.getAttribute(CONST.DATA.LAYER_ID));
 
@@ -393,7 +393,7 @@ describe("ui/list row placement", () => {
     // color basemap (race, surface unavailable), the zoom-range / hidden
     // override block must be skipped without crashing.
     const { ui } = initFixture({
-      data: [{ id: "B1", name: "B1", group: "base" }],
+      data: [{ id: "B1", name: "B1", role: "base" }],
     });
 
     const originalGet = ui.c.layerRegistry.get.bind(ui.c.layerRegistry);
@@ -411,12 +411,12 @@ const benchData = (overlays: number, bases: number) => [
   ...Array.from({ length: overlays }, (_, i) => ({
     id: `overlay_${i}`,
     name: `Overlay ${i}`,
-    group: "overlay" as const,
+    role: "overlay" as const,
   })),
   ...Array.from({ length: bases }, (_, i) => ({
     id: `base_${i}`,
     name: `Base ${i}`,
-    group: "base" as const,
+    role: "base" as const,
   })),
 ];
 
@@ -451,7 +451,7 @@ const refusesHiddenFocus = (() => {
 const childKeys = (ui: LayerUI) =>
   Array.from(attachedPanel(ui).children).map(
     el =>
-      el.getAttribute(CONST.DATA.LAYER_ID) ?? `group:${el.getAttribute("data-group")}`,
+      el.getAttribute(CONST.DATA.LAYER_ID) ?? `role:${el.getAttribute("data-role")}`,
   );
 
 /** The panel sequence renderInitialList would emit for this registry: each
@@ -461,13 +461,13 @@ const registryKeys = (manager: LayerController): string[] => {
   let seenOverlay = false;
   let seenBase = false;
   for (const layerInfo of manager.layers) {
-    if (layerInfo.group !== GROUP.BASE && !seenOverlay) {
+    if (layerInfo.role !== ROLE.BASE && !seenOverlay) {
       seenOverlay = true;
-      keys.push(`group:${GROUP.OVERLAY}`);
+      keys.push(`role:${ROLE.OVERLAY}`);
     }
-    if (layerInfo.group === GROUP.BASE && !seenBase) {
+    if (layerInfo.role === ROLE.BASE && !seenBase) {
       seenBase = true;
-      keys.push(`group:${GROUP.BASE}`);
+      keys.push(`role:${ROLE.BASE}`);
     }
     keys.push(layerInfo.id);
   }
@@ -480,8 +480,7 @@ const registryKeys = (manager: LayerController): string[] => {
 const cursorLedger = (ui: LayerUI) => {
   const idOf = (el: Element | null | undefined) =>
     el
-      ? (el.getAttribute(CONST.DATA.LAYER_ID) ??
-        `group:${el.getAttribute("data-group")}`)
+      ? (el.getAttribute(CONST.DATA.LAYER_ID) ?? `role:${el.getAttribute("data-role")}`)
       : null;
   const items = getNavigableItems(ui);
   return {
@@ -702,7 +701,7 @@ describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, ()
     // Longest overlay move: the row lands right under the overlay anchor.
     expect(insertBefore).toHaveBeenCalledTimes(1);
     expect(new Set(Array.from(attachedPanel(ui).children))).toEqual(childrenBefore);
-    expect(childKeys(ui)[0]).toBe("group:overlay");
+    expect(childKeys(ui)[0]).toBe("role:overlay");
     expect(childKeys(ui)[1]).toBe("overlay_3");
   });
 
@@ -718,8 +717,8 @@ describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, ()
       seed = (seed * 1664525 + 1013904223) >>> 0;
       return seed / 0x1_0000_0000;
     };
-    const overlays = () => manager.layers.filter(l => l.group === GROUP.OVERLAY);
-    const bases = () => manager.layers.filter(l => l.group === GROUP.BASE);
+    const overlays = () => manager.layers.filter(l => l.role === ROLE.OVERLAY);
+    const bases = () => manager.layers.filter(l => l.role === ROLE.BASE);
 
     for (let step = 0; step < 40; step++) {
       const pool = rand() < 0.7 ? overlays() : bases();
@@ -743,7 +742,7 @@ describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, ()
     // The reconcile's defensive branches, driven through a bare mock: a
     // torn-down panel no-ops; rows order without their toggle-all anchors; a
     // child that is neither a row nor an anchor is ignored — including a
-    // toggle-all shell that lost its data-group; a registry entry without a
+    // toggle-all shell that lost its data-role; a registry entry without a
     // row is skipped, and the write-path drift that produced any of this is
     // named, not silently absorbed; an empty registry writes nothing.
     // A torn-down control must no-op.
@@ -763,7 +762,7 @@ describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, ()
     // root.
     const container = document.createElement("div");
     const stray = document.createElement("div");
-    // Carries the toggle-all class but no data-group: an anchor that cannot
+    // Carries the toggle-all class but no data-role: an anchor that cannot
     // be keyed, ignored like any other non-row child.
     const headlessAnchor = document.createElement("div");
     headlessAnchor.classList.add(CONST.CLASSES.TOGGLE_ALL);
@@ -772,7 +771,7 @@ describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, ()
     const anchorEl = () => {
       const el = document.createElement("div");
       el.classList.add(CONST.CLASSES.TOGGLE_ALL);
-      el.setAttribute("data-group", "phantom");
+      el.setAttribute("data-role", "phantom");
       return el;
     };
     container.append(
@@ -798,10 +797,10 @@ describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, ()
       log: { warn },
     } as unknown as LayerUI;
     registry.layers = [
-      { id: "A", group: GROUP.OVERLAY } as LayerInfo,
-      { id: "B", group: GROUP.OVERLAY } as LayerInfo,
-      { id: "ghost", group: GROUP.OVERLAY } as LayerInfo,
-      { id: "base1", group: GROUP.BASE } as LayerInfo,
+      { id: "A", role: ROLE.OVERLAY } as LayerInfo,
+      { id: "B", role: ROLE.OVERLAY } as LayerInfo,
+      { id: "ghost", role: ROLE.OVERLAY } as LayerInfo,
+      { id: "base1", role: ROLE.BASE } as LayerInfo,
     ];
 
     syncRowOrder(ui);
@@ -899,7 +898,7 @@ describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, ()
       Array.from(container.children).find(
         el =>
           el.classList.contains(CONST.CLASSES.TOGGLE_ALL) &&
-          el.getAttribute("data-group") === GROUP.OVERLAY,
+          el.getAttribute("data-role") === ROLE.OVERLAY,
       ) as HTMLElement;
     const original = anchorOf();
     expect(original).toBeDefined();
@@ -912,7 +911,7 @@ describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, ()
     const anchors = Array.from(container.children).filter(
       el =>
         el.classList.contains(CONST.CLASSES.TOGGLE_ALL) &&
-        el.getAttribute("data-group") === GROUP.OVERLAY,
+        el.getAttribute("data-role") === ROLE.OVERLAY,
     );
     expect(anchors).toHaveLength(1);
     expect(anchors[0]).toBe(duplicate);
@@ -962,7 +961,7 @@ describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, ()
       Array.from(container.children).find(
         el =>
           el.classList.contains(CONST.CLASSES.TOGGLE_ALL) &&
-          el.getAttribute("data-group") === GROUP.OVERLAY,
+          el.getAttribute("data-role") === ROLE.OVERLAY,
       ) as HTMLElement;
     const original = anchorOf();
     const duplicate = original.cloneNode(true) as HTMLElement;
@@ -986,7 +985,7 @@ describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, ()
       Array.from(container.children).find(
         el =>
           el.classList.contains(CONST.CLASSES.TOGGLE_ALL) &&
-          el.getAttribute("data-group") === GROUP.OVERLAY,
+          el.getAttribute("data-role") === ROLE.OVERLAY,
       ) as HTMLElement;
     const original = anchorOf();
     const duplicate = original.cloneNode(true) as HTMLElement;
@@ -1010,7 +1009,7 @@ describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, ()
       Array.from(container.children).find(
         el =>
           el.classList.contains(CONST.CLASSES.TOGGLE_ALL) &&
-          el.getAttribute("data-group") === GROUP.OVERLAY,
+          el.getAttribute("data-role") === ROLE.OVERLAY,
       ) as HTMLElement;
     const duplicate = anchorOf().cloneNode(true) as HTMLElement;
     container.appendChild(duplicate);
@@ -1041,7 +1040,7 @@ describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, ()
       Array.from(container.children).find(
         el =>
           el.classList.contains(CONST.CLASSES.TOGGLE_ALL) &&
-          el.getAttribute("data-group") === GROUP.OVERLAY,
+          el.getAttribute("data-role") === ROLE.OVERLAY,
       ) as HTMLElement;
     const original = anchorOf();
     const duplicate = original.cloneNode(true) as HTMLElement;
@@ -1183,7 +1182,7 @@ describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, ()
         data: Array.from({ length: 4 }, (_, i) => ({
           id: `L${i}`,
           name: `L${i}`,
-          group: "overlay" as const,
+          role: "overlay" as const,
         })),
       });
       const rebuilds: string[] = [];
@@ -1191,7 +1190,7 @@ describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, ()
       // The color basemap joins the registry at attach as a base-group tail;
       // the arrangement under test is the overlay block.
       const overlayOrder = (m: LayerController) =>
-        m.layers.filter(l => l.group === GROUP.OVERLAY).map(l => l.id);
+        m.layers.filter(l => l.role === ROLE.OVERLAY).map(l => l.id);
       ui.events.on(EVENTS.LAYER_LIST_REBUILD, () =>
         rebuilds.push(overlayOrder(manager).join(",")),
       );
@@ -1206,7 +1205,7 @@ describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, ()
       expect(overlayOrder(manager), via).toEqual(order);
       const domOrder = Array.from(
         attachedPanel(ui).querySelectorAll(
-          `${CONST.SEL.LAYER_ITEM}[data-layer-type="${GROUP.OVERLAY}"]`,
+          `${CONST.SEL.LAYER_ITEM}[data-layer-type="${ROLE.OVERLAY}"]`,
         ),
       ).map(el => el.getAttribute(CONST.DATA.LAYER_ID));
       expect(domOrder, via).toEqual(order);
@@ -1260,22 +1259,22 @@ describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, ()
   });
 
   it.each([
-    { named: "overlay", group: "overlay" as const },
-    { named: "base", group: "base" as const },
+    { named: "overlay", role: "overlay" as const },
+    { named: "base", role: "base" as const },
   ])(
     "keeps the cursor on a layer named $named when its row moves",
-    ({ named, group }) => {
+    ({ named, role }) => {
       // A layer may legally be called "overlay" or "base" — the same
       // strings the group headers key on. The cursor identity is
       // kind-tagged, so every ledger (DOM focus, activeIdx, the one roving
       // tab stop) re-homes onto the layer row, not the same-named header.
       const { manager, ui } = initFixture({
         data: [
-          { id: named, name: named, group },
+          { id: named, name: named, role },
           {
-            id: group === "base" ? "tile" : "x",
+            id: role === "base" ? "tile" : "x",
             name: "other",
-            group,
+            role,
           },
         ],
       });
@@ -1290,7 +1289,7 @@ describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, ()
       expect(items.findIndex(el => el.tabIndex === 0)).toBe(items.indexOf(row));
       expect(document.activeElement).toBe(row);
       const header = attachedPanel(ui).querySelector(
-        `.${CONST.CLASSES.TOGGLE_ALL}[data-group="${group}"]`,
+        `.${CONST.CLASSES.TOGGLE_ALL}[data-role="${role}"]`,
       );
       expect(items.indexOf(row)).not.toBe(items.indexOf(header as HTMLElement));
     },
@@ -1299,7 +1298,7 @@ describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, ()
   it("re-homes a header cursor back onto the header", () => {
     const { manager, ui } = initFixture({ data: benchData(3, 0) });
     const header = attachedPanel(ui).querySelector(
-      `.${CONST.CLASSES.TOGGLE_ALL}[data-group="${GROUP.OVERLAY}"]`,
+      `.${CONST.CLASSES.TOGGLE_ALL}[data-role="${ROLE.OVERLAY}"]`,
     ) as HTMLElement;
     header.focus();
     ui.listPanel.activeIdx = getNavigableItems(ui).indexOf(header);
@@ -1314,8 +1313,8 @@ describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, ()
   it("a folded cursor row falls back to its group header, same name or not", () => {
     const { ui } = initFixture({
       data: [
-        { id: "overlay", name: "overlay", group: "overlay" as const },
-        { id: "x", name: "x", group: "overlay" as const },
+        { id: "overlay", name: "overlay", role: "overlay" as const },
+        { id: "x", name: "x", role: "overlay" as const },
       ],
     });
     const row = rowOf(ui, "overlay");
@@ -1325,11 +1324,11 @@ describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, ()
     // The fold rebuild captures the cursor by identity before the rows go,
     // then finds its row hidden — the fallback is the row's own group
     // header, not a same-named one swapped in by string luck.
-    toggleFold(ui, GROUP.OVERLAY);
+    toggleFold(ui, ROLE.OVERLAY);
 
     const items = getNavigableItems(ui);
     const header = attachedPanel(ui).querySelector(
-      `.${CONST.CLASSES.TOGGLE_ALL}[data-group="${GROUP.OVERLAY}"]`,
+      `.${CONST.CLASSES.TOGGLE_ALL}[data-role="${ROLE.OVERLAY}"]`,
     ) as HTMLElement;
     expect(items[ui.listPanel.activeIdx ?? -1]).toBe(header);
   });
@@ -1341,8 +1340,8 @@ describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, ()
     const { manager, ui } = initFixture({
       seed: { order: ["H", "A", "B"] },
       data: [
-        { id: "A", name: "A", group: "overlay" as const },
-        { id: "B", name: "B", group: "overlay" as const },
+        { id: "A", name: "A", role: "overlay" as const },
+        { id: "B", name: "B", role: "overlay" as const },
       ],
     });
     const row = rowOf(ui, "A");
@@ -1350,7 +1349,7 @@ describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, ()
     ui.listPanel.activeIdx = getNavigableItems(ui).indexOf(row);
     row.classList.add(CONST.CLASSES.FOCUSED);
 
-    manager.registerLayer({ id: "H", name: "H", group: "overlay" });
+    manager.registerLayer({ id: "H", name: "H", role: "overlay" });
 
     // The color basemap joins the registry at attach as the base-group tail.
     expect(manager.layers.map(l => l.id)).toEqual([
@@ -1369,8 +1368,8 @@ describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, ()
   it("a late registration behind the active row changes nothing", () => {
     const { manager, ui } = initFixture({
       data: [
-        { id: "A", name: "A", group: "overlay" as const },
-        { id: "B", name: "B", group: "overlay" as const },
+        { id: "A", name: "A", role: "overlay" as const },
+        { id: "B", name: "B", role: "overlay" as const },
       ],
     });
     const row = rowOf(ui, "A");
@@ -1379,7 +1378,7 @@ describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, ()
 
     // A base registration lands in the trailing base section, below every
     // overlay row — the active row keeps its index and its ledgers.
-    manager.registerLayer({ id: "tile", name: "tile", group: "base" });
+    manager.registerLayer({ id: "tile", name: "tile", role: "base" });
 
     const ledger = cursorLedger(ui);
     expect(ledger.active).toBe("A");
@@ -1391,9 +1390,9 @@ describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, ()
   it("removing a row above the active row keeps every ledger on it", () => {
     const { manager, ui } = initFixture({
       data: [
-        { id: "A", name: "A", group: "overlay" as const },
-        { id: "B", name: "B", group: "overlay" as const },
-        { id: "C", name: "C", group: "overlay" as const },
+        { id: "A", name: "A", role: "overlay" as const },
+        { id: "B", name: "B", role: "overlay" as const },
+        { id: "C", name: "C", role: "overlay" as const },
       ],
     });
     const row = rowOf(ui, "B");
@@ -1414,8 +1413,8 @@ describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, ()
   it("removing the active row clears the cursor and keeps one tab stop", () => {
     const { manager, ui } = initFixture({
       data: [
-        { id: "A", name: "A", group: "overlay" as const },
-        { id: "B", name: "B", group: "overlay" as const },
+        { id: "A", name: "A", role: "overlay" as const },
+        { id: "B", name: "B", role: "overlay" as const },
       ],
     });
     const row = rowOf(ui, "A");
@@ -1430,7 +1429,7 @@ describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, ()
     expect(ui.listPanel.activeIdx).toBeNull();
     const ledger = cursorLedger(ui);
     expect(ledger.marked).toBeNull();
-    expect(ledger.tabStops).toEqual(["group:overlay"]);
+    expect(ledger.tabStops).toEqual(["role:overlay"]);
     expect(document.activeElement).toBe(document.body);
   });
 });

@@ -115,7 +115,7 @@ class TestExportRenderBrowser:
             assert len(api_layers) > 0, f"No layers in API. errors={errors}"
 
             overlay_layers = [
-                l for l in api_layers if l["group"] != "base" and l["visible"]
+                l for l in api_layers if l["role"] != "base" and l["visible"]
             ]
             assert len(overlay_layers) > 0, (
                 f"No visible overlay layers. api={api_layers} errors={errors}"

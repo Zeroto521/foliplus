@@ -254,7 +254,7 @@ class PaneManager {
       // (which may never come if LayerControl is absent).
       const spec = this.paneSpecs.get(paneName);
       if (spec) {
-        pane.style.zIndex = String(zFor({ role: spec.role, order: spec.order }));
+        pane.style.zIndex = String(zFor({ paneRole: spec.role, order: spec.order }));
       }
       this.paneLedger.claim(paneName, owner, true);
     } else {

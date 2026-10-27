@@ -4,7 +4,7 @@
 // the individual handler suites already exercise).
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
-import { GROUP } from "#core/layer/index.js";
+import { ROLE } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { type LayerController } from "#foliplus/LayerControl/controller.js";
 import type { LayerDimension } from "#foliplus/LayerControl/type.js";
@@ -71,7 +71,7 @@ describe("LayerUI lifecycle — defensive rails", () => {
       const orphan = document.createElement("input");
       orphan.type = "checkbox";
       orphan.setAttribute("data-role", "toggle-all");
-      orphan.dataset.group = GROUP.OVERLAY;
+      orphan.dataset.role = ROLE.OVERLAY;
       // Fire a synthetic event directly at the ui.onChange handler, bypassing
       // the container delegation (the container listener would only see it if
       // the checkbox were inside uiContainer, which is the case we already
@@ -80,15 +80,15 @@ describe("LayerUI lifecycle — defensive rails", () => {
       expect(orphan.checked).toBe(false);
     });
 
-    it("onChange: a toggle-all row without data-group falls back to empty group", () => {
-      // Covers the ?? "" fallback on the row's data-group: toggleAll must be
+    it("onChange: a toggle-all row without data-role falls back to empty role", () => {
+      // Covers the ?? "" fallback on the row's data-role: toggleAll must be
       // called with the empty string, not undefined, when the row is misconfigured.
       const toggleAllSpy = vi.mocked(toggleAll);
 
       const row = attachedPanel(ui).querySelector(
-        `${CONST.SEL.TOGGLE_ALL}[data-group="${GROUP.OVERLAY}"]`,
+        `${CONST.SEL.TOGGLE_ALL}[data-role="${ROLE.OVERLAY}"]`,
       ) as HTMLElement;
-      row.removeAttribute("data-group");
+      row.removeAttribute("data-role");
       const checkbox = row.querySelector('input[type="checkbox"]') as HTMLInputElement;
       checkbox.checked = true;
       checkbox.dispatchEvent(new Event("change", { bubbles: true }));
@@ -113,13 +113,13 @@ describe("LayerUI lifecycle — defensive rails", () => {
       expect(setIndexSpy).not.toHaveBeenCalled();
     });
 
-    it("onClick: a toggle-all row without data-group toggles the empty group", () => {
+    it("onClick: a toggle-all row without data-role toggles the empty group", () => {
       const toggleFoldSpy = vi.mocked(toggleFold);
 
       const row = attachedPanel(ui).querySelector(
-        `${CONST.SEL.TOGGLE_ALL}[data-group="${GROUP.OVERLAY}"]`,
+        `${CONST.SEL.TOGGLE_ALL}[data-role="${ROLE.OVERLAY}"]`,
       ) as HTMLElement;
-      row.removeAttribute("data-group");
+      row.removeAttribute("data-role");
       // Click the row's fold button (a descendant that is not itself a toggle
       // control), so the second guard `el.closest('[data-role="toggle-all"]')`
       // is false and we reach the toggleFold call.
@@ -549,7 +549,7 @@ it("an init pass announces after the label replay has landed", () => {
   const layer = polygonLayer();
   let labelsAtDelivery: number | null = null;
   const { manager } = initFixture({
-    data: [{ id: "overlay1", name: "Polygons", group: "overlay", layer }],
+    data: [{ id: "overlay1", name: "Polygons", role: "overlay", layer }],
     afterAttach: (m, u) => {
       const onMap = trackMembership(m.map);
       onMap.set(layer, true);
@@ -642,11 +642,11 @@ describe("onLayerItemCountChange — the registry replays", () => {
   const withGroup = (children: any[]) =>
     initFixture({
       data: [
-        { id: "grp1", name: "G", group: "overlay", layer: groupWith(children) },
+        { id: "grp1", name: "G", role: "overlay", layer: groupWith(children) },
         {
           id: "base1",
           name: "OSM",
-          group: "base",
+          role: "base",
           layer: { options: {}, setZIndex: vi.fn() } as never,
           paneName: "tilePane",
         },
