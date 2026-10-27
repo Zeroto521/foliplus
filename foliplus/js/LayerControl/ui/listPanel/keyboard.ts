@@ -9,7 +9,7 @@ import * as CONST from "#foliplus/LayerControl/const.js";
 import { SCHEME_PICKER_PORTAL_SELECTOR } from "#common/schemePicker.js";
 import { inFloatingPanel } from "../context.js";
 import { showFocusDisabledHint, toggleFocusedLayer } from "../focus/index.js";
-import { activateDeleteItem } from "../overlayPanel/menu.js";
+import { runMenuAction } from "../overlayPanel/menu.js";
 import type { LayerUI } from "../surface.js";
 import {
   blurActiveItem,
@@ -235,31 +235,11 @@ const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
       if (menuLi && ui.overlayPanel.activeMenu) {
         event.preventDefault();
         event.stopPropagation();
-        const action = menuLi.getAttribute("data-action") ?? "";
-        if (menuLi.getAttribute("disabled")) {
-          // The entry's own title carries the reason (no useful extent, hidden
-          // row, no labelable fields, color basemap cannot be deleted), so it
-          // is the hint too — a fixed "cannot focus" string would be wrong for
-          // every disabled entry but focus. Every menu builder sets a title, so
-          // an entry without one has nothing to say.
-          const reason = menuLi.getAttribute("title");
-          if (reason) {
-            ui.c.map.foliplus!.showHint(ui.config.name, reason, HINT_DURATION.SHORT);
-          }
-          break;
-        }
-        if (action === CONST.ACTION.DELETE_LAYER) {
-          // Armed in place like the click path: the first Enter arms, the
-          // second deletes. While armed the menu stays open.
-          if (activateDeleteItem(ui, menuLi)) ui.closeMoreMenu(true);
-          break;
-        }
-        if (action === CONST.ACTION.RENAME_LAYER) {
-          ui.renameLayer(ui.overlayPanel.activeMenu.layerId);
-        } else {
-          ui.focusLayer(ui.overlayPanel.activeMenu.layerId);
-          ui.closeMoreMenu(true);
-        }
+        // One shared dispatch table for click and keyboard: the entry's own
+        // action runs, never a fallback to focus-layer. A disabled entry keeps
+        // the menu open and surfaces its title as a hint (a keyboard user gets
+        // no tooltip hover).
+        runMenuAction(ui, menuLi, { explainDisabled: true });
         break;
       }
       event.preventDefault();
