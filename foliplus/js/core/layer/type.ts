@@ -980,8 +980,6 @@ type LayerMutation =
 
 export type {
   CreateCanvasAPI,
-  FillAuthor,
-  FillAuthorField,
   CreateCanvasOpts,
   CreateColorAPI,
   CreateColorOpts,
