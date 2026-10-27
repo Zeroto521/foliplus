@@ -2111,6 +2111,34 @@ describe("MeasureManager — type filter", () => {
     expect((manager as any).itemVisible.has("missing")).toBe(false);
   });
 
+  it("drops leaves a repaint path replaced or removed", () => {
+    const { manager, map } = makeManager();
+    addMeasurements(manager);
+    const opts = createLayersOpts(map);
+    const leafA = { options: { pane: "label" } } as unknown as unknown;
+    // Distinct pane options: toHaveBeenCalledWith compares structurally, so
+    // two identical leaves would make the "not called with" assertion match.
+    const leafB = { options: { pane: "graph" } } as unknown as unknown;
+    manager.registerItemLayers("m2", [leafA, leafB]);
+
+    manager.removeItemLeaves("m2", [leafA]);
+    expect((manager as any).itemLeaves.get("m2")).toEqual([leafB]);
+
+    const addLayer = vi.spyOn(manager.layers, "addLayer");
+    addLayer.mockClear();
+    // A full hide/show replay must not resurrect the detached leaf.
+    opts.filterSetter(filter([CONST.MEASURE_MODE.MARKER]));
+    opts.filterSetter(undefined);
+    expect(addLayer).toHaveBeenCalledWith(leafB);
+    expect(addLayer).not.toHaveBeenCalledWith(leafA);
+
+    // Empty, null-only and unknown inputs are no-ops.
+    expect(() => manager.removeItemLeaves("m2", [])).not.toThrow();
+    expect(() => manager.removeItemLeaves("m2", [null, undefined])).not.toThrow();
+    expect((manager as any).itemLeaves.get("m2")).toEqual([leafB]);
+    expect(() => manager.removeItemLeaves("missing", [leafA])).not.toThrow();
+  });
+
   it("replays the filter after an attach path re-adds a hidden leaf", () => {
     const { manager, map } = makeManager();
     addMeasurements(manager);

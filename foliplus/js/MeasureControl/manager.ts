@@ -374,6 +374,23 @@ class MeasureManager {
     this.refreshItemVisibility(id);
   }
 
+  /** Drop leaves a repaint path replaced or removed (a rebuilt label, a
+   *  deleted node), so a later visibility replay cannot resurrect detached
+   *  nodes. */
+  removeItemLeaves(
+    id: string,
+    leaves: ReadonlyArray<L.Layer | null | undefined>,
+  ): void {
+    const current = this.itemLeaves.get(id);
+    if (!current || leaves.length === 0) return;
+    const gone = new Set(leaves.filter((leaf): leaf is L.Layer => Boolean(leaf)));
+    if (gone.size === 0) return;
+    this.itemLeaves.set(
+      id,
+      current.filter(leaf => !gone.has(leaf)),
+    );
+  }
+
   /** Re-apply the committed filter to one measurement's current leaf set.
    *  Attach paths that rebuild or re-add leaves (z-order churn, relabelling)
    *  call this so a hidden measurement cannot reappear behind the filter. */

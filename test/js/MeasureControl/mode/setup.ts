@@ -152,6 +152,7 @@ export function makeManagerMock(): MeasureManager {
     // tests only need the registration to be a no-op.
     registerItemLayers: vi.fn(),
     addItemLeaves: vi.fn(),
+    removeItemLeaves: vi.fn(),
     refreshItemVisibility: vi.fn(),
     forgetItemLayers: vi.fn(),
     registerFinalized: vi.fn((cleanup: () => void, id?: string) => {

@@ -88,6 +88,7 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
   const relabel = () => {
     const area = Util.area(points);
     Util.setLabelText(centroidLabel, Util.formatArea(area));
+    const replacedLabels = segLabels.slice();
     segLabels.forEach(l => layers.removeLayer(l));
     segLabels.length = 0;
     const n = points.length;
@@ -107,8 +108,10 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
     }
     unregisterSegLabels();
     unregisterSegLabels = bindSegmentLabels(mgr, segLabels);
-    // Rebuilt labels are new leaves: hand them to the visibility set so an
-    // active filter keeps the measurement hidden while it is being edited.
+    // Rebuilt labels are new leaves: drop the replaced ones and hand the new
+    // ones to the visibility set, so neither a later show replay resurrects
+    // the detached labels nor a filtered measurement repaints them.
+    mgr.removeItemLeaves(id, replacedLabels);
     mgr.addItemLeaves(id, segLabels);
     const centroid = Util.vertexMean(points);
     centroidDot.setLatLng(centroid);
@@ -185,6 +188,7 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
             if (ptIdx === -1) return;
             points.splice(ptIdx, 1);
             layers.removeLayer(node, delMarker);
+            mgr.removeItemLeaves(id, [node, delMarker]);
             nodeMarkers.splice(ptIdx, 1);
             nodeDelMarkers.splice(ptIdx, 1);
             dragBinds.splice(ptIdx, 1)[0]?.cleanup();
