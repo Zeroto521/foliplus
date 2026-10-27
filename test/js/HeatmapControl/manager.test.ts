@@ -2608,3 +2608,71 @@ describe("HeatmapControl source content signal (LayerAPI integration)", () => {
     expect((mgr as any).cachedFeatures).toBeNull();
   });
 });
+
+describe("declared starting layer/field (Python layer=/field=)", () => {
+  type WarnSpyable = { log: { warn: (...args: unknown[]) => void } };
+  const spyWarn = (m: unknown) =>
+    vi.spyOn((m as WarnSpyable).log, "warn").mockImplementation(() => {});
+
+  it("resolves the declared layer name against the scanned point layers", () => {
+    const m = makeManager({ layer: "Facility Points" });
+    m.pointLayers = [{ id: "p1", name: "Facility Points", layer: null, count: 1 }];
+    expect(m.resolveDeclaredLayer()).toBe("p1");
+  });
+
+  it("ignores the declaration once a persisted record consumed the guard", () => {
+    const m = makeManager({ layer: "Facility Points" });
+    m.pointLayers = [{ id: "p1", name: "Facility Points", layer: null, count: 1 }];
+    // applySavedConfig sets this for ANY stored record — including one where
+    // the user explicitly cleared the selection.
+    m.hasScanned = true;
+    expect(m.resolveDeclaredLayer()).toBeNull();
+  });
+
+  it("warns once when the declared layer is not a point layer", () => {
+    const m = makeManager({ layer: "Missing" });
+    const warn = spyWarn(m);
+    m.pointLayers = [{ id: "p1", name: "Other", layer: null, count: 1 }];
+    expect(m.resolveDeclaredLayer()).toBeNull();
+    expect(m.resolveDeclaredLayer()).toBeNull();
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0][0])).toContain("declared layer not found");
+  });
+
+  it("resolves the declared field only when the layer offers it", () => {
+    const m = makeManager({ field: "score" });
+    expect(m.resolveDeclaredField(["count", "score"])).toBe("score");
+    expect(m.resolveDeclaredField(["count"])).toBeNull();
+  });
+
+  it("warns once when the declared field is not offered", () => {
+    const m = makeManager({ field: "score" });
+    const warn = spyWarn(m);
+    expect(m.resolveDeclaredField(["count"])).toBeNull();
+    expect(m.resolveDeclaredField(["count"])).toBeNull();
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0][0])).toContain("declared field not found");
+  });
+
+  it("re-opens the guard on Reset so the declaration applies again", () => {
+    const m = makeManager({ layer: "Facility Points" });
+    m.pointLayers = [{ id: "p1", name: "Facility Points", layer: null, count: 1 }];
+    // A record consumed the guard...
+    m.hasScanned = true;
+    expect(m.resolveDeclaredLayer()).toBeNull();
+    // ...and Reset (the Clear path) deletes that record, so the declaration is
+    // the starting state again: the next rebuild may apply it.
+    m.resetState({} as never);
+    expect(m.hasScanned).toBe(false);
+    expect(m.resolveDeclaredLayer()).toBe("p1");
+  });
+
+  it("treats a non-string declaration as absent instead of matching it", () => {
+    // CONFIG is a JSON bridge, but a hand-written CONFIG (or an older bundle)
+    // must not make the scan compare against a non-string name.
+    const m = makeManager({ layer: 3, field: {} });
+    m.pointLayers = [{ id: "p1", name: "3", layer: null, count: 1 }];
+    expect(m.resolveDeclaredLayer()).toBeNull();
+    expect(m.resolveDeclaredField(["3"])).toBeNull();
+  });
+});
