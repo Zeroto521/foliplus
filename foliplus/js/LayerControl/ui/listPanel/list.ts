@@ -1,5 +1,5 @@
 // LayerControl UI — Layer row structure / list layout / insert / reindex.
-import { GROUP } from "#core/layer/index.js";
+import { ROLE } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import * as SVGs from "#foliplus/LayerControl/icon.js";
 import { finishSlidersIn } from "#foliplus/LayerControl/slider.js";
@@ -29,7 +29,7 @@ import { syncNoBasemap, syncToggleAll } from "./visibility.js";
  *  `rebuildList` — finish their own rows, counts and readiness first, and only
  *  they know when that is done. */
 const initTypesAndVisibility = (ui: LayerUI): ProjectionBatch => {
-  // The color basemap is a first-class base-group layer: `getColorSurface`
+  // The color basemap is a first-class base-role layer: `getColorSurface`
   // registers it and returns the surface; a re-run is a no-op. Only after the
   // registry entry exists is its author default marked hidden — the entry is
   // what `setAuthorVisible` keys on.
@@ -57,8 +57,8 @@ const initTypesAndVisibility = (ui: LayerUI): ProjectionBatch => {
     initLayerItem(ui, ui.c.layers[i]);
   }
   ui.c.enforceOrder();
-  syncToggleAll(ui, GROUP.OVERLAY);
-  syncToggleAll(ui, GROUP.BASE);
+  syncToggleAll(ui, ROLE.OVERLAY);
+  syncToggleAll(ui, ROLE.BASE);
   syncNoBasemap(ui);
   // enforceOrder may have moved rows; keep roving tabindex aligned.
   syncListCursor(ui);
@@ -149,7 +149,7 @@ const restoreFocusAfterDuplicate = (
   if (focusIfPossible(survivor)) return;
   // Browser-only defense: a surviving row IS focusable by construction
   // (rows render `tabindex="0"`), so this rung is reached only when the
-  // survivor is not rendered — a duplicate inside a folded group, where the
+  // survivor is not rendered — a duplicate inside a folded role, where the
   // engine refuses focus on a `display: none` subtree. jsdom applies no
   // stylesheet, so the suite stages that refusal with an inline style
   // ("walks to a visible neighbour when the surviving duplicate is folded"),
@@ -184,7 +184,7 @@ const restoreFocusAfterDuplicate = (
 /** Repair one duplicated node — a layer row or a toggle-all anchor: finish an
  *  in-flight slider edit, carry the cursor and DOM focus onto the surviving
  *  later node, then drop the earlier one. The pair names the same layer (or
- *  group), so the cursor can move to the survivor without re-resolving an
+ *  role), so the cursor can move to the survivor without re-resolving an
  *  identity that is about to change position. Focus returns to the same
  *  descendant path when the clone still carries it; `focusFallback` covers a
  *  stripped clone. */
@@ -239,7 +239,7 @@ const removeDuplicateNode = (
  *  where membership is unchanged and only positions shift.
  *
  *  The target sequence is exactly what `renderInitialList` would emit: each
- *  group's toggle-all anchor ahead of that group's first row, rows in
+ *  role's toggle-all anchor ahead of that role's first row, rows in
  *  registry order. A row already sitting behind its predecessor is left
  *  alone (`previousElementSibling` check — no write, no reflow), so a
  *  typical moveLayerUp/Down relocates one node and an in-order list costs
@@ -290,20 +290,20 @@ const syncRowOrder = (ui: LayerUI): void => {
       }
       rows.set(id, el);
     } else if (el.classList.contains(CONST.CLASSES.TOGGLE_ALL)) {
-      const group = el.getAttribute("data-group");
-      if (group) {
-        const previous = anchors.get(group);
+      const role = el.getAttribute("data-role");
+      if (role) {
+        const previous = anchors.get(role);
         if (previous) {
           // Same repair rule as rows: the later anchor is the one the newest
           // pass mounted, so the earlier duplicate must not stay behind to
           // intercept clicks. The shared helper moves the cursor when the
           // anchor was active and returns focus to the same fold control.
-          ui.log?.warn(`syncRowOrder: duplicate toggle-all anchor for "${group}"`);
+          ui.log?.warn(`syncRowOrder: duplicate toggle-all anchor for "${role}"`);
           removeDuplicateNode(ui, previous, el, () =>
             el.querySelector<HTMLElement>("input, button, [tabindex]"),
           );
         }
-        anchors.set(group, el);
+        anchors.set(role, el);
       }
     }
   }
@@ -313,16 +313,16 @@ const syncRowOrder = (ui: LayerUI): void => {
   let hasOverlays = false;
   for (const layerInfo of ui.c.layers) {
     // Anchor names follow renderInitialList's grouping: every non-base
-    // group rides the OVERLAY anchor, so base maps stay a trailing section.
-    if (layerInfo.group !== GROUP.BASE && !hasOverlays) {
+    // role rides the OVERLAY anchor, so base maps stay a trailing section.
+    if (layerInfo.role !== ROLE.BASE && !hasOverlays) {
       hasOverlays = true;
-      const anchor = anchors.get(GROUP.OVERLAY);
+      const anchor = anchors.get(ROLE.OVERLAY);
       if (anchor) targets.push(anchor);
       else ui.log?.warn("syncRowOrder: overlay rows present, anchor missing");
     }
-    if (layerInfo.group === GROUP.BASE && !hasBaseMaps) {
+    if (layerInfo.role === ROLE.BASE && !hasBaseMaps) {
       hasBaseMaps = true;
-      const anchor = anchors.get(GROUP.BASE);
+      const anchor = anchors.get(ROLE.BASE);
       if (anchor) targets.push(anchor);
       else ui.log?.warn("syncRowOrder: base rows present, anchor missing");
     }
@@ -385,7 +385,7 @@ const renderInitialList = (ui: LayerUI) => {
   if (!container) return;
   // Remember the cursor by identity — the item elements are rebuilt below,
   // so an element reference would dangle. Layer rows key on data-layer-id,
-  // toggle-all rows on data-group (they have no layer id). The identity also
+  // toggle-all rows on data-role (they have no layer id). The identity also
   // tracks the row through a reorder. Null means the cursor was never
   // established or Escape cleared it, and either way it should stay cleared.
   const ref = cursorRef(ui);
@@ -394,17 +394,17 @@ const renderInitialList = (ui: LayerUI) => {
   let hasOverlays = false;
 
   for (const layerInfo of ui.c.layers) {
-    if (layerInfo.group !== GROUP.BASE && !hasOverlays) {
+    if (layerInfo.role !== ROLE.BASE && !hasOverlays) {
       hasOverlays = true;
-      frag.appendChild(renderToggleAllRow(ui, GROUP.OVERLAY, "data_layer_label"));
+      frag.appendChild(renderToggleAllRow(ui, ROLE.OVERLAY, "data_layer_label"));
     }
-    if (layerInfo.group === GROUP.BASE && !hasBaseMaps) {
+    if (layerInfo.role === ROLE.BASE && !hasBaseMaps) {
       hasBaseMaps = true;
-      frag.appendChild(renderToggleAllRow(ui, GROUP.BASE, "base_map_label"));
+      frag.appendChild(renderToggleAllRow(ui, ROLE.BASE, "base_map_label"));
     }
-    const group = layerInfo.group;
+    const role = layerInfo.role;
     const item = renderLayerItem(ui, layerInfo);
-    if (ui.listPanel.foldedGroups.has(group)) {
+    if (ui.listPanel.foldedRoles.has(role)) {
       item.classList.add(CONST.CLASSES.GROUP_FOLDED);
     }
     frag.appendChild(item);
@@ -418,7 +418,7 @@ const renderInitialList = (ui: LayerUI) => {
   // panel owns a scheme picker (a portaled dropdown plus its document
   // listeners), and dropping the card with innerHTML would leave that picker
   // alive against a trigger that no longer exists. The narrow closes keep the
-  // focus spotlight and the menu untouched — folding a group or reordering the
+  // focus spotlight and the menu untouched — folding a role or reordering the
   // list is not a reason to clear the map highlight.
   closeStylePanel(ui, false);
   closeAttrsPanel(ui, false);
@@ -457,12 +457,12 @@ const insertLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
   // ledger would hand the cursor, marker and tab stop to the newcomer while
   // DOM focus stayed on the row the user is actually in.
   const ref = cursorRef(ui);
-  const group = layerInfo.group;
+  const role = layerInfo.role;
 
   const anchorSel =
-    group === GROUP.BASE
-      ? `${CONST.SEL.LAYER_ITEM}[data-layer-type="${GROUP.BASE}"]`
-      : `${CONST.SEL.LAYER_ITEM}:not([data-layer-type="${GROUP.BASE}"])`;
+    role === ROLE.BASE
+      ? `${CONST.SEL.LAYER_ITEM}[data-layer-type="${ROLE.BASE}"]`
+      : `${CONST.SEL.LAYER_ITEM}:not([data-layer-type="${ROLE.BASE}"])`;
   const firstOfGroup = container.querySelector(anchorSel);
 
   const frag = document.createDocumentFragment();
@@ -470,13 +470,13 @@ const insertLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
     frag.appendChild(
       renderToggleAllRow(
         ui,
-        group,
-        group === GROUP.BASE ? "base_map_label" : "data_layer_label",
+        role,
+        role === ROLE.BASE ? "base_map_label" : "data_layer_label",
       ),
     );
   }
   const item = renderLayerItem(ui, layerInfo);
-  if (ui.listPanel.foldedGroups.has(group)) {
+  if (ui.listPanel.foldedRoles.has(role)) {
     item.classList.add(CONST.CLASSES.GROUP_FOLDED);
   }
   frag.appendChild(item);
@@ -486,19 +486,19 @@ const insertLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
     // OVERLAY inserts before the first base row; when none exists, append at
     // the end.
     const nextAnchor = container.querySelector(
-      `${CONST.SEL.LAYER_ITEM}[data-layer-type="${GROUP.BASE}"]`,
+      `${CONST.SEL.LAYER_ITEM}[data-layer-type="${ROLE.BASE}"]`,
     );
     if (nextAnchor) container.insertBefore(frag, nextAnchor);
     else container.appendChild(frag);
   } else {
-    // The row lands where the registry put the layer, not at the group's top: a
+    // The row lands where the registry put the layer, not at the role's top: a
     // late registration replayed onto a stored slot must sit at that depth in
     // the panel too, so the panel's visual order matches the drawn z-order.
     // The neighbor above is used rather than the one below so the last row of
-    // a group has something to anchor on at all.
+    // a role has something to anchor on at all.
     const above = idx > 0 ? ui.c.layers[idx - 1] : null;
     const anchor =
-      above?.group === layerInfo.group
+      above?.role === layerInfo.role
         ? container.querySelector(`[${CONST.DATA.LAYER_ID}="${CSS.escape(above.id)}"]`)
         : null;
     if (anchor) anchor.after(frag);
@@ -534,8 +534,8 @@ const updateLayerItemLabel = (ui: LayerUI, layerInfo: LayerInfo) => {
   updateItemLabel(item, displayName(ui, layerInfo.id));
 };
 
-const renderToggleAllRow = (ui: LayerUI, group: string, labelKey: string) => {
-  const isFolded = ui.listPanel.foldedGroups.has(group);
+const renderToggleAllRow = (ui: LayerUI, role: string, labelKey: string) => {
+  const isFolded = ui.listPanel.foldedRoles.has(role);
   return dom.el(
     "div",
     {
@@ -543,7 +543,7 @@ const renderToggleAllRow = (ui: LayerUI, group: string, labelKey: string) => {
         `${CONST.CLASSES.FOLD_BTN_CTR} ${CONST.CLASSES.TOGGLE_ALL}` +
         (isFolded ? ` ${CONST.CLASSES.FOLDED}` : ""),
       tabindex: "0",
-      "data-group": group,
+      "data-role": role,
       title: ui.T(isFolded ? "unfold_tooltip" : "fold_tooltip"),
     },
     dom.el(
@@ -630,7 +630,7 @@ const renderLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
       draggable: "true",
       tabindex: "0",
       [CONST.DATA.LAYER_ID]: layerInfo.id,
-      "data-layer-type": layerInfo.group,
+      "data-layer-type": layerInfo.role,
     },
     ...children,
   );
@@ -668,7 +668,7 @@ const initLayerItem = (ui: LayerUI, layerInfo: LayerInfo): boolean => {
   // that runs before this row lands, so the visible mirror here matches
   // what the map actually shows.
 
-  return cell.shown && layerInfo.group === GROUP.BASE;
+  return cell.shown && layerInfo.role === ROLE.BASE;
 };
 
 /**

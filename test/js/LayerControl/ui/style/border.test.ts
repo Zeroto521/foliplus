@@ -139,7 +139,7 @@ describe("layerCanBorder", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.listPanel.foldedGroups = new Set();
+    ui.listPanel.foldedRoles = new Set();
     seedIntentMap(ui, "visible", {});
   });
 
@@ -296,7 +296,7 @@ describe("authoredBorder", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.listPanel.foldedGroups = new Set();
+    ui.listPanel.foldedRoles = new Set();
     seedIntentMap(ui, "visible", {});
   });
 
@@ -378,7 +378,7 @@ describe("commit pipeline", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.listPanel.foldedGroups = new Set();
+    ui.listPanel.foldedRoles = new Set();
     seedIntentMap(ui, "visible", {});
   });
 
@@ -559,7 +559,7 @@ describe("bindBorderRow", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.listPanel.foldedGroups = new Set();
+    ui.listPanel.foldedRoles = new Set();
     seedIntentMap(ui, "visible", {});
   });
 
@@ -620,7 +620,7 @@ describe("resetLayerBorder", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.listPanel.foldedGroups = new Set();
+    ui.listPanel.foldedRoles = new Set();
     seedIntentMap(ui, "visible", {});
   });
 
@@ -824,7 +824,7 @@ describe("highlight restore", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.listPanel.foldedGroups = new Set();
+    ui.listPanel.foldedRoles = new Set();
     seedIntentMap(ui, "visible", {});
   });
 
@@ -997,7 +997,7 @@ describe("applyBorderToLayer", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.listPanel.foldedGroups = new Set();
+    ui.listPanel.foldedRoles = new Set();
     seedIntentMap(ui, "visible", {});
   });
 
@@ -1079,7 +1079,7 @@ describe("buildBorderRow", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.listPanel.foldedGroups = new Set();
+    ui.listPanel.foldedRoles = new Set();
     seedIntentMap(ui, "visible", {});
   });
 
@@ -1254,7 +1254,7 @@ describe("border apply scheduler (drag coalesce)", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.listPanel.foldedGroups = new Set();
+    ui.listPanel.foldedRoles = new Set();
     seedIntentMap(ui, "visible", {});
   });
 
@@ -1553,11 +1553,11 @@ describe("border apply scheduler (drag coalesce)", () => {
 });
 
 // The base layer every content-change fixture carries — the hook's early
-// return for GROUP.BASE must not be what keeps a replay from running.
+// return for ROLE.BASE must not be what keeps a replay from running.
 const BASE_LAYER = {
   id: "base1",
   name: "OSM",
-  group: "base",
+  role: "base",
   layer: { options: {}, setZIndex: vi.fn() } as never,
   paneName: "tilePane",
 };
@@ -1588,7 +1588,7 @@ describe("content-change replay", () => {
     const children = [early];
     ({ manager, ui } = initFixture({
       data: [
-        { id: "grp1", name: "G", group: "overlay", layer: groupWith(children) },
+        { id: "grp1", name: "G", role: "overlay", layer: groupWith(children) },
         BASE_LAYER,
       ],
     }));
@@ -1622,7 +1622,7 @@ describe("content-change replay", () => {
     const children = [early];
     ({ manager, ui } = initFixture({
       data: [
-        { id: "grp1", name: "G", group: "overlay", layer: groupWith(children) },
+        { id: "grp1", name: "G", role: "overlay", layer: groupWith(children) },
         BASE_LAYER,
       ],
     }));
@@ -1645,7 +1645,7 @@ describe("content-change replay", () => {
   it("does nothing when the user never chose a border", () => {
     const leaf = makeLeaf("#112233", 3);
     ({ manager, ui } = initFixture({
-      data: [{ id: "o1", name: "O", group: "overlay", layer: leaf }, BASE_LAYER],
+      data: [{ id: "o1", name: "O", role: "overlay", layer: leaf }, BASE_LAYER],
     }));
     ensureEvents(ui.c.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "o1" });
     flushStyleDimApply(FACE.STROKE, "o1");

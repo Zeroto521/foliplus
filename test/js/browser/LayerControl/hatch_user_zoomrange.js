@@ -16,7 +16,7 @@ async () => {
   const wait = ms => new Promise(r => setTimeout(r, ms));
   const hasHatch = () => container.classList.contains("foliplus-no-base-map");
 
-  const bases = api.layers.filter(l => l.group === "base" && l.id !== COLOR_ID);
+  const bases = api.layers.filter(l => l.role === "base" && l.id !== COLOR_ID);
   if (bases.length !== 1) {
     return { error: `expected 1 real tile base, got ${bases.length}` };
   }

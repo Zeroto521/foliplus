@@ -12,10 +12,10 @@
   );
   const activeItem = panel.querySelector(".foliplus-is-focused-row");
   const focusedId = activeItem
-    ? activeItem.getAttribute("data-layer-id") || activeItem.getAttribute("data-group")
+    ? activeItem.getAttribute("data-layer-id") || activeItem.getAttribute("data-role")
     : null;
   const expectedId = items[1]
-    ? items[1].getAttribute("data-layer-id") || items[1].getAttribute("data-group")
+    ? items[1].getAttribute("data-layer-id") || items[1].getAttribute("data-role")
     : null;
   return {
     focusedElement: focusedId,
