@@ -76,6 +76,14 @@ class CircleMode extends PreviewMode {
       CONST.PANES.LABEL,
     ) as L.Marker;
 
+    mgr.registerItemLayers(data.id!, [
+      circle,
+      radiusLine,
+      radiusNode,
+      centerFinal,
+      delMarker,
+      radiusLabel,
+    ]);
     attachCircleUI(mgr, {
       layers: mgr.layers,
       circle,
@@ -288,6 +296,14 @@ class CircleMode extends PreviewMode {
         area: Math.PI * r * r,
       });
 
+      this.mgr.registerItemLayers(circleId, [
+        circle,
+        radiusLine,
+        radiusNode,
+        centerFinal,
+        delMarker,
+        radiusLabel,
+      ]);
       attachCircleUI(this.mgr, {
         layers: this.layers,
         circle: circle as L.Circle,

@@ -148,6 +148,10 @@ export function makeManagerMock(): MeasureManager {
     // Label collision wiring is exercised by collision.test.ts; the mode/UI
     // tests only need the registration to be a no-op that can be unregistered.
     registerLabel: vi.fn(() => () => {}),
+    // The filter capability tracks each measurement's rendered leaves; mode
+    // tests only need the registration to be a no-op.
+    registerItemLayers: vi.fn(),
+    forgetItemLayers: vi.fn(),
     registerFinalized: vi.fn((cleanup: () => void, id?: string) => {
       const key = id ?? "";
       editHandles.set(key, { ...editHandles.get(key), dispose: cleanup });

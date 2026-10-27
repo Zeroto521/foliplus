@@ -6,6 +6,7 @@
   "MeasureControl.tool_distance": "测距",
   "MeasureControl.tool_polygon": "面积",
   "MeasureControl.tool_circle": "画圆",
+  "MeasureControl.filter_field_type": "类型",
   "MeasureControl.tool_clear": "清空",
   "MeasureControl.tool_export": "导出",
   "MeasureControl.tool_edit": "编辑",

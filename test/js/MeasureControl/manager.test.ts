@@ -33,13 +33,26 @@ vi.mock("#core/mode.js", async () => {
 
 // Shared mock LayerAPI factory — builds a CreateLayersAPI with spy methods.
 function mockLayerAPI() {
+  // The real mainLayer is a Leaflet LayerGroup; the filter's visibility path
+  // asks it which leaves are attached, so the mock tracks membership too.
+  const attached = new Set<unknown>();
   return {
     register: vi.fn(),
     unregister: vi.fn(),
     clearLayers: vi.fn(),
     addLayer: vi.fn(l => l),
     removeLayer: vi.fn(),
-    mainLayer: { addLayer: vi.fn() },
+    mainLayer: {
+      addLayer: vi.fn((leaf: unknown) => {
+        attached.add(leaf);
+        return leaf;
+      }),
+      removeLayer: vi.fn((leaf: unknown) => {
+        attached.delete(leaf);
+        return leaf;
+      }),
+      hasLayer: vi.fn((leaf: unknown) => attached.has(leaf)),
+    },
   };
 }
 
@@ -1871,5 +1884,155 @@ describe("MeasureManager — persistence guarantees", () => {
 
     expect((manager as any).currentMode).toBeNull();
     expect(manager.store.count()).toBe(1);
+  });
+});
+
+describe("MeasureManager — type filter", () => {
+  const createLayersOpts = (map: any): any =>
+    (map.foliplus.LayerAPI.createLayers.mock.calls as unknown[][])[0][0];
+
+  const addMeasurements = (manager: any): void => {
+    manager.store.add({ id: "m1", type: CONST.MEASURE_MODE.MARKER });
+    manager.store.add({ id: "m2", type: CONST.MEASURE_MODE.DISTANCE });
+    manager.store.add({ id: "m3", type: CONST.MEASURE_MODE.POLYGON });
+  };
+
+  const filter = (values: string[]): any => ({
+    kind: "enum",
+    field: CONST.FILTER.FIELD,
+    values,
+  });
+
+  it("exposes one enum dimension over the measurement types, counting items", () => {
+    const { manager, map } = makeManager();
+    addMeasurements(manager);
+    const provider = createLayersOpts(map).filterProvider;
+    const model = provider();
+
+    expect(model.dimensions).toHaveLength(1);
+    expect(model.dimensions[0]).toMatchObject({
+      kind: "enum",
+      field: CONST.FILTER.FIELD,
+      multi: true,
+      label: manager.T("filter_field_type"),
+    });
+    expect(model.dimensions[0].options.map((o: any) => o.value)).toEqual([
+      CONST.MEASURE_MODE.MARKER,
+      CONST.MEASURE_MODE.DISTANCE,
+      CONST.MEASURE_MODE.POLYGON,
+      CONST.MEASURE_MODE.CIRCLE,
+    ]);
+    expect(model.dimensions[0].options[0].label).toBe(manager.T("tool_marker"));
+    expect(model.filter).toBeUndefined();
+    expect(model.kept).toBe(3);
+    expect(model.total).toBe(3);
+    expect(manager.visibleMeasurements()).toHaveLength(3);
+  });
+
+  it("commits a valid type filter, drops invalid ones, and counts items", () => {
+    const { manager, map } = makeManager();
+    addMeasurements(manager);
+    const opts = createLayersOpts(map);
+    const provider = opts.filterProvider;
+
+    opts.filterSetter(filter([CONST.MEASURE_MODE.MARKER]));
+    const model = provider();
+    expect(model.filter).toEqual(filter([CONST.MEASURE_MODE.MARKER]));
+    expect(model.kept).toBe(1);
+    expect(model.total).toBe(3);
+    expect(manager.visibleMeasurements().map((m: any) => m.id)).toEqual(["m1"]);
+
+    // Unknown field / values outside the declared domain / empty selection all
+    // read as "no filter", never "hide everything".
+    opts.filterSetter({ kind: "enum", field: "other", values: ["marker"] });
+    expect(provider().filter).toBeUndefined();
+    expect(provider().kept).toBe(3);
+
+    opts.filterSetter(filter([CONST.MEASURE_MODE.MARKER]));
+    opts.filterSetter({ kind: "enum", field: CONST.FILTER.FIELD, values: ["unknown"] });
+    expect(provider().filter).toBeUndefined();
+
+    opts.filterSetter(undefined);
+    expect(provider().filter).toBeUndefined();
+    expect(provider().kept).toBe(3);
+  });
+
+  it("hides and restores a whole measurement through its registered leaves", () => {
+    const { manager, map } = makeManager();
+    addMeasurements(manager);
+    const opts = createLayersOpts(map);
+    const attached = new Set<unknown>();
+    const leafA = { options: { pane: "graph" } } as unknown as unknown;
+    const leafB = { options: { pane: "graph" } } as unknown as unknown;
+    Object.defineProperty(manager.layers, "mainLayer", {
+      configurable: true,
+      value: {
+        hasLayer: (leaf: unknown) => attached.has(leaf),
+        addLayer: vi.fn((leaf: unknown) => attached.add(leaf)),
+        removeLayer: vi.fn((leaf: unknown) => attached.delete(leaf)),
+      },
+    });
+    manager.registerItemLayers("m1", [leafA]);
+    manager.registerItemLayers("m2", [leafB]);
+    expect(attached.size).toBe(2);
+
+    opts.filterSetter(filter([CONST.MEASURE_MODE.MARKER]));
+    expect(attached.has(leafA)).toBe(true);
+    expect(attached.has(leafB)).toBe(false);
+
+    // A measurement finalized while the filter is active starts hidden.
+    const leafC = { options: { pane: "graph" } } as unknown as unknown;
+    manager.store.add({ id: "m4", type: CONST.MEASURE_MODE.CIRCLE });
+    manager.registerItemLayers("m4", [leafC]);
+    expect(attached.has(leafC)).toBe(false);
+
+    opts.filterSetter(undefined);
+    expect(attached.has(leafA)).toBe(true);
+    expect(attached.has(leafB)).toBe(true);
+    expect(attached.has(leafC)).toBe(true);
+  });
+
+  it("persists the filter under its own record and restores it on the next manager", () => {
+    const { manager, map } = makeManager();
+    addMeasurements(manager);
+    const opts = createLayersOpts(map);
+    opts.filterSetter(filter([CONST.MEASURE_MODE.DISTANCE]));
+
+    const key = (manager as any).filterStorageKey as string;
+    const record = JSON.parse(window.localStorage.getItem(key)!);
+    expect(record.version).toBe(CONST.FILTER.RECORD_VERSION);
+    expect(record.filter).toEqual(filter([CONST.MEASURE_MODE.DISTANCE]));
+
+    // Same map container + layer id -> the reloaded manager reads it back.
+    // The measurement list is cleared first so the reload does not rebuild the
+    // bare test rows (they carry no geometry); the filter record must survive.
+    window.localStorage.removeItem(CONST.STORAGE.KEY);
+    const { manager: reloaded, map: reloadedMap } = makeManager();
+    reloaded.store.add({ id: "m2", type: CONST.MEASURE_MODE.DISTANCE });
+    const reloadedModel = createLayersOpts(reloadedMap).filterProvider();
+    expect(reloadedModel.filter).toEqual(filter([CONST.MEASURE_MODE.DISTANCE]));
+    expect(reloadedModel.kept).toBe(1);
+    expect(reloadedModel.total).toBe(1);
+  });
+
+  it("ignores a corrupt filter record instead of taking the map down", () => {
+    const { manager } = makeManager();
+    const key = (manager as any).filterStorageKey as string;
+    window.localStorage.setItem(key, "not-json");
+    const { map: nextMap } = makeManager();
+    expect(createLayersOpts(nextMap).filterProvider().filter).toBeUndefined();
+  });
+
+  it("clearing every measurement also drops the committed filter", () => {
+    const { manager, map } = makeManager();
+    addMeasurements(manager);
+    const opts = createLayersOpts(map);
+    opts.filterSetter(filter([CONST.MEASURE_MODE.MARKER]));
+
+    manager.clearAll();
+
+    expect(createLayersOpts(map).filterProvider().filter).toBeUndefined();
+    const key = (manager as any).filterStorageKey as string;
+    expect(JSON.parse(window.localStorage.getItem(key)!).filter).toBeUndefined();
   });
 });
