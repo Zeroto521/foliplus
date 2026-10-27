@@ -122,10 +122,14 @@ def _open_heatmap_dropdown(page) -> None:
     if not expanded:
         page.evaluate(_js("HeatmapControl/click_toggle_button"))
         page.wait_for_selector(
-            ".foliplus-heatmap-ctrl.foliplus-is-expanded", state="attached", timeout=5000
+            ".foliplus-heatmap-ctrl.foliplus-is-expanded",
+            state="attached",
+            timeout=5000,
         )
         heatmap_ready(page)
-    page.wait_for_selector(".foliplus-heatmap-scheme-bar", state="visible", timeout=5000)
+    page.wait_for_selector(
+        ".foliplus-heatmap-scheme-bar", state="visible", timeout=5000
+    )
     box = _centre(page, ".foliplus-heatmap-scheme-bar")
     page.mouse.click(box["x"], box["y"])
     page.wait_for_selector(
@@ -211,9 +215,7 @@ class TestPickerCloseBrowser:
             assert state["heatmap"]["expanded"], state
             assert not errors, f"JS errors: {errors}"
 
-    def test_collapse_in_pseudo_fullscreen_closes_the_list(
-        self, browser, tmp_path
-    ):
+    def test_collapse_in_pseudo_fullscreen_closes_the_list(self, browser, tmp_path):
         with use_page(_make_page, browser, tmp_path) as (page, errors):
             entered = page.evaluate(_js("common/set_pseudo_fullscreen"), True)
             assert entered["ok"], entered
