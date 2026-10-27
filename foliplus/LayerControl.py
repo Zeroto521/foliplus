@@ -88,6 +88,31 @@ class LayerControl(BaseControl):
     >>> from foliplus import LayerControl
     >>> m = folium.Map()
     >>> LayerControl().add_to(m)
+
+    Notes
+    -----
+    A layer may declare its own label defaults on the layer itself:
+
+    >>> gdf.explore(
+    ...     foliplus={
+    ...         "annotation": {
+    ...             "field": "name",
+    ...             "color": "#1f78b4",
+    ...             "size": 14,
+    ...             "collide": False,
+    ...         }
+    ...     }
+    ... )
+
+    The declaration keys are ``field`` (the property to label; declaring it
+    turns labels on), ``format`` (number format), ``color`` (hex label
+    colour), ``size`` (label font size in px) and ``collide`` (whether this
+    layer's labels take part in overlap avoidance, default true). Keys stay
+    short because the ``annotation`` namespace already says label; the
+    ``label_`` prefix belongs to the flat surfaces (Python kwargs, CONF,
+    locale). A declaration is the author's default: a later choice in the
+    style panel is the user's intent and wins, and Reset shows the
+    declaration through again.
     """
 
     # Emitted by _extra_config at render time rather than set by a constructor

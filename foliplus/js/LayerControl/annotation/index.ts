@@ -105,7 +105,11 @@ const isDeclaredColor = (color: string): boolean =>
  *  absent so the default below it survives the merge; coercing a full config
  *  (`coerceAnnotationFields`, ui/style/label.ts) would read an undeclared
  *  `collide` as `true` and shadow the page-level `label_collide` — the author
- *  named one field and the whole page's avoidance silently changed. */
+ *  named one field and the whole page's avoidance silently changed.
+ *
+ *  Keys stay SHORT here because the `annotation` namespace already says
+ *  "label": the `label_` prefix belongs to the flat surfaces (Python kwargs,
+ *  CONF, locale), where `show`/`color` would collide with other parameters. */
 const pickDeclaredAnnotation = (
   raw: Partial<AnnotationConfig> | undefined,
 ): Partial<AnnotationConfig> => {
