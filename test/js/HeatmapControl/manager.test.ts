@@ -309,6 +309,17 @@ describe("HeatmapManager — caching & lifecycle", () => {
     expect(fields.filter(f => f === "options.value")).toHaveLength(1);
   });
 
+  it("collectFields falls back to extractPoints on a LayerAPI without forEachPoint", () => {
+    // A component bundle can pair with an older common runtime: the scan must
+    // stay correct (just slower) when the lazy traversal is absent.
+    const m = makeManager();
+    window.map.foliplus.LayerAPI.forEachPoint = undefined;
+    window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
+      { lat: 0, lng: 0, marker: { feature: { properties: { price: 3 } } } },
+    ]);
+    expect(m.collectFields([{ id: "a" }])).toContain("price");
+  });
+
   it("collectFields walks every listed layer through the lazy point traversal", () => {
     const m = makeManager();
     mockMarkers({ feature: { properties: { price: 1 } } });

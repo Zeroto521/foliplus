@@ -165,7 +165,9 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
     if (!isColorBasemap(layerInfo)) {
       // Paint the column the row shows: the stored config's field resolved
       // against the current data, the same rule `rampForUi` applies.
-      applyRampToLayer(ui, layerId, resolvedRamp(ui, layerId, ramp)!);
+      applyRampToLayer(ui, layerId, resolvedRamp(ui, layerId, ramp)!, stored =>
+        resolvedRamp(ui, layerId, stored)!,
+      );
     }
     return;
   }
