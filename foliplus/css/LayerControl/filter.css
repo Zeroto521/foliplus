@@ -62,49 +62,44 @@
     width: 100%;
   }
   .foliplus-layer-filter-panel .foliplus-filter-enum-trigger {
+    /* The summary wears the shared form-select chrome (height, border, radius,
+       background, chevron, focus halo) so it is pixel-identical to the native
+       selects beside it; only the disclosure-specific reset lives here. */
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: var(--foliplus-space-sm);
-    font: inherit;
-    color: var(--foliplus-text-primary);
     cursor: pointer;
     list-style: none;
   }
+  /* One chevron: the form-select background glyph. Hide the UA disclosure
+     marker in every engine (WebKit/Blink use ::-webkit-details-marker, Gecko
+     and the standard marker pseudo use ::marker). */
   .foliplus-layer-filter-panel .foliplus-filter-enum-trigger::-webkit-details-marker {
     display: none;
   }
-  /* Disclosure chevron, drawn from borders so it inherits the text color. */
-  .foliplus-layer-filter-panel .foliplus-filter-enum-trigger::after {
+  .foliplus-layer-filter-panel .foliplus-filter-enum-trigger::marker {
     content: "";
-    flex-shrink: 0;
-    width: 0;
-    height: 0;
-    border-right: 4px solid transparent;
-    border-left: 4px solid transparent;
-    border-top: 5px solid currentColor;
-    transition: transform var(--foliplus-transition-fast);
-  }
-  .foliplus-layer-filter-panel
-    .foliplus-filter-enum[open]
-    > .foliplus-filter-enum-trigger::after {
-    transform: rotate(180deg);
   }
   .foliplus-layer-filter-panel .foliplus-filter-enum-list {
     display: flex;
     flex-direction: column;
-    gap: var(--foliplus-space-xs);
-    padding-top: var(--foliplus-space-sm);
+    gap: 0;
+    padding: var(--foliplus-size-2) 0;
     /* Four control heights of options before the list scrolls: the disclosure
        never grows past a short menu even when the owner declares many
        enum values. */
     max-height: calc(var(--foliplus-ctrl-size) * 4);
     overflow-y: auto;
   }
+  /* Compact menu rows: same height and horizontal inset as the shared
+     dropdown items, with the native checkbox tinted by the accent token. */
   .foliplus-layer-filter-panel .foliplus-filter-enum-option {
     display: flex;
     align-items: center;
-    gap: var(--foliplus-space-sm);
+    gap: var(--foliplus-space-md);
+    width: 100%;
+    height: var(--foliplus-ctrl-size);
+    padding: 0 var(--foliplus-space-md);
+    box-sizing: border-box;
     font-size: var(--foliplus-font-size-sm);
     color: var(--foliplus-text-primary);
     cursor: pointer;
@@ -112,6 +107,8 @@
   .foliplus-layer-filter-panel .foliplus-filter-enum-option input {
     margin: 0;
     flex-shrink: 0;
+    width: var(--foliplus-icon-size-sm);
+    height: var(--foliplus-icon-size-sm);
     accent-color: var(--foliplus-accent-primary);
   }
 }
