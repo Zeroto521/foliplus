@@ -176,6 +176,22 @@ describe("OverlayRegistry", () => {
       expect(registry.topmost()).toBe(second.entry);
     });
 
+    it("unsubscribing an Escape listener twice is a no-op", () => {
+      const off = registry.onEscapeHandled(() => undefined);
+      off();
+      off();
+      expect(registry.topmost()).toBeNull();
+    });
+
+    it("registering on a destroyed registry installs nothing", () => {
+      registry.destroy();
+      const fake = makeEntry({ id: OVERLAY_IDS.LAYER_ATTRS });
+      const unregister = registry.register(fake.entry);
+      expect(installed("mousedown")).toBe(0);
+      expect(installed("keydown")).toBe(0);
+      unregister();
+    });
+
     it("unregister is idempotent", () => {
       const entry = makeEntry({ id: OVERLAY_IDS.LAYER_ATTRS });
       const unregister = registry.register(entry.entry);
@@ -256,6 +272,13 @@ describe("OverlayRegistry", () => {
       expect(registry.topmost()).toBeNull();
     });
 
+    it("destroy on a registry that never installed anything is a no-op", () => {
+      registry.destroy();
+      expect(removed("mousedown")).toBe(0);
+      expect(removed("click")).toBe(0);
+      expect(removed("keydown")).toBe(0);
+    });
+
     it("shares one registry per map and tears it down on map unload", () => {
       const { map, fireUnload } = makeMap();
       const shared = ensureOverlayRegistry(map);
@@ -278,6 +301,14 @@ describe("OverlayRegistry", () => {
   // ─────────────────────────── containment ───────────────────────────
 
   describe("containment", () => {
+    it("resolves no owner for a missing or non-Node target", () => {
+      registry.register(
+        makeEntry({ id: OVERLAY_IDS.LAYER_ATTRS, panels: () => [panel()] }).entry,
+      );
+      expect(registry.owningEntry(null)).toBeNull();
+      expect(registry.owningEntry(window)).toBeNull();
+    });
+
     it("accepts the panel, its descendants and its portals; rejects outsiders", () => {
       const own = panel("own");
       const inner = child(own);
@@ -425,10 +456,109 @@ describe("OverlayRegistry", () => {
       expect(host.closeCalls).toHaveLength(0);
     });
 
+    it("skips an entry another predicate closed during the walk", () => {
+      const outside = panel();
+      const low = makeEntry({
+        id: OVERLAY_IDS.LAYER_STYLE,
+        pressPriority: 500,
+        panels: () => [panel("low")],
+      });
+      const high = makeEntry({
+        id: OVERLAY_IDS.LAYER_ATTRS,
+        pressPriority: 600,
+        panels: () => [panel("high")],
+        dismissOnOutside: () => {
+          // A surface whose own dismissal predicate tears the lower one down
+          // first; the walk must notice it is no longer open.
+          low.entry.close({ restoreFocus: false });
+          return false;
+        },
+      });
+      registry.register(low.entry);
+      registry.register(high.entry);
+
+      press(outside, "mousedown");
+      expect(low.closeCalls).toHaveLength(1);
+      expect(high.closeCalls).toHaveLength(0);
+    });
+
+    it("falls through to the next entry when the owner cannot close", () => {
+      const outside = panel();
+      const high = makeEntry({
+        id: OVERLAY_IDS.LAYER_ATTRS,
+        pressPriority: 600,
+        panels: () => [panel("high")],
+        closable: () => false,
+      });
+      const low = makeEntry({
+        id: OVERLAY_IDS.LAYER_STYLE,
+        pressPriority: 500,
+        panels: () => [panel("low")],
+      });
+      registry.register(high.entry);
+      registry.register(low.entry);
+
+      press(outside, "mousedown");
+      expect(high.closeCalls).toHaveLength(0);
+      expect(low.closeCalls).toHaveLength(1);
+    });
+
+    it("dismisses on an outside click and honours a click-phase predicate", () => {
+      const own = panel();
+      const defaultOutside = makeEntry({
+        id: OVERLAY_IDS.LAYER_MENU,
+        dismissOn: "click",
+        panels: () => [own],
+      });
+      // Lower rank than the menu, so the first press reaches the menu and the
+      // second one reaches this entry.
+      const explicitOutside = makeEntry({
+        id: OVERLAY_IDS.LAYER_FILTER,
+        dismissOn: "click",
+        panels: () => [own],
+        dismissOnOutside: () => true,
+      });
+      registry.register(defaultOutside.entry);
+      registry.register(explicitOutside.entry);
+
+      // Higher priority handles first; with it closed, the next press reaches
+      // the explicit-predicate entry.
+      press(panel("outside"), "click");
+      expect(defaultOutside.closeCalls).toHaveLength(1);
+      expect(explicitOutside.closeCalls).toHaveLength(0);
+
+      press(panel("outside"), "click");
+      expect(explicitOutside.closeCalls).toHaveLength(1);
+    });
+
     it("ignores a non-Node target", () => {
       const fake = makeEntry({ id: OVERLAY_IDS.LAYER_ATTRS });
       registry.register(fake.entry);
       window.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+      expect(fake.closeCalls).toHaveLength(0);
+    });
+
+    it("passes the parent element to consumePress for a text-node target", () => {
+      const host = panel();
+      const text = document.createTextNode("row");
+      host.appendChild(text);
+      const seen: Element[] = [];
+      const fake = makeEntry({
+        id: OVERLAY_IDS.LAYER_MENU,
+        dismissOn: "click",
+        panels: () => [host],
+        dismissOnInside: () => true,
+        consumePress: target => {
+          seen.push(target);
+          return true;
+        },
+      });
+      registry.register(fake.entry);
+
+      // The click/to-inside path is where consumePress runs; the target is a
+      // text node, so the handler must receive its parent element.
+      press(text, "click");
+      expect(seen).toEqual([host]);
       expect(fake.closeCalls).toHaveLength(0);
     });
 
@@ -780,6 +910,62 @@ describe("OverlayRegistry", () => {
       expect(error).toHaveBeenCalled();
     });
 
+    it("ignores keys other than Escape", () => {
+      const own = panel();
+      const fake = makeEntry({
+        id: OVERLAY_IDS.LAYER_ATTRS,
+        panels: () => [own],
+      });
+      registry.register(fake.entry);
+      const seen: unknown[] = [];
+      registry.onEscapeHandled(payload => seen.push(payload));
+
+      const event = new KeyboardEvent("keydown", {
+        key: "Enter",
+        bubbles: true,
+        cancelable: true,
+      });
+      child(own).dispatchEvent(event);
+
+      expect(fake.closeCalls).toHaveLength(0);
+      expect(seen).toHaveLength(0);
+      expect(event.defaultPrevented).toBe(false);
+    });
+
+    it("treats a contentEditable host as an editor for the passthrough", () => {
+      const own = panel();
+      const editor = document.createElement("div");
+      own.appendChild(editor);
+      // jsdom does not implement isContentEditable; pin the property the
+      // dispatcher reads so the contentEditable branch is exercised.
+      Object.defineProperty(editor, "isContentEditable", {
+        value: true,
+        configurable: true,
+      });
+      const passthrough = makeEntry({
+        id: OVERLAY_IDS.LAYER_RENAME,
+        panels: () => [own],
+        escPassthroughOnEditable: true,
+      });
+      registry.register(passthrough.entry);
+      const seen: { handled: boolean; entryId: string | null }[] = [];
+      registry.onEscapeHandled(payload => {
+        if (payload.entryId)
+          seen.push({ handled: payload.handled, entryId: payload.entryId });
+      });
+
+      escape(editor);
+      expect(passthrough.closeCalls).toHaveLength(0);
+      expect(seen).toEqual([{ handled: true, entryId: OVERLAY_IDS.LAYER_RENAME }]);
+
+      // A plain element is not an editor: the passthrough does not swallow a
+      // close of the same surface.
+      seen.length = 0;
+      escape(child(own));
+      expect(passthrough.closeCalls).toHaveLength(1);
+      expect(seen).toEqual([{ handled: true, entryId: OVERLAY_IDS.LAYER_RENAME }]);
+    });
+
     it("stops notifying an unsubscribed callback", () => {
       const seen: unknown[] = [];
       const off = registry.onEscapeHandled(payload => seen.push(payload));
@@ -792,6 +978,34 @@ describe("OverlayRegistry", () => {
   // ─────────────────────── open / topmost / exclusivity ───────────────────────
 
   describe("open and topmost", () => {
+    it("open leaves an already-closed sibling alone", () => {
+      const closed = makeEntry({
+        id: OVERLAY_IDS.LAYER_ATTRS,
+        exclusiveGroup: "layer-control",
+        open: false,
+      });
+      const opening = makeEntry({
+        id: OVERLAY_IDS.LAYER_STYLE,
+        exclusiveGroup: "layer-control",
+      });
+      registry.register(closed.entry);
+      registry.register(opening.entry);
+      registry.open(opening.entry);
+      expect(closed.closeCalls).toHaveLength(0);
+      expect(opening.isOpen()).toBe(true);
+    });
+
+    it("open without an exclusive group leaves every entry alone", () => {
+      const plain = makeEntry({ id: OVERLAY_IDS.LAYER_STYLE });
+      const menu = makeEntry({ id: OVERLAY_IDS.LAYER_MENU });
+      registry.register(plain.entry);
+      registry.register(menu.entry);
+      registry.open(plain.entry);
+      expect(plain.isOpen()).toBe(true);
+      expect(menu.isOpen()).toBe(true);
+      expect(plain.closeCalls).toHaveLength(0);
+    });
+
     it("open closes the other entries of the exclusive group", () => {
       const first = makeEntry({
         id: OVERLAY_IDS.LAYER_ATTRS,

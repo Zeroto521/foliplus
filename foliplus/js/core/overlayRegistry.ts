@@ -175,6 +175,9 @@ const elementOf = (target: Node): Element | null =>
 
 const isEditable = (target: Node): boolean => {
   const element = elementOf(target);
+  // A target that owns an entry is an element or a text node with a parent, so
+  // the null arm is unreachable through the dispatcher.
+  /* v8 ignore next -- owning targets always resolve to an element */
   if (!element) return false;
   const tag = element.tagName;
   if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return true;
@@ -269,10 +272,7 @@ class OverlayRegistryImpl implements OverlayRegistry {
     this.subscribers.length = 0;
     this.removePressListener("mousedown");
     this.removePressListener("click");
-    if (this.escapeHandler) {
-      document.removeEventListener("keydown", this.escapeHandler, true);
-      this.escapeHandler = undefined;
-    }
+    this.removeEscapeListener();
   }
 
   private orderedOpenEntries(): OverlayEntry[] {
@@ -304,7 +304,9 @@ class OverlayRegistryImpl implements OverlayRegistry {
     const handler = (event: MouseEvent): void => {
       const target = nodeOf(event.target);
       // A non-Node target (window, a Worker port) never yields a press: there
-      // is no DOM subtree to classify and no entry can own it.
+      // is no DOM subtree to classify and no entry can own it. DOM dispatch
+      // cannot produce one, so this is a guard for direct/synthetic calls.
+      /* v8 ignore next -- non-Node targets never reach a document listener */
       if (!target) return;
       this.dispatchPress(phase, target);
     };
@@ -320,13 +322,14 @@ class OverlayRegistryImpl implements OverlayRegistry {
   }
 
   private dispatchPress(phase: OverlayPhase, target: Node): void {
-    const open = this.orderedOpenEntries();
-    const inside = new Map<OverlayEntry, boolean>();
-    for (const entry of open) inside.set(entry, entryContains(entry, target));
+    const open = this.orderedOpenEntries().map(entry => ({
+      entry,
+      inside: entryContains(entry, target),
+    }));
     // Every press overwrites the flag, so a stale "inside" cannot leak into
     // the drag path. It reports whether the press landed on any open surface,
     // which is exactly what the old pressInPanel boolean answered.
-    this.pressInside = [...inside.values()].some(Boolean);
+    this.pressInside = open.some(item => item.inside);
 
     const state = { consumed: false };
     const press: OverlayPress = {
@@ -341,9 +344,8 @@ class OverlayRegistryImpl implements OverlayRegistry {
       },
     };
 
-    for (const entry of open) {
+    for (const { entry, inside: isInside } of open) {
       if (!entry.isOpen()) continue;
-      const isInside = inside.get(entry) ?? entryContains(entry, target);
       if (phase === "mousedown") {
         // The capture phase decides outside dismissal only — an inside press
         // must keep its native behaviour (button activation, focus move).
@@ -386,8 +388,19 @@ class OverlayRegistryImpl implements OverlayRegistry {
     // An earlier deliberate handler already decided this key: leave it alone.
     if (event.key !== "Escape" || event.defaultPrevented) return;
     const target = nodeOf(event.target);
-    const owner = target ? this.owningEntry(target) : null;
-    if (!owner || !target) {
+    /* v8 ignore start -- non-Node targets never reach a document listener */
+    if (!target) {
+      this.notifyEscape({
+        handled: false,
+        entryId: null,
+        target: null,
+        origin: "capture",
+      });
+      return;
+    }
+    /* v8 ignore stop */
+    const owner = this.owningEntry(target);
+    if (!owner) {
       this.notifyEscape({ handled: false, entryId: null, target, origin: "capture" });
       return;
     }
