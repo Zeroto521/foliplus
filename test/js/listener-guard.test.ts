@@ -136,10 +136,10 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
   },
   {
     f: "LayerControl/ui/overlayPanel/filterBody.ts",
-    n: 1,
+    n: 2,
     pairedOff: 0,
     reason:
-      "enum body's one change listener on the checkbox list it creates (the native disclosure needs no click/keydown/geometry listeners); it is removed in destroy and the body is a free-standing renderer with no mounting signal to route through `this.on`",
+      "enum body's two listeners on the native multi-select listbox it creates (pointerdown press-to-toggle and the change it replays); both are removed in destroy and the body is a free-standing renderer with no mounting signal to route through `this.on`",
   },
   {
     f: "LayerControl/ui/focus/focusMarquee.ts",
