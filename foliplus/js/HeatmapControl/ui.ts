@@ -282,8 +282,10 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
   // Initial colour bar render is handled by the picker's constructor.
 
   // Nothing is selected yet, but the aggregation options still need their
-  // initial availability: without a source, value aggregations cannot run.
-  updateFieldSelector(ctrl);
+  // initial availability. With a restored source selected, wait for initScan:
+  // the field list is not known here, and degrading now would rewrite a valid
+  // saved aggregation before its layer is scanned.
+  if (!ctrl.mgr.selectedLayerId) updateFieldSelector(ctrl);
 };
 
 const setupObserver = (ctrl: HeatmapControlUI) => {
@@ -373,9 +375,9 @@ const rebuildLayerDropdown = (ctrl: HeatmapControlUI) => {
   if (ctrl.layerSelect) buildLayerListItems(ctrl, ctrl.layerSelect);
 };
 
-/** Express whether value aggregations are currently usable. The manager's
- *  `agg` keeps the user's/author's intent; only the options are disabled, so
- *  a text-only source cannot silently rewrite the choice. */
+/** Express whether value aggregations are currently usable. Disabling only the
+ *  options is not enough — the selected value must also move to COUNT, or the
+ *  browser reselects COUNT for display while `mgr.agg` keeps the old value. */
 const setValueAggregationsEnabled = (ctrl: HeatmapControlUI, enabled: boolean) => {
   for (const opt of ctrl.aggSelect.options) {
     opt.disabled = !enabled && opt.value !== CONST.AGG.COUNT;
@@ -393,11 +395,18 @@ const updateFieldSelector = (ctrl: HeatmapControlUI) => {
   const fields = ctrl.mgr.collectFields(selected);
 
   // No numeric field: SUM/AVG/MIN/MAX have nothing to weigh by. Disable the
-  // options and explain why, but leave `mgr.agg` alone — the choice belongs to
-  // the user/author and must come back when the field list does. Hiding the
-  // field row alone would hide the evidence; rewriting `agg` would lose it.
+  // options, explain why, AND move the value itself to COUNT — one value for
+  // display, render and persistence, so the select never shows one aggregation
+  // while the render uses another. Leaving `mgr.agg` at SUM/AVG here splits
+  // them: the browser silently reselects COUNT for display, while the render
+  // still aggregates by the stale value — every cell then falls back to 1.
   if (fields.length === 0) {
     setValueAggregationsEnabled(ctrl, false);
+    if (ctrl.mgr.agg !== CONST.AGG.COUNT) {
+      ctrl.mgr.agg = CONST.AGG.COUNT;
+      syncSelect(ctrl, ctrl.aggSelect, CONST.AGG.COUNT);
+      ctrl.mgr.saveConfig();
+    }
     rebuildFieldOptions(ctrl, fields, "");
     ctrl.fieldWrap.classList.add(CONST.CLASSES.HIDDEN);
     return;
