@@ -7,7 +7,7 @@
 - `LayerControl` / `HeatmapControl` / `MeasureControl`: filtering — a layer or third-party component declares its filterable dimensions and reuses one condition model, panel and kept-of-total result ([#715](https://github.com/Zeroto521/foliplus/pull/715), [#724](https://github.com/Zeroto521/foliplus/pull/724), [#760](https://github.com/Zeroto521/foliplus/pull/760), [#766](https://github.com/Zeroto521/foliplus/pull/766))
 - `LayerControl`: opacity and zoom-range rows share one slider primitive — single/dual thumb, keyboard, ARIA, disabled/RTL and a bubble panels cannot clip ([#721](https://github.com/Zeroto521/foliplus/pull/721))
 - `LayerControl`: a size row sets a CircleMarker layer's pixel radius for every marker at once, persisted across reloads and resettable to the drawn radius ([#726](https://github.com/Zeroto521/foliplus/pull/726))
-- `LayerControl`: value-based fill — a numeric field, a classification method and a palette paint a layer by value, and the fill row switches between solid colour and colour-by-value in place ([#727](https://github.com/Zeroto521/foliplus/pull/727), [#729](https://github.com/Zeroto521/foliplus/pull/729), [#747](https://github.com/Zeroto521/foliplus/pull/747), [#761](https://github.com/Zeroto521/foliplus/pull/761), [#767](https://github.com/Zeroto521/foliplus/pull/767), [#776](https://github.com/Zeroto521/foliplus/pull/776))
+- `LayerControl`: value-based fill — a numeric field, a classification method and a palette paint a layer by value, and the fill row switches between solid colour and colour-by-value in place ([#727](https://github.com/Zeroto521/foliplus/pull/727), [#729](https://github.com/Zeroto521/foliplus/pull/729), [#747](https://github.com/Zeroto521/foliplus/pull/747), [#761](https://github.com/Zeroto521/foliplus/pull/761), [#767](https://github.com/Zeroto521/foliplus/pull/767), [#776](https://github.com/Zeroto521/foliplus/pull/776), [#780](https://github.com/Zeroto521/foliplus/pull/780))
 
 ### Changed
 
@@ -29,7 +29,7 @@
 - Teardown: a failing cleanup step no longer skips the rest — a removed control and a dismissed focus both finish their releases ([#733](https://github.com/Zeroto521/foliplus/pull/733), [#736](https://github.com/Zeroto521/foliplus/pull/736))
 - `ExportControl`: marker shadows are exported with their icons, measured after layout so they sit under the marker ([#740](https://github.com/Zeroto521/foliplus/pull/740))
 - Interaction: Space/Enter keep their native meaning on buttons and links, so a panel's close button no longer toggles the layer checkbox ([#755](https://github.com/Zeroto521/foliplus/pull/755))
-- `LayerControl` / `HeatmapControl`: the scheme picker's colour strip inside the trigger lines up with the strips in the dropdown ([#780](https://github.com/Zeroto521/foliplus/pull/780))
+- `HeatmapControl` / `LayerControl`: the scheme list flips above a trigger near the viewport bottom in both panels — the heatmap mounts its picker the same portalled way as the style drawer ([#777](https://github.com/Zeroto521/foliplus/pull/777))
 
 ## [v0.4.1] (2026-10-18)
 
