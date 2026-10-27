@@ -442,6 +442,35 @@ describe("applyRampToLayer", () => {
     expect(pinGetterOf(pinCalls.length - 1)()).toBeNull();
   });
 
+  it("replays the resolved ramp on mouseout when the stored field went stale", () => {
+    // Production resolves a stored ramp field the data no longer offers to the
+    // first offered field before painting. The pin guard must resolve the live
+    // record the same way: comparing the stale stored name against the resolved
+    // config used to fail, so the first mouseout dropped the ramp colour and
+    // the leaf fell back to the author's face until the next apply.
+    installChroma(["#111111"]);
+    const layer = makeFeatureLayer([{ properties: { count: 5 } }]);
+    intentValues = { fillRamp: makeRamp({ field: "gone" }) };
+    const resolveStored = (stored: FillRampConfig): FillRampConfig => ({
+      ...stored,
+      field: "count",
+    });
+
+    applyRampToLayer(
+      makeUI(layer),
+      "overlay1",
+      resolveStored(makeRamp({ field: "count" })),
+      resolveStored,
+    );
+
+    expect((layer.leaves[0].setStyle as any).mock.calls[0][0].fillColor).toBe(
+      "#111111",
+    );
+    // The mouseout replay still owns the leaf: the ramp colour comes back
+    // instead of null (which would let folium's resetStyle win).
+    expect(pinGetterOf(0)()).toMatchObject({ fillColor: "#111111", fill: true });
+  });
+
   it("reports an unknown method and restores the author's face", () => {
     // isFillRampConfig rejects an unknown method on read, so this is the
     // defence-in-depth path: a caller that wrote the record directly still

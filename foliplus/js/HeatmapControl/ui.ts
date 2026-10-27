@@ -2,6 +2,7 @@
 // All internal refs use direct function calls instead of `this.`.
 import { CLASS_COUNT, type ClassifyMethod, isClassifyMethod } from "#core/classify.js";
 import { EVENTS, ensureEvents, publish } from "#core/event/index.js";
+import { resolveField } from "#core/field.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { adjustPanelZIndex } from "#core/leaflet/index.js";
 import { safeColorScale } from "#core/palette.js";
@@ -429,7 +430,7 @@ const updateFieldSelector = (ctrl: HeatmapControlUI) => {
   // — the row no longer needs an "Auto" state to explain itself. Only remap
   // when a candidate list exists, so a momentarily empty scan does not destroy
   // the user's choice.
-  const resolved = fields.includes(ctrl.mgr.field) ? ctrl.mgr.field : fields[0];
+  const resolved = resolveField(ctrl.mgr.field, fields);
   if (resolved !== ctrl.mgr.field) {
     ctrl.mgr.field = resolved;
     ctrl.mgr.saveConfig();
