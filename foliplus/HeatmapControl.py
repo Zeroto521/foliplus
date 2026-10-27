@@ -52,6 +52,7 @@ class HeatmapControl(BaseControl):
     ----------
     position : str, default "topleft"
         One of "topleft", "topright", "bottomleft", "bottomright".
+
     layer : str, optional
         Name of the point layer to select when the map first loads. Matching is
         by the layer's folium ``name`` (the same text the panel's Layer row
@@ -60,8 +61,10 @@ class HeatmapControl(BaseControl):
         panel still lets the user switch. A name that matches no point layer is
         ignored with a console warning and the panel falls back to its normal
         auto-selection (the only point layer is selected automatically).
+
     agg : Literal["count", "sum", "avg", "min", "max"], default "count"
         Default aggregation method.
+
     field : str, optional
         Aggregation field to select when the map first loads. Only a numeric
         field the layer actually carries is accepted; anything else is ignored
@@ -69,30 +72,42 @@ class HeatmapControl(BaseControl):
         auto-field rule. Like ``layer``, a persisted user choice wins, and a
         ``count`` aggregation does not use the field until the user switches
         to a value aggregation.
+
     method : Literal["jenks", "quantile", "equal", "heads"], default "jenks"
         Default classification method.
+
     num_classes : int, default 6
         Number of classification classes, range 2-9.
+
     color_scheme : str, default "Reds"
         Default color scheme name. Supports chroma.js / ColorBrewer palettes: ``Blues``,
         ``Greens``, ``Reds``, ``Oranges``, ``Purples``, ``YlOrRd``, ``Viridis``.
+
     schemes : list[str], default ["Blues", "Greens", "Reds", "Oranges", "Purples", "YlOrRd", "Viridis"]
         List of available color scheme names. Can include custom hex values like
         ``["#f00", "#0f0", "#00f"]``.
+
     border_color : str, default "#333333"
         Hexagon border color.
+
     border_weight : float, default 1.5
         Hexagon border width in canvas units. Must not be negative.
+
     border_opacity : float, default 0.9
         Hexagon border opacity, between 0.0 and 1.0.
+
     fill_opacity : float, default 0.7
         Hexagon fill opacity, between 0.0 and 1.0.
+
     label_show : bool, default True
         Whether to show the aggregated value as a label at each hex center.
+
     label_color : str, default "#fff"
         Label text color.
+
     label_size : int, default 11
         Label font size (px). Must be positive.
+
     label_format : Literal["auto", "int", "comma", "percent"], default "auto"
         Number format for hexagon value labels:
 
@@ -104,8 +119,10 @@ class HeatmapControl(BaseControl):
         - ``"percent"``: fraction × 100 with a ``%`` suffix (``0.35`` → ``35%``).
 
         ``"int"``, ``"comma"``, and ``"percent"`` are locale-agnostic.
+
     collapse_on_outside : bool, default True
         Whether a press outside the panel collapses it.
+
     locale : str or LocaleConfig, optional
         Language code ("en", "zh") or a LocaleConfig instance.
         Defaults to auto-detection, falling back to English.
