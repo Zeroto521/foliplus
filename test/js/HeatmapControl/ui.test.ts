@@ -536,6 +536,53 @@ describe("bindControls — scheme dropdown", () => {
     expect(ctrl.schemeBar.getAttribute("aria-expanded")).toBe("false");
   });
 
+  it("closes the portalled dropdown when the panel collapses", async () => {
+    const { ctrl } = setup();
+    document.body.appendChild(ctrl.ctrl);
+    setupObserver(ctrl);
+    ctrl.ctrl.classList.add(CONST.CLASSES.EXPANDED);
+    ctrl.schemeBar.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(ctrl.schemeDropdown).not.toBeNull();
+
+    // The header and the close button collapse through this class change; the
+    // portalled list is not inside the panel, so nothing else would remove it.
+    ctrl.ctrl.classList.remove(CONST.CLASSES.EXPANDED);
+    ctrl.ctrl.classList.add(CONST.CLASSES.COLLAPSED);
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    expect(ctrl.schemeDropdown).toBeNull();
+    expect(document.querySelector(".foliplus-scheme-picker-portal")).toBeNull();
+    expect(ctrl.schemeBar.getAttribute("aria-expanded")).toBe("false");
+    ctrl.observer?.disconnect();
+  });
+
+  it("does not leak a document listener across open/collapse cycles", async () => {
+    const add = vi.spyOn(document, "addEventListener");
+    const remove = vi.spyOn(document, "removeEventListener");
+    const { ctrl } = setup();
+    document.body.appendChild(ctrl.ctrl);
+    setupObserver(ctrl);
+    const baseline =
+      add.mock.calls.filter(call => call[0] === "click").length -
+      remove.mock.calls.filter(call => call[0] === "click").length;
+
+    for (let i = 0; i < 3; i += 1) {
+      ctrl.ctrl.classList.add(CONST.CLASSES.EXPANDED);
+      ctrl.schemeBar.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      expect(ctrl.schemeDropdown).not.toBeNull();
+      ctrl.ctrl.classList.remove(CONST.CLASSES.EXPANDED);
+      ctrl.ctrl.classList.add(CONST.CLASSES.COLLAPSED);
+      await new Promise(resolve => setTimeout(resolve, 0));
+      expect(ctrl.schemeDropdown).toBeNull();
+    }
+
+    const live =
+      add.mock.calls.filter(call => call[0] === "click").length -
+      remove.mock.calls.filter(call => call[0] === "click").length;
+    expect(live).toBe(baseline);
+    ctrl.observer?.disconnect();
+  });
+
   it("schemePickerCleanup destroys the picker and clears the control reference", () => {
     const { ctrl } = setup();
     ctrl.toggleSchemeDropdown();

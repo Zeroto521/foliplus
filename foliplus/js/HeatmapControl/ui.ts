@@ -304,6 +304,13 @@ const setupObserver = (ctrl: HeatmapControlUI) => {
     }
     if (ctrl.ctrl.classList.contains(CONST.CLASSES.COLLAPSED)) {
       ctrl.expandHookDone = false;
+      // The scheme list is portalled to the map surface (not into the panel),
+      // so collapsing the panel does not hide it: the header, the close button
+      // and the clear button all collapse through this class, and each would
+      // leave the list floating over the map. Close it here — the same
+      // observation that resets the expand hook, so no extra listener exists
+      // for it and every collapse path is covered at once.
+      ctrl.schemePicker?.close({ restoreFocus: false });
     }
   });
   ctrl.observer.observe(ctrl.ctrl, { attributes: true });
