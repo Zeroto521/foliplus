@@ -69,22 +69,50 @@ describe("bindControls — template render and initial values", () => {
     expect(ctrl.schemeSelectHidden.value).toBe(m.scheme);
   });
 
-  it("falls back to count before a source layer is selected", () => {
+  it("keeps the aggregation before a source layer is selected", () => {
+    // No source yet means the field list is empty for an unknown reason, not
+    // because the layer lacks numbers. Rewriting the aggregation here would
+    // discard a declared agg before its layer is scanned, and persisting the
+    // empty selection would consume the hasScanned guard — the next reload
+    // would then skip the Python declaration entirely.
     const config = makeConfig({ agg: "sum" });
     const m = makeManager({ agg: "sum" });
     const ctrl = makeCtrl(m, config);
     bindControls(ctrl, document.createElement("div"));
 
-    expect(m.agg).toBe(CONST.AGG.COUNT);
-    expect(ctrl.aggSelect.value).toBe(CONST.AGG.COUNT);
+    expect(m.agg).toBe(CONST.AGG.SUM);
+    expect(ctrl.aggSelect.value).toBe(CONST.AGG.SUM);
     expect(
       [...ctrl.aggSelect.options].filter(o => o.disabled).map(o => o.value),
     ).toEqual(["sum", "avg", "min", "max"]);
     expect(ctrl.aggSelect.title).toBe("Needs a numeric field to aggregate by value");
     expect(ctrl.fieldWrap.classList.contains(CONST.CLASSES.HIDDEN)).toBe(true);
-    expect(JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!).agg).toBe(
-      "count",
-    );
+    // Nothing is written: a first open with a declaration must stay record-free.
+    expect(window.localStorage.getItem(CONST.STORAGE.KEY)).toBeNull();
+  });
+
+  it("keeps a declared aggregation through the first scan", () => {
+    // The rebuild re-scans; pin the scan so the seeded layers stay put.
+    vi.spyOn(HeatmapManager.prototype, "scanMapLayers").mockImplementation(() => {});
+    const config = makeConfig({ layer: "Points 1", field: "score", agg: "sum" });
+    const m = makeManager({ layer: "Points 1", field: "score", agg: "sum" });
+    const ctrl = makeCtrl(m, config);
+    bindControls(ctrl, document.createElement("div"));
+    // bindControls' pre-scan pass must not downgrade the declared agg.
+    expect(m.agg).toBe(CONST.AGG.SUM);
+
+    m.pointLayers = [{ id: "p1", name: "Points 1", layer: null, count: 1 }];
+    window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
+      { lat: 1, lng: 2, marker: { feature: { properties: { score: 5 } } } },
+    ]);
+    rebuildLayerDropdown(ctrl);
+
+    expect(m.selectedLayerId).toBe("p1");
+    expect(m.agg).toBe(CONST.AGG.SUM);
+    expect(m.field).toBe("score");
+    expect(ctrl.aggSelect.value).toBe(CONST.AGG.SUM);
+    expect(ctrl.fieldSelect.value).toBe("score");
+    expect(window.localStorage.getItem(CONST.STORAGE.KEY)).toBeNull();
   });
 
   it("labels the method + classes row by method, with two distinct names", () => {
@@ -396,23 +424,21 @@ describe("resetPanel — shared reset (Clear button + more-menu clear)", () => {
     expect(ctrl.extraBody.classList.contains(CONST.CLASSES.HIDDEN)).toBe(true);
   });
 
-  it("falls back to count through a reset with no numeric field", () => {
-    // The reset restores the author's default, but with no layer selected
-    // there is nothing to aggregate by value; display, render and storage all
-    // settle on count.
+  it("keeps the CONFIG aggregation through a reset with no numeric field", () => {
+    // The reset restores the author's default. With no layer selected there is
+    // nothing to prove the default unusable, so it is kept (and nothing is
+    // written): only a SELECTED layer without numeric fields falls back to count.
     const { ctrl, m } = setup(makeConfig({ agg: "sum" }));
 
     resetPanel(ctrl);
 
-    expect(m.agg).toBe(CONST.AGG.COUNT);
-    expect(ctrl.aggSelect.value).toBe(CONST.AGG.COUNT);
+    expect(m.agg).toBe(CONST.AGG.SUM);
+    expect(ctrl.aggSelect.value).toBe(CONST.AGG.SUM);
     expect(
       [...ctrl.aggSelect.options].filter(o => o.disabled).map(o => o.value),
     ).toEqual(["sum", "avg", "min", "max"]);
     expect(ctrl.aggSelect.title).toBe("Needs a numeric field to aggregate by value");
-    expect(JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!).agg).toBe(
-      "count",
-    );
+    expect(window.localStorage.getItem(CONST.STORAGE.KEY)).toBeNull();
   });
 
   it("leaves the panel open and the persisted record alone", () => {
@@ -1035,10 +1061,11 @@ describe("updateFieldSelector — concrete field resolution", () => {
     expect(m.selectedLayerId).toBeNull();
     ctrl.aggSelect.value = CONST.AGG.SUM;
     fire(ctrl.aggSelect, "change");
-    // No source means no numeric field: count is the displayed, rendered and
-    // persisted aggregation.
-    expect(m.agg).toBe(CONST.AGG.COUNT);
-    expect(ctrl.aggSelect.value).toBe(CONST.AGG.COUNT);
+    // No source yet is not the same as "the source has no numeric field":
+    // the aggregation is kept (a declared agg must survive until its layer is
+    // scanned) and nothing is persisted — the options simply disable.
+    expect(m.agg).toBe(CONST.AGG.SUM);
+    expect(ctrl.aggSelect.value).toBe(CONST.AGG.SUM);
     expect(
       [...ctrl.aggSelect.options].filter(o => o.disabled).map(o => o.value),
     ).toEqual(["sum", "avg", "min", "max"]);
@@ -1107,3 +1134,50 @@ describe("updateFieldSelector — null field controls", () => {
 });
 
 // refreshSchemeDropdownItems — covered by schemePicker.test.ts (setNumClasses tests)
+
+describe("declared starting layer/field (Python layer=/field=)", () => {
+  beforeEach(() => {
+    vi.spyOn(HeatmapManager.prototype, "scanMapLayers").mockImplementation(function () {
+      // no-op: keep the seeded pointLayers stable across rebuilds
+    });
+  });
+
+  it("selects the Python-declared point layer on the first rebuild", () => {
+    const m = makeManager({ layer: "Points 2" });
+    m.pointLayers = [
+      { id: "p1", name: "Points 1", layer: null, count: 1 },
+      { id: "p2", name: "Points 2", layer: null, count: 1 },
+    ];
+    const ctrl = makeCtrl(m, makeConfig({ layer: "Points 2" }));
+    rebuildLayerDropdown(ctrl);
+
+    expect(m.selectedLayerId).toBe("p2");
+    expect(ctrl.layerSelect.value).toBe("p2");
+    expect(ctrl.extraBody.classList.contains(CONST.CLASSES.HIDDEN)).toBe(false);
+  });
+
+  it("keeps the single-layer auto-select when the declared name misses", () => {
+    const m = makeManager({ layer: "Nope" });
+    m.pointLayers = [{ id: "p1", name: "Only", layer: null, count: 1 }];
+    const ctrl = makeCtrl(m, makeConfig({ layer: "Nope" }));
+    rebuildLayerDropdown(ctrl);
+
+    expect(m.selectedLayerId).toBe("p1");
+  });
+
+  it("seeds the declared aggregation field on the first rebuild", () => {
+    const m = makeManager({ layer: "Points 1", field: "score", agg: "sum" });
+    m.pointLayers = [{ id: "p1", name: "Points 1", layer: null, count: 1 }];
+    const ctrl = makeCtrl(
+      m,
+      makeConfig({ layer: "Points 1", field: "score", agg: "sum" }),
+    );
+    window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
+      { lat: 1, lng: 2, marker: { feature: { properties: { score: 5 } } } },
+    ]);
+    rebuildLayerDropdown(ctrl);
+
+    expect(m.field).toBe("score");
+    expect(ctrl.fieldSelect.value).toBe("score");
+  });
+});
