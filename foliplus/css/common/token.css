@@ -400,6 +400,13 @@
      its reserved selection border inside the inset (see scheme-picker.css). */
   --foliplus-scheme-picker-bar-inset-x: var(--foliplus-icon-size-md);
 
+  /* Width of the dropdown's scrollbar lane. The picker writes the measured
+     value on the mounted dropdown (a layout scrollbar reserves real space, an
+     overlay one reserves none, and a stable gutter keeps the lane constant
+     between the scrolling and fitting states); the item strip subtracts it so
+     its right edge stays on the trigger strip's right edge. */
+  --foliplus-scheme-picker-scrollbar-width: 0px;
+
   /* ── LayerControl (row layout) ──
      Drag & drop variables and grid layout metrics. */
   --foliplus-drag-border-width: var(--foliplus-border-thick);

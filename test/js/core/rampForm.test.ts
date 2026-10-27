@@ -319,20 +319,30 @@ describe("shared scheme-picker trigger (stylesheet contract)", () => {
 
   it("insets the dropdown strip by the same token as the trigger", () => {
     // The two bars line up only while both use one inset token: the trigger
-    // pads by it, the item pads by it minus its reserved selection border.
+    // pads by it, the item pads by it minus its reserved selection border and
+    // the measured scrollbar lane (a layout scrollbar steals real width).
     const item = blockOf(scheme, ".foliplus-scheme-picker-item {");
-    expect(item).toContain("padding: 0 var(--foliplus-scheme-picker-bar-inset-x) 0");
+    expect(item).toContain("var(--foliplus-scheme-picker-bar-inset-x) -");
+    expect(item).toContain("var(--foliplus-scheme-picker-scrollbar-width)");
     expect(item).toContain(
       "calc(var(--foliplus-scheme-picker-bar-inset-x) - var(--foliplus-border-thick))",
     );
   });
 
-  it("defines the strip inset token in the shared token file", () => {
+  it("reserves the scrollbar lane in both list states", () => {
+    // A stable gutter keeps the lane constant so crossing the max-height does
+    // not re-inset every strip; the item subtracts that same lane.
+    const dropdown = blockOf(scheme, ".foliplus-scheme-picker-dropdown {");
+    expect(dropdown).toContain("overflow-y: auto");
+    expect(dropdown).toContain("scrollbar-gutter: stable");
+  });
+
+  it("defines the strip inset and scrollbar lane tokens in the token file", () => {
     // Style rule: every --foliplus-* custom property is *defined* in token.css;
     // the picker stylesheet only reads it.
-    expect(css("foliplus/css/common/token.css")).toContain(
-      "--foliplus-scheme-picker-bar-inset-x:",
-    );
+    const tokens = css("foliplus/css/common/token.css");
+    expect(tokens).toContain("--foliplus-scheme-picker-bar-inset-x:");
+    expect(tokens).toContain("--foliplus-scheme-picker-scrollbar-width:");
   });
 
   it("paints one chevron for both panels", () => {

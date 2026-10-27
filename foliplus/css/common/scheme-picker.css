@@ -87,6 +87,10 @@
   box-shadow: var(--foliplus-shadow-md);
   z-index: var(--foliplus-z-index-floating);
   overflow-y: auto;
+  /* The item strip subtracts the lane from its right inset, so the lane must
+     be the same whether the list scrolls or fits — otherwise a list that
+     crosses the max-height would narrow every strip mid-session. */
+  scrollbar-gutter: stable;
   /* Optional, and cheap: a scheme list of seven rows usually fits, but a
      custom long list should not get a full-width OS scrollbar. */
   scrollbar-width: thin;
@@ -126,8 +130,12 @@
      (below) sits *inside* the inset, so its strip lands on the trigger strip's
      x on both sides — the trigger insets by the token, the item by the token
      minus that border. */
-  padding: 0 var(--foliplus-scheme-picker-bar-inset-x) 0
-    calc(var(--foliplus-scheme-picker-bar-inset-x) - var(--foliplus-border-thick));
+  padding: 0
+    calc(
+      var(--foliplus-scheme-picker-bar-inset-x) -
+        var(--foliplus-scheme-picker-scrollbar-width)
+    )
+    0 calc(var(--foliplus-scheme-picker-bar-inset-x) - var(--foliplus-border-thick));
   height: var(--foliplus-ctrl-size);
   box-sizing: border-box;
   /* Reserved border: same "selected" language as layer items — a permanent
