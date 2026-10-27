@@ -449,7 +449,7 @@ describe("LayerUI filter panel", () => {
       manager.registerLayer({
         id,
         name: "Measure",
-        group: "overlay",
+        role: "overlay",
         layer: undefined as unknown as L.Layer,
         filterProvider: owner.filterProvider,
         filterSetter: owner.filterSetter,
@@ -681,7 +681,7 @@ describe("LayerUI filter panel", () => {
       manager.registerLayer({
         id: "multi",
         name: "Multi",
-        group: "overlay",
+        role: "overlay",
         layer: undefined as unknown as L.Layer,
         filterProvider: () => ({
           dimensions: [
@@ -783,7 +783,7 @@ describe("LayerUI filter panel", () => {
       manager.registerLayer({
         id: "shape",
         name: "Shape",
-        group: "overlay",
+        role: "overlay",
         layer: undefined as unknown as L.Layer,
         filterProvider: () => ({
           dimensions: [
