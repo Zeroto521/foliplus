@@ -553,10 +553,10 @@ const renderFillDetail = (
 ): void => {
   disposeFillRow(ui);
   detail.innerHTML = "";
-  if (mode === "feature") {
-    detail.append(...buildFeatureFillDetail(ui));
-    return;
-  }
+  // The per-feature state has no rows of its own: the mode row names it and
+  // the tooltip explains it, so the drawer stays a drawer instead of growing
+  // a paragraph.
+  if (mode === "feature") return;
   const fields = numericFields(ui, layerId);
   if (mode === "ramp" && fields.length > 0) {
     detail.append(
@@ -566,18 +566,6 @@ const renderFillDetail = (
   }
   detail.append(...buildSolidDetail(ui, layerId));
 };
-
-/** The read-only detail for the per-feature state: the panel cannot edit one
- *  colour per feature, and showing a single swatch for many colours is the
- *  bug this state exists to fix. Editing is still one gesture away — the mode
- *  select below offers the two overrides. */
-const buildFeatureFillDetail = (ui: LayerUI): HTMLElement[] => [
-  dom.el(
-    "div",
-    { class: CONST.CLASSES.STYLE_FILL_NOTE },
-    ui.T("style_fill_per_feature_note"),
-  ),
-];
 
 /** Build the fill form block. A layer with numeric fields gets the mode row
  *  (solid / color by value) plus the active arm's detail; a layer without one
@@ -646,7 +634,11 @@ const buildFillRow = (ui: LayerUI, layerId: string): HTMLElement => {
       : []),
   ];
 
-  const { block: modeRow, detail } = buildModeRow({
+  const {
+    block: modeRow,
+    select,
+    detail,
+  } = buildModeRow({
     label: ui.T("style_fill_mode"),
     selectClass: CONST.CLASSES.STYLE_FILL_MODE_SELECT,
     rowClass: CONST.CLASSES.STYLE_FILL_ROW,
@@ -654,6 +646,14 @@ const buildFillRow = (ui: LayerUI, layerId: string): HTMLElement => {
     value: mode,
     options,
   });
+  if (perFeature) {
+    // The explanation lives on the control, not in the drawer: the select and
+    // its read-only option both carry the sentence as a tooltip/description, so
+    // hovering or a screen reader still gets it while the panel stays compact.
+    const note = ui.T("style_fill_per_feature_note");
+    select.title = note;
+    select.setAttribute("aria-description", note);
+  }
 
   renderFillDetail(ui, layerId, detail, mode);
 

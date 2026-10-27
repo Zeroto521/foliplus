@@ -2840,9 +2840,14 @@ describe("fill row — per-feature state", () => {
     expect(featureOption.disabled).toBe(true);
     expect(select.querySelector('option[value="solid"]')).not.toBeNull();
     expect(select.querySelector('option[value="ramp"]')).not.toBeNull();
-    expect(row.querySelector(`.${CONST.CLASSES.STYLE_FILL_NOTE}`)?.textContent).toBe(
+    // The explanation is a tooltip on the control, not a paragraph in the
+    // drawer: the panel keeps one row and the reason is still reachable.
+    expect(row.querySelector(".foliplus-style-fill-note")).toBeNull();
+    expect(select.title).toBe("LayerControl.style_fill_per_feature_note");
+    expect(select.getAttribute("aria-description")).toBe(
       "LayerControl.style_fill_per_feature_note",
     );
+    expect(featureOption.title).toBe("LayerControl.style_fill_per_feature_note");
     expect(row.querySelector(`.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`)).toBeNull();
   });
 

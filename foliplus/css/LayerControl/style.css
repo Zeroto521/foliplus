@@ -58,15 +58,6 @@
   gap: var(--foliplus-space-xs);
 }
 
-/* Read-only note for a fill the author paints per feature. The panel cannot
-   edit one colour per feature; showing a single swatch would claim one colour
-   for many, so the row states the fact and leaves editing to the mode row. */
-.foliplus-style-fill-note {
-  color: var(--foliplus-text-muted);
-  font-size: var(--foliplus-font-size-sm);
-  line-height: 1.4;
-}
-
 /* Scheme trigger and colour strip: the shared scheme-picker recipe
    (common/scheme-picker.css) owns the box, the chevron and the bar geometry.
    `.foliplus-style-scheme-trigger` / `.foliplus-style-scheme-bar` stay on the

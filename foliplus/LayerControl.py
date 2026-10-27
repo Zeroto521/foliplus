@@ -23,6 +23,52 @@ def _fill_author_color(props: dict[str, Any]) -> str | None:
     return color if isinstance(color, str) else None
 
 
+def _geojson_data(item: Layer) -> dict[str, Any] | None:
+    """The layer's GeoJson data as a mapping, or None when it is not one.
+
+    folium accepts a mapping or a JSON string for the data; a broken string, a
+    list of features or any other shape is not something this control describes,
+    so it yields no author-fill metadata instead of failing the render.
+    """
+    if not isinstance(item, GeoJson):
+        return None
+    data = item.data
+    if isinstance(data, str):
+        try:
+            data = json.loads(data)
+        except ValueError:
+            return None
+    return data if isinstance(data, dict) else None
+
+
+def _feature_properties(feature: object) -> dict[str, Any] | None:
+    """A feature's properties mapping, or None for a malformed feature."""
+    props = feature.get("properties") if isinstance(feature, dict) else None
+    return props if isinstance(props, dict) else None
+
+
+def _collect_fill_author(
+    features: list[Any],
+) -> tuple[set[str], list[tuple[dict[str, Any], str]]]:
+    """One pass over the features: the colour set and the coloured rows.
+
+    A row is ``(properties, colour)``; only features that carry the property
+    contribute, so a partially coloured layer still reports the colours it has.
+    """
+    colors: set[str] = set()
+    rows: list[tuple[dict[str, Any], str]] = []
+    for feature in features:
+        props = _feature_properties(feature)
+        if props is None:
+            continue
+        color = _fill_author_color(props)
+        if color is None:
+            continue
+        colors.add(color)
+        rows.append((props, color))
+    return colors, rows
+
+
 def _fill_author_fields(
     rows: list[tuple[dict[str, Any], str]],
 ) -> list[dict[str, Any]]:
@@ -42,6 +88,7 @@ def _fill_author_fields(
     fields: list[dict[str, Any]] = []
     for name in candidates:
         mapping: dict[str, str] = {}
+        counts: dict[str, int] = {}
         numeric = True
         ok = True
         for props, color in rows:
@@ -57,12 +104,9 @@ def _fill_author_fields(
                 ok = False
                 break
             mapping[key] = color
+            counts[key] = counts.get(key, 0) + 1
         if not ok or len(mapping) < 2:
             continue
-        counts: dict[str, int] = {}
-        for props, _color in rows:
-            key = str(props[name])
-            counts[key] = counts.get(key, 0) + 1
         ordered = sorted(counts.items(), key=lambda entry: (-entry[1], entry[0]))
         kept = ordered[:_FILL_AUTHOR_FIELD_LIMIT]
         fields.append(
@@ -86,36 +130,20 @@ def _fill_author(item: Layer) -> dict[str, Any] | None:
     features; above _FILL_AUTHOR_FEATURE_LIMIT features only the colour set is
     reported, so the payload stays bounded.
     """
-    if not isinstance(item, GeoJson):
-        return None
-    data = item.data
-    if isinstance(data, str):
-        try:
-            data = json.loads(data)
-        except ValueError:
-            return None
-    if not isinstance(data, dict):
+    data = _geojson_data(item)
+    if data is None:
         return None
     features = data.get("features")
     if not isinstance(features, list):
         return None
-    colors: set[str] = set()
-    rows: list[tuple[dict[str, Any], str]] = []
-    for feature in features:
-        props = feature.get("properties") if isinstance(feature, dict) else None
-        if not isinstance(props, dict):
-            continue
-        color = _fill_author_color(props)
-        if color is None:
-            continue
-        colors.add(color)
-        rows.append((props, color))
+    colors, rows = _collect_fill_author(features)
     if not colors:
         return None
-    meta: dict[str, Any] = {"perFeature": len(colors) >= 2, "fields": []}
-    if len(features) <= _FILL_AUTHOR_FEATURE_LIMIT and meta["perFeature"]:
-        meta["fields"] = _fill_author_fields(rows)
-    return meta
+    per_feature = len(colors) >= 2
+    fields: list[dict[str, Any]] = []
+    if per_feature and len(features) <= _FILL_AUTHOR_FEATURE_LIMIT:
+        fields = _fill_author_fields(rows)
+    return {"perFeature": per_feature, "fields": fields}
 
 
 class LayerControl(BaseControl):

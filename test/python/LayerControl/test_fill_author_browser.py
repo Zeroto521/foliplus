@@ -59,39 +59,16 @@ def _make_page(browser, tmp_path):
     return make_browser_page(browser, tmp_path, m.get_root().render(), "fill_author")
 
 
-_OPEN_STYLE = """() => {
-  const row = [...document.querySelectorAll('.foliplus-layer-item[data-layer-type=overlay]')]
-    .find(r => r.textContent.includes('Facility Points'));
-  if (!row) return { ok: false, reason: 'no-row' };
-  row.querySelector('.foliplus-layer-more-btn').click();
-  const menu = row.querySelector('.foliplus-layer-more-menu.open');
-  if (!menu) return { ok: false, reason: 'no-menu' };
-  const item = menu.querySelector('li[data-action="style-layer"]');
-  if (!item) return { ok: false, reason: 'no-style-item' };
-  item.click();
-  return { ok: !!row.querySelector('.foliplus-layer-style-panel') };
-}"""
+# Page snippets live in test/js/browser/LayerControl, the same split the
+# menu-keyboard browser test uses: one file to drive the panel, one to read it.
+_ARM = _js("LayerControl/fill_author_arm")
+_READ_FILL = _js("LayerControl/fill_author_read")
 
-_READ_FILL = """() => {
-  const panel = document.querySelector('.foliplus-layer-style-panel');
-  const select = panel?.querySelector('.foliplus-style-fill-mode-select');
-  const featureOption = select?.querySelector('option[value="feature"]');
-  const note = panel?.querySelector('.foliplus-style-fill-note');
-  const swatch = panel?.querySelector('.foliplus-style-fill-color-input');
-  const fills = [...new Set(
-    [...document.querySelectorAll('path.leaflet-interactive')]
-      .map(p => p.getAttribute('fill'))
-      .filter(Boolean),
-  )].sort();
-  return {
-    mode: select ? select.value : null,
-    featureAvailable: !!featureOption,
-    featureDisabled: featureOption ? featureOption.disabled : null,
-    note: note ? note.textContent.trim() : null,
-    hasSwatch: !!swatch,
-    fills,
-  };
-}"""
+# Locale text the row must expose as a tooltip instead of a paragraph.
+_NOTE = (
+    "The author paints one colour per feature (geopandas explore). "
+    "Editing the fill overrides them; Reset brings them back."
+)
 
 
 class TestFillAuthorBrowser:
@@ -112,7 +89,7 @@ class TestFillAuthorBrowser:
             )
             panel_ready(page)
 
-            opened = page.evaluate(_OPEN_STYLE)
+            opened = page.evaluate(_ARM)
             assert opened["ok"], f"style panel did not open: {opened}"
             page.wait_for_selector(
                 ".foliplus-layer-style-panel", state="visible", timeout=5000
@@ -122,21 +99,21 @@ class TestFillAuthorBrowser:
             assert initial["mode"] == "feature", initial
             assert initial["featureAvailable"], initial
             assert initial["featureDisabled"] is True, initial
-            assert initial["note"], initial
             assert initial["hasSwatch"] is False, initial
+            # The explanation is a tooltip on the control, not a paragraph in
+            # the drawer: the panel stays compact but the reason is reachable.
+            assert not initial["noteInPanel"], initial
+            assert initial["selectTitle"] == _NOTE, initial
+            assert initial["selectDescription"] == _NOTE, initial
+            assert initial["optionTitle"] == _NOTE, initial
             assert len(initial["fills"]) >= 2, (
                 f"the map did not paint per-feature colours: {initial}"
             )
 
             # Take the fill over with a solid colour: the per-feature option
             # goes away and the editable swatch appears.
-            page.evaluate(
-                """() => {
-                  const select = document.querySelector('.foliplus-style-fill-mode-select');
-                  select.value = 'solid';
-                  select.dispatchEvent(new Event('change', { bubbles: true }));
-                }"""
-            )
+            page.evaluate(_ARM, {"solid": True})
+
             page.wait_for_timeout(200)
             solid = page.evaluate(_READ_FILL)
             assert solid["mode"] == "solid", solid
@@ -150,18 +127,17 @@ class TestFillAuthorBrowser:
 
             # Reset returns the author's per-feature paint and the read-only
             # state, with the map back to its own colour per feature.
-            page.evaluate(
-                "() => document.querySelector('.foliplus-style-reset-btn').click()"
-            )
+            page.evaluate(_ARM, {"reset": True})
             page.wait_for_timeout(300)
             page.evaluate(_js("LayerControl/open_panel"))
-            reopened = page.evaluate(_OPEN_STYLE)
+            reopened = page.evaluate(_ARM)
             assert reopened["ok"], f"style panel did not reopen: {reopened}"
             page.wait_for_selector(
                 ".foliplus-layer-style-panel", state="visible", timeout=5000
             )
             restored = page.evaluate(_READ_FILL)
             assert restored["mode"] == "feature", restored
+            assert not restored["noteInPanel"], restored
             assert len(restored["fills"]) >= 2, (
                 f"Reset did not restore per-feature author colours: {restored}"
             )
