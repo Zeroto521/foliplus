@@ -256,6 +256,12 @@ class OverlayRegistryImpl implements OverlayRegistry {
     };
   }
 
+  /** Whether destroy() already ran. The per-map factory uses it to hand out a
+   *  fresh registry after a map unload instead of a dead one. */
+  isDestroyed(): boolean {
+    return this.destroyed;
+  }
+
   destroy(): void {
     if (this.destroyed) return;
     this.destroyed = true;
@@ -430,7 +436,7 @@ const instances = new WeakMap<L.Map, OverlayRegistryImpl>();
 
 const ensureOverlayRegistry = (map: L.Map): OverlayRegistry => {
   const existing = instances.get(map);
-  if (existing) return existing;
+  if (existing && !existing.isDestroyed()) return existing;
   const registry = new OverlayRegistryImpl();
   instances.set(map, registry);
   map.on("unload", () => registry.destroy());

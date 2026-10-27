@@ -264,6 +264,14 @@ describe("OverlayRegistry", () => {
       expect(shared.topmost()).not.toBeNull();
       fireUnload();
       expect(shared.topmost()).toBeNull();
+
+      // A destroyed registry is not handed out again: a component that
+      // registers after a map unload gets a working dispatcher, not a dead one.
+      const revived = ensureOverlayRegistry(map);
+      expect(revived).not.toBe(shared);
+      revived.register(makeEntry({ id: OVERLAY_IDS.LAYER_ATTRS }).entry);
+      press(panel(), "mousedown");
+      expect(revived.lastPressInside()).toBe(false);
     });
   });
 
