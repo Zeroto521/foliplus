@@ -355,6 +355,14 @@ const buildLayerListItems = (ctrl: HeatmapControlUI, sel: HTMLSelectElement) => 
     // Restored selection (localStorage / rebuild): resolve and persist the
     // field first so syncSourceMeta reads a concrete name.
     updateFieldSelector(ctrl);
+    // A rebuild can be the only thing that re-applies a selection after the
+    // canvas was wiped — Clear deletes the record, then reopening the panel
+    // rebuilds the dropdown and the Python declaration selects the layer
+    // again. The selection alone is not enough: without a cache the panel
+    // would claim a source while the map stayed empty until the user nudged
+    // a control, so draw once here (initScan's own restore pass then sees the
+    // cache and skips its duplicate draw).
+    if (!ctrl.mgr.cachedFeatures) ctrl.mgr.renderHexagons();
   }
 
   // Selection (automatic, restored, or user) and field resolution are settled

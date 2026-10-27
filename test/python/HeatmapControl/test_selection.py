@@ -292,6 +292,19 @@ class TestHeatmapControlSelectionBrowser:
             assert again["selectedLayerId"] == declared, (
                 f"the declaration should come back after Clear: {again}"
             )
+            # The selection coming back is not enough: the canvas was wiped by
+            # Clear, so reopening must also redraw the declared layer.
+            assert again["hasCachedFeatures"] is True, (
+                f"reopening after Clear must redraw the declared layer: {again}"
+            )
+            canvases = page.evaluate(
+                """() => Array.from(
+                  document.querySelectorAll(".foliplus-canvas-layer")
+                ).map(el => el.classList.contains("foliplus-hidden"))"""
+            )
+            assert canvases and not all(canvases), (
+                f"the heatmap canvas should be visible after Clear + reopen: {canvases}"
+            )
             assert not errors, f"JS errors: {errors}"
 
     def test_persisted_selection_beats_the_declaration(self, browser, tmp_path):
