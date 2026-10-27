@@ -950,8 +950,9 @@ describe("OverlayRegistry", () => {
       registry.register(passthrough.entry);
       const seen: { handled: boolean; entryId: string | null }[] = [];
       registry.onEscapeHandled(payload => {
-        if (payload.entryId)
+        if (payload.entryId) {
           seen.push({ handled: payload.handled, entryId: payload.entryId });
+        }
       });
 
       escape(editor);
