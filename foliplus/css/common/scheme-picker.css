@@ -131,9 +131,12 @@
      x on both sides — the trigger insets by the token, the item by the token
      minus that border. */
   padding: 0
-    calc(
-      var(--foliplus-scheme-picker-bar-inset-x) -
-        var(--foliplus-scheme-picker-scrollbar-width)
+    max(
+      0px,
+      calc(
+        var(--foliplus-scheme-picker-bar-inset-x) -
+          var(--foliplus-scheme-picker-scrollbar-width)
+      )
     )
     0 calc(var(--foliplus-scheme-picker-bar-inset-x) - var(--foliplus-border-thick));
   height: var(--foliplus-ctrl-size);

@@ -291,9 +291,7 @@ const getPortalHost = (state: InternalState): HTMLElement => {
  *  inset (scheme-picker.css), so it lands on the trigger strip's right edge in
  *  every combination. Re-measured when the dropdown is re-seated (fullscreen,
  *  resize), where the lane can change with the zoom level. */
-const syncScrollbarWidth = (state: InternalState) => {
-  const dropdown = state.dropdown;
-  if (!dropdown) return;
+const syncScrollbarWidth = (dropdown: HTMLElement) => {
   const style = window.getComputedStyle(dropdown);
   const borders =
     (parseFloat(style.borderLeftWidth) || 0) +
@@ -327,7 +325,7 @@ const mountDropdown = (state: InternalState) => {
         target.appendChild(dropdown);
       }
       positionDropdown(state, dropdown);
-      syncScrollbarWidth(state);
+      syncScrollbarWidth(dropdown);
     };
     if (state.onSurfaceChange) {
       // The injected subscription covers native fullscreen and the pseudo
@@ -343,7 +341,7 @@ const mountDropdown = (state: InternalState) => {
     // is anchored by CSS, so it needs neither listener.
     const reposition = () => {
       positionDropdown(state, dropdown);
-      syncScrollbarWidth(state);
+      syncScrollbarWidth(dropdown);
     };
     window.addEventListener("scroll", reposition, true);
     window.addEventListener("resize", reposition);
@@ -413,7 +411,7 @@ const mountDropdown = (state: InternalState) => {
 
   // The dropdown is in the DOM now (both mount modes), so the lane is real
   // unless the platform draws overlay scrollbars.
-  syncScrollbarWidth(state);
+  syncScrollbarWidth(dropdown);
 
   state.onToggle?.(true, dropdown);
 };
@@ -557,7 +555,7 @@ const refreshDropdown = (state: InternalState) => {
   if (!state.dropdown) return;
   // Items can change height (classes count) and cross the max-height
   // threshold; a platform without a stable gutter only then grows one.
-  syncScrollbarWidth(state);
+  syncScrollbarWidth(state.dropdown);
   state.items.forEach(item => {
     const name = item.getAttribute("data-scheme-name");
     if (!name) return;

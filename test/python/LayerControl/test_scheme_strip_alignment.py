@@ -31,17 +31,21 @@ FITTING_SCHEMES = ["Reds", "Blues", "Greens", "Purples"]
 
 
 @pytest.fixture(scope="module")
-def scrollbar_browser():
-    """Chromium with real scrollbars: Playwright hides them by default."""
-    _prefetch_cdn_cache()
-    from playwright.sync_api import sync_playwright
+def scrollbar_browser(browser):
+    """Chromium with real scrollbars: Playwright hides them by default.
 
-    with sync_playwright() as pw:
-        browser = pw.chromium.launch(
-            headless=True, ignore_default_args=["--hide-scrollbars"]
-        )
-        yield _CdnBrowserProxy(browser)
-        browser.close()
+    Launches a second Browser from the session fixture's own Playwright
+    connection: one process owns one Playwright context, so a nested
+    sync_playwright() would trip "Sync API inside the asyncio loop".
+    """
+    _prefetch_cdn_cache()
+    real = browser.browser_type.launch(
+        headless=True, ignore_default_args=["--hide-scrollbars"]
+    )
+    try:
+        yield _CdnBrowserProxy(real)
+    finally:
+        real.close()
 
 
 def _polygon_layer() -> folium.GeoJson:

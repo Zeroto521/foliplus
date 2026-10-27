@@ -141,7 +141,9 @@ const buildLabelSection = (ui: LayerUI, layerId: string): HTMLElement => {
   const collideToggle = dom.el("input", {
     type: "checkbox",
     class: CONST.CLASSES.STYLE_COLLIDE_INPUT,
-    checked: cfg.collide ? "" : null,
+    // Same `!== false` rule the renderer and MeasureControl use, so an
+    // undeclared config (page-level default true) reads as checked.
+    checked: cfg.collide !== false ? "" : null,
     "aria-label": ui._("foliplus.label_collide_tooltip"),
   });
   const formatSelect = dom.el(
