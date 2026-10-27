@@ -439,6 +439,19 @@ describe("bindControls — scheme dropdown", () => {
     expect(ctrl.schemeBar.classList.contains(CONST.CLASSES.SCHEME_BAR_OPEN)).toBe(true);
   });
 
+  it("portals the dropdown to the document host", () => {
+    // The style drawer's picker already ports its list: the shared placement
+    // decision (flip above a trigger near the viewport bottom) lives there, and
+    // the panel's scroll box would otherwise clip an inline list. Both
+    // consumers must mount the same way or their flip behaviour splits again.
+    const { ctrl } = setup();
+    ctrl.schemeBar.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(
+      ctrl.schemeDropdown!.classList.contains("foliplus-scheme-picker-portal"),
+    ).toBe(true);
+    expect(ctrl.schemeDropdown!.parentElement).toBe(document.body);
+  });
+
   it("clicking the scheme bar again closes the dropdown", () => {
     const { ctrl } = setup();
     ctrl.schemeBar.dispatchEvent(new MouseEvent("click", { bubbles: true }));
