@@ -752,11 +752,13 @@ const buildFillRow = (ui: LayerUI, layerId: string): HTMLElement => {
     value: mode,
     options,
   });
-  if (perFeature) {
+  if (perFeature || authorRamp) {
     // The explanation lives on the control, not in the drawer: the select and
     // its read-only option both carry the sentence as a tooltip/description, so
     // hovering or a screen reader still gets it while the panel stays compact.
-    const note = ui.T("style_fill_per_feature_note");
+    const note = ui.T(
+      perFeature ? "style_fill_per_feature_note" : "style_fill_author_note",
+    );
     select.title = note;
     select.setAttribute("aria-description", note);
   }
@@ -830,6 +832,10 @@ const bindRampDetail = (ui: LayerUI, layerId: string, detail: HTMLElement): void
     trigger,
     hiddenSelect: hidden,
     schemes: author ? [AUTHOR_SCHEME, ...DEFAULT_SCHEMES] : DEFAULT_SCHEMES,
+    // Author is the current state, not a choice: it stays visible (and is
+    // announced as the selected value) but cannot be activated. Leaving the
+    // author paint is Reset's job, or the first real edit below.
+    disabledSchemes: author ? [AUTHOR_SCHEME] : undefined,
     value: ramp.scheme,
     numClasses: ramp.classes,
     portal: true,
@@ -846,6 +852,9 @@ const bindRampDetail = (ui: LayerUI, layerId: string, detail: HTMLElement): void
     colorScale: (name, n) =>
       name === AUTHOR_SCHEME ? resampleColors(palette, n) : getColorScale(name, n),
     onChange: name => {
+      // Defense in depth: the picker already refuses to activate it, but a
+      // consumer-owned current state must never become a persisted record.
+      if (name === AUTHOR_SCHEME) return;
       writeFillRamp(ui, layerId, { scheme: name });
     },
   });

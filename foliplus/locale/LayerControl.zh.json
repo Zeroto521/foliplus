@@ -83,6 +83,7 @@
   "LayerControl.style_fill_per_feature": "按要素",
   "LayerControl.style_fill_per_feature_note": "作者按要素逐条上色（geopandas explore）。编辑填充将覆盖它；重置可恢复作者配色。",
   "LayerControl.style_fill_scheme_author": "作者",
+  "LayerControl.style_fill_author_note": "作者：当前由数据决定的配色；重置可恢复。",
   "LayerControl.style_fill_by_value": "按值着色",
   "LayerControl.style_fill_field": "字段",
   "LayerControl.style_fill_classes": "分级数",

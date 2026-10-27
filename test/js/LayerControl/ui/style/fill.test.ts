@@ -2764,6 +2764,9 @@ describe("fill row — author by-value palette", () => {
     expect(field.value).toBe("score");
     expect(classes.value).toBe("3");
     expect(trigger.title).toBe("LayerControl.style_fill_scheme_author");
+    // The by-value arm explains the author state on the control, like the
+    // read-only per-feature arm does.
+    expect(select.title).toBe("LayerControl.style_fill_author_note");
     expect(bar.children.length).toBe(3);
     // jsdom serializes the background colour to rgb; the value is the first
     // author colour, so the strip really is the layer's own palette.
@@ -2810,6 +2813,50 @@ describe("fill row — author by-value palette", () => {
     ).toBe(true);
   });
 
+  it("does not take the fill over when the current Author entry is clicked", () => {
+    const { ui, layer } = initWithAuthorRamp();
+    const row = blockOf(ui);
+    const trigger = details(row).querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_SCHEME_TRIGGER}`,
+    ) as HTMLElement;
+
+    trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    const item = document.querySelector(
+      '.foliplus-scheme-picker-item[data-scheme-name="author"]',
+    ) as HTMLElement;
+    expect(item).not.toBeNull();
+    // Current state, announced as such: visible, selected, not selectable.
+    expect(item.getAttribute("aria-selected")).toBe("true");
+    expect(item.getAttribute("aria-disabled")).toBe("true");
+
+    item.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+    expect(getIntent(ui, "overlay1", "fillRamp")).toBeUndefined();
+    for (const leaf of layer.leaves) expect(leaf.setStyle).not.toHaveBeenCalled();
+    expect(trigger.title).toBe("LayerControl.style_fill_scheme_author");
+  });
+
+  it("ignores keyboard activation of the current Author entry", () => {
+    const { ui, layer } = initWithAuthorRamp();
+    const row = blockOf(ui);
+    const trigger = details(row).querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_SCHEME_TRIGGER}`,
+    ) as HTMLElement;
+    trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    const item = document.querySelector(
+      '.foliplus-scheme-picker-item[data-scheme-name="author"]',
+    ) as HTMLElement;
+    item.focus();
+
+    for (const key of ["Enter", " "]) {
+      item.dispatchEvent(
+        new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }),
+      );
+    }
+
+    expect(getIntent(ui, "overlay1", "fillRamp")).toBeUndefined();
+    for (const leaf of layer.leaves) expect(leaf.setStyle).not.toHaveBeenCalled();
+  });
   it("shows an author class count outside the shared range as its own option", () => {
     installChroma(["#111111", "#222222", "#333333"]);
     const { ui } = initWithAuthorRamp({ classes: 12 });

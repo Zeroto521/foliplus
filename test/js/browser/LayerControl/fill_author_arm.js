@@ -7,10 +7,17 @@ arg => {
   if (scheme) {
     const trigger = document.querySelector(".foliplus-style-scheme-trigger");
     if (!trigger) return { ok: false, reason: "no-scheme-trigger" };
-    trigger.click();
-    const item = document.querySelector(
+    // The list may already be open (a previous step selected a disabled
+    // entry, which leaves it mounted): open it only when needed.
+    let item = document.querySelector(
       '.foliplus-scheme-picker-item[data-scheme-name="' + scheme + '"]',
     );
+    if (!item) {
+      trigger.click();
+      item = document.querySelector(
+        '.foliplus-scheme-picker-item[data-scheme-name="' + scheme + '"]',
+      );
+    }
     if (!item) return { ok: false, reason: "no-scheme-item" };
     item.click();
     return { ok: true };

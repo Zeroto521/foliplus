@@ -112,6 +112,18 @@ class TestFillAuthorBrowser:
                 f"the map did not paint per-feature author colours: {initial}"
             )
 
+            # The current Author entry is the state, not a choice: activating it
+            # must not write an intent or repaint the map.
+            author_result = page.evaluate(_ARM, {"scheme": "author"})
+            assert author_result["ok"], f"author entry click failed: {author_result}"
+            page.wait_for_timeout(300)
+            unchanged = page.evaluate(_READ_FILL)
+            assert unchanged["schemeTitle"] == "Author", unchanged
+            assert unchanged["mode"] == "ramp", unchanged
+            assert unchanged["fills"] == initial["fills"], (
+                f"clicking the current Author entry repainted the map: {unchanged}"
+            )
+
             # Editing a control takes the fill over with a real scheme.
             scheme_result = page.evaluate(_ARM, {"scheme": "Reds"})
             assert scheme_result["ok"], f"scheme pick failed: {scheme_result}"

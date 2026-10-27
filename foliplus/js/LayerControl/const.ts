@@ -175,8 +175,6 @@ const CLASSES = {
   STYLE_FILL_BLOCK: "foliplus-style-fill-block",
   STYLE_FILL_MODE_SELECT: "foliplus-style-fill-mode-select",
   STYLE_FILL_DETAIL: "foliplus-style-fill-detail",
-  /** Read-only detail for a fill the author paints per feature, where the
-   *  panel shows the state instead of one editable swatch. */
   /** Ramp detail controls (color-by-value arm): field, method, class count
    *  and the shared scheme trigger. All four are native selects / the shared
    *  picker trigger, the same controls the heatmap panel offers. */
