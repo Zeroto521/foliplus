@@ -1,5 +1,5 @@
 import { vi } from "vitest";
-import { GROUP } from "#core/layer/index.js";
+import { ROLE } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { LayerController } from "#foliplus/LayerControl/controller.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
@@ -281,11 +281,11 @@ const initFixture = (
   const manager = new LayerController(
     map,
     options.data ?? [
-      { id: "overlay1", name: "Polygons", group: "overlay", layer: polygonLayer },
+      { id: "overlay1", name: "Polygons", role: "overlay", layer: polygonLayer },
       {
         id: "base1",
         name: "OSM",
-        group: "base",
+        role: "base",
         layer: new TileLayer(),
         paneName: "tilePane",
       },
@@ -322,12 +322,12 @@ const findItem = (ui: LayerUI, id: string): HTMLElement =>
  *  read of its child rows. */
 const attachWithGroup = (ui: LayerUI) => {
   const row = attachedPanel(ui).querySelector(
-    `.${CONST.CLASSES.TOGGLE_ALL}[data-group="${GROUP.OVERLAY}"]`,
+    `.${CONST.CLASSES.TOGGLE_ALL}[data-role="${ROLE.OVERLAY}"]`,
   ) as HTMLElement;
   const children = () =>
     Array.from(
       attachedPanel(ui).querySelectorAll<HTMLElement>(
-        `${CONST.SEL.LAYER_ITEM}[data-layer-type="${GROUP.OVERLAY}"]`,
+        `${CONST.SEL.LAYER_ITEM}[data-layer-type="${ROLE.OVERLAY}"]`,
       ),
     );
 
@@ -352,7 +352,7 @@ const pressKey = (el: HTMLElement, key: string) => {
 
 const overlayFoldBtn = (root: ParentNode) =>
   root
-    .querySelector(`.${CONST.CLASSES.TOGGLE_ALL}[data-group="${GROUP.OVERLAY}"]`)!
+    .querySelector(`.${CONST.CLASSES.TOGGLE_ALL}[data-role="${ROLE.OVERLAY}"]`)!
     .querySelector(`.${CONST.CLASSES.FOLD_BTN}`) as HTMLElement;
 
 // ── layer stubs and membership tracking shared across the event-contract
@@ -450,7 +450,7 @@ const trackMembership = (map: any): Map<L.Layer, boolean> => {
 const oneOverlay = (makeLayer: () => L.Layer = polygonLayer) => {
   const layer = makeLayer();
   const fixture = initFixture({
-    data: [{ id: "overlay1", name: "Polygons", group: "overlay", layer }],
+    data: [{ id: "overlay1", name: "Polygons", role: "overlay", layer }],
   });
   const onMap = trackMembership(fixture.map);
   onMap.set(layer, true);

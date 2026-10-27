@@ -3,7 +3,7 @@
 // per-module suites (list/keyboard/focus/...); this file pins the wiring.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
-import { GROUP } from "#core/layer/index.js";
+import { ROLE } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { LayerController } from "#foliplus/LayerControl/controller.js";
 import { LayerUI } from "#foliplus/LayerControl/ui/index.js";
@@ -94,7 +94,7 @@ describe("LayerUI shell — event subscriptions", () => {
     const lateLayer = {
       id: "late1",
       name: "Late",
-      group: "overlay",
+      role: "overlay",
       kind: "vector",
       layer: {
         options: {},
@@ -177,13 +177,13 @@ describe("LayerUI shell — delegates", () => {
 
   it("saveFoldState persists the folded-group set", () => {
     const save = vi.spyOn(manager.persistence, "schedule");
-    ui.listPanel.foldedGroups = new Set(["overlays"]);
+    ui.listPanel.foldedRoles = new Set(["overlays"]);
 
     ui.saveFoldState();
 
     expect(save).toHaveBeenCalled();
-    const fields = save.mock.calls[0][0] as { foldedGroups: () => string[] };
-    expect(fields.foldedGroups()).toEqual(["overlays"]);
+    const fields = save.mock.calls[0][0] as { foldedRoles: () => string[] };
+    expect(fields.foldedRoles()).toEqual(["overlays"]);
   });
 
   it("saveNamesState persists the rename map", () => {
@@ -256,7 +256,7 @@ describe("LayerUI shell — delegates", () => {
   it("getLayerItems() returns the overlay rows for the overlay group", () => {
     // Covers the delegate wrapper at L379: the method exists for external
     // callers, so a single call suffices to cover the delegate line.
-    const items = ui.getLayerItems(GROUP.OVERLAY);
+    const items = ui.getLayerItems(ROLE.OVERLAY);
     expect(items.length).toBeGreaterThanOrEqual(1);
     // Every returned item is a layer-item with the overlay group.
     for (const el of items) {
@@ -305,7 +305,7 @@ describe("LayerUI shell — delegates", () => {
   });
 
   it("syncToggleAll / syncNoBasemap delegates reach the visibility module", () => {
-    expect(() => ui.syncToggleAll(GROUP.OVERLAY)).not.toThrow();
+    expect(() => ui.syncToggleAll(ROLE.OVERLAY)).not.toThrow();
     expect(() => ui.syncNoBasemap()).not.toThrow();
   });
 

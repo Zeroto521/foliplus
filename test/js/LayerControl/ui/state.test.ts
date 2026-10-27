@@ -140,7 +140,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
         {
           id: "overlay1",
           name: "Polygons",
-          group: "overlay",
+          role: "overlay",
           layer: testPolyLayer,
         },
       ]);
@@ -166,7 +166,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
         {
           id: "overlay1",
           name: "Polygons",
-          group: "overlay",
+          role: "overlay",
           layer: testPolyLayer,
         },
       ]);
@@ -196,7 +196,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
         {
           id: "overlay1",
           name: "Polygons",
-          group: "overlay",
+          role: "overlay",
           layer: testPolyLayer,
           show: false,
         },
@@ -254,7 +254,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
         {
           id: "overlay1",
           name: "Polygons",
-          group: "overlay",
+          role: "overlay",
           layer: testPolyLayer,
         },
       ]);
@@ -268,7 +268,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
       m.pendingRegistrations.push({
         id: "later",
         name: "Later",
-        group: "overlay",
+        role: "overlay",
         layer: testPolyLayer,
       } as any);
 
@@ -304,7 +304,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
         {
           id: "overlay1",
           name: "Polygons",
-          group: "overlay",
+          role: "overlay",
           layer: testPolyLayer,
         },
       ]);
@@ -355,8 +355,8 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
         }),
       );
       const m = new LayerController(map, [
-        { id: "overlay1", name: "O", group: "overlay", layer: testPolyLayer },
-        { id: "base1", name: "B", group: "base", layer: new TileLayer() },
+        { id: "overlay1", name: "O", role: "overlay", layer: testPolyLayer },
+        { id: "base1", name: "B", role: "base", layer: new TileLayer() },
       ]);
       const u = new LayerUI(m, TEST_ENV);
 
@@ -383,7 +383,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
         }),
       );
       const m = new LayerController(map, [
-        { id: "overlay1", name: "O", group: "overlay", layer: testPolyLayer },
+        { id: "overlay1", name: "O", role: "overlay", layer: testPolyLayer },
       ]);
       const u = new LayerUI(m, TEST_ENV);
 
@@ -411,10 +411,10 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
         }),
       );
       const m = new LayerController(map, [
-        { id: "a", name: "A", group: "overlay", layer: testPolyLayer },
-        { id: "b", name: "B", group: "overlay", layer: testPolyLayer },
-        { id: "c", name: "C", group: "overlay", layer: testPolyLayer },
-        { id: "d", name: "D", group: "overlay", layer: testPolyLayer },
+        { id: "a", name: "A", role: "overlay", layer: testPolyLayer },
+        { id: "b", name: "B", role: "overlay", layer: testPolyLayer },
+        { id: "c", name: "C", role: "overlay", layer: testPolyLayer },
+        { id: "d", name: "D", role: "overlay", layer: testPolyLayer },
       ]);
       const u = new LayerUI(m, TEST_ENV);
 
@@ -429,7 +429,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
     it("dropPersistedLayerState clears the fill maps and their provenance", () => {
       const { map } = makeTestMap();
       const m = new LayerController(map, [
-        { id: "overlay1", name: "O", group: "overlay", layer: testPolyLayer },
+        { id: "overlay1", name: "O", role: "overlay", layer: testPolyLayer },
       ]);
       const u = new LayerUI(m, TEST_ENV);
       setIntent(u, "overlay1", "visible", false);
@@ -459,7 +459,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
       const { map } = makeTestMap();
       window.localStorage.setItem(CONST.STORAGE.KEY, "not-json");
       const m = new LayerController(map, [
-        { id: "overlay1", name: "O", group: "overlay", layer: testPolyLayer },
+        { id: "overlay1", name: "O", role: "overlay", layer: testPolyLayer },
       ]);
       const u = new LayerUI(m, TEST_ENV);
 
@@ -478,7 +478,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
         {
           id: "overlay1",
           name: "Polygons",
-          group: "overlay",
+          role: "overlay",
           layer: testPolyLayer,
         },
       ]);
@@ -508,7 +508,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
         {
           id: "overlay1",
           name: "Polygons",
-          group: "overlay",
+          role: "overlay",
           layer: testPolyLayer,
         },
       ]);
@@ -529,7 +529,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
     it("debounces rapid saves into one localStorage write", () => {
       const { map } = makeTestMap();
       const m = new LayerController(map, [
-        { id: "overlay1", name: "O", group: "overlay", layer: testPolyLayer },
+        { id: "overlay1", name: "O", role: "overlay", layer: testPolyLayer },
       ]);
       const u = new LayerUI(m, TEST_ENV);
 
@@ -574,8 +574,8 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
     it("does not pollute intents.visible when color layer activates", () => {
       const { map } = makeTestMap();
       const m = new LayerController(map, [
-        { id: "overlay1", name: "O", group: "overlay", layer: testPolyLayer },
-        { id: "base1", name: "OSM", group: "base", layer: new TileLayer() },
+        { id: "overlay1", name: "O", role: "overlay", layer: testPolyLayer },
+        { id: "base1", name: "OSM", role: "base", layer: new TileLayer() },
       ]);
       const u = new LayerUI(m, TEST_ENV);
       seedIntentMap(u, "visible", { overlay1: false });
@@ -619,7 +619,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
       data: Array<{
         id: string;
         name: string;
-        group?: "base" | "overlay";
+        role?: "base" | "overlay";
         layer?: any;
         paneName?: string;
       }>,
@@ -686,18 +686,18 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
         }),
       );
       const { ui, map } = attachFixture([
-        { id: "overlay1", name: "O", group: "overlay", layer: poly },
+        { id: "overlay1", name: "O", role: "overlay", layer: poly },
         {
           id: "base1",
           name: "B1",
-          group: "base",
+          role: "base",
           layer: base1,
           paneName: "tilePane",
         },
         {
           id: "base2",
           name: "B2",
-          group: "base",
+          role: "base",
           layer: base2,
           paneName: "tilePane",
         },
@@ -729,7 +729,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
         getBounds: vi.fn(() => ({ isValid: vi.fn(() => true) })),
       };
       const { ui, map } = attachFixture([
-        { id: "overlay1", name: "O", group: "overlay", layer: poly },
+        { id: "overlay1", name: "O", role: "overlay", layer: poly },
       ]);
 
       const colorItem = attachedPanel(ui).querySelector(
@@ -754,11 +754,11 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
         }),
       );
       const { ui, map } = attachFixture([
-        { id: "overlay1", name: "O", group: "overlay", layer: poly },
+        { id: "overlay1", name: "O", role: "overlay", layer: poly },
         {
           id: "base1",
           name: "B1",
-          group: "base",
+          role: "base",
           layer: base1,
           paneName: "tilePane",
         },
@@ -809,8 +809,8 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
         };
       })();
       const m = new LayerController(map, [
-        { id: "overlay1", name: "O", group: "overlay", layer: poly },
-        { id: "base1", name: "B1", group: "base", layer: baseLayer },
+        { id: "overlay1", name: "O", role: "overlay", layer: poly },
+        { id: "base1", name: "B1", role: "base", layer: baseLayer },
         { id: "canvas1", name: "Canvas", layer: null, canvas },
       ]);
       const u = new LayerUI(m, TEST_ENV);
@@ -899,13 +899,13 @@ describe("ui/state saveFoldState", () => {
   it("schedules the folded set through persistence", () => {
     const schedule = vi.fn();
     const ui = {
-      foldedGroups: new Set(["overlay"]),
+      foldedRoles: new Set(["overlay"]),
       c: {
         persistence: { schedule },
         annotation: { configEntries: () => [] },
       },
       listPanel: {
-        foldedGroups: new Set(["overlay"]),
+        foldedRoles: new Set(["overlay"]),
         checkedCount: {},
       },
     } as unknown as LayerUI;
@@ -913,8 +913,8 @@ describe("ui/state saveFoldState", () => {
     // schedule takes a getter map so a later write can read the live state
     // instead of a snapshot at schedule time.
     expect(schedule).toHaveBeenCalledTimes(1);
-    const fields = schedule.mock.calls[0][0] as { foldedGroups: () => string[] };
-    expect(fields.foldedGroups()).toEqual(["overlay"]);
+    const fields = schedule.mock.calls[0][0] as { foldedRoles: () => string[] };
+    expect(fields.foldedRoles()).toEqual(["overlay"]);
   });
 });
 
@@ -1081,7 +1081,7 @@ describe("event-driven row refresh", () => {
       manager.registerLayer({
         id: "overlay2",
         name: "Circles",
-        group: "overlay",
+        role: "overlay",
         layer: { options: {}, eachLayer: vi.fn() },
       });
     }
@@ -1147,7 +1147,7 @@ describe("event-driven row refresh", () => {
     manager.registerLayer({
       id: "custom1",
       name: "Custom",
-      group: "overlay",
+      role: "overlay",
       iconSvg,
     });
     const info = manager.layerRegistry.get("custom1")!;
@@ -1543,13 +1543,13 @@ describe("ui/state intentStore and per-layer state persistence", () => {
     // entry must not seed an intent.
     const bare = {
       intentStore: makeStore(),
-      listPanel: { foldedGroups: new Set<string>(), checkedCount: {} },
+      listPanel: { foldedRoles: new Set<string>(), checkedCount: {} },
       c: {
         persistence: {
           load: () =>
             ({
               order: null,
-              foldedGroups: [],
+              foldedRoles: [],
               renamedNames: {},
               annotations: {
                 nullish: null,
@@ -1570,13 +1570,13 @@ describe("ui/state intentStore and per-layer state persistence", () => {
     // direct record (or a future writer) can declare a marker with a bad value.
     const bare = {
       intentStore: makeStore(),
-      listPanel: { foldedGroups: new Set<string>(), checkedCount: {} },
+      listPanel: { foldedRoles: new Set<string>(), checkedCount: {} },
       c: {
         persistence: {
           load: () =>
             ({
               order: null,
-              foldedGroups: [],
+              foldedRoles: [],
               renamedNames: {},
               annotations: {},
               layers: {
@@ -1665,7 +1665,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
       CONST.STORAGE.KEY,
       JSON.stringify({
         order: null,
-        foldedGroups: ["Overlay"],
+        foldedRoles: ["Overlay"],
         renamedNames: {},
         annotations: {},
         layers: {
@@ -1680,7 +1680,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
 
     loadPersistedState(ui);
 
-    expect(ui.listPanel.foldedGroups).toEqual(new Set(["Overlay"]));
+    expect(ui.listPanel.foldedRoles).toEqual(new Set(["Overlay"]));
     expect(ui.intentStore.get("overlay1", "opacity")).toBe(0.35);
     expect(ui.intentStore.get("overlay1", "zoomRange")).toEqual([3, 12]);
     expect(ui.intentStore.dumpProvenance().overlay1).toEqual(["opacity", "zoomRange"]);
@@ -1695,7 +1695,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
       CONST.STORAGE.KEY,
       JSON.stringify({
         order: null,
-        foldedGroups: [],
+        foldedRoles: [],
         renamedNames: {},
         annotations: {},
         layers: {
@@ -2062,7 +2062,7 @@ it("a full replay announces after the direct style writes have landed", () => {
     setStyle,
   );
   const { ui } = initFixture({
-    data: [{ id: "overlay1", name: "Polygons", group: "overlay", layer }],
+    data: [{ id: "overlay1", name: "Polygons", role: "overlay", layer }],
   });
 
   setIntent(ui, "overlay1", "borderColor", "#abcdef");

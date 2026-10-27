@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { HINT_DURATION } from "#core/hint.js";
-import { GROUP } from "#core/layer/index.js";
+import { ROLE } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerController } from "#foliplus/LayerControl/controller.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
@@ -31,11 +31,11 @@ describe("LayerUI keyboard", () => {
       manager.registerLayer({
         id: "overlay2",
         name: "Circles",
-        group: "overlay",
+        role: "overlay",
         layer: { options: {}, eachLayer: vi.fn() },
       });
     }
-    ui.listPanel.foldedGroups = new Set();
+    ui.listPanel.foldedRoles = new Set();
     seedIntentMap(ui, "visible", {});
     // Folded-group state is persisted to localStorage, so a fold from one test
     // would be re-read by the next test's LayerUI constructor and present as
@@ -708,7 +708,7 @@ describe("LayerUI keyboard", () => {
 
       activateButton(foldBtn, "Enter");
 
-      expect(ui.listPanel.foldedGroups.has(GROUP.OVERLAY)).toBe(true);
+      expect(ui.listPanel.foldedRoles.has(ROLE.OVERLAY)).toBe(true);
       expect(allFolded(children())).toBe(true);
     });
 
@@ -725,12 +725,12 @@ describe("LayerUI keyboard", () => {
       const { children } = attachWithGroup(ui);
       // The chevron is a real focusable button, so dispatch the key there.
       activateButton(overlayFoldBtn(attachedPanel(ui)), " ");
-      expect(ui.listPanel.foldedGroups.has(GROUP.OVERLAY)).toBe(true);
+      expect(ui.listPanel.foldedRoles.has(ROLE.OVERLAY)).toBe(true);
       expect(allFolded(children())).toBe(true);
       // Fold rebuilds the panel, so re-fetch the button on the rebuilt row.
       activateButton(overlayFoldBtn(attachedPanel(ui)), "Enter");
 
-      expect(ui.listPanel.foldedGroups.has(GROUP.OVERLAY)).toBe(false);
+      expect(ui.listPanel.foldedRoles.has(ROLE.OVERLAY)).toBe(false);
       expect(allFolded(children())).toBe(false);
     });
 
@@ -1090,7 +1090,7 @@ describe("LayerUI keyboard", () => {
     });
 
     it("folded rows are skipped when finding a visible neighbour", () => {
-      ui.listPanel.foldedGroups = new Set([GROUP.OVERLAY]);
+      ui.listPanel.foldedRoles = new Set([ROLE.OVERLAY]);
       const base = findItem(ui, "base1");
       ui.setActiveItem(ui.getNavigableItems().indexOf(base));
       pressKey(base, "ArrowUp");

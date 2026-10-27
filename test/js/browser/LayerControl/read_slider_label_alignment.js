@@ -65,7 +65,7 @@
   };
 
   const realBases = api.layers.filter(
-    layer => layer.group === "base" && layer.id !== "foliplus_color_map",
+    layer => layer.role === "base" && layer.id !== "foliplus_color_map",
   );
   if (realBases.length !== 1) {
     return { error: `expected exactly 1 real tile base, got ${realBases.length}` };

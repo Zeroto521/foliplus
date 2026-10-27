@@ -15,12 +15,12 @@ const benchData = (overlays: number, bases: number) => [
   ...Array.from({ length: overlays }, (_, i) => ({
     id: `overlay_${i}`,
     name: `Overlay ${i}`,
-    group: "overlay" as const,
+    role: "overlay" as const,
   })),
   ...Array.from({ length: bases }, (_, i) => ({
     id: `base_${i}`,
     name: `Base ${i}`,
-    group: "base" as const,
+    role: "base" as const,
   })),
 ];
 

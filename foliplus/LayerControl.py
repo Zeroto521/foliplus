@@ -102,7 +102,7 @@ class LayerControl(BaseControl):
                     {
                         "name": "string",
                         "id": "string",
-                        "group": ("base", "overlay"),
+                        "role": ("base", "overlay"),
                         "show": "bool",
                     }
                 ],
@@ -137,7 +137,7 @@ class LayerControl(BaseControl):
         Returns
         -------
         dict
-            ``{"data": [{"name", "id", "group"}, ...]}`` — the ``data`` key is merged
+            ``{"data": [{"name", "id", "role"}, ...]}`` — the ``data`` key is merged
             into the JS ``CONFIG`` object by :meth:`BaseControl._build_config`.
         """
         data: list[dict[str, object]] = []
@@ -159,11 +159,11 @@ class LayerControl(BaseControl):
                 {
                     "name": item.layer_name,
                     "id": name,
-                    "group": "overlay" if item.overlay else "base",
+                    "role": "overlay" if item.overlay else "base",
                     "show": bool(item.show),
                 }
             )
 
         # Stable ordering: overlays first, then base layers (matches JS enforceOrder).
-        data.sort(key=lambda d: d["group"] == "base")
+        data.sort(key=lambda d: d["role"] == "base")
         return {"data": data}

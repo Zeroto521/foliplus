@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { LayerInfoRegistry } from "#foliplus/core/layer/LayerInfoRegistry.js";
-import { GROUP } from "#foliplus/core/layer/index.js";
+import { ROLE } from "#foliplus/core/layer/index.js";
 import type { LayerInfo } from "#foliplus/core/layer/type.js";
 
 describe("LayerInfoRegistry", () => {
@@ -8,9 +8,9 @@ describe("LayerInfoRegistry", () => {
 
   beforeEach(() => {
     registry = new LayerInfoRegistry([
-      { id: "overlay1", name: "Points", group: "overlay" },
-      { id: "overlay2", name: "Lines", group: "overlay" },
-      { id: "base1", name: "OpenStreetMap", group: "base" },
+      { id: "overlay1", name: "Points", role: "overlay" },
+      { id: "overlay2", name: "Lines", role: "overlay" },
+      { id: "base1", name: "OpenStreetMap", role: "base" },
     ] as unknown as LayerInfo[]);
   });
 
@@ -18,7 +18,7 @@ describe("LayerInfoRegistry", () => {
     it("builds items and byId index", () => {
       expect(registry.size).toBe(3);
       expect(registry.get("overlay1")!.name).toBe("Points");
-      expect(registry.get("base1")!.group === "base").toBe(true);
+      expect(registry.get("base1")!.role === "base").toBe(true);
     });
 
     it("resolves firstBaseIdx", () => {
@@ -27,8 +27,8 @@ describe("LayerInfoRegistry", () => {
 
     it("returns -1 firstBaseIdx when no bases", () => {
       const r = new LayerInfoRegistry([
-        { id: "a", group: "overlay" },
-        { id: "b", group: "overlay" },
+        { id: "a", role: "overlay" },
+        { id: "b", role: "overlay" },
       ] as unknown as LayerInfo[]);
       expect(r.firstBaseIdx).toBe(-1);
     });
@@ -42,7 +42,7 @@ describe("LayerInfoRegistry", () => {
       expect(info.opacity).toBe(1);
       expect(info.opacityBake).toBe("redraw");
       expect(info.onOpacity).toBeNull();
-      expect(info.group === "base").toBe(false);
+      expect(info.role === "base").toBe(false);
       expect(info.paneName).toBeNull();
       expect(info.iconSvg).toBeNull();
       expect(info.canvas).toBeNull();
@@ -244,7 +244,7 @@ describe("LayerInfoRegistry", () => {
       ]);
       expect(registry.firstBaseIdx).toBe(3);
 
-      registry.upsert(registry.createLayerInfo({ id: "base2", group: GROUP.BASE }));
+      registry.upsert(registry.createLayerInfo({ id: "base2", role: ROLE.BASE }));
       // A new base appends to the base block; the boundary stays at base1.
       expect(registry.at(4).id).toBe("base2");
       expect(registry.firstBaseIdx).toBe(3);
@@ -295,7 +295,7 @@ describe("LayerInfoRegistry", () => {
     it("refuses a base layer at index 0", () => {
       // Index 0 is inside the overlay block; a base there would invert the
       // partition and strand firstBaseIdx at 0.
-      const base = registry.createLayerInfo({ id: "base2", group: GROUP.BASE });
+      const base = registry.createLayerInfo({ id: "base2", role: ROLE.BASE });
       expect(() => registry.prepend(base)).toThrow(/base layer/);
       expect(registry.size).toBe(3);
       expect(registry.at(0).id).toBe("overlay1");
@@ -332,7 +332,7 @@ describe("LayerInfoRegistry", () => {
       // items.length is the inclusive upper bound — appending is legal for a
       // base (an overlay may only land before the base block).
       registry.insertAt(
-        registry.createLayerInfo({ id: "base2", group: GROUP.BASE }),
+        registry.createLayerInfo({ id: "base2", role: ROLE.BASE }),
         registry.size,
       );
       expect(registry.at(3).id).toBe("base2");
@@ -345,7 +345,7 @@ describe("LayerInfoRegistry", () => {
 
       const baseAt = (idx: number) =>
         registry.insertAt(
-          registry.createLayerInfo({ id: `base-${idx}`, group: GROUP.BASE }),
+          registry.createLayerInfo({ id: `base-${idx}`, role: ROLE.BASE }),
           idx,
         );
       // A base may start the base block or append; anything before it is in
@@ -363,7 +363,7 @@ describe("LayerInfoRegistry", () => {
       expect(registry.size).toBe(3);
 
       registry.insertAt(
-        registry.createLayerInfo({ id: "base2", group: GROUP.BASE }),
+        registry.createLayerInfo({ id: "base2", role: ROLE.BASE }),
         firstBase,
       );
       expect(registry.firstBaseIdx).toBe(firstBase);
@@ -381,13 +381,13 @@ describe("LayerInfoRegistry", () => {
 
     it("only appends a base when the base block is empty", () => {
       const r = new LayerInfoRegistry([
-        { id: "a", group: "overlay" },
-        { id: "b", group: "overlay" },
+        { id: "a", role: "overlay" },
+        { id: "b", role: "overlay" },
       ] as unknown as LayerInfo[]);
       expect(() =>
-        r.insertAt(r.createLayerInfo({ id: "base1", group: GROUP.BASE }), 0),
+        r.insertAt(r.createLayerInfo({ id: "base1", role: ROLE.BASE }), 0),
       ).toThrow(/base block/);
-      r.insertAt(r.createLayerInfo({ id: "base1", group: GROUP.BASE }), r.size);
+      r.insertAt(r.createLayerInfo({ id: "base1", role: ROLE.BASE }), r.size);
       expect(r.firstBaseIdx).toBe(2);
     });
   });
@@ -485,14 +485,14 @@ describe("LayerInfoRegistry", () => {
   describe("normalizeGroups", () => {
     it("reorders so overlays come before bases", () => {
       const r = new LayerInfoRegistry([
-        { id: "base1", name: "B1", group: "base" },
-        { id: "overlay1", name: "O1", group: "overlay" },
-        { id: "base2", name: "B2", group: "base" },
+        { id: "base1", name: "B1", role: "base" },
+        { id: "overlay1", name: "O1", role: "overlay" },
+        { id: "base2", name: "B2", role: "base" },
       ] as unknown as LayerInfo[]);
       r.normalizeGroups();
       expect(r.at(0).id).toBe("overlay1");
-      expect(r.at(1).group === "base").toBe(true);
-      expect(r.at(2).group === "base").toBe(true);
+      expect(r.at(1).role === "base").toBe(true);
+      expect(r.at(2).role === "base").toBe(true);
     });
   });
 
@@ -558,7 +558,7 @@ describe("LayerInfoRegistry", () => {
 
     it("view reflects the latest items after an internal mutation", () => {
       registry.prepend(
-        registry.createLayerInfo({ id: "new1", name: "New", group: "overlay" }),
+        registry.createLayerInfo({ id: "new1", name: "New", role: "overlay" }),
       );
       expect(registry.layers[0].id).toBe("new1");
       expect(registry.layers.length).toBe(4);
@@ -568,13 +568,13 @@ describe("LayerInfoRegistry", () => {
   describe("replace", () => {
     it("rebuilds list and identifies from a new ordered array", () => {
       const newList = [
-        registry.createLayerInfo({ id: "a", name: "A", group: "overlay" }),
-        registry.createLayerInfo({ id: "b", name: "B", group: "base" }),
+        registry.createLayerInfo({ id: "a", name: "A", role: "overlay" }),
+        registry.createLayerInfo({ id: "b", name: "B", role: "base" }),
       ];
       registry.replace(newList);
       expect(registry.size).toBe(2);
       expect(registry.at(0).id).toBe("a");
-      expect(registry.get("b")!.group === "base").toBe(true);
+      expect(registry.get("b")!.role === "base").toBe(true);
       expect(registry.firstBaseIdx).toBe(1);
     });
   });
