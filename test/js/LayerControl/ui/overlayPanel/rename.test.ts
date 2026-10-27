@@ -378,8 +378,10 @@ describe("LayerUI rename", () => {
 
       expect(renameSpy).toHaveBeenCalledWith("overlay1");
       expect(focusSpy).not.toHaveBeenCalled();
-      // Menu stays open — renameLayer opens an inline input, not a menu close.
-      expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(1);
+      // The menu closes like it does for a click on the same entry: it floats
+      // over the row whose label just became an input. Focus is not returned
+      // to the row, so the fresh input keeps it.
+      expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(0);
     });
 
     it("Enter in the rename input does not bubble to the container handler (no toggle)", () => {
