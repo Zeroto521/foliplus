@@ -112,6 +112,16 @@ class HeatmapManager {
   declare events: EventBus;
   selectedLayerId: string | null;
   pointLayers: PointLayerInfo[];
+  /** Python-declared starting layer name (`HeatmapControl(layer=...)`). A
+   *  starting selection only: a persisted record consumed the `hasScanned`
+   *  guard before the first rebuild, so a user's earlier choice wins. */
+  declare declaredLayer: string | null;
+  /** Python-declared starting aggregation field (`HeatmapControl(field=...)`).
+   *  Same one-shot rule as {@link declaredLayer}. */
+  declare declaredField: string | null;
+  /** Declaration names already warned about — one warning per missing name,
+   *  not one per rebuild on the way to the first render. */
+  declare declarationWarned: Set<string>;
   agg: string;
   /** Selected aggregation field — empty only until the first scan resolves
    *  it to a concrete numeric property name; from then on it is whatever the
@@ -233,11 +243,19 @@ class HeatmapManager {
     this.pointLayers = [];
     this.agg = CONFIG.agg ?? CONST.AGG.COUNT;
     this.field = "";
+    // Python declarations: starting selections only. `applySavedConfig`
+    // consumes the hasScanned guard when a persisted record exists, so the
+    // user's earlier choice (or explicit clear) always wins over these.
+    this.declaredLayer =
+      typeof CONFIG.layer === "string" && CONFIG.layer ? CONFIG.layer : null;
+    this.declaredField =
+      typeof CONFIG.field === "string" && CONFIG.field ? CONFIG.field : null;
+    this.declarationWarned = new Set();
     this.scheme = CONFIG.color_scheme ?? "Reds";
     this.method = resolveClassifyMethod(CONFIG.method);
     this.numClasses = CONFIG.num_classes ?? CLASS_COUNT.DEFAULT;
-    this.borderWeight = CONFIG.border_weight ?? BORDER_WEIGHT.DEFAULT;
     this.borderColor = CONFIG.border_color ?? SCHEME_FALLBACK_COLOR;
+    this.borderWeight = CONFIG.border_weight ?? BORDER_WEIGHT.DEFAULT;
     // Python default is True; only an explicit false turns labels off — same
     // `!== false` rule MeasureControl uses for label_show / label_collide.
     this.labelShow = CONFIG.label_show !== false;
@@ -731,6 +749,41 @@ class HeatmapManager {
   /** Numeric property keys on the source points — bare `feature.properties`
    *  keys plus the two foliplus data-contract shapes (`value`, `options.value`).
    *  Same contract as LayerControl's annotation field picker for the bare keys. */
+  /** Resolve the Python-declared starting layer against the scanned point
+   *  layers. Null when nothing was declared, when the name matches no point
+   *  layer (warned once — the panel then falls back to its normal
+   *  auto-selection), or after a persisted record consumed the guard. */
+  resolveDeclaredLayer(): string | null {
+    if (!this.declaredLayer || this.hasScanned) return null;
+    const hit = this.pointLayers.find(info => info.name === this.declaredLayer);
+    if (!hit) {
+      this.warnDeclaration("layer", this.declaredLayer);
+      return null;
+    }
+    return hit.id;
+  }
+
+  /** Resolve the Python-declared starting field against the layer's numeric
+   *  fields. Null when nothing was declared, the field is not offered
+   *  (warned once), or after a persisted record consumed the guard. */
+  resolveDeclaredField(fields: readonly string[]): string | null {
+    if (!this.declaredField || this.hasScanned) return null;
+    if (!fields.includes(this.declaredField)) {
+      this.warnDeclaration("field", this.declaredField);
+      return null;
+    }
+    return this.declaredField;
+  }
+
+  /** One warning per missing declared name: the scan runs more than once on
+   *  the way to the first render, and a per-rebuild warn would flood. */
+  private warnDeclaration(kind: "layer" | "field", name: string): void {
+    const key = kind + ":" + name;
+    if (this.declarationWarned.has(key)) return;
+    this.declarationWarned.add(key);
+    this.log.warn("declared " + kind + " not found:", name);
+  }
+
   collectFields(layers: Array<{ id: string }>): string[] {
     const fields: string[] = [];
     const seen = new Set<string>();
@@ -1089,6 +1142,10 @@ class HeatmapManager {
     this.layerFilters.clear();
     this.cachedSnapshot = null;
     this.cachedSnapshotLayerId = null;
+    // Reset returns the manager to the Python-declared starting state: the
+    // record is about to be deleted, so re-open the one-shot guard and let
+    // the declaration (and the single-layer auto-select) apply again.
+    this.hasScanned = false;
     if (clearedFilter) {
       publish(this.events, EVENTS.LAYER_FILTER_CHANGE, { id: this.layerId });
     }

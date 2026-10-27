@@ -42,6 +42,18 @@ class TestHeatmapControlConstructor:
         assert_config_value(html, "label_size", 11)
         assert_config_value(html, "label_format", "auto")
 
+    def test_declared_layer_and_field_serialize(self):
+        """layer/field declarations reach CONFIG for the JS startup path."""
+        html = render_control(HeatmapControl(layer="Facility Points", field="score"))
+        assert_config_value(html, "layer", "Facility Points")
+        assert_config_value(html, "field", "score")
+
+    def test_declared_layer_and_field_default_to_null(self):
+        """Undecided declarations serialize as null, never as a fake name."""
+        html = render_control(HeatmapControl())
+        assert_config_value(html, "layer", None)
+        assert_config_value(html, "field", None)
+
     def test_custom_params(self):
         """Custom params produce correct CONFIG JSON."""
         html = render_control(
