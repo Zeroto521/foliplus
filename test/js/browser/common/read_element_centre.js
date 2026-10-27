@@ -1,0 +1,7 @@
+// Centre of an element's box, so the caller can press it with the mouse.
+selector => {
+  const el = document.querySelector(selector);
+  if (!el) return null;
+  const rect = el.getBoundingClientRect();
+  return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+};
