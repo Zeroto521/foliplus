@@ -157,10 +157,11 @@ class TestLayerControlBrowser:
         """Dragging overlay toward base role should show blocked hint."""
         overlay = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)
         base = folium.TileLayer("CartoDB positron", name="Light Canvas", overlay=False)
-        with use_page(self._make_page, browser, tmp_path, overlay, base) as (
-            page,
-            errors,
-        ):
+        # The gate reads the hint's English wording, so pin the page locale
+        # rather than depending on the machine's ambient language.
+        with use_page(
+            self._make_page, browser, tmp_path, overlay, base, locale="en"
+        ) as (page, errors):
             page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.foliplus-is-expanded",
@@ -1302,7 +1303,8 @@ class TestLayerControlBrowser:
     def test_toggle_all_row_title_shows_fold_unfold(self, browser, tmp_path):
         """Toggle-all row title shows fold/unfold tooltip."""
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        LayerControl().add_to(m)
+        # The gate reads the English fold/unfold tooltip, so pin the page locale.
+        LayerControl(locale="en").add_to(m)
         folium.FeatureGroup(name="A", overlay=True, show=True).add_to(m)
 
         html_path = tmp_path / "test_fold_row_title.html"
@@ -2173,7 +2175,8 @@ class TestLayerControlBrowser:
             )
         ).add_to(fg)
         fg.add_to(m)
-        LayerControl().add_to(m)
+        # The border row label is read in English, so pin the page locale.
+        LayerControl(locale="en").add_to(m)
         HeatmapControl().add_to(m)
         _expand_panel(m)
 
