@@ -280,6 +280,10 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
   };
 
   // Initial colour bar render is handled by the picker's constructor.
+
+  // Nothing is selected yet, but the aggregation options still need their
+  // initial availability: without a source, value aggregations cannot run.
+  updateFieldSelector(ctrl);
 };
 
 const setupObserver = (ctrl: HeatmapControlUI) => {
@@ -369,6 +373,17 @@ const rebuildLayerDropdown = (ctrl: HeatmapControlUI) => {
   if (ctrl.layerSelect) buildLayerListItems(ctrl, ctrl.layerSelect);
 };
 
+/** Express whether value aggregations are currently usable. The manager's
+ *  `agg` keeps the user's/author's intent; only the options are disabled, so
+ *  a text-only source cannot silently rewrite the choice. */
+const setValueAggregationsEnabled = (ctrl: HeatmapControlUI, enabled: boolean) => {
+  for (const opt of ctrl.aggSelect.options) {
+    opt.disabled = !enabled && opt.value !== CONST.AGG.COUNT;
+  }
+  if (enabled) ctrl.aggSelect.removeAttribute("title");
+  else ctrl.aggSelect.title = ctrl.T("needs_numeric_field");
+};
+
 const updateFieldSelector = (ctrl: HeatmapControlUI) => {
   if (!ctrl.fieldWrap || !ctrl.fieldSelect) return;
 
@@ -377,31 +392,23 @@ const updateFieldSelector = (ctrl: HeatmapControlUI) => {
   );
   const fields = ctrl.mgr.collectFields(selected);
 
-  // No numeric field: SUM/AVG/MIN/MAX have nothing to weigh by — getPointValue
-  // would fall back to 1 per point, so the map would render as COUNT while the
-  // select still read "Sum". Disable them and degrade the stored choice;
-  // hiding only the field row would hide the evidence, not fix the state.
+  // No numeric field: SUM/AVG/MIN/MAX have nothing to weigh by. Disable the
+  // options and explain why, but leave `mgr.agg` alone — the choice belongs to
+  // the user/author and must come back when the field list does. Hiding the
+  // field row alone would hide the evidence; rewriting `agg` would lose it.
   if (fields.length === 0) {
-    for (const opt of ctrl.aggSelect.options) {
-      opt.disabled = opt.value !== CONST.AGG.COUNT;
-    }
-    ctrl.aggSelect.title = ctrl.T("needs_numeric_field");
-    if (ctrl.mgr.agg !== CONST.AGG.COUNT) {
-      ctrl.mgr.agg = CONST.AGG.COUNT;
-      syncSelect(ctrl, ctrl.aggSelect, CONST.AGG.COUNT);
-      ctrl.mgr.saveConfig();
-    }
+    setValueAggregationsEnabled(ctrl, false);
     rebuildFieldOptions(ctrl, fields, "");
     ctrl.fieldWrap.classList.add(CONST.CLASSES.HIDDEN);
     return;
   }
 
-  for (const opt of ctrl.aggSelect.options) opt.disabled = false;
-  ctrl.aggSelect.removeAttribute("title");
+  setValueAggregationsEnabled(ctrl, true);
 
   if (ctrl.mgr.agg === CONST.AGG.COUNT) {
     // COUNT needs no field; the row appears once a value aggregation is picked.
-    rebuildFieldOptions(ctrl, fields, "");
+    // Keep the hidden select on a valid option rather than the empty string.
+    rebuildFieldOptions(ctrl, fields, fields[0]);
     ctrl.fieldWrap.classList.add(CONST.CLASSES.HIDDEN);
     return;
   }

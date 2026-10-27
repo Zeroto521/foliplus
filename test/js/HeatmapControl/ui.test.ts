@@ -69,6 +69,21 @@ describe("bindControls — template render and initial values", () => {
     expect(ctrl.schemeSelectHidden.value).toBe(m.scheme);
   });
 
+  it("disables value aggregations before a source layer is selected", () => {
+    const config = makeConfig({ agg: "sum" });
+    const m = makeManager({ agg: "sum" });
+    const ctrl = makeCtrl(m, config);
+    bindControls(ctrl, document.createElement("div"));
+
+    expect(m.agg).toBe(CONST.AGG.SUM);
+    expect(ctrl.aggSelect.value).toBe(CONST.AGG.SUM);
+    expect(
+      [...ctrl.aggSelect.options].filter(o => o.disabled).map(o => o.value),
+    ).toEqual(["sum", "avg", "min", "max"]);
+    expect(ctrl.aggSelect.title).toBe("Needs a numeric field to aggregate by value");
+    expect(ctrl.fieldWrap.classList.contains(CONST.CLASSES.HIDDEN)).toBe(true);
+  });
+
   it("labels the method + classes row by method, with two distinct names", () => {
     // One visible label, two native selects. The row reads by its primary
     // control (the method), matching LayerControl's fill ramp row; the class
@@ -378,15 +393,20 @@ describe("resetPanel — shared reset (Clear button + more-menu clear)", () => {
     expect(ctrl.extraBody.classList.contains(CONST.CLASSES.HIDDEN)).toBe(true);
   });
 
-  it("degrades a declared value aggregation when the reset leaves no numeric field", () => {
-    // A value aggregation has nothing to weigh by until a layer with numeric
-    // properties is picked again, so the reset lands on count.
+  it("keeps a declared value aggregation through a reset with no numeric field", () => {
+    // The reset restores the author's default; with no layer selected the
+    // value options are unavailable, but the choice itself must survive so
+    // picking a numeric layer again restores it.
     const { ctrl, m } = setup(makeConfig({ agg: "sum" }));
 
     resetPanel(ctrl);
 
-    expect(m.agg).toBe(CONST.AGG.COUNT);
-    expect(ctrl.aggSelect.value).toBe(CONST.AGG.COUNT);
+    expect(m.agg).toBe(CONST.AGG.SUM);
+    expect(ctrl.aggSelect.value).toBe(CONST.AGG.SUM);
+    expect(
+      [...ctrl.aggSelect.options].filter(o => o.disabled).map(o => o.value),
+    ).toEqual(["sum", "avg", "min", "max"]);
+    expect(ctrl.aggSelect.title).toBe("Needs a numeric field to aggregate by value");
   });
 
   it("leaves the panel open and the persisted record alone", () => {
@@ -973,8 +993,9 @@ describe("updateFieldSelector — concrete field resolution", () => {
     expect(
       [...ctrl.aggSelect.options].filter(o => o.disabled).map(o => o.value),
     ).toEqual(["sum", "avg", "min", "max"]);
-    expect(m.agg).toBe(CONST.AGG.COUNT);
-    expect(ctrl.aggSelect.value).toBe(CONST.AGG.COUNT);
+    // The choice stays on the manager; only its availability is expressed.
+    expect(m.agg).toBe(CONST.AGG.SUM);
+    expect(ctrl.aggSelect.value).toBe(CONST.AGG.SUM);
     expect(ctrl.aggSelect.title).toBe("Needs a numeric field to aggregate by value");
     expect(ctrl.fieldWrap.classList.contains(CONST.CLASSES.HIDDEN)).toBe(true);
   });
@@ -984,7 +1005,11 @@ describe("updateFieldSelector — concrete field resolution", () => {
     expect(m.selectedLayerId).toBeNull();
     ctrl.aggSelect.value = CONST.AGG.SUM;
     fire(ctrl.aggSelect, "change");
-    expect(m.agg).toBe(CONST.AGG.COUNT);
+    // No source means no numeric field, but the operator choice is kept.
+    expect(m.agg).toBe(CONST.AGG.SUM);
+    expect(
+      [...ctrl.aggSelect.options].filter(o => o.disabled).map(o => o.value),
+    ).toEqual(["sum", "avg", "min", "max"]);
     expect(ctrl.fieldWrap.classList.contains(CONST.CLASSES.HIDDEN)).toBe(true);
   });
 
@@ -996,19 +1021,31 @@ describe("updateFieldSelector — concrete field resolution", () => {
     fire(ctrl.aggSelect, "change");
 
     expect(m.field).toBe("sales");
+    expect(m.agg).toBe(CONST.AGG.SUM);
   });
 
-  it("shows the row again once the source supplies a numeric field", () => {
+  it("keeps a valid field projection while count hides the row", () => {
+    const { ctrl } = seed({ sales: 5, price: 10 });
+    ctrl.aggSelect.value = CONST.AGG.COUNT;
+    fire(ctrl.aggSelect, "change");
+
+    expect(ctrl.fieldWrap.classList.contains(CONST.CLASSES.HIDDEN)).toBe(true);
+    expect(ctrl.fieldSelect.value).toBe("sales");
+  });
+
+  it("restores the value aggregation when the source supplies a numeric field", () => {
     const { ctrl, m } = seed({ name: "x" });
     expect(ctrl.fieldWrap.classList.contains(CONST.CLASSES.HIDDEN)).toBe(true);
+    expect(m.agg).toBe(CONST.AGG.SUM);
+    expect(ctrl.aggSelect.value).toBe(CONST.AGG.SUM);
 
     window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
       { lat: 1, lng: 2, marker: { feature: { properties: { sales: 5 } } } },
     ]);
-    ctrl.aggSelect.value = CONST.AGG.SUM;
     fire(ctrl.aggSelect, "change");
 
     expect(m.field).toBe("sales");
+    expect(m.agg).toBe(CONST.AGG.SUM);
     expect(ctrl.fieldWrap.classList.contains(CONST.CLASSES.HIDDEN)).toBe(false);
     expect(ctrl.fieldSelect.value).toBe("sales");
     expect([...ctrl.aggSelect.options].some(o => o.disabled)).toBe(false);
