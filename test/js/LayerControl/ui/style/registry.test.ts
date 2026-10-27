@@ -172,7 +172,7 @@ describe("LayerControl style-panel dimension registry — writeIntentKeys", () =
         {
           id: "overlay1",
           name: "Overlay",
-          group: "overlay",
+          role: "overlay",
           layer: { options: {}, setZIndex: vi.fn(), getBounds: vi.fn() },
         },
       ],
@@ -224,7 +224,7 @@ describe("LayerControl style-panel dimension registry — resetIntentKeys", () =
         {
           id: "overlay1",
           name: "Overlay",
-          group: "overlay",
+          role: "overlay",
           layer: { options: {}, setZIndex: vi.fn(), getBounds: vi.fn() },
         },
       ],
@@ -278,9 +278,7 @@ describe("LayerControl style-panel dimension registry — gatedRows", () => {
   beforeEach(() => {
     installLeafletGlobals();
     ({ manager, ui } = initFixture({
-      data: [
-        { id: "overlay1", name: "Overlay", group: "overlay", layer: overlayLayer },
-      ],
+      data: [{ id: "overlay1", name: "Overlay", role: "overlay", layer: overlayLayer }],
     }));
   });
 
@@ -391,13 +389,13 @@ describe("LayerControl style-panel dimension registry — opacity descriptor", (
         {
           id: "overlay1",
           name: "Overlay",
-          group: "overlay",
+          role: "overlay",
           layer: overlayLayer,
         },
         {
           id: "base1",
           name: "OSM",
-          group: "base",
+          role: "base",
           layer: { options: {}, setZIndex: vi.fn() } as never,
           paneName: "tilePane",
         },
@@ -562,9 +560,7 @@ describe("LayerControl style-panel dimension registry — fill descriptor", () =
   beforeEach(() => {
     installLeafletGlobals();
     ({ manager, ui } = initFixture({
-      data: [
-        { id: "overlay1", name: "Overlay", group: "overlay", layer: overlayLayer },
-      ],
+      data: [{ id: "overlay1", name: "Overlay", role: "overlay", layer: overlayLayer }],
     }));
   });
 
@@ -677,9 +673,7 @@ describe("LayerControl style-panel dimension registry — border descriptor", ()
   beforeEach(() => {
     installLeafletGlobals();
     ({ manager, ui } = initFixture({
-      data: [
-        { id: "overlay1", name: "Overlay", group: "overlay", layer: overlayLayer },
-      ],
+      data: [{ id: "overlay1", name: "Overlay", role: "overlay", layer: overlayLayer }],
     }));
   });
 
@@ -782,9 +776,7 @@ describe("LayerControl style-panel dimension registry — zoomRange descriptor",
   beforeEach(() => {
     installLeafletGlobals();
     ({ manager, ui } = initFixture({
-      data: [
-        { id: "overlay1", name: "Overlay", group: "overlay", layer: overlayLayer },
-      ],
+      data: [{ id: "overlay1", name: "Overlay", role: "overlay", layer: overlayLayer }],
     }));
   });
 

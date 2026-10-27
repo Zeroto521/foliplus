@@ -117,7 +117,7 @@ describe("LayerFactory", () => {
     invalidateType = vi.fn();
     // A real registry answers a slot; the lightweight LayerAPI answers null,
     // which leaves the pane at Leaflet's own z.
-    slotOf = vi.fn(() => ({ index: 0, count: 3, group: "overlay" as const }));
+    slotOf = vi.fn(() => ({ index: 0, count: 3, role: "overlay" as const }));
 
     factory = new LayerFactory({
       map,
@@ -1107,7 +1107,7 @@ describe("LayerFactory", () => {
         expect.objectContaining({
           id: "canvas_test",
           name: "My Canvas",
-          group: "overlay",
+          role: "overlay",
           kind: "canvas",
         }),
       );
@@ -1231,7 +1231,7 @@ describe("LayerFactory", () => {
     });
 
     it("creates no pane before register, then prices the pane at its slot z", () => {
-      const slot = { index: 2, count: 4, group: "overlay" as const };
+      const slot = { index: 2, count: 4, role: "overlay" as const };
       slotOf.mockReturnValue(slot);
       const api = factory.createCanvas({ id: "canvas_test" });
       const paneName = "foliplus-canvas-canvas_test";
@@ -1642,7 +1642,7 @@ describe("LayerFactory", () => {
       // covered: a fresh pane carries Leaflet's default z of 400 — above every
       // basemap — so the pane is not born until register, when its slot
       // already exists and the slot's z can be written at birth.
-      const slot = { index: 0, count: 2, group: "base" as const };
+      const slot = { index: 0, count: 2, role: "base" as const };
       slotOf.mockReturnValue(slot);
       const h = make("solid");
       expect(map._panes["foliplus-color-solid"]).toBeUndefined();
@@ -1757,7 +1757,7 @@ describe("LayerFactory", () => {
       expect(registerLayer).toHaveBeenCalledWith(
         expect.objectContaining({
           id: "solid",
-          group: "base",
+          role: "base",
           color: "#3366cc",
           canvas: content(h).element,
           paneName: "foliplus-color-solid",

@@ -17,7 +17,7 @@
 // on {@link OrderPersistence} (the `schedule` slice it needs) instead of
 // `LayerPersistence`, so core/layer never imports from a control module.
 import { type LayerInfoRegistry } from "./LayerInfoRegistry.js";
-import { GROUP } from "./const.js";
+import { ROLE } from "./const.js";
 import type { LayerInfo } from "./type.js";
 
 /** The order-persistence write target — the narrow `schedule` slice
@@ -84,8 +84,8 @@ class LayerOrder {
       if (rb === undefined) return -1;
       return ra - rb;
     };
-    const overlays = items.filter(l => l.group !== GROUP.BASE).sort(byRank);
-    const bases = items.filter(l => l.group === GROUP.BASE).sort(byRank);
+    const overlays = items.filter(l => l.role !== ROLE.BASE).sort(byRank);
+    const bases = items.filter(l => l.role === ROLE.BASE).sort(byRank);
     return [...overlays, ...bases];
   }
 
@@ -153,7 +153,7 @@ class LayerOrder {
       // The saved order is one role-agnostic id list; a neighbor of the
       // OTHER role is not a legal placement anchor — replaying onto it
       // would interleave the blocks and strand a stale section boundary.
-      if (neighbor.group !== layerInfo.group) continue;
+      if (neighbor.role !== layerInfo.role) continue;
       const to = registry.indexOf(neighbor);
       // Removing `layerInfo` first shifts every later index down by one.
       goal = to - (from < to ? 1 : 0);
@@ -166,7 +166,7 @@ class LayerOrder {
     // so overlays fall back to the end of the overlay block; a base layer
     // falls back to the end of the base block (the registry end).
     goal =
-      layerInfo.group === GROUP.BASE
+      layerInfo.role === ROLE.BASE
         ? registry.layers.length - 1
         : registry.firstBaseIdx === -1
           ? registry.layers.length - 1

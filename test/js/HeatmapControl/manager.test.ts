@@ -2265,7 +2265,7 @@ describe("redrawHeatmap — preserveCss branch", () => {
 // The map is the real LayerController fixture (test/js/LayerControl/ui), so
 // the bus, the registry and the factory are the production instances; only
 // the heatmap's own draw is stubbed (jsdom has no 2D canvas).
-/** A real-enough layer group: the factory patches and walks its children. */
+/** A real-enough layer role: the factory patches and walks its children. */
 class FakeGroup {
   options: Record<string, unknown> = {};
   private children = new Set<unknown>();

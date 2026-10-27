@@ -13,7 +13,6 @@ import {
   type CreateLayersAPI,
   type CreateLayersOpts,
   GEOM_TYPE,
-  GROUP,
   type LabelAwareLayer,
   type LayerAPI,
   type LayerCapabilities,
@@ -23,6 +22,7 @@ import {
   LayerOrder,
   type LayerSurface,
   PaneManager,
+  ROLE,
   type RegisterLayerOpts,
   SurfaceIndex,
   countFeatureGeometry,
@@ -95,7 +95,7 @@ const uninstallBringToFrontPatch = () => {
 //      `createLayers`, `createCanvas`, `bringLayerToFront`, `touchLayer`,
 //      `setVisible`, `getLayerType`, `getLayersByType`, `getFeatureCount`,
 //      `refreshCount`, `findLayer`, `forEachLeaf`, `extractPoints`,
-//      `computeZIndex`, `group`, and the `isLayerControl` flag. Anything
+//      `computeZIndex`, `role`, and the `isLayerControl` flag. Anything
 //      outside the component reads through these.
 //   2. **Internal coordination** — the plumbing between LayerInfoRegistry,
 //      PaneManager, LayerSurface, LayerFactory, AnnotationManager and
@@ -317,7 +317,7 @@ class LayerController implements LayerAPI {
           ? {
               index: this.layerRegistry.indexOf(layerInfo),
               count: this.layers.length,
-              group: layerInfo.group,
+              role: layerInfo.role,
             }
           : null;
       },
@@ -436,7 +436,7 @@ class LayerController implements LayerAPI {
     });
     this.getLayerPanes = layer => this.domain.resolveLayerPanes(layer);
 
-    // Application tail — persisted order replay, group normalization, first
+    // Application tail — persisted order replay, role normalization, first
     // enforce, and the export-listener wiring. Runs after the assembly phase
     // above so `this.order` / `this.layerRegistry` / `this.factory` / `this.domain`
     // are all populated when these run.
@@ -593,7 +593,7 @@ class LayerController implements LayerAPI {
     try {
       return host.hasLayer(layer);
     } catch {
-      // A hostile third-party group: "cannot confirm" is the answer.
+      // A hostile third-party role: "cannot confirm" is the answer.
       return false;
     }
   }
@@ -664,9 +664,9 @@ class LayerController implements LayerAPI {
   getLayerType(id: string): string | null {
     const layerInfo = this.layerRegistry.get(id);
     if (!layerInfo) return null;
-    if (layerInfo.group === GROUP.BASE) {
-      layerInfo.type = GROUP.BASE;
-      return GROUP.BASE;
+    if (layerInfo.role === ROLE.BASE) {
+      layerInfo.type = ROLE.BASE;
+      return ROLE.BASE;
     }
     if (layerInfo.iconSvg) {
       layerInfo.type = GEOM_TYPE.CUSTOM;
@@ -719,7 +719,7 @@ class LayerController implements LayerAPI {
   getFeatureCount(id: string): number | null {
     const layerInfo = this.layerRegistry.get(id);
     if (!layerInfo) return null;
-    if (layerInfo.group === GROUP.BASE) return null;
+    if (layerInfo.role === ROLE.BASE) return null;
     // 1. Third-party provider (Canvas layers must supply this).
     const provider = layerInfo.featureCountProvider;
     if (typeof provider === "function") {
@@ -758,7 +758,7 @@ class LayerController implements LayerAPI {
    *  before emitting; the factory path stays single-invalidation.
    *  @param {string} id - Layer id. */
   refreshCount(id: string) {
-    if (this.layerRegistry.get(id)?.group === GROUP.BASE) return;
+    if (this.layerRegistry.get(id)?.role === ROLE.BASE) return;
     // Settled: one consumer throwing must not keep the other count listeners
     // (the row repaint, the fill ramp) from seeing the final geometry.
     publish(this.events, EVENTS.LAYER_ITEM_COUNT_CHANGE, { id });
@@ -853,19 +853,19 @@ class LayerController implements LayerAPI {
       return null;
     }
 
-    // A layer's group is its role for the id's whole lifetime — it picks the
+    // A layer's role is fixed for the id's whole lifetime — it picks the
     // z ladder, the attribution and basemap semantics, and which panel
-    // section owns the row. Re-registering with a different group would be a
+    // section owns the row. Re-registering with a different role would be a
     // role change, which no code path models: the in-place upsert would
     // strand the row in the old section with a stale section boundary
     // (firstBaseIdx) and a partition invariant broken. Refuse before any
     // mutation — unregister first if the role really must change.
     const existingRole = this.layerRegistry.get(opts.id);
-    if (existingRole && opts.group !== undefined && opts.group !== existingRole.group) {
+    if (existingRole && opts.role !== undefined && opts.role !== existingRole.role) {
       throw new Error(
         this.log.msg(
-          `registerLayer: "${opts.id}" is registered as ${existingRole.group}; ` +
-            `re-registering with group "${opts.group}" is a role change. ` +
+          `registerLayer: "${opts.id}" is registered as ${existingRole.role}; ` +
+            `re-registering with role "${opts.role}" is a role change. ` +
             `Unregister the layer first, or register it under a new id.`,
         ),
       );
@@ -923,8 +923,8 @@ class LayerController implements LayerAPI {
       // attach/fold). Fires after applyUserState so the row reflects the fresh
       // map state.
       operation.emit(EVENTS.LAYER_ITEM_REFRESHED, { id: opts.id });
-      operation.emit(EVENTS.LAYER_GROUP_COUNT_CHANGED, {
-        group: layerInfo.group,
+      operation.emit(EVENTS.LAYER_ROLE_COUNT_CHANGED, {
+        role: layerInfo.role,
       });
       // Defer z-order enforcement so batch registration coalesces into one pass.
       this.debouncedEnforce();
@@ -934,7 +934,7 @@ class LayerController implements LayerAPI {
       this.stopOnFailure(operation);
       // The round goes out last — after the row insert, the count sync and the
       // order replay — so a subscriber that re-enters reads the settled panel:
-      // full group count, correct row state. The batch carries the entry it ran
+      // full role count, correct row state. The batch carries the entry it ran
       // against, so a retire inside that notify cannot announce for a
       // replacement holding the same id.
       collectDeltas(this.ui, moved, operation);
@@ -1066,7 +1066,7 @@ class LayerController implements LayerAPI {
     if (!item) return;
     const idx = this.layerRegistry.indexOf(item);
     if (idx <= 0) return;
-    if (item?.group === GROUP.BASE) return;
+    if (item?.role === ROLE.BASE) return;
     this.commitReorder(id, item, () => this.layerRegistry.moveToFront(id));
   }
 
@@ -1081,7 +1081,7 @@ class LayerController implements LayerAPI {
    * @param {string} id - The dragged layer's ID.
    * @param {string} targetId - The layer whose slot the drop names.
    * @returns {boolean} true if the layer moved, false when either id is
-   *   gone, the slots coincide, or the group boundary refuses the move —
+   *   gone, the slots coincide, or the role boundary refuses the move —
    *   always without side effects on false.
    */
   reorderLayer(id: string, targetId: string): boolean {
@@ -1090,7 +1090,7 @@ class LayerController implements LayerAPI {
     if (!item || !target) return false;
     const from = this.layerRegistry.indexOf(item);
     const to = this.layerRegistry.indexOf(target);
-    // Same slot is a self-drop; any other pairing crosses the group gate,
+    // Same slot is a self-drop; any other pairing crosses the role gate,
     // which also owns the bounds check, below.
     if (from === to) return false;
     if (!this.canReorderBetween(from, to)) return false;
@@ -1192,7 +1192,7 @@ class LayerController implements LayerAPI {
   }
 
   /** Remove one retired layer's panel row: finalise an in-flight slider edit,
-   *  drop the row, and take the group header with it when the group empties.
+   *  drop the row, and take the role header with it when the role empties.
    *  Split out of `retireEntry` so the teardown lists it as one named step —
    *  inline, this segment was the one a try/catch could silently skip.
    *
@@ -1209,15 +1209,15 @@ class LayerController implements LayerAPI {
     target.remove();
     const container = this.uiContainer;
     if (!container) return;
-    // Check if the group is now empty and remove the toggle-all row if so.
-    const group = layerInfo.group;
+    // Check if the role is now empty and remove the toggle-all row if so.
+    const role = layerInfo.role;
     const anchorSel =
-      group === GROUP.BASE
-        ? `${CONST.SEL.LAYER_ITEM}[data-layer-type="${GROUP.BASE}"]:not([${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"])`
-        : `${CONST.SEL.LAYER_ITEM}:not([data-layer-type="${GROUP.BASE}"])`;
+      role === ROLE.BASE
+        ? `${CONST.SEL.LAYER_ITEM}[data-layer-type="${ROLE.BASE}"]:not([${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"])`
+        : `${CONST.SEL.LAYER_ITEM}:not([data-layer-type="${ROLE.BASE}"])`;
     if (!container.querySelector(anchorSel)) {
       container
-        .querySelector(`.${CONST.CLASSES.TOGGLE_ALL}[data-group="${group}"]`)
+        .querySelector(`.${CONST.CLASSES.TOGGLE_ALL}[data-role="${role}"]`)
         ?.remove();
     }
   }
@@ -1335,10 +1335,10 @@ class LayerController implements LayerAPI {
       // is gated.
       operation.emit(EVENTS.LAYER_ITEM_REMOVED, { id });
       if (!gate()) return false;
-      // The row was just removed: rescan the group's count so the toggle-all
+      // The row was just removed: rescan the role's count so the toggle-all
       // checkbox reflects the removal in the same frame.
-      operation.emit(EVENTS.LAYER_GROUP_COUNT_CHANGED, {
-        group: layerInfo.group,
+      operation.emit(EVENTS.LAYER_ROLE_COUNT_CHANGED, {
+        role: layerInfo.role,
       });
       if (!gate()) return false;
       this.emitLayerChange(id, layerInfo.kind, operation);
@@ -1406,8 +1406,8 @@ class LayerController implements LayerAPI {
       const announced = this.announceRetirement(retired.layerInfo, operation);
       if (this.ui && announced) {
         this.ui.resetSolidBasemap();
-        operation.emit(EVENTS.LAYER_GROUP_COUNT_CHANGED, {
-          group: GROUP.BASE,
+        operation.emit(EVENTS.LAYER_ROLE_COUNT_CHANGED, {
+          role: ROLE.BASE,
         });
         operation.emit(EVENTS.LAYER_NO_BASEMAP_CHANGED);
       }
@@ -1454,8 +1454,8 @@ class LayerController implements LayerAPI {
     const operation = this.beginOperation();
     const announced = this.announceRetirement(retired.layerInfo, operation);
     if (this.ui && announced) {
-      operation.emit(EVENTS.LAYER_GROUP_COUNT_CHANGED, {
-        group: retired.layerInfo.group,
+      operation.emit(EVENTS.LAYER_ROLE_COUNT_CHANGED, {
+        role: retired.layerInfo.role,
       });
       operation.emit(EVENTS.LAYER_NO_BASEMAP_CHANGED);
     }
@@ -1533,8 +1533,8 @@ class LayerController implements LayerAPI {
    *  `zFor` directly, but this wrapper stays because LayerController is the
    *  LayerAPI entry point — removing it would break the contract. Tests and
    *  probes may still call it. Do not grow this into real logic. */
-  computeZIndex(i: number, group: "base" | "overlay"): number {
-    return zFor({ index: i, count: this.layers.length, group });
+  computeZIndex(i: number, role: "base" | "overlay"): number {
+    return zFor({ index: i, count: this.layers.length, role });
   }
 
   /** The surface for a registry entry, built on first use. Registration builds
@@ -1630,7 +1630,7 @@ class LayerController implements LayerAPI {
 
   /**
    * Move a registered layer one position up in z-order (toward index 0).
-   * Respects group boundaries (overlay to base never crosses).
+   * Respects role boundaries (overlay to base never crosses).
    * @param {string} id - Layer ID previously passed to registerLayer().
    * @returns {boolean} true if the layer was moved, false if already at top,
    *   at the base boundary, or unknown.
@@ -1647,10 +1647,10 @@ class LayerController implements LayerAPI {
 
   /**
    * Move a registered layer one position down in z-order (away from index 0).
-   * Respects group boundaries (overlay to base never crosses).
+   * Respects role boundaries (overlay to base never crosses).
    * @param {string} id - Layer ID previously passed to registerLayer().
    * @returns {boolean} true if the layer was moved, false if already at bottom
-   *   of its group or unknown.
+   *   of its role or unknown.
    */
   moveLayerDown(id: string): boolean {
     const item = this.layerRegistry.get(id);

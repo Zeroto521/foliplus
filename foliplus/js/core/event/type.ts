@@ -50,7 +50,7 @@ interface EventPayloadMap {
   [EVENTS.LAYER_ITEM_REFRESHED]: { id: string };
   [EVENTS.LAYER_CAPABILITY_CHANGED]: { id: string };
   [EVENTS.LAYER_ITEM_REMOVED]: { id: string };
-  [EVENTS.LAYER_GROUP_COUNT_CHANGED]: { group: string };
+  [EVENTS.LAYER_ROLE_COUNT_CHANGED]: { role: string };
   [EVENTS.LAYER_LIST_REBUILD]: void;
   [EVENTS.LAYER_NO_BASEMAP_CHANGED]: void;
   [EVENTS.OVERLAY_CLEAR]: void;

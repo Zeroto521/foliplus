@@ -80,16 +80,16 @@ const EVENTS = {
   LAYER_CAPABILITY_CHANGED: "foliplus:layer:capability-changed",
   /** A row left the panel through the generic teardown path (unregisterLayer)
    *  — a wider reach than LAYER_REMOVED for the UI subscribers: the fields
-   *  cache, the style-dimension apply schedulers, and the group toggle-all
+   *  cache, the style-dimension apply schedulers, and the role toggle-all
    *  must all reconcile. Kept disjoint from LAYER_REMOVED (registry contract)
    *  so the two channels stay separately subscribable. */
   LAYER_ITEM_REMOVED: "foliplus:layer:item-removed",
-  /** The group's row count shifted (a row joined or left, the toggle-all
-   *  checkbox tri-state may have changed) — the group's row-count summary
+  /** The role's row count shifted (a row joined or left, the toggle-all
+   *  checkbox tri-state may have changed) — the role's row-count summary
    *  needs recomputing. Fires with LAYER_ITEM_ADDED / LAYER_ITEM_UPDATED /
    *  LAYER_ITEM_REMOVED when the count is affected, and on its own after a
    *  user delete. */
-  LAYER_GROUP_COUNT_CHANGED: "foliplus:layer:group-count-changed",
+  LAYER_ROLE_COUNT_CHANGED: "foliplus:layer:role-count-changed",
   /** The panel's row order changed: bringLayerToFront, moveLayerUp/Down and
    *  the drag drop all route here through the controller's reorder commit
    *  funnel, so every reorder entrance publishes the same announcement. A
@@ -165,7 +165,7 @@ const EVENT_POLICY: Record<EventName, EventPolicy> = {
   [EVENTS.LAYER_ITEM_REFRESHED]: { kind: "terminal" },
   [EVENTS.LAYER_CAPABILITY_CHANGED]: { kind: "notification" },
   [EVENTS.LAYER_ITEM_REMOVED]: { kind: "terminal" },
-  [EVENTS.LAYER_GROUP_COUNT_CHANGED]: { kind: "terminal" },
+  [EVENTS.LAYER_ROLE_COUNT_CHANGED]: { kind: "terminal" },
   [EVENTS.LAYER_LIST_REBUILD]: { kind: "terminal" },
   [EVENTS.LAYER_NO_BASEMAP_CHANGED]: { kind: "terminal" },
   [EVENTS.LAYER_FILTER_CHANGE]: { kind: "notification" },

@@ -196,11 +196,12 @@
     var(--foliplus-panel-width) - 2 * var(--foliplus-panel-inset-x) -
       var(--foliplus-form-label-width) - var(--foliplus-space-md)
   );
-  /* A row panel (common/menu.css) is a panel with a 1px border, so its content
-     box is 2px narrower than a fold panel's. Subtracting that border keeps the
-     visual inset at the fold panel's value (11px of padding + 1px border = the
-     same 12px) and therefore keeps both panels' label, control and footer
-     edges on one line. */
+  /* A row panel (common/menu.css) draws its own border, so its content box is
+     narrower than a fold panel's by one border width on each side. Subtracting
+     exactly one border width from the inset therefore lands on the same visual
+     inset as the fold panel — the row's padding plus its own border equals the
+     inset — and keeps both panels' label, control and footer edges on one
+     line. */
   --foliplus-row-panel-inset-x: calc(
     var(--foliplus-panel-inset-x) - var(--foliplus-border-thin)
   );

@@ -25,31 +25,30 @@ const syncListCursor = (ui: LayerUI): void => {
 };
 
 /** Identity of the row the keyboard cursor points at, for re-homing after
- *  rows move or rebuild: a layer row by id, a toggle-all row by group. The
+ *  rows move or rebuild: a layer row by id, a toggle-all row by role. The
  *  kind tag is load-bearing — a layer may legally be named "overlay" or
- *  "base", the same strings the group headers carry, and a bare string
+ *  "base", the same strings the role headers carry, and a bare string
  *  would let a same-named header steal the re-home (the header sits ahead
  *  of the rows in every findIndex). */
-type CursorRef =
-  { kind: "layer"; id: string } | { kind: "group"; group: string } | null;
+type CursorRef = { kind: "layer"; id: string } | { kind: "role"; role: string } | null;
 
 /** Read one row's cursor identity: layer rows key on data-layer-id,
- *  toggle-all rows on data-group — the two attributes never co-occur on a
+ *  toggle-all rows on data-role — the two attributes never co-occur on a
  *  row. */
 const refOf = (el: HTMLElement): CursorRef => {
   const id = el.getAttribute(CONST.DATA.LAYER_ID);
   if (id) return { kind: "layer", id };
-  const group = el.getAttribute("data-group");
-  return group ? { kind: "group", group } : null;
+  const role = el.getAttribute("data-role");
+  return role ? { kind: "role", role } : null;
 };
 
 /** The one row lookup both re-home paths share (the rebuild-grade restore
  *  and the incremental reconcile): kind-keyed, so a layer named "overlay"
- *  never resolves to the overlay group header and back. */
+ *  never resolves to the overlay role header and back. */
 const rowByRef = (items: HTMLElement[], ref: Exclude<CursorRef, null>): number =>
   ref.kind === "layer"
     ? items.findIndex(el => el.getAttribute(CONST.DATA.LAYER_ID) === ref.id)
-    : items.findIndex(el => el.getAttribute("data-group") === ref.group);
+    : items.findIndex(el => el.getAttribute("data-role") === ref.role);
 
 const cursorRef = (ui: LayerUI): CursorRef => {
   if (ui.listPanel.activeIdx === null) return null;
@@ -58,7 +57,7 @@ const cursorRef = (ui: LayerUI): CursorRef => {
 };
 
 /** Re-attach the cursor (marker + DOM focus) to the rebuilt row. A row hidden
- *  by folding is not focusable, so the cursor falls back to that group's
+ *  by folding is not focusable, so the cursor falls back to that role's
  *  toggle-all row. If the row is gone entirely, the cursor is cleared.
  *
  *  Rebuild-grade only: the rows were destroyed, so the cursor and DOM focus
@@ -73,11 +72,11 @@ const restoreCursor = (ui: LayerUI, ref: CursorRef): void => {
   const items = getNavigableItems(ui);
   let idx = rowByRef(items, ref);
   if (idx !== -1 && items[idx].classList.contains(CONST.CLASSES.GROUP_FOLDED)) {
-    const group = items[idx].getAttribute("data-layer-type");
+    const role = items[idx].getAttribute("data-layer-type");
     idx = items.findIndex(
       el =>
         el.classList.contains(CONST.CLASSES.TOGGLE_ALL) &&
-        el.getAttribute("data-group") === group,
+        el.getAttribute("data-role") === role,
     );
   }
   if (idx !== -1) setActiveItem(ui, idx);

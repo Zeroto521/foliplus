@@ -443,7 +443,7 @@ type ProjectionBatch = ReadonlyArray<ProjectionDeltaItem>;
  *  `notifyDelta` / `notifyDeltas` once every side effect of that operation has
  *  landed (row paint, tri-state count, basemap hatch, attribution). A notify fired
  *  mid-operation would hand a subscriber a partially-updated UI: a
- *  re-entrant subscriber re-projects against a stale row, a group count
+ *  re-entrant subscriber re-projects against a stale row, a role count
  *  delta is computed from pre-update state, and a subscriber that throws
  *  or tears the map down leaves the operation's own paint behind.
  */
@@ -789,7 +789,7 @@ const collectDeltas = (
  *
  *  When the zoom sweep finishes, every layer's `effectiveShown` may have
  *  changed — a basemap that was the sole visible base can drop out of its
- *  stored zoom range. `syncNoBasemap` reconciles the hatch and the group
+ *  stored zoom range. `syncNoBasemap` reconciles the hatch and the role
  *  label from the fresh projection, so the sweep must call it at the end.
  *  Goes through the `ui.syncNoBasemap` delegate to avoid a cross-module
  *  import back into `listPanel/visibility.js` (which already imports

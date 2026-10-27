@@ -8,7 +8,7 @@
 - `LayerControl`: a size row sets a CircleMarker layer's pixel radius — every marker at once, persisted across reloads, and resettable to each marker's drawn radius ([#726](https://github.com/Zeroto521/foliplus/pull/726))
 - `LayerControl`: value-based fill — a numeric field, a classification method
   and a palette paint the layer by value ([#727](https://github.com/Zeroto521/foliplus/pull/727))
-- `LayerControl`: the fill row chooses solid colour or colour-by-value and edits the value arm in place — field, classification method, class count and a scheme picked from the shared picker ([#747](https://github.com/Zeroto521/foliplus/pull/747), [#759](https://github.com/Zeroto521/foliplus/pull/759))
+- `LayerControl`: the fill row chooses solid colour or colour-by-value and edits the value arm in place — field, classification method, class count and a scheme picked from the shared picker ([#747](https://github.com/Zeroto521/foliplus/pull/747), [#759](https://github.com/Zeroto521/foliplus/pull/759), [#761](https://github.com/Zeroto521/foliplus/pull/761))
 
 ### Changed
 
@@ -18,6 +18,7 @@
 - `core/layer`: a reorder pays one tree walk per layer instead of four, and pins late content in one fragment [#733](https://github.com/Zeroto521/foliplus/pull/733)
 - `core/layer`: a declared pane spec may only name the public roles, so `shadow` stays internal [#733](https://github.com/Zeroto521/foliplus/pull/733)
 - `LayerControl`: labels rebuild once per frame and only repaint their own canvas; the replay set is a mandatory per-dimension registry policy, each UI owns its scheduler, and clearing labels also drops the layer's pan plan ([#734](https://github.com/Zeroto521/foliplus/pull/734))
+- `core/layer`, `LayerControl`, `LayerControl.py`: the `group` vocabulary is renamed to `role` end to end (**Breaking**: CONF payloads from an older Python package and pre-v4 saved records lose their group/role distinction) ([#763](https://github.com/Zeroto521/foliplus/pull/763))
 
 ### Fixed
 

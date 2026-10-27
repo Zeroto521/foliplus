@@ -8,7 +8,7 @@
 // as the first per-layer dimension. The descriptor owns intent+persist
 // (write / reset / valueSource); commitOpacityPct stays a thin delegate that
 // also syncs the panel rail (UI chrome outside the descriptor).
-import { CAP_TIER, DIM, GROUP } from "#core/layer/index.js";
+import { CAP_TIER, DIM, ROLE } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { Slider, sliderOf } from "#foliplus/LayerControl/slider.js";
 import { dom } from "#common/dom.js";
@@ -152,7 +152,7 @@ const OPACITY_DIMENSION = registerDimension<number>({
     }
     const moved = applyProjection(ui, layerId, "debounce");
     const layerInfo = ui.c.layerRegistry.get(layerId);
-    if (layerInfo?.group === GROUP.BASE) syncNoBasemap(ui);
+    if (layerInfo?.role === ROLE.BASE) syncNoBasemap(ui);
     // Announce last, after the hatch: on a layer's first projection the pass
     // can still converge a stale map membership, and that flip is a real
     // change worth notifying.
@@ -165,7 +165,7 @@ const OPACITY_DIMENSION = registerDimension<number>({
     resetIntentKeys(ui, layerId, [INTENT.OPACITY]);
     const moved = applyProjection(ui, layerId, "debounce");
     const layerInfo = ui.c.layerRegistry.get(layerId);
-    if (layerInfo?.group === GROUP.BASE) syncNoBasemap(ui);
+    if (layerInfo?.role === ROLE.BASE) syncNoBasemap(ui);
     return moved;
   },
   valueSource: (ui, layerId) => {

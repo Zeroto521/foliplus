@@ -12,7 +12,7 @@ type NumberStyle = "auto" | "int" | "comma" | "percent";
 type LayerData = {
   name: string;
   id: string;
-  group: "base" | "overlay";
+  role: "base" | "overlay";
   show: boolean;
 }[];
 type ProviderConfig = {

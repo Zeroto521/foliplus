@@ -17,7 +17,7 @@ import {
   showReorderBlockedHint,
   toggleFold,
 } from "#foliplus/LayerControl/ui/listPanel/index.js";
-import { GROUP, type LayerInfo } from "#foliplus/core/layer/index.js";
+import { type LayerInfo, ROLE } from "#foliplus/core/layer/index.js";
 import { attachedPanel, initFixture } from "../fixture.js";
 
 const dragEvent = (target: HTMLElement, dataTransfer = {}): DragEvent =>
@@ -33,14 +33,14 @@ const overlays = (n: number) =>
   Array.from({ length: n }, (_, i) => ({
     id: `L${i}`,
     name: `L${i}`,
-    group: "overlay" as const,
+    role: "overlay" as const,
   }));
 
 const rowOf = (ui: LayerUI, id: string): HTMLElement =>
   attachedPanel(ui).querySelector(`[${CONST.DATA.LAYER_ID}="${id}"]`) as HTMLElement;
 
 const orderOf = (manager: { layers: readonly LayerInfo[] }) =>
-  manager.layers.filter(l => l.group === GROUP.OVERLAY).map(l => l.id);
+  manager.layers.filter(l => l.role === ROLE.OVERLAY).map(l => l.id);
 
 const makeUi = (
   opts: {
@@ -50,9 +50,7 @@ const makeUi = (
 ): LayerUI => {
   const layers =
     opts.layers ??
-    (opts.containers ?? []).map(
-      id => ({ id, name: id, group: "overlay" }) as LayerInfo,
-    );
+    (opts.containers ?? []).map(id => ({ id, name: id, role: "overlay" }) as LayerInfo);
   const uiContainer = document.createElement("div");
   for (const id of opts.containers ?? []) {
     const row = document.createElement("div");
@@ -66,9 +64,9 @@ const makeUi = (
   }
   return {
     uiContainer,
-    foldedGroups: new Set<string>(),
+    foldedRoles: new Set<string>(),
     listPanel: {
-      foldedGroups: new Set<string>(),
+      foldedRoles: new Set<string>(),
       checkedCount: {},
       dragEntry: null,
       lastDragHintAt: 0,
@@ -341,7 +339,7 @@ describe("ui/drag", () => {
 
     it("handleDragOver marks a blocked move none on a real dataTransfer", () => {
       const { ui } = initFixture({
-        data: [...overlays(1), { id: "B0", name: "B0", group: "base" as const }],
+        data: [...overlays(1), { id: "B0", name: "B0", role: "base" as const }],
       });
       handleDragStart(ui, dragEvent(rowOf(ui, "L0")));
       const dataTransfer = { dropEffect: "" };
@@ -356,7 +354,7 @@ describe("ui/drag", () => {
 
     it("handleDragOver tolerates a blocked move on a drag event without dataTransfer", () => {
       const { ui } = initFixture({
-        data: [...overlays(1), { id: "B0", name: "B0", group: "base" as const }],
+        data: [...overlays(1), { id: "B0", name: "B0", role: "base" as const }],
       });
       handleDragStart(ui, dragEvent(rowOf(ui, "L0")));
       const event = {
@@ -451,8 +449,8 @@ describe("ui/drag", () => {
       const { manager, ui } = initFixture({
         data: [
           ...overlays(2),
-          { id: "B0", name: "B0", group: "base" as const },
-          { id: "B1", name: "B1", group: "base" as const },
+          { id: "B0", name: "B0", role: "base" as const },
+          { id: "B1", name: "B1", role: "base" as const },
         ],
       });
       handleDragStart(ui, dragEvent(rowOf(ui, "B0")));
@@ -544,7 +542,7 @@ describe("ui/drag", () => {
       ).toContain("L1");
       const domOrder = Array.from(
         attachedPanel(ui).querySelectorAll(
-          `${CONST.SEL.LAYER_ITEM}[data-layer-type="${GROUP.OVERLAY}"]`,
+          `${CONST.SEL.LAYER_ITEM}[data-layer-type="${ROLE.OVERLAY}"]`,
         ),
       ).map(el => el.getAttribute(CONST.DATA.LAYER_ID));
       expect(domOrder).toEqual(orderOf(manager));
@@ -641,8 +639,8 @@ describe("ui/drag", () => {
       const { manager, ui } = initFixture({ data: overlays(2) });
       const before = Array.from(attachedPanel(ui).children);
 
-      toggleFold(ui, GROUP.OVERLAY);
-      toggleFold(ui, GROUP.OVERLAY);
+      toggleFold(ui, ROLE.OVERLAY);
+      toggleFold(ui, ROLE.OVERLAY);
 
       // Rows re-created (not the same elements), both directions exercised.
       expect(Array.from(attachedPanel(ui).children)).not.toEqual(before);
@@ -665,7 +663,7 @@ describe("showReorderBlockedHint", () => {
         dragEntry: null,
         lastDragOverItem: null,
         pressInPanel: false,
-        foldedGroups: new Set<string>(),
+        foldedRoles: new Set<string>(),
         checkedCount: {},
       },
     } as unknown as LayerUI;

@@ -49,7 +49,7 @@ type PersistedRecord = {
    *  nothing downstream consults it, because a deleted id is simply never
    *  registered and so never reaches them. */
   removed: string[];
-  foldedGroups: string[];
+  foldedRoles: string[];
   /** Layer id → user-assigned display name. */
   renamedNames: Record<string, string>;
   /** Layer id → annotation config (show/field/format) — the LEGACY segment,

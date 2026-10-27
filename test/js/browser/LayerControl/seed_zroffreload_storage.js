@@ -13,7 +13,7 @@
   const record = JSON.parse(localStorage.getItem(key) || "{}");
   record.version = 1;
   record.order = record.order || null;
-  record.foldedGroups = record.foldedGroups || [];
+  record.foldedRoles = record.foldedRoles || [];
   record.renamedNames = record.renamedNames || {};
   record.annotations = record.annotations || {};
   record.layers = record.layers || {};
