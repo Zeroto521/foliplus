@@ -229,6 +229,9 @@ class OverlayRegistryImpl implements OverlayRegistry {
     if (!entry.exclusiveGroup) return;
     for (const other of this.entries.values()) {
       if (other === entry || other.exclusiveGroup !== entry.exclusiveGroup) continue;
+      // A sibling that cannot close right now stays open: the registry has no
+      // way to force it, and the reason it refuses (a pending commit, a
+      // read-only notice) decides when it goes away.
       if (other.isOpen()) other.close({ restoreFocus: false });
     }
   }

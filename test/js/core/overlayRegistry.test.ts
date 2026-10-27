@@ -1026,6 +1026,24 @@ describe("OverlayRegistry", () => {
       expect(opening.isOpen()).toBe(true);
     });
 
+    it("open leaves a non-closable sibling open", () => {
+      const stubborn = makeEntry({
+        id: OVERLAY_IDS.LAYER_ATTRS,
+        exclusiveGroup: "layer-control",
+        closable: () => false,
+      });
+      const opening = makeEntry({
+        id: OVERLAY_IDS.LAYER_STYLE,
+        exclusiveGroup: "layer-control",
+      });
+      registry.register(stubborn.entry);
+      registry.register(opening.entry);
+      registry.open(opening.entry);
+      expect(stubborn.isOpen()).toBe(true);
+      expect(stubborn.closeCalls).toHaveLength(0);
+      expect(opening.isOpen()).toBe(true);
+    });
+
     it("open without an exclusive group leaves every entry alone", () => {
       const plain = makeEntry({ id: OVERLAY_IDS.LAYER_STYLE });
       const menu = makeEntry({ id: OVERLAY_IDS.LAYER_MENU });
