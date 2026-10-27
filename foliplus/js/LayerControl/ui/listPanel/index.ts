@@ -77,9 +77,9 @@ import {
  *  persist across page reloads except what `state.ts` writes through the
  *  `ui.c.persistence` channel. */
 class ListPanel {
-  /** Per-group fold state. Persisted through `ui.c.persistence` on change. */
-  foldedGroups: Set<string> = new Set();
-  /** Per-group tri-state checkbox counts. Rebuilt by the full-scan
+  /** Per-role fold state. Persisted through `ui.c.persistence` on change. */
+  foldedRoles: Set<string> = new Set();
+  /** Per-role tri-state checkbox counts. Rebuilt by the full-scan
    *  `syncToggleAll` at reconcile points; kept in sync by
    *  `bumpCheckedCount` on each single-row toggle. */
   checkedCount: Record<string, { total: number; on: number }> = {};

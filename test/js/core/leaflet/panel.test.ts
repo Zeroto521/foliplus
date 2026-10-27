@@ -835,7 +835,7 @@ describe("pinRowPanel", () => {
     expect(panel.style.maxHeight).toBe("");
   });
 
-  it("keeps the last placement while the row is hidden (folded group)", () => {
+  it("keeps the last placement while the row is hidden (folded role)", () => {
     const { row, panel } = make({ width: 280, height: 200 });
     stubBox(row, { top: 100, left: 10, width: 300, height: 30 });
     pinRowPanel(panel, row);

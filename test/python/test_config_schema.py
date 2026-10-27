@@ -223,13 +223,13 @@ class TestValidateShape:
         # decide by content. Asserting the round trip pins that: a dump which
         # coerced the tuples would destroy the very signal the renderer reads.
         primitive = {"params": {"*": ("string", "number")}}
-        literal = {"group": ("base", "overlay")}
+        literal = {"role": ("base", "overlay")}
         _validate_shape(primitive, "T")
         _validate_shape(literal, "T")
         assert json.loads(json.dumps(primitive)) == {
             "params": {"*": ["string", "number"]}
         }
-        assert json.loads(json.dumps(literal)) == {"group": ["base", "overlay"]}
+        assert json.loads(json.dumps(literal)) == {"role": ["base", "overlay"]}
 
     def test_shape_without_a_name_has_no_emitting_target(self) -> None:
         with pytest.raises(ValueError, match="requires FieldSpec.name"):

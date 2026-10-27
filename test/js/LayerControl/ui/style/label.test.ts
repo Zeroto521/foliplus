@@ -22,7 +22,7 @@ import { initFixture } from "../fixture.js";
 const BASE_LAYER = {
   id: "base1",
   name: "OSM",
-  group: "base",
+  role: "base",
   layer: { options: {}, setZIndex: vi.fn() } as never,
   paneName: "tilePane",
 };
@@ -50,7 +50,7 @@ describe("content-change label replay", () => {
     const children = [labelLeaf("a")];
     ({ manager, ui } = initFixture({
       data: [
-        { id: "grp1", name: "G", group: "overlay", layer: groupWith(children) },
+        { id: "grp1", name: "G", role: "overlay", layer: groupWith(children) },
         BASE_LAYER,
       ],
     }));

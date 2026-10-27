@@ -7,6 +7,6 @@
   return api.layers.map(l => ({
     id: l.id,
     visible: api.intentVisible ? api.intentVisible(l.id) : null,
-    group: l.group,
+    role: l.role,
   }));
 };

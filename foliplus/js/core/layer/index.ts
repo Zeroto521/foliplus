@@ -10,15 +10,17 @@ export {
   DIM,
   FALLBACK_PANE_PREFIX,
   GEOM_TYPE,
-  GROUP,
   HIDDEN,
   KIND,
   NO_FEATURE_TREE_KINDS,
   PANE_OWNER,
   PANE_ROLE,
   RECURSION,
+  ROLE,
   Z_INDEX,
 } from "./const.js";
+export { sectionOf } from "./role.js";
+export type { LayerRole, LayerSection } from "./role.js";
 export { ANNOTATION_Z_OFFSET, FOCUS_Z, focusLayerZ, topSlotZ, zFor } from "./z.js";
 export { LayerFactory } from "./LayerFactory.js";
 export { LayerInfoRegistry } from "./LayerInfoRegistry.js";
@@ -70,6 +72,8 @@ export {
   filterStep,
   filtersEqual,
   matches,
+  matchesValues,
+  normalizeEnumValues,
   normalizeFilter,
   parsePersistedFilter,
   parsePersistedFilters,
@@ -83,7 +87,14 @@ export {
 } from "./filter.js";
 export { INTENT, isFillRampConfig, LIVE, STYLE_KEYS } from "./intent.js";
 export type { AppliedProjection } from "./LayerRuntimeStore.js";
-export type { LayerFilter, LayerFilterModel } from "./filter.js";
+export type {
+  FilterDimension,
+  FilterEnumDimension,
+  FilterEnumOption,
+  FilterRangeDimension,
+  LayerFilter,
+  LayerFilterModel,
+} from "./filter.js";
 export type { Projection } from "./type.js";
 export type {
   AnnotationConfig,

@@ -3,7 +3,7 @@
 // restore hook); do not cache or skip setup.
 // Sets up global mocks needed by module-level code (e.g. `const foliplus = window.foliplus`).
 // Use vi.fn() so tests can spy on calls even when module captures at import time.
-import { afterEach, beforeEach, vi } from "vitest";
+import { afterAll, afterEach, beforeEach, vi } from "vitest";
 import { makeConfig } from "./config-fixture.js";
 import { installWindowLExtensions, resetState, restoreNativeFetch } from "./fixture.js";
 
@@ -246,3 +246,106 @@ document.documentElement.style.setProperty("--foliplus-dot-stroke", "2.5px");
 
 beforeEach(resetState);
 afterEach(() => restoreNativeFetch());
+
+// ── Real-timer hygiene at file teardown ──────────────────────────────────
+// A test can start deferred work it never awaits: a debounced controller pass,
+// the focus auto-dismiss timeout, a hint hide timer. When such a callback fires
+// after the file's last hook, it runs during the environment teardown — and any
+// console output it produces is batched into a microtask and sent over the
+// worker's console RPC (`onUserConsoleLog`), which is exactly the channel the
+// worker closes while tearing the environment down. That rejected call
+// surfaces as an unhandled `EnvironmentTeardownError: Closing rpc while
+// "onUserConsoleLog" was pending` and turns a fully green run red.
+//
+// Track the handles armed while real timers are active and cancel whatever is
+// still armed once the file's last hook has run. Timers armed while fake timers
+// are installed never reach these sets: sinon swaps the globals, so the
+// wrappers below only ever wrap the real implementations.
+const armedTimers = {
+  timeouts: new Set<ReturnType<typeof setTimeout>>(),
+  intervals: new Set<ReturnType<typeof setInterval>>(),
+  immediates: new Set<ReturnType<typeof setImmediate>>(),
+};
+
+// The DOM and Node typings describe these functions with different overload
+// shapes; the wrappers keep the runtime call shape and only record the handle
+// the native call returned. `setImmediate` is absent in some environments, so
+// its pair is captured as possibly undefined instead of assumed.
+const nativeTimers = {
+  setTimeout: globalThis.setTimeout as (...args: any[]) => any,
+  clearTimeout: globalThis.clearTimeout as (...args: any[]) => void,
+  setInterval: globalThis.setInterval as (...args: any[]) => any,
+  clearInterval: globalThis.clearInterval as (...args: any[]) => void,
+  setImmediate: globalThis.setImmediate as ((...args: any[]) => any) | undefined,
+  clearImmediate: globalThis.clearImmediate as ((...args: any[]) => void) | undefined,
+};
+
+// How many handles this file armed and has not cancelled yet. Read-only test
+// surface: a probe can assert the sweep drained everything without printing to
+// the console, which is the channel that races teardown in the first place.
+declare global {
+  var __foliplusTeardownTimers: () => {
+    timeouts: number;
+    intervals: number;
+    immediates: number;
+  };
+}
+globalThis.__foliplusTeardownTimers = () => ({
+  timeouts: armedTimers.timeouts.size,
+  intervals: armedTimers.intervals.size,
+  immediates: armedTimers.immediates.size,
+});
+
+globalThis.setTimeout = ((handler: any, timeout?: number, ...args: any[]) => {
+  const handle = nativeTimers.setTimeout(handler, timeout, ...args);
+  armedTimers.timeouts.add(handle);
+  return handle;
+}) as typeof globalThis.setTimeout;
+
+globalThis.clearTimeout = ((handle: any) => {
+  armedTimers.timeouts.delete(handle);
+  nativeTimers.clearTimeout(handle);
+}) as typeof globalThis.clearTimeout;
+
+globalThis.setInterval = ((handler: any, timeout?: number, ...args: any[]) => {
+  const handle = nativeTimers.setInterval(handler, timeout, ...args);
+  armedTimers.intervals.add(handle);
+  return handle;
+}) as typeof globalThis.setInterval;
+
+globalThis.clearInterval = ((handle: any) => {
+  armedTimers.intervals.delete(handle);
+  nativeTimers.clearInterval(handle);
+}) as typeof globalThis.clearInterval;
+
+if (nativeTimers.setImmediate && nativeTimers.clearImmediate) {
+  const setImmediate = nativeTimers.setImmediate;
+  const clearImmediate = nativeTimers.clearImmediate;
+  globalThis.setImmediate = ((handler: any, ...args: any[]) => {
+    const handle = setImmediate(handler, ...args);
+    armedTimers.immediates.add(handle);
+    return handle;
+  }) as typeof globalThis.setImmediate;
+
+  globalThis.clearImmediate = ((handle: any) => {
+    armedTimers.immediates.delete(handle);
+    clearImmediate(handle);
+  }) as typeof globalThis.clearImmediate;
+}
+
+// Runs last among the file's `afterAll` hooks: a hook registered before the test
+// file's own hooks runs after them, so the sweep sees every handle the file armed.
+// Two couplings worth knowing before editing this: the ordering assumes vitest's
+// default `sequence.hooks: "stack"` (same-type hooks run in reverse registration
+// order), and an earlier `afterAll` that throws may skip this sweep — tolerable,
+// because that run is already failing on its own error.
+afterAll(() => {
+  for (const handle of armedTimers.timeouts) nativeTimers.clearTimeout(handle);
+  for (const handle of armedTimers.intervals) nativeTimers.clearInterval(handle);
+  if (nativeTimers.clearImmediate) {
+    for (const handle of armedTimers.immediates) nativeTimers.clearImmediate(handle);
+  }
+  armedTimers.timeouts.clear();
+  armedTimers.intervals.clear();
+  armedTimers.immediates.clear();
+});

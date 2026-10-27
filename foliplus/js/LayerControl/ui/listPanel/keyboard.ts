@@ -3,8 +3,10 @@
 // handler and the mousedown/dblclick listeners that call into it.
 import { HINT_DURATION } from "#core/hint.js";
 import { isNativeControl } from "#core/interaction/index.js";
-import { GROUP } from "#core/layer/index.js";
+import { ROLE } from "#core/layer/index.js";
+import { isInsideOverlay } from "#core/overlay.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
+import { SCHEME_PICKER_PORTAL_SELECTOR } from "#common/schemePicker.js";
 import { inFloatingPanel } from "../context.js";
 import { showFocusDisabledHint, toggleFocusedLayer } from "../focus/index.js";
 import { activateDeleteItem } from "../overlayPanel/menu.js";
@@ -31,6 +33,12 @@ import { toggleFold } from "./drag.js";
  * a fold button (which rebuilds the list) stays inside the panel and won't
  * clear it. The class match covers every `.foliplus-layer-ctrl` on the map,
  * not just this instance's container.
+ *
+ * The style drawer's scheme picker portals its colour list to <body> (or the
+ * fullscreen element), so that list matches none of the class tests below
+ * while still belonging to the drawer. A press on it must keep the drawer and
+ * the row cursor: closing here would tear the drawer down on the press that
+ * selects a colour, before the click could land.
  */
 
 const handleOutsideMousedown = (ui: LayerUI, event: MouseEvent): void => {
@@ -46,9 +54,16 @@ const handleOutsideMousedown = (ui: LayerUI, event: MouseEvent): void => {
   // map alike. One surface per press — the overflow menu keeps its own
   // click-delegated close in interaction.ts, and Escape pops the menu before
   // the panels.
+  const inStyleOverlay =
+    !!target.closest(`.${CONST.CLASSES.STYLE_PANEL}`) ||
+    isInsideOverlay(target, null, SCHEME_PICKER_PORTAL_SELECTOR);
   if (!target.closest(`.${CONST.CLASSES.ATTRS_PANEL}`)) ui.closeAttrsPanel(false);
-  if (!target.closest(`.${CONST.CLASSES.STYLE_PANEL}`)) ui.closeStylePanel(false);
-  if (!target.closest(".foliplus-layer-ctrl")) clearActiveItem(ui);
+  if (!inStyleOverlay) ui.closeStylePanel(false);
+  // The portalled list floats over the map, like the drawer itself: a press
+  // there is still "inside" the row's surface, so the keyboard cursor stays.
+  if (!inStyleOverlay && !target.closest(".foliplus-layer-ctrl")) {
+    clearActiveItem(ui);
+  }
 };
 
 /** Reindex all layer items after a move, preserving the active focus position.
@@ -194,7 +209,7 @@ const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
         if (menuItem) ui.openMoreMenu(menuItem);
         break;
       }
-      // The chevron button is focused — that key folds the group, not
+      // The chevron button is focused — that key folds the role, not
       // select-all. Left untouched, resolveActiveIdx() walks up from the
       // button to its toggle-all row and the row checkbox flips instead.
       if (document.activeElement?.classList.contains(CONST.CLASSES.FOLD_BTN)) {
@@ -203,7 +218,7 @@ const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
         const row = (document.activeElement as HTMLElement).closest(
           CONST.SEL.TOGGLE_ALL,
         ) as HTMLElement | null;
-        if (row) toggleFold(ui, row.dataset.group ?? "");
+        if (row) toggleFold(ui, row.dataset.role ?? "");
         break;
       }
       // Menu item (li) is focused — trigger the focus-layer action.
@@ -302,7 +317,7 @@ const handleDblClick = (ui: LayerUI, event: MouseEvent): void => {
   // Base basemap has no meaningful extent to zoom to — explain instead of
   // silently ignoring the double-click. Hidden layers ARE passed through:
   // focusLayer shows the "hidden" hint for them.
-  if (item.dataset.layerType === GROUP.BASE) {
+  if (item.dataset.layerType === ROLE.BASE) {
     showFocusDisabledHint(ui, "base");
     return;
   }

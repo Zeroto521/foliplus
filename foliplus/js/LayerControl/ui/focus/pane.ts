@@ -1,9 +1,9 @@
 // Focus-layer pane bookkeeping: hide every other visible layer while a focus
 // is live, lift the focused layer above its peers, and undo both on dismiss.
 import {
-  GROUP,
   type LayerInfo,
   PANE_ROLE,
+  ROLE,
   focusLayerZ,
   zFor,
 } from "#core/layer/index.js";
@@ -40,7 +40,7 @@ const hideOtherLayers = (ui: LayerUI): void => {
   const layers = ui.c.layers;
   for (let i = 0; i < layers.length; i++) {
     const li = layers[i];
-    if (li.group !== GROUP.BASE) continue;
+    if (li.role !== ROLE.BASE) continue;
     const proj = projectLayer(ui, li);
     // The projection's effectiveShown folds in focus (policy = true), but
     // the author's zoom range and transparency are physical facts focus

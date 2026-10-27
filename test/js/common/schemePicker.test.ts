@@ -1,6 +1,10 @@
 // Tests for the shared scheme picker (common/schemePicker.ts).
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { type SchemePicker, createSchemePicker } from "#common/schemePicker.js";
+import {
+  SCHEME_PICKER_PORTAL_SELECTOR,
+  type SchemePicker,
+  createSchemePicker,
+} from "#common/schemePicker.js";
 
 // ── Colour-scale helper ────────────────────────────────────────────────
 
@@ -618,6 +622,17 @@ describe("portal mode", () => {
     trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     const dropdown = picker.getDropdown()!;
     expect(document.body.contains(dropdown)).toBe(true);
+    picker.destroy();
+  });
+
+  it("publishes a selector that matches the mounted portalled dropdown", () => {
+    // The panel dismiss predicate classifies the portalled list through this
+    // selector, so it has to match the node the picker actually mounts — a
+    // renamed class would otherwise silently stop counting the list as part of
+    // the overlay.
+    const { picker, trigger } = makePicker({ portal: true });
+    trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(picker.getDropdown()!.matches(SCHEME_PICKER_PORTAL_SELECTOR)).toBe(true);
     picker.destroy();
   });
 

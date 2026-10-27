@@ -9,7 +9,7 @@ import {
 } from "#foliplus/LayerControl/ui/color.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 
-const makeUi = (layers: Array<{ id: string; group: "base" | "overlay" }> = []) => {
+const makeUi = (layers: Array<{ id: string; role: "base" | "overlay" }> = []) => {
   const uiContainer = document.createElement("div");
 
   for (const layer of layers) {
@@ -54,7 +54,7 @@ const makeUi = (layers: Array<{ id: string; group: "base" | "overlay" }> = []) =
     config: { locale_code: "en" },
     c: {
       layers,
-      findLayer: () => ({ group: "base" }),
+      findLayer: () => ({ role: "base" }),
       layerRegistry: new Map(),
       debouncedEnforce: vi.fn(),
       enforceOrder: vi.fn(),
@@ -106,8 +106,8 @@ describe("ui/color", () => {
     // its own pane — it must not remove any tile layer from the map nor
     // touch Leaflet's shared tilePane.
     const { ui } = makeUi([
-      { id: "base_1", group: "base" },
-      { id: "base_2", group: "base" },
+      { id: "base_1", role: "base" },
+      { id: "base_2", role: "base" },
     ]);
     const tilePane = { classList: { add: vi.fn(), remove: vi.fn() } };
     (ui.c.map as unknown as { getPane: () => typeof tilePane }).getPane = () =>
@@ -130,8 +130,8 @@ describe("ui/color", () => {
     // (this color layer became active) never authorizes unchecking a
     // basemap the user explicitly chose.
     const { ui } = makeUi([
-      { id: "base_1", group: "base" },
-      { id: "overlay_1", group: "overlay" },
+      { id: "base_1", role: "base" },
+      { id: "overlay_1", role: "overlay" },
     ]);
     const rows = [
       ...ui.uiContainer!.querySelectorAll<HTMLElement>(CONST.SEL.LAYER_ITEM),
@@ -155,7 +155,7 @@ describe("ui/color", () => {
   });
 
   it("showSolidBasemap tolerates a row without a checkbox (partially rendered)", () => {
-    const { ui } = makeUi([{ id: "base_nochk", group: "base" }]);
+    const { ui } = makeUi([{ id: "base_nochk", role: "base" }]);
     const row = ui.uiContainer!.querySelector<HTMLElement>(
       `[${CONST.DATA.LAYER_ID}="base_nochk"]`,
     );

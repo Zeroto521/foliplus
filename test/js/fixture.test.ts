@@ -15,7 +15,7 @@ import { makeLayerUIMock, restoreNativeFetch } from "./fixture.js";
 // which would leave every nested access `unknown`.
 type UiView = {
   listPanel: {
-    foldedGroups: Set<string>;
+    foldedRoles: Set<string>;
     lastDragHintAt: number;
     pressInPanel: boolean;
     dragEntry: unknown;
@@ -50,7 +50,7 @@ describe("makeLayerUIMock — LayerUI field completeness", () => {
   it("covers every field the LayerUI constructor initialises", () => {
     const ui = makeLayerUIMock() as unknown as UiView;
     // Sets
-    expect(ui.listPanel.foldedGroups).toBeInstanceOf(Set);
+    expect(ui.listPanel.foldedRoles).toBeInstanceOf(Set);
     // Intent store (values + provenance axes)
     expect(ui.intentStore).toBeInstanceOf(LayerIntentStore);
     expect(ui.intentStore.dumpIntents()).toEqual({});

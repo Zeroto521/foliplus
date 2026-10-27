@@ -52,12 +52,18 @@ const makeOwner = (values: number[]) => {
   let filter: LayerFilter;
   return {
     filterProvider: (): LayerFilterModel => ({
-      field: "magnitude",
-      range,
+      dimensions: [
+        {
+          kind: "range",
+          field: "magnitude",
+          label: "magnitude",
+          range,
+          step: 1,
+        },
+      ],
       filter,
       kept: select(snapshot as any, filter).length,
       total: values.length,
-      step: 1,
     }),
     filterSetter: (f: LayerFilter) => {
       filter = f;
@@ -84,7 +90,7 @@ describe("LayerUI filter panel", () => {
     manager.registerLayer({
       id,
       name: "Points",
-      group: "overlay",
+      role: "overlay",
       layer: mkPointLayer([
         { lat: 26.08, lng: 119.3, v: 10 },
         { lat: 26.09, lng: 119.31, v: 20 },
@@ -100,7 +106,7 @@ describe("LayerUI filter panel", () => {
     ({ manager, ui, map: _map } = initFixture());
     // Folded-group state is persisted to localStorage and would leak across
     // tests — same cleanup attr.test.ts applies.
-    ui.listPanel.foldedGroups = new Set();
+    ui.listPanel.foldedRoles = new Set();
     window.localStorage.removeItem(CONST.STORAGE.KEY);
   });
 
@@ -151,7 +157,7 @@ describe("LayerUI filter panel", () => {
       manager.registerLayer({
         id: "measureRow",
         name: "Measure",
-        group: "overlay",
+        role: "overlay",
         layer: undefined as unknown as L.Layer,
         styleProvider: () => ({}),
         styleSetters: {},
@@ -170,7 +176,7 @@ describe("LayerUI filter panel", () => {
       manager.registerLayer({
         id: "bogus",
         name: "Bogus",
-        group: "overlay",
+        role: "overlay",
         layer: undefined as unknown as L.Layer,
         filterProvider: "yes" as unknown as () => LayerFilterModel,
         filterSetter: {} as unknown as (filter: LayerFilter) => void,
@@ -319,7 +325,7 @@ describe("LayerUI filter panel", () => {
       manager.registerLayer({
         id: "hm",
         name: "Heatmap",
-        group: "overlay",
+        role: "overlay",
         layer: undefined as unknown as L.Layer,
         filterProvider: () => null,
         filterSetter: () => {},
@@ -330,6 +336,38 @@ describe("LayerUI filter panel", () => {
 
       const panel = item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`) as HTMLElement;
       expect(panel.querySelector(`.${CONST.CLASSES.FILTER_EMPTY}`)).not.toBeNull();
+    });
+
+    it("renders the empty state while the first dimension is not a range", () => {
+      // A generic owner may expose an enum dimension. This body only knows how
+      // to render a numeric range, so it falls back to the shared empty body
+      // instead of mounting a slider over a value domain it cannot show.
+      manager.registerLayer({
+        id: "enum-owner",
+        name: "Enum owner",
+        role: "overlay",
+        layer: undefined as unknown as L.Layer,
+        filterProvider: () => ({
+          dimensions: [
+            {
+              kind: "enum",
+              field: "type",
+              label: "Type",
+              options: [{ value: "a", label: "A" }],
+            },
+          ],
+          kept: 1,
+          total: 2,
+        }),
+        filterSetter: () => {},
+      });
+      const item = findItem(ui, "enum-owner");
+
+      ui.openFilterPanel(item);
+
+      const panel = item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`) as HTMLElement;
+      expect(panel.querySelector(`.${CONST.CLASSES.FILTER_EMPTY}`)).not.toBeNull();
+      expect(panel.querySelector(`.${CONST.CLASSES.FILTER_SLIDER}`)).toBeNull();
     });
 
     it("is a no-op for a row that lost its data-layer-id", () => {
@@ -752,7 +790,7 @@ describe("LayerUI filter panel", () => {
       manager.registerLayer({
         id: "pnt",
         name: "Points",
-        group: "overlay",
+        role: "overlay",
         layer: mkPointLayer([
           { lat: 26.08, lng: 119.3, v: 100 },
           { lat: 26.09, lng: 119.31, v: 200 },
@@ -840,12 +878,18 @@ describe("LayerUI filter panel — result, Clear and row state", () => {
     let filter: LayerFilter;
     const owner = {
       filterProvider: (): LayerFilterModel => ({
-        field: "magnitude",
-        range,
+        dimensions: [
+          {
+            kind: "range",
+            field: "magnitude",
+            label: "magnitude",
+            range,
+            step: 1,
+          },
+        ],
         filter,
         kept: counts?.kept ?? select(snapshot as any, filter).length,
         total: counts?.total ?? values.length,
-        step: 1,
       }),
       filterSetter: (f: LayerFilter) => {
         filter = f;
@@ -857,7 +901,7 @@ describe("LayerUI filter panel — result, Clear and row state", () => {
     manager.registerLayer({
       id,
       name: "Points",
-      group: "overlay",
+      role: "overlay",
       layer: {
         options: {},
         eachLayer: vi.fn(),
@@ -878,7 +922,7 @@ describe("LayerUI filter panel — result, Clear and row state", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.listPanel.foldedGroups = new Set();
+    ui.listPanel.foldedRoles = new Set();
     window.localStorage.removeItem(CONST.STORAGE.KEY);
   });
 
@@ -1026,7 +1070,7 @@ describe("LayerUI filter panel — result, Clear and row state", () => {
     manager.registerLayer({
       id: "pnt",
       name: "Points",
-      group: "overlay",
+      role: "overlay",
       layer: { options: {}, eachLayer: vi.fn() } as unknown as L.Layer,
     });
     ui.events.publish(EVENTS.LAYER_ITEM_REFRESHED, { id: "pnt" });
@@ -1055,7 +1099,7 @@ describe("LayerUI filter panel — result, Clear and row state", () => {
     manager.registerLayer({
       id: "src",
       name: "Source",
-      group: "overlay",
+      role: "overlay",
       layer: { options: {}, eachLayer: vi.fn() },
     });
     commit(owner);

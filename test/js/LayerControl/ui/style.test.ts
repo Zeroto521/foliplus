@@ -78,7 +78,7 @@ describe("LayerUI style panel", () => {
   beforeEach(() => {
     restoreBubble();
     ({ manager, ui, map } = initFixture());
-    ui.listPanel.foldedGroups = new Set();
+    ui.listPanel.foldedRoles = new Set();
     seedIntentMap(ui, "visible", {});
     window.localStorage.removeItem(CONST.STORAGE.KEY);
     // Seed the field cache so the panel builds: collectFields walks the
@@ -380,6 +380,31 @@ describe("LayerUI style panel", () => {
 
     pressOn(document.body);
     expect(panelOf(item)).toBeUndefined();
+  });
+
+  it("a press on the scheme picker's portalled list does not dismiss it", () => {
+    // The picker portals its dropdown to <body> so the list can paint above
+    // this drawer. The portal is outside the panel's subtree while still being
+    // part of the overlay, so a dismiss predicate that only walks the subtree
+    // closes the drawer on the press that selects a colour.
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const panel = panelOf(item)!;
+
+    const portal = document.createElement("div");
+    portal.className = "foliplus-scheme-picker-portal";
+    const row = document.createElement("button");
+    row.className = "foliplus-scheme-picker-item";
+    portal.appendChild(row);
+    document.body.appendChild(portal);
+
+    // Capture-phase listener on document: a bubbling press on the portalled row
+    // is exactly what the browser delivers for a real click on the list.
+    row.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true }));
+
+    expect(panelOf(item)).toBe(panel);
+    expect(ui.overlayPanel.stylePanelLayerId).toBe("overlay1");
+    portal.remove();
   });
 
   // ─────────────────── control interactions ───────────────────
@@ -1413,7 +1438,7 @@ describe("LayerUI style panel", () => {
     manager.registerLayer({
       id: "poly1",
       name: "Poly",
-      group: "overlay",
+      role: "overlay",
       layer: {
         options: {},
         eachLayer: vi.fn((fn: (child: unknown) => void) => leaves.forEach(fn)),
@@ -1525,7 +1550,7 @@ describe("LayerUI style panel", () => {
     manager.registerLayer({
       id: "sweepVector",
       name: "Vector",
-      group: "overlay",
+      role: "overlay",
       layer: {
         options: {},
         eachLayer: vi.fn((fn: (child: unknown) => void) => fn(leaf)),
@@ -1589,7 +1614,7 @@ describe("LayerUI style panel", () => {
   //   Color (base + pane):     fill ✓  / border ✗ / opacity ✓ (pane)   / zoomRange ✓ (isColorBasemap)
 
   it("tile basemap (GridLayer) renders the zoomRange row: native min/maxZoom is the carrier", () => {
-    // The old `li.group !== "base"` blanket was dropped: a TileLayer is a
+    // The old `li.role !== "base"` blanket was dropped: a TileLayer is a
     // GridLayer subclass whose options.minZoom/maxZoom are exactly the
     // carrier the row writes through, so refusing it was a false refusal.
     // GridLayer is required — a bare `{ options: {} } as never` also gets a
@@ -1598,7 +1623,7 @@ describe("LayerUI style panel", () => {
     manager.registerLayer({
       id: "tileBase1",
       name: "OSM",
-      group: "base",
+      role: "base",
       layer: new GridLayer() as never,
     });
     ui.runtimeStore.setFields("tileBase1", [{ name: "count", numeric: true }]);
@@ -1621,7 +1646,7 @@ describe("LayerUI style panel", () => {
     manager.registerLayer({
       id: "colormap",
       name: "Color",
-      group: "base",
+      role: "base",
       color: "#3366cc",
     });
     ui.runtimeStore.setFields("colormap", [{ name: "count", numeric: true }]);
@@ -1643,7 +1668,7 @@ describe("LayerUI style panel", () => {
     manager.registerLayer({
       id: "norange1",
       name: "N",
-      group: "base",
+      role: "base",
       layer: pathify({ options: {} }) as never,
       // An owned pane name: a shared-pane declaration is refused now (the
       // layer gets its own synthesized pane instead of adopting tilePane).
@@ -3755,7 +3780,7 @@ describe("LayerUI style panel — zoom range", () => {
   beforeEach(() => {
     restoreBubble();
     ({ manager, ui, map } = initFixture());
-    ui.listPanel.foldedGroups = new Set();
+    ui.listPanel.foldedRoles = new Set();
     seedIntentMap(ui, "visible", {});
     window.localStorage.removeItem(CONST.STORAGE.KEY);
     ui.runtimeStore.setFields("overlay1", [{ name: "count", numeric: true }]);
@@ -4056,7 +4081,7 @@ describe("LayerUI style panel — zoom range", () => {
   });
 
   it("gives the fixture's tile base layer a zoom row: the GridLayer native min/maxZoom is the carrier", () => {
-    // The old `li.group !== "base"` blanket was dropped; the fixture's base1 is
+    // The old `li.role !== "base"` blanket was dropped; the fixture's base1 is
     // a TileLayer (GridLayer subclass) whose options.minZoom/maxZoom are the
     // honest carrier, so the row now renders for it just like any overlay.
     const item = findItem(ui, "base1");
@@ -4444,7 +4469,7 @@ describe("LayerUI style panel — zoom range", () => {
     manager.registerLayer({
       id: "grid1",
       name: "Grid",
-      group: "overlay",
+      role: "overlay",
       layer: gridLayer,
     });
     // Author declared no maxZoom: the fallback is the map's declared max.
@@ -4729,7 +4754,7 @@ describe("style panel live capability refresh", () => {
     manager.registerLayer({
       id: "recover1",
       name: "Recover",
-      group: "overlay",
+      role: "overlay",
       layer: group,
     });
     // Seed the capability snapshot with the healthy projection (first sight is

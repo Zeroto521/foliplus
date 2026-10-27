@@ -550,7 +550,7 @@ class LayerSurface implements LayerSurfaceContract {
     for (const pane of this.panes) {
       this.host.assertOwnedPane(pane.name);
       pane.element.style.zIndex = String(
-        zFor({ base, role: pane.role, order: pane.order }),
+        zFor({ base, paneRole: pane.role, order: pane.order }),
       );
     }
   }

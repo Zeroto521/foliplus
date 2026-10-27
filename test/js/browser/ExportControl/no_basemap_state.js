@@ -25,7 +25,7 @@
   const api = window.map && window.map.foliplus && window.map.foliplus.LayerAPI;
   const panel = document.querySelector(".foliplus-panel-content");
   const baseLabel = document.querySelector(
-    '.foliplus-layer-toggle-all[data-group="base"] .foliplus-layer-sep-label',
+    '.foliplus-layer-toggle-all[data-role="base"] .foliplus-layer-sep-label',
   );
   return {
     ok: true,
@@ -36,7 +36,7 @@
       api && api.layers
         ? api.layers.map(li => ({
             id: li.id,
-            group: li.group,
+            role: li.role,
             visible: api.intentVisible ? api.intentVisible(li.id) : null,
           }))
         : null,

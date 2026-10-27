@@ -372,7 +372,7 @@ export function makeLayerUIMock(extra: Overrides = {}): LayerUI {
       focusedPaneRestores: [],
     },
     listPanel: {
-      foldedGroups: new Set<string>(),
+      foldedRoles: new Set<string>(),
       checkedCount: {},
       activeIdx: null,
       listCursor: null,
@@ -406,7 +406,7 @@ export function makeLayerUIMock(extra: Overrides = {}): LayerUI {
   const lp = base.listPanel;
   const op = base.overlayPanel;
   const compatGetters: Array<[string, () => unknown, (v: unknown) => void]> = [
-    ["foldedGroups", () => lp.foldedGroups, v => void (lp.foldedGroups = v as any)],
+    ["foldedRoles", () => lp.foldedRoles, v => void (lp.foldedRoles = v as any)],
     ["checkedCount", () => lp.checkedCount, v => void (lp.checkedCount = v as any)],
     ["activeIdx", () => lp.activeIdx, v => void (lp.activeIdx = v as any)],
     ["listCursor", () => lp.listCursor, v => void (lp.listCursor = v as any)],

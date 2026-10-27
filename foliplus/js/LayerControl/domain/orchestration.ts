@@ -9,7 +9,6 @@
 // LayerPersistence and AnnotationManager — both LayerControl-local.
 import { hasLabelField } from "#core/label/index.js";
 import {
-  GROUP,
   INTENT,
   KIND,
   type LayerFactory,
@@ -21,6 +20,7 @@ import {
   PANE_ROLE,
   type PaneManager,
   type PaneSpec,
+  ROLE,
   type RegisterLayerOpts,
   type SurfaceIndex,
   findLayer as findLayerUtil,
@@ -166,7 +166,7 @@ class LayerOrchestration {
       i++
     ) {
       const layerInfo = this.layers[i];
-      if (layerInfo.group !== GROUP.BASE) continue;
+      if (layerInfo.role !== ROLE.BASE) continue;
       const layer = this.findLayer(layerInfo);
       if (!(layer instanceof L.TileLayer) || !layer.options.attribution) continue;
       if (!paintsAtZoom(this.map, layer)) continue;
@@ -314,10 +314,10 @@ class LayerOrchestration {
    *  layer. */
   private priceLayer(layerInfo: LayerInfo, index: number): void {
     const layer = this.findLayer(layerInfo);
-    // Base-group layers (tile basemaps + the solid-color basemap) share
+    // Base-role layers (tile basemaps + the solid-color basemap) share
     // the 200 ladder, so a color pane interleaves with tile basemaps
-    // row-by-row. Overlay-group layers use the 600 ladder.
-    const slot = { index, count: this.layers.length, group: layerInfo.group };
+    // row-by-row. Overlay-role layers use the 600 ladder.
+    const slot = { index, count: this.layers.length, role: layerInfo.role };
     const z = zFor(slot);
 
     // Callback-only layers (createCanvas / heatmap): no Leaflet layer, but
@@ -336,7 +336,7 @@ class LayerOrchestration {
     // One write covers every pane the face owns — including the
     // `role: "annotation"` label pane, a PaneHandle since the surface
     // materialized it. The ordering pass used to spot-write that pane by
-    // name here; `writeZ` prices it through the same `zFor({ role:
+    // name here; `writeZ` prices it through the same `zFor({ paneRole:
     // "annotation" })` ladder now, so the special case is gone.
     surface.setZ(z);
   }
@@ -391,7 +391,7 @@ class LayerOrchestration {
     }
 
     if (existingLi) this.layerRegistry.upsert(layerInfo);
-    else if (layerInfo.group === GROUP.BASE) {
+    else if (layerInfo.role === ROLE.BASE) {
       const firstBaseIdx = this.layerRegistry.firstBaseIdx;
       const atBottom = opts.baseInsert === "bottom";
       if (firstBaseIdx === -1 || atBottom) {
