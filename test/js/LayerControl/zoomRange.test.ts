@@ -54,8 +54,6 @@ const mockUI: LayerUI = {
   runtimeStore: new LayerRuntimeStore(),
   foldedRoles: new Set(),
   stylePanelLayerId: null,
-  styleOutsideHandler: null,
-  pressInPanel: false,
   focusController: { focusingLayerId: null },
   styleUnsubscribe: null,
   styleRefresh: null,

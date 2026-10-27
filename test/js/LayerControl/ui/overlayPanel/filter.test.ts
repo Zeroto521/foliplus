@@ -1467,7 +1467,7 @@ describe("LayerUI filter panel", () => {
 
       expect(item.querySelector(`.${CONST.CLASSES.ATTRS_PANEL}`)).toBeNull();
       expect(ui.overlayPanel.activeAttrsPanel).toBeNull();
-      expect(ui.overlayPanel.attrsOutsideHandler).toBeNull();
+      expect(ui.overlayPanel.attrsOverlayUnregister).toBeNull();
     });
   });
 });

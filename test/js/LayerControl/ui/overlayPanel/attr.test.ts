@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ensureOverlayRegistry } from "#core/overlayRegistry.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerController } from "#foliplus/LayerControl/controller.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
@@ -641,16 +642,17 @@ describe("LayerUI attrs", () => {
 
     it("records the drag verdict on the press and drops it when the panel closes", () => {
       // The row is the drag source for any press in the row, panel included, and
-      // `dragstart` cannot say where the press began — so the verdict is recorded
-      // here, on the press, and read by handleDragStart.
+      // `dragstart` cannot say where the press began — so the registry records
+      // the verdict on the press and handleDragStart reads it.
       const item = findItem(ui, "overlay1");
       ui.openAttrsPanel(item);
       const panel = item.querySelector(".foliplus-layer-attrs-panel") as HTMLElement;
+      const registry = ensureOverlayRegistry(map);
 
       panel.dispatchEvent(
         new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
       );
-      expect(ui.listPanel.pressInPanel).toBe(true);
+      expect(registry.lastPressInside()).toBe(true);
 
       // A press outside closes the panel and clears the verdict, so a stale
       // `true` cannot cancel the next legitimate drag.
@@ -658,7 +660,7 @@ describe("LayerUI attrs", () => {
         new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
       );
       expect(item.querySelector(".foliplus-layer-attrs-panel")).toBeNull();
-      expect(ui.listPanel.pressInPanel).toBe(false);
+      expect(registry.lastPressInside()).toBe(false);
     });
 
     it("Escape closes an open attributes panel and returns focus to its row", () => {

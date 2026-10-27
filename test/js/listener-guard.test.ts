@@ -123,9 +123,10 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
   },
   {
     f: "LayerControl/ui/overlayPanel/attr.ts",
-    n: 3,
+    n: 2,
     pairedOff: 0,
-    reason: "attribute panel event bindings — pending migration to `this.on`",
+    reason:
+      "attribute panel header/mousedown bindings; its document dismiss moved to core/overlayRegistry in M2-C1",
   },
   {
     f: "LayerControl/ui/overlayPanel/filter.ts",
@@ -163,9 +164,10 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
   },
   {
     f: "LayerControl/ui/style/index.ts",
-    n: 4,
+    n: 3,
     pairedOff: 0,
-    reason: "style-panel input / dropdown bindings — pending migration to `this.on`",
+    reason:
+      "style-panel input / dropdown bindings; its document dismiss moved to core/overlayRegistry in M2-C1",
   },
   {
     f: "LayerControl/slider.ts",

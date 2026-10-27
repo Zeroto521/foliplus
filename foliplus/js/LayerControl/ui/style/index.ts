@@ -15,7 +15,7 @@
 import { EVENTS } from "#core/event/index.js";
 import { resolveSelectedField } from "#core/label/index.js";
 import { createRowPanel, pinRowPanel, unpinRowPanel } from "#core/leaflet/index.js";
-import { isInsideOverlay } from "#core/overlay.js";
+import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import * as SVGs from "#foliplus/LayerControl/icon.js";
 import { finishSlidersIn } from "#foliplus/LayerControl/slider.js";
@@ -305,24 +305,13 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
   item.appendChild(panel);
   pinRowPanel(panel, item);
 
-  // Document capture dismiss (attrs recipe): disableClickPropagation on the
-  // layer control stops bubble-phase mousedown from reaching document, so a
-  // press on the map or another foliplus control would never close the
-  // panel otherwise.
-  ui.overlayPanel.styleOutsideHandler = (event: MouseEvent) => {
-    // The drawer's overlay includes the scheme picker's portalled list: it is
-    // mounted on <body> to paint above the drawer, so it is outside the panel's
-    // subtree while still being part of the interaction. A press there must not
-    // dismiss the drawer — that press is what selects a colour.
-    if (isInsideOverlay(event.target, panel, SCHEME_PICKER_PORTAL_SELECTOR)) {
-      ui.listPanel.pressInPanel = true;
-      return;
-    }
-    ui.listPanel.pressInPanel = false;
-    closeStylePanel(ui, false);
-  };
-  document.addEventListener("mousedown", ui.overlayPanel.styleOutsideHandler, true);
-
+  // Register the open surface with the per-map overlay registry. The
+  // registry owns the document capture-phase mousedown dispatcher, so this
+  // panel no longer installs a document listener of its own. The drawer's
+  // overlay includes the scheme picker's portalled list: it is mounted on
+  // <body> to paint above the drawer, so it is outside the panel's subtree
+  // while still being part of the interaction. A press there must not dismiss
+  // the drawer — that press is what selects a colour.
   // When the component's own panel changes a style value while this drawer is
   // open, pull the fresh values and refresh the controls. The shared module's
   // refresh reads from styleProvider and writes every control, skipping the
@@ -355,6 +344,25 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
   }
 
   ui.overlayPanel.stylePanelLayerId = layerId;
+  ui.overlayPanel.styleOverlayUnregister = ensureOverlayRegistry(ui.c.map).register({
+    id: OVERLAY_IDS.LAYER_STYLE,
+    isOpen: () => ui.overlayPanel.stylePanelLayerId !== null,
+    panels: () => {
+      const container = ui.uiContainer;
+      const currentPanel = container?.querySelector(
+        `.${CONST.CLASSES.STYLE_PANEL}`,
+      ) as HTMLElement | null;
+      return currentPanel ? [currentPanel] : [];
+    },
+    portals: () => Array.from(document.querySelectorAll(SCHEME_PICKER_PORTAL_SELECTOR)),
+    // Escape still belongs to the legacy keyboard chain until C5; returning
+    // false leaves the event unhandled so that chain can run unchanged. The
+    // press dispatcher always passes restoreFocus:false and does close.
+    close: ({ restoreFocus }) => (restoreFocus ? false : closeStylePanel(ui, false)),
+    dismissOn: "mousedown",
+    pressPriority: 500,
+    clearsCursorOnClose: true,
+  });
 };
 
 /** Close the style panel. setFocus = true returns focus to the layer row. */
@@ -366,20 +374,12 @@ const closeStylePanel = (ui: LayerUI, setFocus: boolean): void => {
   if (ui.overlayPanel.stylePanelLayerId) {
     flushStyleDimApplies(ui.overlayPanel.stylePanelLayerId, ui);
   }
-  if (ui.overlayPanel.styleOutsideHandler) {
-    document.removeEventListener(
-      "mousedown",
-      ui.overlayPanel.styleOutsideHandler,
-      true,
-    );
-    ui.overlayPanel.styleOutsideHandler = null;
-  }
+  ui.overlayPanel.styleOverlayUnregister?.();
+  ui.overlayPanel.styleOverlayUnregister = null;
   ui.overlayPanel.styleUnsubscribe?.();
   ui.overlayPanel.styleUnsubscribe = null;
   ui.overlayPanel.styleRefresh = null;
   ui.overlayPanel.styleZoomEndHandler = null;
-  // No panel, no panel press: a stale verdict would block the next real drag.
-  ui.listPanel.pressInPanel = false;
   // Flushing the panel's live slider sessions can announce, and a subscriber
   // that destroys the manager mid-notify has already nulled the container.
   // Skip the lookup rather than deref null; the DOM is gone either way.
