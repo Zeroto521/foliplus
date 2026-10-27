@@ -218,7 +218,13 @@ const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
         const row = (document.activeElement as HTMLElement).closest(
           CONST.SEL.TOGGLE_ALL,
         ) as HTMLElement | null;
-        if (row) toggleFold(ui, row.dataset.role ?? "");
+        if (row) {
+          // Every toggle-all row is rendered with data-role (list.ts writes it
+          // unconditionally, empty role included), so the empty fallback only
+          // serves a row built by hand without the attribute.
+          /* v8 ignore next -- the renderer always writes data-role on this row */
+          toggleFold(ui, row.dataset.role ?? "");
+        }
         break;
       }
       // Menu item (li) is focused — trigger the focus-layer action.
