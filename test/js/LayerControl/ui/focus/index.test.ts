@@ -25,6 +25,7 @@ import {
 import { getActiveLayerItem } from "#foliplus/LayerControl/ui/listPanel/index.js";
 import { projectLayer } from "#foliplus/LayerControl/ui/projection.js";
 import { EVENTS } from "#foliplus/core/event/index.js";
+import { ensureInteraction } from "#foliplus/core/interaction/index.js";
 import { type LayerInfo, ROLE, focusLayerZ } from "#foliplus/core/layer/index.js";
 import { ensureModes } from "#foliplus/core/mode.js";
 import {
@@ -38,6 +39,30 @@ import {
   polygonLayerWith,
   polygonLayerWithoutBounds,
 } from "../fixture.js";
+
+// ── Interaction-manager teardown ─────────────────────────────────────
+// Every fixture attaches a panel, so LayerControl registers its keyboard
+// shortcuts through the per-map InteractionManager. That manager keeps a
+// MutationObserver on document.body for as long as the map lives, and a
+// fixture map never fires "unload" (its `on` is a spy), so the observer
+// outlives the test file. jsdom then tears the document down, mutates it, and
+// the queued mutation callbacks run after `HTMLElement` is gone — a wall of
+// ReferenceError on stderr that never changes the exit code but buries real
+// errors. Track every map a fixture creates and destroy its interaction
+// manager with the file. `ensureInteraction` returns the cached manager when
+// one exists, and creating-then-destroying one for a map that never registered
+// is harmless.
+const fixtureMaps: any[] = [];
+const trackFixture = <T extends { map?: any }>(fixture: T): T => {
+  if (fixture?.map) fixtureMaps.push(fixture.map);
+  return fixture;
+};
+
+afterEach(() => {
+  for (const fixtureMap of fixtureMaps.splice(0)) {
+    ensureInteraction(fixtureMap).destroy();
+  }
+});
 
 // ── Mocked core/mode — LayerControl.focusing ownership ──────
 // core/mode owns guardBlocked() and ModeManager.setMode(); these tests cover
@@ -102,7 +127,7 @@ describe("LayerUI focusLayer — interaction lock", () => {
     // below would hit the real clock.
     vi.clearAllMocks();
     modeMocks._reset();
-    const fixture = initFixture();
+    const fixture = trackFixture(initFixture());
     vi.useFakeTimers();
     ui = fixture.ui;
     map = fixture.map;
@@ -173,7 +198,7 @@ describe("LayerUI focusLayer — interaction lock", () => {
   });
 
   it("destroy() releases the focusing mode through unbindEvents → dismissFocus", () => {
-    const { manager, ui } = initFixture();
+    const { manager, ui } = trackFixture(initFixture());
 
     ui.focusLayer("overlay1");
     expect(getModeSpy("LayerControl")).toBe("focusing");
@@ -246,7 +271,7 @@ describe("LayerUI focus", () => {
   let map: any;
 
   beforeEach(() => {
-    ({ manager, ui, map } = initFixture());
+    ({ manager, ui, map } = trackFixture(initFixture()));
     // Fold tests need two overlay layers, so overlay1 isn't collapsed into the
     // single-child "no toggle-all" layout. Registered here (not in the tests)
     // because initFixture() flushes the 300ms initTypesAndVisibility timeout
@@ -348,7 +373,9 @@ describe("LayerUI focus", () => {
     });
 
     it("caps maxZoom at map.getMaxZoom() when current + step exceeds it", () => {
-      ({ manager, ui, map } = initFixture({ initialZoom: 17, maxZoom: 18 }));
+      ({ manager, ui, map } = trackFixture(
+        initFixture({ initialZoom: 17, maxZoom: 18 }),
+      ));
 
       ui.focusLayer("overlay1");
 
@@ -2462,7 +2489,7 @@ it("a focus cancel inside the rectangle announce is not undone", () => {
   // auto-cancel, and only then announces. A subscriber that cancels inside
   // that notify wins: nothing after the announce re-arms the focus, so a
   // focus kicked off by focusLayer cannot still be live when it returns.
-  const { ui, map, layer, onMap } = oneOverlay();
+  const { ui, map, layer, onMap } = trackFixture(oneOverlay());
   onMap.set(layer, false);
 
   let deliveries = 0;
@@ -2480,8 +2507,8 @@ it("a focus cancel inside the rectangle announce is not undone", () => {
 it("a focus cancel inside the flyTo announce is not undone", () => {
   // The flyTo branch takes the same ordering: fly to the center, highlight
   // the row, register the auto-cancel, and only then announce.
-  const { ui, map, layer, onMap } = oneOverlay(() =>
-    polygonLayerWith([30, 100], [30.0001, 100.0001]),
+  const { ui, map, layer, onMap } = trackFixture(
+    oneOverlay(() => polygonLayerWith([30, 100], [30.0001, 100.0001])),
   );
   onMap.set(layer, false);
 
@@ -2501,7 +2528,7 @@ it("a rejected focus leaves no membership change behind", () => {
   // A layer the policy had pulled off rejoins the map so its bounds can be
   // read. When those bounds turn out unusable the re-add goes back, so the
   // call announces nothing and leaves the map as it found it.
-  const { ui, layer, onMap } = oneOverlay(polygonLayerWithoutBounds);
+  const { ui, layer, onMap } = trackFixture(oneOverlay(polygonLayerWithoutBounds));
   onMap.set(layer, false);
 
   const seen: string[] = [];
@@ -2517,7 +2544,7 @@ it("a rejected focus leaves no membership change behind", () => {
 });
 
 it("dismissFocus releases a stuck focusing mode when the focus UI state is gone", () => {
-  const { ui, map } = initFixture();
+  const { ui, map } = trackFixture(initFixture());
   // This suite mocks core/mode, whose fake ensureModes does not wire
   // map.foliplus.modes the way the real one does; emulate that wiring so the
   // production recovery path can read the live mode without installing.
@@ -2540,7 +2567,7 @@ it("dismissFocus releases a stuck focusing mode when the focus UI state is gone"
 describe("dismissFocus finalization", () => {
   it("removes focus visuals even when a pane restore throws", () => {
     window.localStorage.clear();
-    const { ui } = initFixture();
+    const { ui } = trackFixture(initFixture());
     const warn = vi.spyOn(ui.log, "warn");
     const removeLayer = vi.spyOn(ui.c.map, "removeLayer");
 
@@ -2576,7 +2603,7 @@ describe("dismissFocus finalization", () => {
 
   it("still tears down the mask when a step before the restores throws", () => {
     window.localStorage.clear();
-    const { ui } = initFixture();
+    const { ui } = trackFixture(initFixture());
     const removeLayer = vi.spyOn(ui.c.map, "removeLayer");
     // Step 5 of the teardown, before the pane restores: this is the failure that
     // used to skip every visual removal and leave the map dimmed.
