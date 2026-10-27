@@ -17,7 +17,7 @@ import type {
 type LiveState = {
   order?: () => string[];
   removed?: () => string[];
-  foldedGroups?: () => string[];
+  foldedRoles?: () => string[];
   renamedNames?: () => Record<string, string>;
   layers?: () => Record<string, PersistedLayerState>;
 };
@@ -48,14 +48,19 @@ type LiveState = {
  *  dimension of the layer, not a parallel segment), which needs a
  *  compatibility read, so it did bump. v2 records still read — their
  *  `annotations[id]` entries are the fallback when the new key is absent, and
- *  the segment is passed through on every write untouched. */
-const RECORD_VERSION = 3;
+ *  the segment is passed through on every write untouched.
+ *
+ *  3 → 4: `foldedGroups` was renamed to `foldedRoles`. There is deliberately
+ *  no compatibility read: the field rename is a breaking change accepted for
+ *  this release, so an old v3 record still loads but its fold state is
+ *  dropped, and the next write stamps v4. */
+const RECORD_VERSION = 4;
 
 const emptyRecord = (): PersistedRecord => ({
   version: RECORD_VERSION,
   order: null,
   removed: [],
-  foldedGroups: [],
+  foldedRoles: [],
   renamedNames: {},
   annotations: {},
   layers: {},
@@ -244,10 +249,10 @@ const parseRecord = (raw: unknown): PersistedRecord => {
     record.removed = data.removed as string[];
   }
   if (
-    Array.isArray(data.foldedGroups) &&
-    data.foldedGroups.every(group => typeof group === "string")
+    Array.isArray(data.foldedRoles) &&
+    data.foldedRoles.every(role => typeof role === "string")
   ) {
-    record.foldedGroups = data.foldedGroups as string[];
+    record.foldedRoles = data.foldedRoles as string[];
   }
   for (const [id, name] of Object.entries(asObject(data.renamedNames) ?? {})) {
     if (typeof name === "string") record.renamedNames[id] = name;
@@ -292,7 +297,7 @@ const mergeFields = (record: PersistedRecord, fields: LiveState): PersistedRecor
     version: RECORD_VERSION,
     order: fields.order ? fields.order() : record.order,
     removed,
-    foldedGroups: fields.foldedGroups ? fields.foldedGroups() : record.foldedGroups,
+    foldedRoles: fields.foldedRoles ? fields.foldedRoles() : record.foldedRoles,
     renamedNames: fields.renamedNames ? fields.renamedNames() : record.renamedNames,
     annotations: dropRemoved(record.annotations),
     layers: dropRemoved(fields.layers ? fields.layers() : record.layers),

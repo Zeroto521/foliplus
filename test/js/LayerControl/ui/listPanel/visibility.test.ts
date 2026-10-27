@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { GROUP, HIDDEN } from "#core/layer/const.js";
+import { HIDDEN, ROLE } from "#core/layer/const.js";
 import { LayerRuntimeStore } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { LayerController } from "#foliplus/LayerControl/controller.js";
@@ -90,8 +90,8 @@ const fixture = () => {
   } as unknown as FixtureMap & Record<string, unknown>;
 
   const layers = [
-    { id: "overlay1", name: "Points", group: "overlay", layer: layerFixture() },
-    { id: "overlay2", name: "Circles", group: "overlay", layer: layerFixture() },
+    { id: "overlay1", name: "Points", role: "overlay", layer: layerFixture() },
+    { id: "overlay2", name: "Circles", role: "overlay", layer: layerFixture() },
   ];
   // Simulate folium adding the show=True layers to the map before LayerControl
   // attaches: the snapshotAuthorVisible pass reads map.hasLayer to capture the
@@ -105,9 +105,9 @@ const fixture = () => {
   return { map, manager, ui: manager.ui as LayerUI };
 };
 
-const allToggle = (ui: LayerUI, group = GROUP.OVERLAY) =>
+const allToggle = (ui: LayerUI, group = ROLE.OVERLAY) =>
   attachedPanel(ui).querySelector(
-    `${CONST.SEL.TOGGLE_ALL}[data-group="${group}"] [data-role="toggle-all"]`,
+    `${CONST.SEL.TOGGLE_ALL}[data-role="${group}"] [data-role="toggle-all"]`,
   ) as HTMLInputElement;
 
 const makeUi = (
@@ -147,7 +147,7 @@ describe("applyVisibility", () => {
     manager.registerLayer({
       id: "ov",
       name: "Overlay",
-      group: "overlay",
+      role: "overlay",
       layer,
     });
 
@@ -196,7 +196,7 @@ describe("applyVisibility", () => {
       }),
     );
     const seeded = makeUi(map, [
-      { id: "overlay1", name: "Points", group: "overlay", layer: layerFixture() },
+      { id: "overlay1", name: "Points", role: "overlay", layer: layerFixture() },
     ]);
     expect(seeded.ui!.intentVisible("overlay1")).toBe(false);
     expect(applyVisibility(seeded.ui as LayerUI, "overlay1", true)).toBe(true);
@@ -257,7 +257,7 @@ describe("applyVisibility", () => {
     manager.registerLayer({
       id: "canvas1",
       name: "Heat",
-      group: "overlay",
+      role: "overlay",
       canvas,
     });
 
@@ -283,7 +283,7 @@ describe("applyVisibility", () => {
     // panel, or one that has not rendered this layer yet. The map write and the
     // persisted choice must not depend on the row being there.
     const layer = layerFixture();
-    manager.registerLayer({ id: "ov", name: "Overlay", group: "overlay", layer });
+    manager.registerLayer({ id: "ov", name: "Overlay", role: "overlay", layer });
     const row = attachedPanel(ui).querySelector<HTMLElement>(
       `[${CONST.DATA.LAYER_ID}="ov"]`,
     );
@@ -310,7 +310,7 @@ describe("applyVisibility", () => {
     // A fresh manager over the same storage replays the hide rather than
     // restoring the author's default.
     const fresh = makeUi(map, [
-      { id: "overlay1", name: "Points", group: "overlay", layer: layerFixture() },
+      { id: "overlay1", name: "Points", role: "overlay", layer: layerFixture() },
     ]);
     expect(fresh.ui!.intentVisible("overlay1")).toBe(false);
     fresh.ui = null;
@@ -336,7 +336,7 @@ describe("applyVisibility", () => {
     });
 
     const fresh = makeUi(map, [
-      { id: "overlay1", name: "Points", group: "overlay", layer: layerFixture() },
+      { id: "overlay1", name: "Points", role: "overlay", layer: layerFixture() },
     ]);
     expect(fresh.ui!.intentVisible("overlay1")).toBe(true);
     fresh.ui = null;
@@ -352,7 +352,7 @@ describe("applyVisibility", () => {
     fresh.registerLayer({
       id: "base1",
       name: "OSM",
-      group: "base",
+      role: "base",
       layer,
       paneName: "tilePane",
     });
@@ -383,7 +383,7 @@ describe("applyVisibility", () => {
     manager.registerLayer({
       id: "repeat",
       name: "Repeat",
-      group: "overlay",
+      role: "overlay",
       layer,
     });
 
@@ -410,7 +410,7 @@ describe("applyVisibility", () => {
 
     it("is false when nothing in the group is checked", () => {
       const only = makeUi(map, [
-        { id: "only", name: "Only", group: "overlay", layer: layerFixture() },
+        { id: "only", name: "Only", role: "overlay", layer: layerFixture() },
       ]);
       const all = allToggle(only.ui as LayerUI);
       expect(all.checked).toBe(true);
@@ -435,32 +435,32 @@ describe("applyVisibility", () => {
       // The attach-time initTypesAndVisibility runs in setTimeout(0), so
       // the synchronous test body bootstraps the counter itself before the
       // first click.
-      syncToggleAll(ui, GROUP.OVERLAY);
-      expect(ui.listPanel.checkedCount[GROUP.OVERLAY]).toEqual({
+      syncToggleAll(ui, ROLE.OVERLAY);
+      expect(ui.listPanel.checkedCount[ROLE.OVERLAY]).toEqual({
         total: 2,
         on: 2,
       });
 
       // Hide overlay1: on 2 → 1. Rescan agrees.
       applyVisibility(ui, "overlay1", false);
-      expect(ui.listPanel.checkedCount[GROUP.OVERLAY]).toEqual({
+      expect(ui.listPanel.checkedCount[ROLE.OVERLAY]).toEqual({
         total: 2,
         on: 1,
       });
-      syncToggleAll(ui, GROUP.OVERLAY);
-      expect(ui.listPanel.checkedCount[GROUP.OVERLAY]).toEqual({
+      syncToggleAll(ui, ROLE.OVERLAY);
+      expect(ui.listPanel.checkedCount[ROLE.OVERLAY]).toEqual({
         total: 2,
         on: 1,
       });
 
       // Hide overlay2: on 1 → 0. Rescan agrees.
       applyVisibility(ui, "overlay2", false);
-      expect(ui.listPanel.checkedCount[GROUP.OVERLAY]).toEqual({
+      expect(ui.listPanel.checkedCount[ROLE.OVERLAY]).toEqual({
         total: 2,
         on: 0,
       });
-      syncToggleAll(ui, GROUP.OVERLAY);
-      expect(ui.listPanel.checkedCount[GROUP.OVERLAY]).toEqual({
+      syncToggleAll(ui, ROLE.OVERLAY);
+      expect(ui.listPanel.checkedCount[ROLE.OVERLAY]).toEqual({
         total: 2,
         on: 0,
       });
@@ -468,8 +468,8 @@ describe("applyVisibility", () => {
       // Show both: on 0 → 2. Rescan agrees.
       applyVisibility(ui, "overlay1", true);
       applyVisibility(ui, "overlay2", true);
-      syncToggleAll(ui, GROUP.OVERLAY);
-      expect(ui.listPanel.checkedCount[GROUP.OVERLAY]).toEqual({
+      syncToggleAll(ui, ROLE.OVERLAY);
+      expect(ui.listPanel.checkedCount[ROLE.OVERLAY]).toEqual({
         total: 2,
         on: 2,
       });
@@ -477,7 +477,7 @@ describe("applyVisibility", () => {
       // Setting a value to the same value it already has is a no-op: the
       // delta is zero and the count is unchanged.
       applyVisibility(ui, "overlay1", true);
-      expect(ui.listPanel.checkedCount[GROUP.OVERLAY]).toEqual({
+      expect(ui.listPanel.checkedCount[ROLE.OVERLAY]).toEqual({
         total: 2,
         on: 2,
       });
@@ -488,13 +488,13 @@ describe("applyVisibility", () => {
       // function; a host page that holds the UI instance calls it through
       // that slot. Pinned so the delegator stays reachable and writes the
       // tri-state checkbox off the cached count.
-      syncToggleAll(ui, GROUP.OVERLAY);
+      syncToggleAll(ui, ROLE.OVERLAY);
       applyVisibility(ui, "overlay1", false);
-      expect(ui.listPanel.checkedCount[GROUP.OVERLAY]).toEqual({
+      expect(ui.listPanel.checkedCount[ROLE.OVERLAY]).toEqual({
         total: 2,
         on: 1,
       });
-      ui.syncToggleAllFromCount(GROUP.OVERLAY);
+      ui.syncToggleAllFromCount(ROLE.OVERLAY);
       const all = allToggle(ui);
       expect(all.checked).toBe(false);
       expect(all.indeterminate).toBe(true);
@@ -511,7 +511,7 @@ describe("applyVisibility", () => {
         ui: u2,
         map: map2,
       } = initFixture({
-        data: [{ id: "overlay1", name: "O1", group: "overlay", layer: layerFixture() }],
+        data: [{ id: "overlay1", name: "O1", role: "overlay", layer: layerFixture() }],
       });
       try {
         const toggleMock = vi.fn();
@@ -576,7 +576,7 @@ describe("LayerController.setVisible", () => {
     manager.registerLayer({
       id: "ov",
       name: "Overlay",
-      group: "overlay",
+      role: "overlay",
       layer,
     });
 
@@ -605,7 +605,7 @@ describe("LayerController.setVisible", () => {
 
   it("refuses before the panel is attached rather than no-op-ing", () => {
     const bare = new LayerController(map, [
-      { id: "overlay1", name: "Points", group: "overlay", layer: layerFixture() },
+      { id: "overlay1", name: "Points", role: "overlay", layer: layerFixture() },
     ]);
     // No ui: nothing to sync the row with and no hidden-set funnel to write,
     // so a success return would be a lie the caller cannot detect.
@@ -694,7 +694,7 @@ describe("LayerUI.handleChange", () => {
     manager.registerLayer({
       id: "canvas1",
       name: "Heat",
-      group: "overlay",
+      role: "overlay",
       canvas,
     });
     change(ui, "canvas1", false);
@@ -751,9 +751,9 @@ describe("DOM order diverges from registry order", () => {
     } as unknown as FixtureMap & Record<string, unknown>;
 
     const layers = [
-      { id: "A", name: "Layer A", group: "overlay", layer: layerFixture() },
-      { id: "B", name: "Layer B", group: "overlay", layer: layerFixture() },
-      { id: "C", name: "Layer C", group: "overlay", layer: layerFixture() },
+      { id: "A", name: "Layer A", role: "overlay", layer: layerFixture() },
+      { id: "B", name: "Layer B", role: "overlay", layer: layerFixture() },
+      { id: "C", name: "Layer C", role: "overlay", layer: layerFixture() },
     ];
     // Same folium simulation as fixture(): leave the map with the layers that
     // show=True would have added, so snapshotAuthorVisible reads true.
@@ -771,7 +771,7 @@ describe("DOM order diverges from registry order", () => {
   const scrambleDomOrder = (ui: LayerUI) => {
     const rows = Array.from(
       attachedPanel(ui).querySelectorAll<HTMLElement>(
-        `${CONST.SEL.LAYER_ITEM}[data-layer-type="${GROUP.OVERLAY}"]`,
+        `${CONST.SEL.LAYER_ITEM}[data-layer-type="${ROLE.OVERLAY}"]`,
       ),
     );
     expect(rows.length).toBe(3);
@@ -784,7 +784,7 @@ describe("DOM order diverges from registry order", () => {
     // order, not the pre-scramble array order.
     const reordered = Array.from(
       attachedPanel(ui).querySelectorAll<HTMLElement>(
-        `${CONST.SEL.LAYER_ITEM}[data-layer-type="${GROUP.OVERLAY}"]`,
+        `${CONST.SEL.LAYER_ITEM}[data-layer-type="${ROLE.OVERLAY}"]`,
       ),
     );
     reordered.forEach((row, i) => {
@@ -820,7 +820,7 @@ describe("DOM order diverges from registry order", () => {
     // that index and toggle B instead of A.
     const rows = Array.from(
       attachedPanel(ui).querySelectorAll<HTMLElement>(
-        `${CONST.SEL.LAYER_ITEM}[data-layer-type="${GROUP.OVERLAY}"]`,
+        `${CONST.SEL.LAYER_ITEM}[data-layer-type="${ROLE.OVERLAY}"]`,
       ),
     );
     const rowA = rows[1];
@@ -843,7 +843,7 @@ describe("DOM order diverges from registry order", () => {
   it("toggleAll hits every layer by id, not by DOM position", () => {
     scrambleDomOrder(ui);
     // The DOM order is C-A-B but toggleAll must hide all three regardless.
-    ui.toggleAll(GROUP.OVERLAY, false);
+    ui.toggleAll(ROLE.OVERLAY, false);
 
     expect(ui.intentVisible("A")).toBe(false);
     expect(ui.intentVisible("B")).toBe(false);
@@ -861,7 +861,7 @@ describe("DOM order diverges from registry order", () => {
     orphan.appendChild(box);
     attachedPanel(ui).appendChild(orphan);
 
-    ui.toggleAll(GROUP.OVERLAY, false);
+    ui.toggleAll(ROLE.OVERLAY, false);
 
     expect(box.checked).toBe(true);
     expect(ui.intentVisible("A")).toBe(false);
@@ -883,7 +883,7 @@ describe("DOM order diverges from registry order", () => {
     stale.appendChild(box);
     attachedPanel(ui).appendChild(stale);
 
-    ui.toggleAll(GROUP.OVERLAY, false);
+    ui.toggleAll(ROLE.OVERLAY, false);
 
     expect(box.checked).toBe(true);
     expect(ui.intentVisible("A")).toBe(false);
@@ -895,7 +895,7 @@ describe("DOM order diverges from registry order", () => {
     // First-class basemaps: the color layer is one row like any other, not a
     // stand-in for the absence of a base. Clearing the base group leaves the
     // color's own checkbox untouched (intent-only invariant).
-    ui.toggleAll(GROUP.BASE, false);
+    ui.toggleAll(ROLE.BASE, false);
   });
 });
 
@@ -932,12 +932,12 @@ describe("toggleAll base group", () => {
     } as unknown as FixtureMap & Record<string, unknown>;
 
     const layers: ConstructorParameters<typeof LayerController>[1] = [
-      { id: "B1", name: "Base 1", group: "base", layer: layerFixture() },
+      { id: "B1", name: "Base 1", role: "base", layer: layerFixture() },
       // Canvas-style base: a real canvas element, no Leaflet layer to add or remove.
       {
         id: "B2",
         name: "Base 2",
-        group: "base",
+        role: "base",
         canvas: document.createElement("canvas"),
       },
     ];
@@ -972,10 +972,10 @@ describe("toggleAll base group", () => {
     // keeps the sweep from typing the whole panel row.
     const bare = document.createElement("div");
     bare.className = CONST.CLASSES.LAYER_ITEM;
-    bare.setAttribute("data-layer-type", GROUP.BASE);
+    bare.setAttribute("data-layer-type", ROLE.BASE);
     attachedPanel(ui).appendChild(bare);
 
-    expect(() => toggleAll(ui, GROUP.BASE, true)).not.toThrow();
+    expect(() => toggleAll(ui, ROLE.BASE, true)).not.toThrow();
     expect(bare.querySelector("input")).toBeNull();
     // Only the two registered rows were swept — the bare row carries no
     // checkbox and must be absent from the intent map entirely.
@@ -990,12 +990,12 @@ describe("toggleAll base group", () => {
     const b2Canvas = b2.canvas as HTMLCanvasElement;
 
     // Hide both first so the sweep has a visible → shown transition to fire.
-    toggleAll(ui, GROUP.BASE, false);
+    toggleAll(ui, ROLE.BASE, false);
 
     map.addLayer.mockClear();
     map.removeLayer.mockClear();
 
-    toggleAll(ui, GROUP.BASE, true);
+    toggleAll(ui, ROLE.BASE, true);
 
     expect(map.addLayer).toHaveBeenCalledWith(manager.layerRegistry.get("B1")!.layer);
     // B2 has no Leaflet layer: its canvas's HIDDEN class is the carrier.
@@ -1009,9 +1009,9 @@ describe("toggleAll base group", () => {
     // The color layer coexists with tile basemaps: toggling the base group
     // must not hide or show the color ?each carries its own checkbox and
     // its own visibility.
-    ui.toggleAll(GROUP.BASE, false);
+    ui.toggleAll(ROLE.BASE, false);
 
-    ui.toggleAll(GROUP.BASE, true);
+    ui.toggleAll(ROLE.BASE, true);
   });
 });
 
@@ -1034,7 +1034,7 @@ describe("unit helpers", () => {
 
   it("getLayerItems returns every base row, the colour row included", () => {
     const ui = makeUi();
-    const items = getLayerItems(ui, GROUP.BASE);
+    const items = getLayerItems(ui, ROLE.BASE);
     expect(items.length).toBe(2);
     expect(items[0].getAttribute("data-layer-type")).toBe("base");
     expect(items[1].getAttribute("data-layer-id")).toBe(CONST.SOLID_BASEMAP_ID);
@@ -1042,7 +1042,7 @@ describe("unit helpers", () => {
 
   it("getLayerItems returns overlay rows and excludes the color basemap", () => {
     const ui = makeUi();
-    const items = getLayerItems(ui, GROUP.OVERLAY);
+    const items = getLayerItems(ui, ROLE.OVERLAY);
     expect(items.length).toBe(1);
     expect(items[0].getAttribute("data-layer-type")).toBe("overlay");
   });
@@ -1050,7 +1050,7 @@ describe("unit helpers", () => {
   it("getLayerItems returns nothing once the panel is gone", () => {
     const { ui } = initFixture({});
     ui.c.uiContainer = null;
-    expect(getLayerItems(ui, GROUP.OVERLAY)).toEqual([]);
+    expect(getLayerItems(ui, ROLE.OVERLAY)).toEqual([]);
   });
 
   // syncVisibility is gone: the executor is the only writer of map
@@ -1063,15 +1063,15 @@ describe("unit helpers", () => {
     const boxes = () =>
       Array.from(
         attachedPanel(ui).querySelectorAll<HTMLInputElement>(
-          `.${CONST.CLASSES.LAYER_ITEM}[data-layer-type="${GROUP.OVERLAY}"] input[type="checkbox"]`,
+          `.${CONST.CLASSES.LAYER_ITEM}[data-layer-type="${ROLE.OVERLAY}"] input[type="checkbox"]`,
         ),
       );
 
-    ui.toggleAll(GROUP.OVERLAY, true);
+    ui.toggleAll(ROLE.OVERLAY, true);
     expect(boxes().length).toBeGreaterThan(0);
     boxes().forEach(b => expect(b.title).toContain("deselect_tooltip"));
 
-    ui.toggleAll(GROUP.OVERLAY, false);
+    ui.toggleAll(ROLE.OVERLAY, false);
     boxes().forEach(b => expect(b.title).toContain("select_tooltip"));
   });
 
@@ -1080,30 +1080,30 @@ describe("unit helpers", () => {
     // there is nothing to paint, so the sync must bail rather than write into a
     // null element.
     const uiContainer = document.createElement("div");
-    uiContainer.innerHTML = `<div class="foliplus-layer-toggle-all" data-group="${GROUP.OVERLAY}"></div>`;
+    uiContainer.innerHTML = `<div class="foliplus-layer-toggle-all" data-role="${ROLE.OVERLAY}"></div>`;
     const ui = {
       uiContainer,
       c: { layerRegistry: { get: () => undefined } },
       T: (k: string) => k,
       listPanel: {
         checkedCount: {},
-        foldedGroups: new Set<string>(),
+        foldedRoles: new Set<string>(),
         T: (k: string) => k,
       },
     } as unknown as LayerUI;
 
-    expect(() => syncToggleAll(ui, GROUP.OVERLAY)).not.toThrow();
+    expect(() => syncToggleAll(ui, ROLE.OVERLAY)).not.toThrow();
   });
 
   it("syncNoBasemap handles a thin stub with an empty LayerIntentStore", () => {
     // A thin stub carries an empty LayerIntentStore: the check must degrade to the
     // author default rather than crashing.
     const uiContainer = document.createElement("div");
-    uiContainer.innerHTML = `<div class="foliplus-layer-toggle-all" data-group="${GROUP.BASE}"><span></span></div>`;
+    uiContainer.innerHTML = `<div class="foliplus-layer-toggle-all" data-role="${ROLE.BASE}"><span></span></div>`;
     const ui = {
       uiContainer,
       c: {
-        layers: [{ id: "b1", group: "base", layer: layerFixture() }],
+        layers: [{ id: "b1", role: "base", layer: layerFixture() }],
         map: {
           getContainer: () => document.createElement("div"),
           getZoom: () => 0,
@@ -1117,7 +1117,7 @@ describe("unit helpers", () => {
       T: (k: string) => k,
       listPanel: {
         checkedCount: {},
-        foldedGroups: new Set<string>(),
+        foldedRoles: new Set<string>(),
         T: (k: string) => k,
       },
     } as unknown as LayerUI;
@@ -1136,13 +1136,13 @@ describe("unit helpers", () => {
       opacity?: number,
     ): { ui: LayerUI; container: HTMLElement } => {
       const uiContainer = document.createElement("div");
-      uiContainer.innerHTML = `<div class="foliplus-layer-toggle-all" data-group="${GROUP.BASE}"><span></span></div>`;
+      uiContainer.innerHTML = `<div class="foliplus-layer-toggle-all" data-role="${ROLE.BASE}"><span></span></div>`;
       const container = document.createElement("div");
       const layer = layerFixture();
       const layers =
         opacity === undefined
-          ? [{ id: "b1", group: "base", layer }]
-          : [{ id: "b1", group: "base", opacity, layer }];
+          ? [{ id: "b1", role: "base", layer }]
+          : [{ id: "b1", role: "base", opacity, layer }];
       const ui = {
         uiContainer,
         c: {
@@ -1158,7 +1158,7 @@ describe("unit helpers", () => {
         runtimeStore: new LayerRuntimeStore(),
         focusController: { focusingLayerId: null },
         T: (k: string) => k,
-        listPanel: { checkedCount: {}, foldedGroups: new Set<string>() },
+        listPanel: { checkedCount: {}, foldedRoles: new Set<string>() },
       } as unknown as LayerUI;
       return { ui, container };
     };
@@ -1195,7 +1195,7 @@ describe("unit helpers", () => {
     // degrade gracefully when the store holds no rows.
     const uiContainer = document.createElement("div");
     uiContainer.innerHTML = `
-      <div class="foliplus-layer-toggle-all" data-group="${GROUP.OVERLAY}">
+      <div class="foliplus-layer-toggle-all" data-role="${ROLE.OVERLAY}">
         <input type="checkbox" data-role="toggle-all" />
       </div>
       <div class="foliplus-layer-item" data-layer-type="overlay" data-layer-id="x">
@@ -1210,12 +1210,12 @@ describe("unit helpers", () => {
       T: (k: string) => k,
       listPanel: {
         checkedCount: {},
-        foldedGroups: new Set<string>(),
+        foldedRoles: new Set<string>(),
         T: (k: string) => k,
       },
     } as unknown as LayerUI;
 
-    expect(() => syncToggleAll(ui, GROUP.OVERLAY)).not.toThrow();
+    expect(() => syncToggleAll(ui, ROLE.OVERLAY)).not.toThrow();
   });
 
   it("syncToggleAllFromCount bails when the group header is absent", () => {
@@ -1230,12 +1230,12 @@ describe("unit helpers", () => {
       T: (k: string) => k,
       listPanel: {
         checkedCount: {},
-        foldedGroups: new Set<string>(),
+        foldedRoles: new Set<string>(),
         T: (k: string) => k,
       },
     } as unknown as LayerUI;
 
-    expect(() => syncToggleAllFromCount(ui, GROUP.OVERLAY)).not.toThrow();
+    expect(() => syncToggleAllFromCount(ui, ROLE.OVERLAY)).not.toThrow();
   });
 
   it("syncToggleAllFromCount bails when the header has no toggle-all input", () => {
@@ -1243,7 +1243,7 @@ describe("unit helpers", () => {
     // there is nothing to paint, so the sync must bail rather than write into
     // a null element — the same guard the full-rescan path already carries.
     const uiContainer = document.createElement("div");
-    uiContainer.innerHTML = `<div class="foliplus-layer-toggle-all" data-group="${GROUP.OVERLAY}"></div>`;
+    uiContainer.innerHTML = `<div class="foliplus-layer-toggle-all" data-role="${ROLE.OVERLAY}"></div>`;
     const ui = {
       uiContainer,
       checkedCount: {},
@@ -1251,7 +1251,7 @@ describe("unit helpers", () => {
       T: (k: string) => k,
     } as unknown as LayerUI;
 
-    expect(() => syncToggleAllFromCount(ui, GROUP.OVERLAY)).not.toThrow();
+    expect(() => syncToggleAllFromCount(ui, ROLE.OVERLAY)).not.toThrow();
   });
 
   it("syncToggleAllFromCount treats a missing counter as an empty group", () => {
@@ -1261,7 +1261,7 @@ describe("unit helpers", () => {
     // the empty-group tri-state semantics: `on === 0` means nothing checked,
     // not a partial state.
     const uiContainer = document.createElement("div");
-    uiContainer.innerHTML = `<div class="foliplus-layer-toggle-all" data-group="${GROUP.OVERLAY}"><input type="checkbox" data-role="toggle-all" /></div>`;
+    uiContainer.innerHTML = `<div class="foliplus-layer-toggle-all" data-role="${ROLE.OVERLAY}"><input type="checkbox" data-role="toggle-all" /></div>`;
     const ui = {
       uiContainer,
       checkedCount: {},
@@ -1269,7 +1269,7 @@ describe("unit helpers", () => {
       T: (k: string) => k,
     } as unknown as LayerUI;
 
-    syncToggleAllFromCount(ui, GROUP.OVERLAY);
+    syncToggleAllFromCount(ui, ROLE.OVERLAY);
 
     const all = uiContainer.querySelector<HTMLInputElement>(
       '[data-role="toggle-all"]',
@@ -1289,9 +1289,9 @@ it("a bulk toggle-all does not announce a layer a subscriber unregistered", () =
   // snapshots) is what lets the delivery re-query the registry and drop it.
   const { ui } = initFixture({
     data: [
-      { id: "alpha", name: "Alpha", group: "overlay", layer: polygonLayer() },
-      { id: "beta", name: "Beta", group: "overlay", layer: polygonLayer() },
-      { id: "gamma", name: "Gamma", group: "overlay", layer: polygonLayer() },
+      { id: "alpha", name: "Alpha", role: "overlay", layer: polygonLayer() },
+      { id: "beta", name: "Beta", role: "overlay", layer: polygonLayer() },
+      { id: "gamma", name: "Gamma", role: "overlay", layer: polygonLayer() },
     ],
   });
 
@@ -1301,7 +1301,7 @@ it("a bulk toggle-all does not announce a layer a subscriber unregistered", () =
     if (payload.id === "alpha") ui.c.layerRegistry.remove("beta");
   });
 
-  expect(() => ui.toggleAll(GROUP.OVERLAY, false)).not.toThrow();
+  expect(() => ui.toggleAll(ROLE.OVERLAY, false)).not.toThrow();
 
   // Alpha delivers before beta's unregister runs; beta is gone by the time
   // its slot comes around; gamma still delivers — the sweep does not stop

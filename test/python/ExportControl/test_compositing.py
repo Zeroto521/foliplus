@@ -321,9 +321,9 @@ class TestExportCompositeBrowser:
             panel_ready(page)
             _install_canvas_hook(page)
 
-            # Deselect every basemap through the panel's base group toggle-all,
+            # Deselect every basemap through the panel's base role toggle-all,
             # so the map enters the empty state the way a user does. The overlay
-            # above is not in that group and stays on the map.
+            # above is not in that role and stays on the map.
             clicked = page.evaluate(_js("LayerControl/uncheck_base_group"))
             state = page.evaluate(_js("ExportControl/no_basemap_state"))
             assert clicked["ok"] is True, clicked
@@ -337,10 +337,10 @@ class TestExportCompositeBrowser:
             assert "conic-gradient" in state["bgImage"], (
                 f"hatch not painted on the container: {state}"
             )
-            # The base group label swaps to the no-basemap variant when every
+            # The base role label swaps to the no-basemap variant when every
             # basemap is unchecked (translated from `no_base_map_label`).
             assert state["baseLabelText"] == "No Base Map", (
-                f"base group label must swap to the no-basemap variant, "
+                f"base role label must swap to the no-basemap variant, "
                 f"got {state['baseLabelText']}"
             )
 
@@ -404,7 +404,7 @@ class TestExportCompositeBrowser:
             tile_layers = [
                 li for li in state["layers"] if li["id"] != "foliplus_color_map"
             ]
-            assert all(li["group"] == "base" and li["visible"] for li in tile_layers), (
+            assert all(li["role"] == "base" and li["visible"] for li in tile_layers), (
                 f"both tile basemaps should be visible: {tile_layers}"
             )
 

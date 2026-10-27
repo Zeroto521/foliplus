@@ -115,7 +115,7 @@ class _BadDefault(_ReflectBase):
         self.x = x
 
 
-_LAYER_SHAPE = [{"name": "string", "id": "string", "group": ("base", "overlay")}]
+_LAYER_SHAPE = [{"name": "string", "id": "string", "role": ("base", "overlay")}]
 
 
 class _Dynamic(_ReflectBase):
@@ -333,7 +333,7 @@ def test_dynamic_fields_are_declared_on_the_class() -> None:
     assert schema["data"].dynamic is True
     assert schema["data"].ts == "LayerData"
     assert schema["data"].shape == [
-        {"name": "string", "id": "string", "group": ("base", "overlay")}
+        {"name": "string", "id": "string", "role": ("base", "overlay")}
     ]
 
 

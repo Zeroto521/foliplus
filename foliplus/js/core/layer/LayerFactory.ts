@@ -13,10 +13,10 @@ import {
   CANVAS_PANE_PREFIX,
   COLOR_PANE_PREFIX,
   CONTENT_KIND,
-  GROUP,
   HIDDEN,
   KIND,
   PANE_ROLE,
+  ROLE,
 } from "./const.js";
 import type {
   CreateCanvasAPI,
@@ -71,7 +71,7 @@ interface LayerFactoryDeps {
    */
   slotOf?: (
     id: string,
-  ) => { index: number; count: number; group: "base" | "overlay" } | null;
+  ) => { index: number; count: number; role: "base" | "overlay" } | null;
 }
 
 // core/layer is not a component dir, so CONFIG is unavailable here — the module
@@ -419,7 +419,7 @@ class LayerFactory {
         ...commonLayerOpts,
         name: opts.name,
         kind: KIND.VECTOR,
-        group: GROUP.OVERLAY,
+        role: ROLE.OVERLAY,
         layer: mainLayer,
         paneName: basePaneName,
         paneSpecs,
@@ -591,7 +591,7 @@ class LayerFactory {
         // itself) is cheaper than keeping a CSS composite layer around.
         onOpacity: commonLayerOpts.onOpacity ?? paint,
         opacityBake: opts.opacityBake ?? "commit",
-        group: GROUP.BASE,
+        role: ROLE.BASE,
         baseInsert: "bottom",
         canvas: face,
         color,
@@ -730,7 +730,7 @@ class LayerFactory {
     layerOpts = {
       ...commonLayerOpts,
       kind: KIND.CANVAS,
-      group: GROUP.OVERLAY,
+      role: ROLE.OVERLAY,
       canvas,
       paneName,
       getBounds: getBounds ?? null,

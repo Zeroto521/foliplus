@@ -1,15 +1,15 @@
-// LayerControl UI — HTML5 drag reorder + group fold.
+// LayerControl UI — HTML5 drag reorder + role fold.
 import { HINT_DURATION } from "#core/hint.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { saveFoldState } from "../state.js";
 import type { LayerUI } from "../surface.js";
 import { rebuildList } from "./list.js";
 
-/** Fold or unfold one group. Shared by the pointer (row click) and the
+/** Fold or unfold one role. Shared by the pointer (row click) and the
  *  keyboard (Enter / Space over the chevron) so both paths stay in sync. */
-const toggleFold = (ui: LayerUI, group: string): void => {
-  if (ui.listPanel.foldedGroups.has(group)) ui.listPanel.foldedGroups.delete(group);
-  else ui.listPanel.foldedGroups.add(group);
+const toggleFold = (ui: LayerUI, role: string): void => {
+  if (ui.listPanel.foldedRoles.has(role)) ui.listPanel.foldedRoles.delete(role);
+  else ui.listPanel.foldedRoles.add(role);
   // Same rebuild the reorder APIs use: repaint, settle the counts and the
   // readiness flag, then announce the round the replay produced.
   rebuildList(ui);

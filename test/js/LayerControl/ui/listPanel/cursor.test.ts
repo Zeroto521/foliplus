@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { GROUP } from "#core/layer/index.js";
+import { ROLE } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerController } from "#foliplus/LayerControl/controller.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
@@ -34,11 +34,11 @@ describe("LayerUI cursor (pure cursor primitives)", () => {
       manager.registerLayer({
         id: "overlay2",
         name: "Circles",
-        group: "overlay",
+        role: "overlay",
         layer: { options: {}, eachLayer: vi.fn() },
       });
     }
-    ui.listPanel.foldedGroups = new Set();
+    ui.listPanel.foldedRoles = new Set();
     window.localStorage.removeItem(CONST.STORAGE.KEY);
   });
 
@@ -223,12 +223,12 @@ describe("LayerUI cursor (pure cursor primitives)", () => {
       const overlayHeader = items.find(
         el =>
           el.classList.contains(CONST.CLASSES.TOGGLE_ALL) &&
-          el.getAttribute("data-group") === GROUP.OVERLAY,
+          el.getAttribute("data-role") === ROLE.OVERLAY,
       )!;
       items.forEach(el => {
         if (
           el.classList.contains(CONST.CLASSES.LAYER_ITEM) &&
-          el.getAttribute("data-layer-type") === GROUP.OVERLAY
+          el.getAttribute("data-layer-type") === ROLE.OVERLAY
         ) {
           el.classList.add(CONST.CLASSES.GROUP_FOLDED);
         }
@@ -271,10 +271,10 @@ describe("LayerUI cursor (pure cursor primitives)", () => {
 
     it("returns a group-kind ref when the cursor is on a toggle-all row", () => {
       const toggleRow = attachedPanel(ui).querySelector(
-        `[data-group="${GROUP.OVERLAY}"]`,
+        `[data-role="${ROLE.OVERLAY}"]`,
       ) as HTMLElement;
       setActiveItem(ui, ui.getNavigableItems().indexOf(toggleRow));
-      expect(cursorRef(ui)).toEqual({ kind: "group", group: GROUP.OVERLAY });
+      expect(cursorRef(ui)).toEqual({ kind: "role", role: ROLE.OVERLAY });
     });
 
     it("normalizes an out-of-range cursor to null", () => {
@@ -293,10 +293,10 @@ describe("LayerUI cursor (pure cursor primitives)", () => {
   describe("restoreCursor", () => {
     it("re-homes a folded group row onto its toggle-all row", () => {
       attachWithGroup(ui);
-      ui.listPanel.foldedGroups = new Set([GROUP.OVERLAY]);
+      ui.listPanel.foldedRoles = new Set([ROLE.OVERLAY]);
       attachedPanel(ui)
         .querySelectorAll<HTMLElement>(
-          `${CONST.SEL.LAYER_ITEM}[data-layer-type="${GROUP.OVERLAY}"]`,
+          `${CONST.SEL.LAYER_ITEM}[data-layer-type="${ROLE.OVERLAY}"]`,
         )
         .forEach(el => el.classList.add(CONST.CLASSES.GROUP_FOLDED));
 
@@ -338,7 +338,7 @@ describe("LayerUI cursor (pure cursor primitives)", () => {
       // the header sits ahead of every layer row in the panel.
       setActiveItem(ui, indexFor("overlay1"));
       const header = attachedPanel(ui).querySelector(
-        `.${CONST.CLASSES.TOGGLE_ALL}[data-group="overlay"]`,
+        `.${CONST.CLASSES.TOGGLE_ALL}[data-role="overlay"]`,
       ) as HTMLElement;
       expect(header).not.toBeNull();
 
@@ -354,7 +354,7 @@ describe("LayerUI cursor (pure cursor primitives)", () => {
       const row = findItem(ui, "overlay1");
       setActiveItem(ui, indexFor("overlay1"));
       row.removeAttribute(CONST.DATA.LAYER_ID);
-      row.removeAttribute("data-group");
+      row.removeAttribute("data-role");
 
       expect(cursorRef(ui)).toBeNull();
     });

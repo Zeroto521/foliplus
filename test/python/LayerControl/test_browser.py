@@ -154,7 +154,7 @@ class TestLayerControlBrowser:
             assert not errors, f"JS errors: {errors}"
 
     def test_cross_group_drag_shows_hint(self, browser, tmp_path):
-        """Dragging overlay toward base group should show blocked hint."""
+        """Dragging overlay toward base role should show blocked hint."""
         overlay = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)
         base = folium.TileLayer("CartoDB positron", name="Light Canvas", overlay=False)
         with use_page(self._make_page, browser, tmp_path, overlay, base) as (
@@ -175,7 +175,7 @@ class TestLayerControlBrowser:
             )
 
             ok = page.evaluate(_js("LayerControl/dispatch_cross_group_dragover"))
-            assert ok, "Failed to dispatch simulated cross-group dragover"
+            assert ok, "Failed to dispatch simulated cross-role dragover"
 
             page.wait_for_selector(
                 ".foliplus-hint-LayerControl", state="attached", timeout=5000
@@ -1068,7 +1068,7 @@ class TestLayerControlBrowser:
             assert not errors, f"JS errors: {errors}"
 
     def test_toggle_all_checkbox_toggles_layers(self, browser, tmp_path):
-        """Toggle-all checkbox toggles all layers in the group."""
+        """Toggle-all checkbox toggles all layers in the role."""
         with use_page(
             self._make_page,
             browser,
@@ -1102,12 +1102,12 @@ class TestLayerControlBrowser:
             assert before is not None and before["rows"], f"panel state: {before}"
             assert all(before["rows"]), f"expected all overlays on initially: {before}"
 
-            # Deselect the whole overlay group, then wait past the 100ms debounce.
+            # Deselect the whole overlay role, then wait past the 100ms debounce.
             page.evaluate(_js("LayerControl/click_toggle_all"))
             page.wait_for_timeout(400)
             after_toggle = page.evaluate(_js("LayerControl/toggle_all_reloads_hidden"))
             assert after_toggle["rows"] == [False] * len(before["rows"]), (
-                f"toggle-all did not deselect the group: {after_toggle}"
+                f"toggle-all did not deselect the role: {after_toggle}"
             )
 
             page.reload(wait_until="domcontentloaded")
@@ -1848,7 +1848,7 @@ class TestLayerControlBrowser:
         # heatmap id is the stable component id, not a per-map suffix.
         seed = {
             "order": None,
-            "foldedGroups": [],
+            "foldedRoles": [],
             "renamedNames": {},
             "annotations": {},
             "layers": {
@@ -1976,7 +1976,7 @@ class TestLayerControlBrowser:
         # not a per-map suffix.
         seed = {
             "order": None,
-            "foldedGroups": [],
+            "foldedRoles": [],
             "renamedNames": {"foliplus_heatmap": "My Heat"},
             "annotations": {},
             "layers": {},
@@ -3091,7 +3091,7 @@ class TestLayerControlBrowser:
         """A partial re-register never drops previously registered fields.
 
         createLayerInfo is idempotent: fields absent from the second opts
-        (layer/paneName/iconSvg/name/group) fall back to
+        (layer/paneName/iconSvg/name/role) fall back to
         the existing layerInfo instead of being reset to defaults.
         """
         with use_page(self._make_page, browser, tmp_path) as (page, _):
@@ -3106,7 +3106,7 @@ class TestLayerControlBrowser:
                 # registration falls back to the id, and the partial one
                 # keeps it.
                 assert r["name"] in ("Keep Me", "__keep__"), f"{phase}: name lost"
-                assert r["group"] == "base", f"{phase}: group lost"
+                assert r["role"] == "base", f"{phase}: role lost"
                 assert r["layerSame"] is True, f"{phase}: layer lost"
                 assert r["paneName"] == "customPane", f"{phase}: paneName lost"
                 # The value must be the registered icon, unchanged by the
@@ -3163,7 +3163,7 @@ class TestLayerControlBrowser:
             assert is_folded, "Expected foliplus-layer-folded class on row after fold"
 
     def test_color_layer_pointer_cursor(self, browser, tmp_path):
-        """Color layer item shows move cursor on hover (draggable in base group)."""
+        """Color layer item shows move cursor on hover (draggable in base role)."""
         with use_page(self._make_page, browser, tmp_path) as (page, _):
             page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_selector(
@@ -3234,7 +3234,7 @@ class TestLayerControlBrowser:
             )
 
     def test_click_one_overlay_no_sibling_checkbox_flash(self, browser, tmp_path):
-        """Clicking one overlay row's checkbox must not flash its group siblings'
+        """Clicking one overlay row's checkbox must not flash its role siblings'
         checkboxes to an intermediate state.
 
         Regression for "sibling checkbox flashes when clicking one overlay
@@ -3904,7 +3904,7 @@ class TestLayerControlBrowser:
             # The hard contract is Enter targets the clicked row (`toggled`).
 
     def test_keydown_nav_survives_fold_click(self, browser, tmp_path):
-        """Folding a group must not kill keyboard navigation.
+        """Folding a role must not kill keyboard navigation.
 
         Clicking the fold button fires onClick (which moves the cursor to the
         toggle-all row) and then renderInitialList (which rebuilds the DOM,
@@ -3933,10 +3933,10 @@ class TestLayerControlBrowser:
             result = page.evaluate(_js("LayerControl/keydown_nav_survives_fold_click"))
             assert result is not None, "keydown_nav_survives_fold_click failed"
             assert result["afterFold"] is not None, (
-                f"Folding a group should not destroy the keyboard cursor, got {result}"
+                f"Folding a role should not destroy the keyboard cursor, got {result}"
             )
             assert result["focusInPanel"] is True, (
-                f"Folding a group should keep DOM focus inside the panel, got {result}"
+                f"Folding a role should keep DOM focus inside the panel, got {result}"
             )
             assert result["afterFoldVisible"] is True, (
                 "Re-homing after a fold must not land the cursor on a hidden row, "

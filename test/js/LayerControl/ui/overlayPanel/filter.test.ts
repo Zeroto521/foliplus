@@ -125,7 +125,7 @@ describe("LayerUI filter panel", () => {
     manager.registerLayer({
       id,
       name: "Points",
-      group: "overlay",
+      role: "overlay",
       layer: mkPointLayer([
         { lat: 26.08, lng: 119.3, v: 10 },
         { lat: 26.09, lng: 119.31, v: 20 },
@@ -141,7 +141,7 @@ describe("LayerUI filter panel", () => {
     ({ manager, ui, map: _map } = initFixture());
     // Folded-group state is persisted to localStorage and would leak across
     // tests — same cleanup attr.test.ts applies.
-    ui.listPanel.foldedGroups = new Set();
+    ui.listPanel.foldedRoles = new Set();
     window.localStorage.removeItem(CONST.STORAGE.KEY);
   });
 
@@ -192,7 +192,7 @@ describe("LayerUI filter panel", () => {
       manager.registerLayer({
         id: "measureRow",
         name: "Measure",
-        group: "overlay",
+        role: "overlay",
         layer: undefined as unknown as L.Layer,
         styleProvider: () => ({}),
         styleSetters: {},
@@ -211,7 +211,7 @@ describe("LayerUI filter panel", () => {
       manager.registerLayer({
         id: "bogus",
         name: "Bogus",
-        group: "overlay",
+        role: "overlay",
         layer: undefined as unknown as L.Layer,
         filterProvider: "yes" as unknown as () => LayerFilterModel,
         filterSetter: {} as unknown as (filter: LayerFilter) => void,
@@ -360,7 +360,7 @@ describe("LayerUI filter panel", () => {
       manager.registerLayer({
         id: "hm",
         name: "Heatmap",
-        group: "overlay",
+        role: "overlay",
         layer: undefined as unknown as L.Layer,
         filterProvider: () => null,
         filterSetter: () => {},
@@ -380,7 +380,7 @@ describe("LayerUI filter panel", () => {
       manager.registerLayer({
         id: "enum-owner",
         name: "Enum owner",
-        group: "overlay",
+        role: "overlay",
         layer: undefined as unknown as L.Layer,
         filterProvider: owner.filterProvider,
         filterSetter: owner.filterSetter,
@@ -1310,7 +1310,7 @@ describe("LayerUI filter panel", () => {
       manager.registerLayer({
         id: "pnt",
         name: "Points",
-        group: "overlay",
+        role: "overlay",
         layer: mkPointLayer([
           { lat: 26.08, lng: 119.3, v: 100 },
           { lat: 26.09, lng: 119.31, v: 200 },
@@ -1421,7 +1421,7 @@ describe("LayerUI filter panel — result, Clear and row state", () => {
     manager.registerLayer({
       id,
       name: "Points",
-      group: "overlay",
+      role: "overlay",
       layer: {
         options: {},
         eachLayer: vi.fn(),
@@ -1442,7 +1442,7 @@ describe("LayerUI filter panel — result, Clear and row state", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.listPanel.foldedGroups = new Set();
+    ui.listPanel.foldedRoles = new Set();
     window.localStorage.removeItem(CONST.STORAGE.KEY);
   });
 
@@ -1590,7 +1590,7 @@ describe("LayerUI filter panel — result, Clear and row state", () => {
     manager.registerLayer({
       id: "pnt",
       name: "Points",
-      group: "overlay",
+      role: "overlay",
       layer: { options: {}, eachLayer: vi.fn() } as unknown as L.Layer,
     });
     ui.events.publish(EVENTS.LAYER_ITEM_REFRESHED, { id: "pnt" });
@@ -1619,7 +1619,7 @@ describe("LayerUI filter panel — result, Clear and row state", () => {
     manager.registerLayer({
       id: "src",
       name: "Source",
-      group: "overlay",
+      role: "overlay",
       layer: { options: {}, eachLayer: vi.fn() },
     });
     commit(owner);
