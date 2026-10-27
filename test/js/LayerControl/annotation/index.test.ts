@@ -8,6 +8,7 @@ import { AnnotationManager } from "#foliplus/LayerControl/annotation/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { applyProjection } from "#foliplus/LayerControl/ui/apply.js";
 import { setIntent } from "#foliplus/LayerControl/ui/intent.js";
+import { LABEL_SIZE } from "#common/form.js";
 import { NUMBER_FORMAT } from "#common/format.js";
 import { initFixture } from "../ui/fixture.js";
 
@@ -566,7 +567,7 @@ describe("AnnotationManager — author-declared annotation", () => {
             field: "store",
             format: "thousands",
             collide: "yes",
-            color: "#00ff00",
+            color: "green",
             show: true,
           },
         },
@@ -581,9 +582,42 @@ describe("AnnotationManager — author-declared annotation", () => {
     expect(cfg.format).toBe(CONST.DEFAULT_ANNOTATION.format);
     expect(cfg.collide).toBe(true);
     // `show` is a legal declaration key now, so an explicit `true` survives;
-    // `color` is not one, so it drops out of the same record.
+    // `color` is legal too, but `green` is not a hex colour — it degrades to
+    // the default rather than reaching the canvas as an invalid fill.
     expect(cfg.show).toBe(true);
     expect(cfg.color).toBe(CONST.DEFAULT_ANNOTATION.color);
+  });
+
+  it("applies a declared colour and size, normalised and clamped", () => {
+    const { map } = makeMap();
+    const layer = {
+      options: {
+        foliplus: {
+          annotation: { field: "store", color: "#0F0", size: 99 },
+        },
+      },
+    } as unknown as L.Layer;
+    const mgr = new AnnotationManager({ map, layerFind: () => layer });
+
+    const cfg = mgr.getConfig("l1");
+    // #rgb expands to #rrggbb (lowercase) so a later panel edit compares equal.
+    expect(cfg.color).toBe("#00ff00");
+    // The panel's own bounds still apply: a 99px declaration is clamped, not
+    // passed through as a size the UI could never produce.
+    expect(cfg.size).toBe(LABEL_SIZE.SIZE_MAX);
+    expect(cfg.field).toBe("store");
+  });
+
+  it("drops a non-numeric size and keeps the default", () => {
+    const { map } = makeMap();
+    const layer = {
+      options: {
+        foliplus: { annotation: { field: "store", size: "12" } },
+      },
+    } as unknown as L.Layer;
+    const mgr = new AnnotationManager({ map, layerFind: () => layer });
+
+    expect(mgr.getConfig("l1").size).toBe(CONST.DEFAULT_ANNOTATION.size);
   });
 
   it("falls back when the declared field is not a string", () => {

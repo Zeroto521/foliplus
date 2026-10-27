@@ -21,6 +21,7 @@ import { bindMapSync } from "#core/leaflet/index.js";
 import type { NumberStyle } from "#foliplus/config-schema.js";
 import { resolveCanvasLabelStyle, withLabelPaint } from "#common/canvasLabel.js";
 import { finalize } from "#common/finalize.js";
+import { clampLabelSize, normalizeHexColor } from "#common/form.js";
 import { NUMBER_FORMAT, formatLabelNumber } from "#common/format.js";
 import { createLogger } from "#common/log.js";
 import type { CanvasLabelStyle } from "#common/type.js";
@@ -91,6 +92,14 @@ const LABEL_PRIORITY = 50;
 const isDeclaredFormat = (format: string): format is NumberStyle =>
   (Object.values(NUMBER_FORMAT) as NumberStyle[]).includes(format as NumberStyle);
 
+/** Whether a string is a hex colour the label renderer can paint — the panel's
+ *  colour input and the built-in default are both hex, so anything else is a
+ *  typo and degrades to the token default instead of reaching the canvas.
+ *  `#rgb` is accepted and normalised to `#rrggbb` so a declared colour and a
+ *  later panel edit compare equal. */
+const isDeclaredColor = (color: string): boolean =>
+  /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(color);
+
 /** The annotation keys an author declared for one layer — a PARTIAL record:
  *  only the keys actually declared are returned. An absent key must stay
  *  absent so the default below it survives the merge; coercing a full config
@@ -105,6 +114,14 @@ const pickDeclaredAnnotation = (
   if (typeof raw.field === "string") out.field = raw.field;
   if (typeof raw.format === "string" && isDeclaredFormat(raw.format)) {
     out.format = raw.format;
+  }
+  if (typeof raw.color === "string" && isDeclaredColor(raw.color)) {
+    out.color = normalizeHexColor(raw.color);
+  }
+  // The panel clamps the size input to the shared bounds; a declaration goes
+  // through the same clamp so a hand-written 99px cannot reach the canvas.
+  if (typeof raw.size === "number" && Number.isFinite(raw.size)) {
+    out.size = clampLabelSize(raw.size);
   }
   if (typeof raw.collide === "boolean") out.collide = raw.collide;
   // Declaring a field turns the layer's labels on — the built-in default is off,
