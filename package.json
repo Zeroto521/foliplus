@@ -43,7 +43,7 @@
     "@vitest/coverage-v8": "^5.0.3",
     "autoprefixer": "^10.5.4",
     "esbuild": "^0.28.2",
-    "eslint": "^9.39.5",
+    "eslint": "^10.13.0",
     "eslint-import-resolver-typescript": "^4.4.5",
     "eslint-plugin-import": "^2.32.0",
     "geotiff": "^3.0.5",
@@ -58,7 +58,7 @@
     "sonda": "^0.14.0",
     "svgo": "^4.0.2",
     "tinyglobby": "^0.2.17",
-    "typescript": "^6.0.3",
+    "typescript": "^7.0.2",
     "typescript-eslint": "^8.69.0",
     "vitest": "^5.0.3"
   }
