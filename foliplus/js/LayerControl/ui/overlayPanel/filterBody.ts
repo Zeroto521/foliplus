@@ -16,6 +16,7 @@ import type {
   LayerFilter,
   LayerFilterModel,
 } from "#core/layer/index.js";
+import { OVERLAY_IDS, type OverlayRegistry } from "#core/overlayRegistry.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import * as SVGs from "#foliplus/LayerControl/icon.js";
 import { Slider } from "#foliplus/LayerControl/slider.js";
@@ -28,6 +29,9 @@ type FilterBodyDeps = {
   write: (filter: LayerFilter | undefined) => void;
   formatCount: (n: number) => string;
   formatValue: (n: number) => string;
+  /** The panel's per-map registry; the enum body registers its open popup so a
+   *  press outside the popup (but inside the panel) closes only the popup. */
+  overlayRegistry?: OverlayRegistry;
 };
 
 /** One rendered condition body. `dimension` is kept so the panel can decide
@@ -253,12 +257,15 @@ const renderEnumBody = (
 
   let open = false;
   let detachGeometry: (() => void) | null = null;
+  let unregisterPopup: (() => void) | null = null;
 
   const selectedValues = (): Set<string> => new Set(enumValuesOf(dim, currentFilter));
 
   const closeList = (focusTrigger: boolean): void => {
     if (!open) return;
     open = false;
+    unregisterPopup?.();
+    unregisterPopup = null;
     list.hidden = true;
     list.style.maxHeight = "";
     trigger.setAttribute("aria-expanded", "false");
@@ -329,6 +336,20 @@ const renderEnumBody = (
     trigger.setAttribute("aria-expanded", "true");
     clampListHeight();
     watchGeometry();
+    // The popup is the topmost layer while open: registering it lets the
+    // shared press dispatcher close the popup on a press outside its control
+    // without closing the filter panel, exactly as the old document handler
+    // did. The panel entry (LAYER_FILTER) stays registered below it.
+    unregisterPopup?.();
+    unregisterPopup =
+      deps.overlayRegistry?.register({
+        id: OVERLAY_IDS.LAYER_FILTER_ENUM,
+        isOpen: () => open,
+        panels: () => [control],
+        close: ({ restoreFocus }) => closeList(restoreFocus),
+        dismissOn: "mousedown",
+        pressPriority: 750,
+      }) ?? null;
     if (focusIndex >= 0) focusOption(focusIndex);
   };
 
@@ -417,7 +438,11 @@ const renderEnumBody = (
     root,
     dimension: dim,
     sync,
-    destroy: () => closeList(false),
+    destroy: () => {
+      closeList(false);
+      unregisterPopup?.();
+      unregisterPopup = null;
+    },
     dismissTransient: (target, focusTrigger = false) => {
       if (!open) return false;
       if (control.contains(target)) return false;

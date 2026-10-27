@@ -36,11 +36,8 @@ class OverlayPanel {
   activeFilterPanel: FilterPanelState | null = null;
   /** Unregister for the attrs panel's registry entry (installed while open). */
   attrsOverlayUnregister: (() => void) | null = null;
-  /** Document capture-phase mousedown used to dismiss the filter panel.
-   *  Capture is required because the layer control's
-   *  `disableClickPropagation` stops bubble-phase events from ever reaching
-   *  document. */
-  filterOutsideHandler: ((event: MouseEvent) => void) | null = null;
+  /** Unregister for the filter panel's registry entry (installed while open). */
+  filterOverlayUnregister: (() => void) | null = null;
   /** Unsubscribe for LAYER_FILTER_CHANGE / row-identity signals while the
    *  filter panel is open (external model changes and same-id replacement). */
   filterUnsubscribe: (() => void) | null = null;

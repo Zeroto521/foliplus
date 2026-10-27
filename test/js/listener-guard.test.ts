@@ -130,10 +130,10 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
   },
   {
     f: "LayerControl/ui/overlayPanel/filter.ts",
-    n: 5,
+    n: 4,
     pairedOff: 0,
     reason:
-      "filter panel header/mousedown/keydown/outside-click and clear bindings — pending migration to `this.on`",
+      "filter panel header/mousedown/keydown/clear bindings; its document dismiss moved to core/overlayRegistry in M2-C2",
   },
   {
     f: "LayerControl/ui/overlayPanel/filterBody.ts",

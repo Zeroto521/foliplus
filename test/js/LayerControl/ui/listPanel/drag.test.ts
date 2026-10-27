@@ -677,7 +677,6 @@ describe("showReorderBlockedHint", () => {
         lastDragHintAt: 0,
         dragEntry: null,
         lastDragOverItem: null,
-        pressInPanel: false,
         foldedRoles: new Set<string>(),
         checkedCount: {},
       },

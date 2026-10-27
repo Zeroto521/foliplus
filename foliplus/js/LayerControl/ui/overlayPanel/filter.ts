@@ -21,11 +21,11 @@
 // (and both functions), so the panel re-resolves by id on every read/write
 // and closes itself when the entry it shows is no longer current.
 //
-// Panel shell follows `attr.ts` verbatim: `createRowPanel` for the surface,
-// capture-phase document mousedown for dismiss (the control disables click
-// propagation, so bubble-phase never reaches `document`), and a per-panel
-// outside-handler field on `OverlayPanel` so a peer panel can tell the two
-// apart.
+// Panel shell follows `attr.ts` verbatim: `createRowPanel` for the surface and
+// a per-map overlay-registry entry for dismiss (the control disables click
+// propagation, so bubble-phase never reaches `document`). The enum popup is a
+// nested entry with a higher press priority; it closes the popup without
+// closing the panel, matching the old document handler.
 import { EVENTS } from "#core/event/index.js";
 import type {
   FilterDimension,
@@ -34,7 +34,7 @@ import type {
   LayerInfo,
 } from "#core/layer/index.js";
 import { createRowPanel } from "#core/leaflet/index.js";
-import { isInsideOverlay } from "#core/overlay.js";
+import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import * as SVGs from "#foliplus/LayerControl/icon.js";
 import { finishSlidersIn } from "#foliplus/LayerControl/slider.js";
@@ -123,8 +123,9 @@ interface FilterViewHooks {
   write: (filter: LayerFilter | undefined) => void;
 }
 
-/** The body deps: the panel's translator, its write bridge and its number
- *  formatters. The body never reads the registry itself. */
+/** The body deps: the panel's translator, its write bridge, its number
+ *  formatters and the shared overlay registry (the enum popup registers its
+ *  nested dismiss entry). */
 const bodyDeps = (
   ui: LayerUI,
   hooks: FilterViewHooks,
@@ -133,6 +134,7 @@ const bodyDeps = (
   write: hooks.write,
   formatCount: fmtCount,
   formatValue: fmtValue,
+  overlayRegistry: ensureOverlayRegistry(ui.c.map),
 });
 
 /** Pull the shared readout to the owner's current model: live kept/total text
@@ -433,53 +435,39 @@ const openFilterPanel = (ui: LayerUI, item: HTMLElement): void => {
   item.style.position = "relative";
   item.appendChild(panel);
 
-  // Document capture dismiss (attrs recipe). The control disables click
-  // propagation, so bubble-phase mousedown never reaches document — a
-  // press on the map or another foliplus control would not close the
-  // panel without capture.
-  ui.overlayPanel.filterOutsideHandler = (event: MouseEvent) => {
-    const current = ui.overlayPanel.activeFilterPanel;
-    const target = event.target;
-    const inside = isInsideOverlay(target, panel);
-    // A press that dismisses the enum popup is consumed: the popup is the
-    // topmost layer, so the panel itself stays open (the next outside press
-    // dismisses the surface).
-    if (
-      target instanceof Element &&
-      current?.view.kind === "rows" &&
-      current.view.body.dismissTransient(target)
-    ) {
-      ui.listPanel.pressInPanel = inside;
-      return;
-    }
-    if (inside) {
-      ui.listPanel.pressInPanel = true;
-      return;
-    }
-    ui.listPanel.pressInPanel = false;
-    closeFilterPanel(ui, false);
-  };
-  document.addEventListener("mousedown", ui.overlayPanel.filterOutsideHandler, true);
-
+  // Register the open surface with the per-map overlay registry. The
+  // registry owns the document capture-phase mousedown dispatcher. The enum
+  // popup registers its own higher-priority nested entry from filterBody, so a
+  // press outside the popup but inside the panel closes only the popup and
+  // consumes the press; the next outside press reaches this entry and closes
+  // the panel.
   ui.overlayPanel.activeFilterPanel = state;
+  ui.overlayPanel.filterOverlayUnregister = ensureOverlayRegistry(ui.c.map).register({
+    id: OVERLAY_IDS.LAYER_FILTER,
+    isOpen: () => ui.overlayPanel.activeFilterPanel !== null,
+    panels: () => {
+      const active = ui.overlayPanel.activeFilterPanel;
+      return active ? [active.panel] : [];
+    },
+    // Escape still belongs to the legacy keyboard chain until C5; returning
+    // false leaves the event unhandled so that chain can run unchanged. The
+    // press dispatcher always passes restoreFocus:false and does close.
+    close: ({ restoreFocus }) => (restoreFocus ? false : closeFilterPanel(ui, false)),
+    dismissOn: "mousedown",
+    pressPriority: 700,
+    clearsCursorOnClose: true,
+  });
   ui.overlayPanel.filterUnsubscribe = subscribeFilterSignals(ui, state, hooks);
 };
 
 /** Close the filter panel. `setFocus = true` returns focus to the row. */
 const closeFilterPanel = (ui: LayerUI, setFocus: boolean): void => {
-  if (ui.overlayPanel.filterOutsideHandler) {
-    document.removeEventListener(
-      "mousedown",
-      ui.overlayPanel.filterOutsideHandler,
-      true,
-    );
-    ui.overlayPanel.filterOutsideHandler = null;
-  }
+  ui.overlayPanel.filterOverlayUnregister?.();
+  ui.overlayPanel.filterOverlayUnregister = null;
   if (ui.overlayPanel.filterUnsubscribe) {
     ui.overlayPanel.filterUnsubscribe();
     ui.overlayPanel.filterUnsubscribe = null;
   }
-  ui.listPanel.pressInPanel = false;
   if (!ui.overlayPanel.activeFilterPanel) return;
   const state = ui.overlayPanel.activeFilterPanel;
   const { item, panel } = state;

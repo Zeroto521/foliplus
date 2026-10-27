@@ -7,6 +7,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
 import { type LayerFilter, type LayerFilterModel, select } from "#core/layer/index.js";
+import { ensureOverlayRegistry } from "#core/overlayRegistry.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerController } from "#foliplus/LayerControl/controller.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
@@ -1270,14 +1271,14 @@ describe("LayerUI filter panel", () => {
         new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
       );
       expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).not.toBeNull();
-      expect(ui.listPanel.pressInPanel).toBe(true);
+      expect(ensureOverlayRegistry(ui.c.map).lastPressInside()).toBe(true);
 
       // A press outside closes the panel and clears the verdict.
       document.body.dispatchEvent(
         new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
       );
       expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).toBeNull();
-      expect(ui.listPanel.pressInPanel).toBe(false);
+      expect(ensureOverlayRegistry(ui.c.map).lastPressInside()).toBe(false);
     });
 
     it("a document-level mousedown (target = document) dismisses the panel", () => {
@@ -1437,7 +1438,7 @@ describe("LayerUI filter panel", () => {
 
       expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).toBeNull();
       expect(ui.overlayPanel.activeFilterPanel).toBeNull();
-      expect(ui.overlayPanel.filterOutsideHandler).toBeNull();
+      expect(ui.overlayPanel.filterOverlayUnregister).toBeNull();
       expect(ui.overlayPanel.filterUnsubscribe).toBeNull();
     });
   });
@@ -1448,13 +1449,13 @@ describe("LayerUI filter panel", () => {
       const item = findItem(ui, "pnt");
       ui.openFilterPanel(item);
       expect(ui.overlayPanel.activeFilterPanel).not.toBeNull();
-      expect(ui.overlayPanel.filterOutsideHandler).not.toBeNull();
+      expect(ui.overlayPanel.filterOverlayUnregister).not.toBeNull();
 
       ui.unbindEvents();
 
       expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).toBeNull();
       expect(ui.overlayPanel.activeFilterPanel).toBeNull();
-      expect(ui.overlayPanel.filterOutsideHandler).toBeNull();
+      expect(ui.overlayPanel.filterOverlayUnregister).toBeNull();
       expect(ui.overlayPanel.filterUnsubscribe).toBeNull();
     });
 
