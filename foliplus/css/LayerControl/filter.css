@@ -54,61 +54,13 @@
     height: 100%;
   }
   /* ── Enum body ──
-     A native <details> disclosure: the summary keeps the form-select chrome
-     and the option list flows inside the card, so it scrolls with the panel
-     instead of floating over the rows below (no absolute layer, no popup
-     geometry to measure). */
+     One native <select multiple> listbox: the browser owns the list chrome,
+     selection highlight, focus ring and keyboard; only the accent tint and the
+     shared radius are ours, and the size attribute caps the visible rows at
+     four. An empty selection reads as "no filter" (all rows pass). */
   .foliplus-layer-filter-panel .foliplus-filter-enum {
     width: 100%;
-  }
-  .foliplus-layer-filter-panel .foliplus-filter-enum-trigger {
-    /* The summary wears the shared form-select chrome (height, border, radius,
-       background, chevron, focus halo) so it is pixel-identical to the native
-       selects beside it; only the disclosure-specific reset lives here. */
-    display: flex;
-    align-items: center;
-    cursor: pointer;
-    list-style: none;
-  }
-  /* One chevron: the form-select background glyph. Hide the UA disclosure
-     marker in every engine (WebKit/Blink use ::-webkit-details-marker, Gecko
-     and the standard marker pseudo use ::marker). */
-  .foliplus-layer-filter-panel .foliplus-filter-enum-trigger::-webkit-details-marker {
-    display: none;
-  }
-  .foliplus-layer-filter-panel .foliplus-filter-enum-trigger::marker {
-    content: "";
-  }
-  .foliplus-layer-filter-panel .foliplus-filter-enum-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-    padding: var(--foliplus-size-2) 0;
-    /* Four control heights of options before the list scrolls: the disclosure
-       never grows past a short menu even when the owner declares many
-       enum values. */
-    max-height: calc(var(--foliplus-ctrl-size) * 4);
-    overflow-y: auto;
-  }
-  /* Compact menu rows: same height and horizontal inset as the shared
-     dropdown items, with the native checkbox tinted by the accent token. */
-  .foliplus-layer-filter-panel .foliplus-filter-enum-option {
-    display: flex;
-    align-items: center;
-    gap: var(--foliplus-space-md);
-    width: 100%;
-    height: var(--foliplus-ctrl-size);
-    padding: 0 var(--foliplus-space-md);
-    box-sizing: border-box;
-    font-size: var(--foliplus-font-size-sm);
-    color: var(--foliplus-text-primary);
-    cursor: pointer;
-  }
-  .foliplus-layer-filter-panel .foliplus-filter-enum-option input {
-    margin: 0;
-    flex-shrink: 0;
-    width: var(--foliplus-icon-size-sm);
-    height: var(--foliplus-icon-size-sm);
     accent-color: var(--foliplus-accent-primary);
+    border-radius: var(--foliplus-radius-sm);
   }
 }

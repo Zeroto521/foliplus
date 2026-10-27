@@ -384,7 +384,7 @@ describe("LayerUI filter panel", () => {
       expect(panel.querySelector(`.${CONST.CLASSES.FILTER_EMPTY}`)).not.toBeNull();
     });
 
-    it("renders a native disclosure for an enum dimension", () => {
+    it("renders a native multiple listbox for an enum dimension", () => {
       // A generic owner may expose an enum dimension. It gets the enum body,
       // not the range body or the "nothing filterable" fallback.
       const owner = makeEnumOwner();
@@ -403,21 +403,13 @@ describe("LayerUI filter panel", () => {
       const panel = item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`) as HTMLElement;
       expect(panel.querySelector(`.${CONST.CLASSES.FILTER_EMPTY}`)).toBeNull();
       expect(panel.querySelector(`.${CONST.CLASSES.FILTER_SLIDER}`)).toBeNull();
-      const details = panel.querySelector(
+      const select = panel.querySelector(
         `.${CONST.CLASSES.FILTER_ENUM}`,
-      ) as HTMLDetailsElement;
-      expect(details.tagName).toBe("DETAILS");
-      expect(details.open).toBe(false);
-      const summary = panel.querySelector(
-        `.${CONST.CLASSES.FILTER_ENUM_TRIGGER}`,
-      ) as HTMLElement;
-      expect(summary.tagName).toBe("SUMMARY");
-      // Four owner options plus the "All" row, all native checkboxes.
-      expect(
-        panel.querySelectorAll(
-          `.${CONST.CLASSES.FILTER_ENUM_OPTION} input[type=checkbox]`,
-        ),
-      ).toHaveLength(5);
+      ) as HTMLSelectElement;
+      expect(select.tagName).toBe("SELECT");
+      expect(select.multiple).toBe(true);
+      expect(select.getAttribute("size")).toBe("4");
+      expect(select.options).toHaveLength(4);
     });
 
     it("is a no-op for a row that lost its data-layer-id", () => {
@@ -472,50 +464,40 @@ describe("LayerUI filter panel", () => {
       return { id, owner, item: findItem(ui, id) };
     };
 
-    const detailsOf = (item: HTMLElement): HTMLDetailsElement =>
-      item.querySelector(`.${CONST.CLASSES.FILTER_ENUM}`) as HTMLDetailsElement;
-    const summaryOf = (item: HTMLElement): HTMLElement =>
-      item.querySelector(`.${CONST.CLASSES.FILTER_ENUM_TRIGGER}`) as HTMLElement;
-    const inputsOf = (item: HTMLElement): HTMLInputElement[] =>
-      Array.from(
-        item.querySelectorAll<HTMLInputElement>(
-          `.${CONST.CLASSES.FILTER_ENUM_OPTION} input[type=checkbox]`,
-        ),
+    const selectOf = (item: HTMLElement): HTMLSelectElement =>
+      item.querySelector(`.${CONST.CLASSES.FILTER_ENUM}`) as HTMLSelectElement;
+    const optionValuesOf = (item: HTMLElement): string[] =>
+      Array.from(selectOf(item).options).map(option => option.value);
+    const selectedOf = (item: HTMLElement): string[] =>
+      Array.from(selectOf(item).options)
+        .filter(option => option.selected)
+        .map(option => option.value);
+    const optionOf = (item: HTMLElement, value: string): HTMLOptionElement =>
+      Array.from(selectOf(item).options).find(option => option.value === value)!;
+    /** One native press on an option: the body flips it and replays change. */
+    const clickOption = (item: HTMLElement, value: string): void => {
+      optionOf(item, value).dispatchEvent(
+        new MouseEvent("pointerdown", { bubbles: true }),
       );
-    /** The checkbox of one value; the "All" row has no data-value. */
-    const valueInput = (item: HTMLElement, value: string): HTMLInputElement =>
-      inputsOf(item).find(input => input.dataset.value === value)!;
-    const allInput = (item: HTMLElement): HTMLInputElement =>
-      inputsOf(item).find(input => input.dataset.all === "true")!;
-    /** Native checkbox activation: flip the box and fire the change event the
-     *  browser would, which is the only event the body listens to. */
-    const toggle = (input: HTMLInputElement): void => {
-      input.checked = !input.checked;
-      input.dispatchEvent(new Event("change", { bubbles: true }));
     };
-    const openDisclosure = (item: HTMLElement): void => {
-      detailsOf(item).open = true;
-    };
+    const readout = (item: HTMLElement): HTMLElement =>
+      item.querySelector(`.${CONST.CLASSES.FILTER_RESULT}`) as HTMLElement;
     const pressKey = (target: Element, key: string): void => {
       target.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true }));
     };
     const mousedownOn = (target: Element): void => {
       target.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
     };
-    /** The test translator: stable "All"/"{n} selected" plus the readout
-     *  sentence, so assertions do not depend on locale tables in the fixture. */
+    /** The test translator: only the readout sentence needs pinning; the
+     *  listbox no longer renders "All"/"{n} selected" copy. */
     const spyTranslator = (): ReturnType<typeof vi.spyOn> =>
       vi
         .spyOn(ui, "T")
         .mockImplementation(
           key =>
-            (key === "filter_enum_any"
-              ? "All"
-              : key === "filter_enum_selected"
-                ? "{n} selected"
-                : key === "filter_result"
-                  ? "{kept} of {total}"
-                  : `LayerControl.${key}`) as any,
+            (key === "filter_result"
+              ? "{kept} of {total}"
+              : `LayerControl.${key}`) as any,
         );
 
     it("labels the condition row with the dimension's own name", () => {
@@ -528,9 +510,8 @@ describe("LayerUI filter panel", () => {
         `.${CONST.CLASSES.FILTER_FIELD}`,
       ) as HTMLElement;
       // One label only: the row's label cell carries the dimension label and
-      // the control cell starts straight at the disclosure, without repeating
-      // the name above the control.
-      expect(fieldCell.firstElementChild!.tagName).toBe("DETAILS");
+      // the control cell starts straight at the listbox.
+      expect(fieldCell.firstElementChild!.tagName).toBe("SELECT");
       expect(fieldCell.textContent).not.toContain("Type");
       const row = fieldCell.closest(`.${CONST.CLASSES.FORM_ROW}`) as HTMLElement;
       expect(row.querySelector(`.${CONST.CLASSES.FORM_LABEL}`)!.textContent).toBe(
@@ -539,118 +520,20 @@ describe("LayerUI filter panel", () => {
       spy.mockRestore();
     });
 
-    it("starts on All: a closed native disclosure with the owner's options", () => {
+    it("starts with nothing selected, which reads as all", () => {
       const spy = spyTranslator();
       const { item } = registerEnum();
       ui.openFilterPanel(item);
 
-      const details = detailsOf(item);
-      expect(details.tagName).toBe("DETAILS");
-      expect(details.open).toBe(false);
-      const summary = summaryOf(item);
-      expect(summary.tagName).toBe("SUMMARY");
-      expect(summary.textContent).toBe("All");
-      // The "All" row plus one checkbox per owner option, all native inputs.
-      const inputs = inputsOf(item);
-      expect(inputs).toHaveLength(5);
-      expect(inputs.every(input => input.type === "checkbox")).toBe(true);
-      expect(allInput(item).checked).toBe(true);
-      for (const input of inputs.filter(candidate => candidate.dataset.value)) {
-        expect(input.checked).toBe(false);
-      }
-      // No custom listbox semantics left.
-      expect(item.querySelector("[role=listbox]")).toBeNull();
-      expect(item.querySelector("[aria-haspopup]")).toBeNull();
-      spy.mockRestore();
-    });
-
-    it("commits a checked option through the owner and updates the readout", () => {
-      const spy = spyTranslator();
-      const { item, owner } = registerEnum();
-      ui.openFilterPanel(item);
-      openDisclosure(item);
-
-      toggle(valueInput(item, "distance"));
-
-      expect(owner.filter).toEqual({
-        kind: "enum",
-        field: "type",
-        values: ["distance"],
-      });
-      expect(valueInput(item, "distance").checked).toBe(true);
-      expect(allInput(item).checked).toBe(false);
-      expect(summaryOf(item).textContent).toBe("1 selected");
-      expect(item.querySelector(`.${CONST.CLASSES.FILTER_RESULT}`)!.textContent).toBe(
-        "2 of 8",
-      );
-      spy.mockRestore();
-    });
-
-    it("keeps the disclosure open across a checkbox commit", () => {
-      const spy = spyTranslator();
-      const { item } = registerEnum();
-      ui.openFilterPanel(item);
-      openDisclosure(item);
-
-      toggle(valueInput(item, "marker"));
-
-      expect(detailsOf(item).open).toBe(true);
-      spy.mockRestore();
-    });
-
-    it("checks the All row and commits no filter", () => {
-      const spy = spyTranslator();
-      const { item, owner } = registerEnum();
-      ui.openFilterPanel(item);
-      openDisclosure(item);
-      toggle(valueInput(item, "marker"));
-      toggle(valueInput(item, "circle"));
-      expect(owner.filter).toBeDefined();
-
-      toggle(allInput(item));
-
-      expect(owner.filter).toBeUndefined();
-      expect(summaryOf(item).textContent).toBe("All");
-      expect(valueInput(item, "marker").checked).toBe(false);
-      expect(item.querySelector(`.${CONST.CLASSES.FILTER_RESULT}`)!.textContent).toBe(
-        "8 of 8",
-      );
-      spy.mockRestore();
-    });
-
-    it("keeps the owner's option order in the committed values", () => {
-      const spy = spyTranslator();
-      const { item, owner } = registerEnum();
-      ui.openFilterPanel(item);
-      openDisclosure(item);
-
-      // Check the last option first, then the first: the filter is serialized
-      // in the owner's order, not in click order.
-      toggle(valueInput(item, "circle"));
-      toggle(valueInput(item, "marker"));
-
-      expect(owner.filter).toEqual({
-        kind: "enum",
-        field: "type",
-        values: ["marker", "circle"],
-      });
-      spy.mockRestore();
-    });
-
-    it("clears the filter when the last option is unchecked", () => {
-      const spy = spyTranslator();
-      const { item, owner } = registerEnum();
-      ui.openFilterPanel(item);
-      openDisclosure(item);
-      const input = valueInput(item, "distance");
-      toggle(input);
-      expect(owner.filter).toBeDefined();
-
-      toggle(input);
-
-      expect(owner.filter).toBeUndefined();
-      expect(summaryOf(item).textContent).toBe("All");
-      expect(allInput(item).checked).toBe(true);
+      const select = selectOf(item);
+      expect(select.tagName).toBe("SELECT");
+      expect(select.multiple).toBe(true);
+      expect(select.getAttribute("size")).toBe("4");
+      expect(optionValuesOf(item)).toEqual(["marker", "distance", "polygon", "circle"]);
+      // No "All" pseudo option: empty selection *is* all.
+      expect(select.options).toHaveLength(4);
+      expect(selectedOf(item)).toEqual([]);
+      expect(readout(item).textContent).toBe("8 of 8");
       expect(
         (item.querySelector(`.${CONST.CLASSES.FILTER_CLEAR}`) as HTMLButtonElement)
           .disabled,
@@ -658,7 +541,63 @@ describe("LayerUI filter panel", () => {
       spy.mockRestore();
     });
 
-    it("echoes a committed enum filter back into the checkboxes", () => {
+    it("commits one clicked option through the owner and updates the readout", () => {
+      const spy = spyTranslator();
+      const { item, owner } = registerEnum();
+      ui.openFilterPanel(item);
+
+      clickOption(item, "distance");
+
+      expect(owner.filter).toEqual({
+        kind: "enum",
+        field: "type",
+        values: ["distance"],
+      });
+      expect(selectedOf(item)).toEqual(["distance"]);
+      expect(readout(item).textContent).toBe("2 of 8");
+      spy.mockRestore();
+    });
+
+    it("adds a second clicked option and keeps the owner's order", () => {
+      const spy = spyTranslator();
+      const { item, owner } = registerEnum();
+      ui.openFilterPanel(item);
+
+      // Click the last option first, then the first: the filter is serialized
+      // in the owner's order, not in click order.
+      clickOption(item, "circle");
+      clickOption(item, "marker");
+
+      expect(owner.filter).toEqual({
+        kind: "enum",
+        field: "type",
+        values: ["marker", "circle"],
+      });
+      expect(selectedOf(item)).toEqual(["marker", "circle"]);
+      expect(readout(item).textContent).toBe("4 of 8");
+      spy.mockRestore();
+    });
+
+    it("clears the filter when the only selected option is clicked again", () => {
+      const spy = spyTranslator();
+      const { item, owner } = registerEnum();
+      ui.openFilterPanel(item);
+      clickOption(item, "distance");
+      expect(owner.filter).toBeDefined();
+
+      clickOption(item, "distance");
+
+      expect(owner.filter).toBeUndefined();
+      expect(selectedOf(item)).toEqual([]);
+      expect(readout(item).textContent).toBe("8 of 8");
+      expect(
+        (item.querySelector(`.${CONST.CLASSES.FILTER_CLEAR}`) as HTMLButtonElement)
+          .disabled,
+      ).toBe(true);
+      spy.mockRestore();
+    });
+
+    it("echoes a committed enum filter back into the listbox", () => {
       const spy = spyTranslator();
       const { item } = registerEnum(
         makeEnumOwner(undefined, {
@@ -669,55 +608,75 @@ describe("LayerUI filter panel", () => {
       );
       ui.openFilterPanel(item);
 
-      expect(valueInput(item, "polygon").checked).toBe(true);
-      expect(valueInput(item, "marker").checked).toBe(false);
-      expect(summaryOf(item).textContent).toBe("1 selected");
+      expect(selectedOf(item)).toEqual(["polygon"]);
+      expect(readout(item).textContent).toBe("2 of 8");
       spy.mockRestore();
     });
 
-    it("Escape closes the disclosure and keeps the panel open", () => {
+    it("caps the visible rows at four and keeps the rest scrollable", () => {
       const spy = spyTranslator();
-      const { item } = registerEnum();
+      const many = ["a", "b", "c", "d", "e", "f"];
+      const owner = makeEnumOwner(many);
+      const { item } = registerEnum(owner);
       ui.openFilterPanel(item);
-      openDisclosure(item);
-      const summary = summaryOf(item);
-      summary.focus();
 
-      pressKey(summary, "Escape");
-
-      expect(detailsOf(item).open).toBe(false);
-      expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).not.toBeNull();
-      expect(document.activeElement).toBe(summaryOf(item));
+      const select = selectOf(item);
+      expect(select.options).toHaveLength(6);
+      expect(select.getAttribute("size")).toBe("4");
       spy.mockRestore();
     });
 
-    it("an outside press closes only the disclosure", () => {
+    it("clears an enum filter through the Clear footer", () => {
+      const spy = spyTranslator();
+      const { item, owner } = registerEnum(
+        makeEnumOwner(undefined, {
+          kind: "enum",
+          field: "type",
+          values: ["marker"],
+        }),
+      );
+      ui.openFilterPanel(item);
+
+      (
+        item.querySelector(`.${CONST.CLASSES.FILTER_CLEAR}`) as HTMLButtonElement
+      ).click();
+
+      expect(owner.filter).toBeUndefined();
+      expect(selectedOf(item)).toEqual([]);
+      spy.mockRestore();
+    });
+
+    it("Escape closes the panel from the listbox", () => {
       const spy = spyTranslator();
       const { item } = registerEnum();
       ui.openFilterPanel(item);
-      openDisclosure(item);
+      const select = selectOf(item);
+      select.focus();
 
-      mousedownOn(document.body);
+      pressKey(select, "Escape");
 
-      expect(detailsOf(item).open).toBe(false);
-      expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).not.toBeNull();
-
-      // The next outside press dismisses the panel itself.
-      mousedownOn(document.body);
       expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).toBeNull();
       spy.mockRestore();
     });
 
-    it("a press elsewhere in the panel closes only the disclosure", () => {
+    it("an outside press closes the panel", () => {
       const spy = spyTranslator();
       const { item } = registerEnum();
       ui.openFilterPanel(item);
-      openDisclosure(item);
-      const readout = item.querySelector(`.${CONST.CLASSES.FILTER_RESULT}`)!;
 
-      mousedownOn(readout);
+      mousedownOn(document.body);
 
-      expect(detailsOf(item).open).toBe(false);
+      expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).toBeNull();
+      spy.mockRestore();
+    });
+
+    it("a press elsewhere in the panel keeps it open", () => {
+      const spy = spyTranslator();
+      const { item } = registerEnum();
+      ui.openFilterPanel(item);
+
+      mousedownOn(readout(item));
+
       expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).not.toBeNull();
       spy.mockRestore();
     });
@@ -728,7 +687,7 @@ describe("LayerUI filter panel", () => {
       const owner = makeEnumOwner(values);
       const { item } = registerEnum(owner);
       ui.openFilterPanel(item);
-      expect(inputsOf(item)).toHaveLength(3);
+      expect(optionValuesOf(item)).toEqual(["marker", "distance"]);
 
       // The last measurement of a type is deleted: the row publishes the new
       // item count, and the panel re-reads the owner model.
@@ -736,11 +695,7 @@ describe("LayerUI filter panel", () => {
       values.push("marker");
       ui.events.publish(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "measure" });
 
-      expect(inputsOf(item)).toHaveLength(2);
-      expect(valueInput(item, "marker")).not.toBeNull();
-      expect(inputsOf(item).some(input => input.dataset.value === "distance")).toBe(
-        false,
-      );
+      expect(optionValuesOf(item)).toEqual(["marker"]);
       spy.mockRestore();
     });
 
@@ -754,7 +709,6 @@ describe("LayerUI filter panel", () => {
       });
       const { item } = registerEnum(owner);
       ui.openFilterPanel(item);
-      expect(summaryOf(item).textContent).toBe("1 selected");
 
       values.length = 0;
       values.push("marker");
@@ -767,20 +721,15 @@ describe("LayerUI filter panel", () => {
         field: "type",
         values: ["circle"],
       });
-      expect(summaryOf(item).textContent).toBe("1 selected");
-      expect(inputsOf(item).some(input => input.dataset.value === "circle")).toBe(
-        false,
-      );
-      expect(item.querySelector(`.${CONST.CLASSES.FILTER_RESULT}`)!.textContent).toBe(
-        "0 of 2",
-      );
+      expect(optionValuesOf(item)).toEqual(["marker"]);
+      expect(readout(item).textContent).toBe("0 of 2");
       expect(
         (item.querySelector(`.${CONST.CLASSES.FILTER_CLEAR}`) as HTMLButtonElement)
           .disabled,
       ).toBe(false);
 
-      // Checking the surviving option keeps the vanished value in the filter.
-      toggle(valueInput(item, "marker"));
+      // Clicking the surviving option keeps the vanished value in the filter.
+      clickOption(item, "marker");
       expect(owner.filter).toEqual({
         kind: "enum",
         field: "type",
@@ -825,7 +774,7 @@ describe("LayerUI filter panel", () => {
       const item = findItem(ui, "multi");
       ui.openFilterPanel(item);
 
-      expect(inputsOf(item)).toHaveLength(3);
+      expect(optionValuesOf(item)).toEqual(["a", "b"]);
       ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, { id: "multi" });
       ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, { id: "multi" });
       expect(warn).toHaveBeenCalledTimes(1);
@@ -838,25 +787,11 @@ describe("LayerUI filter panel", () => {
       const spy = spyTranslator();
       const { item } = registerEnum();
       ui.openFilterPanel(item);
-      const summary = summaryOf(item);
+      const select = selectOf(item);
 
       ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, { id: "measure" });
 
-      expect(summaryOf(item)).toBe(summary);
-      spy.mockRestore();
-    });
-
-    it("Escape closes the panel when no disclosure is open", () => {
-      const spy = spyTranslator();
-      const { item } = registerEnum();
-      ui.openFilterPanel(item);
-      // The container-bound shortcut only fires when focus is inside the
-      // control, so park it on the panel's own summary first.
-      summaryOf(item).focus();
-
-      pressKey(summaryOf(item), "Escape");
-
-      expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).toBeNull();
+      expect(selectOf(item)).toBe(select);
       spy.mockRestore();
     });
 
@@ -885,12 +820,12 @@ describe("LayerUI filter panel", () => {
       });
       const item = findItem(ui, "shape");
       ui.openFilterPanel(item);
-      const oldSummary = summaryOf(item);
+      const oldSelect = selectOf(item);
 
       label = "Kind";
       ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, { id: "shape" });
 
-      expect(summaryOf(item)).not.toBe(oldSummary);
+      expect(selectOf(item)).not.toBe(oldSelect);
       const fieldCell = item.querySelector(
         `.${CONST.CLASSES.FILTER_FIELD}`,
       ) as HTMLElement;
@@ -901,79 +836,15 @@ describe("LayerUI filter panel", () => {
       spy.mockRestore();
     });
 
-    it("clears an enum filter through the Clear footer", () => {
-      const spy = spyTranslator();
-      const { item, owner } = registerEnum(
-        makeEnumOwner(undefined, {
-          kind: "enum",
-          field: "type",
-          values: ["marker"],
-        }),
-      );
-      ui.openFilterPanel(item);
-
-      (
-        item.querySelector(`.${CONST.CLASSES.FILTER_CLEAR}`) as HTMLButtonElement
-      ).click();
-
-      expect(owner.filter).toBeUndefined();
-      expect(summaryOf(item).textContent).toBe("All");
-      spy.mockRestore();
-    });
-
-    it("keeps the disclosure open for a press inside it", () => {
-      const spy = spyTranslator();
-      const { item } = registerEnum();
-      ui.openFilterPanel(item);
-      openDisclosure(item);
-
-      mousedownOn(summaryOf(item));
-
-      expect(detailsOf(item).open).toBe(true);
-      expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).not.toBeNull();
-      spy.mockRestore();
-    });
-
     it("ignores item-count changes that belong to another row", () => {
       const spy = spyTranslator();
       const { item } = registerEnum();
       ui.openFilterPanel(item);
-      const summary = summaryOf(item);
+      const select = selectOf(item);
 
       ui.events.publish(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "other" });
 
-      expect(summaryOf(item)).toBe(summary);
-      spy.mockRestore();
-    });
-
-    it("ignores a checkbox change that carries no value", () => {
-      const spy = spyTranslator();
-      const { item, owner } = registerEnum();
-      ui.openFilterPanel(item);
-      openDisclosure(item);
-      const stray = document.createElement("input");
-      stray.type = "checkbox";
-      item.querySelector(`.${CONST.CLASSES.FILTER_ENUM_LIST}`)!.appendChild(stray);
-
-      expect(() =>
-        stray.dispatchEvent(new Event("change", { bubbles: true })),
-      ).not.toThrow();
-      expect(owner.filter).toBeUndefined();
-      spy.mockRestore();
-    });
-
-    it("ignores a change event that is not a checkbox input", () => {
-      const spy = spyTranslator();
-      const { item, owner } = registerEnum();
-      ui.openFilterPanel(item);
-      openDisclosure(item);
-
-      expect(() =>
-        item
-          .querySelector(`.${CONST.CLASSES.FILTER_ENUM_LIST}`)!
-          .dispatchEvent(new Event("change", { bubbles: true })),
-      ).not.toThrow();
-      expect(owner.filter).toBeUndefined();
+      expect(selectOf(item)).toBe(select);
       spy.mockRestore();
     });
   });

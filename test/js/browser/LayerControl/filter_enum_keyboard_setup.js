@@ -1,6 +1,6 @@
 // Opens the filter panel for a synthetic enum owner and parks focus on the
-// disclosure summary, so the Python test can drive the real browser keyboard
-// path (Playwright key events, not synthetic DOM events).
+// native listbox, so the Python test can drive the real browser keyboard path
+// (Playwright key events, not synthetic DOM events).
 async () => {
   const api = window.map.foliplus && window.map.foliplus.LayerAPI;
   const bus = window.map.foliplus && window.map.foliplus.events;
@@ -49,13 +49,13 @@ async () => {
   menuItem.click();
   await wait(30);
   const panel = row.querySelector(".foliplus-layer-filter-panel");
-  const summary = panel && panel.querySelector(".foliplus-filter-enum-trigger");
-  if (!summary) return { ok: false, reason: "no-summary" };
-  summary.focus();
+  const select = panel && panel.querySelector(".foliplus-filter-enum");
+  if (!select) return { ok: false, reason: "no-listbox" };
+  select.focus();
   return {
     ok: true,
     id: ID,
-    summaryText: summary.textContent,
-    detailsOpen: panel.querySelector(".foliplus-filter-enum").open,
+    selectSize: select.getAttribute("size"),
+    optionValues: Array.from(select.options).map(option => option.value),
   };
 };

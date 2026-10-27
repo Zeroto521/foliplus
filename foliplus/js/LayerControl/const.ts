@@ -233,16 +233,8 @@ const CLASSES = {
   FILTER_RESULT: "foliplus-filter-result",
   /** Clear-filter footer button. */
   FILTER_CLEAR: "foliplus-filter-clear",
-  /** Enum filter body: the dimension cell that stacks its name and trigger. */
+  /** Enum filter body: the native multi-select listbox. */
   FILTER_ENUM: "foliplus-filter-enum",
-  /** Enum trigger button; the shared form-select recipe paints the control. */
-  FILTER_ENUM_TRIGGER: "foliplus-filter-enum-trigger",
-  /** Enum option listbox (a transient popup inside the dimension cell). */
-  FILTER_ENUM_LIST: "foliplus-filter-enum-list",
-  /** One native checkbox row inside the enum disclosure. */
-  FILTER_ENUM_OPTION: "foliplus-filter-enum-option",
-  /** Label text of an enum option. */
-  FILTER_ENUM_LABEL: "foliplus-filter-enum-label",
 };
 
 /** Data attribute names. */

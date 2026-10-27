@@ -7155,9 +7155,9 @@ class TestLayerControlBrowser:
         """The filter panel's enum body drives a generic owner end to end.
 
         A synthetic enum owner opens the panel from the row menu; the row label
-        is the dimension's own name, a native checkbox writes an enum filter,
-        which repaints the Result row and the row's kept count; Clear returns
-        both to the unfiltered state.
+        is the dimension's own name, one click on a native listbox option
+        commits that value, a second click adds another, and Clear returns the
+        row and the readout to the unfiltered state.
         """
         layer = folium.FeatureGroup(name="Enum filter")
         with use_page(self._make_page, browser, tmp_path, layer) as (page, errors):
@@ -7171,39 +7171,42 @@ class TestLayerControlBrowser:
             res = page.evaluate(_js("LayerControl/filter_enum_body"))
             assert res is not None, "enum probe could not run"
             assert res.get("ok"), res
-            # The page language follows the host browser locale, so the All
-            # placeholder and the readout sentence are asserted structurally
-            # (percent prefix plus the kept / total digits) rather than by
-            # literal English text.
+            # The page language follows the host browser locale, so the result
+            # sentence is asserted structurally (percent prefix plus the kept /
+            # total digits) rather than by literal English text.
             assert res["fieldLabel"] == "Type", res
-            assert res["summaryBefore"] in ("All", "全部"), res
-            assert res["detailsOpenBefore"] is False, res
+            assert res["selectTag"] == "SELECT", res
+            assert res["multiple"] is True, res
+            assert res["size"] == "4", res
+            assert res["optionValues"] == [
+                "marker",
+                "distance",
+                "area",
+                "circle",
+            ], res
+            assert res["selectedBefore"] == [], res
             assert res["resultBefore"].startswith("100%"), res
             assert "8" in res["resultBefore"], res
-            assert res["optionCount"] == 5, res  # four options plus All
-            assert res["detailsOpenAfterClick"] is True, res
-            assert res["firstOptionHitTestable"] is True, res
-            assert res["checkedAfterPick"] == ["marker"], res
-            assert res["summaryAfterPick"] not in ("All", "全部"), res
-            assert res["resultAfterPick"].startswith("25%"), res
-            assert re.search(r"2\D+8", res["resultAfterPick"]), res
-            assert res["detailsOpenAfterPick"] is True, res
-            assert res["rowAfterPick"]["count"] == "2", res
-            assert re.search(r"2\s*/\s*8", res["rowAfterPick"]["title"] or ""), res
-            assert res["summaryAfterClear"] in ("All", "全部"), res
+
+            assert res["selectedAfterFirst"] == ["marker"], res
+            assert res["resultAfterFirst"].startswith("25%"), res
+            assert re.search(r"2\D+8", res["resultAfterFirst"]), res
+            assert res["rowAfterFirst"]["count"] == "2", res
+            assert re.search(r"2\s*/\s*8", res["rowAfterFirst"]["title"] or ""), res
+
+            assert res["selectedAfterSecond"] == ["marker", "distance"], res
+            assert res["resultAfterSecond"].startswith("50%"), res
+            assert res["rowAfterSecond"]["count"] == "4", res
+
+            assert res["selectedAfterClear"] == [], res
             assert res["resultAfterClear"].startswith("100%"), res
-            assert res["checkedAfterClear"] == ["all"], res
             assert res["rowAfterClear"]["count"] == "8", res
             assert res["clearDisabled"] is True, res
             assert not errors, f"JS errors: {errors}"
 
-    def test_enum_filter_keyboard_and_outside_close(self, browser, tmp_path):
-        """The native disclosure keeps real keyboard focus and closes in layers.
-
-        The summary opens with Enter, Tab reaches the checkboxes, Space toggles
-        without focus being stolen back to the layer row, Escape closes the
-        disclosure before the panel, and a press on the map closes the panel.
-        """
+    def test_enum_filter_keyboard_and_map_press_close(self, browser, tmp_path):
+        """The native listbox keeps real keyboard focus and Escape closes the
+        panel; a press on the map also closes it."""
         layer = folium.FeatureGroup(name="Enum keyboard")
         with use_page(self._make_page, browser, tmp_path, layer) as (page, errors):
             page.evaluate(_js("LayerControl/open_panel"))
@@ -7215,88 +7218,55 @@ class TestLayerControlBrowser:
             panel_ready(page)
             setup = page.evaluate(_js("LayerControl/filter_enum_keyboard_setup"))
             assert setup and setup.get("ok"), setup
-            assert setup["detailsOpen"] is False, setup
+            assert setup["selectSize"] == "4", setup
 
             def state():
                 return page.evaluate(_js("LayerControl/filter_enum_keyboard_state"))
 
             closed = state()
             assert closed["panelOpen"] is True, closed
-            assert closed["detailsOpen"] is False, closed
-            assert closed["activeIsSummary"] is True, closed
+            assert closed["selectTag"] == "SELECT", closed
+            assert closed["activeIsSelect"] is True, closed
+            assert closed["selected"] == [], closed
 
-            page.keyboard.press("Enter")
-            page.wait_for_timeout(120)
-            opened = state()
-            assert opened["detailsOpen"] is True, opened
-            assert opened["listPosition"] == "static", opened
-            assert any(opened["optionHits"]), opened
-
-            # Tab walks out of the summary into the "All" checkbox, then into the
-            # first value checkbox.
-            page.keyboard.press("Tab")
-            page.wait_for_timeout(60)
-            first_tab = state()
-            assert first_tab["activeTag"] == "INPUT", first_tab
-            assert first_tab["activeValue"] is None, first_tab
-            page.keyboard.press("Tab")
-            page.wait_for_timeout(60)
-            marker = state()
-            assert marker["activeTag"] == "INPUT", marker
-            assert marker["activeValue"] == "marker", marker
-
+            # A real keyboard path: ArrowDown moves into the list, Space toggles
+            # the focused option in this native multiple listbox.
+            page.keyboard.press("ArrowDown")
+            page.wait_for_timeout(80)
             page.keyboard.press("Space")
             page.wait_for_timeout(120)
-            checked = state()
-            assert checked["checked"] == ["marker"], checked
-            # Focus retention is the regression this test exists for: a click
-            # delegation that treats the panel as row chrome would park focus on
-            # the row and the next Space would toggle layer visibility instead.
-            assert checked["activeValue"] == "marker", checked
-            assert checked["activeRowId"] is None, checked
+            picked = state()
+            assert len(picked["selected"]) == 1, picked
+            # Focus stays on the listbox, not on the row: a click delegation
+            # that treated the panel as row chrome would park focus on the row.
+            assert picked["activeIsSelect"] is True, picked
+            assert picked["activeRowId"] is None, picked
+            assert picked["allOptionsHitTestable"] is True, picked
 
             page.keyboard.press("Escape")
             page.wait_for_timeout(120)
-            disclosure_closed = state()
-            assert disclosure_closed["panelOpen"] is True, disclosure_closed
-            assert disclosure_closed["detailsOpen"] is False, disclosure_closed
-            assert disclosure_closed["activeIsSummary"] is True, disclosure_closed
+            escape_closed = state()
+            assert escape_closed["panelOpen"] is False, escape_closed
+            assert escape_closed["panelInDocument"] is False, escape_closed
+            assert escape_closed["activeRowId"] == setup["id"], escape_closed
 
-            page.keyboard.press("Escape")
-            page.wait_for_timeout(120)
-            panel_closed = state()
-            assert panel_closed["panelOpen"] is False, panel_closed
-            assert panel_closed["panelInDocument"] is False, panel_closed
-            assert panel_closed["activeRowId"] == setup["id"], panel_closed
-
-            # Reopen from the row menu and dismiss by pressing the map: the
-            # first outside press closes the disclosure, the second the panel.
+            # Reopen and dismiss by pressing the map.
             page.evaluate(_js("LayerControl/filter_enum_keyboard_setup"))
             page.wait_for_timeout(60)
-            page.keyboard.press("Enter")
-            page.wait_for_timeout(120)
-            assert state()["detailsOpen"] is True
-            # The first map press dismisses the disclosure, the second the
-            # panel (the popup layer is consumed before the surface).
+            assert state()["panelOpen"] is True
             page.mouse.click(640, 40)
             page.wait_for_timeout(120)
-            after_first_map_press = state()
-            assert after_first_map_press["panelOpen"] is True, after_first_map_press
-            assert after_first_map_press["detailsOpen"] is False, after_first_map_press
-            page.mouse.click(640, 40)
-            page.wait_for_timeout(120)
-            after_map = state()
-            assert after_map["panelOpen"] is False, after_map
+            assert state()["panelOpen"] is False
             assert not errors, f"JS errors: {errors}"
 
-    def test_enum_filter_disclosure_flows_inside_panel(self, browser, tmp_path):
-        """The disclosure flows inside the panel and leaves sibling panels alone.
+    def test_enum_filter_uses_the_native_listbox(self, browser, tmp_path):
+        """The enum body is a native listbox with no hand-drawn popup left.
 
-        The option list is in-flow (no fixed/absolute layer), the filter panel
-        keeps the shared row-panel scroll box, and the attributes and style
-        panels still scroll normally.
+        The select keeps the browser's appearance, there is no custom trigger /
+        list / option chrome, the shell stays the shared row-panel scroll box,
+        and an option list longer than the size cap scrolls inside the select.
         """
-        layer = folium.FeatureGroup(name="Scroll scope")
+        layer = folium.FeatureGroup(name="Enum native")
         with use_page(self._make_page, browser, tmp_path, layer) as (page, errors):
             page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_selector(
@@ -7307,63 +7277,44 @@ class TestLayerControlBrowser:
             panel_ready(page)
 
             page.evaluate(_js("LayerControl/filter_enum_keyboard_setup"))
-            page.keyboard.press("Enter")
-            page.wait_for_timeout(120)
-            flow = page.evaluate(
+            native = page.evaluate(
                 """() => {
                   const panel = document.querySelector(".foliplus-layer-filter-panel");
+                  const select = panel && panel.querySelector(".foliplus-filter-enum");
                   const content = panel && panel.querySelector(".foliplus-panel-content");
-                  const list = panel && panel.querySelector(".foliplus-filter-enum-list");
                   return {
+                    tag: select ? select.tagName : null,
+                    multiple: select ? select.multiple : null,
+                    size: select ? select.getAttribute("size") : null,
+                    appearance: select ? getComputedStyle(select).appearance : null,
+                    after: select ? getComputedStyle(select, "::after").content : null,
+                    customTrigger: Boolean(
+                      panel && panel.querySelector(".foliplus-filter-enum-trigger"),
+                    ),
+                    customList: Boolean(
+                      panel && panel.querySelector(".foliplus-filter-enum-list"),
+                    ),
+                    customOption: Boolean(
+                      panel && panel.querySelector(".foliplus-filter-enum-option"),
+                    ),
                     contentOverflowY: content ? getComputedStyle(content).overflowY : null,
-                    listPosition: list ? getComputedStyle(list).position : null,
-                    listBottom: list ? Math.round(list.getBoundingClientRect().bottom) : null,
-                    panelBottom: panel
-                      ? Math.round(panel.getBoundingClientRect().bottom)
-                      : null,
                   };
                 }"""
             )
-            assert flow["contentOverflowY"] == "auto", flow
-            assert flow["listPosition"] == "static", flow
-            assert flow["listBottom"] is not None, flow
+            assert native["tag"] == "SELECT", native
+            assert native["multiple"] is True, native
+            assert native["size"] == "4", native
+            assert native["appearance"] != "none", native
+            assert native["after"] in ("none", "normal"), native
+            assert native["customTrigger"] is False, native
+            assert native["customList"] is False, native
+            assert native["customOption"] is False, native
+            assert native["contentOverflowY"] == "auto", native
 
-            # Attributes panel: the shared scroll box stays in place. The menu
-            # must be open before the probe can click its attributes item.
-            page.evaluate(
-                """() => {
-                  const row = document.querySelector(
-                    ".foliplus-layer-item[data-layer-type=overlay]",
-                  );
-                  row.querySelector(".foliplus-layer-more-btn").click();
-                }"""
-            )
-            page.evaluate(_js("LayerControl/click_layer_attributes"))
-            page.wait_for_selector(
-                ".foliplus-layer-attrs-panel", state="attached", timeout=5000
-            )
-            attrs_style = page.evaluate(
-                """() => {
-                  const content = document.querySelector(
-                    ".foliplus-layer-attrs-panel .foliplus-panel-content",
-                  );
-                  return content ? getComputedStyle(content).overflowY : null;
-                }"""
-            )
-            assert attrs_style == "auto", attrs_style
-
-            # Style panel: same contract.
-            page.evaluate(_js("LayerControl/open_style_panel"))
-            page.wait_for_selector(
-                ".foliplus-layer-style-panel", state="attached", timeout=5000
-            )
-            style_overflow = page.evaluate(
-                """() => {
-                  const content = document.querySelector(
-                    ".foliplus-layer-style-panel .foliplus-panel-content",
-                  );
-                  return content ? getComputedStyle(content).overflowY : null;
-                }"""
-            )
-            assert style_overflow == "auto", style_overflow
+            # Six options, cap four: the native list scrolls internally.
+            scroll = page.evaluate(_js("LayerControl/filter_enum_scroll_probe"))
+            assert scroll and scroll.get("ok"), scroll
+            assert scroll["size"] == "4", scroll
+            assert scroll["optionValues"] == ["a", "b", "c", "d", "e", "f"], scroll
+            assert scroll["scroll"]["scroll"] > scroll["scroll"]["client"], scroll
             assert not errors, f"JS errors: {errors}"

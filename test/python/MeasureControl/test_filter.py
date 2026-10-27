@@ -32,6 +32,11 @@ EXPAND_MEASURE = _js("MeasureControl/expand_measure")
 
 CLICK_EXPORT = _js("MeasureControl/click_export")
 
+DRAW_MARKER = _js("MeasureControl/draw_marker")
+DRAW_DISTANCE = _js("MeasureControl/draw_distance_for_filter")
+CLEAR_MEASUREMENTS = _js("MeasureControl/clear_measurements")
+DELETE_FIRST = _js("MeasureControl/delete_first_type")
+
 TYPES = ["distance", "polygon", "circle", "marker"]
 
 COUNT_KEYS = ("paths", "labels", "dots")
@@ -310,36 +315,55 @@ class TestMeasureTypeFilterBrowser:
             assert state["visible"] == ["marker"], state
             assert not errors, f"JS errors: {errors}"
 
-    def test_disclosure_closes_before_panel_and_map_press_closes_panel(
-        self, browser, tmp_path
-    ):
-        """Escape closes the disclosure first; a press on the map closes the panel."""
+    def test_listbox_escape_and_map_press_close_panel(self, browser, tmp_path):
+        """Escape from the native listbox closes the panel; a map press does too."""
         with use_page(_make_page, browser, tmp_path) as (page, errors):
             baseline = _draw_all(page)
-            assert baseline["detailsOpen"] is False, baseline
-            page.click(".foliplus-filter-enum-trigger")
+            assert baseline["selected"] == [], baseline
+            page.click(".foliplus-filter-enum")
             page.wait_for_timeout(120)
-            opened = page.evaluate(READ_STATE)
-            assert opened["detailsOpen"] is True, opened
+            assert page.evaluate(READ_STATE)["selectMultiple"] is True
 
             page.keyboard.press("Escape")
-            page.wait_for_timeout(120)
-            closed = page.evaluate(READ_STATE)
-            assert closed["detailsOpen"] is False, closed
-            assert page.query_selector(".foliplus-layer-filter-panel") is not None, (
-                closed
-            )
-
-            page.mouse.click(640, 40)
             page.wait_for_timeout(120)
             assert page.query_selector(".foliplus-layer-filter-panel") is None
             assert not errors, f"JS errors: {errors}"
 
+    def test_real_listbox_clicks_filter_two_types(self, browser, tmp_path):
+        """Real Chromium clicks on two listbox rows toggle exactly those types.
 
-DRAW_MARKER = _js("MeasureControl/draw_marker")
+        The native multiple listbox normally needs Ctrl to add a second row; the
+        body's mousedown path makes one click toggle one option. This drives
+        real pointer presses at the option boxes (not synthetic events) and
+        checks the filter, the readout and the painted leaves.
+        """
+        with use_page(_make_page, browser, tmp_path) as (page, errors):
+            baseline = _draw_all(page)
+            rects = page.evaluate(_js("MeasureControl/read_option_rects"))
+            assert rects, "listbox options have no hit boxes"
+            by_value = {row["value"]: row for row in rects}
 
-DRAW_DISTANCE = _js("MeasureControl/draw_distance_for_filter")
+            page.mouse.click(by_value["distance"]["x"], by_value["distance"]["y"])
+            page.wait_for_timeout(300)
+            one = page.evaluate(READ_STATE)
+            assert one["selected"] == ["distance"], one
+            assert _count(one) == 1, one
+            assert one["count"] == "1", one
+            assert "25%" in one["result"], one
 
-CLEAR_MEASUREMENTS = _js("MeasureControl/clear_measurements")
-
-DELETE_FIRST = _js("MeasureControl/delete_first_type")
+            # The row reflows when the kept count changes, so the panel moved:
+            # re-read the hit boxes before the second press.
+            rects = page.evaluate(_js("MeasureControl/read_option_rects"))
+            by_value = {row["value"]: row for row in rects}
+            page.mouse.click(by_value["polygon"]["x"], by_value["polygon"]["y"])
+            page.wait_for_timeout(300)
+            two = page.evaluate(READ_STATE)
+            assert two["selected"] == ["distance", "polygon"], two
+            assert sorted(two["visible"]) == ["distance", "polygon"], two
+            assert _count(two) == 2, two
+            assert "50%" in two["result"], two
+            assert sum(_counts(two).values()) < sum(_counts(baseline).values()), (
+                two,
+                baseline,
+            )
+            assert not errors, f"JS errors: {errors}"

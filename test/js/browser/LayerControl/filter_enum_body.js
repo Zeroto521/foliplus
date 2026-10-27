@@ -1,9 +1,9 @@
 // Drives the filter panel's enum body on a synthetic enum owner: opens the
-// panel from the row's overflow menu, checks a type through the native
-// checkbox, reads the live Result row plus the row's filtered count/title, then
-// clears and reads the restored state. The owner publishes the same events a
-// real component would, so the row and the panel repaint through the normal
-// signal path.
+// panel from the row's overflow menu, toggles two options through the native
+// listbox mousedown path, reads the live Result row plus the row's filtered
+// count/title, then clears and reads the restored state. The owner publishes
+// the same events a real component would, so the row and the panel repaint
+// through the normal signal path.
 async () => {
   const api = window.map.foliplus && window.map.foliplus.LayerAPI;
   const bus = window.map.foliplus && window.map.foliplus.events;
@@ -37,18 +37,23 @@ async () => {
   const row = () =>
     document.querySelector(`.foliplus-layer-item[data-layer-id="${ID}"]`);
   const panel = () => row() && row().querySelector(".foliplus-layer-filter-panel");
-  const details = () => panel() && panel().querySelector(".foliplus-filter-enum");
-  const summary = () =>
-    panel() && panel().querySelector(".foliplus-filter-enum-trigger");
-  const boxes = () =>
-    panel()
-      ? Array.from(
-          panel().querySelectorAll(".foliplus-filter-enum-option input[type=checkbox]"),
-        )
-      : [];
-  const valueBox = value => boxes().find(box => box.dataset.value === value) || null;
+  const select = () => panel() && panel().querySelector(".foliplus-filter-enum");
+  const option = value =>
+    Array.from(select().options).find(candidate => candidate.value === value) || null;
+  const clickOption = value => {
+    const target = option(value);
+    if (!target) return false;
+    target.dispatchEvent(
+      new MouseEvent("pointerdown", { bubbles: true, cancelable: true }),
+    );
+    return true;
+  };
   const readout = () =>
     panel() ? panel().querySelector(".foliplus-filter-result") : null;
+  const selectedValues = () =>
+    Array.from(select() ? select().options : [])
+      .filter(candidate => candidate.selected)
+      .map(candidate => candidate.value);
   const fieldLabel = () => {
     const cell = panel() && panel().querySelector(".foliplus-filter-field");
     const rowEl = cell && cell.closest(".foliplus-form-row");
@@ -85,52 +90,30 @@ async () => {
     await wait(30);
 
     out.fieldLabel = fieldLabel();
-    out.summaryBefore = summary() ? summary().textContent : null;
-    out.detailsOpenBefore = details() ? details().open : null;
+    out.selectTag = select().tagName;
+    out.multiple = select().multiple;
+    out.size = select().getAttribute("size");
+    out.optionValues = Array.from(select().options).map(candidate => candidate.value);
+    out.selectedBefore = selectedValues();
     out.resultBefore = readout() ? readout().textContent : null;
-    out.optionCount = boxes().length;
     Object.assign(out, { rowBefore: rowFacts() });
 
-    // Native disclosure: clicking the summary opens it.
-    summary().click();
-    await wait(10);
-    out.detailsOpenAfterClick = details().open;
-    out.firstOptionHitTestable = (() => {
-      const box = boxes()[0];
-      if (!box) return false;
-      const rect = box.getBoundingClientRect();
-      const hit = document.elementFromPoint(
-        rect.left + rect.width / 2,
-        rect.top + rect.height / 2,
-      );
-      return Boolean(
-        hit &&
-        (hit === box ||
-          box.closest("label") === hit ||
-          box.closest("label").contains(hit)),
-      );
-    })();
-
-    // Native checkbox: clicking the input flips it and fires change.
-    valueBox("marker").click();
+    clickOption("marker");
     await wait(30);
-    out.summaryAfterPick = summary() ? summary().textContent : null;
-    out.resultAfterPick = readout() ? readout().textContent : null;
-    out.checkedAfterPick = boxes()
-      .filter(box => box.checked)
-      .map(box => box.dataset.value || "all");
-    Object.assign(out, { rowAfterPick: rowFacts() });
+    out.selectedAfterFirst = selectedValues();
+    out.resultAfterFirst = readout() ? readout().textContent : null;
+    Object.assign(out, { rowAfterFirst: rowFacts() });
 
-    // The disclosure stays open across a checkbox commit.
-    out.detailsOpenAfterPick = details() ? details().open : null;
+    clickOption("distance");
+    await wait(30);
+    out.selectedAfterSecond = selectedValues();
+    out.resultAfterSecond = readout() ? readout().textContent : null;
+    Object.assign(out, { rowAfterSecond: rowFacts() });
 
     panel().querySelector(".foliplus-filter-clear").click();
     await wait(30);
-    out.summaryAfterClear = summary() ? summary().textContent : null;
+    out.selectedAfterClear = selectedValues();
     out.resultAfterClear = readout() ? readout().textContent : null;
-    out.checkedAfterClear = boxes()
-      .filter(box => box.checked)
-      .map(box => box.dataset.value || "all");
     out.clearDisabled = panel().querySelector(".foliplus-filter-clear").disabled;
     Object.assign(out, { rowAfterClear: rowFacts() });
     out.ok = true;

@@ -37,11 +37,6 @@ type FilterBody = {
   /** Repaint the control from the owner's current model. */
   sync: (model: LayerFilterModel) => void;
   destroy: () => void;
-  /** Close an open transient popup (the enum list). Returns true when the
-   *  popup swallowed the press, so the panel stays open: the first outside
-   *  press dismisses the popup, not the surface. `focusTrigger` is for the
-   *  keyboard path, where the trigger is the popup's logical return target. */
-  dismissTransient: (target: Element, focusTrigger?: boolean) => boolean;
 };
 
 /** The read-only dimension row: the label cell carries the dimension's own
@@ -135,7 +130,6 @@ const renderRangeBody = (
     dimension: dim,
     sync,
     destroy: () => slider.destroy(),
-    dismissTransient: () => false,
   };
 };
 
@@ -175,53 +169,30 @@ const enumFilterOf = (
   return values.length > 0 ? { kind: "enum", field: dim.field, values } : undefined;
 };
 
-/** One checkbox row: the native input owns focus and Space, the label supplies
- *  the localized option name. A null value builds the "All" row, which clears
- *  the selection instead of adding a value. */
-const buildEnumOption = (
-  value: string | null,
-  label: string,
-): { row: HTMLLabelElement; input: HTMLInputElement } => {
-  const input = dom.el("input", { type: "checkbox" }) as HTMLInputElement;
-  if (value === null) input.dataset.all = "true";
-  else input.dataset.value = value;
-  const row = dom.el(
-    "label",
-    { class: CONST.CLASSES.FILTER_ENUM_OPTION },
-    input,
-    dom.el("span", { class: CONST.CLASSES.FILTER_ENUM_LABEL }, label),
-  ) as HTMLLabelElement;
-  return { row, input };
-};
-
-/** Enum body: the dimension row plus a native `<details>` disclosure whose
- *  options are native checkboxes. The browser owns opening, focus and Space;
- *  the body only maps a checkbox change to a value set. An empty selection
- *  commits `undefined`, so "All" always reads as "no filter" and the
- *  kept/total readout stays at 100%. */
+/** Enum body: one native `<select multiple>` listbox. The browser owns the
+ *  listbox chrome, focus and keyboard; the body only maps the selected option
+ *  set to a value set. An empty selection commits `undefined`, so "nothing
+ *  selected" always reads as "no filter" and the kept/total readout stays at
+ *  100%. Clicking an option toggles it (native multiple selects need Ctrl, so
+ *  the pointerdown path flips the option itself and replays `change`). */
 const renderEnumBody = (
   dim: FilterEnumDimension,
   model: LayerFilterModel,
   deps: FilterBodyDeps,
 ): FilterBody => {
   const { row, control } = buildDimensionRow(dim.label);
-  const details = dom.el("details", {
+  const select = dom.el("select", {
     class: CONST.CLASSES.FILTER_ENUM,
-  }) as HTMLDetailsElement;
-  const summary = dom.el("summary", {
-    class: `${CONST.CLASSES.FILTER_ENUM_TRIGGER} foliplus-form-select`,
-  }) as HTMLElement;
-  const list = dom.el("div", { class: CONST.CLASSES.FILTER_ENUM_LIST });
-  const all = buildEnumOption(null, deps.T("filter_enum_any"));
-  list.appendChild(all.row);
-  const options = dim.options.map(option => {
-    const built = buildEnumOption(option.value, option.label);
-    list.appendChild(built.row);
-    return { value: option.value, input: built.input };
-  });
-  details.appendChild(summary);
-  details.appendChild(list);
-  control.appendChild(details);
+    multiple: true,
+    size: Math.min(Math.max(dim.options.length, 1), 4),
+  }) as HTMLSelectElement;
+  select.setAttribute("aria-label", dim.label);
+  for (const option of dim.options) {
+    select.appendChild(
+      dom.el("option", { value: option.value }, option.label) as HTMLOptionElement,
+    );
+  }
+  control.appendChild(select);
 
   let currentFilter: LayerFilter | undefined = model.filter;
   const selectedValues = (): Set<string> => new Set(enumValuesOf(dim, currentFilter));
@@ -229,59 +200,52 @@ const renderEnumBody = (
   const sync = (next: LayerFilterModel): void => {
     currentFilter = next.filter;
     const selected = selectedValues();
-    for (const option of options) {
-      option.input.checked = selected.has(option.value);
+    for (const option of Array.from(select.options)) {
+      option.selected = selected.has(option.value);
     }
-    all.input.checked = selected.size === 0;
-    // A selected value whose option is gone still counts: the filter keeps it,
-    // so the summary must not pretend that nothing is applied.
-    const text =
-      selected.size > 0
-        ? deps.T("filter_enum_selected").replace("{n}", String(selected.size))
-        : deps.T("filter_enum_any");
-    summary.textContent = text;
-    summary.title = text;
   };
   sync(model);
 
-  const toggleValue = (value: string): void => {
-    const next = selectedValues();
-    if (next.has(value)) next.delete(value);
-    else next.add(value);
-    deps.write(enumFilterOf(dim, next));
+  // One click toggles one option: the native multiple listbox replaces the
+  // selection on a plain press (Ctrl adds), so pointerdown flips the pressed
+  // option and cancels the compatibility mouse events that would apply the
+  // native single-select rule; the replayed change then writes the value set.
+  // Keyboard stays native (Space toggles the focused option as usual).
+  const onPointerDown = (event: PointerEvent): void => {
+    if (!(event.target instanceof HTMLOptionElement)) return;
+    event.preventDefault();
+    event.target.selected = !event.target.selected;
+    select.focus({ preventScroll: true });
+    select.dispatchEvent(new Event("change", { bubbles: true }));
   };
 
-  const onListChange = (event: Event): void => {
+  const onChange = (event: Event): void => {
     // The layer control listens for checkbox changes on its container to drive
-    // row visibility; an enum checkbox is panel state, not a row slot, so its
+    // row visibility; the filter listbox is panel state, not a row slot, so its
     // change must not reach that handler.
     event.stopPropagation();
     event.stopImmediatePropagation();
-    const input = event.target;
-    if (!(input instanceof HTMLInputElement)) return;
-    if (input.dataset.all) {
-      deps.write(undefined);
-      return;
+    // Start from the committed set, not the DOM: a value whose option is gone
+    // (a measurement type with no items right now) is still filtered on and
+    // must survive a click on a surviving option.
+    const next = selectedValues();
+    for (const option of Array.from(select.options)) {
+      if (option.selected) next.add(option.value);
+      else next.delete(option.value);
     }
-    const value = input.dataset.value;
-    if (value) toggleValue(value);
+    deps.write(enumFilterOf(dim, next));
   };
-  list.addEventListener("change", onListChange);
+
+  select.addEventListener("pointerdown", onPointerDown);
+  select.addEventListener("change", onChange);
 
   return {
     root: row,
     dimension: dim,
     sync,
     destroy: () => {
-      list.removeEventListener("change", onListChange);
-      details.open = false;
-    },
-    dismissTransient: (target, focusTrigger = false) => {
-      if (!details.open) return false;
-      if (details.contains(target)) return false;
-      details.open = false;
-      if (focusTrigger) summary.focus();
-      return true;
+      select.removeEventListener("pointerdown", onPointerDown);
+      select.removeEventListener("change", onChange);
     },
   };
 };

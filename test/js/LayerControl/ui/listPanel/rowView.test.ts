@@ -493,7 +493,6 @@ describe("the four readers agree on a half-broken record", () => {
   });
 });
 
-
 // ── Static guard: the row visual is painted from one writer ─────
 //
 // LayerControl's layer row has five visual slots: the checkbox state, the
@@ -612,9 +611,6 @@ const PATTERNS: GuardPattern[] = [
 // redraws the row from the corrected intent. It is a transient input flip,
 // not a terminal visual write, so the guard permits it.
 //
-// The second is the filter panel's enum body: its checkboxes mirror the
-// committed filter (not a row slot), and both writes land in the same
-// `sync` that repaints them from the owner's model.
 const OUT_OF_CHARTER: ReadonlyArray<{
   file: string;
   slot: string;
@@ -629,15 +625,6 @@ const OUT_OF_CHARTER: ReadonlyArray<{
       "momentary flip: checkbox.checked = !checkbox.checked → " +
       "dispatchEvent('change') → applyUserState → applyRowView " +
       "redraws the row from corrected intent",
-  },
-  {
-    file: "LayerControl/ui/overlayPanel/filterBody.ts",
-    slot: "checkbox.checked",
-    n: 2,
-    reason:
-      "enum filter checkboxes mirror the committed filter: the body syncs " +
-      "their checked state from the owner model, one per option plus All; " +
-      "not a row visual slot",
   },
 ];
 
@@ -697,11 +684,11 @@ describe("applyRowView is the only module writing row visual slots", () => {
   });
 
   it("confines every row visual write to the writer or to a counted exception", () => {
-    // The exception list holds exactly two entries (focus/index.ts and the
-    // filter panel's enum body). That is the state the guard asserts on, so a
+    // The exception list holds exactly one entry (focus/index.ts). That is the
+    // state the guard asserts on, so a
     // new allowance shows up as an edit to the array and to this assertion
     // together, not as a quietly widened scan.
-    expect(OUT_OF_CHARTER).toHaveLength(2);
+    expect(OUT_OF_CHARTER).toHaveLength(1);
 
     const problems: string[] = [];
     for (const file of sources) {

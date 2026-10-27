@@ -1,20 +1,13 @@
-// Reads the enum disclosure's focus, checkbox and hit-test state for the real
+// Reads the enum listbox's focus, selection and hit-test state for the real
 // browser keyboard test.
 () => {
   const panel = document.querySelector(".foliplus-layer-filter-panel");
-  const details = panel && panel.querySelector(".foliplus-filter-enum");
-  const summary = panel && panel.querySelector(".foliplus-filter-enum-trigger");
+  const select = panel && panel.querySelector(".foliplus-filter-enum");
   const row = document.querySelector(
     '.foliplus-layer-item[data-layer-id="__filter_enum_keyboard_probe__"]',
   );
   const active = document.activeElement;
-  const boxes = panel
-    ? Array.from(
-        panel.querySelectorAll(".foliplus-filter-enum-option input[type=checkbox]"),
-      )
-    : [];
-  const options = boxes.filter(box => box.dataset.value);
-  const last = options[options.length - 1] || null;
+  const options = select ? Array.from(select.options) : [];
   const hitTest = element => {
     if (!element) return false;
     const rect = element.getBoundingClientRect();
@@ -27,14 +20,12 @@
   return {
     panelOpen: Boolean(panel),
     panelInDocument: Boolean(panel && document.body.contains(panel)),
-    detailsOpen: details ? details.open : null,
-    summaryText: summary ? summary.textContent : null,
+    selectTag: select ? select.tagName : null,
+    size: select ? select.getAttribute("size") : null,
+    selected: options.filter(option => option.selected).map(option => option.value),
+    optionValues: options.map(option => option.value),
+    activeIsSelect: active === select,
     activeTag: active ? active.tagName : null,
-    activeType: active ? active.getAttribute("type") : null,
-    activeValue:
-      active && active.getAttribute ? active.getAttribute("data-value") : null,
-    activeIsSummary: active === summary,
-    activeIsRow: active === row,
     activeRowId: (() => {
       if (!active || !active.closest) return null;
       if (
@@ -47,29 +38,18 @@
       const item = active.closest(".foliplus-layer-item");
       return item ? item.getAttribute("data-layer-id") : null;
     })(),
-    checked: boxes.filter(box => box.checked).map(box => box.dataset.value || "all"),
-    optionValues: options.map(box => box.dataset.value),
-    optionCount: options.length,
-    allOptionsHitTestable: options.every(box => hitTest(box)),
-    lastOptionHitTestable: hitTest(last),
-    optionHits: options.map(box => hitTest(box)),
-    // The disclosure flows inside the panel: its list must not be positioned
-    // as a floating layer.
-    listPosition: (() => {
-      const list = panel && panel.querySelector(".foliplus-filter-enum-list");
-      return list ? getComputedStyle(list).position : null;
-    })(),
-    listRect: (() => {
-      const list = panel && panel.querySelector(".foliplus-filter-enum-list");
-      if (!list) return null;
-      const rect = list.getBoundingClientRect();
-      return {
-        top: Math.round(rect.top),
-        bottom: Math.round(rect.bottom),
-        left: Math.round(rect.left),
-        right: Math.round(rect.right),
-      };
-    })(),
+    allOptionsHitTestable: options.every(hitTest),
+    selectRect: select
+      ? (() => {
+          const rect = select.getBoundingClientRect();
+          return {
+            top: Math.round(rect.top),
+            bottom: Math.round(rect.bottom),
+            left: Math.round(rect.left),
+            right: Math.round(rect.right),
+          };
+        })()
+      : null,
     panelRect: panel
       ? (() => {
           const rect = panel.getBoundingClientRect();
@@ -82,6 +62,9 @@
         })()
       : null,
     viewport: { width: window.innerWidth, height: window.innerHeight },
+    scroll: select
+      ? { client: select.clientHeight, scroll: select.scrollHeight }
+      : null,
     columnOpen: row
       ? Array.from(row.querySelectorAll(".foliplus-layer-count")).map(cell =>
           cell.textContent.trim(),
