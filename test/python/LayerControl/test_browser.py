@@ -536,6 +536,37 @@ class TestLayerControlBrowser:
             assert declared["opaque"] > collided["opaque"] * 1.15, (
                 f"declared collide=false did not keep the second label: {declared} vs {collided}"
             )
+
+            # The style panel's own "Avoid overlap" switch reads the merged
+            # config: unchecked while collide is declared false, flipping it
+            # writes the user's true, repaints, and persists across a reload.
+            toggled = page.evaluate(_js("LayerControl/annotation_collide_toggle"), True)
+            assert toggled and not toggled.get("error"), toggled
+            assert toggled["declared"]["checked"] is False, toggled["declared"]
+            assert toggled["declared"]["cfg"]["collide"] is False, toggled["declared"]
+            assert toggled["flipped"]["checked"] is True, toggled["flipped"]
+            assert toggled["flipped"]["cfg"]["collide"] is True, toggled["flipped"]
+            assert (
+                toggled["declared"]["opaque"] > toggled["flipped"]["opaque"] * 1.15
+            ), toggled
+            assert toggled["stored"] and "collide" in toggled["stored"], (
+                f"the toggle change did not persist: {toggled['stored']}"
+            )
+
+            page.reload(wait_until="load")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl", state="attached", timeout=10000
+            )
+            assert page.evaluate(_js("LayerControl/open_panel")), "panel did not reopen"
+            page.wait_for_selector(
+                ".foliplus-layer-item", state="attached", timeout=5000
+            )
+            page.wait_for_timeout(300)
+            after = page.evaluate(_js("LayerControl/annotation_collide_toggle"), False)
+            assert after and not after.get("error"), after
+            assert after["declared"]["checked"] is True, after["declared"]
+            assert after["declared"]["cfg"]["collide"] is True, after["declared"]
+
             assert not errors, f"JS errors: {errors}"
 
     def test_annotation_click_through(self, browser, tmp_path):
