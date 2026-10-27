@@ -2886,8 +2886,8 @@ describe("fill row — per-feature state", () => {
     expect(select.querySelector('option[value="feature"]')).toBeNull();
   });
 
-  it("choosing solid records the intent, drops the option and binds the swatch", () => {
-    const { ui } = initWithPerFeatureLayer();
+  it("choosing solid takes the paint over and binds the swatch", () => {
+    const { ui, layer } = initWithPerFeatureLayer();
     const row = buildFillRow(ui, "feature1");
     document.body.append(row);
     bindFillRow(ui, "feature1", row);
@@ -2895,12 +2895,24 @@ describe("fill row — per-feature state", () => {
 
     select.value = "solid";
     select.dispatchEvent(new Event("change", { bubbles: true }));
+    flushStyleDimApply(FACE.FILL, "feature1");
 
     expect(getIntent(ui, "feature1", "fillMode")).toBe("solid");
     expect(select.querySelector('option[value="feature"]')).toBeNull();
     expect(
       row.querySelector(`.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`),
     ).not.toBeNull();
+    // The choice must also reach the map: seeded from the swatch base, so the
+    // row and the paint agree instead of claiming one colour for many.
+    expect(getIntent(ui, "feature1", "fillColor")).toBe("#0d0887");
+    expect(layer.leaves[0].setStyle).toHaveBeenLastCalledWith({
+      fillColor: "#0d0887",
+      fill: true,
+    });
+    expect(layer.leaves[1].setStyle).toHaveBeenLastCalledWith({
+      fillColor: "#0d0887",
+      fill: true,
+    });
   });
 
   it("reset restores every leaf's own author colour and the detected state", () => {

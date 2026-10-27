@@ -97,7 +97,8 @@ def test_numeric_column_is_tagged_numeric():
 
     assert field["kind"] == "numeric"
     # Keys are the normalized value strings: an integer column keys "1"/"2",
-    # never "1.0"/"2.0" — task-51/task-53 read this mapping verbatim.
+    # never "1.0"/"2.0". A float column keeps its float repr ("1.0"): the key
+    # is str(value), not a dtype-aware cast — task-51/task-53 read it verbatim.
     assert field["mapping"] == {"1": "#0d0887", "2": "#f0f921"}
 
 

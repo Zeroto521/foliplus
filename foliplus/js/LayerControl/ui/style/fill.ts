@@ -806,13 +806,33 @@ const bindFillRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => {
   ) as HTMLElement;
 
   select.onchange = () => {
-    // "feature" is disabled, so every reachable value is an override. The
-    // write records the user's choice; the option goes away immediately, the
-    // same way the next panel build would drop it, so the row cannot offer a
-    // state the layer no longer paints.
+    // "feature" is detected, not chosen: the browser has already moved the
+    // select's value to the picked arm by the time the change event fires, so
+    // the row is leaving the detected state exactly when its read-only option
+    // is still present — remember that before the option goes away.
+    const fromFeature = select.querySelector('option[value="feature"]') !== null;
+    // Every reachable value is an override. The write records the user's
+    // choice; the option goes away immediately, the same way the next panel
+    // build would drop it, so the row cannot offer a state the layer no
+    // longer paints.
     const next: FillMode = select.value === "ramp" ? "ramp" : "solid";
     select.querySelector('option[value="feature"]')?.remove();
     writeFillMode(ui, layerId, next);
+    // Leaving the per-feature state must repaint. A mode write alone paints
+    // nothing: the solid arm only touches leaves that already carry an
+    // override or a captured bag, and an explore layer has neither, so the
+    // map would keep its per-feature colours while the row claims solid.
+    // Seed the swatch's base colour so choosing solid actually takes the
+    // fill over; a ramp -> solid switch needs no seed because the apply
+    // restores the captured author bag itself.
+    if (
+      fromFeature &&
+      next === "solid" &&
+      getIntent(ui, layerId, INTENT.FILL_COLOR) === undefined &&
+      getIntent(ui, layerId, INTENT.FILL_OPACITY) === undefined
+    ) {
+      commitFillColor(ui, layerId, styleBaseOf(ui, layerId).fillColor);
+    }
     renderFillDetail(ui, layerId, detail, next);
     bindFillDetail(ui, layerId, detail, next);
   };

@@ -142,6 +142,11 @@ class TestFillAuthorBrowser:
             assert solid["mode"] == "solid", solid
             assert solid["featureAvailable"] is False, solid
             assert solid["hasSwatch"] is True, solid
+            # The take-over must reach the map: one colour now, seeded from
+            # the swatch base (the first areal leaf's author colour).
+            assert solid["fills"] == ["#0d0887"], (
+                f"choosing solid did not paint one colour: {solid}"
+            )
 
             # Reset returns the author's per-feature paint and the read-only
             # state, with the map back to its own colour per feature.
