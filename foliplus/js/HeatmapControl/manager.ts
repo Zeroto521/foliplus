@@ -734,10 +734,18 @@ class HeatmapManager {
   collectFields(layers: Array<{ id: string }>): string[] {
     const fields: string[] = [];
     const seen = new Set<string>();
+    const api = map.foliplus!.LayerAPI!;
+    // forEachPoint is the lazy twin of extractPoints: the scan only reads
+    // markers, so it must not allocate a {lat, lng, marker} per point (or
+    // call getLatLng) just to drop the coordinates again. An older common
+    // bundle (or a test stub) may not expose it yet — fall back to the
+    // extracting form there, keeping the scan correct if slower.
+    const eachPoint = (id: string, fn: (marker: L.Marker | L.CircleMarker) => void) => {
+      if (api.forEachPoint) api.forEachPoint(id, fn);
+      else api.extractPoints(id).forEach(pt => fn(pt.marker));
+    };
     layers.forEach(info => {
-      map.foliplus!.LayerAPI!.extractPoints(info.id).forEach(pt => {
-        const marker = pt.marker;
-        if (!marker) return;
+      eachPoint(info.id, marker => {
         const extended = marker as HeatmapPointMarker;
         if (typeof extended.value === "number" && !seen.has("value")) {
           seen.add("value");
@@ -749,12 +757,18 @@ class HeatmapManager {
         }
         const props = marker.feature?.properties;
         if (!props) return;
-        Object.keys(props).forEach(fieldName => {
+        // `feature.properties` is the JSON-deserialized GeoJSON payload: a
+        // plain object whose prototype has no enumerable keys, so `for...in`
+        // visits exactly the own keys Object.keys would allocate an array for.
+        // (A non-JSON carrier that injected enumerable prototype keys would
+        // widen this — the field scan is fed by the GeoJSON reader, not by
+        // arbitrary objects.)
+        for (const fieldName in props) {
           if (typeof props[fieldName] === "number" && !seen.has(fieldName)) {
             seen.add(fieldName);
             fields.push(fieldName);
           }
-        });
+        }
       });
     });
     return fields;

@@ -247,12 +247,23 @@ describe("HeatmapManager — caching & lifecycle", () => {
     expect(m.resolveLabelStyle().font).toContain("18px");
   });
 
+  /** Stub the lazy point traversal the field scan reads. `forEachPoint` is
+   *  the extractPoints twin that hands the marker to the callback without
+   *  building coordinates, so the tests feed markers directly. */
+  const mockMarkers = (...markers: Array<Record<string, unknown>>) => {
+    window.map.foliplus.LayerAPI.forEachPoint = vi.fn(
+      (_id: string, fn: (marker: unknown) => void) => {
+        markers.forEach(marker => fn(marker));
+      },
+    );
+  };
+
   it("collectFields gathers numeric properties once", () => {
     const m = makeManager();
-    window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
-      { marker: { feature: { properties: { price: 1, name: "x" } } } },
-      { marker: { feature: { properties: { price: 2 } } } },
-    ]);
+    mockMarkers(
+      { feature: { properties: { price: 1, name: "x" } } },
+      { feature: { properties: { price: 2 } } },
+    );
     const fields = m.collectFields([{ id: "a" }, { id: "b" }]);
     expect(fields).toContain("price");
     expect(fields).not.toContain("name");
@@ -261,9 +272,7 @@ describe("HeatmapManager — caching & lifecycle", () => {
 
   it("collectFields enumerates numeric value on extended marker", () => {
     const m = makeManager();
-    window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
-      { marker: { value: 42, feature: { properties: { price: 1 } } } },
-    ]);
+    mockMarkers({ value: 42, feature: { properties: { price: 1 } } });
     const fields = m.collectFields([{ id: "a" }]);
     expect(fields).toContain("value");
     expect(fields).toContain("price");
@@ -271,24 +280,18 @@ describe("HeatmapManager — caching & lifecycle", () => {
 
   it("collectFields enumerates numeric options.value on extended marker", () => {
     const m = makeManager();
-    window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
-      { marker: { options: { value: 99 }, feature: { properties: {} } } },
-    ]);
+    mockMarkers({ options: { value: 99 }, feature: { properties: {} } });
     const fields = m.collectFields([{ id: "a" }]);
     expect(fields).toContain("options.value");
   });
 
   it("collectFields skips non-numeric value and options.value", () => {
     const m = makeManager();
-    window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
-      {
-        marker: {
-          value: "not-a-number",
-          options: { value: undefined },
-          feature: { properties: { price: 1 } },
-        },
-      },
-    ]);
+    mockMarkers({
+      value: "not-a-number",
+      options: { value: undefined },
+      feature: { properties: { price: 1 } },
+    });
     const fields = m.collectFields([{ id: "a" }]);
     expect(fields).not.toContain("value");
     expect(fields).not.toContain("options.value");
@@ -297,30 +300,36 @@ describe("HeatmapManager — caching & lifecycle", () => {
 
   it("collectFields deduplicates value and options.value across markers", () => {
     const m = makeManager();
-    window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
-      { marker: { value: 1, feature: { properties: {} } } },
-      { marker: { value: 2, options: { value: 3 }, feature: { properties: {} } } },
-    ]);
+    mockMarkers(
+      { value: 1, feature: { properties: {} } },
+      { value: 2, options: { value: 3 }, feature: { properties: {} } },
+    );
     const fields = m.collectFields([{ id: "a" }]);
     expect(fields.filter(f => f === "value")).toHaveLength(1);
     expect(fields.filter(f => f === "options.value")).toHaveLength(1);
   });
 
-  it("collectFields skips markers with no marker object", () => {
+  it("collectFields falls back to extractPoints on a LayerAPI without forEachPoint", () => {
+    // A component bundle can pair with an older common runtime: the scan must
+    // stay correct (just slower) when the lazy traversal is absent.
     const m = makeManager();
+    window.map.foliplus.LayerAPI.forEachPoint = undefined;
     window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
-      { marker: null },
-      { marker: { feature: { properties: { price: 1 } } } },
+      { lat: 0, lng: 0, marker: { feature: { properties: { price: 3 } } } },
     ]);
-    const fields = m.collectFields([{ id: "a" }]);
-    expect(fields).toContain("price");
+    expect(m.collectFields([{ id: "a" }])).toContain("price");
+  });
+
+  it("collectFields walks every listed layer through the lazy point traversal", () => {
+    const m = makeManager();
+    mockMarkers({ feature: { properties: { price: 1 } } });
+    m.collectFields([{ id: "a" }, { id: "b" }]);
+    expect(window.map.foliplus.LayerAPI.forEachPoint).toHaveBeenCalledTimes(2);
   });
 
   it("collectFields still enumerates value when feature.properties is absent", () => {
     const m = makeManager();
-    window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
-      { marker: { value: 7 } },
-    ]);
+    mockMarkers({ value: 7 });
     const fields = m.collectFields([{ id: "a" }]);
     expect(fields).toContain("value");
   });
