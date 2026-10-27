@@ -6,9 +6,7 @@
   styleOpen: !!document.querySelector(".foliplus-layer-style-panel"),
   attrsOpen: !!document.querySelector(".foliplus-layer-attrs-panel"),
   renameInput: !!document.querySelector(".foliplus-layer-rename-input"),
-  deleteArmed: !!document.querySelector(
-    ".foliplus-layer-more-menu-delete-armed",
-  ),
+  deleteArmed: !!document.querySelector(".foliplus-layer-more-menu-delete-armed"),
   menuOpen: !!document.querySelector(".foliplus-layer-more-menu.open"),
   rows: document.querySelectorAll(".foliplus-layer-item[data-layer-type=overlay]")
     .length,
