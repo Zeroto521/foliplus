@@ -440,18 +440,19 @@ SHARED: ControlSchema = {
 }
 
 # ── Runtime-only fields (JS declares but Python never emits) ─────────────
-# Currently both are declared in global.d.ts but never read from CONFIG by
-# production JS — they are dead declarations kept for forward compatibility.
-# Marking them here means the schema is a complete contract surface and the
-# vitest fixture knows they can appear on CONFIG without Python emitting them.
+# `background` is declared in global.d.ts but never read from CONFIG by
+# production JS — a dead declaration kept for forward compatibility.
+# Marking it here means the schema is a complete contract surface and the
+# vitest fixture knows it can appear on CONFIG without Python emitting it.
+#
+# `field` used to live here (the per-layer annotation field, which JS reads
+# from `layer.options.foliplus`, never from CONFIG). HeatmapControl now
+# declares its own `field` aggregation parameter, so the flat ComponentConfig
+# gets the heatmap meaning and the runtime-only entry would contradict
+# "Python never emits it". The annotation field needs no CONFIG declaration:
+# it never crosses the Python bridge.
 
 RUNTIME_ONLY: ControlSchema = {
-    "field": FieldSpec(
-        "string",
-        optional=True,
-        runtime_only=True,
-        note="Annotation field name (JS reads per-layer config, not CONFIG).",
-    ),
     "background": FieldSpec(
         "string",
         optional=True,

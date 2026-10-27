@@ -48,15 +48,19 @@ interface ConfigFullscreen extends ConfigCommon {
 }
 
 interface ConfigHeatmap extends ConfigCommon {
-  color_scheme: string;
+  /** Point layer name selected on first load; a persisted user selection wins. */
+  layer: string | null;
+  agg: "count" | "sum" | "avg" | "min" | "max";
+  /** Aggregation field selected on first load; a persisted user selection wins. */
+  field: string | null;
   method: "jenks" | "quantile" | "equal" | "heads";
   num_classes: number;
-  agg: "count" | "sum" | "avg" | "min" | "max";
+  color_scheme: string;
   schemes: string[]; // Available color scheme names.
-  border_weight: number;
   border_color: string;
-  fill_opacity: number;
+  border_weight: number;
   border_opacity: number;
+  fill_opacity: number;
   label_show: boolean;
   label_color: string;
   label_size: number;
@@ -99,8 +103,6 @@ interface ConfigSearch extends ConfigCommon {
 }
 
 interface ConfigRuntimeOnly {
-  /** Annotation field name (JS reads per-layer config, not CONFIG). */
-  field?: string;
   background?: string; // Export background color (currently declared but unread).
 }
 
@@ -118,15 +120,19 @@ interface ComponentConfig {
   timeout?: number;
   hide_self?: boolean;
   hide_others?: boolean;
-  color_scheme?: string;
+  /** Point layer name selected on first load; a persisted user selection wins. */
+  layer?: string | null;
+  agg?: "count" | "sum" | "avg" | "min" | "max";
+  /** Aggregation field selected on first load; a persisted user selection wins. */
+  field?: string | null;
   method?: "jenks" | "quantile" | "equal" | "heads";
   num_classes?: number;
-  agg?: "count" | "sum" | "avg" | "min" | "max";
+  color_scheme?: string;
   schemes?: string[]; // Available color scheme names.
-  border_weight?: number;
   border_color?: string;
-  fill_opacity?: number;
+  border_weight?: number;
   border_opacity?: number;
+  fill_opacity?: number;
   label_show?: boolean;
   label_color?: string;
   label_size?: number;
@@ -144,8 +150,6 @@ interface ComponentConfig {
   provider?: string | ProviderConfig; // Built-in provider id or a custom ProviderConfig dict.
   /** Overrides for a built-in provider; only valid with a string provider. */
   provider_config?: ProviderConfig | null;
-  /** Annotation field name (JS reads per-layer config, not CONFIG). */
-  field?: string;
   background?: string; // Export background color (currently declared but unread).
   /** Escape hatch for truly dynamic keys not in the schema. */
   [key: string]: unknown;

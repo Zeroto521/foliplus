@@ -335,6 +335,15 @@ const buildLayerListItems = (ctrl: HeatmapControlUI, sel: HTMLSelectElement) => 
     dom.el("option", { value: info.id, parent: sel }, info.name);
   });
 
+  // Python declaration: `HeatmapControl(layer=...)` names the point layer to
+  // start on. resolveDeclaredLayer answers null once a persisted record has
+  // consumed the hasScanned guard, so the user's earlier choice (or explicit
+  // clear) wins over the declaration.
+  if (!ctrl.mgr.selectedLayerId) {
+    const declaredId = ctrl.mgr.resolveDeclaredLayer();
+    if (declaredId) ctrl.mgr.selectedLayerId = declaredId;
+  }
+
   // Auto-select a single point layer only on the very first scan, so the
   // initial map load shows its heatmap without user input.  Rebuilds
   // triggered later (zoomend, layeradd/layerremove, map reload) must not
@@ -353,6 +362,14 @@ const buildLayerListItems = (ctrl: HeatmapControlUI, sel: HTMLSelectElement) => 
     // Restored selection (localStorage / rebuild): resolve and persist the
     // field first so syncSourceMeta reads a concrete name.
     updateFieldSelector(ctrl);
+    // A rebuild can be the only thing that re-applies a selection after the
+    // canvas was wiped — Clear deletes the record, then reopening the panel
+    // rebuilds the dropdown and the Python declaration selects the layer
+    // again. The selection alone is not enough: without a cache the panel
+    // would claim a source while the map stayed empty until the user nudged
+    // a control, so draw once here (initScan's own restore pass then sees the
+    // cache and skips its duplicate draw).
+    if (!ctrl.mgr.cachedFeatures) ctrl.mgr.renderHexagons();
   }
 
   // Selection (automatic, restored, or user) and field resolution are settled
@@ -417,7 +434,13 @@ const updateFieldSelector = (ctrl: HeatmapControlUI) => {
   // still aggregates by the stale value — every cell then falls back to 1.
   if (fields.length === 0) {
     setValueAggregationsEnabled(ctrl, false);
-    if (ctrl.mgr.agg !== CONST.AGG.COUNT) {
+    // Only a SELECTED source can prove it has no numeric field. Before the
+    // first scan (no layer yet) the field list is empty for a different
+    // reason, and rewriting the aggregation here would (a) discard the
+    // Python-declared agg before its layer is known and (b) persist an
+    // empty-selection record that consumes the hasScanned guard — so the
+    // next reload would skip the declaration entirely.
+    if (ctrl.mgr.selectedLayerId && ctrl.mgr.agg !== CONST.AGG.COUNT) {
       ctrl.mgr.agg = CONST.AGG.COUNT;
       syncSelect(ctrl, ctrl.aggSelect, CONST.AGG.COUNT);
       ctrl.mgr.saveConfig();
@@ -429,10 +452,21 @@ const updateFieldSelector = (ctrl: HeatmapControlUI) => {
 
   setValueAggregationsEnabled(ctrl, true);
 
+  // Python declaration: `HeatmapControl(field=...)` names the aggregation
+  // field to start on. Seed it before the COUNT branch so the hidden select
+  // already points at it, and before resolveField so a value aggregation
+  // keeps it. resolveDeclaredField answers null once a persisted record has
+  // consumed the hasScanned guard, so the user's own choice wins.
+  if (!ctrl.mgr.field) {
+    const declaredField = ctrl.mgr.resolveDeclaredField(fields);
+    if (declaredField) ctrl.mgr.field = declaredField;
+  }
+
   if (ctrl.mgr.agg === CONST.AGG.COUNT) {
     // COUNT needs no field; the row appears once a value aggregation is picked.
-    // Keep the hidden select on a valid option rather than the empty string.
-    rebuildFieldOptions(ctrl, fields, fields[0]);
+    // Keep the hidden select on a valid option rather than the empty string —
+    // a declared field stays selected so switching aggregation keeps it.
+    rebuildFieldOptions(ctrl, fields, ctrl.mgr.field || fields[0]);
     ctrl.fieldWrap.classList.add(CONST.CLASSES.HIDDEN);
     return;
   }
