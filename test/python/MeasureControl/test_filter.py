@@ -10,151 +10,27 @@ from __future__ import annotations
 
 import json
 
-from conftest import use_page
+from conftest import _js, use_page
 
 from .helper import _make_page
 
-DRAW_ALL = r"""
-() => {
-  const mm = window.__measureManager;
-  const map = window.__map;
-  const click = p => map.fire("click", { latlng: L.latLng(p[0], p[1]) });
-  mm.setMode("distance");
-  click([26.08, 119.30]); click([26.09, 119.31]);
-  map.fire("contextmenu", { latlng: L.latLng(26.09, 119.31) });
-  mm.setMode("polygon");
-  click([26.07, 119.30]); click([26.08, 119.31]); click([26.06, 119.32]);
-  map.fire("contextmenu", { latlng: L.latLng(26.06, 119.32) });
-  mm.setMode("circle");
-  click([26.05, 119.30]); click([26.05, 119.315]);
-  mm.setMode("marker");
-  click([26.04, 119.30]);
-  mm.setMode(null);
-  return true;
-}
-"""
+DRAW_ALL = _js("MeasureControl/draw_all")
 
-DRAW_HIDDEN_TYPES = r"""
-() => {
-  const mm = window.__measureManager;
-  const map = window.__map;
-  const click = p => map.fire("click", { latlng: L.latLng(p[0], p[1]) });
-  mm.setMode("polygon");
-  click([26.03, 119.30]); click([26.04, 119.31]); click([26.02, 119.32]);
-  map.fire("contextmenu", { latlng: L.latLng(26.02, 119.32) });
-  mm.setMode("marker");
-  click([26.01, 119.30]);
-  mm.setMode(null);
-  return mm.measurements.map(m => m.type);
-}
-"""
+DRAW_HIDDEN_TYPES = _js("MeasureControl/draw_hidden_types")
 
-OPEN_FILTER = r"""
-() => {
-  const row = document.querySelector('.foliplus-layer-item[data-layer-id="foliplus_measure"]');
-  if (!row) return { ok: false, reason: "no-row" };
-  row.querySelector(".foliplus-layer-more-btn").click();
-  const item = row.querySelector('.foliplus-layer-more-menu li[data-action="filter-layer"]');
-  if (!item) return { ok: false, reason: "no-filter-entry" };
-  item.click();
-  return { ok: true };
-}
-"""
+OPEN_FILTER = _js("MeasureControl/open_filter")
 
-SET_VALUES = r"""
-(values) => {
-  const details = document.querySelector(".foliplus-filter-enum");
-  const summary = document.querySelector(".foliplus-filter-enum-trigger");
-  if (!details || !summary) return { ok: false, reason: "no-disclosure" };
-  if (!details.open) summary.click();
-  // Re-query after every click: a filter write can rebuild the row/panel, so a
-  // stale NodeList would dispatch on detached nodes.
-  const valuesNow = () =>
-    Array.from(
-      document.querySelectorAll(
-        ".foliplus-filter-enum-option input[data-value]",
-      ),
-    ).map(box => box.dataset.value);
-  for (const value of valuesNow()) {
-    const box = document.querySelector(
-      '.foliplus-filter-enum-option input[data-value="' + value + '"]',
-    );
-    if (box && box.checked !== values.includes(value)) box.click();
-  }
-  const current = document.querySelector(".foliplus-filter-enum");
-  if (current) current.open = false;
-  return { ok: true };
-}
-"""
+SET_VALUES = _js("MeasureControl/set_filter_values")
 
-CLEAR = r"""
-() => {
-  const clear = document.querySelector(".foliplus-filter-clear");
-  if (!clear || clear.disabled) return false;
-  clear.click();
-  return true;
-}
-"""
+CLEAR = _js("MeasureControl/clear_filter")
 
-READ_STATE = r"""
-() => {
-  const mm = window.__measureManager;
-  const row = document.querySelector(
-    '.foliplus-layer-item[data-layer-id="foliplus_measure"]');
-  const count = row ? row.querySelector(".foliplus-layer-count") : null;
-  const result = document.querySelector(".foliplus-filter-result");
-  const disclosure = document.querySelector(".foliplus-filter-enum");
-  const summary = document.querySelector(".foliplus-filter-enum-trigger");
-  return {
-    stored: mm.measurements.map(m => m.type),
-    visible: mm.visibleMeasurements().map(m => m.type),
-    filter: mm.measureFilter || null,
-    options: Array.from(
-      document.querySelectorAll(
-        ".foliplus-filter-enum-option input[data-value]",
-      ),
-    ).map(box => box.dataset.value),
-    summary: summary ? summary.textContent : null,
-    detailsOpen: disclosure ? disclosure.open : null,
-    count: count ? count.textContent.trim() : null,
-    result: result ? result.textContent : null,
-    paths: document.querySelectorAll(".foliplus-measure-path").length,
-    labels: document.querySelectorAll(".foliplus-measure-label").length,
-    dots: document.querySelectorAll(
-      ".foliplus-measure-node, .foliplus-dot").length,
-  };
-}
-"""
+READ_STATE = _js("MeasureControl/read_state")
 
-EXPAND_LAYERS = r"""
-() => {
-  const ctrl = document.querySelector(".foliplus-layer-ctrl");
-  if (!ctrl.classList.contains("foliplus-is-expanded")) {
-    ctrl.querySelector(".foliplus-toggle-btn").click();
-  }
-  return true;
-}
-"""
+EXPAND_LAYERS = _js("MeasureControl/expand_layers")
 
-EXPAND_MEASURE = r"""
-() => {
-  const ctrl = document.querySelector(".foliplus-measure-ctrl");
-  if (!ctrl.classList.contains("foliplus-is-expanded")) {
-    ctrl.querySelector(".foliplus-toggle-btn").click();
-  }
-  return true;
-}
-"""
+EXPAND_MEASURE = _js("MeasureControl/expand_measure")
 
-CLICK_EXPORT = r"""
-() => {
-  const btn = document.querySelector(
-    ".foliplus-measure-ctrl .foliplus-tool-btn:not([data-mode])");
-  if (!btn) return false;
-  btn.click();
-  return true;
-}
-"""
+CLICK_EXPORT = _js("MeasureControl/click_export")
 
 TYPES = ["distance", "polygon", "circle", "marker"]
 
@@ -298,15 +174,7 @@ class TestMeasureTypeFilterBrowser:
             assert _counts(cleared) == _counts(baseline), (cleared, baseline)
 
             # A stale condition from an older record must read as no filter.
-            page.evaluate(
-                """() => {
-                  const mm = window.__measureManager;
-                  localStorage.setItem(mm.filterStorageKey, JSON.stringify({
-                    version: 1,
-                    filter: { kind: "enum", field: "type", values: ["bogus"] },
-                  }));
-                }"""
-            )
+            page.evaluate(_js("MeasureControl/seed_stale_filter"))
             page.reload()
             page.wait_for_selector(
                 ".foliplus-measure-ctrl", state="attached", timeout=10000
@@ -468,48 +336,10 @@ class TestMeasureTypeFilterBrowser:
             assert not errors, f"JS errors: {errors}"
 
 
-DRAW_MARKER = r"""
-() => {
-  const mm = window.__measureManager;
-  const map = window.__map;
-  const click = p => map.fire("click", { latlng: L.latLng(p[0], p[1]) });
-  mm.setMode("marker");
-  click([26.04, 119.30]);
-  mm.setMode(null);
-  return mm.measurements.map(m => m.type);
-}
-"""
+DRAW_MARKER = _js("MeasureControl/draw_marker")
 
-DRAW_DISTANCE = r"""
-() => {
-  const mm = window.__measureManager;
-  const map = window.__map;
-  const click = p => map.fire("click", { latlng: L.latLng(p[0], p[1]) });
-  mm.setMode("distance");
-  click([26.08, 119.30]); click([26.09, 119.31]);
-  map.fire("contextmenu", { latlng: L.latLng(26.09, 119.31) });
-  mm.setMode(null);
-  return mm.measurements.map(m => m.type);
-}
-"""
+DRAW_DISTANCE = _js("MeasureControl/draw_distance_for_filter")
 
-CLEAR_MEASUREMENTS = r"""
-() => {
-  const mm = window.__measureManager;
-  mm.setMode("clear");
-  return mm.measurements.map(m => m.type);
-}
-"""
+CLEAR_MEASUREMENTS = _js("MeasureControl/clear_measurements")
 
-DELETE_FIRST = r"""
-(type) => {
-  const mm = window.__measureManager;
-  const item = mm.measurements.find(m => m.type === type);
-  if (!item) return null;
-  if (!item.id) item.id = mm.nextMeasurementId(item.type);
-  mm.store.remove(item.id);
-  mm.applyFilterVisibility();
-  mm.store.emitCount();
-  return mm.measurements.map(m => m.type);
-}
-"""
+DELETE_FIRST = _js("MeasureControl/delete_first_type")
