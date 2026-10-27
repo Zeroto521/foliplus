@@ -1000,6 +1000,116 @@ class TestLayerControlBrowser:
                 )
             assert not errors, f"JS errors: {errors}"
 
+    def test_menu_item_activation_keys_run_their_own_action(self, browser, tmp_path):
+        """Enter/Space on a ⋮ menu entry runs that entry's action.
+
+        Regression: the keyboard handler knew three of the six actions and sent
+        Style, Attributes and Filter to focus-layer, so those entries showed the
+        "layer has no geographic extent" hint instead of opening the panel,
+        while a click on the same entry worked. The entry is an
+        <li tabindex=0>, so Chromium performs no native activation for it and
+        the keydown path is the only thing that can dispatch the action — one
+        real key press proves the whole chain. Mouse and keyboard are compared on
+        the same entries, then each surface is reached through both activation
+        keys, and the two-step delete is exercised from both inputs.
+        """
+        first = folium.GeoJson(_geo_mixed, name="Point layer A")
+        second = folium.GeoJson(_geo_mixed, name="Point layer B")
+        with use_page(
+            self._make_page, browser, tmp_path, first, second, slug="menu_item_keys"
+        ) as (page, errors):
+            panel_ready(page)
+            page.evaluate(_js("LayerControl/open_panel"))
+            page.wait_for_selector(
+                ".foliplus-layer-item[data-layer-type=overlay]",
+                state="attached",
+                timeout=5000,
+            )
+
+            def arm(action: str, row_index: int = 0) -> dict:
+                state = page.evaluate(
+                    _js("LayerControl/menu_keyboard_arm"),
+                    {"action": action, "rowIndex": row_index},
+                )
+                assert state.get("error") is None, f"{action}: arm failed: {state}"
+                assert state["menuOpen"], f"{action}: menu did not open: {state}"
+                assert state["focused"], f"{action}: entry did not take focus: {state}"
+                assert not state["disabled"], f"{action}: entry is disabled: {state}"
+                return state
+
+            def read() -> dict:
+                return page.evaluate(_js("LayerControl/menu_keyboard_read"))
+
+            style_entry = '.foliplus-layer-more-menu li[data-action="style-layer"]'
+            attrs_entry = '.foliplus-layer-more-menu li[data-action="layer-attributes"]'
+            delete_entry = '.foliplus-layer-more-menu li[data-action="delete-layer"]'
+
+            # Mouse baseline: each entry opens its own panel from a click, so
+            # the keyboard cases below can assert identical outcomes.
+            arm("style-layer")
+            page.click(style_entry)
+            state = read()
+            assert state["styleOpen"] and not state["menuOpen"], (
+                f"mouse click on Style did not open the panel: {state}"
+            )
+
+            arm("layer-attributes")
+            page.click(attrs_entry)
+            state = read()
+            assert state["attrsOpen"] and not state["menuOpen"], (
+                f"mouse click on Attributes did not open the panel: {state}"
+            )
+
+            # Keyboard: the entry runs its own action, never focus-layer.
+            for action, key, probe in (
+                ("style-layer", "Enter", "styleOpen"),
+                ("style-layer", "Space", "styleOpen"),
+                ("layer-attributes", "Enter", "attrsOpen"),
+                ("layer-attributes", "Space", "attrsOpen"),
+            ):
+                arm(action)
+                page.keyboard.press(key)
+                state = read()
+                assert state[probe] is True, f"{key} on {action}: panel closed: {state}"
+                assert state["menuOpen"] is False, (
+                    f"{key} on {action}: menu stayed open: {state}"
+                )
+
+            # Keyboard rename opens the inline editor and closes the menu.
+            arm("rename-layer")
+            page.keyboard.press("Enter")
+            state = read()
+            assert state["renameInput"] is True, f"Enter on Rename: no input: {state}"
+            assert state["menuOpen"] is False, f"Enter on Rename: menu open: {state}"
+            # Escape finishes the rename and returns focus to the row.
+            page.keyboard.press("Escape")
+
+            # Keyboard delete keeps the two-step arm/confirm contract.
+            before = read()["rows"]
+            arm("delete-layer")
+            page.keyboard.press("Enter")
+            state = read()
+            assert state["deleteArmed"] is True, f"Enter on Delete: not armed: {state}"
+            assert state["menuOpen"] is True, f"Enter on Delete: menu closed: {state}"
+            page.keyboard.press("Enter")
+            state = read()
+            assert state["menuOpen"] is False, f"Enter on Delete: menu open: {state}"
+            assert state["rows"] == before - 1, f"Enter on Delete: row kept: {state}"
+
+            # Mouse delete on the remaining row follows the same two steps.
+            before = state["rows"]
+            arm("delete-layer")
+            page.click(delete_entry)
+            state = read()
+            assert state["deleteArmed"] is True, f"click on Delete: not armed: {state}"
+            assert state["menuOpen"] is True, f"click on Delete: menu closed: {state}"
+            page.click(delete_entry)
+            state = read()
+            assert state["menuOpen"] is False, f"click on Delete: menu open: {state}"
+            assert state["rows"] == before - 1, f"click on Delete: row kept: {state}"
+
+            assert not errors, f"JS errors: {errors}"
+
     def test_style_fill_color_keeps_native_activation_keys(self, browser, tmp_path):
         """Space/Enter on a style panel's Fill Color picker stay native.
 
