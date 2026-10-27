@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import numbers
 from typing import Annotated, Any
 
 from branca.element import Element
@@ -50,7 +49,7 @@ def _fill_author_fields(
             if isinstance(value, bool) or not isinstance(value, (str, int, float)):
                 ok = False
                 break
-            if not isinstance(value, numbers.Real):
+            if not isinstance(value, (int, float)):
                 numeric = False
             key = str(value)
             seen = mapping.get(key)

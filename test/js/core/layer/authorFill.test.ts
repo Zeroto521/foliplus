@@ -51,6 +51,13 @@ describe("readFeatureFillColors", () => {
     expect([...snapshot.values()]).toEqual(["#0d0887", null, null]);
   });
 
+  it("treats a blank colour as no colour", () => {
+    const snapshot = readFeatureFillColors(
+      makeLayer([makeLeaf({ __folium_color: "  " })]),
+    );
+
+    expect([...snapshot.values()]).toEqual([null]);
+  });
   it("returns an empty snapshot for a layer without areal leaves", () => {
     expect(readFeatureFillColors(makeLayer([])).size).toBe(0);
   });

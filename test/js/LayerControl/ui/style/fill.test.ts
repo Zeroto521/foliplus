@@ -2926,4 +2926,39 @@ describe("fill row — per-feature state", () => {
     });
     expect(modeSelect(buildFillRow(ui, "feature1")).value).toBe("feature");
   });
+
+  it("reset falls back to the leaf bag when a feature lost the property", () => {
+    const { ui, layer } = initWithPerFeatureLayer();
+    commitNow(ui, "feature1", "color", "#ff0000");
+    // A feature the author left uncoloured: the lazy read reports null for it,
+    // so reset restores that leaf captured bag rather than a neighbour colour.
+    delete (layer.leaves[1].feature as { properties?: unknown }).properties;
+
+    resetLayerFill(ui, "feature1");
+
+    expect(layer.leaves[0].setStyle).toHaveBeenLastCalledWith({
+      fillColor: "#0d0887",
+      fillOpacity: 0.5,
+      fill: true,
+    });
+    expect(layer.leaves[1].setStyle).toHaveBeenLastCalledWith({
+      fillColor: "#f0f921",
+      fillOpacity: 0.5,
+      fill: true,
+    });
+  });
+
+  it("reset falls back to the fill defaults when no bag was captured", () => {
+    // No prior write captured a style bag, so the author replay has to fall
+    // back to the shared fill defaults rather than read stale options.
+    const { ui, layer } = initWithPerFeatureLayer();
+
+    resetLayerFill(ui, "feature1");
+
+    expect(layer.leaves[0].setStyle).toHaveBeenLastCalledWith({
+      fillColor: "#0d0887",
+      fillOpacity: 0.2,
+      fill: true,
+    });
+  });
 });
