@@ -2654,6 +2654,19 @@ describe("declared starting layer/field (Python layer=/field=)", () => {
     expect(String(warn.mock.calls[0][0])).toContain("declared field not found");
   });
 
+  it("re-opens the guard on Reset so the declaration applies again", () => {
+    const m = makeManager({ layer: "Facility Points" });
+    m.pointLayers = [{ id: "p1", name: "Facility Points", layer: null, count: 1 }];
+    // A record consumed the guard...
+    m.hasScanned = true;
+    expect(m.resolveDeclaredLayer()).toBeNull();
+    // ...and Reset (the Clear path) deletes that record, so the declaration is
+    // the starting state again: the next rebuild may apply it.
+    m.resetState({} as never);
+    expect(m.hasScanned).toBe(false);
+    expect(m.resolveDeclaredLayer()).toBe("p1");
+  });
+
   it("treats a non-string declaration as absent instead of matching it", () => {
     // CONFIG is a JSON bridge, but a hand-written CONFIG (or an older bundle)
     // must not make the scan compare against a non-string name.

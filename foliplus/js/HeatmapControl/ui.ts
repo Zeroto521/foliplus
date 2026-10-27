@@ -419,7 +419,13 @@ const updateFieldSelector = (ctrl: HeatmapControlUI) => {
   // still aggregates by the stale value — every cell then falls back to 1.
   if (fields.length === 0) {
     setValueAggregationsEnabled(ctrl, false);
-    if (ctrl.mgr.agg !== CONST.AGG.COUNT) {
+    // Only a SELECTED source can prove it has no numeric field. Before the
+    // first scan (no layer yet) the field list is empty for a different
+    // reason, and rewriting the aggregation here would (a) discard the
+    // Python-declared agg before its layer is known and (b) persist an
+    // empty-selection record that consumes the hasScanned guard — so the
+    // next reload would skip the declaration entirely.
+    if (ctrl.mgr.selectedLayerId && ctrl.mgr.agg !== CONST.AGG.COUNT) {
       ctrl.mgr.agg = CONST.AGG.COUNT;
       syncSelect(ctrl, ctrl.aggSelect, CONST.AGG.COUNT);
       ctrl.mgr.saveConfig();

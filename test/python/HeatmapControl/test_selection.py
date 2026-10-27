@@ -176,6 +176,122 @@ class TestHeatmapControlSelectionBrowser:
             )
             assert layer_value == state["selectedLayerId"]
             assert field_value == "val", "the declared field should be selected"
+
+            # The declared aggregation survives the pre-scan pass: it must not
+            # be downgraded to count (which would also render every cell as 1).
+            agg_value = page.evaluate(
+                _js("HeatmapControl/read_select_value"), "select[data-heatmap-agg]"
+            )
+            assert agg_value == "sum", (
+                f"the declared agg should be selected: {agg_value}"
+            )
+            cached_agg = page.evaluate(_js("HeatmapControl/read_cached_agg"))
+            assert cached_agg and "|sum|" in cached_agg["key"], (
+                f"the render should aggregate by sum: {cached_agg}"
+            )
+
+            # A first open with a declaration must stay record-free: writing the
+            # empty selection here would consume the hasScanned guard and make
+            # the next reload skip the declaration.
+            assert page.evaluate(_js("HeatmapControl/heatmap_storage_absent")), (
+                "the first open wrote a record and would shadow the declaration"
+            )
+            assert not errors, f"JS errors: {errors}"
+
+    def test_declared_selection_survives_reload(self, browser, tmp_path):
+        """Reload without a record keeps the Python-declared starting state."""
+        with use_page(
+            _make_page,
+            browser,
+            tmp_path,
+            expose_ctrl=True,
+            num_layers=3,
+            layer="Points 1",
+            field="val",
+            agg="sum",
+        ) as (page, errors):
+            page.reload()
+            heatmap_ready(page)
+            page.evaluate(_js("HeatmapControl/click_toggle_button"))
+            page.wait_for_selector(
+                ".foliplus-heatmap-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            heatmap_ready(page)
+
+            state = page.evaluate(_js("HeatmapControl/read_auto_select_state"))
+            assert state["selectedLayerId"] is not None, (
+                "the declaration must still select a layer after a reload"
+            )
+            layer_value = page.evaluate(
+                _js("HeatmapControl/read_select_value"),
+                "select[data-heatmap-layer]",
+            )
+            field_value = page.evaluate(
+                _js("HeatmapControl/read_select_value"),
+                "select[data-heatmap-field-select]",
+            )
+            agg_value = page.evaluate(
+                _js("HeatmapControl/read_select_value"), "select[data-heatmap-agg]"
+            )
+            assert layer_value == state["selectedLayerId"]
+            assert field_value == "val"
+            assert agg_value == "sum"
+            assert page.evaluate(_js("HeatmapControl/heatmap_storage_absent")), (
+                "a reload of a declared map must not have written a record"
+            )
+            assert not errors, f"JS errors: {errors}"
+
+    def test_clear_restores_the_declaration_in_the_same_session(
+        self, browser, tmp_path
+    ):
+        """Clear drops the record and re-opens the declaration, no reload needed."""
+        with use_page(
+            _make_page,
+            browser,
+            tmp_path,
+            expose_ctrl=True,
+            num_layers=3,
+            layer="Points 1",
+            field="val",
+            agg="sum",
+        ) as (page, errors):
+            page.evaluate(_js("HeatmapControl/click_toggle_button"))
+            page.wait_for_selector(
+                ".foliplus-heatmap-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            heatmap_ready(page)
+            declared = page.evaluate(_js("HeatmapControl/read_auto_select_state"))[
+                "selectedLayerId"
+            ]
+
+            page.evaluate(_js("HeatmapControl/click_clear_button"))
+            page.wait_for_selector(
+                ".foliplus-heatmap-ctrl.foliplus-is-collapsed",
+                state="attached",
+                timeout=5000,
+            )
+            cleared = page.evaluate(_js("HeatmapControl/read_auto_select_state"))
+            assert cleared["selectedLayerId"] is None, "Clear must drop the selection"
+            assert page.evaluate(_js("HeatmapControl/heatmap_storage_absent")), (
+                "Clear must delete the persisted record"
+            )
+
+            # Re-open the panel: the declaration is the starting state again.
+            page.evaluate(_js("HeatmapControl/click_toggle_button"))
+            page.wait_for_selector(
+                ".foliplus-heatmap-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            heatmap_ready(page)
+            again = page.evaluate(_js("HeatmapControl/read_auto_select_state"))
+            assert again["selectedLayerId"] == declared, (
+                f"the declaration should come back after Clear: {again}"
+            )
             assert not errors, f"JS errors: {errors}"
 
     def test_persisted_selection_beats_the_declaration(self, browser, tmp_path):

@@ -52,20 +52,6 @@ class HeatmapControl(BaseControl):
     ----------
     position : str, default "topleft"
         One of "topleft", "topright", "bottomleft", "bottomright".
-
-    color_scheme : str, default "Reds"
-        Default color scheme name. Supports chroma.js / ColorBrewer palettes: ``Blues``,
-        ``Greens``, ``Reds``, ``Oranges``, ``Purples``, ``YlOrRd``, ``Viridis``.
-
-    method : Literal["jenks", "quantile", "equal", "heads"], default "jenks"
-        Default classification method.
-
-    num_classes : int, default 6
-        Number of classification classes, range 2-9.
-
-    agg : Literal["count", "sum", "avg", "min", "max"], default "count"
-        Default aggregation method.
-
     layer : str, optional
         Name of the point layer to select when the map first loads. Matching is
         by the layer's folium ``name`` (the same text the panel's Layer row
@@ -74,7 +60,8 @@ class HeatmapControl(BaseControl):
         panel still lets the user switch. A name that matches no point layer is
         ignored with a console warning and the panel falls back to its normal
         auto-selection (the only point layer is selected automatically).
-
+    agg : Literal["count", "sum", "avg", "min", "max"], default "count"
+        Default aggregation method.
     field : str, optional
         Aggregation field to select when the map first loads. Only a numeric
         field the layer actually carries is accepted; anything else is ignored
@@ -82,32 +69,30 @@ class HeatmapControl(BaseControl):
         auto-field rule. Like ``layer``, a persisted user choice wins, and a
         ``count`` aggregation does not use the field until the user switches
         to a value aggregation.
-
+    method : Literal["jenks", "quantile", "equal", "heads"], default "jenks"
+        Default classification method.
+    num_classes : int, default 6
+        Number of classification classes, range 2-9.
+    color_scheme : str, default "Reds"
+        Default color scheme name. Supports chroma.js / ColorBrewer palettes: ``Blues``,
+        ``Greens``, ``Reds``, ``Oranges``, ``Purples``, ``YlOrRd``, ``Viridis``.
     schemes : list[str], default ["Blues", "Greens", "Reds", "Oranges", "Purples", "YlOrRd", "Viridis"]
         List of available color scheme names. Can include custom hex values like
         ``["#f00", "#0f0", "#00f"]``.
-
-    border_weight : float, default 1.5
-        Hexagon border width in canvas units. Must not be negative.
-
     border_color : str, default "#333333"
         Hexagon border color.
-
-    fill_opacity : float, default 0.7
-        Hexagon fill opacity, between 0.0 and 1.0.
-
+    border_weight : float, default 1.5
+        Hexagon border width in canvas units. Must not be negative.
     border_opacity : float, default 0.9
         Hexagon border opacity, between 0.0 and 1.0.
-
+    fill_opacity : float, default 0.7
+        Hexagon fill opacity, between 0.0 and 1.0.
     label_show : bool, default True
         Whether to show the aggregated value as a label at each hex center.
-
     label_color : str, default "#fff"
         Label text color.
-
     label_size : int, default 11
         Label font size (px). Must be positive.
-
     label_format : Literal["auto", "int", "comma", "percent"], default "auto"
         Number format for hexagon value labels:
 
@@ -119,10 +104,8 @@ class HeatmapControl(BaseControl):
         - ``"percent"``: fraction × 100 with a ``%`` suffix (``0.35`` → ``35%``).
 
         ``"int"``, ``"comma"``, and ``"percent"`` are locale-agnostic.
-
     collapse_on_outside : bool, default True
         Whether a press outside the panel collapses it.
-
     locale : str or LocaleConfig, optional
         Language code ("en", "zh") or a LocaleConfig instance.
         Defaults to auto-detection, falling back to English.
@@ -140,10 +123,6 @@ class HeatmapControl(BaseControl):
         self,
         *,
         position: ControlPosition = "topleft",
-        color_scheme: str = "Reds",
-        method: METHOD = "jenks",
-        num_classes: Annotated[int, Bound(2, 9)] = 6,
-        agg: AGG = "count",
         layer: Annotated[
             str | None,
             FieldSpec(
@@ -151,6 +130,7 @@ class HeatmapControl(BaseControl):
                 note="Point layer name selected on first load; a persisted user selection wins.",
             ),
         ] = None,
+        agg: AGG = "count",
         field: Annotated[
             str | None,
             FieldSpec(
@@ -158,6 +138,9 @@ class HeatmapControl(BaseControl):
                 note="Aggregation field selected on first load; a persisted user selection wins.",
             ),
         ] = None,
+        method: METHOD = "jenks",
+        num_classes: Annotated[int, Bound(2, 9)] = 6,
+        color_scheme: str = "Reds",
         schemes: Annotated[
             list[str], FieldSpec(ts="", note="Available color scheme names.")
         ] = [
@@ -169,10 +152,10 @@ class HeatmapControl(BaseControl):
             "YlOrRd",
             "Viridis",
         ],
-        border_weight: Annotated[float, Bound(0.0, None)] = 1.5,
         border_color: str = "#333333",
-        fill_opacity: Fraction = 0.7,
+        border_weight: Annotated[float, Bound(0.0, None)] = 1.5,
         border_opacity: Fraction = 0.9,
+        fill_opacity: Fraction = 0.7,
         label_show: bool = True,
         label_color: str = "#fff",
         label_size: PositiveInt = 11,
@@ -181,17 +164,17 @@ class HeatmapControl(BaseControl):
         locale: str | LocaleConfig | None = None,
     ):
         super().__init__(position=position, locale=locale)
-        self.color_scheme = color_scheme
+        self.layer = layer
+        self.agg = agg
+        self.field = field
         self.method = method
         self.num_classes = num_classes
-        self.agg = agg
-        self.layer = layer
-        self.field = field
+        self.color_scheme = color_scheme
         self.schemes = schemes
-        self.border_weight = border_weight
         self.border_color = border_color
-        self.fill_opacity = fill_opacity
+        self.border_weight = border_weight
         self.border_opacity = border_opacity
+        self.fill_opacity = fill_opacity
         self.label_show = label_show
         self.label_color = label_color
         self.label_size = label_size

@@ -254,8 +254,8 @@ class HeatmapManager {
     this.scheme = CONFIG.color_scheme ?? "Reds";
     this.method = resolveClassifyMethod(CONFIG.method);
     this.numClasses = CONFIG.num_classes ?? CLASS_COUNT.DEFAULT;
-    this.borderWeight = CONFIG.border_weight ?? BORDER_WEIGHT.DEFAULT;
     this.borderColor = CONFIG.border_color ?? SCHEME_FALLBACK_COLOR;
+    this.borderWeight = CONFIG.border_weight ?? BORDER_WEIGHT.DEFAULT;
     // Python default is True; only an explicit false turns labels off — same
     // `!== false` rule MeasureControl uses for label_show / label_collide.
     this.labelShow = CONFIG.label_show !== false;
@@ -1142,6 +1142,10 @@ class HeatmapManager {
     this.layerFilters.clear();
     this.cachedSnapshot = null;
     this.cachedSnapshotLayerId = null;
+    // Reset returns the manager to the Python-declared starting state: the
+    // record is about to be deleted, so re-open the one-shot guard and let
+    // the declaration (and the single-layer auto-select) apply again.
+    this.hasScanned = false;
     if (clearedFilter) {
       publish(this.events, EVENTS.LAYER_FILTER_CHANGE, { id: this.layerId });
     }
