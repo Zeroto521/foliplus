@@ -151,6 +151,8 @@ export function makeManagerMock(): MeasureManager {
     // The filter capability tracks each measurement's rendered leaves; mode
     // tests only need the registration to be a no-op.
     registerItemLayers: vi.fn(),
+    addItemLeaves: vi.fn(),
+    refreshItemVisibility: vi.fn(),
     forgetItemLayers: vi.fn(),
     registerFinalized: vi.fn((cleanup: () => void, id?: string) => {
       const key = id ?? "";

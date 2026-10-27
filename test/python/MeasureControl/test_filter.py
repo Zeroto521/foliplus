@@ -1,8 +1,9 @@
 """Browser tests for the MeasureControl type filter.
 
-Draws one measurement per type, then drives the shared filter panel through the
-component's LayerControl row and checks that the map, the row count, the result
-line and the export all agree.
+The filter is a view filter: the map DOM, the row count, the result line and
+the export must all describe the same kept set. Counts are asserted exactly as
+a partition of the per-type counts (each type's leaves are disjoint), so a leaf
+that is not registered with the filter cannot slip through unnoticed.
 """
 
 from __future__ import annotations
@@ -33,6 +34,21 @@ DRAW_ALL = r"""
 }
 """
 
+DRAW_HIDDEN_TYPES = r"""
+() => {
+  const mm = window.__measureManager;
+  const map = window.__map;
+  const click = p => map.fire("click", { latlng: L.latLng(p[0], p[1]) });
+  mm.setMode("polygon");
+  click([26.03, 119.30]); click([26.04, 119.31]); click([26.02, 119.32]);
+  map.fire("contextmenu", { latlng: L.latLng(26.02, 119.32) });
+  mm.setMode("marker");
+  click([26.01, 119.30]);
+  mm.setMode(null);
+  return mm.measurements.map(m => m.type);
+}
+"""
+
 OPEN_FILTER = r"""
 () => {
   const row = document.querySelector('.foliplus-layer-item[data-layer-id="foliplus_measure"]');
@@ -45,16 +61,16 @@ OPEN_FILTER = r"""
 }
 """
 
-PICK = r"""
+SET_VALUES = r"""
 (values) => {
   const trigger = document.querySelector(".foliplus-filter-enum-trigger");
-  if (!trigger) return { ok: false };
+  if (!trigger) return { ok: false, reason: "no-trigger" };
   if (trigger.getAttribute("aria-expanded") !== "true") trigger.click();
-  for (const v of values) {
-    const opt = document.querySelector(
-      '.foliplus-filter-enum-option[data-value="' + v + '"]');
-    if (!opt) return { ok: false, missing: v };
-    if (opt.getAttribute("aria-selected") !== "true") opt.click();
+  for (const option of document.querySelectorAll(
+    ".foliplus-filter-enum-option",
+  )) {
+    const want = values.includes(option.dataset.value);
+    if ((option.getAttribute("aria-selected") === "true") !== want) option.click();
   }
   if (trigger.getAttribute("aria-expanded") === "true") trigger.click();
   return { ok: true };
@@ -85,6 +101,8 @@ READ_STATE = r"""
     result: result ? result.textContent : null,
     paths: document.querySelectorAll(".foliplus-measure-path").length,
     labels: document.querySelectorAll(".foliplus-measure-label").length,
+    dots: document.querySelectorAll(
+      ".foliplus-measure-node, .foliplus-dot").length,
   };
 }
 """
@@ -119,15 +137,30 @@ CLICK_EXPORT = r"""
 }
 """
 
+TYPES = ["distance", "polygon", "circle", "marker"]
+
+COUNT_KEYS = ("paths", "labels", "dots")
+
 
 def _count(state):
     return int(state["count"].replace(",", ""))
 
 
+def _counts(state):
+    return {key: state[key] for key in COUNT_KEYS}
+
+
+def _sum_counts(*states):
+    return {key: sum(state[key] for state in states) for key in COUNT_KEYS}
+
+
 def _open_filter(page):
-    page.wait_for_timeout(600)
     page.evaluate(EXPAND_LAYERS)
     page.wait_for_selector(".foliplus-layer-ctrl.foliplus-is-expanded", timeout=5000)
+    # Drawing a measurement can rebuild the row and close an already-open
+    # panel; only re-open when it is actually gone.
+    if page.query_selector(".foliplus-layer-filter-panel"):
+        return
     opened = page.evaluate(OPEN_FILTER)
     assert opened["ok"], f"filter panel not reachable: {opened}"
     page.wait_for_selector(
@@ -145,8 +178,15 @@ def _draw_all(page):
     return page.evaluate(READ_STATE)
 
 
+def _select(page, values):
+    result = page.evaluate(SET_VALUES, values)
+    assert result["ok"], result
+    page.wait_for_timeout(250)
+    return page.evaluate(READ_STATE)
+
+
 class TestMeasureTypeFilterBrowser:
-    def test_filter_updates_map_row_count_result_and_clear(self, browser, tmp_path):
+    def test_live_filter_partitions_each_type_exactly(self, browser, tmp_path):
         with use_page(_make_page, browser, tmp_path) as (page, errors):
             baseline = _draw_all(page)
             assert sorted(baseline["stored"]) == [
@@ -155,50 +195,54 @@ class TestMeasureTypeFilterBrowser:
                 "marker",
                 "polygon",
             ]
-            assert baseline["filter"] is None
-            assert _count(baseline) == 4
-            assert "100%" in baseline["result"]
-            assert baseline["paths"] > 0 and baseline["labels"] > 0
+            assert _counts(baseline)["paths"] > 0
+            assert _counts(baseline)["labels"] > 0
+            assert _counts(baseline)["dots"] > 0
 
-            picked = page.evaluate(PICK, ["distance"])
-            assert picked["ok"], picked
-            page.wait_for_timeout(300)
-            only_distance = page.evaluate(READ_STATE)
+            per_type = {}
+            for kind in TYPES:
+                only = _select(page, [kind])
+                assert only["visible"] == [kind], only
+                assert _count(only) == 1, only
+                assert "25%" in only["result"], only
+                per_type[kind] = _counts(only)
 
-            # P1: the map must agree with the panel, not just the count.
-            assert only_distance["visible"] == ["distance"]
-            assert _count(only_distance) == 1
-            assert "25%" in only_distance["result"]
-            assert 0 < only_distance["paths"] < baseline["paths"]
-            assert 0 < only_distance["labels"] < baseline["labels"]
+            # A distance measurement keeps its polyline, its one segment label
+            # and its two endpoint dots — nothing else.
+            assert per_type["distance"] == {"paths": 1, "labels": 1, "dots": 2}, (
+                per_type["distance"]
+            )
 
-            picked = page.evaluate(PICK, ["polygon"])
-            assert picked["ok"], picked
-            page.wait_for_timeout(300)
-            two_types = page.evaluate(READ_STATE)
-            assert sorted(two_types["visible"]) == ["distance", "polygon"]
-            assert _count(two_types) == 2
-            assert "50%" in two_types["result"]
-            assert only_distance["paths"] < two_types["paths"] < baseline["paths"]
-            assert only_distance["labels"] < two_types["labels"] < baseline["labels"]
+            # Every rendered leaf belongs to exactly one measurement type: the
+            # per-type counts must partition the unfiltered DOM exactly.
+            assert _sum_counts(*per_type.values()) == _counts(baseline), (
+                per_type,
+                _counts(baseline),
+            )
+
+            # A multi-select paints both types' leaves, no more and no less.
+            two = _select(page, ["distance", "polygon"])
+            assert sorted(two["visible"]) == ["distance", "polygon"], two
+            assert _count(two) == 2, two
+            assert "50%" in two["result"], two
+            assert _counts(two) == _sum_counts(
+                per_type["distance"], per_type["polygon"]
+            ), (two, per_type)
 
             assert page.evaluate(CLEAR)
-            page.wait_for_timeout(300)
+            page.wait_for_timeout(250)
             cleared = page.evaluate(READ_STATE)
-            assert cleared["filter"] is None
-            assert _count(cleared) == 4
-            assert "100%" in cleared["result"]
-            assert cleared["paths"] == baseline["paths"]
-            assert cleared["labels"] == baseline["labels"]
-
+            assert cleared["filter"] is None, cleared
+            assert _count(cleared) == 4, cleared
+            assert "100%" in cleared["result"], cleared
+            assert _counts(cleared) == _counts(baseline), (cleared, baseline)
             assert not errors, f"JS errors: {errors}"
 
-    def test_filter_persists_across_reload(self, browser, tmp_path):
+    def test_filter_survives_reload_and_drops_stale_records(self, browser, tmp_path):
         with use_page(_make_page, browser, tmp_path) as (page, errors):
             baseline = _draw_all(page)
-            assert page.evaluate(PICK, ["distance"])["ok"]
-            page.wait_for_timeout(300)
-            assert sorted(page.evaluate(READ_STATE)["visible"]) == ["distance"]
+            distance_only = _select(page, ["distance"])
+            distance_counts = _counts(distance_only)
 
             page.reload()
             page.wait_for_selector(
@@ -212,19 +256,20 @@ class TestMeasureTypeFilterBrowser:
                 "kind": "enum",
                 "field": "type",
                 "values": ["distance"],
-            }
-            assert sorted(restored["visible"]) == ["distance"]
-            assert _count(restored) == 1
-            assert "25%" in restored["result"]
-            # Reloaded leaves are hidden until the persisted filter is re-applied.
-            assert restored["paths"] < baseline["paths"]
-            assert not errors, f"JS errors: {errors}"
+            }, restored
+            assert restored["visible"] == ["distance"], restored
+            assert _count(restored) == 1, restored
+            assert "25%" in restored["result"], restored
+            # The rebuilt leaves are hidden again after restore: exact counts,
+            # not just "fewer than baseline".
+            assert _counts(restored) == distance_counts, (restored, distance_counts)
 
-    def test_stale_persisted_filter_is_dropped_on_load(self, browser, tmp_path):
-        with use_page(_make_page, browser, tmp_path) as (page, errors):
-            baseline = _draw_all(page)
-            assert _count(baseline) == 4
+            assert page.evaluate(CLEAR)
+            page.wait_for_timeout(250)
+            cleared = page.evaluate(READ_STATE)
+            assert _counts(cleared) == _counts(baseline), (cleared, baseline)
 
+            # A stale condition from an older record must read as no filter.
             page.evaluate(
                 """() => {
                   const mm = window.__measureManager;
@@ -240,21 +285,60 @@ class TestMeasureTypeFilterBrowser:
             )
             page.wait_for_timeout(600)
             _open_filter(page)
-            restored = page.evaluate(READ_STATE)
+            stale = page.evaluate(READ_STATE)
+            assert stale["filter"] is None, stale
+            assert _count(stale) == 4, stale
+            assert _counts(stale) == _counts(baseline), (stale, baseline)
+            assert not errors, f"JS errors: {errors}"
 
-            # P2: an expired condition must read as "no filter", never keep=0.
-            assert restored["filter"] is None
-            assert _count(restored) == 4
-            assert "100%" in restored["result"]
-            assert restored["paths"] == baseline["paths"]
+    def test_measurement_drawn_under_filter_starts_hidden(self, browser, tmp_path):
+        with use_page(_make_page, browser, tmp_path) as (page, errors):
+            baseline = _draw_all(page)
+            per_type = {}
+            for kind in TYPES:
+                per_type[kind] = _counts(_select(page, [kind]))
+            distance_only = _select(page, ["distance"])
+
+            # Draw a polygon and a marker while only distance is kept. Their
+            # attach path re-adds leaves (z-order sort / centroid build); the
+            # filter must replay on top of that and keep them off the map.
+            stored = page.evaluate(DRAW_HIDDEN_TYPES)
+            assert len(stored) == 6, stored
+            page.wait_for_timeout(500)
+            # The draw interaction rebuilds the row and closes the panel; the
+            # filter itself stays committed, so re-open to read the result row.
+            _open_filter(page)
+            after_draw = page.evaluate(READ_STATE)
+            assert after_draw["visible"] == ["distance"], after_draw
+            assert _count(after_draw) == 1, after_draw
+            assert "17%" in after_draw["result"] or "16%" in after_draw["result"], (
+                after_draw
+            )
+            assert _counts(after_draw) == _counts(distance_only), (
+                after_draw,
+                distance_only,
+            )
+
+            assert page.evaluate(CLEAR)
+            page.wait_for_timeout(300)
+            cleared = page.evaluate(READ_STATE)
+            assert _count(cleared) == 6, cleared
+            assert "100%" in cleared["result"], cleared
+            # The new polygon and marker render the same leaf shape as the kept
+            # baseline ones, so the restored DOM is the old total plus one
+            # polygon and one marker.
+            expected = _sum_counts(
+                baseline,
+                per_type["polygon"],
+                per_type["marker"],
+            )
+            assert _counts(cleared) == expected, (cleared, expected)
             assert not errors, f"JS errors: {errors}"
 
     def test_export_geojson_contains_only_kept_measurements(self, browser, tmp_path):
         with use_page(_make_page, browser, tmp_path) as (page, errors):
             _draw_all(page)
-            assert page.evaluate(PICK, ["distance"])["ok"]
-            page.wait_for_timeout(300)
-            assert page.evaluate(READ_STATE)["visible"] == ["distance"]
+            assert _select(page, ["distance"])["visible"] == ["distance"]
 
             assert page.evaluate(EXPAND_MEASURE)
             with page.expect_download() as download:
@@ -271,9 +355,7 @@ class TestMeasureTypeFilterBrowser:
             errors,
         ):
             _draw_all(page)
-            assert page.evaluate(PICK, ["distance"])["ok"]
-            page.wait_for_timeout(300)
-            assert page.evaluate(READ_STATE)["visible"] == ["distance"]
+            assert _select(page, ["distance"])["visible"] == ["distance"]
 
             assert page.evaluate(EXPAND_MEASURE)
             with page.expect_download() as download:

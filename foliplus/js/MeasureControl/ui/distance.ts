@@ -174,6 +174,9 @@ const attachDistanceUI = (mgr: MeasureManager, opts: AttachOpts): void => {
   segLabels.forEach(l => l.on("click", openOverlay));
 
   resortLayers(layers, nodeMarkers, nodeDelMarkers, segLabels);
+  // Z-order sorting re-adds leaves; replay the filter so a hidden measurement
+  // does not pop back onto the map.
+  mgr.refreshItemVisibility(id);
 };
 
 export { attachDistanceUI };

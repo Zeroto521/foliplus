@@ -1963,11 +1963,12 @@ describe("MeasureManager — type filter", () => {
     const opts = createLayersOpts(map);
     const leafA = { options: { pane: "graph" } } as unknown as unknown;
     const leafB = { options: { pane: "graph" } } as unknown as unknown;
-    const addLayer = vi.spyOn(manager.layers, "addLayer");
-    const removeLayer = vi.spyOn(manager.layers, "removeLayer");
     manager.registerItemLayers("m1", [leafA]);
     manager.registerItemLayers("m2", [leafB]);
-    expect(addLayer).not.toHaveBeenCalled();
+    const addLayer = vi.spyOn(manager.layers, "addLayer");
+    const removeLayer = vi.spyOn(manager.layers, "removeLayer");
+    addLayer.mockClear();
+    removeLayer.mockClear();
 
     opts.filterSetter(filter([CONST.MEASURE_MODE.MARKER]));
     expect(removeLayer).toHaveBeenCalledTimes(1);
@@ -1989,7 +1990,9 @@ describe("MeasureManager — type filter", () => {
     expect(addLayer).not.toHaveBeenCalled();
 
     opts.filterSetter(undefined);
-    expect(addLayer).toHaveBeenCalledTimes(2);
+    // Every visible measurement replays its leaves; both hidden ones come back.
+    expect(addLayer).toHaveBeenCalledTimes(3);
+    expect(addLayer).toHaveBeenCalledWith(leafA);
     expect(addLayer).toHaveBeenCalledWith(leafB);
     expect(addLayer).toHaveBeenCalledWith(leafC);
     expect(manager.visibleMeasurements()).toHaveLength(4);
@@ -2003,6 +2006,8 @@ describe("MeasureManager — type filter", () => {
     manager.registerItemLayers("m2", [leaf]);
     const removeLayer = vi.spyOn(manager.layers, "removeLayer");
     const addLayer = vi.spyOn(manager.layers, "addLayer");
+    addLayer.mockClear();
+    removeLayer.mockClear();
 
     opts.filterSetter(filter([CONST.MEASURE_MODE.MARKER]));
     expect(removeLayer).toHaveBeenCalledTimes(1);
@@ -2059,6 +2064,75 @@ describe("MeasureManager — type filter", () => {
     expect(removeLayer).not.toHaveBeenCalled();
   });
 
+  it("hides leaves registered after the first visibility pass", () => {
+    const { manager, map } = makeManager();
+    addMeasurements(manager);
+    const leafA = { options: { pane: "graph" } } as unknown as unknown;
+    const leafB = { options: { pane: "label" } } as unknown as unknown;
+    manager.registerItemLayers("m2", [leafA]);
+    const removeLayer = vi.spyOn(manager.layers, "removeLayer");
+    createLayersOpts(map).filterSetter(filter([CONST.MEASURE_MODE.MARKER]));
+    expect(removeLayer).toHaveBeenCalledWith(leafA);
+
+    // A rebuilt label / centroid overlay is a new leaf: it must join the set
+    // and be hidden immediately while the filter excludes this measurement.
+    manager.addItemLeaves("m2", [leafB]);
+    expect(removeLayer).toHaveBeenLastCalledWith(leafB);
+    expect(manager.visibleMeasurements().map((m: any) => m.id)).toEqual(["m1"]);
+  });
+
+  it("ignores empty leaf additions and applies the filter to a new set", () => {
+    const { manager, map } = makeManager();
+    addMeasurements(manager);
+    const opts = createLayersOpts(map);
+    const leaf = { options: { pane: "graph" } } as unknown as unknown;
+    const removeLayer = vi.spyOn(manager.layers, "removeLayer");
+    removeLayer.mockClear();
+    opts.filterSetter(filter([CONST.MEASURE_MODE.MARKER]));
+
+    // Nothing to add: the call is a no-op (and must not create a set).
+    manager.addItemLeaves("m2", []);
+    manager.addItemLeaves("m2", [null, undefined]);
+    expect((manager as any).itemLeaves.has("m2")).toBe(false);
+
+    // A measurement with no prior set gets one, and the committed filter is
+    // applied to it immediately (m3 is a polygon, excluded by marker).
+    manager.addItemLeaves("m3", [leaf]);
+    expect((manager as any).itemLeaves.get("m3")).toEqual([leaf]);
+    expect((manager as any).itemVisible.get("m3")).toBe(false);
+    expect(removeLayer).toHaveBeenCalledWith(leaf);
+
+    // The same leaf twice does not grow the set.
+    manager.addItemLeaves("m3", [leaf]);
+    expect((manager as any).itemLeaves.get("m3")).toHaveLength(1);
+
+    // Refreshing a measurement that no longer exists is a no-op, not a hide.
+    expect(() => manager.refreshItemVisibility("missing")).not.toThrow();
+    expect((manager as any).itemVisible.has("missing")).toBe(false);
+  });
+
+  it("replays the filter after an attach path re-adds a hidden leaf", () => {
+    const { manager, map } = makeManager();
+    addMeasurements(manager);
+    const leaf = { options: { pane: "graph" } } as unknown as unknown;
+    manager.registerItemLayers("m2", [leaf]);
+    const removeLayer = vi.spyOn(manager.layers, "removeLayer");
+    const addLayer = vi.spyOn(manager.layers, "addLayer");
+    addLayer.mockClear();
+    removeLayer.mockClear();
+    createLayersOpts(map).filterSetter(filter([CONST.MEASURE_MODE.MARKER]));
+    expect(removeLayer).toHaveBeenCalledTimes(1);
+
+    // z-order sorting re-adds the leaf behind the filter's back.
+    manager.layers.addLayer(leaf);
+    addLayer.mockClear();
+    manager.refreshItemVisibility("m2");
+
+    expect(removeLayer).toHaveBeenCalledTimes(2);
+    expect(addLayer).not.toHaveBeenCalled();
+    expect((manager as any).itemVisible.get("m2")).toBe(false);
+  });
+
   it("prunes leaves of measurements deleted outside the filter path", () => {
     const { manager, map } = makeManager();
     addMeasurements(manager);
@@ -2070,7 +2144,7 @@ describe("MeasureManager — type filter", () => {
     createLayersOpts(map).filterSetter(filter([CONST.MEASURE_MODE.MARKER]));
 
     expect((manager as any).itemLeaves.size).toBe(0);
-    expect((manager as any).itemVisible.size).toBe(0);
+    expect((manager as any).itemVisible.has("m2")).toBe(false);
     expect(removeLayer).not.toHaveBeenCalled();
   });
 

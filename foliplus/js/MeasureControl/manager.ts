@@ -354,8 +354,33 @@ class MeasureManager {
     // The mode attaches the leaves before registering them, so they start out
     // rendered; a committed filter may then hide the whole measurement.
     this.itemVisible.set(id, true);
+    this.refreshItemVisibility(id);
+  }
+
+  /** Append leaves rendered after the initial registration (a rebuilt label
+   *  or a centroid overlay). They join the measurement's set immediately, so a
+   *  committed filter hides them too instead of leaving them on the map. */
+  addItemLeaves(id: string, leaves: ReadonlyArray<L.Layer | null | undefined>): void {
+    const extra = leaves.filter((leaf): leaf is L.Layer => Boolean(leaf));
+    if (extra.length === 0) return;
+    const existing = this.itemLeaves.get(id);
+    if (existing) {
+      for (const leaf of extra) {
+        if (!existing.includes(leaf)) existing.push(leaf);
+      }
+    } else {
+      this.itemLeaves.set(id, extra);
+    }
+    this.refreshItemVisibility(id);
+  }
+
+  /** Re-apply the committed filter to one measurement's current leaf set.
+   *  Attach paths that rebuild or re-add leaves (z-order churn, relabelling)
+   *  call this so a hidden measurement cannot reappear behind the filter. */
+  refreshItemVisibility(id: string): void {
     const measurement = this.store.all().find(entry => entry.id === id);
-    if (measurement) this.setItemVisible(id, this.itemMatchesFilter(measurement));
+    if (!measurement) return;
+    this.setItemVisible(id, this.itemMatchesFilter(measurement));
   }
 
   /** Forget one measurement's leaves (its delete path). */
@@ -367,11 +392,14 @@ class MeasureManager {
   /** Hide or show one measurement's leaves. The layer API routes by each
    *  leaf's own pane option, so a restored leaf keeps its pane. */
   private setItemVisible(id: string, visible: boolean): void {
+    this.itemVisible.set(id, visible);
     const leaves = this.itemLeaves.get(id);
     if (!leaves || leaves.length === 0) return;
-    const shown = this.itemVisible.get(id) ?? true;
-    if (shown === visible) return;
-    this.itemVisible.set(id, visible);
+    // Always replay every leaf instead of early-returning on an unchanged
+    // flag: an attach path may re-add leaves after the last hide (z-order
+    // sorting, a rebuilt label), and only a full replay pulls them back out.
+    // Both layer calls are idempotent, so replaying an already-correct set is
+    // free at this size.
     for (const leaf of leaves) {
       if (visible) this.layers.addLayer(leaf);
       else this.layers.removeLayer(leaf);

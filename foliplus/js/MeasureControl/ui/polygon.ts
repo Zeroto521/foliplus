@@ -107,6 +107,9 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
     }
     unregisterSegLabels();
     unregisterSegLabels = bindSegmentLabels(mgr, segLabels);
+    // Rebuilt labels are new leaves: hand them to the visibility set so an
+    // active filter keeps the measurement hidden while it is being edited.
+    mgr.addItemLeaves(id, segLabels);
     const centroid = Util.vertexMean(points);
     centroidDot.setLatLng(centroid);
     centroidLabel.setLatLng(centroid);
@@ -162,6 +165,9 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
   segLabels.forEach(l => l.on("click", openOverlay));
 
   rebuildCentroid(initArea);
+  // The centroid overlay is added after the mode's registration pass; register
+  // it now so the filter owns it like every other leaf of this measurement.
+  mgr.addItemLeaves(id, [centroidDot, centroidLabel, centroidDelMarker]);
   centroidDot.on("click", openOverlay);
   centroidDelMarker.on("click", openOverlay);
 
@@ -261,6 +267,9 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
   );
 
   resortLayers(layers, nodeMarkers, nodeDelMarkers, segLabels);
+  // Z-order sorting re-adds leaves; replay the filter so a hidden measurement
+  // does not pop back onto the map.
+  mgr.refreshItemVisibility(id);
 };
 
 export { attachPolygonUI };
