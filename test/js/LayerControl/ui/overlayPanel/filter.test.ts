@@ -908,6 +908,96 @@ describe("LayerUI filter panel", () => {
       spy.mockRestore();
     });
 
+    it("clamps the popup to the tightest clipping ancestor", () => {
+      const spy = spyTranslator();
+      const { item } = registerEnum();
+      item.style.overflowY = "auto";
+      const clipRect = {
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 200,
+        width: 0,
+        height: 0,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      } as DOMRect;
+      vi.spyOn(item, "getBoundingClientRect").mockReturnValue(clipRect);
+      ui.openFilterPanel(item);
+      const list = listOf(item);
+      const options = optionsOf(item);
+      Object.defineProperty(list, "scrollHeight", { configurable: true, value: 300 });
+      Object.defineProperty(options[0], "offsetHeight", {
+        configurable: true,
+        value: 30,
+      });
+
+      triggerOf(item).click();
+
+      // min(4 rows of 30px, clip bottom 200 - trigger bottom 0 - gap 8) = 120px.
+      expect(list.style.maxHeight).toBe("120px");
+      expect(list.hidden).toBe(false);
+
+      // A scroll of the clip box invalidates the measured geometry: the popup
+      // closes and hands focus back to the trigger, the panel stays open.
+      item.dispatchEvent(new Event("scroll"));
+      expect(list.hidden).toBe(true);
+      expect(document.activeElement).toBe(triggerOf(item));
+      expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).not.toBeNull();
+
+      ui.closeFilterPanel(false);
+      spy.mockRestore();
+    });
+
+    it("steps to the last option when no option holds focus", () => {
+      const spy = spyTranslator();
+      const { item } = registerEnum();
+      ui.openFilterPanel(item);
+      triggerOf(item).click();
+
+      pressKey(triggerOf(item), "ArrowUp");
+
+      expect(document.activeElement).toBe(optionsOf(item)[3]);
+      spy.mockRestore();
+    });
+
+    it("does not consume a dismissal that lands inside the popup control", () => {
+      const spy = spyTranslator();
+      const { item } = registerEnum();
+      ui.openFilterPanel(item);
+      triggerOf(item).click();
+      const state = ui.overlayPanel.activeFilterPanel as unknown as {
+        view: {
+          kind: string;
+          body: { dismissTransient: (target: Element) => boolean };
+        };
+      };
+
+      expect(state.view.body.dismissTransient(optionsOf(item)[0])).toBe(false);
+
+      expect(listOf(item).hidden).toBe(false);
+      spy.mockRestore();
+    });
+
+    it("leaves the empty state open when Escape is pressed on the panel", () => {
+      manager.registerLayer({
+        id: "empty-filter",
+        name: "Empty",
+        role: "overlay",
+        layer: undefined as unknown as L.Layer,
+        filterProvider: () => null,
+      });
+      const item = findItem(ui, "empty-filter");
+      ui.openFilterPanel(item);
+      const panel = item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`) as HTMLElement;
+      expect(panel.querySelector(`.${CONST.CLASSES.FILTER_EMPTY}`)).not.toBeNull();
+
+      pressKey(panel, "Escape");
+
+      expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).not.toBeNull();
+    });
+
     it("Clear resets an enum filter", () => {
       const spy = spyTranslator();
       const { item, owner } = registerEnum();

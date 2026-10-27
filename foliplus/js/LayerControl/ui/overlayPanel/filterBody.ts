@@ -190,9 +190,6 @@ const clippingAncestorsOf = (node: Element): HTMLElement[] => {
 /** The vertical gap kept between a popup and the clip edge / viewport. */
 const POPUP_EDGE_GAP = 8;
 
-/** A no-op unsubscribe, used before a popup has attached its watchers. */
-const noDetach = (): void => undefined;
-
 /** Enum body: a read-only dimension row with a trigger that opens a checkbox
  *  listbox. Multi-select commits a value set; unselecting the last option
  *  commits `undefined`, so "nothing selected" always reads as "no filter" and
@@ -255,7 +252,7 @@ const renderEnumBody = (
   trigger.disabled = dim.options.length === 0;
 
   let open = false;
-  let detachGeometry = noDetach;
+  let detachGeometry: (() => void) | null = null;
 
   const selectedValues = (): Set<string> => new Set(enumValuesOf(dim, currentFilter));
 
@@ -265,8 +262,8 @@ const renderEnumBody = (
     list.hidden = true;
     list.style.maxHeight = "";
     trigger.setAttribute("aria-expanded", "false");
-    detachGeometry();
-    detachGeometry = noDetach;
+    detachGeometry?.();
+    detachGeometry = null;
     if (focusTrigger) trigger.focus();
   };
 
@@ -287,7 +284,9 @@ const renderEnumBody = (
    *  kept visible; a fully visible popup keeps its natural height. */
   const clampListHeight = (): void => {
     list.style.maxHeight = "";
-    const rowHeight = buttons[0]?.offsetHeight ?? 24;
+    // Measured row height, floored at a one-line control so a pre-layout
+    // measurement cannot collapse the popup to zero.
+    const rowHeight = Math.max(24, ...buttons.map(button => button.offsetHeight));
     const fourRows = rowHeight * Math.min(dim.options.length, 4);
     const height = Math.max(rowHeight, Math.min(fourRows, popupSpace()));
     if (height < list.scrollHeight) list.style.maxHeight = `${Math.round(height)}px`;
