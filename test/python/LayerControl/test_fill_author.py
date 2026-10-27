@@ -6,6 +6,7 @@ import importlib
 import json
 
 import folium
+import pytest
 
 from foliplus import LayerControl
 
@@ -211,3 +212,103 @@ def test_truncated_numeric_field_caps_the_author_palette():
     assert len(field["orderedColors"]) <= 50
     assert field["classes"] == len(field["orderedColors"])
     assert set(field["orderedColors"]) <= set(field["mapping"].values())
+
+
+def _field(meta: dict, name: str) -> dict | None:
+    return next((field for field in meta["fields"] if field["name"] == name), None)
+
+
+def _numpy():
+    pytest.importorskip("numpy")
+    import numpy as np
+
+    return np
+
+
+def _fields_for(values: list[object], colors: list[str]) -> list[dict]:
+    rows = [
+        ({"score": value, "__folium_color": color}, color)
+        for value, color in zip(values, colors, strict=True)
+    ]
+    return _layer_control_mod._fill_author_fields(rows)
+
+
+def test_numpy_integer_scalars_are_numeric_with_integer_keys():
+    np = _numpy()
+    fields = _fields_for(
+        [np.int64(10), np.int64(20), np.int64(30)],
+        ["#0d0887", "#f0f921", "#6a00a8"],
+    )
+
+    field = _field({"fields": fields}, "score")
+    assert field is not None, fields
+    assert field["kind"] == "numeric"
+    # np.int64(10) and 10 are the same value: the key prints as the integer.
+    assert field["mapping"] == {"10": "#0d0887", "20": "#f0f921", "30": "#6a00a8"}
+    assert field["orderedColors"] == ["#0d0887", "#f0f921", "#6a00a8"]
+    assert field["classes"] == 3
+
+
+def test_numpy_float_scalars_keep_float_keys():
+    np = _numpy()
+    field = _field(
+        {
+            "fields": _fields_for(
+                [np.float32(1.5), np.float64(2.5)], ["#0d0887", "#f0f921"]
+            )
+        },
+        "score",
+    )
+
+    assert field is not None
+    assert field["kind"] == "numeric"
+    assert field["mapping"] == {"1.5": "#0d0887", "2.5": "#f0f921"}
+
+
+def test_missing_and_mixed_values_disqualify_the_column():
+    np = _numpy()
+    for missing in (None, float("nan"), np.float32("nan")):
+        fields = _fields_for([missing, 20], ["#0d0887", "#f0f921"])
+        assert _field({"fields": fields}, "score") is None, missing
+
+    # A mixed int/string column can never be a numeric ramp; it falls back to
+    # the categorical mapping (the by-category arm does not exist yet, so the
+    # panel shows its read-only per-feature state).
+    mixed = _fields_for([10, "twenty"], ["#0d0887", "#f0f921"])
+    mixed_field = _field({"fields": mixed}, "score")
+    assert mixed_field is None or mixed_field["kind"] == "categorical"
+
+    boolean = _fields_for([True, False], ["#0d0887", "#f0f921"])
+    assert _field({"fields": boolean}, "score") is None
+
+    numpy_bool = _fields_for([np.bool_(True), np.bool_(False)], ["#0d0887", "#f0f921"])
+    assert _field({"fields": numpy_bool}, "score") is None
+
+
+def test_integer_dtype_geodataframe_is_numeric():
+    gpd = pytest.importorskip("geopandas")
+    pytest.importorskip("shapely")
+    from shapely.geometry import Point
+
+    gdf = gpd.GeoDataFrame(
+        {"score": [10, 20, 30], "ratio": [1.5, 2.5, 3.5], "cat": ["a", "b", "c"]},
+        geometry=[Point(0, 0), Point(1, 1), Point(2, 2)],
+        crs="EPSG:4326",
+    )
+    gdf["__folium_color"] = ["#0d0887", "#f0f921", "#6a00a8"]
+    layer = folium.GeoJson(gdf, style_function=lambda feature: {})
+    meta = _meta(layer)
+
+    score = _field(meta, "score")
+    assert score is not None, meta
+    assert score["kind"] == "numeric"
+    # An int64 column keys integers, not their float spelling.
+    assert set(score["mapping"]) == {"10", "20", "30"}
+    assert score["classes"] == 3
+    # A float64 column in the same frame keeps its float repr.
+    ratio = _field(meta, "ratio")
+    assert ratio is not None and ratio["kind"] == "numeric"
+    assert set(ratio["mapping"]) == {"1.5", "2.5", "3.5"}
+    # A string column stays categorical.
+    cat = _field(meta, "cat")
+    assert cat is not None and cat["kind"] == "categorical"

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
-from typing import Annotated, Any
+import math
+import numbers
+from typing import Annotated, Any, cast
 
 from branca.element import Element
 from folium import GeoJson
@@ -69,21 +71,64 @@ def _collect_fill_author(
     return colors, rows
 
 
+def _fill_author_value_kind(value: object) -> str | None:
+    """How one feature property classifies a column: "int", "float", "string",
+    or None when the value cannot key a mapping.
+
+    ``numbers.Integral`` / ``numbers.Real`` rather than ``int`` / ``float``:
+    GeoJson data assembled from a GeoDataFrame can carry numpy scalars, and
+    ``np.int64`` registers as ``numbers.Integral`` without being ``int`` —
+    testing the concrete builtins would silently drop every such column and
+    send the panel back to its read-only per-feature state. ``bool`` is
+    excluded explicitly (``np.bool_`` is neither Integral nor Real, so it
+    falls through to None as well).
+    """
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, numbers.Integral):
+        return "int"
+    if isinstance(value, numbers.Real):
+        # NaN is a missing value, not a class: a column that carries one
+        # cannot key a value->colour mapping.
+        return None if math.isnan(value) else "float"
+    if isinstance(value, str):
+        return "string"
+    return None
+
+
+def _fill_author_key(value: object, kind: str) -> str:
+    """The mapping key for one value of the given kind.
+
+    Integral values print as integers and real values as floats, so
+    ``np.int64(10)`` and ``10`` share the key ``"10"`` while a float column
+    keeps its ``10.0`` spelling (the documented key contract).
+    """
+    if kind == "int":
+        return str(int(cast(numbers.Integral, value)))
+    if kind == "float":
+        return str(float(cast(numbers.Real, value)))
+    return str(value)
+
+
 def _fill_author_fields(
     rows: list[tuple[dict[str, Any], str]],
 ) -> list[dict[str, Any]]:
     """Candidate columns for the value-to-colour mapping, computed once.
 
     A column qualifies when every coloured feature carries it with a primitive
-    value and each of its values maps to exactly one colour. The mapping keeps
-    the most frequent _FILL_AUTHOR_FIELD_LIMIT values; the rest are counted in
+    value and each of its values maps to exactly one colour. Numeric values
+    are normalized to one key spelling per kind (integral values print as
+    integers, real values as floats), so numpy scalars and their Python
+    builtin counterparts cannot split the same value into two entries, and
+    NaN/None disqualify the column as a missing value. The mapping keeps the
+    most frequent _FILL_AUTHOR_FIELD_LIMIT values; the rest are counted in
     other and flagged by truncated.
     """
     first_props = rows[0][0]
     candidates = [
         name
         for name, value in first_props.items()
-        if not name.startswith("_") and isinstance(value, (str, int, float))
+        if not name.startswith("_") and _fill_author_value_kind(value) is not None
     ]
     fields: list[dict[str, Any]] = []
     for name in candidates:
@@ -94,20 +139,21 @@ def _fill_author_fields(
         ok = True
         for props, color in rows:
             value = props.get(name)
-            if isinstance(value, bool) or not isinstance(value, (str, int, float)):
+            kind = _fill_author_value_kind(value)
+            if kind is None:
                 ok = False
                 break
-            if not isinstance(value, (int, float)):
+            if kind == "string":
                 numeric = False
-            key = str(value)
+            key = _fill_author_key(value, kind)
             seen = mapping.get(key)
             if seen is not None and seen != color:
                 ok = False
                 break
             mapping[key] = color
             counts[key] = counts.get(key, 0) + 1
-            if isinstance(value, (int, float)):
-                values_by_key[key] = float(value)
+            if kind != "string":
+                values_by_key[key] = float(cast(numbers.Real, value))
         if not ok or len(mapping) < 2:
             continue
         ordered = sorted(counts.items(), key=lambda entry: (-entry[1], entry[0]))
