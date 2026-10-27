@@ -20,7 +20,7 @@
 // <input type=color> inside a FORM_ROW, no reset button on the row itself
 // (the panel-wide Reset handles it, the way label color has it).
 import { CLASS_COUNT, METHOD } from "#core/classify.js";
-import { numericPropertiesKeys } from "#core/field.js";
+import { numericPropertiesKeys, resolveField } from "#core/field.js";
 import { fullscreenSurface, onFullscreenSurfaceChange } from "#core/fullscreen.js";
 import { CAP_TIER, DIM, type LayerInfo, ROLE } from "#core/layer/index.js";
 import type { FillRampConfig, LayerOverride } from "#core/layer/intent.js";
@@ -163,7 +163,9 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
     // A solid-color basemap has no leaves to classify, so a ramp degrades to
     // the authored pane paint instead of painting nothing.
     if (!isColorBasemap(layerInfo)) {
-      applyRampToLayer(ui, layerId, ramp);
+      // Paint the column the row shows: the stored config's field resolved
+      // against the current data, the same rule `rampForUi` applies.
+      applyRampToLayer(ui, layerId, resolvedRamp(ui, layerId, ramp)!);
     }
     return;
   }
@@ -340,6 +342,20 @@ const numericFields = (ui: LayerUI, layerId: string): string[] => {
   return layer ? numericPropertiesKeys(layer) : [];
 };
 
+/** Resolve a stored ramp config's field against the fields the layer offers
+ *  right now. Display (`rampForUi`), the dimension's value and the paint path
+ *  all go through this, so a stale stored name cannot make the panel show one
+ *  column while the map paints by the author's face. The stored record keeps
+ *  its name until the next write — the column may come back. */
+const resolvedRamp = (
+  ui: LayerUI,
+  layerId: string,
+  ramp: FillRampConfig | undefined,
+): FillRampConfig | undefined =>
+  ramp === undefined
+    ? undefined
+    : { ...ramp, field: resolveField(ramp.field, numericFields(ui, layerId)) };
+
 /** The ramp config a first switch to the by-value arm starts from. The field
  *  is the caller's first numeric field; the method/classes/scheme come from
  *  the shared bounds, so the first render and the persistence validator agree
@@ -355,15 +371,17 @@ const defaultRampConfig = (field: string): FillRampConfig => ({
 /** The config the ramp detail should display and write from: the stored one
  *  when it exists (the inactive arm keeps it while the user is on solid),
  *  otherwise the defaults seeded from the first numeric field. A stored field
- *  the current data no longer offers is kept as-is — the apply already
- *  degrades to the author's face, and silently repainting on the next apply
- *  would be worse than showing the stored value. */
+ *  the current data no longer offers is resolved to the first offered field
+ *  through the shared `resolveField` rule — the same rule the paint side uses,
+ *  so the row and the map cannot disagree about which column is in use. The
+ *  stored record keeps its stale name until the next write; a layer that gets
+ *  the column back re-resolves to it. */
 const rampForUi = (
   ui: LayerUI,
   layerId: string,
   fields: readonly string[],
 ): FillRampConfig => {
-  const stored = getIntent(ui, layerId, INTENT.FILL_RAMP);
+  const stored = resolvedRamp(ui, layerId, getIntent(ui, layerId, INTENT.FILL_RAMP));
   if (stored) return stored;
   // Every caller reaches this line with a non-empty list: the detail only
   // renders the ramp arm when a numeric field exists, and the mode write
@@ -467,7 +485,7 @@ const buildRampDetail = (
     label: ui.T("style_fill_field"),
     ariaLabel: ui.T("style_fill_field"),
     fields,
-    value: fields.includes(ramp.field) ? ramp.field : fields[0],
+    value: resolveField(ramp.field, fields),
     rowClass: CONST.CLASSES.STYLE_FILL_ROW,
     selectClass: CONST.CLASSES.STYLE_FILL_FIELD_SELECT,
   });
@@ -779,7 +797,7 @@ const FILL_DIMENSION = registerDimension<{
       // rule apply uses. Reading the stored mode with a solid fallback alone
       // would report solid while the map is painted by value.
       mode: resolveFillMode(ui, layerId, getIntent(ui, layerId, INTENT.FILL_RAMP)),
-      ramp: getIntent(ui, layerId, INTENT.FILL_RAMP),
+      ramp: resolvedRamp(ui, layerId, getIntent(ui, layerId, INTENT.FILL_RAMP)),
     };
   },
   row: buildFillRow,

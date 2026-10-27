@@ -855,6 +855,16 @@ interface LayerAPI {
   extractPoints: (
     id: string,
   ) => Array<{ lat: number; lng: number; marker: L.Marker | L.CircleMarker }>;
+  /** Read-only traversal of a layer's point markers — the lazy twin of
+   *  `extractPoints`: same marker filter, but no coordinate extraction and no
+   *  per-point allocation, so a field scan over a 10k-leaf layer does not pay
+   *  for objects it never reads. `extractPoints` keeps its contract.
+   *
+   *  Optional: a component bundle can pair with an older `foliplus-common`
+   *  runtime that predates this method (the shared bundle is versioned
+   *  independently), and the lightweight API stub may skip it. Callers fall
+   *  back to `extractPoints` when it is absent. */
+  forEachPoint?: (id: string, fn: (marker: L.Marker | L.CircleMarker) => void) => void;
   getLayerPanes: (layer: L.Layer) => string[];
   getLayersByType: (
     type: string,
