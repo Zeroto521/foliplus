@@ -31,11 +31,14 @@ def _stub_html(html: str) -> str:
     return html
 
 
-def _make_page(browser, tmp_path, *layers, slug="export"):
+def _make_page(browser, tmp_path, *layers, slug="export", locale=None):
     from foliplus import LayerControl
 
     m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-    LayerControl().add_to(m)
+    # A non-None locale pins the rendered language for gates that read a
+    # translated string; leaving it unset keeps the ambient-locale render that
+    # the other gate pages rely on.
+    LayerControl(locale=locale).add_to(m)
     ExportControl().add_to(m)
     for layer in layers:
         layer.add_to(m)
