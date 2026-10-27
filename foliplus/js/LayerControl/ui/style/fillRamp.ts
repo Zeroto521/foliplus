@@ -165,8 +165,9 @@ const applyRampToLayer = (
   // unmounted. A layer whose ramp cannot be built gets the author's fill face
   // back — the same answer an all-invalid field gives.
   //
-  // Every build failure lands here and every one is reported - a missing
-  // simple-statistics global (the whole page cannot run that method), a
+  // Every build failure lands here and every one is reported - a classifier
+  // dependency that failed to load (blocked CDN, or an environment without
+  // the global: the script itself is a declared LayerControl asset), a
   // method or palette name this client does not implement (only reachable by
   // bypassing the record validator), and anything unexpected. Reporting
   // matters because the alternative is the map silently keeping its author

@@ -375,10 +375,12 @@ const authorRampConfig = (ui: LayerUI, layerId: string): FillRampConfig | undefi
   return {
     kind: "numeric",
     field: field.name,
-    // Equal interval is the display default: the author palette is continuous,
-    // so an evenly split scale shows it faithfully, and both quantile and
-    // jenks need the simple-statistics CDN global that only the heatmap
-    // component loads — a plain LayerControl page must still paint its ramp.
+    // Equal interval is the display default: the author drew a continuous
+    // strip, so an even-interval sample of it is the closest readable
+    // approximation — this is presentation, not a statistical classification
+    // of the data. Nothing is reclassified until the user edits a control; a
+    // user who then switches to quantile/jenks relies on the classifier’s
+    // CDN dependency, which this control already loads.
     method: METHOD.EQUAL,
     classes: field.classes,
     scheme: AUTHOR_SCHEME,
@@ -402,7 +404,11 @@ const resampleColors = (colors: readonly string[], n: number): string[] => {
 
 /** The record a user write may persist: the author palette is display-only, so
  *  it becomes the default scheme and the class count is clamped to the range
- *  the persistence validator accepts. */
+ *  the persistence validator accepts. Accepted consequence: after a reload the
+ *  map shows this user classification rather than the author's original
+ *  continuous colours, so a small colour difference is expected once the fill
+ *  has been taken over — Reset re-reads the author properties and restores the
+ *  exact author paint. */
 const persistedRamp = (ramp: FillRampConfig): FillRampConfig => ({
   kind: "numeric",
   field: ramp.field,
