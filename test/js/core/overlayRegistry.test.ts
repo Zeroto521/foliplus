@@ -403,24 +403,54 @@ describe("OverlayRegistry", () => {
       expect(registry.lastPressInside()).toBe(false);
     });
 
-    it("lets the higher pressPriority entry handle a press, and only it", () => {
+    it("walks presses by pressPriority, not by the Escape rank table", () => {
       const outside = panel();
-      const low = makeEntry({
+      // The ranks are deliberately inverted: the style id ranks lower for
+      // Escape (500 vs 600) but owns the press through a higher pressPriority.
+      const lowerRankHigherPress = makeEntry({
         id: OVERLAY_IDS.LAYER_STYLE,
-        pressPriority: 500,
-        panels: () => [panel("low")],
+        pressPriority: 900,
+        panels: () => [panel("style")],
       });
-      const high = makeEntry({
+      const higherRankLowerPress = makeEntry({
         id: OVERLAY_IDS.LAYER_ATTRS,
-        pressPriority: 600,
-        panels: () => [panel("high")],
+        pressPriority: 100,
+        panels: () => [panel("attrs")],
       });
-      registry.register(low.entry);
-      registry.register(high.entry);
+      registry.register(lowerRankHigherPress.entry);
+      registry.register(higherRankLowerPress.entry);
 
       press(outside, "mousedown");
-      expect(high.closeCalls).toHaveLength(1);
-      expect(low.closeCalls).toHaveLength(0);
+      expect(lowerRankHigherPress.closeCalls).toHaveLength(1);
+      expect(higherRankLowerPress.closeCalls).toHaveLength(0);
+    });
+
+    it("keeps each press phase to the entries that declare it", () => {
+      const outside = panel();
+      const panelEntry = makeEntry({
+        id: OVERLAY_IDS.LAYER_STYLE,
+        dismissOn: "mousedown",
+        pressPriority: 900,
+        panels: () => [panel("style")],
+      });
+      const dropdown = makeEntry({
+        id: OVERLAY_IDS.PICKER_DROPDOWN,
+        dismissOn: "click",
+        pressPriority: 100,
+        panels: () => [panel("picker")],
+      });
+      registry.register(panelEntry.entry);
+      registry.register(dropdown.entry);
+
+      // A mousedown outside closes the capture-phase surface only; the
+      // click-phase dropdown must not be closed by the wrong dispatcher.
+      press(outside, "mousedown");
+      expect(panelEntry.closeCalls).toHaveLength(1);
+      expect(dropdown.closeCalls).toHaveLength(0);
+
+      // The following outside click owns the dropdown.
+      press(panel("outside-again"), "click");
+      expect(dropdown.closeCalls).toHaveLength(1);
     });
 
     it("consumes before closing: a nested consumer keeps its host open", () => {

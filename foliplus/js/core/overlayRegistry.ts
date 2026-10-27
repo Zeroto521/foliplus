@@ -81,7 +81,10 @@ interface OverlayEntry {
   /** Consume a press before the close decision (a nested popup that handles
    *  the press without dismissing its host surface). */
   consumePress?(target: Element, press: OverlayPress): boolean;
-  /** Escape scope; defaults to "document" — the dispatcher is document-level. */
+  /** Escape scope; defaults to "document" — the dispatcher is document-level.
+   *  The M1 dispatcher does not branch on it yet: it is reserved for the
+   *  Export crop registration at M4, where the crop layer lives outside the
+   *  component's container. */
   escScope?: EscScope;
   /** True when the surface hosts an editor whose own keydown must win Escape
    *  (inline rename). The dispatcher does not close it and lets the event
@@ -275,10 +278,21 @@ class OverlayRegistryImpl implements OverlayRegistry {
     this.removeEscapeListener();
   }
 
+  /** Escape ownership order: the central rank table, never pressPriority. */
   private orderedOpenEntries(): OverlayEntry[] {
     return [...this.entries.values()]
       .filter(entry => entry.isOpen())
       .sort((a, b) => orderOf(b.id) - orderOf(a.id));
+  }
+
+  /** Press order: the entry's own pressPriority (higher first), independent of
+   *  the Escape rank table. Registration order is never used as a tie-break by
+   *  contract; a stable sort keeps the map's insertion order only for equal
+   *  priorities, which two live entries cannot rely on. */
+  private pressOrderedEntries(): OverlayEntry[] {
+    return [...this.entries.values()]
+      .filter(entry => entry.isOpen())
+      .sort((a, b) => b.pressPriority - a.pressPriority);
   }
 
   private syncListeners(): void {
@@ -322,7 +336,7 @@ class OverlayRegistryImpl implements OverlayRegistry {
   }
 
   private dispatchPress(phase: OverlayPhase, target: Node): void {
-    const open = this.orderedOpenEntries().map(entry => ({
+    const open = this.pressOrderedEntries().map(entry => ({
       entry,
       inside: entryContains(entry, target),
     }));
@@ -346,6 +360,9 @@ class OverlayRegistryImpl implements OverlayRegistry {
 
     for (const { entry, inside: isInside } of open) {
       if (!entry.isOpen()) continue;
+      // Each dispatcher owns one phase: the mousedown-capture walk must not
+      // close a surface that dismisses on the click bubble (and vice versa).
+      if (entry.dismissOn !== phase) continue;
       if (phase === "mousedown") {
         // The capture phase decides outside dismissal only — an inside press
         // must keep its native behaviour (button activation, focus move).
