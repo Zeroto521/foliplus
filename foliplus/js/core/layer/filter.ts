@@ -345,17 +345,16 @@ const selectIndices = (
   return include;
 };
 
-/** The field a filter is bound to: the owner's preferred (aggregation)
- *  field when it exists on the snapshot, else the auto field, else the
- *  first numeric key. Read-only for the panel — one resolution path. */
+/** The field a filter is bound to: the owner's (aggregation) field when it
+ *  exists on the snapshot, else the first numeric key. Read-only for the
+ *  panel — one resolution path. */
 const pickFilterField = (
   snapshot: LayerSnapshot | null,
   preferredField: string,
-  autoFieldKey: string | null,
 ): string => {
   const numeric = snapshot?.numericFields ?? [];
   if (preferredField && numeric.includes(preferredField)) return preferredField;
-  return autoFieldKey && numeric.includes(autoFieldKey) ? autoFieldKey : numeric[0];
+  return numeric[0] ?? "";
 };
 
 /** Everything the filter panel renders, derived from the owner's state.
@@ -369,12 +368,11 @@ const buildFilterModel = (
   snapshot: LayerSnapshot | null,
   filter: LayerFilter,
   preferredField: string,
-  autoFieldKey: string | null,
   counts?: { kept: number; total: number },
   label?: string,
 ): LayerFilterModel | null => {
   if (!snapshot || snapshot.numericFields.length === 0) return null;
-  const field = pickFilterField(snapshot, preferredField, autoFieldKey);
+  const field = pickFilterField(snapshot, preferredField);
   const range = snapshot.ranges[field] ?? [0, 0];
   return {
     dimensions: [

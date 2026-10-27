@@ -25,6 +25,8 @@ const makeConfig = (overrides: Partial<ComponentConfig> = {}): ComponentConfig =
     en: {
       "HeatmapControl.no_layer": "No point layers found",
       "HeatmapControl.no_layercontrol": "HeatmapControl requires LayerControl",
+      "HeatmapControl.needs_numeric_field":
+        "Needs a numeric field to aggregate by value",
     },
   },
   ...overrides,

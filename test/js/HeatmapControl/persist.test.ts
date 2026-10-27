@@ -264,6 +264,33 @@ describe("HeatmapManager — versioned persisted config", () => {
       expect(m.selectedLayerId).toBeNull();
     });
 
+    it("leaves a record without a field unresolved until the first scan resolves it", () => {
+      // An old record may carry `field: ""` (the retired auto sentinel). The
+      // parser drops empty strings, so applying it leaves the manager's
+      // default in place; the first updateFieldSelector resolves and persists
+      // the first numeric field (covered in ui.test.ts).
+      const m = makeManager();
+      m.selectedLayerId = "layer_abc";
+      m.field = "";
+      m.saveConfig();
+      const stored = JSON.parse(window.localStorage.getItem(KEY)!);
+      expect(stored.field).toBe("");
+      const m2 = makeManager();
+      m2.applySavedConfig(m.loadSavedConfig()!);
+      expect(m2.field).toBe("");
+    });
+
+    it("stores an explicit field pick as the real name", () => {
+      const m = makeManager();
+      m.field = "price";
+      m.saveConfig();
+      const stored = JSON.parse(window.localStorage.getItem(KEY)!);
+      expect(stored.field).toBe("price");
+      const m2 = makeManager();
+      m2.applySavedConfig(m.loadSavedConfig()!);
+      expect(m2.field).toBe("price");
+    });
+
     it("ignores undefined borderWeight, keeps current value", () => {
       const m = makeManager();
       m.borderWeight = 2.5;

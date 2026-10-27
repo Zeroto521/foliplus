@@ -8,7 +8,6 @@ import {
   binPoints,
   buildFeatures,
   getH3Res,
-  pickAutoField,
   readMarkerField,
 } from "#foliplus/HeatmapControl/data.js";
 import type { SelectedPoint } from "#foliplus/HeatmapControl/type.js";
@@ -68,17 +67,6 @@ describe("getH3Res", () => {
 
   it("falls back to RES_FALLBACK beyond the map", () => {
     expect(getH3Res(99)).toBe(CONST.H3.RES_FALLBACK);
-  });
-});
-
-describe("pickAutoField", () => {
-  it("picks the first field", () => {
-    expect(pickAutoField(["a", "b"])).toBe("a");
-  });
-
-  it("returns null for empty or null fields", () => {
-    expect(pickAutoField([])).toBeNull();
-    expect(pickAutoField(null)).toBeNull();
   });
 });
 

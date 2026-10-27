@@ -31,7 +31,7 @@ import {
   EVENTS,
   type SettledOperation,
 } from "#core/event/index.js";
-import { CAP_TIER, HIDDEN, PANE_ROLE } from "#core/layer/index.js";
+import { CAP_TIER, HIDDEN, PANE_ROLE, carrierTargetOf } from "#core/layer/index.js";
 import { getLayerAlpha, setLayerAlpha } from "#common/canvasAlpha.js";
 import * as CONST from "../const.js";
 import { INTENT, getIntent } from "./intent.js";
@@ -188,18 +188,18 @@ const scheduleOpacityRedraw = (
  *  pane exists from surface construction, so there is no late carrier to
  *  splice in). Anything else (native `options.opacity`) is keyed by the
  *  layer's own `options` object, which is the actual write target.
- */
+ *
+ *  The declaration shape and the token itself live in
+ *  `core/layer/carrierTarget`, so the export walk derives its pane set from
+ *  the same declaration this writer keys on — one carrier answer, two readers. */
 const carrierOf = (ui: LayerUI, layerInfo: LayerInfo): unknown => {
-  if (layerInfo.canvas) return layerInfo.canvas;
   const surface = ui.c.surfaceFor(layerInfo);
-  if (surface.capabilities.opacity === CAP_TIER.PANE) {
-    // A stable key, not an array: `sameCarrier` compares with `===`, so a
-    // freshly built array would never match and every pane layer would
-    // rewrite on every call. Sorted, so the order the pane specs happen to
-    // arrive in cannot register as "the carrier moved".
-    return [...surface.paneNames].sort().join("|");
-  }
-  return (layerInfo.layer?.options ?? null) as object | null;
+  return carrierTargetOf({
+    canvas: layerInfo.canvas,
+    layer: layerInfo.layer,
+    panes: surface.paneNames,
+    opacityTier: surface.capabilities.opacity,
+  });
 };
 
 /** Whether the executor's last write reached the same carrier as the one
@@ -496,7 +496,7 @@ const projectEntry = (
   // even when the numeric value is unchanged — a re-registered canvas
   // element or a lazily-appearing annotation pane needs the stored
   // opacity applied to the new DOM, not to whatever the last write hit.
-  const carrierToken = carrierOf(ui, layerInfo);
+  const carrierKey = carrierOf(ui, layerInfo);
 
   // 1. Effective-shown — the composite `intent && policy`. Diffed against
   //    what the map actually holds, not against the last value we remember
@@ -554,7 +554,7 @@ const projectEntry = (
 
   // 2. Opacity — independent of zoom/focus. Rewritten whenever the carrier
   //    has moved, not just when the value has.
-  if (prev.opacity !== next.opacity || !sameCarrier(prev.carrier, carrierToken)) {
+  if (prev.opacity !== next.opacity || !sameCarrier(prev.carrier, carrierKey)) {
     dispatchStateOp(
       ui,
       layerInfo,
@@ -589,7 +589,7 @@ const projectEntry = (
   ui.runtimeStore.setApplied(id, {
     ...next,
     effectiveShown: next.effectiveShown,
-    carrier: carrierToken,
+    carrier: carrierKey,
   });
 
   return { wroteVisible, intentMoved };

@@ -11,7 +11,7 @@
   "HeatmapControl.agg_min": "最小值",
   "HeatmapControl.agg_max": "最大值",
   "HeatmapControl.field": "字段",
-  "HeatmapControl.field_auto": "自动识别",
+  "HeatmapControl.needs_numeric_field": "需包含数值字段才能按值聚合",
   "HeatmapControl.classify_method": "分类方法",
   "HeatmapControl.class_count": "分级数",
   "HeatmapControl.jenks": "自然断点",

@@ -9,7 +9,6 @@ import { buildClassesRow, buildFieldRow, buildSchemeRow } from "#core/rampForm.j
 import { dom } from "#common/dom.js";
 import { type SchemePicker, createSchemePicker } from "#common/schemePicker.js";
 import * as CONST from "./const.js";
-import { pickAutoField } from "./data.js";
 import { type HeatmapManager } from "./manager.js";
 import { panelContentHTML } from "./template.js";
 
@@ -205,9 +204,9 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
   ctrl.aggSelect.onchange = () => {
     ctrl.mgr.agg = ctrl.aggSelect.value;
     updateFieldSelector(ctrl);
-    // The effective filter field can move with the aggregation (auto field
-    // resolution): drop a filter bound to the previous field, then tell the
-    // open panel to re-read the model even when the field did not move.
+    // Selecting a value aggregation may resolve a concrete field: drop a
+    // filter bound to the previous field, then tell the open panel to re-read
+    // the model even when the field did not move.
     ctrl.mgr.syncFilterField();
     ctrl.mgr.renderHexagons();
     persist(ctrl);
@@ -281,6 +280,12 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
   };
 
   // Initial colour bar render is handled by the picker's constructor.
+
+  // Nothing is selected yet, but the aggregation options still need their
+  // initial availability. With a restored source selected, wait for initScan:
+  // the field list is not known here, and degrading now would rewrite a valid
+  // saved aggregation before its layer is scanned.
+  if (!ctrl.mgr.selectedLayerId) updateFieldSelector(ctrl);
 };
 
 const setupObserver = (ctrl: HeatmapControlUI) => {
@@ -330,14 +335,14 @@ const buildLayerListItems = (ctrl: HeatmapControlUI, sel: HTMLSelectElement) => 
     updateFieldSelector(ctrl);
     ctrl.mgr.renderHexagons();
   } else if (ctrl.mgr.selectedLayerId) {
-    // Restored selection (localStorage / rebuild): resolve the field list
-    // first so autoFieldKey is fresh — syncSourceMeta reads it under field.
+    // Restored selection (localStorage / rebuild): resolve and persist the
+    // field first so syncSourceMeta reads a concrete name.
     updateFieldSelector(ctrl);
   }
 
-  // Selection (auto, restored, or user) and field resolution are settled here —
-  // publish source-layer / agg-field so the attrs panel is current without a
-  // further user edit.
+  // Selection (automatic, restored, or user) and field resolution are settled
+  // here — publish source-layer / agg-field so the attrs panel is current
+  // without a further user edit.
   ctrl.mgr.syncSourceMeta();
 
   if (ctrl.mgr.selectedLayerId) sel.value = ctrl.mgr.selectedLayerId;
@@ -370,42 +375,83 @@ const rebuildLayerDropdown = (ctrl: HeatmapControlUI) => {
   if (ctrl.layerSelect) buildLayerListItems(ctrl, ctrl.layerSelect);
 };
 
+/** Express whether value aggregations are currently usable. Disabling only the
+ *  options is not enough — the selected value must also move to COUNT, or the
+ *  browser reselects COUNT for display while `mgr.agg` keeps the old value. */
+const setValueAggregationsEnabled = (ctrl: HeatmapControlUI, enabled: boolean) => {
+  for (const opt of ctrl.aggSelect.options) {
+    opt.disabled = !enabled && opt.value !== CONST.AGG.COUNT;
+  }
+  if (enabled) ctrl.aggSelect.removeAttribute("title");
+  else ctrl.aggSelect.title = ctrl.T("needs_numeric_field");
+};
+
 const updateFieldSelector = (ctrl: HeatmapControlUI) => {
   if (!ctrl.fieldWrap || !ctrl.fieldSelect) return;
-  if (ctrl.mgr.agg === CONST.AGG.COUNT) {
-    ctrl.fieldWrap.classList.add(CONST.CLASSES.HIDDEN);
-    return;
-  }
-  ctrl.fieldWrap.classList.remove(CONST.CLASSES.HIDDEN);
 
   const selected = ctrl.mgr.pointLayers.filter(
     info => info.id === ctrl.mgr.selectedLayerId,
   );
   const fields = ctrl.mgr.collectFields(selected);
-  ctrl.mgr.autoFieldKey = pickAutoField(fields);
 
+  // No numeric field: SUM/AVG/MIN/MAX have nothing to weigh by. Disable the
+  // options, explain why, AND move the value itself to COUNT — one value for
+  // display, render and persistence, so the select never shows one aggregation
+  // while the render uses another. Leaving `mgr.agg` at SUM/AVG here splits
+  // them: the browser silently reselects COUNT for display, while the render
+  // still aggregates by the stale value — every cell then falls back to 1.
+  if (fields.length === 0) {
+    setValueAggregationsEnabled(ctrl, false);
+    if (ctrl.mgr.agg !== CONST.AGG.COUNT) {
+      ctrl.mgr.agg = CONST.AGG.COUNT;
+      syncSelect(ctrl, ctrl.aggSelect, CONST.AGG.COUNT);
+      ctrl.mgr.saveConfig();
+    }
+    rebuildFieldOptions(ctrl, fields, "");
+    ctrl.fieldWrap.classList.add(CONST.CLASSES.HIDDEN);
+    return;
+  }
+
+  setValueAggregationsEnabled(ctrl, true);
+
+  if (ctrl.mgr.agg === CONST.AGG.COUNT) {
+    // COUNT needs no field; the row appears once a value aggregation is picked.
+    // Keep the hidden select on a valid option rather than the empty string.
+    rebuildFieldOptions(ctrl, fields, fields[0]);
+    ctrl.fieldWrap.classList.add(CONST.CLASSES.HIDDEN);
+    return;
+  }
+  ctrl.fieldWrap.classList.remove(CONST.CLASSES.HIDDEN);
+
+  // A stored field that no longer exists remaps to the first numeric field.
+  // "" means "never picked" (fresh config / legacy record / Reset): it is
+  // resolved here and written back, so `field` is a concrete name from then on
+  // — the row no longer needs an "Auto" state to explain itself. Only remap
+  // when a candidate list exists, so a momentarily empty scan does not destroy
+  // the user's choice.
+  const resolved = fields.includes(ctrl.mgr.field) ? ctrl.mgr.field : fields[0];
+  if (resolved !== ctrl.mgr.field) {
+    ctrl.mgr.field = resolved;
+    ctrl.mgr.saveConfig();
+  }
+
+  rebuildFieldOptions(ctrl, fields, resolved);
+  syncSelect(ctrl, ctrl.fieldSelect, resolved);
+};
+
+/** Rebuild the field <option>s in place: the row element and its bound
+ *  onchange live for the control's lifetime, while the field list changes on
+ *  every scan. */
+const rebuildFieldOptions = (
+  ctrl: HeatmapControlUI,
+  fields: readonly string[],
+  value: string,
+) => {
   ctrl.fieldSelect.innerHTML = "";
-  dom.el(
-    "option",
-    {
-      value: "",
-      disabled: true,
-      class: CONST.CLASSES.PLACEHOLDER_OPTION,
-      parent: ctrl.fieldSelect,
-    },
-    ctrl.T("field_auto"),
-  );
-
   fields.forEach(f => {
     dom.el("option", { value: f, parent: ctrl.fieldSelect }, f);
   });
-
-  if (ctrl.mgr.field && !fields.includes(ctrl.mgr.field)) {
-    ctrl.mgr.field = "";
-  }
-  ctrl.fieldSelect.value = ctrl.mgr.field;
-
-  syncSelect(ctrl, ctrl.fieldSelect, ctrl.fieldSelect.value);
+  ctrl.fieldSelect.value = value;
 };
 
 /**

@@ -80,7 +80,7 @@ const buildLabelSection = (ui: LayerUI, layerId: string): HTMLElement => {
 
   // Field options: the auto entry first, then one per field. The auto entry is
   // the select's own empty value, so it is what a fresh panel shows, and it is
-  // a disabled placeholder exactly like the heatmap's `field_auto`. Disabled
+  // a disabled placeholder like the heatmap's layer-row prompt. Disabled
   // rather than merely first, so it reads as the current state instead of an
   // option to pick: the way back to auto is Reset, which restores the default
   // config. The per-field <option>s are appended to the select itself —

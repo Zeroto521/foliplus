@@ -36,12 +36,11 @@ describe("getPointValue", () => {
 });
 
 describe("getPointValue — additional gaps", () => {
-  it("uses autoFieldKey when field is empty", () => {
+  it("falls back to 1 when field is empty", () => {
     const m = makeManager();
     m.agg = CONST.AGG.SUM;
     m.field = "";
-    m.autoFieldKey = "value";
-    expect(m.getPointValue({ value: 42 })).toBe(42);
+    expect(m.getPointValue({ value: 42 })).toBe(1);
   });
 
   it("uses field when it is set", () => {
@@ -65,9 +64,8 @@ describe("getPointValue — additional gaps", () => {
 });
 
 describe("HeatmapManager — caching & lifecycle", () => {
-  it("clearHeatmapCanvas resets autoFieldKey and all caches", () => {
+  it("clearHeatmapCanvas resets all caches", () => {
     const m = makeManager();
-    m.autoFieldKey = "price";
     m.cachedFeatures = { f: 1 } as any;
     m.cachedAgg = { key: "k", data: "d" } as any;
     m.cachedPoints = { key: "p", pts: [] } as any;
@@ -84,7 +82,6 @@ describe("HeatmapManager — caching & lifecycle", () => {
     m.field = "price";
     m.method = "quantile";
     m.numClasses = 9;
-    m.autoFieldKey = "price";
 
     // A zoom that lands on no features runs clearHeatmapCanvas through the
     // render empty path — the selection is a user choice, not a render artifact.
@@ -95,7 +92,6 @@ describe("HeatmapManager — caching & lifecycle", () => {
     expect(m.field).toBe("price");
     expect(m.method).toBe("quantile");
     expect(m.numClasses).toBe(9);
-    expect(m.autoFieldKey).toBe("price");
   });
 
   it("clearHeatmapCanvas runs the UI listener cleanups so detached handlers die with the canvas", () => {
@@ -1574,17 +1570,16 @@ describe("HeatmapManager — source meta for the attrs panel", () => {
     expect(m.sourceMeta["HeatmapControl.meta_agg_field"]).toBe("");
   });
 
-  it("uses the auto field when field is empty", () => {
+  it("omits the aggregation field when the stored field is empty", () => {
     const m = makeManager();
     m.pointLayers = [{ id: "pts", name: "Stores", layer: null, count: 1 }];
     m.selectedLayerId = "pts";
     m.agg = "avg";
     m.field = "";
-    m.autoFieldKey = "properties.dwell";
 
     m.syncSourceMeta();
 
-    expect(m.sourceMeta["HeatmapControl.meta_agg_field"]).toBe("dwell");
+    expect(m.sourceMeta["HeatmapControl.meta_agg_field"]).toBe("");
   });
 
   it("clears both rows when no layer is selected", () => {
@@ -1685,7 +1680,6 @@ describe("HeatmapManager — EVENTS.LAYER_DELETED auto-clear", () => {
     m.selectedLayerId = "pts";
     m.agg = CONST.AGG.SUM;
     m.field = "price";
-    m.autoFieldKey = "price";
     m.scheme = "Greens";
     m.numClasses = 8;
     m.method = "quantile";
@@ -1697,7 +1691,6 @@ describe("HeatmapManager — EVENTS.LAYER_DELETED auto-clear", () => {
 
     // State back to the declared defaults, no stale selection left behind.
     expect(m.selectedLayerId).toBeNull();
-    expect(m.autoFieldKey).toBeNull();
     expect(m.agg).toBe(CONST.AGG.COUNT);
     expect(m.field).toBe("");
     expect(m.method).toBe(config.method);
@@ -1733,7 +1726,6 @@ describe("HeatmapManager — EVENTS.LAYER_DELETED auto-clear", () => {
     m.field = "price";
     m.scheme = "Greens";
     m.numClasses = 8;
-    m.autoFieldKey = "price";
     const clearSpy = vi.spyOn(m, "clearHeatmapCanvas");
     const saveSpy = vi.spyOn(m, "saveConfig");
     const clearSaved = vi.spyOn(m, "clearSavedConfig");
@@ -1744,7 +1736,6 @@ describe("HeatmapManager — EVENTS.LAYER_DELETED auto-clear", () => {
     expect(saveSpy).toHaveBeenCalledTimes(1);
     expect(clearSaved).not.toHaveBeenCalled();
     expect(m.selectedLayerId).toBeNull();
-    expect(m.autoFieldKey).toBeNull();
     expect(m.agg).toBe(CONST.AGG.COUNT);
     expect(m.field).toBe("");
     expect(m.scheme).toBe("Reds");
