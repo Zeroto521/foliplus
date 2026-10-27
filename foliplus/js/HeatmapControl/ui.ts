@@ -3,6 +3,7 @@
 import { CLASS_COUNT, type ClassifyMethod, isClassifyMethod } from "#core/classify.js";
 import { EVENTS, ensureEvents, publish } from "#core/event/index.js";
 import { resolveField } from "#core/field.js";
+import { fullscreenSurface, onFullscreenSurfaceChange } from "#core/fullscreen.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { adjustPanelZIndex } from "#core/leaflet/index.js";
 import { safeColorScale } from "#core/palette.js";
@@ -162,7 +163,13 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     schemes: ctrl.config.schemes ?? [],
     value: ctrl.mgr.scheme,
     numClasses: ctrl.mgr.numClasses,
-    portal: false,
+    // Portalled like the style drawer's picker: the shared placement decision
+    // (flip above a trigger near the viewport bottom) lives in the portal path,
+    // and the injected host contract keeps the list above the surface that
+    // covers the trigger — native fullscreen or the pseudo fallback.
+    portal: true,
+    resolveHost: () => fullscreenSurface(ctrl.mgr.map.getContainer()),
+    onSurfaceChange: onFullscreenSurfaceChange,
     colorScale: safeColorScale,
     // The picker has no locale table: the panel's translator names the trigger.
     label: ctrl.T("scheme"),
