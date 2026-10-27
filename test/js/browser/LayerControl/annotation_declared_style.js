@@ -84,10 +84,16 @@
     await raf();
     const smaller = { cfg: mgr.getConfig(id), pixels: read() };
 
+    // And the other direction: a bigger declared size must paint a bigger box.
+    mgr.setConfig(id, { ...afterReset.cfg, size: 30 });
+    mgr.renderLabels(id);
+    await raf();
+    const larger = { cfg: mgr.getConfig(id), pixels: read() };
+
     mgr.clearConfig(id);
     mgr.renderLabels(id);
     await raf();
 
-    return { id, dpr, declared, overridden, storage, afterReset, smaller };
+    return { id, dpr, declared, overridden, storage, afterReset, smaller, larger };
   })();
 };
