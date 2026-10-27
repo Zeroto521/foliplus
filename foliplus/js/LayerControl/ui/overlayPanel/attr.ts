@@ -230,10 +230,7 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
       const active = ui.overlayPanel.activeAttrsPanel;
       return active ? [active.panel] : [];
     },
-    // Escape still belongs to the legacy keyboard chain until C5; returning
-    // false leaves the event unhandled so that chain can run unchanged. The
-    // press dispatcher always passes restoreFocus:false and does close.
-    close: ({ restoreFocus }) => (restoreFocus ? false : closeAttrsPanel(ui, false)),
+    close: ({ restoreFocus }) => closeAttrsPanel(ui, restoreFocus),
     dismissOn: "mousedown",
     pressPriority: 600,
     clearsCursorOnClose: true,

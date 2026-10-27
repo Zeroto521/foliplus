@@ -672,12 +672,13 @@ describe("LayerUI attrs", () => {
       const checkbox = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
       checkbox.focus();
 
-      ui.handleKeyDown(
+      // Real keydown: the overlay registry owns Escape now.
+      checkbox.dispatchEvent(
         new KeyboardEvent("keydown", {
           bubbles: true,
           cancelable: true,
           key: "Escape",
-        }) as unknown as KeyboardEvent,
+        }),
       );
 
       expect(item.querySelector(".foliplus-layer-attrs-panel")).toBeNull();
@@ -699,12 +700,13 @@ describe("LayerUI attrs", () => {
       const checkbox = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
       checkbox.focus();
 
-      ui.handleKeyDown(
+      // Real keydown: the overlay registry owns Escape now.
+      checkbox.dispatchEvent(
         new KeyboardEvent("keydown", {
           bubbles: true,
           cancelable: true,
           key: "Escape",
-        }) as unknown as KeyboardEvent,
+        }),
       );
 
       expect(ui.overlayPanel.activeMenu).toBeNull();

@@ -65,6 +65,7 @@ interface LayerUI {
   onZoomEnd: (() => void) | null;
   unsubscribeCountChange: (() => void) | null;
   unsubscribeControlAttached: (() => void) | null;
+  unsubscribeEscape: (() => void) | null;
   unsubscribeLayerSignals: (() => void)[];
 
   // ── controller / DOM views ──

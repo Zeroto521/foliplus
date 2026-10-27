@@ -257,10 +257,6 @@ const buildDropdown = (state: InternalState): HTMLElement => {
         const name = active.getAttribute("data-scheme-name");
         if (name) selectScheme(state, name);
       }
-    } else if (key === "Escape") {
-      event.preventDefault();
-      event.stopPropagation();
-      closeDropdown(state);
     }
   };
 

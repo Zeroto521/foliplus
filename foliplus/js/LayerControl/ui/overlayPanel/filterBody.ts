@@ -340,6 +340,10 @@ const renderEnumBody = (
     // shared press dispatcher close the popup on a press outside its control
     // without closing the filter panel, exactly as the old document handler
     // did. The panel entry (LAYER_FILTER) stays registered below it.
+    // Constraint: if this enum list ever becomes a portal/popup again, its
+    // Escape ownership must stay on this layer entry (or PICKER_DROPDOWN) —
+    // never add a document-level keydown; the registry's rank table is the
+    // single Escape dispatcher.
     unregisterPopup?.();
     unregisterPopup =
       deps.overlayRegistry?.register({

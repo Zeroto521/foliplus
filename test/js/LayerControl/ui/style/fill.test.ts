@@ -2613,6 +2613,33 @@ describe("fill ramp detail — field / method / classes / scheme", () => {
     expect(document.querySelector(".foliplus-scheme-picker-dropdown")).toBeNull();
   });
 
+  it("Escape closes the picker first, then the style panel (one layer per press)", () => {
+    const block = openPanel(ui);
+    const trigger = details(block).querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_SCHEME_TRIGGER}`,
+    ) as HTMLElement;
+    trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(document.querySelector(".foliplus-scheme-picker-dropdown")).not.toBeNull();
+
+    const escape = (): KeyboardEvent => {
+      const event = new KeyboardEvent("keydown", {
+        key: "Escape",
+        bubbles: true,
+        cancelable: true,
+      });
+      document.body.dispatchEvent(event);
+      return event;
+    };
+
+    // Topmost is the picker (ESC_PRIORITY 850), even though focus is on body.
+    escape();
+    expect(document.querySelector(".foliplus-scheme-picker-dropdown")).toBeNull();
+    expect(ui.overlayPanel.stylePanelLayerId).toBe("overlay1");
+
+    escape();
+    expect(ui.overlayPanel.stylePanelLayerId).toBeNull();
+  });
+
   it("closing the panel destroys the open picker's dropdown", () => {
     const block = openPanel(ui);
     const trigger = details(block).querySelector(

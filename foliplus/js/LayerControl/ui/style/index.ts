@@ -355,10 +355,7 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
       return currentPanel ? [currentPanel] : [];
     },
     portals: () => Array.from(document.querySelectorAll(SCHEME_PICKER_PORTAL_SELECTOR)),
-    // Escape still belongs to the legacy keyboard chain until C5; returning
-    // false leaves the event unhandled so that chain can run unchanged. The
-    // press dispatcher always passes restoreFocus:false and does close.
-    close: ({ restoreFocus }) => (restoreFocus ? false : closeStylePanel(ui, false)),
+    close: ({ restoreFocus }) => closeStylePanel(ui, restoreFocus),
     dismissOn: "mousedown",
     pressPriority: 500,
     clearsCursorOnClose: true,

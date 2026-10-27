@@ -627,6 +627,10 @@ describe("LayerUI filter panel", () => {
       expect(listOf(item).hidden).toBe(true);
       expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).not.toBeNull();
       expect(document.activeElement).toBe(triggerOf(item));
+
+      // Second Escape: the panel is now the topmost surface.
+      pressKey(triggerOf(item), "Escape");
+      expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).toBeNull();
       spy.mockRestore();
     });
 
@@ -981,7 +985,7 @@ describe("LayerUI filter panel", () => {
       spy.mockRestore();
     });
 
-    it("leaves the empty state open when Escape is pressed on the panel", () => {
+    it("Escape closes the empty state too (one layer per press)", () => {
       manager.registerLayer({
         id: "empty-filter",
         name: "Empty",
@@ -996,7 +1000,9 @@ describe("LayerUI filter panel", () => {
 
       pressKey(panel, "Escape");
 
-      expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).not.toBeNull();
+      // The empty state has no transient popup to close first, so the panel
+      // itself is the topmost surface.
+      expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).toBeNull();
     });
 
     it("Clear resets an enum filter", () => {
@@ -1599,9 +1605,17 @@ describe("LayerUI filter panel — result, Clear and row state", () => {
     registerPoints();
     const item = findItem(ui, "pnt");
     ui.openFilterPanel(item);
-    expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).not.toBeNull();
+    const panel = item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`) as HTMLElement;
+    expect(panel).not.toBeNull();
 
-    ui.handleKeyDown(new KeyboardEvent("keydown", { key: "Escape" }));
+    // Real keydown: Escape is owned by the overlay registry, not handleKeyDown.
+    panel.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "Escape",
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
 
     expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).toBeNull();
     expect(ui.overlayPanel.activeFilterPanel).toBeNull();

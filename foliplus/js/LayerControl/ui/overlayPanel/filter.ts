@@ -419,28 +419,16 @@ const openFilterPanel = (ui: LayerUI, item: HTMLElement): void => {
   // draggable row, so it cannot answer that.
   panel.addEventListener("mousedown", e => e.stopPropagation());
 
-  // The enum popup is the topmost layer: Escape while it is open closes the
-  // popup first, wherever focus sits inside the panel (an option, the trigger
-  // or the footer). The container's own Escape handler closes the surface, and
-  // it only runs once no popup is left.
-  panel.addEventListener("keydown", (event: KeyboardEvent) => {
-    if (event.key !== "Escape") return;
-    const current = ui.overlayPanel.activeFilterPanel;
-    if (current?.view.kind !== "rows") return;
-    if (!current.view.body.dismissTransient(panel, true)) return;
-    event.preventDefault();
-    event.stopPropagation();
-  });
-
   item.style.position = "relative";
   item.appendChild(panel);
 
   // Register the open surface with the per-map overlay registry. The
-  // registry owns the document capture-phase mousedown dispatcher. The enum
-  // popup registers its own higher-priority nested entry from filterBody, so a
-  // press outside the popup but inside the panel closes only the popup and
-  // consumes the press; the next outside press reaches this entry and closes
-  // the panel.
+  // registry owns the document capture-phase mousedown and Escape dispatchers.
+  // The enum popup registers its own higher-priority nested entry from
+  // filterBody, so a press outside the popup but inside the panel closes only
+  // the popup and consumes the press; the next outside press reaches this
+  // entry and closes the panel. Escape works by rank: the enum closes first,
+  // then this panel.
   ui.overlayPanel.activeFilterPanel = state;
   ui.overlayPanel.filterOverlayUnregister = ensureOverlayRegistry(ui.c.map).register({
     id: OVERLAY_IDS.LAYER_FILTER,
@@ -449,10 +437,7 @@ const openFilterPanel = (ui: LayerUI, item: HTMLElement): void => {
       const active = ui.overlayPanel.activeFilterPanel;
       return active ? [active.panel] : [];
     },
-    // Escape still belongs to the legacy keyboard chain until C5; returning
-    // false leaves the event unhandled so that chain can run unchanged. The
-    // press dispatcher always passes restoreFocus:false and does close.
-    close: ({ restoreFocus }) => (restoreFocus ? false : closeFilterPanel(ui, false)),
+    close: ({ restoreFocus }) => closeFilterPanel(ui, restoreFocus),
     dismissOn: "mousedown",
     pressPriority: 700,
     clearsCursorOnClose: true,

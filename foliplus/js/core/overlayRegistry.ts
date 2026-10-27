@@ -102,6 +102,10 @@ interface EscapeHandled {
    *  container from one in another component. Null for a non-Node target. */
   target: Node | null;
   origin: "capture";
+  /** True when the closed surface owned the row keyboard cursor (row panels,
+   *  menu, rename). The cursor owner clears it from this flag, so it does not
+   *  need to keep a second entry-id table in sync with the registry. */
+  clearsCursorOnClose?: boolean;
 }
 
 /** Entry ids the Escape order table knows. A table id without a constant (or
@@ -419,36 +423,40 @@ class OverlayRegistryImpl implements OverlayRegistry {
       return;
     }
     /* v8 ignore stop */
-    const owner = this.owningEntry(target);
-    if (!owner) {
+    // Escape is a layer-stack key, not a target-owned key: close exactly the
+    // highest-ranked open surface, even when focus sits in a lower panel. The
+    // owner-by-target rule would close the style panel while its picker popup
+    // is open (one Escape tearing down two layers); the ESC_PRIORITY table is
+    // the one ordering contract, so use it here too.
+    const top = this.topmost();
+    if (!top) {
       this.notifyEscape({ handled: false, entryId: null, target, origin: "capture" });
       return;
     }
-    if (owner.escPassthroughOnEditable && isEditable(target)) {
+    if (top.escPassthroughOnEditable && isEditable(target)) {
       // The editor keeps Escape (commit/cancel) and the dispatch consumes
       // nothing; the row cursor still hears today's outcome — a handled close
       // for cursor purposes — exactly once.
       this.notifyEscape({
         handled: true,
-        entryId: owner.id,
+        entryId: top.id,
         target,
         origin: "capture",
+        ...(top.clearsCursorOnClose ? { clearsCursorOnClose: true } : {}),
       });
       return;
     }
-    // Resolve and close the owner only — never walk the table and close the
-    // highest-ranked open surface, which is a different entry as soon as a
-    // portal surface is nested inside a panel.
-    const closed = owner.close({ restoreFocus: true }) !== false;
+    const closed = top.close({ restoreFocus: true }) !== false;
     if (closed) {
       event.preventDefault();
       event.stopPropagation();
     }
     this.notifyEscape({
       handled: closed,
-      entryId: owner.id,
+      entryId: top.id,
       target,
       origin: "capture",
+      ...(top.clearsCursorOnClose ? { clearsCursorOnClose: true } : {}),
     });
   }
 

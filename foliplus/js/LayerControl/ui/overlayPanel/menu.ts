@@ -242,6 +242,7 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
     close: ({ restoreFocus }) => closeMoreMenu(ui, restoreFocus),
     dismissOn: "click",
     pressPriority: 800,
+    clearsCursorOnClose: true,
   });
 
   // Focus the first menu item so Enter/Space activate it and Escape closes.

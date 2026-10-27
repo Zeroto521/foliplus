@@ -4,6 +4,7 @@
 // so index.ts stays a state + delegates shell.
 import { EVENTS, type EventPayloadMap, ensureEvents } from "#core/event/index.js";
 import { ROLE } from "#core/layer/index.js";
+import { ensureOverlayRegistry } from "#core/overlayRegistry.js";
 import * as CONST from "../const.js";
 import { handleMoreClick, registerInteractions } from "../interaction.js";
 import {
@@ -78,6 +79,21 @@ const attachUI = (ui: LayerUI, containerDiv: HTMLElement): void => {
   loadPersistedState(ui);
   renderInitialList(ui);
   bindLayerEvents(ui);
+  // The registry owns Escape for every floating surface; this subscription
+  // only translates its outcome into the row-cursor rule. A handled close of a
+  // cursor-owning surface clears the cursor once; an unhandled Escape whose
+  // target sits inside the panel (no surface open) also clears it. Surfaces
+  // such as the scheme picker do not own the row cursor, so their Escape
+  // leaves it alone.
+  ui.unsubscribeEscape = ensureOverlayRegistry(ui.c.map).onEscapeHandled(payload => {
+    if (payload.handled) {
+      if (payload.clearsCursorOnClose) blurActiveItem(ui);
+      return;
+    }
+    if (payload.target && ui.uiContainer?.contains(payload.target)) {
+      blurActiveItem(ui);
+    }
+  });
 
   while (ui.c.pendingRegistrations.length) {
     const layerInfo = ui.c.pendingRegistrations.shift();
@@ -494,6 +510,8 @@ const unbindEvents = (ui: LayerUI): void => {
   // the cleanup. Pure session state clears even when the panel is already
   // gone, which is why this runs before the container guard.
   clearDragState(ui);
+  ui.unsubscribeEscape?.();
+  ui.unsubscribeEscape = null;
   const container = ui.uiContainer;
   if (!container) {
     // No panel to close, but the UI still owns whatever it scheduled — a

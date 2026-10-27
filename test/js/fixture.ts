@@ -362,6 +362,7 @@ export function makeLayerUIMock(extra: Overrides = {}): LayerUI {
     onZoomEnd: null,
     unsubscribeCountChange: null,
     unsubscribeControlAttached: null,
+    unsubscribeEscape: null,
     focusController: {
       focusRect: null,
       focusingLayerId: null,
