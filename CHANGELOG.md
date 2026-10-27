@@ -35,7 +35,7 @@
 
 ### Added
 
-- `LayerControl`: layers declare label defaults (field/format/collision) via `foliplus={"annotation": {...}}`, turning labels on at load; a later panel choice still wins ([#669](https://github.com/Zeroto521/foliplus/pull/669))
+- `LayerControl`: layers declare label defaults (field/format/collision/colour/size) via `foliplus={"annotation": {...}}`, turning labels on at load; a later panel choice still wins ([#669](https://github.com/Zeroto521/foliplus/pull/669), [#785](https://github.com/Zeroto521/foliplus/pull/785))
 - `LayerControl`: a `show=False` layer no longer reappears on a zoom sweep ([#676](https://github.com/Zeroto521/foliplus/pull/676))
 
 ### Changed
