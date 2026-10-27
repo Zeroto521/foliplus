@@ -13,8 +13,6 @@ from ._typing import ControlPosition
 from .BaseControl import BaseControl
 from .locale import LocaleConfig
 
-
-
 _FOLIUM_COLOR_PROP = "__folium_color"
 _FILL_AUTHOR_FIELD_LIMIT = 50
 _FILL_AUTHOR_FEATURE_LIMIT = 50_000
@@ -119,6 +117,7 @@ def _fill_author(item: Layer) -> dict[str, Any] | None:
     if len(features) <= _FILL_AUTHOR_FEATURE_LIMIT and meta["perFeature"]:
         meta["fields"] = _fill_author_fields(rows)
     return meta
+
 
 class LayerControl(BaseControl):
     """Layer panel to organize, inspect, and zoom to map layers.
