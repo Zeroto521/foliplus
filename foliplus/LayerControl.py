@@ -94,14 +94,7 @@ class LayerControl(BaseControl):
     A layer may declare its own label defaults on the layer itself:
 
     >>> gdf.explore(
-    ...     foliplus={
-    ...         "annotation": {
-    ...             "field": "name",
-    ...             "color": "#1f78b4",
-    ...             "size": 14,
-    ...             "collide": False,
-    ...         }
-    ...     }
+    ...     foliplus={"annotation": {"field": "name", "collide": False}}
     ... )
 
     The declaration keys are ``field`` (the property to label; declaring it
