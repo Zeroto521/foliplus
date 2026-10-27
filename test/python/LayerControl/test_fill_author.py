@@ -312,3 +312,29 @@ def test_integer_dtype_geodataframe_is_numeric():
     # A string column stays categorical.
     cat = _field(meta, "cat")
     assert cat is not None and cat["kind"] == "categorical"
+
+
+def test_non_primitive_value_after_a_numeric_row_disqualifies_the_column():
+    rows = [
+        ({"score": 10, "__folium_color": "#0d0887"}, "#0d0887"),
+        ({"score": {"nested": 1}, "__folium_color": "#f0f921"}, "#f0f921"),
+    ]
+    fields = _layer_control_mod._fill_author_fields(rows)
+
+    # A value that cannot key a mapping disqualifies the whole column, even
+    # when the first row already looked numeric.
+    assert _field({"fields": fields}, "score") is None
+
+
+def test_shared_colour_values_dedupe_the_author_palette():
+    rows = [
+        ({"score": 10, "__folium_color": "#0d0887"}, "#0d0887"),
+        ({"score": 20, "__folium_color": "#0d0887"}, "#0d0887"),
+        ({"score": 30, "__folium_color": "#f0f921"}, "#f0f921"),
+    ]
+    field = _field({"fields": _layer_control_mod._fill_author_fields(rows)}, "score")
+
+    assert field is not None
+    # Two values may share one colour: the palette lists each colour once.
+    assert field["orderedColors"] == ["#0d0887", "#f0f921"]
+    assert field["classes"] == 2

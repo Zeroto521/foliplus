@@ -397,8 +397,13 @@ const resampleColors = (colors: readonly string[], n: number): string[] => {
   if (colors.length === 0) return [];
   if (n <= 1) return [colors[0]];
   return Array.from({ length: n }, (_, index) => {
-    const at = Math.round((index * (colors.length - 1)) / (n - 1));
-    return colors[at] ?? colors[colors.length - 1];
+    // Clamp instead of falling back: the formula is exact for a non-empty
+    // palette, and a clamp keeps the type honest without a dead branch.
+    const at = Math.min(
+      colors.length - 1,
+      Math.round((index * (colors.length - 1)) / (n - 1)),
+    );
+    return colors[at];
   });
 };
 
@@ -1100,4 +1105,5 @@ export {
   layerCanFill,
   replayFillState,
   resetLayerFill,
+  resampleColors,
 };

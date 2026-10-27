@@ -13,6 +13,7 @@ import {
   commitFillOpacity,
   layerCanFill,
   replayFillState,
+  resampleColors,
   resetLayerFill,
 } from "#foliplus/LayerControl/ui/style/fill.js";
 import { closeStylePanel } from "#foliplus/LayerControl/ui/style/index.js";
@@ -180,7 +181,13 @@ const initWithPerFeatureLayer = ({
 const initWithAuthorRamp = ({
   colors = ["#0d0887", "#6a00a8", "#b12a90"] as readonly string[],
   classes,
-}: { colors?: readonly string[]; classes?: number } = {}) => {
+  withPalette = true,
+}: {
+  colors?: readonly string[];
+  classes?: number;
+  /** Omit orderedColors/classes, the shape an older Python payload has. */
+  withPalette?: boolean;
+} = {}) => {
   installLeafletGlobals();
   const layer = makePerFeatureLayer(colors);
   layer.leaves.forEach((leaf: { feature: unknown }, index: number) => {
@@ -206,8 +213,9 @@ const initWithAuthorRamp = ({
               ),
               other: 0,
               truncated: false,
-              orderedColors,
-              classes: classes ?? orderedColors.length,
+              ...(withPalette
+                ? { orderedColors, classes: classes ?? orderedColors.length }
+                : {}),
             },
           ],
         },
@@ -2856,6 +2864,100 @@ describe("fill row — author by-value palette", () => {
 
     expect(getIntent(ui, "overlay1", "fillRamp")).toBeUndefined();
     for (const leaf of layer.leaves) expect(leaf.setStyle).not.toHaveBeenCalled();
+  });
+  it("resamples the author palette to the block count it is drawn with", () => {
+    expect(resampleColors([], 4)).toEqual([]);
+    expect(resampleColors(["#111111", "#222222"], 1)).toEqual(["#111111"]);
+    expect(resampleColors(["#111111", "#222222", "#333333"], 2)).toEqual([
+      "#111111",
+      "#333333",
+    ]);
+    expect(resampleColors(["#111111", "#222222", "#333333"], 5)).toEqual([
+      "#111111",
+      "#222222",
+      "#222222",
+      "#333333",
+      "#333333",
+    ]);
+  });
+
+  it("keeps the read-only state when the payload has no ordered palette", () => {
+    const { ui } = initWithAuthorRamp({ withPalette: false });
+    const select = modeSelect(blockOf(ui));
+
+    // Nothing to draw the author scale from: the numeric column is not a
+    // ramp source, so the row stays on the detected read-only state.
+    expect(select.value).toBe("feature");
+  });
+
+  it("leaves the by-value arm out when the layer offers no numeric field", () => {
+    const { ui, layer } = initWithAuthorRamp();
+    for (const leaf of layer.leaves as Array<{
+      feature: { properties: Record<string, unknown> };
+    }>) {
+      delete leaf.feature.properties.score;
+      // The fixture also carries a numeric count; drop it so the tree-walk
+      // fallback finds no numeric field either.
+      delete leaf.feature.properties.count;
+    }
+    ui.runtimeStore.setFields("overlay1", []);
+
+    const row = blockOf(ui);
+    const select = modeSelect(row);
+    expect(select.querySelector('option[value="ramp"]')).toBeNull();
+  });
+
+  it("keeps the solid arm when another fill intent owns the layer", () => {
+    const { ui } = initWithAuthorRamp();
+    setIntent(ui, "overlay1", "fillOpacity", 0.4);
+
+    const row = blockOf(ui);
+    const select = modeSelect(row);
+    expect(select.value).toBe("solid");
+    expect(
+      row.querySelector(`.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`),
+    ).not.toBeNull();
+  });
+
+  it("takes over with the default scheme when the author classification changes", () => {
+    installChroma(["#111111", "#222222", "#333333"]);
+    const { ui, layer } = initWithAuthorRamp();
+    const row = blockOf(ui);
+    const method = details(row).querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_METHOD_SELECT}`,
+    ) as HTMLSelectElement;
+
+    method.value = "equal";
+    method.dispatchEvent(new Event("change", { bubbles: true }));
+    flushStyleDimApply(FACE.FILL, "overlay1");
+
+    expect(getIntent(ui, "overlay1", "fillRamp")).toMatchObject({
+      field: "score",
+      method: "equal",
+      scheme: "Viridis",
+    });
+    expect(layer.leaves[0].setStyle).toHaveBeenCalled();
+  });
+
+  it("draws no strip for a stored author scheme without a palette", () => {
+    const { ui } = initWithValues();
+    setIntent(ui, "overlay1", "fillMode", "ramp");
+    setIntent(ui, "overlay1", "fillRamp", {
+      field: "count",
+      method: "equal",
+      classes: 3,
+      scheme: "author",
+    } as never);
+
+    const row = blockOf(ui);
+    const trigger = details(row).querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_SCHEME_TRIGGER}`,
+    ) as HTMLElement;
+    const bar = trigger.querySelector(".foliplus-scheme-picker-bar") as HTMLElement;
+
+    // A hand-edited/legacy record can name the author scheme on a layer that
+    // has no palette: the picker degrades to an empty strip instead of throwing.
+    expect(bar.children.length).toBe(0);
   });
   it("shows an author class count outside the shared range as its own option", () => {
     installChroma(["#111111", "#222222", "#333333"]);
