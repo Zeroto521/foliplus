@@ -1,4 +1,5 @@
 // LayerControl UI — Overflow (⋮) menu.
+import { HINT_DURATION } from "#core/hint.js";
 import { CAP_TIER } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import * as SVGs from "#foliplus/LayerControl/icon.js";
@@ -370,4 +371,103 @@ const closeMoreMenu = (ui: LayerUI, setFocus: boolean) => {
   if (setFocus) item.focus();
 };
 
-export { activateDeleteItem, closeMoreMenu, openMoreMenu };
+/** Every action the overflow menu renders, keyed by its `data-action` value. */
+type MenuAction = (typeof CONST.ACTION)[keyof typeof CONST.ACTION];
+
+interface MenuActionResult {
+  /** Whether the menu closes once the action ran. */
+  closeMenu: boolean;
+  /** Whether a closing menu returns focus to the layer row. Rename keeps focus
+   *  in the inline editor instead: restoring the row would blur the fresh
+   *  input and commit the pre-edit value. */
+  restoreRowFocus: boolean;
+}
+
+/** The row a menu entry acts on. The menu state is the source of truth; an
+ *  entry detached from its menu falls back to itself, as it always has for a
+ *  click on a menu that lost its state. */
+const menuRow = (ui: LayerUI, menuItem: HTMLElement): HTMLElement =>
+  ui.overlayPanel.activeMenu?.item ?? menuItem;
+
+/** The layer id the open menu belongs to. */
+const menuLayerId = (ui: LayerUI): string => ui.overlayPanel.activeMenu?.layerId ?? "";
+
+/** One dispatch table for every menu action. The click handler and the keyboard
+ *  handler both go through `runMenuAction`, so an entry cannot work with one
+ *  input and do something else with the other — the two lists used to drift
+ *  (keyboard knew three of the six actions and sent the rest to focus-layer).
+ *  The `Record<MenuAction, …>` shape makes a new CONST.ACTION value fail
+ *  typecheck until its branch exists here. */
+const MENU_ACTIONS: Record<
+  MenuAction,
+  (ui: LayerUI, menuItem: HTMLElement) => MenuActionResult
+> = {
+  [CONST.ACTION.FILTER_LAYER]: (ui, menuItem) => {
+    ui.openFilterPanel(menuRow(ui, menuItem));
+    return { closeMenu: true, restoreRowFocus: true };
+  },
+  [CONST.ACTION.STYLE_LAYER]: ui => {
+    ui.openStylePanel(menuLayerId(ui));
+    return { closeMenu: true, restoreRowFocus: true };
+  },
+  [CONST.ACTION.FOCUS_LAYER]: ui => {
+    ui.focusLayer(menuLayerId(ui));
+    return { closeMenu: true, restoreRowFocus: true };
+  },
+  [CONST.ACTION.RENAME_LAYER]: ui => {
+    ui.renameLayer(menuLayerId(ui));
+    return { closeMenu: true, restoreRowFocus: false };
+  },
+  [CONST.ACTION.ATTRS_LAYER]: (ui, menuItem) => {
+    // Anchored to the menu's own row: the menu state is the source of truth
+    // for which row owns it, and the entry itself is the fallback.
+    ui.openAttrsPanel(menuRow(ui, menuItem));
+    return { closeMenu: true, restoreRowFocus: true };
+  },
+  [CONST.ACTION.DELETE_LAYER]: (ui, menuItem) => {
+    // Armed in place: the first activation only arms, so the menu stays open
+    // and the confirming label is visible; the second one deletes.
+    if (activateDeleteItem(ui, menuItem)) {
+      return { closeMenu: true, restoreRowFocus: true };
+    }
+    return { closeMenu: false, restoreRowFocus: false };
+  },
+};
+
+/**
+ * Run the action a menu entry carries. Shared by the delegated click handler
+ * and the keyboard handler (`ArrowLeft/ArrowRight/Space/Enter` on a focused
+ * entry): one input-agnostic path, no divergence.
+ *
+ * `explainDisabled` is the one deliberate input difference: a click on a
+ * disabled entry stays silent (its tooltip already explains it), while the
+ * keyboard path surfaces that same title as a hint — a keyboard user gets no
+ * tooltip hover.
+ */
+const runMenuAction = (
+  ui: LayerUI,
+  menuItem: HTMLElement,
+  options: { explainDisabled?: boolean } = {},
+): void => {
+  if (menuItem.getAttribute("disabled")) {
+    if (options.explainDisabled) {
+      const reason = menuItem.getAttribute("title");
+      if (reason) {
+        ui.c.map.foliplus!.showHint(ui.config.name, reason, HINT_DURATION.SHORT);
+      }
+    }
+    return;
+  }
+  const action = menuItem.getAttribute("data-action") ?? "";
+  const handler = MENU_ACTIONS[action as MenuAction];
+  if (!handler) {
+    // Unknown action: close and return focus, matching the old click
+    // fallthrough for any entry the table does not know.
+    ui.closeMoreMenu(true);
+    return;
+  }
+  const outcome = handler(ui, menuItem);
+  if (outcome.closeMenu) ui.closeMoreMenu(outcome.restoreRowFocus);
+};
+
+export { MENU_ACTIONS, activateDeleteItem, closeMoreMenu, openMoreMenu, runMenuAction };

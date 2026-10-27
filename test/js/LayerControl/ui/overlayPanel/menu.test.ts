@@ -5,6 +5,7 @@ import { handleMoreMenuClick } from "#foliplus/LayerControl/interaction.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { seedIntentMap } from "#foliplus/LayerControl/ui/intent.js";
 import { activateDeleteItem } from "#foliplus/LayerControl/ui/overlayPanel/index.js";
+import { MENU_ACTIONS } from "#foliplus/LayerControl/ui/overlayPanel/menu.js";
 import { ensureModes } from "#foliplus/core/mode.js";
 import { attachedPanel, findItem, initFixture } from "../fixture.js";
 
@@ -899,6 +900,207 @@ describe("LayerUI menu", () => {
       ) as HTMLElement;
       expect(styleLi.getAttribute("aria-disabled")).toBe("true");
       ui.closeMoreMenu(false);
+    });
+  });
+
+  // ─────────────────── action dispatch matrix ───────────────────
+  // One dispatch table (`MENU_ACTIONS`) serves both inputs. The keyboard path
+  // used to know three of the six actions and sent the rest to focus-layer, so
+  // Style and Attributes opened nothing and showed a "cannot focus" hint
+  // instead. Every action is pinned against both inputs here — exhaustively,
+  // over the CONST.ACTION enum.
+  describe("action dispatch matrix", () => {
+    const spyUi = () => ({
+      filter: vi.spyOn(ui, "openFilterPanel").mockImplementation(() => {}),
+      style: vi.spyOn(ui, "openStylePanel").mockImplementation(() => {}),
+      focus: vi.spyOn(ui, "focusLayer").mockImplementation(() => {}),
+      rename: vi.spyOn(ui, "renameLayer").mockImplementation(() => {}),
+      attrs: vi.spyOn(ui, "openAttrsPanel").mockImplementation(() => {}),
+      del: vi.spyOn(ui.c, "deleteLayer").mockImplementation(() => true),
+    });
+
+    const openMenuFor = (item: HTMLElement): HTMLElement => {
+      ui.openMoreMenu(item);
+      return item.querySelector(".foliplus-layer-more-menu") as HTMLElement;
+    };
+
+    const entryFor = (menu: HTMLElement, action: string): HTMLElement => {
+      const li = menu.querySelector(`li[data-action="${action}"]`) as HTMLElement;
+      expect(li).not.toBeNull();
+      expect(li.getAttribute("disabled")).toBeNull();
+      return li;
+    };
+
+    // Each `initFixture()` registers its own document-level click listener and
+    // this file builds one fixture per test, so a real `li.click()` would reach
+    // every stale handler and dispatch the action more than once. Call the
+    // delegation handler directly instead — it is the path the document
+    // listener invokes, and the listener wiring itself is covered elsewhere.
+    const clickOn = (li: HTMLElement): void => {
+      handleMoreMenuClick(ui, { target: li } as unknown as Event);
+    };
+
+    const pressKey = (li: HTMLElement, key: string): void => {
+      li.focus();
+      ui.handleKeyDown(
+        new KeyboardEvent("keydown", {
+          key,
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+    };
+
+    const activate = (
+      item: HTMLElement,
+      action: string,
+      how: "click" | "enter" | "space",
+    ): void => {
+      const li = entryFor(openMenuFor(item), action);
+      if (how === "click") {
+        clickOn(li);
+        return;
+      }
+      pressKey(li, how === "enter" ? "Enter" : " ");
+    };
+
+    const menuGone = (item: HTMLElement): boolean =>
+      item.querySelector(".foliplus-layer-more-menu") === null;
+
+    it("covers every CONST.ACTION value in the table", () => {
+      expect(Object.keys(MENU_ACTIONS).sort()).toEqual(
+        Object.values(CONST.ACTION).sort(),
+      );
+      for (const action of Object.values(CONST.ACTION)) {
+        expect(typeof MENU_ACTIONS[action]).toBe("function");
+      }
+    });
+
+    it("runs style-layer on click and never falls through to focus-layer", () => {
+      const spies = spyUi();
+      const item = findItem(ui, "overlay1");
+      activate(item, CONST.ACTION.STYLE_LAYER, "click");
+      expect(spies.style).toHaveBeenCalledWith("overlay1");
+      expect(spies.focus).not.toHaveBeenCalled();
+      expect(menuGone(item)).toBe(true);
+    });
+
+    it("runs style-layer on Enter and never falls through to focus-layer", () => {
+      const spies = spyUi();
+      const item = findItem(ui, "overlay1");
+      activate(item, CONST.ACTION.STYLE_LAYER, "enter");
+      expect(spies.style).toHaveBeenCalledWith("overlay1");
+      expect(spies.focus).not.toHaveBeenCalled();
+      expect(menuGone(item)).toBe(true);
+    });
+
+    it("runs layer-attributes on click and never falls through to focus-layer", () => {
+      const spies = spyUi();
+      const item = findItem(ui, "overlay1");
+      activate(item, CONST.ACTION.ATTRS_LAYER, "click");
+      expect(spies.attrs).toHaveBeenCalledWith(item);
+      expect(spies.focus).not.toHaveBeenCalled();
+      expect(menuGone(item)).toBe(true);
+    });
+
+    it("runs layer-attributes on Enter and never falls through to focus-layer", () => {
+      const spies = spyUi();
+      const item = findItem(ui, "overlay1");
+      activate(item, CONST.ACTION.ATTRS_LAYER, "enter");
+      expect(spies.attrs).toHaveBeenCalledWith(item);
+      expect(spies.focus).not.toHaveBeenCalled();
+      expect(menuGone(item)).toBe(true);
+    });
+
+    // Space shares the activation key group with Enter, so the same fix must
+    // hold there — the report listed both keys.
+    it("runs style-layer on Space without falling through to focus-layer", () => {
+      const spies = spyUi();
+      const item = findItem(ui, "overlay1");
+      activate(item, CONST.ACTION.STYLE_LAYER, "space");
+      expect(spies.style).toHaveBeenCalledWith("overlay1");
+      expect(spies.focus).not.toHaveBeenCalled();
+      expect(menuGone(item)).toBe(true);
+    });
+
+    it("runs layer-attributes on Space without falling through to focus-layer", () => {
+      const spies = spyUi();
+      const item = findItem(ui, "overlay1");
+      activate(item, CONST.ACTION.ATTRS_LAYER, "space");
+      expect(spies.attrs).toHaveBeenCalledWith(item);
+      expect(spies.focus).not.toHaveBeenCalled();
+      expect(menuGone(item)).toBe(true);
+    });
+
+    it("runs focus-layer on click and on Enter", () => {
+      const spies = spyUi();
+      const item = findItem(ui, "overlay1");
+      activate(item, CONST.ACTION.FOCUS_LAYER, "click");
+      expect(spies.focus).toHaveBeenLastCalledWith("overlay1");
+      activate(item, CONST.ACTION.FOCUS_LAYER, "enter");
+      expect(spies.focus).toHaveBeenCalledTimes(2);
+      expect(spies.focus).toHaveBeenLastCalledWith("overlay1");
+    });
+
+    it("runs rename-layer on click and on Enter", () => {
+      const spies = spyUi();
+      const item = findItem(ui, "overlay1");
+      activate(item, CONST.ACTION.RENAME_LAYER, "click");
+      expect(spies.rename).toHaveBeenLastCalledWith("overlay1");
+      activate(item, CONST.ACTION.RENAME_LAYER, "enter");
+      expect(spies.rename).toHaveBeenCalledTimes(2);
+      expect(spies.rename).toHaveBeenLastCalledWith("overlay1");
+    });
+
+    it("runs the two-step delete on click (arms, then deletes)", () => {
+      const spies = spyUi();
+      const item = findItem(ui, "overlay1");
+      const menu = openMenuFor(item);
+      const li = entryFor(menu, CONST.ACTION.DELETE_LAYER);
+
+      clickOn(li);
+      expect(spies.del).not.toHaveBeenCalled();
+      expect(li.classList.contains(CONST.CLASSES.MENU_DELETE_ARMED)).toBe(true);
+      expect(menuGone(item)).toBe(false);
+
+      clickOn(li);
+      expect(spies.del).toHaveBeenCalledWith("overlay1");
+      expect(menuGone(item)).toBe(true);
+    });
+
+    it("runs the two-step delete on Enter (arms, then deletes)", () => {
+      const spies = spyUi();
+      const item = findItem(ui, "overlay1");
+      const li = entryFor(openMenuFor(item), CONST.ACTION.DELETE_LAYER);
+
+      pressKey(li, "Enter");
+      expect(spies.del).not.toHaveBeenCalled();
+      expect(li.classList.contains(CONST.CLASSES.MENU_DELETE_ARMED)).toBe(true);
+      expect(menuGone(item)).toBe(false);
+
+      pressKey(li, "Enter");
+      expect(spies.del).toHaveBeenCalledWith("overlay1");
+      expect(menuGone(item)).toBe(true);
+    });
+
+    it("runs filter-layer on click and on Enter for a filter-capable row", () => {
+      manager.registerLayer({
+        id: "filterable1",
+        name: "Points",
+        role: "overlay",
+        layer: { options: {}, eachLayer: vi.fn() },
+        filterProvider: vi.fn(),
+        filterSetter: vi.fn(),
+      } as any);
+      const spies = spyUi();
+      const item = findItem(ui, "filterable1");
+
+      activate(item, CONST.ACTION.FILTER_LAYER, "click");
+      expect(spies.filter).toHaveBeenLastCalledWith(item);
+
+      activate(item, CONST.ACTION.FILTER_LAYER, "enter");
+      expect(spies.filter).toHaveBeenCalledTimes(2);
+      expect(spies.filter).toHaveBeenLastCalledWith(item);
     });
   });
 
