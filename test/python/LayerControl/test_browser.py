@@ -412,6 +412,132 @@ class TestLayerControlBrowser:
             assert result["bOpaque"] == 0, "second (hidden) label was drawn"
             assert not errors, f"JS errors: {errors}"
 
+    @staticmethod
+    def _declared_annotation_layer(
+        name, annotation, coords, text="12345678901234567890"
+    ):
+        """A point layer whose foliplus namespace declares its label defaults."""
+        features = [
+            {
+                "type": "Feature",
+                "properties": {"name": text},
+                "geometry": {"type": "Point", "coordinates": [lng, lat]},
+            }
+            for lat, lng in coords
+        ]
+        return folium.GeoJson(
+            json.dumps({"type": "FeatureCollection", "features": features}),
+            name=name,
+            foliplus={"annotation": annotation},
+        )
+
+    def test_annotation_declared_color_and_size_reach_the_canvas(
+        self, browser, tmp_path
+    ):
+        """A declared colour/size paints the real canvas, and Reset restores it.
+
+        Reads the annotation canvas pixels: the declared #00ff00 and size 24
+        must be what is actually drawn (not merely what CONF/DOM says), a
+        panel-equivalent override must repaint blue, Reset must show the
+        declaration again, and a persisted override must survive a reload.
+        """
+        layer = self._declared_annotation_layer(
+            "Declared Style",
+            {"field": "name", "color": "#00ff00", "size": 24},
+            [(26.08, 119.30)],
+        )
+        with use_page(self._make_page, browser, tmp_path, layer) as (page, errors):
+            assert page.evaluate(_js("LayerControl/open_panel")), "panel did not open"
+            page.wait_for_selector(
+                ".foliplus-layer-item", state="attached", timeout=5000
+            )
+            result = page.evaluate(_js("LayerControl/annotation_declared_style"))
+            assert result and not result.get("error"), result
+
+            declared = result["declared"]
+            cfg = declared["cfg"]
+            assert cfg["color"] == "#00ff00", cfg
+            assert cfg["size"] == 24, cfg
+            assert cfg["show"] is True, cfg
+            assert declared["pixels"]["green"] > 100, declared["pixels"]
+            bbox = declared["pixels"]["bbox"]
+            assert bbox and 12 <= bbox["h"] <= 60, bbox
+
+            overridden = result["overridden"]
+            assert overridden["cfg"]["color"] == "#0000ff", overridden["cfg"]
+            assert overridden["pixels"]["blue"] > 100, overridden["pixels"]
+            assert overridden["pixels"]["green"] == 0, overridden["pixels"]
+            stored = [
+                key
+                for key, raw in result["storage"].items()
+                if raw and "#0000ff" in raw
+            ]
+            assert stored, (
+                f"the override did not reach localStorage: {result['storage']}"
+            )
+
+            reset = result["afterReset"]
+            assert reset["cfg"]["color"] == "#00ff00", reset["cfg"]
+            assert reset["cfg"]["size"] == 24, reset["cfg"]
+            assert reset["pixels"]["green"] > 100, reset["pixels"]
+            assert reset["pixels"]["blue"] == 0, reset["pixels"]
+
+            smaller = result["smaller"]
+            assert smaller["cfg"]["size"] == 10, smaller["cfg"]
+            assert smaller["pixels"]["green"] < declared["pixels"]["green"] / 1.5, (
+                f"size 10 did not shrink the painted label: {smaller['pixels']} vs {declared['pixels']}"
+            )
+
+            # Reload: the persisted user override beats the declaration.
+            page.reload(wait_until="load")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl", state="attached", timeout=10000
+            )
+            assert page.evaluate(_js("LayerControl/open_panel")), "panel did not reopen"
+            page.wait_for_selector(
+                ".foliplus-layer-item", state="attached", timeout=5000
+            )
+            page.wait_for_timeout(300)
+            after = page.evaluate(_js("LayerControl/annotation_declared_read"))
+            assert after and not after.get("error"), after
+            assert after["cfg"]["color"] == "#0000ff", after
+            assert after["cfg"]["size"] == 24, after
+            assert after["blue"] > 0, after
+            assert not errors, f"JS errors: {errors}"
+
+    def test_annotation_declared_collide_false_keeps_overlapping_labels(
+        self, browser, tmp_path
+    ):
+        """A declared collide=false keeps both labels; the default hides one."""
+        coords = [(26.08, 119.30), (26.08, 119.3076)]
+        layer = self._declared_annotation_layer(
+            "Declared Collide",
+            {"field": "name", "collide": False},
+            coords,
+        )
+        with use_page(self._make_page, browser, tmp_path, layer) as (page, errors):
+            assert page.evaluate(_js("LayerControl/open_panel")), "panel did not open"
+            page.wait_for_selector(
+                ".foliplus-layer-item", state="attached", timeout=5000
+            )
+            result = page.evaluate(
+                _js("LayerControl/annotation_declared_collide"),
+                [list(c) for c in coords],
+            )
+            assert result and not result.get("error"), result
+            declared = result["declared"]
+            assert declared["cfg"]["collide"] is False, declared["cfg"]
+            assert declared["labels"] == 2, declared
+            assert declared["opaque"] > 0, declared
+            collided = result["collided"]
+            assert collided["cfg"]["collide"] is True
+            # collide=true drops the overlapping label: the same canvas holds
+            # visibly fewer pixels (measured 1362 -> 1049, ~1.3x).
+            assert declared["opaque"] > collided["opaque"] * 1.15, (
+                f"declared collide=false did not keep the second label: {declared} vs {collided}"
+            )
+            assert not errors, f"JS errors: {errors}"
+
     def test_annotation_click_through(self, browser, tmp_path):
         """The canvas ignores pointer events so clicks land on the map/feature.
 
