@@ -117,7 +117,18 @@ const resolveFillMode = (
  *  since the cache was built, the getter returns null so folium's
  *  `resetStyle` is not overridden with a stale colour — the next
  *  scheduler tick rebuilds the cache. */
-const applyRampToLayer = (ui: LayerUI, layerId: string, ramp: FillRampConfig): void => {
+const applyRampToLayer = (
+  ui: LayerUI,
+  layerId: string,
+  ramp: FillRampConfig,
+  /** Resolve a stored config's field against the layer's current fields.
+   *  The caller resolves the config it paints with, so the highlight pin must
+   *  resolve the live record the same way before comparing: a stored field the
+   *  data no longer offers would otherwise compare unequal to the resolved one
+   *  and the mouseout replay would drop the ramp colour. Identity by default —
+   *  a caller with no field list has nothing to resolve. */
+  resolveStored: (stored: FillRampConfig) => FillRampConfig = stored => stored,
+): void => {
   const layerInfo = ui.c.layerRegistry.get(layerId);
   // Snapshot-then-resolve: the registry's own `layer` reference is fast and
   // stable once populated, so it wins; the controller's `findLayer`
@@ -198,8 +209,12 @@ const applyRampToLayer = (ui: LayerUI, layerId: string, ramp: FillRampConfig): v
     }
 
     pinStyleOnHighlight(leaf, DIM.FILL, () => {
-      const currentRamp = getIntent(ui, layerId, INTENT.FILL_RAMP);
-      if (!currentRamp) return null;
+      const stored = getIntent(ui, layerId, INTENT.FILL_RAMP);
+      if (!stored) return null;
+      // Resolve the live record exactly as the paint did, or a stale field
+      // name compares unequal to the resolved config and the replay drops the
+      // ramp colour on the first mouseout.
+      const currentRamp = resolveStored(stored);
       // The arm changed since the cache was built: the solid commit owns the
       // leaf now, and this getter must not replay a colour the active mode
       // does not own (a mode switch back to solid that leaves the ramp config

@@ -2000,6 +2000,25 @@ describe("applyFillToLayer — fillMode dispatch", () => {
     expect(paintedColors()).toEqual(COLORS);
   });
 
+  it("resolves a stored field the data no longer offers, for display and paint", () => {
+    // A stored ramp can outlive its column (a streamed layer replaced its
+    // features). The row and the map must agree on the column in use: both
+    // resolve the stale name to the first offered field. Before the shared
+    // resolution the row showed that field while the map degraded to the
+    // author's face.
+    setIntent(ui, "overlay1", "fillMode", "ramp");
+    setIntent(ui, "overlay1", "fillRamp", { ...RAMP, field: "gone" });
+
+    expect(FILL_DIMENSION.value!(ui, "overlay1")).toMatchObject({
+      mode: "ramp",
+      ramp: { field: "count" },
+    });
+
+    applyFillToLayer(ui, "overlay1");
+
+    expect(paintedColors()).toEqual(COLORS);
+  });
+
   it("fillMode=solid never reads the ramp config", () => {
     setIntent(ui, "overlay1", "fillColor", "#ff0000");
     setIntent(ui, "overlay1", "fillMode", "solid");
