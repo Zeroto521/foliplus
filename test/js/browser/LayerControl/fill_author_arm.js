@@ -1,9 +1,20 @@
-// Act on the Facility Points row's style panel: open it (default), pick the
-// solid fill arm so the caller can assert the take-over repainted the map, or
-// click the panel's Reset so the caller can assert the author's per-feature
-// paint came back.
+// Act on the Facility Points row's style panel: open it (default), pick a
+// scheme from the author-scheme picker, pick the solid arm so the caller can
+// assert the take-over repainted the map, or click Reset so the caller can
+// assert the author's own paint came back.
 arg => {
-  const { solid = false, reset = false } = arg ?? {};
+  const { solid = false, reset = false, scheme = "" } = arg ?? {};
+  if (scheme) {
+    const trigger = document.querySelector(".foliplus-style-scheme-trigger");
+    if (!trigger) return { ok: false, reason: "no-scheme-trigger" };
+    trigger.click();
+    const item = document.querySelector(
+      '.foliplus-scheme-picker-item[data-scheme-name="' + scheme + '"]',
+    );
+    if (!item) return { ok: false, reason: "no-scheme-item" };
+    item.click();
+    return { ok: true };
+  }
   if (solid) {
     const select = document.querySelector(".foliplus-style-fill-mode-select");
     if (!select) return { ok: false, reason: "no-mode-select" };

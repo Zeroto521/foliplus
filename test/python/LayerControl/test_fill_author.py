@@ -100,6 +100,10 @@ def test_numeric_column_is_tagged_numeric():
     # never "1.0"/"2.0". A float column keeps its float repr ("1.0"): the key
     # is str(value), not a dtype-aware cast — task-51/task-53 read it verbatim.
     assert field["mapping"] == {"1": "#0d0887", "2": "#f0f921"}
+    # Numeric fields also carry the author palette in value order, so the
+    # client can offer colour-by-value over the author's own colours.
+    assert field["orderedColors"] == ["#0d0887", "#f0f921"]
+    assert field["classes"] == 2
 
 
 def test_field_mapping_is_truncated_past_the_cap():
@@ -181,3 +185,29 @@ def test_large_layer_reports_only_the_colour_set(monkeypatch):
 
     assert meta["perFeature"] is True
     assert meta["fields"] == []
+
+
+def test_numeric_author_palette_is_sorted_by_value():
+    layer = _geo(["#0d0887", "#6a00a8", "#b12a90", "#e16462"], column="score")
+    for value, feature in zip((40, 10, 30, 20), layer.data["features"], strict=True):
+        feature["properties"]["score"] = value
+    field = _meta(layer)["fields"][0]
+
+    # Value order, not feature order: 10 -> #6a00a8, 20 -> #e16462, 30 -> #b12a90,
+    # 40 -> #0d0887.
+    assert field["orderedColors"] == ["#6a00a8", "#e16462", "#b12a90", "#0d0887"]
+    assert field["classes"] == 4
+
+
+def test_truncated_numeric_field_caps_the_author_palette():
+    layer = _geo([f"#{i:02x}00aa" for i in range(60)], column="score")
+    for value, feature in zip(range(60), layer.data["features"], strict=True):
+        feature["properties"]["score"] = value
+    field = _meta(layer)["fields"][0]
+
+    # The payload stays bounded: the palette describes the kept values only,
+    # and the class count cannot exceed them.
+    assert field["truncated"] is True
+    assert len(field["orderedColors"]) <= 50
+    assert field["classes"] == len(field["orderedColors"])
+    assert set(field["orderedColors"]) <= set(field["mapping"].values())

@@ -303,6 +303,12 @@ interface FillAuthorField {
   other: number;
   /** True when the column had more distinct values than the mapping keeps. */
   truncated: boolean;
+  /** Numeric fields only: the author colour palette in value order, so the
+   *  client can draw the author scale and start a ramp from the same number
+   *  of classes. Absent for categorical fields (no by-category arm yet). */
+  orderedColors?: readonly string[];
+  /** Numeric fields only: the class count of orderedColors. */
+  classes?: number;
 }
 
 /** What Python computed for one layer's author fill (CONFIG data[].fillAuthor). */

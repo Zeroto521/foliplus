@@ -80,6 +80,9 @@ interface SchemePickerOptions {
   /** Accessible name for the trigger. Consumers pass their localized text
    *  (e.g. `T("scheme")`); the factory stays locale-free. */
   label?: string;
+  /** Display label for a scheme name, for pickers whose vocabulary includes a
+   *  consumer-owned entry (e.g. the author palette). Defaults to the name. */
+  schemeLabel?: (name: string) => string;
 }
 
 interface SchemePicker {
@@ -136,6 +139,7 @@ interface InternalState {
   /** True after destroy() — all public methods become no-ops. */
   destroyed: boolean;
   colorScale: (name: string, n: number) => string[];
+  schemeLabel: (name: string) => string;
   /** Lifecycle-scope listeners (trigger click/keydown) — drained on destroy(). */
   cleanupFns: (() => void)[];
   /** Mount-scope listeners (outside-click, scroll, fullscreen, item focus) —
@@ -209,7 +213,7 @@ const buildDropdown = (state: InternalState): HTMLElement => {
       parent: item,
     });
     renderColorBar(bar, name, numClasses, classes.block, state.colorScale);
-    item.title = name;
+    item.title = state.schemeLabel(name);
 
     item.addEventListener("click", (event: MouseEvent) => {
       event.stopPropagation();
@@ -455,7 +459,7 @@ const selectScheme = (state: InternalState, name: string) => {
   }
 
   // Update trigger's title
-  state.trigger.title = name;
+  state.trigger.title = state.schemeLabel(name);
 
   // Redraw the trigger's colour bar (the trigger's inner element)
   const barInner = getInner(state.trigger);
@@ -593,6 +597,7 @@ const createSchemePicker = (options: SchemePickerOptions): SchemePicker => {
     resolveHost: options.resolveHost ?? null,
     onSurfaceChange: options.onSurfaceChange ?? null,
     colorScale: options.colorScale,
+    schemeLabel: options.schemeLabel ?? (name => name),
     value: options.value,
     dropdown: null,
     items: [],
@@ -628,7 +633,7 @@ const createSchemePicker = (options: SchemePickerOptions): SchemePicker => {
   }
 
   // Set initial trigger title and draw the colour bar
-  state.trigger.title = options.value;
+  state.trigger.title = state.schemeLabel(options.value);
   const initialBarInner = getInner(state.trigger);
   if (initialBarInner) {
     // The clamped count, not the raw option: the first paint must match every
@@ -666,7 +671,7 @@ const createSchemePicker = (options: SchemePickerOptions): SchemePicker => {
       }
       state.value = name;
       if (state.hiddenSelect) state.hiddenSelect.value = name;
-      state.trigger.title = name;
+      state.trigger.title = state.schemeLabel(name);
       // Redraw trigger colour bar
       const barInner = getInner(state.trigger);
       if (barInner) {

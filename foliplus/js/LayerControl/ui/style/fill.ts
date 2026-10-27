@@ -19,7 +19,7 @@
 // the HeatmapControl border row and the annotation label row — one
 // <input type=color> inside a FORM_ROW, no reset button on the row itself
 // (the panel-wide Reset handles it, the way label color has it).
-import { CLASS_COUNT, METHOD } from "#core/classify.js";
+import { CLASS_COUNT, CLASS_COUNT_VALUES, METHOD } from "#core/classify.js";
 import { numericPropertiesKeys, resolveField } from "#core/field.js";
 import { fullscreenSurface, onFullscreenSurfaceChange } from "#core/fullscreen.js";
 import { readFeatureFillColors } from "#core/layer/authorFill.js";
@@ -331,9 +331,85 @@ type FillDisplayMode = FillMode | "feature";
 const paintsPerFeatureFill = (ui: LayerUI, layerId: string): boolean => {
   if (getIntent(ui, layerId, INTENT.FILL_RAMP) !== undefined) return false;
   if (getIntent(ui, layerId, INTENT.FILL_MODE) !== undefined) return false;
+  // A numeric author palette drives the by-value arm; only a categorical
+  // author fill has no arm of its own and stays read-only.
+  if (authorNumericField(ui, layerId)) return false;
   const layerInfo = ui.c.layerRegistry.get(layerId);
   return layerInfo?.fillAuthor?.perFeature === true;
 };
+
+/** Scheme name for the author's own palette. Display-only: it never reaches a
+ *  persisted FillRampConfig (`persistedRamp` replaces it with the default
+ *  scheme), because the palette lives in the layer data, not in a registered
+ *  chroma scale. */
+const AUTHOR_SCHEME = "author";
+
+type FillAuthorField = NonNullable<LayerInfo["fillAuthor"]>["fields"][number];
+
+/** The numeric declarative column whose palette can drive a ramp. Categorical
+ *  columns keep the read-only per-feature state (the by-category arm does not
+ *  exist yet). */
+const authorNumericField = (ui: LayerUI, layerId: string): FillAuthorField | null => {
+  const author = ui.c.layerRegistry.get(layerId)?.fillAuthor;
+  if (!author?.perFeature) return null;
+  return (
+    author.fields.find(
+      field =>
+        field.kind === "numeric" &&
+        (field.orderedColors?.length ?? 0) >= 2 &&
+        typeof field.classes === "number",
+    ) ?? null
+  );
+};
+
+/** The display-only ramp of an author-painted numeric layer: its field, the
+ *  author's class count, and AUTHOR_SCHEME. Undefined once the user owns the
+ *  fill (any fill intent), so the normal arms take over. */
+const authorRampConfig = (ui: LayerUI, layerId: string): FillRampConfig | undefined => {
+  if (getIntent(ui, layerId, INTENT.FILL_RAMP) !== undefined) return undefined;
+  if (getIntent(ui, layerId, INTENT.FILL_MODE) !== undefined) return undefined;
+  if (getIntent(ui, layerId, INTENT.FILL_COLOR) !== undefined) return undefined;
+  if (getIntent(ui, layerId, INTENT.FILL_OPACITY) !== undefined) return undefined;
+  const field = authorNumericField(ui, layerId);
+  if (field?.classes === undefined) return undefined;
+  return {
+    kind: "numeric",
+    field: field.name,
+    // Equal interval is the display default: the author palette is continuous,
+    // so an evenly split scale shows it faithfully, and both quantile and
+    // jenks need the simple-statistics CDN global that only the heatmap
+    // component loads — a plain LayerControl page must still paint its ramp.
+    method: METHOD.EQUAL,
+    classes: field.classes,
+    scheme: AUTHOR_SCHEME,
+  };
+};
+
+/** The author palette in value order, for the picker's colour bar. */
+const authorPalette = (ui: LayerUI, layerId: string): readonly string[] =>
+  authorNumericField(ui, layerId)?.orderedColors ?? [];
+
+/** Resample a palette to n blocks for the bar preview: every block samples the
+ *  author scale at its own position, so the strip shows the real palette. */
+const resampleColors = (colors: readonly string[], n: number): string[] => {
+  if (colors.length === 0) return [];
+  if (n <= 1) return [colors[0]];
+  return Array.from({ length: n }, (_, index) => {
+    const at = Math.round((index * (colors.length - 1)) / (n - 1));
+    return colors[at] ?? colors[colors.length - 1];
+  });
+};
+
+/** The record a user write may persist: the author palette is display-only, so
+ *  it becomes the default scheme and the class count is clamped to the range
+ *  the persistence validator accepts. */
+const persistedRamp = (ramp: FillRampConfig): FillRampConfig => ({
+  kind: "numeric",
+  field: ramp.field,
+  method: ramp.method,
+  classes: Math.min(CLASS_COUNT.MAX, Math.max(CLASS_COUNT.MIN, ramp.classes)),
+  scheme: ramp.scheme === AUTHOR_SCHEME ? CONST.RAMP.SCHEME_DEFAULT : ramp.scheme,
+});
 
 /** The scheme picker owned by the open style panel. It installs
  *  document-level listeners while its listbox is open, so the panel must
@@ -408,6 +484,10 @@ const rampForUi = (
 ): FillRampConfig => {
   const stored = resolvedRamp(ui, layerId, getIntent(ui, layerId, INTENT.FILL_RAMP));
   if (stored) return stored;
+  // The author's own palette is the starting point of an explore layer's
+  // by-value arm; it is display-only until the first user write.
+  const author = authorRampConfig(ui, layerId);
+  if (author) return author;
   // Every caller reaches this line with a non-empty list: the detail only
   // renders the ramp arm when a numeric field exists, and the mode write
   // bails first when it does not.
@@ -426,7 +506,7 @@ const writeFillMode = (ui: LayerUI, layerId: string, mode: FillMode): boolean =>
   if (fields.length === 0) return false;
   getDimension(DIM.FILL)!.write!(ui, layerId, {
     mode,
-    ramp: rampForUi(ui, layerId, fields),
+    ramp: persistedRamp(rampForUi(ui, layerId, fields)),
   });
   return true;
 };
@@ -457,7 +537,10 @@ const writeFillRamp = (
   patch: Partial<FillRampConfig>,
 ): FillRampConfig => {
   const fields = numericFields(ui, layerId);
-  const next: FillRampConfig = { ...rampForUi(ui, layerId, fields), ...patch };
+  const next: FillRampConfig = persistedRamp({
+    ...rampForUi(ui, layerId, fields),
+    ...patch,
+  });
   getDimension(DIM.FILL)!.write!(ui, layerId, { mode: "ramp", ramp: next });
   return next;
 };
@@ -530,6 +613,17 @@ const buildRampDetail = (
     methodClass: CONST.CLASSES.STYLE_FILL_METHOD_SELECT,
     classesClass: CONST.CLASSES.STYLE_FILL_CLASSES_SELECT,
   });
+  // The author palette may have more classes than the picker vocabulary
+  // offers: show that count as its own option so the row states the class
+  // count the author actually used. The first user pick replaces it with a
+  // normal 2..9 value.
+  if (!CLASS_COUNT_VALUES.includes(ramp.classes)) {
+    const option = document.createElement("option");
+    option.value = String(ramp.classes);
+    option.textContent = String(ramp.classes);
+    classes.classesSelect.append(option);
+    classes.classesSelect.value = String(ramp.classes);
+  }
 
   const scheme = buildSchemeRow({
     label: ui.T("style_fill_scheme"),
@@ -592,12 +686,13 @@ const buildFillRow = (ui: LayerUI, layerId: string): HTMLElement => {
 
   const fields = numericFields(ui, layerId);
   const perFeature = paintsPerFeatureFill(ui, layerId);
+  const authorRamp = authorRampConfig(ui, layerId);
   // No numeric field: one arm only, so there is no mode to choose. The
   // wrapper keeps the same block/detail shape so a later categorical field
   // type can add a second arm without moving the panel's bind seam. A layer
   // the author paints per feature keeps its mode row even without a numeric
   // field: the read-only state still needs the solid override beside it.
-  if (fields.length === 0 && !perFeature) {
+  if (fields.length === 0 && !perFeature && !authorRamp) {
     const detail = dom.el("div", { class: CONST.CLASSES.STYLE_FILL_DETAIL });
     detail.append(...buildSolidDetail(ui, layerId));
     return dom.el("div", { class: CONST.CLASSES.STYLE_FILL_BLOCK }, detail);
@@ -608,11 +703,16 @@ const buildFillRow = (ui: LayerUI, layerId: string): HTMLElement => {
     layerId,
     getIntent(ui, layerId, INTENT.FILL_RAMP),
   );
+  // A numeric author palette opens on the by-value arm without writing an
+  // intent: the map keeps the author's own paint until the user edits a
+  // control, and the ramp detail shows the author scheme.
   const mode: FillDisplayMode = perFeature
     ? "feature"
-    : storedMode === "ramp"
+    : authorRamp
       ? "ramp"
-      : "solid";
+      : storedMode === "ramp"
+        ? "ramp"
+        : "solid";
   // "feature" is detected, not chosen: disabled so the menu cannot return to
   // it, present so the row can name the state it is in. Solid is the way out
   // (plus Reset back), so it stays selectable even when the arm had no
@@ -718,10 +818,12 @@ const bindRampDetail = (ui: LayerUI, layerId: string, detail: HTMLElement): void
   ) as HTMLSelectElement;
   const fields = numericFields(ui, layerId);
   const ramp = rampForUi(ui, layerId, fields);
+  const author = ramp.scheme === AUTHOR_SCHEME;
+  const palette = author ? authorPalette(ui, layerId) : [];
   const picker = createSchemePicker({
     trigger,
     hiddenSelect: hidden,
-    schemes: DEFAULT_SCHEMES,
+    schemes: author ? [AUTHOR_SCHEME, ...DEFAULT_SCHEMES] : DEFAULT_SCHEMES,
     value: ramp.scheme,
     numClasses: ramp.classes,
     portal: true,
@@ -731,7 +833,12 @@ const bindRampDetail = (ui: LayerUI, layerId: string, detail: HTMLElement): void
     resolveHost: () => fullscreenSurface(ui.c.map.getContainer()),
     onSurfaceChange: onFullscreenSurfaceChange,
     label: ui.T("style_fill_scheme"),
-    colorScale: getColorScale,
+    // The author scheme has no registered chroma scale: its strip is the
+    // palette Python read from the layer, and its name is localized.
+    schemeLabel: name =>
+      name === AUTHOR_SCHEME ? ui.T("style_fill_scheme_author") : name,
+    colorScale: (name, n) =>
+      name === AUTHOR_SCHEME ? resampleColors(palette, n) : getColorScale(name, n),
     onChange: name => {
       writeFillRamp(ui, layerId, { scheme: name });
     },
@@ -811,6 +918,10 @@ const bindFillRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => {
     // the row is leaving the detected state exactly when its read-only option
     // is still present — remember that before the option goes away.
     const fromFeature = select.querySelector('option[value="feature"]') !== null;
+    // Leaving the author's by-value paint: no intent exists yet, so the row
+    // was showing the author palette and a plain mode write would leave the
+    // map painted per feature.
+    const fromAuthorRamp = !fromFeature && authorRampConfig(ui, layerId) !== undefined;
     // Every reachable value is an override. The write records the user's
     // choice; the option goes away immediately, the same way the next panel
     // build would drop it, so the row cannot offer a state the layer no
@@ -826,7 +937,7 @@ const bindFillRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => {
     // fill over; a ramp -> solid switch needs no seed because the apply
     // restores the captured author bag itself.
     if (
-      fromFeature &&
+      (fromFeature || fromAuthorRamp) &&
       next === "solid" &&
       getIntent(ui, layerId, INTENT.FILL_COLOR) === undefined &&
       getIntent(ui, layerId, INTENT.FILL_OPACITY) === undefined

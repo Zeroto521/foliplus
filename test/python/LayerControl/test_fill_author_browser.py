@@ -72,9 +72,9 @@ _NOTE = (
 
 
 class TestFillAuthorBrowser:
-    """The fill row reads the CONF metadata, takes over, and restores."""
+    """An explore layer opens on the author's by-value palette and restores it."""
 
-    def test_per_feature_state_override_and_reset(self, browser, tmp_path):
+    def test_by_value_author_palette_override_and_reset(self, browser, tmp_path):
         with use_page(_make_page, browser, tmp_path) as (page, errors):
             page.wait_for_selector(
                 ".foliplus-layer-ctrl .foliplus-toggle-btn",
@@ -95,38 +95,35 @@ class TestFillAuthorBrowser:
                 ".foliplus-layer-style-panel", state="visible", timeout=5000
             )
 
+            # The author palette drives the by-value arm: field, class count and
+            # the Author scheme strip all come from the layer's own data, while
+            # the map still shows the author's per-feature colours (no takeover
+            # until the user edits a control).
             initial = page.evaluate(_READ_FILL)
-            assert initial["mode"] == "feature", initial
-            assert initial["featureAvailable"], initial
-            assert initial["featureDisabled"] is True, initial
+            assert initial["mode"] == "ramp", initial
+            assert initial["featureAvailable"] is False, initial
             assert initial["hasSwatch"] is False, initial
-            # The explanation is a tooltip on the control, not a paragraph in
-            # the drawer: the panel stays compact but the reason is reachable.
-            assert not initial["noteInPanel"], initial
-            assert initial["selectTitle"] == _NOTE, initial
-            assert initial["selectDescription"] == _NOTE, initial
-            assert initial["optionTitle"] == _NOTE, initial
+            assert initial["field"] == "score", initial
+            assert initial["classes"] == str(len(_COLORS)), initial
+            assert initial["schemeTitle"] == "Author", initial
+            assert initial["barBlocks"] == len(_COLORS), initial
+            assert initial["barHeight"] > 0, initial
             assert len(initial["fills"]) >= 2, (
-                f"the map did not paint per-feature colours: {initial}"
+                f"the map did not paint per-feature author colours: {initial}"
             )
 
-            # Take the fill over with a solid colour: the per-feature option
-            # goes away and the editable swatch appears.
-            page.evaluate(_ARM, {"solid": True})
-
-            page.wait_for_timeout(200)
-            solid = page.evaluate(_READ_FILL)
-            assert solid["mode"] == "solid", solid
-            assert solid["featureAvailable"] is False, solid
-            assert solid["hasSwatch"] is True, solid
-            # The take-over must reach the map: one colour now, seeded from
-            # the swatch base (the first areal leaf's author colour).
-            assert solid["fills"] == ["#0d0887"], (
-                f"choosing solid did not paint one colour: {solid}"
+            # Editing a control takes the fill over with a real scheme.
+            scheme_result = page.evaluate(_ARM, {"scheme": "Reds"})
+            assert scheme_result["ok"], f"scheme pick failed: {scheme_result}"
+            page.wait_for_timeout(300)
+            taken = page.evaluate(_READ_FILL)
+            assert taken["schemeTitle"] == "Reds", taken
+            assert taken["fills"] != initial["fills"], (
+                f"choosing a scheme did not repaint the map: {taken}"
             )
 
-            # Reset returns the author's per-feature paint and the read-only
-            # state, with the map back to its own colour per feature.
+            # Reset returns the author's per-feature paint and the by-value
+            # author palette state.
             page.evaluate(_ARM, {"reset": True})
             page.wait_for_timeout(300)
             page.evaluate(_js("LayerControl/open_panel"))
@@ -136,9 +133,10 @@ class TestFillAuthorBrowser:
                 ".foliplus-layer-style-panel", state="visible", timeout=5000
             )
             restored = page.evaluate(_READ_FILL)
-            assert restored["mode"] == "feature", restored
-            assert not restored["noteInPanel"], restored
-            assert len(restored["fills"]) >= 2, (
-                f"Reset did not restore per-feature author colours: {restored}"
+            assert restored["mode"] == "ramp", restored
+            assert restored["schemeTitle"] == "Author", restored
+            assert restored["fills"] == initial["fills"], (
+                f"Reset did not restore the author colours: {restored}"
             )
+            assert not restored["noteInPanel"], restored
             assert not errors, f"JS errors: {errors}"

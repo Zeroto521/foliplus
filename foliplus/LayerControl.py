@@ -89,6 +89,7 @@ def _fill_author_fields(
     for name in candidates:
         mapping: dict[str, str] = {}
         counts: dict[str, int] = {}
+        values_by_key: dict[str, float] = {}
         numeric = True
         ok = True
         for props, color in rows:
@@ -105,19 +106,34 @@ def _fill_author_fields(
                 break
             mapping[key] = color
             counts[key] = counts.get(key, 0) + 1
+            if isinstance(value, (int, float)):
+                values_by_key[key] = float(value)
         if not ok or len(mapping) < 2:
             continue
         ordered = sorted(counts.items(), key=lambda entry: (-entry[1], entry[0]))
         kept = ordered[:_FILL_AUTHOR_FIELD_LIMIT]
-        fields.append(
-            {
-                "name": name,
-                "kind": "numeric" if numeric else "categorical",
-                "mapping": {key: mapping[key] for key, _count in kept},
-                "other": len(ordered) - len(kept),
-                "truncated": len(ordered) > len(kept),
-            }
-        )
+        field: dict[str, Any] = {
+            "name": name,
+            "kind": "numeric" if numeric else "categorical",
+            "mapping": {key: mapping[key] for key, _count in kept},
+            "other": len(ordered) - len(kept),
+            "truncated": len(ordered) > len(kept),
+        }
+        if numeric:
+            # The author palette in value order: numeric fields are the
+            # colour-by-value arm, so the client can draw the author scale and
+            # start its own ramp from the same number of classes. Only the kept
+            # values contribute, keeping the payload bounded.
+            by_value = sorted(
+                (values_by_key[key], mapping[key]) for key, _count in kept
+            )
+            ordered_colors: list[str] = []
+            for _value, color in by_value:
+                if color not in ordered_colors:
+                    ordered_colors.append(color)
+            field["orderedColors"] = ordered_colors
+            field["classes"] = len(ordered_colors)
+        fields.append(field)
     return fields
 
 
