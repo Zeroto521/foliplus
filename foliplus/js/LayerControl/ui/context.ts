@@ -24,18 +24,22 @@ const owningRow = (el: EventTarget | null): HTMLElement | null => {
   return (el as Element).closest(CONST.SEL.ROW) as HTMLElement | null;
 };
 
-/** Is the event target inside a floating row panel (style / attributes)?
+/** Is the event target inside a floating row panel (style / attributes /
+ *  filter)?
  *
  *  Those panels are *children* of the layer row, so container-level click and
  *  dblclick handlers must ignore them: their chrome (toggle slider spans,
- *  labels, selects) is not an `input`/`button`, and stealing the press would
- *  both steal DOM focus from panel controls and — on a quick double flip of
- *  the label switch — fall through to focusLayer. */
+ *  labels, selects, filter sliders and the enum listbox) is not an
+ *  `input`/`button`, and stealing the press would both steal DOM focus from
+ *  panel controls and — on a quick double flip of the label switch — fall
+ *  through to focusLayer. The filter panel's enum listbox is a real keyboard
+ *  target (its options take focus), so a row focus steal there also broke the
+ *  arrow/Space/Escape path while the list was open. */
 const inFloatingPanel = (el: EventTarget | null): boolean => {
   if (!el || typeof (el as Element).closest !== "function") return false;
   return Boolean(
     (el as Element).closest(
-      `.${CONST.CLASSES.STYLE_PANEL}, .${CONST.CLASSES.ATTRS_PANEL}`,
+      `.${CONST.CLASSES.STYLE_PANEL}, .${CONST.CLASSES.ATTRS_PANEL}, .${CONST.CLASSES.FILTER_PANEL}`,
     ),
   );
 };
