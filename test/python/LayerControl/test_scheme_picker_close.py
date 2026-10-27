@@ -107,18 +107,11 @@ def _wait_closed(page) -> None:
 
 
 def _centre(page, selector: str) -> dict:
-    return page.evaluate(
-        "(sel) => { const r = document.querySelector(sel).getBoundingClientRect();"
-        " return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; }",
-        selector,
-    )
+    return page.evaluate(_js("common/read_element_centre"), selector)
 
 
 def _open_heatmap_dropdown(page) -> None:
-    expanded = page.evaluate(
-        "() => document.querySelector('.foliplus-heatmap-ctrl')"
-        ".classList.contains('foliplus-is-expanded')"
-    )
+    expanded = page.evaluate(_js("HeatmapControl/panel_is_open"))
     if not expanded:
         page.evaluate(_js("HeatmapControl/click_toggle_button"))
         page.wait_for_selector(
@@ -143,21 +136,7 @@ def _open_style_dropdown(page) -> None:
         ".foliplus-layer-ctrl.foliplus-is-expanded", state="attached", timeout=5000
     )
     panel_ready(page)
-    opened = page.evaluate(
-        """() => {
-          const rows = [...document.querySelectorAll(
-            '.foliplus-layer-item[data-layer-type=overlay]')];
-          const row = rows.find(r => r.textContent.includes('Polygon data'));
-          if (!row) return { ok: false, reason: 'no-polygon-row' };
-          row.querySelector('.foliplus-layer-more-btn').click();
-          const menu = row.querySelector('.foliplus-layer-more-menu.open');
-          if (!menu) return { ok: false, reason: 'menu-not-open' };
-          const item = menu.querySelector('li[data-action="style-layer"]');
-          if (!item) return { ok: false, reason: 'no-style-item' };
-          item.click();
-          return { ok: !!row.querySelector('.foliplus-layer-style-panel') };
-        }"""
-    )
+    opened = page.evaluate(_js("LayerControl/open_style_panel_polygon"))
     assert opened["ok"], f"style panel did not open: {opened}"
     page.wait_for_selector(".foliplus-layer-style-panel", state="visible", timeout=5000)
     ready = page.evaluate(_js("LayerControl/style_scheme_portal_prepare"))
@@ -193,11 +172,7 @@ class TestPickerCloseBrowser:
     def test_heatmap_outside_press_closes_both(self, browser, tmp_path):
         with use_page(_make_page, browser, tmp_path) as (page, errors):
             _open_heatmap_dropdown(page)
-            box = page.evaluate(
-                "() => { const r = window.map.getContainer()"
-                ".getBoundingClientRect();"
-                " return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; }"
-            )
+            box = page.evaluate(_js("common/read_map_centre"))
             page.mouse.click(box["x"], box["y"])
             _wait_closed(page)
             state = _state(page)
@@ -234,20 +209,15 @@ class TestPickerCloseBrowser:
     def test_removing_the_control_closes_the_list(self, browser, tmp_path):
         with use_page(_make_page, browser, tmp_path) as (page, errors):
             _open_heatmap_dropdown(page)
-            page.evaluate("() => window.map.removeControl(window.__heatmapCtrl)")
+            page.evaluate(_js("common/remove_heatmap_control"))
             _wait_closed(page)
-            assert not page.evaluate(
-                "() => !!document.querySelector('.foliplus-heatmap-ctrl')"
-            )
+            assert not page.evaluate(_js("common/has_heatmap_control"))
             assert not errors, f"JS errors: {errors}"
 
     def test_style_drawer_close_closes_the_list(self, browser, tmp_path):
         with use_page(_make_page, browser, tmp_path) as (page, errors):
             _open_style_dropdown(page)
-            page.evaluate(
-                "() => document.querySelector('.foliplus-layer-style-panel "
-                ".foliplus-close-btn').click()"
-            )
+            assert page.evaluate(_js("LayerControl/close_style_panel"))
             _wait_closed(page)
             state = _state(page)
             assert state["portalCount"] == 0, state
