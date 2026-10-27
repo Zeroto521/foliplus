@@ -96,6 +96,9 @@ def test_numeric_column_is_tagged_numeric():
 
     assert meta["perFeature"] is True
     assert meta["fields"][0]["kind"] == "numeric"
+    # Keys are the normalized value strings: an integer column keys "1"/"2",
+    # never "1.0"/"2.0" — task-51/task-53 read this mapping verbatim.
+    assert meta["fields"][0]["mapping"] == {"1": "#0d0887", "2": "#f0f921"}
 
 
 def test_field_mapping_is_truncated_past_the_cap():
