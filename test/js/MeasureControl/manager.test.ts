@@ -1957,39 +1957,67 @@ describe("MeasureManager — type filter", () => {
     expect(provider().kept).toBe(3);
   });
 
-  it("hides and restores a whole measurement through its registered leaves", () => {
+  it("hides and restores a whole measurement through the pane-routing layer API", () => {
     const { manager, map } = makeManager();
     addMeasurements(manager);
     const opts = createLayersOpts(map);
-    const attached = new Set<unknown>();
     const leafA = { options: { pane: "graph" } } as unknown as unknown;
     const leafB = { options: { pane: "graph" } } as unknown as unknown;
-    Object.defineProperty(manager.layers, "mainLayer", {
-      configurable: true,
-      value: {
-        hasLayer: (leaf: unknown) => attached.has(leaf),
-        addLayer: vi.fn((leaf: unknown) => attached.add(leaf)),
-        removeLayer: vi.fn((leaf: unknown) => attached.delete(leaf)),
-      },
-    });
+    const addLayer = vi.spyOn(manager.layers, "addLayer");
+    const removeLayer = vi.spyOn(manager.layers, "removeLayer");
     manager.registerItemLayers("m1", [leafA]);
     manager.registerItemLayers("m2", [leafB]);
-    expect(attached.size).toBe(2);
+    expect(addLayer).not.toHaveBeenCalled();
 
     opts.filterSetter(filter([CONST.MEASURE_MODE.MARKER]));
-    expect(attached.has(leafA)).toBe(true);
-    expect(attached.has(leafB)).toBe(false);
+    expect(removeLayer).toHaveBeenCalledTimes(1);
+    expect(removeLayer).toHaveBeenCalledWith(leafB);
+    expect(manager.visibleMeasurements().map((m: any) => m.id)).toEqual(["m1"]);
 
     // A measurement finalized while the filter is active starts hidden.
     const leafC = { options: { pane: "graph" } } as unknown as unknown;
     manager.store.add({ id: "m4", type: CONST.MEASURE_MODE.CIRCLE });
     manager.registerItemLayers("m4", [leafC]);
-    expect(attached.has(leafC)).toBe(false);
+    expect(removeLayer).toHaveBeenLastCalledWith(leafC);
+    expect(manager.visibleMeasurements().map((m: any) => m.id)).toEqual(["m1"]);
+
+    // Repeating the same filter must not touch the map again.
+    removeLayer.mockClear();
+    addLayer.mockClear();
+    opts.filterSetter(filter([CONST.MEASURE_MODE.MARKER]));
+    expect(removeLayer).not.toHaveBeenCalled();
+    expect(addLayer).not.toHaveBeenCalled();
 
     opts.filterSetter(undefined);
-    expect(attached.has(leafA)).toBe(true);
-    expect(attached.has(leafB)).toBe(true);
-    expect(attached.has(leafC)).toBe(true);
+    expect(addLayer).toHaveBeenCalledTimes(2);
+    expect(addLayer).toHaveBeenCalledWith(leafB);
+    expect(addLayer).toHaveBeenCalledWith(leafC);
+    expect(manager.visibleMeasurements()).toHaveLength(4);
+  });
+
+  it("keeps hiding and showing stable across repeated filter changes", () => {
+    const { manager, map } = makeManager();
+    addMeasurements(manager);
+    const opts = createLayersOpts(map);
+    const leaf = { options: { pane: "graph" } } as unknown as unknown;
+    manager.registerItemLayers("m2", [leaf]);
+    const removeLayer = vi.spyOn(manager.layers, "removeLayer");
+    const addLayer = vi.spyOn(manager.layers, "addLayer");
+
+    opts.filterSetter(filter([CONST.MEASURE_MODE.MARKER]));
+    expect(removeLayer).toHaveBeenCalledTimes(1);
+    expect(addLayer).not.toHaveBeenCalled();
+
+    opts.filterSetter(undefined);
+    expect(addLayer).toHaveBeenCalledTimes(1);
+
+    opts.filterSetter(filter([CONST.MEASURE_MODE.POLYGON]));
+    expect(removeLayer).toHaveBeenCalledTimes(2);
+    expect(addLayer).toHaveBeenCalledTimes(1);
+
+    // Clear wipes the store; the next filter cannot resurrect leaves.
+    manager.clearAll();
+    expect(manager.visibleMeasurements()).toHaveLength(0);
   });
 
   it("persists the filter under its own record and restores it on the next manager", () => {
@@ -2013,6 +2041,54 @@ describe("MeasureManager — type filter", () => {
     expect(reloadedModel.filter).toEqual(filter([CONST.MEASURE_MODE.DISTANCE]));
     expect(reloadedModel.kept).toBe(1);
     expect(reloadedModel.total).toBe(1);
+  });
+
+  it("forgets a measurement's leaves when it is deleted", () => {
+    const { manager, map } = makeManager();
+    addMeasurements(manager);
+    const leaf = { options: { pane: "graph" } } as unknown as unknown;
+    manager.registerItemLayers("m2", [leaf]);
+    const removeLayer = vi.spyOn(manager.layers, "removeLayer");
+
+    manager.forgetItemLayers("m2");
+
+    expect((manager as any).itemLeaves.size).toBe(0);
+    expect((manager as any).itemVisible.size).toBe(0);
+    // A filter applied afterwards must not try to hide the forgotten leaves.
+    createLayersOpts(map).filterSetter(filter([CONST.MEASURE_MODE.MARKER]));
+    expect(removeLayer).not.toHaveBeenCalled();
+  });
+
+  it("prunes leaves of measurements deleted outside the filter path", () => {
+    const { manager, map } = makeManager();
+    addMeasurements(manager);
+    const leaf = { options: { pane: "graph" } } as unknown as unknown;
+    manager.registerItemLayers("m2", [leaf]);
+    manager.store.remove("m2");
+    const removeLayer = vi.spyOn(manager.layers, "removeLayer");
+
+    createLayersOpts(map).filterSetter(filter([CONST.MEASURE_MODE.MARKER]));
+
+    expect((manager as any).itemLeaves.size).toBe(0);
+    expect((manager as any).itemVisible.size).toBe(0);
+    expect(removeLayer).not.toHaveBeenCalled();
+  });
+
+  it("drops a stale persisted filter value instead of hiding everything", () => {
+    const { manager } = makeManager();
+    const key = (manager as any).filterStorageKey as string;
+    // Values outside the current option domain (older version, hand edit) must
+    // read as "no filter": an expired condition may never hide every row.
+    window.localStorage.setItem(
+      key,
+      JSON.stringify({ version: 1, filter: filter(["bogus"]) }),
+    );
+
+    const { manager: reloaded, map: nextMap } = makeManager();
+    expect((reloaded as any).measureFilter).toBeUndefined();
+    const model = createLayersOpts(nextMap).filterProvider();
+    expect(model.filter).toBeUndefined();
+    expect(model.kept).toBe(model.total);
   });
 
   it("ignores a corrupt filter record instead of taking the map down", () => {

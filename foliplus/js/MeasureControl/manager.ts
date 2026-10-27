@@ -118,6 +118,10 @@ class MeasureManager {
   /** Rendered leaves of each measurement, keyed by measurement id. A filter
    *  hides/shows a whole measurement through these, never through a redraw. */
   private readonly itemLeaves = new Map<string, L.Layer[]>();
+  /** Whether each measurement's leaves are currently rendered. The layer API
+   *  keeps leaves inside per-pane child groups, so the group's own hasLayer()
+   *  cannot answer this for a single leaf — the manager tracks it instead. */
+  private readonly itemVisible = new Map<string, boolean>();
   /** localStorage key of the type filter, scoped to map + layer instance. */
   private readonly filterStorageKey: string;
   /** Every rendered label chip, so collision detection plans all measurements
@@ -315,9 +319,14 @@ class MeasureManager {
     };
   }
 
-  /** Measurements that pass the committed filter — the export view. */
+  /** Measurements whose leaves are rendered — the export view. Reads the
+   *  rendered state so it always agrees with the map, falling back to the
+   *  committed filter for items that have not registered leaves yet. */
   visibleMeasurements(): MeasureData[] {
-    return this.store.all().filter(measurement => this.itemMatchesFilter(measurement));
+    return this.store.all().filter(measurement => {
+      const rendered = this.itemVisible.get(measurement.id!);
+      return rendered ?? this.itemMatchesFilter(measurement);
+    });
   }
 
   /** Panel write path: keep the filter, persist it, repaint only visibility
@@ -342,6 +351,9 @@ class MeasureManager {
       id,
       leaves.filter((leaf): leaf is L.Layer => Boolean(leaf)),
     );
+    // The mode attaches the leaves before registering them, so they start out
+    // rendered; a committed filter may then hide the whole measurement.
+    this.itemVisible.set(id, true);
     const measurement = this.store.all().find(entry => entry.id === id);
     if (measurement) this.setItemVisible(id, this.itemMatchesFilter(measurement));
   }
@@ -349,17 +361,20 @@ class MeasureManager {
   /** Forget one measurement's leaves (its delete path). */
   forgetItemLayers(id: string): void {
     this.itemLeaves.delete(id);
+    this.itemVisible.delete(id);
   }
 
-  /** Hide or show one measurement's leaves. `mainLayer` routes by the leaf's
-   *  own pane option, so a restored leaf keeps its pane. */
+  /** Hide or show one measurement's leaves. The layer API routes by each
+   *  leaf's own pane option, so a restored leaf keeps its pane. */
   private setItemVisible(id: string, visible: boolean): void {
     const leaves = this.itemLeaves.get(id);
     if (!leaves || leaves.length === 0) return;
+    const shown = this.itemVisible.get(id) ?? true;
+    if (shown === visible) return;
+    this.itemVisible.set(id, visible);
     for (const leaf of leaves) {
-      const attached = this.layers.mainLayer.hasLayer(leaf);
-      if (visible && !attached) this.layers.mainLayer.addLayer(leaf);
-      else if (!visible && attached) this.layers.mainLayer.removeLayer(leaf);
+      if (visible) this.layers.addLayer(leaf);
+      else this.layers.removeLayer(leaf);
     }
   }
 
@@ -377,18 +392,24 @@ class MeasureManager {
     if (this.itemLeaves.size === 0) return;
     const live = new Set(this.store.all().map(measurement => measurement.id));
     for (const id of this.itemLeaves.keys()) {
-      if (!live.has(id)) this.itemLeaves.delete(id);
+      if (!live.has(id)) {
+        this.itemLeaves.delete(id);
+        this.itemVisible.delete(id);
+      }
     }
   }
 
   /** Load the committed filter from its own record. A corrupt or older record
-   *  carries no usable filter. */
+   *  carries no usable filter; values outside the current option domain are
+   *  dropped so a stale condition cannot hide every measurement. */
   private loadMeasureFilter(): LayerFilter {
     const record = Storage.loadRecord<unknown>(this.filterStorageKey, this.config.name);
     if (!record || typeof record !== "object" || Array.isArray(record)) {
       return undefined;
     }
-    return parsePersistedFilter((record as Record<string, unknown>).filter);
+    return this.normalizeMeasureFilter(
+      parsePersistedFilter((record as Record<string, unknown>).filter),
+    );
   }
 
   /** Persist the committed filter (undefined = explicitly cleared). */
@@ -928,6 +949,7 @@ class MeasureManager {
     // reset, not a step.
     this.collidableLabels = [];
     this.itemLeaves.clear();
+    this.itemVisible.clear();
   }
 
   /** Clear all measurements, layers, and persisted data. Called only by the
