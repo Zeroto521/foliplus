@@ -91,7 +91,7 @@ import type { LayerUI as LayerUISurface } from "./surface.js";
  *  - focusController:  focus spotlight + inverse mask
  *
  *  Cross-cutting code reads state through the subsystem handle
- *  (`ui.listPanel.foldedGroups`, `ui.overlayPanel.activeMenu`, etc.);
+ *  (`ui.listPanel.foldedRoles`, `ui.overlayPanel.activeMenu`, etc.);
  *  each subsystem owns the field and there is no compat layer.
  */
 class LayerUI implements LayerUISurface {
@@ -170,7 +170,7 @@ class LayerUI implements LayerUISurface {
   /** Unsubscribe for the control-attached ready signal. */
   unsubscribeControlAttached: (() => void) | null;
   /** Unsubscribers for the controller-driven layer-signal events (item add /
-   *  update / refresh, list rebuild, group count change, no-basemap
+   *  update / refresh, list rebuild, role count change, no-basemap
    *  change, content invalidation). Batched into one array so a single
    *  unbind call tears down every listener; the controller no longer drives
    *  these UI methods directly. */
@@ -352,17 +352,17 @@ class LayerUI implements LayerUISurface {
   }
 
   // ── delegates: visibility ──
-  getLayerItems(group: string) {
-    return getLayerItems(this, group);
+  getLayerItems(role: string) {
+    return getLayerItems(this, role);
   }
-  toggleAll(group: string, newState: boolean) {
-    return toggleAll(this, group, newState);
+  toggleAll(role: string, newState: boolean) {
+    return toggleAll(this, role, newState);
   }
-  syncToggleAll(group: string) {
-    return syncToggleAll(this, group);
+  syncToggleAll(role: string) {
+    return syncToggleAll(this, role);
   }
-  syncToggleAllFromCount(group: string) {
-    return syncToggleAllFromCount(this, group);
+  syncToggleAllFromCount(role: string) {
+    return syncToggleAllFromCount(this, role);
   }
   syncNoBasemap() {
     return syncNoBasemap(this);

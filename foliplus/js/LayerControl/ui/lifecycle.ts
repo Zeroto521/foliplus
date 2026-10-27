@@ -3,7 +3,7 @@
 // in index.ts keeps one-line delegates; this module owns the actual wiring
 // so index.ts stays a state + delegates shell.
 import { EVENTS, type EventPayloadMap, ensureEvents } from "#core/event/index.js";
-import { GROUP } from "#core/layer/index.js";
+import { ROLE } from "#core/layer/index.js";
 import * as CONST from "../const.js";
 import {
   handleMoreClick,
@@ -171,15 +171,15 @@ const bindLayerEvents = (ui: LayerUI): void => {
       // Derive the target state from the actual layer selection rather than
       // checkbox.checked — the browser resets indeterminate before the change
       // event fires, making it impossible to detect the pre-click state.
-      const group = row.dataset.group ?? "";
-      const items = getLayerItems(ui, group);
+      const role = row.dataset.role ?? "";
+      const items = getLayerItems(ui, role);
       const noneChecked = Array.from(items).every((item: Element) => {
         const c = item.querySelector(
           'input[type="checkbox"]',
         ) as HTMLInputElement | null;
         return !c?.checked;
       });
-      toggleAll(ui, group, noneChecked);
+      toggleAll(ui, role, noneChecked);
       return;
     }
     handleChange(ui, event);
@@ -216,7 +216,7 @@ const bindLayerEvents = (ui: LayerUI): void => {
 
     const toggleAllEl = el.closest(CONST.SEL.TOGGLE_ALL) as HTMLElement | null;
     if (!toggleAllEl || el.closest('[data-role="toggle-all"]')) return;
-    toggleFold(ui, toggleAllEl.dataset.group ?? "");
+    toggleFold(ui, toggleAllEl.dataset.role ?? "");
   };
 
   ui.onDragStart = event => handleDragStart(ui, event);
@@ -378,8 +378,8 @@ const bindLayerEvents = (ui: LayerUI): void => {
       invalidateFieldCache(ui, payload.id);
       dropStyleDimApplies(payload.id, ui);
     }),
-    subscribe(EVENTS.LAYER_GROUP_COUNT_CHANGED, (payload: { group: string }) => {
-      syncToggleAll(ui, payload.group);
+    subscribe(EVENTS.LAYER_ROLE_COUNT_CHANGED, (payload: { role: string }) => {
+      syncToggleAll(ui, payload.role);
     }),
     subscribe(EVENTS.LAYER_LIST_REBUILD, () => {
       // The reorder signal only moves rows: the emitters (moveLayerUp/Down,
@@ -422,7 +422,7 @@ const onLayerItemCountChange = (ui: LayerUI, id: string): void => {
   ) as HTMLElement | null;
   if (!item) return;
   const layerInfo = ui.c.layerRegistry.get(id);
-  if (!layerInfo || layerInfo.group === GROUP.BASE) return;
+  if (!layerInfo || layerInfo.role === ROLE.BASE) return;
   // Cheap sync cache drop — the row rebuild below re-reads the field lists,
   // so they must not survive the content that just landed. The label rebuild
   // itself is the most expensive of the replays (full tree walk + canvas

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { GROUP, type LayerInfo, LayerRuntimeStore } from "#core/layer/index.js";
+import { type LayerInfo, LayerRuntimeStore, ROLE } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { LayerIntentStore } from "#foliplus/LayerControl/domain/index.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
@@ -261,7 +261,7 @@ describe("buildRowCell + applyRowView (one writer per row)", () => {
 
   it("uses the custom icon when the layer declares one", () => {
     const { ui } = initFixture({
-      data: [{ id: "custom1", name: "Custom", group: "overlay" }],
+      data: [{ id: "custom1", name: "Custom", role: "overlay" }],
     });
     const layerInfo = ui.c.layers.find(li => li.id === "custom1")!;
     layerInfo.iconSvg = '<svg id="custom" />';
@@ -421,7 +421,7 @@ describe("applyRowView (the single DOM write point)", () => {
       intentStore: new LayerIntentStore(),
       runtimeStore: new LayerRuntimeStore(),
       focusController: { focusingLayerId: null },
-      listPanel: { checkedCount: {}, foldedGroups: new Set<string>() },
+      listPanel: { checkedCount: {}, foldedRoles: new Set<string>() },
       T: (k: string) => k,
       config: { locale_code: "en" },
     } as unknown as LayerUI;
@@ -482,8 +482,8 @@ describe("the four readers agree on a half-broken record", () => {
 
     // The sync counters agree: the overlay row counts as on, the base row
     // keeps the no-basemap hatch off.
-    syncToggleAll(ui, GROUP.OVERLAY);
-    expect(ui.listPanel.checkedCount[GROUP.OVERLAY]).toEqual({ total: 1, on: 1 });
+    syncToggleAll(ui, ROLE.OVERLAY);
+    expect(ui.listPanel.checkedCount[ROLE.OVERLAY]).toEqual({ total: 1, on: 1 });
     syncNoBasemap(ui);
     expect(ui.c.map.getContainer().classList.contains(CONST.CLASSES.NO_BASE_MAP)).toBe(
       false,

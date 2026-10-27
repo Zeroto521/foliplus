@@ -19,7 +19,7 @@ import type { LayerUI } from "./surface.js";
 /** Load every persisted dimension in one call. */
 const loadPersistedState = (ui: LayerUI) => {
   const state = ui.c.persistence.load();
-  ui.listPanel.foldedGroups = new Set(state.foldedGroups);
+  ui.listPanel.foldedRoles = new Set(state.foldedRoles);
   // Intent values + provenance sink into the store. Read order is the compat
   // contract: the current `layers[id].annotation` key WINS, the legacy
   // top-level `annotations` segment is the fallback underneath (write-new /
@@ -35,7 +35,7 @@ const loadPersistedState = (ui: LayerUI) => {
 
 const saveFoldState = (ui: LayerUI) => {
   ui.c.persistence.schedule({
-    foldedGroups: () => [...ui.listPanel.foldedGroups],
+    foldedRoles: () => [...ui.listPanel.foldedRoles],
   });
 };
 
@@ -165,7 +165,7 @@ const applyUserState = (ui: LayerUI, id?: string): ProjectionBatch => {
     ui.c.replaySavedOrder(id);
     // The round is returned, not announced here: a late registration can join
     // the map on this replay, and the caller owns the complete operation (the
-    // registration entry refreshes the row and the group count first, then
+    // registration entry refreshes the row and the role count first, then
     // publishes so a subscriber reads the settled panel).
     return [{ id, delta: moved, entry: layerInfo }];
   }

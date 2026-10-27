@@ -22,11 +22,11 @@ describe("LayerUI attrs", () => {
       manager.registerLayer({
         id: "overlay2",
         name: "Circles",
-        group: "overlay",
+        role: "overlay",
         layer: { options: {}, eachLayer: vi.fn() },
       });
     }
-    ui.listPanel.foldedGroups = new Set();
+    ui.listPanel.foldedRoles = new Set();
     seedIntentMap(ui, "visible", {});
     // Folded-group state is persisted to localStorage, so a fold from one test
     // would be re-read by the next test's LayerUI constructor and present as
@@ -380,7 +380,7 @@ describe("LayerUI attrs", () => {
     });
 
     it("names the type row by what the layer is, not by a missing geometry", () => {
-      manager.registerLayer({ id: "attr-base1", group: "base" });
+      manager.registerLayer({ id: "attr-base1", role: "base" });
       const baseItem = findItem(ui, "attr-base1");
       ui.openAttrsPanel(baseItem);
       expect(
@@ -459,7 +459,7 @@ describe("LayerUI attrs", () => {
       manager.registerLayer({
         id: "pnt_pair",
         name: "Points",
-        group: "overlay",
+        role: "overlay",
         layer: { options: {}, eachLayer: vi.fn() },
         filterProvider: () => ({
           dimensions: [
@@ -493,7 +493,7 @@ describe("LayerUI attrs", () => {
       manager.registerLayer({
         id: "pnt_unfiltered",
         name: "Points",
-        group: "overlay",
+        role: "overlay",
         layer: { options: {}, eachLayer: vi.fn() },
         filterProvider: () => ({
           dimensions: [

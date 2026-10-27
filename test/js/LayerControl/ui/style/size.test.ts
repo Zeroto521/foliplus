@@ -85,7 +85,7 @@ const makeGrid = (): any => ({ options: {} });
 const BASE_LAYER = {
   id: "base1",
   name: "OSM",
-  group: "base",
+  role: "base",
   layer: { options: {}, setZIndex: vi.fn() } as never,
   paneName: "tilePane",
 };
@@ -93,7 +93,7 @@ const BASE_LAYER = {
 const fixtureWithRadiusLayer = (radius = 10) => {
   const layer = makeRadiusLeaf(radius);
   const fixture = initFixture({
-    data: [{ id: "overlay1", name: "CM", group: "overlay", layer }, BASE_LAYER],
+    data: [{ id: "overlay1", name: "CM", role: "overlay", layer }, BASE_LAYER],
   });
   return { ...fixture, layer };
 };
@@ -133,7 +133,7 @@ describe("layerCanSize", () => {
     manager.registerLayer({
       id: "c1",
       name: "C",
-      group: "overlay",
+      role: "overlay",
       layer: makeMetreLeaf(2000),
     });
     expect(layerCanSize(ui, "c1")).toBe(false);
@@ -143,16 +143,16 @@ describe("layerCanSize", () => {
     manager.registerLayer({
       id: "p1",
       name: "P",
-      group: "overlay",
+      role: "overlay",
       layer: makePoly(true),
     });
     manager.registerLayer({
       id: "pl1",
       name: "PL",
-      group: "overlay",
+      role: "overlay",
       layer: makePoly(false),
     });
-    manager.registerLayer({ id: "g1", name: "G", group: "overlay", layer: makeGrid() });
+    manager.registerLayer({ id: "g1", name: "G", role: "overlay", layer: makeGrid() });
     expect(layerCanSize(ui, "p1")).toBe(false);
     expect(layerCanSize(ui, "pl1")).toBe(false);
     expect(layerCanSize(ui, "g1")).toBe(false);
@@ -162,7 +162,7 @@ describe("layerCanSize", () => {
     manager.registerLayer({
       id: "grp1",
       name: "G",
-      group: "overlay",
+      role: "overlay",
       layer: makeGroup(makeRadiusLeaf(12)),
     });
     expect(layerCanSize(ui, "grp1")).toBe(true);
@@ -172,7 +172,7 @@ describe("layerCanSize", () => {
     manager.registerLayer({
       id: "grp2",
       name: "G",
-      group: "overlay",
+      role: "overlay",
       layer: makeGroup(makeMetreLeaf(500)),
     });
     expect(layerCanSize(ui, "grp2")).toBe(false);
@@ -199,7 +199,7 @@ describe("buildSizeRow", () => {
     manager.registerLayer({
       id: "p1",
       name: "P",
-      group: "overlay",
+      role: "overlay",
       layer: makePoly(true),
     });
     expect(buildSizeRow(ui, "p1")).toBeNull();
@@ -213,7 +213,7 @@ describe("buildSizeRow", () => {
     manager.registerLayer({
       id: "c1",
       name: "C",
-      group: "overlay",
+      role: "overlay",
       layer: makeMetreLeaf(2000),
     });
     expect(buildSizeRow(ui, "c1")).toBeNull();
@@ -309,7 +309,7 @@ describe("commitSize", () => {
     manager.registerLayer({
       id: "grp1",
       name: "G",
-      group: "overlay",
+      role: "overlay",
       layer: makeGroup(a, b),
     });
     commitSize(ui, "grp1", 25);
@@ -324,7 +324,7 @@ describe("commitSize", () => {
     manager.registerLayer({
       id: "mix1",
       name: "M",
-      group: "overlay",
+      role: "overlay",
       layer: makeGroup(cm, metre),
     });
     commitSize(ui, "mix1", 30);
@@ -443,7 +443,7 @@ describe("resetLayerSize", () => {
     manager.registerLayer({
       id: "grp1",
       name: "G",
-      group: "overlay",
+      role: "overlay",
       layer: makeGroup(a, b),
     });
     commitSize(ui, "grp1", 30);
@@ -592,7 +592,7 @@ describe("panel integration", () => {
   it("renders no size row for a metre-radius circle", () => {
     const layer = makeMetreLeaf(2000);
     ({ manager, ui } = initFixture({
-      data: [{ id: "overlay1", name: "C", group: "overlay", layer }, BASE_LAYER],
+      data: [{ id: "overlay1", name: "C", role: "overlay", layer }, BASE_LAYER],
     }));
     window.localStorage.removeItem(CONST.STORAGE.KEY);
     const item = findItem(ui, "overlay1");
@@ -608,7 +608,7 @@ describe("panel integration", () => {
   it("renders no size row for a polygon", () => {
     ({ manager, ui } = initFixture({
       data: [
-        { id: "overlay1", name: "P", group: "overlay", layer: makePoly(true) },
+        { id: "overlay1", name: "P", role: "overlay", layer: makePoly(true) },
         BASE_LAYER,
       ],
     }));
@@ -629,7 +629,7 @@ describe("panel integration", () => {
       JSON.stringify({ layers: { overlay1: { size: 30, overrides: ["size"] } } }),
     );
     ({ manager, ui } = initFixture({
-      data: [{ id: "overlay1", name: "CM", group: "overlay", layer }, BASE_LAYER],
+      data: [{ id: "overlay1", name: "CM", role: "overlay", layer }, BASE_LAYER],
     }));
     expect(getIntent(ui, "overlay1", "size")).toBe(30);
     expect(layer.getRadius()).toBe(30);
@@ -727,7 +727,7 @@ describe("SIZE_DIMENSION", () => {
     manager.registerLayer({
       id: "mix1",
       name: "M",
-      group: "overlay",
+      role: "overlay",
       layer: makeGroup(shape, leaf),
     });
     commitSize(ui, "mix1", 30);
@@ -744,7 +744,7 @@ describe("SIZE_DIMENSION", () => {
     // throwing — value is not gated, so both fallbacks have to hold.
     ({ manager, ui } = initFixture({
       data: [
-        { id: "poly1", name: "P", group: "overlay", layer: makePoly(true) },
+        { id: "poly1", name: "P", role: "overlay", layer: makePoly(true) },
         BASE_LAYER,
       ],
     }));
@@ -782,7 +782,7 @@ describe("size walk coalescing", () => {
     manager.registerLayer({
       id: "grp1",
       name: "G",
-      group: "overlay",
+      role: "overlay",
       layer: makeGroup(a, b),
     });
     for (const px of [10, 20, 30, 40]) commitSize(ui, "grp1", px);
@@ -838,7 +838,7 @@ describe("content-change replay", () => {
     const children = [early];
     ({ manager, ui } = initFixture({
       data: [
-        { id: "grp1", name: "G", group: "overlay", layer: groupWith(children) },
+        { id: "grp1", name: "G", role: "overlay", layer: groupWith(children) },
         BASE_LAYER,
       ],
     }));
@@ -864,7 +864,7 @@ describe("content-change replay", () => {
     const children = [early];
     ({ manager, ui } = initFixture({
       data: [
-        { id: "grp1", name: "G", group: "overlay", layer: groupWith(children) },
+        { id: "grp1", name: "G", role: "overlay", layer: groupWith(children) },
         BASE_LAYER,
       ],
     }));
@@ -893,7 +893,7 @@ describe("content-change replay", () => {
   it("does nothing when the user never chose a size", () => {
     const leaf = makeRadiusLeaf(9);
     ({ manager, ui } = initFixture({
-      data: [{ id: "o1", name: "O", group: "overlay", layer: leaf }, BASE_LAYER],
+      data: [{ id: "o1", name: "O", role: "overlay", layer: leaf }, BASE_LAYER],
     }));
     ensureEvents(ui.c.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "o1" });
     flushSize("o1");

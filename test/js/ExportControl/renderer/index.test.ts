@@ -640,7 +640,7 @@ const mountStack = (): Stack => {
   const group = L.layerGroup([marker]);
   map.addLayer(group);
   const controller = new LayerController(map, [
-    { id: "markers", name: "Markers", group: "overlay", layer: group },
+    { id: "markers", name: "Markers", role: "overlay", layer: group },
   ]);
 
   const loads: string[] = [];

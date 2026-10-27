@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import * as CONST from "#foliplus/LayerControl/const.js";
-import { GEOM_TYPE, GROUP, RECURSION, Z_INDEX } from "#foliplus/core/layer/const.js";
+import { GEOM_TYPE, RECURSION, ROLE, Z_INDEX } from "#foliplus/core/layer/const.js";
 
 describe("init ready signal", () => {
   it("no longer exposes the removed INIT_DELAY_MS timer", () => {
@@ -100,10 +100,10 @@ describe("GEOM_TYPE", () => {
   });
 });
 
-describe("GROUP", () => {
+describe("ROLE", () => {
   it("defines group names", () => {
-    expect(GROUP.OVERLAY).toBe("overlay");
-    expect(GROUP.BASE).toBe("base");
+    expect(ROLE.OVERLAY).toBe("overlay");
+    expect(ROLE.BASE).toBe("base");
   });
 });
 

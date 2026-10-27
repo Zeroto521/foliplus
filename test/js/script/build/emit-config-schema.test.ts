@@ -135,7 +135,7 @@ const schema = {
       entries: {
         ts: "LayerData",
         name: "LayerData",
-        shape: [{ name: "string", id: "string", group: ["base", "overlay"] }],
+        shape: [{ name: "string", id: "string", role: ["base", "overlay"] }],
         optional: true,
         nullable: false,
         runtime_only: false,
@@ -237,8 +237,8 @@ describe("renderShape", () => {
     expect(renderShape([["base", "overlay"]])).toBe('("base" | "overlay")[]');
     // A union nested inside an object member does not make the object a union,
     // so the object itself stays unparenthesized.
-    expect(renderShape([{ group: ["base", "overlay"] }])).toBe(
-      '{ group: "base" | "overlay" }[]',
+    expect(renderShape([{ role: ["base", "overlay"] }])).toBe(
+      '{ role: "base" | "overlay" }[]',
     );
   });
 
@@ -301,7 +301,7 @@ describe("collectNamedTypes", () => {
     ]);
     // No prettier here: this is the raw grammar output before layout.
     expect(named.get("LayerData")).toBe(
-      '{ name: string; id: string; group: "base" | "overlay" }[]',
+      '{ name: string; id: string; role: "base" | "overlay" }[]',
     );
     expect(named.get("ProviderConfig")).toBe(
       "{ id: string; baseUrl?: string; headers?: Record<string, string>; params?: Record<string, string | number> }",
@@ -449,7 +449,7 @@ describe("buildConfigSchema", () => {
       const flat = oneLine(text);
       expect(text.match(/^type \w+ = /gm)).toHaveLength(3);
       expect(flat).toContain(
-        'type LayerData = { name: string; id: string; group: "base" | "overlay" }[];',
+        'type LayerData = { name: string; id: string; role: "base" | "overlay" }[];',
       );
       expect(flat).toContain(
         "type ProviderConfig = { id: string; baseUrl?: string; headers?: Record<string, string>; params?: Record<string, string | number>; };",
