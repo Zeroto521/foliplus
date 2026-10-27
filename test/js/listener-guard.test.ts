@@ -151,16 +151,17 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
   },
   {
     f: "LayerControl/ui/lifecycle.ts",
-    n: 12,
+    n: 11,
     pairedOff: 0,
     reason:
-      "layer list / drag / reorder / more-menu bindings — pending migration to `this.on`",
+      "layer list / drag / reorder bindings; the document-level more-menu click moved to the menu-local handler + core/overlayRegistry in M2-C4",
   },
   {
     f: "LayerControl/ui/overlayPanel/menu.ts",
-    n: 1,
+    n: 2,
     pairedOff: 0,
-    reason: "more-menu outside-click — pending migration to `this.on`",
+    reason:
+      "menu-local item click dispatch + focusout; outside-click moved to core/overlayRegistry in M2-C4",
   },
   {
     f: "LayerControl/ui/style/index.ts",

@@ -5,11 +5,7 @@
 import { EVENTS, type EventPayloadMap, ensureEvents } from "#core/event/index.js";
 import { ROLE } from "#core/layer/index.js";
 import * as CONST from "../const.js";
-import {
-  handleMoreClick,
-  handleMoreMenuClick,
-  registerInteractions,
-} from "../interaction.js";
+import { handleMoreClick, registerInteractions } from "../interaction.js";
 import {
   NO_DELTA,
   applyProjection,
@@ -283,12 +279,8 @@ const bindLayerEvents = (ui: LayerUI): void => {
   // Overflow ("more") button → dropdown menu. Uses event delegation so it
   // works for rows created after bindLayerEvents (registerLayer at runtime).
   ui.onMoreClick = event => handleMoreClick(ui, event);
-  ui.onMoreMenuClick = event => handleMoreMenuClick(ui, event);
   ui.onMoreMapClick = () => closeMoreMenu(ui, false);
   container.addEventListener("click", ui.onMoreClick);
-  // Menu click must be on document because the menu is positioned absolute
-  // and may visually overflow the panel bounds.
-  document.addEventListener("click", ui.onMoreMenuClick);
   ui.c.map.on("click", ui.onMoreMapClick);
   // A zoom change re-evaluates every layer's effective-shown: a layer whose
   // stored range excludes the new level is hidden, and one whose range
@@ -531,9 +523,6 @@ const unbindEvents = (ui: LayerUI): void => {
   if (ui.onDrop) container.removeEventListener("drop", ui.onDrop);
   if (ui.onDragEnd) container.removeEventListener("dragend", ui.onDragEnd);
   if (ui.onMoreClick) container.removeEventListener("click", ui.onMoreClick);
-  if (ui.onMoreMenuClick) {
-    document.removeEventListener("click", ui.onMoreMenuClick);
-  }
   if (ui.onMoreMapClick) ui.c.map.off("click", ui.onMoreMapClick);
   if (ui.onZoomEnd) ui.c.map.off("zoomend", ui.onZoomEnd);
   clearActiveItem(ui);
@@ -548,7 +537,7 @@ const unbindEvents = (ui: LayerUI): void => {
   ui.onFocusIn = ui.onFocusOut = null;
   ui.onDragStart = ui.onDragOver = ui.onDragLeave = null;
   ui.onDrop = ui.onDragEnd = null;
-  ui.onMoreClick = ui.onMoreMenuClick = null;
+  ui.onMoreClick = null;
   ui.onMoreMapClick = null;
   ui.onZoomEnd = null;
   if (ui.unsubscribeCountChange) {

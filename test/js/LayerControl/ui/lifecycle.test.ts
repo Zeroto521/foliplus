@@ -274,7 +274,6 @@ describe("LayerUI lifecycle — defensive rails", () => {
       ui.unsubscribeCountChange = null;
       ui.unsubscribeControlAttached = null;
       ui.onMoreClick = null;
-      ui.onMoreMenuClick = null;
       ui.onMoreMapClick = null;
       ui.onZoomEnd = null;
       ui.onChange = null;

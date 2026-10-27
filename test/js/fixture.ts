@@ -358,7 +358,6 @@ export function makeLayerUIMock(extra: Overrides = {}): LayerUI {
     onKeyDown: null,
     // Lifecycle / dismiss handlers
     onMoreClick: null,
-    onMoreMenuClick: null,
     onMoreMapClick: null,
     onZoomEnd: null,
     unsubscribeCountChange: null,

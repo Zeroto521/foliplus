@@ -1,7 +1,6 @@
 // LayerControl interaction — keyboard navigation + overflow-menu click handlers.
 import { ensureInteraction } from "#core/interaction/index.js";
 import * as CONST from "./const.js";
-import { runMenuAction } from "./ui/overlayPanel/menu.js";
 import type { LayerUI } from "./ui/surface.js";
 
 /** Keyboard shortcuts registered via InteractionManager. */
@@ -53,23 +52,4 @@ const handleMoreClick = (ui: LayerUI, event: Event): void => {
   ui.openMoreMenu(item);
 };
 
-/** Click handler for the overflow menu items. The action itself is dispatched
- *  by the menu's shared runner, so a click and a keyboard activation of the
- *  same entry cannot diverge. */
-const handleMoreMenuClick = (ui: LayerUI, event: Event): void => {
-  const target = event.target as HTMLElement;
-  // Any click that is not on the open menu closes it — panel, map, another
-  // control. The ⋮ button's own click stops propagation, so re-opening the
-  // menu from the same button still works (onClick re-creates it).
-  if (!target.closest(".foliplus-layer-more-menu")) {
-    if (ui.overlayPanel.activeMenu) ui.closeMoreMenu(false);
-    return;
-  }
-  const menuItem = target.closest(`.foliplus-layer-more-menu li`) as HTMLElement | null;
-  if (!menuItem) return;
-  // A disabled entry keeps the menu open so the user sees why (its tooltip
-  // carries the reason); the shared runner applies that rule for both inputs.
-  runMenuAction(ui, menuItem);
-};
-
-export { registerInteractions, handleMoreClick, handleMoreMenuClick };
+export { registerInteractions, handleMoreClick };

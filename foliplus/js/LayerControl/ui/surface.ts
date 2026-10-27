@@ -61,7 +61,6 @@ interface LayerUI {
   onDragEnd: ((event: DragEvent) => void) | null;
   onDrop: ((event: DragEvent) => void) | null;
   onMoreClick: ((event: Event) => void) | null;
-  onMoreMenuClick: ((event: Event) => void) | null;
   onMoreMapClick: ((event: L.LeafletEvent) => void) | null;
   onZoomEnd: (() => void) | null;
   unsubscribeCountChange: (() => void) | null;

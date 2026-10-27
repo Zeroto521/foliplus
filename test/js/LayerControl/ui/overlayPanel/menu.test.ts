@@ -1,11 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerController } from "#foliplus/LayerControl/controller.js";
-import { handleMoreMenuClick } from "#foliplus/LayerControl/interaction.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { seedIntentMap } from "#foliplus/LayerControl/ui/intent.js";
 import { activateDeleteItem } from "#foliplus/LayerControl/ui/overlayPanel/index.js";
-import { MENU_ACTIONS } from "#foliplus/LayerControl/ui/overlayPanel/menu.js";
+import {
+  MENU_ACTIONS,
+  handleMenuClick,
+} from "#foliplus/LayerControl/ui/overlayPanel/menu.js";
 import { ensureModes } from "#foliplus/core/mode.js";
 import { attachedPanel, findItem, initFixture } from "../fixture.js";
 
@@ -57,6 +59,16 @@ describe("LayerUI menu", () => {
   // ─────────────────── focusLayer() ───────────────────
 
   describe("openMoreMenu() / closeMoreMenu()", () => {
+    it("outside click closes the open menu through the overlay registry", () => {
+      const item = findItem(ui, "overlay1");
+      ui.openMoreMenu(item);
+      expect(item.querySelector(".foliplus-layer-more-menu")).not.toBeNull();
+
+      document.body.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+      expect(item.querySelector(".foliplus-layer-more-menu")).toBeNull();
+    });
+
     it("orders style, focus, rename, attributes, then delete behind a divider", () => {
       // Deliberate ordering, not append order: the primary configure action
       // leads, then the reversible view action, the one entry that writes to
@@ -457,7 +469,7 @@ describe("LayerUI menu", () => {
       // interaction.ts owns the click; synthesize the event it reads.
       const event = new MouseEvent("click", { bubbles: true, cancelable: true });
       Object.defineProperty(event, "target", { value: li });
-      handleMoreMenuClick(ui, event);
+      handleMenuClick(ui, event);
     }
 
     function deleteEntryOf(root: HTMLElement): HTMLLIElement {
@@ -931,13 +943,11 @@ describe("LayerUI menu", () => {
       return li;
     };
 
-    // Each `initFixture()` registers its own document-level click listener and
-    // this file builds one fixture per test, so a real `li.click()` would reach
-    // every stale handler and dispatch the action more than once. Call the
-    // delegation handler directly instead — it is the path the document
-    // listener invokes, and the listener wiring itself is covered elsewhere.
+    // The menu-local click listener invokes this handler; call it directly so
+    // the action table is tested without depending on registry wiring, which
+    // has its own menu-local/outside-click coverage above.
     const clickOn = (li: HTMLElement): void => {
-      handleMoreMenuClick(ui, { target: li } as unknown as Event);
+      handleMenuClick(ui, { target: li } as unknown as Event);
     };
 
     const pressKey = (li: HTMLElement, key: string): void => {
