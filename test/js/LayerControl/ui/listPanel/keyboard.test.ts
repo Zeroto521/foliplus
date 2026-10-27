@@ -734,6 +734,21 @@ describe("LayerUI keyboard", () => {
       expect(allFolded(children())).toBe(false);
     });
 
+    it("ArrowLeft on a focused chevron folds the role, not the row checkbox", () => {
+      const { children } = attachWithGroup(ui);
+      expect(ui.listPanel.foldedRoles.has(ROLE.OVERLAY)).toBe(false);
+
+      // Enter and Space over the chevron are native button activation, so the
+      // input-ownership table leaves them to the button's own click. The arrow
+      // keys are not native activation: they reach the panel handler, whose
+      // chevron guard folds the role instead of letting resolveActiveIdx() walk
+      // up to the toggle-all row and flip its select-all checkbox.
+      pressKey(overlayFoldBtn(attachedPanel(ui)), "ArrowLeft");
+
+      expect(ui.listPanel.foldedRoles.has(ROLE.OVERLAY)).toBe(true);
+      expect(allFolded(children())).toBe(true);
+    });
+
     it("Enter on the chevron does NOT flip the select-all checkbox", () => {
       const { foldBtn, children } = attachWithGroup(ui);
       const childBoxes = () =>
