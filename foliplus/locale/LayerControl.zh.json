@@ -93,7 +93,6 @@
   "LayerControl.border": "边框",
   "LayerControl.filter_layer": "筛选",
   "LayerControl.filter_layer_tooltip": "筛选该图层的数据",
-  "LayerControl.filter_field": "字段",
   "LayerControl.filter_range_min": "最小值",
   "LayerControl.filter_range_max": "最大值",
   "LayerControl.filter_range": "数值范围",
