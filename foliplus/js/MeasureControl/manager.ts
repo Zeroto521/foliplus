@@ -44,6 +44,17 @@ import { MeasureStore } from "./store.js";
 import type { CollidableLabel } from "./type.js";
 import * as Util from "./util.js";
 
+/** Measurement types in toolbar order with the locale key of their tool name.
+ *  This is the filter's whole domain and its option order: the panel offers
+ *  only the types present on the map, while a committed filter may name any of
+ *  them. */
+const TYPE_LABELS: ReadonlyArray<readonly [string, string]> = [
+  [CONST.MEASURE_MODE.MARKER, "tool_marker"],
+  [CONST.MEASURE_MODE.DISTANCE, "tool_distance"],
+  [CONST.MEASURE_MODE.POLYGON, "tool_polygon"],
+  [CONST.MEASURE_MODE.CIRCLE, "tool_circle"],
+];
+
 /** In edit mode, suspend every layer except the measurement panes so nodes stay
  *  draggable and shapes clickable to reveal their ✕ handles. */
 const skipMeasureLayers = isLayerInPanes([
@@ -267,19 +278,19 @@ class MeasureManager {
   // ── Filter capability (measurement type) ───────────────────────────
 
   /** The one filterable dimension: the measurement type, in toolbar order,
-   *  labelled with the component's own translations. Multi-select over a
-   *  fixed four-value domain. */
+   *  labelled with the component's own translations. Only the types that
+   *  currently have a measurement are offered, so the option list tracks the
+   *  map; the filter itself may still carry a type whose last measurement was
+   *  deleted (see `normalizeMeasureFilter`). */
   private filterDimension(): FilterEnumDimension {
-    const options: Array<{ value: string; label: string }> = [
-      { value: CONST.MEASURE_MODE.MARKER, label: this.T("tool_marker") },
-      { value: CONST.MEASURE_MODE.DISTANCE, label: this.T("tool_distance") },
-      { value: CONST.MEASURE_MODE.POLYGON, label: this.T("tool_polygon") },
-      { value: CONST.MEASURE_MODE.CIRCLE, label: this.T("tool_circle") },
-    ];
+    const present = new Set(this.store.all().map(measurement => measurement.type));
+    const options = TYPE_LABELS.filter(([value]) => present.has(value)).map(
+      ([value, key]) => ({ value, label: this.T(key) }),
+    );
     return {
       kind: "enum",
       field: CONST.FILTER.FIELD,
-      label: this.T("filter_field_type"),
+      label: this.T("filter_type"),
       multi: true,
       options,
     };
@@ -291,7 +302,11 @@ class MeasureManager {
     if (filter?.kind !== "enum" || filter.field !== CONST.FILTER.FIELD) {
       return undefined;
     }
-    const allowed = new Set(this.filterDimension().options.map(option => option.value));
+    // The persisted domain is the component's full type set, not the types
+    // that happen to exist right now: deleting the last measurement of a
+    // selected type must not silently drop it from the filter (it comes back
+    // when such a measurement appears again).
+    const allowed = new Set(TYPE_LABELS.map(([value]) => value));
     const values = filter.values.filter(value => allowed.has(value));
     return values.length > 0
       ? { kind: "enum", field: CONST.FILTER.FIELD, values }

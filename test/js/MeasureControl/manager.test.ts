@@ -1903,7 +1903,7 @@ describe("MeasureManager — type filter", () => {
     values,
   });
 
-  it("exposes one enum dimension over the measurement types, counting items", () => {
+  it("exposes one enum dimension over the measurement types present, counting items", () => {
     const { manager, map } = makeManager();
     addMeasurements(manager);
     const provider = createLayersOpts(map).filterProvider;
@@ -1914,13 +1914,14 @@ describe("MeasureManager — type filter", () => {
       kind: "enum",
       field: CONST.FILTER.FIELD,
       multi: true,
-      label: manager.T("filter_field_type"),
+      label: manager.T("filter_type"),
     });
+    // Only the types that have a measurement are offered; the order is the
+    // toolbar order.
     expect(model.dimensions[0].options.map((o: any) => o.value)).toEqual([
       CONST.MEASURE_MODE.MARKER,
       CONST.MEASURE_MODE.DISTANCE,
       CONST.MEASURE_MODE.POLYGON,
-      CONST.MEASURE_MODE.CIRCLE,
     ]);
     expect(model.dimensions[0].options[0].label).toBe(manager.T("tool_marker"));
     expect(model.filter).toBeUndefined();
@@ -1955,6 +1956,38 @@ describe("MeasureManager — type filter", () => {
     opts.filterSetter(undefined);
     expect(provider().filter).toBeUndefined();
     expect(provider().kept).toBe(3);
+  });
+
+  it("offers only present types while keeping a filter on a vanished type", () => {
+    const { manager, map } = makeManager();
+    addMeasurements(manager);
+    const opts = createLayersOpts(map);
+    const provider = opts.filterProvider;
+
+    // Circle has no measurement, so it is not offered...
+    expect(provider().dimensions[0].options.map((o: any) => o.value)).not.toContain(
+      CONST.MEASURE_MODE.CIRCLE,
+    );
+
+    // ...but a committed circle filter survives (the filter keeps filtering and
+    // reads 0 kept instead of silently clearing).
+    opts.filterSetter(filter([CONST.MEASURE_MODE.CIRCLE]));
+    expect(provider().filter).toEqual(filter([CONST.MEASURE_MODE.CIRCLE]));
+    expect(provider().kept).toBe(0);
+    expect(provider().total).toBe(3);
+    expect(manager.visibleMeasurements()).toHaveLength(0);
+
+    // Adding a circle measurement makes the option appear and the item visible.
+    manager.store.add({ id: "m4", type: CONST.MEASURE_MODE.CIRCLE });
+    const model = provider();
+    expect(model.dimensions[0].options.map((o: any) => o.value)).toEqual([
+      CONST.MEASURE_MODE.MARKER,
+      CONST.MEASURE_MODE.DISTANCE,
+      CONST.MEASURE_MODE.POLYGON,
+      CONST.MEASURE_MODE.CIRCLE,
+    ]);
+    expect(model.kept).toBe(1);
+    expect(manager.visibleMeasurements().map((m: any) => m.id)).toEqual(["m4"]);
   });
 
   it("hides and restores a whole measurement through the pane-routing layer API", () => {

@@ -239,10 +239,8 @@ const CLASSES = {
   FILTER_ENUM_TRIGGER: "foliplus-filter-enum-trigger",
   /** Enum option listbox (a transient popup inside the dimension cell). */
   FILTER_ENUM_LIST: "foliplus-filter-enum-list",
-  /** One option row inside the enum listbox. */
+  /** One native checkbox row inside the enum disclosure. */
   FILTER_ENUM_OPTION: "foliplus-filter-enum-option",
-  /** Leading checkmark slot of an enum option. */
-  FILTER_ENUM_CHECK: "foliplus-filter-enum-check",
   /** Label text of an enum option. */
   FILTER_ENUM_LABEL: "foliplus-filter-enum-label",
 };

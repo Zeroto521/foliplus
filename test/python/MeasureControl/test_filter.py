@@ -63,16 +63,26 @@ OPEN_FILTER = r"""
 
 SET_VALUES = r"""
 (values) => {
-  const trigger = document.querySelector(".foliplus-filter-enum-trigger");
-  if (!trigger) return { ok: false, reason: "no-trigger" };
-  if (trigger.getAttribute("aria-expanded") !== "true") trigger.click();
-  for (const option of document.querySelectorAll(
-    ".foliplus-filter-enum-option",
-  )) {
-    const want = values.includes(option.dataset.value);
-    if ((option.getAttribute("aria-selected") === "true") !== want) option.click();
+  const details = document.querySelector(".foliplus-filter-enum");
+  const summary = document.querySelector(".foliplus-filter-enum-trigger");
+  if (!details || !summary) return { ok: false, reason: "no-disclosure" };
+  if (!details.open) summary.click();
+  // Re-query after every click: a filter write can rebuild the row/panel, so a
+  // stale NodeList would dispatch on detached nodes.
+  const valuesNow = () =>
+    Array.from(
+      document.querySelectorAll(
+        ".foliplus-filter-enum-option input[data-value]",
+      ),
+    ).map(box => box.dataset.value);
+  for (const value of valuesNow()) {
+    const box = document.querySelector(
+      '.foliplus-filter-enum-option input[data-value="' + value + '"]',
+    );
+    if (box && box.checked !== values.includes(value)) box.click();
   }
-  if (trigger.getAttribute("aria-expanded") === "true") trigger.click();
+  const current = document.querySelector(".foliplus-filter-enum");
+  if (current) current.open = false;
   return { ok: true };
 }
 """
@@ -93,10 +103,19 @@ READ_STATE = r"""
     '.foliplus-layer-item[data-layer-id="foliplus_measure"]');
   const count = row ? row.querySelector(".foliplus-layer-count") : null;
   const result = document.querySelector(".foliplus-filter-result");
+  const disclosure = document.querySelector(".foliplus-filter-enum");
+  const summary = document.querySelector(".foliplus-filter-enum-trigger");
   return {
     stored: mm.measurements.map(m => m.type),
     visible: mm.visibleMeasurements().map(m => m.type),
     filter: mm.measureFilter || null,
+    options: Array.from(
+      document.querySelectorAll(
+        ".foliplus-filter-enum-option input[data-value]",
+      ),
+    ).map(box => box.dataset.value),
+    summary: summary ? summary.textContent : null,
+    detailsOpen: disclosure ? disclosure.open : null,
     count: count ? count.textContent.trim() : null,
     result: result ? result.textContent : null,
     paths: document.querySelectorAll(".foliplus-measure-path").length,
@@ -169,6 +188,12 @@ def _open_filter(page):
     page.wait_for_timeout(200)
 
 
+def _draw_all_options(page):
+    """Open the filter panel without drawing anything new and read its state."""
+    _open_filter(page)
+    return page.evaluate(READ_STATE)
+
+
 def _draw_all(page):
     # Draw first: LayerControl rebuilds its list from runtime content changes, so
     # the Measure row is there once the measurements exist.
@@ -179,6 +204,9 @@ def _draw_all(page):
 
 
 def _select(page, values):
+    # A filter write can rebuild the row and drop the panel; re-open it before
+    # touching the checkboxes.
+    _open_filter(page)
     result = page.evaluate(SET_VALUES, values)
     assert result["ok"], result
     page.wait_for_timeout(250)
@@ -367,3 +395,121 @@ class TestMeasureTypeFilterBrowser:
             assert len(rows) == 2
             assert "distance" in rows[1]
             assert not errors, f"JS errors: {errors}"
+
+    def test_options_follow_present_types(self, browser, tmp_path):
+        """The disclosure offers only the measurement types that exist.
+
+        A marker-only map offers one type; drawing a distance while the panel is
+        open adds its option through the item-count signal; clearing every
+        measurement empties the list without touching the committed filter.
+        """
+        with use_page(_make_page, browser, tmp_path) as (page, errors):
+            page.evaluate(DRAW_MARKER)
+            page.wait_for_timeout(600)
+            state = _draw_all_options(page)
+            assert state["options"] == ["marker"], state
+            assert state["stored"] == ["marker"], state
+
+            page.evaluate(DRAW_DISTANCE)
+            page.wait_for_timeout(700)
+            state = _draw_all_options(page)
+            assert sorted(state["options"]) == ["distance", "marker"], state
+
+            # Filter marker, then delete the last marker: the value stays
+            # committed, its option disappears and the readout reports 0 kept
+            # instead of silently clearing the filter.
+            state = _select(page, ["marker"])
+            assert state["filter"]["values"] == ["marker"], state
+            page.evaluate(DELETE_FIRST, "marker")
+            page.wait_for_timeout(700)
+            state = _draw_all_options(page)
+            assert state["stored"] == ["distance"], state
+            assert state["options"] == ["distance"], state
+            assert state["filter"] == {
+                "kind": "enum",
+                "field": "type",
+                "values": ["marker"],
+            }, state
+            assert state["visible"] == [], state
+            assert _count(state) == 0, state
+            assert "0%" in state["result"], state
+
+            # Drawing a marker again restores the option and the visible item.
+            page.evaluate(DRAW_MARKER)
+            page.wait_for_timeout(700)
+            state = _draw_all_options(page)
+            assert sorted(state["options"]) == ["distance", "marker"], state
+            assert state["visible"] == ["marker"], state
+            assert not errors, f"JS errors: {errors}"
+
+    def test_disclosure_closes_before_panel_and_map_press_closes_panel(
+        self, browser, tmp_path
+    ):
+        """Escape closes the disclosure first; a press on the map closes the panel."""
+        with use_page(_make_page, browser, tmp_path) as (page, errors):
+            baseline = _draw_all(page)
+            assert baseline["detailsOpen"] is False, baseline
+            page.click(".foliplus-filter-enum-trigger")
+            page.wait_for_timeout(120)
+            opened = page.evaluate(READ_STATE)
+            assert opened["detailsOpen"] is True, opened
+
+            page.keyboard.press("Escape")
+            page.wait_for_timeout(120)
+            closed = page.evaluate(READ_STATE)
+            assert closed["detailsOpen"] is False, closed
+            assert page.query_selector(".foliplus-layer-filter-panel") is not None, (
+                closed
+            )
+
+            page.mouse.click(640, 40)
+            page.wait_for_timeout(120)
+            assert page.query_selector(".foliplus-layer-filter-panel") is None
+            assert not errors, f"JS errors: {errors}"
+
+
+DRAW_MARKER = r"""
+() => {
+  const mm = window.__measureManager;
+  const map = window.__map;
+  const click = p => map.fire("click", { latlng: L.latLng(p[0], p[1]) });
+  mm.setMode("marker");
+  click([26.04, 119.30]);
+  mm.setMode(null);
+  return mm.measurements.map(m => m.type);
+}
+"""
+
+DRAW_DISTANCE = r"""
+() => {
+  const mm = window.__measureManager;
+  const map = window.__map;
+  const click = p => map.fire("click", { latlng: L.latLng(p[0], p[1]) });
+  mm.setMode("distance");
+  click([26.08, 119.30]); click([26.09, 119.31]);
+  map.fire("contextmenu", { latlng: L.latLng(26.09, 119.31) });
+  mm.setMode(null);
+  return mm.measurements.map(m => m.type);
+}
+"""
+
+CLEAR_MEASUREMENTS = r"""
+() => {
+  const mm = window.__measureManager;
+  mm.setMode("clear");
+  return mm.measurements.map(m => m.type);
+}
+"""
+
+DELETE_FIRST = r"""
+(type) => {
+  const mm = window.__measureManager;
+  const item = mm.measurements.find(m => m.type === type);
+  if (!item) return null;
+  if (!item.id) item.id = mm.nextMeasurementId(item.type);
+  mm.store.remove(item.id);
+  mm.applyFilterVisibility();
+  mm.store.emitCount();
+  return mm.measurements.map(m => m.type);
+}
+"""

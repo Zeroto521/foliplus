@@ -6,7 +6,6 @@
   "MeasureControl.tool_distance": "测距",
   "MeasureControl.tool_polygon": "面积",
   "MeasureControl.tool_circle": "画圆",
-  "MeasureControl.filter_field_type": "类型",
   "MeasureControl.tool_clear": "清空",
   "MeasureControl.tool_export": "导出",
   "MeasureControl.tool_edit": "编辑",
@@ -41,5 +40,6 @@
   "MeasureControl.blocked_export": "导出中，请完成导出后再测量",
   "MeasureControl.blocked_layer": "图层聚焦中，请取消聚焦后再测量",
   "MeasureControl.blocked_search": "搜索中，请关闭搜索后再测量",
-  "MeasureControl.blocked_locate": "定位中，请等待定位完成后再测量"
+  "MeasureControl.blocked_locate": "定位中，请等待定位完成后再测量",
+  "MeasureControl.filter_type": "类型"
 }

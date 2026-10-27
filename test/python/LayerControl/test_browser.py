@@ -7154,9 +7154,10 @@ class TestLayerControlBrowser:
     def test_enum_filter_body_filters_row_and_clears(self, browser, tmp_path):
         """The filter panel's enum body drives a generic owner end to end.
 
-        A synthetic enum owner opens the panel from the row menu; picking one
-        type writes an enum filter, which repaints the Result row and the row's
-        kept count; Clear returns both to the unfiltered state.
+        A synthetic enum owner opens the panel from the row menu; the row label
+        is the dimension's own name, a native checkbox writes an enum filter,
+        which repaints the Result row and the row's kept count; Clear returns
+        both to the unfiltered state.
         """
         layer = folium.FeatureGroup(name="Enum filter")
         with use_page(self._make_page, browser, tmp_path, layer) as (page, errors):
@@ -7174,41 +7175,34 @@ class TestLayerControlBrowser:
             # placeholder and the readout sentence are asserted structurally
             # (percent prefix plus the kept / total digits) rather than by
             # literal English text.
-            assert res["triggerBefore"] in ("All", "全部"), res
+            assert res["fieldLabel"] == "Type", res
+            assert res["summaryBefore"] in ("All", "全部"), res
+            assert res["detailsOpenBefore"] is False, res
             assert res["resultBefore"].startswith("100%"), res
             assert "8" in res["resultBefore"], res
-            assert res["expanded"] == "true", res
-            assert res["listMultiselectable"] == "true", res
-            assert res["optionCount"] == 4, res
-            assert res["triggerAfterPick"] == "Marker", res
+            assert res["optionCount"] == 5, res  # four options plus All
+            assert res["detailsOpenAfterClick"] is True, res
+            assert res["firstOptionHitTestable"] is True, res
+            assert res["checkedAfterPick"] == ["marker"], res
+            assert res["summaryAfterPick"] not in ("All", "全部"), res
             assert res["resultAfterPick"].startswith("25%"), res
             assert re.search(r"2\D+8", res["resultAfterPick"]), res
-            assert res["selectedAfterPick"] == [
-                "true",
-                "false",
-                "false",
-                "false",
-            ], res
+            assert res["detailsOpenAfterPick"] is True, res
             assert res["rowAfterPick"]["count"] == "2", res
             assert re.search(r"2\s*/\s*8", res["rowAfterPick"]["title"] or ""), res
-            assert res["triggerAfterClear"] in ("All", "全部"), res
+            assert res["summaryAfterClear"] in ("All", "全部"), res
             assert res["resultAfterClear"].startswith("100%"), res
-            assert res["selectedAfterClear"] == [
-                "false",
-                "false",
-                "false",
-                "false",
-            ], res
+            assert res["checkedAfterClear"] == ["all"], res
             assert res["rowAfterClear"]["count"] == "8", res
             assert res["clearDisabled"] is True, res
             assert not errors, f"JS errors: {errors}"
 
-    def test_enum_filter_keyboard_focus_and_popup_geometry(self, browser, tmp_path):
-        """The real keyboard path stays inside the enum popup, and it paints clear.
+    def test_enum_filter_keyboard_and_outside_close(self, browser, tmp_path):
+        """The native disclosure keeps real keyboard focus and closes in layers.
 
-        Focus must not be stolen back to the layer row (the panel is a floating
-        panel, not row chrome), the popup must close before the panel on Escape,
-        and the row panel's scroll box must not clip the options.
+        The summary opens with Enter, Tab reaches the checkboxes, Space toggles
+        without focus being stolen back to the layer row, Escape closes the
+        disclosure before the panel, and a press on the map closes the panel.
         """
         layer = folium.FeatureGroup(name="Enum keyboard")
         with use_page(self._make_page, browser, tmp_path, layer) as (page, errors):
@@ -7221,40 +7215,40 @@ class TestLayerControlBrowser:
             panel_ready(page)
             setup = page.evaluate(_js("LayerControl/filter_enum_keyboard_setup"))
             assert setup and setup.get("ok"), setup
-            assert setup.get("controls"), setup
+            assert setup["detailsOpen"] is False, setup
 
             def state():
                 return page.evaluate(_js("LayerControl/filter_enum_keyboard_state"))
 
             closed = state()
             assert closed["panelOpen"] is True, closed
-            assert closed["listOpen"] is False, closed
-            assert closed["activeIsTrigger"] is True, closed
+            assert closed["detailsOpen"] is False, closed
+            assert closed["activeIsSummary"] is True, closed
 
-            page.keyboard.press("ArrowDown")
-            page.wait_for_timeout(80)
+            page.keyboard.press("Enter")
+            page.wait_for_timeout(120)
             opened = state()
-            assert opened["listOpen"] is True, opened
-            assert opened["expanded"] == "true", opened
-            assert opened["activeValue"] == "marker", opened
-            # The popup is clamped to the layer list's visible bottom: the rows
-            # inside the clip are hit-testable, and the list itself does not
-            # cross the clip edge.
-            assert opened["clip"], opened
-            assert opened["optionRects"], opened
-            assert opened["listRect"]["bottom"] <= opened["clip"]["bottom"] + 1, opened
+            assert opened["detailsOpen"] is True, opened
+            assert opened["listPosition"] == "static", opened
             assert any(opened["optionHits"]), opened
-            if opened["listScrollable"]:
-                assert (
-                    opened["listScrollable"]["client"]
-                    <= opened["listScrollable"]["scroll"]
-                ), opened
+
+            # Tab walks out of the summary into the "All" checkbox, then into the
+            # first value checkbox.
+            page.keyboard.press("Tab")
+            page.wait_for_timeout(60)
+            first_tab = state()
+            assert first_tab["activeTag"] == "INPUT", first_tab
+            assert first_tab["activeValue"] is None, first_tab
+            page.keyboard.press("Tab")
+            page.wait_for_timeout(60)
+            marker = state()
+            assert marker["activeTag"] == "INPUT", marker
+            assert marker["activeValue"] == "marker", marker
 
             page.keyboard.press("Space")
             page.wait_for_timeout(120)
             checked = state()
-            assert checked["selected"][0] == "true", checked
-            assert checked["listOpen"] is True, checked
+            assert checked["checked"] == ["marker"], checked
             # Focus retention is the regression this test exists for: a click
             # delegation that treats the panel as row chrome would park focus on
             # the row and the next Space would toggle layer visibility instead.
@@ -7263,64 +7257,10 @@ class TestLayerControlBrowser:
 
             page.keyboard.press("Escape")
             page.wait_for_timeout(120)
-            popup_closed = state()
-            assert popup_closed["panelOpen"] is True, popup_closed
-            assert popup_closed["listOpen"] is False, popup_closed
-            assert popup_closed["activeIsTrigger"] is True, popup_closed
-
-            # Clamped rows below the fold are reachable through the list's own
-            # scroll, then submit.
-            page.keyboard.press("ArrowDown")
-            page.wait_for_timeout(80)
-            page.evaluate(
-                """() => {
-                  const list = document.querySelector(".foliplus-filter-enum-list");
-                  list.scrollTop = list.scrollHeight;
-                }"""
-            )
-            page.wait_for_timeout(80)
-            scrolled = state()
-            assert scrolled["lastOptionHitTestable"] is True, scrolled
-            page.evaluate(
-                """() => {
-                  const options = document.querySelectorAll(
-                    ".foliplus-filter-enum-option",
-                  );
-                  options[options.length - 1].click();
-                }"""
-            )
-            page.wait_for_timeout(120)
-            submitted = state()
-            assert submitted["selected"][0] == "true", submitted
-            assert submitted["selected"][3] == "true", submitted
-
-            # Scrolling the layer list closes the popup instead of leaving it
-            # floating on a stale geometry.
-            page.keyboard.press("Escape")
-            page.wait_for_timeout(120)
-            page.keyboard.press("ArrowDown")
-            page.wait_for_timeout(80)
-            assert state()["listOpen"] is True
-            page.evaluate(
-                """() => {
-                  const list = document.querySelector(".foliplus-filter-enum-list");
-                  let node = list.parentElement;
-                  while (node) {
-                    if (getComputedStyle(node).overflowY !== "visible") {
-                      node.scrollTop = node.scrollTop + 1;
-                      node.dispatchEvent(new Event("scroll"));
-                      return;
-                    }
-                    node = node.parentElement;
-                  }
-                  window.dispatchEvent(new Event("resize"));
-                }"""
-            )
-            page.wait_for_timeout(120)
-            scrolled_away = state()
-            assert scrolled_away["listOpen"] is False, scrolled_away
-            assert scrolled_away["panelOpen"] is True, scrolled_away
-            assert scrolled_away["activeIsTrigger"] is True, scrolled_away
+            disclosure_closed = state()
+            assert disclosure_closed["panelOpen"] is True, disclosure_closed
+            assert disclosure_closed["detailsOpen"] is False, disclosure_closed
+            assert disclosure_closed["activeIsSummary"] is True, disclosure_closed
 
             page.keyboard.press("Escape")
             page.wait_for_timeout(120)
@@ -7328,15 +7268,33 @@ class TestLayerControlBrowser:
             assert panel_closed["panelOpen"] is False, panel_closed
             assert panel_closed["panelInDocument"] is False, panel_closed
             assert panel_closed["activeRowId"] == setup["id"], panel_closed
+
+            # Reopen from the row menu and dismiss by pressing the map: the
+            # first outside press closes the disclosure, the second the panel.
+            page.evaluate(_js("LayerControl/filter_enum_keyboard_setup"))
+            page.wait_for_timeout(60)
+            page.keyboard.press("Enter")
+            page.wait_for_timeout(120)
+            assert state()["detailsOpen"] is True
+            # The first map press dismisses the disclosure, the second the
+            # panel (the popup layer is consumed before the surface).
+            page.mouse.click(640, 40)
+            page.wait_for_timeout(120)
+            after_first_map_press = state()
+            assert after_first_map_press["panelOpen"] is True, after_first_map_press
+            assert after_first_map_press["detailsOpen"] is False, after_first_map_press
+            page.mouse.click(640, 40)
+            page.wait_for_timeout(120)
+            after_map = state()
+            assert after_map["panelOpen"] is False, after_map
             assert not errors, f"JS errors: {errors}"
 
-    def test_enum_filter_geometry_and_scroll_scope(self, browser, tmp_path):
-        """The enum popup is not clipped, and the sibling panels keep scrolling.
+    def test_enum_filter_disclosure_flows_inside_panel(self, browser, tmp_path):
+        """The disclosure flows inside the panel and leaves sibling panels alone.
 
-        The filter panel scopes `overflow: visible` to itself so its absolutely
-        positioned listbox can paint outside the card. The attributes and style
-        panels keep their shared scroll boxes; this asserts the scoped rule did
-        not leak into them.
+        The option list is in-flow (no fixed/absolute layer), the filter panel
+        keeps the shared row-panel scroll box, and the attributes and style
+        panels still scroll normally.
         """
         layer = folium.FeatureGroup(name="Scroll scope")
         with use_page(self._make_page, browser, tmp_path, layer) as (page, errors):
@@ -7348,24 +7306,27 @@ class TestLayerControlBrowser:
             )
             panel_ready(page)
 
-            # Filter panel (opened through its synthetic owner): content and
-            # card paint overflow so the listbox can extend below the card.
             page.evaluate(_js("LayerControl/filter_enum_keyboard_setup"))
-            filter_style = page.evaluate(
+            page.keyboard.press("Enter")
+            page.wait_for_timeout(120)
+            flow = page.evaluate(
                 """() => {
                   const panel = document.querySelector(".foliplus-layer-filter-panel");
                   const content = panel && panel.querySelector(".foliplus-panel-content");
-                  return content
-                    ? {
-                        overflowY: getComputedStyle(content).overflowY,
-                        cardOverflowY: getComputedStyle(panel).overflowY,
-                      }
-                    : null;
+                  const list = panel && panel.querySelector(".foliplus-filter-enum-list");
+                  return {
+                    contentOverflowY: content ? getComputedStyle(content).overflowY : null,
+                    listPosition: list ? getComputedStyle(list).position : null,
+                    listBottom: list ? Math.round(list.getBoundingClientRect().bottom) : null,
+                    panelBottom: panel
+                      ? Math.round(panel.getBoundingClientRect().bottom)
+                      : null,
+                  };
                 }"""
             )
-            assert filter_style, "filter panel did not open"
-            assert filter_style["overflowY"] == "visible", filter_style
-            assert filter_style["cardOverflowY"] == "visible", filter_style
+            assert flow["contentOverflowY"] == "auto", flow
+            assert flow["listPosition"] == "static", flow
+            assert flow["listBottom"] is not None, flow
 
             # Attributes panel: the shared scroll box stays in place. The menu
             # must be open before the probe can click its attributes item.

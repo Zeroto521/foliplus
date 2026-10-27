@@ -334,6 +334,13 @@ const subscribeFilterSignals = (
     ui.events.on(EVENTS.LAYER_FILTER_CHANGE, ({ id }) => {
       if (id === state.layerId) refresh();
     }),
+    // The option set of an enum dimension can follow the row's item count
+    // (only the measurement types that exist are offered), so an item count
+    // change re-reads the owner model and rebuilds the body when the options
+    // changed.
+    ui.events.on(EVENTS.LAYER_ITEM_COUNT_CHANGE, ({ id }) => {
+      if (id === state.layerId) refresh();
+    }),
     ui.events.on(EVENTS.LAYER_ITEM_UPDATED, onEntrySignal),
     ui.events.on(EVENTS.LAYER_ITEM_REFRESHED, onEntrySignal),
     ui.events.on(EVENTS.LAYER_ITEM_REMOVED, onEntrySignal),

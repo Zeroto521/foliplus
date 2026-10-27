@@ -6,7 +6,6 @@
   "MeasureControl.tool_distance": "Measure Distance",
   "MeasureControl.tool_polygon": "Measure Area",
   "MeasureControl.tool_circle": "Draw Circle",
-  "MeasureControl.filter_field_type": "Type",
   "MeasureControl.tool_clear": "Clear Data",
   "MeasureControl.tool_export": "Export Data",
   "MeasureControl.tool_edit": "Edit",
@@ -41,5 +40,6 @@
   "MeasureControl.blocked_export": "Export in progress — finish exporting before measuring",
   "MeasureControl.blocked_layer": "Layer focus active — cancel focus before measuring",
   "MeasureControl.blocked_search": "Search in progress — close the search before measuring",
-  "MeasureControl.blocked_locate": "Locating — wait for the location to resolve before measuring"
+  "MeasureControl.blocked_locate": "Locating — wait for the location to resolve before measuring",
+  "MeasureControl.filter_type": "Type"
 }

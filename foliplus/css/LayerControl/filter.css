@@ -20,17 +20,6 @@
     padding-right: 0;
     gap: var(--foliplus-space-md);
   }
-  /* The enum listbox paints outside the card: it is an absolutely positioned
-     child of its dimension row, so the shared row-panel scroll box would clip
-     the options that fall below the card's bottom edge. This panel's content
-     is a fixed handful of rows (condition, Result, Clear) and never scrolls,
-     so the card and its content can both paint overflow; the style and
-     attributes panels keep their scroll boxes. */
-  .foliplus-panel.foliplus-row-panel.foliplus-layer-filter-panel,
-  .foliplus-panel.foliplus-row-panel.foliplus-layer-filter-panel
-    .foliplus-panel-content {
-    overflow: visible;
-  }
   /* The slider cell takes the row's remaining width — the rail needs a
      measurable box, and it starts at the same x as every other panel's
      control column because the label cell is the shared 88px one. */
@@ -65,81 +54,64 @@
     height: 100%;
   }
   /* ── Enum body ──
-     The dimension cell stacks its read-only name above the trigger. The
-     listbox is an absolutely positioned child of that cell, so it overlays
-     the rows below instead of reflowing the panel; its border, background,
-     shadow and entrance come from the shared dropdown recipe (common/menu.css)
-     and are not redeclared here. */
-  .foliplus-filter-enum {
+     A native <details> disclosure: the summary keeps the form-select chrome
+     and the option list flows inside the card, so it scrolls with the panel
+     instead of floating over the rows below (no absolute layer, no popup
+     geometry to measure). */
+  .foliplus-layer-filter-panel .foliplus-filter-enum {
+    width: 100%;
+  }
+  .foliplus-layer-filter-panel .foliplus-filter-enum-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--foliplus-space-sm);
+    font: inherit;
+    color: var(--foliplus-text-primary);
+    cursor: pointer;
+    list-style: none;
+  }
+  .foliplus-layer-filter-panel .foliplus-filter-enum-trigger::-webkit-details-marker {
+    display: none;
+  }
+  /* Disclosure chevron, drawn from borders so it inherits the text color. */
+  .foliplus-layer-filter-panel .foliplus-filter-enum-trigger::after {
+    content: "";
+    flex-shrink: 0;
+    width: 0;
+    height: 0;
+    border-right: 4px solid transparent;
+    border-left: 4px solid transparent;
+    border-top: 5px solid currentColor;
+    transition: transform var(--foliplus-transition-fast);
+  }
+  .foliplus-layer-filter-panel
+    .foliplus-filter-enum[open]
+    > .foliplus-filter-enum-trigger::after {
+    transform: rotate(180deg);
+  }
+  .foliplus-layer-filter-panel .foliplus-filter-enum-list {
     display: flex;
     flex-direction: column;
     gap: var(--foliplus-space-xs);
-    position: relative;
-  }
-  .foliplus-filter-enum-trigger {
-    font: inherit;
-    text-align: left;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    color: var(--foliplus-text-primary);
-  }
-  .foliplus-filter-enum-trigger:disabled {
-    color: var(--foliplus-text-muted);
-    cursor: default;
-  }
-  .foliplus-filter-enum-list {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    /* Four control heights of options before the list scrolls: the popup
+    padding-top: var(--foliplus-space-sm);
+    /* Four control heights of options before the list scrolls: the disclosure
        never grows past a short menu even when the owner declares many
        enum values. */
     max-height: calc(var(--foliplus-ctrl-size) * 4);
-    padding: var(--foliplus-space-xs) 0;
+    overflow-y: auto;
   }
-  /* Offsets the shell's own top margin: the list starts at the trigger's
-     bottom edge, separated by one shared gap. */
-  .foliplus-filter-enum-list {
-    margin-top: var(--foliplus-space-xs);
-  }
-  .foliplus-filter-enum-option {
+  .foliplus-layer-filter-panel .foliplus-filter-enum-option {
     display: flex;
     align-items: center;
     gap: var(--foliplus-space-sm);
-    width: 100%;
-    padding: var(--foliplus-space-xs) var(--foliplus-space-md);
-    border: none;
-    background: transparent;
-    font: inherit;
     font-size: var(--foliplus-font-size-sm);
     color: var(--foliplus-text-primary);
-    text-align: left;
+    cursor: pointer;
   }
-  .foliplus-filter-enum-option:focus-visible {
-    outline: none;
-    box-shadow: var(--foliplus-focus-ring);
-    color: var(--foliplus-accent-primary);
-  }
-  .foliplus-filter-enum-check {
+  .foliplus-layer-filter-panel .foliplus-filter-enum-option input {
+    margin: 0;
     flex-shrink: 0;
-    width: var(--foliplus-icon-size-sm);
-    height: var(--foliplus-icon-size-sm);
-    color: var(--foliplus-accent-primary);
-    opacity: 0;
-    transition: opacity var(--foliplus-transition-fast);
-  }
-  .foliplus-filter-enum-option[aria-selected="true"] .foliplus-filter-enum-check {
-    opacity: 1;
-  }
-  .foliplus-filter-enum-check svg {
-    width: 100%;
-    height: 100%;
-    fill: none;
-    stroke: currentColor;
-    stroke-width: var(--foliplus-stroke-icon);
-    stroke-linecap: round;
-    stroke-linejoin: round;
+    accent-color: var(--foliplus-accent-primary);
   }
 }
