@@ -56,6 +56,19 @@ interface SchemePickerOptions {
   onChange: (name: string) => void;
   classes?: Partial<SchemePickerClasses>;
   portal: boolean;
+  /** Resolve the host the portalled dropdown mounts into. Consumers inject
+   *  this so the list follows the surface that actually covers the trigger —
+   *  native fullscreen, or a control's pseudo-fullscreen fallback that the
+   *  native API never reports. Absent, the picker falls back to
+   *  document.fullscreenElement ?? <body>. */
+  resolveHost?: () => HTMLElement;
+  /** Subscribe to host-surface changes (native fullscreen enter/exit and the
+   *  pseudo-fullscreen fallback's own transitions, which emit no
+   *  fullscreenchange). The picker re-seats its dropdown into the new host
+   *  whenever the callback fires; the returned function unsubscribes on
+   *  close/destroy. Consumers wire this to the shared core/fullscreen
+   *  contract — common/** must not import core/**. */
+  onSurfaceChange?: (cb: () => void) => () => void;
   /** Called when the dropdown opens or closes, with the dropdown element
    *  (or null when closed). Useful for consumers that need to track the
    *  dropdown reference (e.g. for test assertions). */
@@ -112,6 +125,10 @@ interface InternalState {
   onChange: (name: string) => void;
   onToggle: ((open: boolean, dropdown: HTMLElement | null) => void) | null;
   portal: boolean;
+  /** Injected host resolver; null keeps the native-fullscreen fallback. */
+  resolveHost: (() => HTMLElement) | null;
+  /** Injected surface subscription; null falls back to fullscreenchange. */
+  onSurfaceChange: ((cb: () => void) => () => void) | null;
   value: string;
   dropdown: HTMLElement | null;
   items: HTMLElement[];
@@ -255,8 +272,16 @@ const buildDropdown = (state: InternalState): HTMLElement => {
 
 // ── Mount / unmount dropdown ───────────────────────────────────────────
 
-const getPortalHost = (): HTMLElement =>
-  (document.fullscreenElement as HTMLElement) ?? document.body;
+/** The host the portalled dropdown mounts into.
+ *
+ *  An injected resolver is the only source that knows about a surface the
+ *  native API does not report (a control's pseudo-fullscreen fallback); the
+ *  native element stays the fallback for consumers that wire none. */
+const getPortalHost = (state: InternalState): HTMLElement => {
+  const injected = state.resolveHost?.();
+  if (injected) return injected;
+  return (document.fullscreenElement as HTMLElement) ?? document.body;
+};
 
 const mountDropdown = (state: InternalState) => {
   const dropdown = buildDropdown(state);
@@ -266,25 +291,31 @@ const mountDropdown = (state: InternalState) => {
     dropdown.style.position = "fixed";
     dropdown.style.visibility = "hidden";
     dropdown.classList.add(PORTAL_CLASS);
-    const host = getPortalHost();
+    const host = getPortalHost(state);
     host.appendChild(dropdown);
     // Measure after append — detached elements report 0×0.
     positionDropdown(state, dropdown);
     dropdown.style.visibility = "";
-    // Keep the dropdown pinned when the host element changes (fullscreen
-    // enter/exit). Every listener below is mount-scoped (drained on close), so
-    // the dropdown is open whenever it runs — no "still open" guard needed.
-    const onFullscreen = () => {
-      const target = getPortalHost();
+    // Keep the dropdown pinned when the host element changes. Every listener
+    // below is mount-scoped (drained on close), so the dropdown is open
+    // whenever it runs — no "still open" guard needed.
+    const reseat = () => {
+      const target = getPortalHost(state);
       if (dropdown.parentElement !== target) {
         target.appendChild(dropdown);
       }
       positionDropdown(state, dropdown);
     };
-    document.addEventListener("fullscreenchange", onFullscreen);
-    state.mountCleanupFns.push(() =>
-      document.removeEventListener("fullscreenchange", onFullscreen),
-    );
+    if (state.onSurfaceChange) {
+      // The injected subscription covers native fullscreen and the pseudo
+      // fallback, whose transitions emit no fullscreenchange.
+      state.mountCleanupFns.push(state.onSurfaceChange(reseat));
+    } else {
+      document.addEventListener("fullscreenchange", reseat);
+      state.mountCleanupFns.push(() =>
+        document.removeEventListener("fullscreenchange", reseat),
+      );
+    }
     // Re-pin on a trigger scroll or a window resize. Portal-only: inline mode
     // is anchored by CSS, so it needs neither listener.
     const reposition = () => positionDropdown(state, dropdown);
@@ -559,6 +590,8 @@ const createSchemePicker = (options: SchemePickerOptions): SchemePicker => {
     onChange: options.onChange,
     onToggle: options.onToggle ?? null,
     portal: options.portal,
+    resolveHost: options.resolveHost ?? null,
+    onSurfaceChange: options.onSurfaceChange ?? null,
     colorScale: options.colorScale,
     value: options.value,
     dropdown: null,
@@ -704,6 +737,9 @@ const createSchemePicker = (options: SchemePickerOptions): SchemePicker => {
       state.cleanupFns = [];
       state.items = [];
       state.dropdown = null;
+      // A destroyed picker holds no consumer callbacks.
+      state.resolveHost = null;
+      state.onSurfaceChange = null;
       // Remove from owner map so a new picker can be created on this trigger.
       // This picker is the registered owner by construction (the factory
       // refuses a second one), so the delete needs no identity re-check.

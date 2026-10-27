@@ -21,6 +21,7 @@
 // (the panel-wide Reset handles it, the way label color has it).
 import { CLASS_COUNT, METHOD } from "#core/classify.js";
 import { numericPropertiesKeys } from "#core/field.js";
+import { fullscreenSurface, onFullscreenSurfaceChange } from "#core/fullscreen.js";
 import { CAP_TIER, DIM, type LayerInfo, ROLE } from "#core/layer/index.js";
 import type { FillRampConfig, LayerOverride } from "#core/layer/intent.js";
 import { DEFAULT_SCHEMES, getColorScale } from "#core/palette.js";
@@ -641,6 +642,11 @@ const bindRampDetail = (ui: LayerUI, layerId: string, detail: HTMLElement): void
     value: ramp.scheme,
     numClasses: ramp.classes,
     portal: true,
+    // The list mounts into the surface that actually covers the trigger:
+    // native fullscreen, or this control's pseudo-fullscreen fallback (which
+    // the native API never reports and which emits no fullscreenchange).
+    resolveHost: () => fullscreenSurface(ui.c.map.getContainer()),
+    onSurfaceChange: onFullscreenSurfaceChange,
     label: ui.T("style_fill_scheme"),
     colorScale: getColorScale,
     onChange: name => {
