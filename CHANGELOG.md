@@ -29,6 +29,7 @@
 - Teardown: a failing cleanup step no longer skips the rest — a removed control and a dismissed focus both finish their releases ([#733](https://github.com/Zeroto521/foliplus/pull/733), [#736](https://github.com/Zeroto521/foliplus/pull/736))
 - `ExportControl`: marker shadows are exported with their icons, measured after layout so they sit under the marker ([#740](https://github.com/Zeroto521/foliplus/pull/740))
 - Interaction: Space/Enter keep their native meaning on buttons and links, so a panel's close button no longer toggles the layer checkbox ([#755](https://github.com/Zeroto521/foliplus/pull/755))
+- `HeatmapControl` / `LayerControl`: the scheme list flips above a trigger near the viewport bottom in both panels — the heatmap mounts its picker the same portalled way as the style drawer ([#777](https://github.com/Zeroto521/foliplus/pull/777))
 - `LayerControl`: the overflow menu runs the focused entry's own action on Enter/Space instead of falling back to focus-layer ([#778](https://github.com/Zeroto521/foliplus/pull/778))
 
 ## [v0.4.1] (2026-10-18)
