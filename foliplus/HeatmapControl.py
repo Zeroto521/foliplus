@@ -66,6 +66,23 @@ class HeatmapControl(BaseControl):
     agg : Literal["count", "sum", "avg", "min", "max"], default "count"
         Default aggregation method.
 
+    layer : str, optional
+        Name of the point layer to select when the map first loads. Matching is
+        by the layer's folium ``name`` (the same text the panel's Layer row
+        lists); the first match wins. This is a starting selection only: a
+        layer the user picked earlier (persisted in the browser) wins, and the
+        panel still lets the user switch. A name that matches no point layer is
+        ignored with a console warning and the panel falls back to its normal
+        auto-selection (the only point layer is selected automatically).
+
+    field : str, optional
+        Aggregation field to select when the map first loads. Only a numeric
+        field the layer actually carries is accepted; anything else is ignored
+        with a console warning and the panel falls back to its normal
+        auto-field rule. Like ``layer``, a persisted user choice wins, and a
+        ``count`` aggregation does not use the field until the user switches
+        to a value aggregation.
+
     schemes : list[str], default ["Blues", "Greens", "Reds", "Oranges", "Purples", "YlOrRd", "Viridis"]
         List of available color scheme names. Can include custom hex values like
         ``["#f00", "#0f0", "#00f"]``.
@@ -127,6 +144,20 @@ class HeatmapControl(BaseControl):
         method: METHOD = "jenks",
         num_classes: Annotated[int, Bound(2, 9)] = 6,
         agg: AGG = "count",
+        layer: Annotated[
+            str | None,
+            FieldSpec(
+                ts="",
+                note="Point layer name selected on first load; a persisted user selection wins.",
+            ),
+        ] = None,
+        field: Annotated[
+            str | None,
+            FieldSpec(
+                ts="",
+                note="Aggregation field selected on first load; a persisted user selection wins.",
+            ),
+        ] = None,
         schemes: Annotated[
             list[str], FieldSpec(ts="", note="Available color scheme names.")
         ] = [
@@ -154,6 +185,8 @@ class HeatmapControl(BaseControl):
         self.method = method
         self.num_classes = num_classes
         self.agg = agg
+        self.layer = layer
+        self.field = field
         self.schemes = schemes
         self.border_weight = border_weight
         self.border_color = border_color

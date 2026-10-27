@@ -136,3 +136,82 @@ class TestHeatmapControlSelectionBrowser:
                 )
 
             assert not errors, f"JS errors: {errors}"
+
+    def test_declared_layer_and_field_select_on_load(self, browser, tmp_path):
+        """Python `layer=`/`field=` pick the starting source without a click."""
+        with use_page(
+            _make_page,
+            browser,
+            tmp_path,
+            expose_ctrl=True,
+            num_layers=3,
+            layer="Points 1",
+            field="val",
+            agg="sum",
+        ) as (page, errors):
+            page.evaluate(_js("HeatmapControl/click_toggle_button"))
+            page.wait_for_selector(
+                ".foliplus-heatmap-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            heatmap_ready(page)
+
+            state = page.evaluate(_js("HeatmapControl/read_auto_select_state"))
+            assert state["selectedLayerId"] is not None, (
+                "the declared layer should be selected on load"
+            )
+            assert state["hasCachedFeatures"] is True, (
+                "the declared layer should render without user input"
+            )
+            assert state["extraBodyHidden"] is False
+
+            layer_value = page.evaluate(
+                _js("HeatmapControl/read_select_value"),
+                "select[data-heatmap-layer]",
+            )
+            field_value = page.evaluate(
+                _js("HeatmapControl/read_select_value"),
+                "select[data-heatmap-field-select]",
+            )
+            assert layer_value == state["selectedLayerId"]
+            assert field_value == "val", "the declared field should be selected"
+            assert not errors, f"JS errors: {errors}"
+
+    def test_persisted_selection_beats_the_declaration(self, browser, tmp_path):
+        """A user choice stored in a previous session wins over `layer=`."""
+        with use_page(
+            _make_page,
+            browser,
+            tmp_path,
+            expose_ctrl=True,
+            num_layers=3,
+            layer="Points 1",
+            field="val",
+            agg="sum",
+        ) as (page, errors):
+            page.evaluate(_js("HeatmapControl/click_toggle_button"))
+            page.wait_for_selector(
+                ".foliplus-heatmap-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            heatmap_ready(page)
+
+            other = page.evaluate(
+                """() => {
+                  const m = window.__heatmapCtrl.mgr;
+                  const other = m.pointLayers.find(p => p.name === 'Points 2');
+                  const key = "foliplus_heatmap_" + m.map.getContainer().id;
+                  localStorage.setItem(key, JSON.stringify({ layerId: other.id, field: "val" }));
+                  return { id: other.id, key };
+                }"""
+            )
+            page.reload()
+            heatmap_ready(page)
+
+            state = page.evaluate(_js("HeatmapControl/read_auto_select_state"))
+            assert state["selectedLayerId"] == other["id"], (
+                "the persisted layer must beat the Python declaration"
+            )
+            assert not errors, f"JS errors: {errors}"

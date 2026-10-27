@@ -1094,3 +1094,50 @@ describe("updateFieldSelector — null field controls", () => {
 });
 
 // refreshSchemeDropdownItems — covered by schemePicker.test.ts (setNumClasses tests)
+
+describe("declared starting layer/field (Python layer=/field=)", () => {
+  beforeEach(() => {
+    vi.spyOn(HeatmapManager.prototype, "scanMapLayers").mockImplementation(function () {
+      // no-op: keep the seeded pointLayers stable across rebuilds
+    });
+  });
+
+  it("selects the Python-declared point layer on the first rebuild", () => {
+    const m = makeManager({ layer: "Points 2" });
+    m.pointLayers = [
+      { id: "p1", name: "Points 1", layer: null, count: 1 },
+      { id: "p2", name: "Points 2", layer: null, count: 1 },
+    ];
+    const ctrl = makeCtrl(m, makeConfig({ layer: "Points 2" }));
+    rebuildLayerDropdown(ctrl);
+
+    expect(m.selectedLayerId).toBe("p2");
+    expect(ctrl.layerSelect.value).toBe("p2");
+    expect(ctrl.extraBody.classList.contains(CONST.CLASSES.HIDDEN)).toBe(false);
+  });
+
+  it("keeps the single-layer auto-select when the declared name misses", () => {
+    const m = makeManager({ layer: "Nope" });
+    m.pointLayers = [{ id: "p1", name: "Only", layer: null, count: 1 }];
+    const ctrl = makeCtrl(m, makeConfig({ layer: "Nope" }));
+    rebuildLayerDropdown(ctrl);
+
+    expect(m.selectedLayerId).toBe("p1");
+  });
+
+  it("seeds the declared aggregation field on the first rebuild", () => {
+    const m = makeManager({ layer: "Points 1", field: "score", agg: "sum" });
+    m.pointLayers = [{ id: "p1", name: "Points 1", layer: null, count: 1 }];
+    const ctrl = makeCtrl(
+      m,
+      makeConfig({ layer: "Points 1", field: "score", agg: "sum" }),
+    );
+    window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
+      { lat: 1, lng: 2, marker: { feature: { properties: { score: 5 } } } },
+    ]);
+    rebuildLayerDropdown(ctrl);
+
+    expect(m.field).toBe("score");
+    expect(ctrl.fieldSelect.value).toBe("score");
+  });
+});

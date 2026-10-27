@@ -52,6 +52,10 @@ interface ConfigHeatmap extends ConfigCommon {
   method: "jenks" | "quantile" | "equal" | "heads";
   num_classes: number;
   agg: "count" | "sum" | "avg" | "min" | "max";
+  /** Point layer name selected on first load; a persisted user selection wins. */
+  layer: string | null;
+  /** Aggregation field selected on first load; a persisted user selection wins. */
+  field: string | null;
   schemes: string[]; // Available color scheme names.
   border_weight: number;
   border_color: string;
@@ -99,8 +103,6 @@ interface ConfigSearch extends ConfigCommon {
 }
 
 interface ConfigRuntimeOnly {
-  /** Annotation field name (JS reads per-layer config, not CONFIG). */
-  field?: string;
   background?: string; // Export background color (currently declared but unread).
 }
 
@@ -122,6 +124,10 @@ interface ComponentConfig {
   method?: "jenks" | "quantile" | "equal" | "heads";
   num_classes?: number;
   agg?: "count" | "sum" | "avg" | "min" | "max";
+  /** Point layer name selected on first load; a persisted user selection wins. */
+  layer?: string | null;
+  /** Aggregation field selected on first load; a persisted user selection wins. */
+  field?: string | null;
   schemes?: string[]; // Available color scheme names.
   border_weight?: number;
   border_color?: string;
@@ -144,8 +150,6 @@ interface ComponentConfig {
   provider?: string | ProviderConfig; // Built-in provider id or a custom ProviderConfig dict.
   /** Overrides for a built-in provider; only valid with a string provider. */
   provider_config?: ProviderConfig | null;
-  /** Annotation field name (JS reads per-layer config, not CONFIG). */
-  field?: string;
   background?: string; // Export background color (currently declared but unread).
   /** Escape hatch for truly dynamic keys not in the schema. */
   [key: string]: unknown;

@@ -321,6 +321,15 @@ const buildLayerListItems = (ctrl: HeatmapControlUI, sel: HTMLSelectElement) => 
     dom.el("option", { value: info.id, parent: sel }, info.name);
   });
 
+  // Python declaration: `HeatmapControl(layer=...)` names the point layer to
+  // start on. resolveDeclaredLayer answers null once a persisted record has
+  // consumed the hasScanned guard, so the user's earlier choice (or explicit
+  // clear) wins over the declaration.
+  if (!ctrl.mgr.selectedLayerId) {
+    const declaredId = ctrl.mgr.resolveDeclaredLayer();
+    if (declaredId) ctrl.mgr.selectedLayerId = declaredId;
+  }
+
   // Auto-select a single point layer only on the very first scan, so the
   // initial map load shows its heatmap without user input.  Rebuilds
   // triggered later (zoomend, layeradd/layerremove, map reload) must not
@@ -415,10 +424,21 @@ const updateFieldSelector = (ctrl: HeatmapControlUI) => {
 
   setValueAggregationsEnabled(ctrl, true);
 
+  // Python declaration: `HeatmapControl(field=...)` names the aggregation
+  // field to start on. Seed it before the COUNT branch so the hidden select
+  // already points at it, and before resolveField so a value aggregation
+  // keeps it. resolveDeclaredField answers null once a persisted record has
+  // consumed the hasScanned guard, so the user's own choice wins.
+  if (!ctrl.mgr.field) {
+    const declaredField = ctrl.mgr.resolveDeclaredField(fields);
+    if (declaredField) ctrl.mgr.field = declaredField;
+  }
+
   if (ctrl.mgr.agg === CONST.AGG.COUNT) {
     // COUNT needs no field; the row appears once a value aggregation is picked.
-    // Keep the hidden select on a valid option rather than the empty string.
-    rebuildFieldOptions(ctrl, fields, fields[0]);
+    // Keep the hidden select on a valid option rather than the empty string —
+    // a declared field stays selected so switching aggregation keeps it.
+    rebuildFieldOptions(ctrl, fields, ctrl.mgr.field || fields[0]);
     ctrl.fieldWrap.classList.add(CONST.CLASSES.HIDDEN);
     return;
   }
