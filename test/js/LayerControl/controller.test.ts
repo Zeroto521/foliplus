@@ -3398,6 +3398,47 @@ describe("LayerController", () => {
     expect(pts).toEqual([{ lat: 1, lng: 2, marker }]);
   });
 
+  it("forEachPoint walks markers without extracting coordinates", () => {
+    // The lazy twin of extractPoints: field scans only read the marker, so
+    // the traversal must not allocate {lat, lng, marker} or call getLatLng.
+    class Marker {
+      getElement() {
+        return null;
+      }
+    }
+    window.L.Marker = Marker;
+    const first = new Marker() as any;
+    first.feature = { type: "Feature" };
+    first.getLatLng = vi.fn(() => ({ lat: 1, lng: 2 }));
+    first.options = {};
+    const second = new Marker() as any;
+    second.feature = { type: "Feature" };
+    second.getLatLng = vi.fn(() => ({ lat: 3, lng: 4 }));
+    second.options = {};
+    manager.map.hasLayer.mockReturnValue(false);
+    manager.registerLayer({
+      id: "lazy",
+      name: "Lazy",
+      layer: {
+        eachLayer: (cb: (l: unknown) => void) => {
+          cb(first);
+          cb(second);
+          cb(first);
+        },
+        options: {},
+      } as any,
+    });
+
+    const seen: unknown[] = [];
+    manager.forEachPoint("lazy", marker => seen.push(marker));
+
+    // Both markers reached the callback, and no coordinate extraction paid.
+    expect(seen).toContain(first);
+    expect(seen).toContain(second);
+    expect(first.getLatLng).not.toHaveBeenCalled();
+    expect(second.getLatLng).not.toHaveBeenCalled();
+  });
+
   it("extractPoints excludes label markers (no double-counting)", () => {
     class Marker {
       getElement() {

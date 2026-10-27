@@ -1,7 +1,7 @@
 // Unit tests for core/field — the numeric field enumeration used by the
 // value-based fill dimension.
 import { describe, expect, it } from "vitest";
-import { isNumericValue, numericPropertiesKeys } from "#core/field.js";
+import { isNumericValue, numericPropertiesKeys, resolveField } from "#core/field.js";
 
 /** Build a fake Leaflet layer tree for the walker. */
 const makeLeaf = (props: Record<string, unknown> | undefined) =>
@@ -78,5 +78,24 @@ describe("numericPropertiesKeys", () => {
   it("skips leaves without a feature envelope", () => {
     const layer = makeGroup([makeLeaf(undefined), makeLeaf({ price: 1 })]);
     expect(numericPropertiesKeys(layer)).toEqual(["price"]);
+  });
+});
+describe("resolveField", () => {
+  const fields = ["count", "price"];
+
+  it("keeps a stored field that the layer still offers", () => {
+    expect(resolveField("price", fields)).toBe("price");
+  });
+
+  it("falls back to the first offered field when the stored one is gone", () => {
+    expect(resolveField("gone", fields)).toBe("count");
+  });
+
+  it("treats the empty sentinel as unpicked", () => {
+    expect(resolveField("", fields)).toBe("count");
+  });
+
+  it("resolves to an empty name when the layer offers nothing", () => {
+    expect(resolveField("price", [])).toBe("");
   });
 });
