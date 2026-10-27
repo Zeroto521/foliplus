@@ -291,11 +291,12 @@ const getPortalHost = (state: InternalState): HTMLElement => {
  *  inset (scheme-picker.css), so it lands on the trigger strip's right edge in
  *  every combination. Re-measured when the dropdown is re-seated (fullscreen,
  *  resize), where the lane can change with the zoom level. */
+/** A computed width as a plain number of CSS px; "" and "0px" both read as 0. */
+const borderPx = (value: string) => Number(value.replace(/[^0-9.]/g, ""));
+
 const syncScrollbarWidth = (dropdown: HTMLElement) => {
   const style = window.getComputedStyle(dropdown);
-  const borders =
-    (parseFloat(style.borderLeftWidth) || 0) +
-    (parseFloat(style.borderRightWidth) || 0);
+  const borders = borderPx(style.borderLeftWidth) + borderPx(style.borderRightWidth);
   const lane = Math.max(
     0,
     Math.round(dropdown.offsetWidth - dropdown.clientWidth - borders),
