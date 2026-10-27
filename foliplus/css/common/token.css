@@ -394,6 +394,12 @@
      Inline control geometry. */
   --foliplus-heatmap-inline-height: var(--foliplus-icon-size-md);
 
+  /* ── Scheme picker (shared by HeatmapControl and LayerControl) ──
+     Colour-strip inset. The trigger's strip and a dropdown item's strip use
+     the same value so the two bars line up on both sides; the item subtracts
+     its reserved selection border inside the inset (see scheme-picker.css). */
+  --foliplus-scheme-picker-bar-inset-x: var(--foliplus-icon-size-md);
+
   /* ── LayerControl (row layout) ──
      Drag & drop variables and grid layout metrics. */
   --foliplus-drag-border-width: var(--foliplus-border-thick);

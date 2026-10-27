@@ -45,7 +45,7 @@
   min-width: 0;
   height: var(--foliplus-ctrl-size);
   box-sizing: border-box;
-  padding: 0 var(--foliplus-icon-size-md);
+  padding: 0 var(--foliplus-scheme-picker-bar-inset-x);
   border: var(--foliplus-border-thin) solid var(--foliplus-input-border);
   border-radius: var(--foliplus-radius-sm);
   background: var(--foliplus-input-bg);
@@ -122,7 +122,12 @@
   display: flex;
   align-items: center;
   gap: var(--foliplus-space-md);
-  padding: 0 var(--foliplus-space-lg);
+  /* Same strip inset as the trigger bar. The item's reserved selection border
+     (below) sits *inside* the inset, so its strip lands on the trigger strip's
+     x on both sides — the trigger insets by the token, the item by the token
+     minus that border. */
+  padding: 0 var(--foliplus-scheme-picker-bar-inset-x) 0
+    calc(var(--foliplus-scheme-picker-bar-inset-x) - var(--foliplus-border-thick));
   height: var(--foliplus-ctrl-size);
   box-sizing: border-box;
   /* Reserved border: same "selected" language as layer items — a permanent

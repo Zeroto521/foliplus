@@ -310,11 +310,29 @@ describe("shared scheme-picker trigger (stylesheet contract)", () => {
   it("owns the trigger box for every consumer", () => {
     const trigger = blockOf(scheme, ".foliplus-scheme-picker-trigger {");
     expect(trigger).toContain("height: var(--foliplus-ctrl-size)");
-    expect(trigger).toContain("padding: 0 var(--foliplus-icon-size-md)");
+    expect(trigger).toContain("padding: 0 var(--foliplus-scheme-picker-bar-inset-x)");
     expect(trigger).toContain("border: var(--foliplus-border-thin) solid");
     expect(trigger).toContain("border-radius: var(--foliplus-radius-sm)");
     // Fills the control cell, so its width follows the shared control column.
     expect(trigger).toContain("flex: 1");
+  });
+
+  it("insets the dropdown strip by the same token as the trigger", () => {
+    // The two bars line up only while both use one inset token: the trigger
+    // pads by it, the item pads by it minus its reserved selection border.
+    const item = blockOf(scheme, ".foliplus-scheme-picker-item {");
+    expect(item).toContain("padding: 0 var(--foliplus-scheme-picker-bar-inset-x) 0");
+    expect(item).toContain(
+      "calc(var(--foliplus-scheme-picker-bar-inset-x) - var(--foliplus-border-thick))",
+    );
+  });
+
+  it("defines the strip inset token in the shared token file", () => {
+    // Style rule: every --foliplus-* custom property is *defined* in token.css;
+    // the picker stylesheet only reads it.
+    expect(css("foliplus/css/common/token.css")).toContain(
+      "--foliplus-scheme-picker-bar-inset-x:",
+    );
   });
 
   it("paints one chevron for both panels", () => {
