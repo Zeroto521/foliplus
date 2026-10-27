@@ -1,8 +1,11 @@
 from __future__ import annotations
 
-from typing import Annotated
+import json
+import numbers
+from typing import Annotated, Any
 
 from branca.element import Element
+from folium import GeoJson
 from folium.map import Layer
 
 from ._config_schema import FieldSpec
@@ -10,6 +13,112 @@ from ._typing import ControlPosition
 from .BaseControl import BaseControl
 from .locale import LocaleConfig
 
+
+
+_FOLIUM_COLOR_PROP = "__folium_color"
+_FILL_AUTHOR_FIELD_LIMIT = 50
+_FILL_AUTHOR_FEATURE_LIMIT = 50_000
+
+
+def _fill_author_color(props: dict[str, Any]) -> str | None:
+    """The feature's declarative colour, when explore wrote one."""
+    color = props.get(_FOLIUM_COLOR_PROP)
+    return color if isinstance(color, str) else None
+
+
+def _fill_author_fields(
+    rows: list[tuple[dict[str, Any], str]],
+) -> list[dict[str, Any]]:
+    """Candidate columns for the value-to-colour mapping, computed once.
+
+    A column qualifies when every coloured feature carries it with a primitive
+    value and each of its values maps to exactly one colour. The mapping keeps
+    the most frequent _FILL_AUTHOR_FIELD_LIMIT values; the rest are counted in
+    other and flagged by truncated.
+    """
+    first_props = rows[0][0]
+    candidates = [
+        name
+        for name, value in first_props.items()
+        if not name.startswith("_") and isinstance(value, (str, int, float))
+    ]
+    fields: list[dict[str, Any]] = []
+    for name in candidates:
+        mapping: dict[str, str] = {}
+        numeric = True
+        ok = True
+        for props, color in rows:
+            value = props.get(name)
+            if isinstance(value, bool) or not isinstance(value, (str, int, float)):
+                ok = False
+                break
+            if not isinstance(value, numbers.Real):
+                numeric = False
+            key = str(value)
+            seen = mapping.get(key)
+            if seen is not None and seen != color:
+                ok = False
+                break
+            mapping[key] = color
+        if not ok or len(mapping) < 2:
+            continue
+        counts: dict[str, int] = {}
+        for props, _color in rows:
+            key = str(props[name])
+            counts[key] = counts.get(key, 0) + 1
+        ordered = sorted(counts.items(), key=lambda entry: (-entry[1], entry[0]))
+        kept = ordered[:_FILL_AUTHOR_FIELD_LIMIT]
+        fields.append(
+            {
+                "name": name,
+                "kind": "numeric" if numeric else "categorical",
+                "mapping": {key: mapping[key] for key, _count in kept},
+                "other": len(ordered) - len(kept),
+                "truncated": len(ordered) > len(kept),
+            }
+        )
+    return fields
+
+
+def _fill_author(item: Layer) -> dict[str, Any] | None:
+    """Per-feature fill metadata for a folium GeoJson, from its features.
+
+    Reads properties.__folium_color, which geopandas.explore writes for every
+    feature; a style_function layer has no such property and returns None, so
+    JavaScript keeps the normal single-colour arms for it. One pass over the
+    features; above _FILL_AUTHOR_FEATURE_LIMIT features only the colour set is
+    reported, so the payload stays bounded.
+    """
+    if not isinstance(item, GeoJson):
+        return None
+    data = item.data
+    if isinstance(data, str):
+        try:
+            data = json.loads(data)
+        except ValueError:
+            return None
+    if not isinstance(data, dict):
+        return None
+    features = data.get("features")
+    if not isinstance(features, list):
+        return None
+    colors: set[str] = set()
+    rows: list[tuple[dict[str, Any], str]] = []
+    for feature in features:
+        props = feature.get("properties") if isinstance(feature, dict) else None
+        if not isinstance(props, dict):
+            continue
+        color = _fill_author_color(props)
+        if color is None:
+            continue
+        colors.add(color)
+        rows.append((props, color))
+    if not colors:
+        return None
+    meta: dict[str, Any] = {"perFeature": len(colors) >= 2, "fields": []}
+    if len(features) <= _FILL_AUTHOR_FEATURE_LIMIT and meta["perFeature"]:
+        meta["fields"] = _fill_author_fields(rows)
+    return meta
 
 class LayerControl(BaseControl):
     """Layer panel to organize, inspect, and zoom to map layers.
@@ -155,14 +264,16 @@ class LayerControl(BaseControl):
                 continue
             seen.add(name)
 
-            data.append(
-                {
-                    "name": item.layer_name,
-                    "id": name,
-                    "role": "overlay" if item.overlay else "base",
-                    "show": bool(item.show),
-                }
-            )
+            entry: dict[str, object] = {
+                "name": item.layer_name,
+                "id": name,
+                "role": "overlay" if item.overlay else "base",
+                "show": bool(item.show),
+            }
+            author = _fill_author(item)
+            if author is not None:
+                entry["fillAuthor"] = author
+            data.append(entry)
 
         # Stable ordering: overlays first, then base layers (matches JS enforceOrder).
         data.sort(key=lambda d: d["role"] == "base")

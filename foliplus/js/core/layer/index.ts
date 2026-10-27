@@ -19,6 +19,7 @@ export {
   ROLE,
   Z_INDEX,
 } from "./const.js";
+export { readFeatureFillColors } from "./authorFill.js";
 export { annotationPaneNameOf, carrierTargetOf, contentPanesOf } from "./carrier.js";
 export type { CarrierDecl } from "./carrier.js";
 export { sectionOf } from "./role.js";

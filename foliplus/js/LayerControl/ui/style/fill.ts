@@ -22,6 +22,7 @@
 import { CLASS_COUNT, METHOD } from "#core/classify.js";
 import { numericPropertiesKeys, resolveField } from "#core/field.js";
 import { fullscreenSurface, onFullscreenSurfaceChange } from "#core/fullscreen.js";
+import { readFeatureFillColors } from "#core/layer/authorFill.js";
 import { CAP_TIER, DIM, type LayerInfo, ROLE } from "#core/layer/index.js";
 import type { FillRampConfig, LayerOverride } from "#core/layer/intent.js";
 import { DEFAULT_SCHEMES, getColorScale } from "#core/palette.js";
@@ -53,6 +54,7 @@ import {
 import { buildModeRow } from "./row.js";
 import {
   FACE,
+  STYLE_BAG_DEFAULTS,
   type StyleCarrier,
   cancelStyleDimApply,
   commitStyleDim,
@@ -312,6 +314,27 @@ const resetLayerFill = (ui: LayerUI, layerId: string): void => {
  *  resolver. */
 type FillMode = "solid" | "ramp";
 
+/** What the fill row's mode select shows. "feature" is a detected state, never
+ *  an intent: it is what the author's per-feature colours are, and the row
+ *  offers it as a read-only option so the panel cannot claim one solid colour
+ *  for a layer that paints many. */
+type FillDisplayMode = FillMode | "feature";
+
+/** Does the layer paint its own fill per feature, with no user override?
+ *
+ *  The answer is Python's: `CONFIG.data[].fillAuthor` is computed once at
+ *  render time from the GeoJson features' `__folium_color` (explore output),
+ *  so the panel never walks the layer. A ramp or fill-mode intent is user
+ *  state and wins; a layer without the key keeps the normal single-colour
+ *  arms (per-feature author colours are recognised for geopandas explore
+ *  layers only). */
+const paintsPerFeatureFill = (ui: LayerUI, layerId: string): boolean => {
+  if (getIntent(ui, layerId, INTENT.FILL_RAMP) !== undefined) return false;
+  if (getIntent(ui, layerId, INTENT.FILL_MODE) !== undefined) return false;
+  const layerInfo = ui.c.layerRegistry.get(layerId);
+  return layerInfo?.fillAuthor?.perFeature === true;
+};
+
 /** The scheme picker owned by the open style panel. It installs
  *  document-level listeners while its listbox is open, so the panel must
  *  destroy it when it closes or rebuilds the ramp detail; one entry per UI
@@ -526,10 +549,14 @@ const renderFillDetail = (
   ui: LayerUI,
   layerId: string,
   detail: HTMLElement,
-  mode: FillMode,
+  mode: FillDisplayMode,
 ): void => {
   disposeFillRow(ui);
   detail.innerHTML = "";
+  if (mode === "feature") {
+    detail.append(...buildFeatureFillDetail(ui));
+    return;
+  }
   const fields = numericFields(ui, layerId);
   if (mode === "ramp" && fields.length > 0) {
     detail.append(
@@ -539,6 +566,18 @@ const renderFillDetail = (
   }
   detail.append(...buildSolidDetail(ui, layerId));
 };
+
+/** The read-only detail for the per-feature state: the panel cannot edit one
+ *  colour per feature, and showing a single swatch for many colours is the
+ *  bug this state exists to fix. Editing is still one gesture away — the mode
+ *  select below offers the two overrides. */
+const buildFeatureFillDetail = (ui: LayerUI): HTMLElement[] => [
+  dom.el(
+    "div",
+    { class: CONST.CLASSES.STYLE_FILL_NOTE },
+    ui.T("style_fill_per_feature_note"),
+  ),
+];
 
 /** Build the fill form block. A layer with numeric fields gets the mode row
  *  (solid / color by value) plus the active arm's detail; a layer without one
@@ -564,10 +603,13 @@ const buildFillRow = (ui: LayerUI, layerId: string): HTMLElement => {
   }
 
   const fields = numericFields(ui, layerId);
+  const perFeature = paintsPerFeatureFill(ui, layerId);
   // No numeric field: one arm only, so there is no mode to choose. The
   // wrapper keeps the same block/detail shape so a later categorical field
-  // type can add a second arm without moving the panel's bind seam.
-  if (fields.length === 0) {
+  // type can add a second arm without moving the panel's bind seam. A layer
+  // the author paints per feature keeps its mode row even without a numeric
+  // field: the read-only state still needs the solid override beside it.
+  if (fields.length === 0 && !perFeature) {
     const detail = dom.el("div", { class: CONST.CLASSES.STYLE_FILL_DETAIL });
     detail.append(...buildSolidDetail(ui, layerId));
     return dom.el("div", { class: CONST.CLASSES.STYLE_FILL_BLOCK }, detail);
@@ -578,7 +620,31 @@ const buildFillRow = (ui: LayerUI, layerId: string): HTMLElement => {
     layerId,
     getIntent(ui, layerId, INTENT.FILL_RAMP),
   );
-  const mode: FillMode = storedMode === "ramp" ? "ramp" : "solid";
+  const mode: FillDisplayMode = perFeature
+    ? "feature"
+    : storedMode === "ramp"
+      ? "ramp"
+      : "solid";
+  // "feature" is detected, not chosen: disabled so the menu cannot return to
+  // it, present so the row can name the state it is in. Solid is the way out
+  // (plus Reset back), so it stays selectable even when the arm had no
+  // numeric field a moment ago.
+  const options = [
+    ...(perFeature
+      ? [
+          {
+            value: "feature",
+            label: ui.T("style_fill_per_feature"),
+            disabled: true,
+            title: ui.T("style_fill_per_feature_note"),
+          },
+        ]
+      : []),
+    { value: "solid", label: ui.T("style_fill_single") },
+    ...(fields.length > 0
+      ? [{ value: "ramp", label: ui.T("style_fill_by_value") }]
+      : []),
+  ];
 
   const { block: modeRow, detail } = buildModeRow({
     label: ui.T("style_fill_mode"),
@@ -586,10 +652,7 @@ const buildFillRow = (ui: LayerUI, layerId: string): HTMLElement => {
     rowClass: CONST.CLASSES.STYLE_FILL_ROW,
     detailClass: CONST.CLASSES.STYLE_FILL_DETAIL,
     value: mode,
-    options: [
-      { value: "solid", label: ui.T("style_fill_single") },
-      { value: "ramp", label: ui.T("style_fill_by_value") },
-    ],
+    options,
   });
 
   renderFillDetail(ui, layerId, detail, mode);
@@ -707,8 +770,10 @@ const bindFillDetail = (
   ui: LayerUI,
   layerId: string,
   detail: HTMLElement,
-  mode: FillMode,
+  mode: FillDisplayMode,
 ): void => {
+  // The per-feature detail is a read-only note: nothing to bind.
+  if (mode === "feature") return;
   if (mode === "ramp" && numericFields(ui, layerId).length > 0) {
     bindRampDetail(ui, layerId, detail);
   } else {
@@ -741,15 +806,23 @@ const bindFillRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => {
   ) as HTMLElement;
 
   select.onchange = () => {
-    // The mode row only renders when a numeric field exists, so both arms are
-    // honest and the write cannot be rejected.
+    // "feature" is disabled, so every reachable value is an override. The
+    // write records the user's choice; the option goes away immediately, the
+    // same way the next panel build would drop it, so the row cannot offer a
+    // state the layer no longer paints.
     const next: FillMode = select.value === "ramp" ? "ramp" : "solid";
+    select.querySelector('option[value="feature"]')?.remove();
     writeFillMode(ui, layerId, next);
     renderFillDetail(ui, layerId, detail, next);
     bindFillDetail(ui, layerId, detail, next);
   };
 
-  bindFillDetail(ui, layerId, detail, select.value === "ramp" ? "ramp" : "solid");
+  bindFillDetail(
+    ui,
+    layerId,
+    detail,
+    select.value === "feature" ? "feature" : select.value === "ramp" ? "ramp" : "solid",
+  );
 };
 
 /** Replay a layer's stored fill state (color + opacity) onto the map.
@@ -822,6 +895,29 @@ const FILL_DIMENSION = registerDimension<{
     resetIntentKeys(ui, layerId, FILL_INTENT_KEYS);
     const layer = ui.c.findLayer(layerId) as StyleCarrier | null;
     if (!layer) return;
+    // An explore layer declared each feature's colour: read the leaves lazily
+    // (the click is the one O(N) read) and replay that snapshot, so Reset
+    // returns the author's own per-feature paint. A feature without the
+    // property restores its own default, never a neighbour's colour. Other
+    // layers keep the style-bag restore.
+    const snapshot = readFeatureFillColors(layer);
+    const hasAuthor = [...snapshot.values()].some(color => color !== null);
+    if (hasAuthor) {
+      walkFillLeaves(layer, node => {
+        const color = snapshot.get(node);
+        if (color === undefined || color === null) {
+          restoreStyleDim(node, FACE.FILL);
+          return;
+        }
+        const bag = styleBagOf(node);
+        node.setStyle({
+          fillColor: color,
+          fillOpacity: bag?.fillOpacity ?? STYLE_BAG_DEFAULTS.fillOpacity,
+          fill: true,
+        });
+      });
+      return;
+    }
     walkFillLeaves(layer, node => restoreStyleDim(node, FACE.FILL));
   },
   valueSource: (ui, layerId) => {

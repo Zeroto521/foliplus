@@ -200,6 +200,10 @@ interface RegisterLayerOpts {
   custom?: unknown;
   /** Declared layer role. Absent registers an overlay. */
   role?: LayerRole;
+  /** Author's declarative per-feature fill, computed once by Python at render
+   *  time from the GeoJson features' `__folium_color` property (geopandas
+   *  explore output). Absent for every other layer. */
+  fillAuthor?: FillAuthor | null;
   /** Author's declared initial visibility — mirrors CONFIG `data[].show`.
    *  Absent means the author did not specify; readers default it to `true`
    *  (folium's own default), so the registry does not have to invent a
@@ -289,6 +293,25 @@ interface RegisterLayerOpts {
   onCommitted?: ((entry: LayerInfo) => void) | null;
 }
 
+/** One declarative column behind an explore layer's per-feature colours. */
+interface FillAuthorField {
+  name: string;
+  kind: "numeric" | "categorical";
+  /** value -> colour, capped at the top entries. */
+  mapping: Record<string, string>;
+  /** Distinct values beyond the mapping (0 when not truncated). */
+  other: number;
+  /** True when the column had more distinct values than the mapping keeps. */
+  truncated: boolean;
+}
+
+/** What Python computed for one layer's author fill (CONFIG data[].fillAuthor). */
+interface FillAuthor {
+  /** True when the layer paints at least two distinct colours. */
+  perFeature: boolean;
+  fields: FillAuthorField[];
+}
+
 /** A layer entry in the ordered registry (read-only view). */
 interface LayerInfo {
   id: string;
@@ -349,6 +372,8 @@ interface LayerInfo {
   meta?: Record<string, string | number> | null;
   /** Dynamic meta provider — pull on demand, never cached. */
   metaProvider?: (() => Record<string, string | number>) | null;
+  /** Author's declarative per-feature fill (explore layers only). */
+  fillAuthor?: FillAuthor | null;
   /** Epoch ms of the layer's first registration. Set by the registry itself —
    *  never by the provider — so a re-registration keeps the original value. */
   registeredAt?: number;
@@ -955,6 +980,8 @@ type LayerMutation =
 
 export type {
   CreateCanvasAPI,
+  FillAuthor,
+  FillAuthorField,
   CreateCanvasOpts,
   CreateColorAPI,
   CreateColorOpts,

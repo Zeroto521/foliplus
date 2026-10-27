@@ -80,6 +80,8 @@
   "LayerControl.style_fill_opacity": "Fill Opacity",
   "LayerControl.style_fill_mode": "Fill Mode",
   "LayerControl.style_fill_single": "Single color",
+  "LayerControl.style_fill_per_feature": "Per feature",
+  "LayerControl.style_fill_per_feature_note": "Colors are decided by the data or the layer's style function. Editing the fill overrides them; Reset brings them back.",
   "LayerControl.style_fill_by_value": "Color by value",
   "LayerControl.style_fill_field": "Field",
   "LayerControl.style_fill_classes": "Classes",

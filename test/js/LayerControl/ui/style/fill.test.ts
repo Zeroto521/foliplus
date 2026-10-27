@@ -39,9 +39,12 @@ const makeFillableLayer = () => {
     leaf.setStyle = vi.fn();
     return leaf;
   };
+  // One colour across leaves: this fixture is the "author paints one fill"
+  // layer, so the fill row keeps its normal solid/ramp arms. Per-feature
+  // detection has its own fixture below.
   const leaves = [
     makeLeaf({ fillColor: "#aabbcc", fillOpacity: 0.5, fill: true } as any),
-    makeLeaf({ fillColor: "#ddeeff", fillOpacity: 0.7, fill: true } as any),
+    makeLeaf({ fillColor: "#aabbcc", fillOpacity: 0.7, fill: true } as any),
   ];
   const parent = {
     options: {},
@@ -100,6 +103,76 @@ const initWithFillLayer = () => {
   });
   ui.runtimeStore.setFields("overlay1", [{ name: "count", numeric: true }]);
   return { manager, ui, map, fillLayer };
+};
+
+/** A fillable layer the author paints per feature: leaves carry distinct
+ *  fill colours, so the fill row's detected state is "feature". */
+const makePerFeatureLayer = (colors: readonly string[]) => {
+  const makeLeaf = (color: string, value: number) => {
+    const leaf = new L.Polygon() as L.Polygon & {
+      options: { fillColor?: string; fillOpacity?: number; fill?: boolean };
+      feature: { properties: { count: number } };
+      setStyle: ReturnType<typeof vi.fn>;
+      on: ReturnType<typeof vi.fn>;
+    };
+    leaf.options = { fillColor: color, fillOpacity: 0.5, fill: true };
+    // explore output: the colour and the column value live on the feature.
+    leaf.feature = {
+      properties: { __folium_color: color, cat: "c" + value, count: value },
+    };
+    leaf.setStyle = vi.fn();
+    leaf.on = vi.fn();
+    return leaf;
+  };
+  const leaves = colors.map((color, i) => makeLeaf(color, i + 1));
+  const parent = {
+    options: {},
+    eachLayer: vi.fn((fn: (child: unknown) => void) =>
+      leaves.forEach(child => fn(child)),
+    ),
+    getBounds: vi.fn(() => ({
+      isValid: vi.fn(() => true),
+      getSouthWest: vi.fn(() => ({ lat: 0, lng: 0 })),
+      getNorthEast: vi.fn(() => ({ lat: 1, lng: 1 })),
+    })),
+    leaves,
+  };
+  return parent as unknown as L.Layer & { leaves: typeof leaves };
+};
+
+const initWithPerFeatureLayer = ({
+  colors = ["#0d0887", "#f0f921"] as readonly string[],
+  perFeature = true,
+  fillAuthor = perFeature
+    ? { perFeature: true, fields: [] }
+    : { perFeature: false, fields: [] },
+  withProperties = true,
+}: {
+  colors?: readonly string[];
+  perFeature?: boolean;
+  fillAuthor?: { perFeature: boolean; fields: unknown[] } | null;
+  withProperties?: boolean;
+} = {}) => {
+  installLeafletGlobals();
+  const layer = makePerFeatureLayer(colors);
+  if (!withProperties) {
+    for (const leaf of layer.leaves) {
+      delete (leaf.feature as { properties?: unknown }).properties;
+    }
+  }
+  const { manager, ui } = initFixture({
+    data: [
+      {
+        id: "feature1",
+        name: "Per feature",
+        role: "overlay",
+        layer,
+        fillAuthor,
+      },
+    ],
+  });
+  ui.runtimeStore.setFields("feature1", [{ name: "count", numeric: true }]);
+  return { manager, ui, layer };
 };
 
 /** A fillable layer whose leaves carry a numeric
@@ -1272,7 +1345,7 @@ describe("LayerUI style panel — fill color", () => {
       fill: true,
     });
     expect(fillLayer.leaves[1].setStyle).toHaveBeenLastCalledWith({
-      fillColor: "#ddeeff",
+      fillColor: "#aabbcc",
       fillOpacity: 0.7,
       fill: true,
     });
@@ -1300,7 +1373,7 @@ describe("LayerUI style panel — fill color", () => {
       fill: false,
     });
     expect(fillLayer.leaves[1].setStyle).toHaveBeenLastCalledWith({
-      fillColor: "#ddeeff",
+      fillColor: "#aabbcc",
       fillOpacity: 0.7,
       fill: false,
     });
@@ -2741,5 +2814,116 @@ describe("content-change replay", () => {
         fill: true,
       });
     }
+  });
+});
+
+describe("fill row — per-feature state", () => {
+  afterEach(() => {
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+  });
+
+  const modeSelect = (row: HTMLElement): HTMLSelectElement =>
+    row.querySelector(`.${CONST.CLASSES.STYLE_FILL_MODE_SELECT}`) as HTMLSelectElement;
+
+  it("shows the detected per-feature state instead of one swatch", () => {
+    const { ui } = initWithPerFeatureLayer();
+    const row = buildFillRow(ui, "feature1");
+    const select = modeSelect(row);
+
+    expect(select.value).toBe("feature");
+    // Detected, not chosen: present so the row can name its state, disabled so
+    // the menu cannot return to it (Reset is the way back).
+    const featureOption = select.querySelector(
+      'option[value="feature"]',
+    ) as HTMLOptionElement;
+    expect(featureOption.disabled).toBe(true);
+    expect(select.querySelector('option[value="solid"]')).not.toBeNull();
+    expect(select.querySelector('option[value="ramp"]')).not.toBeNull();
+    expect(row.querySelector(`.${CONST.CLASSES.STYLE_FILL_NOTE}`)?.textContent).toBe(
+      "LayerControl.style_fill_per_feature_note",
+    );
+    expect(row.querySelector(`.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`)).toBeNull();
+  });
+
+  it("keeps the solid arm when the leaves share one colour", () => {
+    const { ui } = initWithPerFeatureLayer({
+      colors: ["#aabbcc", "#aabbcc"],
+      perFeature: false,
+    });
+    const select = modeSelect(buildFillRow(ui, "feature1"));
+
+    expect(select.value).toBe("solid");
+    expect(select.querySelector('option[value="feature"]')).toBeNull();
+  });
+
+  it("keeps the solid arm for a layer without the explore colour property", () => {
+    const { ui } = initWithPerFeatureLayer({
+      perFeature: false,
+      fillAuthor: null,
+      withProperties: false,
+    });
+    const select = modeSelect(buildFillRow(ui, "feature1"));
+
+    expect(select.value).toBe("solid");
+    expect(select.querySelector('option[value="feature"]')).toBeNull();
+  });
+
+  it("yields to the user's fill intent", () => {
+    const { ui } = initWithPerFeatureLayer();
+    setIntent(ui, "feature1", "fillMode", "solid");
+    const select = modeSelect(buildFillRow(ui, "feature1"));
+
+    expect(select.value).toBe("solid");
+    expect(select.querySelector('option[value="feature"]')).toBeNull();
+  });
+
+  it("does not offer the state for an empty layer", () => {
+    const { ui } = initWithPerFeatureLayer({ colors: [], perFeature: false });
+    const select = modeSelect(buildFillRow(ui, "feature1"));
+
+    expect(select.value).toBe("solid");
+    expect(select.querySelector('option[value="feature"]')).toBeNull();
+  });
+
+  it("choosing solid records the intent, drops the option and binds the swatch", () => {
+    const { ui } = initWithPerFeatureLayer();
+    const row = buildFillRow(ui, "feature1");
+    document.body.append(row);
+    bindFillRow(ui, "feature1", row);
+    const select = modeSelect(row);
+
+    select.value = "solid";
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+
+    expect(getIntent(ui, "feature1", "fillMode")).toBe("solid");
+    expect(select.querySelector('option[value="feature"]')).toBeNull();
+    expect(
+      row.querySelector(`.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`),
+    ).not.toBeNull();
+  });
+
+  it("reset restores every leaf's own author colour and the detected state", () => {
+    const { ui, layer } = initWithPerFeatureLayer();
+    commitNow(ui, "feature1", "color", "#ff0000");
+    expect(layer.leaves[0].setStyle).toHaveBeenLastCalledWith({
+      fillColor: "#ff0000",
+      fill: true,
+    });
+
+    resetLayerFill(ui, "feature1");
+
+    // Each leaf returns to its OWN author colour — not the first leaf's.
+    expect(layer.leaves[0].setStyle).toHaveBeenLastCalledWith({
+      fillColor: "#0d0887",
+      fillOpacity: 0.5,
+      fill: true,
+    });
+    expect(layer.leaves[1].setStyle).toHaveBeenLastCalledWith({
+      fillColor: "#f0f921",
+      fillOpacity: 0.5,
+      fill: true,
+    });
+    expect(modeSelect(buildFillRow(ui, "feature1")).value).toBe("feature");
   });
 });
