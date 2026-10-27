@@ -442,22 +442,17 @@ describe("pickFilterField / buildFilterModel", () => {
     ranges: { a: [1, 1], b: [2, 2] },
   };
 
-  it("prefers the owner field, then the auto key, then the first numeric key", () => {
-    expect(pickFilterField(snap, "b", "a")).toBe("b");
-    expect(pickFilterField(snap, "", "b")).toBe("b");
-    expect(pickFilterField(snap, "", null)).toBe("a");
-    expect(pickFilterField(null, "", null)).toBeUndefined();
+  it("prefers the owner field, then the first numeric key", () => {
+    expect(pickFilterField(snap, "b")).toBe("b");
+    expect(pickFilterField(snap, "")).toBe("a");
+    expect(pickFilterField(snap, "missing")).toBe("a");
+    expect(pickFilterField(null, "")).toBe("");
   });
 
   it("returns null for no filterable data", () => {
-    expect(buildFilterModel(null, undefined, "", null)).toBeNull();
+    expect(buildFilterModel(null, undefined, "")).toBeNull();
     expect(
-      buildFilterModel(
-        { points: [], numericFields: [], ranges: {} },
-        undefined,
-        "",
-        null,
-      ),
+      buildFilterModel({ points: [], numericFields: [], ranges: {} }, undefined, ""),
     ).toBeNull();
   });
 
@@ -469,7 +464,7 @@ describe("pickFilterField / buildFilterModel", () => {
       range: [1, 1] as [number, number],
     };
     expect(
-      buildFilterModel(snap, countsFilter, "a", null, { kept: 7, total: 137 }),
+      buildFilterModel(snap, countsFilter, "a", { kept: 7, total: 137 }),
     ).toMatchObject({
       kept: 7,
       total: 137,
@@ -482,9 +477,10 @@ describe("pickFilterField / buildFilterModel", () => {
       numericFields: ["a"],
       ranges: {},
     };
-    expect(
-      buildFilterModel(noExtent, undefined, "a", null)!.dimensions[0],
-    ).toMatchObject({ kind: "range", range: [0, 0] });
+    expect(buildFilterModel(noExtent, undefined, "a")!.dimensions[0]).toMatchObject({
+      kind: "range",
+      range: [0, 0],
+    });
   });
 
   it("composes the generic model: one range dimension plus counts and filter", () => {
@@ -494,7 +490,7 @@ describe("pickFilterField / buildFilterModel", () => {
       op: "between" as const,
       range: [1, 1] as [number, number],
     };
-    expect(buildFilterModel(snap, filter, "a", null)).toEqual({
+    expect(buildFilterModel(snap, filter, "a")).toEqual({
       dimensions: [
         {
           kind: "range",
@@ -511,7 +507,7 @@ describe("pickFilterField / buildFilterModel", () => {
   });
 
   it("carries an owner-localized dimension label when one is supplied", () => {
-    const model = buildFilterModel(snap, undefined, "a", null, undefined, "Magnitude");
+    const model = buildFilterModel(snap, undefined, "a", undefined, "Magnitude");
     expect(model!.dimensions).toHaveLength(1);
     expect(model!.dimensions[0]).toMatchObject({
       kind: "range",

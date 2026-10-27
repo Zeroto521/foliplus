@@ -66,7 +66,7 @@ class TestHeatmapControlCacheBrowser:
             assert not errors, f"JS errors: {errors}"
 
     def test_clear_heatmap_canvas_resets_caches(self, browser, tmp_path):
-        """clearHeatmapCanvas resets all aggregation caches (but not autoFieldKey)."""
+        """clearHeatmapCanvas resets all aggregation caches."""
         with use_page(_make_page, browser, tmp_path, expose_ctrl=True) as (
             page,
             errors,

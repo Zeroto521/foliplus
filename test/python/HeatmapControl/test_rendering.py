@@ -198,10 +198,15 @@ class TestHeatmapControlRendering:
         html = render_control(HeatmapControl())
         assert "HeatmapControl.layer_placeholder" in html
 
-    def test_field_auto_option(self):
-        """Field select has an auto-detect option."""
+    def test_field_placeholder_option_removed(self):
+        """Field select renders without the removed auto-detect placeholder.
+
+        The field row ships empty in the Python template - the JS builds the
+        options from the scanned layer - so the header locale bundle must no
+        longer carry the deleted auto-detect field key anywhere.
+        """
         html = render_control(HeatmapControl())
-        assert "HeatmapControl.field_auto" in html
+        assert "HeatmapControl.field_auto" not in html
 
     def test_extra_body_structure(self):
         """Extra body has form-row with label and control-wrap."""

@@ -113,13 +113,12 @@ class HeatmapManager {
   selectedLayerId: string | null;
   pointLayers: PointLayerInfo[];
   agg: string;
-  /** Selected aggregation field — starts empty (no Python-side declaration),
-   *  becomes the first numeric property name in auto mode, or whatever the
+  /** Selected aggregation field — empty only until the first scan resolves
+   *  it to a concrete numeric property name; from then on it is whatever the
    *  user picked from the field dropdown. */
   field: string;
   scheme: string;
   method: ClassifyMethod;
-  autoFieldKey: string | null;
   numClasses: number;
   borderWeight: number;
   borderColor: string;
@@ -236,7 +235,6 @@ class HeatmapManager {
     this.field = "";
     this.scheme = CONFIG.color_scheme ?? "Reds";
     this.method = resolveClassifyMethod(CONFIG.method);
-    this.autoFieldKey = null;
     this.numClasses = CONFIG.num_classes ?? CLASS_COUNT.DEFAULT;
     this.borderWeight = CONFIG.border_weight ?? BORDER_WEIGHT.DEFAULT;
     this.borderColor = CONFIG.border_color ?? SCHEME_FALLBACK_COLOR;
@@ -764,7 +762,7 @@ class HeatmapManager {
 
   getPointValue(marker: L.Marker | L.CircleMarker): number {
     if (this.agg === CONST.AGG.COUNT) return 1;
-    const key = this.field || this.autoFieldKey;
+    const key = this.field;
     const val = readMarkerField(marker, key);
     if (val === undefined || isNaN(val)) {
       if (!this.valueFallbackWarned) {
@@ -826,7 +824,7 @@ class HeatmapManager {
   syncFilterField(): void {
     const sourceId = this.selectedLayerId;
     if (!sourceId) return;
-    const field = pickFilterField(this.cachedSnapshot, this.field, this.autoFieldKey);
+    const field = pickFilterField(this.cachedSnapshot, this.field);
     if (!dropFilterForField(this.layerFilters, sourceId, field)) return;
     this.cachedAgg = null;
     this.saveConfig();
@@ -850,7 +848,6 @@ class HeatmapManager {
       this.cachedSnapshot,
       this.layerFilters.get(sourceId),
       this.field,
-      this.autoFieldKey,
       { kept, total },
     );
   }
@@ -1068,7 +1065,6 @@ class HeatmapManager {
   resetState(config: ComponentConfig) {
     const clearedFilter = this.layerFilters.size > 0;
     this.selectedLayerId = null;
-    this.autoFieldKey = null;
     this.agg = config.agg ?? CONST.AGG.COUNT;
     this.field = "";
     this.numClasses = config.num_classes ?? CLASS_COUNT.DEFAULT;
@@ -1134,7 +1130,7 @@ class HeatmapManager {
       : "";
     let fieldLabel = "";
     if (this.selectedLayerId && this.agg !== CONST.AGG.COUNT) {
-      const key = this.field || this.autoFieldKey;
+      const key = this.field;
       if (key) fieldLabel = bareFieldName(key);
     }
 
