@@ -34,6 +34,7 @@ class HeatmapControl extends defineControl({
   declare toggleSchemeDropdown: () => void;
   initScanCleanup: (() => void) | null = null;
   schemeBarCleanup: (() => void) | null = null;
+  schemePickerOverlayUnregister: (() => void) | null = null;
   schemePickerCleanup: (() => void) | null = null;
   toggleDropdown: (() => void) | null = null;
   selectScheme: ((idx: number) => void) | null = null;
@@ -44,6 +45,7 @@ class HeatmapControl extends defineControl({
     this.schemePicker = null;
     this.expandHookDone = false;
     this.schemeBarCleanup = null;
+    this.schemePickerOverlayUnregister = null;
     this.schemePickerCleanup = null;
     this.toggleDropdown = null;
     this.selectScheme = null;
@@ -154,6 +156,7 @@ class HeatmapControl extends defineControl({
     this.manager = null;
     this.initScanCleanup = null;
     this.schemeBarCleanup = null;
+    this.schemePickerOverlayUnregister = null;
     this.schemePickerCleanup = null;
     this.observer = null;
     // Drop UI references to the removed DOM so a re-add starts clean.

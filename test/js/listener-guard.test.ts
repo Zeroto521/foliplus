@@ -192,10 +192,10 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
   },
   {
     f: "common/schemePicker.ts",
-    n: 9,
+    n: 8,
     pairedOff: 0,
     reason:
-      "shared picker factory binds trigger click/keydown (lifecycle) and dropdown click/keydown, item focus, document outside-click, window scroll, window resize (portal mode only), and fullscreenchange (mount-scope). Every listener has a paired removeEventListener in either cleanupFns (drained on destroy) or mountCleanupFns (drained on every close). The factory is a free-standing primitive with no BaseControl mounting signal to route through this.on; callers inject their own lifecycle management via the returned close/destroy methods",
+      "shared picker factory binds trigger click/keydown (lifecycle) and dropdown click/keydown, item focus, window scroll, window resize (portal mode only), and fullscreenchange (mount-scope). Its document outside-click moved to the consumers' per-map overlay-registry entries in M2-C3. Every listener has a paired removeEventListener in either cleanupFns (drained on destroy) or mountCleanupFns (drained on every close). The factory is a free-standing primitive with no BaseControl mounting signal to route through this.on; callers inject their own lifecycle management via the returned close/destroy methods",
   },
 ];
 

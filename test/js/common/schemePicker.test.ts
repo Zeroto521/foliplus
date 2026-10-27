@@ -256,38 +256,6 @@ describe("trigger keyboard (no dropdown open)", () => {
   });
 });
 
-// ── Outside click ──────────────────────────────────────────────────────
-
-describe("outside click", () => {
-  it("closes the dropdown on outside click", () => {
-    const { picker, trigger } = makePicker();
-    trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    const outside = document.createElement("div");
-    document.body.appendChild(outside);
-    outside.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    expect(picker.getDropdown()).toBeNull();
-    picker.destroy();
-  });
-
-  it("does not close on click inside the dropdown", () => {
-    const { picker, trigger } = makePicker();
-    trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    const dropdown = picker.getDropdown()!;
-    dropdown.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    expect(picker.getDropdown()).not.toBeNull();
-    picker.destroy();
-  });
-
-  it("does not close on click on the trigger", () => {
-    const { picker, trigger } = makePicker();
-    trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    // The trigger's own click handler toggles, but the outside-click
-    // handler should not fire for the trigger.
-    expect(picker.getDropdown()).not.toBeNull();
-    picker.destroy();
-  });
-});
-
 // ── Focus return ───────────────────────────────────────────────────────
 
 describe("focus return", () => {

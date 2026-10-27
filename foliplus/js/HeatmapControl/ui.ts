@@ -6,6 +6,7 @@ import { resolveField } from "#core/field.js";
 import { fullscreenSurface, onFullscreenSurfaceChange } from "#core/fullscreen.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { adjustPanelZIndex } from "#core/leaflet/index.js";
+import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
 import { safeColorScale } from "#core/palette.js";
 import { buildClassesRow, buildFieldRow, buildSchemeRow } from "#core/rampForm.js";
 import { dom } from "#common/dom.js";
@@ -38,6 +39,8 @@ interface HeatmapControlUI {
   expandHookDone: boolean;
   /** Kept for backward compat — the picker's destroy function. */
   schemeBarCleanup: (() => void) | null;
+  /** Unregister for the scheme picker's overlay-registry entry. */
+  schemePickerOverlayUnregister: (() => void) | null;
   /** Destroy the scheme picker (called by HeatmapControl.destroy()). */
   schemePickerCleanup: (() => void) | null;
   toggleDropdown: (() => void) | null;
@@ -186,14 +189,29 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     },
   });
 
-  // The picker owns its trigger click handler, keyboard handlers, outside-click,
-  // and focus management. We only need to expose the delegates for backward
-  // compat with tests and the HeatmapControl class.
+  // The picker owns its trigger click/keyboard handlers and focus management;
+  // outside-click dismissal is the consumer's per-map overlay-registry entry
+  // (common must not import core). We only need to expose the delegates for
+  // backward compat with tests and the HeatmapControl class.
   // schemeBarCleanup: transient reset (close dropdown) — called by
   // clearHeatmapCanvas when data is cleared. The picker stays alive.
   ctrl.schemeBarCleanup = () => ctrl.schemePicker?.close({ restoreFocus: false });
+  ctrl.schemePickerOverlayUnregister = ensureOverlayRegistry(ctrl.mgr.map).register({
+    id: OVERLAY_IDS.PICKER_DROPDOWN,
+    isOpen: () => ctrl.schemePicker?.getDropdown() != null,
+    panels: () => [ctrl.schemeBar],
+    portals: () => {
+      const dropdown = ctrl.schemePicker?.getDropdown();
+      return dropdown ? [dropdown] : [];
+    },
+    close: ({ restoreFocus }) => ctrl.schemePicker?.close({ restoreFocus }),
+    dismissOn: "click",
+    pressPriority: 850,
+  });
   // schemePickerCleanup: permanent destroy — called by HeatmapControl.destroy().
   ctrl.schemePickerCleanup = () => {
+    ctrl.schemePickerOverlayUnregister?.();
+    ctrl.schemePickerOverlayUnregister = null;
     ctrl.schemePicker?.destroy();
     ctrl.schemePicker = null;
   };

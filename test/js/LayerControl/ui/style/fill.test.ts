@@ -2600,6 +2600,19 @@ describe("fill ramp detail — field / method / classes / scheme", () => {
     expect(trigger.title).toBe("Reds");
   });
 
+  it("outside click closes the open picker through the overlay registry", () => {
+    const block = openPanel(ui);
+    const trigger = details(block).querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_SCHEME_TRIGGER}`,
+    ) as HTMLElement;
+    trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(document.querySelector(".foliplus-scheme-picker-dropdown")).not.toBeNull();
+
+    document.body.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+    expect(document.querySelector(".foliplus-scheme-picker-dropdown")).toBeNull();
+  });
+
   it("closing the panel destroys the open picker's dropdown", () => {
     const block = openPanel(ui);
     const trigger = details(block).querySelector(
