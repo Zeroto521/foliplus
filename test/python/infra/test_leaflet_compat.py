@@ -1,6 +1,6 @@
 """Leaflet bring-up smoke for pages that swap Folium's Leaflet pin.
 
-Install is `folium>=0.14.0`; runtime is the TS controls against whatever
+Install is `folium>=0.15.0`; runtime is the TS controls against whatever
 Leaflet Folium injects. This file rewrites that pin so a swapped Leaflet is
 not a silent unknown. Bring-up only — not a compatibility proof. The rest of
 the browser suite runs against Folium's Leaflet (1.9.3).
