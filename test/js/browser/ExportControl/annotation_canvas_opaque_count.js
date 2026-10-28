@@ -1,6 +1,6 @@
 () => {
   const canvas = window.map
-    .getPane("foliplus-annotation-__export_ann__")
+    .getPane("foliplus-label-__export_ann__")
     ?.querySelector("canvas");
   if (!canvas) return 0;
   const data = canvas

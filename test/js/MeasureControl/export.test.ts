@@ -600,12 +600,17 @@ describe("Export.currentExportFormat — CONFIG edge cases", () => {
 describe("Export.handleExportClick", () => {
   let dl: ReturnType<typeof stubDownload>;
 
-  const makeMgr = (measurements: MeasureData[] = [markerData]) => {
+  const makeMgr = (
+    measurements: MeasureData[] = [markerData],
+    visible: MeasureData[] = measurements,
+  ) => {
     // handleExportClick reads mgr.env for the env-typed export functions and
     // mgr.config/T/log for the hint path — the mock mirrors the real manager.
+    // `visibleMeasurements` is the filter's view of the same rows.
     const env = makeControlEnv(window.CONFIG, identity);
     return {
       store: { all: () => measurements },
+      visibleMeasurements: () => visible,
       map: { foliplus: { showHint: vi.fn() } },
       config: window.CONFIG,
       T: env.T,
@@ -675,6 +680,21 @@ describe("Export.handleExportClick", () => {
     } finally {
       stringify.mockRestore();
     }
+  });
+
+  it("exports only the filter's visible measurements", () => {
+    // The filter is a view filter: kept rows export, hidden rows do not — and
+    // a filter that keeps nothing reads as the no-data case.
+    const mgr = makeMgr([markerData], []);
+
+    Export.handleExportClick(mgr as any)({ stopPropagation: vi.fn() } as any);
+
+    expect(mgr.map.foliplus.showHint).toHaveBeenCalledWith(
+      "MeasureControl",
+      "export_no_data",
+      HINT_DURATION.LONG,
+    );
+    expect(dl.anchors.length).toBe(0);
   });
 
   it("resolves the format from CONFIG, defaulting to geojson", () => {

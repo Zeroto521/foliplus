@@ -46,6 +46,12 @@ class OverlayPanel {
   filterUnsubscribe: (() => void) | null = null;
   /** Same capture-phase dismiss, for the style panel. */
   styleOutsideHandler: ((event: MouseEvent) => void) | null = null;
+  /** The live style-drawer element while one is open, or null. Kept on the
+   *  overlay panel (not captured by each outside handler) so the dismiss
+   *  predicate scopes to *this* control's drawer: a page with two maps has two
+   *  drawers, and a document-wide query would scope the press to the first one
+   *  in DOM order. */
+  stylePanelEl: HTMLElement | null = null;
   /** Unsubscribe for LAYER_ITEM_COUNT_CHANGE while attrs panel is open. */
   attrsUnsubscribe: (() => void) | null = null;
   /** Unsubscribe for LAYER_STYLE_CHANGE while a delegated style panel is

@@ -49,4 +49,14 @@ const numericPropertiesKeys = (layer: L.Layer): string[] => {
   return keys;
 };
 
-export { isNumericValue, numericPropertiesKeys };
+/** Resolve a stored field name against the numeric fields a layer currently
+ *  offers: the stored name wins when it is still present, otherwise the first
+ *  offered field. The fill ramp paints with this rule; the heatmap's
+ *  aggregation row resolves through its own manager (`effectiveField`), which
+ *  adds the Python declaration and never writes the resolution back.
+ *
+ *  An empty list resolves to "" (no field to offer). */
+const resolveField = (stored: string, fields: readonly string[]): string =>
+  stored && fields.includes(stored) ? stored : (fields[0] ?? "");
+
+export { isNumericValue, numericPropertiesKeys, resolveField };

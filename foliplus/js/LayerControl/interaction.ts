@@ -1,7 +1,7 @@
 // LayerControl interaction — keyboard navigation + overflow-menu click handlers.
 import { ensureInteraction } from "#core/interaction/index.js";
 import * as CONST from "./const.js";
-import { activateDeleteItem } from "./ui/overlayPanel/menu.js";
+import { runMenuAction } from "./ui/overlayPanel/menu.js";
 import type { LayerUI } from "./ui/surface.js";
 
 /** Keyboard shortcuts registered via InteractionManager. */
@@ -53,7 +53,9 @@ const handleMoreClick = (ui: LayerUI, event: Event): void => {
   ui.openMoreMenu(item);
 };
 
-/** Click handler for the overflow menu items (focus-layer action). */
+/** Click handler for the overflow menu items. The action itself is dispatched
+ *  by the menu's shared runner, so a click and a keyboard activation of the
+ *  same entry cannot diverge. */
 const handleMoreMenuClick = (ui: LayerUI, event: Event): void => {
   const target = event.target as HTMLElement;
   // Any click that is not on the open menu closes it — panel, map, another
@@ -65,38 +67,9 @@ const handleMoreMenuClick = (ui: LayerUI, event: Event): void => {
   }
   const menuItem = target.closest(`.foliplus-layer-more-menu li`) as HTMLElement | null;
   if (!menuItem) return;
-  const action = menuItem.dataset.action ?? "";
-  // Skip disabled items (hidden layer). Keep menu open so user sees why.
-  if (menuItem.getAttribute("disabled")) return;
-  if (action === CONST.ACTION.DELETE_LAYER) {
-    // Armed in place: the first click arms, the second one deletes. While armed
-    // the menu stays open so the confirming state is visible.
-    if (activateDeleteItem(ui, menuItem)) ui.closeMoreMenu(true);
-    return;
-  }
-  if (action === CONST.ACTION.FOCUS_LAYER) {
-    ui.focusLayer(ui.overlayPanel.activeMenu?.layerId ?? "");
-  }
-  if (action === CONST.ACTION.RENAME_LAYER) {
-    ui.renameLayer(ui.overlayPanel.activeMenu?.layerId ?? "");
-  }
-  if (action === CONST.ACTION.STYLE_LAYER) {
-    ui.openStylePanel(ui.overlayPanel.activeMenu?.layerId ?? "");
-  }
-  if (action === CONST.ACTION.FILTER_LAYER) {
-    ui.openFilterPanel(ui.overlayPanel.activeMenu?.item ?? menuItem);
-  }
-  // Attributes anchors to the menu's own row — the menu is the source of
-  // truth for which row owns it, and falling back to `menuItem` would anchor
-  // the panel to the menu's own <li> if the menu state were lost.
-  if (action === CONST.ACTION.ATTRS_LAYER) {
-    ui.openAttrsPanel(ui.overlayPanel.activeMenu?.item ?? menuItem);
-  }
-  // rename-layer keeps focus on the inline input, so do not return focus to
-  // the row (that blur would immediately commit the pre-edit value).
-  // Any other menu item (focus-layer, style-layer, or an unknown action)
-  // closes the menu and returns focus to the layer row.
-  ui.closeMoreMenu(action !== CONST.ACTION.RENAME_LAYER);
+  // A disabled entry keeps the menu open so the user sees why (its tooltip
+  // carries the reason); the shared runner applies that rule for both inputs.
+  runMenuAction(ui, menuItem);
 };
 
 export { registerInteractions, handleMoreClick, handleMoreMenuClick };

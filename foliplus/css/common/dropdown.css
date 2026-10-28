@@ -1,0 +1,190 @@
+@import "token.css";
+
+/* ══════════════════════════════════════════════════════════════════════
+  Shared select replacement (common/dropdown.ts)
+
+  The trigger keeps the native select skin — `.foliplus-form-select` in
+  common/form.css — so the closed state is the select the panels already
+  showed and no second visual recipe exists. This file owns only what a
+  floating popup adds: the wrapper, the popup anchor, the option rows and the
+  multi-select check slot. The popup's box (border, background, shadow,
+  entrance animation) is the shared floating-menu recipe in common/menu.css;
+  `.foliplus-dropdown-list` joins that shell list instead of restating it.
+  ══════════════════════════════════════════════════════════════════════ */
+
+/* ── Wrapper + trigger ──
+   The wrapper takes over the select's slot in the form cell (the select's
+   own hook classes move here, so width/flex rules such as
+   `.foliplus-classes-select` still size the control), and the trigger fills
+   it. Button UA defaults are reset to the select's own text box: same
+   padding box, left-aligned single line, ellipsis when the label is long. */
+.foliplus-dropdown {
+  position: relative;
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  /* A flex item's automatic minimum size is its min-content width, and the
+     trigger is a nowrap label: without this the wrapper refuses to shrink to
+     the form cell and pushes the whole inline group past the control column
+     when the label is long ("Natural Breaks" in en). It only lowers the floor;
+     the trigger still ellipsizes and the label already does. */
+  min-width: 0;
+}
+.foliplus-dropdown-trigger {
+  display: block;
+  width: 100%;
+  /* Form-control typography, not page typography: a native select keeps the
+     UA form font (it does not inherit the page font), so the trigger must do
+     the same or the closed states differ by a font substitution. Measured in
+     Chromium: a bare button and a select share family/size/weight; the button
+     lays its text out centered and the select starts, so only the alignment
+     needs stating. Line height is deliberately *not* declared: the panel's
+     line-height wins on the select (21px at --foliplus-font-size-md), and
+     forcing `normal` here made the trigger the one control in the row whose
+     text metrics differed. */
+  font-weight: normal;
+  text-align: start;
+  text-indent: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  appearance: none;
+}
+.foliplus-dropdown-label {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Nothing selected in a multi-select: the trigger carries the prompt in the
+   muted ink the empty panels use, not the value ink. */
+.foliplus-dropdown-placeholder {
+  color: var(--foliplus-text-muted);
+}
+
+/* The bridged native select stays mounted as the value/change bridge and is
+   out of the layout (the module also sets the `hidden` attribute; this keeps
+   it out if a consumer clears that attribute for its own test). */
+.foliplus-dropdown-native-host > select {
+  display: none;
+}
+
+/* Open: the trigger answers with the same accent border the shared
+   `:focus-visible` ring uses, so the control reads as active before the
+   popup has been pointed at. */
+.foliplus-dropdown-open > .foliplus-dropdown-trigger {
+  border-color: var(--foliplus-accent-primary);
+}
+
+/* ── Popup anchor ──
+   Anchored under the trigger (the shell adds the gap as its top margin).
+   `foliplus-dropdown-up` is the flip: the module adds it when the clip box
+   below the trigger cannot show two rows and there is more room above. */
+.foliplus-dropdown-list {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  padding: var(--foliplus-space-xs) 0;
+}
+.foliplus-dropdown-up > .foliplus-dropdown-list {
+  top: auto;
+  bottom: 100%;
+  margin-top: 0;
+  margin-bottom: var(--foliplus-space-xs);
+}
+
+/* ── Portalled popup ──
+   An *open* popup leaves the panel (see common/dropdown.ts): a panel that is
+   only one row tall, or one that scrolls, would otherwise clip it to a single
+   option row. The module pins it in viewport coordinates with inline styles,
+   so this block only drops the shell's in-flow gap — that gap is now part of
+   the module's own viewport offset. */
+.foliplus-dropdown-list.foliplus-dropdown-portal {
+  margin-top: 0;
+  margin-bottom: 0;
+  /* The popup is a body-level (or fullscreen-host) node with position: fixed.
+     Without a z-index it is painted in the auto band, so the panel that owns
+     the trigger — inside .leaflet-control, at --foliplus-z-index-floating —
+     covers it: measured with elementFromPoint, the heatmap panel's rows and
+     buttons answered for the popup's own centre. Same band as the scheme
+     picker's portal list, which documents the identical failure. */
+  z-index: var(--foliplus-z-index-hint);
+}
+
+/* ── Option row ──
+   A grid, not a plain text line: the multi-select check column is reserved on
+   every row so labels stay aligned while ticks appear and disappear. In
+   single-select mode the module renders no check slot and the row collapses
+   to its label (grid-template-columns only applies to the multi variant). */
+.foliplus-dropdown-option {
+  display: flex;
+  align-items: center;
+  gap: var(--foliplus-space-sm);
+  width: 100%;
+  padding: var(--foliplus-space-xs) var(--foliplus-space-md);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--foliplus-text-primary);
+  font-family: inherit;
+  font-size: var(--foliplus-font-size-md);
+  line-height: 1.5;
+  text-align: left;
+  cursor: pointer;
+  box-sizing: border-box;
+  transition: background-color var(--foliplus-transition-fast);
+}
+.foliplus-dropdown-option:hover:not([disabled]) {
+  background: var(--foliplus-accent-light);
+  color: var(--foliplus-accent-primary);
+}
+.foliplus-dropdown-option:not([disabled]):active {
+  background: var(--foliplus-accent-soft-bg);
+}
+.foliplus-dropdown-option[disabled] {
+  color: var(--foliplus-text-muted);
+  cursor: default;
+}
+/* Persistent selection: the soft accent wash (a picked value is state, not
+   hover), on top of which the hover rule above still answers. */
+.foliplus-dropdown-option[aria-selected="true"] {
+  background: var(--foliplus-accent-soft-bg);
+}
+.foliplus-dropdown-option:focus-visible {
+  outline: none;
+  box-shadow: var(--foliplus-focus-ring);
+  border-radius: var(--foliplus-radius-sm);
+}
+.foliplus-dropdown-option-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Multi-select check slot ──
+   Painted in CSS: a tick is two borders rotated 45°, so the shared dropdown
+   needs no icon import and the tick inherits the row's accent ink. */
+.foliplus-dropdown-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--foliplus-size-16);
+  height: var(--foliplus-size-16);
+  flex: 0 0 auto;
+  visibility: hidden;
+}
+.foliplus-dropdown-option[aria-selected="true"] .foliplus-dropdown-check {
+  visibility: visible;
+}
+.foliplus-dropdown-check::before {
+  content: "";
+  width: var(--foliplus-size-4);
+  height: var(--foliplus-size-8);
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg) translate(-1px, -1px);
+}

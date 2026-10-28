@@ -98,9 +98,24 @@ const setPseudoFullscreen = (container: HTMLElement, active: boolean): void => {
   announceFullscreenSurface();
 };
 
+/** The popup-host contract common/dropdown takes: resolve the covering surface
+ *  for *scope*, and subscribe to its changes. Consumers pass the result as the
+ *  dropdown's `surface`, so a portalled list follows the same contract the
+ *  slider bubble and hint toasts use instead of re-deriving it. */
+const dropdownSurface = (
+  scope: Element | null,
+): {
+  resolveHost: () => HTMLElement;
+  onSurfaceChange: (listener: SurfaceListener) => () => void;
+} => ({
+  resolveHost: () => fullscreenSurface(scope),
+  onSurfaceChange: onFullscreenSurfaceChange,
+});
+
 export {
   PSEUDO_FULLSCREEN_CLASS,
   announceFullscreenSurface,
+  dropdownSurface,
   fullscreenSurface,
   onFullscreenSurfaceChange,
   setPseudoFullscreen,

@@ -9,7 +9,7 @@ import * as CONST from "#foliplus/LayerControl/const.js";
 import { SCHEME_PICKER_PORTAL_SELECTOR } from "#common/schemePicker.js";
 import { inFloatingPanel } from "../context.js";
 import { showFocusDisabledHint, toggleFocusedLayer } from "../focus/index.js";
-import { activateDeleteItem } from "../overlayPanel/menu.js";
+import { runMenuAction } from "../overlayPanel/menu.js";
 import type { LayerUI } from "../surface.js";
 import {
   blurActiveItem,
@@ -54,9 +54,15 @@ const handleOutsideMousedown = (ui: LayerUI, event: MouseEvent): void => {
   // map alike. One surface per press — the overflow menu keeps its own
   // click-delegated close in interaction.ts, and Escape pops the menu before
   // the panels.
+  // Ownership, not global membership: this control's drawer is the scope, so a
+  // portalled list mounted for *its* trigger counts as inside it and a list
+  // mounted for another surface does not. The element comes off the overlay
+  // panel's own state — a document-wide query would pick the first drawer on a
+  // page with two maps, which is the multi-instance form of the same bug.
+  const stylePanel = ui.overlayPanel.stylePanelEl;
   const inStyleOverlay =
     !!target.closest(`.${CONST.CLASSES.STYLE_PANEL}`) ||
-    isInsideOverlay(target, null, SCHEME_PICKER_PORTAL_SELECTOR);
+    isInsideOverlay(target, stylePanel, SCHEME_PICKER_PORTAL_SELECTOR);
   if (!target.closest(`.${CONST.CLASSES.ATTRS_PANEL}`)) ui.closeAttrsPanel(false);
   if (!inStyleOverlay) ui.closeStylePanel(false);
   // The portalled list floats over the map, like the drawer itself: a press
@@ -218,7 +224,13 @@ const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
         const row = (document.activeElement as HTMLElement).closest(
           CONST.SEL.TOGGLE_ALL,
         ) as HTMLElement | null;
-        if (row) toggleFold(ui, row.dataset.role ?? "");
+        if (row) {
+          // Every toggle-all row is rendered with data-role (list.ts writes it
+          // unconditionally, empty role included), so the empty fallback only
+          // serves a row built by hand without the attribute.
+          /* v8 ignore next -- the renderer always writes data-role on this row */
+          toggleFold(ui, row.dataset.role ?? "");
+        }
         break;
       }
       // Menu item (li) is focused — trigger the focus-layer action.
@@ -229,31 +241,11 @@ const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
       if (menuLi && ui.overlayPanel.activeMenu) {
         event.preventDefault();
         event.stopPropagation();
-        const action = menuLi.getAttribute("data-action") ?? "";
-        if (menuLi.getAttribute("disabled")) {
-          // The entry's own title carries the reason (no useful extent, hidden
-          // row, no labelable fields, color basemap cannot be deleted), so it
-          // is the hint too — a fixed "cannot focus" string would be wrong for
-          // every disabled entry but focus. Every menu builder sets a title, so
-          // an entry without one has nothing to say.
-          const reason = menuLi.getAttribute("title");
-          if (reason) {
-            ui.c.map.foliplus!.showHint(ui.config.name, reason, HINT_DURATION.SHORT);
-          }
-          break;
-        }
-        if (action === CONST.ACTION.DELETE_LAYER) {
-          // Armed in place like the click path: the first Enter arms, the
-          // second deletes. While armed the menu stays open.
-          if (activateDeleteItem(ui, menuLi)) ui.closeMoreMenu(true);
-          break;
-        }
-        if (action === CONST.ACTION.RENAME_LAYER) {
-          ui.renameLayer(ui.overlayPanel.activeMenu.layerId);
-        } else {
-          ui.focusLayer(ui.overlayPanel.activeMenu.layerId);
-          ui.closeMoreMenu(true);
-        }
+        // One shared dispatch table for click and keyboard: the entry's own
+        // action runs, never a fallback to focus-layer. A disabled entry keeps
+        // the menu open and surfaces its title as a hint (a keyboard user gets
+        // no tooltip hover).
+        runMenuAction(ui, menuLi, { explainDisabled: true });
         break;
       }
       event.preventDefault();

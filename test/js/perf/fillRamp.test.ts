@@ -94,6 +94,17 @@ const ui = {
     findLayer: () => layer,
   },
   intentStore: { get: (_id: string, key: string) => intents[key] },
+  // The paint path resolves a stored ramp field against the layer's numeric
+  // fields (the shared display/paint rule). The real LayerUI caches that list
+  // on the runtime store; this fixture feeds the same one-entry answer so the
+  // benchmark still measures the apply walk, not a field scan.
+  runtimeStore: {
+    getFields: () => [{ name: "value", numeric: true }],
+    setFields: () => {},
+    deleteFields: () => {},
+    deleteSnapshot: () => {},
+  },
+  annotation: { collectFields: () => [], invalidateResolvedField: () => {} },
 } as any;
 
 /** Clear every leaf's spies between ticks so the call history cannot grow

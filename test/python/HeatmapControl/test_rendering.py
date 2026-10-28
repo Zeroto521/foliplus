@@ -35,10 +35,15 @@ class TestHeatmapControlRendering:
         html = render_control(HeatmapControl(locale="zh"))
         assert_locale(html, "网格聚合")
 
-    def test_field_kwarg_removed(self):
-        """field kwarg is no longer accepted — it was a dead declaration."""
-        with pytest.raises(TypeError):
-            HeatmapControl(field="value")
+    def test_field_kwarg_is_an_aggregation_declaration(self):
+        """`field` is a live aggregation declaration again.
+
+        It used to be a dead runtime-only name and was removed as such; it now
+        selects the initial aggregation field, so the constructor accepts it and
+        CONFIG carries it for the JS startup path.
+        """
+        html = render_control(HeatmapControl(field="score"))
+        assert '"field": "score"' in html
 
     def test_scheme_names_inline(self):
         """schemes list is inlined as JSON array."""

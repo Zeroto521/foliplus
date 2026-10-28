@@ -2,11 +2,17 @@
 // All internal refs use direct function calls instead of `this.`.
 import { CLASS_COUNT, type ClassifyMethod, isClassifyMethod } from "#core/classify.js";
 import { EVENTS, ensureEvents, publish } from "#core/event/index.js";
+import {
+  dropdownSurface,
+  fullscreenSurface,
+  onFullscreenSurfaceChange,
+} from "#core/fullscreen.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { adjustPanelZIndex } from "#core/leaflet/index.js";
 import { safeColorScale } from "#core/palette.js";
 import { buildClassesRow, buildFieldRow, buildSchemeRow } from "#core/rampForm.js";
 import { dom } from "#common/dom.js";
+import { createDropdown, dropdownOf } from "#common/dropdown.js";
 import { type SchemePicker, createSchemePicker } from "#common/schemePicker.js";
 import * as CONST from "./const.js";
 import { type HeatmapManager } from "./manager.js";
@@ -93,6 +99,22 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
   ctrl.aggSelect = panelContent.querySelector(
     `[${CONST.DATA_ATTR.AGG}]`,
   ) as HTMLSelectElement;
+  // Both template selects keep their markup and stay the value/change bridge;
+  // the visible controls are the shared dropdowns (common/dropdown.ts).
+  // Every popup follows the surface covering its trigger (native fullscreen or
+  // this control's pseudo-fullscreen fallback), so the list is never parked
+  // under the opaque map.
+  const surface = dropdownSurface(ctrl.mgr.map.getContainer());
+  createDropdown({
+    nativeSelect: ctrl.layerSelect,
+    ariaLabel: ctrl.T("layer"),
+    ...surface,
+  });
+  createDropdown({
+    nativeSelect: ctrl.aggSelect,
+    ariaLabel: ctrl.T("agg_method"),
+    ...surface,
+  });
   // Field / Classes / Scheme are shared row primitives (core/rampForm),
   // mounted into the template's placeholder. The rows keep the heatmap's
   // data-* seams and classes; only the structure is shared with LayerControl.
@@ -107,6 +129,7 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     rowClass: "foliplus-heatmap-field foliplus-hidden",
     rowAttributes: { [CONST.DATA_ATTR.FIELD]: "" },
     selectAttributes: { [CONST.DATA_ATTR.FIELD_SELECT]: "" },
+    surface,
   });
   // The row has one visible label but two selects: give each its own
   // accessible name so a screen reader does not announce "Classes" twice.
@@ -121,6 +144,7 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     classesClass: "foliplus-heatmap-class-select",
     methodAttributes: { [CONST.DATA_ATTR.METHOD]: "" },
     classesAttributes: { [CONST.DATA_ATTR.CLASS_COUNT]: "" },
+    surface,
   });
   const schemeRow = buildSchemeRow({
     label: ctrl.T("scheme"),
@@ -145,6 +169,12 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
   );
   ctrl.methodSelect.value = ctrl.mgr.method;
   ctrl.aggSelect.value = ctrl.mgr.agg;
+  // The three writes above bypass syncSelect (they run before the rows'
+  // listeners exist): re-read the bridged dropdowns once so the closed
+  // triggers show the restored values.
+  dropdownOf(ctrl.classSelect)?.refresh();
+  dropdownOf(ctrl.methodSelect)?.refresh();
+  dropdownOf(ctrl.aggSelect)?.refresh();
 
   // Populate scheme options and set current value. The scheme is clamped
   // first: a restored value can name a palette this render does not offer.
@@ -161,7 +191,13 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     schemes: ctrl.config.schemes ?? [],
     value: ctrl.mgr.scheme,
     numClasses: ctrl.mgr.numClasses,
-    portal: false,
+    // Portalled like the style drawer's picker: the shared placement decision
+    // (flip above a trigger near the viewport bottom) lives in the portal path,
+    // and the injected host contract keeps the list above the surface that
+    // covers the trigger — native fullscreen or the pseudo fallback.
+    portal: true,
+    resolveHost: () => fullscreenSurface(ctrl.mgr.map.getContainer()),
+    onSurfaceChange: onFullscreenSurfaceChange,
     colorScale: safeColorScale,
     // The picker has no locale table: the panel's translator names the trigger.
     label: ctrl.T("scheme"),
@@ -217,6 +253,11 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
 
   ctrl.fieldSelect.onchange = () => {
     ctrl.mgr.field = ctrl.fieldSelect.value;
+    // Drop the memo with the write: the reads below resolve through
+    // effectiveField(), and a memo left over the previous column makes both
+    // render caches (points + agg, keyed on that field) hit — the canvas
+    // keeps the old colouring until some later repaint.
+    ctrl.mgr.invalidateEffectiveField();
     syncSelect(ctrl, ctrl.fieldSelect, ctrl.fieldSelect.value);
     // The filter field is the aggregation field (read-only in the panel): a
     // field change drops a filter bound to the old field and repaints the
@@ -296,6 +337,13 @@ const setupObserver = (ctrl: HeatmapControlUI) => {
     }
     if (ctrl.ctrl.classList.contains(CONST.CLASSES.COLLAPSED)) {
       ctrl.expandHookDone = false;
+      // The scheme list is portalled to the map surface (not into the panel),
+      // so collapsing the panel does not hide it: the header, the close button
+      // and the clear button all collapse through this class, and each would
+      // leave the list floating over the map. Close it here — the same
+      // observation that resets the expand hook, so no extra listener exists
+      // for it and every collapse path is covered at once.
+      ctrl.schemePicker?.close({ restoreFocus: false });
     }
   });
   ctrl.observer.observe(ctrl.ctrl, { attributes: true });
@@ -320,6 +368,15 @@ const buildLayerListItems = (ctrl: HeatmapControlUI, sel: HTMLSelectElement) => 
     dom.el("option", { value: info.id, parent: sel }, info.name);
   });
 
+  // Python declaration: `HeatmapControl(layer=...)` names the point layer to
+  // start on. resolveDeclaredLayer answers null once a persisted record has
+  // consumed the hasScanned guard, so the user's earlier choice (or explicit
+  // clear) wins over the declaration.
+  if (!ctrl.mgr.selectedLayerId) {
+    const declaredId = ctrl.mgr.resolveDeclaredLayer();
+    if (declaredId) ctrl.mgr.selectedLayerId = declaredId;
+  }
+
   // Auto-select a single point layer only on the very first scan, so the
   // initial map load shows its heatmap without user input.  Rebuilds
   // triggered later (zoomend, layeradd/layerremove, map reload) must not
@@ -338,6 +395,14 @@ const buildLayerListItems = (ctrl: HeatmapControlUI, sel: HTMLSelectElement) => 
     // Restored selection (localStorage / rebuild): resolve and persist the
     // field first so syncSourceMeta reads a concrete name.
     updateFieldSelector(ctrl);
+    // A rebuild can be the only thing that re-applies a selection after the
+    // canvas was wiped — Clear deletes the record, then reopening the panel
+    // rebuilds the dropdown and the Python declaration selects the layer
+    // again. The selection alone is not enough: without a cache the panel
+    // would claim a source while the map stayed empty until the user nudged
+    // a control, so draw once here (initScan's own restore pass then sees the
+    // cache and skips its duplicate draw).
+    if (!ctrl.mgr.cachedFeatures) ctrl.mgr.renderHexagons();
   }
 
   // Selection (automatic, restored, or user) and field resolution are settled
@@ -382,8 +447,11 @@ const setValueAggregationsEnabled = (ctrl: HeatmapControlUI, enabled: boolean) =
   for (const opt of ctrl.aggSelect.options) {
     opt.disabled = !enabled && opt.value !== CONST.AGG.COUNT;
   }
-  if (enabled) ctrl.aggSelect.removeAttribute("title");
-  else ctrl.aggSelect.title = ctrl.T("needs_numeric_field");
+  // The explanation belongs on the visible control: the select itself is
+  // hidden behind the dropdown, so a tooltip set there would never show. The
+  // hint is a dropdown-level state so the label renderer cannot overwrite it
+  // on the next refresh.
+  dropdownOf(ctrl.aggSelect)?.setHint(enabled ? "" : ctrl.T("needs_numeric_field"));
 };
 
 const updateFieldSelector = (ctrl: HeatmapControlUI) => {
@@ -393,6 +461,12 @@ const updateFieldSelector = (ctrl: HeatmapControlUI) => {
     info => info.id === ctrl.mgr.selectedLayerId,
   );
   const fields = ctrl.mgr.collectFields(selected);
+  // Hand the scan's field list to the manager and let it resolve the effective
+  // field once. The row renders that value and every other reader
+  // (getPointValue, the filter model, the render key) answers from the same
+  // cached resolution — the panel and the map cannot disagree, and nothing
+  // here writes the resolution back into the manager or the record.
+  const effective = ctrl.mgr.setAvailableFields(fields);
 
   // No numeric field: SUM/AVG/MIN/MAX have nothing to weigh by. Disable the
   // options, explain why, AND move the value itself to COUNT — one value for
@@ -402,7 +476,13 @@ const updateFieldSelector = (ctrl: HeatmapControlUI) => {
   // still aggregates by the stale value — every cell then falls back to 1.
   if (fields.length === 0) {
     setValueAggregationsEnabled(ctrl, false);
-    if (ctrl.mgr.agg !== CONST.AGG.COUNT) {
+    // Only a SELECTED source can prove it has no numeric field. Before the
+    // first scan (no layer yet) the field list is empty for a different
+    // reason, and rewriting the aggregation here would (a) discard the
+    // Python-declared agg before its layer is known and (b) persist an
+    // empty-selection record that consumes the hasScanned guard — so the
+    // next reload would skip the declaration entirely.
+    if (ctrl.mgr.selectedLayerId && ctrl.mgr.agg !== CONST.AGG.COUNT) {
       ctrl.mgr.agg = CONST.AGG.COUNT;
       syncSelect(ctrl, ctrl.aggSelect, CONST.AGG.COUNT);
       ctrl.mgr.saveConfig();
@@ -414,29 +494,28 @@ const updateFieldSelector = (ctrl: HeatmapControlUI) => {
 
   setValueAggregationsEnabled(ctrl, true);
 
+  // The Python declaration (`HeatmapControl(field=...)`) and the first-numeric
+  // guess are both folded into `effective` by the manager: the user's stored
+  // pick wins while the data offers it, then the declaration, then the first
+  // field. Neither default is written to `mgr.field` or to the record — the
+  // record only ever holds a field the user picked, so a data-derived default
+  // can never outlive the data that produced it.
   if (ctrl.mgr.agg === CONST.AGG.COUNT) {
     // COUNT needs no field; the row appears once a value aggregation is picked.
-    // Keep the hidden select on a valid option rather than the empty string.
-    rebuildFieldOptions(ctrl, fields, fields[0]);
+    // Keep the hidden select on a valid option rather than the empty string —
+    // the effective field stays selected so switching aggregation keeps it.
+    rebuildFieldOptions(ctrl, fields, effective);
     ctrl.fieldWrap.classList.add(CONST.CLASSES.HIDDEN);
     return;
   }
   ctrl.fieldWrap.classList.remove(CONST.CLASSES.HIDDEN);
 
-  // A stored field that no longer exists remaps to the first numeric field.
-  // "" means "never picked" (fresh config / legacy record / Reset): it is
-  // resolved here and written back, so `field` is a concrete name from then on
-  // — the row no longer needs an "Auto" state to explain itself. Only remap
-  // when a candidate list exists, so a momentarily empty scan does not destroy
-  // the user's choice.
-  const resolved = fields.includes(ctrl.mgr.field) ? ctrl.mgr.field : fields[0];
-  if (resolved !== ctrl.mgr.field) {
-    ctrl.mgr.field = resolved;
-    ctrl.mgr.saveConfig();
-  }
-
-  rebuildFieldOptions(ctrl, fields, resolved);
-  syncSelect(ctrl, ctrl.fieldSelect, resolved);
+  // A stored field the data no longer offers displays the fallback (declaration
+  // or first numeric field) while the stored pick stays untouched in the
+  // manager and the record: it is the user's intent, and it comes back when
+  // the data does.
+  rebuildFieldOptions(ctrl, fields, effective);
+  syncSelect(ctrl, ctrl.fieldSelect, effective);
 };
 
 /** Rebuild the field <option>s in place: the row element and its bound
@@ -452,6 +531,9 @@ const rebuildFieldOptions = (
     dom.el("option", { value: f, parent: ctrl.fieldSelect }, f);
   });
   ctrl.fieldSelect.value = value;
+  // The option list was replaced wholesale, so the dropdown has to re-read it
+  // even when the value itself did not move.
+  dropdownOf(ctrl.fieldSelect)?.refresh();
 };
 
 /**
@@ -562,13 +644,11 @@ const resetPanel = (ctrl: HeatmapControlUI) => {
 const syncSelect = (ctrl: HeatmapControlUI, el: HTMLSelectElement, value: string) => {
   el.value = value;
   el.classList.toggle(CONST.CLASSES.CLASS_PLACEHOLDER, !value);
+  // A property write fires no change event: the dropdown's closed trigger has
+  // to be re-read here, which is also why every programmatic value write in
+  // this module goes through syncSelect.
+  dropdownOf(el)?.refresh();
 };
 
-export {
-  type HeatmapControlUI,
-  bindControls,
-  initScan,
-  rebuildLayerDropdown,
-  resetPanel,
-  setupObserver,
-};
+export { bindControls, initScan, rebuildLayerDropdown, resetPanel, setupObserver };
+export type { HeatmapControlUI };

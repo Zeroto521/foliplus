@@ -114,6 +114,14 @@ const isEditableEl = (el: Element): boolean => {
  *  claiming one is the bug this module exists to stop. */
 const nativeClass = (el: Element | null): NativeClass => {
   if (!el) return "none";
+  // A combobox trigger *is* the migrated <select>: the shared dropdown and the
+  // scheme picker put the select's role on a <button aria-haspopup="listbox">,
+  // so the trigger must own everything the select owned (arrows, Home/End,
+  // Enter, Space) or a left/right press on the closed control bubbles into the
+  // panel's own shortcuts — the LayerControl container handler would toggle a
+  // layer's visibility from a keypress meant for the select. Tag-independent on
+  // purpose: the popup's own rows are [role=option] and stay "activate".
+  if (el.getAttribute("aria-haspopup") === "listbox") return "select";
   const tag = el.tagName.toLowerCase();
   if (tag === "textarea") return "edit";
   if (tag === "select") return "select";

@@ -413,7 +413,7 @@ class LayerController implements LayerAPI {
     };
     this.map.on("layerremove", this.onLayerRemove);
     // The annotation manager plans each layer's labels on that layer's own
-    // label pane — which is a declared `role: "annotation"` PaneSpec of the
+    // label pane — which is a declared `role: "label"` PaneSpec of the
     // layer's surface (see `withAnnotationSpec`), created and z-priced with
     // the rest of the face. The manager only mounts canvases into it; there
     // is no pane hook and no stored-intent replay to wire — the pane exists
@@ -774,14 +774,16 @@ class LayerController implements LayerAPI {
   }
 
   /**
-   * Extract all point markers from a registered layer by id.
+   * Read-only traversal of a registered layer's point markers — the lazy twin
+   * of {@link extractPoints}: same filter (label-aware leaves skipped, markers
+   * and circle markers carrying a feature only, de-duplicated by Leaflet
+   * stamp), but no per-point `{lat, lng, marker}` allocation and no
+   * `getLatLng` call. Callers that only need the marker (field scans, snapshot
+   * probes) use this; `extractPoints` stays for callers that need coordinates.
    * @param {string} id - Layer ID.
+   * @param {(marker: L.Marker | L.CircleMarker) => void} fn - Per-marker callback.
    */
-  extractPoints(
-    id: string,
-  ): Array<{ lat: number; lng: number; marker: L.Marker | L.CircleMarker }> {
-    const pts: Array<{ lat: number; lng: number; marker: L.Marker | L.CircleMarker }> =
-      [];
+  forEachPoint(id: string, fn: (marker: L.Marker | L.CircleMarker) => void): void {
     const seen = new Set();
     this.forEachLeaf(id, (l: L.Layer) => {
       if ((l as LabelAwareLayer).isLabel) return;
@@ -790,8 +792,22 @@ class LayerController implements LayerAPI {
       const stamp = L.stamp(l);
       if (seen.has(stamp)) return;
       seen.add(stamp);
-      const ll = l.getLatLng();
-      pts.push({ lat: ll.lat, lng: ll.lng, marker: l });
+      fn(l);
+    });
+  }
+
+  /**
+   * Extract all point markers from a registered layer by id.
+   * @param {string} id - Layer ID.
+   */
+  extractPoints(
+    id: string,
+  ): Array<{ lat: number; lng: number; marker: L.Marker | L.CircleMarker }> {
+    const pts: Array<{ lat: number; lng: number; marker: L.Marker | L.CircleMarker }> =
+      [];
+    this.forEachPoint(id, marker => {
+      const ll = marker.getLatLng();
+      pts.push({ lat: ll.lat, lng: ll.lng, marker });
     });
     return pts;
   }
@@ -905,7 +921,7 @@ class LayerController implements LayerAPI {
         operation.emit(EVENTS.LAYER_ITEM_ADDED, { id: opts.id });
       } else {
         // Re-registration is how the API says "this layer's content changed",
-        // so the row's cached field list and resolved auto field are both stale.
+        // so the row's cached field list and resolved field are both stale.
         operation.emit(EVENTS.LAYER_ITEM_UPDATED, { id: opts.id });
       }
       // The row insert/update above is this registration's first fan-out: a

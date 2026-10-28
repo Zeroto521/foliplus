@@ -431,6 +431,16 @@ describe("selectIndices / filtersEqual / dropStaleFilter", () => {
     expect(dropStaleFilter(atom, "d")).toBeUndefined();
     const tree = { kind: "and" as const, children: [] };
     expect(dropStaleFilter(tree, "d")).toBe(tree);
+    // An enum leaf is bound to its dimension field exactly like a range atom:
+    // a different effective field must drop it instead of keeping a filter
+    // that no longer names a dimension the owner exposes.
+    const enumLeaf = {
+      kind: "enum" as const,
+      field: "type",
+      values: ["a"] as const,
+    };
+    expect(dropStaleFilter(enumLeaf, "type")).toBe(enumLeaf);
+    expect(dropStaleFilter(enumLeaf, "other")).toBeUndefined();
     expect(dropStaleFilter(undefined, "c")).toBeUndefined();
   });
 });

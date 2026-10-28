@@ -14,6 +14,7 @@ import {
   resetPanel,
   setupObserver,
 } from "#foliplus/HeatmapControl/ui.js";
+import { dropdownOf } from "#common/dropdown.js";
 import { makeConfig, makeCtrl, makeManager } from "./fixture.js";
 
 /** Bind a control against the real panel template and return the pieces. */
@@ -27,6 +28,11 @@ function setup(config: ComponentConfig = makeConfig()) {
 
 const fire = (el: HTMLElement, type: string) =>
   el.dispatchEvent(new Event(type, { bubbles: true }));
+
+/** The visible control of a bridged panel select: the shared dropdown trigger.
+ *  Accessible names and tooltips live there; the select itself is hidden. */
+const triggerOf = (select: HTMLSelectElement): HTMLButtonElement =>
+  dropdownOf(select)!.trigger;
 
 afterEach(() => {
   delete globalThis.h3;
@@ -69,22 +75,55 @@ describe("bindControls — template render and initial values", () => {
     expect(ctrl.schemeSelectHidden.value).toBe(m.scheme);
   });
 
-  it("falls back to count before a source layer is selected", () => {
+  it("keeps the aggregation before a source layer is selected", () => {
+    // No source yet means the field list is empty for an unknown reason, not
+    // because the layer lacks numbers. Rewriting the aggregation here would
+    // discard a declared agg before its layer is scanned, and persisting the
+    // empty selection would consume the hasScanned guard — the next reload
+    // would then skip the Python declaration entirely.
     const config = makeConfig({ agg: "sum" });
     const m = makeManager({ agg: "sum" });
     const ctrl = makeCtrl(m, config);
     bindControls(ctrl, document.createElement("div"));
 
-    expect(m.agg).toBe(CONST.AGG.COUNT);
-    expect(ctrl.aggSelect.value).toBe(CONST.AGG.COUNT);
+    expect(m.agg).toBe(CONST.AGG.SUM);
+    expect(ctrl.aggSelect.value).toBe(CONST.AGG.SUM);
     expect(
       [...ctrl.aggSelect.options].filter(o => o.disabled).map(o => o.value),
     ).toEqual(["sum", "avg", "min", "max"]);
-    expect(ctrl.aggSelect.title).toBe("Needs a numeric field to aggregate by value");
-    expect(ctrl.fieldWrap.classList.contains(CONST.CLASSES.HIDDEN)).toBe(true);
-    expect(JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!).agg).toBe(
-      "count",
+    expect(triggerOf(ctrl.aggSelect).title).toBe(
+      "Needs a numeric field to aggregate by value",
     );
+    expect(ctrl.fieldWrap.classList.contains(CONST.CLASSES.HIDDEN)).toBe(true);
+    // Nothing is written: a first open with a declaration must stay record-free.
+    expect(window.localStorage.getItem(CONST.STORAGE.KEY)).toBeNull();
+  });
+
+  it("keeps a declared aggregation through the first scan", () => {
+    // The rebuild re-scans; pin the scan so the seeded layers stay put.
+    vi.spyOn(HeatmapManager.prototype, "scanMapLayers").mockImplementation(() => {});
+    const config = makeConfig({ layer: "Points 1", field: "score", agg: "sum" });
+    const m = makeManager({ layer: "Points 1", field: "score", agg: "sum" });
+    const ctrl = makeCtrl(m, config);
+    bindControls(ctrl, document.createElement("div"));
+    // bindControls' pre-scan pass must not downgrade the declared agg.
+    expect(m.agg).toBe(CONST.AGG.SUM);
+
+    m.pointLayers = [{ id: "p1", name: "Points 1", layer: null, count: 1 }];
+    window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
+      { lat: 1, lng: 2, marker: { feature: { properties: { score: 5 } } } },
+    ]);
+    rebuildLayerDropdown(ctrl);
+
+    expect(m.selectedLayerId).toBe("p1");
+    expect(m.agg).toBe(CONST.AGG.SUM);
+    // The declaration is a read-time default: shown and rendered, never
+    // written into the user's field or the record.
+    expect(m.field).toBe("");
+    expect(m.effectiveField()).toBe("score");
+    expect(ctrl.aggSelect.value).toBe(CONST.AGG.SUM);
+    expect(ctrl.fieldSelect.value).toBe("score");
+    expect(window.localStorage.getItem(CONST.STORAGE.KEY)).toBeNull();
   });
 
   it("labels the method + classes row by method, with two distinct names", () => {
@@ -107,9 +146,9 @@ describe("bindControls — template render and initial values", () => {
       .querySelector(".foliplus-form-label");
 
     expect(label?.textContent).toBe("Method");
-    expect(ctrl.methodSelect.getAttribute("aria-label")).toBe("Method");
-    expect(ctrl.classSelect.getAttribute("aria-label")).toBe("Classes");
-    expect(ctrl.methodSelect.getAttribute("aria-label")).not.toBe(
+    expect(triggerOf(ctrl.methodSelect).getAttribute("aria-label")).toBe("Method");
+    expect(triggerOf(ctrl.classSelect).getAttribute("aria-label")).toBe("Classes");
+    expect(triggerOf(ctrl.methodSelect).getAttribute("aria-label")).not.toBe(
       ctrl.classSelect.getAttribute("aria-label"),
     );
   });
@@ -131,9 +170,9 @@ describe("bindControls — template render and initial values", () => {
       .querySelector(".foliplus-form-label");
 
     expect(label?.textContent).toBe("分类方法");
-    expect(ctrl.methodSelect.getAttribute("aria-label")).toBe("分类方法");
-    expect(ctrl.classSelect.getAttribute("aria-label")).toBe("分级数");
-    expect(ctrl.methodSelect.getAttribute("aria-label")).not.toBe(
+    expect(triggerOf(ctrl.methodSelect).getAttribute("aria-label")).toBe("分类方法");
+    expect(triggerOf(ctrl.classSelect).getAttribute("aria-label")).toBe("分级数");
+    expect(triggerOf(ctrl.methodSelect).getAttribute("aria-label")).not.toBe(
       ctrl.classSelect.getAttribute("aria-label"),
     );
   });
@@ -192,8 +231,10 @@ describe("bindControls — change handlers", () => {
     ]);
     ctrl.aggSelect.value = CONST.AGG.SUM;
     fire(ctrl.aggSelect, "change");
-    // A fresh layer resolves the first numeric field and writes it back.
-    expect(m.field).toBe("sales");
+    // A fresh layer resolves the first numeric field for DISPLAY only: the
+    // guess is not the user's pick, so the manager and the record stay empty.
+    expect(m.field).toBe("");
+    expect(m.effectiveField()).toBe("sales");
     expect(ctrl.fieldSelect.value).toBe("sales");
 
     const save = vi.spyOn(m, "saveConfig");
@@ -203,6 +244,32 @@ describe("bindControls — change handlers", () => {
     expect(m.field).toBe("price");
     expect(render).toHaveBeenCalled();
     expect(save).toHaveBeenCalled();
+  });
+
+  it("field change repaints from the new column, not the cached one", () => {
+    const { ctrl, m } = setup();
+    m.pointLayers = [{ id: "p1", name: "P1", layer: {}, count: 1 }];
+    m.selectedLayerId = "p1";
+    window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
+      {
+        lat: 1,
+        lng: 2,
+        marker: { feature: { properties: { sales: 5, price: 10 } } },
+      },
+    ]);
+    ctrl.aggSelect.value = CONST.AGG.SUM;
+    fire(ctrl.aggSelect, "change");
+    expect(m.cachedPoints?.pts[0]?.value).toBe(5);
+
+    ctrl.fieldSelect.value = "price";
+    fire(ctrl.fieldSelect, "change");
+
+    // Both render caches are keyed on the effective field, so a memo left
+    // over the write would hit the old key and keep the old values. Assert
+    // the values themselves — "a render ran" is what let the regression in.
+    expect(m.cachedPoints?.key).toContain("price");
+    expect(m.cachedPoints?.pts[0]?.value).toBe(10);
+    expect(m.cachedAgg?.key).toContain("|price|");
   });
 
   it("method change updates the manager and persists", () => {
@@ -396,23 +463,23 @@ describe("resetPanel — shared reset (Clear button + more-menu clear)", () => {
     expect(ctrl.extraBody.classList.contains(CONST.CLASSES.HIDDEN)).toBe(true);
   });
 
-  it("falls back to count through a reset with no numeric field", () => {
-    // The reset restores the author's default, but with no layer selected
-    // there is nothing to aggregate by value; display, render and storage all
-    // settle on count.
+  it("keeps the CONFIG aggregation through a reset with no numeric field", () => {
+    // The reset restores the author's default. With no layer selected there is
+    // nothing to prove the default unusable, so it is kept (and nothing is
+    // written): only a SELECTED layer without numeric fields falls back to count.
     const { ctrl, m } = setup(makeConfig({ agg: "sum" }));
 
     resetPanel(ctrl);
 
-    expect(m.agg).toBe(CONST.AGG.COUNT);
-    expect(ctrl.aggSelect.value).toBe(CONST.AGG.COUNT);
+    expect(m.agg).toBe(CONST.AGG.SUM);
+    expect(ctrl.aggSelect.value).toBe(CONST.AGG.SUM);
     expect(
       [...ctrl.aggSelect.options].filter(o => o.disabled).map(o => o.value),
     ).toEqual(["sum", "avg", "min", "max"]);
-    expect(ctrl.aggSelect.title).toBe("Needs a numeric field to aggregate by value");
-    expect(JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!).agg).toBe(
-      "count",
+    expect(triggerOf(ctrl.aggSelect).title).toBe(
+      "Needs a numeric field to aggregate by value",
     );
+    expect(window.localStorage.getItem(CONST.STORAGE.KEY)).toBeNull();
   });
 
   it("leaves the panel open and the persisted record alone", () => {
@@ -437,6 +504,19 @@ describe("bindControls — scheme dropdown", () => {
     expect(ctrl.schemeDropdown).not.toBeNull();
     expect(ctrl.schemeDropdown!.children.length).toBe(3);
     expect(ctrl.schemeBar.classList.contains(CONST.CLASSES.SCHEME_BAR_OPEN)).toBe(true);
+  });
+
+  it("portals the dropdown to the document host", () => {
+    // The style drawer's picker already ports its list: the shared placement
+    // decision (flip above a trigger near the viewport bottom) lives there, and
+    // the panel's scroll box would otherwise clip an inline list. Both
+    // consumers must mount the same way or their flip behaviour splits again.
+    const { ctrl } = setup();
+    ctrl.schemeBar.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(
+      ctrl.schemeDropdown!.classList.contains("foliplus-scheme-picker-portal"),
+    ).toBe(true);
+    expect(ctrl.schemeDropdown!.parentElement).toBe(document.body);
   });
 
   it("clicking the scheme bar again closes the dropdown", () => {
@@ -521,6 +601,53 @@ describe("bindControls — scheme dropdown", () => {
 
     expect(ctrl.schemeDropdown).toBeNull();
     expect(ctrl.schemeBar.getAttribute("aria-expanded")).toBe("false");
+  });
+
+  it("closes the portalled dropdown when the panel collapses", async () => {
+    const { ctrl } = setup();
+    document.body.appendChild(ctrl.ctrl);
+    setupObserver(ctrl);
+    ctrl.ctrl.classList.add(CONST.CLASSES.EXPANDED);
+    ctrl.schemeBar.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(ctrl.schemeDropdown).not.toBeNull();
+
+    // The header and the close button collapse through this class change; the
+    // portalled list is not inside the panel, so nothing else would remove it.
+    ctrl.ctrl.classList.remove(CONST.CLASSES.EXPANDED);
+    ctrl.ctrl.classList.add(CONST.CLASSES.COLLAPSED);
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    expect(ctrl.schemeDropdown).toBeNull();
+    expect(document.querySelector(".foliplus-scheme-picker-portal")).toBeNull();
+    expect(ctrl.schemeBar.getAttribute("aria-expanded")).toBe("false");
+    ctrl.observer?.disconnect();
+  });
+
+  it("does not leak a document listener across open/collapse cycles", async () => {
+    const add = vi.spyOn(document, "addEventListener");
+    const remove = vi.spyOn(document, "removeEventListener");
+    const { ctrl } = setup();
+    document.body.appendChild(ctrl.ctrl);
+    setupObserver(ctrl);
+    const baseline =
+      add.mock.calls.filter(call => call[0] === "click").length -
+      remove.mock.calls.filter(call => call[0] === "click").length;
+
+    for (let i = 0; i < 3; i += 1) {
+      ctrl.ctrl.classList.add(CONST.CLASSES.EXPANDED);
+      ctrl.schemeBar.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      expect(ctrl.schemeDropdown).not.toBeNull();
+      ctrl.ctrl.classList.remove(CONST.CLASSES.EXPANDED);
+      ctrl.ctrl.classList.add(CONST.CLASSES.COLLAPSED);
+      await new Promise(resolve => setTimeout(resolve, 0));
+      expect(ctrl.schemeDropdown).toBeNull();
+    }
+
+    const live =
+      add.mock.calls.filter(call => call[0] === "click").length -
+      remove.mock.calls.filter(call => call[0] === "click").length;
+    expect(live).toBe(baseline);
+    ctrl.observer?.disconnect();
   });
 
   it("schemePickerCleanup destroys the picker and clears the control reference", () => {
@@ -637,7 +764,7 @@ describe("layer dropdown — source meta publish", () => {
     expect(m.sourceMeta["HeatmapControl.meta_agg_field"]).toBe("");
   });
 
-  it("resolves and persists the field before publishing on a restored selection", () => {
+  it("resolves the field for display on a restored selection, without a record write", () => {
     const m = makeManager();
     // Restored from localStorage: layer already selected, field not yet set.
     m.pointLayers = [{ id: "p1", name: "Stores", layer: {}, count: 2 }];
@@ -655,16 +782,17 @@ describe("layer dropdown — source meta publish", () => {
     const ctrl = makeCtrl(m, makeConfig());
     rebuildLayerDropdown(ctrl);
 
-    expect(m.field).toBe("dwell");
+    // The guess feeds the row and the attrs panel, and stops there: it is not
+    // the user's pick, so it must not become one in the record.
+    expect(m.field).toBe("");
+    expect(m.effectiveField()).toBe("dwell");
     expect(m.agg).toBe("avg");
-    expect(JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!).field).toBe(
-      "dwell",
-    );
+    expect(window.localStorage.getItem(CONST.STORAGE.KEY)).toBeNull();
     expect(m.sourceMeta["HeatmapControl.meta_source_layer"]).toBe("Stores");
     expect(m.sourceMeta["HeatmapControl.meta_agg_field"]).toBe("dwell");
   });
 
-  it("remaps a stale field to the first numeric field", () => {
+  it("keeps a stale stored field and displays the fallback", () => {
     const m = makeManager();
     m.pointLayers = [{ id: "p1", name: "Stores", layer: {}, count: 1 }];
     m.selectedLayerId = "p1";
@@ -681,7 +809,11 @@ describe("layer dropdown — source meta publish", () => {
     const ctrl = makeCtrl(m, makeConfig());
     rebuildLayerDropdown(ctrl);
 
-    expect(m.field).toBe("sales");
+    // The fallback is what the row and the map use right now; the stored pick
+    // is the user's intent and survives, so it comes back with its column.
+    expect(m.field).toBe("old_field");
+    expect(m.effectiveField()).toBe("sales");
+    expect(ctrl.fieldSelect.value).toBe("sales");
   });
 
   it("preserves a field that is still in the layer's fields", () => {
@@ -958,9 +1090,10 @@ describe("updateFieldSelector — concrete field resolution", () => {
     expect(ctrl.fieldSelect.querySelector("option[value='']")).toBeNull();
   });
 
-  it("shows the first numeric field on a fresh layer", () => {
+  it("shows the first numeric field on a fresh layer without storing it", () => {
     const { ctrl, m } = seed({ sales: 5, price: 10 });
-    expect(m.field).toBe("sales");
+    expect(m.field).toBe("");
+    expect(m.effectiveField()).toBe("sales");
     expect(ctrl.fieldSelect.value).toBe("sales");
   });
 
@@ -975,24 +1108,29 @@ describe("updateFieldSelector — concrete field resolution", () => {
     expect(m.field).toBe("price");
   });
 
-  it("persists the resolved field instead of keeping the empty sentinel", () => {
+  it("does not persist the resolved field (the guess is not a record)", () => {
     const { m } = seed({ sales: 5, price: 10 });
-    expect(m.field).toBe("sales");
+    expect(m.effectiveField()).toBe("sales");
+    // The agg change that ran the scan did write a record (it persists the
+    // aggregation), but the field key is the empty sentinel: nothing guessed
+    // its way in, and the loaded record carries no field at all.
     const stored = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!);
-    expect(stored.field).toBe("sales");
+    expect(stored.field).toBe("");
+    expect(m.loadSavedConfig()?.field).toBeUndefined();
   });
 
-  it("keeps the user's pick when a new numeric field is inserted first", () => {
+  it("follows the data while the user has not picked a field", () => {
     const { ctrl, m } = seed({ sales: 5 });
-    expect(m.field).toBe("sales");
+    expect(ctrl.fieldSelect.value).toBe("sales");
 
     window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
       { lat: 1, lng: 2, marker: { feature: { properties: { cost: 3, sales: 5 } } } },
     ]);
     fire(ctrl.aggSelect, "change");
 
-    expect(m.field).toBe("sales");
-    expect(ctrl.fieldSelect.value).toBe("sales");
+    // Nothing was stored, so the display tracks the new first field.
+    expect(m.field).toBe("");
+    expect(ctrl.fieldSelect.value).toBe("cost");
   });
 
   it("hides the field row when the source has no numeric field", () => {
@@ -1010,7 +1148,9 @@ describe("updateFieldSelector — concrete field resolution", () => {
     // One value for display, render and persistence.
     expect(m.agg).toBe(CONST.AGG.COUNT);
     expect(ctrl.aggSelect.value).toBe(CONST.AGG.COUNT);
-    expect(ctrl.aggSelect.title).toBe("Needs a numeric field to aggregate by value");
+    expect(triggerOf(ctrl.aggSelect).title).toBe(
+      "Needs a numeric field to aggregate by value",
+    );
     expect(ctrl.fieldWrap.classList.contains(CONST.CLASSES.HIDDEN)).toBe(true);
     expect(JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!).agg).toBe(
       "count",
@@ -1022,23 +1162,28 @@ describe("updateFieldSelector — concrete field resolution", () => {
     expect(m.selectedLayerId).toBeNull();
     ctrl.aggSelect.value = CONST.AGG.SUM;
     fire(ctrl.aggSelect, "change");
-    // No source means no numeric field: count is the displayed, rendered and
-    // persisted aggregation.
-    expect(m.agg).toBe(CONST.AGG.COUNT);
-    expect(ctrl.aggSelect.value).toBe(CONST.AGG.COUNT);
+    // No source yet is not the same as "the source has no numeric field":
+    // the aggregation is kept (a declared agg must survive until its layer is
+    // scanned) and nothing is persisted — the options simply disable.
+    expect(m.agg).toBe(CONST.AGG.SUM);
+    expect(ctrl.aggSelect.value).toBe(CONST.AGG.SUM);
     expect(
       [...ctrl.aggSelect.options].filter(o => o.disabled).map(o => o.value),
     ).toEqual(["sum", "avg", "min", "max"]);
     expect(ctrl.fieldWrap.classList.contains(CONST.CLASSES.HIDDEN)).toBe(true);
   });
 
-  it("does not clear the stored field when the scan is momentarily empty", () => {
+  it("does not clear a stored field when the scan is momentarily empty", () => {
     const { ctrl, m } = seed({ sales: 5 });
+    // The user picks explicitly, so this name is a real stored choice.
+    ctrl.fieldSelect.value = "sales";
+    fire(ctrl.fieldSelect, "change");
     expect(m.field).toBe("sales");
 
     window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => []);
     fire(ctrl.aggSelect, "change");
 
+    // The empty scan cannot prove the column is gone, so the pick survives.
     expect(m.field).toBe("sales");
     expect(m.agg).toBe(CONST.AGG.COUNT);
     expect(m.sourceMeta["HeatmapControl.meta_agg_field"]).toBe("");
@@ -1069,7 +1214,10 @@ describe("updateFieldSelector — concrete field resolution", () => {
     expect(m.agg).toBe(CONST.AGG.COUNT);
     expect(ctrl.aggSelect.value).toBe(CONST.AGG.COUNT);
     expect([...ctrl.aggSelect.options].some(o => o.disabled)).toBe(false);
-    expect(ctrl.aggSelect.title).toBe("");
+    // The limitation hint is cleared (the tooltip falls back to the label).
+    expect(triggerOf(ctrl.aggSelect).title).not.toBe(
+      "Needs a numeric field to aggregate by value",
+    );
     expect(ctrl.fieldWrap.classList.contains(CONST.CLASSES.HIDDEN)).toBe(true);
     expect(ctrl.fieldSelect.value).toBe("sales");
   });
@@ -1094,3 +1242,85 @@ describe("updateFieldSelector — null field controls", () => {
 });
 
 // refreshSchemeDropdownItems — covered by schemePicker.test.ts (setNumClasses tests)
+
+describe("declared starting layer/field (Python layer=/field=)", () => {
+  beforeEach(() => {
+    vi.spyOn(HeatmapManager.prototype, "scanMapLayers").mockImplementation(function () {
+      // no-op: keep the seeded pointLayers stable across rebuilds
+    });
+  });
+
+  it("selects the Python-declared point layer on the first rebuild", () => {
+    const m = makeManager({ layer: "Points 2" });
+    m.pointLayers = [
+      { id: "p1", name: "Points 1", layer: null, count: 1 },
+      { id: "p2", name: "Points 2", layer: null, count: 1 },
+    ];
+    const ctrl = makeCtrl(m, makeConfig({ layer: "Points 2" }));
+    rebuildLayerDropdown(ctrl);
+
+    expect(m.selectedLayerId).toBe("p2");
+    expect(ctrl.layerSelect.value).toBe("p2");
+    expect(ctrl.extraBody.classList.contains(CONST.CLASSES.HIDDEN)).toBe(false);
+  });
+
+  it("keeps the single-layer auto-select when the declared name misses", () => {
+    const m = makeManager({ layer: "Nope" });
+    m.pointLayers = [{ id: "p1", name: "Only", layer: null, count: 1 }];
+    const ctrl = makeCtrl(m, makeConfig({ layer: "Nope" }));
+    rebuildLayerDropdown(ctrl);
+
+    expect(m.selectedLayerId).toBe("p1");
+  });
+
+  it("shows the declared aggregation field on the first rebuild", () => {
+    const m = makeManager({ layer: "Points 1", field: "score", agg: "sum" });
+    m.pointLayers = [{ id: "p1", name: "Points 1", layer: null, count: 1 }];
+    const ctrl = makeCtrl(
+      m,
+      makeConfig({ layer: "Points 1", field: "score", agg: "sum" }),
+    );
+    window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
+      { lat: 1, lng: 2, marker: { feature: { properties: { score: 5 } } } },
+    ]);
+    rebuildLayerDropdown(ctrl);
+
+    // A declaration is a read-time default, not a pick: it is what the row
+    // and the render use, and the manager's stored field stays empty.
+    expect(m.field).toBe("");
+    expect(m.effectiveField()).toBe("score");
+    expect(ctrl.fieldSelect.value).toBe("score");
+  });
+
+  it("follows the declaration again when the data offers its column back", () => {
+    // The declaration is re-read on every scan, so a data change that hides
+    // its column falls back, and the column coming back restores it — the
+    // behaviour a persisted declaration could not have (it would have been
+    // consumed by the record's hasScanned guard).
+    const m = makeManager({ layer: "Points 1", field: "score", agg: "sum" });
+    m.pointLayers = [{ id: "p1", name: "Points 1", layer: null, count: 1 }];
+    const ctrl = makeCtrl(
+      m,
+      makeConfig({ layer: "Points 1", field: "score", agg: "sum" }),
+    );
+    window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
+      { lat: 1, lng: 2, marker: { feature: { properties: { cost: 1 } } } },
+    ]);
+    rebuildLayerDropdown(ctrl);
+    // No column named score: the first numeric field is the fallback.
+    expect(ctrl.fieldSelect.value).toBe("cost");
+
+    window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
+      { lat: 1, lng: 2, marker: { feature: { properties: { cost: 1, score: 5 } } } },
+    ]);
+    // A fresh scan (this fixture has no bound agg handler): the rebuild is the
+    // path that re-reads the fields.
+    rebuildLayerDropdown(ctrl);
+
+    // The declared column is back, so the declaration is in force again.
+    expect(ctrl.fieldSelect.value).toBe("score");
+    expect(m.effectiveField()).toBe("score");
+    // Still not a record: the resolution never wrote itself into the manager.
+    expect(m.field).toBe("");
+  });
+});

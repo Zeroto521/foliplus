@@ -45,7 +45,7 @@ import { resetLayerZoomRange, syncZoomRangeRow } from "./zoomRange.js";
  *  neither a capable Label dimension nor a capable Layer dimension. */
 const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
   // Third-party canvas layers (heatmap, measure) declare their own controls
-  // via styleSetters — render those instead of the annotation panel.
+  // via styleSetters — render those instead of the label panel.
   if (layerHasStyleDelegation(ui, layerId)) {
     return renderDelegatedStylePanel(ui, layerId);
   }
@@ -117,6 +117,7 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
   // The mousedown is stopped here; whether the press landed inside the panel is
   // recorded by the outside handler below, because `dragstart` is dispatched on
   // the draggable row and so cannot answer it.
+  ui.overlayPanel.stylePanelEl = panel;
   panel.addEventListener("mousedown", e => e.stopPropagation());
 
   // Border row: a self-managed dimension that writes `setStyle` directly, so
@@ -173,7 +174,7 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
   panel.addEventListener("change", (event: Event) => {
     const t = event.target as HTMLElement;
     // Delegated label controls handle their own changes (stopPropagation on
-    // the shared root). Only the annotation panel's changes reach here.
+    // the shared root). Only the label panel's changes reach here.
     if (delegated) return;
     if (
       t instanceof HTMLInputElement &&
@@ -181,8 +182,9 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
     ) {
       const show = t.checked;
       // Reveal / collapse the body under the toggle. No field is written here:
-      // leaving it at the auto sentinel is what makes the picker read "Auto" and
-      // what lets the layer keep labeling itself if its columns change.
+      // the picker already shows a concrete field, and leaving the stored value
+      // untouched is what lets a fieldless config keep resolving to the layer's
+      // default as its columns change.
       const body = panel.querySelector(
         `.${CONST.CLASSES.STYLE_BODY}`,
       ) as HTMLElement | null;
@@ -199,7 +201,7 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
       if (fmtRow) {
         syncFormatRow(fields, fmtRow, resolveSelectedField(chosen, fields));
       }
-      applyPatch(ui, layerId, { show, field: chosen });
+      applyPatch(ui, layerId, { show });
     } else if (
       t instanceof HTMLInputElement &&
       t.classList.contains(CONST.CLASSES.STYLE_COLLIDE_INPUT)
@@ -374,6 +376,7 @@ const closeStylePanel = (ui: LayerUI, setFocus: boolean): void => {
     );
     ui.overlayPanel.styleOutsideHandler = null;
   }
+  ui.overlayPanel.stylePanelEl = null;
   ui.overlayPanel.styleUnsubscribe?.();
   ui.overlayPanel.styleUnsubscribe = null;
   ui.overlayPanel.styleRefresh = null;

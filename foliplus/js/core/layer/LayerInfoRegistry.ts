@@ -195,6 +195,7 @@ class LayerInfoRegistry {
       updatedAt: opts.updatedAt ?? existingLi?.updatedAt ?? null,
       meta: opts.meta ?? existingLi?.meta ?? null,
       metaProvider: opts.metaProvider ?? existingLi?.metaProvider ?? null,
+      fillAuthor: opts.fillAuthor ?? existingLi?.fillAuthor ?? null,
       // Registration time: set once on first registration, never rewritten by a
       // provider re-registration.
       registeredAt: existingLi?.registeredAt ?? Date.now(),

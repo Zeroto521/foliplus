@@ -108,6 +108,13 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
       "free-standing list-cursor utility — keydown binding owned by the caller, no control in scope",
   },
   {
+    f: "core/overlayRegistry.ts",
+    n: 2,
+    pairedOff: 0,
+    reason:
+      "the shared overlay dispatcher is a per-map core singleton, not a control: one document mousedown-capture/click-bubble press listener and one document keydown-capture Escape listener, installed lazily from the live entry count and removed when the last entry unregisters or destroy() runs. No BaseControl instance is in scope, and per-control copies would multiply the same native listeners across every surface — the shared-overlay reason core/fullscreen.ts is on this list for",
+  },
+  {
     f: "ExportControl/session.ts",
     n: 1,
     pairedOff: 0,
@@ -122,10 +129,10 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
   },
   {
     f: "LayerControl/ui/overlayPanel/filter.ts",
-    n: 4,
+    n: 5,
     pairedOff: 0,
     reason:
-      "filter panel clear/slider-shell/outside-click bindings — pending migration to `this.on`",
+      "filter panel header/mousedown/keydown/outside-click and clear bindings — pending migration to `this.on`",
   },
   {
     f: "LayerControl/ui/focus/focusMarquee.ts",
@@ -180,6 +187,13 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
     pairedOff: 0,
     reason:
       "shared picker factory binds trigger click/keydown (lifecycle) and dropdown click/keydown, item focus, document outside-click, window scroll, window resize (portal mode only), and fullscreenchange (mount-scope). Every listener has a paired removeEventListener in either cleanupFns (drained on destroy) or mountCleanupFns (drained on every close). The factory is a free-standing primitive with no BaseControl mounting signal to route through this.on; callers inject their own lifecycle management via the returned close/destroy methods",
+  },
+  {
+    f: "common/dropdown.ts",
+    n: 10,
+    pairedOff: 0,
+    reason:
+      "shared select-replacement factory: three lifecycle listeners on the trigger/list (click/keydown) plus one on the bridged select (change), and six popup-scope listeners — option click, document pointerdown outside-press, window scroll (capture), window resize, window keydown (capture, Escape ownership ahead of the panel dispatcher) and document fullscreenchange (the portalled popup re-seats when the fullscreen element changes) — that exist only while the popup is open. Every popup-scope listener is pushed onto mountCleanup and drained by close()/destroy(); the lifecycle ones are removed by destroy(). A free-standing primitive with no BaseControl mounting signal to route through this.on, exactly like common/schemePicker.ts",
   },
 ];
 

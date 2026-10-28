@@ -315,8 +315,14 @@ class TestExportCompositeBrowser:
             name="Hatch Marker",
             show=True,
         )
+        # The gate reads the English no-basemap label, so pin the page locale.
         with use_page(
-            _make_page, browser, tmp_path, marker, slug="no_basemap_export"
+            _make_page,
+            browser,
+            tmp_path,
+            marker,
+            slug="no_basemap_export",
+            locale="en",
         ) as (page, errors):
             panel_ready(page)
             _install_canvas_hook(page)

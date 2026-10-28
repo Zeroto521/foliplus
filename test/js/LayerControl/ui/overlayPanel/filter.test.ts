@@ -74,6 +74,45 @@ const makeOwner = (values: number[]) => {
   };
 };
 
+/** A minimal enum filter owner: one Type dimension, the committed filter as
+ *  its only state. The caller may hold the `values` array and mutate it to
+ *  model measurements appearing/disappearing; the provider rebuilds the option
+ *  list on every read. Kept counts two records per selected type so the
+ *  readout proves it re-reads the owner rather than a local selection count. */
+const makeEnumOwner = (
+  values: string[] = ["marker", "distance", "polygon", "circle"],
+  initial?: LayerFilter,
+) => {
+  let filter: LayerFilter | undefined = initial;
+  return {
+    filterProvider: (): LayerFilterModel => {
+      const options = values.map(value => ({
+        value,
+        label: value.toUpperCase(),
+      }));
+      const committed = filter;
+      const selected =
+        committed?.kind === "enum"
+          ? options.filter(option => committed.values.includes(option.value)).length
+          : options.length;
+      return {
+        dimensions: [
+          { kind: "enum", field: "type", label: "Type", multi: true, options },
+        ],
+        filter,
+        kept: selected * 2,
+        total: options.length * 2,
+      };
+    },
+    filterSetter: (next: LayerFilter) => {
+      filter = next;
+    },
+    get filter() {
+      return filter;
+    },
+  };
+};
+
 /** The action names of an open ⋮ menu, in DOM order (dividers carry no
  *  data-action and drop out). */
 const menuActionNames = (item: HTMLElement): string[] =>
@@ -242,9 +281,16 @@ describe("LayerUI filter panel", () => {
       ui.openFilterPanel(item);
 
       const panel = item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`) as HTMLElement;
-      // Field row: label + the owner's field name.
-      const field = panel.querySelector(`.${CONST.CLASSES.FILTER_FIELD}`);
-      expect(field!.textContent).toBe("magnitude");
+      // Field row: the dimension label sits in the label cell and the control
+      // cell holds the slider, so the owner's field name is not repeated.
+      const field = panel.querySelector(
+        `.${CONST.CLASSES.FILTER_FIELD}`,
+      ) as HTMLElement;
+      expect(field.textContent).toBe("");
+      const row = field.closest(`.${CONST.CLASSES.FORM_ROW}`) as HTMLElement;
+      expect(row.querySelector(`.${CONST.CLASSES.FORM_LABEL}`)!.textContent).toBe(
+        "magnitude",
+      );
       // Range row: the shared Slider — two real thumbs, not stacked range
       // inputs, both parked at the full extent for "no filter".
       const host = panel.querySelector(
@@ -338,36 +384,35 @@ describe("LayerUI filter panel", () => {
       expect(panel.querySelector(`.${CONST.CLASSES.FILTER_EMPTY}`)).not.toBeNull();
     });
 
-    it("renders the empty state while the first dimension is not a range", () => {
-      // A generic owner may expose an enum dimension. This body only knows how
-      // to render a numeric range, so it falls back to the shared empty body
-      // instead of mounting a slider over a value domain it cannot show.
+    it("renders the shared dropdown for an enum dimension", () => {
+      // A generic owner may expose an enum dimension. It gets the enum body,
+      // not the range body or the "nothing filterable" fallback, and the body
+      // is the one shared primitive — never a hand-rolled listbox.
+      const owner = makeEnumOwner();
       manager.registerLayer({
         id: "enum-owner",
         name: "Enum owner",
         role: "overlay",
         layer: undefined as unknown as L.Layer,
-        filterProvider: () => ({
-          dimensions: [
-            {
-              kind: "enum",
-              field: "type",
-              label: "Type",
-              options: [{ value: "a", label: "A" }],
-            },
-          ],
-          kept: 1,
-          total: 2,
-        }),
-        filterSetter: () => {},
+        filterProvider: owner.filterProvider,
+        filterSetter: owner.filterSetter,
       });
       const item = findItem(ui, "enum-owner");
 
       ui.openFilterPanel(item);
 
       const panel = item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`) as HTMLElement;
-      expect(panel.querySelector(`.${CONST.CLASSES.FILTER_EMPTY}`)).not.toBeNull();
+      expect(panel.querySelector(`.${CONST.CLASSES.FILTER_EMPTY}`)).toBeNull();
       expect(panel.querySelector(`.${CONST.CLASSES.FILTER_SLIDER}`)).toBeNull();
+      expect(panel.querySelector("select")).toBeNull();
+      const enumCell = panel.querySelector(
+        `.${CONST.CLASSES.FILTER_ENUM}`,
+      ) as HTMLElement;
+      expect(
+        enumCell
+          .querySelector(".foliplus-dropdown-trigger")
+          ?.getAttribute("aria-haspopup"),
+      ).toBe("listbox");
     });
 
     it("is a no-op for a row that lost its data-layer-id", () => {
@@ -402,6 +447,498 @@ describe("LayerUI filter panel", () => {
       expect(panel.querySelector(".foliplus-header-title")!.textContent).toContain(
         "pnt",
       );
+      spy.mockRestore();
+    });
+  });
+
+  describe("enum body", () => {
+    const registerEnum = (
+      owner = makeEnumOwner(),
+      id = "measure",
+    ): { id: string; owner: ReturnType<typeof makeEnumOwner>; item: HTMLElement } => {
+      manager.registerLayer({
+        id,
+        name: "Measure",
+        role: "overlay",
+        layer: undefined as unknown as L.Layer,
+        filterProvider: owner.filterProvider,
+        filterSetter: owner.filterSetter,
+      });
+      return { id, owner, item: findItem(ui, id) };
+    };
+
+    const triggerOf = (item: HTMLElement): HTMLButtonElement =>
+      item.querySelector(
+        `.${CONST.CLASSES.FILTER_ENUM} .foliplus-dropdown-trigger`,
+      ) as HTMLButtonElement;
+    const labelOf = (item: HTMLElement): string =>
+      triggerOf(item).querySelector(".foliplus-dropdown-label")?.textContent ?? "";
+    /** The open popup is portalled out of the panel (common/dropdown), so it is
+     *  queried from the document rather than from the row. */
+    const listOf = (): HTMLElement | null =>
+      document.querySelector(".foliplus-dropdown-list");
+    const optionEls = (): HTMLButtonElement[] =>
+      Array.from(
+        document.querySelectorAll<HTMLButtonElement>(".foliplus-dropdown-option"),
+      );
+    const optionValuesOf = (): string[] =>
+      optionEls().map(option => option.getAttribute("data-value") ?? "");
+    const selectedOf = (): string[] =>
+      optionEls()
+        .filter(option => option.getAttribute("aria-selected") === "true")
+        .map(option => option.getAttribute("data-value") ?? "");
+    /** Open the popup the way a press on the trigger does. */
+    const openList = (item: HTMLElement): void => {
+      triggerOf(item).click();
+    };
+    /** One press on a row: multiple mode toggles it and keeps the popup open. */
+    const clickOption = (value: string): void => {
+      const option = optionEls().find(el => el.getAttribute("data-value") === value);
+      expect(option).toBeDefined();
+      (option as HTMLButtonElement).click();
+    };
+    const panelOf = (item: HTMLElement): HTMLElement | null =>
+      item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`);
+    const readout = (item: HTMLElement): HTMLElement =>
+      item.querySelector(`.${CONST.CLASSES.FILTER_RESULT}`) as HTMLElement;
+    const clearButton = (item: HTMLElement): HTMLButtonElement =>
+      item.querySelector(`.${CONST.CLASSES.FILTER_CLEAR}`) as HTMLButtonElement;
+    const pressKey = (target: Element, key: string): void => {
+      target.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true }));
+    };
+    const mousedownOn = (target: Element): void => {
+      target.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+    };
+    /** The test translator: the readout sentence and the trigger's own two enum
+     *  labels need pinning; every other key stays recognizable. */
+    const spyTranslator = (): ReturnType<typeof vi.spyOn> =>
+      vi.spyOn(ui, "T").mockImplementation(
+        key =>
+          ({
+            filter_result: "{kept} of {total}",
+            filter_enum_any: "All",
+            filter_enum_count: "{n} selected",
+          })[key] ?? `LayerControl.${key}`,
+      );
+
+    it("labels the condition row with the dimension's own name", () => {
+      const spy = spyTranslator();
+      const { item } = registerEnum();
+      ui.openFilterPanel(item);
+
+      const panel = panelOf(item)!;
+      const fieldCell = panel.querySelector(
+        `.${CONST.CLASSES.FILTER_FIELD}`,
+      ) as HTMLElement;
+      // One label only: the row's label cell carries the dimension label and
+      // the control cell starts straight at the shared dropdown.
+      expect(fieldCell.firstElementChild!.classList.contains("foliplus-dropdown")).toBe(
+        true,
+      );
+      expect(fieldCell.textContent).not.toContain("Type");
+      const row = fieldCell.closest(`.${CONST.CLASSES.FORM_ROW}`) as HTMLElement;
+      expect(row.querySelector(`.${CONST.CLASSES.FORM_LABEL}`)!.textContent).toBe(
+        "Type",
+      );
+      spy.mockRestore();
+    });
+
+    it("replaces the native multi-select with the shared dropdown", () => {
+      const spy = spyTranslator();
+      const { item } = registerEnum();
+      ui.openFilterPanel(item);
+
+      const panel = panelOf(item)!;
+      // The migration's whole point: no native select survives in the body.
+      expect(panel.querySelector("select")).toBeNull();
+      expect(panel.querySelectorAll("select[multiple]")).toHaveLength(0);
+      const trigger = triggerOf(item);
+      expect(trigger.tagName).toBe("BUTTON");
+      expect(trigger.getAttribute("aria-haspopup")).toBe("listbox");
+      expect(trigger.getAttribute("aria-expanded")).toBe("false");
+      expect(trigger.getAttribute("aria-label")).toBe("Type");
+      spy.mockRestore();
+    });
+
+    it("starts with nothing selected, which reads as all", () => {
+      const spy = spyTranslator();
+      const { item } = registerEnum();
+      ui.openFilterPanel(item);
+
+      expect(labelOf(item)).toBe("All");
+      expect(triggerOf(item).classList.contains("foliplus-dropdown-placeholder")).toBe(
+        true,
+      );
+
+      openList(item);
+
+      const list = listOf()!;
+      expect(triggerOf(item).getAttribute("aria-expanded")).toBe("true");
+      expect(list.getAttribute("role")).toBe("listbox");
+      expect(list.getAttribute("aria-multiselectable")).toBe("true");
+      expect(optionValuesOf()).toEqual(["marker", "distance", "polygon", "circle"]);
+      expect(selectedOf()).toEqual([]);
+      expect(readout(item).textContent).toBe("8 of 8");
+      expect(clearButton(item).disabled).toBe(true);
+      spy.mockRestore();
+    });
+
+    it("commits one clicked option and keeps the popup open", () => {
+      const spy = spyTranslator();
+      const { item, owner } = registerEnum();
+      ui.openFilterPanel(item);
+      openList(item);
+
+      clickOption("distance");
+
+      expect(owner.filter).toEqual({
+        kind: "enum",
+        field: "type",
+        values: ["distance"],
+      });
+      expect(selectedOf()).toEqual(["distance"]);
+      // Multiple semantics: a pick toggles, it does not commit-and-close.
+      expect(listOf()!.hidden).toBe(false);
+      expect(labelOf(item)).toBe("DISTANCE");
+      expect(readout(item).textContent).toBe("2 of 8");
+      spy.mockRestore();
+    });
+
+    it("adds a second clicked option and keeps the owner's order", () => {
+      const spy = spyTranslator();
+      const { item, owner } = registerEnum();
+      ui.openFilterPanel(item);
+      openList(item);
+
+      // Pick the last option first, then the first: the filter is serialized in
+      // the owner's order, not in click order.
+      clickOption("circle");
+      clickOption("marker");
+
+      expect(owner.filter).toEqual({
+        kind: "enum",
+        field: "type",
+        values: ["marker", "circle"],
+      });
+      expect(selectedOf()).toEqual(["marker", "circle"]);
+      // Two or more picks collapse into the count summary on the trigger.
+      expect(labelOf(item)).toBe("2 selected");
+      expect(readout(item).textContent).toBe("4 of 8");
+      expect(listOf()!.hidden).toBe(false);
+      spy.mockRestore();
+    });
+
+    it("clears the filter when the only selected option is clicked again", () => {
+      const spy = spyTranslator();
+      const { item, owner } = registerEnum();
+      ui.openFilterPanel(item);
+      openList(item);
+      clickOption("distance");
+      expect(owner.filter).toBeDefined();
+
+      clickOption("distance");
+
+      expect(owner.filter).toBeUndefined();
+      expect(selectedOf()).toEqual([]);
+      expect(labelOf(item)).toBe("All");
+      expect(readout(item).textContent).toBe("8 of 8");
+      expect(clearButton(item).disabled).toBe(true);
+      spy.mockRestore();
+    });
+
+    it("echoes a committed enum filter back into the control", () => {
+      const spy = spyTranslator();
+      const { item } = registerEnum(
+        makeEnumOwner(undefined, {
+          kind: "enum",
+          field: "type",
+          values: ["polygon"],
+        }),
+      );
+      ui.openFilterPanel(item);
+
+      expect(labelOf(item)).toBe("POLYGON");
+      expect(readout(item).textContent).toBe("2 of 8");
+
+      openList(item);
+      expect(selectedOf()).toEqual(["polygon"]);
+      spy.mockRestore();
+    });
+
+    it("summarises a multi-value committed filter as a count", () => {
+      const spy = spyTranslator();
+      const { item } = registerEnum(
+        makeEnumOwner(undefined, {
+          kind: "enum",
+          field: "type",
+          values: ["marker", "circle"],
+        }),
+      );
+      ui.openFilterPanel(item);
+
+      expect(labelOf(item)).toBe("2 selected");
+      expect(readout(item).textContent).toBe("4 of 8");
+
+      openList(item);
+      expect(selectedOf()).toEqual(["marker", "circle"]);
+      spy.mockRestore();
+    });
+
+    it("lists every declared option in one popup", () => {
+      const spy = spyTranslator();
+      const many = ["a", "b", "c", "d", "e", "f"];
+      const { item } = registerEnum(makeEnumOwner(many));
+      ui.openFilterPanel(item);
+
+      openList(item);
+
+      expect(optionValuesOf()).toEqual(many);
+      spy.mockRestore();
+    });
+
+    it("clears an enum filter through the Clear footer", () => {
+      const spy = spyTranslator();
+      const { item, owner } = registerEnum(
+        makeEnumOwner(undefined, {
+          kind: "enum",
+          field: "type",
+          values: ["marker"],
+        }),
+      );
+      ui.openFilterPanel(item);
+
+      clearButton(item).click();
+
+      expect(owner.filter).toBeUndefined();
+      expect(labelOf(item)).toBe("All");
+      spy.mockRestore();
+    });
+
+    it("Escape closes the popup first and the panel on the next press", () => {
+      const spy = spyTranslator();
+      const { item } = registerEnum();
+      ui.openFilterPanel(item);
+      openList(item);
+
+      pressKey(listOf()!, "Escape");
+
+      // The popup is the topmost layer: one Escape closes it, not the surface.
+      expect(listOf()!.hidden).toBe(true);
+      expect(panelOf(item)).not.toBeNull();
+
+      pressKey(triggerOf(item), "Escape");
+
+      expect(panelOf(item)).toBeNull();
+      spy.mockRestore();
+    });
+
+    it("a press on an option row keeps the panel and the popup open", () => {
+      const spy = spyTranslator();
+      const { item } = registerEnum();
+      ui.openFilterPanel(item);
+      openList(item);
+      const option = optionEls()[0];
+
+      // The popup lives on the map surface, not in the panel: the panel must
+      // classify the press as its own through the portal registration, and the
+      // dropdown must not treat its own row as outside.
+      option.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
+      mousedownOn(option);
+
+      expect(panelOf(item)).not.toBeNull();
+      expect(listOf()!.hidden).toBe(false);
+      spy.mockRestore();
+    });
+
+    it("an outside press closes the panel", () => {
+      const spy = spyTranslator();
+      const { item } = registerEnum();
+      ui.openFilterPanel(item);
+
+      mousedownOn(document.body);
+
+      expect(panelOf(item)).toBeNull();
+      spy.mockRestore();
+    });
+
+    it("a press elsewhere in the panel keeps it open", () => {
+      const spy = spyTranslator();
+      const { item } = registerEnum();
+      ui.openFilterPanel(item);
+
+      mousedownOn(readout(item));
+
+      expect(panelOf(item)).not.toBeNull();
+      spy.mockRestore();
+    });
+
+    it("rebuilds the options when the owner's domain changes", () => {
+      const spy = spyTranslator();
+      const values = ["marker", "distance"];
+      const owner = makeEnumOwner(values);
+      const { item } = registerEnum(owner);
+      ui.openFilterPanel(item);
+      const oldTrigger = triggerOf(item);
+      openList(item);
+      expect(optionValuesOf()).toEqual(["marker", "distance"]);
+
+      // The last measurement of a type is deleted: the row publishes the new
+      // item count, and the panel re-reads the owner model.
+      values.length = 0;
+      values.push("marker");
+      ui.events.publish(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "measure" });
+
+      expect(triggerOf(item)).not.toBe(oldTrigger);
+      openList(item);
+      expect(optionValuesOf()).toEqual(["marker"]);
+      spy.mockRestore();
+    });
+
+    it("keeps a selected value whose option disappeared and reads 0 kept", () => {
+      const spy = spyTranslator();
+      const values = ["marker", "circle"];
+      const owner = makeEnumOwner(values, {
+        kind: "enum",
+        field: "type",
+        values: ["circle"],
+      });
+      const { item } = registerEnum(owner);
+      ui.openFilterPanel(item);
+
+      values.length = 0;
+      values.push("marker");
+      ui.events.publish(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "measure" });
+
+      // The value stays committed (the filter keeps filtering), the option is
+      // gone, and the readout shows the honest 0 kept.
+      expect(owner.filter).toEqual({
+        kind: "enum",
+        field: "type",
+        values: ["circle"],
+      });
+      openList(item);
+      expect(optionValuesOf()).toEqual(["marker"]);
+      expect(readout(item).textContent).toBe("0 of 2");
+      expect(clearButton(item).disabled).toBe(false);
+
+      // Clicking the surviving option keeps the vanished value in the filter.
+      clickOption("marker");
+      expect(owner.filter).toEqual({
+        kind: "enum",
+        field: "type",
+        values: ["marker", "circle"],
+      });
+      spy.mockRestore();
+    });
+
+    it("renders only the first dimension and warns once per panel", () => {
+      const spy = spyTranslator();
+      const warn = vi.spyOn(ui.log, "warn").mockImplementation(() => {});
+      manager.registerLayer({
+        id: "multi",
+        name: "Multi",
+        role: "overlay",
+        layer: undefined as unknown as L.Layer,
+        filterProvider: () => ({
+          dimensions: [
+            {
+              kind: "enum",
+              field: "type",
+              label: "Type",
+              multi: true,
+              options: [
+                { value: "a", label: "A" },
+                { value: "b", label: "B" },
+              ],
+            },
+            {
+              kind: "enum",
+              field: "other",
+              label: "Other",
+              multi: true,
+              options: [{ value: "x", label: "X" }],
+            },
+          ],
+          kept: 1,
+          total: 4,
+        }),
+        filterSetter: () => {},
+      });
+      const item = findItem(ui, "multi");
+      ui.openFilterPanel(item);
+
+      openList(item);
+      expect(optionValuesOf()).toEqual(["a", "b"]);
+      ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, { id: "multi" });
+      ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, { id: "multi" });
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(String(warn.mock.calls[0][0])).toContain("2 dimensions");
+      warn.mockRestore();
+      spy.mockRestore();
+    });
+
+    it("does not rebuild the body on repeated owner signals", () => {
+      const spy = spyTranslator();
+      const { item } = registerEnum();
+      ui.openFilterPanel(item);
+      const trigger = triggerOf(item);
+
+      ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, { id: "measure" });
+
+      expect(triggerOf(item)).toBe(trigger);
+      spy.mockRestore();
+    });
+
+    it("rebuilds the body when the dimension shape changes", () => {
+      const spy = spyTranslator();
+      let label = "Type";
+      manager.registerLayer({
+        id: "shape",
+        name: "Shape",
+        role: "overlay",
+        layer: undefined as unknown as L.Layer,
+        filterProvider: () => ({
+          dimensions: [
+            {
+              kind: "enum",
+              field: "type",
+              label,
+              multi: true,
+              options: [{ value: "a", label: "A" }],
+            },
+          ],
+          kept: 1,
+          total: 1,
+        }),
+        filterSetter: () => {},
+      });
+      const item = findItem(ui, "shape");
+      ui.openFilterPanel(item);
+      const oldTrigger = triggerOf(item);
+
+      label = "Kind";
+      ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, { id: "shape" });
+
+      expect(triggerOf(item)).not.toBe(oldTrigger);
+      const fieldCell = item.querySelector(
+        `.${CONST.CLASSES.FILTER_FIELD}`,
+      ) as HTMLElement;
+      const row = fieldCell.closest(`.${CONST.CLASSES.FORM_ROW}`) as HTMLElement;
+      expect(row.querySelector(`.${CONST.CLASSES.FORM_LABEL}`)!.textContent).toBe(
+        "Kind",
+      );
+      spy.mockRestore();
+    });
+
+    it("ignores item-count changes that belong to another row", () => {
+      const spy = spyTranslator();
+      const { item } = registerEnum();
+      ui.openFilterPanel(item);
+      const trigger = triggerOf(item);
+
+      ui.events.publish(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "other" });
+
+      expect(triggerOf(item)).toBe(trigger);
       spy.mockRestore();
     });
   });

@@ -952,12 +952,12 @@ describe("ExportRenderer.render — layer pass routing", () => {
     );
     const map = (globalThis as any).map;
     const labelPane = document.createElement("div");
-    labelPane.className = "foliplus-annotation-pane";
+    labelPane.className = "foliplus-label-pane";
     const annCanvas = document.createElement("canvas");
-    annCanvas.className = "foliplus-annotation-canvas";
+    annCanvas.className = "foliplus-label-canvas";
     labelPane.appendChild(annCanvas);
     map.getPane = (name: string) =>
-      name === CONST.ANNOTATION_PANE_PREFIX + "vec" ? labelPane : null;
+      name === CONST.LABEL_PANE_PREFIX + "vec" ? labelPane : null;
     map.foliplus = {
       LayerAPI: withApi([{ id: "vec", visible: true, layer: { options: {} } }]),
     };
@@ -973,7 +973,7 @@ describe("ExportRenderer.render — layer pass routing", () => {
     expect(paneCanvas).toHaveBeenCalledWith(
       expect.anything(),
       labelPane,
-      CONST.SEL.ANNOTATION_CANVAS,
+      CONST.SEL.LABEL_CANVAS,
     );
   });
 

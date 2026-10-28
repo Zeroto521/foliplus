@@ -8,6 +8,7 @@ import { AnnotationManager } from "#foliplus/LayerControl/annotation/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { applyProjection } from "#foliplus/LayerControl/ui/apply.js";
 import { setIntent } from "#foliplus/LayerControl/ui/intent.js";
+import { LABEL_SIZE } from "#common/form.js";
 import { NUMBER_FORMAT } from "#common/format.js";
 import { initFixture } from "../ui/fixture.js";
 
@@ -426,18 +427,51 @@ describe("AnnotationManager — config", () => {
     }
   });
 
-  it("resolves an auto field once and reuses the cached pick", () => {
+  it("resolves a fieldless config to the layer's default and caches it", () => {
     const { map } = makeMap();
     const mgr = new AnnotationManager({
       map,
       layerFind: () =>
         mkGroup([mkLeaf({ props: { v: "1200" }, latlng: { lat: 40, lng: -74 } })]),
     });
+    const collect = vi.spyOn(mgr, "collectFields");
 
-    // No explicit field: the shared auto pick resolves to the only column.
+    // No stored field: the default pick resolves to the only column.
     expect(mgr.resolveField("a")).toBe("v");
-    // A second read hits the auto-field cache instead of re-walking the layer.
+    // A second read hits the resolved-field cache instead of re-walking.
     expect(mgr.resolveField("a")).toBe("v");
+    expect(collect).toHaveBeenCalledTimes(1);
+  });
+
+  it("falls back to the default field when the stored one is gone", () => {
+    // A config outlives a feature set: a name the layer no longer carries must
+    // not leave the labels reading nothing.
+    const { map } = makeMap();
+    const mgr = new AnnotationManager({
+      map,
+      layerFind: () =>
+        mkGroup([mkLeaf({ props: { name: "x" }, latlng: { lat: 40, lng: -74 } })]),
+    });
+    mgr.setConfig("a", { ...CONFIG, field: "retired" });
+
+    expect(mgr.resolveField("a")).toBe("name");
+  });
+
+  it("re-resolves after the config names a different field", () => {
+    const { map } = makeMap();
+    const mgr = new AnnotationManager({
+      map,
+      layerFind: () =>
+        mkGroup([
+          mkLeaf({ props: { name: "x", count: 2 }, latlng: { lat: 40, lng: -74 } }),
+        ]),
+    });
+    // No stored field: the default is the first numeric column.
+    expect(mgr.resolveField("a")).toBe("count");
+    mgr.setConfig("a", { ...CONFIG, field: "name" });
+    expect(mgr.resolveField("a")).toBe("name");
+    mgr.clearConfig("a");
+    expect(mgr.resolveField("a")).toBe("count");
   });
 });
 
@@ -458,7 +492,7 @@ describe("AnnotationManager — author-declared annotation", () => {
   it("reads the declaration off the layer itself", () => {
     const { map } = makeMap();
     const layer = {
-      options: { foliplus: { annotation: { field: "store", format: "comma" } } },
+      options: { foliplus: { label: { field: "store", format: "comma" } } },
     } as unknown as L.Layer;
     const mgr = new AnnotationManager({ map, layerFind: () => layer });
 
@@ -471,9 +505,29 @@ describe("AnnotationManager — author-declared annotation", () => {
     expect(cfg.show).toBe(true);
   });
 
+  it("falls back to the built-in defaults when the declaration has no label key", () => {
+    // A declaration with no `label` key declares nothing: the built-in
+    // defaults apply and nothing is logged.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const { map } = makeMap();
+      const layer = {
+        options: { foliplus: { annotation: { field: "retired" } } },
+      } as unknown as L.Layer;
+      const mgr = new AnnotationManager({ map, layerFind: () => layer });
+
+      const cfg = mgr.getConfig("l1");
+      expect(cfg.field).toBe(CONST.DEFAULT_ANNOTATION.field);
+      expect(cfg.show).toBe(CONST.DEFAULT_ANNOTATION.show);
+      expect(warn).not.toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
   it("descends into a container's children for a nested declaration", () => {
     const child = {
-      options: { foliplus: { annotation: { field: "nested" } } },
+      options: { foliplus: { label: { field: "nested" } } },
     } as unknown as L.Layer;
     const { map } = makeMap();
     const mgr = new AnnotationManager({
@@ -487,7 +541,7 @@ describe("AnnotationManager — author-declared annotation", () => {
   it("does not cache a layer that cannot be resolved yet", () => {
     const { map } = makeMap();
     const layer = {
-      options: { foliplus: { annotation: { field: "late" } } },
+      options: { foliplus: { label: { field: "late" } } },
     } as unknown as L.Layer;
     let resolved = false;
     const find = vi.fn(() => (resolved ? layer : null));
@@ -511,7 +565,7 @@ describe("AnnotationManager — author-declared annotation", () => {
 
     expect(mgr.getConfig("l1").show).toBe(CONST.DEFAULT_ANNOTATION.show);
 
-    layer.options.foliplus = { annotation: { field: "store" } };
+    layer.options.foliplus = { label: { field: "store" } };
     expect(mgr.getConfig("l1").field).toBe("store");
     expect(mgr.getConfig("l1").show).toBe(true);
   });
@@ -519,7 +573,7 @@ describe("AnnotationManager — author-declared annotation", () => {
   it("caches the read once the layer is resolved", () => {
     const { map } = makeMap();
     const layer = {
-      options: { foliplus: { annotation: { field: "cached" } } },
+      options: { foliplus: { label: { field: "cached" } } },
     } as unknown as L.Layer;
     const find = vi.fn(() => layer);
     const mgr = new AnnotationManager({ map, layerFind: find });
@@ -533,7 +587,7 @@ describe("AnnotationManager — author-declared annotation", () => {
     pageCollideOff(() => {
       const { map } = makeMap();
       const layer = {
-        options: { foliplus: { annotation: { field: "store" } } },
+        options: { foliplus: { label: { field: "store" } } },
       } as unknown as L.Layer;
       const mgr = new AnnotationManager({ map, layerFind: () => layer });
 
@@ -549,7 +603,7 @@ describe("AnnotationManager — author-declared annotation", () => {
     pageCollideOff(() => {
       const { map } = makeMap();
       const layer = {
-        options: { foliplus: { annotation: { field: "store", collide: true } } },
+        options: { foliplus: { label: { field: "store", collide: true } } },
       } as unknown as L.Layer;
       const mgr = new AnnotationManager({ map, layerFind: () => layer });
 
@@ -562,11 +616,11 @@ describe("AnnotationManager — author-declared annotation", () => {
     const layer = {
       options: {
         foliplus: {
-          annotation: {
+          label: {
             field: "store",
             format: "thousands",
             collide: "yes",
-            color: "#00ff00",
+            color: "green",
             show: true,
           },
         },
@@ -581,9 +635,42 @@ describe("AnnotationManager — author-declared annotation", () => {
     expect(cfg.format).toBe(CONST.DEFAULT_ANNOTATION.format);
     expect(cfg.collide).toBe(true);
     // `show` is a legal declaration key now, so an explicit `true` survives;
-    // `color` is not one, so it drops out of the same record.
+    // `color` is legal too, but `green` is not a hex colour — it degrades to
+    // the default rather than reaching the canvas as an invalid fill.
     expect(cfg.show).toBe(true);
     expect(cfg.color).toBe(CONST.DEFAULT_ANNOTATION.color);
+  });
+
+  it("applies a declared colour and size, normalised and clamped", () => {
+    const { map } = makeMap();
+    const layer = {
+      options: {
+        foliplus: {
+          label: { field: "store", color: "#0F0", size: 99 },
+        },
+      },
+    } as unknown as L.Layer;
+    const mgr = new AnnotationManager({ map, layerFind: () => layer });
+
+    const cfg = mgr.getConfig("l1");
+    // #rgb expands to #rrggbb (lowercase) so a later panel edit compares equal.
+    expect(cfg.color).toBe("#00ff00");
+    // The panel's own bounds still apply: a 99px declaration is clamped, not
+    // passed through as a size the UI could never produce.
+    expect(cfg.size).toBe(LABEL_SIZE.SIZE_MAX);
+    expect(cfg.field).toBe("store");
+  });
+
+  it("drops a non-numeric size and keeps the default", () => {
+    const { map } = makeMap();
+    const layer = {
+      options: {
+        foliplus: { label: { field: "store", size: "12" } },
+      },
+    } as unknown as L.Layer;
+    const mgr = new AnnotationManager({ map, layerFind: () => layer });
+
+    expect(mgr.getConfig("l1").size).toBe(CONST.DEFAULT_ANNOTATION.size);
   });
 
   it("falls back when the declared field is not a string", () => {
@@ -591,7 +678,7 @@ describe("AnnotationManager — author-declared annotation", () => {
     // a column name. It must not reach the label renderer as text.
     const { map } = makeMap();
     const layer = {
-      options: { foliplus: { annotation: { field: 1200, format: "comma" } } },
+      options: { foliplus: { label: { field: 1200, format: "comma" } } },
     } as unknown as L.Layer;
     const mgr = new AnnotationManager({ map, layerFind: () => layer });
 
@@ -610,7 +697,7 @@ describe("AnnotationManager — author-declared annotation", () => {
     const { map } = makeMap();
     const layer = {
       options: {
-        foliplus: { annotation: { field: "store", show: false } },
+        foliplus: { label: { field: "store", show: false } },
       },
     } as unknown as L.Layer;
     const mgr = new AnnotationManager({ map, layerFind: () => layer });
@@ -637,7 +724,7 @@ describe("AnnotationManager — author-declared annotation", () => {
   it("takes the user's stored choice over the declaration", () => {
     const { map } = makeMap();
     const layer = {
-      options: { foliplus: { annotation: { field: "store", format: "comma" } } },
+      options: { foliplus: { label: { field: "store", format: "comma" } } },
     } as unknown as L.Layer;
     const mgr = new AnnotationManager({ map, layerFind: () => layer });
     mgr.setConfig("l1", {
@@ -657,7 +744,7 @@ describe("AnnotationManager — author-declared annotation", () => {
       options: {
         foliplus: {
           icon: { color: "#ff0000" },
-          annotation: { field: "store" },
+          label: { field: "store" },
         },
       },
     } as unknown as L.Layer;
@@ -670,7 +757,7 @@ describe("AnnotationManager — author-declared annotation", () => {
   it("clearConfig deletes the entry so the declaration shows through", () => {
     const { map } = makeMap();
     const layer = {
-      options: { foliplus: { annotation: { field: "store" } } },
+      options: { foliplus: { label: { field: "store" } } },
     } as unknown as L.Layer;
     const mgr = new AnnotationManager({ map, layerFind: () => layer });
     mgr.setConfig("l1", { ...mgr.getConfig("l1"), field: "other" });
@@ -705,10 +792,7 @@ describe("AnnotationManager — render & plan", () => {
     expect(labels[0]!.text).toBe("1.2K");
     // One pane + one canvas per labeled layer — that is what puts each layer's
     // labels at its own place in the stack.
-    expect(Object.keys(panes).sort()).toEqual([
-      "foliplus-annotation-a",
-      "foliplus-annotation-b",
-    ]);
+    expect(Object.keys(panes).sort()).toEqual(["foliplus-label-a", "foliplus-label-b"]);
     expect(mocks.instances).toHaveLength(2);
     expect(painted(0)[0]!.text).toBe("1.2K");
   });
@@ -1027,7 +1111,7 @@ describe("AnnotationManager — render & plan", () => {
     expect(canvas().destroy).toHaveBeenCalled();
     // The pane is the surface's declared face — teardown takes down our
     // canvases and wiring, never the carrier itself.
-    expect(panes["foliplus-annotation-a"]).toBeDefined();
+    expect(panes["foliplus-label-a"]).toBeDefined();
     expect(mgr.configEntries()).toHaveLength(0);
   });
 
@@ -1131,7 +1215,7 @@ describe("AnnotationManager — render & plan", () => {
     expect(canvas().destroy).toHaveBeenCalled();
     // The pane is the surface's declared face — it survives (the same id can
     // register again without rebuilding its carrier); only our canvas goes.
-    expect(panes["foliplus-annotation-a"]).toBeDefined();
+    expect(panes["foliplus-label-a"]).toBeDefined();
     expect(mgr.configEntries()).toHaveLength(0);
   });
 
@@ -1146,17 +1230,17 @@ describe("AnnotationManager — render & plan", () => {
     });
     mgr.setConfig("a", CONFIG);
     mgr.renderLabels("a");
-    const firstPane = panes["foliplus-annotation-a"];
+    const firstPane = panes["foliplus-label-a"];
     const firstCanvas = canvas();
     expect(firstPane).toBeDefined();
 
     mgr.destroyLayer("a");
     expect(firstCanvas.destroy).toHaveBeenCalled();
-    expect(panes["foliplus-annotation-a"]).toBeDefined();
+    expect(panes["foliplus-label-a"]).toBeDefined();
 
     mgr.setConfig("a", CONFIG);
     mgr.renderLabels("a");
-    expect(panes["foliplus-annotation-a"]).toBe(firstPane);
+    expect(panes["foliplus-label-a"]).toBe(firstPane);
     expect(canvas()).not.toBe(firstCanvas);
   });
 
@@ -1301,7 +1385,7 @@ describe("a layer that gains labelable content gets the stored intent on its new
     expect(
       manager.surfaceFor(li).paneNames,
       "the re-probe must declare the label pane",
-    ).toContain(CONST.ANNOTATION_PANE_PREFIX + "overlay1");
+    ).toContain(CONST.LABEL_PANE_PREFIX + "overlay1");
     manager.annotation.renderLabels("overlay1");
 
     // Re-apply: the carrier set grew (the pane name joined it), so the
@@ -1310,7 +1394,7 @@ describe("a layer that gains labelable content gets the stored intent on its new
     applyProjection(ui, "overlay1");
     applyProjection(ui, "overlay1");
 
-    const pane = panes.get(CONST.ANNOTATION_PANE_PREFIX + "overlay1");
+    const pane = panes.get(CONST.LABEL_PANE_PREFIX + "overlay1");
     expect(pane, "the annotation pane was created").toBeTruthy();
     // R11: the annotation pane does NOT take CSS opacity — the label canvas
     // bakes layerAlpha into its draws. CSS here would double-compound.

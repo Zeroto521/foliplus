@@ -271,7 +271,7 @@ describe("LayerController", () => {
   it("slots a layer's label pane just above that layer", () => {
     manager.map.hasLayer.mockReturnValue(true);
     // Labelable overlay: the registration edge declares the
-    // `role: "annotation"` spec, the surface materializes it, and the
+    // `role: "label"` spec, the surface materializes it, and the
     // ordering pass prices it through the same `zFor` ladder as every other
     // PaneHandle (role annotation = one step above the slot) — no
     // name-keyed spot-write in enforceOrder anymore.
@@ -295,11 +295,11 @@ describe("LayerController", () => {
     const li = manager.layerRegistry.get("labelable")!;
     const annName = manager
       .surfaceFor(li)
-      .paneNames.find(name => name.startsWith(CONST.ANNOTATION_PANE_PREFIX));
+      .paneNames.find(name => name.startsWith(CONST.LABEL_PANE_PREFIX));
     expect(annName).toBeDefined();
     const slotZ = manager.computeZIndex(manager.layers.indexOf(li), li.role);
     expect(panes.get(annName!)!.style.zIndex).toBe(
-      String(slotZ + coreLayer.ANNOTATION_Z_OFFSET),
+      String(slotZ + coreLayer.LABEL_Z_OFFSET),
     );
   });
 
@@ -351,7 +351,7 @@ describe("LayerController", () => {
 
   it("keeps a foreign annotation spec as declared instead of re-probing over it", () => {
     // `withAnnotationSpec` appends the probe's spec only when nobody has
-    // declared one: a caller that owns its own `role: "annotation"` pane
+    // declared one: a caller that owns its own `role: "label"` pane
     // keeps that name — the probe must not stack a second label pane next
     // to it, and the capability reads whichever spec came in.
     manager.map.hasLayer.mockReturnValue(true);
@@ -364,15 +364,13 @@ describe("LayerController", () => {
         options: {},
         feature: { properties: { name: "x" } },
       } as unknown as L.Layer,
-      paneSpecs: [{ role: "annotation", order: 1, name: "custom-annotation-pane" }],
+      paneSpecs: [{ role: "label", order: 1, name: "custom-annotation-pane" }],
     });
 
     const li = manager.layerRegistry.get("foreignAnn")!;
     const names = manager.surfaceFor(li).paneNames;
     expect(names).toContain("custom-annotation-pane");
-    expect(names.some(name => name.startsWith(CONST.ANNOTATION_PANE_PREFIX))).toBe(
-      false,
-    );
+    expect(names.some(name => name.startsWith(CONST.LABEL_PANE_PREFIX))).toBe(false);
     expect(manager.surfaceFor(li).capabilities.annotation).toBe("pane");
   });
 
@@ -380,7 +378,7 @@ describe("LayerController", () => {
     manager.map.hasLayer.mockReturnValue(true);
     const realGetPane = map.getPane;
     map.getPane = vi.fn((name: string) =>
-      name === CONST.ANNOTATION_PANE_PREFIX + "base1" ? null : realGetPane(name),
+      name === CONST.LABEL_PANE_PREFIX + "base1" ? null : realGetPane(name),
     );
 
     expect(() => manager.enforceOrder()).not.toThrow();
@@ -573,7 +571,7 @@ describe("LayerController", () => {
   });
 
   it("routes AnnotationManager's pane wiring through the surface", () => {
-    // The label pane is the surface's (declared `role: "annotation"` spec
+    // The label pane is the surface's (declared `role: "label"` spec
     // from the registration edge, materialized and class-stamped by
     // PaneManager); AnnotationManager only mounts canvases into it. This
     // test drives the real chain end-to-end: surfaceFor declares the pane,
@@ -620,11 +618,11 @@ describe("LayerController", () => {
     vi.spyOn(m.annotation as any, "refreshLayer").mockImplementation(() => {});
     m.annotation.renderLabels("lbl");
 
-    const paneName = CONST.ANNOTATION_PANE_PREFIX + "lbl";
+    const paneName = CONST.LABEL_PANE_PREFIX + "lbl";
     const pane = paneRegistry[paneName];
     expect(pane).toBeDefined();
     expect(pane!.classList.contains("foliplus-layer-pane")).toBe(true);
-    expect(pane!.classList.contains("foliplus-annotation-pane")).toBe(true);
+    expect(pane!.classList.contains("foliplus-label-pane")).toBe(true);
 
     m.unregisterLayer("lbl");
     // The pane is declared, so it survives like every other declared pane
@@ -2092,7 +2090,7 @@ describe("LayerController", () => {
       id: "overlay1",
     });
     // A re-registration is how the API says the layer's content changed, so the
-    // cached field list — and the auto field resolved from it — must be dropped.
+    // cached field list — and the field resolved from it — must be dropped.
     expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_ITEM_REFRESHED, {
       id: "overlay1",
     });
@@ -3396,6 +3394,47 @@ describe("LayerController", () => {
     });
     const pts = manager.extractPoints("pts");
     expect(pts).toEqual([{ lat: 1, lng: 2, marker }]);
+  });
+
+  it("forEachPoint walks markers without extracting coordinates", () => {
+    // The lazy twin of extractPoints: field scans only read the marker, so
+    // the traversal must not allocate {lat, lng, marker} or call getLatLng.
+    class Marker {
+      getElement() {
+        return null;
+      }
+    }
+    window.L.Marker = Marker;
+    const first = new Marker() as any;
+    first.feature = { type: "Feature" };
+    first.getLatLng = vi.fn(() => ({ lat: 1, lng: 2 }));
+    first.options = {};
+    const second = new Marker() as any;
+    second.feature = { type: "Feature" };
+    second.getLatLng = vi.fn(() => ({ lat: 3, lng: 4 }));
+    second.options = {};
+    manager.map.hasLayer.mockReturnValue(false);
+    manager.registerLayer({
+      id: "lazy",
+      name: "Lazy",
+      layer: {
+        eachLayer: (cb: (l: unknown) => void) => {
+          cb(first);
+          cb(second);
+          cb(first);
+        },
+        options: {},
+      } as any,
+    });
+
+    const seen: unknown[] = [];
+    manager.forEachPoint("lazy", marker => seen.push(marker));
+
+    // Both markers reached the callback, and no coordinate extraction paid.
+    expect(seen).toContain(first);
+    expect(seen).toContain(second);
+    expect(first.getLatLng).not.toHaveBeenCalled();
+    expect(second.getLatLng).not.toHaveBeenCalled();
   });
 
   it("extractPoints excludes label markers (no double-counting)", () => {

@@ -1,9 +1,10 @@
 // LayerControl UI — Layer filter panel.
 //
 // Opens from the ⋮ menu on a row that declares the filter capability
-// (`filterProvider` + `filterSetter`). The panel is a pure view over the
-// owner's `LayerFilterModel`: it renders the field, a dual-thumb range
-// slider and a live "kept / total" readout, and writes through
+// (`filterProvider` + `filterSetter`). The panel owns the shell, the
+// kept/total readout and the Clear footer; the condition itself is delegated
+// to a body in `filterBody.js`, one body per dimension. The panel is a pure
+// view over the owner's `LayerFilterModel` and writes through
 // `filterSetter`. The owner (the component that owns the row's unit)
 // validates, clamps, re-renders and publishes LAYER_FILTER_CHANGE — the
 // panel holds no filter state of its own, so a close/reopen reads back
@@ -13,7 +14,7 @@
 // the owner collapses a full-range atom to `undefined` (a full-range atom
 // would still exclude points missing the field, which is not what dragging
 // both thumbs back to the ends means). The Clear button does the same write
-// explicitly.
+// explicitly. The enum body applies the same rule to an empty value set.
 //
 // The panel's identity is the registry entry it was opened against, never a
 // captured capability function: a same-id re-registration swaps the entry
@@ -26,22 +27,24 @@
 // outside-handler field on `OverlayPanel` so a peer panel can tell the two
 // apart.
 import { EVENTS } from "#core/event/index.js";
+import { dropdownSurface } from "#core/fullscreen.js";
 import type {
-  FilterRangeDimension,
+  FilterDimension,
   LayerFilter,
   LayerFilterModel,
   LayerInfo,
 } from "#core/layer/index.js";
-import { createRowPanel } from "#core/leaflet/index.js";
+import { createRowPanel, pinRowPanel, unpinRowPanel } from "#core/leaflet/index.js";
 import { isInsideOverlay } from "#core/overlay.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import * as SVGs from "#foliplus/LayerControl/icon.js";
-import { Slider, finishSlidersIn } from "#foliplus/LayerControl/slider.js";
+import { finishSlidersIn } from "#foliplus/LayerControl/slider.js";
 import { dom } from "#common/dom.js";
 import { formatNumber } from "#common/format.js";
 import { displayName } from "../listPanel/rowView.js";
 import type { LayerUI } from "../surface.js";
 import { closeOverlays } from "../teardown.js";
+import { type FilterBody, dimensionShapeKey, renderBody } from "./filterBody.js";
 
 /** Format a count for the result readout: exact, grouped whole numbers
  *  ("2,500"), never a compact abbreviation. The readout answers "how many of
@@ -76,19 +79,8 @@ const capabilityOf = (ui: LayerUI, layerId: string): FilterCapableInfo | null =>
   return isFilterCapable(info) ? info : null;
 };
 
-/** The panel's filter atom — the only shape the current renderer emits. */
-const atom = (
-  field: string,
-  range: [number, number],
-): { kind: "atom"; field: string; op: "between"; range: [number, number] } => ({
-  kind: "atom",
-  field,
-  op: "between",
-  range,
-});
-
 /** One rendered panel body. `empty` means the owner reported no filterable
- *  data (no source selected, or no numeric field on the snapshot). */
+ *  data (no source selected, or no dimension on the snapshot). */
 type FilterRowsView = Extract<FilterView, { kind: "rows" }>;
 
 /** The shared model plus the fields a rows view paints. */
@@ -98,19 +90,14 @@ type FilterView =
       kind: "rows";
       root: HTMLElement;
       model: LayerFilterModel;
-      /** The dimension this body renders (the owner's first range dimension). */
-      dim: FilterRangeDimension;
-      slider: Slider;
+      /** The dimension the body renders (the owner's first dimension). */
+      dim: FilterDimension;
+      /** Signature of the dimension the body was mounted from. */
+      shapeKey: string;
+      body: FilterBody;
       result: HTMLElement;
       clear: HTMLButtonElement;
     };
-
-/** The model's first range dimension, or null when this body cannot render
- *  it. The v2 panel renders one dimension; other kinds get their own body. */
-const rangeDimensionOf = (model: LayerFilterModel): FilterRangeDimension | null => {
-  const dim = model.dimensions[0];
-  return dim?.kind === "range" ? dim : null;
-};
 
 /** Everything the panel needs to keep its view and its owner identity in
  *  sync while it is open. Exported for `OverlayPanel`'s state declaration. */
@@ -128,44 +115,40 @@ interface FilterPanelState {
    *  LAYER_FILTER_CHANGE synchronously from the setter, and that self-signal
    *  must not rebuild the view under the user's pointer. */
   writing: boolean;
+  /** A synthetic owner may report several dimensions. The panel renders the
+   *  first one; warn once per open panel instead of throwing. */
+  multiDimWarned: boolean;
 }
 
 interface FilterViewHooks {
-  write: (filter: LayerFilter) => void;
+  write: (filter: LayerFilter | undefined) => void;
 }
 
-/** The dimension shape the rows were built from. A change here needs a
- *  rebuild (new rail bounds / field / label / step), not just a readout
- *  refresh. */
-const sameShape = (a: FilterRangeDimension, b: FilterRangeDimension): boolean =>
-  a.kind === b.kind &&
-  a.field === b.field &&
-  a.label === b.label &&
-  a.range[0] === b.range[0] &&
-  a.range[1] === b.range[1] &&
-  a.step === b.step;
+/** The body deps: the panel's translator, its write bridge, its number
+ *  formatters and the popup surface an open enum dropdown portals onto. The
+ *  body never reads the registry itself. */
+const bodyDeps = (
+  ui: LayerUI,
+  hooks: FilterViewHooks,
+): Parameters<typeof renderBody>[2] => ({
+  T: ui.T,
+  write: hooks.write,
+  formatCount: fmtCount,
+  formatValue: fmtValue,
+  // Same surface contract the style panel's dropdowns use: an open popup
+  // mounts on the map container, so native/pseudo fullscreen keeps it
+  // on-screen.
+  surface: dropdownSurface(ui.c.map.getContainer()),
+});
 
-/** The committed range clamped into the dimension's extent, or the full
- *  extent when no range filter is committed. */
-const sliderValueOf = (
-  dim: FilterRangeDimension,
-  filter: LayerFilter,
-): [number, number] => {
-  if (filter?.kind !== "atom" || !filter.range) {
-    return [dim.range[0], dim.range[1]];
-  }
-  return [
-    Math.max(dim.range[0], Math.min(dim.range[1], filter.range[0])),
-    Math.max(dim.range[0], Math.min(dim.range[1], filter.range[1])),
-  ];
-};
-
-/** Pull the view to the owner's current model: live kept/total text and the
- *  committed band (the owner may have clamped it, collapsed it to the full
- *  extent, or cleared it). Called after every write and on every external
- *  LAYER_FILTER_CHANGE. */
-const syncView = (ui: LayerUI, view: FilterRowsView, model: LayerFilterModel): void => {
-  view.model = model;
+/** Pull the shared readout to the owner's current model: live kept/total text
+ *  and the Clear state. Called after every write and on every external
+ *  LAYER_FILTER_CHANGE, so the live region never lags the map. */
+const syncReadout = (
+  ui: LayerUI,
+  view: FilterRowsView,
+  model: LayerFilterModel,
+): void => {
   const pct = model.total > 0 ? Math.round((model.kept / model.total) * 100) : 0;
   // Result readout: percentage first, then the kept / total pair in the
   // owner's unit as exact grouped integers ("42% (2,500 of 6,000) kept") —
@@ -183,131 +166,67 @@ const syncView = (ui: LayerUI, view: FilterRowsView, model: LayerFilterModel): v
   view.clear.title = model.filter
     ? ui.T("filter_clear_tooltip")
     : ui.T("filter_clear_disabled");
-  const stored = sliderValueOf(view.dim, model.filter);
-  const current = view.slider.value;
-  if (!Array.isArray(current) || current[0] !== stored[0] || current[1] !== stored[1]) {
-    view.slider.setValue(stored, { silent: true });
-  }
 };
 
-/** The form rows: field / range / result, plus a Clear footer. Same
- *  left-label / right-control vocabulary as the style panel.
- *
- *  Structure note: every row is one
- *  FORM_ROW (fixed 88px label column + one control cell), and a condition
- *  is a row over that same vocabulary. A future Measure enum / multi-
- *  condition UI adds rows here — an atom renderer keyed by `filter_field`
- *  — without changing the panel shell, the footer or the geometry. */
-const buildFilterRows = (
-  ui: LayerUI,
-  hooks: FilterViewHooks,
-  model: LayerFilterModel,
-  dim: FilterRangeDimension,
-): FilterView => {
-  // Field row — read-only: the owner picks the dimension label (the numeric
-  // field's localized name) and the panel renders it verbatim.
-  const fieldRow = dom.el(
-    "div",
-    { class: CONST.CLASSES.FORM_ROW },
-    dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui.T("filter_field")),
-    dom.el(
-      "div",
-      { class: `${CONST.CLASSES.FORM_CONTROL} ${CONST.CLASSES.FILTER_FIELD}` },
-      dim.label,
-    ),
-  );
+/** Push the owner's current model into the open view: the condition control
+ *  and the shared readout. */
+const syncView = (ui: LayerUI, view: FilterRowsView, model: LayerFilterModel): void => {
+  view.model = model;
+  view.body.sync(model);
+  syncReadout(ui, view, model);
+};
 
-  // Range row — the shared dual-thumb slider primitive. Initial value: the
-  // committed filter clamped into the field's extent, else the full extent
-  // (no filter). A degenerate extent (constant field) renders disabled —
-  // two movable thumbs over one value would be a lie.
-  const host = dom.el("div", { class: CONST.CLASSES.FILTER_SLIDER });
-  const slider = new Slider(host, {
-    min: dim.range[0],
-    max: dim.range[1],
-    step: dim.step,
-    value: sliderValueOf(dim, model.filter),
-    label: ui.T("filter_range"),
-    labels: [ui.T("filter_range_min"), ui.T("filter_range_max")],
-    values: { min: fmtValue(dim.range[0]), max: fmtValue(dim.range[1]) },
-    format: fmtValue,
-    // Same appearance as the visible-range slider: a limit dot at each rail
-    // end, no middle "current value" dot (a filter has no current readout).
-    marks: [
-      { at: dim.range[0], tone: "limit" },
-      { at: dim.range[1], tone: "limit" },
-    ],
-    disabled: dim.range[0] === dim.range[1],
-    // Live preview and commit go through the same owner write — the owner
-    // is idempotent on an unchanged filter, so the second call is a no-op.
-    // `write` also refreshes the readout, so the live region never lags the
-    // map behind a drag or a keyboard step.
-    // The dual-thumb slider always reports a pair; typed as a cast because
-    // the shared primitive also serves single-value sliders.
-    input: value => hooks.write(atom(dim.field, value as [number, number])),
-    change: value => hooks.write(atom(dim.field, value as [number, number])),
-  });
-
-  const rangeRow = dom.el(
-    "div",
-    { class: CONST.CLASSES.FORM_ROW },
-    dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui.T("filter_range")),
-    dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, host),
-  );
-
-  // Result row — announced via aria-live so a drag reads "kept N of M",
-  // not two bare numbers.
+/** Result row — announced via aria-live so a drag reads "kept N of M", not
+ *  two bare numbers. The panel owns it, not the condition body: every
+ *  dimension kind reports through the same readout. */
+const buildResultRow = (ui: LayerUI): { row: HTMLElement; result: HTMLElement } => {
   const result = dom.el("span", {
     class: CONST.CLASSES.FILTER_RESULT,
     "aria-live": "polite",
   });
-  const resultRow = dom.el(
+  const row = dom.el(
     "div",
     { class: CONST.CLASSES.FORM_ROW },
     dom.el("span", { class: CONST.CLASSES.FORM_LABEL }, ui.T("filter_result_label")),
     dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, result),
   );
+  return { row, result };
+};
 
-  // Clear footer — the explicit reset. Same vocabulary as the style
-  // panel's Reset footer.
-  const clearBtn = dom.el(
+/** Clear footer — the explicit reset. Same vocabulary as the style panel's
+ *  Reset footer. It is the only footer action: the panel is live, so a Done
+ *  button would only duplicate a close. */
+const buildFooter = (
+  ui: LayerUI,
+  hooks: FilterViewHooks,
+): { footer: HTMLElement; clear: HTMLButtonElement } => {
+  const clear = dom.el(
     "button",
     {
       type: "button",
       class: `foliplus-panel-btn ${CONST.CLASSES.FILTER_CLEAR}`,
     },
     ui.T("filter_clear"),
-  );
-  clearBtn.addEventListener("click", () => hooks.write(undefined));
+  ) as HTMLButtonElement;
+  clear.addEventListener("click", () => hooks.write(undefined));
   const footer = dom.el(
     "div",
     {},
     dom.el("hr", { class: "foliplus-section-divider" }),
-    dom.el("div", { class: "foliplus-btn-row" }, clearBtn),
+    dom.el("div", { class: "foliplus-btn-row" }, clear),
   );
-
-  const view: FilterView = {
-    kind: "rows",
-    root: dom.el("div", {}, fieldRow, rangeRow, resultRow, footer),
-    model,
-    dim,
-    slider,
-    result,
-    clear: clearBtn as HTMLButtonElement,
-  };
-  syncView(ui, view, model);
-  return view;
+  return { footer, clear };
 };
 
 /** Empty state: the row declares no filterable data (no source selected,
- *  or no numeric field on the snapshot). The message is the panel's body;
- *  the entry is never silently dead. */
+ *  or no dimension on the snapshot). The message is the panel's body; the
+ *  entry is never silently dead. */
 const buildEmptyState = (ui: LayerUI): FilterView => ({
   kind: "empty",
   root: dom.el("div", { class: CONST.CLASSES.FILTER_EMPTY }, ui.T("filter_empty")),
 });
 
-/** Swap the panel body, releasing the old slider session first so a drag
+/** Swap the panel body, releasing the old condition control first so a drag
  *  that is in flight cannot keep a detached thumb's pointer capture. */
 const mountView = (
   ui: LayerUI,
@@ -316,11 +235,30 @@ const mountView = (
   model: LayerFilterModel | null,
 ): void => {
   finishSlidersIn(state.content);
-  const dim = model ? rangeDimensionOf(model) : null;
-  const view =
-    model && dim ? buildFilterRows(ui, hooks, model, dim) : buildEmptyState(ui);
+  if (state.view.kind === "rows") state.view.body.destroy();
+  const dim = model?.dimensions[0] ?? null;
+  if (!model || !dim) {
+    state.view = buildEmptyState(ui);
+    state.content.replaceChildren(state.view.root);
+    return;
+  }
+  const body = renderBody(dim, model, bodyDeps(ui, hooks));
+  const resultRow = buildResultRow(ui);
+  const { footer, clear } = buildFooter(ui, hooks);
+  const root = dom.el("div", {}, body.root, resultRow.row, footer);
+  const view: FilterView = {
+    kind: "rows",
+    root,
+    model,
+    dim,
+    shapeKey: dimensionShapeKey(dim),
+    body,
+    result: resultRow.result,
+    clear,
+  };
   state.view = view;
-  state.content.replaceChildren(view.root);
+  state.content.replaceChildren(root);
+  syncView(ui, view, model);
 };
 
 /** Re-read the panel's model from the owner and reconcile the view. The
@@ -332,16 +270,20 @@ const reconcile = (
   cap: FilterCapability,
 ): void => {
   const model = cap.filterProvider();
-  if (!model) {
+  const dim = model?.dimensions[0] ?? null;
+  if (!model || !dim) {
+    // Nothing filterable: keep an already-mounted empty body instead of
+    // rebuilding it on every owner signal.
     if (state.view.kind !== "empty") mountView(ui, state, hooks, null);
     return;
   }
-  const dim = rangeDimensionOf(model);
-  if (!dim) {
-    mountView(ui, state, hooks, model);
-    return;
+  if (model.dimensions.length > 1 && !state.multiDimWarned) {
+    state.multiDimWarned = true;
+    ui.log.warn(
+      `filter owner "${state.layerId}" reports ${model.dimensions.length} dimensions; rendering only the first`,
+    );
   }
-  if (state.view.kind === "rows" && sameShape(state.view.dim, dim)) {
+  if (state.view.kind === "rows" && state.view.shapeKey === dimensionShapeKey(dim)) {
     syncView(ui, state.view, model);
     return;
   }
@@ -398,6 +340,13 @@ const subscribeFilterSignals = (
     ui.events.on(EVENTS.LAYER_FILTER_CHANGE, ({ id }) => {
       if (id === state.layerId) refresh();
     }),
+    // The option set of an enum dimension can follow the row's item count
+    // (only the measurement types that exist are offered), so an item count
+    // change re-reads the owner model and rebuilds the body when the options
+    // changed.
+    ui.events.on(EVENTS.LAYER_ITEM_COUNT_CHANGE, ({ id }) => {
+      if (id === state.layerId) refresh();
+    }),
     ui.events.on(EVENTS.LAYER_ITEM_UPDATED, onEntrySignal),
     ui.events.on(EVENTS.LAYER_ITEM_REFRESHED, onEntrySignal),
     ui.events.on(EVENTS.LAYER_ITEM_REMOVED, onEntrySignal),
@@ -435,6 +384,7 @@ const openFilterPanel = (ui: LayerUI, item: HTMLElement): void => {
     content,
     view: buildEmptyState(ui),
     writing: false,
+    multiDimWarned: false,
   };
   content.appendChild(state.view.root);
 
@@ -476,19 +426,37 @@ const openFilterPanel = (ui: LayerUI, item: HTMLElement): void => {
   // must neither start a row drag nor inherit `user-select: none`. The
   // mousedown is stopped here (the row's own handlers live on the
   // container), and which side of the panel the press landed on is
-  // recorded by the outside handler below — `dragstart` is dispatched on
-  // the draggable row, so it cannot answer that.
+  // recorded by the outside handler below — `dragstart` is dispatched on the
+  // draggable row, so it cannot answer that.
   panel.addEventListener("mousedown", e => e.stopPropagation());
+
+  // Escape closes the panel from wherever focus sits inside it (the listbox,
+  // the footer button): the surface is one layer, so the panel is the target.
+  panel.addEventListener("keydown", (event: KeyboardEvent) => {
+    if (event.key !== "Escape") return;
+    if (ui.overlayPanel.activeFilterPanel?.view.kind !== "rows") return;
+    closeFilterPanel(ui, true);
+    event.preventDefault();
+    event.stopPropagation();
+  });
 
   item.style.position = "relative";
   item.appendChild(panel);
+  // The layer list is a scrolling box with `overflow: hidden`; an absolute
+  // card would be clipped at its edge (the Clear footer and the lower form
+  // rows became unpickable), so pin the panel to the viewport under its row.
+  // The enum popup itself is portalled by common/dropdown, so it escapes both
+  // clip boxes.
+  pinRowPanel(panel, item);
 
   // Document capture dismiss (attrs recipe). The control disables click
   // propagation, so bubble-phase mousedown never reaches document — a
   // press on the map or another foliplus control would not close the
   // panel without capture.
   ui.overlayPanel.filterOutsideHandler = (event: MouseEvent) => {
-    if (isInsideOverlay(event.target, panel)) {
+    const target = event.target;
+    const inside = isInsideOverlay(target, panel);
+    if (inside) {
       ui.listPanel.pressInPanel = true;
       return;
     }
@@ -517,11 +485,13 @@ const closeFilterPanel = (ui: LayerUI, setFocus: boolean): void => {
   }
   ui.listPanel.pressInPanel = false;
   if (!ui.overlayPanel.activeFilterPanel) return;
-  const item = ui.overlayPanel.activeFilterPanel.item;
-  const panel = ui.overlayPanel.activeFilterPanel.panel;
+  const state = ui.overlayPanel.activeFilterPanel;
+  const { item, panel } = state;
   // A live drag has already produced a value; finish it before the DOM
   // goes, or its change event is lost with the node (style-panel recipe).
   finishSlidersIn(panel);
+  if (state.view.kind === "rows") state.view.body.destroy();
+  unpinRowPanel(item);
   panel.remove();
   ui.overlayPanel.activeFilterPanel = null;
   if (setFocus) item.focus();

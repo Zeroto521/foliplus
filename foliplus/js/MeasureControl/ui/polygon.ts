@@ -88,6 +88,7 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
   const relabel = () => {
     const area = Util.area(points);
     Util.setLabelText(centroidLabel, Util.formatArea(area));
+    const replacedLabels = segLabels.slice();
     segLabels.forEach(l => layers.removeLayer(l));
     segLabels.length = 0;
     const n = points.length;
@@ -107,6 +108,11 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
     }
     unregisterSegLabels();
     unregisterSegLabels = bindSegmentLabels(mgr, segLabels);
+    // Rebuilt labels are new leaves: drop the replaced ones and hand the new
+    // ones to the visibility set, so neither a later show replay resurrects
+    // the detached labels nor a filtered measurement repaints them.
+    mgr.removeItemLeaves(id, replacedLabels);
+    mgr.addItemLeaves(id, segLabels);
     const centroid = Util.vertexMean(points);
     centroidDot.setLatLng(centroid);
     centroidLabel.setLatLng(centroid);
@@ -162,6 +168,9 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
   segLabels.forEach(l => l.on("click", openOverlay));
 
   rebuildCentroid(initArea);
+  // The centroid overlay is added after the mode's registration pass; register
+  // it now so the filter owns it like every other leaf of this measurement.
+  mgr.addItemLeaves(id, [centroidDot, centroidLabel, centroidDelMarker]);
   centroidDot.on("click", openOverlay);
   centroidDelMarker.on("click", openOverlay);
 
@@ -179,6 +188,7 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
             if (ptIdx === -1) return;
             points.splice(ptIdx, 1);
             layers.removeLayer(node, delMarker);
+            mgr.removeItemLeaves(id, [node, delMarker]);
             nodeMarkers.splice(ptIdx, 1);
             nodeDelMarkers.splice(ptIdx, 1);
             dragBinds.splice(ptIdx, 1)[0]?.cleanup();
@@ -261,6 +271,9 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
   );
 
   resortLayers(layers, nodeMarkers, nodeDelMarkers, segLabels);
+  // Z-order sorting re-adds leaves; replay the filter so a hidden measurement
+  // does not pop back onto the map.
+  mgr.refreshItemVisibility(id);
 };
 
 export { attachPolygonUI };

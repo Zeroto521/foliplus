@@ -247,12 +247,23 @@ describe("HeatmapManager — caching & lifecycle", () => {
     expect(m.resolveLabelStyle().font).toContain("18px");
   });
 
+  /** Stub the lazy point traversal the field scan reads. `forEachPoint` is
+   *  the extractPoints twin that hands the marker to the callback without
+   *  building coordinates, so the tests feed markers directly. */
+  const mockMarkers = (...markers: Array<Record<string, unknown>>) => {
+    window.map.foliplus.LayerAPI.forEachPoint = vi.fn(
+      (_id: string, fn: (marker: unknown) => void) => {
+        markers.forEach(marker => fn(marker));
+      },
+    );
+  };
+
   it("collectFields gathers numeric properties once", () => {
     const m = makeManager();
-    window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
-      { marker: { feature: { properties: { price: 1, name: "x" } } } },
-      { marker: { feature: { properties: { price: 2 } } } },
-    ]);
+    mockMarkers(
+      { feature: { properties: { price: 1, name: "x" } } },
+      { feature: { properties: { price: 2 } } },
+    );
     const fields = m.collectFields([{ id: "a" }, { id: "b" }]);
     expect(fields).toContain("price");
     expect(fields).not.toContain("name");
@@ -261,9 +272,7 @@ describe("HeatmapManager — caching & lifecycle", () => {
 
   it("collectFields enumerates numeric value on extended marker", () => {
     const m = makeManager();
-    window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
-      { marker: { value: 42, feature: { properties: { price: 1 } } } },
-    ]);
+    mockMarkers({ value: 42, feature: { properties: { price: 1 } } });
     const fields = m.collectFields([{ id: "a" }]);
     expect(fields).toContain("value");
     expect(fields).toContain("price");
@@ -271,24 +280,18 @@ describe("HeatmapManager — caching & lifecycle", () => {
 
   it("collectFields enumerates numeric options.value on extended marker", () => {
     const m = makeManager();
-    window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
-      { marker: { options: { value: 99 }, feature: { properties: {} } } },
-    ]);
+    mockMarkers({ options: { value: 99 }, feature: { properties: {} } });
     const fields = m.collectFields([{ id: "a" }]);
     expect(fields).toContain("options.value");
   });
 
   it("collectFields skips non-numeric value and options.value", () => {
     const m = makeManager();
-    window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
-      {
-        marker: {
-          value: "not-a-number",
-          options: { value: undefined },
-          feature: { properties: { price: 1 } },
-        },
-      },
-    ]);
+    mockMarkers({
+      value: "not-a-number",
+      options: { value: undefined },
+      feature: { properties: { price: 1 } },
+    });
     const fields = m.collectFields([{ id: "a" }]);
     expect(fields).not.toContain("value");
     expect(fields).not.toContain("options.value");
@@ -297,30 +300,36 @@ describe("HeatmapManager — caching & lifecycle", () => {
 
   it("collectFields deduplicates value and options.value across markers", () => {
     const m = makeManager();
-    window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
-      { marker: { value: 1, feature: { properties: {} } } },
-      { marker: { value: 2, options: { value: 3 }, feature: { properties: {} } } },
-    ]);
+    mockMarkers(
+      { value: 1, feature: { properties: {} } },
+      { value: 2, options: { value: 3 }, feature: { properties: {} } },
+    );
     const fields = m.collectFields([{ id: "a" }]);
     expect(fields.filter(f => f === "value")).toHaveLength(1);
     expect(fields.filter(f => f === "options.value")).toHaveLength(1);
   });
 
-  it("collectFields skips markers with no marker object", () => {
+  it("collectFields falls back to extractPoints on a LayerAPI without forEachPoint", () => {
+    // A component bundle can pair with an older common runtime: the scan must
+    // stay correct (just slower) when the lazy traversal is absent.
     const m = makeManager();
+    window.map.foliplus.LayerAPI.forEachPoint = undefined;
     window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
-      { marker: null },
-      { marker: { feature: { properties: { price: 1 } } } },
+      { lat: 0, lng: 0, marker: { feature: { properties: { price: 3 } } } },
     ]);
-    const fields = m.collectFields([{ id: "a" }]);
-    expect(fields).toContain("price");
+    expect(m.collectFields([{ id: "a" }])).toContain("price");
+  });
+
+  it("collectFields walks every listed layer through the lazy point traversal", () => {
+    const m = makeManager();
+    mockMarkers({ feature: { properties: { price: 1 } } });
+    m.collectFields([{ id: "a" }, { id: "b" }]);
+    expect(window.map.foliplus.LayerAPI.forEachPoint).toHaveBeenCalledTimes(2);
   });
 
   it("collectFields still enumerates value when feature.properties is absent", () => {
     const m = makeManager();
-    window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
-      { marker: { value: 7 } },
-    ]);
+    mockMarkers({ value: 7 });
     const fields = m.collectFields([{ id: "a" }]);
     expect(fields).toContain("value");
   });
@@ -2597,5 +2606,158 @@ describe("HeatmapControl source content signal (LayerAPI integration)", () => {
     // inside renderHexagons.
     expect(() => mgr.renderHexagons()).not.toThrow();
     expect((mgr as any).cachedFeatures).toBeNull();
+  });
+});
+
+describe("declared starting layer/field (Python layer=/field=)", () => {
+  type WarnSpyable = { log: { warn: (...args: unknown[]) => void } };
+  const spyWarn = (m: unknown) =>
+    vi.spyOn((m as WarnSpyable).log, "warn").mockImplementation(() => {});
+
+  it("resolves the declared layer name against the scanned point layers", () => {
+    const m = makeManager({ layer: "Facility Points" });
+    m.pointLayers = [{ id: "p1", name: "Facility Points", layer: null, count: 1 }];
+    expect(m.resolveDeclaredLayer()).toBe("p1");
+  });
+
+  it("ignores the declaration once a persisted record consumed the guard", () => {
+    const m = makeManager({ layer: "Facility Points" });
+    m.pointLayers = [{ id: "p1", name: "Facility Points", layer: null, count: 1 }];
+    // applySavedConfig sets this for ANY stored record — including one where
+    // the user explicitly cleared the selection.
+    m.hasScanned = true;
+    expect(m.resolveDeclaredLayer()).toBeNull();
+  });
+
+  it("warns once when the declared layer is not a point layer", () => {
+    const m = makeManager({ layer: "Missing" });
+    const warn = spyWarn(m);
+    m.pointLayers = [{ id: "p1", name: "Other", layer: null, count: 1 }];
+    expect(m.resolveDeclaredLayer()).toBeNull();
+    expect(m.resolveDeclaredLayer()).toBeNull();
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0][0])).toContain("declared layer not found");
+  });
+
+  it("resolves the declared field only when the layer offers it", () => {
+    const m = makeManager({ field: "score" });
+    expect(m.setAvailableFields(["count", "score"])).toBe("score");
+    // Not offered: the declaration is not re-pointed at another column - the
+    // first numeric field is only the display fallback, and the declaration
+    // never lands in the user's field.
+    expect(m.setAvailableFields(["count"])).toBe("count");
+    expect(m.field).toBe("");
+  });
+
+  it("warns once when the declared field is not offered", () => {
+    const m = makeManager({ field: "score" });
+    const warn = spyWarn(m);
+    expect(m.setAvailableFields(["count"])).toBe("count");
+    expect(m.setAvailableFields(["count"])).toBe("count");
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0][0])).toContain("declared field not found");
+  });
+
+  it("re-opens the guard on Reset so the declaration applies again", () => {
+    const m = makeManager({ layer: "Facility Points" });
+    m.pointLayers = [{ id: "p1", name: "Facility Points", layer: null, count: 1 }];
+    // A record consumed the guard...
+    m.hasScanned = true;
+    expect(m.resolveDeclaredLayer()).toBeNull();
+    // ...and Reset (the Clear path) deletes that record, so the declaration is
+    // the starting state again: the next rebuild may apply it.
+    m.resetState({} as never);
+    expect(m.hasScanned).toBe(false);
+    expect(m.resolveDeclaredLayer()).toBe("p1");
+  });
+
+  it("treats a non-string declaration as absent instead of matching it", () => {
+    // CONFIG is a JSON bridge, but a hand-written CONFIG (or an older bundle)
+    // must not make the scan compare against a non-string name.
+    const m = makeManager({ layer: 3, field: {} });
+    m.pointLayers = [{ id: "p1", name: "3", layer: null, count: 1 }];
+    expect(m.resolveDeclaredLayer()).toBeNull();
+    // No declaration to match: the resolver answers with the offered field.
+    expect(m.setAvailableFields(["3"])).toBe("3");
+  });
+});
+
+describe("effective aggregation field - the auto default never becomes a record", () => {
+  it("prefers the user's pick, then the declaration, then the first field", () => {
+    const declared = makeManager({ field: "score" });
+    declared.field = "count";
+    expect(declared.setAvailableFields(["count", "score"])).toBe("count");
+
+    declared.field = "";
+    expect(declared.setAvailableFields(["count", "score"])).toBe("score");
+
+    const guessed = makeManager();
+    expect(guessed.setAvailableFields(["temp", "rain"])).toBe("temp");
+  });
+
+  it("keeps a stored pick the data no longer offers, and restores it with the data", () => {
+    const m = makeManager();
+    m.field = "rain";
+    // The pick was written in an earlier session: that record is the intent.
+    m.saveConfig();
+    m.flush();
+    expect(m.loadSavedConfig()?.field).toBe("rain");
+
+    // The new data has no rain column: the display falls back, the pick stays.
+    expect(m.setAvailableFields(["temp", "wind"])).toBe("temp");
+    expect(m.field).toBe("rain");
+    // A later write must not replace the intent with the displayed fallback.
+    m.saveConfig();
+    m.flush();
+    expect(m.loadSavedConfig()?.field).toBe("rain");
+
+    // The column comes back: the user's pick is in force again, untouched.
+    expect(m.setAvailableFields(["temp", "rain"])).toBe("rain");
+  });
+
+  it("never persists the guess: a scan-only manager saves no field", () => {
+    const m = makeManager();
+    expect(m.setAvailableFields(["temp", "rain"])).toBe("temp");
+    m.saveConfig();
+    m.flush();
+    expect(m.loadSavedConfig()?.field).toBeUndefined();
+  });
+
+  it("resolves once per field list, not once per feature", () => {
+    const m = makeManager();
+    const resolve = vi.spyOn(m, "resolveEffectiveField");
+    m.setAvailableFields(["count", "score"]);
+    const afterScan = resolve.mock.calls.length;
+    m.agg = CONST.AGG.SUM;
+
+    // 100 per-feature reads (the real path is 20k) must all hit the cache.
+    for (let i = 0; i < 100; i++) m.getPointValue({ count: 7 });
+    expect(resolve.mock.calls.length).toBe(afterScan);
+  });
+
+  it("invalidates on a persistence write so the user's new pick takes effect", () => {
+    const m = makeManager();
+    m.agg = CONST.AGG.SUM;
+    m.setAvailableFields(["count", "options.value"]);
+    expect(m.effectiveField()).toBe("count");
+    expect(m.getPointValue({ options: { value: 3 } })).toBe(1);
+
+    m.field = "options.value";
+    m.saveConfig();
+    expect(m.effectiveField()).toBe("options.value");
+    expect(m.getPointValue({ options: { value: 3 } })).toBe(3);
+  });
+
+  it("Reset returns the field to the declaration (or empty)", () => {
+    const m = makeManager({ field: "score" });
+    m.field = "count";
+    expect(m.setAvailableFields(["count", "score"])).toBe("count");
+
+    m.resetState({} as never);
+
+    // The pick is gone and the scan belongs to the departed selection, so the
+    // declaration is the starting state again - no record, no stale guess.
+    expect(m.field).toBe("");
+    expect(m.effectiveField()).toBe("score");
   });
 });

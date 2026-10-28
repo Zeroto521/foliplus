@@ -205,7 +205,7 @@ const intersects = (a: Box, b: Box): boolean =>
  * `rect` must be the extent the caller is actually rendering, which is not
  * always the live viewport: a render target that paints some *other* extent has
  * to pass that extent (or suspend culling), or it loses every label outside the
- * current view. The annotation canvas passes its own container box, which is
+ * current view. The label canvas passes its own container box, which is
  * also the extent an export of that container captures, so culling by it is
  * safe on both paths.
  */

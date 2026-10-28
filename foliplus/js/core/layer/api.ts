@@ -66,6 +66,8 @@ const ensureLayerAPI = (map: L.Map, force = false): LayerAPI => {
     createLayers: opts => factory.createLayers(opts),
     createCanvas: opts => factory.createCanvas(opts),
     extractPoints: () => [],
+    // eslint-disable-next-line @typescript-eslint/no-empty-function -- lightweight API: no registry to walk
+    forEachPoint: () => {},
     getLayerPanes: () => [],
     getLayersByType: () => [],
   } satisfies LayerAPI;

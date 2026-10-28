@@ -11,18 +11,16 @@
 // labelable-fields question that makes the row honest is NOT asked here —
 // it is encoded in the capability itself, decided once at the surface
 // declaration edge (`LayerController.withAnnotationSpec` probes
-// `hasLabelField`, appends the `role: "annotation"` PaneSpec iff the probe
+// `hasLabelField`, appends the `role: "label"` PaneSpec iff the probe
 // hits, and `detectCapabilities` reads that spec back). A second probe in
 // the gate would be exactly the drift the gate invariant forbids.
-import {
-  AUTO_FIELD,
-  numberFormatOptions,
-  resolveSelectedField,
-} from "#core/label/index.js";
+import { dropdownSurface } from "#core/fullscreen.js";
+import { numberFormatOptions, resolveSelectedField } from "#core/label/index.js";
 import { CAP_TIER, DIM } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { AnnotationConfig } from "#foliplus/LayerControl/type.js";
 import { dom } from "#common/dom.js";
+import { createDropdown } from "#common/dropdown.js";
 import {
   DEFAULT_LABEL_COLOR,
   LABEL_SIZE,
@@ -72,32 +70,21 @@ const buildLabelSection = (ui: LayerUI, layerId: string): HTMLElement => {
   // collapses under the toggle on first paint and on every reopen where
   // show === false, mirroring the heatmap's "switch off → hide body" rule.
   const showChecked = !!cfg.show;
-  // The picker's "Auto" entry means "let foliplus choose", and the config
-  // records it as the shared sentinel rather than a resolved name — so the layer
-  // keeps labeling itself when its columns change. `resolveSelectedField`
-  // (core/labelField) is what turns the select's value back into a field.
-  const selectedField = cfg.field;
+  // The field the picker shows: the stored one while the layer still offers it,
+  // otherwise the layer's default pick (first numeric, else first). Resolved on
+  // every paint and never written back here — opening the panel is not a
+  // choice, so the config keeps whatever the user picked (or nothing, which
+  // keeps resolving to the default if the layer's columns change).
+  const selectedField = resolveSelectedField(cfg.field, fields);
 
-  // Field options: the auto entry first, then one per field. The auto entry is
-  // the select's own empty value, so it is what a fresh panel shows, and it is
-  // a disabled placeholder like the heatmap's layer-row prompt. Disabled
-  // rather than merely first, so it reads as the current state instead of an
-  // option to pick: the way back to auto is Reset, which restores the default
-  // config. The per-field <option>s are appended to the select itself —
-  // appending them into the first option would nest <option> inside <option>,
-  // and the browser skips nested options when it builds the options list.
-  const fieldSelect = dom.el(
-    "select",
-    {
-      class: `foliplus-form-select ${CONST.CLASSES.STYLE_FIELD_SELECT}`,
-      "aria-label": ui.T("style_label_field"),
-    },
-    dom.el(
-      "option",
-      { value: AUTO_FIELD, disabled: true },
-      ui.T("style_label_field_auto"),
-    ),
-  );
+  // Field options: one per real field, with the resolved field selected. There
+  // is no "Auto"/placeholder entry: the picker always names a concrete column,
+  // and the default above is already a field. The <option>s are appended to the
+  // select itself, never nested inside an option.
+  const fieldSelect = dom.el("select", {
+    class: `foliplus-form-select ${CONST.CLASSES.STYLE_FIELD_SELECT}`,
+    "aria-label": ui.T("style_label_field"),
+  });
   fields.forEach(f =>
     fieldSelect.appendChild(
       dom.el(
@@ -107,7 +94,14 @@ const buildLabelSection = (ui: LayerUI, layerId: string): HTMLElement => {
       ),
     ),
   );
-  (fieldSelect as HTMLSelectElement).value = selectedField || AUTO_FIELD;
+  (fieldSelect as HTMLSelectElement).value = selectedField;
+  // The visible picker is the shared dropdown; the select stays mounted
+  // (hidden) as the value/change bridge the panel delegates on.
+  const fieldDropdown = createDropdown({
+    nativeSelect: fieldSelect as HTMLSelectElement,
+    ariaLabel: ui.T("style_label_field"),
+    ...dropdownSurface(ui.c.map.getContainer()),
+  });
 
   // Appearance row — same chrome as the heatmap border / delegated drawer.
   const colorInput = formColorInput({
@@ -141,7 +135,9 @@ const buildLabelSection = (ui: LayerUI, layerId: string): HTMLElement => {
   const collideToggle = dom.el("input", {
     type: "checkbox",
     class: CONST.CLASSES.STYLE_COLLIDE_INPUT,
-    checked: cfg.collide ? "" : null,
+    // Same `!== false` rule the renderer and MeasureControl use, so an
+    // undeclared config (page-level default true) reads as checked.
+    checked: cfg.collide !== false ? "" : null,
     "aria-label": ui._("foliplus.label_collide_tooltip"),
   });
   const formatSelect = dom.el(
@@ -153,6 +149,11 @@ const buildLabelSection = (ui: LayerUI, layerId: string): HTMLElement => {
     ...formatOpts,
   );
   (formatSelect as HTMLSelectElement).value = cfg.format || NUMBER_FORMAT.AUTO;
+  const formatDropdown = createDropdown({
+    nativeSelect: formatSelect as HTMLSelectElement,
+    ariaLabel: ui._("foliplus.label_format"),
+    ...dropdownSurface(ui.c.map.getContainer()),
+  });
 
   // Numeric-only: hide the format dropdown when the picked field is not a
   // number — comma/percent/int all render the same as auto in that case.
@@ -160,7 +161,7 @@ const buildLabelSection = (ui: LayerUI, layerId: string): HTMLElement => {
     "div",
     { class: `${CONST.CLASSES.FORM_ROW} ${CONST.CLASSES.STYLE_FORMAT_ROW}` },
     dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui._("foliplus.label_format")),
-    dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, formatSelect),
+    dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, formatDropdown.element),
   );
   syncFormatRow(
     fields,
@@ -179,7 +180,7 @@ const buildLabelSection = (ui: LayerUI, layerId: string): HTMLElement => {
       "div",
       { class: CONST.CLASSES.FORM_ROW },
       dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui.T("style_label_field")),
-      dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, fieldSelect),
+      dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, fieldDropdown.element),
     ),
     formRow(ui._("foliplus.label_style"), inlineControls(colorInput, sizeInput)),
     formatRow,

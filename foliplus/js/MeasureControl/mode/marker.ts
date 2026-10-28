@@ -156,6 +156,7 @@ class MarkerMode extends MeasureMode {
       onDelete,
     );
 
+    mgr.registerItemLayers(measurement.id!, [marker, delMarker]);
     const cleanupPin = MarkerMode.bindPinDrag(
       mgr,
       marker as L.Marker,

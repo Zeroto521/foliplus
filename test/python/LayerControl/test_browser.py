@@ -157,10 +157,11 @@ class TestLayerControlBrowser:
         """Dragging overlay toward base role should show blocked hint."""
         overlay = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)
         base = folium.TileLayer("CartoDB positron", name="Light Canvas", overlay=False)
-        with use_page(self._make_page, browser, tmp_path, overlay, base) as (
-            page,
-            errors,
-        ):
+        # The gate reads the hint's English wording, so pin the page locale
+        # rather than depending on the machine's ambient language.
+        with use_page(
+            self._make_page, browser, tmp_path, overlay, base, locale="en"
+        ) as (page, errors):
             page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_selector(
                 ".foliplus-layer-ctrl.foliplus-is-expanded",
@@ -411,6 +412,163 @@ class TestLayerControlBrowser:
             assert result["bOpaque"] == 0, "second (hidden) label was drawn"
             assert not errors, f"JS errors: {errors}"
 
+    @staticmethod
+    def _declared_annotation_layer(
+        name, annotation, coords, text="12345678901234567890"
+    ):
+        """A point layer whose foliplus namespace declares its label defaults."""
+        features = [
+            {
+                "type": "Feature",
+                "properties": {"name": text},
+                "geometry": {"type": "Point", "coordinates": [lng, lat]},
+            }
+            for lat, lng in coords
+        ]
+        return folium.GeoJson(
+            json.dumps({"type": "FeatureCollection", "features": features}),
+            name=name,
+            foliplus={"label": annotation},
+        )
+
+    def test_annotation_declared_color_and_size_reach_the_canvas(
+        self, browser, tmp_path
+    ):
+        """A declared colour/size paints the real canvas, and Reset restores it.
+
+        Reads the annotation canvas pixels: the declared #00ff00 and size 24
+        must be what is actually drawn (not merely what CONF/DOM says), a
+        panel-equivalent override must repaint blue, Reset must show the
+        declaration again, and a persisted override must survive a reload.
+        """
+        layer = self._declared_annotation_layer(
+            "Declared Style",
+            {"field": "name", "color": "#00ff00", "size": 24},
+            [(26.08, 119.30)],
+        )
+        with use_page(self._make_page, browser, tmp_path, layer) as (page, errors):
+            assert page.evaluate(_js("LayerControl/open_panel")), "panel did not open"
+            page.wait_for_selector(
+                ".foliplus-layer-item", state="attached", timeout=5000
+            )
+            result = page.evaluate(_js("LayerControl/annotation_declared_style"))
+            assert result and not result.get("error"), result
+
+            declared = result["declared"]
+            cfg = declared["cfg"]
+            assert cfg["color"] == "#00ff00", cfg
+            assert cfg["size"] == 24, cfg
+            assert cfg["show"] is True, cfg
+            assert declared["pixels"]["green"] > 100, declared["pixels"]
+            bbox = declared["pixels"]["bbox"]
+            assert bbox and 12 <= bbox["h"] <= 60, bbox
+
+            overridden = result["overridden"]
+            assert overridden["cfg"]["color"] == "#0000ff", overridden["cfg"]
+            assert overridden["pixels"]["blue"] > 100, overridden["pixels"]
+            assert overridden["pixels"]["green"] == 0, overridden["pixels"]
+            stored = [
+                key
+                for key, raw in result["storage"].items()
+                if raw and "#0000ff" in raw
+            ]
+            assert stored, (
+                f"the override did not reach localStorage: {result['storage']}"
+            )
+
+            reset = result["afterReset"]
+            assert reset["cfg"]["color"] == "#00ff00", reset["cfg"]
+            assert reset["cfg"]["size"] == 24, reset["cfg"]
+            assert reset["pixels"]["green"] > 100, reset["pixels"]
+            assert reset["pixels"]["blue"] == 0, reset["pixels"]
+
+            smaller = result["smaller"]
+            assert smaller["cfg"]["size"] == 10, smaller["cfg"]
+            assert smaller["pixels"]["green"] < declared["pixels"]["green"] / 1.5, (
+                f"size 10 did not shrink the painted label: {smaller['pixels']} vs {declared['pixels']}"
+            )
+
+            # Reload: the persisted user override beats the declaration.
+            page.reload(wait_until="load")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl", state="attached", timeout=10000
+            )
+            assert page.evaluate(_js("LayerControl/open_panel")), "panel did not reopen"
+            page.wait_for_selector(
+                ".foliplus-layer-item", state="attached", timeout=5000
+            )
+            page.wait_for_timeout(300)
+            after = page.evaluate(_js("LayerControl/annotation_declared_read"))
+            assert after and not after.get("error"), after
+            assert after["cfg"]["color"] == "#0000ff", after
+            assert after["cfg"]["size"] == 24, after
+            assert after["blue"] > 0, after
+            assert not errors, f"JS errors: {errors}"
+
+    def test_annotation_declared_collide_false_keeps_overlapping_labels(
+        self, browser, tmp_path
+    ):
+        """A declared collide=false keeps both labels; the default hides one."""
+        coords = [(26.08, 119.30), (26.08, 119.3076)]
+        layer = self._declared_annotation_layer(
+            "Declared Collide",
+            {"field": "name", "collide": False},
+            coords,
+        )
+        with use_page(self._make_page, browser, tmp_path, layer) as (page, errors):
+            assert page.evaluate(_js("LayerControl/open_panel")), "panel did not open"
+            page.wait_for_selector(
+                ".foliplus-layer-item", state="attached", timeout=5000
+            )
+            result = page.evaluate(
+                _js("LayerControl/annotation_declared_collide"),
+                [list(c) for c in coords],
+            )
+            assert result and not result.get("error"), result
+            declared = result["declared"]
+            assert declared["cfg"]["collide"] is False, declared["cfg"]
+            assert declared["labels"] == 2, declared
+            assert declared["opaque"] > 0, declared
+            collided = result["collided"]
+            assert collided["cfg"]["collide"] is True
+            # collide=true drops the overlapping label: the same canvas holds
+            # visibly fewer pixels (measured 1362 -> 1049, ~1.3x).
+            assert declared["opaque"] > collided["opaque"] * 1.15, (
+                f"declared collide=false did not keep the second label: {declared} vs {collided}"
+            )
+
+            # The style panel's own "Avoid overlap" switch reads the merged
+            # config: unchecked while collide is declared false, flipping it
+            # writes the user's true, repaints, and persists across a reload.
+            toggled = page.evaluate(_js("LayerControl/annotation_collide_toggle"), True)
+            assert toggled and not toggled.get("error"), toggled
+            assert toggled["declared"]["checked"] is False, toggled["declared"]
+            assert toggled["declared"]["cfg"]["collide"] is False, toggled["declared"]
+            assert toggled["flipped"]["checked"] is True, toggled["flipped"]
+            assert toggled["flipped"]["cfg"]["collide"] is True, toggled["flipped"]
+            assert (
+                toggled["declared"]["opaque"] > toggled["flipped"]["opaque"] * 1.15
+            ), toggled
+            assert toggled["stored"] and "collide" in toggled["stored"], (
+                f"the toggle change did not persist: {toggled['stored']}"
+            )
+
+            page.reload(wait_until="load")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl", state="attached", timeout=10000
+            )
+            assert page.evaluate(_js("LayerControl/open_panel")), "panel did not reopen"
+            page.wait_for_selector(
+                ".foliplus-layer-item", state="attached", timeout=5000
+            )
+            page.wait_for_timeout(300)
+            after = page.evaluate(_js("LayerControl/annotation_collide_toggle"), False)
+            assert after and not after.get("error"), after
+            assert after["declared"]["checked"] is True, after["declared"]
+            assert after["declared"]["cfg"]["collide"] is True, after["declared"]
+
+            assert not errors, f"JS errors: {errors}"
+
     def test_annotation_click_through(self, browser, tmp_path):
         """The canvas ignores pointer events so clicks land on the map/feature.
 
@@ -628,7 +786,7 @@ class TestLayerControlBrowser:
                     f"annotation pane must carry foliplus-layer-pane: {result}"
                 )
                 assert classes["annotation"] is True, (
-                    f"annotation pane must carry foliplus-annotation-pane: {result}"
+                    f"annotation pane must carry foliplus-label-pane: {result}"
                 )
             assert not errors, f"JS errors: {errors}"
 
@@ -999,6 +1157,116 @@ class TestLayerControlBrowser:
                 )
             assert not errors, f"JS errors: {errors}"
 
+    def test_menu_item_activation_keys_run_their_own_action(self, browser, tmp_path):
+        """Enter/Space on a ⋮ menu entry runs that entry's action.
+
+        Regression: the keyboard handler knew three of the six actions and sent
+        Style, Attributes and Filter to focus-layer, so those entries showed the
+        "layer has no geographic extent" hint instead of opening the panel,
+        while a click on the same entry worked. The entry is an
+        <li tabindex=0>, so Chromium performs no native activation for it and
+        the keydown path is the only thing that can dispatch the action — one
+        real key press proves the whole chain. Mouse and keyboard are compared on
+        the same entries, then each surface is reached through both activation
+        keys, and the two-step delete is exercised from both inputs.
+        """
+        first = folium.GeoJson(_geo_mixed, name="Point layer A")
+        second = folium.GeoJson(_geo_mixed, name="Point layer B")
+        with use_page(
+            self._make_page, browser, tmp_path, first, second, slug="menu_item_keys"
+        ) as (page, errors):
+            panel_ready(page)
+            page.evaluate(_js("LayerControl/open_panel"))
+            page.wait_for_selector(
+                ".foliplus-layer-item[data-layer-type=overlay]",
+                state="attached",
+                timeout=5000,
+            )
+
+            def arm(action: str, row_index: int = 0) -> dict:
+                state = page.evaluate(
+                    _js("LayerControl/menu_keyboard_arm"),
+                    {"action": action, "rowIndex": row_index},
+                )
+                assert state.get("error") is None, f"{action}: arm failed: {state}"
+                assert state["menuOpen"], f"{action}: menu did not open: {state}"
+                assert state["focused"], f"{action}: entry did not take focus: {state}"
+                assert not state["disabled"], f"{action}: entry is disabled: {state}"
+                return state
+
+            def read() -> dict:
+                return page.evaluate(_js("LayerControl/menu_keyboard_read"))
+
+            style_entry = '.foliplus-layer-more-menu li[data-action="style-layer"]'
+            attrs_entry = '.foliplus-layer-more-menu li[data-action="layer-attributes"]'
+            delete_entry = '.foliplus-layer-more-menu li[data-action="delete-layer"]'
+
+            # Mouse baseline: each entry opens its own panel from a click, so
+            # the keyboard cases below can assert identical outcomes.
+            arm("style-layer")
+            page.click(style_entry)
+            state = read()
+            assert state["styleOpen"] and not state["menuOpen"], (
+                f"mouse click on Style did not open the panel: {state}"
+            )
+
+            arm("layer-attributes")
+            page.click(attrs_entry)
+            state = read()
+            assert state["attrsOpen"] and not state["menuOpen"], (
+                f"mouse click on Attributes did not open the panel: {state}"
+            )
+
+            # Keyboard: the entry runs its own action, never focus-layer.
+            for action, key, probe in (
+                ("style-layer", "Enter", "styleOpen"),
+                ("style-layer", "Space", "styleOpen"),
+                ("layer-attributes", "Enter", "attrsOpen"),
+                ("layer-attributes", "Space", "attrsOpen"),
+            ):
+                arm(action)
+                page.keyboard.press(key)
+                state = read()
+                assert state[probe] is True, f"{key} on {action}: panel closed: {state}"
+                assert state["menuOpen"] is False, (
+                    f"{key} on {action}: menu stayed open: {state}"
+                )
+
+            # Keyboard rename opens the inline editor and closes the menu.
+            arm("rename-layer")
+            page.keyboard.press("Enter")
+            state = read()
+            assert state["renameInput"] is True, f"Enter on Rename: no input: {state}"
+            assert state["menuOpen"] is False, f"Enter on Rename: menu open: {state}"
+            # Escape finishes the rename and returns focus to the row.
+            page.keyboard.press("Escape")
+
+            # Keyboard delete keeps the two-step arm/confirm contract.
+            before = read()["rows"]
+            arm("delete-layer")
+            page.keyboard.press("Enter")
+            state = read()
+            assert state["deleteArmed"] is True, f"Enter on Delete: not armed: {state}"
+            assert state["menuOpen"] is True, f"Enter on Delete: menu closed: {state}"
+            page.keyboard.press("Enter")
+            state = read()
+            assert state["menuOpen"] is False, f"Enter on Delete: menu open: {state}"
+            assert state["rows"] == before - 1, f"Enter on Delete: row kept: {state}"
+
+            # Mouse delete on the remaining row follows the same two steps.
+            before = state["rows"]
+            arm("delete-layer")
+            page.click(delete_entry)
+            state = read()
+            assert state["deleteArmed"] is True, f"click on Delete: not armed: {state}"
+            assert state["menuOpen"] is True, f"click on Delete: menu closed: {state}"
+            page.click(delete_entry)
+            state = read()
+            assert state["menuOpen"] is False, f"click on Delete: menu open: {state}"
+            assert state["rows"] == before - 1, f"click on Delete: row kept: {state}"
+
+            assert not errors, f"JS errors: {errors}"
+
     def test_style_fill_color_keeps_native_activation_keys(self, browser, tmp_path):
         """Space/Enter on a style panel's Fill Color picker stay native.
 
@@ -1302,7 +1570,8 @@ class TestLayerControlBrowser:
     def test_toggle_all_row_title_shows_fold_unfold(self, browser, tmp_path):
         """Toggle-all row title shows fold/unfold tooltip."""
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        LayerControl().add_to(m)
+        # The gate reads the English fold/unfold tooltip, so pin the page locale.
+        LayerControl(locale="en").add_to(m)
         folium.FeatureGroup(name="A", overlay=True, show=True).add_to(m)
 
         html_path = tmp_path / "test_fold_row_title.html"
@@ -2173,7 +2442,8 @@ class TestLayerControlBrowser:
             )
         ).add_to(fg)
         fg.add_to(m)
-        LayerControl().add_to(m)
+        # The border row label is read in English, so pin the page locale.
+        LayerControl(locale="en").add_to(m)
         HeatmapControl().add_to(m)
         _expand_panel(m)
 
@@ -7036,4 +7306,212 @@ class TestLayerControlBrowser:
             res = page.evaluate(_js("LayerControl/attr_filtered_feature_pair"))
             assert res is not None, "attrs probe could not open its panel"
             assert res["pair"] == "2,500 / 6,000", res
+            assert not errors, f"JS errors: {errors}"
+
+    def test_enum_filter_body_filters_row_and_clears(self, browser, tmp_path):
+        """The filter panel's enum body drives a generic owner end to end.
+
+        A synthetic enum owner opens the panel from the row menu; the row label
+        is the dimension's own name, the body is the shared multiple dropdown
+        (never a native select), one press toggles a row without closing the
+        popup, a second press adds another, and Clear returns the row and the
+        readout to the unfiltered state.
+        """
+        layer = folium.FeatureGroup(name="Enum filter")
+        with use_page(self._make_page, browser, tmp_path, layer) as (page, errors):
+            page.evaluate(_js("LayerControl/open_panel"))
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            panel_ready(page)
+            res = page.evaluate(_js("LayerControl/filter_enum_body"))
+            assert res is not None, "enum probe could not run"
+            assert res.get("ok"), res
+            # The page language follows the host browser locale, so the result
+            # sentence is asserted structurally (percent prefix plus the kept /
+            # total digits) rather than by literal English text.
+            assert res["fieldLabel"] == "Type", res
+            # The shared primitive replaced the native listbox outright.
+            assert res["triggerTag"] == "BUTTON", res
+            assert res["triggerHaspopup"] == "listbox", res
+            assert res["nativeMultipleSelects"] == 0, res
+            assert res["panelSelects"] == 0, res
+            # The popup is portalled out of the panel, and no option row was
+            # rendered before it opened.
+            assert res["listOpenBefore"] is False, res
+            assert res["listOpenAfterOpen"] is True, res
+            assert res["listParentInsidePanel"] is False, res
+            assert res["optionValues"] == [
+                "marker",
+                "distance",
+                "area",
+                "circle",
+            ], res
+            assert res["selectedBefore"] == [], res
+            assert res["resultBefore"].startswith("100%"), res
+            assert "8" in res["resultBefore"], res
+
+            assert res["selectedAfterFirst"] == ["marker"], res
+            # Multiple semantics: the pick toggles the row and keeps the popup
+            # usable for the next pick.
+            assert res["listOpenAfterFirst"] is True, res
+            assert res["labelAfterFirst"] == "Marker", res
+            assert res["resultAfterFirst"].startswith("25%"), res
+            assert re.search(r"2\D+8", res["resultAfterFirst"]), res
+            assert res["rowAfterFirst"]["count"] == "2", res
+            assert re.search(r"2\s*/\s*8", res["rowAfterFirst"]["title"] or ""), res
+
+            assert res["selectedAfterSecond"] == ["marker", "distance"], res
+            # Two or more picks collapse into the count summary on the trigger.
+            assert re.search(r"\b2\b", res["labelAfterSecond"] or ""), res
+            assert res["resultAfterSecond"].startswith("50%"), res
+            assert res["rowAfterSecond"]["count"] == "4", res
+
+            assert res["selectedAfterClear"] == [], res
+            assert res["resultAfterClear"].startswith("100%"), res
+            assert res["rowAfterClear"]["count"] == "8", res
+            assert res["clearDisabled"] is True, res
+            assert not errors, f"JS errors: {errors}"
+
+    def test_enum_filter_keyboard_and_map_press_close(self, browser, tmp_path):
+        """The dropdown keeps real keyboard focus: ArrowDown enters the list,
+        Space toggles without closing it, one Escape closes the popup and the
+        next closes the panel; a press on the map also closes it."""
+        layer = folium.FeatureGroup(name="Enum keyboard")
+        with use_page(self._make_page, browser, tmp_path, layer) as (page, errors):
+            page.evaluate(_js("LayerControl/open_panel"))
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            panel_ready(page)
+            setup = page.evaluate(_js("LayerControl/filter_enum_keyboard_setup"))
+            assert setup and setup.get("ok"), setup
+            assert setup["triggerTag"] == "BUTTON", setup
+            assert setup["ariaExpanded"] == "false", setup
+            assert setup["nativeMultipleSelects"] == 0, setup
+
+            def state():
+                return page.evaluate(_js("LayerControl/filter_enum_keyboard_state"))
+
+            closed = state()
+            assert closed["panelOpen"] is True, closed
+            assert closed["popupOpen"] is False, closed
+            assert closed["activeIsTrigger"] is True, closed
+            assert closed["selected"] == [], closed
+
+            # A real keyboard path: ArrowDown opens the popup and lands on the
+            # first row; Space toggles it and the popup stays open.
+            page.keyboard.press("ArrowDown")
+            page.wait_for_timeout(80)
+            assert state()["popupOpen"] is True, state()
+            page.keyboard.press("Space")
+            page.wait_for_timeout(120)
+            picked = state()
+            assert len(picked["selected"]) == 1, picked
+            assert picked["popupOpen"] is True, picked
+            # Focus stays in the control, not on the row.
+            assert picked["activeIsOption"] is True, picked
+            assert picked["activeRowId"] is None, picked
+            assert picked["allOptionsHitTestable"] is True, picked
+            assert picked["popupInsidePanel"] is False, picked
+
+            # Escape belongs to the popup while it is open: it closes the list,
+            # not the surface.
+            page.keyboard.press("Escape")
+            page.wait_for_timeout(120)
+            escape_popup = state()
+            assert escape_popup["popupOpen"] is False, escape_popup
+            assert escape_popup["panelOpen"] is True, escape_popup
+            assert escape_popup["activeIsTrigger"] is True, escape_popup
+
+            page.keyboard.press("Escape")
+            page.wait_for_timeout(120)
+            escape_closed = state()
+            assert escape_closed["panelOpen"] is False, escape_closed
+            assert escape_closed["panelInDocument"] is False, escape_closed
+            assert escape_closed["activeRowId"] == setup["id"], escape_closed
+
+            # Reopen and dismiss by pressing the map.
+            page.evaluate(_js("LayerControl/filter_enum_keyboard_setup"))
+            page.wait_for_timeout(60)
+            assert state()["panelOpen"] is True
+            page.mouse.click(640, 40)
+            page.wait_for_timeout(120)
+            assert state()["panelOpen"] is False
+            assert not errors, f"JS errors: {errors}"
+
+    def test_enum_filter_uses_the_shared_dropdown(self, browser, tmp_path):
+        """The enum body is the shared dropdown primitive, not a hand-rolled
+        listbox and not a native select.
+
+        The trigger keeps the shared form-select chrome, the popup is the shared
+        menu shell mounted outside the panel, the rows are buttons with
+        multi-select ARIA state, and a long option list is height-capped with an
+        internal scrollbar instead of running past the viewport.
+        """
+        layer = folium.FeatureGroup(name="Enum dropdown")
+        with use_page(self._make_page, browser, tmp_path, layer) as (page, errors):
+            page.evaluate(_js("LayerControl/open_panel"))
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            panel_ready(page)
+
+            setup = page.evaluate(_js("LayerControl/filter_enum_keyboard_setup"))
+            assert setup and setup.get("ok"), setup
+            chrome = page.evaluate(
+                """() => {
+                  const panel = document.querySelector(".foliplus-layer-filter-panel");
+                  const trigger =
+                    panel &&
+                    panel.querySelector(".foliplus-filter-enum .foliplus-dropdown-trigger");
+                  trigger && trigger.click();
+                  const list = document.querySelector(".foliplus-dropdown-list");
+                  const options = Array.from(
+                    document.querySelectorAll(".foliplus-dropdown-option"),
+                  );
+                  return {
+                    panelSelects: panel ? panel.querySelectorAll("select").length : null,
+                    pageNativeMultiple: document.querySelectorAll("select[multiple]").length,
+                    triggerClasses: trigger ? trigger.className : null,
+                    haspopup: trigger ? trigger.getAttribute("aria-haspopup") : null,
+                    formSelectChrome: Boolean(
+                      trigger && trigger.classList.contains("foliplus-form-select"),
+                    ),
+                    listRole: list ? list.getAttribute("role") : null,
+                    listMultiselectable: list
+                      ? list.getAttribute("aria-multiselectable")
+                      : null,
+                    listInsidePanel: Boolean(list && panel && panel.contains(list)),
+                    optionRoles: options.map(el => el.getAttribute("role")),
+                    optionSelected: options.map(el =>
+                      el.getAttribute("aria-selected"),
+                    ),
+                  };
+                }"""
+            )
+            assert chrome["panelSelects"] == 0, chrome
+            assert chrome["pageNativeMultiple"] == 0, chrome
+            assert chrome["formSelectChrome"] is True, chrome
+            assert chrome["haspopup"] == "listbox", chrome
+            assert chrome["listRole"] == "listbox", chrome
+            assert chrome["listMultiselectable"] == "true", chrome
+            # The popup is portalled: it paints outside the panel's clip boxes.
+            assert chrome["listInsidePanel"] is False, chrome
+            assert chrome["optionRoles"] == ["option"] * 4, chrome
+            assert chrome["optionSelected"] == ["false"] * 4, chrome
+
+            # Twelve options, eight-row cap: the popup scrolls internally.
+            scroll = page.evaluate(_js("LayerControl/filter_enum_scroll_probe"))
+            assert scroll and scroll.get("ok"), scroll
+            assert scroll["optionValues"] == list("abcdefghijkl"), scroll
+            assert scroll["popupInsidePanel"] is False, scroll
+            assert scroll["maxHeight"] != "none", scroll
+            assert scroll["scroll"]["scroll"] > scroll["scroll"]["client"], scroll
             assert not errors, f"JS errors: {errors}"

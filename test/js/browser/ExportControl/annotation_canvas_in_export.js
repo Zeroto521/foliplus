@@ -25,7 +25,7 @@
       requestAnimationFrame(() => {
         // Pane names come from the Leaflet _panes registry, not the DOM id.
         const canvas = window.map
-          .getPane("foliplus-annotation-__export_ann__")
+          .getPane("foliplus-label-__export_ann__")
           ?.querySelector("canvas");
         if (!canvas) return resolve({ canvas: false, opaqueBefore: 0 });
         const data = canvas
