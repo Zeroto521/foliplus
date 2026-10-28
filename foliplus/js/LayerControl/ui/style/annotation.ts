@@ -14,6 +14,7 @@
 // `hasLabelField`, appends the `role: "label"` PaneSpec iff the probe
 // hits, and `detectCapabilities` reads that spec back). A second probe in
 // the gate would be exactly the drift the gate invariant forbids.
+import { dropdownSurface } from "#core/fullscreen.js";
 import {
   AUTO_FIELD,
   numberFormatOptions,
@@ -24,7 +25,6 @@ import * as CONST from "#foliplus/LayerControl/const.js";
 import type { AnnotationConfig } from "#foliplus/LayerControl/type.js";
 import { dom } from "#common/dom.js";
 import { createDropdown } from "#common/dropdown.js";
-import { dropdownSurface } from "#core/fullscreen.js";
 import {
   DEFAULT_LABEL_COLOR,
   LABEL_SIZE,

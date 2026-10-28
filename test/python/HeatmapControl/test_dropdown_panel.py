@@ -236,6 +236,56 @@ class TestHeatmapDropdownPanelBrowser:
             assert seen == {label for label, _ in CONTROLS}, seen
             assert not errors, f"JS errors: {errors}"
 
+    def test_tab_leaves_the_popup_from_the_control(self, browser, tmp_path):
+        """Tab hands focus to the next control, not back to the top of the page.
+
+        The focused row lives in the portalled popup; hiding it with the popup
+        would drop focus on <body>, and the next Tab would restart at the first
+        focusable element of the document. The popup returns focus to its
+        trigger before closing so the browser's own Tab continues from there.
+        """
+        with use_page(_make_page, browser, tmp_path) as (page, errors):
+            _hexbin_panel_ready(page)
+            trigger = page.evaluate(TRIGGER_AT, "select[data-heatmap-layer]")
+            page.mouse.click(trigger["x"], trigger["y"])
+            page.wait_for_timeout(150)
+            page.keyboard.press("ArrowDown")
+            page.wait_for_timeout(120)
+            where = page.evaluate(
+                """() => ({
+                  insidePopup: !!document.activeElement.closest('.foliplus-dropdown-list'),
+                })"""
+            )
+            assert where["insidePopup"], where
+
+            page.keyboard.press("Tab")
+            page.wait_for_timeout(150)
+            after = page.evaluate(
+                """() => {
+                  const active = document.activeElement;
+                  const agg = document.querySelector(
+                    '.foliplus-heatmap-ctrl select[data-heatmap-agg]'
+                  );
+                  const aggTrigger = agg.closest('.foliplus-form-row')
+                    .querySelector('.foliplus-dropdown-trigger');
+                  return {
+                    onBody: active === document.body,
+                    onAggTrigger: active === aggTrigger,
+                    openLists: [...document.querySelectorAll('.foliplus-dropdown-list')]
+                      .filter(list => !list.hidden).length,
+                  };
+                }"""
+            )
+            assert after["openLists"] == 0, after
+            assert not after["onBody"], (
+                "Tab left focus on <body>; the next Tab would restart from the "
+                "top of the page"
+            )
+            assert after["onAggTrigger"], (
+                f"Tab did not continue from the control, focus is {after}"
+            )
+            assert not errors, f"JS errors: {errors}"
+
     def test_pseudo_fullscreen_keeps_the_popup_on_the_covering_surface(
         self, browser, tmp_path
     ):

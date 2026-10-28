@@ -5,8 +5,8 @@
 // (cssvar.js) directly instead of reading them from the runtime global.
 import { cssVar } from "#common/cssvar.js";
 import { dom } from "#common/dom.js";
-import { isInPortalRoot } from "#common/portalRoots.js";
 import * as SVGs from "#common/icon.js";
+import { isInPortalRoot } from "#common/portalRoots.js";
 import { throttleRaf } from "#common/throttle.js";
 
 // ── Panel CSS classes ───────────────────────────────────────────

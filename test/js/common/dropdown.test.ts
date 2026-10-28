@@ -176,6 +176,28 @@ describe("dropdown: bridged single select", () => {
     expect(document.activeElement).toBe(dropdown.trigger);
   });
 
+  it("mounts the open popup on the injected covering surface", () => {
+    // The panels pass core/fullscreen's dropdownSurface: in pseudo/fullscreen
+    // mode the list must mount into the covering container, not <body>, or the
+    // opaque map paints over it.
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const { select } = makeCell("a", [{ value: "a", label: "Alpha" }]);
+    const dropdown = createDropdown({
+      nativeSelect: select,
+      resolveHost: () => host,
+      onSurfaceChange: listener => {
+        // Returning the unsubscribe: the popup drains it on close.
+        listener();
+        return () => undefined;
+      },
+    });
+    cleanup.push(() => dropdown.destroy());
+    dropdown.trigger.click();
+    expect(dropdown.getList()?.parentElement).toBe(host);
+    dropdown.close();
+  });
+
   it("closes on an outside press", () => {
     const { dropdown } = bridged("a", [{ value: "a", label: "Alpha" }]);
     dropdown.trigger.click();
@@ -186,28 +208,20 @@ describe("dropdown: bridged single select", () => {
     expect(dropdown.isOpen()).toBe(false);
   });
 
-  it("Tab closes the list and hands focus to the next control", () => {
+  it("Tab closes the list and returns focus to the trigger", () => {
     const { dropdown } = bridged("a", [{ value: "a", label: "Alpha" }]);
-    // A control after the dropdown, the way a form cell has one.
-    const after = document.createElement("button");
-    document.body.appendChild(after);
     key(dropdown.trigger, "ArrowDown");
+    const focusedRow = document.activeElement;
+    expect(focusedRow).toBe(optionEls(dropdown)[0]);
     key(optionEls(dropdown)[0], "Tab");
     expect(dropdown.isOpen()).toBe(false);
-    // Without the hand-off the focused row is hidden with the popup and focus
-    // falls to <body>, which makes the next Tab restart from the top of the
-    // page (measured on the heatmap panel).
-    expect(document.activeElement).toBe(after);
-  });
-
-  it("Shift+Tab hands focus to the control before the dropdown", () => {
-    const before = document.createElement("button");
-    document.body.appendChild(before);
-    const { dropdown } = bridged("a", [{ value: "a", label: "Alpha" }]);
-    key(dropdown.trigger, "ArrowDown");
-    key(optionEls(dropdown)[0], "Tab", { shiftKey: true });
-    expect(dropdown.isOpen()).toBe(false);
-    expect(document.activeElement).toBe(before);
+    // Returning focus to the trigger is what lets the browser's own Tab
+    // movement continue from the control: without it the focused row is hidden
+    // with the popup and focus falls to <body>, so the next Tab restarts from
+    // the top of the page. The real-browser hand-off to the next control is
+    // asserted in test/python/HeatmapControl/test_dropdown_panel.py (jsdom has
+    // no default Tab behaviour).
+    expect(document.activeElement).toBe(dropdown.trigger);
   });
 
   it("refresh re-reads a rewritten option list and a programmatic value", () => {
@@ -691,6 +705,36 @@ describe("dropdown: keyboard and edge cases", () => {
     expect(document.activeElement).toBe(optionEls(dropdown)[2]);
     key(dropdown.getList() as HTMLElement, "Home");
     expect(document.activeElement).toBe(optionEls(dropdown)[0]);
+  });
+
+  it("the arrow keys wrap around past disabled rows", () => {
+    const dropdown = standalone([
+      { value: "a", label: "Alpha", disabled: true },
+      { value: "b", label: "Bee" },
+      { value: "c", label: "Cee", disabled: true },
+    ]);
+    key(dropdown.trigger, "ArrowDown");
+    expect(document.activeElement).toBe(optionEls(dropdown)[1]);
+    // Down from the only enabled row wraps over the disabled tail and head,
+    // landing back on itself instead of parking on a row that cannot be picked.
+    key(dropdown.getList() as HTMLElement, "ArrowDown");
+    expect(document.activeElement).toBe(optionEls(dropdown)[1]);
+    key(dropdown.getList() as HTMLElement, "ArrowUp");
+    expect(document.activeElement).toBe(optionEls(dropdown)[1]);
+  });
+
+  it("leaves the cursor alone when every row is disabled", () => {
+    const dropdown = standalone([
+      { value: "a", label: "Alpha", disabled: true },
+      { value: "b", label: "Bee", disabled: true },
+    ]);
+    key(dropdown.trigger, "ArrowDown");
+    expect(dropdown.isOpen()).toBe(true);
+    const before = document.activeElement;
+    for (const press of ["ArrowDown", "ArrowUp", "Home", "End"]) {
+      key(dropdown.getList() as HTMLElement, press);
+    }
+    expect(document.activeElement).toBe(before);
   });
 
   it("Home and End skip disabled rows", () => {

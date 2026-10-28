@@ -12,6 +12,7 @@ import {
   pinRowPanel,
   unpinRowPanel,
 } from "#core/leaflet/index.js";
+import { registerPortalRoot } from "#common/portalRoots.js";
 
 // setup.js provides L.DomEvent mocks (disableClickPropagation, etc.),
 // but panel.js also needs on/off/stop — stub them here.
@@ -254,6 +255,29 @@ describe("bindOutsideCollapse", () => {
     inside.addEventListener("click", () => inside.remove());
     inside.click();
     expect(container.classList.contains("foliplus-is-expanded")).toBe(true);
+  });
+
+  it("keeps the panel open for a press on a registered portal root", () => {
+    // The shared dropdown mounts its open list on <body> and registers that
+    // node as part of the overlay. A press on a row is then an inside press,
+    // even though the node is not a descendant of the panel.
+    const container = makePanel();
+    const portalList = document.createElement("div");
+    const row = document.createElement("button");
+    portalList.appendChild(row);
+    document.body.appendChild(portalList);
+    const release = registerPortalRoot(portalList);
+    try {
+      bindOutsideCollapse({ container });
+      row.click();
+      expect(container.classList.contains("foliplus-is-expanded")).toBe(true);
+      expect(container.classList.contains("foliplus-is-collapsed")).toBe(false);
+    } finally {
+      release();
+    }
+    // Once released the same node is ordinary page furniture again.
+    row.click();
+    expect(container.classList.contains("foliplus-is-collapsed")).toBe(true);
   });
 
   it("skips collapse when skipCheck returns true", () => {

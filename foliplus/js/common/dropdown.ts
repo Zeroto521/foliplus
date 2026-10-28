@@ -297,37 +297,20 @@ const focusOption = (state: InternalState, index: number): void => {
   option.scrollIntoView?.({ block: "nearest", inline: "nearest" });
 };
 
+/** The first enabled row from `index`, walking in `step` direction and
+ *  wrapping. -1 when every row is disabled (the cursor then stays put). */
+const enabledFrom = (state: InternalState, index: number, step: 1 | -1): number => {
+  const total = state.items.length;
+  for (let offset = 0; offset < total; offset++) {
+    const at = (((index + offset * step) % total) + total) % total;
+    if (!state.items[at]?.disabled) return at;
+  }
+  return -1;
+};
+
 /** Home/End land on the first/last row that can actually be picked. A native
  *  select skips disabled options for those keys, and so must this listbox —
  *  otherwise the key parks focus on a row that ignores Enter. */
-/** Everything Tab can land on: native tab order, minus the rows of an open
- *  popup (they are the popup's own navigation surface) and minus controls the
- *  module itself took out of the tab order (the bridged select). */
-const tabbables = (): HTMLElement[] =>
-  Array.from(
-    document.querySelectorAll<HTMLElement>(
-      'a[href], button, input, select, textarea, [tabindex]',
-    ),
-  ).filter(
-    element =>
-      element.tabIndex >= 0 &&
-      !(element as HTMLButtonElement).disabled &&
-      !element.closest(".foliplus-dropdown-list") &&
-      !element.hidden &&
-      element.getAttribute("aria-hidden") !== "true",
-  );
-
-/** The control focus should land on when Tab leaves this dropdown. */
-const tabTarget = (
-  state: InternalState,
-  backward: boolean,
-): HTMLElement | null => {
-  const order = tabbables();
-  const index = order.indexOf(state.trigger);
-  if (index === -1) return null;
-  return order[index + (backward ? -1 : 1)] ?? null;
-};
-
 const focusEdge = (state: InternalState, edge: "start" | "end"): void => {
   const total = state.items.length;
   for (let offset = 0; offset < total; offset++) {
@@ -461,7 +444,11 @@ const closeDropdown = (
  *  would stack z-index on each other and orphan the older node. */
 const openStates: InternalState[] = [];
 
-const openDropdown = (state: InternalState, focusIndex = -1): void => {
+const openDropdown = (
+  state: InternalState,
+  focusIndex = -1,
+  focusStep: 1 | -1 = 1,
+): void => {
   if (state.destroyed || state.isOpen) return;
   for (const other of [...openStates]) {
     if (other !== state && other.isOpen) other.closer?.();
@@ -561,8 +548,10 @@ const openDropdown = (state: InternalState, focusIndex = -1): void => {
   );
 
   if (focusIndex >= 0) {
-    const index = state.items[focusIndex]?.disabled ? 0 : focusIndex;
-    focusOption(state, index);
+    // Opening with an arrow key lands on the first enabled row in that
+    // direction, the way a native select skips its disabled options.
+    const index = enabledFrom(state, focusIndex, focusStep);
+    if (index >= 0) focusOption(state, index);
   }
   state.onToggle?.(true, state.list);
 };
@@ -578,7 +567,11 @@ const onTriggerKeyDown = (state: InternalState, event: KeyboardEvent): void => {
       stepFocus(state, key === "ArrowDown" ? 1 : -1);
       return;
     }
-    openDropdown(state, key === "ArrowDown" ? 0 : Math.max(0, state.items.length - 1));
+    openDropdown(
+      state,
+      key === "ArrowDown" ? 0 : Math.max(0, state.items.length - 1),
+      key === "ArrowDown" ? 1 : -1,
+    );
     return;
   }
   if ((key === "Home" || key === "End") && state.isOpen) {
@@ -612,17 +605,14 @@ const onListKeyDown = (state: InternalState, event: KeyboardEvent): void => {
     return;
   }
   if (key === "Tab") {
-    // Tab leaves the control. The row that currently has focus belongs to a
-    // popup that is about to be hidden, so the browser's own focus movement
-    // would drop focus on <body> and the next Tab would restart from the top
-    // of the page. Move focus to the control after (or before) the trigger
-    // explicitly, the way leaving a native select does.
-    const next = tabTarget(state, event.shiftKey);
-    closeDropdown(state, { restoreFocus: false });
-    if (next) {
-      event.preventDefault();
-      next.focus();
-    }
+    // Tab leaves the control. Returning focus to the trigger first is what
+    // makes the browser's own Tab handling continue from the control instead
+    // of from the row that is about to be hidden: the focused row lives in the
+    // portal, and hiding it drops focus on <body>, which restarts the next Tab
+    // from the top of the page. No preventDefault — the default movement after
+    // this handler is the one that should happen, it just needs the trigger as
+    // its starting point (the same shape as leaving a native select).
+    closeDropdown(state, { restoreFocus: true });
   }
 };
 
