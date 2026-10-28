@@ -2090,7 +2090,7 @@ describe("LayerController", () => {
       id: "overlay1",
     });
     // A re-registration is how the API says the layer's content changed, so the
-    // cached field list — and the auto field resolved from it — must be dropped.
+    // cached field list — and the field resolved from it — must be dropped.
     expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_ITEM_REFRESHED, {
       id: "overlay1",
     });

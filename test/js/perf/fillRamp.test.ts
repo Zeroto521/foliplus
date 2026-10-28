@@ -104,7 +104,7 @@ const ui = {
     deleteFields: () => {},
     deleteSnapshot: () => {},
   },
-  annotation: { collectFields: () => [], invalidateAutoField: () => {} },
+  annotation: { collectFields: () => [], invalidateResolvedField: () => {} },
 } as any;
 
 /** Clear every leaf's spies between ticks so the call history cannot grow
