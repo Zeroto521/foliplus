@@ -439,8 +439,8 @@ const openDropdown = (state: InternalState, focusIndex = -1): void => {
   // replaces <body> as the containing block). Re-seat and re-pin rather than
   // leave the node on a host that is about to leave the top layer.
   const reseat = (): void => {
-    const host = popupHost();
-    if (state.list.parentElement !== host) host.appendChild(state.list);
+    const nextHost = popupHost();
+    if (state.list.parentElement !== nextHost) nextHost.appendChild(state.list);
     positionList(state);
   };
   document.addEventListener("fullscreenchange", reseat);
@@ -492,7 +492,6 @@ const onTriggerKeyDown = (state: InternalState, event: KeyboardEvent): void => {
     event.preventDefault();
     event.stopPropagation();
     focusOption(state, key === "Home" ? 0 : state.items.length - 1);
-    return;
   }
   // Escape is not handled here: an open popup claims it on window capture
   // (see openDropdown), which outranks the document-capture panel dispatcher.

@@ -390,7 +390,7 @@ describe("dropdown: lifecycle", () => {
 // with fixed coordinates and re-pinned on scroll.
 
 describe("dropdown: popup geometry", () => {
-  const rect = (top: number, height: number, height2 = 0): (() => DOMRect) => {
+  const rect = (top: number, height: number): (() => DOMRect) => {
     return () => {
       const width = 160;
       return {
@@ -873,9 +873,7 @@ describe("dropdown: remaining contracts", () => {
   it("a press inside the portalled list does not dismiss it", () => {
     const dropdown = dropdownOfItems(three);
     dropdown.open();
-    optionEls(dropdown)[1].dispatchEvent(
-      new Event("pointerdown", { bubbles: true }),
-    );
+    optionEls(dropdown)[1].dispatchEvent(new Event("pointerdown", { bubbles: true }));
     expect(dropdown.isOpen()).toBe(true);
     // A press outside does (the list is its own hit area now).
     document.body.dispatchEvent(new Event("pointerdown", { bubbles: true }));
