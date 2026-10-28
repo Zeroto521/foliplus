@@ -51,10 +51,9 @@ const numericPropertiesKeys = (layer: L.Layer): string[] => {
 
 /** Resolve a stored field name against the numeric fields a layer currently
  *  offers: the stored name wins when it is still present, otherwise the first
- *  offered field. Both field pickers that sit over a numeric list use this one
- *  rule — the heatmap aggregation row (which writes the resolved name back)
- *  and the fill ramp (which paints with it) — so the panel and the map can
- *  never disagree about which column is in use.
+ *  offered field. The fill ramp paints with this rule; the heatmap's
+ *  aggregation row resolves through its own manager (`effectiveField`), which
+ *  adds the Python declaration and never writes the resolution back.
  *
  *  An empty list resolves to "" (no field to offer). */
 const resolveField = (stored: string, fields: readonly string[]): string =>
