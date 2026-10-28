@@ -38,6 +38,7 @@
 - `ExportControl`: marker shadows are exported with their icons, measured after layout so they sit under the marker ([#740](https://github.com/Zeroto521/foliplus/pull/740))
 - `Interaction`: Space/Enter keep their native meaning on buttons and links, and a focused menu entry runs its own action ([#755](https://github.com/Zeroto521/foliplus/pull/755), [#778](https://github.com/Zeroto521/foliplus/pull/778))
 - `HeatmapControl` / `LayerControl`: the scheme list flips above a trigger near the viewport bottom in both panels — the heatmap mounts its picker the same portalled way as the style drawer ([#777](https://github.com/Zeroto521/foliplus/pull/777), [#780](https://github.com/Zeroto521/foliplus/pull/780), [#784](https://github.com/Zeroto521/foliplus/pull/784))
+- Shared dropdown: a portalled option list paints above the expanded panel that owns its trigger, and a press on a row counts as a press inside that panel, so picking a value no longer dismisses the panel under the click ([#793](https://github.com/Zeroto521/foliplus/pull/793))
 
 ## [v0.4.1] (2026-10-18)
 

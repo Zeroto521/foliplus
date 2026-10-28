@@ -297,6 +297,48 @@ const focusOption = (state: InternalState, index: number): void => {
   option.scrollIntoView?.({ block: "nearest", inline: "nearest" });
 };
 
+/** Home/End land on the first/last row that can actually be picked. A native
+ *  select skips disabled options for those keys, and so must this listbox —
+ *  otherwise the key parks focus on a row that ignores Enter. */
+/** Everything Tab can land on: native tab order, minus the rows of an open
+ *  popup (they are the popup's own navigation surface) and minus controls the
+ *  module itself took out of the tab order (the bridged select). */
+const tabbables = (): HTMLElement[] =>
+  Array.from(
+    document.querySelectorAll<HTMLElement>(
+      'a[href], button, input, select, textarea, [tabindex]',
+    ),
+  ).filter(
+    element =>
+      element.tabIndex >= 0 &&
+      !(element as HTMLButtonElement).disabled &&
+      !element.closest(".foliplus-dropdown-list") &&
+      !element.hidden &&
+      element.getAttribute("aria-hidden") !== "true",
+  );
+
+/** The control focus should land on when Tab leaves this dropdown. */
+const tabTarget = (
+  state: InternalState,
+  backward: boolean,
+): HTMLElement | null => {
+  const order = tabbables();
+  const index = order.indexOf(state.trigger);
+  if (index === -1) return null;
+  return order[index + (backward ? -1 : 1)] ?? null;
+};
+
+const focusEdge = (state: InternalState, edge: "start" | "end"): void => {
+  const total = state.items.length;
+  for (let offset = 0; offset < total; offset++) {
+    const index = edge === "start" ? offset : total - 1 - offset;
+    if (!state.items[index]?.disabled) {
+      focusOption(state, index);
+      return;
+    }
+  }
+};
+
 /** Index of the focused option, or -1 when focus is still on the trigger. */
 const focusedIndex = (state: InternalState): number =>
   state.optionEls.findIndex(option => option === document.activeElement);
@@ -499,6 +541,14 @@ const openDropdown = (state: InternalState, focusIndex = -1): void => {
   // handler here would lose: this listener sits on window capture, which runs
   // before any document capture listener and stops the event there. The
   // second Escape reaches the panel (this listener dies with the popup).
+  //
+  // Why claiming the key here does not steal an Escape from a
+  // higher-priority surface (core/overlayRegistry's ESC_PRIORITY, e.g.
+  // LAYER_RENAME at 900): a popup can only be open inside a style/filter/attrs
+  // panel, and opening one of those ends any live rename first (measured: the
+  // rename input is removed and focus returns to the row), so no surface above
+  // this one can be alive at the same time. A guard test pins that invariant
+  // (test_dropdown_panel.py: the drawer ends the rename).
   const onEscapeCapture = (event: KeyboardEvent): void => {
     if (event.key !== "Escape" || event.defaultPrevented) return;
     event.preventDefault();
@@ -534,7 +584,7 @@ const onTriggerKeyDown = (state: InternalState, event: KeyboardEvent): void => {
   if ((key === "Home" || key === "End") && state.isOpen) {
     event.preventDefault();
     event.stopPropagation();
-    focusOption(state, key === "Home" ? 0 : state.items.length - 1);
+    focusEdge(state, key === "Home" ? "start" : "end");
   }
   // Escape is not handled here: an open popup claims it on window capture
   // (see openDropdown), which outranks the document-capture panel dispatcher.
@@ -551,7 +601,7 @@ const onListKeyDown = (state: InternalState, event: KeyboardEvent): void => {
   if (key === "Home" || key === "End") {
     event.preventDefault();
     event.stopPropagation();
-    focusOption(state, key === "Home" ? 0 : state.items.length - 1);
+    focusEdge(state, key === "Home" ? "start" : "end");
     return;
   }
   if (key === " " || key === "Enter") {
@@ -562,8 +612,17 @@ const onListKeyDown = (state: InternalState, event: KeyboardEvent): void => {
     return;
   }
   if (key === "Tab") {
-    // Tab leaves the control: hide the popup but let focus move on.
+    // Tab leaves the control. The row that currently has focus belongs to a
+    // popup that is about to be hidden, so the browser's own focus movement
+    // would drop focus on <body> and the next Tab would restart from the top
+    // of the page. Move focus to the control after (or before) the trigger
+    // explicitly, the way leaving a native select does.
+    const next = tabTarget(state, event.shiftKey);
     closeDropdown(state, { restoreFocus: false });
+    if (next) {
+      event.preventDefault();
+      next.focus();
+    }
   }
 };
 
