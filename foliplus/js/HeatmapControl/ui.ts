@@ -3,7 +3,11 @@
 import { CLASS_COUNT, type ClassifyMethod, isClassifyMethod } from "#core/classify.js";
 import { EVENTS, ensureEvents, publish } from "#core/event/index.js";
 import { resolveField } from "#core/field.js";
-import { fullscreenSurface, onFullscreenSurfaceChange } from "#core/fullscreen.js";
+import {
+  dropdownSurface,
+  fullscreenSurface,
+  onFullscreenSurfaceChange,
+} from "#core/fullscreen.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { adjustPanelZIndex } from "#core/leaflet/index.js";
 import { safeColorScale } from "#core/palette.js";
@@ -98,13 +102,19 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
   ) as HTMLSelectElement;
   // Both template selects keep their markup and stay the value/change bridge;
   // the visible controls are the shared dropdowns (common/dropdown.ts).
+  // Every popup follows the surface covering its trigger (native fullscreen or
+  // this control's pseudo-fullscreen fallback), so the list is never parked
+  // under the opaque map.
+  const surface = dropdownSurface(ctrl.mgr.map.getContainer());
   createDropdown({
     nativeSelect: ctrl.layerSelect,
     ariaLabel: ctrl.T("layer"),
+    ...surface,
   });
   createDropdown({
     nativeSelect: ctrl.aggSelect,
     ariaLabel: ctrl.T("agg_method"),
+    ...surface,
   });
   // Field / Classes / Scheme are shared row primitives (core/rampForm),
   // mounted into the template's placeholder. The rows keep the heatmap's
@@ -120,6 +130,7 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     rowClass: "foliplus-heatmap-field foliplus-hidden",
     rowAttributes: { [CONST.DATA_ATTR.FIELD]: "" },
     selectAttributes: { [CONST.DATA_ATTR.FIELD_SELECT]: "" },
+    surface,
   });
   // The row has one visible label but two selects: give each its own
   // accessible name so a screen reader does not announce "Classes" twice.
@@ -134,6 +145,7 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     classesClass: "foliplus-heatmap-class-select",
     methodAttributes: { [CONST.DATA_ATTR.METHOD]: "" },
     classesAttributes: { [CONST.DATA_ATTR.CLASS_COUNT]: "" },
+    surface,
   });
   const schemeRow = buildSchemeRow({
     label: ctrl.T("scheme"),

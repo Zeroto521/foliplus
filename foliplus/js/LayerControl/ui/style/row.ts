@@ -11,7 +11,11 @@
 // select stays the value/change carrier the panel's delegation reads. The
 // detail slot is one element — callers replace its children on a mode switch.
 import { dom } from "#common/dom.js";
-import { type Dropdown, createDropdown } from "#common/dropdown.js";
+import {
+  type Dropdown,
+  type DropdownSurface,
+  createDropdown,
+} from "#common/dropdown.js";
 import { selectInput } from "#common/form.js";
 
 /** One mode offered by a mode row. `disabled` + `title` let a later consumer
@@ -46,6 +50,8 @@ const buildModeRow = (spec: {
   /** Currently active mode value. */
   value: string;
   options: readonly ModeRowOption[];
+  /** Popup host contract for the bridged dropdown (see common/dropdown). */
+  surface?: DropdownSurface;
 }): ModeRow => {
   const select = selectInput({
     className: spec.selectClass,
@@ -57,6 +63,7 @@ const buildModeRow = (spec: {
   const dropdown = createDropdown({
     nativeSelect: select,
     ariaLabel: spec.label,
+    ...spec.surface,
   });
 
   const detail = dom.el("div", { class: spec.detailClass });

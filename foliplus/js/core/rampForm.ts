@@ -16,7 +16,11 @@ import {
   METHOD_ORDER,
 } from "#core/classify.js";
 import { dom } from "#common/dom.js";
-import { type Dropdown, createDropdown } from "#common/dropdown.js";
+import {
+  type Dropdown,
+  type DropdownSurface,
+  createDropdown,
+} from "#common/dropdown.js";
 import { formRow, inlineControls, selectInput } from "#common/form.js";
 
 /** Extra HTML attributes applied to the row/control, e.g. the heatmap's
@@ -41,6 +45,10 @@ type FieldRowOptions = {
   rowAttributes?: Attributes;
   selectAttributes?: Attributes;
   onChange?: (field: string) => void;
+  /** Popup host contract for the bridged dropdown (core/fullscreen's
+   *  `dropdownSurface(map.getContainer())`), so an open list follows the
+   *  surface covering the trigger. */
+  surface?: DropdownSurface;
 };
 
 type FieldRow = {
@@ -66,6 +74,7 @@ const buildFieldRow = (opts: FieldRowOptions): FieldRow => {
   const dropdown = createDropdown({
     nativeSelect: select,
     ariaLabel: opts.ariaLabel,
+    ...opts.surface,
   });
 
   const row = formRow(opts.label, dropdown.element, opts.rowClass);
@@ -93,6 +102,8 @@ type ClassesRowOptions = {
   methodAttributes?: Attributes;
   classesAttributes?: Attributes;
   onChange?: (next: { method?: ClassifyMethod; classes?: number }) => void;
+  /** Popup host contract for both bridged dropdowns (see FieldRowOptions). */
+  surface?: DropdownSurface;
 };
 
 type ClassesRow = {
@@ -148,6 +159,7 @@ const buildClassesRow = (opts: ClassesRowOptions): ClassesRow => {
   const methodDropdown = createDropdown({
     nativeSelect: methodSelect,
     ariaLabel: opts.methodAriaLabel,
+    ...opts.surface,
   });
   const classesDropdown = createDropdown({
     nativeSelect: classesSelect,
@@ -155,6 +167,7 @@ const buildClassesRow = (opts: ClassesRowOptions): ClassesRow => {
     // The wrapper replaces the select in the flex row, so the compact-count
     // width contract (form.css) has to size it.
     className: "foliplus-classes-select",
+    ...opts.surface,
   });
 
   const row = formRow(

@@ -5,6 +5,7 @@
 // opacity / zoom-range rows.
 import { type LabelStyleValues, renderLabelControls } from "#core/label/index.js";
 import { DIM } from "#core/layer/index.js";
+import { dropdownSurface } from "#core/fullscreen.js";
 import { createRowPanel } from "#core/leaflet/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import * as SVGs from "#foliplus/LayerControl/icon.js";
@@ -99,6 +100,10 @@ const renderDelegatedStylePanel = (
     styleProvider: () => entry()?.styleProvider?.() as LabelStyleValues | undefined,
     getSetters: () => entry()?.styleSetters ?? {},
     T: ui._,
+    // The format list portals out of the drawer; it must follow the surface
+    // covering the trigger (native or pseudo fullscreen), like every other
+    // migrated select.
+    surface: dropdownSurface(ui.c.map.getContainer()),
   });
 
   // Border row (HeatmapControl only today) — the component's own styling, so

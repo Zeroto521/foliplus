@@ -24,6 +24,7 @@ import * as CONST from "#foliplus/LayerControl/const.js";
 import type { AnnotationConfig } from "#foliplus/LayerControl/type.js";
 import { dom } from "#common/dom.js";
 import { createDropdown } from "#common/dropdown.js";
+import { dropdownSurface } from "#core/fullscreen.js";
 import {
   DEFAULT_LABEL_COLOR,
   LABEL_SIZE,
@@ -114,6 +115,7 @@ const buildLabelSection = (ui: LayerUI, layerId: string): HTMLElement => {
   const fieldDropdown = createDropdown({
     nativeSelect: fieldSelect as HTMLSelectElement,
     ariaLabel: ui.T("style_label_field"),
+    ...dropdownSurface(ui.c.map.getContainer()),
   });
 
   // Appearance row — same chrome as the heatmap border / delegated drawer.
@@ -165,6 +167,7 @@ const buildLabelSection = (ui: LayerUI, layerId: string): HTMLElement => {
   const formatDropdown = createDropdown({
     nativeSelect: formatSelect as HTMLSelectElement,
     ariaLabel: ui._("foliplus.label_format"),
+    ...dropdownSurface(ui.c.map.getContainer()),
   });
 
   // Numeric-only: hide the format dropdown when the picked field is not a

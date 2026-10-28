@@ -21,7 +21,11 @@
 // (the panel-wide Reset handles it, the way label color has it).
 import { CLASS_COUNT, METHOD } from "#core/classify.js";
 import { numericPropertiesKeys, resolveField } from "#core/field.js";
-import { fullscreenSurface, onFullscreenSurfaceChange } from "#core/fullscreen.js";
+import {
+  dropdownSurface,
+  fullscreenSurface,
+  onFullscreenSurfaceChange,
+} from "#core/fullscreen.js";
 import { CAP_TIER, DIM, type LayerInfo, ROLE } from "#core/layer/index.js";
 import type { FillRampConfig, LayerOverride } from "#core/layer/intent.js";
 import { DEFAULT_SCHEMES, getColorScale } from "#core/palette.js";
@@ -490,6 +494,7 @@ const buildRampDetail = (
     value: resolveField(ramp.field, fields),
     rowClass: CONST.CLASSES.STYLE_FILL_ROW,
     selectClass: CONST.CLASSES.STYLE_FILL_FIELD_SELECT,
+    surface: dropdownSurface(ui.c.map.getContainer()),
   });
 
   const classes = buildClassesRow({
@@ -506,6 +511,7 @@ const buildRampDetail = (
     rowClass: CONST.CLASSES.STYLE_FILL_ROW,
     methodClass: CONST.CLASSES.STYLE_FILL_METHOD_SELECT,
     classesClass: CONST.CLASSES.STYLE_FILL_CLASSES_SELECT,
+    surface: dropdownSurface(ui.c.map.getContainer()),
   });
 
   const scheme = buildSchemeRow({
@@ -590,6 +596,7 @@ const buildFillRow = (ui: LayerUI, layerId: string): HTMLElement => {
       { value: "solid", label: ui.T("style_fill_single") },
       { value: "ramp", label: ui.T("style_fill_by_value") },
     ],
+    surface: dropdownSurface(ui.c.map.getContainer()),
   });
 
   renderFillDetail(ui, layerId, detail, mode);

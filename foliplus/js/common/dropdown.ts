@@ -17,9 +17,12 @@
 //  - standalone (pass `items`, optional `multiple`): the dropdown owns the
 //    value and reports it through `onChange` / `getValue` / `getValues`.
 //
-// The open popup is portalled: it leaves the panel and mounts on <body> (or
-// the fullscreen element) with fixed viewport coordinates anchored to the
-// trigger. The panel is often shorter than the popup — the heatmap's layer row
+// The open popup is portalled: it leaves the panel and mounts on the surface
+// covering the trigger — native fullscreen element, the control's
+// pseudo-fullscreen container, or <body> — with fixed viewport coordinates
+// anchored to the trigger. While it is open it registers itself as a portal
+// root (common/portalRoots), so the panel that owns the trigger counts a press
+// on a row as its own instead of dismissing itself under the click. The panel is often shorter than the popup — the heatmap's layer row
 // is one row tall until a layer is picked, LayerControl's content scrolls — so
 // a popup living inside that clip box collapsed to a single option row, which
 // is why it no longer lives there. Scrolling the panel re-pins the popup
@@ -27,6 +30,7 @@
 // is open at a time. Same portal contract as createSchemePicker.
 import { dom } from "#common/dom.js";
 import { createLogger } from "#common/log.js";
+import { registerPortalRoot } from "#common/portalRoots.js";
 
 const log = createLogger("dropdown");
 
@@ -63,7 +67,16 @@ interface DropdownItem {
   title?: string;
 }
 
-interface DropdownOptions {
+/** The popup-host contract: where an open popup mounts and how it hears that
+ *  the covering surface changed. Consumers pass core/fullscreen's
+ *  `dropdownSurface(scope)`; builders that create dropdowns on a consumer's
+ *  behalf (core/rampForm, core/label) forward it untouched. */
+interface DropdownSurface {
+  resolveHost?: (() => HTMLElement | null) | null;
+  onSurfaceChange?: ((cb: () => void) => () => void) | null;
+}
+
+interface DropdownOptions extends DropdownSurface {
   /** Bridged mode: the select the trigger replaces. Its options seed the
    *  popup and it stays mounted (hidden) as the value / change bridge. */
   nativeSelect?: HTMLSelectElement;
@@ -129,6 +142,8 @@ interface InternalState {
   selectedLabel: (labels: readonly string[]) => string;
   onChange: ((value: string, values: readonly string[]) => void) | null;
   onToggle: ((open: boolean, list: HTMLElement | null) => void) | null;
+  resolveHost: (() => HTMLElement | null) | null;
+  onSurfaceChange: ((cb: () => void) => () => void) | null;
   optionEls: HTMLButtonElement[];
   isOpen: boolean;
   destroyed: boolean;
@@ -137,6 +152,8 @@ interface InternalState {
   closer: () => void;
   /** Popup-scope listeners; drained whenever the popup closes. */
   mountCleanup: (() => void)[];
+  /** Release the popup node's portal-root registration; null while closed. */
+  releasePortalRoot: (() => void) | null;
 }
 
 let idCounter = 0;
@@ -163,10 +180,20 @@ const nativeItemsOf = (select: HTMLSelectElement): DropdownItem[] =>
  *  heatmap panel is one row tall until a layer is picked, LayerControl's
  *  content scrolls — and a popup clamped to it collapses to a single option
  *  row, which is unusable. The list therefore leaves the panel: it mounts on
- *  <body> (or the fullscreen element) with fixed coordinates and re-pins on
- *  scroll/resize. Same portal contract the scheme picker uses. */
-const popupHost = (): HTMLElement =>
-  (document.fullscreenElement as HTMLElement | null) ?? document.body;
+ *  the surface covering the trigger — native fullscreen, the control's
+ *  pseudo-fullscreen container, or <body> — with fixed coordinates and re-pins
+ *  on scroll/resize.
+ *
+ *  The host comes from the consumer's resolver (core/fullscreen owns the
+ *  surface contract, including the scoping rule that keeps one map's overlay
+ *  out of a sibling map's pseudo container) — this module sits below core/ and
+ *  cannot import it. A body-level popup would otherwise sit behind the opaque
+ *  pseudo/fullscreen surface, the same bug the scheme picker's injected
+ *  resolveHost fixed for its list. */
+const popupHost = (state: InternalState): HTMLElement =>
+  state.resolveHost?.() ??
+  (document.fullscreenElement as HTMLElement | null) ??
+  document.body;
 
 /** Space the popup may use, above and below the trigger, in viewport terms. */
 const spaceAround = (trigger: HTMLElement): { below: number; above: number } => {
@@ -377,6 +404,10 @@ const closeDropdown = (
   state.trigger.removeAttribute("aria-activedescendant");
   state.mountCleanup.forEach(fn => fn());
   state.mountCleanup = [];
+  // Drop the portal-root registration with the popup: while it is live the
+  // panel dismiss predicates must treat a press on it as their own.
+  state.releasePortalRoot?.();
+  state.releasePortalRoot = null;
   // The popup goes back into the wrapper when it is closed: the open state is
   // the only one that has to escape the panel's clip box.
   if (state.list.parentElement !== state.wrapper) state.wrapper.append(state.list);
@@ -399,9 +430,14 @@ const openDropdown = (state: InternalState, focusIndex = -1): void => {
   renderLabel(state);
   // Mount on the portal host *before* unhiding so the first measurement has a
   // laid-out box to read (a detached list reports 0×0).
-  const host = popupHost();
+  const host = popupHost(state);
   if (state.list.parentElement !== host) host.appendChild(state.list);
   state.list.hidden = false;
+  // Register the popup as part of this overlay while it is on screen, so a
+  // press on a row is not classified "outside" by the panel that owns the
+  // trigger. The panel needs no change: core/overlay's predicate asks the
+  // registry (common/portalRoots) first.
+  state.releasePortalRoot = registerPortalRoot(state.list);
   state.isOpen = true;
   state.trigger.classList.add(DROPDOWN_CLASSES.open);
   state.trigger.setAttribute("aria-expanded", "true");
@@ -435,19 +471,26 @@ const openDropdown = (state: InternalState, focusIndex = -1): void => {
   };
   window.addEventListener("scroll", reposition, true);
   window.addEventListener("resize", reposition, { passive: true });
-  // Fullscreen: the host may change under the popup (the fullscreen element
-  // replaces <body> as the containing block). Re-seat and re-pin rather than
-  // leave the node on a host that is about to leave the top layer.
+  // The covering surface can change under an open popup — native fullscreen
+  // entering/exiting, or the control's pseudo-fullscreen fallback (a class
+  // toggle that emits no fullscreenchange). Re-seat and re-pin instead of
+  // leaving the node on a host that is about to be covered.
   const reseat = (): void => {
-    const nextHost = popupHost();
+    if (!state.isOpen) return;
+    const nextHost = popupHost(state);
     if (state.list.parentElement !== nextHost) nextHost.appendChild(state.list);
     positionList(state);
   };
-  document.addEventListener("fullscreenchange", reseat);
+  const unsubscribeSurface = state.onSurfaceChange
+    ? state.onSurfaceChange(reseat)
+    : (() => {
+        document.addEventListener("fullscreenchange", reseat);
+        return () => document.removeEventListener("fullscreenchange", reseat);
+      })();
   state.mountCleanup.push(() => {
     window.removeEventListener("scroll", reposition, true);
     window.removeEventListener("resize", reposition);
-    document.removeEventListener("fullscreenchange", reseat);
+    unsubscribeSurface();
   });
 
   // Escape belongs to the popup while it is open — the popup is the topmost
@@ -597,11 +640,14 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
       opts.selectedLabel ?? (labels => String(labels.length) + " selected"),
     onChange: opts.onChange ?? null,
     onToggle: opts.onToggle ?? null,
+    resolveHost: opts.resolveHost ?? null,
+    onSurfaceChange: opts.onSurfaceChange ?? null,
     optionEls: [],
     isOpen: false,
     destroyed: false,
     closer: () => undefined,
     mountCleanup: [],
+    releasePortalRoot: null,
   };
 
   state.closer = () => closeDropdown(state, { restoreFocus: false });
@@ -714,4 +760,4 @@ const dropdownOf = (select: HTMLSelectElement): Dropdown | null =>
   ownerMap.get(select) ?? null;
 
 export { createDropdown, dropdownOf };
-export type { Dropdown };
+export type { Dropdown, DropdownSurface };

@@ -9,7 +9,11 @@
 // (createTranslator) — both callers pass their own `_` rather than their
 // component-scoped `T`, so no component carries a private copy of the keys.
 import { dom } from "#common/dom.js";
-import { createDropdown, dropdownOf } from "#common/dropdown.js";
+import {
+  type DropdownSurface,
+  createDropdown,
+  dropdownOf,
+} from "#common/dropdown.js";
 import {
   DEFAULT_LABEL_COLOR,
   LABEL_SIZE,
@@ -66,6 +70,9 @@ interface RenderLabelControlsOptions {
    *  open and interaction no-ops (the setter map is gone). */
   getSetters: () => StyleSetters;
   T: (key: string) => string;
+  /** Popup host contract for the format dropdown (core/fullscreen's
+   *  `dropdownSurface(map.getContainer())`). */
+  surface?: DropdownSurface;
 }
 
 interface LabelControlsResult {
@@ -168,6 +175,7 @@ const renderLabelControls = (opts: RenderLabelControlsOptions): LabelControlsRes
     const formatDropdown = createDropdown({
       nativeSelect: formatSelect as HTMLSelectElement,
       ariaLabel: T("foliplus.label_format"),
+      ...opts.surface,
     });
     bodyRows.push(
       dom.el(

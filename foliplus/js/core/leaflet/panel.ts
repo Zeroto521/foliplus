@@ -5,6 +5,7 @@
 // (cssvar.js) directly instead of reading them from the runtime global.
 import { cssVar } from "#common/cssvar.js";
 import { dom } from "#common/dom.js";
+import { isInPortalRoot } from "#common/portalRoots.js";
 import * as SVGs from "#common/icon.js";
 import { throttleRaf } from "#common/throttle.js";
 
@@ -136,7 +137,16 @@ const bindOutsideCollapse = (opts: {
   const capture = (event: MouseEvent): void => {
     if (skipCheck()) return;
     if (insidePress.has(event)) return;
-    if (opts.container.contains(event.target as Node)) insidePress.add(event);
+    const target = event.target as Node | null;
+    // A press on a node this panel's overlay portalled elsewhere (the shared
+    // dropdown's open list, the scheme picker's) belongs to the panel even
+    // though the DOM says otherwise — otherwise the panel collapses out from
+    // under the row the user is aiming at. Registration lives with the
+    // primitive (common/portalRoots), so no per-panel selector is needed here
+    // and a third portal is covered without touching this file.
+    if (target && (opts.container.contains(target) || isInPortalRoot(target))) {
+      insidePress.add(event);
+    }
   };
   const handler = (event: MouseEvent): void => {
     if (skipCheck()) return;

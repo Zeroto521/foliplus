@@ -98,6 +98,13 @@
 .foliplus-dropdown-list.foliplus-dropdown-portal {
   margin-top: 0;
   margin-bottom: 0;
+  /* The popup is a body-level (or fullscreen-host) node with position: fixed.
+     Without a z-index it is painted in the auto band, so the panel that owns
+     the trigger — inside .leaflet-control, at --foliplus-z-index-floating —
+     covers it: measured with elementFromPoint, the heatmap panel's rows and
+     buttons answered for the popup's own centre. Same band as the scheme
+     picker's portal list, which documents the identical failure. */
+  z-index: var(--foliplus-z-index-hint);
 }
 
 /* ── Option row ──
