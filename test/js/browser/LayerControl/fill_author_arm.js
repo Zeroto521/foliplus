@@ -1,5 +1,5 @@
 // Act on the Facility Points row's style panel: open it (default), try to
-// activate the read-only original-colours entry, switch to the solid arm so the
+// activate the read-only original-colors entry, switch to the solid arm so the
 // caller can assert the take-over repainted the map, or click Reset so the
 // caller can assert the author's own paint came back.
 arg => {

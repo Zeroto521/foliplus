@@ -23,26 +23,26 @@ _log = logging.getLogger(__name__)
 # The panel only draws the strip: 64 samples are enough for a continuous
 # scale (a LinearColormap carries 256 stops) and keep CONF small.
 _FILL_AUTHOR_STOPS = 64
-# Features used for the value-to-colour check that validates a caption.
+# Features used for the value-to-color check that validates a caption.
 _FILL_AUTHOR_SAMPLE = 5
-# Features scanned for the distinct-colour strip. The strip is a preview and the
-# panel only needs "at least two colours" plus 64 samples, so a low-cardinality
+# Features scanned for the distinct-color strip. The strip is a preview and the
+# panel only needs "at least two colors" plus 64 samples, so a low-cardinality
 # layer must not cost a full walk: past this budget the record is capped.
 _FILL_AUTHOR_SCAN_LIMIT = 4_096
-# Per-channel slack when comparing a colormap colour with __folium_color:
+# Per-channel slack when comparing a colormap color with __folium_color:
 # branca's hex and the leaf's property round differently (measured max 2/255
 # over 40 features of a plasma and a viridis scale).
 _FILL_AUTHOR_RGB_SLACK = 2
 # Pairing threshold. A continuous scale agrees on every sample, but a
 # classified StepColormap disagrees at mapclassify's bin edges (measured
-# channel deltas up to 81, i.e. an adjacent class colour, on a fisherjenks
+# channel deltas up to 81, i.e. an adjacent class color, on a fisherjenks
 # layer), so a majority is the honest bar. A wrong column measures at or
 # below the 1/k random hit rate instead.
 _FILL_AUTHOR_AGREE = 0.6
 
 
 def _fill_author_color(props: dict[str, Any]) -> str | None:
-    """The feature's declarative colour, when explore wrote one."""
+    """The feature's declarative color, when explore wrote one."""
     color = props.get(_FOLIUM_COLOR_PROP)
     return color if isinstance(color, str) else None
 
@@ -71,17 +71,17 @@ def _feature_properties(feature: object) -> dict[str, Any] | None:
     return props if isinstance(props, dict) else None
 
 
-def _author_colours(features: list[Any]) -> tuple[list[str], bool]:
-    """Distinct declared colours in first-seen order, within a bounded scan.
+def _author_colors(features: list[Any]) -> tuple[list[str], bool]:
+    """Distinct declared colors in first-seen order, within a bounded scan.
 
-    Only features that carry the property contribute, so a partially coloured
-    layer still reports the colours it has. The panel needs "at least two
-    colours" plus a strip, so the scan stops as soon as a colour beyond the cap
+    Only features that carry the property contribute, so a partially colored
+    layer still reports the colors it has. The panel needs "at least two
+    colors" plus a strip, so the scan stops as soon as a color beyond the cap
     shows up and it never walks more than _FILL_AUTHOR_SCAN_LIMIT features: a
     low-cardinality 20,000-feature layer would otherwise pay a full walk only to
-    learn that it has four colours. The sample is strided across the whole list
+    learn that it has four colors. The sample is strided across the whole list
     rather than taken from its head, because a layer sorted by the painted
-    value would otherwise show only its first class and read as a single-colour
+    value would otherwise show only its first class and read as a single-color
     layer. The flag says the strip cap was hit, which the caption shows as
     "N+".
     """
@@ -98,26 +98,26 @@ def _author_colours(features: list[Any]) -> tuple[list[str], bool]:
         props = _feature_properties(features[index])
         if props is None:
             continue
-        colour = _fill_author_color(props)
-        if colour is None or colour in seen:
+        color = _fill_author_color(props)
+        if color is None or color in seen:
             continue
-        seen[colour] = None
+        seen[color] = None
         if len(seen) > _FILL_AUTHOR_STOPS:
             return list(seen)[:_FILL_AUTHOR_STOPS], True
     return list(seen), False
 
 
 def _author_rows(features: list[Any]) -> list[tuple[dict[str, Any], str]]:
-    """A bounded sample of (properties, colour) rows for the colour checks."""
+    """A bounded sample of (properties, color) rows for the color checks."""
     rows: list[tuple[dict[str, Any], str]] = []
     for feature in features:
         props = _feature_properties(feature)
         if props is None:
             continue
-        colour = _fill_author_color(props)
-        if colour is None:
+        color = _fill_author_color(props)
+        if color is None:
             continue
-        rows.append((props, colour))
+        rows.append((props, color))
         if len(rows) >= _FILL_AUTHOR_SAMPLE:
             break
     return rows
@@ -141,9 +141,9 @@ def _numeric_value(value: object) -> float | None:
     return None
 
 
-def _rgb(colour: str) -> tuple[int, int, int] | None:
+def _rgb(color: str) -> tuple[int, int, int] | None:
     """``#rgb`` / ``#rrggbb`` (any case, alpha ignored) as three channels."""
-    raw = colour.strip().lower()
+    raw = color.strip().lower()
     if not raw.startswith("#"):
         return None
     body = raw[1:]
@@ -158,8 +158,8 @@ def _rgb(colour: str) -> tuple[int, int, int] | None:
     return red, green, blue
 
 
-def _same_colour(left: str, right: str) -> bool:
-    """Whether two hex colours agree within the rounding slack."""
+def _same_color(left: str, right: str) -> bool:
+    """Whether two hex colors agree within the rounding slack."""
     left_rgb = _rgb(left)
     right_rgb = _rgb(right)
     if left_rgb is None or right_rgb is None:
@@ -179,7 +179,7 @@ def _map_colormaps(node: Any) -> list[Any]:
     ``gdf.explore(column=..., cmap=...)`` adds a colormap child per explored
     layer — a ``LinearColormap`` for a continuous column, a ``StepColormap``
     for a classified one. ``legend=False`` adds none, and a categorical column
-    adds none either; both fall back to the colour set alone.
+    adds none either; both fall back to the color set alone.
     """
     colormaps: list[Any] = []
     visited: set[int] = set()
@@ -197,7 +197,7 @@ def _map_colormaps(node: Any) -> list[Any]:
 
 
 def _colormap_sample(colormap: Any, value: object) -> str | None:
-    """The scale's hex colour at one value, or None when it cannot sample."""
+    """The scale's hex color at one value, or None when it cannot sample."""
     try:
         return str(colormap(value))[:7]
     except (TypeError, ValueError):
@@ -211,7 +211,7 @@ def _column_agreement(
 ) -> tuple[int, int]:
     """How many sampled features of one column the scale reproduces."""
     hits = total = 0
-    for props, colour in rows:
+    for props, color in rows:
         value = _numeric_value(props.get(column))
         if value is None:
             continue
@@ -219,7 +219,7 @@ def _column_agreement(
         if sample is None:
             continue
         total += 1
-        hits += _same_colour(sample, colour)
+        hits += _same_color(sample, color)
     return hits, total
 
 
@@ -232,15 +232,15 @@ def _pair_scale(
 
     The caption is the column geopandas drew the scale for. When it is a
     numeric property of the layer, that column is the answer and no other
-    column is ever considered; the colour check only confirms the scale is this
+    column is ever considered; the color check only confirms the scale is this
     layer's — two explore layers can caption their scales with the same column
     name, and only one of the two scales paints these features.
 
     A scale whose caption names no property of the layer is not claimed at
-    all: the panel then shows the colours the features carry, with no scale, no
+    all: the panel then shows the colors the features carry, with no scale, no
     column and no field name to invent. The absence is deliberate — a
     correlated column (area / area_ha / area_km2, or a near-duplicate within a
-    couple of percent) reproduces the same coarse colour bands, so 10 random
+    couple of percent) reproduces the same coarse color bands, so 10 random
     datasets with a caption that named no column picked the wrong column 10
     times out of 10 at 2-6 classes. The check's other job is to refuse a scale
     that a layer merely shares a property name with (measured: 0/5 sampled
@@ -264,7 +264,7 @@ def _pair_scale(
         if total and hits / total < _FILL_AUTHOR_AGREE:
             _log.warning(
                 "LayerControl: the scale caption %r names a column, but only "
-                "%d/%d sampled features reproduce its colours; not claiming it",
+                "%d/%d sampled features reproduce its colors; not claiming it",
                 caption,
                 hits,
                 total,
@@ -275,10 +275,10 @@ def _pair_scale(
     return None
 
 
-def _rgba_hex(colour: object) -> str | None:
-    """A branca RGBA stop (floats in 0..1) as a hex colour."""
+def _rgba_hex(color: object) -> str | None:
+    """A branca RGBA stop (floats in 0..1) as a hex color."""
     try:
-        channels = list(cast(Iterable[float], colour))[:3]
+        channels = list(cast(Iterable[float], color))[:3]
     except TypeError:
         return None
     try:
@@ -288,16 +288,16 @@ def _rgba_hex(colour: object) -> str | None:
     return f"#{red:02x}{green:02x}{blue:02x}"
 
 
-def _palette_hex(colour: object) -> str | None:
+def _palette_hex(color: object) -> str | None:
     """One palette stop as #rrggbb: a 0..1 RGBA tuple, or a hex string."""
-    if isinstance(colour, str):
-        raw = colour.strip().lower()
+    if isinstance(color, str):
+        raw = color.strip().lower()
         if not raw.startswith("#") or len(raw) not in (4, 7, 9):
             return None
         if len(raw) == 4:
             return "#" + "".join(channel * 2 for channel in raw[1:])
         return raw[:7]
-    return _rgba_hex(colour)
+    return _rgba_hex(color)
 
 
 def _continuous_stops(colormap: Any) -> list[str]:
@@ -321,13 +321,13 @@ def _continuous_stops(colormap: Any) -> list[str]:
     else:
         step = (len(points) - 1) / (_FILL_AUTHOR_STOPS - 1)
         picks = [round(index * step) for index in range(_FILL_AUTHOR_STOPS)]
-    colours = getattr(colormap, "colors", None)
-    if isinstance(colours, (list, tuple)) and len(colours) == len(points):
+    colors = getattr(colormap, "colors", None)
+    if isinstance(colors, (list, tuple)) and len(colors) == len(points):
         stops: list[str] = []
         for at in picks:
-            hex_colour = _palette_hex(colours[at])
-            if hex_colour is not None:
-                stops.append(hex_colour)
+            hex_color = _palette_hex(colors[at])
+            if hex_color is not None:
+                stops.append(hex_color)
         return stops
     stops = []
     for at in picks:
@@ -342,15 +342,15 @@ def _scale_payload(
 ) -> tuple[dict[str, Any], list[str]]:
     """The scale record the panel reads, plus the strip it draws.
 
-    A continuous scale ships 64 sampled colours; a classified one ships the
+    A continuous scale ships 64 sampled colors; a classified one ships the
     author's own blocks, because those are what the author's map shows.
     """
     stepped = isinstance(colormap, StepColormap)
     if stepped:
         stops = [
-            hex_colour
-            for colour in colormap.colors
-            if (hex_colour := _rgba_hex(colour)) is not None
+            hex_color
+            for color in colormap.colors
+            if (hex_color := _rgba_hex(color)) is not None
         ]
     else:
         stops = _continuous_stops(colormap)
@@ -361,7 +361,7 @@ def _scale_payload(
     }
     if column is not None:
         # A column is named only on evidence (the caption, or the features'
-        # own colours reproducing the scale); a scale shipped without one must
+        # own colors reproducing the scale); a scale shipped without one must
         # not invent a name.
         scale["column"] = column
     if stepped:
@@ -381,10 +381,10 @@ def _fill_author(
 
     Reads properties.__folium_color, which geopandas.explore writes for every
     feature; a style_function layer has no such property and returns None, so
-    JavaScript keeps the normal single-colour arms for it. When the author also
-    declared a scale (a branca colormap on the map), it is paired by a colour
+    JavaScript keeps the normal single-color arms for it. When the author also
+    declared a scale (a branca colormap on the map), it is paired by a color
     check and shipped as ``scale``; otherwise the record still names how many
-    distinct colours the layer paints and samples them for the strip. A scale
+    distinct colors the layer paints and samples them for the strip. A scale
     is paired only through its caption, so the column is the author's string
     and never a guess.
     """
@@ -394,14 +394,14 @@ def _fill_author(
     features = data.get("features")
     if not isinstance(features, list):
         return None
-    colours, capped = _author_colours(features)
-    if not colours:
+    colors, capped = _author_colors(features)
+    if not colors:
         return None
-    per_feature = len(colours) >= 2
+    per_feature = len(colors) >= 2
     payload: dict[str, Any] = {
         "perFeature": per_feature,
-        "distinct": len(colours),
-        "stops": colours,
+        "distinct": len(colors),
+        "stops": colors,
     }
     if capped:
         payload["capped"] = True

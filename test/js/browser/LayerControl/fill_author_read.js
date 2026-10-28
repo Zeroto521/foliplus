@@ -1,5 +1,5 @@
-// Read the fill row's original-colours state: the read-only strip, its caption,
-// the controls that must NOT be there, and the fill colours actually painted.
+// Read the fill row's original-colors state: the read-only strip, its caption,
+// the controls that must NOT be there, and the fill colors actually painted.
 () => {
   const panel = document.querySelector(".foliplus-layer-style-panel");
   const select = panel?.querySelector(".foliplus-style-fill-mode-select");

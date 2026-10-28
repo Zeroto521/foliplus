@@ -3,14 +3,14 @@
 // The panel's `fillAuthor` state comes from CONF: Python computes it once at
 // render time from the GeoJson features' `__folium_color` property (geopandas
 // explore output). This module is the one lazy read left — Reset replays the
-// author's per-feature colours, and doing that needs each leaf's value, so the
+// author's per-feature colors, and doing that needs each leaf's value, so the
 // walk happens on the user's click rather than being shipped in the payload.
 //
 // It never writes and never touches the DOM.
 import { isArealStyleLeaf } from "./capability.js";
 import { walkLeaf } from "./walkLeaf.js";
 
-/** folium's per-feature colour property. */
+/** folium's per-feature color property. */
 const FOLIUM_COLOR_PROP = "__folium_color";
 
 /** One paint, one string: #rgb and #rrggbb, any case. */
@@ -24,10 +24,10 @@ const normalizeFillColor = (value: unknown): string | null => {
     : raw;
 };
 
-/** leaf → author colour, or null when the feature carried no colour. */
+/** leaf → author color, or null when the feature carried no color. */
 type AuthorFillSnapshot = Map<unknown, string | null>;
 
-/** Read each areal leaf's declarative author colour. Empty when the layer is
+/** Read each areal leaf's declarative author color. Empty when the layer is
  *  not explore output (no leaf carries the property). */
 const readFeatureFillColors = (layer: unknown): AuthorFillSnapshot => {
   const snapshot: AuthorFillSnapshot = new Map();

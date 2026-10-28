@@ -316,7 +316,7 @@ type FillMode = "solid" | "ramp";
 
 /** What the fill row's mode select shows. "feature" is a detected state, never
  *  an intent: it is the author's own record painting the layer, offered as a
- *  read-only option so the panel cannot claim one solid colour for a layer
+ *  read-only option so the panel cannot claim one solid color for a layer
  *  that paints many. */
 type FillDisplayMode = FillMode | "feature";
 
@@ -332,7 +332,7 @@ const authorFill = (ui: LayerUI, layerId: string): AuthorFill | null =>
  *  render time from the GeoJson features' `__folium_color` (explore output)
  *  and the colormap the author mounted on the map, so the panel never walks
  *  the layer. Any fill intent is user state and wins; a layer without the key
- *  keeps the normal single-colour arms (per-feature author colours are
+ *  keeps the normal single-color arms (per-feature author colors are
  *  recognised for geopandas explore layers only). A categorical author record
  *  lands in this same state — it simply has no scale to name. */
 const paintsPerFeatureFill = (ui: LayerUI, layerId: string): boolean => {
@@ -345,7 +345,7 @@ const paintsPerFeatureFill = (ui: LayerUI, layerId: string): boolean => {
  *
  *  A paired scale says whether it is continuous or how many classes the author
  *  drew. Without one (a categorical column, or `legend=False`) the only honest
- *  number is how many distinct colours the layer paints; 64+ means the scan
+ *  number is how many distinct colors the layer paints; 64+ means the scan
  *  capped and the layer paints more than the strip can count. */
 const originalCaption = (ui: LayerUI, author: AuthorFill | null): string => {
   const scale = author?.scale;
@@ -356,15 +356,15 @@ const originalCaption = (ui: LayerUI, author: AuthorFill | null): string => {
   }
   if (scale) return ui.T("style_fill_original_continuous");
   const count = `${author?.distinct ?? 0}${author?.capped ? "+" : ""}`;
-  return ui.T("style_fill_original_colours").replace("{n}", count);
+  return ui.T("style_fill_original_colors").replace("{n}", count);
 };
 
-/** The original-colour state's read-only detail: the scale's column, the
+/** The original-color state's read-only detail: the scale's column, the
  *  author's own strip and what the strip is.
  *
  *  No Field/Method/Classes/Scheme controls. Those exist to classify data, and
  *  this arm is the author's presentation, not a user classification: rendering
- *  them here is what squeezed a 43-colour palette into the panel's 2-9 class
+ *  them here is what squeezed a 43-color palette into the panel's 2-9 class
  *  vocabulary and collapsed it to 9 on the first write. */
 const buildOriginalDetail = (ui: LayerUI, layerId: string): HTMLElement[] => {
   const author = authorFill(ui, layerId);
@@ -473,7 +473,7 @@ const resolvedRamp = (
  *  declared config belongs in the same chain as the user's intent: #789 only
  *  has to implement this function plus the copy that reads it, and must not
  *  have to rewire the ramp arm. The author scale deliberately sits outside
- *  this chain — it feeds the read-only original-colours state and the seed,
+ *  this chain — it feeds the read-only original-colors state and the seed,
  *  never the user's by-value record. */
 const declaredRamp = (_ui: LayerUI, _layerId: string): FillRampConfig | undefined =>
   undefined;
@@ -505,7 +505,7 @@ const seedField = (ui: LayerUI, layerId: string, fields: readonly string[]): str
 /** The class count the first user classification starts from: the author's own
  *  stepped class count when the panel's vocabulary can carry it (2..9), else
  *  the shared default. A continuous scale has no class count to honour, so it
- *  starts at the default six — never at the author's colour count. */
+ *  starts at the default six — never at the author's color count. */
 const seedClasses = (ui: LayerUI, layerId: string): number => {
   const scale = authorFill(ui, layerId)?.scale;
   if (scale?.kind !== "stepped") return CLASS_COUNT.DEFAULT;
@@ -676,7 +676,7 @@ const renderFillDetail = (
 ): void => {
   disposeFillRow(ui);
   detail.innerHTML = "";
-  // The original-colour state shows what the author declared and nothing
+  // The original-color state shows what the author declared and nothing
   // editable: its column (when a scale paired), the strip, and what the strip
   // is. No classification controls — those belong to the user's own ramp.
   if (mode === "feature") {
@@ -735,7 +735,7 @@ const buildFillRow = (ui: LayerUI, layerId: string): HTMLElement => {
     layerId,
     getIntent(ui, layerId, INTENT.FILL_RAMP),
   );
-  // Opening on the original colours writes no intent: the map keeps the
+  // Opening on the original colors writes no intent: the map keeps the
   // author's own paint until the user edits a fill control, and the row states
   // what it is looking at.
   const mode: FillDisplayMode = perFeature ? "feature" : storedMode;
@@ -952,8 +952,8 @@ const bindFillRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => {
     // Leaving the per-feature state must repaint. A mode write alone paints
     // nothing: the solid arm only touches leaves that already carry an
     // override or a captured bag, and an explore layer has neither, so the
-    // map would keep its per-feature colours while the row claims solid.
-    // Seed the swatch's base colour so choosing solid actually takes the
+    // map would keep its per-feature colors while the row claims solid.
+    // Seed the swatch's base color so choosing solid actually takes the
     // fill over; a ramp -> solid switch needs no seed because the apply
     // restores the captured author bag itself.
     if (
@@ -1046,10 +1046,10 @@ const FILL_DIMENSION = registerDimension<{
     resetIntentKeys(ui, layerId, FILL_INTENT_KEYS);
     const layer = ui.c.findLayer(layerId) as StyleCarrier | null;
     if (!layer) return;
-    // An explore layer declared each feature's colour: read the leaves lazily
+    // An explore layer declared each feature's color: read the leaves lazily
     // (the click is the one O(N) read) and replay that snapshot, so Reset
     // returns the author's own per-feature paint. A feature without the
-    // property restores its own default, never a neighbour's colour. Other
+    // property restores its own default, never a neighbour's color. Other
     // layers keep the style-bag restore.
     const snapshot = readFeatureFillColors(layer);
     const hasAuthor = [...snapshot.values()].some(color => color !== null);

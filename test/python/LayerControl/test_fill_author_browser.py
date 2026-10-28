@@ -1,10 +1,10 @@
-"""Browser test: the fill row shows an explore layer's original colours.
+"""Browser test: the fill row shows an explore layer's original colors.
 
-A geopandas explore layer writes one colour per feature (the feature's
+A geopandas explore layer writes one color per feature (the feature's
 __folium_color) and mounts a branca colormap on the map. CONFIG carries both as
-fillAuthor, and the fill row must open on a read-only "Original colours" state —
+fillAuthor, and the fill row must open on a read-only "Original colors" state —
 the author's strip and caption, no Method/Classes/Scheme controls — instead of
-claiming one solid colour or re-classifying the author's palette into the
+claiming one solid color or re-classifying the author's palette into the
 panel's nine classes. The fixture builds the same shape with folium + branca
 directly (explore is not a test dependency), so the assertion covers the JS path
 and the Python metadata without pulling geopandas into CI.
@@ -78,16 +78,16 @@ _READ_FILL = _js("LayerControl/fill_author_read")
 
 # Locale text the row must expose as a tooltip instead of a paragraph.
 _NOTE = (
-    "Colours set per feature by geopandas.GeoDataFrame.explore. "
+    "Colors set per feature by geopandas.GeoDataFrame.explore. "
     "Editing the fill overrides them; Reset restores them."
 )
-_ORIGINAL = "Original colours"
+_ORIGINAL = "Original colors"
 
 
 class TestFillAuthorBrowser:
-    """An explore layer opens on its original colours and restores them."""
+    """An explore layer opens on its original colors and restores them."""
 
-    def test_original_colours_override_and_reset(self, browser, tmp_path):
+    def test_original_colors_override_and_reset(self, browser, tmp_path):
         with use_page(_make_page, browser, tmp_path) as (page, errors):
             page.wait_for_selector(
                 ".foliplus-layer-ctrl .foliplus-toggle-btn",
@@ -108,7 +108,7 @@ class TestFillAuthorBrowser:
                 ".foliplus-layer-style-panel", state="visible", timeout=5000
             )
 
-            # The read-only original-colours state: the scale's column, the
+            # The read-only original-colors state: the scale's column, the
             # author's strip and caption, and none of the classification
             # controls. The map still shows the author's own paint.
             initial = page.evaluate(_READ_FILL)
@@ -128,10 +128,10 @@ class TestFillAuthorBrowser:
             assert initial["hasSwatch"] is False, initial
             assert initial["noteInPanel"] is False, initial
             assert len(initial["fills"]) >= 2, (
-                f"the map did not paint per-feature author colours: {initial}"
+                f"the map did not paint per-feature author colors: {initial}"
             )
 
-            # The original-colours entry is the state, not a choice: activating
+            # The original-colors entry is the state, not a choice: activating
             # it must not write an intent or repaint the map.
             feature_result = page.evaluate(_ARM, {"feature": True})
             assert feature_result["ok"], f"feature entry click failed: {feature_result}"
@@ -139,10 +139,10 @@ class TestFillAuthorBrowser:
             unchanged = page.evaluate(_READ_FILL)
             assert unchanged["mode"] == "feature", unchanged
             assert unchanged["fills"] == initial["fills"], (
-                f"activating the original-colours entry repainted the map: {unchanged}"
+                f"activating the original-colors entry repainted the map: {unchanged}"
             )
 
-            # Choosing the solid arm takes the fill over with one colour.
+            # Choosing the solid arm takes the fill over with one color.
             solid_result = page.evaluate(_ARM, {"solid": True})
             assert solid_result["ok"], f"solid switch failed: {solid_result}"
             page.wait_for_timeout(300)
@@ -167,7 +167,7 @@ class TestFillAuthorBrowser:
             restored = page.evaluate(_READ_FILL)
             assert restored["mode"] == "feature", restored
             assert restored["fills"] == initial["fills"], (
-                f"Reset did not restore the author colours: {restored}"
+                f"Reset did not restore the author colors: {restored}"
             )
             assert restored["hasScheme"] is False, restored
             assert not errors, f"JS errors: {errors}"

@@ -293,9 +293,9 @@ interface RegisterLayerOpts {
   onCommitted?: ((entry: LayerInfo) => void) | null;
 }
 
-/** The colour scale geopandas mounted on the map for an explore layer.
+/** The color scale geopandas mounted on the map for an explore layer.
  *
- *  Read from the branca colormap child, then paired with the layer by a colour
+ *  Read from the branca colormap child, then paired with the layer by a color
  *  check (a value normalised through the scale must reproduce the feature's
  *  ``__folium_color``), so a caption is never trusted on its own. */
 interface FillAuthorScale {
@@ -314,15 +314,15 @@ interface FillAuthorScale {
 
 /** What Python computed for one layer's author fill (CONFIG data[].fillAuthor). */
 interface FillAuthor {
-  /** True when the layer paints at least two distinct colours. */
+  /** True when the layer paints at least two distinct colors. */
   perFeature: boolean;
-  /** How many distinct colours the layer paints — the honest count when no
+  /** How many distinct colors the layer paints — the honest count when no
    *  scale pairs (categorical column, ``legend=False``). */
   distinct: number;
-  /** The strip the panel draws: a continuous scale sampled to 64 colours, a
-   *  stepped scale's own blocks, or the distinct colours when neither exists. */
+  /** The strip the panel draws: a continuous scale sampled to 64 colors, a
+   *  stepped scale's own blocks, or the distinct colors when neither exists. */
   stops: string[];
-  /** True when the layer paints more distinct colours than the strip samples,
+  /** True when the layer paints more distinct colors than the strip samples,
    *  so `distinct` is a cap (the panel shows "64+"). */
   capped?: boolean;
   /** Absent when the author declared no scale this layer could be paired with.

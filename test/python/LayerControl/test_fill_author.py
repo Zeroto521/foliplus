@@ -107,7 +107,7 @@ def _meta(layer: folium.GeoJson, *scales: object) -> dict:
     return _conf(html)["data"][0]["fillAuthor"]
 
 
-def test_multi_colour_layer_carries_the_distinct_colours():
+def test_multi_color_layer_carries_the_distinct_colors():
     meta = _meta(_geo(["#0d0887", "#f0f921"]))
 
     assert meta["perFeature"] is True
@@ -116,7 +116,7 @@ def test_multi_colour_layer_carries_the_distinct_colours():
     assert "scale" not in meta
 
 
-def test_single_colour_layer_is_not_per_feature():
+def test_single_color_layer_is_not_per_feature():
     meta = _meta(_geo(["#0d0887", "#0d0887"]))
 
     assert meta["perFeature"] is False
@@ -166,7 +166,7 @@ def test_a_scale_is_claimed_only_through_its_caption():
     meta = _meta(_geo(colors, values=values), scale)
 
     # The caption names no property of the layer: no scale is claimed and no
-    # column is named. The panel draws the colours the features carry.
+    # column is named. The panel draws the colors the features carry.
     assert "scale" not in meta
     assert meta["perFeature"] is True
     assert meta["stops"] == colors
@@ -181,7 +181,7 @@ def test_a_plain_layer_does_not_claim_another_layers_scale():
         values=values,
         name="Explore",
     )
-    # Same property name, other colours, and no scale of its own (a plain
+    # Same property name, other colors, and no scale of its own (a plain
     # legend=False layer): the viridis scale is not its to claim.
     plain = _geo(
         ["#0d0887", "#6a00a8", "#f0f921"],
@@ -197,7 +197,7 @@ def test_a_plain_layer_does_not_claim_another_layers_scale():
     assert "_column" not in data["Plain"]["fillAuthor"]
 
 
-def test_a_layer_whose_caption_matches_but_colours_do_not_is_not_claimed():
+def test_a_layer_whose_caption_matches_but_colors_do_not_is_not_claimed():
     scale = _linear(("#440154", "#fde725"), caption="value", vmin=0, vmax=100)
     # The layer carries the property the caption names, but its features are
     # painted by something else entirely: a shared property name is not proof.
@@ -213,7 +213,7 @@ def test_a_layer_whose_caption_matches_but_colours_do_not_is_not_claimed():
     assert "scale" not in meta
 
 
-def test_no_scale_falls_back_to_the_colour_set():
+def test_no_scale_falls_back_to_the_color_set():
     meta = _meta(_geo(["#0d0887", "#6a00a8", "#b12a90"]))
 
     assert meta["perFeature"] is True
@@ -277,10 +277,10 @@ def test_feature_without_properties_is_skipped():
     assert meta["distinct"] == 2
 
 
-def test_the_colour_scan_samples_across_a_sorted_layer(monkeypatch):
+def test_the_color_scan_samples_across_a_sorted_layer(monkeypatch):
     monkeypatch.setattr(_layer_control_mod, "_FILL_AUTHOR_SCAN_LIMIT", 2)
     # A layer sorted by the painted value: a head-only scan would see one class
-    # and read the whole layer as a single colour.
+    # and read the whole layer as a single color.
     meta = _meta(_geo(["#0d0887", "#6a00a8", "#b12a90", "#f0f921"]))
 
     assert meta["perFeature"] is True
@@ -342,7 +342,7 @@ def test_numeric_values_cover_booleans_numpy_integers_and_nan():
     assert numeric("7") is None
 
 
-def test_colour_helpers_degrade_on_bad_input():
+def test_color_helpers_degrade_on_bad_input():
     module = _layer_control_mod
 
     assert module._rgb("#12") is None
@@ -381,7 +381,7 @@ def test_rgb_reads_short_hex_and_rejects_broken_hex():
     assert module._rgb("#abc") == (170, 187, 204)
     assert module._rgb("#zzzzzz") is None
     assert module._rgb("#12345") is None
-    assert module._same_colour("nope", "#0d0887") is False
+    assert module._same_color("nope", "#0d0887") is False
 
 
 def test_colormap_sample_returns_none_for_a_broken_scale():
