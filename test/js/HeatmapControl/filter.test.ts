@@ -669,7 +669,7 @@ describe("HeatmapControl filter field follows the aggregation field", () => {
 
   it("falls back to the first numeric field when this.field is empty", () => {
     // Marker values are exposed as the "value" field, which the snapshot
-    // orders first — the auto field is numericFields[0].
+    // orders first — the default field is numericFields[0].
     m.field = "";
     const model = m.getFilterModel()!;
     expect(model.dimensions[0]).toMatchObject({ kind: "range", field: "value" });
