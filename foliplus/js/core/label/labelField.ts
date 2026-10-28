@@ -162,5 +162,5 @@ export {
   hasLabelField,
   isNumericField,
   resolveSelectedField,
-  type LabelField,
 };
+export type { LabelField };

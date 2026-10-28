@@ -27,7 +27,7 @@ classifiers = [
   "Intended Audience :: Developers",
   "Typing :: Typed",
 ]
-dependencies = ["folium>=0.14.0"]
+dependencies = ["folium>=0.15.0"]
 
 [project.urls]
 Documentation = "https://foliplus.readthedocs.io"
