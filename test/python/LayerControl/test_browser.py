@@ -428,7 +428,7 @@ class TestLayerControlBrowser:
         return folium.GeoJson(
             json.dumps({"type": "FeatureCollection", "features": features}),
             name=name,
-            foliplus={"annotation": annotation},
+            foliplus={"label": annotation},
         )
 
     def test_annotation_declared_color_and_size_reach_the_canvas(

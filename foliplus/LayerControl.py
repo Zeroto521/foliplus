@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import warnings
 from typing import Annotated
 
 from branca.element import Element
@@ -9,6 +10,37 @@ from ._config_schema import FieldSpec
 from ._typing import ControlPosition
 from .BaseControl import BaseControl
 from .locale import LocaleConfig
+
+# One process-wide flag, not one per render: a page can hold several layer
+# controls, and re-rendering one must not repeat the same migration hint.
+_ANNOTATION_KEY_WARNED = False
+
+
+def _warn_deprecated_annotation_key(item: Layer) -> None:
+    """Warn once per process when a layer still declares the old key.
+
+    The declaration rides on a layer's own options (folium keeps
+    explore(foliplus=...) there), never on CONFIG — so the control only
+    sees it while collecting layers at render time, and that is the one
+    place a Python-side deprecation can be raised.
+    """
+    global _ANNOTATION_KEY_WARNED
+    if _ANNOTATION_KEY_WARNED:
+        return
+    declared = item.options.get("foliplus")
+    if not isinstance(declared, dict):
+        return
+    # 'label' wins when both are present, and that is not a deprecation.
+    if "annotation" not in declared or "label" in declared:
+        return
+    _ANNOTATION_KEY_WARNED = True
+    warnings.warn(
+        'foliplus={"annotation": ...} is deprecated; use '
+        'foliplus={"label": ...} instead — the annotation key will be '
+        "removed in a future release.",
+        DeprecationWarning,
+        stacklevel=3,
+    )
 
 
 class LayerControl(BaseControl):
@@ -94,8 +126,12 @@ class LayerControl(BaseControl):
     A layer may declare its own label defaults on the layer itself:
 
     >>> gdf.explore(
-    ...     foliplus={"annotation": {"field": "name", "collide": False}}
+    ...     foliplus={"label": {"field": "name", "collide": False}}
     ... )
+
+    The namespace key was called ``annotation`` before the label vocabulary
+    was unified; it is still read as a deprecated alias, but ``label`` wins
+    when both are present and raises no warning.
 
     .. list-table::
        :header-rows: 1
@@ -122,11 +158,11 @@ class LayerControl(BaseControl):
          - ``True`` once ``field`` is declared
          - explicit on/off, so a field can be named without drawing
 
-    Keys stay short because the ``annotation`` namespace already says label; the
-    ``label_`` prefix belongs to the flat surfaces (Python kwargs, CONF,
-    locale). A declaration is the author's default: a later choice in the
-    style panel is the user's intent and wins, and Reset shows the
-    declaration through again.
+    Keys stay short because the declaration's own namespace already says
+    label; the ``label_`` prefix belongs to the flat surfaces (Python
+    kwargs, CONF, locale). A declaration is the author's default: a later
+    choice in the style panel is the user's intent and wins, and Reset
+    shows the declaration through again.
     """
 
     # Emitted by _extra_config at render time rather than set by a constructor
@@ -193,6 +229,7 @@ class LayerControl(BaseControl):
             if (name := item.get_name()) in seen:
                 continue
             seen.add(name)
+            _warn_deprecated_annotation_key(item)
 
             data.append(
                 {

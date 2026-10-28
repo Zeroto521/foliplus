@@ -459,7 +459,7 @@ describe("AnnotationManager — author-declared annotation", () => {
   it("reads the declaration off the layer itself", () => {
     const { map } = makeMap();
     const layer = {
-      options: { foliplus: { annotation: { field: "store", format: "comma" } } },
+      options: { foliplus: { label: { field: "store", format: "comma" } } },
     } as unknown as L.Layer;
     const mgr = new AnnotationManager({ map, layerFind: () => layer });
 
@@ -472,9 +472,57 @@ describe("AnnotationManager — author-declared annotation", () => {
     expect(cfg.show).toBe(true);
   });
 
+  it("prefers the label key when both keys are present, without warning", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const { map } = makeMap();
+      const layer = {
+        options: {
+          foliplus: {
+            label: { field: "new" },
+            annotation: { field: "old" },
+          },
+        },
+      } as unknown as L.Layer;
+      const mgr = new AnnotationManager({ map, layerFind: () => layer });
+
+      expect(mgr.getConfig("l1").field).toBe("new");
+      expect(warn).not.toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it("falls back to the deprecated annotation key and warns once", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const legacy = {
+        options: { foliplus: { annotation: { field: "legacy" } } },
+      } as unknown as L.Layer;
+      const first = new AnnotationManager({
+        map: makeMap().map,
+        layerFind: () => legacy,
+      });
+      expect(first.getConfig("l1").field).toBe("legacy");
+      const second = new AnnotationManager({
+        map: makeMap().map,
+        layerFind: () => legacy,
+      });
+      expect(second.getConfig("l2").field).toBe("legacy");
+
+      // Once per process, not once per layer or control.
+      expect(warn).toHaveBeenCalledTimes(1);
+      const message = String(warn.mock.calls[0][0]);
+      expect(message).toContain("deprecated");
+      expect(message).toContain('foliplus={"label": ...}');
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
   it("descends into a container's children for a nested declaration", () => {
     const child = {
-      options: { foliplus: { annotation: { field: "nested" } } },
+      options: { foliplus: { label: { field: "nested" } } },
     } as unknown as L.Layer;
     const { map } = makeMap();
     const mgr = new AnnotationManager({
@@ -488,7 +536,7 @@ describe("AnnotationManager — author-declared annotation", () => {
   it("does not cache a layer that cannot be resolved yet", () => {
     const { map } = makeMap();
     const layer = {
-      options: { foliplus: { annotation: { field: "late" } } },
+      options: { foliplus: { label: { field: "late" } } },
     } as unknown as L.Layer;
     let resolved = false;
     const find = vi.fn(() => (resolved ? layer : null));
@@ -520,7 +568,7 @@ describe("AnnotationManager — author-declared annotation", () => {
   it("caches the read once the layer is resolved", () => {
     const { map } = makeMap();
     const layer = {
-      options: { foliplus: { annotation: { field: "cached" } } },
+      options: { foliplus: { label: { field: "cached" } } },
     } as unknown as L.Layer;
     const find = vi.fn(() => layer);
     const mgr = new AnnotationManager({ map, layerFind: find });
@@ -534,7 +582,7 @@ describe("AnnotationManager — author-declared annotation", () => {
     pageCollideOff(() => {
       const { map } = makeMap();
       const layer = {
-        options: { foliplus: { annotation: { field: "store" } } },
+        options: { foliplus: { label: { field: "store" } } },
       } as unknown as L.Layer;
       const mgr = new AnnotationManager({ map, layerFind: () => layer });
 
@@ -550,7 +598,7 @@ describe("AnnotationManager — author-declared annotation", () => {
     pageCollideOff(() => {
       const { map } = makeMap();
       const layer = {
-        options: { foliplus: { annotation: { field: "store", collide: true } } },
+        options: { foliplus: { label: { field: "store", collide: true } } },
       } as unknown as L.Layer;
       const mgr = new AnnotationManager({ map, layerFind: () => layer });
 
@@ -563,7 +611,7 @@ describe("AnnotationManager — author-declared annotation", () => {
     const layer = {
       options: {
         foliplus: {
-          annotation: {
+          label: {
             field: "store",
             format: "thousands",
             collide: "yes",
@@ -593,7 +641,7 @@ describe("AnnotationManager — author-declared annotation", () => {
     const layer = {
       options: {
         foliplus: {
-          annotation: { field: "store", color: "#0F0", size: 99 },
+          label: { field: "store", color: "#0F0", size: 99 },
         },
       },
     } as unknown as L.Layer;
@@ -612,7 +660,7 @@ describe("AnnotationManager — author-declared annotation", () => {
     const { map } = makeMap();
     const layer = {
       options: {
-        foliplus: { annotation: { field: "store", size: "12" } },
+        foliplus: { label: { field: "store", size: "12" } },
       },
     } as unknown as L.Layer;
     const mgr = new AnnotationManager({ map, layerFind: () => layer });
@@ -625,7 +673,7 @@ describe("AnnotationManager — author-declared annotation", () => {
     // a column name. It must not reach the label renderer as text.
     const { map } = makeMap();
     const layer = {
-      options: { foliplus: { annotation: { field: 1200, format: "comma" } } },
+      options: { foliplus: { label: { field: 1200, format: "comma" } } },
     } as unknown as L.Layer;
     const mgr = new AnnotationManager({ map, layerFind: () => layer });
 
@@ -644,7 +692,7 @@ describe("AnnotationManager — author-declared annotation", () => {
     const { map } = makeMap();
     const layer = {
       options: {
-        foliplus: { annotation: { field: "store", show: false } },
+        foliplus: { label: { field: "store", show: false } },
       },
     } as unknown as L.Layer;
     const mgr = new AnnotationManager({ map, layerFind: () => layer });
@@ -671,7 +719,7 @@ describe("AnnotationManager — author-declared annotation", () => {
   it("takes the user's stored choice over the declaration", () => {
     const { map } = makeMap();
     const layer = {
-      options: { foliplus: { annotation: { field: "store", format: "comma" } } },
+      options: { foliplus: { label: { field: "store", format: "comma" } } },
     } as unknown as L.Layer;
     const mgr = new AnnotationManager({ map, layerFind: () => layer });
     mgr.setConfig("l1", {
@@ -691,7 +739,7 @@ describe("AnnotationManager — author-declared annotation", () => {
       options: {
         foliplus: {
           icon: { color: "#ff0000" },
-          annotation: { field: "store" },
+          label: { field: "store" },
         },
       },
     } as unknown as L.Layer;
@@ -704,7 +752,7 @@ describe("AnnotationManager — author-declared annotation", () => {
   it("clearConfig deletes the entry so the declaration shows through", () => {
     const { map } = makeMap();
     const layer = {
-      options: { foliplus: { annotation: { field: "store" } } },
+      options: { foliplus: { label: { field: "store" } } },
     } as unknown as L.Layer;
     const mgr = new AnnotationManager({ map, layerFind: () => layer });
     mgr.setConfig("l1", { ...mgr.getConfig("l1"), field: "other" });

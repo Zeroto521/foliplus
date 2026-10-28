@@ -881,7 +881,7 @@ describe("LayerUI style panel", () => {
     // Reset would shadow the author's field, and persisting that shadow would
     // keep it for good.
     const li = manager.layerRegistry.get("overlay1")!;
-    (li.layer as any).options.foliplus = { annotation: { field: "declared" } };
+    (li.layer as any).options.foliplus = { label: { field: "declared" } };
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
     manager.annotation.setConfig("overlay1", {
@@ -920,7 +920,7 @@ describe("LayerUI style panel", () => {
     // nothing, because the canvas is only built by renderLabels. This sweep is
     // what puts a declared field on the map at all.
     const li = manager.layerRegistry.get("overlay1")!;
-    (li.layer as any).options.foliplus = { annotation: { field: "count" } };
+    (li.layer as any).options.foliplus = { label: { field: "count" } };
 
     const render = vi
       .spyOn(manager.annotation, "renderLabels")
@@ -948,7 +948,7 @@ describe("LayerUI style panel", () => {
     // The live config wins over the declaration, so the sweep must not redraw a
     // layer the user has already tuned.
     const li = manager.layerRegistry.get("overlay1")!;
-    (li.layer as any).options.foliplus = { annotation: { field: "count" } };
+    (li.layer as any).options.foliplus = { label: { field: "count" } };
     manager.annotation.setConfig("overlay1", {
       show: true,
       field: "name",
@@ -968,7 +968,7 @@ describe("LayerUI style panel", () => {
     // reason to paint. Building a canvas over an empty field list would leave a
     // blank layer with the toggle reading on.
     const li = manager.layerRegistry.get("overlay1")!;
-    (li.layer as any).options.foliplus = { annotation: { field: "count" } };
+    (li.layer as any).options.foliplus = { label: { field: "count" } };
     ui.runtimeStore.deleteFields("overlay1");
     expect(layerHasLabelFields(ui, "overlay1")).toBe(false);
 

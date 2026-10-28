@@ -8,7 +8,7 @@
 - `LayerControl`: opacity and zoom-range rows share one slider primitive — single/dual thumb, keyboard, ARIA, disabled/RTL and a bubble panels cannot clip ([#721](https://github.com/Zeroto521/foliplus/pull/721))
 - `LayerControl`: a size row sets a CircleMarker layer's pixel radius for every marker at once, persisted across reloads and resettable to the drawn radius ([#726](https://github.com/Zeroto521/foliplus/pull/726))
 - `LayerControl`: value-based fill — a numeric field, a classification method and a palette paint a layer by value, and the fill row switches between solid colour and colour-by-value in place ([#727](https://github.com/Zeroto521/foliplus/pull/727), [#729](https://github.com/Zeroto521/foliplus/pull/729), [#747](https://github.com/Zeroto521/foliplus/pull/747), [#761](https://github.com/Zeroto521/foliplus/pull/761), [#767](https://github.com/Zeroto521/foliplus/pull/767), [#776](https://github.com/Zeroto521/foliplus/pull/776))
-- `LayerControl`: a declared annotation sets the label colour and size as well as the label defaults, so an author-declared style reaches the drawn labels at load ([#785](https://github.com/Zeroto521/foliplus/pull/785))
+- `LayerControl`: a declared annotation sets the label colour and size as well as the label defaults, so an author-declared style reaches the drawn labels at load; the declaration key is now `label`, and the old `annotation` key stays as a deprecated alias ([#785](https://github.com/Zeroto521/foliplus/pull/785))
 
 ### Changed
 
