@@ -21,6 +21,7 @@
 
 ### Removed
 
+- `Package`: the internal annotation aliases `ControlPosition`/`Fraction`/`PositiveInt`/`Zoom` are no longer importable from `foliplus` (**Breaking**) ([#787](https://github.com/Zeroto521/foliplus/pull/787))
 - Package: folium 0.14 is no longer supported (**Breaking**) — the `foliplus={...}` layer declaration needs folium >= 0.15, the first release whose `GeoJson` forwards an unknown keyword into `options` instead of raising `TypeError` ([#790](https://github.com/Zeroto521/foliplus/pull/790), [#792](https://github.com/Zeroto521/foliplus/pull/792))
 
 ### Fixed
