@@ -427,18 +427,51 @@ describe("AnnotationManager — config", () => {
     }
   });
 
-  it("resolves an auto field once and reuses the cached pick", () => {
+  it("resolves a fieldless config to the layer's default and caches it", () => {
     const { map } = makeMap();
     const mgr = new AnnotationManager({
       map,
       layerFind: () =>
         mkGroup([mkLeaf({ props: { v: "1200" }, latlng: { lat: 40, lng: -74 } })]),
     });
+    const collect = vi.spyOn(mgr, "collectFields");
 
-    // No explicit field: the shared auto pick resolves to the only column.
+    // No stored field: the default pick resolves to the only column.
     expect(mgr.resolveField("a")).toBe("v");
-    // A second read hits the auto-field cache instead of re-walking the layer.
+    // A second read hits the resolved-field cache instead of re-walking.
     expect(mgr.resolveField("a")).toBe("v");
+    expect(collect).toHaveBeenCalledTimes(1);
+  });
+
+  it("falls back to the default field when the stored one is gone", () => {
+    // A config outlives a feature set: a name the layer no longer carries must
+    // not leave the labels reading nothing.
+    const { map } = makeMap();
+    const mgr = new AnnotationManager({
+      map,
+      layerFind: () =>
+        mkGroup([mkLeaf({ props: { name: "x" }, latlng: { lat: 40, lng: -74 } })]),
+    });
+    mgr.setConfig("a", { ...CONFIG, field: "retired" });
+
+    expect(mgr.resolveField("a")).toBe("name");
+  });
+
+  it("re-resolves after the config names a different field", () => {
+    const { map } = makeMap();
+    const mgr = new AnnotationManager({
+      map,
+      layerFind: () =>
+        mkGroup([
+          mkLeaf({ props: { name: "x", count: 2 }, latlng: { lat: 40, lng: -74 } }),
+        ]),
+    });
+    // No stored field: the default is the first numeric column.
+    expect(mgr.resolveField("a")).toBe("count");
+    mgr.setConfig("a", { ...CONFIG, field: "name" });
+    expect(mgr.resolveField("a")).toBe("name");
+    mgr.clearConfig("a");
+    expect(mgr.resolveField("a")).toBe("count");
   });
 });
 

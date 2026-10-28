@@ -68,10 +68,10 @@ class HeatmapControl(BaseControl):
     field : str, optional
         Aggregation field to select when the map first loads. Only a numeric
         field the layer actually carries is accepted; anything else is ignored
-        with a console warning and the panel falls back to its normal
-        auto-field rule. Like ``layer``, a persisted user choice wins, and a
-        ``count`` aggregation does not use the field until the user switches
-        to a value aggregation.
+        with a console warning and the panel falls back to its normal default
+        field (the first numeric field). Like ``layer``, a persisted user
+        choice wins, and a ``count`` aggregation does not use the field until
+        the user switches to a value aggregation.
 
     method : Literal["jenks", "quantile", "equal", "heads"], default "jenks"
         Default classification method.

@@ -30,10 +30,10 @@ const layerHasLabelFields = (ui: LayerUI, layerId: string): boolean =>
   layerFields(ui, layerId).length > 0;
 
 /** Drop a layer's cached field lists — the runtime store's field cache and
- *  the manager's resolved auto field. Cheap, synchronous, always safe: both
- *  are recomputed on the next read, so this is the right call for any path
- *  that merely *might* have changed the features (a layer being removed, a
- *  count change whose replay has not run yet). */
+ *  the manager's resolved field. Cheap, synchronous, always safe: both are
+ *  recomputed on the next read, so this is the right call for any path that
+ *  merely *might* have changed the features (a layer being removed, a count
+ *  change whose replay has not run yet). */
 const invalidateFieldCache = (ui: LayerUI, layerId: string): void => {
   ui.runtimeStore.deleteFields(layerId);
   // The point snapshot invalidates at the same points as `fields` (design
@@ -41,7 +41,7 @@ const invalidateFieldCache = (ui: LayerUI, layerId: string): void => {
   // features can change (runtime createLayers) or whose row was just
   // dropped must lose both caches in one move.
   ui.runtimeStore.deleteSnapshot(layerId);
-  ui.c.annotation.invalidateAutoField(layerId);
+  ui.c.annotation.invalidateResolvedField(layerId);
 };
 
 /** Rebuild this layer's label text from the tree it has *now*. Expensive:
@@ -59,7 +59,7 @@ const replayLabelState = (ui: LayerUI, layerId: string): void => {
  *  paths keep (LAYER_ITEM_UPDATED: a re-registration changes the labelable
  *  field set AND the drawn text in the same step). The replay matters: the
  *  drawn labels carry text baked from the *old* fields, and the picker would
- *  resolve a different auto field, so without it the map and the panel
+ *  resolve a different default field, so without it the map and the panel
  *  disagree until the user touches a control. Streamed content changes use
  *  the two halves separately — cheap sync drop early, coalesced replay late. */
 const invalidateFields = (ui: LayerUI, layerId: string): void => {

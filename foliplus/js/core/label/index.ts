@@ -5,10 +5,9 @@ export type { Box } from "./labelCollision.js";
 export { numberFormatOptions, renderLabelControls } from "./labelControl.js";
 export type { LabelStyleValues } from "./labelControl.js";
 export {
-  AUTO_FIELD,
-  autoLabelField,
   bareFieldName,
   collectLabelFields,
+  defaultLabelField,
   hasLabelField,
   isNumericField,
   resolveSelectedField,

@@ -66,7 +66,6 @@
   "LayerControl.style_layer_tooltip": "配置该图层的样式",
   "LayerControl.style_label_no_data": "该图层无可标注字段",
   "LayerControl.style_label_field": "标注字段",
-  "LayerControl.style_label_field_auto": "自动识别",
   "LayerControl.style_reset": "重置",
   "LayerControl.style_opacity": "透明度",
   "LayerControl.style_zoom_range": "可见范围",
