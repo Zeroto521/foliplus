@@ -114,10 +114,5 @@ const planLabelLayout = (
   return placed.filter(label => survivors.has(label));
 };
 
-export {
-  layoutLabel,
-  planLabelLayout,
-  type LabelCandidate,
-  type LabelSpec,
-  type PlannedLabel,
-};
+export { layoutLabel, planLabelLayout };
+export type { LabelCandidate, LabelSpec, PlannedLabel };

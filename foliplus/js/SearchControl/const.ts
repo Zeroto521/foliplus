@@ -50,14 +50,5 @@ const HISTORY = {
  * and re-wrapped on the next save). */
 const RECORD_VERSION = 1;
 
-export {
-  type SearchSource,
-  AUTOCOMPLETE,
-  CLASSES,
-  HISTORY,
-  RECORD_VERSION,
-  MODE,
-  PARAM,
-  SOURCE,
-  ZOOM,
-};
+export { AUTOCOMPLETE, CLASSES, HISTORY, RECORD_VERSION, MODE, PARAM, SOURCE, ZOOM };
+export type { SearchSource };

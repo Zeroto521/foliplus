@@ -163,7 +163,6 @@ const computeBreaks = (
 };
 
 export {
-  type ClassifyMethod,
   CLASS_COUNT,
   CLASS_COUNT_VALUES,
   ClassifierDependencyError,
@@ -173,3 +172,4 @@ export {
   computeBreaks,
   isClassifyMethod,
 };
+export type { ClassifyMethod };
