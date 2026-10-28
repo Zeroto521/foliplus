@@ -2,7 +2,6 @@
 // All internal refs use direct function calls instead of `this.`.
 import { CLASS_COUNT, type ClassifyMethod, isClassifyMethod } from "#core/classify.js";
 import { EVENTS, ensureEvents, publish } from "#core/event/index.js";
-import { resolveField } from "#core/field.js";
 import { fullscreenSurface, onFullscreenSurfaceChange } from "#core/fullscreen.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { adjustPanelZIndex } from "#core/leaflet/index.js";
@@ -225,6 +224,11 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
 
   ctrl.fieldSelect.onchange = () => {
     ctrl.mgr.field = ctrl.fieldSelect.value;
+    // Drop the memo with the write: the reads below resolve through
+    // effectiveField(), and a memo left over the previous column makes both
+    // render caches (points + agg, keyed on that field) hit — the canvas
+    // keeps the old colouring until some later repaint.
+    ctrl.mgr.invalidateEffectiveField();
     syncSelect(ctrl, ctrl.fieldSelect, ctrl.fieldSelect.value);
     // The filter field is the aggregation field (read-only in the panel): a
     // field change drops a filter bound to the old field and repaints the
@@ -425,6 +429,12 @@ const updateFieldSelector = (ctrl: HeatmapControlUI) => {
     info => info.id === ctrl.mgr.selectedLayerId,
   );
   const fields = ctrl.mgr.collectFields(selected);
+  // Hand the scan's field list to the manager and let it resolve the effective
+  // field once. The row renders that value and every other reader
+  // (getPointValue, the filter model, the render key) answers from the same
+  // cached resolution — the panel and the map cannot disagree, and nothing
+  // here writes the resolution back into the manager or the record.
+  const effective = ctrl.mgr.setAvailableFields(fields);
 
   // No numeric field: SUM/AVG/MIN/MAX have nothing to weigh by. Disable the
   // options, explain why, AND move the value itself to COUNT — one value for
@@ -452,40 +462,28 @@ const updateFieldSelector = (ctrl: HeatmapControlUI) => {
 
   setValueAggregationsEnabled(ctrl, true);
 
-  // Python declaration: `HeatmapControl(field=...)` names the aggregation
-  // field to start on. Seed it before the COUNT branch so the hidden select
-  // already points at it, and before resolveField so a value aggregation
-  // keeps it. resolveDeclaredField answers null once a persisted record has
-  // consumed the hasScanned guard, so the user's own choice wins.
-  if (!ctrl.mgr.field) {
-    const declaredField = ctrl.mgr.resolveDeclaredField(fields);
-    if (declaredField) ctrl.mgr.field = declaredField;
-  }
-
+  // The Python declaration (`HeatmapControl(field=...)`) and the first-numeric
+  // guess are both folded into `effective` by the manager: the user's stored
+  // pick wins while the data offers it, then the declaration, then the first
+  // field. Neither default is written to `mgr.field` or to the record — the
+  // record only ever holds a field the user picked, so a data-derived default
+  // can never outlive the data that produced it.
   if (ctrl.mgr.agg === CONST.AGG.COUNT) {
     // COUNT needs no field; the row appears once a value aggregation is picked.
     // Keep the hidden select on a valid option rather than the empty string —
-    // a declared field stays selected so switching aggregation keeps it.
-    rebuildFieldOptions(ctrl, fields, ctrl.mgr.field || fields[0]);
+    // the effective field stays selected so switching aggregation keeps it.
+    rebuildFieldOptions(ctrl, fields, effective);
     ctrl.fieldWrap.classList.add(CONST.CLASSES.HIDDEN);
     return;
   }
   ctrl.fieldWrap.classList.remove(CONST.CLASSES.HIDDEN);
 
-  // A stored field that no longer exists remaps to the first numeric field.
-  // "" means "never picked" (fresh config / legacy record / Reset): it is
-  // resolved here and written back, so `field` is a concrete name from then on
-  // — the row no longer needs an "Auto" state to explain itself. Only remap
-  // when a candidate list exists, so a momentarily empty scan does not destroy
-  // the user's choice.
-  const resolved = resolveField(ctrl.mgr.field, fields);
-  if (resolved !== ctrl.mgr.field) {
-    ctrl.mgr.field = resolved;
-    ctrl.mgr.saveConfig();
-  }
-
-  rebuildFieldOptions(ctrl, fields, resolved);
-  syncSelect(ctrl, ctrl.fieldSelect, resolved);
+  // A stored field the data no longer offers displays the fallback (declaration
+  // or first numeric field) while the stored pick stays untouched in the
+  // manager and the record: it is the user's intent, and it comes back when
+  // the data does.
+  rebuildFieldOptions(ctrl, fields, effective);
+  syncSelect(ctrl, ctrl.fieldSelect, effective);
 };
 
 /** Rebuild the field <option>s in place: the row element and its bound
