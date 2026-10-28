@@ -38,16 +38,20 @@ _FILL_AUTHOR_SCAN_LIMIT = 4_096
 # branca's hex and the leaf's property round differently (measured max 2/255
 # over 40 features of a plasma and a viridis scale).
 _FILL_AUTHOR_RGB_SLACK = 2
-# Pairing threshold, continuous arm only: _stepped_agreement tests exact block
-# membership instead, so only _column_agreement reads this. The two outcomes a
-# correct pairing must separate sit nowhere near the bar — a scale mounted on
-# its own layer reproduces the sampled hex exactly (measured 12/12, and 200/200
-# over 200 random values), while a palette the layer was not painted with
-# reproduces none of it (measured 0/12 across 1,680 trials). What the bar
-# tolerates is a layer the scale paints only mostly: four features carrying a
-# hand-set color still agree 8/12 = 0.67, five drop it to 7/12 = 0.58. It is
-# not arithmetic slack — _FILL_AUTHOR_RGB_SLACK absorbs the rounding, and
-# property values rounded to whole numbers still match 12/12.
+# Pairing threshold, continuous arm only: the stepped arm tests exact block
+# membership instead, so only _column_agreement reads this. A scale mounted on
+# its own layer reproduces every sampled hex (measured 12/12, and 200/200 over
+# 200 random values). On an evenly spread sample no foreign palette comes near
+# the bar: 0 of the 132 ordered pairs of RdYlBu_09, RdYlGn_09, Spectral_11,
+# PiYG_09, BrBG_09, viridis, plasma, inferno, magma, Blues_09, Reds_09 and
+# YlOrRd_09 reached it, the best being RdYlBu_09 vs RdYlGn_09 at 5/12. Two
+# things it is not — not arithmetic slack, since _FILL_AUTHOR_RGB_SLACK covers
+# the rounding (values rounded to whole numbers still match 12/12), and not
+# proof: palettes sharing stops are not separated. RdYlBu_09 and RdYlGn_09
+# share four, so a layer sorted by the painted value samples that shared low
+# end and agrees 12/12, and this bar accepts the foreign scale. What it does
+# buy is a layer the scale paints only mostly: four features hand-set still
+# agree 8/12 = 0.67, five drop it to 7/12 = 0.58.
 _FILL_AUTHOR_AGREE = 0.6
 
 
@@ -260,11 +264,13 @@ def _stepped_agreement(
     probability bar: its own layer is painted in exactly those block colors,
     even when a feature's value falls on the far side of a mapclassify bin edge
     and the scale would draw the adjacent class. A scale the layer was not
-    painted with normally contributes no block the features carry — none of the
-    20 ordered pairs drawn from five branca palettes overlapped, and a foreign
-    stepped scale scored 0/12 — so the test refuses it. Two palettes that do
-    share a block are not distinguishable this way: membership is the whole
-    test, not proof that the scale is the author's.
+    painted with normally contributes no block the features carry: on an evenly
+    spread sample none of the 132 ordered pairs of the palettes listed at
+    _FILL_AUTHOR_AGREE was accepted. Palettes that share a stop are not
+    separated — 10 of those pairs do within _FILL_AUTHOR_RGB_SLACK, RdYlBu_09
+    and RdYlGn_09 share four — and a layer sorted by the painted value samples
+    one shared block, so such a scale is accepted at 12/12. Membership is the
+    whole test, not proof that the scale is the author's.
     """
     blocks = [
         hex_color
