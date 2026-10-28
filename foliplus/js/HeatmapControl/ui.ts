@@ -224,6 +224,11 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
 
   ctrl.fieldSelect.onchange = () => {
     ctrl.mgr.field = ctrl.fieldSelect.value;
+    // Drop the memo with the write: the reads below resolve through
+    // effectiveField(), and a memo left over the previous column makes both
+    // render caches (points + agg, keyed on that field) hit — the canvas
+    // keeps the old colouring until some later repaint.
+    ctrl.mgr.invalidateEffectiveField();
     syncSelect(ctrl, ctrl.fieldSelect, ctrl.fieldSelect.value);
     // The filter field is the aggregation field (read-only in the panel): a
     // field change drops a filter bound to the old field and repaints the

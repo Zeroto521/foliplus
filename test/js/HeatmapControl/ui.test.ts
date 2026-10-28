@@ -238,6 +238,32 @@ describe("bindControls — change handlers", () => {
     expect(save).toHaveBeenCalled();
   });
 
+  it("field change repaints from the new column, not the cached one", () => {
+    const { ctrl, m } = setup();
+    m.pointLayers = [{ id: "p1", name: "P1", layer: {}, count: 1 }];
+    m.selectedLayerId = "p1";
+    window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
+      {
+        lat: 1,
+        lng: 2,
+        marker: { feature: { properties: { sales: 5, price: 10 } } },
+      },
+    ]);
+    ctrl.aggSelect.value = CONST.AGG.SUM;
+    fire(ctrl.aggSelect, "change");
+    expect(m.cachedPoints?.pts[0]?.value).toBe(5);
+
+    ctrl.fieldSelect.value = "price";
+    fire(ctrl.fieldSelect, "change");
+
+    // Both render caches are keyed on the effective field, so a memo left
+    // over the write would hit the old key and keep the old values. Assert
+    // the values themselves — "a render ran" is what let the regression in.
+    expect(m.cachedPoints?.key).toContain("price");
+    expect(m.cachedPoints?.pts[0]?.value).toBe(10);
+    expect(m.cachedAgg?.key).toContain("|price|");
+  });
+
   it("method change updates the manager and persists", () => {
     const { ctrl, m } = setup();
     const save = vi.spyOn(m, "saveConfig");
