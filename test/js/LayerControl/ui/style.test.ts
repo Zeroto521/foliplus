@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { AUTO_FIELD } from "#core/label/index.js";
 import { DIM } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerController } from "#foliplus/LayerControl/controller.js";
@@ -170,13 +169,14 @@ describe("LayerUI style panel", () => {
     const field = panel.querySelector(
       ".foliplus-style-field-select",
     ) as HTMLSelectElement;
-    expect(field.value).toBe("");
+    // No field is stored, so the picker shows its default (the only field).
+    expect(field.value).toBe("count");
     const format = panel.querySelector(
       ".foliplus-style-format-select",
     ) as HTMLSelectElement;
     expect(format.value).toBe(NUMBER_FORMAT.AUTO);
-    // One option per cached field plus the placeholder.
-    expect(field.options.length).toBe(2);
+    // One option per cached field, no placeholder.
+    expect(field.options.length).toBe(1);
   });
 
   it("opens a Layer-only panel for a layer without labelable content and capable dimensions", () => {
@@ -649,11 +649,11 @@ describe("LayerUI style panel", () => {
     expect(bodyOf(item).classList.contains("foliplus-hidden")).toBe(true);
   });
 
-  it("reveals the body when switched on, leaving the picker on Auto", () => {
-    // The picker's Auto entry is not a placeholder: switching the toggle on
-    // leaves the field unresolved on purpose, so the layer keeps labeling
-    // itself if its columns change. The auto rule itself (first numeric, else
-    // first) is asserted in core/labelField.test.ts and below for the format row.
+  it("reveals the body when switched on, showing the picker's default field", () => {
+    // The default pick (first numeric, else first) is a concrete field: the
+    // select always names one, while the config stays untouched until the user
+    // actually picks a column. The rule itself is asserted in
+    // core/labelField.test.ts and below for the format row.
     ui.runtimeStore.setFields("overlay1", [
       { name: "name", numeric: false },
       { name: "count", numeric: true },
@@ -666,11 +666,12 @@ describe("LayerUI style panel", () => {
     toggle.dispatchEvent(new Event("change", { bubbles: true }));
 
     expect(bodyOf(item).classList.contains("foliplus-hidden")).toBe(false);
-    expect(fieldSelectOf(item).value).toBe(AUTO_FIELD);
-    expect(manager.annotation.getConfig("overlay1").field).toBe(AUTO_FIELD);
+    expect(fieldSelectOf(item).value).toBe("count");
+    // Switching the labels on is not a field choice: nothing is persisted.
+    expect(manager.annotation.getConfig("overlay1").field).toBe("");
   });
 
-  it("shows the number-format row for the field Auto resolves to", () => {
+  it("shows the number-format row for the field the picker defaults to", () => {
     ui.runtimeStore.setFields("overlay1", [
       { name: "name", numeric: false },
       { name: "count", numeric: true },
@@ -678,13 +679,13 @@ describe("LayerUI style panel", () => {
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
 
-    // Auto resolves to the numeric `count`, so the row is live even though the
-    // select's own value is the empty sentinel.
-    expect(fieldSelectOf(item).value).toBe(AUTO_FIELD);
+    // The default resolves to the numeric `count`, so the row is live even
+    // though no field was ever stored.
+    expect(fieldSelectOf(item).value).toBe("count");
     expect(formatRowOf(item).classList.contains("foliplus-hidden")).toBe(false);
   });
 
-  it("offers the auto entry first, then one option per field", () => {
+  it("offers only the layer's real fields, with no placeholder entry", () => {
     ui.runtimeStore.setFields("overlay1", [
       { name: "name", numeric: false },
       { name: "count", numeric: true },
@@ -694,13 +695,29 @@ describe("LayerUI style panel", () => {
     ui.openStylePanel("overlay1");
 
     const options = Array.from(fieldSelectOf(item).options);
-    expect(options.map(o => o.value)).toEqual([AUTO_FIELD, "name", "count"]);
-    expect(options[0].textContent).toBe("LayerControl.style_label_field_auto");
-    // A disabled placeholder, exactly like the heatmap's field_auto: it shows
-    // the current state rather than offering itself as a choice. Reset is how
-    // the field goes back to auto.
-    expect(options[0].disabled).toBe(true);
-    expect(options[1].disabled).toBe(false);
+    expect(options.map(o => o.value)).toEqual(["name", "count"]);
+    expect(options.map(o => o.textContent)).toEqual(["name", "count"]);
+    // Nothing disabled: every entry is a real field the user can pick.
+    expect(options.some(o => o.disabled)).toBe(false);
+  });
+
+  it("shows the default field when the stored one no longer exists", () => {
+    // A re-registered layer can drop the column a config still names. The
+    // picker must land on a field it actually offers, not on a stale value.
+    manager.annotation.setConfig("overlay1", {
+      show: true,
+      field: "retired",
+      format: NUMBER_FORMAT.AUTO,
+    } as any);
+    ui.runtimeStore.setFields("overlay1", [
+      { name: "name", numeric: false },
+      { name: "count", numeric: true },
+    ]);
+    const item = findItem(ui, "overlay1");
+
+    ui.openStylePanel("overlay1");
+
+    expect(fieldSelectOf(item).value).toBe("count");
   });
 
   it("collapses the body again when the toggle goes back off", () => {
@@ -1794,7 +1811,7 @@ describe("LayerUI style panel", () => {
 
   it("re-renders a shown layer when its fields are invalidated", () => {
     // Dropping the cache is not enough: the drawn labels carry text baked from
-    // the old fields while the picker would resolve a new auto field, so the
+    // the old fields while the picker would resolve a new default field, so the
     // map and the panel would disagree until the user touched a control.
     manager.annotation.setConfig("overlay1", {
       show: true,
@@ -1936,9 +1953,9 @@ describe("LayerUI style panel", () => {
     expect(manager.annotation.getConfig("overlay1").show).toBe(false);
   });
 
-  it("applyStyleLabelState renders a shown config whose field is still auto", () => {
-    // `field: ""` is the Auto sentinel, not "no field" — a shown config with it
-    // must still render (renderLabels resolves the auto pick).
+  it("applyStyleLabelState renders a shown config that names no field", () => {
+    // `field: ""` means "never picked", not "nothing to show" — a shown config
+    // must still render (renderLabels resolves the layer's default pick).
     seedIntentMap(ui, "annotation", { overlay1: { show: true, field: "" } as any });
     const renderLabels = vi.spyOn(manager.annotation, "renderLabels");
 

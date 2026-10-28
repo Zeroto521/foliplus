@@ -181,8 +181,9 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
     ) {
       const show = t.checked;
       // Reveal / collapse the body under the toggle. No field is written here:
-      // leaving it at the auto sentinel is what makes the picker read "Auto" and
-      // what lets the layer keep labeling itself if its columns change.
+      // the picker already shows a concrete field, and leaving the stored value
+      // untouched is what lets a fieldless config keep resolving to the layer's
+      // default as its columns change.
       const body = panel.querySelector(
         `.${CONST.CLASSES.STYLE_BODY}`,
       ) as HTMLElement | null;
@@ -199,7 +200,7 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
       if (fmtRow) {
         syncFormatRow(fields, fmtRow, resolveSelectedField(chosen, fields));
       }
-      applyPatch(ui, layerId, { show, field: chosen });
+      applyPatch(ui, layerId, { show });
     } else if (
       t instanceof HTMLInputElement &&
       t.classList.contains(CONST.CLASSES.STYLE_COLLIDE_INPUT)
