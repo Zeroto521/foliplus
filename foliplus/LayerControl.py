@@ -23,11 +23,12 @@ _log = logging.getLogger(__name__)
 # The panel only draws the strip: 64 samples are enough for a continuous
 # scale (a LinearColormap carries 256 stops) and keep CONF small.
 _FILL_AUTHOR_STOPS = 64
-# Features sampled for the color check that validates a caption. A classified
-# scale paints the class a feature lands in, so a feature sitting just across a
-# mapclassify bin edge carries the adjacent block color (measured: 3/5 on a
-# fisherjenks k=7 layer); the sample is wide enough that a few of those cannot
-# outvote the rest. 12 keeps the check at a fraction of a millisecond.
+# Features sampled for the checks that validate a caption. One sample feeds
+# both rules: the stepped test requires every row to carry one of the scale's
+# blocks, so more rows only make that veto stricter, while the continuous test
+# reads its bar off the same rows (8 of 12 must match, so four features the
+# scale does not paint are still tolerated). 12 keeps both checks at a fraction
+# of a millisecond.
 _FILL_AUTHOR_SAMPLE = 12
 # Features scanned for the distinct-color strip. The strip is a preview and the
 # panel only needs "at least two colors" plus 64 samples, so a low-cardinality
@@ -37,11 +38,20 @@ _FILL_AUTHOR_SCAN_LIMIT = 4_096
 # branca's hex and the leaf's property round differently (measured max 2/255
 # over 40 features of a plasma and a viridis scale).
 _FILL_AUTHOR_RGB_SLACK = 2
-# Pairing threshold. A continuous scale agrees on every sample, but a
-# classified StepColormap disagrees at mapclassify's bin edges (measured
-# channel deltas up to 81, i.e. an adjacent class color, on a fisherjenks
-# layer), so a majority is the honest bar. A wrong column measures at or
-# below the 1/k random hit rate instead.
+# Pairing threshold, continuous arm only: the stepped arm tests exact block
+# membership instead, so only _column_agreement reads this. A scale mounted on
+# its own layer reproduces every sampled hex (measured 12/12, and 200/200 over
+# 200 random values). On an evenly spread sample no foreign palette comes near
+# the bar: 0 of the 132 ordered pairs of RdYlBu_09, RdYlGn_09, Spectral_11,
+# PiYG_09, BrBG_09, viridis, plasma, inferno, magma, Blues_09, Reds_09 and
+# YlOrRd_09 reached it, the best being RdYlBu_09 vs RdYlGn_09 at 5/12. Two
+# things it is not — not arithmetic slack, since _FILL_AUTHOR_RGB_SLACK covers
+# the rounding (values rounded to whole numbers still match 12/12), and not
+# proof: palettes sharing stops are not separated. RdYlBu_09 and RdYlGn_09
+# share four, so a layer sorted by the painted value samples that shared low
+# end and agrees 12/12, and this bar accepts the foreign scale. What it does
+# buy is a layer the scale paints only mostly: four features hand-set still
+# agree 8/12 = 0.67, five drop it to 7/12 = 0.58.
 _FILL_AUTHOR_AGREE = 0.6
 
 
@@ -253,8 +263,14 @@ def _stepped_agreement(
     A stepped scale paints discrete blocks, so membership is exact and needs no
     probability bar: its own layer is painted in exactly those block colors,
     even when a feature's value falls on the far side of a mapclassify bin edge
-    and the scale would draw the adjacent class. A foreign scale's palette
-    shares no block with the features, so the same test still refuses it.
+    and the scale would draw the adjacent class. A scale the layer was not
+    painted with normally contributes no block the features carry: on an evenly
+    spread sample none of the 132 ordered pairs of the palettes listed at
+    _FILL_AUTHOR_AGREE was accepted. Palettes that share a stop are not
+    separated — 10 of those pairs do within _FILL_AUTHOR_RGB_SLACK, RdYlBu_09
+    and RdYlGn_09 share four — and a layer sorted by the painted value samples
+    one shared block, so such a scale is accepted at 12/12. Membership is the
+    whole test, not proof that the scale is the author's.
     """
     blocks = [
         hex_color
