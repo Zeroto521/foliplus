@@ -9,6 +9,7 @@
 - `LayerControl`: a size row sets a CircleMarker layer's pixel radius for every marker at once, persisted across reloads and resettable to the drawn radius ([#726](https://github.com/Zeroto521/foliplus/pull/726))
 - `LayerControl`: value-based fill — a numeric field, a classification method and a palette paint a layer by value, and the fill row switches between solid colour and colour-by-value in place ([#727](https://github.com/Zeroto521/foliplus/pull/727), [#729](https://github.com/Zeroto521/foliplus/pull/729), [#747](https://github.com/Zeroto521/foliplus/pull/747), [#761](https://github.com/Zeroto521/foliplus/pull/761), [#767](https://github.com/Zeroto521/foliplus/pull/767), [#776](https://github.com/Zeroto521/foliplus/pull/776), [#781](https://github.com/Zeroto521/foliplus/pull/781))
 - `LayerControl`: a declared annotation sets the label colour and size as well as the label defaults, so an author-declared style reaches the drawn labels at load ([#785](https://github.com/Zeroto521/foliplus/pull/785))
+- `LayerControl`: a layer declares its fill ramp with `foliplus={"fill": {...}}` — the declared field, method, class count and palette paint the layer by value at load, the panel opens on them, and Reset returns to the declaration instead of the author's flat colour ([#789](https://github.com/Zeroto521/foliplus/pull/789))
 
 ### Changed
 
