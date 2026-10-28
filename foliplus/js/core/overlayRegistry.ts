@@ -476,14 +476,11 @@ const ensureOverlayRegistry = (map: L.Map): OverlayRegistry => {
   return registry;
 };
 
-export {
-  ESC_PRIORITY,
-  OVERLAY_IDS,
-  ensureOverlayRegistry,
-  orderOf,
-  type EscapeHandled,
-  type OverlayEntry,
-  type OverlayPhase,
-  type OverlayPress,
-  type OverlayRegistry,
+export { ESC_PRIORITY, OVERLAY_IDS, ensureOverlayRegistry, orderOf };
+export type {
+  EscapeHandled,
+  OverlayEntry,
+  OverlayPhase,
+  OverlayPress,
+  OverlayRegistry,
 };

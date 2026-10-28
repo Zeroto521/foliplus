@@ -613,11 +613,5 @@ const syncSelect = (ctrl: HeatmapControlUI, el: HTMLSelectElement, value: string
   el.classList.toggle(CONST.CLASSES.CLASS_PLACEHOLDER, !value);
 };
 
-export {
-  type HeatmapControlUI,
-  bindControls,
-  initScan,
-  rebuildLayerDropdown,
-  resetPanel,
-  setupObserver,
-};
+export { bindControls, initScan, rebuildLayerDropdown, resetPanel, setupObserver };
+export type { HeatmapControlUI };

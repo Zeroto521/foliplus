@@ -607,11 +607,7 @@ const hasStyleDimApply = (
 };
 
 export {
-  type StyleCarrier,
   FACE,
-  type SchedulerFace,
-  type StyleApplyFailure,
-  type StyleSetter,
   STYLE_APPLY_SOURCE,
   STYLE_BAG_DEFAULTS,
   cancelStyleDimApply,
@@ -636,3 +632,4 @@ export {
   walkFillLeaves,
   walkStyleLeaves,
 };
+export type { StyleCarrier, SchedulerFace, StyleApplyFailure, StyleSetter };
