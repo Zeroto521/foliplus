@@ -70,9 +70,6 @@ type FoliplusLayerOptions = {
 type FoliplusDeclaration = {
   /** The author-facing key. */
   label?: Partial<AnnotationConfig>;
-  /** Deprecated alias of `label`, kept for one release: the reader honors
-   *  it only when `label` is absent, and never warns when both are set. */
-  annotation?: Partial<AnnotationConfig>;
   [key: string]: unknown;
 };
 
@@ -90,21 +87,6 @@ const ANCHOR_CULL_MARGIN = 300;
  *  overlapping labels in the same layer survives. The field itself stays — it
  *  is part of the shared planner's candidate contract. */
 const LABEL_PRIORITY = 50;
-
-/** One process-wide flag: a page may hold several LayerControls and a layer
- *  is re-probed while it attaches, so the migration hint prints once. */
-let warnedDeprecatedAnnotationKey = false;
-
-/** Tell the author of a layer that still declares the pre-rename namespace.
- *  `annotation` stays a read-only alias for one release, so the renderer
- *  keeps working while the hint names the replacement key. */
-const warnDeprecatedAnnotationKey = (): void => {
-  if (warnedDeprecatedAnnotationKey) return;
-  warnedDeprecatedAnnotationKey = true;
-  log.warn(
-    'foliplus={"annotation": ...} is deprecated; use foliplus={"label": ...} instead',
-  );
-};
 
 /** Whether a string is one of the declared number formats — a typo has to
  *  degrade to the default, not reach the label renderer unresolved. */
@@ -318,10 +300,7 @@ class AnnotationManager {
     // that arrives later, for the life of the page. Only a resolved namespace
     // is static and cacheable.
     if (!declared) return {};
-    if (declared.label === undefined && declared.annotation !== undefined) {
-      warnDeprecatedAnnotationKey();
-    }
-    const out = pickDeclaredAnnotation(declared.label ?? declared.annotation);
+    const out = pickDeclaredAnnotation(declared.label);
     this.authorCache.set(id, out); // the declaration is static once resolved
     return out;
   }

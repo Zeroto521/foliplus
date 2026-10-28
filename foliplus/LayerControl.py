@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import warnings
 from typing import Annotated
 
 from branca.element import Element
@@ -10,44 +9,6 @@ from ._config_schema import FieldSpec
 from ._typing import ControlPosition
 from .BaseControl import BaseControl
 from .locale import LocaleConfig
-
-# One process-wide flag, not one per render: a page can hold several layer
-# controls, and re-rendering one must not repeat the same migration hint.
-_ANNOTATION_KEY_WARNED = False
-
-
-def _warn_deprecated_annotation_key(item: Layer) -> None:
-    """Warn once per process when a layer still declares the old key.
-
-    The declaration rides on a layer's own ``options`` (folium keeps the
-    ``explore(foliplus=...)`` namespace there), never on CONFIG — so the
-    control only sees it while collecting layers at render time, and that
-    is the one place a Python-side deprecation can be raised.
-
-    ``options`` is also the folium version boundary: 0.14 predates the
-    attribute entirely, so a layer there has no declaration to inspect and
-    must read as "nothing deprecated" rather than raise.
-    """
-    global _ANNOTATION_KEY_WARNED
-    if _ANNOTATION_KEY_WARNED:
-        return
-    options = getattr(item, "options", None)
-    if not isinstance(options, dict):
-        return
-    declared = options.get("foliplus")
-    if not isinstance(declared, dict):
-        return
-    # 'label' wins when both are present, and that is not a deprecation.
-    if "annotation" not in declared or "label" in declared:
-        return
-    _ANNOTATION_KEY_WARNED = True
-    warnings.warn(
-        'foliplus={"annotation": ...} is deprecated; use '
-        'foliplus={"label": ...} instead — the annotation key will be '
-        "removed in a future release.",
-        DeprecationWarning,
-        stacklevel=3,
-    )
 
 
 class LayerControl(BaseControl):
@@ -136,9 +97,8 @@ class LayerControl(BaseControl):
     ...     foliplus={"label": {"field": "name", "collide": False}}
     ... )
 
-    The namespace key was called ``annotation`` before the label vocabulary
-    was unified; it is still read as a deprecated alias, but ``label`` wins
-    when both are present and raises no warning.
+    ``label`` is the only namespace key read. The pre-rename ``annotation``
+    spelling is ignored — it is not read, not warned about and not migrated.
 
     .. list-table::
        :header-rows: 1
@@ -236,7 +196,6 @@ class LayerControl(BaseControl):
             if (name := item.get_name()) in seen:
                 continue
             seen.add(name)
-            _warn_deprecated_annotation_key(item)
 
             data.append(
                 {

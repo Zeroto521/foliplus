@@ -472,49 +472,22 @@ describe("AnnotationManager — author-declared annotation", () => {
     expect(cfg.show).toBe(true);
   });
 
-  it("prefers the label key when both keys are present, without warning", () => {
+  it("reads only the label key — the retired annotation key is ignored", () => {
+    // The rename is a clean break: a layer still carrying the pre-rename
+    // namespace is not read, not warned about and not migrated, so the
+    // built-in defaults apply as if it had declared nothing at all.
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     try {
       const { map } = makeMap();
       const layer = {
-        options: {
-          foliplus: {
-            label: { field: "new" },
-            annotation: { field: "old" },
-          },
-        },
+        options: { foliplus: { annotation: { field: "retired" } } },
       } as unknown as L.Layer;
       const mgr = new AnnotationManager({ map, layerFind: () => layer });
 
-      expect(mgr.getConfig("l1").field).toBe("new");
+      const cfg = mgr.getConfig("l1");
+      expect(cfg.field).toBe(CONST.DEFAULT_ANNOTATION.field);
+      expect(cfg.show).toBe(CONST.DEFAULT_ANNOTATION.show);
       expect(warn).not.toHaveBeenCalled();
-    } finally {
-      warn.mockRestore();
-    }
-  });
-
-  it("falls back to the deprecated annotation key and warns once", () => {
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    try {
-      const legacy = {
-        options: { foliplus: { annotation: { field: "legacy" } } },
-      } as unknown as L.Layer;
-      const first = new AnnotationManager({
-        map: makeMap().map,
-        layerFind: () => legacy,
-      });
-      expect(first.getConfig("l1").field).toBe("legacy");
-      const second = new AnnotationManager({
-        map: makeMap().map,
-        layerFind: () => legacy,
-      });
-      expect(second.getConfig("l2").field).toBe("legacy");
-
-      // Once per process, not once per layer or control.
-      expect(warn).toHaveBeenCalledTimes(1);
-      const message = String(warn.mock.calls[0][0]);
-      expect(message).toContain("deprecated");
-      expect(message).toContain('foliplus={"label": ...}');
     } finally {
       warn.mockRestore();
     }
@@ -560,7 +533,7 @@ describe("AnnotationManager — author-declared annotation", () => {
 
     expect(mgr.getConfig("l1").show).toBe(CONST.DEFAULT_ANNOTATION.show);
 
-    layer.options.foliplus = { annotation: { field: "store" } };
+    layer.options.foliplus = { label: { field: "store" } };
     expect(mgr.getConfig("l1").field).toBe("store");
     expect(mgr.getConfig("l1").show).toBe(true);
   });
