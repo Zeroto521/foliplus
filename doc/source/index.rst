@@ -46,7 +46,7 @@ Features
       :padding: 2
       :link: api/foliplus.LayerControl.html
 
-      Layer panel to organize, inspect, and zoom to map layers.
+      Layer panel to organize, inspect, style, and filter map layers.
 
    .. grid-item-card:: 🎯 LocateControl
       :padding: 2

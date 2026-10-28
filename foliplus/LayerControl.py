@@ -516,13 +516,28 @@ def _fill_author(
 
 
 class LayerControl(BaseControl):
-    """Layer panel to organize, inspect, and zoom to map layers.
+    """Layer panel to organize, inspect, style, and filter map layers.
 
     - 📐 Geometry-type icons for quick layer identification.
-    - 🔀 Drag-and-drop reordering, synced to Leaflet render order.
-    - ✅ Multi-select checkboxes with z-index stacking.
-    - 🎨 Color picker to replace base maps with a solid background color.
-    - ⌨️ Keyboard navigation (see Shortcuts below).
+    - 🔀 Drag-and-drop reordering within a section, synced to Leaflet render
+      order.
+    - ✅ Multi-select checkboxes with z-index stacking, plus a toggle for all
+      layers in a section.
+    - 🎨 Solid-color replacement for base maps.
+    - 🎨 Fill by value: color a layer by a numeric field with a classification
+      method, class count, and scheme, or use a single fill color.
+    - 🧰 Per-layer style drawer: opacity, zoom range, border, fill, size, and
+      text labels with color, size, number format, and overlap control.
+    - 🔎 Filter a layer's features live: a range on a numeric field, or a set
+      of values on a categorical one, with a kept/total readout and a Clear
+      action.
+    - 🗂️ Row actions: rename, attributes, style, filter, and delete or clear
+      with confirmation.
+    - 💾 Panel state (order, visibility, folds, names, styles) persists across
+      reloads.
+    - 🏷️ Per-layer text labels via ``foliplus={"label": {"field": ...}}`` on
+      the layer itself.
+    - ⌨️ Keyboard navigation across rows and panels (see Shortcuts below).
     - 🎯 Zoom the map to a layer's extent (double-click / ⋮ / Alt+Enter).
 
     Shortcuts
@@ -551,12 +566,16 @@ class LayerControl(BaseControl):
        * - Ctrl+Down
          - Move focused layer one position down
        * - Escape
-         - Clear focus
+         - Close the open rename, menu, attributes, filter, or style panel;
+           otherwise cancel focus and clear the keyboard cursor
        * - Double-click row
          - Zoom the map to that layer's extent (dashed rect). Hidden layers
            show a hint instead. Also from the ⋮ menu or Alt+Enter.
        * - Alt+Enter
          - Zoom to the focused layer (same as double-click)
+       * - ⋮ menu
+         - Enter or Space activates the focused item, Tab moves between items,
+           Escape closes the menu
 
     On macOS, Cmd acts as the modifier key instead of Ctrl.
 
