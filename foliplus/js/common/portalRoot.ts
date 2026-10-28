@@ -1,4 +1,4 @@
-// common/portalRoots — the registry of nodes an overlay portalled elsewhere.
+// common/portalRoot — the registry of nodes an overlay portalled elsewhere.
 //
 // A floating panel dismisses itself on a document-capture press that lands
 // "outside" it. An overlay may legitimately mount content on another host —

@@ -1,8 +1,8 @@
-// Tests for common/portalRoots — the registry that lets an overlay that
+// Tests for common/portalRoot — the registry that lets an overlay that
 // portals its content still count a press on that content as its own.
 import { afterEach, describe, expect, it } from "vitest";
 import { isInsideOverlay } from "#core/overlay.js";
-import { isInPortalRoot, registerPortalRoot } from "#common/portalRoots.js";
+import { isInPortalRoot, registerPortalRoot } from "#common/portalRoot.js";
 
 const node = (className?: string): HTMLElement => {
   const el = document.createElement("div");

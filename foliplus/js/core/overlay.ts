@@ -16,13 +16,13 @@
 // checks are how one of them ends up not knowing about a portal.
 //
 // Ownership comes from the overlay itself: a portal registers the node it
-// mounted (common/portalRoots) while that node is live, so a new portal is
+// mounted (common/portalRoot) while that node is live, so a new portal is
 // covered everywhere the moment its primitive registers — no panel needs a new
 // selector. `portalSelector` remains for the callers that predate the
 // registry (the scheme picker's panels pass it explicitly); the two paths
 // agree, and the registry is checked first so a registered node wins even if a
 // caller forgets its selector.
-import { isInPortalRoot } from "#common/portalRoots.js";
+import { isInPortalRoot } from "#common/portalRoot.js";
 
 /** True when `target` belongs to the overlay owned by `panel`: a descendant of
  *  the panel itself, a node some overlay registered as its portal root, or a

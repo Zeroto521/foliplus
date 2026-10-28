@@ -6,7 +6,7 @@
 import { cssVar } from "#common/cssvar.js";
 import { dom } from "#common/dom.js";
 import * as SVGs from "#common/icon.js";
-import { isInPortalRoot } from "#common/portalRoots.js";
+import { isInPortalRoot } from "#common/portalRoot.js";
 import { throttleRaf } from "#common/throttle.js";
 
 // ── Panel CSS classes ───────────────────────────────────────────
@@ -142,7 +142,7 @@ const bindOutsideCollapse = (opts: {
     // dropdown's open list, the scheme picker's) belongs to the panel even
     // though the DOM says otherwise — otherwise the panel collapses out from
     // under the row the user is aiming at. Registration lives with the
-    // primitive (common/portalRoots), so no per-panel selector is needed here
+    // primitive (common/portalRoot), so no per-panel selector is needed here
     // and a third portal is covered without touching this file.
     if (target && (opts.container.contains(target) || isInPortalRoot(target))) {
       insidePress.add(event);

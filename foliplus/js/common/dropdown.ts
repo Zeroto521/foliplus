@@ -21,7 +21,7 @@
 // covering the trigger — native fullscreen element, the control's
 // pseudo-fullscreen container, or <body> — with fixed viewport coordinates
 // anchored to the trigger. While it is open it registers itself as a portal
-// root (common/portalRoots), so the panel that owns the trigger counts a press
+// root (common/portalRoot), so the panel that owns the trigger counts a press
 // on a row as its own instead of dismissing itself under the click. The panel is often shorter than the popup — the heatmap's layer row
 // is one row tall until a layer is picked, LayerControl's content scrolls — so
 // a popup living inside that clip box collapsed to a single option row, which
@@ -30,7 +30,7 @@
 // is open at a time. Same portal contract as createSchemePicker.
 import { dom } from "#common/dom.js";
 import { createLogger } from "#common/log.js";
-import { registerPortalRoot } from "#common/portalRoots.js";
+import { registerPortalRoot } from "#common/portalRoot.js";
 
 const log = createLogger("dropdown");
 
@@ -465,7 +465,7 @@ const openDropdown = (
   // Register the popup as part of this overlay while it is on screen, so a
   // press on a row is not classified "outside" by the panel that owns the
   // trigger. The panel needs no change: core/overlay's predicate asks the
-  // registry (common/portalRoots) first.
+  // registry (common/portalRoot) first.
   state.releasePortalRoot = registerPortalRoot(state.list);
   state.isOpen = true;
   state.trigger.classList.add(DROPDOWN_CLASSES.open);
