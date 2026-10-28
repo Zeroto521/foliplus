@@ -706,3 +706,93 @@ describe("isNativeControl", () => {
     expect(isNativeControl(document.createElement("div"))).toBe(false);
   });
 });
+describe("combobox trigger — the migrated select owns the select's keys", () => {
+  // The regression this guards: every panel select became a
+  // <button aria-haspopup="listbox"> trigger. A <button> is classified
+  // "activate" (Enter/Space only), so ArrowLeft/ArrowRight on a focused
+  // trigger fell through to LayerControl's container shortcut — pressing an
+  // arrow on the select toggled a layer's visibility.
+  let map: any;
+  let panel: HTMLElement;
+  let toggleRow: ReturnType<typeof vi.fn>;
+  let cleanup: () => void;
+
+  const ARROWS = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"];
+
+  beforeEach(() => {
+    map = makeMap();
+    panel = document.createElement("div");
+    panel.className = "foliplus-panel foliplus-layer-ctrl";
+    document.body.appendChild(panel);
+    toggleRow = vi.fn();
+    cleanup = ensureInteraction(map).register(
+      "RowArrows",
+      ARROWS.map(key => ({
+        key,
+        container: panel,
+        handler: toggleRow as (event: Event) => void,
+      })),
+    );
+  });
+
+  afterEach(() => {
+    cleanup();
+    document.body.innerHTML = "";
+  });
+
+  const trigger = (): HTMLButtonElement => {
+    const el = document.createElement("button");
+    el.type = "button";
+    el.className = "foliplus-form-select foliplus-dropdown-trigger";
+    el.setAttribute("aria-haspopup", "listbox");
+    el.setAttribute("aria-expanded", "false");
+    panel.appendChild(el);
+    return el;
+  };
+
+  const press = (el: HTMLElement, key: string): KeyboardEvent => {
+    el.focus();
+    const event = new KeyboardEvent("keydown", {
+      key,
+      bubbles: true,
+      cancelable: true,
+    });
+    document.dispatchEvent(event);
+    return event;
+  };
+
+  it("is classified with the select family, not as a plain button", () => {
+    const el = trigger();
+    expect(nativeClass(el)).toBe("select");
+    for (const key of [...ARROWS, "Enter", " "]) {
+      expect(nativeConsumesKey(el, key), key).toBe(true);
+    }
+    // Escape stays foliplus-owned whatever the control is.
+    expect(nativeConsumesKey(el, "Escape")).toBe(false);
+  });
+
+  it.each(ARROWS)("%s on the trigger never reaches the row shortcut", key => {
+    const el = trigger();
+    const event = press(el, key);
+    expect(event.defaultPrevented, key).toBe(false);
+    expect(toggleRow, key).not.toHaveBeenCalled();
+  });
+
+  it("a plain button in the same panel still activates natively only", () => {
+    const plain = document.createElement("button");
+    plain.type = "button";
+    panel.appendChild(plain);
+    expect(nativeClass(plain)).toBe("activate");
+    expect(nativeConsumesKey(plain, "ArrowLeft")).toBe(false);
+  });
+
+  it("the popup's option rows are not triggers", () => {
+    const option = document.createElement("button");
+    option.type = "button";
+    option.setAttribute("role", "option");
+    panel.appendChild(option);
+    // role=option has no row in the ARIA table: it activates, it does not own
+    // the arrows — the open list's own handler claims those and stops them.
+    expect(nativeClass(option)).toBe("activate");
+  });
+});
