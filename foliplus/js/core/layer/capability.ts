@@ -190,7 +190,6 @@ const isArealStyleLeaf = (node: unknown): boolean => {
 };
 
 export {
-  type LayerCarrierProbe,
   FILL_OPT_IN,
   hasFillLeaf,
   hasMarkerLeaf,
@@ -199,3 +198,4 @@ export {
   isArealStyleLeaf,
   probeLayerCarrier,
 };
+export type { LayerCarrierProbe };
