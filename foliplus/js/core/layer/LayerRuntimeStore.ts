@@ -12,7 +12,7 @@ import type { LayerSnapshot, Projection } from "./type.js";
 /** The executor's projection snapshot: the pure projection plus the carrier
  *  identity the last write landed on. Recording carrier is what closes
  *  value-only diff misses writes when a carrier element is replaced (a
- *  re-registered canvas, a lazily-created annotation pane), because the
+ *  re-registered canvas, a lazily-created label pane), because the
  *  stored numeric opacity matches but the DOM in front of it is new.
  *  The token is opaque: a canvas element, a pane-names array, or an
  *  `options` object reference. */

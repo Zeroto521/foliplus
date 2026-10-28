@@ -11,7 +11,7 @@
 // labelable-fields question that makes the row honest is NOT asked here —
 // it is encoded in the capability itself, decided once at the surface
 // declaration edge (`LayerController.withAnnotationSpec` probes
-// `hasLabelField`, appends the `role: "annotation"` PaneSpec iff the probe
+// `hasLabelField`, appends the `role: "label"` PaneSpec iff the probe
 // hits, and `detectCapabilities` reads that spec back). A second probe in
 // the gate would be exactly the drift the gate invariant forbids.
 import {

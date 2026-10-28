@@ -6,7 +6,7 @@
 // (mime type, file extension, codec class, pipeline routing) reads from one
 // `FORMAT` record — add a format by adding one row there.
 // ============================================================================
-import { ANNOTATION_PANE_PREFIX } from "#core/layer/index.js";
+import { LABEL_PANE_PREFIX } from "#core/layer/index.js";
 import type { ExportFormat } from "./type.js";
 
 /** Per-format descriptor. */
@@ -89,18 +89,18 @@ const SEL = {
    * exists for canvas elements a third-party layer mounts directly in its
    * pane. Keep it generic — the pane walk already scopes the search.
    * **A new canvas overlay must be added here or to
-   * {@link SEL.ANNOTATION_CANVAS}** — `collectPaneRoots` deliberately skips
+   * {@link SEL.LABEL_CANVAS}** — `collectPaneRoots` deliberately skips
    * CANVAS elements (a dedicated pass owns them), so a canvas that is in
    * neither list vanishes from the export without any error.
    */
   CANVAS: "canvas",
   /**
    * LayerControl's annotation labels: each layer's labels draw on a canvas in
-   * that layer's *own* annotation pane, which the manager creates with
+   * that layer's *own* label pane, which the manager creates with
    * `map.createPane` — a sibling of the layer's content panes, so the
    * per-layer walk never reaches it and it needs its own pass.
    */
-  ANNOTATION_CANVAS: ".leaflet-map-pane canvas.foliplus-annotation-canvas",
+  LABEL_CANVAS: ".leaflet-map-pane canvas.foliplus-label-canvas",
   /**
    * Hide-pass only (not traversal skip): Leaflet control host + this
    * control's own bar. Same list as main — layout hide during export.
@@ -259,7 +259,7 @@ export {
   TIMING,
   CLASSES,
   SVG_NS,
-  ANNOTATION_PANE_PREFIX,
+  LABEL_PANE_PREFIX,
   SEL,
   detectConcurrency,
   TILE_CONCURRENCY,

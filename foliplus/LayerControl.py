@@ -94,7 +94,7 @@ class LayerControl(BaseControl):
     A layer may declare its own label defaults on the layer itself:
 
     >>> gdf.explore(
-    ...     foliplus={"annotation": {"field": "name", "collide": False}}
+    ...     foliplus={"label": {"field": "name", "collide": False}}
     ... )
 
     .. list-table::
@@ -122,11 +122,11 @@ class LayerControl(BaseControl):
          - ``True`` once ``field`` is declared
          - explicit on/off, so a field can be named without drawing
 
-    Keys stay short because the ``annotation`` namespace already says label; the
-    ``label_`` prefix belongs to the flat surfaces (Python kwargs, CONF,
-    locale). A declaration is the author's default: a later choice in the
-    style panel is the user's intent and wins, and Reset shows the
-    declaration through again.
+    Keys stay short because the declaration's own namespace already says
+    label; the ``label_`` prefix belongs to the flat surfaces (Python
+    kwargs, CONF, locale). A declaration is the author's default: a later
+    choice in the style panel is the user's intent and wins, and Reset
+    shows the declaration through again.
     """
 
     # Emitted by _extra_config at render time rather than set by a constructor

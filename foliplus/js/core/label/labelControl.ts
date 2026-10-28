@@ -21,7 +21,7 @@ import {
 } from "#common/form.js";
 import { NUMBER_FORMAT } from "#common/format.js";
 
-/** CSS class names — the same vocabulary the annotation panel and the
+/** CSS class names — the same vocabulary the label panel and the
  *  delegated drawer use. Defined here (not imported from a component const)
  *  because the shared runtime cannot depend on a component module. */
 const CLS = {
@@ -77,7 +77,7 @@ interface LabelControlsResult {
   refresh: () => void;
 }
 
-/** One `<option>` per NUMBER_FORMAT entry — shared by the annotation panel
+/** One `<option>` per NUMBER_FORMAT entry — shared by the label panel
  *  and the label controls so every dropdown stays in lockstep with the type. */
 const numberFormatOptions = (fmtLabel: (f: string) => string): HTMLElement[] =>
   Object.values(NUMBER_FORMAT).map(f => dom.el("option", { value: f }, fmtLabel(f)));
@@ -235,7 +235,7 @@ const renderLabelControls = (opts: RenderLabelControlsOptions): LabelControlsRes
   }
 
   // Body wrapper: collapsed when the toggle is off — same "switch off → hide
-  // body" rule the annotation panel uses.
+  // body" rule the label panel uses.
   if (bodyRows.length) {
     const body = dom.el("div", { class: CLS.STYLE_BODY }, ...bodyRows);
     body.classList.toggle(CLS.HIDDEN, !showChecked);

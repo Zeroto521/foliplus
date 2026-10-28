@@ -21,18 +21,14 @@ import { LayerSurface } from "#foliplus/core/layer/LayerSurface.js";
 import { PaneManager } from "#foliplus/core/layer/PaneManager.js";
 import {
   type CarrierDecl,
-  annotationPaneNameOf,
   assertInsideOwnedPanes,
   carrierTargetOf,
   contentPanesOf,
   isMigratableLeaf,
+  labelPaneNameOf,
   visibleDomOf,
 } from "#foliplus/core/layer/carrier.js";
-import {
-  ANNOTATION_PANE_PREFIX,
-  CAP_TIER,
-  PANE_ROLE,
-} from "#foliplus/core/layer/const.js";
+import { CAP_TIER, LABEL_PANE_PREFIX, PANE_ROLE } from "#foliplus/core/layer/const.js";
 
 // The mock `window.L` is swapped for the real library for this file only.
 // The modules under test resolve `L` at call time, so the swap reaches them;
@@ -637,7 +633,7 @@ describe("unknown third-party layers (real Leaflet)", () => {
     const opacity: string = surface.capabilities.opacity;
     if (opacity === "leaf-native") {
       for (const pane of surface.panes) {
-        if (pane.role === PANE_ROLE.ANNOTATION || pane.role === PANE_ROLE.SHADOW) {
+        if (pane.role === PANE_ROLE.LABEL || pane.role === PANE_ROLE.SHADOW) {
           continue;
         }
         expect(pane.element.contains(marker.getElement()!)).toBe(false);
@@ -705,10 +701,10 @@ describe("contentPanesOf", () => {
   });
 });
 
-describe("annotationPaneNameOf", () => {
+describe("labelPaneNameOf", () => {
   it("composes the one pane name the declaration and the exporter share", () => {
-    expect(annotationPaneNameOf("layer-1")).toBe(ANNOTATION_PANE_PREFIX + "layer-1");
-    expect(annotationPaneNameOf("layer-1")).not.toBe(annotationPaneNameOf("layer-2"));
+    expect(labelPaneNameOf("layer-1")).toBe(LABEL_PANE_PREFIX + "layer-1");
+    expect(labelPaneNameOf("layer-1")).not.toBe(labelPaneNameOf("layer-2"));
   });
 });
 

@@ -45,7 +45,7 @@ import { resetLayerZoomRange, syncZoomRangeRow } from "./zoomRange.js";
  *  neither a capable Label dimension nor a capable Layer dimension. */
 const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
   // Third-party canvas layers (heatmap, measure) declare their own controls
-  // via styleSetters — render those instead of the annotation panel.
+  // via styleSetters — render those instead of the label panel.
   if (layerHasStyleDelegation(ui, layerId)) {
     return renderDelegatedStylePanel(ui, layerId);
   }
@@ -173,7 +173,7 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
   panel.addEventListener("change", (event: Event) => {
     const t = event.target as HTMLElement;
     // Delegated label controls handle their own changes (stopPropagation on
-    // the shared root). Only the annotation panel's changes reach here.
+    // the shared root). Only the label panel's changes reach here.
     if (delegated) return;
     if (
       t instanceof HTMLInputElement &&

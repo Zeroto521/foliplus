@@ -317,7 +317,7 @@
                                   basemap panes, one STEP per basemap slot
        600+n·10   layer z        core/layer z.ts zFor (Z_INDEX.BASE)
                                   overlay panes; annotation labels sit +1
-                                  in-slot (ANNOTATION_Z_OFFSET)
+                                  in-slot (LABEL_Z_OFFSET)
        9490       export z       --foliplus-export-scale-z (ExportControl.css)
                                   scale/attribution dimmed under the crop
                                   mask; above all data layers, under crop UI
