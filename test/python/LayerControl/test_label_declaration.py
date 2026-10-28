@@ -7,9 +7,6 @@ only has to keep collecting the layer.
 
 That documented channel is also what pins the supported floor — folium only
 forwards those kwargs onto a layer's options from 0.15 on.
-
-The pre-rename ``annotation`` spelling is gone: not read, not warned about and
-not migrated.
 """
 
 from __future__ import annotations
@@ -32,8 +29,8 @@ def test_label_key_reaches_the_layer_options() -> None:
     )
     layer.add_to(ctrl)
 
-    # `options` is read defensively: folium 0.14 has no such attribute, and the
-    # constructor above is what fails there — not this assertion.
+    # folium's typing does not declare `options` on a Layer, hence the
+    # defensive read; the constructor above is what pins the supported floor.
     options = getattr(layer, "options", {})
     assert options.get("foliplus") == {"label": {"field": "name"}}
 

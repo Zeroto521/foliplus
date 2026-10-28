@@ -18,7 +18,7 @@
 - `HeatmapControl`: field selection resolves to a concrete name; a source without numeric fields falls back to counting ([#758](https://github.com/Zeroto521/foliplus/pull/758), [#782](https://github.com/Zeroto521/foliplus/pull/782))
 - `HeatmapControl` / `LayerControl`: both panels share one form geometry — label and control columns, footer buttons and the scheme trigger line up across the two ([#759](https://github.com/Zeroto521/foliplus/pull/759))
 - `core/layer`, `LayerControl`, `LayerControl.py`: the `group` vocabulary is renamed to `role` end to end (**Breaking**: CONF payloads from an older Python package and pre-v4 saved records lose their group/role distinction) ([#763](https://github.com/Zeroto521/foliplus/pull/763))
-- `LayerControl`: the author declaration namespace key is renamed `annotation` → `label` (**Breaking**: the old key is no longer read — not warned about and not migrated, so a layer still passing it declares nothing) ([#785](https://github.com/Zeroto521/foliplus/pull/785), [#790](https://github.com/Zeroto521/foliplus/pull/790))
+- `LayerControl`: the author declaration namespace key is renamed `annotation` → `label` (**Breaking**: the old key is no longer read) ([#785](https://github.com/Zeroto521/foliplus/pull/785), [#790](https://github.com/Zeroto521/foliplus/pull/790))
 
 ### Removed
 

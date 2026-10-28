@@ -97,9 +97,6 @@ class LayerControl(BaseControl):
     ...     foliplus={"label": {"field": "name", "collide": False}}
     ... )
 
-    ``label`` is the only namespace key read. The pre-rename ``annotation``
-    spelling is ignored — it is not read, not warned about and not migrated.
-
     .. list-table::
        :header-rows: 1
 

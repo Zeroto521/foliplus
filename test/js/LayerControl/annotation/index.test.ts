@@ -472,10 +472,9 @@ describe("AnnotationManager — author-declared annotation", () => {
     expect(cfg.show).toBe(true);
   });
 
-  it("reads only the label key — the retired annotation key is ignored", () => {
-    // The rename is a clean break: a layer still carrying the pre-rename
-    // namespace is not read, not warned about and not migrated, so the
-    // built-in defaults apply as if it had declared nothing at all.
+  it("falls back to the built-in defaults when the declaration has no label key", () => {
+    // A declaration with no `label` key declares nothing: the built-in
+    // defaults apply and nothing is logged.
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     try {
       const { map } = makeMap();
