@@ -18,7 +18,10 @@
 - `HeatmapControl`: field selection resolves to a concrete name; a source without numeric fields falls back to counting ([#758](https://github.com/Zeroto521/foliplus/pull/758), [#782](https://github.com/Zeroto521/foliplus/pull/782))
 - `HeatmapControl` / `LayerControl`: both panels share one form geometry — label and control columns, footer buttons and the scheme trigger line up across the two ([#759](https://github.com/Zeroto521/foliplus/pull/759))
 - `core/layer`, `LayerControl`, `LayerControl.py`: the `group` vocabulary is renamed to `role` end to end (**Breaking**: CONF payloads from an older Python package and pre-v4 saved records lose their group/role distinction) ([#763](https://github.com/Zeroto521/foliplus/pull/763))
-- `Package`: the `_typing` helpers `ControlPosition`, `Fraction`, `PositiveInt` and `Zoom` leave `__all__` — they are annotation aliases, not product API, and stay importable from the package root for existing annotations ([#787](https://github.com/Zeroto521/foliplus/pull/787))
+
+### Removed
+
+- `Package`: `ControlPosition`/`Fraction`/`PositiveInt`/`Zoom` leave the package namespace — `from foliplus import Zoom` no longer resolves; they only type the constructor parameters, so they stay internal to `foliplus._typing` (**Breaking** for annotations that imported them from the root) ([#787](https://github.com/Zeroto521/foliplus/pull/787))
 
 ### Fixed
 

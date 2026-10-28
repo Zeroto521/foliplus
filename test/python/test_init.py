@@ -50,15 +50,14 @@ class TestVersion:
         for alias in (Zoom, PositiveInt, Fraction):
             assert hasattr(alias, "__metadata__")  # Annotated[...] alias
 
-    def test_typing_helpers_are_importable_but_not_public_api(self):
-        """Root attribute access stays (released in v0.4.1); __all__ carries the controls only."""
+    def test_typing_helpers_are_internal(self):
+        """The annotation aliases are not package attributes: they type the
+        constructor signatures, nothing else re-exports them."""
         import foliplus._typing as typing_
 
         for name in ("ControlPosition", "Fraction", "PositiveInt", "Zoom"):
             assert hasattr(typing_, name), f"Missing alias: {name}"
-            # Backward compatible attribute access, not a star export.
-            assert hasattr(foliplus, name), f"Missing root attribute: {name}"
-            assert name not in foliplus.__all__, f"Star-exported: {name}"
+            assert not hasattr(foliplus, name), f"Re-exported at the root: {name}"
 
 
 class TestCDN:

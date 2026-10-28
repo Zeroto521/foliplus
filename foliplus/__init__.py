@@ -10,9 +10,6 @@ except ImportError:
     except PackageNotFoundError:
         __version__ = "unknown"
 
-# Annotation aliases carried at the root since v0.4.1; out of __all__ so a star
-# import exports the controls only. New annotations import foliplus._typing.
-from ._typing import ControlPosition, Fraction, PositiveInt, Zoom
 from .BaseControl import BaseControl
 from .ExportControl import ExportControl
 from .FullscreenControl import FullscreenControl
