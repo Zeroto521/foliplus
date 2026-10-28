@@ -16,6 +16,7 @@ import json
 
 import branca.colormap as branca_cm
 import folium
+import pytest
 from conftest import _js, make_browser_page, panel_ready, use_page
 
 from foliplus import LayerControl
@@ -89,9 +90,7 @@ def _open_style_panel(page):
     page.evaluate(_js("LayerControl/open_panel"))
     opened = page.evaluate(_ARM)
     assert opened["ok"], f"style panel did not open: {opened}"
-    page.wait_for_selector(
-        ".foliplus-layer-style-panel", state="visible", timeout=5000
-    )
+    page.wait_for_selector(".foliplus-layer-style-panel", state="visible", timeout=5000)
 
 
 class TestFillAuthorBrowser:
@@ -193,10 +192,16 @@ class TestFillAuthorBrowser:
             )
             assert not errors, f"JS errors: {errors}"
 
-    def test_narrow_panel_does_not_overflow(self, browser, tmp_path):
-        """The read-only rows fit the 380px panel the user saw them in."""
+    @pytest.mark.parametrize("width", [380, 480, 768, 1000])
+    def test_read_only_rows_fit_every_viewport(self, browser, tmp_path, width):
+        """The read-only rows fit the panel at every viewport, 380px included.
+
+        The panel has its own width, but the control column is resolved from
+        the viewport: the rows must not overflow it at any of the widths the
+        user's screenshots came from.
+        """
         with use_page(_make_page, browser, tmp_path) as (page, errors):
-            page.set_viewport_size({"width": 380, "height": 900})
+            page.set_viewport_size({"width": width, "height": 900})
             page.wait_for_selector(
                 ".foliplus-layer-ctrl .foliplus-toggle-btn",
                 state="attached",
@@ -211,9 +216,9 @@ class TestFillAuthorBrowser:
             panel_ready(page)
             _open_style_panel(page)
 
-            narrow = page.evaluate(_READ_FILL)
-            assert narrow["mode"] == "original", narrow
-            assert narrow["panelScroll"] <= 0, narrow
-            assert narrow["boxRightMax"] <= narrow["panelRight"], narrow
-            assert narrow["stops"] >= 2, narrow
+            read = page.evaluate(_READ_FILL)
+            assert read["mode"] == "original", read
+            assert read["panelScroll"] <= 0, (width, read)
+            assert read["boxRightMax"] <= read["panelRight"], (width, read)
+            assert read["stops"] >= 2, (width, read)
             assert not errors, f"JS errors: {errors}"
