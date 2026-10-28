@@ -19,7 +19,7 @@
 - `HeatmapControl` / `LayerControl`: both panels share one form geometry — label and control columns, footer buttons and the scheme trigger line up across the two ([#759](https://github.com/Zeroto521/foliplus/pull/759))
 - `core/layer`, `LayerControl`, `LayerControl.py`: the `group` vocabulary is renamed to `role` end to end (**Breaking**: CONF payloads from an older Python package and pre-v4 saved records lose their group/role distinction) ([#763](https://github.com/Zeroto521/foliplus/pull/763))
 - `LayerControl`: the author declaration namespace key is renamed `annotation` → `label` (**Breaking**: the old key is no longer read) ([#785](https://github.com/Zeroto521/foliplus/pull/785), [#790](https://github.com/Zeroto521/foliplus/pull/790))
-- Shared dropdown: the panels' native single selects (heatmap layer / aggregation / field / method / class, style drawer fill mode / field / format, label format) are one dropdown primitive — the select's closed-state chrome plus a keyboard/ARIA listbox, a shared-menu popup and an optional multiple mode ([#793](https://github.com/Zeroto521/foliplus/pull/793))
+- Shared dropdown primitive: the panels' native single selects share one dropdown — select chrome plus a keyboard/ARIA listbox popup that is portalled out of the panel it belongs to, so a short or scrolling panel can no longer clip it, and optional multiple mode ([#793](https://github.com/Zeroto521/foliplus/pull/793))
 
 ### Removed
 
