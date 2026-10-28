@@ -30,10 +30,13 @@
   /* Form-control typography, not page typography: a native select keeps the
      UA form font (it does not inherit the page font), so the trigger must do
      the same or the closed states differ by a font substitution. Measured in
-     Chromium: a bare button and a select share family/size/weight/line-height;
-     only the default alignment differs (button centers, select starts). */
+     Chromium: a bare button and a select share family/size/weight; the button
+     lays its text out centered and the select starts, so only the alignment
+     needs stating. Line height is deliberately *not* declared: the panel's
+     line-height wins on the select (21px at --foliplus-font-size-md), and
+     forcing `normal` here made the trigger the one control in the row whose
+     text metrics differed. */
   font-weight: normal;
-  line-height: normal;
   text-align: start;
   text-indent: 0;
   white-space: nowrap;
@@ -84,6 +87,17 @@
   bottom: 100%;
   margin-top: 0;
   margin-bottom: var(--foliplus-space-xs);
+}
+
+/* ── Portalled popup ──
+   An *open* popup leaves the panel (see common/dropdown.ts): a panel that is
+   only one row tall, or one that scrolls, would otherwise clip it to a single
+   option row. The module pins it in viewport coordinates with inline styles,
+   so this block only drops the shell's in-flow gap — that gap is now part of
+   the module's own viewport offset. */
+.foliplus-dropdown-list.foliplus-dropdown-portal {
+  margin-top: 0;
+  margin-bottom: 0;
 }
 
 /* ── Option row ──

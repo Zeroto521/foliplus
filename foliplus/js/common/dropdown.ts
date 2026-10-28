@@ -17,10 +17,14 @@
 //  - standalone (pass `items`, optional `multiple`): the dropdown owns the
 //    value and reports it through `onChange` / `getValue` / `getValues`.
 //
-// The popup stays inside the panel's own clip/scroll context (no portal): it
-// is anchored to the trigger and clamped to the tightest clipping ancestor,
-// and it closes when that geometry moves. That is the enum-listbox contract
-// filterBody already established, shared here instead of copied per control.
+// The open popup is portalled: it leaves the panel and mounts on <body> (or
+// the fullscreen element) with fixed viewport coordinates anchored to the
+// trigger. The panel is often shorter than the popup — the heatmap's layer row
+// is one row tall until a layer is picked, LayerControl's content scrolls — so
+// a popup living inside that clip box collapsed to a single option row, which
+// is why it no longer lives there. Scrolling the panel re-pins the popup
+// instead of dismissing it, so a long option list stays usable; one dropdown
+// is open at a time. Same portal contract as createSchemePicker.
 import { dom } from "#common/dom.js";
 import { createLogger } from "#common/log.js";
 
@@ -38,11 +42,12 @@ const DROPDOWN_CLASSES = {
   check: "foliplus-dropdown-check",
   open: "foliplus-dropdown-open",
   up: "foliplus-dropdown-up",
+  portal: "foliplus-dropdown-portal",
   selected: "foliplus-is-selected",
   nativeHost: "foliplus-dropdown-native-host",
 } as const;
 
-/** Vertical gap kept between the popup and the clip edge / viewport. */
+/** Vertical gap kept between the popup and the viewport edge. */
 const POPUP_EDGE_GAP = 8;
 /** Rows the popup shows before it scrolls internally. */
 const MAX_VISIBLE_ROWS = 8;
@@ -127,6 +132,9 @@ interface InternalState {
   optionEls: HTMLButtonElement[];
   isOpen: boolean;
   destroyed: boolean;
+  /** Close this popup without touching focus: used by the module to keep one
+   *  open dropdown at a time when another opens. */
+  closer: () => void;
   /** Popup-scope listeners; drained whenever the popup closes. */
   mountCleanup: (() => void)[];
 }
@@ -143,21 +151,30 @@ const ownerMap = new WeakMap<HTMLSelectElement, Dropdown>();
 const nativeItemsOf = (select: HTMLSelectElement): DropdownItem[] =>
   Array.from(select.options).map(option => ({
     value: option.value,
-    label: option.textContent ?? option.value,
+    // A label-less <option> renders an empty row; the value is the only thing
+    // the user could recognise it by, so it stands in (same as the browser's
+    // own fallback for a missing label).
+    label: option.textContent || option.value,
     ...(option.disabled ? { disabled: true } : {}),
     ...(option.title ? { title: option.title } : {}),
   }));
 
-/** Ancestors that clip their content: the popup's visible bottom is the
- *  tightest of all of them, not just the nearest one. */
-const clippingAncestorsOf = (node: Element): HTMLElement[] => {
-  const clips: HTMLElement[] = [];
-  let current = node.parentElement;
-  while (current) {
-    if (getComputedStyle(current).overflowY !== "visible") clips.push(current);
-    current = current.parentElement;
-  }
-  return clips;
+/** Where an open popup is mounted. The panel's own clip box is short — a
+ *  heatmap panel is one row tall until a layer is picked, LayerControl's
+ *  content scrolls — and a popup clamped to it collapses to a single option
+ *  row, which is unusable. The list therefore leaves the panel: it mounts on
+ *  <body> (or the fullscreen element) with fixed coordinates and re-pins on
+ *  scroll/resize. Same portal contract the scheme picker uses. */
+const popupHost = (): HTMLElement =>
+  (document.fullscreenElement as HTMLElement | null) ?? document.body;
+
+/** Space the popup may use, above and below the trigger, in viewport terms. */
+const spaceAround = (trigger: HTMLElement): { below: number; above: number } => {
+  const rect = trigger.getBoundingClientRect();
+  return {
+    below: window.innerHeight - rect.bottom - POPUP_EDGE_GAP,
+    above: rect.top - POPUP_EDGE_GAP,
+  };
 };
 
 /** The value(s) the control currently shows. */
@@ -208,45 +225,41 @@ const renderLabel = (state: InternalState): void => {
   else state.trigger.removeAttribute("title");
 };
 
-/** How much vertical room the popup can take, both ways from the trigger. */
-const spaceAround = (state: InternalState): { below: number; above: number } => {
-  const rect = state.trigger.getBoundingClientRect();
-  const clips = clippingAncestorsOf(state.wrapper);
-  const bottoms = clips
-    .map(clip => clip.getBoundingClientRect().bottom)
-    .filter(bottom => bottom > 0);
-  const tops = clips
-    .map(clip => clip.getBoundingClientRect().top)
-    .filter(top => top > 0);
-  const limitBottom = Math.min(window.innerHeight, ...bottoms);
-  const limitTop = Math.max(0, ...tops);
-  return {
-    below: limitBottom - rect.bottom - POPUP_EDGE_GAP,
-    above: rect.top - limitTop - POPUP_EDGE_GAP,
-  };
-};
-
-/** Anchor the popup under the trigger, or above it when that is the only
- *  direction with room, and clamp its height to what the clip box allows. */
+/** Pin the popup to the trigger in viewport coordinates: below it when there
+ *  is room for at least two rows, otherwise above it, and clamped to the room
+ *  the viewport leaves. Fixed positioning is what makes the popup survive the
+ *  panel's own scroll box; the row cap (MAX_VISIBLE_ROWS) keeps it scrollable
+ *  inside instead of running off the screen. */
 const positionList = (state: InternalState): void => {
-  state.list.style.maxHeight = "";
-  state.list.classList.remove(DROPDOWN_CLASSES.up);
+  const list = state.list;
+  list.style.maxHeight = "";
+  list.classList.remove(DROPDOWN_CLASSES.up);
 
-  const natural = state.list.getBoundingClientRect().height;
+  const rect = state.trigger.getBoundingClientRect();
+  const natural = list.getBoundingClientRect().height;
   const rowHeight = Math.max(24, ...state.optionEls.map(option => option.offsetHeight));
   const desired = Math.min(natural, rowHeight * MAX_VISIBLE_ROWS);
-  const space = spaceAround(state);
+  const space = spaceAround(state.trigger);
   const fitsBelow = space.below >= Math.min(desired, rowHeight * MIN_ROWS_BELOW);
+  const up = !fitsBelow && space.above > space.below;
+  const height = Math.max(
+    rowHeight,
+    Math.min(desired, Math.max(up ? space.above : space.below, rowHeight)),
+  );
 
-  let height = desired;
-  if (!fitsBelow && space.above > space.below) {
-    state.list.classList.add(DROPDOWN_CLASSES.up);
-    height = Math.min(desired, space.above);
+  list.style.position = "fixed";
+  list.style.left = String(rect.left) + "px";
+  list.style.width = String(rect.width) + "px";
+  if (up) {
+    list.style.top = "";
+    list.style.bottom = String(window.innerHeight - rect.top + POPUP_EDGE_GAP) + "px";
+    list.classList.add(DROPDOWN_CLASSES.up);
   } else {
-    height = Math.min(desired, Math.max(space.below, rowHeight));
+    list.style.bottom = "";
+    list.style.top = String(rect.bottom + POPUP_EDGE_GAP) + "px";
   }
-  height = Math.max(rowHeight, height);
-  if (height < natural) state.list.style.maxHeight = String(Math.round(height)) + "px";
+  list.classList.add(DROPDOWN_CLASSES.portal);
+  if (height < natural) list.style.maxHeight = String(Math.round(height)) + "px";
 };
 
 const focusOption = (state: InternalState, index: number): void => {
@@ -354,23 +367,40 @@ const closeDropdown = (
 ): void => {
   const wasOpen = state.isOpen;
   state.isOpen = false;
+  const openIndex = openStates.indexOf(state);
+  if (openIndex >= 0) openStates.splice(openIndex, 1);
   state.list.hidden = true;
-  state.list.classList.remove(DROPDOWN_CLASSES.up);
+  state.list.classList.remove(DROPDOWN_CLASSES.up, DROPDOWN_CLASSES.portal);
   state.list.style.maxHeight = "";
   state.trigger.classList.remove(DROPDOWN_CLASSES.open);
   state.trigger.setAttribute("aria-expanded", "false");
   state.trigger.removeAttribute("aria-activedescendant");
   state.mountCleanup.forEach(fn => fn());
   state.mountCleanup = [];
+  // The popup goes back into the wrapper when it is closed: the open state is
+  // the only one that has to escape the panel's clip box.
+  if (state.list.parentElement !== state.wrapper) state.wrapper.append(state.list);
   if (wasOpen && opts?.restoreFocus !== false) state.trigger.focus();
   if (wasOpen) state.onToggle?.(false, null);
 };
 
+/** Open popups, newest last. One at a time: two portalled lists on <body>
+ *  would stack z-index on each other and orphan the older node. */
+const openStates: InternalState[] = [];
+
 const openDropdown = (state: InternalState, focusIndex = -1): void => {
   if (state.destroyed || state.isOpen) return;
+  for (const other of [...openStates]) {
+    if (other !== state && other.isOpen) other.closer?.();
+  }
+  openStates.push(state);
   if (state.native) syncFromNative(state);
   renderOptions(state);
   renderLabel(state);
+  // Mount on the portal host *before* unhiding so the first measurement has a
+  // laid-out box to read (a detached list reports 0×0).
+  const host = popupHost();
+  if (state.list.parentElement !== host) host.appendChild(state.list);
   state.list.hidden = false;
   state.isOpen = true;
   state.trigger.classList.add(DROPDOWN_CLASSES.open);
@@ -382,7 +412,8 @@ const openDropdown = (state: InternalState, focusIndex = -1): void => {
   const onOutsidePress = (event: Event): void => {
     const target = event.target as Node | null;
     if (!target) return;
-    if (state.wrapper.contains(target)) return;
+    // The popup is portalled out of the wrapper, so it is its own hit area.
+    if (state.wrapper.contains(target) || state.list.contains(target)) return;
     closeDropdown(state, { restoreFocus: false });
   };
   document.addEventListener("pointerdown", onOutsidePress, true);
@@ -390,19 +421,51 @@ const openDropdown = (state: InternalState, focusIndex = -1): void => {
     document.removeEventListener("pointerdown", onOutsidePress, true),
   );
 
-  // A scroll of any clip box or a resize invalidates the measured geometry:
-  // the popup closes instead of floating in a stale position.
-  const onGeometryChange = (): void => {
-    closeDropdown(state, {
-      restoreFocus: state.list.contains(document.activeElement),
-    });
+  // The popup is pinned to the trigger in viewport coordinates, so a scroll of
+  // the panel (or of any clip box) has to re-pin it rather than dismiss it —
+  // dismissing was what made a long option list unusable: the list's own
+  // scroll box and focusOption's scrollIntoView fire the same event. A scroll
+  // *inside* the list moves nothing the anchor cares about, so it is skipped.
+  const reposition = (event: Event): void => {
+    const target = event.target;
+    if (target instanceof Node) {
+      if (state.list === target || state.list.contains(target)) return;
+    }
+    positionList(state);
   };
-  window.addEventListener("scroll", onGeometryChange, true);
-  window.addEventListener("resize", onGeometryChange, { passive: true });
+  window.addEventListener("scroll", reposition, true);
+  window.addEventListener("resize", reposition, { passive: true });
+  // Fullscreen: the host may change under the popup (the fullscreen element
+  // replaces <body> as the containing block). Re-seat and re-pin rather than
+  // leave the node on a host that is about to leave the top layer.
+  const reseat = (): void => {
+    const host = popupHost();
+    if (state.list.parentElement !== host) host.appendChild(state.list);
+    positionList(state);
+  };
+  document.addEventListener("fullscreenchange", reseat);
   state.mountCleanup.push(() => {
-    window.removeEventListener("scroll", onGeometryChange, true);
-    window.removeEventListener("resize", onGeometryChange);
+    window.removeEventListener("scroll", reposition, true);
+    window.removeEventListener("resize", reposition);
+    document.removeEventListener("fullscreenchange", reseat);
   });
+
+  // Escape belongs to the popup while it is open — the popup is the topmost
+  // surface, so the key must not reach the panel underneath. The panel
+  // dispatcher (#783) listens on document *capture*, so a bubble-phase
+  // handler here would lose: this listener sits on window capture, which runs
+  // before any document capture listener and stops the event there. The
+  // second Escape reaches the panel (this listener dies with the popup).
+  const onEscapeCapture = (event: KeyboardEvent): void => {
+    if (event.key !== "Escape" || event.defaultPrevented) return;
+    event.preventDefault();
+    event.stopPropagation();
+    closeDropdown(state, { restoreFocus: true });
+  };
+  window.addEventListener("keydown", onEscapeCapture, true);
+  state.mountCleanup.push(() =>
+    window.removeEventListener("keydown", onEscapeCapture, true),
+  );
 
   if (focusIndex >= 0) {
     const index = state.items[focusIndex]?.disabled ? 0 : focusIndex;
@@ -431,12 +494,8 @@ const onTriggerKeyDown = (state: InternalState, event: KeyboardEvent): void => {
     focusOption(state, key === "Home" ? 0 : state.items.length - 1);
     return;
   }
-  if (key === "Escape" && state.isOpen) {
-    // Close the list only: the panel behind it keeps its own Escape.
-    event.preventDefault();
-    event.stopPropagation();
-    closeDropdown(state, { restoreFocus: true });
-  }
+  // Escape is not handled here: an open popup claims it on window capture
+  // (see openDropdown), which outranks the document-capture panel dispatcher.
 };
 
 const onListKeyDown = (state: InternalState, event: KeyboardEvent): void => {
@@ -458,14 +517,6 @@ const onListKeyDown = (state: InternalState, event: KeyboardEvent): void => {
     event.stopPropagation();
     const index = focusedIndex(state);
     if (index >= 0) activate(state, index);
-    return;
-  }
-  if (key === "Escape") {
-    // The popup owns this Escape; stopping it here keeps the panel behind
-    // open (the document-level panel dispatcher never sees it).
-    event.preventDefault();
-    event.stopPropagation();
-    closeDropdown(state, { restoreFocus: true });
     return;
   }
   if (key === "Tab") {
@@ -507,6 +558,11 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
   });
   list.hidden = true;
   trigger.setAttribute("aria-controls", listId);
+  // The popup is portalled out of the trigger's subtree, so the accessibility
+  // tree needs an explicit owner link: aria-controls alone describes "what it
+  // operates", aria-owns keeps the listbox inside the trigger's subtree for a
+  // screen reader. Both stay in sync with the same id.
+  trigger.setAttribute("aria-owns", listId);
 
   // The wrapper is the layout box (it replaces the select in the form cell),
   // so a sizing hook such as `foliplus-classes-select` belongs on it. The
@@ -545,8 +601,11 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
     optionEls: [],
     isOpen: false,
     destroyed: false,
+    closer: () => undefined,
     mountCleanup: [],
   };
+
+  state.closer = () => closeDropdown(state, { restoreFocus: false });
 
   wrapper.append(trigger);
   if (native) {

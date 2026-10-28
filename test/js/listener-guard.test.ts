@@ -197,10 +197,10 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
   },
   {
     f: "common/dropdown.ts",
-    n: 8,
+    n: 10,
     pairedOff: 0,
     reason:
-      "shared select-replacement factory: three lifecycle listeners on the trigger/list (click/keydown) plus one on the bridged select (change), and four popup-scope listeners — option click, document pointerdown outside-press, window scroll (capture) and resize — that exist only while the popup is open. Every popup-scope listener is pushed onto mountCleanup and drained by close()/destroy(); the lifecycle ones are removed by destroy(). A free-standing primitive with no BaseControl mounting signal to route through this.on, exactly like common/schemePicker.ts",
+      "shared select-replacement factory: three lifecycle listeners on the trigger/list (click/keydown) plus one on the bridged select (change), and six popup-scope listeners — option click, document pointerdown outside-press, window scroll (capture), window resize, window keydown (capture, Escape ownership ahead of the panel dispatcher) and document fullscreenchange (the portalled popup re-seats when the fullscreen element changes) — that exist only while the popup is open. Every popup-scope listener is pushed onto mountCleanup and drained by close()/destroy(); the lifecycle ones are removed by destroy(). A free-standing primitive with no BaseControl mounting signal to route through this.on, exactly like common/schemePicker.ts",
   },
 ];
 
