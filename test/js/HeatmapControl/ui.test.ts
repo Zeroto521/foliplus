@@ -14,6 +14,7 @@ import {
   resetPanel,
   setupObserver,
 } from "#foliplus/HeatmapControl/ui.js";
+import { dropdownOf } from "#common/dropdown.js";
 import { makeConfig, makeCtrl, makeManager } from "./fixture.js";
 
 /** Bind a control against the real panel template and return the pieces. */
@@ -27,6 +28,11 @@ function setup(config: ComponentConfig = makeConfig()) {
 
 const fire = (el: HTMLElement, type: string) =>
   el.dispatchEvent(new Event(type, { bubbles: true }));
+
+/** The visible control of a bridged panel select: the shared dropdown trigger.
+ *  Accessible names and tooltips live there; the select itself is hidden. */
+const triggerOf = (select: HTMLSelectElement): HTMLButtonElement =>
+  dropdownOf(select)!.trigger;
 
 afterEach(() => {
   delete globalThis.h3;
@@ -85,7 +91,9 @@ describe("bindControls — template render and initial values", () => {
     expect(
       [...ctrl.aggSelect.options].filter(o => o.disabled).map(o => o.value),
     ).toEqual(["sum", "avg", "min", "max"]);
-    expect(ctrl.aggSelect.title).toBe("Needs a numeric field to aggregate by value");
+    expect(triggerOf(ctrl.aggSelect).title).toBe(
+      "Needs a numeric field to aggregate by value",
+    );
     expect(ctrl.fieldWrap.classList.contains(CONST.CLASSES.HIDDEN)).toBe(true);
     // Nothing is written: a first open with a declaration must stay record-free.
     expect(window.localStorage.getItem(CONST.STORAGE.KEY)).toBeNull();
@@ -138,9 +146,9 @@ describe("bindControls — template render and initial values", () => {
       .querySelector(".foliplus-form-label");
 
     expect(label?.textContent).toBe("Method");
-    expect(ctrl.methodSelect.getAttribute("aria-label")).toBe("Method");
-    expect(ctrl.classSelect.getAttribute("aria-label")).toBe("Classes");
-    expect(ctrl.methodSelect.getAttribute("aria-label")).not.toBe(
+    expect(triggerOf(ctrl.methodSelect).getAttribute("aria-label")).toBe("Method");
+    expect(triggerOf(ctrl.classSelect).getAttribute("aria-label")).toBe("Classes");
+    expect(triggerOf(ctrl.methodSelect).getAttribute("aria-label")).not.toBe(
       ctrl.classSelect.getAttribute("aria-label"),
     );
   });
@@ -162,9 +170,9 @@ describe("bindControls — template render and initial values", () => {
       .querySelector(".foliplus-form-label");
 
     expect(label?.textContent).toBe("分类方法");
-    expect(ctrl.methodSelect.getAttribute("aria-label")).toBe("分类方法");
-    expect(ctrl.classSelect.getAttribute("aria-label")).toBe("分级数");
-    expect(ctrl.methodSelect.getAttribute("aria-label")).not.toBe(
+    expect(triggerOf(ctrl.methodSelect).getAttribute("aria-label")).toBe("分类方法");
+    expect(triggerOf(ctrl.classSelect).getAttribute("aria-label")).toBe("分级数");
+    expect(triggerOf(ctrl.methodSelect).getAttribute("aria-label")).not.toBe(
       ctrl.classSelect.getAttribute("aria-label"),
     );
   });
@@ -468,7 +476,9 @@ describe("resetPanel — shared reset (Clear button + more-menu clear)", () => {
     expect(
       [...ctrl.aggSelect.options].filter(o => o.disabled).map(o => o.value),
     ).toEqual(["sum", "avg", "min", "max"]);
-    expect(ctrl.aggSelect.title).toBe("Needs a numeric field to aggregate by value");
+    expect(triggerOf(ctrl.aggSelect).title).toBe(
+      "Needs a numeric field to aggregate by value",
+    );
     expect(window.localStorage.getItem(CONST.STORAGE.KEY)).toBeNull();
   });
 
@@ -1138,7 +1148,9 @@ describe("updateFieldSelector — concrete field resolution", () => {
     // One value for display, render and persistence.
     expect(m.agg).toBe(CONST.AGG.COUNT);
     expect(ctrl.aggSelect.value).toBe(CONST.AGG.COUNT);
-    expect(ctrl.aggSelect.title).toBe("Needs a numeric field to aggregate by value");
+    expect(triggerOf(ctrl.aggSelect).title).toBe(
+      "Needs a numeric field to aggregate by value",
+    );
     expect(ctrl.fieldWrap.classList.contains(CONST.CLASSES.HIDDEN)).toBe(true);
     expect(JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!).agg).toBe(
       "count",
@@ -1202,7 +1214,10 @@ describe("updateFieldSelector — concrete field resolution", () => {
     expect(m.agg).toBe(CONST.AGG.COUNT);
     expect(ctrl.aggSelect.value).toBe(CONST.AGG.COUNT);
     expect([...ctrl.aggSelect.options].some(o => o.disabled)).toBe(false);
-    expect(ctrl.aggSelect.title).toBe("");
+    // The limitation hint is cleared (the tooltip falls back to the label).
+    expect(triggerOf(ctrl.aggSelect).title).not.toBe(
+      "Needs a numeric field to aggregate by value",
+    );
     expect(ctrl.fieldWrap.classList.contains(CONST.CLASSES.HIDDEN)).toBe(true);
     expect(ctrl.fieldSelect.value).toBe("sales");
   });

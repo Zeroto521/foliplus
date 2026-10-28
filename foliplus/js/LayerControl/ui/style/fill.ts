@@ -21,7 +21,11 @@
 // (the panel-wide Reset handles it, the way label color has it).
 import { CLASS_COUNT, METHOD } from "#core/classify.js";
 import { numericPropertiesKeys, resolveField } from "#core/field.js";
-import { fullscreenSurface, onFullscreenSurfaceChange } from "#core/fullscreen.js";
+import {
+  dropdownSurface,
+  fullscreenSurface,
+  onFullscreenSurfaceChange,
+} from "#core/fullscreen.js";
 import { readFeatureFillColors } from "#core/layer/authorFill.js";
 import { CAP_TIER, DIM, type LayerInfo, ROLE } from "#core/layer/index.js";
 import type { FillMode, FillRampConfig, LayerOverride } from "#core/layer/intent.js";
@@ -723,6 +727,7 @@ const buildRampDetail = (
     value: resolveField(ramp.field, fields),
     rowClass: CONST.CLASSES.STYLE_FILL_ROW,
     selectClass: CONST.CLASSES.STYLE_FILL_FIELD_SELECT,
+    surface: dropdownSurface(ui.c.map.getContainer()),
   });
 
   const classes = buildClassesRow({
@@ -739,6 +744,7 @@ const buildRampDetail = (
     rowClass: CONST.CLASSES.STYLE_FILL_ROW,
     methodClass: CONST.CLASSES.STYLE_FILL_METHOD_SELECT,
     classesClass: CONST.CLASSES.STYLE_FILL_CLASSES_SELECT,
+    surface: dropdownSurface(ui.c.map.getContainer()),
   });
   const scheme = buildSchemeRow({
     label: ui.T("style_fill_scheme"),
@@ -854,6 +860,7 @@ const buildFillRow = (ui: LayerUI, layerId: string): HTMLElement => {
     detailClass: CONST.CLASSES.STYLE_FILL_DETAIL,
     value: mode,
     options,
+    surface: dropdownSurface(ui.c.map.getContainer()),
   });
   if (perFeature) {
     // The explanation lives on the control, not in the drawer: the select and

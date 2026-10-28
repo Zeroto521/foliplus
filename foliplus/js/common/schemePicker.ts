@@ -9,6 +9,7 @@
 // Does NOT import any Heatmap or LayerControl module.
 import { dom } from "#common/dom.js";
 import { createLogger } from "#common/log.js";
+import { registerPortalRoot } from "#common/portalRoot.js";
 
 // Thrown messages carry the same `[schemePicker]` prefix as every other
 // foliplus diagnostic (shared modules name themselves, not a CONFIG component).
@@ -33,9 +34,10 @@ const DEFAULT_CLASSES = {
 const PORTAL_CLASS = "foliplus-scheme-picker-portal";
 
 /** Selector for a portaled dropdown, for `closest()`-style ownership checks.
- *  The panel dismiss predicates match it through `core/overlay`'s
- *  `isInsideOverlay`, so a press on the portalled list counts as a press
- *  inside the panel that opened the picker. */
+ *  Retained for the panels that pass it explicitly to `core/overlay`'s
+ *  `isInsideOverlay`; the picker now also registers its mounted list in
+ *  common/portalRoot, which is the mechanism new portals use and the one the
+ *  predicate consults first. */
 const SCHEME_PICKER_PORTAL_SELECTOR = `.${PORTAL_CLASS}`;
 
 interface SchemePickerClasses {
@@ -331,6 +333,9 @@ const mountDropdown = (state: InternalState) => {
     dropdown.classList.add(PORTAL_CLASS);
     const host = getPortalHost(state);
     host.appendChild(dropdown);
+    // Ownership travels with the node: while this list is live, the panel that
+    // owns the trigger counts a press on it as its own (common/portalRoot).
+    state.mountCleanupFns.push(registerPortalRoot(dropdown, state.trigger));
     // Measure after append — detached elements report 0×0.
     positionDropdown(state, dropdown);
     dropdown.style.visibility = "";

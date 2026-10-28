@@ -21,15 +21,19 @@ const build = (
   });
 
 describe("buildModeRow", () => {
-  it("renders a labelled form row with a native select and a detail slot", () => {
-    const { block, select, detail } = build();
+  it("renders a labelled dropdown row and a detail slot", () => {
+    const { block, select, dropdown, detail } = build();
 
     const row = block.querySelector(".foliplus-form-row")!;
     expect(row.classList.contains("mode-row")).toBe(true);
     expect(row.querySelector(".foliplus-form-label")!.textContent).toBe("Fill");
+    // The visible control is the shared dropdown; the select stays as the
+    // hidden value/change bridge the panel delegates on.
+    expect(dropdown.trigger.classList.contains("foliplus-form-select")).toBe(true);
+    expect(dropdown.trigger.getAttribute("aria-label")).toBe("Fill");
     expect(select.classList.contains("foliplus-form-select")).toBe(true);
     expect(select.classList.contains("mode-select")).toBe(true);
-    expect(select.getAttribute("aria-label")).toBe("Fill");
+    expect(select.hidden).toBe(true);
     expect(detail.classList.contains("mode-detail")).toBe(true);
     expect(block.contains(detail)).toBe(true);
     expect(detail.childElementCount).toBe(0);

@@ -2,12 +2,17 @@
 // All internal refs use direct function calls instead of `this.`.
 import { CLASS_COUNT, type ClassifyMethod, isClassifyMethod } from "#core/classify.js";
 import { EVENTS, ensureEvents, publish } from "#core/event/index.js";
-import { fullscreenSurface, onFullscreenSurfaceChange } from "#core/fullscreen.js";
+import {
+  dropdownSurface,
+  fullscreenSurface,
+  onFullscreenSurfaceChange,
+} from "#core/fullscreen.js";
 import { HINT_DURATION } from "#core/hint.js";
 import { adjustPanelZIndex } from "#core/leaflet/index.js";
 import { safeColorScale } from "#core/palette.js";
 import { buildClassesRow, buildFieldRow, buildSchemeRow } from "#core/rampForm.js";
 import { dom } from "#common/dom.js";
+import { createDropdown, dropdownOf } from "#common/dropdown.js";
 import { type SchemePicker, createSchemePicker } from "#common/schemePicker.js";
 import * as CONST from "./const.js";
 import { type HeatmapManager } from "./manager.js";
@@ -94,6 +99,22 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
   ctrl.aggSelect = panelContent.querySelector(
     `[${CONST.DATA_ATTR.AGG}]`,
   ) as HTMLSelectElement;
+  // Both template selects keep their markup and stay the value/change bridge;
+  // the visible controls are the shared dropdowns (common/dropdown.ts).
+  // Every popup follows the surface covering its trigger (native fullscreen or
+  // this control's pseudo-fullscreen fallback), so the list is never parked
+  // under the opaque map.
+  const surface = dropdownSurface(ctrl.mgr.map.getContainer());
+  createDropdown({
+    nativeSelect: ctrl.layerSelect,
+    ariaLabel: ctrl.T("layer"),
+    ...surface,
+  });
+  createDropdown({
+    nativeSelect: ctrl.aggSelect,
+    ariaLabel: ctrl.T("agg_method"),
+    ...surface,
+  });
   // Field / Classes / Scheme are shared row primitives (core/rampForm),
   // mounted into the template's placeholder. The rows keep the heatmap's
   // data-* seams and classes; only the structure is shared with LayerControl.
@@ -108,6 +129,7 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     rowClass: "foliplus-heatmap-field foliplus-hidden",
     rowAttributes: { [CONST.DATA_ATTR.FIELD]: "" },
     selectAttributes: { [CONST.DATA_ATTR.FIELD_SELECT]: "" },
+    surface,
   });
   // The row has one visible label but two selects: give each its own
   // accessible name so a screen reader does not announce "Classes" twice.
@@ -122,6 +144,7 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     classesClass: "foliplus-heatmap-class-select",
     methodAttributes: { [CONST.DATA_ATTR.METHOD]: "" },
     classesAttributes: { [CONST.DATA_ATTR.CLASS_COUNT]: "" },
+    surface,
   });
   const schemeRow = buildSchemeRow({
     label: ctrl.T("scheme"),
@@ -146,6 +169,12 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
   );
   ctrl.methodSelect.value = ctrl.mgr.method;
   ctrl.aggSelect.value = ctrl.mgr.agg;
+  // The three writes above bypass syncSelect (they run before the rows'
+  // listeners exist): re-read the bridged dropdowns once so the closed
+  // triggers show the restored values.
+  dropdownOf(ctrl.classSelect)?.refresh();
+  dropdownOf(ctrl.methodSelect)?.refresh();
+  dropdownOf(ctrl.aggSelect)?.refresh();
 
   // Populate scheme options and set current value. The scheme is clamped
   // first: a restored value can name a palette this render does not offer.
@@ -418,8 +447,11 @@ const setValueAggregationsEnabled = (ctrl: HeatmapControlUI, enabled: boolean) =
   for (const opt of ctrl.aggSelect.options) {
     opt.disabled = !enabled && opt.value !== CONST.AGG.COUNT;
   }
-  if (enabled) ctrl.aggSelect.removeAttribute("title");
-  else ctrl.aggSelect.title = ctrl.T("needs_numeric_field");
+  // The explanation belongs on the visible control: the select itself is
+  // hidden behind the dropdown, so a tooltip set there would never show. The
+  // hint is a dropdown-level state so the label renderer cannot overwrite it
+  // on the next refresh.
+  dropdownOf(ctrl.aggSelect)?.setHint(enabled ? "" : ctrl.T("needs_numeric_field"));
 };
 
 const updateFieldSelector = (ctrl: HeatmapControlUI) => {
@@ -499,6 +531,9 @@ const rebuildFieldOptions = (
     dom.el("option", { value: f, parent: ctrl.fieldSelect }, f);
   });
   ctrl.fieldSelect.value = value;
+  // The option list was replaced wholesale, so the dropdown has to re-read it
+  // even when the value itself did not move.
+  dropdownOf(ctrl.fieldSelect)?.refresh();
 };
 
 /**
@@ -609,6 +644,10 @@ const resetPanel = (ctrl: HeatmapControlUI) => {
 const syncSelect = (ctrl: HeatmapControlUI, el: HTMLSelectElement, value: string) => {
   el.value = value;
   el.classList.toggle(CONST.CLASSES.CLASS_PLACEHOLDER, !value);
+  // A property write fires no change event: the dropdown's closed trigger has
+  // to be re-read here, which is also why every programmatic value write in
+  // this module goes through syncSelect.
+  dropdownOf(el)?.refresh();
 };
 
 export { bindControls, initScan, rebuildLayerDropdown, resetPanel, setupObserver };

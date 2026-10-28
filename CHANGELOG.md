@@ -20,6 +20,7 @@
 - `HeatmapControl` / `LayerControl`: both panels share one form geometry — label and control columns, footer buttons and the scheme trigger line up across the two ([#759](https://github.com/Zeroto521/foliplus/pull/759))
 - `core/layer`, `LayerControl`, `LayerControl.py`: the `group` vocabulary is renamed to `role` end to end (**Breaking**: CONF payloads from an older Python package and pre-v4 saved records lose their group/role distinction) ([#763](https://github.com/Zeroto521/foliplus/pull/763))
 - `LayerControl`: the author declaration namespace key is renamed `annotation` → `label` (**Breaking**: the old key is no longer read) ([#790](https://github.com/Zeroto521/foliplus/pull/790))
+- Shared dropdown: the panels' native selects share one ARIA listbox popup portalled out of the panel, so a short panel no longer clips it ([#793](https://github.com/Zeroto521/foliplus/pull/793))
 
 ### Removed
 
@@ -38,6 +39,7 @@
 - `ExportControl`: marker shadows are exported with their icons, measured after layout so they sit under the marker ([#740](https://github.com/Zeroto521/foliplus/pull/740))
 - `Interaction`: Space/Enter keep their native meaning on buttons and links, and a focused menu entry runs its own action ([#755](https://github.com/Zeroto521/foliplus/pull/755), [#778](https://github.com/Zeroto521/foliplus/pull/778))
 - `HeatmapControl` / `LayerControl`: the scheme list flips above a trigger near the viewport bottom in both panels — the heatmap mounts its picker the same portalled way as the style drawer ([#777](https://github.com/Zeroto521/foliplus/pull/777), [#780](https://github.com/Zeroto521/foliplus/pull/780), [#784](https://github.com/Zeroto521/foliplus/pull/784))
+- Shared dropdown: the portalled list paints above its panel and a row press counts as inside, so picking a value no longer collapses the panel ([#793](https://github.com/Zeroto521/foliplus/pull/793))
 
 ## [v0.4.1] (2026-10-18)
 

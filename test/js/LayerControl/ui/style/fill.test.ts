@@ -26,6 +26,7 @@ import {
   flushStyleDimApply,
   hasStyleDimApply,
 } from "#foliplus/LayerControl/ui/style/styleBag.js";
+import { dropdownOf } from "#common/dropdown.js";
 import { findItem, initFixture, installLeafletGlobals } from "../fixture.js";
 
 /** A layer duck with a real setStyle spy and a set of polygon leaves each
@@ -33,6 +34,11 @@ import { findItem, initFixture, installLeafletGlobals } from "../fixture.js";
  *  gate in `layerCanFill` admits the layer. The parent's eachLayer callback
  *  dispatches to each child, matching how Leaflet LayerGroup.setStyle walks
  *  its tree. */
+/** The visible control of a bridged style select: the shared dropdown trigger.
+ *  Accessible names live there; the select itself is hidden behind it. */
+const triggerOf = (select: HTMLSelectElement): HTMLButtonElement =>
+  dropdownOf(select)!.trigger;
+
 const makeFillableLayer = () => {
   const makeLeaf = (options: { fillColor?: string; fillOpacity?: number }) => {
     const leaf = new L.Polygon() as L.Polygon & {
@@ -361,8 +367,8 @@ describe("LayerUI style panel — fill color", () => {
     expect(fillInput(item)!.getAttribute("aria-label")).toBe("LayerControl.style_fill");
   });
 
-  it("the mode row's label matches the select's aria-label key", () => {
-    // The row that owns the mode select reads "Fill"; the swatch's aria-label
+  it("the mode row's label matches the trigger's aria-label key", () => {
+    // The row that owns the mode control reads "Fill"; the swatch's aria-label
     // stays the color key, so neither one lies about what it names.
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
@@ -372,7 +378,7 @@ describe("LayerUI style panel — fill color", () => {
       `.${CONST.CLASSES.STYLE_FILL_MODE_SELECT}`,
     ) as HTMLSelectElement;
     expect(labelText).toBe("LayerControl.style_fill_mode");
-    expect(select.getAttribute("aria-label")).toBe(labelText);
+    expect(triggerOf(select).getAttribute("aria-label")).toBe(labelText);
     expect(fillInput(item)!.getAttribute("aria-label")).toBe("LayerControl.style_fill");
   });
 
@@ -1638,10 +1644,14 @@ describe("buildFillRow", () => {
       .querySelector(`.${CONST.CLASSES.FORM_LABEL}`);
 
     expect(label?.textContent).toBe("LayerControl.style_method");
-    expect(method.getAttribute("aria-label")).toBe("LayerControl.style_method");
-    expect(classes.getAttribute("aria-label")).toBe("LayerControl.style_fill_classes");
-    expect(method.getAttribute("aria-label")).not.toBe(
-      classes.getAttribute("aria-label"),
+    expect(triggerOf(method).getAttribute("aria-label")).toBe(
+      "LayerControl.style_method",
+    );
+    expect(triggerOf(classes).getAttribute("aria-label")).toBe(
+      "LayerControl.style_fill_classes",
+    );
+    expect(triggerOf(method).getAttribute("aria-label")).not.toBe(
+      triggerOf(classes).getAttribute("aria-label"),
     );
   });
 

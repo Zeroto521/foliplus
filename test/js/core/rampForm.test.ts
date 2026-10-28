@@ -6,8 +6,8 @@ import { describe, expect, it, vi } from "vitest";
 import { buildClassesRow, buildFieldRow, buildSchemeRow } from "#core/rampForm.js";
 
 describe("buildFieldRow", () => {
-  it("renders a labelled native field select with the current value", () => {
-    const { row, select } = buildFieldRow({
+  it("renders a labelled field dropdown over the current value", () => {
+    const { row, select, dropdown } = buildFieldRow({
       label: "Field",
       ariaLabel: "Field",
       fields: ["count", "score"],
@@ -16,7 +16,11 @@ describe("buildFieldRow", () => {
 
     expect(row.classList.contains("foliplus-form-row")).toBe(true);
     expect(row.querySelector(".foliplus-form-label")!.textContent).toBe("Field");
-    expect(select.getAttribute("aria-label")).toBe("Field");
+    // The visible control carries the accessible name; the select behind it is
+    // the hidden value/change bridge the consumers and the markup still read.
+    expect(dropdown.trigger.getAttribute("aria-label")).toBe("Field");
+    expect(dropdown.trigger.textContent).toBe("score");
+    expect(select.hidden).toBe(true);
     expect(Array.from(select.options).map(o => o.value)).toEqual(["count", "score"]);
     expect(select.value).toBe("score");
   });
@@ -95,17 +99,17 @@ describe("buildClassesRow", () => {
       ...overrides,
     });
 
-  it("labels the row by method and names both selects distinctly", () => {
+  it("labels the row by method and names both controls distinctly", () => {
     // One visible label for two controls: it reads by the primary control, and
-    // each select keeps its own accessible name so a screen reader announces
+    // each dropdown keeps its own accessible name so a screen reader announces
     // "Method" and "Classes" once each instead of the row label twice.
-    const { row, methodSelect, classesSelect } = build();
+    const { row, methodDropdown, classesDropdown } = build();
 
     expect(row.querySelector(".foliplus-form-label")!.textContent).toBe("Method");
-    expect(methodSelect.getAttribute("aria-label")).toBe("Method");
-    expect(classesSelect.getAttribute("aria-label")).toBe("Classes");
-    expect(methodSelect.getAttribute("aria-label")).not.toBe(
-      classesSelect.getAttribute("aria-label"),
+    expect(methodDropdown.trigger.getAttribute("aria-label")).toBe("Method");
+    expect(classesDropdown.trigger.getAttribute("aria-label")).toBe("Classes");
+    expect(methodDropdown.trigger.getAttribute("aria-label")).not.toBe(
+      classesDropdown.trigger.getAttribute("aria-label"),
     );
   });
 
