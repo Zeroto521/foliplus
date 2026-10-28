@@ -10,10 +10,8 @@ except ImportError:
     except PackageNotFoundError:
         __version__ = "unknown"
 
-# Annotation helpers, not product API: kept importable from the package root
-# for backward compatibility (foliplus.ControlPosition), but deliberately absent
-# from __all__ so star exports carry the controls only. Import them from
-# foliplus._typing when annotating.
+# Annotation aliases carried at the root since v0.4.1; out of __all__ so a star
+# import exports the controls only. New annotations import foliplus._typing.
 from ._typing import ControlPosition, Fraction, PositiveInt, Zoom
 from .BaseControl import BaseControl
 from .ExportControl import ExportControl

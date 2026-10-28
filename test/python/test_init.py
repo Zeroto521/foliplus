@@ -51,7 +51,7 @@ class TestVersion:
             assert hasattr(alias, "__metadata__")  # Annotated[...] alias
 
     def test_typing_helpers_are_importable_but_not_public_api(self):
-        """Annotation helpers stay reachable from the root, out of __all__."""
+        """Root attribute access stays (released in v0.4.1); __all__ carries the controls only."""
         import foliplus._typing as typing_
 
         for name in ("ControlPosition", "Fraction", "PositiveInt", "Zoom"):
