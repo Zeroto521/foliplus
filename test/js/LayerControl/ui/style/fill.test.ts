@@ -2837,7 +2837,7 @@ describe("fill row — original colors", () => {
     );
     const fallback = initWithAuthorScale({ scale: null });
     expect(captionOf(blockOf(fallback.ui))).toBe(
-      "LayerControl.style_fill_original_colors",
+      "LayerControl.style_fill_original_colours",
     );
   });
 
