@@ -54,13 +54,13 @@
     height: 100%;
   }
   /* ── Enum body ──
-     One native <select multiple> listbox: the browser owns the list chrome,
-     selection highlight, focus ring and keyboard; only the accent tint and the
-     shared radius are ours, and the size attribute caps the visible rows at
-     four. An empty selection reads as "no filter" (all rows pass). */
+     The cell hosts the shared multiple dropdown, so the trigger's chrome,
+     focus ring, popup shell and option rows all come from
+     common/dropdown.css + common/menu.css. Only the cell's own box is set
+     here: it is a grid child and must fill the control column. An empty
+     selection reads as "no filter" (all rows pass). */
   .foliplus-layer-filter-panel .foliplus-filter-enum {
     width: 100%;
-    accent-color: var(--foliplus-accent-primary);
-    border-radius: var(--foliplus-radius-sm);
+    min-width: 0;
   }
 }

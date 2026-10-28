@@ -7312,9 +7312,10 @@ class TestLayerControlBrowser:
         """The filter panel's enum body drives a generic owner end to end.
 
         A synthetic enum owner opens the panel from the row menu; the row label
-        is the dimension's own name, one click on a native listbox option
-        commits that value, a second click adds another, and Clear returns the
-        row and the readout to the unfiltered state.
+        is the dimension's own name, the body is the shared multiple dropdown
+        (never a native select), one press toggles a row without closing the
+        popup, a second press adds another, and Clear returns the row and the
+        readout to the unfiltered state.
         """
         layer = folium.FeatureGroup(name="Enum filter")
         with use_page(self._make_page, browser, tmp_path, layer) as (page, errors):
@@ -7332,9 +7333,16 @@ class TestLayerControlBrowser:
             # sentence is asserted structurally (percent prefix plus the kept /
             # total digits) rather than by literal English text.
             assert res["fieldLabel"] == "Type", res
-            assert res["selectTag"] == "SELECT", res
-            assert res["multiple"] is True, res
-            assert res["size"] == "4", res
+            # The shared primitive replaced the native listbox outright.
+            assert res["triggerTag"] == "BUTTON", res
+            assert res["triggerHaspopup"] == "listbox", res
+            assert res["nativeMultipleSelects"] == 0, res
+            assert res["panelSelects"] == 0, res
+            # The popup is portalled out of the panel, and no option row was
+            # rendered before it opened.
+            assert res["listOpenBefore"] is False, res
+            assert res["listOpenAfterOpen"] is True, res
+            assert res["listParentInsidePanel"] is False, res
             assert res["optionValues"] == [
                 "marker",
                 "distance",
@@ -7346,12 +7354,18 @@ class TestLayerControlBrowser:
             assert "8" in res["resultBefore"], res
 
             assert res["selectedAfterFirst"] == ["marker"], res
+            # Multiple semantics: the pick toggles the row and keeps the popup
+            # usable for the next pick.
+            assert res["listOpenAfterFirst"] is True, res
+            assert res["labelAfterFirst"] == "Marker", res
             assert res["resultAfterFirst"].startswith("25%"), res
             assert re.search(r"2\D+8", res["resultAfterFirst"]), res
             assert res["rowAfterFirst"]["count"] == "2", res
             assert re.search(r"2\s*/\s*8", res["rowAfterFirst"]["title"] or ""), res
 
             assert res["selectedAfterSecond"] == ["marker", "distance"], res
+            # Two or more picks collapse into the count summary on the trigger.
+            assert re.search(r"\b2\b", res["labelAfterSecond"] or ""), res
             assert res["resultAfterSecond"].startswith("50%"), res
             assert res["rowAfterSecond"]["count"] == "4", res
 
@@ -7362,8 +7376,9 @@ class TestLayerControlBrowser:
             assert not errors, f"JS errors: {errors}"
 
     def test_enum_filter_keyboard_and_map_press_close(self, browser, tmp_path):
-        """The native listbox keeps real keyboard focus and Escape closes the
-        panel; a press on the map also closes it."""
+        """The dropdown keeps real keyboard focus: ArrowDown enters the list,
+        Space toggles without closing it, one Escape closes the popup and the
+        next closes the panel; a press on the map also closes it."""
         layer = folium.FeatureGroup(name="Enum keyboard")
         with use_page(self._make_page, browser, tmp_path, layer) as (page, errors):
             page.evaluate(_js("LayerControl/open_panel"))
@@ -7375,30 +7390,43 @@ class TestLayerControlBrowser:
             panel_ready(page)
             setup = page.evaluate(_js("LayerControl/filter_enum_keyboard_setup"))
             assert setup and setup.get("ok"), setup
-            assert setup["selectSize"] == "4", setup
+            assert setup["triggerTag"] == "BUTTON", setup
+            assert setup["ariaExpanded"] == "false", setup
+            assert setup["nativeMultipleSelects"] == 0, setup
 
             def state():
                 return page.evaluate(_js("LayerControl/filter_enum_keyboard_state"))
 
             closed = state()
             assert closed["panelOpen"] is True, closed
-            assert closed["selectTag"] == "SELECT", closed
-            assert closed["activeIsSelect"] is True, closed
+            assert closed["popupOpen"] is False, closed
+            assert closed["activeIsTrigger"] is True, closed
             assert closed["selected"] == [], closed
 
-            # A real keyboard path: ArrowDown moves into the list, Space toggles
-            # the focused option in this native multiple listbox.
+            # A real keyboard path: ArrowDown opens the popup and lands on the
+            # first row; Space toggles it and the popup stays open.
             page.keyboard.press("ArrowDown")
             page.wait_for_timeout(80)
+            assert state()["popupOpen"] is True, state()
             page.keyboard.press("Space")
             page.wait_for_timeout(120)
             picked = state()
             assert len(picked["selected"]) == 1, picked
-            # Focus stays on the listbox, not on the row: a click delegation
-            # that treated the panel as row chrome would park focus on the row.
-            assert picked["activeIsSelect"] is True, picked
+            assert picked["popupOpen"] is True, picked
+            # Focus stays in the control, not on the row.
+            assert picked["activeIsOption"] is True, picked
             assert picked["activeRowId"] is None, picked
             assert picked["allOptionsHitTestable"] is True, picked
+            assert picked["popupInsidePanel"] is False, picked
+
+            # Escape belongs to the popup while it is open: it closes the list,
+            # not the surface.
+            page.keyboard.press("Escape")
+            page.wait_for_timeout(120)
+            escape_popup = state()
+            assert escape_popup["popupOpen"] is False, escape_popup
+            assert escape_popup["panelOpen"] is True, escape_popup
+            assert escape_popup["activeIsTrigger"] is True, escape_popup
 
             page.keyboard.press("Escape")
             page.wait_for_timeout(120)
@@ -7416,14 +7444,16 @@ class TestLayerControlBrowser:
             assert state()["panelOpen"] is False
             assert not errors, f"JS errors: {errors}"
 
-    def test_enum_filter_uses_the_native_listbox(self, browser, tmp_path):
-        """The enum body is a native listbox with no hand-drawn popup left.
+    def test_enum_filter_uses_the_shared_dropdown(self, browser, tmp_path):
+        """The enum body is the shared dropdown primitive, not a hand-rolled
+        listbox and not a native select.
 
-        The select keeps the browser's appearance, there is no custom trigger /
-        list / option chrome, the shell stays the shared row-panel scroll box,
-        and an option list longer than the size cap scrolls inside the select.
+        The trigger keeps the shared form-select chrome, the popup is the shared
+        menu shell mounted outside the panel, the rows are buttons with
+        multi-select ARIA state, and a long option list is height-capped with an
+        internal scrollbar instead of running past the viewport.
         """
-        layer = folium.FeatureGroup(name="Enum native")
+        layer = folium.FeatureGroup(name="Enum dropdown")
         with use_page(self._make_page, browser, tmp_path, layer) as (page, errors):
             page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_selector(
@@ -7433,45 +7463,55 @@ class TestLayerControlBrowser:
             )
             panel_ready(page)
 
-            page.evaluate(_js("LayerControl/filter_enum_keyboard_setup"))
-            native = page.evaluate(
+            setup = page.evaluate(_js("LayerControl/filter_enum_keyboard_setup"))
+            assert setup and setup.get("ok"), setup
+            chrome = page.evaluate(
                 """() => {
                   const panel = document.querySelector(".foliplus-layer-filter-panel");
-                  const select = panel && panel.querySelector(".foliplus-filter-enum");
-                  const content = panel && panel.querySelector(".foliplus-panel-content");
+                  const trigger =
+                    panel &&
+                    panel.querySelector(".foliplus-filter-enum .foliplus-dropdown-trigger");
+                  trigger && trigger.click();
+                  const list = document.querySelector(".foliplus-dropdown-list");
+                  const options = Array.from(
+                    document.querySelectorAll(".foliplus-dropdown-option"),
+                  );
                   return {
-                    tag: select ? select.tagName : null,
-                    multiple: select ? select.multiple : null,
-                    size: select ? select.getAttribute("size") : null,
-                    appearance: select ? getComputedStyle(select).appearance : null,
-                    after: select ? getComputedStyle(select, "::after").content : null,
-                    customTrigger: Boolean(
-                      panel && panel.querySelector(".foliplus-filter-enum-trigger"),
+                    panelSelects: panel ? panel.querySelectorAll("select").length : null,
+                    pageNativeMultiple: document.querySelectorAll("select[multiple]").length,
+                    triggerClasses: trigger ? trigger.className : null,
+                    haspopup: trigger ? trigger.getAttribute("aria-haspopup") : null,
+                    formSelectChrome: Boolean(
+                      trigger && trigger.classList.contains("foliplus-form-select"),
                     ),
-                    customList: Boolean(
-                      panel && panel.querySelector(".foliplus-filter-enum-list"),
+                    listRole: list ? list.getAttribute("role") : null,
+                    listMultiselectable: list
+                      ? list.getAttribute("aria-multiselectable")
+                      : null,
+                    listInsidePanel: Boolean(list && panel && panel.contains(list)),
+                    optionRoles: options.map(el => el.getAttribute("role")),
+                    optionSelected: options.map(el =>
+                      el.getAttribute("aria-selected"),
                     ),
-                    customOption: Boolean(
-                      panel && panel.querySelector(".foliplus-filter-enum-option"),
-                    ),
-                    contentOverflowY: content ? getComputedStyle(content).overflowY : null,
                   };
                 }"""
             )
-            assert native["tag"] == "SELECT", native
-            assert native["multiple"] is True, native
-            assert native["size"] == "4", native
-            assert native["appearance"] != "none", native
-            assert native["after"] in ("none", "normal"), native
-            assert native["customTrigger"] is False, native
-            assert native["customList"] is False, native
-            assert native["customOption"] is False, native
-            assert native["contentOverflowY"] == "auto", native
+            assert chrome["panelSelects"] == 0, chrome
+            assert chrome["pageNativeMultiple"] == 0, chrome
+            assert chrome["formSelectChrome"] is True, chrome
+            assert chrome["haspopup"] == "listbox", chrome
+            assert chrome["listRole"] == "listbox", chrome
+            assert chrome["listMultiselectable"] == "true", chrome
+            # The popup is portalled: it paints outside the panel's clip boxes.
+            assert chrome["listInsidePanel"] is False, chrome
+            assert chrome["optionRoles"] == ["option"] * 4, chrome
+            assert chrome["optionSelected"] == ["false"] * 4, chrome
 
-            # Six options, cap four: the native list scrolls internally.
+            # Twelve options, eight-row cap: the popup scrolls internally.
             scroll = page.evaluate(_js("LayerControl/filter_enum_scroll_probe"))
             assert scroll and scroll.get("ok"), scroll
-            assert scroll["size"] == "4", scroll
-            assert scroll["optionValues"] == ["a", "b", "c", "d", "e", "f"], scroll
+            assert scroll["optionValues"] == list("abcdefghijkl"), scroll
+            assert scroll["popupInsidePanel"] is False, scroll
+            assert scroll["maxHeight"] != "none", scroll
             assert scroll["scroll"]["scroll"] > scroll["scroll"]["client"], scroll
             assert not errors, f"JS errors: {errors}"

@@ -245,7 +245,7 @@ const CLASSES = {
   FILTER_RESULT: "foliplus-filter-result",
   /** Clear-filter footer button. */
   FILTER_CLEAR: "foliplus-filter-clear",
-  /** Enum filter body: the native multi-select listbox. */
+  /** Enum filter body: the cell that hosts the shared multiple dropdown. */
   FILTER_ENUM: "foliplus-filter-enum",
 };
 

@@ -135,13 +135,6 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
       "filter panel header/mousedown/keydown/outside-click and clear bindings — pending migration to `this.on`",
   },
   {
-    f: "LayerControl/ui/overlayPanel/filterBody.ts",
-    n: 2,
-    pairedOff: 0,
-    reason:
-      "enum body's two listeners on the native multi-select listbox it creates (pointerdown press-to-toggle and the change it replays); both are removed in destroy and the body is a free-standing renderer with no mounting signal to route through `this.on`",
-  },
-  {
     f: "LayerControl/ui/focus/focusMarquee.ts",
     n: 2,
     pairedOff: 0,

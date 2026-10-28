@@ -27,6 +27,7 @@
 // outside-handler field on `OverlayPanel` so a peer panel can tell the two
 // apart.
 import { EVENTS } from "#core/event/index.js";
+import { dropdownSurface } from "#core/fullscreen.js";
 import type {
   FilterDimension,
   LayerFilter,
@@ -123,8 +124,9 @@ interface FilterViewHooks {
   write: (filter: LayerFilter | undefined) => void;
 }
 
-/** The body deps: the panel's translator, its write bridge and its number
- *  formatters. The body never reads the registry itself. */
+/** The body deps: the panel's translator, its write bridge, its number
+ *  formatters and the popup surface an open enum dropdown portals onto. The
+ *  body never reads the registry itself. */
 const bodyDeps = (
   ui: LayerUI,
   hooks: FilterViewHooks,
@@ -133,6 +135,10 @@ const bodyDeps = (
   write: hooks.write,
   formatCount: fmtCount,
   formatValue: fmtValue,
+  // Same surface contract the style panel's dropdowns use: an open popup
+  // mounts on the map container, so native/pseudo fullscreen keeps it
+  // on-screen.
+  surface: dropdownSurface(ui.c.map.getContainer()),
 });
 
 /** Pull the shared readout to the owner's current model: live kept/total text
@@ -437,8 +443,10 @@ const openFilterPanel = (ui: LayerUI, item: HTMLElement): void => {
   item.style.position = "relative";
   item.appendChild(panel);
   // The layer list is a scrolling box with `overflow: hidden`; an absolute
-  // card would be clipped at its edge (the lower listbox rows became
-  // unpickable), so pin the panel to the viewport under its row.
+  // card would be clipped at its edge (the Clear footer and the lower form
+  // rows became unpickable), so pin the panel to the viewport under its row.
+  // The enum popup itself is portalled by common/dropdown, so it escapes both
+  // clip boxes.
   pinRowPanel(panel, item);
 
   // Document capture dismiss (attrs recipe). The control disables click

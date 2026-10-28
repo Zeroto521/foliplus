@@ -1,15 +1,19 @@
 () => {
-  const select = document.querySelector(".foliplus-filter-enum");
-  if (!select) return null;
-  return Array.from(select.options).map(option => {
-    const rect = option.getBoundingClientRect();
+  const trigger = document.querySelector(
+    ".foliplus-filter-enum .foliplus-dropdown-trigger",
+  );
+  const list = document.querySelector(".foliplus-dropdown-list");
+  if (!trigger || !list) return null;
+  if (list.hidden) trigger.click();
+  return Array.from(document.querySelectorAll(".foliplus-dropdown-option")).map(el => {
+    const rect = el.getBoundingClientRect();
     return {
-      value: option.value,
+      value: el.getAttribute("data-value"),
       x: Math.round(rect.left + rect.width / 2),
       y: Math.round(rect.top + rect.height / 2),
       width: Math.round(rect.width),
       height: Math.round(rect.height),
-      selected: option.selected,
+      selected: el.getAttribute("aria-selected") === "true",
     };
   });
 };

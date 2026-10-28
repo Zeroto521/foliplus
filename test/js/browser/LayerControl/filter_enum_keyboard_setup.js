@@ -1,6 +1,6 @@
 // Opens the filter panel for a synthetic enum owner and parks focus on the
-// native listbox, so the Python test can drive the real browser keyboard path
-// (Playwright key events, not synthetic DOM events).
+// enum dropdown's trigger, so the Python test can drive the real browser
+// keyboard path (Playwright key events, not synthetic DOM events).
 async () => {
   const api = window.map.foliplus && window.map.foliplus.LayerAPI;
   const bus = window.map.foliplus && window.map.foliplus.events;
@@ -47,15 +47,18 @@ async () => {
   );
   if (!menuItem) return { ok: false, reason: "no-filter-menu-item" };
   menuItem.click();
-  await wait(30);
+  await wait(40);
   const panel = row.querySelector(".foliplus-layer-filter-panel");
-  const select = panel && panel.querySelector(".foliplus-filter-enum");
-  if (!select) return { ok: false, reason: "no-listbox" };
-  select.focus();
+  const trigger =
+    panel && panel.querySelector(".foliplus-filter-enum .foliplus-dropdown-trigger");
+  if (!trigger) return { ok: false, reason: "no-dropdown-trigger" };
+  trigger.focus();
   return {
     ok: true,
     id: ID,
-    selectSize: select.getAttribute("size"),
-    optionValues: Array.from(select.options).map(option => option.value),
+    triggerTag: trigger.tagName,
+    ariaExpanded: trigger.getAttribute("aria-expanded"),
+    // No native multi-select may survive the migration on this page.
+    nativeMultipleSelects: document.querySelectorAll("select[multiple]").length,
   };
 };

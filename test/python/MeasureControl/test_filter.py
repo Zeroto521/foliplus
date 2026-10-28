@@ -302,32 +302,42 @@ class TestMeasureTypeFilterBrowser:
             assert state["visible"] == ["marker"], state
             assert not errors, f"JS errors: {errors}"
 
-    def test_listbox_escape_and_map_press_close_panel(self, browser, tmp_path):
-        """Escape from the native listbox closes the panel; a map press does too."""
+    def test_dropdown_escape_closes_popup_then_panel(self, browser, tmp_path):
+        """The enum control is the shared dropdown: one Escape closes the popup,
+        the next closes the panel, and no native multi-select exists."""
         with use_page(_make_page, browser, tmp_path) as (page, errors):
             baseline = _draw_all(page)
             assert baseline["selected"] == [], baseline
-            page.click(".foliplus-filter-enum")
+            assert baseline["popupOpen"] is True, baseline
+            assert baseline["nativeMultipleSelects"] == 0, baseline
+            assert baseline["ariaExpanded"] == "true", baseline
+
+            page.keyboard.press("Escape")
             page.wait_for_timeout(120)
-            assert page.evaluate(READ_STATE)["selectMultiple"] is True
+            after_popup = page.evaluate(READ_STATE, {"keepClosed": True})
+            assert after_popup["popupOpen"] is False, after_popup
+            assert after_popup["ariaExpanded"] == "false", after_popup
+            assert page.query_selector(".foliplus-layer-filter-panel") is not None, (
+                after_popup
+            )
 
             page.keyboard.press("Escape")
             page.wait_for_timeout(120)
             assert page.query_selector(".foliplus-layer-filter-panel") is None
             assert not errors, f"JS errors: {errors}"
 
-    def test_real_listbox_clicks_filter_two_types(self, browser, tmp_path):
-        """Real Chromium clicks on two listbox rows toggle exactly those types.
+    def test_real_row_clicks_filter_two_types(self, browser, tmp_path):
+        """Real Chromium presses on two popup rows toggle exactly those types.
 
-        The native multiple listbox normally needs Ctrl to add a second row; the
-        body's mousedown path makes one click toggle one option. This drives
-        real pointer presses at the option boxes (not synthetic events) and
-        checks the filter, the readout and the painted leaves.
+        Multiple mode toggles on a plain press (no Ctrl) and keeps the popup
+        open for the next pick. This drives real pointer presses at the row
+        boxes (not synthetic events) and checks the filter, the readout and the
+        painted leaves.
         """
         with use_page(_make_page, browser, tmp_path) as (page, errors):
             baseline = _draw_all(page)
             rects = page.evaluate(_js("MeasureControl/read_option_rects"))
-            assert rects, "listbox options have no hit boxes"
+            assert rects, "dropdown rows have no hit boxes"
             by_value = {row["value"]: row for row in rects}
 
             page.mouse.click(by_value["distance"]["x"], by_value["distance"]["y"])
@@ -338,8 +348,9 @@ class TestMeasureTypeFilterBrowser:
             assert one["count"] == "1", one
             assert "25%" in one["result"], one
 
-            # The row reflows when the kept count changes, so the panel moved:
-            # re-read the hit boxes before the second press.
+            # The panel is pinned under its row and the row reflows when the
+            # kept count changes, so re-read the hit boxes before the second
+            # press.
             rects = page.evaluate(_js("MeasureControl/read_option_rects"))
             by_value = {row["value"]: row for row in rects}
             page.mouse.click(by_value["polygon"]["x"], by_value["polygon"]["y"])

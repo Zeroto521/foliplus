@@ -103,6 +103,8 @@
   "LayerControl.filter_range": "Range",
   "LayerControl.filter_result_label": "Result",
   "LayerControl.filter_result": "{pct}% ({kept} of {total}) kept",
+  "LayerControl.filter_enum_any": "All",
+  "LayerControl.filter_enum_count": "{n} selected",
   "LayerControl.filter_clear": "Clear",
   "LayerControl.filter_clear_tooltip": "Clear this layer's filter",
   "LayerControl.filter_clear_disabled": "No filter to clear",

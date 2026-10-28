@@ -1,11 +1,12 @@
-// Opens the filter panel for an enum owner with more options than the listbox
-// size cap, so the test can assert the native list scrolls internally.
+// Opens the filter panel for an enum owner with more options than the shared
+// dropdown shows at once, so the test can assert the portalled popup is
+// height-capped and scrolls internally instead of running past the viewport.
 async () => {
   const api = window.map.foliplus && window.map.foliplus.LayerAPI;
   const bus = window.map.foliplus && window.map.foliplus.events;
   if (!api || !bus) return null;
   const ID = "__filter_enum_scroll_probe__";
-  const VALUES = ["a", "b", "c", "d", "e", "f"];
+  const VALUES = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l"];
   let filter;
   const model = () => ({
     dimensions: [
@@ -18,8 +19,8 @@ async () => {
       },
     ],
     filter,
-    kept: 6,
-    total: 6,
+    kept: VALUES.length,
+    total: VALUES.length,
   });
   const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
   const existing = document.querySelector(
@@ -45,13 +46,24 @@ async () => {
   );
   if (!menuItem) return { ok: false, reason: "no-filter-menu-item" };
   menuItem.click();
-  await wait(30);
-  const select = row.querySelector(".foliplus-filter-enum");
-  if (!select) return { ok: false, reason: "no-listbox" };
+  await wait(40);
+  const panel = row.querySelector(".foliplus-layer-filter-panel");
+  const trigger =
+    panel && panel.querySelector(".foliplus-filter-enum .foliplus-dropdown-trigger");
+  if (!trigger) return { ok: false, reason: "no-dropdown-trigger" };
+  trigger.click();
+  await wait(40);
+  const list = document.querySelector(".foliplus-dropdown-list");
+  if (!list) return { ok: false, reason: "no-popup" };
   return {
     ok: true,
-    size: select.getAttribute("size"),
-    optionValues: Array.from(select.options).map(option => option.value),
-    scroll: { client: select.clientHeight, scroll: select.scrollHeight },
+    triggerTag: trigger.tagName,
+    optionValues: Array.from(
+      document.querySelectorAll(".foliplus-dropdown-option"),
+    ).map(el => el.getAttribute("data-value")),
+    scroll: { client: list.clientHeight, scroll: list.scrollHeight },
+    maxHeight: getComputedStyle(list).maxHeight,
+    popupParentTag: list.parentElement ? list.parentElement.tagName : null,
+    popupInsidePanel: panel.contains(list),
   };
 };

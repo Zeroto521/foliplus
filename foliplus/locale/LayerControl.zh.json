@@ -103,6 +103,8 @@
   "LayerControl.filter_range": "数值范围",
   "LayerControl.filter_result_label": "结果",
   "LayerControl.filter_result": "{pct}%（{kept} / {total}）已保留",
+  "LayerControl.filter_enum_any": "全部",
+  "LayerControl.filter_enum_count": "已选 {n} 项",
   "LayerControl.filter_clear": "清除",
   "LayerControl.filter_clear_tooltip": "清除该图层的筛选",
   "LayerControl.filter_clear_disabled": "当前没有筛选",

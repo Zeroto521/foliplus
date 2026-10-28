@@ -19,14 +19,18 @@ import type {
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { Slider } from "#foliplus/LayerControl/slider.js";
 import { dom } from "#common/dom.js";
+import { createDropdown } from "#common/dropdown.js";
+import type { DropdownSurface } from "#common/dropdown.js";
 
-/** What a body may use from the panel: translations, the owner write bridge
- *  and the panel's number formatters. */
+/** What a body may use from the panel: translations, the owner write bridge,
+ *  the panel's number formatters and the popup surface an open control portals
+ *  onto (the same contract the style panel's dropdowns receive). */
 type FilterBodyDeps = {
   T: (key: string) => string;
   write: (filter: LayerFilter | undefined) => void;
   formatCount: (n: number) => string;
   formatValue: (n: number) => string;
+  surface: DropdownSurface;
 };
 
 /** One rendered condition body. `dimension` is kept so the panel can decide
@@ -169,84 +173,60 @@ const enumFilterOf = (
   return values.length > 0 ? { kind: "enum", field: dim.field, values } : undefined;
 };
 
-/** Enum body: one native `<select multiple>` listbox. The browser owns the
- *  listbox chrome, focus and keyboard; the body only maps the selected option
- *  set to a value set. An empty selection commits `undefined`, so "nothing
- *  selected" always reads as "no filter" and the kept/total readout stays at
- *  100%. Clicking an option toggles it (native multiple selects need Ctrl, so
- *  the pointerdown path flips the option itself and replays `change`). */
+/** Value-set equality: the owner's order is the option order, so a local
+ *  toggle must not read as a model change — a repaint while the popup is open
+ *  would rebuild the rows and drop focus off the row the user just toggled. */
+const sameValues = (a: readonly string[], b: readonly string[]): boolean => {
+  if (a.length !== b.length) return false;
+  const seen = new Set(a);
+  return b.every(value => seen.has(value));
+};
+
+/** Enum body: the shared multiple dropdown. The trigger keeps the form-select
+ *  chrome every other panel select uses, the popup is the shared menu shell,
+ *  and one press toggles one option without closing the list. An empty
+ *  selection commits `undefined`, so "nothing selected" always reads as "no
+ *  filter" and the kept/total readout stays at 100%. */
 const renderEnumBody = (
   dim: FilterEnumDimension,
   model: LayerFilterModel,
   deps: FilterBodyDeps,
 ): FilterBody => {
   const { row, control } = buildDimensionRow(dim.label);
-  const select = dom.el("select", {
-    class: CONST.CLASSES.FILTER_ENUM,
-    multiple: true,
-    size: Math.min(Math.max(dim.options.length, 1), 4),
-  }) as HTMLSelectElement;
-  select.setAttribute("aria-label", dim.label);
-  for (const option of dim.options) {
-    select.appendChild(
-      dom.el("option", { value: option.value }, option.label) as HTMLOptionElement,
-    );
-  }
-  control.appendChild(select);
+  control.classList.add(CONST.CLASSES.FILTER_ENUM);
 
-  let currentFilter: LayerFilter | undefined = model.filter;
-  const selectedValues = (): Set<string> => new Set(enumValuesOf(dim, currentFilter));
+  const dropdown = createDropdown({
+    multiple: true,
+    items: dim.options.map(option => ({
+      value: option.value,
+      label: option.label,
+    })),
+    values: enumValuesOf(dim, model.filter),
+    placeholder: deps.T("filter_enum_any"),
+    ariaLabel: dim.label,
+    // The trigger answers "how many are picked"; the rows carry the check
+    // slots and the listbox sets aria-multiselectable.
+    selectedLabel: labels =>
+      deps.T("filter_enum_count").replace("{n}", String(labels.length)),
+    onChange: (_value, values) => deps.write(enumFilterOf(dim, new Set(values))),
+    ...deps.surface,
+  });
+  // The owner declared no options: nothing to select, and an empty popup would
+  // read as a broken control.
+  dropdown.trigger.disabled = dim.options.length === 0;
+  control.appendChild(dropdown.element);
 
   const sync = (next: LayerFilterModel): void => {
-    currentFilter = next.filter;
-    const selected = selectedValues();
-    for (const option of Array.from(select.options)) {
-      option.selected = selected.has(option.value);
-    }
+    const values = enumValuesOf(dim, next.filter);
+    // Our own write lands here too, so only a real model change repaints.
+    if (!sameValues(dropdown.getValues(), values)) dropdown.setValues(values);
   };
-  sync(model);
-
-  // One click toggles one option: the native multiple listbox replaces the
-  // selection on a plain press (Ctrl adds), so pointerdown flips the pressed
-  // option and cancels the compatibility mouse events that would apply the
-  // native single-select rule; the replayed change then writes the value set.
-  // Keyboard stays native (Space toggles the focused option as usual).
-  const onPointerDown = (event: PointerEvent): void => {
-    if (!(event.target instanceof HTMLOptionElement)) return;
-    event.preventDefault();
-    event.target.selected = !event.target.selected;
-    select.focus({ preventScroll: true });
-    select.dispatchEvent(new Event("change", { bubbles: true }));
-  };
-
-  const onChange = (event: Event): void => {
-    // The layer control listens for checkbox changes on its container to drive
-    // row visibility; the filter listbox is panel state, not a row slot, so its
-    // change must not reach that handler.
-    event.stopPropagation();
-    event.stopImmediatePropagation();
-    // Start from the committed set, not the DOM: a value whose option is gone
-    // (a measurement type with no items right now) is still filtered on and
-    // must survive a click on a surviving option.
-    const next = selectedValues();
-    for (const option of Array.from(select.options)) {
-      if (option.selected) next.add(option.value);
-      else next.delete(option.value);
-    }
-    deps.write(enumFilterOf(dim, next));
-  };
-
-  select.addEventListener("pointerdown", onPointerDown);
-  select.addEventListener("change", onChange);
 
   return {
     root: row,
     dimension: dim,
     sync,
-    destroy: () => {
-      select.removeEventListener("pointerdown", onPointerDown);
-      select.removeEventListener("change", onChange);
-    },
+    destroy: () => dropdown.destroy(),
   };
 };
 
