@@ -175,6 +175,15 @@ const CLASSES = {
   STYLE_FILL_BLOCK: "foliplus-style-fill-block",
   STYLE_FILL_MODE_SELECT: "foliplus-style-fill-mode-select",
   STYLE_FILL_DETAIL: "foliplus-style-fill-detail",
+  /** The original-colour state's read-only detail: the scale's column, the
+   *  author's strip and the caption under it. These rows never offer a
+   *  classification control — the author's presentation is not a user
+   *  classification, and rendering one here is what used to squeeze a
+   *  43-colour palette into the panel's 2-9 class vocabulary. */
+  STYLE_FILL_ORIGINAL_COLUMN: "foliplus-style-fill-original-column",
+  STYLE_FILL_ORIGINAL_STRIP: "foliplus-style-fill-original-strip",
+  STYLE_FILL_ORIGINAL_BLOCK: "foliplus-style-fill-original-block",
+  STYLE_FILL_ORIGINAL_CAPTION: "foliplus-style-fill-original-caption",
   /** Ramp detail controls (color-by-value arm): field, method, class count
    *  and the shared scheme trigger. All four are native selects / the shared
    *  picker trigger, the same controls the heatmap panel offers. */

@@ -58,6 +58,33 @@
   gap: var(--foliplus-space-xs);
 }
 
+/* Original-colour detail: the author's own strip, read-only. One block per
+   sampled or declared colour, so a stepped scale shows its real bands and a
+   continuous one reads as a ramp — no classification is implied or rendered. */
+.foliplus-style-fill-original-column {
+  color: var(--foliplus-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.foliplus-style-fill-original-strip {
+  display: flex;
+  height: 10px;
+  overflow: hidden;
+  border-radius: var(--foliplus-radius-sm);
+}
+
+.foliplus-style-fill-original-block {
+  flex: none;
+  height: 100%;
+}
+
+.foliplus-style-fill-original-caption {
+  color: var(--foliplus-text-muted);
+  font-size: var(--foliplus-font-size-xs);
+}
+
 /* Scheme trigger and colour strip: the shared scheme-picker recipe
    (common/scheme-picker.css) owns the box, the chevron and the bar geometry.
    `.foliplus-style-scheme-trigger` / `.foliplus-style-scheme-bar` stay on the

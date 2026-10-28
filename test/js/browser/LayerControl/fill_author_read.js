@@ -1,13 +1,12 @@
-// Read the fill row's per-feature / by-value state, the scheme strip, and the
-// fill colours actually painted on the map.
+// Read the fill row's original-colours state: the read-only strip, its caption,
+// the controls that must NOT be there, and the fill colours actually painted.
 () => {
   const panel = document.querySelector(".foliplus-layer-style-panel");
   const select = panel?.querySelector(".foliplus-style-fill-mode-select");
   const featureOption = select?.querySelector('option[value="feature"]');
-  const field = panel?.querySelector(".foliplus-style-fill-field-select");
-  const classes = panel?.querySelector(".foliplus-style-fill-classes-select");
-  const trigger = panel?.querySelector(".foliplus-style-scheme-trigger");
-  const bar = trigger?.querySelector(".foliplus-scheme-picker-bar");
+  const original = panel?.querySelector(".foliplus-style-fill-original-column");
+  const strip = panel?.querySelector(".foliplus-style-fill-original-strip");
+  const caption = panel?.querySelector(".foliplus-style-fill-original-caption");
   const swatch = panel?.querySelector(".foliplus-style-fill-color-input");
   const fills = [
     ...new Set(
@@ -20,13 +19,18 @@
     mode: select ? select.value : null,
     featureAvailable: !!featureOption,
     featureDisabled: featureOption ? featureOption.disabled : null,
-    field: field ? field.value : null,
-    classes: classes ? classes.value : null,
-    schemeTitle: trigger ? trigger.title : null,
-    barBlocks: bar ? bar.children.length : 0,
-    barHeight: bar ? bar.getBoundingClientRect().height : 0,
-    noteInPanel: !!panel?.querySelector(".foliplus-style-fill-note"),
+    featureLabel: featureOption ? featureOption.textContent : null,
+    note: select ? select.title : null,
+    column: original ? original.textContent : null,
+    stripBlocks: strip ? strip.children.length : 0,
+    stripHeight: strip ? strip.getBoundingClientRect().height : 0,
+    caption: caption ? caption.textContent : null,
     hasSwatch: !!swatch,
+    hasField: !!panel?.querySelector(".foliplus-style-fill-field-select"),
+    hasMethod: !!panel?.querySelector(".foliplus-style-fill-method-select"),
+    hasClasses: !!panel?.querySelector(".foliplus-style-fill-classes-select"),
+    hasScheme: !!panel?.querySelector(".foliplus-style-scheme-trigger"),
+    noteInPanel: !!panel?.querySelector(".foliplus-style-fill-note"),
     fills,
   };
 };

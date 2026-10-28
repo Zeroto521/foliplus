@@ -13,7 +13,6 @@ import {
   commitFillOpacity,
   layerCanFill,
   replayFillState,
-  resampleColors,
   resetLayerFill,
 } from "#foliplus/LayerControl/ui/style/fill.js";
 import { closeStylePanel } from "#foliplus/LayerControl/ui/style/index.js";
@@ -145,13 +144,18 @@ const initWithPerFeatureLayer = ({
   colors = ["#0d0887", "#f0f921"] as readonly string[],
   perFeature = true,
   fillAuthor = perFeature
-    ? { perFeature: true, fields: [] }
-    : { perFeature: false, fields: [] },
+    ? { perFeature: true, distinct: colors.length, stops: [...colors] }
+    : { perFeature: false, distinct: 1, stops: colors.slice(0, 1) },
   withProperties = true,
 }: {
   colors?: readonly string[];
   perFeature?: boolean;
-  fillAuthor?: { perFeature: boolean; fields: unknown[] } | null;
+  fillAuthor?: {
+    perFeature: boolean;
+    distinct: number;
+    stops: string[];
+    scale?: unknown;
+  } | null;
   withProperties?: boolean;
 } = {}) => {
   installLeafletGlobals();
@@ -176,48 +180,50 @@ const initWithPerFeatureLayer = ({
   return { manager, ui, layer };
 };
 
-/** A layer the author paints per feature whose colours come from a numeric
- *  column: the fill row must open on the by-value arm over the author palette. */
-const initWithAuthorRamp = ({
-  colors = ["#0d0887", "#6a00a8", "#b12a90"] as readonly string[],
-  classes,
-  withPalette = true,
+/** A layer the author paints from a colormap: the fill row must open on the
+ *  read-only original-colours state over the author's own scale. */
+const initWithAuthorScale = ({
+  stops = ["#0d0887", "#6a00a8", "#b12a90"] as readonly string[],
+  scale = {
+    kind: "continuous" as const,
+    column: "score",
+    vmin: 10,
+    vmax: 30,
+  },
+  distinct = stops.length,
+  capped = false,
 }: {
-  colors?: readonly string[];
-  classes?: number;
-  /** Omit orderedColors/classes, the shape an older Python payload has. */
-  withPalette?: boolean;
+  stops?: readonly string[];
+  scale?: {
+    kind: "continuous" | "stepped";
+    column?: string;
+    vmin: number;
+    vmax: number;
+    levels?: number;
+    breaks?: number[];
+  } | null;
+  distinct?: number;
+  capped?: boolean;
 } = {}) => {
   installLeafletGlobals();
-  const layer = makePerFeatureLayer(colors);
+  const layer = makePerFeatureLayer(stops);
   layer.leaves.forEach((leaf: { feature: unknown }, index: number) => {
     const feature = leaf.feature as { properties: Record<string, unknown> };
     feature.properties.score = (index + 1) * 10;
   });
-  const orderedColors = [...colors];
   const { manager, ui } = initFixture({
     data: [
       {
         id: "overlay1",
-        name: "Author",
+        name: "Original",
         role: "overlay",
         layer,
         fillAuthor: {
           perFeature: true,
-          fields: [
-            {
-              name: "score",
-              kind: "numeric",
-              mapping: Object.fromEntries(
-                colors.map((color, index) => [String((index + 1) * 10), color]),
-              ),
-              other: 0,
-              truncated: false,
-              ...(withPalette
-                ? { orderedColors, classes: classes ?? orderedColors.length }
-                : {}),
-            },
-          ],
+          distinct,
+          stops: [...stops],
+          ...(capped ? { capped: true } : {}),
+          ...(scale ? { scale } : {}),
         },
       },
     ],
@@ -2737,7 +2743,7 @@ describe("fill ramp detail — field / method / classes / scheme", () => {
   });
 });
 
-describe("fill row — author by-value palette", () => {
+describe("fill row — original colours", () => {
   afterEach(() => {
     document.body.innerHTML = "";
     vi.clearAllMocks();
@@ -2747,247 +2753,197 @@ describe("fill row — author by-value palette", () => {
   const blockOf = (ui: LayerUI): HTMLElement => {
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
-    // Opening the panel already built and bound the row (including the
-    // scheme picker), so the tests below only read/act on it.
     return item.querySelector(`.${CONST.CLASSES.STYLE_FILL_BLOCK}`) as HTMLElement;
   };
 
-  it("opens a numeric author palette on the by-value arm over Author", () => {
-    const { ui, layer } = initWithAuthorRamp();
+  const captionOf = (row: HTMLElement): string =>
+    (
+      details(row).querySelector(
+        `.${CONST.CLASSES.STYLE_FILL_ORIGINAL_CAPTION}`,
+      ) as HTMLElement
+    ).textContent;
+
+  it("opens on the original colours and offers no classification rows", () => {
+    const { ui, layer } = initWithAuthorScale();
     const row = blockOf(ui);
     const select = modeSelect(row);
-    const field = details(row).querySelector(
-      `.${CONST.CLASSES.STYLE_FILL_FIELD_SELECT}`,
-    ) as HTMLSelectElement;
-    const classes = details(row).querySelector(
-      `.${CONST.CLASSES.STYLE_FILL_CLASSES_SELECT}`,
-    ) as HTMLSelectElement;
-    const trigger = details(row).querySelector(
-      `.${CONST.CLASSES.STYLE_FILL_SCHEME_TRIGGER}`,
-    ) as HTMLElement;
-    const bar = trigger.querySelector(".foliplus-scheme-picker-bar") as HTMLElement;
+    const featureOption = select.querySelector(
+      'option[value="feature"]',
+    ) as HTMLOptionElement;
 
-    expect(select.value).toBe("ramp");
-    expect(select.querySelector('option[value="feature"]')).toBeNull();
-    expect(field.value).toBe("score");
-    expect(classes.value).toBe("3");
-    expect(trigger.title).toBe("LayerControl.style_fill_scheme_author");
-    // The by-value arm explains the author state on the control, like the
-    // read-only per-feature arm does.
-    expect(select.title).toBe("LayerControl.style_fill_author_note");
-    expect(bar.children.length).toBe(3);
-    // jsdom serializes the background colour to rgb; the value is the first
-    // author colour, so the strip really is the layer's own palette.
-    expect((bar.children[0] as HTMLElement).style.background).toBe("rgb(13, 8, 135)");
-    // Display-only until the user edits a control: the map keeps the author
-    // paint instead of being repainted with our classification.
+    expect(select.value).toBe("feature");
+    // A detected state, not a choice: named by its own option, disabled so
+    // the menu cannot return to it.
+    expect(featureOption.disabled).toBe(true);
+    expect(featureOption.textContent).toBe("LayerControl.style_fill_per_feature");
+    // The detail names the column the author drew and shows the strip. None of
+    // the classification controls render: Method/Classes/Scheme belong to the
+    // user's own ramp, and rendering them here is what squeezed a 43-colour
+    // palette into the panel's 2-9 class vocabulary.
+    expect(
+      details(row).querySelector(`.${CONST.CLASSES.STYLE_FILL_FIELD_SELECT}`),
+    ).toBeNull();
+    expect(
+      details(row).querySelector(`.${CONST.CLASSES.STYLE_FILL_METHOD_SELECT}`),
+    ).toBeNull();
+    expect(
+      details(row).querySelector(`.${CONST.CLASSES.STYLE_FILL_CLASSES_SELECT}`),
+    ).toBeNull();
+    expect(
+      details(row).querySelector(`.${CONST.CLASSES.STYLE_FILL_SCHEME_TRIGGER}`),
+    ).toBeNull();
+    expect(
+      (
+        details(row).querySelector(
+          `.${CONST.CLASSES.STYLE_FILL_ORIGINAL_COLUMN}`,
+        ) as HTMLElement
+      ).textContent,
+    ).toBe("score");
+    const strip = details(row).querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_ORIGINAL_STRIP}`,
+    ) as HTMLElement;
+    expect(strip.children.length).toBe(3);
+    expect((strip.children[0] as HTMLElement).style.background).toBe("rgb(13, 8, 135)");
+    expect(captionOf(row)).toBe("LayerControl.style_fill_original_continuous");
+    // Opening writes no intent: the map keeps the author's own paint until the
+    // user edits a fill control.
     for (const leaf of layer.leaves) expect(leaf.setStyle).not.toHaveBeenCalled();
   });
 
-  it("changing the author scheme records a ramp and paints it", () => {
-    installChroma(["#111111", "#222222", "#333333"]);
-    // The author ramp starts on the shared jenks default; jsdom has no
-    const { ui, layer } = initWithAuthorRamp();
-    const row = blockOf(ui);
-    const trigger = details(row).querySelector(
-      `.${CONST.CLASSES.STYLE_FILL_SCHEME_TRIGGER}`,
-    ) as HTMLElement;
+  it("describes the strip by what the author drew", () => {
+    const stepped = initWithAuthorScale({
+      scale: { kind: "stepped", column: "score", vmin: 10, vmax: 30, levels: 5 },
+    });
+    expect(captionOf(blockOf(stepped.ui))).toBe(
+      "LayerControl.style_fill_original_levels",
+    );
+    const fallback = initWithAuthorScale({ scale: null });
+    expect(captionOf(blockOf(fallback.ui))).toBe(
+      "LayerControl.style_fill_original_colours",
+    );
+  });
 
-    trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    const item = document.querySelector(
-      '.foliplus-scheme-picker-item[data-scheme-name="Reds"]',
-    ) as HTMLElement;
-    item.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+  it("draws the strip without a field row when the caption named no column", () => {
+    const { ui } = initWithAuthorScale({
+      scale: { kind: "continuous", vmin: 10, vmax: 30 },
+    });
+    const row = blockOf(ui);
+
+    // A scale the author could not be paired with still has the real colours,
+    // so the strip renders; the panel must not invent a field name.
+    expect(
+      details(row).querySelector(`.${CONST.CLASSES.STYLE_FILL_ORIGINAL_COLUMN}`),
+    ).toBeNull();
+    expect(captionOf(row)).toBe("LayerControl.style_fill_original_continuous");
+  });
+
+  it("seeds the by-value arm with the shared defaults", () => {
+    installChroma(["#111111", "#222222", "#333333"]);
+    const { ui } = initWithAuthorScale();
+    const row = blockOf(ui);
+    const select = modeSelect(row);
+
+    select.value = "ramp";
+    select.dispatchEvent(new Event("change", { bubbles: true }));
     flushStyleDimApply(FACE.FILL, "overlay1");
+
+    // The seed is the user's own classification: the shared six classes on
+    // jenks/Viridis over the column the author actually drew — never the
+    // author's colour count, so a 43-colour palette cannot collapse to 9.
+    expect(getIntent(ui, "overlay1", "fillRamp")).toMatchObject({
+      field: "score",
+      method: "jenks",
+      classes: CLASS_COUNT.DEFAULT,
+      scheme: "Viridis",
+    });
+    expect(select.querySelector('option[value="feature"]')).toBeNull();
+    // The ramp detail is the user's classification now.
+    expect(
+      details(row).querySelector(`.${CONST.CLASSES.STYLE_FILL_METHOD_SELECT}`),
+    ).not.toBeNull();
+  });
+
+  it("honours the author stepped class count when the panel can carry it", () => {
+    installChroma(["#111111", "#222222", "#333333"]);
+    const { ui } = initWithAuthorScale({
+      scale: { kind: "stepped", column: "score", vmin: 10, vmax: 30, levels: 5 },
+    });
+    const select = modeSelect(blockOf(ui));
+
+    select.value = "ramp";
+    select.dispatchEvent(new Event("change", { bubbles: true }));
 
     expect(getIntent(ui, "overlay1", "fillRamp")).toMatchObject({
       field: "score",
-      scheme: "Reds",
+      classes: 5,
     });
-    const painted = (layer.leaves as Array<{ setStyle: ReturnType<typeof vi.fn> }>)
-      .flatMap(leaf =>
-        leaf.setStyle.mock.calls.map(
-          call => (call[0] as { fillColor?: string }).fillColor,
-        ),
-      )
-      .filter((color): color is string => typeof color === "string");
-    // Every leaf is repainted from the chosen scheme, not from the author
-    // palette the map was showing a moment ago.
-    expect(painted.length).toBeGreaterThanOrEqual(layer.leaves.length);
-    expect(
-      painted.every((color: string) =>
-        ["#111111", "#222222", "#333333"].includes(color),
-      ),
-    ).toBe(true);
   });
 
-  it("does not take the fill over when the current Author entry is clicked", () => {
-    const { ui, layer } = initWithAuthorRamp();
-    const row = blockOf(ui);
-    const trigger = details(row).querySelector(
-      `.${CONST.CLASSES.STYLE_FILL_SCHEME_TRIGGER}`,
-    ) as HTMLElement;
-
-    trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    const item = document.querySelector(
-      '.foliplus-scheme-picker-item[data-scheme-name="author"]',
-    ) as HTMLElement;
-    expect(item).not.toBeNull();
-    // Current state, announced as such: visible, selected, not selectable.
-    expect(item.getAttribute("aria-selected")).toBe("true");
-    expect(item.getAttribute("aria-disabled")).toBe("true");
-
-    item.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-
-    expect(getIntent(ui, "overlay1", "fillRamp")).toBeUndefined();
-    for (const leaf of layer.leaves) expect(leaf.setStyle).not.toHaveBeenCalled();
-    expect(trigger.title).toBe("LayerControl.style_fill_scheme_author");
-  });
-
-  it("ignores keyboard activation of the current Author entry", () => {
-    const { ui, layer } = initWithAuthorRamp();
-    const row = blockOf(ui);
-    const trigger = details(row).querySelector(
-      `.${CONST.CLASSES.STYLE_FILL_SCHEME_TRIGGER}`,
-    ) as HTMLElement;
-    trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    const item = document.querySelector(
-      '.foliplus-scheme-picker-item[data-scheme-name="author"]',
-    ) as HTMLElement;
-    item.focus();
-
-    for (const key of ["Enter", " "]) {
-      item.dispatchEvent(
-        new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }),
-      );
-    }
-
-    expect(getIntent(ui, "overlay1", "fillRamp")).toBeUndefined();
-    for (const leaf of layer.leaves) expect(leaf.setStyle).not.toHaveBeenCalled();
-  });
-  it("resamples the author palette to the block count it is drawn with", () => {
-    expect(resampleColors([], 4)).toEqual([]);
-    expect(resampleColors(["#111111", "#222222"], 1)).toEqual(["#111111"]);
-    expect(resampleColors(["#111111", "#222222", "#333333"], 2)).toEqual([
-      "#111111",
-      "#333333",
-    ]);
-    expect(resampleColors(["#111111", "#222222", "#333333"], 5)).toEqual([
-      "#111111",
-      "#222222",
-      "#222222",
-      "#333333",
-      "#333333",
-    ]);
-  });
-
-  it("keeps the read-only state when the payload has no ordered palette", () => {
-    const { ui } = initWithAuthorRamp({ withPalette: false });
+  it("falls back to the default class count past the panel vocabulary", () => {
+    installChroma(["#111111", "#222222", "#333333"]);
+    const { ui } = initWithAuthorScale({
+      scale: { kind: "stepped", column: "score", vmin: 10, vmax: 30, levels: 12 },
+    });
     const select = modeSelect(blockOf(ui));
 
-    // Nothing to draw the author scale from: the numeric column is not a
-    // ramp source, so the row stays on the detected read-only state.
-    expect(select.value).toBe("feature");
+    select.value = "ramp";
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+
+    expect(getIntent(ui, "overlay1", "fillRamp")).toMatchObject({
+      classes: CLASS_COUNT.DEFAULT,
+    });
+  });
+
+  it("seeds from the first numeric field when the scale names no column", () => {
+    installChroma(["#111111", "#222222", "#333333"]);
+    const { ui } = initWithAuthorScale({
+      scale: { kind: "continuous", vmin: 10, vmax: 30 },
+    });
+    const select = modeSelect(blockOf(ui));
+
+    select.value = "ramp";
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+
+    expect(getIntent(ui, "overlay1", "fillRamp")).toMatchObject({ field: "score" });
   });
 
   it("leaves the by-value arm out when the layer offers no numeric field", () => {
-    const { ui, layer } = initWithAuthorRamp();
+    const { ui, layer } = initWithAuthorScale();
     for (const leaf of layer.leaves as Array<{
       feature: { properties: Record<string, unknown> };
     }>) {
       delete leaf.feature.properties.score;
-      // The fixture also carries a numeric count; drop it so the tree-walk
-      // fallback finds no numeric field either.
       delete leaf.feature.properties.count;
     }
     ui.runtimeStore.setFields("overlay1", []);
 
-    const row = blockOf(ui);
-    const select = modeSelect(row);
+    const select = modeSelect(blockOf(ui));
+    expect(select.value).toBe("feature");
     expect(select.querySelector('option[value="ramp"]')).toBeNull();
   });
 
-  it("keeps the solid arm when another fill intent owns the layer", () => {
-    const { ui } = initWithAuthorRamp();
+  it("keeps the original colours when only the opacity was overridden", () => {
+    const { ui } = initWithAuthorScale();
     setIntent(ui, "overlay1", "fillOpacity", 0.4);
 
+    // The author's per-feature colours are still what the layer paints; only a
+    // fill mode intent takes the arm over.
+    expect(modeSelect(blockOf(ui)).value).toBe("feature");
+  });
+
+  it("yields the row once a mode intent exists", () => {
+    const { ui } = initWithAuthorScale();
+    setIntent(ui, "overlay1", "fillMode", "solid");
+
+    const row = blockOf(ui);
+    expect(modeSelect(row).value).toBe("solid");
+    expect(row.querySelector(".foliplus-style-fill-color-input")).not.toBeNull();
+  });
+  it("switching from the original colours to solid seeds and paints one colour", () => {
+    const { ui, layer } = initWithAuthorScale();
     const row = blockOf(ui);
     const select = modeSelect(row);
-    expect(select.value).toBe("solid");
-    expect(
-      row.querySelector(`.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`),
-    ).not.toBeNull();
-  });
 
-  it("takes over with the default scheme when the author classification changes", () => {
-    installChroma(["#111111", "#222222", "#333333"]);
-    const { ui, layer } = initWithAuthorRamp();
-    const row = blockOf(ui);
-    const method = details(row).querySelector(
-      `.${CONST.CLASSES.STYLE_FILL_METHOD_SELECT}`,
-    ) as HTMLSelectElement;
-
-    method.value = "equal";
-    method.dispatchEvent(new Event("change", { bubbles: true }));
-    flushStyleDimApply(FACE.FILL, "overlay1");
-
-    expect(getIntent(ui, "overlay1", "fillRamp")).toMatchObject({
-      field: "score",
-      method: "equal",
-      scheme: "Viridis",
-    });
-    expect(layer.leaves[0].setStyle).toHaveBeenCalled();
-  });
-
-  it("draws no strip for a stored author scheme without a palette", () => {
-    const { ui } = initWithValues();
-    setIntent(ui, "overlay1", "fillMode", "ramp");
-    setIntent(ui, "overlay1", "fillRamp", {
-      field: "count",
-      method: "equal",
-      classes: 3,
-      scheme: "author",
-    } as never);
-
-    const row = blockOf(ui);
-    const trigger = details(row).querySelector(
-      `.${CONST.CLASSES.STYLE_FILL_SCHEME_TRIGGER}`,
-    ) as HTMLElement;
-    const bar = trigger.querySelector(".foliplus-scheme-picker-bar") as HTMLElement;
-
-    // A hand-edited/legacy record can name the author scheme on a layer that
-    // has no palette: the picker degrades to an empty strip instead of throwing.
-    expect(bar.children.length).toBe(0);
-  });
-  it("shows an author class count outside the shared range as its own option", () => {
-    installChroma(["#111111", "#222222", "#333333"]);
-    const { ui } = initWithAuthorRamp({ classes: 12 });
-    const row = blockOf(ui);
-    const classes = details(row).querySelector(
-      `.${CONST.CLASSES.STYLE_FILL_CLASSES_SELECT}`,
-    ) as HTMLSelectElement;
-
-    expect(classes.value).toBe("12");
-    expect(classes.querySelector('option[value="12"]')).not.toBeNull();
-
-    const trigger = details(row).querySelector(
-      `.${CONST.CLASSES.STYLE_FILL_SCHEME_TRIGGER}`,
-    ) as HTMLElement;
-    trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    const item = document.querySelector(
-      '.foliplus-scheme-picker-item[data-scheme-name="Reds"]',
-    ) as HTMLElement;
-    item.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-
-    // A user record must satisfy the shared 2..9 vocabulary.
-    expect(getIntent(ui, "overlay1", "fillRamp")).toMatchObject({ classes: 9 });
-  });
-
-  it("switching from the author palette to solid seeds and paints one colour", () => {
-    const { ui, layer } = initWithAuthorRamp();
-    const row = blockOf(ui);
-
-    const select = modeSelect(row);
     select.value = "solid";
     select.dispatchEvent(new Event("change", { bubbles: true }));
     flushStyleDimApply(FACE.FILL, "overlay1");

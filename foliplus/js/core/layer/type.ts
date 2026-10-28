@@ -293,29 +293,40 @@ interface RegisterLayerOpts {
   onCommitted?: ((entry: LayerInfo) => void) | null;
 }
 
-/** One declarative column behind an explore layer's per-feature colours. */
-interface FillAuthorField {
-  name: string;
-  kind: "numeric" | "categorical";
-  /** value -> colour, capped at the top entries. */
-  mapping: Record<string, string>;
-  /** Distinct values beyond the mapping (0 when not truncated). */
-  other: number;
-  /** True when the column had more distinct values than the mapping keeps. */
-  truncated: boolean;
-  /** Numeric fields only: the author colour palette in value order, so the
-   *  client can draw the author scale and start a ramp from the same number
-   *  of classes. Absent for categorical fields (no by-category arm yet). */
-  orderedColors?: readonly string[];
-  /** Numeric fields only: the class count of orderedColors. */
-  classes?: number;
+/** The colour scale geopandas mounted on the map for an explore layer.
+ *
+ *  Read from the branca colormap child, then paired with the layer by a colour
+ *  check (a value normalised through the scale must reproduce the feature's
+ *  ``__folium_color``), so a caption is never trusted on its own. */
+interface FillAuthorScale {
+  /** A continuous ``LinearColormap``, or a classified ``StepColormap``. */
+  kind: "continuous" | "stepped";
+  /** The column the scale paints. Absent when the author overrode the
+   *  caption with a label that names no property — the scale is still the
+   *  author's real one, but the panel must not invent a field name. */
+  column?: string;
+  vmin: number;
+  vmax: number;
+  /** Stepped scales only: how many classes the author drew. */
+  levels?: number;
 }
 
 /** What Python computed for one layer's author fill (CONFIG data[].fillAuthor). */
 interface FillAuthor {
   /** True when the layer paints at least two distinct colours. */
   perFeature: boolean;
-  fields: FillAuthorField[];
+  /** How many distinct colours the layer paints — the honest count when no
+   *  scale pairs (categorical column, ``legend=False``). */
+  distinct: number;
+  /** The strip the panel draws: a continuous scale sampled to 64 colours, a
+   *  stepped scale's own blocks, or the distinct colours when neither exists. */
+  stops: string[];
+  /** True when the layer paints more distinct colours than the strip samples,
+   *  so `distinct` is a cap (the panel shows "64+"). */
+  capped?: boolean;
+  /** Absent when the author declared no scale this layer could be paired with.
+   *  The panel then shows the strip without naming a column. */
+  scale?: FillAuthorScale;
 }
 
 /** A layer entry in the ordered registry (read-only view). */

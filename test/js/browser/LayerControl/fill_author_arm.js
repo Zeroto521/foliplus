@@ -1,29 +1,19 @@
-// Act on the Facility Points row's style panel: open it (default), pick a
-// scheme from the author-scheme picker, pick the solid arm so the caller can
-// assert the take-over repainted the map, or click Reset so the caller can
-// assert the author's own paint came back.
+// Act on the Facility Points row's style panel: open it (default), try to
+// activate the read-only original-colours entry, switch to the solid arm so the
+// caller can assert the take-over repainted the map, or click Reset so the
+// caller can assert the author's own paint came back.
 arg => {
-  const { solid = false, reset = false, scheme = "" } = arg ?? {};
-  if (scheme) {
-    const trigger = document.querySelector(".foliplus-style-scheme-trigger");
-    if (!trigger) return { ok: false, reason: "no-scheme-trigger" };
-    // The list may already be open (a previous step selected a disabled
-    // entry, which leaves it mounted): open it only when needed.
-    let item = document.querySelector(
-      '.foliplus-scheme-picker-item[data-scheme-name="' + scheme + '"]',
-    );
-    if (!item) {
-      trigger.click();
-      item = document.querySelector(
-        '.foliplus-scheme-picker-item[data-scheme-name="' + scheme + '"]',
-      );
-    }
-    if (!item) return { ok: false, reason: "no-scheme-item" };
-    item.click();
+  const { solid = false, reset = false, feature = false } = arg ?? {};
+  const select = document.querySelector(".foliplus-style-fill-mode-select");
+  if (feature) {
+    if (!select) return { ok: false, reason: "no-mode-select" };
+    select.value = "feature";
+    // The entry is disabled: a programmatic value write plus a change event is
+    // the strongest form of "the user tried it", so the no-op is proven.
+    select.dispatchEvent(new Event("change", { bubbles: true }));
     return { ok: true };
   }
   if (solid) {
-    const select = document.querySelector(".foliplus-style-fill-mode-select");
     if (!select) return { ok: false, reason: "no-mode-select" };
     select.value = "solid";
     select.dispatchEvent(new Event("change", { bubbles: true }));
