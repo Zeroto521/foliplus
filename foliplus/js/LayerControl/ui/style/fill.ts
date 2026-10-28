@@ -932,10 +932,15 @@ const bindFillRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => {
   ) as HTMLElement;
 
   select.onchange = () => {
-    // "feature" is detected, not chosen: the browser has already moved the
-    // select's value to the picked arm by the time the change event fires, so
-    // the row is leaving the detected state exactly when its read-only option
-    // is still present — remember that before the option goes away.
+    // "feature" is detected, not chosen: its option is disabled, so a change
+    // event naming it can only be a programmatic write (a test, or a form
+    // automation). Activating it must not write an intent — the state is the
+    // author's paint, and leaving it is the solid or by-value arm.
+    if (select.value === "feature") return;
+    // The browser has already moved the select's value to the picked arm by
+    // the time the change event fires, so the row is leaving the detected
+    // state exactly when its read-only option is still present — remember that
+    // before the option goes away.
     const fromFeature = select.querySelector('option[value="feature"]') !== null;
     // Every reachable value is an override. The write records the user's
     // choice; the option goes away immediately, the same way the next panel

@@ -301,9 +301,10 @@ interface RegisterLayerOpts {
 interface FillAuthorScale {
   /** A continuous ``LinearColormap``, or a classified ``StepColormap``. */
   kind: "continuous" | "stepped";
-  /** The column the scale paints. Absent when the author overrode the
-   *  caption with a label that names no property — the scale is still the
-   *  author's real one, but the panel must not invent a field name. */
+  /** The column the caption names. A paired scale always carries it (a scale
+   *  is only shipped when its caption is a property of the layer); the
+   *  optional shape keeps a hand-built record safe, and the panel then draws
+   *  the strip without naming a field. */
   column?: string;
   vmin: number;
   vmax: number;

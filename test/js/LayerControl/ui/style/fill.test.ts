@@ -2810,6 +2810,24 @@ describe("fill row — original colours", () => {
     for (const leaf of layer.leaves) expect(leaf.setStyle).not.toHaveBeenCalled();
   });
 
+  it("activating the read-only entry writes nothing and keeps the state", () => {
+    const { ui, layer } = initWithAuthorScale();
+    const row = blockOf(ui);
+    const select = modeSelect(row);
+
+    // The entry is disabled, so a programmatic value write plus a change event
+    // is the strongest form of "the user tried it": the no-op is proven
+    // against the state, not against the menu.
+    select.value = "feature";
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+
+    expect(select.value).toBe("feature");
+    expect(select.querySelector('option[value="feature"]')).not.toBeNull();
+    expect(getIntent(ui, "overlay1", "fillMode")).toBeUndefined();
+    expect(getIntent(ui, "overlay1", "fillColor")).toBeUndefined();
+    for (const leaf of layer.leaves) expect(leaf.setStyle).not.toHaveBeenCalled();
+  });
+
   it("describes the strip by what the author drew", () => {
     const stepped = initWithAuthorScale({
       scale: { kind: "stepped", column: "score", vmin: 10, vmax: 30, levels: 5 },

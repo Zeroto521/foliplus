@@ -159,17 +159,58 @@ def test_stepped_scale_ships_the_authors_own_blocks_and_breaks():
     assert all(isinstance(edge, float) for edge in meta["scale"]["breaks"])
 
 
-def test_an_overridden_caption_ships_the_scale_without_a_column():
+def test_a_scale_is_claimed_only_through_its_caption():
     scale = _linear(caption="自定义")
     values = [10.0, 40.0, 90.0]
     colors = [str(scale(value))[:7] for value in values]
     meta = _meta(_geo(colors, values=values), scale)
 
-    assert meta["scale"]["kind"] == "continuous"
-    # No column claim: the caption names no property, and the panel must not
-    # invent one — a correlated column pairs inside the 0.6 agreement band.
-    assert "column" not in meta["scale"]
-    assert len(meta["stops"]) == 64
+    # The caption names no property of the layer: no scale is claimed and no
+    # column is named. The panel draws the colours the features carry.
+    assert "scale" not in meta
+    assert meta["perFeature"] is True
+    assert meta["stops"] == colors
+
+
+def test_a_plain_layer_does_not_claim_another_layers_scale():
+    scale = _linear(("#440154", "#fde725"), caption="value", vmin=0, vmax=100)
+    values = [10.0, 40.0, 90.0]
+    explore = _geo(
+        [str(scale(value))[:7] for value in values],
+        column="value",
+        values=values,
+        name="Explore",
+    )
+    # Same property name, other colours, and no scale of its own (a plain
+    # legend=False layer): the viridis scale is not its to claim.
+    plain = _geo(
+        ["#0d0887", "#6a00a8", "#f0f921"],
+        column="value",
+        values=[1.0, 2.0, 3.0],
+        name="Plain",
+    )
+    html = _render(plain, explore, scales=(scale,))
+    data = {entry["name"]: entry for entry in _conf(html)["data"]}
+
+    assert "scale" not in data["Plain"]["fillAuthor"]
+    assert data["Explore"]["fillAuthor"]["scale"]["column"] == "value"
+    assert "_column" not in data["Plain"]["fillAuthor"]
+
+
+def test_a_layer_whose_caption_matches_but_colours_do_not_is_not_claimed():
+    scale = _linear(("#440154", "#fde725"), caption="value", vmin=0, vmax=100)
+    # The layer carries the property the caption names, but its features are
+    # painted by something else entirely: a shared property name is not proof.
+    meta = _meta(
+        _geo(
+            ["#0d0887", "#6a00a8", "#f0f921"],
+            column="value",
+            values=[1.0, 2.0, 3.0],
+        ),
+        scale,
+    )
+
+    assert "scale" not in meta
 
 
 def test_no_scale_falls_back_to_the_colour_set():
@@ -236,12 +277,15 @@ def test_feature_without_properties_is_skipped():
     assert meta["distinct"] == 2
 
 
-def test_the_scan_is_budgeted_and_reported_as_capped(monkeypatch):
+def test_the_colour_scan_samples_across_a_sorted_layer(monkeypatch):
     monkeypatch.setattr(_layer_control_mod, "_FILL_AUTHOR_SCAN_LIMIT", 2)
-    meta = _meta(_geo(["#0d0887", "#f0f921", "#6a00a8", "#b12a90"]))
+    # A layer sorted by the painted value: a head-only scan would see one class
+    # and read the whole layer as a single colour.
+    meta = _meta(_geo(["#0d0887", "#6a00a8", "#b12a90", "#f0f921"]))
 
-    assert meta["capped"] is True
-    assert len(meta["stops"]) == 2
+    assert meta["perFeature"] is True
+    assert meta["stops"] == ["#0d0887", "#b12a90"]
+    assert "capped" not in meta
 
 
 def test_more_than_the_strip_cap_is_capped(monkeypatch):
