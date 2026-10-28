@@ -10,6 +10,10 @@ except ImportError:
     except PackageNotFoundError:
         __version__ = "unknown"
 
+# Annotation helpers, not product API: kept importable from the package root
+# for backward compatibility (foliplus.ControlPosition), but deliberately absent
+# from __all__ so star exports carry the controls only. Import them from
+# foliplus._typing when annotating.
 from ._typing import ControlPosition, Fraction, PositiveInt, Zoom
 from .BaseControl import BaseControl
 from .ExportControl import ExportControl
@@ -24,17 +28,13 @@ from .SearchControl import SearchControl
 
 __all__ = [
     "BaseControl",
-    "ControlPosition",
     "ExportControl",
-    "Fraction",
     "FullscreenControl",
     "HeatmapControl",
     "LayerControl",
     "LocaleConfig",
     "LocateControl",
     "MeasureControl",
-    "PositiveInt",
     "ScaleControl",
     "SearchControl",
-    "Zoom",
 ]
