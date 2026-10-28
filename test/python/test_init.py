@@ -13,19 +13,15 @@ class TestVersion:
     def test_all_exports(self):
         expected = [
             "BaseControl",
-            "ControlPosition",
             "ExportControl",
-            "Fraction",
             "FullscreenControl",
             "HeatmapControl",
             "LayerControl",
             "LocaleConfig",
             "LocateControl",
             "MeasureControl",
-            "PositiveInt",
             "ScaleControl",
             "SearchControl",
-            "Zoom",
         ]
         for name in expected:
             assert hasattr(foliplus, name), f"Missing export: {name}"
@@ -34,29 +30,34 @@ class TestVersion:
         """__all__ must match actual public API."""
         expected = {
             "BaseControl",
-            "ControlPosition",
             "ExportControl",
-            "Fraction",
             "FullscreenControl",
             "HeatmapControl",
             "LayerControl",
             "LocaleConfig",
             "LocateControl",
             "MeasureControl",
-            "PositiveInt",
             "ScaleControl",
             "SearchControl",
-            "Zoom",
         }
         assert set(foliplus.__all__) == expected
 
     def test_type_aliases_are_usable_in_annotations(self):
-        """The exported aliases carry the constraints @validate enforces."""
-        from foliplus import ControlPosition, Fraction, PositiveInt, Zoom
+        """The aliases carry the constraints @validate enforces."""
+        from foliplus._typing import ControlPosition, Fraction, PositiveInt, Zoom
 
         assert "topleft" in ControlPosition.__args__  # Literal[...] membership
         for alias in (Zoom, PositiveInt, Fraction):
             assert hasattr(alias, "__metadata__")  # Annotated[...] alias
+
+    def test_typing_helpers_are_internal(self):
+        """The annotation aliases are not package attributes: they type the
+        constructor signatures, nothing else re-exports them."""
+        import foliplus._typing as typing_
+
+        for name in ("ControlPosition", "Fraction", "PositiveInt", "Zoom"):
+            assert hasattr(typing_, name), f"Missing alias: {name}"
+            assert not hasattr(foliplus, name), f"Re-exported at the root: {name}"
 
 
 class TestCDN:

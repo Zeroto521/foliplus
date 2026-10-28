@@ -640,11 +640,5 @@ const syncSelect = (ctrl: HeatmapControlUI, el: HTMLSelectElement, value: string
   dropdownOf(el)?.refresh();
 };
 
-export {
-  type HeatmapControlUI,
-  bindControls,
-  initScan,
-  rebuildLayerDropdown,
-  resetPanel,
-  setupObserver,
-};
+export { bindControls, initScan, rebuildLayerDropdown, resetPanel, setupObserver };
+export type { HeatmapControlUI };

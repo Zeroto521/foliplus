@@ -20,6 +20,10 @@
 - `core/layer`, `LayerControl`, `LayerControl.py`: the `group` vocabulary is renamed to `role` end to end (**Breaking**: CONF payloads from an older Python package and pre-v4 saved records lose their group/role distinction) ([#763](https://github.com/Zeroto521/foliplus/pull/763))
 - Shared dropdown: the panels' native single selects (heatmap layer / aggregation / field / method / class, style drawer fill mode / field / format, label format) are one dropdown primitive — the select's closed-state chrome plus a keyboard/ARIA listbox, a shared-menu popup and an optional multiple mode ([#793](https://github.com/Zeroto521/foliplus/pull/793))
 
+### Removed
+
+- `Package`: the internal annotation aliases `ControlPosition`/`Fraction`/`PositiveInt`/`Zoom` are no longer importable from `foliplus` (**Breaking**) ([#787](https://github.com/Zeroto521/foliplus/pull/787))
+
 ### Fixed
 
 - `EventBus`: policy-declared per-event entries — terminal events raise the first failure, notifications record it, owner listeners run first, and unload clears the bus ([#716](https://github.com/Zeroto521/foliplus/pull/716), [#719](https://github.com/Zeroto521/foliplus/pull/719), [#720](https://github.com/Zeroto521/foliplus/pull/720), [#723](https://github.com/Zeroto521/foliplus/pull/723), [#728](https://github.com/Zeroto521/foliplus/pull/728))
