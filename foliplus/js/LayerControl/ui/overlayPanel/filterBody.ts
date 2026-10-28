@@ -19,8 +19,7 @@ import type {
 import * as CONST from "#foliplus/LayerControl/const.js";
 import { Slider } from "#foliplus/LayerControl/slider.js";
 import { dom } from "#common/dom.js";
-import { createDropdown } from "#common/dropdown.js";
-import type { DropdownSurface } from "#common/dropdown.js";
+import { type DropdownSurface, createDropdown } from "#common/dropdown.js";
 
 /** What a body may use from the panel: translations, the owner write bridge,
  *  the panel's number formatters and the popup surface an open control portals
