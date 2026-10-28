@@ -175,15 +175,18 @@ const CLASSES = {
   STYLE_FILL_BLOCK: "foliplus-style-fill-block",
   STYLE_FILL_MODE_SELECT: "foliplus-style-fill-mode-select",
   STYLE_FILL_DETAIL: "foliplus-style-fill-detail",
-  /** The original-color state's read-only detail: the scale's column, the
-   *  author's strip and the caption under it. These rows never offer a
-   *  classification control — the author's presentation is not a user
-   *  classification, and rendering one here is what used to squeeze a
-   *  43-color palette into the panel's 2-9 class vocabulary. */
+  /** The original-colors arm's read-only detail: the author's column, their
+   *  colors as one ordered gradient and their count, on the same
+   *  label/control grid the by-value arm uses. `READONLY` is the shared box
+   *  frame (a form control without a chevron, focus or pointer affordance), so
+   *  a readout lands on the same column edge as the select it replaces and
+   *  carries no hover/active feedback. */
+  STYLE_FILL_READONLY: "foliplus-style-fill-readonly",
   STYLE_FILL_ORIGINAL_COLUMN: "foliplus-style-fill-original-column",
+  STYLE_FILL_ORIGINAL_COLORS: "foliplus-style-fill-original-colors",
   STYLE_FILL_ORIGINAL_STRIP: "foliplus-style-fill-original-strip",
-  STYLE_FILL_ORIGINAL_BLOCK: "foliplus-style-fill-original-block",
-  STYLE_FILL_ORIGINAL_CAPTION: "foliplus-style-fill-original-caption",
+  STYLE_FILL_ORIGINAL_COUNT: "foliplus-style-fill-original-count",
+  STYLE_FILL_ORIGINAL_VALUE: "foliplus-style-fill-original-value",
   /** Ramp detail controls (color-by-value arm): field, method, class count
    *  and the shared scheme trigger. All four are native selects / the shared
    *  picker trigger, the same controls the heatmap panel offers. */

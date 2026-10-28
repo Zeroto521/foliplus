@@ -2,12 +2,12 @@
 
 A geopandas explore layer writes one color per feature (the feature's
 __folium_color) and mounts a branca colormap on the map. CONFIG carries both as
-fillAuthor, and the fill row must open on a read-only "Original colors" state —
-the author's strip and caption, no Method/Classes/Scheme controls — instead of
-claiming one solid color or re-classifying the author's palette into the
-panel's nine classes. The fixture builds the same shape with folium + branca
-directly (explore is not a test dependency), so the assertion covers the JS path
-and the Python metadata without pulling geopandas into CI.
+fillAuthor, and the fill row opens on a read-only "Original colors" arm — the
+author's column, their colors as one ordered gradient and their count, no
+Method/Classes/Scheme controls — while offering that arm as a real choice the
+user can leave and come back to. The fixture builds the same shape with folium
++ branca directly (explore is not a test dependency), so the assertion covers
+the JS path and the Python metadata without pulling geopandas into CI.
 """
 
 from __future__ import annotations
@@ -84,8 +84,18 @@ _NOTE = (
 _ORIGINAL = "Original colors"
 
 
+def _open_style_panel(page):
+    """Open the row's style drawer: the more menu, then the style entry."""
+    page.evaluate(_js("LayerControl/open_panel"))
+    opened = page.evaluate(_ARM)
+    assert opened["ok"], f"style panel did not open: {opened}"
+    page.wait_for_selector(
+        ".foliplus-layer-style-panel", state="visible", timeout=5000
+    )
+
+
 class TestFillAuthorBrowser:
-    """An explore layer opens on its original colors and restores them."""
+    """An explore layer opens on its original colors and can come back to them."""
 
     def test_original_colors_override_and_reset(self, browser, tmp_path):
         with use_page(_make_page, browser, tmp_path) as (page, errors):
@@ -101,26 +111,31 @@ class TestFillAuthorBrowser:
                 timeout=5000,
             )
             panel_ready(page)
+            _open_style_panel(page)
 
-            opened = page.evaluate(_ARM)
-            assert opened["ok"], f"style panel did not open: {opened}"
-            page.wait_for_selector(
-                ".foliplus-layer-style-panel", state="visible", timeout=5000
-            )
-
-            # The read-only original-colors state: the scale's column, the
-            # author's strip and caption, and none of the classification
-            # controls. The map still shows the author's own paint.
+            # The read-only original-colors arm: the scale's column, the
+            # author's colors in author order and their count, and none of the
+            # classification controls. The map still shows the author's paint.
             initial = page.evaluate(_READ_FILL)
-            assert initial["mode"] == "feature", initial
-            assert initial["featureAvailable"] is True, initial
-            assert initial["featureDisabled"] is True, initial
-            assert initial["featureLabel"] == _ORIGINAL, initial
+            assert initial["mode"] == "original", initial
+            assert initial["originalAvailable"] is True, initial
+            assert initial["originalDisabled"] is False, initial
+            assert initial["originalLabel"] == _ORIGINAL, initial
             assert initial["note"] == _NOTE, initial
             assert initial["column"] == "score", initial
+            assert initial["count"] == "—", initial
             assert initial["caption"] == "Original · continuous", initial
-            assert initial["stripBlocks"] == 64, initial
-            assert initial["stripHeight"] > 0, initial
+            assert initial["colorsLabel"] == "Original · continuous", initial
+            assert initial["gradient"].startswith("linear-gradient(90deg,"), initial
+            # A continuous scale is sampled down to a readable number of stops
+            # instead of one DOM block per color.
+            assert 2 <= initial["stops"] <= 12, initial
+            # The read-only detail holds nothing to operate.
+            assert initial["detailSelects"] == 0, initial
+            assert initial["detailComboboxes"] == 0, initial
+            assert initial["detailFocusable"] == 0, initial
+            assert len(initial["rows"]) == 3, initial
+            assert all("foliplus-form-row" in row for row in initial["rows"]), initial
             assert initial["hasField"] is False, initial
             assert initial["hasMethod"] is False, initial
             assert initial["hasClasses"] is False, initial
@@ -131,15 +146,14 @@ class TestFillAuthorBrowser:
                 f"the map did not paint per-feature author colors: {initial}"
             )
 
-            # The original-colors entry is the state, not a choice: activating
-            # it must not write an intent or repaint the map.
-            feature_result = page.evaluate(_ARM, {"feature": True})
-            assert feature_result["ok"], f"feature entry click failed: {feature_result}"
+            # Activating the arm it is already in writes nothing and repaints
+            # nothing: it is a stored choice, not a state change.
+            page.evaluate(_ARM, {"original": True})
             page.wait_for_timeout(300)
             unchanged = page.evaluate(_READ_FILL)
-            assert unchanged["mode"] == "feature", unchanged
+            assert unchanged["mode"] == "original", unchanged
             assert unchanged["fills"] == initial["fills"], (
-                f"activating the original-colors entry repainted the map: {unchanged}"
+                f"activating the original-colors arm repainted the map: {unchanged}"
             )
 
             # Choosing the solid arm takes the fill over with one color.
@@ -154,20 +168,52 @@ class TestFillAuthorBrowser:
             )
             assert taken["fills"] != initial["fills"], taken
 
-            # Reset returns the author's per-feature paint and the read-only
-            # state, with no classification rows.
+            # The arm is offered again — the stored state, not a one-way door —
+            # and picking it puts the author's own colors back on the map.
+            assert taken["originalAvailable"] is True, taken
+            page.evaluate(_ARM, {"original": True})
+            page.wait_for_timeout(300)
+            back = page.evaluate(_READ_FILL)
+            assert back["mode"] == "original", back
+            assert back["fills"] == initial["fills"], (
+                f"the original-colors arm did not restore the author colors: {back}"
+            )
+            assert back["hasSwatch"] is False, back
+
+            # Reset returns the same state from the other direction.
+            page.evaluate(_ARM, {"solid": True})
+            page.wait_for_timeout(300)
             page.evaluate(_ARM, {"reset": True})
             page.wait_for_timeout(300)
-            page.evaluate(_js("LayerControl/open_panel"))
-            reopened = page.evaluate(_ARM)
-            assert reopened["ok"], f"style panel did not reopen: {reopened}"
-            page.wait_for_selector(
-                ".foliplus-layer-style-panel", state="visible", timeout=5000
-            )
+            _open_style_panel(page)
             restored = page.evaluate(_READ_FILL)
-            assert restored["mode"] == "feature", restored
+            assert restored["mode"] == "original", restored
             assert restored["fills"] == initial["fills"], (
                 f"Reset did not restore the author colors: {restored}"
             )
-            assert restored["hasScheme"] is False, restored
+            assert not errors, f"JS errors: {errors}"
+
+    def test_narrow_panel_does_not_overflow(self, browser, tmp_path):
+        """The read-only rows fit the 380px panel the user saw them in."""
+        with use_page(_make_page, browser, tmp_path) as (page, errors):
+            page.set_viewport_size({"width": 380, "height": 900})
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl .foliplus-toggle-btn",
+                state="attached",
+                timeout=10000,
+            )
+            page.evaluate(_js("LayerControl/open_panel"))
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            panel_ready(page)
+            _open_style_panel(page)
+
+            narrow = page.evaluate(_READ_FILL)
+            assert narrow["mode"] == "original", narrow
+            assert narrow["panelScroll"] <= 0, narrow
+            assert narrow["boxRightMax"] <= narrow["panelRight"], narrow
+            assert narrow["stops"] >= 2, narrow
             assert not errors, f"JS errors: {errors}"

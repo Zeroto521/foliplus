@@ -17,6 +17,10 @@ import {
 } from "#foliplus/LayerControl/ui/style/fill.js";
 import { closeStylePanel } from "#foliplus/LayerControl/ui/style/index.js";
 import {
+  MAX_STOPS,
+  originalGradient,
+} from "#foliplus/LayerControl/ui/style/originalColors.js";
+import {
   FACE,
   dropStyleDimApplies,
   flushStyleDimApply,
@@ -2456,7 +2460,7 @@ const modeSelect = (block: HTMLElement): HTMLSelectElement =>
 const details = (block: HTMLElement): HTMLElement =>
   block.querySelector(`.${CONST.CLASSES.STYLE_FILL_DETAIL}`) as HTMLElement;
 
-const switchMode = (block: HTMLElement, mode: "solid" | "ramp"): void => {
+const switchMode = (block: HTMLElement, mode: "solid" | "ramp" | "original"): void => {
   const select = modeSelect(block);
   select.value = mode;
   select.dispatchEvent(new Event("change", { bubbles: true }));
@@ -2750,109 +2754,269 @@ describe("fill row — original colors", () => {
     vi.unstubAllGlobals();
   });
 
+  const selector = (name: string): string => "." + name;
+
   const blockOf = (ui: LayerUI): HTMLElement => {
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
-    return item.querySelector(`.${CONST.CLASSES.STYLE_FILL_BLOCK}`) as HTMLElement;
+    return item.querySelector(selector(CONST.CLASSES.STYLE_FILL_BLOCK)) as HTMLElement;
   };
 
-  const captionOf = (row: HTMLElement): string =>
+  const boxOf = (row: HTMLElement, name: string): HTMLElement =>
+    details(row).querySelector(selector(name)) as HTMLElement;
+
+  const colorsBoxOf = (row: HTMLElement): HTMLElement =>
+    boxOf(row, CONST.CLASSES.STYLE_FILL_ORIGINAL_COLORS);
+
+  const stripOf = (row: HTMLElement): HTMLElement =>
+    boxOf(row, CONST.CLASSES.STYLE_FILL_ORIGINAL_STRIP);
+
+  const readoutOf = (row: HTMLElement, name: string): string =>
     (
-      details(row).querySelector(
-        `.${CONST.CLASSES.STYLE_FILL_ORIGINAL_CAPTION}`,
+      boxOf(row, name).querySelector(
+        selector(CONST.CLASSES.STYLE_FILL_ORIGINAL_VALUE),
       ) as HTMLElement
-    ).textContent;
+    ).textContent as string;
 
-  it("opens on the original colors and offers no classification rows", () => {
+  const labelsOf = (row: HTMLElement): (string | null)[] =>
+    [...details(row).children].map(
+      child => (child.querySelector(".foliplus-form-label") as HTMLElement).textContent,
+    );
+
+  /** Stops a gradient carries: every stop names two positions. */
+  const countStops = (gradient: string): number =>
+    (gradient.match(/%/g) ?? []).length / 2;
+
+  it("opens on the author's colors and offers the arm as a choice", () => {
     const { ui, layer } = initWithAuthorScale();
     const row = blockOf(ui);
     const select = modeSelect(row);
-    const featureOption = select.querySelector(
-      'option[value="feature"]',
-    ) as HTMLOptionElement;
+    const option = select.querySelector(
+      'option[value="original"]',
+    ) as HTMLOptionElement | null;
 
-    expect(select.value).toBe("feature");
-    // A detected state, not a choice: named by its own option, disabled so
-    // the menu cannot return to it.
-    expect(featureOption.disabled).toBe(true);
-    expect(featureOption.textContent).toBe("LayerControl.style_fill_per_feature");
-    // The detail names the column the author drew and shows the strip. None of
-    // the classification controls render: Method/Classes/Scheme belong to the
-    // user's own ramp, and rendering them here is what squeezed a 43-color
-    // palette into the panel's 2-9 class vocabulary.
-    expect(
-      details(row).querySelector(`.${CONST.CLASSES.STYLE_FILL_FIELD_SELECT}`),
-    ).toBeNull();
-    expect(
-      details(row).querySelector(`.${CONST.CLASSES.STYLE_FILL_METHOD_SELECT}`),
-    ).toBeNull();
-    expect(
-      details(row).querySelector(`.${CONST.CLASSES.STYLE_FILL_CLASSES_SELECT}`),
-    ).toBeNull();
-    expect(
-      details(row).querySelector(`.${CONST.CLASSES.STYLE_FILL_SCHEME_TRIGGER}`),
-    ).toBeNull();
-    expect(
-      (
-        details(row).querySelector(
-          `.${CONST.CLASSES.STYLE_FILL_ORIGINAL_COLUMN}`,
-        ) as HTMLElement
-      ).textContent,
-    ).toBe("score");
-    const strip = details(row).querySelector(
-      `.${CONST.CLASSES.STYLE_FILL_ORIGINAL_STRIP}`,
-    ) as HTMLElement;
-    expect(strip.children.length).toBe(3);
-    expect((strip.children[0] as HTMLElement).style.background).toBe("rgb(13, 8, 135)");
-    expect(captionOf(row)).toBe("LayerControl.style_fill_original_continuous");
+    // The state a layer opens in is still the author's own paint...
+    expect(select.value).toBe("original");
+    // ...and it is now a state the user can come back to, so its option is a
+    // real option, named like the arm it selects.
+    expect(option).not.toBeNull();
+    expect(option!.disabled).toBe(false);
+    expect(option!.textContent).toBe("LayerControl.style_fill_per_feature");
     // Opening writes no intent: the map keeps the author's own paint until the
-    // user edits a fill control.
-    for (const leaf of layer.leaves) expect(leaf.setStyle).not.toHaveBeenCalled();
-  });
-
-  it("activating the read-only entry writes nothing and keeps the state", () => {
-    const { ui, layer } = initWithAuthorScale();
-    const row = blockOf(ui);
-    const select = modeSelect(row);
-
-    // The entry is disabled, so a programmatic value write plus a change event
-    // is the strongest form of "the user tried it": the no-op is proven
-    // against the state, not against the menu.
-    select.value = "feature";
-    select.dispatchEvent(new Event("change", { bubbles: true }));
-
-    expect(select.value).toBe("feature");
-    expect(select.querySelector('option[value="feature"]')).not.toBeNull();
+    // user picks an arm.
     expect(getIntent(ui, "overlay1", "fillMode")).toBeUndefined();
-    expect(getIntent(ui, "overlay1", "fillColor")).toBeUndefined();
     for (const leaf of layer.leaves) expect(leaf.setStyle).not.toHaveBeenCalled();
   });
 
-  it("describes the strip by what the author drew", () => {
+  it("puts every readout on the by-value arm's row grid", () => {
+    const { ui } = initWithAuthorScale();
+    const row = blockOf(ui);
+    const children = [...details(row).children];
+
+    // One FORM_ROW per readout. The raw strip and caption divs are gone — they
+    // escaped the label/control grid and are what overflowed the panel.
+    expect(children.length).toBe(3);
+    for (const child of children) {
+      expect(child.classList.contains("foliplus-form-row")).toBe(true);
+      expect(child.querySelector(".foliplus-form-label")).not.toBeNull();
+      expect(child.querySelector(".foliplus-form-control")).not.toBeNull();
+    }
+    expect(labelsOf(row)).toEqual([
+      "LayerControl.style_fill_field",
+      "LayerControl.style_fill_scheme",
+      "LayerControl.style_fill_classes",
+    ]);
+    // The strip lives inside a row's control cell, never directly in the
+    // detail slot.
+    const strip = stripOf(row);
+    expect(strip.closest(".foliplus-form-row")).not.toBeNull();
+    expect(strip.parentElement).toBe(colorsBoxOf(row));
+    expect(colorsBoxOf(row).classList.contains(CONST.CLASSES.STYLE_FILL_READONLY)).toBe(
+      true,
+    );
+  });
+
+  it("states the column, the colors and the count as readouts", () => {
+    const { ui } = initWithAuthorScale({
+      stops: ["#0d0887", "#6a00a8", "#b12a90"],
+      scale: { kind: "stepped", column: "score", vmin: 10, vmax: 30, levels: 3 },
+    });
+    const row = blockOf(ui);
+
+    expect(readoutOf(row, CONST.CLASSES.STYLE_FILL_ORIGINAL_COLUMN)).toBe("score");
+    expect(readoutOf(row, CONST.CLASSES.STYLE_FILL_ORIGINAL_COUNT)).toBe("3");
+    // The caption moved from a line of its own onto the colors box: the panel
+    // stays three rows tall and the sentence is still reachable.
+    expect(colorsBoxOf(row).title).toBe("LayerControl.style_fill_original_levels");
+    expect(colorsBoxOf(row).getAttribute("aria-label")).toBe(
+      "LayerControl.style_fill_original_levels",
+    );
+  });
+
+  it("offers nothing interactive in the read-only detail", () => {
+    const { ui } = initWithAuthorScale();
+    const detail = details(blockOf(ui));
+
+    expect(detail.querySelector("select")).toBeNull();
+    expect(detail.querySelector("input")).toBeNull();
+    expect(detail.querySelector('[role="combobox"]')).toBeNull();
+    expect(detail.querySelector("[tabindex]")).toBeNull();
+    const boxes = [
+      ...detail.querySelectorAll(selector(CONST.CLASSES.STYLE_FILL_READONLY)),
+    ];
+    expect(boxes.length).toBe(3);
+    for (const box of boxes) {
+      expect(box.getAttribute("aria-disabled")).toBe("true");
+    }
+  });
+
+  it("names the colors by what the author drew", () => {
     const stepped = initWithAuthorScale({
       scale: { kind: "stepped", column: "score", vmin: 10, vmax: 30, levels: 5 },
     });
-    expect(captionOf(blockOf(stepped.ui))).toBe(
+    expect(colorsBoxOf(blockOf(stepped.ui)).title).toBe(
       "LayerControl.style_fill_original_levels",
     );
-    const fallback = initWithAuthorScale({ scale: null });
-    expect(captionOf(blockOf(fallback.ui))).toBe(
+
+    // A continuous scale has no count to state: the number row says so.
+    const continuous = initWithAuthorScale();
+    expect(
+      readoutOf(blockOf(continuous.ui), CONST.CLASSES.STYLE_FILL_ORIGINAL_COUNT),
+    ).toBe("—");
+    expect(colorsBoxOf(blockOf(continuous.ui)).title).toBe(
+      "LayerControl.style_fill_original_continuous",
+    );
+
+    const fallback = initWithAuthorScale({ scale: null, distinct: 64, capped: true });
+    expect(colorsBoxOf(blockOf(fallback.ui)).title).toBe(
       "LayerControl.style_fill_original_colors",
     );
+    expect(
+      readoutOf(blockOf(fallback.ui), CONST.CLASSES.STYLE_FILL_ORIGINAL_COUNT),
+    ).toBe("64+");
   });
 
-  it("draws the strip without a field row when the caption named no column", () => {
+  it("keeps the author's scale order in the gradient", () => {
+    const { ui } = initWithAuthorScale({
+      stops: ["#0d0887", "#6a00a8", "#b12a90"],
+    });
+    const gradient = stripOf(blockOf(ui)).style.background;
+
+    expect(gradient.startsWith("linear-gradient(90deg,")).toBe(true);
+    // Author order, first color at 0% and last at 100%: the bar is the
+    // author's ramp, not a re-sorted set.
+    expect(gradient).toContain("rgb(13, 8, 135) 0.00%");
+    expect(gradient).toContain("rgb(177, 42, 144) 100.00%");
+    const first = gradient.indexOf("rgb(13, 8, 135)");
+    const middle = gradient.indexOf("rgb(106, 0, 168)");
+    const last = gradient.indexOf("rgb(177, 42, 144)");
+    expect(first).toBeGreaterThan(-1);
+    expect(middle).toBeGreaterThan(first);
+    expect(last).toBeGreaterThan(middle);
+  });
+
+  it("draws a stepped scale as hard bands", () => {
+    const { ui } = initWithAuthorScale({
+      stops: ["#0d0887", "#6a00a8", "#b12a90"],
+      scale: { kind: "stepped", column: "score", vmin: 10, vmax: 30, levels: 3 },
+    });
+    const gradient = stripOf(blockOf(ui)).style.background;
+
+    // Each color owns an equal slice: a band edge repeats the color's position
+    // instead of interpolating across it.
+    expect(gradient).toContain("rgb(13, 8, 135) 0.00% 33.33%");
+    expect(gradient).toContain("rgb(106, 0, 168) 33.33% 66.67%");
+    expect(gradient).toContain("rgb(177, 42, 144) 66.67% 100.00%");
+  });
+
+  it("ranks a categorical layer deterministically and samples it down", () => {
+    const colors = [
+      "#2ca25f",
+      "#99d8c9",
+      "#c51b8a",
+      "#f768a1",
+      "#41b6c4",
+      "#253494",
+      "lightgrey",
+      "#ffffcc",
+      "#a1dab4",
+      "#fe9929",
+      "#d95f0e",
+      "#993404",
+      "#5ab4ac",
+      "#01665e",
+      "#c7e9b4",
+      "#7fcdbb",
+      "#edf8b1",
+      "#e34a33",
+      "#b30000",
+      "#045a8d",
+    ];
+    const first = initWithAuthorScale({
+      stops: colors,
+      scale: null,
+      distinct: 20,
+      capped: true,
+    });
+    const second = initWithAuthorScale({
+      stops: colors,
+      scale: null,
+      distinct: 20,
+      capped: true,
+    });
+
+    // The same color set paints the same bar on every render: the order is a
+    // function of the colors, never of the feature order they were found in.
+    expect(stripOf(blockOf(first.ui)).style.background).toBe(
+      stripOf(blockOf(second.ui)).style.background,
+    );
+    // 64+ colors are sampled down instead of flooding the control column with
+    // blocks, and the real count stays stated on the box.
+    const gradient = originalGradient(colors, null);
+    expect(gradient).toBe(originalGradient(colors, null));
+    expect(countStops(gradient)).toBeGreaterThan(1);
+    expect(countStops(gradient)).toBeLessThanOrEqual(MAX_STOPS);
+    // A CSS keyword the author's missing_kwds declared stays verbatim.
+    expect(originalGradient(["#000000", "lightgrey"], null)).toContain("lightgrey");
+  });
+
+  it("ranks every color notation it understands, and keeps the rest stable", () => {
+    // Hex, alpha hex, rgb() with channels and with percentages all rank by
+    // hue; a notation it cannot read (a CSS keyword, an hsl() function) still
+    // produces one deterministic bar instead of dropping the color.
+    const stops = [
+      "rgb(255, 0, 0)",
+      "rgb(100% 0% 0%)",
+      "#00ff00",
+      "#0000ffcc",
+      "hsl(240 100% 50%)",
+      "#12",
+    ];
+    const first = originalGradient(stops, null);
+    expect(first).toBe(originalGradient(stops, null));
+    // Verbatim: every stop the author declared survives into the bar.
+    for (const stop of ["rgb(255, 0, 0)", "rgb(100% 0% 0%)", "hsl(240 100% 50%)"]) {
+      expect(first).toContain(stop);
+    }
+    // Nothing to draw and a single color cannot make a gradient: the bar is
+    // empty and the one color, not a broken linear-gradient.
+    expect(originalGradient([], null)).toBe("");
+    expect(originalGradient(["#123456"], null)).toBe("#123456");
+  });
+
+  it("draws the colors without a field row when the scale named no column", () => {
     const { ui } = initWithAuthorScale({
       scale: { kind: "continuous", vmin: 10, vmax: 30 },
     });
     const row = blockOf(ui);
 
     // A scale the author could not be paired with still has the real colors,
-    // so the strip renders; the panel must not invent a field name.
-    expect(
-      details(row).querySelector(`.${CONST.CLASSES.STYLE_FILL_ORIGINAL_COLUMN}`),
-    ).toBeNull();
-    expect(captionOf(row)).toBe("LayerControl.style_fill_original_continuous");
+    // so the bar renders; the panel must not invent a field name.
+    expect(boxOf(row, CONST.CLASSES.STYLE_FILL_ORIGINAL_COLUMN)).toBeNull();
+    expect(labelsOf(row)).toEqual([
+      "LayerControl.style_fill_scheme",
+      "LayerControl.style_fill_classes",
+    ]);
   });
 
   it("seeds the by-value arm with the shared defaults", () => {
@@ -2874,10 +3038,12 @@ describe("fill row — original colors", () => {
       classes: CLASS_COUNT.DEFAULT,
       scheme: "Viridis",
     });
-    expect(select.querySelector('option[value="feature"]')).toBeNull();
+    // The original arm stays offered: it is a state the user can return to.
+    expect(select.value).toBe("ramp");
+    expect(select.querySelector('option[value="original"]')).not.toBeNull();
     // The ramp detail is the user's classification now.
     expect(
-      details(row).querySelector(`.${CONST.CLASSES.STYLE_FILL_METHOD_SELECT}`),
+      details(row).querySelector(selector(CONST.CLASSES.STYLE_FILL_METHOD_SELECT)),
     ).not.toBeNull();
   });
 
@@ -2936,8 +3102,9 @@ describe("fill row — original colors", () => {
     ui.runtimeStore.setFields("overlay1", []);
 
     const select = modeSelect(blockOf(ui));
-    expect(select.value).toBe("feature");
+    expect(select.value).toBe("original");
     expect(select.querySelector('option[value="ramp"]')).toBeNull();
+    expect(select.querySelector('option[value="original"]')).not.toBeNull();
   });
 
   it("keeps the original colors when only the opacity was overridden", () => {
@@ -2946,17 +3113,22 @@ describe("fill row — original colors", () => {
 
     // The author's per-feature colors are still what the layer paints; only a
     // fill mode intent takes the arm over.
-    expect(modeSelect(blockOf(ui)).value).toBe("feature");
+    expect(modeSelect(blockOf(ui)).value).toBe("original");
   });
 
-  it("yields the row once a mode intent exists", () => {
+  it("shows the stored arm but keeps the original one offered", () => {
     const { ui } = initWithAuthorScale();
     setIntent(ui, "overlay1", "fillMode", "solid");
 
     const row = blockOf(ui);
-    expect(modeSelect(row).value).toBe("solid");
-    expect(row.querySelector(".foliplus-style-fill-color-input")).not.toBeNull();
+    const select = modeSelect(row);
+    expect(select.value).toBe("solid");
+    expect(select.querySelector('option[value="original"]')).not.toBeNull();
+    expect(
+      row.querySelector(selector(CONST.CLASSES.STYLE_FILL_COLOR_INPUT)),
+    ).not.toBeNull();
   });
+
   it("switching from the original colors to solid seeds and paints one color", () => {
     const { ui, layer } = initWithAuthorScale();
     const row = blockOf(ui);
@@ -2973,6 +3145,36 @@ describe("fill row — original colors", () => {
         fill: true,
       });
     }
+  });
+
+  it("switching back to the original colors releases the override", () => {
+    const { ui, layer } = initWithAuthorScale();
+    const row = blockOf(ui);
+    const select = modeSelect(row);
+
+    select.value = "solid";
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+    flushStyleDimApply(FACE.FILL, "overlay1");
+
+    select.value = "original";
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+    flushStyleDimApply(FACE.FILL, "overlay1");
+
+    // The mode is stored — the choice survives a reload — and the map paints
+    // each leaf's own author color again, not the single one.
+    expect(getIntent(ui, "overlay1", "fillMode")).toBe("original");
+    expect(layer.leaves[0].setStyle).toHaveBeenLastCalledWith({
+      fillColor: "#0d0887",
+      fillOpacity: 0.5,
+      fill: true,
+    });
+    expect(layer.leaves[1].setStyle).toHaveBeenLastCalledWith({
+      fillColor: "#6a00a8",
+      fillOpacity: 0.5,
+      fill: true,
+    });
+    // Back in the read-only detail: no classification control renders.
+    expect(details(row).querySelector("select")).toBeNull();
   });
 });
 describe("fill ramp persistence and reset", () => {
@@ -3105,27 +3307,28 @@ describe("content-change replay", () => {
   });
 });
 
-describe("fill row — per-feature state", () => {
+describe("fill row — original colors option", () => {
   afterEach(() => {
     document.body.innerHTML = "";
     vi.clearAllMocks();
   });
 
   const modeSelect = (row: HTMLElement): HTMLSelectElement =>
-    row.querySelector(`.${CONST.CLASSES.STYLE_FILL_MODE_SELECT}`) as HTMLSelectElement;
+    row.querySelector("." + CONST.CLASSES.STYLE_FILL_MODE_SELECT) as HTMLSelectElement;
 
-  it("shows the detected per-feature state instead of one swatch", () => {
+  it("offers the original colors beside the other arms", () => {
     const { ui } = initWithPerFeatureLayer();
     const row = buildFillRow(ui, "feature1");
     const select = modeSelect(row);
-
-    expect(select.value).toBe("feature");
-    // Detected, not chosen: present so the row can name its state, disabled so
-    // the menu cannot return to it (Reset is the way back).
-    const featureOption = select.querySelector(
-      'option[value="feature"]',
+    const option = select.querySelector(
+      'option[value="original"]',
     ) as HTMLOptionElement;
-    expect(featureOption.disabled).toBe(true);
+
+    // The state the layer opens in, now offered as a real option: the author's
+    // colors can be left and come back to.
+    expect(select.value).toBe("original");
+    expect(option.disabled).toBe(false);
+    expect(option.textContent).toBe("LayerControl.style_fill_per_feature");
     expect(select.querySelector('option[value="solid"]')).not.toBeNull();
     expect(select.querySelector('option[value="ramp"]')).not.toBeNull();
     // The explanation is a tooltip on the control, not a paragraph in the
@@ -3135,8 +3338,8 @@ describe("fill row — per-feature state", () => {
     expect(select.getAttribute("aria-description")).toBe(
       "LayerControl.style_fill_per_feature_note",
     );
-    expect(featureOption.title).toBe("LayerControl.style_fill_per_feature_note");
-    expect(row.querySelector(`.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`)).toBeNull();
+    expect(option.title).toBe("LayerControl.style_fill_per_feature_note");
+    expect(row.querySelector("." + CONST.CLASSES.STYLE_FILL_COLOR_INPUT)).toBeNull();
   });
 
   it("keeps the solid arm when the leaves share one color", () => {
@@ -3147,7 +3350,7 @@ describe("fill row — per-feature state", () => {
     const select = modeSelect(buildFillRow(ui, "feature1"));
 
     expect(select.value).toBe("solid");
-    expect(select.querySelector('option[value="feature"]')).toBeNull();
+    expect(select.querySelector('option[value="original"]')).toBeNull();
   });
 
   it("keeps the solid arm for a layer without the explore color property", () => {
@@ -3159,16 +3362,17 @@ describe("fill row — per-feature state", () => {
     const select = modeSelect(buildFillRow(ui, "feature1"));
 
     expect(select.value).toBe("solid");
-    expect(select.querySelector('option[value="feature"]')).toBeNull();
+    expect(select.querySelector('option[value="original"]')).toBeNull();
   });
 
-  it("yields to the user's fill intent", () => {
+  it("keeps the original colors offered after the user chose solid", () => {
     const { ui } = initWithPerFeatureLayer();
     setIntent(ui, "feature1", "fillMode", "solid");
     const select = modeSelect(buildFillRow(ui, "feature1"));
 
     expect(select.value).toBe("solid");
-    expect(select.querySelector('option[value="feature"]')).toBeNull();
+    // The way back: the arm is still on the layer, so the option stays.
+    expect(select.querySelector('option[value="original"]')).not.toBeNull();
   });
 
   it("does not offer the state for an empty layer", () => {
@@ -3176,7 +3380,7 @@ describe("fill row — per-feature state", () => {
     const select = modeSelect(buildFillRow(ui, "feature1"));
 
     expect(select.value).toBe("solid");
-    expect(select.querySelector('option[value="feature"]')).toBeNull();
+    expect(select.querySelector('option[value="original"]')).toBeNull();
   });
 
   it("choosing solid takes the paint over and binds the swatch", () => {
@@ -3191,9 +3395,9 @@ describe("fill row — per-feature state", () => {
     flushStyleDimApply(FACE.FILL, "feature1");
 
     expect(getIntent(ui, "feature1", "fillMode")).toBe("solid");
-    expect(select.querySelector('option[value="feature"]')).toBeNull();
+    expect(select.querySelector('option[value="original"]')).not.toBeNull();
     expect(
-      row.querySelector(`.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`),
+      row.querySelector("." + CONST.CLASSES.STYLE_FILL_COLOR_INPUT),
     ).not.toBeNull();
     // The choice must also reach the map: seeded from the swatch base, so the
     // row and the paint agree instead of claiming one color for many.
@@ -3208,7 +3412,45 @@ describe("fill row — per-feature state", () => {
     });
   });
 
-  it("reset restores every leaf's own author color and the detected state", () => {
+  it("choosing the original colors back stores the choice and repaints", () => {
+    const { ui, layer } = initWithPerFeatureLayer();
+    const row = buildFillRow(ui, "feature1");
+    document.body.append(row);
+    bindFillRow(ui, "feature1", row);
+    const select = modeSelect(row);
+
+    select.value = "solid";
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+    flushStyleDimApply(FACE.FILL, "feature1");
+    for (const leaf of layer.leaves as Array<{ setStyle: { mockClear: () => void } }>) {
+      leaf.setStyle.mockClear();
+    }
+
+    select.value = "original";
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+    flushStyleDimApply(FACE.FILL, "feature1");
+
+    // The arm is stored, so it survives a reload and a mode switch in either
+    // direction; the map goes back to each leaf's own author color.
+    expect(getIntent(ui, "feature1", "fillMode")).toBe("original");
+    expect(layer.leaves[0].setStyle).toHaveBeenLastCalledWith({
+      fillColor: "#0d0887",
+      fillOpacity: 0.5,
+      fill: true,
+    });
+    expect(layer.leaves[1].setStyle).toHaveBeenLastCalledWith({
+      fillColor: "#f0f921",
+      fillOpacity: 0.5,
+      fill: true,
+    });
+    // The read-only detail is back and holds nothing to operate.
+    const detail = row.querySelector(
+      "." + CONST.CLASSES.STYLE_FILL_DETAIL,
+    ) as HTMLElement;
+    expect(detail.querySelector("select")).toBeNull();
+  });
+
+  it("reset restores every leaf's own author color and the original arm", () => {
     const { ui, layer } = initWithPerFeatureLayer();
     commitNow(ui, "feature1", "color", "#ff0000");
     expect(layer.leaves[0].setStyle).toHaveBeenLastCalledWith({
@@ -3229,7 +3471,7 @@ describe("fill row — per-feature state", () => {
       fillOpacity: 0.5,
       fill: true,
     });
-    expect(modeSelect(buildFillRow(ui, "feature1")).value).toBe("feature");
+    expect(modeSelect(buildFillRow(ui, "feature1")).value).toBe("original");
   });
 
   it("reset falls back to the leaf bag when a feature lost the property", () => {

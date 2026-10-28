@@ -27,6 +27,15 @@ type FillRampConfig = {
   scheme: string;
 };
 
+/** The fill arms the user can choose between, one vocabulary for the row, the
+ *  intent and the resolver.
+ *
+ *  "original" is the layer author's own per-feature paint: a real choice on a
+ *  geopandas explore layer (it can be left and come back to), and an invalid
+ *  one everywhere else — the row offers it only while the author's record still
+ *  paints per feature, and a stored value on any other layer reads as solid. */
+type FillMode = "solid" | "ramp" | "original";
+
 /** Whether a value is a ramp config this client can build: the four fields
  *  the classifier needs, each inside the bounds the picker offers. The
  *  persistence reader and the LIVE presence rule share this one predicate,
@@ -134,9 +143,10 @@ type LayerIntent = {
   /** The value-based fill config when the layer is painted by a field.
    *  Kept when the active arm is solid — the mode switch back restores it. */
   fillRamp?: FillRampConfig;
-  /** Which fill arm the user chose: a single colour or a value ramp.
-   *  Absent means solid — the arm that predates the ramp. */
-  fillMode?: "solid" | "ramp";
+  /** Which fill arm the user chose: a single color, a value ramp, or the
+   *  layer author's own per-feature colors. Absent means solid — the arm that
+   *  predates the ramp. */
+  fillMode?: FillMode;
   borderColor?: string;
   borderWeight?: number;
   opacity?: number;
@@ -166,9 +176,9 @@ type PersistedLayerState = {
    *  scheme). The ramp arm owns the colour; solid-mode opacity still rides
    *  along, so the two arms share one fillOpacity override. */
   fillRamp?: FillRampConfig;
-  /** Which fill arm is active ("solid" | "ramp"); the inactive config is
-   *  kept rather than cleared so a switch back restores it. */
-  fillMode?: "solid" | "ramp";
+  /** Which fill arm is active ("solid" | "ramp" | "original"); the inactive
+   *  config is kept rather than cleared so a switch back restores it. */
+  fillMode?: FillMode;
   /** The hex stroke color the user picked in the style panel. LayerControl
    *  owns the write (a self-managed dimension — see ui/style/border.ts), so
    *  it lives in this record rather than on the annotation config. */
@@ -244,7 +254,8 @@ const LIVE: Record<IntentKey, (value: unknown) => boolean> = {
   [INTENT.FILL_COLOR]: value => typeof value === "string",
   [INTENT.FILL_OPACITY]: value => typeof value === "number",
   [INTENT.FILL_RAMP]: isFillRampConfig,
-  [INTENT.FILL_MODE]: value => value === "solid" || value === "ramp",
+  [INTENT.FILL_MODE]: value =>
+    value === "solid" || value === "ramp" || value === "original",
   [INTENT.BORDER_COLOR]: value => typeof value === "string",
   [INTENT.BORDER_WEIGHT]: value => typeof value === "number",
   [INTENT.OPACITY]: value => typeof value === "number",
@@ -278,6 +289,7 @@ const STYLE_KEYS = {
 export { INTENT, isFillRampConfig, LIVE, STYLE_KEYS };
 export type {
   AnnotationConfig,
+  FillMode,
   FillRampConfig,
   IntentKey,
   IntentRow,

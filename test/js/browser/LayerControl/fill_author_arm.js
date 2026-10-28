@@ -1,15 +1,13 @@
-// Act on the Facility Points row's style panel: open it (default), try to
-// activate the read-only original-colors entry, switch to the solid arm so the
-// caller can assert the take-over repainted the map, or click Reset so the
-// caller can assert the author's own paint came back.
+// Act on the Facility Points fill row's style panel: open it (default), pick
+// the original-colors arm, switch to the solid arm so the caller can assert
+// the take-over repainted the map, or click Reset so the caller can assert the
+// author's own paint came back.
 arg => {
-  const { solid = false, reset = false, feature = false } = arg ?? {};
+  const { solid = false, reset = false, original = false } = arg ?? {};
   const select = document.querySelector(".foliplus-style-fill-mode-select");
-  if (feature) {
+  if (original) {
     if (!select) return { ok: false, reason: "no-mode-select" };
-    select.value = "feature";
-    // The entry is disabled: a programmatic value write plus a change event is
-    // the strongest form of "the user tried it", so the no-op is proven.
+    select.value = "original";
     select.dispatchEvent(new Event("change", { bubbles: true }));
     return { ok: true };
   }

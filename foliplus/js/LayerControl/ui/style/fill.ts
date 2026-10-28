@@ -24,7 +24,7 @@ import { numericPropertiesKeys, resolveField } from "#core/field.js";
 import { fullscreenSurface, onFullscreenSurfaceChange } from "#core/fullscreen.js";
 import { readFeatureFillColors } from "#core/layer/authorFill.js";
 import { CAP_TIER, DIM, type LayerInfo, ROLE } from "#core/layer/index.js";
-import type { FillRampConfig, LayerOverride } from "#core/layer/intent.js";
+import type { FillMode, FillRampConfig, LayerOverride } from "#core/layer/intent.js";
 import { DEFAULT_SCHEMES, getColorScale } from "#core/palette.js";
 import { buildClassesRow, buildFieldRow, buildSchemeRow } from "#core/rampForm.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
@@ -44,6 +44,7 @@ import { INTENT, type IntentKey, getIntent } from "../intent.js";
 import type { LayerUI } from "../surface.js";
 import { applyRampToLayer, resolveFillMode } from "./fillRamp.js";
 import { layerFields } from "./label.js";
+import { originalGradient } from "./originalColors.js";
 import { pinStyleOnHighlight } from "./pin.js";
 import {
   getDimension,
@@ -153,13 +154,14 @@ const VISIBLE_FILL_OPACITY = 0.2;
 const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
   const layerInfo = ui.c.layerRegistry.get(layerId);
 
-  // Arm selection goes through the shared resolver: an absent mode is solid,
-  // and a ramp config with no explicit mode is the pre-fillMode record shape,
-  // so the config's presence alone means "paint by value". The solid arm never
-  // reads fillRamp — the two arms are mutually exclusive on apply, even though
-  // both configs stay stored (a mode switch back must restore the other arm).
+  // Arm selection goes through the panel's resolver: an absent mode is solid,
+  // a ramp config with no explicit mode is the pre-fillMode record shape (so
+  // the config's presence alone means "paint by value"), and an explore layer
+  // with neither is in the author's own original colors. The arms are mutually
+  // exclusive on apply, even though every config stays stored (a mode switch
+  // back must restore the other arm).
   const ramp = getIntent(ui, layerId, INTENT.FILL_RAMP);
-  const mode = resolveFillMode(ui, layerId, ramp);
+  const mode = displayFillMode(ui, layerId);
 
   if (mode === "ramp" && ramp !== undefined) {
     // A solid-color basemap has no leaves to classify, so a ramp degrades to
@@ -174,8 +176,14 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
     return;
   }
 
-  const color = getIntent(ui, layerId, INTENT.FILL_COLOR);
-  const opacity = getIntent(ui, layerId, INTENT.FILL_OPACITY);
+  // The original-colors arm owns no fill value: the author's per-feature paint
+  // is the target, so the overrides are treated as absent and the walk below
+  // restores each leaf's captured author face. They stay in the intent record
+  // rather than being cleared, so a later switch back to solid still restores
+  // the user's color and opacity.
+  const original = mode === "original";
+  const color = original ? undefined : getIntent(ui, layerId, INTENT.FILL_COLOR);
+  const opacity = original ? undefined : getIntent(ui, layerId, INTENT.FILL_OPACITY);
 
   // Solid-color basemap: the fill is the pane's paint, not a vector style.
   // Route to showSolidBasemap instead of walking leaves (the basemap has none).
@@ -236,6 +244,11 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
     // The "fill" key makes each commit replace this dimension's getter
     // instead of stacking a fresh closure.
     pinStyleOnHighlight(node, DIM.FILL, () => {
+      // The author's own colors are the paint here: folium's mouseout restore
+      // already put them back, so there is no user face to replay over it. The
+      // arm is resolved, not read off the intent, because an explore layer
+      // opens in it before any mode has been written.
+      if (displayFillMode(ui, layerId) === "original") return null;
       const c = getIntent(ui, layerId, INTENT.FILL_COLOR);
       const o = getIntent(ui, layerId, INTENT.FILL_OPACITY);
       if (c === undefined && o === undefined) return null;
@@ -310,15 +323,12 @@ const resetLayerFill = (ui: LayerUI, layerId: string): void => {
   getDimension(DIM.FILL)!.reset!(ui, layerId);
 };
 
-/** Fill mode values, one vocabulary for the select, the intent and the
- *  resolver. */
-type FillMode = "solid" | "ramp";
-
-/** What the fill row's mode select shows. "feature" is a detected state, never
- *  an intent: it is the author's own record painting the layer, offered as a
- *  read-only option so the panel cannot claim one solid color for a layer
- *  that paints many. */
-type FillDisplayMode = FillMode | "feature";
+/** What the fill row's mode select shows: the three arms of {@link FillMode}.
+ *
+ *  "original" is the author's own per-feature paint. It is a real, stored
+ *  choice on an explore layer (leave it and come back), and it is also the
+ *  state a layer opens in before any fill intent exists — so the fallback
+ *  below writes no intent of its own. */
 
 /** The author record Python computed for this layer, when it has one. */
 type AuthorFill = NonNullable<LayerInfo["fillAuthor"]>;
@@ -326,19 +336,40 @@ type AuthorFill = NonNullable<LayerInfo["fillAuthor"]>;
 const authorFill = (ui: LayerUI, layerId: string): AuthorFill | null =>
   ui.c.layerRegistry.get(layerId)?.fillAuthor ?? null;
 
-/** Does the layer paint its own fill per feature, with no user override?
+/** Does the layer paint its own fill per feature?
  *
  *  The answer is Python's: `CONFIG.data[].fillAuthor` is computed once at
  *  render time from the GeoJson features' `__folium_color` (explore output)
  *  and the colormap the author mounted on the map, so the panel never walks
- *  the layer. Any fill intent is user state and wins; a layer without the key
- *  keeps the normal single-color arms (per-feature author colors are
- *  recognised for geopandas explore layers only). A categorical author record
- *  lands in this same state — it simply has no scale to name. */
-const paintsPerFeatureFill = (ui: LayerUI, layerId: string): boolean => {
-  if (getIntent(ui, layerId, INTENT.FILL_RAMP) !== undefined) return false;
-  if (getIntent(ui, layerId, INTENT.FILL_MODE) !== undefined) return false;
-  return authorFill(ui, layerId)?.perFeature === true;
+ *  the layer. A layer without the key keeps the normal single-color arms
+ *  (per-feature author colors are recognised for geopandas explore layers
+ *  only). This is what offers the "Original colors" arm at all; whether the
+ *  layer is currently shown in it is {@link displayFillMode}'s question. */
+const paintsPerFeatureFill = (ui: LayerUI, layerId: string): boolean =>
+  authorFill(ui, layerId)?.perFeature === true;
+
+/** The arm the fill row shows and the map paints.
+ *
+ *  Only a layer the author paints per feature can be in "original": the
+ *  record is the gate, so a stored "original" on any other layer (or on a
+ *  layer whose record has since disappeared) reads as the normal arms instead
+ *  of a state the layer cannot paint. Before any fill intent exists an explore
+ *  layer opens on its author's colors without writing one — a stored ramp
+ *  config is the pre-fillMode shape of "the user already classified". */
+const displayFillMode = (ui: LayerUI, layerId: string): FillMode => {
+  const ramp = getIntent(ui, layerId, INTENT.FILL_RAMP);
+  const stored = getIntent(ui, layerId, INTENT.FILL_MODE);
+  if (!paintsPerFeatureFill(ui, layerId)) return resolveFillMode(ui, layerId, ramp);
+  if (stored !== undefined) return stored;
+  // A ramp config means the user already classified (the pre-fillMode record
+  // shape). A lone fill color means the solid arm owns the paint — that is how
+  // a record written before this arm existed still reads, and how a
+  // programmatic color write lands. Opacity alone does not move the arm: it
+  // rides both arms, and an explore layer with only an opacity override is
+  // still painting its author's colors.
+  if (ramp !== undefined) return "ramp";
+  if (getIntent(ui, layerId, INTENT.FILL_COLOR) !== undefined) return "solid";
+  return "original";
 };
 
 /** What the author's strip is, in the author's own terms.
@@ -359,52 +390,101 @@ const originalCaption = (ui: LayerUI, author: AuthorFill | null): string => {
   return ui.T("style_fill_original_colors").replace("{n}", count);
 };
 
-/** The original-color state's read-only detail: the scale's column, the
- *  author's own strip and what the strip is.
+/** What the author's record states as a count, in the same vocabulary the
+ *  caption uses: a stepped scale's own class count, a categorical layer's
+ *  distinct colors (with the "+" that marks a capped scan), and nothing at all
+ *  for a continuous scale — it has no count to state, so the row shows a dash
+ *  rather than a number the author never declared. */
+const originalCount = (author: AuthorFill | null): string => {
+  const scale = author?.scale;
+  if (scale?.kind === "stepped") {
+    return String(scale.levels ?? author?.stops.length ?? 0);
+  }
+  if (scale) return "—";
+  return `${author?.distinct ?? 0}${author?.capped ? "+" : ""}`;
+};
+
+/** One read-only readout box: the form-control frame of the arm beside it,
+ *  with no chevron, no focus and no pointer affordance. The detail states the
+ *  author's presentation, so every control in it is a readout the panel cannot
+ *  open, toggle or edit. */
+const readOnlyBox = (className: string, ...children: HTMLElement[]): HTMLElement =>
+  dom.el(
+    "div",
+    {
+      class: `${CONST.CLASSES.STYLE_FILL_READONLY} ${className}`,
+      "aria-disabled": "true",
+    },
+    ...children,
+  );
+
+/** The original-colors arm's read-only detail: the author's column, their
+ *  colors and their count — three rows on the same label/control grid the
+ *  by-value arm uses, so the readout lands on the column edge of the control
+ *  it replaces instead of spilling across the panel.
  *
- *  No Field/Method/Classes/Scheme controls. Those exist to classify data, and
- *  this arm is the author's presentation, not a user classification: rendering
- *  them here is what squeezed a 43-color palette into the panel's 2-9 class
- *  vocabulary and collapsed it to 9 on the first write. */
+ *  No select, no chevron and nothing clickable: these exist to classify data,
+ *  and this arm is the author's presentation, not a user classification.
+ *  Rendering them here is what squeezed a 43-color palette into the panel's
+ *  2-9 class vocabulary and collapsed it to 9 on the first write.
+ *
+ *  The caption the row used to print on a line of its own is now the colors
+ *  box's title and accessible name: the panel stays three rows tall and the
+ *  sentence is still reachable. */
 const buildOriginalDetail = (ui: LayerUI, layerId: string): HTMLElement[] => {
   const author = authorFill(ui, layerId);
   const rows: HTMLElement[] = [];
   // A shipped scale always names its column (it is claimed only through a
   // caption naming a numeric property), so this guard only covers a hand-built
-  // record: such a record still paints the real strip, everything but the row.
+  // record: such a record still paints the real colors, everything but the row.
   if (author?.scale?.column) {
     rows.push(
       formRow(
         ui.T("style_fill_field"),
-        dom.el(
-          "span",
-          { class: CONST.CLASSES.STYLE_FILL_ORIGINAL_COLUMN },
-          author.scale.column,
+        readOnlyBox(
+          CONST.CLASSES.STYLE_FILL_ORIGINAL_COLUMN,
+          dom.el(
+            "span",
+            { class: CONST.CLASSES.STYLE_FILL_ORIGINAL_VALUE },
+            author.scale.column,
+          ),
         ),
         CONST.CLASSES.STYLE_FILL_ROW,
       ),
     );
   }
-  const stops = author?.stops ?? [];
-  const strip = dom.el("div", {
-    class: CONST.CLASSES.STYLE_FILL_ORIGINAL_STRIP,
-  });
-  // One block per color, the same recipe the scheme picker's bars use: a
-  // stepped scale then shows its real bands instead of a smeared ramp.
-  const colors = stops.length > 0 ? stops : [CONST.COLOR.DEFAULT];
-  for (const color of colors) {
+
+  const caption = originalCaption(ui, author);
+  const colorsBox = readOnlyBox(
+    CONST.CLASSES.STYLE_FILL_ORIGINAL_COLORS,
     dom.el("div", {
-      class: CONST.CLASSES.STYLE_FILL_ORIGINAL_BLOCK,
-      style: `background:${color};width:${(100 / colors.length).toFixed(4)}%`,
-      parent: strip,
-    });
-  }
-  rows.push(strip);
+      class: CONST.CLASSES.STYLE_FILL_ORIGINAL_STRIP,
+      style: `background:${
+        originalGradient(
+          author?.stops.length ? author.stops : [CONST.COLOR.DEFAULT],
+          author?.scale,
+        ) || CONST.COLOR.DEFAULT
+      }`,
+    }),
+  );
+  colorsBox.title = caption;
+  colorsBox.setAttribute("aria-label", caption);
   rows.push(
-    dom.el(
-      "div",
-      { class: CONST.CLASSES.STYLE_FILL_ORIGINAL_CAPTION },
-      originalCaption(ui, author),
+    formRow(ui.T("style_fill_scheme"), colorsBox, CONST.CLASSES.STYLE_FILL_ROW),
+  );
+
+  rows.push(
+    formRow(
+      ui.T("style_fill_classes"),
+      readOnlyBox(
+        CONST.CLASSES.STYLE_FILL_ORIGINAL_COUNT,
+        dom.el(
+          "span",
+          { class: CONST.CLASSES.STYLE_FILL_ORIGINAL_VALUE },
+          originalCount(author),
+        ),
+      ),
+      CONST.CLASSES.STYLE_FILL_ROW,
     ),
   );
   return rows;
@@ -537,10 +617,11 @@ const rampForUi = (
 };
 
 /** Write the mode intent, seeding the ramp config when the user switches to
- *  the by-value arm and none is stored yet. Solid keeps whatever ramp config
- *  the other arm holds, so a switch back restores it. */
+ *  the by-value arm and none is stored yet. Solid and original keep whatever
+ *  ramp config the other arm holds, and original owns no fill value at all —
+ *  a mode alone — so a switch back to either arm restores its own state. */
 const writeFillMode = (ui: LayerUI, layerId: string, mode: FillMode): boolean => {
-  if (mode === "solid") {
+  if (mode !== "ramp") {
     getDimension(DIM.FILL)!.write!(ui, layerId, { mode });
     return true;
   }
@@ -673,14 +754,15 @@ const renderFillDetail = (
   ui: LayerUI,
   layerId: string,
   detail: HTMLElement,
-  mode: FillDisplayMode,
+  mode: FillMode,
 ): void => {
   disposeFillRow(ui);
   detail.innerHTML = "";
-  // The original-color state shows what the author declared and nothing
-  // editable: its column (when a scale paired), the strip, and what the strip
-  // is. No classification controls — those belong to the user's own ramp.
-  if (mode === "feature") {
+  // The original-colors arm shows what the author declared and nothing
+  // editable: the column (when a scale paired), the colors as one order, and
+  // how many there are. No classification controls — those belong to the
+  // user's own ramp.
+  if (mode === "original") {
     detail.append(...buildOriginalDetail(ui, layerId));
     return;
   }
@@ -731,26 +813,22 @@ const buildFillRow = (ui: LayerUI, layerId: string): HTMLElement => {
     return dom.el("div", { class: CONST.CLASSES.STYLE_FILL_BLOCK }, detail);
   }
 
-  const storedMode = resolveFillMode(
-    ui,
-    layerId,
-    getIntent(ui, layerId, INTENT.FILL_RAMP),
-  );
   // Opening on the original colors writes no intent: the map keeps the
   // author's own paint until the user edits a fill control, and the row states
-  // what it is looking at.
-  const mode: FillDisplayMode = perFeature ? "feature" : storedMode;
-  // "feature" is detected, not chosen: disabled so the menu cannot return to
-  // it, present so the row can name the state it is in. Solid is the way out
-  // (plus Reset back), so it stays selectable even when the arm had no
-  // numeric field a moment ago.
+  // what it is looking at. Once the user picks it, the choice is a stored mode
+  // like the other two, so it can be left and come back to.
+  const mode = displayFillMode(ui, layerId);
+  // The three arms. "Original colors" is offered only while the author's
+  // record still paints per feature: a layer the author did not paint that way
+  // has no such state to return to, and an option that cannot paint would be a
+  // dead entry. Solid stays selectable even when the arm had no numeric field
+  // a moment ago.
   const options = [
     ...(perFeature
       ? [
           {
-            value: "feature",
+            value: "original",
             label: ui.T("style_fill_per_feature"),
-            disabled: true,
             title: ui.T("style_fill_per_feature_note"),
           },
         ]
@@ -775,8 +853,9 @@ const buildFillRow = (ui: LayerUI, layerId: string): HTMLElement => {
   });
   if (perFeature) {
     // The explanation lives on the control, not in the drawer: the select and
-    // its read-only option both carry the sentence as a tooltip/description, so
-    // hovering or a screen reader still gets it while the panel stays compact.
+    // its original-colors option both carry the sentence as a
+    // tooltip/description, so hovering or a screen reader still gets it while
+    // the panel stays compact.
     const note = ui.T("style_fill_per_feature_note");
     select.title = note;
     select.setAttribute("aria-description", note);
@@ -897,10 +976,10 @@ const bindFillDetail = (
   ui: LayerUI,
   layerId: string,
   detail: HTMLElement,
-  mode: FillDisplayMode,
+  mode: FillMode,
 ): void => {
-  // The per-feature detail is a read-only note: nothing to bind.
-  if (mode === "feature") return;
+  // The original-colors detail is a read-only readout: nothing to bind.
+  if (mode === "original") return;
   if (mode === "ramp" && numericFields(ui, layerId).length > 0) {
     bindRampDetail(ui, layerId, detail);
   } else {
@@ -933,32 +1012,28 @@ const bindFillRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => {
   ) as HTMLElement;
 
   select.onchange = () => {
-    // "feature" is detected, not chosen: its option is disabled, so a change
-    // event naming it can only be a programmatic write (a test, or a form
-    // automation). Activating it must not write an intent — the state is the
-    // author's paint, and leaving it is the solid or by-value arm.
-    if (select.value === "feature") return;
-    // The browser has already moved the select's value to the picked arm by
-    // the time the change event fires, so the row is leaving the detected
-    // state exactly when its read-only option is still present — remember that
-    // before the option goes away.
-    const fromFeature = select.querySelector('option[value="feature"]') !== null;
-    // Every reachable value is an override. The write records the user's
-    // choice; the option goes away immediately, the same way the next panel
-    // build would drop it, so the row cannot offer a state the layer no
-    // longer paints.
-    const next: FillMode = select.value === "ramp" ? "ramp" : "solid";
-    select.querySelector('option[value="feature"]')?.remove();
+    // The arm the row was in before the browser moved the select's value. It
+    // is resolved, not read off the select, so the fallback state (an explore
+    // layer that has never been switched) is recognised as "original" too.
+    const previous = displayFillMode(ui, layerId);
+    const next: FillMode =
+      select.value === "ramp"
+        ? "ramp"
+        : select.value === "original"
+          ? "original"
+          : "solid";
+    if (next === previous) return;
     writeFillMode(ui, layerId, next);
-    // Leaving the per-feature state must repaint. A mode write alone paints
+    // Leaving the original colors must repaint. A mode write alone paints
     // nothing: the solid arm only touches leaves that already carry an
     // override or a captured bag, and an explore layer has neither, so the
     // map would keep its per-feature colors while the row claims solid.
     // Seed the swatch's base color so choosing solid actually takes the
     // fill over; a ramp -> solid switch needs no seed because the apply
-    // restores the captured author bag itself.
+    // restores the captured author bag itself. Coming back to the original
+    // colors needs no seed either: the apply releases every override.
     if (
-      fromFeature &&
+      previous === "original" &&
       next === "solid" &&
       getIntent(ui, layerId, INTENT.FILL_COLOR) === undefined &&
       getIntent(ui, layerId, INTENT.FILL_OPACITY) === undefined
@@ -969,12 +1044,7 @@ const bindFillRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => {
     bindFillDetail(ui, layerId, detail, next);
   };
 
-  bindFillDetail(
-    ui,
-    layerId,
-    detail,
-    select.value === "feature" ? "feature" : select.value === "ramp" ? "ramp" : "solid",
-  );
+  bindFillDetail(ui, layerId, detail, displayFillMode(ui, layerId));
 };
 
 /** Replay a layer's stored fill state (color + opacity) onto the map.
@@ -1003,7 +1073,7 @@ const FILL_DIMENSION = registerDimension<{
   opacity: number | null;
   /** The active arm. "solid" is the derived default — it doubles as the
    *  shape of a pre-ramp record, so an absent mode reads back as solid. */
-  mode: "solid" | "ramp";
+  mode: FillMode;
   /** The value-based fill config. Kept while the active arm is solid, so a
    *  mode switch back restores it; undefined when never set. */
   ramp?: FillRampConfig;
@@ -1019,11 +1089,11 @@ const FILL_DIMENSION = registerDimension<{
     return {
       color: getIntent(ui, layerId, INTENT.FILL_COLOR) ?? base.fillColor,
       opacity: getIntent(ui, layerId, INTENT.FILL_OPACITY) ?? base.fillOpacity,
-      // "solid" is derived, not authored: no authored default exists for the
-      // arm, so the fallback defers to whether a ramp config exists — the same
-      // rule apply uses. Reading the stored mode with a solid fallback alone
-      // would report solid while the map is painted by value.
-      mode: resolveFillMode(ui, layerId, getIntent(ui, layerId, INTENT.FILL_RAMP)),
+      // The same resolver the row and apply use: "solid" is derived, not
+      // authored, so the readout defers to whether a ramp config exists (and,
+      // on an explore layer, to the author's own colors) rather than claiming
+      // a solid paint the map is not showing.
+      mode: displayFillMode(ui, layerId),
       ramp: resolvedRamp(ui, layerId, getIntent(ui, layerId, INTENT.FILL_RAMP)),
     };
   },
