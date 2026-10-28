@@ -2851,6 +2851,9 @@ describe("fill row — original colors", () => {
     expect(colorsBoxOf(row).getAttribute("aria-label")).toBe(
       "LayerControl.style_fill_original_levels",
     );
+    // An accessible name only applies to a role that accepts one: the bar is
+    // information (an image of the author's colors), not a control.
+    expect(colorsBoxOf(row).getAttribute("role")).toBe("img");
   });
 
   it("offers nothing interactive in the read-only detail", () => {

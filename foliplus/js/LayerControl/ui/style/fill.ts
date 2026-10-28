@@ -468,6 +468,10 @@ const buildOriginalDetail = (ui: LayerUI, layerId: string): HTMLElement[] => {
     }),
   );
   colorsBox.title = caption;
+  // The bar carries the caption as its accessible name; `img` is what makes
+  // that name apply (a bare div is a generic role, where aria-label is
+  // ignored). The colors are information, not a control.
+  colorsBox.setAttribute("role", "img");
   colorsBox.setAttribute("aria-label", caption);
   rows.push(
     formRow(ui.T("style_fill_scheme"), colorsBox, CONST.CLASSES.STYLE_FILL_ROW),
