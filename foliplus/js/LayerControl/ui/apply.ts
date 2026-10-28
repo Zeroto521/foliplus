@@ -184,7 +184,7 @@ const scheduleOpacityRedraw = (
  *  thing I wrote to before is not the thing in front of me now". A
  *  canvas-only layer is one DOM element; a pane carrier is the surface's
  *  own pane set — which, since the label pane is a declared `role:
- *  "annotation"` PaneSpec, already includes it with no side channel (the
+ *  "label"` PaneSpec, already includes it with no side channel (the
  *  pane exists from surface construction, so there is no late carrier to
  *  splice in). Anything else (native `options.opacity`) is keyed by the
  *  layer's own `options` object, which is the actual write target.
@@ -349,7 +349,7 @@ const dispatchStateOp = (
       // `surface.panes` would fade every other layer on the map, which is the
       // failure the gate exists to make impossible.
       //
-      // The `role: "annotation"` label pane is deliberately excluded: its
+      // The `role: "label"` label pane is deliberately excluded: its
       // canvas bakes layerAlpha into the label draws (R11). Writing CSS
       // here as well would double-compound. Mixed layers therefore take
       // CSS on the vector data panes and bake on the label canvas — both
@@ -357,7 +357,7 @@ const dispatchStateOp = (
       const value = op.value ?? 1;
       const surface = ui.c.surfaceFor(layerInfo);
       for (const pane of surface.panes) {
-        if (pane.role === PANE_ROLE.ANNOTATION) continue;
+        if (pane.role === PANE_ROLE.LABEL) continue;
         ui.c.panes.assertOwnedPane(pane.name);
         pane.element.style.opacity = String(value);
       }
@@ -494,7 +494,7 @@ const projectEntry = (
 
   // Carrier identity for this write. A changed carrier forces a rewrite
   // even when the numeric value is unchanged — a re-registered canvas
-  // element or a lazily-appearing annotation pane needs the stored
+  // element or a lazily-appearing label pane needs the stored
   // opacity applied to the new DOM, not to whatever the last write hit.
   const carrierKey = carrierOf(ui, layerInfo);
 

@@ -81,7 +81,7 @@ const buildDelegatedBorderRow = (ui: LayerUI, layerId: string): HTMLElement | nu
  *  styleSetters (third-party canvas layers). Renders only the controls the
  *  component declared. Reset is present only when the layer also supplies
  *  styleDefaultsProvider (the Python CONFIG snapshot). Returns null when the layer has
- *  no delegation (falls through to the annotation panel). */
+ *  no delegation (falls through to the label panel). */
 const renderDelegatedStylePanel = (
   ui: LayerUI,
   layerId: string,
@@ -144,10 +144,10 @@ const renderDelegatedStylePanel = (
   });
 
   // The shared renderer emits controls only, no headings — the panel owns the
-  // section split and reads it as the annotation panel does: Layer on top,
+  // section split and reads it as the label panel does: Layer on top,
   // Label below. The Layer rows run opacity, zoom range (border comes from
   // the dedicated styleSetters path when the component publishes it, and
-  // fill is never delegated). This is the annotation panel's
+  // fill is never delegated). This is the label panel's
   // fill → border → opacity → zoom range with the fill and vector-border
   // slots absent.
   // Row-level capability gate (5.4): the opacity row only renders when the
@@ -155,7 +155,7 @@ const renderDelegatedStylePanel = (
   // (MarkerCluster) would otherwise see a slider that writes nothing but
   // persists the value — a lie that survives reload (6.2).
   // Row iteration follows `DELEGATED_DIM_ORDER` (see the constant above) —
-  // the same gate sweep the annotation panel uses. One collection decides
+  // the same gate sweep the label panel uses. One collection decides
   // both the heading and the rows, so the two cannot drift. The
   // delegated-only border row is prepended before the registry sweep: it is
   // not a registry dimension (it writes through `styleSetters`, a path the

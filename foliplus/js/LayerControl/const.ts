@@ -1,4 +1,4 @@
-import { ANNOTATION_PANE_PREFIX, FOCUS_Z } from "#core/layer/index.js";
+import { FOCUS_Z, LABEL_PANE_PREFIX } from "#core/layer/index.js";
 import { DEFAULT_LABEL_COLOR, LABEL_SIZE } from "#common/form.js";
 import { NUMBER_FORMAT } from "#common/format.js";
 
@@ -307,7 +307,7 @@ const DEFAULT_ANNOTATION = {
 
 export {
   ACTION,
-  ANNOTATION_PANE_PREFIX,
+  LABEL_PANE_PREFIX,
   AUTHOR_ZOOM_FALLBACK_MAX,
   CLASSES,
   COLOR,

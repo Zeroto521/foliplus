@@ -22,7 +22,7 @@
   return new Promise(resolve => {
     requestAnimationFrame(() =>
       requestAnimationFrame(() => {
-        const canvas = document.querySelector(".foliplus-annotation-canvas");
+        const canvas = document.querySelector(".foliplus-label-canvas");
         if (!canvas) return resolve({ canvas: false });
         const ctx = canvas.getContext("2d");
         const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;

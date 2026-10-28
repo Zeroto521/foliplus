@@ -13,7 +13,7 @@
       names: rows.map(r => (r.textContent || "").trim()),
     };
   const id = row.getAttribute("data-layer-id");
-  const canvas = document.querySelector(".foliplus-annotation-canvas");
+  const canvas = document.querySelector(".foliplus-label-canvas");
   if (!canvas) return { error: "no annotation canvas" };
   const ctx = canvas.getContext("2d");
   const dpr = window.devicePixelRatio || 1;

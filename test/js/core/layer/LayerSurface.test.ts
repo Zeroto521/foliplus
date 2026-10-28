@@ -171,11 +171,11 @@ describe("LayerSurface pane resolution", () => {
     // ALREADY booked by discovery must not be double-added: the handle the
     // tree routed into is the one that stands.
     const { host } = makeMap();
-    const annName = "foliplus-annotation-a";
+    const annName = "foliplus-label-a";
     const surface = new LayerSurface(host, {
       id: "a",
       layer: { options: { pane: annName } } as unknown as L.Layer,
-      paneSpecs: [{ role: "annotation", order: 1, name: annName }],
+      paneSpecs: [{ role: "label", order: 1, name: annName }],
     });
 
     expect(surface.paneNames.filter(name => name === annName)).toHaveLength(1);
@@ -193,14 +193,14 @@ describe("LayerSurface pane resolution", () => {
       layer: new Path() as unknown as L.Layer,
       paneName: "graph",
       paneSpecs: [
-        { role: "annotation", order: 3, name: "foliplus-annotation-a" },
+        { role: "label", order: 3, name: "foliplus-label-a" },
         { role: "sub", order: 1, name: "graph" },
       ],
     });
 
-    expect(surface.paneNames).toEqual(["graph", "foliplus-annotation-a"]);
+    expect(surface.paneNames).toEqual(["graph", "foliplus-label-a"]);
     expect(surface.panes[0].role).toBe("sub");
-    expect(surface.panes[1].role).toBe("annotation");
+    expect(surface.panes[1].role).toBe("label");
     // Defensive assertion, not a bug-fix regression: the pane set the
     // constructor builds always books the declared base first, so no
     // reachable declaration yields "panes non-empty without a content pane".
@@ -356,8 +356,8 @@ describe("LayerSurface pane resolution", () => {
     expect(surface.paneNames).toEqual([surface.synthesizedPaneName]);
   });
 
-  it("materializes a declared spec the tree did not discover (annotation pane)", () => {
-    // The registration edge appends a `role: "annotation"` spec for layers
+  it("materializes a declared spec the tree did not discover (label pane)", () => {
+    // The registration edge appends a `role: "label"` spec for layers
     // whose features carry labelable properties; the synthesized branch
     // discovers no such pane from the tree, so `addMissingSpecs` must build
     // it — otherwise the capability is declared and the pane never exists.
@@ -365,16 +365,16 @@ describe("LayerSurface pane resolution", () => {
     const surface = new LayerSurface(host, {
       id: "labelable",
       layer: new Group([new Path()]) as unknown as L.Layer,
-      paneSpecs: [{ role: "annotation", order: 1, name: "foliplus-annotation-x" }],
+      paneSpecs: [{ role: "label", order: 1, name: "foliplus-label-x" }],
     });
     surface.materialize();
 
     expect(surface.paneNames).toEqual([
       surface.synthesizedPaneName,
-      "foliplus-annotation-x",
+      "foliplus-label-x",
     ]);
-    expect(surface.panes.map(pane => pane.role)).toEqual(["base", "annotation"]);
-    expect(panes["foliplus-annotation-x"]).toBeDefined();
+    expect(surface.panes.map(pane => pane.role)).toEqual(["base", "label"]);
+    expect(panes["foliplus-label-x"]).toBeDefined();
   });
 
   it("skips a raw paneSpec naming a Leaflet shared pane", () => {
@@ -405,7 +405,7 @@ describe("LayerSurface pane resolution", () => {
     const surface = new LayerSurface(host, {
       id: "target",
       layer: new Path() as unknown as L.Layer,
-      paneSpecs: [{ role: "annotation", order: 1, name: "held-sub" }],
+      paneSpecs: [{ role: "label", order: 1, name: "held-sub" }],
     });
     surface.materialize();
 
@@ -901,7 +901,7 @@ describe("LayerSurface.setZOverride / restoreZ", () => {
 
   it("is a translation, not a re-sort: the panes' relative order holds at both bases", () => {
     // Two sub-panes plus the layer's annotation pane. `writeZ` prices an
-    // annotation pane at base + ANNOTATION_Z_OFFSET and ignores its order, so it
+    // label pane at base + LABEL_Z_OFFSET and ignores its order, so it
     // lands level with a sub-pane; a focus lift must not change that
     // relationship, only the base everything sits at.
     const { panes, host } = makeMap();
@@ -909,7 +909,7 @@ describe("LayerSurface.setZOverride / restoreZ", () => {
       { role: "base", order: 0, name: "graph" },
       { role: "sub", order: 1, name: "node" },
       { role: "sub", order: 2, name: "label" },
-      { role: "annotation", order: 3, name: "ann" },
+      { role: "label", order: 3, name: "ann" },
     ];
     host.registerPaneSpecs(declared);
     const mk = (name: string) => {
@@ -978,10 +978,7 @@ describe("LayerSurface.matches", () => {
     expect(
       surface.matches({
         ...base,
-        paneSpecs: [
-          { ...base.paneSpecs[0] },
-          { ...base.paneSpecs[1], role: "annotation" },
-        ],
+        paneSpecs: [{ ...base.paneSpecs[0] }, { ...base.paneSpecs[1], role: "label" }],
       }),
     ).toBe(false);
   });
@@ -1526,7 +1523,7 @@ describe("LayerSurface capabilities", () => {
       opacity: "pane",
       zoomRange: "pane",
       // A color face has no features to label — the registration edge never
-      // declares the `role: "annotation"` spec for it.
+      // declares the `role: "label"` spec for it.
       annotation: "none",
       fill: "native",
       stroke: "none",

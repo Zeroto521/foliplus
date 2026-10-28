@@ -1,5 +1,5 @@
 () => {
-  const canvas = document.querySelector(".foliplus-annotation-canvas");
+  const canvas = document.querySelector(".foliplus-label-canvas");
   if (!canvas) return { canvas: false };
   const cs = getComputedStyle(canvas);
   const r = canvas.getBoundingClientRect();
