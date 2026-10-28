@@ -124,16 +124,8 @@ export {
   initLayerItem,
 };
 export { ListPanel };
-export {
-  applyRowView,
-  buildRowCell,
-  displayName,
-  inZoomRange,
-  rowView,
-  type RowCell,
-  type RowLabels,
-  type RowView,
-};
+export { applyRowView, buildRowCell, displayName, inZoomRange, rowView };
+export type { RowCell, RowLabels, RowView };
 export {
   toggleFold,
   handleDragStart,

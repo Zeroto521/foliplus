@@ -25,7 +25,7 @@
 // differ), the getter returns null so the author's fill face stays in force
 // — the next scheduler tick rebuilds the cache.
 import { DIM } from "#core/layer/index.js";
-import type { FillRampConfig } from "#core/layer/intent.js";
+import type { FillMode, FillRampConfig } from "#core/layer/intent.js";
 import { buildRamp, colorFor } from "#core/ramp.js";
 import { createLogger } from "#common/log.js";
 import { INTENT, getIntent } from "../intent.js";
@@ -91,17 +91,20 @@ const sameRampConfig = (a: FillRampConfig, b: FillRampConfig): boolean =>
   a.classes === b.classes &&
   a.scheme === b.scheme;
 
-/** The active fill arm. An absent mode defers to whether a ramp config
+/** The stored fill arm. An absent mode defers to whether a ramp config
  *  exists — the pre-fillMode record shape, where a config alone meant "paint
- *  by value". Every reader of the fill state goes through this so apply, the
- *  dimension's value, the replay guard and the highlight pins all agree on
- *  what the map should show; reading the stored mode with a solid fallback on
- *  its own reports solid while the map is painted by value. */
+ *  by value". Every reader of the fill state goes through this (or the
+ *  panel's own resolver in `fill.ts`, which adds the author's original-colors
+ *  arm) so apply, the dimension's value, the replay guard and the highlight
+ *  pins all agree on what the map should show; reading the stored mode with a
+ *  solid fallback on its own reports solid while the map is painted by value.
+ *  `FillMode` is returned whole rather than narrowed to the two arms: a
+ *  stored "original" must reach the caller as itself, not as the fallback. */
 const resolveFillMode = (
   ui: LayerUI,
   layerId: string,
   ramp: FillRampConfig | undefined,
-): "solid" | "ramp" =>
+): FillMode =>
   getIntent(ui, layerId, INTENT.FILL_MODE) ?? (ramp !== undefined ? "ramp" : "solid");
 
 /** Apply a value-based fill to one layer.

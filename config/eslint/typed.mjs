@@ -1,5 +1,5 @@
-// ESLint config — pass 2, the type-aware rules (Promise discipline + nullish /
-// optional-chain upgrades). Run it with `npm run typecheck`, which runs
+// ESLint config — pass 2, the type-aware rules (Promise discipline, nullish /
+// optional-chain upgrades, export kind). Run it with `npm run typecheck`, which runs
 // `tsc --noEmit` first and then `eslint -c config/eslint/typed.mjs`.
 //
 // This file spreads base.mjs as its base: `...base` carries the TS
@@ -29,8 +29,13 @@
 //                           falsy value. `ignoreTernaryTests` keeps `cond ? x : y`
 //                           out of scope (the rule would propose `cond ?? x`,
 //                           a different expression).
+//   consistent-type-exports — a type-only export gets its own
+//                           `export type { … }` statement; inline
+//                           `export { A, type B }` is rejected. Imports stay
+//                           inline (base.mjs), exports split.
 //
 // @see https://typescript-eslint.io/rules/no-floating-promises/
+// @see https://typescript-eslint.io/rules/consistent-type-exports/
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import tseslint from "typescript-eslint";
@@ -58,6 +63,31 @@ export default [
       },
     },
     rules: {
+      // Type/value export split. Imports deliberately go the other way:
+      // base.mjs's consistent-type-imports keeps them inline
+      // (`import { type A, B }`) so there is one import per module. Exports
+      // instead give a type-only export its own `export type { … }` statement
+      // — `export { A, type B }` is rejected — which keeps "what leaves this
+      // module as a value" visually separate from "what only exists for
+      // typing" and lines up with the single bottom `export { … }` block
+      // convention.
+      //
+      // Runs here rather than next to consistent-type-imports in base.mjs:
+      // the rule resolves TS symbols (`requiresTypeChecking: true`) to tell a
+      // type from a value, so it needs the tsconfig program — same reason as
+      // import/no-unused-modules below.
+      //
+      // v8 renamed the old `fixStyle: "separate-type-exports"` option to
+      // `fixMixedExportsWithInlineTypeSpecifier`: the default (false) is the
+      // separate-statement fix (`export { A, type B }` → `export type { B };`
+      // + `export { A };`), while `true` would keep the inline form this rule
+      // exists to forbid. Kept explicit so a future default flip cannot change
+      // the autofix style silently.
+      "@typescript-eslint/consistent-type-exports": [
+        "error",
+        { fixMixedExportsWithInlineTypeSpecifier: false },
+      ],
+
       "@typescript-eslint/no-floating-promises": "error",
       "@typescript-eslint/require-await": "error",
       "@typescript-eslint/no-misused-promises": "error",

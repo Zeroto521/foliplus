@@ -117,16 +117,28 @@ class HeatmapManager {
    *  guard before the first rebuild, so a user's earlier choice wins. */
   declare declaredLayer: string | null;
   /** Python-declared starting aggregation field (`HeatmapControl(field=...)`).
-   *  Same one-shot rule as {@link declaredLayer}. */
+   *  A read-time default, not a record: it applies whenever the user has no
+   *  stored field of their own (see {@link effectiveField}), so a declaration
+   *  can never be persisted as if the user had chosen it. */
   declare declaredField: string | null;
   /** Declaration names already warned about — one warning per missing name,
    *  not one per rebuild on the way to the first render. */
   declare declarationWarned: Set<string>;
   agg: string;
-  /** Selected aggregation field — empty only until the first scan resolves
-   *  it to a concrete numeric property name; from then on it is whatever the
-   *  user picked from the field dropdown. */
+  /** The aggregation field the USER picked — empty means "nothing picked".
+   *  Never holds a guess or a Python declaration: those are resolved at read
+   *  time by {@link effectiveField}, so a data-derived default can never be
+   *  persisted as if the user had chosen it. A stored pick the current data no
+   *  longer offers stays here untouched — it is the user's intent, and it
+   *  comes back when the data does. */
   field: string;
+  /** Numeric fields the current scan offers, in first-seen order. Published by
+   *  the panel's field row through {@link setAvailableFields}. */
+  availableFields: string[];
+  /** Memoised {@link effectiveField} result. `null` = recompute. Invalidated
+   *  by a new field list, a persistence write (the user's pick just moved) and
+   *  Reset — and nowhere else, so the per-feature read path never re-resolves. */
+  effectiveFieldCache: string | null;
   scheme: string;
   method: ClassifyMethod;
   numClasses: number;
@@ -243,6 +255,8 @@ class HeatmapManager {
     this.pointLayers = [];
     this.agg = CONFIG.agg ?? CONST.AGG.COUNT;
     this.field = "";
+    this.availableFields = [];
+    this.effectiveFieldCache = null;
     // Python declarations: starting selections only. `applySavedConfig`
     // consumes the hasScanned guard when a persisted record exists, so the
     // user's earlier choice (or explicit clear) always wins over these.
@@ -674,7 +688,7 @@ class HeatmapManager {
   }
 
   /** Resolve label styling from the shared --foliplus-label-* tokens (cached once). The
-   *  values are the same the annotation canvas reads — both go through
+   *  values are the same the label canvas reads — both go through
    *  common/canvasLabel — so a hex value and an annotation label render as one
    *  language. */
   resolveLabelStyle(): CanvasLabelStyle {
@@ -763,16 +777,52 @@ class HeatmapManager {
     return hit.id;
   }
 
-  /** Resolve the Python-declared starting field against the layer's numeric
-   *  fields. Null when nothing was declared, the field is not offered
-   *  (warned once), or after a persisted record consumed the guard. */
-  resolveDeclaredField(fields: readonly string[]): string | null {
-    if (!this.declaredField || this.hasScanned) return null;
-    if (!fields.includes(this.declaredField)) {
-      this.warnDeclaration("field", this.declaredField);
-      return null;
+  /** Resolve the aggregation field for `fields`, without touching the cache:
+   *  the user's stored pick while the data still offers it, else the Python
+   *  declaration, else the first numeric field. Pure — it never writes to
+   *  {@link field}, so neither the guess nor the declaration can become a
+   *  persisted record. Public so the cache test can count resolutions.
+   *
+   *  With no field list (before the first scan, or a caller driving the
+   *  manager directly) the stored names are trusted as-is. */
+  resolveEffectiveField(fields: readonly string[]): string {
+    if (fields.length === 0) {
+      // "" is "no user pick", not a pick: fall through to the declaration.
+      // (?? would stop at the empty string and hide the declared field.)
+      if (this.field !== "") return this.field;
+      return this.declaredField ?? "";
     }
-    return this.declaredField;
+    if (this.field && fields.includes(this.field)) return this.field;
+    if (this.declaredField) {
+      if (fields.includes(this.declaredField)) return this.declaredField;
+      this.warnDeclaration("field", this.declaredField);
+    }
+    return fields[0] ?? "";
+  }
+
+  /** The field the render actually aggregates by — see
+   *  {@link resolveEffectiveField} for the precedence. Memoised because
+   *  `getPointValue` runs once per feature: re-resolving a list scan for 20k
+   *  points would cost more than the guess it replaces. */
+  effectiveField(): string {
+    return (this.effectiveFieldCache ??= this.resolveEffectiveField(
+      this.availableFields,
+    ));
+  }
+
+  /** Publish the fields the current scan offers and resolve the effective
+   *  field once. Returns it so the panel can render the same value it just
+   *  handed over (one resolver, no second opinion). */
+  setAvailableFields(fields: readonly string[]): string {
+    this.availableFields = [...fields];
+    this.effectiveFieldCache = this.resolveEffectiveField(this.availableFields);
+    return this.effectiveFieldCache;
+  }
+
+  /** Drop the memoised field (next read re-resolves). Called wherever the
+   *  inputs move: a new field list, a persistence write, Reset. */
+  invalidateEffectiveField(): void {
+    this.effectiveFieldCache = null;
   }
 
   /** One warning per missing declared name: the scan runs more than once on
@@ -829,12 +879,13 @@ class HeatmapManager {
 
   getPointValue(marker: L.Marker | L.CircleMarker): number {
     if (this.agg === CONST.AGG.COUNT) return 1;
-    const key = this.field;
+    // Memoised: this runs once per feature (20k points on a large layer).
+    const key = this.effectiveField();
     const val = readMarkerField(marker, key);
     if (val === undefined || isNaN(val)) {
       if (!this.valueFallbackWarned) {
         this.valueFallbackWarned = true;
-        this.log.warn("value fallback to 1", this.field);
+        this.log.warn("value fallback to 1", key);
       }
       return 1;
     }
@@ -843,7 +894,7 @@ class HeatmapManager {
 
   getSelectedPoints(): SelectedPoint[] {
     this.valueFallbackWarned = false;
-    const key = `${this.selectedLayerId}|${this.agg}|${this.field}`;
+    const key = `${this.selectedLayerId}|${this.agg}|${this.effectiveField()}`;
     if (this.cachedPoints?.key === key) {
       return this.cachedPoints.pts;
     }
@@ -891,7 +942,7 @@ class HeatmapManager {
   syncFilterField(): void {
     const sourceId = this.selectedLayerId;
     if (!sourceId) return;
-    const field = pickFilterField(this.cachedSnapshot, this.field);
+    const field = pickFilterField(this.cachedSnapshot, this.effectiveField());
     if (!dropFilterForField(this.layerFilters, sourceId, field)) return;
     this.cachedAgg = null;
     this.saveConfig();
@@ -914,7 +965,7 @@ class HeatmapManager {
     return buildFilterModel(
       this.cachedSnapshot,
       this.layerFilters.get(sourceId),
-      this.field,
+      this.effectiveField(),
       { kept, total },
     );
   }
@@ -1022,7 +1073,7 @@ class HeatmapManager {
     }
     // Agg cache: includes the filter key. A filter change invalidates
     // this, but the bins cache above still hits — zero h3 calls.
-    const aggKey = `${binsKey}|${this.agg}|${this.field}|${this.method}|${this.scheme}|${this.numClasses}|${fKey}`;
+    const aggKey = `${binsKey}|${this.agg}|${this.effectiveField()}|${this.method}|${this.scheme}|${this.numClasses}|${fKey}`;
     let aggregated: AggregatedData | undefined;
     if (this.cachedAgg?.key === aggKey) {
       aggregated = this.cachedAgg.data;
@@ -1134,6 +1185,11 @@ class HeatmapManager {
     this.selectedLayerId = null;
     this.agg = config.agg ?? CONST.AGG.COUNT;
     this.field = "";
+    // Reset returns to the declared state: the field list belongs to the
+    // selection that just went away, and the resolved field must come from
+    // the declaration (or stay empty), never from a stale scan.
+    this.availableFields = [];
+    this.invalidateEffectiveField();
     this.numClasses = config.num_classes ?? CLASS_COUNT.DEFAULT;
     this.method = resolveClassifyMethod(config.method);
     this.scheme = config.color_scheme ?? "Reds";
@@ -1161,6 +1217,10 @@ class HeatmapManager {
    *  change lands. The binding reads live state at save time, so callers just
    *  signal a change without restating the fields. */
   saveConfig() {
+    // The record carries `field`, so a write can be the moment the user's
+    // pick changed: re-resolve on the next read instead of trusting a value
+    // computed before the pick moved.
+    this.invalidateEffectiveField();
     this.persist.schedule();
   }
 
@@ -1201,7 +1261,7 @@ class HeatmapManager {
       : "";
     let fieldLabel = "";
     if (this.selectedLayerId && this.agg !== CONST.AGG.COUNT) {
-      const key = this.field;
+      const key = this.effectiveField();
       if (key) fieldLabel = bareFieldName(key);
     }
 

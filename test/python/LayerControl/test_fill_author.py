@@ -1,10 +1,17 @@
-"""Rendering tests for the per-layer author-fill metadata (CONFIG data[].fillAuthor)."""
+"""Rendering tests for the per-layer author-fill metadata (CONFIG data[].fillAuthor).
+
+The record is Python's: the features' __folium_color plus whichever branca
+colormap the author mounted on the map. The tests therefore build both sides —
+synthetic features and a real colormap — and assert the shipped payload, not the
+internals that produce it.
+"""
 
 from __future__ import annotations
 
 import importlib
 import json
 
+import branca.colormap as branca_cm
 import folium
 import pytest
 
@@ -13,10 +20,17 @@ from foliplus import LayerControl
 _layer_control_mod = importlib.import_module("foliplus.LayerControl")
 
 
-def _collection(colors: list[str | None], *, column: str = "cat") -> dict:
+def _collection(
+    colors: list[str | None],
+    *,
+    column: str = "score",
+    values: list[float] | None = None,
+) -> dict:
     features: list[dict] = []
     for i, color in enumerate(colors):
-        props: dict[str, object] = {column: f"v{i}"}
+        props: dict[str, object] = {
+            column: float(i) if values is None else values[i],
+        }
         if color is not None:
             props["__folium_color"] = color
         features.append(
@@ -33,9 +47,14 @@ def _collection(colors: list[str | None], *, column: str = "cat") -> dict:
 
 
 def _geo(
-    colors: list[str | None], *, column: str = "cat", style: bool = True
+    colors: list[str | None],
+    *,
+    column: str = "score",
+    values: list[float] | None = None,
+    style: bool = True,
+    name: str = "Facility Points",
 ) -> folium.GeoJson:
-    layer = folium.GeoJson(_collection(colors, column=column), name="Facility Points")
+    layer = folium.GeoJson(_collection(colors, column=column, values=values), name=name)
     if style:
         layer.style_function = lambda feature: {
             "fillColor": feature["properties"].get("__folium_color", "#3388ff"),
@@ -43,8 +62,33 @@ def _geo(
     return layer
 
 
-def _render(*layers: folium.Layer) -> str:
+def _linear(
+    colors: tuple[str, ...] = ("#0d0887", "#f0f921"),
+    *,
+    vmin: float = 0,
+    vmax: float = 100,
+    caption: str = "score",
+) -> branca_cm.LinearColormap:
+    """A continuous scale with the 256-point resolution explore produces."""
+    base = branca_cm.LinearColormap(list(colors), vmin=vmin, vmax=vmax)
+    # branca emits #rrggbbaa on call and only parses #rrggbb at construction.
+    dense = [str(base(vmin + (vmax - vmin) * step / 255))[:7] for step in range(256)]
+    return branca_cm.LinearColormap(dense, vmin=vmin, vmax=vmax, caption=caption)
+
+
+def _stepped(
+    colors: tuple[str, ...] = ("#440154", "#3b528b", "#21918c", "#fde725"),
+    *,
+    index: tuple[float, ...] = (0, 25, 50, 75, 100),
+    caption: str = "score",
+) -> branca_cm.StepColormap:
+    return branca_cm.StepColormap(list(colors), index=list(index), caption=caption)
+
+
+def _render(*layers: folium.Layer, scales: tuple[object, ...] = ()) -> str:
     m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+    for scale in scales:
+        scale.add_to(m)  # type: ignore[attr-defined]
     for layer in layers:
         layer.add_to(m)
     LayerControl().add_to(m)
@@ -58,30 +102,26 @@ def _conf(html: str) -> dict:
     return json.loads(html[start:end])
 
 
-def _meta(layer: folium.GeoJson) -> dict:
-    return _conf(_render(layer))["data"][0]["fillAuthor"]
+def _meta(layer: folium.GeoJson, *scales: object) -> dict:
+    html = _render(layer, scales=tuple(scales))
+    return _conf(html)["data"][0]["fillAuthor"]
 
 
-def test_multi_colour_explore_layer_carries_fill_author():
+def test_multi_color_layer_carries_the_distinct_colors():
     meta = _meta(_geo(["#0d0887", "#f0f921"]))
 
     assert meta["perFeature"] is True
-    assert meta["fields"] == [
-        {
-            "name": "cat",
-            "kind": "categorical",
-            "mapping": {"v0": "#0d0887", "v1": "#f0f921"},
-            "other": 0,
-            "truncated": False,
-        }
-    ]
+    assert meta["distinct"] == 2
+    assert meta["stops"] == ["#0d0887", "#f0f921"]
+    assert "scale" not in meta
 
 
-def test_single_colour_layer_is_not_per_feature():
-    meta = _meta(_geo(["#1f77b4", "#1f77b4"]))
+def test_single_color_layer_is_not_per_feature():
+    meta = _meta(_geo(["#0d0887", "#0d0887"]))
 
     assert meta["perFeature"] is False
-    assert meta["fields"] == []
+    assert meta["distinct"] == 1
+    assert "scale" not in meta
 
 
 def test_layer_without_the_property_has_no_fill_author():
@@ -90,251 +130,497 @@ def test_layer_without_the_property_has_no_fill_author():
     assert "fillAuthor" not in data
 
 
-def test_numeric_column_is_tagged_numeric():
-    layer = _geo(["#0d0887", "#f0f921"], column="score")
-    for value, feature in zip((1, 2), layer.data["features"], strict=True):
-        feature["properties"]["score"] = value
-    field = _meta(layer)["fields"][0]
+def test_continuous_scale_is_read_from_the_map():
+    scale = _linear()
+    values = [10.0, 40.0, 90.0]
+    colors = [str(scale(value))[:7] for value in values]
+    meta = _meta(_geo(colors, values=values), scale)
 
-    assert field["kind"] == "numeric"
-    # Keys are the normalized value strings: an integer column keys "1"/"2",
-    # never "1.0"/"2.0". A float column keeps its float repr ("1.0"): the key
-    # is str(value), not a dtype-aware cast — task-51/task-53 read it verbatim.
-    assert field["mapping"] == {"1": "#0d0887", "2": "#f0f921"}
-    # Numeric fields also carry the author palette in value order, so the
-    # client can offer colour-by-value over the author's own colours.
-    assert field["orderedColors"] == ["#0d0887", "#f0f921"]
-    assert field["classes"] == 2
+    assert meta["scale"]["kind"] == "continuous"
+    assert meta["scale"]["column"] == "score"
+    assert meta["scale"]["vmin"] == 0
+    assert meta["scale"]["vmax"] == 100
+    assert len(meta["stops"]) == 64
+    assert all(len(stop) == 7 and stop.startswith("#") for stop in meta["stops"])
 
 
-def test_field_mapping_is_truncated_past_the_cap():
-    field = _meta(_geo([f"#{i:02x}00aa" for i in range(60)]))["fields"][0]
+def test_stepped_scale_ships_the_authors_own_blocks_and_breaks():
+    scale = _stepped()
+    values = [10.0, 40.0, 90.0]
+    colors = [str(scale(value))[:7] for value in values]
+    meta = _meta(_geo(colors, values=values), scale)
 
-    assert field["truncated"] is True
-    assert field["other"] == 10
-    assert len(field["mapping"]) == 50
+    assert meta["scale"]["kind"] == "stepped"
+    assert meta["scale"]["column"] == "score"
+    assert meta["scale"]["levels"] == 4
+    assert meta["scale"]["breaks"] == [0, 25, 50, 75, 100]
+    assert meta["stops"] == ["#440154", "#3b528b", "#21918c", "#fde725"]
+    # JSON-serialisable, not numpy scalars: the CONF block is json.dumps'ed.
+    assert all(isinstance(edge, float) for edge in meta["scale"]["breaks"])
 
 
-def _add_column(layer: folium.GeoJson, name: str, values: list[object]) -> None:
-    for value, feature in zip(values, layer.data["features"], strict=True):
-        feature["properties"][name] = value
+def test_a_scale_is_claimed_only_through_its_caption():
+    scale = _linear(caption="自定义")
+    values = [10.0, 40.0, 90.0]
+    colors = [str(scale(value))[:7] for value in values]
+    meta = _meta(_geo(colors, values=values), scale)
+
+    # The caption names no property of the layer: no scale is claimed and no
+    # column is named. The panel draws the colors the features carry.
+    assert "scale" not in meta
+    assert meta["perFeature"] is True
+    assert meta["stops"] == colors
 
 
-def test_bool_and_non_primitive_columns_are_disqualified():
+def test_a_plain_layer_does_not_claim_another_layers_scale():
+    scale = _linear(("#440154", "#fde725"), caption="value", vmin=0, vmax=100)
+    values = [10.0, 40.0, 90.0]
+    explore = _geo(
+        [str(scale(value))[:7] for value in values],
+        column="value",
+        values=values,
+        name="Explore",
+    )
+    # Same property name, other colors, and no scale of its own (a plain
+    # legend=False layer): the viridis scale is not its to claim.
+    plain = _geo(
+        ["#0d0887", "#6a00a8", "#f0f921"],
+        column="value",
+        values=[1.0, 2.0, 3.0],
+        name="Plain",
+    )
+    html = _render(plain, explore, scales=(scale,))
+    data = {entry["name"]: entry for entry in _conf(html)["data"]}
+
+    assert "scale" not in data["Plain"]["fillAuthor"]
+    assert data["Explore"]["fillAuthor"]["scale"]["column"] == "value"
+    assert "_column" not in data["Plain"]["fillAuthor"]
+
+
+def test_a_layer_whose_caption_matches_but_colors_do_not_is_not_claimed():
+    scale = _linear(("#440154", "#fde725"), caption="value", vmin=0, vmax=100)
+    # The layer carries the property the caption names, but its features are
+    # painted by something else entirely: a shared property name is not proof.
+    meta = _meta(
+        _geo(
+            ["#0d0887", "#6a00a8", "#f0f921"],
+            column="value",
+            values=[1.0, 2.0, 3.0],
+        ),
+        scale,
+    )
+
+    assert "scale" not in meta
+
+
+def test_no_scale_falls_back_to_the_color_set():
+    meta = _meta(_geo(["#0d0887", "#6a00a8", "#b12a90"]))
+
+    assert meta["perFeature"] is True
+    assert "scale" not in meta
+    assert meta["stops"] == ["#0d0887", "#6a00a8", "#b12a90"]
+
+
+def test_two_layers_sharing_a_caption_keep_their_own_scale():
+    first = _linear(("#0d0887", "#f0f921"))
+    second = _linear(("#440154", "#fde725"), vmin=0, vmax=100)
+    values = [10.0, 40.0, 90.0]
+    layer_a = _geo([str(first(value))[:7] for value in values], values=values, name="A")
+    layer_b = _geo(
+        [str(second(value))[:7] for value in values], values=values, name="B"
+    )
+    html = _render(layer_a, layer_b, scales=(first, second))
+    data = {entry["name"]: entry for entry in _conf(html)["data"]}
+
+    for name in ("A", "B"):
+        assert data[name]["fillAuthor"]["scale"]["column"] == "score"
+    # The two folds must not collapse onto one scale: the stored strips differ.
+    assert data["A"]["fillAuthor"]["stops"] != data["B"]["fillAuthor"]["stops"]
+
+
+def test_a_scale_does_not_depend_on_the_layer_style_function():
+    # explore writes __folium_color AND a style_function; the record reads the
+    # property, so a layer that lost the style function keeps its record.
     layer = _geo(["#0d0887", "#f0f921"])
-    _add_column(layer, "flag", [True, False])
+    layer.style_function = None  # type: ignore[assignment]
     meta = _meta(layer)
 
     assert meta["perFeature"] is True
-    assert [field["name"] for field in meta["fields"]] == ["cat"]
-
-
-def test_column_that_maps_one_value_to_two_colours_is_disqualified():
-    layer = _geo(["#0d0887", "#f0f921"])
-    _add_column(layer, "dup", ["x", "x"])
-    _add_column(layer, "score", [1, 2])
-
-    names = [field["name"] for field in _meta(layer)["fields"]]
-    assert "dup" not in names
-    assert "score" in names
+    assert meta["distinct"] == 2
 
 
 def test_json_string_data_is_parsed():
-    layer = folium.GeoJson(
-        json.dumps(_collection(["#0d0887", "#f0f921"])), name="Json String"
-    )
-    meta = _meta(layer)
+    data = json.dumps(_collection(["#0d0887", "#f0f921"]))
+    meta = _meta(folium.GeoJson(data))
 
     assert meta["perFeature"] is True
-    assert meta["fields"][0]["name"] == "cat"
 
 
-def test_invalid_json_string_data_is_ignored():
+def test_invalid_json_string_is_ignored():
     layer = _geo(["#0d0887", "#f0f921"])
+    # folium parses the data at construction, so the broken payload has to be
+    # injected afterwards — the control's own read is what must degrade.
     layer.data = "{not json"
-
-    assert _layer_control_mod._fill_author(layer) is None
-
-
-def test_non_mapping_data_is_ignored():
-    layer = _geo(["#0d0887", "#f0f921"])
-    layer.data = [{"type": "Feature", "properties": {}}]
-
-    assert _layer_control_mod._fill_author(layer) is None
+    assert _conf(_render(layer))["data"][0].get("fillAuthor") is None
 
 
 def test_missing_features_list_is_ignored():
-    layer = _geo(["#0d0887", "#f0f921"])
-    layer.data = {"type": "FeatureCollection"}
-
-    assert _layer_control_mod._fill_author(layer) is None
+    layer = folium.GeoJson({"type": "FeatureCollection"})
+    assert _conf(_render(layer))["data"][0].get("fillAuthor") is None
 
 
 def test_feature_without_properties_is_skipped():
-    layer = _geo(["#0d0887", "#f0f921"], style=False)
+    layer = _geo(["#0d0887", "#f0f921"])
     layer.data["features"].insert(0, None)
-    layer.data["features"].insert(1, {"type": "Feature", "properties": None})
     meta = _meta(layer)
 
+    assert meta["distinct"] == 2
+
+
+def test_the_color_scan_samples_across_a_sorted_layer(monkeypatch):
+    monkeypatch.setattr(_layer_control_mod, "_FILL_AUTHOR_SCAN_LIMIT", 2)
+    # A layer sorted by the painted value: a head-only scan would see one class
+    # and read the whole layer as a single color.
+    meta = _meta(_geo(["#0d0887", "#6a00a8", "#b12a90", "#f0f921"]))
+
     assert meta["perFeature"] is True
-    assert meta["fields"][0]["name"] == "cat"
+    assert meta["stops"] == ["#0d0887", "#b12a90"]
+    assert "capped" not in meta
 
 
-def test_large_layer_reports_only_the_colour_set(monkeypatch):
-    monkeypatch.setattr(_layer_control_mod, "_FILL_AUTHOR_FEATURE_LIMIT", 1)
-    meta = _meta(_geo(["#0d0887", "#f0f921"]))
+def test_a_caption_sample_skips_features_without_the_value():
+    scale = _linear()
+    values = [10.0, 40.0, 90.0]
+    colors = [str(scale(value))[:7] for value in values]
+    layer = _geo(colors, values=values)
+    # A feature missing the caption's property contributes no sample: the
+    # agreement is measured on the features that do carry a value.
+    del layer.data["features"][1]["properties"]["score"]
+    meta = _meta(layer, scale)
 
-    assert meta["perFeature"] is True
-    assert meta["fields"] == []
-
-
-def test_numeric_author_palette_is_sorted_by_value():
-    layer = _geo(["#0d0887", "#6a00a8", "#b12a90", "#e16462"], column="score")
-    for value, feature in zip((40, 10, 30, 20), layer.data["features"], strict=True):
-        feature["properties"]["score"] = value
-    field = _meta(layer)["fields"][0]
-
-    # Value order, not feature order: 10 -> #6a00a8, 20 -> #e16462, 30 -> #b12a90,
-    # 40 -> #0d0887.
-    assert field["orderedColors"] == ["#6a00a8", "#e16462", "#b12a90", "#0d0887"]
-    assert field["classes"] == 4
+    assert meta["scale"]["column"] == "score"
 
 
-def test_truncated_numeric_field_caps_the_author_palette():
-    layer = _geo([f"#{i:02x}00aa" for i in range(60)], column="score")
-    for value, feature in zip(range(60), layer.data["features"], strict=True):
-        feature["properties"]["score"] = value
-    field = _meta(layer)["fields"][0]
+def test_a_caption_sample_skips_values_the_scale_cannot_draw(monkeypatch):
+    scale = _linear()
+    values = [10.0, 40.0, 90.0]
+    rows = [({"score": value}, str(scale(value))[:7]) for value in values]
+    original = _layer_control_mod._colormap_sample
+    calls = {"count": 0}
 
-    # The payload stays bounded: the palette describes the kept values only,
-    # and the class count cannot exceed them.
-    assert field["truncated"] is True
-    assert len(field["orderedColors"]) <= 50
-    assert field["classes"] == len(field["orderedColors"])
-    assert set(field["orderedColors"]) <= set(field["mapping"].values())
+    def flaky(colormap: object, value: object) -> str | None:
+        calls["count"] += 1
+        return None if calls["count"] == 1 else original(colormap, value)
 
+    monkeypatch.setattr(_layer_control_mod, "_colormap_sample", flaky)
+    hits, total = _layer_control_mod._column_agreement(scale, rows, "score")
 
-def _field(meta: dict, name: str) -> dict | None:
-    return next((field for field in meta["fields"] if field["name"] == name), None)
-
-
-def _numpy():
-    pytest.importorskip("numpy")
-    import numpy as np
-
-    return np
+    # One feature could not be sampled: it neither counts nor breaks agreement.
+    assert (hits, total) == (2, 2)
 
 
-def _fields_for(values: list[object], colors: list[str]) -> list[dict]:
-    rows = [
-        ({"score": value, "__folium_color": color}, color)
-        for value, color in zip(values, colors, strict=True)
+def test_a_short_scale_strip_keeps_every_stop():
+    scale = branca_cm.LinearColormap(
+        ["#0d0887", "#6a00a8", "#f0f921"], vmin=0, vmax=100, caption="score"
+    )
+    values = [10.0, 40.0, 90.0]
+    meta = _meta(
+        _geo([str(scale(value))[:7] for value in values], values=values), scale
+    )
+
+    # Fewer stops than the strip samples: the strip is the whole palette.
+    assert meta["stops"] == ["#0d0887", "#6a00a8", "#f0f921"]
+
+
+def test_numeric_values_cover_booleans_numpy_integers_and_nan():
+    np = pytest.importorskip("numpy")
+    numeric = _layer_control_mod._numeric_value
+
+    assert numeric(True) is None
+    assert numeric(np.int64(7)) == 7.0
+    assert numeric(float("nan")) is None
+    assert numeric("7") is None
+
+
+def test_color_helpers_degrade_on_bad_input():
+    module = _layer_control_mod
+
+    assert module._rgb("#12") is None
+    assert module._rgb("not-a-color") is None
+    # A non-sequence and a channel that is not a float both yield no color
+    # instead of raising inside a render.
+    assert module._rgba_hex(5) is None
+    assert module._rgba_hex("not-a-color") is None
+    assert module._rgba_hex([1.0, 2.0]) is None
+
+
+def test_palette_hex_reads_hex_strings_and_stops():
+    module = _layer_control_mod
+
+    assert module._palette_hex("#abc") == "#aabbcc"
+    assert module._palette_hex("#AABBCCFF") == "#aabbcc"
+    assert module._palette_hex("nope") is None
+    assert module._palette_hex((0.0, 0.0, 1.0, 1.0)) == "#0000ff"
+
+
+def test_author_rows_skips_malformed_and_uncolored_features():
+    features = [
+        None,
+        {"properties": {}},
+        *[{"properties": {"__folium_color": "#0d0887"}} for _ in range(20)],
     ]
-    return _layer_control_mod._fill_author_fields(rows)
+
+    rows = _layer_control_mod._author_rows(features)
+
+    assert len(rows) == _layer_control_mod._FILL_AUTHOR_SAMPLE
+    assert all(color == "#0d0887" for _, color in rows)
 
 
-def test_numpy_integer_scalars_are_numeric_with_integer_keys():
-    np = _numpy()
-    fields = _fields_for(
-        [np.int64(10), np.int64(20), np.int64(30)],
-        ["#0d0887", "#f0f921", "#6a00a8"],
+def test_rgb_reads_short_hex_and_rejects_broken_hex():
+    module = _layer_control_mod
+
+    assert module._rgb("#abc") == (170, 187, 204)
+    assert module._rgb("#zzzzzz") is None
+    assert module._rgb("#12345") is None
+    assert module._same_color("nope", "#0d0887") is False
+
+
+def test_colormap_sample_returns_none_for_a_broken_scale():
+    # A scale that raises on call yields no sample instead of a failed render.
+    assert _layer_control_mod._colormap_sample(object(), 1.0) is None
+
+
+def test_pair_scale_needs_a_sampled_color_row():
+    scale = _linear()
+
+    assert _layer_control_mod._pair_scale([scale], [{"properties": {}}], set()) is None
+
+
+def test_a_caption_that_names_a_text_property_claims_nothing():
+    scale = _linear(caption="cat")
+    values = [10.0, 40.0, 90.0]
+    colors = [str(scale(value))[:7] for value in values]
+    layer = _geo(colors, values=values)
+    for index, feature in enumerate(layer.data["features"]):
+        feature["properties"]["cat"] = f"c{index}"
+    meta = _meta(layer, scale)
+
+    # The caption is a property, but not a numeric one: no column to claim.
+    assert "scale" not in meta
+
+
+def test_continuous_stops_degrades_for_an_unreadable_index():
+    class Scale:
+        index = None
+        colors = ()
+
+    assert _layer_control_mod._continuous_stops(Scale()) == []
+
+
+def test_continuous_stops_returns_empty_for_an_empty_index():
+    class Scale:
+        index = []
+        colors = ()
+
+    assert _layer_control_mod._continuous_stops(Scale()) == []
+
+
+def test_continuous_stops_falls_back_to_interpolation_without_a_palette():
+    class Scale:
+        index = [0.0, 50.0, 100.0]
+
+        def __call__(self, value: float) -> str:
+            if value == 50:
+                raise ValueError("no sample")
+            return "#0d0887ff" if value < 50 else "#f0f921ff"
+
+    # The middle sample fails: the fallback drops that stop and keeps the rest.
+    assert _layer_control_mod._continuous_stops(Scale()) == ["#0d0887", "#f0f921"]
+
+
+def test_continuous_stops_drops_unreadable_stops():
+    class Scale:
+        index = [0.0, 50.0, 100.0]
+        colors = ["#0d0887", "nope", "#f0f921"]
+
+    assert _layer_control_mod._continuous_stops(Scale()) == ["#0d0887", "#f0f921"]
+
+
+def test_scale_walk_ignores_nodes_without_children():
+    class Node:
+        _children = None
+        _parent = None
+
+    assert _layer_control_mod._map_colormaps(Node()) == []
+
+
+def test_scale_payload_without_a_column_omits_it():
+    scale = _linear()
+
+    scale_payload, stops = _layer_control_mod._scale_payload(scale, None)
+
+    assert "column" not in scale_payload
+    assert len(stops) == 64
+
+
+def test_a_scale_without_stops_is_not_shipped(monkeypatch):
+    scale = _linear()
+    values = [10.0, 40.0, 90.0]
+    colors = [str(scale(value))[:7] for value in values]
+    layer = _geo(colors, values=values)
+    monkeypatch.setattr(
+        _layer_control_mod,
+        "_scale_payload",
+        lambda colormap, column: ({"kind": "continuous"}, []),
     )
+    meta = _meta(layer, scale)
 
-    field = _field({"fields": fields}, "score")
-    assert field is not None, fields
-    assert field["kind"] == "numeric"
-    # np.int64(10) and 10 are the same value: the key prints as the integer.
-    assert field["mapping"] == {"10": "#0d0887", "20": "#f0f921", "30": "#6a00a8"}
-    assert field["orderedColors"] == ["#0d0887", "#f0f921", "#6a00a8"]
-    assert field["classes"] == 3
+    assert "scale" not in meta
 
 
-def test_numpy_float_scalars_keep_float_keys():
-    np = _numpy()
-    field = _field(
-        {
-            "fields": _fields_for(
-                [np.float32(1.5), np.float64(2.5)], ["#0d0887", "#f0f921"]
-            )
-        },
-        "score",
+def test_more_than_the_strip_cap_is_capped(monkeypatch):
+    monkeypatch.setattr(_layer_control_mod, "_FILL_AUTHOR_STOPS", 2)
+    meta = _meta(_geo(["#0d0887", "#f0f921", "#6a00a8"]))
+
+    assert meta["capped"] is True
+    assert len(meta["stops"]) == 2
+
+
+def test_numpy_backed_values_can_validate_a_caption():
+    np = pytest.importorskip("numpy")
+    scale = _linear()
+    values = [np.float64(10.0), np.float64(40.0), np.float64(90.0)]
+    colors = [str(scale(float(value)))[:7] for value in values]
+    meta = _meta(_geo(colors, values=[float(v) for v in values]), scale)
+
+    assert meta["scale"]["column"] == "score"
+
+
+def test_scale_controls_are_reachable_through_a_feature_group():
+    # A control attached to a FeatureGroup sits one level below the map; the
+    # scale walk must climb, or the declaration is silently lost.
+    scale = _linear()
+    values = [10.0, 40.0, 90.0]
+    layer = _geo([str(scale(value))[:7] for value in values], values=values)
+
+    m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+    scale.add_to(m)  # type: ignore[attr-defined]
+    group = folium.FeatureGroup(name="group")
+    layer.add_to(group)
+    control = LayerControl()
+    group.add_child(control)
+    m.add_child(group)
+    html = m.get_root().render()
+    entry = _conf(html)["data"][0]
+
+    assert entry["fillAuthor"]["scale"]["column"] == "score"
+
+
+def test_scale_does_not_read_a_map_it_is_not_attached_to():
+    scale = _linear()
+    values = [10.0, 40.0, 90.0]
+    colors = [str(scale(value))[:7] for value in values]
+    layer = _geo(colors, values=values)
+    # The scale lives on another map entirely: nothing may pair.
+    other = folium.Map()
+    scale.add_to(other)  # type: ignore[attr-defined]
+    html = _render(layer)
+    entry = _conf(html)["data"][0]
+
+    assert "scale" not in entry["fillAuthor"]
+
+
+def test_a_missing_value_in_the_first_feature_does_not_drop_the_scale():
+    scale = _linear()
+    values = [float("nan"), 40.0, 90.0]
+    colors = ["lightgrey", *(str(scale(value))[:7] for value in values[1:])]
+    # missing_kwds paints the NaN feature, so the sample opens on a row the
+    # scale cannot sample. The caption still names the layer's column: one
+    # missing value must not cost the whole layer its scale (it did before the
+    # caption check looked past the first sampled row).
+    meta = _meta(_geo(colors, values=values), scale)
+
+    assert meta["scale"]["kind"] == "continuous"
+    assert meta["scale"]["column"] == "score"
+    assert len(meta["stops"]) == 64
+
+
+def test_a_stepped_scale_accepts_its_own_blocks_across_a_bin_edge():
+    scale = _stepped()
+    # Every feature sits in the first class, but the layer paints them with all
+    # four blocks: mapclassify's bin edges do exactly this on a fisherjenks
+    # layer, and a probability bar over-rejected it. Membership in the author's
+    # block set is the exact test a classified scale deserves.
+    blocks = [str(scale(value))[:7] for value in (10.0, 30.0, 60.0, 90.0)]
+    colors = blocks * 3
+    meta = _meta(_geo(colors, values=[20.0] * len(colors)), scale)
+
+    assert meta["scale"]["kind"] == "stepped"
+    assert meta["scale"]["column"] == "score"
+    assert meta["scale"]["levels"] == 4
+    assert meta["scale"]["breaks"] == [0, 25, 50, 75, 100]
+
+
+def test_a_stepped_scale_is_refused_when_a_color_is_not_one_of_its_blocks():
+    scale = _stepped()
+    # Same property name, other palette: no block of this scale paints them.
+    colors = ["#0d0887", "#6a00a8", "#b12a90", "#f0f921", "#0d0887", "#6a00a8"]
+    meta = _meta(_geo(colors, values=[20.0] * len(colors)), scale)
+
+    assert "scale" not in meta
+
+
+def test_affine_equivalent_columns_are_claimed_by_render_order():
+    scale = _linear(("#440154", "#fde725"), caption="score", vmin=0, vmax=100)
+    values = [10.0, 40.0, 90.0]
+    explore = _geo(
+        [str(scale(value))[:7] for value in values], values=values, name="Explore"
     )
+    # The plain layer paints an affine column (value = 3 * score + 10, the
+    # area / area_ha case): the colors are identical at every stop, so no color
+    # check can tell the two columns apart. Documented limitation, pinned here
+    # so it is not mistaken for a regression later: the first caption in render
+    # order keeps the scale, and the real owning layer ships colors only.
+    plain = _geo(
+        [str(scale(value))[:7] for value in values],
+        column="value",
+        values=[3.0 * value + 10.0 for value in values],
+        name="Plain",
+    )
+    for feature, value in zip(plain.data["features"], values):
+        feature["properties"]["score"] = value
+    html = _render(plain, explore, scales=(scale,))
+    data = {entry["name"]: entry for entry in _conf(html)["data"]}
 
-    assert field is not None
-    assert field["kind"] == "numeric"
-    assert field["mapping"] == {"1.5": "#0d0887", "2.5": "#f0f921"}
-
-
-def test_missing_and_mixed_values_disqualify_the_column():
-    np = _numpy()
-    for missing in (None, float("nan"), np.float32("nan")):
-        fields = _fields_for([missing, 20], ["#0d0887", "#f0f921"])
-        assert _field({"fields": fields}, "score") is None, missing
-
-    # A mixed int/string column can never be a numeric ramp; it falls back to
-    # the categorical mapping (the by-category arm does not exist yet, so the
-    # panel shows its read-only per-feature state).
-    mixed = _fields_for([10, "twenty"], ["#0d0887", "#f0f921"])
-    mixed_field = _field({"fields": mixed}, "score")
-    assert mixed_field is None or mixed_field["kind"] == "categorical"
-
-    boolean = _fields_for([True, False], ["#0d0887", "#f0f921"])
-    assert _field({"fields": boolean}, "score") is None
-
-    numpy_bool = _fields_for([np.bool_(True), np.bool_(False)], ["#0d0887", "#f0f921"])
-    assert _field({"fields": numpy_bool}, "score") is None
+    assert data["Plain"]["fillAuthor"]["scale"]["column"] == "score"
+    assert "scale" not in data["Explore"]["fillAuthor"]
 
 
-def test_integer_dtype_geodataframe_is_numeric():
+@pytest.mark.parametrize("k", [7, 8, 9])
+def test_a_fisherjenks_caption_survives_the_bin_edges(k):
+    np = pytest.importorskip("numpy")
     gpd = pytest.importorskip("geopandas")
-    pytest.importorskip("shapely")
-    from shapely.geometry import Point
-
-    gdf = gpd.GeoDataFrame(
-        {"score": [10, 20, 30], "ratio": [1.5, 2.5, 3.5], "cat": ["a", "b", "c"]},
-        geometry=[Point(0, 0), Point(1, 1), Point(2, 2)],
-        crs="EPSG:4326",
+    pytest.importorskip("mapclassify")
+    # The dataset echo measured: fisherjenks k >= 7 put 3 of the 5 sampled
+    # features on the far side of a bin edge, and the majority bar refused a
+    # correctly captioned scale. Every block color is still the author's.
+    rng = np.random.default_rng(16)
+    score = np.round(rng.uniform(0, 100, 43), 4)
+    frame = gpd.GeoDataFrame(
+        {"score": score},
+        geometry=gpd.points_from_xy(range(43), [x * 0.5 for x in range(43)]),
     )
-    gdf["__folium_color"] = ["#0d0887", "#f0f921", "#6a00a8"]
-    layer = folium.GeoJson(gdf, style_function=lambda feature: {})
-    meta = _meta(layer)
-
-    score = _field(meta, "score")
-    assert score is not None, meta
-    assert score["kind"] == "numeric"
-    # An int64 column keys integers, not their float spelling.
-    assert set(score["mapping"]) == {"10", "20", "30"}
-    assert score["classes"] == 3
-    # A float64 column in the same frame keeps its float repr.
-    ratio = _field(meta, "ratio")
-    assert ratio is not None and ratio["kind"] == "numeric"
-    assert set(ratio["mapping"]) == {"1.5", "2.5", "3.5"}
-    # A string column stays categorical.
-    cat = _field(meta, "cat")
-    assert cat is not None and cat["kind"] == "categorical"
-
-
-def test_non_primitive_value_after_a_numeric_row_disqualifies_the_column():
-    rows = [
-        ({"score": 10, "__folium_color": "#0d0887"}, "#0d0887"),
-        ({"score": {"nested": 1}, "__folium_color": "#f0f921"}, "#f0f921"),
+    m = folium.Map()
+    frame.explore(m=m, column="score", scheme="fisherjenks", k=k, name="A")
+    layer = [v for v in m._children.values() if type(v).__name__ == "GeoJson"][0]
+    scales = [
+        v
+        for v in m._children.values()
+        if type(v).__name__ in ("LinearColormap", "StepColormap")
     ]
-    fields = _layer_control_mod._fill_author_fields(rows)
+    payload = _layer_control_mod._fill_author(layer, scales, set())
 
-    # A value that cannot key a mapping disqualifies the whole column, even
-    # when the first row already looked numeric.
-    assert _field({"fields": fields}, "score") is None
-
-
-def test_shared_colour_values_dedupe_the_author_palette():
-    rows = [
-        ({"score": 10, "__folium_color": "#0d0887"}, "#0d0887"),
-        ({"score": 20, "__folium_color": "#0d0887"}, "#0d0887"),
-        ({"score": 30, "__folium_color": "#f0f921"}, "#f0f921"),
-    ]
-    field = _field({"fields": _layer_control_mod._fill_author_fields(rows)}, "score")
-
-    assert field is not None
-    # Two values may share one colour: the palette lists each colour once.
-    assert field["orderedColors"] == ["#0d0887", "#f0f921"]
-    assert field["classes"] == 2
+    assert payload["scale"]["kind"] == "stepped"
+    assert payload["scale"]["column"] == "score"
+    assert payload["scale"]["levels"] == k
+    assert all(isinstance(edge, float) for edge in payload["scale"]["breaks"])

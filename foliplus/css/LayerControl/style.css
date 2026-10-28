@@ -58,6 +58,45 @@
   gap: var(--foliplus-space-xs);
 }
 
+/* Original-colors detail: the author's own presentation, read-only. Every row
+   is a FORM_ROW on the same label/control grid as the by-value arm, and the
+   control cell holds a box with the form-control frame — so the readout lands
+   on the same right edge as the select it replaces instead of spilling across
+   the panel. No chevron, no focus ring and no hover/active feedback: nothing
+   in this arm opens, toggles or edits. */
+.foliplus-style-fill-readonly {
+  display: flex;
+  align-items: center;
+  height: var(--foliplus-ctrl-size);
+  box-sizing: border-box;
+  padding: 0 var(--foliplus-space-sm);
+  border: var(--foliplus-border-thin) solid var(--foliplus-input-border);
+  border-radius: var(--foliplus-radius-sm);
+  background: var(--foliplus-input-bg);
+  color: var(--foliplus-text-primary);
+  font-size: var(--foliplus-font-size-sm);
+  cursor: default;
+}
+
+.foliplus-style-fill-original-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The colors box carries the gradient edge to edge, the same inset the scheme
+   trigger gives its bar — one box, one ordered ramp, no per-color blocks to
+   overflow the control column. */
+.foliplus-style-fill-original-colors {
+  padding: 0 var(--foliplus-scheme-picker-bar-inset-x);
+}
+
+.foliplus-style-fill-original-strip {
+  flex: 1;
+  height: 10px;
+  border-radius: var(--foliplus-radius-sm);
+}
+
 /* Scheme trigger and colour strip: the shared scheme-picker recipe
    (common/scheme-picker.css) owns the box, the chevron and the bar geometry.
    `.foliplus-style-scheme-trigger` / `.foliplus-style-scheme-bar` stay on the

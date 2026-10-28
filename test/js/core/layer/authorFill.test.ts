@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readFeatureFillColors } from "#core/layer/authorFill.js";
 
 /** A Circle-like leaf: getRadius satisfies the areal fill carrier check and
- *  feature.properties is where explore puts its colour. */
+ *  feature.properties is where explore puts its color. */
 const makeLeaf = (props?: Record<string, unknown>) => {
   const leaf: any = {
     options: { fillOpacity: 0.5, fill: true },
@@ -19,7 +19,7 @@ const makeLayer = (leaves: unknown[]) => ({
 });
 
 describe("readFeatureFillColors", () => {
-  it("reads each explore leaf's author colour", () => {
+  it("reads each explore leaf's author color", () => {
     const leaves = [
       makeLeaf({ __folium_color: "#0d0887", cat: "a" }),
       makeLeaf({ __folium_color: "#f0f921", cat: "b" }),
@@ -31,7 +31,7 @@ describe("readFeatureFillColors", () => {
     expect([...snapshot.values()]).toEqual(["#0d0887", "#f0f921"]);
   });
 
-  it("normalizes colour spelling", () => {
+  it("normalizes color spelling", () => {
     const snapshot = readFeatureFillColors(
       makeLayer([makeLeaf({ __folium_color: "#FFF" })]),
     );
@@ -51,7 +51,7 @@ describe("readFeatureFillColors", () => {
     expect([...snapshot.values()]).toEqual(["#0d0887", null, null]);
   });
 
-  it("treats a blank colour as no colour", () => {
+  it("treats a blank color as no color", () => {
     const snapshot = readFeatureFillColors(
       makeLayer([makeLeaf({ __folium_color: "  " })]),
     );

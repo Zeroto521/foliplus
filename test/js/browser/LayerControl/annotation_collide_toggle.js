@@ -13,7 +13,7 @@ doFlip => {
   const id = row.getAttribute("data-layer-id");
   const raf = () =>
     new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-  const canvas = () => document.querySelector(".foliplus-annotation-canvas");
+  const canvas = () => document.querySelector(".foliplus-label-canvas");
   const opaque = () => {
     const el = canvas();
     if (!el) return 0;

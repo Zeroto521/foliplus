@@ -87,7 +87,7 @@ const collectLabelFields = (leaves: Iterable<L.Layer>): LabelField[] => {
  * This is the label-pane capability probe: `LayerController.surfaceFor` runs it
  * over a registration entry's tree on every surface resolution, so it stops
  * work at the first hit instead of sampling every key like the collector.
- * A `true` here is what appends the `role: "annotation"` PaneSpec — the
+ * A `true` here is what appends the `role: "label"` PaneSpec — the
  * capability declaration and this probe are one fact.
  */
 const hasLabelField = (layer: L.Layer): boolean => {
@@ -127,7 +127,7 @@ const autoLabelField = (fields: LabelField[]): string =>
  * The empty string: an explicit field is always a non-empty name, so the
  * sentinel can never collide with a real option, and a `<select>`'s own empty
  * value already reads as "nothing picked yet". Both components that offer a
- * field picker — the heatmap's aggregation field and the annotation panel's
+ * field picker — the heatmap's aggregation field and the label panel's
  * label field — use it, so "auto" means one thing across the product.
  */
 const AUTO_FIELD = "";
@@ -162,5 +162,5 @@ export {
   hasLabelField,
   isNumericField,
   resolveSelectedField,
-  type LabelField,
 };
+export type { LabelField };
