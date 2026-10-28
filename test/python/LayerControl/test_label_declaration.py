@@ -13,6 +13,7 @@ from __future__ import annotations
 import importlib
 import json
 import warnings
+from typing import Any, cast
 
 import folium
 import pytest
@@ -23,7 +24,13 @@ _EMPTY = json.dumps({"type": "FeatureCollection", "features": []})
 
 
 def _render_config(declaration: dict[str, object]) -> dict[str, object]:
-    """Build a control whose layer declares *declaration*, then collect."""
+    """Build a control whose layer declares *declaration*, then collect.
+
+    The declaration enters through the documented author channel,
+    ``folium.GeoJson(foliplus=...)``, never by writing ``layer.options``
+    by hand: folium only forwards those kwargs onto the layer's options
+    from 0.15 on, so this helper is also what pins the supported floor.
+    """
     m = folium.Map()
     ctrl = LayerControl().add_to(m)
     folium.GeoJson(_EMPTY, name="declared", foliplus=declaration).add_to(ctrl)
@@ -64,6 +71,21 @@ def test_annotation_key_warns_once_per_process() -> None:
     assert len(messages) == 1
     assert "deprecated" in messages[0]
     assert 'foliplus={"label": ...}' in messages[0]
+
+
+def test_a_layer_without_options_is_silent() -> None:
+    """A layer with no options mapping declares nothing.
+
+    Inspecting it must read as "nothing deprecated", not raise: the helper
+    runs on every collected layer, so an AttributeError here would break
+    rendering outright. Reading the attribute defensively is the semantics
+    — no options of that shape means no declaration — not a version hack.
+    """
+    module = importlib.import_module("foliplus.LayerControl")
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        module._warn_deprecated_annotation_key(cast(Any, object()))
+    assert _deprecations(caught) == []
 
 
 def test_label_wins_when_both_keys_are_present() -> None:

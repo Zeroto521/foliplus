@@ -19,15 +19,22 @@ _ANNOTATION_KEY_WARNED = False
 def _warn_deprecated_annotation_key(item: Layer) -> None:
     """Warn once per process when a layer still declares the old key.
 
-    The declaration rides on a layer's own options (folium keeps
-    explore(foliplus=...) there), never on CONFIG — so the control only
-    sees it while collecting layers at render time, and that is the one
-    place a Python-side deprecation can be raised.
+    The declaration rides on a layer's own ``options`` (folium keeps the
+    ``explore(foliplus=...)`` namespace there), never on CONFIG — so the
+    control only sees it while collecting layers at render time, and that
+    is the one place a Python-side deprecation can be raised.
+
+    ``options`` is also the folium version boundary: 0.14 predates the
+    attribute entirely, so a layer there has no declaration to inspect and
+    must read as "nothing deprecated" rather than raise.
     """
     global _ANNOTATION_KEY_WARNED
     if _ANNOTATION_KEY_WARNED:
         return
-    declared = item.options.get("foliplus")
+    options = getattr(item, "options", None)
+    if not isinstance(options, dict):
+        return
+    declared = options.get("foliplus")
     if not isinstance(declared, dict):
         return
     # 'label' wins when both are present, and that is not a deprecation.
