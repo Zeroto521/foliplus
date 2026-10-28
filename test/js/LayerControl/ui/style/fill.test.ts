@@ -19,7 +19,7 @@ import { closeStylePanel } from "#foliplus/LayerControl/ui/style/index.js";
 import {
   MAX_STOPS,
   originalGradient,
-} from "#foliplus/LayerControl/ui/style/originalColors.js";
+} from "#foliplus/LayerControl/ui/style/originalColor.js";
 import {
   FACE,
   dropStyleDimApplies,
@@ -2986,6 +2986,7 @@ describe("fill row — original colors", () => {
     // produces one deterministic bar instead of dropping the color.
     const stops = [
       "rgb(255, 0, 0)",
+      "rgba(0, 0, 255, 0.5)",
       "rgb(100% 0% 0%)",
       "#00ff00",
       "#0000ffcc",
@@ -3002,6 +3003,29 @@ describe("fill row — original colors", () => {
     // empty and the one color, not a broken linear-gradient.
     expect(originalGradient([], null)).toBe("");
     expect(originalGradient(["#123456"], null)).toBe("#123456");
+  });
+
+  it("keeps a stable order for ties, grays and malformed stops", () => {
+    // Same hue at two lightnesses, two notations of one color, a gray with no
+    // hue at all, a malformed rgb() and the empty string: every one of them
+    // either ranks on an axis or falls into the named bucket, so the bar is
+    // still deterministic instead of depending on the author's feature order.
+    const stops = [
+      "#ff0000",
+      "#800000",
+      "rgb(255, 0, 0)",
+      "#808080",
+      "rgb(1 2)",
+      "rgb(a b c)",
+      "",
+      "#ff0000",
+    ];
+    const bar = originalGradient(stops, null);
+    expect(bar).toBe(originalGradient(stops, null));
+    // The empty string and the repeat dropped out; every declared color stayed.
+    expect(bar).not.toContain(";;");
+    expect(bar).toContain("#ff0000");
+    expect(bar).toContain("rgb(1 2)");
   });
 
   it("draws the colors without a field row when the scale named no column", () => {
@@ -3448,6 +3472,66 @@ describe("fill row — original colors option", () => {
       "." + CONST.CLASSES.STYLE_FILL_DETAIL,
     ) as HTMLElement;
     expect(detail.querySelector("select")).toBeNull();
+  });
+
+  it("opens on by-value when only a ramp config is stored", () => {
+    const { ui } = initWithPerFeatureLayer();
+    // The pre-fillMode record shape: a stored config and no mode means the
+    // user already classified, so the row reads by-value rather than original.
+    setIntent(ui, "feature1", "fillRamp", {
+      field: "count",
+      method: "jenks",
+      classes: 3,
+      scheme: "Blues",
+    });
+
+    expect(modeSelect(buildFillRow(ui, "feature1")).value).toBe("ramp");
+  });
+
+  it("choosing the arm it is already in writes nothing", () => {
+    const { ui } = initWithPerFeatureLayer();
+    const row = buildFillRow(ui, "feature1");
+    document.body.append(row);
+    bindFillRow(ui, "feature1", row);
+
+    modeSelect(row).dispatchEvent(new Event("change", { bubbles: true }));
+
+    // The row opens on the author's colors without an intent; re-selecting the
+    // arm it is already in must not turn that into a stored one.
+    expect(getIntent(ui, "feature1", "fillMode")).toBeUndefined();
+  });
+
+  it("does not replay a stale override on mouseout once back in the original arm", () => {
+    const { ui, layer } = initWithPerFeatureLayer();
+    let handler: (() => void) | null = null;
+    for (const leaf of layer.leaves as Array<{ on: unknown }>) {
+      leaf.on = vi.fn((_type: string, fn: () => void) => {
+        handler = fn;
+      });
+    }
+    const row = buildFillRow(ui, "feature1");
+    document.body.append(row);
+    bindFillRow(ui, "feature1", row);
+    const select = modeSelect(row);
+
+    // A solid write installs the highlight pin; going back to the author's
+    // colors must leave folium's own mouseout restore in force, or the user's
+    // old solid color would repaint over the author's colors on every hover.
+    select.value = "solid";
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+    flushStyleDimApply(FACE.FILL, "feature1");
+    select.value = "original";
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+    flushStyleDimApply(FACE.FILL, "feature1");
+
+    for (const leaf of layer.leaves as Array<{ setStyle: { mockClear: () => void } }>) {
+      leaf.setStyle.mockClear();
+    }
+    handler!();
+
+    for (const leaf of layer.leaves as Array<{ setStyle: unknown }>) {
+      expect(leaf.setStyle).not.toHaveBeenCalled();
+    }
   });
 
   it("reset restores every leaf's own author color and the original arm", () => {

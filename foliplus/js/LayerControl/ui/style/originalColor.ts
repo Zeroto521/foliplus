@@ -40,8 +40,14 @@ const toRgb = (color: string): Rgb | null => {
     if (!/^[0-9a-f]+$/.test(raw) || ![3, 4, 6, 8].includes(raw.length)) {
       return null;
     }
+    // Short forms repeat each digit (rgb), long forms pair them up; the
+    // length check above guarantees an even split and a full set of pairs.
     const chunks =
-      raw.length <= 4 ? [...raw].map(ch => ch + ch) : (raw.match(/../g) ?? []);
+      raw.length <= 4
+        ? [...raw].map(ch => ch + ch)
+        : Array.from({ length: raw.length / 2 }, (_, at) =>
+            raw.slice(at * 2, at * 2 + 2),
+          );
     return chunks.slice(0, 3).map(chunk => parseInt(chunk, 16)) as Rgb;
   }
   const call = /^rgba?\(([^)]*)\)$/.exec(value);

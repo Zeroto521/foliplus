@@ -44,7 +44,7 @@ import { INTENT, type IntentKey, getIntent } from "../intent.js";
 import type { LayerUI } from "../surface.js";
 import { applyRampToLayer, resolveFillMode } from "./fillRamp.js";
 import { layerFields } from "./label.js";
-import { originalGradient } from "./originalColors.js";
+import { originalGradient } from "./originalColor.js";
 import { pinStyleOnHighlight } from "./pin.js";
 import {
   getDimension,
