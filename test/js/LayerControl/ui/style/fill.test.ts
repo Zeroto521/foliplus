@@ -3380,6 +3380,38 @@ describe("declared fill — foliplus={'fill': ...}", () => {
     expect(mode.querySelector('option[value="feature"]')).toBeNull();
   });
 
+  it("shows a declared class count outside the editable range and converges on edit", () => {
+    // The declared count is the author's data, so the panel states 12 even
+    // though the picker only offers 2..9 — the same extra-option path an
+    // author palette with 12 classes takes. Only a user write has to satisfy
+    // the persisted vocabulary, so the first edit collapses the count.
+    const { ui } = declaredRampFixture({
+      ramp: { field: "count", method: "equal", classes: 12, scheme: "Reds" },
+    });
+
+    expect(FILL_DIMENSION.value!(ui, "overlay1")).toMatchObject({
+      ramp: { classes: 12 },
+    });
+
+    const row = buildFillRow(ui, "overlay1");
+    bindFillRow(ui, "overlay1", row);
+    const classes = row.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_CLASSES_SELECT}`,
+    ) as HTMLSelectElement;
+
+    expect(classes.value).toBe("12");
+    expect(classes.querySelector('option[value="12"]')).not.toBeNull();
+    // The select explains a value it cannot re-offer, so the row does not
+    // look broken next to the 2..9 list.
+    expect(classes.title).toBe("LayerControl.style_fill_classes_out_of_range");
+
+    classes.value = "9";
+    classes.dispatchEvent(new Event("change", { bubbles: true }));
+
+    // The declaration itself is untouched; only the user's record converges.
+    expect(getIntent(ui, "overlay1", "fillRamp")).toMatchObject({ classes: 9 });
+  });
+
   it("Reset returns to the declared ramp after the user took the fill over", () => {
     const { ui, rampLayer } = declaredRampFixture({
       ramp: { field: "count", method: "equal", classes: 3, scheme: "Reds" },

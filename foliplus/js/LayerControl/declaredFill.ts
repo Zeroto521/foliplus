@@ -93,9 +93,10 @@ const rawFillOf = (layer: object): unknown =>
   (layer as { options?: FoliplusOptions }).options?.foliplus?.fill;
 
 /** Validate one raw ramp object. A declared key that fails its own check is
- *  dropped with a warning while the remaining keys survive; the classes range
- *  is enforced, never clamped — "declared 12, painted 6" is exactly the silent
- *  deviation this reader exists to prevent. */
+ *  dropped with a warning while the remaining keys survive. Classes is kept
+ *  exactly as declared, never clamped: "declared 12, painted 6" is the silent
+ *  deviation this reader exists to prevent, so the editable 2..9 vocabulary is
+ *  a panel constraint, not an author one. */
 const parseRamp = (
   invalid: string[],
   raw: unknown,
@@ -138,13 +139,18 @@ const parseRamp = (
     }
   }
 
+  // The declared count is the author's, not the panel's: anything an
+  // integer classifier can build is kept as-is (a declared 12 paints 12 and
+  // the panel shows 12 as its own option). Only an unbuildable count is
+  // rejected — non-integer, or below MIN where the classes stop meaning
+  // anything. The write path clamps to the persisted 2..9 range, so the
+  // first user edit converges; the declaration itself is never rewritten.
   let classes: number = CLASS_COUNT.DEFAULT;
   if (data.classes !== undefined) {
     if (
       typeof data.classes === "number" &&
       Number.isInteger(data.classes) &&
-      data.classes >= CLASS_COUNT.MIN &&
-      data.classes <= CLASS_COUNT.MAX
+      data.classes >= CLASS_COUNT.MIN
     ) {
       classes = data.classes;
     } else {
@@ -152,7 +158,7 @@ const parseRamp = (
         invalid,
         layerId,
         "ramp.classes",
-        `invalid ramp.classes ${JSON.stringify(data.classes)} (expected an integer ${CLASS_COUNT.MIN}-${CLASS_COUNT.MAX})`,
+        `invalid ramp.classes ${JSON.stringify(data.classes)} (expected an integer >= ${CLASS_COUNT.MIN})`,
       );
     }
   }

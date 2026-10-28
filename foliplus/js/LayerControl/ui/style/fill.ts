@@ -696,6 +696,10 @@ const buildRampDetail = (
     option.textContent = String(ramp.classes);
     classes.classesSelect.append(option);
     classes.classesSelect.value = String(ramp.classes);
+    // The select, not the option: an <option> title is unreliably exposed by
+    // browsers. This explains a value the picker cannot re-offer, so the row
+    // does not look broken next to a 2..9 list.
+    classes.classesSelect.title = ui.T("style_fill_classes_out_of_range");
   }
 
   const scheme = buildSchemeRow({

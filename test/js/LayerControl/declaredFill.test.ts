@@ -88,26 +88,62 @@ describe("readDeclaredFill", () => {
       layerWith({
         fill: {
           mode: "rainbow",
-          ramp: { field: "score", method: "kmeans", classes: 12, scheme: "" },
+          ramp: { field: "score", method: "kmeans", classes: 3, scheme: "" },
         },
       }),
       "overlay1",
     );
 
-    // Four rejected keys, none fatal: the field survives, so the arm stays on
-    // with the panel defaults. classes 12 is dropped, never clamped — the
-    // panel must not claim a range the author never asked for.
-    expect(read.invalid).toHaveLength(4);
+    // Three rejected keys, none fatal: the field survives, so the arm stays on
+    // with the panel defaults for the rejected keys.
+    expect(read.invalid).toHaveLength(3);
     expect(read.declared).toEqual({
       mode: "ramp",
       ramp: {
         kind: "numeric",
         field: "score",
         method: "jenks",
-        classes: 6,
+        classes: 3,
         scheme: "Viridis",
       },
     });
+  });
+
+  it("keeps a declared class count above the editable range", () => {
+    // 2..9 is the panel's vocabulary, not the author's: a declared 12 is
+    // painted and displayed as 12. Clamping it to 9 here would be exactly the
+    // silent "declared 12, painted 6" deviation this reader exists to prevent.
+    const read = readDeclaredFill(
+      layerWith({ fill: { ramp: { field: "score", classes: 12 } } }),
+      "overlay1",
+    );
+
+    expect(read.invalid).toEqual([]);
+    expect(read.declared).toMatchObject({ ramp: { classes: 12 } });
+  });
+
+  it("keeps a declared class count below the panel default", () => {
+    // MIN is 2; the lower bound is a buildability limit (one class cannot
+    // classify), not a preference.
+    const read = readDeclaredFill(
+      layerWith({ fill: { ramp: { field: "score", classes: 2 } } }),
+      "overlay1",
+    );
+
+    expect(read.invalid).toEqual([]);
+    expect(read.declared).toMatchObject({ ramp: { classes: 2 } });
+  });
+
+  it("rejects a class count a classifier cannot build", () => {
+    for (const classes of [1, 0, -3, 2.5, "4"]) {
+      const read = readDeclaredFill(
+        layerWith({ fill: { ramp: { field: "score", classes } } }),
+        "overlay1",
+      );
+      // The key is dropped, not the declaration: the field still names the arm.
+      expect(read.invalid).toHaveLength(1);
+      expect(read.declared).toMatchObject({ ramp: { classes: 6 } });
+    }
   });
 
   it("rejects a non-object declaration", () => {
