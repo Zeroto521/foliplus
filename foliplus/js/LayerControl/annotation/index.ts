@@ -12,8 +12,8 @@ import { areaCentroid } from "#core/geo/index.js";
 import {
   type Box,
   type LabelField,
-  autoLabelField,
   collectLabelFields,
+  resolveSelectedField,
   withinRect,
 } from "#core/label/index.js";
 import { NO_FEATURE_TREE_KINDS, findNode, walkLeaf } from "#core/layer/index.js";
@@ -156,8 +156,9 @@ class AnnotationManager {
   private readonly map: L.Map;
   private readonly layerFind: (id: string) => L.Layer | null;
   private readonly config: Map<string, AnnotationConfig>;
-  /** Resolved auto field per layer, dropped when its features can change. */
-  private readonly autoFieldCache: Map<string, string>;
+  /** The field each layer's labels read, resolved from its config and its
+   *  fields. Dropped when the config or the layer's features change. */
+  private readonly resolvedFieldCache: Map<string, string>;
   /** Author-declared annotation keys per id. Cached: getConfig runs once per
    *  layer per frame (refreshPan → layerSpec/paintStyle), and a declaration
    *  is static for the life of the page, so the tree walk underneath runs once. */
@@ -194,7 +195,7 @@ class AnnotationManager {
     this.map = opts.map;
     this.layerFind = opts.layerFind;
     this.config = new Map();
-    this.autoFieldCache = new Map();
+    this.resolvedFieldCache = new Map();
     this.authorCache = new Map();
 
     // The same event contract HeatmapControl's canvas uses. A pan translates
@@ -258,7 +259,7 @@ class AnnotationManager {
     );
   }
 
-  /** The built-in default annotation config (labels off, auto field, auto
+  /** The built-in default annotation config (labels off, no field chosen, auto
    *  format, page-level collide) — the bottom layer of getConfig's merge. */
   defaultConfig(): AnnotationConfig {
     return {
@@ -307,6 +308,8 @@ class AnnotationManager {
 
   setConfig(id: string, cfg: AnnotationConfig): void {
     this.config.set(id, cfg);
+    // The config may name a different field; the next render re-resolves.
+    this.resolvedFieldCache.delete(id);
   }
 
   /** Delete a layer's config entry — the Reset path. Removing rather than
@@ -318,6 +321,7 @@ class AnnotationManager {
    *  layer, not the user, so only `destroyLayer` drops that entry. */
   clearConfig(id: string): void {
     this.config.delete(id);
+    this.resolvedFieldCache.delete(id);
   }
 
   /** Whether a layer already carries a config. Distinguishes "never configured"
@@ -343,7 +347,7 @@ class AnnotationManager {
    *  The *walk* runs through core/labelField's collector; what stays local is
    *  the leaf traversal. HeatmapControl keeps its own collection (fed from
    *  extractPoints, numeric only) but shares the bare-name field contract,
-   *  the auto pick, and `bareFieldName` for legacy configs. */
+   *  the default pick, and `bareFieldName` for legacy configs. */
   collectFields(id: string): LabelField[] {
     const layer = this.layerFind(id);
     if (!layer) return [];
@@ -414,27 +418,30 @@ class AnnotationManager {
     return null;
   }
 
-  /** The field a layer's labels read: the one the config names, or — when the
-   *  config leaves it open (`field: ""`, what the picker's "Auto" entry means) —
-   *  the shared auto pick over the layer's fields.
+  /** The field a layer's labels read: the configured field while the layer
+   *  still offers it, otherwise the layer's default pick (first numeric, else
+   *  first).
    *
    *  Resolved at render time rather than written into the config, so a layer
-   *  whose columns change keeps labeling itself instead of being pinned to a
-   *  field name that no longer exists. */
+   *  whose columns change keeps labeling itself: a stored name that is gone
+   *  falls back to the default, and a config that never named one re-derives it
+   *  instead of being pinned to a field the user never chose. A fieldless layer
+   *  resolves to "" — the caller treats that as "no labels". */
   resolveField(id: string): string {
-    const explicit = this.getConfig(id).field;
-    if (explicit) return explicit;
-    const cached = this.autoFieldCache.get(id);
+    const cached = this.resolvedFieldCache.get(id);
     if (cached !== undefined) return cached;
-    const picked = autoLabelField(this.collectFields(id));
-    this.autoFieldCache.set(id, picked);
+    const picked = resolveSelectedField(
+      this.getConfig(id).field,
+      this.collectFields(id),
+    );
+    this.resolvedFieldCache.set(id, picked);
     return picked;
   }
 
-  /** Drop a layer's cached auto pick. Called when its features can change, so
-   *  the next render re-samples the columns. */
-  invalidateAutoField(id: string): void {
-    this.autoFieldCache.delete(id);
+  /** Drop a layer's resolved field. Called when the user's config or the
+   *  layer's features change, so the next render re-resolves. */
+  invalidateResolvedField(id: string): void {
+    this.resolvedFieldCache.delete(id);
   }
 
   /** Format a value for display according to the configured style.
@@ -539,7 +546,7 @@ class AnnotationManager {
     this.canvases.get(id)?.setLayerAlpha(alpha);
   }
 
-  /** Tear down a layer's rendering state — labels, canvas, auto-field
+  /** Tear down a layer's rendering state — labels, canvas, resolved-field
    *  cache — but KEEP its config: an unregister is a teardown, not a
    *  delete, and the stored label intent has to survive it. The `layers`
    *  live source re-reads `configEntries` on every flush, so dropping the
@@ -548,7 +555,7 @@ class AnnotationManager {
   unloadLayer(id: string): void {
     this.clearLabels(id);
     this.dropCanvas(id);
-    this.autoFieldCache.delete(id);
+    this.resolvedFieldCache.delete(id);
   }
 
   /** Forget a layer entirely — rendering state AND config. `deleteLayer`
@@ -584,7 +591,7 @@ class AnnotationManager {
     this.lastPlanned.clear();
     this.planOrigins.clear();
     this.config.clear();
-    this.autoFieldCache.clear();
+    this.resolvedFieldCache.clear();
     this.authorCache.clear();
     this.layerAlphas.clear();
   }

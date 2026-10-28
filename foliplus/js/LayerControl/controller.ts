@@ -921,7 +921,7 @@ class LayerController implements LayerAPI {
         operation.emit(EVENTS.LAYER_ITEM_ADDED, { id: opts.id });
       } else {
         // Re-registration is how the API says "this layer's content changed",
-        // so the row's cached field list and resolved auto field are both stale.
+        // so the row's cached field list and resolved field are both stale.
         operation.emit(EVENTS.LAYER_ITEM_UPDATED, { id: opts.id });
       }
       // The row insert/update above is this registration's first fan-out: a

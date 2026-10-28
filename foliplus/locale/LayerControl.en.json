@@ -66,7 +66,6 @@
   "LayerControl.style_layer_tooltip": "Configure this layer's style",
   "LayerControl.style_label_no_data": "No labelable fields on this layer",
   "LayerControl.style_label_field": "Label Field",
-  "LayerControl.style_label_field_auto": "Auto Detect",
   "LayerControl.style_reset": "Reset",
   "LayerControl.style_opacity": "Opacity",
   "LayerControl.style_zoom_range": "Zoom Range",

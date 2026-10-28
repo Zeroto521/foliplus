@@ -15,11 +15,7 @@
 // hits, and `detectCapabilities` reads that spec back). A second probe in
 // the gate would be exactly the drift the gate invariant forbids.
 import { dropdownSurface } from "#core/fullscreen.js";
-import {
-  AUTO_FIELD,
-  numberFormatOptions,
-  resolveSelectedField,
-} from "#core/label/index.js";
+import { numberFormatOptions, resolveSelectedField } from "#core/label/index.js";
 import { CAP_TIER, DIM } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { AnnotationConfig } from "#foliplus/LayerControl/type.js";
@@ -74,32 +70,21 @@ const buildLabelSection = (ui: LayerUI, layerId: string): HTMLElement => {
   // collapses under the toggle on first paint and on every reopen where
   // show === false, mirroring the heatmap's "switch off → hide body" rule.
   const showChecked = !!cfg.show;
-  // The picker's "Auto" entry means "let foliplus choose", and the config
-  // records it as the shared sentinel rather than a resolved name — so the layer
-  // keeps labeling itself when its columns change. `resolveSelectedField`
-  // (core/labelField) is what turns the select's value back into a field.
-  const selectedField = cfg.field;
+  // The field the picker shows: the stored one while the layer still offers it,
+  // otherwise the layer's default pick (first numeric, else first). Resolved on
+  // every paint and never written back here — opening the panel is not a
+  // choice, so the config keeps whatever the user picked (or nothing, which
+  // keeps resolving to the default if the layer's columns change).
+  const selectedField = resolveSelectedField(cfg.field, fields);
 
-  // Field options: the auto entry first, then one per field. The auto entry is
-  // the select's own empty value, so it is what a fresh panel shows, and it is
-  // a disabled placeholder like the heatmap's layer-row prompt. Disabled
-  // rather than merely first, so it reads as the current state instead of an
-  // option to pick: the way back to auto is Reset, which restores the default
-  // config. The per-field <option>s are appended to the select itself —
-  // appending them into the first option would nest <option> inside <option>,
-  // and the browser skips nested options when it builds the options list.
-  const fieldSelect = dom.el(
-    "select",
-    {
-      class: `foliplus-form-select ${CONST.CLASSES.STYLE_FIELD_SELECT}`,
-      "aria-label": ui.T("style_label_field"),
-    },
-    dom.el(
-      "option",
-      { value: AUTO_FIELD, disabled: true },
-      ui.T("style_label_field_auto"),
-    ),
-  );
+  // Field options: one per real field, with the resolved field selected. There
+  // is no "Auto"/placeholder entry: the picker always names a concrete column,
+  // and the default above is already a field. The <option>s are appended to the
+  // select itself, never nested inside an option.
+  const fieldSelect = dom.el("select", {
+    class: `foliplus-form-select ${CONST.CLASSES.STYLE_FIELD_SELECT}`,
+    "aria-label": ui.T("style_label_field"),
+  });
   fields.forEach(f =>
     fieldSelect.appendChild(
       dom.el(
@@ -109,7 +94,7 @@ const buildLabelSection = (ui: LayerUI, layerId: string): HTMLElement => {
       ),
     ),
   );
-  (fieldSelect as HTMLSelectElement).value = selectedField || AUTO_FIELD;
+  (fieldSelect as HTMLSelectElement).value = selectedField;
   // The visible picker is the shared dropdown; the select stays mounted
   // (hidden) as the value/change bridge the panel delegates on.
   const fieldDropdown = createDropdown({
