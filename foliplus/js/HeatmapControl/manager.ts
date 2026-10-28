@@ -786,7 +786,12 @@ class HeatmapManager {
    *  With no field list (before the first scan, or a caller driving the
    *  manager directly) the stored names are trusted as-is. */
   resolveEffectiveField(fields: readonly string[]): string {
-    if (fields.length === 0) return this.field || this.declaredField || "";
+    if (fields.length === 0) {
+      // "" is "no user pick", not a pick: fall through to the declaration.
+      // (?? would stop at the empty string and hide the declared field.)
+      if (this.field !== "") return this.field;
+      return this.declaredField ?? "";
+    }
     if (this.field && fields.includes(this.field)) return this.field;
     if (this.declaredField) {
       if (fields.includes(this.declaredField)) return this.declaredField;
@@ -800,10 +805,9 @@ class HeatmapManager {
    *  `getPointValue` runs once per feature: re-resolving a list scan for 20k
    *  points would cost more than the guess it replaces. */
   effectiveField(): string {
-    if (this.effectiveFieldCache === null) {
-      this.effectiveFieldCache = this.resolveEffectiveField(this.availableFields);
-    }
-    return this.effectiveFieldCache;
+    return (this.effectiveFieldCache ??= this.resolveEffectiveField(
+      this.availableFields,
+    ));
   }
 
   /** Publish the fields the current scan offers and resolve the effective
