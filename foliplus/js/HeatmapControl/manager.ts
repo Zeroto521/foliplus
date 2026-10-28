@@ -688,7 +688,7 @@ class HeatmapManager {
   }
 
   /** Resolve label styling from the shared --foliplus-label-* tokens (cached once). The
-   *  values are the same the annotation canvas reads — both go through
+   *  values are the same the label canvas reads — both go through
    *  common/canvasLabel — so a hex value and an annotation label render as one
    *  language. */
   resolveLabelStyle(): CanvasLabelStyle {

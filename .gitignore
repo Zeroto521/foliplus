@@ -103,3 +103,7 @@ TASK.md
 foliplus/dist/
 foliplus/_version.py
 foliplus/.build/
+
+# Local scratch output
+debug.log
+nul

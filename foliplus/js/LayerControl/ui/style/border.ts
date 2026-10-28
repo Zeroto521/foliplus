@@ -387,7 +387,7 @@ const bindBorderRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => 
  *  thin delegates so panel call sites and tests keep their shape.
  *
  *  Registered ahead of `opacity` and `zoomRange` in `DIM_ORDER`
- *  (see `./registry.js`): border comes second in the annotation panel's
+ *  (see `./registry.js`): border comes second in the label panel's
  *  Layer section, right after fill. */
 const BORDER_DIMENSION = registerDimension<{ color: string; weight: number }>({
   key: DIM.BORDER,

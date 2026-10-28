@@ -377,7 +377,7 @@ class LayerSurface implements LayerSurfaceContract {
    *  add. The declared-pane route books its whole spec list; the other routes
    *  only walk panes they discovered in the live tree or synthesized — so a
    *  spec with no DOM pane to discover (the registration edge's
-   *  `role: "annotation"` label pane) would otherwise be declared in
+   *  `role: "label"` label pane) would otherwise be declared in
    *  `capabilities` and never exist. Fills the gap in place: handles already
    *  booked are skipped, so the base pane stays `panes[0]` and `reconcile`
    *  still pins content into it. */
@@ -986,14 +986,14 @@ const detectCapabilities = (
   const layer = opts.layer;
   // The label pane is a declared carrier, read like `bounds` rather than
   // probed: the registration edge (`LayerController.surfaceFor`) appends the
-  // `role: "annotation"` spec exactly when the layer's features expose
+  // `role: "label"` spec exactly when the layer's features expose
   // labelable `feature.properties`, and the constructor below materializes
   // that spec's pane in every branch — so the capability and the pane are
   // the same fact. Every branch reports it, early returns included: a
   // MarkerCluster whose children carry properties still has an honest
   // label pane (the probe decides the spec, not the branch shape).
   const annotation: LayerCapabilities["annotation"] = opts.paneSpecs?.some(
-    spec => spec.role === PANE_ROLE.ANNOTATION,
+    spec => spec.role === PANE_ROLE.LABEL,
   )
     ? CAP_TIER.PANE
     : CAP_TIER.NONE;
