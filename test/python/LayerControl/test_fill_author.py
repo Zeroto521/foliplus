@@ -288,6 +288,81 @@ def test_the_colour_scan_samples_across_a_sorted_layer(monkeypatch):
     assert "capped" not in meta
 
 
+def test_a_caption_sample_skips_features_without_the_value():
+    scale = _linear()
+    values = [10.0, 40.0, 90.0]
+    colors = [str(scale(value))[:7] for value in values]
+    layer = _geo(colors, values=values)
+    # A feature missing the caption's property contributes no sample: the
+    # agreement is measured on the features that do carry a value.
+    del layer.data["features"][1]["properties"]["score"]
+    meta = _meta(layer, scale)
+
+    assert meta["scale"]["column"] == "score"
+
+
+def test_a_caption_sample_skips_values_the_scale_cannot_draw(monkeypatch):
+    scale = _linear()
+    values = [10.0, 40.0, 90.0]
+    rows = [({"score": value}, str(scale(value))[:7]) for value in values]
+    original = _layer_control_mod._colormap_sample
+    calls = {"count": 0}
+
+    def flaky(colormap: object, value: object) -> str | None:
+        calls["count"] += 1
+        return None if calls["count"] == 1 else original(colormap, value)
+
+    monkeypatch.setattr(_layer_control_mod, "_colormap_sample", flaky)
+    hits, total = _layer_control_mod._column_agreement(scale, rows, "score")
+
+    # One feature could not be sampled: it neither counts nor breaks agreement.
+    assert (hits, total) == (2, 2)
+
+
+def test_a_short_scale_strip_keeps_every_stop():
+    scale = branca_cm.LinearColormap(
+        ["#0d0887", "#6a00a8", "#f0f921"], vmin=0, vmax=100, caption="score"
+    )
+    values = [10.0, 40.0, 90.0]
+    meta = _meta(
+        _geo([str(scale(value))[:7] for value in values], values=values), scale
+    )
+
+    # Fewer stops than the strip samples: the strip is the whole palette.
+    assert meta["stops"] == ["#0d0887", "#6a00a8", "#f0f921"]
+
+
+def test_numeric_values_cover_booleans_numpy_integers_and_nan():
+    np = pytest.importorskip("numpy")
+    numeric = _layer_control_mod._numeric_value
+
+    assert numeric(True) is None
+    assert numeric(np.int64(7)) == 7.0
+    assert numeric(float("nan")) is None
+    assert numeric("7") is None
+
+
+def test_colour_helpers_degrade_on_bad_input():
+    module = _layer_control_mod
+
+    assert module._rgb("#12") is None
+    assert module._rgb("not-a-color") is None
+    # A non-sequence and a channel that is not a float both yield no color
+    # instead of raising inside a render.
+    assert module._rgba_hex(5) is None
+    assert module._rgba_hex("not-a-color") is None
+    assert module._rgba_hex([1.0, 2.0]) is None
+
+
+def test_palette_hex_reads_hex_strings_and_stops():
+    module = _layer_control_mod
+
+    assert module._palette_hex("#abc") == "#aabbcc"
+    assert module._palette_hex("#AABBCCFF") == "#aabbcc"
+    assert module._palette_hex("nope") is None
+    assert module._palette_hex((0.0, 0.0, 1.0, 1.0)) == "#0000ff"
+
+
 def test_more_than_the_strip_cap_is_capped(monkeypatch):
     monkeypatch.setattr(_layer_control_mod, "_FILL_AUTHOR_STOPS", 2)
     meta = _meta(_geo(["#0d0887", "#f0f921", "#6a00a8"]))

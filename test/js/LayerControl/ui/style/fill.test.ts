@@ -39,7 +39,7 @@ const makeFillableLayer = () => {
     leaf.setStyle = vi.fn();
     return leaf;
   };
-  // One colour across leaves: this fixture is the "author paints one fill"
+  // One color across leaves: this fixture is the "author paints one fill"
   // layer, so the fill row keeps its normal solid/ramp arms. Per-feature
   // detection has its own fixture below.
   const leaves = [
@@ -106,7 +106,7 @@ const initWithFillLayer = () => {
 };
 
 /** A fillable layer the author paints per feature: leaves carry distinct
- *  fill colours, so the fill row's detected state is "feature". */
+ *  fill colors, so the fill row's detected state is "feature". */
 const makePerFeatureLayer = (colors: readonly string[]) => {
   const makeLeaf = (color: string, value: number) => {
     const leaf = new L.Polygon() as L.Polygon & {
@@ -116,7 +116,7 @@ const makePerFeatureLayer = (colors: readonly string[]) => {
       on: ReturnType<typeof vi.fn>;
     };
     leaf.options = { fillColor: color, fillOpacity: 0.5, fill: true };
-    // explore output: the colour and the column value live on the feature.
+    // explore output: the color and the column value live on the feature.
     leaf.feature = {
       properties: { __folium_color: color, cat: "c" + value, count: value },
     };
@@ -181,7 +181,7 @@ const initWithPerFeatureLayer = ({
 };
 
 /** A layer the author paints from a colormap: the fill row must open on the
- *  read-only original-colours state over the author's own scale. */
+ *  read-only original-colors state over the author's own scale. */
 const initWithAuthorScale = ({
   stops = ["#0d0887", "#6a00a8", "#b12a90"] as readonly string[],
   scale = {
@@ -287,7 +287,7 @@ const initWithRampedLayer = (values: number[] = [1, 5, 9]) => {
   return { manager, ui, rampLayer };
 };
 
-/** Install a chroma stub that hands back a fixed colour list, whatever count
+/** Install a chroma stub that hands back a fixed color list, whatever count
  *  was requested. */
 const installChroma = (colors: string[]): void => {
   globalThis.chroma = {
@@ -359,7 +359,7 @@ describe("LayerUI style panel — fill color", () => {
 
   it("the mode row's label matches the select's aria-label key", () => {
     // The row that owns the mode select reads "Fill"; the swatch's aria-label
-    // stays the colour key, so neither one lies about what it names.
+    // stays the color key, so neither one lies about what it names.
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
     const row = fillRow(item)!;
@@ -779,7 +779,7 @@ describe("LayerUI style panel — fill color", () => {
     opacity.value = "40";
     opacity.dispatchEvent(new Event("change", { bubbles: true }));
 
-    // An opacity-only commit pulls the author's colour back in the same
+    // An opacity-only commit pulls the author's color back in the same
     // payload, so nothing an earlier arm left can sit under the opacity.
     expect(fillLayer.leaves[0].setStyle).toHaveBeenCalledWith({
       fillColor: "#aabbcc",
@@ -958,8 +958,8 @@ describe("LayerUI style panel — fill color", () => {
     setIntent(ui, "overlay1", "fillOpacity", 0.8);
     applyFillToLayer(ui, "overlay1");
 
-    // The author's colour rides the same payload: the opacity does not hide
-    // a colour the leaf never claimed.
+    // The author's color rides the same payload: the opacity does not hide
+    // a color the leaf never claimed.
     expect(fillLayer.leaves[0].setStyle).toHaveBeenCalledWith({
       fillColor: "#aabbcc",
       fillOpacity: 0.8,
@@ -1565,7 +1565,7 @@ describe("buildFillRow", () => {
     const row = buildFillRow(ui, "overlay1");
     const fillRows = row.querySelectorAll(`.${CONST.CLASSES.STYLE_FILL_ROW}`);
 
-    // One detail row (plus the mode row above it): colour and opacity share it.
+    // One detail row (plus the mode row above it): color and opacity share it.
     expect(fillRows.length).toBe(2);
     const detailRow = fillRows[1];
     expect(
@@ -2000,8 +2000,8 @@ describe("replayFillState", () => {
     });
   });
 
-  it("attachUI replays a persisted ramp — a reload keeps the value colours", () => {
-    // Regression: a persisted ramp with no solid colour used to fall through
+  it("attachUI replays a persisted ramp — a reload keeps the value colors", () => {
+    // Regression: a persisted ramp with no solid color used to fall through
     // the empty-intent guard and paint nothing after a reload.
     const rampLayer = makeRampedLayer([1, 5, 9]);
     installChroma(["#111111", "#222222", "#333333"]);
@@ -2044,14 +2044,14 @@ describe("replayFillState", () => {
     expect(
       getIntent(fixture.manager.ui!, "overlay1", "fillRamp")?.kind,
     ).toBeUndefined();
-    // Each leaf got the colour of its own value class, not the author's.
+    // Each leaf got the color of its own value class, not the author's.
     const colors = rampLayer.leaves.map(
       leaf => leaf.setStyle.mock.calls.at(-1)![0].fillColor as string,
     );
     expect(colors).toEqual(["#111111", "#222222", "#333333"]);
   });
 
-  it("replays a persisted fillOpacity alongside the ramp colour", () => {
+  it("replays a persisted fillOpacity alongside the ramp color", () => {
     const fixture = initWithRampedLayer([1, 5, 9]);
     installChroma(["#111111", "#222222", "#333333"]);
     setIntent(fixture.ui, "overlay1", "fillMode", "ramp");
@@ -2062,7 +2062,7 @@ describe("replayFillState", () => {
       scheme: "Reds",
     });
     // The solid arm's opacity survives the mode switch — the ramp replaces
-    // only the colour.
+    // only the color.
     setIntent(fixture.ui, "overlay1", "fillOpacity", 0.25);
 
     replayFillState(fixture.ui, "overlay1");
@@ -2108,7 +2108,7 @@ describe("applyFillToLayer — fillMode dispatch", () => {
       leaf => leaf.setStyle.mock.calls.at(-1)![0].fillColor as string,
     );
 
-  it("fillMode=ramp paints by value and ignores the stored solid colour", () => {
+  it("fillMode=ramp paints by value and ignores the stored solid color", () => {
     setIntent(ui, "overlay1", "fillColor", "#ff0000");
     setIntent(ui, "overlay1", "fillMode", "ramp");
     setIntent(ui, "overlay1", "fillRamp", RAMP);
@@ -2199,7 +2199,7 @@ describe("applyFillToLayer — fillMode dispatch", () => {
 
   it("switching back to solid with no solid override restores the author's face", () => {
     // A solid apply with nothing to own must clear the ramp's output, not
-    // skip the walk: a skipped walk leaves the previous arm's colour on the
+    // skip the walk: a skipped walk leaves the previous arm's color on the
     // map. The ramp config stays stored for the next switch.
     setIntent(ui, "overlay1", "fillMode", "ramp");
     setIntent(ui, "overlay1", "fillRamp", RAMP);
@@ -2219,9 +2219,9 @@ describe("applyFillToLayer — fillMode dispatch", () => {
     expect(getIntent(ui, "overlay1", "fillRamp")).toEqual(RAMP);
   });
 
-  it("an opacity-only solid apply after a ramp restores the author's colour", () => {
-    // Solid owns the whole fill face, so the colour has to come back to the
-    // author's too — otherwise the ramp's colour would sit under the user's
+  it("an opacity-only solid apply after a ramp restores the author's color", () => {
+    // Solid owns the whole fill face, so the color has to come back to the
+    // author's too — otherwise the ramp's color would sit under the user's
     // opacity.
     setIntent(ui, "overlay1", "fillMode", "ramp");
     setIntent(ui, "overlay1", "fillRamp", RAMP);
@@ -2231,8 +2231,8 @@ describe("applyFillToLayer — fillMode dispatch", () => {
     setIntent(ui, "overlay1", "fillOpacity", 0.4);
     applyFillToLayer(ui, "overlay1");
 
-    // One call, not a restore then a commit: the author's colour and `fill`
-    // flag ride the same payload as the user's opacity, so the ramp's colour
+    // One call, not a restore then a commit: the author's color and `fill`
+    // flag ride the same payload as the user's opacity, so the ramp's color
     // is replaced rather than left sitting under it.
     const calls = rampLayer.leaves[0].setStyle.mock.calls.map(c => c[0]);
     expect(calls.at(-1)).toEqual({
@@ -2242,7 +2242,7 @@ describe("applyFillToLayer — fillMode dispatch", () => {
     });
   });
 
-  it("a colour-only solid apply after a ramp preserves the author's opacity", () => {
+  it("a color-only solid apply after a ramp preserves the author's opacity", () => {
     setIntent(ui, "overlay1", "fillMode", "ramp");
     setIntent(ui, "overlay1", "fillRamp", RAMP);
     applyFillToLayer(ui, "overlay1");
@@ -2251,8 +2251,8 @@ describe("applyFillToLayer — fillMode dispatch", () => {
     setIntent(ui, "overlay1", "fillColor", "#777777");
     applyFillToLayer(ui, "overlay1");
 
-    // One call, colour only. The author's opacity is left in place rather
-    // than rewritten, so the ramp's colour is replaced without touching it -
+    // One call, color only. The author's opacity is left in place rather
+    // than rewritten, so the ramp's color is replaced without touching it -
     // `toEqual` above rejects a payload that carried a fillOpacity at all.
     const calls = rampLayer.leaves[0].setStyle.mock.calls.map(c => c[0]);
     expect(calls.at(-1)).toEqual({ fillColor: "#777777", fill: true });
@@ -2278,7 +2278,7 @@ describe("applyFillToLayer — fillMode dispatch", () => {
   it("a ramp arm on a color basemap paints nothing rather than the stored solid", () => {
     // A basemap has no leaves to classify, so the ramp must degrade to the
     // pane's existing paint - and it must not fall through to the solid arm,
-    // which would paint the stored solid colour while the panel claims ramp.
+    // which would paint the stored solid color while the panel claims ramp.
     // The ramp config stays stored, so a later switch back has something to
     // restore against.
     manager.registerLayer({
@@ -2321,7 +2321,7 @@ describe("applyFillToLayer — fillMode dispatch", () => {
   });
 
   it("FILL_DIMENSION.write with a solid patch leaves the ramp arm stored", () => {
-    // The writer writes the keys it is given and no more: a colour pick while
+    // The writer writes the keys it is given and no more: a color pick while
     // the ramp arm is active must not delete the stored ramp, which is what a
     // mode switch back restores.
     setIntent(ui, "overlay1", "fillMode", "ramp");
@@ -2357,7 +2357,7 @@ describe("applyFillToLayer — fillMode dispatch", () => {
     applyFillToLayer(ui, "overlay1");
 
     // folium's mouseout restores the author's face; the ramp's getter repays
-    // the ramp colour on top of it.
+    // the ramp color on top of it.
     leaf.setStyle({ fillColor: "#112233", fillOpacity: 0.6, fill: false });
     handlers[0]();
     expect(leaf.setStyle.mock.calls.at(-1)![0].fillColor).toBe(COLORS[0]);
@@ -2495,7 +2495,7 @@ describe("fill mode row — solid ↔ color by value", () => {
     });
     // jenks/quantile read the simple-statistics CDN global, which jsdom does
     // not load; equal interval classifies on its own, so the paint assertion
-    // below exercises the real ramp colours.
+    // below exercises the real ramp colors.
     const method = details(block).querySelector(
       `.${CONST.CLASSES.STYLE_FILL_METHOD_SELECT}`,
     ) as HTMLSelectElement;
@@ -2713,7 +2713,7 @@ describe("fill ramp detail — field / method / classes / scheme", () => {
     const trigger = details(block).querySelector(
       `.${CONST.CLASSES.STYLE_FILL_SCHEME_TRIGGER}`,
     ) as HTMLElement;
-    // The trigger shows the colour strip only; the scheme name lives on the
+    // The trigger shows the color strip only; the scheme name lives on the
     // tooltip (picker contract), matching the heatmap trigger.
     expect(trigger.textContent?.trim()).toBe("");
     expect(trigger.title).toBe("Blues");
@@ -2743,7 +2743,7 @@ describe("fill ramp detail — field / method / classes / scheme", () => {
   });
 });
 
-describe("fill row — original colours", () => {
+describe("fill row — original colors", () => {
   afterEach(() => {
     document.body.innerHTML = "";
     vi.clearAllMocks();
@@ -2763,7 +2763,7 @@ describe("fill row — original colours", () => {
       ) as HTMLElement
     ).textContent;
 
-  it("opens on the original colours and offers no classification rows", () => {
+  it("opens on the original colors and offers no classification rows", () => {
     const { ui, layer } = initWithAuthorScale();
     const row = blockOf(ui);
     const select = modeSelect(row);
@@ -2778,7 +2778,7 @@ describe("fill row — original colours", () => {
     expect(featureOption.textContent).toBe("LayerControl.style_fill_per_feature");
     // The detail names the column the author drew and shows the strip. None of
     // the classification controls render: Method/Classes/Scheme belong to the
-    // user's own ramp, and rendering them here is what squeezed a 43-colour
+    // user's own ramp, and rendering them here is what squeezed a 43-color
     // palette into the panel's 2-9 class vocabulary.
     expect(
       details(row).querySelector(`.${CONST.CLASSES.STYLE_FILL_FIELD_SELECT}`),
@@ -2837,7 +2837,7 @@ describe("fill row — original colours", () => {
     );
     const fallback = initWithAuthorScale({ scale: null });
     expect(captionOf(blockOf(fallback.ui))).toBe(
-      "LayerControl.style_fill_original_colours",
+      "LayerControl.style_fill_original_colors",
     );
   });
 
@@ -2847,7 +2847,7 @@ describe("fill row — original colours", () => {
     });
     const row = blockOf(ui);
 
-    // A scale the author could not be paired with still has the real colours,
+    // A scale the author could not be paired with still has the real colors,
     // so the strip renders; the panel must not invent a field name.
     expect(
       details(row).querySelector(`.${CONST.CLASSES.STYLE_FILL_ORIGINAL_COLUMN}`),
@@ -2867,7 +2867,7 @@ describe("fill row — original colours", () => {
 
     // The seed is the user's own classification: the shared six classes on
     // jenks/Viridis over the column the author actually drew — never the
-    // author's colour count, so a 43-colour palette cannot collapse to 9.
+    // author's color count, so a 43-color palette cannot collapse to 9.
     expect(getIntent(ui, "overlay1", "fillRamp")).toMatchObject({
       field: "score",
       method: "jenks",
@@ -2940,11 +2940,11 @@ describe("fill row — original colours", () => {
     expect(select.querySelector('option[value="ramp"]')).toBeNull();
   });
 
-  it("keeps the original colours when only the opacity was overridden", () => {
+  it("keeps the original colors when only the opacity was overridden", () => {
     const { ui } = initWithAuthorScale();
     setIntent(ui, "overlay1", "fillOpacity", 0.4);
 
-    // The author's per-feature colours are still what the layer paints; only a
+    // The author's per-feature colors are still what the layer paints; only a
     // fill mode intent takes the arm over.
     expect(modeSelect(blockOf(ui)).value).toBe("feature");
   });
@@ -2957,7 +2957,7 @@ describe("fill row — original colours", () => {
     expect(modeSelect(row).value).toBe("solid");
     expect(row.querySelector(".foliplus-style-fill-color-input")).not.toBeNull();
   });
-  it("switching from the original colours to solid seeds and paints one colour", () => {
+  it("switching from the original colors to solid seeds and paints one color", () => {
     const { ui, layer } = initWithAuthorScale();
     const row = blockOf(ui);
     const select = modeSelect(row);
@@ -3085,7 +3085,7 @@ describe("fill mode switch after the layer's fields changed", () => {
 describe("content-change replay", () => {
   it("repaints every leaf from the stored fill", () => {
     // The frame the content-change scheduler runs owns the repaint: without it
-    // a streamed addData keeps the new features at the author's colour.
+    // a streamed addData keeps the new features at the author's color.
     const fixture = initWithFillLayer();
     setIntent(fixture.ui, "overlay1", "fillColor", "#123456");
     setIntent(fixture.ui, "overlay1", "fillOpacity", 0.4);
@@ -3139,7 +3139,7 @@ describe("fill row — per-feature state", () => {
     expect(row.querySelector(`.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`)).toBeNull();
   });
 
-  it("keeps the solid arm when the leaves share one colour", () => {
+  it("keeps the solid arm when the leaves share one color", () => {
     const { ui } = initWithPerFeatureLayer({
       colors: ["#aabbcc", "#aabbcc"],
       perFeature: false,
@@ -3150,7 +3150,7 @@ describe("fill row — per-feature state", () => {
     expect(select.querySelector('option[value="feature"]')).toBeNull();
   });
 
-  it("keeps the solid arm for a layer without the explore colour property", () => {
+  it("keeps the solid arm for a layer without the explore color property", () => {
     const { ui } = initWithPerFeatureLayer({
       perFeature: false,
       fillAuthor: null,
@@ -3196,7 +3196,7 @@ describe("fill row — per-feature state", () => {
       row.querySelector(`.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`),
     ).not.toBeNull();
     // The choice must also reach the map: seeded from the swatch base, so the
-    // row and the paint agree instead of claiming one colour for many.
+    // row and the paint agree instead of claiming one color for many.
     expect(getIntent(ui, "feature1", "fillColor")).toBe("#0d0887");
     expect(layer.leaves[0].setStyle).toHaveBeenLastCalledWith({
       fillColor: "#0d0887",
@@ -3208,7 +3208,7 @@ describe("fill row — per-feature state", () => {
     });
   });
 
-  it("reset restores every leaf's own author colour and the detected state", () => {
+  it("reset restores every leaf's own author color and the detected state", () => {
     const { ui, layer } = initWithPerFeatureLayer();
     commitNow(ui, "feature1", "color", "#ff0000");
     expect(layer.leaves[0].setStyle).toHaveBeenLastCalledWith({
@@ -3218,7 +3218,7 @@ describe("fill row — per-feature state", () => {
 
     resetLayerFill(ui, "feature1");
 
-    // Each leaf returns to its OWN author colour — not the first leaf's.
+    // Each leaf returns to its OWN author color — not the first leaf's.
     expect(layer.leaves[0].setStyle).toHaveBeenLastCalledWith({
       fillColor: "#0d0887",
       fillOpacity: 0.5,
@@ -3235,8 +3235,8 @@ describe("fill row — per-feature state", () => {
   it("reset falls back to the leaf bag when a feature lost the property", () => {
     const { ui, layer } = initWithPerFeatureLayer();
     commitNow(ui, "feature1", "color", "#ff0000");
-    // A feature the author left uncoloured: the lazy read reports null for it,
-    // so reset restores that leaf captured bag rather than a neighbour colour.
+    // A feature the author left uncolored: the lazy read reports null for it,
+    // so reset restores that leaf captured bag rather than a neighbour color.
     delete (layer.leaves[1].feature as { properties?: unknown }).properties;
 
     resetLayerFill(ui, "feature1");

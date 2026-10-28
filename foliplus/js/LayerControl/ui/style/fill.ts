@@ -388,13 +388,13 @@ const buildOriginalDetail = (ui: LayerUI, layerId: string): HTMLElement[] => {
   const strip = dom.el("div", {
     class: CONST.CLASSES.STYLE_FILL_ORIGINAL_STRIP,
   });
-  // One block per colour, the same recipe the scheme picker's bars use: a
+  // One block per color, the same recipe the scheme picker's bars use: a
   // stepped scale then shows its real bands instead of a smeared ramp.
-  const colours = stops.length > 0 ? stops : [CONST.COLOR.DEFAULT];
-  for (const colour of colours) {
+  const colors = stops.length > 0 ? stops : [CONST.COLOR.DEFAULT];
+  for (const color of colors) {
     dom.el("div", {
       class: CONST.CLASSES.STYLE_FILL_ORIGINAL_BLOCK,
-      style: `background:${colour};width:${(100 / colours.length).toFixed(4)}%`,
+      style: `background:${color};width:${(100 / colors.length).toFixed(4)}%`,
       parent: strip,
     });
   }
