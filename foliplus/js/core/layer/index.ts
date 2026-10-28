@@ -2,7 +2,7 @@
 // LayerControl composes these via LayerController; other controls consume the
 // LayerAPI facade (map.foliplus.LayerAPI) rather than importing core directly.
 export {
-  ANNOTATION_PANE_PREFIX,
+  LABEL_PANE_PREFIX,
   CANVAS_PANE_PREFIX,
   CAP_TIER,
   COLOR_PANE_PREFIX,
@@ -19,11 +19,12 @@ export {
   ROLE,
   Z_INDEX,
 } from "./const.js";
-export { annotationPaneNameOf, carrierTargetOf, contentPanesOf } from "./carrier.js";
+export { readFeatureFillColors } from "./authorFill.js";
+export { labelPaneNameOf, carrierTargetOf, contentPanesOf } from "./carrier.js";
 export type { CarrierDecl } from "./carrier.js";
 export { sectionOf } from "./role.js";
 export type { LayerRole, LayerSection } from "./role.js";
-export { ANNOTATION_Z_OFFSET, FOCUS_Z, focusLayerZ, topSlotZ, zFor } from "./z.js";
+export { LABEL_Z_OFFSET, FOCUS_Z, focusLayerZ, topSlotZ, zFor } from "./z.js";
 export { LayerFactory } from "./LayerFactory.js";
 export { LayerInfoRegistry } from "./LayerInfoRegistry.js";
 // The class, not `type.ts`'s interface of the same name: it is what the manager

@@ -413,7 +413,7 @@ class LayerController implements LayerAPI {
     };
     this.map.on("layerremove", this.onLayerRemove);
     // The annotation manager plans each layer's labels on that layer's own
-    // label pane — which is a declared `role: "annotation"` PaneSpec of the
+    // label pane — which is a declared `role: "label"` PaneSpec of the
     // layer's surface (see `withAnnotationSpec`), created and z-priced with
     // the rest of the face. The manager only mounts canvases into it; there
     // is no pane hook and no stored-intent replay to wire — the pane exists

@@ -251,14 +251,18 @@ describe("renderLabelControls — refresh", () => {
     const { root, setValues, refresh } = render({
       values: { labelShow: true, labelFormat: "auto" },
     });
-    const format = inRoot<HTMLSelectElement>(root, ".foliplus-style-format-select");
-    format.focus();
+    // The select is bridged into the shared dropdown: the hidden native select
+    // cannot take focus, so the trigger is where the user "is" while picking.
+    const trigger = inRoot<HTMLButtonElement>(root, ".foliplus-dropdown-trigger");
+    trigger.focus();
 
     setValues({ labelShow: true, labelFormat: "percent" });
     refresh();
 
-    expect(document.activeElement).toBe(format);
-    expect(format.value).toBe("auto");
+    expect(document.activeElement).toBe(trigger);
+    expect(inRoot<HTMLSelectElement>(root, ".foliplus-style-format-select").value).toBe(
+      "auto",
+    );
   });
 });
 

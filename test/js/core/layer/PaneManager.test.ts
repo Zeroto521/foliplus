@@ -22,11 +22,11 @@ const specs = (...names: string[]): PaneSpec[] =>
 
 // Naming convention: DOM/CSS/named panes use hyphens.
 describe("pane prefix naming convention", () => {
-  it("fallback / canvas / annotation pane prefixes are hyphenated", () => {
+  it("fallback / canvas / label pane prefixes are hyphenated", () => {
     for (const prefix of [
       CONST.FALLBACK_PANE_PREFIX,
       CONST.CANVAS_PANE_PREFIX,
-      "foliplus-annotation-",
+      "foliplus-label-",
     ]) {
       expect(prefix).toMatch(/^foliplus-[a-z]+-$/);
       expect(prefix).not.toContain("_");
@@ -417,13 +417,13 @@ describe("PaneManager", () => {
     pm.registerPaneSpecs([
       { role: "base", order: 0, name: "a" },
       { role: "sub", order: 1, name: "b" },
-      { role: "annotation", order: 2, name: "c" },
+      { role: "label", order: 2, name: "c" },
       { role: "preview", order: 3, name: "d" },
     ]);
     expect(pm.childPaneSpecs.size).toBe(4);
     expect(pm.childPaneSpecs.get("a")?.role).toBe("base");
     expect(pm.childPaneSpecs.get("b")?.role).toBe("sub");
-    expect(pm.childPaneSpecs.get("c")?.role).toBe("annotation");
+    expect(pm.childPaneSpecs.get("c")?.role).toBe("label");
     expect(pm.childPaneSpecs.get("d")?.role).toBe("preview");
   });
 

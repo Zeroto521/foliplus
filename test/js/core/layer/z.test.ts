@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { Z_INDEX } from "#foliplus/core/layer/const.js";
 import {
-  ANNOTATION_Z_OFFSET,
   FOCUS_Z,
+  LABEL_Z_OFFSET,
   focusLayerZ,
   topSlotZ,
   zFor,
@@ -39,12 +39,10 @@ describe("zFor slots", () => {
   });
 
   it("prices an annotation pane one step above its layer, not at its own order", () => {
-    expect(ANNOTATION_Z_OFFSET).toBe(1);
+    expect(LABEL_Z_OFFSET).toBe(1);
     const slot = zFor({ index: 1, count: 3 });
-    expect(zFor({ index: 1, count: 3, paneRole: "annotation" })).toBe(slot + 1);
-    expect(zFor({ index: 1, count: 3, paneRole: "annotation", order: 4 })).toBe(
-      slot + 1,
-    );
+    expect(zFor({ index: 1, count: 3, paneRole: "label" })).toBe(slot + 1);
+    expect(zFor({ index: 1, count: 3, paneRole: "label", order: 4 })).toBe(slot + 1);
   });
 
   it("prices a shadow pane one step below its layer, ignoring its order", () => {
@@ -83,7 +81,7 @@ describe("zFor slots", () => {
   it("prices an absolute base instead of a slot", () => {
     expect(zFor({ base: 8990 })).toBe(8990);
     expect(zFor({ base: 8990, order: 2 })).toBe(8992);
-    expect(zFor({ base: 8990, paneRole: "annotation" })).toBe(8991);
+    expect(zFor({ base: 8990, paneRole: "label" })).toBe(8991);
     // The base wins over index/count/group.
     expect(zFor({ base: 8990, index: 0, count: 9, role: "base" })).toBe(8990);
   });
@@ -102,7 +100,7 @@ describe("the focus ladder", () => {
   });
 
   it("prices the panes above the raised layer in order: labels, markers, tooltip, popup", () => {
-    expect(zFor({ base: focusLayerZ(), paneRole: "annotation" })).toBe(8991);
+    expect(zFor({ base: focusLayerZ(), paneRole: "label" })).toBe(8991);
     expect(zFor({ base: focusLayerZ(), order: 2 })).toBe(8992);
     expect(zFor({ base: focusLayerZ(), order: 3 })).toBe(8993);
     expect(zFor({ base: focusLayerZ(), order: 4 })).toBe(8994);

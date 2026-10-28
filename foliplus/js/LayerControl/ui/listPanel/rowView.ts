@@ -274,13 +274,5 @@ const applyRowView = (ui: LayerUI, item: HTMLElement, cell: RowCell): void => {
   item.title = view.title;
 };
 
-export {
-  applyRowView,
-  buildRowCell,
-  displayName,
-  inZoomRange,
-  rowView,
-  type RowCell,
-  type RowLabels,
-  type RowView,
-};
+export { applyRowView, buildRowCell, displayName, inZoomRange, rowView };
+export type { RowCell, RowLabels, RowView };

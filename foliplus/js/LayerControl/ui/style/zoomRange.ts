@@ -5,7 +5,7 @@
 // map's "where am I" readout and the out-of-range dimming, and turns thumb
 // movement into live projection + a persisted intent.
 //
-// Used by both the delegated drawer and the annotation panel — the row is
+// Used by both the delegated drawer and the label panel — the row is
 // LayerControl-owned, gated by surface capability.
 import { CAP_TIER, DIM } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";

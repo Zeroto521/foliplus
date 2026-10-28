@@ -29,9 +29,20 @@
         labelLines: range.getClientRects().length,
         whiteSpace: getComputedStyle(label).whiteSpace,
         panelWidth: rootEl.getBoundingClientRect().width,
+        // Only the controls a user can reach count: the shared dropdown keeps a
+        // hidden native select in the row as its value/change bridge, and that
+        // element is out of the accessibility tree. Its accessible name lives on
+        // the visible trigger, so counting the bridge would report the same
+        // control twice and the second time as an empty name.
         ariaLabels: Array.from(
           row.querySelectorAll("select, input, button, [role=combobox]"),
-        ).map(el => el.getAttribute("aria-label")),
+        )
+          .filter(
+            el =>
+              el.closest("[hidden]") === null &&
+              el.getAttribute("aria-hidden") !== "true",
+          )
+          .map(el => el.getAttribute("aria-label")),
       };
     })
     .filter(Boolean);

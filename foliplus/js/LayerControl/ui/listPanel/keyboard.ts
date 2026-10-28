@@ -54,9 +54,15 @@ const handleOutsideMousedown = (ui: LayerUI, event: MouseEvent): void => {
   // map alike. One surface per press — the overflow menu keeps its own
   // click-delegated close in interaction.ts, and Escape pops the menu before
   // the panels.
+  // Ownership, not global membership: this control's drawer is the scope, so a
+  // portalled list mounted for *its* trigger counts as inside it and a list
+  // mounted for another surface does not. The element comes off the overlay
+  // panel's own state — a document-wide query would pick the first drawer on a
+  // page with two maps, which is the multi-instance form of the same bug.
+  const stylePanel = ui.overlayPanel.stylePanelEl;
   const inStyleOverlay =
     !!target.closest(`.${CONST.CLASSES.STYLE_PANEL}`) ||
-    isInsideOverlay(target, null, SCHEME_PICKER_PORTAL_SELECTOR);
+    isInsideOverlay(target, stylePanel, SCHEME_PICKER_PORTAL_SELECTOR);
   if (!target.closest(`.${CONST.CLASSES.ATTRS_PANEL}`)) ui.closeAttrsPanel(false);
   if (!inStyleOverlay) ui.closeStylePanel(false);
   // The portalled list floats over the map, like the drawer itself: a press

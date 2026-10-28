@@ -11,7 +11,15 @@ from pathlib import Path
 
 import pytest
 
-from foliplus.locale import _LOCALE_DIR, LocaleConfig, _load_tables, resolve_locale
+from foliplus import locale
+from foliplus.BaseControl import _build_shared_header
+from foliplus.locale import (
+    _LOCALE_DIR,
+    LocaleConfig,
+    _load_component_tables,
+    _load_tables,
+    resolve_locale,
+)
 
 # ---------------------------------------------------------------------------
 # JS-key scanning — replaces the hand-maintained list below.
@@ -372,23 +380,56 @@ class TestFillClassificationVocabulary:
             assert "LayerControl.style_fill_no_field" not in table
 
 
+def _clear_locale_caches() -> None:
+    """Drop every cache that keys off the locale directory.
+
+    ``_build_shared_header`` embeds both tables and is cached process-wide, so a
+    swapped or mutated directory has to invalidate it as well — otherwise a
+    later render in the same worker keeps serving the old bundle.
+    """
+    _load_tables.cache_clear()
+    _load_component_tables.cache_clear()
+    _build_shared_header.cache_clear()
+
+
+@pytest.fixture
+def locale_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """A private copy of the shipped locale tables — never the package dir.
+
+    The loader resolves ``foliplus.locale._LOCALE_DIR`` at call time, so a test
+    that needs a table of its own redirects it here rather than dropping a file
+    next to the checked-in ``*.json`` files. Writing into the real directory
+    makes the file visible to every other xdist worker, and the loaders open it
+    in two steps (``glob`` then ``read_text``): a worker that globs a file this
+    test is about to unlink raises ``FileNotFoundError`` — exactly the
+    ``test_uses_filename_as_fallback_code`` red under ``-n auto``.
+
+    The three loader caches are process-wide, so the swap clears them on the
+    way in (the copied files are what the next read must see) and on the way
+    out (the real directory is what later tests must see).
+    """
+    copy = tmp_path / "locale"
+    copy.mkdir()
+    for source in _LOCALE_DIR.glob("*.json"):
+        (copy / source.name).write_text(
+            source.read_text(encoding="utf-8"), encoding="utf-8"
+        )
+    monkeypatch.setattr(locale, "_LOCALE_DIR", copy)
+    _clear_locale_caches()
+    yield copy
+    _clear_locale_caches()
+
+
 class TestLoadBuiltinTables:
-    def test_uses_filename_as_fallback_code(self):
+    def test_uses_filename_as_fallback_code(self, locale_dir: Path):
         """If JSON has no locale.code, use the stem as language code."""
-        tmp = _LOCALE_DIR / "zz.json"
-        try:
-            tmp.write_text('{"hello": "world"}', encoding="utf-8")
-            tables = _load_tables("*.json")
-            assert "zz" in tables
-            assert "locale.code" not in tables["zz"]
-        finally:
-            if tmp.exists():
-                tmp.unlink()
+        (locale_dir / "zz.json").write_text('{"hello": "world"}', encoding="utf-8")
+        tables = _load_tables("*.json")
+        assert "zz" in tables
+        assert "locale.code" not in tables["zz"]
 
     def test_load_component_tables_groups_by_component(self):
         """_load_component_tables returns {component: {lang: table}}, skipping common."""
-        from foliplus.locale import _load_component_tables
-
         tables = _load_component_tables()
         # Should have entries for each component, not common.
         assert "common" not in tables
@@ -397,32 +438,20 @@ class TestLoadBuiltinTables:
         assert "zh" in tables["HeatmapControl"]
         assert tables["HeatmapControl"]["en"]["locale.code"] == "en"
 
-    def test_load_component_tables_skips_edge_cases(self):
+    def test_load_component_tables_skips_edge_cases(self, locale_dir: Path):
         """Files without a dot in the stem, without locale.code, and common.* are skipped."""
-        from foliplus.locale import _load_component_tables
-
-        tmp_no_dot = _LOCALE_DIR / "README.json"
-        tmp_no_code = _LOCALE_DIR / "HeatmapControl.xx.json"
-        tmps = []
-        try:
-            tmp_no_dot.write_text('{"hello": "world"}', encoding="utf-8")
-            # A component file missing locale.code — the table is skipped.
-            tmp_no_code.write_text('{"key": "val"}', encoding="utf-8")
-            tmps = [tmp_no_dot, tmp_no_code]
-            _load_component_tables.cache_clear()
-            tables = _load_component_tables()
-            # No-dot file: "README" has no ".", so it's skipped.
-            assert "README" not in tables
-            # No-code file: stem "HeatmapControl.xx" has a dot, so comp is
-            # "HeatmapControl", but locale.code is missing → code is "" → skipped.
-            # HeatmapControl should still have en/zh from the real files,
-            # but no "xx" entry.
-            assert "xx" not in tables.get("HeatmapControl", {})
-        finally:
-            _load_component_tables.cache_clear()
-            for tmp in tmps:
-                if tmp.exists():
-                    tmp.unlink()
+        (locale_dir / "README.json").write_text('{"hello": "world"}', encoding="utf-8")
+        # A component file missing locale.code — the table is skipped.
+        (locale_dir / "HeatmapControl.xx.json").write_text(
+            '{"key": "val"}', encoding="utf-8"
+        )
+        tables = _load_component_tables()
+        # No-dot file: "README" has no ".", so it's skipped.
+        assert "README" not in tables
+        # No-code file: stem "HeatmapControl.xx" has a dot, so comp is
+        # "HeatmapControl", but locale.code is missing → code is "" → skipped.
+        # The copied real files still give HeatmapControl en/zh, without "xx".
+        assert "xx" not in tables.get("HeatmapControl", {})
 
 
 class TestFromFile:

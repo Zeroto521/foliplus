@@ -8,7 +8,7 @@
   if (!row) return { error: "row not found" };
   const id = row.getAttribute("data-layer-id");
   const cfg = mgr.getConfig(id);
-  const canvas = document.querySelector(".foliplus-annotation-canvas");
+  const canvas = document.querySelector(".foliplus-label-canvas");
   let green = 0;
   let blue = 0;
   if (canvas) {

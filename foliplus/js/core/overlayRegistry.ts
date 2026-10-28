@@ -57,9 +57,6 @@ interface OverlayEntry {
   /** Live DOM, recomputed on every call: a rebuilt row invalidates the nodes
    *  captured by a previous press. */
   panels(): Element[];
-  /** Portalled nodes that belong to this surface (the scheme picker list on
-   *  <body> / the fullscreen element, Export's crop layer). */
-  portals?(): Element[];
   /** Phase this surface keeps. Row panels dismiss on capture-phase mousedown;
    *  the overflow menu and the picker close on the click bubble, after the
    *  target's own click handler ran. */
@@ -187,12 +184,13 @@ const isEditable = (target: Node): boolean => {
   return element instanceof HTMLElement && element.isContentEditable;
 };
 
+/** Containment is asked of the panels only. A node the surface portalled
+ *  elsewhere is still inside it, because the panel that owns the trigger it was
+ *  mounted for answers through common/portalRoot's ownership check — one
+ *  mechanism instead of two lists that can disagree. */
 const entryContains = (entry: OverlayEntry, target: EventTarget | null): boolean => {
   for (const panel of entry.panels()) {
     if (isInsideOverlay(target, panel)) return true;
-  }
-  for (const portal of entry.portals?.() ?? []) {
-    if (isInsideOverlay(target, portal)) return true;
   }
   return false;
 };
@@ -476,14 +474,11 @@ const ensureOverlayRegistry = (map: L.Map): OverlayRegistry => {
   return registry;
 };
 
-export {
-  ESC_PRIORITY,
-  OVERLAY_IDS,
-  ensureOverlayRegistry,
-  orderOf,
-  type EscapeHandled,
-  type OverlayEntry,
-  type OverlayPhase,
-  type OverlayPress,
-  type OverlayRegistry,
+export { ESC_PRIORITY, OVERLAY_IDS, ensureOverlayRegistry, orderOf };
+export type {
+  EscapeHandled,
+  OverlayEntry,
+  OverlayPhase,
+  OverlayPress,
+  OverlayRegistry,
 };

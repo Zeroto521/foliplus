@@ -1,5 +1,8 @@
-# Weekly cadence, one block per ecosystem, PRs grouped per ecosystem so a
-# single "bump X deps" PR carries all the versions that landed at once.
+# Weekly cadence, one block per ecosystem. Minor/patch updates are grouped per
+# ecosystem so a single "bump X deps" PR carries all the versions that landed at
+# once; majors arrive as their own PR, because npm resolves the whole tree in one
+# pass and a single unresolvable major (peer conflict) fails `npm ci` for every
+# job, taking the harmless updates in the group down with it.
 # `open-pull-requests-limit` caps how many Dependabot PRs can sit open at
 # once; the oldest gets closed when the cap is hit.
 version: 2
@@ -14,6 +17,7 @@ updates:
     groups:
       python:
         patterns: ["*"]
+        update-types: ["minor", "patch"]
     open-pull-requests-limit: 5
 
   - package-ecosystem: "npm"
@@ -26,6 +30,15 @@ updates:
     groups:
       node:
         patterns: ["*"]
+        update-types: ["minor", "patch"]
+    ignore:
+      # typescript-eslint's peer range for every release so far is
+      # `typescript >=4.8.4 <6.1.0`, so the TypeScript native-port major cannot
+      # be installed alongside it. Re-check with
+      # `npm view typescript-eslint peerDependencies` and drop this entry once
+      # the upper bound moves past 6.1.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
     open-pull-requests-limit: 5
 
   - package-ecosystem: "github-actions"
@@ -38,4 +51,5 @@ updates:
     groups:
       actions:
         patterns: ["*"]
+        update-types: ["minor", "patch"]
     open-pull-requests-limit: 5

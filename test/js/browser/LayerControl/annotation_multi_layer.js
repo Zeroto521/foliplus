@@ -36,7 +36,7 @@
         // Pane names come from the Leaflet _panes registry, not the DOM id —
         // createPane does not set element.id, so read through map.getPane.
         const zOf = id => {
-          const pane = window.map.getPane("foliplus-annotation-" + id);
+          const pane = window.map.getPane("foliplus-label-" + id);
           return pane ? parseInt(pane.style.zIndex) || 0 : null;
         };
         const layerZOf = id => {
@@ -45,7 +45,7 @@
         };
         const opaqueOf = id => {
           const canvas = window.map
-            .getPane("foliplus-annotation-" + id)
+            .getPane("foliplus-label-" + id)
             ?.querySelector("canvas");
           if (!canvas) return 0;
           const data = canvas
@@ -58,17 +58,17 @@
         // Every owned pane carries the base class through ensurePane; the
         // annotation role marker sits on top of it.
         const paneClassesOf = id => {
-          const pane = window.map.getPane("foliplus-annotation-" + id);
+          const pane = window.map.getPane("foliplus-label-" + id);
           if (!pane) return null;
           return {
             layer: pane.classList.contains("foliplus-layer-pane"),
-            annotation: pane.classList.contains("foliplus-annotation-pane"),
+            annotation: pane.classList.contains("foliplus-label-pane"),
           };
         };
         resolve({
           canvas: true,
           // One pane + one canvas per labeled layer, z-ordered with the layer.
-          canvasCount: document.querySelectorAll(".foliplus-annotation-canvas").length,
+          canvasCount: document.querySelectorAll(".foliplus-label-canvas").length,
           opaqueA: opaqueOf("__ml_a__"),
           opaqueB: opaqueOf("__ml_b__"),
           annA: zOf("__ml_a__"),
