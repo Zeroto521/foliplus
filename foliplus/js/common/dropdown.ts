@@ -462,11 +462,10 @@ const openDropdown = (
   const host = popupHost(state);
   if (state.list.parentElement !== host) host.appendChild(state.list);
   state.list.hidden = false;
-  // Register the popup as part of this overlay while it is on screen, so a
-  // press on a row is not classified "outside" by the panel that owns the
-  // trigger. The panel needs no change: core/overlay's predicate asks the
-  // registry (common/portalRoot) first.
-  state.releasePortalRoot = registerPortalRoot(state.list);
+  // Register the popup as part of *this* overlay while it is on screen, keyed
+  // by its trigger, so a press on a row is not classified "outside" by the
+  // panel that owns that trigger and stays outside every other panel.
+  state.releasePortalRoot = registerPortalRoot(state.list, state.trigger);
   state.isOpen = true;
   state.trigger.classList.add(DROPDOWN_CLASSES.open);
   state.trigger.setAttribute("aria-expanded", "true");
@@ -529,13 +528,15 @@ const openDropdown = (
   // before any document capture listener and stops the event there. The
   // second Escape reaches the panel (this listener dies with the popup).
   //
-  // Why claiming the key here does not steal an Escape from a
-  // higher-priority surface (core/overlayRegistry's ESC_PRIORITY, e.g.
-  // LAYER_RENAME at 900): a popup can only be open inside a style/filter/attrs
-  // panel, and opening one of those ends any live rename first (measured: the
-  // rename input is removed and focus returns to the row), so no surface above
-  // this one can be alive at the same time. A guard test pins that invariant
-  // (test_dropdown_panel.py: the drawer ends the rename).
+  // Why claiming the key here cannot steal an Escape from a higher-priority
+  // surface (core/overlayRegistry's ESC_PRIORITY, LAYER_RENAME at 900): a
+  // rename session ends on the next real pointer press outside it — including
+  // a press on any other panel (measured: the rename input leaves the DOM and
+  // focus returns to the row). A popup only exists inside a panel, and opening
+  // that panel or pressing anywhere else already ended the rename, so no
+  // surface ranked above this popup can be live at the same time. Guard tests
+  // pin both paths (test_dropdown_panel.py: opening the style drawer, and a
+  // real press on the heatmap panel, each end the rename).
   const onEscapeCapture = (event: KeyboardEvent): void => {
     if (event.key !== "Escape" || event.defaultPrevented) return;
     event.preventDefault();

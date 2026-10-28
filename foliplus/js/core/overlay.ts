@@ -16,13 +16,13 @@
 // checks are how one of them ends up not knowing about a portal.
 //
 // Ownership comes from the overlay itself: a portal registers the node it
-// mounted (common/portalRoot) while that node is live, so a new portal is
-// covered everywhere the moment its primitive registers — no panel needs a new
-// selector. `portalSelector` remains for the callers that predate the
-// registry (the scheme picker's panels pass it explicitly); the two paths
-// agree, and the registry is checked first so a registered node wins even if a
-// caller forgets its selector.
-import { isInPortalRoot } from "#common/portalRoot.js";
+// mounted together with the trigger it belongs to (common/portalRoot) while
+// that node is live, so a new portal is covered everywhere the moment its
+// primitive registers — no panel needs a new selector. The registration is
+// scoped to the owning overlay: a node registered for one panel's trigger is
+// inside that panel and no other. `portalSelector` remains for the callers
+// that predate the registry (the scheme picker's panels pass it explicitly).
+import { isPortalOf } from "#common/portalRoot.js";
 
 /** True when `target` belongs to the overlay owned by `panel`: a descendant of
  *  the panel itself, a node some overlay registered as its portal root, or a
@@ -40,9 +40,11 @@ const isInsideOverlay = (
   if (!target || typeof (target as Node).nodeType !== "number") return false;
   const node = target as Node;
   if (panel?.contains(node)) return true;
-  // A live portal root is owned by some overlay that mounted it; whichever
-  // panel is asking, a press on that node belongs to an overlay, not the page.
-  if (isInPortalRoot(node)) return true;
+  // A portalled node belongs to the overlay that owns the trigger it was
+  // mounted for — and only to that one. Ownership is checked against the panel
+  // that is asking, so an open popup in one panel cannot make an unrelated
+  // panel answer "mine" for the same press.
+  if (panel && isPortalOf(node, panel)) return true;
   if (!portalSelector) return false;
   // Node.ELEMENT_NODE is 1; spelled out so the helper stays a leaf module.
   const element =

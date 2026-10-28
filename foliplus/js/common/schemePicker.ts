@@ -318,7 +318,7 @@ const mountDropdown = (state: InternalState) => {
     host.appendChild(dropdown);
     // Ownership travels with the node: while this list is live, the panel that
     // owns the trigger counts a press on it as its own (common/portalRoot).
-    state.mountCleanupFns.push(registerPortalRoot(dropdown));
+    state.mountCleanupFns.push(registerPortalRoot(dropdown, state.trigger));
     // Measure after append — detached elements report 0×0.
     positionDropdown(state, dropdown);
     dropdown.style.visibility = "";

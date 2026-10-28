@@ -259,14 +259,20 @@ describe("bindOutsideCollapse", () => {
 
   it("keeps the panel open for a press on a registered portal root", () => {
     // The shared dropdown mounts its open list on <body> and registers that
-    // node as part of the overlay. A press on a row is then an inside press,
-    // even though the node is not a descendant of the panel.
+    // node under the trigger it was mounted for. A press on a row is then an
+    // inside press for the panel that owns that trigger, even though the node
+    // is not a descendant of the panel. (Attribution itself — and the fact
+    // that one overlay's list is *not* inside another's — is asserted in
+    // common/portalRoot.test.ts, where the predicate is the unit under test;
+    // bindOutsideCollapse deliberately shares one "inside" verdict per event
+    // across its bindings, so nested/sister panels cannot collapse each
+    // other.)
     const container = makePanel();
     const portalList = document.createElement("div");
     const row = document.createElement("button");
     portalList.appendChild(row);
     document.body.appendChild(portalList);
-    const release = registerPortalRoot(portalList);
+    const release = registerPortalRoot(portalList, container);
     try {
       bindOutsideCollapse({ container });
       row.click();

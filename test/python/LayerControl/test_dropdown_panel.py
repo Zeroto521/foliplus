@@ -19,7 +19,7 @@ import json
 import folium
 from conftest import _js, make_browser_page, panel_ready, use_page
 
-from foliplus import LayerControl
+from foliplus import HeatmapControl, LayerControl
 
 STATE = """() => {
   const rowPanel = document.querySelector('.foliplus-layer-ctrl');
@@ -51,6 +51,9 @@ FIRST_OPTION = """() => {
 def _make_page(browser, tmp_path):
     m = folium.Map(location=[26.08, 119.30], zoom_start=12)
     LayerControl().add_to(m)
+    # A second control on the map gives a real press target outside the layer
+    # panel (the "press elsewhere ends the rename" invariant).
+    HeatmapControl().add_to(m)
     data = {
         "type": "FeatureCollection",
         "features": [
@@ -161,6 +164,48 @@ class TestStyleDrawerDropdownBrowser:
             ), (
                 "opening the style drawer left the row rename live; the popup's "
                 "window-capture Escape could then steal the rename's cancel"
+            )
+            assert not errors, f"JS errors: {errors}"
+
+    def test_a_real_press_on_another_panel_ends_the_rename(self, browser, tmp_path):
+        """The rename ends before any other surface can take focus.
+
+        The popup claims Escape on window capture, ahead of the document-level
+        overlay dispatcher. That is only safe because a live rename cannot
+        coexist with a popup: a real pointer press anywhere outside the rename —
+        here on the heatmap panel's toggle — ends it first. This test pins the
+        second path (the style-drawer path is pinned above).
+        """
+        with use_page(_make_page, browser, tmp_path) as (page, errors):
+            page.wait_for_selector(".foliplus-heatmap-ctrl", state="attached")
+            page.evaluate(_js("LayerControl/open_panel"))
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded", state="attached"
+            )
+            panel_ready(page)
+            page.evaluate(_js("LayerControl/rename_first_layer"))
+            page.wait_for_timeout(250)
+            assert page.evaluate(
+                "() => !!document.querySelector('.foliplus-layer-rename-input')"
+            ), "the rename input did not open"
+
+            toggle = page.evaluate(
+                """() => {
+                  const el = document.querySelector(
+                    '.foliplus-heatmap-ctrl .foliplus-toggle-btn'
+                  );
+                  const r = el.getBoundingClientRect();
+                  return { x: Math.round(r.left + r.width / 2),
+                           y: Math.round(r.top + r.height / 2) };
+                }"""
+            )
+            page.mouse.click(toggle["x"], toggle["y"])
+            page.wait_for_timeout(300)
+            assert not page.evaluate(
+                "() => !!document.querySelector('.foliplus-layer-rename-input')"
+            ), (
+                "a real press on another panel left the row rename live; the "
+                "popup's window-capture Escape could then steal the rename cancel"
             )
             assert not errors, f"JS errors: {errors}"
 
