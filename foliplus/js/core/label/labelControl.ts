@@ -9,6 +9,7 @@
 // (createTranslator) — both callers pass their own `_` rather than their
 // component-scoped `T`, so no component carries a private copy of the keys.
 import { dom } from "#common/dom.js";
+import { type DropdownSurface, createDropdown, dropdownOf } from "#common/dropdown.js";
 import {
   DEFAULT_LABEL_COLOR,
   LABEL_SIZE,
@@ -65,6 +66,9 @@ interface RenderLabelControlsOptions {
    *  open and interaction no-ops (the setter map is gone). */
   getSetters: () => StyleSetters;
   T: (key: string) => string;
+  /** Popup host contract for the format dropdown (core/fullscreen's
+   *  `dropdownSurface(map.getContainer())`). */
+  surface?: DropdownSurface;
 }
 
 interface LabelControlsResult {
@@ -162,12 +166,19 @@ const renderLabelControls = (opts: RenderLabelControlsOptions): LabelControlsRes
     );
     (formatSelect as HTMLSelectElement).value =
       typeof values.labelFormat === "string" ? values.labelFormat : NUMBER_FORMAT.AUTO;
+    // The visible control is the shared dropdown; the select stays mounted
+    // (hidden) as the value/change bridge the root delegation reads.
+    const formatDropdown = createDropdown({
+      nativeSelect: formatSelect as HTMLSelectElement,
+      ariaLabel: T("foliplus.label_format"),
+      ...opts.surface,
+    });
     bodyRows.push(
       dom.el(
         "div",
         { class: `${CLS.FORM_ROW} ${CLS.STYLE_FORMAT_ROW}` },
         dom.el("label", { class: CLS.FORM_LABEL }, T("foliplus.label_format")),
-        dom.el("div", { class: CLS.FORM_CONTROL }, formatSelect),
+        dom.el("div", { class: CLS.FORM_CONTROL }, formatDropdown.element),
       ),
     );
   }
@@ -308,9 +319,20 @@ const renderLabelControls = (opts: RenderLabelControlsOptions): LabelControlsRes
     const formatSelect = root.querySelector(
       `.${CLS.STYLE_FORMAT_SELECT}`,
     ) as HTMLSelectElement | null;
-    if (formatSelect && document.activeElement !== formatSelect) {
+    // The format select is bridged into a dropdown, so the user's focus sits on
+    // the trigger (or an option in the open list), never on the hidden select.
+    // Treat the whole wrapper as "being edited" or a remote write would yank
+    // the value out from under an open picker.
+    const formatDropdown = formatSelect ? dropdownOf(formatSelect) : undefined;
+    const formatFocused =
+      document.activeElement === formatSelect ||
+      !!formatDropdown?.element.contains(document.activeElement);
+    if (formatSelect && !formatFocused) {
       formatSelect.value =
         typeof v.labelFormat === "string" ? v.labelFormat : NUMBER_FORMAT.AUTO;
+      // A property write fires no change event, so the closed trigger has to
+      // be re-read explicitly.
+      dropdownOf(formatSelect)?.refresh();
     }
   };
 

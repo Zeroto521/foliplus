@@ -117,6 +117,7 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
   // The mousedown is stopped here; whether the press landed inside the panel is
   // recorded by the outside handler below, because `dragstart` is dispatched on
   // the draggable row and so cannot answer it.
+  ui.overlayPanel.stylePanelEl = panel;
   panel.addEventListener("mousedown", e => e.stopPropagation());
 
   // Border row: a self-managed dimension that writes `setStyle` directly, so
@@ -375,6 +376,7 @@ const closeStylePanel = (ui: LayerUI, setFocus: boolean): void => {
     );
     ui.overlayPanel.styleOutsideHandler = null;
   }
+  ui.overlayPanel.stylePanelEl = null;
   ui.overlayPanel.styleUnsubscribe?.();
   ui.overlayPanel.styleUnsubscribe = null;
   ui.overlayPanel.styleRefresh = null;

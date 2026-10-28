@@ -3,6 +3,7 @@
 // ui/style.ts. Owns the delegation probe used by the ⋮ menu, and the
 // "Label" drawer that layers their own setters alongside LayerControl's
 // opacity / zoom-range rows.
+import { dropdownSurface } from "#core/fullscreen.js";
 import { type LabelStyleValues, renderLabelControls } from "#core/label/index.js";
 import { DIM } from "#core/layer/index.js";
 import { createRowPanel } from "#core/leaflet/index.js";
@@ -99,6 +100,10 @@ const renderDelegatedStylePanel = (
     styleProvider: () => entry()?.styleProvider?.() as LabelStyleValues | undefined,
     getSetters: () => entry()?.styleSetters ?? {},
     T: ui._,
+    // The format list portals out of the drawer; it must follow the surface
+    // covering the trigger (native or pseudo fullscreen), like every other
+    // migrated select.
+    surface: dropdownSurface(ui.c.map.getContainer()),
   });
 
   // Border row (HeatmapControl only today) — the component's own styling, so

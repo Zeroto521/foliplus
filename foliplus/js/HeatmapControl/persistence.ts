@@ -111,6 +111,9 @@ interface ManagerLike {
   labelSize: number;
   labelFormat: NumberStyle;
   field: string;
+  /** Drop the memoised effective field; the loaded record just moved the
+   *  user's pick under it. Optional so plain state objects stay valid. */
+  invalidateEffectiveField?: () => void;
   hasScanned: boolean;
   /** Per-source committed filters (restored before the first render, then
    *  re-validated against the rebuilt snapshot by the manager). */
@@ -157,6 +160,9 @@ const applySavedConfig = (mgr: ManagerLike, raw: SavedConfig): void => {
   }
   if (saved.labelFormat) mgr.labelFormat = saved.labelFormat;
   if (saved.field) mgr.field = bareFieldName(saved.field);
+  // The record just replaced the user's pick; the cached resolution predates
+  // it and must not answer the first render.
+  mgr.invalidateEffectiveField?.();
   mgr.selectedLayerId = saved.layerId ?? null;
   // Restore the record's filter map as-is; the first render revalidates each
   // stored filter against the rebuilt snapshot (clamp to the current extent,

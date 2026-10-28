@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   PSEUDO_FULLSCREEN_CLASS,
   announceFullscreenSurface,
+  dropdownSurface,
   fullscreenSurface,
   onFullscreenSurfaceChange,
   setPseudoFullscreen,
@@ -15,6 +16,45 @@ const stubFullscreenElement = (el: Element | null) => {
     get: () => el,
   });
 };
+
+describe("dropdownSurface", () => {
+  beforeEach(() => {
+    document.body.innerHTML = "";
+    stubFullscreenElement(null);
+  });
+
+  afterEach(() => {
+    stubFullscreenElement(null);
+    document.body.innerHTML = "";
+  });
+
+  it("resolves the surface that covers the trigger's scope", () => {
+    // A pseudo-fullscreen container covering the trigger is the host the
+    // portalled list must mount into; <body> would sit behind the opaque map.
+    const container = document.createElement("div");
+    container.className = PSEUDO_FULLSCREEN_CLASS;
+    const trigger = document.createElement("button");
+    container.appendChild(trigger);
+    document.body.appendChild(container);
+
+    const surface = dropdownSurface(trigger);
+    expect(surface.resolveHost()).toBe(container);
+  });
+
+  it("subscribes to surface changes and unsubscribes the same listener", () => {
+    const trigger = document.createElement("button");
+    document.body.appendChild(trigger);
+    const listener = vi.fn();
+    const off = dropdownSurface(trigger).onSurfaceChange(listener);
+
+    announceFullscreenSurface();
+    expect(listener).toHaveBeenCalledTimes(1);
+
+    off();
+    announceFullscreenSurface();
+    expect(listener).toHaveBeenCalledTimes(1);
+  });
+});
 
 describe("fullscreenSurface", () => {
   beforeEach(() => {

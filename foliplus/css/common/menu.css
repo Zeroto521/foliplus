@@ -17,11 +17,14 @@
    The plain dropdowns take the whole recipe. A row panel shares only what
    it does not own: `.foliplus-row-panel` (common/panel.css) sets its own radius,
    shadow and z-index, so restating those here was two sources for one decision
-   with the panel's copy silently winning. */
+   with the panel's copy silently winning. `.foliplus-dropdown-list` (the shared
+   select replacement) joins the plain dropdowns: common/dropdown.css owns its
+   anchor and rows, never this box. */
 :is(
   .foliplus-search-result-panel,
   .foliplus-layer-more-menu,
-  .foliplus-filter-enum-list
+  .foliplus-filter-enum-list,
+  .foliplus-dropdown-list
 ) {
   box-sizing: border-box;
   margin-top: var(--foliplus-space-xs);
@@ -67,7 +70,8 @@
     .foliplus-search-result-panel,
     .foliplus-layer-more-menu,
     .foliplus-row-panel,
-    .foliplus-filter-enum-list
+    .foliplus-filter-enum-list,
+    .foliplus-dropdown-list
   ) {
     animation: none;
   }

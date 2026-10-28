@@ -89,6 +89,25 @@ class TestBaseControlRendering:
         assert "--foliplus-z-index-fullscreen" in css
         assert "--foliplus-z-index-top" in css
 
+    def test_portal_popup_carries_a_z_index_token(self):
+        """The portalled dropdown list must outrank an expanded panel.
+
+        An expanded panel raises its .leaflet-bottom section to base+9 (9999),
+        above the floating band the menu shell gives the list. Without its own
+        z-index the popup is painted under the panel — the five heatmap
+        controls then look dead while the DOM still has the listbox. Assert the
+        rule references the ladder token rather than pinning a number here.
+        """
+        css = read_css_dir("foliplus/css/common", "dropdown.css")
+        marker = ".foliplus-dropdown-list.foliplus-dropdown-portal"
+        assert marker in css
+        rule = css[css.index(marker) :]
+        rule = rule[: rule.index("}")]
+        assert "z-index: var(--foliplus-z-index-" in rule, (
+            "the portalled dropdown list needs a z-index from the token ladder "
+            f"(got rule: {rule!r})"
+        )
+
     def test_z_policy_table_landing(self):
         """The three-family z policy table has a single landing in token.css."""
         css = read_css_dir("foliplus/css/common", "token.css")

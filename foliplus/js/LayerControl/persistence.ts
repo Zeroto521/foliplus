@@ -163,7 +163,11 @@ const PARSE_OVERRIDE: Record<
   fillOpacity: data => (isUnitInterval(data.fillOpacity) ? data.fillOpacity : null),
   fillRamp: data => parseFillRamp(data.fillRamp),
   fillMode: data =>
-    data.fillMode === "solid" || data.fillMode === "ramp" ? data.fillMode : null,
+    data.fillMode === "solid" ||
+    data.fillMode === "ramp" ||
+    data.fillMode === "original"
+      ? data.fillMode
+      : null,
   borderColor: data =>
     isHexColor(data.borderColor) ? normalizeHexColor(data.borderColor) : null,
   borderWeight: data => (isBorderWeight(data.borderWeight) ? data.borderWeight : null),

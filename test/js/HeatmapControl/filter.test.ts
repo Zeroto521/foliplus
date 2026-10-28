@@ -682,6 +682,10 @@ describe("HeatmapControl filter field follows the aggregation field", () => {
     m.setFilter({ kind: "atom", field: "a", op: "between", range: [20, 25] });
     expect(m.layerFilters.size).toBe(1);
     m.field = "b";
+    // The panel's field write saves the config, which is what drops the
+    // memoised effective field — without it syncFilterField would still read
+    // the previous field from the cache.
+    m.saveConfig();
     m.syncFilterField();
     expect(m.layerFilters.size).toBe(0);
   });
