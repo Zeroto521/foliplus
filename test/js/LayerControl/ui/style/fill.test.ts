@@ -3690,7 +3690,9 @@ describe("declared fill — foliplus={'fill': ...}", () => {
     // A declared ramp is an instruction, not a display approximation of the
     // author's palette: no per-feature/author note contradicts it.
     expect(mode.title).toBe("");
-    expect(mode.querySelector('option[value="feature"]')).toBeNull();
+    // No author per-feature paint on this layer, so there is no "Original
+    // colors" arm to offer beside the declared ramp.
+    expect(mode.querySelector('option[value="original"]')).toBeNull();
   });
 
   it("shows a declared class count outside the editable range and converges on edit", () => {
@@ -3714,9 +3716,11 @@ describe("declared fill — foliplus={'fill': ...}", () => {
 
     expect(classes.value).toBe("12");
     expect(classes.querySelector('option[value="12"]')).not.toBeNull();
-    // The select explains a value it cannot re-offer, so the row does not
-    // look broken next to the 2..9 list.
-    expect(classes.title).toBe("LayerControl.style_fill_classes_out_of_range");
+    // The bridged select is hidden, so the explanation rides the trigger the
+    // user actually sees; the row does not look broken next to a 2..9 list.
+    expect(triggerOf(classes).title).toBe(
+      "LayerControl.style_fill_classes_out_of_range",
+    );
 
     classes.value = "9";
     classes.dispatchEvent(new Event("change", { bubbles: true }));
@@ -3833,15 +3837,87 @@ describe("declared fill — foliplus={'fill': ...}", () => {
     ) as HTMLSelectElement;
 
     expect(mode.value).toBe("ramp");
-    expect(mode.querySelector('option[value="feature"]')).toBeNull();
-    // The author palette note would contradict the declared ramp.
-    expect(mode.title).toBe("");
+    // The three arms survive a declaration: the author's paint is still under
+    // the ramp, so "Original colors" stays selectable beside it.
+    expect(mode.querySelector('option[value="original"]')).not.toBeNull();
+    // The note explains that arm, which is still on offer, so it does not
+    // contradict the declared ramp beside it.
+    expect(mode.title).toBe("LayerControl.style_fill_per_feature_note");
     const rampColors = ["#111111", "#222222", "#333333"];
     expect(
       layer.leaves.every((leaf: { setStyle: ReturnType<typeof vi.fn> }) =>
         rampColors.includes(leaf.setStyle.mock.calls.at(-1)?.[0].fillColor as string),
       ),
     ).toBe(true);
+  });
+
+  /** A layer that both declares a ramp and paints its own per-feature face:
+   *  the two boundary corollaries below are the two orders these can resolve
+   *  in, and they differ only by whether the user has spoken. */
+  const declaredOverAuthor = (fill: unknown) => {
+    installChroma(["#111111", "#222222", "#333333"]);
+    installLeafletGlobals();
+    const layer = makePerFeatureLayer(["#0d0887", "#f0f921"]);
+    declare(layer as unknown as { options: Record<string, unknown> }, fill);
+    const { ui } = initFixture({
+      data: [
+        {
+          id: "feature1",
+          name: "Per feature",
+          role: "overlay",
+          layer,
+          fillAuthor: {
+            perFeature: true,
+            distinct: 2,
+            stops: ["#0d0887", "#f0f921"],
+          },
+        },
+      ],
+    });
+    ui.runtimeStore.setFields("feature1", [{ name: "count", numeric: true }]);
+    return { ui, layer, row: () => buildFillRow(ui, "feature1") };
+  };
+
+  it("corollary ②: with no intent, the declaration outranks the author's presentation", () => {
+    const { ui, layer, row } = declaredOverAuthor({
+      ramp: { field: "count", method: "equal" },
+    });
+
+    // Nobody has chosen yet, and the layer does paint per feature: the
+    // declared ramp is still the arm the panel and the map show.
+    expect(modeSelect(row()).value).toBe("ramp");
+    expect(getIntent(ui, "feature1", "fillMode")).toBeUndefined();
+    expect(getIntent(ui, "feature1", "fillRamp")).toBeUndefined();
+    const rampColors = ["#111111", "#222222", "#333333"];
+    expect(
+      layer.leaves.every((leaf: { setStyle: ReturnType<typeof vi.fn> }) =>
+        rampColors.includes(leaf.setStyle.mock.calls.at(-1)?.[0].fillColor as string),
+      ),
+    ).toBe(true);
+  });
+
+  it("corollary ①: an explicit Original colors pick beats the declaration", () => {
+    const { ui, layer, row } = declaredOverAuthor({
+      ramp: { field: "count", method: "equal" },
+    });
+
+    // The one exception to "the declaration outranks": the user's own pick.
+    setIntent(ui, "feature1", "fillMode", "original");
+    applyFillToLayer(ui, "feature1");
+
+    expect(FILL_DIMENSION.value!(ui, "feature1")?.mode).toBe("original");
+    const block = row();
+    expect(modeSelect(block).value).toBe("original");
+    // The Original colors arm is read-only: the author's presentation, with no
+    // control to edit it.
+    expect(details(block).querySelector("select")).toBeNull();
+    // The map follows the author's presentation again, not the ramp.
+    expect(
+      layer.leaves.map(
+        (leaf: { setStyle: ReturnType<typeof vi.fn> }) =>
+          leaf.setStyle.mock.calls.at(-1)?.[0].fillColor,
+      ),
+    ).toEqual(["#0d0887", "#f0f921"]);
   });
 
   it("a declared mode=solid leaves the per-feature display alone", () => {
@@ -3857,7 +3933,11 @@ describe("declared fill — foliplus={'fill': ...}", () => {
           name: "Per feature",
           role: "overlay",
           layer,
-          fillAuthor: { perFeature: true, fields: [] },
+          fillAuthor: {
+            perFeature: true,
+            distinct: 2,
+            stops: ["#0d0887", "#f0f921"],
+          },
         },
       ],
     });
@@ -3867,7 +3947,7 @@ describe("declared fill — foliplus={'fill': ...}", () => {
       `.${CONST.CLASSES.STYLE_FILL_MODE_SELECT}`,
     ) as HTMLSelectElement;
 
-    expect(mode.value).toBe("feature");
+    expect(mode.value).toBe("original");
     expect(mode.title).toBe("LayerControl.style_fill_per_feature_note");
   });
 
@@ -3950,7 +4030,11 @@ describe("declared fill — foliplus={'fill': ...}", () => {
     it("keeps the author's read-only per-feature state after a reconnect", () => {
       installLeafletGlobals();
       const layer = makePerFeatureLayer(["#0d0887", "#f0f921"]);
-      const fillAuthor = { perFeature: true, fields: [] };
+      const fillAuthor = {
+        perFeature: true,
+        distinct: 2,
+        stops: ["#0d0887", "#f0f921"],
+      };
       const { manager, ui } = initFixture({
         data: [
           {
@@ -3963,7 +4047,7 @@ describe("declared fill — foliplus={'fill': ...}", () => {
         ],
       });
       ui.runtimeStore.setFields("feature1", [{ name: "count", numeric: true }]);
-      expect(readFillRow(ui, "feature1").mode).toBe("feature");
+      expect(readFillRow(ui, "feature1").mode).toBe("original");
 
       manager.unregisterLayer("feature1");
       manager.registerLayer({
@@ -3979,7 +4063,7 @@ describe("declared fill — foliplus={'fill': ...}", () => {
       const mode = buildFillRow(ui, "feature1").querySelector(
         `.${CONST.CLASSES.STYLE_FILL_MODE_SELECT}`,
       ) as HTMLSelectElement;
-      expect(mode.value).toBe("feature");
+      expect(mode.value).toBe("original");
       expect(mode.title).toBe("LayerControl.style_fill_per_feature_note");
     });
 

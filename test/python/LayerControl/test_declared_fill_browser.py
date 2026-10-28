@@ -74,8 +74,12 @@ def _make_page(browser, tmp_path):
     return make_browser_page(browser, tmp_path, m.get_root().render(), "declared_fill")
 
 
+# Open the drawer / click Reset (#781's arm probe does both).
 _ARM = _js("LayerControl/fill_author_arm")
-_READ_FILL = _js("LayerControl/fill_author_read")
+# Pick a palette the way a user does: open the trigger, press the row.
+_PICK_SCHEME = _js("LayerControl/pick_fill_scheme")
+# Read the declared by-value row: arm, values and the painted colours.
+_READ_FILL = _js("LayerControl/fill_declared_read")
 
 
 def _open_style_panel(page) -> None:
@@ -117,7 +121,7 @@ class TestDeclaredFillBrowser:
             _open_style_panel(page)
             initial = page.evaluate(_READ_FILL)
             assert initial["mode"] == "ramp", initial
-            assert initial["featureAvailable"] is False, initial
+            assert initial["originalAvailable"] is False, initial
             assert initial["hasSwatch"] is False, initial
             assert initial["field"] == "score", initial
             assert initial["classes"] == "3", initial
@@ -126,7 +130,7 @@ class TestDeclaredFillBrowser:
 
             # A panel edit is the user's intent: it repaints the map and the
             # row now reads the user's scheme.
-            scheme = page.evaluate(_ARM, {"scheme": "Blues"})
+            scheme = page.evaluate(_PICK_SCHEME, {"scheme": "Blues"})
             assert scheme["ok"], f"scheme pick failed: {scheme}"
             page.wait_for_timeout(300)
             taken = page.evaluate(_READ_FILL)
@@ -152,7 +156,7 @@ class TestDeclaredFillBrowser:
 
             # The user's choice wins across a reload; the declaration is still
             # what Reset would return to.
-            page.evaluate(_ARM, {"scheme": "Blues"})
+            page.evaluate(_PICK_SCHEME, {"scheme": "Blues"})
             page.wait_for_timeout(300)
             page.reload()
             page.wait_for_selector(
