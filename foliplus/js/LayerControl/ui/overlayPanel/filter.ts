@@ -27,13 +27,14 @@
 // outside-handler field on `OverlayPanel` so a peer panel can tell the two
 // apart.
 import { EVENTS } from "#core/event/index.js";
+import { dropdownSurface } from "#core/fullscreen.js";
 import type {
   FilterDimension,
   LayerFilter,
   LayerFilterModel,
   LayerInfo,
 } from "#core/layer/index.js";
-import { createRowPanel } from "#core/leaflet/index.js";
+import { createRowPanel, pinRowPanel, unpinRowPanel } from "#core/leaflet/index.js";
 import { isInsideOverlay } from "#core/overlay.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import * as SVGs from "#foliplus/LayerControl/icon.js";
@@ -123,8 +124,9 @@ interface FilterViewHooks {
   write: (filter: LayerFilter | undefined) => void;
 }
 
-/** The body deps: the panel's translator, its write bridge and its number
- *  formatters. The body never reads the registry itself. */
+/** The body deps: the panel's translator, its write bridge, its number
+ *  formatters and the popup surface an open enum dropdown portals onto. The
+ *  body never reads the registry itself. */
 const bodyDeps = (
   ui: LayerUI,
   hooks: FilterViewHooks,
@@ -133,6 +135,10 @@ const bodyDeps = (
   write: hooks.write,
   formatCount: fmtCount,
   formatValue: fmtValue,
+  // Same surface contract the style panel's dropdowns use: an open popup
+  // mounts on the map container, so native/pseudo fullscreen keeps it
+  // on-screen.
+  surface: dropdownSurface(ui.c.map.getContainer()),
 });
 
 /** Pull the shared readout to the owner's current model: live kept/total text
@@ -334,6 +340,13 @@ const subscribeFilterSignals = (
     ui.events.on(EVENTS.LAYER_FILTER_CHANGE, ({ id }) => {
       if (id === state.layerId) refresh();
     }),
+    // The option set of an enum dimension can follow the row's item count
+    // (only the measurement types that exist are offered), so an item count
+    // change re-reads the owner model and rebuilds the body when the options
+    // changed.
+    ui.events.on(EVENTS.LAYER_ITEM_COUNT_CHANGE, ({ id }) => {
+      if (id === state.layerId) refresh();
+    }),
     ui.events.on(EVENTS.LAYER_ITEM_UPDATED, onEntrySignal),
     ui.events.on(EVENTS.LAYER_ITEM_REFRESHED, onEntrySignal),
     ui.events.on(EVENTS.LAYER_ITEM_REMOVED, onEntrySignal),
@@ -417,41 +430,32 @@ const openFilterPanel = (ui: LayerUI, item: HTMLElement): void => {
   // draggable row, so it cannot answer that.
   panel.addEventListener("mousedown", e => e.stopPropagation());
 
-  // The enum popup is the topmost layer: Escape while it is open closes the
-  // popup first, wherever focus sits inside the panel (an option, the trigger
-  // or the footer). The container's own Escape handler closes the surface, and
-  // it only runs once no popup is left.
+  // Escape closes the panel from wherever focus sits inside it (the listbox,
+  // the footer button): the surface is one layer, so the panel is the target.
   panel.addEventListener("keydown", (event: KeyboardEvent) => {
     if (event.key !== "Escape") return;
-    const current = ui.overlayPanel.activeFilterPanel;
-    if (current?.view.kind !== "rows") return;
-    if (!current.view.body.dismissTransient(panel, true)) return;
+    if (ui.overlayPanel.activeFilterPanel?.view.kind !== "rows") return;
+    closeFilterPanel(ui, true);
     event.preventDefault();
     event.stopPropagation();
   });
 
   item.style.position = "relative";
   item.appendChild(panel);
+  // The layer list is a scrolling box with `overflow: hidden`; an absolute
+  // card would be clipped at its edge (the Clear footer and the lower form
+  // rows became unpickable), so pin the panel to the viewport under its row.
+  // The enum popup itself is portalled by common/dropdown, so it escapes both
+  // clip boxes.
+  pinRowPanel(panel, item);
 
   // Document capture dismiss (attrs recipe). The control disables click
   // propagation, so bubble-phase mousedown never reaches document — a
   // press on the map or another foliplus control would not close the
   // panel without capture.
   ui.overlayPanel.filterOutsideHandler = (event: MouseEvent) => {
-    const current = ui.overlayPanel.activeFilterPanel;
     const target = event.target;
     const inside = isInsideOverlay(target, panel);
-    // A press that dismisses the enum popup is consumed: the popup is the
-    // topmost layer, so the panel itself stays open (the next outside press
-    // dismisses the surface).
-    if (
-      target instanceof Element &&
-      current?.view.kind === "rows" &&
-      current.view.body.dismissTransient(target)
-    ) {
-      ui.listPanel.pressInPanel = inside;
-      return;
-    }
     if (inside) {
       ui.listPanel.pressInPanel = true;
       return;
@@ -487,6 +491,7 @@ const closeFilterPanel = (ui: LayerUI, setFocus: boolean): void => {
   // goes, or its change event is lost with the node (style-panel recipe).
   finishSlidersIn(panel);
   if (state.view.kind === "rows") state.view.body.destroy();
+  unpinRowPanel(item);
   panel.remove();
   ui.overlayPanel.activeFilterPanel = null;
   if (setFocus) item.focus();
