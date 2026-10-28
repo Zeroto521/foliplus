@@ -3293,3 +3293,247 @@ describe("fill row — per-feature state", () => {
     });
   });
 });
+
+describe("declared fill — foliplus={'fill': ...}", () => {
+  /** Stamp the author declaration on a carrier BEFORE it is registered: the
+   *  reader caches per layer object, the way a folium layer's options are
+   *  final once it exists. */
+  const declare = (
+    layer: { options: Record<string, unknown> },
+    fill: unknown,
+  ): void => {
+    layer.options.foliplus = { fill };
+  };
+
+  const declaredRampFixture = (fill: unknown) => {
+    installChroma(["#111111", "#222222", "#333333"]);
+    installLeafletGlobals();
+    const rampLayer = makeRampedLayer([1, 5, 9]);
+    declare(rampLayer as unknown as { options: Record<string, unknown> }, fill);
+    const { manager, ui } = initFixture({
+      data: [
+        { id: "overlay1", name: "Polygons", role: "overlay", layer: rampLayer },
+        {
+          id: "base1",
+          name: "OSM",
+          role: "base",
+          layer: { options: {}, setZIndex: vi.fn() } as never,
+          paneName: "tilePane",
+        },
+      ],
+    });
+    return { manager, ui, rampLayer };
+  };
+
+  /** The last fillColor each leaf was painted with. */
+  const paintedColors = (layer: ReturnType<typeof makeRampedLayer>): unknown[] =>
+    layer.leaves.map(leaf => leaf.setStyle.mock.calls.at(-1)?.[0].fillColor);
+
+  afterEach(() => {
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it("paints the declared ramp at attach, before any panel touch", () => {
+    // The declaration is a read-time default, so nothing in the intent store
+    // replays it: the attach sweep has to paint it or the map would open on
+    // the author's flat face until the first panel edit.
+    const { ui, rampLayer } = declaredRampFixture({
+      ramp: { field: "count", method: "equal", classes: 3, scheme: "Reds" },
+    });
+
+    expect(FILL_DIMENSION.value!(ui, "overlay1")).toMatchObject({
+      mode: "ramp",
+      ramp: { field: "count", method: "equal", classes: 3, scheme: "Reds" },
+    });
+    expect(paintedColors(rampLayer)).toEqual(["#111111", "#222222", "#333333"]);
+  });
+
+  it("opens the panel on the declared arm with the declared values", () => {
+    const { ui } = declaredRampFixture({
+      mode: "ramp",
+      ramp: { field: "count", method: "quantile", classes: 4, scheme: "Blues" },
+    });
+
+    const row = buildFillRow(ui, "overlay1");
+    const mode = row.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_MODE_SELECT}`,
+    ) as HTMLSelectElement;
+    const field = row.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_FIELD_SELECT}`,
+    ) as HTMLSelectElement;
+    const method = row.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_METHOD_SELECT}`,
+    ) as HTMLSelectElement;
+    const classes = row.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_CLASSES_SELECT}`,
+    ) as HTMLSelectElement;
+
+    expect(mode.value).toBe("ramp");
+    expect(field.value).toBe("count");
+    expect(method.value).toBe("quantile");
+    expect(classes.value).toBe("4");
+    // A declared ramp is an instruction, not a display approximation of the
+    // author's palette: no per-feature/author note contradicts it.
+    expect(mode.title).toBe("");
+    expect(mode.querySelector('option[value="feature"]')).toBeNull();
+  });
+
+  it("Reset returns to the declared ramp after the user took the fill over", () => {
+    const { ui, rampLayer } = declaredRampFixture({
+      ramp: { field: "count", method: "equal", classes: 3, scheme: "Reds" },
+    });
+    // The user takes the fill over with a solid colour: the declaration steps
+    // aside (intent > declaration).
+    setIntent(ui, "overlay1", "fillMode", "solid");
+    setIntent(ui, "overlay1", "fillColor", "#123456");
+    applyFillToLayer(ui, "overlay1");
+    expect(rampLayer.leaves[0].setStyle).toHaveBeenLastCalledWith(
+      expect.objectContaining({ fillColor: "#123456" }),
+    );
+    expect(FILL_DIMENSION.value!(ui, "overlay1")?.mode).toBe("solid");
+
+    resetLayerFill(ui, "overlay1");
+
+    // Reset clears the intent, so the declaration is what shows through — the
+    // same "Reset returns to the author's declaration" contract the annotation
+    // dimension has.
+    expect(FILL_DIMENSION.value!(ui, "overlay1")).toMatchObject({
+      mode: "ramp",
+      ramp: { field: "count", method: "equal", classes: 3, scheme: "Reds" },
+    });
+    expect(paintedColors(rampLayer)).toEqual(["#111111", "#222222", "#333333"]);
+  });
+
+  it("keeps the user's stored ramp over the declaration", () => {
+    const { ui, rampLayer } = declaredRampFixture({
+      ramp: { field: "count", method: "equal", classes: 3, scheme: "Reds" },
+    });
+    // A different palette so the paint proves which config won.
+    installChroma(["#aaaaaa", "#bbbbbb", "#cccccc"]);
+    setIntent(ui, "overlay1", "fillMode", "ramp");
+    setIntent(ui, "overlay1", "fillRamp", {
+      field: "count",
+      method: "equal",
+      classes: 3,
+      scheme: "Blues",
+    });
+
+    applyFillToLayer(ui, "overlay1");
+
+    expect(paintedColors(rampLayer)).toEqual(["#aaaaaa", "#bbbbbb", "#cccccc"]);
+    const method = buildFillRow(ui, "overlay1").querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_METHOD_SELECT}`,
+    ) as HTMLSelectElement;
+    expect(method.value).toBe("equal");
+    // The user's record is what the panel reads, not the declaration.
+    expect(getIntent(ui, "overlay1", "fillRamp")).toMatchObject({
+      scheme: "Blues",
+    });
+  });
+
+  it("ignores a declaration whose column the data does not offer", () => {
+    const { ui } = declaredRampFixture({
+      ramp: { field: "missing", method: "equal", classes: 3, scheme: "Reds" },
+    });
+
+    // Not silently re-pointed at "count": the whole declaration falls back to
+    // the solid arm instead of painting a column the author never named.
+    expect(FILL_DIMENSION.value!(ui, "overlay1")?.mode).toBe("solid");
+    const mode = buildFillRow(ui, "overlay1").querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_MODE_SELECT}`,
+    ) as HTMLSelectElement;
+    expect(mode.value).toBe("solid");
+  });
+
+  it("a declared mode=solid ignores a ramp given beside it", () => {
+    const { ui } = declaredRampFixture({
+      mode: "solid",
+      ramp: { field: "count" },
+    });
+
+    expect(FILL_DIMENSION.value!(ui, "overlay1")?.mode).toBe("solid");
+    const mode = buildFillRow(ui, "overlay1").querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_MODE_SELECT}`,
+    ) as HTMLSelectElement;
+    expect(mode.value).toBe("solid");
+  });
+
+  it("takes the declared ramp over the detected per-feature paint", () => {
+    installChroma(["#111111", "#222222", "#333333"]);
+    installLeafletGlobals();
+    const layer = makePerFeatureLayer(["#0d0887", "#f0f921"]);
+    declare(layer as unknown as { options: Record<string, unknown> }, {
+      // equal (not the jenks default): the classification tests carry no
+      // simple-statistics global, and a failed build would paint the author's
+      // own colours back.
+      ramp: { field: "count", method: "equal" },
+    });
+    const { ui } = initFixture({
+      data: [
+        {
+          id: "feature1",
+          name: "Per feature",
+          role: "overlay",
+          layer,
+          fillAuthor: { perFeature: true, fields: [] },
+        },
+      ],
+    });
+    ui.runtimeStore.setFields("feature1", [{ name: "count", numeric: true }]);
+
+    const mode = buildFillRow(ui, "feature1").querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_MODE_SELECT}`,
+    ) as HTMLSelectElement;
+
+    expect(mode.value).toBe("ramp");
+    expect(mode.querySelector('option[value="feature"]')).toBeNull();
+    // The author palette note would contradict the declared ramp.
+    expect(mode.title).toBe("");
+    const rampColors = ["#111111", "#222222", "#333333"];
+    expect(
+      layer.leaves.every((leaf: { setStyle: ReturnType<typeof vi.fn> }) =>
+        rampColors.includes(leaf.setStyle.mock.calls.at(-1)?.[0].fillColor as string),
+      ),
+    ).toBe(true);
+  });
+
+  it("a declared mode=solid leaves the per-feature display alone", () => {
+    installLeafletGlobals();
+    const layer = makePerFeatureLayer(["#0d0887", "#f0f921"]);
+    declare(layer as unknown as { options: Record<string, unknown> }, {
+      mode: "solid",
+    });
+    const { ui } = initFixture({
+      data: [
+        {
+          id: "feature1",
+          name: "Per feature",
+          role: "overlay",
+          layer,
+          fillAuthor: { perFeature: true, fields: [] },
+        },
+      ],
+    });
+    ui.runtimeStore.setFields("feature1", [{ name: "count", numeric: true }]);
+
+    const mode = buildFillRow(ui, "feature1").querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_MODE_SELECT}`,
+    ) as HTMLSelectElement;
+
+    expect(mode.value).toBe("feature");
+    expect(mode.title).toBe("LayerControl.style_fill_per_feature_note");
+  });
+
+  it("its content-change gate opens for a declared ramp", () => {
+    const { ui } = declaredRampFixture({ ramp: { field: "count" } });
+    const when = (
+      FILL_DIMENSION.contentChange as {
+        when?: (u: LayerUI, id: string) => boolean;
+      }
+    ).when!;
+
+    expect(when(ui, "overlay1")).toBe(true);
+  });
+});

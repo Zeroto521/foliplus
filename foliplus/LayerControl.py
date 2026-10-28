@@ -324,6 +324,41 @@ class LayerControl(BaseControl):
     locale). A declaration is the author's default: a later choice in the
     style panel is the user's intent and wins, and Reset shows the
     declaration through again.
+
+    A layer may declare its own fill on the same per-layer namespace, under
+    the ``fill`` key:
+
+    >>> gdf.explore(
+    ...     foliplus={"fill": {"ramp": {"field": "score", "scheme": "Reds"}}}
+    ... )
+
+    .. list-table::
+       :header-rows: 1
+
+       * - Key
+         - Default
+         - Meaning
+       * - ``mode``
+         - ``ramp`` once ``ramp.field`` is declared, otherwise ``solid``
+         - fill arm: one colour (``solid``) or colour by value (``ramp``)
+       * - ``ramp.field``
+         - - (declaring it turns the ramp on)
+         - the numeric feature property to classify
+       * - ``ramp.method``
+         - ``jenks``
+         - classification method (``jenks`` / ``quantile`` / ``equal`` / ``heads``)
+       * - ``ramp.classes``
+         - ``6``
+         - number of classes, 2-9
+       * - ``ramp.scheme``
+         - ``Viridis``
+         - palette name (the style panel's own candidates)
+
+    Precedence matches the label declaration: the user's choice in the style
+    panel wins, then the declaration, then the author's per-feature paint
+    (``explore``'s baked colours) and finally the built-in default. Reset
+    returns to the declared ramp. An invalid declaration only warns and falls
+    back; it never paints a ramp the author did not ask for.
     """
 
     # Emitted by _extra_config at render time rather than set by a constructor
