@@ -363,6 +363,120 @@ def test_palette_hex_reads_hex_strings_and_stops():
     assert module._palette_hex((0.0, 0.0, 1.0, 1.0)) == "#0000ff"
 
 
+def test_author_rows_skips_malformed_and_uncolored_features():
+    features = [
+        None,
+        {"properties": {}},
+        *[{"properties": {"__folium_color": "#0d0887"}} for _ in range(6)],
+    ]
+
+    rows = _layer_control_mod._author_rows(features)
+
+    assert len(rows) == _layer_control_mod._FILL_AUTHOR_SAMPLE
+
+
+def test_rgb_reads_short_hex_and_rejects_broken_hex():
+    module = _layer_control_mod
+
+    assert module._rgb("#abc") == (170, 187, 204)
+    assert module._rgb("#zzzzzz") is None
+    assert module._rgb("#12345") is None
+    assert module._same_colour("nope", "#0d0887") is False
+
+
+def test_colormap_sample_returns_none_for_a_broken_scale():
+    # A scale that raises on call yields no sample instead of a failed render.
+    assert _layer_control_mod._colormap_sample(object(), 1.0) is None
+
+
+def test_pair_scale_needs_a_sampled_color_row():
+    scale = _linear()
+
+    assert _layer_control_mod._pair_scale([scale], [{"properties": {}}], set()) is None
+
+
+def test_a_caption_that_names_a_text_property_claims_nothing():
+    scale = _linear(caption="cat")
+    values = [10.0, 40.0, 90.0]
+    colors = [str(scale(value))[:7] for value in values]
+    layer = _geo(colors, values=values)
+    for index, feature in enumerate(layer.data["features"]):
+        feature["properties"]["cat"] = f"c{index}"
+    meta = _meta(layer, scale)
+
+    # The caption is a property, but not a numeric one: no column to claim.
+    assert "scale" not in meta
+
+
+def test_continuous_stops_degrades_for_an_unreadable_index():
+    class Scale:
+        index = None
+        colors = ()
+
+    assert _layer_control_mod._continuous_stops(Scale()) == []
+
+
+def test_continuous_stops_returns_empty_for_an_empty_index():
+    class Scale:
+        index = []
+        colors = ()
+
+    assert _layer_control_mod._continuous_stops(Scale()) == []
+
+
+def test_continuous_stops_falls_back_to_interpolation_without_a_palette():
+    class Scale:
+        index = [0.0, 50.0, 100.0]
+
+        def __call__(self, value: float) -> str:
+            if value == 50:
+                raise ValueError("no sample")
+            return "#0d0887ff" if value < 50 else "#f0f921ff"
+
+    # The middle sample fails: the fallback drops that stop and keeps the rest.
+    assert _layer_control_mod._continuous_stops(Scale()) == ["#0d0887", "#f0f921"]
+
+
+def test_continuous_stops_drops_unreadable_stops():
+    class Scale:
+        index = [0.0, 50.0, 100.0]
+        colors = ["#0d0887", "nope", "#f0f921"]
+
+    assert _layer_control_mod._continuous_stops(Scale()) == ["#0d0887", "#f0f921"]
+
+
+def test_scale_walk_ignores_nodes_without_children():
+    class Node:
+        _children = None
+        _parent = None
+
+    assert _layer_control_mod._map_colormaps(Node()) == []
+
+
+def test_scale_payload_without_a_column_omits_it():
+    scale = _linear()
+
+    scale_payload, stops = _layer_control_mod._scale_payload(scale, None)
+
+    assert "column" not in scale_payload
+    assert len(stops) == 64
+
+
+def test_a_scale_without_stops_is_not_shipped(monkeypatch):
+    scale = _linear()
+    values = [10.0, 40.0, 90.0]
+    colors = [str(scale(value))[:7] for value in values]
+    layer = _geo(colors, values=values)
+    monkeypatch.setattr(
+        _layer_control_mod,
+        "_scale_payload",
+        lambda colormap, column: ({"kind": "continuous"}, []),
+    )
+    meta = _meta(layer, scale)
+
+    assert "scale" not in meta
+
+
 def test_more_than_the_strip_cap_is_capped(monkeypatch):
     monkeypatch.setattr(_layer_control_mod, "_FILL_AUTHOR_STOPS", 2)
     meta = _meta(_geo(["#0d0887", "#f0f921", "#6a00a8"]))
