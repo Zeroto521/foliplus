@@ -3663,6 +3663,32 @@ describe("declared fill — foliplus={'fill': ...}", () => {
     expect(paintedColors(rampLayer)).toEqual(["#111111", "#222222", "#333333"]);
   });
 
+  it("replays the declared ramp on mouseout instead of folium's author face", () => {
+    // The highlight pin's live reader is the declaration chain, not the intent
+    // store: with no user record a pin reading intent alone returns null, and
+    // folium's resetStyle puts the author's flat face back on the first hover.
+    // Dropping that reader from the apply call is invisible to every paint
+    // assertion above, so this is the test that holds the replay wiring.
+    const { rampLayer } = declaredRampFixture({
+      ramp: { field: "count", method: "equal", classes: 3, scheme: "Reds" },
+    });
+    // The pin is registered by the attach paint; folium's own mouseout handler
+    // is the one it has to beat.
+    const mouseoutOf = (leaf: { on: ReturnType<typeof vi.fn> }): (() => void) =>
+      leaf.on.mock.calls.find(call => call[0] === "mouseout")?.[1] as () => void;
+    for (const leaf of rampLayer.leaves) leaf.setStyle.mockClear();
+
+    rampLayer.leaves.forEach(leaf => mouseoutOf(leaf)());
+
+    // Each leaf gets its own class colour back — not null, which would leave
+    // folium's restore of the author's #aabbcc in force.
+    expect(rampLayer.leaves.map(leaf => leaf.setStyle.mock.calls.at(-1)?.[0])).toEqual([
+      { fill: true, fillColor: "#111111" },
+      { fill: true, fillColor: "#222222" },
+      { fill: true, fillColor: "#333333" },
+    ]);
+  });
+
   it("opens the panel on the declared arm with the declared values", () => {
     const { ui } = declaredRampFixture({
       mode: "ramp",
@@ -3727,6 +3753,21 @@ describe("declared fill — foliplus={'fill': ...}", () => {
 
     // The declaration itself is untouched; only the user's record converges.
     expect(getIntent(ui, "overlay1", "fillRamp")).toMatchObject({ classes: 9 });
+
+    // Same panel, same row: the trigger label, its tooltip and the open list
+    // all state the committed count. Leaving the declared count's presentation
+    // behind showed 9 under the out-of-range tooltip with 12 still listed, and
+    // picking that 12 again displayed 12 while the intent clamped to 9.
+    expect(triggerOf(classes).textContent).toBe("9");
+    expect(triggerOf(classes).title).toBe("9");
+    const classesDropdown = dropdownOf(classes)!;
+    classesDropdown.open();
+    expect(
+      Array.from(classesDropdown.getList()!.querySelectorAll('[role="option"]')).map(
+        option => option.textContent,
+      ),
+    ).toEqual(["2", "3", "4", "5", "6", "7", "8", "9"]);
+    classesDropdown.close();
   });
 
   it("Reset returns to the declared ramp after the user took the fill over", () => {

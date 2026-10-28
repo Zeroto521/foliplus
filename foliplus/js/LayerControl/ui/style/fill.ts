@@ -37,6 +37,7 @@ import {
   readDeclaredFill,
 } from "#foliplus/LayerControl/declaredFill.js";
 import { dom } from "#common/dom.js";
+import { dropdownOf } from "#common/dropdown.js";
 import {
   bindLiveColor,
   bindLiveNumber,
@@ -999,6 +1000,30 @@ const bindSolidDetail = (ui: LayerUI, layerId: string, detail: HTMLElement): voi
   }
 };
 
+/** State the committed class count on the ramp row.
+ *
+ *  The write path clamps to the editable 2..9 vocabulary, so an author-declared
+ *  count (12, say) stops describing the row the moment the user edits it.
+ *  Rewriting the select alone would not be enough: the bridged dropdown cannot
+ *  see a property write, and the retired option keeps its own explanation, so
+ *  the trigger, its tooltip and the open list would disagree with the map until
+ *  the panel was reopened. Retire the out-of-range option, state the committed
+ *  count and re-read the trigger in place — re-rendering the detail instead
+ *  would drop focus from the control the user is still holding (the #793 rule).
+ *  A row that never showed an out-of-range count needs nothing: the select
+ *  already states the count the user picked. */
+const convergeClassesRow = (select: HTMLSelectElement, classes: number): void => {
+  const extra = Array.from(select.options).find(
+    option => !CLASS_COUNT_VALUES.includes(Number(option.value)),
+  );
+  if (!extra) return;
+  extra.remove();
+  select.value = String(classes);
+  const dropdown = dropdownOf(select);
+  dropdown?.setHint("");
+  dropdown?.refresh();
+};
+
 /** Bind the ramp arm's three controls, including the shared scheme picker.
  *
  *  Every element is built by `buildRampDetail` immediately above, so the
@@ -1058,6 +1083,10 @@ const bindRampDetail = (ui: LayerUI, layerId: string, detail: HTMLElement): void
     // The strip has one block per class: keep the picker's preview in step
     // with the count the map is now using.
     picker.setNumClasses(next.classes);
+    // The row states what the map now paints — trigger label, tooltip and open
+    // list together — instead of leaving the declared count's presentation
+    // behind on a control the user has already overridden.
+    convergeClassesRow(classesSelect, next.classes);
   };
 };
 

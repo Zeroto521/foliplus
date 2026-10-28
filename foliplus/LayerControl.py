@@ -656,7 +656,7 @@ class LayerControl(BaseControl):
          - classification method (``jenks`` / ``quantile`` / ``equal`` / ``heads``)
        * - ``ramp.classes``
          - ``6``
-         - number of classes, 2-9
+         - number of classes, any integer ``>= 2`` (``12`` is a common example)
        * - ``ramp.scheme``
          - ``Viridis``
          - palette name (the style panel's own candidates)

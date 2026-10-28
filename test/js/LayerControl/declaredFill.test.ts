@@ -146,6 +146,46 @@ describe("readDeclaredFill", () => {
     }
   });
 
+  it("rejects a ramp that is not an object instead of half-reading it", () => {
+    // A ramp declaration is an object or it is nothing: a string, an array or a
+    // number has no keys to salvage, so one rejection stands for the whole key.
+    // There is no partial reading to fall back on — and with no usable field
+    // the arm cannot turn on either.
+    for (const ramp of ["Reds", ["field", "score"], 5]) {
+      const read = readDeclaredFill(layerWith({ fill: { ramp } }), "overlay1");
+      expect(read.declared).toBeUndefined();
+      expect(read.invalid).toHaveLength(1);
+      expect(read.invalid[0]).toContain("non-object ramp declaration");
+    }
+  });
+
+  it("rejects a ramp.field that is not a property name", () => {
+    // A blank or non-string name classifies nothing. The key is dropped (the
+    // rest of the ramp survives), and with no other usable field the whole
+    // declaration falls away rather than painting a solid face under a ramp
+    // panel state.
+    for (const field of ["", "   ", 42, null]) {
+      const read = readDeclaredFill(
+        layerWith({ fill: { ramp: { field } } }),
+        "overlay1",
+      );
+      expect(read.declared).toBeUndefined();
+      expect(read.invalid).toHaveLength(1);
+      expect(read.invalid[0]).toContain("invalid ramp.field");
+    }
+  });
+
+  it("reads an object with no recognised key as an empty declaration", () => {
+    // Forward compatibility: a key this reader does not know is not an error
+    // (a newer folium could stamp one), and an object that names no arm and no
+    // field declares nothing at all.
+    for (const fill of [{}, { future: true }]) {
+      const read = readDeclaredFill(layerWith({ fill }), "overlay1");
+      expect(read.declared).toBeUndefined();
+      expect(read.invalid).toEqual([]);
+    }
+  });
+
   it("rejects a non-object declaration", () => {
     const read = readDeclaredFill(layerWith({ fill: "ramp" }), "overlay1");
     expect(read.declared).toBeUndefined();
