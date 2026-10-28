@@ -1129,7 +1129,7 @@ describe("LayerUI focus", () => {
 
       // The layer's labels ride one step above the raised layer (focusedZ + 1),
       // so they stay readable over its geometry — and get no glow of their own.
-      const labelPane = panes.get(CONST.ANNOTATION_PANE_PREFIX + "overlay2")!;
+      const labelPane = panes.get(CONST.LABEL_PANE_PREFIX + "overlay2")!;
       expect(labelPane.style.zIndex).toBe(
         String(CONST.FOCUS.PANE_Z - CONST.FOCUS.FOCUSED_Z_GAP + 1),
       );
@@ -1288,7 +1288,7 @@ describe("LayerUI focus", () => {
       // lift just skips it, the rest of the ladder still works.
       const panes = new Map<string, HTMLElement>();
       map.getPane.mockImplementation((name: string) => {
-        if (name.startsWith(CONST.ANNOTATION_PANE_PREFIX)) return null;
+        if (name.startsWith(CONST.LABEL_PANE_PREFIX)) return null;
         if (!panes.has(name)) panes.set(name, makePane());
         return panes.get(name)!;
       });

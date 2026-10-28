@@ -23,8 +23,8 @@ import {
   ROLE,
   type RegisterLayerOpts,
   type SurfaceIndex,
-  annotationPaneNameOf,
   findLayer as findLayerUtil,
+  labelPaneNameOf,
   paintsAtZoom,
   topSlotZ,
   zFor,
@@ -53,14 +53,14 @@ const withAnnotationSpec = (
   layer: L.Layer | null,
 ): PaneSpec[] => {
   const paneSpecs = layerInfo.paneSpecs ?? [];
-  if (paneSpecs.some(spec => spec.role === PANE_ROLE.ANNOTATION)) return paneSpecs;
+  if (paneSpecs.some(spec => spec.role === PANE_ROLE.LABEL)) return paneSpecs;
   if (!layer || !hasLabelField(layer)) return paneSpecs;
   return [
     ...paneSpecs,
     {
-      role: PANE_ROLE.ANNOTATION,
+      role: PANE_ROLE.LABEL,
       order: paneSpecs.length,
-      name: annotationPaneNameOf(layerInfo.id),
+      name: labelPaneNameOf(layerInfo.id),
     },
   ];
 };
@@ -334,10 +334,10 @@ class LayerOrchestration {
     const surface = this.surfaceFor(layerInfo);
     surface.materialize();
     // One write covers every pane the face owns — including the
-    // `role: "annotation"` label pane, a PaneHandle since the surface
+    // `role: "label"` label pane, a PaneHandle since the surface
     // materialized it. The ordering pass used to spot-write that pane by
     // name here; `writeZ` prices it through the same `zFor({ paneRole:
-    // "annotation" })` ladder now, so the special case is gone.
+    // "label" })` ladder now, so the special case is gone.
     surface.setZ(z);
   }
 

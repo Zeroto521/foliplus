@@ -102,7 +102,7 @@ const bringFocusedLayerToFront = (ui: LayerUI, layerInfo: LayerInfo): void => {
 
   // Ladder above the raised layer, preserving Leaflet's normal order and staying
   // under the mask. The label pane needs no spot-write here anymore: it is a
-  // `role: "annotation"` PaneHandle of the surface, so `setZOverride` below
+  // `role: "label"` PaneHandle of the surface, so `setZOverride` below
   // prices it at `focusedZ + 1` through the same `zFor` ladder this used to
   // hand-derive — and its `FOCUS_PANE` mark comes from the same pass (glow
   // stays off it, see there). The rest are Leaflet's own panes, outside the
@@ -141,7 +141,7 @@ const bringFocusedLayerToFront = (ui: LayerUI, layerInfo: LayerInfo): void => {
       const panes = surface.panes;
       for (const pane of panes) {
         pane.element.classList.add(CONST.CLASSES.FOCUS_PANE);
-        if (pane.role !== PANE_ROLE.ANNOTATION && pane.role !== PANE_ROLE.SHADOW) {
+        if (pane.role !== PANE_ROLE.LABEL && pane.role !== PANE_ROLE.SHADOW) {
           pane.element.classList.add(CONST.CLASSES.FOCUS_GLOW);
         }
       }

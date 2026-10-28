@@ -17,7 +17,7 @@
 //
 // The module also owns where a carrier write actually lands: the declaration a
 // writer and an exporter both read (`CarrierDecl`), the token that identifies
-// the current target, the content-pane walk, and the annotation pane name. Two
+// the current target, the content-pane walk, and the label pane name. Two
 // pipelines used to answer "which carrier" separately — the projection executor
 // built its own token, the exporter filtered panes and composed the label pane
 // name by hand — and two answers drift silently, so one side styles a pane set
@@ -27,7 +27,7 @@
 // (`layerShadow`), per that module's charter.
 import { createLogger } from "#common/log.js";
 import { layerShadow } from "../leafletAdapter.js";
-import { ANNOTATION_PANE_PREFIX, CAP_TIER } from "./const.js";
+import { CAP_TIER, LABEL_PANE_PREFIX } from "./const.js";
 
 const log = createLogger("carrier");
 
@@ -185,15 +185,14 @@ const contentPanesOf = (
 /** Name of the pane that carries a layer's annotation labels.
  *
  *  One name, both ends: the registration edge declares the
- *  `role: "annotation"` spec with it, and the exporter looks that pane up by
+ *  `role: "label"` spec with it, and the exporter looks that pane up by
  *  it. Composing it here means the declaration and the renderer cannot drift
  *  apart by editing one side. */
-const annotationPaneNameOf = (layerId: string): string =>
-  `${ANNOTATION_PANE_PREFIX}${layerId}`;
+const labelPaneNameOf = (layerId: string): string => `${LABEL_PANE_PREFIX}${layerId}`;
 
 export type { CarrierDecl };
 export {
-  annotationPaneNameOf,
+  labelPaneNameOf,
   assertInsideOwnedPanes,
   carrierTargetOf,
   contentPanesOf,

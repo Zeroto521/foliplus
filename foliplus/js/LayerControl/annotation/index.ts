@@ -1,7 +1,7 @@
 // LayerControl annotation — per-layer text-label rendering.
 //
 // Labels are drawn on one canvas per layer, each mounted in its layer's own
-// annotation pane, so they take their layer's place in the stack: a layer above
+// label pane, so they take their layer's place in the stack: a layer above
 // covers them, they cover the layers below.
 //
 // Collision is per layer too, by design: the z-order already expresses "who
@@ -68,7 +68,8 @@ type FoliplusLayerOptions = {
  *  Hand-written rather than schema-generated: the value never crosses from
  *  Python, so there is no Python source for the generator to read. */
 type FoliplusDeclaration = {
-  annotation?: Partial<AnnotationConfig>;
+  /** The author-facing key. */
+  label?: Partial<AnnotationConfig>;
   [key: string]: unknown;
 };
 
@@ -107,9 +108,10 @@ const isDeclaredColor = (color: string): boolean =>
  *  `collide` as `true` and shadow the page-level `label_collide` — the author
  *  named one field and the whole page's avoidance silently changed.
  *
- *  Keys stay SHORT here because the `annotation` namespace already says
- *  "label": the `label_` prefix belongs to the flat surfaces (Python kwargs,
- *  CONF, locale), where `show`/`color` would collide with other parameters. */
+ *  Keys stay SHORT here because the declaration's own `label` namespace
+ *  already says label: the `label_` prefix belongs to the flat surfaces
+ *  (Python kwargs, CONF, locale), where `show`/`color` would collide with
+ *  other parameters. */
 const pickDeclaredAnnotation = (
   raw: Partial<AnnotationConfig> | undefined,
 ): Partial<AnnotationConfig> => {
@@ -143,7 +145,7 @@ const pickDeclaredAnnotation = (
  * by LayerUI.
  *
  * Panes are NOT this manager's anymore: the label pane is a declared
- * `role: "annotation"` PaneSpec of the layer's surface, created when the
+ * `role: "label"` PaneSpec of the layer's surface, created when the
  * surface materializes (the registration edge declares it iff the layer has
  * labelable fields — `LayerController.withAnnotationSpec`). This manager only
  * mounts and unmounts the canvas inside that pane, so the pane's lifetime,
@@ -240,7 +242,7 @@ class AnnotationManager {
           }
           const { id, kind } = payload;
           // A tile basemap, a solid color face, and a self-drawn canvas never
-          // get an annotation pane — the registration edge declares it only for
+          // get an label pane — the registration edge declares it only for
           // a labelable feature tree — so they can never own a canvas to repaint.
           if (NO_FEATURE_TREE_KINDS.has(kind)) return;
           this.onLayerMembership(id);
@@ -298,7 +300,7 @@ class AnnotationManager {
     // that arrives later, for the life of the page. Only a resolved namespace
     // is static and cacheable.
     if (!declared) return {};
-    const out = pickDeclaredAnnotation(declared.annotation);
+    const out = pickDeclaredAnnotation(declared.label);
     this.authorCache.set(id, out); // the declaration is static once resolved
     return out;
   }
@@ -525,7 +527,7 @@ class AnnotationManager {
   }
 
   /** Bake the layer's opacity slider value into this layer's label canvas
-   *  (R11) and repaint. The annotation pane no longer takes the CSS opacity
+   *  (R11) and repaint. The label pane no longer takes the CSS opacity
    *  write — baking is the sole carrier so labels do not double-compound
    *  with the vector data panes' CSS.
    *
@@ -795,7 +797,7 @@ class AnnotationManager {
     return !!layer && this.map.hasLayer(layer);
   }
 
-  /** Mount a layer's label canvas into its surface-declared annotation pane.
+  /** Mount a layer's label canvas into its surface-declared label pane.
    *
    *  The pane already exists — the registration edge declared it alongside
    *  the capability (`withAnnotationSpec`), so the surface created it with
@@ -805,9 +807,9 @@ class AnnotationManager {
    *  a value written while labels were off still lands. */
   private ensureCanvas(id: string): void {
     if (this.canvases.has(id)) return;
-    const pane = this.map.getPane(CONST.ANNOTATION_PANE_PREFIX + id);
+    const pane = this.map.getPane(CONST.LABEL_PANE_PREFIX + id);
     if (!pane) return; // no declared carrier (capability "none") — no labels
-    pane.classList.add("foliplus-annotation-pane");
+    pane.classList.add("foliplus-label-pane");
     const canvas = new AnnotationCanvas(this.map, pane);
     this.canvases.set(id, canvas);
     const alpha = this.layerAlphas.get(id);

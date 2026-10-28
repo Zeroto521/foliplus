@@ -33,13 +33,11 @@
   // Pane names come from the Leaflet _panes registry, not the DOM id —
   // createPane does not set element.id, so read through map.getPane.
   const zOf = id => {
-    const pane = window.map.getPane("foliplus-annotation-" + id);
+    const pane = window.map.getPane("foliplus-label-" + id);
     return pane ? parseInt(pane.style.zIndex) || 0 : null;
   };
   const opaqueOf = id => {
-    const canvas = window.map
-      .getPane("foliplus-annotation-" + id)
-      ?.querySelector("canvas");
+    const canvas = window.map.getPane("foliplus-label-" + id)?.querySelector("canvas");
     if (!canvas) return 0;
     const data = canvas
       .getContext("2d")

@@ -428,7 +428,7 @@ class TestLayerControlBrowser:
         return folium.GeoJson(
             json.dumps({"type": "FeatureCollection", "features": features}),
             name=name,
-            foliplus={"annotation": annotation},
+            foliplus={"label": annotation},
         )
 
     def test_annotation_declared_color_and_size_reach_the_canvas(
@@ -786,7 +786,7 @@ class TestLayerControlBrowser:
                     f"annotation pane must carry foliplus-layer-pane: {result}"
                 )
                 assert classes["annotation"] is True, (
-                    f"annotation pane must carry foliplus-annotation-pane: {result}"
+                    f"annotation pane must carry foliplus-label-pane: {result}"
                 )
             assert not errors, f"JS errors: {errors}"
 

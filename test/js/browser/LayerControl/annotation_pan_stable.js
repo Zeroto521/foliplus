@@ -22,7 +22,7 @@
   return new Promise(resolve => {
     requestAnimationFrame(() =>
       requestAnimationFrame(() => {
-        const canvas = document.querySelector(".foliplus-annotation-canvas");
+        const canvas = document.querySelector(".foliplus-label-canvas");
         if (!canvas) return resolve({ canvas: false });
         const before = canvas.getBoundingClientRect();
         // Leaflet pans by translating mapPane; the canvas must cancel that
