@@ -109,7 +109,10 @@ describe("bindControls — template render and initial values", () => {
 
     expect(m.selectedLayerId).toBe("p1");
     expect(m.agg).toBe(CONST.AGG.SUM);
-    expect(m.field).toBe("score");
+    // The declaration is a read-time default: shown and rendered, never
+    // written into the user's field or the record.
+    expect(m.field).toBe("");
+    expect(m.effectiveField()).toBe("score");
     expect(ctrl.aggSelect.value).toBe(CONST.AGG.SUM);
     expect(ctrl.fieldSelect.value).toBe("score");
     expect(window.localStorage.getItem(CONST.STORAGE.KEY)).toBeNull();
@@ -220,8 +223,10 @@ describe("bindControls — change handlers", () => {
     ]);
     ctrl.aggSelect.value = CONST.AGG.SUM;
     fire(ctrl.aggSelect, "change");
-    // A fresh layer resolves the first numeric field and writes it back.
-    expect(m.field).toBe("sales");
+    // A fresh layer resolves the first numeric field for DISPLAY only: the
+    // guess is not the user's pick, so the manager and the record stay empty.
+    expect(m.field).toBe("");
+    expect(m.effectiveField()).toBe("sales");
     expect(ctrl.fieldSelect.value).toBe("sales");
 
     const save = vi.spyOn(m, "saveConfig");
@@ -723,7 +728,7 @@ describe("layer dropdown — source meta publish", () => {
     expect(m.sourceMeta["HeatmapControl.meta_agg_field"]).toBe("");
   });
 
-  it("resolves and persists the field before publishing on a restored selection", () => {
+  it("resolves the field for display on a restored selection, without a record write", () => {
     const m = makeManager();
     // Restored from localStorage: layer already selected, field not yet set.
     m.pointLayers = [{ id: "p1", name: "Stores", layer: {}, count: 2 }];
@@ -741,16 +746,17 @@ describe("layer dropdown — source meta publish", () => {
     const ctrl = makeCtrl(m, makeConfig());
     rebuildLayerDropdown(ctrl);
 
-    expect(m.field).toBe("dwell");
+    // The guess feeds the row and the attrs panel, and stops there: it is not
+    // the user's pick, so it must not become one in the record.
+    expect(m.field).toBe("");
+    expect(m.effectiveField()).toBe("dwell");
     expect(m.agg).toBe("avg");
-    expect(JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!).field).toBe(
-      "dwell",
-    );
+    expect(window.localStorage.getItem(CONST.STORAGE.KEY)).toBeNull();
     expect(m.sourceMeta["HeatmapControl.meta_source_layer"]).toBe("Stores");
     expect(m.sourceMeta["HeatmapControl.meta_agg_field"]).toBe("dwell");
   });
 
-  it("remaps a stale field to the first numeric field", () => {
+  it("keeps a stale stored field and displays the fallback", () => {
     const m = makeManager();
     m.pointLayers = [{ id: "p1", name: "Stores", layer: {}, count: 1 }];
     m.selectedLayerId = "p1";
@@ -767,7 +773,11 @@ describe("layer dropdown — source meta publish", () => {
     const ctrl = makeCtrl(m, makeConfig());
     rebuildLayerDropdown(ctrl);
 
-    expect(m.field).toBe("sales");
+    // The fallback is what the row and the map use right now; the stored pick
+    // is the user's intent and survives, so it comes back with its column.
+    expect(m.field).toBe("old_field");
+    expect(m.effectiveField()).toBe("sales");
+    expect(ctrl.fieldSelect.value).toBe("sales");
   });
 
   it("preserves a field that is still in the layer's fields", () => {
@@ -1044,9 +1054,10 @@ describe("updateFieldSelector — concrete field resolution", () => {
     expect(ctrl.fieldSelect.querySelector("option[value='']")).toBeNull();
   });
 
-  it("shows the first numeric field on a fresh layer", () => {
+  it("shows the first numeric field on a fresh layer without storing it", () => {
     const { ctrl, m } = seed({ sales: 5, price: 10 });
-    expect(m.field).toBe("sales");
+    expect(m.field).toBe("");
+    expect(m.effectiveField()).toBe("sales");
     expect(ctrl.fieldSelect.value).toBe("sales");
   });
 
@@ -1061,24 +1072,29 @@ describe("updateFieldSelector — concrete field resolution", () => {
     expect(m.field).toBe("price");
   });
 
-  it("persists the resolved field instead of keeping the empty sentinel", () => {
+  it("does not persist the resolved field (the guess is not a record)", () => {
     const { m } = seed({ sales: 5, price: 10 });
-    expect(m.field).toBe("sales");
+    expect(m.effectiveField()).toBe("sales");
+    // The agg change that ran the scan did write a record (it persists the
+    // aggregation), but the field key is the empty sentinel: nothing guessed
+    // its way in, and the loaded record carries no field at all.
     const stored = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!);
-    expect(stored.field).toBe("sales");
+    expect(stored.field).toBe("");
+    expect(m.loadSavedConfig()?.field).toBeUndefined();
   });
 
-  it("keeps the user's pick when a new numeric field is inserted first", () => {
+  it("follows the data while the user has not picked a field", () => {
     const { ctrl, m } = seed({ sales: 5 });
-    expect(m.field).toBe("sales");
+    expect(ctrl.fieldSelect.value).toBe("sales");
 
     window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
       { lat: 1, lng: 2, marker: { feature: { properties: { cost: 3, sales: 5 } } } },
     ]);
     fire(ctrl.aggSelect, "change");
 
-    expect(m.field).toBe("sales");
-    expect(ctrl.fieldSelect.value).toBe("sales");
+    // Nothing was stored, so the display tracks the new first field.
+    expect(m.field).toBe("");
+    expect(ctrl.fieldSelect.value).toBe("cost");
   });
 
   it("hides the field row when the source has no numeric field", () => {
@@ -1119,13 +1135,17 @@ describe("updateFieldSelector — concrete field resolution", () => {
     expect(ctrl.fieldWrap.classList.contains(CONST.CLASSES.HIDDEN)).toBe(true);
   });
 
-  it("does not clear the stored field when the scan is momentarily empty", () => {
+  it("does not clear a stored field when the scan is momentarily empty", () => {
     const { ctrl, m } = seed({ sales: 5 });
+    // The user picks explicitly, so this name is a real stored choice.
+    ctrl.fieldSelect.value = "sales";
+    fire(ctrl.fieldSelect, "change");
     expect(m.field).toBe("sales");
 
     window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => []);
     fire(ctrl.aggSelect, "change");
 
+    // The empty scan cannot prove the column is gone, so the pick survives.
     expect(m.field).toBe("sales");
     expect(m.agg).toBe(CONST.AGG.COUNT);
     expect(m.sourceMeta["HeatmapControl.meta_agg_field"]).toBe("");
@@ -1212,7 +1232,7 @@ describe("declared starting layer/field (Python layer=/field=)", () => {
     expect(m.selectedLayerId).toBe("p1");
   });
 
-  it("seeds the declared aggregation field on the first rebuild", () => {
+  it("shows the declared aggregation field on the first rebuild", () => {
     const m = makeManager({ layer: "Points 1", field: "score", agg: "sum" });
     m.pointLayers = [{ id: "p1", name: "Points 1", layer: null, count: 1 }];
     const ctrl = makeCtrl(
@@ -1224,7 +1244,42 @@ describe("declared starting layer/field (Python layer=/field=)", () => {
     ]);
     rebuildLayerDropdown(ctrl);
 
-    expect(m.field).toBe("score");
+    // A declaration is a read-time default, not a pick: it is what the row
+    // and the render use, and the manager's stored field stays empty.
+    expect(m.field).toBe("");
+    expect(m.effectiveField()).toBe("score");
     expect(ctrl.fieldSelect.value).toBe("score");
+  });
+
+  it("follows the declaration again when the data offers its column back", () => {
+    // The declaration is re-read on every scan, so a data change that hides
+    // its column falls back, and the column coming back restores it — the
+    // behaviour a persisted declaration could not have (it would have been
+    // consumed by the record's hasScanned guard).
+    const m = makeManager({ layer: "Points 1", field: "score", agg: "sum" });
+    m.pointLayers = [{ id: "p1", name: "Points 1", layer: null, count: 1 }];
+    const ctrl = makeCtrl(
+      m,
+      makeConfig({ layer: "Points 1", field: "score", agg: "sum" }),
+    );
+    window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
+      { lat: 1, lng: 2, marker: { feature: { properties: { cost: 1 } } } },
+    ]);
+    rebuildLayerDropdown(ctrl);
+    // No column named score: the first numeric field is the fallback.
+    expect(ctrl.fieldSelect.value).toBe("cost");
+
+    window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
+      { lat: 1, lng: 2, marker: { feature: { properties: { cost: 1, score: 5 } } } },
+    ]);
+    // A fresh scan (this fixture has no bound agg handler): the rebuild is the
+    // path that re-reads the fields.
+    rebuildLayerDropdown(ctrl);
+
+    // The declared column is back, so the declaration is in force again.
+    expect(ctrl.fieldSelect.value).toBe("score");
+    expect(m.effectiveField()).toBe("score");
+    // Still not a record: the resolution never wrote itself into the manager.
+    expect(m.field).toBe("");
   });
 });
