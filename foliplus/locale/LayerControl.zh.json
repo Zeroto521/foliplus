@@ -87,6 +87,7 @@
   "LayerControl.style_fill_by_value": "按值着色",
   "LayerControl.style_fill_field": "字段",
   "LayerControl.style_fill_classes": "分级数",
+  "LayerControl.style_fill_classes_out_of_range": "作者声明的分级数，超出可编辑范围 2–9；编辑后收敛到该范围。",
   "LayerControl.style_method": "分类方法",
   "LayerControl.style_fill_scheme": "配色",
   "LayerControl.style_method_jenks": "自然断点",

@@ -131,6 +131,12 @@ const applyRampToLayer = (
    *  and the mouseout replay would drop the ramp colour. Identity by default —
    *  a caller with no field list has nothing to resolve. */
   resolveStored: (stored: FillRampConfig) => FillRampConfig = stored => stored,
+  /** The config the highlight pin replays on mouseout: the live user intent,
+   *  or the author's declared ramp when the user has not chosen one. Without
+   *  it a declared ramp would be dropped by folium's `resetStyle` on the first
+   *  hover, leaving the author's flat face under a by-value panel. */
+  liveRamp: () => FillRampConfig | undefined = () =>
+    getIntent(ui, layerId, INTENT.FILL_RAMP),
 ): void => {
   const layerInfo = ui.c.layerRegistry.get(layerId);
   // Snapshot-then-resolve: the registry's own `layer` reference is fast and
@@ -213,7 +219,7 @@ const applyRampToLayer = (
     }
 
     pinStyleOnHighlight(leaf, DIM.FILL, () => {
-      const stored = getIntent(ui, layerId, INTENT.FILL_RAMP);
+      const stored = liveRamp();
       if (!stored) return null;
       // Resolve the live record exactly as the paint did, or a stale field
       // name compares unequal to the resolved config and the replay drops the

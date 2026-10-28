@@ -87,6 +87,7 @@
   "LayerControl.style_fill_by_value": "Color by value",
   "LayerControl.style_fill_field": "Field",
   "LayerControl.style_fill_classes": "Classes",
+  "LayerControl.style_fill_classes_out_of_range": "The author declared this class count. It is outside the editable 2–9 range; editing it collapses the count into that range.",
   "LayerControl.style_method": "Method",
   "LayerControl.style_fill_scheme": "Scheme",
   "LayerControl.style_method_jenks": "Natural Breaks",
