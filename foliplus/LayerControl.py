@@ -4,6 +4,7 @@ import json
 import logging
 import math
 import numbers
+from collections.abc import Iterable
 from typing import Annotated, Any, cast
 
 from branca.colormap import LinearColormap, StepColormap
@@ -300,10 +301,11 @@ def _pair_scale(
 def _rgba_hex(colour: object) -> str | None:
     """A branca RGBA stop (floats in 0..1) as a hex colour."""
     try:
-        red, green, blue = (
-            int(round(float(channel) * 255))
-            for channel in list(colour)[:3]  # type: ignore[arg-type]
-        )
+        channels = list(cast(Iterable[float], colour))[:3]
+    except TypeError:
+        return None
+    try:
+        red, green, blue = (int(round(float(channel) * 255)) for channel in channels)
     except (TypeError, ValueError):
         return None
     return f"#{red:02x}{green:02x}{blue:02x}"
