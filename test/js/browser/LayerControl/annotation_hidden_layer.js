@@ -21,7 +21,7 @@
   mgr.renderLabels("__vis__");
 
   const count = () => {
-    const canvas = document.querySelector(".foliplus-annotation-canvas");
+    const canvas = document.querySelector(".foliplus-label-canvas");
     if (!canvas) return 0;
     const data = canvas
       .getContext("2d")

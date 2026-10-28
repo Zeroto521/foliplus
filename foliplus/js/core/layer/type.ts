@@ -154,7 +154,7 @@ interface LayerCapabilities {
    *      so without another union change. */
   visibility: "native" | "pane" | "none";
   /** Whether the layer can host a label (annotation) pane:
-   *    - "pane" — the registration edge declared a `role: "annotation"`
+   *    - "pane" — the registration edge declared a `role: "label"`
    *      PaneSpec (its features expose labelable `feature.properties`) and
    *      LayerSurface materializes that pane with the rest of the face, so
    *      the style panel's Label section is honest to render.
@@ -378,7 +378,7 @@ interface PinnableNode extends L.Layer {
   eachLayer?: (fn: (layer: L.Layer) => void) => void;
 }
 
-/** What a surface's pane is for. `annotation` and `preview` have no producer
+/** What a surface's pane is for. `label` and `preview` have no producer
  *  yet — they arrive with the components that declare them (label pane,
  *  measure preview) — but they are spelled here so the union is the contract
  *  rather than a local invention.
@@ -397,7 +397,7 @@ type PaneRole = (typeof PANE_ROLE)[keyof typeof PANE_ROLE];
  *      (the removed `bumpPanes` + `CHILD_PANE_STEP` pair).
  *    - `role` is what the planned z convergence (`z = f(layerIndex, role)`)
  *      and the per-role renderer defaults will read, and it is where the
- *      `annotation` / `preview` panes get their name once the components that
+ *      `label` / `preview` panes get their name once the components that
  *      declare them exist.
  *
  *  Today `LayerFactory` derives both from the entry's index, so nothing
@@ -894,7 +894,7 @@ interface ZArgs {
    *  lower `TILE_BASE` ladder; overlay-role layers use `BASE`. Row order
    *  within a role = visual stack order, since both share one `STEP`. */
   role?: LayerRole;
-  /** The pane's role in its layer's draw stack. Only `annotation` prices a
+  /** The pane's role in its layer's draw stack. Only `label` prices a
    *  relation of its own (one step above its layer); the rest use `order`. */
   paneRole?: PaneRole;
   /** The pane's draw offset within its layer (`PaneSpec.order`). */

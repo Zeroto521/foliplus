@@ -71,7 +71,7 @@ describe("AnnotationCanvas", () => {
     expect(el).toBe(elOf(canvas));
     // Both classes: the annotation role, and the decoration-canvas marker that
     // lets the base .foliplus-layer-pane rule hand down pointer-events: none.
-    expect(el.classList.contains("foliplus-annotation-canvas")).toBe(true);
+    expect(el.classList.contains("foliplus-label-canvas")).toBe(true);
     expect(el.classList.contains("foliplus-canvas-layer")).toBe(true);
     // No inline pointer-events — the CSS owns it, per the pane naming contract.
     expect(el.style.pointerEvents).toBe("");

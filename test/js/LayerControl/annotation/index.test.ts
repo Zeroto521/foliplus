@@ -787,10 +787,7 @@ describe("AnnotationManager — render & plan", () => {
     expect(labels[0]!.text).toBe("1.2K");
     // One pane + one canvas per labeled layer — that is what puts each layer's
     // labels at its own place in the stack.
-    expect(Object.keys(panes).sort()).toEqual([
-      "foliplus-annotation-a",
-      "foliplus-annotation-b",
-    ]);
+    expect(Object.keys(panes).sort()).toEqual(["foliplus-label-a", "foliplus-label-b"]);
     expect(mocks.instances).toHaveLength(2);
     expect(painted(0)[0]!.text).toBe("1.2K");
   });
@@ -1109,7 +1106,7 @@ describe("AnnotationManager — render & plan", () => {
     expect(canvas().destroy).toHaveBeenCalled();
     // The pane is the surface's declared face — teardown takes down our
     // canvases and wiring, never the carrier itself.
-    expect(panes["foliplus-annotation-a"]).toBeDefined();
+    expect(panes["foliplus-label-a"]).toBeDefined();
     expect(mgr.configEntries()).toHaveLength(0);
   });
 
@@ -1213,7 +1210,7 @@ describe("AnnotationManager — render & plan", () => {
     expect(canvas().destroy).toHaveBeenCalled();
     // The pane is the surface's declared face — it survives (the same id can
     // register again without rebuilding its carrier); only our canvas goes.
-    expect(panes["foliplus-annotation-a"]).toBeDefined();
+    expect(panes["foliplus-label-a"]).toBeDefined();
     expect(mgr.configEntries()).toHaveLength(0);
   });
 
@@ -1228,17 +1225,17 @@ describe("AnnotationManager — render & plan", () => {
     });
     mgr.setConfig("a", CONFIG);
     mgr.renderLabels("a");
-    const firstPane = panes["foliplus-annotation-a"];
+    const firstPane = panes["foliplus-label-a"];
     const firstCanvas = canvas();
     expect(firstPane).toBeDefined();
 
     mgr.destroyLayer("a");
     expect(firstCanvas.destroy).toHaveBeenCalled();
-    expect(panes["foliplus-annotation-a"]).toBeDefined();
+    expect(panes["foliplus-label-a"]).toBeDefined();
 
     mgr.setConfig("a", CONFIG);
     mgr.renderLabels("a");
-    expect(panes["foliplus-annotation-a"]).toBe(firstPane);
+    expect(panes["foliplus-label-a"]).toBe(firstPane);
     expect(canvas()).not.toBe(firstCanvas);
   });
 
@@ -1383,7 +1380,7 @@ describe("a layer that gains labelable content gets the stored intent on its new
     expect(
       manager.surfaceFor(li).paneNames,
       "the re-probe must declare the label pane",
-    ).toContain(CONST.ANNOTATION_PANE_PREFIX + "overlay1");
+    ).toContain(CONST.LABEL_PANE_PREFIX + "overlay1");
     manager.annotation.renderLabels("overlay1");
 
     // Re-apply: the carrier set grew (the pane name joined it), so the
@@ -1392,7 +1389,7 @@ describe("a layer that gains labelable content gets the stored intent on its new
     applyProjection(ui, "overlay1");
     applyProjection(ui, "overlay1");
 
-    const pane = panes.get(CONST.ANNOTATION_PANE_PREFIX + "overlay1");
+    const pane = panes.get(CONST.LABEL_PANE_PREFIX + "overlay1");
     expect(pane, "the annotation pane was created").toBeTruthy();
     // R11: the annotation pane does NOT take CSS opacity — the label canvas
     // bakes layerAlpha into its draws. CSS here would double-compound.

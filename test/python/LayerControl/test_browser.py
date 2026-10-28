@@ -786,7 +786,7 @@ class TestLayerControlBrowser:
                     f"annotation pane must carry foliplus-layer-pane: {result}"
                 )
                 assert classes["annotation"] is True, (
-                    f"annotation pane must carry foliplus-annotation-pane: {result}"
+                    f"annotation pane must carry foliplus-label-pane: {result}"
                 )
             assert not errors, f"JS errors: {errors}"
 

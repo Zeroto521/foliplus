@@ -37,7 +37,7 @@ import type { ZArgs } from "./type.js";
 /** A layer's label pane rides one step above its own panes: the labels cover
  *  that layer's geometry, and the next layer up still covers the labels — the
  *  stack the panel shows. */
-const ANNOTATION_Z_OFFSET = 1;
+const LABEL_Z_OFFSET = 1;
 
 /** A layer's marker-shadow pane rides one step BELOW its own panes: a shadow
  *  must paint under its icon no matter what inline z the icon carries.
@@ -85,7 +85,7 @@ const zFor = ({
     base ??
     (role === ROLE.BASE ? Z_INDEX.TILE_BASE : Z_INDEX.BASE) +
       (count - index) * Z_INDEX.STEP;
-  if (paneRole === PANE_ROLE.ANNOTATION) return slot + ANNOTATION_Z_OFFSET;
+  if (paneRole === PANE_ROLE.LABEL) return slot + LABEL_Z_OFFSET;
   if (paneRole === PANE_ROLE.SHADOW) return slot + SHADOW_Z_OFFSET;
   return slot + order;
 };
@@ -94,4 +94,4 @@ const zFor = ({
  *  native-pane offsets (popup / tooltip / marker) in `LayerController.enforceOrder`. */
 const topSlotZ = (count: number): number => zFor({ index: -1, count });
 
-export { ANNOTATION_Z_OFFSET, FOCUS_Z, focusLayerZ, topSlotZ, zFor };
+export { LABEL_Z_OFFSET, FOCUS_Z, focusLayerZ, topSlotZ, zFor };

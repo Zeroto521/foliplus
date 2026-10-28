@@ -9,7 +9,7 @@ describe("export canvas whitelists", () => {
   it("reach every canvas overlay that paints map content", () => {
     // `collectLayerMarkers` skips CANVAS elements (a dedicated pass owns them),
     // so a canvas in neither list vanishes from the export without any error.
-    // CANVAS is walked per layer pane; ANNOTATION_CANVAS covers the labels,
+    // CANVAS is walked per layer pane; LABEL_CANVAS covers the labels,
     // whose pane the manager creates with map.createPane — a sibling of the
     // layer's content panes, unreachable from the per-layer walk.
     const mapPane = document.createElement("div");
@@ -19,9 +19,9 @@ describe("export canvas whitelists", () => {
     const vendorCanvas = document.createElement("canvas");
     vendorCanvas.className = "vendor-overlay";
     const annotationPane = document.createElement("div");
-    annotationPane.className = "foliplus-annotation-pane";
+    annotationPane.className = "foliplus-label-pane";
     const annotation = document.createElement("canvas");
-    annotation.className = "foliplus-annotation-canvas";
+    annotation.className = "foliplus-label-canvas";
     layerPane.append(vendorCanvas);
     annotationPane.append(annotation);
     mapPane.append(layerPane, annotationPane);
@@ -31,7 +31,7 @@ describe("export canvas whitelists", () => {
     expect(Array.from(layerPane.querySelectorAll(CONST.SEL.CANVAS))).toEqual([
       vendorCanvas,
     ]);
-    expect(Array.from(mapPane.querySelectorAll(CONST.SEL.ANNOTATION_CANVAS))).toEqual([
+    expect(Array.from(mapPane.querySelectorAll(CONST.SEL.LABEL_CANVAS))).toEqual([
       annotation,
     ]);
     mapPane.remove();

@@ -771,7 +771,7 @@ const replayFillState = (ui: LayerUI, id: string): void => {
  *  delegates so panel call sites and tests keep their shape.
  *
  *  Registered ahead of `border` and `opacity` in `DIM_ORDER`
- *  (see `./registry.js`): fill comes first in the annotation panel's
+ *  (see `./registry.js`): fill comes first in the label panel's
  *  Layer section. */
 const FILL_DIMENSION = registerDimension<{
   color: string;
