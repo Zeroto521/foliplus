@@ -21,7 +21,7 @@
 
 ### Removed
 
-- `Package`: `ControlPosition`/`Fraction`/`PositiveInt`/`Zoom` leave the package namespace — `from foliplus import Zoom` no longer resolves; they only type the constructor parameters, so they stay internal to `foliplus._typing` (**Breaking** for annotations that imported them from the root) ([#787](https://github.com/Zeroto521/foliplus/pull/787))
+- `Package`: the internal annotation aliases `ControlPosition`/`Fraction`/`PositiveInt`/`Zoom` are no longer importable from `foliplus` (**Breaking**) ([#787](https://github.com/Zeroto521/foliplus/pull/787))
 
 ### Fixed
 
