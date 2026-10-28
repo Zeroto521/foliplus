@@ -3663,6 +3663,41 @@ describe("declared fill — foliplus={'fill': ...}", () => {
     expect(paintedColors(rampLayer)).toEqual(["#111111", "#222222", "#333333"]);
   });
 
+  it("paints every declared layer in one attach sweep", () => {
+    // The sweep remembers what it already painted per UI, so a second declared
+    // layer is painted by the same pass instead of only the first one — the
+    // memo is keyed per control, not per layer.
+    installChroma(["#111111", "#222222", "#333333"]);
+    installLeafletGlobals();
+    const declareRamp = (layer: ReturnType<typeof makeRampedLayer>) => {
+      (layer as unknown as { options: Record<string, unknown> }).options.foliplus = {
+        fill: {
+          ramp: { field: "count", method: "equal", classes: 3, scheme: "Reds" },
+        },
+      };
+      return layer;
+    };
+    const first = declareRamp(makeRampedLayer([1, 5, 9]));
+    const second = declareRamp(makeRampedLayer([1, 5, 9]));
+
+    initFixture({
+      data: [
+        { id: "overlay1", name: "Polygons", role: "overlay", layer: first },
+        { id: "overlay2", name: "Polygons II", role: "overlay", layer: second },
+        {
+          id: "base1",
+          name: "OSM",
+          role: "base",
+          layer: { options: {}, setZIndex: vi.fn() } as never,
+          paneName: "tilePane",
+        },
+      ],
+    });
+
+    expect(paintedColors(first)).toEqual(["#111111", "#222222", "#333333"]);
+    expect(paintedColors(second)).toEqual(["#111111", "#222222", "#333333"]);
+  });
+
   it("replays the declared ramp on mouseout instead of folium's author face", () => {
     // The highlight pin's live reader is the declaration chain, not the intent
     // store: with no user record a pin reading intent alone returns null, and

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { readDeclaredFill } from "#foliplus/LayerControl/declaredFill.js";
 
 /** A linked carrier carrying a foliplus declaration. Fresh object per test:
@@ -190,6 +190,21 @@ describe("readDeclaredFill", () => {
     const read = readDeclaredFill(layerWith({ fill: "ramp" }), "overlay1");
     expect(read.declared).toBeUndefined();
     expect(read.invalid).toHaveLength(1);
+  });
+
+  it("names an unregistered layer as such when it warns", () => {
+    // The attach sweep reads layers it finds, so a read can run before the layer
+    // has an id. The warning still has to point somewhere: the message spells
+    // the missing id out instead of printing "undefined" or dropping the
+    // context that makes a console line actionable.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const read = readDeclaredFill(layerWith({ fill: { mode: "rainbow" } }));
+
+    expect(read.invalid).toHaveLength(1);
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('on layer "<unregistered>"'),
+    );
+    warn.mockRestore();
   });
 
   it("returns empty for a layer with no foliplus namespace", () => {
