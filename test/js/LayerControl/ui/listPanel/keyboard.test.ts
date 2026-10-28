@@ -6,6 +6,7 @@ import type { LayerController } from "#foliplus/LayerControl/controller.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { getIntent, seedIntentMap } from "#foliplus/LayerControl/ui/intent.js";
 import { ensureModes } from "#foliplus/core/mode.js";
+import { registerPortalRoot } from "#common/portalRoot.js";
 import {
   allFolded,
   attachWithGroup,
@@ -915,6 +916,62 @@ describe("LayerUI keyboard", () => {
 
       ui.handleKeyDown(keyEvent("Escape"));
       expect(ui.overlayPanel.activeMenu).toBeNull();
+    });
+  });
+
+  // Which drawer a press belongs to is decided by that drawer's own element, not
+  // by document order. A page with two maps has two
+  // `.foliplus-layer-style-panel` nodes; `document.querySelector` returns the
+  // first one whatever the press aimed at, so a press on *this* drawer's
+  // portalled popup would read as an outside press and tear the drawer down
+  // mid-interaction. The predicate reads `ui.overlayPanel.stylePanelEl` for
+  // exactly that reason, and this test keeps the trap in place: a same-class
+  // decoy that the document-wide query must resolve to, so a regression back to
+  // the global lookup fails here instead of shipping.
+  describe("style drawer dismissal is scoped to this instance", () => {
+    beforeEach(() => {
+      // The style panel renders rows only when the field cache has an entry
+      // (same recipe as style.test.ts).
+      ui.runtimeStore.setFields("overlay1", [{ name: "count", numeric: true }]);
+    });
+
+    it("keeps the drawer open for a press on its own portalled list when a decoy drawer comes first", () => {
+      const item = findItem(ui, "overlay1");
+      ui.openStylePanel("overlay1");
+      const panel = item.querySelector(`.${CONST.CLASSES.STYLE_PANEL}`) as HTMLElement;
+      expect(panel).not.toBeNull();
+      expect(ui.overlayPanel.stylePanelEl).toBe(panel);
+
+      // Another map's drawer, earlier in document order: same class, different
+      // owner. The document-wide query resolves to this one and nothing else.
+      const decoy = document.createElement("div");
+      decoy.className = CONST.CLASSES.STYLE_PANEL;
+      document.body.prepend(decoy);
+      expect(document.querySelector(`.${CONST.CLASSES.STYLE_PANEL}`)).toBe(decoy);
+
+      // A popup this drawer mounted outside its own subtree (the scheme list and
+      // the shared dropdown both do). Ownership travels with the node: it is
+      // registered against the trigger that lives in this drawer.
+      const trigger = document.createElement("button");
+      panel.appendChild(trigger);
+      const list = document.createElement("ul");
+      const row = document.createElement("li");
+      list.appendChild(row);
+      document.body.appendChild(list);
+      const release = registerPortalRoot(list, trigger);
+
+      try {
+        row.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+
+        // Ownership, not document order: the press belongs to the drawer that
+        // owns the trigger, so neither the drawer nor the row cursor is dropped.
+        expect(ui.overlayPanel.stylePanelLayerId).toBe("overlay1");
+        expect(ui.overlayPanel.stylePanelEl).toBe(panel);
+      } finally {
+        release();
+        list.remove();
+        decoy.remove();
+      }
     });
   });
 

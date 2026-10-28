@@ -23,6 +23,12 @@
   display: block;
   width: 100%;
   box-sizing: border-box;
+  /* A flex item's automatic minimum size is its min-content width, and the
+     trigger is a nowrap label: without this the wrapper refuses to shrink to
+     the form cell and pushes the whole inline group past the control column
+     when the label is long ("Natural Breaks" in en). It only lowers the floor;
+     the trigger still ellipsizes and the label already does. */
+  min-width: 0;
 }
 .foliplus-dropdown-trigger {
   display: block;

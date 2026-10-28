@@ -275,8 +275,24 @@ const positionList = (state: InternalState): void => {
   );
 
   list.style.position = "fixed";
+  list.style.right = "auto";
   list.style.left = String(rect.left) + "px";
-  list.style.width = String(rect.width) + "px";
+  // Width follows the trigger, but a label must not be cut when the control's
+  // own cell leaves room to grow: the closed trigger ellipsizes on purpose
+  // (the row is fixed-width), while the popup is the place that spells the
+  // value out. The cell is the wrapper's own parent — the popup is portalled,
+  // so this is the only handle left on the space the panel reserved for this
+  // control. Clamping to that edge keeps a long option list over the map and
+  // never past the panel content box the control lives in.
+  list.style.width = "max-content";
+  const contentWidth = list.getBoundingClientRect().width;
+  const cell = state.wrapper.parentElement;
+  const room = cell ? cell.getBoundingClientRect().right - rect.left : rect.width;
+  const width = Math.max(
+    rect.width,
+    Math.min(contentWidth, Math.max(rect.width, room)),
+  );
+  list.style.width = String(width) + "px";
   if (up) {
     list.style.top = "";
     list.style.bottom = String(window.innerHeight - rect.top + POPUP_EDGE_GAP) + "px";

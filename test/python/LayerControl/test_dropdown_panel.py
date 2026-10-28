@@ -17,6 +17,7 @@ from __future__ import annotations
 import json
 
 import folium
+import pytest
 from conftest import _js, make_browser_page, panel_ready, use_page
 
 from foliplus import HeatmapControl, LayerControl
@@ -218,5 +219,141 @@ class TestStyleDrawerDropdownBrowser:
             after = page.evaluate(STATE)
             assert after["drawerVisible"] is False, (
                 "an outside press no longer dismisses the style drawer"
+            )
+            assert not errors, f"JS errors: {errors}"
+
+
+# ─────────────────── value-fill row geometry ───────────────────
+#
+# The shared dropdown replaced the panels' native selects, and two layouts only
+# a real browser resolves: the closed row (a flex min-width trap — the wrapper's
+# automatic minimum is the nowrap label) and the open popup (it has to spell out
+# a label the fixed-width row ellipsizes, without leaving the panel). Measured
+# here rather than asserted in jsdom, which computes neither flex nor text.
+
+_GEOMETRY = _js("LayerControl/read_fill_row_geometry")
+
+_TO_RAMP = """() => {
+  const select = document.querySelector('.foliplus-style-fill-mode-select');
+  if (!select) return false;
+  select.value = 'ramp';
+  select.dispatchEvent(new Event('change', { bubbles: true }));
+  return true;
+}"""
+
+# The English method name is what breaks the row: 93px of nowrap text in a
+# 104px control, next to the fixed 52px class count. Chinese is the geometry
+# the row was designed against, so it doubles as the "nothing moved" control.
+_METHOD_TEXT = {"en": "Natural Breaks", "zh": "自然断点"}
+
+
+def _make_geometry_page(browser, tmp_path, locale):
+    m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+    features = [
+        {
+            "type": "Feature",
+            "properties": {
+                "score": 10 + i,
+                # A data-driven label wider than the 160px control cell: the
+                # open list has to stop at the cell, not grow past the panel.
+                "population_density_2020_index": 100 + i,
+            },
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [119.28 + i * 0.01, 26.06],
+                        [119.32 + i * 0.01, 26.06],
+                        [119.32 + i * 0.01, 26.10],
+                        [119.28 + i * 0.01, 26.10],
+                        [119.28 + i * 0.01, 26.06],
+                    ]
+                ],
+            },
+        }
+        for i in range(3)
+    ]
+    folium.GeoJson(
+        json.dumps({"type": "FeatureCollection", "features": features}),
+        name="Polygon data",
+    ).add_to(m)
+    LayerControl(locale=locale).add_to(m)
+    return make_browser_page(
+        browser, tmp_path, m.get_root().render(), f"geometry_{locale}"
+    )
+
+
+def _open_ramp_row(page) -> None:
+    _open_drawer(page)
+    assert page.evaluate(_TO_RAMP), "the fill row has no mode control"
+    page.wait_for_timeout(200)
+
+
+class TestFillRowGeometryBrowser:
+    @pytest.mark.parametrize("locale", ["en", "zh"])
+    def test_the_inline_group_fits_the_control_cell(self, browser, tmp_path, locale):
+        with use_page(
+            lambda b, t: _make_geometry_page(b, t, locale), browser, tmp_path
+        ) as (page, errors):
+            _open_ramp_row(page)
+            got = page.evaluate(_GEOMETRY)
+            assert "error" not in got, got
+            # The page really rendered this locale before any geometry is read.
+            assert got["methodLabel"] == _METHOD_TEXT[locale], got
+
+            # Method + gap + Classes is one cell, not more: the group may not
+            # overflow the control column (before the wrapper's min-width: 0 the
+            # English row measured 122.6 + 4 + 52 against a 160px cell).
+            gap = got["classes"]["left"] - got["method"]["right"]
+            assert got["method"]["w"] + gap + got["classes"]["w"] <= (
+                got["control"]["w"] + 0.5
+            ), got
+            assert got["inline"]["w"] <= got["control"]["w"] + 0.5, got
+            assert got["classes"]["right"] <= got["control"]["right"] + 0.5, got
+            # Nothing spills out of the drawer either.
+            assert got["panelScrollX"] == 0, got
+
+            # The row is fixed width, so the closed control shortens the label —
+            # but it must be an ellipsis (with the full name on the tooltip and
+            # the accessible name), never a hard clip and never an overflow.
+            if locale == "en":
+                assert got["ellipsized"] is True, got
+            else:
+                assert got["ellipsized"] is False, got
+            assert got["title"], got
+            assert got["ariaLabel"], got
+
+    @pytest.mark.parametrize("locale", ["en", "zh"])
+    def test_the_open_list_spells_the_label_out_without_leaving_the_cell(
+        self, browser, tmp_path, locale
+    ):
+        with use_page(
+            lambda b, t: _make_geometry_page(b, t, locale), browser, tmp_path
+        ) as (page, errors):
+            _open_ramp_row(page)
+            got = page.evaluate(_GEOMETRY)
+            assert "error" not in got, got
+
+            method_list = got["methodList"]
+            assert method_list, "the method popup did not open"
+            # The row ellipsizes the label on purpose, so the popup reclaims the
+            # width it needs — and stops at the cell's right edge.
+            assert method_list["w"] >= got["method"]["w"] - 0.5, (method_list, got)
+            assert method_list["right"] <= got["control"]["right"] + 0.5, (
+                method_list,
+                got,
+            )
+            truncated = [o["text"] for o in method_list["labels"] if o["truncated"]]
+            assert truncated == [], (
+                "the open method list truncates the very label the row implies "
+                f"it can show: {truncated}"
+            )
+
+            # A data-driven label (a field name) can be wider than the cell: the
+            # popup then stops at the cell instead of growing past the panel.
+            field_list = got["fieldList"]
+            assert field_list, "the field popup did not open"
+            assert field_list["right"] <= field_list["controlRight"] + 0.5, (
+                field_list,
             )
             assert not errors, f"JS errors: {errors}"

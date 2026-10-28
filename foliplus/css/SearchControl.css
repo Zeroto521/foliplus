@@ -110,6 +110,6 @@
 .foliplus-search-result-coord {
   font-size: var(--foliplus-font-size-xs);
   color: var(--foliplus-text-muted);
-  line-height: 1.4;
+  line-height: var(--foliplus-line-height-hint);
   margin-top: 1px;
 }
