@@ -315,7 +315,15 @@ const renderLabelControls = (opts: RenderLabelControlsOptions): LabelControlsRes
     const formatSelect = root.querySelector(
       `.${CLS.STYLE_FORMAT_SELECT}`,
     ) as HTMLSelectElement | null;
-    if (formatSelect && document.activeElement !== formatSelect) {
+    // The format select is bridged into a dropdown, so the user's focus sits on
+    // the trigger (or an option in the open list), never on the hidden select.
+    // Treat the whole wrapper as "being edited" or a remote write would yank
+    // the value out from under an open picker.
+    const formatDropdown = formatSelect ? dropdownOf(formatSelect) : undefined;
+    const formatFocused =
+      document.activeElement === formatSelect ||
+      !!formatDropdown?.element.contains(document.activeElement);
+    if (formatSelect && !formatFocused) {
       formatSelect.value =
         typeof v.labelFormat === "string" ? v.labelFormat : NUMBER_FORMAT.AUTO;
       // A property write fires no change event, so the closed trigger has to
