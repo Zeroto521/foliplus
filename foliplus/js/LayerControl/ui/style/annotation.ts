@@ -23,6 +23,7 @@ import { CAP_TIER, DIM } from "#core/layer/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { AnnotationConfig } from "#foliplus/LayerControl/type.js";
 import { dom } from "#common/dom.js";
+import { createDropdown } from "#common/dropdown.js";
 import {
   DEFAULT_LABEL_COLOR,
   LABEL_SIZE,
@@ -108,6 +109,12 @@ const buildLabelSection = (ui: LayerUI, layerId: string): HTMLElement => {
     ),
   );
   (fieldSelect as HTMLSelectElement).value = selectedField || AUTO_FIELD;
+  // The visible picker is the shared dropdown; the select stays mounted
+  // (hidden) as the value/change bridge the panel delegates on.
+  const fieldDropdown = createDropdown({
+    nativeSelect: fieldSelect as HTMLSelectElement,
+    ariaLabel: ui.T("style_label_field"),
+  });
 
   // Appearance row — same chrome as the heatmap border / delegated drawer.
   const colorInput = formColorInput({
@@ -155,6 +162,10 @@ const buildLabelSection = (ui: LayerUI, layerId: string): HTMLElement => {
     ...formatOpts,
   );
   (formatSelect as HTMLSelectElement).value = cfg.format || NUMBER_FORMAT.AUTO;
+  const formatDropdown = createDropdown({
+    nativeSelect: formatSelect as HTMLSelectElement,
+    ariaLabel: ui._("foliplus.label_format"),
+  });
 
   // Numeric-only: hide the format dropdown when the picked field is not a
   // number — comma/percent/int all render the same as auto in that case.
@@ -162,7 +173,7 @@ const buildLabelSection = (ui: LayerUI, layerId: string): HTMLElement => {
     "div",
     { class: `${CONST.CLASSES.FORM_ROW} ${CONST.CLASSES.STYLE_FORMAT_ROW}` },
     dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui._("foliplus.label_format")),
-    dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, formatSelect),
+    dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, formatDropdown.element),
   );
   syncFormatRow(
     fields,
@@ -181,7 +192,7 @@ const buildLabelSection = (ui: LayerUI, layerId: string): HTMLElement => {
       "div",
       { class: CONST.CLASSES.FORM_ROW },
       dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, ui.T("style_label_field")),
-      dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, fieldSelect),
+      dom.el("div", { class: CONST.CLASSES.FORM_CONTROL }, fieldDropdown.element),
     ),
     formRow(ui._("foliplus.label_style"), inlineControls(colorInput, sizeInput)),
     formatRow,

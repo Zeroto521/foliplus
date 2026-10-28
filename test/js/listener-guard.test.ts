@@ -195,6 +195,13 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
     reason:
       "shared picker factory binds trigger click/keydown (lifecycle) and dropdown click/keydown, item focus, document outside-click, window scroll, window resize (portal mode only), and fullscreenchange (mount-scope). Every listener has a paired removeEventListener in either cleanupFns (drained on destroy) or mountCleanupFns (drained on every close). The factory is a free-standing primitive with no BaseControl mounting signal to route through this.on; callers inject their own lifecycle management via the returned close/destroy methods",
   },
+  {
+    f: "common/dropdown.ts",
+    n: 8,
+    pairedOff: 0,
+    reason:
+      "shared select-replacement factory: three lifecycle listeners on the trigger/list (click/keydown) plus one on the bridged select (change), and four popup-scope listeners — option click, document pointerdown outside-press, window scroll (capture) and resize — that exist only while the popup is open. Every popup-scope listener is pushed onto mountCleanup and drained by close()/destroy(); the lifecycle ones are removed by destroy(). A free-standing primitive with no BaseControl mounting signal to route through this.on, exactly like common/schemePicker.ts",
+  },
 ];
 
 // `L.DomEvent.on(` is rare in this tree, which is the point of the guard: one

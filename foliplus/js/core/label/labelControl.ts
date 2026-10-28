@@ -9,6 +9,7 @@
 // (createTranslator) — both callers pass their own `_` rather than their
 // component-scoped `T`, so no component carries a private copy of the keys.
 import { dom } from "#common/dom.js";
+import { createDropdown, dropdownOf } from "#common/dropdown.js";
 import {
   DEFAULT_LABEL_COLOR,
   LABEL_SIZE,
@@ -162,12 +163,18 @@ const renderLabelControls = (opts: RenderLabelControlsOptions): LabelControlsRes
     );
     (formatSelect as HTMLSelectElement).value =
       typeof values.labelFormat === "string" ? values.labelFormat : NUMBER_FORMAT.AUTO;
+    // The visible control is the shared dropdown; the select stays mounted
+    // (hidden) as the value/change bridge the root delegation reads.
+    const formatDropdown = createDropdown({
+      nativeSelect: formatSelect as HTMLSelectElement,
+      ariaLabel: T("foliplus.label_format"),
+    });
     bodyRows.push(
       dom.el(
         "div",
         { class: `${CLS.FORM_ROW} ${CLS.STYLE_FORMAT_ROW}` },
         dom.el("label", { class: CLS.FORM_LABEL }, T("foliplus.label_format")),
-        dom.el("div", { class: CLS.FORM_CONTROL }, formatSelect),
+        dom.el("div", { class: CLS.FORM_CONTROL }, formatDropdown.element),
       ),
     );
   }
@@ -311,6 +318,9 @@ const renderLabelControls = (opts: RenderLabelControlsOptions): LabelControlsRes
     if (formatSelect && document.activeElement !== formatSelect) {
       formatSelect.value =
         typeof v.labelFormat === "string" ? v.labelFormat : NUMBER_FORMAT.AUTO;
+      // A property write fires no change event, so the closed trigger has to
+      // be re-read explicitly.
+      dropdownOf(formatSelect)?.refresh();
     }
   };
 

@@ -16,6 +16,7 @@ import {
   METHOD_ORDER,
 } from "#core/classify.js";
 import { dom } from "#common/dom.js";
+import { type Dropdown, createDropdown } from "#common/dropdown.js";
 import { formRow, inlineControls, selectInput } from "#common/form.js";
 
 /** Extra HTML attributes applied to the row/control, e.g. the heatmap's
@@ -42,9 +43,15 @@ type FieldRowOptions = {
   onChange?: (field: string) => void;
 };
 
-type FieldRow = { row: HTMLElement; select: HTMLSelectElement };
+type FieldRow = {
+  row: HTMLElement;
+  /** The bridged native select: still the value/change carrier the consumers
+   *  and the Python-rendered markup see, hidden behind the shared dropdown. */
+  select: HTMLSelectElement;
+  dropdown: Dropdown;
+};
 
-/** Field row: one native select listing the numeric/aggregation fields. */
+/** Field row: one shared dropdown listing the numeric/aggregation fields. */
 const buildFieldRow = (opts: FieldRowOptions): FieldRow => {
   const select = selectInput({
     className: opts.selectClass,
@@ -54,10 +61,16 @@ const buildFieldRow = (opts: FieldRowOptions): FieldRow => {
   });
   applyAttributes(select, opts.selectAttributes);
   if (opts.onChange) select.onchange = () => opts.onChange!(select.value);
+  // The visible control is the shared dropdown; the select stays as the value
+  // and change bridge so a consumer's own onchange/delegation keeps working.
+  const dropdown = createDropdown({
+    nativeSelect: select,
+    ariaLabel: opts.ariaLabel,
+  });
 
-  const row = formRow(opts.label, select, opts.rowClass);
+  const row = formRow(opts.label, dropdown.element, opts.rowClass);
   applyAttributes(row, opts.rowAttributes);
-  return { row, select };
+  return { row, select, dropdown };
 };
 
 type ClassesRowOptions = {
@@ -86,10 +99,14 @@ type ClassesRow = {
   row: HTMLElement;
   methodSelect: HTMLSelectElement;
   classesSelect: HTMLSelectElement;
+  methodDropdown: Dropdown;
+  classesDropdown: Dropdown;
 };
 
-/** Method + class-count row. Both are native selects: the count comes from
- *  the shared 2..9 vocabulary, the method order from the shared classifier. */
+/** Method + class-count row. Both are shared dropdowns bridged to the native
+ *  selects the panels and the Python-rendered markup still expect: the count
+ *  comes from the shared 2..9 vocabulary, the method order from the shared
+ *  classifier. */
 const buildClassesRow = (opts: ClassesRowOptions): ClassesRow => {
   const methodSelect = selectInput({
     className: opts.methodClass,
@@ -128,13 +145,31 @@ const buildClassesRow = (opts: ClassesRowOptions): ClassesRow => {
     };
   }
 
+  const methodDropdown = createDropdown({
+    nativeSelect: methodSelect,
+    ariaLabel: opts.methodAriaLabel,
+  });
+  const classesDropdown = createDropdown({
+    nativeSelect: classesSelect,
+    ariaLabel: opts.classesAriaLabel,
+    // The wrapper replaces the select in the flex row, so the compact-count
+    // width contract (form.css) has to size it.
+    className: "foliplus-classes-select",
+  });
+
   const row = formRow(
     opts.label,
-    inlineControls(methodSelect, classesSelect),
+    inlineControls(methodDropdown.element, classesDropdown.element),
     opts.rowClass,
   );
   applyAttributes(row, opts.rowAttributes);
-  return { row, methodSelect, classesSelect };
+  return {
+    row,
+    methodSelect,
+    classesSelect,
+    methodDropdown,
+    classesDropdown,
+  };
 };
 
 type SchemeRowOptions = {
