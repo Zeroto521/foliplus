@@ -53,7 +53,7 @@ def _stub_cdn(html: str, stubs: dict[str, str]) -> str:
     return html
 
 
-def _make_page(browser, tmp_path, show_bearing=True):
+def _make_page(browser, tmp_path, show_bearing=True, export_format="geojson"):
     """Build a page with MeasureControl and return (page, errors).
 
     Injects the test hooks that every browser test reads back:
@@ -65,7 +65,7 @@ def _make_page(browser, tmp_path, show_bearing=True):
 
     m = folium.Map(location=[26.08, 119.30], zoom_start=12)
     LayerControl().add_to(m)
-    MeasureControl(show_bearing=show_bearing).add_to(m)
+    MeasureControl(show_bearing=show_bearing, export_format=export_format).add_to(m)
 
     html = m.get_root().render()
     # The manager is created lazily by the control's getter during addTo, so

@@ -135,13 +135,6 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
       "filter panel header/mousedown/keydown/outside-click and clear bindings — pending migration to `this.on`",
   },
   {
-    f: "LayerControl/ui/overlayPanel/filterBody.ts",
-    n: 6,
-    pairedOff: 0,
-    reason:
-      "filter condition body bindings on the nodes it creates: trigger click/keydown, listbox keydown, option click, plus the popup's geometry watchers on the clipping ancestor and window. Every node is built by the body and dropped with the panel it belongs to, the geometry watchers are unsubscribed on close/destroy, and the module is a free-standing body renderer with no mounting signal to route through `this.on`",
-  },
-  {
     f: "LayerControl/ui/focus/focusMarquee.ts",
     n: 2,
     pairedOff: 0,

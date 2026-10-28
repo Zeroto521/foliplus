@@ -239,7 +239,8 @@ const exportMeasurements = (
  */
 const handleExportClick = (mgr: MeasureManager) => (event: Event) => {
   event.stopPropagation();
-  const measurements = mgr.store.all();
+  // The filter is a view filter: export follows what the map shows.
+  const measurements = mgr.visibleMeasurements();
   if (!measurements || measurements.length === 0) {
     // foliplus is per-map — hint via the manager's map instance.
     mgr.map.foliplus?.showHint?.(

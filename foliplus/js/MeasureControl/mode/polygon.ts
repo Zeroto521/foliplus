@@ -57,6 +57,7 @@ class PolygonMode extends PreviewMode {
       });
     }
 
+    mgr.registerItemLayers(data.id!, [finalPoly, ...nodeMarkers, ...segLabels]);
     attachPolygonUI(mgr, {
       layers: mgr.layers,
       finalPoly,
@@ -193,6 +194,7 @@ class PolygonMode extends PreviewMode {
         );
       }
 
+      this.mgr.registerItemLayers(polyId, [finalPoly, ...nodeMarkers, ...segLabels]);
       // Attach toggle/delete UI (shared with restorePolygon). It self-registers
       // its dispose via registerFinalized, so clearAll/destroy can unbind it.
       attachPolygonUI(this.mgr, {
