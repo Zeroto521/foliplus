@@ -432,14 +432,10 @@ const setValueAggregationsEnabled = (ctrl: HeatmapControlUI, enabled: boolean) =
     opt.disabled = !enabled && opt.value !== CONST.AGG.COUNT;
   }
   // The explanation belongs on the visible control: the select itself is
-  // hidden behind the dropdown, so a tooltip set there would never show.
-  const aggDropdown = dropdownOf(ctrl.aggSelect);
-  if (enabled) {
-    ctrl.aggSelect.removeAttribute("title");
-    aggDropdown?.trigger.removeAttribute("title");
-  } else if (aggDropdown) {
-    aggDropdown.trigger.title = ctrl.T("needs_numeric_field");
-  }
+  // hidden behind the dropdown, so a tooltip set there would never show. The
+  // hint is a dropdown-level state so the label renderer cannot overwrite it
+  // on the next refresh.
+  dropdownOf(ctrl.aggSelect)?.setHint(enabled ? "" : ctrl.T("needs_numeric_field"));
 };
 
 const updateFieldSelector = (ctrl: HeatmapControlUI) => {

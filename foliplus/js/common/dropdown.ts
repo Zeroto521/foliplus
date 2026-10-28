@@ -100,6 +100,9 @@ interface Dropdown {
   setValues(values: readonly string[]): void;
   /** Re-read options/value from the bridged select. */
   refresh(): void;
+  /** Tooltip for the trigger. A non-empty hint wins over the label summary;
+   *  consumers use it to explain a temporarily limited control. */
+  setHint(text: string): void;
   open(): void;
   close(opts?: { restoreFocus?: boolean }): void;
   toggle(): void;
@@ -116,6 +119,8 @@ interface InternalState {
   items: DropdownItem[];
   values: Set<string>;
   placeholder: string;
+  /** Consumer-supplied tooltip; empty falls back to the label summary. */
+  hint: string;
   selectedLabel: (labels: readonly string[]) => string;
   onChange: ((value: string, values: readonly string[]) => void) | null;
   onToggle: ((open: boolean, list: HTMLElement | null) => void) | null;
@@ -191,11 +196,14 @@ const renderLabel = (state: InternalState): void => {
     DROPDOWN_CLASSES.placeholder,
     selectedItems(state).length === 0,
   );
-  // The trigger ellipsizes; the tooltip keeps the full multi-select list
-  // reachable without opening the popup.
-  const full = selectedItems(state)
-    .map(item => item.label)
-    .join(", ");
+  // The trigger ellipsizes; the tooltip keeps the full label reachable without
+  // opening the popup. A consumer hint (a control that is temporarily limited)
+  // wins: it explains why the option set is restricted, which the label cannot.
+  const full =
+    state.hint ||
+    selectedItems(state)
+      .map(item => item.label)
+      .join(", ");
   if (full) state.trigger.title = full;
   else state.trigger.removeAttribute("title");
 };
@@ -529,6 +537,7 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
     items: opts.items ? [...opts.items] : [],
     values: new Set(opts.values ?? (opts.value ? [opts.value] : [])),
     placeholder: opts.placeholder ?? "",
+    hint: "",
     selectedLabel:
       opts.selectedLabel ?? (labels => String(labels.length) + " selected"),
     onChange: opts.onChange ?? null,
@@ -604,6 +613,11 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
       if (state.isOpen) renderOptions(state);
     },
     refresh,
+    setHint(text: string) {
+      if (state.destroyed) return;
+      state.hint = text;
+      renderLabel(state);
+    },
     open() {
       if (state.destroyed) return;
       openDropdown(state);

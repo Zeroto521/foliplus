@@ -229,6 +229,18 @@ describe("dropdown: bridged single select", () => {
     expect(dropdownOf(select)).toBeNull();
   });
 
+  it("a consumer hint wins over the label summary in the tooltip", () => {
+    const { dropdown } = bridged("a", [
+      { value: "a", label: "Alpha" },
+      { value: "b", label: "Bee" },
+    ]);
+    expect(dropdown.trigger.title).toBe("Alpha");
+    dropdown.setHint("Needs a numeric field");
+    expect(dropdown.trigger.title).toBe("Needs a numeric field");
+    dropdown.setHint("");
+    expect(dropdown.trigger.title).toBe("Alpha");
+  });
+
   it("refuses a second dropdown on the same select", () => {
     const { select } = bridged("a", [{ value: "a", label: "Alpha" }]);
     expect(() => createDropdown({ nativeSelect: select })).toThrow(
