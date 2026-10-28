@@ -643,7 +643,9 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
 
   const refresh = (): void => {
     if (state.destroyed) return;
-    if (state.native) syncFromNative(state);
+    // Standalone dropdowns own their items: syncFromNative is a no-op there
+    // (its own guard), so one call covers both modes.
+    syncFromNative(state);
     renderLabel(state);
     if (state.isOpen) {
       renderOptions(state);

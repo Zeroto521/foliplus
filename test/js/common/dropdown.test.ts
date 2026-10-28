@@ -893,3 +893,75 @@ describe("dropdown: remaining contracts", () => {
     dropdown.close();
   });
 });
+describe("dropdown: remaining branches", () => {
+  const three = [
+    { value: "a", label: "Alpha" },
+    { value: "b", label: "Bee" },
+    { value: "c", label: "Cee" },
+  ];
+  const make = (
+    items: readonly { value: string; label: string; disabled?: boolean }[],
+    extra: Record<string, unknown> = {},
+  ): Dropdown => {
+    const dropdown = createDropdown({ items, ...extra });
+    cleanup.push(() => dropdown.destroy());
+    document.body.appendChild(dropdown.element);
+    return dropdown;
+  };
+
+  it("ArrowUp on the list steps backwards from the trigger", () => {
+    const dropdown = make(three);
+    // Open with the keyboard so focus starts on a row, then walk back past the
+    // first row: the cursor wraps upward instead of sticking.
+    key(dropdown.trigger, "ArrowDown");
+    key(dropdown.getList() as HTMLElement, "ArrowUp");
+    expect(document.activeElement).toBe(optionEls(dropdown)[2]);
+  });
+
+  it("ArrowUp on an open trigger steps the cursor backwards", () => {
+    const dropdown = make(three);
+    key(dropdown.trigger, "ArrowDown");
+    key(dropdown.trigger, "ArrowUp");
+    expect(document.activeElement).toBe(optionEls(dropdown)[2]);
+  });
+
+  it("ArrowUp on a trigger whose last row is disabled opens on the first", () => {
+    const dropdown = make([
+      { value: "a", label: "Alpha" },
+      { value: "b", label: "Bee", disabled: true },
+    ]);
+    key(dropdown.trigger, "ArrowUp");
+    expect(dropdown.isOpen()).toBe(true);
+    expect(document.activeElement).toBe(optionEls(dropdown)[0]);
+  });
+
+  it("a scroll started by a row inside the list does not move the anchor", () => {
+    const dropdown = make(three);
+    dropdown.open();
+    const list = dropdown.getList() as HTMLElement;
+    const before = list.style.top;
+    // The row is the scroll event's target when the browser keeps the focused
+    // option in view; the popup must ignore it, not re-pin from a stale rect.
+    optionEls(dropdown)[2].dispatchEvent(new Event("scroll", { bubbles: true }));
+    expect(list.style.top).toBe(before);
+    expect(dropdown.isOpen()).toBe(true);
+  });
+
+  it("reports an empty value for a standalone dropdown with nothing selected", () => {
+    const dropdown = make(three);
+    expect(dropdown.getValue()).toBe("");
+    expect(dropdown.getValues()).toEqual([]);
+  });
+
+  it("setValue('') clears a bridged select back to its placeholder", () => {
+    const { select, dropdown } = bridged("a", [
+      { value: "", label: "Choose a layer", disabled: true },
+      { value: "a", label: "Alpha" },
+    ]);
+    expect(labelOf(dropdown)).toBe("Alpha");
+    dropdown.setValue("");
+    expect(select.value).toBe("");
+    expect(labelOf(dropdown)).toBe("Choose a layer");
+    expect(dropdown.trigger.classList.contains(CLS.placeholder)).toBe(true);
+  });
+});
