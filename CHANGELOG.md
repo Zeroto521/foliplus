@@ -13,12 +13,12 @@
 ### Changed
 
 - `CSS`: design tokens split surface from on-accent and expose a focus color, so a theme can invert one without the other ([#714](https://github.com/Zeroto521/foliplus/pull/714))
-- `core/layer`: a reorder walks each layer's tree once, late content is pinned in one fragment, and a declared pane spec may only name the public roles; the label pane's role, pane prefix and DOM classes are spelled `label` (`foliplus-label-*`) ([#733](https://github.com/Zeroto521/foliplus/pull/733))
+- `core/layer`: a reorder walks each layer's tree once, late content is pinned in one fragment, and a declared pane spec may only name the public roles; the label pane's role, pane prefix and DOM classes are spelled `label` (`foliplus-label-*`) ([#733](https://github.com/Zeroto521/foliplus/pull/733), [#790](https://github.com/Zeroto521/foliplus/pull/790))
 - `LayerControl`: labels rebuild once per frame and repaint only their own canvas, each dimension owns its replay policy, and clearing labels also drops the layer's pan plan ([#734](https://github.com/Zeroto521/foliplus/pull/734))
 - `HeatmapControl`: field selection resolves to a concrete name; a source without numeric fields falls back to counting ([#758](https://github.com/Zeroto521/foliplus/pull/758), [#782](https://github.com/Zeroto521/foliplus/pull/782))
 - `HeatmapControl` / `LayerControl`: both panels share one form geometry — label and control columns, footer buttons and the scheme trigger line up across the two ([#759](https://github.com/Zeroto521/foliplus/pull/759))
 - `core/layer`, `LayerControl`, `LayerControl.py`: the `group` vocabulary is renamed to `role` end to end (**Breaking**: CONF payloads from an older Python package and pre-v4 saved records lose their group/role distinction) ([#763](https://github.com/Zeroto521/foliplus/pull/763))
-- `LayerControl`: the author declaration namespace key is renamed `annotation` → `label` (**Breaking**: the old key is no longer read) ([#785](https://github.com/Zeroto521/foliplus/pull/785), [#790](https://github.com/Zeroto521/foliplus/pull/790))
+- `LayerControl`: the author declaration namespace key is renamed `annotation` → `label` (**Breaking**: the old key is no longer read) ([#790](https://github.com/Zeroto521/foliplus/pull/790))
 - Shared dropdown primitive: the panels' native single selects share one dropdown — select chrome plus a keyboard/ARIA listbox popup that is portalled out of the panel it belongs to, so a short or scrolling panel can no longer clip it, and optional multiple mode ([#793](https://github.com/Zeroto521/foliplus/pull/793))
 
 ### Removed
