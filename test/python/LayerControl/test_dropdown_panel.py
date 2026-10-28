@@ -60,9 +60,13 @@ def _make_page(browser, tmp_path):
                 "geometry": {
                     "type": "Polygon",
                     "coordinates": [
-                        [[119.28 + i * 0.01, 26.06], [119.32 + i * 0.01, 26.06],
-                         [119.32 + i * 0.01, 26.10], [119.28 + i * 0.01, 26.10],
-                         [119.28 + i * 0.01, 26.06]]
+                        [
+                            [119.28 + i * 0.01, 26.06],
+                            [119.32 + i * 0.01, 26.06],
+                            [119.32 + i * 0.01, 26.10],
+                            [119.28 + i * 0.01, 26.10],
+                            [119.28 + i * 0.01, 26.06],
+                        ]
                     ],
                 },
             }
@@ -75,7 +79,9 @@ def _make_page(browser, tmp_path):
 
 def _open_drawer(page) -> None:
     page.evaluate(_js("LayerControl/open_panel"))
-    page.wait_for_selector(".foliplus-layer-ctrl.foliplus-is-expanded", state="attached")
+    page.wait_for_selector(
+        ".foliplus-layer-ctrl.foliplus-is-expanded", state="attached"
+    )
     panel_ready(page)
     opened = page.evaluate(_js("LayerControl/open_style_panel"))
     assert opened["ok"], opened
@@ -117,7 +123,9 @@ class TestStyleDrawerDropdownBrowser:
             page.wait_for_timeout(220)
             after = page.evaluate(STATE)
             assert after["openLists"] == 0, after
-            assert after["drawerVisible"], "Escape closed the drawer, not just the popup"
+            assert after["drawerVisible"], (
+                "Escape closed the drawer, not just the popup"
+            )
             assert after["rowPanelExpanded"], after
             assert not errors, f"JS errors: {errors}"
 

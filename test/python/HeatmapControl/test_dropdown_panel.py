@@ -144,7 +144,10 @@ def _make_page(browser, tmp_path, *, pseudo: bool = False):
     if pseudo:
         html = _stub_native_fullscreen(html)
     return make_browser_page(
-        browser, tmp_path, html, "heatmap_dropdown_pseudo" if pseudo else "heatmap_dropdown"
+        browser,
+        tmp_path,
+        html,
+        "heatmap_dropdown_pseudo" if pseudo else "heatmap_dropdown",
     )
 
 
@@ -153,7 +156,9 @@ def _hexbin_panel_ready(page) -> None:
     one layer selected, numeric aggregation, so all five controls are visible."""
     page.wait_for_selector(".foliplus-heatmap-ctrl", state="attached", timeout=10000)
     page.evaluate(_js("HeatmapControl/click_toggle_button"))
-    page.wait_for_selector(".foliplus-heatmap-ctrl.foliplus-is-expanded", state="attached")
+    page.wait_for_selector(
+        ".foliplus-heatmap-ctrl.foliplus-is-expanded", state="attached"
+    )
     page.evaluate(
         """() => {
           window.__changes = [];
