@@ -295,9 +295,14 @@ interface RegisterLayerOpts {
 
 /** The color scale geopandas mounted on the map for an explore layer.
  *
- *  Read from the branca colormap child, then paired with the layer by a color
- *  check (a value normalised through the scale must reproduce the feature's
- *  ``__folium_color``), so a caption is never trusted on its own. */
+ *  Claimed only through the author's own caption: the caption must name a
+ *  numeric property of the layer and the sampled feature colors must confirm
+ *  the scale. The caption is the declaration and the colors are the veto, so a
+ *  plain ``legend=False`` layer that merely shares a property name with a
+ *  foreign scale is not given it. Two columns with equivalent colors (an affine
+ *  pair such as area / area_ha) cannot be told apart by any color check: the
+ *  first caption in render order keeps the scale, and the second layer ships
+ *  its colors without a field. */
 interface FillAuthorScale {
   /** A continuous ``LinearColormap``, or a classified ``StepColormap``. */
   kind: "continuous" | "stepped";
@@ -316,17 +321,23 @@ interface FillAuthorScale {
 interface FillAuthor {
   /** True when the layer paints at least two distinct colors. */
   perFeature: boolean;
-  /** How many distinct colors the layer paints — the honest count when no
-   *  scale pairs (categorical column, ``legend=False``). */
+  /** How many distinct colors the layer paints. Exact up to the 4,096-feature
+   *  scan budget; above it a strided sample counts them, so a rare color can be
+   *  missed and the record then reads as fewer colors (a one-color reading also
+   *  turns `perFeature` off). Before a scale pairs, this is the honest count. */
   distinct: number;
   /** The strip the panel draws: a continuous scale sampled to 64 colors, a
-   *  stepped scale's own blocks, or the distinct colors when neither exists. */
+   *  stepped scale's own blocks, or the layer's distinct colors when neither
+   *  exists. The own-color arm keeps the values verbatim, so a `missing_kwds`
+   *  CSS name such as `lightgrey` can sit among hex stops. */
   stops: string[];
   /** True when the layer paints more distinct colors than the strip samples,
    *  so `distinct` is a cap (the panel shows "64+"). */
   capped?: boolean;
-  /** Absent when the author declared no scale this layer could be paired with.
-   *  The panel then shows the strip without naming a column. */
+  /** Absent when the author declared no scale for this layer, or when the
+   *  scale's caption belonged to another layer (the panel then shows the strip
+   *  without a field, and a stepped layer keeps its colors but not its levels
+   *  or breaks — the deliberate cost of never guessing a column). */
   scale?: FillAuthorScale;
 }
 

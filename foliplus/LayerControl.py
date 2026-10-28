@@ -23,8 +23,12 @@ _log = logging.getLogger(__name__)
 # The panel only draws the strip: 64 samples are enough for a continuous
 # scale (a LinearColormap carries 256 stops) and keep CONF small.
 _FILL_AUTHOR_STOPS = 64
-# Features used for the value-to-color check that validates a caption.
-_FILL_AUTHOR_SAMPLE = 5
+# Features sampled for the color check that validates a caption. A classified
+# scale paints the class a feature lands in, so a feature sitting just across a
+# mapclassify bin edge carries the adjacent block color (measured: 3/5 on a
+# fisherjenks k=7 layer); the sample is wide enough that a few of those cannot
+# outvote the rest. 12 keeps the check at a fraction of a millisecond.
+_FILL_AUTHOR_SAMPLE = 12
 # Features scanned for the distinct-color strip. The strip is a preview and the
 # panel only needs "at least two colors" plus 64 samples, so a low-cardinality
 # layer must not cost a full walk: past this budget the record is capped.
@@ -223,6 +227,49 @@ def _column_agreement(
     return hits, total
 
 
+def _caption_names_a_value(
+    rows: list[tuple[dict[str, Any], str]], caption: str
+) -> bool:
+    """Whether any sampled feature carries the caption as a numeric value.
+
+    The check runs over the whole sample, not its first row: a layer painted
+    with ``missing_kwds`` colors its missing features too, so a feature whose
+    value is NaN can open the sample. One missing value must not talk the scale
+    out of the whole layer — the color check skips that row anyway.
+    """
+    for props, _ in rows:
+        if caption in props and _numeric_value(props[caption]) is not None:
+            return True
+    return False
+
+
+def _stepped_agreement(
+    colormap: Any,
+    rows: list[tuple[dict[str, Any], str]],
+    column: str,
+) -> tuple[int, int]:
+    """How many sampled features carry one of a classified scale's own blocks.
+
+    A stepped scale paints discrete blocks, so membership is exact and needs no
+    probability bar: its own layer is painted in exactly those block colors,
+    even when a feature's value falls on the far side of a mapclassify bin edge
+    and the scale would draw the adjacent class. A foreign scale's palette
+    shares no block with the features, so the same test still refuses it.
+    """
+    blocks = [
+        hex_color
+        for color in getattr(colormap, "colors", ())
+        if (hex_color := _palette_hex(color)) is not None
+    ]
+    hits = total = 0
+    for props, color in rows:
+        if _numeric_value(props.get(column)) is None:
+            continue
+        total += 1
+        hits += any(_same_color(block, color) for block in blocks)
+    return hits, total
+
+
 def _pair_scale(
     colormaps: list[Any],
     features: list[Any],
@@ -232,47 +279,79 @@ def _pair_scale(
 
     The caption is the column geopandas drew the scale for. When it is a
     numeric property of the layer, that column is the answer and no other
-    column is ever considered; the color check only confirms the scale is this
-    layer's — two explore layers can caption their scales with the same column
-    name, and only one of the two scales paints these features.
+    column is ever considered; the color check then vetoes the pairing when the
+    features are not painted by that scale (a layer can share a property name
+    with a foreign scale), and it is the only thing standing between a caption
+    and a wrong field name.
 
-    A scale whose caption names no property of the layer is not claimed at
-    all: the panel then shows the colors the features carry, with no scale, no
-    column and no field name to invent. The absence is deliberate — a
-    correlated column (area / area_ha / area_km2, or a near-duplicate within a
-    couple of percent) reproduces the same coarse color bands, so 10 random
-    datasets with a caption that named no column picked the wrong column 10
-    times out of 10 at 2-6 classes. The check's other job is to refuse a scale
-    that a layer merely shares a property name with (measured: 0/5 sampled
-    features reproduce a foreign scale).
+    Two boundaries are deliberate and documented rather than guessed at:
+
+    * The caption is a declaration, the colors are the veto, and the check runs
+      per layer in render order. Columns with equivalent colors — an affine
+      pair such as area / area_ha, the docstring example — cannot be told
+      apart by any color check, so the first layer whose caption matches keeps
+      the scale and the second one ships its colors without a field. Guessing
+      one of two indistinguishable columns would just as often be wrong, at the
+      cost of the column that is right.
+    * A scale whose caption belongs to another layer is not claimed at all: the
+      panel then shows the colors the features carry, with no scale, no column
+      and no field name to invent. The absence is deliberate — a correlated
+      column (area / area_ha / area_km2, or a near-duplicate within a couple of
+      percent) reproduces the same coarse color bands, so 10 random datasets
+      with a caption that named no column picked the wrong column 10 times out
+      of 10 at 2-6 classes. The price is stated too: a stepped layer that loses
+      this way keeps its colors but drops the author's levels and breaks.
     """
     if not colormaps or not features:
         return None
     rows = _author_rows(features)
     if not rows:
         return None
-    props = rows[0][0]
     for colormap in colormaps:
         if id(colormap) in claimed:
             continue
         caption = getattr(colormap, "caption", None)
-        if not isinstance(caption, str) or caption not in props:
+        if not isinstance(caption, str) or not _caption_names_a_value(rows, caption):
             continue
-        if _numeric_value(props[caption]) is None:
-            continue
-        hits, total = _column_agreement(colormap, rows, caption)
-        if total and hits / total < _FILL_AUTHOR_AGREE:
-            _log.warning(
-                "LayerControl: the scale caption %r names a column, but only "
-                "%d/%d sampled features reproduce its colors; not claiming it",
-                caption,
-                hits,
-                total,
-            )
+        if isinstance(colormap, StepColormap):
+            # Discrete blocks are exactly comparable, so the class colors are
+            # the test: a feature painted by this scale always carries one of
+            # its k blocks, whichever side of a bin edge its value sits on.
+            hits, total = _stepped_agreement(colormap, rows, caption)
+            agrees = total == 0 or hits == total
+        else:
+            hits, total = _column_agreement(colormap, rows, caption)
+            agrees = not total or hits / total >= _FILL_AUTHOR_AGREE
+        if not agrees:
+            _warn_refused_caption(caption, hits, total)
             continue
         claimed.add(id(colormap))
         return colormap, caption
     return None
+
+
+# Captions already reported as refused, so re-rendering a page does not repeat
+# the same line for the same data: one refused caption is a signal, and a
+# two-layer map measured 16 identical warnings. The set is a log filter, not
+# state — it is cleared rather than grown when a long process renders many maps.
+_refused_captions: set[tuple[str, int, int]] = set()
+
+
+def _warn_refused_caption(caption: str, hits: int, total: int) -> None:
+    """Report a refused caption once per (caption, agreement) pair."""
+    note = (caption, hits, total)
+    if note in _refused_captions:
+        return
+    if len(_refused_captions) >= 64:
+        _refused_captions.clear()
+    _refused_captions.add(note)
+    _log.warning(
+        "LayerControl: the scale caption %r names a column, but only %d/%d "
+        "sampled features match its colors; not claiming it",
+        caption,
+        hits,
+        total,
+    )
 
 
 def _rgba_hex(color: object) -> str | None:
@@ -360,9 +439,10 @@ def _scale_payload(
         "vmax": float(colormap.vmax),
     }
     if column is not None:
-        # A column is named only on evidence (the caption, or the features'
-        # own colors reproducing the scale); a scale shipped without one must
-        # not invent a name.
+        # A column is named only on evidence: a scale is shipped only after its
+        # caption named a numeric property of the layer and the sampled colors
+        # agreed with it. The None arm exists for a hand-built record (tests)
+        # and must not invent a name.
         scale["column"] = column
     if stepped:
         scale["levels"] = len(colormap.colors)
@@ -382,11 +462,12 @@ def _fill_author(
     Reads properties.__folium_color, which geopandas.explore writes for every
     feature; a style_function layer has no such property and returns None, so
     JavaScript keeps the normal single-color arms for it. When the author also
-    declared a scale (a branca colormap on the map), it is paired by a color
-    check and shipped as ``scale``; otherwise the record still names how many
-    distinct colors the layer paints and samples them for the strip. A scale
-    is paired only through its caption, so the column is the author's string
-    and never a guess.
+    declared a scale (a branca colormap on the map), it is shipped as
+    ``scale`` only when its caption names one of the layer's numeric properties
+    and the sampled colors confirm it; otherwise the record still names how
+    many distinct colors the layer paints and samples them for the strip. The
+    caption is the declaration and the colors are the veto, so the column is
+    the author's string and never a guess.
     """
     data = _geojson_data(item)
     if data is None:
@@ -589,7 +670,6 @@ class LayerControl(BaseControl):
         data: list[dict[str, object]] = []
         seen: set[str] = set()
         candidates: list[Element] = [*self._children.values()]
-        colormaps: list[Any] = []
         if (parent := self._parent) is not None:
             candidates += [*parent._children.values()]
         # The explore scales live on the map, not on the layer: read them once

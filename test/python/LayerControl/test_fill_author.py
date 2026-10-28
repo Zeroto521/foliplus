@@ -367,12 +367,13 @@ def test_author_rows_skips_malformed_and_uncolored_features():
     features = [
         None,
         {"properties": {}},
-        *[{"properties": {"__folium_color": "#0d0887"}} for _ in range(6)],
+        *[{"properties": {"__folium_color": "#0d0887"}} for _ in range(20)],
     ]
 
     rows = _layer_control_mod._author_rows(features)
 
     assert len(rows) == _layer_control_mod._FILL_AUTHOR_SAMPLE
+    assert all(color == "#0d0887" for _, color in rows)
 
 
 def test_rgb_reads_short_hex_and_rejects_broken_hex():
@@ -527,3 +528,99 @@ def test_scale_does_not_read_a_map_it_is_not_attached_to():
     entry = _conf(html)["data"][0]
 
     assert "scale" not in entry["fillAuthor"]
+
+
+def test_a_missing_value_in_the_first_feature_does_not_drop_the_scale():
+    scale = _linear()
+    values = [float("nan"), 40.0, 90.0]
+    colors = ["lightgrey", *(str(scale(value))[:7] for value in values[1:])]
+    # missing_kwds paints the NaN feature, so the sample opens on a row the
+    # scale cannot sample. The caption still names the layer's column: one
+    # missing value must not cost the whole layer its scale (it did before the
+    # caption check looked past the first sampled row).
+    meta = _meta(_geo(colors, values=values), scale)
+
+    assert meta["scale"]["kind"] == "continuous"
+    assert meta["scale"]["column"] == "score"
+    assert len(meta["stops"]) == 64
+
+
+def test_a_stepped_scale_accepts_its_own_blocks_across_a_bin_edge():
+    scale = _stepped()
+    # Every feature sits in the first class, but the layer paints them with all
+    # four blocks: mapclassify's bin edges do exactly this on a fisherjenks
+    # layer, and a probability bar over-rejected it. Membership in the author's
+    # block set is the exact test a classified scale deserves.
+    blocks = [str(scale(value))[:7] for value in (10.0, 30.0, 60.0, 90.0)]
+    colors = blocks * 3
+    meta = _meta(_geo(colors, values=[20.0] * len(colors)), scale)
+
+    assert meta["scale"]["kind"] == "stepped"
+    assert meta["scale"]["column"] == "score"
+    assert meta["scale"]["levels"] == 4
+    assert meta["scale"]["breaks"] == [0, 25, 50, 75, 100]
+
+
+def test_a_stepped_scale_is_refused_when_a_color_is_not_one_of_its_blocks():
+    scale = _stepped()
+    # Same property name, other palette: no block of this scale paints them.
+    colors = ["#0d0887", "#6a00a8", "#b12a90", "#f0f921", "#0d0887", "#6a00a8"]
+    meta = _meta(_geo(colors, values=[20.0] * len(colors)), scale)
+
+    assert "scale" not in meta
+
+
+def test_affine_equivalent_columns_are_claimed_by_render_order():
+    scale = _linear(("#440154", "#fde725"), caption="score", vmin=0, vmax=100)
+    values = [10.0, 40.0, 90.0]
+    explore = _geo(
+        [str(scale(value))[:7] for value in values], values=values, name="Explore"
+    )
+    # The plain layer paints an affine column (value = 3 * score + 10, the
+    # area / area_ha case): the colors are identical at every stop, so no color
+    # check can tell the two columns apart. Documented limitation, pinned here
+    # so it is not mistaken for a regression later: the first caption in render
+    # order keeps the scale, and the real owning layer ships colors only.
+    plain = _geo(
+        [str(scale(value))[:7] for value in values],
+        column="value",
+        values=[3.0 * value + 10.0 for value in values],
+        name="Plain",
+    )
+    for feature, value in zip(plain.data["features"], values):
+        feature["properties"]["score"] = value
+    html = _render(plain, explore, scales=(scale,))
+    data = {entry["name"]: entry for entry in _conf(html)["data"]}
+
+    assert data["Plain"]["fillAuthor"]["scale"]["column"] == "score"
+    assert "scale" not in data["Explore"]["fillAuthor"]
+
+
+@pytest.mark.parametrize("k", [7, 8, 9])
+def test_a_fisherjenks_caption_survives_the_bin_edges(k):
+    np = pytest.importorskip("numpy")
+    gpd = pytest.importorskip("geopandas")
+    pytest.importorskip("mapclassify")
+    # The dataset echo measured: fisherjenks k >= 7 put 3 of the 5 sampled
+    # features on the far side of a bin edge, and the majority bar refused a
+    # correctly captioned scale. Every block color is still the author's.
+    rng = np.random.default_rng(16)
+    score = np.round(rng.uniform(0, 100, 43), 4)
+    frame = gpd.GeoDataFrame(
+        {"score": score},
+        geometry=gpd.points_from_xy(range(43), [x * 0.5 for x in range(43)]),
+    )
+    m = folium.Map()
+    frame.explore(m=m, column="score", scheme="fisherjenks", k=k, name="A")
+    layer = [v for v in m._children.values() if type(v).__name__ == "GeoJson"][0]
+    scales = [
+        v
+        for v in m._children.values()
+        if type(v).__name__ in ("LinearColormap", "StepColormap")
+    ]
+    payload = _layer_control_mod._fill_author(layer, scales, set())
+
+    assert payload["scale"]["kind"] == "stepped"
+    assert payload["scale"]["column"] == "score"
+    assert payload["scale"]["levels"] == k
+    assert all(isinstance(edge, float) for edge in payload["scale"]["breaks"])

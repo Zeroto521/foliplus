@@ -369,8 +369,9 @@ const originalCaption = (ui: LayerUI, author: AuthorFill | null): string => {
 const buildOriginalDetail = (ui: LayerUI, layerId: string): HTMLElement[] => {
   const author = authorFill(ui, layerId);
   const rows: HTMLElement[] = [];
-  // A scale shipped without a column (the author overrode the caption) still
-  // paints the real strip, so it renders everything but the field row.
+  // A shipped scale always names its column (it is claimed only through a
+  // caption naming a numeric property), so this guard only covers a hand-built
+  // record: such a record still paints the real strip, everything but the row.
   if (author?.scale?.column) {
     rows.push(
       formRow(
