@@ -19,7 +19,7 @@
 // the HeatmapControl border row and the annotation label row — one
 // <input type=color> inside a FORM_ROW, no reset button on the row itself
 // (the panel-wide Reset handles it, the way label color has it).
-import { CLASS_COUNT, METHOD } from "#core/classify.js";
+import { CLASS_COUNT, CLASS_COUNT_VALUES, METHOD } from "#core/classify.js";
 import { numericPropertiesKeys, resolveField } from "#core/field.js";
 import {
   dropdownSurface,
@@ -32,7 +32,12 @@ import type { FillMode, FillRampConfig, LayerOverride } from "#core/layer/intent
 import { DEFAULT_SCHEMES, getColorScale } from "#core/palette.js";
 import { buildClassesRow, buildFieldRow, buildSchemeRow } from "#core/rampForm.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
+import {
+  type DeclaredFill,
+  readDeclaredFill,
+} from "#foliplus/LayerControl/declaredFill.js";
 import { dom } from "#common/dom.js";
+import { dropdownOf } from "#common/dropdown.js";
 import {
   bindLiveColor,
   bindLiveNumber,
@@ -164,7 +169,10 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
   // with neither is in the author's own original colors. The arms are mutually
   // exclusive on apply, even though every config stays stored (a mode switch
   // back must restore the other arm).
-  const ramp = getIntent(ui, layerId, INTENT.FILL_RAMP);
+  // A declared ramp (#789) is a read-time default, so this arm can be "ramp"
+  // with nothing in the intent store: `effectiveFillRamp` is the same chain
+  // the panel reads, so the map and the row cannot disagree about it.
+  const ramp = effectiveFillRamp(ui, layerId);
   const mode = displayFillMode(ui, layerId);
 
   if (mode === "ramp" && ramp !== undefined) {
@@ -172,9 +180,15 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
     // the authored pane paint instead of painting nothing.
     if (!isColorBasemap(layerInfo)) {
       // Paint the column the row shows: the stored config's field resolved
-      // against the current data, the same rule `rampForUi` applies.
-      applyRampToLayer(ui, layerId, resolvedRamp(ui, layerId, ramp)!, stored =>
-        resolvedRamp(ui, layerId, stored)!,
+      // against the current data, the same rule `rampForUi` applies. The live
+      // reader is that chain again, so the highlight pin replays the declared
+      // ramp on mouseout instead of folium's flat author face.
+      applyRampToLayer(
+        ui,
+        layerId,
+        resolvedRamp(ui, layerId, ramp)!,
+        stored => resolvedRamp(ui, layerId, stored)!,
+        () => effectiveFillRamp(ui, layerId),
       );
     }
     return;
@@ -363,8 +377,17 @@ const paintsPerFeatureFill = (ui: LayerUI, layerId: string): boolean =>
 const displayFillMode = (ui: LayerUI, layerId: string): FillMode => {
   const ramp = getIntent(ui, layerId, INTENT.FILL_RAMP);
   const stored = getIntent(ui, layerId, INTENT.FILL_MODE);
-  if (!paintsPerFeatureFill(ui, layerId)) return resolveFillMode(ui, layerId, ramp);
+  // One precedence chain, highest first:
+  //   1. an explicit arm the user stored (INTENT.FILL_MODE);
+  //   2. the author's declared ramp (#789) — a real instruction, so it
+  //      outranks the presentation state detected from the author's paint;
+  //   3. the detected per-feature state, the pre-fillMode record shape and
+  //      the built-in fallback, in the order below.
+  // (2) cannot shadow (1): `declaredFill` reads undefined the moment either
+  // fill intent exists, so a stored arm is never overridden by a declaration.
   if (stored !== undefined) return stored;
+  if (declaredRamp(ui, layerId)) return "ramp";
+  if (!paintsPerFeatureFill(ui, layerId)) return resolveFillMode(ui, layerId, ramp);
   // A ramp config means the user already classified (the pre-fillMode record
   // shape). A lone fill color means the solid arm owns the paint — that is how
   // a record written before this arm existed still reads, and how a
@@ -555,17 +578,56 @@ const resolvedRamp = (
     ? undefined
     : { ...ramp, field: resolveField(ramp.field, numericFields(ui, layerId)) };
 
-/** A fill ramp the layer *declares* from Python (PR #789, in progress).
+/** The author's fill declaration in force on this layer, or undefined.
  *
- *  Nothing declares one yet, so this returns undefined and the chain below
- *  falls through to the seed. It exists now, as its own read point, because a
- *  declared config belongs in the same chain as the user's intent: #789 only
- *  has to implement this function plus the copy that reads it, and must not
- *  have to rewire the ramp arm. The author scale deliberately sits outside
+ *  A declaration is a read-time default, not user intent: any fill ramp or
+ *  mode intent means the user owns the arm and the declaration steps aside
+ *  (the same rule the detected per-feature state follows). A declared ramp is
+ *  only in force while the data still offers its column — a declaration whose
+ *  field vanished is not silently re-pointed at another column; the whole
+ *  declaration falls back to the per-feature paint / built-in default
+ *  instead. */
+const declaredFill = (ui: LayerUI, layerId: string): DeclaredFill | undefined => {
+  if (getIntent(ui, layerId, INTENT.FILL_RAMP) !== undefined) return undefined;
+  if (getIntent(ui, layerId, INTENT.FILL_MODE) !== undefined) return undefined;
+  const layerInfo = ui.c.layerRegistry.get(layerId);
+  const declared = readDeclaredFill(
+    layerInfo?.layer ?? ui.c.findLayer(layerId),
+    layerId,
+  ).declared;
+  if (!declared?.ramp) return declared;
+  return numericFields(ui, layerId).includes(declared.ramp.field)
+    ? declared
+    : undefined;
+};
+
+/** A fill ramp the layer *declares* from Python (#789).
+ *
+ *  The declaration sits in the same chain as the user's intent, not beside
+ *  it: it is a read-time default the panel and the paint both read, so a
+ *  later panel edit always wins and Reset — which clears the intent — shows
+ *  the declaration through again. The author scale deliberately sits outside
  *  this chain — it feeds the read-only original-colors state and the seed,
  *  never the user's by-value record. */
-const declaredRamp = (_ui: LayerUI, _layerId: string): FillRampConfig | undefined =>
-  undefined;
+const declaredRamp = (ui: LayerUI, layerId: string): FillRampConfig | undefined => {
+  const declared = declaredFill(ui, layerId);
+  return declared?.mode === "ramp" ? declared.ramp : undefined;
+};
+
+/** The ramp config the fill paints and reports when the user has not chosen:
+ *  the stored intent, else the author's declared ramp. */
+const effectiveFillRamp = (ui: LayerUI, layerId: string): FillRampConfig | undefined =>
+  getIntent(ui, layerId, INTENT.FILL_RAMP) ?? declaredRamp(ui, layerId);
+
+/** Whether a declaration names a ramp arm — the cheap form for gates that run
+ *  before an apply allocates its scheduler box (no field resolution). */
+const hasDeclaredRamp = (ui: LayerUI, layerId: string): boolean => {
+  const layerInfo = ui.c.layerRegistry.get(layerId);
+  return (
+    readDeclaredFill(layerInfo?.layer ?? ui.c.findLayer(layerId), layerId).declared
+      ?.mode === "ramp"
+  );
+};
 
 /** The ramp config a first switch to the by-value arm starts from. The field
  *  is the caller's seed field; method/classes/scheme come from the shared
@@ -746,6 +808,25 @@ const buildRampDetail = (
     classesClass: CONST.CLASSES.STYLE_FILL_CLASSES_SELECT,
     surface: dropdownSurface(ui.c.map.getContainer()),
   });
+  // The author palette may have more classes than the picker vocabulary
+  // offers: show that count as its own option so the row states the class
+  // count the author actually used. The first user pick replaces it with a
+  // normal 2..9 value.
+  if (!CLASS_COUNT_VALUES.includes(ramp.classes)) {
+    const option = document.createElement("option");
+    option.value = String(ramp.classes);
+    option.textContent = String(ramp.classes);
+    option.title = ui.T("style_fill_classes_out_of_range");
+    classes.classesSelect.append(option);
+    classes.classesSelect.value = String(ramp.classes);
+    // #793: the bridged select is hidden and the trigger is the control the
+    // user sees, so the explanation rides the dropdown's own hint channel
+    // (a `title` on the select is invisible and would be overwritten by the
+    // label render) and `refresh()` re-reads the option list just rewritten.
+    classes.classesDropdown.refresh();
+    classes.classesDropdown.setHint(ui.T("style_fill_classes_out_of_range"));
+  }
+
   const scheme = buildSchemeRow({
     label: ui.T("style_fill_scheme"),
     triggerClass: CONST.CLASSES.STYLE_FILL_SCHEME_TRIGGER,
@@ -919,6 +1000,30 @@ const bindSolidDetail = (ui: LayerUI, layerId: string, detail: HTMLElement): voi
   }
 };
 
+/** State the committed class count on the ramp row.
+ *
+ *  The write path clamps to the editable 2..9 vocabulary, so an author-declared
+ *  count (12, say) stops describing the row the moment the user edits it.
+ *  Rewriting the select alone would not be enough: the bridged dropdown cannot
+ *  see a property write, and the retired option keeps its own explanation, so
+ *  the trigger, its tooltip and the open list would disagree with the map until
+ *  the panel was reopened. Retire the out-of-range option, state the committed
+ *  count and re-read the trigger in place — re-rendering the detail instead
+ *  would drop focus from the control the user is still holding (the #793 rule).
+ *  A row that never showed an out-of-range count needs nothing: the select
+ *  already states the count the user picked. */
+const convergeClassesRow = (select: HTMLSelectElement, classes: number): void => {
+  const extra = Array.from(select.options).find(
+    option => !CLASS_COUNT_VALUES.includes(Number(option.value)),
+  );
+  if (!extra) return;
+  extra.remove();
+  select.value = String(classes);
+  const dropdown = dropdownOf(select);
+  dropdown?.setHint("");
+  dropdown?.refresh();
+};
+
 /** Bind the ramp arm's three controls, including the shared scheme picker.
  *
  *  Every element is built by `buildRampDetail` immediately above, so the
@@ -978,6 +1083,10 @@ const bindRampDetail = (ui: LayerUI, layerId: string, detail: HTMLElement): void
     // The strip has one block per class: keep the picker's preview in step
     // with the count the map is now using.
     picker.setNumClasses(next.classes);
+    // The row states what the map now paints — trigger label, tooltip and open
+    // list together — instead of leaving the declared count's presentation
+    // behind on a control the user has already overridden.
+    convergeClassesRow(classesSelect, next.classes);
   };
 };
 
@@ -1058,6 +1167,32 @@ const bindFillRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => {
   bindFillDetail(ui, layerId, detail, displayFillMode(ui, layerId));
 };
 
+/** One attach-sweep paint per layer: `applyUserState()` also runs on folds
+ *  and renames, and a declared ramp reclassifies every leaf — an idempotent
+ *  but O(N) walk the sweep should not repeat. */
+const declaredReplayed = new WeakMap<LayerUI, Set<string>>();
+
+/** Attach-sweep replay for author-declared fills only.
+ *
+ *  The provenance loop in `replayFillState` reaches only layers the user
+ *  touched; a layer whose fill is declared but never edited is absent from
+ *  it, and only a declaration needs the extra pass. Layers with a stored
+ *  intent are skipped so the sweep does not apply the same fill twice. */
+const replayDeclaredFill = (ui: LayerUI, id: string): void => {
+  for (const key of FILL_INTENT_KEYS) {
+    if (getIntent(ui, id, key) !== undefined) return;
+  }
+  if (declaredFill(ui, id)?.mode !== "ramp") return;
+  let painted = declaredReplayed.get(ui);
+  if (painted?.has(id)) return;
+  applyFillToLayer(ui, id);
+  if (!painted) {
+    painted = new Set();
+    declaredReplayed.set(ui, painted);
+  }
+  painted.add(id);
+};
+
 /** Replay a layer's stored fill state (color + opacity) onto the map.
  *  Called from `applyUserState` on attach and late registration so a
  *  persisted value survives a reload. */
@@ -1068,6 +1203,10 @@ const replayFillState = (ui: LayerUI, id: string): void => {
       return;
     }
   }
+  // No user intent: an author-declared ramp still has to reach the map on
+  // attach — a declaration is a read-time default, not a stored override, so
+  // nothing else replays it and the map would open on the per-feature paint.
+  if (declaredFill(ui, id)?.mode === "ramp") applyFillToLayer(ui, id);
 };
 
 /** Register fill as a per-layer dimension. The descriptor wires the existing
@@ -1105,7 +1244,7 @@ const FILL_DIMENSION = registerDimension<{
       // on an explore layer, to the author's own colors) rather than claiming
       // a solid paint the map is not showing.
       mode: displayFillMode(ui, layerId),
-      ramp: resolvedRamp(ui, layerId, getIntent(ui, layerId, INTENT.FILL_RAMP)),
+      ramp: resolvedRamp(ui, layerId, effectiveFillRamp(ui, layerId)),
     };
   },
   row: buildFillRow,
@@ -1126,6 +1265,13 @@ const FILL_DIMENSION = registerDimension<{
   reset: (ui, layerId) => {
     cancelStyleDimApply(FACE.FILL, layerId, ui);
     resetIntentKeys(ui, layerId, FILL_INTENT_KEYS);
+    // The declaration is Reset's target too: clearing the user's intent must
+    // reveal the author's declared ramp, not the per-feature paint beneath
+    // it. Applying here reads the declaration from the layer (no intent left).
+    if (declaredFill(ui, layerId)?.mode === "ramp") {
+      applyFillToLayer(ui, layerId);
+      return;
+    }
     const layer = ui.c.findLayer(layerId) as StyleCarrier | null;
     if (!layer) return;
     // An explore layer declared each feature's color: read the leaves lazily
@@ -1171,7 +1317,8 @@ const FILL_DIMENSION = registerDimension<{
     kind: "frame",
     face: FACE.FILL,
     when: (ui, layerId) =>
-      FILL_INTENT_KEYS.some(key => getIntent(ui, layerId, key) !== undefined),
+      FILL_INTENT_KEYS.some(key => getIntent(ui, layerId, key) !== undefined) ||
+      hasDeclaredRamp(ui, layerId),
     run: (ui, layerId) => applyFillToLayer(ui, layerId),
   },
 });
@@ -1185,6 +1332,7 @@ export {
   disposeFillRow,
   FILL_DIMENSION,
   layerCanFill,
+  replayDeclaredFill,
   replayFillState,
   resetLayerFill,
 };

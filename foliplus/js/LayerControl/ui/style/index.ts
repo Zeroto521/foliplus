@@ -426,4 +426,4 @@ export {
 } from "./label.js";
 export { ANNOTATION_DIMENSION, layerCanLabel } from "./annotation.js";
 export { layerHasStyleDelegation } from "./delegated.js";
-export { replayFillState } from "./fill.js";
+export { replayDeclaredFill, replayFillState } from "./fill.js";
