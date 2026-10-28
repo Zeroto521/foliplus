@@ -44,7 +44,7 @@ async () => {
   const list = () => document.querySelector(".foliplus-dropdown-list");
   const optionEls = () =>
     Array.from(document.querySelectorAll(".foliplus-dropdown-option"));
-  const optionEl = value =>
+  const optionRow = value =>
     optionEls().find(el => el.getAttribute("data-value") === value) || null;
   const openPopup = async () => {
     trigger().click();
@@ -54,7 +54,7 @@ async () => {
    *  inside (the popup lives on the map surface, not in the panel), then the
    *  click toggles the row without closing the popup. */
   const clickOption = async value => {
-    const target = optionEl(value);
+    const target = optionRow(value);
     if (!target) return false;
     target.dispatchEvent(
       new MouseEvent("pointerdown", { bubbles: true, cancelable: true }),
