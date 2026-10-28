@@ -163,7 +163,7 @@ const buildRowCell = (ui: LayerUI, layerInfo: LayerInfo): RowCell => {
   const type = rowType(ui, layerInfo, layer);
   const typeLabel = ui.T(type.key);
   // Row tooltips say 点/Point and 地图/Map for a base row; the attrs panel
-  // keeps the long 点图层/Point Layer and 基础底图/Tile Map labels. The base
+  // keeps the long 点图层/Point Layer and 瓦片底图/Tile Map labels. The base
   // row's pair is type_tile_map + type_tile_map_short so both words name the
   // row itself without borrowing the colour row's vocabulary. `type.key` is
   // dynamic, so the short keys are listed in the locale guard's supplement.

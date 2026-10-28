@@ -283,6 +283,27 @@ const getPortalHost = (state: InternalState): HTMLElement => {
   return (document.fullscreenElement as HTMLElement) ?? document.body;
 };
 
+/** Publish the lane a layout scrollbar takes from the dropdown's content.
+ *
+ *  A classic scrollbar reserves real width; an overlay one reserves none; and
+ *  the dropdown's stable gutter keeps the lane the same in the scrolling and
+ *  fitting states. The item strip subtracts the measured value from its right
+ *  inset (scheme-picker.css), so it lands on the trigger strip's right edge in
+ *  every combination. Re-measured when the dropdown is re-seated (fullscreen,
+ *  resize), where the lane can change with the zoom level. */
+/** A computed width as a plain number of CSS px; "" and "0px" both read as 0. */
+const borderPx = (value: string) => Number(value.replace(/[^0-9.]/g, ""));
+
+const syncScrollbarWidth = (dropdown: HTMLElement) => {
+  const style = window.getComputedStyle(dropdown);
+  const borders = borderPx(style.borderLeftWidth) + borderPx(style.borderRightWidth);
+  const lane = Math.max(
+    0,
+    Math.round(dropdown.offsetWidth - dropdown.clientWidth - borders),
+  );
+  dropdown.style.setProperty("--foliplus-scheme-picker-scrollbar-width", `${lane}px`);
+};
+
 const mountDropdown = (state: InternalState) => {
   const dropdown = buildDropdown(state);
   state.dropdown = dropdown;
@@ -305,6 +326,7 @@ const mountDropdown = (state: InternalState) => {
         target.appendChild(dropdown);
       }
       positionDropdown(state, dropdown);
+      syncScrollbarWidth(dropdown);
     };
     if (state.onSurfaceChange) {
       // The injected subscription covers native fullscreen and the pseudo
@@ -318,7 +340,10 @@ const mountDropdown = (state: InternalState) => {
     }
     // Re-pin on a trigger scroll or a window resize. Portal-only: inline mode
     // is anchored by CSS, so it needs neither listener.
-    const reposition = () => positionDropdown(state, dropdown);
+    const reposition = () => {
+      positionDropdown(state, dropdown);
+      syncScrollbarWidth(dropdown);
+    };
     window.addEventListener("scroll", reposition, true);
     window.addEventListener("resize", reposition);
     state.mountCleanupFns.push(() => {
@@ -384,6 +409,10 @@ const mountDropdown = (state: InternalState) => {
     );
     state.items[activeIdx].focus();
   }
+
+  // The dropdown is in the DOM now (both mount modes), so the lane is real
+  // unless the platform draws overlay scrollbars.
+  syncScrollbarWidth(dropdown);
 
   state.onToggle?.(true, dropdown);
 };
@@ -525,6 +554,9 @@ const toggleDropdown = (state: InternalState) => {
 
 const refreshDropdown = (state: InternalState) => {
   if (!state.dropdown) return;
+  // Items can change height (classes count) and cross the max-height
+  // threshold; a platform without a stable gutter only then grows one.
+  syncScrollbarWidth(state.dropdown);
   state.items.forEach(item => {
     const name = item.getAttribute("data-scheme-name");
     if (!name) return;
