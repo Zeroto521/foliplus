@@ -43,13 +43,7 @@ const isPortalOf = (node: Node, scope: Element | null): boolean => {
   if (!scope) return false;
   for (const root of roots) {
     if (root.node !== node && !root.node.contains(node)) continue;
-    if (
-      root.owner === scope ||
-      scope.contains(root.owner) ||
-      root.owner.contains(scope)
-    ) {
-      return true;
-    }
+    if (root.owner === scope || scope.contains(root.owner)) return true;
   }
   return false;
 };
