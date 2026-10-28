@@ -528,14 +528,15 @@ class LayerControl(BaseControl):
       method, class count, and scheme, or use a single fill color.
     - 🧰 Per-layer style drawer: opacity, zoom range, border, fill, size, and
       text labels with color, size, number format, and overlap control.
-    - 🔎 Filter a layer's features live by a numeric field and range, with a
-      kept/total readout and a Clear action.
+    - 🔎 Filter a layer's features live: a range on a numeric field, or a set
+      of values on a categorical one, with a kept/total readout and a Clear
+      action.
     - 🗂️ Row actions: rename, attributes, style, filter, and delete or clear
       with confirmation.
     - 💾 Panel state (order, visibility, folds, names, styles) persists across
       reloads.
-    - 🏷️ Per-layer text labels via ``foliplus={"annotation": {"field": ...}}``
-      on the layer itself.
+    - 🏷️ Per-layer text labels via ``foliplus={"label": {"field": ...}}`` on
+      the layer itself.
     - ⌨️ Keyboard navigation across rows and panels (see Shortcuts below).
     - 🎯 Zoom the map to a layer's extent (double-click / ⋮ / Alt+Enter).
 
