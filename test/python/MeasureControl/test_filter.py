@@ -14,28 +14,15 @@ from conftest import _js, use_page
 
 from .helper import _make_page
 
-DRAW_ALL = _js("MeasureControl/draw_all")
-
-DRAW_HIDDEN_TYPES = _js("MeasureControl/draw_hidden_types")
-
-OPEN_FILTER = _js("MeasureControl/open_filter")
-
-SET_VALUES = _js("MeasureControl/set_filter_values")
-
 CLEAR = _js("MeasureControl/clear_filter")
 
 READ_STATE = _js("MeasureControl/read_state")
-
-EXPAND_LAYERS = _js("MeasureControl/expand_layers")
 
 EXPAND_MEASURE = _js("MeasureControl/expand_measure")
 
 CLICK_EXPORT = _js("MeasureControl/click_export")
 
 DRAW_MARKER = _js("MeasureControl/draw_marker")
-DRAW_DISTANCE = _js("MeasureControl/draw_distance_for_filter")
-CLEAR_MEASUREMENTS = _js("MeasureControl/clear_measurements")
-DELETE_FIRST = _js("MeasureControl/delete_first_type")
 
 TYPES = ["distance", "polygon", "circle", "marker"]
 
@@ -55,13 +42,13 @@ def _sum_counts(*states):
 
 
 def _open_filter(page):
-    page.evaluate(EXPAND_LAYERS)
+    page.evaluate(_js("MeasureControl/expand_layers"))
     page.wait_for_selector(".foliplus-layer-ctrl.foliplus-is-expanded", timeout=5000)
     # Drawing a measurement can rebuild the row and close an already-open
     # panel; only re-open when it is actually gone.
     if page.query_selector(".foliplus-layer-filter-panel"):
         return
-    opened = page.evaluate(OPEN_FILTER)
+    opened = page.evaluate(_js("MeasureControl/open_filter"))
     assert opened["ok"], f"filter panel not reachable: {opened}"
     page.wait_for_selector(
         ".foliplus-layer-filter-panel", state="visible", timeout=5000
@@ -78,7 +65,7 @@ def _draw_all_options(page):
 def _draw_all(page):
     # Draw first: LayerControl rebuilds its list from runtime content changes, so
     # the Measure row is there once the measurements exist.
-    page.evaluate(DRAW_ALL)
+    page.evaluate(_js("MeasureControl/draw_all"))
     page.wait_for_timeout(600)
     _open_filter(page)
     return page.evaluate(READ_STATE)
@@ -88,7 +75,7 @@ def _select(page, values):
     # A filter write can rebuild the row and drop the panel; re-open it before
     # touching the checkboxes.
     _open_filter(page)
-    result = page.evaluate(SET_VALUES, values)
+    result = page.evaluate(_js("MeasureControl/set_filter_values"), values)
     assert result["ok"], result
     page.wait_for_timeout(250)
     return page.evaluate(READ_STATE)
@@ -203,7 +190,7 @@ class TestMeasureTypeFilterBrowser:
             # Draw a polygon and a marker while only distance is kept. Their
             # attach path re-adds leaves (z-order sort / centroid build); the
             # filter must replay on top of that and keep them off the map.
-            stored = page.evaluate(DRAW_HIDDEN_TYPES)
+            stored = page.evaluate(_js("MeasureControl/draw_hidden_types"))
             assert len(stored) == 6, stored
             page.wait_for_timeout(500)
             # The draw interaction rebuilds the row and closes the panel; the
@@ -283,7 +270,7 @@ class TestMeasureTypeFilterBrowser:
             assert state["options"] == ["marker"], state
             assert state["stored"] == ["marker"], state
 
-            page.evaluate(DRAW_DISTANCE)
+            page.evaluate(_js("MeasureControl/draw_distance_for_filter"))
             page.wait_for_timeout(700)
             state = _draw_all_options(page)
             assert sorted(state["options"]) == ["distance", "marker"], state
@@ -293,7 +280,7 @@ class TestMeasureTypeFilterBrowser:
             # instead of silently clearing the filter.
             state = _select(page, ["marker"])
             assert state["filter"]["values"] == ["marker"], state
-            page.evaluate(DELETE_FIRST, "marker")
+            page.evaluate(_js("MeasureControl/delete_first_type"), "marker")
             page.wait_for_timeout(700)
             state = _draw_all_options(page)
             assert state["stored"] == ["distance"], state
