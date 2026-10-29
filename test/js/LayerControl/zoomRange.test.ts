@@ -339,3 +339,31 @@ it("a layer with no declaration still opens on the map range", () => {
   });
   fixture.manager.debouncedEnforce?.cancel?.();
 });
+
+it("collapses a declaration outside the layer's own rail onto the nearest bound", () => {
+  // The slider draws the layer's rail (`options.minZoom/maxZoom`), which can
+  // be narrower than the map. A declaration below that rail ([5, 8] on a
+  // [14, 16] rail) cannot be drawn at all, so the row collapses onto the
+  // nearest reachable bound — 14 — instead of an inverted interval.
+  const layer = polygonLayer();
+  (layer.options as { minZoom?: number; maxZoom?: number }).minZoom = 14;
+  (layer.options as { minZoom?: number; maxZoom?: number }).maxZoom = 16;
+  const fixture = initFixture({
+    data: [
+      {
+        id: "overlay1",
+        name: "Polygons",
+        role: "overlay",
+        layer,
+        zoom: { min: 5, max: 8 },
+      },
+    ],
+  });
+  trackMembership(fixture.map);
+
+  expect(ZOOM_RANGE_DIMENSION.value!(fixture.ui, "overlay1")).toEqual({
+    min: 14,
+    max: 14,
+  });
+  fixture.manager.debouncedEnforce?.cancel?.();
+});

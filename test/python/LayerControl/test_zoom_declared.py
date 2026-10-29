@@ -114,3 +114,15 @@ def test_declared_zoom_does_not_touch_leaflet_zoom_options():
     assert "minZoom" not in layer.options
     assert "maxZoom" not in layer.options
     assert layer.options["foliplus"] == {"zoom": {"min": 8, "max": 12}}
+
+
+def test_non_mapping_fill_namespace_warns_and_is_ignored():
+    # fill / label are the JS panel's namespace: a non-mapping value cannot
+    # be a config object, so it is reported once and left to the panel. zoom
+    # stays independent of that shape check.
+    with pytest.warns(UserWarning, match=r"foliplus\['fill'\]"):
+        html = _render(_geo(foliplus={"fill": "red"}))
+
+    entry = _conf(html)["data"][0]
+    assert "zoom" not in entry
+    assert entry["name"] == "Declared"

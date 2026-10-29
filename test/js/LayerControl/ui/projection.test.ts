@@ -8,6 +8,7 @@ import { LayerIntentStore } from "#foliplus/LayerControl/domain/index.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
 import { clearIntent, setIntent } from "#foliplus/LayerControl/ui/intent.js";
 import {
+  authorZoomRowRange,
   currentOpacity,
   inZoomRange,
   projectLayer,
@@ -283,5 +284,41 @@ describe("inZoomRange (author-declared range)", () => {
     (ui.c as any).surfaceFor = () => ({ capabilities: { zoomRange: "none" } });
     const layer = layerWithZoom("cap-none", { min: 8, max: 12 });
     expect(projectLayer(ui, layer).effectiveShown).toBe(false);
+  });
+});
+
+// The row's own view of the declaration (`authorZoomRowRange`): a slider must
+// always show a drawable value, so it differs from the policy only on the
+// degenerate case — the policy judges the declaration itself (the layer may
+// still be shown), the row collapses onto the nearest bound the map can draw.
+// A layer the registry no longer holds has no declaration to read.
+describe("authorZoomRowRange (the row's fallback range)", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const layerWithZoom = (id: string, zoom: { min: number; max: number }) =>
+    ({ id, layer: null, canvas: null, zoom }) as any;
+
+  it("collapses a declaration outside the map onto the nearest bound", () => {
+    // Same payload as the policy case above, different consumer: the row has
+    // to hand the slider a value it can draw, so [20, 30] on a map capped at
+    // 18 becomes [18, 18] — with its own warning, because the row is where
+    // the author sees the collapse.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const ui = makeUI({ minZoom: 0, maxZoom: 18 });
+    expect(
+      authorZoomRowRange(ui, layerWithZoom("row-degenerate", { min: 20, max: 30 })),
+    ).toEqual({ min: 18, max: 18 });
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  it("has no range to draw for a layer the registry cannot resolve", () => {
+    // Mirrors the call site: `syncZoomRangeRow` passes
+    // `layerRegistry.get(id)` straight through, so a row refreshed after its
+    // layer left CONF must fall back to "not declared", not throw.
+    const ui = makeUI();
+    expect(authorZoomRowRange(ui, undefined)).toBeUndefined();
+    expect(authorZoomRowRange(ui, null)).toBeUndefined();
   });
 });
