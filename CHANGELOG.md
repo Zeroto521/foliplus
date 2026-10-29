@@ -23,6 +23,7 @@
 - `LayerControl`: the author declaration namespace key is renamed `annotation` → `label` (**Breaking**: the old key is no longer read) ([#790](https://github.com/Zeroto521/foliplus/pull/790))
 - Shared dropdown: the panels' native selects share one ARIA listbox popup portalled out of the panel, so a short panel no longer clips it ([#793](https://github.com/Zeroto521/foliplus/pull/793))
 - `LayerControl`: the label field picker offers only real fields — the Auto entry is gone, and an unset or stale field resolves to the default field ([#801](https://github.com/Zeroto521/foliplus/pull/801))
+- Overlay panels: Escape dismisses exactly one layer, and the overlay registry is its only owner — it closes the top-most open surface by stack rank, so a portalled scheme list or filter enum takes the first press and its row panel the next; row panels, the filter panel and the LayerControl container install no Escape handler of their own ([#807](https://github.com/Zeroto521/foliplus/pull/807))
 
 ### Removed
 
