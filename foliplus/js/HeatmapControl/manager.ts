@@ -329,6 +329,12 @@ class HeatmapManager {
             labelSize: this.labelSize,
             labelFormat: this.labelFormat,
             field: this.field,
+            // A seeded declaration lands here on any unrelated save (a colour
+            // change), so it is restored as a per-source filter even after the
+            // author drops the declaration. Accepted: the record is visible in
+            // the panel (the slider sits on the range) and Clear or Reset
+            // removes it, while a seeded-vs-user marker on disk would be a
+            // second ownership signal beside filtersTouched.
             filters: serializedFilters(this.layerFilters),
             filtersTouched: this.filtersTouched,
           } satisfies SavedConfig,

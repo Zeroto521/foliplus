@@ -16,8 +16,11 @@ from __future__ import annotations
 
 import math
 import numbers
+import sys
 import warnings
 from collections.abc import Mapping, Sequence
+from pathlib import Path
+from types import FrameType
 from typing import Any, Literal
 
 #: The field the measurement-type filter is bound to. Mirrors
@@ -28,18 +31,58 @@ MEASURE_TYPE_FIELD = "type"
 FilterArm = Literal["range", "enum"]
 
 
+#: This package's directory. A declaration is written in the caller's cell, so
+#: a warning has to walk out of here to find the line worth pointing at.
+_PACKAGE_DIR = str(Path(__file__).resolve().parent)
+
+
+def _caller_stacklevel() -> int:
+    """Frames from ``warnings.warn`` out to the first frame outside this package.
+
+    The depth differs per call path - an arm helper is one frame further in
+    than the shape checks ``normalize_declared_filter`` makes itself - so the
+    caller's frame is found by walking out of the package instead of
+    hard-coding one number per call site.
+    """
+    frame: FrameType | None = sys._getframe(1)  # _warn, the warn() caller
+    level = 1
+    while frame is not None:
+        if not frame.f_code.co_filename.startswith(_PACKAGE_DIR):
+            return level
+        frame = frame.f_back
+        level += 1
+    return level
+
+
 def _warn(message: str) -> None:
-    """Report one unusable declaration.
+    """Report one unusable declaration at the line that wrote it.
 
     Never raises: a data-shaped problem (a range outside the field, a type
     name the runtime does not know) must be visible and ignored, not take the
     page down.
     """
-    warnings.warn(message, UserWarning, stacklevel=3)
+    warnings.warn(message, UserWarning, stacklevel=_caller_stacklevel())
+
+
+def _json_number(value: numbers.Real) -> int | float:
+    """Coerce a validated endpoint to a number ``json`` can serialise.
+
+    numpy and pandas scalars pass the ``numbers.Real`` check but not
+    ``json.dumps``, and ``between=[df["pop"].min(), df["pop"].max()]`` is the
+    natural way to write a declaration from a frame - so the AST carries
+    builtins only (``numbers.Integral`` -> int, every other Real -> float).
+    """
+    if isinstance(value, numbers.Integral):
+        return int(value)
+    return float(value)
 
 
 def _range_atom(raw: Mapping[Any, Any], owner: str) -> dict[str, Any] | None:
-    """The numeric arm: {field, between: [low, high]} -> a between atom."""
+    """The numeric arm: {field, between: [low, high]} -> a between atom.
+
+    Endpoints leave here as JSON-native numbers (see ``_json_number``):
+    everything downstream of the AST is serialised, not interpreted.
+    """
     field = raw.get("field")
     if not isinstance(field, str) or not field.strip():
         raise ValueError(
@@ -79,7 +122,7 @@ def _range_atom(raw: Mapping[Any, Any], owner: str) -> dict[str, Any] | None:
         "kind": "atom",
         "field": field.strip(),
         "op": "between",
-        "range": [low, high],
+        "range": [_json_number(low), _json_number(high)],
     }
 
 
