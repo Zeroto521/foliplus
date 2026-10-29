@@ -77,6 +77,20 @@ def _warn_foliplus_once(warned: set[str], key: str, message: str) -> None:
     warnings.warn(message, UserWarning, stacklevel=3)
 
 
+def _zoom_level(raw: object) -> int | None:
+    """One declared zoom end as an int, or None when it is not an integer.
+
+    bool is an int subclass but never a zoom level, so it is rejected too.
+    Returning the narrowed value keeps the caller's comparison and dict in int
+    territory; a loop-body isinstance check does not narrow past the loop, so
+    validating in a loop and using the names afterwards would need a second
+    round of checks here (or a cast) for no behavioural gain.
+    """
+    if isinstance(raw, int) and not isinstance(raw, bool):
+        return raw
+    return None
+
+
 def _declared_zoom(
     item: Layer, layer_name: str, warned: set[str]
 ) -> dict[str, int] | None:
@@ -91,7 +105,11 @@ def _declared_zoom(
     construction. This is the single read point, hence the single place that
     warns; every message names the layer so a typo is attributable.
     """
-    raw = item.options.get("foliplus")
+    # folium's base Layer (map.py) never assigns self.options: only the
+    # concrete subclasses do (Marker, GeoJson, FeatureGroup, TileLayer, ...).
+    # A bare Layer or a custom subclass is therefore a real runtime shape, not
+    # just a type hole, and it simply carries no declaration.
+    raw = getattr(item, "options", {}).get("foliplus")
     if raw is None:
         return None
     if not isinstance(raw, dict):
@@ -140,11 +158,14 @@ def _declared_zoom(
     if extra:
         _reject(f"with unknown key(s) {extra}; expected only min and max")
         return None
-    lo, hi = zoom.get("min"), zoom.get("max")
-    for name, value in (("min", lo), ("max", hi)):
-        if not isinstance(value, int) or isinstance(value, bool):
-            _reject(f"with a non-integer {name}={value!r}")
-            return None
+    raw_lo, raw_hi = zoom.get("min"), zoom.get("max")
+    lo, hi = _zoom_level(raw_lo), _zoom_level(raw_hi)
+    if lo is None:
+        _reject(f"with a non-integer min={raw_lo!r}")
+        return None
+    if hi is None:
+        _reject(f"with a non-integer max={raw_hi!r}")
+        return None
     if lo > hi:
         _reject(f"with min={lo} > max={hi}")
         return None
