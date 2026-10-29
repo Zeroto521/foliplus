@@ -118,6 +118,9 @@ function makeManager(opts?: { id?: string }) {
 afterEach(() => {
   document.body.innerHTML = "";
   window.localStorage.clear();
+  // CONFIG is shared process-wide; a declared-filter test must not leak its
+  // declaration into the next manager.
+  window.CONFIG = { ...window.CONFIG, filter: null };
 });
 
 describe("MeasureManager — persistence", () => {
@@ -2245,5 +2248,85 @@ describe("MeasureManager — type filter", () => {
     expect(createLayersOpts(map).filterProvider().filter).toBeUndefined();
     const key = (manager as any).filterStorageKey as string;
     expect(JSON.parse(window.localStorage.getItem(key)!).filter).toBeUndefined();
+  });
+
+  // ── Python-declared starting filter (CONFIG.filter) ──
+  // The record's presence is the ownership signal: no record -> the
+  // declaration seeds; a record (including an explicit clear) -> it does not.
+  it("seeds the declared filter when no record exists", () => {
+    window.CONFIG = {
+      ...window.CONFIG,
+      filter: filter([CONST.MEASURE_MODE.DISTANCE]),
+    };
+    const { manager, map } = makeManager();
+    addMeasurements(manager);
+
+    expect((manager as any).measureFilter).toEqual(
+      filter([CONST.MEASURE_MODE.DISTANCE]),
+    );
+    const model = createLayersOpts(map).filterProvider();
+    expect(model.kept).toBe(1);
+    expect(model.total).toBe(3);
+    expect(manager.visibleMeasurements().map((m: any) => m.id)).toEqual(["m2"]);
+  });
+
+  it("keeps the declaration out when a record exists, even a cleared one", () => {
+    const { manager } = makeManager();
+    const key = (manager as any).filterStorageKey as string;
+    // A cleared record: the user explicitly removed the filter, so the record
+    // exists but carries no filter. That is still ownership.
+    window.localStorage.setItem(key, JSON.stringify({ version: 1 }));
+    window.CONFIG = {
+      ...window.CONFIG,
+      filter: filter([CONST.MEASURE_MODE.DISTANCE]),
+    };
+
+    const { manager: reloaded, map } = makeManager();
+
+    expect((reloaded as any).measureFilter).toBeUndefined();
+    expect(createLayersOpts(map).filterProvider().filter).toBeUndefined();
+  });
+
+  it("a stored filter wins over the declaration", () => {
+    const { manager } = makeManager();
+    const key = (manager as any).filterStorageKey as string;
+    window.localStorage.setItem(
+      key,
+      JSON.stringify({ version: 1, filter: filter([CONST.MEASURE_MODE.MARKER]) }),
+    );
+    window.CONFIG = {
+      ...window.CONFIG,
+      filter: filter([CONST.MEASURE_MODE.DISTANCE]),
+    };
+
+    const { manager: reloaded } = makeManager();
+
+    expect((reloaded as any).measureFilter).toEqual(
+      filter([CONST.MEASURE_MODE.MARKER]),
+    );
+  });
+
+  it("reports an unknown declared type once and starts unfiltered", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    window.CONFIG = { ...window.CONFIG, filter: filter(["bogus"]) };
+
+    const { manager } = makeManager();
+
+    expect((manager as any).measureFilter).toBeUndefined();
+    expect((manager as any).declaredFilterWarned).toBe(true);
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the known values of a partially unknown declaration", () => {
+    window.CONFIG = {
+      ...window.CONFIG,
+      filter: filter([CONST.MEASURE_MODE.DISTANCE, "bogus"]),
+    };
+
+    const { manager } = makeManager();
+
+    expect((manager as any).measureFilter).toEqual(
+      filter([CONST.MEASURE_MODE.DISTANCE]),
+    );
   });
 });

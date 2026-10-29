@@ -390,11 +390,18 @@ const buildLayerListItems = (ctrl: HeatmapControlUI, sel: HTMLSelectElement) => 
     if (ctrl.extraBody) ctrl.extraBody.classList.remove(CONST.CLASSES.HIDDEN);
     syncSelect(ctrl, sel, ctrl.mgr.selectedLayerId);
     updateFieldSelector(ctrl);
+    // Declared filter: the source and its field list are settled, and this is
+    // the last point before the first render — the same slot the persisted
+    // record would have been restored into.
+    ctrl.mgr.seedDeclaredFilter();
     ctrl.mgr.renderHexagons();
   } else if (ctrl.mgr.selectedLayerId) {
     // Restored selection (localStorage / rebuild): resolve and persist the
     // field first so syncSourceMeta reads a concrete name.
     updateFieldSelector(ctrl);
+    // Same slot on the restore path: a declared filter seeds before the draw
+    // so the first paint already reflects it.
+    ctrl.mgr.seedDeclaredFilter();
     // A rebuild can be the only thing that re-applies a selection after the
     // canvas was wiped — Clear deletes the record, then reopening the panel
     // rebuilds the dropdown and the Python declaration selects the layer

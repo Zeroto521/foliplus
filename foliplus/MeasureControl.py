@@ -1,7 +1,9 @@
 from __future__ import annotations
 
-from typing import Literal
+from typing import Annotated, Literal
 
+from ._config_schema import FieldSpec
+from ._declared_filter import MEASURE_TYPE_FIELD, normalize_declared_filter
 from ._typing import ControlPosition
 from ._validate import validate
 from .BaseControl import BaseControl
@@ -152,6 +154,17 @@ class MeasureControl(BaseControl):
         label_show: bool = True,
         label_collide: bool = True,
         show_live_coords: bool = True,
+        filter: Annotated[
+            list[str] | None,
+            FieldSpec(
+                ts="object",
+                note=(
+                    "Declared measurement-type filter (friendly list of type "
+                    "names), normalised to the shared filter AST; a persisted "
+                    "user filter wins."
+                ),
+            ),
+        ] = None,
         filename: str = "measurements",
         export_format: ExportFormat = "geojson",
         collapse_on_outside: bool = True,
@@ -162,6 +175,12 @@ class MeasureControl(BaseControl):
         self.label_show = label_show
         self.label_collide = label_collide
         self.show_live_coords = show_live_coords
+        # The constructor argument is the friendly list; the exported attribute
+        # is the AST the runtime reads. Two values, one name only on the public
+        # surface: CONF must not grow a second filter dialect.
+        self.filter = normalize_declared_filter(
+            filter, owner="MeasureControl", arm="enum", enum_field=MEASURE_TYPE_FIELD
+        )
         self.filename = filename
         self.export_format = export_format
         self.collapse_on_outside = collapse_on_outside

@@ -126,6 +126,9 @@ class MeasureManager {
   /** The committed type filter (undefined = no filter). Kept apart from the
    *  measurements record so that record's shape stays unchanged. */
   private measureFilter: LayerFilter = undefined;
+  /** One-shot guard for the declared-filter warning: the declaration is read
+   *  once at construction, so one report is enough. */
+  private declaredFilterWarned = false;
   /** Rendered leaves of each measurement, keyed by measurement id. A filter
    *  hides/shows a whole measurement through these, never through a redraw. */
   private readonly itemLeaves = new Map<string, L.Layer[]>();
@@ -191,7 +194,13 @@ class MeasureManager {
     this.labelShow = env.config.label_show !== false;
     this.store = new MeasureStore(this.map, env, this.layerId);
     this.filterStorageKey = `${CONST.FILTER.STORAGE_PREFIX}_${mapInstance.getContainer().id}_${this.layerId}`;
-    this.measureFilter = this.loadMeasureFilter();
+    // The record's presence is the ownership signal: a stored record means the
+    // user owns the filter slot — including a record that says "cleared" — so
+    // the Python declaration only seeds when no record exists at all.
+    const filterState = this.loadFilterState();
+    this.measureFilter = filterState.stored
+      ? filterState.filter
+      : this.declaredMeasureFilter();
     // The config defaults were read above — snapshot them before any runtime
     // toggle so Reset cannot drift.
     const defaultLabelShow = this.labelShow;
@@ -459,17 +468,53 @@ class MeasureManager {
     }
   }
 
-  /** Load the committed filter from its own record. A corrupt or older record
-   *  carries no usable filter; values outside the current option domain are
-   *  dropped so a stale condition cannot hide every measurement. */
-  private loadMeasureFilter(): LayerFilter {
+  /** Load the committed filter from its own record, plus whether the record
+   *  exists at all.
+   *
+   *  The two are distinct states: an absent record means "the user never spoke,
+   *  the declaration may seed"; a present record with no filter means "the user
+   *  explicitly cleared it", and the declaration must stay out. A corrupt or
+   *  older record carries no usable filter; values outside the current option
+   *  domain are dropped so a stale condition cannot hide every measurement. */
+  private loadFilterState(): { filter: LayerFilter; stored: boolean } {
     const record = Storage.loadRecord<unknown>(this.filterStorageKey, this.config.name);
     if (!record || typeof record !== "object" || Array.isArray(record)) {
+      return { filter: undefined, stored: false };
+    }
+    return {
+      filter: this.normalizeMeasureFilter(
+        parsePersistedFilter((record as Record<string, unknown>).filter),
+      ),
+      stored: true,
+    };
+  }
+
+  /** The Python declaration as the starting filter.
+   *
+   *  Normalised through the same domain rules the panel writes through, so a
+   *  declared type the runtime does not know is dropped rather than hiding
+   *  every measurement. A declaration that normalises to nothing is reported
+   *  once and ignored — "declared" must never mean "filtered to empty". */
+  private declaredMeasureFilter(): LayerFilter {
+    const raw: unknown = this.config.filter;
+    if (raw == null) return undefined;
+    const declared = parsePersistedFilter(raw);
+    if (!declared) {
+      this.warnDeclaredFilter("unreadable declaration");
       return undefined;
     }
-    return this.normalizeMeasureFilter(
-      parsePersistedFilter((record as Record<string, unknown>).filter),
-    );
+    const next = this.normalizeMeasureFilter(declared);
+    if (!next) {
+      this.warnDeclaredFilter("no declared value is a measurement type");
+    }
+    return next;
+  }
+
+  /** One warning per declared-filter problem (construction runs once). */
+  private warnDeclaredFilter(reason: string): void {
+    if (this.declaredFilterWarned) return;
+    this.declaredFilterWarned = true;
+    this.log.warn("declared filter ignored:", reason);
   }
 
   /** Persist the committed filter (undefined = explicitly cleared). */

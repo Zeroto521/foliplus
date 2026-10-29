@@ -23,6 +23,7 @@ import {
   dropFilterForField,
   filterKey,
   normalizeFilter,
+  parsePersistedFilter,
   pickFilterField,
   revalidateStoredFilter,
   selectIndices,
@@ -197,6 +198,17 @@ class HeatmapManager {
    *  The LayerControl panel writes through the `filterSetter` capability;
    *  LAYER_FILTER_CHANGE is published *after* the state here is settled. */
   declare layerFilters: Map<string, LayerFilter>;
+  /** The Python-declared starting filter (CONFIG.filter), parsed once through
+   *  the same tolerant AST reader a persisted record uses. Undefined means
+   *  "not declared" — or a declaration the reader could not understand, in
+   *  which case {@link declaredFilterInvalid} is true and the seed reports it
+   *  once. */
+  declare declaredFilter: LayerFilter;
+  declare declaredFilterInvalid: boolean;
+  /** Whether the user owns the filter slot (see SavedConfig.filtersTouched).
+   *  A declaration seeds only while this is false; the factory Reset clears
+   *  it so the declaration returns with the rest of the defaults. */
+  declare filtersTouched: boolean;
   declare renderAll: boolean;
   /**
    * One-shot guard for the single-layer auto-select in buildLayerListItems.
@@ -264,6 +276,12 @@ class HeatmapManager {
       typeof CONFIG.layer === "string" && CONFIG.layer ? CONFIG.layer : null;
     this.declaredField =
       typeof CONFIG.field === "string" && CONFIG.field ? CONFIG.field : null;
+    // Declared filter: a starting condition, never user intent. Parsed here so
+    // the seed can report an unreadable payload once instead of per rebuild.
+    const rawDeclaredFilter: unknown = CONFIG.filter;
+    this.declaredFilter = parsePersistedFilter(rawDeclaredFilter);
+    this.declaredFilterInvalid = rawDeclaredFilter != null && !this.declaredFilter;
+    this.filtersTouched = false;
     this.declarationWarned = new Set();
     this.scheme = CONFIG.color_scheme ?? "Reds";
     this.method = resolveClassifyMethod(CONFIG.method);
@@ -312,6 +330,7 @@ class HeatmapManager {
             labelFormat: this.labelFormat,
             field: this.field,
             filters: serializedFilters(this.layerFilters),
+            filtersTouched: this.filtersTouched,
           } satisfies SavedConfig,
           CONFIG.name,
         ),
@@ -998,6 +1017,9 @@ class HeatmapManager {
     ) {
       return;
     }
+    // The user owns the filter slot from here on, including when the write
+    // cleared it: a declaration must not resurrect itself on the next load.
+    this.filtersTouched = true;
     this.saveConfig();
     // The filter is part of the agg key — drop the agg cache. cachedPoints
     // and cachedBins survive: filtering changes neither geometry nor point
@@ -1007,6 +1029,78 @@ class HeatmapManager {
     this.renderHexagons(operation);
     operation.emit(EVENTS.LAYER_FILTER_CHANGE, { id: this.layerId });
     operation.throwIfFailed();
+  }
+
+  /** One warning per declared-filter problem: the seed runs again on every
+   *  rebuild of the first open, and a per-rebuild warn would flood. */
+  private warnDeclaredFilter(reason: string): void {
+    const key = "filter:" + reason;
+    if (this.declarationWarned.has(key)) return;
+    this.declarationWarned.add(key);
+    this.log.warn("declared filter ignored:", reason);
+  }
+
+  /** Seed the Python-declared filter as the starting condition.
+   *
+   *  Called from the layer-list build once the source is settled and before
+   *  the first render. Two gates keep it from overriding the user: a persisted
+   *  record that already owns the filter slot (filtersTouched — including a
+   *  record that says "cleared"), and a restored per-source filter. The
+   *  factory Reset drops the ownership, so the declaration returns with the
+   *  rest of the declared defaults.
+   *
+   *  Validation is the runtime's, not the declaration's: the AST was parsed by
+   *  the same tolerant reader a stored record uses, then it is clamped to the
+   *  snapshot and bound to the dimension the panel can actually edit. A
+   *  declaration the panel cannot represent (an enum atom, a field the
+   *  dimension does not carry, no numeric extent) is reported once and
+   *  ignored — never turned into a filter that hides the layer. */
+  seedDeclaredFilter(): void {
+    if (this.filtersTouched) return;
+    const sourceId = this.selectedLayerId;
+    if (!sourceId || this.layerFilters.has(sourceId)) return;
+    if (!this.declaredFilter) {
+      if (this.declaredFilterInvalid) {
+        this.warnDeclaredFilter("unreadable declaration");
+      }
+      return;
+    }
+    this.getSelectedPoints();
+    const snapshot = this.cachedSnapshot;
+    const field = pickFilterField(snapshot, this.effectiveField());
+    const declared = this.declaredFilter;
+    if (declared.kind !== "atom") {
+      // The panel's only dimension is a numeric range; a declared enum/logical
+      // node has no row to show it on (task-102 covers that dimension).
+      this.warnDeclaredFilter("the panel filters a numeric range only");
+      return;
+    }
+    if (declared.field !== field) {
+      this.warnDeclaredFilter(
+        `bound to "${declared.field}", the panel filters "${field}"`,
+      );
+      return;
+    }
+    // A range that does not intersect the field's extent can never keep a
+    // point; normalising it would collapse it onto one bound and silently hide
+    // the data. Report it and start unfiltered — "declared" must never mean
+    // "filtered to empty".
+    const bounds = snapshot?.ranges[field];
+    if (declared.range && bounds) {
+      const [lo, hi] = declared.range;
+      if (hi < bounds[0] || lo > bounds[1]) {
+        this.warnDeclaredFilter(
+          `[${lo}, ${hi}] is outside "${field}"'s extent [${bounds[0]}, ${bounds[1]}]`,
+        );
+        return;
+      }
+    }
+    const next = normalizeFilter(declared, snapshot);
+    if (!next) {
+      this.warnDeclaredFilter(`"${field}" has no usable extent`);
+      return;
+    }
+    storeFilter(this.layerFilters, sourceId, next);
   }
 
   /** Align the stored filter for the selected source with the freshly
@@ -1200,8 +1294,11 @@ class HeatmapManager {
     this.cachedSnapshotLayerId = null;
     // Reset returns the manager to the Python-declared starting state: the
     // record is about to be deleted, so re-open the one-shot guard and let
-    // the declaration (and the single-layer auto-select) apply again.
+    // the declaration (and the single-layer auto-select) apply again. The
+    // filter slot's ownership goes with it — the declared filter is part of
+    // the declared state Reset returns to.
     this.hasScanned = false;
+    this.filtersTouched = false;
     if (clearedFilter) {
       publish(this.events, EVENTS.LAYER_FILTER_CHANGE, { id: this.layerId });
     }

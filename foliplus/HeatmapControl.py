@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from ._config_schema import FieldSpec
+from ._declared_filter import normalize_declared_filter
 from ._typing import ControlPosition, Fraction, PositiveInt
 from ._validate import Bound, validate
 from .BaseControl import BaseControl
@@ -155,6 +156,16 @@ class HeatmapControl(BaseControl):
                 note="Aggregation field selected on first load; a persisted user selection wins.",
             ),
         ] = None,
+        filter: Annotated[
+            dict[str, Any] | None,
+            FieldSpec(
+                ts="",
+                note=(
+                    "Declared filter on the aggregation field, normalised to the "
+                    "shared filter AST; a persisted user filter wins."
+                ),
+            ),
+        ] = None,
         method: METHOD = "jenks",
         num_classes: Annotated[int, Bound(2, 9)] = 6,
         color_scheme: str = "Reds",
@@ -184,6 +195,13 @@ class HeatmapControl(BaseControl):
         self.layer = layer
         self.agg = agg
         self.field = field
+        # The declaration is normalised here, at construction, so CONF carries
+        # the AST the runtime reads (never the friendly shape). A missing
+        # 'field' raises ValueError; a data-shaped problem warns and drops the
+        # declaration instead of filtering to nothing.
+        self.filter = normalize_declared_filter(
+            filter, owner="HeatmapControl", arm="range"
+        )
         self.method = method
         self.num_classes = num_classes
         self.color_scheme = color_scheme
