@@ -7,7 +7,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
 import { type LayerFilter, type LayerFilterModel, select } from "#core/layer/index.js";
-import { ensureOverlayRegistry } from "#core/overlayRegistry.js";
+import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerController } from "#foliplus/LayerControl/controller.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
@@ -1540,6 +1540,39 @@ describe("LayerUI filter panel — result, Clear and row state", () => {
     expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).toBeNull();
     expect(ui.overlayPanel.activeFilterPanel).toBeNull();
     expect(ui.overlayPanel.filterOverlayUnregister).toBeNull();
+  });
+
+  it("installs no keydown on the card — the registry is the only Escape owner", () => {
+    registerPoints();
+    const item = findItem(ui, "pnt");
+    const seen: Array<{ target: EventTarget; type: string }> = [];
+    const original = EventTarget.prototype.addEventListener;
+    const spy = vi
+      .spyOn(EventTarget.prototype, "addEventListener")
+      .mockImplementation(function (
+        this: EventTarget,
+        type: string,
+        listener: EventListenerOrEventListenerObject | null,
+        options?: boolean | AddEventListenerOptions,
+      ) {
+        seen.push({ target: this, type });
+        return original.call(this, type, listener, options);
+      });
+
+    ui.openFilterPanel(item);
+    spy.mockRestore();
+
+    const panel = item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`) as HTMLElement;
+    expect(panel).not.toBeNull();
+    // The card owns no keyboard handling at all: Escape is the registry's one
+    // document-capture listener, and an open popup claims the key itself. A
+    // panel-level keydown here is exactly the second dispatcher C5 removed, so
+    // assert its absence rather than trusting the comment.
+    expect(seen.filter(s => s.target === panel && s.type === "keydown")).toEqual([]);
+    // The dismissal is a registry entry, not a listener pair owned by the card.
+    expect(ensureOverlayRegistry(ui.c.map).owningEntry(panel)?.id).toBe(
+      OVERLAY_IDS.LAYER_FILTER,
+    );
   });
 
   it("the row shows a 12px funnel + exact kept count + filtered title", () => {

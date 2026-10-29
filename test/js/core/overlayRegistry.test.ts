@@ -460,13 +460,13 @@ describe("OverlayRegistry", () => {
     it("consumes before closing: a nested consumer keeps its host open", () => {
       const outside = panel();
       const host = makeEntry({
-        id: OVERLAY_IDS.LAYER_FILTER,
-        pressPriority: 700,
+        id: OVERLAY_IDS.LAYER_ATTRS,
+        pressPriority: 600,
         panels: () => [panel("host")],
       });
       const nested = makeEntry({
-        id: OVERLAY_IDS.LAYER_FILTER_ENUM,
-        pressPriority: 750,
+        id: OVERLAY_IDS.LAYER_FILTER,
+        pressPriority: 700,
         panels: () => [panel("nested")],
         consumePress: () => true,
       });
