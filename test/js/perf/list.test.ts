@@ -12,13 +12,28 @@
 // round — both operations are synchronous and CPU-bound, so host speed and
 // scheduler contention scale them together and only their ratio is asserted.
 //
-// Measured ratios (round ÷ full rebuild): ~1/42 idle, ~1/59 under 16 saturated
-// cores, ~1/45–1/53 beside a full parallel `test/js` run, and ~1/41 with the
-// full suite plus saturated cores — the load level where the round itself hit
-// 607ms and the old fixed ceiling failed. REBUILD_DIVISOR = 8 leaves ~5×
-// headroom on that spread, while a regression that rebuilds the list per move
-// costs ~2 rebuilds for the up+down round — ~16× past the gate. The other two
-// tests pin the operation counts, so the ratio is never the only evidence.
+// Measured ratios (round ÷ the fastest of three rebuilds): 1/62 on the 22-core
+// Windows box this gate was diagnosed on, measured while other builds were
+// running on it (186ms round vs an 11.5s rebuild); 1/25 with 40 cores
+// saturated (2.3s round vs a 56.0s rebuild) — the worst case seen, where the
+// old fixed 500ms ceiling failed long before this gate would. The reviewer's
+// box read 1/50–1/115 idle (56–267ms rounds). The milliseconds are provenance:
+// the machine and its load set them, so only the ratio is asserted.
+//
+// The baseline is the FASTEST of three consecutive rebuilds, not one sample.
+// The rebuild's own cost swings hard under load — 6.2s / 8.4s / 24.2s / 15.2s
+// within one fixture run, and 2.8s / 9.5s / 19.8s across three idle runs — so
+// one sample can inflate the denominator up to ~7× and make this gate that much
+// easier to pass, with the same assertion then varying in strictness by the
+// same factor. The minimum pins the denominator to the code's own speed (the
+// least-contended sample is the closest thing a loaded machine has to it — the
+// estimator `test/js/perf/collision.test.ts` already uses for its absolute
+// bars); the residual variance is the gap between the fastest and the
+// next-fastest rebuild, which the headroom absorbs. REBUILD_DIVISOR = 8 leaves
+// ~3× headroom on the worst measured ratio (1/25 under 40 saturated cores), and
+// a regression that rebuilds the list per move — ~2.4 rebuilds for the up+down
+// round — measures 0.4×, i.e. ~20× past the gate. The other two tests pin the
+// operation counts, so the ratio is never the only evidence.
 import { describe, expect, it, vi } from "vitest";
 import { attachedPanel, initFixture } from "../LayerControl/ui/fixture.js";
 
@@ -36,9 +51,13 @@ const benchData = (overlays: number, bases: number) => [
 ];
 
 /** How much cheaper than one full rebuild a reorder round has to be. Chosen
- *  from the measured spread (41–59×) with ~5× headroom; a regression to the
- *  per-move rebuild path lands at ~2×. */
+ *  from the measured spread (1/25 under 40 saturated cores) with ~3× headroom;
+ *  a regression to the per-move rebuild path measures 0.4×. */
 const REBUILD_DIVISOR = 8;
+
+/** Rebuild samples per run. The baseline takes the fastest of three because its
+ *  own cost swings up to ~7× between samples under load; see the header. */
+const REBUILD_SAMPLES = 3;
 
 describe("perf/list syncRowOrder", () => {
   it("keeps a 200-layer reorder round far cheaper than a full rebuild", ctx => {
@@ -46,10 +65,18 @@ describe("perf/list syncRowOrder", () => {
     const { manager, ui } = initFixture({ data: benchData(198, 2) });
     const target = "overlay_99";
 
+    // The round must actually relocate a row: a no-op move would measure ~0ms
+    // and clear any bar. The op-count tests below pin the write counts; this
+    // pins that the timed round is the operation the ratio is about.
+    const orderOf = (id: string) => manager.layers.findIndex(l => l.id === id);
+    const home = orderOf(target);
+    manager.moveLayerUp(target);
+    expect(orderOf(target), "moveLayerUp must relocate the row").toBe(home - 1);
+    manager.moveLayerDown(target);
+    expect(orderOf(target), "moveLayerDown must restore it").toBe(home);
+
     // Warm both paths once: first-call JIT, layout and cache misses belong to
     // neither operation, and folding them into a sample only adds noise.
-    manager.moveLayerUp(target);
-    manager.moveLayerDown(target);
     ui.reindexAfterMove();
 
     // The measurement: median of three up+down rounds, so one GC or scheduler
@@ -64,12 +91,17 @@ describe("perf/list syncRowOrder", () => {
     rounds.sort((a, b) => a - b);
     const roundElapsed = rounds[1];
 
-    // The baseline: one full rebuild of the same 200-row panel, timed last so
-    // that any timer or listener carry-over from the measured path can only
-    // inflate it (the safe direction), never the measurement itself.
-    const rebuildStart = performance.now();
-    ui.reindexAfterMove();
-    const rebuildElapsed = performance.now() - rebuildStart;
+    // The baseline: the fastest of REBUILD_SAMPLES full rebuilds of the same
+    // 200-row panel, timed last so that timer or listener carry-over from the
+    // measured path can only inflate them (the safe direction), never the
+    // measurement itself. The minimum keeps one contention spike from turning
+    // the same gate into a looser one; see the header.
+    let rebuildElapsed = Infinity;
+    for (let i = 0; i < REBUILD_SAMPLES; i++) {
+      const start = performance.now();
+      ui.reindexAfterMove();
+      rebuildElapsed = Math.min(rebuildElapsed, performance.now() - start);
+    }
 
     // A clock that cannot advance cannot support a timing assertion — the one
     // hard skip, and deliberately not a `process.env.CI` opt-out: a loaded CI
@@ -79,15 +111,19 @@ describe("perf/list syncRowOrder", () => {
     }
 
     const ratio = rebuildElapsed / roundElapsed;
+    console.log(
+      `[perf] reorder round ${roundElapsed.toFixed(1)}ms vs fastest of ${REBUILD_SAMPLES} rebuilds ${rebuildElapsed.toFixed(1)}ms -> ${ratio.toFixed(1)}x`,
+    );
     expect(
       ratio,
       `reorder round ${roundElapsed.toFixed(1)}ms must stay ${REBUILD_DIVISOR}× cheaper than one full rebuild (${rebuildElapsed.toFixed(1)}ms); got ${ratio.toFixed(1)}×`,
     ).toBeGreaterThanOrEqual(REBUILD_DIVISOR);
-    // The timeout covers the fixture's attach sweep plus the one baseline
-    // rebuild (the assertion itself runs in tens of ms). Both of those are raw
-    // wall clock, so their budget has to grow with host load rather than tune
-    // the gate.
-  }, 300_000);
+    // The timeout covers the fixture attach sweep, the warm-up rebuild and
+    // REBUILD_SAMPLES baseline rebuilds — all raw wall clock, so under heavy
+    // load the budget has to grow with the host rather than tune the gate. With
+    // 40 saturated cores this test has measured ~296s against the old 300s
+    // budget (4s of margin); the assertion itself runs in tens of ms.
+  }, 600_000);
 
   it("moves two nodes for a round and runs no rebuild pass", () => {
     // The structural guard behind the wall-clock gate: absolute times vary
