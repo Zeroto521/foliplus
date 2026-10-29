@@ -913,6 +913,44 @@ describe("LayerUI menu", () => {
       expect(styleLi.getAttribute("aria-disabled")).toBe("true");
       ui.closeMoreMenu(false);
     });
+
+    it("stops an item press at the menu so it never becomes a map click", () => {
+      // A press inside the control must not also reach the map. Leaflet decides
+      // that by walking the event target's live parents for the control's
+      // `_leaflet_disable_click` marker (`_isClickDisabled`). An item action can
+      // close the menu — and the panel under it — mid-dispatch, which detaches
+      // the pressed <li>; the walk then finds no control ancestor and the press
+      // lands on the map (with a MeasureControl mode armed it drops a marker).
+      const item = findItem(ui, "overlay1");
+      ui.openMoreMenu(item);
+      const focusSpy = vi.fn();
+      ui.focusLayer = focusSpy;
+      const bubbled = vi.fn();
+      item.addEventListener("click", bubbled);
+
+      const li = item.querySelector(
+        ".foliplus-layer-more-menu li[data-action='focus-layer']",
+      ) as HTMLElement;
+      li.click();
+
+      // The action still ran — the press is swallowed, not ignored.
+      expect(focusSpy).toHaveBeenCalledWith("overlay1");
+      expect(bubbled).not.toHaveBeenCalled();
+    });
+
+    it("lets a press on the menu chrome bubble past the menu", () => {
+      // Only an item press is swallowed; the guard must not swallow everything
+      // the menu happens to contain (the registry still owes its own verdict).
+      const item = findItem(ui, "overlay1");
+      ui.openMoreMenu(item);
+      const bubbled = vi.fn();
+      item.addEventListener("click", bubbled);
+
+      const menu = item.querySelector(".foliplus-layer-more-menu") as HTMLElement;
+      menu.click();
+
+      expect(bubbled).toHaveBeenCalled();
+    });
   });
 
   // ─────────────────── action dispatch matrix ───────────────────
@@ -946,8 +984,13 @@ describe("LayerUI menu", () => {
     // The menu-local click listener invokes this handler; call it directly so
     // the action table is tested without depending on registry wiring, which
     // has its own menu-local/outside-click coverage above.
+    // The handler swallows the press (it must not reach the map), so the fake
+    // event carries the one method it calls on the real MouseEvent.
     const clickOn = (li: HTMLElement): void => {
-      handleMenuClick(ui, { target: li } as unknown as Event);
+      handleMenuClick(ui, {
+        target: li,
+        stopPropagation: vi.fn(),
+      } as unknown as Event);
     };
 
     const pressKey = (li: HTMLElement, key: string): void => {

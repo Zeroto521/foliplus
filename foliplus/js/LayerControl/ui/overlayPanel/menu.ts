@@ -49,11 +49,23 @@ import { isFilterCapable } from "./filter.js";
 /** Click handler for the overflow menu items. The action itself is dispatched
  *  by the menu's shared runner, so a click and a keyboard activation of the
  *  same entry cannot diverge. Outside-click dismissal is the overlay
- *  registry's LAYER_MENU entry, not this handler. */
+ *  registry's LAYER_MENU entry, not this handler.
+ *
+ *  The press stops here: an action may close the menu (opening a panel tears it
+ *  down), and the browser keeps dispatching the click along the path it
+ *  computed before the target was detached. Leaflet decides whether a click
+ *  belongs to the map by walking the target's *live* parents up to its
+ *  container (`_isClickDisabled`); a detached target has no control ancestor
+ *  left to find the `_leaflet_disable_click` marker on, so the press would land
+ *  on the map as a real click — e.g. it drops a marker while a MeasureControl
+ *  mode is armed. Swallowing it here keeps the "a click inside the control is
+ *  not a map click" guarantee that `disableClickPropagation` gave us while the
+ *  menu sat in the document. */
 const handleMenuClick = (ui: LayerUI, event: Event): void => {
   const target = event.target as HTMLElement;
   const menuItem = target.closest(`.foliplus-layer-more-menu li`) as HTMLElement | null;
   if (!menuItem) return;
+  event.stopPropagation();
   // A disabled entry keeps the menu open so the user sees why (its tooltip
   // carries the reason); the shared runner applies that rule for both inputs.
   runMenuAction(ui, menuItem);
