@@ -30,15 +30,11 @@ const DEFAULT_CLASSES = {
 // the panel that opened it, so it has to paint above that panel — while an
 // inline dropdown stays inside the trigger's own stacking context and needs no
 // lift. The class is what the stylesheet keys the z band off, so the JS keeps
-// its distance from z numbers.
+// its distance from z numbers. Ownership is not keyed off this class: the
+// mounted list is registered in common/portalRoot against its trigger, so a
+// panel asks *whose* popup a press belongs to (core/overlay isInsideOverlay)
+// instead of matching a class name anywhere in the document.
 const PORTAL_CLASS = "foliplus-scheme-picker-portal";
-
-/** Selector for a portaled dropdown, for `closest()`-style ownership checks.
- *  Retained for the panels that pass it explicitly to `core/overlay`'s
- *  `isInsideOverlay`; the picker now also registers its mounted list in
- *  common/portalRoot, which is the mechanism new portals use and the one the
- *  predicate consults first. */
-const SCHEME_PICKER_PORTAL_SELECTOR = `.${PORTAL_CLASS}`;
 
 interface SchemePickerClasses {
   open: string;
@@ -373,7 +369,9 @@ const mountDropdown = (state: InternalState) => {
       window.removeEventListener("resize", reposition);
     });
   } else {
-    // Inline mode: mount into the trigger's parent (schemeControlWrap)
+    // Inline mode: mount into the trigger's parent (schemeControlWrap). No
+    // registration is needed here — the list is a descendant of the trigger, so
+    // every panel that owns the trigger already contains the list.
     const parent =
       state.trigger.closest(".foliplus-form-control") ??
       state.trigger.parentElement ??
@@ -810,5 +808,5 @@ const createSchemePicker = (options: SchemePickerOptions): SchemePicker => {
   return picker;
 };
 
-export { SCHEME_PICKER_PORTAL_SELECTOR, createSchemePicker };
+export { createSchemePicker };
 export type { SchemePicker };

@@ -1,10 +1,7 @@
 // Tests for the shared scheme picker (common/schemePicker.ts).
 import { afterEach, describe, expect, it, vi } from "vitest";
-import {
-  SCHEME_PICKER_PORTAL_SELECTOR,
-  type SchemePicker,
-  createSchemePicker,
-} from "#common/schemePicker.js";
+import { isInsideOverlay } from "#core/overlay.js";
+import { type SchemePicker, createSchemePicker } from "#common/schemePicker.js";
 
 // ── Colour-scale helper ────────────────────────────────────────────────
 
@@ -625,14 +622,26 @@ describe("portal mode", () => {
     picker.destroy();
   });
 
-  it("publishes a selector that matches the mounted portalled dropdown", () => {
-    // The panel dismiss predicate classifies the portalled list through this
-    // selector, so it has to match the node the picker actually mounts — a
-    // renamed class would otherwise silently stop counting the list as part of
-    // the overlay.
+  it("registers the mounted list under its trigger while it is open", () => {
+    // The panel dismiss predicate classifies the portalled list by ownership,
+    // not by a class name: while the list is mounted the picker registers it
+    // against the trigger, and the registration is released when the list
+    // closes. A picker that stopped registering would make every panel dismiss
+    // under the press that selects a colour.
     const { picker, trigger } = makePicker({ portal: true });
+    // A panel-shaped scope that owns the trigger, as the style drawer does.
+    const panel = document.createElement("div");
+    panel.appendChild(trigger);
+    document.body.appendChild(panel);
+
     trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    expect(picker.getDropdown()!.matches(SCHEME_PICKER_PORTAL_SELECTOR)).toBe(true);
+    const dropdown = picker.getDropdown()!;
+    const row = dropdown.firstElementChild as HTMLElement;
+    expect(isInsideOverlay(dropdown, panel)).toBe(true);
+    expect(isInsideOverlay(row, panel)).toBe(true);
+
+    picker.close();
+    expect(isInsideOverlay(row, panel)).toBe(false);
     picker.destroy();
   });
 

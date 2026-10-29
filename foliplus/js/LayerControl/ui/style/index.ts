@@ -26,7 +26,6 @@ import {
   bindLiveNumber,
   normalizeHexColor,
 } from "#common/form.js";
-import { SCHEME_PICKER_PORTAL_SELECTOR } from "#common/schemePicker.js";
 import { NO_DELTA, type ProjectionDelta, notifyDelta } from "../apply.js";
 import type { LayerUI } from "../surface.js";
 import { closeOverlays } from "../teardown.js";
@@ -313,10 +312,13 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
   // panel otherwise.
   ui.overlayPanel.styleOutsideHandler = (event: MouseEvent) => {
     // The drawer's overlay includes the scheme picker's portalled list: it is
-    // mounted on <body> to paint above the drawer, so it is outside the panel's
-    // subtree while still being part of the interaction. A press there must not
-    // dismiss the drawer — that press is what selects a colour.
-    if (isInsideOverlay(event.target, panel, SCHEME_PICKER_PORTAL_SELECTOR)) {
+    // mounted on the surface that covers the trigger (the map container, or the
+    // fullscreen element) to paint above the drawer, so it is outside the
+    // panel's subtree while still being part of the interaction. The picker
+    // registers that list against its trigger while it is open, so ownership —
+    // not a class name — decides whether the press belongs to this drawer. A
+    // press there must not dismiss the drawer: it is what selects a colour.
+    if (isInsideOverlay(event.target, panel)) {
       ui.listPanel.pressInPanel = true;
       return;
     }

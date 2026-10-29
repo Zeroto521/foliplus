@@ -6,7 +6,6 @@ import { isNativeControl } from "#core/interaction/index.js";
 import { ROLE } from "#core/layer/index.js";
 import { isInsideOverlay } from "#core/overlay.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
-import { SCHEME_PICKER_PORTAL_SELECTOR } from "#common/schemePicker.js";
 import { inFloatingPanel } from "../context.js";
 import { showFocusDisabledHint, toggleFocusedLayer } from "../focus/index.js";
 import { runMenuAction } from "../overlayPanel/menu.js";
@@ -62,7 +61,7 @@ const handleOutsideMousedown = (ui: LayerUI, event: MouseEvent): void => {
   const stylePanel = ui.overlayPanel.stylePanelEl;
   const inStyleOverlay =
     !!target.closest(`.${CONST.CLASSES.STYLE_PANEL}`) ||
-    isInsideOverlay(target, stylePanel, SCHEME_PICKER_PORTAL_SELECTOR);
+    isInsideOverlay(target, stylePanel);
   if (!target.closest(`.${CONST.CLASSES.ATTRS_PANEL}`)) ui.closeAttrsPanel(false);
   if (!inStyleOverlay) ui.closeStylePanel(false);
   // The portalled list floats over the map, like the drawer itself: a press

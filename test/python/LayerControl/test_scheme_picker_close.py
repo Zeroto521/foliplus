@@ -224,6 +224,23 @@ class TestPickerCloseBrowser:
             assert not state["stylePanelOpen"], state
             assert not errors, f"JS errors: {errors}"
 
+    def test_escape_in_the_style_drawer_closes_the_list_only(self, browser, tmp_path):
+        """The picker owns Escape while its list is open: list out, drawer stays.
+
+        The drawer's own Escape handler (row cursor / panel close) is downstream
+        of the window-capture Escape the picker claims, so one press must close
+        the list and leave the drawer in place for the next colour choice.
+        """
+        with use_page(_make_page, browser, tmp_path) as (page, errors):
+            _open_style_dropdown(page)
+            page.keyboard.press("Escape")
+            _wait_closed(page)
+            state = _state(page)
+            assert state["portalCount"] == 0, state
+            assert state["stylePanelOpen"], state
+            assert state["styleDrawerVisible"], state
+            assert not errors, f"JS errors: {errors}"
+
     def test_the_next_press_after_a_choice_still_lands(self, browser, tmp_path):
         """Choosing a scheme must not swallow the press that follows."""
         with use_page(_make_page, browser, tmp_path) as (page, errors):

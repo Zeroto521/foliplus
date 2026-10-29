@@ -31,6 +31,7 @@ import { EVENTS } from "#foliplus/core/event/index.js";
 import { ensureModes } from "#foliplus/core/mode.js";
 import { getLayerAlpha } from "#common/canvasAlpha.js";
 import { NUMBER_FORMAT } from "#common/format.js";
+import { registerPortalRoot } from "#common/portalRoot.js";
 import {
   GridLayer,
   attachedPanel,
@@ -382,11 +383,12 @@ describe("LayerUI style panel", () => {
     expect(panelOf(item)).toBeUndefined();
   });
 
-  it("a press on the scheme picker's portalled list does not dismiss it", () => {
-    // The picker portals its dropdown to <body> so the list can paint above
-    // this drawer. The portal is outside the panel's subtree while still being
-    // part of the overlay, so a dismiss predicate that only walks the subtree
-    // closes the drawer on the press that selects a colour.
+  it("a press on the scheme picker's registered portalled list does not dismiss it", () => {
+    // The picker portals its dropdown to the surface covering the trigger so the
+    // list can paint above this drawer, and while that list is live it registers
+    // itself against the trigger in common/portalRoot. The portal is outside the
+    // panel's subtree, so ownership — not a subtree walk — keeps the drawer open
+    // on the press that selects a colour.
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
@@ -397,14 +399,53 @@ describe("LayerUI style panel", () => {
     row.className = "foliplus-scheme-picker-item";
     portal.appendChild(row);
     document.body.appendChild(portal);
+    // Same registration the picker performs on mount, released on close.
+    const release = registerPortalRoot(portal, panel);
 
-    // Capture-phase listener on document: a bubbling press on the portalled row
-    // is exactly what the browser delivers for a real click on the list.
-    row.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true }));
+    try {
+      // Capture-phase listener on document: a bubbling press on the portalled row
+      // is exactly what the browser delivers for a real click on the list.
+      row.dispatchEvent(
+        new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
+      );
 
-    expect(panelOf(item)).toBe(panel);
-    expect(ui.overlayPanel.stylePanelLayerId).toBe("overlay1");
-    portal.remove();
+      expect(panelOf(item)).toBe(panel);
+      expect(ui.overlayPanel.stylePanelLayerId).toBe("overlay1");
+    } finally {
+      release();
+      portal.remove();
+    }
+  });
+
+  it("a press on another surface's picker portal dismisses this drawer", () => {
+    // The class alone is not ownership. A list registered for a trigger outside
+    // this drawer belongs to that surface, so this drawer must dismiss: matching
+    // the class document-wide would keep it open under a press it does not own.
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const panel = panelOf(item)!;
+
+    const foreignTrigger = document.createElement("button");
+    document.body.appendChild(foreignTrigger);
+    const foreign = document.createElement("div");
+    foreign.className = "foliplus-scheme-picker-portal";
+    const foreignRow = document.createElement("button");
+    foreignRow.className = "foliplus-scheme-picker-item";
+    foreign.appendChild(foreignRow);
+    document.body.appendChild(foreign);
+    const release = registerPortalRoot(foreign, foreignTrigger);
+
+    try {
+      foreignRow.dispatchEvent(
+        new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
+      );
+
+      expect(panelOf(item)).toBeUndefined();
+    } finally {
+      release();
+      foreign.remove();
+      foreignTrigger.remove();
+    }
   });
 
   // ─────────────────── control interactions ───────────────────
