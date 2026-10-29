@@ -141,12 +141,19 @@ class TestLocateControlRendering:
 class TestLocateControlBrowser:
     """Browser-based smoke tests for LocateControl."""
 
-    def _make_page(self, browser, tmp_path):
-        """Build a page with LocateControl and return (page, errors)."""
+    def _make_page(self, browser, tmp_path, prelude=None):
+        """Build a page with LocateControl and return (page, errors).
+
+        prelude is installed via page.add_init_script before the page's own
+        scripts. The spinner case uses it to park the reverse-geocode request,
+        so its pending state does not depend on the network.
+        """
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
         LocateControl().add_to(m)
         html = m.get_root().render()
-        page, errors = make_browser_page(browser, tmp_path, html, "locate")
+        page, errors = make_browser_page(
+            browser, tmp_path, html, "locate", prelude=prelude
+        )
         page.wait_for_selector(".foliplus-locate-btn", state="attached", timeout=10000)
         return page, errors
 
@@ -194,14 +201,44 @@ class TestLocateControlBrowser:
         common.css pins it to ``1em``; with that rule removed this test measures
         the spinner as wide as the popup.
         """
-        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+        # The pending state is injected, not raced: the reverse request is
+        # parked by hold_reverse_geocode.js until the assertions are done. A
+        # real round-trip lasts as long as the network takes, so on a warm
+        # connection the address lands before the read and the spinner is
+        # already gone (measured 5/5 failures on main with the request answered
+        # immediately). Releasing it afterwards proves the pending state is the
+        # live one and keeps this case off the network.
+        hold = _js("LocateControl/hold_reverse_geocode")
+        with use_page(self._make_page, browser, tmp_path, prelude=hold) as (
+            page,
+            errors,
+        ):
             page.evaluate(_js("LocateControl/click_success"))
             page.wait_for_selector(".foliplus-pin", state="attached", timeout=5000)
+            # The parked request is what the pending state *is*: one reverse
+            # call in flight. Without this, a popup that never issues the
+            # request could satisfy the assertions below for the wrong reason.
+            assert page.evaluate("() => window.__geoHold.seen") == 1, (
+                "the reverse-geocode request was not parked"
+            )
             popup = page.evaluate(_js("LocateControl/read_popup"))
             spin = popup["spinner"]
             assert spin, f"no loading spinner found in the popup: {popup!r}"
             assert spin["width"] <= 40, f"spinner too wide: {spin!r}"
             assert spin["height"] <= 40, f"spinner too tall: {spin!r}"
+
+            # Release: the address must land, so the assertions above read the
+            # live pending state rather than a popup that never progresses.
+            assert page.evaluate(_js("LocateControl/release_reverse_geocode"))
+            page.wait_for_function(
+                "() => { const p = document.querySelector('.foliplus-popup-content');"
+                " return !!p && p.textContent.includes('Test Street'); }",
+                timeout=5000,
+            )
+            settled = page.evaluate(_js("LocateControl/read_popup"))
+            assert settled["spinner"] is None, (
+                f"spinner stuck after release: {settled!r}"
+            )
             assert not errors, f"JS errors: {errors}"
 
     def test_button_spins_while_locating(self, browser, tmp_path):
