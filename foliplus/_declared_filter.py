@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import math
 import numbers
+import os
 import sys
 import warnings
 from collections.abc import Mapping, Sequence
@@ -31,9 +32,11 @@ MEASURE_TYPE_FIELD = "type"
 FilterArm = Literal["range", "enum"]
 
 
-#: This package's directory. A declaration is written in the caller's cell, so
-#: a warning has to walk out of here to find the line worth pointing at.
-_PACKAGE_DIR = str(Path(__file__).resolve().parent)
+#: This package's directory, with a trailing separator so a sibling whose name
+#: merely starts with it (``foliplus-demo``) cannot pass for library code. A
+#: declaration is written in the caller's cell, so a warning has to walk out of
+#: here to find the line worth pointing at.
+_PACKAGE_DIR = str(Path(__file__).resolve().parent) + os.sep
 
 
 def _caller_stacklevel() -> int:
@@ -51,7 +54,7 @@ def _caller_stacklevel() -> int:
             return level
         frame = frame.f_back
         level += 1
-    return level
+    return level  # pragma: no cover - only when the whole stack is library code
 
 
 def _warn(message: str) -> None:
@@ -178,7 +181,7 @@ def normalize_declared_filter(
             f"got {type(raw).__name__}; ignored"
         )
         return None
-    if not enum_field:
+    if not enum_field:  # pragma: no cover - both call sites pass one
         raise ValueError("arm='enum' requires enum_field")
     if isinstance(raw, Sequence) and not isinstance(raw, (str, bytes)):
         return _enum_atom(raw, owner, enum_field)

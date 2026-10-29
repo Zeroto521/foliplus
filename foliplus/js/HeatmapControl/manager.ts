@@ -1087,12 +1087,21 @@ class HeatmapManager {
       );
       return;
     }
-    // A range that does not intersect the field's extent can never keep a
-    // point; normalising it would collapse it onto one bound and silently hide
-    // the data. Report it and start unfiltered — "declared" must never mean
-    // "filtered to empty".
+    // The panel needs a numeric extent to render a range on: without one there
+    // is no row to show the declaration in, which is a data problem worth
+    // reporting. A declaration that spans the whole extent is different — the
+    // runtime reads that as "no filter" (a full-range atom would still exclude
+    // points missing the field), so it is a legal no-op, not a defect.
     const bounds = snapshot?.ranges[field];
-    if (declared.range && bounds) {
+    if (!bounds) {
+      this.warnDeclaredFilter(`"${field}" has no usable extent`);
+      return;
+    }
+    // A range that does not intersect the extent can never keep a point;
+    // normalising it would collapse it onto one bound and silently hide the
+    // data. Report it and start unfiltered — "declared" must never mean
+    // "filtered to empty".
+    if (declared.range) {
       const [lo, hi] = declared.range;
       if (hi < bounds[0] || lo > bounds[1]) {
         this.warnDeclaredFilter(
@@ -1102,10 +1111,9 @@ class HeatmapManager {
       }
     }
     const next = normalizeFilter(declared, snapshot);
-    if (!next) {
-      this.warnDeclaredFilter(`"${field}" has no usable extent`);
-      return;
-    }
+    // Undefined here means the declaration covers the whole extent: the same
+    // state as "no filter", so store nothing and stay quiet.
+    if (!next) return;
     storeFilter(this.layerFilters, sourceId, next);
   }
 

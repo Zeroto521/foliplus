@@ -7,7 +7,7 @@
 // rest of the declared defaults.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { LayerFilter } from "#core/layer/index.js";
-import { makeConfig, makeManager } from "./fixture.js";
+import { makeConfig, makeCtrl, makeManager } from "./fixture.js";
 
 const RANGE = {
   kind: "atom",
@@ -61,10 +61,31 @@ describe("declared heatmap filter — seed", () => {
 
   it("a declared range covering the whole extent is not a filter", () => {
     const manager = seedable({ ...RANGE, range: [0, 100] } as Record<string, unknown>);
+    const warn = vi.spyOn((manager as any).log, "warn").mockImplementation(() => {});
 
     manager.seedDeclaredFilter();
 
     expect(manager.layerFilters.has("pts")).toBe(false);
+    // Covering the whole extent is the same state as "no filter", so it is a
+    // legal no-op — reporting it would call a valid declaration a data problem.
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("reports a field with no numeric extent and starts unfiltered", () => {
+    const manager = seedable(RANGE as Record<string, unknown>);
+    // The field is listed as numeric but no point carries a value, so the
+    // panel has no range to render the declaration on.
+    manager.cachedSnapshot = {
+      points: [],
+      numericFields: ["score"],
+      ranges: {},
+    } as any;
+    const warn = vi.spyOn((manager as any).log, "warn").mockImplementation(() => {});
+
+    manager.seedDeclaredFilter();
+
+    expect(manager.layerFilters.has("pts")).toBe(false);
+    expect(warn).toHaveBeenCalledTimes(1);
   });
 
   it("reports a declaration outside the extent and starts unfiltered", () => {
@@ -143,6 +164,45 @@ describe("declared heatmap filter — seed", () => {
 
     expect(manager.layerFilters.has("pts")).toBe(false);
     expect(warn).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("declared heatmap filter — a source picked by hand", () => {
+  it("seeds before the frame is drawn when the user picks a source", async () => {
+    const { initScan } = await import("#foliplus/HeatmapControl/ui.js");
+    const declared = {
+      kind: "atom",
+      field: "val",
+      op: "between",
+      range: [1, 2],
+    } as LayerFilter;
+    const manager = makeManager({ filter: declared as Record<string, unknown> });
+    window.map.foliplus.LayerAPI.getLayersByType = vi.fn(() => [
+      { id: "first", name: "First", layer: {} },
+      { id: "second", name: "Second", layer: {} },
+    ]);
+    window.map.foliplus.LayerAPI.extractPoints = vi.fn(() => [
+      { lat: 1, lng: 1, marker: { feature: { properties: { val: 1 } } } },
+      { lat: 2, lng: 2, marker: { feature: { properties: { val: 3 } } } },
+    ]);
+    const ctrl = makeCtrl(manager);
+    initScan(ctrl);
+    // Two point layers: nothing is auto-selected, so the dropdown is the only
+    // way in and the declaration has to cover it too.
+    expect(manager.selectedLayerId).toBeNull();
+
+    let filterAtRender: LayerFilter | undefined;
+    const render = vi.spyOn(manager, "renderHexagons").mockImplementation(() => {
+      filterAtRender = manager.layerFilters.get("second");
+    });
+    ctrl.layerSelect.value = "second";
+    ctrl.layerSelect.onchange?.(new Event("change"));
+
+    // The frame is drawn with the declaration already in the slot; seeding
+    // after the draw would paint unfiltered and leave the panel ahead of it.
+    expect(filterAtRender).toEqual(declared);
+    expect(manager.layerFilters.get("second")).toEqual(declared);
+    expect(render).toHaveBeenCalledTimes(1);
   });
 });
 

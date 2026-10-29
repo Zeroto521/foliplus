@@ -427,6 +427,11 @@ const buildLayerListItems = (ctrl: HeatmapControlUI, sel: HTMLSelectElement) => 
     }
     syncSelect(ctrl, sel, sel.value);
     updateFieldSelector(ctrl);
+    // A hand-picked source is the same "first open" slot as the auto-selected
+    // and restored ones: the declaration seeds before the frame is drawn, so
+    // the first paint already reflects it. Seeding after the draw would leave
+    // the panel reporting a filter the canvas has not applied yet.
+    ctrl.mgr.seedDeclaredFilter();
     if (ctrl.mgr.selectedLayerId) ctrl.mgr.renderHexagons();
     else ctrl.mgr.clearHeatmapCanvas();
     // Source identity changes the whole filter model (field, extent, kept);

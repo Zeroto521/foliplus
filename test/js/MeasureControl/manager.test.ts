@@ -2306,6 +2306,22 @@ describe("MeasureManager — type filter", () => {
     );
   });
 
+  it("reports an unreadable declaration once and starts unfiltered", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    // An atom outside the runtime schema: the same tolerant reader a stored
+    // record uses rejects it, so the declaration is dropped whole.
+    window.CONFIG = {
+      ...window.CONFIG,
+      filter: { kind: "atom", field: "type", op: "nope" },
+    };
+
+    const { manager } = makeManager();
+
+    expect((manager as any).measureFilter).toBeUndefined();
+    expect((manager as any).declaredFilterWarned).toBe(true);
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
   it("reports an unknown declared type once and starts unfiltered", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     window.CONFIG = { ...window.CONFIG, filter: filter(["bogus"]) };

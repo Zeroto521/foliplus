@@ -96,6 +96,22 @@ class MeasureControl(BaseControl):
         reports the map's own coordinates as they are, so it stays put under the
         cursor on GCJ02 / BD09 tile sets.
 
+    filter : list[str], optional
+        Starting filter on the measurement types, as a list of type names::
+
+            MeasureControl(filter=["distance", "polygon"])
+
+        Names are the values the panel's filter row offers (``distance``,
+        ``polygon``, ``circle``, ``marker``). The runtime drops a name it
+        does not know rather than hiding every measurement, and a declaration
+        that keeps no type at all is reported once and ignored.
+
+        This is a starting condition, not user intent: it seeds the filter on
+        the first open, and the user's own filter wins from then on. Clearing
+        the filter row is a user write (the record then exists and says
+        "cleared"), so the declaration does not come back after a reload —
+        unlike ``HeatmapControl``, whose panel Clear is the factory Reset.
+
     filename : str, default "measurements"
         Base filename for exported files (without extension). The format extension is
         appended automatically: ``measurements.geojson`` or ``measurements.csv``.
@@ -159,9 +175,9 @@ class MeasureControl(BaseControl):
             FieldSpec(
                 ts="object",
                 note=(
-                    "Declared measurement-type filter (friendly list of type "
-                    "names), normalised to the shared filter AST; a persisted "
-                    "user filter wins."
+                    "Declared measurement-type filter: the shared filter AST "
+                    "normalised from the friendly list of type names the "
+                    "argument takes; a persisted user filter wins."
                 ),
             ),
         ] = None,

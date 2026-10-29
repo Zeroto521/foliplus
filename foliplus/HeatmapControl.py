@@ -74,6 +74,32 @@ class HeatmapControl(BaseControl):
         choice wins, and a ``count`` aggregation does not use the field until
         the user switches to a value aggregation.
 
+    filter : dict, optional
+        Starting filter on the aggregation field, written as a mapping with
+        ``field`` and ``between``::
+
+            HeatmapControl(
+                field="score", filter={"field": "score", "between": [10, 50]}
+            )
+
+        ``field`` must name the field the panel filters — the same field the
+        heatmap aggregates by (``field`` above), because a hexagon's only
+        filterable dimension is that numeric range. A missing or non-string
+        ``field`` raises ``ValueError`` in the cell that wrote it; a
+        data-shaped problem (a field the panel does not filter, no numeric
+        extent, a range outside the data, a non-numeric bound) is reported once
+        with a warning and leaves the heatmap unfiltered. A range covering the
+        whole extent means "no filter" and is accepted silently.
+
+        This is a starting condition, not user intent: it seeds the filter on
+        the first open (a declared ``layer``, the automatic single-layer
+        selection, a restored source, and a source the user picks by hand), and
+        the user's own filter — including an explicit clear — wins from then
+        on. Note the asymmetry with the panel's Clear button: Clear is the
+        factory Reset, it drops the saved record, so after a reload the
+        declaration applies again. ``MeasureControl``'s filter row Clear is
+        a user write and keeps the declaration out.
+
     method : Literal["jenks", "quantile", "equal", "heads"], default "jenks"
         Default classification method.
 
