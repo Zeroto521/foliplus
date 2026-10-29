@@ -24,7 +24,7 @@ const HIDDEN = "hidden";
 
 /** Auto-generated per-layer fallback pane (hyphenated, stamp-keyed).
  *  Named component panes share the same hyphen convention — see
- *  ANNOTATION_PANE_PREFIX, CANVAS_PANE_PREFIX, and COLOR_PANE_PREFIX. */
+ *  LABEL_PANE_PREFIX, CANVAS_PANE_PREFIX, and COLOR_PANE_PREFIX. */
 const FALLBACK_PANE_PREFIX = "foliplus-pane-";
 
 /** Pane name prefix for a layer's annotation labels (LayerControl
@@ -34,10 +34,10 @@ const FALLBACK_PANE_PREFIX = "foliplus-pane-";
  *  walks each layer's label pane right after its content so the exported
  *  stack order matches the map's. Owned by core so both sides read one
  *  definition and the pane-prefix family cannot drift. */
-const ANNOTATION_PANE_PREFIX = "foliplus-annotation-";
+const LABEL_PANE_PREFIX = "foliplus-label-";
 
 /** Pane name prefix for `createCanvas` overlays (HeatmapControl).
- *  Hyphenated like `foliplus-annotation-*` — these are named, component-owned
+ *  Hyphenated like `foliplus-label-*` — these are named, component-owned
  *  panes, not the auto-generated fallback family. The canvas mounts here so
  *  z-order, focus hide, and export walk the same pane model as every other
  *  layer. */
@@ -129,8 +129,8 @@ const CAP_TIER = {
 } as const;
 
 /** Pane-role names — the `PaneSpec.role` vocabulary
- *  ("base" | "sub" | "shadow" | "annotation" | "preview"). Owned by core so z
- *  arithmetic, `PaneManager`'s spec gate, and `LayerControl`'s annotation /
+ *  ("base" | "sub" | "shadow" | "label" | "preview"). Owned by core so z
+ *  arithmetic, `PaneManager`'s spec gate, and `LayerControl`'s label /
  *  focus rules read one definition; `PaneRole` in type.ts derives from it,
  *  so the vocabulary cannot drift.
  *
@@ -143,7 +143,7 @@ const PANE_ROLE = {
   BASE: "base",
   SUB: "sub",
   SHADOW: "shadow",
-  ANNOTATION: "annotation",
+  LABEL: "label",
   PREVIEW: "preview",
 } as const;
 
@@ -154,7 +154,7 @@ const PANE_ROLE = {
 const DECLARED_PANE_ROLES: readonly string[] = [
   PANE_ROLE.BASE,
   PANE_ROLE.SUB,
-  PANE_ROLE.ANNOTATION,
+  PANE_ROLE.LABEL,
   PANE_ROLE.PREVIEW,
 ];
 
@@ -182,7 +182,7 @@ const CONTENT_KIND = {
 } as const;
 
 export {
-  ANNOTATION_PANE_PREFIX,
+  LABEL_PANE_PREFIX,
   CACHE,
   CANVAS_PANE_PREFIX,
   CAP_TIER,

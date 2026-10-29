@@ -701,6 +701,32 @@ describe("portal mode", () => {
     expect(dropdown.style.position).not.toBe("fixed");
     picker.destroy();
   });
+
+  it("publishes the measured scrollbar lane for the item strip", () => {
+    // The item's right inset subtracts this lane, so the property has to be
+    // published on every mount. jsdom reports no boxes, so the measured lane is
+    // 0 here; the real width is pinned by the browser geometry test.
+    const { picker, trigger } = makePicker({ portal: true });
+    trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    const dropdown = picker.getDropdown()!;
+    expect(
+      dropdown.style.getPropertyValue("--foliplus-scheme-picker-scrollbar-width"),
+    ).toBe("0px");
+    picker.destroy();
+  });
+
+  it("re-measures the lane when the window resizes", () => {
+    const { picker, trigger } = makePicker({ portal: true });
+    trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    const dropdown = picker.getDropdown()!;
+    // Simulate a previously measured non-zero lane (a layout scrollbar).
+    dropdown.style.setProperty("--foliplus-scheme-picker-scrollbar-width", "12px");
+    window.dispatchEvent(new Event("resize"));
+    expect(
+      dropdown.style.getPropertyValue("--foliplus-scheme-picker-scrollbar-width"),
+    ).toBe("0px");
+    picker.destroy();
+  });
 });
 
 // ── onToggle callback ──────────────────────────────────────────────────

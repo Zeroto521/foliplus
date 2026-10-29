@@ -154,7 +154,7 @@ interface LayerCapabilities {
    *      so without another union change. */
   visibility: "native" | "pane" | "none";
   /** Whether the layer can host a label (annotation) pane:
-   *    - "pane" — the registration edge declared a `role: "annotation"`
+   *    - "pane" — the registration edge declared a `role: "label"`
    *      PaneSpec (its features expose labelable `feature.properties`) and
    *      LayerSurface materializes that pane with the rest of the face, so
    *      the style panel's Label section is honest to render.
@@ -200,6 +200,10 @@ interface RegisterLayerOpts {
   custom?: unknown;
   /** Declared layer role. Absent registers an overlay. */
   role?: LayerRole;
+  /** Author's declarative per-feature fill, computed once by Python at render
+   *  time from the GeoJson features' `__folium_color` property (geopandas
+   *  explore output). Absent for every other layer. */
+  fillAuthor?: FillAuthor | null;
   /** Author's declared initial visibility — mirrors CONFIG `data[].show`.
    *  Absent means the author did not specify; readers default it to `true`
    *  (folium's own default), so the registry does not have to invent a
@@ -289,6 +293,54 @@ interface RegisterLayerOpts {
   onCommitted?: ((entry: LayerInfo) => void) | null;
 }
 
+/** The color scale geopandas mounted on the map for an explore layer.
+ *
+ *  Claimed only through the author's own caption: the caption must name a
+ *  numeric property of the layer and the sampled feature colors must confirm
+ *  the scale. The caption is the declaration and the colors are the veto, so a
+ *  plain ``legend=False`` layer that merely shares a property name with a
+ *  foreign scale is not given it. Two columns with equivalent colors (an affine
+ *  pair such as area / area_ha) cannot be told apart by any color check: the
+ *  first caption in render order keeps the scale, and the second layer ships
+ *  its colors without a field. */
+interface FillAuthorScale {
+  /** A continuous ``LinearColormap``, or a classified ``StepColormap``. */
+  kind: "continuous" | "stepped";
+  /** The column the caption names. A paired scale always carries it (a scale
+   *  is only shipped when its caption is a property of the layer); the
+   *  optional shape keeps a hand-built record safe, and the panel then draws
+   *  the strip without naming a field. */
+  column?: string;
+  vmin: number;
+  vmax: number;
+  /** Stepped scales only: how many classes the author drew. */
+  levels?: number;
+}
+
+/** What Python computed for one layer's author fill (CONFIG data[].fillAuthor). */
+interface FillAuthor {
+  /** True when the layer paints at least two distinct colors. */
+  perFeature: boolean;
+  /** How many distinct colors the layer paints. Exact up to the 4,096-feature
+   *  scan budget; above it a strided sample counts them, so a rare color can be
+   *  missed and the record then reads as fewer colors (a one-color reading also
+   *  turns `perFeature` off). Before a scale pairs, this is the honest count. */
+  distinct: number;
+  /** The strip the panel draws: a continuous scale sampled to 64 colors, a
+   *  stepped scale's own blocks, or the layer's distinct colors when neither
+   *  exists. The own-color arm keeps the values verbatim, so a `missing_kwds`
+   *  CSS name such as `lightgrey` can sit among hex stops. */
+  stops: string[];
+  /** True when the layer paints more distinct colors than the strip samples,
+   *  so `distinct` is a cap (the panel shows "64+"). */
+  capped?: boolean;
+  /** Absent when the author declared no scale for this layer, or when the
+   *  scale's caption belonged to another layer (the panel then shows the strip
+   *  without a field, and a stepped layer keeps its colors but not its levels
+   *  or breaks — the deliberate cost of never guessing a column). */
+  scale?: FillAuthorScale;
+}
+
 /** A layer entry in the ordered registry (read-only view). */
 interface LayerInfo {
   id: string;
@@ -349,6 +401,8 @@ interface LayerInfo {
   meta?: Record<string, string | number> | null;
   /** Dynamic meta provider — pull on demand, never cached. */
   metaProvider?: (() => Record<string, string | number>) | null;
+  /** Author's declarative per-feature fill (explore layers only). */
+  fillAuthor?: FillAuthor | null;
   /** Epoch ms of the layer's first registration. Set by the registry itself —
    *  never by the provider — so a re-registration keeps the original value. */
   registeredAt?: number;
@@ -378,7 +432,7 @@ interface PinnableNode extends L.Layer {
   eachLayer?: (fn: (layer: L.Layer) => void) => void;
 }
 
-/** What a surface's pane is for. `annotation` and `preview` have no producer
+/** What a surface's pane is for. `label` and `preview` have no producer
  *  yet — they arrive with the components that declare them (label pane,
  *  measure preview) — but they are spelled here so the union is the contract
  *  rather than a local invention.
@@ -397,7 +451,7 @@ type PaneRole = (typeof PANE_ROLE)[keyof typeof PANE_ROLE];
  *      (the removed `bumpPanes` + `CHILD_PANE_STEP` pair).
  *    - `role` is what the planned z convergence (`z = f(layerIndex, role)`)
  *      and the per-role renderer defaults will read, and it is where the
- *      `annotation` / `preview` panes get their name once the components that
+ *      `label` / `preview` panes get their name once the components that
  *      declare them exist.
  *
  *  Today `LayerFactory` derives both from the entry's index, so nothing
@@ -894,7 +948,7 @@ interface ZArgs {
    *  lower `TILE_BASE` ladder; overlay-role layers use `BASE`. Row order
    *  within a role = visual stack order, since both share one `STEP`. */
   role?: LayerRole;
-  /** The pane's role in its layer's draw stack. Only `annotation` prices a
+  /** The pane's role in its layer's draw stack. Only `label` prices a
    *  relation of its own (one step above its layer); the rest use `order`. */
   paneRole?: PaneRole;
   /** The pane's draw offset within its layer (`PaneSpec.order`). */

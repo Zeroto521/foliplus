@@ -191,6 +191,12 @@ export default [
       // same module. `disallowTypeAnnotations: false` leaves the existing
       // `import("x").Y` type queries alone (a separate stylistic preference,
       // not this rule's job).
+      //
+      // Note the deliberate asymmetry with exports: imports stay inline (one
+      // declaration per module), while a type-only *export* gets its own
+      // `export type { ... }` statement. That half lives in typed.mjs
+      // (consistent-type-exports), because telling a type export from a value
+      // export needs the tsconfig program.
       "@typescript-eslint/consistent-type-imports": [
         "error",
         { fixStyle: "inline-type-imports", disallowTypeAnnotations: false },
@@ -381,6 +387,21 @@ export default [
           selector: "ExportNamedDeclaration[declaration]",
           message:
             "Use a single export { … } block at the bottom of the file instead of inline export.",
+        },
+        // `export { A, type B }` keeps a type-only name inside a value
+        // export block — the two halves diff differently and a reader cannot
+        // tell at a glance whether a name survives at runtime. Type-only
+        // exports get their own `export type { B }` statement instead
+        // (consistent-type-exports in typed.mjs only guarantees the `type`
+        // marker is present; it deliberately accepts the inline form, so
+        // this selector is what makes the separate statement mandatory).
+        // No autofix: the rewrite moves a specifier between statements and
+        // keeps the (possibly `from`) clause, which a lint fixer should not
+        // do silently across a file.
+        {
+          selector: 'ExportSpecifier[exportKind="type"]',
+          message:
+            "Export type-only names in a separate `export type { … }` statement, not inline in a value export.",
         },
         {
           selector:

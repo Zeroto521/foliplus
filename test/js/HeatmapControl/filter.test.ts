@@ -669,7 +669,7 @@ describe("HeatmapControl filter field follows the aggregation field", () => {
 
   it("falls back to the first numeric field when this.field is empty", () => {
     // Marker values are exposed as the "value" field, which the snapshot
-    // orders first — the auto field is numericFields[0].
+    // orders first — the default field is numericFields[0].
     m.field = "";
     const model = m.getFilterModel()!;
     expect(model.dimensions[0]).toMatchObject({ kind: "range", field: "value" });
@@ -682,6 +682,10 @@ describe("HeatmapControl filter field follows the aggregation field", () => {
     m.setFilter({ kind: "atom", field: "a", op: "between", range: [20, 25] });
     expect(m.layerFilters.size).toBe(1);
     m.field = "b";
+    // The panel's field write saves the config, which is what drops the
+    // memoised effective field — without it syncFilterField would still read
+    // the previous field from the cache.
+    m.saveConfig();
     m.syncFilterField();
     expect(m.layerFilters.size).toBe(0);
   });

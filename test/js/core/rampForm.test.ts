@@ -6,8 +6,8 @@ import { describe, expect, it, vi } from "vitest";
 import { buildClassesRow, buildFieldRow, buildSchemeRow } from "#core/rampForm.js";
 
 describe("buildFieldRow", () => {
-  it("renders a labelled native field select with the current value", () => {
-    const { row, select } = buildFieldRow({
+  it("renders a labelled field dropdown over the current value", () => {
+    const { row, select, dropdown } = buildFieldRow({
       label: "Field",
       ariaLabel: "Field",
       fields: ["count", "score"],
@@ -16,7 +16,11 @@ describe("buildFieldRow", () => {
 
     expect(row.classList.contains("foliplus-form-row")).toBe(true);
     expect(row.querySelector(".foliplus-form-label")!.textContent).toBe("Field");
-    expect(select.getAttribute("aria-label")).toBe("Field");
+    // The visible control carries the accessible name; the select behind it is
+    // the hidden value/change bridge the consumers and the markup still read.
+    expect(dropdown.trigger.getAttribute("aria-label")).toBe("Field");
+    expect(dropdown.trigger.textContent).toBe("score");
+    expect(select.hidden).toBe(true);
     expect(Array.from(select.options).map(o => o.value)).toEqual(["count", "score"]);
     expect(select.value).toBe("score");
   });
@@ -95,17 +99,17 @@ describe("buildClassesRow", () => {
       ...overrides,
     });
 
-  it("labels the row by method and names both selects distinctly", () => {
+  it("labels the row by method and names both controls distinctly", () => {
     // One visible label for two controls: it reads by the primary control, and
-    // each select keeps its own accessible name so a screen reader announces
+    // each dropdown keeps its own accessible name so a screen reader announces
     // "Method" and "Classes" once each instead of the row label twice.
-    const { row, methodSelect, classesSelect } = build();
+    const { row, methodDropdown, classesDropdown } = build();
 
     expect(row.querySelector(".foliplus-form-label")!.textContent).toBe("Method");
-    expect(methodSelect.getAttribute("aria-label")).toBe("Method");
-    expect(classesSelect.getAttribute("aria-label")).toBe("Classes");
-    expect(methodSelect.getAttribute("aria-label")).not.toBe(
-      classesSelect.getAttribute("aria-label"),
+    expect(methodDropdown.trigger.getAttribute("aria-label")).toBe("Method");
+    expect(classesDropdown.trigger.getAttribute("aria-label")).toBe("Classes");
+    expect(methodDropdown.trigger.getAttribute("aria-label")).not.toBe(
+      classesDropdown.trigger.getAttribute("aria-label"),
     );
   });
 
@@ -310,11 +314,39 @@ describe("shared scheme-picker trigger (stylesheet contract)", () => {
   it("owns the trigger box for every consumer", () => {
     const trigger = blockOf(scheme, ".foliplus-scheme-picker-trigger {");
     expect(trigger).toContain("height: var(--foliplus-ctrl-size)");
-    expect(trigger).toContain("padding: 0 var(--foliplus-icon-size-md)");
+    expect(trigger).toContain("padding: 0 var(--foliplus-scheme-picker-bar-inset-x)");
     expect(trigger).toContain("border: var(--foliplus-border-thin) solid");
     expect(trigger).toContain("border-radius: var(--foliplus-radius-sm)");
     // Fills the control cell, so its width follows the shared control column.
     expect(trigger).toContain("flex: 1");
+  });
+
+  it("insets the dropdown strip by the same token as the trigger", () => {
+    // The two bars line up only while both use one inset token: the trigger
+    // pads by it, the item pads by it minus its reserved selection border and
+    // the measured scrollbar lane (a layout scrollbar steals real width).
+    const item = blockOf(scheme, ".foliplus-scheme-picker-item {");
+    expect(item).toContain("var(--foliplus-scheme-picker-bar-inset-x) -");
+    expect(item).toContain("var(--foliplus-scheme-picker-scrollbar-width)");
+    expect(item).toContain(
+      "calc(var(--foliplus-scheme-picker-bar-inset-x) - var(--foliplus-border-thick))",
+    );
+  });
+
+  it("reserves the scrollbar lane in both list states", () => {
+    // A stable gutter keeps the lane constant so crossing the max-height does
+    // not re-inset every strip; the item subtracts that same lane.
+    const dropdown = blockOf(scheme, ".foliplus-scheme-picker-dropdown {");
+    expect(dropdown).toContain("overflow-y: auto");
+    expect(dropdown).toContain("scrollbar-gutter: stable");
+  });
+
+  it("defines the strip inset and scrollbar lane tokens in the token file", () => {
+    // Style rule: every --foliplus-* custom property is *defined* in token.css;
+    // the picker stylesheet only reads it.
+    const tokens = css("foliplus/css/common/token.css");
+    expect(tokens).toContain("--foliplus-scheme-picker-bar-inset-x:");
+    expect(tokens).toContain("--foliplus-scheme-picker-scrollbar-width:");
   });
 
   it("paints one chevron for both panels", () => {

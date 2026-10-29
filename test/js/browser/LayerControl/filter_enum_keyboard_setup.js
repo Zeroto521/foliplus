@@ -1,6 +1,6 @@
 // Opens the filter panel for a synthetic enum owner and parks focus on the
-// trigger, so the Python test can drive the real browser keyboard path
-// (Playwright key events, not synthetic DOM events).
+// enum dropdown's trigger, so the Python test can drive the real browser
+// keyboard path (Playwright key events, not synthetic DOM events).
 async () => {
   const api = window.map.foliplus && window.map.foliplus.LayerAPI;
   const bus = window.map.foliplus && window.map.foliplus.events;
@@ -21,19 +21,24 @@ async () => {
     kept: filter && filter.kind === "enum" ? filter.values.length * 2 : 8,
     total: 8,
   });
-  api.registerLayer({
-    id: ID,
-    name: "Enum keyboard",
-    layer: L.layerGroup(),
-    filterProvider: model,
-    filterSetter: next => {
-      filter = next;
-      bus.publish("foliplus:layer:filter-change", { id: ID });
-      bus.publish("foliplus:layer:item-count-change", { id: ID });
-    },
-  });
   const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
-  await wait(30);
+  const existing = document.querySelector(
+    `.foliplus-layer-item[data-layer-id="${ID}"]`,
+  );
+  if (!existing) {
+    api.registerLayer({
+      id: ID,
+      name: "Enum keyboard",
+      layer: L.layerGroup(),
+      filterProvider: model,
+      filterSetter: next => {
+        filter = next;
+        bus.publish("foliplus:layer:filter-change", { id: ID });
+        bus.publish("foliplus:layer:item-count-change", { id: ID });
+      },
+    });
+    await wait(30);
+  }
   const row = document.querySelector(`.foliplus-layer-item[data-layer-id="${ID}"]`);
   if (!row) return { ok: false, reason: "no-row" };
   row.querySelector(".foliplus-layer-more-btn").click();
@@ -42,15 +47,18 @@ async () => {
   );
   if (!menuItem) return { ok: false, reason: "no-filter-menu-item" };
   menuItem.click();
-  await wait(30);
+  await wait(40);
   const panel = row.querySelector(".foliplus-layer-filter-panel");
-  const trigger = panel && panel.querySelector(".foliplus-filter-enum-trigger");
-  if (!trigger) return { ok: false, reason: "no-trigger" };
+  const trigger =
+    panel && panel.querySelector(".foliplus-filter-enum .foliplus-dropdown-trigger");
+  if (!trigger) return { ok: false, reason: "no-dropdown-trigger" };
   trigger.focus();
   return {
     ok: true,
     id: ID,
-    triggerText: trigger.textContent,
-    controls: trigger.getAttribute("aria-controls"),
+    triggerTag: trigger.tagName,
+    ariaExpanded: trigger.getAttribute("aria-expanded"),
+    // No native multi-select may survive the migration on this page.
+    nativeMultipleSelects: document.querySelectorAll("select[multiple]").length,
   };
 };

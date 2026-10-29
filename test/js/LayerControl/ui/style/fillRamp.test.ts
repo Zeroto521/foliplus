@@ -471,6 +471,28 @@ describe("applyRampToLayer", () => {
     expect(pinGetterOf(0)()).toMatchObject({ fillColor: "#111111", fill: true });
   });
 
+  it("falls back to the live intent for the pin when no reader is passed", () => {
+    // The 5th argument is the pin's live reader; a caller that omits it gets the
+    // intent store itself. Assert the fallback replays — and that it re-reads
+    // the store on every fire rather than replaying the value frozen at build
+    // time, which is what makes a caller dropping the argument a degradation
+    // instead of a silent stale-colour bug.
+    installChroma(["#111111"]);
+    const ramp = makeRamp();
+    intentValues = { fillRamp: ramp };
+    const layer = makeFeatureLayer([{ properties: { value: 5 } }]);
+
+    applyRampToLayer(makeUI(layer), "overlay1", ramp);
+
+    expect(pinGetterOf(0)()).toMatchObject({ fillColor: "#111111", fill: true });
+
+    // The user picks another class count: the live config no longer matches the
+    // breaks this apply cached, so the pin yields to folium's restore until the
+    // next scheduler tick repaints.
+    intentValues = { fillRamp: makeRamp({ classes: 5 }) };
+    expect(pinGetterOf(0)()).toBeNull();
+  });
+
   it("reports an unknown method and restores the author's face", () => {
     // isFillRampConfig rejects an unknown method on read, so this is the
     // defence-in-depth path: a caller that wrote the record directly still

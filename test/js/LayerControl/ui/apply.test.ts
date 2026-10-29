@@ -310,7 +310,7 @@ describe("executor: late-carrier replay", () => {
 
   it("the label pane rides the surface's pane set — the first write covers it", () => {
     // Third cut of the dimension-registry series: the label pane is a
-    // DECLARED `role: "annotation"`
+    // DECLARED `role: "label"`
     // PaneSpec of the layer's surface — the registration edge appends it
     // iff the layer's features expose a labelable field, and `carrierOf` /
     // the pane write read `surface.paneNames` alone. No side channel, no
@@ -352,7 +352,7 @@ describe("executor: late-carrier replay", () => {
     // face — the old `annotation.paneNameFor` side channel could never
     // satisfy this, which is what makes the test red without the fix.
     const li = manager.layerRegistry.get("a1")!;
-    expect(manager.surfaceFor(li).paneNames).toContain("foliplus-annotation-a1");
+    expect(manager.surfaceFor(li).paneNames).toContain("foliplus-label-a1");
 
     // Stored opacity: the first write covers every declared non-annotation
     // pane. The label pane is excluded from CSS (R11 bakes layerAlpha into
@@ -361,7 +361,7 @@ describe("executor: late-carrier replay", () => {
     setIntent(ui, "a1", "opacity", 0.3);
     ui.intentStore.seedProvenance("a1", ["opacity"]);
     applyProjection(ui, "a1");
-    expect(paneFor("foliplus-annotation-a1").style.opacity).toBe("");
+    expect(paneFor("foliplus-label-a1").style.opacity).toBe("");
     // The annotation manager received the bake write for this layer.
     expect(applyAlpha).toHaveBeenCalledWith("a1", 0.3);
 

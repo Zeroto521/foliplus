@@ -180,16 +180,20 @@ class TestLayerControlRendering:
         The container (``style_*``) and the annotation-only dimension
         (``style_label_field`` / ``_no_data``) stay component-scoped.
         ``test_locale.py`` covers the cross-table key set.
+
+        The retired ``style_label_field_auto`` key (the removed Auto entry in
+        the field picker) must stay retired: the picker names a real field, so
+        there is no pseudo-option left to translate.
         """
         root = Path(__file__).resolve().parent.parent.parent.parent
         required = {
             "style_layer",
             "style_layer_tooltip",
             "style_label_field",
-            "style_label_field_auto",
             "style_label_no_data",
             "style_reset",
         }
+        retired = "style_label_field_auto"
         for lang in ("en", "zh"):
             data = json.loads(
                 (root / "foliplus" / "locale" / f"LayerControl.{lang}.json").read_text(
@@ -202,6 +206,9 @@ class TestLayerControlRendering:
             missing = required - keys
             assert not missing, (
                 f"LayerControl.{lang} missing style-panel keys: {missing}"
+            )
+            assert retired not in keys, (
+                f"LayerControl.{lang} still carries the removed {retired} key"
             )
 
     def test_color_click_deselects_bases(self, base_map: folium.Map):

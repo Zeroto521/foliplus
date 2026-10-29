@@ -115,6 +115,15 @@ const SEL = {
 const STORAGE = { KEY: `foliplus_measure_${map.getContainer().id}` };
 const RECORD_VERSION = 1;
 
+/** Filter capability: the one filterable field (the measurement type), and the
+ *  key prefix/version of its own record. The record is separate from the
+ *  measurements list so that list's shape (and version) stays unchanged. */
+const FILTER = {
+  FIELD: "type",
+  STORAGE_PREFIX: "foliplus_measure_filter",
+  RECORD_VERSION: 1,
+};
+
 /** Export formats. */
 const EXPORT_FORMAT = {
   GEOJSON: "geojson",
@@ -158,6 +167,7 @@ export {
   SEL,
   STORAGE,
   RECORD_VERSION,
+  FILTER,
   EXPORT_FORMAT,
   DEFAULT_EXPORT_FORMAT,
   GEOJSON,

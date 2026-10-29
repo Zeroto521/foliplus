@@ -74,6 +74,7 @@ import {
   closeStylePanel,
   invalidateFields,
   openStylePanel,
+  replayDeclaredFill,
   replayFillState,
 } from "./style/index.js";
 import { applySizeToLayer } from "./style/size.js";
@@ -313,6 +314,17 @@ class LayerUI implements LayerUISurface {
       applyBorderToLayer(this, layerId);
       replayFillState(this, layerId);
       applySizeToLayer(this, layerId);
+    }
+    // Author-declared fills are read-time defaults, not stored overrides, so
+    // the provenance loop above never reaches a layer the user left alone.
+    // The attach sweep is the only pass that covers the initial registry, so
+    // replay them here — otherwise a declared ramp stays unpainted until the
+    // first panel touch. (The id-specified path above already replayed its
+    // own layer; this is the full-sweep half.)
+    if (id === undefined) {
+      for (const layerInfo of this.c.layerRegistry.layers) {
+        replayDeclaredFill(this, layerInfo.id);
+      }
     }
     return moved;
   }

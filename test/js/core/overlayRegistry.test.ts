@@ -11,6 +11,7 @@ import {
   ensureOverlayRegistry,
   orderOf,
 } from "#core/overlayRegistry.js";
+import { registerPortalRoot } from "#common/portalRoot.js";
 
 /** A map stand-in: the registry only needs the unload hook. */
 const makeMap = () => {
@@ -45,7 +46,6 @@ interface EntryOptions {
   open?: boolean;
   closable?: () => boolean;
   panels?: () => Element[];
-  portals?: () => Element[];
   dismissOnOutside?: (press: OverlayPress) => boolean;
   dismissOnInside?: (press: OverlayPress) => boolean;
   consumePress?: (target: Element, press: OverlayPress) => boolean;
@@ -77,7 +77,6 @@ const makeEntry = (options: EntryOptions): FakeEntry => {
     dismissOnInside: options.dismissOnInside,
     consumePress: options.consumePress,
     panels: () => state.panels(),
-    portals: options.portals,
     isOpen: () => state.open,
     close: opts => {
       if (options.closable && !options.closable()) return false;
@@ -106,6 +105,8 @@ const escape = (target: EventTarget = document.body): KeyboardEvent => {
 
 describe("OverlayRegistry", () => {
   let registry: OverlayRegistry;
+  /** Portal registrations a test made, released after it. */
+  const portalReleases: (() => void)[] = [];
   let addSpy: ReturnType<typeof vi.spyOn>;
   let removeSpy: ReturnType<typeof vi.spyOn>;
 
@@ -123,6 +124,7 @@ describe("OverlayRegistry", () => {
   afterEach(() => {
     registry.destroy();
     vi.restoreAllMocks();
+    for (const release of portalReleases.splice(0)) release();
     document.body.innerHTML = "";
   });
 
@@ -318,8 +320,10 @@ describe("OverlayRegistry", () => {
       const entry = makeEntry({
         id: OVERLAY_IDS.LAYER_STYLE,
         panels: () => [own],
-        portals: () => [portal],
       }).entry;
+      // The portalled list is attributed through the trigger it was mounted
+      // for; the trigger lives in the panel that owns the overlay.
+      portalReleases.push(registerPortalRoot(portal, child(own)));
 
       expect(registry.contains(entry, own)).toBe(true);
       expect(registry.contains(entry, inner)).toBe(true);
@@ -620,12 +624,13 @@ describe("OverlayRegistry", () => {
 
     it("treats a portal node as inside the surface", () => {
       const portal = panel("portal");
+      const host = panel("host");
       const fake = makeEntry({
         id: OVERLAY_IDS.LAYER_STYLE,
-        panels: () => [panel("host")],
-        portals: () => [portal],
+        panels: () => [host],
       });
       registry.register(fake.entry);
+      portalReleases.push(registerPortalRoot(portal, child(host)));
       press(child(portal), "mousedown");
       expect(fake.closeCalls).toHaveLength(0);
       expect(registry.lastPressInside()).toBe(true);
@@ -744,16 +749,16 @@ describe("OverlayRegistry", () => {
 
     it("closes an open picker before the menu that opened it", () => {
       const menuPanel = panel("menu");
-      const pickerPortal = panel("picker-portal");
       const menu = makeEntry({
         id: OVERLAY_IDS.LAYER_MENU,
         panels: () => [menuPanel],
         dismissOn: "click",
       });
+      // The picker popup is portalled, so its entry owns no panel: Escape is
+      // ordered by ESC_PRIORITY, not by which surface contains the focus.
       const picker = makeEntry({
         id: OVERLAY_IDS.PICKER_DROPDOWN,
         panels: () => [],
-        portals: () => [pickerPortal],
         dismissOn: "click",
       });
       registry.register(menu.entry);
@@ -775,15 +780,15 @@ describe("OverlayRegistry", () => {
       const style = makeEntry({
         id: OVERLAY_IDS.LAYER_STYLE,
         panels: () => [stylePanel],
-        portals: () => [pickerPortal],
       });
       const picker = makeEntry({
         id: OVERLAY_IDS.PICKER_DROPDOWN,
         panels: () => [],
-        portals: () => [pickerPortal],
       });
       registry.register(style.entry);
       registry.register(picker.entry);
+      // The picker's list belongs to the style panel's trigger here.
+      portalReleases.push(registerPortalRoot(pickerPortal, child(stylePanel)));
 
       // Focus inside the style panel but the picker popup is the top layer:
       // Escape must close only the picker, never tear the drawer down too.
@@ -794,19 +799,21 @@ describe("OverlayRegistry", () => {
 
     it("closes the higher-ranked entry when both contain the target (picker portal)", () => {
       const stylePanel = panel("style");
+      // The picker's trigger lives inside the picker's own nested surface, so
+      // both entries contain the portalled row and the ranking decides.
+      const pickerPanel = child(stylePanel);
       const pickerPortal = panel("picker-portal");
       const style = makeEntry({
         id: OVERLAY_IDS.LAYER_STYLE,
         panels: () => [stylePanel],
-        portals: () => [pickerPortal],
       });
       const picker = makeEntry({
         id: OVERLAY_IDS.PICKER_DROPDOWN,
-        panels: () => [],
-        portals: () => [pickerPortal],
+        panels: () => [pickerPanel],
       });
       registry.register(style.entry);
       registry.register(picker.entry);
+      portalReleases.push(registerPortalRoot(pickerPortal, pickerPanel));
 
       escape(child(pickerPortal));
       expect(picker.closeCalls).toHaveLength(1);
@@ -853,7 +860,6 @@ describe("OverlayRegistry", () => {
     it("walks a three-layer stack by ESC_PRIORITY, one layer per press", () => {
       const attrsPanel = panel("attrs");
       const menuPanel = panel("menu");
-      const pickerPortal = panel("picker");
       const attrs = makeEntry({
         id: OVERLAY_IDS.LAYER_ATTRS,
         panels: () => [attrsPanel],
@@ -866,7 +872,6 @@ describe("OverlayRegistry", () => {
       const picker = makeEntry({
         id: OVERLAY_IDS.PICKER_DROPDOWN,
         panels: () => [],
-        portals: () => [pickerPortal],
         dismissOn: "click",
       });
       // Register in reverse priority order: the rank table, not insertion

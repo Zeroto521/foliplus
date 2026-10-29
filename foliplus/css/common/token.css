@@ -317,7 +317,7 @@
                                   basemap panes, one STEP per basemap slot
        600+n·10   layer z        core/layer z.ts zFor (Z_INDEX.BASE)
                                   overlay panes; annotation labels sit +1
-                                  in-slot (ANNOTATION_Z_OFFSET)
+                                  in-slot (LABEL_Z_OFFSET)
        9490       export z       --foliplus-export-scale-z (ExportControl.css)
                                   scale/attribution dimmed under the crop
                                   mask; above all data layers, under crop UI
@@ -393,6 +393,19 @@
   /* ── HeatmapControl ──
      Inline control geometry. */
   --foliplus-heatmap-inline-height: var(--foliplus-icon-size-md);
+
+  /* ── Scheme picker (shared by HeatmapControl and LayerControl) ──
+     Colour-strip inset. The trigger's strip and a dropdown item's strip use
+     the same value so the two bars line up on both sides; the item subtracts
+     its reserved selection border inside the inset (see scheme-picker.css). */
+  --foliplus-scheme-picker-bar-inset-x: var(--foliplus-icon-size-md);
+
+  /* Width of the dropdown's scrollbar lane. The picker writes the measured
+     value on the mounted dropdown (a layout scrollbar reserves real space, an
+     overlay one reserves none, and a stable gutter keeps the lane constant
+     between the scrolling and fitting states); the item strip subtracts it so
+     its right edge stays on the trigger strip's right edge. */
+  --foliplus-scheme-picker-scrollbar-width: 0px;
 
   /* ── LayerControl (row layout) ──
      Drag & drop variables and grid layout metrics. */

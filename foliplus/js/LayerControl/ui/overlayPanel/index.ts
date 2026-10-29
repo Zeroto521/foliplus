@@ -45,6 +45,12 @@ class OverlayPanel {
   filterUnsubscribe: (() => void) | null = null;
   /** Unregister for the style panel's registry entry (installed while open). */
   styleOverlayUnregister: (() => void) | null = null;
+  /** The live style-drawer element while one is open, or null. Kept on the
+   *  overlay panel (not captured by the registry entry) so a press predicate
+   *  scopes to *this* control's drawer: a page with two maps has two drawers,
+   *  and a document-wide query would scope the press to the first one in DOM
+   *  order. */
+  stylePanelEl: HTMLElement | null = null;
   /** Unsubscribe for LAYER_ITEM_COUNT_CHANGE while attrs panel is open. */
   attrsUnsubscribe: (() => void) | null = null;
   /** Unsubscribe for LAYER_STYLE_CHANGE while a delegated style panel is

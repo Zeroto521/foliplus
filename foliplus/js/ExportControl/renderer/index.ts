@@ -4,9 +4,9 @@
 // the class method of the same name.
 import {
   type LayerInfo,
-  annotationPaneNameOf,
   contentPanesOf,
   findLayer,
+  labelPaneNameOf,
 } from "#core/layer/index.js";
 import { layerUrl } from "#core/leafletAdapter.js";
 import { createScopedTranslator } from "#common/locale.js";
@@ -341,12 +341,12 @@ class ExportRenderer {
           }
 
           // SVG paths, Canvas elements, and Markers in this layer's panes.
-          // The annotation pane is NOT part of the generic walk — its labels
+          // The label pane is NOT part of the generic walk — its labels
           // are drawn by the dedicated pass right below, and the generic
           // canvas sweep would draw them a second time (double-painted
           // labels, deepened alpha).
           const contentPanes = this.resolveExportPanes(layer, shadowPaneNames).filter(
-            paneName => !paneName.startsWith(CONST.ANNOTATION_PANE_PREFIX),
+            paneName => !paneName.startsWith(CONST.LABEL_PANE_PREFIX),
           );
           for (const paneName of contentPanes) {
             const pane = this.map.getPane(paneName);
@@ -360,9 +360,9 @@ class ExportRenderer {
           // Drawing them here — right after this layer, before the next layer
           // up — keeps the export's stack order identical to the map's: a layer
           // above covers this layer's labels.
-          const labelPane = this.map.getPane(annotationPaneNameOf(layerInfo.id));
+          const labelPane = this.map.getPane(labelPaneNameOf(layerInfo.id));
           if (labelPane) {
-            await this.renderPaneCanvas(rc, labelPane, CONST.SEL.ANNOTATION_CANVAS);
+            await this.renderPaneCanvas(rc, labelPane, CONST.SEL.LABEL_CANVAS);
           }
 
           // Markers and divIcons in this layer.  The sweep takes the resolved

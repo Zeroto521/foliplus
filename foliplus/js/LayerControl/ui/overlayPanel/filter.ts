@@ -22,18 +22,20 @@
 // and closes itself when the entry it shows is no longer current.
 //
 // Panel shell follows `attr.ts` verbatim: `createRowPanel` for the surface and
-// a per-map overlay-registry entry for dismiss (the control disables click
-// propagation, so bubble-phase never reaches `document`). The enum popup is a
-// nested entry with a higher press priority; it closes the popup without
-// closing the panel, matching the old document handler.
+// a per-map overlay-registry entry for dismiss. The registry owns the single
+// document capture-phase mousedown and Escape dispatchers (the control disables
+// click propagation, so bubble-phase never reaches `document`), and the entry's
+// live panels answer "is this press mine" — no per-panel outside handler and no
+// panel-level keydown live here.
 import { EVENTS } from "#core/event/index.js";
+import { dropdownSurface } from "#core/fullscreen.js";
 import type {
   FilterDimension,
   LayerFilter,
   LayerFilterModel,
   LayerInfo,
 } from "#core/layer/index.js";
-import { createRowPanel } from "#core/leaflet/index.js";
+import { createRowPanel, pinRowPanel, unpinRowPanel } from "#core/leaflet/index.js";
 import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import * as SVGs from "#foliplus/LayerControl/icon.js";
@@ -124,8 +126,8 @@ interface FilterViewHooks {
 }
 
 /** The body deps: the panel's translator, its write bridge, its number
- *  formatters and the shared overlay registry (the enum popup registers its
- *  nested dismiss entry). */
+ *  formatters and the popup surface an open enum dropdown portals onto. The
+ *  body never reads the registry itself. */
 const bodyDeps = (
   ui: LayerUI,
   hooks: FilterViewHooks,
@@ -134,7 +136,10 @@ const bodyDeps = (
   write: hooks.write,
   formatCount: fmtCount,
   formatValue: fmtValue,
-  overlayRegistry: ensureOverlayRegistry(ui.c.map),
+  // Same surface contract the style panel's dropdowns use: an open popup
+  // mounts on the map container, so native/pseudo fullscreen keeps it
+  // on-screen.
+  surface: dropdownSurface(ui.c.map.getContainer()),
 });
 
 /** Pull the shared readout to the owner's current model: live kept/total text
@@ -336,6 +341,13 @@ const subscribeFilterSignals = (
     ui.events.on(EVENTS.LAYER_FILTER_CHANGE, ({ id }) => {
       if (id === state.layerId) refresh();
     }),
+    // The option set of an enum dimension can follow the row's item count
+    // (only the measurement types that exist are offered), so an item count
+    // change re-reads the owner model and rebuilds the body when the options
+    // changed.
+    ui.events.on(EVENTS.LAYER_ITEM_COUNT_CHANGE, ({ id }) => {
+      if (id === state.layerId) refresh();
+    }),
     ui.events.on(EVENTS.LAYER_ITEM_UPDATED, onEntrySignal),
     ui.events.on(EVENTS.LAYER_ITEM_REFRESHED, onEntrySignal),
     ui.events.on(EVENTS.LAYER_ITEM_REMOVED, onEntrySignal),
@@ -414,21 +426,28 @@ const openFilterPanel = (ui: LayerUI, item: HTMLElement): void => {
   // The panel sits inside a draggable layer row: a press on the panel
   // must neither start a row drag nor inherit `user-select: none`. The
   // mousedown is stopped here (the row's own handlers live on the
-  // container), and which side of the panel the press landed on is
-  // recorded by the outside handler below — `dragstart` is dispatched on the
-  // draggable row, so it cannot answer that.
+  // container); the registry entry below classifies the press as inside or
+  // outside this surface — `dragstart` is dispatched on the draggable row, so
+  // it cannot answer that.
   panel.addEventListener("mousedown", e => e.stopPropagation());
 
   item.style.position = "relative";
   item.appendChild(panel);
+  // The layer list is a scrolling box with `overflow: hidden`; an absolute
+  // card would be clipped at its edge (the Clear footer and the lower form
+  // rows became unpickable), so pin the panel to the viewport under its row.
+  // The enum popup itself is portalled by common/dropdown, so it escapes both
+  // clip boxes.
+  pinRowPanel(panel, item);
 
-  // Register the open surface with the per-map overlay registry. The
-  // registry owns the document capture-phase mousedown and Escape dispatchers.
-  // The enum popup registers its own higher-priority nested entry from
-  // filterBody, so a press outside the popup but inside the panel closes only
-  // the popup and consumes the press; the next outside press reaches this
-  // entry and closes the panel. Escape works by rank: the enum closes first,
-  // then this panel.
+  // Register the open surface with the per-map overlay registry: it owns the
+  // one document capture-phase mousedown dispatcher and the one Escape
+  // dispatcher, so this panel adds neither. A press outside the entry's live
+  // panels dismisses it; Escape closes it by ESC_PRIORITY rank. There is
+  // deliberately no panel-level keydown — an open enum popup is the shared
+  // dropdown's own window-capture claim, which runs before the registry and
+  // stops the event, so one Escape closes the popup and the next one reaches
+  // this layer.
   ui.overlayPanel.activeFilterPanel = state;
   ui.overlayPanel.filterOverlayUnregister = ensureOverlayRegistry(ui.c.map).register({
     id: OVERLAY_IDS.LAYER_FILTER,
@@ -460,6 +479,7 @@ const closeFilterPanel = (ui: LayerUI, setFocus: boolean): void => {
   // goes, or its change event is lost with the node (style-panel recipe).
   finishSlidersIn(panel);
   if (state.view.kind === "rows") state.view.body.destroy();
+  unpinRowPanel(item);
   panel.remove();
   ui.overlayPanel.activeFilterPanel = null;
   if (setFocus) item.focus();

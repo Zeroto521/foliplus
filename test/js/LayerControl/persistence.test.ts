@@ -594,14 +594,36 @@ describe("LayerPersistence", () => {
       }
     });
 
-    it("drops a fillMode that is not one of the two literals", () => {
-      for (const bad of ["RAMP", "linear", "", 1, null, undefined, {}]) {
+    it("drops a fillMode that is not one of the three literals", () => {
+      for (const bad of [
+        "RAMP",
+        "linear",
+        // The arm's pre-release spelling: the option is a stored choice now,
+        // and a record from a build that offered it must not load as one.
+        "feature",
+        "",
+        1,
+        null,
+        undefined,
+        {},
+      ]) {
         seedStorage({
           version: RECORD_VERSION,
           layers: { a: { fillMode: bad, overrides: ["fillMode"] } },
         });
         expect(makePersistence().load().layers.a, JSON.stringify(bad)).toBeUndefined();
       }
+    });
+
+    it("keeps the original-colors arm as a stored choice", () => {
+      seedStorage({
+        version: RECORD_VERSION,
+        layers: { a: { fillMode: "original", overrides: ["fillMode"] } },
+      });
+      expect(makePersistence().load().layers.a).toEqual({
+        fillMode: "original",
+        overrides: ["fillMode"],
+      });
     });
 
     it("parses each override independently — a bad ramp keeps the mode", () => {

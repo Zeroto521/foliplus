@@ -17,12 +17,10 @@
    The plain dropdowns take the whole recipe. A row panel shares only what
    it does not own: `.foliplus-row-panel` (common/panel.css) sets its own radius,
    shadow and z-index, so restating those here was two sources for one decision
-   with the panel's copy silently winning. */
-:is(
-  .foliplus-search-result-panel,
-  .foliplus-layer-more-menu,
-  .foliplus-filter-enum-list
-) {
+   with the panel's copy silently winning. `.foliplus-dropdown-list` (the shared
+   select replacement) joins the plain dropdowns: common/dropdown.css owns its
+   anchor and rows, never this box. */
+:is(.foliplus-search-result-panel, .foliplus-layer-more-menu, .foliplus-dropdown-list) {
   box-sizing: border-box;
   margin-top: var(--foliplus-space-xs);
   background: var(--foliplus-input-bg);
@@ -67,18 +65,14 @@
     .foliplus-search-result-panel,
     .foliplus-layer-more-menu,
     .foliplus-row-panel,
-    .foliplus-filter-enum-list
+    .foliplus-dropdown-list
   ) {
     animation: none;
   }
 }
 
 /* ── Item base ── */
-:is(
-  .foliplus-search-result-item,
-  .foliplus-layer-more-menu li,
-  .foliplus-filter-enum-option
-) {
+:is(.foliplus-search-result-item, .foliplus-layer-more-menu li) {
   cursor: pointer;
   font-size: var(--foliplus-font-size-sm);
   color: var(--foliplus-text-primary);
@@ -89,11 +83,7 @@
 
 /* ── Hover: dropdown items are actions, so they answer with accent (same
      language as the LayerControl "more" button hover). ── */
-:is(
-  .foliplus-search-result-item,
-  .foliplus-layer-more-menu li,
-  .foliplus-filter-enum-option
-):hover {
+:is(.foliplus-search-result-item, .foliplus-layer-more-menu li):hover {
   background: var(--foliplus-accent-light);
   color: var(--foliplus-accent-primary);
 }
@@ -103,11 +93,7 @@
      stronger accent-light; the press settles one notch softer so a click
      reads as "down" rather than a second hover. Disabled entries never
      answer (their :hover override already stays muted). ─── */
-:is(
-    .foliplus-search-result-item,
-    .foliplus-layer-more-menu li,
-    .foliplus-filter-enum-option
-  ):not([disabled]):active {
+:is(.foliplus-search-result-item, .foliplus-layer-more-menu li):not([disabled]):active {
   background: var(--foliplus-accent-soft-bg);
 }
 .foliplus-search-result-item:not([disabled]):active {

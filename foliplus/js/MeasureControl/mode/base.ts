@@ -269,7 +269,10 @@ const createDeferredDelete = (): {
  * cannot invoke `teardown` a second time after delete already ran it.
  */
 const wireFinalized = (
-  mgr: { registerFinalized(teardown: () => void, id: string): () => void },
+  mgr: {
+    registerFinalized(teardown: () => void, id: string): () => void;
+    forgetItemLayers?(id: string): void;
+  },
   layers: { unregister(): void },
   opts: {
     id: string;
@@ -285,6 +288,9 @@ const wireFinalized = (
       opts.teardown();
       opts.removeLayers();
       opts.onDelete();
+      // Drop the rendered-leaf registry too, so a later filter pass cannot
+      // touch layers of a measurement that no longer exists.
+      mgr.forgetItemLayers?.(opts.id);
       layers.unregister();
     },
   };

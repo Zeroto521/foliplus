@@ -413,7 +413,7 @@ class LayerController implements LayerAPI {
     };
     this.map.on("layerremove", this.onLayerRemove);
     // The annotation manager plans each layer's labels on that layer's own
-    // label pane — which is a declared `role: "annotation"` PaneSpec of the
+    // label pane — which is a declared `role: "label"` PaneSpec of the
     // layer's surface (see `withAnnotationSpec`), created and z-priced with
     // the rest of the face. The manager only mounts canvases into it; there
     // is no pane hook and no stored-intent replay to wire — the pane exists
@@ -921,7 +921,7 @@ class LayerController implements LayerAPI {
         operation.emit(EVENTS.LAYER_ITEM_ADDED, { id: opts.id });
       } else {
         // Re-registration is how the API says "this layer's content changed",
-        // so the row's cached field list and resolved auto field are both stale.
+        // so the row's cached field list and resolved field are both stale.
         operation.emit(EVENTS.LAYER_ITEM_UPDATED, { id: opts.id });
       }
       // The row insert/update above is this registration's first fan-out: a

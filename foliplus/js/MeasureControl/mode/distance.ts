@@ -55,6 +55,7 @@ class DistanceMode extends PreviewMode {
       });
     }
 
+    mgr.registerItemLayers(data.id!, [finalPoly, ...nodeMarkers, ...segLabels]);
     attachDistanceUI(mgr, {
       layers: mgr.layers,
       finalPoly,
@@ -150,6 +151,7 @@ class DistanceMode extends PreviewMode {
         );
       }
 
+      this.mgr.registerItemLayers(distId, [finalPoly, ...nodeMarkers, ...segLabels]);
       // Attach toggle/delete UI (shared with restoreDistance). It self-registers
       // its dispose via registerFinalized, so clearAll/destroy can unbind it.
       attachDistanceUI(this.mgr, {

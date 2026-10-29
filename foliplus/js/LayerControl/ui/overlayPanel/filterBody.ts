@@ -16,22 +16,20 @@ import type {
   LayerFilter,
   LayerFilterModel,
 } from "#core/layer/index.js";
-import { OVERLAY_IDS, type OverlayRegistry } from "#core/overlayRegistry.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
-import * as SVGs from "#foliplus/LayerControl/icon.js";
 import { Slider } from "#foliplus/LayerControl/slider.js";
 import { dom } from "#common/dom.js";
+import { type DropdownSurface, createDropdown } from "#common/dropdown.js";
 
-/** What a body may use from the panel: translations, the owner write bridge
- *  and the panel's number formatters. */
+/** What a body may use from the panel: translations, the owner write bridge,
+ *  the panel's number formatters and the popup surface an open control portals
+ *  onto (the same contract the style panel's dropdowns receive). */
 type FilterBodyDeps = {
   T: (key: string) => string;
   write: (filter: LayerFilter | undefined) => void;
   formatCount: (n: number) => string;
   formatValue: (n: number) => string;
-  /** The panel's per-map registry; the enum body registers its open popup so a
-   *  press outside the popup (but inside the panel) closes only the popup. */
-  overlayRegistry?: OverlayRegistry;
+  surface: DropdownSurface;
 };
 
 /** One rendered condition body. `dimension` is kept so the panel can decide
@@ -42,29 +40,26 @@ type FilterBody = {
   /** Repaint the control from the owner's current model. */
   sync: (model: LayerFilterModel) => void;
   destroy: () => void;
-  /** Close an open transient popup (the enum list). Returns true when the
-   *  popup swallowed the press, so the panel stays open: the first outside
-   *  press dismisses the popup, not the surface. `focusTrigger` is for the
-   *  keyboard path, where the trigger is the popup's logical return target. */
-  dismissTransient: (target: Element, focusTrigger?: boolean) => boolean;
 };
 
-/** The read-only dimension row: field label plus the owner-provided dimension
- *  name. Both bodies start with it; the enum body appends its control to the
- *  same cell so the name and the trigger read as one field. */
+/** The read-only dimension row: the label cell carries the dimension's own
+ *  name, and the control cell is filled by the body. The name is localized by
+ *  the owner (`dim.label`), so a component such as MeasureControl shows its
+ *  own "Type" instead of the generic "Field" caption; the cell no longer
+ *  repeats the name above the control. */
 const buildDimensionRow = (
-  T: FilterBodyDeps["T"],
   label: string,
-): { row: HTMLElement; control: HTMLElement } => {
-  const control = dom.el(
-    "div",
-    { class: `${CONST.CLASSES.FORM_CONTROL} ${CONST.CLASSES.FILTER_FIELD}` },
-    label,
-  );
+): {
+  row: HTMLElement;
+  control: HTMLElement;
+} => {
+  const control = dom.el("div", {
+    class: `${CONST.CLASSES.FORM_CONTROL} ${CONST.CLASSES.FILTER_FIELD}`,
+  });
   const row = dom.el(
     "div",
     { class: CONST.CLASSES.FORM_ROW },
-    dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, T("filter_field")),
+    dom.el("label", { class: CONST.CLASSES.FORM_LABEL }, label),
     control,
   );
   return { row, control };
@@ -89,7 +84,7 @@ const renderRangeBody = (
   model: LayerFilterModel,
   deps: FilterBodyDeps,
 ): FilterBody => {
-  const { row: fieldRow } = buildDimensionRow(deps.T, dim.label);
+  const { row: fieldRow } = buildDimensionRow(dim.label);
   const host = dom.el("div", { class: CONST.CLASSES.FILTER_SLIDER });
   const slider = new Slider(host, {
     min: dim.range[0],
@@ -138,13 +133,8 @@ const renderRangeBody = (
     dimension: dim,
     sync,
     destroy: () => slider.destroy(),
-    dismissTransient: () => false,
   };
 };
-
-/** Monotonic suffix for the enum listbox ids: each mounted body owns one
- *  listbox, and the trigger's `aria-controls` needs a stable target. */
-let enumListSeq = 0;
 
 /** The panel's range atom — the only range shape the body emits. */
 const atomOf = (
@@ -166,7 +156,9 @@ const enumValuesOf = (
 
 /** Build the commit for a value set: no selected value means "no filter",
  *  never "hide everything". Values keep the owner's option order so the
- *  serialized filter is stable regardless of click order. */
+ *  serialized filter is stable regardless of click order; values whose option
+ *  disappeared from the owner's domain (a type with no measurement right now)
+ *  are kept after it, so the filter cannot silently change under the user. */
 const enumFilterOf = (
   dim: FilterEnumDimension,
   selected: ReadonlySet<string>,
@@ -174,285 +166,74 @@ const enumFilterOf = (
   const values = dim.options
     .map(option => option.value)
     .filter(value => selected.has(value));
+  for (const value of selected) {
+    if (!values.includes(value)) values.push(value);
+  }
   return values.length > 0 ? { kind: "enum", field: dim.field, values } : undefined;
 };
 
-/** Every ancestor whose `overflow-y` clips its content. The enum listbox is
- *  absolutely positioned inside a row that itself lives in the layer list's
- *  scroll box, and a filter card's own content can be a clip box too: the
- *  visible bottom is the tightest of ALL of them, not just the nearest one. */
-const clippingAncestorsOf = (node: Element): HTMLElement[] => {
-  const clips: HTMLElement[] = [];
-  let current = node.parentElement;
-  while (current) {
-    if (getComputedStyle(current).overflowY !== "visible") clips.push(current);
-    current = current.parentElement;
-  }
-  return clips;
+/** Value-set equality: the owner's order is the option order, so a local
+ *  toggle must not read as a model change — a repaint while the popup is open
+ *  would rebuild the rows and drop focus off the row the user just toggled. */
+const sameValues = (a: readonly string[], b: readonly string[]): boolean => {
+  if (a.length !== b.length) return false;
+  const seen = new Set(a);
+  return b.every(value => seen.has(value));
 };
 
-/** The vertical gap kept between a popup and the clip edge / viewport. */
-const POPUP_EDGE_GAP = 8;
-
-/** Enum body: a read-only dimension row with a trigger that opens a checkbox
- *  listbox. Multi-select commits a value set; unselecting the last option
- *  commits `undefined`, so "nothing selected" always reads as "no filter" and
- *  the kept/total readout stays at 100%. */
+/** Enum body: the shared multiple dropdown. The trigger keeps the form-select
+ *  chrome every other panel select uses, the popup is the shared menu shell,
+ *  and one press toggles one option without closing the list. An empty
+ *  selection commits `undefined`, so "nothing selected" always reads as "no
+ *  filter" and the kept/total readout stays at 100%. */
 const renderEnumBody = (
   dim: FilterEnumDimension,
   model: LayerFilterModel,
   deps: FilterBodyDeps,
 ): FilterBody => {
-  const { row, control } = buildDimensionRow(deps.T, dim.label);
+  const { row, control } = buildDimensionRow(dim.label);
   control.classList.add(CONST.CLASSES.FILTER_ENUM);
-  const listId = `foliplus-filter-enum-${++enumListSeq}`;
 
-  const trigger = dom.el(
-    "button",
-    {
-      type: "button",
-      class: `${CONST.CLASSES.FILTER_ENUM_TRIGGER} foliplus-form-select`,
-      "aria-haspopup": "listbox",
-      "aria-expanded": "false",
-      "aria-controls": listId,
-    },
-    "",
-  ) as HTMLButtonElement;
-  const list = dom.el("div", {
-    id: listId,
-    class: CONST.CLASSES.FILTER_ENUM_LIST,
-    role: "listbox",
-    "aria-multiselectable": "true",
+  // Escape ownership stays with the shared dropdown while its list is open:
+  // common/dropdown claims the key on window capture and stops it there, so one
+  // press closes the popup and the next one reaches the LAYER_FILTER panel —
+  // "popup first, panel second", with the registry as the only panel
+  // dispatcher. If this body ever grows a bespoke portal/popup, register it as
+  // LAYER_FILTER (or PICKER_DROPDOWN) on the per-map overlay registry; never add
+  // a document keydown of its own, because the registry's rank table is the
+  // single Escape dispatcher.
+  const dropdown = createDropdown({
+    multiple: true,
+    items: dim.options.map(option => ({
+      value: option.value,
+      label: option.label,
+    })),
+    values: enumValuesOf(dim, model.filter),
+    placeholder: deps.T("filter_enum_any"),
+    ariaLabel: dim.label,
+    // The trigger answers "how many are picked"; the rows carry the check
+    // slots and the listbox sets aria-multiselectable.
+    selectedLabel: labels =>
+      deps.T("filter_enum_count").replace("{n}", String(labels.length)),
+    onChange: (_value, values) => deps.write(enumFilterOf(dim, new Set(values))),
+    ...deps.surface,
   });
-  list.hidden = true;
-
-  const buttons = dim.options.map(option => {
-    const optionButton = dom.el(
-      "button",
-      {
-        type: "button",
-        role: "option",
-        class: CONST.CLASSES.FILTER_ENUM_OPTION,
-        "aria-selected": "false",
-        tabindex: "-1",
-        "data-value": option.value,
-      },
-      dom.el("span", {
-        class: CONST.CLASSES.FILTER_ENUM_CHECK,
-        "aria-hidden": "true",
-        innerHTML: SVGs.ICON_CHECK,
-      }),
-      dom.el("span", { class: CONST.CLASSES.FILTER_ENUM_LABEL }, option.label),
-    );
-    optionButton.addEventListener("click", () => toggleValue(option.value));
-    list.appendChild(optionButton);
-    return optionButton;
-  });
-
-  control.appendChild(trigger);
-  control.appendChild(list);
-  // The owner declared no options: nothing to select, and an empty popup
-  // would read as a broken control.
-  trigger.disabled = dim.options.length === 0;
-
-  let open = false;
-  let detachGeometry: (() => void) | null = null;
-  let unregisterPopup: (() => void) | null = null;
-
-  const selectedValues = (): Set<string> => new Set(enumValuesOf(dim, currentFilter));
-
-  const closeList = (focusTrigger: boolean): void => {
-    if (!open) return;
-    open = false;
-    unregisterPopup?.();
-    unregisterPopup = null;
-    list.hidden = true;
-    list.style.maxHeight = "";
-    trigger.setAttribute("aria-expanded", "false");
-    detachGeometry?.();
-    detachGeometry = null;
-    if (focusTrigger) trigger.focus();
-  };
-
-  /** The vertical space the popup may occupy: from the trigger's bottom to the
-   *  tightest visible clip edge (or the viewport), minus one gap. */
-  const popupSpace = (): number => {
-    const triggerRect = trigger.getBoundingClientRect();
-    const clips = clippingAncestorsOf(control);
-    const clipBottoms = clips
-      .map(clip => clip.getBoundingClientRect().bottom)
-      .filter(bottom => bottom > 0);
-    const limit = Math.min(window.innerHeight, ...clipBottoms);
-    return limit - triggerRect.bottom - POPUP_EDGE_GAP;
-  };
-
-  /** Clamp the popup to the space measured once on open, so it scrolls
-   *  internally instead of painting into a clipped region. At least one row is
-   *  kept visible; a fully visible popup keeps its natural height. */
-  const clampListHeight = (): void => {
-    list.style.maxHeight = "";
-    // Measured row height, floored at a one-line control so a pre-layout
-    // measurement cannot collapse the popup to zero.
-    const rowHeight = Math.max(24, ...buttons.map(button => button.offsetHeight));
-    const fourRows = rowHeight * Math.min(dim.options.length, 4);
-    const height = Math.max(rowHeight, Math.min(fourRows, popupSpace()));
-    if (height < list.scrollHeight) list.style.maxHeight = `${Math.round(height)}px`;
-  };
-
-  /** A scroll of any clip box or a resize invalidates the measured geometry, so
-   *  the popup closes rather than floats in a stale position. */
-  const watchGeometry = (): void => {
-    const clips = clippingAncestorsOf(control);
-    // Focus the trigger on the way out: the active option is about to be
-    // hidden, and leaving focus on a display:none node parks it on <body>.
-    const onGeometryChange = (): void => closeList(true);
-    detachGeometry = () => {
-      for (const clip of clips) {
-        clip.removeEventListener("scroll", onGeometryChange);
-      }
-      window.removeEventListener("resize", onGeometryChange);
-    };
-    for (const clip of clips) {
-      clip.addEventListener("scroll", onGeometryChange, { passive: true });
-    }
-    window.addEventListener("resize", onGeometryChange, { passive: true });
-  };
-
-  const focusOption = (index: number): void => {
-    const target =
-      buttons[((index % buttons.length) + buttons.length) % buttons.length];
-    target?.focus();
-    // A clamped list scrolls internally; keep the focused option visible so the
-    // keyboard path never moves focus into a hidden row.
-    target?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
-  };
-
-  /** Open the listbox. A non-negative index also moves focus into the list
-   *  (keyboard entry); a click-open leaves focus on the trigger, so the popup
-   *  can be dismissed from the same element that opened it. */
-  const openList = (focusIndex = -1): void => {
-    open = true;
-    list.hidden = false;
-    trigger.setAttribute("aria-expanded", "true");
-    clampListHeight();
-    watchGeometry();
-    // The popup is the topmost layer while open: registering it lets the
-    // shared press dispatcher close the popup on a press outside its control
-    // without closing the filter panel, exactly as the old document handler
-    // did. The panel entry (LAYER_FILTER) stays registered below it.
-    // Constraint: if this enum list ever becomes a portal/popup again, its
-    // Escape ownership must stay on this layer entry (or PICKER_DROPDOWN) —
-    // never add a document-level keydown; the registry's rank table is the
-    // single Escape dispatcher.
-    unregisterPopup?.();
-    unregisterPopup =
-      deps.overlayRegistry?.register({
-        id: OVERLAY_IDS.LAYER_FILTER_ENUM,
-        isOpen: () => open,
-        panels: () => [control],
-        close: ({ restoreFocus }) => closeList(restoreFocus),
-        dismissOn: "mousedown",
-        pressPriority: 750,
-      }) ?? null;
-    if (focusIndex >= 0) focusOption(focusIndex);
-  };
-
-  const activeIndex = (): number =>
-    buttons.findIndex(button => button === document.activeElement);
-
-  const step = (delta: number): void => {
-    const index = activeIndex();
-    focusOption(index === -1 ? (delta > 0 ? 0 : buttons.length - 1) : index + delta);
-  };
-
-  const toggleValue = (value: string): void => {
-    const next = selectedValues();
-    if (next.has(value)) next.delete(value);
-    else next.add(value);
-    deps.write(enumFilterOf(dim, next));
-  };
-
-  let currentFilter: LayerFilter | undefined = model.filter;
+  // The owner declared no options: nothing to select, and an empty popup would
+  // read as a broken control.
+  dropdown.trigger.disabled = dim.options.length === 0;
+  control.appendChild(dropdown.element);
 
   const sync = (next: LayerFilterModel): void => {
-    currentFilter = next.filter;
-    const selected = selectedValues();
-    for (const [index, option] of dim.options.entries()) {
-      buttons[index].setAttribute(
-        "aria-selected",
-        selected.has(option.value) ? "true" : "false",
-      );
-    }
-    const labels = dim.options
-      .filter(option => selected.has(option.value))
-      .map(option => option.label);
-    const text =
-      labels.length > 0
-        ? labels.join(deps.T("filter_enum_separator"))
-        : deps.T("filter_enum_any");
-    trigger.textContent = text;
-    trigger.title = text;
+    const values = enumValuesOf(dim, next.filter);
+    // Our own write lands here too, so only a real model change repaints.
+    if (!sameValues(dropdown.getValues(), values)) dropdown.setValues(values);
   };
-  sync(model);
 
-  trigger.addEventListener("click", () => {
-    if (open) closeList(false);
-    else openList();
-  });
-
-  trigger.addEventListener("keydown", event => {
-    if (event.key === "ArrowDown") {
-      event.preventDefault();
-      event.stopPropagation();
-      if (open) step(1);
-      else openList(0);
-      return;
-    }
-    if (event.key === "ArrowUp") {
-      event.preventDefault();
-      event.stopPropagation();
-      if (open) step(-1);
-      else openList(dim.options.length - 1);
-    }
-  });
-
-  list.addEventListener("keydown", event => {
-    if (event.key === "ArrowDown") {
-      event.preventDefault();
-      event.stopPropagation();
-      step(1);
-      return;
-    }
-    if (event.key === "ArrowUp") {
-      event.preventDefault();
-      event.stopPropagation();
-      step(-1);
-      return;
-    }
-    if (event.key === "Tab") {
-      // Tab leaves the list, not the panel: hide the popup and hand focus
-      // back to the trigger, which stays the panel's tab stop.
-      event.preventDefault();
-      closeList(true);
-    }
-  });
-
-  const root = row;
   return {
-    root,
+    root: row,
     dimension: dim,
     sync,
-    destroy: () => {
-      closeList(false);
-      unregisterPopup?.();
-      unregisterPopup = null;
-    },
-    dismissTransient: (target, focusTrigger = false) => {
-      if (!open) return false;
-      if (control.contains(target)) return false;
-      closeList(focusTrigger);
-      return true;
-    },
+    destroy: () => dropdown.destroy(),
   };
 };
 

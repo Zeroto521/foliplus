@@ -1,0 +1,21 @@
+() => {
+  const mm = window.__measureManager;
+  const map = window.__map;
+  const click = p => map.fire("click", { latlng: L.latLng(p[0], p[1]) });
+  mm.setMode("distance");
+  click([26.08, 119.3]);
+  click([26.09, 119.31]);
+  map.fire("contextmenu", { latlng: L.latLng(26.09, 119.31) });
+  mm.setMode("polygon");
+  click([26.07, 119.3]);
+  click([26.08, 119.31]);
+  click([26.06, 119.32]);
+  map.fire("contextmenu", { latlng: L.latLng(26.06, 119.32) });
+  mm.setMode("circle");
+  click([26.05, 119.3]);
+  click([26.05, 119.315]);
+  mm.setMode("marker");
+  click([26.04, 119.3]);
+  mm.setMode(null);
+  return true;
+};

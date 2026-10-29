@@ -25,7 +25,7 @@
 // differ), the getter returns null so the author's fill face stays in force
 // — the next scheduler tick rebuilds the cache.
 import { DIM } from "#core/layer/index.js";
-import type { FillRampConfig } from "#core/layer/intent.js";
+import type { FillMode, FillRampConfig } from "#core/layer/intent.js";
 import { buildRamp, colorFor } from "#core/ramp.js";
 import { createLogger } from "#common/log.js";
 import { INTENT, getIntent } from "../intent.js";
@@ -91,17 +91,20 @@ const sameRampConfig = (a: FillRampConfig, b: FillRampConfig): boolean =>
   a.classes === b.classes &&
   a.scheme === b.scheme;
 
-/** The active fill arm. An absent mode defers to whether a ramp config
+/** The stored fill arm. An absent mode defers to whether a ramp config
  *  exists — the pre-fillMode record shape, where a config alone meant "paint
- *  by value". Every reader of the fill state goes through this so apply, the
- *  dimension's value, the replay guard and the highlight pins all agree on
- *  what the map should show; reading the stored mode with a solid fallback on
- *  its own reports solid while the map is painted by value. */
+ *  by value". Every reader of the fill state goes through this (or the
+ *  panel's own resolver in `fill.ts`, which adds the author's original-colors
+ *  arm) so apply, the dimension's value, the replay guard and the highlight
+ *  pins all agree on what the map should show; reading the stored mode with a
+ *  solid fallback on its own reports solid while the map is painted by value.
+ *  `FillMode` is returned whole rather than narrowed to the two arms: a
+ *  stored "original" must reach the caller as itself, not as the fallback. */
 const resolveFillMode = (
   ui: LayerUI,
   layerId: string,
   ramp: FillRampConfig | undefined,
-): "solid" | "ramp" =>
+): FillMode =>
   getIntent(ui, layerId, INTENT.FILL_MODE) ?? (ramp !== undefined ? "ramp" : "solid");
 
 /** Apply a value-based fill to one layer.
@@ -128,6 +131,12 @@ const applyRampToLayer = (
    *  and the mouseout replay would drop the ramp colour. Identity by default —
    *  a caller with no field list has nothing to resolve. */
   resolveStored: (stored: FillRampConfig) => FillRampConfig = stored => stored,
+  /** The config the highlight pin replays on mouseout: the live user intent,
+   *  or the author's declared ramp when the user has not chosen one. Without
+   *  it a declared ramp would be dropped by folium's `resetStyle` on the first
+   *  hover, leaving the author's flat face under a by-value panel. */
+  liveRamp: () => FillRampConfig | undefined = () =>
+    getIntent(ui, layerId, INTENT.FILL_RAMP),
 ): void => {
   const layerInfo = ui.c.layerRegistry.get(layerId);
   // Snapshot-then-resolve: the registry's own `layer` reference is fast and
@@ -165,8 +174,9 @@ const applyRampToLayer = (
   // unmounted. A layer whose ramp cannot be built gets the author's fill face
   // back — the same answer an all-invalid field gives.
   //
-  // Every build failure lands here and every one is reported - a missing
-  // simple-statistics global (the whole page cannot run that method), a
+  // Every build failure lands here and every one is reported - a classifier
+  // dependency that failed to load (blocked CDN, or an environment without
+  // the global: the script itself is a declared LayerControl asset), a
   // method or palette name this client does not implement (only reachable by
   // bypassing the record validator), and anything unexpected. Reporting
   // matters because the alternative is the map silently keeping its author
@@ -209,7 +219,7 @@ const applyRampToLayer = (
     }
 
     pinStyleOnHighlight(leaf, DIM.FILL, () => {
-      const stored = getIntent(ui, layerId, INTENT.FILL_RAMP);
+      const stored = liveRamp();
       if (!stored) return null;
       // Resolve the live record exactly as the paint did, or a stale field
       // name compares unequal to the resolved config and the replay drops the

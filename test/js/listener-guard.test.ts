@@ -136,13 +136,6 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
       "filter panel header/mousedown/clear bindings; its document dismiss moved to core/overlayRegistry in M2-C2 and its Escape keydown moved there in M2-C5",
   },
   {
-    f: "LayerControl/ui/overlayPanel/filterBody.ts",
-    n: 6,
-    pairedOff: 0,
-    reason:
-      "filter condition body bindings on the nodes it creates: trigger click/keydown, listbox keydown, option click, plus the popup's geometry watchers on the clipping ancestor and window. Every node is built by the body and dropped with the panel it belongs to, the geometry watchers are unsubscribed on close/destroy, and the module is a free-standing body renderer with no mounting signal to route through `this.on`",
-  },
-  {
     f: "LayerControl/ui/focus/focusMarquee.ts",
     n: 2,
     pairedOff: 0,
@@ -197,6 +190,13 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
     pairedOff: 0,
     reason:
       "shared picker factory binds trigger click/keydown (lifecycle) and dropdown click/keydown, item focus, window scroll, window resize (portal mode only), and fullscreenchange (mount-scope). Its document outside-click moved to the consumers' per-map overlay-registry entries in M2-C3. Every listener has a paired removeEventListener in either cleanupFns (drained on destroy) or mountCleanupFns (drained on every close). The factory is a free-standing primitive with no BaseControl mounting signal to route through this.on; callers inject their own lifecycle management via the returned close/destroy methods",
+  },
+  {
+    f: "common/dropdown.ts",
+    n: 10,
+    pairedOff: 0,
+    reason:
+      "shared select-replacement factory: three lifecycle listeners on the trigger/list (click/keydown) plus one on the bridged select (change), and six popup-scope listeners — option click, document pointerdown outside-press, window scroll (capture), window resize, window keydown (capture, Escape ownership ahead of the panel dispatcher) and document fullscreenchange (the portalled popup re-seats when the fullscreen element changes) — that exist only while the popup is open. Every popup-scope listener is pushed onto mountCleanup and drained by close()/destroy(); the lifecycle ones are removed by destroy(). A free-standing primitive with no BaseControl mounting signal to route through this.on, exactly like common/schemePicker.ts",
   },
 ];
 

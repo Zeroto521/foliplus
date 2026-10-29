@@ -75,18 +75,22 @@ const makeOwner = (values: number[]) => {
   };
 };
 
-/** A minimal enum filter owner: one Type dimension with four options, the
- *  committed filter as its only state. Kept counts two records per selected
- *  type so the readout proves it re-reads the owner rather than a local
- *  selection count. */
+/** A minimal enum filter owner: one Type dimension, the committed filter as
+ *  its only state. The caller may hold the `values` array and mutate it to
+ *  model measurements appearing/disappearing; the provider rebuilds the option
+ *  list on every read. Kept counts two records per selected type so the
+ *  readout proves it re-reads the owner rather than a local selection count. */
 const makeEnumOwner = (
   values: string[] = ["marker", "distance", "polygon", "circle"],
   initial?: LayerFilter,
 ) => {
-  const options = values.map(value => ({ value, label: value.toUpperCase() }));
   let filter: LayerFilter | undefined = initial;
   return {
     filterProvider: (): LayerFilterModel => {
+      const options = values.map(value => ({
+        value,
+        label: value.toUpperCase(),
+      }));
       const committed = filter;
       const selected =
         committed?.kind === "enum"
@@ -278,9 +282,16 @@ describe("LayerUI filter panel", () => {
       ui.openFilterPanel(item);
 
       const panel = item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`) as HTMLElement;
-      // Field row: label + the owner's field name.
-      const field = panel.querySelector(`.${CONST.CLASSES.FILTER_FIELD}`);
-      expect(field!.textContent).toBe("magnitude");
+      // Field row: the dimension label sits in the label cell and the control
+      // cell holds the slider, so the owner's field name is not repeated.
+      const field = panel.querySelector(
+        `.${CONST.CLASSES.FILTER_FIELD}`,
+      ) as HTMLElement;
+      expect(field.textContent).toBe("");
+      const row = field.closest(`.${CONST.CLASSES.FORM_ROW}`) as HTMLElement;
+      expect(row.querySelector(`.${CONST.CLASSES.FORM_LABEL}`)!.textContent).toBe(
+        "magnitude",
+      );
       // Range row: the shared Slider — two real thumbs, not stacked range
       // inputs, both parked at the full extent for "no filter".
       const host = panel.querySelector(
@@ -374,9 +385,10 @@ describe("LayerUI filter panel", () => {
       expect(panel.querySelector(`.${CONST.CLASSES.FILTER_EMPTY}`)).not.toBeNull();
     });
 
-    it("renders a trigger and listbox for an enum dimension", () => {
+    it("renders the shared dropdown for an enum dimension", () => {
       // A generic owner may expose an enum dimension. It gets the enum body,
-      // not the range body or the "nothing filterable" fallback.
+      // not the range body or the "nothing filterable" fallback, and the body
+      // is the one shared primitive — never a hand-rolled listbox.
       const owner = makeEnumOwner();
       manager.registerLayer({
         id: "enum-owner",
@@ -393,17 +405,15 @@ describe("LayerUI filter panel", () => {
       const panel = item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`) as HTMLElement;
       expect(panel.querySelector(`.${CONST.CLASSES.FILTER_EMPTY}`)).toBeNull();
       expect(panel.querySelector(`.${CONST.CLASSES.FILTER_SLIDER}`)).toBeNull();
-      const trigger = panel.querySelector(
-        `.${CONST.CLASSES.FILTER_ENUM_TRIGGER}`,
-      ) as HTMLButtonElement;
-      expect(trigger.getAttribute("aria-haspopup")).toBe("listbox");
-      expect(trigger.getAttribute("aria-expanded")).toBe("false");
-      const list = panel.querySelector(`.${CONST.CLASSES.FILTER_ENUM_LIST}`);
-      expect(list!.getAttribute("role")).toBe("listbox");
-      expect(list!.getAttribute("aria-multiselectable")).toBe("true");
+      expect(panel.querySelector("select")).toBeNull();
+      const enumCell = panel.querySelector(
+        `.${CONST.CLASSES.FILTER_ENUM}`,
+      ) as HTMLElement;
       expect(
-        panel.querySelectorAll(`.${CONST.CLASSES.FILTER_ENUM_OPTION}`),
-      ).toHaveLength(4);
+        enumCell
+          .querySelector(".foliplus-dropdown-trigger")
+          ?.getAttribute("aria-haspopup"),
+      ).toBe("listbox");
     });
 
     it("is a no-op for a row that lost its data-layer-id", () => {
@@ -459,129 +469,185 @@ describe("LayerUI filter panel", () => {
     };
 
     const triggerOf = (item: HTMLElement): HTMLButtonElement =>
-      item.querySelector(`.${CONST.CLASSES.FILTER_ENUM_TRIGGER}`) as HTMLButtonElement;
-    const listOf = (item: HTMLElement): HTMLElement =>
-      item.querySelector(`.${CONST.CLASSES.FILTER_ENUM_LIST}`) as HTMLElement;
-    const optionsOf = (item: HTMLElement): HTMLButtonElement[] =>
+      item.querySelector(
+        `.${CONST.CLASSES.FILTER_ENUM} .foliplus-dropdown-trigger`,
+      ) as HTMLButtonElement;
+    const labelOf = (item: HTMLElement): string =>
+      triggerOf(item).querySelector(".foliplus-dropdown-label")?.textContent ?? "";
+    /** The open popup is portalled out of the panel (common/dropdown), so it is
+     *  queried from the document rather than from the row. */
+    const listOf = (): HTMLElement | null =>
+      document.querySelector(".foliplus-dropdown-list");
+    const optionEls = (): HTMLButtonElement[] =>
       Array.from(
-        item.querySelectorAll(`.${CONST.CLASSES.FILTER_ENUM_OPTION}`),
-      ) as HTMLButtonElement[];
+        document.querySelectorAll<HTMLButtonElement>(".foliplus-dropdown-option"),
+      );
+    const optionValuesOf = (): string[] =>
+      optionEls().map(option => option.getAttribute("data-value") ?? "");
+    const selectedOf = (): string[] =>
+      optionEls()
+        .filter(option => option.getAttribute("aria-selected") === "true")
+        .map(option => option.getAttribute("data-value") ?? "");
+    /** Open the popup the way a press on the trigger does. */
+    const openList = (item: HTMLElement): void => {
+      triggerOf(item).click();
+    };
+    /** One press on a row: multiple mode toggles it and keeps the popup open. */
+    const clickOption = (value: string): void => {
+      const option = optionEls().find(el => el.getAttribute("data-value") === value);
+      expect(option).toBeDefined();
+      (option as HTMLButtonElement).click();
+    };
+    const panelOf = (item: HTMLElement): HTMLElement | null =>
+      item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`);
+    const readout = (item: HTMLElement): HTMLElement =>
+      item.querySelector(`.${CONST.CLASSES.FILTER_RESULT}`) as HTMLElement;
+    const clearButton = (item: HTMLElement): HTMLButtonElement =>
+      item.querySelector(`.${CONST.CLASSES.FILTER_CLEAR}`) as HTMLButtonElement;
     const pressKey = (target: Element, key: string): void => {
       target.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true }));
     };
     const mousedownOn = (target: Element): void => {
       target.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
     };
-    /** The test translator: stable "All" plus the readout sentence, so the
-     *  assertions do not depend on locale tables shipping in the fixture. */
+    /** The test translator: the readout sentence and the trigger's own two enum
+     *  labels need pinning; every other key stays recognizable. */
     const spyTranslator = (): ReturnType<typeof vi.spyOn> =>
-      vi
-        .spyOn(ui, "T")
-        .mockImplementation(
-          key =>
-            (key === "filter_enum_any"
-              ? "All"
-              : key === "filter_result"
-                ? "{kept} of {total}"
-                : `LayerControl.${key}`) as any,
-        );
+      vi.spyOn(ui, "T").mockImplementation(
+        key =>
+          ({
+            filter_result: "{kept} of {total}",
+            filter_enum_any: "All",
+            filter_enum_count: "{n} selected",
+          })[key] ?? `LayerControl.${key}`,
+      );
 
-    it("starts on All with an unselected, closed listbox", () => {
+    it("labels the condition row with the dimension's own name", () => {
       const spy = spyTranslator();
       const { item } = registerEnum();
       ui.openFilterPanel(item);
 
-      const trigger = triggerOf(item);
-      expect(trigger.textContent).toBe("All");
-      expect(trigger.title).toBe("All");
-      expect(listOf(item).hidden).toBe(true);
-      for (const option of optionsOf(item)) {
-        expect(option.getAttribute("aria-selected")).toBe("false");
-        expect(option.getAttribute("tabindex")).toBe("-1");
-      }
+      const panel = panelOf(item)!;
+      const fieldCell = panel.querySelector(
+        `.${CONST.CLASSES.FILTER_FIELD}`,
+      ) as HTMLElement;
+      // One label only: the row's label cell carries the dimension label and
+      // the control cell starts straight at the shared dropdown.
+      expect(fieldCell.firstElementChild!.classList.contains("foliplus-dropdown")).toBe(
+        true,
+      );
+      expect(fieldCell.textContent).not.toContain("Type");
+      const row = fieldCell.closest(`.${CONST.CLASSES.FORM_ROW}`) as HTMLElement;
+      expect(row.querySelector(`.${CONST.CLASSES.FORM_LABEL}`)!.textContent).toBe(
+        "Type",
+      );
       spy.mockRestore();
     });
 
-    it("opens and closes the listbox from the trigger", () => {
+    it("replaces the native multi-select with the shared dropdown", () => {
       const spy = spyTranslator();
       const { item } = registerEnum();
       ui.openFilterPanel(item);
 
+      const panel = panelOf(item)!;
+      // The migration's whole point: no native select survives in the body.
+      expect(panel.querySelector("select")).toBeNull();
+      expect(panel.querySelectorAll("select[multiple]")).toHaveLength(0);
       const trigger = triggerOf(item);
-      trigger.click();
-      expect(listOf(item).hidden).toBe(false);
-      expect(trigger.getAttribute("aria-expanded")).toBe("true");
-
-      trigger.click();
-      expect(listOf(item).hidden).toBe(true);
+      expect(trigger.tagName).toBe("BUTTON");
+      expect(trigger.getAttribute("aria-haspopup")).toBe("listbox");
       expect(trigger.getAttribute("aria-expanded")).toBe("false");
+      expect(trigger.getAttribute("aria-label")).toBe("Type");
       spy.mockRestore();
     });
 
-    it("commits a value set through the owner and updates the readout", () => {
+    it("starts with nothing selected, which reads as all", () => {
+      const spy = spyTranslator();
+      const { item } = registerEnum();
+      ui.openFilterPanel(item);
+
+      expect(labelOf(item)).toBe("All");
+      expect(triggerOf(item).classList.contains("foliplus-dropdown-placeholder")).toBe(
+        true,
+      );
+
+      openList(item);
+
+      const list = listOf()!;
+      expect(triggerOf(item).getAttribute("aria-expanded")).toBe("true");
+      expect(list.getAttribute("role")).toBe("listbox");
+      expect(list.getAttribute("aria-multiselectable")).toBe("true");
+      expect(optionValuesOf()).toEqual(["marker", "distance", "polygon", "circle"]);
+      expect(selectedOf()).toEqual([]);
+      expect(readout(item).textContent).toBe("8 of 8");
+      expect(clearButton(item).disabled).toBe(true);
+      spy.mockRestore();
+    });
+
+    it("commits one clicked option and keeps the popup open", () => {
       const spy = spyTranslator();
       const { item, owner } = registerEnum();
       ui.openFilterPanel(item);
-      triggerOf(item).click();
+      openList(item);
 
-      optionsOf(item)[1].click();
+      clickOption("distance");
 
       expect(owner.filter).toEqual({
         kind: "enum",
         field: "type",
         values: ["distance"],
       });
-      expect(optionsOf(item)[1].getAttribute("aria-selected")).toBe("true");
-      expect(triggerOf(item).textContent).toBe("DISTANCE");
-      expect(item.querySelector(`.${CONST.CLASSES.FILTER_RESULT}`)!.textContent).toBe(
-        "2 of 8",
-      );
+      expect(selectedOf()).toEqual(["distance"]);
+      // Multiple semantics: a pick toggles, it does not commit-and-close.
+      expect(listOf()!.hidden).toBe(false);
+      expect(labelOf(item)).toBe("DISTANCE");
+      expect(readout(item).textContent).toBe("2 of 8");
       spy.mockRestore();
     });
 
-    it("keeps the owner's option order in the committed values", () => {
+    it("adds a second clicked option and keeps the owner's order", () => {
       const spy = spyTranslator();
       const { item, owner } = registerEnum();
       ui.openFilterPanel(item);
-      triggerOf(item).click();
+      openList(item);
 
-      // Click the last option first, then the first one: the filter is
-      // serialized in the owner's order, not in click order.
-      optionsOf(item)[3].click();
-      optionsOf(item)[0].click();
+      // Pick the last option first, then the first: the filter is serialized in
+      // the owner's order, not in click order.
+      clickOption("circle");
+      clickOption("marker");
 
       expect(owner.filter).toEqual({
         kind: "enum",
         field: "type",
         values: ["marker", "circle"],
       });
+      expect(selectedOf()).toEqual(["marker", "circle"]);
+      // Two or more picks collapse into the count summary on the trigger.
+      expect(labelOf(item)).toBe("2 selected");
+      expect(readout(item).textContent).toBe("4 of 8");
+      expect(listOf()!.hidden).toBe(false);
       spy.mockRestore();
     });
 
-    it("clears the filter when the last option is unselected", () => {
+    it("clears the filter when the only selected option is clicked again", () => {
       const spy = spyTranslator();
       const { item, owner } = registerEnum();
       ui.openFilterPanel(item);
-      triggerOf(item).click();
-      const option = optionsOf(item)[1];
-      option.click();
+      openList(item);
+      clickOption("distance");
       expect(owner.filter).toBeDefined();
 
-      option.click();
+      clickOption("distance");
 
       expect(owner.filter).toBeUndefined();
-      expect(triggerOf(item).textContent).toBe("All");
-      expect(item.querySelector(`.${CONST.CLASSES.FILTER_RESULT}`)!.textContent).toBe(
-        "8 of 8",
-      );
-      expect(
-        (item.querySelector(`.${CONST.CLASSES.FILTER_CLEAR}`) as HTMLButtonElement)
-          .disabled,
-      ).toBe(true);
+      expect(selectedOf()).toEqual([]);
+      expect(labelOf(item)).toBe("All");
+      expect(readout(item).textContent).toBe("8 of 8");
+      expect(clearButton(item).disabled).toBe(true);
       spy.mockRestore();
     });
 
-    it("echoes a committed enum filter back into the options", () => {
+    it("echoes a committed enum filter back into the control", () => {
       const spy = spyTranslator();
       const { item } = registerEnum(
         makeEnumOwner(undefined, {
@@ -592,91 +658,177 @@ describe("LayerUI filter panel", () => {
       );
       ui.openFilterPanel(item);
 
-      expect(optionsOf(item)[2].getAttribute("aria-selected")).toBe("true");
-      expect(optionsOf(item)[0].getAttribute("aria-selected")).toBe("false");
-      expect(triggerOf(item).textContent).toBe("POLYGON");
+      expect(labelOf(item)).toBe("POLYGON");
+      expect(readout(item).textContent).toBe("2 of 8");
+
+      openList(item);
+      expect(selectedOf()).toEqual(["polygon"]);
       spy.mockRestore();
     });
 
-    it("ArrowDown opens the list and moves focus between options", () => {
+    it("summarises a multi-value committed filter as a count", () => {
       const spy = spyTranslator();
-      const { item } = registerEnum();
+      const { item } = registerEnum(
+        makeEnumOwner(undefined, {
+          kind: "enum",
+          field: "type",
+          values: ["marker", "circle"],
+        }),
+      );
       ui.openFilterPanel(item);
-      const trigger = triggerOf(item);
 
-      pressKey(trigger, "ArrowDown");
-      expect(listOf(item).hidden).toBe(false);
-      expect(document.activeElement).toBe(optionsOf(item)[0]);
+      expect(labelOf(item)).toBe("2 selected");
+      expect(readout(item).textContent).toBe("4 of 8");
 
-      pressKey(optionsOf(item)[0], "ArrowDown");
-      expect(document.activeElement).toBe(optionsOf(item)[1]);
-      pressKey(optionsOf(item)[1], "ArrowUp");
-      expect(document.activeElement).toBe(optionsOf(item)[0]);
+      openList(item);
+      expect(selectedOf()).toEqual(["marker", "circle"]);
       spy.mockRestore();
     });
 
-    it("Escape closes the popup first and keeps the panel open", () => {
+    it("lists every declared option in one popup", () => {
+      const spy = spyTranslator();
+      const many = ["a", "b", "c", "d", "e", "f"];
+      const { item } = registerEnum(makeEnumOwner(many));
+      ui.openFilterPanel(item);
+
+      openList(item);
+
+      expect(optionValuesOf()).toEqual(many);
+      spy.mockRestore();
+    });
+
+    it("clears an enum filter through the Clear footer", () => {
+      const spy = spyTranslator();
+      const { item, owner } = registerEnum(
+        makeEnumOwner(undefined, {
+          kind: "enum",
+          field: "type",
+          values: ["marker"],
+        }),
+      );
+      ui.openFilterPanel(item);
+
+      clearButton(item).click();
+
+      expect(owner.filter).toBeUndefined();
+      expect(labelOf(item)).toBe("All");
+      spy.mockRestore();
+    });
+
+    it("Escape closes the popup first and the panel on the next press", () => {
       const spy = spyTranslator();
       const { item } = registerEnum();
       ui.openFilterPanel(item);
-      triggerOf(item).click();
-      optionsOf(item)[0].focus();
+      openList(item);
 
-      pressKey(optionsOf(item)[0], "Escape");
+      pressKey(listOf()!, "Escape");
 
-      expect(listOf(item).hidden).toBe(true);
-      expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).not.toBeNull();
-      expect(document.activeElement).toBe(triggerOf(item));
+      // The popup is the topmost layer: one Escape closes it, not the surface.
+      expect(listOf()!.hidden).toBe(true);
+      expect(panelOf(item)).not.toBeNull();
 
-      // Second Escape: the panel is now the topmost surface.
       pressKey(triggerOf(item), "Escape");
-      expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).toBeNull();
+
+      expect(panelOf(item)).toBeNull();
       spy.mockRestore();
     });
 
-    it("Tab closes the popup and hands focus back to the trigger", () => {
+    it("a press on an option row keeps the panel and the popup open", () => {
       const spy = spyTranslator();
       const { item } = registerEnum();
       ui.openFilterPanel(item);
-      triggerOf(item).click();
-      optionsOf(item)[0].focus();
+      openList(item);
+      const option = optionEls()[0];
 
-      pressKey(optionsOf(item)[0], "Tab");
+      // The popup lives on the map surface, not in the panel: the panel must
+      // classify the press as its own through the portal registration, and the
+      // dropdown must not treat its own row as outside.
+      option.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
+      mousedownOn(option);
 
-      expect(listOf(item).hidden).toBe(true);
-      expect(document.activeElement).toBe(triggerOf(item));
-      expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).not.toBeNull();
+      expect(panelOf(item)).not.toBeNull();
+      expect(listOf()!.hidden).toBe(false);
       spy.mockRestore();
     });
 
-    it("an outside press closes only the popup while it is open", () => {
+    it("an outside press closes the panel", () => {
       const spy = spyTranslator();
       const { item } = registerEnum();
       ui.openFilterPanel(item);
-      triggerOf(item).click();
 
       mousedownOn(document.body);
 
-      expect(listOf(item).hidden).toBe(true);
-      expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).not.toBeNull();
-
-      // The next outside press dismisses the panel itself.
-      mousedownOn(document.body);
-      expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).toBeNull();
+      expect(panelOf(item)).toBeNull();
       spy.mockRestore();
     });
 
-    it("a press elsewhere in the panel closes only the popup", () => {
+    it("a press elsewhere in the panel keeps it open", () => {
       const spy = spyTranslator();
       const { item } = registerEnum();
       ui.openFilterPanel(item);
-      triggerOf(item).click();
-      const readout = item.querySelector(`.${CONST.CLASSES.FILTER_RESULT}`)!;
 
-      mousedownOn(readout);
+      mousedownOn(readout(item));
 
-      expect(listOf(item).hidden).toBe(true);
-      expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).not.toBeNull();
+      expect(panelOf(item)).not.toBeNull();
+      spy.mockRestore();
+    });
+
+    it("rebuilds the options when the owner's domain changes", () => {
+      const spy = spyTranslator();
+      const values = ["marker", "distance"];
+      const owner = makeEnumOwner(values);
+      const { item } = registerEnum(owner);
+      ui.openFilterPanel(item);
+      const oldTrigger = triggerOf(item);
+      openList(item);
+      expect(optionValuesOf()).toEqual(["marker", "distance"]);
+
+      // The last measurement of a type is deleted: the row publishes the new
+      // item count, and the panel re-reads the owner model.
+      values.length = 0;
+      values.push("marker");
+      ui.events.publish(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "measure" });
+
+      expect(triggerOf(item)).not.toBe(oldTrigger);
+      openList(item);
+      expect(optionValuesOf()).toEqual(["marker"]);
+      spy.mockRestore();
+    });
+
+    it("keeps a selected value whose option disappeared and reads 0 kept", () => {
+      const spy = spyTranslator();
+      const values = ["marker", "circle"];
+      const owner = makeEnumOwner(values, {
+        kind: "enum",
+        field: "type",
+        values: ["circle"],
+      });
+      const { item } = registerEnum(owner);
+      ui.openFilterPanel(item);
+
+      values.length = 0;
+      values.push("marker");
+      ui.events.publish(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "measure" });
+
+      // The value stays committed (the filter keeps filtering), the option is
+      // gone, and the readout shows the honest 0 kept.
+      expect(owner.filter).toEqual({
+        kind: "enum",
+        field: "type",
+        values: ["circle"],
+      });
+      openList(item);
+      expect(optionValuesOf()).toEqual(["marker"]);
+      expect(readout(item).textContent).toBe("0 of 2");
+      expect(clearButton(item).disabled).toBe(false);
+
+      // Clicking the surviving option keeps the vanished value in the filter.
+      clickOption("marker");
+      expect(owner.filter).toEqual({
+        kind: "enum",
+        field: "type",
+        values: ["marker", "circle"],
+      });
       spy.mockRestore();
     });
 
@@ -716,7 +868,8 @@ describe("LayerUI filter panel", () => {
       const item = findItem(ui, "multi");
       ui.openFilterPanel(item);
 
-      expect(optionsOf(item)).toHaveLength(2);
+      openList(item);
+      expect(optionValuesOf()).toEqual(["a", "b"]);
       ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, { id: "multi" });
       ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, { id: "multi" });
       expect(warn).toHaveBeenCalledTimes(1);
@@ -734,51 +887,6 @@ describe("LayerUI filter panel", () => {
       ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, { id: "measure" });
 
       expect(triggerOf(item)).toBe(trigger);
-      spy.mockRestore();
-    });
-
-    it("ArrowUp opens the list on the last option", () => {
-      const spy = spyTranslator();
-      const { item } = registerEnum();
-      ui.openFilterPanel(item);
-      const trigger = triggerOf(item);
-
-      pressKey(trigger, "ArrowUp");
-      expect(listOf(item).hidden).toBe(false);
-      expect(document.activeElement).toBe(optionsOf(item)[3]);
-
-      pressKey(optionsOf(item)[3], "ArrowUp");
-      expect(document.activeElement).toBe(optionsOf(item)[2]);
-      spy.mockRestore();
-    });
-
-    it("arrows step from the trigger while the list is open", () => {
-      const spy = spyTranslator();
-      const { item } = registerEnum();
-      ui.openFilterPanel(item);
-      const trigger = triggerOf(item);
-      trigger.click();
-
-      // Focus stays on the trigger after a click-open; the arrows still move
-      // into the list from there.
-      pressKey(trigger, "ArrowDown");
-      expect(document.activeElement).toBe(optionsOf(item)[0]);
-      pressKey(trigger, "ArrowUp");
-      expect(document.activeElement).toBe(optionsOf(item)[3]);
-      spy.mockRestore();
-    });
-
-    it("Escape closes the panel when no popup is open", () => {
-      const spy = spyTranslator();
-      const { item } = registerEnum();
-      ui.openFilterPanel(item);
-      // The container-bound shortcut only fires when focus is inside the
-      // control, so park it on the panel's own trigger first.
-      triggerOf(item).focus();
-
-      pressKey(triggerOf(item), "Escape");
-
-      expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).toBeNull();
       spy.mockRestore();
     });
 
@@ -807,218 +915,31 @@ describe("LayerUI filter panel", () => {
       });
       const item = findItem(ui, "shape");
       ui.openFilterPanel(item);
-      const staleTrigger = triggerOf(item);
+      const oldTrigger = triggerOf(item);
 
       label = "Kind";
       ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, { id: "shape" });
 
-      expect(triggerOf(item)).not.toBe(staleTrigger);
-      expect(
-        item.querySelector(`.${CONST.CLASSES.FILTER_FIELD}`)!.textContent,
-      ).toContain("Kind");
+      expect(triggerOf(item)).not.toBe(oldTrigger);
+      const fieldCell = item.querySelector(
+        `.${CONST.CLASSES.FILTER_FIELD}`,
+      ) as HTMLElement;
+      const row = fieldCell.closest(`.${CONST.CLASSES.FORM_ROW}`) as HTMLElement;
+      expect(row.querySelector(`.${CONST.CLASSES.FORM_LABEL}`)!.textContent).toBe(
+        "Kind",
+      );
       spy.mockRestore();
     });
 
-    it("keeps option focus through the container click delegation", () => {
-      const spy = spyTranslator();
-      const { item, owner } = registerEnum();
-      ui.openFilterPanel(item);
-      triggerOf(item).click();
-      const option = optionsOf(item)[0];
-      option.focus();
-
-      option.click();
-
-      // The row's click handler must treat the filter panel as a floating
-      // panel: stealing focus back to the row would break the keyboard path
-      // (the next Space would toggle the row's visibility instead of the
-      // option) while the list is still open.
-      expect(owner.filter).toBeDefined();
-      expect(document.activeElement).toBe(option);
-      expect(listOf(item).hidden).toBe(false);
-      spy.mockRestore();
-    });
-
-    it("keeps trigger focus after a click-open", () => {
+    it("ignores item-count changes that belong to another row", () => {
       const spy = spyTranslator();
       const { item } = registerEnum();
       ui.openFilterPanel(item);
       const trigger = triggerOf(item);
-      trigger.focus();
 
-      trigger.click();
+      ui.events.publish(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "other" });
 
-      expect(document.activeElement).toBe(trigger);
-      spy.mockRestore();
-    });
-
-    it("associates the popup with the trigger for assistive tech", () => {
-      const spy = spyTranslator();
-      const { item } = registerEnum();
-      ui.openFilterPanel(item);
-
-      const trigger = triggerOf(item);
-      const list = listOf(item);
-      expect(trigger.getAttribute("aria-controls")).toBe(list.id);
-      expect(list.id).not.toBe("");
-      spy.mockRestore();
-    });
-
-    it("joins selected labels with the localized separator", () => {
-      const spy = vi
-        .spyOn(ui, "T")
-        .mockImplementation(
-          key =>
-            (key === "filter_enum_any"
-              ? "All"
-              : key === "filter_enum_separator"
-                ? "、"
-                : `LayerControl.${key}`) as any,
-        );
-      const { item } = registerEnum();
-      ui.openFilterPanel(item);
-      triggerOf(item).click();
-      optionsOf(item)[0].click();
-      optionsOf(item)[1].click();
-
-      expect(triggerOf(item).textContent).toBe("MARKER、DISTANCE");
-      spy.mockRestore();
-    });
-
-    it("selects every option in one value set", () => {
-      const spy = vi
-        .spyOn(ui, "T")
-        .mockImplementation(
-          key =>
-            (key === "filter_enum_any"
-              ? "All"
-              : key === "filter_enum_separator"
-                ? ", "
-                : `LayerControl.${key}`) as any,
-        );
-      const { item, owner } = registerEnum();
-      ui.openFilterPanel(item);
-      triggerOf(item).click();
-      optionsOf(item).forEach(option => option.click());
-
-      expect(owner.filter).toEqual({
-        kind: "enum",
-        field: "type",
-        values: ["marker", "distance", "polygon", "circle"],
-      });
-      expect(triggerOf(item).textContent).toBe("MARKER, DISTANCE, POLYGON, CIRCLE");
-      expect(
-        optionsOf(item).map(option => option.getAttribute("aria-selected")),
-      ).toEqual(["true", "true", "true", "true"]);
-      spy.mockRestore();
-    });
-
-    it("clamps the popup to the tightest clipping ancestor", () => {
-      const spy = spyTranslator();
-      const { item } = registerEnum();
-      item.style.overflowY = "auto";
-      const clipRect = {
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 200,
-        width: 0,
-        height: 0,
-        x: 0,
-        y: 0,
-        toJSON: () => ({}),
-      } as DOMRect;
-      vi.spyOn(item, "getBoundingClientRect").mockReturnValue(clipRect);
-      ui.openFilterPanel(item);
-      const list = listOf(item);
-      const options = optionsOf(item);
-      Object.defineProperty(list, "scrollHeight", { configurable: true, value: 300 });
-      Object.defineProperty(options[0], "offsetHeight", {
-        configurable: true,
-        value: 30,
-      });
-
-      triggerOf(item).click();
-
-      // min(4 rows of 30px, clip bottom 200 - trigger bottom 0 - gap 8) = 120px.
-      expect(list.style.maxHeight).toBe("120px");
-      expect(list.hidden).toBe(false);
-
-      // A scroll of the clip box invalidates the measured geometry: the popup
-      // closes and hands focus back to the trigger, the panel stays open.
-      item.dispatchEvent(new Event("scroll"));
-      expect(list.hidden).toBe(true);
-      expect(document.activeElement).toBe(triggerOf(item));
-      expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).not.toBeNull();
-
-      ui.closeFilterPanel(false);
-      spy.mockRestore();
-    });
-
-    it("steps to the last option when no option holds focus", () => {
-      const spy = spyTranslator();
-      const { item } = registerEnum();
-      ui.openFilterPanel(item);
-      triggerOf(item).click();
-
-      pressKey(triggerOf(item), "ArrowUp");
-
-      expect(document.activeElement).toBe(optionsOf(item)[3]);
-      spy.mockRestore();
-    });
-
-    it("does not consume a dismissal that lands inside the popup control", () => {
-      const spy = spyTranslator();
-      const { item } = registerEnum();
-      ui.openFilterPanel(item);
-      triggerOf(item).click();
-      const state = ui.overlayPanel.activeFilterPanel as unknown as {
-        view: {
-          kind: string;
-          body: { dismissTransient: (target: Element) => boolean };
-        };
-      };
-
-      expect(state.view.body.dismissTransient(optionsOf(item)[0])).toBe(false);
-
-      expect(listOf(item).hidden).toBe(false);
-      spy.mockRestore();
-    });
-
-    it("Escape closes the empty state too (one layer per press)", () => {
-      manager.registerLayer({
-        id: "empty-filter",
-        name: "Empty",
-        role: "overlay",
-        layer: undefined as unknown as L.Layer,
-        filterProvider: () => null,
-      });
-      const item = findItem(ui, "empty-filter");
-      ui.openFilterPanel(item);
-      const panel = item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`) as HTMLElement;
-      expect(panel.querySelector(`.${CONST.CLASSES.FILTER_EMPTY}`)).not.toBeNull();
-
-      pressKey(panel, "Escape");
-
-      // The empty state has no transient popup to close first, so the panel
-      // itself is the topmost surface.
-      expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).toBeNull();
-    });
-
-    it("Clear resets an enum filter", () => {
-      const spy = spyTranslator();
-      const { item, owner } = registerEnum();
-      ui.openFilterPanel(item);
-      triggerOf(item).click();
-      optionsOf(item)[2].click();
-      expect(owner.filter).toBeDefined();
-
-      (
-        item.querySelector(`.${CONST.CLASSES.FILTER_CLEAR}`) as HTMLButtonElement
-      ).click();
-
-      expect(owner.filter).toBeUndefined();
-      expect(triggerOf(item).textContent).toBe("All");
+      expect(triggerOf(item)).toBe(trigger);
       spy.mockRestore();
     });
   });
@@ -1277,6 +1198,8 @@ describe("LayerUI filter panel", () => {
         new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
       );
       expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).not.toBeNull();
+      // The registry's press dispatcher carries the drag verdict the row
+      // needs (the old shared pressInPanel boolean is gone).
       expect(ensureOverlayRegistry(ui.c.map).lastPressInside()).toBe(true);
 
       // A press outside closes the panel and clears the verdict.
@@ -1450,7 +1373,7 @@ describe("LayerUI filter panel", () => {
   });
 
   describe("teardown", () => {
-    it("unbindEvents closes the filter panel and releases its document listener", () => {
+    it("unbindEvents closes the filter panel and releases its registry entry", () => {
       registerPoints();
       const item = findItem(ui, "pnt");
       ui.openFilterPanel(item);
@@ -1605,20 +1528,18 @@ describe("LayerUI filter panel — result, Clear and row state", () => {
     registerPoints();
     const item = findItem(ui, "pnt");
     ui.openFilterPanel(item);
-    const panel = item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`) as HTMLElement;
-    expect(panel).not.toBeNull();
+    expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).not.toBeNull();
+    expect(ui.overlayPanel.filterOverlayUnregister).not.toBeNull();
 
-    // Real keydown: Escape is owned by the overlay registry, not handleKeyDown.
-    panel.dispatchEvent(
-      new KeyboardEvent("keydown", {
-        key: "Escape",
-        bubbles: true,
-        cancelable: true,
-      }),
+    // The registry owns Escape: one document-capture press closes the panel,
+    // and the panel's own keydown path closes nothing (it is gone).
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
     );
 
     expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).toBeNull();
     expect(ui.overlayPanel.activeFilterPanel).toBeNull();
+    expect(ui.overlayPanel.filterOverlayUnregister).toBeNull();
   });
 
   it("the row shows a 12px funnel + exact kept count + filtered title", () => {
