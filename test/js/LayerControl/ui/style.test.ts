@@ -433,6 +433,11 @@ describe("LayerUI style panel", () => {
     foreignRow.className = "foliplus-scheme-picker-item";
     foreign.appendChild(foreignRow);
     document.body.appendChild(foreign);
+    // The drawer is live on its own panel, and the foreign portal is outside that
+    // panel's subtree: neither a subtree walk nor a document-wide class match can
+    // produce the dismissal this test asserts — only trigger ownership can.
+    expect(panelOf(item)).toBe(panel);
+    expect(panel.contains(foreign)).toBe(false);
     const release = registerPortalRoot(foreign, foreignTrigger);
 
     try {
