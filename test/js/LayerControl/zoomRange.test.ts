@@ -17,6 +17,8 @@ import {
   initFixture,
   installLeafletGlobals,
   oneOverlay,
+  polygonLayer,
+  trackMembership,
 } from "./ui/fixture.js";
 
 const mockMap = {
@@ -287,4 +289,53 @@ it("a reset that lands after a teardown does not deref the container", () => {
   ui.c.uiContainer = null;
   expect(() => resetLayerZoomRange(ui, "overlay1")).not.toThrow();
   expect(onMap.get(layer)).toBe(true);
+});
+
+// ── Author-declared range: the row initial value and Reset ──
+// CONF `data[].zoom` (normalised from `foliplus={"zoom": {...}}`) is the
+// layer default range. The row opens on it, and Reset — which only clears the
+// user override — lands back on it instead of on the map full range.
+
+const declaredFixture = (zoom: { min: number; max: number }) => {
+  const layer = polygonLayer();
+  const fixture = initFixture({
+    data: [{ id: "overlay1", name: "Polygons", role: "overlay", layer, zoom }],
+  });
+  const onMap = trackMembership(fixture.map);
+  onMap.set(layer, true);
+  return { ...fixture, layer, onMap };
+};
+
+it("the row value opens on the author declared range", () => {
+  const { ui, manager } = declaredFixture({ min: 8, max: 12 });
+
+  expect(ZOOM_RANGE_DIMENSION.value!(ui, "overlay1")).toEqual({ min: 8, max: 12 });
+  manager.debouncedEnforce?.cancel?.();
+});
+
+it("Reset returns to the author declared range", () => {
+  const { ui, manager } = declaredFixture({ min: 8, max: 12 });
+  const row = document.createElement("div");
+
+  applyZoomRangeLive(ui, "overlay1", row, 2, 6);
+  commitZoomRange(ui, "overlay1");
+  expect(ZOOM_RANGE_DIMENSION.value!(ui, "overlay1")).toEqual({ min: 2, max: 6 });
+
+  resetLayerZoomRange(ui, "overlay1");
+  expect(ZOOM_RANGE_DIMENSION.value!(ui, "overlay1")).toEqual({ min: 8, max: 12 });
+  manager.debouncedEnforce?.cancel?.();
+});
+
+it("a layer with no declaration still opens on the map range", () => {
+  const layer = polygonLayer();
+  const fixture = initFixture({
+    data: [{ id: "overlay1", name: "Polygons", role: "overlay", layer }],
+  });
+  trackMembership(fixture.map);
+
+  expect(ZOOM_RANGE_DIMENSION.value!(fixture.ui, "overlay1")).toEqual({
+    min: 0,
+    max: 18,
+  });
+  fixture.manager.debouncedEnforce?.cancel?.();
 });

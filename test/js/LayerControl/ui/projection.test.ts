@@ -196,3 +196,92 @@ describe("currentOpacity (resolved opacity read)", () => {
     expect(currentOpacity(ui, makeLayerInfo("l1", { opacity: 0.2 }))).toBe(1);
   });
 });
+
+// The author-declared range (`foliplus={"zoom": {...}}` → CONF `data[].zoom`)
+// is the policy fallback when the user never set a range — the same role
+// `data[].show` plays for visibility. These cases pin that fallback, the
+// precedence of a stored choice over it, and the two defensive edges: the
+// clamp to the map bounds and a payload CONF should never contain.
+describe("inZoomRange (author-declared range)", () => {
+  const makeUIWith = (opts: { minZoom?: number; maxZoom?: number; zoom?: number }) =>
+    makeUI(opts);
+
+  const layerWithZoom = (id: string, zoom: { min: number; max: number }) =>
+    ({ id, layer: null, canvas: null, zoom }) as any;
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("falls back to the author range when no intent is stored", () => {
+    const ui = makeUIWith({ zoom: 10 });
+    expect(inZoomRange(ui, layerWithZoom("author-in", { min: 8, max: 12 }))).toBe(true);
+    expect(inZoomRange(ui, layerWithZoom("author-out", { min: 11, max: 14 }))).toBe(
+      false,
+    );
+  });
+
+  it("a stored range wins over the author range", () => {
+    const ui = makeUIWith({ zoom: 10 });
+    setIntent(ui, "precedence", "zoomRange", [0, 5]);
+    expect(inZoomRange(ui, layerWithZoom("precedence", { min: 8, max: 12 }))).toBe(
+      false,
+    );
+  });
+
+  it("clamps the author range to the map bounds", () => {
+    // Author [3, 5] on a map [4, 18]: clamp to [4, 5]; zoom 4 is inside.
+    const ui = makeUIWith({ minZoom: 4, maxZoom: 18, zoom: 4 });
+    expect(inZoomRange(ui, layerWithZoom("clamped", { min: 3, max: 5 }))).toBe(true);
+  });
+
+  it("judges the declaration when the clamp would degenerate", () => {
+    // Author [20, 30] on a map capped at 18: the clamp would leave min > max.
+    // The verdict comes from the declared interval, not from the clamp
+    // artefact, so a zoom outside the map bounds still answers honestly
+    // instead of being forced to "hidden".
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const ui = makeUIWith({ minZoom: 0, maxZoom: 18, zoom: 25 });
+    expect(inZoomRange(ui, layerWithZoom("degenerate", { min: 20, max: 30 }))).toBe(
+      true,
+    );
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  it("treats an inverted declaration as undeclared", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const ui = makeUIWith({ zoom: 10 });
+    expect(inZoomRange(ui, layerWithZoom("inverted", { min: 12, max: 8 }))).toBe(true);
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  it("treats a non-finite declaration as undeclared", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const ui = makeUIWith({ zoom: 10 });
+    expect(
+      inZoomRange(ui, layerWithZoom("non-finite", { min: Number.NaN, max: 12 })),
+    ).toBe(true);
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  it("warns once per layer about a malformed declaration", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const ui = makeUIWith({ zoom: 10 });
+    const layer = layerWithZoom("warn-once", { min: 12, max: 8 });
+    inZoomRange(ui, layer);
+    inZoomRange(ui, layer);
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  it("honours the author range even when the surface cannot show a row", () => {
+    // The capability gate decides whether the panel renders a zoom-range
+    // row, not whether a declaration is honoured. A surface that cannot
+    // carry a row (MarkerCluster / ImageOverlay declare "none") must still
+    // be filtered by the declaration, or the declaration is silently dropped
+    // for exactly the layers the panel cannot explain it for.
+    const ui = makeUIWith({ zoom: 5 });
+    (ui.c as any).surfaceFor = () => ({ capabilities: { zoomRange: "none" } });
+    const layer = layerWithZoom("cap-none", { min: 8, max: 12 });
+    expect(projectLayer(ui, layer).effectiveShown).toBe(false);
+  });
+});

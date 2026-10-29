@@ -11,6 +11,7 @@
 - `LayerControl`: an author's explore colors become a selectable read-only **Original colors** fill mode — the author's column, their colors as one ordered gradient and their count on the value-fill row grid, with nothing to edit and nothing to open ([#781](https://github.com/Zeroto521/foliplus/pull/781))
 - `LayerControl`: a declared label sets the label colour and size as well as the label defaults, so an author-declared style reaches the drawn labels at load ([#785](https://github.com/Zeroto521/foliplus/pull/785))
 - `LayerControl`: a layer declares its fill ramp with `foliplus={"fill": {...}}` — the declared field, method, class count and palette paint the layer by value at load, the panel opens on them, and Reset returns to the declaration instead of the author's flat colour; a declared class count outside the editable 2–9 range is shown as declared and converges on the first edit ([#789](https://github.com/Zeroto521/foliplus/pull/789))
+- `LayerControl`: a layer declares its zoom range with `foliplus={"zoom": {"min": 8, "max": 12}}` — the visibility policy falls back to the declared range until the user moves the row, Reset returns to it, and an unusable declaration warns once instead of hiding the layer
 
 ### Changed
 

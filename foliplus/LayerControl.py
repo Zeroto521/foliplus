@@ -4,6 +4,7 @@ import json
 import logging
 import math
 import numbers
+import warnings
 from collections.abc import Iterable
 from typing import Annotated, Any, cast
 
@@ -53,6 +54,101 @@ _FILL_AUTHOR_RGB_SLACK = 2
 # buy is a layer the scale paints only mostly: four features hand-set still
 # agree 8/12 = 0.67, five drop it to 7/12 = 0.58.
 _FILL_AUTHOR_AGREE = 0.6
+
+#: The keys the per-layer foliplus={...} declaration namespace accepts.
+#: fill and label are consumed by the JS panel straight off
+#: layer.options.foliplus (folium forwards the unknown keyword into the
+#: layer options); zoom is normalised here into CONFIG data[].zoom so the
+#: visibility policy reads one CONF fact instead of the raw namespace.
+_FOLIPLUS_KEYS = frozenset({"fill", "label", "zoom"})
+
+
+def _warn_foliplus_once(warned: set[str], key: str, message: str) -> None:
+    """Warn about one unusable declaration at most once per render pass.
+
+    warned is the caller per-pass set rather than a module global: one typo
+    must not print once per layer, and it must print again on the next
+    render - a module-level set would silence the second render (and make the
+    warning impossible to count in tests).
+    """
+    if key in warned:
+        return
+    warned.add(key)
+    warnings.warn(message, UserWarning, stacklevel=3)
+
+
+def _declared_zoom(
+    item: Layer, layer_name: str, warned: set[str]
+) -> dict[str, int] | None:
+    """Normalise one layer foliplus={"zoom": {"min": ..., "max": ...}}.
+
+    Returns {"min": int, "max": int} when the declaration is usable, else
+    None: "not declared" and "declared but invalid" are the same state
+    downstream - the visibility policy stays unconstrained rather than
+    hiding the layer on a payload the author never saw validated.
+
+    The namespace is a folium passthrough, so nothing validates it at
+    construction. This is the single read point, hence the single place that
+    warns; every message names the layer so a typo is attributable.
+    """
+    raw = item.options.get("foliplus")
+    if raw is None:
+        return None
+    if not isinstance(raw, dict):
+        _warn_foliplus_once(
+            warned,
+            f"__shape__:{layer_name}",
+            f"LayerControl: layer {layer_name!r} declares foliplus= as "
+            f"{type(raw).__name__}; expected a mapping - ignored",
+        )
+        return None
+
+    for key, value in raw.items():
+        if key not in _FOLIPLUS_KEYS:
+            _warn_foliplus_once(
+                warned,
+                f"__unknown__:{key}",
+                f"LayerControl: layer {layer_name!r} declares unknown "
+                f"foliplus key {key!r}; expected one of "
+                f"{sorted(_FOLIPLUS_KEYS)} - ignored",
+            )
+        elif key in {"fill", "label"} and not isinstance(value, dict):
+            _warn_foliplus_once(
+                warned,
+                f"__shape__:{key}:{layer_name}",
+                f"LayerControl: layer {layer_name!r} declares "
+                f"foliplus[{key!r}] as {type(value).__name__}; expected a "
+                "mapping - ignored",
+            )
+
+    zoom = raw.get("zoom")
+    if zoom is None:
+        return None
+
+    def _reject(reason: str) -> None:
+        _warn_foliplus_once(
+            warned,
+            f"__zoom__:{layer_name}",
+            f"LayerControl: layer {layer_name!r} declares "
+            f"foliplus[zoom] {reason} - ignored",
+        )
+
+    if not isinstance(zoom, dict):
+        _reject(f"as {type(zoom).__name__}; expected a mapping")
+        return None
+    extra = sorted(set(zoom) - {"min", "max"})
+    if extra:
+        _reject(f"with unknown key(s) {extra}; expected only min and max")
+        return None
+    lo, hi = zoom.get("min"), zoom.get("max")
+    for name, value in (("min", lo), ("max", hi)):
+        if not isinstance(value, int) or isinstance(value, bool):
+            _reject(f"with a non-integer {name}={value!r}")
+            return None
+    if lo > hi:
+        _reject(f"with min={lo} > max={hi}")
+        return None
+    return {"min": lo, "max": hi}
 
 
 def _fill_author_color(props: dict[str, Any]) -> str | None:
@@ -701,6 +797,11 @@ class LayerControl(BaseControl):
                         "id": "string",
                         "role": ("base", "overlay"),
                         "show": "bool",
+                        # Optional: the author-declared zoom range,
+                        # normalised from foliplus={"zoom": {...}}. Absent
+                        # when the layer declares none - the visibility
+                        # policy then keeps the map range.
+                        "zoom": ({"min": "number", "max": "number"}, "?"),
                     }
                 ],
             ),
@@ -747,6 +848,9 @@ class LayerControl(BaseControl):
         # _map_colormaps). ``claimed`` keeps one scale per layer.
         colormaps = _map_colormaps(self)
         claimed: set[int] = set()
+        # Per-pass warning record for the foliplus={...} namespace: one typo
+        # warns once per render, not once per layer.
+        warned: set[str] = set()
 
         for item in candidates:
             # isinstance first — the control itself is a child but not a Layer
@@ -766,6 +870,9 @@ class LayerControl(BaseControl):
             author = _fill_author(item, colormaps, claimed)
             if author is not None:
                 entry["fillAuthor"] = author
+            zoom = _declared_zoom(item, item.layer_name, warned)
+            if zoom is not None:
+                entry["zoom"] = zoom
             data.append(entry)
 
         # Stable ordering: overlays first, then base layers (matches JS enforceOrder).

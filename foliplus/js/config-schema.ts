@@ -14,6 +14,7 @@ type LayerData = {
   id: string;
   role: "base" | "overlay";
   show: boolean;
+  zoom?: { min: number; max: number };
 }[];
 type ProviderConfig = {
   id: string;
