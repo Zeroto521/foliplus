@@ -31,7 +31,7 @@ def _make_page(browser, tmp_path, **ctrl_kwargs):
     first expand, so the probe expands the panel and waits for the ready
     signal before reading — the same "open the page" moment a user sees.
     """
-    from foliplus import LayerControl, HeatmapControl
+    from foliplus import HeatmapControl, LayerControl
 
     m = folium.Map(location=[26.08, 119.30], zoom_start=12)
     fg = folium.FeatureGroup(name="Points", show=True)
