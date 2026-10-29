@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerController } from "#foliplus/LayerControl/controller.js";
 import type { LayerUI } from "#foliplus/LayerControl/ui/index.js";
@@ -936,6 +937,21 @@ describe("LayerUI menu", () => {
       // The action still ran — the press is swallowed, not ignored.
       expect(focusSpy).toHaveBeenCalledWith("overlay1");
       expect(bubbled).not.toHaveBeenCalled();
+    });
+
+    it("its registry entry reports no containment once the menu closes", () => {
+      const item = findItem(ui, "overlay1");
+      ui.openMoreMenu(item);
+      const menu = item.querySelector(".foliplus-layer-more-menu") as HTMLElement;
+      const entry = ensureOverlayRegistry(map).owningEntry(menu);
+      expect(entry?.id).toBe(OVERLAY_IDS.LAYER_MENU);
+      expect(entry?.panels()).toEqual([menu]);
+
+      ui.closeMoreMenu(false);
+
+      // A late dispatch after the close asks the same closure, and it reads the
+      // live state — containment must be empty, not a detached menu.
+      expect(entry?.panels()).toEqual([]);
     });
 
     it("lets a press on the menu chrome bubble past the menu", () => {

@@ -1575,6 +1575,22 @@ describe("LayerUI filter panel — result, Clear and row state", () => {
     );
   });
 
+  it("its registry entry reports no containment once the panel is gone", () => {
+    registerPoints();
+    const item = findItem(ui, "pnt");
+    ui.openFilterPanel(item);
+    const panel = item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`) as HTMLElement;
+    const entry = ensureOverlayRegistry(ui.c.map).owningEntry(panel);
+    expect(entry?.id).toBe(OVERLAY_IDS.LAYER_FILTER);
+    expect(entry?.panels()).toEqual([panel]);
+
+    ui.closeFilterPanel(false);
+
+    // A late dispatch after the close asks the same closure, and it reads the
+    // live state — containment must be empty, not a detached panel.
+    expect(entry?.panels()).toEqual([]);
+  });
+
   it("the row shows a 12px funnel + exact kept count + filtered title", () => {
     const { owner } = registerPoints();
     commit(owner);

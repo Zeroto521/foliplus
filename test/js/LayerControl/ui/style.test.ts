@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DIM } from "#core/layer/index.js";
+import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerController } from "#foliplus/LayerControl/controller.js";
 import { sliderOf } from "#foliplus/LayerControl/slider.js";
@@ -141,6 +142,21 @@ describe("LayerUI style panel", () => {
     const panel = panelOf(item)!;
     expect(panel).not.toBeNull();
     expect(panel.getAttribute("role")).toBe("dialog");
+  });
+
+  it("its registry entry reports no containment once the panel is gone", () => {
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const panel = panelOf(item)!;
+    const entry = ensureOverlayRegistry(map).owningEntry(panel);
+    expect(entry?.id).toBe(OVERLAY_IDS.LAYER_STYLE);
+    expect(entry?.panels()).toEqual([panel]);
+
+    closeStylePanel(ui, false);
+
+    // A late dispatch after the close asks the same closure, and it reads the
+    // live state — containment must be empty, not a detached panel.
+    expect(entry?.panels()).toEqual([]);
   });
 
   it("builds on the shared panel vocabulary (header, content, close)", () => {
