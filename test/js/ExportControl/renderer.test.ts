@@ -1088,12 +1088,11 @@ describe("ExportRenderer.render — layer pass routing", () => {
     expect(onProgress.mock.calls.map(call => call[0])).toEqual([71, 90]);
   });
 
-  it("keeps a layer entry that resolves only in the filter out of the render", async () => {
-    // The tile phase, the passable filter, and the render loop each call
-    // resolveLayer. If the layer is present for the filter (entry survives)
-    // but gone by the loop (the `else if (layer)` fallthrough), the entry
-    // still consumes its unit of the layer range — the bar cannot stall
-    // below the top.
+  it("resolves each entry once and draws the carrier it snapshotted", async () => {
+    // The export resolves its layer list once, when it starts, and every pass
+    // reads that record. This entry tears itself down as soon as it is read:
+    // re-resolving later (the old tile/filter/loop reads) dropped it from the
+    // image without a word. The snapshot's carrier is what gets drawn.
     vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(
       makeMockCtx() as any,
     );
@@ -1101,42 +1100,78 @@ describe("ExportRenderer.render — layer pass routing", () => {
     let reads = 0;
     const map = (globalThis as any).map;
     const previous = map.foliplus;
+    const previousGetPane = map.getPane;
     try {
+      map.getPane = () => null;
       map.foliplus = {
-        LayerAPI: withApi(
-          [
-            {
-              id: "torn",
-              visible: true,
-              // Present for the tile/filter phases, gone by the render loop —
-              // as a torn-down map would appear between the two resolveLayer
-              // calls.
-              get layer() {
-                reads++;
-                return reads <= 2 ? fakeLayer : null;
-              },
+        LayerAPI: withApi([
+          {
+            id: "torn",
+            visible: true,
+            get layer() {
+              reads++;
+              return reads === 1 ? fakeLayer : null;
             },
-          ],
-          () => [],
-        ),
+          },
+        ]),
       };
 
       const proto = ExportRenderer.prototype as any;
-      const paneSVG = vi.spyOn(proto, "renderPaneSVG");
-      const paneCanvas = vi.spyOn(proto, "renderPaneCanvas");
+      const panes = vi.spyOn(proto, "resolveExportPanes").mockReturnValue([]);
       vi.spyOn(proto, "renderTileLayer").mockResolvedValue(undefined);
 
       const onProgress = vi.fn();
       await runRender(onProgress);
 
-      // The entry passed the filter but had no layer by the render loop, so
-      // no pane passes ran for it — and the single unit still closes the
-      // range.
-      expect(paneSVG).not.toHaveBeenCalled();
-      expect(paneCanvas).not.toHaveBeenCalled();
+      // One resolution, at the snapshot; nothing re-reads the live entry.
+      expect(reads).toBe(1);
+      // The snapshotted carrier is the one the layer pass walks, and the single
+      // unit still closes the range.
+      expect(panes).toHaveBeenCalledWith(fakeLayer, expect.anything());
       expect(onProgress.mock.calls.map(call => call[0])).toEqual([71, 90]);
     } finally {
       map.foliplus = previous;
+      map.getPane = previousGetPane;
+    }
+  });
+
+  it("reports label canvases it could not serialize, once, by id", async () => {
+    // A label pane that exists but holds nothing the pass can serialize means
+    // the labels were torn down between the snapshot and the label pass. The
+    // export used to omit them silently; one aggregated line names them all.
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(
+      makeMockCtx() as any,
+    );
+    const map = (globalThis as any).map;
+    const previous = map.foliplus;
+    const previousGetPane = map.getPane;
+    try {
+      const labelPane = document.createElement("div");
+      map.getPane = (name: string) =>
+        name.startsWith(CONST.LABEL_PANE_PREFIX) ? labelPane : null;
+      map.foliplus = {
+        LayerAPI: withApi([
+          { id: "first", visible: true, layer: { options: {} } },
+          { id: "second", visible: true, layer: { options: {} } },
+        ]),
+      };
+
+      const proto = ExportRenderer.prototype as any;
+      vi.spyOn(proto, "resolveExportPanes").mockReturnValue([]);
+      vi.spyOn(proto, "renderPaneCanvas").mockResolvedValue(0);
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+      await runRender(vi.fn());
+
+      const lines = warn.mock.calls
+        .map(call => String(call[0]))
+        .filter(line => line.includes("label canvas missing"));
+      expect(lines).toHaveLength(1);
+      expect(lines[0]).toContain("first");
+      expect(lines[0]).toContain("second");
+    } finally {
+      map.foliplus = previous;
+      map.getPane = previousGetPane;
     }
   });
 });

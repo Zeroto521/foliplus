@@ -37,14 +37,19 @@ const renderCanvasElement = async (
 };
 
 /** Render canvas elements from a pane — or the container, for canvases that
- *  live in a pane the per-layer walk never visits (annotation labels). */
+ *  live in a pane the per-layer walk never visits (annotation labels).
+ *
+ *  Returns how many canvases it actually serialized, so a caller that expects
+ *  one (the annotation pass) can tell "drew it" from "the pane was empty" —
+ *  the difference between a complete export and a silently label-free one. */
 const renderPaneCanvas = async (
   container: HTMLElement,
   rc: RenderCtx,
   pane: HTMLElement,
   selector: string = CONST.SEL.CANVAS,
-): Promise<void> => {
+): Promise<number> => {
   const { ctx, rect, scale, contRect, cw, ch } = rc;
+  let serialized = 0;
   for (const ce of pane.querySelectorAll(selector)) {
     // SKIP_EXPORT: self or ancestor (chrome host). Registered canvas layers
     // paint via `layerInfo.canvas` and never reach this pane walk.
@@ -62,6 +67,7 @@ const renderPaneCanvas = async (
       const dh = h * scale;
       if (!isVisible(dx, dy, dw, dh, cw, ch)) continue;
       const dataUrl = (ce as HTMLCanvasElement).toDataURL(CONST.MIME_LOSSLESS);
+      serialized++;
       let img: HTMLImageElement | null = null;
       try {
         img = (await loadImage(dataUrl)) as HTMLImageElement;
@@ -75,6 +81,7 @@ const renderPaneCanvas = async (
       /* skip */
     }
   }
+  return serialized;
 };
 
 export { renderCanvasElement, renderPaneCanvas };
