@@ -11,8 +11,8 @@
 - `LayerControl`: an author's explore colors become a selectable read-only **Original colors** fill mode — the author's column, their colors as one ordered gradient and their count on the value-fill row grid, with nothing to edit and nothing to open ([#781](https://github.com/Zeroto521/foliplus/pull/781))
 - `LayerControl`: a declared label sets the label colour and size as well as the label defaults, so an author-declared style reaches the drawn labels at load ([#785](https://github.com/Zeroto521/foliplus/pull/785))
 - `LayerControl`: a layer declares its fill ramp with `foliplus={"fill": {...}}` — the declared field, method, class count and palette paint the layer by value at load, the panel opens on them, and Reset returns to the declaration instead of the author's flat colour; a declared class count outside the editable 2–9 range is shown as declared and converges on the first edit ([#789](https://github.com/Zeroto521/foliplus/pull/789))
-- `HeatmapControl`: a declared filter seeds the first render — `HeatmapControl(field="score", filter={"field": "score", "between": [10, 50]})` paints the hexagons from the declared range, and the user's own filter (including an explicit clear) wins from then on
-- `MeasureControl`: a declared measurement-type filter seeds the first render — `MeasureControl(filter=["distance", "polygon"])` shows only those measurements until the user writes their own filter
+- `HeatmapControl`: a declared filter seeds the first render — `HeatmapControl(field="score", filter={"field": "score", "between": [10, 50]})` paints the hexagons from the declared range, and the user's own filter (including an explicit clear) wins from then on ([#805](https://github.com/Zeroto521/foliplus/pull/805))
+- `MeasureControl`: a declared measurement-type filter seeds the first render — `MeasureControl(filter=["distance", "polygon"])` shows only those measurements until the user writes their own filter ([#805](https://github.com/Zeroto521/foliplus/pull/805))
 
 ### Changed
 
