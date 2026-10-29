@@ -19,16 +19,23 @@
 // both are synchronous and CPU-bound, host speed and scheduler contention scale
 // them together, and only their ratio is asserted.
 //
-// Measured ratios on the 12-layer map below (one layer's replay ÷ one
-// settled-zoom repaint of all layers): 7.7–8.8× idle, and 6.0–9.0× with a
-// 16-core burner saturating the box across three runs. REPAINT_DIVISOR = 4
-// leaves ≥1.5× headroom on that spread. The regression this guards is the
-// documented fall-back — a content change that also refreshes every layer —
-// which measures 0.9–1.4×, ~3× past the gate. Resolution is a little over 2×: a
-// replay that gets twice as expensive lands at 3.0–4.4× and is caught only when
-// it lands under the bar. That is the price of dropping the absolute bar, and
-// it is a better trade than the old bar's: ~4× resolution on an idle host
-// (4.5ms measured against a 20ms budget) and none at all on a loaded one.
+// Measured on a 16-core Windows box over three process runs per condition
+// (one median per run, both densities, the 12-layer map below): 8.4–20.8× idle
+// and 8.2–63.3× with 16 CPU burners saturating the box — the spread is
+// per-process host noise, not per-density. Only the floor is load-bearing: the
+// noise pushes the ratio up, never down, so REPAINT_DIVISOR = 4 keeps ≥2×
+// headroom under the worst run measured in either condition. The regression
+// this guards is the documented fall-back — a content change that also
+// refreshes every layer — which measures 0.9–1.4×, ~3× past the gate.
+//
+// What the number deliberately does not buy is resolution. The median over nine
+// rounds filters the one GC pause that lands inside a measurement, and it also
+// hides a single slow replay round: a replay that occasionally doubles still
+// passes. Resolution is ~2× on the aggregate (a replay that is twice as
+// expensive lands at ~3.5×), and tightening the divisor to chase more (5–6)
+// makes the gate red on the floor above, so 2× is the trade, not a knob. That
+// is still a better trade than the old absolute bar: ~4× resolution on an idle
+// host (4.5ms measured against a 20ms budget) and none at all on a loaded one.
 //
 // jsdom + stub canvas is a LOWER bound: real canvas painting costs more, so the
 // absolute ms is not a browser promise. Nothing here asserts one.
@@ -61,7 +68,8 @@ vi.mock("#foliplus/LayerControl/annotation/canvas.js", () => ({
 const LAYER_COUNT = 12;
 
 /** How much cheaper than one full repaint a single layer's replay has to be.
- *  Measured spread 6.0–9.0×; see the header for the fitted headroom. */
+ *  Every measured run clears this by ≥2× (floor 8.2×); see the header for the
+ *  measurements and why a tighter divisor is not free. */
 const REPAINT_DIVISOR = 4;
 
 /** Median of the per-round ratios of two operations timed back to back.
@@ -95,6 +103,7 @@ const medianRepaintRatio = (repaint: () => void, replay: () => void): number => 
  *  full repaint — a settled zoom asks every canvas to re-plan, which is exactly
  *  the naive round the per-layer replay replaced. */
 const makeMap = (n: number) => {
+  const firstCanvas = mocks.instances.length;
   const container = document.createElement("div");
   Object.defineProperty(container, "clientWidth", {
     value: 800,
@@ -147,7 +156,7 @@ const makeMap = (n: number) => {
   const repaint = () => {
     for (const fn of handlers.zoomend ?? []) fn();
   };
-  return { mgr, repaint };
+  return { mgr, repaint, canvases: mocks.instances.slice(firstCanvas) };
 };
 
 describe("label replay cost", () => {
@@ -156,7 +165,7 @@ describe("label replay cost", () => {
     { timeout: 300_000 },
     ctx => {
       for (const n of [500, 2000]) {
-        const { mgr, repaint } = makeMap(n);
+        const { mgr, repaint, canvases } = makeMap(n);
 
         // A clock that cannot advance cannot support a timing assertion — the
         // one hard skip, and deliberately not a `process.env.CI` opt-out: a
@@ -166,6 +175,42 @@ describe("label replay cost", () => {
         if (performance.now() === probe) {
           ctx.skip("performance.now() did not advance; this host cannot time");
         }
+
+        // Structure before timing: the ratio only means something while each
+        // side still does its documented work. Two ways to make this gate green
+        // by doing less — both measured as passing before these guards existed:
+        // an empty replay (show=false / missing field / gone layer plans
+        // nothing, yet measures `176.7×`) and a half-sized baseline (a repaint
+        // restricted to 6 of the 12 layers reads `5.85×`). The flat assertions
+        // below are what makes those two silent, not slower.
+        const clearPaints = () => canvases.forEach(c => c.paint.mockClear());
+        const painted = () => canvases.filter(c => c.paint.mock.calls.length > 0);
+        const paints = () =>
+          canvases.reduce((sum, c) => sum + c.paint.mock.calls.length, 0);
+
+        clearPaints();
+        const replayed = mgr.renderLabels("L0");
+        expect(replayed.length, "the replay must plan every label of its layer").toBe(
+          n,
+        );
+        expect(
+          canvases.length,
+          "the replay must reuse its canvas, not rebuild one",
+        ).toBe(LAYER_COUNT);
+        expect(painted(), "the replay must paint exactly one canvas").toHaveLength(1);
+        expect(paints(), "the replay must paint that canvas once").toBe(1);
+        expect(
+          painted()[0].paint.mock.calls[0][0].length,
+          "the replay must hand a non-empty plan to its canvas",
+        ).toBeGreaterThan(0);
+
+        clearPaints();
+        repaint();
+        expect(
+          painted(),
+          "the baseline must repaint every layer's canvas",
+        ).toHaveLength(LAYER_COUNT);
+        expect(paints(), "the baseline is one paint per layer").toBe(LAYER_COUNT);
 
         const ratio = medianRepaintRatio(repaint, () => mgr.renderLabels("L0"));
         console.log(
