@@ -19,14 +19,17 @@
 // both are synchronous and CPU-bound, host speed and scheduler contention scale
 // them together, and only their ratio is asserted.
 //
-// Measured on a 16-core Windows box over three process runs per condition
-// (one median per run, both densities, the 12-layer map below): 8.4–20.8× idle
-// and 8.2–63.3× with 16 CPU burners saturating the box — the spread is
-// per-process host noise, not per-density. Only the floor is load-bearing: the
-// noise pushes the ratio up, never down, so REPAINT_DIVISOR = 4 keeps ≥2×
-// headroom under the worst run measured in either condition. The regression
-// this guards is the documented fall-back — a content change that also
-// refreshes every layer — which measures 0.9–1.4×, ~3× past the gate.
+// Measured on a 16-core Windows box (one median per process run, both
+// densities, the 12-layer map below): 8.4–20.8× idle and 8.2–63.3× with 16 CPU
+// burners. Both tops are single-run spikes a second pass could not reproduce
+// (the burner ceiling there was 14.4×), so they describe the shape of the noise
+// and are never headroom. The load-bearing number is the worst run
+// measured anywhere — 6.79× in an isolated harness — because the gate has to
+// survive the floor, and host noise only ever pushes the ratio up. So
+// REPAINT_DIVISOR = 4 sits ≈1.7× under that floor, and that ≈1.7× is the whole
+// margin: do not tighten it to chase resolution. The regression this guards is
+// the documented fall-back — a content change that also refreshes every layer
+// — which measures 0.9–1.4×, ~3× past the gate.
 //
 // What the number deliberately does not buy is resolution. The median over nine
 // rounds filters the one GC pause that lands inside a measurement, and it also
@@ -68,8 +71,8 @@ vi.mock("#foliplus/LayerControl/annotation/canvas.js", () => ({
 const LAYER_COUNT = 12;
 
 /** How much cheaper than one full repaint a single layer's replay has to be.
- *  Every measured run clears this by ≥2× (floor 8.2×); see the header for the
- *  measurements and why a tighter divisor is not free. */
+ *  The worst run measured is 6.79×, so this sits ≈1.7× under that floor; see
+ *  the header for the measurements and why a tighter divisor is not free. */
 const REPAINT_DIVISOR = 4;
 
 /** Median of the per-round ratios of two operations timed back to back.
@@ -211,6 +214,10 @@ describe("label replay cost", () => {
           "the baseline must repaint every layer's canvas",
         ).toHaveLength(LAYER_COUNT);
         expect(paints(), "the baseline is one paint per layer").toBe(LAYER_COUNT);
+        expect(
+          canvases.every(c => c.paint.mock.calls[0][0].length > 0),
+          "the baseline must hand a non-empty plan to every canvas",
+        ).toBe(true);
 
         const ratio = medianRepaintRatio(repaint, () => mgr.renderLabels("L0"));
         console.log(
