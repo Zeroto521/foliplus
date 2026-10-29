@@ -24,7 +24,7 @@
     <img src="https://codecov.io/gh/Zeroto521/foliplus/branch/main/graph/badge.svg" alt="Codecov">
   </a>
   <a href="https://foliplus.readthedocs.io/en/latest/?badge=latest">
-    <img src="https://readthedocs.org/projects/foliplus/badge/?version=latest" alt="Documentation">
+    <img src="https://img.shields.io/readthedocs/foliplus?version=latest" alt="Documentation">
   </a>
 </p>
 
