@@ -12,11 +12,13 @@
 // round — both operations are synchronous and CPU-bound, so host speed and
 // scheduler contention scale them together and only their ratio is asserted.
 //
-// Measured ratios (round ÷ full rebuild): ~1/41 idle, ~1/59 under 16 saturated
-// cores, ~1/41 under a full parallel `test/js` run. REBUILD_DIVISOR = 8 leaves
-// ~5× headroom on that spread, while a regression that rebuilds the list per
-// move costs ~2 rebuilds for the up+down round — ~16× past the gate. The other
-// two tests pin the operation counts, so the ratio is never the only evidence.
+// Measured ratios (round ÷ full rebuild): ~1/42 idle, ~1/59 under 16 saturated
+// cores, ~1/45–1/53 beside a full parallel `test/js` run, and ~1/41 with the
+// full suite plus saturated cores — the load level where the round itself hit
+// 607ms and the old fixed ceiling failed. REBUILD_DIVISOR = 8 leaves ~5×
+// headroom on that spread, while a regression that rebuilds the list per move
+// costs ~2 rebuilds for the up+down round — ~16× past the gate. The other two
+// tests pin the operation counts, so the ratio is never the only evidence.
 import { describe, expect, it, vi } from "vitest";
 import { attachedPanel, initFixture } from "../LayerControl/ui/fixture.js";
 
