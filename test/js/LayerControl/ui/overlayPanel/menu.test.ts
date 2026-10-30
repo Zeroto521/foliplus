@@ -993,7 +993,7 @@ describe("LayerUI menu", () => {
       } as unknown as Event);
     };
 
-    const pressKey = (li: HTMLElement, key: string): void => {
+    const pressKey = (li: HTMLElement): void => {
       li.focus();
       // A native <button> turns Enter/Space into a click, and the interaction
       // manager stands aside for those keys (nativeConsumesKey -> activate),
@@ -1013,7 +1013,7 @@ describe("LayerUI menu", () => {
         clickOn(li);
         return;
       }
-      pressKey(li, how === "enter" ? "Enter" : " ");
+      pressKey(li);
     };
 
     const menuGone = (item: HTMLElement): boolean =>
@@ -1144,12 +1144,12 @@ describe("LayerUI menu", () => {
       const item = findItem(ui, "overlay1");
       const li = entryFor(openMenuFor(item), CONST.ACTION.DELETE_LAYER);
 
-      pressKey(li, "Enter");
+      pressKey(li);
       expect(spies.del).not.toHaveBeenCalled();
       expect(li.classList.contains(CONST.CLASSES.MENU_DELETE_ARMED)).toBe(true);
       expect(menuGone(item)).toBe(false);
 
-      pressKey(li, "Enter");
+      pressKey(li);
       expect(spies.del).toHaveBeenCalledWith("overlay1");
       expect(menuGone(item)).toBe(true);
     });
