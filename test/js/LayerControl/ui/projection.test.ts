@@ -236,17 +236,21 @@ describe("inZoomRange (author-declared range)", () => {
     expect(inZoomRange(ui, layerWithZoom("clamped", { min: 3, max: 5 }))).toBe(true);
   });
 
-  it("judges the declaration when the clamp would degenerate", () => {
-    // Author [20, 30] on a map capped at 18: the clamp would leave min > max.
-    // The verdict comes from the declared interval, not from the clamp
-    // artefact, so a zoom outside the map bounds still answers honestly
-    // instead of being forced to "hidden".
+  it("degrades a declaration that cannot meet the map to undeclared", () => {
+    // Author [20, 30] on a map capped at 18: no reachable zoom can ever land
+    // inside it. Hiding the layer would be a permanent disappearance the
+    // author never asked for — the published contract is "an unusable
+    // declaration warns once instead of hiding the layer" — so the policy
+    // degrades to "undeclared": at the map's own zoom 10 the layer is
+    // visible exactly as if the declaration did not exist, and the
+    // degradation is reported once.
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const ui = makeUIWith({ minZoom: 0, maxZoom: 18, zoom: 25 });
+    const ui = makeUIWith({ minZoom: 0, maxZoom: 18, zoom: 10 });
     expect(inZoomRange(ui, layerWithZoom("degenerate", { min: 20, max: 30 }))).toBe(
       true,
     );
     expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0][0])).toContain("treating it as undeclared");
   });
 
   it("treats an inverted declaration as undeclared", () => {
@@ -274,6 +278,27 @@ describe("inZoomRange (author-declared range)", () => {
     expect(warn).toHaveBeenCalledTimes(1);
   });
 
+  it("reports the policy and the row consequences of one bad declaration apart", () => {
+    // One payload, two different outcomes: the policy cannot honour a range no
+    // reachable zoom meets (it degrades to "undeclared"), while the row still
+    // has to draw something (it collapses onto the nearest bound). De-duping
+    // by layer made the row's text unreachable — the sweep always ran first —
+    // so the key carries the consequence and each text is produced where it
+    // happens.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const ui = makeUIWith({ minZoom: 0, maxZoom: 18, zoom: 10 });
+    const layer = layerWithZoom("two-consequences", { min: 20, max: 30 });
+
+    expect(inZoomRange(ui, layer)).toBe(true);
+    expect(authorZoomRowRange(ui, layer)).toEqual({ min: 18, max: 18 });
+
+    expect(warn).toHaveBeenCalledTimes(2);
+    expect(String(warn.mock.calls[0][0])).toContain("treating it as undeclared");
+    expect(String(warn.mock.calls[1][0])).toContain(
+      "collapses it onto the nearest bound",
+    );
+  });
+
   it("honours the author range even when the surface cannot show a row", () => {
     // The capability gate decides whether the panel renders a zoom-range
     // row, not whether a declaration is honoured. A surface that cannot
@@ -289,9 +314,9 @@ describe("inZoomRange (author-declared range)", () => {
 
 // The row's own view of the declaration (`authorZoomRowRange`): a slider must
 // always show a drawable value, so it differs from the policy only on the
-// degenerate case — the policy judges the declaration itself (the layer may
-// still be shown), the row collapses onto the nearest bound the map can draw.
-// A layer the registry no longer holds has no declaration to read.
+// degenerate case — the policy degrades the declaration to "undeclared" (the
+// layer stays shown), the row collapses onto the nearest bound the map can
+// draw. A layer the registry no longer holds has no declaration to read.
 describe("authorZoomRowRange (the row's fallback range)", () => {
   afterEach(() => {
     vi.restoreAllMocks();

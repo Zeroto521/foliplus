@@ -207,6 +207,12 @@ describe("renderShape", () => {
     expect(renderShape(null)).toBe("null");
   });
 
+  it("renders the array_string leaf as a string array", () => {
+    // A leaf tag, not ["string"]: an all-string list is a union by content,
+    // so the one-element list would render as the literal "string".
+    expect(renderShape("array_string")).toBe("string[]");
+  });
+
   it("renders a list of primitive names as an unquoted primitive union", () => {
     expect(renderShape(["string", "number"])).toBe("string | number");
     expect(renderShape(["bool", "null"])).toBe("boolean | null");
@@ -281,7 +287,7 @@ describe("renderShape", () => {
     // accepted names.
     expect(() => renderShape("integer", "T.count")).toThrow(
       'Unknown shape primitive "integer" at T.count — expected one of ' +
-        "bool, null, number, string",
+        "array_string, bool, null, number, string",
     );
     // A prototype-chain name must take this path too, not resolve to Object's
     // constructor and be returned as if it were a TS primitive.

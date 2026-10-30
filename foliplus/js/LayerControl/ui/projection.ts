@@ -16,15 +16,25 @@ import type { LayerUI } from "./surface.js";
 
 const log = createLogger("LayerControl");
 
-/** Layer ids already warned about an unusable declared zoom range. Warn once
- *  per layer: a hand-edited CONF or a package whose declaration predates the
- *  validation should surface the bad payload without printing on every
- *  projection sweep (the sweep runs on each zoom-end). */
+/** Layer ids already warned about an unusable declared zoom range, per
+ *  consequence. Warn once per layer *and* per consequence: an unusable payload
+ *  and a declaration that cannot intersect the map's rail are different facts
+ *  with different outcomes (the policy degrades to "undeclared", the row
+ *  collapses onto the nearest bound), so they are reported where they happen
+ *  and each text stays reachable. One key per layer made the second message
+ *  dead as soon as the projection sweep — which runs first — had warned. */
 const warnedZoomDeclarations = new Set<string>();
 
-const warnZoomOnce = (id: string, message: string): void => {
-  if (warnedZoomDeclarations.has(id)) return;
-  warnedZoomDeclarations.add(id);
+type ZoomWarningKind = "payload" | "policy" | "row";
+
+const warnZoomOnce = (
+  id: string,
+  kind: ZoomWarningKind,
+  message: string,
+): void => {
+  const key = `${id}:${kind}`;
+  if (warnedZoomDeclarations.has(key)) return;
+  warnedZoomDeclarations.add(key);
   log.warn(`layer "${id}": ${message}`);
 };
 
@@ -48,6 +58,7 @@ const authorZoomRangeOf = (
   ) {
     warnZoomOnce(
       layerInfo!.id,
+      "payload",
       `declares an unusable zoom range (got ${JSON.stringify(zoom)}); treating it as undeclared`,
     );
     return undefined;
@@ -80,11 +91,15 @@ const clampZoomRangeToMap = (
 
 /** The author's declaration as the *visibility policy* sees it.
  *
- *  A degenerate clamp is not turned into a blanket "hidden": the declaration
- *  is judged as declared (the map may widen later, and a caller-supplied zoom
- *  outside the map bounds still has an honest answer), and the fact is
- *  reported once. That keeps "the layer disappeared" attributable to the
- *  declaration rather than to a clamp artefact. */
+ *  A declaration that cannot intersect the map's own range (author [20, 30] on
+ *  a map capped at 18) is unusable on this map: judging the raw interval would
+ *  hide the layer at every zoom the map can reach — a permanent disappearance
+ *  the author never asked for, and the opposite of the published contract ("an
+ *  unusable declaration warns once instead of hiding the layer"). So it
+ *  degrades to "undeclared": the policy keeps the map range, the layer shows
+ *  exactly as if nothing had been declared, and the degradation is reported
+ *  once. The declared values are never rewritten, so a basemap that widens
+ *  later honours the declaration again. */
 const authorZoomPolicyRange = (
   ui: LayerUI,
   layerInfo: LayerInfo,
@@ -95,9 +110,10 @@ const authorZoomPolicyRange = (
   if (!degenerate) return range;
   warnZoomOnce(
     layerInfo.id,
-    `declares zoom range ${JSON.stringify(declared)} outside the map's zoom range; judging the declaration itself`,
+    "policy",
+    `declares zoom range ${JSON.stringify(declared)} outside the map's zoom range; treating it as undeclared`,
   );
-  return declared;
+  return undefined;
 };
 
 /** The author's declaration as the zoom-range *row* sees it: clamped to the
@@ -115,6 +131,7 @@ const authorZoomRowRange = (
   if (degenerate) {
     warnZoomOnce(
       layerInfo.id,
+      "row",
       `declares zoom range ${JSON.stringify(declared)} outside the map's zoom range; the row collapses it onto the nearest bound`,
     );
   }
@@ -135,8 +152,8 @@ const authorZoomRowRange = (
  *  untouched — reversibility: switching the basemap back must restore the
  *  original choice. If both stored endpoints clamp past each other the whole
  *  range is outside the map and no zoom can land inside it (the stored-range
- *  case keeps that verdict; the author path falls back to the declaration —
- *  see {@link authorZoomPolicyRange}).
+ *  case keeps that verdict; the author path degrades to "undeclared" — see
+ *  {@link authorZoomPolicyRange}).
  *
  *  Deliberately NOT gated on `canShowZoomRange`: the capability check decides
  *  whether the panel renders a row, not whether a declaration is honoured.

@@ -148,6 +148,9 @@ _UNSET = object()
 #
 # * ``"string"`` / ``"number"`` / ``"bool"`` / ``"null"`` — TS primitive
 #   (``"bool"`` renders as ``boolean``).
+# * ``"array_string"`` — TS ``string[]``. A leaf tag rather than a list,
+#   because an all-string list is a union by content and ``["string"]`` would
+#   read as the literal ``"string"`` (the one-element-tuple rule below).
 # * ``None`` — TS ``null``.
 # * ``tuple`` ``(X, "?")`` — marks the dict-value field optional.
 # * ``tuple`` of ≥2 primitive names — a primitive union, rendered unquoted
@@ -165,7 +168,7 @@ _UNSET = object()
 # primitive union, any other all-string list a literal union, and a list
 # holding a non-string an array.
 
-_TS_PRIMITIVE_NAMES = {"string", "number", "bool", "null"}
+_TS_PRIMITIVE_NAMES = {"string", "number", "bool", "null", "array_string"}
 
 
 def _validate_shape(x: Any, path: str = "", in_dict_value: bool = False) -> None:

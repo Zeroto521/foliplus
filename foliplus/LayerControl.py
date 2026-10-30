@@ -4,10 +4,15 @@ import json
 import logging
 import math
 import numbers
+import os
+import sys
 import warnings
 from collections.abc import Iterable
+from pathlib import Path
+from types import FrameType
 from typing import Annotated, Any, cast
 
+import folium
 from branca.colormap import LinearColormap, StepColormap
 from branca.element import Element
 from folium import GeoJson
@@ -63,18 +68,65 @@ _FILL_AUTHOR_AGREE = 0.6
 _FOLIPLUS_KEYS = frozenset({"fill", "label", "zoom"})
 
 
-def _warn_foliplus_once(warned: set[str], key: str, message: str) -> None:
-    """Warn about one unusable declaration at most once per render pass.
+#: Directory of this package with a trailing separator, so a sibling whose name
+#: merely starts with it (e.g. "foliplus-demo") cannot pass for library code.
+_PACKAGE_DIR = str(Path(__file__).resolve().parent) + os.sep
+#: Installed dependency tree. A foliplus= warning is raised while the control is
+#: being *rendered*, so between this package and the author's cell sit the Jinja
+#: template machinery, folium and branca. Pointing the warning at
+#: jinja2/environment.py would be technically accurate and useless; the walk
+#: skips the plumbing too, and stops at the first frame that is neither this
+#: package nor an installed dependency.
+_DEPENDENCY_DIR = str(Path(folium.__file__).resolve().parent.parent) + os.sep
+_PLUMBING_DIRS = (_PACKAGE_DIR, _DEPENDENCY_DIR)
 
-    warned is the caller per-pass set rather than a module global: one typo
-    must not print once per layer, and it must print again on the next
-    render - a module-level set would silence the second render (and make the
-    warning impossible to count in tests).
+
+def _is_plumbing(filename: str) -> bool:
+    """True for a frame that is machinery, not the author's code.
+
+    Three shapes count: this package; the installed dependency tree (a render
+    passes through jinja2, folium and branca); and a synthetic source name -
+    Jinja compiles a template *string* to a code object whose filename is
+    "<template>", and that is the frame a render-time warning is raised from.
     """
-    if key in warned:
+    return filename.startswith(_PLUMBING_DIRS) or filename.startswith("<")
+
+
+def _caller_stacklevel() -> int:
+    """Frames from warnings.warn out to the first frame that is the author's.
+
+    The depth differs per call path (_reject sits one frame further in than the
+    shape checks, and a render goes through the template machinery), so the
+    caller's frame is found by walking instead of hard-coding one number per
+    site. Same idea as _declared_filter._caller_stacklevel on the
+    declared-filter branch (#805), kept as a private copy on purpose: the two
+    branches land independently, and a shared module would be an add/add
+    conflict to resolve for no behaviour. Fold them together in a follow-up
+    once both are in - the difference to reconcile is the dependency skip,
+    which #805's construction-time warnings do not need.
+    """
+    frame: FrameType | None = sys._getframe(1)  # _warn_foliplus, its caller
+    level = 1
+    while frame is not None:
+        if not _is_plumbing(frame.f_code.co_filename):
+            return level
+        frame = frame.f_back
+        level += 1
+    return level  # pragma: no cover - only when the whole stack is library code
+
+
+def _warn_foliplus(note: str, message: str) -> None:
+    """Report one unusable foliplus={...} declaration at the line that wrote it.
+
+    De-duplicated through the same process-wide log filter as the refused
+    captions (see _should_report below): the note carries the layer name and
+    the defect, so one typo on three layers prints three attributable warnings
+    and re-rendering the same page stays quiet. Never raises: a typo in the
+    declaration namespace is a warning, not a page failure.
+    """
+    if not _should_report(("foliplus", note)):
         return
-    warned.add(key)
-    warnings.warn(message, UserWarning, stacklevel=3)
+    warnings.warn(message, UserWarning, stacklevel=_caller_stacklevel())
 
 
 def _zoom_level(raw: object) -> int | None:
@@ -91,9 +143,7 @@ def _zoom_level(raw: object) -> int | None:
     return None
 
 
-def _declared_zoom(
-    item: Layer, layer_name: str, warned: set[str]
-) -> dict[str, int] | None:
+def _declared_zoom(item: Layer, layer_name: str) -> dict[str, int] | None:
     """Normalise one layer foliplus={"zoom": {"min": ..., "max": ...}}.
 
     Returns {"min": int, "max": int} when the declaration is usable, else
@@ -103,7 +153,9 @@ def _declared_zoom(
 
     The namespace is a folium passthrough, so nothing validates it at
     construction. This is the single read point, hence the single place that
-    warns; every message names the layer so a typo is attributable.
+    warns; every message names the layer so a typo is attributable, and the
+    de-duplication note carries the layer and the defect so two different
+    layers (or two different typos) are each reported once.
     """
     # folium's base Layer (map.py) never assigns self.options: only the
     # concrete subclasses do (Marker, GeoJson, FeatureGroup, TileLayer, ...).
@@ -113,9 +165,8 @@ def _declared_zoom(
     if raw is None:
         return None
     if not isinstance(raw, dict):
-        _warn_foliplus_once(
-            warned,
-            f"__shape__:{layer_name}",
+        _warn_foliplus(
+            f"{layer_name}:shape:{type(raw).__name__}",
             f"LayerControl: layer {layer_name!r} declares foliplus= as "
             f"{type(raw).__name__}; expected a mapping - ignored",
         )
@@ -123,17 +174,15 @@ def _declared_zoom(
 
     for key, value in raw.items():
         if key not in _FOLIPLUS_KEYS:
-            _warn_foliplus_once(
-                warned,
-                f"__unknown__:{key}",
+            _warn_foliplus(
+                f"{layer_name}:unknown:{key}",
                 f"LayerControl: layer {layer_name!r} declares unknown "
                 f"foliplus key {key!r}; expected one of "
                 f"{sorted(_FOLIPLUS_KEYS)} - ignored",
             )
         elif key in {"fill", "label"} and not isinstance(value, dict):
-            _warn_foliplus_once(
-                warned,
-                f"__shape__:{key}:{layer_name}",
+            _warn_foliplus(
+                f"{layer_name}:shape:{key}:{type(value).__name__}",
                 f"LayerControl: layer {layer_name!r} declares "
                 f"foliplus[{key!r}] as {type(value).__name__}; expected a "
                 "mapping - ignored",
@@ -144,9 +193,8 @@ def _declared_zoom(
         return None
 
     def _reject(reason: str) -> None:
-        _warn_foliplus_once(
-            warned,
-            f"__zoom__:{layer_name}",
+        _warn_foliplus(
+            f"{layer_name}:zoom:{reason}",
             f"LayerControl: layer {layer_name!r} declares "
             f"foliplus[zoom] {reason} - ignored",
         )
@@ -463,21 +511,37 @@ def _pair_scale(
     return None
 
 
-# Captions already reported as refused, so re-rendering a page does not repeat
-# the same line for the same data: one refused caption is a signal, and a
+# Diagnostics already reported in this process, so re-rendering a page does not
+# repeat the same line for the same data: one refused caption is a signal, and a
 # two-layer map measured 16 identical warnings. The set is a log filter, not
 # state — it is cleared rather than grown when a long process renders many maps.
-_refused_captions: set[tuple[str, int, int]] = set()
+# Shared by the caption refusal (#781) and the foliplus={...} declaration
+# rejections (#804) on purpose: one module, one de-duplication mechanism, one
+# lifetime. A second set for the declarations would be a second convention to
+# keep in step, and the per-render set this replaces died with the render that
+# built it, so a repeated render could not stay quiet. Notes are string tuples
+# whose first element is the domain tag, so the two families cannot collide.
+_refused_captions: set[tuple[str, ...]] = set()
+
+
+def _should_report(note: tuple[str, ...]) -> bool:
+    """True when this diagnostic has not been printed in this process yet.
+
+    The cap keeps a long process that renders many maps from growing the set
+    without bound; clearing it wholesale is what #781 chose over an LRU.
+    """
+    if note in _refused_captions:
+        return False
+    if len(_refused_captions) >= 64:
+        _refused_captions.clear()
+    _refused_captions.add(note)
+    return True
 
 
 def _warn_refused_caption(caption: str, hits: int, total: int) -> None:
     """Report a refused caption once per (caption, agreement) pair."""
-    note = (caption, hits, total)
-    if note in _refused_captions:
+    if not _should_report(("caption", caption, str(hits), str(total))):
         return
-    if len(_refused_captions) >= 64:
-        _refused_captions.clear()
-    _refused_captions.add(note)
     _log.warning(
         "LayerControl: the scale caption %r names a column, but only %d/%d "
         "sampled features match its colors; not claiming it",
@@ -818,6 +882,31 @@ class LayerControl(BaseControl):
                         "id": "string",
                         "role": ("base", "overlay"),
                         "show": "bool",
+                        # Optional: what Python computed for the author's
+                        # per-feature paint (explore's baked colors). The panel
+                        # reads it as the author default behind fill by value;
+                        # absent on a layer with no author paint.
+                        "fillAuthor": (
+                            {
+                                "perFeature": "bool",
+                                "distinct": "number",
+                                "stops": "array_string",
+                                "capped": ("bool", "?"),
+                                # The scale the author mounted (continuous) or
+                                # the classified blocks they drew (stepped).
+                                "scale": (
+                                    {
+                                        "kind": ("continuous", "stepped"),
+                                        "column": ("string", "?"),
+                                        "vmin": "number",
+                                        "vmax": "number",
+                                        "levels": ("number", "?"),
+                                    },
+                                    "?",
+                                ),
+                            },
+                            "?",
+                        ),
                         # Optional: the author-declared zoom range,
                         # normalised from foliplus={"zoom": {...}}. Absent
                         # when the layer declares none - the visibility
@@ -856,8 +945,9 @@ class LayerControl(BaseControl):
         Returns
         -------
         dict
-            ``{"data": [{"name", "id", "role"}, ...]}`` — the ``data`` key is merged
-            into the JS ``CONFIG`` object by :meth:`BaseControl._build_config`.
+            ``{"data": [{"name", "id", "role", "show"}, ...]}`` with optional
+            ``fillAuthor`` / ``zoom`` — the ``data`` key is merged into the JS
+            ``CONFIG`` object by :meth:`BaseControl._build_config`.
         """
         data: list[dict[str, object]] = []
         seen: set[str] = set()
@@ -869,9 +959,6 @@ class LayerControl(BaseControl):
         # _map_colormaps). ``claimed`` keeps one scale per layer.
         colormaps = _map_colormaps(self)
         claimed: set[int] = set()
-        # Per-pass warning record for the foliplus={...} namespace: one typo
-        # warns once per render, not once per layer.
-        warned: set[str] = set()
 
         for item in candidates:
             # isinstance first — the control itself is a child but not a Layer
@@ -891,7 +978,7 @@ class LayerControl(BaseControl):
             author = _fill_author(item, colormaps, claimed)
             if author is not None:
                 entry["fillAuthor"] = author
-            zoom = _declared_zoom(item, item.layer_name, warned)
+            zoom = _declared_zoom(item, item.layer_name)
             if zoom is not None:
                 entry["zoom"] = zoom
             data.append(entry)

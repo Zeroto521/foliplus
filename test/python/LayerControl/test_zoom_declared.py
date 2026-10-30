@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import warnings
+from pathlib import Path
 
 import folium
 import pytest
@@ -83,7 +84,10 @@ def test_invalid_zoom_is_dropped_with_a_warning(declaration):
     assert entry["name"] == "Declared"
 
 
-def test_unknown_key_warns_once_per_render():
+def test_unknown_key_warns_once_per_layer():
+    # One typo on three layers is three attributable warnings, not one: the
+    # de-duplication note carries the layer name (see _warn_foliplus), so a
+    # reader can tell which layer holds the misspelled key.
     layers = [
         _geo(name=f"L{i}", foliplus={"zooom": {"min": 1, "max": 2}}) for i in range(3)
     ]
@@ -93,8 +97,42 @@ def test_unknown_key_warns_once_per_render():
         _render(*layers)
 
     unknown = [w for w in caught if "unknown foliplus key" in str(w.message)]
-    assert len(unknown) == 1
-    assert "'zooom'" in str(unknown[0].message)
+    assert len(unknown) == 3
+    for index, warning in enumerate(unknown):
+        assert f"layer 'L{index}'" in str(warning.message)
+        assert "'zooom'" in str(warning.message)
+
+
+def test_a_repeated_render_repeats_no_declaration_warning():
+    # The log filter lives for the process (#781's convention, reused here):
+    # re-rendering the same page must not print the same line again.
+    layers = [
+        _geo(name=f"Repeat{i}", foliplus={"zooom": {"min": 1, "max": 2}})
+        for i in range(2)
+    ]
+
+    with warnings.catch_warnings(record=True) as first:
+        warnings.simplefilter("always")
+        _render(*layers)
+
+    with warnings.catch_warnings(record=True) as second:
+        warnings.simplefilter("always")
+        _render(*layers)
+
+    assert len([w for w in first if "unknown foliplus key" in str(w.message)]) == 2
+    assert [w for w in second if "unknown foliplus key" in str(w.message)] == []
+
+
+def test_a_warning_points_at_the_calling_cell():
+    # The declaration is written in the user's own cell, so the warning has to
+    # name that file: a warning pointing inside the library is not actionable
+    # where the author can see it. Same contract as
+    # _declared_filter._caller_stacklevel on the declared-filter branch
+    # (#805); the walk lives in _caller_stacklevel here.
+    with pytest.warns(UserWarning) as record:
+        _render(_geo(name="Blame", foliplus={"zooom": {"min": 1, "max": 2}}))
+
+    assert Path(record[0].filename).resolve() == Path(__file__).resolve()
 
 
 def test_non_mapping_namespace_warns_and_is_ignored():
