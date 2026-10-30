@@ -222,19 +222,21 @@ const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
         }
         break;
       }
-      // Menu item (li) is focused — trigger the focus-layer action.
-      // Skip disabled items so the hidden-layer guard applies to keyboard too.
-      const menuLi = ((document.activeElement as HTMLElement | null)?.closest?.(
-        ".foliplus-layer-more-menu li",
+      // A menu item <button> is focused — an arrow runs the entry’s action.
+      // Enter/Space on a focused button are natively consumed by the button,
+      // so the interaction manager stands aside and the browser fires a native
+      // click (handleMenuClick) instead — those keys never reach this branch.
+      const menuBtn = ((document.activeElement as HTMLElement | null)?.closest?.(
+        ".foliplus-layer-more-menu button",
       ) ?? null) as HTMLElement | null;
-      if (menuLi && ui.overlayPanel.activeMenu) {
+      if (menuBtn && ui.overlayPanel.activeMenu) {
         event.preventDefault();
         event.stopPropagation();
-        // One shared dispatch table for click and keyboard: the entry's own
+        // One shared dispatch table for click and keyboard: the entry’s own
         // action runs, never a fallback to focus-layer. A disabled entry keeps
         // the menu open and surfaces its title as a hint (a keyboard user gets
         // no tooltip hover).
-        runMenuAction(ui, menuLi, { explainDisabled: true });
+        runMenuAction(ui, menuBtn, { explainDisabled: true });
         break;
       }
       event.preventDefault();

@@ -1250,16 +1250,16 @@ describe("LayerUI keyboard", () => {
       expect(() => ui.handleKeyDown(keyEvent("Enter", { altKey: true }))).not.toThrow();
     });
 
-    it("Enter on an open menu item runs the action", () => {
+    it("a focused menu button’s Enter fires one click that runs the action", () => {
       const item = findItem(ui, "overlay1");
       ui.openMoreMenu(item);
       const li = attachedPanel(ui).querySelector(
-        ".foliplus-layer-more-menu li[data-action='focus-layer']",
+        ".foliplus-layer-more-menu button[data-action='focus-layer']",
       ) as HTMLElement;
       expect(li).not.toBeNull();
       const focusLayer = vi.spyOn(ui, "focusLayer").mockImplementation(() => {});
       li.focus();
-      ui.handleKeyDown(keyEvent("Enter"));
+      li.click();
       expect(focusLayer).toHaveBeenCalled();
     });
 

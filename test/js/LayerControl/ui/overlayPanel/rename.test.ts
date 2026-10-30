@@ -60,11 +60,11 @@ describe("LayerUI rename", () => {
       ui.openMoreMenu(item);
 
       const li = item.querySelector(
-        `.foliplus-layer-more-menu li[data-action="${CONST.ACTION.RENAME_LAYER}"]`,
+        `.foliplus-layer-more-menu button[data-action="${CONST.ACTION.RENAME_LAYER}"]`,
       ) as HTMLElement | null;
       expect(li).not.toBeNull();
       expect(li?.getAttribute("role")).toBe("menuitem");
-      expect(li?.getAttribute("disabled")).toBeNull();
+      expect(li?.getAttribute("aria-disabled")).not.toBe("true");
     });
 
     it("openMoreMenu includes a rename-layer item for a base layer too", () => {
@@ -73,7 +73,7 @@ describe("LayerUI rename", () => {
       ui.openMoreMenu(item);
 
       const li = item.querySelector(
-        `.foliplus-layer-more-menu li[data-action="${CONST.ACTION.RENAME_LAYER}"]`,
+        `.foliplus-layer-more-menu button[data-action="${CONST.ACTION.RENAME_LAYER}"]`,
       );
       expect(li).not.toBeNull();
     });
@@ -88,14 +88,14 @@ describe("LayerUI rename", () => {
       ui.openMoreMenu(item);
 
       const renameLi = item.querySelector(
-        `.foliplus-layer-more-menu li[data-action="${CONST.ACTION.RENAME_LAYER}"]`,
+        `.foliplus-layer-more-menu button[data-action="${CONST.ACTION.RENAME_LAYER}"]`,
       ) as HTMLElement | null;
-      expect(renameLi?.getAttribute("disabled")).toBeNull();
+      expect(renameLi?.getAttribute("aria-disabled")).not.toBe("true");
       // (focus-layer item in the same menu IS disabled.)
       const focusLi = item.querySelector(
-        `.foliplus-layer-more-menu li[data-action="${CONST.ACTION.FOCUS_LAYER}"]`,
+        `.foliplus-layer-more-menu button[data-action="${CONST.ACTION.FOCUS_LAYER}"]`,
       );
-      expect(focusLi?.getAttribute("disabled")).toBe("disabled");
+      expect(focusLi?.getAttribute("aria-disabled")).toBe("true");
     });
 
     it("clicking rename-layer opens an inline input inside the label", () => {
@@ -103,7 +103,7 @@ describe("LayerUI rename", () => {
       ui.openMoreMenu(item);
 
       const li = item.querySelector(
-        `.foliplus-layer-more-menu li[data-action="${CONST.ACTION.RENAME_LAYER}"]`,
+        `.foliplus-layer-more-menu button[data-action="${CONST.ACTION.RENAME_LAYER}"]`,
       ) as HTMLElement;
       li.click();
 
@@ -359,7 +359,7 @@ describe("LayerUI rename", () => {
       ui.openMoreMenu(item);
 
       const li = item.querySelector(
-        `.foliplus-layer-more-menu li[data-action="${CONST.ACTION.RENAME_LAYER}"]`,
+        `.foliplus-layer-more-menu button[data-action="${CONST.ACTION.RENAME_LAYER}"]`,
       ) as HTMLElement;
       li.focus();
       expect(document.activeElement).toBe(li);
@@ -422,13 +422,13 @@ describe("LayerUI rename", () => {
       ui.openMoreMenu(colorItem as HTMLElement);
 
       const focusLi = colorItem.querySelector(
-        `.foliplus-layer-more-menu li[data-action="${CONST.ACTION.FOCUS_LAYER}"]`,
+        `.foliplus-layer-more-menu button[data-action="${CONST.ACTION.FOCUS_LAYER}"]`,
       ) as HTMLElement | null;
       const renameLi = colorItem.querySelector(
-        `.foliplus-layer-more-menu li[data-action="${CONST.ACTION.RENAME_LAYER}"]`,
+        `.foliplus-layer-more-menu button[data-action="${CONST.ACTION.RENAME_LAYER}"]`,
       );
       expect(focusLi).not.toBeNull();
-      expect(focusLi?.getAttribute("disabled")).toBe("disabled");
+      expect(focusLi?.getAttribute("aria-disabled")).toBe("true");
       expect(renameLi).not.toBeNull();
     });
 

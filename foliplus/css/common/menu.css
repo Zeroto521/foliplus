@@ -72,7 +72,7 @@
 }
 
 /* ── Item base ── */
-:is(.foliplus-search-result-item, .foliplus-layer-more-menu li) {
+:is(.foliplus-search-result-item, .foliplus-layer-more-menu button) {
   cursor: pointer;
   font-size: var(--foliplus-font-size-sm);
   color: var(--foliplus-text-primary);
@@ -83,7 +83,7 @@
 
 /* ── Hover: dropdown items are actions, so they answer with accent (same
      language as the LayerControl "more" button hover). ── */
-:is(.foliplus-search-result-item, .foliplus-layer-more-menu li):hover {
+:is(.foliplus-search-result-item, .foliplus-layer-more-menu button):hover {
   background: var(--foliplus-accent-light);
   color: var(--foliplus-accent-primary);
 }
@@ -93,7 +93,9 @@
      stronger accent-light; the press settles one notch softer so a click
      reads as "down" rather than a second hover. Disabled entries never
      answer (their :hover override already stays muted). ─── */
-:is(.foliplus-search-result-item, .foliplus-layer-more-menu li):not([disabled]):active {
+:is(.foliplus-search-result-item, .foliplus-layer-more-menu button):not(
+    [aria-disabled="true"]
+  ):active {
   background: var(--foliplus-accent-soft-bg);
 }
 .foliplus-search-result-item:not([disabled]):active {
@@ -101,7 +103,7 @@
      ink on press too (same opt-out as :hover). */
   color: var(--foliplus-text-primary);
 }
-.foliplus-layer-more-menu li[disabled]:active {
+.foliplus-layer-more-menu button[aria-disabled="true"]:active {
   background: transparent;
   color: var(--foliplus-text-muted);
 }
