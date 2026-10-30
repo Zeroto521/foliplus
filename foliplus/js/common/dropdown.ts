@@ -68,6 +68,19 @@ interface DropdownItem {
   /** Native tooltip, mirroring SelectOption.title. */
   title?: string;
 }
+/** The three ARIA attributes shared by every option row (the dropdown's own
+ *  rows and the scheme picker's). This is the ONLY part of the row contract
+ *  that is genuinely identical between the two builders — data-*, disabled,
+ *  the selected class and the click wiring all diverge by design (see the
+ *  divergence note on renderOptions). Keep this helper to exactly these
+ *  three attributes; folding in the divergent ones would make it a cfg soup.
+ *  The element itself is created by the caller (button vs div), so the
+ *  helper only paints the a11y contract both must satisfy. */
+const applyOptionA11y = (el: HTMLElement, opts: { selected: boolean }): void => {
+  el.setAttribute("role", "option");
+  el.setAttribute("tabindex", "-1");
+  el.setAttribute("aria-selected", opts.selected ? "true" : "false");
+};
 
 /** The popup-host contract: where an open popup mounts and how it hears that
  *  the covering surface changed. Consumers pass core/fullscreen's
@@ -399,6 +412,26 @@ const activate = (state: InternalState, index: number): void => {
   commit(state);
 };
 
+// Deliberate divergence from common/schemePicker's row builder. The two
+// builders share exactly one genuinely-identical piece — the ARIA contract
+// that applyOptionA11y paints (role/tabindex/aria-selected) — and the
+// keyboard contract (Home/End/arrow skip disabled rows, Escape, Tab close;
+// see schemePicker's focusables()). Everything else diverges by design and
+// is deliberately NOT folded into a shared helper:
+//
+//  - element: <button type=button> vs <div> (scheme)
+//  - disabled: native disabled attr (skips tab order, cannot fire click)
+//    vs aria-disabled=true (still focusable, activate is a no-op)
+//  - data key: data-value vs data-scheme-name
+//  - selected class: foliplus-is-selected vs foliplus-is-active
+//  - click wiring: activate(index) with no guard (a disabled button cannot
+//    fire) vs stopPropagation + disabled guard + selectScheme
+//  - trigger: a module-owned label button vs the scheme picker's
+//    consumer-drawn color bar — no shared trigger shape, so the dropdown
+//    keeps its own open/step focus handling.
+//
+// If you change the row shape here, mirror the intent in schemePicker's
+// buildDropdown — not a shared abstraction.
 const renderOptions = (state: InternalState): void => {
   state.list.textContent = "";
   const selected = new Set(valuesOf(state));
@@ -407,16 +440,14 @@ const renderOptions = (state: InternalState): void => {
       "button",
       {
         type: "button",
-        role: "option",
         class: DROPDOWN_CLASSES.option,
-        "aria-selected": selected.has(item.value) ? "true" : "false",
-        tabindex: "-1",
         "data-value": item.value,
         ...(item.disabled ? { disabled: "" } : {}),
         ...(item.title ? { title: item.title } : {}),
       },
       dom.el("span", { class: DROPDOWN_CLASSES.optionLabel }, item.label),
     ) as HTMLButtonElement;
+    applyOptionA11y(option, { selected: selected.has(item.value) });
     option.classList.toggle(DROPDOWN_CLASSES.selected, selected.has(item.value));
     option.addEventListener("click", () => activate(state, index));
     return option;
@@ -850,5 +881,5 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
 const dropdownOf = (select: HTMLSelectElement): Dropdown | null =>
   ownerMap.get(select) ?? null;
 
-export { createDropdown, dropdownOf };
+export { applyOptionA11y, createDropdown, dropdownOf };
 export type { Dropdown, DropdownSurface };

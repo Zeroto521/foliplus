@@ -161,8 +161,7 @@
 .foliplus-dropdown-option:focus-visible {
   outline: none;
   box-shadow:
-    inset var(--foliplus-menu-row-bar-width) 0 0
-      var(--foliplus-menu-row-selected-bar),
+    inset var(--foliplus-menu-row-bar-width) 0 0 var(--foliplus-menu-row-selected-bar),
     var(--foliplus-focus-ring);
   border-radius: var(--foliplus-radius-sm);
 }

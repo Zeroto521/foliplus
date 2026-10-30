@@ -185,6 +185,18 @@ describe("listbox keyboard navigation", () => {
     picker.destroy();
   });
 
+  it("Tab closes dropdown and returns focus to trigger", () => {
+    const { picker, trigger } = makePicker();
+    trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    picker
+      .getDropdown()!
+      .dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true }));
+    expect(picker.getDropdown()).toBeNull();
+    expect(trigger.classList.contains("foliplus-heatmap-scheme-bar-open")).toBe(false);
+    expect(document.activeElement).toBe(trigger);
+    picker.destroy();
+  });
+
   it("wraps around on ArrowDown at last item", () => {
     const { picker, trigger } = makePicker();
     trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));

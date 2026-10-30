@@ -330,10 +330,7 @@ describe("shared scheme-picker trigger (stylesheet contract)", () => {
     expect(item).toContain("var(--foliplus-scheme-picker-scrollbar-width)");
     expect(item).not.toContain("border-left");
     // The selected row draws the same 3px bar as the shared dropdown row.
-    const active = blockOf(
-      scheme,
-      ".foliplus-scheme-picker-item.foliplus-is-active {",
-    );
+    const active = blockOf(scheme, ".foliplus-scheme-picker-item.foliplus-is-active {");
     expect(active).toContain("var(--foliplus-menu-row-bar-width) 0 0");
   });
 

@@ -8,6 +8,7 @@
 //
 // Does NOT import any Heatmap or LayerControl module.
 import { dom } from "#common/dom.js";
+import { applyOptionA11y } from "#common/dropdown.js";
 import { createLogger } from "#common/log.js";
 import { registerPortalRoot } from "#common/portalRoot.js";
 
@@ -195,6 +196,26 @@ const renderColorBar = (
 
 // ── Dropdown builder ───────────────────────────────────────────────────
 
+// Deliberate divergence from common/dropdown's renderOptions row builder.
+// The two builders share exactly one genuinely-identical piece — the ARIA
+// contract that applyOptionA11y paints (role/tabindex/aria-selected) — and
+// the keyboard contract (Home/End/arrow skip aria-disabled rows, Escape,
+// Tab close; see focusables() below). Everything else diverges by design
+// and is deliberately NOT folded into a shared helper:
+//
+//  - element: <div> vs <button type=button> (dropdown)
+//  - disabled: aria-disabled=true (still focusable, activate is a no-op)
+//    vs native disabled attr (skips tab order, cannot fire click)
+//  - data key: data-scheme-name vs data-value
+//  - selected class: foliplus-is-active vs foliplus-is-selected
+//  - click wiring: stopPropagation + disabled guard + selectScheme
+//    vs activate(index) with no guard
+//  - trigger: a consumer-drawn color bar (div role=combobox) vs a
+//    module-owned label button — no shared trigger shape, so the picker
+//    keeps its own trigger Enter/Space mount and open-focus handling.
+//
+// If you change the row shape here, mirror the intent in dropdown's
+// renderOptions — not a shared abstraction.
 const buildDropdown = (state: InternalState): HTMLElement => {
   const { classes, schemes, numClasses, value } = state;
 
@@ -208,13 +229,11 @@ const buildDropdown = (state: InternalState): HTMLElement => {
   schemes.forEach(name => {
     const item = dom.el("div", {
       class: classes.item,
-      role: "option",
-      tabindex: "-1",
       "data-scheme-name": name,
-      "aria-selected": String(name === value),
       parent: dropdown,
     });
 
+    applyOptionA11y(item, { selected: name === value });
     if (name === value) {
       item.classList.add(classes.active);
     }
