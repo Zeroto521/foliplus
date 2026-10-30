@@ -327,6 +327,7 @@ class TestHeatmapDropdownPanelBrowser:
                 f"{host['hostClass']!r}"
             )
             assert not errors, f"JS errors: {errors}"
+
     def test_placeholder_ink_tracks_selection(self, browser, tmp_path):
         """The layer dropdown keeps the muted placeholder ink until a layer
         is picked, then returns to the value ink at the same weight.
@@ -363,7 +364,8 @@ class TestHeatmapDropdownPanelBrowser:
             )
             assert before["triggerColor"] == before["nativeColor"], (
                 "placeholder ink must match the native select's muted color, "
-                "got trigger=%s native=%s" % (before["triggerColor"], before["nativeColor"]),
+                "got trigger=%s native=%s"
+                % (before["triggerColor"], before["nativeColor"]),
             )
             assert before["triggerWeight"] == before["nativeWeight"], (
                 "the placeholder must keep the native weight, not italic"
@@ -390,4 +392,3 @@ class TestHeatmapDropdownPanelBrowser:
                 "picking must not change the weight, only the ink"
             )
             assert not errors, f"JS errors: {errors}"
-
