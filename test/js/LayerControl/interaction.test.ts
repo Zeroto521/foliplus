@@ -3,9 +3,9 @@ import { ensureInteraction } from "#core/interaction/index.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import {
   handleMoreClick,
-  handleMoreMenuClick,
   registerInteractions,
 } from "#foliplus/LayerControl/interaction.js";
+import { handleMenuClick } from "#foliplus/LayerControl/ui/overlayPanel/menu.js";
 
 // ---- Mock the real InteractionManager. The real one creates doc-level
 // listeners + a MutationObserver that don't auto-teardown cleanly in jsdom.
@@ -239,7 +239,7 @@ describe("LayerControl handleMoreMenuClick", () => {
 
     const event = new MouseEvent("click", { bubbles: true, cancelable: true });
     Object.defineProperty(event, "target", { value: li });
-    handleMoreMenuClick(ui, event);
+    handleMenuClick(ui, event);
 
     expect(ui.focusLayer).toHaveBeenCalledWith("layer1");
     expect(ui.closeMoreMenu).toHaveBeenCalledWith(true);
@@ -251,7 +251,7 @@ describe("LayerControl handleMoreMenuClick", () => {
 
     const event = new MouseEvent("click", { bubbles: true, cancelable: true });
     Object.defineProperty(event, "target", { value: li });
-    handleMoreMenuClick(ui, event);
+    handleMenuClick(ui, event);
 
     expect(ui.renameLayer).toHaveBeenCalledWith("layer1");
     // The inline rename input must keep focus: returning it to the row would
@@ -265,7 +265,7 @@ describe("LayerControl handleMoreMenuClick", () => {
 
     const event = new MouseEvent("click", { bubbles: true, cancelable: true });
     Object.defineProperty(event, "target", { value: li });
-    handleMoreMenuClick(ui, event);
+    handleMenuClick(ui, event);
 
     expect(ui.openStylePanel).toHaveBeenCalledWith("layer1");
     expect(ui.closeMoreMenu).toHaveBeenCalledWith(true);
@@ -277,7 +277,7 @@ describe("LayerControl handleMoreMenuClick", () => {
 
     const event = new MouseEvent("click", { bubbles: true, cancelable: true });
     Object.defineProperty(event, "target", { value: li });
-    handleMoreMenuClick(ui, event);
+    handleMenuClick(ui, event);
 
     expect(ui.openAttrsPanel).toHaveBeenCalledWith(ui.overlayPanel.activeMenu.item);
     expect(ui.closeMoreMenu).toHaveBeenCalledWith(true);
@@ -288,7 +288,7 @@ describe("LayerControl handleMoreMenuClick", () => {
 
     const event = new MouseEvent("click", { bubbles: true, cancelable: true });
     Object.defineProperty(event, "target", { value: li });
-    handleMoreMenuClick(ui, event);
+    handleMenuClick(ui, event);
 
     expect(ui.focusLayer).not.toHaveBeenCalled();
     expect(ui.closeMoreMenu).not.toHaveBeenCalled();
@@ -300,36 +300,10 @@ describe("LayerControl handleMoreMenuClick", () => {
 
     const event = new MouseEvent("click", { bubbles: true, cancelable: true });
     Object.defineProperty(event, "target", { value: ul });
-    handleMoreMenuClick(ui, event);
+    handleMenuClick(ui, event);
 
     expect(ui.focusLayer).not.toHaveBeenCalled();
     expect(ui.closeMoreMenu).not.toHaveBeenCalled();
-  });
-
-  it("closes the menu when clicking outside it (panel / map)", () => {
-    const { ui } = buildMenu();
-    const outside = document.createElement("div");
-    document.body.appendChild(outside);
-
-    const event = new MouseEvent("click", { bubbles: true, cancelable: true });
-    Object.defineProperty(event, "target", { value: outside });
-    handleMoreMenuClick(ui, event);
-
-    expect(ui.closeMoreMenu).toHaveBeenCalledWith(false);
-    outside.remove();
-  });
-
-  it("is a no-op for an outside click when no menu is open", () => {
-    const ui = makeUI();
-    const outside = document.createElement("div");
-    document.body.appendChild(outside);
-
-    const event = new MouseEvent("click", { bubbles: true, cancelable: true });
-    Object.defineProperty(event, "target", { value: outside });
-    handleMoreMenuClick(ui, event);
-
-    expect(ui.closeMoreMenu).not.toHaveBeenCalled();
-    outside.remove();
   });
 
   it("does not call focusLayer for an unknown action", () => {
@@ -348,7 +322,7 @@ describe("LayerControl handleMoreMenuClick", () => {
 
     const event = new MouseEvent("click", { bubbles: true, cancelable: true });
     Object.defineProperty(event, "target", { value: li });
-    handleMoreMenuClick(ui, event);
+    handleMenuClick(ui, event);
 
     expect(ui.focusLayer).not.toHaveBeenCalled();
     expect(ui.closeMoreMenu).toHaveBeenCalledWith(true);
@@ -369,7 +343,7 @@ describe("LayerControl handleMoreMenuClick", () => {
 
     const event = new MouseEvent("click", { bubbles: true, cancelable: true });
     Object.defineProperty(event, "target", { value: li });
-    handleMoreMenuClick(ui, event);
+    handleMenuClick(ui, event);
 
     expect(ui.focusLayer).not.toHaveBeenCalled();
     expect(ui.closeMoreMenu).toHaveBeenCalledWith(true);
@@ -386,7 +360,7 @@ describe("LayerControl handleMoreMenuClick", () => {
 
     const event = new MouseEvent("click", { bubbles: true, cancelable: true });
     Object.defineProperty(event, "target", { value: li });
-    handleMoreMenuClick(ui, event);
+    handleMenuClick(ui, event);
 
     expect(ui.focusLayer).toHaveBeenCalledWith("");
     expect(ui.closeMoreMenu).toHaveBeenCalledWith(true);
@@ -410,7 +384,7 @@ describe("LayerControl handleMoreMenuClick", () => {
       li.dataset.action = action;
       const event = new MouseEvent("click", { bubbles: true, cancelable: true });
       Object.defineProperty(event, "target", { value: li });
-      handleMoreMenuClick(ui, event);
+      handleMenuClick(ui, event);
       expect(spy).toHaveBeenCalledWith(expected);
     }
   });

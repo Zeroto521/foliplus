@@ -30,10 +30,7 @@ const DEFAULT_CLASSES = {
 // the panel that opened it, so it has to paint above that panel — while an
 // inline dropdown stays inside the trigger's own stacking context and needs no
 // lift. The class is what the stylesheet keys the z band off, so the JS keeps
-// its distance from z numbers. Ownership is not keyed off this class: the
-// mounted list is registered in common/portalRoot against its trigger, so a
-// panel asks *whose* popup a press belongs to (core/overlay isInsideOverlay)
-// instead of matching a class name anywhere in the document.
+// its distance from z numbers.
 const PORTAL_CLASS = "foliplus-scheme-picker-portal";
 
 interface SchemePickerClasses {
@@ -272,10 +269,6 @@ const buildDropdown = (state: InternalState): HTMLElement => {
         // current consumer-owned entry is not a choice.
         if (name && !state.disabledSchemes.includes(name)) selectScheme(state, name);
       }
-    } else if (key === "Escape") {
-      event.preventDefault();
-      event.stopPropagation();
-      closeDropdown(state);
     }
   };
 
@@ -369,9 +362,7 @@ const mountDropdown = (state: InternalState) => {
       window.removeEventListener("resize", reposition);
     });
   } else {
-    // Inline mode: mount into the trigger's parent (schemeControlWrap). No
-    // registration is needed here — the list is a descendant of the trigger, so
-    // every panel that owns the trigger already contains the list.
+    // Inline mode: mount into the trigger's parent (schemeControlWrap)
     const parent =
       state.trigger.closest(".foliplus-form-control") ??
       state.trigger.parentElement ??
@@ -404,18 +395,11 @@ const mountDropdown = (state: InternalState) => {
     );
   });
 
-  // Outside-click handler — does NOT restore focus (user clicked elsewhere).
-  const onDocClick = (event: MouseEvent) => {
-    if (
-      state.dropdown &&
-      !state.trigger.contains(event.target as Node) &&
-      !state.dropdown.contains(event.target as Node)
-    ) {
-      closeDropdown(state, { restoreFocus: false });
-    }
-  };
-  document.addEventListener("click", onDocClick);
-  state.mountCleanupFns.push(() => document.removeEventListener("click", onDocClick));
+  // Outside-click dismissal is owned by the consumer's per-map overlay
+  // registry entry (core/overlayRegistry), not by this shared factory: common
+  // modules must not import core. The consumer registers the trigger as the
+  // panel and the dropdown as the portal, then calls `close({restoreFocus:false})`
+  // from the entry's close callback.
 
   // Focus the selected item now that the dropdown is in the DOM and all
   // listeners are installed. Doing this before append leaves the focus on the

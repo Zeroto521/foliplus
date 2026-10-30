@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DIM } from "#core/layer/index.js";
+import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
 import type { LayerController } from "#foliplus/LayerControl/controller.js";
 import { sliderOf } from "#foliplus/LayerControl/slider.js";
@@ -141,6 +142,21 @@ describe("LayerUI style panel", () => {
     const panel = panelOf(item)!;
     expect(panel).not.toBeNull();
     expect(panel.getAttribute("role")).toBe("dialog");
+  });
+
+  it("its registry entry reports no containment once the panel is gone", () => {
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const panel = panelOf(item)!;
+    const entry = ensureOverlayRegistry(map).owningEntry(panel);
+    expect(entry?.id).toBe(OVERLAY_IDS.LAYER_STYLE);
+    expect(entry?.panels()).toEqual([panel]);
+
+    closeStylePanel(ui, false);
+
+    // A late dispatch after the close asks the same closure, and it reads the
+    // live state — containment must be empty, not a detached panel.
+    expect(entry?.panels()).toEqual([]);
   });
 
   it("builds on the shared panel vocabulary (header, content, close)", () => {
@@ -383,12 +399,11 @@ describe("LayerUI style panel", () => {
     expect(panelOf(item)).toBeUndefined();
   });
 
-  it("a press on the scheme picker's registered portalled list does not dismiss it", () => {
-    // The picker portals its dropdown to the surface covering the trigger so the
-    // list can paint above this drawer, and while that list is live it registers
-    // itself against the trigger in common/portalRoot. The portal is outside the
-    // panel's subtree, so ownership — not a subtree walk — keeps the drawer open
-    // on the press that selects a colour.
+  it("a press on the scheme picker's portalled list does not dismiss it", () => {
+    // The picker portals its dropdown to <body> so the list can paint above
+    // this drawer. The portal is outside the panel's subtree while still being
+    // part of the overlay, so a dismiss predicate that only walks the subtree
+    // closes the drawer on the press that selects a colour.
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
@@ -399,22 +414,21 @@ describe("LayerUI style panel", () => {
     row.className = "foliplus-scheme-picker-item";
     portal.appendChild(row);
     document.body.appendChild(portal);
-    // Same registration the picker performs on mount, released on close.
-    const release = registerPortalRoot(portal, panel);
+    // The picker registers its portalled list against its trigger (the
+    // primitive owns that, common/portalRoot); the fixture mounts the same
+    // registration so the registry's press dispatcher can attribute the press
+    // to this drawer. Without it the node is an orphan <body> child and every
+    // dismiss predicate rightly calls the press "outside".
+    const releasePortal = registerPortalRoot(portal, panel);
 
-    try {
-      // Capture-phase listener on document: a bubbling press on the portalled row
-      // is exactly what the browser delivers for a real click on the list.
-      row.dispatchEvent(
-        new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
-      );
+    // Capture-phase listener on document: a bubbling press on the portalled row
+    // is exactly what the browser delivers for a real click on the list.
+    row.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true }));
 
-      expect(panelOf(item)).toBe(panel);
-      expect(ui.overlayPanel.stylePanelLayerId).toBe("overlay1");
-    } finally {
-      release();
-      portal.remove();
-    }
+    expect(panelOf(item)).toBe(panel);
+    expect(ui.overlayPanel.stylePanelLayerId).toBe("overlay1");
+    releasePortal();
+    portal.remove();
   });
 
   it("a press on another surface's picker portal dismisses this drawer", () => {
@@ -444,6 +458,40 @@ describe("LayerUI style panel", () => {
       foreignRow.dispatchEvent(
         new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
       );
+
+      expect(panelOf(item)).toBeUndefined();
+    } finally {
+      release();
+      foreign.remove();
+      foreignTrigger.remove();
+    }
+  });
+
+  it("a press on another surface's picker portal dismisses this drawer via the outside-mousedown handler", () => {
+    // The class alone is not ownership. handleOutsideMousedown classifies a
+    // press through core/overlay's predicate, and a codebase that still passes
+    // a portal selector would answer "mine" for a portal this drawer does not
+    // own (its trigger is outside the drawer) — the same press-stealing bug
+    // from the other side. Only trigger ownership can dismiss here.
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const panel = panelOf(item)!;
+
+    const foreignTrigger = document.createElement("button");
+    document.body.appendChild(foreignTrigger);
+    const foreign = document.createElement("div");
+    foreign.className = "foliplus-scheme-picker-portal";
+    const foreignRow = document.createElement("button");
+    foreignRow.className = "foliplus-scheme-picker-item";
+    foreign.appendChild(foreignRow);
+    document.body.appendChild(foreign);
+    const release = registerPortalRoot(foreign, foreignTrigger);
+
+    try {
+      // jsdom does not populate event.target on dispatch, so pin it directly.
+      const event = new MouseEvent("mousedown", { bubbles: true });
+      Object.defineProperty(event, "target", { value: foreignRow });
+      ui.handleOutsideMousedown(event);
 
       expect(panelOf(item)).toBeUndefined();
     } finally {
@@ -1391,12 +1439,13 @@ describe("LayerUI style panel", () => {
     const checkbox = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
     checkbox.focus();
 
-    ui.handleKeyDown(
+    // Real keydown: the overlay registry owns Escape now.
+    checkbox.dispatchEvent(
       new KeyboardEvent("keydown", {
         bubbles: true,
         cancelable: true,
         key: "Escape",
-      }) as unknown as KeyboardEvent,
+      }),
     );
 
     expect(panelOf(item)).toBeUndefined();

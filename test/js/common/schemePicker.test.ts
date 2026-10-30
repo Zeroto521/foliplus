@@ -170,12 +170,10 @@ describe("listbox keyboard navigation", () => {
     picker.destroy();
   });
 
-  it("Escape closes dropdown and returns focus to trigger", () => {
+  it("close() closes dropdown and returns focus to trigger", () => {
     const { picker, trigger } = makePicker();
     trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    picker
-      .getDropdown()!
-      .dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    picker.close({ restoreFocus: true });
     expect(picker.getDropdown()).toBeNull();
     expect(trigger.classList.contains("foliplus-heatmap-scheme-bar-open")).toBe(false);
     expect(document.activeElement).toBe(trigger);
@@ -253,48 +251,14 @@ describe("trigger keyboard (no dropdown open)", () => {
   });
 });
 
-// ── Outside click ──────────────────────────────────────────────────────
-
-describe("outside click", () => {
-  it("closes the dropdown on outside click", () => {
-    const { picker, trigger } = makePicker();
-    trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    const outside = document.createElement("div");
-    document.body.appendChild(outside);
-    outside.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    expect(picker.getDropdown()).toBeNull();
-    picker.destroy();
-  });
-
-  it("does not close on click inside the dropdown", () => {
-    const { picker, trigger } = makePicker();
-    trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    const dropdown = picker.getDropdown()!;
-    dropdown.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    expect(picker.getDropdown()).not.toBeNull();
-    picker.destroy();
-  });
-
-  it("does not close on click on the trigger", () => {
-    const { picker, trigger } = makePicker();
-    trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    // The trigger's own click handler toggles, but the outside-click
-    // handler should not fire for the trigger.
-    expect(picker.getDropdown()).not.toBeNull();
-    picker.destroy();
-  });
-});
-
 // ── Focus return ───────────────────────────────────────────────────────
 
 describe("focus return", () => {
-  it("returns focus to trigger on Escape", () => {
+  it("returns focus to trigger on close()", () => {
     const { picker, trigger } = makePicker();
     trigger.focus();
     trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    picker
-      .getDropdown()!
-      .dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    picker.close({ restoreFocus: true });
     expect(document.activeElement).toBe(trigger);
     picker.destroy();
   });
@@ -373,9 +337,7 @@ describe("ARIA attributes", () => {
   it("sets aria-expanded=false when closed", () => {
     const { picker, trigger } = makePicker();
     trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    picker
-      .getDropdown()!
-      .dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    picker.close({ restoreFocus: true });
     expect(trigger.getAttribute("aria-expanded")).toBe("false");
     picker.destroy();
   });
@@ -436,9 +398,7 @@ describe("ARIA attributes", () => {
   it("removes aria-activedescendant when closed", () => {
     const { picker, trigger } = makePicker();
     trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    picker
-      .getDropdown()!
-      .dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    picker.close({ restoreFocus: true });
     expect(trigger.hasAttribute("aria-activedescendant")).toBe(false);
     picker.destroy();
   });
@@ -793,9 +753,7 @@ describe("onToggle callback", () => {
     const onToggle = vi.fn();
     const { picker, trigger } = makePicker({ onToggle });
     trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    picker
-      .getDropdown()!
-      .dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    picker.close({ restoreFocus: true });
     expect(onToggle).toHaveBeenCalledWith(false, null);
     picker.destroy();
   });

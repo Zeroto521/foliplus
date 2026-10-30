@@ -17,7 +17,6 @@ type UiView = {
   listPanel: {
     foldedRoles: Set<string>;
     lastDragHintAt: number;
-    pressInPanel: boolean;
     dragEntry: unknown;
     activeIdx: unknown;
     listCursor: unknown;
@@ -61,7 +60,6 @@ describe("makeLayerUIMock — LayerUI field completeness", () => {
     // Primitives with sensible defaults
     expect(ui.currentColor).toBe("#cccccc");
     expect(ui.listPanel.lastDragHintAt).toBe(0);
-    expect(ui.listPanel.pressInPanel).toBe(false);
     // Null pointers
     expect(ui.overlayPanel.activeRenameId).toBeNull();
     expect(ui.listPanel.dragEntry).toBeNull();

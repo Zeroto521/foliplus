@@ -29,6 +29,7 @@ import {
 import { readFeatureFillColors } from "#core/layer/authorFill.js";
 import { CAP_TIER, DIM, type LayerInfo, ROLE } from "#core/layer/index.js";
 import type { FillMode, FillRampConfig, LayerOverride } from "#core/layer/intent.js";
+import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlayRegistry.js";
 import { DEFAULT_SCHEMES, getColorScale } from "#core/palette.js";
 import { buildClassesRow, buildFieldRow, buildSchemeRow } from "#core/rampForm.js";
 import * as CONST from "#foliplus/LayerControl/const.js";
@@ -537,11 +538,15 @@ const persistedRamp = (ramp: FillRampConfig): FillRampConfig => ({
  *  destroy it when it closes or rebuilds the ramp detail; one entry per UI
  *  because a map owns one LayerControl instance. */
 const schemePickerByUi = new WeakMap<LayerUI, SchemePicker>();
+/** Unregister for the picker's overlay-registry entry (one per UI). */
+const schemePickerOverlayByUi = new WeakMap<LayerUI, () => void>();
 
 /** Destroy the panel's scheme picker, if any. Idempotent; also called when a
  *  mode switch rebuilds the ramp detail so a stale picker cannot answer the
  *  next click. */
 const disposeFillRow = (ui: LayerUI): void => {
+  schemePickerOverlayByUi.get(ui)?.();
+  schemePickerOverlayByUi.delete(ui);
   schemePickerByUi.get(ui)?.destroy();
   schemePickerByUi.delete(ui);
 };
@@ -1059,6 +1064,17 @@ const bindRampDetail = (ui: LayerUI, layerId: string, detail: HTMLElement): void
     onChange: name => writeFillRamp(ui, layerId, { scheme: name }),
   });
   schemePickerByUi.set(ui, picker);
+  schemePickerOverlayByUi.set(
+    ui,
+    ensureOverlayRegistry(ui.c.map).register({
+      id: OVERLAY_IDS.PICKER_DROPDOWN,
+      isOpen: () => picker.getDropdown() !== null,
+      panels: () => [trigger],
+      close: ({ restoreFocus }) => picker.close({ restoreFocus }),
+      dismissOn: "click",
+      pressPriority: 850,
+    }),
+  );
 
   const fieldSelect = detail.querySelector(
     `.${CONST.CLASSES.STYLE_FILL_FIELD_SELECT}`,
